@@ -1,4 +1,5 @@
 // src/lib/services/HPCPDetector.ts
+import detectorProcessorWorkletURL from './detector-processor.ts?worker&url';
 export class HPCPDetector {
   private audioContext: AudioContext | null = null;
   private stream: MediaStream | null = null;
@@ -10,7 +11,7 @@ export class HPCPDetector {
       this.audioContext = new AudioContext();
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const source = this.audioContext.createMediaStreamSource(this.stream);
-      await this.audioContext.audioWorklet.addModule(new URL('./detector-processor.ts', import.meta.url));
+      await this.audioContext.audioWorklet.addModule(new URL(detectorProcessorWorkletURL, import.meta.url));
       const detectorNode = new AudioWorkletNode(this.audioContext, "detector-processor",
         { processorOptions: {sampleRate: this.audioContext.sampleRate }}
       );
