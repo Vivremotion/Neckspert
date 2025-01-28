@@ -6,7 +6,7 @@ node_modules
 .netlify
 .wrangler
 /.svelte-kit
-/build
+/dist
 
 # OS
 .DS_Store
@@ -24,3 +24,7 @@ vite.config.ts.timestamp-*
 
 # Paraglide
 src/lib/paraglide
+
+
+gh-pages.pub
+gh-pages
