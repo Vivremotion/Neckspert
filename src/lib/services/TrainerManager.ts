@@ -1,34 +1,94 @@
 import { getContext } from 'svelte';
+import { get } from 'svelte/store';
 import type { HPCPComparisonResult } from '$lib/models';
-import { chordStore, type ChordsState } from '$lib/stores/chords.store.ts';
-import { HPCPDetector } from '$lib/services/HPCPDetector/HPCPDetector.ts';
+import { chordStore, type ChordsState } from '$lib/stores/chords.store';
+import { gameStore, type GameState } from '$lib/stores/game.store';
+import { hpcpDetector } from '$lib/services/HPCPDetector/HPCPDetector';
 
 const SIMILARITY_THRESHOLD = .85;
 const DIFFERENCE_THRESHOLD = .1;
 
 export class TrainerManager {
-  private hpcpDetector: HPCPDetector;
   private expectedHPCP: Array<number> = Array(12);
+  private chordsState: ChordsState;
+  private countdownIntervalId: number | null = null;
+  private timerIntervalId: number | null = null;
 
   constructor() {
-    this.hpcpDetector = getContext('hpcpDetector');
     chordStore.subscribe((update: ChordsState) => {
-      this.expectedHPCP = update?.currentChord?.hpcp;;
+      this.chordsState = update;
+      this.expectedHPCP = update?.currentChord?.hpcp;
     });
-    this.hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
+
+    hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
   }
 
   async start() {
-    await this.hpcpDetector.start();
+    if (this.chordsState.chords.length === 0) return;
+    await hpcpDetector.start();
+
+    gameStore.reset();
+
+    // Start game
+    gameStore.setPlaying(true);
+
+    // Start countdown
+    this.countdownIntervalId = setInterval(() => {
+      const countdown = get(gameStore).countdown;
+      if (countdown === 1) {
+        if (this.countdownIntervalId) {
+          clearInterval(this.countdownIntervalId);
+          this.countdownIntervalId = null;
+        }
+        this.setNextChord(0);
+        this.startTimer();
+      }
+      gameStore.updateCountdown(countdown - 1);
+    }, 1000);
   }
 
   pause() {
-    this.hpcpDetector.pause();
+    gameStore.setPlaying(false);
+    if (this.timerIntervalId) {
+      clearInterval(this.timerIntervalId);
+      this.timerIntervalId = null;
+    }
+    if (this.countdownIntervalId) {
+      clearInterval(this.countdownIntervalId);
+      this.countdownIntervalId = null;
+      gameStore.updateCountdown(0);
+    }
+    hpcpDetector.pause();
   }
 
   private onDetectedHPCP(detectedHPCP: Array<number>) {
+    if (!this.expectedHPCP) return;
+
     const hpcpComparisonResult = this.compareHPCP(this.expectedHPCP, detectedHPCP);
-    console.log(hpcpComparisonResult);
+
+    if (hpcpComparisonResult.isSimilar) {
+      // Calculate score (5 - timer, minimum 0)
+      const points = Math.max(0, 5 - get(gameStore).timer);
+      gameStore.incrementScore(Math.round(points));
+      this.setNextChord();
+      this.startTimer();
+    }
+  }
+
+  private setNextChord(index?: number) {
+    const nextChord = this.chordsState.chords[index]
+      || this.chordsState.chords[this.chordsState.currentChordIndex + 1]
+      || this.chordsState.chords[0];
+    chordStore.setCurrentChord(nextChord.id);
+  }
+
+  private startTimer() {
+    if (this.timerIntervalId) clearInterval(this.timerIntervalId);
+    gameStore.updateTimer(0);
+
+    this.timerIntervalId = setInterval(() => {
+      gameStore.updateTimer(get(gameStore).timer + 0.01);
+    }, 10);
   }
 
   private compareHPCP(
@@ -40,7 +100,6 @@ export class TrainerManager {
     } = {}
   ): HPCPComparisonResult {
     // Validate input
-    console.log(p1, p2)
     if (p1.length !== p2.length) {
       throw new Error('HPCP profiles must have the same length');
     }
@@ -99,3 +158,5 @@ export class TrainerManager {
     };
   }
 }
+
+export const trainerManager = new TrainerManager();

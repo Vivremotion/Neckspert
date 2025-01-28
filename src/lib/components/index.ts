@@ -4,3 +4,5 @@ export { default as ChordDisplayer } from './ChordDisplayer.svelte';
 export { default as ChordProgressionContainer } from './ChordProgressionContainer.svelte';
 export { default as ChordProgressionItem } from './ChordProgressionItem.svelte';
 export { default as PlayCommands } from './PlayCommands.svelte';
+export { default as GameOverlay } from './GameOverlay.svelte';
+export { default as CountdownDisplay } from './CountdownDisplay.svelte';

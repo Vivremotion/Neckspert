@@ -1,9 +1,9 @@
 # 🎸 Neckspert 🤘
 
-~~Your Guitar Chord Mastery Companion~~
-~~Your Guitar Chord Companion~~
-~~ A Guitar Chord Companion~~
-~~ A Companion I guess?~~
+~~Your Guitar Chord Mastery Companion~~  
+~~Your Guitar Chord Companion~~  
+~~ A Guitar Chord Companion~~  
+~~ A Companion I guess? There is a dark mode!~~  
 ...
 
 
@@ -18,7 +18,7 @@ Neckspert is a guitar practice app designed to transform how you learn and perfe
 
 - Create custom chord sequences
 - Visualize chord diagrams with notes, intervals and fingerings
-- Plug in and play!
+- Plug in and play! (It works better if you plug your guitar in a sound card than if you use the device mic)
 - Real-time chord recognition
 - Keep track of your progress with a scoring and session history
 - Acknowledge what you need to work on thanks to our AI powered personal coach (basic statistics, really)
@@ -36,17 +36,15 @@ Supports virtually any chord you can imagine:
   - Minor 7th
   - Major 7th
   - Major 7th flat 5
-  - AddX chords
+  - AddX chords, ...
 - From beginner basics to Ted Greene would be impressed level!
 
 ## 🔮 Future Roadmap
-- Scale practice
-- Improvisation tools
+- Scales/modes practice in regards of chords progressions
 - Enhanced UI
-- Advanced gamification features
+- Real gamification features
 
 ## 🤘 Get Involved
 - Feedback welcome
 
 _Crafted by a musician, for musicians <3_
-P.S. Ted Greene, if you're somehow watching, this one's for you! 🎸👻

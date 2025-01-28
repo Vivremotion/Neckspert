@@ -1,14 +1,15 @@
 // src/lib/stores/chords.store.ts
-import { writable } from 'svelte/store';
 import type { Chord } from '$lib/models';
+import persistedStore from './persistedStore.js';
 
 export interface ChordsState {
   currentChord?: Chord;
-  chords: Chord[]
+  currentChordIndex?: number;
+  chords: Chord[];
 }
 
 function createChordStore() {
-  const { subscribe, update } = writable<ChordsState>({ chords: [] });
+  const { subscribe, update } = persistedStore<ChordsState>('chordsState', { chords: [] });
 
   return {
     subscribe,
@@ -17,10 +18,10 @@ function createChordStore() {
         ...newChord,
         id: crypto.randomUUID()
       };
-      console.log(newChord)
       update(chordState => ({
         ...chordState,
         currentChord: newChordWithId,
+        currentChordIndex: chordState.chords.length - 1,
         chords: [...chordState.chords, newChordWithId]
       }));
     },
@@ -30,6 +31,7 @@ function createChordStore() {
         return {
           ...chordState,
           currentChord: chordState.currentChord?.id !== id ? chordState.currentChord : updatedChords.at(-1),
+          currentChordIndex: chordState.currentChord?.id !== id ? chordState.currentChordIndex : updatedChords.length - 1,
           chords: updatedChords
         }
       });
@@ -45,7 +47,8 @@ function createChordStore() {
     setCurrentChord(id: string) {
       update(chordState => ({
         ...chordState,
-        currentChord: chordState.chords.find(chord => chord.id === id)
+        currentChord: chordState.chords.find(chord => chord.id === id),
+        currentChordIndex: chordState.chords.findIndex(chord => chord.id === id)
       }))
     }
   };

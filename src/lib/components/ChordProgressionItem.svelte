@@ -34,7 +34,7 @@
 	on:mouseleave={() => (isHovering = false)}
 	role="listitem"
 >
-	<span class="chord-value prose prose-xl font-light dark:text-slate-200">{name}</span>
+	<span class="chord-value prose prose-xl font-mono font-light dark:text-slate-200">{name}</span>
 	{#if isHovering}
 		<button
 			class="remove-button text-xl font-thin dark:text-slate-200 dark:hover:text-slate-400"

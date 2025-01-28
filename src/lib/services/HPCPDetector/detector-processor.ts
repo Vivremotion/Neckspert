@@ -1,22 +1,29 @@
 import Essentia from 'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.es.js';
 import { EssentiaWASM } from 'https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.es.js';
 
-const sampleRate = 48100;
-const windowSize = 1;
-const bufferSize = 4096;
+type AudioData = Array<Array<Array<number>>>;
+
+const BUFFER_SIZE = 4096;
+const INITIAL_THRESHOLD = 0.85;
 
 registerProcessor('detector-processor', class extends AudioWorkletProcessor {
   private essentia;
+  private sampleRate: number = 44100;
   private buffer: Float32Array;
   private offset: number;
+  private signalStrengthHistory: number[] = [];
+  private avgStrength: number = 0;
 
-  constructor() {
+  constructor(options: AudioWorkletNodeOptions) {
     super();
-    this.buffer = new Float32Array(bufferSize);
+    this.buffer = new Float32Array(BUFFER_SIZE);
     this.offset = 0;
     this.essentia = new Essentia(EssentiaWASM);
+    if (options?.processorOptions?.sampleRate) {
+      this.sampleRate = options?.processorOptions?.sampleRate;
+    }
   }
-  process(inputs: Array<Array<Array<number>>>) {
+  process(inputs: AudioData) {
     if (!inputs[0]?.length) return false;
     this.storeToBuffer(inputs[0][0]);
 
@@ -37,32 +44,40 @@ registerProcessor('detector-processor', class extends AudioWorkletProcessor {
     this.offset += data.length;
   }
 
+  private computeAvgStrength(signalStrength:number) {
+    this.signalStrengthHistory.push(signalStrength);
+    if (this.signalStrengthHistory.length > BUFFER_SIZE) {
+      this.signalStrengthHistory.shift();
+    }
+
+    // Calculate moving average
+    this.avgStrength = this.signalStrengthHistory.reduce((a, b) => a + b) / this.signalStrengthHistory.length;
+  }
+
   detectChord() {
     let bufferSignal = this.essentia.arrayToVector(this.buffer);
-    let hpcpPool = new this.essentia.module.VectorVectorFloat();
 
     // Audio Frame -> Windowing
-    // todo: look for the best windowing algorithm in my case
     let windowOut = this.essentia.Windowing(bufferSignal);
-
-    // Here we run the window into the spectrum
-    // Windowing -> Spectrum
     let spectrumOut = this.essentia.Spectrum(windowOut.frame);
-
-    let peaksOut = this.essentia.SpectralPeaks(spectrumOut.spectrum, 0, 4000, 100, 60, "frequency", sampleRate);
-
-    let whiteningOut = this.essentia.SpectralWhitening(spectrumOut.spectrum, peaksOut.frequencies, peaksOut.magnitudes, 4000, sampleRate);
-
-    let hpcpOut = this.essentia.HPCP(peaksOut.frequencies, whiteningOut.magnitudes, true, 500, 0, 4000, false, 60, true, "unitMax", 440, sampleRate, 12);
     
-    hpcpPool.push_back(hpcpOut.hpcp);
+    const spectrum = this.essentia.vectorToArray(spectrumOut.spectrum);
+    const signalStrength = Math.sqrt(
+      spectrum.reduce((sum: number, val: number) => sum + val * val, 0) 
+      / spectrum.length
+    );
+    this.computeAvgStrength(signalStrength);
 
-    // let chordDetect = this.essentia.ChordsDetection(hpcpPool, bufferSize, sampleRate, windowSize);
-
-    // let detectedChord = chordDetect.chords.get(0);
-
-    // let chordsStrength = chordDetect.strength.get(0);
-
-    this.port.postMessage(this.essentia.vectorToArray(hpcpOut.hpcp));
+    // Only proceed with HPCP detection if signal is above noise floor
+    console.log(signalStrength, this.avgStrength)
+    if (signalStrength > this.avgStrength) {
+      let peaksOut = this.essentia.SpectralPeaks(spectrumOut.spectrum, 0, 4000, 100, 60, "frequency", this.sampleRate);
+      let whiteningOut = this.essentia.SpectralWhitening(spectrumOut.spectrum, peaksOut.frequencies, peaksOut.magnitudes, 4000, this.sampleRate);
+      let hpcpOut = this.essentia.HPCP(peaksOut.frequencies, whiteningOut.magnitudes, true, 500, 0, 4000, false, 60, true, "unitMax", 440, this.sampleRate, 12);
+      
+      this.port.postMessage({
+        hpcp: this.essentia.vectorToArray(hpcpOut.hpcp)
+      });
+    }
   }
 });

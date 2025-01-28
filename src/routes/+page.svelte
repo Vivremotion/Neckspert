@@ -1,19 +1,14 @@
 <script lang="ts">
-	import { onMount, setContext } from 'svelte';
 	import {
 		ChordCombobox,
 		ChordProgressionContainer,
 		ChordDisplayer,
-		PlayCommands
+		CountdownDisplay,
+		PlayCommands,
+		GameOverlay
 	} from '$lib/components';
 	import { chordStore } from '$lib/stores/chords.store';
-	import { HPCPDetector } from '$lib/services/HPCPDetector/HPCPDetector.ts';
-	import { TrainerManager } from '$lib/services/TrainerManager.ts';
-
-	onMount(() => {
-		setContext('hpcpDetector', new HPCPDetector());
-		setContext('trainerManager', new TrainerManager());
-	})
+	import { gameStore } from '$lib/stores/game.store';
 </script>
 
 <div class="app dark:bg-slate-800">
@@ -30,9 +25,21 @@
 		</div>
 	</div>
 
-	{#if $chordStore?.currentChord}
-  <ChordDisplayer chord={$chordStore?.currentChord} />
-  {/if}
+	<div class="bottom w-full h-full flex flex-row items-center">
+		<div class="bottom-item">
+			{#if $gameStore.score > 0 || $gameStore.isPlaying}
+				<GameOverlay class="bottom-item" />
+			{/if}
+		</div>
+		<div class="bottom-item">
+			{#if $gameStore.countdown > 0}
+				<CountdownDisplay />
+			{:else if $chordStore?.currentChord}
+				<ChordDisplayer chord={$chordStore?.currentChord} />
+			{/if}
+		</div>
+		<div class="bottom-item"></div>
+	</div>
 </div>
 
 <style>
@@ -49,5 +56,11 @@
 		flex-direction: column;
 		gap: 10px;
 		align-items: center;
+	}
+	.bottom-item {
+		flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 	}
 </style>

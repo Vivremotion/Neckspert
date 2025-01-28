@@ -1,20 +1,17 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
-  import { getContext } from 'svelte';
+	import { trainerManager } from '$lib/services/TrainerManager';
 
-  let trainerManager = getContext('trainerManager');
 	let mouseoverPlayButton = false;
 	let isPlayClicked = false;
 
 	async function handleClickOnPlay() {
-    isPlayClicked
-      ? trainerManager.pause()
-      : await trainerManager.start();
+		isPlayClicked ? trainerManager.pause() : trainerManager.start();
 		isPlayClicked = !isPlayClicked;
 	}
 </script>
 
-<div class="play-commands" draggable="true" role="listitem">
+<div class="play-commands" role="listitem">
 	<button
 		class="play-button text-5xl font-light hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
 		on:mouseenter={() => (mouseoverPlayButton = true)}
