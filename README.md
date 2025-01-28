@@ -2,8 +2,8 @@
 
 ~~Your Guitar Chord Mastery Companion~~  
 ~~Your Guitar Chord Companion~~  
-~~ A Guitar Chord Companion~~  
-~~ A Companion I guess? There is a dark mode!~~  
+~~A Guitar Chord Companion~~  
+~~A Companion I guess? There is a dark mode!~~  
 ...
 
 
