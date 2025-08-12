@@ -1,3 +1,26 @@
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
+
+/* Global styles to ensure background coverage */
+html, body {
+	margin: 0;
+	padding: 0;
+	height: 100%;
+	min-height: 100vh;
+}
+
+body {
+	background-color: #f8fafc; /* Light mode background */
+}
+
+/* Dark mode background */
+.dark body {
+	background-color: #1e293b; /* slate-800 */
+}
+
+/* Ensure the app container extends to cover all content */
+#svelte {
+	min-height: 100vh;
+	background-color: inherit;
+}

@@ -17,7 +17,7 @@
 	</header>
 	<div class="top">
 		<ChordCombobox items={['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim']} />
-		<div class="flex items-center">
+		<div class="chord-section">
 			<ChordProgressionContainer />
 			{#if $chordStore?.chords?.length}
 				<PlayCommands />
@@ -44,23 +44,56 @@
 
 <style>
 	.app {
-		height: 100vh;
+		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 48px;
 		padding: 48px;
+		/* Ensure background covers all content */
+		background-color: inherit;
+		/* Prevent white space at bottom */
+		position: relative;
 	}
 	.top {
 		display: flex;
 		flex-direction: column;
 		gap: 10px;
 		align-items: center;
+		width: 100%;
+	}
+	.chord-section {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
 	}
 	.bottom-item {
 		flex: 1 1 0;
     display: flex;
     align-items: center;
     justify-content: center;
+	}
+	
+	/* Responsive design for small screens */
+	@media (max-width: 768px) {
+		.app {
+			padding: 24px;
+			gap: 24px;
+		}
+		
+		.chord-section {
+			flex-direction: column;
+			align-items: center;
+		}
+	}
+	
+	/* Extra small screens */
+	@media (max-width: 480px) {
+		.app {
+			padding: 16px;
+			gap: 16px;
+		}
 	}
 </style>

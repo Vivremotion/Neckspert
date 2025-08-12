@@ -46,4 +46,30 @@
 		height: 100%;
 		transition: color 0.2s;
 	}
+	
+	/* Responsive design for small screens */
+	@media (max-width: 768px) {
+		.play-commands {
+			width: 80px;
+			height: 80px;
+			margin-top: 16px;
+		}
+		
+		.play-button {
+			font-size: 3rem;
+		}
+	}
+	
+	/* Extra small screens */
+	@media (max-width: 480px) {
+		.play-commands {
+			width: 70px;
+			height: 70px;
+			margin-top: 12px;
+		}
+		
+		.play-button {
+			font-size: 2.5rem;
+		}
+	}
 </style>
