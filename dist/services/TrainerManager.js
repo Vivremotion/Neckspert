@@ -1,7 +1,7 @@
-import { getContext } from 'svelte';
 import { get } from 'svelte/store';
+import { DEFAULT_CHORD_DURATION_BEATS } from '../models/Chord';
 import { chordStore } from '../stores/chords.store';
-import { gameStore } from '../stores/game.store';
+import { gameStore, RHYTHM_TOLERANCE_BEATS } from '../stores/game.store';
 import { hpcpDetector } from './HPCPDetector/HPCPDetector';
 const SIMILARITY_THRESHOLD = .85;
 const DIFFERENCE_THRESHOLD = .1;
@@ -10,6 +10,10 @@ export class TrainerManager {
     chordsState;
     countdownIntervalId = null;
     timerIntervalId = null;
+    /** When the rhythm grid started (after countdown). Used for timing precision. */
+    rhythmStartTime = 0;
+    /** Cumulative beats at which each chord starts (for rhythm mode). */
+    chordStartBeats = [];
     constructor() {
         chordStore.subscribe((update) => {
             this.chordsState = update;
@@ -17,11 +21,20 @@ export class TrainerManager {
         });
         hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
     }
+    buildChordStartBeats() {
+        const starts = [0];
+        for (let i = 0; i < this.chordsState.chords.length; i++) {
+            const duration = this.chordsState.chords[i]?.durationBeats ?? DEFAULT_CHORD_DURATION_BEATS;
+            starts.push(starts[i] + duration);
+        }
+        return starts;
+    }
     async start() {
         if (this.chordsState.chords.length === 0)
             return;
         await hpcpDetector.start();
         gameStore.reset();
+        this.chordStartBeats = this.buildChordStartBeats();
         // Start game
         gameStore.setPlaying(true);
         // Start countdown
@@ -32,6 +45,7 @@ export class TrainerManager {
                     clearInterval(this.countdownIntervalId);
                     this.countdownIntervalId = null;
                 }
+                this.rhythmStartTime = performance.now();
                 this.setNextChord(0);
                 this.startTimer();
             }
@@ -51,19 +65,59 @@ export class TrainerManager {
         }
         hpcpDetector.pause();
     }
+    setRandomMode(randomMode) {
+        gameStore.setRandomMode(randomMode);
+    }
+    setHideDiagram(hideDiagram) {
+        gameStore.setHideDiagram(hideDiagram);
+    }
     onDetectedHPCP(detectedHPCP) {
         if (!this.expectedHPCP)
             return;
         const hpcpComparisonResult = this.compareHPCP(this.expectedHPCP, detectedHPCP);
         if (hpcpComparisonResult.isSimilar) {
-            // Calculate score (5 - timer, minimum 0)
-            const points = Math.max(0, 5 - get(gameStore).timer);
+            const state = get(gameStore);
+            let points;
+            let feedback = null;
+            if (state.rhythmMode && !state.randomMode && this.chordStartBeats.length > 0) {
+                const now = performance.now();
+                const bpm = state.tempoBpm;
+                const elapsedMs = now - this.rhythmStartTime;
+                const actualBeat = (elapsedMs / 1000) * (bpm / 60);
+                const chordIndex = this.chordsState.currentChordIndex ?? 0;
+                const expectedBeat = this.chordStartBeats[Math.min(chordIndex, this.chordStartBeats.length - 1)];
+                const deltaBeats = actualBeat - expectedBeat;
+                if (deltaBeats < -RHYTHM_TOLERANCE_BEATS) {
+                    feedback = 'early';
+                    points = 0;
+                }
+                else if (deltaBeats > RHYTHM_TOLERANCE_BEATS) {
+                    feedback = 'late';
+                    points = 0;
+                }
+                else {
+                    feedback = 'on-time';
+                    // Base 5 points, plus up to 2 bonus for being well centered in the window
+                    const centerBonus = Math.max(0, 2 - Math.abs(deltaBeats) * 4);
+                    points = Math.round(5 + centerBonus);
+                }
+                gameStore.setLastRhythmFeedback(feedback);
+            }
+            else {
+                // Original: speed-based score (5 - timer, minimum 0)
+                points = Math.max(0, 5 - state.timer);
+            }
             gameStore.incrementScore(Math.round(points));
             this.setNextChord();
             this.startTimer();
         }
     }
     setNextChord(index) {
+        if (get(gameStore).randomMode) {
+            const nextChord = this.chordsState.chords[Math.floor(Math.random() * this.chordsState.chords.length)];
+            chordStore.setCurrentChord(nextChord.id);
+            return;
+        }
         const nextChord = this.chordsState.chords[index]
             || this.chordsState.chords[this.chordsState.currentChordIndex + 1]
             || this.chordsState.chords[0];

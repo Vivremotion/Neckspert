@@ -79,4 +79,41 @@
 		align-items: center;
 		justify-content: center;
 	}
+	/* Responsive design for small screens */
+	@media (max-width: 768px) {
+		.chord-item {
+			width: 80px;
+			height: 80px;
+		}
+		
+		.chord-value {
+			font-size: 1.25rem;
+		}
+		
+		.remove-button {
+			width: 20px;
+			height: 20px;
+			right: 3px;
+			top: 2px;
+		}
+	}
+	
+	/* Extra small screens */
+	@media (max-width: 480px) {
+		.chord-item {
+			width: 70px;
+			height: 70px;
+		}
+		
+		.chord-value {
+			font-size: 1.125rem;
+		}
+		
+		.remove-button {
+			width: 18px;
+			height: 18px;
+			right: 2px;
+			top: 1px;
+		}
+	}
 </style>

@@ -1,3 +1,4 @@
+import { DEFAULT_CHORD_DURATION_BEATS } from '../models/Chord';
 import persistedStore from './persistedStore.js';
 function createChordStore() {
     const { subscribe, update } = persistedStore('chordsState', { chords: [] });
@@ -6,7 +7,8 @@ function createChordStore() {
         addChord: (newChord) => {
             const newChordWithId = {
                 ...newChord,
-                id: crypto.randomUUID()
+                id: crypto.randomUUID(),
+                durationBeats: newChord.durationBeats ?? DEFAULT_CHORD_DURATION_BEATS
             };
             update(chordState => ({
                 ...chordState,

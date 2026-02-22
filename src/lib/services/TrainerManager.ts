@@ -2,7 +2,7 @@ import { getContext } from 'svelte';
 import { get } from 'svelte/store';
 import type { HPCPComparisonResult } from '$lib/models';
 import { chordStore, type ChordsState } from '$lib/stores/chords.store';
-import { gameStore, type GameState } from '$lib/stores/game.store';
+import { gameStore } from '$lib/stores/game.store';
 import { hpcpDetector } from '$lib/services/HPCPDetector/HPCPDetector';
 
 const SIMILARITY_THRESHOLD = .85;
@@ -61,6 +61,14 @@ export class TrainerManager {
     hpcpDetector.pause();
   }
 
+  setRandomMode(randomMode: boolean) {
+    gameStore.setRandomMode(randomMode);
+  }
+
+  setHideDiagram(hideDiagram: boolean) {
+    gameStore.setHideDiagram(hideDiagram);
+  }
+
   private onDetectedHPCP(detectedHPCP: Array<number>) {
     if (!this.expectedHPCP) return;
 
@@ -76,6 +84,11 @@ export class TrainerManager {
   }
 
   private setNextChord(index?: number) {
+    if (get(gameStore).randomMode) {
+      const nextChord = this.chordsState.chords[Math.floor(Math.random() * this.chordsState.chords.length)];
+      chordStore.setCurrentChord(nextChord.id);
+      return;
+    }
     const nextChord = this.chordsState.chords[index]
       || this.chordsState.chords[this.chordsState.currentChordIndex + 1]
       || this.chordsState.chords[0];

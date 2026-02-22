@@ -17,7 +17,7 @@
 	</header>
 	<div class="top">
 		<ChordCombobox items={['C', 'Dm', 'Em', 'F', 'G', 'Am', 'Bdim']} />
-		<div class="flex items-center">
+		<div class="chord-section">
 			<ChordProgressionContainer />
 			{#if $chordStore?.chords?.length}
 				<PlayCommands />
@@ -25,7 +25,7 @@
 		</div>
 	</div>
 
-	<div class="bottom w-full h-full flex flex-row items-center">
+	<div class="bottom flex h-full w-full flex-row items-center">
 		<div class="bottom-item">
 			{#if $gameStore.score > 0 || $gameStore.isPlaying}
 				<GameOverlay class="bottom-item" />
@@ -44,7 +44,7 @@
 
 <style>
 	.app {
-		height: 100vh;
+		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -56,11 +56,34 @@
 		flex-direction: column;
 		gap: 10px;
 		align-items: center;
+		width: 100%;
+	}
+	.chord-section {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+		width: 100%;
 	}
 	.bottom-item {
 		flex: 1 1 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	/* Responsive design for small screens */
+	@media (max-width: 768px) {
+		.app {
+			padding: 24px;
+			gap: 24px;
+		}
+	}
+
+	/* Extra small screens */
+	@media (max-width: 480px) {
+		.app {
+			padding: 16px;
+			gap: 16px;
+		}
 	}
 </style>

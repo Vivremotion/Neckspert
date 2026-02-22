@@ -5,6 +5,8 @@ export interface GameState {
   countdown: number;
   score: number;
   timer: number;
+  randomMode: boolean;
+  hideDiagram: boolean;
 }
 
 function createGameStore() {
@@ -12,7 +14,9 @@ function createGameStore() {
     isPlaying: false,
     countdown: 0,
     score: 0,
-    timer: 0
+    timer: 0,
+    randomMode: false,
+    hideDiagram: false
   });
 
   return {
@@ -22,13 +26,17 @@ function createGameStore() {
         isPlaying: false,
         countdown: 5,
         score: 0,
-        timer: 0
+        timer: 0,
+        randomMode: false,
+        hideDiagram: false
       });
     },
     updateTimer: (timer: number) => update(state => ({ ...state, timer })),
     updateCountdown: (countdown: number) => update(state => ({ ...state, countdown })),
     setPlaying: (isPlaying: boolean) => update(state => ({ ...state, isPlaying })),
-    incrementScore: (points: number) => update(state => ({ ...state, score: state.score + points }))
+    incrementScore: (points: number) => update(state => ({ ...state, score: state.score + points })),
+    setRandomMode: (randomMode: boolean) => update(state => ({ ...state, randomMode })),
+    setHideDiagram: (hideDiagram: boolean) => update(state => ({ ...state, hideDiagram }))
   };
 }
 

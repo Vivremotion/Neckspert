@@ -16,8 +16,9 @@ export function generateChords(root) {
             const rootDistance = getDistance(pattern.position, root); // Assuming patterns are based on C
             const baseFret = rootDistance + pattern.relativeFret;
             // Generate the actual notes for this voicing
-            const notes = pattern.notes.map((note) => {
-                const actualFret = (note.fret + baseFret) % 12;
+            let notes = pattern.notes.map((note) => {
+                const rawFret = note.fret + baseFret;
+                const actualFret = ((rawFret % 12) + 12) % 12; // proper modulo for negative
                 const stringNote = openStrings[6 - note.string]; // Convert to 0-based index
                 const noteName = getNoteAtFret(stringNote, actualFret);
                 return {
@@ -26,6 +27,17 @@ export function generateChords(root) {
                     name: noteName
                 };
             });
+            // If chord has open strings (0) but other notes are high on the neck,
+            // show the octave-up position so the diagram is playable in one position
+            // (e.g. B in D shape: 2nd string 12th fret, 1st/3rd at 11, not open 2nd + 9/11)
+            const hasOpen = notes.some((n) => n.fret === 0);
+            const maxFretInChord = Math.max(...notes.map((n) => n.fret));
+            if (hasOpen && maxFretInChord > 5) {
+                notes = notes.map((n) => ({
+                    ...n,
+                    fret: n.fret === 0 ? 12 : n.fret
+                }));
+            }
             // Create the chord object
             chords.push({
                 id: `${root}${chordType.suffix}-${pattern.position}`,

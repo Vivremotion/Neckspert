@@ -54,7 +54,6 @@ registerProcessor('detector-processor', class extends AudioWorkletProcessor {
             / spectrum.length);
         this.computeAvgStrength(signalStrength);
         // Only proceed with HPCP detection if signal is above noise floor
-        console.log(signalStrength, this.avgStrength);
         if (signalStrength > this.avgStrength) {
             let peaksOut = this.essentia.SpectralPeaks(spectrumOut.spectrum, 0, 4000, 100, 60, "frequency", this.sampleRate);
             let whiteningOut = this.essentia.SpectralWhitening(spectrumOut.spectrum, peaksOut.frequencies, peaksOut.magnitudes, 4000, this.sampleRate);

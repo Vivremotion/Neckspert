@@ -53,6 +53,8 @@
 		gap: 16px;
 		padding: 16px;
 		min-height: 132px;
+		justify-content: center;
+		align-items: flex-start;
 	}
   .chord-slot {
     display: flex;
@@ -62,5 +64,27 @@
 		width: 2px;
 		height: 80px;
 		margin-left: 16px;
+	}
+	
+	/* Responsive design for small screens */
+	@media (max-width: 768px) {
+		.chord-container {
+			flex-direction: row;
+			justify-content: center;
+			gap: 12px;
+			padding: 12px;
+		}
+		
+		.separator {
+			display: none; /* Hide separators on small screens for cleaner layout */
+		}
+	}
+	
+	/* Extra small screens */
+	@media (max-width: 480px) {
+		.chord-container {
+			gap: 8px;
+			padding: 8px;
+		}
 	}
 </style>

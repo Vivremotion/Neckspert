@@ -1,5 +1,6 @@
 <script lang="ts">
     import ChordDiagram from './ChordDiagram.svelte';
+    import { gameStore } from '../stores/game.store';
     import type { Chord } from '../models';
 
     export let chord: Chord;
@@ -8,5 +9,7 @@
 <div class="chord-displayer flex flex-col items-center">
     <h2 class="text-slate-800 dark:text-slate-300 font-serif text-3xl my-4">{chord.root}{chord.quality}</h2>
     <div class="info font-mono text-slate-800 dark:text-slate-300">({chord.voicing} shape)</div>
-    <ChordDiagram chord={chord}/>
+    {#if !$gameStore.hideDiagram}
+        <ChordDiagram chord={chord}/>
+    {/if}
 </div>
