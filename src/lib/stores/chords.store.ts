@@ -1,5 +1,6 @@
 // src/lib/stores/chords.store.ts
 import type { Chord } from '$lib/models';
+import { DEFAULT_BEATS } from '$lib/models';
 import persistedStore from './persistedStore.js';
 
 export interface ChordsState {
@@ -14,9 +15,10 @@ function createChordStore() {
   return {
     subscribe,
     addChord: (newChord: Chord) => {
-      const newChordWithId = {
+      const newChordWithId: Chord = {
         ...newChord,
-        id: crypto.randomUUID()
+        id: crypto.randomUUID(),
+        beats: newChord.beats ?? DEFAULT_BEATS
       };
       update(chordState => ({
         ...chordState,
@@ -50,6 +52,18 @@ function createChordStore() {
         currentChord: chordState.chords.find(chord => chord.id === id),
         currentChordIndex: chordState.chords.findIndex(chord => chord.id === id)
       }))
+    },
+    setChordBeats(id: string, beats: number) {
+      const clamped = Math.max(1, Math.min(16, Math.round(beats)));
+      update(chordState => ({
+        ...chordState,
+        chords: chordState.chords.map(chord =>
+          chord.id === id ? { ...chord, beats: clamped } : chord
+        ),
+        currentChord: chordState.currentChord?.id === id
+          ? { ...chordState.currentChord, beats: clamped }
+          : chordState.currentChord
+      }));
     }
   };
 }

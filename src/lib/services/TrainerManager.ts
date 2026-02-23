@@ -1,175 +1,207 @@
-import { getContext } from 'svelte';
 import { get } from 'svelte/store';
 import type { HPCPComparisonResult } from '$lib/models';
+import { DEFAULT_BEATS } from '$lib/models';
 import { chordStore, type ChordsState } from '$lib/stores/chords.store';
-import { gameStore } from '$lib/stores/game.store';
+import { gameStore, rhythmConfigStore } from '$lib/stores/game.store';
 import { hpcpDetector } from '$lib/services/HPCPDetector/HPCPDetector';
+import { Metronome } from '$lib/services/Metronome';
 
-const SIMILARITY_THRESHOLD = .85;
-const DIFFERENCE_THRESHOLD = .1;
+const SIMILARITY_THRESHOLD = 0.85;
+const DIFFERENCE_THRESHOLD = 0.1;
+const COUNTOFF_BEATS = 4;
 
 export class TrainerManager {
-  private expectedHPCP: Array<number> = Array(12);
-  private chordsState: ChordsState;
-  private countdownIntervalId: number | null = null;
-  private timerIntervalId: number | null = null;
+	private expectedHPCP: Array<number> = Array(12);
+	private chordsState: ChordsState;
+	private metronome = new Metronome();
 
-  constructor() {
-    chordStore.subscribe((update: ChordsState) => {
-      this.chordsState = update;
-      this.expectedHPCP = update?.currentChord?.hpcp;
-    });
+	private beatInChord = 0;
+	private chordDetectedThisWindow = false;
+	private chordDetectionElapsed = 0;
+	private countoffRemaining = 0;
+	private timerIntervalId: ReturnType<typeof setInterval> | null = null;
 
-    hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
-  }
+	constructor() {
+		chordStore.subscribe((update: ChordsState) => {
+			this.chordsState = update;
+			this.expectedHPCP = update?.currentChord?.hpcp;
+		});
 
-  async start() {
-    if (this.chordsState.chords.length === 0) return;
-    await hpcpDetector.start();
+		hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
+		this.metronome.onBeat(this.onBeat.bind(this));
+	}
 
-    gameStore.reset();
+	async start() {
+		if (this.chordsState.chords.length === 0) return;
+		await hpcpDetector.start();
 
-    // Start game
-    gameStore.setPlaying(true);
+		const tempo = get(rhythmConfigStore).tempo;
+		this.metronome.setTempo(tempo);
 
-    // Start countdown
-    this.countdownIntervalId = setInterval(() => {
-      const countdown = get(gameStore).countdown;
-      if (countdown === 1) {
-        if (this.countdownIntervalId) {
-          clearInterval(this.countdownIntervalId);
-          this.countdownIntervalId = null;
-        }
-        this.setNextChord(0);
-        this.startTimer();
-      }
-      gameStore.updateCountdown(countdown - 1);
-    }, 1000);
-  }
+		gameStore.reset();
+		gameStore.setPlaying(true);
 
-  pause() {
-    gameStore.setPlaying(false);
-    if (this.timerIntervalId) {
-      clearInterval(this.timerIntervalId);
-      this.timerIntervalId = null;
-    }
-    if (this.countdownIntervalId) {
-      clearInterval(this.countdownIntervalId);
-      this.countdownIntervalId = null;
-      gameStore.updateCountdown(0);
-    }
-    hpcpDetector.pause();
-  }
+		this.countoffRemaining = COUNTOFF_BEATS;
+		this.beatInChord = 0;
+		this.chordDetectedThisWindow = false;
+		this.chordDetectionElapsed = 0;
 
-  setRandomMode(randomMode: boolean) {
-    gameStore.setRandomMode(randomMode);
-  }
+		await this.metronome.start();
+	}
 
-  setHideDiagram(hideDiagram: boolean) {
-    gameStore.setHideDiagram(hideDiagram);
-  }
+	pause() {
+		gameStore.setPlaying(false);
+		this.metronome.stop();
+		this.clearTimer();
+		hpcpDetector.pause();
+	}
 
-  private onDetectedHPCP(detectedHPCP: Array<number>) {
-    if (!this.expectedHPCP) return;
+	setRandomMode(randomMode: boolean) {
+		gameStore.setRandomMode(randomMode);
+	}
 
-    const hpcpComparisonResult = this.compareHPCP(this.expectedHPCP, detectedHPCP);
+	setHideDiagram(hideDiagram: boolean) {
+		gameStore.setHideDiagram(hideDiagram);
+	}
 
-    if (hpcpComparisonResult.isSimilar) {
-      // Calculate score (5 - timer, minimum 0)
-      const points = Math.max(0, 5 - get(gameStore).timer);
-      gameStore.incrementScore(Math.round(points));
-      this.setNextChord();
-      this.startTimer();
-    }
-  }
+	private onBeat(absoluteBeat: number) {
+		if (this.countoffRemaining > 0) {
+			gameStore.updateCountdown(this.countoffRemaining);
+			this.countoffRemaining--;
 
-  private setNextChord(index?: number) {
-    if (get(gameStore).randomMode) {
-      const nextChord = this.chordsState.chords[Math.floor(Math.random() * this.chordsState.chords.length)];
-      chordStore.setCurrentChord(nextChord.id);
-      return;
-    }
-    const nextChord = this.chordsState.chords[index]
-      || this.chordsState.chords[this.chordsState.currentChordIndex + 1]
-      || this.chordsState.chords[0];
-    chordStore.setCurrentChord(nextChord.id);
-  }
+			if (this.countoffRemaining === 0) {
+				gameStore.updateCountdown(0);
+				this.setNextChord(0);
+				this.startTimer();
+			}
+			return;
+		}
 
-  private startTimer() {
-    if (this.timerIntervalId) clearInterval(this.timerIntervalId);
-    gameStore.updateTimer(0);
+		this.beatInChord++;
+		const chordBeats = this.chordsState.currentChord?.beats ?? DEFAULT_BEATS;
+		gameStore.updateBeat(this.beatInChord, chordBeats);
 
-    this.timerIntervalId = setInterval(() => {
-      gameStore.updateTimer(get(gameStore).timer + 0.01);
-    }, 10);
-  }
+		if (this.beatInChord >= chordBeats) {
+			this.finalizeChord();
+			this.advanceToNextChord();
+		}
+	}
 
-  private compareHPCP(
-    p1: number[],
-    p2: number[],
-    options: {
-      similarityThreshold?: number;
-      differenceThreshold?: number;
-    } = {}
-  ): HPCPComparisonResult {
-    // Validate input
-    if (p1.length !== p2.length) {
-      throw new Error('HPCP profiles must have the same length');
-    }
+	private finalizeChord() {
+		if (this.chordDetectedThisWindow) {
+			const chordBeats = this.chordsState.currentChord?.beats ?? DEFAULT_BEATS;
+			const windowDuration = chordBeats * this.metronome.getSecondsPerBeat();
+			const ratio = Math.max(0, 1 - this.chordDetectionElapsed / windowDuration);
+			const points = Math.round(ratio * 10);
+			gameStore.incrementScore(points);
+		}
+	}
 
-    // Default options
-    const {
-      similarityThreshold = SIMILARITY_THRESHOLD,
-      differenceThreshold = DIFFERENCE_THRESHOLD
-    } = options;
+	private advanceToNextChord() {
+		this.beatInChord = 0;
+		this.chordDetectedThisWindow = false;
+		this.chordDetectionElapsed = 0;
+		this.setNextChord();
+		this.startTimer();
+		const chordBeats = this.chordsState.currentChord?.beats ?? DEFAULT_BEATS;
+		gameStore.updateBeat(0, chordBeats);
+	}
 
-    // Calculate absolute differences
-    const absoluteDifferences = p1.map((val1, index) =>
-      Math.abs(val1 - p2[index])
-    );
+	private onDetectedHPCP(detectedHPCP: Array<number>) {
+		if (!this.expectedHPCP || this.countoffRemaining > 0) return;
+		if (this.chordDetectedThisWindow) return;
 
-    // Calculate average difference
-    const averageDifference =
-      absoluteDifferences.reduce((sum, diff) => sum + diff, 0) / p1.length;
+		const result = this.compareHPCP(this.expectedHPCP, detectedHPCP);
 
-    // Maximum difference
-    const maxDifference = Math.max(...absoluteDifferences);
+		if (result.isSimilar) {
+			this.chordDetectedThisWindow = true;
+			this.chordDetectionElapsed = get(gameStore).timer;
+		}
+	}
 
-    // Identify significant difference indices
-    const significantDifferenceIndices = absoluteDifferences
-      .map((diff, index) => diff > differenceThreshold ? index : -1)
-      .filter(index => index !== -1);
+	private setNextChord(index?: number) {
+		if (index === undefined && get(gameStore).randomMode) {
+			const nextChord =
+				this.chordsState.chords[
+					Math.floor(Math.random() * this.chordsState.chords.length)
+				];
+			chordStore.setCurrentChord(nextChord.id!);
+			return;
+		}
+		const nextChord =
+			index !== undefined
+				? this.chordsState.chords[index]
+				: this.chordsState.chords[this.chordsState.currentChordIndex + 1] ||
+					this.chordsState.chords[0];
+		if (nextChord) {
+			chordStore.setCurrentChord(nextChord.id!);
+		}
+	}
 
-    // Cosine similarity calculation
-    const dotProduct = p1.reduce((sum, val1, index) =>
-      sum + val1 * p2[index], 0);
+	private startTimer() {
+		this.clearTimer();
+		gameStore.updateTimer(0);
 
-    const magnitude1 = Math.sqrt(
-      p1.reduce((sum, val) => sum + val * val, 0)
-    );
+		this.timerIntervalId = setInterval(() => {
+			gameStore.updateTimer(get(gameStore).timer + 0.01);
+		}, 10);
+	}
 
-    const magnitude2 = Math.sqrt(
-      p2.reduce((sum, val) => sum + val * val, 0)
-    );
+	private clearTimer() {
+		if (this.timerIntervalId) {
+			clearInterval(this.timerIntervalId);
+			this.timerIntervalId = null;
+		}
+	}
 
-    const cosineSimilarity = dotProduct / (magnitude1 * magnitude2);
+	private compareHPCP(
+		p1: number[],
+		p2: number[],
+		options: {
+			similarityThreshold?: number;
+			differenceThreshold?: number;
+		} = {}
+	): HPCPComparisonResult {
+		if (p1.length !== p2.length) {
+			throw new Error('HPCP profiles must have the same length');
+		}
 
-    // RMS difference
-    const rmsDifference = Math.sqrt(
-      absoluteDifferences.reduce((sum, diff) => sum + diff * diff, 0) / p1.length
-    );
+		const {
+			similarityThreshold = SIMILARITY_THRESHOLD,
+			differenceThreshold = DIFFERENCE_THRESHOLD
+		} = options;
 
-    return {
-      isExactMatch: absoluteDifferences.every(diff => diff === 0),
-      isSimilar: cosineSimilarity >= similarityThreshold,
-      absoluteDifferences,
-      averageDifference,
-      maxDifference,
-      significantDifferenceIndices,
-      cosineSimilarity,
-      rmsDifference
-    };
-  }
+		const absoluteDifferences = p1.map((val1, index) => Math.abs(val1 - p2[index]));
+
+		const averageDifference =
+			absoluteDifferences.reduce((sum, diff) => sum + diff, 0) / p1.length;
+
+		const maxDifference = Math.max(...absoluteDifferences);
+
+		const significantDifferenceIndices = absoluteDifferences
+			.map((diff, index) => (diff > differenceThreshold ? index : -1))
+			.filter((index) => index !== -1);
+
+		const dotProduct = p1.reduce((sum, val1, index) => sum + val1 * p2[index], 0);
+		const magnitude1 = Math.sqrt(p1.reduce((sum, val) => sum + val * val, 0));
+		const magnitude2 = Math.sqrt(p2.reduce((sum, val) => sum + val * val, 0));
+		const cosineSimilarity = dotProduct / (magnitude1 * magnitude2);
+
+		const rmsDifference = Math.sqrt(
+			absoluteDifferences.reduce((sum, diff) => sum + diff * diff, 0) / p1.length
+		);
+
+		return {
+			isExactMatch: absoluteDifferences.every((diff) => diff === 0),
+			isSimilar: cosineSimilarity >= similarityThreshold,
+			absoluteDifferences,
+			averageDifference,
+			maxDifference,
+			significantDifferenceIndices,
+			cosineSimilarity,
+			rmsDifference
+		};
+	}
 }
 
 export const trainerManager = new TrainerManager();

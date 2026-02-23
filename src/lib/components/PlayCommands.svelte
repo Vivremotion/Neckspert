@@ -1,6 +1,7 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
 	import { trainerManager } from '$lib/services/TrainerManager';
+	import { rhythmConfigStore } from '$lib/stores/game.store';
 
 	let isPlayClicked = false;
 	let isRandomClicked = false;
@@ -19,6 +20,13 @@
 	async function handleClickOnHide() {
 		isHideClicked = !isHideClicked;
 		trainerManager.setHideDiagram(isHideClicked);
+	}
+
+	function handleTempoChange(e: Event) {
+		const value = parseInt((e.target as HTMLInputElement).value);
+		if (!isNaN(value)) {
+			rhythmConfigStore.setTempo(value);
+		}
 	}
 </script>
 
@@ -58,6 +66,21 @@
 	</button>
 </div>
 
+<div class="tempo-control flex items-center justify-center gap-2">
+	<input
+		type="range"
+		min="40"
+		max="240"
+		value={$rhythmConfigStore.tempo}
+		on:input={handleTempoChange}
+		class="tempo-slider w-24 accent-slate-500"
+		disabled={isPlayClicked}
+	/>
+	<span class="tempo-value font-mono text-sm text-slate-600 dark:text-slate-400 w-16 text-center">
+		{$rhythmConfigStore.tempo} bpm
+	</span>
+</div>
+
 <style>
 	.play-commands {
 		position: relative;
@@ -80,7 +103,17 @@
 		font-size: 1.5rem;
 		transition: color 0.2s;
 	}
-	
+
+	.tempo-slider {
+		height: 4px;
+		cursor: pointer;
+	}
+
+	.tempo-slider:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
 	/* Responsive design for small screens */
 	@media (max-width: 768px) {
 		.play-commands {
@@ -88,12 +121,12 @@
 			height: 80px;
 			margin-top: 16px;
 		}
-		
+
 		.play-button {
 			font-size: 1.25rem;
 		}
 	}
-	
+
 	/* Extra small screens */
 	@media (max-width: 480px) {
 		.play-commands {
@@ -101,7 +134,7 @@
 			height: 70px;
 			margin-top: 12px;
 		}
-		
+
 		.play-button {
 			font-size: 1.125rem;
 		}

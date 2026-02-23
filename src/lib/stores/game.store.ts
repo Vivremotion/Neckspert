@@ -1,4 +1,5 @@
 import { writable } from 'svelte/store';
+import persistedStore from './persistedStore.js';
 
 export interface GameState {
   isPlaying: boolean;
@@ -7,6 +8,12 @@ export interface GameState {
   timer: number;
   randomMode: boolean;
   hideDiagram: boolean;
+  currentBeat: number;
+  totalBeatsInChord: number;
+}
+
+export interface RhythmConfig {
+  tempo: number;
 }
 
 function createGameStore() {
@@ -16,28 +23,43 @@ function createGameStore() {
     score: 0,
     timer: 0,
     randomMode: false,
-    hideDiagram: false
+    hideDiagram: false,
+    currentBeat: 0,
+    totalBeatsInChord: 4
   });
 
   return {
     subscribe,
     reset: () => {
-      set({
+      update(state => ({
+        ...state,
         isPlaying: false,
-        countdown: 5,
+        countdown: 4,
         score: 0,
         timer: 0,
-        randomMode: false,
-        hideDiagram: false
-      });
+        currentBeat: 0,
+        totalBeatsInChord: 4
+      }));
     },
     updateTimer: (timer: number) => update(state => ({ ...state, timer })),
     updateCountdown: (countdown: number) => update(state => ({ ...state, countdown })),
     setPlaying: (isPlaying: boolean) => update(state => ({ ...state, isPlaying })),
     incrementScore: (points: number) => update(state => ({ ...state, score: state.score + points })),
     setRandomMode: (randomMode: boolean) => update(state => ({ ...state, randomMode })),
-    setHideDiagram: (hideDiagram: boolean) => update(state => ({ ...state, hideDiagram }))
+    setHideDiagram: (hideDiagram: boolean) => update(state => ({ ...state, hideDiagram })),
+    updateBeat: (currentBeat: number, totalBeatsInChord: number) =>
+      update(state => ({ ...state, currentBeat, totalBeatsInChord }))
   };
 }
 
-export const gameStore = createGameStore(); 
+function createRhythmConfigStore() {
+  const { subscribe, update } = persistedStore<RhythmConfig>('rhythmConfig', { tempo: 120 });
+
+  return {
+    subscribe,
+    setTempo: (tempo: number) => update(state => ({ ...state, tempo: Math.max(20, Math.min(300, tempo)) }))
+  };
+}
+
+export const gameStore = createGameStore();
+export const rhythmConfigStore = createRhythmConfigStore();
