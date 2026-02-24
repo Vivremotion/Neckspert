@@ -6,3 +6,5 @@ export { default as ChordProgressionItem } from './ChordProgressionItem.svelte';
 export { default as PlayCommands } from './PlayCommands.svelte';
 export { default as GameOverlay } from './GameOverlay.svelte';
 export { default as CountdownDisplay } from './CountdownDisplay.svelte';
+export { default as NoteSymbol } from './NoteSymbol.svelte';
+export { default as RhythmDisplay } from './RhythmDisplay.svelte';

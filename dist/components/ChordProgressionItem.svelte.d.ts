@@ -1,3 +1,4 @@
+import type { NoteDuration } from '../models';
 interface $$__sveltets_2_IsomorphicComponent<Props extends Record<string, any> = any, Events extends Record<string, any> = any, Slots extends Record<string, any> = any, Exports = {}, Bindings = string> {
     new (options: import('svelte').ComponentConstructorOptions<Props>): import('svelte').SvelteComponent<Props, Events, Slots> & {
         $$bindings?: Bindings;
@@ -15,6 +16,7 @@ declare const ChordProgressionItem: $$__sveltets_2_IsomorphicComponent<{
     id?: string;
     name?: string;
     index?: number;
+    duration?: NoteDuration;
 }, {
     [evt: string]: CustomEvent<any>;
 }, {}, {}, string>;

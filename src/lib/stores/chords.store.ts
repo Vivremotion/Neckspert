@@ -1,6 +1,6 @@
 // src/lib/stores/chords.store.ts
-import type { Chord } from '$lib/models';
-import { DEFAULT_BEATS } from '$lib/models';
+import type { Chord, NoteDuration } from '$lib/models';
+import { DEFAULT_DURATION, durationToBeats, beatsToDuration } from '$lib/models';
 import persistedStore from './persistedStore.js';
 
 export interface ChordsState {
@@ -9,21 +9,44 @@ export interface ChordsState {
   chords: Chord[];
 }
 
+function migrateChord(chord: Chord): Chord {
+  if (chord.duration) return chord;
+  return {
+    ...chord,
+    duration: chord.beats ? beatsToDuration(chord.beats) : DEFAULT_DURATION,
+    beats: chord.beats
+  };
+}
+
+function migrateState(state: ChordsState): ChordsState {
+  return {
+    ...state,
+    chords: state.chords.map(migrateChord),
+    currentChord: state.currentChord ? migrateChord(state.currentChord) : undefined
+  };
+}
+
 function createChordStore() {
-  const { subscribe, update } = persistedStore<ChordsState>('chordsState', { chords: [] });
+  const persisted = persistedStore<ChordsState>('chordsState', { chords: [] });
+  const { subscribe, update } = persisted;
+
+  // Migrate existing persisted data on first load
+  update(migrateState);
 
   return {
     subscribe,
     addChord: (newChord: Chord) => {
+      const duration = newChord.duration ?? DEFAULT_DURATION;
       const newChordWithId: Chord = {
         ...newChord,
         id: crypto.randomUUID(),
-        beats: newChord.beats ?? DEFAULT_BEATS
+        duration,
+        beats: durationToBeats(duration)
       };
       update(chordState => ({
         ...chordState,
         currentChord: newChordWithId,
-        currentChordIndex: chordState.chords.length - 1,
+        currentChordIndex: chordState.chords.length,
         chords: [...chordState.chords, newChordWithId]
       }));
     },
@@ -53,15 +76,28 @@ function createChordStore() {
         currentChordIndex: chordState.chords.findIndex(chord => chord.id === id)
       }))
     },
-    setChordBeats(id: string, beats: number) {
-      const clamped = Math.max(1, Math.min(16, Math.round(beats)));
+    setChordDuration(id: string, duration: NoteDuration) {
+      const beats = durationToBeats(duration);
       update(chordState => ({
         ...chordState,
         chords: chordState.chords.map(chord =>
-          chord.id === id ? { ...chord, beats: clamped } : chord
+          chord.id === id ? { ...chord, duration, beats } : chord
         ),
         currentChord: chordState.currentChord?.id === id
-          ? { ...chordState.currentChord, beats: clamped }
+          ? { ...chordState.currentChord, duration, beats }
+          : chordState.currentChord
+      }));
+    },
+    setChordBeats(id: string, beats: number) {
+      const clamped = Math.max(1, Math.min(16, Math.round(beats)));
+      const duration = beatsToDuration(clamped);
+      update(chordState => ({
+        ...chordState,
+        chords: chordState.chords.map(chord =>
+          chord.id === id ? { ...chord, beats: clamped, duration } : chord
+        ),
+        currentChord: chordState.currentChord?.id === id
+          ? { ...chordState.currentChord, beats: clamped, duration }
           : chordState.currentChord
       }));
     }

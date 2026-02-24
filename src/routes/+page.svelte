@@ -5,7 +5,8 @@
 		ChordDisplayer,
 		CountdownDisplay,
 		PlayCommands,
-		GameOverlay
+		GameOverlay,
+		RhythmDisplay
 	} from '$lib/components';
 	import { chordStore } from '$lib/stores/chords.store';
 	import { gameStore } from '$lib/stores/game.store';
@@ -31,11 +32,16 @@
 				<GameOverlay class="bottom-item" />
 			{/if}
 		</div>
-		<div class="bottom-item">
+		<div class="bottom-item flex flex-col items-center">
 			{#if $gameStore.countdown > 0}
 				<CountdownDisplay />
-			{:else if $chordStore?.currentChord}
-				<ChordDisplayer chord={$chordStore?.currentChord} />
+			{:else}
+				{#if $gameStore.isPlaying}
+					<RhythmDisplay />
+				{/if}
+				{#if $chordStore?.currentChord}
+					<ChordDisplayer chord={$chordStore?.currentChord} />
+				{/if}
 			{/if}
 		</div>
 		<div class="bottom-item"></div>

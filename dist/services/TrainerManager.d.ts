@@ -1,21 +1,32 @@
 export declare class TrainerManager {
     private expectedHPCP;
     private chordsState;
-    private countdownIntervalId;
+    private metronome;
+    private beatInChord;
+    private chordDetectedThisWindow;
+    private chordDetectionElapsed;
+    private countoffRemaining;
     private timerIntervalId;
-    /** When the rhythm grid started (after countdown). Used for timing precision. */
-    private rhythmStartTime;
-    /** Cumulative beats at which each chord starts (for rhythm mode). */
-    private chordStartBeats;
+    private bars;
+    private currentBarIndex;
+    private currentChordIndexInBar;
+    private randomNextBar;
+    private randomCurrentBar;
     constructor();
-    private buildChordStartBeats;
     start(): Promise<void>;
     pause(): void;
     setRandomMode(randomMode: boolean): void;
     setHideDiagram(hideDiagram: boolean): void;
+    private onBeat;
+    private initFirstChord;
+    private finalizeChord;
+    private advanceToNextChord;
+    private advanceSequentialMode;
+    private advanceRandomMode;
+    private findChordByName;
     private onDetectedHPCP;
-    private setNextChord;
     private startTimer;
+    private clearTimer;
     private compareHPCP;
 }
 export declare const trainerManager: TrainerManager;

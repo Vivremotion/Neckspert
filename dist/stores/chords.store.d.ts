@@ -1,4 +1,4 @@
-import type { Chord } from '../models';
+import type { Chord, NoteDuration } from '../models';
 export interface ChordsState {
     currentChord?: Chord;
     currentChordIndex?: number;
@@ -10,4 +10,6 @@ export declare const chordStore: {
     removeChord: (id: string) => void;
     reorderChords: (fromIndex: number, toIndex: number) => void;
     setCurrentChord(id: string): void;
+    setChordDuration(id: string, duration: NoteDuration): void;
+    setChordBeats(id: string, beats: number): void;
 };

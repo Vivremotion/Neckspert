@@ -1,8 +1,5 @@
 import { writable } from 'svelte/store';
-/** Default tempo in BPM (beats per minute). */
-export const DEFAULT_TEMPO_BPM = 90;
-/** Tolerance in beats: hit is "on time" if within ± this many beats of the expected time. */
-export const RHYTHM_TOLERANCE_BEATS = 0.5;
+import persistedStore from './persistedStore.js';
 function createGameStore() {
     const { subscribe, set, update } = writable({
         isPlaying: false,
@@ -11,9 +8,8 @@ function createGameStore() {
         timer: 0,
         randomMode: false,
         hideDiagram: false,
-        tempoBpm: DEFAULT_TEMPO_BPM,
-        rhythmMode: false,
-        lastRhythmFeedback: null
+        currentBeat: 0,
+        totalBeatsInChord: 4
     });
     return {
         subscribe,
@@ -21,12 +17,11 @@ function createGameStore() {
             update(state => ({
                 ...state,
                 isPlaying: false,
-                countdown: 5,
+                countdown: 4,
                 score: 0,
                 timer: 0,
-                randomMode: false,
-                hideDiagram: false,
-                lastRhythmFeedback: null
+                currentBeat: 0,
+                totalBeatsInChord: 4
             }));
         },
         updateTimer: (timer) => update(state => ({ ...state, timer })),
@@ -35,9 +30,15 @@ function createGameStore() {
         incrementScore: (points) => update(state => ({ ...state, score: state.score + points })),
         setRandomMode: (randomMode) => update(state => ({ ...state, randomMode })),
         setHideDiagram: (hideDiagram) => update(state => ({ ...state, hideDiagram })),
-        setTempoBpm: (tempoBpm) => update(state => ({ ...state, tempoBpm: Math.max(40, Math.min(240, tempoBpm)) })),
-        setRhythmMode: (rhythmMode) => update(state => ({ ...state, rhythmMode })),
-        setLastRhythmFeedback: (lastRhythmFeedback) => update(state => ({ ...state, lastRhythmFeedback }))
+        updateBeat: (currentBeat, totalBeatsInChord) => update(state => ({ ...state, currentBeat, totalBeatsInChord }))
+    };
+}
+function createRhythmConfigStore() {
+    const { subscribe, update } = persistedStore('rhythmConfig', { tempo: 120 });
+    return {
+        subscribe,
+        setTempo: (tempo) => update(state => ({ ...state, tempo: Math.max(20, Math.min(300, tempo)) }))
     };
 }
 export const gameStore = createGameStore();
+export const rhythmConfigStore = createRhythmConfigStore();

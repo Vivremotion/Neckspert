@@ -10,7 +10,7 @@
       <span 
         class="countdown-number text-slate-800 dark:text-slate-300 font-mono font-medium text-9xl"
         in:scale={{
-          duration: 300,
+          duration: 200,
           delay: 0,
           opacity: 0.5,
           start: 0.4,
@@ -28,4 +28,4 @@
     height: 300px;
     width: 300px;
   }
-</style> 
+</style>

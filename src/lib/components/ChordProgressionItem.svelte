@@ -1,12 +1,14 @@
 <!-- src/lib/components/ChordProgressionItem.svelte -->
 <script lang="ts">
 	import { chordStore } from '$lib/stores/chords.store.js';
-	import { DEFAULT_BEATS } from '$lib/models';
+	import { DEFAULT_DURATION, cycleNoteValue, NOTE_LABELS } from '$lib/models';
+	import type { NoteDuration } from '$lib/models';
+	import NoteSymbol from './NoteSymbol.svelte';
 
 	export let id: string = null;
 	export let name: string = '';
 	export let index: number = -1;
-	export let beats: number = DEFAULT_BEATS;
+	export let duration: NoteDuration = DEFAULT_DURATION;
 
 	let isDragging = false;
 	let isHovering = false;
@@ -25,9 +27,15 @@
 		chordStore.removeChord(id);
 	}
 
-	function adjustBeats(delta: number, e: Event) {
+	function cycleValue(e: Event) {
 		e.stopPropagation();
-		chordStore.setChordBeats(id, beats + delta);
+		const next = cycleNoteValue(duration.value);
+		chordStore.setChordDuration(id, { ...duration, value: next });
+	}
+
+	function toggleDot(e: Event) {
+		e.stopPropagation();
+		chordStore.setChordDuration(id, { ...duration, dotted: !duration.dotted });
 	}
 </script>
 
@@ -43,20 +51,24 @@
 >
 	<span class="chord-value prose prose-xl font-mono font-light dark:text-slate-200">{name}</span>
 
-	<div class="beats-control flex items-center gap-1">
+	<div class="duration-control flex items-center gap-1">
 		<button
-			class="beat-btn text-xs font-mono text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-			on:click={(e) => adjustBeats(-1, e)}
-			disabled={beats <= 1}
-			aria-label="Decrease beats"
-		>−</button>
-		<span class="text-xs font-mono text-slate-500 dark:text-slate-400">{beats}♩</span>
+			class="note-btn text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+			on:click={cycleValue}
+			aria-label="Cycle note value: {NOTE_LABELS[duration.value]}"
+			title={NOTE_LABELS[duration.value]}
+		>
+			<NoteSymbol value={duration.value} dotted={duration.dotted} size={16} />
+		</button>
 		<button
-			class="beat-btn text-xs font-mono text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-			on:click={(e) => adjustBeats(1, e)}
-			disabled={beats >= 16}
-			aria-label="Increase beats"
-		>+</button>
+			class="dot-btn text-xs font-bold leading-none"
+			class:dot-active={duration.dotted}
+			on:click={toggleDot}
+			aria-label={duration.dotted ? 'Remove dot' : 'Add dot'}
+			title={duration.dotted ? 'Dotted' : 'Not dotted'}
+		>
+			·
+		</button>
 	</div>
 
 	{#if isHovering}
@@ -104,22 +116,38 @@
 		justify-content: center;
 	}
 
-	.beat-btn {
-		width: 18px;
-		height: 18px;
+	.note-btn {
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
 		border-radius: 2px;
+		padding: 2px;
 	}
 
-	.beat-btn:disabled {
-		opacity: 0.3;
-		cursor: not-allowed;
+	.note-btn:hover {
+		background: rgba(100, 116, 139, 0.15);
 	}
 
-	.beat-btn:hover:not(:disabled) {
+	.dot-btn {
+		width: 16px;
+		height: 16px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		cursor: pointer;
+		border-radius: 50%;
+		font-size: 18px;
+		color: rgba(100, 116, 139, 0.4);
+		transition: all 0.15s ease;
+	}
+
+	.dot-btn:hover {
+		color: rgba(100, 116, 139, 0.8);
+	}
+
+	.dot-active {
+		color: rgb(100, 116, 139);
 		background: rgba(100, 116, 139, 0.15);
 	}
 
