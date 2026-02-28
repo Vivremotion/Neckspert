@@ -22,6 +22,7 @@ export class TrainerManager {
 	private metronome = new Metronome();
 
 	private beatInChord = 0;
+	private hasStartedFirstChord = false;
 	private chordDetectedThisWindow = false;
 	private chordDetectionElapsed = 0;
 	private countoffRemaining = 0;
@@ -55,6 +56,7 @@ export class TrainerManager {
 		rhythmDisplayStore.reset();
 
 		this.countoffRemaining = COUNTOFF_BEATS;
+		this.hasStartedFirstChord = false;
 		this.beatInChord = 0;
 		this.chordDetectedThisWindow = false;
 		this.chordDetectionElapsed = 0;
@@ -88,10 +90,13 @@ export class TrainerManager {
 			gameStore.updateCountdown(this.countoffRemaining);
 			this.countoffRemaining--;
 
-			if (this.countoffRemaining === 0) {
-				gameStore.updateCountdown(0);
-				this.initFirstChord();
-			}
+			return;
+		}
+
+		if (!this.hasStartedFirstChord) {
+			this.hasStartedFirstChord = true;
+			gameStore.updateCountdown(0);
+			this.initFirstChord();
 			return;
 		}
 
@@ -230,7 +235,7 @@ export class TrainerManager {
 	}
 
 	private onDetectedHPCP(detectedHPCP: Array<number>) {
-		if (!this.expectedHPCP || this.countoffRemaining > 0) return;
+		if (!this.expectedHPCP || this.countoffRemaining > 0 || !this.hasStartedFirstChord) return;
 		if (this.chordDetectedThisWindow) return;
 
 		const result = this.compareHPCP(this.expectedHPCP, detectedHPCP);
