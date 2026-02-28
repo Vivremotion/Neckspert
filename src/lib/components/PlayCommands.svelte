@@ -1,13 +1,20 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
+	import { get } from 'svelte/store';
 	import { trainerManager } from '$lib/composition/trainerComposition';
 	import { rhythmConfigStore } from '$lib/stores/game.store';
+	import { calibrationDataStore, calibrationModalOpen } from '$lib/stores/calibration.store';
 
 	let isPlayClicked = false;
 	let isRandomClicked = false;
 	let isHideClicked = false;
 
 	async function handleClickOnPlay() {
+		const calibration = get(calibrationDataStore);
+		if (!calibration) {
+			calibrationModalOpen.set(true);
+			return;
+		}
 		isPlayClicked ? trainerManager.pause() : trainerManager.start();
 		isPlayClicked = !isPlayClicked;
 	}

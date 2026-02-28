@@ -1,3 +1,4 @@
+export { default as Calibration } from './Calibration.svelte';
 export { default as ChordCombobox } from './ChordCombobox.svelte';
 export { default as ChordDiagram } from './ChordDiagram.svelte';
 export { default as ChordDisplayer } from './ChordDisplayer.svelte';
@@ -6,5 +7,6 @@ export { default as ChordProgressionItem } from './ChordProgressionItem.svelte';
 export { default as PlayCommands } from './PlayCommands.svelte';
 export { default as GameOverlay } from './GameOverlay.svelte';
 export { default as CountdownDisplay } from './CountdownDisplay.svelte';
+export { default as Modal } from './Modal.svelte';
 export { default as NoteSymbol } from './NoteSymbol.svelte';
 export { default as RhythmDisplay } from './RhythmDisplay.svelte';

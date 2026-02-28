@@ -111,7 +111,7 @@ export class TrainerManager {
 		this.gameStatePort.setHideDiagram(hideDiagram);
 	}
 
-	private onBeat(absoluteBeat: number): void {
+	private onBeat(): void {
 		if (this.countoffRemaining > 0) {
 			this.gameStatePort.updateCountdown(this.countoffRemaining);
 			this.countoffRemaining--;
@@ -188,7 +188,9 @@ export class TrainerManager {
 
 		const chordBeats = getChordBeats(currentChord);
 		const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat();
-		const ratio = Math.max(0, 1 - this.chordDetectionElapsed / windowDuration);
+		const calibrationOffsetS = this.gameStatePort.getCalibrationOffsetMs() / 1000;
+		const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffsetS);
+		const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
 		const points = Math.round(ratio * 10);
 		this.gameStatePort.incrementScore(points);
 	}

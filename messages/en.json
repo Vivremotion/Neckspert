@@ -1,4 +1,13 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from en!"
+	"hello_world": "Hello, {name} from en!",
+	"calibration_instruction": "Play on one string of your guitar as accurately as possible on the beat. This helps Neckspert improve timing accuracy for scoring.",
+	"calibration_hits_needed": "{count} hits needed.",
+	"calibration_hit_prompt": "Hit the string on each beat.",
+	"calibration_calibrated": "Calibrated",
+	"calibration_closing": "Closing in 2 seconds…",
+	"calibration_inconsistent": "Timing was too inconsistent. Try again and play as close to the beat as you can.",
+	"calibration_no_sound_mic": "Could not access the microphone. Check browser permissions, your audio interface, and gain settings. Firefox can sometimes have issues with audio.",
+	"calibration_no_sound_silent": "No sound detected. Check your guitar's volume, audio interface gain, browser permissions, and try again. Firefox can have compatibility issues.",
+	"calibration_retry": "Retry"
 }

@@ -1,7 +1,7 @@
 import { getChordBeats } from '../models';
 import { compareHPCP } from '../domain/hpcp';
 import { groupIntoBars, generateRandomBar } from '../utils/barUtils';
-/** Number of count-in beats before the first chord. */
+/** Number of count-off beats before the first chord. */
 const COUNTOFF_BEATS = 4;
 const TIMER_INTERVAL_MS = 10;
 const TIMER_INCREMENT = 0.01;
@@ -74,7 +74,7 @@ export class TrainerManager {
     setHideDiagram(hideDiagram) {
         this.gameStatePort.setHideDiagram(hideDiagram);
     }
-    onBeat(absoluteBeat) {
+    onBeat() {
         if (this.countoffRemaining > 0) {
             this.gameStatePort.updateCountdown(this.countoffRemaining);
             this.countoffRemaining--;
@@ -140,7 +140,9 @@ export class TrainerManager {
             return;
         const chordBeats = getChordBeats(currentChord);
         const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat();
-        const ratio = Math.max(0, 1 - this.chordDetectionElapsed / windowDuration);
+        const calibrationOffsetS = this.gameStatePort.getCalibrationOffsetMs() / 1000;
+        const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffsetS);
+        const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
         const points = Math.round(ratio * 10);
         this.gameStatePort.incrementScore(points);
     }

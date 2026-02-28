@@ -12,6 +12,8 @@ export interface GameStateSnapshot {
 export interface GameStatePort {
 	getState(): GameStateSnapshot;
 	getTempo(): number;
+	/** Calibration offset in ms (positive = app perceives hit late). 0 if not calibrated. */
+	getCalibrationOffsetMs(): number;
 	reset(): void;
 	setPlaying(playing: boolean): void;
 	updateCountdown(countdown: number): void;

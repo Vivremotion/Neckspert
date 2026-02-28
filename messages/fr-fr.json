@@ -1,4 +1,13 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from fr-fr!"
+	"hello_world": "Hello, {name} from fr-fr!",
+	"calibration_instruction": "Jouez sur une corde de votre guitare le plus précisément possible sur le temps. Cela aide Neckspert à améliorer la précision de la détection rythmique.",
+	"calibration_hits_needed": "{count} frappes nécessaires.",
+	"calibration_hit_prompt": "Frappez la corde sur chaque temps.",
+	"calibration_calibrated": "Calibré",
+	"calibration_closing": "Fermeture dans 2 secondes…",
+	"calibration_inconsistent": "Le timing était trop irrégulier. Réessayez en jouant le plus près possible du temps.",
+	"calibration_no_sound_mic": "Impossible d'accéder au microphone. Vérifiez les permissions du navigateur, votre interface audio et le gain. Firefox peut parfois poser problème.",
+	"calibration_no_sound_silent": "Aucun son détecté. Vérifiez le volume de votre guitare, le gain de l'interface audio, les permissions du navigateur, puis réessayez. Firefox peut avoir des problèmes de compatibilité.",
+	"calibration_retry": "Réessayer"
 }

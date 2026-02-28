@@ -6,10 +6,13 @@
 		CountdownDisplay,
 		PlayCommands,
 		GameOverlay,
-		RhythmDisplay
+		RhythmDisplay,
+		Modal,
+		Calibration
 	} from '$lib/components';
 	import { chordStore } from '$lib/stores/chords.store';
 	import { gameStore } from '$lib/stores/game.store';
+	import { calibrationModalOpen } from '$lib/stores/calibration.store';
 </script>
 
 <div class="app dark:bg-slate-800">
@@ -27,10 +30,18 @@
 	</div>
 
 	<div class="bottom flex h-full w-full flex-row items-center">
-		<div class="bottom-item">
+		<div class="bottom-item relative flex flex-col items-center justify-center gap-2">
 			{#if $gameStore.score > 0 || $gameStore.isPlaying}
 				<GameOverlay class="bottom-item" />
 			{/if}
+			<button
+				class="calibration-button"
+				type="button"
+				aria-label="Calibrate timing"
+				on:click={() => calibrationModalOpen.set(true)}
+			>
+				<i class="fa-solid fa-sliders" aria-hidden="true"></i>
+			</button>
 		</div>
 		<div class="bottom-item flex flex-col items-center">
 			{#if $gameStore.countdown > 0}
@@ -46,6 +57,12 @@
 		</div>
 		<div class="bottom-item"></div>
 	</div>
+
+	{#if $calibrationModalOpen}
+		<Modal ariaLabel="Timing calibration" onclose={() => calibrationModalOpen.set(false)}>
+			<Calibration oncomplete={() => calibrationModalOpen.set(false)} />
+		</Modal>
+	{/if}
 </div>
 
 <style>
@@ -83,6 +100,27 @@
 			padding: 24px;
 			gap: 24px;
 		}
+	}
+
+	.calibration-button {
+		position: absolute;
+		bottom: 0.5rem;
+		left: 0.5rem;
+		width: 2.25rem;
+		height: 2.25rem;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border: none;
+		background: rgba(148, 163, 184, 0.2);
+		color: rgb(148 163 184);
+		border-radius: 8px;
+		cursor: pointer;
+		transition: color 0.15s, background 0.15s;
+	}
+	.calibration-button:hover {
+		background: rgba(148, 163, 184, 0.3);
+		color: rgb(226 232 240);
 	}
 
 	/* Extra small screens */

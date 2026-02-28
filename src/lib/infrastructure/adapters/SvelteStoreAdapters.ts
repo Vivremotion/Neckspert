@@ -5,6 +5,7 @@ import type { RhythmDisplayPort } from '$lib/application/ports/RhythmDisplayPort
 import { chordStore } from '$lib/stores/chords.store';
 import { gameStore, rhythmConfigStore } from '$lib/stores/game.store';
 import { rhythmDisplayStore } from '$lib/stores/rhythmDisplay.store';
+import { calibrationDataStore } from '$lib/stores/calibration.store';
 
 function toChordsSnapshot(state: { chords: unknown[]; currentChord?: unknown }): ChordsStateSnapshot {
 	return {
@@ -33,6 +34,10 @@ export function createGameStateAdapter(): GameStatePort {
 		},
 		getTempo() {
 			return get(rhythmConfigStore).tempo;
+		},
+		getCalibrationOffsetMs() {
+			const cal = get(calibrationDataStore);
+			return cal?.offsetMs ?? 0;
 		},
 		reset() {
 			gameStore.reset();

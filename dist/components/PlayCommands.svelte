@@ -1,13 +1,20 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
+	import { get } from 'svelte/store';
 	import { trainerManager } from '../composition/trainerComposition';
 	import { rhythmConfigStore } from '../stores/game.store';
+	import { calibrationDataStore, calibrationModalOpen } from '../stores/calibration.store';
 
 	let isPlayClicked = false;
 	let isRandomClicked = false;
 	let isHideClicked = false;
 
 	async function handleClickOnPlay() {
+		const calibration = get(calibrationDataStore);
+		if (!calibration) {
+			calibrationModalOpen.set(true);
+			return;
+		}
 		isPlayClicked ? trainerManager.pause() : trainerManager.start();
 		isPlayClicked = !isPlayClicked;
 	}
@@ -76,7 +83,7 @@
 		class="tempo-slider w-24 accent-slate-500"
 		disabled={isPlayClicked}
 	/>
-	<span class="tempo-value font-mono text-sm text-slate-600 dark:text-slate-400 w-16 text-center">
+	<span class="tempo-value w-16 text-center font-mono text-sm text-slate-600 dark:text-slate-400">
 		{$rhythmConfigStore.tempo} bpm
 	</span>
 </div>
