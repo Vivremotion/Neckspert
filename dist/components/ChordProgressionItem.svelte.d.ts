@@ -13,10 +13,11 @@ interface $$__sveltets_2_IsomorphicComponent<Props extends Record<string, any> =
     z_$$bindings?: Bindings;
 }
 declare const ChordProgressionItem: $$__sveltets_2_IsomorphicComponent<{
-    id?: string;
-    name?: string;
-    index?: number;
+    id: string;
+    name: string;
+    index: number;
     duration?: NoteDuration;
+    isCurrent?: boolean;
 }, {
     [evt: string]: CustomEvent<any>;
 }, {}, {}, string>;

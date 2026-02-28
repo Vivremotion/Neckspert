@@ -2,7 +2,7 @@
 	import { gameStore } from '../stores/game.store';
 </script>
 
-<div class="game-overlay flex flex-col items-center justify-center gap-y-6 text-5xl font-mono">
+<div class="game-overlay flex flex-col items-center justify-center gap-y-6 text-5xl font-mono text-slate-800 dark:text-white">
 	<div class="score">{$gameStore.score}pts</div>
 
 	{#if $gameStore.totalBeatsInChord > 0 && $gameStore.countdown === 0}
@@ -21,7 +21,6 @@
 <style>
 	.game-overlay {
 		padding: 1rem;
-		color: white;
 		border-radius: 8px;
 	}
 

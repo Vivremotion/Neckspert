@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { chordStore } from '$lib/stores/chords.store';
 	import { searchChords } from '$lib/utils/chordUtils';
-  import ChordDiagram from '$lib/components/ChordDiagram.svelte';
+	import ChordDiagram from '$lib/components/ChordDiagram.svelte';
 
 	let searchTerm = '';
 	let isOpen = false;
 	let selectedIndex = -1;
 	let dropdownElement: HTMLDivElement;
-  let previewChord: Chord | null = null;
+	let previewChord: Chord | null = null;
 
 	$: matchingChords = searchChords(searchTerm);
 
@@ -60,26 +60,24 @@
 
 	{#if isOpen && matchingChords.length > 0}
 		<div
-			class="results-container bg-slate-200 shadow-md shadow-slate-200 dark:shadow-slate-700"
+			class="results-container bg-slate-200 shadow-md shadow-slate-200 dark:bg-slate-700 dark:shadow-slate-900"
 			bind:this={dropdownElement}
 			role="listbox"
 		>
 			<div class="chord-list">
 				{#if matchingChords.length === 0}
-					<div class="dropdown-item no-results dark:text-slate-300">
-						No results found
-					</div>
+					<div class="dropdown-item no-results dark:text-slate-300">No results found</div>
 				{:else}
 					{#each matchingChords as chord, index}
 						<div
 							class="dropdown-item
-            border-none ring-0
-            hover:bg-slate-300
-            bg-slate-100 dark:bg-slate-600
+            border-none bg-slate-100
+            ring-0
+            hover:bg-slate-300 dark:bg-slate-600
             dark:text-slate-200 dark:hover:bg-slate-700"
 							class:selected={index === selectedIndex}
-              on:mouseenter={() => handleMouseEnter(chord)}
-              on:mouseleave={handleMouseLeave}
+							on:mouseenter={() => handleMouseEnter(chord)}
+							on:mouseleave={handleMouseLeave}
 							on:mousedown={() => handleSelect(chord)}
 							role="option"
 							tabindex={index}
@@ -90,11 +88,14 @@
 					{/each}
 				{/if}
 			</div>
-      {#if previewChord}
-        <div class="preview bg-slate-100 dark:bg-slate-600 absolute top-52">
-          <ChordDiagram chord={previewChord} />
-        </div>
-      {/if}
+			{#if previewChord}
+				<div
+					class="preview-diagram-wrapper bg-slate-100 shadow-md
+           shadow-slate-200 dark:bg-slate-600 dark:shadow-slate-900"
+				>
+					<ChordDiagram chord={previewChord} />
+				</div>
+			{/if}
 		</div>
 	{/if}
 </div>
@@ -105,6 +106,17 @@
 		width: 300px;
 	}
 
+	.results-container {
+		position: absolute;
+		top: 100%;
+		left: 0;
+		width: 100%;
+		z-index: 50;
+		border-radius: 4px;
+		overflow: visible;
+		margin-top: 4px;
+	}
+
 	.search-input {
 		width: 100%;
 		padding: 8px 12px;
@@ -112,14 +124,24 @@
 	}
 
 	.chord-list {
-		position: absolute;
-		top: 100%;
-		left: 0;
-		right: 0;
-		z-index: 10;
+		position: relative;
+		width: 100%;
+		z-index: 1;
 		border-radius: 4px;
 		max-height: 200px;
 		overflow-y: auto;
+	}
+
+	.preview-diagram-wrapper {
+		position: relative;
+		width: 100%;
+		z-index: 2;
+		margin-top: 4px;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: 4px;
+		padding: 8px;
 	}
 
 	.dropdown-item {

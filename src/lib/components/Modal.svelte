@@ -36,13 +36,15 @@
 	role="presentation"
 >
 	<div
-		class="modal-panel"
+		class="modal-panel
+		bg-slate-200 text-slate-800
+        dark:bg-slate-800 dark:text-slate-200"
 		role="dialog"
 		aria-modal="true"
 		aria-label={ariaLabel}
 	>
 		<button
-			class="modal-close"
+			class="modal-close text-xl font-thin dark:text-slate-200 dark:hover:text-slate-400"
 			type="button"
 			aria-label="Close"
 			onclick={close}
@@ -61,44 +63,40 @@
 	.modal-backdrop {
 		position: fixed;
 		inset: 0;
-		background: rgba(15, 23, 42, 0.7);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		z-index: 1000;
 		padding: 1rem;
+		/* Semi-transparent backdrop; rgba so the panel stays opaque */
+		background-color: rgba(226, 232, 240, 0.6); /* slate-200 @ 60% */
+	}
+	@media (prefers-color-scheme: dark) {
+		.modal-backdrop {
+			background-color: rgba(51, 65, 85, 0.6); /* slate-700 @ 60% */
+		}
 	}
 
 	.modal-panel {
 		position: relative;
-		background: var(--modal-bg, rgb(30 41 59));
-		border-radius: 12px;
 		box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 		max-width: min(90vw, 420px);
 		width: 100%;
 		max-height: 90vh;
 		overflow: auto;
+		opacity: 1;
 	}
 
 	.modal-close {
 		position: absolute;
 		top: 0.75rem;
 		right: 0.75rem;
-		width: 2rem;
-		height: 2rem;
+		width: 1rem;
+		height: 1rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border: none;
-		background: transparent;
-		color: rgb(148 163 184);
 		cursor: pointer;
-		border-radius: 6px;
-		transition: color 0.15s, background 0.15s;
-	}
-	.modal-close:hover {
-		color: rgb(226 232 240);
-		background: rgba(148, 163, 184, 0.15);
 	}
 
 	.modal-content {

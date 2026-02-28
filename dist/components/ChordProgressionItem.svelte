@@ -5,10 +5,11 @@
 	import type { NoteDuration } from '../models';
 	import NoteSymbol from './NoteSymbol.svelte';
 
-	export let id: string = null;
-	export let name: string = '';
-	export let index: number = -1;
+	export let id: string;
+	export let name: string;
+	export let index: number;
 	export let duration: NoteDuration = DEFAULT_DURATION;
+	export let isCurrent: boolean = false;
 
 	let isDragging = false;
 	let isHovering = false;
@@ -40,7 +41,8 @@
 </script>
 
 <div
-	class="chord-item hover:shadow-md hover:shadow-slate-200 dark:hover:shadow-slate-900 dark:bg-slate-600"
+	class="chord-item hover:shadow-md hover:shadow-slate-200 dark:bg-slate-600 dark:hover:shadow-slate-900"
+	class:current={isCurrent}
 	draggable="true"
 	on:dragstart={handleDragStart}
 	on:dragend={handleDragEnd}
@@ -53,7 +55,7 @@
 
 	<div class="duration-control flex items-center gap-1">
 		<button
-			class="note-btn text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+			class="note-btn text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
 			on:click={cycleValue}
 			aria-label="Cycle note value: {NOTE_LABELS[duration.value]}"
 			title={NOTE_LABELS[duration.value]}
@@ -99,11 +101,16 @@
 			transform 0.2s,
 			box-shadow 0.2s;
 		gap: 4px;
+		transition: all 0.1s ease;
 	}
 
 	.dragging {
 		opacity: 0.5;
 		transform: scale(0.95);
+	}
+
+	.current {
+		scale: 1.1;
 	}
 
 	.remove-button {

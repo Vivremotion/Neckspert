@@ -37,43 +37,44 @@
 	}
 </script>
 
-<div class="play-commands" role="listitem">
-	<button
-		class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-		on:click={handleClickOnPlay}
-		aria-label={isPlayClicked ? 'Pause' : 'Play'}
-	>
-		{#if isPlayClicked}
-			<i class="fa-solid fa-pause" aria-hidden="true"></i>
-		{:else}
-			<i class="fa-solid fa-play" aria-hidden="true"></i>
-		{/if}
-	</button>
-	<button
-		class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-		on:click={handleClickOnRandom}
-		aria-label={isRandomClicked ? 'Loop mode' : 'Random mode'}
-	>
-		{#if isRandomClicked}
-			<i class="fa-solid fa-repeat" aria-hidden="true"></i>
-		{:else}
-			<i class="fa-solid fa-shuffle" aria-hidden="true"></i>
-		{/if}
-	</button>
-	<button
-		class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-		on:click={handleClickOnHide}
-		aria-label={isHideClicked ? 'Show diagram' : 'Hide diagram'}
-	>
-		{#if isHideClicked}
-			<i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
-		{:else}
-			<i class="fa-solid fa-eye" aria-hidden="true"></i>
-		{/if}
-	</button>
-</div>
+<div class="play-commands-block" role="group" aria-label="Play and tempo controls">
+	<div class="play-commands" role="listitem">
+		<button
+			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+			on:click={handleClickOnPlay}
+			aria-label={isPlayClicked ? 'Pause' : 'Play'}
+		>
+			{#if isPlayClicked}
+				<i class="fa-solid fa-pause" aria-hidden="true"></i>
+			{:else}
+				<i class="fa-solid fa-play" aria-hidden="true"></i>
+			{/if}
+		</button>
+		<button
+			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+			on:click={handleClickOnRandom}
+			aria-label={isRandomClicked ? 'Loop mode' : 'Random mode'}
+		>
+			{#if isRandomClicked}
+				<i class="fa-solid fa-repeat" aria-hidden="true"></i>
+			{:else}
+				<i class="fa-solid fa-shuffle" aria-hidden="true"></i>
+			{/if}
+		</button>
+		<button
+			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+			on:click={handleClickOnHide}
+			aria-label={isHideClicked ? 'Show diagram' : 'Hide diagram'}
+		>
+			{#if isHideClicked}
+				<i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
+			{:else}
+				<i class="fa-solid fa-eye" aria-hidden="true"></i>
+			{/if}
+		</button>
+	</div>
 
-<div class="tempo-control flex items-center justify-center gap-2">
+	<div class="tempo-control flex items-center justify-center gap-2">
 	<input
 		type="range"
 		min="40"
@@ -86,18 +87,25 @@
 	<span class="tempo-value w-16 text-center font-mono text-sm text-slate-600 dark:text-slate-400">
 		{$rhythmConfigStore.tempo} bpm
 	</span>
+	</div>
 </div>
 
 <style>
+	.play-commands-block {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 16px;
+	}
+
 	.play-commands {
 		position: relative;
 		width: 100px;
-		height: 100px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		gap: 20px;
-		margin: 20px;
+		margin: 0;
 		-webkit-user-select: none;
 		   -moz-user-select: none;
 		        user-select: none;
@@ -108,7 +116,6 @@
 
 	.play-button {
 		width: 100%;
-		height: 100%;
 		font-size: 1.5rem;
 		transition: color 0.2s;
 	}
@@ -128,7 +135,6 @@
 		.play-commands {
 			width: 80px;
 			height: 80px;
-			margin-top: 16px;
 		}
 
 		.play-button {
@@ -141,7 +147,6 @@
 		.play-commands {
 			width: 70px;
 			height: 70px;
-			margin-top: 12px;
 		}
 
 		.play-button {
