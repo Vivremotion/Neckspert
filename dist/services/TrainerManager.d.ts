@@ -1,8 +1,29 @@
+import type { ChordsStatePort } from '../application/ports/ChordsStatePort';
+import type { GameStatePort } from '../application/ports/GameStatePort';
+import type { RhythmDisplayPort } from '../application/ports/RhythmDisplayPort';
+import type { BeatSourcePort } from '../application/ports/BeatSourcePort';
+import type { ChordDetectionPort } from '../application/ports/ChordDetectionPort';
+export interface TrainerManagerPorts {
+    chordsState: ChordsStatePort;
+    gameState: GameStatePort;
+    rhythmDisplay: RhythmDisplayPort;
+    beatSource: BeatSourcePort;
+    chordDetection: ChordDetectionPort;
+}
+/**
+ * Application service: orchestrates a chord practice session (count-off, beats,
+ * chord progression, detection scoring). Depends on ports only (hexagonal).
+ */
 export declare class TrainerManager {
-    private expectedHPCP;
+    private readonly chordsStatePort;
+    private readonly gameStatePort;
+    private readonly rhythmDisplayPort;
+    private readonly beatSourcePort;
+    private readonly chordDetectionPort;
     private chordsState;
-    private metronome;
+    private expectedHPCP;
     private beatInChord;
+    private hasStartedFirstChord;
     private chordDetectedThisWindow;
     private chordDetectionElapsed;
     private countoffRemaining;
@@ -12,7 +33,7 @@ export declare class TrainerManager {
     private currentChordIndexInBar;
     private randomNextBar;
     private randomCurrentBar;
-    constructor();
+    constructor(ports: TrainerManagerPorts);
     start(): Promise<void>;
     pause(): void;
     setRandomMode(randomMode: boolean): void;
@@ -27,6 +48,4 @@ export declare class TrainerManager {
     private onDetectedHPCP;
     private startTimer;
     private clearTimer;
-    private compareHPCP;
 }
-export declare const trainerManager: TrainerManager;

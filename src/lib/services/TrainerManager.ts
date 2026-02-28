@@ -1,25 +1,44 @@
-import { get } from 'svelte/store';
-import type { HPCPComparisonResult, Chord } from '$lib/models';
+import type { Chord } from '$lib/models';
 import { getChordBeats } from '$lib/models';
-import { chordStore, type ChordsState } from '$lib/stores/chords.store';
-import { gameStore, rhythmConfigStore } from '$lib/stores/game.store';
-import { rhythmDisplayStore } from '$lib/stores/rhythmDisplay.store';
-import { hpcpDetector } from '$lib/services/HPCPDetector/HPCPDetector';
-import { Metronome } from '$lib/services/Metronome';
+import type { ChordsStatePort, ChordsStateSnapshot } from '$lib/application/ports/ChordsStatePort';
+import type { GameStatePort } from '$lib/application/ports/GameStatePort';
+import type { RhythmDisplayPort } from '$lib/application/ports/RhythmDisplayPort';
+import type { BeatSourcePort } from '$lib/application/ports/BeatSourcePort';
+import type { ChordDetectionPort } from '$lib/application/ports/ChordDetectionPort';
+import { compareHPCP } from '$lib/domain/hpcp';
 import {
 	groupIntoBars,
 	generateRandomBar,
 	type Bar
 } from '$lib/utils/barUtils';
 
-const SIMILARITY_THRESHOLD = 0.85;
-const DIFFERENCE_THRESHOLD = 0.1;
+/** Number of count-off beats before the first chord. */
 const COUNTOFF_BEATS = 4;
 
+const TIMER_INTERVAL_MS = 10;
+const TIMER_INCREMENT = 0.01;
+
+export interface TrainerManagerPorts {
+	chordsState: ChordsStatePort;
+	gameState: GameStatePort;
+	rhythmDisplay: RhythmDisplayPort;
+	beatSource: BeatSourcePort;
+	chordDetection: ChordDetectionPort;
+}
+
+/**
+ * Application service: orchestrates a chord practice session (count-off, beats,
+ * chord progression, detection scoring). Depends on ports only (hexagonal).
+ */
 export class TrainerManager {
-	private expectedHPCP: Array<number> = Array(12);
-	private chordsState: ChordsState;
-	private metronome = new Metronome();
+	private readonly chordsStatePort: ChordsStatePort;
+	private readonly gameStatePort: GameStatePort;
+	private readonly rhythmDisplayPort: RhythmDisplayPort;
+	private readonly beatSourcePort: BeatSourcePort;
+	private readonly chordDetectionPort: ChordDetectionPort;
+
+	private chordsState: ChordsStateSnapshot = { chords: [] };
+	private expectedHPCP: number[] = [];
 
 	private beatInChord = 0;
 	private hasStartedFirstChord = false;
@@ -34,26 +53,33 @@ export class TrainerManager {
 	private randomNextBar: Bar | null = null;
 	private randomCurrentBar: Bar | null = null;
 
-	constructor() {
-		chordStore.subscribe((update: ChordsState) => {
-			this.chordsState = update;
-			this.expectedHPCP = update?.currentChord?.hpcp;
+	constructor(ports: TrainerManagerPorts) {
+		this.chordsStatePort = ports.chordsState;
+		this.gameStatePort = ports.gameState;
+		this.rhythmDisplayPort = ports.rhythmDisplay;
+		this.beatSourcePort = ports.beatSource;
+		this.chordDetectionPort = ports.chordDetection;
+
+		this.chordsStatePort.subscribe((state: ChordsStateSnapshot) => {
+			this.chordsState = state;
+			this.expectedHPCP = state.currentChord?.hpcp ?? [];
 		});
 
-		hpcpDetector.subscribe(this.onDetectedHPCP.bind(this));
-		this.metronome.onBeat(this.onBeat.bind(this));
+		this.chordDetectionPort.subscribe(this.onDetectedHPCP.bind(this));
+		this.beatSourcePort.onBeat(this.onBeat.bind(this));
 	}
 
-	async start() {
+	async start(): Promise<void> {
 		if (this.chordsState.chords.length === 0) return;
-		await hpcpDetector.start();
 
-		const tempo = get(rhythmConfigStore).tempo;
-		this.metronome.setTempo(tempo);
+		await this.chordDetectionPort.start();
 
-		gameStore.reset();
-		gameStore.setPlaying(true);
-		rhythmDisplayStore.reset();
+		const tempo = this.gameStatePort.getTempo();
+		this.beatSourcePort.setTempo(tempo);
+
+		this.gameStatePort.reset();
+		this.gameStatePort.setPlaying(true);
+		this.rhythmDisplayPort.reset();
 
 		this.countoffRemaining = COUNTOFF_BEATS;
 		this.hasStartedFirstChord = false;
@@ -67,42 +93,44 @@ export class TrainerManager {
 		this.randomCurrentBar = null;
 		this.randomNextBar = null;
 
-		await this.metronome.start();
+		await this.beatSourcePort.start();
 	}
 
-	pause() {
-		gameStore.setPlaying(false);
-		this.metronome.stop();
+	pause(): void {
+		this.gameStatePort.setPlaying(false);
+		this.beatSourcePort.stop();
 		this.clearTimer();
-		hpcpDetector.pause();
+		this.chordDetectionPort.pause();
 	}
 
-	setRandomMode(randomMode: boolean) {
-		gameStore.setRandomMode(randomMode);
+	setRandomMode(randomMode: boolean): void {
+		this.gameStatePort.setRandomMode(randomMode);
 	}
 
-	setHideDiagram(hideDiagram: boolean) {
-		gameStore.setHideDiagram(hideDiagram);
+	setHideDiagram(hideDiagram: boolean): void {
+		this.gameStatePort.setHideDiagram(hideDiagram);
 	}
 
-	private onBeat(absoluteBeat: number) {
+	private onBeat(absoluteBeat: number): void {
 		if (this.countoffRemaining > 0) {
-			gameStore.updateCountdown(this.countoffRemaining);
+			this.gameStatePort.updateCountdown(this.countoffRemaining);
 			this.countoffRemaining--;
-
 			return;
 		}
 
 		if (!this.hasStartedFirstChord) {
 			this.hasStartedFirstChord = true;
-			gameStore.updateCountdown(0);
+			this.gameStatePort.updateCountdown(0);
 			this.initFirstChord();
 			return;
 		}
 
 		this.beatInChord++;
-		const chordBeats = getChordBeats(this.chordsState.currentChord!);
-		gameStore.updateBeat(this.beatInChord, chordBeats);
+		const currentChord = this.chordsState.currentChord;
+		if (!currentChord) return;
+
+		const chordBeats = getChordBeats(currentChord);
+		this.gameStatePort.updateBeat(this.beatInChord, chordBeats);
 
 		if (this.beatInChord >= chordBeats) {
 			this.finalizeChord();
@@ -110,21 +138,21 @@ export class TrainerManager {
 		}
 	}
 
-	private initFirstChord() {
-		const isRandom = get(gameStore).randomMode;
+	private initFirstChord(): void {
+		const isRandom = this.gameStatePort.getState().randomMode;
 
 		if (isRandom) {
 			this.randomCurrentBar = generateRandomBar(this.chordsState.chords);
 			this.randomNextBar = generateRandomBar(this.chordsState.chords);
 			this.currentChordIndexInBar = 0;
 
-			rhythmDisplayStore.setCurrentBar(this.randomCurrentBar);
-			rhythmDisplayStore.setNextBar(this.randomNextBar);
+			this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar);
+			this.rhythmDisplayPort.setNextBar(this.randomNextBar);
 
 			const firstChord = this.findChordByName(this.randomCurrentBar.chords[0].name);
-			if (firstChord) {
-				chordStore.setCurrentChord(firstChord.id!);
-				rhythmDisplayStore.setActiveChord(this.randomCurrentBar.chords[0].id);
+			if (firstChord?.id) {
+				this.chordsStatePort.setCurrentChord(firstChord.id);
+				this.rhythmDisplayPort.setActiveChord(this.randomCurrentBar.chords[0].id);
 			}
 		} else {
 			this.currentBarIndex = 0;
@@ -134,38 +162,43 @@ export class TrainerManager {
 			const currentBar = this.bars[0];
 			const nextBar = this.bars.length > 1 ? this.bars[1] : this.bars[0];
 
-			rhythmDisplayStore.setCurrentBar(currentBar);
-			rhythmDisplayStore.setNextBar(nextBar);
+			this.rhythmDisplayPort.setCurrentBar(currentBar);
+			this.rhythmDisplayPort.setNextBar(nextBar);
 
 			const firstChord = this.chordsState.chords[0];
-			if (firstChord) {
-				chordStore.setCurrentChord(firstChord.id!);
-				rhythmDisplayStore.setActiveChord(currentBar?.chords[0]?.id ?? null);
+			if (firstChord?.id) {
+				this.chordsStatePort.setCurrentChord(firstChord.id);
+				this.rhythmDisplayPort.setActiveChord(currentBar?.chords[0]?.id ?? null);
 			}
 		}
 
 		this.beatInChord = 0;
 		this.startTimer();
-		const chordBeats = getChordBeats(this.chordsState.currentChord!);
-		gameStore.updateBeat(0, chordBeats);
-	}
-
-	private finalizeChord() {
-		if (this.chordDetectedThisWindow) {
-			const chordBeats = getChordBeats(this.chordsState.currentChord!);
-			const windowDuration = chordBeats * this.metronome.getSecondsPerBeat();
-			const ratio = Math.max(0, 1 - this.chordDetectionElapsed / windowDuration);
-			const points = Math.round(ratio * 10);
-			gameStore.incrementScore(points);
+		const currentChord = this.chordsState.currentChord;
+		if (currentChord) {
+			this.gameStatePort.updateBeat(0, getChordBeats(currentChord));
 		}
 	}
 
-	private advanceToNextChord() {
+	private finalizeChord(): void {
+		if (!this.chordDetectedThisWindow) return;
+
+		const currentChord = this.chordsState.currentChord;
+		if (!currentChord) return;
+
+		const chordBeats = getChordBeats(currentChord);
+		const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat();
+		const ratio = Math.max(0, 1 - this.chordDetectionElapsed / windowDuration);
+		const points = Math.round(ratio * 10);
+		this.gameStatePort.incrementScore(points);
+	}
+
+	private advanceToNextChord(): void {
 		this.beatInChord = 0;
 		this.chordDetectedThisWindow = false;
 		this.chordDetectionElapsed = 0;
 
-		const isRandom = get(gameStore).randomMode;
+		const isRandom = this.gameStatePort.getState().randomMode;
 
 		if (isRandom) {
 			this.advanceRandomMode();
@@ -174,11 +207,13 @@ export class TrainerManager {
 		}
 
 		this.startTimer();
-		const chordBeats = getChordBeats(this.chordsState.currentChord!);
-		gameStore.updateBeat(0, chordBeats);
+		const currentChord = this.chordsState.currentChord;
+		if (currentChord) {
+			this.gameStatePort.updateBeat(0, getChordBeats(currentChord));
+		}
 	}
 
-	private advanceSequentialMode() {
+	private advanceSequentialMode(): void {
 		const currentBar = this.bars[this.currentBarIndex];
 		this.currentChordIndexInBar++;
 
@@ -190,22 +225,22 @@ export class TrainerManager {
 			const nextBarIndex = (this.currentBarIndex + 1) % this.bars.length;
 			const newNextBar = this.bars[nextBarIndex];
 
-			rhythmDisplayStore.setCurrentBar(newCurrentBar);
-			rhythmDisplayStore.setNextBar(newNextBar);
+			this.rhythmDisplayPort.setCurrentBar(newCurrentBar);
+			this.rhythmDisplayPort.setNextBar(newNextBar);
 		}
 
 		const activeBar = this.bars[this.currentBarIndex];
 		const activeBarChord = activeBar.chords[this.currentChordIndexInBar];
 
-		const matchingChord = this.chordsState.chords.find((c) => c.id === activeBarChord.id);
-		if (matchingChord) {
-			chordStore.setCurrentChord(matchingChord.id!);
+		const matchingChord = this.chordsState.chords.find((c: Chord) => c.id === activeBarChord.id);
+		if (matchingChord?.id) {
+			this.chordsStatePort.setCurrentChord(matchingChord.id);
 		}
 
-		rhythmDisplayStore.setActiveChord(activeBarChord.id);
+		this.rhythmDisplayPort.setActiveChord(activeBarChord.id);
 	}
 
-	private advanceRandomMode() {
+	private advanceRandomMode(): void {
 		if (!this.randomCurrentBar) return;
 
 		this.currentChordIndexInBar++;
@@ -215,101 +250,54 @@ export class TrainerManager {
 			this.randomNextBar = generateRandomBar(this.chordsState.chords);
 			this.currentChordIndexInBar = 0;
 
-			rhythmDisplayStore.setCurrentBar(this.randomCurrentBar!);
-			rhythmDisplayStore.setNextBar(this.randomNextBar);
+			this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar!);
+			this.rhythmDisplayPort.setNextBar(this.randomNextBar);
 		}
 
 		const activeBarChord = this.randomCurrentBar!.chords[this.currentChordIndexInBar];
 		const matchingChord = this.findChordByName(activeBarChord.name);
-		if (matchingChord) {
-			chordStore.setCurrentChord(matchingChord.id!);
+		if (matchingChord?.id) {
+			this.chordsStatePort.setCurrentChord(matchingChord.id);
 		}
 
-		rhythmDisplayStore.setActiveChord(activeBarChord.id);
+		this.rhythmDisplayPort.setActiveChord(activeBarChord.id);
 	}
 
 	private findChordByName(name: string): Chord | undefined {
-		return this.chordsState.chords.find(
-			(c) => `${c.root}${c.quality}` === name
-		);
+		return this.chordsState.chords.find((c: Chord) => `${c.root}${c.quality}` === name);
 	}
 
-	private onDetectedHPCP(detectedHPCP: Array<number>) {
-		if (!this.expectedHPCP || this.countoffRemaining > 0 || !this.hasStartedFirstChord) return;
+	private onDetectedHPCP(detectedHPCP: number[]): void {
+		if (
+			this.expectedHPCP.length === 0 ||
+			this.countoffRemaining > 0 ||
+			!this.hasStartedFirstChord
+		)
+			return;
 		if (this.chordDetectedThisWindow) return;
 
-		const result = this.compareHPCP(this.expectedHPCP, detectedHPCP);
+		const result = compareHPCP(this.expectedHPCP, detectedHPCP);
 
 		if (result.isSimilar) {
 			this.chordDetectedThisWindow = true;
-			this.chordDetectionElapsed = get(gameStore).timer;
+			this.chordDetectionElapsed = this.gameStatePort.getState().timer;
 		}
 	}
 
-	private startTimer() {
+	private startTimer(): void {
 		this.clearTimer();
-		gameStore.updateTimer(0);
+		this.gameStatePort.updateTimer(0);
 
 		this.timerIntervalId = setInterval(() => {
-			gameStore.updateTimer(get(gameStore).timer + 0.01);
-		}, 10);
+			const current = this.gameStatePort.getState().timer;
+			this.gameStatePort.updateTimer(current + TIMER_INCREMENT);
+		}, TIMER_INTERVAL_MS);
 	}
 
-	private clearTimer() {
+	private clearTimer(): void {
 		if (this.timerIntervalId) {
 			clearInterval(this.timerIntervalId);
 			this.timerIntervalId = null;
 		}
 	}
-
-	private compareHPCP(
-		p1: number[],
-		p2: number[],
-		options: {
-			similarityThreshold?: number;
-			differenceThreshold?: number;
-		} = {}
-	): HPCPComparisonResult {
-		if (p1.length !== p2.length) {
-			throw new Error('HPCP profiles must have the same length');
-		}
-
-		const {
-			similarityThreshold = SIMILARITY_THRESHOLD,
-			differenceThreshold = DIFFERENCE_THRESHOLD
-		} = options;
-
-		const absoluteDifferences = p1.map((val1, index) => Math.abs(val1 - p2[index]));
-
-		const averageDifference =
-			absoluteDifferences.reduce((sum, diff) => sum + diff, 0) / p1.length;
-
-		const maxDifference = Math.max(...absoluteDifferences);
-
-		const significantDifferenceIndices = absoluteDifferences
-			.map((diff, index) => (diff > differenceThreshold ? index : -1))
-			.filter((index) => index !== -1);
-
-		const dotProduct = p1.reduce((sum, val1, index) => sum + val1 * p2[index], 0);
-		const magnitude1 = Math.sqrt(p1.reduce((sum, val) => sum + val * val, 0));
-		const magnitude2 = Math.sqrt(p2.reduce((sum, val) => sum + val * val, 0));
-		const cosineSimilarity = dotProduct / (magnitude1 * magnitude2);
-
-		const rmsDifference = Math.sqrt(
-			absoluteDifferences.reduce((sum, diff) => sum + diff * diff, 0) / p1.length
-		);
-
-		return {
-			isExactMatch: absoluteDifferences.every((diff) => diff === 0),
-			isSimilar: cosineSimilarity >= similarityThreshold,
-			absoluteDifferences,
-			averageDifference,
-			maxDifference,
-			significantDifferenceIndices,
-			cosineSimilarity,
-			rmsDifference
-		};
-	}
 }
-
-export const trainerManager = new TrainerManager();

@@ -1,6 +1,6 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
-	import { trainerManager } from '$lib/services/TrainerManager';
+	import { trainerManager } from '$lib/composition/trainerComposition';
 	import { rhythmConfigStore } from '$lib/stores/game.store';
 
 	let isPlayClicked = false;
@@ -76,7 +76,7 @@
 		class="tempo-slider w-24 accent-slate-500"
 		disabled={isPlayClicked}
 	/>
-	<span class="tempo-value font-mono text-sm text-slate-600 dark:text-slate-400 w-16 text-center">
+	<span class="tempo-value w-16 text-center font-mono text-sm text-slate-600 dark:text-slate-400">
 		{$rhythmConfigStore.tempo} bpm
 	</span>
 </div>

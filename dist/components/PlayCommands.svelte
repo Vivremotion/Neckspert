@@ -1,6 +1,6 @@
 <!-- src/lib/components/PlayCommands.svelte -->
 <script lang="ts">
-	import { trainerManager } from '../services/TrainerManager';
+	import { trainerManager } from '../composition/trainerComposition';
 	import { rhythmConfigStore } from '../stores/game.store';
 
 	let isPlayClicked = false;
