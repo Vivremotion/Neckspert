@@ -12,11 +12,9 @@ import {
 	type Bar
 } from '$lib/utils/barUtils';
 
-/** Number of count-off beats before the first chord. */
 const COUNTOFF_BEATS = 4;
-
 const TIMER_INTERVAL_MS = 10;
-const TIMER_INCREMENT = 0.01;
+const SESSION_DURATION_MS = 5 * 60 * 1000;
 
 export interface TrainerManagerPorts {
 	chordsState: ChordsStatePort;
@@ -46,6 +44,7 @@ export class TrainerManager {
 	private chordDetectionElapsed = 0;
 	private countoffRemaining = 0;
 	private timerIntervalId: ReturnType<typeof setInterval> | null = null;
+	private sessionTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	private bars: Bar[] = [];
 	private currentBarIndex = -1;
@@ -71,6 +70,11 @@ export class TrainerManager {
 
 	async start(): Promise<void> {
 		if (this.chordsState.chords.length === 0) return;
+
+		this.clearSessionTimeout();
+		this.sessionTimeoutId = setTimeout(() => {
+			this.pause();
+		}, SESSION_DURATION_MS);
 
 		await this.chordDetectionPort.start();
 
@@ -101,6 +105,7 @@ export class TrainerManager {
 		this.beatSourcePort.stop();
 		this.clearTimer();
 		this.chordDetectionPort.pause();
+		this.clearSessionTimeout();
 	}
 
 	setRandomMode(randomMode: boolean): void {
@@ -187,9 +192,9 @@ export class TrainerManager {
 		if (!currentChord) return;
 
 		const chordBeats = getChordBeats(currentChord);
-		const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat();
-		const calibrationOffsetS = this.gameStatePort.getCalibrationOffsetMs() / 1000;
-		const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffsetS);
+		const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat() * 1000;
+		const calibrationOffset = this.gameStatePort.getCalibrationOffsetMs();
+		const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffset);
 		const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
 		const points = Math.round(ratio * 10);
 		this.gameStatePort.incrementScore(points);
@@ -292,7 +297,7 @@ export class TrainerManager {
 
 		this.timerIntervalId = setInterval(() => {
 			const current = this.gameStatePort.getState().timer;
-			this.gameStatePort.updateTimer(current + TIMER_INCREMENT);
+			this.gameStatePort.updateTimer(current + TIMER_INTERVAL_MS);
 		}, TIMER_INTERVAL_MS);
 	}
 
@@ -300,6 +305,12 @@ export class TrainerManager {
 		if (this.timerIntervalId) {
 			clearInterval(this.timerIntervalId);
 			this.timerIntervalId = null;
+		}
+	}
+	private clearSessionTimeout(): void {
+		if (this.sessionTimeoutId) {
+			clearTimeout(this.sessionTimeoutId);
+			this.sessionTimeoutId = null;
 		}
 	}
 }

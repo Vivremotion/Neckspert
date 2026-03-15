@@ -5,7 +5,7 @@ const SCHEDULE_AHEAD_S = 0.1;
 
 export class Metronome {
 	private audioContext: AudioContext | null = null;
-	private tempo = 120;
+	private tempo = 80;
 	private beatsPerMeasure = 4;
 	private nextBeatTime = 0;
 	private absoluteBeat = 0;

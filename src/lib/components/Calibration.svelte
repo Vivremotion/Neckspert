@@ -59,7 +59,7 @@
 	});
 </script>
 
-<div class="calibration text-slate-200">
+<div class="calibration">
 	{#if status === 'calibrated'}
 		<p class="calibrated-label">{m.calibration_calibrated()}</p>
 		<p class="calibrated-hint">{m.calibration_closing()}</p>

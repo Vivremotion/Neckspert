@@ -32,8 +32,8 @@
 				{#if nextBar}
 					{#each nextBar.chords as chord (chord.id)}
 						<span class="rhythm-chord preview">
-							<NoteSymbol value={chord.duration.value} dotted={chord.duration.dotted} size={14} />
-							<span class="chord-name">{chord.name}</span>
+							<NoteSymbol value={chord.duration.value} dotted={chord.duration.dotted} size={20} />
+							<span class="chord-name text-2xl">{chord.name}</span>
 						</span>
 					{/each}
 				{/if}
@@ -51,8 +51,8 @@
 							class:active={isActive(chord.id)}
 							class:past={isPast(currentBar, chord.id)}
 						>
-							<NoteSymbol value={chord.duration.value} dotted={chord.duration.dotted} size={14} />
-							<span class="chord-name">{chord.name}</span>
+							<NoteSymbol value={chord.duration.value} dotted={chord.duration.dotted} size={20} />
+							<span class="chord-name text-2xl">{chord.name}</span>
 						</span>
 					{/each}
 				{/if}

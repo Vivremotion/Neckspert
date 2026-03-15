@@ -1,10 +1,9 @@
 import { getChordBeats } from '../models';
 import { compareHPCP } from '../domain/hpcp';
 import { groupIntoBars, generateRandomBar } from '../utils/barUtils';
-/** Number of count-off beats before the first chord. */
 const COUNTOFF_BEATS = 4;
 const TIMER_INTERVAL_MS = 10;
-const TIMER_INCREMENT = 0.01;
+const SESSION_DURATION_MS = 5 * 60 * 1000;
 /**
  * Application service: orchestrates a chord practice session (count-off, beats,
  * chord progression, detection scoring). Depends on ports only (hexagonal).
@@ -23,6 +22,7 @@ export class TrainerManager {
     chordDetectionElapsed = 0;
     countoffRemaining = 0;
     timerIntervalId = null;
+    sessionTimeoutId = null;
     bars = [];
     currentBarIndex = -1;
     currentChordIndexInBar = 0;
@@ -44,6 +44,10 @@ export class TrainerManager {
     async start() {
         if (this.chordsState.chords.length === 0)
             return;
+        this.clearSessionTimeout();
+        this.sessionTimeoutId = setTimeout(() => {
+            this.pause();
+        }, SESSION_DURATION_MS);
         await this.chordDetectionPort.start();
         const tempo = this.gameStatePort.getTempo();
         this.beatSourcePort.setTempo(tempo);
@@ -67,6 +71,7 @@ export class TrainerManager {
         this.beatSourcePort.stop();
         this.clearTimer();
         this.chordDetectionPort.pause();
+        this.clearSessionTimeout();
     }
     setRandomMode(randomMode) {
         this.gameStatePort.setRandomMode(randomMode);
@@ -139,9 +144,9 @@ export class TrainerManager {
         if (!currentChord)
             return;
         const chordBeats = getChordBeats(currentChord);
-        const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat();
-        const calibrationOffsetS = this.gameStatePort.getCalibrationOffsetMs() / 1000;
-        const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffsetS);
+        const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat() * 1000;
+        const calibrationOffset = this.gameStatePort.getCalibrationOffsetMs();
+        const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffset);
         const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
         const points = Math.round(ratio * 10);
         this.gameStatePort.incrementScore(points);
@@ -222,13 +227,19 @@ export class TrainerManager {
         this.gameStatePort.updateTimer(0);
         this.timerIntervalId = setInterval(() => {
             const current = this.gameStatePort.getState().timer;
-            this.gameStatePort.updateTimer(current + TIMER_INCREMENT);
+            this.gameStatePort.updateTimer(current + TIMER_INTERVAL_MS);
         }, TIMER_INTERVAL_MS);
     }
     clearTimer() {
         if (this.timerIntervalId) {
             clearInterval(this.timerIntervalId);
             this.timerIntervalId = null;
+        }
+    }
+    clearSessionTimeout() {
+        if (this.sessionTimeoutId) {
+            clearTimeout(this.sessionTimeoutId);
+            this.sessionTimeoutId = null;
         }
     }
 }

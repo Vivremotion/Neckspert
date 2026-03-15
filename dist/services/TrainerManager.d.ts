@@ -28,6 +28,7 @@ export declare class TrainerManager {
     private chordDetectionElapsed;
     private countoffRemaining;
     private timerIntervalId;
+    private sessionTimeoutId;
     private bars;
     private currentBarIndex;
     private currentChordIndexInBar;
@@ -48,4 +49,5 @@ export declare class TrainerManager {
     private onDetectedHPCP;
     private startTimer;
     private clearTimer;
+    private clearSessionTimeout;
 }

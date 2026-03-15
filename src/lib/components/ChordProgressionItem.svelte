@@ -41,7 +41,7 @@
 </script>
 
 <div
-	class="chord-item hover:shadow-md hover:shadow-slate-200 dark:bg-slate-600 dark:hover:shadow-slate-900"
+	class="chord-item bg-slate-200 hover:shadow-md hover:shadow-slate-200 dark:bg-slate-600 dark:hover:shadow-slate-900"
 	class:current={isCurrent}
 	draggable="true"
 	on:dragstart={handleDragStart}

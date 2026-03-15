@@ -23,7 +23,7 @@ export const DEFAULT_CALIBRATION_CONFIG: CalibrationConfig = {
 	bpm: 80,
 	hitsNeeded: 10,
 	peakCooldownMs: 400,
-	maxMeanAbsOffsetMs: 200,
+	maxMeanAbsOffsetMs: 300,
 	noSoundTimeoutMs: 15000,
 	rmsThreshold: 0.12,
 	hpcpConfirmationWindowMs: 500

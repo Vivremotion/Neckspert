@@ -1,6 +1,7 @@
 <!-- src/components/ChordProgressionContainer.svelte -->
 <script lang="ts">
 	import { chordStore } from '$lib/stores/chords.store.js';
+	import { gameStore } from '$lib/stores/game.store.js';
 	import { ChordProgressionItem } from './index.ts';
 
 	let draggedOverIndex: number | null = null;
@@ -38,7 +39,7 @@
 >
 	{#each $chordStore?.chords as { id, root, quality='', duration }, index}
 		<div class="chord-slot" on:dragover={(e) => handleDragOver(e, index)} on:click={(e) => handleClick(e, id)} role="listitem">
-			<ChordProgressionItem {id} name={root+quality} {index} {duration} isCurrent={id === $chordStore.currentChord?.id} />
+			<ChordProgressionItem {id} name={root+quality} {index} {duration} isCurrent={$gameStore.isPlaying && id === $chordStore.currentChord?.id} />
 			{#if index < $chordStore.chords.length - 1}
 				<div class="separator bg-slate-400"></div>
 			{/if}
