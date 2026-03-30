@@ -83,7 +83,7 @@
 							tabindex={index}
 							aria-selected={index === selectedIndex}
 						>
-							{chord.root}{chord.quality} ({chord.voicing} shape)
+							{chord.displayRoot ?? chord.root}{chord.quality} ({chord.voicing} shape)
 						</div>
 					{/each}
 				{/if}

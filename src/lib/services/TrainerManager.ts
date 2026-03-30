@@ -15,6 +15,7 @@ import {
 const COUNTOFF_BEATS = 4;
 const TIMER_INTERVAL_MS = 10;
 const SESSION_DURATION_MS = 5 * 60 * 1000;
+const CHORD_WINDOW_DURATION_MS = 150;
 
 export interface TrainerManagerPorts {
 	chordsState: ChordsStatePort;
@@ -192,10 +193,9 @@ export class TrainerManager {
 		const currentChord = this.chordsState.currentChord;
 		if (!currentChord) return;
 
-		const windowDuration = 150;
 		const calibrationOffset = this.gameStatePort.getCalibrationOffsetMs();
 		const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffset);
-		const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
+		const ratio = Math.max(0, 1 - effectiveElapsed / CHORD_WINDOW_DURATION_MS);
 		const points = Math.round(ratio * 10);
 		this.gameStatePort.incrementScore(points);
 	}

@@ -37,9 +37,9 @@
 	on:dragleave={handleDragLeave}
 	role="list"
 >
-	{#each $chordStore?.chords as { id, root, quality='', duration }, index}
+	{#each $chordStore?.chords as { id, root, displayRoot, quality='', duration }, index}
 		<div class="chord-slot" on:dragover={(e) => handleDragOver(e, index)} on:click={(e) => handleClick(e, id)} role="listitem">
-			<ChordProgressionItem {id} name={root+quality} {index} {duration} isCurrent={$gameStore.isPlaying && id === $chordStore.currentChord?.id} />
+			<ChordProgressionItem {id} name={(displayRoot ?? root)+quality} {index} {duration} isCurrent={$gameStore.isPlaying && id === $chordStore.currentChord?.id} />
 			{#if index < $chordStore.chords.length - 1}
 				<div class="separator bg-slate-400"></div>
 			{/if}

@@ -1,7 +1,7 @@
 <!-- src/lib/components/ChordDiagram.svelte -->
 <script lang="ts">
 	import type { Chord, Note } from '$lib/models';
-	import { calculateInterval } from '$lib/utils/musicTheory';
+	import { calculateInterval, getDisplayNoteName } from '$lib/utils/musicTheory';
 
 	export let chord: Chord;
 
@@ -105,7 +105,7 @@
 			<text x={getStringX(note.string)} y={topMargin / 2} class="note-name text-l fill-slate-800 dark:fill-slate-300">
 				{hoveredNote?.string === note.string
 					? calculateInterval(chord.root, hoveredNote.name)
-					: note.name}
+					: getDisplayNoteName(note.name, chord.displayRoot)}
 			</text>
 		</g>
 	{/each}
@@ -123,7 +123,7 @@
 				class:root={isRoot(note)}
 			/>
 			<text x={getStringX(note.string)} y={getFretY(note.fret)} class="note-name fill-slate-300 dark:fill-slate-800">
-				{hoveredNote === note ? calculateInterval(chord.root, note.name) : note.name}
+				{hoveredNote === note ? calculateInterval(chord.root, note.name) : getDisplayNoteName(note.name, chord.displayRoot)}
 			</text>
 		</g>
 	{/each}
