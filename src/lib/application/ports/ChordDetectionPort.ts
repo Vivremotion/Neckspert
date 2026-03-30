@@ -4,5 +4,5 @@
 export interface ChordDetectionPort {
 	start(): Promise<void>;
 	pause(): void;
-	subscribe(callback: (hpcp: number[]) => void): void;
+	subscribe(callback: (hpcp: number[], audioTimestampMs: number) => void): void;
 }

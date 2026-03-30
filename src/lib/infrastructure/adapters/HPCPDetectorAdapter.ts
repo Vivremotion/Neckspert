@@ -6,7 +6,7 @@ import type { ChordDetectionPort } from '$lib/application/ports/ChordDetectionPo
 export function createChordDetectionAdapter(detector: {
 	start(): Promise<void>;
 	pause(): void;
-	subscribe(cb: (hpcp: number[]) => void): void;
+	subscribe(cb: (hpcp: number[], audioTimestampMs: number) => void): void;
 }): ChordDetectionPort {
 	return {
 		async start() {
@@ -15,7 +15,7 @@ export function createChordDetectionAdapter(detector: {
 		pause() {
 			detector.pause();
 		},
-		subscribe(callback) {
+		subscribe(callback: (hpcp: number[], audioTimestampMs: number) => void) {
 			detector.subscribe(callback);
 		}
 	};

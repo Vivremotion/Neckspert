@@ -42,6 +42,7 @@ export class TrainerManager {
 	private hasStartedFirstChord = false;
 	private chordDetectedThisWindow = false;
 	private chordDetectionElapsed = 0;
+	private chordWindowStartMs = 0;
 	private countoffRemaining = 0;
 	private timerIntervalId: ReturnType<typeof setInterval> | null = null;
 	private sessionTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -191,8 +192,7 @@ export class TrainerManager {
 		const currentChord = this.chordsState.currentChord;
 		if (!currentChord) return;
 
-		const chordBeats = getChordBeats(currentChord);
-		const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat() * 1000;
+		const windowDuration = 150;
 		const calibrationOffset = this.gameStatePort.getCalibrationOffsetMs();
 		const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffset);
 		const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
@@ -274,7 +274,7 @@ export class TrainerManager {
 		return this.chordsState.chords.find((c: Chord) => `${c.root}${c.quality}` === name);
 	}
 
-	private onDetectedHPCP(detectedHPCP: number[]): void {
+	private onDetectedHPCP(detectedHPCP: number[], audioTimestampMs: number): void {
 		if (
 			this.expectedHPCP.length === 0 ||
 			this.countoffRemaining > 0 ||
@@ -287,13 +287,14 @@ export class TrainerManager {
 
 		if (result.isSimilar) {
 			this.chordDetectedThisWindow = true;
-			this.chordDetectionElapsed = this.gameStatePort.getState().timer;
+			this.chordDetectionElapsed = Math.max(0, audioTimestampMs - this.chordWindowStartMs);
 		}
 	}
 
 	private startTimer(): void {
 		this.clearTimer();
 		this.gameStatePort.updateTimer(0);
+		this.chordWindowStartMs = performance.now();
 
 		this.timerIntervalId = setInterval(() => {
 			const current = this.gameStatePort.getState().timer;

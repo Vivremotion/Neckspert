@@ -1,9 +1,11 @@
-// src/lib/services/HPCPDetector.ts
 import detectorProcessorWorkletURL from './detector-processor.ts?worker&url';
+
+export type HPCPCallback = (hpcp: number[], audioTimestampMs: number) => void;
+
 export class HPCPDetector {
   private audioContext: AudioContext | null = null;
   private stream: MediaStream | null = null;
-  private onHPCPUpdateCallbacks: Array<Function> = [];
+  private onHPCPUpdateCallbacks: HPCPCallback[] = [];
 
   async start() {
     try {
@@ -22,14 +24,20 @@ export class HPCPDetector {
       gain.connect(this.audioContext.destination);
 
       detectorNode.port.onmessage = (e) => {
-        this.onHPCPUpdateCallbacks.forEach(fn => fn(e.data.hpcp));
+        const wallMs = this.contextTimeToWallMs(e.data.audioTimestamp);
+        this.onHPCPUpdateCallbacks.forEach(fn => fn(e.data.hpcp, wallMs));
       };
-
-      // todo: send message to properly stop essentia, maybe we can start it again if we don't stop it completely
     } catch (error) {
       console.error('Error detecting chords:', error);
       throw error;
     }
+  }
+
+  private contextTimeToWallMs(contextTimeSec: number): number {
+    if (!this.audioContext) return performance.now();
+    const ts = this.audioContext.getOutputTimestamp();
+    return (ts.performanceTime ?? performance.now()) +
+      (contextTimeSec - (ts.contextTime ?? 0)) * 1000;
   }
 
   pause() {
@@ -38,10 +46,9 @@ export class HPCPDetector {
       this.stream = null;
     }
     this.audioContext?.suspend();
-    // this.onHPCPUpdateCallbacks = [];
   }
 
-  subscribe(callback: Function) {
+  subscribe(callback: HPCPCallback) {
     this.onHPCPUpdateCallbacks.push(callback);
   }
 }

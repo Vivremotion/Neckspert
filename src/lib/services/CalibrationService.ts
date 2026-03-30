@@ -131,8 +131,9 @@ export class CalibrationService {
 		detectorNode.connect(gain);
 		gain.connect(this.audioContext.destination);
 
-		detectorNode.port.onmessage = () => {
-			this.handleHPCPDetection();
+		detectorNode.port.onmessage = (e) => {
+			const wallMs = this.contextTimeToWallMs(e.data.audioTimestamp);
+			this.handleHPCPDetection(wallMs);
 		};
 	}
 
@@ -177,26 +178,36 @@ export class CalibrationService {
 		this.rafId = requestAnimationFrame(this.processAmplitude.bind(this));
 	}
 
+	private contextTimeToWallMs(contextTimeSec: number): number {
+		if (!this.audioContext) return performance.now();
+		const ts = this.audioContext.getOutputTimestamp();
+		return (ts.performanceTime ?? performance.now()) +
+			(contextTimeSec - (ts.contextTime ?? 0)) * 1000;
+	}
+
 	/**
 	 * Only accepts an HPCP message if an amplitude peak was recently detected
 	 * (within `hpcpConfirmationWindowMs`). This gates out ambient noise that
 	 * the worklet's adaptive threshold lets through.
+	 *
+	 * Uses the audio-clock timestamp (converted to wall clock) rather than
+	 * performance.now() so the measured offset is independent of WASM
+	 * execution time and event-loop scheduling jitter.
 	 */
-	private handleHPCPDetection(): void {
+	private handleHPCPDetection(detectionTimeMs: number): void {
 		if (this.destroyed || this.status !== 'listening') return;
 		if (this.firstBeatTimeMs === 0) return;
 		if (this.pendingAmplitudePeakMs === null) return;
 
-		const now = performance.now();
 		const withinWindow =
-			now - this.pendingAmplitudePeakMs <= this.config.hpcpConfirmationWindowMs;
+			detectionTimeMs - this.pendingAmplitudePeakMs <= this.config.hpcpConfirmationWindowMs;
 		if (!withinWindow) return;
 
-		if (now - this.lastConfirmedMs < this.config.peakCooldownMs) return;
-		this.lastConfirmedMs = now;
+		if (detectionTimeMs - this.lastConfirmedMs < this.config.peakCooldownMs) return;
+		this.lastConfirmedMs = detectionTimeMs;
 		this.pendingAmplitudePeakMs = null;
 
-		this.confirmedDetectionTimesMs.push(now);
+		this.confirmedDetectionTimesMs.push(detectionTimeMs);
 		if (this.confirmedDetectionTimesMs.length >= this.config.hitsNeeded) {
 			this.finish();
 		}
