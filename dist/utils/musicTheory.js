@@ -73,7 +73,7 @@ export function calculateInterval(from, to) {
     return INTERVALS[getDistance(from, to)];
 }
 // Normalize note names (e.g., "Gb" to "F#")
-function normalizeNoteName(note) {
+export function normalizeNoteName(note) {
     const flatsToSharps = {
         'Db': 'C#',
         'Eb': 'D#',
@@ -82,6 +82,17 @@ function normalizeNoteName(note) {
         'Bb': 'A#'
     };
     return flatsToSharps[note] || note;
+}
+const SHARP_TO_FLAT = {
+    'C#': 'Db', 'D#': 'Eb',
+    'F#': 'Gb', 'G#': 'Ab',
+    'A#': 'Bb'
+};
+// Returns the note name to display: flattened when in a flat-root context.
+export function getDisplayNoteName(noteName, displayRoot) {
+    if (!displayRoot?.includes('b'))
+        return noteName;
+    return SHARP_TO_FLAT[noteName] ?? noteName;
 }
 // Transpose note names by fret shift
 function shiftNote(note, steps) {

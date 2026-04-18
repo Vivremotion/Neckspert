@@ -1,6 +1,6 @@
 // src/utils/chordUtils.ts
 import { chordTypes } from '../data/chordPositions';
-import { NOTES, getDistance } from './musicTheory.js';
+import { NOTES, getDistance, normalizeNoteName } from './musicTheory.js';
 function getNoteAtFret(baseNote, fret) {
     const baseIndex = NOTES.indexOf(baseNote);
     const targetIndex = (baseIndex + fret) % 12;
@@ -54,7 +54,17 @@ export function generateChords(root) {
 export function searchChords(searchTerm) {
     if (!searchTerm)
         return [];
-    const normalizedSearch = searchTerm.toUpperCase();
-    const matchingNotes = NOTES.filter(note => note.toUpperCase().startsWith(normalizedSearch));
-    return matchingNotes.flatMap(note => generateChords(note));
+    const match = searchTerm.match(/^([A-Ga-g][#b]?)(.*)$/);
+    if (!match)
+        return [];
+    const rawRoot = match[1][0].toUpperCase() + (match[1][1] ?? '');
+    const suffixSearch = match[2];
+    const sharpRoot = normalizeNoteName(rawRoot);
+    if (!NOTES.includes(sharpRoot))
+        return [];
+    const isFlat = rawRoot !== sharpRoot;
+    const allChords = generateChords(sharpRoot).map(chord => isFlat ? { ...chord, displayRoot: rawRoot } : chord);
+    if (!suffixSearch)
+        return allChords;
+    return allChords.filter(chord => chord.quality.toLowerCase().startsWith(suffixSearch.toLowerCase()));
 }

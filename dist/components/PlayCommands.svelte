@@ -2,12 +2,8 @@
 <script lang="ts">
 	import { get } from 'svelte/store';
 	import { trainerManager } from '../composition/trainerComposition';
-	import { rhythmConfigStore } from '../stores/game.store';
+	import { gameStore, rhythmConfigStore, type GameState } from '../stores/game.store';
 	import { calibrationDataStore, calibrationModalOpen } from '../stores/calibration.store';
-
-	let isPlayClicked = false;
-	let isRandomClicked = false;
-	let isHideClicked = false;
 
 	async function handleClickOnPlay() {
 		const calibration = get(calibrationDataStore);
@@ -15,24 +11,32 @@
 			calibrationModalOpen.set(true);
 			return;
 		}
-		isPlayClicked ? trainerManager.pause() : trainerManager.start();
-		isPlayClicked = !isPlayClicked;
+		const g = get(gameStore) as GameState;
+		if (g.isPlaying) {
+			trainerManager.pause();
+		} else {
+			await trainerManager.start();
+		}
 	}
 
-	async function handleClickOnRandom() {
-		isRandomClicked = !isRandomClicked;
-		trainerManager.setRandomMode(isRandomClicked);
+	function handleClickOnRandom() {
+		const g = get(gameStore) as GameState;
+		trainerManager.setRandomMode(!g.randomMode);
 	}
 
-	async function handleClickOnHide() {
-		isHideClicked = !isHideClicked;
-		trainerManager.setHideDiagram(isHideClicked);
+	function handleClickOnHide() {
+		const g = get(gameStore) as GameState;
+		trainerManager.setHideDiagram(!g.hideDiagram);
 	}
 
 	function handleTempoChange(e: Event) {
 		const value = parseInt((e.target as HTMLInputElement).value);
 		if (!isNaN(value)) {
 			rhythmConfigStore.setTempo(value);
+			const g = get(gameStore) as GameState;
+			if (g.isPlaying) {
+				trainerManager.refreshBeatTempo();
+			}
 		}
 	}
 </script>
@@ -42,9 +46,9 @@
 		<button
 			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
 			on:click={handleClickOnPlay}
-			aria-label={isPlayClicked ? 'Pause' : 'Play'}
+			aria-label={$gameStore.isPlaying ? 'Pause' : 'Play'}
 		>
-			{#if isPlayClicked}
+			{#if $gameStore.isPlaying}
 				<i class="fa-solid fa-pause" aria-hidden="true"></i>
 			{:else}
 				<i class="fa-solid fa-play" aria-hidden="true"></i>
@@ -53,9 +57,9 @@
 		<button
 			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
 			on:click={handleClickOnRandom}
-			aria-label={isRandomClicked ? 'Loop mode' : 'Random mode'}
+			aria-label={$gameStore.randomMode ? 'Loop mode' : 'Random mode'}
 		>
-			{#if isRandomClicked}
+			{#if $gameStore.randomMode}
 				<i class="fa-solid fa-repeat" aria-hidden="true"></i>
 			{:else}
 				<i class="fa-solid fa-shuffle" aria-hidden="true"></i>
@@ -64,9 +68,9 @@
 		<button
 			class="play-button text-slate-600 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
 			on:click={handleClickOnHide}
-			aria-label={isHideClicked ? 'Show diagram' : 'Hide diagram'}
+			aria-label={$gameStore.hideDiagram ? 'Show diagram' : 'Hide diagram'}
 		>
-			{#if isHideClicked}
+			{#if $gameStore.hideDiagram}
 				<i class="fa-solid fa-eye-slash" aria-hidden="true"></i>
 			{:else}
 				<i class="fa-solid fa-eye" aria-hidden="true"></i>
@@ -82,7 +86,6 @@
 		value={$rhythmConfigStore.tempo}
 		on:input={handleTempoChange}
 		class="tempo-slider w-24 accent-slate-500"
-		disabled={isPlayClicked}
 	/>
 	<span class="tempo-value w-16 text-center font-mono text-sm text-slate-600 dark:text-slate-400">
 		{$rhythmConfigStore.tempo} bpm

@@ -10,9 +10,18 @@
     Modal,
     Calibration
   } from '$lib/components';
+  import { get } from 'svelte/store';
   import { chordStore } from '$lib/stores/chords.store';
-  import { gameStore } from '$lib/stores/game.store';
+  import { gameStore, type GameState } from '$lib/stores/game.store';
   import { calibrationModalOpen } from '$lib/stores/calibration.store';
+  import { trainerManager } from '$lib/composition/trainerComposition';
+
+  function openCalibrationModal() {
+    if ((get(gameStore) as GameState).isPlaying) {
+      trainerManager.pause();
+    }
+    calibrationModalOpen.set(true);
+  }
 </script>
 
 <div class="app dark:bg-slate-800">
@@ -47,7 +56,7 @@
     class="calibration-button"
     type="button"
     aria-label="Calibrate timing"
-    on:click={() => calibrationModalOpen.set(true)}
+    on:click={openCalibrationModal}
   >
     <i class="fa-solid fa-sliders" aria-hidden="true"></i>
   </button>

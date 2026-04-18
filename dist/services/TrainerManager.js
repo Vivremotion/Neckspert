@@ -4,6 +4,7 @@ import { groupIntoBars, generateRandomBar } from '../utils/barUtils';
 const COUNTOFF_BEATS = 4;
 const TIMER_INTERVAL_MS = 10;
 const SESSION_DURATION_MS = 5 * 60 * 1000;
+const CHORD_WINDOW_DURATION_MS = 150;
 /**
  * Application service: orchestrates a chord practice session (count-off, beats,
  * chord progression, detection scoring). Depends on ports only (hexagonal).
@@ -20,6 +21,7 @@ export class TrainerManager {
     hasStartedFirstChord = false;
     chordDetectedThisWindow = false;
     chordDetectionElapsed = 0;
+    chordWindowStartMs = 0;
     countoffRemaining = 0;
     timerIntervalId = null;
     sessionTimeoutId = null;
@@ -28,6 +30,8 @@ export class TrainerManager {
     currentChordIndexInBar = 0;
     randomNextBar = null;
     randomCurrentBar = null;
+    /** Mode used for bar/chord advancement; may lag `gameState.randomMode` until the next chord boundary. */
+    progressionRandomMode = false;
     constructor(ports) {
         this.chordsStatePort = ports.chordsState;
         this.gameStatePort = ports.gameState;
@@ -76,6 +80,10 @@ export class TrainerManager {
     setRandomMode(randomMode) {
         this.gameStatePort.setRandomMode(randomMode);
     }
+    /** Apply persisted tempo to the beat source (call while playing after tempo changes). */
+    refreshBeatTempo() {
+        this.beatSourcePort.setTempo(this.gameStatePort.getTempo());
+    }
     setHideDiagram(hideDiagram) {
         this.gameStatePort.setHideDiagram(hideDiagram);
     }
@@ -103,33 +111,8 @@ export class TrainerManager {
         }
     }
     initFirstChord() {
-        const isRandom = this.gameStatePort.getState().randomMode;
-        if (isRandom) {
-            this.randomCurrentBar = generateRandomBar(this.chordsState.chords);
-            this.randomNextBar = generateRandomBar(this.chordsState.chords);
-            this.currentChordIndexInBar = 0;
-            this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar);
-            this.rhythmDisplayPort.setNextBar(this.randomNextBar);
-            const firstChord = this.findChordByName(this.randomCurrentBar.chords[0].name);
-            if (firstChord?.id) {
-                this.chordsStatePort.setCurrentChord(firstChord.id);
-                this.rhythmDisplayPort.setActiveChord(this.randomCurrentBar.chords[0].id);
-            }
-        }
-        else {
-            this.currentBarIndex = 0;
-            this.currentChordIndexInBar = 0;
-            this.bars = groupIntoBars(this.chordsState.chords);
-            const currentBar = this.bars[0];
-            const nextBar = this.bars.length > 1 ? this.bars[1] : this.bars[0];
-            this.rhythmDisplayPort.setCurrentBar(currentBar);
-            this.rhythmDisplayPort.setNextBar(nextBar);
-            const firstChord = this.chordsState.chords[0];
-            if (firstChord?.id) {
-                this.chordsStatePort.setCurrentChord(firstChord.id);
-                this.rhythmDisplayPort.setActiveChord(currentBar?.chords[0]?.id ?? null);
-            }
-        }
+        this.progressionRandomMode = this.gameStatePort.getState().randomMode;
+        this.seedProgressionForMode(this.progressionRandomMode);
         this.beatInChord = 0;
         this.startTimer();
         const currentChord = this.chordsState.currentChord;
@@ -143,11 +126,9 @@ export class TrainerManager {
         const currentChord = this.chordsState.currentChord;
         if (!currentChord)
             return;
-        const chordBeats = getChordBeats(currentChord);
-        const windowDuration = chordBeats * this.beatSourcePort.getSecondsPerBeat() * 1000;
         const calibrationOffset = this.gameStatePort.getCalibrationOffsetMs();
         const effectiveElapsed = Math.max(0, this.chordDetectionElapsed - calibrationOffset);
-        const ratio = Math.max(0, 1 - effectiveElapsed / windowDuration);
+        const ratio = Math.max(0, 1 - effectiveElapsed / CHORD_WINDOW_DURATION_MS);
         const points = Math.round(ratio * 10);
         this.gameStatePort.incrementScore(points);
     }
@@ -155,8 +136,18 @@ export class TrainerManager {
         this.beatInChord = 0;
         this.chordDetectedThisWindow = false;
         this.chordDetectionElapsed = 0;
-        const isRandom = this.gameStatePort.getState().randomMode;
-        if (isRandom) {
+        const desiredRandom = this.gameStatePort.getState().randomMode;
+        if (desiredRandom !== this.progressionRandomMode) {
+            this.progressionRandomMode = desiredRandom;
+            this.seedProgressionForMode(this.progressionRandomMode);
+            this.startTimer();
+            const currentChord = this.chordsState.currentChord;
+            if (currentChord) {
+                this.gameStatePort.updateBeat(0, getChordBeats(currentChord));
+            }
+            return;
+        }
+        if (this.progressionRandomMode) {
             this.advanceRandomMode();
         }
         else {
@@ -168,8 +159,46 @@ export class TrainerManager {
             this.gameStatePort.updateBeat(0, getChordBeats(currentChord));
         }
     }
+    /**
+     * (Re)initializes bar indices and UI for the active random/sequential mode.
+     * Used at session start and when applying a deferred mode switch at a chord boundary.
+     */
+    seedProgressionForMode(isRandom) {
+        if (this.chordsState.chords.length === 0)
+            return;
+        if (isRandom) {
+            this.randomCurrentBar = generateRandomBar(this.chordsState.chords);
+            this.randomNextBar = generateRandomBar(this.chordsState.chords);
+            this.currentChordIndexInBar = 0;
+            this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar);
+            this.rhythmDisplayPort.setNextBar(this.randomNextBar);
+            const firstChord = this.findChordByName(this.randomCurrentBar.chords[0].name);
+            if (firstChord?.id) {
+                this.chordsStatePort.setCurrentChord(firstChord.id);
+                this.rhythmDisplayPort.setActiveChord(this.randomCurrentBar.chords[0].id);
+            }
+        }
+        else {
+            this.bars = groupIntoBars(this.chordsState.chords);
+            this.currentBarIndex = 0;
+            this.currentChordIndexInBar = 0;
+            const currentBar = this.bars[0];
+            const nextBar = this.bars.length > 1 ? this.bars[1] : this.bars[0];
+            this.rhythmDisplayPort.setCurrentBar(currentBar);
+            this.rhythmDisplayPort.setNextBar(nextBar);
+            const firstChord = this.chordsState.chords[0];
+            if (firstChord?.id) {
+                this.chordsStatePort.setCurrentChord(firstChord.id);
+                this.rhythmDisplayPort.setActiveChord(currentBar?.chords[0]?.id ?? null);
+            }
+        }
+    }
     advanceSequentialMode() {
         const currentBar = this.bars[this.currentBarIndex];
+        if (!currentBar) {
+            this.seedProgressionForMode(false);
+            return;
+        }
         this.currentChordIndexInBar++;
         if (this.currentChordIndexInBar >= currentBar.chords.length) {
             this.currentBarIndex = (this.currentBarIndex + 1) % this.bars.length;
@@ -209,7 +238,7 @@ export class TrainerManager {
     findChordByName(name) {
         return this.chordsState.chords.find((c) => `${c.root}${c.quality}` === name);
     }
-    onDetectedHPCP(detectedHPCP) {
+    onDetectedHPCP(detectedHPCP, audioTimestampMs) {
         if (this.expectedHPCP.length === 0 ||
             this.countoffRemaining > 0 ||
             !this.hasStartedFirstChord)
@@ -219,12 +248,13 @@ export class TrainerManager {
         const result = compareHPCP(this.expectedHPCP, detectedHPCP);
         if (result.isSimilar) {
             this.chordDetectedThisWindow = true;
-            this.chordDetectionElapsed = this.gameStatePort.getState().timer;
+            this.chordDetectionElapsed = Math.max(0, audioTimestampMs - this.chordWindowStartMs);
         }
     }
     startTimer() {
         this.clearTimer();
         this.gameStatePort.updateTimer(0);
+        this.chordWindowStartMs = performance.now();
         this.timerIntervalId = setInterval(() => {
             const current = this.gameStatePort.getState().timer;
             this.gameStatePort.updateTimer(current + TIMER_INTERVAL_MS);

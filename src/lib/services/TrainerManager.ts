@@ -54,6 +54,9 @@ export class TrainerManager {
 	private randomNextBar: Bar | null = null;
 	private randomCurrentBar: Bar | null = null;
 
+	/** Mode used for bar/chord advancement; may lag `gameState.randomMode` until the next chord boundary. */
+	private progressionRandomMode = false;
+
 	constructor(ports: TrainerManagerPorts) {
 		this.chordsStatePort = ports.chordsState;
 		this.gameStatePort = ports.gameState;
@@ -114,6 +117,11 @@ export class TrainerManager {
 		this.gameStatePort.setRandomMode(randomMode);
 	}
 
+	/** Apply persisted tempo to the beat source (call while playing after tempo changes). */
+	refreshBeatTempo(): void {
+		this.beatSourcePort.setTempo(this.gameStatePort.getTempo());
+	}
+
 	setHideDiagram(hideDiagram: boolean): void {
 		this.gameStatePort.setHideDiagram(hideDiagram);
 	}
@@ -146,38 +154,8 @@ export class TrainerManager {
 	}
 
 	private initFirstChord(): void {
-		const isRandom = this.gameStatePort.getState().randomMode;
-
-		if (isRandom) {
-			this.randomCurrentBar = generateRandomBar(this.chordsState.chords);
-			this.randomNextBar = generateRandomBar(this.chordsState.chords);
-			this.currentChordIndexInBar = 0;
-
-			this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar);
-			this.rhythmDisplayPort.setNextBar(this.randomNextBar);
-
-			const firstChord = this.findChordByName(this.randomCurrentBar.chords[0].name);
-			if (firstChord?.id) {
-				this.chordsStatePort.setCurrentChord(firstChord.id);
-				this.rhythmDisplayPort.setActiveChord(this.randomCurrentBar.chords[0].id);
-			}
-		} else {
-			this.currentBarIndex = 0;
-			this.currentChordIndexInBar = 0;
-			this.bars = groupIntoBars(this.chordsState.chords);
-
-			const currentBar = this.bars[0];
-			const nextBar = this.bars.length > 1 ? this.bars[1] : this.bars[0];
-
-			this.rhythmDisplayPort.setCurrentBar(currentBar);
-			this.rhythmDisplayPort.setNextBar(nextBar);
-
-			const firstChord = this.chordsState.chords[0];
-			if (firstChord?.id) {
-				this.chordsStatePort.setCurrentChord(firstChord.id);
-				this.rhythmDisplayPort.setActiveChord(currentBar?.chords[0]?.id ?? null);
-			}
-		}
+		this.progressionRandomMode = this.gameStatePort.getState().randomMode;
+		this.seedProgressionForMode(this.progressionRandomMode);
 
 		this.beatInChord = 0;
 		this.startTimer();
@@ -205,9 +183,19 @@ export class TrainerManager {
 		this.chordDetectedThisWindow = false;
 		this.chordDetectionElapsed = 0;
 
-		const isRandom = this.gameStatePort.getState().randomMode;
+		const desiredRandom = this.gameStatePort.getState().randomMode;
+		if (desiredRandom !== this.progressionRandomMode) {
+			this.progressionRandomMode = desiredRandom;
+			this.seedProgressionForMode(this.progressionRandomMode);
+			this.startTimer();
+			const currentChord = this.chordsState.currentChord;
+			if (currentChord) {
+				this.gameStatePort.updateBeat(0, getChordBeats(currentChord));
+			}
+			return;
+		}
 
-		if (isRandom) {
+		if (this.progressionRandomMode) {
 			this.advanceRandomMode();
 		} else {
 			this.advanceSequentialMode();
@@ -220,8 +208,51 @@ export class TrainerManager {
 		}
 	}
 
+	/**
+	 * (Re)initializes bar indices and UI for the active random/sequential mode.
+	 * Used at session start and when applying a deferred mode switch at a chord boundary.
+	 */
+	private seedProgressionForMode(isRandom: boolean): void {
+		if (this.chordsState.chords.length === 0) return;
+
+		if (isRandom) {
+			this.randomCurrentBar = generateRandomBar(this.chordsState.chords);
+			this.randomNextBar = generateRandomBar(this.chordsState.chords);
+			this.currentChordIndexInBar = 0;
+
+			this.rhythmDisplayPort.setCurrentBar(this.randomCurrentBar);
+			this.rhythmDisplayPort.setNextBar(this.randomNextBar);
+
+			const firstChord = this.findChordByName(this.randomCurrentBar.chords[0].name);
+			if (firstChord?.id) {
+				this.chordsStatePort.setCurrentChord(firstChord.id);
+				this.rhythmDisplayPort.setActiveChord(this.randomCurrentBar.chords[0].id);
+			}
+		} else {
+			this.bars = groupIntoBars(this.chordsState.chords);
+			this.currentBarIndex = 0;
+			this.currentChordIndexInBar = 0;
+
+			const currentBar = this.bars[0];
+			const nextBar = this.bars.length > 1 ? this.bars[1] : this.bars[0];
+
+			this.rhythmDisplayPort.setCurrentBar(currentBar);
+			this.rhythmDisplayPort.setNextBar(nextBar);
+
+			const firstChord = this.chordsState.chords[0];
+			if (firstChord?.id) {
+				this.chordsStatePort.setCurrentChord(firstChord.id);
+				this.rhythmDisplayPort.setActiveChord(currentBar?.chords[0]?.id ?? null);
+			}
+		}
+	}
+
 	private advanceSequentialMode(): void {
 		const currentBar = this.bars[this.currentBarIndex];
+		if (!currentBar) {
+			this.seedProgressionForMode(false);
+			return;
+		}
 		this.currentChordIndexInBar++;
 
 		if (this.currentChordIndexInBar >= currentBar.chords.length) {

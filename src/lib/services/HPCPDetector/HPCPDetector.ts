@@ -11,12 +11,27 @@ export class HPCPDetector {
     try {
       if (this.audioContext && this.stream) return console.error('[HPCPDetector]', 'Detection should already be running');
       this.audioContext = new AudioContext();
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request stereo so that both inputs of a multi-input audio interface
+      // are captured as channels 0 and 1 rather than getting only channel 0.
+      // Disable browser processing that degrades instrument signals.
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 2 },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
+      });
       const source = this.audioContext.createMediaStreamSource(this.stream);
       await this.audioContext.audioWorklet.addModule(new URL(detectorProcessorWorkletURL, import.meta.url));
-      const detectorNode = new AudioWorkletNode(this.audioContext, "detector-processor",
-        { processorOptions: {sampleRate: this.audioContext.sampleRate }}
-      );
+      // channelCountMode:'explicit' / channelCount:2 ensures the worklet node
+      // receives up to two channels from the source rather than defaulting to mono.
+      const detectorNode = new AudioWorkletNode(this.audioContext, "detector-processor", {
+        processorOptions: { sampleRate: this.audioContext.sampleRate },
+        channelCount: 2,
+        channelCountMode: 'explicit',
+        channelInterpretation: 'discrete',
+      });
       const gain = this.audioContext.createGain();
       gain.gain.setValueAtTime(0, this.audioContext.currentTime);
       source.connect(detectorNode);

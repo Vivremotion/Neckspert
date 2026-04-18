@@ -26,6 +26,7 @@ export declare class TrainerManager {
     private hasStartedFirstChord;
     private chordDetectedThisWindow;
     private chordDetectionElapsed;
+    private chordWindowStartMs;
     private countoffRemaining;
     private timerIntervalId;
     private sessionTimeoutId;
@@ -34,15 +35,24 @@ export declare class TrainerManager {
     private currentChordIndexInBar;
     private randomNextBar;
     private randomCurrentBar;
+    /** Mode used for bar/chord advancement; may lag `gameState.randomMode` until the next chord boundary. */
+    private progressionRandomMode;
     constructor(ports: TrainerManagerPorts);
     start(): Promise<void>;
     pause(): void;
     setRandomMode(randomMode: boolean): void;
+    /** Apply persisted tempo to the beat source (call while playing after tempo changes). */
+    refreshBeatTempo(): void;
     setHideDiagram(hideDiagram: boolean): void;
     private onBeat;
     private initFirstChord;
     private finalizeChord;
     private advanceToNextChord;
+    /**
+     * (Re)initializes bar indices and UI for the active random/sequential mode.
+     * Used at session start and when applying a deferred mode switch at a chord boundary.
+     */
+    private seedProgressionForMode;
     private advanceSequentialMode;
     private advanceRandomMode;
     private findChordByName;

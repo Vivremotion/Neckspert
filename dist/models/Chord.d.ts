@@ -4,6 +4,7 @@ export declare const DEFAULT_BEATS = 4;
 export interface Chord {
     id?: string;
     root: string;
+    displayRoot?: string;
     quality: string;
     notes: Array<Note>;
     voicing?: string;

@@ -58,17 +58,24 @@ registerProcessor('detector-processor', class extends AudioWorkletProcessor {
   }
 
   process(inputs: AudioData) {
-    if (!inputs[0]?.length) return true;
-    const data = inputs[0][0];
+    const channels = inputs[0];
+    if (!channels?.length) return true;
 
-    for (let i = 0; i < data.length; i++) {
-      const sample = Math.max(-1, Math.min(1, data[i]));
+    const numChannels = channels.length;
+    const frameLength = channels[0].length;
+
+    // Mix all channels down to mono so that any physical input on a
+    // multi-input interface is included — not just channel 0.
+    for (let i = 0; i < frameLength; i++) {
+      let sum = 0;
+      for (let ch = 0; ch < numChannels; ch++) sum += channels[ch][i];
+      const sample = Math.max(-1, Math.min(1, sum / numChannels));
       this.ringBuffer[this.writePos] =
         sample < 0 ? sample * 0x8000 : sample * 0x7fff;
       this.writePos = (this.writePos + 1) % BUFFER_SIZE;
     }
-    this.totalSamplesWritten += data.length;
-    this.samplesSinceLastHop += data.length;
+    this.totalSamplesWritten += frameLength;
+    this.samplesSinceLastHop += frameLength;
 
     if (this.samplesSinceLastHop >= HOP_SIZE && this.totalSamplesWritten >= BUFFER_SIZE) {
       this.samplesSinceLastHop = 0;
