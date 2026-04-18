@@ -55,7 +55,6 @@ export declare class TrainerManager {
     private seedProgressionForMode;
     private advanceSequentialMode;
     private advanceRandomMode;
-    private findChordByName;
     private onDetectedHPCP;
     private startTimer;
     private clearTimer;

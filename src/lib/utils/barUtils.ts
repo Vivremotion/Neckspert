@@ -1,12 +1,16 @@
-import type { Chord } from '$lib/models';
-import { getChordBeats, getChordDuration } from '$lib/models';
-import type { NoteDuration } from '$lib/models';
+import type { ChordInstance } from '$lib/domain/music';
+import { durationToBeats } from '$lib/domain/music';
+import type { NoteDuration } from '$lib/domain/music';
 
 export interface BarChord {
+	/** Stable ID of the source ChordInstance. */
 	id: string;
+	/** Display label: root + quality (e.g. "Dm"). */
 	name: string;
 	duration: NoteDuration;
 	beats: number;
+	/** Direct reference to the source instance, used in random mode to avoid name-based lookup. */
+	instanceRef: ChordInstance;
 }
 
 export interface Bar {
@@ -16,24 +20,28 @@ export interface Bar {
 
 export const BEATS_PER_BAR = 4;
 
-export function chordToBarChord(chord: Chord): BarChord {
+export function instanceToBarChord(instance: ChordInstance): BarChord {
+	const { voicing, duration } = instance;
+	const beats = durationToBeats(duration);
+	const name = `${voicing.chord.root}${voicing.chord.quality}`;
 	return {
-		id: chord.id!,
-		name: `${chord.root}${chord.quality}`,
-		duration: getChordDuration(chord),
-		beats: getChordBeats(chord)
+		id: instance.id,
+		name,
+		duration,
+		beats,
+		instanceRef: instance
 	};
 }
 
-export function groupIntoBars(chords: Chord[], beatsPerBar = BEATS_PER_BAR): Bar[] {
-	if (chords.length === 0) return [];
+export function groupIntoBars(instances: ChordInstance[], beatsPerBar = BEATS_PER_BAR): Bar[] {
+	if (instances.length === 0) return [];
 
 	const bars: Bar[] = [];
 	let currentBarChords: BarChord[] = [];
 	let currentBeats = 0;
 
-	for (const chord of chords) {
-		const bc = chordToBarChord(chord);
+	for (const instance of instances) {
+		const bc = instanceToBarChord(instance);
 
 		if (currentBeats + bc.beats > beatsPerBar && currentBarChords.length > 0) {
 			bars.push({ chords: currentBarChords, totalBeats: currentBeats });
@@ -58,26 +66,28 @@ export function groupIntoBars(chords: Chord[], beatsPerBar = BEATS_PER_BAR): Bar
 	return bars;
 }
 
-export function findBarIndexForChord(bars: Bar[], chordId: string): number {
-	return bars.findIndex((bar) => bar.chords.some((c) => c.id === chordId));
+export function findBarIndexForChord(bars: Bar[], instanceId: string): number {
+	return bars.findIndex((bar) => bar.chords.some((c) => c.id === instanceId));
 }
 
-export function findChordIndexInBar(bar: Bar, chordId: string): number {
-	return bar.chords.findIndex((c) => c.id === chordId);
+export function findChordIndexInBar(bar: Bar, instanceId: string): number {
+	return bar.chords.findIndex((c) => c.id === instanceId);
 }
 
 export function generateRandomBar(
-	availableChords: Chord[],
+	availableInstances: ChordInstance[],
 	beatsPerBar = BEATS_PER_BAR
 ): Bar {
 	const barChords: BarChord[] = [];
 	let remaining = beatsPerBar;
 
-	while (remaining > 0 && availableChords.length > 0) {
-		const chord = availableChords[Math.floor(Math.random() * availableChords.length)];
-		const bc = chordToBarChord(chord);
+	while (remaining > 0 && availableInstances.length > 0) {
+		const instance =
+			availableInstances[Math.floor(Math.random() * availableInstances.length)];
+		const bc = instanceToBarChord(instance);
 
 		if (bc.beats <= remaining) {
+			// Give the bar chord a fresh id so it can be independently tracked
 			barChords.push({ ...bc, id: crypto.randomUUID() });
 			remaining -= bc.beats;
 		} else {
@@ -85,9 +95,10 @@ export function generateRandomBar(
 		}
 	}
 
-	if (barChords.length === 0 && availableChords.length > 0) {
-		const chord = availableChords[Math.floor(Math.random() * availableChords.length)];
-		const bc = chordToBarChord(chord);
+	if (barChords.length === 0 && availableInstances.length > 0) {
+		const instance =
+			availableInstances[Math.floor(Math.random() * availableInstances.length)];
+		const bc = instanceToBarChord(instance);
 		barChords.push({ ...bc, id: crypto.randomUUID() });
 	}
 

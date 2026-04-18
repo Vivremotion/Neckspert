@@ -7,6 +7,6 @@ export interface DetectionThresholds {
 }
 
 export const DEFAULT_DETECTION_THRESHOLDS: DetectionThresholds = {
-	similarityThreshold: 0.85,
+	similarityThreshold: 0.75,
 	differenceThreshold: 0.1
 };

@@ -2,26 +2,19 @@ import { get } from 'svelte/store';
 import type { ChordsStatePort, ChordsStateSnapshot } from '$lib/application/ports/ChordsStatePort';
 import type { GameStatePort, GameStateSnapshot } from '$lib/application/ports/GameStatePort';
 import type { RhythmDisplayPort } from '$lib/application/ports/RhythmDisplayPort';
-import { chordStore } from '$lib/stores/chords.store';
+import { progressionStore } from '$lib/stores/chords.store';
 import { gameStore, rhythmConfigStore } from '$lib/stores/game.store';
 import { rhythmDisplayStore } from '$lib/stores/rhythmDisplay.store';
 import { calibrationDataStore } from '$lib/stores/calibration.store';
 
-function toChordsSnapshot(state: { chords: unknown[]; currentChord?: unknown }): ChordsStateSnapshot {
-	return {
-		chords: state.chords as ChordsStateSnapshot['chords'],
-		currentChord: state.currentChord as ChordsStateSnapshot['currentChord']
-	};
-}
-
 export function createChordsStateAdapter(): ChordsStatePort {
 	return {
 		subscribe(listener) {
-			listener(toChordsSnapshot(get(chordStore)));
-			return chordStore.subscribe((state) => listener(toChordsSnapshot(state)));
+			listener(get(progressionStore));
+			return progressionStore.subscribe((state) => listener(state));
 		},
 		setCurrentChord(id) {
-			chordStore.setCurrentChord(id);
+			progressionStore.setCurrentInstance(id);
 		}
 	};
 }

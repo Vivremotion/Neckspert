@@ -11,7 +11,7 @@
     Calibration
   } from '$lib/components';
   import { get } from 'svelte/store';
-  import { chordStore } from '$lib/stores/chords.store';
+  import { progressionStore } from '$lib/stores/chords.store';
   import { gameStore, type GameState } from '$lib/stores/game.store';
   import { calibrationModalOpen } from '$lib/stores/calibration.store';
   import { trainerManager } from '$lib/composition/trainerComposition';
@@ -32,7 +32,7 @@
     <ChordCombobox />
     <div class="chord-section">
       <ChordProgressionContainer />
-      {#if $chordStore?.chords?.length}
+      {#if $progressionStore?.instances?.length}
         <PlayCommands />
       {/if}
     </div>
@@ -42,8 +42,8 @@
       {/if}
       {#if $gameStore.isPlaying}
         <RhythmDisplay />
-      {:else if $chordStore?.currentChord}
-        <ChordDisplayer chord={$chordStore?.currentChord} />
+      {:else if $progressionStore?.currentInstance}
+        <ChordDisplayer instance={$progressionStore?.currentInstance} />
       {/if}
     </div>
     {#if ($gameStore.score > 0 || $gameStore.isPlaying) && $gameStore.countdown <= 0}

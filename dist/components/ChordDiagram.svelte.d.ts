@@ -1,4 +1,4 @@
-import type { Chord } from '../models';
+import type { Voicing } from '../domain/music';
 interface $$__sveltets_2_IsomorphicComponent<Props extends Record<string, any> = any, Events extends Record<string, any> = any, Slots extends Record<string, any> = any, Exports = {}, Bindings = string> {
     new (options: import('svelte').ComponentConstructorOptions<Props>): import('svelte').SvelteComponent<Props, Events, Slots> & {
         $$bindings?: Bindings;
@@ -13,7 +13,7 @@ interface $$__sveltets_2_IsomorphicComponent<Props extends Record<string, any> =
     z_$$bindings?: Bindings;
 }
 declare const ChordDiagram: $$__sveltets_2_IsomorphicComponent<{
-    chord: Chord;
+    voicing: Voicing;
 }, {
     [evt: string]: CustomEvent<any>;
 }, {}, {}, string>;

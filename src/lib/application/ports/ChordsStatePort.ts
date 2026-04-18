@@ -1,14 +1,14 @@
-import type { Chord } from '$lib/models';
+import type { ChordInstance } from '$lib/domain/music';
 
 export interface ChordsStateSnapshot {
-	readonly chords: Chord[];
-	readonly currentChord?: Chord;
+	readonly instances: ChordInstance[];
+	readonly currentInstance?: ChordInstance;
 }
 
 /**
- * Driven port: provides chord progression state and allows setting the current chord.
+ * Driven port: provides progression state and allows setting the current instance.
  */
 export interface ChordsStatePort {
 	subscribe(listener: (state: ChordsStateSnapshot) => void): void;
-	setCurrentChord(chordId: string): void;
+	setCurrentChord(instanceId: string): void;
 }

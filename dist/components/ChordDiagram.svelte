@@ -1,9 +1,10 @@
 <!-- src/lib/components/ChordDiagram.svelte -->
 <script lang="ts">
-	import type { Chord, Note } from '../models';
-	import { calculateInterval, getDisplayNoteName } from '../utils/musicTheory';
+	import type { Voicing } from '../domain/music';
+	import type { Position } from '../domain/music';
+	import { getDisplayPitchName, CHROMATIC_NOTES } from '../domain/music';
 
-	export let chord: Chord;
+	export let voicing: Voicing;
 
 	// SVG dimensions and spacing
 	const width = 240;
@@ -14,37 +15,55 @@
 	const leftMargin = 45;
 	const dotRadius = 12;
 
+	// Interval abbreviations (semitone distance from root)
+	const INTERVAL_NAMES: Record<number, string> = {
+		0: 'R', 1: 'm2', 2: 'M2', 3: 'm3', 4: '3',
+		5: '4', 6: 'TT', 7: '5', 8: 'm6', 9: 'M6', 10: '7', 11: 'M7'
+	};
+
+	function calculateInterval(pitchName: string): string {
+		const rootIndex = CHROMATIC_NOTES.indexOf(voicing.chord.root);
+		const noteIndex = CHROMATIC_NOTES.indexOf(pitchName as typeof CHROMATIC_NOTES[number]);
+		const dist = (noteIndex - rootIndex + 12) % 12;
+		return INTERVAL_NAMES[dist] ?? pitchName;
+	}
+
 	// Calculate fret range
-	$: frettedNotes = chord.notes.filter((n) => n.fret > 0);
-	$: minFret = Math.min(...chord.notes.map((n) => n.fret || 0));
-	$: maxFret = Math.max(...chord.notes.map((n) => n.fret || 0));
+	$: frettedPositions = voicing.positions.filter((p) => p.fret > 0);
+	$: minFret = Math.min(...voicing.positions.map((p) => p.fret || 0));
+	$: maxFret = Math.max(...voicing.positions.map((p) => p.fret || 0));
 	$: fretRange = maxFret - minFret;
 	$: displayedFrets = Math.max(4, fretRange);
 
-	// Get all strings that should be marked with an X (not played)
+	// Strings not present in voicing are muted
 	$: mutedStrings = [1, 2, 3, 4, 5, 6].filter(
-		(string) => !chord.notes.some((note) => note.string === string)
+		(s) => !voicing.positions.some((p) => p.string === s)
 	);
 
-	// Get all notes playing an open string (fret is falsy, even if that should not happen)
-	$: openStringNotes = chord.notes.filter((note) => !note.fret);
+	// Open string positions
+	$: openPositions = voicing.positions.filter((p) => !p.fret);
 
-	// State for hover effects
-	let hoveredNote: Note | null = null;
+	// Hovering state
+	let hoveredPosition: Position | null = null;
 
-	// Helper functions
 	function getStringX(string: number): number {
-		// Remember string 1 is rightmost
 		return leftMargin + (6 - string) * stringSpacing;
 	}
 
 	function getFretY(fret: number): number {
 		const relativePosition = fret - minFret;
-		return topMargin + relativePosition * fretSpacing + (minFret === 0 ? (-fretSpacing / 2) : (fretSpacing / 2));
+		return topMargin + relativePosition * fretSpacing + (minFret === 0 ? -fretSpacing / 2 : fretSpacing / 2);
 	}
 
-	function isRoot(note: Note): boolean {
-		return note.name === chord.root;
+	function isRoot(pos: Position): boolean {
+		const pitch = voicing.pitches[voicing.positions.indexOf(pos)];
+		return pitch === voicing.chord.root;
+	}
+
+	function getPitchAt(pos: Position): string {
+		const idx = voicing.positions.indexOf(pos);
+		const pitch = voicing.pitches[idx];
+		return getDisplayPitchName(pitch, voicing.displayRoot);
 	}
 </script>
 
@@ -67,7 +86,7 @@
 		/>
 	{/each}
 
-	<!-- Horizontal lines (frets, +1 for the last at the bottom) -->
+	<!-- Horizontal lines (frets) -->
 	{#each Array(displayedFrets + 1) as _, i}
 		<line
 			x1={getStringX(6)}
@@ -79,7 +98,7 @@
 		/>
 	{/each}
 
-	<!-- Muted strings (X) -->
+	<!-- Muted strings (×) -->
 	{#each mutedStrings as string}
 		<text
 			x={getStringX(string)}
@@ -91,51 +110,51 @@
 	{/each}
 
 	<!-- Open strings (○) -->
-	{#each openStringNotes as note}
+	{#each openPositions as pos}
 		<g
-      on:mouseenter={() => (hoveredNote = note)}
-      on:mouseleave={() => (hoveredNote = null)}>
+			on:mouseenter={() => (hoveredPosition = pos)}
+			on:mouseleave={() => (hoveredPosition = null)}
+		>
 			<circle
-				cx={getStringX(note.string)}
+				cx={getStringX(pos.string)}
 				cy={topMargin / 2}
 				r={dotRadius}
 				class="open-string fill-transparent stroke-2 stroke-slate-800 dark:stroke-slate-300"
-				class:root={isRoot(note)}
+				class:root={isRoot(pos)}
 			/>
-			<text x={getStringX(note.string)} y={topMargin / 2} class="note-name text-l fill-slate-800 dark:fill-slate-300">
-				{hoveredNote?.string === note.string
-					? calculateInterval(chord.root, hoveredNote.name)
-					: getDisplayNoteName(note.name, chord.displayRoot)}
+			<text x={getStringX(pos.string)} y={topMargin / 2} class="note-name text-l fill-slate-800 dark:fill-slate-300">
+				{hoveredPosition === pos ? calculateInterval(getPitchAt(pos)) : getPitchAt(pos)}
 			</text>
 		</g>
 	{/each}
 
 	<!-- Fretted notes (●) -->
-	{#each frettedNotes as note}
+	{#each frettedPositions as pos}
 		<g
-      on:mouseenter={() => (hoveredNote = note)}
-      on:mouseleave={() => (hoveredNote = null)}>
+			on:mouseenter={() => (hoveredPosition = pos)}
+			on:mouseleave={() => (hoveredPosition = null)}
+		>
 			<circle
-				cx={getStringX(note.string)}
-				cy={getFretY(note.fret)}
+				cx={getStringX(pos.string)}
+				cy={getFretY(pos.fret)}
 				r={dotRadius}
 				class="fretted-note fill-slate-800 dark:fill-slate-300"
-				class:root={isRoot(note)}
+				class:root={isRoot(pos)}
 			/>
-			<text x={getStringX(note.string)} y={getFretY(note.fret)} class="note-name fill-slate-300 dark:fill-slate-800">
-				{hoveredNote === note ? calculateInterval(chord.root, note.name) : getDisplayNoteName(note.name, chord.displayRoot)}
+			<text x={getStringX(pos.string)} y={getFretY(pos.fret)} class="note-name fill-slate-300 dark:fill-slate-800">
+				{hoveredPosition === pos ? calculateInterval(getPitchAt(pos)) : getPitchAt(pos)}
 			</text>
 		</g>
 	{/each}
 
 	<!-- Finger numbers -->
-	{#each chord.notes.filter((n) => n.finger !== undefined && n.fret !== 0) as note}
+	{#each voicing.positions.filter((p) => p.finger !== undefined && p.fret !== 0) as pos}
 		<text
-			x={getStringX(note.string)}
+			x={getStringX(pos.string)}
 			y={topMargin * 1.5 + displayedFrets * fretSpacing}
 			class="finger-number text-xl fill-slate-800 dark:fill-slate-300"
 		>
-			{note.finger}
+			{pos.finger}
 		</text>
 	{/each}
 </svg>

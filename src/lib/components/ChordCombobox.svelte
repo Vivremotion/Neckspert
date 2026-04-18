@@ -1,29 +1,30 @@
 <script lang="ts">
-	import { chordStore } from '$lib/stores/chords.store';
-	import { searchChords } from '$lib/utils/chordUtils';
+	import { progressionStore } from '$lib/stores/chords.store';
+	import { searchVoicings } from '$lib/domain/music';
 	import ChordDiagram from '$lib/components/ChordDiagram.svelte';
+	import type { Voicing } from '$lib/domain/music';
 
 	let searchTerm = '';
 	let isOpen = false;
 	let selectedIndex = -1;
 	let dropdownElement: HTMLDivElement;
-	let previewChord: Chord | null = null;
+	let previewVoicing: Voicing | null = null;
 
-	$: matchingChords = searchChords(searchTerm);
+	$: matchingVoicings = searchVoicings(searchTerm);
 
-	function handleSelect(chord: Chord) {
+	function handleSelect(voicing: Voicing) {
 		searchTerm = '';
 		isOpen = false;
 		selectedIndex = -1;
-		chordStore.addChord(chord);
+		progressionStore.addInstance(voicing);
 	}
 
-	function handleMouseEnter(chord: Chord) {
-		previewChord = chord;
+	function handleMouseEnter(voicing: Voicing) {
+		previewVoicing = voicing;
 	}
 
 	function handleMouseLeave() {
-		previewChord = null;
+		previewVoicing = null;
 	}
 
 	function handleFocus(): void {
@@ -35,8 +36,7 @@
 		selectedIndex = -1;
 	}
 
-	// Reset selectedIndex when filtered items change
-	$: if (matchingChords) {
+	$: if (matchingVoicings) {
 		selectedIndex = -1;
 	}
 </script>
@@ -58,17 +58,17 @@
 		role="combobox"
 	/>
 
-	{#if isOpen && matchingChords.length > 0}
+	{#if isOpen && matchingVoicings.length > 0}
 		<div
 			class="results-container bg-slate-200 shadow-md shadow-slate-200 dark:bg-slate-700 dark:shadow-slate-900"
 			bind:this={dropdownElement}
 			role="listbox"
 		>
 			<div class="chord-list">
-				{#if matchingChords.length === 0}
+				{#if matchingVoicings.length === 0}
 					<div class="dropdown-item no-results dark:text-slate-300">No results found</div>
 				{:else}
-					{#each matchingChords as chord, index}
+					{#each matchingVoicings as voicing, index}
 						<div
 							class="dropdown-item
             border-none bg-slate-100
@@ -76,24 +76,24 @@
             hover:bg-slate-300 dark:bg-slate-600
             dark:text-slate-200 dark:hover:bg-slate-700"
 							class:selected={index === selectedIndex}
-							on:mouseenter={() => handleMouseEnter(chord)}
+							on:mouseenter={() => handleMouseEnter(voicing)}
 							on:mouseleave={handleMouseLeave}
-							on:mousedown={() => handleSelect(chord)}
+							on:mousedown={() => handleSelect(voicing)}
 							role="option"
 							tabindex={index}
 							aria-selected={index === selectedIndex}
 						>
-							{chord.displayRoot ?? chord.root}{chord.quality} ({chord.voicing} shape)
+							{voicing.displayRoot ?? voicing.chord.root}{voicing.chord.quality} ({voicing.shape.label})
 						</div>
 					{/each}
 				{/if}
 			</div>
-			{#if previewChord}
+			{#if previewVoicing}
 				<div
 					class="preview-diagram-wrapper bg-slate-100 shadow-md
            shadow-slate-200 dark:bg-slate-600 dark:shadow-slate-900"
 				>
-					<ChordDiagram chord={previewChord} />
+					<ChordDiagram voicing={previewVoicing} />
 				</div>
 			{/if}
 		</div>

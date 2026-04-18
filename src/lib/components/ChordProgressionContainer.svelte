@@ -1,6 +1,6 @@
 <!-- src/components/ChordProgressionContainer.svelte -->
 <script lang="ts">
-	import { chordStore } from '$lib/stores/chords.store.js';
+	import { progressionStore } from '$lib/stores/chords.store.js';
 	import { gameStore } from '$lib/stores/game.store.js';
 	import { ChordProgressionItem } from './index.ts';
 
@@ -12,10 +12,9 @@
 	}
 
 	function handleDrop(e: DragEvent) {
-		// e.preventDefault();
 		const fromIndex = parseInt(e.dataTransfer?.getData('text/plain') || '-1');
 		if (draggedOverIndex !== null && fromIndex !== -1) {
-			chordStore.reorderChords(fromIndex, draggedOverIndex);
+			progressionStore.reorderInstances(fromIndex, draggedOverIndex);
 		}
 		draggedOverIndex = null;
 	}
@@ -24,10 +23,10 @@
 		draggedOverIndex = null;
 	}
 
-  function handleClick(e: MouseEvent, id: string) {
-    e.preventDefault();
-    chordStore.setCurrentChord(id);
-  }
+	function handleClick(e: MouseEvent, id: string) {
+		e.preventDefault();
+		progressionStore.setCurrentInstance(id);
+	}
 </script>
 
 <div
@@ -37,10 +36,18 @@
 	on:dragleave={handleDragLeave}
 	role="list"
 >
-	{#each $chordStore?.chords as { id, root, displayRoot, quality='', duration }, index}
+	{#each $progressionStore?.instances as instance, index}
+		{@const { id, voicing, duration } = instance}
+		{@const name = (voicing.displayRoot ?? voicing.chord.root) + voicing.chord.quality}
 		<div class="chord-slot" on:dragover={(e) => handleDragOver(e, index)} on:click={(e) => handleClick(e, id)} role="listitem">
-			<ChordProgressionItem {id} name={(displayRoot ?? root)+quality} {index} {duration} isCurrent={$gameStore.isPlaying && id === $chordStore.currentChord?.id} />
-			{#if index < $chordStore.chords.length - 1}
+			<ChordProgressionItem
+				{id}
+				{name}
+				{index}
+				{duration}
+				isCurrent={$gameStore.isPlaying && id === $progressionStore.currentInstance?.id}
+			/>
+			{#if index < $progressionStore.instances.length - 1}
 				<div class="separator bg-slate-400"></div>
 			{/if}
 		</div>
@@ -57,17 +64,16 @@
 		justify-content: center;
 		align-items: flex-start;
 	}
-  .chord-slot {
-    display: flex;
-    align-items: center;
-  }
+	.chord-slot {
+		display: flex;
+		align-items: center;
+	}
 	.separator {
 		width: 2px;
 		height: 80px;
 		margin-left: 16px;
 	}
-	
-	/* Responsive design for small screens */
+
 	@media (max-width: 768px) {
 		.chord-container {
 			flex-direction: row;
@@ -75,13 +81,12 @@
 			gap: 12px;
 			padding: 12px;
 		}
-		
+
 		.separator {
-			display: none; /* Hide separators on small screens for cleaner layout */
+			display: none;
 		}
 	}
-	
-	/* Extra small screens */
+
 	@media (max-width: 480px) {
 		.chord-container {
 			gap: 8px;

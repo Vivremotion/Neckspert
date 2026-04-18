@@ -1,8 +1,8 @@
 <!-- src/lib/components/ChordProgressionItem.svelte -->
 <script lang="ts">
-	import { chordStore } from '../stores/chords.store.js';
-	import { DEFAULT_DURATION, cycleNoteValue, NOTE_LABELS } from '../models';
-	import type { NoteDuration } from '../models';
+	import { progressionStore } from '../stores/chords.store.js';
+	import { DEFAULT_DURATION, cycleNoteValue, NOTE_LABELS } from '../domain/music';
+	import type { NoteDuration } from '../domain/music';
 	import NoteSymbol from './NoteSymbol.svelte';
 
 	export let id: string;
@@ -25,18 +25,18 @@
 
 	function handleClickRemove(e: Event) {
 		e.stopPropagation();
-		chordStore.removeChord(id);
+		progressionStore.removeInstance(id);
 	}
 
 	function cycleValue(e: Event) {
 		e.stopPropagation();
 		const next = cycleNoteValue(duration.value);
-		chordStore.setChordDuration(id, { ...duration, value: next });
+		progressionStore.setInstanceDuration(id, { ...duration, value: next });
 	}
 
 	function toggleDot(e: Event) {
 		e.stopPropagation();
-		chordStore.setChordDuration(id, { ...duration, dotted: !duration.dotted });
+		progressionStore.setInstanceDuration(id, { ...duration, dotted: !duration.dotted });
 	}
 </script>
 
