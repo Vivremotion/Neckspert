@@ -75,11 +75,19 @@ Plusieurs sessions courtes par jour. Chaque session enchaîne trois temps :
 
 Une position apprise dans une session reçoit son premier contrôle à froid dans une session suivante. Le bouton de l'accueil s'active quand une révision est due ou qu'un apprentissage est possible ; sinon, il affiche l'heure de la prochaine révision, et le jeu libre reste ouvert. Les chiffres sont des valeurs de départ, à calibrer.
 
+### Progression
+
+- **Positionnement** : la toute première session balaie le manche à froid, sans aide, en mode 1. Les positions déjà retrouvées sous le seuil de rappel direct sautent l'apprentissage et passent directement en révision. Elle donne le premier chiffre de rétention.
+- **Ensembles** : une corde et trois notes, puis une corde et douze notes, puis une note sur plusieurs cordes, puis tout le manche. L'ensemble suivant s'ouvre quand environ 80 % de l'ensemble en cours est acquis.
+- **Mode 2** : s'ouvre ensemble par ensemble, une fois l'ensemble acquis en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
+- **Modes 3 à 5** : s'ouvrent sur un pourcentage du manche maîtrisé, à définir avec ces modes.
+
 ### Terminologie
 
 - **À froid / à chaud** : premier essai d'une position après un délai / essais suivants.
 - **Verdicts** : Parfait, En avance, En retard, Mauvaise note (Perfect, Early, Late, Wrong note).
-- **Maîtrisé** : voir Product Purpose.
+- **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage. Ouvre l'ensemble suivant.
+- **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.
 - **Noms des notes** : toujours en lettres (C, D, E…), dans les deux langues. Les notes altérées apparaissent sous les deux formes (F# ou Gb), tirées au hasard, et les deux sont acceptées en réponse.
 - **Langue de l'interface** : bilingue, français et anglais.
 
@@ -92,7 +100,6 @@ Une position apprise dans une session reçoit son premier contrôle à froid dan
 
 ### Décisions ouvertes
 
-- **Niveaux et déblocage** : structure des niveaux et règles de déblocage des modes.
 - **Renversements (mode 3)** : HPCP reconnaît les notes de l'accord, pas la note à la basse ni le groupe de cordes joué.
 - **Reconnaissance de la corde au timbre** (inharmonicité) : expérience possible plus tard, avec calibration par guitare et interface audio. D'abord en simple signalement dans les statistiques, sans effet sur le verdict.
 - **Nom définitif.** « Neckspert Play » est le nom de travail.
