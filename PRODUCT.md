@@ -37,7 +37,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Mains prises, loin de l'écran.** Le guitariste tient sa guitare, à 60 cm à 1 m de l'écran. Il ne peut pas manipuler l'interface pendant une série.
 - **Tous les écrans**, du téléphone à l'ordinateur de bureau.
 - **Entrée audio.** Guitare branchée sur une interface audio, recommandée. Le micro de l'appareil est toléré, avec une détection moins fiable.
-- **Contrôles.** Un grand bouton tactile ou cliquable entre les séries, et la barre d'espace sur un clavier. Pas de prise en charge de pédale.
+- **Contrôles.** Un grand bouton tactile ou cliquable entre les séries, et la barre d'espace sur un clavier. Pas de prise en charge de pédale. Exception : en mode 2, la réponse se donne à l'écran avec de grands boutons.
 - **Plusieurs sessions courtes par jour**, au milieu d'une pratique beaucoup plus longue. L'application reste minoritaire dans la pratique quotidienne.
 - **Contexte pédagogique**, qui alimente les modes avancés : le professeur donne des renversements, des grilles et des tonalités d'improvisation qui changent d'un cours à l'autre. Les modes 3 à 5 ne sont pas liés à ces exemples.
 
@@ -46,7 +46,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 ### Modes
 
 1. **Localisation** (nom vers position) : « F, corde de B », à jouer sur le temps.
-2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La note jouée confirme la position, la réponse nommée est vérifiée.
+2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La guitare ne sert pas : la réponse se donne en touchant ou cliquant le nom parmi douze grands boutons, les mêmes sur tous les appareils. Les notes altérées portent les deux formes (F# / Gb). Le premier bouton touché est la réponse. Le temps est mesuré de l'affichage de la consigne au toucher. Ce mode suppose d'être à portée de l'écran.
 3. **Renversements** : produire un renversement donné, pour n'importe quel accord et groupe de cordes. Après la réponse, afficher les notes attendues et le degré porté par chaque corde (fondamentale, tierce, quinte).
 4. **Ascension** : sur une grille programmable, chaque accord plus haut que le précédent, attaque sur le temps, sans rupture de pulsation ; puis la descente.
 5. **Boss musical** : backing track dans une tonalité donnée, notes cibles sur les changements d'accord, puis improvisation libre.
@@ -57,7 +57,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 
 - **La première note jouée est la réponse.** Aucune correction après une fausse note.
 - **Visualiser avant de jouer.** La consigne arrive avant la cible (par exemple deux mesures), mains immobiles, puis la note doit tomber sur le temps.
-- **Seuil mémoire contre calcul** : environ 1 à 1,5 s. En dessous, rappel direct ; au-delà, calcul.
+- **Seuil mémoire contre calcul** : environ 1 à 1,5 s. En dessous, rappel direct ; au-delà, calcul. Seuil à calibrer séparément pour le mode 2, où la réponse passe par l'écran.
 - **Enregistrer les confusions**, pas seulement les échecs (F# joué à la place de F : erreur d'une case, donc de calcul).
 - **Progression par petits ensembles** : une corde et trois notes, puis une corde et douze notes, puis une note sur plusieurs cordes, puis tout le manche.
 - **Retrait progressif de l'aide** : position affichée, puis nom seul, puis accord seul.
@@ -84,7 +84,6 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Niveaux et déblocage** : structure des niveaux et règles de déblocage des modes.
 - **Session du jour** : déroulé exact.
 - **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur de hauteur ne sait pas sur quelle corde elle a été jouée.
-- **Réponse nommée du mode 2** : comment le guitariste donne le nom de la note, mains prises et sans petit bouton.
 - **Nom définitif.** « Neckspert Play » est le nom de travail.
 
 ## Brand Commitments
@@ -110,5 +109,5 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 ## Accessibility & Inclusion
 
 - Consignes lisibles à 60 cm – 1 m, sur tous les formats d'écran.
-- Aucune interaction fine pendant une série ; cibles larges entre les séries, barre d'espace au clavier.
+- Aucune interaction fine pendant une série ; cibles larges entre les séries et pour les réponses du mode 2, barre d'espace au clavier.
 - Chaque verdict reste compréhensible sans la couleur.
