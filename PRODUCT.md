@@ -106,7 +106,7 @@ Une position apprise dans une session reçoit son premier contrôle à froid dan
 
 ## Brand Commitments
 
-- **Famille Neckspert.** Produit frère de Neckspert (`~/Development/Neckspert`), avec lequel il partage le nom et l'identité de famille. Nom de travail : Neckspert Play.
+- **Famille Neckspert.** Produit frère de Neckspert (`~/Development/Neckspert`), avec lequel il partage le nom. Neckspert n'a pas d'identité visuelle propre (Tailwind par défaut) : l'univers visuel de Neckspert Play devient celui de la famille, que Neckspert pourra adopter plus tard. Nom de travail : Neckspert Play.
 - **Pas de gamification générique** : ni points d'expérience, ni séries quotidiennes culpabilisantes. La récompense, c'est le progrès mesuré.
 - **Rhythm Doctor** est la référence d'expérience : gratifiant et utile à la fois.
 

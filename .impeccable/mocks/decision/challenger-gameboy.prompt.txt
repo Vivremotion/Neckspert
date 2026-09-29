@@ -1,0 +1,17 @@
+North-star UI comp, landscape 16:9 desktop web screenshot, flat and front-on (no device, no laptop, no photo, no perspective): the PLAY SCREEN of the web app "Neckspert Play" during a series, first viewport, read from 1 m by a guitarist whose hands are on the guitar.
+
+STRUCTURE, in order:
+1. Viewport: 16:9. A single portrait-ish 160x144 pixel game frame (10:9 ratio) integer-scaled (about 6x) and centred, filling almost the full viewport height. The left and right letterbox bands outside the frame are flat solid #0F380F ink, empty, with a thin 1-pixel-scaled #306230 border hugging the frame. Nothing else outside the frame: no nav, no logo, no score, no buttons.
+2. Inside the frame, ground #9BBC0F, everything locked to an 8x8 tile grid (20 tiles wide, 18 tiles tall), crisp hard square pixels, no anti-aliasing, no blur.
+   a. Top window (rows 1-3, full width): a text window with a 1-tile double-line pixel border in #0F380F. Left, in an 8x8 pixel cap font: "MESURE 2/2". Right: "TEMPS 3/4" followed by four small square beat pips, the first three filled #0F380F, the fourth hollow. Between them, a small 8x8 pixel heart sprite in #0F380F with #306230 shading, drawn mid-beat (slightly enlarged frame of a 2-frame pulse).
+   b. Centre (rows 4-13), the consigne, the largest thing on screen by far: the letter "F" drawn as a giant blocky pixel glyph built from whole 8x8 tiles, about 8 tiles tall, solid #0F380F with a one-tile drop shadow in #306230 and a checkerboard dither band in #8BAC0F behind it. Directly beneath it, centred, in the 8x8 pixel cap font at double scale: "corde de B" in #0F380F. It must read instantly at 1 m.
+   c. Bottom window (rows 14-18, full width): the last verdict shown as an INVERTED box: solid #0F380F rectangle flush to tile boundaries, text in #9BBC0F. Left, large pixel font: "PARFAIT". Right, smaller pixel font, two lines: "+12 ms" and "0,84 s". A thin #306230 inner border inside the inverted box.
+3. Midtone #8BAC0F used for a subtle 2x2 checker dither panel texture in the empty areas of the centre window, never as a gradient.
+
+PALETTE, strictly four colours and nothing else: #9BBC0F ground, #8BAC0F midtone, #306230 shade, #0F380F ink. Any fifth tone only as a checkerboard dither of two of these. Hierarchy only through border boxes, scale of pixel type, and inversion.
+
+TEXT on screen, exactly and only: "MESURE 2/2", "TEMPS 3/4", "F", "corde de B", "PARFAIT", "+12 ms", "0,84 s". French interface. No other words, no numbers beyond these.
+
+STYLE: original four-shade handheld LCD screen aesthetic rendered as clean digital pixel art, 8x8 tiles, integer pixel scaling, flat colour, sprites readable at postage-stamp size. Craft bar of a polished digital design canon piece.
+
+AVOID: guitar gear imagery (wood, picks, amps, flames, drawn fretboard or strings), neon glow, bloom, CRT scanlines, gradients, confetti, badges, stars, XP, score, streaks, menus, navigation, device bezel, buttons with brand names, any colour outside the four greens.

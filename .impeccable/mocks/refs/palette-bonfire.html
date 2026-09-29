@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Palette Bonfire</title>
+<style>
+  body { margin: 0; padding: 32px; background: #1E1B1B; color: #eee; font: 15px/1.4 system-ui, sans-serif; }
+  h1 { font-size: 20px; margin: 0 0 24px; }
+  .row { display: grid; grid-template-columns: 360px 1fr 1fr; gap: 32px; align-items: start; }
+  .photo img { width: 100%; display: block; border-radius: 4px; }
+  h2 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
+  .swatches { display: flex; gap: 8px; margin-bottom: 16px; }
+  .sw { flex: 1; }
+  .sw div { height: 56px; border-radius: 2px; }
+  .sw span { display: block; font: 12px ui-monospace, monospace; margin-top: 4px; color: #ccc; }
+
+  .measured { --ground: #E99568; --mid: #BE6754; --shade: #813B2A; --ink: #451218; }
+  .rendered { --ground: #F5A865; --mid: #DC783C; --shade: #9A3A1E; --ink: #3C0606; }
+
+  .screen {
+    aspect-ratio: 10 / 9; background: var(--ground); border: 4px solid var(--ink);
+    display: grid; grid-template-rows: auto 1fr auto; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 800; color: var(--ink);
+  }
+  .top { margin: 8px; border: 4px double var(--ink); padding: 4px 8px; display: flex; justify-content: space-between; font-size: 13px; }
+  .pips { letter-spacing: 2px; }
+  .field {
+    display: grid; place-items: center; align-content: center; gap: 4px;
+    background-image: repeating-conic-gradient(var(--mid) 0 25%, var(--ground) 0 50%);
+    background-size: 8px 8px; margin: 0 8px;
+  }
+  .note { font-size: 150px; line-height: 1; text-shadow: 8px 8px 0 var(--shade); }
+  .string { font-size: 30px; background: var(--ground); padding: 0 6px; }
+  .verdict { margin: 8px; padding: 4px; background: var(--shade); display: grid; grid-template-columns: 1fr auto; gap: 4px; }
+  .verdict > * { background: var(--ink); color: var(--ground); }
+  .verdict b { font-size: 26px; padding: 8px 12px; }
+  .verdict small { font-size: 14px; padding: 6px 12px; line-height: 1.3; }
+
+  .states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 12px; font: 800 12px ui-monospace, monospace; text-align: center; }
+  .states div { padding: 8px 4px; }
+  .s-perfect { background: var(--ink); color: var(--ground); }
+  .s-early { background: var(--ground); color: var(--ink); outline: 3px solid var(--ink); outline-offset: -3px; }
+  .s-late { background: var(--ground); color: var(--ink); outline: 3px dashed var(--ink); outline-offset: -3px; }
+  .s-wrong { background: repeating-conic-gradient(var(--ink) 0 25%, var(--shade) 0 50%) 0 0 / 6px 6px; }
+  .s-wrong span { background: var(--ink); color: var(--ground); padding: 2px 4px; }
+  p.caption { color: #ccc; font-size: 13px; margin: 10px 0 0; }
+</style>
+</head>
+<body>
+<h1>Palette Bonfire : mesurée sur la guitare, et telle que rendue sur la maquette</h1>
+<div class="row">
+  <div class="photo">
+    <h2>Référence</h2>
+    <img src="guitar-bonfire-red.png" alt="Corps de la Strandberg Boden Bonfire Red">
+  </div>
+
+  <div class="measured">
+    <h2>A · Mesurée sur la photo</h2>
+    <div class="swatches">
+      <div class="sw"><div style="background:#E99568"></div><span>fond #E99568</span></div>
+      <div class="sw"><div style="background:#BE6754"></div><span>moyen #BE6754</span></div>
+      <div class="sw"><div style="background:#813B2A"></div><span>ombre #813B2A</span></div>
+      <div class="sw"><div style="background:#451218"></div><span>encre #451218</span></div>
+    </div>
+    <div class="screen">
+      <div class="top"><span>MESURE 2/2</span><span>♥</span><span>TEMPS 3/4 <span class="pips">■■■□</span></span></div>
+      <div class="field"><div class="note">F</div><div class="string">corde de B</div></div>
+      <div class="verdict"><b>PARFAIT</b><small>+12 ms<br>0,84 s</small></div>
+    </div>
+    <div class="states">
+      <div class="s-perfect">PARFAIT</div><div class="s-early">EN AVANCE</div><div class="s-late">EN RETARD</div><div class="s-wrong"><span>MAUVAISE</span></div>
+    </div>
+    <p class="caption">Photo mate : tons plus doux et plus rosés.</p>
+  </div>
+
+  <div class="rendered">
+    <h2>B · Rendue sur la maquette</h2>
+    <div class="swatches">
+      <div class="sw"><div style="background:#F5A865"></div><span>fond #F5A865</span></div>
+      <div class="sw"><div style="background:#DC783C"></div><span>moyen #DC783C</span></div>
+      <div class="sw"><div style="background:#9A3A1E"></div><span>ombre #9A3A1E</span></div>
+      <div class="sw"><div style="background:#3C0606"></div><span>encre #3C0606</span></div>
+    </div>
+    <div class="screen">
+      <div class="top"><span>MESURE 2/2</span><span>♥</span><span>TEMPS 3/4 <span class="pips">■■■□</span></span></div>
+      <div class="field"><div class="note">F</div><div class="string">corde de B</div></div>
+      <div class="verdict"><b>PARFAIT</b><small>+12 ms<br>0,84 s</small></div>
+    </div>
+    <div class="states">
+      <div class="s-perfect">PARFAIT</div><div class="s-early">EN AVANCE</div><div class="s-late">EN RETARD</div><div class="s-wrong"><span>MAUVAISE</span></div>
+    </div>
+    <p class="caption">Plus chaude et plus saturée, plus proche d'une guitare au soleil.</p>
+  </div>
+</div>
+</body>
+</html>

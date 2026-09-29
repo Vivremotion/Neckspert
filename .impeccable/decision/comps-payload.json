@@ -1,0 +1,37 @@
+{
+  "title": "Choisir la composition de l'écran de jeu",
+  "question": "Trois compositions dans l'univers Game Boy Bonfire. Laquelle construire ? Dis aussi ce qui doit rester et ce qui sonne faux.",
+  "options": [
+    {
+      "id": "comp-1-letterbox",
+      "label": "1 · Cadre fixe",
+      "thesis": "Le cadre Game Boy au centre, la consigne au milieu, le verdict en bandeau inversé.",
+      "palette": ["#E99568", "#BE6754", "#813B2A", "#451218", "#1E1B1B"],
+      "materials": ["cadre 10:9 centré", "bandes noires", "tramage de fond"],
+      "viewport": "Temps en haut, « F » géant et « corde de B » au centre, verdict inversé en bas.",
+      "risk": "Les bandes noires perdent un tiers de l'écran ; le temps reste un petit compteur.",
+      "comp": ".impeccable/mocks/comp-1-letterbox.png"
+    },
+    {
+      "id": "comp-2-tile-lane",
+      "label": "2 · Chemin de tuiles",
+      "thesis": "Le temps devient visible : deux mesures de tuiles défilent vers la ligne d'arrivée, et la note y arrive sur le temps.",
+      "palette": ["#E99568", "#BE6754", "#813B2A", "#451218", "#1E1B1B"],
+      "materials": ["cadre 10:9 centré", "piste de tuiles", "cœur qui bat sur la ligne"],
+      "viewport": "Consigne en haut, piste de huit tuiles plus la tuile cible en bas, avec la ligne d'arrivée à gauche.",
+      "risk": "La piste peut attirer l'œil vers l'écran au lieu de la guitare ; la maquette place mal la ligne d'arrivée.",
+      "comp": ".impeccable/mocks/comp-2-tile-lane.png"
+    },
+    {
+      "id": "comp-3-full-bleed",
+      "label": "3 · Plein cadre",
+      "thesis": "La grille couvre tout l'écran : consigne à gauche, verdict en grand sprite à droite, dernières tentatives en bas.",
+      "palette": ["#E99568", "#BE6754", "#813B2A", "#451218"],
+      "materials": ["grille plein écran", "sprites de verdict", "bandeau des dernières tentatives"],
+      "viewport": "Temps en haut, « F » à gauche, verdict « En retard » avec sa flèche à droite, huit sprites en bas.",
+      "risk": "Plus dense ; le dernier sprite de la maquette est une flèche vers le bas au lieu de la droite.",
+      "comp": ".impeccable/mocks/comp-3-full-bleed.png"
+    }
+  ],
+  "steer": true
+}
