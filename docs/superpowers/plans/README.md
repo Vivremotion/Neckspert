@@ -34,12 +34,14 @@ Chemin critique : P0 → H (le plus long de la vague 1) → I2 ou J → K.
 | E | `src/lib/infrastructure/audio/clock/**`, `src/lib/infrastructure/audio/cues/**` |
 | F | `src/lib/infrastructure/audio/detection/**`, `src/routes/diagnostic/**` |
 | G | `src/lib/infrastructure/audio/calibration/**` |
-| H | `src/lib/ui/**` (sauf `src/lib/ui/screens/**`), `src/routes/session/**`, `src/routes/+layout.svelte`, `static/fonts/**`, `DESIGN.md`, `.impeccable/**` |
+| H | `src/lib/ui/**` (sauf `src/lib/ui/screens/**`), `src/routes/session/**`, `src/routes/+layout.svelte`, `static/fonts/**`, `DESIGN.md`, et le monde déjà posé sous `.impeccable/` (brief de session, maquette `comp-4`, état de build de l'écran de jeu) |
 | I1 | `src/routes/+page.svelte`, `src/routes/summary/**`, `src/routes/map/**`, `src/lib/ui/screens/home/**`, `src/lib/ui/screens/summary/**`, `src/lib/ui/screens/map/**`, `src/routes/dev/home/**`, `src/routes/dev/summary/**`, `src/routes/dev/map/**` |
 | I2 | `src/lib/ui/play/answer/**`, `src/routes/dev/identify/**`, modifications de `src/lib/ui/play/PlayScreen.svelte` (fusionné en vague 1) |
 | I3 | `src/routes/calibration/**`, `src/routes/settings/**`, `src/lib/ui/screens/calibration/**`, `src/lib/ui/screens/settings/**`, `src/routes/dev/calibration/**`, `src/routes/dev/settings/**` |
 | J | `src/lib/application/session/**` sauf `contract.ts`, `src/lib/application/services/**` |
 | K | `src/lib/composition/**`, modifications de `src/routes/+layout.svelte`, suppression des routes `src/routes/dev/**` du build de production si nécessaire |
+
+I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impeccable/surfaces/`, `.impeccable/mocks/` et `.impeccable/review/`, dans des fichiers nommés d'après leur écran. Ils ne modifient pas `DESIGN.md`, le brief de session, `comp-4-full-bleed-lane.png`, les jetons ni les primitives. `.impeccable/build/state.json` est unique : deux plans ne lancent pas `build-phase` en même temps.
 
 ## Décisions de produit fixées pour les plans
 
@@ -146,14 +148,15 @@ export const MASTERY_ACCURACY = 0.9;
 export const MASTERY_SESSIONS = 3;
 export const MASTERY_MIN_GAP_MS = 72 * 60 * 60 * 1000;
 export const NEXT_SESSION_GAP_MS = 2 * 60 * 60 * 1000;
+/** Reviews and placement only. Learning and free play keep the temperature stamped on the plan (`hot`): a first learning attempt has no previous attempt, so this function would call it cold. */
 export function classifyTemperature(input: { lastAttemptAt: number | null; attemptedInSession: boolean; now: number }): Temperature;
 export function leadForThreshold(tempoBpm: number): LeadBeats; // longest step whose duration ≤ RECALL_THRESHOLD_MS, at least 1
 export function introduceCard(target: Target, now: number, sessionId: string): CardState; // New state, due = now + MIN_COLD_DELAY_MS, leadBeats 8 (identify: 1)
 /** `history`: every attempt of this card, oldest first, `attempt` included. */
-export function applyColdAttempt(state: CardState, attempt: Attempt, history: readonly Attempt[], now: number): CardState;
+export function applyColdAttempt(state: CardState, attempt: Attempt, history: readonly Attempt[], now: number, tempoBpm: number): CardState;
 export function placementCard(target: LocateTarget, attempt: Attempt, now: number, sessionId: string, tempoBpm: number): CardState | null;
-export function isAcquired(state: CardState, history: readonly Attempt[]): boolean;
-export function isMastered(history: readonly Attempt[]): boolean;
+export function isAcquired(state: CardState, history: readonly Attempt[], tempoBpm: number): boolean;
+export function isMastered(history: readonly Attempt[], tempoBpm: number): boolean;
 export function cardStatus(state: CardState | undefined): CardStatus;
 export function unlockedSets(curriculum: Curriculum, cards: readonly CardState[]): CurriculumSet[];
 export function nextNewTargets(curriculum: Curriculum, cards: readonly CardState[], count: number): Target[];
@@ -203,7 +206,10 @@ Le métronome n'utilise un minuteur que pour réveiller l'ordonnanceur ; tous le
 export class WebAudioNoteDetector implements NoteDetectorPort { constructor(context: () => AudioContext, options?: Partial<DetectorConfig>) }
 export interface DetectorConfig { minMidi: number; maxMidi: number; clarityThreshold: number; onsetRatio: number; minRms: number; cooldownMs: number; windowSize: number }
 export const DEFAULT_DETECTOR_CONFIG: DetectorConfig; // guitare : minMidi 40, maxMidi 88
-export function frequencyToMidi(frequencyHz: number): Midi;
+/** Continuous MIDI (A4 = 440 Hz → 69), so cents are 100 × (frequencyToMidi(f) − rounded). */
+export function frequencyToMidi(frequencyHz: number): number;
+/** Rounded and clamped to [minMidi, maxMidi]. This is the MIDI stored on a NoteOnset. */
+export function midiFromFrequency(frequencyHz: number, minMidi: number, maxMidi: number): Midi;
 export class OnsetDetector { constructor(config: DetectorConfig, sampleRate: number); /** Returns the onset time (audio s) or null. */ push(frame: Float32Array, frameTime: number): number | null }
 export function estimatePitch(samples: Float32Array, sampleRate: number, clarityThreshold: number): { frequencyHz: number; clarity: number } | null;
 /** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
@@ -217,14 +223,14 @@ Capture par `AudioWorklet` (le processeur transmet des blocs avec l'heure audio 
 ```ts
 export interface CalibrationConfig { bpm: number; hitsNeeded: number; maxSpreadMs: number; noSoundBeats: number }
 export const DEFAULT_CALIBRATION_CONFIG: CalibrationConfig; // 80 bpm, 10 frappes, dispersion max 40 ms, abandon après 32 temps sans son
-/** Median offset and median absolute deviation, after dropping offsets farther than half a beat. */
+/** Median offset and median absolute deviation of the offsets it receives. Null when the spread exceeds maxSpreadMs. */
 export function computeCalibration(offsetsMs: readonly number[], maxSpreadMs: number): { offsetMs: number; spreadMs: number } | null;
 export class CalibrationService implements CalibrationPort {
 	constructor(deps: { clock: AudioClockPort; metronome: MetronomePort; detector: NoteDetectorPort; deviceId: () => Promise<string | null> }, config?: Partial<CalibrationConfig>);
 }
 ```
 
-Le guitariste joue une corde étouffée ou une note sur chaque clic. L'écart est mesuré entre l'attaque brute et le temps le plus proche. Le service n'enregistre rien ; l'écran (I3) enregistre l'écart dans les réglages.
+Le guitariste joue une corde étouffée ou une note sur chaque clic. L'écart est mesuré entre l'attaque brute et le temps annoncé le plus proche. Le service écarte les attaques à plus d'un demi-temps de tout temps annoncé, puis passe les écarts retenus à `computeCalibration`. Il n'enregistre rien ; l'écran (I3) enregistre l'écart dans les réglages.
 
 ### H — Écran de jeu et système visuel (`src/lib/ui/`, `src/routes/session/`)
 
