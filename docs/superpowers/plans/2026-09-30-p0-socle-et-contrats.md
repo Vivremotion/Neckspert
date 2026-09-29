@@ -328,23 +328,6 @@ describe('cardKey', () => {
 		expect(() => parseCardKey('play:2:F')).toThrow();
 	});
 });
-
-describe('isDirectRecall', () => {
-	it('requires a correct answer at or under the threshold', () => {
-		expect(isDirectRecall({ correct: true, reactionMs: RECALL_THRESHOLD_MS })).toBe(true);
-		expect(isDirectRecall({ correct: true, reactionMs: RECALL_THRESHOLD_MS + 1 })).toBe(false);
-		expect(isDirectRecall({ correct: false, reactionMs: 400 })).toBe(false);
-		expect(isDirectRecall({ correct: true, reactionMs: null })).toBe(false);
-	});
-});
-
-describe('median', () => {
-	it('returns the middle value, or the mean of the two middle values', () => {
-		expect(median([])).toBeNull();
-		expect(median([900, 300, 600])).toBe(600);
-		expect(median([400, 100, 300, 200])).toBe(250);
-	});
-});
 ```
 
 - [ ] **Step 2: Lancer le test pour vérifier qu'il échoue**
@@ -1064,7 +1047,7 @@ git commit -m "feat: add play session contract, app services and i18n"
 - Consumes: ports de Task 4, types de Task 3.
 - Produces:
   - `FakeClock implements AudioClockPort` : `time` (s), `epochAtZero` (ms), `advance(seconds: number): void`.
-  - `FakeMetronome implements MetronomePort` : `constructor(clock: FakeClock, beatsPerBar = 4)`, `flush(): void` émet tous les temps dont l'heure audio est passée.
+  - `FakeMetronome implements MetronomePort` : `constructor(clock: FakeClock, beatsPerBar = 4, lookaheadS = 0.1)`, `flush(): void` émet tous les temps dont l'heure audio est au plus `lookaheadS` après l'heure courante, comme le vrai métronome. `setTempo` lève une erreur pendant la marche, comme le vrai.
   - `FakeNoteDetector implements NoteDetectorPort` : `running`, `deviceId`, `emitNote(onset: NoteOnset): void`, `emitLevel(rms: number): void`.
   - `FakeSoundCues implements SoundCuePort` : `played: { verdict: Verdict; time: number | undefined }[]`.
   - `InMemoryAttemptRepository`, `InMemoryCardStateRepository`, `InMemorySessionRepository`, `InMemorySettingsRepository` qui implémentent les ports de dépôt.
@@ -1113,13 +1096,19 @@ describe('FakeMetronome', () => {
 		metronome.setTempo(120);
 		metronome.start(1);
 
-		clock.advance(1.6);
+		clock.advance(1.45);
 		metronome.flush();
 
 		expect(beats.map((b) => b.index)).toEqual([0, 1]);
 		expect(beats[1].time).toBeCloseTo(1.5);
 		expect(beats[0].isDownbeat).toBe(true);
 		expect(metronome.beatTime(4)).toBeCloseTo(3);
+	});
+
+	it('refuses a tempo change while running', () => {
+		const metronome = new FakeMetronome(new FakeClock());
+		metronome.start(0);
+		expect(() => metronome.setTempo(100)).toThrow();
 	});
 });
 
@@ -1226,12 +1215,15 @@ export class FakeMetronome implements MetronomePort {
 	private lastEmitted = -1;
 	private readonly listeners = new Set<(beat: BeatEvent) => void>();
 
+	/** `lookaheadS` mirrors the real scheduler: beats are announced up to that far before their time. */
 	constructor(
 		private readonly clock: FakeClock,
-		private readonly beatsPerBar = 4
+		private readonly beatsPerBar = 4,
+		private readonly lookaheadS = 0.1
 	) {}
 
 	setTempo(bpm: number): void {
+		if (this.isRunning()) throw new Error('Cannot change tempo while running');
 		this.bpm = bpm;
 	}
 
@@ -1266,10 +1258,10 @@ export class FakeMetronome implements MetronomePort {
 		return () => this.listeners.delete(callback);
 	}
 
-	/** Emits every beat whose audio time has passed. */
+	/** Emits every beat whose audio time is within the lookahead of the clock. */
 	flush(): void {
 		if (this.firstBeatTime === null) return;
-		while (this.beatTime(this.lastEmitted + 1) <= this.clock.now()) {
+		while (this.beatTime(this.lastEmitted + 1) <= this.clock.now() + this.lookaheadS) {
 			this.lastEmitted++;
 			const beat: BeatEvent = {
 				index: this.lastEmitted,

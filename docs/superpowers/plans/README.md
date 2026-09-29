@@ -36,16 +36,17 @@ Chemin critique : P0 → H (le plus long de la vague 1) → I2 ou J → K.
 | G | `src/lib/infrastructure/audio/calibration/**` |
 | H | `src/lib/ui/**` (sauf `src/lib/ui/screens/**`), `src/routes/session/**`, `src/routes/+layout.svelte`, `static/fonts/**`, `DESIGN.md`, `.impeccable/**` |
 | I1 | `src/routes/+page.svelte`, `src/routes/summary/**`, `src/routes/map/**`, `src/lib/ui/screens/home/**`, `src/lib/ui/screens/summary/**`, `src/lib/ui/screens/map/**`, `src/routes/dev/home/**`, `src/routes/dev/summary/**`, `src/routes/dev/map/**` |
-| I2 | `src/lib/ui/play/answer/**`, modifications de `src/lib/ui/play/PlayScreen.svelte` (fusionné en vague 1) |
+| I2 | `src/lib/ui/play/answer/**`, `src/routes/dev/identify/**`, modifications de `src/lib/ui/play/PlayScreen.svelte` (fusionné en vague 1) |
 | I3 | `src/routes/calibration/**`, `src/routes/settings/**`, `src/lib/ui/screens/calibration/**`, `src/lib/ui/screens/settings/**`, `src/routes/dev/calibration/**`, `src/routes/dev/settings/**` |
 | J | `src/lib/application/session/**` sauf `contract.ts`, `src/lib/application/services/**` |
 | K | `src/lib/composition/**`, modifications de `src/routes/+layout.svelte`, suppression des routes `src/routes/dev/**` du build de production si nécessaire |
 
 ## Décisions de produit fixées pour les plans
 
-- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible. Paliers `LEAD_STEPS = [8, 4, 2, 1]`. Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid. Le rappel direct correspond à une réussite avec une annonce de 1,5 s au plus.
+- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible. Paliers `LEAD_STEPS = [8, 4, 2, 1]`. Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid.
+- **Rappel direct** : en mode 1, une réponse juste dont la durée d'annonce (`leadBeats × 60 000 / tempo`) est au plus `RECALL_THRESHOLD_MS`. Le temps de réaction du mode 1 inclut l'annonce, il ne mesure donc pas le rappel : à 80 bpm, une annonce de 2 temps (1 500 ms) est un rappel direct même si la note tombe 10 ms après le temps, une annonce de 4 temps n'en est pas un. En mode 2 (`leadBeats` null), une réponse juste dont `reactionMs` est au plus `RECALL_THRESHOLD_MS`.
 - **Temps de réaction** : de l'affichage de la consigne à la réponse (attaque corrigée de la latence en mode 1, toucher en mode 2).
-- **Verdict du mode 1** : mauvaise hauteur ou pas de réponse dans la fenêtre → `wrong`. Hauteur juste : `|écart| ≤ PERFECT_WINDOW_MS` → `perfect`, en avance au-delà → `early`, en retard au-delà → `late`.
+- **Verdict du mode 1** : mauvaise hauteur ou pas de réponse dans la fenêtre → `wrong`. Hauteur juste : `|écart| ≤ PERFECT_WINDOW_MS` (80 ms) → `perfect`, en avance au-delà → `early`, en retard au-delà → `late`. 80 ms est le plancher technique (détection et gigue d'ordonnancement) : la fenêtre ne descend pas en dessous, et jouer sur le temps veut dire dans cette fenêtre.
 - **Verdict du mode 2** : nom juste et temps de réaction ≤ `RECALL_THRESHOLD_MS` → `perfect` ; nom juste mais plus lent → `late` ; nom faux → `wrong`. `early` n'existe pas en mode 2.
 - **Fenêtre de réponse du mode 1** : de l'affichage de la consigne au temps cible + `LATE_LIMIT_MS`. La première note détectée dans la fenêtre est la réponse ; les suivantes sont ignorées.
 - **Session du jour** : révisions à froid dues (au plus `DAILY_COLD_CAP`), puis apprentissage à chaud de `NEW_PER_SESSION` nouvelles cibles avec aide, répétées jusqu'à réussite, sauté si fatigue. Bilan ensuite. Les cibles du mode 1 passent avant celles du mode 2 dans une même session.
@@ -53,10 +54,18 @@ Chemin critique : P0 → H (le plus long de la vague 1) → I2 ou J → K.
 - **Curriculum** : cordes dans l'ordre 6, 5, 4, 3, 2, 1. Pour chaque corde : ensemble `a` = les trois notes des cases 3, 5 et 7 ; ensemble `b` = les neuf autres. Chaque ensemble du mode 2 (mêmes notes, cases 0 à 11) exige l'ensemble correspondant du mode 1. Chaque ensemble du mode 1 exige le précédent. Un ensemble s'ouvre quand `UNLOCK_RATIO` (80 %) des cartes de l'ensemble exigé sont acquises.
 - **Acquis** : au moins une réussite en rappel direct, à froid, dans une session postérieure à la session d'introduction (ou en positionnement).
 - **Maîtrisé** : sur les tentatives à froid, au moins 90 % en rappel direct ; au moins trois sessions distinctes avec une réussite en rappel direct ; au moins 72 h entre les deux dernières sessions réussies.
-- **Fatigue** : sur les tentatives de la session, au moins 12 réponses, et, entre les 6 premières et les 6 dernières, une baisse de précision d'au moins 20 points ou une hausse du temps de réaction médian d'au moins 25 %.
+- **Fatigue** : sur les tentatives de la session, au moins 12 réponses, et, entre les 6 premières et les 6 dernières, une baisse de précision d'au moins 20 points ou une hausse de 25 % du temps de réaction médian. Cette hausse ne regarde que les tentatives du mode 2 : en mode 1, le temps de réaction mesure surtout la durée d'annonce.
 - **Sons** : chaque verdict a un son réservé (`SoundCuePort`).
 - **Univers visuel** : Game Boy aux couleurs de la guitare (contrat : `.impeccable/surfaces/src-routes-session-page-svelte.md`, maquette approuvée : `.impeccable/mocks/comp-4-full-bleed-lane.png`). Quatre tons stricts, verdicts en sprites (rond, flèche gauche, flèche droite, croix).
 - Tous les nombres ci-dessus sont des valeurs de départ, déclarées comme constantes nommées, à calibrer.
+
+## Règles audio partagées
+
+- **Démarrage du métronome** : toujours `metronome.start(clock.now() + 0.1)` au plus tôt. Un temps déjà passé au moment de l'ordonnancement est abandonné (ni clic ni événement).
+- **Événements de temps** : `onBeat` arrive jusqu'à 100 ms avant l'heure du temps. Ne jamais supposer `clock.now() >= beat.time`, et comparer les index avec `>=`, jamais `===`.
+- **Tempo** : on ne change pas le tempo pendant la marche (`setTempo` lève une erreur). Réglage utilisateur entre 60 et 140 bpm ; bornes techniques du métronome 20 à 300.
+- **Pas de fuite du clic dans la détection** : le clic du métronome est une courte rafale de bruit filtré, sans hauteur nette, pour que le détecteur ne la prenne pas pour une note. Les sons de verdict sont brefs (moins de 150 ms) et joués après la réponse.
+- **Entrée audio brute** : le détecteur ouvre l'entrée avec `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`. Avec le micro de l'appareil, l'écran de calibration recommande un casque.
 
 ## Signatures produites par chaque plan
 
@@ -93,7 +102,7 @@ export function placementTargets(): LocateTarget[]; // 72 targets
 ### B — Règles de jeu (`src/lib/domain/scoring/`)
 
 ```ts
-export const PERFECT_WINDOW_MS = 50;
+export const PERFECT_WINDOW_MS = 80;
 export const LATE_LIMIT_MS = 400;
 export interface Judgement {
 	answer: Answer | null;
@@ -119,7 +128,8 @@ export function judgeIdentify(input: {
 	answerTime: number | null;
 	answered: PitchName | null;
 }): Judgement;
-export function isDirectRecall(attempt: Pick<Attempt, 'correct' | 'reactionMs'>): boolean;
+/** Mode 1 (`leadBeats` set): correct and lead duration ≤ RECALL_THRESHOLD_MS. Mode 2 (`leadBeats` null): correct and reactionMs ≤ RECALL_THRESHOLD_MS. */
+export function isDirectRecall(attempt: Pick<Attempt, 'correct' | 'reactionMs' | 'leadBeats'>, tempoBpm: number): boolean;
 /** `attempts` of one session, oldest first. */
 export function detectFatigue(attempts: readonly Attempt[]): boolean;
 // index.ts réexporte tout
@@ -158,7 +168,7 @@ export function buildNeckMap(input: { cards: readonly CardState[]; attempts: rea
 // index.ts réexporte tout
 ```
 
-C utilise `ts-fsrs` (`fsrs`, `createEmptyCard`, `Rating`, `generatorParameters`) et convertit vers `SchedulingState`. C ne dépend pas de A : les courriculums de test sont des fixtures.
+C utilise `ts-fsrs` (`fsrs`, `createEmptyCard`, `Rating`, `generatorParameters`) et convertit vers `SchedulingState`. C ne dépend pas de A : les courriculums de test sont des fixtures. C ne dépend pas de B non plus : il reprend la définition du rappel direct ci-dessus (durée d'annonce en mode 1, `reactionMs` en mode 2), avec le tempo des réglages.
 
 ### D — Stockage (`src/lib/infrastructure/storage/`)
 
