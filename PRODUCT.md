@@ -39,6 +39,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Entrée audio.** Guitare branchée sur une interface audio, recommandée. Le micro de l'appareil est toléré, avec une détection moins fiable.
 - **Contrôles.** Un grand bouton tactile ou cliquable entre les séries, et la barre d'espace sur un clavier. Pas de prise en charge de pédale.
 - **Plusieurs sessions courtes par jour**, au milieu d'une pratique beaucoup plus longue. L'application reste minoritaire dans la pratique quotidienne.
+- **Contexte pédagogique**, qui alimente les modes avancés : le professeur donne des renversements, des grilles et des tonalités d'improvisation qui changent d'un cours à l'autre. Les modes 3 à 5 ne sont pas liés à ces exemples.
 
 ## Capabilities and Constraints
 
@@ -46,9 +47,9 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 
 1. **Localisation** (nom vers position) : « F, corde de B », à jouer sur le temps.
 2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La note jouée confirme la position, la réponse nommée est vérifiée.
-3. **Renversements** : produire un renversement donné. Après la réponse, afficher les notes attendues et le degré porté par chaque corde (fondamentale, tierce, quinte).
+3. **Renversements** : produire un renversement donné, pour n'importe quel accord et groupe de cordes. Après la réponse, afficher les notes attendues et le degré porté par chaque corde (fondamentale, tierce, quinte).
 4. **Ascension** : sur une grille programmable, chaque accord plus haut que le précédent, attaque sur le temps, sans rupture de pulsation ; puis la descente.
-5. **Boss musical** : backing track, notes cibles sur les changements d'accord, puis improvisation libre.
+5. **Boss musical** : backing track dans une tonalité donnée, notes cibles sur les changements d'accord, puis improvisation libre.
 
 **Premier prototype :** modes 1 et 2, répétition espacée, tableau de bord de rétention.
 
