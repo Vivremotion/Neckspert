@@ -58,6 +58,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **La première note jouée est la réponse.** Aucune correction après une fausse note.
 - **Visualiser avant de jouer.** La consigne arrive avant la cible (par exemple deux mesures), mains immobiles, puis la note doit tomber sur le temps.
 - **Seuil mémoire contre calcul** : environ 1 à 1,5 s. En dessous, rappel direct ; au-delà, calcul. Seuil à calibrer séparément pour le mode 2, où la réponse passe par l'écran.
+- **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur ne sait pas laquelle a été jouée. Le mode 1 vérifie la hauteur et l'octave (seules les octaves jouables sur la corde demandée sont acceptées) et fait confiance au guitariste pour la corde.
 - **Enregistrer les confusions**, pas seulement les échecs (F# joué à la place de F : erreur d'une case, donc de calcul).
 - **Progression par petits ensembles** : une corde et trois notes, puis une corde et douze notes, puis une note sur plusieurs cordes, puis tout le manche.
 - **Retrait progressif de l'aide** : position affichée, puis nom seul, puis accord seul.
@@ -92,7 +93,8 @@ Une position apprise dans une session reçoit son premier contrôle à froid dan
 ### Décisions ouvertes
 
 - **Niveaux et déblocage** : structure des niveaux et règles de déblocage des modes.
-- **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur de hauteur ne sait pas sur quelle corde elle a été jouée.
+- **Renversements (mode 3)** : HPCP reconnaît les notes de l'accord, pas la note à la basse ni le groupe de cordes joué.
+- **Reconnaissance de la corde au timbre** (inharmonicité) : expérience possible plus tard, avec calibration par guitare et interface audio. D'abord en simple signalement dans les statistiques, sans effet sur le verdict.
 - **Nom définitif.** « Neckspert Play » est le nom de travail.
 
 ## Brand Commitments
