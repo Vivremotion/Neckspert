@@ -64,6 +64,16 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Le jeu décide quoi travailler.** Les modes se débloquent progressivement.
 - **Temps de jeu illimité, révisions à froid limitées.** Une fois les révisions du jour faites, les autres modes restent ouverts ; ce qui est rejoué à chaud ne compte pas dans la rétention. La fatigue est signalée (baisse de précision, temps de réaction qui s'allonge).
 
+### Session du jour
+
+Plusieurs sessions courtes par jour. Chaque session enchaîne trois temps :
+
+1. **Révisions à froid** : les positions dues selon la répétition espacée, chacune une seule fois, plafonnées à environ 20 consignes (4 à 5 minutes). Seules ces réponses comptent pour la rétention.
+2. **Apprentissage à chaud** : deux ou trois nouvelles positions de l'ensemble en cours, avec l'aide affichée, répétées jusqu'à réussite. Ne compte pas pour la rétention. Sauté si la fatigue apparaît.
+3. **Bilan** : précision et temps médian à froid de la session, puis l'heure conseillée de la prochaine session (par exemple dans 2 h).
+
+Une position apprise dans une session reçoit son premier contrôle à froid dans une session suivante. Le bouton de l'accueil s'active quand une révision est due ou qu'un apprentissage est possible ; sinon, il affiche l'heure de la prochaine révision, et le jeu libre reste ouvert. Les chiffres sont des valeurs de départ, à calibrer.
+
 ### Terminologie
 
 - **À froid / à chaud** : premier essai d'une position après un délai / essais suivants.
@@ -82,7 +92,6 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 ### Décisions ouvertes
 
 - **Niveaux et déblocage** : structure des niveaux et règles de déblocage des modes.
-- **Session du jour** : déroulé exact.
 - **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur de hauteur ne sait pas sur quelle corde elle a été jouée.
 - **Nom définitif.** « Neckspert Play » est le nom de travail.
 
