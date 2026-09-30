@@ -42,9 +42,7 @@
 	);
 	const lanePast = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const laneAhead = $derived(tiles.filter((tile) => tile.offset > 0));
-	const showPause = $derived(
-		view.status === 'idle' || view.status === 'paused' || view.status === 'finished'
-	);
+	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
 
 	const linePct = 30;
 	const tilePct = 6.1;
@@ -175,7 +173,7 @@
 			{/if}
 		</div>
 
-		{#if showPause}
+		{#if showStart}
 			<div class="overlay">
 				{#if view.status === 'finished'}
 					<p class="done">Série terminée</p>
