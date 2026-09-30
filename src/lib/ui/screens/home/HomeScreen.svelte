@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { HomeStats } from '$lib/domain/types';
+	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
 	import { formatRelativeDelay } from './relativeTime';
@@ -49,16 +50,22 @@
 </script>
 
 <section class="home" aria-label="Neckspert Play">
-	<div class="action">
-		<PixelButton size="huge" disabled={!enabled} onclick={onstart}>
-			{buttonLabel}
-		</PixelButton>
-	</div>
-	<div class="stat">
-		<PixelText scale={4}>{reaction}</PixelText>
-		{#if trend}
-			<PixelText scale={1}>{trend}</PixelText>
-		{/if}
+	<div class="cartridge">
+		<PixelBox variant="double">
+			<div class="inner">
+				<div class="action">
+					<PixelButton size="huge" disabled={!enabled} onclick={onstart}>
+						{buttonLabel}
+					</PixelButton>
+				</div>
+				<div class="stat">
+					<PixelText scale={4}>{reaction}</PixelText>
+					{#if trend}
+						<PixelText scale={1}>{trend}</PixelText>
+					{/if}
+				</div>
+			</div>
+		</PixelBox>
 	</div>
 </section>
 
@@ -69,13 +76,26 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: calc(8 * var(--np-tile, 8px));
-		padding: calc(4 * var(--np-tile, 8px));
+		padding: var(--np-space-4, 32px);
+		box-sizing: border-box;
+	}
+
+	.cartridge {
+		width: min(100%, 28rem);
+		animation: imprint 120ms ease-out both;
+	}
+
+	.inner {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-space-8, 64px);
+		padding: var(--np-space-6, 48px) var(--np-space-4, 32px);
 		box-sizing: border-box;
 	}
 
 	.action {
-		width: min(100%, 28rem);
+		width: 100%;
 		display: flex;
 		justify-content: center;
 	}
@@ -84,7 +104,24 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: var(--np-tile, 8px);
+		gap: var(--np-space-1, 8px);
 		font-variant-numeric: tabular-nums;
+	}
+
+	@keyframes imprint {
+		from {
+			transform: scale(0.96);
+			opacity: 0.85;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cartridge {
+			animation: none;
+		}
 	}
 </style>
