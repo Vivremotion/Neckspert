@@ -75,6 +75,13 @@
 	--np-ink: #451218;
 	--np-tile: 8px;
 	--np-font-pixel: 'VT323', sans-serif;
+	/* Roles, capped on a wide window and shrinking with it. The floor stays readable. */
+	--np-type-meta: clamp(18px, 2.2cqi, 24px);
+	--np-type-body: clamp(22px, 3cqi, 32px);
+	--np-type-title: clamp(28px, 4.2cqi, 48px);
+	--np-type-display: clamp(36px, 5.5cqi, 64px);
+	--np-type-prompt: clamp(26px, 4.8cqi, 56px);
+	--np-type-hero: clamp(36px, 9cqi, 96px);
 	--np-space-1: calc(var(--np-tile) * 1);
 	--np-space-2: calc(var(--np-tile) * 2);
 	--np-space-3: calc(var(--np-tile) * 3);
@@ -94,9 +101,7 @@
 html,
 body {
 	margin: 0;
-	width: 1280px;
-	height: 720px;
-	overflow: hidden;
+	min-height: 100%;
 	background: var(--np-bg);
 	color: var(--np-ink);
 	font-family: var(--np-font-pixel);

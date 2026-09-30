@@ -13,7 +13,18 @@ A fifth tone is a checkerboard of two adjacent tones. No other hues.
 
 ## Type
 
-Pixel capitals. The ranked face is Oxanium 700. The prompt letter is drawn as block pixels from the current note, not a baked F.
+One face: VT323, self-hosted, weight 700. Pixel capitals. The prompt letter is drawn as block pixels from the current note, not a baked F.
+
+Roles live in `src/lib/ui/tokens.css`. The 8 px tile is spacing, not a font size. `PixelText` `scale` maps onto these roles:
+
+- `1` meta, 24 px — labels, trend, beat numbers
+- `2` body, 32 px — instructions and buttons
+- `3` title, 48 px — screen titles and the huge button
+- `4` display, 64 px — the one figure
+- prompt 56 px — the string under the letter
+- hero 96 px — a mode-2 prompt such as « case 8 »
+
+Reading text sits on ground (`#E99568`) with ink (`#451218`). A disabled button keeps that pairing; it does not fade.
 
 ## Space
 

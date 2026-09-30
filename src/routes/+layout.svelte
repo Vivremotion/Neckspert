@@ -10,4 +10,17 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-{@render children()}
+<div class="app">
+	{@render children()}
+</div>
+
+<style>
+	.app {
+		box-sizing: border-box;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		min-height: 100dvh;
+		container: app / inline-size;
+	}
+</style>

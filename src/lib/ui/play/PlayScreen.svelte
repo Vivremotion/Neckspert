@@ -190,11 +190,14 @@
 		flex-direction: column;
 		gap: 16px;
 		box-sizing: border-box;
-		width: 1280px;
-		height: 720px;
-		margin: 0;
+		width: 100%;
+		max-width: 1280px;
+		min-width: 0;
+		height: auto;
+		min-height: 100dvh;
+		margin-inline: auto;
 		padding: 8px;
-		overflow: hidden;
+		container: play / inline-size;
 		background-color: var(--np-bg);
 		background-image:
 			linear-gradient(
@@ -217,6 +220,7 @@
 	.stage {
 		display: flex;
 		flex: 1;
+		min-width: 0;
 		min-height: 0;
 		align-items: stretch;
 	}
@@ -229,13 +233,15 @@
 		justify-content: center;
 		gap: 8px;
 		min-width: 0;
+		max-width: 100%;
 		padding: 12px 16px 8px;
+		background: var(--np-bg);
 	}
 
 	.string {
 		margin: 0;
 		color: var(--np-ink);
-		font-size: 56px;
+		font-size: var(--np-type-prompt);
 		line-height: 1;
 		letter-spacing: 0;
 		text-align: center;
@@ -271,7 +277,8 @@
 
 	.verdict {
 		display: flex;
-		flex: 0 0 40%;
+		flex: 1 1 40%;
+		min-width: 0;
 		min-height: 0;
 	}
 
@@ -312,7 +319,7 @@
 		background: var(--np-ink);
 		color: var(--np-bg);
 		border: 4px solid var(--np-ink);
-		font-size: 28px;
+		font-size: var(--np-type-body);
 		padding: 8px 6px;
 		text-transform: uppercase;
 	}
@@ -320,7 +327,8 @@
 	.offset,
 	.reaction {
 		color: var(--np-ink);
-		font-size: 26px;
+		font-size: var(--np-type-meta);
+		font-variant-numeric: tabular-nums;
 		padding-top: 10px;
 	}
 
@@ -330,7 +338,9 @@
 
 	.lane {
 		display: flex;
-		flex: 0 0 228px;
+		flex: 1 1 auto;
+		inline-size: 100%;
+		min-width: 0;
 		min-height: 0;
 	}
 
@@ -345,7 +355,7 @@
 	.measure {
 		align-self: flex-end;
 		margin: 0 0 6px;
-		font-size: 16px;
+		font-size: var(--np-type-meta);
 		line-height: 1;
 	}
 
@@ -354,7 +364,9 @@
 		flex: 1;
 		align-items: flex-end;
 		gap: 8px;
+		min-width: 0;
 		min-height: 0;
+		overflow-x: auto;
 	}
 
 	.tiles {
@@ -372,14 +384,15 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		align-items: stretch;
-		width: 72px;
+		width: clamp(44px, 7cqi, 72px);
+		flex: 0 0 auto;
 	}
 
 	.beat-no {
-		height: 18px;
+		min-height: var(--np-type-meta);
 		text-align: center;
-		font-size: 14px;
-		line-height: 18px;
+		font-size: var(--np-type-meta);
+		line-height: 1;
 	}
 
 	.body {
@@ -444,7 +457,7 @@
 		border: 4px solid var(--np-ink);
 		background: var(--np-bg);
 		color: var(--np-ink);
-		font-size: 36px;
+		font-size: var(--np-type-body);
 		line-height: 1;
 	}
 
@@ -461,7 +474,7 @@
 
 	.done {
 		margin: 0;
-		font-size: 28px;
+		font-size: var(--np-type-body);
 		text-transform: uppercase;
 	}
 
@@ -484,13 +497,7 @@
 		}
 	}
 
-	@media (max-width: 800px) {
-		.play {
-			width: 100%;
-			height: auto;
-			min-height: 100dvh;
-		}
-
+	@container play (max-width: 860px) {
 		.stage {
 			flex-direction: column;
 		}
@@ -501,10 +508,6 @@
 
 		.lane {
 			flex-basis: auto;
-		}
-
-		.string {
-			font-size: 32px;
 		}
 	}
 </style>
