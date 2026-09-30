@@ -123,6 +123,11 @@
 		justify-content: center;
 	}
 
+	.action :global(button) {
+		width: 100%;
+		max-width: 100%;
+	}
+
 	.stat {
 		display: flex;
 		flex-direction: column;

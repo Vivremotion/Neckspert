@@ -60,6 +60,10 @@
 	}
 
 	.map {
+		container: map / inline-size;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
 		min-height: 100dvh;
 		display: flex;
 		flex-direction: column;
@@ -104,18 +108,22 @@
 		flex-direction: column;
 		gap: 2px;
 		width: 100%;
-		overflow-x: auto;
+		max-width: 100%;
+		min-width: 0;
 	}
 
 	.row {
-		display: grid;
-		grid-template-columns: repeat(12, minmax(3rem, 1fr));
+		display: flex;
+		flex-wrap: wrap;
 		gap: 2px;
 	}
 
 	.cell {
 		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink);
-		min-height: 3.5rem;
+		flex: 1 1 4.75rem;
+		min-width: min(100%, 4.75rem);
+		max-width: 100%;
+		min-height: 4.5rem;
 		padding: var(--np-space-1, 8px) 2px;
 		display: flex;
 		flex-direction: column;
@@ -163,8 +171,14 @@
 		color: var(--np-bg);
 	}
 
+	.cell.learning .pitch,
+	.cell.learning .dirs {
+		background: var(--np-bg);
+		color: var(--np-ink);
+	}
+
 	.pitch {
-		font-size: 0.85rem;
+		font-size: var(--np-type-body);
 		text-transform: uppercase;
 	}
 
@@ -172,7 +186,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 2px;
-		font-size: 0.7rem;
+		font-size: var(--np-type-meta);
 		line-height: 1.15;
 		text-transform: uppercase;
 	}
@@ -191,6 +205,13 @@
 	@media (prefers-reduced-motion: reduce) {
 		.map {
 			animation: none;
+		}
+	}
+
+	@container map (min-width: 960px) {
+		.cell {
+			flex-basis: 0;
+			min-width: 0;
 		}
 	}
 </style>

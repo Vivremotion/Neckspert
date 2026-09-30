@@ -133,7 +133,7 @@
 		gap: var(--np-space-2, 16px);
 		width: 100%;
 		box-sizing: border-box;
-		font-variant-numeric: tabular-nums;
+		font-size: var(--np-type-body);
 		font-family: var(--np-font-pixel);
 		font-weight: 700;
 		text-transform: uppercase;
@@ -155,9 +155,9 @@
 
 	.rows strong {
 		flex: 0 0 auto;
-		font-size: 1.25em;
+		font-size: var(--np-type-title);
 		font-variant-numeric: tabular-nums;
-		white-space: nowrap;
+		white-space: normal;
 	}
 
 	.fatigue.alert {
