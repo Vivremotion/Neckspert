@@ -1,0 +1,3 @@
+Autonomous I3 settings structure (Bonfire stacked operate column).
+Seed dealt; no interactive lock — closest to shipped Game Boy play screen.
+build-phase skipped (I1 owns .impeccable/build/state.json).

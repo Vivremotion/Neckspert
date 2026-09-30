@@ -56,9 +56,11 @@
 
 <section class="settings-screen" aria-labelledby="settings-title">
 	<!-- PixelText (H) does not forward id; wrap for aria-labelledby. -->
-	<div id="settings-title">
-		<PixelText as="h1" scale={3}>{m.title}</PixelText>
-	</div>
+	<header class="top">
+		<div id="settings-title">
+			<PixelText as="h1" scale={4}>{m.title}</PixelText>
+		</div>
+	</header>
 
 	<PixelBox variant="double">
 		<p class="label"><PixelText scale={1}>{m.language}</PixelText></p>
@@ -115,21 +117,23 @@
 		</a>
 	</PixelBox>
 
-	<div class="row">
-		<PixelButton size="huge" onclick={onexport}>{m.export}</PixelButton>
-		<PixelButton size="huge" onclick={() => fileInput?.click()}>{m.import}</PixelButton>
-		<input
-			bind:this={fileInput}
-			class="file"
-			type="file"
-			accept="application/json,.json"
-			onchange={onFileChange}
-		/>
-	</div>
+	<PixelBox variant="double">
+		<div class="row">
+			<PixelButton size="huge" onclick={onexport}>{m.export}</PixelButton>
+			<PixelButton size="huge" onclick={() => fileInput?.click()}>{m.import}</PixelButton>
+			<input
+				bind:this={fileInput}
+				class="file"
+				type="file"
+				accept="application/json,.json"
+				onchange={onFileChange}
+			/>
+		</div>
 
-	{#if importError}
-		<p class="error" role="alert"><PixelText scale={1}>{importError}</PixelText></p>
-	{/if}
+		{#if importError}
+			<p class="error" role="alert"><PixelText scale={1}>{importError}</PixelText></p>
+		{/if}
+	</PixelBox>
 
 	{#if confirmingImport}
 		<PixelBox variant="inverted">
@@ -147,9 +151,9 @@
 	.settings-screen {
 		display: flex;
 		flex-direction: column;
-		gap: var(--np-space-2, 16px);
+		gap: var(--np-space-3, 24px);
 		padding: var(--np-space-2, 16px);
-		min-height: 100%;
+		min-height: 100dvh;
 		box-sizing: border-box;
 		background: var(--np-bg, #e99568);
 		color: var(--np-ink, #451218);
@@ -159,6 +163,10 @@
 	.settings-screen ::selection {
 		background: var(--np-ink, #451218);
 		color: var(--np-bg, #e99568);
+	}
+
+	.top {
+		margin-block-end: var(--np-tile, 8px);
 	}
 
 	.label {
