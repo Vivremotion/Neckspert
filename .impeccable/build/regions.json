@@ -1,0 +1,96 @@
+{
+	"regions": [
+		{
+			"id": "field",
+			"kind": "plate",
+			"grid": "A0:G6",
+			"note": "Checkerboard dither behind the prompt"
+		},
+		{
+			"id": "prompt-note",
+			"kind": "text",
+			"grid": "C1:F5",
+			"note": "Giant note F with drop shadow"
+		},
+		{
+			"id": "prompt-string",
+			"kind": "text",
+			"grid": "A5:G7",
+			"note": "String label, corde de B"
+		},
+		{
+			"id": "verdict-box",
+			"kind": "chrome",
+			"grid": "H0:J6",
+			"note": "Double frame around the verdict"
+		},
+		{
+			"id": "verdict-sprite",
+			"kind": "plate",
+			"grid": "H1:J3",
+			"bleed": true,
+			"note": "Late arrow sprite"
+		},
+		{
+			"id": "verdict-banner",
+			"kind": "text",
+			"grid": "H4:J4",
+			"note": "Inverted banner EN RETARD"
+		},
+		{
+			"id": "verdict-offset",
+			"kind": "text",
+			"grid": "H5:J5",
+			"note": "Timing offset +95 ms"
+		},
+		{
+			"id": "verdict-reaction",
+			"kind": "text",
+			"grid": "H6:J6",
+			"note": "Reaction time 1,21 s"
+		},
+		{
+			"id": "lane-bed",
+			"kind": "plate",
+			"grid": "A6:J9",
+			"note": "Lane frame and tile bed"
+		},
+		{
+			"id": "lane-heart",
+			"kind": "chrome",
+			"grid": "D7:D7",
+			"note": "Heart above the finish line"
+		},
+		{
+			"id": "lane-history",
+			"kind": "plate",
+			"grid": "A8:C9",
+			"note": "Played tiles with verdict sprites"
+		},
+		{
+			"id": "lane-finish",
+			"kind": "chrome",
+			"grid": "D8:D9",
+			"note": "Finish line and the tile just left of it"
+		},
+		{
+			"id": "lane-upcoming",
+			"kind": "plate",
+			"grid": "E8:I9",
+			"bleed": true,
+			"note": "Hatched upcoming beat tiles"
+		},
+		{
+			"id": "lane-label",
+			"kind": "text",
+			"grid": "G7:J7",
+			"note": "MESURE 2/2 TEMPS 3/4"
+		},
+		{
+			"id": "lane-target",
+			"kind": "text",
+			"grid": "J8:J9",
+			"note": "Inverted target tile F"
+		}
+	]
+}

@@ -6,7 +6,7 @@
   "direction": "5dc1b320",
   "breakpoint": "1280x720",
   "artifact": null,
-  "phase": "spec",
+  "phase": "plates",
   "phases": {
     "comps": {
       "status": "closed",
@@ -24,17 +24,22 @@
       "forced": null
     },
     "spec": {
-      "status": "open",
+      "status": "closed",
       "openedAt": "2026-09-29T22:07:20.762Z",
-      "closedAt": null,
-      "attempts": 0,
+      "closedAt": "2026-09-30T01:19:27.020Z",
+      "attempts": 2,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "15 regions, 5 plates, 7 text regions measured",
+        "at": "2026-09-30T01:19:27.020Z"
+      },
       "forced": null
     },
     "plates": {
-      "status": "pending",
-      "openedAt": null,
+      "status": "open",
+      "openedAt": "2026-09-30T01:19:27.020Z",
       "closedAt": null,
       "attempts": 0,
       "notes": [],
