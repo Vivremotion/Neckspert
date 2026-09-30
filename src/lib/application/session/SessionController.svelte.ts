@@ -53,7 +53,7 @@ export class SessionController implements PlaySessionController {
 	private latencyMs = 0;
 	private unsubBeat: (() => void) | null = null;
 	private unsubNote: (() => void) | null = null;
-	private earliestPromptBeat = BEATS_PER_BAR;
+	private earliestPromptBeat: number = BEATS_PER_BAR;
 	private current: PlannedItem | null = null;
 	private promptBeatIndex: number | null = null;
 	private targetBeatIndex: number | null = null;
@@ -198,7 +198,11 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'verdict') {
 			if (this.verdictBeatIndex !== null && beat.index >= this.verdictBeatIndex + 1) {
 				this.advanceAfterVerdict();
-				if (this.view.status === 'count-in' && beat.index >= this.earliestPromptBeat) {
+				// advanceAfterVerdict may set count-in or finished; TS cannot track setStatus.
+				if (
+					(this.view.status as PlayView['status']) === 'count-in' &&
+					beat.index >= this.earliestPromptBeat
+				) {
 					this.beginNextItem(beat);
 				}
 			}
