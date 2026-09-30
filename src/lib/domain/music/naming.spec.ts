@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { CHROMATIC_NOTES } from '$lib/domain/music/types';
-import { answerChoiceLabel, formatNote, spellPitch } from './naming';
+import { CHROMATIC_NOTES, STRING_NUMBERS } from '$lib/domain/music/types';
+import { answerChoiceLabel, formatNote, fretLabel, spellPitch, stringLabel } from './naming';
 
 describe('spellPitch', () => {
 	afterEach(() => {
@@ -59,5 +59,43 @@ describe('answerChoiceLabel', () => {
 			'A# / Bb',
 			'B'
 		]);
+	});
+});
+
+describe('stringLabel', () => {
+	it('names strings in French, with grave and aiguë for the two E strings', () => {
+		expect(STRING_NUMBERS.map((string) => stringLabel(string, 'fr'))).toEqual([
+			'corde de E aiguë',
+			'corde de B',
+			'corde de G',
+			'corde de D',
+			'corde de A',
+			'corde de E grave'
+		]);
+	});
+
+	it('names strings in English, with high and low for the two E strings', () => {
+		expect(STRING_NUMBERS.map((string) => stringLabel(string, 'en'))).toEqual([
+			'high E string',
+			'B string',
+			'G string',
+			'D string',
+			'A string',
+			'low E string'
+		]);
+	});
+});
+
+describe('fretLabel', () => {
+	it('prints frets in French, and the open string', () => {
+		expect(fretLabel(8, 'fr')).toBe('case 8');
+		expect(fretLabel(1, 'fr')).toBe('case 1');
+		expect(fretLabel(0, 'fr')).toBe('corde à vide');
+	});
+
+	it('prints frets in English, and the open string', () => {
+		expect(fretLabel(8, 'en')).toBe('fret 8');
+		expect(fretLabel(11, 'en')).toBe('fret 11');
+		expect(fretLabel(0, 'en')).toBe('open string');
 	});
 });
