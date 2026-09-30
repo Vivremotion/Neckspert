@@ -3,7 +3,9 @@
 	import { provideAppServices } from '$lib/application/app';
 	import Page from './+page.svelte';
 
-	let { services }: { services: AppServices } = $props();
+	const { services }: { services: AppServices } = $props();
+	// Test harness: context is provided once at mount with the injected fakes.
+	// svelte-ignore state_referenced_locally
 	provideAppServices(services);
 </script>
 
