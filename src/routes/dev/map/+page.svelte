@@ -1,0 +1,40 @@
+<script lang="ts">
+	import type { NeckMapCell } from '$lib/domain/types';
+	import { STRING_NUMBERS } from '$lib/domain/music/types';
+	import { pitchOnString } from '$lib/domain/music';
+	import NeckMapScreen from '$lib/ui/screens/map/NeckMapScreen.svelte';
+
+	const cells: NeckMapCell[] = STRING_NUMBERS.flatMap((string) =>
+		Array.from({ length: 12 }, (_, fret) => {
+			const locate =
+				string === 6 && fret === 3
+					? 'mastered'
+					: string === 6 && fret <= 7
+						? 'acquired'
+						: string === 5 && fret <= 3
+							? 'learning'
+							: 'unseen';
+			return {
+				string,
+				fret,
+				pitch: pitchOnString(string, fret),
+				locate,
+				identify: locate === 'mastered' ? 'acquired' : 'unseen',
+				medianColdReactionMs: null,
+				coldAccuracy: null
+			} satisfies NeckMapCell;
+		})
+	);
+</script>
+
+<NeckMapScreen {cells} onhome={() => {}} />
+
+<style>
+	:global(html),
+	:global(body) {
+		width: auto;
+		height: auto;
+		min-height: 100dvh;
+		overflow: auto;
+	}
+</style>
