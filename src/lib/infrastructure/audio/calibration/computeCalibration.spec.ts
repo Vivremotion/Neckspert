@@ -29,7 +29,8 @@ describe('computeCalibration', () => {
 	});
 
 	it('returns null when the MAD exceeds maxSpreadMs', () => {
-		const offsets = [0, 10, 20, 80, 90, 100];
+		// median = 60; deviations = [60, 50, 40, 40, 50, 60] → MAD = 50 > 40
+		const offsets = [0, 10, 20, 100, 110, 120];
 		expect(computeCalibration(offsets, 40)).toBeNull();
 	});
 
