@@ -55,22 +55,23 @@
 
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(calc(8 * var(--np-tile)), 1fr));
-		grid-auto-rows: minmax(calc(8 * var(--np-tile)), 1fr);
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-auto-rows: minmax(44px, 1fr);
 		gap: var(--np-tile);
-		block-size: 100%;
+		inline-size: 100%;
+		min-width: 0;
 	}
 
 	@container answer-pad (min-width: 560px) {
 		.grid {
-			grid-template-columns: repeat(6, minmax(calc(8 * var(--np-tile)), 1fr));
+			grid-template-columns: repeat(6, minmax(0, 1fr));
 		}
 	}
 
 	.cell {
 		display: grid;
-		min-block-size: calc(8 * var(--np-tile));
-		min-inline-size: calc(8 * var(--np-tile));
+		min-block-size: 44px;
+		min-inline-size: 0;
 	}
 
 	.cell > :global(*) {
@@ -78,7 +79,8 @@
 		block-size: 100%;
 		/* Flat signs stay lowercase: "Gb", never "GB". */
 		text-transform: none;
-		white-space: nowrap;
+		white-space: normal;
+		overflow-wrap: anywhere;
 		padding-inline: 4px;
 	}
 
@@ -90,7 +92,7 @@
 
 	@media (max-width: 559px) {
 		.grid {
-			grid-template-columns: repeat(3, minmax(calc(8 * var(--np-tile)), 1fr));
+			grid-template-columns: repeat(3, minmax(0, 1fr));
 		}
 	}
 </style>
