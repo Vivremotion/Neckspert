@@ -1,13 +1,29 @@
 import type { PitchName } from '$lib/domain/music/types';
 import {
 	acceptableMidis,
+	classifyNameConfusion,
+	classifyNoteConfusion,
 	formatNote,
 	pitchOnString,
 	spellPitch
 } from '$lib/domain/music';
+import {
+	applyColdAttempt,
+	classifyTemperature,
+	introduceCard,
+	placementCard
+} from '$lib/domain/progress';
 import type { Attempt, Locale, PlannedItem, SessionPlan, Settings, Verdict } from '$lib/domain/types';
+import { cardKey } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
-import { answerWindow, isInWindow, judgeIdentify, judgeLocate } from '$lib/domain/scoring';
+import {
+	answerWindow,
+	detectFatigue,
+	isInWindow,
+	judgeIdentify,
+	judgeLocate,
+	type Judgement
+} from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
 import { buildAnswerChoices, buildPromptView } from './prompt';
@@ -15,14 +31,6 @@ import { buildAnswerChoices, buildPromptView } from './prompt';
 const BEATS_PER_BAR = 4 as const;
 
 type InternalStatus = PlayView['status'];
-
-type JudgementFields = {
-	answer: Attempt['answer'];
-	correct: boolean;
-	verdict: Verdict;
-	timingOffsetMs: number | null;
-	reactionMs: number | null;
-};
 
 export class SessionController implements PlaySessionController {
 	readonly sessionId: string;
@@ -299,7 +307,7 @@ export class SessionController implements PlaySessionController {
 		void this.resolveLocate(judgement, beat.index);
 	}
 
-	private async resolveLocate(judgement: JudgementFields, gapFromBeat: number): Promise<void> {
+	private async resolveLocate(judgement: Judgement, gapFromBeat: number): Promise<void> {
 		if (!this.current || this.promptBeatIndex === null) return;
 		const answerLabel =
 			judgement.answer && judgement.answer.kind === 'note'
@@ -330,8 +338,98 @@ export class SessionController implements PlaySessionController {
 		await this.persistAttempt(judgement);
 	}
 
-	private async persistAttempt(_judgement: JudgementFields): Promise<void> {
-		// Task 6 — no-op for now so Task 3 stays focused
+	private async persistAttempt(judgement: Judgement): Promise<void> {
+		if (!this.current || this.promptTimeAudio === null) return;
+		const item = this.current;
+		const key = cardKey(item.target);
+		const promptedAt = this.deps.clock.toEpochMs(this.promptTimeAudio);
+		const attemptedInSession = this.sessionAttempts.some((a) => a.cardKey === key);
+
+		// Provisional temperature for sync fatigue/session tracking; refined after history load.
+		const provisionalTemperature =
+			item.phase === 'learning' || item.phase === 'free'
+				? item.temperature
+				: attemptedInSession
+					? 'hot'
+					: 'cold';
+
+		let confusion = null;
+		if (judgement.answer !== null && !judgement.correct) {
+			if (item.target.direction === 'locate' && judgement.answer.kind === 'note') {
+				confusion = classifyNoteConfusion(item.target, judgement.answer.midi);
+			} else if (item.target.direction === 'identify' && judgement.answer.kind === 'name') {
+				confusion = classifyNameConfusion(
+					pitchOnString(item.target.string, item.target.fret),
+					judgement.answer.pitch
+				);
+			}
+		}
+
+		const attempt: Attempt = {
+			sessionId: this.sessionId,
+			cardKey: key,
+			target: item.target,
+			phase: item.phase,
+			temperature: provisionalTemperature,
+			aid: item.aid,
+			leadBeats: item.leadBeats,
+			promptedAt,
+			answer: judgement.answer,
+			correct: judgement.correct,
+			verdict: judgement.verdict,
+			timingOffsetMs: judgement.timingOffsetMs,
+			reactionMs: judgement.reactionMs,
+			confusion
+		};
+
+		// Queue and fatigue must run before any await so the next onBeat cannot race them.
+		this.sessionAttempts.push(attempt);
+		if (item.repeatUntilCorrect && !judgement.correct) {
+			this.queue.push(item);
+		}
+		if (detectFatigue(this.sessionAttempts)) {
+			this.view.fatigueDetected = true;
+			this.queue = this.queue.filter((q) => q.phase !== 'learning');
+		}
+
+		const history = await this.deps.attempts.listByCard(key);
+		const lastAttemptAt = history.length > 0 ? history[history.length - 1].promptedAt : null;
+		const temperature =
+			item.phase === 'learning' || item.phase === 'free'
+				? item.temperature
+				: classifyTemperature({
+						lastAttemptAt,
+						attemptedInSession,
+						now: promptedAt
+					});
+		attempt.temperature = temperature;
+
+		await this.deps.attempts.add(attempt);
+
+		const now = this.deps.now();
+		if (item.phase === 'placement' && item.target.direction === 'locate') {
+			const card = placementCard(
+				item.target,
+				attempt,
+				now,
+				this.sessionId,
+				this.settings.tempoBpm
+			);
+			if (card) await this.deps.cards.put(card);
+		} else if (item.phase === 'review' && temperature === 'cold') {
+			const existing = await this.deps.cards.get(key);
+			if (existing) {
+				const fullHistory = [...history, attempt];
+				await this.deps.cards.put(
+					applyColdAttempt(existing, attempt, fullHistory, now, this.settings.tempoBpm)
+				);
+			}
+		} else if (item.phase === 'learning' && judgement.correct) {
+			const existing = await this.deps.cards.get(key);
+			if (!existing) {
+				await this.deps.cards.put(introduceCard(item.target, now, this.sessionId));
+			}
+		}
 	}
 
 	private advanceAfterVerdict(): void {

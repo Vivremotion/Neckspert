@@ -1,5 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import type { Curriculum, PlannedItem, SessionPlan } from '$lib/domain/types';
+import { classifyNoteConfusion } from '$lib/domain/music';
+import { introduceCard } from '$lib/domain/progress';
 import {
 	FakeClock,
 	FakeMetronome,
@@ -299,4 +301,138 @@ describe('SessionController identify', () => {
 	});
 });
 
+describe('SessionController persistence', () => {
+	it('records a cold locate attempt with confusion on a wrong pitch', async () => {
+		const deps = createDeps();
+		await deps.cards.put(
+			introduceCard({ direction: 'locate', string: 2, pitch: 'F' }, deps.now(), 'sess-1')
+		);
+		const controller = new SessionController(planWith([locateItem({ leadBeats: 1 })]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		const targetTime = deps.metronome.beatTime(5);
+		// F# = MIDI 66 on B string near F
+		deps.detector.emitNote({
+			time: targetTime,
+			midi: 66,
+			frequencyHz: 370,
+			clarity: 0.95
+		});
+		await Promise.resolve();
+		const attempts = await deps.attempts.listBySession('sess-1');
+		expect(attempts).toHaveLength(1);
+		expect(attempts[0].correct).toBe(false);
+		expect(attempts[0].confusion).toEqual(
+			classifyNoteConfusion({ direction: 'locate', string: 2, pitch: 'F' }, 66)
+		);
+		expect(attempts[0].verdict).toBe('wrong');
+	});
+
+	it('requeues learning items until correct and skips remaining learning on fatigue', async () => {
+		const deps = createDeps();
+		const learning = (pitch: 'F' | 'G' | 'A', repeat = true): PlannedItem =>
+			locateItem({
+				target: { direction: 'locate', string: 2, pitch },
+				phase: 'learning',
+				temperature: 'hot',
+				aid: 'show-position',
+				leadBeats: 1,
+				repeatUntilCorrect: repeat
+			});
+		const controller = new SessionController(planWith([learning('F'), learning('G')]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		const t = deps.metronome.beatTime(5);
+		deps.detector.emitNote({ time: t, midi: 60, frequencyHz: 247, clarity: 0.9 });
+		tick(deps, 0.75 * 2);
+		expect(controller.view.status === 'awaiting' || controller.view.status === 'verdict').toBe(
+			true
+		);
+		const remainingPrompts: string[] = [];
+		for (let i = 0; i < 8 && controller.view.status !== 'finished'; i++) {
+			if (controller.view.status === 'awaiting' && controller.view.prompt) {
+				remainingPrompts.push(controller.view.prompt.primary);
+				const due =
+					controller.view.targetBeatIndex !== null
+						? deps.metronome.beatTime(controller.view.targetBeatIndex)
+						: deps.clock.now();
+				deps.detector.emitNote({
+					time: due,
+					midi: 65,
+					frequencyHz: 349,
+					clarity: 0.95
+				});
+			}
+			tick(deps, 0.75 * 2);
+		}
+		expect(remainingPrompts).toContain('F');
+	});
+
+	it('sets placementDoneAt when a placement session finishes', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(
+			planWith([locateItem({ phase: 'placement', leadBeats: 1 })], 'placement'),
+			deps
+		);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		deps.detector.emitNote({
+			time: deps.metronome.beatTime(5),
+			midi: 65,
+			frequencyHz: 349,
+			clarity: 0.95
+		});
+		tick(deps, 0.75 * 2);
+		expect(controller.view.status).toBe('finished');
+		// finish() yields before settings.update; drain microtasks
+		for (let i = 0; i < 10; i++) await Promise.resolve();
+		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
+	});
+});
+
+describe('SessionController fatigue skip', () => {
+	it('marks fatigue and drops remaining learning items', async () => {
+		const deps = createDeps();
+		const items: PlannedItem[] = Array.from({ length: 12 }, () =>
+			locateItem({
+				target: { direction: 'locate', string: 2, pitch: 'F' },
+				phase: 'review',
+				leadBeats: 1,
+				aid: 'none'
+			})
+		);
+		items.push(
+			locateItem({
+				target: { direction: 'locate', string: 3, pitch: 'C' },
+				phase: 'learning',
+				temperature: 'hot',
+				leadBeats: 1,
+				aid: 'show-position',
+				repeatUntilCorrect: true
+			})
+		);
+		const controller = new SessionController(planWith(items), deps);
+		await controller.start();
+		for (let n = 0; n < 12; n++) {
+			while (controller.view.status !== 'awaiting' && controller.view.status !== 'finished') {
+				tick(deps, 0.75);
+			}
+			if (controller.view.status === 'finished') break;
+			const due = deps.metronome.beatTime(controller.view.targetBeatIndex!);
+			const midi = n < 6 ? 65 : 60;
+			deps.detector.emitNote({ time: due, midi, frequencyHz: 300, clarity: 0.9 });
+			await Promise.resolve();
+			tick(deps, 0.75 * 2);
+		}
+		expect(controller.view.fatigueDetected).toBe(true);
+		while (controller.view.status !== 'finished') {
+			tick(deps, 0.75);
+			await Promise.resolve();
+		}
+		const learned = (await deps.attempts.all()).filter((a) => a.phase === 'learning');
+		expect(learned).toHaveLength(0);
+	});
+});
+
 export { createDeps, locateItem, planWith, tick, identifyItem };
+
