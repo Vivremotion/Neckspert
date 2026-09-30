@@ -23,5 +23,7 @@ describe('cardKey', () => {
 		expect(() => parseCardKey('locate:2:H')).toThrow();
 		expect(() => parseCardKey('identify:2:12')).toThrow();
 		expect(() => parseCardKey('play:2:F')).toThrow();
+		expect(() => parseCardKey('identify:2:')).toThrow();
+		expect(() => parseCardKey('locate:2:F:extra')).toThrow();
 	});
 });

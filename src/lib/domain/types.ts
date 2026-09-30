@@ -35,7 +35,14 @@ export function cardKey(target: Target): CardKey {
 }
 
 export function parseCardKey(key: CardKey): Target {
-	const [direction, rawString, value] = key.split(':');
+	const parts = key.split(':');
+	if (parts.length !== 3) {
+		throw new Error(`Invalid card key: ${key}`);
+	}
+	const [direction, rawString, value] = parts;
+	if (value === '') {
+		throw new Error(`Invalid card key: ${key}`);
+	}
 	const string = Number(rawString);
 	if (!Number.isInteger(string) || string < 1 || string > 6) {
 		throw new Error(`Invalid string in card key: ${key}`);
