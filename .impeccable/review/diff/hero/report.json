@@ -1,0 +1,596 @@
+{
+  "tool": "comp-diff",
+  "version": 1,
+  "createdAt": "2026-09-30T07:44:12.693Z",
+  "label": "hero",
+  "comp": ".impeccable/mocks/comp-4-full-bleed-lane.png",
+  "build": ".impeccable/review/hero-repro.png",
+  "spec": ".impeccable/build/spec.json",
+  "compSize": "1280x720",
+  "buildSize": "1280x720",
+  "align": "top",
+  "overall": 0.7964,
+  "verdict": "drift",
+  "scores": {
+    "overall": 0.7964,
+    "structure": 0.6527,
+    "color": 0.972,
+    "colorIntersection": 0.9201,
+    "paletteMatch": 1,
+    "detail": 0.7837,
+    "detailRaw": 0.7889,
+    "detailAdded": 0.0104,
+    "bands": 0.86
+  },
+  "palette": {
+    "comp": [
+      {
+        "hex": "#e89868",
+        "coverage": 0.497
+      },
+      {
+        "hex": "#b86858",
+        "coverage": 0.2489
+      },
+      {
+        "hex": "#481818",
+        "coverage": 0.1887
+      },
+      {
+        "hex": "#883828",
+        "coverage": 0.0654
+      }
+    ],
+    "build": [
+      {
+        "hex": "#e89868",
+        "coverage": 0.5758
+      },
+      {
+        "hex": "#b86858",
+        "coverage": 0.2375
+      },
+      {
+        "hex": "#481818",
+        "coverage": 0.1624
+      },
+      {
+        "hex": "#883828",
+        "coverage": 0.0244
+      }
+    ]
+  },
+  "regions": [
+    {
+      "id": "field",
+      "x": 0,
+      "y": 0,
+      "w": 0.7,
+      "h": 0.7,
+      "kind": "plate",
+      "score": {
+        "overall": 0.8912,
+        "structure": 0.8221,
+        "color": 0.9744,
+        "colorIntersection": 0.9269,
+        "paletteMatch": 1,
+        "detail": 0.8815,
+        "detailRaw": 0.9076,
+        "detailAdded": 0.0521,
+        "bands": 1
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 896,
+          "h": 504
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 896,
+          "h": 504
+        }
+      }
+    },
+    {
+      "id": "prompt-note",
+      "x": 0.2,
+      "y": 0.1,
+      "w": 0.2367,
+      "h": 0.5,
+      "kind": "text",
+      "score": {
+        "overall": 0.4621,
+        "structure": 0.3076,
+        "color": 0.8238,
+        "colorIntersection": 0.7141,
+        "paletteMatch": 0.8829,
+        "detail": 0.171,
+        "detailRaw": 0.5096,
+        "detailAdded": 0.6771,
+        "bands": 0.7667
+      },
+      "verdict": "contradicted",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 303,
+          "h": 360
+        },
+        "build": {
+          "x": 0,
+          "y": 65,
+          "w": 194,
+          "h": 295
+        }
+      }
+    },
+    {
+      "id": "prompt-string",
+      "x": 0.1266,
+      "y": 0.5417,
+      "w": 0.2203,
+      "h": 0.1167,
+      "kind": "text",
+      "score": {
+        "overall": 0.4282,
+        "structure": 0.247,
+        "color": 0.6565,
+        "colorIntersection": 0.6055,
+        "paletteMatch": 0.6839,
+        "detail": 0.4971,
+        "detailRaw": 0.5076,
+        "detailAdded": 0.0208,
+        "bands": 0.66
+      },
+      "verdict": "contradicted",
+      "inkBox": {
+        "comp": {
+          "x": 11,
+          "y": 7,
+          "w": 260,
+          "h": 71
+        },
+        "build": {
+          "x": 9,
+          "y": 6,
+          "w": 273,
+          "h": 59
+        }
+      }
+    },
+    {
+      "id": "verdict-box",
+      "x": 0.7,
+      "y": 0,
+      "w": 0.3,
+      "h": 0.7,
+      "kind": "chrome",
+      "score": {
+        "overall": 0.6586,
+        "structure": 0.4944,
+        "color": 0.8786,
+        "colorIntersection": 0.8729,
+        "paletteMatch": 0.8817,
+        "detail": 0.5309,
+        "detailRaw": 0.6039,
+        "detailAdded": 0.1458,
+        "bands": 0.8875
+      },
+      "verdict": "drift",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 384,
+          "h": 504
+        },
+        "build": {
+          "x": 0,
+          "y": 2,
+          "w": 384,
+          "h": 500
+        }
+      }
+    },
+    {
+      "id": "verdict-sprite",
+      "x": 0.7,
+      "y": 0.1,
+      "w": 0.3,
+      "h": 0.3,
+      "kind": "plate",
+      "score": {
+        "overall": 0.3871,
+        "structure": 0.6375,
+        "color": 0.9447,
+        "colorIntersection": 0.8621,
+        "paletteMatch": 0.9892,
+        "detail": 0.0775,
+        "detailRaw": 0.1296,
+        "detailAdded": 0.1042,
+        "bands": 0
+      },
+      "verdict": "missing",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 384,
+          "h": 216
+        },
+        "build": {
+          "x": 117,
+          "y": 30,
+          "w": 164,
+          "h": 180
+        }
+      }
+    },
+    {
+      "id": "verdict-banner",
+      "x": 0.7,
+      "y": 0.4,
+      "w": 0.3,
+      "h": 0.1,
+      "kind": "text",
+      "score": {
+        "overall": 0.4757,
+        "structure": 0.3908,
+        "color": 0.8638,
+        "colorIntersection": 0.8239,
+        "paletteMatch": 0.8853,
+        "detail": 0.2957,
+        "detailRaw": 0.3738,
+        "detailAdded": 0.1563,
+        "bands": 0.2
+      },
+      "verdict": "contradicted",
+      "inkBox": {
+        "comp": {
+          "x": 3,
+          "y": 0,
+          "w": 376,
+          "h": 72
+        },
+        "build": {
+          "x": 62,
+          "y": 15,
+          "w": 262,
+          "h": 36
+        }
+      }
+    },
+    {
+      "id": "verdict-offset",
+      "x": 0.7,
+      "y": 0.5,
+      "w": 0.3,
+      "h": 0.1,
+      "kind": "text",
+      "score": {
+        "overall": 0.5696,
+        "structure": 0.6041,
+        "color": 0.9057,
+        "colorIntersection": 0.9174,
+        "paletteMatch": 0.8993,
+        "detail": 0.2743,
+        "detailRaw": 0.3681,
+        "detailAdded": 0.1875,
+        "bands": 0
+      },
+      "verdict": "drift",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 384,
+          "h": 72
+        },
+        "build": {
+          "x": 2,
+          "y": 0,
+          "w": 380,
+          "h": 72
+        }
+      }
+    },
+    {
+      "id": "verdict-reaction",
+      "x": 0.7,
+      "y": 0.6,
+      "w": 0.3,
+      "h": 0.1,
+      "kind": "text",
+      "score": {
+        "overall": 0.5744,
+        "structure": 0.5733,
+        "color": 0.7928,
+        "colorIntersection": 0.7891,
+        "paletteMatch": 0.7948,
+        "detail": 0.2412,
+        "detailRaw": 0.3819,
+        "detailAdded": 0.2813,
+        "bands": 0.5333
+      },
+      "verdict": "drift",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 384,
+          "h": 72
+        },
+        "build": {
+          "x": 2,
+          "y": 0,
+          "w": 380,
+          "h": 70
+        }
+      }
+    },
+    {
+      "id": "lane-bed",
+      "x": 0,
+      "y": 0.6,
+      "w": 1,
+      "h": 0.4,
+      "kind": "plate",
+      "score": {
+        "overall": 0.7765,
+        "structure": 0.6597,
+        "color": 0.968,
+        "colorIntersection": 0.9086,
+        "paletteMatch": 1,
+        "detail": 0.7459,
+        "detailRaw": 0.7511,
+        "detailAdded": 0.0104,
+        "bands": 0.9
+      },
+      "verdict": "drift",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 1280,
+          "h": 288
+        },
+        "build": {
+          "x": 0,
+          "y": 0,
+          "w": 1280,
+          "h": 288
+        }
+      }
+    },
+    {
+      "id": "lane-heart",
+      "x": 0.3,
+      "y": 0.7,
+      "w": 0.1,
+      "h": 0.1,
+      "kind": "chrome",
+      "score": {
+        "overall": 0.5356,
+        "structure": 0.6705,
+        "color": 0.8168,
+        "colorIntersection": 0.7643,
+        "paletteMatch": 0.8451,
+        "detail": 0.0569,
+        "detailRaw": 0.0778,
+        "detailAdded": 0.0417,
+        "bands": 0.55
+      },
+      "verdict": "missing",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 128,
+          "h": 72
+        },
+        "build": {
+          "x": 50,
+          "y": 12,
+          "w": 28,
+          "h": 26
+        }
+      }
+    },
+    {
+      "id": "lane-history",
+      "x": 0,
+      "y": 0.8,
+      "w": 0.3,
+      "h": 0.2,
+      "kind": "plate",
+      "score": {
+        "overall": 0.8406,
+        "structure": 0.8387,
+        "color": 0.9687,
+        "colorIntersection": 0.9107,
+        "paletteMatch": 1,
+        "detail": 0.7894,
+        "detailRaw": 0.7894,
+        "detailAdded": 0,
+        "bands": 0.85
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 384,
+          "h": 144
+        },
+        "build": {
+          "x": 0,
+          "y": 28,
+          "w": 384,
+          "h": 116
+        }
+      }
+    },
+    {
+      "id": "lane-finish",
+      "x": 0.3,
+      "y": 0.8,
+      "w": 0.1,
+      "h": 0.2,
+      "kind": "chrome",
+      "score": {
+        "overall": 0.4669,
+        "structure": 0.4227,
+        "color": 0.8639,
+        "colorIntersection": 0.7539,
+        "paletteMatch": 0.9231,
+        "detail": 0.0878,
+        "detailRaw": 0.1867,
+        "detailAdded": 0.1979,
+        "bands": 0.54
+      },
+      "verdict": "missing",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 128,
+          "h": 132
+        },
+        "build": {
+          "x": 35,
+          "y": 18,
+          "w": 93,
+          "h": 116
+        }
+      }
+    },
+    {
+      "id": "lane-upcoming",
+      "x": 0.4,
+      "y": 0.8,
+      "w": 0.5,
+      "h": 0.2,
+      "kind": "plate",
+      "score": {
+        "overall": 0.8008,
+        "structure": 0.7648,
+        "color": 0.9687,
+        "colorIntersection": 0.9105,
+        "paletteMatch": 1,
+        "detail": 0.7655,
+        "detailRaw": 0.7759,
+        "detailAdded": 0.0208,
+        "bands": 0.6629
+      },
+      "verdict": "match",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 640,
+          "h": 144
+        },
+        "build": {
+          "x": 0,
+          "y": 18,
+          "w": 640,
+          "h": 126
+        }
+      }
+    },
+    {
+      "id": "lane-label",
+      "x": 0.6,
+      "y": 0.7,
+      "w": 0.4,
+      "h": 0.1,
+      "kind": "text",
+      "score": {
+        "overall": 0.6401,
+        "structure": 0.6453,
+        "color": 0.8264,
+        "colorIntersection": 0.7509,
+        "paletteMatch": 0.867,
+        "detail": 0.358,
+        "detailRaw": 0.3736,
+        "detailAdded": 0.0313,
+        "bands": 0.5714
+      },
+      "verdict": "drift",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 512,
+          "h": 72
+        },
+        "build": {
+          "x": 208,
+          "y": 25,
+          "w": 291,
+          "h": 21
+        }
+      }
+    },
+    {
+      "id": "lane-target",
+      "x": 0.9,
+      "y": 0.8,
+      "w": 0.0797,
+      "h": 0.1583,
+      "kind": "text",
+      "score": {
+        "overall": 0.3356,
+        "structure": 0.2765,
+        "color": 0.657,
+        "colorIntersection": 0.2577,
+        "paletteMatch": 0.872,
+        "detail": 0.1144,
+        "detailRaw": 0.1404,
+        "detailAdded": 0.0521,
+        "bands": 0.16
+      },
+      "verdict": "missing",
+      "inkBox": {
+        "comp": {
+          "x": 0,
+          "y": 0,
+          "w": 95,
+          "h": 104
+        },
+        "build": {
+          "x": 36,
+          "y": 28,
+          "w": 34,
+          "h": 50
+        }
+      }
+    }
+  ],
+  "files": {
+    "sideBySide": "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/side-by-side.png",
+    "heatmap": "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/heatmap.png",
+    "regionFiles": [
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/field.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/prompt-note.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/prompt-string.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/verdict-box.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/verdict-sprite.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/verdict-banner.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/verdict-offset.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/verdict-reaction.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-bed.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-heart.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-history.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-finish.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-upcoming.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-label.png",
+      "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/regions/lane-target.png"
+    ]
+  }
+}

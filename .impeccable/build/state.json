@@ -55,10 +55,257 @@
       "status": "open",
       "openedAt": "2026-09-30T06:02:54.911Z",
       "closedAt": null,
-      "attempts": 0,
+      "attempts": 5,
       "notes": [],
-      "gate": null,
-      "forced": null
+      "gate": {
+        "ok": false,
+        "reasons": [
+          "region verdict-sprite is missing (detail 8%, structure 64%): the comp shows material the build does not",
+          "region lane-heart is missing (detail 6%, structure 67%): the comp shows material the build does not",
+          "region lane-finish is missing (detail 9%, structure 42%): the comp shows material the build does not",
+          "region lane-target is missing (detail 11%, structure 28%): the comp shows material the build does not",
+          "region prompt-note (text) is contradicted (structure 31%, detail added 68%): the composition of this text region differs from the comp; re-derive it from the spec box",
+          "region prompt-string (text) is contradicted (structure 25%, detail added 2%): the composition of this text region differs from the comp; re-derive it from the spec box",
+          "region verdict-banner (text) is contradicted (structure 39%, detail added 16%): the composition of this text region differs from the comp; re-derive it from the spec box"
+        ],
+        "summary": "hero 80% (drift)",
+        "score": 0.7964,
+        "verdict": "drift",
+        "report": ".impeccable/review/diff/hero/report.json",
+        "sideBySide": "/Users/cyril/Development/neckspert-play/.worktrees/plan-h-ecran/.impeccable/review/diff/hero/side-by-side.png",
+        "worst": [
+          "lane-target missing 34%",
+          "verdict-sprite missing 39%",
+          "prompt-string contradicted 43%"
+        ],
+        "worstIds": [
+          "lane-target",
+          "verdict-sprite",
+          "prompt-string"
+        ],
+        "worstCrops": [
+          {
+            "id": "lane-target",
+            "verdict": "missing",
+            "score": {
+              "overall": 0.3356,
+              "structure": 0.2765,
+              "color": 0.657,
+              "colorIntersection": 0.2577,
+              "paletteMatch": 0.872,
+              "detail": 0.1144,
+              "detailRaw": 0.1404,
+              "detailAdded": 0.0521,
+              "bands": 0.16
+            },
+            "file": ".impeccable/review/diff/hero/regions/lane-target.png"
+          },
+          {
+            "id": "verdict-sprite",
+            "verdict": "missing",
+            "score": {
+              "overall": 0.3871,
+              "structure": 0.6375,
+              "color": 0.9447,
+              "colorIntersection": 0.8621,
+              "paletteMatch": 0.9892,
+              "detail": 0.0775,
+              "detailRaw": 0.1296,
+              "detailAdded": 0.1042,
+              "bands": 0
+            },
+            "file": ".impeccable/review/diff/hero/regions/verdict-sprite.png"
+          },
+          {
+            "id": "prompt-string",
+            "verdict": "contradicted",
+            "score": {
+              "overall": 0.4282,
+              "structure": 0.247,
+              "color": 0.6565,
+              "colorIntersection": 0.6055,
+              "paletteMatch": 0.6839,
+              "detail": 0.4971,
+              "detailRaw": 0.5076,
+              "detailAdded": 0.0208,
+              "bands": 0.66
+            },
+            "file": ".impeccable/review/diff/hero/regions/prompt-string.png"
+          }
+        ],
+        "advisories": [
+          "(advisory, unchanged for 3+ attempts) text verdict-offset: the face renders 26% heavier than the comp's (ink density 1.00 vs 0.79); drop a weight step or use the ranked face",
+          "(advisory, unchanged for 3+ attempts) text prompt-note: ink is #e89868 in the build, #b86858 in the comp; use the comp's colour",
+          "(advisory, unchanged for 3+ attempts) text lane-target: ink is #e89868 in the build, #481818 in the comp; use the comp's colour"
+        ],
+        "regionVerdicts": {
+          "field": "match",
+          "prompt-note": "contradicted",
+          "prompt-string": "contradicted",
+          "verdict-box": "drift",
+          "verdict-sprite": "missing",
+          "verdict-banner": "contradicted",
+          "verdict-offset": "drift",
+          "verdict-reaction": "drift",
+          "lane-bed": "drift",
+          "lane-heart": "missing",
+          "lane-history": "match",
+          "lane-finish": "missing",
+          "lane-upcoming": "match",
+          "lane-label": "drift",
+          "lane-target": "missing"
+        },
+        "at": "2026-09-30T07:44:12.719Z"
+      },
+      "forced": null,
+      "readingsSeen": {
+        "text prompt-note: ink is #481818 in the build, #b86858 in the comp; use the comp's colour": 3,
+        "text lane-target: ink is #e89868 in the build, #481818 in the comp; use the comp's colour": 8,
+        "text verdict-offset: its first line starts 17px lower than in the comp (17px vs 0px into the region box); the spacing above it is too large": 1,
+        "text verdict-offset: it starts 112px further right than in the comp": 1,
+        "text prompt-note: ink is #491818 in the build, #b86858 in the comp; use the comp's colour": 3,
+        "text prompt-note: ink is #e89868 in the build, #b86858 in the comp; use the comp's colour": 4,
+        "text prompt-string: ink is #b86858 in the build, #481818 in the comp; use the comp's colour": 1,
+        "text verdict-offset: the face renders 26% heavier than the comp's (ink density 1.00 vs 0.79); drop a weight step or use the ranked face": 4
+      },
+      "records": 9,
+      "history": [
+        {
+          "at": "2026-09-30T06:25:36.538Z",
+          "score": 0.7234,
+          "worstIds": [
+            "prompt-string",
+            "lane-target",
+            "verdict-sprite"
+          ],
+          "regionVerdicts": {
+            "field": "match",
+            "prompt-note": "missing",
+            "prompt-string": "contradicted",
+            "verdict-box": "drift",
+            "verdict-sprite": "missing",
+            "verdict-banner": "contradicted",
+            "verdict-offset": "drift",
+            "verdict-reaction": "missing",
+            "lane-bed": "drift",
+            "lane-heart": "missing",
+            "lane-history": "match",
+            "lane-finish": "missing",
+            "lane-upcoming": "match",
+            "lane-label": "drift",
+            "lane-target": "missing"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-09-30T07:36:05.278Z",
+          "score": 0.7718,
+          "worstIds": [
+            "lane-target",
+            "prompt-string",
+            "prompt-note"
+          ],
+          "regionVerdicts": {
+            "field": "match",
+            "prompt-note": "missing",
+            "prompt-string": "contradicted",
+            "verdict-box": "drift",
+            "verdict-sprite": "drift",
+            "verdict-banner": "contradicted",
+            "verdict-offset": "drift",
+            "verdict-reaction": "drift",
+            "lane-bed": "drift",
+            "lane-heart": "missing",
+            "lane-history": "match",
+            "lane-finish": "contradicted",
+            "lane-upcoming": "match",
+            "lane-label": "drift",
+            "lane-target": "missing"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-09-30T07:36:26.594Z",
+          "score": 0.7852,
+          "worstIds": [
+            "verdict-sprite",
+            "prompt-string",
+            "verdict-reaction"
+          ],
+          "regionVerdicts": {
+            "field": "match",
+            "prompt-note": "contradicted",
+            "prompt-string": "contradicted",
+            "verdict-box": "drift",
+            "verdict-sprite": "missing",
+            "verdict-banner": "contradicted",
+            "verdict-offset": "drift",
+            "verdict-reaction": "missing",
+            "lane-bed": "drift",
+            "lane-heart": "missing",
+            "lane-history": "match",
+            "lane-finish": "missing",
+            "lane-upcoming": "match",
+            "lane-label": "drift",
+            "lane-target": "drift"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-09-30T07:40:36.754Z",
+          "score": 0.7499,
+          "worstIds": [
+            "prompt-string",
+            "lane-heart",
+            "prompt-note"
+          ],
+          "regionVerdicts": {
+            "field": "match",
+            "prompt-note": "missing",
+            "prompt-string": "contradicted",
+            "verdict-box": "drift",
+            "verdict-sprite": "drift",
+            "verdict-banner": "contradicted",
+            "verdict-offset": "drift",
+            "verdict-reaction": "drift",
+            "lane-bed": "drift",
+            "lane-heart": "missing",
+            "lane-history": "match",
+            "lane-finish": "contradicted",
+            "lane-upcoming": "match",
+            "lane-label": "drift",
+            "lane-target": "drift"
+          },
+          "artifactHash": null
+        },
+        {
+          "at": "2026-09-30T07:42:34.904Z",
+          "score": 0.7945,
+          "worstIds": [
+            "verdict-sprite",
+            "prompt-string",
+            "prompt-note"
+          ],
+          "regionVerdicts": {
+            "field": "match",
+            "prompt-note": "contradicted",
+            "prompt-string": "contradicted",
+            "verdict-box": "drift",
+            "verdict-sprite": "missing",
+            "verdict-banner": "contradicted",
+            "verdict-offset": "drift",
+            "verdict-reaction": "drift",
+            "lane-bed": "drift",
+            "lane-heart": "missing",
+            "lane-history": "match",
+            "lane-finish": "missing",
+            "lane-upcoming": "match",
+            "lane-label": "drift",
+            "lane-target": "drift"
+          },
+          "artifactHash": null
+        }
+      ]
     },
     "sections": {
       "status": "pending",
