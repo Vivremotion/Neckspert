@@ -6,6 +6,8 @@
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import PixelWord from './PixelWord.svelte';
+	import AnswerPanel from './answer/AnswerPanel.svelte';
+	import { showsAnswerPad } from './answer/showsAnswerPad';
 
 	let {
 		controller,
@@ -14,6 +16,8 @@
 		controller: PlaySessionController;
 		platesOnly?: boolean;
 	} = $props();
+
+	const answering = $derived(showsAnswerPad(controller.view));
 
 	let nowBeat = $state(0);
 	const t = $derived(playMessages());
@@ -87,9 +91,13 @@
 <section class="play" data-status={view.status} data-plates-only={platesOnly ? '1' : '0'}>
 	{#if !platesOnly}
 		<div class="stage">
-			<div class="prompt">
+			<div class="prompt" class:answering>
 				{#if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
-					<PixelWord text={view.prompt.primary} />
+					{#if answering}
+						<p class="primary">{view.prompt.primary}</p>
+					{:else}
+						<PixelWord text={view.prompt.primary} />
+					{/if}
 					<p class="string">{view.prompt.secondary}</p>
 				{/if}
 			</div>
@@ -114,59 +122,65 @@
 			{/if}
 		</div>
 
-		<div class="lane pixel-frame">
-			<div class="lane-inner pixel-frame-inner">
-				{#if measure}
-					<p class="measure">
-						{t.measure(measure.bar, measure.bars, measure.beat, view.beatsPerBar)}
-					</p>
-				{/if}
-				<div class="track">
-					<div class="tiles">
-						{#each lanePast as tile (tile.beatIndex)}
-							<div class="cell">
-								<div
-									class="body"
-									class:inverted={tile.justPlayed}
-									class:imprint={tile.justPlayed && view.status === 'verdict'}
-								>
-									{#if tile.verdict}
-										<VerdictSprite verdict={tile.verdict} size={64} inverted={tile.justPlayed} />
-									{/if}
-								</div>
-							</div>
-						{/each}
-					</div>
-					<div class="finish">
-						<div class="heart" aria-hidden="true">
-							<svg viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
-								<rect x="2" y="2" width="5" height="2" fill="currentColor" />
-								<rect x="9" y="2" width="5" height="2" fill="currentColor" />
-								<rect x="1" y="4" width="14" height="2" fill="currentColor" />
-								<rect x="2" y="6" width="12" height="2" fill="currentColor" />
-								<rect x="4" y="8" width="8" height="2" fill="currentColor" />
-								<rect x="6" y="10" width="4" height="2" fill="currentColor" />
-								<rect x="7" y="12" width="2" height="2" fill="currentColor" />
-							</svg>
-						</div>
-						<div class="hit" aria-hidden="true"></div>
-					</div>
-					<div class="tiles ahead-tiles">
-						{#each laneAhead as tile (tile.beatIndex)}
-							<div class="cell">
-								{#if tile.label !== null}
-									<span class="beat-no">{tile.label}</span>
-								{/if}
-								<div class="body ahead"></div>
-							</div>
-						{/each}
-					</div>
-					{#if view.prompt}
-						<p class="target">{view.prompt.primary}</p>
+		{#if answering}
+			<div class="lane-slot" class:answering>
+				<AnswerPanel {controller} />
+			</div>
+		{:else}
+			<div class="lane pixel-frame">
+				<div class="lane-inner pixel-frame-inner">
+					{#if measure}
+						<p class="measure">
+							{t.measure(measure.bar, measure.bars, measure.beat, view.beatsPerBar)}
+						</p>
 					{/if}
+					<div class="track">
+						<div class="tiles">
+							{#each lanePast as tile (tile.beatIndex)}
+								<div class="cell">
+									<div
+										class="body"
+										class:inverted={tile.justPlayed}
+										class:imprint={tile.justPlayed && view.status === 'verdict'}
+									>
+										{#if tile.verdict}
+											<VerdictSprite verdict={tile.verdict} size={64} inverted={tile.justPlayed} />
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+						<div class="finish">
+							<div class="heart" aria-hidden="true">
+								<svg viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
+									<rect x="2" y="2" width="5" height="2" fill="currentColor" />
+									<rect x="9" y="2" width="5" height="2" fill="currentColor" />
+									<rect x="1" y="4" width="14" height="2" fill="currentColor" />
+									<rect x="2" y="6" width="12" height="2" fill="currentColor" />
+									<rect x="4" y="8" width="8" height="2" fill="currentColor" />
+									<rect x="6" y="10" width="4" height="2" fill="currentColor" />
+									<rect x="7" y="12" width="2" height="2" fill="currentColor" />
+								</svg>
+							</div>
+							<div class="hit" aria-hidden="true"></div>
+						</div>
+						<div class="tiles ahead-tiles">
+							{#each laneAhead as tile (tile.beatIndex)}
+								<div class="cell">
+									{#if tile.label !== null}
+										<span class="beat-no">{tile.label}</span>
+									{/if}
+									<div class="body ahead"></div>
+								</div>
+							{/each}
+						</div>
+						{#if view.prompt}
+							<p class="target">{view.prompt.primary}</p>
+						{/if}
+					</div>
 				</div>
 			</div>
-		</div>
+		{/if}
 
 		{#if showStart}
 			<div class="overlay">
@@ -245,6 +259,24 @@
 		line-height: 1;
 		letter-spacing: 0;
 		text-align: center;
+		max-width: 100%;
+		overflow-wrap: anywhere;
+	}
+
+	.primary {
+		margin: 0;
+		color: var(--np-ink);
+		font-size: var(--np-type-hero);
+		line-height: 1;
+		letter-spacing: 0;
+		text-align: center;
+		text-transform: none;
+		max-width: 100%;
+		overflow-wrap: anywhere;
+	}
+
+	.prompt.answering .primary {
+		font-size: calc(var(--np-type-hero) * 0.75);
 	}
 
 	.pixel-frame {
@@ -336,12 +368,17 @@
 		padding-bottom: 14px;
 	}
 
-	.lane {
+	.lane,
+	.lane-slot {
 		display: flex;
 		flex: 1 1 auto;
 		inline-size: 100%;
 		min-width: 0;
 		min-height: 0;
+	}
+
+	.lane-slot.answering {
+		min-block-size: calc(4 * 64px + 3 * 8px);
 	}
 
 	.lane-inner {
@@ -506,7 +543,8 @@
 			flex-basis: auto;
 		}
 
-		.lane {
+		.lane,
+		.lane-slot {
 			flex-basis: auto;
 		}
 	}
