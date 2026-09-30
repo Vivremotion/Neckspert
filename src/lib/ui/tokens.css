@@ -1,80 +1,80 @@
 :root {
 	/* Scaffold region boxes (from .impeccable/build/scaffold/layout.css) */
-	--r-field-x: 0.000%;
-	--r-field-y: 0.000%;
-	--r-field-w: 70.000%;
-	--r-field-h: 70.000%;
-	--r-prompt-note-x: 20.000%;
-	--r-prompt-note-y: 10.000%;
-	--r-prompt-note-w: 23.670%;
-	--r-prompt-note-h: 50.000%;
-	--r-prompt-string-x: 12.660%;
-	--r-prompt-string-y: 54.170%;
-	--r-prompt-string-w: 22.030%;
-	--r-prompt-string-h: 11.670%;
+	--r-field-x: 0%;
+	--r-field-y: 0%;
+	--r-field-w: 70%;
+	--r-field-h: 70%;
+	--r-prompt-note-x: 20%;
+	--r-prompt-note-y: 10%;
+	--r-prompt-note-w: 23.67%;
+	--r-prompt-note-h: 50%;
+	--r-prompt-string-x: 12.66%;
+	--r-prompt-string-y: 54.17%;
+	--r-prompt-string-w: 22.03%;
+	--r-prompt-string-h: 11.67%;
 	--r-prompt-string-cap: 71px;
 	--r-prompt-string-font: 96px;
 	--r-prompt-string-family: 'Oxanium';
 	--r-prompt-string-weight: 700;
-	--r-verdict-box-x: 70.000%;
-	--r-verdict-box-y: 0.000%;
-	--r-verdict-box-w: 30.000%;
-	--r-verdict-box-h: 70.000%;
-	--r-verdict-sprite-x: 70.000%;
-	--r-verdict-sprite-y: 10.000%;
-	--r-verdict-sprite-w: 30.000%;
-	--r-verdict-sprite-h: 30.000%;
-	--r-verdict-banner-x: 70.000%;
-	--r-verdict-banner-y: 40.000%;
-	--r-verdict-banner-w: 30.000%;
-	--r-verdict-banner-h: 10.000%;
+	--r-verdict-box-x: 70%;
+	--r-verdict-box-y: 0%;
+	--r-verdict-box-w: 30%;
+	--r-verdict-box-h: 70%;
+	--r-verdict-sprite-x: 70%;
+	--r-verdict-sprite-y: 10%;
+	--r-verdict-sprite-w: 30%;
+	--r-verdict-sprite-h: 30%;
+	--r-verdict-banner-x: 70%;
+	--r-verdict-banner-y: 40%;
+	--r-verdict-banner-w: 30%;
+	--r-verdict-banner-h: 10%;
 	--r-verdict-banner-cap: 43px;
 	--r-verdict-banner-font: 62px;
-	--r-verdict-offset-x: 70.000%;
-	--r-verdict-offset-y: 50.000%;
-	--r-verdict-offset-w: 30.000%;
-	--r-verdict-offset-h: 10.000%;
+	--r-verdict-offset-x: 70%;
+	--r-verdict-offset-y: 50%;
+	--r-verdict-offset-w: 30%;
+	--r-verdict-offset-h: 10%;
 	--r-verdict-offset-cap: 34px;
 	--r-verdict-offset-font: 49px;
-	--r-verdict-reaction-x: 70.000%;
-	--r-verdict-reaction-y: 60.000%;
-	--r-verdict-reaction-w: 30.000%;
-	--r-verdict-reaction-h: 10.000%;
-	--r-lane-bed-x: 0.000%;
-	--r-lane-bed-y: 60.000%;
-	--r-lane-bed-w: 100.000%;
-	--r-lane-bed-h: 40.000%;
-	--r-lane-heart-x: 30.000%;
-	--r-lane-heart-y: 70.000%;
-	--r-lane-heart-w: 10.000%;
-	--r-lane-heart-h: 10.000%;
-	--r-lane-history-x: 0.000%;
-	--r-lane-history-y: 80.000%;
-	--r-lane-history-w: 30.000%;
-	--r-lane-history-h: 20.000%;
-	--r-lane-finish-x: 30.000%;
-	--r-lane-finish-y: 80.000%;
-	--r-lane-finish-w: 10.000%;
-	--r-lane-finish-h: 20.000%;
-	--r-lane-upcoming-x: 40.000%;
-	--r-lane-upcoming-y: 80.000%;
-	--r-lane-upcoming-w: 50.000%;
-	--r-lane-upcoming-h: 20.000%;
-	--r-lane-label-x: 60.000%;
-	--r-lane-label-y: 70.000%;
-	--r-lane-label-w: 40.000%;
-	--r-lane-label-h: 10.000%;
-	--r-lane-target-x: 90.000%;
-	--r-lane-target-y: 80.000%;
-	--r-lane-target-w: 7.970%;
-	--r-lane-target-h: 15.830%;
+	--r-verdict-reaction-x: 70%;
+	--r-verdict-reaction-y: 60%;
+	--r-verdict-reaction-w: 30%;
+	--r-verdict-reaction-h: 10%;
+	--r-lane-bed-x: 0%;
+	--r-lane-bed-y: 60%;
+	--r-lane-bed-w: 100%;
+	--r-lane-bed-h: 40%;
+	--r-lane-heart-x: 30%;
+	--r-lane-heart-y: 70%;
+	--r-lane-heart-w: 10%;
+	--r-lane-heart-h: 10%;
+	--r-lane-history-x: 0%;
+	--r-lane-history-y: 80%;
+	--r-lane-history-w: 30%;
+	--r-lane-history-h: 20%;
+	--r-lane-finish-x: 30%;
+	--r-lane-finish-y: 80%;
+	--r-lane-finish-w: 10%;
+	--r-lane-finish-h: 20%;
+	--r-lane-upcoming-x: 40%;
+	--r-lane-upcoming-y: 80%;
+	--r-lane-upcoming-w: 50%;
+	--r-lane-upcoming-h: 20%;
+	--r-lane-label-x: 60%;
+	--r-lane-label-y: 70%;
+	--r-lane-label-w: 40%;
+	--r-lane-label-h: 10%;
+	--r-lane-target-x: 90%;
+	--r-lane-target-y: 80%;
+	--r-lane-target-w: 7.97%;
+	--r-lane-target-h: 15.83%;
 
 	--np-bg: #e99568;
 	--np-mid: #be6754;
 	--np-shade: #813b2a;
 	--np-ink: #451218;
 	--np-tile: 8px;
-	--np-font-pixel: 'Oxanium', sans-serif;
+	--np-font-pixel: 'VT323', sans-serif;
 	--np-space-1: calc(var(--np-tile) * 1);
 	--np-space-2: calc(var(--np-tile) * 2);
 	--np-space-3: calc(var(--np-tile) * 3);
@@ -84,9 +84,9 @@
 }
 
 @font-face {
-	font-family: 'Oxanium';
-	src: url('/fonts/oxanium-700.woff2') format('woff2');
-	font-weight: 700;
+	font-family: 'VT323';
+	src: url('/fonts/vt323-regular.ttf') format('truetype');
+	font-weight: 400 700;
 	font-style: normal;
 	font-display: swap;
 }
@@ -112,7 +112,8 @@ body {
 }
 
 .np-dither {
-	background-image: linear-gradient(
+	background-image:
+		linear-gradient(
 			45deg,
 			var(--np-mid) 25%,
 			transparent 25%,
