@@ -4,6 +4,8 @@ export const calibrationMessages = defineMessages({
 	fr: {
 		title: 'Calibration',
 		input: 'Entrée audio',
+		unlock: 'Autoriser le micro',
+		emptyInputs: 'Aucune entrée visible tant que le micro n’est pas autorisé.',
 		listen: 'Écouter le niveau',
 		listening: 'Écoute en cours',
 		start: 'Calibrer',
@@ -21,6 +23,8 @@ export const calibrationMessages = defineMessages({
 	en: {
 		title: 'Calibration',
 		input: 'Audio input',
+		unlock: 'Allow microphone',
+		emptyInputs: 'No inputs are listed until the microphone is allowed.',
 		listen: 'Listen to level',
 		listening: 'Listening',
 		start: 'Calibrate',

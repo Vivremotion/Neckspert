@@ -1,6 +1,12 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { AudioInputDevice } from '$lib/application/ports';
-	import type { Locale } from '$lib/domain/types';
+	import {
+		MAX_BUILT_IN_INPUT_GAIN,
+		MIN_BUILT_IN_INPUT_GAIN,
+		clampBuiltInInputGain,
+		type Locale
+	} from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -12,31 +18,39 @@
 		tempoBpm,
 		inputs,
 		inputDeviceId,
+		builtInInputGain,
 		calibrationOffsetMs,
 		importError,
 		confirmingImport,
 		onlocale,
 		ontempo,
 		oninput,
+		onbuiltingain,
 		onexport,
 		onimportfile,
 		onimportconfirm,
-		onimportcancel
+		onimportcancel,
+		onunlock,
+		notice = null
 	}: {
 		locale: Locale;
 		tempoBpm: number;
 		inputs: AudioInputDevice[];
 		inputDeviceId: string | null;
+		builtInInputGain: number;
 		calibrationOffsetMs: number | null;
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: Locale) => void;
 		ontempo: (bpm: number) => void;
 		oninput: (id: string | null) => void;
+		onbuiltingain: (gain: number) => void;
 		onexport: () => void;
 		onimportfile: (file: File) => void;
 		onimportconfirm: () => void;
 		onimportcancel: () => void;
+		onunlock?: () => void;
+		notice?: string | null;
 	} = $props();
 
 	const m = $derived(settingsMessages());
@@ -97,22 +111,51 @@
 		<label class="label" for="settings-input">
 			<PixelText scale={1}>{m.input}</PixelText>
 		</label>
-		<select
-			id="settings-input"
-			class="device-select"
-			value={inputDeviceId ?? ''}
-			onchange={onDeviceChange}
-		>
-			{#each inputs as device (device.id)}
-				<option value={device.id}>{device.label}</option>
-			{/each}
-		</select>
+		{#if inputs.length === 0}
+			<p><PixelText scale={1}>{m.emptyInputs}</PixelText></p>
+			<PixelButton size="large" onclick={() => onunlock?.()}>{m.unlock}</PixelButton>
+			{#if notice}
+				<p class="error" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
+			{/if}
+		{:else}
+			<select
+				id="settings-input"
+				class="device-select"
+				value={inputDeviceId ?? ''}
+				onchange={onDeviceChange}
+			>
+				{#each inputs as device (device.id)}
+					<option value={device.id}>{device.label}</option>
+				{/each}
+			</select>
+		{/if}
+		<p class="label gain-label"><PixelText scale={1}>{m.builtInGain}</PixelText></p>
+		<div class="row tempo" role="group" aria-label={m.builtInGain}>
+			<PixelButton
+				size="huge"
+				label={m.decreaseBuiltInGain}
+				disabled={builtInInputGain <= MIN_BUILT_IN_INPUT_GAIN}
+				onclick={() => onbuiltingain(clampBuiltInInputGain(builtInInputGain - 1))}
+				>{m.decrease}</PixelButton
+			>
+			<span class="tempo-value" aria-live="polite">
+				<PixelText scale={4}>{`×${builtInInputGain}`}</PixelText>
+			</span>
+			<PixelButton
+				size="huge"
+				label={m.increaseBuiltInGain}
+				disabled={builtInInputGain >= MAX_BUILT_IN_INPUT_GAIN}
+				onclick={() => onbuiltingain(clampBuiltInInputGain(builtInInputGain + 1))}
+				>{m.increase}</PixelButton
+			>
+		</div>
+		<p class="hint"><PixelText scale={1}>{m.builtInGainHint}</PixelText></p>
 	</PixelBox>
 
 	<PixelBox variant="plain">
 		<p class="label"><PixelText scale={1}>{m.calibration}</PixelText></p>
 		<p><PixelText scale={1}>{m.offset(calibrationOffsetMs)}</PixelText></p>
-		<a class="calibration-link" href="/calibration">
+		<a class="calibration-link" href={resolve('/calibration')}>
 			<PixelText scale={2}>{m.calibrationLink}</PixelText>
 		</a>
 	</PixelBox>
@@ -174,6 +217,14 @@
 
 	.label {
 		margin: 0 0 var(--np-tile, 8px);
+	}
+
+	.gain-label {
+		margin-top: var(--np-space-2, 16px);
+	}
+
+	.hint {
+		margin: var(--np-tile, 8px) 0 0;
 	}
 
 	.row {

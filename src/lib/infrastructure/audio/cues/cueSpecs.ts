@@ -15,7 +15,7 @@ export interface ToneSpec {
 
 /** A cue must end before the next beat can matter and never mask the guitar. To calibrate. */
 export const MAX_CUE_DURATION_S = 0.15;
-/** Below the metronome clicks (0.25 to 0.4). To calibrate. */
+/** Below the metronome clicks (0.7 to 0.9). To calibrate. */
 export const MAX_CUE_GAIN = 0.2;
 export const CUE_ATTACK_S = 0.005;
 /** Exponential ramps cannot reach 0. */

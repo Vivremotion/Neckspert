@@ -9,7 +9,7 @@
 			stats: {
 				nextAction: 'session',
 				nextReviewAt: null,
-				medianColdReactionMs: 1180,
+				medianColdOffsetMs: 40,
 				trend: 'improving'
 			}
 		},
@@ -19,7 +19,7 @@
 			stats: {
 				nextAction: 'placement',
 				nextReviewAt: null,
-				medianColdReactionMs: null,
+				medianColdOffsetMs: null,
 				trend: null
 			}
 		},
@@ -29,7 +29,7 @@
 			stats: {
 				nextAction: 'wait',
 				nextReviewAt: 2 * 60 * 60 * 1000,
-				medianColdReactionMs: 1400,
+				medianColdOffsetMs: 80,
 				trend: 'worsening'
 			}
 		}

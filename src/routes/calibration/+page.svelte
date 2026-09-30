@@ -17,6 +17,7 @@
 	let phase = $state<'idle' | 'running' | 'done'>('idle');
 	let progress = $state<CalibrationProgress | null>(null);
 	let outcome = $state<CalibrationOutcome | null>(null);
+	let notice = $state<string | null>(null);
 
 	let stopLevel: (() => void) | null = null;
 
@@ -40,12 +41,23 @@
 	}
 
 	async function onlisten() {
-		await stopMeter();
-		await services.detector.start(selectedDeviceId);
-		stopLevel = services.detector.onLevel((rms) => {
-			levelRms = rms;
-		});
-		listening = true;
+		notice = null;
+		try {
+			await stopMeter();
+			services.detector.setBuiltInGain((await services.settings.get()).builtInInputGain);
+			await services.detector.start(selectedDeviceId);
+			inputs = await services.detector.listInputs();
+			if (!inputs.some((device) => device.id === selectedDeviceId)) {
+				selectedDeviceId = inputs[0]?.id ?? null;
+			}
+			stopLevel = services.detector.onLevel((rms) => {
+				levelRms = rms;
+			});
+			listening = true;
+		} catch (error) {
+			listening = false;
+			notice = error instanceof Error ? error.message : String(error);
+		}
 	}
 
 	async function onstart() {
@@ -101,4 +113,5 @@
 	{onstart}
 	{oncancel}
 	{onretry}
+	{notice}
 />

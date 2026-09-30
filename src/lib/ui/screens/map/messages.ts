@@ -8,6 +8,8 @@ export const mapMessages = defineMessages({
 		locate: 'Localisation',
 		identify: 'Identification',
 		cell: (string: number, fret: number) => `Corde ${string}, case ${fret}`,
+		beats: (n: number) => (n === 1 ? '1 temps' : `${n} temps`),
+		seconds: (ms: number) => `${(ms / 1000).toFixed(2).replace('.', ',')} s`,
 		status: {
 			unseen: 'non vu',
 			learning: 'en cours',
@@ -21,6 +23,8 @@ export const mapMessages = defineMessages({
 		locate: 'Locate',
 		identify: 'Identify',
 		cell: (string: number, fret: number) => `String ${string}, fret ${fret}`,
+		beats: (n: number) => (n === 1 ? '1 beat' : `${n} beats`),
+		seconds: (ms: number) => `${(ms / 1000).toFixed(2).replace('.', ',')} s`,
 		status: {
 			unseen: 'unseen',
 			learning: 'learning',

@@ -6,7 +6,7 @@ export interface TrendMessages {
 	worsening: string;
 }
 
-/** Reaction-time trend label. Improving = faster (lower ms). */
+/** Offset trend label. Improving = closer to the beat (lower ms). */
 export function formatTrend(trend: HomeStats['trend'], t: TrendMessages): string | null {
 	if (trend === null) return null;
 	return t[trend];

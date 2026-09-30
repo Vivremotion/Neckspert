@@ -1,18 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type {
-	CardState,
-	Curriculum,
-	LocateTarget,
-	Target
+import { buildCurriculum } from '$lib/domain/music';
+import {
+	cardKey,
+	type CardState,
+	type Curriculum,
+	type LocateTarget,
+	type Target
 } from '$lib/domain/types';
 import { DAILY_COLD_CAP, MIN_COLD_DELAY_MS, NEW_PER_SESSION } from './constants';
 import { introduceCard } from './cards';
-import {
-	buildDailyPlan,
-	buildFreePlan,
-	buildPlacementPlan,
-	nextSuggestedAt
-} from './plans';
+import { buildDailyPlan, buildFreePlan, buildPlacementPlan, nextSuggestedAt } from './plans';
 
 const NOW = Date.parse('2026-05-01T12:00:00.000Z');
 
@@ -79,10 +76,7 @@ describe('buildDailyPlan', () => {
 				i % 12
 			];
 			const string = ((i % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
-			return dueCard(
-				{ direction: 'locate', string, pitch },
-				NOW - (DAILY_COLD_CAP + 5 - i)
-			);
+			return dueCard({ direction: 'locate', string, pitch }, NOW - (DAILY_COLD_CAP + 5 - i));
 		});
 		const plan = buildDailyPlan({
 			cards: many,
@@ -124,21 +118,55 @@ describe('buildPlacementPlan', () => {
 });
 
 describe('buildFreePlan', () => {
-	it('samples existing cards as hot free items', () => {
-		const cards = [introduceCard(L1, NOW, 's0'), introduceCard(I1, NOW, 's0')];
+	it('draws from every curriculum cell, including ones with no card yet', () => {
+		const known = introduceCard(L1, NOW, 's0');
+		known.leadBeats = 2;
 		const plan = buildFreePlan({
-			cards,
+			cards: [known],
+			curriculum: FIXTURE,
 			now: NOW,
 			sessionId: 'free-1',
-			count: 2,
+			count: 5,
 			random: () => 0
 		});
+
 		expect(plan.kind).toBe('free');
-		expect(plan.items).toHaveLength(2);
+		expect(plan.items).toHaveLength(5);
 		expect(plan.items.every((item) => item.phase === 'free')).toBe(true);
 		expect(plan.items.every((item) => item.temperature === 'hot')).toBe(true);
-		const identify = plan.items.find((item) => item.target.direction === 'identify');
-		expect(identify?.leadBeats).toBeNull();
+		expect(plan.items.every((item) => item.aid === 'none')).toBe(true);
+		expect(plan.items.every((item) => item.repeatUntilCorrect === false)).toBe(true);
+		expect(plan.items.map((item) => cardKey(item.target))).toEqual(
+			expect.arrayContaining([cardKey(L1), cardKey(L2), cardKey(L3), cardKey(L4), cardKey(I1)])
+		);
+		expect(plan.items.find((item) => cardKey(item.target) === cardKey(L1))?.leadBeats).toBe(2);
+		expect(plan.items.find((item) => cardKey(item.target) === cardKey(L4))?.leadBeats).toBe(8);
+		expect(plan.items.find((item) => item.target.direction === 'identify')?.leadBeats).toBeNull();
+	});
+
+	it('offers the whole neck when nothing has been seen, capped at the series length', () => {
+		const everything = buildFreePlan({
+			cards: [],
+			curriculum: buildCurriculum(),
+			now: NOW,
+			sessionId: 'free-all',
+			count: 1000,
+			random: () => 0
+		});
+		expect(everything.items).toHaveLength(144);
+		expect(everything.items.filter((item) => item.target.direction === 'locate')).toHaveLength(72);
+		expect(everything.items.filter((item) => item.target.direction === 'identify')).toHaveLength(
+			72
+		);
+
+		const capped = buildFreePlan({
+			cards: [],
+			curriculum: buildCurriculum(),
+			now: NOW,
+			sessionId: 'free-cap',
+			random: () => 0
+		});
+		expect(capped.items).toHaveLength(DAILY_COLD_CAP);
 	});
 });
 

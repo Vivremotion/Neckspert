@@ -1,5 +1,7 @@
 import {
 	LEAD_STEPS,
+	MAX_BUILT_IN_INPUT_GAIN,
+	MIN_BUILT_IN_INPUT_GAIN,
 	parseCardKey,
 	type BackupFile,
 	type ItemPhase,
@@ -72,6 +74,14 @@ function checkSettings(settings: Fields): string | null {
 	}
 	if (settings.inputDeviceId !== null && typeof settings.inputDeviceId !== 'string') {
 		return 'inputDeviceId must be a string or null';
+	}
+	if (
+		settings.builtInInputGain !== undefined &&
+		(!isFiniteNumber(settings.builtInInputGain) ||
+			settings.builtInInputGain < MIN_BUILT_IN_INPUT_GAIN ||
+			settings.builtInInputGain > MAX_BUILT_IN_INPUT_GAIN)
+	) {
+		return `builtInInputGain must be a number from ${MIN_BUILT_IN_INPUT_GAIN} to ${MAX_BUILT_IN_INPUT_GAIN}`;
 	}
 	if (!isNullableNumber(settings.placementDoneAt))
 		return 'placementDoneAt must be a number or null';

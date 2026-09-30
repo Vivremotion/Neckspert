@@ -99,19 +99,47 @@ describe('computeHomeStats', () => {
 		expect(stats.nextReviewAt).toBe(NOW + 10_000);
 	});
 
-	it('computes median cold reaction and a 7-day trend', () => {
+	it('scores cold correct locate notes by distance to the beat', () => {
+		const stats = computeHomeStats({
+			cards: [],
+			attempts: [
+				coldAttempt({ reactionMs: 6000, timingOffsetMs: 20 }),
+				coldAttempt({ reactionMs: 6000, timingOffsetMs: -40 }),
+				coldAttempt({
+					correct: false,
+					verdict: 'wrong',
+					reactionMs: 100,
+					timingOffsetMs: 500
+				}),
+				coldAttempt({
+					target: { direction: 'identify', string: 1, fret: 0 },
+					leadBeats: null,
+					timingOffsetMs: null,
+					reactionMs: 400
+				})
+			],
+			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
+			curriculum: FIXTURE,
+			now: NOW
+		});
+		expect(stats.medianColdOffsetMs).toBe(30);
+	});
+
+	it('trends toward a smaller distance to the beat over 7 days', () => {
 		const recent = [
-			coldAttempt({ promptedAt: NOW - 1000, reactionMs: 800 }),
-			coldAttempt({ promptedAt: NOW - 2000, reactionMs: 900 })
+			coldAttempt({ promptedAt: NOW - 1000, timingOffsetMs: 10, reactionMs: 6000 }),
+			coldAttempt({ promptedAt: NOW - 2000, timingOffsetMs: -30, reactionMs: 6000 })
 		];
 		const previous = [
 			coldAttempt({
 				promptedAt: NOW - TREND_WINDOW_MS - 1000,
-				reactionMs: 1200
+				timingOffsetMs: 80,
+				reactionMs: 1500
 			}),
 			coldAttempt({
 				promptedAt: NOW - TREND_WINDOW_MS - 2000,
-				reactionMs: 1300
+				timingOffsetMs: 120,
+				reactionMs: 1500
 			})
 		];
 		const stats = computeHomeStats({
@@ -121,7 +149,7 @@ describe('computeHomeStats', () => {
 			curriculum: FIXTURE,
 			now: NOW
 		});
-		expect(stats.medianColdReactionMs).toBe(1050);
+		expect(stats.medianColdOffsetMs).toBe(55);
 		expect(stats.trend).toBe('improving');
 	});
 
@@ -150,13 +178,15 @@ describe('summarizeSession', () => {
 			coldAttempt({
 				sessionId: 'sess',
 				correct: true,
-				reactionMs: 900,
+				reactionMs: 6000,
+				timingOffsetMs: 12,
 				promptedAt: NOW - 30_000
 			}),
 			coldAttempt({
 				sessionId: 'sess',
 				correct: false,
 				reactionMs: 1100,
+				timingOffsetMs: 80,
 				promptedAt: NOW - 20_000,
 				verdict: 'wrong'
 			}),
@@ -164,7 +194,17 @@ describe('summarizeSession', () => {
 				sessionId: 'sess',
 				temperature: 'hot',
 				reactionMs: 500,
+				timingOffsetMs: 4,
 				promptedAt: NOW - 10_000
+			}),
+			coldAttempt({
+				sessionId: 'sess',
+				target: { direction: 'identify', string: 1, fret: 0 },
+				cardKey: 'identify:1:0',
+				leadBeats: null,
+				timingOffsetMs: null,
+				reactionMs: 640,
+				promptedAt: NOW - 15_000
 			})
 		];
 		const cards = [
@@ -180,9 +220,10 @@ describe('summarizeSession', () => {
 		const summary = summarizeSession({ record, attempts, cards, now: NOW });
 		expect(summary).toEqual({
 			sessionId: 'sess',
-			coldCount: 2,
-			coldCorrect: 1,
-			medianColdReactionMs: 1000,
+			coldCount: 3,
+			coldCorrect: 2,
+			medianColdOffsetMs: 12,
+			identifyMedianReactionMs: 640,
 			learnedCount: 1,
 			fatigueDetected: true,
 			nextSuggestedAt: NOW + NEXT_SESSION_GAP_MS
@@ -193,12 +234,9 @@ describe('summarizeSession', () => {
 describe('buildNeckMap', () => {
 	it('builds 72 cells with injected pitches and per-sense status', () => {
 		const locate = {
-			...introduceCard(
-				{ direction: 'locate', string: 2, pitch: 'C' },
-				NOW,
-				's0'
-			),
-			acquiredAt: NOW
+			...introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 's0'),
+			acquiredAt: NOW,
+			leadBeats: 2 as const
 		};
 		const identify = introduceCard(
 			{ direction: 'identify', string: 2, fret: 1 },
@@ -254,7 +292,10 @@ describe('buildNeckMap', () => {
 		const locateCell = cells.find((c) => c.string === 2 && c.fret === 8);
 		expect(locateCell?.pitch).toBe('C');
 		expect(locateCell?.locate).toBe('acquired');
-		expect(locateCell?.medianColdReactionMs).toBe(700);
+		expect(locateCell?.locateLeadBeats).toBe(2);
+		expect(locateCell?.identifyMedianReactionMs).toBeNull();
 		expect(locateCell?.coldAccuracy).toBe(1);
+		expect(identifyCell?.locateLeadBeats).toBeNull();
+		expect(identifyCell?.identifyMedianReactionMs).toBe(900);
 	});
 });

@@ -5,16 +5,19 @@
 		onclick,
 		disabled = false,
 		size = 'large',
+		label,
 		children
 	}: {
 		onclick: (e: MouseEvent) => void;
 		disabled?: boolean;
 		size?: 'large' | 'huge';
+		/** Accessible name when the visible glyph is shared with another control. */
+		label?: string;
 		children: Snippet;
 	} = $props();
 </script>
 
-<button type="button" class="btn" class:huge={size === 'huge'} {disabled} {onclick}>
+<button type="button" class="btn" class:huge={size === 'huge'} aria-label={label} {disabled} {onclick}>
 	{@render children()}
 </button>
 

@@ -13,6 +13,8 @@ export interface MetronomePort {
 	secondsPerBeat(): number;
 	/** Starts clicking; beat 0 sounds at `firstBeatTime` (audio seconds). */
 	start(firstBeatTime: number): void;
+	/** Beats keep firing either way. Identify questions silence the click. */
+	setAudible(audible: boolean): void;
 	stop(): void;
 	isRunning(): boolean;
 	/** Audio time of beat `index`. Throws when not running. */

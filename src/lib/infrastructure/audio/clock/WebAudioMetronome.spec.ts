@@ -205,6 +205,22 @@ describe('WebAudioMetronome scheduling', () => {
 		expect(metronome.isRunning()).toBe(false);
 	});
 
+	it('keeps emitting beats but schedules no click while silent', () => {
+		const { audio, metronome, beats } = setup();
+		metronome.setTempo(120);
+		metronome.setAudible(false);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		wakeAt(audio, 1.47);
+		expect(beats.map((beat) => beat.index)).toEqual([0, 1]);
+		expect(audio.sources).toHaveLength(0);
+
+		metronome.setAudible(true);
+		wakeAt(audio, 1.93);
+		expect(beats.map((beat) => beat.index)).toEqual([0, 1, 2]);
+		expect(audio.sources.map((source) => source.startTime)).toEqual([2]);
+	});
+
 	it('schedules the first beat as soon as it enters the horizon', () => {
 		const { audio, metronome, beats } = setup();
 		metronome.setTempo(120);

@@ -1,4 +1,6 @@
 import {
+	cardKey,
+	LEAD_STEPS,
 	type CardState,
 	type Curriculum,
 	type LocateTarget,
@@ -63,9 +65,7 @@ export function buildDailyPlan(input: {
 	sessionId: string;
 	skipLearning?: boolean;
 }): SessionPlan {
-	const reviews = dueCards(input.cards, input.now)
-		.slice(0, DAILY_COLD_CAP)
-		.map(reviewItem);
+	const reviews = dueCards(input.cards, input.now).slice(0, DAILY_COLD_CAP).map(reviewItem);
 	const learning = input.skipLearning
 		? []
 		: nextNewTargets(input.curriculum, input.cards, NEW_PER_SESSION).map(learningItem);
@@ -86,16 +86,14 @@ export function buildPlacementPlan(input: {
 }): SessionPlan {
 	const random = input.random ?? Math.random;
 	const leadBeats = leadForThreshold(input.tempoBpm);
-	const items = shuffle(input.targets, random).map(
-		(target): PlannedItem => ({
-			target,
-			phase: 'placement',
-			temperature: 'cold',
-			aid: 'none',
-			leadBeats,
-			repeatUntilCorrect: false
-		})
-	);
+	const items = shuffle(input.targets, random).map((target): PlannedItem => ({
+		target,
+		phase: 'placement',
+		temperature: 'cold',
+		aid: 'none',
+		leadBeats,
+		repeatUntilCorrect: false
+	}));
 	return {
 		id: input.sessionId,
 		kind: 'placement',
@@ -104,8 +102,23 @@ export function buildPlacementPlan(input: {
 	};
 }
 
+function curriculumTargets(curriculum: Curriculum): Target[] {
+	const seen = new Set<string>();
+	const targets: Target[] = [];
+	for (const set of curriculum) {
+		for (const target of set.targets) {
+			const key = cardKey(target);
+			if (seen.has(key)) continue;
+			seen.add(key);
+			targets.push(target);
+		}
+	}
+	return targets;
+}
+
 export function buildFreePlan(input: {
 	cards: readonly CardState[];
+	curriculum: Curriculum;
 	now: number;
 	sessionId: string;
 	count?: number;
@@ -113,17 +126,19 @@ export function buildFreePlan(input: {
 }): SessionPlan {
 	const random = input.random ?? Math.random;
 	const count = input.count ?? DAILY_COLD_CAP;
-	const picked = shuffle(input.cards, random).slice(0, count);
-	const items = picked.map(
-		(card): PlannedItem => ({
-			target: card.target,
+	const byKey = new Map(input.cards.map((card) => [card.key, card]));
+	const picked = shuffle(curriculumTargets(input.curriculum), random).slice(0, count);
+	const items = picked.map((target): PlannedItem => {
+		const card = byKey.get(cardKey(target));
+		return {
+			target,
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',
-			leadBeats: card.target.direction === 'locate' ? card.leadBeats : null,
+			leadBeats: target.direction === 'locate' ? (card?.leadBeats ?? LEAD_STEPS[0]) : null,
 			repeatUntilCorrect: false
-		})
-	);
+		};
+	});
 	return {
 		id: input.sessionId,
 		kind: 'free',

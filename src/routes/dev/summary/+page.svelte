@@ -6,7 +6,8 @@
 		sessionId: 'dev',
 		coldCount: 12,
 		coldCorrect: 10,
-		medianColdReactionMs: 1050,
+		medianColdOffsetMs: 24,
+		identifyMedianReactionMs: 640,
 		learnedCount: 3,
 		fatigueDetected: false,
 		nextSuggestedAt: 2 * 60 * 60 * 1000

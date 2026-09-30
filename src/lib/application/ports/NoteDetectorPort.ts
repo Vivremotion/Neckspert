@@ -20,6 +20,8 @@ export interface NoteDetectorPort {
 	listInputs(): Promise<AudioInputDevice[]>;
 	/** Opens the input (null = default device) and starts detecting. */
 	start(deviceId: string | null): Promise<void>;
+	/** Gain for a built-in mic. Ignored for an external interface. */
+	setBuiltInGain(gain: number): void;
 	stop(): void;
 	/** One event per note attack. Returns an unsubscribe function. */
 	onNote(callback: (onset: NoteOnset) => void): () => void;

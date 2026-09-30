@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { AudioInputDevice } from '$lib/application/ports';
-	import type { Locale } from '$lib/domain/types';
+	import { DEFAULT_BUILT_IN_INPUT_GAIN, clampBuiltInInputGain, type Locale } from '$lib/domain/types';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import SettingsScreen from '$lib/ui/screens/settings/SettingsScreen.svelte';
 	import { clampTempo } from '$lib/ui/screens/settings/tempo';
@@ -13,6 +13,7 @@
 	let locale = $state<Locale>('fr');
 	let tempoBpm = $state(80);
 	let inputDeviceId = $state<string | null>('usb');
+	let builtInInputGain = $state(DEFAULT_BUILT_IN_INPUT_GAIN);
 	let calibrationOffsetMs = $state<number | null>(42);
 	let importError = $state<string | null>(null);
 	let confirmingImport = $state(false);
@@ -28,12 +29,14 @@
 	{tempoBpm}
 	{inputs}
 	{inputDeviceId}
+	{builtInInputGain}
 	{calibrationOffsetMs}
 	{importError}
 	{confirmingImport}
 	{onlocale}
 	ontempo={(bpm) => (tempoBpm = clampTempo(bpm))}
 	oninput={(id) => (inputDeviceId = id)}
+	onbuiltingain={(gain) => (builtInInputGain = clampBuiltInInputGain(gain))}
 	onexport={() => undefined}
 	onimportfile={() => {
 		confirmingImport = true;

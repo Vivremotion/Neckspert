@@ -12,7 +12,7 @@ afterEach(() => {
 const base: HomeStats = {
 	nextAction: 'session',
 	nextReviewAt: null,
-	medianColdReactionMs: 1200,
+	medianColdOffsetMs: 40,
 	trend: 'improving'
 };
 
@@ -22,15 +22,16 @@ describe('HomeScreen', () => {
 		const button = screen.getByRole('button') as HTMLButtonElement;
 		expect(button.textContent).toMatch(/session du jour/i);
 		expect(button.disabled).toBe(false);
-		expect(screen.getByText('1,20 s')).toBeTruthy();
-		expect(screen.getByText(/en baisse/i)).toBeTruthy();
+		expect(screen.getByText(/écart au temps/i)).toBeTruthy();
+		expect(screen.getByText('40 ms')).toBeTruthy();
+		expect(screen.getByText(/plus près/i)).toBeTruthy();
 	});
 
 	it('disables the button and shows relative wait time', () => {
 		const stats: HomeStats = {
 			nextAction: 'wait',
 			nextReviewAt: 2 * 60 * 60 * 1000,
-			medianColdReactionMs: null,
+			medianColdOffsetMs: null,
 			trend: null
 		};
 		render(HomeScreen, { props: { stats, now: 0, onstart: () => {} } });
@@ -50,13 +51,14 @@ describe('HomeScreen', () => {
 		i18n.locale = 'en';
 		render(HomeScreen, {
 			props: {
-				stats: { ...base, nextAction: 'placement', medianColdReactionMs: 900, trend: 'stable' },
+				stats: { ...base, nextAction: 'placement', medianColdOffsetMs: 12, trend: 'stable' },
 				now: 0,
 				onstart: () => {}
 			}
 		});
 		expect(screen.getByRole('button').textContent).toMatch(/placement/i);
-		expect(screen.getByText('0,90 s')).toBeTruthy();
+		expect(screen.getByText(/from the beat/i)).toBeTruthy();
+		expect(screen.getByText('12 ms')).toBeTruthy();
 		expect(screen.getByText(/stable/i)).toBeTruthy();
 	});
 });

@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import { laneTiles } from './lane';
-	import { barLabel } from './barLabel';
 	import { playMessages } from './messages';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
@@ -22,27 +22,19 @@
 	let nowBeat = $state(0);
 	const t = $derived(playMessages());
 	const view = $derived(controller.view);
-	const tiles = $derived(
-		laneTiles({
+	const tiles = $derived.by(() => {
+		const target = view.targetBeatIndex;
+		const beatsAfter = target == null ? 8 : Math.max(8, target - Math.floor(nowBeat) + 1);
+		return laneTiles({
 			nowBeat,
 			beatsPerBar: view.beatsPerBar,
 			promptBeatIndex: view.promptBeatIndex,
-			targetBeatIndex: view.targetBeatIndex,
+			targetBeatIndex: target,
 			history: view.history,
 			beatsBefore: 4,
-			beatsAfter: 8
-		})
-	);
-	const measure = $derived(
-		view.promptBeatIndex !== null && view.targetBeatIndex !== null
-			? barLabel({
-					nowBeat,
-					promptBeatIndex: view.promptBeatIndex,
-					targetBeatIndex: view.targetBeatIndex,
-					beatsPerBar: view.beatsPerBar
-				})
-			: null
-	);
+			beatsAfter
+		});
+	});
 	const lanePast = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const laneAhead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
@@ -54,6 +46,10 @@
 
 	function formatReaction(ms: number): string {
 		return `${(ms / 1000).toFixed(2).replace('.', ',')} s`;
+	}
+
+	function leave() {
+		if (view.status !== 'idle' && view.status !== 'finished') controller.quit();
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -90,6 +86,12 @@
 <svelte:window onkeydown={onKeydown} />
 <section class="play" data-status={view.status} data-plates-only={platesOnly ? '1' : '0'}>
 	{#if !platesOnly}
+		<div class="chrome">
+			{#if view.status === 'count-in' || view.status === 'awaiting' || view.status === 'verdict'}
+				<PixelButton size="large" onclick={() => controller.pause()}>{t.pause}</PixelButton>
+			{/if}
+			<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
+		</div>
 		<div class="stage">
 			<div class="prompt" class:answering>
 				{#if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
@@ -129,21 +131,19 @@
 		{:else}
 			<div class="lane pixel-frame">
 				<div class="lane-inner pixel-frame-inner">
-					{#if measure}
-						<p class="measure">
-							{t.measure(measure.bar, measure.bars, measure.beat, view.beatsPerBar)}
-						</p>
-					{/if}
 					<div class="track">
 						<div class="tiles">
 							{#each lanePast as tile (tile.beatIndex)}
 								<div class="cell">
 									<div
 										class="body"
+										class:due={tile.kind === 'target'}
 										class:inverted={tile.justPlayed}
 										class:imprint={tile.justPlayed && view.status === 'verdict'}
 									>
-										{#if tile.verdict}
+										{#if tile.kind === 'target' && view.prompt}
+											<span class="note">{view.prompt.primary}</span>
+										{:else if tile.verdict}
 											<VerdictSprite verdict={tile.verdict} size={64} inverted={tile.justPlayed} />
 										{/if}
 									</div>
@@ -170,13 +170,14 @@
 									{#if tile.label !== null}
 										<span class="beat-no">{tile.label}</span>
 									{/if}
-									<div class="body ahead"></div>
+									<div class="body ahead" class:due={tile.kind === 'target'}>
+										{#if tile.kind === 'target' && view.prompt}
+											<span class="note">{view.prompt.primary}</span>
+										{/if}
+									</div>
 								</div>
 							{/each}
 						</div>
-						{#if view.prompt}
-							<p class="target">{view.prompt.primary}</p>
-						{/if}
 					</div>
 				</div>
 			</div>
@@ -186,8 +187,12 @@
 			<div class="overlay">
 				{#if view.status === 'finished'}
 					<p class="done">Série terminée</p>
+				{:else}
+					<p class="how">{t.howTo}</p>
 				{/if}
-				<PixelButton size="huge" onclick={() => controller.start()}>{t.start}</PixelButton>
+				<PixelButton size="huge" onclick={() => controller.start()}
+					>{view.status === 'finished' ? t.again : t.start}</PixelButton
+				>
 			</div>
 		{:else if view.status === 'paused'}
 			<div class="overlay">
@@ -198,6 +203,37 @@
 </section>
 
 <style>
+	.chrome {
+		position: absolute;
+		z-index: 8;
+		top: 8px;
+		inset-inline: 8px;
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: 8px;
+		align-items: center;
+	}
+
+	.leave {
+		color: var(--np-ink);
+		font: inherit;
+		font-weight: 700;
+		text-transform: uppercase;
+		text-decoration: none;
+		background: var(--np-bg);
+		border: calc(var(--np-tile) / 2) solid var(--np-ink);
+		padding: 8px 12px;
+	}
+
+	.how {
+		margin: 0;
+		max-width: 36rem;
+		text-align: center;
+		font-size: var(--np-type-body);
+		text-transform: uppercase;
+	}
+
 	.play {
 		position: relative;
 		display: flex;
@@ -389,13 +425,6 @@
 		padding: 8px 12px 12px;
 	}
 
-	.measure {
-		align-self: flex-end;
-		margin: 0 0 6px;
-		font-size: var(--np-type-meta);
-		line-height: 1;
-	}
-
 	.track {
 		display: flex;
 		flex: 1;
@@ -441,6 +470,16 @@
 		background: var(--np-bg);
 	}
 
+	.body.due {
+		background: var(--np-ink);
+		color: var(--np-bg);
+	}
+
+	.note {
+		font-size: clamp(18px, 4cqi, 28px);
+		line-height: 1;
+	}
+
 	.body.ahead {
 		background-color: var(--np-bg);
 		background-image:
@@ -456,6 +495,11 @@
 			0 0,
 			4px 4px;
 		background-size: 8px 8px;
+	}
+
+	.body.ahead.due {
+		background: var(--np-ink);
+		color: var(--np-bg);
 	}
 
 	.body.inverted {
@@ -482,20 +526,6 @@
 		box-shadow:
 			-8px 0 0 var(--np-ink),
 			8px 0 0 var(--np-ink);
-	}
-
-	.target {
-		box-sizing: border-box;
-		display: grid;
-		place-items: center;
-		width: 80px;
-		height: 80px;
-		margin: 0 0 0 auto;
-		border: 4px solid var(--np-ink);
-		background: var(--np-bg);
-		color: var(--np-ink);
-		font-size: var(--np-type-body);
-		line-height: 1;
 	}
 
 	.overlay {

@@ -55,6 +55,11 @@ describe('validateBackup', () => {
 		expect(() => validateBackup({ ...file, settings: { ...file.settings, tempoBpm: 0 } })).toThrow(
 			'Invalid backup settings: tempoBpm must be a positive number'
 		);
+		const { builtInInputGain: _gain, ...withoutGain } = file.settings;
+		expect(() => validateBackup({ ...file, settings: withoutGain })).not.toThrow();
+		expect(() =>
+			validateBackup({ ...file, settings: { ...file.settings, builtInInputGain: 32 } })
+		).toThrow('Invalid backup settings: builtInInputGain must be a number from 1 to 16');
 	});
 
 	it('rejects a table that is not an array', () => {

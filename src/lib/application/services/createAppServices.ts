@@ -89,6 +89,7 @@ export function createAppServices(
 							})
 						: buildFreePlan({
 								cards,
+								curriculum,
 								now,
 								sessionId,
 								random: deps.random

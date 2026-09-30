@@ -180,12 +180,26 @@ export interface SessionRecord {
 	fatigueDetected: boolean;
 }
 
+/** Linear gain applied only to a built-in computer mic, before level and pitch. */
+export const MIN_BUILT_IN_INPUT_GAIN = 1;
+export const MAX_BUILT_IN_INPUT_GAIN = 16;
+export const DEFAULT_BUILT_IN_INPUT_GAIN = 8;
+
+export function clampBuiltInInputGain(gain: number): number {
+	const rounded = Math.round(gain);
+	if (!Number.isFinite(rounded) || rounded < MIN_BUILT_IN_INPUT_GAIN) return MIN_BUILT_IN_INPUT_GAIN;
+	if (rounded > MAX_BUILT_IN_INPUT_GAIN) return MAX_BUILT_IN_INPUT_GAIN;
+	return rounded;
+}
+
 export interface Settings {
 	locale: Locale;
 	tempoBpm: number;
 	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
 	calibrationOffsetMs: number | null;
 	inputDeviceId: string | null;
+	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
+	builtInInputGain: number;
 	placementDoneAt: number | null;
 }
 
@@ -194,6 +208,7 @@ export const DEFAULT_SETTINGS: Settings = {
 	tempoBpm: 80,
 	calibrationOffsetMs: null,
 	inputDeviceId: null,
+	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
 	placementDoneAt: null
 };
 
@@ -203,8 +218,8 @@ export interface HomeStats {
 	nextAction: 'placement' | 'session' | 'wait';
 	/** Epoch ms of the next due review, when waiting. */
 	nextReviewAt: number | null;
-	/** The one number on the home screen. */
-	medianColdReactionMs: number | null;
+	/** Median |onset − beat| in ms, cold correct locate attempts. The home number. */
+	medianColdOffsetMs: number | null;
 	trend: 'improving' | 'stable' | 'worsening' | null;
 }
 
@@ -212,7 +227,10 @@ export interface SessionSummary {
 	sessionId: string;
 	coldCount: number;
 	coldCorrect: number;
-	medianColdReactionMs: number | null;
+	/** Median |onset − beat| in ms for this session's cold correct locate attempts. */
+	medianColdOffsetMs: number | null;
+	/** Median tap time in ms for this session's cold identify attempts. */
+	identifyMedianReactionMs: number | null;
 	learnedCount: number;
 	fatigueDetected: boolean;
 	nextSuggestedAt: number | null;
@@ -225,7 +243,10 @@ export interface NeckMapCell {
 	pitch: PitchName;
 	locate: CardStatus;
 	identify: CardStatus;
-	medianColdReactionMs: number | null;
+	/** Announcement the locate card has earned. Null when that sense has no card. */
+	locateLeadBeats: LeadBeats | null;
+	/** Median tap time for cold identify attempts at this fret. */
+	identifyMedianReactionMs: number | null;
 	coldAccuracy: number | null;
 }
 

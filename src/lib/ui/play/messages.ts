@@ -6,8 +6,9 @@ export const playMessages = defineMessages({
 		resume: 'Reprendre',
 		quit: 'Quitter',
 		start: 'Commencer',
-		measure: (bar: number, bars: number, beat: number, beatsPerBar: number) =>
-			`MESURE ${bar}/${bars} TEMPS ${beat}/${beatsPerBar}`,
+		again: 'Recommencer',
+		howTo:
+			'La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.',
 		verdict: {
 			perfect: 'Parfait',
 			early: 'En avance',
@@ -22,8 +23,9 @@ export const playMessages = defineMessages({
 		resume: 'Resume',
 		quit: 'Quit',
 		start: 'Start',
-		measure: (bar: number, bars: number, beat: number, beatsPerBar: number) =>
-			`BAR ${bar}/${bars} BEAT ${beat}/${beatsPerBar}`,
+		again: 'Restart',
+		howTo:
+			'The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.',
 		verdict: {
 			perfect: 'Perfect',
 			early: 'Early',

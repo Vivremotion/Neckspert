@@ -49,6 +49,7 @@ export class FakeClock implements AudioClockPort {
 }
 
 export class FakeMetronome implements MetronomePort {
+	audible = true;
 	private bpm = 80;
 	private firstBeatTime: number | null = null;
 	private lastEmitted = -1;
@@ -77,6 +78,10 @@ export class FakeMetronome implements MetronomePort {
 	start(firstBeatTime: number): void {
 		this.firstBeatTime = firstBeatTime;
 		this.lastEmitted = -1;
+	}
+
+	setAudible(audible: boolean): void {
+		this.audible = audible;
 	}
 
 	stop(): void {
@@ -122,9 +127,15 @@ export class FakeNoteDetector implements NoteDetectorPort {
 		return [{ id: 'fake-input', label: 'Fake input' }];
 	}
 
+	builtInGain = 1;
+
 	async start(deviceId: string | null): Promise<void> {
 		this.running = true;
 		this.deviceId = deviceId;
+	}
+
+	setBuiltInGain(gain: number): void {
+		this.builtInGain = gain;
 	}
 
 	stop(): void {

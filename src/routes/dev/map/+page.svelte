@@ -20,7 +20,8 @@
 				pitch: pitchOnString(string, fret),
 				locate,
 				identify: locate === 'mastered' ? 'acquired' : 'unseen',
-				medianColdReactionMs: null,
+				locateLeadBeats: locate === 'unseen' ? null : locate === 'learning' ? 8 : 2,
+				identifyMedianReactionMs: locate === 'mastered' ? 640 : null,
 				coldAccuracy: null
 			} satisfies NeckMapCell;
 		})

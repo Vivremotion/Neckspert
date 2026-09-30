@@ -31,7 +31,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const context = () => clock.context();
 	const metronome = new WebAudioMetronome(context);
 	const cues = new WebAudioCues(context);
-	const detector = new WebAudioNoteDetector(context);
+	const detector = new WebAudioNoteDetector(context, { resume: () => clock.resume() });
 
 	const db = createDatabase(options.databaseName);
 	const attempts = new DexieAttemptRepository(db);

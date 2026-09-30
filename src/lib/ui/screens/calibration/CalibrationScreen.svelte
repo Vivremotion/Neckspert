@@ -24,7 +24,8 @@
 		onlisten,
 		onstart,
 		oncancel,
-		onretry
+		onretry,
+		notice = null
 	}: {
 		inputs: AudioInputDevice[];
 		selectedDeviceId: string | null;
@@ -38,6 +39,7 @@
 		onstart: () => void;
 		oncancel: () => void;
 		onretry: () => void;
+		notice?: string | null;
 	} = $props();
 
 	const m = $derived(calibrationMessages());
@@ -62,17 +64,21 @@
 			<label class="field" for="calibration-input">
 				<PixelText scale={1}>{m.input}</PixelText>
 			</label>
-			<select
-				id="calibration-input"
-				class="device-select"
-				value={selectedDeviceId ?? ''}
-				onchange={onDeviceChange}
-				disabled={phase === 'running'}
-			>
-				{#each inputs as device (device.id)}
-					<option value={device.id}>{device.label}</option>
-				{/each}
-			</select>
+			{#if inputs.length === 0}
+				<p><PixelText scale={1}>{m.emptyInputs}</PixelText></p>
+			{:else}
+				<select
+					id="calibration-input"
+					class="device-select"
+					value={selectedDeviceId ?? ''}
+					onchange={onDeviceChange}
+					disabled={phase === 'running'}
+				>
+					{#each inputs as device (device.id)}
+						<option value={device.id}>{device.label}</option>
+					{/each}
+				</select>
+			{/if}
 
 			{#if showHeadphones}
 				<p class="hint"><PixelText scale={2}>{m.headphones}</PixelText></p>
@@ -114,6 +120,9 @@
 
 	<footer class="bottom">
 		<p class="instruction"><PixelText scale={2}>{m.instruction}</PixelText></p>
+		{#if notice}
+			<p class="instruction" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
+		{/if}
 
 		{#if phase === 'running' && progress}
 			<PixelBox variant="inverted">

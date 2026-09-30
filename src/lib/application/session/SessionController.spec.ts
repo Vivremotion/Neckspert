@@ -135,6 +135,36 @@ describe('SessionController skeleton', () => {
 		expect(deps.metronome.isRunning()).toBe(false);
 		expect(deps.detector.running).toBe(false);
 	});
+
+	it('starts again from the first item after the series is finished', async () => {
+		const controller = new SessionController(
+			planWith([
+				locateItem(),
+				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' } })
+			]),
+			deps
+		);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.prompt?.primary).toBe('F');
+		controller.view.history = [{ beatIndex: 6, verdict: 'perfect' }];
+
+		controller.quit();
+		expect(controller.view.status).toBe('finished');
+
+		await controller.start();
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+
+		expect(controller.view.status).toBe('count-in');
+		expect(controller.view.history).toEqual([]);
+		expect(deps.metronome.isRunning()).toBe(true);
+		expect(controller.sessionId).not.toBe('sess-1');
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt?.primary).toBe('F');
+		expect((await deps.sessions.get('sess-1'))?.endedAt).not.toBeNull();
+		expect((await deps.sessions.get(controller.sessionId))?.endedAt).toBeNull();
+	});
 });
 
 describe('SessionController locate judgement', () => {
@@ -280,6 +310,29 @@ describe('SessionController identify', () => {
 		expect(controller.view.status).toBe('verdict');
 		tick(deps, 0.75);
 		expect(controller.view.status).toBe('finished');
+	});
+
+	it('silences the click while a note name is being chosen', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(
+			planWith([identifyItem(), locateItem({ leadBeats: 1 })]),
+			deps
+		);
+		await controller.start();
+		expect(deps.metronome.audible).toBe(true);
+
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(deps.metronome.isRunning()).toBe(true);
+		expect(deps.metronome.audible).toBe(false);
+
+		controller.answer('C');
+		expect(controller.view.status).toBe('verdict');
+		expect(deps.metronome.audible).toBe(false);
+
+		tick(deps, 0.75);
+		expect(controller.view.prompt?.direction).toBe('locate');
+		expect(deps.metronome.audible).toBe(true);
 	});
 
 	it('ignores answer() outside awaiting and ignores guitar notes in identify', async () => {
@@ -435,4 +488,3 @@ describe('SessionController fatigue skip', () => {
 });
 
 export { createDeps, locateItem, planWith, tick, identifyItem };
-

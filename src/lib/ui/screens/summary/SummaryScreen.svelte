@@ -28,8 +28,13 @@
 	});
 
 	const median = $derived.by(() => {
-		if (summary.medianColdReactionMs == null) return t.empty;
-		return `${(summary.medianColdReactionMs / 1000).toFixed(2).replace('.', ',')} s`;
+		if (summary.medianColdOffsetMs == null) return t.empty;
+		return `${Math.round(summary.medianColdOffsetMs)} ms`;
+	});
+
+	const naming = $derived.by(() => {
+		if (summary.identifyMedianReactionMs == null) return t.empty;
+		return `${(summary.identifyMedianReactionMs / 1000).toFixed(2).replace('.', ',')} s`;
 	});
 
 	const next = $derived.by(() => {
@@ -57,6 +62,10 @@
 				<li>
 					<span>{t.median}</span>
 					<strong>{median}</strong>
+				</li>
+				<li>
+					<span>{t.naming}</span>
+					<strong>{naming}</strong>
 				</li>
 				<li>
 					<span>{t.learned}</span>

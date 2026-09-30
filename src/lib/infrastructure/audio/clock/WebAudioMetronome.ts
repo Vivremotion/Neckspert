@@ -9,13 +9,13 @@ export const DEFAULT_BEATS_PER_BAR = 4;
 export const DEFAULT_LOOKAHEAD_MS = 25;
 /** How far past the current audio time beats are scheduled; must exceed the wake-up period. */
 export const DEFAULT_SCHEDULE_AHEAD_S = 0.1;
-export const CLICK_DURATION_S = 0.03;
+export const CLICK_DURATION_S = 0.05;
 export const CLICK_SILENCE = 0.001;
 /** A wide band keeps the burst pitchless, so the pitch detector never reads it as a note. */
-export const CLICK_FILTER_Q = 1;
-/** The accent is level and brightness, never a tonal frequency. */
-export const DOWNBEAT_CLICK = { filterHz: 4000, gain: 0.4 } as const;
-export const BEAT_CLICK = { filterHz: 2000, gain: 0.25 } as const;
+export const CLICK_FILTER_Q = 0.7;
+/** The accent is level and brightness, never a tonal frequency. Loud enough to hear over a guitar. */
+export const DOWNBEAT_CLICK = { filterHz: 3000, gain: 0.9 } as const;
+export const BEAT_CLICK = { filterHz: 1500, gain: 0.7 } as const;
 
 export interface MetronomeOptions {
 	beatsPerBar?: number;
@@ -37,6 +37,7 @@ export class WebAudioMetronome implements MetronomePort {
 	private run = 0;
 	private timer: ReturnType<typeof setTimeout> | null = null;
 	private noise: { context: AudioContext; buffer: AudioBuffer } | null = null;
+	private audible = true;
 	private readonly listeners = new Set<(beat: BeatEvent) => void>();
 	private readonly beatsPerBar: number;
 	private readonly lookaheadMs: number;
@@ -84,6 +85,10 @@ export class WebAudioMetronome implements MetronomePort {
 		this.firstBeatTime = firstBeatTime;
 		this.nextIndex = 0;
 		this.tick(this.run);
+	}
+
+	setAudible(audible: boolean): void {
+		this.audible = audible;
 	}
 
 	stop(): void {
@@ -135,6 +140,7 @@ export class WebAudioMetronome implements MetronomePort {
 	}
 
 	private click(context: AudioContext, beat: BeatEvent): void {
+		if (!this.audible) return;
 		const { filterHz, gain: level } = beat.isDownbeat ? DOWNBEAT_CLICK : BEAT_CLICK;
 		const end = beat.time + CLICK_DURATION_S;
 		const source = context.createBufferSource();

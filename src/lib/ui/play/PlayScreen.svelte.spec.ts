@@ -25,6 +25,14 @@ describe('PlayScreen', () => {
 		expect(screen.getByRole('button', { name: /commencer/i })).toBeTruthy();
 	});
 
+	it('offers to restart once the series is finished', () => {
+		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
+		demo.quit();
+		render(PlayScreen, { props: { controller: demo } });
+		expect(screen.getByRole('button', { name: /recommencer/i })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /^commencer$/i })).toBeNull();
+	});
+
 	it('shows whichever note the prompt carries', () => {
 		const controller = {
 			sessionId: 'note-g',

@@ -67,7 +67,7 @@ export class FakeBackup implements BackupPort {
 const EMPTY_HOME: HomeStats = {
 	nextAction: 'wait',
 	nextReviewAt: null,
-	medianColdReactionMs: null,
+	medianColdOffsetMs: null,
 	trend: null
 };
 
@@ -75,7 +75,8 @@ const EMPTY_SUMMARY: SessionSummary = {
 	sessionId: 'none',
 	coldCount: 0,
 	coldCorrect: 0,
-	medianColdReactionMs: null,
+	medianColdOffsetMs: null,
+	identifyMedianReactionMs: null,
 	learnedCount: 0,
 	fatigueDetected: false,
 	nextSuggestedAt: null

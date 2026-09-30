@@ -35,9 +35,8 @@
 	});
 
 	const reaction = $derived.by(() => {
-		if (stats.medianColdReactionMs == null) return t.emptyReaction;
-		const seconds = stats.medianColdReactionMs / 1000;
-		return `${seconds.toFixed(2).replace('.', ',')} s`;
+		if (stats.medianColdOffsetMs == null) return t.emptyReaction;
+		return `${Math.round(stats.medianColdOffsetMs)} ms`;
 	});
 
 	const trend = $derived(
@@ -53,12 +52,14 @@
 	<div class="cartridge">
 		<PixelBox variant="double">
 			<div class="inner">
+				<p class="how"><PixelText scale={1}>{t.how}</PixelText></p>
 				<div class="action">
 					<PixelButton size="huge" disabled={!enabled} onclick={onstart}>
 						{buttonLabel}
 					</PixelButton>
 				</div>
 				<div class="stat">
+					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>
 					<PixelText scale={4}>{reaction}</PixelText>
 					{#if trend}
 						<PixelText scale={1}>{trend}</PixelText>
@@ -117,6 +118,12 @@
 		background: var(--np-bg);
 	}
 
+	.how {
+		margin: 0;
+		max-width: 28rem;
+		text-align: center;
+	}
+
 	.action {
 		width: 100%;
 		display: flex;
@@ -134,6 +141,11 @@
 		align-items: center;
 		gap: var(--np-space-1, 8px);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.caption {
+		margin: 0;
+		text-transform: uppercase;
 	}
 
 	@keyframes imprint {

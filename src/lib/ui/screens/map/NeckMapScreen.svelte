@@ -34,12 +34,21 @@
 							role="gridcell"
 							aria-label="{t.cell(cell.string, cell.fret)}. {t.locate}: {t.status[
 								cell.locate
-							]}. {t.identify}: {t.status[cell.identify]}"
+							]}{cell.locateLeadBeats == null ? '' : `, ${t.beats(cell.locateLeadBeats)}`}. {t.identify}: {t
+								.status[cell.identify]}{cell.identifyMedianReactionMs == null
+								? ''
+								: `, ${t.seconds(cell.identifyMedianReactionMs)}`}"
 						>
 							<span class="pitch">{cell.pitch}</span>
 							<span class="dirs">
-								<span data-status={cell.locate}>{t.status[cell.locate]}</span>
-								<span data-status={cell.identify}>{t.status[cell.identify]}</span>
+								<span data-status={cell.locate}>
+									{cell.locateLeadBeats == null ? t.status[cell.locate] : t.beats(cell.locateLeadBeats)}
+								</span>
+								<span data-status={cell.identify}>
+									{cell.identifyMedianReactionMs == null
+										? t.status[cell.identify]
+										: t.seconds(cell.identifyMedianReactionMs)}
+								</span>
 							</span>
 						</div>
 					{/each}

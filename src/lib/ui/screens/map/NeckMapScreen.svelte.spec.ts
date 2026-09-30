@@ -20,7 +20,8 @@ function buildCells(): NeckMapCell[] {
 				pitch: 'E',
 				locate: string === 6 && fret === 3 ? 'mastered' : 'unseen',
 				identify: string === 6 && fret === 3 ? 'acquired' : 'unseen',
-				medianColdReactionMs: null,
+				locateLeadBeats: string === 6 && fret === 3 ? 2 : null,
+				identifyMedianReactionMs: string === 6 && fret === 3 ? 900 : null,
 				coldAccuracy: null
 			});
 		}
@@ -33,7 +34,9 @@ describe('NeckMapScreen', () => {
 		render(NeckMapScreen, { props: { cells: buildCells(), onhome: () => {} } });
 		expect(screen.getAllByRole('gridcell')).toHaveLength(72);
 		const marked = screen.getByRole('gridcell', { name: /corde 6.*case 3/i });
-		expect(marked.textContent).toMatch(/maîtrisé|mastered/i);
-		expect(marked.textContent).toMatch(/acquis|acquired/i);
+		expect(marked.textContent).toMatch(/2 temps/);
+		expect(marked.textContent).toMatch(/0,90 s/);
+		expect(marked.getAttribute('aria-label')).toMatch(/maîtrisé/i);
+		expect(marked.getAttribute('aria-label')).toMatch(/acquis/i);
 	});
 });

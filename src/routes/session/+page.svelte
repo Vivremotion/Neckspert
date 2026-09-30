@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { page } from '$app/state';
 	import { useAppServices } from '$lib/application/app';
 	import type { PlaySessionController } from '$lib/application/session/contract';
@@ -16,6 +16,12 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unavailable';
 		}
+	});
+
+	onDestroy(() => {
+		if (!controller) return;
+		if (controller.view.status === 'idle' || controller.view.status === 'finished') return;
+		controller.quit();
 	});
 </script>
 

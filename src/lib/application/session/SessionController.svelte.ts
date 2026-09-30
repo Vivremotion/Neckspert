@@ -13,7 +13,14 @@ import {
 	introduceCard,
 	placementCard
 } from '$lib/domain/progress';
-import type { Attempt, Locale, PlannedItem, SessionPlan, Settings, Verdict } from '$lib/domain/types';
+import type {
+	Attempt,
+	Locale,
+	PlannedItem,
+	SessionPlan,
+	Settings,
+	Verdict
+} from '$lib/domain/types';
 import { cardKey } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
 import {
@@ -33,7 +40,7 @@ const BEATS_PER_BAR = 4 as const;
 type InternalStatus = PlayView['status'];
 
 export class SessionController implements PlaySessionController {
-	readonly sessionId: string;
+	sessionId: string;
 	readonly view: PlayView;
 	readonly timeline = {
 		nowBeat: (): number => {
@@ -47,6 +54,7 @@ export class SessionController implements PlaySessionController {
 
 	private readonly deps: SessionDeps;
 	private readonly kind: SessionPlan['kind'];
+	private readonly series: readonly PlannedItem[];
 	private queue: PlannedItem[];
 	private settings!: Settings;
 	private locale: Locale = 'fr';
@@ -62,12 +70,14 @@ export class SessionController implements PlaySessionController {
 	private captured = false;
 	private verdictBeatIndex: number | null = null;
 	private sessionAttempts: Attempt[] = [];
-	private started = false;
+	private run = 0;
+	private starting = false;
 
 	constructor(plan: SessionPlan, deps: SessionDeps) {
 		this.deps = deps;
 		this.sessionId = plan.id;
 		this.kind = plan.kind;
+		this.series = [...plan.items];
 		this.queue = [...plan.items];
 		this.view = $state<PlayView>({
 			status: 'idle',
@@ -85,17 +95,52 @@ export class SessionController implements PlaySessionController {
 	}
 
 	async start(): Promise<void> {
-		if (this.started && this.view.status !== 'idle') return;
-		this.started = true;
+		if (this.starting) return;
+		if (this.view.status !== 'idle' && this.view.status !== 'finished') return;
+		this.starting = true;
+		const run = ++this.run;
+		try {
+			if (this.view.status === 'finished') this.beginNewSeries();
+			await this.beginAudio(run);
+		} finally {
+			if (this.run === run) this.starting = false;
+		}
+	}
+
+	private beginNewSeries(): void {
+		this.sessionId = this.deps.newId();
+		this.queue = [...this.series];
+		this.sessionAttempts = [];
+		this.current = null;
+		this.clearItemState();
+		this.view.history = [];
+		this.view.lastVerdict = null;
+		this.view.fatigueDetected = false;
+		this.view.prompt = null;
+		this.view.answerChoices = null;
+		this.view.promptBeatIndex = null;
+		this.view.targetBeatIndex = null;
+		this.view.leadBeats = null;
+	}
+
+	private async beginAudio(run: number): Promise<void> {
 		this.settings = await this.deps.settings.get();
+		if (this.run !== run) return;
 		this.locale = this.settings.locale;
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
 		this.view.tempoBpm = this.settings.tempoBpm;
 
 		await this.deps.clock.resume();
+		if (this.run !== run) return;
+		this.deps.detector.setBuiltInGain(this.settings.builtInInputGain);
 		await this.deps.detector.start(this.settings.inputDeviceId);
+		if (this.run !== run) return;
+		// The permission prompt can suspend the context. Resume again before scheduling clicks.
+		await this.deps.clock.resume();
+		if (this.run !== run) return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
+		this.deps.metronome.setAudible(true);
 
 		await this.deps.sessions.put({
 			id: this.sessionId,
@@ -104,6 +149,7 @@ export class SessionController implements PlaySessionController {
 			endedAt: null,
 			fatigueDetected: false
 		});
+		if (this.run !== run) return;
 
 		this.unsubBeat?.();
 		this.unsubNote?.();
@@ -134,6 +180,7 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status !== 'paused') return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
+		this.deps.metronome.setAudible(true);
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.clearItemState();
 		this.setStatus('count-in');
@@ -155,9 +202,7 @@ export class SessionController implements PlaySessionController {
 			answered: pitch
 		});
 
-		const answerLabel = judgement.answer
-			? formatNote(spellPitch(pitch, this.deps.random))
-			: null;
+		const answerLabel = judgement.answer ? formatNote(spellPitch(pitch, this.deps.random)) : null;
 		this.view.lastVerdict = {
 			verdict: judgement.verdict,
 			offsetMs: null,
@@ -250,6 +295,7 @@ export class SessionController implements PlaySessionController {
 		this.current = item;
 
 		if (item.target.direction === 'locate') {
+			this.deps.metronome.setAudible(true);
 			const lead = item.leadBeats ?? 1;
 			this.promptBeatIndex = beat.index;
 			this.targetBeatIndex = beat.index + lead;
@@ -279,6 +325,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private beginIdentify(item: PlannedItem, beat: BeatEvent): void {
+		this.deps.metronome.setAudible(false);
 		this.promptBeatIndex = null;
 		this.targetBeatIndex = null;
 		this.windowClosesAt = null;
@@ -412,13 +459,7 @@ export class SessionController implements PlaySessionController {
 
 		const now = this.deps.now();
 		if (item.phase === 'placement' && item.target.direction === 'locate') {
-			const card = placementCard(
-				item.target,
-				attempt,
-				now,
-				this.sessionId,
-				this.settings.tempoBpm
-			);
+			const card = placementCard(item.target, attempt, now, this.sessionId, this.settings.tempoBpm);
 			if (card) await this.deps.cards.put(card);
 		} else if (item.phase === 'review' && temperature === 'cold') {
 			const existing = await this.deps.cards.get(key);
@@ -453,6 +494,9 @@ export class SessionController implements PlaySessionController {
 
 	private async finish(): Promise<void> {
 		if (this.view.status === 'finished') return;
+		const run = this.run;
+		const sessionId = this.sessionId;
+		const fatigueDetected = this.view.fatigueDetected;
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubNote?.();
@@ -463,18 +507,17 @@ export class SessionController implements PlaySessionController {
 		// break FakeMetronome.flush (beatTime after stop throws). quit() stops sync.
 		if (this.deps.metronome.isRunning()) {
 			await Promise.resolve();
-			this.deps.metronome.stop();
+			if (this.run === run) this.deps.metronome.stop();
 		}
-		this.deps.detector.stop();
+		if (this.run === run) this.deps.detector.stop();
 
-		const startedAt =
-			(await this.deps.sessions.get(this.sessionId))?.startedAt ?? this.deps.now();
+		const startedAt = (await this.deps.sessions.get(sessionId))?.startedAt ?? this.deps.now();
 		await this.deps.sessions.put({
-			id: this.sessionId,
+			id: sessionId,
 			kind: this.kind,
 			startedAt,
 			endedAt: this.deps.now(),
-			fatigueDetected: this.view.fatigueDetected
+			fatigueDetected
 		});
 		if (this.kind === 'placement') {
 			await this.deps.settings.update({ placementDoneAt: this.deps.now() });

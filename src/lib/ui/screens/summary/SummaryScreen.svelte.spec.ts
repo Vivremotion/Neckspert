@@ -13,7 +13,8 @@ const summary: SessionSummary = {
 	sessionId: 's1',
 	coldCount: 10,
 	coldCorrect: 8,
-	medianColdReactionMs: 1100,
+	medianColdOffsetMs: 18,
+	identifyMedianReactionMs: 640,
 	learnedCount: 2,
 	fatigueDetected: true,
 	nextSuggestedAt: 2 * 60 * 60 * 1000
@@ -25,7 +26,8 @@ describe('SummaryScreen', () => {
 			props: { summary, now: 0, onhome: () => {}, onmap: () => {} }
 		});
 		expect(screen.getByText('80 %')).toBeTruthy();
-		expect(screen.getByText('1,10 s')).toBeTruthy();
+		expect(screen.getByText('18 ms')).toBeTruthy();
+		expect(screen.getByText('0,64 s')).toBeTruthy();
 		expect(screen.getByText('2')).toBeTruthy();
 		expect(screen.getByText(/fatigue/i)).toBeTruthy();
 		expect(screen.getByText(/dans 2 h/i)).toBeTruthy();
