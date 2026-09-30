@@ -40,10 +40,25 @@
 				})
 			: null
 	);
-	const justPlayed = $derived(tiles.find((tile) => tile.justPlayed) ?? null);
+	const lanePast = $derived(tiles.filter((tile) => tile.offset <= 0));
+	const laneAhead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const showPause = $derived(
 		view.status === 'idle' || view.status === 'paused' || view.status === 'finished'
 	);
+
+	const linePct = 30;
+	const tilePct = 6.1;
+	const tileGap = 0.4;
+
+	function pastLeft(index: number, count: number): number {
+		const stride = tilePct + tileGap;
+		const right = linePct - 1.1 - (count - 1 - index) * stride;
+		return right - tilePct;
+	}
+
+	function aheadLeft(index: number): number {
+		return linePct + 1.3 + index * (tilePct + tileGap);
+	}
 
 	function formatOffset(ms: number): string {
 		const sign = ms > 0 ? '+' : '';
@@ -90,9 +105,6 @@
 	<div class="r-field field"></div>
 
 	{#if !platesOnly}
-		<div class="numeral-scrub history" aria-hidden="true"></div>
-		<div class="numeral-scrub upcoming" aria-hidden="true"></div>
-
 		{#if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
 			<div class="r-prompt-note note">
 				<PixelWord text={view.prompt.primary} />
@@ -120,35 +132,48 @@
 			{/if}
 		{/if}
 
-		<div class="r-lane-heart chrome heart" aria-hidden="true">
-			<svg viewBox="0 0 16 16" width="32" height="32" shape-rendering="crispEdges">
-				<rect x="2" y="2" width="5" height="4" fill="currentColor" />
-				<rect x="9" y="2" width="5" height="4" fill="currentColor" />
-				<rect x="1" y="4" width="14" height="4" fill="currentColor" />
-				<rect x="3" y="8" width="10" height="3" fill="currentColor" />
-				<rect x="5" y="11" width="6" height="2" fill="currentColor" />
-				<rect x="7" y="13" width="2" height="2" fill="currentColor" />
-			</svg>
-		</div>
-
-		<div class="r-lane-finish chrome finish">
-			{#if justPlayed?.verdict}
-				<div class="just-played inverted" class:imprint={view.status === 'verdict'}>
-					<VerdictSprite verdict={justPlayed.verdict} size={64} inverted />
-				</div>
+		<div class="lane">
+			{#if measure}
+				<p class="measure">
+					{t.measure(measure.bar, measure.bars, measure.beat, view.beatsPerBar)}
+				</p>
 			{/if}
-			<div class="hit-line" aria-hidden="true"></div>
+			<div class="heart" style:left="{linePct}%" aria-hidden="true">
+				<svg viewBox="0 0 16 16" width="28" height="28" shape-rendering="crispEdges">
+					<rect x="2" y="2" width="5" height="4" fill="currentColor" />
+					<rect x="9" y="2" width="5" height="4" fill="currentColor" />
+					<rect x="1" y="4" width="14" height="4" fill="currentColor" />
+					<rect x="3" y="8" width="10" height="3" fill="currentColor" />
+					<rect x="5" y="11" width="6" height="2" fill="currentColor" />
+					<rect x="7" y="13" width="2" height="2" fill="currentColor" />
+				</svg>
+			</div>
+			<div class="hit-line" style:left="{linePct}%" aria-hidden="true"></div>
+			{#each lanePast as tile, index (tile.beatIndex)}
+				<div class="cell" style:left="{pastLeft(index, lanePast.length)}%" style:width="{tilePct}%">
+					<div
+						class="body"
+						class:inverted={tile.justPlayed}
+						class:imprint={tile.justPlayed && view.status === 'verdict'}
+					>
+						{#if tile.verdict}
+							<VerdictSprite verdict={tile.verdict} size={64} inverted={tile.justPlayed} />
+						{/if}
+					</div>
+				</div>
+			{/each}
+			{#each laneAhead as tile, index (tile.beatIndex)}
+				<div class="cell" style:left="{aheadLeft(index)}%" style:width="{tilePct}%">
+					{#if tile.label !== null}
+						<span class="beat-no">{tile.label}</span>
+					{/if}
+					<div class="body ahead"></div>
+				</div>
+			{/each}
+			{#if view.prompt}
+				<p class="target">{view.prompt.primary}</p>
+			{/if}
 		</div>
-
-		{#if measure}
-			<p class="r-lane-label text label">
-				{t.measure(measure.bar, measure.bars, measure.beat, view.beatsPerBar)}
-			</p>
-		{/if}
-
-		{#if view.prompt}
-			<p class="r-lane-target text target inverted">{view.prompt.primary}</p>
-		{/if}
 
 		{#if showPause}
 			<div class="overlay">
@@ -175,10 +200,10 @@
 		margin: 0;
 	}
 
+	.field,
 	.chrome,
 	.text,
 	.sprite-overlay,
-	.numeral-scrub,
 	.note {
 		position: absolute;
 		box-sizing: border-box;
@@ -257,47 +282,6 @@
 		width: var(--r-verdict-reaction-w);
 		height: var(--r-verdict-reaction-h);
 	}
-	.r-lane-heart {
-		left: var(--r-lane-heart-x);
-		top: var(--r-lane-heart-y);
-		width: var(--r-lane-heart-w);
-		height: var(--r-lane-heart-h);
-	}
-	.r-lane-finish {
-		left: var(--r-lane-finish-x);
-		top: var(--r-lane-finish-y);
-		width: var(--r-lane-finish-w);
-		height: var(--r-lane-finish-h);
-	}
-	.r-lane-label {
-		left: var(--r-lane-label-x);
-		top: var(--r-lane-label-y);
-		width: var(--r-lane-label-w);
-		height: var(--r-lane-label-h);
-	}
-	.r-lane-target {
-		left: var(--r-lane-target-x);
-		top: var(--r-lane-target-y);
-		width: var(--r-lane-target-w);
-		height: var(--r-lane-target-h);
-	}
-
-	.numeral-scrub {
-		top: 72.5%;
-		height: 6.5%;
-		background: var(--np-bg);
-		z-index: 2;
-		pointer-events: none;
-	}
-	.numeral-scrub.history {
-		left: 0;
-		width: 29%;
-	}
-	.numeral-scrub.upcoming {
-		left: 41%;
-		width: 48%;
-	}
-
 	.note {
 		z-index: 3;
 		display: grid;
@@ -364,72 +348,135 @@
 		white-space: nowrap;
 	}
 
-	.offset,
-	.reaction {
-		font-size: 44px;
-	}
-
-	.label {
-		font-size: 26px;
-		text-transform: uppercase;
-		justify-content: flex-end;
-		padding-inline: 12px;
-		white-space: nowrap;
-		background: var(--np-bg);
-	}
-
-	.target {
-		font-size: 72px;
-		z-index: 5;
-		background: var(--np-bg);
-		color: var(--np-ink);
-		border: 6px solid var(--np-ink);
-	}
-
 	.inverted {
 		background: var(--np-ink);
 		color: var(--np-bg);
 	}
 
-	.heart {
-		display: flex;
-		align-items: flex-start;
-		justify-content: center;
-		padding-top: 8px;
+	.offset,
+	.reaction {
+		font-size: 44px;
+	}
+
+	.lane {
+		position: absolute;
+		z-index: 4;
+		left: 12px;
+		right: 12px;
+		top: 68%;
+		bottom: 12px;
+		box-sizing: border-box;
+		border: 5px solid var(--np-ink);
+		background: var(--np-bg);
+	}
+
+	.measure {
+		position: absolute;
+		top: 14px;
+		right: 18px;
+		margin: 0;
+		font-size: 22px;
+		line-height: 1;
+		letter-spacing: 0.01em;
 		color: var(--np-ink);
-		z-index: 5;
 		background: transparent;
 	}
 
-	.finish {
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 2px;
-		z-index: 4;
-		padding: 18px 0 10px;
-		background: transparent;
-		pointer-events: none;
+	.heart {
+		position: absolute;
+		top: 16px;
+		z-index: 2;
+		color: var(--np-ink);
+		transform: translateX(-50%);
 	}
 
 	.hit-line {
+		position: absolute;
+		bottom: 16px;
+		z-index: 2;
 		width: 3px;
-		align-self: stretch;
+		height: 88px;
+		transform: translateX(-50%);
 		background: var(--np-ink);
 		box-shadow:
-			-4px 0 0 var(--np-ink),
-			4px 0 0 var(--np-ink);
-		flex: 0 0 auto;
+			-6px 0 0 var(--np-ink),
+			6px 0 0 var(--np-ink);
 	}
 
-	.just-played {
+	.cell {
+		position: absolute;
+		bottom: 16px;
+		z-index: 1;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: stretch;
+		height: 120px;
+	}
+
+	.beat-no {
+		height: 26px;
+		text-align: center;
+		font-size: 22px;
+		line-height: 26px;
+		color: var(--np-ink);
+	}
+
+	.body {
+		box-sizing: border-box;
+		height: 88px;
+		border: 4px solid var(--np-ink);
+		background: var(--np-bg);
 		display: grid;
 		place-items: center;
+	}
+
+	.body.ahead {
+		background-color: var(--np-bg);
+		background-image:
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%,
+				var(--np-mid)
+			),
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%,
+				var(--np-mid)
+			);
+		background-position:
+			0 0,
+			4px 4px;
+		background-size: 8px 8px;
+	}
+
+	.body.inverted {
+		background: var(--np-ink);
+		color: var(--np-bg);
+	}
+
+	.target {
+		position: absolute;
+		right: 16px;
+		bottom: 16px;
+		z-index: 2;
+		box-sizing: border-box;
 		width: 88px;
 		height: 88px;
-		flex: 0 0 auto;
+		margin: 0;
+		display: grid;
+		place-items: center;
 		border: 4px solid var(--np-ink);
-		box-sizing: border-box;
+		background: var(--np-bg);
+		color: var(--np-ink);
+		font-size: 60px;
+		line-height: 1;
 	}
 
 	.overlay {
@@ -495,14 +542,15 @@
 			left: auto;
 			right: 8px;
 		}
-		.r-lane-finish,
-		.r-lane-heart,
-		.r-lane-label,
-		.r-lane-target {
+		.lane {
 			position: relative;
 			left: auto;
+			right: auto;
 			top: auto;
-			width: 100%;
+			bottom: auto;
+			width: auto;
+			height: 240px;
+			margin-top: 12px;
 		}
 	}
 </style>
