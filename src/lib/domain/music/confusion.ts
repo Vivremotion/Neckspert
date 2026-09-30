@@ -1,5 +1,6 @@
-import { CHROMATIC_NOTES, type PitchName } from '$lib/domain/music/types';
-import type { Confusion } from '$lib/domain/types';
+import { CHROMATIC_NOTES, pitchOfMidi, type Midi, type PitchName } from '$lib/domain/music/types';
+import type { Confusion, LocateTarget } from '$lib/domain/types';
+import { acceptableMidis } from './fretboard';
 
 const OCTAVE = 12;
 
@@ -13,6 +14,18 @@ function fromDistance(semitones: number): Confusion {
 	return Math.abs(semitones) <= SEMITONE_CONFUSION_MAX
 		? { kind: 'semitone', delta: semitones as SemitoneDelta }
 		: { kind: 'other', semitones };
+}
+
+/** Null when the played note is acceptable. */
+export function classifyNoteConfusion(target: LocateTarget, playedMidi: Midi): Confusion | null {
+	const acceptable = acceptableMidis(target);
+	if (acceptable.includes(playedMidi)) return null;
+	if (pitchOfMidi(playedMidi) === target.pitch) return { kind: 'octave' };
+	// `acceptable` is ascending and the comparison strict, so a tie keeps the lower note.
+	const nearest = acceptable.reduce((best, midi) =>
+		Math.abs(playedMidi - midi) < Math.abs(playedMidi - best) ? midi : best
+	);
+	return fromDistance(playedMidi - nearest);
 }
 
 /** Null when the names match. Delta is the signed pitch-class distance folded into −6..+5. */

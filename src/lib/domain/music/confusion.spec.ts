@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { LocateTarget } from '$lib/domain/types';
 import { CHROMATIC_NOTES } from '$lib/domain/music/types';
-import { classifyNameConfusion } from './confusion';
+import { classifyNameConfusion, classifyNoteConfusion } from './confusion';
 
 describe('classifyNameConfusion', () => {
 	it('returns null when the names match', () => {
@@ -47,5 +48,46 @@ describe('classifyNameConfusion', () => {
 				}
 			}
 		}
+	});
+});
+
+describe('classifyNoteConfusion', () => {
+	/** Accepts MIDI 65 and 77 (frets 6 and 18). */
+	const fOnB: LocateTarget = { direction: 'locate', string: 2, pitch: 'F' };
+	/** Accepts MIDI 40, 52 and 64 (frets 0, 12 and 24). */
+	const eOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'E' };
+
+	it('returns null for every playable octave of the target on its string', () => {
+		expect(classifyNoteConfusion(fOnB, 65)).toBeNull();
+		expect(classifyNoteConfusion(fOnB, 77)).toBeNull();
+		expect(classifyNoteConfusion(eOnLowE, 40)).toBeNull();
+		expect(classifyNoteConfusion(eOnLowE, 64)).toBeNull();
+	});
+
+	it('flags the right pitch in an octave the string cannot play', () => {
+		expect(classifyNoteConfusion(fOnB, 53)).toEqual({ kind: 'octave' });
+		expect(classifyNoteConfusion(fOnB, 89)).toEqual({ kind: 'octave' });
+		expect(classifyNoteConfusion(eOnLowE, 28)).toEqual({ kind: 'octave' });
+		expect(classifyNoteConfusion(eOnLowE, 76)).toEqual({ kind: 'octave' });
+	});
+
+	it('measures one or two semitones from the nearest acceptable note', () => {
+		expect(classifyNoteConfusion(fOnB, 66)).toEqual({ kind: 'semitone', delta: 1 });
+		expect(classifyNoteConfusion(fOnB, 64)).toEqual({ kind: 'semitone', delta: -1 });
+		expect(classifyNoteConfusion(fOnB, 67)).toEqual({ kind: 'semitone', delta: 2 });
+		expect(classifyNoteConfusion(fOnB, 63)).toEqual({ kind: 'semitone', delta: -2 });
+		expect(classifyNoteConfusion(fOnB, 76)).toEqual({ kind: 'semitone', delta: -1 });
+		expect(classifyNoteConfusion(fOnB, 78)).toEqual({ kind: 'semitone', delta: 1 });
+		expect(classifyNoteConfusion(eOnLowE, 39)).toEqual({ kind: 'semitone', delta: -1 });
+	});
+
+	it('reports farther notes as other, signed from the nearest acceptable note', () => {
+		expect(classifyNoteConfusion(fOnB, 62)).toEqual({ kind: 'other', semitones: -3 });
+		expect(classifyNoteConfusion(fOnB, 72)).toEqual({ kind: 'other', semitones: -5 });
+		expect(classifyNoteConfusion(fOnB, 40)).toEqual({ kind: 'other', semitones: -25 });
+	});
+
+	it('breaks a tie toward the lower acceptable note', () => {
+		expect(classifyNoteConfusion(fOnB, 71)).toEqual({ kind: 'other', semitones: 6 });
 	});
 });
