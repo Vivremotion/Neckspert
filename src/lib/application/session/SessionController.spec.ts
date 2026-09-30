@@ -232,4 +232,71 @@ describe('SessionController window close and sequencing', () => {
 	});
 });
 
-export { createDeps, locateItem, planWith, tick };
+function identifyItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
+	return {
+		target: { direction: 'identify', string: 5, fret: 8 },
+		phase: 'review',
+		temperature: 'cold',
+		aid: 'none',
+		leadBeats: null,
+		repeatUntilCorrect: false,
+		...overrides
+	};
+}
+
+describe('SessionController identify', () => {
+	it('keeps locate items before identify items and answers via answer()', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(
+			planWith([locateItem({ leadBeats: 1 }), identifyItem()]),
+			deps
+		);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.prompt?.direction).toBe('locate');
+
+		const targetTime = deps.metronome.beatTime(5);
+		deps.detector.emitNote({
+			time: targetTime,
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		tick(deps, 0.75 * 2);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(controller.view.promptBeatIndex).toBeNull();
+		expect(controller.view.targetBeatIndex).toBeNull();
+		expect(controller.view.answerChoices).toHaveLength(12);
+
+		controller.answer('F');
+		expect(controller.view.status).toBe('verdict');
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		expect(deps.cues.played.at(-1)?.verdict).toBe('perfect');
+
+		// Hold until next beat — no setTimeout
+		expect(controller.view.status).toBe('verdict');
+		tick(deps, 0.75);
+		expect(controller.view.status).toBe('finished');
+	});
+
+	it('ignores answer() outside awaiting and ignores guitar notes in identify', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(planWith([identifyItem()]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		deps.detector.emitNote({
+			time: deps.clock.now(),
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		expect(controller.view.status).toBe('awaiting');
+		controller.answer('C');
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+		controller.answer('F');
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+	});
+});
+
+export { createDeps, locateItem, planWith, tick, identifyItem };

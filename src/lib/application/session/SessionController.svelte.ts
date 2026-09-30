@@ -1,11 +1,16 @@
 import type { PitchName } from '$lib/domain/music/types';
-import { acceptableMidis, formatNote, spellPitch } from '$lib/domain/music';
+import {
+	acceptableMidis,
+	formatNote,
+	pitchOnString,
+	spellPitch
+} from '$lib/domain/music';
 import type { Attempt, Locale, PlannedItem, SessionPlan, Settings, Verdict } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
-import { answerWindow, isInWindow, judgeLocate } from '$lib/domain/scoring';
+import { answerWindow, isInWindow, judgeIdentify, judgeLocate } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
-import { buildPromptView } from './prompt';
+import { buildAnswerChoices, buildPromptView } from './prompt';
 
 const BEATS_PER_BAR = 4 as const;
 
@@ -127,11 +132,42 @@ export class SessionController implements PlaySessionController {
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
 
-	answer(_pitch: PitchName): void {
-		// Task 5
+	answer(pitch: PitchName): void {
+		if (this.view.status !== 'awaiting' || this.captured || !this.current) return;
+		if (this.current.target.direction !== 'identify') return;
+		if (this.promptTimeAudio === null) return;
+
+		this.captured = true;
+		const expected = pitchOnString(this.current.target.string, this.current.target.fret);
+		const answerTime = this.deps.clock.now();
+		const judgement = judgeIdentify({
+			expected,
+			promptTime: this.promptTimeAudio,
+			answerTime,
+			answered: pitch
+		});
+
+		const answerLabel = judgement.answer
+			? formatNote(spellPitch(pitch, this.deps.random))
+			: null;
+		this.view.lastVerdict = {
+			verdict: judgement.verdict,
+			offsetMs: null,
+			reactionMs: judgement.reactionMs,
+			answerLabel
+		};
+		this.view.answerChoices = null;
+		this.deps.cues.play(judgement.verdict);
+		const answerBeat = Math.floor(this.timeline.nowBeat());
+		this.verdictBeatIndex = answerBeat;
+		this.earliestPromptBeat = answerBeat + 1;
+		this.setStatus('verdict');
+		void this.persistAttempt(judgement);
 	}
 
 	quit(): void {
+		this.deps.metronome.stop();
+		this.deps.detector.stop();
 		void this.finish();
 	}
 
@@ -230,9 +266,20 @@ export class SessionController implements PlaySessionController {
 		this.windowClosesAt = window.closesAt;
 	}
 
-	private beginIdentify(_item: PlannedItem, _beat: BeatEvent): void {
-		// Task 5
-		void this.finish();
+	private beginIdentify(item: PlannedItem, beat: BeatEvent): void {
+		this.promptBeatIndex = null;
+		this.targetBeatIndex = null;
+		this.windowClosesAt = null;
+		this.promptTimeAudio = this.deps.clock.now();
+		this.captured = false;
+		this.view.prompt = buildPromptView(item, this.locale, this.deps.random);
+		this.view.promptBeatIndex = null;
+		this.view.targetBeatIndex = null;
+		this.view.leadBeats = null;
+		this.view.answerChoices = buildAnswerChoices();
+		this.view.lastVerdict = null;
+		this.verdictBeatIndex = beat.index;
+		this.setStatus('awaiting');
 	}
 
 	private maybeCloseWindow(beat: BeatEvent): void {
@@ -303,17 +350,27 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private async finish(): Promise<void> {
-		this.deps.metronome.stop();
-		this.deps.detector.stop();
+		if (this.view.status === 'finished') return;
+		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubNote?.();
 		this.unsubBeat = null;
 		this.unsubNote = null;
-		this.setStatus('finished');
+
+		// Yield before stop when still running so onBeat→finish mid-flush does not
+		// break FakeMetronome.flush (beatTime after stop throws). quit() stops sync.
+		if (this.deps.metronome.isRunning()) {
+			await Promise.resolve();
+			this.deps.metronome.stop();
+		}
+		this.deps.detector.stop();
+
+		const startedAt =
+			(await this.deps.sessions.get(this.sessionId))?.startedAt ?? this.deps.now();
 		await this.deps.sessions.put({
 			id: this.sessionId,
 			kind: this.kind,
-			startedAt: (await this.deps.sessions.get(this.sessionId))?.startedAt ?? this.deps.now(),
+			startedAt,
 			endedAt: this.deps.now(),
 			fatigueDetected: this.view.fatigueDetected
 		});
