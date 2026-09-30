@@ -44,34 +44,38 @@
 </script>
 
 <section class="summary">
-	<PixelText scale={3}>{t.title}</PixelText>
-	<PixelBox variant="double">
-		<ul class="rows">
-			<li>
-				<span>{t.accuracy}</span>
-				<strong>{accuracy}</strong>
-			</li>
-			<li>
-				<span>{t.median}</span>
-				<strong>{median}</strong>
-			</li>
-			<li>
-				<span>{t.learned}</span>
-				<strong>{summary.learnedCount}</strong>
-			</li>
-			<li>
-				<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
-			</li>
-			<li>
-				<span>{t.next}</span>
-				<strong>{next}</strong>
-			</li>
-		</ul>
-	</PixelBox>
-	<nav class="nav">
-		<PixelButton size="large" onclick={onhome}>{t.home}</PixelButton>
-		<PixelButton size="large" onclick={onmap}>{t.map}</PixelButton>
-	</nav>
+	<div class="sheet">
+		<header class="title">
+			<PixelText scale={3}>{t.title}</PixelText>
+		</header>
+		<PixelBox variant="double">
+			<ul class="rows">
+				<li>
+					<span>{t.accuracy}</span>
+					<strong>{accuracy}</strong>
+				</li>
+				<li>
+					<span>{t.median}</span>
+					<strong>{median}</strong>
+				</li>
+				<li>
+					<span>{t.learned}</span>
+					<strong>{summary.learnedCount}</strong>
+				</li>
+				<li class="fatigue" class:alert={summary.fatigueDetected}>
+					<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
+				</li>
+				<li>
+					<span>{t.next}</span>
+					<strong>{next}</strong>
+				</li>
+			</ul>
+		</PixelBox>
+		<nav class="nav">
+			<PixelButton size="large" onclick={onhome}>{t.home}</PixelButton>
+			<PixelButton size="large" onclick={onmap}>{t.map}</PixelButton>
+		</nav>
+	</div>
 </section>
 
 <style>
@@ -81,32 +85,78 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: calc(3 * var(--np-tile, 8px));
-		padding: calc(4 * var(--np-tile, 8px));
+		padding: var(--np-space-4, 32px);
 		box-sizing: border-box;
+	}
+
+	.sheet {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-space-3, 24px);
+		width: min(100%, 26rem);
+		animation: imprint 120ms ease-out both;
+	}
+
+	.title {
+		margin-block-end: var(--np-space-1, 8px);
 	}
 
 	.rows {
 		list-style: none;
 		margin: 0;
-		padding: calc(2 * var(--np-tile, 8px));
+		padding: var(--np-space-3, 24px);
 		display: flex;
 		flex-direction: column;
-		gap: var(--np-tile, 8px);
+		gap: var(--np-space-2, 16px);
 		min-width: min(100%, 22rem);
 		font-variant-numeric: tabular-nums;
+		font-family: var(--np-font-pixel);
+		font-weight: 700;
+		text-transform: uppercase;
+		color: var(--np-ink);
 	}
 
 	.rows li {
 		display: flex;
 		justify-content: space-between;
-		gap: calc(2 * var(--np-tile, 8px));
+		align-items: baseline;
+		gap: var(--np-space-2, 16px);
+	}
+
+	.rows strong {
+		font-size: 1.25em;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.fatigue.alert {
+		background: var(--np-ink);
+		color: var(--np-bg);
+		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
+		margin-inline: calc(-1 * var(--np-space-1, 8px));
 	}
 
 	.nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--np-tile, 8px);
+		gap: var(--np-space-2, 16px);
 		justify-content: center;
+	}
+
+	@keyframes imprint {
+		from {
+			transform: scale(0.96);
+			opacity: 0.85;
+		}
+		to {
+			transform: scale(1);
+			opacity: 1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.sheet {
+			animation: none;
+		}
 	}
 </style>
