@@ -70,6 +70,14 @@
 </section>
 
 <style>
+	:global(html),
+	:global(body) {
+		width: auto;
+		height: auto;
+		min-height: 100dvh;
+		overflow: auto;
+	}
+
 	.home {
 		min-height: 100dvh;
 		display: flex;
@@ -78,6 +86,20 @@
 		justify-content: center;
 		padding: var(--np-space-4, 32px);
 		box-sizing: border-box;
+		background-color: var(--np-bg);
+		background-image:
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%
+			),
+			linear-gradient(45deg, var(--np-mid) 25%, transparent 25%, transparent 75%, var(--np-mid) 75%);
+		background-position:
+			0 0,
+			calc(var(--np-tile, 8px)) calc(var(--np-tile, 8px));
+		background-size: calc(var(--np-tile, 8px) * 2) calc(var(--np-tile, 8px) * 2);
 	}
 
 	.cartridge {
@@ -92,6 +114,7 @@
 		gap: var(--np-space-8, 64px);
 		padding: var(--np-space-6, 48px) var(--np-space-4, 32px);
 		box-sizing: border-box;
+		background: var(--np-bg);
 	}
 
 	.action {

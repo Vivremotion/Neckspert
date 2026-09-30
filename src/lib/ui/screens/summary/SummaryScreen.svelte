@@ -79,6 +79,14 @@
 </section>
 
 <style>
+	:global(html),
+	:global(body) {
+		width: auto;
+		height: auto;
+		min-height: 100dvh;
+		overflow: auto;
+	}
+
 	.summary {
 		min-height: 100dvh;
 		display: flex;
@@ -87,6 +95,20 @@
 		justify-content: center;
 		padding: var(--np-space-4, 32px);
 		box-sizing: border-box;
+		background-color: var(--np-bg);
+		background-image:
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%
+			),
+			linear-gradient(45deg, var(--np-mid) 25%, transparent 25%, transparent 75%, var(--np-mid) 75%);
+		background-position:
+			0 0,
+			calc(var(--np-tile, 8px)) calc(var(--np-tile, 8px));
+		background-size: calc(var(--np-tile, 8px) * 2) calc(var(--np-tile, 8px) * 2);
 	}
 
 	.sheet {
@@ -94,7 +116,7 @@
 		flex-direction: column;
 		align-items: center;
 		gap: var(--np-space-3, 24px);
-		width: min(100%, 26rem);
+		width: min(100%, 30rem);
 		animation: imprint 120ms ease-out both;
 	}
 
@@ -105,35 +127,43 @@
 	.rows {
 		list-style: none;
 		margin: 0;
-		padding: var(--np-space-3, 24px);
+		padding: var(--np-space-3, 24px) var(--np-space-4, 32px);
 		display: flex;
 		flex-direction: column;
 		gap: var(--np-space-2, 16px);
-		min-width: min(100%, 22rem);
+		width: 100%;
+		box-sizing: border-box;
 		font-variant-numeric: tabular-nums;
 		font-family: var(--np-font-pixel);
 		font-weight: 700;
 		text-transform: uppercase;
 		color: var(--np-ink);
+		background: var(--np-bg);
 	}
 
 	.rows li {
 		display: flex;
 		justify-content: space-between;
 		align-items: baseline;
-		gap: var(--np-space-2, 16px);
+		gap: var(--np-space-3, 24px);
+	}
+
+	.rows span {
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 
 	.rows strong {
+		flex: 0 0 auto;
 		font-size: 1.25em;
 		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 	}
 
 	.fatigue.alert {
 		background: var(--np-ink);
 		color: var(--np-bg);
 		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
-		margin-inline: calc(-1 * var(--np-space-1, 8px));
 	}
 
 	.nav {

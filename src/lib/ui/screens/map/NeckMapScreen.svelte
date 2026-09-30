@@ -51,6 +51,14 @@
 </section>
 
 <style>
+	:global(html),
+	:global(body) {
+		width: auto;
+		height: auto;
+		min-height: 100dvh;
+		overflow: auto;
+	}
+
 	.map {
 		min-height: 100dvh;
 		display: flex;
@@ -60,6 +68,20 @@
 		padding: var(--np-space-2, 16px);
 		box-sizing: border-box;
 		animation: imprint 120ms ease-out both;
+		background-color: var(--np-bg);
+		background-image:
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%
+			),
+			linear-gradient(45deg, var(--np-mid) 25%, transparent 25%, transparent 75%, var(--np-mid) 75%);
+		background-position:
+			0 0,
+			calc(var(--np-tile, 8px)) calc(var(--np-tile, 8px));
+		background-size: calc(var(--np-tile, 8px) * 2) calc(var(--np-tile, 8px) * 2);
 	}
 
 	.title {
@@ -87,14 +109,14 @@
 
 	.row {
 		display: grid;
-		grid-template-columns: repeat(12, minmax(2.5rem, 1fr));
+		grid-template-columns: repeat(12, minmax(3rem, 1fr));
 		gap: 2px;
 	}
 
 	.cell {
 		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink);
-		min-height: 3rem;
-		padding: 2px;
+		min-height: 3.5rem;
+		padding: var(--np-space-1, 8px) 2px;
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
@@ -107,17 +129,27 @@
 	}
 
 	.cell.learning {
-		background-color: var(--np-mid);
-		background-image: linear-gradient(
-			45deg,
-			var(--np-ink) 25%,
-			transparent 25%,
-			transparent 50%,
-			var(--np-ink) 50%,
-			var(--np-ink) 75%,
-			transparent 75%,
-			transparent
-		);
+		background-color: var(--np-bg);
+		background-image:
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%,
+				var(--np-mid)
+			),
+			linear-gradient(
+				45deg,
+				var(--np-mid) 25%,
+				transparent 25%,
+				transparent 75%,
+				var(--np-mid) 75%,
+				var(--np-mid)
+			);
+		background-position:
+			0 0,
+			calc(var(--np-tile, 8px) / 2) calc(var(--np-tile, 8px) / 2);
 		background-size: var(--np-tile, 8px) var(--np-tile, 8px);
 	}
 
@@ -132,16 +164,16 @@
 	}
 
 	.pitch {
-		font-size: 0.75rem;
+		font-size: 0.85rem;
 		text-transform: uppercase;
 	}
 
 	.dirs {
 		display: flex;
 		flex-direction: column;
-		gap: 1px;
-		font-size: 0.55rem;
-		line-height: 1.1;
+		gap: 2px;
+		font-size: 0.7rem;
+		line-height: 1.15;
 		text-transform: uppercase;
 	}
 
