@@ -87,21 +87,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 <section class="play" data-status={view.status} data-plates-only={platesOnly ? '1' : '0'}>
-	<figure class="r-field plate">
-		<img src="/plates/field.png" alt="" />
-	</figure>
-	<figure class="r-lane-bed plate">
-		<img src="/plates/lane-bed.png" alt="" />
-	</figure>
-	<figure class="r-verdict-sprite plate">
-		<img src="/plates/verdict-sprite.png" alt="" />
-	</figure>
-	<figure class="r-lane-history plate">
-		<img src="/plates/lane-history.png" alt="" />
-	</figure>
-	<figure class="r-lane-upcoming plate">
-		<img src="/plates/lane-upcoming.png" alt="" />
-	</figure>
+	<div class="r-field field"></div>
 
 	{#if !platesOnly}
 		<div class="numeral-scrub history" aria-hidden="true"></div>
@@ -189,7 +175,6 @@
 		margin: 0;
 	}
 
-	.plate,
 	.chrome,
 	.text,
 	.sprite-overlay,
@@ -226,9 +211,6 @@
 			0 0,
 			4px 4px;
 		background-size: 8px 8px;
-	}
-	.r-field img {
-		opacity: 0;
 	}
 	.r-prompt-note {
 		left: var(--r-prompt-note-x);
@@ -274,35 +256,17 @@
 		width: var(--r-verdict-reaction-w);
 		height: var(--r-verdict-reaction-h);
 	}
-	.r-lane-bed {
-		left: var(--r-lane-bed-x);
-		top: var(--r-lane-bed-y);
-		width: var(--r-lane-bed-w);
-		height: var(--r-lane-bed-h);
-	}
 	.r-lane-heart {
 		left: var(--r-lane-heart-x);
 		top: var(--r-lane-heart-y);
 		width: var(--r-lane-heart-w);
 		height: var(--r-lane-heart-h);
 	}
-	.r-lane-history {
-		left: var(--r-lane-history-x);
-		top: var(--r-lane-history-y);
-		width: var(--r-lane-history-w);
-		height: var(--r-lane-history-h);
-	}
 	.r-lane-finish {
 		left: var(--r-lane-finish-x);
 		top: var(--r-lane-finish-y);
 		width: var(--r-lane-finish-w);
 		height: var(--r-lane-finish-h);
-	}
-	.r-lane-upcoming {
-		left: var(--r-lane-upcoming-x);
-		top: var(--r-lane-upcoming-y);
-		width: var(--r-lane-upcoming-w);
-		height: var(--r-lane-upcoming-h);
 	}
 	.r-lane-label {
 		left: var(--r-lane-label-x);
@@ -315,19 +279,6 @@
 		top: var(--r-lane-target-y);
 		width: var(--r-lane-target-w);
 		height: var(--r-lane-target-h);
-	}
-
-	.plate {
-		z-index: 1;
-		overflow: hidden;
-	}
-	.plate img {
-		width: 100%;
-		height: 100%;
-		object-fit: cover;
-		object-position: top left;
-		display: block;
-		image-rendering: pixelated;
 	}
 
 	.numeral-scrub {
@@ -556,9 +507,6 @@
 			left: auto;
 			right: 8px;
 		}
-		.r-lane-bed,
-		.r-lane-history,
-		.r-lane-upcoming,
 		.r-lane-finish,
 		.r-lane-heart,
 		.r-lane-label,
