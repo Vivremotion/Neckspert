@@ -14,21 +14,40 @@
 		b: ['11000', '11000', '11110', '11011', '11011', '11110', '00000']
 	};
 
+	const blank = ['00000', '00000', '00000', '00000', '00000', '00000', '00000'];
+
 	const glyphs = $derived(
-		[...text].map((char) => GLYPHS[char] ?? GLYPHS[char.toUpperCase()] ?? GLYPHS.F)
+		[...text].map((char) => GLYPHS[char] ?? GLYPHS[char.toUpperCase()] ?? blank)
 	);
 	const rows = 7;
 	const cols = $derived(glyphs.reduce((sum, glyph) => sum + glyph[0].length + 1, 0));
+
+	function origin(index: number): number {
+		return glyphs.slice(0, index).reduce((sum, item) => sum + item[0].length + 1, 0);
+	}
 </script>
 
-<svg viewBox="0 0 {cols + 1} {rows + 1}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-	{#each glyphs as glyph, index}
-		{@const x = glyphs.slice(0, index).reduce((sum, item) => sum + item[0].length + 1, 0)}
-		{#each glyph as row, y}
-			{#each [...row] as cell, cx}
+<svg viewBox="0 0 {cols + 1} {rows + 2}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+	{#each glyphs as glyph, index (index)}
+		{#each glyph as row, y (y)}
+			{#each [...row] as cell, cx (`s${index}-${y}-${cx}`)}
 				{#if cell === '1'}
-					<rect x={x + cx + 1} y={y + 1} width="1" height="1" class="shadow" />
-					<rect x={x + cx} y={y} width="1" height="1" class="ink" />
+					<rect
+						x={origin(index) + cx + 1}
+						y={y + 1}
+						width="1"
+						height="1"
+						class={(origin(index) + cx + y) % 2 === 0 ? 'shadow-mid' : 'shadow-shade'}
+					/>
+				{/if}
+			{/each}
+		{/each}
+	{/each}
+	{#each glyphs as glyph, index (`ink-${index}`)}
+		{#each glyph as row, y (`ink-${index}-${y}`)}
+			{#each [...row] as cell, cx (`ink-${index}-${y}-${cx}`)}
+				{#if cell === '1'}
+					<rect x={origin(index) + cx} {y} width="1" height="1" class="ink" />
 				{/if}
 			{/each}
 		{/each}
@@ -46,8 +65,11 @@
 	.ink {
 		fill: var(--np-ink);
 	}
-	.shadow {
+	.shadow-mid {
 		fill: var(--np-mid);
+	}
+	.shadow-shade {
+		fill: var(--np-shade);
 	}
 	.read {
 		position: absolute;

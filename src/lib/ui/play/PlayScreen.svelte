@@ -59,7 +59,7 @@
 		const target = event.target;
 		if (
 			target instanceof HTMLElement &&
-			(target.closest('button, input, textarea, select') !== null)
+			target.closest('button, input, textarea, select') !== null
 		) {
 			return;
 		}
@@ -105,7 +105,7 @@
 				<PixelBox variant="double" />
 			</div>
 			<div class="r-verdict-sprite sprite-overlay" aria-hidden="true">
-				<VerdictSprite verdict={view.lastVerdict.verdict} size={240} />
+				<VerdictSprite verdict={view.lastVerdict.verdict} size={280} />
 			</div>
 			<p class="r-verdict-banner text banner inverted">
 				{t.verdict[view.lastVerdict.verdict]}
@@ -191,7 +191,8 @@
 		width: var(--r-field-w);
 		height: var(--r-field-h);
 		background-color: var(--np-bg);
-		background-image: linear-gradient(
+		background-image:
+			linear-gradient(
 				45deg,
 				var(--np-mid) 25%,
 				transparent 25%,
@@ -214,13 +215,13 @@
 	}
 	.r-prompt-note {
 		left: var(--r-prompt-note-x);
-		top: var(--r-prompt-note-y);
+		top: 6%;
 		width: var(--r-prompt-note-w);
-		height: var(--r-prompt-note-h);
+		height: 46%;
 	}
 	.r-prompt-string {
 		left: var(--r-prompt-string-x);
-		top: var(--r-prompt-string-y);
+		top: 52%;
 		width: var(--r-prompt-string-w);
 		height: var(--r-prompt-string-h);
 	}
@@ -301,29 +302,7 @@
 		z-index: 3;
 		display: grid;
 		place-items: center;
-		padding: 4%;
-		/* Cover solid field-plate leftovers with the same dither vocabulary */
-		background-color: var(--np-bg);
-		background-image: linear-gradient(
-				45deg,
-				var(--np-mid) 25%,
-				transparent 25%,
-				transparent 75%,
-				var(--np-mid) 75%,
-				var(--np-mid)
-			),
-			linear-gradient(
-				45deg,
-				var(--np-mid) 25%,
-				transparent 25%,
-				transparent 75%,
-				var(--np-mid) 75%,
-				var(--np-mid)
-			);
-		background-size: 6px 6px;
-		background-position:
-			0 0,
-			3px 3px;
+		background: transparent;
 	}
 
 	.r-verdict-box :global(.box) {
@@ -338,8 +317,13 @@
 		place-items: center;
 		pointer-events: none;
 		z-index: 3;
-		overflow: hidden;
-		background: var(--np-bg);
+		overflow: visible;
+		background: transparent;
+	}
+
+	.sprite-overlay :global(svg) {
+		width: min(240px, 78%);
+		height: auto;
 	}
 
 	.text {
@@ -361,12 +345,16 @@
 	.string {
 		font-family: var(--r-prompt-string-family), sans-serif;
 		font-weight: var(--r-prompt-string-weight);
-		font-size: 80px;
+		font-size: var(--r-prompt-string-font);
 		justify-content: flex-start;
+		align-items: flex-end;
 		white-space: nowrap;
-		letter-spacing: -0.04em;
-		background: var(--np-bg);
-		padding-inline: 4px;
+		letter-spacing: -0.03em;
+		background: transparent;
+		width: max-content;
+		height: auto;
+		overflow: visible;
+		color: var(--np-ink);
 	}
 
 	.banner {
