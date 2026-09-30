@@ -34,6 +34,8 @@ export class OnsetDetector {
 		if (rms < floor) return null;
 
 		const attackTime = this.refineAttackTime(frame, frameTime, floor);
+		// Snap envelope up so decay cannot re-trigger after cooldown.
+		this.envelope = Math.max(this.envelope, rms);
 		this.cooldownUntil = attackTime + this.cooldownS;
 		return attackTime;
 	}
