@@ -49,27 +49,28 @@
 <style>
 	.answer-pad {
 		container: answer-pad / inline-size;
+		inline-size: 100%;
 		block-size: 100%;
 	}
 
 	.grid {
 		display: grid;
-		grid-template-columns: repeat(3, minmax(64px, 1fr));
-		grid-auto-rows: minmax(64px, 1fr);
-		gap: 8px;
+		grid-template-columns: repeat(3, minmax(calc(8 * var(--np-tile)), 1fr));
+		grid-auto-rows: minmax(calc(8 * var(--np-tile)), 1fr);
+		gap: var(--np-tile);
 		block-size: 100%;
 	}
 
 	@container answer-pad (min-width: 560px) {
 		.grid {
-			grid-template-columns: repeat(6, minmax(64px, 1fr));
+			grid-template-columns: repeat(6, minmax(calc(8 * var(--np-tile)), 1fr));
 		}
 	}
 
 	.cell {
 		display: grid;
-		min-block-size: 64px;
-		min-inline-size: 64px;
+		min-block-size: calc(8 * var(--np-tile));
+		min-inline-size: calc(8 * var(--np-tile));
 	}
 
 	.cell > :global(*) {
@@ -77,5 +78,19 @@
 		block-size: 100%;
 		/* Flat signs stay lowercase: "Gb", never "GB". */
 		text-transform: none;
+		white-space: nowrap;
+		padding-inline: 4px;
+	}
+
+	.cell.picked > :global(*) {
+		background-color: var(--np-ink);
+		color: var(--np-bg);
+		border-color: var(--np-ink);
+	}
+
+	@media (max-width: 559px) {
+		.grid {
+			grid-template-columns: repeat(3, minmax(calc(8 * var(--np-tile)), 1fr));
+		}
 	}
 </style>

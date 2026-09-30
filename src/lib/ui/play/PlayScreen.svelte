@@ -91,9 +91,13 @@
 <section class="play" data-status={view.status} data-plates-only={platesOnly ? '1' : '0'}>
 	{#if !platesOnly}
 		<div class="stage">
-			<div class="prompt">
+			<div class="prompt" class:answering>
 				{#if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
-					<PixelWord text={view.prompt.primary} />
+					{#if answering}
+						<p class="primary">{view.prompt.primary}</p>
+					{:else}
+						<PixelWord text={view.prompt.primary} />
+					{/if}
 					<p class="string">{view.prompt.secondary}</p>
 				{/if}
 			</div>
@@ -119,7 +123,7 @@
 		</div>
 
 		{#if answering}
-			<div class="lane-slot">
+			<div class="lane-slot" class:answering>
 				<AnswerPanel {controller} />
 			</div>
 		{:else}
@@ -251,6 +255,20 @@
 		text-align: center;
 	}
 
+	.primary {
+		margin: 0;
+		color: var(--np-ink);
+		font-size: 96px;
+		line-height: 1;
+		letter-spacing: 0;
+		text-align: center;
+		text-transform: none;
+	}
+
+	.prompt.answering .primary {
+		font-size: 72px;
+	}
+
 	.pixel-frame {
 		box-sizing: border-box;
 		background: var(--np-shade);
@@ -342,7 +360,12 @@
 	.lane-slot {
 		display: flex;
 		flex: 0 0 228px;
+		inline-size: 100%;
 		min-height: 0;
+	}
+
+	.lane-slot.answering {
+		min-block-size: calc(4 * 64px + 3 * 8px);
 	}
 
 	.lane-inner {
@@ -516,6 +539,10 @@
 
 		.string {
 			font-size: 32px;
+		}
+
+		.primary {
+			font-size: 48px;
 		}
 	}
 </style>
