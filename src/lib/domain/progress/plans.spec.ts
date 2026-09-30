@@ -36,12 +36,10 @@ function dueCard(target: Target, due: number, session = 's0'): CardState {
 describe('buildDailyPlan', () => {
 	it('puts locate before identify when dues are equal, then learning', () => {
 		// L1 and I1 due at the same time → locate first. L2 already introduced. L3 unseen → learning.
+		// L2 introduced but not yet due (so it stays out of cold reviews).
+		const learningOnly = introduceCard(L2, NOW - MIN_COLD_DELAY_MS / 2, 'old');
 		const plan = buildDailyPlan({
-			cards: [
-				dueCard(L1, NOW - 500),
-				dueCard(I1, NOW - 500),
-				introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'old')
-			],
+			cards: [dueCard(L1, NOW - 500), dueCard(I1, NOW - 500), learningOnly],
 			curriculum: FIXTURE,
 			now: NOW,
 			sessionId: 'daily-1'
