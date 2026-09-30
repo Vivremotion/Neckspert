@@ -154,6 +154,9 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'verdict') {
 			if (this.verdictBeatIndex !== null && beat.index >= this.verdictBeatIndex + 1) {
 				this.advanceAfterVerdict();
+				if (this.view.status === 'count-in' && beat.index >= this.earliestPromptBeat) {
+					this.beginNextItem(beat);
+				}
 			}
 			return;
 		}
@@ -232,8 +235,21 @@ export class SessionController implements PlaySessionController {
 		void this.finish();
 	}
 
-	private maybeCloseWindow(_beat: BeatEvent): void {
-		// Task 4
+	private maybeCloseWindow(beat: BeatEvent): void {
+		if (this.captured || this.windowClosesAt === null || !this.current) return;
+		if (this.current.target.direction !== 'locate') return;
+		if (beat.time < this.windowClosesAt) return;
+		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
+
+		this.captured = true;
+		const judgement = judgeLocate({
+			acceptable: acceptableMidis(this.current.target),
+			promptTime: this.promptTimeAudio,
+			targetTime: this.deps.metronome.beatTime(this.targetBeatIndex),
+			onset: null,
+			latencyMs: this.latencyMs
+		});
+		void this.resolveLocate(judgement, beat.index);
 	}
 
 	private async resolveLocate(judgement: JudgementFields, gapFromBeat: number): Promise<void> {

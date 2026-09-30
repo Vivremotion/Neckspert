@@ -185,4 +185,51 @@ describe('SessionController locate judgement', () => {
 	});
 });
 
+describe('SessionController window close and sequencing', () => {
+	it('closes the window on the first beat at or after closesAt', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(planWith([locateItem({ leadBeats: 2 })]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		// target beat 6 at 0.1+4.5=4.6 ; closesAt = 4.6+0.4 = 5.0
+		// beat 7 at 0.1+5.25=5.35 >= 5.0 → close
+		tick(deps, 0.75 * 3);
+		expect(controller.view.status).toBe('verdict');
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+		expect(controller.view.lastVerdict?.reactionMs).toBeNull();
+	});
+
+	it('starts the next item at least one beat after the verdict', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(
+			planWith([
+				locateItem({ leadBeats: 1 }),
+				locateItem({
+					target: { direction: 'locate', string: 3, pitch: 'C' },
+					leadBeats: 1
+				})
+			]),
+			deps
+		);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.promptBeatIndex).toBe(4);
+		const targetTime = deps.metronome.beatTime(5);
+		deps.detector.emitNote({
+			time: targetTime,
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		expect(controller.view.status).toBe('verdict');
+		// earliestPromptBeat = 5+1 = 6 ; beat 5 (target era) keeps verdict; beat 6 advances.
+		// From clock ~3.1 after prompt, need ~1.5s to emit beat 6 (4.6) with 100ms lookahead.
+		tick(deps, 0.75 * 2);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.promptBeatIndex).toBeGreaterThanOrEqual(6);
+		expect(controller.view.prompt?.primary).toBe('C');
+	});
+});
+
 export { createDeps, locateItem, planWith, tick };
