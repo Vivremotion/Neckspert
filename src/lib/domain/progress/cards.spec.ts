@@ -3,6 +3,7 @@ import {
 	cardKey,
 	type Attempt,
 	type CardState,
+	type IdentifyTarget,
 	type LocateTarget
 } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
@@ -19,7 +20,7 @@ import {
 const NOW = Date.parse('2026-04-01T10:00:00.000Z');
 const TEMPO = 80;
 const LOCATE: LocateTarget = { direction: 'locate', string: 6, pitch: 'G' };
-const IDENTIFY = { direction: 'identify' as const, string: 6, fret: 3 };
+const IDENTIFY: IdentifyTarget = { direction: 'identify', string: 6, fret: 3 };
 
 function attempt(overrides: Partial<Attempt>): Attempt {
 	return {

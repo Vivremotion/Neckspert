@@ -14,8 +14,9 @@ import {
 	introScheduling,
 	reviewScheduling
 } from './scheduling';
+import type { Grade } from 'ts-fsrs';
 
-function gradeFor(attempt: Attempt, tempoBpm: number): (typeof Rating)[keyof typeof Rating] {
+function gradeFor(attempt: Attempt, tempoBpm: number): Grade {
 	if (!attempt.correct) return Rating.Again;
 	if (isDirectRecall(attempt, tempoBpm)) return Rating.Good;
 	return Rating.Hard;

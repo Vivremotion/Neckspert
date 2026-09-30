@@ -3,7 +3,8 @@ import {
 	fsrs,
 	generatorParameters,
 	Rating,
-	type Card
+	type Card,
+	type Grade
 } from 'ts-fsrs';
 import type { SchedulingState } from '$lib/domain/types';
 import { MIN_COLD_DELAY_MS } from './constants';
@@ -63,7 +64,7 @@ export function graduateToReview(now: number): SchedulingState {
 
 export function reviewScheduling(
 	state: SchedulingState,
-	grade: (typeof Rating)[keyof typeof Rating],
+	grade: Grade,
 	now: number
 ): SchedulingState {
 	const { card } = scheduler.next(fromScheduling(state), new Date(now), grade);
