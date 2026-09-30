@@ -153,7 +153,10 @@
 		flex-direction: column;
 		gap: var(--np-space-3, 24px);
 		padding: var(--np-space-2, 16px);
-		min-height: 100dvh;
+		width: 100%;
+		max-width: 40rem;
+		min-width: 0;
+		margin-inline: auto;
 		box-sizing: border-box;
 		background: var(--np-bg, #e99568);
 		color: var(--np-ink, #451218);
@@ -196,7 +199,7 @@
 		min-height: 48px;
 		font: inherit;
 		font-family: var(--np-font-pixel, inherit);
-		font-size: 1.25rem;
+		font-size: var(--np-type-body);
 		text-transform: uppercase;
 		padding: var(--np-tile, 8px);
 		background: var(--np-mid, #be6754);
