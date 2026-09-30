@@ -6,7 +6,7 @@
   "direction": "5dc1b320",
   "breakpoint": "1280x720",
   "artifact": null,
-  "phase": "plates",
+  "phase": "hero",
   "phases": {
     "comps": {
       "status": "closed",
@@ -38,17 +38,22 @@
       "forced": null
     },
     "plates": {
-      "status": "open",
+      "status": "closed",
       "openedAt": "2026-09-30T01:19:27.020Z",
-      "closedAt": null,
-      "attempts": 0,
+      "closedAt": "2026-09-30T06:02:54.911Z",
+      "attempts": 3,
       "notes": [],
-      "gate": null,
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "5/5 plates",
+        "at": "2026-09-30T06:02:54.911Z"
+      },
       "forced": null
     },
     "hero": {
-      "status": "pending",
-      "openedAt": null,
+      "status": "open",
+      "openedAt": "2026-09-30T06:02:54.911Z",
       "closedAt": null,
       "attempts": 0,
       "notes": [],
@@ -92,5 +97,32 @@
       "forced": null
     }
   },
-  "finish": null
+  "finish": null,
+  "plates": {
+    "field": {
+      "status": "ok",
+      "score": 1,
+      "size": "1792x1008"
+    },
+    "verdict-sprite": {
+      "status": "ok",
+      "score": 1,
+      "size": "768x432"
+    },
+    "lane-bed": {
+      "status": "ok",
+      "score": 1,
+      "size": "2560x576"
+    },
+    "lane-history": {
+      "status": "ok",
+      "score": 0.8406,
+      "size": "768x288"
+    },
+    "lane-upcoming": {
+      "status": "ok",
+      "score": 0.8034,
+      "size": "1280x288"
+    }
+  }
 }
