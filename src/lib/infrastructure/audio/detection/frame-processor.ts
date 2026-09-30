@@ -2,6 +2,17 @@ const FRAME_SIZE = 512;
 
 declare const currentTime: number;
 declare const sampleRate: number;
+declare function registerProcessor(
+	name: string,
+	processorCtor: new () => {
+		readonly port: MessagePort;
+		process(inputs: Float32Array[][]): boolean;
+	}
+): void;
+declare class AudioWorkletProcessor {
+	readonly port: MessagePort;
+	process(inputs: Float32Array[][]): boolean;
+}
 
 registerProcessor(
 	'note-frame-processor',
