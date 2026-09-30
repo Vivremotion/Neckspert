@@ -8,13 +8,13 @@ import {
 
 /** Longest lead step whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS; at least 1. */
 export function leadForThreshold(tempoBpm: number): LeadBeats {
-	let best: LeadBeats = 1;
+	// LEAD_STEPS is longest→shortest; first fit is the longest allowed.
 	for (const step of LEAD_STEPS) {
 		if ((step * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS) {
-			best = step;
+			return step;
 		}
 	}
-	return best;
+	return 1;
 }
 
 /**
