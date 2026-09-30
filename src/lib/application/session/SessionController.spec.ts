@@ -135,4 +135,54 @@ describe('SessionController skeleton', () => {
 	});
 });
 
+describe('SessionController locate judgement', () => {
+	it('judges the first note inside the window and ignores later notes', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(planWith([locateItem({ leadBeats: 2 })]), deps);
+		await controller.start();
+		// Reach prompt beat 4 ; target beat 6. spb=0.75, firstBeat=0.1
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.promptBeatIndex).toBe(4);
+		expect(controller.view.targetBeatIndex).toBe(6);
+
+		const targetTime = deps.metronome.beatTime(6);
+		// Perfect F on B string = MIDI 65
+		deps.detector.emitNote({
+			time: targetTime,
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		expect(controller.view.status).toBe('verdict');
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		expect(deps.cues.played.map((p) => p.verdict)).toEqual(['perfect']);
+
+		deps.detector.emitNote({
+			time: targetTime + 0.05,
+			midi: 67,
+			frequencyHz: 392,
+			clarity: 0.95
+		});
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		expect(deps.cues.played).toHaveLength(1);
+	});
+
+	it('treats a first note outside the window as no answer', async () => {
+		const deps = createDeps();
+		const controller = new SessionController(planWith([locateItem({ leadBeats: 2 })]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		const closesAt = deps.metronome.beatTime(6) + 0.4;
+		deps.detector.emitNote({
+			time: closesAt + 0.05,
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+		expect(controller.view.lastVerdict?.answerLabel).toBeNull();
+	});
+});
+
 export { createDeps, locateItem, planWith, tick };

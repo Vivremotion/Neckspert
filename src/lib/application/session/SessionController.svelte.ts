@@ -1,13 +1,23 @@
 import type { PitchName } from '$lib/domain/music/types';
-import type { Attempt, Locale, PlannedItem, SessionPlan, Settings } from '$lib/domain/types';
+import { acceptableMidis, formatNote, spellPitch } from '$lib/domain/music';
+import type { Attempt, Locale, PlannedItem, SessionPlan, Settings, Verdict } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
-import type { PlaySessionController, PlayView } from './contract';
+import { answerWindow, isInWindow, judgeLocate } from '$lib/domain/scoring';
+import type { PlaySessionController, PlayView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
 import { buildPromptView } from './prompt';
 
 const BEATS_PER_BAR = 4 as const;
 
 type InternalStatus = PlayView['status'];
+
+type JudgementFields = {
+	answer: Attempt['answer'];
+	correct: boolean;
+	verdict: Verdict;
+	timingOffsetMs: number | null;
+	reactionMs: number | null;
+};
 
 export class SessionController implements PlaySessionController {
 	readonly sessionId: string;
@@ -160,8 +170,24 @@ export class SessionController implements PlaySessionController {
 		}
 	}
 
-	private onNote(_onset: NoteOnset): void {
-		// Task 3
+	private onNote(onset: NoteOnset): void {
+		if (this.view.status !== 'awaiting' || this.captured || !this.current) return;
+		if (this.current.target.direction !== 'locate') return;
+		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
+
+		this.captured = true;
+		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
+		const window = answerWindow(this.promptTimeAudio, targetTime);
+		const corrected = onset.time - this.latencyMs / 1000;
+		const onsetForJudge = isInWindow(corrected, window) ? onset : null;
+		const judgement = judgeLocate({
+			acceptable: acceptableMidis(this.current.target),
+			promptTime: this.promptTimeAudio,
+			targetTime,
+			onset: onsetForJudge,
+			latencyMs: this.latencyMs
+		});
+		void this.resolveLocate(judgement, this.targetBeatIndex);
 	}
 
 	private beginNextItem(beat: BeatEvent): void {
@@ -195,7 +221,10 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private armLocateWindow(): void {
-		// Task 3
+		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
+		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
+		const window = answerWindow(this.promptTimeAudio, targetTime);
+		this.windowClosesAt = window.closesAt;
 	}
 
 	private beginIdentify(_item: PlannedItem, _beat: BeatEvent): void {
@@ -205,6 +234,41 @@ export class SessionController implements PlaySessionController {
 
 	private maybeCloseWindow(_beat: BeatEvent): void {
 		// Task 4
+	}
+
+	private async resolveLocate(judgement: JudgementFields, gapFromBeat: number): Promise<void> {
+		if (!this.current || this.promptBeatIndex === null) return;
+		const answerLabel =
+			judgement.answer && judgement.answer.kind === 'note'
+				? formatNote(
+						spellPitch(
+							this.current.target.direction === 'locate' ? this.current.target.pitch : 'C',
+							this.deps.random
+						)
+					)
+				: null;
+		const verdictView: VerdictView = {
+			verdict: judgement.verdict,
+			offsetMs: judgement.timingOffsetMs,
+			reactionMs: judgement.reactionMs,
+			answerLabel: judgement.answer ? answerLabel : null
+		};
+		this.view.lastVerdict = verdictView;
+		if (this.targetBeatIndex !== null) {
+			this.view.history = [
+				...this.view.history,
+				{ beatIndex: this.targetBeatIndex, verdict: judgement.verdict }
+			];
+		}
+		this.deps.cues.play(judgement.verdict);
+		this.verdictBeatIndex = gapFromBeat;
+		this.earliestPromptBeat = gapFromBeat + 1;
+		this.setStatus('verdict');
+		await this.persistAttempt(judgement);
+	}
+
+	private async persistAttempt(_judgement: JudgementFields): Promise<void> {
+		// Task 6 — no-op for now so Task 3 stays focused
 	}
 
 	private advanceAfterVerdict(): void {
