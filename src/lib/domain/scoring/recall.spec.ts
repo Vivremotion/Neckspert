@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RECALL_THRESHOLD_MS } from '$lib/domain/types';
+import { IDENTIFY_RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import { isDirectRecall } from './recall';
 
 const TEMPO = 80;
@@ -8,10 +8,16 @@ describe('isDirectRecall', () => {
 	it('judges mode 2 on the reaction time', () => {
 		expect(isDirectRecall({ correct: true, reactionMs: 0, leadBeats: null }, TEMPO)).toBe(true);
 		expect(
-			isDirectRecall({ correct: true, reactionMs: RECALL_THRESHOLD_MS, leadBeats: null }, TEMPO)
+			isDirectRecall(
+				{ correct: true, reactionMs: IDENTIFY_RECALL_THRESHOLD_MS, leadBeats: null },
+				TEMPO
+			)
 		).toBe(true);
 		expect(
-			isDirectRecall({ correct: true, reactionMs: RECALL_THRESHOLD_MS + 1, leadBeats: null }, TEMPO)
+			isDirectRecall(
+				{ correct: true, reactionMs: IDENTIFY_RECALL_THRESHOLD_MS + 1, leadBeats: null },
+				TEMPO
+			)
 		).toBe(false);
 	});
 

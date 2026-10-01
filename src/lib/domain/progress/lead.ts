@@ -1,4 +1,5 @@
 import {
+	IDENTIFY_RECALL_THRESHOLD_MS,
 	LEAD_STEPS,
 	RECALL_THRESHOLD_MS,
 	type Attempt,
@@ -19,7 +20,7 @@ export function leadForThreshold(tempoBpm: number): LeadBeats {
 
 /**
  * Mode 1 (`leadBeats` set): correct and lead duration ≤ RECALL_THRESHOLD_MS.
- * Mode 2 (`leadBeats` null): correct and reactionMs ≤ RECALL_THRESHOLD_MS.
+ * Mode 2 (`leadBeats` null): correct and reactionMs ≤ IDENTIFY_RECALL_THRESHOLD_MS.
  * Package-internal — not part of the public C API (plan B owns the scoring export).
  */
 export function isDirectRecall(
@@ -28,7 +29,7 @@ export function isDirectRecall(
 ): boolean {
 	if (!attempt.correct) return false;
 	if (attempt.leadBeats === null) {
-		return attempt.reactionMs !== null && attempt.reactionMs <= RECALL_THRESHOLD_MS;
+		return attempt.reactionMs !== null && attempt.reactionMs <= IDENTIFY_RECALL_THRESHOLD_MS;
 	}
 	return (attempt.leadBeats * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS;
 }

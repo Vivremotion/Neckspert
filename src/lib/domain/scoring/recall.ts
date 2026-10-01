@@ -1,8 +1,8 @@
-import { RECALL_THRESHOLD_MS, type Attempt } from '$lib/domain/types';
+import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS, type Attempt } from '$lib/domain/types';
 
 /**
  * Mode 1: a right answer whose lead fits in RECALL_THRESHOLD_MS.
- * Mode 2 (`leadBeats` null): a right answer whose reaction does.
+ * Mode 2 (`leadBeats` null): a right answer whose reaction fits in IDENTIFY_RECALL_THRESHOLD_MS.
  */
 export function isDirectRecall(
 	attempt: Pick<Attempt, 'correct' | 'reactionMs' | 'leadBeats'>,
@@ -10,7 +10,7 @@ export function isDirectRecall(
 ): boolean {
 	if (!attempt.correct) return false;
 	if (attempt.leadBeats === null) {
-		return attempt.reactionMs !== null && attempt.reactionMs <= RECALL_THRESHOLD_MS;
+		return attempt.reactionMs !== null && attempt.reactionMs <= IDENTIFY_RECALL_THRESHOLD_MS;
 	}
 	return (attempt.leadBeats * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS;
 }

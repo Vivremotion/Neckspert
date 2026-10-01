@@ -1,5 +1,5 @@
 import type { PitchName } from '$lib/domain/music/types';
-import { RECALL_THRESHOLD_MS, type Verdict } from '$lib/domain/types';
+import { IDENTIFY_RECALL_THRESHOLD_MS, type Verdict } from '$lib/domain/types';
 import { secondsToMs, unanswered, type Judgement } from './judgement';
 
 /**
@@ -27,5 +27,5 @@ export function judgeIdentify(input: {
 }
 
 function speedVerdict(reactionMs: number): Verdict {
-	return reactionMs <= RECALL_THRESHOLD_MS ? 'perfect' : 'late';
+	return reactionMs <= IDENTIFY_RECALL_THRESHOLD_MS ? 'perfect' : 'late';
 }

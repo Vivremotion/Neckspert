@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PitchName } from '$lib/domain/music/types';
-import { RECALL_THRESHOLD_MS } from '$lib/domain/types';
+import { IDENTIFY_RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import { judgeIdentify } from './identify';
 
 /** "corde de A, case 8" is F; the prompt appears at 12.345 s. */
@@ -36,21 +36,21 @@ describe('judgeIdentify', () => {
 		});
 	});
 
-	it('keeps exactly RECALL_THRESHOLD_MS perfect and one millisecond more late', () => {
-		expect(identify(13.845, 'F')).toMatchObject({
+	it('keeps exactly IDENTIFY_RECALL_THRESHOLD_MS perfect and one millisecond more late', () => {
+		expect(identify(15.345, 'F')).toMatchObject({
 			verdict: 'perfect',
-			reactionMs: RECALL_THRESHOLD_MS
+			reactionMs: IDENTIFY_RECALL_THRESHOLD_MS
 		});
-		expect(identify(13.846, 'F')).toMatchObject({
+		expect(identify(15.346, 'F')).toMatchObject({
 			correct: true,
 			verdict: 'late',
-			reactionMs: RECALL_THRESHOLD_MS + 1
+			reactionMs: IDENTIFY_RECALL_THRESHOLD_MS + 1
 		});
 	});
 
 	it('decides the verdict on the rounded reaction time', () => {
-		expect(identify(13.8454, 'F')).toMatchObject({ verdict: 'perfect', reactionMs: 1500 });
-		expect(identify(13.8456, 'F')).toMatchObject({ verdict: 'late', reactionMs: 1501 });
+		expect(identify(15.3454, 'F')).toMatchObject({ verdict: 'perfect', reactionMs: 3000 });
+		expect(identify(15.3456, 'F')).toMatchObject({ verdict: 'late', reactionMs: 3001 });
 	});
 
 	it('judges a wrong name as wrong, however fast, and keeps it', () => {

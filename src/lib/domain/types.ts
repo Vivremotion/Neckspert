@@ -65,8 +65,11 @@ export function parseCardKey(key: CardKey): Target {
 
 export type Verdict = 'perfect' | 'early' | 'late' | 'wrong';
 
-/** A correct answer faster than this is direct recall; slower is calculation. To calibrate. */
+/** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */
 export const RECALL_THRESHOLD_MS = 1500;
+
+/** Identify: a correct name within this duration is direct recall. To calibrate. */
+export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
