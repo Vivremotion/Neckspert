@@ -229,6 +229,19 @@ export interface HomeStats {
 	trend: 'improving' | 'stable' | 'worsening' | null;
 }
 
+export type SessionGrade =
+	| 'S+'
+	| 'S'
+	| 'A+'
+	| 'A'
+	| 'B+'
+	| 'B'
+	| 'C+'
+	| 'C'
+	| 'D+'
+	| 'D'
+	| 'F+';
+
 export interface SessionSummary {
 	sessionId: string;
 	coldCount: number;
