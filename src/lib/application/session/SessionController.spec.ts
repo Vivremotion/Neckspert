@@ -151,6 +151,22 @@ describe('SessionController skeleton', () => {
 		expect(ended?.endedAt).not.toBeNull();
 	});
 
+	it('keeps the closing session tempo when restart begins before finish persists', async () => {
+		await deps.settings.update({ tempoBpm: 60 });
+		const controller = new SessionController(planWith([locateItem()]), deps);
+		await controller.start();
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(60);
+
+		controller.quit();
+		await deps.settings.update({ tempoBpm: 120 });
+		await controller.start();
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+
+		const ended = await deps.sessions.get('sess-1');
+		expect(ended?.tempoBpm).toBe(60);
+		expect(ended?.endedAt).not.toBeNull();
+	});
+
 	it('starts again from the first item after the series is finished', async () => {
 		const controller = new SessionController(
 			planWith([

@@ -500,6 +500,7 @@ export class SessionController implements PlaySessionController {
 		const run = this.run;
 		const sessionId = this.sessionId;
 		const fatigueDetected = this.view.fatigueDetected;
+		const tempoBpm = this.sessionTempoBpm;
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubNote?.();
@@ -521,7 +522,7 @@ export class SessionController implements PlaySessionController {
 			startedAt,
 			endedAt: this.deps.now(),
 			fatigueDetected,
-			tempoBpm: this.sessionTempoBpm
+			tempoBpm
 		});
 		if (this.kind === 'placement') {
 			await this.deps.settings.update({ placementDoneAt: this.deps.now() });
