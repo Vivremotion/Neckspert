@@ -11,10 +11,12 @@
 
 	let {
 		controller,
-		platesOnly = false
+		platesOnly = false,
+		quitToSummary = false
 	}: {
 		controller: PlaySessionController;
 		platesOnly?: boolean;
+		quitToSummary?: boolean;
 	} = $props();
 
 	const answering = $derived(showsAnswerPad(controller.view));
@@ -48,7 +50,12 @@
 		return `${(ms / 1000).toFixed(2).replace('.', ',')} s`;
 	}
 
-	function leave() {
+	function leave(event: MouseEvent) {
+		if (quitToSummary && view.status !== 'idle') {
+			event.preventDefault();
+			if (view.status !== 'finished') controller.quit();
+			return;
+		}
 		if (view.status !== 'idle' && view.status !== 'finished') controller.quit();
 	}
 
