@@ -64,7 +64,7 @@ describe('AnswerPanel', () => {
 		await tick();
 		expect(pad().getAllByRole('button').some(isDisabled)).toBe(false);
 
-		vi.advanceTimersByTime(2100);
+		vi.advanceTimersByTime(3100);
 		await fireEvent.click(pad().getByRole('button', { name: 'F# / Gb' }));
 		expect(demo.view.lastVerdict?.verdict).toBe('late');
 	});

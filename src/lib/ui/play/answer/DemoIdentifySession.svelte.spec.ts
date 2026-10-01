@@ -62,10 +62,10 @@ describe('DemoIdentifySession', () => {
 	it('judges a slow right answer late', async () => {
 		const demo = new DemoIdentifySession();
 		await demo.start();
-		vi.advanceTimersByTime(2100);
+		vi.advanceTimersByTime(3100);
 		demo.answer('F');
 		expect(demo.view.lastVerdict?.verdict).toBe('late');
-		expect(demo.view.lastVerdict?.reactionMs).toBeCloseTo(2100, 0);
+		expect(demo.view.lastVerdict?.reactionMs).toBeCloseTo(3100, 0);
 	});
 
 	it('judges a wrong name wrong and shows what was tapped', async () => {
