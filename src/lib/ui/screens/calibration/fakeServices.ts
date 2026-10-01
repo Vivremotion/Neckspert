@@ -73,13 +73,15 @@ const EMPTY_HOME: HomeStats = {
 
 const EMPTY_SUMMARY: SessionSummary = {
 	sessionId: 'none',
-	coldCount: 0,
-	coldCorrect: 0,
-	medianColdOffsetMs: null,
+	pool: 'cold',
+	attemptCount: 0,
+	correctCount: 0,
+	medianOffsetMs: null,
 	identifyMedianReactionMs: null,
 	learnedCount: 0,
 	fatigueDetected: false,
-	nextSuggestedAt: null
+	nextSuggestedAt: null,
+	grade: null
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {

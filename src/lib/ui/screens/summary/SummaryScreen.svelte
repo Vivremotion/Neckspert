@@ -22,14 +22,14 @@
 	const t = $derived(summaryMessages());
 
 	const accuracy = $derived.by(() => {
-		const ratio = coldAccuracyRatio(summary.coldCorrect, summary.coldCount);
+		const ratio = coldAccuracyRatio(summary.correctCount, summary.attemptCount);
 		if (ratio == null) return t.empty;
 		return `${Math.round(ratio * 100)} %`;
 	});
 
 	const median = $derived.by(() => {
-		if (summary.medianColdOffsetMs == null) return t.empty;
-		return `${Math.round(summary.medianColdOffsetMs)} ms`;
+		if (summary.medianOffsetMs == null) return t.empty;
+		return `${Math.round(summary.medianOffsetMs)} ms`;
 	});
 
 	const naming = $derived.by(() => {

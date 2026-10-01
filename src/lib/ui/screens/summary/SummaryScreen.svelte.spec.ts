@@ -11,13 +11,15 @@ afterEach(() => {
 
 const summary: SessionSummary = {
 	sessionId: 's1',
-	coldCount: 10,
-	coldCorrect: 8,
-	medianColdOffsetMs: 18,
+	pool: 'cold',
+	attemptCount: 10,
+	correctCount: 8,
+	medianOffsetMs: 18,
 	identifyMedianReactionMs: 640,
 	learnedCount: 2,
 	fatigueDetected: true,
-	nextSuggestedAt: 2 * 60 * 60 * 1000
+	nextSuggestedAt: 2 * 60 * 60 * 1000,
+	grade: null
 };
 
 describe('SummaryScreen', () => {

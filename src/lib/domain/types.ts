@@ -244,15 +244,17 @@ export type SessionGrade =
 
 export interface SessionSummary {
 	sessionId: string;
-	coldCount: number;
-	coldCorrect: number;
-	/** Median |onset − beat| in ms for this session's cold correct locate attempts. */
-	medianColdOffsetMs: number | null;
-	/** Median tap time in ms for this session's cold identify attempts. */
+	pool: 'cold' | 'all';
+	attemptCount: number;
+	correctCount: number;
+	/** Median |onset − beat| in ms for this session's counted correct locate attempts. */
+	medianOffsetMs: number | null;
+	/** Median tap time in ms for this session's counted identify attempts. */
 	identifyMedianReactionMs: number | null;
 	learnedCount: number;
 	fatigueDetected: boolean;
 	nextSuggestedAt: number | null;
+	grade: SessionGrade | null;
 }
 
 /** One cell of the neck map: a position and what is known about it. */

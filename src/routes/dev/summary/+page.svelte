@@ -4,13 +4,15 @@
 
 	const summary: SessionSummary = {
 		sessionId: 'dev',
-		coldCount: 12,
-		coldCorrect: 10,
-		medianColdOffsetMs: 24,
+		pool: 'cold',
+		attemptCount: 12,
+		correctCount: 10,
+		medianOffsetMs: 24,
 		identifyMedianReactionMs: 640,
 		learnedCount: 3,
 		fatigueDetected: false,
-		nextSuggestedAt: 2 * 60 * 60 * 1000
+		nextSuggestedAt: 2 * 60 * 60 * 1000,
+		grade: null
 	};
 </script>
 

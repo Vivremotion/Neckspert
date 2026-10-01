@@ -15,11 +15,13 @@ import {
 import { NEXT_SESSION_GAP_MS, TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { nextNewTargets } from './curriculum';
+import { sessionGrade } from './grade';
 import { nextSuggestedAt } from './plans';
 
-function locateOffsets(attempts: readonly Attempt[]): number[] {
+function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
-		if (attempt.temperature !== 'cold' || !attempt.correct) return [];
+		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
+		if (!attempt.correct) return [];
 		if (attempt.target.direction !== 'locate' || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
@@ -51,9 +53,10 @@ function leadTempoBpm(
 	return tempo == null || tempo <= 0 ? null : tempo;
 }
 
-function identifyReactions(attempts: readonly Attempt[]): number[] {
+function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
-		if (attempt.temperature !== 'cold' || attempt.target.direction !== 'identify') return [];
+		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
+		if (attempt.target.direction !== 'identify') return [];
 		if (attempt.reactionMs === null) return [];
 		return [attempt.reactionMs];
 	});
@@ -120,20 +123,24 @@ export function summarizeSession(input: {
 	cards: readonly CardState[];
 	now: number;
 }): SessionSummary {
-	const cold = input.attempts.filter((attempt) => attempt.temperature === 'cold');
+	const pool = input.record.kind === 'free' ? 'all' : 'cold';
+	const counted =
+		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.temperature === 'cold');
 	const earliest = nextSuggestedAt(input.cards, input.now);
 	return {
 		sessionId: input.record.id,
-		coldCount: cold.length,
-		coldCorrect: cold.filter((attempt) => attempt.correct).length,
-		medianColdOffsetMs: median(locateOffsets(input.attempts)),
-		identifyMedianReactionMs: median(identifyReactions(input.attempts)),
+		pool,
+		attemptCount: counted.length,
+		correctCount: counted.filter((attempt) => attempt.correct).length,
+		medianOffsetMs: median(locateOffsets(input.attempts, pool)),
+		identifyMedianReactionMs: median(identifyReactions(input.attempts, pool)),
 		learnedCount: input.cards.filter((card) => card.introducedInSession === input.record.id).length,
 		fatigueDetected: input.record.fatigueDetected,
 		nextSuggestedAt:
 			earliest === null
 				? input.now + NEXT_SESSION_GAP_MS
-				: Math.max(earliest, input.now + NEXT_SESSION_GAP_MS)
+				: Math.max(earliest, input.now + NEXT_SESSION_GAP_MS),
+		grade: pool === 'all' ? sessionGrade(input.attempts) : null
 	};
 }
 

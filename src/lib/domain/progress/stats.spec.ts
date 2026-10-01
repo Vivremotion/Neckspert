@@ -162,69 +162,95 @@ describe('computeHomeStats', () => {
 });
 
 describe('summarizeSession', () => {
-	it('summarizes cold accuracy, learning and the suggested next time', () => {
-		const record: SessionRecord = {
-			id: 'sess',
-			kind: 'daily',
-			startedAt: NOW - 60_000,
-			endedAt: NOW,
-			fatigueDetected: true,
-			tempoBpm: 80
-		};
-		const attempts = [
-			coldAttempt({
-				sessionId: 'sess',
-				correct: true,
-				reactionMs: 6000,
-				timingOffsetMs: 12,
-				promptedAt: NOW - 30_000
-			}),
-			coldAttempt({
-				sessionId: 'sess',
-				correct: false,
-				reactionMs: 1100,
-				timingOffsetMs: 80,
-				promptedAt: NOW - 20_000,
-				verdict: 'wrong'
-			}),
-			coldAttempt({
-				sessionId: 'sess',
-				temperature: 'hot',
-				reactionMs: 500,
-				timingOffsetMs: 4,
-				promptedAt: NOW - 10_000
-			}),
-			coldAttempt({
-				sessionId: 'sess',
-				target: { direction: 'identify', string: 1, fret: 0 },
-				cardKey: 'identify:1:0',
-				leadBeats: null,
-				timingOffsetMs: null,
-				reactionMs: 640,
-				promptedAt: NOW - 15_000
-			})
-		];
-		const cards = [
-			introduceCard(L1, NOW - 30_000, 'sess'),
-			{
-				...introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older'),
-				scheduling: {
-					...introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older').scheduling,
-					due: NOW + 1000
-				}
+	const attempts = [
+		coldAttempt({
+			sessionId: 'sess',
+			correct: true,
+			reactionMs: 6000,
+			timingOffsetMs: 12,
+			promptedAt: NOW - 30_000
+		}),
+		coldAttempt({
+			sessionId: 'sess',
+			correct: false,
+			reactionMs: 1100,
+			timingOffsetMs: 80,
+			promptedAt: NOW - 20_000,
+			verdict: 'wrong'
+		}),
+		coldAttempt({
+			sessionId: 'sess',
+			temperature: 'hot',
+			reactionMs: 500,
+			timingOffsetMs: 4,
+			promptedAt: NOW - 10_000
+		}),
+		coldAttempt({
+			sessionId: 'sess',
+			target: { direction: 'identify', string: 1, fret: 0 },
+			cardKey: 'identify:1:0',
+			leadBeats: null,
+			timingOffsetMs: null,
+			reactionMs: 640,
+			promptedAt: NOW - 15_000
+		})
+	];
+	const cards = [
+		introduceCard(L1, NOW - 30_000, 'sess'),
+		{
+			...introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older'),
+			scheduling: {
+				...introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older').scheduling,
+				due: NOW + 1000
 			}
-		];
-		const summary = summarizeSession({ record, attempts, cards, now: NOW });
+		}
+	];
+	const record = (kind: SessionRecord['kind']): SessionRecord => ({
+		id: 'sess',
+		kind,
+		startedAt: NOW - 60_000,
+		endedAt: NOW,
+		fatigueDetected: true,
+		tempoBpm: 80
+	});
+
+	it('summarizes cold accuracy, learning and the suggested next time', () => {
+		const summary = summarizeSession({ record: record('daily'), attempts, cards, now: NOW });
 		expect(summary).toEqual({
 			sessionId: 'sess',
-			coldCount: 3,
-			coldCorrect: 2,
-			medianColdOffsetMs: 12,
+			pool: 'cold',
+			attemptCount: 3,
+			correctCount: 2,
+			medianOffsetMs: 12,
 			identifyMedianReactionMs: 640,
 			learnedCount: 1,
 			fatigueDetected: true,
-			nextSuggestedAt: NOW + NEXT_SESSION_GAP_MS
+			nextSuggestedAt: NOW + NEXT_SESSION_GAP_MS,
+			grade: null
 		});
+	});
+
+	it('scores a free session across cold and hot attempts', () => {
+		const summary = summarizeSession({ record: record('free'), attempts, cards, now: NOW });
+		expect(summary.pool).toBe('all');
+		expect(summary.attemptCount).toBe(4);
+		expect(summary.correctCount).toBe(3);
+		expect(summary.medianOffsetMs).toBe(8);
+		expect(summary.identifyMedianReactionMs).toBe(640);
+		expect(summary.grade).toBe('B+');
+	});
+
+	it('leaves an empty free session ungraded', () => {
+		const summary = summarizeSession({
+			record: record('free'),
+			attempts: [],
+			cards: [],
+			now: NOW
+		});
+		expect(summary.attemptCount).toBe(0);
+		expect(summary.medianOffsetMs).toBeNull();
+		expect(summary.identifyMedianReactionMs).toBeNull();
+		expect(summary.grade).toBeNull();
 	});
 });
 
