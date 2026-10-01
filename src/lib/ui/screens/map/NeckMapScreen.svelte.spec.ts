@@ -14,14 +14,17 @@ function buildCells(): NeckMapCell[] {
 	const cells: NeckMapCell[] = [];
 	for (const string of STRING_NUMBERS) {
 		for (let fret = 0; fret < 12; fret++) {
+			const mastered = string === 6 && fret === 3;
+			const learning = string === 6 && fret === 4;
 			cells.push({
 				string,
 				fret,
 				pitch: 'E',
-				locate: string === 6 && fret === 3 ? 'mastered' : 'unseen',
-				identify: string === 6 && fret === 3 ? 'acquired' : 'unseen',
-				locateLeadBeats: string === 6 && fret === 3 ? 2 : null,
-				identifyMedianReactionMs: string === 6 && fret === 3 ? 900 : null,
+				locate: mastered ? 'mastered' : learning ? 'learning' : 'unseen',
+				identify: mastered ? 'acquired' : 'unseen',
+				locateLeadBeats: mastered ? 2 : learning ? 4 : null,
+				locateLeadMs: mastered ? 2000 : null,
+				identifyMedianReactionMs: mastered ? 900 : null,
 				coldAccuracy: null
 			});
 		}
@@ -34,9 +37,13 @@ describe('NeckMapScreen', () => {
 		render(NeckMapScreen, { props: { cells: buildCells(), onhome: () => {} } });
 		expect(screen.getAllByRole('gridcell')).toHaveLength(72);
 		const marked = screen.getByRole('gridcell', { name: /corde 6.*case 3/i });
-		expect(marked.textContent).toMatch(/2 temps/);
+		expect(marked.textContent).toMatch(/2,00 s/);
+		expect(marked.textContent).not.toMatch(/2 temps/);
 		expect(marked.textContent).toMatch(/0,90 s/);
-		expect(marked.getAttribute('aria-label')).toMatch(/maîtrisé/i);
+		expect(marked.getAttribute('aria-label')).toMatch(/2,00 s/);
 		expect(marked.getAttribute('aria-label')).toMatch(/acquis/i);
+		const learning = screen.getByRole('gridcell', { name: /corde 6.*case 4/i });
+		expect(learning.textContent).toMatch(/en cours/);
+		expect(learning.textContent).not.toMatch(/temps/);
 	});
 });

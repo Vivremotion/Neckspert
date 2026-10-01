@@ -9,11 +9,7 @@ import {
 	type Target
 } from '$lib/domain/types';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
-import {
-	MIN_COLD_DELAY_MS,
-	NEXT_SESSION_GAP_MS,
-	TREND_WINDOW_MS
-} from './constants';
+import { MIN_COLD_DELAY_MS, NEXT_SESSION_GAP_MS, TREND_WINDOW_MS } from './constants';
 import { introduceCard } from './cards';
 import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
 
@@ -239,11 +235,7 @@ describe('buildNeckMap', () => {
 			acquiredAt: NOW,
 			leadBeats: 2 as const
 		};
-		const identify = introduceCard(
-			{ direction: 'identify', string: 2, fret: 1 },
-			NOW,
-			's0'
-		);
+		const identify = introduceCard({ direction: 'identify', string: 2, fret: 1 }, NOW, 's0');
 		const attempts = [
 			coldAttempt({
 				cardKey: locate.key,
@@ -264,6 +256,7 @@ describe('buildNeckMap', () => {
 		const cells = buildNeckMap({
 			cards: [locate, identify],
 			attempts,
+			sessions: [],
 			pitchAt: (string: StringNumber, fret: number): PitchName => {
 				void string;
 				const names: PitchName[] = [
@@ -294,9 +287,48 @@ describe('buildNeckMap', () => {
 		expect(locateCell?.pitch).toBe('C');
 		expect(locateCell?.locate).toBe('acquired');
 		expect(locateCell?.locateLeadBeats).toBe(2);
+		expect(locateCell?.locateLeadMs).toBeNull();
 		expect(locateCell?.identifyMedianReactionMs).toBeNull();
 		expect(locateCell?.coldAccuracy).toBe(1);
 		expect(identifyCell?.locateLeadBeats).toBeNull();
 		expect(identifyCell?.identifyMedianReactionMs).toBe(900);
+	});
+
+	it('shows the current lead at the tempo of the session that last set it', () => {
+		const intro = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'slow');
+		const card = { ...intro, leadBeats: 1 as const };
+		const cells = buildNeckMap({
+			cards: [card],
+			attempts: [
+				coldAttempt({
+					cardKey: card.key,
+					target: card.target,
+					phase: 'review',
+					temperature: 'cold',
+					sessionId: 'fast',
+					promptedAt: NOW
+				})
+			],
+			sessions: [
+				{ id: 'slow', tempoBpm: 60 },
+				{ id: 'fast', tempoBpm: 120 }
+			],
+			pitchAt: () => 'C'
+		});
+		const cell = cells.find((c) => c.string === 2 && c.fret === 8);
+		expect(cell?.locateLeadMs).toBe(500);
+	});
+
+	it('omits the lead duration when that session has no tempo', () => {
+		const card = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'old');
+		const cells = buildNeckMap({
+			cards: [{ ...card, leadBeats: 2 }],
+			attempts: [],
+			sessions: [{ id: 'old', tempoBpm: null }],
+			pitchAt: () => 'C'
+		});
+		const cell = cells.find((c) => c.string === 2 && c.fret === 8);
+		expect(cell?.locateLeadBeats).toBe(2);
+		expect(cell?.locateLeadMs).toBeNull();
 	});
 });

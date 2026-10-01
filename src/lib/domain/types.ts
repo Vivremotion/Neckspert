@@ -192,7 +192,8 @@ export const DEFAULT_BUILT_IN_INPUT_GAIN = 8;
 
 export function clampBuiltInInputGain(gain: number): number {
 	const rounded = Math.round(gain);
-	if (!Number.isFinite(rounded) || rounded < MIN_BUILT_IN_INPUT_GAIN) return MIN_BUILT_IN_INPUT_GAIN;
+	if (!Number.isFinite(rounded) || rounded < MIN_BUILT_IN_INPUT_GAIN)
+		return MIN_BUILT_IN_INPUT_GAIN;
 	if (rounded > MAX_BUILT_IN_INPUT_GAIN) return MAX_BUILT_IN_INPUT_GAIN;
 	return rounded;
 }
@@ -250,6 +251,8 @@ export interface NeckMapCell {
 	identify: CardStatus;
 	/** Announcement the locate card has earned. Null when that sense has no card. */
 	locateLeadBeats: LeadBeats | null;
+	/** Duration of locateLeadBeats at the tempo of the session that set it. Null when unknown. */
+	locateLeadMs: number | null;
 	/** Median tap time for cold identify attempts at this fret. */
 	identifyMedianReactionMs: number | null;
 	coldAccuracy: number | null;

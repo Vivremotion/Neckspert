@@ -30,6 +30,27 @@ function locateLead(card: CardState | undefined): LeadBeats | null {
 	return card.leadBeats;
 }
 
+function leadTempoBpm(
+	card: CardState,
+	attempts: readonly Attempt[],
+	sessions: ReadonlyMap<string, { tempoBpm?: number | null }>
+): number | null {
+	if (card.target.direction !== 'locate') return null;
+	let latest: Attempt | null = null;
+	for (const attempt of attempts) {
+		if (
+			attempt.cardKey !== card.key ||
+			attempt.phase !== 'review' ||
+			attempt.temperature !== 'cold'
+		) {
+			continue;
+		}
+		if (!latest || attempt.promptedAt >= latest.promptedAt) latest = attempt;
+	}
+	const tempo = sessions.get(latest?.sessionId ?? card.introducedInSession)?.tempoBpm;
+	return tempo == null || tempo <= 0 ? null : tempo;
+}
+
 function identifyReactions(attempts: readonly Attempt[]): number[] {
 	return attempts.flatMap((attempt) => {
 		if (attempt.temperature !== 'cold' || attempt.target.direction !== 'identify') return [];
@@ -45,7 +66,9 @@ function trendFor(attempts: readonly Attempt[], now: number): HomeStats['trend']
 		locateOffsets(attempts.filter((a) => a.promptedAt >= recentStart && a.promptedAt <= now))
 	);
 	const previous = median(
-		locateOffsets(attempts.filter((a) => a.promptedAt >= previousStart && a.promptedAt < recentStart))
+		locateOffsets(
+			attempts.filter((a) => a.promptedAt >= previousStart && a.promptedAt < recentStart)
+		)
 	);
 	if (recent === null || previous === null) return null;
 	if (recent <= previous * (1 - TREND_RATIO)) return 'improving';
@@ -105,8 +128,7 @@ export function summarizeSession(input: {
 		coldCorrect: cold.filter((attempt) => attempt.correct).length,
 		medianColdOffsetMs: median(locateOffsets(input.attempts)),
 		identifyMedianReactionMs: median(identifyReactions(input.attempts)),
-		learnedCount: input.cards.filter((card) => card.introducedInSession === input.record.id)
-			.length,
+		learnedCount: input.cards.filter((card) => card.introducedInSession === input.record.id).length,
 		fatigueDetected: input.record.fatigueDetected,
 		nextSuggestedAt:
 			earliest === null
@@ -118,9 +140,11 @@ export function summarizeSession(input: {
 export function buildNeckMap(input: {
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
+	sessions: readonly { id: string; tempoBpm?: number | null }[];
 	pitchAt: (string: StringNumber, fret: number) => PitchName;
 }): NeckMapCell[] {
 	const byKey = new Map(input.cards.map((card) => [card.key, card]));
+	const bySession = new Map(input.sessions.map((session) => [session.id, session]));
 	const cells: NeckMapCell[] = [];
 
 	for (let string = 1 as StringNumber; string <= 6; string = (string + 1) as StringNumber) {
@@ -129,6 +153,7 @@ export function buildNeckMap(input: {
 			const locateKey = cardKey({ direction: 'locate', string, pitch });
 			const identifyKey = cardKey({ direction: 'identify', string, fret });
 			const locateCard = byKey.get(locateKey);
+			const tempo = locateCard ? leadTempoBpm(locateCard, input.attempts, bySession) : null;
 			const cold = input.attempts.filter(
 				(attempt) =>
 					attempt.temperature === 'cold' &&
@@ -146,11 +171,11 @@ export function buildNeckMap(input: {
 				locate: cardStatus(locateCard),
 				identify: cardStatus(byKey.get(identifyKey)),
 				locateLeadBeats: locateLead(locateCard),
+				locateLeadMs:
+					tempo == null || !locateCard ? null : Math.round((locateCard.leadBeats * 60_000) / tempo),
 				identifyMedianReactionMs: median(identifyReaction),
 				coldAccuracy:
-					cold.length === 0
-						? null
-						: cold.filter((attempt) => attempt.correct).length / cold.length
+					cold.length === 0 ? null : cold.filter((attempt) => attempt.correct).length / cold.length
 			});
 		}
 	}

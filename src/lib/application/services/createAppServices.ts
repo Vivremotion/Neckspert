@@ -57,10 +57,15 @@ export function createAppServices(
 		},
 
 		async neckMap() {
-			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
+			const [cards, attempts, sessions] = await Promise.all([
+				deps.cards.all(),
+				deps.attempts.all(),
+				deps.sessions.list()
+			]);
 			return buildNeckMap({
 				cards,
 				attempts,
+				sessions,
 				pitchAt: pitchOnString
 			});
 		},

@@ -32,17 +32,18 @@
 							class:acquired={cell.locate === 'acquired' || cell.identify === 'acquired'}
 							class:learning={cell.locate === 'learning' || cell.identify === 'learning'}
 							role="gridcell"
-							aria-label="{t.cell(cell.string, cell.fret)}. {t.locate}: {t.status[
-								cell.locate
-							]}{cell.locateLeadBeats == null ? '' : `, ${t.beats(cell.locateLeadBeats)}`}. {t.identify}: {t
-								.status[cell.identify]}{cell.identifyMedianReactionMs == null
+							aria-label="{t.cell(cell.string, cell.fret)}. {t.locate}: {cell.locateLeadMs == null
+								? t.status[cell.locate]
+								: t.seconds(cell.locateLeadMs)}. {t.identify}: {t.status[
+								cell.identify
+							]}{cell.identifyMedianReactionMs == null
 								? ''
 								: `, ${t.seconds(cell.identifyMedianReactionMs)}`}"
 						>
 							<span class="pitch">{cell.pitch}</span>
 							<span class="dirs">
 								<span data-status={cell.locate}>
-									{cell.locateLeadBeats == null ? t.status[cell.locate] : t.beats(cell.locateLeadBeats)}
+									{cell.locateLeadMs == null ? t.status[cell.locate] : t.seconds(cell.locateLeadMs)}
 								</span>
 								<span data-status={cell.identify}>
 									{cell.identifyMedianReactionMs == null
