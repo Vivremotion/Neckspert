@@ -127,6 +127,12 @@ function checkSession(session: Fields): string | null {
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';
+	const tempoBpm = session.tempoBpm;
+	if (tempoBpm !== undefined && tempoBpm !== null) {
+		if (!isFiniteNumber(tempoBpm) || tempoBpm <= 0) {
+			return 'tempoBpm must be a positive number or null';
+		}
+	}
 	return null;
 }
 

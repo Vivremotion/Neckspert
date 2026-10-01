@@ -181,6 +181,8 @@ export interface SessionRecord {
 	startedAt: number;
 	endedAt: number | null;
 	fatigueDetected: boolean;
+	/** Tempo copied from settings when the session started. Null on older records. */
+	tempoBpm: number | null;
 }
 
 /** Linear gain applied only to a built-in computer mic, before level and pitch. */

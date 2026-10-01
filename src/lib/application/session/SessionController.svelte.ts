@@ -70,6 +70,7 @@ export class SessionController implements PlaySessionController {
 	private captured = false;
 	private verdictBeatIndex: number | null = null;
 	private sessionAttempts: Attempt[] = [];
+	private sessionTempoBpm: number | null = null;
 	private run = 0;
 	private starting = false;
 
@@ -129,6 +130,7 @@ export class SessionController implements PlaySessionController {
 		this.locale = this.settings.locale;
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
 		this.view.tempoBpm = this.settings.tempoBpm;
+		this.sessionTempoBpm = this.settings.tempoBpm;
 
 		await this.deps.clock.resume();
 		if (this.run !== run) return;
@@ -147,7 +149,8 @@ export class SessionController implements PlaySessionController {
 			kind: this.kind,
 			startedAt: this.deps.now(),
 			endedAt: null,
-			fatigueDetected: false
+			fatigueDetected: false,
+			tempoBpm: this.sessionTempoBpm
 		});
 		if (this.run !== run) return;
 
@@ -517,7 +520,8 @@ export class SessionController implements PlaySessionController {
 			kind: this.kind,
 			startedAt,
 			endedAt: this.deps.now(),
-			fatigueDetected
+			fatigueDetected,
+			tempoBpm: this.sessionTempoBpm
 		});
 		if (this.kind === 'placement') {
 			await this.deps.settings.update({ placementDoneAt: this.deps.now() });

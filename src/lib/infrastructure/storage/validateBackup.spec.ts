@@ -109,4 +109,15 @@ describe('validateBackup', () => {
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), fatigueDetected: 'no' }] })
 		).toThrow('Invalid sessions entry at index 0: fatigueDetected must be a boolean');
 	});
+
+	it('accepts a session without tempoBpm', () => {
+		const { tempoBpm: _dropped, ...withoutTempo } = makeSession();
+		expect(() => validateBackup({ ...makeBackup(), sessions: [withoutTempo] })).not.toThrow();
+	});
+
+	it('rejects a session with tempoBpm zero', () => {
+		expect(() =>
+			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), tempoBpm: 0 }] })
+		).toThrow('tempoBpm');
+	});
 });

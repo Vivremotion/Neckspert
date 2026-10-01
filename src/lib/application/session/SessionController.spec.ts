@@ -136,6 +136,21 @@ describe('SessionController skeleton', () => {
 		expect(deps.detector.running).toBe(false);
 	});
 
+	it('stores the tempo from settings at start and keeps it after the tempo setting changes', async () => {
+		await deps.settings.update({ tempoBpm: 60 });
+		const controller = new SessionController(planWith([locateItem()]), deps);
+		await controller.start();
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(60);
+
+		await deps.settings.update({ tempoBpm: 120 });
+		controller.quit();
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+
+		const ended = await deps.sessions.get('sess-1');
+		expect(ended?.tempoBpm).toBe(60);
+		expect(ended?.endedAt).not.toBeNull();
+	});
+
 	it('starts again from the first item after the series is finished', async () => {
 		const controller = new SessionController(
 			planWith([

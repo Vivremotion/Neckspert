@@ -172,7 +172,8 @@ describe('summarizeSession', () => {
 			kind: 'daily',
 			startedAt: NOW - 60_000,
 			endedAt: NOW,
-			fatigueDetected: true
+			fatigueDetected: true,
+			tempoBpm: 80
 		};
 		const attempts = [
 			coldAttempt({

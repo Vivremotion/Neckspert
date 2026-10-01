@@ -68,6 +68,7 @@ export function makeSession(overrides: Partial<SessionRecord> = {}): SessionReco
 		startedAt: 1000,
 		endedAt: 2000,
 		fatigueDetected: false,
+		tempoBpm: 80,
 		...overrides
 	};
 }
