@@ -20,6 +20,7 @@
 	} = $props();
 
 	const t = $derived(summaryMessages());
+	const accuracyLabel = $derived(summary.pool === 'all' ? t.accuracyAll : t.accuracy);
 
 	const accuracy = $derived.by(() => {
 		const ratio = coldAccuracyRatio(summary.correctCount, summary.attemptCount);
@@ -53,10 +54,13 @@
 		<header class="title">
 			<PixelText scale={3}>{t.title}</PixelText>
 		</header>
+		{#if summary.grade}
+			<p class="grade"><PixelText scale={4}>{summary.grade}</PixelText></p>
+		{/if}
 		<PixelBox variant="double">
 			<ul class="rows">
 				<li>
-					<span>{t.accuracy}</span>
+					<span>{accuracyLabel}</span>
 					<strong>{accuracy}</strong>
 				</li>
 				<li>
@@ -74,10 +78,12 @@
 				<li class="fatigue" class:alert={summary.fatigueDetected}>
 					<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
 				</li>
-				<li>
-					<span>{t.next}</span>
-					<strong>{next}</strong>
-				</li>
+				{#if summary.pool !== 'all'}
+					<li>
+						<span>{t.next}</span>
+						<strong>{next}</strong>
+					</li>
+				{/if}
 			</ul>
 		</PixelBox>
 		<nav class="nav">
@@ -131,6 +137,11 @@
 
 	.title {
 		margin-block-end: var(--np-space-1, 8px);
+	}
+
+	.grade {
+		margin: 0;
+		text-align: center;
 	}
 
 	.rows {

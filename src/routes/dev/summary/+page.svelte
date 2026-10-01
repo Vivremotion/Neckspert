@@ -4,7 +4,7 @@
 
 	const summary: SessionSummary = {
 		sessionId: 'dev',
-		pool: 'cold',
+		pool: 'all',
 		attemptCount: 12,
 		correctCount: 10,
 		medianOffsetMs: 24,
@@ -12,7 +12,7 @@
 		learnedCount: 3,
 		fatigueDetected: false,
 		nextSuggestedAt: 2 * 60 * 60 * 1000,
-		grade: null
+		grade: 'S+'
 	};
 </script>
 

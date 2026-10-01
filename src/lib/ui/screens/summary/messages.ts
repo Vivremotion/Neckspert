@@ -4,6 +4,7 @@ export const summaryMessages = defineMessages({
 	fr: {
 		title: 'Bilan',
 		accuracy: 'Précision à froid',
+		accuracyAll: 'Précision',
 		median: 'Écart au temps',
 		naming: 'Nommer',
 		learned: 'Positions apprises',
@@ -21,6 +22,7 @@ export const summaryMessages = defineMessages({
 	en: {
 		title: 'Summary',
 		accuracy: 'Cold accuracy',
+		accuracyAll: 'Accuracy',
 		median: 'From the beat',
 		naming: 'Naming',
 		learned: 'Positions learned',

@@ -27,12 +27,29 @@ describe('SummaryScreen', () => {
 		render(SummaryScreen, {
 			props: { summary, now: 0, onhome: () => {}, onmap: () => {} }
 		});
+		expect(screen.getByText('Précision à froid')).toBeTruthy();
 		expect(screen.getByText('80 %')).toBeTruthy();
 		expect(screen.getByText('18 ms')).toBeTruthy();
 		expect(screen.getByText('0,64 s')).toBeTruthy();
 		expect(screen.getByText('2')).toBeTruthy();
 		expect(screen.getByText(/fatigue/i)).toBeTruthy();
 		expect(screen.getByText(/dans 2 h/i)).toBeTruthy();
+		expect(screen.queryByText('S+')).toBeNull();
+	});
+
+	it('shows a free-play grade, accuracy label, and no next session', () => {
+		render(SummaryScreen, {
+			props: {
+				summary: { ...summary, pool: 'all', grade: 'S+' },
+				now: 0,
+				onhome: () => {},
+				onmap: () => {}
+			}
+		});
+		expect(screen.getByText('S+')).toBeTruthy();
+		expect(screen.getByText(/^Précision$/)).toBeTruthy();
+		expect(screen.queryByText(/prochaine session/i)).toBeNull();
+		expect(screen.queryByText(/dans 2 h/i)).toBeNull();
 	});
 
 	it('navigates home and to the map', async () => {
