@@ -8,7 +8,7 @@ import type {
 } from '$lib/application/ports';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import type { BackupFile } from '$lib/domain/types';
-import { buildCurriculum, placementTargets, acceptableMidis } from '$lib/domain/music';
+import { placementTargets, acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeClock,
@@ -60,7 +60,6 @@ function harness(): {
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
 		settings: new InMemorySettingsRepository(),
-		curriculum: buildCurriculum(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`

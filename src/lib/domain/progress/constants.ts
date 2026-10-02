@@ -31,9 +31,6 @@ export const CONFUSION_LOOKBACK = 3;
 /** Prompts in one free-play run. To calibrate. */
 export const FREE_PLAY_COUNT = 20;
 
-/** Fraction of a required set that must be acquired to unlock the next. To calibrate. */
-export const UNLOCK_RATIO = 0.8;
-
 /** Minimum share of cold attempts that must be direct recalls for mastery. To calibrate. */
 export const MASTERY_ACCURACY = 0.9;
 

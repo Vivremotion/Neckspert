@@ -1,10 +1,10 @@
+import { practiceTargets } from '$lib/domain/music';
 import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_SETTINGS,
 	cardKey,
 	type Attempt,
 	type CardState,
-	type Curriculum,
 	type SessionRecord,
 	type Target
 } from '$lib/domain/types';
@@ -18,10 +18,6 @@ const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 const L1: Target = { direction: 'locate', string: 1, pitch: 'E' };
 const L2: Target = { direction: 'locate', string: 1, pitch: 'F' };
 const L3: Target = { direction: 'locate', string: 1, pitch: 'F#' };
-
-const FIXTURE: Curriculum = [
-	{ id: 'locate-s1-a', direction: 'locate', requires: null, targets: [L1, L2, L3] }
-];
 
 function coldAttempt(overrides: Partial<Attempt>): Attempt {
 	return {
@@ -49,7 +45,6 @@ describe('computeHomeStats', () => {
 			cards: [],
 			attempts: [],
 			settings: { ...DEFAULT_SETTINGS, placementDoneAt: null },
-			curriculum: FIXTURE,
 			now: NOW
 		});
 		expect(stats.nextAction).toBe('placement');
@@ -69,14 +64,13 @@ describe('computeHomeStats', () => {
 				cards: [due],
 				attempts: [],
 				settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW - 1 },
-				curriculum: FIXTURE,
 				now: NOW
 			}).nextAction
 		).toBe('session');
 	});
 
 	it('waits with the next review time when nothing is due and nothing new', () => {
-		const cards = [L1, L2, L3].map((target) => {
+		const cards = practiceTargets().map((target) => {
 			const card = introduceCard(target, NOW - MIN_COLD_DELAY_MS, 's0');
 			return {
 				...card,
@@ -88,7 +82,6 @@ describe('computeHomeStats', () => {
 			cards,
 			attempts: [],
 			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW - 1 },
-			curriculum: FIXTURE,
 			now: NOW
 		});
 		expect(stats.nextAction).toBe('wait');
@@ -115,7 +108,6 @@ describe('computeHomeStats', () => {
 				})
 			],
 			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
-			curriculum: FIXTURE,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(30);
@@ -142,7 +134,6 @@ describe('computeHomeStats', () => {
 			cards: [],
 			attempts: [...previous, ...recent],
 			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
-			curriculum: FIXTURE,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(55);
@@ -154,7 +145,6 @@ describe('computeHomeStats', () => {
 			cards: [],
 			attempts: [coldAttempt({ promptedAt: NOW - 1000, reactionMs: 900 })],
 			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
-			curriculum: FIXTURE,
 			now: NOW
 		});
 		expect(stats.trend).toBeNull();

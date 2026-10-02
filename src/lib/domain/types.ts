@@ -148,17 +148,6 @@ export interface CardState {
 	masteredAt: number | null;
 }
 
-/** A set of cards introduced together. Opens when `requires` is acquired enough. */
-export interface CurriculumSet {
-	id: string;
-	direction: Direction;
-	targets: Target[];
-	/** Set id that must be acquired first; null for the first set. */
-	requires: string | null;
-}
-
-export type Curriculum = readonly CurriculumSet[];
-
 export interface PlannedItem {
 	target: Target;
 	phase: ItemPhase;

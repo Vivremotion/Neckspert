@@ -16,14 +16,12 @@ import {
 	MIN_COLD_DELAY_MS,
 	NEXT_SESSION_GAP_MS,
 	TREND_RATIO,
-	TREND_WINDOW_MS,
-	UNLOCK_RATIO
+	TREND_WINDOW_MS
 } from './constants';
 
 describe('progress constants', () => {
 	it('matches the starting values', () => {
 		expect(MIN_COLD_DELAY_MS).toBe(60 * 60 * 1000);
-		expect(UNLOCK_RATIO).toBe(0.8);
 		expect(MASTERY_ACCURACY).toBe(0.9);
 		expect(MASTERY_SESSIONS).toBe(3);
 		expect(MASTERY_MIN_GAP_MS).toBe(72 * 60 * 60 * 1000);

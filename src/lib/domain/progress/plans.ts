@@ -2,14 +2,15 @@ import {
 	cardKey,
 	LEAD_STEPS,
 	type CardState,
-	type Curriculum,
 	type LocateTarget,
 	type PlannedItem,
 	type SessionPlan,
 	type Target
 } from '$lib/domain/types';
 import { FREE_PLAY_COUNT, LEARN_COLD_CAP, LEARNING_SLOTS } from './constants';
-import { nextNewTargets } from './curriculum';
+import { practiceTargets } from '$lib/domain/music';
+import { introduceCard } from './cards';
+import { nextNewTarget } from './introduction';
 import { leadForThreshold } from './lead';
 
 function shuffle<T>(items: readonly T[], random: () => number): T[] {
@@ -56,9 +57,20 @@ function learningItem(target: Target): PlannedItem {
 	};
 }
 
+function newTargets(cards: readonly CardState[], now: number, sessionId: string): Target[] {
+	const known = [...cards];
+	const targets: Target[] = [];
+	while (targets.length < LEARNING_SLOTS) {
+		const target = nextNewTarget(known);
+		if (!target) break;
+		targets.push(target);
+		known.push(introduceCard(target, now, sessionId));
+	}
+	return targets;
+}
+
 export function buildDailyPlan(input: {
 	cards: readonly CardState[];
-	curriculum: Curriculum;
 	now: number;
 	sessionId: string;
 	skipLearning?: boolean;
@@ -66,7 +78,7 @@ export function buildDailyPlan(input: {
 	const reviews = dueCards(input.cards, input.now).slice(0, LEARN_COLD_CAP).map(reviewItem);
 	const learning = input.skipLearning
 		? []
-		: nextNewTargets(input.curriculum, input.cards, LEARNING_SLOTS).map(learningItem);
+		: newTargets(input.cards, input.now, input.sessionId).map(learningItem);
 	return {
 		id: input.sessionId,
 		kind: 'learn',
@@ -99,23 +111,8 @@ export function buildPlacementPlan(input: {
 	};
 }
 
-function curriculumTargets(curriculum: Curriculum): Target[] {
-	const seen = new Set<string>();
-	const targets: Target[] = [];
-	for (const set of curriculum) {
-		for (const target of set.targets) {
-			const key = cardKey(target);
-			if (seen.has(key)) continue;
-			seen.add(key);
-			targets.push(target);
-		}
-	}
-	return targets;
-}
-
 export function buildFreePlan(input: {
 	cards: readonly CardState[];
-	curriculum: Curriculum;
 	now: number;
 	sessionId: string;
 	count?: number;
@@ -124,7 +121,7 @@ export function buildFreePlan(input: {
 	const random = input.random ?? Math.random;
 	const count = input.count ?? FREE_PLAY_COUNT;
 	const byKey = new Map(input.cards.map((card) => [card.key, card]));
-	const picked = shuffle(curriculumTargets(input.curriculum), random).slice(0, count);
+	const picked = shuffle(practiceTargets(), random).slice(0, count);
 	const items = picked.map((target): PlannedItem => {
 		const card = byKey.get(cardKey(target));
 		return {

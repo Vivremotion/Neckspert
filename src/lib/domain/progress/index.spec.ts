@@ -6,7 +6,6 @@ describe('progress index', () => {
 		expect(progress.MIN_COLD_DELAY_MS).toBe(60 * 60 * 1000);
 		expect(progress.LEARN_COLD_CAP).toBe(20);
 		expect(progress.LEARNING_SLOTS).toBe(3);
-		expect(progress.UNLOCK_RATIO).toBe(0.8);
 		expect(progress.MASTERY_ACCURACY).toBe(0.9);
 		expect(progress.MASTERY_SESSIONS).toBe(3);
 		expect(progress.MASTERY_MIN_GAP_MS).toBe(72 * 60 * 60 * 1000);
@@ -22,8 +21,8 @@ describe('progress index', () => {
 			'isAcquired',
 			'isMastered',
 			'cardStatus',
-			'unlockedSets',
-			'nextNewTargets',
+			'introductionOrder',
+			'nextNewTarget',
 			'buildDailyPlan',
 			'buildPlacementPlan',
 			'buildFreePlan',

@@ -1,6 +1,5 @@
 import { createAppServices } from '$lib/application/services/createAppServices';
 import type { AppServices } from '$lib/application/app';
-import { buildCurriculum } from '$lib/domain/music';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from '$lib/infrastructure/audio/cues';
 import { CalibrationService } from '$lib/infrastructure/audio/calibration';
@@ -58,7 +57,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		settings,
 		backup,
 		calibration,
-		curriculum: buildCurriculum(),
 		now: () => Date.now(),
 		random: () => Math.random(),
 		newId: () => crypto.randomUUID()

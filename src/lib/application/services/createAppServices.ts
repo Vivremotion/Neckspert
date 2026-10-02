@@ -2,7 +2,7 @@ import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import { buildCurriculum, placementTargets, pitchOnString } from '$lib/domain/music';
+import { placementTargets, pitchOnString } from '$lib/domain/music';
 import {
 	buildDailyPlan,
 	buildFreePlan,
@@ -16,8 +16,6 @@ import type { SessionKind } from '$lib/domain/types';
 export function createAppServices(
 	deps: SessionDeps & { backup: BackupPort; calibration: CalibrationPort }
 ): AppServices {
-	const curriculum = deps.curriculum.length > 0 ? deps.curriculum : buildCurriculum();
-
 	return {
 		settings: deps.settings,
 		backup: deps.backup,
@@ -34,7 +32,6 @@ export function createAppServices(
 				cards,
 				attempts,
 				settings,
-				curriculum,
 				now: deps.now()
 			});
 		},
@@ -88,19 +85,17 @@ export function createAppServices(
 					: kind === 'learn'
 						? buildDailyPlan({
 								cards,
-								curriculum,
 								now,
 								sessionId
 							})
 						: buildFreePlan({
 								cards,
-								curriculum,
 								now,
 								sessionId,
 								random: deps.random
 							});
 
-			return new SessionController(plan, { ...deps, curriculum });
+			return new SessionController(plan, deps);
 		}
 	};
 }

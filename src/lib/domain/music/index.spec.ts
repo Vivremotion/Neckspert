@@ -13,7 +13,7 @@ const PUBLIC_FUNCTIONS = [
 	'fretLabel',
 	'classifyNoteConfusion',
 	'classifyNameConfusion',
-	'buildCurriculum',
+	'practiceTargets',
 	'placementTargets',
 	'pitchOfMidi'
 ] as const;

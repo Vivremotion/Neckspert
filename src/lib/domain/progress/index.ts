@@ -10,7 +10,6 @@ export {
 	CONSOLIDATION_SKIP_RECENT,
 	CONFUSION_LOOKBACK,
 	FREE_PLAY_COUNT,
-	UNLOCK_RATIO,
 	MASTERY_ACCURACY,
 	MASTERY_SESSIONS,
 	MASTERY_MIN_GAP_MS,
@@ -28,6 +27,6 @@ export {
 	isMastered,
 	cardStatus
 } from './cards';
-export { unlockedSets, nextNewTargets } from './curriculum';
+export { introductionOrder, nextNewTarget } from './introduction';
 export { buildDailyPlan, buildPlacementPlan, buildFreePlan, nextSuggestedAt } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

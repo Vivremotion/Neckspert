@@ -8,7 +8,6 @@ import type {
 	SettingsRepositoryPort,
 	SoundCuePort
 } from '$lib/application/ports';
-import type { Curriculum } from '$lib/domain/types';
 
 export interface SessionDeps {
 	clock: AudioClockPort;
@@ -19,7 +18,6 @@ export interface SessionDeps {
 	cards: CardStateRepositoryPort;
 	sessions: SessionRepositoryPort;
 	settings: SettingsRepositoryPort;
-	curriculum: Curriculum;
 	now: () => number;
 	random: () => number;
 	newId: () => string;

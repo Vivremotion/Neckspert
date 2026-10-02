@@ -4,7 +4,6 @@ import {
 	cardKey,
 	type Attempt,
 	type CardState,
-	type Curriculum,
 	type HomeStats,
 	type LeadBeats,
 	type NeckMapCell,
@@ -14,7 +13,7 @@ import {
 } from '$lib/domain/types';
 import { NEXT_SESSION_GAP_MS, TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
-import { nextNewTargets } from './curriculum';
+import { nextNewTarget } from './introduction';
 import { sessionGrade } from './grade';
 import { nextSuggestedAt } from './plans';
 
@@ -83,7 +82,6 @@ export function computeHomeStats(input: {
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
 	settings: Settings;
-	curriculum: Curriculum;
 	now: number;
 }): HomeStats {
 	const medianColdOffsetMs = median(locateOffsets(input.attempts));
@@ -99,7 +97,7 @@ export function computeHomeStats(input: {
 	}
 
 	const hasDue = input.cards.some((card) => card.scheduling.due <= input.now);
-	const hasNew = nextNewTargets(input.curriculum, input.cards, 1).length > 0;
+	const hasNew = nextNewTarget(input.cards) !== null;
 	if (hasDue || hasNew) {
 		return {
 			nextAction: 'session',

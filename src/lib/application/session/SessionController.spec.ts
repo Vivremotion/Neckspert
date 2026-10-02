@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { Curriculum, PlannedItem, SessionPlan } from '$lib/domain/types';
+import type { PlannedItem, SessionPlan } from '$lib/domain/types';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import { introduceCard } from '$lib/domain/progress';
 import {
@@ -14,8 +14,6 @@ import {
 } from '$lib/testing/fakes';
 import type { SessionDeps } from './SessionDeps';
 import { SessionController } from './SessionController.svelte';
-
-const emptyCurriculum: Curriculum = [];
 
 function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
@@ -50,7 +48,6 @@ function createDeps(clock = new FakeClock()): SessionDeps & {
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
 		settings: new InMemorySettingsRepository(),
-		curriculum: emptyCurriculum,
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => 'id-1'
