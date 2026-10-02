@@ -20,7 +20,8 @@ export { leadForThreshold } from './lead';
 export {
 	introduceCard,
 	applyColdAttempt,
-	placementCard,
+	probeCard,
+	probeTemperature,
 	markLearned,
 	isAcquired,
 	isMastered,

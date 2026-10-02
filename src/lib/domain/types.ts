@@ -76,7 +76,7 @@ export type Temperature = 'cold' | 'hot';
 export type SessionKind = 'placement' | 'learn' | 'free';
 
 /** Where an attempt happened inside a session. */
-export type ItemPhase = 'placement' | 'review' | 'learning' | 'consolidation' | 'free';
+export type ItemPhase = 'placement' | 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
 
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';

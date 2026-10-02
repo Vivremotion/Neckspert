@@ -15,7 +15,8 @@ import {
 	isAcquired,
 	isMastered,
 	markLearned,
-	placementCard
+	probeCard,
+	probeTemperature
 } from './cards';
 
 const NOW = Date.parse('2026-04-01T10:00:00.000Z');
@@ -76,18 +77,14 @@ describe('markLearned', () => {
 	});
 });
 
-describe('placementCard', () => {
+describe('probeCard', () => {
 	it('returns null when the answer is wrong or not direct recall', () => {
-		expect(
-			placementCard(LOCATE, attempt({ correct: false, leadBeats: 2 }), NOW, 's-p', 80)
-		).toBeNull();
-		expect(
-			placementCard(LOCATE, attempt({ correct: true, leadBeats: 4 }), NOW, 's-p', 80)
-		).toBeNull();
+		expect(probeCard(LOCATE, attempt({ correct: false, leadBeats: 2 }), NOW, 's-p', 80)).toBeNull();
+		expect(probeCard(LOCATE, attempt({ correct: true, leadBeats: 4 }), NOW, 's-p', 80)).toBeNull();
 	});
 
 	it('creates an acquired Review card on direct-recall success', () => {
-		const card = placementCard(
+		const card = probeCard(
 			LOCATE,
 			attempt({ correct: true, leadBeats: 2, sessionId: 's-p' }),
 			NOW,
@@ -100,6 +97,31 @@ describe('placementCard', () => {
 		expect(card!.learnedAt).toBe(NOW);
 		expect(card!.introducedInSession).toBe('s-p');
 		expect(card!.leadBeats).toBe(2);
+	});
+
+	it('creates an identify card on a name tapped within the naming threshold', () => {
+		const tapped = (reactionMs: number) =>
+			attempt({
+				cardKey: cardKey(IDENTIFY),
+				target: IDENTIFY,
+				leadBeats: null,
+				answer: { kind: 'name', pitch: 'G' },
+				reactionMs
+			});
+		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', 80);
+		expect(card?.key).toBe('identify:6:3');
+		expect(card?.leadBeats).toBe(1);
+		expect(card?.acquiredAt).toBe(NOW);
+		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', 80)).toBeNull();
+	});
+});
+
+describe('probeTemperature', () => {
+	it('records a passed probe cold and a missed probe hot', () => {
+		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), 80)).toBe('cold');
+		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), 80)).toBe('hot');
+		expect(probeTemperature({ correct: true, leadBeats: null, reactionMs: 3000 }, 80)).toBe('cold');
+		expect(probeTemperature({ correct: true, leadBeats: null, reactionMs: 3001 }, 80)).toBe('hot');
 	});
 });
 

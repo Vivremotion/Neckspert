@@ -19,6 +19,7 @@ const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'wrong'];
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = [
 	'placement',
+	'probe',
 	'review',
 	'learning',
 	'consolidation',

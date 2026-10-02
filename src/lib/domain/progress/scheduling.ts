@@ -48,7 +48,7 @@ export function introScheduling(now: number): SchedulingState {
 	return { ...state, due: now + MIN_COLD_DELAY_MS };
 }
 
-/** Placement shortcut: one internal Easy grade to enter Review immediately. */
+/** Probe success: one internal Easy grade to enter Review immediately. */
 export function graduateToReview(now: number): SchedulingState {
 	const empty = createEmptyCard(new Date(now));
 	const { card } = scheduler.next(empty, new Date(now), Rating.Easy);

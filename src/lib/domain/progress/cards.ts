@@ -3,8 +3,8 @@ import {
 	type Attempt,
 	type CardState,
 	type CardStatus,
-	type LocateTarget,
-	type Target
+	type Target,
+	type Temperature
 } from '$lib/domain/types';
 import { MASTERY_ACCURACY, MASTERY_MIN_GAP_MS, MASTERY_SESSIONS } from './constants';
 import { adjustLeadBeats, isDirectRecall, leadForThreshold } from './lead';
@@ -49,11 +49,11 @@ export function markLearned(card: CardState, now: number, tempoBpm: number): Car
 }
 
 /**
- * Placement success → Review + acquired. Failure or non-direct → null.
- * Uses the real session tempo for the direct-recall check.
+ * Probe success (first unaided prompt of a new note) → Review + learned + acquired.
+ * Failure or non-direct → null. Uses the real session tempo for the direct-recall check.
  */
-export function placementCard(
-	target: LocateTarget,
+export function probeCard(
+	target: Target,
 	attempt: Attempt,
 	now: number,
 	sessionId: string,
@@ -71,6 +71,18 @@ export function placementCard(
 		acquiredAt: now,
 		masteredAt: null
 	};
+}
+
+/**
+ * A passed probe is cold, a missed one hot: a miss measures no forgetting, since the note
+ * was never learned, so it must stay out of retention stats.
+ * Spec 2026-10-03-sondage-avant-apprentissage-design.md, section 1.
+ */
+export function probeTemperature(
+	attempt: Pick<Attempt, 'correct' | 'reactionMs' | 'leadBeats'>,
+	tempoBpm: number
+): Temperature {
+	return isDirectRecall(attempt, tempoBpm) ? 'cold' : 'hot';
 }
 
 /**

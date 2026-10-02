@@ -21,7 +21,7 @@ import {
 	applyColdAttempt,
 	classifyTemperature,
 	introduceCard,
-	placementCard,
+	probeCard,
 	type SessionSelector
 } from '$lib/domain/progress';
 import type {
@@ -649,7 +649,7 @@ export class SessionController implements PlaySessionController {
 
 		const now = this.deps.now();
 		if (item.phase === 'placement' && item.target.direction === 'locate') {
-			const card = placementCard(item.target, attempt, now, this.sessionId, this.settings.tempoBpm);
+			const card = probeCard(item.target, attempt, now, this.sessionId, this.settings.tempoBpm);
 			if (card) await this.deps.cards.put(card);
 		} else if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
