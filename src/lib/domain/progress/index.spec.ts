@@ -4,8 +4,8 @@ import * as progress from './index';
 describe('progress index', () => {
 	it('exports the README public API and nothing else essential from internals', () => {
 		expect(progress.MIN_COLD_DELAY_MS).toBe(60 * 60 * 1000);
-		expect(progress.DAILY_COLD_CAP).toBe(20);
-		expect(progress.NEW_PER_SESSION).toBe(3);
+		expect(progress.LEARN_COLD_CAP).toBe(20);
+		expect(progress.LEARNING_SLOTS).toBe(3);
 		expect(progress.UNLOCK_RATIO).toBe(0.8);
 		expect(progress.MASTERY_ACCURACY).toBe(0.9);
 		expect(progress.MASTERY_SESSIONS).toBe(3);
@@ -18,6 +18,7 @@ describe('progress index', () => {
 			'introduceCard',
 			'applyColdAttempt',
 			'placementCard',
+			'markLearned',
 			'isAcquired',
 			'isMastered',
 			'cardStatus',

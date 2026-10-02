@@ -7,13 +7,8 @@ import {
 	type Target
 } from '$lib/domain/types';
 import { MASTERY_ACCURACY, MASTERY_MIN_GAP_MS, MASTERY_SESSIONS } from './constants';
-import { adjustLeadBeats, isDirectRecall } from './lead';
-import {
-	Rating,
-	graduateToReview,
-	introScheduling,
-	reviewScheduling
-} from './scheduling';
+import { adjustLeadBeats, isDirectRecall, leadForThreshold } from './lead';
+import { Rating, graduateToReview, introScheduling, reviewScheduling } from './scheduling';
 import type { Grade } from 'ts-fsrs';
 
 function gradeFor(attempt: Attempt, tempoBpm: number): Grade {
@@ -37,8 +32,19 @@ export function introduceCard(target: Target, now: number, sessionId: string): C
 		introducedInSession: sessionId,
 		leadBeats: target.direction === 'locate' ? 8 : 1,
 		scheduling: introScheduling(now),
+		learnedAt: null,
 		acquiredAt: null,
 		masteredAt: null
+	};
+}
+
+/** In-session learning done: direct-recall lead, first cold check after MIN_COLD_DELAY_MS. */
+export function markLearned(card: CardState, now: number, tempoBpm: number): CardState {
+	return {
+		...card,
+		learnedAt: now,
+		leadBeats: card.target.direction === 'locate' ? leadForThreshold(tempoBpm) : 1,
+		scheduling: introScheduling(now)
 	};
 }
 
@@ -61,6 +67,7 @@ export function placementCard(
 		introducedInSession: sessionId,
 		leadBeats: attempt.leadBeats ?? 1,
 		scheduling: graduateToReview(now),
+		learnedAt: now,
 		acquiredAt: now,
 		masteredAt: null
 	};
@@ -80,11 +87,7 @@ export function applyColdAttempt(
 	if (attempt.temperature !== 'cold') return state;
 
 	const scheduling = reviewScheduling(state.scheduling, gradeFor(attempt, tempoBpm), now);
-	const leadBeats = adjustLeadBeats(
-		state.leadBeats,
-		attempt.correct,
-		state.target.direction
-	);
+	const leadBeats = adjustLeadBeats(state.leadBeats, attempt.correct, state.target.direction);
 	const acquiredAt =
 		state.acquiredAt ?? (qualifiesAsAcquired(state, attempt, tempoBpm) ? now : null);
 	const next: CardState = {

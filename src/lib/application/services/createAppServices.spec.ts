@@ -139,10 +139,10 @@ describe('createAppServices', () => {
 		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
 	});
 
-	it('startSession(daily) runs the plan from C and exposes a summary', async () => {
+	it('startSession(learn) runs the plan from C and exposes a summary', async () => {
 		const { services, deps } = harness();
 		await deps.settings.update({ placementDoneAt: deps.now() });
-		const controller = await services.startSession('daily');
+		const controller = await services.startSession('learn');
 		await controller.start();
 
 		let guard = 0;

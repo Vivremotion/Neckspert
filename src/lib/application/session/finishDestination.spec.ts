@@ -7,8 +7,8 @@ describe('finishDestination', () => {
 		expect(finishDestination('free', 'a b')).toBe('/summary?sessionId=a%20b');
 	});
 
-	it('leaves daily and placement on the play screen', () => {
-		expect(finishDestination('daily', 'abc')).toBeNull();
+	it('leaves learn and placement on the play screen', () => {
+		expect(finishDestination('learn', 'abc')).toBeNull();
 		expect(finishDestination('placement', 'abc')).toBeNull();
 	});
 });

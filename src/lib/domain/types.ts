@@ -73,10 +73,10 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-export type SessionKind = 'placement' | 'daily' | 'free';
+export type SessionKind = 'placement' | 'learn' | 'free';
 
 /** Where an attempt happened inside a session. */
-export type ItemPhase = 'placement' | 'review' | 'learning' | 'free';
+export type ItemPhase = 'placement' | 'review' | 'learning' | 'consolidation' | 'free';
 
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';
@@ -142,6 +142,8 @@ export interface CardState {
 	/** Current lead step, mode 1 only; identify cards keep 1. */
 	leadBeats: LeadBeats;
 	scheduling: SchedulingState;
+	/** Epoch ms when in-session learning completed. Null while the card is being learned. */
+	learnedAt: number | null;
 	acquiredAt: number | null;
 	masteredAt: number | null;
 }
@@ -164,8 +166,6 @@ export interface PlannedItem {
 	aid: AidLevel;
 	/** Mode 1 only. */
 	leadBeats: LeadBeats | null;
-	/** Learning items come back until answered correctly. */
-	repeatUntilCorrect: boolean;
 }
 
 export interface SessionPlan {
@@ -229,18 +229,7 @@ export interface HomeStats {
 	trend: 'improving' | 'stable' | 'worsening' | null;
 }
 
-export type SessionGrade =
-	| 'S+'
-	| 'S'
-	| 'A+'
-	| 'A'
-	| 'B+'
-	| 'B'
-	| 'C+'
-	| 'C'
-	| 'D+'
-	| 'D'
-	| 'F+';
+export type SessionGrade = 'S+' | 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F+';
 
 export interface SessionSummary {
 	sessionId: string;

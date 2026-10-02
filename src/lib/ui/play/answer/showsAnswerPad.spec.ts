@@ -9,7 +9,12 @@ const identify: PromptView = {
 	secondary: 'corde de A',
 	aid: null
 };
-const locate: PromptView = { direction: 'locate', primary: 'F', secondary: 'corde de B', aid: null };
+const locate: PromptView = {
+	direction: 'locate',
+	primary: 'F',
+	secondary: 'corde de B',
+	aid: null
+};
 
 describe('showsAnswerPad', () => {
 	it('shows the pad for an identify prompt', () => {

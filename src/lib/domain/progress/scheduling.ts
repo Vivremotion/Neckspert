@@ -1,11 +1,4 @@
-import {
-	createEmptyCard,
-	fsrs,
-	generatorParameters,
-	Rating,
-	type Card,
-	type Grade
-} from 'ts-fsrs';
+import { createEmptyCard, fsrs, generatorParameters, Rating, type Card, type Grade } from 'ts-fsrs';
 import type { SchedulingState } from '$lib/domain/types';
 import { MIN_COLD_DELAY_MS } from './constants';
 

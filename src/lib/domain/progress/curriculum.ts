@@ -11,10 +11,7 @@ function acquiredKeys(cards: readonly CardState[]): Set<string> {
 	return new Set(cards.filter((card) => card.acquiredAt !== null).map((card) => card.key));
 }
 
-function isSetAcquiredEnough(
-	set: CurriculumSet,
-	acquired: ReadonlySet<string>
-): boolean {
+function isSetAcquiredEnough(set: CurriculumSet, acquired: ReadonlySet<string>): boolean {
 	if (set.targets.length === 0) return true;
 	let count = 0;
 	for (const target of set.targets) {
@@ -23,10 +20,7 @@ function isSetAcquiredEnough(
 	return count / set.targets.length >= UNLOCK_RATIO;
 }
 
-export function unlockedSets(
-	curriculum: Curriculum,
-	cards: readonly CardState[]
-): CurriculumSet[] {
+export function unlockedSets(curriculum: Curriculum, cards: readonly CardState[]): CurriculumSet[] {
 	const acquired = acquiredKeys(cards);
 	const byId = new Map(curriculum.map((set) => [set.id, set]));
 	const unlocked: CurriculumSet[] = [];

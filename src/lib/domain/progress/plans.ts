@@ -8,7 +8,7 @@ import {
 	type SessionPlan,
 	type Target
 } from '$lib/domain/types';
-import { DAILY_COLD_CAP, NEW_PER_SESSION } from './constants';
+import { FREE_PLAY_COUNT, LEARN_COLD_CAP, LEARNING_SLOTS } from './constants';
 import { nextNewTargets } from './curriculum';
 import { leadForThreshold } from './lead';
 
@@ -42,8 +42,7 @@ function reviewItem(card: CardState): PlannedItem {
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: card.target.direction === 'locate' ? card.leadBeats : null,
-		repeatUntilCorrect: false
+		leadBeats: card.target.direction === 'locate' ? card.leadBeats : null
 	};
 }
 
@@ -53,8 +52,7 @@ function learningItem(target: Target): PlannedItem {
 		phase: 'learning',
 		temperature: 'hot',
 		aid: target.direction === 'locate' ? 'show-position' : 'none',
-		leadBeats: target.direction === 'locate' ? 8 : null,
-		repeatUntilCorrect: true
+		leadBeats: target.direction === 'locate' ? 8 : null
 	};
 }
 
@@ -65,13 +63,13 @@ export function buildDailyPlan(input: {
 	sessionId: string;
 	skipLearning?: boolean;
 }): SessionPlan {
-	const reviews = dueCards(input.cards, input.now).slice(0, DAILY_COLD_CAP).map(reviewItem);
+	const reviews = dueCards(input.cards, input.now).slice(0, LEARN_COLD_CAP).map(reviewItem);
 	const learning = input.skipLearning
 		? []
-		: nextNewTargets(input.curriculum, input.cards, NEW_PER_SESSION).map(learningItem);
+		: nextNewTargets(input.curriculum, input.cards, LEARNING_SLOTS).map(learningItem);
 	return {
 		id: input.sessionId,
-		kind: 'daily',
+		kind: 'learn',
 		createdAt: input.now,
 		items: [...reviews, ...learning]
 	};
@@ -91,8 +89,7 @@ export function buildPlacementPlan(input: {
 		phase: 'placement',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats,
-		repeatUntilCorrect: false
+		leadBeats
 	}));
 	return {
 		id: input.sessionId,
@@ -125,7 +122,7 @@ export function buildFreePlan(input: {
 	random?: () => number;
 }): SessionPlan {
 	const random = input.random ?? Math.random;
-	const count = input.count ?? DAILY_COLD_CAP;
+	const count = input.count ?? FREE_PLAY_COUNT;
 	const byKey = new Map(input.cards.map((card) => [card.key, card]));
 	const picked = shuffle(curriculumTargets(input.curriculum), random).slice(0, count);
 	const items = picked.map((target): PlannedItem => {
@@ -135,8 +132,7 @@ export function buildFreePlan(input: {
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',
-			leadBeats: target.direction === 'locate' ? (card?.leadBeats ?? LEAD_STEPS[0]) : null,
-			repeatUntilCorrect: false
+			leadBeats: target.direction === 'locate' ? (card?.leadBeats ?? LEAD_STEPS[0]) : null
 		};
 	});
 	return {

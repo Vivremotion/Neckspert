@@ -6,9 +6,9 @@ const NOW = 1_000_000;
 
 describe('classifyTemperature', () => {
 	it('is cold when never attempted and not yet tried this session', () => {
-		expect(
-			classifyTemperature({ lastAttemptAt: null, attemptedInSession: false, now: NOW })
-		).toBe('cold');
+		expect(classifyTemperature({ lastAttemptAt: null, attemptedInSession: false, now: NOW })).toBe(
+			'cold'
+		);
 	});
 
 	it('is hot once the card was already tried in this session', () => {

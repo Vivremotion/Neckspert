@@ -4,9 +4,7 @@ import { CUE_ATTACK_S, CUE_SILENCE, CUE_SPECS } from './cueSpecs';
 import { WebAudioCues } from './WebAudioCues';
 
 type AutomationMethod =
-	| 'setValueAtTime'
-	| 'linearRampToValueAtTime'
-	| 'exponentialRampToValueAtTime';
+	'setValueAtTime' | 'linearRampToValueAtTime' | 'exponentialRampToValueAtTime';
 
 interface AutomationCall {
 	method: AutomationMethod;

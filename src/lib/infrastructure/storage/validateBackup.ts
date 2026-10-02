@@ -17,8 +17,14 @@ type Fields = Record<string, unknown>;
 const LOCALES: readonly Locale[] = ['fr', 'en'];
 const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'wrong'];
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
-const ITEM_PHASES: readonly ItemPhase[] = ['placement', 'review', 'learning', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = ['placement', 'daily', 'free'];
+const ITEM_PHASES: readonly ItemPhase[] = [
+	'placement',
+	'review',
+	'learning',
+	'consolidation',
+	'free'
+];
+const SESSION_KINDS: readonly SessionKind[] = ['placement', 'learn', 'free'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 
 function isFields(value: unknown): value is Fields {
@@ -99,6 +105,7 @@ function checkCard(card: Fields): string | null {
 		return 'scheduling.due must be a number';
 	}
 	if (!isOneOf(scheduling.state, SCHEDULING_STATES)) return 'scheduling.state must be 0, 1, 2 or 3';
+	if (!isNullableNumber(card.learnedAt)) return 'learnedAt must be a number or null';
 	if (!isNullableNumber(card.acquiredAt)) return 'acquiredAt must be a number or null';
 	if (!isNullableNumber(card.masteredAt)) return 'masteredAt must be a number or null';
 	return null;
@@ -123,7 +130,7 @@ function checkAttempt(attempt: Fields): string | null {
 
 function checkSession(session: Fields): string | null {
 	if (typeof session.id !== 'string' || session.id === '') return 'id must be a non-empty string';
-	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be placement, daily or free';
+	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be placement, learn or free';
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';

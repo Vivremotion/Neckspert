@@ -75,7 +75,9 @@
 
 <main class="diag">
 	<h1>Diagnostic détection</h1>
-	<p class="hint">Entrée brute (echo / noise / AGC désactivés). Brancher une interface si possible.</p>
+	<p class="hint">
+		Entrée brute (echo / noise / AGC désactivés). Brancher une interface si possible.
+	</p>
 
 	{#if error}
 		<p class="error">{error}</p>

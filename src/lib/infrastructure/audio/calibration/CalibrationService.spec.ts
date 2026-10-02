@@ -9,10 +9,7 @@ function setup(config?: Partial<typeof DEFAULT_CALIBRATION_CONFIG>) {
 	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
 	const deviceId = vi.fn(async () => 'input-1');
-	const service = new CalibrationService(
-		{ clock, metronome, detector, deviceId },
-		config
-	);
+	const service = new CalibrationService({ clock, metronome, detector, deviceId }, config);
 	return { clock, metronome, detector, deviceId, service };
 }
 
@@ -24,11 +21,7 @@ async function settleRun(metronome: FakeMetronome): Promise<void> {
 }
 
 /** Advance the clock and flush until beat `index` has been announced (lookahead 0.1 s). */
-function announceThrough(
-	clock: FakeClock,
-	metronome: FakeMetronome,
-	index: number
-): void {
+function announceThrough(clock: FakeClock, metronome: FakeMetronome, index: number): void {
 	if (!metronome.isRunning()) return;
 	const need = metronome.beatTime(index) - 0.1;
 	if (clock.now() < need) clock.advance(need - clock.now());

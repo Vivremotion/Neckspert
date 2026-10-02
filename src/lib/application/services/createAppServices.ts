@@ -85,7 +85,7 @@ export function createAppServices(
 							tempoBpm: settings.tempoBpm,
 							random: deps.random
 						})
-					: kind === 'daily'
+					: kind === 'learn'
 						? buildDailyPlan({
 								cards,
 								curriculum,

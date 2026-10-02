@@ -18,12 +18,17 @@ export class NeckspertDb extends Dexie {
 
 	constructor(name: string) {
 		super(name);
-		this.version(1).stores({
+		const stores = {
 			attempts: '++id, cardKey, sessionId, promptedAt',
 			cards: 'key',
 			sessions: 'id, startedAt',
 			settings: 'id'
-		});
+		};
+		this.version(1).stores(stores);
+		// Version 2 changed the learning model; old progress is discarded, not migrated.
+		this.version(2)
+			.stores(stores)
+			.upgrade((tx) => Promise.all(Object.keys(stores).map((name) => tx.table(name).clear())));
 	}
 }
 

@@ -17,7 +17,14 @@
 	} = $props();
 </script>
 
-<button type="button" class="btn" class:huge={size === 'huge'} aria-label={label} {disabled} {onclick}>
+<button
+	type="button"
+	class="btn"
+	class:huge={size === 'huge'}
+	aria-label={label}
+	{disabled}
+	{onclick}
+>
 	{@render children()}
 </button>
 

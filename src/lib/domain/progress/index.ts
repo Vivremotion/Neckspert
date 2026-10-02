@@ -1,7 +1,15 @@
 export {
 	MIN_COLD_DELAY_MS,
-	DAILY_COLD_CAP,
-	NEW_PER_SESSION,
+	LEARN_SESSION_MS,
+	LEARN_COLD_CAP,
+	LEARNING_SLOTS,
+	MAX_UNCONSOLIDATED,
+	LEARN_PRESENT_LEAD_BEATS,
+	LEARN_RETEST_GAPS,
+	LEARN_SUCCESSES,
+	CONSOLIDATION_SKIP_RECENT,
+	CONFUSION_LOOKBACK,
+	FREE_PLAY_COUNT,
 	UNLOCK_RATIO,
 	MASTERY_ACCURACY,
 	MASTERY_SESSIONS,
@@ -15,15 +23,11 @@ export {
 	introduceCard,
 	applyColdAttempt,
 	placementCard,
+	markLearned,
 	isAcquired,
 	isMastered,
 	cardStatus
 } from './cards';
 export { unlockedSets, nextNewTargets } from './curriculum';
-export {
-	buildDailyPlan,
-	buildPlacementPlan,
-	buildFreePlan,
-	nextSuggestedAt
-} from './plans';
+export { buildDailyPlan, buildPlacementPlan, buildFreePlan, nextSuggestedAt } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

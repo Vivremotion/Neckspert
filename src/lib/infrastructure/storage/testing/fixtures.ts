@@ -55,6 +55,7 @@ export function makeCard(overrides: Partial<CardState> = {}): CardState {
 			state: 0,
 			lastReview: null
 		},
+		learnedAt: 1000,
 		acquiredAt: null,
 		masteredAt: null,
 		...overrides
@@ -64,7 +65,7 @@ export function makeCard(overrides: Partial<CardState> = {}): CardState {
 export function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
 	return {
 		id: 's1',
-		kind: 'daily',
+		kind: 'learn',
 		startedAt: 1000,
 		endedAt: 2000,
 		fatigueDetected: false,

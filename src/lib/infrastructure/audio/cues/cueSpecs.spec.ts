@@ -1,12 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Verdict } from '$lib/domain/types';
-import {
-	CUE_ATTACK_S,
-	CUE_SPECS,
-	MAX_CUE_DURATION_S,
-	MAX_CUE_GAIN,
-	cueDuration
-} from './cueSpecs';
+import { CUE_ATTACK_S, CUE_SPECS, MAX_CUE_DURATION_S, MAX_CUE_GAIN, cueDuration } from './cueSpecs';
 
 const VERDICTS: Verdict[] = ['perfect', 'early', 'late', 'wrong'];
 

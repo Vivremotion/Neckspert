@@ -7,8 +7,7 @@ const locate: PlannedItem = {
 	phase: 'review',
 	temperature: 'cold',
 	aid: 'show-position',
-	leadBeats: 2,
-	repeatUntilCorrect: false
+	leadBeats: 2
 };
 
 const identify: PlannedItem = {
@@ -16,8 +15,7 @@ const identify: PlannedItem = {
 	phase: 'review',
 	temperature: 'cold',
 	aid: 'none',
-	leadBeats: null,
-	repeatUntilCorrect: false
+	leadBeats: null
 };
 
 describe('buildPromptView', () => {

@@ -24,12 +24,11 @@ function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		temperature: 'cold',
 		aid: 'none',
 		leadBeats: 2,
-		repeatUntilCorrect: false,
 		...overrides
 	};
 }
 
-function planWith(items: PlannedItem[], kind: SessionPlan['kind'] = 'daily'): SessionPlan {
+function planWith(items: PlannedItem[], kind: SessionPlan['kind'] = 'learn'): SessionPlan {
 	return { id: 'sess-1', kind, createdAt: 1_000_000, items };
 }
 
@@ -302,7 +301,6 @@ function identifyItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		temperature: 'cold',
 		aid: 'none',
 		leadBeats: null,
-		repeatUntilCorrect: false,
 		...overrides
 	};
 }
@@ -412,46 +410,6 @@ describe('SessionController persistence', () => {
 		expect(attempts[0].verdict).toBe('wrong');
 	});
 
-	it('requeues learning items until correct and skips remaining learning on fatigue', async () => {
-		const deps = createDeps();
-		const learning = (pitch: 'F' | 'G' | 'A', repeat = true): PlannedItem =>
-			locateItem({
-				target: { direction: 'locate', string: 2, pitch },
-				phase: 'learning',
-				temperature: 'hot',
-				aid: 'show-position',
-				leadBeats: 1,
-				repeatUntilCorrect: repeat
-			});
-		const controller = new SessionController(planWith([learning('F'), learning('G')]), deps);
-		await controller.start();
-		tick(deps, 0.1 + 0.75 * 4);
-		const t = deps.metronome.beatTime(5);
-		deps.detector.emitNote({ time: t, midi: 60, frequencyHz: 247, clarity: 0.9 });
-		tick(deps, 0.75 * 2);
-		expect(controller.view.status === 'awaiting' || controller.view.status === 'verdict').toBe(
-			true
-		);
-		const remainingPrompts: string[] = [];
-		for (let i = 0; i < 8 && controller.view.status !== 'finished'; i++) {
-			if (controller.view.status === 'awaiting' && controller.view.prompt) {
-				remainingPrompts.push(controller.view.prompt.primary);
-				const due =
-					controller.view.targetBeatIndex !== null
-						? deps.metronome.beatTime(controller.view.targetBeatIndex)
-						: deps.clock.now();
-				deps.detector.emitNote({
-					time: due,
-					midi: 65,
-					frequencyHz: 349,
-					clarity: 0.95
-				});
-			}
-			tick(deps, 0.75 * 2);
-		}
-		expect(remainingPrompts).toContain('F');
-	});
-
 	it('sets placementDoneAt when a placement session finishes', async () => {
 		const deps = createDeps();
 		const controller = new SessionController(
@@ -491,8 +449,7 @@ describe('SessionController fatigue skip', () => {
 				phase: 'learning',
 				temperature: 'hot',
 				leadBeats: 1,
-				aid: 'show-position',
-				repeatUntilCorrect: true
+				aid: 'show-position'
 			})
 		);
 		const controller = new SessionController(planWith(items), deps);

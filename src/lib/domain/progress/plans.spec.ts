@@ -7,7 +7,7 @@ import {
 	type LocateTarget,
 	type Target
 } from '$lib/domain/types';
-import { DAILY_COLD_CAP, MIN_COLD_DELAY_MS, NEW_PER_SESSION } from './constants';
+import { LEARN_COLD_CAP, MIN_COLD_DELAY_MS, LEARNING_SLOTS } from './constants';
 import { introduceCard } from './cards';
 import { buildDailyPlan, buildFreePlan, buildPlacementPlan, nextSuggestedAt } from './plans';
 
@@ -42,14 +42,13 @@ describe('buildDailyPlan', () => {
 			sessionId: 'daily-1'
 		});
 
-		expect(plan.kind).toBe('daily');
+		expect(plan.kind).toBe('learn');
 		expect(plan.id).toBe('daily-1');
 		expect(plan.items[0]).toMatchObject({
 			target: L1,
 			phase: 'review',
 			temperature: 'cold',
 			aid: 'none',
-			repeatUntilCorrect: false,
 			leadBeats: 8
 		});
 		expect(plan.items[1]).toMatchObject({
@@ -59,24 +58,23 @@ describe('buildDailyPlan', () => {
 			leadBeats: null
 		});
 		const learning = plan.items.filter((item) => item.phase === 'learning');
-		expect(learning.length).toBeLessThanOrEqual(NEW_PER_SESSION);
+		expect(learning.length).toBeLessThanOrEqual(LEARNING_SLOTS);
 		expect(learning[0]).toMatchObject({
 			target: L3,
 			phase: 'learning',
 			temperature: 'hot',
 			aid: 'show-position',
-			leadBeats: 8,
-			repeatUntilCorrect: true
+			leadBeats: 8
 		});
 	});
 
 	it('skips learning when asked and caps cold reviews', () => {
-		const many = Array.from({ length: DAILY_COLD_CAP + 5 }, (_, i) => {
+		const many = Array.from({ length: LEARN_COLD_CAP + 5 }, (_, i) => {
 			const pitch = (['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const)[
 				i % 12
 			];
 			const string = ((i % 6) + 1) as 1 | 2 | 3 | 4 | 5 | 6;
-			return dueCard({ direction: 'locate', string, pitch }, NOW - (DAILY_COLD_CAP + 5 - i));
+			return dueCard({ direction: 'locate', string, pitch }, NOW - (LEARN_COLD_CAP + 5 - i));
 		});
 		const plan = buildDailyPlan({
 			cards: many,
@@ -85,7 +83,7 @@ describe('buildDailyPlan', () => {
 			sessionId: 'daily-2',
 			skipLearning: true
 		});
-		expect(plan.items).toHaveLength(DAILY_COLD_CAP);
+		expect(plan.items).toHaveLength(LEARN_COLD_CAP);
 		expect(plan.items.every((item) => item.phase === 'review')).toBe(true);
 	});
 });
@@ -112,7 +110,6 @@ describe('buildPlacementPlan', () => {
 		expect(plan.items.every((item) => item.temperature === 'cold')).toBe(true);
 		expect(plan.items.every((item) => item.aid === 'none')).toBe(true);
 		expect(plan.items.every((item) => item.leadBeats === 2)).toBe(true);
-		expect(plan.items.every((item) => item.repeatUntilCorrect === false)).toBe(true);
 		expect(new Set(plan.items.map((item) => JSON.stringify(item.target))).size).toBe(3);
 	});
 });
@@ -135,7 +132,6 @@ describe('buildFreePlan', () => {
 		expect(plan.items.every((item) => item.phase === 'free')).toBe(true);
 		expect(plan.items.every((item) => item.temperature === 'hot')).toBe(true);
 		expect(plan.items.every((item) => item.aid === 'none')).toBe(true);
-		expect(plan.items.every((item) => item.repeatUntilCorrect === false)).toBe(true);
 		expect(plan.items.map((item) => cardKey(item.target))).toEqual(
 			expect.arrayContaining([cardKey(L1), cardKey(L2), cardKey(L3), cardKey(L4), cardKey(I1)])
 		);
@@ -166,7 +162,7 @@ describe('buildFreePlan', () => {
 			sessionId: 'free-cap',
 			random: () => 0
 		});
-		expect(capped.items).toHaveLength(DAILY_COLD_CAP);
+		expect(capped.items).toHaveLength(LEARN_COLD_CAP);
 	});
 });
 

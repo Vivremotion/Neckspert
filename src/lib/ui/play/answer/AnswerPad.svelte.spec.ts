@@ -97,7 +97,9 @@ describe('AnswerPad', () => {
 
 	it('names the group in the current locale', () => {
 		i18n.locale = 'en';
-		render(AnswerPad, { props: { choices: identifyChoices(), disabled: false, onanswer: vi.fn() } });
+		render(AnswerPad, {
+			props: { choices: identifyChoices(), disabled: false, onanswer: vi.fn() }
+		});
 		expect(screen.getByRole('group', { name: 'Note name' })).toBeTruthy();
 	});
 });

@@ -215,7 +215,7 @@ describe('summarizeSession', () => {
 	});
 
 	it('summarizes cold accuracy, learning and the suggested next time', () => {
-		const summary = summarizeSession({ record: record('daily'), attempts, cards, now: NOW });
+		const summary = summarizeSession({ record: record('learn'), attempts, cards, now: NOW });
 		expect(summary).toEqual({
 			sessionId: 'sess',
 			pool: 'cold',

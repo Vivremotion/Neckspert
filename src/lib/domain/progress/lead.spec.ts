@@ -39,12 +39,8 @@ describe('isDirectRecall', () => {
 				TEMPO
 			)
 		).toBe(false);
-		expect(isDirectRecall({ correct: false, reactionMs: 400, leadBeats: null }, TEMPO)).toBe(
-			false
-		);
-		expect(isDirectRecall({ correct: true, reactionMs: null, leadBeats: null }, TEMPO)).toBe(
-			false
-		);
+		expect(isDirectRecall({ correct: false, reactionMs: 400, leadBeats: null }, TEMPO)).toBe(false);
+		expect(isDirectRecall({ correct: true, reactionMs: null, leadBeats: null }, TEMPO)).toBe(false);
 	});
 
 	it('mode 1: uses lead duration, not reactionMs', () => {

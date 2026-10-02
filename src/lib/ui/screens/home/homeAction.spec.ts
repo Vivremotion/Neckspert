@@ -4,7 +4,7 @@ import { homeSessionKind, isHomeActionEnabled } from './homeAction';
 describe('homeSessionKind', () => {
 	it('maps placement and session, and disables wait', () => {
 		expect(homeSessionKind('placement')).toBe('placement');
-		expect(homeSessionKind('session')).toBe('daily');
+		expect(homeSessionKind('session')).toBe('learn');
 		expect(homeSessionKind('wait')).toBeNull();
 	});
 });

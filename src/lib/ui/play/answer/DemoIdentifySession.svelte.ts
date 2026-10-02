@@ -47,7 +47,10 @@ export class DemoIdentifySession implements PlaySessionController {
 	private promptedAt = 0;
 	private timer: ReturnType<typeof setTimeout> | null = null;
 
-	constructor(script: readonly IdentifyTarget[] = DEMO_IDENTIFY_SCRIPT, verdictMs = DEMO_VERDICT_MS) {
+	constructor(
+		script: readonly IdentifyTarget[] = DEMO_IDENTIFY_SCRIPT,
+		verdictMs = DEMO_VERDICT_MS
+	) {
 		this.script = script;
 		this.verdictMs = verdictMs;
 	}

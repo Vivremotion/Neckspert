@@ -1,6 +1,10 @@
 <script lang="ts">
 	import type { AudioInputDevice } from '$lib/application/ports';
-	import { DEFAULT_BUILT_IN_INPUT_GAIN, clampBuiltInInputGain, type Locale } from '$lib/domain/types';
+	import {
+		DEFAULT_BUILT_IN_INPUT_GAIN,
+		clampBuiltInInputGain,
+		type Locale
+	} from '$lib/domain/types';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import SettingsScreen from '$lib/ui/screens/settings/SettingsScreen.svelte';
 	import { clampTempo } from '$lib/ui/screens/settings/tempo';

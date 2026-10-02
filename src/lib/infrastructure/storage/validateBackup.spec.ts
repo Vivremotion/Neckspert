@@ -104,10 +104,31 @@ describe('validateBackup', () => {
 	it('rejects an invalid session', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'weekly' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be placement, daily or free');
+		).toThrow('Invalid sessions entry at index 0: kind must be placement, learn or free');
+		expect(() =>
+			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'daily' }] })
+		).toThrow('Invalid sessions entry at index 0: kind must be placement, learn or free');
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), fatigueDetected: 'no' }] })
 		).toThrow('Invalid sessions entry at index 0: fatigueDetected must be a boolean');
+	});
+
+	it('accepts a learn session and a consolidation attempt', () => {
+		expect(() =>
+			validateBackup(
+				makeBackup({
+					sessions: [makeSession({ kind: 'learn' })],
+					attempts: [makeAttempt({ phase: 'consolidation', temperature: 'hot' })]
+				})
+			)
+		).not.toThrow();
+	});
+
+	it('rejects a card without learnedAt', () => {
+		const { learnedAt: _dropped, ...withoutLearned } = makeCard();
+		expect(() => validateBackup({ ...makeBackup(), cards: [withoutLearned] })).toThrow(
+			'Invalid cards entry at index 0: learnedAt must be a number or null'
+		);
 	});
 
 	it('accepts a session without tempoBpm', () => {

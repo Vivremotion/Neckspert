@@ -11,7 +11,7 @@
 	let controller = $state<PlaySessionController | null>(null);
 	let error = $state<string | null>(null);
 
-	const kind = $derived((page.url.searchParams.get('kind') ?? 'daily') as SessionKind);
+	const kind = $derived((page.url.searchParams.get('kind') ?? 'learn') as SessionKind);
 
 	onMount(async () => {
 		try {

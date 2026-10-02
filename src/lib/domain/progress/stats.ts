@@ -125,7 +125,9 @@ export function summarizeSession(input: {
 }): SessionSummary {
 	const pool = input.record.kind === 'free' ? 'all' : 'cold';
 	const counted =
-		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.temperature === 'cold');
+		pool === 'all'
+			? input.attempts
+			: input.attempts.filter((attempt) => attempt.temperature === 'cold');
 	const earliest = nextSuggestedAt(input.cards, input.now);
 	return {
 		sessionId: input.record.id,

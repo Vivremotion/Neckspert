@@ -14,6 +14,7 @@ import {
 	introduceCard,
 	isAcquired,
 	isMastered,
+	markLearned,
 	placementCard
 } from './cards';
 
@@ -53,10 +54,25 @@ describe('introduceCard', () => {
 		expect(card.scheduling.due).toBe(NOW + MIN_COLD_DELAY_MS);
 		expect(card.acquiredAt).toBeNull();
 		expect(card.masteredAt).toBeNull();
+		expect(card.learnedAt).toBeNull();
 	});
 
 	it('creates identify cards with lead 1', () => {
 		expect(introduceCard(IDENTIFY, NOW, 's-learn').leadBeats).toBe(1);
+	});
+});
+
+describe('markLearned', () => {
+	it('gives a learned locate card the direct-recall lead and a first cold check after the delay', () => {
+		const card = markLearned(introduceCard(LOCATE, NOW - 60_000, 's-learn'), NOW, TEMPO);
+		expect(card.learnedAt).toBe(NOW);
+		expect(card.leadBeats).toBe(2);
+		expect(card.scheduling.due).toBe(NOW + MIN_COLD_DELAY_MS);
+		expect(card.scheduling.state).toBe(State.New);
+	});
+
+	it('keeps identify cards at lead 1', () => {
+		expect(markLearned(introduceCard(IDENTIFY, NOW, 's-learn'), NOW, TEMPO).leadBeats).toBe(1);
 	});
 });
 
@@ -81,6 +97,7 @@ describe('placementCard', () => {
 		expect(card).not.toBeNull();
 		expect(card!.scheduling.state).toBe(State.Review);
 		expect(card!.acquiredAt).toBe(NOW);
+		expect(card!.learnedAt).toBe(NOW);
 		expect(card!.introducedInSession).toBe('s-p');
 		expect(card!.leadBeats).toBe(2);
 	});

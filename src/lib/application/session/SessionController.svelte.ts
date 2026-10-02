@@ -569,9 +569,6 @@ export class SessionController implements PlaySessionController {
 
 		// Queue and fatigue must run before any await so the next onBeat cannot race them.
 		this.sessionAttempts.push(attempt);
-		if (item.repeatUntilCorrect && !judgement.correct) {
-			this.queue.push(item);
-		}
 		if (detectFatigue(this.sessionAttempts)) {
 			this.view.fatigueDetected = true;
 			this.queue = this.queue.filter((q) => q.phase !== 'learning');

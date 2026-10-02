@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	cardKey,
-	type CardState,
-	type Curriculum,
-	type Target
-} from '$lib/domain/types';
+import { cardKey, type CardState, type Curriculum, type Target } from '$lib/domain/types';
 import { introduceCard } from './cards';
 import { nextNewTargets, unlockedSets } from './curriculum';
 
@@ -31,16 +26,12 @@ describe('unlockedSets', () => {
 
 	it('unlocks dependents at 80 % acquired of the required set', () => {
 		// 2/3 ≈ 0.666 < 0.8
-		expect(
-			unlockedSets(FIXTURE, [acquired(T1), acquired(T2)]).map((set) => set.id)
-		).toEqual(['locate-s6-a']);
+		expect(unlockedSets(FIXTURE, [acquired(T1), acquired(T2)]).map((set) => set.id)).toEqual([
+			'locate-s6-a'
+		]);
 		// 3/3 = 1 ≥ 0.8
 		const open = unlockedSets(FIXTURE, [acquired(T1), acquired(T2), acquired(T3)]);
-		expect(open.map((set) => set.id)).toEqual([
-			'locate-s6-a',
-			'identify-s6-a',
-			'locate-s6-b'
-		]);
+		expect(open.map((set) => set.id)).toEqual(['locate-s6-a', 'identify-s6-a', 'locate-s6-b']);
 	});
 });
 

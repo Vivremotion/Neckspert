@@ -14,9 +14,7 @@ import {
 } from './WebAudioMetronome';
 
 type AutomationMethod =
-	| 'setValueAtTime'
-	| 'linearRampToValueAtTime'
-	| 'exponentialRampToValueAtTime';
+	'setValueAtTime' | 'linearRampToValueAtTime' | 'exponentialRampToValueAtTime';
 
 interface AutomationCall {
 	method: AutomationMethod;
