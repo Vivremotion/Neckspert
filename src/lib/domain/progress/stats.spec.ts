@@ -251,10 +251,48 @@ describe('summarizeSession', () => {
 			identifyMedianReactionMs: 640,
 			learnedCount: 1,
 			pendingCount: 1,
+			knownCount: 0,
 			fatigueDetected: true,
 			nextReviewAt: NOW + 1000,
 			grade: null
 		});
+	});
+
+	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {
+		const probe = (overrides: Partial<Attempt>) =>
+			coldAttempt({ sessionId: 'sess', phase: 'probe', promptedAt: NOW - 5_000, ...overrides });
+		const sessionAttempts = [
+			probe({ correct: true, timingOffsetMs: 3 }),
+			probe({ temperature: 'hot', correct: false, verdict: 'wrong', timingOffsetMs: null }),
+			coldAttempt({ sessionId: 'sess', correct: false, verdict: 'wrong', timingOffsetMs: 90 })
+		];
+		const summary = summarizeSession({
+			record: record('learn'),
+			attempts: sessionAttempts,
+			allAttempts: sessionAttempts,
+			cards,
+			now: NOW
+		});
+		expect(summary.attemptCount).toBe(1);
+		expect(summary.correctCount).toBe(0);
+		expect(summary.knownCount).toBe(1);
+		expect(summary.medianOffsetMs).toBeNull();
+	});
+
+	it('has no cold figures when the session only probed', () => {
+		const only = [
+			coldAttempt({ sessionId: 'sess', phase: 'probe', correct: true, timingOffsetMs: 3 })
+		];
+		const summary = summarizeSession({
+			record: record('learn'),
+			attempts: only,
+			allAttempts: only,
+			cards,
+			now: NOW
+		});
+		expect(summary.attemptCount).toBe(0);
+		expect(summary.medianOffsetMs).toBeNull();
+		expect(summary.knownCount).toBe(1);
 	});
 
 	it('scores a free session across cold and hot attempts', () => {
@@ -289,6 +327,28 @@ describe('summarizeSession', () => {
 });
 
 describe('buildNeckMap', () => {
+	it('leaves a missed probe out of cold accuracy', () => {
+		const target: Target = { direction: 'locate', string: 2, pitch: 'C' };
+		const card = { ...introduceCard(target, NOW, 's0'), acquiredAt: NOW };
+		const attempts = [
+			coldAttempt({
+				cardKey: card.key,
+				target,
+				phase: 'probe',
+				temperature: 'hot',
+				correct: false
+			}),
+			coldAttempt({ cardKey: card.key, target, correct: true, promptedAt: NOW + 1 })
+		];
+		const cells = buildNeckMap({
+			cards: [card],
+			attempts,
+			sessions: [],
+			pitchAt: () => 'C'
+		});
+		expect(cells.find((cell) => cell.string === 2 && cell.fret === 1)?.coldAccuracy).toBe(1);
+	});
+
 	it('builds 72 cells with injected pitches and per-sense status', () => {
 		const locate = {
 			...introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 's0'),

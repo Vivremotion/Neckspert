@@ -10,6 +10,7 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes apprises',
 		pending: (n: number) =>
 			n === 1 ? '1 note reprendra la prochaine fois' : `${n} notes reprendront la prochaine fois`,
+		known: (n: number) => (n === 1 ? '1 note déjà sue' : `${n} notes déjà sues`),
 		noCold: 'Aucune révision à froid cette fois',
 		fatigue: 'Fatigue détectée',
 		noFatigue: 'Pas de fatigue',
@@ -31,6 +32,7 @@ export const summaryMessages = defineMessages({
 		learned: 'Notes learned',
 		pending: (n: number) =>
 			n === 1 ? '1 note will resume next time' : `${n} notes will resume next time`,
+		known: (n: number) => (n === 1 ? '1 note already known' : `${n} notes already known`),
 		noCold: 'No cold review this time',
 		fatigue: 'Fatigue detected',
 		noFatigue: 'No fatigue',

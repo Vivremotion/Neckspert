@@ -228,6 +228,8 @@ export interface SessionSummary {
 	learnedCount: number;
 	/** Cards presented in this session and still being learned. */
 	pendingCount: number;
+	/** Probes passed in this session. */
+	knownCount: number;
 	fatigueDetected: boolean;
 	/** Earliest time a learned card can be reviewed cold. Informational. */
 	nextReviewAt: number | null;

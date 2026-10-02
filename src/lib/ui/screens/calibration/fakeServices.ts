@@ -81,6 +81,7 @@ const EMPTY_SUMMARY: SessionSummary = {
 	identifyMedianReactionMs: null,
 	learnedCount: 0,
 	pendingCount: 0,
+	knownCount: 0,
 	fatigueDetected: false,
 	nextReviewAt: null,
 	grade: null

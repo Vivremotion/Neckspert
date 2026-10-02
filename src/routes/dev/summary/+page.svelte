@@ -11,6 +11,7 @@
 		identifyMedianReactionMs: 640,
 		learnedCount: 3,
 		pendingCount: 1,
+		knownCount: 3,
 		fatigueDetected: false,
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+'

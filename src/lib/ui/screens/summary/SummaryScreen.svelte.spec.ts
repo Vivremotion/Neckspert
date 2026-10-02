@@ -18,6 +18,7 @@ const summary: SessionSummary = {
 	identifyMedianReactionMs: 640,
 	learnedCount: 2,
 	pendingCount: 0,
+	knownCount: 0,
 	fatigueDetected: true,
 	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null
@@ -65,6 +66,21 @@ describe('SummaryScreen', () => {
 			props: { summary: { ...summary, pendingCount: 3 }, now: 0, onhome: () => {}, onmap: () => {} }
 		});
 		expect(screen.getByText('3 notes reprendront la prochaine fois')).toBeTruthy();
+	});
+
+	it('counts the notes already known, only when there are some', () => {
+		render(SummaryScreen, {
+			props: { summary: { ...summary, knownCount: 2 }, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('2 notes déjà sues')).toBeTruthy();
+		cleanup();
+		render(SummaryScreen, {
+			props: { summary: { ...summary, knownCount: 1 }, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('1 note déjà sue')).toBeTruthy();
+		cleanup();
+		render(SummaryScreen, { props: { summary, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(screen.queryByText(/déjà su/)).toBeNull();
 	});
 
 	it('shows a free-play grade, accuracy label, and no next session', () => {

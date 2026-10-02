@@ -213,6 +213,16 @@ describe('isAcquired / isMastered / cardStatus', () => {
 		}
 		expect(isMastered(history, TEMPO)).toBe(true);
 
+		// A missed probe is stored hot and never counts against mastery.
+		const missedProbe = attempt({
+			sessionId: 'probe',
+			phase: 'probe',
+			temperature: 'hot',
+			correct: false,
+			promptedAt: NOW - day
+		});
+		expect(isMastered([missedProbe, ...history], TEMPO)).toBe(true);
+
 		// 10% miss breaks accuracy (need ≥ 90 %)
 		const withMiss = [
 			...history,
