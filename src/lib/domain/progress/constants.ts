@@ -13,13 +13,13 @@ export const LEARNING_SLOTS = 3;
 /** Max learned cards not yet acquired; above it no new note enters. To calibrate. */
 export const MAX_UNCONSOLIDATED = 10;
 
-/** Lead of the aided presentation of a new note (mode 1). To calibrate. */
-export const LEARN_PRESENT_LEAD_BEATS = 8;
+/** Lead of the aided presentation of a new note (mode 1), and the ladder's top step. To calibrate. */
+export const LEARN_PRESENT_LEAD_BEATS = 8 as const;
 
 /** Prompts between a learning attempt and its unaided retest, by successes so far. To calibrate. */
 export const LEARN_RETEST_GAPS = [2, 4] as const;
 
-/** Unaided direct recalls in a row that make a note learned. To calibrate. */
+/** Successes in a row at the final step (direct-recall lead, or unaided in mode 2) that make a note learned. To calibrate. */
 export const LEARN_SUCCESSES = 2;
 
 /** Consolidation skips cards served in the last N prompts. To calibrate. */

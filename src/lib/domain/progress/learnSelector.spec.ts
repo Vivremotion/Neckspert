@@ -108,48 +108,73 @@ describe('createLearnSelector', () => {
 		expect(keys).toEqual([GK, cardKey(ORDER[1]), cardKey(ORDER[2]), GK]);
 	});
 
-	it('retests a note unaided after 2 prompts, then after 4, and marks it learned', () => {
+	it('halves the lead after each success, 8 to 4 to 2, and needs two successes at 2', () => {
 		const selector = select([learning(G), ...FILLERS]);
 		const presentation = next(selector)!;
-		expect(cardKey(presentation.target)).toBe(GK);
+		expect(presentation).toMatchObject({ target: G, aid: 'show-position', leadBeats: 8 });
 		expect(selector.record(answer(presentation), NOW)).toBeNull();
 
 		expect(play(selector, 2)).not.toContain(GK);
-		const first = next(selector)!;
-		expect(first).toMatchObject({ target: G, aid: 'none', leadBeats: 2, phase: 'learning' });
-		expect(selector.record(answer(first), NOW)).toBeNull();
+		const four = next(selector)!;
+		expect(four).toMatchObject({ target: G, aid: 'none', leadBeats: 4, phase: 'learning' });
+		expect(selector.record(answer(four), NOW)).toBeNull();
 
 		expect(play(selector, 4)).not.toContain(GK);
-		const second = next(selector)!;
-		expect(cardKey(second.target)).toBe(GK);
-		const outcome = selector.record(answer(second), NOW);
+		const two = next(selector)!;
+		expect(two).toMatchObject({ target: G, aid: 'none', leadBeats: 2 });
+		expect(selector.record(answer(two), NOW)).toBeNull();
+
+		expect(play(selector, 4)).not.toContain(GK);
+		const again = next(selector)!;
+		expect(again).toMatchObject({ target: G, leadBeats: 2 });
+		const outcome = selector.record(answer(again), NOW);
 		expect(outcome?.learned.learnedAt).toBe(NOW);
 		expect(outcome?.learned.leadBeats).toBe(2);
 	});
 
-	it('treats a right but slow answer as an error and shows the position again', () => {
+	it('doubles the lead after a miss, up to 8, where the position shows again', () => {
 		const selector = select([learning(G), ...FILLERS]);
 		selector.record(answer(next(selector)!), NOW);
 		play(selector, 2);
-		const retest = next(selector)!;
-		selector.record(answer(retest, { leadBeats: 4 }), NOW);
+		const four = next(selector)!;
+		selector.record(answer(four, { correct: false, verdict: 'wrong' }), NOW);
 		play(selector, 2);
 		expect(next(selector)).toMatchObject({ target: G, aid: 'show-position', leadBeats: 8 });
 	});
 
-	it('does not count an aided success toward learning', () => {
+	it('steps back from 2 to 4 after a miss and starts the successes at 2 over', () => {
 		const selector = select([learning(G), ...FILLERS]);
 		selector.record(answer(next(selector)!), NOW);
 		play(selector, 2);
-		selector.record(answer(next(selector)!, { correct: false, verdict: 'wrong' }), NOW);
-		play(selector, 2);
-		const aided = next(selector)!;
-		expect(aided.aid).toBe('show-position');
-		expect(selector.record(answer(aided), NOW)).toBeNull();
-		play(selector, 2);
-		expect(selector.record(answer(next(selector)!), NOW)).toBeNull();
+		selector.record(answer(next(selector)!), NOW);
 		play(selector, 4);
-		expect(selector.record(answer(next(selector)!), NOW)?.learned.key).toBe(GK);
+		selector.record(answer(next(selector)!), NOW);
+		play(selector, 4);
+		const miss = next(selector)!;
+		expect(miss.leadBeats).toBe(2);
+		selector.record(answer(miss, { correct: false, verdict: 'wrong' }), NOW);
+		play(selector, 2);
+		const back = next(selector)!;
+		expect(back).toMatchObject({ target: G, aid: 'none', leadBeats: 4 });
+		selector.record(answer(back), NOW);
+		play(selector, 4);
+		const first = next(selector)!;
+		expect(first.leadBeats).toBe(2);
+		expect(selector.record(answer(first), NOW)).toBeNull();
+	});
+
+	it('teaches an identify note with its name shown, then two quick unaided answers', () => {
+		const I = { direction: 'identify', string: 6, fret: 3 } as const;
+		const selector = select([learning(I), ...FILLERS]);
+		const shown = next(selector)!;
+		expect(shown).toMatchObject({ target: I, aid: 'show-position', leadBeats: null });
+		selector.record(answer(shown), NOW);
+		play(selector, 2);
+		const slow = next(selector)!;
+		expect(slow).toMatchObject({ target: I, aid: 'none', leadBeats: null });
+		selector.record(answer(slow, { reactionMs: 4000 }), NOW);
+		play(selector, 2);
+		expect(next(selector)).toMatchObject({ target: I, aid: 'show-position' });
 	});
 
 	it('puts a review before resuming a note', () => {

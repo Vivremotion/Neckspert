@@ -1,8 +1,10 @@
 import {
 	cardKey,
+	LEAD_STEPS,
 	type Attempt,
 	type CardKey,
 	type CardState,
+	type LeadBeats,
 	type PlannedItem,
 	type Target
 } from '$lib/domain/types';
@@ -28,8 +30,12 @@ interface LearningEntry {
 	target: Target;
 	/** Prompt count from which its next retest is due. */
 	dueAt: number;
+	/** Successes at the final step: the direct-recall lead (mode 1), unaided (mode 2). */
 	successes: number;
+	/** Mode 2 only: the name is shown on the next prompt. */
 	aided: boolean;
+	/** Mode 1 only: lead of the next prompt, from 8 down to the direct-recall lead. */
+	lead: LeadBeats;
 }
 
 function retestDueAt(servedAt: number, gap: number): number {
@@ -81,20 +87,12 @@ class LearnSelector implements SessionSelector {
 		const servedAt = this.servedAt.get(attempt.cardKey);
 		if (!entry || servedAt === undefined) return null;
 
-		if (attempt.aid === 'show-position') {
-			entry.aided = !attempt.correct;
-			entry.successes = 0;
-			entry.dueAt = retestDueAt(servedAt, LEARN_RETEST_GAPS[0]);
-			return null;
-		}
-		if (!isDirectRecall(attempt, this.tempoBpm)) {
-			entry.aided = true;
-			entry.successes = 0;
-			entry.dueAt = retestDueAt(servedAt, LEARN_RETEST_GAPS[0]);
-			return null;
-		}
-		entry.successes++;
-		if (entry.successes >= LEARN_SUCCESSES) {
+		const [shortGap, longGap] = LEARN_RETEST_GAPS;
+		const step =
+			entry.target.direction === 'locate'
+				? this.climbLead(entry, attempt.correct)
+				: this.climbIdentify(entry, attempt);
+		if (step === 'learned') {
 			this.learning.delete(attempt.cardKey);
 			const card = this.cards.get(attempt.cardKey);
 			if (!card) return null;
@@ -102,9 +100,45 @@ class LearnSelector implements SessionSelector {
 			this.cards.set(learned.key, learned);
 			return { learned };
 		}
-		const gap = LEARN_RETEST_GAPS[Math.min(entry.successes, LEARN_RETEST_GAPS.length - 1)];
-		entry.dueAt = retestDueAt(servedAt, gap);
+		entry.dueAt = retestDueAt(servedAt, step === 'short' ? shortGap : longGap);
 		return null;
+	}
+
+	/**
+	 * Mode 1 ladder: a success halves the lead (8, 4, then the direct-recall lead), a miss
+	 * doubles it up to 8. LEARN_SUCCESSES successes at the direct-recall lead make it learned.
+	 */
+	private climbLead(entry: LearningEntry, correct: boolean): 'short' | 'long' | 'learned' {
+		const final = leadForThreshold(this.tempoBpm);
+		const index = LEAD_STEPS.indexOf(entry.lead);
+		if (!correct) {
+			entry.lead = LEAD_STEPS[Math.max(index - 1, 0)];
+			entry.successes = 0;
+			return 'short';
+		}
+		if (entry.lead > final) {
+			const fromPresentation = entry.lead === LEARN_PRESENT_LEAD_BEATS;
+			entry.lead = LEAD_STEPS[Math.min(index + 1, LEAD_STEPS.indexOf(final))];
+			return fromPresentation ? 'short' : 'long';
+		}
+		entry.successes++;
+		return entry.successes >= LEARN_SUCCESSES ? 'learned' : 'long';
+	}
+
+	/** Mode 2: name shown until answered right, then LEARN_SUCCESSES quick unaided answers. */
+	private climbIdentify(entry: LearningEntry, attempt: Attempt): 'short' | 'long' | 'learned' {
+		if (entry.aided) {
+			entry.aided = !attempt.correct;
+			entry.successes = 0;
+			return 'short';
+		}
+		if (!isDirectRecall(attempt, this.tempoBpm)) {
+			entry.aided = true;
+			entry.successes = 0;
+			return 'short';
+		}
+		entry.successes++;
+		return entry.successes >= LEARN_SUCCESSES ? 'learned' : 'long';
 	}
 
 	cardChanged(card: CardState): void {
@@ -144,21 +178,24 @@ class LearnSelector implements SessionSelector {
 
 	private retest(entry: LearningEntry): PlannedItem {
 		const locate = entry.target.direction === 'locate';
+		const aided = locate ? entry.lead === LEARN_PRESENT_LEAD_BEATS : entry.aided;
 		return {
 			target: entry.target,
 			phase: 'learning',
 			temperature: 'hot',
-			aid: entry.aided ? 'show-position' : 'none',
-			leadBeats: !locate
-				? null
-				: entry.aided
-					? LEARN_PRESENT_LEAD_BEATS
-					: leadForThreshold(this.tempoBpm)
+			aid: aided ? 'show-position' : 'none',
+			leadBeats: locate ? entry.lead : null
 		};
 	}
 
 	private present(target: Target): PlannedItem {
-		const entry: LearningEntry = { target, dueAt: Infinity, successes: 0, aided: true };
+		const entry: LearningEntry = {
+			target,
+			dueAt: Infinity,
+			successes: 0,
+			aided: true,
+			lead: LEARN_PRESENT_LEAD_BEATS
+		};
 		this.learning.set(cardKey(target), entry);
 		entry.dueAt = retestDueAt(this.served, LEARN_RETEST_GAPS[0]);
 		return this.retest(entry);
