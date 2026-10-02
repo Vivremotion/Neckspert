@@ -1,6 +1,6 @@
 # Design — mode Apprentissage
 
-Date : 2026-10-02. Statut : en relecture.
+Date : 2026-10-02. Statut : approuvé, corrigé à la planification (section « Corrections »).
 
 La session du jour devient l’**Apprentissage** : une session d’environ 5 minutes, toujours ouverte, qui apprend les notes nouvelles par rappels espacés dans la session, révise à froid ce qui est dû, et consolide le reste. Les ensembles du curriculum ne sont plus des portes : une fenêtre glissante sur une file ordonnée fait entrer les notes nouvelles.
 
@@ -42,8 +42,8 @@ Si aucune option n’est disponible mais qu’un retest attend, le retest le plu
 ### 1.1 Apprentissage d’une note
 
 - **Présentation** : avec l’aide `show-position`, `LEARN_PRESENT_LEAD_BEATS = 8` temps d’avance. La carte est créée à ce moment (`introduceCard`, `learnedAt: null`), même si la réponse est fausse.
-- **Retests** : sans aide, `LEARN_RETEST_LEAD_BEATS = 4` temps d’avance. Le premier vient après `LEARN_RETEST_GAPS[0] = 2` autres consignes, le second après `LEARN_RETEST_GAPS[1] = 4`.
-- **Apprise** après `LEARN_SUCCESSES = 2` rappels directs sans aide consécutifs : `learnedAt = now`, et la carte reçoit `introScheduling(now)` (premier contrôle à froid dû après `MIN_COLD_DELAY_MS`).
+- **Retests** : sans aide, temps d’avance `leadForThreshold(tempo)` (le plus long qui compte encore comme rappel direct ; 2 temps à 80 bpm). Le premier vient après `LEARN_RETEST_GAPS[0] = 2` autres consignes, le second après `LEARN_RETEST_GAPS[1] = 4`.
+- **Apprise** après `LEARN_SUCCESSES = 2` rappels directs sans aide consécutifs : `learnedAt = now`, `leadBeats = leadForThreshold(tempo)`, et la carte reçoit `introScheduling(now)` (premier contrôle à froid dû après `MIN_COLD_DELAY_MS`).
 - **Erreur** (fausse note, absence de réponse, ou réponse juste mais pas en rappel direct) : le compteur de réussites retombe à 0, la note revient **avec l’aide** après 2 consignes, puis les retests sans aide reprennent à l’écart 2.
 - Une réponse juste avec l’aide ne compte pas comme réussite.
 - L’état des retests (écart, réussites, aide) vit dans la session seulement. Une note non apprise en fin de session reste en apprentissage, et repart de la présentation à la session suivante (option 3).
@@ -72,7 +72,7 @@ Parmi les cartes apprises, hors celles des 2 dernières consignes de la session 
 
 ### 1.5 Temps d’avance
 
-- Présentation : 8. Retests : 4. Révisions et consolidation : `leadBeats` de la carte (ajusté comme aujourd’hui par `adjustLeadBeats` sur les essais à froid).
+- Présentation : 8. Retests : `leadForThreshold(tempo)`. Révisions et consolidation : `leadBeats` de la carte (ajusté comme aujourd’hui par `adjustLeadBeats` sur les essais à froid).
 - Mode 2 (identification) : pas de temps d’avance, comme aujourd’hui.
 
 ## 2. File d’introduction
@@ -148,7 +148,7 @@ interface SessionSelector {
 ```
 
 - `buildLearnSelector({ cards, attempts, now, sessionId })` pour l’Apprentissage.
-- Positionnement et jeu libre : un sélecteur qui déroule leur liste actuelle, avec la répétition `repeatUntilCorrect` existante. Le contrôleur n’a plus qu’un chemin.
+- Positionnement et jeu libre : un sélecteur qui déroule leur liste actuelle. Le contrôleur n’a plus qu’un chemin.
 - `SessionController` ne garde plus `series` ni `queue` ; il appelle `next()` après chaque verdict et `record()` après chaque tentative. La logique de durée et de fatigue est passée au sélecteur via `context`.
 - Les cartes créées ou modifiées pendant la session (présentation, apprise, essai à froid) sont écrites par le contrôleur comme aujourd’hui ; le sélecteur garde sa propre copie en mémoire, mise à jour par `record()`.
 
@@ -172,6 +172,7 @@ Disparaît. `startSession(kind)` construit le sélecteur adapté et le passe au 
 
 - Pas de changement de forme. L’aide `show-position` sert à la présentation et au retour après une erreur.
 - La fin à 5 minutes arrive après le verdict en cours.
+- En mode 2, l’aide de présentation affiche le nom de la note (il n’existe pas d’autre aide pour ce sens).
 
 ### Bilan
 
@@ -214,6 +215,14 @@ Dans la même branche :
 
 - `PRODUCT.md` : « Session du jour » devient « Apprentissage » (déroulé de la section 1) ; « Progression par petits ensembles » devient la file d’introduction ; cordes à vide en prérequis ; jeu libre compté quand l’essai est à froid ; « Apprise » ajoutée à la Terminologie ; le bouton de l’accueil est toujours actif.
 - `CLAUDE.md` : `'learn'`, sélecteur, file d’introduction.
+
+## Corrections apportées à la planification
+
+1. **Retests à `leadForThreshold(tempo)` au lieu de 4 temps.** `isDirectRecall` exige que l’annonce tienne dans `RECALL_THRESHOLD_MS` (1,5 s) : à 80 bpm, 4 temps durent 3 s, aucune note n’aurait jamais été apprise.
+2. **Une carte apprise prend ce temps d’avance.** Sinon son premier contrôle à froid se ferait à 8 temps, ne pourrait pas être un rappel direct, et l’acquis demanderait 2 ou 3 sessions de plus ; la limite de 10 notes apprises non acquises bloquerait la fenêtre.
+3. **Le bilan s’ouvre à la fin de l’Apprentissage, et en quittant.** Aujourd’hui, seule la fin du jeu libre y mène ; la session du jour restait sur « Série terminée » avec un bouton qui rejouait la même liste.
+4. **Aide du mode 2** : le nom de la note (section 6).
+5. **`repeatUntilCorrect` disparaît** de `PlannedItem` : le sélecteur gère les retours ; positionnement et jeu libre ne répètent rien.
 
 ## Hors périmètre
 
