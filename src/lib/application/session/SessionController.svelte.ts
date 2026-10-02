@@ -129,6 +129,9 @@ export class SessionController implements PlaySessionController {
 			if (this.view.status === 'finished') this.beginNewSeries();
 			this.selector = await this.makeSelector(this.sessionId);
 			if (this.run !== run) return;
+			this.startedAt = this.deps.now();
+			// Show the first prompt's stage right away, before audio and the microphone.
+			this.prepareStage();
 			await this.beginAudio(run);
 		} finally {
 			if (this.run === run) this.starting = false;
@@ -178,9 +181,8 @@ export class SessionController implements PlaySessionController {
 		if (this.run !== run) return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
-		this.deps.metronome.setAudible(true);
+		this.deps.metronome.setAudible(this.view.scene === 'locate');
 
-		this.startedAt = this.deps.now();
 		await this.deps.sessions.put({
 			id: this.sessionId,
 			kind: this.kind,
@@ -198,14 +200,6 @@ export class SessionController implements PlaySessionController {
 
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.clearItemState();
-		// Pick the first prompt now so the stage shows its scene during the opening count.
-		// The opening count always clicks: it sets the tempo.
-		this.pending = this.takeNext();
-		if (this.pending) {
-			this.view.scene = this.pending.target.direction;
-			this.view.answerChoices =
-				this.pending.target.direction === 'identify' ? buildAnswerChoices() : null;
-		}
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
@@ -229,9 +223,9 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status !== 'paused') return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
-		this.deps.metronome.setAudible(true);
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.clearItemState();
+		this.prepareStage();
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
@@ -326,6 +320,19 @@ export class SessionController implements PlaySessionController {
 				fatigued: this.view.fatigueDetected
 			}) ?? null
 		);
+	}
+
+	/**
+	 * Before a counted bar (start, resume): picks the next prompt if none is waiting and sets
+	 * its stage, so the count runs on the right screen, clicked only for the guitar.
+	 */
+	private prepareStage(): void {
+		this.view.lastVerdict = null;
+		this.view.countdown = null;
+		this.pending ??= this.takeNext();
+		if (!this.pending) return;
+		this.lastDirection = this.pending.target.direction;
+		this.enterScene(this.pending.target.direction);
 	}
 
 	/** Lane and clicks for the guitar; answer pad and silence for the screen. */
@@ -697,6 +704,7 @@ export class SessionController implements PlaySessionController {
 			// Switching between guitar and screen: one counted bar to get the hands there.
 			this.earliestPromptBeat = beat.index + BEATS_PER_BAR;
 			this.view.countdown = BEATS_PER_BAR;
+			this.view.lastVerdict = null;
 			this.enterScene(direction);
 		} else if (direction === 'locate') {
 			this.view.answerChoices = null;

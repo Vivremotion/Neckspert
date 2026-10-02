@@ -357,7 +357,7 @@ describe('SessionController identify', () => {
 		const deps = createDeps();
 		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 1 })]), deps);
 		await controller.start();
-		expect(deps.metronome.audible).toBe(true);
+		expect(deps.metronome.audible).toBe(false);
 
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.prompt?.direction).toBe('identify');
@@ -406,7 +406,8 @@ describe('SessionController identify', () => {
 			scene: 'locate',
 			countdown: 4,
 			prompt: null,
-			answerChoices: null
+			answerChoices: null,
+			lastVerdict: null
 		});
 		expect(deps.metronome.audible).toBe(true);
 		tick(deps, 0.75 * 3);
@@ -429,11 +430,56 @@ describe('SessionController identify', () => {
 			clarity: 0.95
 		});
 		tick(deps, 0.75 * 2);
-		expect(controller.view).toMatchObject({ status: 'count-in', scene: 'identify', countdown: 4 });
+		expect(controller.view).toMatchObject({
+			status: 'count-in',
+			scene: 'identify',
+			countdown: 4,
+			lastVerdict: null
+		});
 		expect(controller.view.answerChoices).toHaveLength(12);
 		expect(deps.metronome.audible).toBe(false);
 		tick(deps, 0.75 * 4);
 		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt?.direction).toBe('identify');
+	});
+
+	it('opens a screen-first session on the answer pad, counted in silence', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([identifyItem()]), deps);
+		await controller.start();
+		expect(controller.view.scene).toBe('identify');
+		expect(deps.metronome.audible).toBe(false);
+		tick(deps, 0.1);
+		expect(controller.view.countdown).toBe(4);
+	});
+
+	it('sets the stage for the first prompt as soon as start is clicked', async () => {
+		const deps = createDeps();
+		deps.detector.start = () => new Promise<void>(() => {});
+		const controller = make(planWith([identifyItem()]), deps);
+		void controller.start();
+		await drain();
+		expect(controller.view.scene).toBe('identify');
+		expect(controller.view.answerChoices).toHaveLength(12);
+	});
+
+	it('counts back in on the stage of the next prompt after a pause', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 2 }), identifyItem()]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		controller.pause();
+		controller.resume();
+		expect(controller.view).toMatchObject({
+			status: 'count-in',
+			scene: 'identify',
+			lastVerdict: null
+		});
+		expect(deps.metronome.audible).toBe(false);
+		tick(deps, 0.1);
+		expect(controller.view.countdown).toBe(4);
+		tick(deps, 0.75 * 4);
 		expect(controller.view.prompt?.direction).toBe('identify');
 	});
 

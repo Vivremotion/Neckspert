@@ -229,6 +229,7 @@ Dans la même branche :
 1. **Échelle des temps d'avance en mode 1.** Présentation à 8 temps avec la position affichée. Une réussite divise le temps d'avance par deux (8, 4, puis `leadForThreshold(tempo)`), un échec le double, au plus 8. L'aide n'apparaît qu'à 8 temps. Il faut `LEARN_SUCCESSES = 2` réussites au palier final pour qu'une note soit apprise. Écarts : 2 consignes après une réussite à 8 ou un échec, 4 sinon. Le mode 2 garde présentation avec le nom, puis 2 réponses rapides sans aide.
 2. **Transition entre guitare et écran.** Quand le sens de la consigne change, une mesure complète est décomptée avant la consigne. Vers la guitare, le métronome clique et la piste remonte. Vers l'écran, la mesure est silencieuse et les boutons remontent. Pas de texte ni d'image.
 3. **Décompte à l'écran.** Pendant chaque mesure décomptée (début, reprise, transition), le chiffre (4, 3, 2, 1) remplace la consigne. `PlayView` gagne `scene` (ce que la scène montre) et `countdown`.
+4. **Chaque mode de jeu démarre par un décompte, sur son propre écran.** Au clic sur « Commencer » et à la reprise après pause, le jeu choisit la consigne suivante et affiche tout de suite l'écran de son mode : la piste pour la guitare, les boutons pour l'écran. La mesure décomptée clique pour la guitare et reste silencieuse pour l'écran. Le verdict précédent reste affiché un temps, puis s'efface dès qu'une mesure décomptée commence.
 
 ## Hors périmètre
 
