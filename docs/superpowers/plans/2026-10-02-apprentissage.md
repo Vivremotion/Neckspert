@@ -32,12 +32,14 @@
 ### Task 1 : modèle de données, renommage `learn`, remise à zéro
 
 **Files :**
+
 - Modify : `src/lib/domain/types.ts`, `src/lib/domain/progress/cards.ts`, `src/lib/domain/progress/constants.ts` (+ spec), `src/lib/domain/progress/index.ts`
 - Modify : `src/lib/infrastructure/storage/db.ts` (+ spec), `validateBackup.ts` (+ spec), `testing/fixtures.ts`
 - Modify : toute occurrence de `'daily'` (`homeAction.ts`, `routes/session/+page.svelte`, `createAppServices.ts`, specs)
 - Test : `cards.spec.ts`, `db.spec.ts`, `validateBackup.spec.ts`
 
 **Interfaces :**
+
 - Produces :
   - `CardState.learnedAt: number | null`
   - `SessionKind = 'placement' | 'learn' | 'free'`
@@ -61,11 +63,13 @@
 ### Task 2 : positions sans case 0 et file d’introduction
 
 **Files :**
+
 - Modify : `src/lib/domain/music/curriculum.ts` (+ spec), `src/lib/domain/music/index.ts` (+ spec)
 - Create : `src/lib/domain/progress/introduction.ts` (+ `introduction.spec.ts`)
 - Delete : `src/lib/domain/progress/curriculum.ts` (+ spec) ; `Curriculum`, `CurriculumSet` dans `types.ts` ; `curriculum` dans `SessionDeps`, `createApp.ts`, `createAppServices.ts`, specs.
 
 **Interfaces :**
+
 - Produces :
   - `LEARNABLE_FRETS: readonly number[]` = 1..11 (dans `music/curriculum.ts`)
   - `placementTargets(): LocateTarget[]` → 66 positions, cordes 6 → 1, cases 1..11
@@ -85,9 +89,11 @@
 ### Task 3 : éligibilité au froid
 
 **Files :**
+
 - Create : `src/lib/domain/progress/review.ts` (+ `review.spec.ts`), export dans `index.ts`
 
 **Interfaces :**
+
 - Produces :
   - `lastAttemptByCard(attempts: readonly Attempt[]): Map<CardKey, number>` (plus grand `promptedAt`, toutes phases)
   - `reviewableAt(card: CardState, lastAttemptAt: number | undefined): number | null` → `null` si `learnedAt === null`, sinon `max(card.scheduling.due, (lastAttemptAt ?? -Infinity) + MIN_COLD_DELAY_MS)`
@@ -105,14 +111,21 @@
 ### Task 4 : sélecteurs
 
 **Files :**
+
 - Create : `src/lib/domain/progress/selector.ts` (contrat + `createListSelector`), `src/lib/domain/progress/learnSelector.ts` (+ `learnSelector.spec.ts`, `selector.spec.ts`)
 - Modify : `src/lib/domain/progress/index.ts`
 
 **Interfaces :**
+
 - Consumes : `nextNewTarget`, `reviewableCards`, `lastAttemptByCard`, `markLearned`, `introduceCard`, `isDirectRecall`, `leadForThreshold`, constantes de la Task 1.
 - Produces :
+
 ```ts
-export interface SelectorContext { now: number; elapsedMs: number; fatigued: boolean }
+export interface SelectorContext {
+	now: number;
+	elapsedMs: number;
+	fatigued: boolean;
+}
 export type RecordOutcome = { learned: CardState } | null;
 export interface SessionSelector {
 	next(context: SelectorContext): PlannedItem | null;
@@ -129,6 +142,7 @@ export function createLearnSelector(input: {
 ```
 
 Règles (spec section 1, avec les corrections) :
+
 - `next` rend `null` si `elapsedMs >= LEARN_SESSION_MS`.
 - Compteur `served` incrémenté à chaque item rendu ; l’index de service de chaque carte est mémorisé. Un retest « après `g` consignes » est dû quand `served >= index + g + 1`.
 - Priorités : retest dû → (si non fatigué) révision → reprise → nouvelle note → consolidation → retest en avance (le plus proche) → `null`. Fatigué : seulement retest dû puis retest en avance.
@@ -163,12 +177,15 @@ Règles (spec section 1, avec les corrections) :
 ### Task 5 : contrôleur piloté par un sélecteur, froid en jeu libre
 
 **Files :**
+
 - Modify : `src/lib/application/session/SessionController.svelte.ts` (+ spec), `src/lib/application/services/createAppServices.ts` (+ spec), `src/lib/application/session/prompt.ts` (+ spec), `src/routes/session/demo/+page.svelte`
 - Modify : `src/lib/domain/progress/plans.ts` (+ spec) : supprimer `buildDailyPlan`, `SessionPlan` ; `buildPlacementPlan` et `buildFreePlan` rendent `PlannedItem[]`.
 
 **Interfaces :**
+
 - Consumes : Task 4.
 - Produces :
+
 ```ts
 new SessionController(
 	session: { id: string; kind: SessionKind },
@@ -176,8 +193,9 @@ new SessionController(
 	deps: SessionDeps
 )
 ```
-  - `startSession(kind)` : `placement` → `createListSelector(buildPlacementPlan(...))` ; `free` → `createListSelector(buildFreePlan(...))` ; `learn` → `createLearnSelector({ cards, attempts, sessionId, tempoBpm })`, données relues à chaque appel de la fabrique.
-  - `buildPromptView` : identify avec aide `show-position` → `aid` = nom de la note (`formatNote(spellPitch(pitchOnString(string, fret), random))`).
+
+- `startSession(kind)` : `placement` → `createListSelector(buildPlacementPlan(...))` ; `free` → `createListSelector(buildFreePlan(...))` ; `learn` → `createLearnSelector({ cards, attempts, sessionId, tempoBpm })`, données relues à chaque appel de la fabrique.
+- `buildPromptView` : identify avec aide `show-position` → `aid` = nom de la note (`formatNote(spellPitch(pitchOnString(string, fret), random))`).
 
 - [ ] **Step 1 : tests en échec** (`SessionController.spec.ts`, adapter `planWith` en `selectorWith(items)` → `async () => createListSelector(items)`)
   - les tests existants passent sur la liste ; supprimer `requeues learning items…` et `drops remaining learning items` (couverts par le sélecteur).
@@ -199,9 +217,11 @@ new SessionController(
 ### Task 6 : statistiques d’accueil, bilan, carte
 
 **Files :**
+
 - Modify : `src/lib/domain/progress/stats.ts` (+ spec), `src/lib/domain/types.ts`, `src/lib/application/services/createAppServices.ts` (`sessionSummary` charge aussi `attempts.all()`), `plans.ts` (supprimer `nextSuggestedAt`), `constants.ts` (supprimer `NEXT_SESSION_GAP_MS`)
 
 **Interfaces :**
+
 - Produces :
   - `HomeStats = { nextAction: 'placement' | 'learn'; dueCount: number; nextReviewAt: number | null; medianColdOffsetMs; trend }`
   - `SessionSummary` : `nextSuggestedAt` → `nextReviewAt: number | null` ; nouveau `pendingCount: number` ; `learnedCount` = cartes dont `learnedAt ∈ [record.startedAt, record.endedAt ?? now]`
@@ -219,17 +239,19 @@ new SessionController(
 ### Task 7 : écrans
 
 **Files :**
+
 - Modify : `src/lib/ui/screens/home/{HomeScreen.svelte, messages.ts, homeAction.ts}` (+ specs), `src/routes/+page.svelte`
 - Modify : `src/lib/ui/screens/summary/{SummaryScreen.svelte, messages.ts}` (+ spec)
 - Modify : `src/lib/ui/screens/map/{neckGrid.ts, NeckMapScreen.svelte}` (+ specs), `src/routes/dev/map/+page.svelte`
 - Modify : `src/lib/application/session/finishDestination.ts` (+ spec), `src/routes/session/+page.svelte`
 
 **Interfaces :**
+
 - Consumes : `HomeStats`, `SessionSummary` (Task 6).
 - Textes :
-  - Accueil, bouton : FR `Apprentissage`, EN `Learn`. Ligne : FR `(n) => n === 1 ? '1 révision due' : \`${n} révisions dues\``, EN `'1 review due' / \`${n} reviews due\``; FR `Prochaines révisions` + délai relatif existant (« Dans 2 h »), EN `Next reviews` + délai.
+  - Accueil, bouton : FR `Apprentissage`, EN `Learn`. Ligne : FR `(n) => n === 1 ? '1 révision due' : \`${n} révisions dues\``, EN `'1 review due' / \`${n} reviews due\``; FR `Prochaines révisions`+ délai relatif existant (« Dans 2 h »), EN`Next reviews` + délai.
   - Accueil, texte : FR « Le bouton lance le positionnement, puis l’Apprentissage : environ 5 minutes, à relancer quand tu veux. La note défile dans la piste : joue-la, sur la corde indiquée, quand sa case atteint le trait. Les cordes à vide sont supposées connues. Le clic sort des enceintes de l’ordinateur. » EN « The button starts placement, then Learn: about 5 minutes, start again whenever you like. The note travels along the lane: play it, on the string shown, when its tile reaches the line. Open strings are assumed known. The click comes from the computer speakers. »
-  - Bilan : `learned` FR `Notes apprises` / EN `Notes learned` ; `pending` FR `(n) => n === 1 ? '1 note reprendra la prochaine fois' : \`${n} notes reprendront la prochaine fois\`` / EN `'1 note will resume next time' / \`${n} notes will resume next time\`` ; `noCold` FR `Aucune révision à froid cette fois` / EN `No cold review this time` ; `next` FR `Prochaines révisions` / EN `Next reviews`.
+  - Bilan : `learned` FR `Notes apprises` / EN `Notes learned` ; `pending` FR `(n) => n === 1 ? '1 note reprendra la prochaine fois' : \`${n} notes reprendront la prochaine fois\``/ EN`'1 note will resume next time' / \`${n} notes will resume next time\``;`noCold`FR`Aucune révision à froid cette fois`/ EN`No cold review this time`;`next`FR`Prochaines révisions`/ EN`Next reviews`.
 
 - [ ] **Step 1 : tests en échec**
   - `homeAction.spec.ts` : `'learn'` → `'learn'` ; `isHomeActionEnabled` supprimé (bouton jamais désactivé).
@@ -243,6 +265,7 @@ new SessionController(
 ### Task 8 : documentation et vérification réelle
 
 **Files :**
+
 - Modify : `PRODUCT.md`, `CLAUDE.md`, `docs/superpowers/plans/README.md` (section « Décisions de produit » : session du jour, positionnement, curriculum)
 
 - [ ] **Step 1 :** `PRODUCT.md` selon la spec, section 8 ; `CLAUDE.md` : `'learn'`, sélecteurs, `introduction.ts`, `review.ts` ; README des plans : renvoyer les trois décisions concernées vers la spec du 2026-10-02.

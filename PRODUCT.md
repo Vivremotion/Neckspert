@@ -60,33 +60,39 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Seuil mémoire contre calcul** : environ 1 à 1,5 s. En dessous, rappel direct ; au-delà, calcul. Seuil à calibrer séparément pour le mode 2, où la réponse passe par l'écran.
 - **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur ne sait pas laquelle a été jouée. Le mode 1 vérifie la hauteur et l'octave (seules les octaves jouables sur la corde demandée sont acceptées) et fait confiance au guitariste pour la corde.
 - **Enregistrer les confusions**, pas seulement les échecs (F# joué à la place de F : erreur d'une case, donc de calcul).
-- **Progression par petits ensembles** : une corde et trois notes, puis une corde et douze notes, puis une note sur plusieurs cordes, puis tout le manche.
+- **Progression par une file ordonnée** : les naturelles d'abord, en alternant les cordes, celles placées sur un point du manche en premier ; puis les altérées. Une note nouvelle entre dès qu'une place se libère (fenêtre glissante).
+- **Cordes à vide supposées connues** : la consigne nomme la corde par sa note à vide ; la case 0 n'est jamais demandée.
 - **Retrait progressif de l'aide** : position affichée, puis nom seul, puis accord seul.
 - **Le jeu décide quoi travailler.** Les modes se débloquent progressivement.
-- **Temps de jeu illimité, révisions à froid limitées.** Une fois les révisions du jour faites, les autres modes restent ouverts ; ce qui est rejoué à chaud ne compte pas dans la rétention. La fatigue est signalée (baisse de précision, temps de réaction qui s'allonge).
+- **Temps de jeu illimité, révisions à froid limitées.** L'Apprentissage et le jeu libre restent toujours ouverts ; ce qui est rejoué à chaud ne compte pas dans la rétention. Un essai à froid compte quel que soit le mode : en jeu libre, une position déjà apprise et non jouée depuis au moins 1 h compte comme une révision. La fatigue est signalée (baisse de précision, temps de réaction qui s'allonge).
 
-### Session du jour
+### Apprentissage
 
-Plusieurs sessions courtes par jour. Chaque session enchaîne trois temps :
+Une session d'environ 5 minutes, toujours ouverte, à relancer autant qu'on veut. À chaque consigne, le jeu choisit, dans cet ordre :
 
-1. **Révisions à froid** : les positions dues selon la répétition espacée, chacune une seule fois, plafonnées à environ 20 consignes (4 à 5 minutes). Seules ces réponses comptent pour la rétention.
-2. **Apprentissage à chaud** : deux ou trois nouvelles positions de l'ensemble en cours, avec l'aide affichée, répétées jusqu'à réussite. Ne compte pas pour la rétention. Sauté si la fatigue apparaît.
-3. **Bilan** : précision et temps médian à froid de la session, puis l'heure conseillée de la prochaine session (par exemple dans 2 h).
+1. **Retest d'une note en cours d'apprentissage** dont l'écart est écoulé.
+2. **Révision à froid** : une position apprise, due selon la répétition espacée, et non jouée depuis au moins 1 h. Au plus environ 20 par session. Seules ces réponses, et les essais à froid du jeu libre, comptent pour la rétention.
+3. **Reprise** d'une note restée en cours d'apprentissage à la session précédente.
+4. **Note nouvelle**, la suivante de la file, s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
+5. **Consolidation** : une note déjà apprise, parmi les plus fragiles (confusions récentes, faible stabilité). À chaud, ne compte pas.
 
-Une position apprise dans une session reçoit son premier contrôle à froid dans une session suivante. Le bouton de l'accueil s'active quand une révision est due ou qu'un apprentissage est possible ; sinon, il affiche l'heure de la prochaine révision, et le jeu libre reste ouvert. Les chiffres sont des valeurs de départ, à calibrer.
+Apprendre une note : présentation avec la position affichée, puis la note revient sans aide après 2 autres consignes, puis après 4. Elle est **apprise** après 2 rappels directs sans aide. Une erreur, ou une réponse juste mais trop lente, réaffiche l'aide et recommence. En mode 2, l'aide est le nom de la note.
+
+À la fatigue, plus de note nouvelle ni de consolidation ; seuls les retests en cours continuent. Le bilan suit : précision et temps médian à froid, notes apprises, notes qui reprendront la prochaine fois, heure des prochaines révisions (une information, pas une invitation à attendre). Le bouton de l'accueil reste toujours actif après le positionnement ; il indique les révisions dues ou l'heure des suivantes. Les chiffres sont des valeurs de départ, à calibrer.
 
 ### Progression
 
 - **Positionnement** : la toute première session balaie le manche à froid, sans aide, en mode 1. Les positions déjà retrouvées sous le seuil de rappel direct sautent l'apprentissage et passent directement en révision. Elle donne le premier chiffre de rétention.
-- **Ensembles** : une corde et trois notes, puis une corde et douze notes, puis une note sur plusieurs cordes, puis tout le manche. L'ensemble suivant s'ouvre quand environ 80 % de l'ensemble en cours est acquis.
-- **Mode 2** : s'ouvre ensemble par ensemble, une fois l'ensemble acquis en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
+- **File d'introduction** : naturelles puis altérées, cordes alternées, cases 1 à 11. Une note entre quand une place de la fenêtre se libère, pas quand un ensemble est acquis.
+- **Mode 2** : une position entre dans la file en mode 2 dès qu'elle est acquise en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
 - **Modes 3 à 5** : s'ouvrent sur un pourcentage du manche maîtrisé, à définir avec ces modes.
 
 ### Terminologie
 
 - **À froid / à chaud** : premier essai d'une position après un délai / essais suivants.
 - **Verdicts** : Parfait, En avance, En retard, Mauvaise note (Perfect, Early, Late, Wrong note).
-- **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage. Ouvre l'ensemble suivant.
+- **Apprise** : réussie 2 fois sans aide, en rappel direct, dans la session où elle a été introduite. État à chaud, de court terme ; fait avancer la file, ne compte pas pour la rétention.
+- **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage.
 - **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.
 - **Noms des notes** : toujours en lettres (C, D, E…), dans les deux langues. Les notes altérées apparaissent sous les deux formes (F# ou Gb), tirées au hasard, et les deux sont acceptées en réponse.
 - **Langue de l'interface** : bilingue, français et anglais.

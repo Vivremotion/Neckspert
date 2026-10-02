@@ -32,7 +32,7 @@ Cause commune : la mesure de la rétention (à froid, espacée) sert aussi à ca
 La session ne suit plus une liste figée. À chaque consigne, un sélecteur pur choisit la suivante, d’après l’état de la session et les cartes. Il prend la première option disponible :
 
 1. **Retest d’apprentissage échu** : une note en apprentissage dont l’écart est écoulé.
-2. **Révision à froid** : une carte apprise, due (`scheduling.due <= now`) et *éligible au froid* (aucune tentative depuis `MIN_COLD_DELAY_MS`, toutes phases confondues, et pas encore jouée dans la session). Au plus `LEARN_COLD_CAP = 20` révisions par session, les plus anciennement dues d’abord (ordre actuel de `dueCards`).
+2. **Révision à froid** : une carte apprise, due (`scheduling.due <= now`) et _éligible au froid_ (aucune tentative depuis `MIN_COLD_DELAY_MS`, toutes phases confondues, et pas encore jouée dans la session). Au plus `LEARN_COLD_CAP = 20` révisions par session, les plus anciennement dues d’abord (ordre actuel de `dueCards`).
 3. **Note en apprentissage à reprendre** : une carte en apprentissage d’une session précédente, pas encore présentée dans cette session.
 4. **Note nouvelle** : la suivante de la file d’introduction (section 2), si les deux limites le permettent.
 5. **Consolidation** : une carte apprise, à chaud, choisie par faiblesse (section 1.4).
