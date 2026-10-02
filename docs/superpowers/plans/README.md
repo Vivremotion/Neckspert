@@ -52,9 +52,9 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 - **Verdict du mode 2** : nom juste et temps de réaction ≤ `RECALL_THRESHOLD_MS` → `perfect` ; nom juste mais plus lent → `late` ; nom faux → `wrong`. `early` n'existe pas en mode 2.
 - **Fenêtre de réponse du mode 1** : de l'affichage de la consigne au temps cible + `LATE_LIMIT_MS`. La première note détectée dans la fenêtre est la réponse ; les suivantes sont ignorées.
 - **Session du jour** : remplacée par l'Apprentissage (sélecteur consigne par consigne, 5 minutes, fenêtre glissante) — voir `docs/superpowers/specs/2026-10-02-apprentissage-design.md`.
-- **Positionnement** : première session, toutes les cibles du mode 1 (6 cordes × cases 1 à 11, 66 positions depuis le 2026-10-02), à froid, sans aide, annonce `leadForThreshold(tempo)`. Réussite en rappel direct → carte créée directement en révision et marquée acquise. Échec → rien n'est créé.
+- **Sondage** (remplace le positionnement le 2026-10-03) : chaque note nouvelle de l'Apprentissage est d'abord demandée sans aide, annonce `leadForThreshold(tempo)` en mode 1. Réussite en rappel direct → carte en révision, apprise et acquise, tentative à froid. Échec → tentative à chaud, carte en apprentissage, aide à la consigne suivante. Voir `docs/superpowers/specs/2026-10-03-sondage-avant-apprentissage-design.md`.
 - **Curriculum** : remplacé le 2026-10-02 par une file d'introduction (naturelles puis altérées, cordes alternées, sans case 0) — voir la spec Apprentissage.
-- **Acquis** : au moins une réussite en rappel direct, à froid, dans une session postérieure à la session d'introduction (ou en positionnement).
+- **Acquis** : au moins une réussite en rappel direct, à froid, dans une session postérieure à la session d'introduction (ou au sondage).
 - **Maîtrisé** : sur les tentatives à froid, au moins 90 % en rappel direct ; au moins trois sessions distinctes avec une réussite en rappel direct ; au moins 72 h entre les deux dernières sessions réussies.
 - **Fatigue** : sur les tentatives de la session, au moins 12 réponses, et, entre les 6 premières et les 6 dernières, une baisse de précision d'au moins 20 points ou une hausse de 25 % du temps de réaction médian. Cette hausse ne regarde que les tentatives du mode 2 : en mode 1, le temps de réaction mesure surtout la durée d'annonce.
 - **Sons** : chaque verdict a un son réservé (`SoundCuePort`).
@@ -278,7 +278,7 @@ export class SessionController implements PlaySessionController { constructor(pl
 export function createAppServices(deps: SessionDeps & { backup: BackupPort; calibration: CalibrationPort }): AppServices;
 ```
 
-Machine à états d'une série ; décompte ; consigne à `promptBeatIndex`, cible à `promptBeatIndex + leadBeats` ; première note dans la fenêtre ; jugement (B), confusion (A), température (C), mise à jour de carte (C), enregistrement de la tentative, son du verdict, historique de la piste ; apprentissage répété jusqu'à réussite ; fatigue ; fin de positionnement (`placementDoneAt`). Testé entièrement avec les doublures de P0.
+Machine à états d'une série ; décompte ; consigne à `promptBeatIndex`, cible à `promptBeatIndex + leadBeats` ; première note dans la fenêtre ; jugement (B), confusion (A), température (C), mise à jour de carte (C), enregistrement de la tentative, son du verdict, historique de la piste ; apprentissage répété jusqu'à réussite ; fatigue. Testé entièrement avec les doublures de P0.
 
 ### K — Intégration (`src/lib/composition/`)
 
@@ -302,3 +302,4 @@ Machine à états d'une série ; décompte ; consigne à `promptBeatIndex`, cibl
 | I3 | `2026-09-30-i3-calibration-reglages-sauvegarde.md` |
 | J | `2026-09-30-j-orchestration.md` |
 | K | `2026-09-30-k-integration.md` |
+| Sondage | `2026-10-03-sondage-avant-apprentissage.md` |

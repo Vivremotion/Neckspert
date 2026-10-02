@@ -1,6 +1,6 @@
 # Design — sonder avant d’enseigner
 
-Date : 2026-10-03. Statut : en relecture.
+Date : 2026-10-03. Statut : approuvé.
 
 Le positionnement disparaît. Chaque note nouvelle est d’abord **sondée** : demandée une fois sans aide, dans l’Apprentissage, quand elle sort de la file d’introduction. Retrouvée en rappel direct, elle passe directement en révision, comme une réussite au positionnement aujourd’hui. Sinon, l’aide apparaît dès la consigne suivante et l’apprentissage normal commence.
 

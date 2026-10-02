@@ -73,28 +73,29 @@ Une session d'environ 5 minutes, toujours ouverte, à relancer autant qu'on veut
 1. **Retest d'une note en cours d'apprentissage** dont l'écart est écoulé.
 2. **Révision à froid** : une position apprise, due selon la répétition espacée, et non jouée depuis au moins 1 h. Au plus environ 20 par session. Seules ces réponses, et les essais à froid du jeu libre, comptent pour la rétention.
 3. **Reprise** d'une note restée en cours d'apprentissage à la session précédente.
-4. **Note nouvelle**, la suivante de la file, s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
+4. **Note nouvelle**, la suivante de la file, sondée d'abord sans aide (voir Progression), s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
 5. **Consolidation** : une note déjà apprise, parmi les plus fragiles (confusions récentes, faible stabilité). À chaud, ne compte pas.
 
-Apprendre une note (mode 1) : présentation à 8 temps avec la position affichée. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
+Apprendre une note (mode 1), après un sondage manqué : présentation à 8 temps avec la position affichée, dès la consigne suivante. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
 
 Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décomptée à l'écran (4, 3, 2, 1) avant la consigne : clics et piste vers la guitare, silence et boutons vers l'écran.
 
-À la fatigue, plus de note nouvelle ni de consolidation ; seuls les retests en cours continuent. Le bilan suit : précision et temps médian à froid, notes apprises, notes qui reprendront la prochaine fois, heure des prochaines révisions (une information, pas une invitation à attendre). Le bouton de l'accueil reste toujours actif après le positionnement ; il indique les révisions dues ou l'heure des suivantes. Les chiffres sont des valeurs de départ, à calibrer.
+À la fatigue, plus de note nouvelle ni de consolidation ; seuls les retests en cours continuent. Le bilan suit : précision et temps médian à froid, notes apprises, notes déjà sues (sondages réussis), notes qui reprendront la prochaine fois, heure des prochaines révisions (une information, pas une invitation à attendre). Le bouton de l'accueil est toujours actif, dès la première visite ; il indique les révisions dues ou l'heure des suivantes. Les chiffres sont des valeurs de départ, à calibrer.
 
 ### Progression
 
-- **Positionnement** : la toute première session balaie le manche à froid, sans aide, en mode 1. Les positions déjà retrouvées sous le seuil de rappel direct sautent l'apprentissage et passent directement en révision. Elle donne le premier chiffre de rétention.
+- **Sondage** : la première fois qu'une note sort de la file, elle est demandée sans aide (mode 1 au temps d'avance du rappel direct, mode 2 avec son seuil). Retrouvée en rappel direct, elle passe directement en révision, acquise ; sinon l'aide arrive à la consigne suivante et l'apprentissage commence. Rien n'annonce un sondage à l'écran. Le sondage dispense de l'enseignement, jamais de la vérification. Il n'y a plus de session de positionnement (spec `docs/superpowers/specs/2026-10-03-sondage-avant-apprentissage-design.md`).
 - **File d'introduction** : naturelles puis altérées, cordes alternées, cases 1 à 11. Une note entre quand une place de la fenêtre se libère, pas quand un ensemble est acquis.
 - **Mode 2** : une position entre dans la file en mode 2 dès qu'elle est acquise en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
 - **Modes 3 à 5** : s'ouvrent sur un pourcentage du manche maîtrisé, à définir avec ces modes.
 
 ### Terminologie
 
-- **À froid / à chaud** : premier essai d'une position après un délai / essais suivants.
+- **À froid / à chaud** : premier essai d'une position après un délai / essais suivants. Exception : un sondage manqué est enregistré à chaud, parce qu'il ne mesure pas un oubli (la note n'a jamais été apprise) ; un sondage réussi est à froid.
+- **Sondage** : la toute première consigne d'une position, sans aide, quand elle entre dans l'Apprentissage. **Déjà sue** : note dont le sondage a réussi.
 - **Verdicts** : Parfait, En avance, En retard, Mauvaise note (Perfect, Early, Late, Wrong note).
 - **Apprise** : réussie 2 fois sans aide, en rappel direct, dans la session où elle a été introduite. État à chaud, de court terme ; fait avancer la file, ne compte pas pour la rétention.
-- **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage.
+- **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage, ou au sondage.
 - **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.
 - **Noms des notes** : toujours en lettres (C, D, E…), dans les deux langues. Les notes altérées apparaissent sous les deux formes (F# ou Gb), tirées au hasard, et les deux sont acceptées en réponse.
 - **Langue de l'interface** : bilingue, français et anglais.
