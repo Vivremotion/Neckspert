@@ -17,15 +17,8 @@ type Fields = Record<string, unknown>;
 const LOCALES: readonly Locale[] = ['fr', 'en'];
 const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'wrong'];
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
-const ITEM_PHASES: readonly ItemPhase[] = [
-	'placement',
-	'probe',
-	'review',
-	'learning',
-	'consolidation',
-	'free'
-];
-const SESSION_KINDS: readonly SessionKind[] = ['placement', 'learn', 'free'];
+const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
+const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 
 function isFields(value: unknown): value is Fields {
@@ -90,8 +83,6 @@ function checkSettings(settings: Fields): string | null {
 	) {
 		return `builtInInputGain must be a number from ${MIN_BUILT_IN_INPUT_GAIN} to ${MAX_BUILT_IN_INPUT_GAIN}`;
 	}
-	if (!isNullableNumber(settings.placementDoneAt))
-		return 'placementDoneAt must be a number or null';
 	return null;
 }
 
@@ -120,7 +111,7 @@ function checkAttempt(attempt: Fields): string | null {
 	const targetProblem = checkTarget(attempt.cardKey, attempt.target, 'cardKey');
 	if (targetProblem) return targetProblem;
 	if (!isOneOf(attempt.phase, ITEM_PHASES))
-		return 'phase must be placement, review, learning or free';
+		return 'phase must be probe, review, learning, consolidation or free';
 	if (!isOneOf(attempt.temperature, TEMPERATURES)) return 'temperature must be cold or hot';
 	if (!isFiniteNumber(attempt.promptedAt)) return 'promptedAt must be a number';
 	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
@@ -131,7 +122,7 @@ function checkAttempt(attempt: Fields): string | null {
 
 function checkSession(session: Fields): string | null {
 	if (typeof session.id !== 'string' || session.id === '') return 'id must be a non-empty string';
-	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be placement, learn or free';
+	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn or free';
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';

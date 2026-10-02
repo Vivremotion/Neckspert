@@ -1,6 +1,3 @@
-import type { SessionKind } from '$lib/domain/types';
-
-export function finishDestination(kind: SessionKind, sessionId: string): string | null {
-	if (kind === 'placement') return null;
+export function finishDestination(sessionId: string): string {
 	return `/summary?sessionId=${encodeURIComponent(sessionId)}`;
 }

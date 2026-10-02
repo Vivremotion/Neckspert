@@ -20,7 +20,7 @@ export interface SessionSelector {
 	cardChanged(card: CardState): void;
 }
 
-/** Serves a fixed list in order (placement, free play). */
+/** Serves a fixed list in order (free play). */
 export function createListSelector(items: readonly PlannedItem[]): SessionSelector {
 	const queue = [...items];
 	return {

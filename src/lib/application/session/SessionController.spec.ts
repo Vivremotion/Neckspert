@@ -539,27 +539,6 @@ describe('SessionController persistence', () => {
 		);
 		expect(attempts[0].verdict).toBe('wrong');
 	});
-
-	it('sets placementDoneAt when a placement session finishes', async () => {
-		const deps = createDeps();
-		const controller = make(
-			planWith([locateItem({ phase: 'placement', leadBeats: 1 })], 'placement'),
-			deps
-		);
-		await controller.start();
-		tick(deps, 0.1 + 0.75 * 4);
-		deps.detector.emitNote({
-			time: deps.metronome.beatTime(5),
-			midi: 65,
-			frequencyHz: 349,
-			clarity: 0.95
-		});
-		tick(deps, 0.75 * 2);
-		expect(controller.view.status).toBe('finished');
-		// finish() yields before settings.update; drain microtasks
-		for (let i = 0; i < 10; i++) await Promise.resolve();
-		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
-	});
 });
 
 /** List selector that records what the controller passes it. */

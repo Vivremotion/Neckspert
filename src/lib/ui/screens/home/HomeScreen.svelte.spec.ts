@@ -10,7 +10,6 @@ afterEach(() => {
 });
 
 const base: HomeStats = {
-	nextAction: 'learn',
 	dueCount: 0,
 	nextReviewAt: null,
 	medianColdOffsetMs: 40,
@@ -18,6 +17,18 @@ const base: HomeStats = {
 };
 
 describe('HomeScreen', () => {
+	it('opens learn on the first visit, with no placement', () => {
+		const first: HomeStats = {
+			dueCount: 0,
+			nextReviewAt: null,
+			medianColdOffsetMs: null,
+			trend: null
+		};
+		render(HomeScreen, { props: { stats: first, now: 0, onstart: () => {} } });
+		expect(screen.getByRole('button').textContent).toMatch(/apprentissage/i);
+		expect(screen.queryByText(/positionnement/i)).toBeNull();
+	});
+
 	it('shows one huge start button and the one reaction number with trend', () => {
 		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {} } });
 		const button = screen.getByRole('button') as HTMLButtonElement;
@@ -61,12 +72,13 @@ describe('HomeScreen', () => {
 		i18n.locale = 'en';
 		render(HomeScreen, {
 			props: {
-				stats: { ...base, nextAction: 'placement', medianColdOffsetMs: 12, trend: 'stable' },
+				stats: { ...base, medianColdOffsetMs: 12, trend: 'stable' },
 				now: 0,
 				onstart: () => {}
 			}
 		});
-		expect(screen.getByRole('button').textContent).toMatch(/placement/i);
+		expect(screen.getByRole('button').textContent).toMatch(/learn/i);
+		expect(screen.queryByText(/placement/i)).toBeNull();
 		expect(screen.getByText(/from the beat/i)).toBeTruthy();
 		expect(screen.getByText('12 ms')).toBeTruthy();
 		expect(screen.getByText(/stable/i)).toBeTruthy();

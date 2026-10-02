@@ -19,11 +19,8 @@
 
 	const t = $derived(homeMessages());
 
-	const buttonLabel = $derived(stats.nextAction === 'placement' ? t.placement : t.session);
-
-	/** Due reviews, or when the next ones come; nothing before placement or without a learned card. */
+	/** Due reviews, or when the next ones come; nothing without a learned card. */
 	const reviews = $derived.by((): { label: string; delay: string | null } | null => {
-		if (stats.nextAction === 'placement') return null;
 		if (stats.dueCount > 0) return { label: t.due(stats.dueCount), delay: null };
 		if (stats.nextReviewAt == null) return null;
 		return {
@@ -58,7 +55,7 @@
 				<p class="how"><PixelText scale={1}>{t.how}</PixelText></p>
 				<div class="action">
 					<PixelButton size="huge" onclick={onstart}>
-						{buttonLabel}
+						{t.session}
 					</PixelButton>
 					{#if reviews}
 						<p class="reviews">

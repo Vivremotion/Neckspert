@@ -3,7 +3,6 @@
 	import { useAppServices } from '$lib/application/app';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
-	import { homeSessionKind } from '$lib/ui/screens/home/homeAction';
 
 	const services = useAppServices();
 
@@ -31,9 +30,7 @@
 
 	function start() {
 		if (!stats) return;
-		const kind = homeSessionKind(stats.nextAction);
-		if (!kind) return;
-		void goto(`/session?kind=${kind}`);
+		void goto('/session?kind=learn');
 	}
 
 	function onKeydown(event: KeyboardEvent) {

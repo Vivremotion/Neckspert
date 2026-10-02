@@ -1,13 +1,6 @@
 import { practiceTargets } from '$lib/domain/music';
-import {
-	cardKey,
-	LEAD_STEPS,
-	type CardState,
-	type LocateTarget,
-	type PlannedItem
-} from '$lib/domain/types';
+import { cardKey, LEAD_STEPS, type CardState, type PlannedItem } from '$lib/domain/types';
 import { FREE_PLAY_COUNT } from './constants';
-import { leadForThreshold } from './lead';
 
 function shuffle<T>(items: readonly T[], random: () => number): T[] {
 	const result = [...items];
@@ -16,23 +9,6 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 		[result[i], result[j]] = [result[j], result[i]];
 	}
 	return result;
-}
-
-/** Placement prompts: every target once, shuffled, cold, unaided, at the threshold lead. */
-export function buildPlacementPlan(input: {
-	targets: readonly LocateTarget[];
-	tempoBpm: number;
-	random?: () => number;
-}): PlannedItem[] {
-	const random = input.random ?? Math.random;
-	const leadBeats = leadForThreshold(input.tempoBpm);
-	return shuffle(input.targets, random).map((target) => ({
-		target,
-		phase: 'placement',
-		temperature: 'cold',
-		aid: 'none',
-		leadBeats
-	}));
 }
 
 /** Free-play prompts drawn from every position; known locate cards keep their lead. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cardKey } from '$lib/domain/types';
 import { pitchOnString } from './fretboard';
-import { LEARNABLE_FRETS, placementTargets, practiceTargets } from './curriculum';
+import { LEARNABLE_FRETS, locateTargets, practiceTargets } from './curriculum';
 
 describe('LEARNABLE_FRETS', () => {
 	it('runs from fret 1 to 11: open strings are assumed known', () => {
@@ -9,9 +9,9 @@ describe('LEARNABLE_FRETS', () => {
 	});
 });
 
-describe('placementTargets', () => {
+describe('locateTargets', () => {
 	it('returns 66 locate targets, string 6 first, frets 1 to 11 on each string', () => {
-		const targets = placementTargets();
+		const targets = locateTargets();
 		expect(targets).toHaveLength(66);
 		expect(new Set(targets.map((target) => cardKey(target))).size).toBe(66);
 		expect(targets[0]).toEqual({ direction: 'locate', string: 6, pitch: 'F' });
@@ -23,7 +23,7 @@ describe('placementTargets', () => {
 		for (const string of [6, 5, 4, 3, 2, 1] as const) {
 			const open = pitchOnString(string, 0);
 			expect(
-				placementTargets().some((target) => target.string === string && target.pitch === open)
+				locateTargets().some((target) => target.string === string && target.pitch === open)
 			).toBe(false);
 		}
 	});

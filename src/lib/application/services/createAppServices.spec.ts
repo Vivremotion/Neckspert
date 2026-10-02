@@ -8,7 +8,7 @@ import type {
 } from '$lib/application/ports';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import type { BackupFile } from '$lib/domain/types';
-import { placementTargets, acceptableMidis } from '$lib/domain/music';
+import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeClock,
@@ -104,38 +104,10 @@ describe('createAppServices', () => {
 	it('wires homeStats, neckMap and sessionSummary through C and A', async () => {
 		const { services } = harness();
 		const stats = await services.homeStats();
-		expect(stats.nextAction).toBe('placement');
+		expect(stats.dueCount).toBe(0);
 		const map = await services.neckMap();
 		expect(map).toHaveLength(66);
 		expect(map[0]).toHaveProperty('pitch');
-	});
-
-	it('startSession(placement) drives every placement target', async () => {
-		const { services, deps } = harness();
-		const controller = await services.startSession('placement');
-		expect(controller.view.status).toBe('idle');
-		await controller.start();
-
-		const expected = placementTargets().length;
-		let guard = 0;
-		while (controller.view.status !== 'finished' && guard++ < expected * 20) {
-			if (controller.view.status === 'awaiting' && controller.view.targetBeatIndex !== null) {
-				const due = deps.metronome.beatTime(controller.view.targetBeatIndex);
-				// MIDI 40 always records an attempt (correct or wrong); order may be shuffled.
-				deps.detector.emitNote({
-					time: due,
-					midi: 40,
-					frequencyHz: 82.41,
-					clarity: 0.9
-				});
-				await Promise.resolve();
-			}
-			tick(deps, deps.metronome.secondsPerBeat());
-		}
-		for (let i = 0; i < 10; i++) await Promise.resolve();
-		expect(controller.view.status).toBe('finished');
-		expect(await deps.attempts.all()).toHaveLength(expected);
-		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
 	});
 
 	it('startSession(learn) probes the first note of the queue without aid', async () => {
@@ -175,7 +147,6 @@ describe('createAppServices', () => {
 
 	it('startSession(learn) runs the plan from C and exposes a summary', async () => {
 		const { services, deps } = harness();
-		await deps.settings.update({ placementDoneAt: deps.now() });
 		const controller = await services.startSession('learn');
 		await controller.start();
 

@@ -32,5 +32,5 @@ export { createListSelector } from './selector';
 export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
-export { buildPlacementPlan, buildFreePlan } from './plans';
+export { buildFreePlan } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

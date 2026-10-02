@@ -73,10 +73,10 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-export type SessionKind = 'placement' | 'learn' | 'free';
+export type SessionKind = 'learn' | 'free';
 
 /** Where an attempt happened inside a session. */
-export type ItemPhase = 'placement' | 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
+export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
 
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';
@@ -136,7 +136,7 @@ export interface SchedulingState {
 export interface CardState {
 	key: CardKey;
 	target: Target;
-	/** Epoch ms of the learning (or placement) that introduced the card. */
+	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
 	introducedInSession: string;
 	/** Current lead step, mode 1 only; identify cards keep 1. */
@@ -188,7 +188,6 @@ export interface Settings {
 	inputDeviceId: string | null;
 	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
 	builtInInputGain: number;
-	placementDoneAt: number | null;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -196,14 +195,12 @@ export const DEFAULT_SETTINGS: Settings = {
 	tempoBpm: 80,
 	calibrationOffsetMs: null,
 	inputDeviceId: null,
-	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
-	placementDoneAt: null
+	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN
 };
 
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
 
 export interface HomeStats {
-	nextAction: 'placement' | 'learn';
 	/** Cards a learn session would review cold right now. */
 	dueCount: number;
 	/** Earliest time a learned card can be reviewed cold. Null without a learned card. */

@@ -94,7 +94,7 @@ describe('createApp', () => {
 		expect(settings.calibrationOffsetMs).toBeNull();
 
 		const stats = await services.homeStats();
-		expect(stats.nextAction).toBe('placement');
+		expect(stats.dueCount).toBe(0);
 		expect(factory).not.toHaveBeenCalled();
 	});
 

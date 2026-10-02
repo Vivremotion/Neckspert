@@ -65,7 +65,6 @@ export class FakeBackup implements BackupPort {
 }
 
 const EMPTY_HOME: HomeStats = {
-	nextAction: 'learn',
 	dueCount: 0,
 	nextReviewAt: null,
 	medianColdOffsetMs: null,

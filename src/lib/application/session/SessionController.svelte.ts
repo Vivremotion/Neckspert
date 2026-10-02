@@ -21,7 +21,6 @@ import {
 	applyColdAttempt,
 	classifyTemperature,
 	introduceCard,
-	probeCard,
 	probeTemperature,
 	type SessionSelector
 } from '$lib/domain/progress';
@@ -656,10 +655,7 @@ export class SessionController implements PlaySessionController {
 		await this.deps.attempts.add(attempt);
 
 		const now = this.deps.now();
-		if (item.phase === 'placement' && item.target.direction === 'locate') {
-			const card = probeCard(item.target, attempt, now, this.sessionId, this.settings.tempoBpm);
-			if (card) await this.deps.cards.put(card);
-		} else if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
+		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
 				await this.storeCard(
@@ -684,7 +680,7 @@ export class SessionController implements PlaySessionController {
 
 	/**
 	 * Learning and consolidation stay hot. Free play counts cold only on a learned card.
-	 * Reviews and placement follow the cold-delay rule.
+	 * Reviews follow the cold-delay rule; probes are judged by probeTemperature.
 	 */
 	private temperatureFor(
 		item: PlannedItem,
@@ -751,8 +747,5 @@ export class SessionController implements PlaySessionController {
 			fatigueDetected,
 			tempoBpm
 		});
-		if (this.kind === 'placement') {
-			await this.deps.settings.update({ placementDoneAt: this.deps.now() });
-		}
 	}
 }

@@ -31,8 +31,7 @@
 
 	$effect(() => {
 		if (left || !controller || controller.view.status !== 'finished') return;
-		const href = finishDestination(kind, controller.sessionId);
-		if (!href) return;
+		const href = finishDestination(controller.sessionId);
 		left = true;
 		void goto(href);
 	});
@@ -41,5 +40,5 @@
 {#if error}
 	<p>{error}</p>
 {:else if controller}
-	<PlayScreen {controller} quitToSummary={kind !== 'placement'} />
+	<PlayScreen {controller} quitToSummary />
 {/if}

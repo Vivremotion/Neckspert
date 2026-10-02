@@ -25,7 +25,6 @@ describe('progress index', () => {
 			'nextNewTarget',
 			'createLearnSelector',
 			'createListSelector',
-			'buildPlacementPlan',
 			'buildFreePlan',
 			'nextReviewAt',
 			'computeHomeStats',

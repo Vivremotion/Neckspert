@@ -2,11 +2,10 @@ import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import { placementTargets, pitchOnString } from '$lib/domain/music';
+import { pitchOnString } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
-	buildPlacementPlan,
 	computeHomeStats,
 	createLearnSelector,
 	createListSelector,
@@ -74,15 +73,6 @@ export function createAppServices(
 		async startSession(kind: SessionKind) {
 			const makeSelector = async (sessionId: string): Promise<SessionSelector> => {
 				const [settings, cards] = await Promise.all([deps.settings.get(), deps.cards.all()]);
-				if (kind === 'placement') {
-					return createListSelector(
-						buildPlacementPlan({
-							targets: placementTargets(),
-							tempoBpm: settings.tempoBpm,
-							random: deps.random
-						})
-					);
-				}
 				if (kind === 'free') {
 					return createListSelector(buildFreePlan({ cards, random: deps.random }));
 				}

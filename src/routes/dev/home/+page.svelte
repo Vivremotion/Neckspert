@@ -7,7 +7,6 @@
 			label: 'learn, reviews due',
 			now: 0,
 			stats: {
-				nextAction: 'learn',
 				dueCount: 6,
 				nextReviewAt: null,
 				medianColdOffsetMs: 40,
@@ -15,10 +14,9 @@
 			}
 		},
 		{
-			label: 'placement',
+			label: 'first visit',
 			now: 0,
 			stats: {
-				nextAction: 'placement',
 				dueCount: 0,
 				nextReviewAt: null,
 				medianColdOffsetMs: null,
@@ -29,7 +27,6 @@
 			label: 'learn, next reviews later',
 			now: 0,
 			stats: {
-				nextAction: 'learn',
 				dueCount: 0,
 				nextReviewAt: 2 * 60 * 60 * 1000,
 				medianColdOffsetMs: 80,

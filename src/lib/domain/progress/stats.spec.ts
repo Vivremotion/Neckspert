@@ -39,25 +39,13 @@ function coldAttempt(overrides: Partial<Attempt>): Attempt {
 }
 
 describe('computeHomeStats', () => {
-	it('asks for placement until placementDoneAt is set', () => {
+	it('has nothing due and no next review on a fresh install', () => {
 		const stats = computeHomeStats({
 			cards: [],
 			attempts: [],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: null },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
-		expect(stats.nextAction).toBe('placement');
-		expect(stats.nextReviewAt).toBeNull();
-	});
-
-	it('offers learning right after placement, with nothing due yet', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW - 1 },
-			now: NOW
-		});
-		expect(stats.nextAction).toBe('learn');
 		expect(stats.dueCount).toBe(0);
 		expect(stats.nextReviewAt).toBeNull();
 	});
@@ -83,10 +71,9 @@ describe('computeHomeStats', () => {
 					promptedAt: recent
 				})
 			],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW - 1 },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
-		expect(stats.nextAction).toBe('learn');
 		expect(stats.dueCount).toBe(1);
 		expect(stats.nextReviewAt).toBe(NOW - 5);
 	});
@@ -96,10 +83,9 @@ describe('computeHomeStats', () => {
 		const stats = computeHomeStats({
 			cards: [{ ...card, scheduling: { ...card.scheduling, due: NOW + 10_000 } }],
 			attempts: [],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW - 1 },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
-		expect(stats.nextAction).toBe('learn');
 		expect(stats.dueCount).toBe(0);
 		expect(stats.nextReviewAt).toBe(NOW + 10_000);
 	});
@@ -123,7 +109,7 @@ describe('computeHomeStats', () => {
 					reactionMs: 400
 				})
 			],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(30);
@@ -149,7 +135,7 @@ describe('computeHomeStats', () => {
 		const stats = computeHomeStats({
 			cards: [],
 			attempts: [...previous, ...recent],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(55);
@@ -160,7 +146,7 @@ describe('computeHomeStats', () => {
 		const stats = computeHomeStats({
 			cards: [],
 			attempts: [coldAttempt({ promptedAt: NOW - 1000, reactionMs: 900 })],
-			settings: { ...DEFAULT_SETTINGS, placementDoneAt: NOW },
+			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.trend).toBeNull();

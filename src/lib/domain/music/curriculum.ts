@@ -20,7 +20,7 @@ function identifyTarget(string: StringNumber, fret: number): IdentifyTarget {
 }
 
 /** Every mode 1 target: strings 6 to 1, frets 1 to 11 on each (66 targets). */
-export function placementTargets(): LocateTarget[] {
+export function locateTargets(): LocateTarget[] {
 	return CURRICULUM_STRINGS.flatMap((string) =>
 		LEARNABLE_FRETS.map((fret) => locateTarget(string, fret))
 	);
@@ -29,7 +29,7 @@ export function placementTargets(): LocateTarget[] {
 /** Every target free play draws from: 66 in mode 1, then 66 in mode 2. */
 export function practiceTargets(): Target[] {
 	return [
-		...placementTargets(),
+		...locateTargets(),
 		...CURRICULUM_STRINGS.flatMap((string) =>
 			LEARNABLE_FRETS.map((fret) => identifyTarget(string, fret))
 		)

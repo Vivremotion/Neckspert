@@ -14,7 +14,7 @@ const PUBLIC_FUNCTIONS = [
 	'classifyNoteConfusion',
 	'classifyNameConfusion',
 	'practiceTargets',
-	'placementTargets',
+	'locateTargets',
 	'pitchOfMidi'
 ] as const;
 
@@ -28,8 +28,8 @@ describe('music index', () => {
 	});
 
 	it('works end to end through the index', () => {
-		const target = music.placementTargets().find((t) => t.string === 2 && t.pitch === 'F');
-		if (!target) throw new Error('F on string 2 is missing from placement');
+		const target = music.locateTargets().find((t) => t.string === 2 && t.pitch === 'F');
+		if (!target) throw new Error('F on string 2 is missing from the locate targets');
 		expect(music.acceptableMidis(target)).toEqual([65, 77]);
 		expect(music.classifyNoteConfusion(target, 66)).toEqual({ kind: 'semitone', delta: 1 });
 		expect(music.formatNote(music.spellPitch('F#', () => 0.5))).toBe('Gb');

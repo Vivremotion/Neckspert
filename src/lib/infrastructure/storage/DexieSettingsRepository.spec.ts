@@ -28,10 +28,10 @@ describe('DexieSettingsRepository', () => {
 
 	it('reads settings saved through another repository on the same database', async () => {
 		const db = createDatabase(crypto.randomUUID());
-		await new DexieSettingsRepository(db).update({ placementDoneAt: 7000 });
+		await new DexieSettingsRepository(db).update({ tempoBpm: 104 });
 		expect(await new DexieSettingsRepository(db).get()).toEqual({
 			...DEFAULT_SETTINGS,
-			placementDoneAt: 7000
+			tempoBpm: 104
 		});
 	});
 });

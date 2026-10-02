@@ -104,10 +104,18 @@ describe('validateBackup', () => {
 	it('rejects an invalid session', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'weekly' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be placement, learn or free');
+		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'daily' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be placement, learn or free');
+		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
+		expect(() =>
+			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'placement' }] })
+		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
+		expect(() =>
+			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), phase: 'placement' }] })
+		).toThrow(
+			'Invalid attempts entry at index 0: phase must be probe, review, learning, consolidation or free'
+		);
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), fatigueDetected: 'no' }] })
 		).toThrow('Invalid sessions entry at index 0: fatigueDetected must be a boolean');
@@ -120,6 +128,11 @@ describe('validateBackup', () => {
 					sessions: [makeSession({ kind: 'learn' })],
 					attempts: [makeAttempt({ phase: 'consolidation', temperature: 'hot' })]
 				})
+			)
+		).not.toThrow();
+		expect(() =>
+			validateBackup(
+				makeBackup({ attempts: [makeAttempt({ phase: 'probe', temperature: 'hot' })] })
 			)
 		).not.toThrow();
 	});

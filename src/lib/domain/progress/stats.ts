@@ -87,19 +87,8 @@ export function computeHomeStats(input: {
 	const medianColdOffsetMs = median(locateOffsets(input.attempts));
 	const trend = trendFor(input.attempts, input.now);
 
-	if (input.settings.placementDoneAt === null) {
-		return {
-			nextAction: 'placement',
-			dueCount: 0,
-			nextReviewAt: null,
-			medianColdOffsetMs,
-			trend
-		};
-	}
-
 	const last = lastAttemptByCard(input.attempts);
 	return {
-		nextAction: 'learn',
 		dueCount: reviewableCards(input.cards, last, input.now).length,
 		nextReviewAt: nextReviewAt(input.cards, last),
 		medianColdOffsetMs,
