@@ -52,6 +52,8 @@ class LearnSelector implements SessionSelector {
 	private readonly servedCount = new Map<CardKey, number>();
 	private readonly recent: CardKey[] = [];
 	private served = 0;
+	/** Probe served and not recorded yet; still set at the next `next()` means it was abandoned (pause). */
+	private unansweredProbe: CardKey | null = null;
 	private reviews = 0;
 
 	constructor(
@@ -68,6 +70,7 @@ class LearnSelector implements SessionSelector {
 
 	next(context: SelectorContext): PlannedItem | null {
 		if (context.elapsedMs >= LEARN_SESSION_MS) return null;
+		this.dropAbandonedProbe();
 		const item = this.pick(context);
 		if (!item) return null;
 		const key = cardKey(item.target);
@@ -82,7 +85,10 @@ class LearnSelector implements SessionSelector {
 	record(attempt: Attempt, now: number): RecordOutcome {
 		this.last.set(attempt.cardKey, attempt.promptedAt);
 		this.remember(attempt);
-		if (attempt.phase === 'probe') return this.recordProbe(attempt, now);
+		if (attempt.phase === 'probe') {
+			if (attempt.cardKey === this.unansweredProbe) this.unansweredProbe = null;
+			return this.recordProbe(attempt, now);
+		}
 		if (attempt.phase !== 'learning') return null;
 		const entry = this.learning.get(attempt.cardKey);
 		const servedAt = this.servedAt.get(attempt.cardKey);
@@ -103,6 +109,14 @@ class LearnSelector implements SessionSelector {
 		}
 		entry.dueAt = retestDueAt(servedAt, step === 'short' ? shortGap : longGap);
 		return null;
+	}
+
+	/** Forgets the in-memory card of a probe nobody answered, so the note can be probed again. */
+	private dropAbandonedProbe(): void {
+		if (this.unansweredProbe === null) return;
+		this.cards.delete(this.unansweredProbe);
+		this.servedAt.delete(this.unansweredProbe);
+		this.unansweredProbe = null;
 	}
 
 	/** A passed probe goes to review; a missed one is presented with the aid on the next prompt. */
@@ -250,6 +264,7 @@ class LearnSelector implements SessionSelector {
 		if (!target) return null;
 		const card = introduceCard(target, now, this.sessionId);
 		this.cards.set(card.key, card);
+		this.unansweredProbe = card.key;
 		return {
 			target,
 			phase: 'probe',

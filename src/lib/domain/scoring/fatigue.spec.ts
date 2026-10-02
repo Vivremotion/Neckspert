@@ -124,4 +124,11 @@ describe('detectFatigue', () => {
 		const attempts = [...times(6, () => locate(800)), ...times(6, () => locate(6000))];
 		expect(detectFatigue(attempts)).toBe(false);
 	});
+	it('ignores probes: not knowing a new note is not tiredness', () => {
+		const missedProbe = (): Attempt => ({ ...wrong(), phase: 'probe', temperature: 'hot' });
+		const probes = times(FATIGUE_WINDOW, missedProbe);
+		expect(detectFatigue([...times(FATIGUE_WINDOW, right), ...probes])).toBe(false);
+		const reviews = [...times(FATIGUE_WINDOW, right), ...times(FATIGUE_WINDOW, wrong)];
+		expect(detectFatigue([...reviews, ...probes])).toBe(true);
+	});
 });

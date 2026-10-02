@@ -5,13 +5,13 @@
 	import { useAppServices } from '$lib/application/app';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import { finishDestination } from '$lib/application/session/finishDestination';
-	import type { SessionKind } from '$lib/domain/types';
+	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 
 	let controller = $state<PlaySessionController | null>(null);
 	let error = $state<string | null>(null);
 
-	const kind = $derived((page.url.searchParams.get('kind') ?? 'learn') as SessionKind);
+	const kind = $derived(sessionKindFromQuery(page.url.searchParams.get('kind')));
 
 	onMount(async () => {
 		try {

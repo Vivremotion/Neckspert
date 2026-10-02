@@ -186,6 +186,13 @@ describe('createLearnSelector', () => {
 		expect(next(select(known))).toMatchObject({ phase: 'probe' });
 	});
 
+	it('probes an abandoned probe again instead of holding its slot', () => {
+		const selector = select([]);
+		expect(next(selector)).toMatchObject({ target: G, phase: 'probe' });
+		// Paused before answering: nothing is recorded, the next prompt is asked for.
+		expect(next(selector)).toMatchObject({ target: G, phase: 'probe' });
+	});
+
 	it('fatigue_serves_no_probe', () => {
 		expect(next(select([]), true)).toBeNull();
 	});
