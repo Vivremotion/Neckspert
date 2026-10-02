@@ -729,6 +729,57 @@ describe('SessionController with a selector', () => {
 		expect((await deps.cards.get('locate:2:F'))?.learnedAt).toBe(123);
 	});
 
+	it('records a missed probe hot and a passed probe cold', async () => {
+		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 });
+		const passed = createDeps();
+		const right = withSelector(spySelector([probe]).selector, passed);
+		await right.start();
+		tick(passed, 0.1 + 0.75 * 4);
+		playRight(passed, right);
+		await drain();
+		expect((await passed.attempts.all()).map((a) => a.temperature)).toEqual(['cold']);
+
+		const missed = createDeps();
+		const wrong = withSelector(spySelector([probe]).selector, missed);
+		await wrong.start();
+		tick(missed, 0.1 + 0.75 * 4);
+		missed.detector.emitNote({
+			time: missed.metronome.beatTime(6),
+			midi: 60,
+			frequencyHz: 262,
+			clarity: 0.95
+		});
+		await drain();
+		expect((await missed.attempts.all()).map((a) => a.temperature)).toEqual(['hot']);
+	});
+
+	it('stores the card the selector reports for a probe', async () => {
+		const deps = createDeps();
+		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 });
+		const spy = spySelector([probe]);
+		const known = { ...introduceCard(probe.target, deps.now(), 'sess-1'), acquiredAt: 456 };
+		spy.learnOnRecord({ card: known });
+		const controller = withSelector(spy.selector, deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		playRight(deps, controller);
+		await drain();
+		expect((await deps.cards.get('locate:2:F'))?.acquiredAt).toBe(456);
+	});
+
+	it('stores nothing when quitting before a probe is answered', async () => {
+		const deps = createDeps();
+		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 });
+		const controller = withSelector(spySelector([probe]).selector, deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		controller.quit();
+		await drain();
+		expect(await deps.attempts.all()).toEqual([]);
+		expect(await deps.cards.all()).toEqual([]);
+	});
+
 	it('counts a cold free-play attempt on a learned card', async () => {
 		const deps = createDeps();
 		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;

@@ -22,6 +22,7 @@ import {
 	classifyTemperature,
 	introduceCard,
 	probeCard,
+	probeTemperature,
 	type SessionSelector
 } from '$lib/domain/progress';
 import type {
@@ -594,7 +595,10 @@ export class SessionController implements PlaySessionController {
 
 		// Provisional temperature for sync fatigue/session tracking; refined after history load.
 		const provisionalTemperature =
-			item.phase === 'learning' || item.phase === 'consolidation' || item.phase === 'free'
+			item.phase === 'learning' ||
+			item.phase === 'consolidation' ||
+			item.phase === 'free' ||
+			item.phase === 'probe'
 				? item.temperature
 				: attemptedInSession
 					? 'hot'
@@ -638,11 +642,15 @@ export class SessionController implements PlaySessionController {
 		const history = await this.deps.attempts.listByCard(key);
 		const existing = await this.deps.cards.get(key);
 		const lastAttemptAt = history.length > 0 ? history[history.length - 1].promptedAt : null;
-		const temperature = this.temperatureFor(item, existing, {
-			lastAttemptAt,
-			attemptedInSession,
-			now: promptedAt
-		});
+		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
+		const temperature =
+			item.phase === 'probe'
+				? probeTemperature(attempt, this.settings.tempoBpm)
+				: this.temperatureFor(item, existing, {
+						lastAttemptAt,
+						attemptedInSession,
+						now: promptedAt
+					});
 		attempt.temperature = temperature;
 
 		await this.deps.attempts.add(attempt);
@@ -658,6 +666,8 @@ export class SessionController implements PlaySessionController {
 					applyColdAttempt(existing, attempt, fullHistory, now, this.settings.tempoBpm)
 				);
 			}
+		} else if (item.phase === 'probe') {
+			if (outcome) await this.storeCard(outcome.card);
 		} else if (item.phase === 'learning') {
 			if (outcome) await this.storeCard(outcome.card);
 			else if (!existing) {
