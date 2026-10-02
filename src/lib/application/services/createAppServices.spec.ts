@@ -138,6 +138,42 @@ describe('createAppServices', () => {
 		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
 	});
 
+	it('startSession(learn) starts with the first note of the queue, position shown', async () => {
+		const { services, deps } = harness();
+		await deps.settings.update({ placementDoneAt: deps.now() });
+		const controller = await services.startSession('learn');
+		await controller.start();
+		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
+		expect(controller.view.prompt).toMatchObject({
+			primary: 'G',
+			secondary: 'corde de E grave',
+			aid: 'case 3'
+		});
+		expect(controller.view.leadBeats).toBe(8);
+	});
+
+	it('startSession(free) never prompts an open string', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startSession('free');
+		await controller.start();
+		const prompts: string[] = [];
+		let guard = 0;
+		while (controller.view.status !== 'finished' && guard++ < 2000) {
+			if (controller.view.status === 'awaiting' && controller.view.prompt) {
+				const prompt = controller.view.prompt;
+				const key = `${prompt.primary}|${prompt.secondary}`;
+				if (prompts.at(-1) !== key) prompts.push(key);
+				if (prompt.direction === 'identify') controller.answer('C');
+			}
+			tick(deps, deps.metronome.secondsPerBeat());
+			await Promise.resolve();
+		}
+		expect(prompts.length).toBeGreaterThan(0);
+		expect(prompts.some((key) => key.startsWith('case 0|'))).toBe(false);
+		expect(prompts).not.toContain('E|corde de E grave');
+		expect(prompts).not.toContain('A|corde de A');
+	});
+
 	it('startSession(learn) runs the plan from C and exposes a summary', async () => {
 		const { services, deps } = harness();
 		await deps.settings.update({ placementDoneAt: deps.now() });
@@ -145,7 +181,7 @@ describe('createAppServices', () => {
 		await controller.start();
 
 		let guard = 0;
-		while (controller.view.status !== 'finished' && guard++ < 500) {
+		while (controller.view.status !== 'finished' && guard++ < 1000) {
 			if (controller.view.status === 'awaiting') {
 				if (
 					controller.view.prompt?.direction === 'locate' &&

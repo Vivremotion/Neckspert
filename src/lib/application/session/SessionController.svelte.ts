@@ -21,14 +21,17 @@ import {
 	applyColdAttempt,
 	classifyTemperature,
 	introduceCard,
-	placementCard
+	placementCard,
+	type SessionSelector
 } from '$lib/domain/progress';
 import type {
 	Attempt,
+	CardState,
 	Locale,
 	PlannedItem,
-	SessionPlan,
+	SessionKind,
 	Settings,
+	Temperature,
 	Verdict
 } from '$lib/domain/types';
 import { cardKey } from '$lib/domain/types';
@@ -63,9 +66,11 @@ export class SessionController implements PlaySessionController {
 	};
 
 	private readonly deps: SessionDeps;
-	private readonly kind: SessionPlan['kind'];
-	private readonly series: readonly PlannedItem[];
-	private queue: PlannedItem[];
+	private readonly kind: SessionKind;
+	private readonly makeSelector: (sessionId: string) => Promise<SessionSelector>;
+	private selector: SessionSelector | null = null;
+	/** Epoch ms when the current series started; the selector measures elapsed time from it. */
+	private startedAt = 0;
 	private settings!: Settings;
 	private locale: Locale = 'fr';
 	private latencyMs = 0;
@@ -84,12 +89,15 @@ export class SessionController implements PlaySessionController {
 	private run = 0;
 	private starting = false;
 
-	constructor(plan: SessionPlan, deps: SessionDeps) {
+	constructor(
+		session: { id: string; kind: SessionKind },
+		makeSelector: (sessionId: string) => Promise<SessionSelector>,
+		deps: SessionDeps
+	) {
 		this.deps = deps;
-		this.sessionId = plan.id;
-		this.kind = plan.kind;
-		this.series = [...plan.items];
-		this.queue = [...plan.items];
+		this.sessionId = session.id;
+		this.kind = session.kind;
+		this.makeSelector = makeSelector;
 		this.view = $state<PlayView>({
 			status: 'idle',
 			prompt: null,
@@ -112,6 +120,8 @@ export class SessionController implements PlaySessionController {
 		const run = ++this.run;
 		try {
 			if (this.view.status === 'finished') this.beginNewSeries();
+			this.selector = await this.makeSelector(this.sessionId);
+			if (this.run !== run) return;
 			await this.beginAudio(run);
 		} finally {
 			if (this.run === run) this.starting = false;
@@ -120,7 +130,7 @@ export class SessionController implements PlaySessionController {
 
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
-		this.queue = [...this.series];
+		this.selector = null;
 		this.sessionAttempts = [];
 		this.current = null;
 		this.clearItemState();
@@ -159,10 +169,11 @@ export class SessionController implements PlaySessionController {
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
 		this.deps.metronome.setAudible(true);
 
+		this.startedAt = this.deps.now();
 		await this.deps.sessions.put({
 			id: this.sessionId,
 			kind: this.kind,
-			startedAt: this.deps.now(),
+			startedAt: this.startedAt,
 			endedAt: null,
 			fatigueDetected: false,
 			tempoBpm: this.sessionTempoBpm
@@ -322,11 +333,17 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private beginNextItem(beat: BeatEvent): void {
-		if (this.queue.length === 0) {
+		const now = this.deps.now();
+		const item =
+			this.selector?.next({
+				now,
+				elapsedMs: now - this.startedAt,
+				fatigued: this.view.fatigueDetected
+			}) ?? null;
+		if (!item) {
 			void this.finish();
 			return;
 		}
-		const item = this.queue.shift()!;
 		this.current = item;
 
 		if (item.target.direction === 'locate') {
@@ -532,7 +549,7 @@ export class SessionController implements PlaySessionController {
 
 		// Provisional temperature for sync fatigue/session tracking; refined after history load.
 		const provisionalTemperature =
-			item.phase === 'learning' || item.phase === 'free'
+			item.phase === 'learning' || item.phase === 'consolidation' || item.phase === 'free'
 				? item.temperature
 				: attemptedInSession
 					? 'hot'
@@ -567,23 +584,20 @@ export class SessionController implements PlaySessionController {
 			confusion
 		};
 
-		// Queue and fatigue must run before any await so the next onBeat cannot race them.
+		// Fatigue and the selector must see the attempt before any await, so the next onBeat
+		// cannot pick a prompt from stale state.
 		this.sessionAttempts.push(attempt);
-		if (detectFatigue(this.sessionAttempts)) {
-			this.view.fatigueDetected = true;
-			this.queue = this.queue.filter((q) => q.phase !== 'learning');
-		}
+		if (detectFatigue(this.sessionAttempts)) this.view.fatigueDetected = true;
+		const outcome = this.selector?.record(attempt, this.deps.now()) ?? null;
 
 		const history = await this.deps.attempts.listByCard(key);
+		const existing = await this.deps.cards.get(key);
 		const lastAttemptAt = history.length > 0 ? history[history.length - 1].promptedAt : null;
-		const temperature =
-			item.phase === 'learning' || item.phase === 'free'
-				? item.temperature
-				: classifyTemperature({
-						lastAttemptAt,
-						attemptedInSession,
-						now: promptedAt
-					});
+		const temperature = this.temperatureFor(item, existing, {
+			lastAttemptAt,
+			attemptedInSession,
+			now: promptedAt
+		});
 		attempt.temperature = temperature;
 
 		await this.deps.attempts.add(attempt);
@@ -592,20 +606,33 @@ export class SessionController implements PlaySessionController {
 		if (item.phase === 'placement' && item.target.direction === 'locate') {
 			const card = placementCard(item.target, attempt, now, this.sessionId, this.settings.tempoBpm);
 			if (card) await this.deps.cards.put(card);
-		} else if (item.phase === 'review' && temperature === 'cold') {
-			const existing = await this.deps.cards.get(key);
+		} else if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
 				await this.deps.cards.put(
 					applyColdAttempt(existing, attempt, fullHistory, now, this.settings.tempoBpm)
 				);
 			}
-		} else if (item.phase === 'learning' && judgement.correct) {
-			const existing = await this.deps.cards.get(key);
-			if (!existing) {
+		} else if (item.phase === 'learning') {
+			if (outcome) await this.deps.cards.put(outcome.learned);
+			else if (!existing) {
 				await this.deps.cards.put(introduceCard(item.target, now, this.sessionId));
 			}
 		}
+	}
+
+	/**
+	 * Learning and consolidation stay hot. Free play counts cold only on a learned card.
+	 * Reviews and placement follow the cold-delay rule.
+	 */
+	private temperatureFor(
+		item: PlannedItem,
+		card: CardState | undefined,
+		input: { lastAttemptAt: number | null; attemptedInSession: boolean; now: number }
+	): Temperature {
+		if (item.phase === 'learning' || item.phase === 'consolidation') return item.temperature;
+		if (item.phase === 'free' && (!card || card.learnedAt === null)) return item.temperature;
+		return classifyTemperature(input);
 	}
 
 	private advanceAfterVerdict(): void {
@@ -616,10 +643,6 @@ export class SessionController implements PlaySessionController {
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
 		this.view.leadBeats = null;
-		if (this.queue.length === 0) {
-			void this.finish();
-			return;
-		}
 		this.setStatus('count-in');
 	}
 

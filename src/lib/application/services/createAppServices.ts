@@ -4,12 +4,14 @@ import { SessionController } from '$lib/application/session/SessionController.sv
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { placementTargets, pitchOnString } from '$lib/domain/music';
 import {
-	buildDailyPlan,
 	buildFreePlan,
 	buildNeckMap,
 	buildPlacementPlan,
 	computeHomeStats,
-	summarizeSession
+	createLearnSelector,
+	createListSelector,
+	summarizeSession,
+	type SessionSelector
 } from '$lib/domain/progress';
 import type { SessionKind } from '$lib/domain/types';
 
@@ -68,34 +70,28 @@ export function createAppServices(
 		},
 
 		async startSession(kind: SessionKind) {
-			const settings = await deps.settings.get();
-			const sessionId = deps.newId();
-			const now = deps.now();
-			const cards = await deps.cards.all();
-
-			const plan =
-				kind === 'placement'
-					? buildPlacementPlan({
+			const makeSelector = async (sessionId: string): Promise<SessionSelector> => {
+				const [settings, cards] = await Promise.all([deps.settings.get(), deps.cards.all()]);
+				if (kind === 'placement') {
+					return createListSelector(
+						buildPlacementPlan({
 							targets: placementTargets(),
-							now,
-							sessionId,
 							tempoBpm: settings.tempoBpm,
 							random: deps.random
 						})
-					: kind === 'learn'
-						? buildDailyPlan({
-								cards,
-								now,
-								sessionId
-							})
-						: buildFreePlan({
-								cards,
-								now,
-								sessionId,
-								random: deps.random
-							});
-
-			return new SessionController(plan, deps);
+					);
+				}
+				if (kind === 'free') {
+					return createListSelector(buildFreePlan({ cards, random: deps.random }));
+				}
+				return createLearnSelector({
+					cards,
+					attempts: await deps.attempts.all(),
+					sessionId,
+					tempoBpm: settings.tempoBpm
+				});
+			};
+			return new SessionController({ id: deps.newId(), kind }, makeSelector, deps);
 		}
 	};
 }

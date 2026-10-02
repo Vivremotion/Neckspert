@@ -4,6 +4,7 @@ import {
 	formatNote,
 	fretLabel,
 	fretsForPitch,
+	pitchOnString,
 	spellPitch,
 	stringLabel
 } from '$lib/domain/music';
@@ -30,7 +31,10 @@ export function buildPromptView(
 		direction: 'identify',
 		primary: fretLabel(target.fret, locale),
 		secondary: stringLabel(target.string, locale),
-		aid: null
+		aid:
+			aid === 'show-position'
+				? formatNote(spellPitch(pitchOnString(target.string, target.fret), random))
+				: null
 	};
 }
 

@@ -157,13 +157,6 @@ export interface PlannedItem {
 	leadBeats: LeadBeats | null;
 }
 
-export interface SessionPlan {
-	id: string;
-	kind: SessionKind;
-	createdAt: number;
-	items: PlannedItem[];
-}
-
 export interface SessionRecord {
 	id: string;
 	kind: SessionKind;

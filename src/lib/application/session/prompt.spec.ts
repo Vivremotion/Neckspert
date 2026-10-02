@@ -50,6 +50,11 @@ describe('buildPromptView', () => {
 		expect(view.aid).toBeNull();
 	});
 
+	it('names the note as the aid of an identify presentation', () => {
+		const view = buildPromptView({ ...identify, aid: 'show-position' }, 'fr', () => 0);
+		expect(view.aid).toBe('F');
+	});
+
 	it('uses English labels', () => {
 		const view = buildPromptView(identify, 'en', () => 0);
 		expect(view.primary).toBe('fret 8');
