@@ -2,7 +2,7 @@ import type { NoteOnset } from '$lib/application/ports';
 import { confirmedPitch } from './confirmPitch';
 import type { DetectorConfig } from './config';
 import { readPitch } from './estimatePitch';
-import { midiFromFrequency } from './frequencyToMidi';
+import { midiIfInRange } from './frequencyToMidi';
 import { OnsetDetector } from './OnsetDetector';
 
 /** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
@@ -64,10 +64,12 @@ export class NoteTracker {
 		);
 		this.pendingOnsetTime = null;
 		if (!reading) return null;
+		const midi = midiIfInRange(reading.frequencyHz, this.config.minMidi, this.config.maxMidi);
+		if (midi === null) return null;
 
 		return {
 			time: onsetTime,
-			midi: midiFromFrequency(reading.frequencyHz, this.config.minMidi, this.config.maxMidi),
+			midi,
 			frequencyHz: reading.frequencyHz,
 			clarity: reading.clarity
 		};

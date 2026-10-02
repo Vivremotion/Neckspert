@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_DETECTOR_CONFIG } from './config';
-import { frequencyToMidi, midiFromFrequency } from './frequencyToMidi';
+import { frequencyToMidi, midiFromFrequency, midiIfInRange } from './frequencyToMidi';
 
 describe('DEFAULT_DETECTOR_CONFIG', () => {
 	it('covers the playable guitar range and a long enough window for low E', () => {
@@ -27,5 +27,13 @@ describe('midiFromFrequency', () => {
 		expect(midiFromFrequency(82.40689, 40, 88)).toBe(40);
 		expect(midiFromFrequency(20, 40, 88)).toBe(40);
 		expect(midiFromFrequency(5000, 40, 88)).toBe(88);
+	});
+});
+
+describe('midiIfInRange', () => {
+	it('keeps a G2 and drops a sub-bass reading instead of clamping it to low E', () => {
+		expect(midiIfInRange(98.5, 40, 88)).toBe(43);
+		expect(midiIfInRange(82.40689, 40, 88)).toBe(40);
+		expect(midiIfInRange(23.49, 40, 88)).toBeNull();
 	});
 });

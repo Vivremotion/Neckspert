@@ -10,3 +10,11 @@ export function midiFromFrequency(frequencyHz: number, minMidi: number, maxMidi:
 	const midi = Math.round(frequencyToMidi(frequencyHz));
 	return Math.min(maxMidi, Math.max(minMidi, midi));
 }
+
+/** Nearest MIDI note, or null when that note sits outside the guitar range. */
+export function midiIfInRange(frequencyHz: number, minMidi: number, maxMidi: number): Midi | null {
+	if (!(frequencyHz > 0) || !Number.isFinite(frequencyHz)) return null;
+	const midi = Math.round(frequencyToMidi(frequencyHz));
+	if (midi < minMidi || midi > maxMidi) return null;
+	return midi;
+}
