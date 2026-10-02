@@ -28,6 +28,9 @@ export {
 	cardStatus
 } from './cards';
 export { introductionOrder, nextNewTarget } from './introduction';
+export { createListSelector } from './selector';
+export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
+export { createLearnSelector } from './learnSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildDailyPlan, buildPlacementPlan, buildFreePlan, nextSuggestedAt } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';
