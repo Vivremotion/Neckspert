@@ -7,8 +7,8 @@ export interface SelectorContext {
 	fatigued: boolean;
 }
 
-/** The card a learning attempt just made learned. */
-export type RecordOutcome = { learned: CardState } | null;
+/** The card an attempt just created or changed: a note learned, or a probe passed or missed. */
+export type RecordOutcome = { card: CardState } | null;
 
 /** Chooses each prompt of a session, one at a time. */
 export interface SessionSelector {

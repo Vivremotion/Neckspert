@@ -138,18 +138,17 @@ describe('createAppServices', () => {
 		expect((await deps.settings.get()).placementDoneAt).not.toBeNull();
 	});
 
-	it('startSession(learn) starts with the first note of the queue, position shown', async () => {
+	it('startSession(learn) probes the first note of the queue without aid', async () => {
 		const { services, deps } = harness();
-		await deps.settings.update({ placementDoneAt: deps.now() });
 		const controller = await services.startSession('learn');
 		await controller.start();
 		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
 		expect(controller.view.prompt).toMatchObject({
 			primary: 'G',
 			secondary: 'corde de E grave',
-			aid: 'case 3'
+			aid: null
 		});
-		expect(controller.view.leadBeats).toBe(8);
+		expect(controller.view.leadBeats).toBe(2);
 	});
 
 	it('startSession(free) never prompts an open string', async () => {

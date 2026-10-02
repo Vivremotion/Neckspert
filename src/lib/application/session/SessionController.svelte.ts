@@ -659,7 +659,7 @@ export class SessionController implements PlaySessionController {
 				);
 			}
 		} else if (item.phase === 'learning') {
-			if (outcome) await this.storeCard(outcome.learned);
+			if (outcome) await this.storeCard(outcome.card);
 			else if (!existing) {
 				await this.storeCard(introduceCard(item.target, now, this.sessionId));
 			}

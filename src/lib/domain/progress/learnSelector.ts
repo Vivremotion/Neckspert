@@ -8,7 +8,7 @@ import {
 	type PlannedItem,
 	type Target
 } from '$lib/domain/types';
-import { introduceCard, markLearned } from './cards';
+import { introduceCard, markLearned, probeCard } from './cards';
 import {
 	CONFUSION_LOOKBACK,
 	CONSOLIDATION_SKIP_RECENT,
@@ -82,6 +82,7 @@ class LearnSelector implements SessionSelector {
 	record(attempt: Attempt, now: number): RecordOutcome {
 		this.last.set(attempt.cardKey, attempt.promptedAt);
 		this.remember(attempt);
+		if (attempt.phase === 'probe') return this.recordProbe(attempt, now);
 		if (attempt.phase !== 'learning') return null;
 		const entry = this.learning.get(attempt.cardKey);
 		const servedAt = this.servedAt.get(attempt.cardKey);
@@ -98,10 +99,24 @@ class LearnSelector implements SessionSelector {
 			if (!card) return null;
 			const learned = markLearned(card, now, this.tempoBpm);
 			this.cards.set(learned.key, learned);
-			return { learned };
+			return { card: learned };
 		}
 		entry.dueAt = retestDueAt(servedAt, step === 'short' ? shortGap : longGap);
 		return null;
+	}
+
+	/** A passed probe goes to review; a missed one is presented with the aid on the next prompt. */
+	private recordProbe(attempt: Attempt, now: number): RecordOutcome {
+		const card = this.cards.get(attempt.cardKey);
+		if (!card) return null;
+		const known = probeCard(card.target, attempt, now, this.sessionId, this.tempoBpm);
+		if (known) {
+			this.cards.set(known.key, known);
+			return { card: known };
+		}
+		// Ahead of any other due retest: the aid must follow the miss directly.
+		this.present(card.target).dueAt = -Infinity;
+		return { card };
 	}
 
 	/**
@@ -188,17 +203,17 @@ class LearnSelector implements SessionSelector {
 		};
 	}
 
-	private present(target: Target): PlannedItem {
+	/** Starts aided learning; the first retest comes after the short gap unless the caller moves it. */
+	private present(target: Target): LearningEntry {
 		const entry: LearningEntry = {
 			target,
-			dueAt: Infinity,
+			dueAt: retestDueAt(this.served, LEARN_RETEST_GAPS[0]),
 			successes: 0,
 			aided: true,
 			lead: LEARN_PRESENT_LEAD_BEATS
 		};
 		this.learning.set(cardKey(target), entry);
-		entry.dueAt = retestDueAt(this.served, LEARN_RETEST_GAPS[0]);
-		return this.retest(entry);
+		return entry;
 	}
 
 	private review(now: number): PlannedItem | null {
@@ -221,7 +236,7 @@ class LearnSelector implements SessionSelector {
 		const card = [...this.cards.values()]
 			.filter((candidate) => candidate.learnedAt === null && !this.servedAt.has(candidate.key))
 			.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key))[0];
-		return card ? this.present(card.target) : null;
+		return card ? this.retest(this.present(card.target)) : null;
 	}
 
 	private introduce(now: number): PlannedItem | null {
@@ -235,7 +250,13 @@ class LearnSelector implements SessionSelector {
 		if (!target) return null;
 		const card = introduceCard(target, now, this.sessionId);
 		this.cards.set(card.key, card);
-		return this.present(target);
+		return {
+			target,
+			phase: 'probe',
+			temperature: 'cold',
+			aid: 'none',
+			leadBeats: target.direction === 'locate' ? leadForThreshold(this.tempoBpm) : null
+		};
 	}
 
 	private consolidate(): PlannedItem | null {

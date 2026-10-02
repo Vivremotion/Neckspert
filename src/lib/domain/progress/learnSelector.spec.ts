@@ -7,7 +7,7 @@ import {
 	type Target
 } from '$lib/domain/types';
 import { practiceTargets } from '$lib/domain/music';
-import { introduceCard, markLearned } from './cards';
+import { introduceCard, markLearned, probeCard } from './cards';
 import { LEARN_COLD_CAP, LEARN_SESSION_MS } from './constants';
 import { introductionOrder } from './introduction';
 import { createLearnSelector } from './learnSelector';
@@ -90,8 +90,35 @@ describe('createLearnSelector', () => {
 		expect(selector.next({ now: NOW, elapsedMs: LEARN_SESSION_MS, fatigued: false })).toBeNull();
 	});
 
-	it('presents the first new note with its position and a long lead', () => {
+	it('serves_a_new_note_as_an_unaided_probe', () => {
 		expect(next(select([]))).toEqual({
+			target: G,
+			phase: 'probe',
+			temperature: 'cold',
+			aid: 'none',
+			leadBeats: 2
+		});
+	});
+
+	it('passed_probe_goes_to_review_and_frees_its_slot', () => {
+		const selector = select([]);
+		const probe = next(selector)!;
+		const outcome = selector.record(answer(probe), NOW);
+		expect(outcome?.card).toMatchObject({ key: GK, learnedAt: NOW, acquiredAt: NOW });
+		expect(outcome?.card.scheduling.state).toBe(2);
+		for (let i = 0; i < 4; i++) {
+			const item = next(selector)!;
+			expect(item.phase).toBe('probe');
+			selector.record(answer(item), NOW);
+		}
+	});
+
+	it('missed_probe_brings_the_aid_on_the_next_prompt', () => {
+		const selector = select([]);
+		const probe = next(selector)!;
+		const outcome = selector.record(answer(probe, { correct: false, verdict: 'wrong' }), NOW);
+		expect(outcome?.card).toMatchObject({ key: GK, learnedAt: null, acquiredAt: null });
+		expect(next(selector)).toEqual({
 			target: G,
 			phase: 'learning',
 			temperature: 'hot',
@@ -100,12 +127,81 @@ describe('createLearnSelector', () => {
 		});
 	});
 
-	it('fills three learning slots, then brings the first note back instead of a fourth', () => {
+	it('no_answer_counts_as_a_missed_probe', () => {
 		const selector = select([]);
-		const keys = [next(selector), next(selector), next(selector), next(selector)].map((item) =>
-			cardKey(item!.target)
+		const probe = next(selector)!;
+		const silent = { answer: null, correct: false, verdict: 'wrong', reactionMs: null } as const;
+		expect(selector.record(answer(probe, silent), NOW)?.card.learnedAt).toBeNull();
+		expect(next(selector)).toMatchObject({ target: G, phase: 'learning', aid: 'show-position' });
+	});
+
+	it('probes_identify_right_after_a_passed_locate_probe', () => {
+		const selector = select([]);
+		selector.record(answer(next(selector)!), NOW);
+		expect(next(selector)).toEqual({
+			target: { direction: 'identify', string: 6, fret: 3 },
+			phase: 'probe',
+			temperature: 'cold',
+			aid: 'none',
+			leadBeats: null
+		});
+	});
+
+	it('slow_identify_probe_is_missed', () => {
+		const selector = select([]);
+		selector.record(answer(next(selector)!), NOW);
+		const probe = next(selector)!;
+		const slow = answer(probe, { leadBeats: null, reactionMs: 3001 });
+		expect(selector.record(slow, NOW)?.card.learnedAt).toBeNull();
+		expect(next(selector)).toMatchObject({
+			target: probe.target,
+			phase: 'learning',
+			aid: 'show-position',
+			leadBeats: null
+		});
+	});
+
+	it('resumes_a_missed_probe_with_the_aid', () => {
+		const first = select([]);
+		const probe = next(first)!;
+		const missed = first.record(answer(probe, { correct: false, verdict: 'wrong' }), NOW)!.card;
+		expect(next(select([missed]))).toMatchObject({
+			target: G,
+			phase: 'learning',
+			aid: 'show-position',
+			leadBeats: 8
+		});
+	});
+
+	it('passed_probes_do_not_count_as_unconsolidated', () => {
+		const known = ORDER.slice(1, 11).map((target) =>
+			probeCard(
+				target,
+				answer({ target, phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 }),
+				NOW - 1000,
+				's-old',
+				TEMPO
+			)!
 		);
-		expect(keys).toEqual([GK, cardKey(ORDER[1]), cardKey(ORDER[2]), GK]);
+		expect(next(select(known))).toMatchObject({ phase: 'probe' });
+	});
+
+	it('fatigue_serves_no_probe', () => {
+		expect(next(select([]), true)).toBeNull();
+	});
+
+	it('brings the aid right after a missed probe even when another retest is due', () => {
+		const selector = select([]);
+		const keys = play(selector, 7, { correct: false, verdict: 'wrong' });
+		expect(keys).toEqual([
+			GK,
+			GK,
+			cardKey(ORDER[1]),
+			cardKey(ORDER[1]),
+			GK,
+			cardKey(ORDER[2]),
+			cardKey(ORDER[2])
+		]);
 	});
 
 	it('halves the lead after each success, 8 to 4 to 2, and needs two successes at 2', () => {
@@ -128,8 +224,8 @@ describe('createLearnSelector', () => {
 		const again = next(selector)!;
 		expect(again).toMatchObject({ target: G, leadBeats: 2 });
 		const outcome = selector.record(answer(again), NOW);
-		expect(outcome?.learned.learnedAt).toBe(NOW);
-		expect(outcome?.learned.leadBeats).toBe(2);
+		expect(outcome?.card.learnedAt).toBe(NOW);
+		expect(outcome?.card.leadBeats).toBe(2);
 	});
 
 	it('doubles the lead after a miss, up to 8, where the position shows again', () => {
@@ -239,15 +335,15 @@ describe('createLearnSelector', () => {
 
 	it('stops introducing notes at ten learned but not acquired', () => {
 		expect(next(select(FILLERS))?.phase).toBe('consolidation');
-		expect(next(select(FILLERS.slice(1)))).toMatchObject({ target: G, phase: 'learning' });
+		expect(next(select(FILLERS.slice(1)))).toMatchObject({ target: G, phase: 'probe' });
 	});
 
 	it('introduces the identify position once its locate card is acquired', () => {
 		const acquired = learned(G, { acquiredAt: NOW - 1000 });
 		expect(next(select([acquired]))).toMatchObject({
 			target: { direction: 'identify', string: 6, fret: 3 },
-			phase: 'learning',
-			aid: 'show-position',
+			phase: 'probe',
+			aid: 'none',
 			leadBeats: null
 		});
 	});
@@ -300,8 +396,8 @@ describe('createLearnSelector', () => {
 		// Their identify positions are now candidates and come before the next locate note.
 		expect(next(selector)).toMatchObject({
 			target: { direction: 'identify', string: 5, fret: 3 },
-			phase: 'learning',
-			aid: 'show-position'
+			phase: 'probe',
+			aid: 'none'
 		});
 	});
 

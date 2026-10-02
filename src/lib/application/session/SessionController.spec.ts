@@ -720,7 +720,7 @@ describe('SessionController with a selector', () => {
 			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 2 })
 		]);
 		const learned = markLearned(introduceCard(target, deps.now(), 'old'), 123, 80);
-		spy.learnOnRecord({ learned });
+		spy.learnOnRecord({ card: learned });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
