@@ -14,7 +14,6 @@ import {
 	MASTERY_SESSIONS,
 	MAX_UNCONSOLIDATED,
 	MIN_COLD_DELAY_MS,
-	NEXT_SESSION_GAP_MS,
 	TREND_RATIO,
 	TREND_WINDOW_MS
 } from './constants';
@@ -25,7 +24,6 @@ describe('progress constants', () => {
 		expect(MASTERY_ACCURACY).toBe(0.9);
 		expect(MASTERY_SESSIONS).toBe(3);
 		expect(MASTERY_MIN_GAP_MS).toBe(72 * 60 * 60 * 1000);
-		expect(NEXT_SESSION_GAP_MS).toBe(2 * 60 * 60 * 1000);
 		expect(TREND_WINDOW_MS).toBe(7 * 24 * 60 * 60 * 1000);
 		expect(TREND_RATIO).toBe(0.05);
 	});

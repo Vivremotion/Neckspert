@@ -1,3 +1,4 @@
+import { LEARNABLE_FRETS } from '$lib/domain/music';
 import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -11,11 +12,10 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
-import { NEXT_SESSION_GAP_MS, TREND_RATIO, TREND_WINDOW_MS } from './constants';
+import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
-import { nextNewTarget } from './introduction';
 import { sessionGrade } from './grade';
-import { nextSuggestedAt } from './plans';
+import { lastAttemptByCard, nextReviewAt, reviewableCards } from './review';
 
 function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
@@ -41,7 +41,7 @@ function leadTempoBpm(
 	for (const attempt of attempts) {
 		if (
 			attempt.cardKey !== card.key ||
-			attempt.phase !== 'review' ||
+			(attempt.phase !== 'review' && attempt.phase !== 'free') ||
 			attempt.temperature !== 'cold'
 		) {
 			continue;
@@ -90,26 +90,18 @@ export function computeHomeStats(input: {
 	if (input.settings.placementDoneAt === null) {
 		return {
 			nextAction: 'placement',
+			dueCount: 0,
 			nextReviewAt: null,
 			medianColdOffsetMs,
 			trend
 		};
 	}
 
-	const hasDue = input.cards.some((card) => card.scheduling.due <= input.now);
-	const hasNew = nextNewTarget(input.cards) !== null;
-	if (hasDue || hasNew) {
-		return {
-			nextAction: 'session',
-			nextReviewAt: null,
-			medianColdOffsetMs,
-			trend
-		};
-	}
-
+	const last = lastAttemptByCard(input.attempts);
 	return {
-		nextAction: 'wait',
-		nextReviewAt: nextSuggestedAt(input.cards, input.now),
+		nextAction: 'learn',
+		dueCount: reviewableCards(input.cards, last, input.now).length,
+		nextReviewAt: nextReviewAt(input.cards, last),
 		medianColdOffsetMs,
 		trend
 	};
@@ -117,7 +109,10 @@ export function computeHomeStats(input: {
 
 export function summarizeSession(input: {
 	record: SessionRecord;
+	/** This session's attempts. */
 	attempts: readonly Attempt[];
+	/** Every stored attempt, for the next review time. */
+	allAttempts: readonly Attempt[];
 	cards: readonly CardState[];
 	now: number;
 }): SessionSummary {
@@ -126,7 +121,11 @@ export function summarizeSession(input: {
 		pool === 'all'
 			? input.attempts
 			: input.attempts.filter((attempt) => attempt.temperature === 'cold');
-	const earliest = nextSuggestedAt(input.cards, input.now);
+	const startedAt = input.record.startedAt;
+	const endedAt = input.record.endedAt ?? input.now;
+	const presented = new Set(
+		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
+	);
 	return {
 		sessionId: input.record.id,
 		pool,
@@ -134,12 +133,13 @@ export function summarizeSession(input: {
 		correctCount: counted.filter((attempt) => attempt.correct).length,
 		medianOffsetMs: median(locateOffsets(input.attempts, pool)),
 		identifyMedianReactionMs: median(identifyReactions(input.attempts, pool)),
-		learnedCount: input.cards.filter((card) => card.introducedInSession === input.record.id).length,
+		learnedCount: input.cards.filter(
+			(card) => card.learnedAt !== null && card.learnedAt >= startedAt && card.learnedAt <= endedAt
+		).length,
+		pendingCount: input.cards.filter((card) => card.learnedAt === null && presented.has(card.key))
+			.length,
 		fatigueDetected: input.record.fatigueDetected,
-		nextSuggestedAt:
-			earliest === null
-				? input.now + NEXT_SESSION_GAP_MS
-				: Math.max(earliest, input.now + NEXT_SESSION_GAP_MS),
+		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null
 	};
 }
@@ -155,7 +155,7 @@ export function buildNeckMap(input: {
 	const cells: NeckMapCell[] = [];
 
 	for (let string = 1 as StringNumber; string <= 6; string = (string + 1) as StringNumber) {
-		for (let fret = 0; fret <= 11; fret++) {
+		for (const fret of LEARNABLE_FRETS) {
 			const pitch = input.pitchAt(string, fret);
 			const locateKey = cardKey({ direction: 'locate', string, pitch });
 			const identifyKey = cardKey({ direction: 'identify', string, fret });

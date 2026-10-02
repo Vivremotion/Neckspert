@@ -9,7 +9,6 @@ describe('progress index', () => {
 		expect(progress.MASTERY_ACCURACY).toBe(0.9);
 		expect(progress.MASTERY_SESSIONS).toBe(3);
 		expect(progress.MASTERY_MIN_GAP_MS).toBe(72 * 60 * 60 * 1000);
-		expect(progress.NEXT_SESSION_GAP_MS).toBe(2 * 60 * 60 * 1000);
 
 		for (const name of [
 			'classifyTemperature',
@@ -27,7 +26,7 @@ describe('progress index', () => {
 			'createListSelector',
 			'buildPlacementPlan',
 			'buildFreePlan',
-			'nextSuggestedAt',
+			'nextReviewAt',
 			'computeHomeStats',
 			'summarizeSession',
 			'buildNeckMap'

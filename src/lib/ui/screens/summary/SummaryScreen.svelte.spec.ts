@@ -17,8 +17,9 @@ const summary: SessionSummary = {
 	medianOffsetMs: 18,
 	identifyMedianReactionMs: 640,
 	learnedCount: 2,
+	pendingCount: 0,
 	fatigueDetected: true,
-	nextSuggestedAt: 2 * 60 * 60 * 1000,
+	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null
 };
 
@@ -33,8 +34,37 @@ describe('SummaryScreen', () => {
 		expect(screen.getByText('0,64 s')).toBeTruthy();
 		expect(screen.getByText('2')).toBeTruthy();
 		expect(screen.getByText(/fatigue/i)).toBeTruthy();
+		expect(screen.getByText('Notes apprises')).toBeTruthy();
+		expect(screen.getByText('Prochaines révisions')).toBeTruthy();
 		expect(screen.getByText(/dans 2 h/i)).toBeTruthy();
 		expect(screen.queryByText('S+')).toBeNull();
+		expect(screen.queryByText(/reprendr/i)).toBeNull();
+	});
+
+	it('says there was no cold review instead of showing empty numbers', () => {
+		render(SummaryScreen, {
+			props: {
+				summary: { ...summary, attemptCount: 0, correctCount: 0, medianOffsetMs: null },
+				now: 0,
+				onhome: () => {},
+				onmap: () => {}
+			}
+		});
+		expect(screen.getByText('Aucune révision à froid cette fois')).toBeTruthy();
+		expect(screen.queryByText('Précision à froid')).toBeNull();
+		expect(screen.getByText('Notes apprises')).toBeTruthy();
+	});
+
+	it('mentions the notes that will resume next time', () => {
+		render(SummaryScreen, {
+			props: { summary: { ...summary, pendingCount: 1 }, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('1 note reprendra la prochaine fois')).toBeTruthy();
+		cleanup();
+		render(SummaryScreen, {
+			props: { summary: { ...summary, pendingCount: 3 }, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('3 notes reprendront la prochaine fois')).toBeTruthy();
 	});
 
 	it('shows a free-play grade, accuracy label, and no next session', () => {
@@ -48,7 +78,7 @@ describe('SummaryScreen', () => {
 		});
 		expect(screen.getByText('S+')).toBeTruthy();
 		expect(screen.getByText(/^Précision$/)).toBeTruthy();
-		expect(screen.queryByText(/prochaine session/i)).toBeNull();
+		expect(screen.queryByText(/prochaines révisions/i)).toBeNull();
 		expect(screen.queryByText(/dans 2 h/i)).toBeNull();
 	});
 

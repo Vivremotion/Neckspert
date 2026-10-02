@@ -40,9 +40,6 @@ export const MASTERY_SESSIONS = 3;
 /** Minimum gap between the two latest successful mastery sessions. To calibrate. */
 export const MASTERY_MIN_GAP_MS = 72 * 60 * 60 * 1000;
 
-/** Suggested rest before the next session after a summary. To calibrate. */
-export const NEXT_SESSION_GAP_MS = 2 * 60 * 60 * 1000;
-
 /** Home-stats trend window length (7 days). To calibrate. */
 export const TREND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 

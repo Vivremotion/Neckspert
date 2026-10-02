@@ -10,8 +10,9 @@
 		medianOffsetMs: 24,
 		identifyMedianReactionMs: 640,
 		learnedCount: 3,
+		pendingCount: 1,
 		fatigueDetected: false,
-		nextSuggestedAt: 2 * 60 * 60 * 1000,
+		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+'
 	};
 </script>

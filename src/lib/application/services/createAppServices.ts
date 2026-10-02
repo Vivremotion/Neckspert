@@ -43,13 +43,15 @@ export function createAppServices(
 			if (!record) {
 				throw new Error(`Unknown session: ${sessionId}`);
 			}
-			const [attempts, cards] = await Promise.all([
+			const [attempts, allAttempts, cards] = await Promise.all([
 				deps.attempts.listBySession(sessionId),
+				deps.attempts.all(),
 				deps.cards.all()
 			]);
 			return summarizeSession({
 				record,
 				attempts,
+				allAttempts,
 				cards,
 				now: deps.now()
 			});

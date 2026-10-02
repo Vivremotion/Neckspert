@@ -21,6 +21,7 @@
 
 	const t = $derived(summaryMessages());
 	const accuracyLabel = $derived(summary.pool === 'all' ? t.accuracyAll : t.accuracy);
+	const noCold = $derived(summary.pool === 'cold' && summary.attemptCount === 0);
 
 	const accuracy = $derived.by(() => {
 		const ratio = coldAccuracyRatio(summary.correctCount, summary.attemptCount);
@@ -39,8 +40,8 @@
 	});
 
 	const next = $derived.by(() => {
-		if (summary.nextSuggestedAt == null) return t.empty;
-		return formatRelativeDelay(summary.nextSuggestedAt, now, {
+		if (summary.nextReviewAt == null) return t.empty;
+		return formatRelativeDelay(summary.nextReviewAt, now, {
 			soon: t.soon,
 			inMinutes: t.inMinutes,
 			inHours: t.inHours,
@@ -59,22 +60,33 @@
 		{/if}
 		<PixelBox variant="double">
 			<ul class="rows">
-				<li>
-					<span>{accuracyLabel}</span>
-					<strong>{accuracy}</strong>
-				</li>
-				<li>
-					<span>{t.median}</span>
-					<strong>{median}</strong>
-				</li>
-				<li>
-					<span>{t.naming}</span>
-					<strong>{naming}</strong>
-				</li>
+				{#if noCold}
+					<li>
+						<span>{t.noCold}</span>
+					</li>
+				{:else}
+					<li>
+						<span>{accuracyLabel}</span>
+						<strong>{accuracy}</strong>
+					</li>
+					<li>
+						<span>{t.median}</span>
+						<strong>{median}</strong>
+					</li>
+					<li>
+						<span>{t.naming}</span>
+						<strong>{naming}</strong>
+					</li>
+				{/if}
 				<li>
 					<span>{t.learned}</span>
 					<strong>{summary.learnedCount}</strong>
 				</li>
+				{#if summary.pendingCount > 0}
+					<li>
+						<span>{t.pending(summary.pendingCount)}</span>
+					</li>
+				{/if}
 				<li class="fatigue" class:alert={summary.fatigueDetected}>
 					<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
 				</li>

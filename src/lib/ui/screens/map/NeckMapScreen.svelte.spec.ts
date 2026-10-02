@@ -13,7 +13,7 @@ afterEach(() => {
 function buildCells(): NeckMapCell[] {
 	const cells: NeckMapCell[] = [];
 	for (const string of STRING_NUMBERS) {
-		for (let fret = 0; fret < 12; fret++) {
+		for (let fret = 1; fret <= 11; fret++) {
 			const mastered = string === 6 && fret === 3;
 			const learning = string === 6 && fret === 4;
 			cells.push({
@@ -33,9 +33,9 @@ function buildCells(): NeckMapCell[] {
 }
 
 describe('NeckMapScreen', () => {
-	it('renders 72 cells with per-direction status', () => {
+	it('renders 66 cells with per-direction status', () => {
 		render(NeckMapScreen, { props: { cells: buildCells(), onhome: () => {} } });
-		expect(screen.getAllByRole('gridcell')).toHaveLength(72);
+		expect(screen.getAllByRole('gridcell')).toHaveLength(66);
 		const marked = screen.getByRole('gridcell', { name: /corde 6.*case 3/i });
 		expect(marked.textContent).toMatch(/2,00 s/);
 		expect(marked.textContent).not.toMatch(/2 temps/);

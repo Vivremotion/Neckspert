@@ -12,8 +12,7 @@ export {
 	FREE_PLAY_COUNT,
 	MASTERY_ACCURACY,
 	MASTERY_SESSIONS,
-	MASTERY_MIN_GAP_MS,
-	NEXT_SESSION_GAP_MS
+	MASTERY_MIN_GAP_MS
 } from './constants';
 
 export { classifyTemperature } from './temperature';
@@ -32,5 +31,5 @@ export { createListSelector } from './selector';
 export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
-export { buildPlacementPlan, buildFreePlan, nextSuggestedAt } from './plans';
+export { buildPlacementPlan, buildFreePlan } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

@@ -41,5 +41,5 @@
 {#if error}
 	<p>{error}</p>
 {:else if controller}
-	<PlayScreen {controller} quitToSummary={kind === 'free'} />
+	<PlayScreen {controller} quitToSummary={kind !== 'placement'} />
 {/if}

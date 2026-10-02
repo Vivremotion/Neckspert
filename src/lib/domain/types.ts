@@ -203,8 +203,10 @@ export const DEFAULT_SETTINGS: Settings = {
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
 
 export interface HomeStats {
-	nextAction: 'placement' | 'session' | 'wait';
-	/** Epoch ms of the next due review, when waiting. */
+	nextAction: 'placement' | 'learn';
+	/** Cards a learn session would review cold right now. */
+	dueCount: number;
+	/** Earliest time a learned card can be reviewed cold. Null without a learned card. */
 	nextReviewAt: number | null;
 	/** Median |onset − beat| in ms, cold correct locate attempts. The home number. */
 	medianColdOffsetMs: number | null;
@@ -222,9 +224,13 @@ export interface SessionSummary {
 	medianOffsetMs: number | null;
 	/** Median tap time in ms for this session's counted identify attempts. */
 	identifyMedianReactionMs: number | null;
+	/** Cards whose in-session learning completed during this session. */
 	learnedCount: number;
+	/** Cards presented in this session and still being learned. */
+	pendingCount: number;
 	fatigueDetected: boolean;
-	nextSuggestedAt: number | null;
+	/** Earliest time a learned card can be reviewed cold. Informational. */
+	nextReviewAt: number | null;
 	grade: SessionGrade | null;
 }
 

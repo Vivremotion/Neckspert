@@ -4,10 +4,11 @@
 
 	const fixtures: { label: string; stats: HomeStats; now: number }[] = [
 		{
-			label: 'session',
+			label: 'learn, reviews due',
 			now: 0,
 			stats: {
-				nextAction: 'session',
+				nextAction: 'learn',
+				dueCount: 6,
 				nextReviewAt: null,
 				medianColdOffsetMs: 40,
 				trend: 'improving'
@@ -18,16 +19,18 @@
 			now: 0,
 			stats: {
 				nextAction: 'placement',
+				dueCount: 0,
 				nextReviewAt: null,
 				medianColdOffsetMs: null,
 				trend: null
 			}
 		},
 		{
-			label: 'wait',
+			label: 'learn, next reviews later',
 			now: 0,
 			stats: {
-				nextAction: 'wait',
+				nextAction: 'learn',
+				dueCount: 0,
 				nextReviewAt: 2 * 60 * 60 * 1000,
 				medianColdOffsetMs: 80,
 				trend: 'worsening'

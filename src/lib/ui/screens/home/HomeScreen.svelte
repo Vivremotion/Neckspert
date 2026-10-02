@@ -5,7 +5,6 @@
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
 	import { formatRelativeDelay } from './relativeTime';
 	import { formatTrend } from './trend';
-	import { isHomeActionEnabled } from './homeAction';
 	import { homeMessages } from './messages';
 
 	let {
@@ -20,18 +19,22 @@
 
 	const t = $derived(homeMessages());
 
-	const enabled = $derived(isHomeActionEnabled(stats.nextAction));
+	const buttonLabel = $derived(stats.nextAction === 'placement' ? t.placement : t.session);
 
-	const buttonLabel = $derived.by(() => {
-		if (stats.nextAction === 'placement') return t.placement;
-		if (stats.nextAction === 'session') return t.session;
-		if (stats.nextReviewAt == null) return t.soon;
-		return formatRelativeDelay(stats.nextReviewAt, now, {
-			soon: t.soon,
-			inMinutes: t.inMinutes,
-			inHours: t.inHours,
-			inDays: t.inDays
-		});
+	/** Due reviews, or when the next ones come; nothing before placement or without a learned card. */
+	const reviews = $derived.by((): { label: string; delay: string | null } | null => {
+		if (stats.nextAction === 'placement') return null;
+		if (stats.dueCount > 0) return { label: t.due(stats.dueCount), delay: null };
+		if (stats.nextReviewAt == null) return null;
+		return {
+			label: t.nextReviews,
+			delay: formatRelativeDelay(stats.nextReviewAt, now, {
+				soon: t.soon,
+				inMinutes: t.inMinutes,
+				inHours: t.inHours,
+				inDays: t.inDays
+			})
+		};
 	});
 
 	const reaction = $derived.by(() => {
@@ -54,9 +57,17 @@
 			<div class="inner">
 				<p class="how"><PixelText scale={1}>{t.how}</PixelText></p>
 				<div class="action">
-					<PixelButton size="huge" disabled={!enabled} onclick={onstart}>
+					<PixelButton size="huge" onclick={onstart}>
 						{buttonLabel}
 					</PixelButton>
+					{#if reviews}
+						<p class="reviews">
+							<PixelText scale={1}>{reviews.label}</PixelText>
+							{#if reviews.delay}
+								<PixelText scale={1}>{reviews.delay}</PixelText>
+							{/if}
+						</p>
+					{/if}
 				</div>
 				<div class="stat">
 					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>
@@ -127,7 +138,18 @@
 	.action {
 		width: 100%;
 		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-space-2, 16px);
+	}
+
+	.reviews {
+		margin: 0;
+		display: flex;
+		flex-wrap: wrap;
 		justify-content: center;
+		gap: var(--np-space-1, 8px);
+		text-align: center;
 	}
 
 	.action :global(button) {

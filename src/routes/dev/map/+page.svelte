@@ -1,11 +1,11 @@
 <script lang="ts">
 	import type { NeckMapCell } from '$lib/domain/types';
 	import { STRING_NUMBERS } from '$lib/domain/music/types';
-	import { pitchOnString } from '$lib/domain/music';
+	import { LEARNABLE_FRETS, pitchOnString } from '$lib/domain/music';
 	import NeckMapScreen from '$lib/ui/screens/map/NeckMapScreen.svelte';
 
 	const cells: NeckMapCell[] = STRING_NUMBERS.flatMap((string) =>
-		Array.from({ length: 12 }, (_, fret) => {
+		LEARNABLE_FRETS.map((fret) => {
 			const locate =
 				string === 6 && fret === 3
 					? 'mastered'

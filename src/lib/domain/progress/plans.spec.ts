@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cardKey, type CardState, type LocateTarget, type Target } from '$lib/domain/types';
 import { FREE_PLAY_COUNT, MIN_COLD_DELAY_MS } from './constants';
 import { introduceCard } from './cards';
-import { buildFreePlan, buildPlacementPlan, nextSuggestedAt } from './plans';
+import { buildFreePlan, buildPlacementPlan } from './plans';
 
 const NOW = Date.parse('2026-05-01T12:00:00.000Z');
 
@@ -63,13 +63,5 @@ describe('buildFreePlan', () => {
 			random: () => 0
 		});
 		expect(capped).toHaveLength(FREE_PLAY_COUNT);
-	});
-});
-
-describe('nextSuggestedAt', () => {
-	it('returns the earliest due, or null without cards', () => {
-		expect(nextSuggestedAt([], NOW)).toBeNull();
-		const cards = [dueCard(L1, NOW + 5000), dueCard(L2, NOW + 1000)];
-		expect(nextSuggestedAt(cards, NOW)).toBe(NOW + 1000);
 	});
 });

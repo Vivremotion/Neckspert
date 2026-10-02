@@ -106,7 +106,7 @@ describe('createAppServices', () => {
 		const stats = await services.homeStats();
 		expect(stats.nextAction).toBe('placement');
 		const map = await services.neckMap();
-		expect(map).toHaveLength(72);
+		expect(map).toHaveLength(66);
 		expect(map[0]).toHaveProperty('pitch');
 	});
 

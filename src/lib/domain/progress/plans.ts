@@ -57,9 +57,3 @@ export function buildFreePlan(input: {
 			};
 		});
 }
-
-export function nextSuggestedAt(cards: readonly CardState[], now: number): number | null {
-	void now;
-	if (cards.length === 0) return null;
-	return Math.min(...cards.map((card) => card.scheduling.due));
-}
