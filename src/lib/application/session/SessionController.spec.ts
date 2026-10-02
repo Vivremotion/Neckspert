@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { Attempt, PlannedItem, SessionKind } from '$lib/domain/types';
+import type { Attempt, CardState, PlannedItem, SessionKind } from '$lib/domain/types';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
 	createListSelector,
@@ -444,6 +444,7 @@ function spySelector(items: PlannedItem[]) {
 	const list = createListSelector(items);
 	const contexts: { now: number; elapsedMs: number; fatigued: boolean }[] = [];
 	const recorded: Attempt[] = [];
+	const changed: CardState[] = [];
 	let outcome: ReturnType<SessionSelector['record']> = null;
 	const selector: SessionSelector = {
 		next(context) {
@@ -453,12 +454,16 @@ function spySelector(items: PlannedItem[]) {
 		record(attempt) {
 			recorded.push(attempt);
 			return outcome;
+		},
+		cardChanged(card) {
+			changed.push(card);
 		}
 	};
 	return {
 		selector,
 		contexts,
 		recorded,
+		changed,
 		learnOnRecord(value: ReturnType<SessionSelector['record']>) {
 			outcome = value;
 		}
@@ -532,7 +537,8 @@ describe('SessionController with a selector', () => {
 		const deps = createDeps();
 		const selector: SessionSelector = {
 			next: (context) => (context.elapsedMs >= LEARN_SESSION_MS ? null : locateItem()),
-			record: () => null
+			record: () => null,
+			cardChanged: () => {}
 		};
 		const controller = withSelector(selector, deps);
 		await controller.start();
@@ -606,13 +612,17 @@ describe('SessionController with a selector', () => {
 		const card = markLearned(introduceCard(target, -10_000_000, 'old'), -9_000_000, 80);
 		await deps.cards.put(card);
 		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 2 });
-		const controller = withSelector(spySelector([free]).selector, deps, 'free');
+		const spy = spySelector([free]);
+		const controller = withSelector(spy.selector, deps, 'free');
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		playRight(deps, controller);
 		await drain();
 		const [attempt] = await deps.attempts.all();
 		expect(attempt.temperature).toBe('cold');
+		expect(spy.changed.map((changed) => changed.scheduling.reps)).toEqual([
+			card.scheduling.reps + 1
+		]);
 		expect((await deps.cards.get('locate:2:F'))?.scheduling.reps).toBe(card.scheduling.reps + 1);
 	});
 

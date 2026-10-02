@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Attempt, PlannedItem } from '$lib/domain/types';
+import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 import { createListSelector } from './selector';
 
 const CONTEXT = { now: 0, elapsedMs: 0, fatigued: false };
@@ -25,5 +25,6 @@ describe('createListSelector', () => {
 	it('learns nothing from attempts', () => {
 		const selector = createListSelector([item('F')]);
 		expect(selector.record({} as Attempt, 0)).toBeNull();
+		expect(() => selector.cardChanged({} as CardState)).not.toThrow();
 	});
 });

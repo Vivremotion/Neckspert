@@ -42,6 +42,8 @@ class LearnSelector implements SessionSelector {
 	private readonly history = new Map<CardKey, Attempt[]>();
 	private readonly learning = new Map<CardKey, LearningEntry>();
 	private readonly servedAt = new Map<CardKey, number>();
+	/** Times each card was served in this session, so consolidation rotates. */
+	private readonly servedCount = new Map<CardKey, number>();
 	private readonly recent: CardKey[] = [];
 	private served = 0;
 	private reviews = 0;
@@ -64,6 +66,7 @@ class LearnSelector implements SessionSelector {
 		if (!item) return null;
 		const key = cardKey(item.target);
 		this.servedAt.set(key, this.served);
+		this.servedCount.set(key, (this.servedCount.get(key) ?? 0) + 1);
 		this.recent.push(key);
 		if (this.recent.length > CONSOLIDATION_SKIP_RECENT) this.recent.shift();
 		this.served++;
@@ -102,6 +105,10 @@ class LearnSelector implements SessionSelector {
 		const gap = LEARN_RETEST_GAPS[Math.min(entry.successes, LEARN_RETEST_GAPS.length - 1)];
 		entry.dueAt = retestDueAt(servedAt, gap);
 		return null;
+	}
+
+	cardChanged(card: CardState): void {
+		this.cards.set(card.key, card);
 	}
 
 	private remember(attempt: Attempt): void {
@@ -202,6 +209,8 @@ class LearnSelector implements SessionSelector {
 			.sort((a, b) => {
 				const byConfusion = Number(confused(b.key)) - Number(confused(a.key));
 				if (byConfusion !== 0) return byConfusion;
+				const byServed = (this.servedCount.get(a.key) ?? 0) - (this.servedCount.get(b.key) ?? 0);
+				if (byServed !== 0) return byServed;
 				if (a.scheduling.stability !== b.scheduling.stability) {
 					return a.scheduling.stability - b.scheduling.stability;
 				}

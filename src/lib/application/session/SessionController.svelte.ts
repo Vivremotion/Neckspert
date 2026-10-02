@@ -609,16 +609,22 @@ export class SessionController implements PlaySessionController {
 		} else if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
-				await this.deps.cards.put(
+				await this.storeCard(
 					applyColdAttempt(existing, attempt, fullHistory, now, this.settings.tempoBpm)
 				);
 			}
 		} else if (item.phase === 'learning') {
-			if (outcome) await this.deps.cards.put(outcome.learned);
+			if (outcome) await this.storeCard(outcome.learned);
 			else if (!existing) {
-				await this.deps.cards.put(introduceCard(item.target, now, this.sessionId));
+				await this.storeCard(introduceCard(item.target, now, this.sessionId));
 			}
 		}
+	}
+
+	/** Stores a card and tells the selector, whose copy must not go stale. */
+	private async storeCard(card: CardState): Promise<void> {
+		await this.deps.cards.put(card);
+		this.selector?.cardChanged(card);
 	}
 
 	/**

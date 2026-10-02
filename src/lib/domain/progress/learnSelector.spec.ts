@@ -259,7 +259,25 @@ describe('createLearnSelector', () => {
 		const keys = play(select(cards, [confused]), 4);
 		// t stays confused until three clean attempts push the confusion out of the lookback.
 		expect(keys).toEqual([cardKey(t), cardKey(q), cardKey(s), cardKey(t)]);
-		expect(play(select(cards), 4)).toEqual([cardKey(q), cardKey(s), cardKey(p), cardKey(q)]);
+		expect(play(select(cards), 4)).toEqual([cardKey(q), cardKey(s), cardKey(p), cardKey(t)]);
+	});
+
+	it('rotates consolidation through the learned notes instead of looping on three', () => {
+		const keys = play(select(FILLERS), 10);
+		expect(new Set(keys).size).toBe(10);
+	});
+
+	it('lets a new note in once reviews acquire the waiting cards', () => {
+		const selector = select(FILLERS.map(due));
+		const reviewed = play(selector, 10);
+		expect(new Set(reviewed).size).toBe(10);
+		for (const card of FILLERS) selector.cardChanged({ ...card, acquiredAt: NOW });
+		// Their identify positions are now candidates and come before the next locate note.
+		expect(next(selector)).toMatchObject({
+			target: { direction: 'identify', string: 5, fret: 3 },
+			phase: 'learning',
+			aid: 'show-position'
+		});
 	});
 
 	it('keeps consolidating when the whole neck is known', () => {
