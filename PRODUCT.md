@@ -76,7 +76,9 @@ Une session d'environ 5 minutes, toujours ouverte, à relancer autant qu'on veut
 4. **Note nouvelle**, la suivante de la file, s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
 5. **Consolidation** : une note déjà apprise, parmi les plus fragiles (confusions récentes, faible stabilité). À chaud, ne compte pas.
 
-Apprendre une note : présentation avec la position affichée, puis la note revient sans aide après 2 autres consignes, puis après 4. Elle est **apprise** après 2 rappels directs sans aide. Une erreur, ou une réponse juste mais trop lente, réaffiche l'aide et recommence. En mode 2, l'aide est le nom de la note.
+Apprendre une note (mode 1) : présentation à 8 temps avec la position affichée. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
+
+Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décomptée à l'écran (4, 3, 2, 1) avant la consigne : clics et piste vers la guitare, silence et boutons vers l'écran.
 
 À la fatigue, plus de note nouvelle ni de consolidation ; seuls les retests en cours continuent. Le bilan suit : précision et temps médian à froid, notes apprises, notes qui reprendront la prochaine fois, heure des prochaines révisions (une information, pas une invitation à attendre). Le bouton de l'accueil reste toujours actif après le positionnement ; il indique les révisions dues ou l'heure des suivantes. Les chiffres sont des valeurs de départ, à calibrer.
 

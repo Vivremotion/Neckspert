@@ -51,6 +51,10 @@ export interface PlayView {
 	/** Mode 2: the twelve answer buttons. */
 	answerChoices: AnswerChoice[] | null;
 	fatigueDetected: boolean;
+	/** What the stage shows: the lane for the guitar (locate), the answer pad for the screen (identify). */
+	scene: Direction;
+	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
+	countdown: number | null;
 }
 
 export interface PlayTimeline {

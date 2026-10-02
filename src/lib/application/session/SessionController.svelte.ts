@@ -27,6 +27,7 @@ import {
 import type {
 	Attempt,
 	CardState,
+	Direction,
 	Locale,
 	PlannedItem,
 	SessionKind,
@@ -71,6 +72,10 @@ export class SessionController implements PlaySessionController {
 	private selector: SessionSelector | null = null;
 	/** Epoch ms when the current series started; the selector measures elapsed time from it. */
 	private startedAt = 0;
+	/** Prompt chosen ahead of a counted bar, shown when the bar ends. */
+	private pending: PlannedItem | null = null;
+	/** Direction of the last prompt shown; a change opens a counted bar. */
+	private lastDirection: Direction | null = null;
 	private settings!: Settings;
 	private locale: Locale = 'fr';
 	private latencyMs = 0;
@@ -109,7 +114,9 @@ export class SessionController implements PlaySessionController {
 			leadBeats: null,
 			history: [],
 			answerChoices: null,
-			fatigueDetected: false
+			fatigueDetected: false,
+			scene: 'locate',
+			countdown: null
 		});
 	}
 
@@ -131,6 +138,10 @@ export class SessionController implements PlaySessionController {
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
 		this.selector = null;
+		this.pending = null;
+		this.lastDirection = null;
+		this.view.scene = 'locate';
+		this.view.countdown = null;
 		this.sessionAttempts = [];
 		this.current = null;
 		this.clearItemState();
@@ -187,12 +198,21 @@ export class SessionController implements PlaySessionController {
 
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.clearItemState();
+		// Pick the first prompt now so the stage shows its scene during the opening count.
+		// The opening count always clicks: it sets the tempo.
+		this.pending = this.takeNext();
+		if (this.pending) {
+			this.view.scene = this.pending.target.direction;
+			this.view.answerChoices =
+				this.pending.target.direction === 'identify' ? buildAnswerChoices() : null;
+		}
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
 
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.view.countdown = null;
 		// Discard in-progress item without recording.
 		this.current = null;
 		this.clearItemState();
@@ -271,7 +291,7 @@ export class SessionController implements PlaySessionController {
 
 		if (this.view.status === 'verdict') {
 			if (this.verdictBeatIndex !== null && beat.index >= this.verdictBeatIndex + 1) {
-				this.advanceAfterVerdict();
+				this.advanceAfterVerdict(beat);
 				// advanceAfterVerdict may set count-in or finished; TS cannot track setStatus.
 				if (
 					(this.view.status as PlayView['status']) === 'count-in' &&
@@ -291,8 +311,28 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'count-in' || this.view.status === 'idle') {
 			if (beat.index >= this.earliestPromptBeat) {
 				this.beginNextItem(beat);
+			} else {
+				this.view.countdown = this.earliestPromptBeat - beat.index;
 			}
 		}
+	}
+
+	private takeNext(): PlannedItem | null {
+		const now = this.deps.now();
+		return (
+			this.selector?.next({
+				now,
+				elapsedMs: now - this.startedAt,
+				fatigued: this.view.fatigueDetected
+			}) ?? null
+		);
+	}
+
+	/** Lane and clicks for the guitar; answer pad and silence for the screen. */
+	private enterScene(direction: Direction): void {
+		this.view.scene = direction;
+		this.view.answerChoices = direction === 'identify' ? buildAnswerChoices() : null;
+		this.deps.metronome.setAudible(direction === 'locate');
 	}
 
 	private onNote(onset: NoteOnset): void {
@@ -333,18 +373,16 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private beginNextItem(beat: BeatEvent): void {
-		const now = this.deps.now();
-		const item =
-			this.selector?.next({
-				now,
-				elapsedMs: now - this.startedAt,
-				fatigued: this.view.fatigueDetected
-			}) ?? null;
+		const item = this.pending ?? this.takeNext();
+		this.pending = null;
 		if (!item) {
 			void this.finish();
 			return;
 		}
 		this.current = item;
+		this.view.countdown = null;
+		this.lastDirection = item.target.direction;
+		this.view.scene = item.target.direction;
 
 		if (item.target.direction === 'locate') {
 			this.deps.metronome.setAudible(true);
@@ -641,14 +679,28 @@ export class SessionController implements PlaySessionController {
 		return classifyTemperature(input);
 	}
 
-	private advanceAfterVerdict(): void {
+	private advanceAfterVerdict(beat: BeatEvent): void {
 		this.clearItemState();
 		this.current = null;
 		this.view.prompt = null;
-		this.view.answerChoices = null;
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
 		this.view.leadBeats = null;
+		const item = this.takeNext();
+		if (!item) {
+			void this.finish();
+			return;
+		}
+		this.pending = item;
+		const direction = item.target.direction;
+		if (this.lastDirection !== null && direction !== this.lastDirection) {
+			// Switching between guitar and screen: one counted bar to get the hands there.
+			this.earliestPromptBeat = beat.index + BEATS_PER_BAR;
+			this.view.countdown = BEATS_PER_BAR;
+			this.enterScene(direction);
+		} else if (direction === 'locate') {
+			this.view.answerChoices = null;
+		}
 		this.setStatus('count-in');
 	}
 

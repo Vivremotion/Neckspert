@@ -334,6 +334,8 @@ describe('SessionController identify', () => {
 			clarity: 0.95
 		});
 		tick(deps, 0.75 * 2);
+		expect(controller.view.status).toBe('count-in');
+		tick(deps, 0.75 * 4);
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.prompt?.direction).toBe('identify');
 		expect(controller.view.promptBeatIndex).toBeNull();
@@ -367,8 +369,83 @@ describe('SessionController identify', () => {
 		expect(deps.metronome.audible).toBe(false);
 
 		tick(deps, 0.75);
+		expect(controller.view.status).toBe('count-in');
+		expect(deps.metronome.audible).toBe(true);
+		tick(deps, 0.75 * 4);
 		expect(controller.view.prompt?.direction).toBe('locate');
 		expect(deps.metronome.audible).toBe(true);
+	});
+
+	it('counts the first bar down, 4 to 1, then shows the prompt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		const counts: (number | null)[] = [];
+		tick(deps, 0.1);
+		counts.push(controller.view.countdown);
+		for (let i = 0; i < 3; i++) {
+			tick(deps, 0.75);
+			counts.push(controller.view.countdown);
+		}
+		expect(counts).toEqual([4, 3, 2, 1]);
+		tick(deps, 0.75);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.countdown).toBeNull();
+	});
+
+	it('counts a clicked bar down before a guitar prompt that follows a screen prompt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 1 })]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.scene).toBe('identify');
+		controller.answer('C');
+		tick(deps, 0.75);
+		expect(controller.view).toMatchObject({
+			status: 'count-in',
+			scene: 'locate',
+			countdown: 4,
+			prompt: null,
+			answerChoices: null
+		});
+		expect(deps.metronome.audible).toBe(true);
+		tick(deps, 0.75 * 3);
+		expect(controller.view.countdown).toBe(1);
+		tick(deps, 0.75);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt?.direction).toBe('locate');
+	});
+
+	it('brings the answer pad in during a silent bar before a screen prompt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 1 }), identifyItem()]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.scene).toBe('locate');
+		deps.detector.emitNote({
+			time: deps.metronome.beatTime(5),
+			midi: 65,
+			frequencyHz: 349.23,
+			clarity: 0.95
+		});
+		tick(deps, 0.75 * 2);
+		expect(controller.view).toMatchObject({ status: 'count-in', scene: 'identify', countdown: 4 });
+		expect(controller.view.answerChoices).toHaveLength(12);
+		expect(deps.metronome.audible).toBe(false);
+		tick(deps, 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt?.direction).toBe('identify');
+	});
+
+	it('adds no bar between two prompts in the same direction', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([identifyItem(), identifyItem()]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		controller.answer('F');
+		tick(deps, 0.75);
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.countdown).toBeNull();
 	});
 
 	it('ignores answer() outside awaiting and ignores guitar notes in identify', async () => {

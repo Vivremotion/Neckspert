@@ -101,7 +101,15 @@
 		</div>
 		<div class="stage">
 			<div class="prompt" class:answering>
-				{#if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
+				{#if view.status === 'count-in' && view.countdown !== null}
+					<div class="countdown" aria-live="polite">
+						{#if answering}
+							<p class="primary">{view.countdown}</p>
+						{:else}
+							<PixelWord text={String(view.countdown)} />
+						{/if}
+					</div>
+				{:else if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
 					{#if answering}
 						<p class="primary">{view.prompt.primary}</p>
 					{:else}
@@ -135,11 +143,11 @@
 		</div>
 
 		{#if answering}
-			<div class="lane-slot" class:answering>
+			<div class="lane-slot scene-in" class:answering>
 				<AnswerPanel {controller} />
 			</div>
 		{:else}
-			<div class="lane pixel-frame">
+			<div class="lane pixel-frame scene-in">
 				<div class="lane-inner pixel-frame-inner">
 					<div class="track">
 						<div class="tiles">
@@ -307,6 +315,28 @@
 		text-align: center;
 		max-width: 100%;
 		overflow-wrap: anywhere;
+	}
+
+	/* The stage changes between lane (guitar) and answer pad (screen): the new one rises in. */
+	.scene-in {
+		animation: scene-in 240ms ease-out both;
+	}
+
+	@keyframes scene-in {
+		from {
+			opacity: 0;
+			transform: translateY(var(--np-space-2, 16px));
+		}
+		to {
+			opacity: 1;
+			transform: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.scene-in {
+			animation: none;
+		}
 	}
 
 	/* Learning aid: the fret (mode 1) or the note name (mode 2), set apart in inverted tones. */

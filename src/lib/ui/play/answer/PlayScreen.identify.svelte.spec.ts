@@ -22,6 +22,8 @@ function view(overrides: Partial<PlayView>): PlayView {
 		history: [],
 		answerChoices: null,
 		fatigueDetected: false,
+		scene: overrides.prompt?.direction ?? (overrides.answerChoices ? 'identify' : 'locate'),
+		countdown: null,
 		...overrides
 	};
 }

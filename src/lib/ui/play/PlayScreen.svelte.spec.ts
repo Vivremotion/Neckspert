@@ -1,5 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { PlayView } from '$lib/application/session/contract';
 import PlayScreen from './PlayScreen.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
 
@@ -52,7 +53,9 @@ describe('PlayScreen', () => {
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,
-				fatigueDetected: false
+				fatigueDetected: false,
+				scene: 'locate' as const,
+				countdown: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},
@@ -73,21 +76,24 @@ describe('PlayScreen', () => {
 		secondary: string;
 		aid: string | null;
 	}) {
+		const view: PlayView = {
+			status: 'awaiting',
+			prompt,
+			lastVerdict: null,
+			tempoBpm: 80,
+			beatsPerBar: 4,
+			promptBeatIndex: prompt.direction === 'locate' ? 0 : null,
+			targetBeatIndex: prompt.direction === 'locate' ? 8 : null,
+			leadBeats: prompt.direction === 'locate' ? 8 : null,
+			history: [],
+			answerChoices: null,
+			fatigueDetected: false,
+			scene: prompt.direction,
+			countdown: null
+		};
 		return {
 			sessionId: 'aided',
-			view: {
-				status: 'awaiting' as const,
-				prompt,
-				lastVerdict: null,
-				tempoBpm: 80,
-				beatsPerBar: 4 as const,
-				promptBeatIndex: prompt.direction === 'locate' ? 0 : null,
-				targetBeatIndex: prompt.direction === 'locate' ? 8 : null,
-				leadBeats: prompt.direction === 'locate' ? (8 as const) : null,
-				history: [],
-				answerChoices: null,
-				fatigueDetected: false
-			},
+			view,
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},
 			pause: () => {},
@@ -117,6 +123,42 @@ describe('PlayScreen', () => {
 		});
 		const { container } = render(PlayScreen, { props: { controller } });
 		expect(container.querySelector('.aid')?.textContent).toBe('F');
+	});
+
+	it('counts down in place of the prompt during a counted bar', () => {
+		const controller = aidedController({
+			direction: 'locate',
+			primary: 'G',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'count-in',
+			prompt: null,
+			countdown: 3
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.countdown')?.textContent).toContain('3');
+		expect(container.querySelector('.string')).toBeNull();
+	});
+
+	it('sets the answer pad on stage while counting down to a screen prompt', () => {
+		const controller = aidedController({
+			direction: 'identify',
+			primary: 'case 8',
+			secondary: 'corde de A',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'count-in',
+			prompt: null,
+			countdown: 4
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.lane-slot.answering')).not.toBeNull();
+		expect(container.querySelector('.countdown')?.textContent).toContain('4');
 	});
 
 	it('shows no aid on an unaided prompt', () => {
@@ -150,7 +192,9 @@ describe('PlayScreen', () => {
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,
-				fatigueDetected: false
+				fatigueDetected: false,
+				scene: 'locate' as const,
+				countdown: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},
