@@ -29,6 +29,31 @@ export class NeckspertDb extends Dexie {
 		this.version(2)
 			.stores(stores)
 			.upgrade((tx) => Promise.all(Object.keys(stores).map((name) => tx.table(name).clear())));
+		// Version 3 replaced placement with probes. A missed placement turns hot: it measured
+		// no forgetting (spec 2026-10-03, section 1). At the threshold lead, correct = direct recall.
+		this.version(3)
+			.stores(stores)
+			.upgrade(async (tx) => {
+				await tx
+					.table('attempts')
+					.filter((row) => row.phase === 'placement')
+					.modify((row) => {
+						row.phase = 'probe';
+						if (row.correct === false) row.temperature = 'hot';
+					});
+				await tx
+					.table('sessions')
+					.filter((row) => row.kind === 'placement')
+					.modify((row) => {
+						row.kind = 'learn';
+					});
+				await tx
+					.table('settings')
+					.toCollection()
+					.modify((row) => {
+						delete row.placementDoneAt;
+					});
+			});
 	}
 }
 

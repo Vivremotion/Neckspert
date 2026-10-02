@@ -49,7 +49,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(2);
+		expect(db.verno).toBe(3);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -57,12 +57,80 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 2 and stores rows', async () => {
+	it('converts placement data when a version 2 database is opened', async () => {
+		const name = crypto.randomUUID();
+		const old = versionTwo(name);
+		await old.open();
+		const attempt = { cardKey: 'locate:2:F', sessionId: 's1', promptedAt: 1 };
+		await old.table('attempts').bulkAdd([
+			{ ...attempt, phase: 'placement', temperature: 'cold', correct: true },
+			{ ...attempt, phase: 'placement', temperature: 'cold', correct: false, promptedAt: 2 },
+			{ ...attempt, phase: 'review', temperature: 'cold', correct: false, promptedAt: 3 }
+		]);
+		await old.table('sessions').bulkPut([
+			{ id: 's1', kind: 'placement', startedAt: 1 },
+			{ id: 's2', kind: 'learn', startedAt: 2 }
+		]);
+		await old.table('settings').put({ id: 'settings', tempoBpm: 96, placementDoneAt: 5 });
+		await old.table('cards').put({ key: 'locate:2:F', learnedAt: 1 });
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(3);
+		const attempts = await db.attempts.orderBy('promptedAt').toArray();
+		expect(attempts.map((a) => a.phase)).toEqual(['probe', 'probe', 'review']);
+		expect(attempts.map((a) => a.temperature)).toEqual(['cold', 'hot', 'cold']);
+		expect((await db.sessions.toArray()).map((session) => session.kind)).toEqual([
+			'learn',
+			'learn'
+		]);
+		expect(await db.settings.get('settings')).toEqual({ id: 'settings', tempoBpm: 96 });
+		expect(await db.cards.toArray()).toEqual([{ key: 'locate:2:F', learnedAt: 1 }]);
+		db.close();
+	});
+
+	it('upgrades a version 2 database without placement rows untouched', async () => {
+		const name = crypto.randomUUID();
+		const old = versionTwo(name);
+		await old.open();
+		const row = {
+			cardKey: 'locate:2:F',
+			sessionId: 's1',
+			promptedAt: 1,
+			phase: 'learning',
+			temperature: 'hot',
+			correct: false
+		};
+		await old.table('attempts').add(row);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(await db.attempts.toArray()).toEqual([{ ...row, id: 1 }]);
+		expect(await db.settings.count()).toBe(0);
+		db.close();
+	});
+
+	it('opens at version 3 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(2);
+		expect(db.verno).toBe(3);
 		await db.settings.put({ id: 'settings', tempoBpm: 96 });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', tempoBpm: 96 });
 		db.close();
 	});
 });
+
+function versionTwo(name: string): Dexie {
+	const old = new Dexie(name);
+	const stores = {
+		attempts: '++id, cardKey, sessionId, promptedAt',
+		cards: 'key',
+		sessions: 'id, startedAt',
+		settings: 'id'
+	};
+	old.version(1).stores(stores);
+	old.version(2).stores(stores);
+	return old;
+}
