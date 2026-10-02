@@ -108,6 +108,9 @@
 						<PixelWord text={view.prompt.primary} />
 					{/if}
 					<p class="string">{view.prompt.secondary}</p>
+					{#if view.prompt.aid}
+						<p class="aid">{view.prompt.aid}</p>
+					{/if}
 				{/if}
 			</div>
 
@@ -304,6 +307,18 @@
 		text-align: center;
 		max-width: 100%;
 		overflow-wrap: anywhere;
+	}
+
+	/* Learning aid: the fret (mode 1) or the note name (mode 2), set apart in inverted tones. */
+	.aid {
+		margin: 0;
+		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
+		background: var(--np-ink);
+		color: var(--np-bg);
+		font-size: var(--np-type-prompt);
+		line-height: 1;
+		letter-spacing: 0;
+		text-align: center;
 	}
 
 	.primary {

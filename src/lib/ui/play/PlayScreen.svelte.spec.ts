@@ -67,6 +67,69 @@ describe('PlayScreen', () => {
 		expect(screen.queryByText('F')).toBeNull();
 	});
 
+	function aidedController(prompt: {
+		direction: 'locate' | 'identify';
+		primary: string;
+		secondary: string;
+		aid: string | null;
+	}) {
+		return {
+			sessionId: 'aided',
+			view: {
+				status: 'awaiting' as const,
+				prompt,
+				lastVerdict: null,
+				tempoBpm: 80,
+				beatsPerBar: 4 as const,
+				promptBeatIndex: prompt.direction === 'locate' ? 0 : null,
+				targetBeatIndex: prompt.direction === 'locate' ? 8 : null,
+				leadBeats: prompt.direction === 'locate' ? (8 as const) : null,
+				history: [],
+				answerChoices: null,
+				fatigueDetected: false
+			},
+			timeline: { nowBeat: () => 1 },
+			start: async () => {},
+			pause: () => {},
+			resume: () => {},
+			answer: () => {},
+			quit: () => {}
+		};
+	}
+
+	it('shows the position of an aided locate prompt', () => {
+		const controller = aidedController({
+			direction: 'locate',
+			primary: 'G',
+			secondary: 'corde de E grave',
+			aid: 'case 3'
+		});
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.aid')?.textContent).toBe('case 3');
+	});
+
+	it('shows the note name of an aided identify prompt', () => {
+		const controller = aidedController({
+			direction: 'identify',
+			primary: 'case 8',
+			secondary: 'corde de A',
+			aid: 'F'
+		});
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.aid')?.textContent).toBe('F');
+	});
+
+	it('shows no aid on an unaided prompt', () => {
+		const controller = aidedController({
+			direction: 'locate',
+			primary: 'G',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.aid')).toBeNull();
+	});
+
 	function awaitingController() {
 		let quitCalls = 0;
 		const controller = {

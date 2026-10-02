@@ -9,6 +9,7 @@
 	let ready = $state(false);
 	const platesOnly = $derived(page.url.searchParams.get('platesOnly') === '1');
 	const shot = $derived(page.url.searchParams.get('shot') === '1');
+	const withAid = $derived(page.url.searchParams.get('aid') === '1');
 
 	onMount(() => {
 		let raf = 0;
@@ -21,7 +22,7 @@
 					direction: 'locate',
 					primary: 'F',
 					secondary: 'corde de B',
-					aid: null
+					aid: withAid ? 'case 6' : null
 				};
 				controller.view.promptBeatIndex = 8;
 				controller.view.targetBeatIndex = 16;
