@@ -1,7 +1,10 @@
 export interface DetectorConfig {
 	minMidi: number;
 	maxMidi: number;
+	/** Clarity required on the sustained window, after the pick attack. */
 	clarityThreshold: number;
+	/** Clarity required on the first window, which includes the pick attack. */
+	attackClarityThreshold: number;
 	onsetRatio: number;
 	minRms: number;
 	cooldownMs: number;
@@ -13,6 +16,7 @@ export const DEFAULT_DETECTOR_CONFIG: DetectorConfig = {
 	minMidi: 40,
 	maxMidi: 88,
 	clarityThreshold: 0.85,
+	attackClarityThreshold: 0.75,
 	onsetRatio: 1.8,
 	minRms: 0.02,
 	cooldownMs: 100,

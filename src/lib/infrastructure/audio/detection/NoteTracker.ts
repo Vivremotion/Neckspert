@@ -1,12 +1,9 @@
 import type { NoteOnset } from '$lib/application/ports';
-import { CONFIRM_CENTS, type DetectorConfig } from './config';
-import { estimatePitch } from './estimatePitch';
+import { confirmedPitch } from './confirmPitch';
+import type { DetectorConfig } from './config';
+import { readPitch } from './estimatePitch';
 import { midiFromFrequency } from './frequencyToMidi';
 import { OnsetDetector } from './OnsetDetector';
-
-function centsBetween(a: number, b: number): number {
-	return Math.abs(1200 * Math.log2(a / b));
-}
 
 /** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
 export class NoteTracker {
@@ -57,19 +54,22 @@ export class NoteTracker {
 		const second = Float32Array.from(
 			this.samples.slice(start + this.config.windowSize, start + need)
 		);
-		const a = estimatePitch(first, this.sampleRate, this.config.clarityThreshold);
-		const b = estimatePitch(second, this.sampleRate, this.config.clarityThreshold);
+		const reading = confirmedPitch(
+			readPitch(first, this.sampleRate),
+			readPitch(second, this.sampleRate),
+			{
+				attackClarityThreshold: this.config.attackClarityThreshold,
+				sustainClarityThreshold: this.config.clarityThreshold
+			}
+		);
 		this.pendingOnsetTime = null;
-		if (!a || !b) return null;
-		if (centsBetween(a.frequencyHz, b.frequencyHz) > CONFIRM_CENTS) return null;
+		if (!reading) return null;
 
-		const frequencyHz = (a.frequencyHz + b.frequencyHz) / 2;
-		const clarity = Math.min(a.clarity, b.clarity);
 		return {
 			time: onsetTime,
-			midi: midiFromFrequency(frequencyHz, this.config.minMidi, this.config.maxMidi),
-			frequencyHz,
-			clarity
+			midi: midiFromFrequency(reading.frequencyHz, this.config.minMidi, this.config.maxMidi),
+			frequencyHz: reading.frequencyHz,
+			clarity: reading.clarity
 		};
 	}
 
