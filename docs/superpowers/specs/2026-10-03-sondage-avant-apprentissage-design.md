@@ -120,12 +120,12 @@ Contrairement à la version 2, la version 3 **migre** au lieu de vider :
 
 Les positions manquées au positionnement n’ont pas de carte : elles seront sondées quand la file les atteindra.
 
-Une seule fonction pure, `migrateLegacyPlacement`, fait ces conversions sur une tentative et une session, utilisée par la migration et par l’import.
+Les conversions se font dans la fonction `upgrade` de la version 3, sans autre usage.
 
 ### Sauvegardes
 
-- À l’import, le fichier est d’abord normalisé par `migrateLegacyPlacement`, puis validé : un ancien export s’importe. Le validateur lui-même ne connaît que `'probe'`, `'learn'` et `'free'`. `placementDoneAt` présent dans les réglages importés est ignoré.
-- `BackupFile.version` reste 1 (le format est compatible après normalisation).
+- Pas de conversion à l’import : aucun export n’a été fait avant ce changement (un seul utilisateur). Le validateur accepte `'probe'`, `'learn'` et `'free'`, refuse `'placement'`, et n’exige plus `placementDoneAt`.
+- `BackupFile.version` reste 1.
 
 ## 8. Ce qui disparaît
 
@@ -154,7 +154,7 @@ TDD, specs colocalisées. Barrière : `npm test && npm run check`.
   - un sondage manqué ne compte ni contre la maîtrise, ni dans `coldAccuracy`, ni dans le temps médian du mode 2 ;
   - le bilan exclut les sondages de la précision à froid et compte `knownCount` ;
   - `computeHomeStats` sans `placementDoneAt`.
-- **Stockage** : passage de la version 2 à la version 3 sur une base avec positionnement (phases, températures, sessions, réglages, cartes intactes) ; import d’un ancien export (phases et sessions converties, `placementDoneAt` ignoré) ; le validateur seul refuse `'placement'`.
+- **Stockage** : passage de la version 2 à la version 3 sur une base avec positionnement (phases, températures, sessions, réglages, cartes intactes) ; le validateur accepte `'probe'` et refuse `'placement'`.
 - **Écrans** : accueil sans « Positionnement », bouton « Apprentissage » à la première visite ; bilan avec « notes déjà sues ».
 
 ## 10. Documentation
