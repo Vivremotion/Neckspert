@@ -1,11 +1,21 @@
 import type { PitchName } from '$lib/domain/music/types';
 import {
+	describeAcceptable,
+	describeFrequency,
+	detuneCents,
+	logDetection,
+	nearestAcceptable,
+	noteWithOctave,
+	signedCents
+} from '$lib/debug/detectionLog';
+import {
 	acceptableMidis,
 	classifyNameConfusion,
 	classifyNoteConfusion,
 	formatNote,
 	pitchOnString,
-	spellPitch
+	spellPitch,
+	stringLabel
 } from '$lib/domain/music';
 import {
 	applyColdAttempt,
@@ -129,6 +139,11 @@ export class SessionController implements PlaySessionController {
 		if (this.run !== run) return;
 		this.locale = this.settings.locale;
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
+		logDetection('entrée audio', [
+			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
+			`tempo : ${this.settings.tempoBpm} bpm`,
+			`gain micro intégré : ${this.settings.builtInInputGain}`
+		]);
 		this.view.tempoBpm = this.settings.tempoBpm;
 		this.sessionTempoBpm = this.settings.tempoBpm;
 
@@ -270,15 +285,31 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private onNote(onset: NoteOnset): void {
-		if (this.view.status !== 'awaiting' || this.captured || !this.current) return;
-		if (this.current.target.direction !== 'locate') return;
-		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
+		if (this.view.status !== 'awaiting' || this.captured || !this.current) {
+			this.logSkippedNote(onset);
+			return;
+		}
+		if (this.current.target.direction !== 'locate') {
+			logDetection('note ignorée', [
+				'raison : la question en cours n’est pas « joue cette note »',
+				this.describeHeard(onset)
+			]);
+			return;
+		}
+		if (this.promptTimeAudio === null || this.targetBeatIndex === null) {
+			logDetection('note ignorée', [
+				'raison : la fenêtre de réponse n’est pas armée',
+				this.describeHeard(onset)
+			]);
+			return;
+		}
 
 		this.captured = true;
 		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
 		const window = answerWindow(this.promptTimeAudio, targetTime);
 		const corrected = onset.time - this.latencyMs / 1000;
-		const onsetForJudge = isInWindow(corrected, window) ? onset : null;
+		const inWindow = isInWindow(corrected, window);
+		const onsetForJudge = inWindow ? onset : null;
 		const judgement = judgeLocate({
 			acceptable: acceptableMidis(this.current.target),
 			promptTime: this.promptTimeAudio,
@@ -286,6 +317,7 @@ export class SessionController implements PlaySessionController {
 			onset: onsetForJudge,
 			latencyMs: this.latencyMs
 		});
+		this.logLocateDecision(onset, window, targetTime, corrected, inWindow, judgement);
 		void this.resolveLocate(judgement, this.targetBeatIndex);
 	}
 
@@ -351,14 +383,113 @@ export class SessionController implements PlaySessionController {
 		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
 
 		this.captured = true;
+		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
+		const window = answerWindow(this.promptTimeAudio, targetTime);
+		logDetection('fenêtre fermée sans note', [
+			`cible : ${this.describeLocateTarget()}`,
+			`fréquences acceptées : ${describeAcceptable(acceptableMidis(this.current.target))}`,
+			`fenêtre : ${window.opensAt.toFixed(3)} s → ${window.closesAt.toFixed(3)} s`,
+			`fermeture au beat ${beat.time.toFixed(3)} s`,
+			'aucune hauteur confirmée n’est arrivée pendant l’attente',
+			'verdict : faux — compté comme non joué'
+		]);
 		const judgement = judgeLocate({
 			acceptable: acceptableMidis(this.current.target),
 			promptTime: this.promptTimeAudio,
-			targetTime: this.deps.metronome.beatTime(this.targetBeatIndex),
+			targetTime,
 			onset: null,
 			latencyMs: this.latencyMs
 		});
 		void this.resolveLocate(judgement, beat.index);
+	}
+
+	private logSkippedNote(onset: NoteOnset): void {
+		const reasons: string[] = [];
+		if (this.view.status !== 'awaiting') {
+			reasons.push(`la session n’attend pas de note (statut : ${this.view.status})`);
+		}
+		if (this.captured) {
+			reasons.push('une note a déjà été prise pour cette demande — celle-ci est ignorée');
+		}
+		if (!this.current) reasons.push('aucune question en cours');
+		logDetection('note ignorée', [
+			`raison : ${reasons.join(' ; ') || 'inconnue'}`,
+			this.describeHeard(onset)
+		]);
+	}
+
+	private describeHeard(onset: NoteOnset): string {
+		return `reçu : ${describeFrequency(onset.frequencyHz)}, MIDI retenu ${onset.midi} (${noteWithOctave(onset.midi)}), clarté ${onset.clarity.toFixed(2)}, t = ${onset.time.toFixed(3)} s`;
+	}
+
+	private describeLocateTarget(): string {
+		const target = this.current?.target;
+		if (!target || target.direction !== 'locate') return 'cible inconnue';
+		return `${target.pitch} · ${stringLabel(target.string, this.locale)}`;
+	}
+
+	private logLocateDecision(
+		onset: NoteOnset,
+		window: { opensAt: number; closesAt: number },
+		targetTime: number,
+		corrected: number,
+		inWindow: boolean,
+		judgement: Judgement
+	): void {
+		const target = this.current?.target;
+		if (!target || target.direction !== 'locate') return;
+		const acceptable = acceptableMidis(target);
+		const nearest = nearestAcceptable(onset.frequencyHz, acceptable);
+		const fromOpenMs = Math.round((corrected - window.opensAt) * 1000);
+		const fromCloseMs = Math.round((window.closesAt - corrected) * 1000);
+		const fromTargetMs = Math.round((corrected - targetTime) * 1000);
+		const lines = [
+			`cible : ${target.pitch} · ${stringLabel(target.string, this.locale)}`,
+			`fréquences acceptées : ${describeAcceptable(acceptable)}`,
+			this.describeHeard(onset),
+			`latence : ${this.latencyMs} ms`,
+			`temps brut ${onset.time.toFixed(3)} s → corrigé ${corrected.toFixed(3)} s`,
+			`fenêtre : ${window.opensAt.toFixed(3)} s → ${window.closesAt.toFixed(3)} s, cible ${targetTime.toFixed(3)} s`,
+			`position : ${fromOpenMs} ms après l’ouverture, ${fromCloseMs} ms avant la fermeture, ${
+				fromTargetMs < 0 ? `${-fromTargetMs} ms en avance` : `${fromTargetMs} ms en retard`
+			}`
+		];
+		if (nearest) {
+			const way = nearest.cents > 15 ? 'trop aigu' : nearest.cents < -15 ? 'trop grave' : 'proche';
+			lines.push(
+				`écart au plus proche accepté (${noteWithOctave(nearest.midi)}) : ${signedCents(nearest.cents)} (${way})`
+			);
+			for (const midi of acceptable) {
+				if (midi === nearest.midi) continue;
+				lines.push(
+					`écart à ${noteWithOctave(midi)} : ${signedCents(detuneCents(onset.frequencyHz, midi))}`
+				);
+			}
+		}
+		if (!inWindow) {
+			const before = corrected < window.opensAt;
+			const deltaMs = Math.round(
+				(before ? window.opensAt - corrected : corrected - window.closesAt) * 1000
+			);
+			lines.push(
+				before
+					? `hors fenêtre : ${deltaMs} ms avant l’ouverture`
+					: `hors fenêtre : ${deltaMs} ms après la fermeture`,
+				'cette détection verrouille la demande : une note suivante, même juste, sera ignorée',
+				'verdict : faux — compté comme non joué'
+			);
+		} else if (!judgement.correct) {
+			lines.push(
+				`écart au temps : ${judgement.timingOffsetMs} ms`,
+				`verdict : faux — MIDI ${onset.midi} n’est pas dans [${acceptable.join(', ')}]`
+			);
+		} else {
+			lines.push(
+				`écart au temps : ${judgement.timingOffsetMs} ms`,
+				`verdict : juste (${judgement.verdict})`
+			);
+		}
+		logDetection('décision', lines);
 	}
 
 	private async resolveLocate(judgement: Judgement, gapFromBeat: number): Promise<void> {

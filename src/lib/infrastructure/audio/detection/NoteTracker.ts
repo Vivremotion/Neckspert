@@ -1,9 +1,14 @@
 import type { NoteOnset } from '$lib/application/ports';
+import { describeFrequency, describeReading, logDetection } from '$lib/debug/detectionLog';
 import { confirmedPitch } from './confirmPitch';
-import type { DetectorConfig } from './config';
+import { CONFIRM_CENTS, type DetectorConfig } from './config';
 import { readPitch } from './estimatePitch';
-import { midiIfInRange } from './frequencyToMidi';
+import { frequencyToMidi, midiIfInRange } from './frequencyToMidi';
 import { OnsetDetector } from './OnsetDetector';
+
+function centsBetween(a: number, b: number): number {
+	return Math.abs(1200 * Math.log2(a / b));
+}
 
 /** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
 export class NoteTracker {
@@ -34,7 +39,13 @@ export class NoteTracker {
 
 		if (this.pendingOnsetTime === null) {
 			const attack = this.onset.push(frame, frameTime);
-			if (attack !== null) this.pendingOnsetTime = attack;
+			if (attack !== null) {
+				this.pendingOnsetTime = attack;
+				logDetection('attaque', [
+					`t = ${attack.toFixed(3)} s`,
+					'en attente de deux fenêtres de hauteur stables'
+				]);
+			}
 		} else {
 			// Keep the onset detector's envelope/cooldown updated while confirming.
 			this.onset.push(frame, frameTime);
@@ -54,19 +65,67 @@ export class NoteTracker {
 		const second = Float32Array.from(
 			this.samples.slice(start + this.config.windowSize, start + need)
 		);
-		const reading = confirmedPitch(
-			readPitch(first, this.sampleRate),
-			readPitch(second, this.sampleRate),
-			{
-				attackClarityThreshold: this.config.attackClarityThreshold,
-				sustainClarityThreshold: this.config.clarityThreshold
-			}
-		);
+		const a = readPitch(first, this.sampleRate);
+		const b = readPitch(second, this.sampleRate);
+		const attackThreshold = this.config.attackClarityThreshold;
+		const sustainThreshold = this.config.clarityThreshold;
+		const reading = confirmedPitch(a, b, {
+			attackClarityThreshold: attackThreshold,
+			sustainClarityThreshold: sustainThreshold
+		});
 		this.pendingOnsetTime = null;
-		if (!reading) return null;
-		const midi = midiIfInRange(reading.frequencyHz, this.config.minMidi, this.config.maxMidi);
-		if (midi === null) return null;
 
+		const drift =
+			a.frequencyHz > 0 && b.frequencyHz > 0 ? centsBetween(a.frequencyHz, b.frequencyHz) : null;
+		const windowMs = (this.config.windowSize / this.sampleRate) * 1000;
+		const windows = [
+			`fenêtre A : ${describeReading(a, attackThreshold)}`,
+			`fenêtre B : ${describeReading(b, sustainThreshold)}`,
+			`analyse : 2 × ${this.config.windowSize} échantillons (${Math.round(windowMs)} ms chacune) après l’attaque`
+		];
+
+		if (!reading) {
+			const aPass = a.frequencyHz > 0 && a.clarity >= attackThreshold;
+			const bPass = b.frequencyHz > 0 && b.clarity >= sustainThreshold;
+			const reasons: string[] = [];
+			if (!(a.frequencyHz > 0)) reasons.push('fenêtre A sans fréquence');
+			else if (!aPass) {
+				reasons.push(`fenêtre A : clarté ${a.clarity.toFixed(2)} < ${attackThreshold}`);
+			}
+			if (!(b.frequencyHz > 0)) reasons.push('fenêtre B sans fréquence');
+			else if (!bPass) {
+				reasons.push(`fenêtre B : clarté ${b.clarity.toFixed(2)} < ${sustainThreshold}`);
+			}
+			if (aPass && bPass && drift !== null) {
+				reasons.push(`écart ${Math.round(drift)} ¢ > ${CONFIRM_CENTS} ¢`);
+			}
+			logDetection('hauteur rejetée — aucune note envoyée au jugement', [
+				`attaque à ${onsetTime.toFixed(3)} s`,
+				`raison : ${reasons.join(' ; ')}`,
+				...windows
+			]);
+			return null;
+		}
+
+		const midi = midiIfInRange(reading.frequencyHz, this.config.minMidi, this.config.maxMidi);
+		if (midi === null) {
+			const rawMidi = Math.round(frequencyToMidi(reading.frequencyHz));
+			logDetection('hauteur rejetée — hors de la plage guitare', [
+				`attaque à ${onsetTime.toFixed(3)} s`,
+				describeFrequency(reading.frequencyHz),
+				`MIDI brut ${rawMidi}, plage ${this.config.minMidi}–${this.config.maxMidi}`,
+				...windows
+			]);
+			return null;
+		}
+		logDetection('hauteur confirmée', [
+			`attaque à ${onsetTime.toFixed(3)} s`,
+			describeFrequency(reading.frequencyHz),
+			`MIDI retenu : ${midi}`,
+			`clarté : ${reading.clarity.toFixed(2)}`,
+			`écart A/B : ${Math.round(drift ?? 0)} ¢ (max ${CONFIRM_CENTS})`,
+			...windows
+		]);
 		return {
 			time: onsetTime,
 			midi,
