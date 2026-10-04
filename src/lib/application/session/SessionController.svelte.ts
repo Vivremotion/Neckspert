@@ -48,9 +48,9 @@ import {
 	lateCaptureEnd,
 	type Judgement
 } from '$lib/domain/scoring';
-import type { PlaySessionController, PlayView, VerdictView } from './contract';
+import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
-import { alignedPromptBeat, BEATS_PER_BAR, respirationStart } from './grid';
+import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 
 type InternalStatus = PlayView['status'];
@@ -76,6 +76,8 @@ export class SessionController implements PlaySessionController {
 	private startedAt = 0;
 	/** Prompt chosen ahead of a counted bar, shown when the bar ends. */
 	private pending: PlannedItem | null = null;
+	/** Display of `pending`, built once so the string preview and the prompt spell the note alike. */
+	private pendingPrompt: PromptView | null = null;
 	/** Direction of the last prompt shown; a change opens a counted bar. */
 	private lastDirection: Direction | null = null;
 	private settings!: Settings;
@@ -125,7 +127,8 @@ export class SessionController implements PlaySessionController {
 			answerChoices: null,
 			fatigueDetected: false,
 			scene: 'locate',
-			countdown: null
+			countdown: null,
+			preview: null
 		});
 	}
 
@@ -151,6 +154,8 @@ export class SessionController implements PlaySessionController {
 		this.sessionId = this.deps.newId();
 		this.selector = null;
 		this.pending = null;
+		this.pendingPrompt = null;
+		this.view.preview = null;
 		this.lastDirection = null;
 		this.view.scene = 'locate';
 		this.view.countdown = null;
@@ -219,6 +224,7 @@ export class SessionController implements PlaySessionController {
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 		this.view.countdown = null;
+		this.view.preview = null;
 		// Discard in-progress item without recording.
 		this.current = null;
 		this.clearItemState();
@@ -344,6 +350,11 @@ export class SessionController implements PlaySessionController {
 		}
 		const left = promptBeat - beat.index;
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
+		// Mode 1 prompts come in two steps: the string first, then the note on the prompt beat.
+		this.view.preview =
+			this.pending.target.direction === 'locate' && left <= STRING_PREVIEW_BEATS
+				? this.pendingPromptView(this.pending)
+				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
 		if (this.view.countdown !== null) this.view.lastVerdict = null;
 	}
@@ -450,13 +461,22 @@ export class SessionController implements PlaySessionController {
 		this.resolveLocate(judgement, this.targetBeatIndex, true);
 	}
 
-	/** End of the off-beat capture of the current prompt: bounded by the breathing bar. */
+	/**
+	 * End of the off-beat capture of the current prompt: before the earliest moment the next
+	 * prompt can show, its string included.
+	 */
 	private lateCaptureEnd(): number | null {
 		if (this.targetBeatIndex === null) return null;
+		const nextShows = respirationStart(this.targetBeatIndex) - STRING_PREVIEW_BEATS;
 		return lateCaptureEnd(
 			this.deps.metronome.beatTime(this.targetBeatIndex),
-			this.deps.metronome.beatTime(respirationStart(this.targetBeatIndex))
+			this.deps.metronome.beatTime(nextShows)
 		);
+	}
+
+	private pendingPromptView(item: PlannedItem): PromptView {
+		this.pendingPrompt ??= buildPromptView(item, this.locale, this.deps.random);
+		return this.pendingPrompt;
 	}
 
 	/**
@@ -487,7 +507,10 @@ export class SessionController implements PlaySessionController {
 
 	private beginNextItem(beat: BeatEvent): void {
 		const item = this.pending ?? this.takeNext();
+		const built = this.pending === item ? this.pendingPrompt : null;
 		this.pending = null;
+		this.pendingPrompt = null;
+		this.view.preview = null;
 		if (!item) {
 			void this.finish();
 			return;
@@ -506,7 +529,7 @@ export class SessionController implements PlaySessionController {
 			this.windowClosesAt = null;
 			this.captured = false;
 
-			this.view.prompt = buildPromptView(item, this.locale, this.deps.random);
+			this.view.prompt = built ?? buildPromptView(item, this.locale, this.deps.random);
 			this.view.promptBeatIndex = this.promptBeatIndex;
 			this.view.targetBeatIndex = this.targetBeatIndex;
 			this.view.leadBeats = item.leadBeats;

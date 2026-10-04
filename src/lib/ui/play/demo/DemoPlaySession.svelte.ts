@@ -74,7 +74,8 @@ export class DemoPlaySession implements PlaySessionController {
 			answerChoices: null,
 			fatigueDetected: false,
 			scene: 'locate',
-			countdown: null
+			countdown: null,
+			preview: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
@@ -166,7 +167,8 @@ export class DemoPlaySession implements PlaySessionController {
 			direction: 'locate',
 			primary: item.primary,
 			secondary: t.stringOf(item.stringName),
-			aid: null
+			aid: null,
+			diagram: null
 		};
 		this.view.lastVerdict = null;
 		this.view.status = 'awaiting';

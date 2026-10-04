@@ -38,7 +38,8 @@ export class DemoIdentifySession implements PlaySessionController {
 		answerChoices: identifyChoices(),
 		fatigueDetected: false,
 		scene: 'identify',
-		countdown: null
+		countdown: null,
+		preview: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 
@@ -117,7 +118,8 @@ export class DemoIdentifySession implements PlaySessionController {
 			direction: 'identify',
 			primary: fretLabel(target.fret, i18n.locale),
 			secondary: stringLabel(target.string, i18n.locale),
-			aid: null
+			aid: null,
+			diagram: null
 		};
 		this.promptedAt = Date.now();
 		this.view.status = 'awaiting';

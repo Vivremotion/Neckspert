@@ -142,7 +142,8 @@ describe('createLearnSelector', () => {
 			phase: 'learning',
 			temperature: 'hot',
 			aid: 'show-position',
-			leadBeats: 8
+			leadBeats: 8,
+			stringAid: true
 		});
 	});
 
@@ -663,5 +664,29 @@ describe('learn pacing by success', () => {
 		);
 		expect(firstFull).toBeGreaterThan(-1);
 		expect(items.slice(firstFull + 1).some((item) => item.phase === 'probe')).toBe(false);
+	});
+});
+
+describe('drawn string aid', () => {
+	it('draws the string while a note is learned and consolidated, never on reviews or probes', () => {
+		const selector = select([learning(G), learned(ORDER[1]), due(learned(ORDER[2]))]);
+		const items = Array.from({ length: 4 }, () => {
+			const item = next(selector)!;
+			selector.record(answer(item), NOW);
+			return item;
+		});
+		const byPhase = (phase: string) => items.filter((item) => item.phase === phase);
+		expect(byPhase('review').every((item) => !item.stringAid)).toBe(true);
+		expect(byPhase('learning').every((item) => item.stringAid)).toBe(true);
+		expect(byPhase('probe').every((item) => !item.stringAid)).toBe(true);
+		expect(next(select([]))?.stringAid).toBeFalsy();
+	});
+
+	it('stops drawing the string of an acquired card', () => {
+		const acquired = learned(ORDER[1], { acquiredAt: NOW - 1000 });
+		const known = ORDER.slice(2, 12).map((target) => learned(target));
+		const item = next(select([acquired, ...known]))!;
+		expect(item.phase).toBe('consolidation');
+		expect(item.stringAid).toBe(cardKey(item.target) !== acquired.key);
 	});
 });

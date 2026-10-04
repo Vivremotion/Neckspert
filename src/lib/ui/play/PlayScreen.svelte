@@ -6,6 +6,7 @@
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import PixelWord from './PixelWord.svelte';
+	import StringDiagram from './StringDiagram.svelte';
 	import AnswerPanel from './answer/AnswerPanel.svelte';
 	import { showsAnswerPad } from './answer/showsAnswerPad';
 
@@ -109,6 +110,14 @@
 							<PixelWord text={String(view.countdown)} />
 						{/if}
 					</div>
+					{#if view.preview}
+						<p class="string preview">{view.preview.secondary}</p>
+						<StringDiagram diagram={view.preview.diagram} />
+					{/if}
+				{:else if view.preview && view.status === 'count-in'}
+					<!-- The string comes first; the note, the only big letter, follows on the prompt beat. -->
+					<p class="string preview">{view.preview.secondary}</p>
+					<StringDiagram diagram={view.preview.diagram} />
 				{:else if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
 					{#if answering}
 						<p class="primary">{view.prompt.primary}</p>
@@ -116,6 +125,7 @@
 						<PixelWord text={view.prompt.primary} />
 					{/if}
 					<p class="string">{view.prompt.secondary}</p>
+					<StringDiagram diagram={view.prompt.diagram} />
 					{#if view.prompt.aid}
 						<p class="aid">{view.prompt.aid}</p>
 					{/if}
@@ -318,6 +328,11 @@
 		text-align: center;
 		max-width: 100%;
 		overflow-wrap: anywhere;
+	}
+
+	/* Mode 1: the note is the only big letter; the string reads smaller so its name is not played. */
+	.prompt:not(.answering) .string {
+		font-size: var(--np-type-body);
 	}
 
 	/* The stage changes between lane (guitar) and answer pad (screen): the new one rises in. */

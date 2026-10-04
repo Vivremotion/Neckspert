@@ -267,6 +267,47 @@ describe('SessionController locate judgement', () => {
 	});
 });
 
+describe('SessionController two-step prompt', () => {
+	it('shows the string a beat before the note, spelled the same once the note appears', async () => {
+		const deps = createDeps();
+		const draws = [0.9, 0.1, 0.9, 0.1];
+		deps.random = () => draws.shift() ?? 0;
+		const controller = make(
+			planWith([
+				locateItem({ target: { direction: 'locate', string: 2, pitch: 'F#' }, leadBeats: 4 })
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 2);
+		expect(controller.view.preview).toBeNull();
+		atBeat(deps, 3);
+		expect(controller.view).toMatchObject({ status: 'count-in', prompt: null });
+		expect(controller.view.preview).toMatchObject({ secondary: 'corde de B', primary: 'Gb' });
+		atBeat(deps, 4);
+		expect(controller.view.prompt?.primary).toBe('Gb');
+		expect(controller.view.preview).toBeNull();
+	});
+
+	it('draws the string of a prompt that carries the aid', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4, stringAid: true })]), deps);
+		await controller.start();
+		atBeat(deps, 3);
+		expect(controller.view.preview?.diagram).toEqual({ string: 2, label: 'B' });
+		atBeat(deps, 4);
+		expect(controller.view.prompt?.diagram).toEqual({ string: 2, label: 'B' });
+	});
+
+	it('never previews a screen prompt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([identifyItem()]), deps);
+		await controller.start();
+		atBeat(deps, 3);
+		expect(controller.view.preview).toBeNull();
+	});
+});
+
 describe('SessionController tempo between sessions', () => {
 	async function playSession(kind: SessionKind, hits: number, misses: number) {
 		const deps = createDeps();
@@ -375,13 +416,16 @@ describe('SessionController late capture', () => {
 			deps
 		);
 		await controller.start();
-		atBeat(deps, 11);
+		atBeat(deps, 10);
 		await drain();
 		expect(await deps.attempts.all()).toHaveLength(0);
-		atBeat(deps, 12);
+		// Beat 11 shows the string of the next prompt: the capture is over by then.
+		atBeat(deps, 11);
 		await drain();
 		const [attempt] = await deps.attempts.all();
 		expect(attempt).toMatchObject({ answer: null, correct: false, verdict: 'wrong' });
+		expect(controller.view.preview?.secondary).toBe('corde de G');
+		atBeat(deps, 12);
 		expect(controller.view).toMatchObject({ status: 'awaiting', promptBeatIndex: 12 });
 	});
 

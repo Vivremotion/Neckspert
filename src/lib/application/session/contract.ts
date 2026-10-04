@@ -1,4 +1,4 @@
-import type { PitchName } from '$lib/domain/music/types';
+import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import type { Direction, LeadBeats, Verdict } from '$lib/domain/types';
 
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
@@ -12,6 +12,8 @@ export interface PromptView {
 	secondary: string;
 	/** Mode 1 learning aid ("case 6"), or null. */
 	aid: string | null;
+	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
+	diagram: { string: StringNumber; label: string } | null;
 }
 
 export interface VerdictView {
@@ -57,6 +59,8 @@ export interface PlayView {
 	scene: Direction;
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
 	countdown: number | null;
+	/** Mode 1: the next prompt, shown string first before its note appears. Only its string shows. */
+	preview: PromptView | null;
 }
 
 export interface PlayTimeline {

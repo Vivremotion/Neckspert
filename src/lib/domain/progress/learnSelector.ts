@@ -391,7 +391,8 @@ class LearnSelector implements SessionSelector {
 			phase: 'learning',
 			temperature: 'hot',
 			aid: aided ? 'show-position' : 'none',
-			leadBeats: locate ? entry.lead : null
+			leadBeats: locate ? entry.lead : null,
+			stringAid: locate
 		};
 	}
 
@@ -507,7 +508,9 @@ class LearnSelector implements SessionSelector {
 			phase: 'consolidation',
 			temperature: 'hot',
 			aid: 'none',
-			leadBeats: this.consolidationLead(card)
+			leadBeats: this.consolidationLead(card),
+			// The drawn string goes away once the card is acquired.
+			stringAid: card.target.direction === 'locate' && card.acquiredAt === null
 		};
 	}
 }

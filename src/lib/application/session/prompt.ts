@@ -4,6 +4,7 @@ import {
 	formatNote,
 	fretLabel,
 	fretsForPitch,
+	openPitch,
 	pitchOnString,
 	spellPitch,
 	stringLabel
@@ -24,7 +25,8 @@ export function buildPromptView(
 			direction: 'locate',
 			primary: formatNote(label),
 			secondary: stringLabel(target.string, locale),
-			aid: aid === 'show-position' && frets.length > 0 ? fretLabel(frets[0], locale) : null
+			aid: aid === 'show-position' && frets.length > 0 ? fretLabel(frets[0], locale) : null,
+			diagram: item.stringAid ? { string: target.string, label: openPitch(target.string) } : null
 		};
 	}
 	return {
@@ -34,7 +36,8 @@ export function buildPromptView(
 		aid:
 			aid === 'show-position'
 				? formatNote(spellPitch(pitchOnString(target.string, target.fret), random))
-				: null
+				: null,
+		diagram: null
 	};
 }
 

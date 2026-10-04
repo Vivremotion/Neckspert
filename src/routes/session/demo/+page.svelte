@@ -22,7 +22,8 @@
 					direction: 'locate',
 					primary: 'F',
 					secondary: 'corde de B',
-					aid: withAid ? 'case 6' : null
+					aid: withAid ? 'case 6' : null,
+					diagram: null
 				};
 				controller.view.promptBeatIndex = 8;
 				controller.view.targetBeatIndex = 16;

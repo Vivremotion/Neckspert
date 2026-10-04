@@ -43,7 +43,8 @@ describe('PlayScreen', () => {
 					direction: 'locate' as const,
 					primary: 'G',
 					secondary: 'corde de G',
-					aid: null
+					aid: null,
+					diagram: null
 				},
 				lastVerdict: null,
 				tempoBpm: 80,
@@ -55,7 +56,8 @@ describe('PlayScreen', () => {
 				answerChoices: null,
 				fatigueDetected: false,
 				scene: 'locate' as const,
-				countdown: null
+				countdown: null,
+				preview: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},
@@ -75,10 +77,11 @@ describe('PlayScreen', () => {
 		primary: string;
 		secondary: string;
 		aid: string | null;
+		diagram?: { string: 1 | 2 | 3 | 4 | 5 | 6; label: string } | null;
 	}) {
 		const view: PlayView = {
 			status: 'awaiting',
-			prompt,
+			prompt: { ...prompt, diagram: prompt.diagram ?? null },
 			lastVerdict: null,
 			tempoBpm: 80,
 			beatsPerBar: 4,
@@ -89,7 +92,8 @@ describe('PlayScreen', () => {
 			answerChoices: null,
 			fatigueDetected: false,
 			scene: prompt.direction,
-			countdown: null
+			countdown: null,
+			preview: null
 		};
 		return {
 			sessionId: 'aided',
@@ -161,6 +165,52 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.countdown')?.textContent).toContain('4');
 	});
 
+	it('shows the string alone, drawn, a beat before the note', () => {
+		const controller = aidedController({
+			direction: 'locate',
+			primary: 'A',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'count-in',
+			prompt: null,
+			preview: {
+				direction: 'locate',
+				primary: 'A',
+				secondary: 'corde de E grave',
+				aid: null,
+				diagram: { string: 6, label: 'E' }
+			}
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.string')?.textContent).toBe('corde de E grave');
+		expect(container.querySelector('.prompt svg, .prompt .primary')).toBeNull();
+		expect(container.querySelector('.diagram')?.getAttribute('data-string')).toBe('6');
+	});
+
+	it('draws the string under a learning prompt only when it carries the aid', () => {
+		const drawn = aidedController({
+			direction: 'locate',
+			primary: 'A',
+			secondary: 'corde de E grave',
+			aid: null,
+			diagram: { string: 6, label: 'E' }
+		});
+		const { container } = render(PlayScreen, { props: { controller: drawn } });
+		expect(container.querySelector('.diagram')).not.toBeNull();
+		cleanup();
+		const plain = aidedController({
+			direction: 'locate',
+			primary: 'A',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		const again = render(PlayScreen, { props: { controller: plain } });
+		expect(again.container.querySelector('.diagram')).toBeNull();
+	});
+
 	it('shows the right position with the verdict after a miss', () => {
 		const controller = aidedController({
 			direction: 'locate',
@@ -204,7 +254,8 @@ describe('PlayScreen', () => {
 					direction: 'locate' as const,
 					primary: 'G',
 					secondary: 'corde de G',
-					aid: null
+					aid: null,
+					diagram: null
 				},
 				lastVerdict: null,
 				tempoBpm: 80,
@@ -216,7 +267,8 @@ describe('PlayScreen', () => {
 				answerChoices: null,
 				fatigueDetected: false,
 				scene: 'locate' as const,
-				countdown: null
+				countdown: null,
+				preview: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},

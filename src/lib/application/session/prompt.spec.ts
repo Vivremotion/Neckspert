@@ -27,6 +27,19 @@ describe('buildPromptView', () => {
 		expect(view.aid).toBe('case 6');
 	});
 
+	it('draws the string of a learning prompt, with its open note', () => {
+		const learning: PlannedItem = {
+			...locate,
+			target: { direction: 'locate', string: 6, pitch: 'A' }
+		};
+		expect(buildPromptView({ ...learning, stringAid: true }, 'fr', () => 0).diagram).toEqual({
+			string: 6,
+			label: 'E'
+		});
+		expect(buildPromptView(learning, 'fr', () => 0).diagram).toBeNull();
+		expect(buildPromptView({ ...identify, stringAid: true }, 'fr', () => 0).diagram).toBeNull();
+	});
+
 	it('omits aid when aid is none', () => {
 		const view = buildPromptView({ ...locate, aid: 'none' }, 'fr', () => 0);
 		expect(view.aid).toBeNull();

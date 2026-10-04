@@ -35,7 +35,8 @@ describe('DemoIdentifySession', () => {
 			direction: 'identify',
 			primary: 'case 8',
 			secondary: 'corde de A',
-			aid: null
+			aid: null,
+			diagram: null
 		});
 	});
 

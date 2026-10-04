@@ -185,6 +185,8 @@ export interface PlannedItem {
 	leadBeats: LeadBeats | null;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
+	/** Mode 1 removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
+	stringAid?: boolean;
 }
 
 export interface SessionRecord {

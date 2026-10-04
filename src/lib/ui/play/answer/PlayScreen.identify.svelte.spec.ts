@@ -24,13 +24,20 @@ function view(overrides: Partial<PlayView>): PlayView {
 		fatigueDetected: false,
 		scene: overrides.prompt?.direction ?? (overrides.answerChoices ? 'identify' : 'locate'),
 		countdown: null,
+		preview: null,
 		...overrides
 	};
 }
 
 function identifyView(overrides: Partial<PlayView> = {}): PlayView {
 	return view({
-		prompt: { direction: 'identify', primary: 'case 8', secondary: 'corde de A', aid: null },
+		prompt: {
+			direction: 'identify',
+			primary: 'case 8',
+			secondary: 'corde de A',
+			aid: null,
+			diagram: null
+		},
 		answerChoices: identifyChoices(),
 		...overrides
 	});
@@ -38,7 +45,13 @@ function identifyView(overrides: Partial<PlayView> = {}): PlayView {
 
 function locateView(): PlayView {
 	return view({
-		prompt: { direction: 'locate', primary: 'F', secondary: 'corde de B', aid: null },
+		prompt: {
+			direction: 'locate',
+			primary: 'F',
+			secondary: 'corde de B',
+			aid: null,
+			diagram: null
+		},
 		promptBeatIndex: 0,
 		targetBeatIndex: 8,
 		leadBeats: 8
