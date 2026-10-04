@@ -60,6 +60,11 @@
 		background: var(--np-mid);
 	}
 
+	/* Tall enough for its letter, which never spills over the next strings. */
+	.row.target {
+		block-size: var(--np-type-meta);
+	}
+
 	.target .line {
 		block-size: var(--np-tile, 8px);
 		background: var(--np-ink);

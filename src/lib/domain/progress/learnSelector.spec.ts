@@ -552,13 +552,19 @@ describe('learn pacing by success', () => {
 	const solid = (target: Target) => learned(target, { acquiredAt: NOW - 1000 });
 
 	it('lets no new note in while a note being learned is below 80 %', () => {
-		const failing = select([learning(G)]);
+		const failing = select([learning(G), learned(ORDER[5])]);
 		failing.record(answer(next(failing)!, missed), NOW);
-		expect(next(failing)?.phase).not.toBe('probe');
+		expect(next(failing)).toMatchObject({ target: ORDER[5], phase: 'consolidation' });
 
-		const passing = select([learning(G)]);
+		const passing = select([learning(G), learned(ORDER[5])]);
 		passing.record(answer(next(passing)!), NOW);
 		expect(next(passing)).toMatchObject({ target: ORDER[1], phase: 'probe' });
+	});
+
+	it('lets a new note past the gate rather than repeat the only note or end the session', () => {
+		const selector = select([learning(G)]);
+		selector.record(answer(next(selector)!, missed), NOW);
+		expect(next(selector)).toMatchObject({ target: ORDER[1], phase: 'probe' });
 	});
 
 	it('lets no new note in while the rolling success is under 70 %', () => {
@@ -688,5 +694,58 @@ describe('drawn string aid', () => {
 		const item = next(select([acquired, ...known]))!;
 		expect(item.phase).toBe('consolidation');
 		expect(item.stringAid).toBe(cardKey(item.target) !== acquired.key);
+	});
+});
+
+describe('learn session never stalls', () => {
+	const missed = { correct: false, verdict: 'wrong' } as const;
+
+	function run(sequences: boolean, missRate: number, seed: number, count = 60) {
+		let state = seed;
+		const random = () => {
+			state = (state * 16807) % 2147483647;
+			return state / 2147483647;
+		};
+		const selector = select([], [], random, sequences);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < count; i++) {
+			const item = next(selector);
+			if (!item) break;
+			items.push(item);
+			const miss = random() < missRate;
+			selector.record(answer(item, miss ? missed : {}), NOW);
+		}
+		return items;
+	}
+
+	/** Back-to-back repeats, the aid right after a missed probe aside. */
+	function repeats(items: PlannedItem[]): number {
+		return items.filter((item, i) => {
+			const before = items[i - 1];
+			if (!before || cardKey(before.target) !== cardKey(item.target)) return false;
+			return !(before.phase === 'probe' && item.phase === 'learning');
+		}).length;
+	}
+
+	it('keeps a struggling new player busy without hammering one note', () => {
+		for (const sequences of [false, true]) {
+			for (let seed = 1; seed <= 40; seed++) {
+				const items = run(sequences, 0.4, seed);
+				expect(items).toHaveLength(60);
+				expect(repeats(items)).toBeLessThanOrEqual(3);
+			}
+		}
+	});
+
+	it('serves no card twice in a row to fill an open sequence', () => {
+		const solid = ORDER.slice(1, 4).map((target) => learned(target));
+		const selector = select([learning(G), ...solid], [], () => 0, true);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < 8; i++) {
+			const item = next(selector)!;
+			items.push(item);
+			selector.record(answer(item, cardKey(item.target) === GK ? missed : {}), NOW);
+		}
+		expect(repeats(items)).toBe(0);
 	});
 });

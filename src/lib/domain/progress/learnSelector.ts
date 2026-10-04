@@ -230,9 +230,13 @@ class LearnSelector implements SessionSelector {
 		this.cards.delete(this.unansweredProbe);
 		this.servedAt.delete(this.unansweredProbe);
 		this.unansweredProbe = null;
-		// Never played: it does not count as the previous note.
+		// Never played: it does not count as the previous note, nor in its sequence.
 		this.previous = null;
 		this.previousItem = null;
+		if (this.sequence !== null) {
+			this.sequence =
+				this.sequence.count > 1 ? { ...this.sequence, count: this.sequence.count - 1 } : null;
+		}
 	}
 
 	/** A passed probe goes to review; a missed one is presented with the aid on the next prompt. */
@@ -307,7 +311,8 @@ class LearnSelector implements SessionSelector {
 		// A retest kept waiting too long by the open sequence ends it.
 		if (isOpen(this.sequence) && this.retestOverdue()) this.sequence = null;
 		const fit: Fit = (direction, lead) => fits(this.sequence, direction, lead);
-		const item = this.pickWith(context, fit);
+		// Inside an open sequence, no last resort: it never repeats a card to fill itself.
+		const item = this.pickWith(context, fit, !isOpen(this.sequence));
 		if (item || !isOpen(this.sequence)) return item;
 		// Nothing fits the open sequence: it ends early rather than repeat a card.
 		this.sequence = null;
@@ -341,24 +346,32 @@ class LearnSelector implements SessionSelector {
 	 * Inside a category the draw is random, never the previous card nor its mirror, and another
 	 * string when possible (`pickAtRandom`). `fit` keeps to the open sequence.
 	 */
-	private pickWith(context: SelectorContext, fit: Fit): PlannedItem | null {
+	private pickWith(context: SelectorContext, fit: Fit, lastResort = true): PlannedItem | null {
 		const dueRetest = this.dueRetest(fit);
 		if (dueRetest) return this.retest(dueRetest);
 		if (!context.fatigued) {
 			const item =
 				this.review(context.now, fit) ??
 				this.resume(fit) ??
-				this.introduce(context.now, fit) ??
-				this.consolidate(fit);
+				this.introduce(context.now, fit, true) ??
+				this.consolidate(fit, true);
 			if (item) return item;
 		}
-		// Nothing else: a retest early rather than an end of session, the previous card as a
-		// last resort only.
+		if (!lastResort) return null;
+		// Nothing else. Rather than end the session or hammer one note: a retest early, then
+		// a recent note again, then a new note past the success gate, and the previous card
+		// only when nothing at all is left.
 		const fitting = (entry: LearningEntry) => fit(entry.target.direction, this.retestLead(entry));
-		const early =
-			this.earliestRetest((entry) => fitting(entry) && allowedAfter(entry.target, this.previous)) ??
-			this.earliestRetest(fitting);
-		return early ? this.retest(early) : null;
+		const early = this.earliestRetest(
+			(entry) => fitting(entry) && allowedAfter(entry.target, this.previous)
+		);
+		if (early) return this.retest(early);
+		if (!context.fatigued) {
+			const item = this.consolidate(fit, false) ?? this.introduce(context.now, fit, false);
+			if (item) return item;
+		}
+		const any = this.earliestRetest(fitting);
+		return any ? this.retest(any) : null;
 	}
 
 	/** A due retest; the aided presentation after a missed probe always comes first. */
@@ -444,14 +457,16 @@ class LearnSelector implements SessionSelector {
 		return card ? this.retest(this.present(card.target)) : null;
 	}
 
-	private introduce(now: number, fit: Fit): PlannedItem | null {
+	/** `gated` false: past the success gate, only when nothing else can be served. */
+	private introduce(now: number, fit: Fit, gated: boolean): PlannedItem | null {
 		const cards = [...this.cards.values()];
 		const beingLearned = cards.filter((card) => card.learnedAt === null).length;
 		const unconsolidated = cards.filter(
 			(card) => card.learnedAt !== null && card.acquiredAt === null
 		).length;
 		if (beingLearned >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
-		if (!this.readyForNewNote(cards)) return null;
+		if (gated && !this.readyForNewNote(cards)) return null;
+		if (this.workingSet.size >= MAX_WORKING_SET) return null;
 		const target = nextNewTarget(cards);
 		if (!target || !allowedAfter(target, this.previous)) return null;
 		const lead = target.direction === 'locate' ? leadForThreshold(this.tempoBpm) : null;
@@ -478,14 +493,15 @@ class LearnSelector implements SessionSelector {
 		return card.acquiredAt !== null && sequence.lead >= own ? sequence.lead : own;
 	}
 
-	private consolidate(fit: Fit): PlannedItem | null {
+	/** `skipRecent` false: a note of the last prompts may come back, never the previous one. */
+	private consolidate(fit: Fit, skipRecent: boolean): PlannedItem | null {
 		const confused = (key: CardKey) =>
 			(this.history.get(key) ?? []).some((attempt) => attempt.confusion !== null);
 		const weakest = [...this.cards.values()]
 			.filter(
 				(candidate) =>
 					candidate.learnedAt !== null &&
-					!this.recent.includes(candidate.key) &&
+					!(skipRecent && this.recent.includes(candidate.key)) &&
 					this.fitsWorkingSet(candidate.key) &&
 					allowedAfter(candidate.target, this.previous) &&
 					fit(candidate.target.direction, this.consolidationLead(candidate))

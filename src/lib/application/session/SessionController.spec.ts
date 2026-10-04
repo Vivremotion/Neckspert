@@ -367,10 +367,8 @@ describe('SessionController late capture', () => {
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		atBeat(deps, 9);
-		expect(controller.view.lastVerdict).toMatchObject({
-			verdict: 'wrong',
-			correction: 'corde de B, case 6'
-		});
+		// Still listening: the right position stays hidden, or reading it would answer.
+		expect(controller.view.lastVerdict).toMatchObject({ verdict: 'wrong', correction: null });
 		await drain();
 		expect(await deps.attempts.all()).toHaveLength(0);
 
@@ -424,9 +422,25 @@ describe('SessionController late capture', () => {
 		await drain();
 		const [attempt] = await deps.attempts.all();
 		expect(attempt).toMatchObject({ answer: null, correct: false, verdict: 'wrong' });
+		expect(controller.view.lastVerdict?.correction).toBe('corde de B, case 6');
+		expect(deps.cues.played.map((cue) => cue.verdict)).toEqual(['wrong']);
 		expect(controller.view.preview?.secondary).toBe('corde de G');
 		atBeat(deps, 12);
 		expect(controller.view).toMatchObject({ status: 'awaiting', promptBeatIndex: 12 });
+	});
+
+	it('keeps the miss when paused or quit while still listening', async () => {
+		for (const stop of ['pause', 'quit'] as const) {
+			const deps = createDeps();
+			const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
+			await controller.start();
+			atBeat(deps, 9);
+			controller[stop]();
+			await drain();
+			const attempts = await deps.attempts.all();
+			expect(attempts).toHaveLength(1);
+			expect(attempts[0]).toMatchObject({ answer: null, verdict: 'wrong' });
+		}
 	});
 
 	it('ignores a note before the prompt or in its first 300 ms', async () => {

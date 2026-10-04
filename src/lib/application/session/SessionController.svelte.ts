@@ -223,6 +223,8 @@ export class SessionController implements PlaySessionController {
 
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
+		// A miss already shown is kept: the open late capture settles as unanswered.
+		if (this.captureUntil !== null) this.settleCapture(null);
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -485,14 +487,17 @@ export class SessionController implements PlaySessionController {
 	 */
 	private settleCapture(judgement: Judgement | null): void {
 		this.captureUntil = null;
-		if (judgement && judgement.answer !== null) {
-			this.view.lastVerdict = this.verdictView(judgement);
+		const settled = judgement ?? this.unansweredLocate();
+		const shown = this.view.lastVerdict?.verdict;
+		// Now that nothing more can be played for it, the right answer may show.
+		this.view.lastVerdict = this.verdictView(settled);
+		if (settled.verdict !== shown) {
 			this.view.history = this.view.history.map((entry) =>
-				entry.beatIndex === this.targetBeatIndex ? { ...entry, verdict: judgement.verdict } : entry
+				entry.beatIndex === this.targetBeatIndex ? { ...entry, verdict: settled.verdict } : entry
 			);
-			this.deps.cues.play(judgement.verdict);
+			this.deps.cues.play(settled.verdict);
 		}
-		void this.persistAttempt(judgement ?? this.unansweredLocate());
+		void this.persistAttempt(settled);
 	}
 
 	private unansweredLocate(): Judgement {
@@ -675,7 +680,8 @@ export class SessionController implements PlaySessionController {
 		logDetection('décision', lines);
 	}
 
-	private verdictView(judgement: Judgement): VerdictView {
+	/** `withCorrection` false while the late capture listens: reading the fret must not answer. */
+	private verdictView(judgement: Judgement, withCorrection = true): VerdictView {
 		const target = this.current?.target;
 		const answerLabel =
 			judgement.answer && judgement.answer.kind === 'note' && target?.direction === 'locate'
@@ -686,7 +692,7 @@ export class SessionController implements PlaySessionController {
 			offsetMs: judgement.timingOffsetMs,
 			reactionMs: judgement.reactionMs,
 			answerLabel: judgement.answer ? answerLabel : null,
-			correction: this.correctionFor(judgement.verdict)
+			correction: withCorrection ? this.correctionFor(judgement.verdict) : null
 		};
 	}
 
@@ -696,7 +702,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private resolveLocate(judgement: Judgement, gapFromBeat: number, settled: boolean): void {
 		if (!this.current || this.promptBeatIndex === null) return;
-		this.view.lastVerdict = this.verdictView(judgement);
+		this.view.lastVerdict = this.verdictView(judgement, settled);
 		if (this.targetBeatIndex !== null) {
 			this.view.history = [
 				...this.view.history,
