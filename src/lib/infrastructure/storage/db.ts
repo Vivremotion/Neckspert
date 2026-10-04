@@ -1,5 +1,11 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { Attempt, CardState, SessionRecord, Settings } from '$lib/domain/types';
+import {
+	SHORTEST_LEAD,
+	type Attempt,
+	type CardState,
+	type SessionRecord,
+	type Settings
+} from '$lib/domain/types';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -54,6 +60,18 @@ export class NeckspertDb extends Dexie {
 						delete row.placementDoneAt;
 					});
 			});
+		// Version 4 dropped the 1-beat lead step (spec 2026-10-04, section 1). Cards move to the
+		// shortest step left; attempts keep the lead they were played at.
+		this.version(4)
+			.stores(stores)
+			.upgrade((tx) =>
+				tx
+					.table('cards')
+					.filter((row) => row.leadBeats === 1)
+					.modify((row) => {
+						row.leadBeats = SHORTEST_LEAD;
+					})
+			);
 	}
 }
 

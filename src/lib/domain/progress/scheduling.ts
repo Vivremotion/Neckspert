@@ -5,6 +5,9 @@ import { MIN_COLD_DELAY_MS } from './constants';
 const scheduler = fsrs(
 	generatorParameters({
 		enable_fuzz: false,
+		// Cold reviews are at least MIN_COLD_DELAY_MS apart: minute steps never fit, and kept
+		// cards in Learning forever (export of 2026-10-04). A first Good goes straight to Review.
+		learning_steps: [],
 		relearning_steps: ['1h']
 	})
 );

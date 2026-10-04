@@ -13,6 +13,14 @@ describe('validateBackup', () => {
 		expect(validateBackup(JSON.parse(JSON.stringify(file)))).toEqual(file);
 	});
 
+	it('accepts an old export whose cards or attempts still hold the one-beat lead', () => {
+		const file = makeBackup({
+			cards: [makeCard({ leadBeats: 1 as never })],
+			attempts: [makeAttempt({ leadBeats: 1 })]
+		});
+		expect(() => validateBackup(file)).not.toThrow();
+	});
+
 	it('accepts attempts without an id', () => {
 		expect(() => validateBackup(makeBackup({ attempts: [makeAttempt()] }))).not.toThrow();
 	});

@@ -31,6 +31,26 @@ describe('graduateToReview', () => {
 });
 
 describe('reviewScheduling', () => {
+	it('graduates a new card to Review on its first Good, with no learning steps', () => {
+		const good = reviewScheduling(introScheduling(NOW), Rating.Good, NOW + MIN_COLD_DELAY_MS);
+		expect(good.state).toBe(State.Review);
+		expect(good.due - (NOW + MIN_COLD_DELAY_MS)).toBeGreaterThanOrEqual(24 * 60 * 60 * 1000);
+	});
+
+	it('moves a card stuck in Learning to Review on the next Good', () => {
+		const stuck = {
+			...introScheduling(NOW),
+			state: State.Learning as 1,
+			difficulty: 9.8,
+			stability: 0.2,
+			learningSteps: 1,
+			reps: 10,
+			lastReview: NOW - 24 * 60 * 60 * 1000,
+			due: NOW
+		};
+		expect(reviewScheduling(stuck, Rating.Good, NOW).state).toBe(State.Review);
+	});
+
 	it('sends a missed Review card into Relearning due about one hour later', () => {
 		const review = graduateToReview(NOW);
 		const missed = reviewScheduling(review, Rating.Again, NOW + 8 * 24 * 60 * 60 * 1000);

@@ -4,6 +4,7 @@ import { SETTINGS_ROW_ID, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
+import { withoutLegacyLead } from './legacyLead';
 import { validateBackup } from './validateBackup';
 
 export class DexieBackup implements BackupPort {
@@ -38,7 +39,7 @@ export class DexieBackup implements BackupPort {
 			await db.sessions.clear();
 			await db.settings.clear();
 			await db.settings.put({ ...backup.settings, id: SETTINGS_ROW_ID });
-			await db.cards.bulkAdd(backup.cards);
+			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);
 		});

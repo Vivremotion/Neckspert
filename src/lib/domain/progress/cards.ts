@@ -1,5 +1,6 @@
 import {
 	cardKey,
+	SHORTEST_LEAD,
 	type Attempt,
 	type CardState,
 	type CardStatus,
@@ -30,7 +31,7 @@ export function introduceCard(target: Target, now: number, sessionId: string): C
 		target,
 		introducedAt: now,
 		introducedInSession: sessionId,
-		leadBeats: target.direction === 'locate' ? 8 : 1,
+		leadBeats: target.direction === 'locate' ? 8 : SHORTEST_LEAD,
 		scheduling: introScheduling(now),
 		learnedAt: null,
 		acquiredAt: null,
@@ -43,7 +44,7 @@ export function markLearned(card: CardState, now: number, tempoBpm: number): Car
 	return {
 		...card,
 		learnedAt: now,
-		leadBeats: card.target.direction === 'locate' ? leadForThreshold(tempoBpm) : 1,
+		leadBeats: card.target.direction === 'locate' ? leadForThreshold(tempoBpm) : SHORTEST_LEAD,
 		scheduling: introScheduling(now)
 	};
 }
@@ -65,7 +66,8 @@ export function probeCard(
 		target,
 		introducedAt: now,
 		introducedInSession: sessionId,
-		leadBeats: attempt.leadBeats ?? 1,
+		leadBeats:
+			attempt.leadBeats === null || attempt.leadBeats === 1 ? SHORTEST_LEAD : attempt.leadBeats,
 		scheduling: graduateToReview(now),
 		learnedAt: now,
 		acquiredAt: now,

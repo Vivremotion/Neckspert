@@ -2,12 +2,13 @@ import {
 	IDENTIFY_RECALL_THRESHOLD_MS,
 	LEAD_STEPS,
 	RECALL_THRESHOLD_MS,
+	SHORTEST_LEAD,
 	type Attempt,
 	type Direction,
 	type LeadBeats
 } from '$lib/domain/types';
 
-/** Longest lead step whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS; at least 1. */
+/** Longest lead step whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS; at least SHORTEST_LEAD. */
 export function leadForThreshold(tempoBpm: number): LeadBeats {
 	// LEAD_STEPS is longest→shortest; first fit is the longest allowed.
 	for (const step of LEAD_STEPS) {
@@ -15,7 +16,7 @@ export function leadForThreshold(tempoBpm: number): LeadBeats {
 			return step;
 		}
 	}
-	return 1;
+	return SHORTEST_LEAD;
 }
 
 /**
@@ -34,13 +35,13 @@ export function isDirectRecall(
 	return (attempt.leadBeats * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS;
 }
 
-/** One LEAD_STEPS step shorter on success, one longer on failure; identify stays at 1. */
+/** One LEAD_STEPS step shorter on success, one longer on failure; identify stays at SHORTEST_LEAD. */
 export function adjustLeadBeats(
 	current: LeadBeats,
 	correct: boolean,
 	direction: Direction
 ): LeadBeats {
-	if (direction === 'identify') return 1;
+	if (direction === 'identify') return SHORTEST_LEAD;
 	const index = LEAD_STEPS.indexOf(current);
 	const nextIndex = correct ? Math.min(index + 1, LEAD_STEPS.length - 1) : Math.max(index - 1, 0);
 	return LEAD_STEPS[nextIndex];

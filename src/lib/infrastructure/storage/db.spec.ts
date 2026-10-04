@@ -49,7 +49,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(3);
+		expect(db.verno).toBe(4);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -77,7 +77,6 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(3);
 		const attempts = await db.attempts.orderBy('promptedAt').toArray();
 		expect(attempts.map((a) => a.phase)).toEqual(['probe', 'probe', 'review']);
 		expect(attempts.map((a) => a.temperature)).toEqual(['cold', 'hot', 'cold']);
@@ -112,10 +111,35 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 3 and stores rows', async () => {
+	it('moves cards off the dropped one-beat lead when a version 3 database is opened', async () => {
+		const name = crypto.randomUUID();
+		const old = versionThree(name);
+		await old.open();
+		await old.table('cards').bulkPut([
+			{ key: 'locate:2:F', leadBeats: 1 },
+			{ key: 'locate:3:C', leadBeats: 4 },
+			{ key: 'identify:5:8', leadBeats: 1 }
+		]);
+		const attempt = { cardKey: 'locate:2:F', sessionId: 's1', promptedAt: 1, leadBeats: 1 };
+		await old.table('attempts').add(attempt);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(4);
+		expect(await db.cards.orderBy('key').toArray()).toEqual([
+			{ key: 'identify:5:8', leadBeats: 2 },
+			{ key: 'locate:2:F', leadBeats: 2 },
+			{ key: 'locate:3:C', leadBeats: 4 }
+		]);
+		expect(await db.attempts.toArray()).toEqual([{ ...attempt, id: 1 }]);
+		db.close();
+	});
+
+	it('opens at version 4 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(3);
+		expect(db.verno).toBe(4);
 		await db.settings.put({ id: 'settings', tempoBpm: 96 });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', tempoBpm: 96 });
 		db.close();
@@ -132,5 +156,16 @@ function versionTwo(name: string): Dexie {
 	};
 	old.version(1).stores(stores);
 	old.version(2).stores(stores);
+	return old;
+}
+
+function versionThree(name: string): Dexie {
+	const old = versionTwo(name);
+	old.version(3).stores({
+		attempts: '++id, cardKey, sessionId, promptedAt',
+		cards: 'key',
+		sessions: 'id, startedAt',
+		settings: 'id'
+	});
 	return old;
 }

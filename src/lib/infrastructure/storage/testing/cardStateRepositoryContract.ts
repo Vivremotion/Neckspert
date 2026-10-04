@@ -42,7 +42,7 @@ export function cardStateRepositoryContract(
 		});
 
 		it('stores many cards at once', async () => {
-			const cards = [makeCard(), makeCard({ target: IDENTIFY_TARGET, leadBeats: 1 })];
+			const cards = [makeCard(), makeCard({ target: IDENTIFY_TARGET, leadBeats: 2 })];
 			await repo.putMany(cards);
 			expect((await repo.all()).sort(byKey)).toEqual([...cards].sort(byKey));
 		});

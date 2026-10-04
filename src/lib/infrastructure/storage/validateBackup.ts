@@ -20,6 +20,8 @@ const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
 const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
+/** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
+const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
 
 function isFields(value: unknown): value is Fields {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -91,7 +93,7 @@ function checkCard(card: Fields): string | null {
 	if (targetProblem) return targetProblem;
 	if (!isFiniteNumber(card.introducedAt)) return 'introducedAt must be a number';
 	if (typeof card.introducedInSession !== 'string') return 'introducedInSession must be a string';
-	if (!isOneOf(card.leadBeats, LEAD_STEPS)) return 'leadBeats must be 8, 4, 2 or 1';
+	if (!isOneOf(card.leadBeats, CARD_LEADS)) return 'leadBeats must be 8, 4, 2 or 1';
 	const scheduling = card.scheduling;
 	if (!isFields(scheduling) || !isFiniteNumber(scheduling.due)) {
 		return 'scheduling.due must be a number';

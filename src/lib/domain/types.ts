@@ -81,9 +81,18 @@ export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'fre
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';
 
-/** Lead time steps, in beats, between the prompt and the target beat (mode 1). */
-export const LEAD_STEPS = [8, 4, 2, 1] as const;
+/**
+ * Lead time steps, in beats, between the prompt and the target beat (mode 1).
+ * Never below 2: at 1 beat no cold answer ever came in time (export of 2026-10-04).
+ */
+export const LEAD_STEPS = [8, 4, 2] as const;
 export type LeadBeats = (typeof LEAD_STEPS)[number];
+
+/** Shortest lead step. Identify cards carry it; the field means nothing in mode 2. */
+export const SHORTEST_LEAD: LeadBeats = LEAD_STEPS[LEAD_STEPS.length - 1];
+
+/** Lead stored on an attempt: attempts recorded before 2026-10-04 can hold the old 1-beat step. */
+export type RecordedLeadBeats = LeadBeats | 1;
 
 /** What the guitarist answered: a played note (mode 1) or a tapped name (mode 2). */
 export type Answer = { kind: 'note'; midi: Midi } | { kind: 'name'; pitch: PitchName };
@@ -103,7 +112,7 @@ export interface Attempt {
 	temperature: Temperature;
 	aid: AidLevel;
 	/** Mode 1 only. */
-	leadBeats: LeadBeats | null;
+	leadBeats: RecordedLeadBeats | null;
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
 	/** Null when nothing was answered before the window closed. */
@@ -139,7 +148,7 @@ export interface CardState {
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
 	introducedInSession: string;
-	/** Current lead step, mode 1 only; identify cards keep 1. */
+	/** Current lead step, mode 1 only; identify cards keep SHORTEST_LEAD. */
 	leadBeats: LeadBeats;
 	scheduling: SchedulingState;
 	/** Epoch ms when in-session learning completed. Null while the card is being learned. */

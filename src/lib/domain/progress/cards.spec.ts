@@ -58,8 +58,8 @@ describe('introduceCard', () => {
 		expect(card.learnedAt).toBeNull();
 	});
 
-	it('creates identify cards with lead 1', () => {
-		expect(introduceCard(IDENTIFY, NOW, 's-learn').leadBeats).toBe(1);
+	it('creates identify cards on the shortest lead', () => {
+		expect(introduceCard(IDENTIFY, NOW, 's-learn').leadBeats).toBe(2);
 	});
 });
 
@@ -72,8 +72,8 @@ describe('markLearned', () => {
 		expect(card.scheduling.state).toBe(State.New);
 	});
 
-	it('keeps identify cards at lead 1', () => {
-		expect(markLearned(introduceCard(IDENTIFY, NOW, 's-learn'), NOW, TEMPO).leadBeats).toBe(1);
+	it('keeps identify cards on the shortest lead', () => {
+		expect(markLearned(introduceCard(IDENTIFY, NOW, 's-learn'), NOW, TEMPO).leadBeats).toBe(2);
 	});
 });
 
@@ -110,7 +110,7 @@ describe('probeCard', () => {
 			});
 		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', 80);
 		expect(card?.key).toBe('identify:6:3');
-		expect(card?.leadBeats).toBe(1);
+		expect(card?.leadBeats).toBe(2);
 		expect(card?.acquiredAt).toBe(NOW);
 		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', 80)).toBeNull();
 	});

@@ -21,7 +21,7 @@ async function seed(db: NeckspertDb): Promise<void> {
 	await new DexieSettingsRepository(db).update({ tempoBpm: 96, calibrationOffsetMs: 42 });
 	await new DexieCardStateRepository(db).putMany([
 		makeCard(),
-		makeCard({ target: IDENTIFY_TARGET, leadBeats: 1 })
+		makeCard({ target: IDENTIFY_TARGET, leadBeats: 2 })
 	]);
 	const attempts = new DexieAttemptRepository(db);
 	await attempts.add(makeAttempt({ promptedAt: 3000, verdict: 'late', reactionMs: 1800 }));
@@ -101,6 +101,16 @@ describe('DexieBackup', () => {
 			expect(await new DexieCardStateRepository(db).all()).toEqual(file.cards);
 			expect(await new DexieAttemptRepository(db).all()).toEqual(file.attempts);
 			expect(await new DexieSessionRepository(db).list()).toEqual(file.sessions);
+		});
+
+		it('imports an old export with a one-beat card on the shortest lead left', async () => {
+			const file = makeBackup({ cards: [makeCard({ leadBeats: 1 as never })] });
+
+			await new DexieBackup(db).importAll(file);
+
+			expect((await new DexieCardStateRepository(db).all()).map((card) => card.leadBeats)).toEqual([
+				2
+			]);
 		});
 
 		it('rejects an invalid file and keeps the stored data', async () => {

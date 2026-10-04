@@ -403,7 +403,7 @@ describe('buildNeckMap', () => {
 
 	it('shows the current lead at the tempo of the session that last set it', () => {
 		const intro = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'slow');
-		const card = { ...intro, leadBeats: 1 as const };
+		const card = { ...intro, leadBeats: 2 as const };
 		const cells = buildNeckMap({
 			cards: [card],
 			attempts: [
@@ -423,12 +423,12 @@ describe('buildNeckMap', () => {
 			pitchAt: () => 'C'
 		});
 		const cell = cells.find((c) => c.string === 2 && c.fret === 8);
-		expect(cell?.locateLeadMs).toBe(500);
+		expect(cell?.locateLeadMs).toBe(1000);
 	});
 
 	it('takes the lead tempo from a cold free-play attempt too', () => {
 		const intro = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'slow');
-		const card = { ...intro, leadBeats: 1 as const };
+		const card = { ...intro, leadBeats: 2 as const };
 		const cells = buildNeckMap({
 			cards: [card],
 			attempts: [
@@ -447,7 +447,7 @@ describe('buildNeckMap', () => {
 			],
 			pitchAt: () => 'C'
 		});
-		expect(cells.find((c) => c.string === 2 && c.fret === 8)?.locateLeadMs).toBe(500);
+		expect(cells.find((c) => c.string === 2 && c.fret === 8)?.locateLeadMs).toBe(1000);
 	});
 
 	it('omits the lead duration when that session has no tempo', () => {
