@@ -21,6 +21,11 @@ describe('validateBackup', () => {
 		expect(() => validateBackup(file)).not.toThrow();
 	});
 
+	it('accepts an off-beat attempt', () => {
+		const file = makeBackup({ attempts: [makeAttempt({ verdict: 'offbeat', correct: true })] });
+		expect(() => validateBackup(file)).not.toThrow();
+	});
+
 	it('accepts attempts without an id', () => {
 		expect(() => validateBackup(makeBackup({ attempts: [makeAttempt()] }))).not.toThrow();
 	});
@@ -100,7 +105,9 @@ describe('validateBackup', () => {
 	it('rejects an invalid attempt', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), verdict: 'great' }] })
-		).toThrow('Invalid attempts entry at index 0: verdict must be perfect, early, late or wrong');
+		).toThrow(
+			'Invalid attempts entry at index 0: verdict must be perfect, early, late, offbeat or wrong'
+		);
 		expect(() => validateBackup(makeBackup({ attempts: [makeAttempt({ id: 0 })] }))).toThrow(
 			'Invalid attempts entry at index 0: id must be a positive integer'
 		);

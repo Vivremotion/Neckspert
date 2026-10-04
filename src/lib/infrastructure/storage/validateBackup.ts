@@ -9,13 +9,13 @@ import {
 	type SessionKind,
 	type Target,
 	type Temperature,
-	type Verdict
+	VERDICTS
 } from '$lib/domain/types';
 
 type Fields = Record<string, unknown>;
 
 const LOCALES: readonly Locale[] = ['fr', 'en'];
-const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'wrong'];
+
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
 const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free'];
@@ -117,7 +117,8 @@ function checkAttempt(attempt: Fields): string | null {
 	if (!isOneOf(attempt.temperature, TEMPERATURES)) return 'temperature must be cold or hot';
 	if (!isFiniteNumber(attempt.promptedAt)) return 'promptedAt must be a number';
 	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
-	if (!isOneOf(attempt.verdict, VERDICTS)) return 'verdict must be perfect, early, late or wrong';
+	if (!isOneOf(attempt.verdict, VERDICTS))
+		return 'verdict must be perfect, early, late, offbeat or wrong';
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
 	return null;
 }

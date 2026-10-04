@@ -43,6 +43,7 @@ import {
 	isInWindow,
 	judgeIdentify,
 	judgeLocate,
+	lateCaptureEnd,
 	type Judgement
 } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, VerdictView } from './contract';
@@ -89,6 +90,11 @@ export class SessionController implements PlaySessionController {
 	private promptTimeAudio: number | null = null;
 	private windowClosesAt: number | null = null;
 	private captured = false;
+	/**
+	 * Mode 1, after the window closed unanswered: still listening until this audio time for an
+	 * off-beat answer. The attempt is stored when the question is settled (a note, or this time).
+	 */
+	private captureUntil: number | null = null;
 	private verdictBeatIndex: number | null = null;
 	private sessionAttempts: Attempt[] = [];
 	private sessionTempoBpm: number | null = null;
@@ -266,6 +272,8 @@ export class SessionController implements PlaySessionController {
 	}
 
 	quit(): void {
+		// A late capture still open settles as unanswered: the attempt is not lost.
+		if (this.captureUntil !== null) this.settleCapture(null);
 		this.deps.metronome.stop();
 		this.deps.detector.stop();
 		void this.finish();
@@ -281,6 +289,7 @@ export class SessionController implements PlaySessionController {
 		this.promptTimeAudio = null;
 		this.windowClosesAt = null;
 		this.captured = false;
+		this.captureUntil = null;
 		this.verdictBeatIndex = null;
 	}
 
@@ -288,7 +297,13 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 
 		if (this.view.status === 'verdict') {
-			if (this.verdictBeatIndex !== null && beat.index >= this.verdictBeatIndex + 1) {
+			if (this.captureUntil !== null && beat.time >= this.captureUntil) this.settleCapture(null);
+			// The next prompt is chosen only once the attempt is stored and the selector knows it.
+			if (
+				this.captureUntil === null &&
+				this.verdictBeatIndex !== null &&
+				beat.index >= this.verdictBeatIndex + 1
+			) {
 				this.advanceAfterVerdict(beat);
 				// advanceAfterVerdict may set count-in or finished; TS cannot track setStatus.
 				if ((this.view.status as PlayView['status']) === 'count-in') this.waitForPrompt(beat);
@@ -335,7 +350,7 @@ export class SessionController implements PlaySessionController {
 		return alignedPromptBeat(earliest, item.leadBeats ?? BEATS_PER_BAR);
 	}
 
-	/** The right answer, shown with a miss only. */
+	/** The right answer, shown with a miss only (off beat is a right note: nothing to correct). */
 	private correctionFor(verdict: Verdict): string | null {
 		if (verdict !== 'wrong' || !this.current) return null;
 		return buildCorrection(this.current.target, this.locale);
@@ -373,7 +388,9 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private onNote(onset: NoteOnset): void {
-		if (this.view.status !== 'awaiting' || this.captured || !this.current) {
+		const capturing = this.view.status === 'verdict' && this.captureUntil !== null;
+		const listening = this.view.status === 'awaiting' && !this.captured;
+		if ((!listening && !capturing) || !this.current) {
 			this.logSkippedNote(onset);
 			return;
 		}
@@ -392,21 +409,76 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 
-		this.captured = true;
 		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
 		const window = answerWindow(this.promptTimeAudio, targetTime);
 		const corrected = onset.time - this.latencyMs / 1000;
-		const inWindow = isInWindow(corrected, window);
-		const onsetForJudge = inWindow ? onset : null;
+		const captureUntil = this.lateCaptureEnd();
+		if (corrected < window.opensAt && !isInWindow(corrected, window)) {
+			// Before the prompt or in its first MIN_RESPONSE_MS: it answers the previous prompt.
+			logDetection('note ignorée', [
+				'raison : jouée avant la consigne ou juste après son apparition, elle appartient à la précédente',
+				this.describeHeard(onset)
+			]);
+			return;
+		}
+		if (captureUntil !== null && corrected > captureUntil) {
+			logDetection('note ignorée', [
+				'raison : arrivée après la fin de l’écoute hors temps',
+				this.describeHeard(onset)
+			]);
+			return;
+		}
+
 		const judgement = judgeLocate({
 			acceptable: acceptableMidis(this.current.target),
 			promptTime: this.promptTimeAudio,
 			targetTime,
-			onset: onsetForJudge,
-			latencyMs: this.latencyMs
+			onset,
+			latencyMs: this.latencyMs,
+			captureUntil: captureUntil ?? undefined
 		});
-		this.logLocateDecision(onset, window, targetTime, corrected, inWindow, judgement);
-		void this.resolveLocate(judgement, this.targetBeatIndex);
+		this.logLocateDecision(onset, window, targetTime, corrected, judgement);
+		if (capturing) {
+			this.settleCapture(judgement);
+			return;
+		}
+		this.captured = true;
+		this.resolveLocate(judgement, this.targetBeatIndex, true);
+	}
+
+	/** End of the off-beat capture of the current prompt: bounded by the breathing bar. */
+	private lateCaptureEnd(): number | null {
+		if (this.targetBeatIndex === null) return null;
+		return lateCaptureEnd(
+			this.deps.metronome.beatTime(this.targetBeatIndex),
+			this.deps.metronome.beatTime(respirationStart(this.targetBeatIndex))
+		);
+	}
+
+	/**
+	 * Settles a late capture: a note heard in it (off beat when right, wrong otherwise), or
+	 * `null` when the capture ended in silence. Stores the attempt either way.
+	 */
+	private settleCapture(judgement: Judgement | null): void {
+		this.captureUntil = null;
+		if (judgement && judgement.answer !== null) {
+			this.view.lastVerdict = this.verdictView(judgement);
+			this.view.history = this.view.history.map((entry) =>
+				entry.beatIndex === this.targetBeatIndex ? { ...entry, verdict: judgement.verdict } : entry
+			);
+			this.deps.cues.play(judgement.verdict);
+		}
+		void this.persistAttempt(judgement ?? this.unansweredLocate());
+	}
+
+	private unansweredLocate(): Judgement {
+		return {
+			answer: null,
+			correct: false,
+			verdict: 'wrong',
+			timingOffsetMs: null,
+			reactionMs: null
+		};
 	}
 
 	private beginNextItem(beat: BeatEvent): void {
@@ -483,16 +555,9 @@ export class SessionController implements PlaySessionController {
 			`fenêtre : ${window.opensAt.toFixed(3)} s → ${window.closesAt.toFixed(3)} s`,
 			`fermeture au beat ${beat.time.toFixed(3)} s`,
 			'aucune hauteur confirmée n’est arrivée pendant l’attente',
-			'verdict : faux — compté comme non joué'
+			'verdict provisoire : faux — l’écoute continue hors temps'
 		]);
-		const judgement = judgeLocate({
-			acceptable: acceptableMidis(this.current.target),
-			promptTime: this.promptTimeAudio,
-			targetTime,
-			onset: null,
-			latencyMs: this.latencyMs
-		});
-		void this.resolveLocate(judgement, beat.index);
+		this.resolveLocate(this.unansweredLocate(), beat.index, false);
 	}
 
 	private logSkippedNote(onset: NoteOnset): void {
@@ -525,11 +590,11 @@ export class SessionController implements PlaySessionController {
 		window: { opensAt: number; closesAt: number },
 		targetTime: number,
 		corrected: number,
-		inWindow: boolean,
 		judgement: Judgement
 	): void {
 		const target = this.current?.target;
 		if (!target || target.direction !== 'locate') return;
+		const inWindow = isInWindow(corrected, window);
 		const acceptable = acceptableMidis(target);
 		const nearest = nearestAcceptable(onset.frequencyHz, acceptable);
 		const fromOpenMs = Math.round((corrected - window.opensAt) * 1000);
@@ -566,9 +631,8 @@ export class SessionController implements PlaySessionController {
 			lines.push(
 				before
 					? `hors fenêtre : ${deltaMs} ms avant l’ouverture`
-					: `hors fenêtre : ${deltaMs} ms après la fermeture`,
-				'cette détection verrouille la demande : une note suivante, même juste, sera ignorée',
-				'verdict : faux — compté comme non joué'
+					: `hors fenêtre : ${deltaMs} ms après la fermeture, pendant l’écoute hors temps`,
+				`verdict : ${judgement.verdict}`
 			);
 		} else if (!judgement.correct) {
 			lines.push(
@@ -584,25 +648,28 @@ export class SessionController implements PlaySessionController {
 		logDetection('décision', lines);
 	}
 
-	private async resolveLocate(judgement: Judgement, gapFromBeat: number): Promise<void> {
-		if (!this.current || this.promptBeatIndex === null) return;
+	private verdictView(judgement: Judgement): VerdictView {
+		const target = this.current?.target;
 		const answerLabel =
-			judgement.answer && judgement.answer.kind === 'note'
-				? formatNote(
-						spellPitch(
-							this.current.target.direction === 'locate' ? this.current.target.pitch : 'C',
-							this.deps.random
-						)
-					)
+			judgement.answer && judgement.answer.kind === 'note' && target?.direction === 'locate'
+				? formatNote(spellPitch(target.pitch, this.deps.random))
 				: null;
-		const verdictView: VerdictView = {
+		return {
 			verdict: judgement.verdict,
 			offsetMs: judgement.timingOffsetMs,
 			reactionMs: judgement.reactionMs,
 			answerLabel: judgement.answer ? answerLabel : null,
 			correction: this.correctionFor(judgement.verdict)
 		};
-		this.view.lastVerdict = verdictView;
+	}
+
+	/**
+	 * Shows a mode 1 verdict. `settled` false: the window closed unanswered, the verdict is
+	 * provisional and the off-beat capture opens; the attempt waits for `settleCapture`.
+	 */
+	private resolveLocate(judgement: Judgement, gapFromBeat: number, settled: boolean): void {
+		if (!this.current || this.promptBeatIndex === null) return;
+		this.view.lastVerdict = this.verdictView(judgement);
 		if (this.targetBeatIndex !== null) {
 			this.view.history = [
 				...this.view.history,
@@ -615,7 +682,8 @@ export class SessionController implements PlaySessionController {
 		this.earliestPromptBeat =
 			this.targetBeatIndex === null ? gapFromBeat + 1 : respirationStart(this.targetBeatIndex);
 		this.setStatus('verdict');
-		await this.persistAttempt(judgement);
+		if (settled) void this.persistAttempt(judgement);
+		else this.captureUntil = this.lateCaptureEnd();
 	}
 
 	private async persistAttempt(judgement: Judgement): Promise<void> {

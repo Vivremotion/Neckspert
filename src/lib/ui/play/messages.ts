@@ -13,6 +13,7 @@ export const playMessages = defineMessages({
 			perfect: 'Parfait',
 			early: 'En avance',
 			late: 'En retard',
+			offbeat: 'Hors temps',
 			wrong: 'Mauvaise note'
 		} as const,
 		stringOf: (name: string) => `corde de ${name}`,
@@ -30,6 +31,7 @@ export const playMessages = defineMessages({
 			perfect: 'Perfect',
 			early: 'Early',
 			late: 'Late',
+			offbeat: 'Off beat',
 			wrong: 'Wrong note'
 		} as const,
 		stringOf: (name: string) => `${name} string`,

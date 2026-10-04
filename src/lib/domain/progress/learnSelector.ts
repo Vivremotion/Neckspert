@@ -1,5 +1,6 @@
 import {
 	cardKey,
+	isSuccess,
 	LEAD_STEPS,
 	type Attempt,
 	type CardKey,
@@ -97,7 +98,7 @@ class LearnSelector implements SessionSelector {
 		const [shortGap, longGap] = LEARN_RETEST_GAPS;
 		const step =
 			entry.target.direction === 'locate'
-				? this.climbLead(entry, attempt.correct)
+				? this.climbLead(entry, isSuccess(attempt))
 				: this.climbIdentify(entry, attempt);
 		if (step === 'learned') {
 			this.learning.delete(attempt.cardKey);

@@ -63,7 +63,22 @@ export function parseCardKey(key: CardKey): Target {
 	throw new Error(`Invalid direction in card key: ${key}`);
 }
 
-export type Verdict = 'perfect' | 'early' | 'late' | 'wrong';
+/**
+ * Best to worst: perfect > early / late > offbeat > wrong. `offbeat` (mode 1): the right note,
+ * heard after the window while still listening. Right but never direct recall.
+ */
+export type Verdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'wrong';
+
+/** Every verdict, best first. */
+export const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'offbeat', 'wrong'];
+
+/**
+ * A success: the right answer, in time. Off beat, wrong and unanswered prompts are misses.
+ * A right but slow name in mode 2 (`late`) is a success.
+ */
+export function isSuccess(attempt: Pick<Attempt, 'correct' | 'verdict'>): boolean {
+	return attempt.correct && attempt.verdict !== 'offbeat';
+}
 
 /** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */
 export const RECALL_THRESHOLD_MS = 1500;

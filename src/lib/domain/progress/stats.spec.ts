@@ -115,6 +115,37 @@ describe('computeHomeStats', () => {
 		expect(stats.medianColdOffsetMs).toBe(30);
 	});
 
+	it('leaves off-beat answers out of the distance to the beat', () => {
+		const stats = computeHomeStats({
+			cards: [],
+			attempts: [
+				coldAttempt({ timingOffsetMs: 20 }),
+				coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })
+			],
+			settings: DEFAULT_SETTINGS,
+			now: NOW
+		});
+		expect(stats.medianColdOffsetMs).toBe(20);
+	});
+
+	it('counts an off-beat cold review as a miss in the session accuracy', () => {
+		const summary = summarizeSession({
+			record: {
+				id: 's1',
+				kind: 'learn',
+				startedAt: NOW - 60_000,
+				endedAt: NOW,
+				fatigueDetected: false,
+				tempoBpm: 80
+			},
+			attempts: [coldAttempt({}), coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })],
+			allAttempts: [],
+			cards: [],
+			now: NOW
+		});
+		expect(summary).toMatchObject({ attemptCount: 2, correctCount: 1, medianOffsetMs: 0 });
+	});
+
 	it('trends toward a smaller distance to the beat over 7 days', () => {
 		const recent = [
 			coldAttempt({ promptedAt: NOW - 1000, timingOffsetMs: 10, reactionMs: 6000 }),

@@ -1,5 +1,6 @@
 import {
 	cardKey,
+	isSuccess,
 	SHORTEST_LEAD,
 	type Attempt,
 	type CardState,
@@ -14,6 +15,7 @@ import type { Grade } from 'ts-fsrs';
 
 function gradeFor(attempt: Attempt, tempoBpm: number): Grade {
 	if (!attempt.correct) return Rating.Again;
+	// Off beat (found too late) and right-but-not-direct both grade Hard.
 	if (isDirectRecall(attempt, tempoBpm)) return Rating.Good;
 	return Rating.Hard;
 }
@@ -81,7 +83,7 @@ export function probeCard(
  * Spec 2026-10-03-sondage-avant-apprentissage-design.md, section 1.
  */
 export function probeTemperature(
-	attempt: Pick<Attempt, 'correct' | 'reactionMs' | 'leadBeats'>,
+	attempt: Pick<Attempt, 'correct' | 'verdict' | 'reactionMs' | 'leadBeats'>,
 	tempoBpm: number
 ): Temperature {
 	return isDirectRecall(attempt, tempoBpm) ? 'cold' : 'hot';
@@ -101,7 +103,8 @@ export function applyColdAttempt(
 	if (attempt.temperature !== 'cold') return state;
 
 	const scheduling = reviewScheduling(state.scheduling, gradeFor(attempt, tempoBpm), now);
-	const leadBeats = adjustLeadBeats(state.leadBeats, attempt.correct, state.target.direction);
+	// An off-beat answer lengthens the lead like a miss.
+	const leadBeats = adjustLeadBeats(state.leadBeats, isSuccess(attempt), state.target.direction);
 	const acquiredAt =
 		state.acquiredAt ?? (qualifiesAsAcquired(state, attempt, tempoBpm) ? now : null);
 	const next: CardState = {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Verdict } from '$lib/domain/types';
+import { VERDICTS as ALL_VERDICTS, type Verdict } from '$lib/domain/types';
 import { CUE_ATTACK_S, CUE_SILENCE, CUE_SPECS } from './cueSpecs';
 import { WebAudioCues } from './WebAudioCues';
 
@@ -79,7 +79,7 @@ class FakeAudioContext {
 	}
 }
 
-const VERDICTS: Verdict[] = ['perfect', 'early', 'late', 'wrong'];
+const VERDICTS: readonly Verdict[] = ALL_VERDICTS;
 
 function setup() {
 	const audio = new FakeAudioContext();

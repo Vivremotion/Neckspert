@@ -26,29 +26,63 @@ describe('isDirectRecall', () => {
 	const TEMPO = 80;
 
 	it('mode 2: uses reactionMs against the threshold', () => {
-		expect(isDirectRecall({ correct: true, reactionMs: 0, leadBeats: null }, TEMPO)).toBe(true);
+		expect(
+			isDirectRecall({ verdict: 'perfect', correct: true, reactionMs: 0, leadBeats: null }, TEMPO)
+		).toBe(true);
 		expect(
 			isDirectRecall(
-				{ correct: true, reactionMs: IDENTIFY_RECALL_THRESHOLD_MS, leadBeats: null },
+				{
+					verdict: 'perfect',
+					correct: true,
+					reactionMs: IDENTIFY_RECALL_THRESHOLD_MS,
+					leadBeats: null
+				},
 				TEMPO
 			)
 		).toBe(true);
 		expect(
 			isDirectRecall(
-				{ correct: true, reactionMs: IDENTIFY_RECALL_THRESHOLD_MS + 1, leadBeats: null },
+				{
+					verdict: 'perfect',
+					correct: true,
+					reactionMs: IDENTIFY_RECALL_THRESHOLD_MS + 1,
+					leadBeats: null
+				},
 				TEMPO
 			)
 		).toBe(false);
-		expect(isDirectRecall({ correct: false, reactionMs: 400, leadBeats: null }, TEMPO)).toBe(false);
-		expect(isDirectRecall({ correct: true, reactionMs: null, leadBeats: null }, TEMPO)).toBe(false);
+		expect(
+			isDirectRecall(
+				{ verdict: 'perfect', correct: false, reactionMs: 400, leadBeats: null },
+				TEMPO
+			)
+		).toBe(false);
+		expect(
+			isDirectRecall(
+				{ verdict: 'perfect', correct: true, reactionMs: null, leadBeats: null },
+				TEMPO
+			)
+		).toBe(false);
+	});
+
+	it('never counts an off-beat answer as direct recall', () => {
+		expect(
+			isDirectRecall({ verdict: 'offbeat', correct: true, reactionMs: 2500, leadBeats: 2 }, TEMPO)
+		).toBe(false);
 	});
 
 	it('mode 1: uses lead duration, not reactionMs', () => {
 		// 2 beats at 80 bpm = 1500 ms → direct even if reaction is slow
-		expect(isDirectRecall({ correct: true, reactionMs: 1510, leadBeats: 2 }, TEMPO)).toBe(true);
+		expect(
+			isDirectRecall({ verdict: 'perfect', correct: true, reactionMs: 1510, leadBeats: 2 }, TEMPO)
+		).toBe(true);
 		// 4 beats at 80 bpm = 3000 ms → not direct even if reaction looks fast
-		expect(isDirectRecall({ correct: true, reactionMs: 100, leadBeats: 4 }, TEMPO)).toBe(false);
-		expect(isDirectRecall({ correct: false, reactionMs: 1510, leadBeats: 2 }, TEMPO)).toBe(false);
+		expect(
+			isDirectRecall({ verdict: 'perfect', correct: true, reactionMs: 100, leadBeats: 4 }, TEMPO)
+		).toBe(false);
+		expect(
+			isDirectRecall({ verdict: 'perfect', correct: false, reactionMs: 1510, leadBeats: 2 }, TEMPO)
+		).toBe(false);
 	});
 });
 

@@ -1,5 +1,14 @@
 export type { Judgement } from './judgement';
-export { LATE_LIMIT_MS, PERFECT_WINDOW_MS, answerWindow, isInWindow, judgeLocate } from './timing';
+export {
+	LATE_CAPTURE_MS,
+	LATE_LIMIT_MS,
+	MIN_RESPONSE_MS,
+	PERFECT_WINDOW_MS,
+	answerWindow,
+	isInWindow,
+	judgeLocate,
+	lateCaptureEnd
+} from './timing';
 export { judgeIdentify } from './identify';
 export { isDirectRecall } from './recall';
 export {

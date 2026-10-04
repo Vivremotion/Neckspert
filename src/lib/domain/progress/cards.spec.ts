@@ -120,8 +120,12 @@ describe('probeTemperature', () => {
 	it('records a passed probe cold and a missed probe hot', () => {
 		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), 80)).toBe('cold');
 		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), 80)).toBe('hot');
-		expect(probeTemperature({ correct: true, leadBeats: null, reactionMs: 3000 }, 80)).toBe('cold');
-		expect(probeTemperature({ correct: true, leadBeats: null, reactionMs: 3001 }, 80)).toBe('hot');
+		expect(
+			probeTemperature({ verdict: 'perfect', correct: true, leadBeats: null, reactionMs: 3000 }, 80)
+		).toBe('cold');
+		expect(
+			probeTemperature({ verdict: 'late', correct: true, leadBeats: null, reactionMs: 3001 }, 80)
+		).toBe('hot');
 	});
 });
 
@@ -169,6 +173,27 @@ describe('applyColdAttempt', () => {
 		const after = applyColdAttempt(state, miss, [miss], NOW, TEMPO);
 		expect(after.leadBeats).toBe(4);
 		expect(after.scheduling.reps).toBeGreaterThanOrEqual(1);
+	});
+
+	it('grades an off-beat answer Hard, lengthens the lead and never acquires', () => {
+		const state: CardState = {
+			...introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0'),
+			leadBeats: 2,
+			learnedAt: NOW - MIN_COLD_DELAY_MS
+		};
+		const offbeat = attempt({ verdict: 'offbeat', correct: true, leadBeats: 2 });
+		const after = applyColdAttempt(state, offbeat, [offbeat], NOW, TEMPO);
+		const hard = applyColdAttempt(
+			state,
+			{ ...offbeat, verdict: 'late', leadBeats: 8 },
+			[],
+			NOW,
+			TEMPO
+		);
+		expect(after.leadBeats).toBe(4);
+		expect(after.acquiredAt).toBeNull();
+		expect(after.masteredAt).toBeNull();
+		expect(after.scheduling).toEqual(hard.scheduling);
 	});
 });
 

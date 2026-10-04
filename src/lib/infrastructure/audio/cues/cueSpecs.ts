@@ -50,6 +50,17 @@ export const CUE_SPECS: Readonly<Record<Verdict, readonly ToneSpec[]>> = {
 	late: [
 		{ waveform: 'triangle', offset: 0, duration: 0.09, startHz: 990, endHz: 660, peakGain: 0.14 }
 	],
+	/** Found, but too late: one soft held note, below the timed cues and far above wrong. */
+	offbeat: [
+		{
+			waveform: 'triangle',
+			offset: 0,
+			duration: 0.1,
+			startHz: 523.25,
+			endHz: 523.25,
+			peakGain: 0.12
+		}
+	],
 	wrong: [
 		{ waveform: 'square', offset: 0, duration: 0.14, startHz: 110, endHz: 98, peakGain: 0.05 }
 	]

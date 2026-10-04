@@ -3,6 +3,7 @@ import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	cardKey,
+	isSuccess,
 	type Attempt,
 	type CardState,
 	type HomeStats,
@@ -20,7 +21,8 @@ import { lastAttemptByCard, nextReviewAt, reviewableCards } from './review';
 function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
-		if (!attempt.correct) return [];
+		// Off-beat answers are far past the window: they would hide the distance to the beat.
+		if (!isSuccess(attempt)) return [];
 		if (attempt.target.direction !== 'locate' || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
@@ -120,7 +122,7 @@ export function summarizeSession(input: {
 		sessionId: input.record.id,
 		pool,
 		attemptCount: counted.length,
-		correctCount: counted.filter((attempt) => attempt.correct).length,
+		correctCount: counted.filter(isSuccess).length,
 		medianOffsetMs: median(locateOffsets(scored, pool)),
 		identifyMedianReactionMs: median(identifyReactions(scored, pool)),
 		learnedCount: input.cards.filter(
@@ -174,8 +176,7 @@ export function buildNeckMap(input: {
 				locateLeadMs:
 					tempo == null || !locateCard ? null : Math.round((locateCard.leadBeats * 60_000) / tempo),
 				identifyMedianReactionMs: median(identifyReaction),
-				coldAccuracy:
-					cold.length === 0 ? null : cold.filter((attempt) => attempt.correct).length / cold.length
+				coldAccuracy: cold.length === 0 ? null : cold.filter(isSuccess).length / cold.length
 			});
 		}
 	}

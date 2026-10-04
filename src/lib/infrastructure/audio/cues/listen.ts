@@ -1,8 +1,7 @@
-import type { Verdict } from '$lib/domain/types';
+import { VERDICTS } from '$lib/domain/types';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from './WebAudioCues';
 
-const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'wrong'];
 const BEATS_PER_BAR = 4;
 
 /**
@@ -30,6 +29,7 @@ export async function listen(
 			order = options.shuffle ? shuffled(VERDICTS) : [...VERDICTS];
 			console.info(`Bar ${bar + 1}: ${order.join(', ')}`);
 		}
+		// Five cues, four off-beats: the bar plays the first four of this order.
 		cues.play(order[beatInBar], beat.time + metronome.secondsPerBeat() / 2);
 	});
 	metronome.start(clock.now() + 0.2);

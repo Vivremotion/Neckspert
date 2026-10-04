@@ -250,7 +250,7 @@ describe('SessionController locate judgement', () => {
 		expect(deps.cues.played).toHaveLength(1);
 	});
 
-	it('treats a first note outside the window as no answer', async () => {
+	it('judges a right note just past the window as off beat', async () => {
 		const deps = createDeps();
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
@@ -262,8 +262,113 @@ describe('SessionController locate judgement', () => {
 			frequencyHz: 349.23,
 			clarity: 0.95
 		});
+		expect(controller.view.lastVerdict?.verdict).toBe('offbeat');
+		expect(controller.view.lastVerdict?.correction).toBeNull();
+	});
+});
+
+describe('SessionController late capture', () => {
+	function note(deps: ReturnType<typeof createDeps>, time: number, midi = 65) {
+		deps.detector.emitNote({ time, midi, frequencyHz: 349.23, clarity: 0.95 });
+	}
+
+	it('keeps listening after the window and turns a right note into off beat', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
+		await controller.start();
+		atBeat(deps, 9);
+		expect(controller.view.lastVerdict).toMatchObject({
+			verdict: 'wrong',
+			correction: 'corde de B, case 6'
+		});
+		await drain();
+		expect(await deps.attempts.all()).toHaveLength(0);
+
+		note(deps, deps.metronome.beatTime(8) + 1.2);
+		await drain();
+		expect(controller.view.lastVerdict).toMatchObject({ verdict: 'offbeat', offsetMs: 1200 });
+		expect(controller.view.history.at(-1)).toEqual({ beatIndex: 8, verdict: 'offbeat' });
+		expect(deps.cues.played.map((cue) => cue.verdict)).toEqual(['wrong', 'offbeat']);
+		const attempts = await deps.attempts.all();
+		expect(attempts).toHaveLength(1);
+		expect(attempts[0]).toMatchObject({ correct: true, verdict: 'offbeat', timingOffsetMs: 1200 });
+
+		note(deps, deps.metronome.beatTime(8) + 1.5, 60);
+		await drain();
+		expect(await deps.attempts.all()).toHaveLength(1);
+	});
+
+	it('keeps a wrong first note after the window wrong, with the note played', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
+		await controller.start();
+		atBeat(deps, 9);
+		note(deps, deps.metronome.beatTime(8) + 1, 60);
+		note(deps, deps.metronome.beatTime(8) + 1.2, 65);
+		await drain();
 		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
-		expect(controller.view.lastVerdict?.answerLabel).toBeNull();
+		const [attempt] = await deps.attempts.all();
+		expect(attempt).toMatchObject({
+			correct: false,
+			verdict: 'wrong',
+			answer: { kind: 'note', midi: 60 }
+		});
+		expect(await deps.attempts.all()).toHaveLength(1);
+	});
+
+	it('records no answer once the capture ends, before the next prompt', async () => {
+		const deps = createDeps();
+		const controller = make(
+			planWith([
+				locateItem({ leadBeats: 4 }),
+				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 4 })
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 11);
+		await drain();
+		expect(await deps.attempts.all()).toHaveLength(0);
+		atBeat(deps, 12);
+		await drain();
+		const [attempt] = await deps.attempts.all();
+		expect(attempt).toMatchObject({ answer: null, correct: false, verdict: 'wrong' });
+		expect(controller.view).toMatchObject({ status: 'awaiting', promptBeatIndex: 12 });
+	});
+
+	it('ignores a note before the prompt or in its first 300 ms', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		const promptTime = deps.metronome.beatTime(4);
+		note(deps, promptTime - 0.2);
+		note(deps, promptTime + 0.2);
+		expect(controller.view.status).toBe('awaiting');
+		note(deps, deps.metronome.beatTime(8));
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+	});
+
+	it('closes the capture at the next prompt at 160 bpm and never hands its note on', async () => {
+		const deps = createDeps();
+		await deps.settings.update({ tempoBpm: 160 });
+		const controller = make(
+			planWith([
+				locateItem({ leadBeats: 4 }),
+				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 4 })
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 12);
+		await drain();
+		expect(controller.view).toMatchObject({ status: 'awaiting', promptBeatIndex: 12 });
+		const [first] = await deps.attempts.all();
+		expect(first.answer).toBeNull();
+		// Played as the next prompt appears: too late for the last one, too early for this one.
+		note(deps, deps.metronome.beatTime(12) + 0.05, 60);
+		expect(controller.view.status).toBe('awaiting');
+		expect(await deps.attempts.all()).toHaveLength(1);
 	});
 });
 

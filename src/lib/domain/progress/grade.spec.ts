@@ -61,4 +61,16 @@ describe('sessionGrade', () => {
 	] as const)('n=%i justes=%i perfect=%i → %s', (n, correct, perfect, expected) => {
 		expect(sessionGrade(attempts(n, { correct, perfect }))).toBe(expected);
 	});
+
+	it('ranks an off-beat answer between a timed one and a miss: half a miss', () => {
+		const offbeat = attempts(4, { correct: 4, perfect: 0 }).map((attempt) => ({
+			...attempt,
+			verdict: 'offbeat' as const
+		}));
+		const wrong = attempts(4, { correct: 0, perfect: 0 });
+		const late = attempts(4, { correct: 4, perfect: 0 });
+		expect(sessionGrade(late)).toBe('S');
+		expect(sessionGrade(offbeat)).toBe('C');
+		expect(sessionGrade(wrong)).toBe('F+');
+	});
 });

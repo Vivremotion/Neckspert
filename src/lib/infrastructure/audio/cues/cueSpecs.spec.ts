@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Verdict } from '$lib/domain/types';
+import { VERDICTS as ALL_VERDICTS, type Verdict } from '$lib/domain/types';
 import { CUE_ATTACK_S, CUE_SPECS, MAX_CUE_DURATION_S, MAX_CUE_GAIN, cueDuration } from './cueSpecs';
 
-const VERDICTS: Verdict[] = ['perfect', 'early', 'late', 'wrong'];
+const VERDICTS: readonly Verdict[] = ALL_VERDICTS;
 
 describe('CUE_SPECS', () => {
 	it('keeps every cue shorter than 150 ms', () => {
@@ -38,9 +38,19 @@ describe('CUE_SPECS', () => {
 		expect(late.endHz).toBeLessThan(late.startHz);
 	});
 
+	it('holds off beat on one soft note, below the timed cues', () => {
+		const [offbeat] = CUE_SPECS.offbeat;
+		expect(CUE_SPECS.offbeat).toHaveLength(1);
+		expect(offbeat.endHz).toBe(offbeat.startHz);
+		const timed = (['perfect', 'early', 'late'] as const).flatMap((verdict) => CUE_SPECS[verdict]);
+		expect(offbeat.startHz).toBeLessThan(Math.min(...timed.map((tone) => tone.startHz)));
+	});
+
 	it('makes wrong a low buzz, far below every other cue', () => {
 		const [wrong] = CUE_SPECS.wrong;
-		const others = (['perfect', 'early', 'late'] as const).flatMap((verdict) => CUE_SPECS[verdict]);
+		const others = (['perfect', 'early', 'late', 'offbeat'] as const).flatMap(
+			(verdict) => CUE_SPECS[verdict]
+		);
 		const lowestOther = Math.min(...others.map((tone) => Math.min(tone.startHz, tone.endHz)));
 		expect(wrong.waveform).toBe('square');
 		expect(Math.max(wrong.startHz, wrong.endHz)).toBeLessThan(lowestOther / 4);

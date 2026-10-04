@@ -25,10 +25,11 @@ export function leadForThreshold(tempoBpm: number): LeadBeats {
  * Package-internal — not part of the public C API (plan B owns the scoring export).
  */
 export function isDirectRecall(
-	attempt: Pick<Attempt, 'correct' | 'reactionMs' | 'leadBeats'>,
+	attempt: Pick<Attempt, 'correct' | 'verdict' | 'reactionMs' | 'leadBeats'>,
 	tempoBpm: number
 ): boolean {
-	if (!attempt.correct) return false;
+	// Found after the window means found by calculation: never direct recall.
+	if (!attempt.correct || attempt.verdict === 'offbeat') return false;
 	if (attempt.leadBeats === null) {
 		return attempt.reactionMs !== null && attempt.reactionMs <= IDENTIFY_RECALL_THRESHOLD_MS;
 	}
