@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAnswerChoices, buildPromptView } from './prompt';
+import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 import type { PlannedItem } from '$lib/domain/types';
 
 const locate: PlannedItem = {
@@ -69,5 +69,27 @@ describe('buildAnswerChoices', () => {
 		expect(choices[0]).toEqual({ pitch: 'C', label: 'C' });
 		expect(choices[1]).toEqual({ pitch: 'C#', label: 'C# / Db' });
 		expect(choices[6]).toEqual({ pitch: 'F#', label: 'F# / Gb' });
+	});
+});
+
+describe('buildCorrection', () => {
+	it('mode 1: names the string and the fret of the expected note', () => {
+		expect(buildCorrection({ direction: 'locate', string: 6, pitch: 'A' }, 'fr')).toBe(
+			'corde de E grave, case 5'
+		);
+		expect(buildCorrection({ direction: 'locate', string: 2, pitch: 'F' }, 'en')).toBe(
+			'B string, fret 6'
+		);
+	});
+
+	it('mode 1: never shows the open string, fret 12 instead', () => {
+		expect(buildCorrection({ direction: 'locate', string: 5, pitch: 'A' }, 'fr')).toBe(
+			'corde de A, case 12'
+		);
+	});
+
+	it('mode 2: names the note, both spellings for an altered one', () => {
+		expect(buildCorrection({ direction: 'identify', string: 5, fret: 8 }, 'fr')).toBe('F');
+		expect(buildCorrection({ direction: 'identify', string: 5, fret: 1 }, 'fr')).toBe('A# / Bb');
 	});
 });

@@ -181,7 +181,9 @@ export class DemoPlaySession implements PlaySessionController {
 			verdict: item.verdict,
 			offsetMs: item.offsetMs,
 			reactionMs: item.reactionMs,
-			answerLabel: item.primary
+			answerLabel: item.primary,
+			correction:
+				item.verdict === 'wrong' ? `${playMessages().stringOf(item.stringName)}, case 7` : null
 		};
 		this.view.lastVerdict = verdictView;
 		this.view.status = 'verdict';

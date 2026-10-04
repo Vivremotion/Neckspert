@@ -103,7 +103,8 @@ describe('PlayScreen in mode 2', () => {
 			verdict: 'late',
 			offsetMs: null,
 			reactionMs: 2140,
-			answerLabel: 'F'
+			answerLabel: 'F',
+			correction: null
 		};
 		const { controller } = fakeController(identifyView({ status: 'verdict', lastVerdict: late }));
 		render(PlayScreen, { props: { controller } });

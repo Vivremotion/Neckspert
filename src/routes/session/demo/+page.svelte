@@ -38,7 +38,8 @@
 					verdict: 'late',
 					offsetMs: 95,
 					reactionMs: 1210,
-					answerLabel: 'F'
+					answerLabel: 'F',
+					correction: null
 				};
 				ready = true;
 				return;

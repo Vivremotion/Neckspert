@@ -161,6 +161,28 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.countdown')?.textContent).toContain('4');
 	});
 
+	it('shows the right position with the verdict after a miss', () => {
+		const controller = aidedController({
+			direction: 'locate',
+			primary: 'A',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'verdict',
+			lastVerdict: {
+				verdict: 'wrong',
+				offsetMs: null,
+				reactionMs: null,
+				answerLabel: null,
+				correction: 'corde de E grave, case 5'
+			}
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.correction')?.textContent).toBe('corde de E grave, case 5');
+	});
+
 	it('shows no aid on an unaided prompt', () => {
 		const controller = aidedController({
 			direction: 'locate',

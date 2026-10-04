@@ -8,7 +8,7 @@ import {
 	spellPitch,
 	stringLabel
 } from '$lib/domain/music';
-import type { Locale, PlannedItem } from '$lib/domain/types';
+import type { Locale, PlannedItem, Target } from '$lib/domain/types';
 import type { AnswerChoice, PromptView } from './contract';
 
 export function buildPromptView(
@@ -43,4 +43,19 @@ export function buildAnswerChoices(): AnswerChoice[] {
 		pitch,
 		label: answerChoiceLabel(pitch)
 	}));
+}
+
+/** Highest fret shown in a correction: fret 12 stands for the open string, which is never prompted. */
+const CORRECTION_MAX_FRET = 12;
+
+/**
+ * The right answer, shown after a miss: the position in mode 1 ("corde de E grave, case 5"),
+ * the note name in mode 2 ("F# / Gb").
+ */
+export function buildCorrection(target: Target, locale: Locale): string {
+	if (target.direction === 'identify') {
+		return answerChoiceLabel(pitchOnString(target.string, target.fret));
+	}
+	const fret = fretsForPitch(target.string, target.pitch, CORRECTION_MAX_FRET).find((f) => f > 0);
+	return `${stringLabel(target.string, locale)}, ${fretLabel(fret ?? CORRECTION_MAX_FRET, locale)}`;
 }

@@ -47,9 +47,8 @@ import {
 } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
-import { buildAnswerChoices, buildPromptView } from './prompt';
-
-const BEATS_PER_BAR = 4 as const;
+import { alignedPromptBeat, BEATS_PER_BAR, respirationStart } from './grid';
+import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 
 type InternalStatus = PlayView['status'];
 
@@ -82,6 +81,8 @@ export class SessionController implements PlaySessionController {
 	private unsubBeat: (() => void) | null = null;
 	private unsubNote: (() => void) | null = null;
 	private earliestPromptBeat: number = BEATS_PER_BAR;
+	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
+	private counting = false;
 	private current: PlannedItem | null = null;
 	private promptBeatIndex: number | null = null;
 	private targetBeatIndex: number | null = null;
@@ -199,6 +200,7 @@ export class SessionController implements PlaySessionController {
 		this.unsubNote = this.deps.detector.onNote((onset) => this.onNote(onset));
 
 		this.earliestPromptBeat = BEATS_PER_BAR;
+		this.counting = true;
 		this.clearItemState();
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
@@ -224,6 +226,7 @@ export class SessionController implements PlaySessionController {
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
 		this.earliestPromptBeat = BEATS_PER_BAR;
+		this.counting = true;
 		this.clearItemState();
 		this.prepareStage();
 		this.setStatus('count-in');
@@ -250,7 +253,8 @@ export class SessionController implements PlaySessionController {
 			verdict: judgement.verdict,
 			offsetMs: null,
 			reactionMs: judgement.reactionMs,
-			answerLabel
+			answerLabel,
+			correction: this.correctionFor(judgement.verdict)
 		};
 		this.view.answerChoices = null;
 		this.deps.cues.play(judgement.verdict);
@@ -287,12 +291,7 @@ export class SessionController implements PlaySessionController {
 			if (this.verdictBeatIndex !== null && beat.index >= this.verdictBeatIndex + 1) {
 				this.advanceAfterVerdict(beat);
 				// advanceAfterVerdict may set count-in or finished; TS cannot track setStatus.
-				if (
-					(this.view.status as PlayView['status']) === 'count-in' &&
-					beat.index >= this.earliestPromptBeat
-				) {
-					this.beginNextItem(beat);
-				}
+				if ((this.view.status as PlayView['status']) === 'count-in') this.waitForPrompt(beat);
 			}
 			return;
 		}
@@ -303,12 +302,43 @@ export class SessionController implements PlaySessionController {
 		}
 
 		if (this.view.status === 'count-in' || this.view.status === 'idle') {
-			if (beat.index >= this.earliestPromptBeat) {
-				this.beginNextItem(beat);
-			} else {
-				this.view.countdown = this.earliestPromptBeat - beat.index;
-			}
+			this.waitForPrompt(beat);
 		}
+	}
+
+	/**
+	 * Starts the waiting prompt on its beat: no earlier than `earliestPromptBeat` and, in mode 1,
+	 * aligned so the target lands on the first beat of a bar. Recomputed from the beat received,
+	 * so a dropped beat delays the prompt to the next aligned beat instead of misaligning it.
+	 */
+	private waitForPrompt(beat: BeatEvent): void {
+		this.pending ??= this.takeNext();
+		if (!this.pending) {
+			void this.finish();
+			return;
+		}
+		const promptBeat = this.promptBeatFor(this.pending, beat.index);
+		if (beat.index >= promptBeat) {
+			this.counting = false;
+			this.beginNextItem(beat);
+			return;
+		}
+		const left = promptBeat - beat.index;
+		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
+		// The verdict stays on screen until a counted bar actually starts counting.
+		if (this.view.countdown !== null) this.view.lastVerdict = null;
+	}
+
+	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
+		const earliest = Math.max(this.earliestPromptBeat, beatIndex);
+		if (item.target.direction !== 'locate') return earliest;
+		return alignedPromptBeat(earliest, item.leadBeats ?? BEATS_PER_BAR);
+	}
+
+	/** The right answer, shown with a miss only. */
+	private correctionFor(verdict: Verdict): string | null {
+		if (verdict !== 'wrong' || !this.current) return null;
+		return buildCorrection(this.current.target, this.locale);
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -393,7 +423,7 @@ export class SessionController implements PlaySessionController {
 
 		if (item.target.direction === 'locate') {
 			this.deps.metronome.setAudible(true);
-			const lead = item.leadBeats ?? 1;
+			const lead = item.leadBeats ?? BEATS_PER_BAR;
 			this.promptBeatIndex = beat.index;
 			this.targetBeatIndex = beat.index + lead;
 			this.promptTimeAudio = this.deps.metronome.beatTime(beat.index);
@@ -569,7 +599,8 @@ export class SessionController implements PlaySessionController {
 			verdict: judgement.verdict,
 			offsetMs: judgement.timingOffsetMs,
 			reactionMs: judgement.reactionMs,
-			answerLabel: judgement.answer ? answerLabel : null
+			answerLabel: judgement.answer ? answerLabel : null,
+			correction: this.correctionFor(judgement.verdict)
 		};
 		this.view.lastVerdict = verdictView;
 		if (this.targetBeatIndex !== null) {
@@ -580,7 +611,9 @@ export class SessionController implements PlaySessionController {
 		}
 		this.deps.cues.play(judgement.verdict);
 		this.verdictBeatIndex = gapFromBeat;
-		this.earliestPromptBeat = gapFromBeat + 1;
+		// Breathe: the next prompt waits for the first beat of the bar after the target bar.
+		this.earliestPromptBeat =
+			this.targetBeatIndex === null ? gapFromBeat + 1 : respirationStart(this.targetBeatIndex);
 		this.setStatus('verdict');
 		await this.persistAttempt(judgement);
 	}
@@ -708,9 +741,8 @@ export class SessionController implements PlaySessionController {
 		const direction = item.target.direction;
 		if (this.lastDirection !== null && direction !== this.lastDirection) {
 			// Switching between guitar and screen: one counted bar to get the hands there.
-			this.earliestPromptBeat = beat.index + BEATS_PER_BAR;
-			this.view.countdown = BEATS_PER_BAR;
-			this.view.lastVerdict = null;
+			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+			this.counting = true;
 			this.enterScene(direction);
 		} else if (direction === 'locate') {
 			this.view.answerChoices = null;

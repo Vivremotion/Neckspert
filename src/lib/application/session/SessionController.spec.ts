@@ -27,7 +27,7 @@ function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: 2,
+		leadBeats: 4,
 		...overrides
 	};
 }
@@ -76,6 +76,13 @@ function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: num
 	deps.metronome.flush();
 }
 
+/** Advances to the moment beat `index` is announced (100 ms ahead of it) and flushes. */
+function atBeat(deps: { clock: FakeClock; metronome: FakeMetronome }, index: number) {
+	const announced = deps.metronome.beatTime(index) - 0.1;
+	if (announced > deps.clock.now()) deps.clock.advance(announced - deps.clock.now());
+	deps.metronome.flush();
+}
+
 describe('SessionController skeleton', () => {
 	let deps: ReturnType<typeof createDeps>;
 
@@ -102,7 +109,7 @@ describe('SessionController skeleton', () => {
 		// beat 4 → first locate prompt
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.promptBeatIndex).toBe(4);
-		expect(controller.view.targetBeatIndex).toBe(6);
+		expect(controller.view.targetBeatIndex).toBe(8);
 		expect(controller.view.prompt?.primary).toBe('F');
 	});
 
@@ -213,15 +220,15 @@ describe('SessionController skeleton', () => {
 describe('SessionController locate judgement', () => {
 	it('judges the first note inside the window and ignores later notes', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		// Reach prompt beat 4 ; target beat 6. spb=0.75, firstBeat=0.1
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.promptBeatIndex).toBe(4);
-		expect(controller.view.targetBeatIndex).toBe(6);
+		expect(controller.view.targetBeatIndex).toBe(8);
 
-		const targetTime = deps.metronome.beatTime(6);
+		const targetTime = deps.metronome.beatTime(8);
 		// Perfect F on B string = MIDI 65
 		deps.detector.emitNote({
 			time: targetTime,
@@ -245,10 +252,10 @@ describe('SessionController locate judgement', () => {
 
 	it('treats a first note outside the window as no answer', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
-		const closesAt = deps.metronome.beatTime(6) + 0.4;
+		const closesAt = deps.metronome.beatTime(8) + 0.4;
 		deps.detector.emitNote({
 			time: closesAt + 0.05,
 			midi: 65,
@@ -263,13 +270,14 @@ describe('SessionController locate judgement', () => {
 describe('SessionController window close and sequencing', () => {
 	it('closes the window on the first beat at or after closesAt', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.status).toBe('awaiting');
-		// target beat 6 at 0.1+4.5=4.6 ; closesAt = 4.6+0.4 = 5.0
-		// beat 7 at 0.1+5.25=5.35 >= 5.0 → close
-		tick(deps, 0.75 * 3);
+		// target beat 8 at 0.1+6=6.1 ; closesAt = 6.1+0.4 = 6.5 ; beat 9 at 6.85 >= 6.5 → close
+		atBeat(deps, 8);
+		expect(controller.view.status).toBe('awaiting');
+		atBeat(deps, 9);
 		expect(controller.view.status).toBe('verdict');
 		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
 		expect(controller.view.lastVerdict?.reactionMs).toBeNull();
@@ -279,10 +287,10 @@ describe('SessionController window close and sequencing', () => {
 		const deps = createDeps();
 		const controller = make(
 			planWith([
-				locateItem({ leadBeats: 2 }),
+				locateItem({ leadBeats: 4 }),
 				locateItem({
 					target: { direction: 'locate', string: 3, pitch: 'C' },
-					leadBeats: 2
+					leadBeats: 4
 				})
 			]),
 			deps
@@ -290,7 +298,7 @@ describe('SessionController window close and sequencing', () => {
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.promptBeatIndex).toBe(4);
-		const targetTime = deps.metronome.beatTime(6);
+		const targetTime = deps.metronome.beatTime(8);
 		deps.detector.emitNote({
 			time: targetTime,
 			midi: 65,
@@ -298,12 +306,76 @@ describe('SessionController window close and sequencing', () => {
 			clarity: 0.95
 		});
 		expect(controller.view.status).toBe('verdict');
-		// earliestPromptBeat = 5+1 = 6 ; beat 5 (target era) keeps verdict; beat 6 advances.
-		// From clock ~3.1 after prompt, need ~1.5s to emit beat 6 (4.6) with 100ms lookahead.
-		tick(deps, 0.75 * 3);
+		// Target on beat 8: the next prompt breathes until beat 12, the next bar.
+		atBeat(deps, 11);
+		expect(controller.view.status).toBe('count-in');
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		atBeat(deps, 12);
 		expect(controller.view.status).toBe('awaiting');
-		expect(controller.view.promptBeatIndex).toBeGreaterThanOrEqual(6);
+		expect(controller.view.promptBeatIndex).toBe(12);
+		expect(controller.view.targetBeatIndex).toBe(16);
 		expect(controller.view.prompt?.primary).toBe('C');
+	});
+
+	it('lands a two-beat target on the first beat of a bar, prompted on beat 3', async () => {
+		const deps = createDeps();
+		const controller = make(
+			planWith([
+				locateItem({ leadBeats: 2 }),
+				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 2 })
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 5);
+		expect(controller.view.status).toBe('count-in');
+		atBeat(deps, 6);
+		expect(controller.view).toMatchObject({
+			status: 'awaiting',
+			promptBeatIndex: 6,
+			targetBeatIndex: 8
+		});
+		playRight(deps, controller);
+		atBeat(deps, 13);
+		expect(controller.view.status).toBe('count-in');
+		atBeat(deps, 14);
+		expect(controller.view).toMatchObject({ promptBeatIndex: 14, targetBeatIndex: 16 });
+	});
+
+	it('prompts an eight-beat target on beat 1, two bars ahead', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 8 })]), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		expect(controller.view).toMatchObject({ promptBeatIndex: 4, targetBeatIndex: 12 });
+	});
+
+	it('shows the right position after a wrong note, and nothing after a right one', async () => {
+		const deps = createDeps();
+		const controller = make(
+			planWith([
+				locateItem({ target: { direction: 'locate', string: 6, pitch: 'A' } }),
+				locateItem({ target: { direction: 'locate', string: 6, pitch: 'A' } })
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 4);
+		deps.detector.emitNote({
+			time: deps.metronome.beatTime(8),
+			midi: 40,
+			frequencyHz: 82.4,
+			clarity: 0.95
+		});
+		expect(controller.view.lastVerdict?.correction).toBe('corde de E grave, case 5');
+		atBeat(deps, 12);
+		deps.detector.emitNote({
+			time: deps.metronome.beatTime(16),
+			midi: 45,
+			frequencyHz: 110,
+			clarity: 0.95
+		});
+		expect(controller.view.lastVerdict).toMatchObject({ verdict: 'perfect', correction: null });
 	});
 });
 
@@ -321,21 +393,22 @@ function identifyItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 describe('SessionController identify', () => {
 	it('keeps locate items before identify items and answers via answer()', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 }), identifyItem()]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.prompt?.direction).toBe('locate');
 
-		const targetTime = deps.metronome.beatTime(6);
+		const targetTime = deps.metronome.beatTime(8);
 		deps.detector.emitNote({
 			time: targetTime,
 			midi: 65,
 			frequencyHz: 349.23,
 			clarity: 0.95
 		});
-		tick(deps, 0.75 * 3);
+		// Decided on beat 9; switching to the screen counts a bar: prompt on beat 13.
+		atBeat(deps, 12);
 		expect(controller.view.status).toBe('count-in');
-		tick(deps, 0.75 * 4);
+		atBeat(deps, 13);
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.prompt?.direction).toBe('identify');
 		expect(controller.view.promptBeatIndex).toBeNull();
@@ -355,7 +428,7 @@ describe('SessionController identify', () => {
 
 	it('silences the click while a note name is being chosen', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		expect(deps.metronome.audible).toBe(false);
 
@@ -371,9 +444,23 @@ describe('SessionController identify', () => {
 		tick(deps, 0.75);
 		expect(controller.view.status).toBe('count-in');
 		expect(deps.metronome.audible).toBe(true);
-		tick(deps, 0.75 * 4);
+		atBeat(deps, 12);
 		expect(controller.view.prompt?.direction).toBe('locate');
 		expect(deps.metronome.audible).toBe(true);
+	});
+
+	it('counts the bar down to a prompt pushed to beat 3 by a two-beat lead', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 2 })]), deps);
+		await controller.start();
+		const counts: (number | null)[] = [];
+		for (let beat = 0; beat < 6; beat++) {
+			atBeat(deps, beat);
+			counts.push(controller.view.countdown);
+		}
+		expect(counts).toEqual([null, null, 4, 3, 2, 1]);
+		atBeat(deps, 6);
+		expect(controller.view.status).toBe('awaiting');
 	});
 
 	it('counts the first bar down, 4 to 1, then shows the prompt', async () => {
@@ -395,41 +482,44 @@ describe('SessionController identify', () => {
 
 	it('counts a clicked bar down before a guitar prompt that follows a screen prompt', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.scene).toBe('identify');
 		controller.answer('C');
-		tick(deps, 0.75);
+		// Answered on beat 4, decided on beat 5: the bar counts down to the aligned beat 12.
+		atBeat(deps, 5);
 		expect(controller.view).toMatchObject({
 			status: 'count-in',
 			scene: 'locate',
-			countdown: 4,
+			countdown: null,
 			prompt: null,
-			answerChoices: null,
-			lastVerdict: null
+			answerChoices: null
 		});
+		expect(controller.view.lastVerdict?.correction).toBe('F');
 		expect(deps.metronome.audible).toBe(true);
-		tick(deps, 0.75 * 3);
+		atBeat(deps, 8);
+		expect(controller.view).toMatchObject({ countdown: 4, lastVerdict: null });
+		atBeat(deps, 11);
 		expect(controller.view.countdown).toBe(1);
-		tick(deps, 0.75);
+		atBeat(deps, 12);
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.prompt?.direction).toBe('locate');
 	});
 
 	it('brings the answer pad in during a silent bar before a screen prompt', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 }), identifyItem()]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.scene).toBe('locate');
 		deps.detector.emitNote({
-			time: deps.metronome.beatTime(6),
+			time: deps.metronome.beatTime(8),
 			midi: 65,
 			frequencyHz: 349.23,
 			clarity: 0.95
 		});
-		tick(deps, 0.75 * 3);
+		atBeat(deps, 9);
 		expect(controller.view).toMatchObject({
 			status: 'count-in',
 			scene: 'identify',
@@ -438,7 +528,7 @@ describe('SessionController identify', () => {
 		});
 		expect(controller.view.answerChoices).toHaveLength(12);
 		expect(deps.metronome.audible).toBe(false);
-		tick(deps, 0.75 * 4);
+		atBeat(deps, 13);
 		expect(controller.view.status).toBe('awaiting');
 		expect(controller.view.prompt?.direction).toBe('identify');
 	});
@@ -465,7 +555,7 @@ describe('SessionController identify', () => {
 
 	it('counts back in on the stage of the next prompt after a pause', async () => {
 		const deps = createDeps();
-		const controller = make(planWith([locateItem({ leadBeats: 2 }), identifyItem()]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.status).toBe('awaiting');
@@ -519,10 +609,10 @@ describe('SessionController persistence', () => {
 		await deps.cards.put(
 			introduceCard({ direction: 'locate', string: 2, pitch: 'F' }, deps.now(), 'sess-1')
 		);
-		const controller = make(planWith([locateItem({ leadBeats: 2 })]), deps);
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
-		const targetTime = deps.metronome.beatTime(6);
+		const targetTime = deps.metronome.beatTime(8);
 		// F# = MIDI 66 on B string near F
 		deps.detector.emitNote({
 			time: targetTime,
@@ -594,7 +684,7 @@ describe('SessionController fatigue', () => {
 	it('marks fatigue and tells the selector', async () => {
 		const deps = createDeps();
 		const items: PlannedItem[] = Array.from({ length: 14 }, () =>
-			locateItem({ phase: 'review', leadBeats: 2 })
+			locateItem({ phase: 'review', leadBeats: 4 })
 		);
 		const spy = spySelector(items);
 		const controller = withSelector(spy.selector, deps);
@@ -610,6 +700,7 @@ describe('SessionController fatigue', () => {
 			await Promise.resolve();
 			tick(deps, 0.75 * 3);
 		}
+		tick(deps, 0.75 * 2);
 		expect(controller.view.fatigueDetected).toBe(true);
 		expect(spy.contexts.at(-1)?.fatigued).toBe(true);
 	});
@@ -618,14 +709,14 @@ describe('SessionController fatigue', () => {
 describe('SessionController with a selector', () => {
 	it('asks the selector before each prompt and finishes when it has nothing left', async () => {
 		const deps = createDeps();
-		const spy = spySelector([locateItem({ leadBeats: 2 }), locateItem({ leadBeats: 2 })]);
+		const spy = spySelector([locateItem({ leadBeats: 4 }), locateItem({ leadBeats: 4 })]);
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
 		for (let i = 0; i < 2; i++) {
 			while (controller.view.status !== 'awaiting') tick(deps, 0.75);
 			playRight(deps, controller);
 			await drain();
-			tick(deps, 0.75 * 3);
+			tick(deps, 0.75 * 5);
 		}
 		await drain();
 		expect(controller.view.status).toBe('finished');
@@ -674,13 +765,13 @@ describe('SessionController with a selector', () => {
 			phase: 'learning',
 			temperature: 'hot',
 			aid: 'show-position',
-			leadBeats: 2
+			leadBeats: 4
 		});
 		const controller = withSelector(spySelector([presentation]).selector, deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		deps.detector.emitNote({
-			time: deps.metronome.beatTime(6),
+			time: deps.metronome.beatTime(8),
 			midi: 60,
 			frequencyHz: 262,
 			clarity: 0.95
@@ -696,7 +787,7 @@ describe('SessionController with a selector', () => {
 		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
 		await deps.cards.put(introduceCard(target, deps.now(), 'old'));
 		const spy = spySelector([
-			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 2 })
+			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 4 })
 		]);
 		const learned = markLearned(introduceCard(target, deps.now(), 'old'), 123, 80);
 		spy.learnOnRecord({ card: learned });
@@ -713,7 +804,7 @@ describe('SessionController with a selector', () => {
 		const passed = createDeps();
 		const right = withSelector(spySelector([probe]).selector, passed);
 		await right.start();
-		tick(passed, 0.1 + 0.75 * 4);
+		atBeat(passed, 6);
 		playRight(passed, right);
 		await drain();
 		expect((await passed.attempts.all()).map((a) => a.temperature)).toEqual(['cold']);
@@ -721,9 +812,9 @@ describe('SessionController with a selector', () => {
 		const missed = createDeps();
 		const wrong = withSelector(spySelector([probe]).selector, missed);
 		await wrong.start();
-		tick(missed, 0.1 + 0.75 * 4);
+		atBeat(missed, 6);
 		missed.detector.emitNote({
-			time: missed.metronome.beatTime(6),
+			time: missed.metronome.beatTime(8),
 			midi: 60,
 			frequencyHz: 262,
 			clarity: 0.95
@@ -734,7 +825,7 @@ describe('SessionController with a selector', () => {
 
 	it('stores the card the selector reports for a probe', async () => {
 		const deps = createDeps();
-		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 });
+		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 4 });
 		const spy = spySelector([probe]);
 		const known = { ...introduceCard(probe.target, deps.now(), 'sess-1'), acquiredAt: 456 };
 		spy.learnOnRecord({ card: known });
@@ -748,7 +839,7 @@ describe('SessionController with a selector', () => {
 
 	it('stores nothing when quitting before a probe is answered', async () => {
 		const deps = createDeps();
-		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 });
+		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 4 });
 		const controller = withSelector(spySelector([probe]).selector, deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
@@ -764,7 +855,7 @@ describe('SessionController with a selector', () => {
 		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
 		const card = markLearned(introduceCard(target, -10_000_000, 'old'), -9_000_000, 80);
 		await deps.cards.put(card);
-		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 2 });
+		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 });
 		const spy = spySelector([free]);
 		const controller = withSelector(spy.selector, deps, 'free');
 		await controller.start();
@@ -784,12 +875,12 @@ describe('SessionController with a selector', () => {
 		const being = introduceCard({ direction: 'locate', string: 3, pitch: 'C' }, -10_000_000, 'old');
 		await deps.cards.put(being);
 		const items = [
-			locateItem({ phase: 'free', temperature: 'hot', leadBeats: 2 }),
+			locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 }),
 			locateItem({
 				target: { direction: 'locate', string: 3, pitch: 'C' },
 				phase: 'free',
 				temperature: 'hot',
-				leadBeats: 2
+				leadBeats: 4
 			})
 		];
 		const controller = withSelector(spySelector(items).selector, deps, 'free');
@@ -817,7 +908,7 @@ describe('SessionController with a selector', () => {
 		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
 		const card = markLearned(introduceCard(target, -10_000_000, 'old'), -9_000_000, 80);
 		await deps.cards.put(card);
-		const item = locateItem({ phase: 'consolidation', temperature: 'hot', leadBeats: 2 });
+		const item = locateItem({ phase: 'consolidation', temperature: 'hot', leadBeats: 4 });
 		const controller = withSelector(spySelector([item]).selector, deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);

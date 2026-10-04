@@ -87,7 +87,11 @@ export class DemoIdentifySession implements PlaySessionController {
 			verdict: judgement.verdict,
 			offsetMs: null,
 			reactionMs: judgement.reactionMs,
-			answerLabel: answerChoiceLabel(pitch)
+			answerLabel: answerChoiceLabel(pitch),
+			correction:
+				judgement.verdict === 'wrong'
+					? answerChoiceLabel(pitchOnString(target.string, target.fret))
+					: null
 		};
 		this.view.status = 'verdict';
 		this.timer = setTimeout(() => {

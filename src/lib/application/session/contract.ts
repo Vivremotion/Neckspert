@@ -21,6 +21,8 @@ export interface VerdictView {
 	reactionMs: number | null;
 	/** What was answered, localized ("F#", "Gb"), or null without an answer. */
 	answerLabel: string | null;
+	/** After a miss: the right answer, the position in mode 1 ("corde de E grave, case 5"), the name in mode 2. */
+	correction: string | null;
 }
 
 /** A played target on the lane, at the beat it was due. */

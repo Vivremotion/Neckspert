@@ -131,6 +131,9 @@
 						<div class="banner-frame pixel-frame">
 							<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
 						</div>
+						{#if view.lastVerdict.correction}
+							<p class="correction">{view.lastVerdict.correction}</p>
+						{/if}
 						{#if view.lastVerdict.offsetMs !== null}
 							<p class="offset">{formatOffset(view.lastVerdict.offsetMs)}</p>
 						{/if}
@@ -442,6 +445,18 @@
 		font-size: var(--np-type-body);
 		padding: 8px 6px;
 		text-transform: uppercase;
+	}
+
+	/* After a miss: the right answer, read during the breathing bar. */
+	.correction {
+		margin: 0;
+		padding: 10px 12px 0;
+		color: var(--np-ink);
+		font-size: var(--np-type-body);
+		line-height: 1;
+		text-align: center;
+		text-transform: uppercase;
+		overflow-wrap: anywhere;
 	}
 
 	.offset,
