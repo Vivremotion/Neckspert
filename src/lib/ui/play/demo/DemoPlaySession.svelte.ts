@@ -75,7 +75,8 @@ export class DemoPlaySession implements PlaySessionController {
 			fatigueDetected: false,
 			scene: 'locate',
 			countdown: null,
-			preview: null
+			preview: null,
+			audioError: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()

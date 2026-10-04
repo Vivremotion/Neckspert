@@ -39,7 +39,8 @@ export class DemoIdentifySession implements PlaySessionController {
 		fatigueDetected: false,
 		scene: 'identify',
 		countdown: null,
-		preview: null
+		preview: null,
+		audioError: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 

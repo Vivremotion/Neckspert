@@ -51,6 +51,7 @@ import {
 import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
+import { openAudioInput } from './audioInput';
 import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 
 type InternalStatus = PlayView['status'];
@@ -128,7 +129,8 @@ export class SessionController implements PlaySessionController {
 			fatigueDetected: false,
 			scene: 'locate',
 			countdown: null,
-			preview: null
+			preview: null,
+			audioError: null
 		});
 	}
 
@@ -136,6 +138,7 @@ export class SessionController implements PlaySessionController {
 		if (this.starting) return;
 		if (this.view.status !== 'idle' && this.view.status !== 'finished') return;
 		this.starting = true;
+		this.view.audioError = null;
 		const run = ++this.run;
 		try {
 			if (this.view.status === 'finished') this.beginNewSeries();
@@ -190,7 +193,16 @@ export class SessionController implements PlaySessionController {
 		await this.deps.clock.resume();
 		if (this.run !== run) return;
 		this.deps.detector.setBuiltInGain(this.settings.builtInInputGain);
-		await this.deps.detector.start(this.settings.inputDeviceId);
+		try {
+			await openAudioInput(this.deps.detector, this.deps.settings, this.settings.inputDeviceId);
+		} catch (error) {
+			if (this.run !== run) return;
+			// No input at all (refused, unplugged): say so on screen rather than fail silently.
+			logDetection('entrée audio', [`ouverture impossible : ${String(error)}`]);
+			this.view.audioError = 'input';
+			this.setStatus('idle');
+			return;
+		}
 		if (this.run !== run) return;
 		// The permission prompt can suspend the context. Resume again before scheduling clicks.
 		await this.deps.clock.resume();

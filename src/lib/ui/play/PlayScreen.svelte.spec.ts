@@ -26,6 +26,14 @@ describe('PlayScreen', () => {
 		expect(screen.getByRole('button', { name: /commencer/i })).toBeTruthy();
 	});
 
+	it('says no audio input opened, in place of the how-to, with the start button', () => {
+		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
+		demo.view.audioError = 'input';
+		render(PlayScreen, { props: { controller: demo } });
+		expect(screen.getByRole('alert').textContent).toMatch(/aucune entrée audio/i);
+		expect(screen.getByRole('button', { name: /commencer/i })).toBeTruthy();
+	});
+
 	it('offers to restart once the series is finished', () => {
 		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
 		demo.quit();
@@ -57,7 +65,8 @@ describe('PlayScreen', () => {
 				fatigueDetected: false,
 				scene: 'locate' as const,
 				countdown: null,
-				preview: null
+				preview: null,
+				audioError: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},
@@ -93,7 +102,8 @@ describe('PlayScreen', () => {
 			fatigueDetected: false,
 			scene: prompt.direction,
 			countdown: null,
-			preview: null
+			preview: null,
+			audioError: null
 		};
 		return {
 			sessionId: 'aided',
@@ -268,7 +278,8 @@ describe('PlayScreen', () => {
 				fatigueDetected: false,
 				scene: 'locate' as const,
 				countdown: null,
-				preview: null
+				preview: null,
+				audioError: null
 			},
 			timeline: { nowBeat: () => 1 },
 			start: async () => {},

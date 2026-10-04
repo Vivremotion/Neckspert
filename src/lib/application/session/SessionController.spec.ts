@@ -267,6 +267,45 @@ describe('SessionController locate judgement', () => {
 	});
 });
 
+describe('SessionController audio input', () => {
+	function named(name: string): Error {
+		const error = new Error('Constraints could not be satisfied.');
+		error.name = name;
+		return error;
+	}
+
+	it('starts on the default input when the remembered one is gone', async () => {
+		const deps = createDeps();
+		await deps.settings.update({ inputDeviceId: 'from-a-backup' });
+		const start = deps.detector.start.bind(deps.detector);
+		deps.detector.start = async (deviceId) => {
+			if (deviceId !== null) throw named('OverconstrainedError');
+			await start(deviceId);
+		};
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		expect(controller.view.status).toBe('count-in');
+		expect(controller.view.audioError).toBeNull();
+		expect((await deps.settings.get()).inputDeviceId).toBeNull();
+	});
+
+	it('shows a message instead of failing when no input opens, and starts again later', async () => {
+		const deps = createDeps();
+		const start = deps.detector.start.bind(deps.detector);
+		deps.detector.start = async () => {
+			throw named('NotAllowedError');
+		};
+		const controller = make(planWith([locateItem()]), deps);
+		await expect(controller.start()).resolves.toBeUndefined();
+		expect(controller.view).toMatchObject({ status: 'idle', audioError: 'input' });
+		expect(deps.metronome.isRunning()).toBe(false);
+
+		deps.detector.start = start;
+		await controller.start();
+		expect(controller.view).toMatchObject({ status: 'count-in', audioError: null });
+	});
+});
+
 describe('SessionController two-step prompt', () => {
 	it('shows the string a beat before the note, spelled the same once the note appears', async () => {
 		const deps = createDeps();

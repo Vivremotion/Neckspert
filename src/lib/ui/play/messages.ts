@@ -16,6 +16,8 @@ export const playMessages = defineMessages({
 			offbeat: 'Hors temps',
 			wrong: 'Mauvaise note'
 		} as const,
+		noInput:
+			'Aucune entrée audio ne s’ouvre. Branche ton interface ou autorise le micro, puis recommence.',
 		stringOf: (name: string) => `corde de ${name}`,
 		aidFret: (fret: number) => `case ${fret}`
 	},
@@ -34,6 +36,8 @@ export const playMessages = defineMessages({
 			offbeat: 'Off beat',
 			wrong: 'Wrong note'
 		} as const,
+		noInput:
+			'No audio input could be opened. Plug in your interface or allow the microphone, then start again.',
 		stringOf: (name: string) => `${name} string`,
 		aidFret: (fret: number) => `fret ${fret}`
 	}

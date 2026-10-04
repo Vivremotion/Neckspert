@@ -38,7 +38,8 @@ export class DexieBackup implements BackupPort {
 			await db.cards.clear();
 			await db.sessions.clear();
 			await db.settings.clear();
-			await db.settings.put({ ...backup.settings, id: SETTINGS_ROW_ID });
+			// Device ids belong to one browser and one origin: an imported one would not open.
+			await db.settings.put({ ...backup.settings, inputDeviceId: null, id: SETTINGS_ROW_ID });
 			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);

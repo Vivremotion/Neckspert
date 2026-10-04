@@ -61,6 +61,8 @@ export interface PlayView {
 	countdown: number | null;
 	/** Mode 1: the next prompt, shown string first before its note appears. Only its string shows. */
 	preview: PromptView | null;
+	/** 'input': no audio input could be opened at start; the screen says so. */
+	audioError: 'input' | null;
 }
 
 export interface PlayTimeline {

@@ -25,6 +25,7 @@ function view(overrides: Partial<PlayView>): PlayView {
 		scene: overrides.prompt?.direction ?? (overrides.answerChoices ? 'identify' : 'locate'),
 		countdown: null,
 		preview: null,
+		audioError: null,
 		...overrides
 	};
 }

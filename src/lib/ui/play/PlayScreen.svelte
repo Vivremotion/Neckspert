@@ -218,6 +218,8 @@
 			<div class="overlay">
 				{#if view.status === 'finished'}
 					<p class="done">Série terminée</p>
+				{:else if view.audioError === 'input'}
+					<p class="how no-input" role="alert">{t.noInput}</p>
 				{:else}
 					<p class="how">{t.howTo}</p>
 				{/if}

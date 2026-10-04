@@ -103,6 +103,15 @@ describe('DexieBackup', () => {
 			expect(await new DexieSessionRepository(db).list()).toEqual(file.sessions);
 		});
 
+		it('keeps every setting but the input device, which belongs to the exporting browser', async () => {
+			const file = makeBackup({
+				settings: { ...DEFAULT_SETTINGS, tempoBpm: 96, inputDeviceId: 'usb-elsewhere' }
+			});
+			await new DexieBackup(db).importAll(file);
+			const settings = await new DexieSettingsRepository(db).get();
+			expect(settings).toMatchObject({ tempoBpm: 96, inputDeviceId: null });
+		});
+
 		it('imports an old export with a one-beat card on the shortest lead left', async () => {
 			const file = makeBackup({ cards: [makeCard({ leadBeats: 1 as never })] });
 
