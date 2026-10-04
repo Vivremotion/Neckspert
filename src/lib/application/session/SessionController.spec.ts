@@ -156,25 +156,25 @@ describe('SessionController skeleton', () => {
 	});
 
 	it('stores the tempo from settings at start and keeps it after the tempo setting changes', async () => {
-		await deps.settings.update({ tempoBpm: 60 });
+		await deps.settings.update({ tempoBpm: 100 });
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(60);
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(100);
 
 		await deps.settings.update({ tempoBpm: 120 });
 		controller.quit();
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 
 		const ended = await deps.sessions.get('sess-1');
-		expect(ended?.tempoBpm).toBe(60);
+		expect(ended?.tempoBpm).toBe(100);
 		expect(ended?.endedAt).not.toBeNull();
 	});
 
 	it('keeps the closing session tempo when restart begins before finish persists', async () => {
-		await deps.settings.update({ tempoBpm: 60 });
+		await deps.settings.update({ tempoBpm: 100 });
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(60);
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(100);
 
 		controller.quit();
 		await deps.settings.update({ tempoBpm: 120 });
@@ -182,7 +182,7 @@ describe('SessionController skeleton', () => {
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 
 		const ended = await deps.sessions.get('sess-1');
-		expect(ended?.tempoBpm).toBe(60);
+		expect(ended?.tempoBpm).toBe(100);
 		expect(ended?.endedAt).not.toBeNull();
 	});
 
@@ -264,6 +264,55 @@ describe('SessionController locate judgement', () => {
 		});
 		expect(controller.view.lastVerdict?.verdict).toBe('offbeat');
 		expect(controller.view.lastVerdict?.correction).toBeNull();
+	});
+});
+
+describe('SessionController tempo between sessions', () => {
+	async function playSession(kind: SessionKind, hits: number, misses: number) {
+		const deps = createDeps();
+		const items = Array.from({ length: hits + misses }, () => locateItem({ leadBeats: 4 }));
+		const controller = make(planWith(items, kind), deps);
+		await controller.start();
+		for (let n = 0; n < hits + misses; n++) {
+			while (controller.view.status !== 'awaiting') tick(deps, 0.75);
+			const midi = n < hits ? 65 : 60;
+			deps.detector.emitNote({
+				time: deps.metronome.beatTime(controller.view.targetBeatIndex!),
+				midi,
+				frequencyHz: 300,
+				clarity: 0.95
+			});
+			await drain();
+			tick(deps, 0.75 * 2);
+		}
+		while (controller.view.status !== 'finished') tick(deps, 0.75);
+		await drain();
+		return deps;
+	}
+
+	it('speeds the next learn session up after more than 90 % right', async () => {
+		const deps = await playSession('learn', 10, 0);
+		expect((await deps.settings.get()).tempoBpm).toBe(85);
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(80);
+	});
+
+	it('slows the next learn session down under 70 %, never below 80 bpm', async () => {
+		const deps = await playSession('learn', 6, 4);
+		expect((await deps.settings.get()).tempoBpm).toBe(80);
+	});
+
+	it('plays an old tempo under 80 bpm at 80', async () => {
+		const deps = createDeps();
+		await deps.settings.update({ tempoBpm: 60 });
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		expect(deps.metronome.getTempo()).toBe(80);
+		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(80);
+	});
+
+	it('leaves the tempo alone after free play', async () => {
+		const deps = await playSession('free', 10, 0);
+		expect((await deps.settings.get()).tempoBpm).toBe(80);
 	});
 });
 

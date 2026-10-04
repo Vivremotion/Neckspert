@@ -2,19 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { MAX_TEMPO_BPM, MIN_TEMPO_BPM, clampTempo } from './tempo';
 
 describe('clampTempo', () => {
-	it('keeps values inside 60..140', () => {
-		expect(MIN_TEMPO_BPM).toBe(60);
-		expect(MAX_TEMPO_BPM).toBe(140);
+	it('keeps values inside 80..160', () => {
+		expect(MIN_TEMPO_BPM).toBe(80);
+		expect(MAX_TEMPO_BPM).toBe(160);
+		expect(clampTempo(100)).toBe(100);
 		expect(clampTempo(80)).toBe(80);
-		expect(clampTempo(60)).toBe(60);
-		expect(clampTempo(140)).toBe(140);
+		expect(clampTempo(160)).toBe(160);
 	});
 
 	it('clamps below and above the user bounds', () => {
-		expect(clampTempo(59)).toBe(60);
-		expect(clampTempo(20)).toBe(60);
-		expect(clampTempo(141)).toBe(140);
-		expect(clampTempo(300)).toBe(140);
+		expect(clampTempo(79)).toBe(80);
+		expect(clampTempo(20)).toBe(80);
+		expect(clampTempo(161)).toBe(160);
+		expect(clampTempo(300)).toBe(160);
 	});
 
 	it('rounds to the nearest integer', () => {

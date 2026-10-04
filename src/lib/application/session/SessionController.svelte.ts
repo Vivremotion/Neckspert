@@ -21,6 +21,8 @@ import {
 	applyColdAttempt,
 	classifyTemperature,
 	introduceCard,
+	clampTempo,
+	nextSessionTempo,
 	probeTemperature,
 	type SessionSelector
 } from '$lib/domain/progress';
@@ -166,7 +168,9 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private async beginAudio(run: number): Promise<void> {
-		this.settings = await this.deps.settings.get();
+		const stored = await this.deps.settings.get();
+		// Never under 80 bpm: the 2-beat lead must stay a direct-recall test (old settings allowed 60).
+		this.settings = { ...stored, tempoBpm: clampTempo(stored.tempoBpm) };
 		if (this.run !== run) return;
 		this.locale = this.settings.locale;
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
@@ -829,6 +833,7 @@ export class SessionController implements PlaySessionController {
 		const sessionId = this.sessionId;
 		const fatigueDetected = this.view.fatigueDetected;
 		const tempoBpm = this.sessionTempoBpm;
+		const attempts = [...this.sessionAttempts];
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubNote?.();
@@ -843,6 +848,11 @@ export class SessionController implements PlaySessionController {
 		}
 		if (this.run === run) this.deps.detector.stop();
 
+		if (this.kind === 'learn' && tempoBpm !== null) {
+			// The next learn session runs at a tempo fitted to this one's mode 1 success.
+			const next = nextSessionTempo(tempoBpm, attempts);
+			if (next !== tempoBpm) await this.deps.settings.update({ tempoBpm: next });
+		}
 		const startedAt = (await this.deps.sessions.get(sessionId))?.startedAt ?? this.deps.now();
 		await this.deps.sessions.put({
 			id: sessionId,

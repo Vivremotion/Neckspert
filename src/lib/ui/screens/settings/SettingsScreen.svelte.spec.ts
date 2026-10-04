@@ -64,17 +64,17 @@ describe('SettingsScreen', () => {
 		expect(props.onlocale).toHaveBeenCalledWith('en');
 	});
 
-	it('steps tempo within 60..140 and disables at the edges', async () => {
-		const low = renderScreen({ tempoBpm: 60 });
+	it('steps tempo within 80..160 and disables at the edges', async () => {
+		const low = renderScreen({ tempoBpm: 80 });
 		expect(screen.getByRole('button', { name: '−' })).toHaveProperty('disabled', true);
 		await fireEvent.click(screen.getByRole('button', { name: '+' }));
-		expect(low.props.ontempo).toHaveBeenCalledWith(61);
+		expect(low.props.ontempo).toHaveBeenCalledWith(81);
 		cleanup();
 
-		const high = renderScreen({ tempoBpm: 140 });
+		const high = renderScreen({ tempoBpm: 160 });
 		expect(screen.getByRole('button', { name: '+' })).toHaveProperty('disabled', true);
 		await fireEvent.click(screen.getByRole('button', { name: '−' }));
-		expect(high.props.ontempo).toHaveBeenCalledWith(139);
+		expect(high.props.ontempo).toHaveBeenCalledWith(159);
 	});
 
 	it('steps the built-in mic gain within 1..16', async () => {
