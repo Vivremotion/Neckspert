@@ -10,6 +10,7 @@
 	const platesOnly = $derived(page.url.searchParams.get('platesOnly') === '1');
 	const shot = $derived(page.url.searchParams.get('shot') === '1');
 	const withAid = $derived(page.url.searchParams.get('aid') === '1');
+	const missed = $derived(page.url.searchParams.get('miss') === '1');
 
 	onMount(() => {
 		let raf = 0;
@@ -23,7 +24,7 @@
 					primary: 'F',
 					secondary: 'corde de B',
 					aid: withAid ? 'case 6' : null,
-					diagram: null
+					diagram: withAid ? { string: 2, label: 'B' } : null
 				};
 				controller.view.promptBeatIndex = 8;
 				controller.view.targetBeatIndex = 16;
@@ -35,13 +36,21 @@
 					{ beatIndex: 13, verdict: 'wrong' },
 					{ beatIndex: 14, verdict: 'late' }
 				];
-				controller.view.lastVerdict = {
-					verdict: 'late',
-					offsetMs: 95,
-					reactionMs: 1210,
-					answerLabel: 'F',
-					correction: null
-				};
+				controller.view.lastVerdict = missed
+					? {
+							verdict: 'wrong',
+							offsetMs: null,
+							reactionMs: null,
+							answerLabel: null,
+							correction: 'corde de B, case 6'
+						}
+					: {
+							verdict: 'late',
+							offsetMs: 95,
+							reactionMs: 1210,
+							answerLabel: 'F',
+							correction: null
+						};
 				ready = true;
 				return;
 			}
