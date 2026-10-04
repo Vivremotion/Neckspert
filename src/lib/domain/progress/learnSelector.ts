@@ -11,6 +11,7 @@ import {
 	type Target
 } from '$lib/domain/types';
 import { advance, announcesLead, fits, isOpen, type Sequence } from './sequence';
+import { cardSuccessRate, sessionSuccessRate } from './success';
 import { allowedAfter, pickAtRandom } from './order';
 import { introduceCard, markLearned, probeCard } from './cards';
 import {
@@ -24,6 +25,10 @@ import {
 	LEARN_SUCCESSES,
 	LEARNING_SLOTS,
 	MAX_UNCONSOLIDATED,
+	MAX_WORKING_SET,
+	NEW_NOTE_MIN_CARD_SUCCESS,
+	NEW_NOTE_MIN_SESSION_SUCCESS,
+	RECOVERY_AFTER_MISSES,
 	SEQUENCE_MAX_DELAY,
 	SEQUENCES_ENABLED
 } from './constants';
@@ -73,6 +78,16 @@ class LearnSelector implements SessionSelector {
 	private previousItem: PlannedItem | null = null;
 	/** Open sequence (trial, `sequence.ts`); null before the first prompt or once closed early. */
 	private sequence: Sequence | null = null;
+	/** This session's attempts, oldest first: success rates steer new notes. */
+	private readonly played: Attempt[] = [];
+	/** Cards served hot in this session (learning, consolidation, recovery): the working set. */
+	private readonly workingSet = new Set<CardKey>();
+	/** Misses in a row, probes and recovery prompts left out. */
+	private missStreak = 0;
+	/** The last miss calls for a solid card next, in its scene, at this lead ('own': the card's). */
+	private pendingRecovery: { direction: Direction; lead: LeadBeats | 'own' } | null = null;
+	/** The prompt just served is a recovery: a miss on it calls for no other. */
+	private servedRecovery = false;
 
 	constructor(
 		cards: readonly CardState[],
@@ -91,9 +106,13 @@ class LearnSelector implements SessionSelector {
 	next(context: SelectorContext): PlannedItem | null {
 		if (context.elapsedMs >= LEARN_SESSION_MS) return null;
 		this.dropAbandonedProbe();
-		const item = this.pick(context);
+		const recovery = context.fatigued ? null : this.recovery(context.now);
+		this.pendingRecovery = null;
+		const item = recovery ?? this.pick(context);
+		this.servedRecovery = recovery !== null;
 		if (!item) return null;
 		const key = cardKey(item.target);
+		if (item.phase === 'learning' || item.phase === 'consolidation') this.workingSet.add(key);
 		this.servedAt.set(key, this.served);
 		this.servedCount.set(key, (this.servedCount.get(key) ?? 0) + 1);
 		this.recent.push(key);
@@ -108,6 +127,8 @@ class LearnSelector implements SessionSelector {
 	record(attempt: Attempt, now: number): RecordOutcome {
 		this.last.set(attempt.cardKey, attempt.promptedAt);
 		this.remember(attempt);
+		this.played.push(attempt);
+		this.countMiss(attempt);
 		if (attempt.phase === 'probe') {
 			if (attempt.cardKey === this.unansweredProbe) this.unansweredProbe = null;
 			return this.recordProbe(attempt, now);
@@ -132,6 +153,75 @@ class LearnSelector implements SessionSelector {
 		}
 		entry.dueAt = retestDueAt(servedAt, step === 'short' ? shortGap : longGap);
 		return null;
+	}
+
+	/** A miss (probes and recovery prompts left out) calls for a solid card on the next prompt. */
+	private countMiss(attempt: Attempt): void {
+		if (attempt.phase === 'probe') return;
+		if (isSuccess(attempt)) {
+			this.missStreak = 0;
+			this.pendingRecovery = null;
+			return;
+		}
+		if (this.servedRecovery) return;
+		this.missStreak++;
+		if (this.missStreak < RECOVERY_AFTER_MISSES) return;
+		this.missStreak = 0;
+		// Same scene, and the lead of the sequence the miss belongs to.
+		const lead = attempt.leadBeats;
+		this.pendingRecovery = {
+			direction: attempt.target.direction,
+			lead: this.sequences && lead !== null && lead !== 1 ? lead : 'own'
+		};
+	}
+
+	/**
+	 * After a miss: a solid card (acquired, no miss in its recent attempts, not waiting for a cold
+	 * review), served hot as consolidation. Null when none qualifies.
+	 */
+	private recovery(now: number): PlannedItem | null {
+		const pending = this.pendingRecovery;
+		if (pending === null) return null;
+		const reviewable = new Set(
+			reviewableCards([...this.cards.values()], this.last, now)
+				.filter((card) => !this.servedAt.has(card.key))
+				.map((card) => card.key)
+		);
+		const solid = [...this.cards.values()].filter(
+			(card) =>
+				card.acquiredAt !== null &&
+				card.target.direction === pending.direction &&
+				!reviewable.has(card.key) &&
+				(this.history.get(card.key) ?? []).every(isSuccess) &&
+				this.fitsWorkingSet(card.key)
+		);
+		const card = pickAtRandom(solid, this.previous, this.random);
+		if (!card) return null;
+		return {
+			target: card.target,
+			phase: 'consolidation',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: pending.lead === 'own' ? this.cardLead(card) : pending.lead
+		};
+	}
+
+	/** A card may be served hot: already in the working set, or the set has room. */
+	private fitsWorkingSet(key: CardKey): boolean {
+		return this.workingSet.has(key) || this.workingSet.size < MAX_WORKING_SET;
+	}
+
+	/**
+	 * New notes wait until every note being learned is mostly right lately, the session's
+	 * rolling success is high enough, and the working set has room for a missed probe.
+	 */
+	private readyForNewNote(cards: readonly CardState[]): boolean {
+		if (this.workingSet.size >= MAX_WORKING_SET) return false;
+		const session = sessionSuccessRate(this.played);
+		if (session !== null && session < NEW_NOTE_MIN_SESSION_SUCCESS) return false;
+		return cards
+			.filter((card) => card.learnedAt === null)
+			.every((card) => (cardSuccessRate(this.played, card.key) ?? 0) >= NEW_NOTE_MIN_CARD_SUCCESS);
 	}
 
 	/** Forgets the in-memory card of a probe nobody answered, so the note can be probed again. */
@@ -345,6 +435,7 @@ class LearnSelector implements SessionSelector {
 				(candidate) =>
 					candidate.learnedAt === null &&
 					!this.servedAt.has(candidate.key) &&
+					this.fitsWorkingSet(candidate.key) &&
 					fit(candidate.target.direction, presentationLead(candidate.target))
 			)
 			.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key));
@@ -359,6 +450,7 @@ class LearnSelector implements SessionSelector {
 			(card) => card.learnedAt !== null && card.acquiredAt === null
 		).length;
 		if (beingLearned >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
+		if (!this.readyForNewNote(cards)) return null;
 		const target = nextNewTarget(cards);
 		if (!target || !allowedAfter(target, this.previous)) return null;
 		const lead = target.direction === 'locate' ? leadForThreshold(this.tempoBpm) : null;
@@ -393,6 +485,7 @@ class LearnSelector implements SessionSelector {
 				(candidate) =>
 					candidate.learnedAt !== null &&
 					!this.recent.includes(candidate.key) &&
+					this.fitsWorkingSet(candidate.key) &&
 					allowedAfter(candidate.target, this.previous) &&
 					fit(candidate.target.direction, this.consolidationLead(candidate))
 			)

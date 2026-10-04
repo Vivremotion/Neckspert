@@ -37,6 +37,24 @@ export const SEQUENCE_LENGTH = 4;
  */
 export const SEQUENCE_MAX_DELAY = 2;
 
+/** Rolling success window: the session's last N mode 1 prompts, probes left out. To calibrate. */
+export const SUCCESS_WINDOW = 10;
+
+/** A new note enters only when every note being learned has at least this success. To calibrate. */
+export const NEW_NOTE_MIN_CARD_SUCCESS = 0.8;
+
+/** Attempts of the session over which a note being learned is judged. To calibrate. */
+export const NEW_NOTE_CARD_WINDOW = 5;
+
+/** A new note enters only when the rolling success is at least this. To calibrate. */
+export const NEW_NOTE_MIN_SESSION_SUCCESS = 0.7;
+
+/** Misses in a row (probes left out) after which the next prompt is a solid card. To calibrate. */
+export const RECOVERY_AFTER_MISSES = 1;
+
+/** Distinct cards served hot in a session (learning, consolidation, recovery). To calibrate. */
+export const MAX_WORKING_SET = 6;
+
 /** Consolidation draws at random among the N weakest cards. To calibrate. */
 export const CONSOLIDATION_POOL = 3;
 

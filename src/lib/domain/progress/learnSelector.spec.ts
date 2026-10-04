@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/types';
 import { practiceTargets } from '$lib/domain/music';
 import { introduceCard, markLearned, probeCard } from './cards';
-import { LEARN_COLD_CAP, LEARN_SESSION_MS } from './constants';
+import { LEARN_COLD_CAP, LEARN_SESSION_MS, MAX_WORKING_SET } from './constants';
 import { introductionOrder } from './introduction';
 import { createLearnSelector } from './learnSelector';
 import type { SessionSelector } from './selector';
@@ -218,16 +218,17 @@ describe('createLearnSelector', () => {
 
 	it('brings the aid right after a missed probe even when another retest is due', () => {
 		const selector = select([]);
-		const keys = play(selector, 7, { correct: false, verdict: 'wrong' });
-		expect(keys).toEqual([
-			GK,
-			GK,
-			cardKey(ORDER[1]),
-			cardKey(ORDER[1]),
-			GK,
-			cardKey(ORDER[2]),
-			cardKey(ORDER[2])
-		]);
+		const missed = { correct: false, verdict: 'wrong' } as const;
+		const answers = [missed, {}, {}, missed, {}, {}];
+		const keys = answers.map((overrides) => {
+			const item = next(selector)!;
+			selector.record(answer(item, overrides), NOW);
+			return cardKey(item.target);
+		});
+		// G's retest falls due on the fifth prompt, with the aid of the identify probe missed on
+		// the fourth: the aid comes first.
+		const I = cardKey({ direction: 'identify', string: 5, fret: 3 });
+		expect(keys).toEqual([GK, GK, cardKey(ORDER[1]), I, I, GK]);
 	});
 
 	it('halves the lead after each success, 8 to 4 to 2, and needs two successes at 2', () => {
@@ -378,7 +379,9 @@ describe('createLearnSelector', () => {
 
 	it('resumes a note being learned before introducing a new one', () => {
 		const selector = select([learning(ORDER[4])]);
-		expect(next(selector)?.target).toEqual(ORDER[4]);
+		const resumed = next(selector)!;
+		expect(resumed.target).toEqual(ORDER[4]);
+		selector.record(answer(resumed), NOW);
 		expect(next(selector)?.target).toEqual(G);
 	});
 
@@ -432,9 +435,9 @@ describe('createLearnSelector', () => {
 		expect(play(select(cards), 4)).toEqual([cardKey(q), cardKey(s), cardKey(p), cardKey(t)]);
 	});
 
-	it('rotates consolidation through the learned notes instead of looping on three', () => {
+	it('rotates consolidation through the working set instead of looping on three', () => {
 		const keys = play(select(FILLERS), 10);
-		expect(new Set(keys).size).toBe(10);
+		expect(new Set(keys).size).toBe(MAX_WORKING_SET);
 	});
 
 	it('lets a new note in once reviews acquire the waiting cards', () => {
@@ -540,5 +543,125 @@ describe('learn sequences', () => {
 			return item;
 		});
 		expect(items.some((item) => item.countIn)).toBe(false);
+	});
+});
+
+describe('learn pacing by success', () => {
+	const missed = { correct: false, verdict: 'wrong' } as const;
+	const solid = (target: Target) => learned(target, { acquiredAt: NOW - 1000 });
+
+	it('lets no new note in while a note being learned is below 80 %', () => {
+		const failing = select([learning(G)]);
+		failing.record(answer(next(failing)!, missed), NOW);
+		expect(next(failing)?.phase).not.toBe('probe');
+
+		const passing = select([learning(G)]);
+		passing.record(answer(next(passing)!), NOW);
+		expect(next(passing)).toMatchObject({ target: ORDER[1], phase: 'probe' });
+	});
+
+	it('lets no new note in while the rolling success is under 70 %', () => {
+		const cards = ORDER.slice(1, 4).map(solid);
+		const consolidation = (target: Target): PlannedItem => ({
+			target,
+			phase: 'consolidation',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: 2
+		});
+		const feed = (selector: SessionSelector, misses: number) => {
+			for (let i = 0; i < 10; i++) {
+				const item = consolidation(ORDER[1 + (i % 3)]);
+				selector.record(answer(item, i < misses ? missed : {}), NOW);
+			}
+		};
+		const low = select(cards);
+		feed(low, 4);
+		expect(next(low)?.phase).not.toBe('probe');
+		const enough = select(cards);
+		feed(enough, 3);
+		expect(next(enough)?.phase).toBe('probe');
+	});
+
+	it('follows a miss with a solid card, hot, at its own lead with sequences off', () => {
+		const selector = select([learning(G), solid(ORDER[1]), solid(ORDER[2])]);
+		const aided = next(selector)!;
+		expect(aided).toMatchObject({ target: G, leadBeats: 8 });
+		selector.record(answer(aided, missed), NOW);
+		const recovery = next(selector)!;
+		expect(recovery).toMatchObject({ phase: 'consolidation', temperature: 'hot', leadBeats: 2 });
+		expect([ORDER[1], ORDER[2]]).toContainEqual(recovery.target);
+	});
+
+	it('serves the recovery at the lead of the sequence in progress', () => {
+		const selector = select([learning(G), solid(ORDER[1])], [], () => 0, true);
+		selector.record(answer(next(selector)!, missed), NOW);
+		expect(next(selector)).toMatchObject({
+			target: ORDER[1],
+			phase: 'consolidation',
+			leadBeats: 8
+		});
+	});
+
+	it('follows a missed probe with its aid, not with a recovery', () => {
+		const selector = select([solid(ORDER[5])]);
+		const probe = next(selector)!;
+		expect(probe.phase).toBe('probe');
+		selector.record(answer(probe, missed), NOW);
+		expect(next(selector)).toMatchObject({ target: probe.target, phase: 'learning' });
+	});
+
+	it('never takes a card waiting for its cold review as a recovery', () => {
+		const reviews = ORDER.slice(1, LEARN_COLD_CAP + 2).map((target) => due(solid(target)));
+		const selector = select([learning(G), ...reviews]);
+		const reviewed = play(selector, LEARN_COLD_CAP);
+		const waiting = reviews.find((card) => !reviewed.includes(card.key))!;
+		const aided = next(selector)!;
+		expect(aided).toMatchObject({ target: G, phase: 'learning' });
+		selector.record(answer(aided, missed), NOW);
+		const recovery = next(selector)!;
+		expect(recovery.phase).toBe('consolidation');
+		expect(cardKey(recovery.target)).not.toBe(waiting.key);
+	});
+
+	it('keeps hot prompts to six cards in a session, cold reviews apart', () => {
+		// Every position known: no probe left, only reviews and consolidation.
+		const known = practiceTargets().map(solid);
+		const cards = known.map((card, i) => (i < 8 ? due(card) : card));
+		const selector = select(cards);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < 40; i++) {
+			const item = next(selector)!;
+			items.push(item);
+			selector.record(answer(item), NOW);
+		}
+		const hot = new Set(
+			items.filter((item) => item.temperature === 'hot').map((item) => cardKey(item.target))
+		);
+		expect(hot.size).toBe(MAX_WORKING_SET);
+		expect(items.filter((item) => item.phase === 'review')).toHaveLength(8);
+	});
+
+	it('lets no new note in once six cards are in the working set', () => {
+		// Every probe missed, every other prompt right: each missed probe joins the set.
+		const selector = select([]);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < 80; i++) {
+			const item = next(selector);
+			if (!item) break;
+			items.push(item);
+			selector.record(answer(item, item.phase === 'probe' ? missed : {}), NOW);
+		}
+		const firstFull = items.findIndex(
+			(_, i) =>
+				new Set(
+					items
+						.slice(0, i + 1)
+						.filter((item) => item.temperature === 'hot')
+						.map((item) => cardKey(item.target))
+				).size === MAX_WORKING_SET
+		);
+		expect(firstFull).toBeGreaterThan(-1);
+		expect(items.slice(firstFull + 1).some((item) => item.phase === 'probe')).toBe(false);
 	});
 });
