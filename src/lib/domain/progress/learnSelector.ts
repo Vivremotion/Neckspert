@@ -9,9 +9,11 @@ import {
 	type PlannedItem,
 	type Target
 } from '$lib/domain/types';
+import { allowedAfter, pickAtRandom } from './order';
 import { introduceCard, markLearned, probeCard } from './cards';
 import {
 	CONFUSION_LOOKBACK,
+	CONSOLIDATION_POOL,
 	CONSOLIDATION_SKIP_RECENT,
 	LEARN_COLD_CAP,
 	LEARN_PRESENT_LEAD_BEATS,
@@ -56,12 +58,15 @@ class LearnSelector implements SessionSelector {
 	/** Probe served and not recorded yet; still set at the next `next()` means it was abandoned (pause). */
 	private unansweredProbe: CardKey | null = null;
 	private reviews = 0;
+	/** Target of the last prompt served: the next one is never it, nor its mirror. */
+	private previous: Target | null = null;
 
 	constructor(
 		cards: readonly CardState[],
 		attempts: readonly Attempt[],
 		private readonly sessionId: string,
-		private readonly tempoBpm: number
+		private readonly tempoBpm: number,
+		private readonly random: () => number
 	) {
 		this.cards = new Map(cards.map((card) => [card.key, card]));
 		this.last = lastAttemptByCard(attempts);
@@ -80,6 +85,7 @@ class LearnSelector implements SessionSelector {
 		this.recent.push(key);
 		if (this.recent.length > CONSOLIDATION_SKIP_RECENT) this.recent.shift();
 		this.served++;
+		this.previous = item.target;
 		return item;
 	}
 
@@ -118,6 +124,8 @@ class LearnSelector implements SessionSelector {
 		this.cards.delete(this.unansweredProbe);
 		this.servedAt.delete(this.unansweredProbe);
 		this.unansweredProbe = null;
+		// Never played: it does not count as the previous note.
+		this.previous = null;
 	}
 
 	/** A passed probe goes to review; a missed one is presented with the aid on the next prompt. */
@@ -182,8 +190,13 @@ class LearnSelector implements SessionSelector {
 		this.history.set(attempt.cardKey, list);
 	}
 
+	/**
+	 * Category priority is fixed: retests, cold reviews, resumed notes, new notes, consolidation.
+	 * Inside a category the draw is random, never the previous card nor its mirror, and another
+	 * string when possible (`pickAtRandom`).
+	 */
 	private pick(context: SelectorContext): PlannedItem | null {
-		const dueRetest = this.earliestRetest((entry) => entry.dueAt <= this.served);
+		const dueRetest = this.dueRetest();
 		if (dueRetest) return this.retest(dueRetest);
 		if (!context.fatigued) {
 			const item =
@@ -193,8 +206,19 @@ class LearnSelector implements SessionSelector {
 				this.consolidate();
 			if (item) return item;
 		}
-		const early = this.earliestRetest(() => true);
+		// Nothing else: a retest early rather than an end of session, the previous card as a
+		// last resort only.
+		const early =
+			this.earliestRetest((entry) => allowedAfter(entry.target, this.previous)) ??
+			this.earliestRetest(() => true);
 		return early ? this.retest(early) : null;
+	}
+
+	/** A due retest; the aided presentation after a missed probe always comes first. */
+	private dueRetest(): LearningEntry | null {
+		const due = [...this.learning.values()].filter((entry) => entry.dueAt <= this.served);
+		const afterProbe = due.find((entry) => entry.dueAt === -Infinity);
+		return afterProbe ?? pickAtRandom(due, this.previous, this.random);
 	}
 
 	private earliestRetest(accept: (entry: LearningEntry) => boolean): LearningEntry | null {
@@ -233,9 +257,10 @@ class LearnSelector implements SessionSelector {
 
 	private review(now: number): PlannedItem | null {
 		if (this.reviews >= LEARN_COLD_CAP) return null;
-		const card = reviewableCards([...this.cards.values()], this.last, now).find(
+		const candidates = reviewableCards([...this.cards.values()], this.last, now).filter(
 			(candidate) => !this.servedAt.has(candidate.key)
 		);
+		const card = pickAtRandom(candidates, this.previous, this.random);
 		if (!card) return null;
 		this.reviews++;
 		return {
@@ -248,9 +273,10 @@ class LearnSelector implements SessionSelector {
 	}
 
 	private resume(): PlannedItem | null {
-		const card = [...this.cards.values()]
+		const candidates = [...this.cards.values()]
 			.filter((candidate) => candidate.learnedAt === null && !this.servedAt.has(candidate.key))
-			.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key))[0];
+			.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key));
+		const card = pickAtRandom(candidates, this.previous, this.random);
 		return card ? this.retest(this.present(card.target)) : null;
 	}
 
@@ -262,7 +288,7 @@ class LearnSelector implements SessionSelector {
 		).length;
 		if (beingLearned >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
 		const target = nextNewTarget(cards);
-		if (!target) return null;
+		if (!target || !allowedAfter(target, this.previous)) return null;
 		const card = introduceCard(target, now, this.sessionId);
 		this.cards.set(card.key, card);
 		this.unansweredProbe = card.key;
@@ -278,8 +304,13 @@ class LearnSelector implements SessionSelector {
 	private consolidate(): PlannedItem | null {
 		const confused = (key: CardKey) =>
 			(this.history.get(key) ?? []).some((attempt) => attempt.confusion !== null);
-		const card = [...this.cards.values()]
-			.filter((candidate) => candidate.learnedAt !== null && !this.recent.includes(candidate.key))
+		const weakest = [...this.cards.values()]
+			.filter(
+				(candidate) =>
+					candidate.learnedAt !== null &&
+					!this.recent.includes(candidate.key) &&
+					allowedAfter(candidate.target, this.previous)
+			)
 			.sort((a, b) => {
 				const byConfusion = Number(confused(b.key)) - Number(confused(a.key));
 				if (byConfusion !== 0) return byConfusion;
@@ -289,7 +320,9 @@ class LearnSelector implements SessionSelector {
 					return a.scheduling.stability - b.scheduling.stability;
 				}
 				return a.key.localeCompare(b.key);
-			})[0];
+			})
+			.slice(0, CONSOLIDATION_POOL);
+		const card = pickAtRandom(weakest, this.previous, this.random);
 		if (!card) return null;
 		return {
 			target: card.target,
@@ -307,6 +340,14 @@ export function createLearnSelector(input: {
 	attempts: readonly Attempt[];
 	sessionId: string;
 	tempoBpm: number;
+	/** Draws inside a category. Injected for tests. */
+	random?: () => number;
 }): SessionSelector {
-	return new LearnSelector(input.cards, input.attempts, input.sessionId, input.tempoBpm);
+	return new LearnSelector(
+		input.cards,
+		input.attempts,
+		input.sessionId,
+		input.tempoBpm,
+		input.random ?? Math.random
+	);
 }

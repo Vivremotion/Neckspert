@@ -35,8 +35,18 @@ function due(card: CardState): CardState {
 	return { ...card, scheduling: { ...card.scheduling, due: NOW - 1000 } };
 }
 
-function select(cards: CardState[], attempts: Attempt[] = []): SessionSelector {
-	return createLearnSelector({ cards, attempts, sessionId: 's-now', tempoBpm: TEMPO });
+function select(
+	cards: CardState[],
+	attempts: Attempt[] = [],
+	random: () => number = () => 0
+): SessionSelector {
+	return createLearnSelector({ cards, attempts, sessionId: 's-now', tempoBpm: TEMPO, random });
+}
+
+/** Replays the given draws, then 0. */
+function draws(...values: number[]): () => number {
+	const queue = [...values];
+	return () => queue.shift() ?? 0;
 }
 
 function next(selector: SessionSelector, fatigued = false): PlannedItem | null {
@@ -319,6 +329,29 @@ describe('createLearnSelector', () => {
 		for (let i = 1; i < LEARN_COLD_CAP + 1; i++) phases.push(next(selector)!.phase);
 		expect(phases.filter((phase) => phase === 'review')).toHaveLength(LEARN_COLD_CAP);
 		expect(phases[LEARN_COLD_CAP]).not.toBe('review');
+	});
+
+	it('draws due reviews at random instead of by due date and key', () => {
+		const cards = ORDER.slice(0, 3).map((target) => due(learned(target)));
+		// Same due date: the old order (due, then key) always served 4:F first.
+		expect(next(select(cards, [], draws(0)))?.target).toEqual(ORDER[2]);
+		expect(next(select(cards, [], draws(0.99)))?.target).toEqual(ORDER[0]);
+		expect(next(select(cards, [], draws(0.5)))?.target).toEqual(ORDER[1]);
+	});
+
+	it('never serves the mirror of the previous note next', () => {
+		const aOnLowE = { direction: 'locate', string: 6, pitch: 'A' } as const;
+		const eOnA = { direction: 'locate', string: 5, pitch: 'E' } as const;
+		const fOnD = { direction: 'locate', string: 4, pitch: 'F' } as const;
+		const selector = select(
+			[aOnLowE, eOnA, fOnD].map((target) => due(learned(target))),
+			[],
+			draws(0.99)
+		);
+		const keys = play(selector, 3);
+		expect(keys[0]).toBe(cardKey(aOnLowE));
+		expect(keys[1]).toBe(cardKey(fOnD));
+		expect(keys[2]).toBe(cardKey(eOnA));
 	});
 
 	it('does not review a due card played in free play ten minutes ago', () => {

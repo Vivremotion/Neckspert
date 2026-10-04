@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cardKey, type CardState, type LocateTarget } from '$lib/domain/types';
+import { fretsForPitch } from '$lib/domain/music';
 import { introduceCard } from './cards';
 import { introductionOrder, nextNewTarget } from './introduction';
 
@@ -73,6 +74,22 @@ describe('nextNewTarget', () => {
 			acquired(introduceCard({ direction: 'locate', string: 6, pitch: 'G' }, NOW, 's1'))
 		];
 		expect(nextNewTarget(cards)).toEqual({ direction: 'identify', string: 6, fret: 3 });
+	});
+
+	it('holds back a note whose mirror is not acquired yet, without blocking the next ones', () => {
+		const order = introductionOrder();
+		const eOnA = order.findIndex((target) => target.string === 5 && target.pitch === 'E');
+		const done = order.slice(0, eOnA).flatMap((target) => {
+			const fret = fretsForPitch(target.string, target.pitch, 11).find((f) => f > 0) ?? 0;
+			return [
+				acquired(introduceCard(target, NOW, 's1')),
+				introduceCard({ direction: 'identify', string: target.string, fret }, NOW, 's1')
+			];
+		});
+		const aOnLowE = cardKey({ direction: 'locate', string: 6, pitch: 'A' });
+		const cards = done.map((card) => (card.key === aOnLowE ? { ...card, acquiredAt: null } : card));
+		expect(nextNewTarget(cards)).toEqual(order[eOnA + 1]);
+		expect(nextNewTarget(done)).toEqual(order[eOnA]);
 	});
 
 	it('returns null when every position has a card and none is acquired', () => {

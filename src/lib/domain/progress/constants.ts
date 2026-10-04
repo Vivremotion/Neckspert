@@ -22,6 +22,9 @@ export const LEARN_RETEST_GAPS = [2, 4] as const;
 /** Successes in a row at the final step (direct-recall lead, or unaided in mode 2) that make a note learned. To calibrate. */
 export const LEARN_SUCCESSES = 2;
 
+/** Consolidation draws at random among the N weakest cards. To calibrate. */
+export const CONSOLIDATION_POOL = 3;
+
 /** Consolidation skips cards served in the last N prompts. To calibrate. */
 export const CONSOLIDATION_SKIP_RECENT = 2;
 

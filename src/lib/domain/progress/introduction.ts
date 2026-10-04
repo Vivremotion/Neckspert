@@ -1,4 +1,9 @@
-import { CURRICULUM_STRINGS, LEARNABLE_FRETS, pitchOnString } from '$lib/domain/music';
+import {
+	CURRICULUM_STRINGS,
+	LEARNABLE_FRETS,
+	mirrorTargets,
+	pitchOnString
+} from '$lib/domain/music';
 import type { StringNumber } from '$lib/domain/music/types';
 import {
 	cardKey,
@@ -64,7 +69,8 @@ export function introductionOrder(): LocateTarget[] {
 
 /**
  * Next note to introduce: the identify position of an acquired locate card first, in queue
- * order; otherwise the next locate position without a card. Null when nothing is left.
+ * order; otherwise the next locate position without a card whose mirror (see `mirrorTargets`)
+ * has no card still to acquire. Null when nothing is left.
  */
 export function nextNewTarget(cards: readonly CardState[]): Target | null {
 	const byKey = new Map(cards.map((card) => [card.key, card]));
@@ -90,7 +96,13 @@ export function nextNewTarget(cards: readonly CardState[]): Target | null {
 			string: position.string,
 			pitch: pitchOnString(position.string, position.fret)
 		};
-		if (!byKey.has(cardKey(locate))) return locate;
+		if (byKey.has(cardKey(locate))) continue;
+		// A note waits while its mirror is still fragile: learning both at once mixes them up.
+		const fragileMirror = mirrorTargets(locate).some((mirror) => {
+			const card = byKey.get(cardKey(mirror));
+			return card !== undefined && card.acquiredAt === null;
+		});
+		if (!fragileMirror) return locate;
 	}
 	return null;
 }

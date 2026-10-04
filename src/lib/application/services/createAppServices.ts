@@ -80,7 +80,8 @@ export function createAppServices(
 					cards,
 					attempts: await deps.attempts.all(),
 					sessionId,
-					tempoBpm: settings.tempoBpm
+					tempoBpm: settings.tempoBpm,
+					random: deps.random
 				});
 			};
 			return new SessionController({ id: deps.newId(), kind }, makeSelector, deps);
