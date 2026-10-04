@@ -21,6 +21,16 @@ describe('validateBackup', () => {
 		expect(() => validateBackup(file)).not.toThrow();
 	});
 
+	it('checks the confusion of an attempt, string-name included', () => {
+		const withConfusion = (confusion: unknown) =>
+			makeBackup({ attempts: [{ ...makeAttempt(), confusion } as never] });
+		expect(() => validateBackup(withConfusion({ kind: 'string-name' }))).not.toThrow();
+		expect(() => validateBackup(withConfusion({ kind: 'semitone', delta: 1 }))).not.toThrow();
+		expect(() => validateBackup(withConfusion({ kind: 'reading' }))).toThrow(
+			'Invalid attempts entry at index 0: confusion must be null or a semitone, octave, string-name or other confusion'
+		);
+	});
+
 	it('accepts an off-beat attempt', () => {
 		const file = makeBackup({ attempts: [makeAttempt({ verdict: 'offbeat', correct: true })] });
 		expect(() => validateBackup(file)).not.toThrow();

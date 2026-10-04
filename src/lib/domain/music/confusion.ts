@@ -1,6 +1,6 @@
 import { CHROMATIC_NOTES, pitchOfMidi, type Midi, type PitchName } from '$lib/domain/music/types';
 import type { Confusion, LocateTarget } from '$lib/domain/types';
-import { acceptableMidis } from './fretboard';
+import { acceptableMidis, pitchOnString } from './fretboard';
 
 const OCTAVE = 12;
 
@@ -21,6 +21,8 @@ export function classifyNoteConfusion(target: LocateTarget, playedMidi: Midi): C
 	const acceptable = acceptableMidis(target);
 	if (acceptable.includes(playedMidi)) return null;
 	if (pitchOfMidi(playedMidi) === target.pitch) return { kind: 'octave' };
+	// The open note names the string in the prompt: playing it is a reading slip, not a fret off.
+	if (pitchOfMidi(playedMidi) === pitchOnString(target.string, 0)) return { kind: 'string-name' };
 	// `acceptable` is ascending and the comparison strict, so a tie keeps the lower note.
 	const nearest = acceptable.reduce((best, midi) =>
 		Math.abs(playedMidi - midi) < Math.abs(playedMidi - best) ? midi : best

@@ -105,6 +105,16 @@ function checkCard(card: Fields): string | null {
 	return null;
 }
 
+const CONFUSION_KINDS: readonly string[] = ['semitone', 'octave', 'string-name', 'other'];
+
+function checkConfusion(confusion: unknown): string | null {
+	if (confusion === null || confusion === undefined) return null;
+	if (!isFields(confusion) || !isOneOf(confusion.kind, CONFUSION_KINDS)) {
+		return 'confusion must be null or a semitone, octave, string-name or other confusion';
+	}
+	return null;
+}
+
 function checkAttempt(attempt: Fields): string | null {
 	if (attempt.id !== undefined && !(Number.isInteger(attempt.id) && Number(attempt.id) > 0)) {
 		return 'id must be a positive integer';
@@ -120,7 +130,7 @@ function checkAttempt(attempt: Fields): string | null {
 	if (!isOneOf(attempt.verdict, VERDICTS))
 		return 'verdict must be perfect, early, late, offbeat or wrong';
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
-	return null;
+	return checkConfusion(attempt.confusion);
 }
 
 function checkSession(session: Fields): string | null {

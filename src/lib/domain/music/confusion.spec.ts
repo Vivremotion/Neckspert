@@ -88,6 +88,17 @@ describe('classifyNoteConfusion', () => {
 	});
 
 	it('breaks a tie toward the lower acceptable note', () => {
-		expect(classifyNoteConfusion(fOnB, 71)).toEqual({ kind: 'other', semitones: 6 });
+		const gOnD: LocateTarget = { direction: 'locate', string: 4, pitch: 'G' };
+		expect(classifyNoteConfusion(gOnD, 61)).toEqual({ kind: 'other', semitones: 6 });
+	});
+
+	it('flags the note the prompted string is named after, in any octave', () => {
+		const aOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'A' };
+		expect(classifyNoteConfusion(aOnLowE, 40)).toEqual({ kind: 'string-name' });
+		expect(classifyNoteConfusion(aOnLowE, 52)).toEqual({ kind: 'string-name' });
+		expect(classifyNoteConfusion(fOnB, 71)).toEqual({ kind: 'string-name' });
+		// One fret above the open string: reading the string name wins over a semitone.
+		const fOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'F' };
+		expect(classifyNoteConfusion(fOnLowE, 40)).toEqual({ kind: 'string-name' });
 	});
 });

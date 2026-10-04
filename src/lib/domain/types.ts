@@ -112,10 +112,14 @@ export type RecordedLeadBeats = LeadBeats | 1;
 /** What the guitarist answered: a played note (mode 1) or a tapped name (mode 2). */
 export type Answer = { kind: 'note'; midi: Midi } | { kind: 'name'; pitch: PitchName };
 
-/** How a wrong answer relates to the expected one. */
+/**
+ * How a wrong answer relates to the expected one. `string-name` (mode 1): the note the prompted
+ * string is named after, read from the prompt instead of the target ("A, corde de E" → E).
+ */
 export type Confusion =
 	| { kind: 'semitone'; delta: -2 | -1 | 1 | 2 }
 	| { kind: 'octave' }
+	| { kind: 'string-name' }
 	| { kind: 'other'; semitones: number };
 
 export interface Attempt {
