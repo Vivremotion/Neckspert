@@ -8,7 +8,12 @@ import {
 } from '$lib/domain/types';
 import { practiceTargets } from '$lib/domain/music';
 import { introduceCard, markLearned, probeCard } from './cards';
-import { LEARN_COLD_CAP, LEARN_SESSION_MS, MAX_WORKING_SET } from './constants';
+import {
+	LEARN_COLD_CAP,
+	LEARN_SESSION_MS,
+	MAX_WORKING_SET,
+	STRING_AID_FADE_SUCCESSES
+} from './constants';
 import { introductionOrder } from './introduction';
 import { createLearnSelector } from './learnSelector';
 import type { SessionSelector } from './selector';
@@ -674,26 +679,57 @@ describe('learn pacing by success', () => {
 });
 
 describe('drawn string aid', () => {
-	it('draws the string while a note is learned and consolidated, never on reviews or probes', () => {
-		const selector = select([learning(G), learned(ORDER[1]), due(learned(ORDER[2]))]);
-		const items = Array.from({ length: 4 }, () => {
+	const missed = { correct: false, verdict: 'wrong' } as const;
+
+	it('fades after one success once a learned note is missed (the guitarist’s case)', () => {
+		// Ten learned, not acquired notes: consolidation only, no new note.
+		const selector = select(FILLERS);
+		const first = next(selector)!;
+		expect(first).toMatchObject({ phase: 'consolidation' });
+		expect(first.stringAid).toBeFalsy();
+		const key = cardKey(first.target);
+		selector.record(answer(first, missed), NOW);
+		const aids: boolean[] = [];
+		for (let i = 0; i < 40 && aids.length < 4; i++) {
 			const item = next(selector)!;
+			if (cardKey(item.target) === key) aids.push(item.stringAid === true);
 			selector.record(answer(item), NOW);
-			return item;
-		});
-		const byPhase = (phase: string) => items.filter((item) => item.phase === phase);
-		expect(byPhase('review').every((item) => !item.stringAid)).toBe(true);
-		expect(byPhase('learning').every((item) => item.stringAid)).toBe(true);
-		expect(byPhase('probe').every((item) => !item.stringAid)).toBe(true);
-		expect(next(select([]))?.stringAid).toBeFalsy();
+		}
+		expect(aids).toEqual([true, false, false, false]);
 	});
 
-	it('stops drawing the string of an acquired card', () => {
-		const acquired = learned(ORDER[1], { acquiredAt: NOW - 1000 });
-		const known = ORDER.slice(2, 12).map((target) => learned(target));
-		const item = next(select([acquired, ...known]))!;
-		expect(item.phase).toBe('consolidation');
-		expect(item.stringAid).toBe(cardKey(item.target) !== acquired.key);
+	it('draws the string on the aided presentation, then after each miss, until a success', () => {
+		const selector = select([]);
+		const probe = next(selector)!;
+		expect(probe.stringAid).toBeFalsy();
+		selector.record(answer(probe, missed), NOW);
+		const outcomes = [{}, missed, {}, {}];
+		const aids: boolean[] = [];
+		for (let i = 0; i < 40 && aids.length < outcomes.length + 1; i++) {
+			const item = next(selector)!;
+			const mine = cardKey(item.target) === GK;
+			if (mine) aids.push(item.stringAid === true);
+			selector.record(answer(item, mine ? (outcomes[aids.length - 1] ?? {}) : {}), NOW);
+		}
+		// Aided presentation, then 4 beats (faded), missed → back, then faded again.
+		expect(aids).toEqual([true, false, true, false, false]);
+	});
+
+	it('never draws the string on reviews or probes', () => {
+		const selector = select([learning(G), due(learned(ORDER[1])), due(learned(ORDER[2]))]);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < 8; i++) {
+			const item = next(selector)!;
+			items.push(item);
+			selector.record(answer(item, missed), NOW);
+		}
+		const unaided = items.filter((item) => item.phase === 'review' || item.phase === 'probe');
+		expect(unaided.length).toBeGreaterThan(0);
+		expect(unaided.every((item) => !item.stringAid)).toBe(true);
+	});
+
+	it('fades after STRING_AID_FADE_SUCCESSES success', () => {
+		expect(STRING_AID_FADE_SUCCESSES).toBe(1);
 	});
 });
 

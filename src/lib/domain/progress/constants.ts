@@ -55,6 +55,13 @@ export const RECOVERY_AFTER_MISSES = 1;
 /** Distinct cards served hot in a session (learning, consolidation, recovery). To calibrate. */
 export const MAX_WORKING_SET = 6;
 
+/**
+ * The drawn string (mode 1 aid) shows on the aided presentation and on the next prompt after a
+ * miss of that card in the session, and goes once the card has this many successes since its
+ * last miss. To calibrate.
+ */
+export const STRING_AID_FADE_SUCCESSES = 1;
+
 /** Consolidation draws at random among the N weakest cards. To calibrate. */
 export const CONSOLIDATION_POOL = 3;
 

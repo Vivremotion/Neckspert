@@ -105,7 +105,8 @@ Cette spec corrige ce que l’export du 2026-10-04 a montré : FSRS bloqué en a
 
 - **Consigne en deux temps** (mode 1) : la corde s’affiche `STRING_PREVIEW_BEATS = 1` temps avant la note (`PlayView.preview`). Le temps d’avance se compte depuis la note. Le libellé de la corde passe en taille corps (32 px) : la note est la seule lettre en grand.
 - **Corde dessinée** : six traits horizontaux, la corde visée en trait épais d’encre, sa lettre en petit (≥ 16 px) dans le schéma. Composant isolé `StringDiagram.svelte` derrière `STRING_DIAGRAM_AID = true`. À `false`, il ne rend rien et l’écran est celui d’aujourd’hui.
-  - Affichée seulement pour les consignes à chaud d’une carte pas encore acquise (apprentissage, consolidation) : `PlannedItem.stringAid`. Jamais en révision à froid, au sondage ni en jeu libre.
+  - Une aide d’apprentissage dans la session, qui se retire dès qu’elle ne sert plus (`PlannedItem.stringAid`) : à la présentation aidée d’une note nouvelle (8 temps, position affichée) et sur la consigne qui suit un raté de cette carte dans la session ; elle disparaît après `STRING_AID_FADE_SUCCESSES = 1` réussite de la carte depuis son dernier raté. Jamais en révision à froid, au sondage ni en jeu libre.
+  - Corrigé après le test à la guitare : la première règle (« tant que la carte n’est pas acquise ») laissait l’aide sur toutes les consignes à chaud d’une carte apprise, puisque l’acquis ne se gagne qu’à froid dans une session ultérieure.
   - Ce n’est pas un manche pour répondre (principe 4 respecté).
 - **Mesure** : nouvelle confusion `{ kind: 'string-name' }` : note jouée de la hauteur à vide de la corde demandée, différente de la cible. Elle passe avant l’écart d’un ou deux demi-tons. Le validateur de sauvegarde vérifie désormais le champ `confusion`.
 

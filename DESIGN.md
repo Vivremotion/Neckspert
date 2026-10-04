@@ -30,7 +30,7 @@ Reading text sits on ground (`#E99568`) with ink (`#451218`). A disabled button 
 
 8 px tile. Frames are ink borders, doubled on the verdict box. The lane runs under the prompt on a phone, and the verdict box sits over the right side.
 
-While a note is learned, a drawn string sits under the mode 1 prompt: six lines in mid, the prompted one thick in ink, its letter at meta size. It is a removable aid (`STRING_DIAGRAM_AID`), never a neck to answer on.
+On the aided presentation of a new note, and on the next prompt after a miss of that note, a drawn string sits under the mode 1 prompt until the note is played right: six lines in mid, the prompted one thick in ink, its letter at meta size. It is a removable aid (`STRING_DIAGRAM_AID`), never a neck to answer on.
 
 After a miss the verdict box reads the right answer under the banner, at body size.
 

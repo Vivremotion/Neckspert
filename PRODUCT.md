@@ -86,7 +86,7 @@ Le jeu se pilote au taux de réussite (une réussite : juste et dans le temps ; 
 - **Rattrapage** : après un raté (hors sondage), la consigne suivante est une note solide (acquise, sans raté récent), à chaud, au même temps d'avance.
 - **Ensemble de travail** : au plus 6 notes différentes à chaud dans une session ; les révisions à froid n'en font pas partie.
 - **Séquences** (essai) : les consignes vont par séquences de 4, au même temps d'avance et dans la même scène ; un changement de temps d'avance entre deux séquences est annoncé par une mesure décomptée.
-- **Corde dessinée** (essai) : tant qu'une note n'est pas acquise, ses consignes à chaud dessinent les six cordes, la corde demandée marquée avec sa lettre. Jamais aux révisions à froid ni aux sondages.
+- **Corde dessinée** (essai) : une aide qui se retire dès qu'elle ne sert plus. Les six cordes sont dessinées, la corde demandée marquée avec sa lettre, à la présentation aidée d'une note nouvelle et à la consigne qui suit un raté de cette note dans la session ; elles disparaissent après une réussite de la note. Jamais aux révisions à froid ni aux sondages.
 
 Le tempo reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
 

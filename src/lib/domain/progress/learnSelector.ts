@@ -30,7 +30,8 @@ import {
 	NEW_NOTE_MIN_SESSION_SUCCESS,
 	RECOVERY_AFTER_MISSES,
 	SEQUENCE_MAX_DELAY,
-	SEQUENCES_ENABLED
+	SEQUENCES_ENABLED,
+	STRING_AID_FADE_SUCCESSES
 } from './constants';
 import { nextNewTarget } from './introduction';
 import { isDirectRecall, leadForThreshold } from './lead';
@@ -82,6 +83,12 @@ class LearnSelector implements SessionSelector {
 	private readonly played: Attempt[] = [];
 	/** Cards served hot in this session (learning, consolidation, recovery): the working set. */
 	private readonly workingSet = new Set<CardKey>();
+	/**
+	 * Mode 1 cards whose string is drawn on their next hot prompt, with their successes since
+	 * the aid came back: set by the aided presentation or a miss, gone after
+	 * STRING_AID_FADE_SUCCESSES successes.
+	 */
+	private readonly stringAid = new Map<CardKey, number>();
 	/** Misses in a row, probes and recovery prompts left out. */
 	private missStreak = 0;
 	/** The last miss calls for a solid card next, in its scene, at this lead ('own': the card's). */
@@ -129,6 +136,7 @@ class LearnSelector implements SessionSelector {
 		this.remember(attempt);
 		this.played.push(attempt);
 		this.countMiss(attempt);
+		this.fadeStringAid(attempt);
 		if (attempt.phase === 'probe') {
 			if (attempt.cardKey === this.unansweredProbe) this.unansweredProbe = null;
 			return this.recordProbe(attempt, now);
@@ -153,6 +161,25 @@ class LearnSelector implements SessionSelector {
 		}
 		entry.dueAt = retestDueAt(servedAt, step === 'short' ? shortGap : longGap);
 		return null;
+	}
+
+	/** A miss brings the drawn string back for the card; successes since then take it away. */
+	private fadeStringAid(attempt: Attempt): void {
+		if (attempt.target.direction !== 'locate') return;
+		const key = attempt.cardKey;
+		if (!isSuccess(attempt)) {
+			this.stringAid.set(key, 0);
+			return;
+		}
+		const successes = this.stringAid.get(key);
+		if (successes === undefined) return;
+		if (successes + 1 >= STRING_AID_FADE_SUCCESSES) this.stringAid.delete(key);
+		else this.stringAid.set(key, successes + 1);
+	}
+
+	/** Whether the next hot prompt of this card draws its string. */
+	private drawsString(target: Target): boolean {
+		return target.direction === 'locate' && this.stringAid.has(cardKey(target));
 	}
 
 	/** A miss (probes and recovery prompts left out) calls for a solid card on the next prompt. */
@@ -405,7 +432,7 @@ class LearnSelector implements SessionSelector {
 			temperature: 'hot',
 			aid: aided ? 'show-position' : 'none',
 			leadBeats: locate ? entry.lead : null,
-			stringAid: locate
+			stringAid: this.drawsString(entry.target)
 		};
 	}
 
@@ -419,6 +446,8 @@ class LearnSelector implements SessionSelector {
 			lead: LEARN_PRESENT_LEAD_BEATS
 		};
 		this.learning.set(cardKey(target), entry);
+		// The aided presentation draws the string, until the note is played right.
+		if (target.direction === 'locate') this.stringAid.set(cardKey(target), 0);
 		return entry;
 	}
 
@@ -525,8 +554,7 @@ class LearnSelector implements SessionSelector {
 			temperature: 'hot',
 			aid: 'none',
 			leadBeats: this.consolidationLead(card),
-			// The drawn string goes away once the card is acquired.
-			stringAid: card.target.direction === 'locate' && card.acquiredAt === null
+			stringAid: this.drawsString(card.target)
 		};
 	}
 }
