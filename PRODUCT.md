@@ -56,7 +56,9 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 ### Règles de jeu
 
 - **La première note jouée est la réponse.** Aucune correction après une fausse note.
-- **Visualiser avant de jouer.** La consigne arrive avant la cible (par exemple deux mesures), mains immobiles, puis la note doit tomber sur le temps.
+- **Visualiser avant de jouer.** La consigne arrive avant la cible, mains immobiles, puis la note doit tomber sur le temps. La note cible tombe toujours sur le temps 1 d'une mesure ; la consigne apparaît 8 temps avant (temps 1, deux mesures avant), 4 temps avant (temps 1 de la mesure précédente) ou 2 temps avant (temps 3). Jamais de consigne ni de cible sur les temps 2 ou 4. En mode 1, la corde s'affiche un temps avant la note ; la note est la seule lettre en grand.
+- **Respiration.** Après une cible, la consigne suivante attend le temps 1 de la mesure suivante. Pendant ce temps, après une fausse note ou une absence de réponse, l'écran montre la bonne réponse : la position en mode 1 (« corde de E grave, case 5 »), le nom en mode 2.
+- **Hors temps.** Après la fenêtre de réponse, l'écoute continue environ 2 s (jamais au-delà de l'apparition de la consigne suivante). Une bonne note jouée là est « hors temps » : trouvée, mais pas en rappel direct. Une note jouée avant la consigne, ou dans les 300 ms qui suivent son apparition, appartient à la consigne précédente.
 - **Seuil mémoire contre calcul** : environ 1 à 1,5 s. En dessous, rappel direct ; au-delà, calcul. Seuil à calibrer séparément pour le mode 2, où la réponse passe par l'écran.
 - **Notes ambiguës** : une même hauteur existe sur plusieurs cordes, et le détecteur ne sait pas laquelle a été jouée. Le mode 1 vérifie la hauteur et l'octave (seules les octaves jouables sur la corde demandée sont acceptées) et fait confiance au guitariste pour la corde.
 - **Enregistrer les confusions**, pas seulement les échecs (F# joué à la place de F : erreur d'une case, donc de calcul).
@@ -76,9 +78,21 @@ Une session d'environ 5 minutes, toujours ouverte, à relancer autant qu'on veut
 4. **Note nouvelle**, la suivante de la file, sondée d'abord sans aide (voir Progression), s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
 5. **Consolidation** : une note déjà apprise, parmi les plus fragiles (confusions récentes, faible stabilité). À chaud, ne compte pas.
 
+Dans chaque catégorie, le choix se fait au hasard : jamais deux fois la même note de suite, jamais les deux notes d'une paire miroir à la suite (« A, corde de E grave » et « E, corde de A »), et pas deux fois la même corde quand c'est possible. Une note n'entre pas dans la file tant que sa note miroir n'est pas acquise.
+
+Le jeu se pilote au taux de réussite (une réussite : juste et dans le temps ; hors temps, fausse note et absence de réponse sont des ratés) :
+
+- **Note nouvelle** seulement si chaque note en cours d'apprentissage réussit à au moins 80 % sur ses derniers essais de la session, et si la session réussit à au moins 70 % sur ses 10 dernières consignes du mode 1 (sondages exclus).
+- **Rattrapage** : après un raté (hors sondage), la consigne suivante est une note solide (acquise, sans raté récent), à chaud, au même temps d'avance.
+- **Ensemble de travail** : au plus 6 notes différentes à chaud dans une session ; les révisions à froid n'en font pas partie.
+- **Séquences** (essai) : les consignes vont par séquences de 4, au même temps d'avance et dans la même scène ; un changement de temps d'avance entre deux séquences est annoncé par une mesure décomptée.
+- **Corde dessinée** (essai) : tant qu'une note n'est pas acquise, ses consignes à chaud dessinent les six cordes, la corde demandée marquée avec sa lettre. Jamais aux révisions à froid ni aux sondages.
+
+Le tempo reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
+
 Apprendre une note (mode 1), après un sondage manqué : présentation à 8 temps avec la position affichée, dès la consigne suivante. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
 
-Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décomptée à l'écran (4, 3, 2, 1) avant la consigne : clics et piste vers la guitare, silence et boutons vers l'écran.
+Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décomptée à l'écran (4, 3, 2, 1) avant la consigne : clics et piste vers la guitare, silence et boutons vers l'écran. De même entre deux séquences de temps d'avance différents. Le décompte occupe les quatre temps qui précèdent la consigne calée sur la grille.
 
 À la fatigue, plus de note nouvelle ni de consolidation ; seuls les retests en cours continuent. Le bilan suit : précision et temps médian à froid, notes apprises, notes déjà sues (sondages réussis), notes qui reprendront la prochaine fois, heure des prochaines révisions (une information, pas une invitation à attendre). Le bouton de l'accueil est toujours actif, dès la première visite ; il indique les révisions dues ou l'heure des suivantes. Les chiffres sont des valeurs de départ, à calibrer.
 
@@ -93,7 +107,11 @@ Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décompté
 
 - **À froid / à chaud** : premier essai d'une position après un délai / essais suivants. Exception : un sondage manqué est enregistré à chaud, parce qu'il ne mesure pas un oubli (la note n'a jamais été apprise) ; un sondage réussi est à froid.
 - **Sondage** : la toute première consigne d'une position, sans aide, quand elle entre dans l'Apprentissage. **Déjà sue** : note dont le sondage a réussi.
-- **Verdicts** : Parfait, En avance, En retard, Mauvaise note (Perfect, Early, Late, Wrong note).
+- **Verdicts** : Parfait, En avance, En retard, Hors temps, Mauvaise note (Perfect, Early, Late, Off beat, Wrong note), du meilleur au moins bon ; une absence de réponse vaut une mauvaise note.
+- **Temps d'avance** : nombre de temps entre l'apparition de la note et la cible : 8, 4 ou 2 (jamais 1). La cible tombe sur le temps 1.
+- **Respiration** : la mesure qui suit la cible, sans nouvelle consigne ; la correction s'y affiche après un raté.
+- **Hors temps** : bonne note jouée après la fenêtre, pendant l'écoute prolongée. Juste, jamais rappel direct : ne rend pas une note acquise, fait remonter le temps d'avance.
+- **Tempo adaptatif** : le tempo de la session d'Apprentissage suivante, ajusté sur la réussite de celle-ci.
 - **Apprise** : réussie 2 fois sans aide, en rappel direct, dans la session où elle a été introduite. État à chaud, de court terme ; fait avancer la file, ne compte pas pour la rétention.
 - **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage, ou au sondage.
 - **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.

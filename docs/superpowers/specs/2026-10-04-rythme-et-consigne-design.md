@@ -54,7 +54,7 @@ Cette spec corrige ce que l’export du 2026-10-04 a montré : FSRS bloqué en a
 ## 3. Écouter après la fenêtre (mode 1)
 
 - La fenêtre principale va de la consigne + `MIN_RESPONSE_MS` à la cible + `LATE_LIMIT_MS`.
-- **Zone hors temps** : de la cible + `LATE_LIMIT_MS` à la cible + `LATE_LIMIT_MS` + `LATE_CAPTURE_MS` (2 000 ms), bornée par le début de la respiration (`T + 4 × RESPIRATION_BARS`), donc toujours avant la consigne suivante. À 80 bpm : la zone finit à T + 2,4 s, la respiration à T + 3 s. À 160 bpm : la borne coupe la zone à T + 1,5 s.
+- **Zone hors temps** : de la cible + `LATE_LIMIT_MS` à la cible + `LATE_LIMIT_MS` + `LATE_CAPTURE_MS` (2 000 ms), bornée par l'apparition la plus précoce de la consigne suivante, aperçu de la corde compris (`T + 4 × RESPIRATION_BARS − STRING_PREVIEW_BEATS`). À 80 bpm : la zone finit à T + 2,25 s. À 160 bpm : à T + 1,125 s (choix par défaut 15).
 - Quand la fenêtre principale se ferme sans note, le verdict « Mauvaise note » s’affiche avec la correction, et l’écoute continue. Une bonne note dans la zone hors temps remplace ce verdict par **« hors temps »** (`'offbeat'`, FR « Hors temps », EN « Off beat »), `correct: true`. Une première note fausse dans la zone reste `wrong`, avec la note jouée et sa confusion. La tentative est enregistrée quand la question est tranchée : à la première note, ou à la fin de la zone.
 - `'offbeat'` n’est jamais du rappel direct (les deux `isDirectRecall`, `scoring/recall.ts` et `progress/lead.ts`, l’excluent). Il vaut Hard pour FSRS, ne rend ni acquise ni maîtrisée, et fait remonter le temps d’avance comme un échec.
 - Hiérarchie : Parfait > En avance / En retard > Hors temps > Mauvaise note = pas de réponse. La note de session (jeu libre) compte un hors temps comme un demi-raté.
@@ -129,6 +129,9 @@ Cette spec corrige ce que l’export du 2026-10-04 a montré : FSRS bloqué en a
 12. Une première note fausse dans la zone hors temps est enregistrée comme réponse (avec sa confusion), alors qu’avant elle comptait comme absence de réponse.
 13. Le rattrapage ne suit pas un raté sur une consigne de rattrapage (pas de chaîne).
 14. Baseline : `npm run lint` signalait déjà 40 fichiers hors `src` (plans anciens, `.impeccable/`, `scripts/`) avant cette branche. Ils ne sont pas reformatés ici ; les fichiers touchés passent Prettier.
+15. L'écoute hors temps s'arrête avant l'aperçu de la corde de la consigne suivante (temps `T + 4 − STRING_PREVIEW_BEATS`), pas seulement avant sa note : une note jouée quand la corde suivante est affichée serait ambiguë. À 80 bpm, la zone dure donc 1,85 s au lieu de 2 s (fin à T + 2,25 s) ; à 160 bpm, elle finit à T + 1,125 s.
+16. Les séquences sont activées en production (`SEQUENCES_ENABLED = true`). Les tests du sélecteur qui fixent l'ordre des catégories et l'échelle des temps d'avance les désactivent (option `sequences: false`) ; un bloc de tests dédié les vérifie activées.
+17. Un tempo réglé sous 80 bpm (ancien réglage) est joué à 80 bpm, et l'écran Réglages l'affiche à 80.
 
 ## Hors périmètre (pistes à discuter)
 

@@ -45,12 +45,12 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 
 ## Décisions de produit fixées pour les plans
 
-- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible. Paliers `LEAD_STEPS = [8, 4, 2, 1]`. Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid.
-- **Rappel direct** : en mode 1, une réponse juste dont la durée d'annonce (`leadBeats × 60 000 / tempo`) est au plus `RECALL_THRESHOLD_MS`. Le temps de réaction du mode 1 inclut l'annonce, il ne mesure donc pas le rappel : à 80 bpm, une annonce de 2 temps (1 500 ms) est un rappel direct même si la note tombe 10 ms après le temps, une annonce de 4 temps n'en est pas un. En mode 2 (`leadBeats` null), une réponse juste dont `reactionMs` est au plus `RECALL_THRESHOLD_MS`.
+- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible, qui tombe toujours sur le temps 1 d'une mesure. Paliers `LEAD_STEPS = [8, 4, 2]` (le palier 1 a disparu le 2026-10-04). Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid ou un hors temps. Une mesure de respiration suit chaque cible ; la corde s'affiche un temps avant la note. Voir `docs/superpowers/specs/2026-10-04-rythme-et-consigne-design.md`.
+- **Rappel direct** : jamais pour un verdict `offbeat`. En mode 1, une réponse juste dont la durée d'annonce (`leadBeats × 60 000 / tempo`) est au plus `RECALL_THRESHOLD_MS`. Le temps de réaction du mode 1 inclut l'annonce, il ne mesure donc pas le rappel : à 80 bpm, une annonce de 2 temps (1 500 ms) est un rappel direct même si la note tombe 10 ms après le temps, une annonce de 4 temps n'en est pas un. En mode 2 (`leadBeats` null), une réponse juste dont `reactionMs` est au plus `RECALL_THRESHOLD_MS`.
 - **Temps de réaction** : de l'affichage de la consigne à la réponse (attaque corrigée de la latence en mode 1, toucher en mode 2).
-- **Verdict du mode 1** : mauvaise hauteur ou pas de réponse dans la fenêtre → `wrong`. Hauteur juste : `|écart| ≤ PERFECT_WINDOW_MS` (80 ms) → `perfect`, en avance au-delà → `early`, en retard au-delà → `late`. 80 ms est le plancher technique (détection et gigue d'ordonnancement) : la fenêtre ne descend pas en dessous, et jouer sur le temps veut dire dans cette fenêtre.
+- **Verdict du mode 1** : mauvaise hauteur ou pas de réponse dans la fenêtre → `wrong`. Hauteur juste : `|écart| ≤ PERFECT_WINDOW_MS` (80 ms) → `perfect`, en avance au-delà → `early`, en retard au-delà → `late`. 80 ms est le plancher technique (détection et gigue d'ordonnancement) : la fenêtre ne descend pas en dessous, et jouer sur le temps veut dire dans cette fenêtre. Après la fenêtre, l'écoute continue `LATE_CAPTURE_MS` (2 s, bornée par l'apparition de la consigne suivante) : une bonne note y donne `offbeat` (juste, FSRS Hard, jamais rappel direct), une fausse reste `wrong`.
 - **Verdict du mode 2** : nom juste et temps de réaction ≤ `RECALL_THRESHOLD_MS` → `perfect` ; nom juste mais plus lent → `late` ; nom faux → `wrong`. `early` n'existe pas en mode 2.
-- **Fenêtre de réponse du mode 1** : de l'affichage de la consigne au temps cible + `LATE_LIMIT_MS`. La première note détectée dans la fenêtre est la réponse ; les suivantes sont ignorées.
+- **Fenêtre de réponse du mode 1** : de l'affichage de la consigne + `MIN_RESPONSE_MS` (300 ms) au temps cible + `LATE_LIMIT_MS`. Une note antérieure appartient à la consigne précédente. La première note détectée dans la fenêtre (ou, à défaut, dans l'écoute hors temps) est la réponse ; les suivantes sont ignorées.
 - **Session du jour** : remplacée par l'Apprentissage (sélecteur consigne par consigne, 5 minutes, fenêtre glissante) — voir `docs/superpowers/specs/2026-10-02-apprentissage-design.md`.
 - **Sondage** (remplace le positionnement le 2026-10-03) : chaque note nouvelle de l'Apprentissage est d'abord demandée sans aide, annonce `leadForThreshold(tempo)` en mode 1. Réussite en rappel direct → carte en révision, apprise et acquise, tentative à froid. Échec → tentative à chaud, carte en apprentissage, aide à la consigne suivante. Voir `docs/superpowers/specs/2026-10-03-sondage-avant-apprentissage-design.md`.
 - **Curriculum** : remplacé le 2026-10-02 par une file d'introduction (naturelles puis altérées, cordes alternées, sans case 0) — voir la spec Apprentissage.
@@ -65,7 +65,7 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 
 - **Démarrage du métronome** : toujours `metronome.start(clock.now() + 0.1)` au plus tôt. Un temps déjà passé au moment de l'ordonnancement est abandonné (ni clic ni événement).
 - **Événements de temps** : `onBeat` arrive jusqu'à 100 ms avant l'heure du temps. Ne jamais supposer `clock.now() >= beat.time`, et comparer les index avec `>=`, jamais `===`.
-- **Tempo** : on ne change pas le tempo pendant la marche (`setTempo` lève une erreur). Réglage utilisateur entre 60 et 140 bpm ; bornes techniques du métronome 20 à 300.
+- **Tempo** : on ne change pas le tempo pendant la marche (`setTempo` lève une erreur). Réglage utilisateur entre 80 et 160 bpm, ajusté de ±5 bpm entre deux sessions d'Apprentissage selon la réussite ; bornes techniques du métronome 20 à 300.
 - **Pas de fuite du clic dans la détection** : le clic du métronome est une courte rafale de bruit filtré, sans hauteur nette, pour que le détecteur ne la prenne pas pour une note. Les sons de verdict sont brefs (moins de 150 ms) et joués après la réponse.
 - **Entrée audio brute** : le détecteur ouvre l'entrée avec `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`. Avec le micro de l'appareil, l'écran de calibration recommande un casque.
 
@@ -303,3 +303,4 @@ Machine à états d'une série ; décompte ; consigne à `promptBeatIndex`, cibl
 | J | `2026-09-30-j-orchestration.md` |
 | K | `2026-09-30-k-integration.md` |
 | Sondage | `2026-10-03-sondage-avant-apprentissage.md` |
+| Rythme et consigne | `2026-10-04-rythme-et-consigne.md` |
