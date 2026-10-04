@@ -5,10 +5,12 @@ import {
 	type Attempt,
 	type CardKey,
 	type CardState,
+	type Direction,
 	type LeadBeats,
 	type PlannedItem,
 	type Target
 } from '$lib/domain/types';
+import { advance, announcesLead, fits, isOpen, type Sequence } from './sequence';
 import { allowedAfter, pickAtRandom } from './order';
 import { introduceCard, markLearned, probeCard } from './cards';
 import {
@@ -21,7 +23,9 @@ import {
 	LEARN_SESSION_MS,
 	LEARN_SUCCESSES,
 	LEARNING_SLOTS,
-	MAX_UNCONSOLIDATED
+	MAX_UNCONSOLIDATED,
+	SEQUENCE_MAX_DELAY,
+	SEQUENCES_ENABLED
 } from './constants';
 import { nextNewTarget } from './introduction';
 import { isDirectRecall, leadForThreshold } from './lead';
@@ -45,6 +49,11 @@ function retestDueAt(servedAt: number, gap: number): number {
 	return servedAt + gap + 1;
 }
 
+/** Whether a prompt in this scene, at this lead, may be served now (sequences). */
+type Fit = (direction: Direction, lead: LeadBeats | null) => boolean;
+
+const ANY: Fit = () => true;
+
 class LearnSelector implements SessionSelector {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
@@ -60,13 +69,18 @@ class LearnSelector implements SessionSelector {
 	private reviews = 0;
 	/** Target of the last prompt served: the next one is never it, nor its mirror. */
 	private previous: Target | null = null;
+	/** Last prompt served, for the counted bar that announces a lead change. */
+	private previousItem: PlannedItem | null = null;
+	/** Open sequence (trial, `sequence.ts`); null before the first prompt or once closed early. */
+	private sequence: Sequence | null = null;
 
 	constructor(
 		cards: readonly CardState[],
 		attempts: readonly Attempt[],
 		private readonly sessionId: string,
 		private readonly tempoBpm: number,
-		private readonly random: () => number
+		private readonly random: () => number,
+		private readonly sequences: boolean
 	) {
 		this.cards = new Map(cards.map((card) => [card.key, card]));
 		this.last = lastAttemptByCard(attempts);
@@ -86,6 +100,8 @@ class LearnSelector implements SessionSelector {
 		if (this.recent.length > CONSOLIDATION_SKIP_RECENT) this.recent.shift();
 		this.served++;
 		this.previous = item.target;
+		this.enterSequence(item);
+		this.previousItem = item;
 		return item;
 	}
 
@@ -126,6 +142,7 @@ class LearnSelector implements SessionSelector {
 		this.unansweredProbe = null;
 		// Never played: it does not count as the previous note.
 		this.previous = null;
+		this.previousItem = null;
 	}
 
 	/** A passed probe goes to review; a missed one is presented with the aid on the next prompt. */
@@ -196,29 +213,75 @@ class LearnSelector implements SessionSelector {
 	 * string when possible (`pickAtRandom`).
 	 */
 	private pick(context: SelectorContext): PlannedItem | null {
-		const dueRetest = this.dueRetest();
+		if (!this.sequences) return this.pickWith(context, ANY);
+		// A retest kept waiting too long by the open sequence ends it.
+		if (isOpen(this.sequence) && this.retestOverdue()) this.sequence = null;
+		const fit: Fit = (direction, lead) => fits(this.sequence, direction, lead);
+		const item = this.pickWith(context, fit);
+		if (item || !isOpen(this.sequence)) return item;
+		// Nothing fits the open sequence: it ends early rather than repeat a card.
+		this.sequence = null;
+		return this.pickWith(context, ANY);
+	}
+
+	/** Counts the prompt in its sequence; a new mode 1 sequence at another lead is counted in. */
+	private enterSequence(item: PlannedItem): void {
+		if (!this.sequences) return;
+		const { direction } = item.target;
+		if (!isOpen(this.sequence) || !fits(this.sequence, direction, item.leadBeats)) {
+			const previous = this.previousItem
+				? { direction: this.previousItem.target.direction, lead: this.previousItem.leadBeats }
+				: null;
+			if (announcesLead(previous, direction, item.leadBeats)) item.countIn = true;
+		}
+		this.sequence = advance(this.sequence, direction, item.leadBeats);
+	}
+
+	/** A retest that does not fit the open sequence and is SEQUENCE_MAX_DELAY prompts past its gap. */
+	private retestOverdue(): boolean {
+		for (const entry of this.learning.values()) {
+			if (this.served - entry.dueAt <= SEQUENCE_MAX_DELAY) continue;
+			if (!fits(this.sequence, entry.target.direction, this.retestLead(entry))) return true;
+		}
+		return false;
+	}
+
+	/**
+	 * Category priority is fixed: retests, cold reviews, resumed notes, new notes, consolidation.
+	 * Inside a category the draw is random, never the previous card nor its mirror, and another
+	 * string when possible (`pickAtRandom`). `fit` keeps to the open sequence.
+	 */
+	private pickWith(context: SelectorContext, fit: Fit): PlannedItem | null {
+		const dueRetest = this.dueRetest(fit);
 		if (dueRetest) return this.retest(dueRetest);
 		if (!context.fatigued) {
 			const item =
-				this.review(context.now) ??
-				this.resume() ??
-				this.introduce(context.now) ??
-				this.consolidate();
+				this.review(context.now, fit) ??
+				this.resume(fit) ??
+				this.introduce(context.now, fit) ??
+				this.consolidate(fit);
 			if (item) return item;
 		}
 		// Nothing else: a retest early rather than an end of session, the previous card as a
 		// last resort only.
+		const fitting = (entry: LearningEntry) => fit(entry.target.direction, this.retestLead(entry));
 		const early =
-			this.earliestRetest((entry) => allowedAfter(entry.target, this.previous)) ??
-			this.earliestRetest(() => true);
+			this.earliestRetest((entry) => fitting(entry) && allowedAfter(entry.target, this.previous)) ??
+			this.earliestRetest(fitting);
 		return early ? this.retest(early) : null;
 	}
 
 	/** A due retest; the aided presentation after a missed probe always comes first. */
-	private dueRetest(): LearningEntry | null {
-		const due = [...this.learning.values()].filter((entry) => entry.dueAt <= this.served);
+	private dueRetest(fit: Fit): LearningEntry | null {
+		const due = [...this.learning.values()].filter(
+			(entry) => entry.dueAt <= this.served && fit(entry.target.direction, this.retestLead(entry))
+		);
 		const afterProbe = due.find((entry) => entry.dueAt === -Infinity);
 		return afterProbe ?? pickAtRandom(due, this.previous, this.random);
+	}
+
+	private retestLead(entry: LearningEntry): LeadBeats | null {
+		return entry.target.direction === 'locate' ? entry.lead : null;
 	}
 
 	private earliestRetest(accept: (entry: LearningEntry) => boolean): LearningEntry | null {
@@ -255,10 +318,12 @@ class LearnSelector implements SessionSelector {
 		return entry;
 	}
 
-	private review(now: number): PlannedItem | null {
+	private review(now: number, fit: Fit): PlannedItem | null {
 		if (this.reviews >= LEARN_COLD_CAP) return null;
 		const candidates = reviewableCards([...this.cards.values()], this.last, now).filter(
-			(candidate) => !this.servedAt.has(candidate.key)
+			(candidate) =>
+				!this.servedAt.has(candidate.key) &&
+				fit(candidate.target.direction, this.cardLead(candidate))
 		);
 		const card = pickAtRandom(candidates, this.previous, this.random);
 		if (!card) return null;
@@ -272,15 +337,22 @@ class LearnSelector implements SessionSelector {
 		};
 	}
 
-	private resume(): PlannedItem | null {
+	private resume(fit: Fit): PlannedItem | null {
+		const presentationLead = (target: Target) =>
+			target.direction === 'locate' ? LEARN_PRESENT_LEAD_BEATS : null;
 		const candidates = [...this.cards.values()]
-			.filter((candidate) => candidate.learnedAt === null && !this.servedAt.has(candidate.key))
+			.filter(
+				(candidate) =>
+					candidate.learnedAt === null &&
+					!this.servedAt.has(candidate.key) &&
+					fit(candidate.target.direction, presentationLead(candidate.target))
+			)
 			.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key));
 		const card = pickAtRandom(candidates, this.previous, this.random);
 		return card ? this.retest(this.present(card.target)) : null;
 	}
 
-	private introduce(now: number): PlannedItem | null {
+	private introduce(now: number, fit: Fit): PlannedItem | null {
 		const cards = [...this.cards.values()];
 		const beingLearned = cards.filter((card) => card.learnedAt === null).length;
 		const unconsolidated = cards.filter(
@@ -289,19 +361,31 @@ class LearnSelector implements SessionSelector {
 		if (beingLearned >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
 		const target = nextNewTarget(cards);
 		if (!target || !allowedAfter(target, this.previous)) return null;
+		const lead = target.direction === 'locate' ? leadForThreshold(this.tempoBpm) : null;
+		if (!fit(target.direction, lead)) return null;
 		const card = introduceCard(target, now, this.sessionId);
 		this.cards.set(card.key, card);
 		this.unansweredProbe = card.key;
-		return {
-			target,
-			phase: 'probe',
-			temperature: 'cold',
-			aid: 'none',
-			leadBeats: target.direction === 'locate' ? leadForThreshold(this.tempoBpm) : null
-		};
+		return { target, phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: lead };
 	}
 
-	private consolidate(): PlannedItem | null {
+	/** Lead of a card served as it is (review, consolidation); null in mode 2. */
+	private cardLead(card: CardState): LeadBeats | null {
+		return card.target.direction === 'locate' ? card.leadBeats : null;
+	}
+
+	/**
+	 * Consolidation lead: the card's own, or the open sequence's when the card is acquired and
+	 * the sequence gives it at least as long.
+	 */
+	private consolidationLead(card: CardState): LeadBeats | null {
+		const own = this.cardLead(card);
+		const sequence = this.sequence;
+		if (own === null || !this.sequences || !isOpen(sequence) || sequence.lead === null) return own;
+		return card.acquiredAt !== null && sequence.lead >= own ? sequence.lead : own;
+	}
+
+	private consolidate(fit: Fit): PlannedItem | null {
 		const confused = (key: CardKey) =>
 			(this.history.get(key) ?? []).some((attempt) => attempt.confusion !== null);
 		const weakest = [...this.cards.values()]
@@ -309,7 +393,8 @@ class LearnSelector implements SessionSelector {
 				(candidate) =>
 					candidate.learnedAt !== null &&
 					!this.recent.includes(candidate.key) &&
-					allowedAfter(candidate.target, this.previous)
+					allowedAfter(candidate.target, this.previous) &&
+					fit(candidate.target.direction, this.consolidationLead(candidate))
 			)
 			.sort((a, b) => {
 				const byConfusion = Number(confused(b.key)) - Number(confused(a.key));
@@ -329,7 +414,7 @@ class LearnSelector implements SessionSelector {
 			phase: 'consolidation',
 			temperature: 'hot',
 			aid: 'none',
-			leadBeats: card.target.direction === 'locate' ? card.leadBeats : null
+			leadBeats: this.consolidationLead(card)
 		};
 	}
 }
@@ -342,12 +427,15 @@ export function createLearnSelector(input: {
 	tempoBpm: number;
 	/** Draws inside a category. Injected for tests. */
 	random?: () => number;
+	/** Sequences trial; defaults to SEQUENCES_ENABLED. */
+	sequences?: boolean;
 }): SessionSelector {
 	return new LearnSelector(
 		input.cards,
 		input.attempts,
 		input.sessionId,
 		input.tempoBpm,
-		input.random ?? Math.random
+		input.random ?? Math.random,
+		input.sequences ?? SEQUENCES_ENABLED
 	);
 }

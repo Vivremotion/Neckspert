@@ -638,6 +638,36 @@ describe('SessionController identify', () => {
 		expect(controller.view.prompt?.direction).toBe('identify');
 	});
 
+	it('counts a bar down before a sequence at another lead', async () => {
+		const deps = createDeps();
+		const controller = make(
+			planWith([
+				locateItem({ leadBeats: 4 }),
+				locateItem({
+					target: { direction: 'locate', string: 3, pitch: 'C' },
+					leadBeats: 8,
+					countIn: true
+				})
+			]),
+			deps
+		);
+		await controller.start();
+		atBeat(deps, 4);
+		playRight(deps, controller);
+		// Decided on beat 9: the count needs a bar, the 8-beat prompt waits for beat 16.
+		atBeat(deps, 11);
+		expect(controller.view).toMatchObject({ status: 'count-in', countdown: null });
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		atBeat(deps, 12);
+		expect(controller.view).toMatchObject({ countdown: 4, lastVerdict: null });
+		atBeat(deps, 16);
+		expect(controller.view).toMatchObject({
+			status: 'awaiting',
+			promptBeatIndex: 16,
+			targetBeatIndex: 24
+		});
+	});
+
 	it('opens a screen-first session on the answer pad, counted in silence', async () => {
 		const deps = createDeps();
 		const controller = make(planWith([identifyItem()]), deps);

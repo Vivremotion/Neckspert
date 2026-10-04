@@ -35,12 +35,21 @@ function due(card: CardState): CardState {
 	return { ...card, scheduling: { ...card.scheduling, due: NOW - 1000 } };
 }
 
+/** Sequences off: these tests pin the category order and the ladder on their own. */
 function select(
 	cards: CardState[],
 	attempts: Attempt[] = [],
-	random: () => number = () => 0
+	random: () => number = () => 0,
+	sequences = false
 ): SessionSelector {
-	return createLearnSelector({ cards, attempts, sessionId: 's-now', tempoBpm: TEMPO, random });
+	return createLearnSelector({
+		cards,
+		attempts,
+		sessionId: 's-now',
+		tempoBpm: TEMPO,
+		random,
+		sequences
+	});
 }
 
 /** Replays the given draws, then 0. */
@@ -444,5 +453,92 @@ describe('createLearnSelector', () => {
 	it('keeps consolidating when the whole neck is known', () => {
 		const cards = practiceTargets().map((target) => learned(target, { acquiredAt: NOW - 1000 }));
 		expect(next(select(cards))).toMatchObject({ phase: 'consolidation', temperature: 'hot' });
+	});
+});
+
+describe('learn sequences', () => {
+	const inSequences = (cards: CardState[], random: () => number = () => 0) =>
+		select(cards, [], random, true);
+
+	it('serves a run at one lead and counts a bar in when the lead changes', () => {
+		const selector = inSequences([learning(G), ...FILLERS]);
+		const items: PlannedItem[] = [];
+		for (let i = 0; i < 6; i++) {
+			const item = next(selector)!;
+			items.push(item);
+			selector.record(answer(item), NOW);
+		}
+		// The aided presentation at 8 has no partner at 8: its sequence ends after one prompt.
+		expect(items[0]).toMatchObject({ target: G, leadBeats: 8 });
+		expect(items.slice(1, 5).map((item) => item.leadBeats)).toEqual([2, 2, 2, 2]);
+		expect(items[1].countIn).toBe(true);
+		expect(items.slice(2, 5).every((item) => !item.countIn)).toBe(true);
+		// G came due at 4 beats in the middle of the run: it waits for the next sequence.
+		expect(items[5]).toMatchObject({ target: G, leadBeats: 4, countIn: true });
+	});
+
+	it('ends the sequence at once for the aid after a missed probe', () => {
+		const selector = inSequences([due(learned(ORDER[1])), due(learned(ORDER[2]))]);
+		const keys = play(selector, 2);
+		expect(keys).toHaveLength(2);
+		const probe = next(selector)!;
+		expect(probe).toMatchObject({ target: G, phase: 'probe', leadBeats: 2 });
+		selector.record(answer(probe, { correct: false, verdict: 'wrong' }), NOW);
+		expect(next(selector)).toMatchObject({ target: G, leadBeats: 8, countIn: true });
+	});
+
+	it('keeps each run to one lead and one scene, four prompts at most', () => {
+		let seed = 7;
+		const random = () => {
+			seed = (seed * 16807) % 2147483647;
+			return seed / 2147483647;
+		};
+		const cards = [
+			learning(G),
+			learning(ORDER[1]),
+			...ORDER.slice(2, 8).map((target) => learned(target, { acquiredAt: NOW - 1000 })),
+			due(learned(ORDER[8])),
+			due(learned(ORDER[9]))
+		];
+		const selector = inSequences(cards, random);
+		const runs: PlannedItem[][] = [];
+		let previous: PlannedItem | null = null;
+		for (let i = 0; i < 60; i++) {
+			const item = next(selector);
+			if (!item) break;
+			const sameRun =
+				previous !== null &&
+				!item.countIn &&
+				item.target.direction === previous.target.direction &&
+				item.leadBeats === previous.leadBeats &&
+				runs.at(-1)!.length < 4;
+			if (sameRun) runs.at(-1)!.push(item);
+			else runs.push([item]);
+			previous = item;
+			selector.record(answer(item, { correct: random() < 0.7 }), NOW);
+		}
+		for (const run of runs) {
+			expect(run.length).toBeLessThanOrEqual(4);
+			expect(new Set(run.map((item) => item.leadBeats)).size).toBe(1);
+		}
+		const leadChanges = runs.slice(1).filter((run, i) => {
+			const before = runs[i].at(-1)!;
+			return (
+				before.target.direction === 'locate' &&
+				run[0].target.direction === 'locate' &&
+				before.leadBeats !== run[0].leadBeats
+			);
+		});
+		expect(leadChanges.every((run) => run[0].countIn === true)).toBe(true);
+	});
+
+	it('serves nothing in sequences once switched off', () => {
+		const selector = select([learning(G), ...FILLERS]);
+		const items = Array.from({ length: 6 }, () => {
+			const item = next(selector)!;
+			selector.record(answer(item), NOW);
+			return item;
+		});
+		expect(items.some((item) => item.countIn)).toBe(false);
 	});
 });

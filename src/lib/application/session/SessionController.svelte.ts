@@ -812,6 +812,11 @@ export class SessionController implements PlaySessionController {
 			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
 			this.counting = true;
 			this.enterScene(direction);
+		} else if (item.countIn) {
+			// A new sequence at another lead: one counted bar announces it.
+			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+			this.counting = true;
+			this.view.answerChoices = null;
 		} else if (direction === 'locate') {
 			this.view.answerChoices = null;
 		}

@@ -179,6 +179,8 @@ export interface PlannedItem {
 	aid: AidLevel;
 	/** Mode 1 only. */
 	leadBeats: LeadBeats | null;
+	/** Starts a sequence at another lead: the session counts a bar down before it. */
+	countIn?: boolean;
 }
 
 export interface SessionRecord {

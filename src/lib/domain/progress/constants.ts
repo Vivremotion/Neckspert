@@ -22,6 +22,21 @@ export const LEARN_RETEST_GAPS = [2, 4] as const;
 /** Successes in a row at the final step (direct-recall lead, or unaided in mode 2) that make a note learned. To calibrate. */
 export const LEARN_SUCCESSES = 2;
 
+/**
+ * Trial (2026-10-04): learn sessions run in sequences of prompts at one lead and in one scene,
+ * a lead change announced by a counted bar. False drops the whole rule (`sequence.ts`).
+ */
+export const SEQUENCES_ENABLED = true;
+
+/** Prompts in one sequence. To calibrate. */
+export const SEQUENCE_LENGTH = 4;
+
+/**
+ * A retest waiting for a sequence at its lead ends the current sequence once it is this many
+ * prompts past its planned gap. To calibrate.
+ */
+export const SEQUENCE_MAX_DELAY = 2;
+
 /** Consolidation draws at random among the N weakest cards. To calibrate. */
 export const CONSOLIDATION_POOL = 3;
 
