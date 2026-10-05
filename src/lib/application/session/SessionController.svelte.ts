@@ -50,7 +50,12 @@ import {
 } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
-import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
+import {
+	alignedPromptBeat,
+	BEATS_PER_BAR,
+	respirationStart,
+	STRING_PREVIEW_BEATS
+} from '$lib/domain/timing/grid';
 import { openAudioInput } from './audioInput';
 import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 

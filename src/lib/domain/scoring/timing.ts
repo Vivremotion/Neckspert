@@ -84,7 +84,7 @@ export function judgeLocate(input: {
 	};
 }
 
-function timingVerdict(offsetMs: number): Verdict {
+export function timingVerdict(offsetMs: number): Verdict {
 	if (Math.abs(offsetMs) <= PERFECT_WINDOW_MS) return 'perfect';
 	return offsetMs < 0 ? 'early' : 'late';
 }
