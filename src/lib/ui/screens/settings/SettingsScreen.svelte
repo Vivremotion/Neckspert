@@ -10,12 +10,10 @@
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
-	import { MAX_TEMPO_BPM, MIN_TEMPO_BPM, clampTempo } from './tempo';
 	import { settingsMessages } from './messages';
 
 	let {
 		locale,
-		tempoBpm,
 		inputs,
 		inputDeviceId,
 		builtInInputGain,
@@ -23,7 +21,6 @@
 		importError,
 		confirmingImport,
 		onlocale,
-		ontempo,
 		oninput,
 		onbuiltingain,
 		onexport,
@@ -34,7 +31,6 @@
 		notice = null
 	}: {
 		locale: Locale;
-		tempoBpm: number;
 		inputs: AudioInputDevice[];
 		inputDeviceId: string | null;
 		builtInInputGain: number;
@@ -42,7 +38,6 @@
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: Locale) => void;
-		ontempo: (bpm: number) => void;
 		oninput: (id: string | null) => void;
 		onbuiltingain: (gain: number) => void;
 		onexport: () => void;
@@ -89,25 +84,6 @@
 	</PixelBox>
 
 	<PixelBox variant="double">
-		<p class="label"><PixelText scale={1}>{m.tempo}</PixelText></p>
-		<div class="row tempo" role="group" aria-label={m.tempo}>
-			<PixelButton
-				size="huge"
-				disabled={tempoBpm <= MIN_TEMPO_BPM}
-				onclick={() => ontempo(clampTempo(tempoBpm - 1))}>{m.decrease}</PixelButton
-			>
-			<span class="tempo-value" aria-live="polite">
-				<PixelText scale={4}>{tempoBpm}</PixelText>
-			</span>
-			<PixelButton
-				size="huge"
-				disabled={tempoBpm >= MAX_TEMPO_BPM}
-				onclick={() => ontempo(clampTempo(tempoBpm + 1))}>{m.increase}</PixelButton
-			>
-		</div>
-	</PixelBox>
-
-	<PixelBox variant="double">
 		<label class="label" for="settings-input">
 			<PixelText scale={1}>{m.input}</PixelText>
 		</label>
@@ -130,7 +106,7 @@
 			</select>
 		{/if}
 		<p class="label gain-label"><PixelText scale={1}>{m.builtInGain}</PixelText></p>
-		<div class="row tempo" role="group" aria-label={m.builtInGain}>
+		<div class="row stepper" role="group" aria-label={m.builtInGain}>
 			<PixelButton
 				size="huge"
 				label={m.decreaseBuiltInGain}
@@ -138,7 +114,7 @@
 				onclick={() => onbuiltingain(clampBuiltInInputGain(builtInInputGain - 1))}
 				>{m.decrease}</PixelButton
 			>
-			<span class="tempo-value" aria-live="polite">
+			<span class="stepper-value" aria-live="polite">
 				<PixelText scale={4}>{`×${builtInInputGain}`}</PixelText>
 			</span>
 			<PixelButton
@@ -234,11 +210,11 @@
 		align-items: center;
 	}
 
-	.tempo {
+	.stepper {
 		justify-content: space-between;
 	}
 
-	.tempo-value {
+	.stepper-value {
 		min-width: 4ch;
 		text-align: center;
 		font-variant-numeric: tabular-nums;

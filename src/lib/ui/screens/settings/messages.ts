@@ -4,7 +4,6 @@ export const settingsMessages = defineMessages({
 	fr: {
 		title: 'Réglages',
 		language: 'Langue',
-		tempo: 'Tempo',
 		input: 'Entrée audio',
 		builtInGain: 'Niveau du micro intégré',
 		builtInGainHint: 'Ne change pas une interface audio.',
@@ -27,7 +26,6 @@ export const settingsMessages = defineMessages({
 	en: {
 		title: 'Settings',
 		language: 'Language',
-		tempo: 'Tempo',
 		input: 'Audio input',
 		builtInGain: 'Built-in mic level',
 		builtInGainHint: 'Does not change an audio interface.',

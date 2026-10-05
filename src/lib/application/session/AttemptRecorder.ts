@@ -1,4 +1,4 @@
-import type { PitchName } from '$lib/domain/music/types';
+import { cardKeyOf, type MechanicRules } from '$lib/domain/mechanics';
 import {
 	applyColdAttempt,
 	classifyTemperature,
@@ -7,14 +7,13 @@ import {
 	type SessionSelector
 } from '$lib/domain/progress';
 import type {
-	Answer,
 	Attempt,
 	CardState,
-	Confusion,
+	Execution,
+	MechanicId,
 	PlannedItem,
 	Temperature
 } from '$lib/domain/types';
-import { cardKey } from '$lib/domain/types';
 import type { RoundOutcome } from '$lib/domain/timing';
 import type { AudioClockPort } from '$lib/application/ports';
 import type {
@@ -22,18 +21,14 @@ import type {
 	CardStateRepositoryPort
 } from '$lib/application/ports/repositories';
 
-/** What the mechanic's judge said of the answer; null without an answer. */
-export type JudgedAnswer = { answer: unknown; confusion: Confusion | null } | null;
+/** What the mechanic's judge said of the answer, stored as is; null without an answer. */
+export type JudgedAnswer = { answer: unknown; confusion: unknown } | null;
 
-/**
- * Provisional, until attempts store the mechanic's own answer: the judge's answer
- * ({ midi } / { pitch }) in the stored shape. The only cast of an opaque answer.
- */
-function storedAnswer(planned: PlannedItem, judged: JudgedAnswer): Answer | null {
-	if (judged === null) return null;
-	return planned.target.direction === 'locate'
-		? { kind: 'note', midi: (judged.answer as { midi: number }).midi }
-		: { kind: 'name', pitch: (judged.answer as { pitch: PitchName }).pitch };
+/** `Attempt.data` as the recorder writes it: the mechanic's item, answer and confusion. */
+export interface AttemptData {
+	item: unknown;
+	answer: unknown;
+	confusion: unknown;
 }
 
 export interface AttemptRecorderDeps {
@@ -43,36 +38,39 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: SessionSelector;
 	sessionId: string;
-	/** Tempo the series runs at, for probe temperature and cold-attempt scheduling. */
-	tempoBpm: number;
+	/** Rules of a prompt's mechanic: its card key, its time relation and its learner model. */
+	rules: (mechanic: MechanicId) => MechanicRules;
 }
 
 /** Turns settled rounds into stored attempts and card updates, for one series. */
 export class AttemptRecorder {
 	private readonly deps: AttemptRecorderDeps;
-	private readonly attempts: Attempt[] = [];
+	private readonly attempts: Attempt<AttemptData>[] = [];
 
 	constructor(deps: AttemptRecorderDeps) {
 		this.deps = deps;
 	}
 
 	/** This series' attempts, oldest first. */
-	get sessionAttempts(): readonly Attempt[] {
+	get sessionAttempts(): readonly Attempt<AttemptData>[] {
 		return this.attempts;
 	}
 
 	/**
 	 * Synchronous part done on return (attempt pushed, selector told), so fatigue and the next
-	 * beat see it; `stored` settles once card and attempt are written.
+	 * beat see it; `stored` settles once card and attempt are written. The attempt carries the
+	 * exercise and tempo of `execution`, the run the prompt belongs to.
 	 */
 	record(
 		planned: PlannedItem,
 		outcome: RoundOutcome,
 		promptTime: number,
-		judged: JudgedAnswer
-	): { attempt: Attempt; stored: Promise<void> } {
+		judged: JudgedAnswer,
+		execution: Execution
+	): { attempt: Attempt<AttemptData>; stored: Promise<void> } {
 		const { selector, sessionId, clock } = this.deps;
-		const key = cardKey(planned.target);
+		const rules = this.deps.rules(planned.mechanic);
+		const key = cardKeyOf(rules, planned.item);
 		const promptedAt = clock.toEpochMs(promptTime);
 		const attemptedInSession = this.attempts.some((a) => a.cardKey === key);
 
@@ -87,21 +85,26 @@ export class AttemptRecorder {
 					? 'hot'
 					: 'cold';
 
-		const attempt: Attempt = {
+		const attempt: Attempt<AttemptData> = {
 			sessionId,
+			exerciseId: execution.exerciseId,
+			mechanic: planned.mechanic,
 			cardKey: key,
-			target: planned.target,
 			phase: planned.phase,
 			temperature: provisionalTemperature,
 			aid: planned.aid,
-			leadBeats: planned.leadBeats,
 			promptedAt,
-			answer: storedAnswer(planned, judged),
-			correct: outcome.correct,
-			verdict: outcome.verdict,
+			tempoBpm: execution.tempoBpm,
+			leadBeats: planned.leadBeats,
 			timingOffsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,
-			confusion: judged?.confusion ?? null
+			correct: outcome.correct,
+			verdict: outcome.verdict,
+			data: {
+				item: planned.item,
+				answer: judged?.answer ?? null,
+				confusion: judged?.confusion ?? null
+			}
 		};
 
 		// Fatigue and the selector must see the attempt before any await, so the next onBeat
@@ -109,17 +112,18 @@ export class AttemptRecorder {
 		this.attempts.push(attempt);
 		const recorded = selector.record(attempt, this.deps.now());
 
-		const stored = this.store(planned, attempt, recorded, attemptedInSession);
+		const stored = this.store(planned, rules, attempt, recorded, attemptedInSession);
 		return { attempt, stored };
 	}
 
 	private async store(
 		item: PlannedItem,
+		rules: MechanicRules,
 		attempt: Attempt,
 		outcome: ReturnType<SessionSelector['record']>,
 		attemptedInSession: boolean
 	): Promise<void> {
-		const { attempts, cards, tempoBpm } = this.deps;
+		const { attempts, cards } = this.deps;
 		const key = attempt.cardKey;
 		const history = await attempts.listByCard(key);
 		const existing = await cards.get(key);
@@ -127,7 +131,7 @@ export class AttemptRecorder {
 		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
 		const temperature =
 			item.phase === 'probe'
-				? probeTemperature(attempt, tempoBpm)
+				? probeTemperature(attempt, rules.timing)
 				: this.temperatureFor(item, existing, {
 						lastAttemptAt,
 						attemptedInSession,
@@ -137,18 +141,21 @@ export class AttemptRecorder {
 
 		await attempts.add(attempt);
 
+		// Only a memory learner keeps FSRS cards; a skill learner will keep its own state.
+		if (rules.learner !== 'memory') return;
 		const now = this.deps.now();
 		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
-				await this.storeCard(applyColdAttempt(existing, attempt, fullHistory, now, tempoBpm));
+				await this.storeCard(applyColdAttempt(existing, attempt, fullHistory, now, rules.timing));
 			}
 		} else if (item.phase === 'probe') {
 			if (outcome) await this.storeCard(outcome.card);
 		} else if (item.phase === 'learning') {
 			if (outcome) await this.storeCard(outcome.card);
 			else if (!existing) {
-				await this.storeCard(introduceCard(item.target, now, this.deps.sessionId));
+				const card = { key, mechanic: item.mechanic, item: item.item };
+				await this.storeCard(introduceCard(card, now, this.deps.sessionId, rules.timing));
 			}
 		}
 	}

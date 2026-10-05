@@ -7,7 +7,6 @@
 	} from '$lib/domain/types';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import SettingsScreen from '$lib/ui/screens/settings/SettingsScreen.svelte';
-	import { clampTempo } from '$lib/ui/screens/settings/tempo';
 
 	const inputs: AudioInputDevice[] = [
 		{ id: 'usb', label: 'Scarlett 2i2 USB' },
@@ -15,7 +14,6 @@
 	];
 
 	let locale = $state<Locale>('fr');
-	let tempoBpm = $state(80);
 	let inputDeviceId = $state<string | null>('usb');
 	let builtInInputGain = $state(DEFAULT_BUILT_IN_INPUT_GAIN);
 	let calibrationOffsetMs = $state<number | null>(42);
@@ -30,7 +28,6 @@
 
 <SettingsScreen
 	{locale}
-	{tempoBpm}
 	{inputs}
 	{inputDeviceId}
 	{builtInInputGain}
@@ -38,7 +35,6 @@
 	{importError}
 	{confirmingImport}
 	{onlocale}
-	ontempo={(bpm) => (tempoBpm = clampTempo(bpm))}
 	oninput={(id) => (inputDeviceId = id)}
 	onbuiltingain={(gain) => (builtInInputGain = clampBuiltInInputGain(gain))}
 	onexport={() => undefined}

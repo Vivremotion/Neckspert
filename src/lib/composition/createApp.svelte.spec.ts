@@ -89,7 +89,7 @@ describe('createApp', () => {
 
 		const settings = await services.settings.get();
 		expect(settings.locale).toBe('fr');
-		expect(settings.tempoBpm).toBe(80);
+		expect(settings).not.toHaveProperty('tempoBpm');
 		expect(settings.inputDeviceId).toBeNull();
 		expect(settings.calibrationOffsetMs).toBeNull();
 
@@ -118,10 +118,10 @@ describe('createApp', () => {
 			databaseName: name
 		});
 
-		await services.settings.update({ locale: 'en', tempoBpm: 96 });
+		await services.settings.update({ locale: 'en' });
 		const file = await services.backup.exportAll();
 		expect(file.settings.locale).toBe('en');
-		expect(file.settings.tempoBpm).toBe(96);
+		expect(file.progressions).toEqual([]);
 		expect(file.attempts).toEqual([]);
 		expect(file.cards).toEqual([]);
 		expect(file.sessions).toEqual([]);

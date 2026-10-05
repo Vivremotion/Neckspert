@@ -1,3 +1,4 @@
+import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
 import type {
 	LaneEntry,
 	PlaySessionController,
@@ -64,7 +65,7 @@ export class DemoPlaySession implements PlaySessionController {
 			status: 'idle',
 			prompt: null,
 			lastVerdict: null,
-			tempoBpm: options.tempoBpm ?? 80,
+			tempoBpm: options.tempoBpm ?? DEFAULT_TEMPO_BPM,
 			beatsPerBar: 4,
 			promptBeatIndex: null,
 			targetBeatIndex: null,

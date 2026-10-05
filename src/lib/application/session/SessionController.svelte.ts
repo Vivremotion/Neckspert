@@ -1,12 +1,14 @@
 import { logDetection } from '$lib/debug/detectionLog';
-import { clampTempo, nextSessionTempo, type SessionSelector } from '$lib/domain/progress';
-import {
-	cardKey,
-	type Confusion,
-	type Locale,
-	type PlannedItem,
-	type SessionKind,
-	type Settings
+import { DEFAULT_TEMPO_BPM, nextTempo } from '$lib/domain/exercise';
+import { cardKeyOf } from '$lib/domain/mechanics';
+import type { SessionSelector } from '$lib/domain/progress';
+import type {
+	Execution,
+	Locale,
+	MechanicId,
+	PlannedItem,
+	SessionKind,
+	Settings
 } from '$lib/domain/types';
 import type { BeatEvent } from '$lib/application/ports';
 import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
@@ -22,6 +24,7 @@ import {
 } from '$lib/domain/timing';
 import { AttemptRecorder, type JudgedAnswer } from './AttemptRecorder';
 import { openAudioInput } from './audioInput';
+import { sessionTempo } from './executions';
 import type { Observation, ObservationSource } from './sensors';
 
 type InternalStatus = PlayView['status'];
@@ -36,6 +39,11 @@ const IGNORED_BECAUSE: Record<IgnoreReason, string> = {
 		'arrivée avant la consigne ou juste après son apparition, elle appartient à la précédente',
 	'after-capture': 'arrivée après la fin de l’écoute hors temps'
 };
+
+/** What a series runs: its selector and the executions of its exercises, tempos frozen. */
+export type PrepareSeries = (
+	sessionId: string
+) => Promise<{ selector: SessionSelector; executions: Execution[] }>;
 
 function describeObservation(sensor: SensorKind, observation: Observation): string {
 	return `capteur : ${sensor}, t = ${observation.time.toFixed(3)} s`;
@@ -56,8 +64,12 @@ export class SessionController implements PlaySessionController {
 
 	private readonly deps: SessionDeps;
 	private readonly kind: SessionKind;
-	private readonly makeSelector: (sessionId: string) => Promise<SessionSelector>;
+	private readonly prepare: PrepareSeries;
 	private selector: SessionSelector | null = null;
+	/** The series' executions, tempos frozen at the start. */
+	private executions: Execution[] = [];
+	/** Tempo the metronome runs the series at. */
+	private tempoBpm: number = DEFAULT_TEMPO_BPM;
 	/** Epoch ms when the current series started; the selector measures elapsed time from it. */
 	private startedAt = 0;
 	/** Prompt chosen ahead of a counted bar, shown when the bar ends. */
@@ -80,24 +92,23 @@ export class SessionController implements PlaySessionController {
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
 	private recorder: AttemptRecorder | null = null;
-	private sessionTempoBpm: number | null = null;
 	private run = 0;
 	private starting = false;
 
 	constructor(
 		session: { id: string; kind: SessionKind },
-		makeSelector: (sessionId: string) => Promise<SessionSelector>,
+		prepare: PrepareSeries,
 		deps: SessionDeps
 	) {
 		this.deps = deps;
 		this.sessionId = session.id;
 		this.kind = session.kind;
-		this.makeSelector = makeSelector;
+		this.prepare = prepare;
 		this.view = $state<PlayView>({
 			status: 'idle',
 			prompt: null,
 			lastVerdict: null,
-			tempoBpm: 80,
+			tempoBpm: DEFAULT_TEMPO_BPM,
 			beatsPerBar: BEATS_PER_BAR,
 			promptBeatIndex: null,
 			targetBeatIndex: null,
@@ -120,8 +131,12 @@ export class SessionController implements PlaySessionController {
 		const run = ++this.run;
 		try {
 			if (this.view.status === 'finished') this.beginNewSeries();
-			this.selector = await this.makeSelector(this.sessionId);
+			const { selector, executions } = await this.prepare(this.sessionId);
 			if (this.run !== run) return;
+			this.selector = selector;
+			this.executions = executions;
+			this.tempoBpm = sessionTempo(executions);
+			this.view.tempoBpm = this.tempoBpm;
 			this.startedAt = this.deps.now();
 			// Show the first prompt's stage right away, before audio and the microphone.
 			this.prepareStage();
@@ -134,6 +149,7 @@ export class SessionController implements PlaySessionController {
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
 		this.selector = null;
+		this.executions = [];
 		this.pending = null;
 		this.pendingPrompt = null;
 		this.view.preview = null;
@@ -154,19 +170,15 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private async beginAudio(run: number): Promise<void> {
-		const stored = await this.deps.settings.get();
-		// Never under 80 bpm: the 2-beat lead must stay a direct-recall test (old settings allowed 60).
-		this.settings = { ...stored, tempoBpm: clampTempo(stored.tempoBpm) };
+		this.settings = await this.deps.settings.get();
 		if (this.run !== run) return;
 		this.locale = this.settings.locale;
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
 		logDetection('entrée audio', [
 			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
-			`tempo : ${this.settings.tempoBpm} bpm`,
+			`tempo : ${this.tempoBpm} bpm`,
 			`gain micro intégré : ${this.settings.builtInInputGain}`
 		]);
-		this.view.tempoBpm = this.settings.tempoBpm;
-		this.sessionTempoBpm = this.settings.tempoBpm;
 		if (this.selector) {
 			this.recorder = new AttemptRecorder({
 				attempts: this.deps.attempts,
@@ -175,7 +187,7 @@ export class SessionController implements PlaySessionController {
 				now: this.deps.now,
 				selector: this.selector,
 				sessionId: this.sessionId,
-				tempoBpm: this.settings.tempoBpm
+				rules: (mechanic) => this.presenterOf(mechanic).rules
 			});
 		}
 
@@ -197,7 +209,7 @@ export class SessionController implements PlaySessionController {
 		await this.deps.clock.resume();
 		if (this.run !== run) return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
-		this.deps.metronome.setTempo(this.settings.tempoBpm);
+		this.deps.metronome.setTempo(this.tempoBpm);
 		this.deps.metronome.setAudible(this.view.scene === 'guitar');
 
 		await this.deps.sessions.put({
@@ -206,7 +218,7 @@ export class SessionController implements PlaySessionController {
 			startedAt: this.startedAt,
 			endedAt: null,
 			fatigueDetected: false,
-			tempoBpm: this.sessionTempoBpm
+			executions: this.executions
 		});
 		if (this.run !== run) return;
 
@@ -242,7 +254,7 @@ export class SessionController implements PlaySessionController {
 	resume(): void {
 		if (this.view.status !== 'paused') return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
-		this.deps.metronome.setTempo(this.settings.tempoBpm);
+		this.deps.metronome.setTempo(this.tempoBpm);
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.counting = true;
 		this.clearItemState();
@@ -268,12 +280,24 @@ export class SessionController implements PlaySessionController {
 		this.view.status = status;
 	}
 
-	/** Provisional until planned items name their mechanic: the direction is the mechanic id. */
 	private presenterFor(item: PlannedItem): MechanicPresenter {
-		const id = item.target.direction;
-		const presenter = this.deps.mechanics[id];
-		if (!presenter) throw new Error(`No presenter for mechanic: ${id}`);
+		return this.presenterOf(item.mechanic);
+	}
+
+	private presenterOf(mechanic: MechanicId): MechanicPresenter {
+		const presenter = this.deps.mechanics[mechanic];
+		if (!presenter) throw new Error(`No presenter for mechanic: ${mechanic}`);
 		return presenter;
+	}
+
+	/**
+	 * The execution a prompt belongs to, by its exercise. Its tempo is the one the attempt is
+	 * judged at; a change of tempo between executions would start here (decision 4).
+	 */
+	private executionOf(item: PlannedItem): Execution {
+		const execution = this.executions.find((e) => e.exerciseId === item.exerciseId);
+		if (!execution) throw new Error(`No execution for exercise: ${item.exerciseId}`);
+		return execution;
 	}
 
 	/** One source per sensor the mechanics use, opened with the calibrated latency. */
@@ -413,7 +437,7 @@ export class SessionController implements PlaySessionController {
 			]);
 			return;
 		}
-		const judged = presenter.rules.judge(item.target, observation.payload);
+		const judged = presenter.rules.judge(item.item, observation.payload);
 		const event = this.round.observe({
 			time: observation.time,
 			correct: judged.correct,
@@ -423,15 +447,13 @@ export class SessionController implements PlaySessionController {
 			logDetection('observation ignorée', [
 				`raison : ${IGNORED_BECAUSE[event.reason]}`,
 				describeObservation(sensor, observation),
-				...(presenter.debugLines?.(item.target, observation.payload) ?? [])
+				...(presenter.debugLines?.(item.item, observation.payload) ?? [])
 			]);
 			return;
 		}
 		if (event.kind === 'settled') {
 			this.logDecision(presenter, item, sensor, observation, event.outcome);
-			// Provisional until attempts store the mechanic's own confusion: the neck's are stored ones.
-			const confusion = judged.confusion as Confusion | null;
-			this.settle(event.outcome, { answer: judged.answer, confusion });
+			this.settle(event.outcome, { answer: judged.answer, confusion: judged.confusion });
 			return;
 		}
 		this.apply(event);
@@ -439,7 +461,7 @@ export class SessionController implements PlaySessionController {
 
 	private promptViewOf(item: PlannedItem): PromptView {
 		return this.presenterFor(item).prompt(
-			item.target,
+			item.item,
 			{ aid: item.aid, stringAid: item.stringAid ?? false },
 			this.locale,
 			this.deps.random
@@ -463,7 +485,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private showProvisional(outcome: RoundOutcome): void {
 		logDetection('fenêtre fermée sans réponse', [
-			`cible : ${this.current ? cardKey(this.current.target) : 'inconnue'}`,
+			`cible : ${this.current ? this.cardKeyOf(this.current) : 'inconnue'}`,
 			'aucune réponse n’est arrivée pendant l’attente',
 			'verdict provisoire : faux — l’écoute continue'
 		]);
@@ -539,6 +561,10 @@ export class SessionController implements PlaySessionController {
 		this.setStatus('awaiting');
 	}
 
+	private cardKeyOf(item: PlannedItem): string {
+		return cardKeyOf(this.presenterFor(item).rules, item.item);
+	}
+
 	private logSkipped(sensor: SensorKind, observation: Observation): void {
 		const reasons: string[] = [];
 		if (this.view.status !== 'awaiting') {
@@ -559,8 +585,8 @@ export class SessionController implements PlaySessionController {
 		outcome: RoundOutcome
 	): void {
 		logDetection('décision', [
-			`cible : ${cardKey(item.target)}`,
-			...(presenter.debugLines?.(item.target, observation.payload) ?? []),
+			`cible : ${this.cardKeyOf(item)}`,
+			...(presenter.debugLines?.(item.item, observation.payload) ?? []),
 			describeObservation(sensor, observation),
 			`latence : ${this.latencyMs} ms (déjà retirée)`,
 			`écart au temps : ${outcome.timingOffsetMs ?? '—'} ms`,
@@ -575,7 +601,7 @@ export class SessionController implements PlaySessionController {
 		const answerLabel =
 			outcome.answer === null || !item || !presenter
 				? null
-				: presenter.answerLabel(outcome.answer, item.target, this.locale, this.deps.random);
+				: presenter.answerLabel(outcome.answer, item.item, this.locale, this.deps.random);
 		return {
 			verdict: outcome.verdict,
 			offsetMs: outcome.timingOffsetMs,
@@ -583,14 +609,20 @@ export class SessionController implements PlaySessionController {
 			answerLabel,
 			correction:
 				withCorrection && item && presenter
-					? presenter.reveal(item.target, outcome, this.locale)
+					? presenter.reveal(item.item, outcome, this.locale)
 					: null
 		};
 	}
 
 	private persistAttempt(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		if (!this.current || !this.round || !this.recorder) return;
-		const { stored } = this.recorder.record(this.current, outcome, this.round.promptTime, judged);
+		const { stored } = this.recorder.record(
+			this.current,
+			outcome,
+			this.round.promptTime,
+			judged,
+			this.executionOf(this.current)
+		);
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
 		void stored;
@@ -631,7 +663,7 @@ export class SessionController implements PlaySessionController {
 		const run = this.run;
 		const sessionId = this.sessionId;
 		const fatigueDetected = this.view.fatigueDetected;
-		const tempoBpm = this.sessionTempoBpm;
+		const executions = this.executions;
 		const attempts = [...(this.recorder?.sessionAttempts ?? [])];
 		this.setStatus('finished');
 		this.unsubBeat?.();
@@ -646,10 +678,21 @@ export class SessionController implements PlaySessionController {
 		}
 		if (this.run === run) this.deps.detector.stop();
 
-		if (this.kind === 'learn' && tempoBpm !== null) {
-			// The next learn session runs at a tempo fitted to this one's mode 1 success.
-			const next = nextSessionTempo(tempoBpm, attempts);
-			if (next !== tempoBpm) await this.deps.settings.update({ tempoBpm: next });
+		if (this.kind === 'learn') {
+			// Each exercise on the beat runs next at a tempo fitted to its own success here.
+			for (const { exerciseId, tempoBpm } of executions) {
+				if (tempoBpm === null) continue;
+				const own = attempts.filter((attempt) => attempt.exerciseId === exerciseId);
+				const next = nextTempo(tempoBpm, own);
+				if (next === tempoBpm) continue;
+				// A tempo moves only after enough attempts, so `own` names the exercise's mechanic.
+				await this.deps.progressions.put({
+					exerciseId,
+					mechanic: own[0].mechanic,
+					tempoBpm: next,
+					updatedAt: this.deps.now()
+				});
+			}
 		}
 		const startedAt = (await this.deps.sessions.get(sessionId))?.startedAt ?? this.deps.now();
 		await this.deps.sessions.put({
@@ -658,7 +701,7 @@ export class SessionController implements PlaySessionController {
 			startedAt,
 			endedAt: this.deps.now(),
 			fatigueDetected,
-			tempoBpm
+			executions
 		});
 	}
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
-import type { Attempt, CardState, PlannedItem, SessionKind } from '$lib/domain/types';
+import type { Attempt, CardState, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
+import { beatTiming } from '$lib/domain/timing';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
 	createListSelector,
@@ -15,6 +16,7 @@ import {
 	FakeSoundCues,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
+	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -25,7 +27,9 @@ import { SessionController } from './SessionController.svelte';
 
 function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
-		target: { direction: 'locate', string: 2, pitch: 'F' },
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
+		item: { string: 2, pitch: 'F' },
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
@@ -34,18 +38,64 @@ function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	};
 }
 
+/** The locate card of F on the B string, as `introduceCard` takes it. */
+const F_ON_B = { key: 'locate:2:F', mechanic: 'locate', item: { string: 2, pitch: 'F' } } as const;
+
+const EXECUTIONS: Execution[] = [
+	{ exerciseId: 'locate-neck', tempoBpm: 80 },
+	{ exerciseId: 'identify-neck', tempoBpm: null }
+];
+
+function progression(tempoBpm: number) {
+	return { exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm, updatedAt: 0 };
+}
+
+type Prepare = (
+	sessionId: string
+) => Promise<{ selector: SessionSelector; executions: Execution[] }>;
+
 interface TestPlan {
 	id: string;
 	kind: SessionKind;
-	selector: () => Promise<SessionSelector>;
+	prepare: Prepare;
 }
 
-function planWith(items: PlannedItem[], kind: SessionKind = 'learn'): TestPlan {
-	return { id: 'sess-1', kind, selector: async () => createListSelector(items) };
+function planWith(
+	items: PlannedItem[],
+	kind: SessionKind = 'learn',
+	executions: Execution[] = EXECUTIONS
+): TestPlan {
+	return {
+		id: 'sess-1',
+		kind,
+		prepare: async () => ({ selector: createListSelector(items), executions })
+	};
+}
+
+/** A plan whose locate tempo comes from the stored progression, as `createAppServices` does. */
+function planFromProgression(
+	items: PlannedItem[],
+	deps: SessionDeps,
+	kind: SessionKind = 'learn'
+): TestPlan {
+	return {
+		id: 'sess-1',
+		kind,
+		prepare: async () => ({
+			selector: createListSelector(items),
+			executions: [
+				{
+					exerciseId: 'locate-neck',
+					tempoBpm: (await deps.progressions.get('locate-neck'))?.tempoBpm ?? 80
+				},
+				{ exerciseId: 'identify-neck', tempoBpm: null }
+			]
+		})
+	};
 }
 
 function make(plan: TestPlan, deps: SessionDeps): SessionController {
-	return new SessionController({ id: plan.id, kind: plan.kind }, plan.selector, deps);
+	return new SessionController({ id: plan.id, kind: plan.kind }, plan.prepare, deps);
 }
 
 function createDeps(clock = new FakeClock()): SessionDeps & {
@@ -65,6 +115,7 @@ function createDeps(clock = new FakeClock()): SessionDeps & {
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
+		progressions: new InMemoryProgressionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
@@ -127,10 +178,7 @@ describe('SessionController skeleton', () => {
 
 	it('pause discards the in-progress item without recording', async () => {
 		const controller = make(
-			planWith([
-				locateItem(),
-				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' } })
-			]),
+			planWith([locateItem(), locateItem({ item: { string: 3, pitch: 'C' } })]),
 			deps
 		);
 		await controller.start();
@@ -159,43 +207,45 @@ describe('SessionController skeleton', () => {
 		expect(deps.detector.running).toBe(false);
 	});
 
-	it('stores the tempo from settings at start and keeps it after the tempo setting changes', async () => {
-		await deps.settings.update({ tempoBpm: 100 });
-		const controller = make(planWith([locateItem()]), deps);
+	it('stores the executions at start and keeps them after the progression changes', async () => {
+		const at100: Execution[] = [
+			{ exerciseId: 'locate-neck', tempoBpm: 100 },
+			{ exerciseId: 'identify-neck', tempoBpm: null }
+		];
+		await deps.progressions.put(progression(100));
+		const controller = make(planFromProgression([locateItem()], deps), deps);
 		await controller.start();
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(100);
+		expect((await deps.sessions.get('sess-1'))?.executions).toEqual(at100);
 
-		await deps.settings.update({ tempoBpm: 120 });
+		await deps.progressions.put(progression(120));
 		controller.quit();
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 
 		const ended = await deps.sessions.get('sess-1');
-		expect(ended?.tempoBpm).toBe(100);
+		expect(ended?.executions).toEqual(at100);
 		expect(ended?.endedAt).not.toBeNull();
 	});
 
-	it('keeps the closing session tempo when restart begins before finish persists', async () => {
-		await deps.settings.update({ tempoBpm: 100 });
-		const controller = make(planWith([locateItem()]), deps);
+	it('keeps the closing session executions when restart begins before finish persists', async () => {
+		await deps.progressions.put(progression(100));
+		const controller = make(planFromProgression([locateItem()], deps), deps);
 		await controller.start();
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(100);
+		expect((await deps.sessions.get('sess-1'))?.executions[0].tempoBpm).toBe(100);
 
 		controller.quit();
-		await deps.settings.update({ tempoBpm: 120 });
+		await deps.progressions.put(progression(120));
 		await controller.start();
 		for (let i = 0; i < 8; i++) await Promise.resolve();
 
 		const ended = await deps.sessions.get('sess-1');
-		expect(ended?.tempoBpm).toBe(100);
+		expect(ended?.executions[0].tempoBpm).toBe(100);
 		expect(ended?.endedAt).not.toBeNull();
+		expect((await deps.sessions.get(controller.sessionId))?.executions[0].tempoBpm).toBe(120);
 	});
 
 	it('starts again from the first item after the series is finished', async () => {
 		const controller = make(
-			planWith([
-				locateItem(),
-				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' } })
-			]),
+			planWith([locateItem(), locateItem({ item: { string: 3, pitch: 'C' } })]),
 			deps
 		);
 		await controller.start();
@@ -316,9 +366,7 @@ describe('SessionController two-step prompt', () => {
 		const draws = [0.9, 0.1, 0.9, 0.1];
 		deps.random = () => draws.shift() ?? 0;
 		const controller = make(
-			planWith([
-				locateItem({ target: { direction: 'locate', string: 2, pitch: 'F#' }, leadBeats: 4 })
-			]),
+			planWith([locateItem({ item: { string: 2, pitch: 'F#' }, leadBeats: 4 })]),
 			deps
 		);
 		await controller.start();
@@ -351,52 +399,116 @@ describe('SessionController two-step prompt', () => {
 	});
 });
 
-describe('SessionController tempo between sessions', () => {
-	async function playSession(kind: SessionKind, hits: number, misses: number) {
-		const deps = createDeps();
-		const items = Array.from({ length: hits + misses }, () => locateItem({ leadBeats: 4 }));
-		const controller = make(planWith(items, kind), deps);
-		await controller.start();
-		for (let n = 0; n < hits + misses; n++) {
-			while (controller.view.status !== 'awaiting') tick(deps, 0.75);
-			const midi = n < hits ? 65 : 60;
-			deps.detector.emitNote({
-				time: deps.metronome.beatTime(controller.view.targetBeatIndex!),
-				midi,
-				frequencyHz: 300,
-				clarity: 0.95
-			});
+/** Right or wrong answers, in order: `hits` right ones, then `misses` wrong ones. */
+function answers(hits: number, misses = 0): boolean[] {
+	return [...Array<boolean>(hits).fill(true), ...Array<boolean>(misses).fill(false)];
+}
+
+/**
+ * Starts the controller and answers each prompt in turn, right or wrong, until it finishes:
+ * F on the B string on the guitar (MIDI 65, wrong 60), F (wrong C) on the screen.
+ */
+async function playThrough(
+	controller: SessionController,
+	deps: ReturnType<typeof createDeps>,
+	rights: boolean[]
+) {
+	await controller.start();
+	let n = 0;
+	let guard = 0;
+	while (controller.view.status !== 'finished' && guard++ < 2000) {
+		if (controller.view.status === 'awaiting') {
+			const right = rights[n++] ?? true;
+			if (controller.view.scene === 'guitar') {
+				deps.detector.emitNote({
+					time: deps.metronome.beatTime(controller.view.targetBeatIndex!),
+					midi: right ? 65 : 60,
+					frequencyHz: 300,
+					clarity: 0.95
+				});
+			} else {
+				controller.answer(right ? 'F' : 'C');
+			}
 			await drain();
-			tick(deps, 0.75 * 2);
 		}
-		while (controller.view.status !== 'finished') tick(deps, 0.75);
-		await drain();
-		return deps;
+		tick(deps, deps.metronome.secondsPerBeat());
+	}
+	await drain();
+}
+
+describe('SessionController tempo between sessions', () => {
+	function locateItems(count: number): PlannedItem[] {
+		return Array.from({ length: count }, () => locateItem({ leadBeats: 4 }));
+	}
+
+	function at(tempoBpm: number): Execution[] {
+		return [
+			{ exerciseId: 'locate-neck', tempoBpm },
+			{ exerciseId: 'identify-neck', tempoBpm: null }
+		];
 	}
 
 	it('speeds the next learn session up after more than 90 % right', async () => {
-		const deps = await playSession('learn', 10, 0);
-		expect((await deps.settings.get()).tempoBpm).toBe(85);
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(80);
+		const deps = createDeps();
+		await playThrough(make(planWith(locateItems(10)), deps), deps, answers(10));
+		expect(await deps.progressions.get('locate-neck')).toMatchObject({
+			mechanic: 'locate',
+			tempoBpm: 85
+		});
+		expect((await deps.sessions.get('sess-1'))?.executions).toEqual(EXECUTIONS);
 	});
 
 	it('slows the next learn session down under 70 %, never below 80 bpm', async () => {
-		const deps = await playSession('learn', 6, 4);
-		expect((await deps.settings.get()).tempoBpm).toBe(80);
-	});
+		const faster = createDeps();
+		await playThrough(
+			make(planWith(locateItems(10), 'learn', at(100)), faster),
+			faster,
+			answers(6, 4)
+		);
+		expect((await faster.progressions.get('locate-neck'))?.tempoBpm).toBe(95);
 
-	it('plays an old tempo under 80 bpm at 80', async () => {
-		const deps = createDeps();
-		await deps.settings.update({ tempoBpm: 60 });
-		const controller = make(planWith([locateItem()]), deps);
-		await controller.start();
-		expect(deps.metronome.getTempo()).toBe(80);
-		expect((await deps.sessions.get('sess-1'))?.tempoBpm).toBe(80);
+		const slowest = createDeps();
+		await playThrough(make(planWith(locateItems(10)), slowest), slowest, answers(6, 4));
+		expect(await slowest.progressions.all()).toEqual([]);
 	});
 
 	it('leaves the tempo alone after free play', async () => {
-		const deps = await playSession('free', 10, 0);
-		expect((await deps.settings.get()).tempoBpm).toBe(80);
+		const deps = createDeps();
+		await playThrough(make(planWith(locateItems(10), 'free'), deps), deps, answers(10));
+		expect(await deps.progressions.all()).toEqual([]);
+	});
+
+	it('writes no progression after a learn session of fewer than ten locate prompts', async () => {
+		const deps = createDeps();
+		await playThrough(make(planWith(locateItems(9)), deps), deps, answers(9));
+		expect(await deps.progressions.all()).toEqual([]);
+	});
+
+	it('moves the locate tempo on locate attempts only', async () => {
+		// Counted together, 10 right notes and 10 wrong names (50 %) would slow down to 95.
+		const deps = createDeps();
+		const items = [...locateItems(10), ...Array.from({ length: 10 }, () => identifyItem())];
+		await playThrough(make(planWith(items, 'learn', at(100)), deps), deps, answers(10, 10));
+		expect(await deps.progressions.all()).toEqual([
+			{
+				exerciseId: 'locate-neck',
+				mechanic: 'locate',
+				tempoBpm: 105,
+				updatedAt: expect.any(Number)
+			}
+		]);
+	});
+
+	it('starts a new series at the tempo the previous series reached', async () => {
+		const deps = createDeps();
+		const controller = make(planFromProgression(locateItems(10), deps), deps);
+		await playThrough(controller, deps, answers(10));
+		expect(controller.view.status).toBe('finished');
+
+		await controller.start();
+		expect(deps.metronome.getTempo()).toBe(85);
+		expect(controller.view.tempoBpm).toBe(85);
+		expect((await deps.sessions.get(controller.sessionId))?.executions[0].tempoBpm).toBe(85);
 	});
 });
 
@@ -442,7 +554,7 @@ describe('SessionController late capture', () => {
 		expect(attempt).toMatchObject({
 			correct: false,
 			verdict: 'wrong',
-			answer: { kind: 'note', midi: 60 }
+			data: { answer: { midi: 60 } }
 		});
 		expect(await deps.attempts.all()).toHaveLength(1);
 	});
@@ -452,7 +564,7 @@ describe('SessionController late capture', () => {
 		const controller = make(
 			planWith([
 				locateItem({ leadBeats: 4 }),
-				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 4 })
+				locateItem({ item: { string: 3, pitch: 'C' }, leadBeats: 4 })
 			]),
 			deps
 		);
@@ -464,7 +576,7 @@ describe('SessionController late capture', () => {
 		atBeat(deps, 11);
 		await drain();
 		const [attempt] = await deps.attempts.all();
-		expect(attempt).toMatchObject({ answer: null, correct: false, verdict: 'wrong' });
+		expect(attempt).toMatchObject({ data: { answer: null }, correct: false, verdict: 'wrong' });
 		expect(controller.view.lastVerdict?.correction).toBe('corde de B, case 6');
 		expect(deps.cues.played.map((cue) => cue.verdict)).toEqual(['wrong']);
 		expect(controller.view.preview?.secondary).toBe('corde de G');
@@ -482,7 +594,7 @@ describe('SessionController late capture', () => {
 			await drain();
 			const attempts = await deps.attempts.all();
 			expect(attempts).toHaveLength(1);
-			expect(attempts[0]).toMatchObject({ answer: null, verdict: 'wrong' });
+			expect(attempts[0]).toMatchObject({ data: { answer: null }, verdict: 'wrong' });
 		}
 	});
 
@@ -501,12 +613,18 @@ describe('SessionController late capture', () => {
 
 	it('closes the capture at the next prompt at 160 bpm and never hands its note on', async () => {
 		const deps = createDeps();
-		await deps.settings.update({ tempoBpm: 160 });
 		const controller = make(
-			planWith([
-				locateItem({ leadBeats: 4 }),
-				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 4 })
-			]),
+			planWith(
+				[
+					locateItem({ leadBeats: 4 }),
+					locateItem({ item: { string: 3, pitch: 'C' }, leadBeats: 4 })
+				],
+				'learn',
+				[
+					{ exerciseId: 'locate-neck', tempoBpm: 160 },
+					{ exerciseId: 'identify-neck', tempoBpm: null }
+				]
+			),
 			deps
 		);
 		await controller.start();
@@ -514,7 +632,7 @@ describe('SessionController late capture', () => {
 		await drain();
 		expect(controller.view).toMatchObject({ status: 'awaiting', promptBeatIndex: 12 });
 		const [first] = await deps.attempts.all();
-		expect(first.answer).toBeNull();
+		expect(first.data).toMatchObject({ answer: null });
 		// Played as the next prompt appears: too late for the last one, too early for this one.
 		note(deps, deps.metronome.beatTime(12) + 0.05, 60);
 		expect(controller.view.status).toBe('awaiting');
@@ -544,7 +662,7 @@ describe('SessionController window close and sequencing', () => {
 			planWith([
 				locateItem({ leadBeats: 4 }),
 				locateItem({
-					target: { direction: 'locate', string: 3, pitch: 'C' },
+					item: { string: 3, pitch: 'C' },
 					leadBeats: 4
 				})
 			]),
@@ -577,7 +695,7 @@ describe('SessionController window close and sequencing', () => {
 		const controller = make(
 			planWith([
 				locateItem({ leadBeats: 2 }),
-				locateItem({ target: { direction: 'locate', string: 3, pitch: 'C' }, leadBeats: 2 })
+				locateItem({ item: { string: 3, pitch: 'C' }, leadBeats: 2 })
 			]),
 			deps
 		);
@@ -609,8 +727,8 @@ describe('SessionController window close and sequencing', () => {
 		const deps = createDeps();
 		const controller = make(
 			planWith([
-				locateItem({ target: { direction: 'locate', string: 6, pitch: 'A' } }),
-				locateItem({ target: { direction: 'locate', string: 6, pitch: 'A' } })
+				locateItem({ item: { string: 6, pitch: 'A' } }),
+				locateItem({ item: { string: 6, pitch: 'A' } })
 			]),
 			deps
 		);
@@ -636,7 +754,9 @@ describe('SessionController window close and sequencing', () => {
 
 function identifyItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
-		target: { direction: 'identify', string: 5, fret: 8 },
+		exerciseId: 'identify-neck',
+		mechanic: 'identify',
+		item: { string: 5, fret: 8 },
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
@@ -798,7 +918,7 @@ describe('SessionController identify', () => {
 			planWith([
 				locateItem({ leadBeats: 4 }),
 				locateItem({
-					target: { direction: 'locate', string: 3, pitch: 'C' },
+					item: { string: 3, pitch: 'C' },
 					leadBeats: 8,
 					countIn: true
 				})
@@ -892,6 +1012,19 @@ describe('SessionController identify', () => {
 		controller.answer('F');
 		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
 	});
+
+	it('stores nothing when paused or quit before a name is tapped', async () => {
+		for (const stop of ['pause', 'quit'] as const) {
+			const deps = createDeps();
+			const controller = make(planWith([identifyItem()]), deps);
+			await controller.start();
+			tick(deps, 0.1 + 0.75 * 4);
+			expect(controller.view.status).toBe('awaiting');
+			controller[stop]();
+			await drain();
+			expect(await deps.attempts.all()).toEqual([]);
+		}
+	});
 });
 
 describe('SessionController wiring', () => {
@@ -906,14 +1039,40 @@ describe('SessionController wiring', () => {
 		const controller = make(planWith([locateItem()]), deps);
 		await expect(controller.start()).rejects.toThrow('No factory for sensor: note');
 	});
+
+	it('refuses a session whose executions run at two tempos', async () => {
+		const deps = createDeps();
+		const executions: Execution[] = [
+			{ exerciseId: 'locate-neck', tempoBpm: 100 },
+			{ exerciseId: 'locate-g', tempoBpm: 120 }
+		];
+		const controller = make(planWith([locateItem()], 'learn', executions), deps);
+		await expect(controller.start()).rejects.toThrow(/decision 4/);
+	});
 });
 
 describe('SessionController persistence', () => {
+	it('records each attempt with its exercise and tempo', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem(), identifyItem()]), deps);
+		await playThrough(controller, deps, answers(2));
+		const attempts = await deps.attempts.all();
+		expect(attempts).toHaveLength(2);
+		expect(attempts[0]).toMatchObject({
+			exerciseId: 'locate-neck',
+			mechanic: 'locate',
+			tempoBpm: 80
+		});
+		expect(attempts[1]).toMatchObject({
+			exerciseId: 'identify-neck',
+			mechanic: 'identify',
+			tempoBpm: null
+		});
+	});
+
 	it('records a cold locate attempt with confusion on a wrong pitch', async () => {
 		const deps = createDeps();
-		await deps.cards.put(
-			introduceCard({ direction: 'locate', string: 2, pitch: 'F' }, deps.now(), 'sess-1')
-		);
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming));
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
@@ -929,9 +1088,9 @@ describe('SessionController persistence', () => {
 		const attempts = await deps.attempts.listBySession('sess-1');
 		expect(attempts).toHaveLength(1);
 		expect(attempts[0].correct).toBe(false);
-		expect(attempts[0].confusion).toEqual(
-			classifyNoteConfusion({ direction: 'locate', string: 2, pitch: 'F' }, 66)
-		);
+		expect(attempts[0].data).toMatchObject({
+			confusion: classifyNoteConfusion(F_ON_B.item, 66)
+		});
 		expect(attempts[0].verdict).toBe('wrong');
 	});
 });
@@ -968,7 +1127,11 @@ function spySelector(items: PlannedItem[]) {
 }
 
 function withSelector(selector: SessionSelector, deps: SessionDeps, kind: SessionKind = 'learn') {
-	return new SessionController({ id: 'sess-1', kind }, async () => selector, deps);
+	return new SessionController(
+		{ id: 'sess-1', kind },
+		async () => ({ selector, executions: EXECUTIONS }),
+		deps
+	);
 }
 
 async function drain() {
@@ -1089,12 +1252,16 @@ describe('SessionController with a selector', () => {
 
 	it('stores the card the selector reports as learned', async () => {
 		const deps = createDeps();
-		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
-		await deps.cards.put(introduceCard(target, deps.now(), 'old'));
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'old', beatTiming));
 		const spy = spySelector([
 			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 4 })
 		]);
-		const learned = markLearned(introduceCard(target, deps.now(), 'old'), 123, 80);
+		const learned = markLearned(
+			introduceCard(F_ON_B, deps.now(), 'old', beatTiming),
+			123,
+			beatTiming,
+			80
+		);
 		spy.learnOnRecord({ card: learned });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1132,7 +1299,7 @@ describe('SessionController with a selector', () => {
 		const deps = createDeps();
 		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 4 });
 		const spy = spySelector([probe]);
-		const known = { ...introduceCard(probe.target, deps.now(), 'sess-1'), acquiredAt: 456 };
+		const known = { ...introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming), acquiredAt: 456 };
 		spy.learnOnRecord({ card: known });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1157,8 +1324,12 @@ describe('SessionController with a selector', () => {
 
 	it('counts a cold free-play attempt on a learned card', async () => {
 		const deps = createDeps();
-		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
-		const card = markLearned(introduceCard(target, -10_000_000, 'old'), -9_000_000, 80);
+		const card = markLearned(
+			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
+			-9_000_000,
+			beatTiming,
+			80
+		);
 		await deps.cards.put(card);
 		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 });
 		const spy = spySelector([free]);
@@ -1177,12 +1348,17 @@ describe('SessionController with a selector', () => {
 
 	it('keeps free play hot on positions without a learned card', async () => {
 		const deps = createDeps();
-		const being = introduceCard({ direction: 'locate', string: 3, pitch: 'C' }, -10_000_000, 'old');
+		const being = introduceCard(
+			{ key: 'locate:3:C', mechanic: 'locate', item: { string: 3, pitch: 'C' } },
+			-10_000_000,
+			'old',
+			beatTiming
+		);
 		await deps.cards.put(being);
 		const items = [
 			locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 }),
 			locateItem({
-				target: { direction: 'locate', string: 3, pitch: 'C' },
+				item: { string: 3, pitch: 'C' },
 				phase: 'free',
 				temperature: 'hot',
 				leadBeats: 4
@@ -1210,8 +1386,12 @@ describe('SessionController with a selector', () => {
 
 	it('keeps consolidation hot and leaves the card alone', async () => {
 		const deps = createDeps();
-		const target = { direction: 'locate', string: 2, pitch: 'F' } as const;
-		const card = markLearned(introduceCard(target, -10_000_000, 'old'), -9_000_000, 80);
+		const card = markLearned(
+			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
+			-9_000_000,
+			beatTiming,
+			80
+		);
 		await deps.cards.put(card);
 		const item = locateItem({ phase: 'consolidation', temperature: 'hot', leadBeats: 4 });
 		const controller = withSelector(spySelector([item]).selector, deps);

@@ -140,8 +140,18 @@ try {
 		check(assert(byText['Session du jour'] === false, 'le bouton Session du jour est actif'));
 		check(assert(byText['Positionnement'] === false, 'le bouton Positionnement est actif'));
 		check(assert(byText['Dans 2 h'] === true, 'le bouton d’attente « Dans 2 h » est désactivé'));
-		check(assert(page.texts.some((t) => t.text.includes('1,18 s')), 'la médiane 1,18 s est affichée'));
-		check(assert(page.texts.some((t) => t.text === 'en baisse'), 'la tendance « en baisse » est affichée'));
+		check(
+			assert(
+				page.texts.some((t) => t.text.includes('1,18 s')),
+				'la médiane 1,18 s est affichée'
+			)
+		);
+		check(
+			assert(
+				page.texts.some((t) => t.text === 'en baisse'),
+				'la tendance « en baisse » est affichée'
+			)
+		);
 		noteTiny('home', page.texts);
 	}
 
@@ -187,8 +197,18 @@ try {
 		);
 		check(assert(page.count === 72, `la carte a 72 cases (${page.count})`));
 		check(assert(page.rowCount === 6, `la carte a 6 cordes (${page.rowCount})`));
-		check(assert(page.first.includes('6') && page.first.includes('0'), `corde 6, case 0 en haut (${page.first})`));
-		check(assert(page.lastRowFirst.includes('1'), `la dernière corde est la corde 1 (${page.lastRowFirst})`));
+		check(
+			assert(
+				page.first.includes('6') && page.first.includes('0'),
+				`corde 6, case 0 en haut (${page.first})`
+			)
+		);
+		check(
+			assert(
+				page.lastRowFirst.includes('1'),
+				`la dernière corde est la corde 1 (${page.lastRowFirst})`
+			)
+		);
 		noteTiny('map', page.texts);
 	}
 
@@ -210,7 +230,12 @@ try {
 		);
 		check(assert(before.labels.length === 12, `le pavé a 12 boutons (${before.labels.length})`));
 		check(assert(before.labels[0] === 'C', `l’ordre commence par C (${before.labels[0]})`));
-		check(assert(before.labels.some((l) => l.includes('F# / Gb')), 'les altérations affichent dièse et bémol'));
+		check(
+			assert(
+				before.labels.some((l) => l.includes('F# / Gb')),
+				'les altérations affichent dièse et bémol'
+			)
+		);
 		check(assert(before.lane === false, 'la piste est absente en mode 2'));
 		check(assert(before.prompt, 'la consigne « case 8 » est visible'));
 		const after = await evaluate(
@@ -227,7 +252,12 @@ try {
 				};
 			}`
 		);
-		check(assert(after.disabled === 12, `le premier toucher verrouille les 12 boutons (${after.disabled})`));
+		check(
+			assert(
+				after.disabled === 12,
+				`le premier toucher verrouille les 12 boutons (${after.disabled})`
+			)
+		);
 		check(
 			assert(
 				/parfait|en retard|mauvaise|en avance/.test(after.text.toLocaleLowerCase('fr')),
@@ -310,16 +340,6 @@ try {
 				click('FR');
 				await frame();
 				const french = document.body.innerText.toLocaleLowerCase('fr').includes('réglages');
-				for (let i = 0; i < 30; i++) {
-					click('−');
-					await frame();
-				}
-				const atMin = document.body.innerText.includes('60');
-				for (let i = 0; i < 90; i++) {
-					click('+');
-					await frame();
-				}
-				const atMax = document.body.innerText.includes('140');
 				const link = document.querySelector('a.calibration-link')?.getAttribute('href');
 				const input = document.querySelector('input[type="file"]');
 				const file = new File(['{}'], 'backup.json', { type: 'application/json' });
@@ -332,16 +352,14 @@ try {
 				const texts = [...document.querySelectorAll('body *')]
 					.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
 					.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
-				return { english, french, atMin, atMax, link, confirm, texts, sample: document.body.innerText.slice(0, 400) };
+				return { english, french, link, confirm, texts, sample: document.body.innerText.slice(0, 400) };
 			}`
 		);
-		if (!run.english || !run.french || !run.atMin || !run.atMax || !run.confirm) {
+		if (!run.english || !run.french || !run.confirm) {
 			console.log('  …', run.sample.replace(/\\s+/g, ' '));
 		}
 		check(assert(run.english, 'English bascule les libellés tout de suite'));
 		check(assert(run.french, 'Français revient aux libellés français'));
-		check(assert(run.atMin, 'le tempo ne descend pas sous 60'));
-		check(assert(run.atMax, 'le tempo ne dépasse pas 140'));
 		check(assert(run.link === '/calibration', 'le lien ouvre /calibration'));
 		check(assert(run.confirm, 'l’import demande confirmation avant remplacement'));
 		noteTiny('settings', run.texts);

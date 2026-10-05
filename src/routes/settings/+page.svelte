@@ -9,12 +9,10 @@
 	import { downloadBackup, readBackupFile, validateBackup } from '$lib/infrastructure/storage';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import SettingsScreen from '$lib/ui/screens/settings/SettingsScreen.svelte';
-	import { clampTempo } from '$lib/ui/screens/settings/tempo';
 
 	const services = useAppServices();
 
 	let locale = $state<Locale>('fr');
-	let tempoBpm = $state(80);
 	let inputs = $state<AudioInputDevice[]>([]);
 	let inputDeviceId = $state<string | null>(null);
 	let builtInInputGain = $state(DEFAULT_BUILT_IN_INPUT_GAIN);
@@ -35,7 +33,6 @@
 		]);
 		if (seq !== loadSeq) return;
 		locale = settings.locale;
-		tempoBpm = clampTempo(settings.tempoBpm);
 		inputDeviceId = settings.inputDeviceId ?? devices[0]?.id ?? null;
 		builtInInputGain = clampBuiltInInputGain(settings.builtInInputGain);
 		calibrationOffsetMs = settings.calibrationOffsetMs;
@@ -50,13 +47,6 @@
 		locale = next;
 		i18n.locale = next;
 		await services.settings.update({ locale: next });
-	}
-
-	async function ontempo(next: number) {
-		loadSeq += 1;
-		const bpm = clampTempo(next);
-		tempoBpm = bpm;
-		await services.settings.update({ tempoBpm: bpm });
 	}
 
 	async function onunlock() {
@@ -132,7 +122,6 @@
 
 <SettingsScreen
 	{locale}
-	{tempoBpm}
 	{inputs}
 	{inputDeviceId}
 	{builtInInputGain}
@@ -140,7 +129,6 @@
 	{importError}
 	{confirmingImport}
 	{onlocale}
-	{ontempo}
 	{oninput}
 	{onbuiltingain}
 	{onexport}

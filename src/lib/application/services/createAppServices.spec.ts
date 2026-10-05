@@ -17,6 +17,7 @@ import {
 	FakeSoundCues,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
+	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -61,6 +62,7 @@ function harness(): {
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
+		progressions: new InMemoryProgressionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
@@ -101,7 +103,7 @@ const FLAT_TO_SHARP: Record<string, PitchName> = {
 function locateMidiFromPrompt(primary: string, secondary: string): number {
 	const string = FR_STRING[secondary] ?? 6;
 	const pitch = (FLAT_TO_SHARP[primary] ?? primary) as PitchName;
-	return acceptableMidis({ direction: 'locate', string, pitch })[0];
+	return acceptableMidis({ string, pitch })[0];
 }
 
 describe('createAppServices', () => {
@@ -125,6 +127,28 @@ describe('createAppServices', () => {
 			aid: null
 		});
 		expect(controller.view.leadBeats).toBe(2);
+	});
+
+	it('runs locate at its progression tempo, within range, and identify without one', async () => {
+		for (const [stored, expected] of [
+			[100, 100],
+			[60, 80]
+		]) {
+			const { services, deps } = harness();
+			await deps.progressions.put({
+				exerciseId: 'locate-neck',
+				mechanic: 'locate',
+				tempoBpm: stored,
+				updatedAt: 0
+			});
+			const controller = await services.startSession('learn');
+			await controller.start();
+			expect(deps.metronome.getTempo()).toBe(expected);
+			expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
+				{ exerciseId: 'locate-neck', tempoBpm: expected },
+				{ exerciseId: 'identify-neck', tempoBpm: null }
+			]);
+		}
 	});
 
 	it('startSession(free) never prompts an open string', async () => {

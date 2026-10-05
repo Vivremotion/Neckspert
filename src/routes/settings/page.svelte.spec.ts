@@ -35,17 +35,6 @@ describe('/settings page', () => {
 		});
 	});
 
-	it('shows an old tempo under 80 as 80 and steps from there', async () => {
-		const services = createFakeAppServices();
-		await services.settings.update({ tempoBpm: 60 });
-		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
-		render(TestHarness, { props: { services } });
-
-		await waitFor(() => expect(screen.getByText('80')).toBeTruthy());
-		await fireEvent.click(screen.getByRole('button', { name: '+' }));
-		await waitFor(async () => expect((await services.settings.get()).tempoBpm).toBe(81));
-	});
-
 	it('exports through downloadBackup', async () => {
 		const services = createFakeAppServices();
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
@@ -87,7 +76,9 @@ describe('/settings page', () => {
 		await waitFor(() => expect(screen.getByText(/remplac/i)).toBeTruthy());
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		await waitFor(async () => {
-			expect((await services.settings.get()).tempoBpm).toBe(100);
+			expect((await services.backup.exportAll()).progressions).toMatchObject([
+				{ exerciseId: 'locate-neck', tempoBpm: 100 }
+			]);
 			expect(i18n.locale).toBe('en');
 		});
 	});

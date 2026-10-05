@@ -4,6 +4,7 @@ import type {
 	CardStateRepositoryPort,
 	MetronomePort,
 	NoteDetectorPort,
+	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
 	SoundCuePort
@@ -20,6 +21,9 @@ export interface SessionDeps {
 	attempts: AttemptRepositoryPort;
 	cards: CardStateRepositoryPort;
 	sessions: SessionRepositoryPort;
+	/** Tempo reached on each exercise on the beat; a learn session writes the next one. */
+	progressions: ProgressionRepositoryPort;
+	/** Locale, calibration, input device and gain. */
 	settings: SettingsRepositoryPort;
 	now: () => number;
 	random: () => number;
