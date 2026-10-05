@@ -245,7 +245,7 @@ C’est la manche qui décide quand elle est réglée ; le contrôleur ne suppos
 
 Reprend sans changement de règle : `answerWindow`, `MIN_RESPONSE_MS`, `PERFECT_WINDOW_MS`, `LATE_LIMIT_MS`, `LATE_CAPTURE_MS`, `lateCaptureEnd` borné par l’aperçu de la consigne suivante, `alignedPromptBeat`, `respirationStart`, `STRING_PREVIEW_BEATS`, l’ordre perfect > early/late > offbeat > wrong, la première note comme réponse, `leadForThreshold`, l’échelle `LEAD_STEPS = [8, 4, 2]`. Rappel direct : juste, pas `offbeat`, et `leadBeats × 60 000 / tempoBpm ≤ RECALL_THRESHOLD_MS`. Les comparaisons d’index de temps restent en `>=`.
 
-### `freeTiming` (mode 2)
+### `createFreeTiming` (mode 2, instance `identifyTiming`)
 
 Reprend `judgeIdentify` : la consigne apparaît au temps reçu, le temps de réaction court de son affichage à l’observation, juste et ≤ seuil → `perfect`, juste et plus lent → `late`, faux → `wrong`. Pas d’`early` ni d’`offbeat`. La consigne suivante attend le temps qui suit la réponse. Construit avec son seuil (`createFreeTiming({ recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS })`), calibrable à part comme le veut `PRODUCT.md`.
 
@@ -270,7 +270,7 @@ interface MechanicRules<I, O, A, C> {
 ```
 
 - `locateRules` : `beatTiming`, `acceptableMidis`, `classifyNoteConfusion` (confusions semitone, octave, string-name, other).
-- `identifyRules` : `freeTiming`, `pitchOnString`, `classifyNameConfusion`.
+- `identifyRules` : `createFreeTiming` (instance `identifyTiming`), `pitchOnString`, `classifyNameConfusion`.
 - `cardKeyOf(rules, item)` = `${rules.id}:${rules.itemKey(item)}`.
 - `domain/mechanics/index.ts` liste les règles connues, pour la validation et la migration seulement. Aucune autre logique ne passe par cette liste.
 
@@ -432,7 +432,7 @@ Tout le reste — grille, fenêtres, verdicts, sons, sondage, file d’introduct
 
 TDD, specs colocalisées.
 
-- **Domaine** : machine à états de `beatTiming` (fenêtre, note trop tôt, première note seule, écoute hors temps bornée, respiration, alignement sur le temps 1, temps perdu) en reprenant les cas de `SessionController.spec.ts` et de `judgeLocate` ; `freeTiming` ; `judge`, `itemKey`, `parseItem` des deux mécaniques ; `startTempo` (quatre étages) ; `nextTempo` ; progression avec `timing` explicite ; convertisseurs v1.
+- **Domaine** : machine à états de `beatTiming` (fenêtre, note trop tôt, première note seule, écoute hors temps bornée, respiration, alignement sur le temps 1, temps perdu) en reprenant les cas de `SessionController.spec.ts` et de `judgeLocate` ; `createFreeTiming` / `identifyTiming` ; `judge`, `itemKey`, `parseItem` des deux mécaniques ; `startTempo` (quatre étages) ; `nextTempo` ; progression avec `timing` explicite ; convertisseurs v1.
 - **Application** : `AttemptRecorder` ; `SessionController.spec.ts` conservé comme filet de non-régression, adapté aux nouvelles formes ; **une mécanique factice réservée aux tests** (relation `beat`, capteur factice, juge trivial) jouée de bout en bout par le contrôleur, qui prouve qu’une troisième mécanique passe sans toucher au cœur ; refus d’une session à deux tempos.
 - **Stockage** : mise à niveau v4 → v5 sur une base remplie à l’ancien format ; contrats de dépôt, dont `ProgressionRepository` ; import v1 et v2 ; aller-retour export → import ; `legacyImport.spec.ts`.
 - **Validation** : `npm test && npm run check`. Après fusion, un passage avec une vraie guitare (`scripts/functional-ui.mjs` et jeu réel) : le contrôleur est réécrit et l’horloge factice ne couvre pas tout.

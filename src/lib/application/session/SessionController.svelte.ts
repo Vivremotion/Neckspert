@@ -616,7 +616,7 @@ export class SessionController implements PlaySessionController {
 
 	private persistAttempt(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		if (!this.current || !this.round || !this.recorder) return;
-		const { stored } = this.recorder.record(
+		void this.recorder.record(
 			this.current,
 			outcome,
 			this.round.promptTime,
@@ -625,7 +625,6 @@ export class SessionController implements PlaySessionController {
 		);
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
-		void stored;
 	}
 
 	private advanceAfterVerdict(beat: BeatEvent): void {

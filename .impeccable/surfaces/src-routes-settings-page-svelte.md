@@ -25,7 +25,7 @@ OWN-WORLD: Inherit H — #E99568 / #BE6754 / #813B2A / #451218, 8px tile, pixel 
 
 STORY: The guitarist adjusts the language, picks an input, jumps to calibration, and backs up or restores local data with an explicit replace confirmation.
 
-FIRST VIEWPORT: One column of double frames (language, input, calibration, backup). Tempo is the dominant signal (scale 4, huge stepper). Import confirmation inverted. Calibration link underlined ≥48px tall. No decorative cards.
+FIRST VIEWPORT: One column of frames (language, input, calibration, backup). The dominant signals are the scale 4 title and the huge export/import buttons; no tempo on this screen. Import confirmation inverted. Calibration link underlined ≥48px tall. No decorative cards.
 
 FORM: Autonomous fallback closest to Bonfire play screen (plan I3). Seed non-interactive; build-phase skipped (I1 owns state.json).
 

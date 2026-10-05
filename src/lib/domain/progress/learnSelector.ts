@@ -318,7 +318,7 @@ class LearnSelector implements SessionSelector {
 			entry.successes = 0;
 			return 'short';
 		}
-		// Judged at the attempt's own tempo, by the time relation of identify.
+		// Direct recall is judged on reaction time by identify's time relation; tempo plays no part.
 		if (!identifyRules.timing.isDirectRecall(attempt)) {
 			entry.aided = true;
 			entry.successes = 0;
