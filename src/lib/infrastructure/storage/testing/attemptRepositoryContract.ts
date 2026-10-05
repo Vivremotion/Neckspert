@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { AttemptRepositoryPort } from '$lib/application/ports';
-import { IDENTIFY_TARGET, makeAttempt } from './fixtures';
+import { makeAttempt } from './fixtures';
 
 /** Behaviour shared by every AttemptRepositoryPort implementation. */
 export function attemptRepositoryContract(name: string, create: () => AttemptRepositoryPort): void {
@@ -45,7 +45,7 @@ export function attemptRepositoryContract(name: string, create: () => AttemptRep
 		it("lists a card's attempts, oldest first", async () => {
 			await repo.add(makeAttempt({ promptedAt: 3000 }));
 			await repo.add(makeAttempt({ promptedAt: 1000 }));
-			await repo.add(makeAttempt({ target: IDENTIFY_TARGET, promptedAt: 2000 }));
+			await repo.add(makeAttempt({ mechanic: 'identify', promptedAt: 2000 }));
 			expect((await repo.listByCard('locate:2:F')).map((a) => a.promptedAt)).toEqual([1000, 3000]);
 			expect((await repo.listByCard('identify:5:8')).map((a) => a.promptedAt)).toEqual([2000]);
 			expect(await repo.listByCard('identify:1:0')).toEqual([]);

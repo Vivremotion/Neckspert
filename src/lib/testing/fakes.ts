@@ -3,6 +3,8 @@ import {
 	type Attempt,
 	type CardKey,
 	type CardState,
+	type ExerciseId,
+	type Progression,
 	type SessionRecord,
 	type Settings,
 	type Verdict
@@ -16,6 +18,7 @@ import type {
 	MetronomePort,
 	NoteDetectorPort,
 	NoteOnset,
+	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
 	SoundCuePort
@@ -226,6 +229,23 @@ export class InMemorySessionRepository implements SessionRepositoryPort {
 
 	async list(): Promise<SessionRecord[]> {
 		return [...this.records.values()].sort((a, b) => a.startedAt - b.startedAt);
+	}
+}
+
+export class InMemoryProgressionRepository implements ProgressionRepositoryPort {
+	private readonly progressions = new Map<ExerciseId, Progression>();
+
+	async get(exerciseId: ExerciseId): Promise<Progression | undefined> {
+		const stored = this.progressions.get(exerciseId);
+		return stored && { ...stored };
+	}
+
+	async put(progression: Progression): Promise<void> {
+		this.progressions.set(progression.exerciseId, { ...progression });
+	}
+
+	async all(): Promise<Progression[]> {
+		return [...this.progressions.values()].map((progression) => ({ ...progression }));
 	}
 }
 

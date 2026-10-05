@@ -3,6 +3,8 @@ import type {
 	BackupFile,
 	CardKey,
 	CardState,
+	ExerciseId,
+	Progression,
 	SessionRecord,
 	Settings
 } from '$lib/domain/types';
@@ -32,6 +34,14 @@ export interface SessionRepositoryPort {
 	get(id: string): Promise<SessionRecord | undefined>;
 	/** Oldest first. */
 	list(): Promise<SessionRecord[]>;
+}
+
+/** The tempo reached on each exercise, one row per exercise. */
+export interface ProgressionRepositoryPort {
+	get(exerciseId: ExerciseId): Promise<Progression | undefined>;
+	/** Replaces the progression stored for the same exercise. */
+	put(progression: Progression): Promise<void>;
+	all(): Promise<Progression[]>;
 }
 
 export interface SettingsRepositoryPort {

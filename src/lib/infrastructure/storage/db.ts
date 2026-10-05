@@ -3,9 +3,11 @@ import {
 	SHORTEST_LEAD,
 	type Attempt,
 	type CardState,
+	type Progression,
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
+import { convertV1 } from './legacy/v1';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -21,6 +23,7 @@ export class NeckspertDb extends Dexie {
 	cards!: EntityTable<CardState, 'key'>;
 	sessions!: EntityTable<SessionRecord, 'id'>;
 	settings!: EntityTable<SettingsRow, 'id'>;
+	progressions!: EntityTable<Progression, 'exerciseId'>;
 
 	constructor(name: string) {
 		super(name);
@@ -72,6 +75,35 @@ export class NeckspertDb extends Dexie {
 						row.leadBeats = SHORTEST_LEAD;
 					})
 			);
+		// Version 5 keys cards and attempts by mechanic and item, gives attempts their tempo and
+		// sessions their executions, and moves the settings tempo to the locate-neck progression
+		// (spec 2026-10-05, section 5). Same conversion as the import of a version 1 backup.
+		this.version(5)
+			.stores({ ...stores, progressions: 'exerciseId' })
+			.upgrade(async (tx) => {
+				const [settingsRows, cards, attempts, sessions] = await Promise.all([
+					tx.table('settings').toArray(),
+					tx.table('cards').toArray(),
+					tx.table('attempts').toArray(),
+					tx.table('sessions').toArray()
+				]);
+				const settingsRow = settingsRows.find((row) => row.id === SETTINGS_ROW_ID);
+				const { id: _id, ...storedSettings } = settingsRow ?? {};
+				const converted = convertV1(
+					{ settings: storedSettings, cards, attempts, sessions },
+					Date.now()
+				);
+				await Promise.all(
+					['settings', 'cards', 'attempts', 'sessions'].map((name) => tx.table(name).clear())
+				);
+				if (settingsRow) {
+					await tx.table('settings').put({ ...converted.settings, id: SETTINGS_ROW_ID });
+				}
+				await tx.table('cards').bulkAdd(converted.cards);
+				await tx.table('attempts').bulkAdd(converted.attempts);
+				await tx.table('sessions').bulkAdd(converted.sessions);
+				await tx.table('progressions').bulkAdd(converted.progressions);
+			});
 	}
 }
 

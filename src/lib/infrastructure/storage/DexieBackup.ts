@@ -2,6 +2,7 @@ import type { BackupPort } from '$lib/application/ports';
 import type { BackupFile } from '$lib/domain/types';
 import { SETTINGS_ROW_ID, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
+import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
 import { withoutLegacyLead } from './legacyLead';
@@ -17,12 +18,13 @@ export class DexieBackup implements BackupPort {
 		const { db } = this;
 		return db.transaction(
 			'r',
-			[db.attempts, db.cards, db.sessions, db.settings],
+			[db.attempts, db.cards, db.sessions, db.settings, db.progressions],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
-				version: 1,
+				version: 2,
 				exportedAt: this.now(),
 				settings: await new DexieSettingsRepository(db).get(),
+				progressions: await new DexieProgressionRepository(db).all(),
 				cards: await db.cards.toArray(),
 				attempts: await new DexieAttemptRepository(db).all(),
 				sessions: await new DexieSessionRepository(db).list()
@@ -31,15 +33,14 @@ export class DexieBackup implements BackupPort {
 	}
 
 	async importAll(file: unknown): Promise<void> {
-		const backup = validateBackup(file);
+		const backup = validateBackup(file, this.now());
 		const { db } = this;
-		await db.transaction('rw', [db.attempts, db.cards, db.sessions, db.settings], async () => {
-			await db.attempts.clear();
-			await db.cards.clear();
-			await db.sessions.clear();
-			await db.settings.clear();
+		const tables = [db.attempts, db.cards, db.sessions, db.settings, db.progressions];
+		await db.transaction('rw', tables, async () => {
+			await Promise.all(tables.map((table) => table.clear()));
 			// Device ids belong to one browser and one origin: an imported one would not open.
 			await db.settings.put({ ...backup.settings, inputDeviceId: null, id: SETTINGS_ROW_ID });
+			await db.progressions.bulkAdd(backup.progressions);
 			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);

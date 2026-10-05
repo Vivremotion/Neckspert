@@ -13,19 +13,20 @@ import {
 function attempt(overrides: Partial<Attempt>): Attempt {
 	return {
 		sessionId: 's1',
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
 		cardKey: 'locate:2:F',
-		target: { direction: 'locate', string: 2, pitch: 'F' },
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
+		tempoBpm: 80,
 		leadBeats: 2,
 		promptedAt: 1000,
-		answer: { kind: 'note', midi: 65 },
 		correct: true,
 		verdict: 'perfect',
 		timingOffsetMs: 10,
 		reactionMs: 900,
-		confusion: null,
+		data: { item: { string: 2, pitch: 'F' }, answer: { midi: 65 }, confusion: null },
 		...overrides
 	};
 }
@@ -87,8 +88,8 @@ describe('in-memory repositories', () => {
 
 	it('merges settings over defaults', async () => {
 		const repo = new InMemorySettingsRepository();
-		expect((await repo.get()).tempoBpm).toBe(80);
-		expect((await repo.update({ tempoBpm: 96 })).tempoBpm).toBe(96);
+		expect((await repo.get()).locale).toBe('fr');
+		expect((await repo.update({ calibrationOffsetMs: 42 })).calibrationOffsetMs).toBe(42);
 		expect((await repo.get()).locale).toBe('fr');
 	});
 });

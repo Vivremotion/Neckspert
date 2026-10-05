@@ -16,22 +16,22 @@ describe('DexieSettingsRepository', () => {
 	it('stores a single row holding only the changed fields', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		const repo = new DexieSettingsRepository(db);
-		await repo.update({ tempoBpm: 96 });
+		await repo.update({ calibrationOffsetMs: 42 });
 		await repo.update({ locale: 'en' });
 		expect(await db.settings.count()).toBe(1);
 		expect(await db.settings.get('settings')).toEqual({
 			id: 'settings',
-			tempoBpm: 96,
+			calibrationOffsetMs: 42,
 			locale: 'en'
 		});
 	});
 
 	it('reads settings saved through another repository on the same database', async () => {
 		const db = createDatabase(crypto.randomUUID());
-		await new DexieSettingsRepository(db).update({ tempoBpm: 104 });
+		await new DexieSettingsRepository(db).update({ calibrationOffsetMs: 104 });
 		expect(await new DexieSettingsRepository(db).get()).toEqual({
 			...DEFAULT_SETTINGS,
-			tempoBpm: 104
+			calibrationOffsetMs: 104
 		});
 	});
 });

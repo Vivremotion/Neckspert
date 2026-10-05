@@ -1,6 +1,73 @@
 import { describe, expect, it } from 'vitest';
-import { makeAttempt, makeBackup, makeCard, makeSession } from './testing/fixtures';
-import { validateBackup } from './validateBackup';
+import {
+	makeAttempt,
+	makeBackup,
+	makeCard,
+	makeProgression,
+	makeSession
+} from './testing/fixtures';
+import { validateBackup, validateBackupV1, validateBackupV2 } from './validateBackup';
+
+const NOW = 9000;
+
+/** A version 1 export: targets, answers with their kind, a session tempo, a settings tempo. */
+function makeV1Backup(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return {
+		app: 'neckspert-play',
+		version: 1,
+		exportedAt: 5000,
+		settings: {
+			locale: 'fr',
+			tempoBpm: 96,
+			calibrationOffsetMs: null,
+			inputDeviceId: null,
+			builtInInputGain: 8
+		},
+		cards: [
+			{
+				key: 'locate:2:F',
+				target: { direction: 'locate', string: 2, pitch: 'F' },
+				introducedAt: 1000,
+				introducedInSession: 's1',
+				leadBeats: 1,
+				scheduling: { due: 3_601_000, state: 0 },
+				learnedAt: 1000,
+				acquiredAt: null,
+				masteredAt: null
+			}
+		],
+		attempts: [
+			{
+				id: 1,
+				sessionId: 's1',
+				cardKey: 'locate:2:F',
+				target: { direction: 'locate', string: 2, pitch: 'F' },
+				phase: 'review',
+				temperature: 'cold',
+				aid: 'none',
+				leadBeats: 2,
+				promptedAt: 1000,
+				answer: { kind: 'note', midi: 65 },
+				correct: true,
+				verdict: 'perfect',
+				timingOffsetMs: 10,
+				reactionMs: 900,
+				confusion: null
+			}
+		],
+		sessions: [
+			{
+				id: 's1',
+				kind: 'learn',
+				startedAt: 1000,
+				endedAt: 2000,
+				fatigueDetected: false,
+				tempoBpm: 100
+			}
+		],
+		...overrides
+	};
+}
 
 describe('validateBackup', () => {
 	it('returns a valid backup unchanged', () => {
@@ -13,7 +80,15 @@ describe('validateBackup', () => {
 		expect(validateBackup(JSON.parse(JSON.stringify(file)))).toEqual(file);
 	});
 
-	it('accepts an old export whose cards or attempts still hold the one-beat lead', () => {
+	it('accepts an identify card and attempt without tempo', () => {
+		const file = makeBackup({
+			cards: [makeCard({ mechanic: 'identify', leadBeats: 2 })],
+			attempts: [makeAttempt({ mechanic: 'identify' })]
+		});
+		expect(validateBackup(file)).toBe(file);
+	});
+
+	it('accepts an export whose cards or attempts still hold the one-beat lead', () => {
 		const file = makeBackup({
 			cards: [makeCard({ leadBeats: 1 as never })],
 			attempts: [makeAttempt({ leadBeats: 1 })]
@@ -23,11 +98,13 @@ describe('validateBackup', () => {
 
 	it('checks the confusion of an attempt, string-name included', () => {
 		const withConfusion = (confusion: unknown) =>
-			makeBackup({ attempts: [{ ...makeAttempt(), confusion } as never] });
+			makeBackup({
+				attempts: [makeAttempt({ data: { item: { string: 2, pitch: 'F' }, confusion } })]
+			});
 		expect(() => validateBackup(withConfusion({ kind: 'string-name' }))).not.toThrow();
 		expect(() => validateBackup(withConfusion({ kind: 'semitone', delta: 1 }))).not.toThrow();
 		expect(() => validateBackup(withConfusion({ kind: 'reading' }))).toThrow(
-			'Invalid attempts entry at index 0: confusion must be null or a semitone, octave, string-name or other confusion'
+			'Invalid attempts entry at index 0: data.confusion must be null or a semitone, octave, string-name or other confusion'
 		);
 	});
 
@@ -53,8 +130,8 @@ describe('validateBackup', () => {
 	});
 
 	it('rejects unsupported versions', () => {
-		expect(() => validateBackup({ ...makeBackup(), version: 2 })).toThrow(
-			'Unsupported backup version: 2'
+		expect(() => validateBackup({ ...makeBackup(), version: 3 })).toThrow(
+			'Unsupported backup version: 3'
 		);
 		expect(() => validateBackup({ ...makeBackup(), version: undefined })).toThrow(
 			'Unsupported backup version: undefined'
@@ -75,9 +152,6 @@ describe('validateBackup', () => {
 		expect(() => validateBackup({ ...file, settings: { ...file.settings, locale: 'de' } })).toThrow(
 			'Invalid backup settings: locale must be "fr" or "en"'
 		);
-		expect(() => validateBackup({ ...file, settings: { ...file.settings, tempoBpm: 0 } })).toThrow(
-			'Invalid backup settings: tempoBpm must be a positive number'
-		);
 		const { builtInInputGain: _gain, ...withoutGain } = file.settings;
 		expect(() => validateBackup({ ...file, settings: withoutGain })).not.toThrow();
 		expect(() =>
@@ -92,6 +166,9 @@ describe('validateBackup', () => {
 		expect(() => validateBackup({ ...makeBackup(), sessions: undefined })).toThrow(
 			'Backup field "sessions" must be an array'
 		);
+		expect(() => validateBackup({ ...makeBackup(), progressions: undefined })).toThrow(
+			'Backup field "progressions" must be an array'
+		);
 	});
 
 	it('rejects an invalid card and names its index', () => {
@@ -103,13 +180,38 @@ describe('validateBackup', () => {
 		);
 	});
 
-	it('rejects a card whose key is invalid or does not match its target', () => {
+	it('rejects a card of an unknown mechanic', () => {
 		expect(() =>
-			validateBackup({ ...makeBackup(), cards: [{ ...makeCard(), key: 'locate:7:F' }] })
+			validateBackup({
+				...makeBackup(),
+				cards: [{ ...makeCard(), mechanic: 'chords', key: 'chords:C' }]
+			})
+		).toThrow('Invalid cards entry at index 0: mechanic must be one of locate, identify');
+	});
+
+	it('rejects a card whose key does not match its mechanic and item', () => {
+		const card = makeCard();
+		expect(() =>
+			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'locate:7:F' }] })
 		).toThrow('Invalid cards entry at index 0: key is not a valid card key');
 		expect(() =>
-			validateBackup({ ...makeBackup(), cards: [{ ...makeCard(), key: 'locate:3:F' }] })
-		).toThrow('Invalid cards entry at index 0: target does not match key');
+			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'locate:02:F' }] })
+		).toThrow('Invalid cards entry at index 0: key is not a valid card key');
+		expect(() =>
+			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'identify:2:6' }] })
+		).toThrow('Invalid cards entry at index 0: key does not match mechanic');
+		expect(() =>
+			validateBackup({
+				...makeBackup(),
+				cards: [{ ...card, key: 'locate:6:F', item: { string: 5, pitch: 'F' } }]
+			})
+		).toThrow('Invalid cards entry at index 0: item does not match key');
+		expect(() =>
+			validateBackup({
+				...makeBackup(),
+				cards: [{ ...card, item: { string: 2, pitch: 'F', fret: 6 } }]
+			})
+		).toThrow('Invalid cards entry at index 0: item does not match key');
 	});
 
 	it('rejects an invalid attempt', () => {
@@ -123,15 +225,35 @@ describe('validateBackup', () => {
 		);
 		expect(() =>
 			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), cardKey: 'locate:2:G' }] })
-		).toThrow('Invalid attempts entry at index 0: target does not match cardKey');
+		).toThrow('Invalid attempts entry at index 0: data.item does not match cardKey');
+		expect(() =>
+			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), mechanic: 'chords' }] })
+		).toThrow('Invalid attempts entry at index 0: mechanic must be one of locate, identify');
+		expect(() =>
+			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), exerciseId: '' }] })
+		).toThrow('Invalid attempts entry at index 0: exerciseId must be a non-empty string');
+		expect(() =>
+			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), data: null }] })
+		).toThrow('Invalid attempts entry at index 0: data must be an object with an item');
+		expect(() =>
+			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), data: {} }] })
+		).toThrow('Invalid attempts entry at index 0: data must be an object with an item');
+	});
+
+	it('requires a positive tempo or null on every attempt', () => {
+		for (const tempoBpm of [0, -80, undefined, '80']) {
+			expect(() =>
+				validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), tempoBpm }] })
+			).toThrow('Invalid attempts entry at index 0: tempoBpm must be a positive number or null');
+		}
+		expect(() =>
+			validateBackup(makeBackup({ attempts: [makeAttempt({ tempoBpm: null })] }))
+		).not.toThrow();
 	});
 
 	it('rejects an invalid session', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'weekly' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
-		expect(() =>
-			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'daily' }] })
 		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'placement' }] })
@@ -144,6 +266,50 @@ describe('validateBackup', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), fatigueDetected: 'no' }] })
 		).toThrow('Invalid sessions entry at index 0: fatigueDetected must be a boolean');
+	});
+
+	it('checks the executions of a session', () => {
+		const withExecutions = (executions: unknown) =>
+			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), executions }] });
+		expect(() => withExecutions([])).not.toThrow();
+		expect(() => withExecutions(undefined)).toThrow(
+			'Invalid sessions entry at index 0: executions must be an array'
+		);
+		expect(() => withExecutions(['locate-neck'])).toThrow(
+			'Invalid sessions entry at index 0: executions[0] must be an object'
+		);
+		expect(() =>
+			withExecutions([{ exerciseId: 'locate-neck', tempoBpm: 80 }, { tempoBpm: null }])
+		).toThrow(
+			'Invalid sessions entry at index 0: executions[1].exerciseId must be a non-empty string'
+		);
+		expect(() => withExecutions([{ exerciseId: 'locate-neck', tempoBpm: 0 }])).toThrow(
+			'Invalid sessions entry at index 0: executions[0].tempoBpm must be a positive number or null'
+		);
+		expect(() => withExecutions([{ exerciseId: 'locate-neck' }])).toThrow(
+			'Invalid sessions entry at index 0: executions[0].tempoBpm must be a positive number or null'
+		);
+	});
+
+	it('checks progressions', () => {
+		const withProgression = (progression: unknown) =>
+			validateBackup({ ...makeBackup(), progressions: [progression] });
+		expect(() => withProgression(makeProgression())).not.toThrow();
+		expect(() => withProgression({ ...makeProgression(), exerciseId: '' })).toThrow(
+			'Invalid progressions entry at index 0: exerciseId must be a non-empty string'
+		);
+		expect(() => withProgression({ ...makeProgression(), mechanic: 'chords' })).toThrow(
+			'Invalid progressions entry at index 0: mechanic must be one of locate, identify'
+		);
+		expect(() => withProgression({ ...makeProgression(), tempoBpm: 0 })).toThrow(
+			'Invalid progressions entry at index 0: tempoBpm must be a positive number'
+		);
+		expect(() => withProgression({ ...makeProgression(), tempoBpm: null })).toThrow(
+			'Invalid progressions entry at index 0: tempoBpm must be a positive number'
+		);
+		expect(() => withProgression({ ...makeProgression(), updatedAt: undefined })).toThrow(
+			'Invalid progressions entry at index 0: updatedAt must be a number'
+		);
 	});
 
 	it('accepts a learn session and a consolidation attempt', () => {
@@ -169,14 +335,71 @@ describe('validateBackup', () => {
 		);
 	});
 
-	it('accepts a session without tempoBpm', () => {
-		const { tempoBpm: _dropped, ...withoutTempo } = makeSession();
-		expect(() => validateBackup({ ...makeBackup(), sessions: [withoutTempo] })).not.toThrow();
-	});
+	describe('with a version 1 file', () => {
+		it('converts it, then checks it as version 2', () => {
+			const file = validateBackup(makeV1Backup(), NOW);
+			expect(file.version).toBe(2);
+			expect(file.app).toBe('neckspert-play');
+			expect(file.exportedAt).toBe(5000);
+			expect(file.settings).toEqual({
+				locale: 'fr',
+				calibrationOffsetMs: null,
+				inputDeviceId: null,
+				builtInInputGain: 8
+			});
+			expect(file.progressions).toEqual([
+				{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 96, updatedAt: NOW }
+			]);
+			expect(file.cards[0]).toMatchObject({
+				key: 'locate:2:F',
+				mechanic: 'locate',
+				item: { string: 2, pitch: 'F' },
+				leadBeats: 2
+			});
+			expect(file.attempts[0]).toMatchObject({
+				exerciseId: 'locate-neck',
+				tempoBpm: 100,
+				data: { item: { string: 2, pitch: 'F' }, answer: { midi: 65 }, confusion: null }
+			});
+			expect(file.sessions[0].executions).toEqual([
+				{ exerciseId: 'locate-neck', tempoBpm: 100 },
+				{ exerciseId: 'identify-neck', tempoBpm: null }
+			]);
+			expect(() => validateBackupV2(file)).not.toThrow();
+		});
 
-	it('rejects a session with tempoBpm zero', () => {
-		expect(() =>
-			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), tempoBpm: 0 }] })
-		).toThrow('tempoBpm');
+		it('stamps the conversion with the current time by default', () => {
+			const before = Date.now();
+			const file = validateBackup(makeV1Backup());
+			expect(file.progressions[0].updatedAt).toBeGreaterThanOrEqual(before);
+			expect(file.progressions[0].updatedAt).toBeLessThanOrEqual(Date.now());
+		});
+
+		it('keeps the version 1 checks and their messages', () => {
+			const v1 = makeV1Backup();
+			const [card] = v1.cards as Record<string, unknown>[];
+			expect(() => validateBackup({ ...v1, cards: [{ ...card, key: 'locate:3:F' }] })).toThrow(
+				'Invalid cards entry at index 0: target does not match key'
+			);
+			expect(() => validateBackup({ ...v1, cards: [{ ...card, key: 'chords:3:F' }] })).toThrow(
+				'Invalid cards entry at index 0: key is not a valid card key'
+			);
+			expect(() =>
+				validateBackup({ ...v1, settings: { ...(v1.settings as object), tempoBpm: 0 } })
+			).toThrow('Invalid backup settings: tempoBpm must be a positive number');
+			const [session] = v1.sessions as Record<string, unknown>[];
+			expect(() => validateBackup({ ...v1, sessions: [{ ...session, tempoBpm: 0 }] })).toThrow(
+				'Invalid sessions entry at index 0: tempoBpm must be a positive number or null'
+			);
+			const { tempoBpm: _dropped, ...withoutTempo } = session;
+			expect(() => validateBackup({ ...v1, sessions: [withoutTempo] })).not.toThrow();
+		});
+
+		it('is checked on its own by validateBackupV1', () => {
+			const v1 = makeV1Backup();
+			expect(validateBackupV1(v1)).toBe(v1);
+			expect(() => validateBackupV1(makeBackup())).toThrow('Unsupported backup version: 2');
+			expect(() => validateBackupV2(v1)).toThrow('Unsupported backup version: 1');
+		});
 	});
 });

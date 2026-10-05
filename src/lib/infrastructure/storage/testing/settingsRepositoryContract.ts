@@ -19,18 +19,18 @@ export function settingsRepositoryContract(
 		});
 
 		it('returns the defaults merged with an update', async () => {
-			const expected = { ...DEFAULT_SETTINGS, tempoBpm: 96 };
-			expect(await repo.update({ tempoBpm: 96 })).toEqual(expected);
+			const expected = { ...DEFAULT_SETTINGS, locale: 'en' };
+			expect(await repo.update({ locale: 'en' })).toEqual(expected);
 			expect(await repo.get()).toEqual(expected);
 		});
 
 		it('keeps earlier updates', async () => {
-			await repo.update({ tempoBpm: 96 });
-			await repo.update({ locale: 'en', inputDeviceId: 'usb-1' });
+			await repo.update({ locale: 'en' });
+			await repo.update({ calibrationOffsetMs: 42, inputDeviceId: 'usb-1' });
 			expect(await repo.get()).toEqual({
 				...DEFAULT_SETTINGS,
-				tempoBpm: 96,
 				locale: 'en',
+				calibrationOffsetMs: 42,
 				inputDeviceId: 'usb-1'
 			});
 		});

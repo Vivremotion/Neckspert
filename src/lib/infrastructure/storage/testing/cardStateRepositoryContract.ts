@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { CardStateRepositoryPort } from '$lib/application/ports';
 import type { CardState } from '$lib/domain/types';
-import { IDENTIFY_TARGET, makeCard } from './fixtures';
+import { makeCard } from './fixtures';
 
 function byKey(a: CardState, b: CardState): number {
 	return a.key.localeCompare(b.key);
@@ -42,7 +42,7 @@ export function cardStateRepositoryContract(
 		});
 
 		it('stores many cards at once', async () => {
-			const cards = [makeCard(), makeCard({ target: IDENTIFY_TARGET, leadBeats: 2 })];
+			const cards = [makeCard(), makeCard({ mechanic: 'identify', leadBeats: 2 })];
 			await repo.putMany(cards);
 			expect((await repo.all()).sort(byKey)).toEqual([...cards].sort(byKey));
 		});
@@ -50,7 +50,7 @@ export function cardStateRepositoryContract(
 		it('replaces existing cards when storing many', async () => {
 			await repo.put(makeCard());
 			const updated = makeCard({ masteredAt: 9000 });
-			await repo.putMany([updated, makeCard({ target: IDENTIFY_TARGET })]);
+			await repo.putMany([updated, makeCard({ mechanic: 'identify' })]);
 			expect(await repo.get(updated.key)).toEqual(updated);
 			expect(await repo.all()).toHaveLength(2);
 		});

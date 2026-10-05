@@ -1,5 +1,5 @@
 import type { BeatEvent, MetronomePort } from '$lib/application/ports';
-import { DEFAULT_SETTINGS } from '$lib/domain/types';
+import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
 import { beatsToSchedule } from './beatsToSchedule';
 
 export const MIN_TEMPO_BPM = 20;
@@ -31,7 +31,7 @@ export interface MetronomeOptions {
  * stop() does not cancel clicks already handed to the audio thread (at most scheduleAheadS ahead).
  */
 export class WebAudioMetronome implements MetronomePort {
-	private bpm: number = DEFAULT_SETTINGS.tempoBpm;
+	private bpm: number = DEFAULT_TEMPO_BPM;
 	private firstBeatTime: number | null = null;
 	private nextIndex = 0;
 	private run = 0;

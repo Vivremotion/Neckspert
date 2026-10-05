@@ -5,38 +5,51 @@ import { createDatabase, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
+import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
 import {
-	IDENTIFY_TARGET,
 	makeAttempt,
 	makeBackup,
 	makeCard,
+	makeProgression,
 	makeSession
 } from './testing/fixtures';
 import { validateBackup } from './validateBackup';
 
-/** Two cards, three attempts, two sessions, two changed settings. */
+/** Two progressions, two cards, three attempts, two sessions, two changed settings. */
 async function seed(db: NeckspertDb): Promise<void> {
-	await new DexieSettingsRepository(db).update({ tempoBpm: 96, calibrationOffsetMs: 42 });
+	await new DexieSettingsRepository(db).update({ locale: 'en', calibrationOffsetMs: 42 });
+	const progressions = new DexieProgressionRepository(db);
+	await progressions.put(makeProgression());
+	await progressions.put(
+		makeProgression({ exerciseId: 'identify-neck', mechanic: 'identify', tempoBpm: 80 })
+	);
 	await new DexieCardStateRepository(db).putMany([
 		makeCard(),
-		makeCard({ target: IDENTIFY_TARGET, leadBeats: 2 })
+		makeCard({ mechanic: 'identify', leadBeats: 2 })
 	]);
 	const attempts = new DexieAttemptRepository(db);
 	await attempts.add(makeAttempt({ promptedAt: 3000, verdict: 'late', reactionMs: 1800 }));
 	await attempts.add(makeAttempt({ promptedAt: 1000 }));
 	await attempts.add(
 		makeAttempt({
-			target: IDENTIFY_TARGET,
+			mechanic: 'identify',
 			promptedAt: 2000,
-			leadBeats: null,
-			answer: { kind: 'name', pitch: 'F' },
-			timingOffsetMs: null
+			data: { item: { string: 5, fret: 8 }, answer: { pitch: 'E' }, confusion: null },
+			correct: false,
+			verdict: 'wrong'
 		})
 	);
 	const sessions = new DexieSessionRepository(db);
-	await sessions.put(makeSession({ id: 's2', startedAt: 2500, endedAt: null }));
+	await sessions.put(
+		makeSession({
+			id: 's2',
+			startedAt: 2500,
+			endedAt: null,
+			executions: [{ exerciseId: 'locate-neck', tempoBpm: 96 }]
+		})
+	);
 	await sessions.put(makeSession({ id: 's1', startedAt: 500 }));
 }
 
@@ -52,9 +65,9 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(1);
+			expect(file.version).toBe(2);
 			expect(file.exportedAt).toBe(123);
-			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, tempoBpm: 96, calibrationOffsetMs: 42 });
+			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', calibrationOffsetMs: 42 });
 			expect(file.cards.map((card) => card.key).sort()).toEqual(['identify:5:8', 'locate:2:F']);
 			expect(file.attempts.map((attempt) => attempt.promptedAt)).toEqual([1000, 2000, 3000]);
 			expect(file.attempts.every((attempt) => typeof attempt.id === 'number')).toBe(true);
@@ -64,13 +77,31 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 1,
+				version: 2,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
+				progressions: [],
 				cards: [],
 				attempts: [],
 				sessions: []
 			});
+		});
+
+		it('exports version 2 with progressions', async () => {
+			await seed(db);
+			const file = await new DexieBackup(db, () => 123).exportAll();
+			expect(file.version).toBe(2);
+			expect(
+				[...file.progressions].sort((a, b) => a.exerciseId.localeCompare(b.exerciseId))
+			).toEqual([
+				makeProgression({ exerciseId: 'identify-neck', mechanic: 'identify', tempoBpm: 80 }),
+				makeProgression()
+			]);
+			expect(file.sessions.map((session) => session.executions)).toEqual([
+				makeSession().executions,
+				[{ exerciseId: 'locate-neck', tempoBpm: 96 }]
+			]);
+			expect(file.settings).not.toHaveProperty('tempoBpm');
 		});
 
 		it('stamps the current time by default', async () => {
@@ -98,6 +129,7 @@ describe('DexieBackup', () => {
 			await new DexieBackup(db).importAll(file);
 
 			expect(await new DexieSettingsRepository(db).get()).toEqual(file.settings);
+			expect(await new DexieProgressionRepository(db).all()).toEqual(file.progressions);
 			expect(await new DexieCardStateRepository(db).all()).toEqual(file.cards);
 			expect(await new DexieAttemptRepository(db).all()).toEqual(file.attempts);
 			expect(await new DexieSessionRepository(db).list()).toEqual(file.sessions);
@@ -105,11 +137,11 @@ describe('DexieBackup', () => {
 
 		it('keeps every setting but the input device, which belongs to the exporting browser', async () => {
 			const file = makeBackup({
-				settings: { ...DEFAULT_SETTINGS, tempoBpm: 96, inputDeviceId: 'usb-elsewhere' }
+				settings: { ...DEFAULT_SETTINGS, locale: 'en', inputDeviceId: 'usb-elsewhere' }
 			});
 			await new DexieBackup(db).importAll(file);
 			const settings = await new DexieSettingsRepository(db).get();
-			expect(settings).toMatchObject({ tempoBpm: 96, inputDeviceId: null });
+			expect(settings).toMatchObject({ locale: 'en', inputDeviceId: null });
 		});
 
 		it('imports an old export with a one-beat card on the shortest lead left', async () => {
@@ -130,6 +162,7 @@ describe('DexieBackup', () => {
 			expect(await db.attempts.count()).toBe(3);
 			expect(await db.cards.count()).toBe(2);
 			expect(await db.sessions.count()).toBe(2);
+			expect(await db.progressions.count()).toBe(2);
 		});
 
 		it('keeps the stored data when writing fails midway', async () => {
@@ -143,7 +176,8 @@ describe('DexieBackup', () => {
 			expect(await db.attempts.count()).toBe(3);
 			expect(await db.cards.count()).toBe(2);
 			expect((await new DexieSessionRepository(db).list()).map((s) => s.id)).toEqual(['s1', 's2']);
-			expect((await new DexieSettingsRepository(db).get()).tempoBpm).toBe(96);
+			expect((await new DexieSettingsRepository(db).get()).locale).toBe('en');
+			expect(await db.progressions.count()).toBe(2);
 		});
 	});
 
@@ -157,5 +191,52 @@ describe('DexieBackup', () => {
 
 		expect(second.exportedAt).toBe(2000);
 		expect({ ...second, exportedAt: first.exportedAt }).toEqual(first);
+	});
+
+	it('restores progressions and executions after an export and an import', async () => {
+		await seed(db);
+		const file = await new DexieBackup(db, () => 1000).exportAll();
+
+		const fresh = createDatabase(crypto.randomUUID());
+		await new DexieBackup(fresh).importAll(JSON.parse(JSON.stringify(file)));
+
+		const byExercise = (a: { exerciseId: string }, b: { exerciseId: string }) =>
+			a.exerciseId.localeCompare(b.exerciseId);
+		expect((await new DexieProgressionRepository(fresh).all()).sort(byExercise)).toEqual(
+			(await new DexieProgressionRepository(db).all()).sort(byExercise)
+		);
+		expect(await new DexieSessionRepository(fresh).list()).toEqual(
+			await new DexieSessionRepository(db).list()
+		);
+		expect(
+			(await new DexieSessionRepository(fresh).list()).map((session) => session.executions)
+		).toEqual([makeSession().executions, [{ exerciseId: 'locate-neck', tempoBpm: 96 }]]);
+		expect(await fresh.progressions.count()).toBe(2);
+	});
+
+	it('imports a version 1 file through the conversion, at the time of the import', async () => {
+		const v1 = {
+			app: 'neckspert-play',
+			version: 1,
+			exportedAt: 5,
+			settings: { locale: 'fr', tempoBpm: 104, calibrationOffsetMs: null, inputDeviceId: 'usb' },
+			cards: [],
+			attempts: [],
+			sessions: []
+		};
+		await seed(db);
+
+		await new DexieBackup(db, () => 777).importAll(v1);
+
+		expect(await new DexieProgressionRepository(db).all()).toEqual([
+			{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 104, updatedAt: 777 }
+		]);
+		expect(await db.settings.get('settings')).toEqual({
+			id: 'settings',
+			locale: 'fr',
+			calibrationOffsetMs: null,
+			inputDeviceId: null
+		});
+		expect(await db.cards.count()).toBe(0);
 	});
 });

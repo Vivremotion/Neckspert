@@ -12,6 +12,7 @@ describe('storage module', () => {
 			'DexieAttemptRepository',
 			'DexieBackup',
 			'DexieCardStateRepository',
+			'DexieProgressionRepository',
 			'DexieSessionRepository',
 			'DexieSettingsRepository',
 			'NeckspertDb',

@@ -7,6 +7,7 @@ export type {
 	AttemptRepositoryPort,
 	BackupPort,
 	CardStateRepositoryPort,
+	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort
 } from './repositories';
