@@ -10,35 +10,21 @@ import {
 } from '$lib/debug/detectionLog';
 import {
 	acceptableMidis,
-	classifyNameConfusion,
-	classifyNoteConfusion,
 	formatNote,
 	pitchOnString,
 	spellPitch,
 	stringLabel
 } from '$lib/domain/music';
-import {
-	applyColdAttempt,
-	classifyTemperature,
-	introduceCard,
-	clampTempo,
-	nextSessionTempo,
-	probeTemperature,
-	type SessionSelector
-} from '$lib/domain/progress';
+import { clampTempo, nextSessionTempo, type SessionSelector } from '$lib/domain/progress';
 import type {
 	Answer,
-	Attempt,
-	CardState,
 	Direction,
 	Locale,
 	PlannedItem,
 	SessionKind,
 	Settings,
-	Temperature,
 	Verdict
 } from '$lib/domain/types';
-import { cardKey } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
 import { detectFatigue, type Judgement } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
@@ -54,6 +40,7 @@ import {
 	type RoundOutcome,
 	type TimingRelation
 } from '$lib/domain/timing';
+import { AttemptRecorder } from './AttemptRecorder';
 import { openAudioInput } from './audioInput';
 import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 
@@ -119,7 +106,7 @@ export class SessionController implements PlaySessionController {
 	private current: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
-	private sessionAttempts: Attempt[] = [];
+	private recorder: AttemptRecorder | null = null;
 	private sessionTempoBpm: number | null = null;
 	private run = 0;
 	private starting = false;
@@ -180,7 +167,7 @@ export class SessionController implements PlaySessionController {
 		this.lastDirection = null;
 		this.view.scene = 'locate';
 		this.view.countdown = null;
-		this.sessionAttempts = [];
+		this.recorder = null;
 		this.current = null;
 		this.clearItemState();
 		this.view.history = [];
@@ -207,6 +194,17 @@ export class SessionController implements PlaySessionController {
 		]);
 		this.view.tempoBpm = this.settings.tempoBpm;
 		this.sessionTempoBpm = this.settings.tempoBpm;
+		if (this.selector) {
+			this.recorder = new AttemptRecorder({
+				attempts: this.deps.attempts,
+				cards: this.deps.cards,
+				clock: this.deps.clock,
+				now: this.deps.now,
+				selector: this.selector,
+				sessionId: this.sessionId,
+				tempoBpm: this.settings.tempoBpm
+			});
+		}
 
 		await this.deps.clock.resume();
 		if (this.run !== run) return;
@@ -480,7 +478,7 @@ export class SessionController implements PlaySessionController {
 			this.deps.cues.play(outcome.verdict);
 		}
 		this.setStatus('verdict');
-		void this.persistAttempt(judgement);
+		this.persistAttempt(outcome);
 	}
 
 	private addToLane(outcome: RoundOutcome): void {
@@ -614,111 +612,12 @@ export class SessionController implements PlaySessionController {
 		};
 	}
 
-	private async persistAttempt(judgement: Judgement): Promise<void> {
-		if (!this.current || !this.round) return;
-		const item = this.current;
-		const key = cardKey(item.target);
-		const promptedAt = this.deps.clock.toEpochMs(this.round.promptTime);
-		const attemptedInSession = this.sessionAttempts.some((a) => a.cardKey === key);
-
-		// Provisional temperature for sync fatigue/session tracking; refined after history load.
-		const provisionalTemperature =
-			item.phase === 'learning' ||
-			item.phase === 'consolidation' ||
-			item.phase === 'free' ||
-			item.phase === 'probe'
-				? item.temperature
-				: attemptedInSession
-					? 'hot'
-					: 'cold';
-
-		let confusion = null;
-		if (judgement.answer !== null && !judgement.correct) {
-			if (item.target.direction === 'locate' && judgement.answer.kind === 'note') {
-				confusion = classifyNoteConfusion(item.target, judgement.answer.midi);
-			} else if (item.target.direction === 'identify' && judgement.answer.kind === 'name') {
-				confusion = classifyNameConfusion(
-					pitchOnString(item.target.string, item.target.fret),
-					judgement.answer.pitch
-				);
-			}
-		}
-
-		const attempt: Attempt = {
-			sessionId: this.sessionId,
-			cardKey: key,
-			target: item.target,
-			phase: item.phase,
-			temperature: provisionalTemperature,
-			aid: item.aid,
-			leadBeats: item.leadBeats,
-			promptedAt,
-			answer: judgement.answer,
-			correct: judgement.correct,
-			verdict: judgement.verdict,
-			timingOffsetMs: judgement.timingOffsetMs,
-			reactionMs: judgement.reactionMs,
-			confusion
-		};
-
-		// Fatigue and the selector must see the attempt before any await, so the next onBeat
-		// cannot pick a prompt from stale state.
-		this.sessionAttempts.push(attempt);
-		if (detectFatigue(this.sessionAttempts)) this.view.fatigueDetected = true;
-		const outcome = this.selector?.record(attempt, this.deps.now()) ?? null;
-
-		const history = await this.deps.attempts.listByCard(key);
-		const existing = await this.deps.cards.get(key);
-		const lastAttemptAt = history.length > 0 ? history[history.length - 1].promptedAt : null;
-		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
-		const temperature =
-			item.phase === 'probe'
-				? probeTemperature(attempt, this.settings.tempoBpm)
-				: this.temperatureFor(item, existing, {
-						lastAttemptAt,
-						attemptedInSession,
-						now: promptedAt
-					});
-		attempt.temperature = temperature;
-
-		await this.deps.attempts.add(attempt);
-
-		const now = this.deps.now();
-		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
-			if (existing) {
-				const fullHistory = [...history, attempt];
-				await this.storeCard(
-					applyColdAttempt(existing, attempt, fullHistory, now, this.settings.tempoBpm)
-				);
-			}
-		} else if (item.phase === 'probe') {
-			if (outcome) await this.storeCard(outcome.card);
-		} else if (item.phase === 'learning') {
-			if (outcome) await this.storeCard(outcome.card);
-			else if (!existing) {
-				await this.storeCard(introduceCard(item.target, now, this.sessionId));
-			}
-		}
-	}
-
-	/** Stores a card and tells the selector, whose copy must not go stale. */
-	private async storeCard(card: CardState): Promise<void> {
-		await this.deps.cards.put(card);
-		this.selector?.cardChanged(card);
-	}
-
-	/**
-	 * Learning and consolidation stay hot. Free play counts cold only on a learned card.
-	 * Reviews follow the cold-delay rule; probes are judged by probeTemperature.
-	 */
-	private temperatureFor(
-		item: PlannedItem,
-		card: CardState | undefined,
-		input: { lastAttemptAt: number | null; attemptedInSession: boolean; now: number }
-	): Temperature {
-		if (item.phase === 'learning' || item.phase === 'consolidation') return item.temperature;
-		if (item.phase === 'free' && (!card || card.learnedAt === null)) return item.temperature;
-		return classifyTemperature(input);
+	private persistAttempt(outcome: RoundOutcome): void {
+		if (!this.current || !this.round || !this.recorder) return;
+		const { stored } = this.recorder.record(this.current, outcome, this.round.promptTime);
+		// Fatigue sees the attempt at once; the write settles on its own.
+		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
+		void stored;
 	}
 
 	private advanceAfterVerdict(beat: BeatEvent): void {
@@ -757,7 +656,7 @@ export class SessionController implements PlaySessionController {
 		const sessionId = this.sessionId;
 		const fatigueDetected = this.view.fatigueDetected;
 		const tempoBpm = this.sessionTempoBpm;
-		const attempts = [...this.sessionAttempts];
+		const attempts = [...(this.recorder?.sessionAttempts ?? [])];
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubNote?.();
