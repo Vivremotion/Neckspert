@@ -1,6 +1,7 @@
 import { CHROMATIC_NOTES, pitchOfMidi, type Midi, type PitchName } from '$lib/domain/music/types';
 import type { Confusion, LocateTarget } from '$lib/domain/types';
 import { acceptableMidis, pitchOnString } from './fretboard';
+import type { LocateItem } from './items';
 
 const OCTAVE = 12;
 
@@ -16,13 +17,16 @@ function fromDistance(semitones: number): Confusion {
 		: { kind: 'other', semitones };
 }
 
-/** Null when the played note is acceptable. */
-export function classifyNoteConfusion(target: LocateTarget, playedMidi: Midi): Confusion | null {
-	const acceptable = acceptableMidis(target);
+/** Null when the played note is acceptable. `LocateTarget`: as in `acceptableMidis`. */
+export function classifyNoteConfusion(
+	item: LocateItem | LocateTarget,
+	playedMidi: Midi
+): Confusion | null {
+	const acceptable = acceptableMidis(item);
 	if (acceptable.includes(playedMidi)) return null;
-	if (pitchOfMidi(playedMidi) === target.pitch) return { kind: 'octave' };
+	if (pitchOfMidi(playedMidi) === item.pitch) return { kind: 'octave' };
 	// The open note names the string in the prompt: playing it is a reading slip, not a fret off.
-	if (pitchOfMidi(playedMidi) === pitchOnString(target.string, 0)) return { kind: 'string-name' };
+	if (pitchOfMidi(playedMidi) === pitchOnString(item.string, 0)) return { kind: 'string-name' };
 	// `acceptable` is ascending and the comparison strict, so a tie keeps the lower note.
 	const nearest = acceptable.reduce((best, midi) =>
 		Math.abs(playedMidi - midi) < Math.abs(playedMidi - best) ? midi : best

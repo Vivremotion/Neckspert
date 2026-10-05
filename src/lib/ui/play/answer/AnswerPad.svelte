@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { AnswerChoice } from '$lib/application/session/contract';
-	import type { PitchName } from '$lib/domain/music/types';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import { orderChoices } from './choices';
 	import { answerMessages } from './messages';
@@ -12,34 +11,34 @@
 	}: {
 		choices: AnswerChoice[];
 		disabled: boolean;
-		onanswer: (pitch: PitchName) => void;
+		onanswer: (value: string) => void;
 	} = $props();
 
 	const ordered = $derived(orderChoices(choices));
 	const messages = $derived(answerMessages());
 
 	/** First tap of the current prompt; cleared when the pad is enabled for the next one. */
-	let picked = $state<PitchName | null>(null);
+	let picked = $state<string | null>(null);
 
 	$effect.pre(() => {
 		if (!disabled) picked = null;
 	});
 
-	function pick(pitch: PitchName): void {
+	function pick(value: string): void {
 		if (disabled || picked !== null) return;
-		picked = pitch;
-		onanswer(pitch);
+		picked = value;
+		onanswer(value);
 	}
 </script>
 
 <div class="answer-pad" role="group" aria-label={messages.group}>
 	<div class="grid">
-		{#each ordered as choice (choice.pitch)}
-			<div class="cell" class:picked={picked === choice.pitch}>
+		{#each ordered as choice (choice.value)}
+			<div class="cell" class:picked={picked === choice.value}>
 				<PixelButton
 					size="large"
 					disabled={disabled || picked !== null}
-					onclick={(_event: MouseEvent) => pick(choice.pitch)}>{choice.label}</PixelButton
+					onclick={(_event: MouseEvent) => pick(choice.value)}>{choice.label}</PixelButton
 				>
 			</div>
 		{/each}

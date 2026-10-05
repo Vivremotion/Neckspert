@@ -1,11 +1,13 @@
-import type { PitchName, StringNumber } from '$lib/domain/music/types';
-import type { Direction, LeadBeats, Verdict } from '$lib/domain/types';
+import type { StringNumber } from '$lib/domain/music/types';
+import type { LeadBeats, Verdict } from '$lib/domain/types';
+import type { Scene } from '$lib/application/mechanics/types';
+
+export type { Scene };
 
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
 /** Localized prompt, ready to display. */
 export interface PromptView {
-	direction: Direction;
 	/** Mode 1: the note ("F", "Gb"). Mode 2: the fret ("case 8"). */
 	primary: string;
 	/** The string ("corde de B"). */
@@ -34,7 +36,8 @@ export interface LaneEntry {
 }
 
 export interface AnswerChoice {
-	pitch: PitchName;
+	/** What the tap sends to `answer` (mode 2: the pitch, "F#"). */
+	value: string;
 	/** "F", or "F# / Gb" for altered notes. */
 	label: string;
 }
@@ -55,8 +58,8 @@ export interface PlayView {
 	/** Mode 2: the twelve answer buttons. */
 	answerChoices: AnswerChoice[] | null;
 	fatigueDetected: boolean;
-	/** What the stage shows: the lane for the guitar (locate), the answer pad for the screen (identify). */
-	scene: Direction;
+	/** What the stage shows: the lane for the guitar, the answer pad for the screen. */
+	scene: Scene;
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
 	countdown: number | null;
 	/** Mode 1: the next prompt, shown string first before its note appears. Only its string shows. */
@@ -80,8 +83,8 @@ export interface PlaySessionController {
 	start(): Promise<void>;
 	pause(): void;
 	resume(): void;
-	/** Mode 2 answer. Ignored in mode 1 and outside `awaiting`. */
-	answer(pitch: PitchName): void;
+	/** A tap on an answer choice (its `value`). Ignored on the guitar and outside `awaiting`. */
+	answer(value: string): void;
 	/** Ends the session and stops audio. */
 	quit(): void;
 }

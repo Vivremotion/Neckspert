@@ -37,7 +37,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		history: [],
 		answerChoices: identifyChoices(),
 		fatigueDetected: false,
-		scene: 'identify',
+		scene: 'screen',
 		countdown: null,
 		preview: null,
 		audioError: null
@@ -76,7 +76,8 @@ export class DemoIdentifySession implements PlaySessionController {
 		this.view.status = 'awaiting';
 	}
 
-	answer(pitch: PitchName): void {
+	answer(value: string): void {
+		const pitch = value as PitchName;
 		if (this.view.status !== 'awaiting') return;
 		const target = this.script[this.index];
 		const judgement = judgeIdentify({
@@ -116,7 +117,6 @@ export class DemoIdentifySession implements PlaySessionController {
 			return;
 		}
 		this.view.prompt = {
-			direction: 'identify',
 			primary: fretLabel(target.fret, i18n.locale),
 			secondary: stringLabel(target.string, i18n.locale),
 			aid: null,

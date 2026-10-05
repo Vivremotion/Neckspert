@@ -19,6 +19,8 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import type { SessionDeps } from './SessionDeps';
+import { NECK_PRESENTERS } from '$lib/application/mechanics';
+import { noteSensor, tapSensor } from './sensors';
 import { SessionController } from './SessionController.svelte';
 
 function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
@@ -66,7 +68,9 @@ function createDeps(clock = new FakeClock()): SessionDeps & {
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
-		newId: () => 'id-1'
+		newId: () => 'id-1',
+		mechanics: NECK_PRESENTERS,
+		sensors: { note: noteSensor(detector), tap: tapSensor() }
 	};
 }
 
@@ -647,7 +651,7 @@ describe('SessionController identify', () => {
 		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
-		expect(controller.view.prompt?.direction).toBe('locate');
+		expect(controller.view.scene).toBe('guitar');
 
 		const targetTime = deps.metronome.beatTime(8);
 		deps.detector.emitNote({
@@ -661,7 +665,7 @@ describe('SessionController identify', () => {
 		expect(controller.view.status).toBe('count-in');
 		atBeat(deps, 13);
 		expect(controller.view.status).toBe('awaiting');
-		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 		expect(controller.view.promptBeatIndex).toBeNull();
 		expect(controller.view.targetBeatIndex).toBeNull();
 		expect(controller.view.answerChoices).toHaveLength(12);
@@ -684,7 +688,7 @@ describe('SessionController identify', () => {
 		expect(deps.metronome.audible).toBe(false);
 
 		tick(deps, 0.1 + 0.75 * 4);
-		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 		expect(deps.metronome.isRunning()).toBe(true);
 		expect(deps.metronome.audible).toBe(false);
 
@@ -696,7 +700,7 @@ describe('SessionController identify', () => {
 		expect(controller.view.status).toBe('count-in');
 		expect(deps.metronome.audible).toBe(true);
 		atBeat(deps, 12);
-		expect(controller.view.prompt?.direction).toBe('locate');
+		expect(controller.view.scene).toBe('guitar');
 		expect(deps.metronome.audible).toBe(true);
 	});
 
@@ -736,13 +740,13 @@ describe('SessionController identify', () => {
 		const controller = make(planWith([identifyItem(), locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
-		expect(controller.view.scene).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 		controller.answer('C');
 		// Answered on beat 4, decided on beat 5: the bar counts down to the aligned beat 12.
 		atBeat(deps, 5);
 		expect(controller.view).toMatchObject({
 			status: 'count-in',
-			scene: 'locate',
+			scene: 'guitar',
 			countdown: null,
 			prompt: null,
 			answerChoices: null
@@ -755,7 +759,7 @@ describe('SessionController identify', () => {
 		expect(controller.view.countdown).toBe(1);
 		atBeat(deps, 12);
 		expect(controller.view.status).toBe('awaiting');
-		expect(controller.view.prompt?.direction).toBe('locate');
+		expect(controller.view.scene).toBe('guitar');
 	});
 
 	it('brings the answer pad in during a silent bar before a screen prompt', async () => {
@@ -763,7 +767,7 @@ describe('SessionController identify', () => {
 		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
-		expect(controller.view.scene).toBe('locate');
+		expect(controller.view.scene).toBe('guitar');
 		deps.detector.emitNote({
 			time: deps.metronome.beatTime(8),
 			midi: 65,
@@ -773,7 +777,7 @@ describe('SessionController identify', () => {
 		atBeat(deps, 9);
 		expect(controller.view).toMatchObject({
 			status: 'count-in',
-			scene: 'identify',
+			scene: 'screen',
 			countdown: 4,
 			lastVerdict: null
 		});
@@ -781,7 +785,7 @@ describe('SessionController identify', () => {
 		expect(deps.metronome.audible).toBe(false);
 		atBeat(deps, 13);
 		expect(controller.view.status).toBe('awaiting');
-		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 	});
 
 	it('counts a bar down before a sequence at another lead', async () => {
@@ -818,7 +822,7 @@ describe('SessionController identify', () => {
 		const deps = createDeps();
 		const controller = make(planWith([identifyItem()]), deps);
 		await controller.start();
-		expect(controller.view.scene).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 		expect(deps.metronome.audible).toBe(false);
 		tick(deps, 0.1);
 		expect(controller.view.countdown).toBe(4);
@@ -830,7 +834,7 @@ describe('SessionController identify', () => {
 		const controller = make(planWith([identifyItem()]), deps);
 		void controller.start();
 		await drain();
-		expect(controller.view.scene).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 		expect(controller.view.answerChoices).toHaveLength(12);
 	});
 
@@ -844,14 +848,14 @@ describe('SessionController identify', () => {
 		controller.resume();
 		expect(controller.view).toMatchObject({
 			status: 'count-in',
-			scene: 'identify',
+			scene: 'screen',
 			lastVerdict: null
 		});
 		expect(deps.metronome.audible).toBe(false);
 		tick(deps, 0.1);
 		expect(controller.view.countdown).toBe(4);
 		tick(deps, 0.75 * 4);
-		expect(controller.view.prompt?.direction).toBe('identify');
+		expect(controller.view.scene).toBe('screen');
 	});
 
 	it('adds no bar between two prompts in the same direction', async () => {

@@ -48,7 +48,6 @@ describe('PlayScreen', () => {
 			view: {
 				status: 'awaiting' as const,
 				prompt: {
-					direction: 'locate' as const,
 					primary: 'G',
 					secondary: 'corde de G',
 					aid: null,
@@ -63,7 +62,7 @@ describe('PlayScreen', () => {
 				history: [],
 				answerChoices: null,
 				fatigueDetected: false,
-				scene: 'locate' as const,
+				scene: 'guitar' as const,
 				countdown: null,
 				preview: null,
 				audioError: null
@@ -81,8 +80,11 @@ describe('PlayScreen', () => {
 		expect(screen.queryByText('F')).toBeNull();
 	});
 
-	function aidedController(prompt: {
-		direction: 'locate' | 'identify';
+	function aidedController({
+		scene,
+		...prompt
+	}: {
+		scene: 'guitar' | 'screen';
 		primary: string;
 		secondary: string;
 		aid: string | null;
@@ -94,13 +96,13 @@ describe('PlayScreen', () => {
 			lastVerdict: null,
 			tempoBpm: 80,
 			beatsPerBar: 4,
-			promptBeatIndex: prompt.direction === 'locate' ? 0 : null,
-			targetBeatIndex: prompt.direction === 'locate' ? 8 : null,
-			leadBeats: prompt.direction === 'locate' ? 8 : null,
+			promptBeatIndex: scene === 'guitar' ? 0 : null,
+			targetBeatIndex: scene === 'guitar' ? 8 : null,
+			leadBeats: scene === 'guitar' ? 8 : null,
 			history: [],
 			answerChoices: null,
 			fatigueDetected: false,
-			scene: prompt.direction,
+			scene,
 			countdown: null,
 			preview: null,
 			audioError: null
@@ -119,7 +121,7 @@ describe('PlayScreen', () => {
 
 	it('shows the position of an aided locate prompt', () => {
 		const controller = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'G',
 			secondary: 'corde de E grave',
 			aid: 'case 3'
@@ -130,7 +132,7 @@ describe('PlayScreen', () => {
 
 	it('shows the note name of an aided identify prompt', () => {
 		const controller = aidedController({
-			direction: 'identify',
+			scene: 'screen',
 			primary: 'case 8',
 			secondary: 'corde de A',
 			aid: 'F'
@@ -141,7 +143,7 @@ describe('PlayScreen', () => {
 
 	it('counts down in place of the prompt during a counted bar', () => {
 		const controller = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'G',
 			secondary: 'corde de E grave',
 			aid: null
@@ -159,7 +161,7 @@ describe('PlayScreen', () => {
 
 	it('sets the answer pad on stage while counting down to a screen prompt', () => {
 		const controller = aidedController({
-			direction: 'identify',
+			scene: 'screen',
 			primary: 'case 8',
 			secondary: 'corde de A',
 			aid: null
@@ -177,7 +179,7 @@ describe('PlayScreen', () => {
 
 	it('shows the string alone, drawn, a beat before the note', () => {
 		const controller = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'A',
 			secondary: 'corde de E grave',
 			aid: null
@@ -187,7 +189,6 @@ describe('PlayScreen', () => {
 			status: 'count-in',
 			prompt: null,
 			preview: {
-				direction: 'locate',
 				primary: 'A',
 				secondary: 'corde de E grave',
 				aid: null,
@@ -202,7 +203,7 @@ describe('PlayScreen', () => {
 
 	it('draws the string under a learning prompt only when it carries the aid', () => {
 		const drawn = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'A',
 			secondary: 'corde de E grave',
 			aid: null,
@@ -212,7 +213,7 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.diagram')).not.toBeNull();
 		cleanup();
 		const plain = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'A',
 			secondary: 'corde de E grave',
 			aid: null
@@ -223,7 +224,7 @@ describe('PlayScreen', () => {
 
 	it('shows the right position with the verdict after a miss', () => {
 		const controller = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'A',
 			secondary: 'corde de E grave',
 			aid: null
@@ -245,7 +246,7 @@ describe('PlayScreen', () => {
 
 	it('shows no aid on an unaided prompt', () => {
 		const controller = aidedController({
-			direction: 'locate',
+			scene: 'guitar',
 			primary: 'G',
 			secondary: 'corde de E grave',
 			aid: null
@@ -261,7 +262,6 @@ describe('PlayScreen', () => {
 			view: {
 				status: 'awaiting' as const,
 				prompt: {
-					direction: 'locate' as const,
 					primary: 'G',
 					secondary: 'corde de G',
 					aid: null,
@@ -276,7 +276,7 @@ describe('PlayScreen', () => {
 				history: [],
 				answerChoices: null,
 				fatigueDetected: false,
-				scene: 'locate' as const,
+				scene: 'guitar' as const,
 				countdown: null,
 				preview: null,
 				audioError: null

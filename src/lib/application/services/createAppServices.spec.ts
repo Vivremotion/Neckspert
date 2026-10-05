@@ -21,6 +21,8 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { createAppServices } from './createAppServices';
+import { NECK_PRESENTERS } from '$lib/application/mechanics';
+import { noteSensor, tapSensor } from '$lib/application/session/sensors';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -62,7 +64,9 @@ function harness(): {
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
-		newId: () => `id-${Math.random().toString(16).slice(2)}`
+		newId: () => `id-${Math.random().toString(16).slice(2)}`,
+		mechanics: NECK_PRESENTERS,
+		sensors: { note: noteSensor(detector), tap: tapSensor() }
 	};
 	const services = createAppServices({
 		...deps,
@@ -134,7 +138,7 @@ describe('createAppServices', () => {
 				const prompt = controller.view.prompt;
 				const key = `${prompt.primary}|${prompt.secondary}`;
 				if (prompts.at(-1) !== key) prompts.push(key);
-				if (prompt.direction === 'identify') controller.answer('C');
+				if (controller.view.scene === 'screen') controller.answer('C');
 			}
 			tick(deps, deps.metronome.secondsPerBeat());
 			await Promise.resolve();
@@ -154,7 +158,8 @@ describe('createAppServices', () => {
 		while (controller.view.status !== 'finished' && guard++ < 1000) {
 			if (controller.view.status === 'awaiting') {
 				if (
-					controller.view.prompt?.direction === 'locate' &&
+					controller.view.prompt &&
+					controller.view.scene === 'guitar' &&
 					controller.view.targetBeatIndex !== null
 				) {
 					const due = deps.metronome.beatTime(controller.view.targetBeatIndex);
@@ -169,7 +174,7 @@ describe('createAppServices', () => {
 						clarity: 0.9
 					});
 					await Promise.resolve();
-				} else if (controller.view.prompt?.direction === 'identify') {
+				} else if (controller.view.prompt && controller.view.scene === 'screen') {
 					controller.answer('C');
 					await Promise.resolve();
 				}

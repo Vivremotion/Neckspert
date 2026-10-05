@@ -9,4 +9,4 @@
 	const disabled = $derived(controller.view.status !== 'awaiting');
 </script>
 
-<AnswerPad {choices} {disabled} onanswer={(pitch) => controller.answer(pitch)} />
+<AnswerPad {choices} {disabled} onanswer={(value) => controller.answer(value)} />

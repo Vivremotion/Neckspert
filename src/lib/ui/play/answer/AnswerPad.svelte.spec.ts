@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import type { AnswerChoice } from '$lib/application/session/contract';
-import type { PitchName } from '$lib/domain/music/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import AnswerPad from './AnswerPad.svelte';
 import { identifyChoices } from './choices';
@@ -30,7 +29,7 @@ function isDisabled(element: HTMLElement): boolean {
 }
 
 function renderPad(disabled: boolean, choices: AnswerChoice[] = identifyChoices()) {
-	const onanswer = vi.fn<(pitch: PitchName) => void>();
+	const onanswer = vi.fn<(value: string) => void>();
 	const result = render(AnswerPad, { props: { choices, disabled, onanswer } });
 	const pad = () => within(screen.getByRole('group', { name: 'Nom de la note' }));
 	const setDisabled = (value: boolean) => result.rerender({ choices, disabled: value, onanswer });

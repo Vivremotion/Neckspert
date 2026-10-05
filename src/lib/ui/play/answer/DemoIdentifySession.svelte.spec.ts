@@ -32,7 +32,6 @@ describe('DemoIdentifySession', () => {
 		await demo.start();
 		expect(demo.view.status).toBe('awaiting');
 		expect(demo.view.prompt).toEqual({
-			direction: 'identify',
 			primary: 'case 8',
 			secondary: 'corde de A',
 			aid: null,

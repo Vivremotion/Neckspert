@@ -1,73 +1,44 @@
-import type { PitchName } from '$lib/domain/music/types';
-import {
-	describeAcceptable,
-	describeFrequency,
-	detuneCents,
-	logDetection,
-	nearestAcceptable,
-	noteWithOctave,
-	signedCents
-} from '$lib/debug/detectionLog';
-import {
-	acceptableMidis,
-	formatNote,
-	pitchOnString,
-	spellPitch,
-	stringLabel
-} from '$lib/domain/music';
+import { logDetection } from '$lib/debug/detectionLog';
 import { clampTempo, nextSessionTempo, type SessionSelector } from '$lib/domain/progress';
-import type {
-	Answer,
-	Direction,
-	Locale,
-	PlannedItem,
-	SessionKind,
-	Settings,
-	Verdict
+import {
+	cardKey,
+	type Confusion,
+	type Locale,
+	type PlannedItem,
+	type SessionKind,
+	type Settings
 } from '$lib/domain/types';
-import type { BeatEvent, NoteOnset } from '$lib/application/ports';
-import { detectFatigue, type Judgement } from '$lib/domain/scoring';
+import type { BeatEvent } from '$lib/application/ports';
+import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
+import { detectFatigue } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
 import {
 	BEATS_PER_BAR,
-	beatTiming,
-	identifyTiming,
-	STRING_PREVIEW_BEATS,
 	type IgnoreReason,
 	type Round,
 	type RoundEvent,
-	type RoundOutcome,
-	type TimingRelation
+	type RoundOutcome
 } from '$lib/domain/timing';
-import { AttemptRecorder } from './AttemptRecorder';
+import { AttemptRecorder, type JudgedAnswer } from './AttemptRecorder';
 import { openAudioInput } from './audioInput';
-import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
+import type { Observation, ObservationSource } from './sensors';
 
 type InternalStatus = PlayView['status'];
 
-/** Why a note did not answer, as the detection log says it. */
+/** The sensor the screen's answer buttons feed. */
+const TAP_SENSOR: SensorKind = 'tap';
+
+/** Why an observation did not answer, as the detection log says it. */
 const IGNORED_BECAUSE: Record<IgnoreReason, string> = {
-	settled: 'une note a déjà été prise pour cette demande — celle-ci est ignorée',
+	settled: 'une réponse a déjà été prise pour cette demande — celle-ci est ignorée',
 	'before-window':
-		'jouée avant la consigne ou juste après son apparition, elle appartient à la précédente',
+		'arrivée avant la consigne ou juste après son apparition, elle appartient à la précédente',
 	'after-capture': 'arrivée après la fin de l’écoute hors temps'
 };
 
-/** Provisional: the time relation follows the direction until exercises name theirs. */
-function timingFor(item: PlannedItem): TimingRelation {
-	return item.target.direction === 'locate' ? beatTiming : identifyTiming;
-}
-
-/** The attempt fields of a round outcome; rounds keep the answer opaque. */
-function judgementOf(outcome: RoundOutcome): Judgement {
-	return {
-		answer: outcome.answer as Answer | null,
-		correct: outcome.correct,
-		verdict: outcome.verdict,
-		timingOffsetMs: outcome.timingOffsetMs,
-		reactionMs: outcome.reactionMs
-	};
+function describeObservation(sensor: SensorKind, observation: Observation): string {
+	return `capteur : ${sensor}, t = ${observation.time.toFixed(3)} s`;
 }
 
 export class SessionController implements PlaySessionController {
@@ -93,13 +64,15 @@ export class SessionController implements PlaySessionController {
 	private pending: PlannedItem | null = null;
 	/** Display of `pending`, built once so the string preview and the prompt spell the note alike. */
 	private pendingPrompt: PromptView | null = null;
-	/** Direction of the last prompt shown; a change opens a counted bar. */
-	private lastDirection: Direction | null = null;
+	/** Scene of the last prompt shown; a change opens a counted bar. */
+	private lastScene: Scene | null = null;
 	private settings!: Settings;
 	private locale: Locale = 'fr';
 	private latencyMs = 0;
 	private unsubBeat: (() => void) | null = null;
-	private unsubNote: (() => void) | null = null;
+	/** Observation sources open for the series, by sensor kind. */
+	private sources = new Map<SensorKind, ObservationSource>();
+	private closeSources: (() => void)[] = [];
 	private earliestPromptBeat: number = BEATS_PER_BAR;
 	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
 	private counting = false;
@@ -132,7 +105,7 @@ export class SessionController implements PlaySessionController {
 			history: [],
 			answerChoices: null,
 			fatigueDetected: false,
-			scene: 'locate',
+			scene: 'guitar',
 			countdown: null,
 			preview: null,
 			audioError: null
@@ -164,8 +137,8 @@ export class SessionController implements PlaySessionController {
 		this.pending = null;
 		this.pendingPrompt = null;
 		this.view.preview = null;
-		this.lastDirection = null;
-		this.view.scene = 'locate';
+		this.lastScene = null;
+		this.view.scene = 'guitar';
 		this.view.countdown = null;
 		this.recorder = null;
 		this.current = null;
@@ -225,7 +198,7 @@ export class SessionController implements PlaySessionController {
 		if (this.run !== run) return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.deps.metronome.setTempo(this.settings.tempoBpm);
-		this.deps.metronome.setAudible(this.view.scene === 'locate');
+		this.deps.metronome.setAudible(this.view.scene === 'guitar');
 
 		await this.deps.sessions.put({
 			id: this.sessionId,
@@ -238,9 +211,8 @@ export class SessionController implements PlaySessionController {
 		if (this.run !== run) return;
 
 		this.unsubBeat?.();
-		this.unsubNote?.();
 		this.unsubBeat = this.deps.metronome.onBeat((beat) => this.onBeat(beat));
-		this.unsubNote = this.deps.detector.onNote((onset) => this.onNote(onset));
+		this.openSources();
 
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.counting = true;
@@ -279,14 +251,9 @@ export class SessionController implements PlaySessionController {
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
 
-	answer(pitch: PitchName): void {
-		if (this.view.status !== 'awaiting' || !this.round || !this.current) return;
-		if (this.current.target.direction !== 'identify') return;
-		const expected = pitchOnString(this.current.target.string, this.current.target.fret);
-		const answer: Answer = { kind: 'name', pitch };
-		this.apply(
-			this.round.observe({ time: this.deps.clock.now(), correct: pitch === expected, answer })
-		);
+	answer(value: string): void {
+		if (this.view.status !== 'awaiting') return;
+		this.sources.get(TAP_SENSOR)?.push?.(value);
 	}
 
 	quit(): void {
@@ -301,6 +268,33 @@ export class SessionController implements PlaySessionController {
 		this.view.status = status;
 	}
 
+	/** Provisional until planned items name their mechanic: the direction is the mechanic id. */
+	private presenterFor(item: PlannedItem): MechanicPresenter {
+		return this.deps.mechanics[item.target.direction];
+	}
+
+	/** One source per sensor the mechanics use, opened with the calibrated latency. */
+	private openSources(): void {
+		this.closeAllSources();
+		const kinds = new Set(Object.values(this.deps.mechanics).map((p) => p.sensor));
+		for (const kind of kinds) {
+			const source = this.deps.sensors[kind]({
+				latencyMs: this.latencyMs,
+				clock: this.deps.clock
+			});
+			this.sources.set(kind, source);
+			this.closeSources.push(
+				source.onObservation((observation) => this.onObservation(kind, observation))
+			);
+		}
+	}
+
+	private closeAllSources(): void {
+		this.closeSources.forEach((close) => close());
+		this.closeSources = [];
+		this.sources.clear();
+	}
+
 	private clearItemState(): void {
 		this.round = null;
 	}
@@ -308,7 +302,7 @@ export class SessionController implements PlaySessionController {
 	/** Settles an open late capture as unanswered and stores it; nothing otherwise. */
 	private abandonRound(): void {
 		const outcome = this.round?.abandon();
-		if (outcome) this.settle(outcome);
+		if (outcome) this.settle(outcome, null);
 	}
 
 	private onBeat(beat: BeatEvent): void {
@@ -351,9 +345,9 @@ export class SessionController implements PlaySessionController {
 		}
 		const left = promptBeat - beat.index;
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
-		// Mode 1 prompts come in two steps: the string first, then the note on the prompt beat.
+		// Prompts with a preview come in two steps: the string first, then the note on the prompt beat.
 		this.view.preview =
-			this.pending.target.direction === 'locate' && left <= STRING_PREVIEW_BEATS
+			left <= this.presenterFor(this.pending).rules.timing.previewBeats
 				? this.pendingPromptView(this.pending)
 				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
@@ -361,13 +355,10 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
-		return timingFor(item).promptBeat(Math.max(this.earliestPromptBeat, beatIndex), item);
-	}
-
-	/** The right answer, shown with a miss only (off beat is a right note: nothing to correct). */
-	private correctionFor(verdict: Verdict): string | null {
-		if (verdict !== 'wrong' || !this.current) return null;
-		return buildCorrection(this.current.target, this.locale);
+		return this.presenterFor(item).rules.timing.promptBeat(
+			Math.max(this.earliestPromptBeat, beatIndex),
+			item
+		);
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -390,69 +381,91 @@ export class SessionController implements PlaySessionController {
 		this.view.countdown = null;
 		this.pending ??= this.takeNext();
 		if (!this.pending) return;
-		this.lastDirection = this.pending.target.direction;
-		this.enterScene(this.pending.target.direction);
+		const presenter = this.presenterFor(this.pending);
+		this.lastScene = presenter.scene;
+		this.enterScene(presenter);
 	}
 
 	/** Lane and clicks for the guitar; answer pad and silence for the screen. */
-	private enterScene(direction: Direction): void {
-		this.view.scene = direction;
-		this.view.answerChoices = direction === 'identify' ? buildAnswerChoices() : null;
-		this.deps.metronome.setAudible(direction === 'locate');
-	}
-
-	private onNote(onset: NoteOnset): void {
-		if (!this.round || !this.current) {
-			this.logSkippedNote(onset);
-			return;
-		}
-		const target = this.current.target;
-		if (target.direction !== 'locate') {
-			logDetection('note ignorée', [
-				'raison : la question en cours n’est pas « joue cette note »',
-				this.describeHeard(onset)
-			]);
-			return;
-		}
-		const corrected = onset.time - this.latencyMs / 1000;
-		const answer: Answer = { kind: 'note', midi: onset.midi };
-		const event = this.round.observe({
-			time: corrected,
-			correct: acceptableMidis(target).includes(onset.midi),
-			answer
-		});
-		if (event.kind === 'ignored') {
-			logDetection('note ignorée', [
-				`raison : ${IGNORED_BECAUSE[event.reason]}`,
-				this.describeHeard(onset)
-			]);
-			return;
-		}
-		if (event.kind === 'settled') this.logLocateDecision(onset, corrected, event.outcome);
-		this.apply(event);
-	}
-
-	private pendingPromptView(item: PlannedItem): PromptView {
-		this.pendingPrompt ??= buildPromptView(item, this.locale, this.deps.random);
-		return this.pendingPrompt;
-	}
-
-	private apply(event: RoundEvent): void {
-		if (event.kind === 'provisional') this.showProvisional(event.outcome);
-		else if (event.kind === 'settled') this.settle(event.outcome);
+	private enterScene(presenter: MechanicPresenter): void {
+		this.view.scene = presenter.scene;
+		this.view.answerChoices = presenter.answerChoices?.() ?? null;
+		this.deps.metronome.setAudible(presenter.scene === 'guitar');
 	}
 
 	/**
-	 * Mode 1, the window closed unanswered: the miss shows without its correction while the
-	 * off-beat capture listens; the attempt waits for the round to settle.
+	 * Routes an observation to the current round when it comes from the sensor of the current
+	 * prompt's mechanic, judged by that mechanic; any other is logged and ignored.
+	 */
+	private onObservation(sensor: SensorKind, observation: Observation): void {
+		const item = this.current;
+		if (!this.round || !item) {
+			this.logSkipped(sensor, observation);
+			return;
+		}
+		const presenter = this.presenterFor(item);
+		if (sensor !== presenter.sensor) {
+			logDetection('observation ignorée', [
+				`raison : la consigne en cours attend le capteur « ${presenter.sensor} »`,
+				describeObservation(sensor, observation)
+			]);
+			return;
+		}
+		const judged = presenter.rules.judge(item.target, observation.payload);
+		const event = this.round.observe({
+			time: observation.time,
+			correct: judged.correct,
+			answer: judged.answer
+		});
+		if (event.kind === 'ignored') {
+			logDetection('observation ignorée', [
+				`raison : ${IGNORED_BECAUSE[event.reason]}`,
+				describeObservation(sensor, observation),
+				...(presenter.debugLines?.(item.target, observation.payload) ?? [])
+			]);
+			return;
+		}
+		if (event.kind === 'settled') {
+			this.logDecision(presenter, item, sensor, observation, event.outcome);
+			// Provisional until attempts store the mechanic's own confusion: the neck's are stored ones.
+			const confusion = judged.confusion as Confusion | null;
+			this.settle(event.outcome, { answer: judged.answer, confusion });
+			return;
+		}
+		this.apply(event);
+	}
+
+	private promptViewOf(item: PlannedItem): PromptView {
+		return this.presenterFor(item).prompt(
+			item.target,
+			{ aid: item.aid, stringAid: item.stringAid ?? false },
+			this.locale,
+			this.deps.random
+		);
+	}
+
+	private pendingPromptView(item: PlannedItem): PromptView {
+		this.pendingPrompt ??= this.promptViewOf(item);
+		return this.pendingPrompt;
+	}
+
+	/** Beat events only: a round settles with an answer on an observation, never on a beat. */
+	private apply(event: RoundEvent): void {
+		if (event.kind === 'provisional') this.showProvisional(event.outcome);
+		else if (event.kind === 'settled') this.settle(event.outcome, null);
+	}
+
+	/**
+	 * The window closed unanswered: the miss shows without its correction while the round keeps
+	 * listening (off beat); the attempt waits for the round to settle.
 	 */
 	private showProvisional(outcome: RoundOutcome): void {
-		logDetection('fenêtre fermée sans note', [
-			`cible : ${this.describeLocateTarget()}`,
-			'aucune hauteur confirmée n’est arrivée pendant l’attente',
-			'verdict provisoire : faux — l’écoute continue hors temps'
+		logDetection('fenêtre fermée sans réponse', [
+			`cible : ${this.current ? cardKey(this.current.target) : 'inconnue'}`,
+			'aucune réponse n’est arrivée pendant l’attente',
+			'verdict provisoire : faux — l’écoute continue'
 		]);
-		this.view.lastVerdict = this.verdictView(judgementOf(outcome), false);
+		this.view.lastVerdict = this.verdictView(outcome, false);
 		this.addToLane(outcome);
 		this.deps.cues.play(outcome.verdict);
 		this.setStatus('verdict');
@@ -460,13 +473,13 @@ export class SessionController implements PlaySessionController {
 
 	/**
 	 * Final verdict, with its correction, and the attempt stored. After a provisional miss, the
-	 * lane entry and the cue change only if the verdict did.
+	 * lane entry and the cue change only if the verdict did. `judged`: the mechanic's judgement
+	 * of the answer, null without one.
 	 */
-	private settle(outcome: RoundOutcome): void {
-		const judgement = judgementOf(outcome);
+	private settle(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		const provisional = this.view.status === 'verdict';
 		const shown = this.view.lastVerdict?.verdict;
-		this.view.lastVerdict = this.verdictView(judgement);
+		this.view.lastVerdict = this.verdictView(outcome);
 		this.view.answerChoices = null;
 		if (!provisional) {
 			this.addToLane(outcome);
@@ -478,7 +491,7 @@ export class SessionController implements PlaySessionController {
 			this.deps.cues.play(outcome.verdict);
 		}
 		this.setStatus('verdict');
-		this.persistAttempt(outcome);
+		this.persistAttempt(outcome, judged);
 	}
 
 	private addToLane(outcome: RoundOutcome): void {
@@ -501,9 +514,10 @@ export class SessionController implements PlaySessionController {
 		}
 		this.current = item;
 		this.view.countdown = null;
-		this.lastDirection = item.target.direction;
-		this.view.scene = item.target.direction;
-		this.round = timingFor(item).open({
+		const presenter = this.presenterFor(item);
+		this.lastScene = presenter.scene;
+		this.view.scene = presenter.scene;
+		this.round = presenter.rules.timing.open({
 			planned: item,
 			promptBeat: beat.index,
 			now: this.deps.clock.now(),
@@ -511,110 +525,70 @@ export class SessionController implements PlaySessionController {
 			secondsPerBeat: this.deps.metronome.secondsPerBeat()
 		});
 
-		if (item.target.direction === 'locate') {
-			this.deps.metronome.setAudible(true);
-			this.view.prompt = built ?? buildPromptView(item, this.locale, this.deps.random);
-			this.view.promptBeatIndex = this.round.promptBeatIndex;
-			this.view.targetBeatIndex = this.round.targetBeatIndex;
-			this.view.leadBeats = item.leadBeats;
-			this.view.answerChoices = null;
-			this.view.lastVerdict = null;
-			this.setStatus('awaiting');
-			return;
-		}
-
-		this.beginIdentify(item);
-	}
-
-	private beginIdentify(item: PlannedItem): void {
-		this.deps.metronome.setAudible(false);
-		this.view.prompt = buildPromptView(item, this.locale, this.deps.random);
-		this.view.promptBeatIndex = null;
-		this.view.targetBeatIndex = null;
-		this.view.leadBeats = null;
-		this.view.answerChoices = buildAnswerChoices();
+		// The lane runs with the guitar only; the screen answers at its own pace, in silence.
+		const onLane = presenter.scene === 'guitar';
+		this.deps.metronome.setAudible(onLane);
+		this.view.prompt = built ?? this.promptViewOf(item);
+		this.view.promptBeatIndex = onLane ? this.round.promptBeatIndex : null;
+		this.view.targetBeatIndex = onLane ? this.round.targetBeatIndex : null;
+		this.view.leadBeats = onLane ? item.leadBeats : null;
+		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
 		this.setStatus('awaiting');
 	}
 
-	private logSkippedNote(onset: NoteOnset): void {
+	private logSkipped(sensor: SensorKind, observation: Observation): void {
 		const reasons: string[] = [];
 		if (this.view.status !== 'awaiting') {
-			reasons.push(`la session n’attend pas de note (statut : ${this.view.status})`);
+			reasons.push(`la session n’attend pas de réponse (statut : ${this.view.status})`);
 		}
 		if (!this.current) reasons.push('aucune question en cours');
-		logDetection('note ignorée', [
+		logDetection('observation ignorée', [
 			`raison : ${reasons.join(' ; ') || 'inconnue'}`,
-			this.describeHeard(onset)
+			describeObservation(sensor, observation)
 		]);
 	}
 
-	private describeHeard(onset: NoteOnset): string {
-		return `reçu : ${describeFrequency(onset.frequencyHz)}, MIDI retenu ${onset.midi} (${noteWithOctave(onset.midi)}), clarté ${onset.clarity.toFixed(2)}, t = ${onset.time.toFixed(3)} s`;
-	}
-
-	private describeLocateTarget(): string {
-		const target = this.current?.target;
-		if (!target || target.direction !== 'locate') return 'cible inconnue';
-		return `${target.pitch} · ${stringLabel(target.string, this.locale)}`;
-	}
-
-	private logLocateDecision(onset: NoteOnset, corrected: number, outcome: RoundOutcome): void {
-		const target = this.current?.target;
-		if (!target || target.direction !== 'locate') return;
-		const acceptable = acceptableMidis(target);
-		const nearest = nearestAcceptable(onset.frequencyHz, acceptable);
-		const lines = [
-			`cible : ${this.describeLocateTarget()}`,
-			`fréquences acceptées : ${describeAcceptable(acceptable)}`,
-			this.describeHeard(onset),
-			`latence : ${this.latencyMs} ms`,
-			`temps brut ${onset.time.toFixed(3)} s → corrigé ${corrected.toFixed(3)} s`
-		];
-		if (nearest) {
-			const way = nearest.cents > 15 ? 'trop aigu' : nearest.cents < -15 ? 'trop grave' : 'proche';
-			lines.push(
-				`écart au plus proche accepté (${noteWithOctave(nearest.midi)}) : ${signedCents(nearest.cents)} (${way})`
-			);
-			for (const midi of acceptable) {
-				if (midi === nearest.midi) continue;
-				lines.push(
-					`écart à ${noteWithOctave(midi)} : ${signedCents(detuneCents(onset.frequencyHz, midi))}`
-				);
-			}
-		}
-		lines.push(
-			`écart au temps : ${outcome.timingOffsetMs} ms`,
-			outcome.correct
-				? `verdict : juste (${outcome.verdict})`
-				: `verdict : faux — MIDI ${onset.midi} n’est pas dans [${acceptable.join(', ')}]`
-		);
-		logDetection('décision', lines);
+	private logDecision(
+		presenter: MechanicPresenter,
+		item: PlannedItem,
+		sensor: SensorKind,
+		observation: Observation,
+		outcome: RoundOutcome
+	): void {
+		logDetection('décision', [
+			`cible : ${cardKey(item.target)}`,
+			...(presenter.debugLines?.(item.target, observation.payload) ?? []),
+			describeObservation(sensor, observation),
+			`latence : ${this.latencyMs} ms (déjà retirée)`,
+			`écart au temps : ${outcome.timingOffsetMs ?? '—'} ms`,
+			`verdict : ${outcome.correct ? 'juste' : 'faux'} (${outcome.verdict})`
+		]);
 	}
 
 	/** `withCorrection` false while the late capture listens: reading the fret must not answer. */
-	private verdictView(judgement: Judgement, withCorrection = true): VerdictView {
-		const answer = judgement.answer;
-		const target = this.current?.target;
-		const answerLabel = !answer
-			? null
-			: answer.kind === 'name'
-				? formatNote(spellPitch(answer.pitch, this.deps.random))
-				: target?.direction === 'locate'
-					? formatNote(spellPitch(target.pitch, this.deps.random))
-					: null;
+	private verdictView(outcome: RoundOutcome, withCorrection = true): VerdictView {
+		const item = this.current;
+		const presenter = item ? this.presenterFor(item) : null;
+		const answerLabel =
+			outcome.answer === null || !item || !presenter
+				? null
+				: presenter.answerLabel(outcome.answer, item.target, this.locale, this.deps.random);
 		return {
-			verdict: judgement.verdict,
-			offsetMs: judgement.timingOffsetMs,
-			reactionMs: judgement.reactionMs,
+			verdict: outcome.verdict,
+			offsetMs: outcome.timingOffsetMs,
+			reactionMs: outcome.reactionMs,
 			answerLabel,
-			correction: withCorrection ? this.correctionFor(judgement.verdict) : null
+			correction:
+				withCorrection && item && presenter
+					? presenter.reveal(item.target, outcome, this.locale)
+					: null
 		};
 	}
 
-	private persistAttempt(outcome: RoundOutcome): void {
+	private persistAttempt(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		if (!this.current || !this.round || !this.recorder) return;
-		const { stored } = this.recorder.record(this.current, outcome, this.round.promptTime);
+		const { stored } = this.recorder.record(this.current, outcome, this.round.promptTime, judged);
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
 		void stored;
@@ -633,18 +607,18 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 		this.pending = item;
-		const direction = item.target.direction;
-		if (this.lastDirection !== null && direction !== this.lastDirection) {
+		const presenter = this.presenterFor(item);
+		if (this.lastScene !== null && presenter.scene !== this.lastScene) {
 			// Switching between guitar and screen: one counted bar to get the hands there.
 			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
 			this.counting = true;
-			this.enterScene(direction);
+			this.enterScene(presenter);
 		} else if (item.countIn) {
 			// A new sequence at another lead: one counted bar announces it.
 			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
 			this.counting = true;
 			this.view.answerChoices = null;
-		} else if (direction === 'locate') {
+		} else if (presenter.scene === 'guitar') {
 			this.view.answerChoices = null;
 		}
 		this.setStatus('count-in');
@@ -659,9 +633,8 @@ export class SessionController implements PlaySessionController {
 		const attempts = [...(this.recorder?.sessionAttempts ?? [])];
 		this.setStatus('finished');
 		this.unsubBeat?.();
-		this.unsubNote?.();
 		this.unsubBeat = null;
-		this.unsubNote = null;
+		this.closeAllSources();
 
 		// Yield before stop when still running so onBeat→finish mid-flush does not
 		// break FakeMetronome.flush (beatTime after stop throws). quit() stops sync.

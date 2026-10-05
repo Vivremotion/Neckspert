@@ -5,7 +5,6 @@ import type {
 	PlayView,
 	VerdictView
 } from '$lib/application/session/contract';
-import type { PitchName } from '$lib/domain/music/types';
 import type { Verdict } from '$lib/domain/types';
 import { playMessages } from '../messages';
 
@@ -73,7 +72,7 @@ export class DemoPlaySession implements PlaySessionController {
 			history: [],
 			answerChoices: null,
 			fatigueDetected: false,
-			scene: 'locate',
+			scene: 'guitar',
 			countdown: null,
 			preview: null,
 			audioError: null
@@ -139,7 +138,7 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.status = this.#promptBeat === null ? 'count-in' : 'awaiting';
 	}
 
-	answer(_pitch: PitchName): void {
+	answer(_value: string): void {
 		/* mode 1: guitar only */
 	}
 
@@ -165,7 +164,6 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.targetBeatIndex = this.#targetBeat;
 		this.view.leadBeats = 8;
 		this.view.prompt = {
-			direction: 'locate',
 			primary: item.primary,
 			secondary: t.stringOf(item.stringName),
 			aid: null,

@@ -1,4 +1,4 @@
-import { classifyNameConfusion, classifyNoteConfusion, pitchOnString } from '$lib/domain/music';
+import type { PitchName } from '$lib/domain/music/types';
 import {
 	applyColdAttempt,
 	classifyTemperature,
@@ -6,7 +6,14 @@ import {
 	probeTemperature,
 	type SessionSelector
 } from '$lib/domain/progress';
-import type { Answer, Attempt, CardState, PlannedItem, Temperature } from '$lib/domain/types';
+import type {
+	Answer,
+	Attempt,
+	CardState,
+	Confusion,
+	PlannedItem,
+	Temperature
+} from '$lib/domain/types';
 import { cardKey } from '$lib/domain/types';
 import type { RoundOutcome } from '$lib/domain/timing';
 import type { AudioClockPort } from '$lib/application/ports';
@@ -14,6 +21,20 @@ import type {
 	AttemptRepositoryPort,
 	CardStateRepositoryPort
 } from '$lib/application/ports/repositories';
+
+/** What the mechanic's judge said of the answer; null without an answer. */
+export type JudgedAnswer = { answer: unknown; confusion: Confusion | null } | null;
+
+/**
+ * Provisional, until attempts store the mechanic's own answer: the judge's answer
+ * ({ midi } / { pitch }) in the stored shape. The only cast of an opaque answer.
+ */
+function storedAnswer(planned: PlannedItem, judged: JudgedAnswer): Answer | null {
+	if (judged === null) return null;
+	return planned.target.direction === 'locate'
+		? { kind: 'note', midi: (judged.answer as { midi: number }).midi }
+		: { kind: 'name', pitch: (judged.answer as { pitch: PitchName }).pitch };
+}
 
 export interface AttemptRecorderDeps {
 	attempts: AttemptRepositoryPort;
@@ -47,14 +68,13 @@ export class AttemptRecorder {
 	record(
 		planned: PlannedItem,
 		outcome: RoundOutcome,
-		promptTime: number
+		promptTime: number,
+		judged: JudgedAnswer
 	): { attempt: Attempt; stored: Promise<void> } {
 		const { selector, sessionId, clock } = this.deps;
 		const key = cardKey(planned.target);
 		const promptedAt = clock.toEpochMs(promptTime);
 		const attemptedInSession = this.attempts.some((a) => a.cardKey === key);
-		// The rounds keep the answer opaque; the cast lives here until exercises name their answers.
-		const answer = outcome.answer as Answer | null;
 
 		// Provisional temperature for sync fatigue/session tracking; refined after history load.
 		const provisionalTemperature =
@@ -67,18 +87,6 @@ export class AttemptRecorder {
 					? 'hot'
 					: 'cold';
 
-		let confusion = null;
-		if (answer !== null && !outcome.correct) {
-			if (planned.target.direction === 'locate' && answer.kind === 'note') {
-				confusion = classifyNoteConfusion(planned.target, answer.midi);
-			} else if (planned.target.direction === 'identify' && answer.kind === 'name') {
-				confusion = classifyNameConfusion(
-					pitchOnString(planned.target.string, planned.target.fret),
-					answer.pitch
-				);
-			}
-		}
-
 		const attempt: Attempt = {
 			sessionId,
 			cardKey: key,
@@ -88,12 +96,12 @@ export class AttemptRecorder {
 			aid: planned.aid,
 			leadBeats: planned.leadBeats,
 			promptedAt,
-			answer,
+			answer: storedAnswer(planned, judged),
 			correct: outcome.correct,
 			verdict: outcome.verdict,
 			timingOffsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,
-			confusion
+			confusion: judged?.confusion ?? null
 		};
 
 		// Fatigue and the selector must see the attempt before any await, so the next onBeat

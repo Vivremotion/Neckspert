@@ -5,7 +5,6 @@ import type {
 	PlayView,
 	VerdictView
 } from '$lib/application/session/contract';
-import type { PitchName } from '$lib/domain/music/types';
 import PlayScreen from '../PlayScreen.svelte';
 import { identifyChoices } from './choices';
 
@@ -22,7 +21,7 @@ function view(overrides: Partial<PlayView>): PlayView {
 		history: [],
 		answerChoices: null,
 		fatigueDetected: false,
-		scene: overrides.prompt?.direction ?? (overrides.answerChoices ? 'identify' : 'locate'),
+		scene: overrides.answerChoices ? 'screen' : 'guitar',
 		countdown: null,
 		preview: null,
 		audioError: null,
@@ -33,7 +32,6 @@ function view(overrides: Partial<PlayView>): PlayView {
 function identifyView(overrides: Partial<PlayView> = {}): PlayView {
 	return view({
 		prompt: {
-			direction: 'identify',
 			primary: 'case 8',
 			secondary: 'corde de A',
 			aid: null,
@@ -47,7 +45,6 @@ function identifyView(overrides: Partial<PlayView> = {}): PlayView {
 function locateView(): PlayView {
 	return view({
 		prompt: {
-			direction: 'locate',
 			primary: 'F',
 			secondary: 'corde de B',
 			aid: null,
@@ -60,7 +57,7 @@ function locateView(): PlayView {
 }
 
 function fakeController(initial: PlayView) {
-	const calls = { answers: [] as PitchName[], pauses: 0 };
+	const calls = { answers: [] as string[], pauses: 0 };
 	const controller: PlaySessionController = {
 		sessionId: 'test',
 		view: initial,
@@ -70,8 +67,8 @@ function fakeController(initial: PlayView) {
 			calls.pauses += 1;
 		},
 		resume() {},
-		answer(pitch) {
-			calls.answers.push(pitch);
+		answer(value) {
+			calls.answers.push(value);
 		},
 		quit() {}
 	};

@@ -20,7 +20,6 @@
 				clock.setBeat(14);
 				controller.view.status = 'verdict';
 				controller.view.prompt = {
-					direction: 'locate',
 					primary: 'F',
 					secondary: 'corde de B',
 					aid: withAid ? 'case 6' : null,

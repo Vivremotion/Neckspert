@@ -5,18 +5,18 @@ import { identifyChoices, orderChoices } from './choices';
 describe('identifyChoices', () => {
 	it('lists the twelve pitches from C to B, altered notes with both spellings', () => {
 		expect(identifyChoices()).toEqual([
-			{ pitch: 'C', label: 'C' },
-			{ pitch: 'C#', label: 'C# / Db' },
-			{ pitch: 'D', label: 'D' },
-			{ pitch: 'D#', label: 'D# / Eb' },
-			{ pitch: 'E', label: 'E' },
-			{ pitch: 'F', label: 'F' },
-			{ pitch: 'F#', label: 'F# / Gb' },
-			{ pitch: 'G', label: 'G' },
-			{ pitch: 'G#', label: 'G# / Ab' },
-			{ pitch: 'A', label: 'A' },
-			{ pitch: 'A#', label: 'A# / Bb' },
-			{ pitch: 'B', label: 'B' }
+			{ value: 'C', label: 'C' },
+			{ value: 'C#', label: 'C# / Db' },
+			{ value: 'D', label: 'D' },
+			{ value: 'D#', label: 'D# / Eb' },
+			{ value: 'E', label: 'E' },
+			{ value: 'F', label: 'F' },
+			{ value: 'F#', label: 'F# / Gb' },
+			{ value: 'G', label: 'G' },
+			{ value: 'G#', label: 'G# / Ab' },
+			{ value: 'A', label: 'A' },
+			{ value: 'A#', label: 'A# / Bb' },
+			{ value: 'B', label: 'B' }
 		]);
 	});
 });
@@ -25,7 +25,7 @@ describe('orderChoices', () => {
 	it('sorts choices from C to B without mutating the input', () => {
 		const shuffled = [...identifyChoices()].reverse();
 		const before = [...shuffled];
-		expect(orderChoices(shuffled).map((choice) => choice.pitch)).toEqual([...CHROMATIC_NOTES]);
+		expect(orderChoices(shuffled).map((choice) => choice.value)).toEqual([...CHROMATIC_NOTES]);
 		expect(shuffled).toEqual(before);
 	});
 });
