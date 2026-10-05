@@ -25,7 +25,7 @@ export const mapMessages = defineMessages({
 		identify: 'Identify',
 		cell: (string: number, fret: number) => `String ${string}, fret ${fret}`,
 		beats: (n: number) => (n === 1 ? '1 beat' : `${n} beats`),
-		seconds: (ms: number) => `${(ms / 1000).toFixed(2).replace('.', ',')} s`,
+		seconds: (ms: number) => `${(ms / 1000).toFixed(2)} s`,
 		recall: (ms: string) => `last cold recall in ${ms}`,
 		status: {
 			unseen: 'unseen',
