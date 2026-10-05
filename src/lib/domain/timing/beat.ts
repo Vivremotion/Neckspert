@@ -12,11 +12,14 @@ import {
 	type LeadBeats,
 	type Verdict
 } from '$lib/domain/types';
-import { alignedPromptBeat, respirationStart, STRING_PREVIEW_BEATS } from './grid';
+import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import type { Round, RoundEvent, RoundOutcome, TimingRelation } from './types';
 
 /** First lead of a new card: the longest step. */
 const INITIAL_LEAD: LeadBeats = 8;
+
+/** Lead of a prompt planned without one (none today: every mode 1 prompt has a lead). */
+const FALLBACK_LEAD = BEATS_PER_BAR;
 
 /** Far below a millisecond: only absorbs floating-point error on the capture edge. */
 const EDGE_TOLERANCE_S = 1e-6;
@@ -125,9 +128,10 @@ export const beatTiming: TimingRelation = {
 	usesTempo: true,
 	previewBeats: STRING_PREVIEW_BEATS,
 	initialLead: INITIAL_LEAD,
-	promptBeat: (earliest, planned) => alignedPromptBeat(earliest, planned.leadBeats ?? INITIAL_LEAD),
+	promptBeat: (earliest, planned) =>
+		alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
 	open: ({ planned, promptBeat, beatTime }) =>
-		new BeatRound(promptBeat, planned.leadBeats ?? INITIAL_LEAD, beatTime),
+		new BeatRound(promptBeat, planned.leadBeats ?? FALLBACK_LEAD, beatTime),
 	isDirectRecall: (attempt) => {
 		// Found after the window means found by calculation: never direct recall.
 		if (!attempt.correct || attempt.verdict === 'offbeat') return false;

@@ -27,6 +27,7 @@ import {
 	type SessionSelector
 } from '$lib/domain/progress';
 import type {
+	Answer,
 	Attempt,
 	CardState,
 	Direction,
@@ -39,27 +40,48 @@ import type {
 } from '$lib/domain/types';
 import { cardKey } from '$lib/domain/types';
 import type { BeatEvent, NoteOnset } from '$lib/application/ports';
-import {
-	answerWindow,
-	detectFatigue,
-	isInWindow,
-	judgeIdentify,
-	judgeLocate,
-	lateCaptureEnd,
-	type Judgement
-} from '$lib/domain/scoring';
+import { detectFatigue, type Judgement } from '$lib/domain/scoring';
 import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
 import type { SessionDeps } from './SessionDeps';
 import {
-	alignedPromptBeat,
 	BEATS_PER_BAR,
-	respirationStart,
-	STRING_PREVIEW_BEATS
-} from '$lib/domain/timing/grid';
+	beatTiming,
+	identifyTiming,
+	STRING_PREVIEW_BEATS,
+	type IgnoreReason,
+	type Round,
+	type RoundEvent,
+	type RoundOutcome,
+	type TimingRelation
+} from '$lib/domain/timing';
 import { openAudioInput } from './audioInput';
 import { buildAnswerChoices, buildCorrection, buildPromptView } from './prompt';
 
 type InternalStatus = PlayView['status'];
+
+/** Why a note did not answer, as the detection log says it. */
+const IGNORED_BECAUSE: Record<IgnoreReason, string> = {
+	settled: 'une note a déjà été prise pour cette demande — celle-ci est ignorée',
+	'before-window':
+		'jouée avant la consigne ou juste après son apparition, elle appartient à la précédente',
+	'after-capture': 'arrivée après la fin de l’écoute hors temps'
+};
+
+/** Provisional: the time relation follows the direction until exercises name theirs. */
+function timingFor(item: PlannedItem): TimingRelation {
+	return item.target.direction === 'locate' ? beatTiming : identifyTiming;
+}
+
+/** The attempt fields of a round outcome; rounds keep the answer opaque. */
+function judgementOf(outcome: RoundOutcome): Judgement {
+	return {
+		answer: outcome.answer as Answer | null,
+		correct: outcome.correct,
+		verdict: outcome.verdict,
+		timingOffsetMs: outcome.timingOffsetMs,
+		reactionMs: outcome.reactionMs
+	};
+}
 
 export class SessionController implements PlaySessionController {
 	sessionId: string;
@@ -95,17 +117,8 @@ export class SessionController implements PlaySessionController {
 	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
 	private counting = false;
 	private current: PlannedItem | null = null;
-	private promptBeatIndex: number | null = null;
-	private targetBeatIndex: number | null = null;
-	private promptTimeAudio: number | null = null;
-	private windowClosesAt: number | null = null;
-	private captured = false;
-	/**
-	 * Mode 1, after the window closed unanswered: still listening until this audio time for an
-	 * off-beat answer. The attempt is stored when the question is settled (a note, or this time).
-	 */
-	private captureUntil: number | null = null;
-	private verdictBeatIndex: number | null = null;
+	/** Timing of the current prompt, from its appearance to its verdict. */
+	private round: Round | null = null;
 	private sessionAttempts: Attempt[] = [];
 	private sessionTempoBpm: number | null = null;
 	private run = 0;
@@ -241,7 +254,7 @@ export class SessionController implements PlaySessionController {
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 		// A miss already shown is kept: the open late capture settles as unanswered.
-		if (this.captureUntil !== null) this.settleCapture(null);
+		this.abandonRound();
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -269,40 +282,18 @@ export class SessionController implements PlaySessionController {
 	}
 
 	answer(pitch: PitchName): void {
-		if (this.view.status !== 'awaiting' || this.captured || !this.current) return;
+		if (this.view.status !== 'awaiting' || !this.round || !this.current) return;
 		if (this.current.target.direction !== 'identify') return;
-		if (this.promptTimeAudio === null) return;
-
-		this.captured = true;
 		const expected = pitchOnString(this.current.target.string, this.current.target.fret);
-		const answerTime = this.deps.clock.now();
-		const judgement = judgeIdentify({
-			expected,
-			promptTime: this.promptTimeAudio,
-			answerTime,
-			answered: pitch
-		});
-
-		const answerLabel = judgement.answer ? formatNote(spellPitch(pitch, this.deps.random)) : null;
-		this.view.lastVerdict = {
-			verdict: judgement.verdict,
-			offsetMs: null,
-			reactionMs: judgement.reactionMs,
-			answerLabel,
-			correction: this.correctionFor(judgement.verdict)
-		};
-		this.view.answerChoices = null;
-		this.deps.cues.play(judgement.verdict);
-		const answerBeat = Math.floor(this.timeline.nowBeat());
-		this.verdictBeatIndex = answerBeat;
-		this.earliestPromptBeat = answerBeat + 1;
-		this.setStatus('verdict');
-		void this.persistAttempt(judgement);
+		const answer: Answer = { kind: 'name', pitch };
+		this.apply(
+			this.round.observe({ time: this.deps.clock.now(), correct: pitch === expected, answer })
+		);
 	}
 
 	quit(): void {
 		// A late capture still open settles as unanswered: the attempt is not lost.
-		if (this.captureUntil !== null) this.settleCapture(null);
+		this.abandonRound();
 		this.deps.metronome.stop();
 		this.deps.detector.stop();
 		void this.finish();
@@ -313,35 +304,28 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private clearItemState(): void {
-		this.promptBeatIndex = null;
-		this.targetBeatIndex = null;
-		this.promptTimeAudio = null;
-		this.windowClosesAt = null;
-		this.captured = false;
-		this.captureUntil = null;
-		this.verdictBeatIndex = null;
+		this.round = null;
+	}
+
+	/** Settles an open late capture as unanswered and stores it; nothing otherwise. */
+	private abandonRound(): void {
+		const outcome = this.round?.abandon();
+		if (outcome) this.settle(outcome);
 	}
 
 	private onBeat(beat: BeatEvent): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 
-		if (this.view.status === 'verdict') {
-			if (this.captureUntil !== null && beat.time >= this.captureUntil) this.settleCapture(null);
+		if (this.round) {
+			this.apply(this.round.onBeat(beat));
 			// The next prompt is chosen only once the attempt is stored and the selector knows it.
-			if (
-				this.captureUntil === null &&
-				this.verdictBeatIndex !== null &&
-				beat.index >= this.verdictBeatIndex + 1
-			) {
+			const after = this.round.after();
+			if (after && beat.index >= after.advanceAt) {
+				this.earliestPromptBeat = after.earliestPrompt;
 				this.advanceAfterVerdict(beat);
 				// advanceAfterVerdict may set count-in or finished; TS cannot track setStatus.
 				if ((this.view.status as PlayView['status']) === 'count-in') this.waitForPrompt(beat);
 			}
-			return;
-		}
-
-		if (this.view.status === 'awaiting') {
-			this.maybeCloseWindow(beat);
 			return;
 		}
 
@@ -379,9 +363,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
-		const earliest = Math.max(this.earliestPromptBeat, beatIndex);
-		if (item.target.direction !== 'locate') return earliest;
-		return alignedPromptBeat(earliest, item.leadBeats ?? BEATS_PER_BAR);
+		return timingFor(item).promptBeat(Math.max(this.earliestPromptBeat, beatIndex), item);
 	}
 
 	/** The right answer, shown with a miss only (off beat is a right note: nothing to correct). */
@@ -422,75 +404,34 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private onNote(onset: NoteOnset): void {
-		const capturing = this.view.status === 'verdict' && this.captureUntil !== null;
-		const listening = this.view.status === 'awaiting' && !this.captured;
-		if ((!listening && !capturing) || !this.current) {
+		if (!this.round || !this.current) {
 			this.logSkippedNote(onset);
 			return;
 		}
-		if (this.current.target.direction !== 'locate') {
+		const target = this.current.target;
+		if (target.direction !== 'locate') {
 			logDetection('note ignorée', [
 				'raison : la question en cours n’est pas « joue cette note »',
 				this.describeHeard(onset)
 			]);
 			return;
 		}
-		if (this.promptTimeAudio === null || this.targetBeatIndex === null) {
-			logDetection('note ignorée', [
-				'raison : la fenêtre de réponse n’est pas armée',
-				this.describeHeard(onset)
-			]);
-			return;
-		}
-
-		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
-		const window = answerWindow(this.promptTimeAudio, targetTime);
 		const corrected = onset.time - this.latencyMs / 1000;
-		const captureUntil = this.lateCaptureEnd();
-		if (corrected < window.opensAt && !isInWindow(corrected, window)) {
-			// Before the prompt or in its first MIN_RESPONSE_MS: it answers the previous prompt.
-			logDetection('note ignorée', [
-				'raison : jouée avant la consigne ou juste après son apparition, elle appartient à la précédente',
-				this.describeHeard(onset)
-			]);
-			return;
-		}
-		if (captureUntil !== null && corrected > captureUntil) {
-			logDetection('note ignorée', [
-				'raison : arrivée après la fin de l’écoute hors temps',
-				this.describeHeard(onset)
-			]);
-			return;
-		}
-
-		const judgement = judgeLocate({
-			acceptable: acceptableMidis(this.current.target),
-			promptTime: this.promptTimeAudio,
-			targetTime,
-			onset,
-			latencyMs: this.latencyMs,
-			captureUntil: captureUntil ?? undefined
+		const answer: Answer = { kind: 'note', midi: onset.midi };
+		const event = this.round.observe({
+			time: corrected,
+			correct: acceptableMidis(target).includes(onset.midi),
+			answer
 		});
-		this.logLocateDecision(onset, window, targetTime, corrected, judgement);
-		if (capturing) {
-			this.settleCapture(judgement);
+		if (event.kind === 'ignored') {
+			logDetection('note ignorée', [
+				`raison : ${IGNORED_BECAUSE[event.reason]}`,
+				this.describeHeard(onset)
+			]);
 			return;
 		}
-		this.captured = true;
-		this.resolveLocate(judgement, this.targetBeatIndex, true);
-	}
-
-	/**
-	 * End of the off-beat capture of the current prompt: before the earliest moment the next
-	 * prompt can show, its string included.
-	 */
-	private lateCaptureEnd(): number | null {
-		if (this.targetBeatIndex === null) return null;
-		const nextShows = respirationStart(this.targetBeatIndex) - STRING_PREVIEW_BEATS;
-		return lateCaptureEnd(
-			this.deps.metronome.beatTime(this.targetBeatIndex),
-			this.deps.metronome.beatTime(nextShows)
-		);
+		if (event.kind === 'settled') this.logLocateDecision(onset, corrected, event.outcome);
+		this.apply(event);
 	}
 
 	private pendingPromptView(item: PlannedItem): PromptView {
@@ -498,33 +439,56 @@ export class SessionController implements PlaySessionController {
 		return this.pendingPrompt;
 	}
 
-	/**
-	 * Settles a late capture: a note heard in it (off beat when right, wrong otherwise), or
-	 * `null` when the capture ended in silence. Stores the attempt either way.
-	 */
-	private settleCapture(judgement: Judgement | null): void {
-		this.captureUntil = null;
-		const settled = judgement ?? this.unansweredLocate();
-		const shown = this.view.lastVerdict?.verdict;
-		// Now that nothing more can be played for it, the right answer may show.
-		this.view.lastVerdict = this.verdictView(settled);
-		if (settled.verdict !== shown) {
-			this.view.history = this.view.history.map((entry) =>
-				entry.beatIndex === this.targetBeatIndex ? { ...entry, verdict: settled.verdict } : entry
-			);
-			this.deps.cues.play(settled.verdict);
-		}
-		void this.persistAttempt(settled);
+	private apply(event: RoundEvent): void {
+		if (event.kind === 'provisional') this.showProvisional(event.outcome);
+		else if (event.kind === 'settled') this.settle(event.outcome);
 	}
 
-	private unansweredLocate(): Judgement {
-		return {
-			answer: null,
-			correct: false,
-			verdict: 'wrong',
-			timingOffsetMs: null,
-			reactionMs: null
-		};
+	/**
+	 * Mode 1, the window closed unanswered: the miss shows without its correction while the
+	 * off-beat capture listens; the attempt waits for the round to settle.
+	 */
+	private showProvisional(outcome: RoundOutcome): void {
+		logDetection('fenêtre fermée sans note', [
+			`cible : ${this.describeLocateTarget()}`,
+			'aucune hauteur confirmée n’est arrivée pendant l’attente',
+			'verdict provisoire : faux — l’écoute continue hors temps'
+		]);
+		this.view.lastVerdict = this.verdictView(judgementOf(outcome), false);
+		this.addToLane(outcome);
+		this.deps.cues.play(outcome.verdict);
+		this.setStatus('verdict');
+	}
+
+	/**
+	 * Final verdict, with its correction, and the attempt stored. After a provisional miss, the
+	 * lane entry and the cue change only if the verdict did.
+	 */
+	private settle(outcome: RoundOutcome): void {
+		const judgement = judgementOf(outcome);
+		const provisional = this.view.status === 'verdict';
+		const shown = this.view.lastVerdict?.verdict;
+		this.view.lastVerdict = this.verdictView(judgement);
+		this.view.answerChoices = null;
+		if (!provisional) {
+			this.addToLane(outcome);
+			this.deps.cues.play(outcome.verdict);
+		} else if (outcome.verdict !== shown) {
+			this.view.history = this.view.history.map((entry) =>
+				entry.beatIndex === outcome.laneBeat ? { ...entry, verdict: outcome.verdict } : entry
+			);
+			this.deps.cues.play(outcome.verdict);
+		}
+		this.setStatus('verdict');
+		void this.persistAttempt(judgement);
+	}
+
+	private addToLane(outcome: RoundOutcome): void {
+		if (outcome.laneBeat === null) return;
+		this.view.history = [
+			...this.view.history,
+			{ beatIndex: outcome.laneBeat, verdict: outcome.verdict }
+		];
 	}
 
 	private beginNextItem(beat: BeatEvent): void {
@@ -541,81 +505,44 @@ export class SessionController implements PlaySessionController {
 		this.view.countdown = null;
 		this.lastDirection = item.target.direction;
 		this.view.scene = item.target.direction;
+		this.round = timingFor(item).open({
+			planned: item,
+			promptBeat: beat.index,
+			now: this.deps.clock.now(),
+			beatTime: (index) => this.deps.metronome.beatTime(index),
+			secondsPerBeat: this.deps.metronome.secondsPerBeat()
+		});
 
 		if (item.target.direction === 'locate') {
 			this.deps.metronome.setAudible(true);
-			const lead = item.leadBeats ?? BEATS_PER_BAR;
-			this.promptBeatIndex = beat.index;
-			this.targetBeatIndex = beat.index + lead;
-			this.promptTimeAudio = this.deps.metronome.beatTime(beat.index);
-			this.windowClosesAt = null;
-			this.captured = false;
-
 			this.view.prompt = built ?? buildPromptView(item, this.locale, this.deps.random);
-			this.view.promptBeatIndex = this.promptBeatIndex;
-			this.view.targetBeatIndex = this.targetBeatIndex;
+			this.view.promptBeatIndex = this.round.promptBeatIndex;
+			this.view.targetBeatIndex = this.round.targetBeatIndex;
 			this.view.leadBeats = item.leadBeats;
 			this.view.answerChoices = null;
 			this.view.lastVerdict = null;
 			this.setStatus('awaiting');
-			this.armLocateWindow();
 			return;
 		}
 
-		this.beginIdentify(item, beat);
+		this.beginIdentify(item);
 	}
 
-	private armLocateWindow(): void {
-		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
-		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
-		const window = answerWindow(this.promptTimeAudio, targetTime);
-		this.windowClosesAt = window.closesAt;
-	}
-
-	private beginIdentify(item: PlannedItem, beat: BeatEvent): void {
+	private beginIdentify(item: PlannedItem): void {
 		this.deps.metronome.setAudible(false);
-		this.promptBeatIndex = null;
-		this.targetBeatIndex = null;
-		this.windowClosesAt = null;
-		this.promptTimeAudio = this.deps.clock.now();
-		this.captured = false;
 		this.view.prompt = buildPromptView(item, this.locale, this.deps.random);
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
 		this.view.leadBeats = null;
 		this.view.answerChoices = buildAnswerChoices();
 		this.view.lastVerdict = null;
-		this.verdictBeatIndex = beat.index;
 		this.setStatus('awaiting');
-	}
-
-	private maybeCloseWindow(beat: BeatEvent): void {
-		if (this.captured || this.windowClosesAt === null || !this.current) return;
-		if (this.current.target.direction !== 'locate') return;
-		if (beat.time < this.windowClosesAt) return;
-		if (this.promptTimeAudio === null || this.targetBeatIndex === null) return;
-
-		this.captured = true;
-		const targetTime = this.deps.metronome.beatTime(this.targetBeatIndex);
-		const window = answerWindow(this.promptTimeAudio, targetTime);
-		logDetection('fenêtre fermée sans note', [
-			`cible : ${this.describeLocateTarget()}`,
-			`fréquences acceptées : ${describeAcceptable(acceptableMidis(this.current.target))}`,
-			`fenêtre : ${window.opensAt.toFixed(3)} s → ${window.closesAt.toFixed(3)} s`,
-			`fermeture au beat ${beat.time.toFixed(3)} s`,
-			'aucune hauteur confirmée n’est arrivée pendant l’attente',
-			'verdict provisoire : faux — l’écoute continue hors temps'
-		]);
-		this.resolveLocate(this.unansweredLocate(), beat.index, false);
 	}
 
 	private logSkippedNote(onset: NoteOnset): void {
 		const reasons: string[] = [];
 		if (this.view.status !== 'awaiting') {
 			reasons.push(`la session n’attend pas de note (statut : ${this.view.status})`);
-		}
-		if (this.captured) {
-			reasons.push('une note a déjà été prise pour cette demande — celle-ci est ignorée');
 		}
 		if (!this.current) reasons.push('aucune question en cours');
 		logDetection('note ignorée', [
@@ -634,31 +561,17 @@ export class SessionController implements PlaySessionController {
 		return `${target.pitch} · ${stringLabel(target.string, this.locale)}`;
 	}
 
-	private logLocateDecision(
-		onset: NoteOnset,
-		window: { opensAt: number; closesAt: number },
-		targetTime: number,
-		corrected: number,
-		judgement: Judgement
-	): void {
+	private logLocateDecision(onset: NoteOnset, corrected: number, outcome: RoundOutcome): void {
 		const target = this.current?.target;
 		if (!target || target.direction !== 'locate') return;
-		const inWindow = isInWindow(corrected, window);
 		const acceptable = acceptableMidis(target);
 		const nearest = nearestAcceptable(onset.frequencyHz, acceptable);
-		const fromOpenMs = Math.round((corrected - window.opensAt) * 1000);
-		const fromCloseMs = Math.round((window.closesAt - corrected) * 1000);
-		const fromTargetMs = Math.round((corrected - targetTime) * 1000);
 		const lines = [
-			`cible : ${target.pitch} · ${stringLabel(target.string, this.locale)}`,
+			`cible : ${this.describeLocateTarget()}`,
 			`fréquences acceptées : ${describeAcceptable(acceptable)}`,
 			this.describeHeard(onset),
 			`latence : ${this.latencyMs} ms`,
-			`temps brut ${onset.time.toFixed(3)} s → corrigé ${corrected.toFixed(3)} s`,
-			`fenêtre : ${window.opensAt.toFixed(3)} s → ${window.closesAt.toFixed(3)} s, cible ${targetTime.toFixed(3)} s`,
-			`position : ${fromOpenMs} ms après l’ouverture, ${fromCloseMs} ms avant la fermeture, ${
-				fromTargetMs < 0 ? `${-fromTargetMs} ms en avance` : `${fromTargetMs} ms en retard`
-			}`
+			`temps brut ${onset.time.toFixed(3)} s → corrigé ${corrected.toFixed(3)} s`
 		];
 		if (nearest) {
 			const way = nearest.cents > 15 ? 'trop aigu' : nearest.cents < -15 ? 'trop grave' : 'proche';
@@ -672,75 +585,40 @@ export class SessionController implements PlaySessionController {
 				);
 			}
 		}
-		if (!inWindow) {
-			const before = corrected < window.opensAt;
-			const deltaMs = Math.round(
-				(before ? window.opensAt - corrected : corrected - window.closesAt) * 1000
-			);
-			lines.push(
-				before
-					? `hors fenêtre : ${deltaMs} ms avant l’ouverture`
-					: `hors fenêtre : ${deltaMs} ms après la fermeture, pendant l’écoute hors temps`,
-				`verdict : ${judgement.verdict}`
-			);
-		} else if (!judgement.correct) {
-			lines.push(
-				`écart au temps : ${judgement.timingOffsetMs} ms`,
-				`verdict : faux — MIDI ${onset.midi} n’est pas dans [${acceptable.join(', ')}]`
-			);
-		} else {
-			lines.push(
-				`écart au temps : ${judgement.timingOffsetMs} ms`,
-				`verdict : juste (${judgement.verdict})`
-			);
-		}
+		lines.push(
+			`écart au temps : ${outcome.timingOffsetMs} ms`,
+			outcome.correct
+				? `verdict : juste (${outcome.verdict})`
+				: `verdict : faux — MIDI ${onset.midi} n’est pas dans [${acceptable.join(', ')}]`
+		);
 		logDetection('décision', lines);
 	}
 
 	/** `withCorrection` false while the late capture listens: reading the fret must not answer. */
 	private verdictView(judgement: Judgement, withCorrection = true): VerdictView {
+		const answer = judgement.answer;
 		const target = this.current?.target;
-		const answerLabel =
-			judgement.answer && judgement.answer.kind === 'note' && target?.direction === 'locate'
-				? formatNote(spellPitch(target.pitch, this.deps.random))
-				: null;
+		const answerLabel = !answer
+			? null
+			: answer.kind === 'name'
+				? formatNote(spellPitch(answer.pitch, this.deps.random))
+				: target?.direction === 'locate'
+					? formatNote(spellPitch(target.pitch, this.deps.random))
+					: null;
 		return {
 			verdict: judgement.verdict,
 			offsetMs: judgement.timingOffsetMs,
 			reactionMs: judgement.reactionMs,
-			answerLabel: judgement.answer ? answerLabel : null,
+			answerLabel,
 			correction: withCorrection ? this.correctionFor(judgement.verdict) : null
 		};
 	}
 
-	/**
-	 * Shows a mode 1 verdict. `settled` false: the window closed unanswered, the verdict is
-	 * provisional and the off-beat capture opens; the attempt waits for `settleCapture`.
-	 */
-	private resolveLocate(judgement: Judgement, gapFromBeat: number, settled: boolean): void {
-		if (!this.current || this.promptBeatIndex === null) return;
-		this.view.lastVerdict = this.verdictView(judgement, settled);
-		if (this.targetBeatIndex !== null) {
-			this.view.history = [
-				...this.view.history,
-				{ beatIndex: this.targetBeatIndex, verdict: judgement.verdict }
-			];
-		}
-		this.deps.cues.play(judgement.verdict);
-		this.verdictBeatIndex = gapFromBeat;
-		// Breathe: the next prompt waits for the first beat of the bar after the target bar.
-		this.earliestPromptBeat =
-			this.targetBeatIndex === null ? gapFromBeat + 1 : respirationStart(this.targetBeatIndex);
-		this.setStatus('verdict');
-		if (settled) void this.persistAttempt(judgement);
-		else this.captureUntil = this.lateCaptureEnd();
-	}
-
 	private async persistAttempt(judgement: Judgement): Promise<void> {
-		if (!this.current || this.promptTimeAudio === null) return;
+		if (!this.current || !this.round) return;
 		const item = this.current;
 		const key = cardKey(item.target);
-		const promptedAt = this.deps.clock.toEpochMs(this.promptTimeAudio);
+		const promptedAt = this.deps.clock.toEpochMs(this.round.promptTime);
 		const attemptedInSession = this.sessionAttempts.some((a) => a.cardKey === key);
 
 		// Provisional temperature for sync fatigue/session tracking; refined after history load.

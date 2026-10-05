@@ -19,6 +19,18 @@ describe('beatTiming', () => {
 		expect(beatTiming.promptBeat(5, { leadBeats: 4 })).toBe(8);
 	});
 
+	it('falls back to a one-bar lead when the prompt has none', () => {
+		expect(beatTiming.promptBeat(5, { leadBeats: null })).toBe(8);
+		const r = beatTiming.open({
+			planned: { leadBeats: null },
+			promptBeat: 4,
+			now: 0,
+			beatTime,
+			secondsPerBeat: 0.75
+		});
+		expect(r.targetBeatIndex).toBe(8);
+	});
+
 	it('opens a round with the prompt at its beat and the target a lead later', () => {
 		expect(round()).toMatchObject({ promptBeatIndex: 4, targetBeatIndex: 8, promptTime: 3.1 });
 	});
@@ -77,6 +89,26 @@ describe('beatTiming', () => {
 		expect(r.observe(note(7.0))).toMatchObject({
 			kind: 'settled',
 			outcome: { verdict: 'offbeat', correct: true }
+		});
+		expect(r.after()).toEqual({ advanceAt: 10, earliestPrompt: 12 });
+	});
+
+	it('settles a right note past the window as off beat before the closing beat arrives', () => {
+		const r = round();
+		expect(r.observe(note(6.6))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'offbeat', correct: true, timingOffsetMs: 500 }
+		});
+		expect(r.after()).toEqual({ advanceAt: 9, earliestPrompt: 12 });
+	});
+
+	it('judges on time a note inside the window heard after the early closing beat', () => {
+		const r = round();
+		// onBeat runs up to 100 ms early: the closing beat is delivered before the note arrives.
+		r.onBeat({ index: 9, time: 6.85 });
+		expect(r.observe(note(6.45))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'late', correct: true, timingOffsetMs: 350 }
 		});
 		expect(r.after()).toEqual({ advanceAt: 10, earliestPrompt: 12 });
 	});
