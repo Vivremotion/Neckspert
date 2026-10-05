@@ -60,6 +60,12 @@
 		{/if}
 		<PixelBox variant="double">
 			<ul class="rows">
+				{#if summary.tempoBpm !== null}
+					<li>
+						<span>{t.tempo}</span>
+						<strong>{t.bpm(summary.tempoBpm)}</strong>
+					</li>
+				{/if}
 				{#if noCold}
 					<li>
 						<span>{t.noCold}</span>

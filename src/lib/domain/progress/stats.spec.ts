@@ -293,8 +293,27 @@ describe('summarizeSession', () => {
 			knownCount: 0,
 			fatigueDetected: true,
 			nextReviewAt: NOW + 1000,
-			grade: null
+			grade: null,
+			tempoBpm: 80
 		});
+	});
+
+	it('gives the tempo the locate exercise was played at', () => {
+		const summarize = (executions: SessionRecord['executions']) =>
+			summarizeSession({
+				record: { ...record('learn'), executions },
+				attempts: [],
+				allAttempts: [],
+				cards: [],
+				now: NOW
+			}).tempoBpm;
+		expect(
+			summarize([
+				{ exerciseId: 'identify-neck', tempoBpm: null },
+				{ exerciseId: 'locate-neck', tempoBpm: 95 }
+			])
+		).toBe(95);
+		expect(summarize([{ exerciseId: 'identify-neck', tempoBpm: null }])).toBeNull();
 	});
 
 	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {

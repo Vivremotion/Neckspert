@@ -84,7 +84,8 @@ const EMPTY_SUMMARY: SessionSummary = {
 	knownCount: 0,
 	fatigueDetected: false,
 	nextReviewAt: null,
-	grade: null
+	grade: null,
+	tempoBpm: null
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {

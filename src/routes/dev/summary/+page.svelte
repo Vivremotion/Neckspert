@@ -14,7 +14,8 @@
 		knownCount: 3,
 		fatigueDetected: false,
 		nextReviewAt: 2 * 60 * 60 * 1000,
-		grade: 'S+'
+		grade: 'S+',
+		tempoBpm: 92
 	};
 </script>
 

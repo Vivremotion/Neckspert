@@ -213,6 +213,8 @@ export interface SessionSummary {
 	/** Earliest time a learned card can be reviewed cold. Informational. */
 	nextReviewAt: number | null;
 	grade: SessionGrade | null;
+	/** Tempo the locate exercise was played at in this session. Null when it did not run. */
+	tempoBpm: number | null;
 }
 
 /** One cell of the neck map: a position and what is known about it. */

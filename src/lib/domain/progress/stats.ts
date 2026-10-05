@@ -11,6 +11,7 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
+import { LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
@@ -124,7 +125,10 @@ export function summarizeSession(input: {
 		).length,
 		fatigueDetected: input.record.fatigueDetected,
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
-		grade: pool === 'all' ? sessionGrade(input.attempts) : null
+		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
+		tempoBpm:
+			input.record.executions.find((execution) => execution.exerciseId === LOCATE_NECK.id)
+				?.tempoBpm ?? null
 	};
 }
 

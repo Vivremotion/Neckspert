@@ -21,7 +21,8 @@ const summary: SessionSummary = {
 	knownCount: 0,
 	fatigueDetected: true,
 	nextReviewAt: 2 * 60 * 60 * 1000,
-	grade: null
+	grade: null,
+	tempoBpm: 92
 };
 
 describe('SummaryScreen', () => {
@@ -96,6 +97,25 @@ describe('SummaryScreen', () => {
 		expect(screen.getByText(/^Précision$/)).toBeTruthy();
 		expect(screen.queryByText(/prochaines révisions/i)).toBeNull();
 		expect(screen.queryByText(/dans 2 h/i)).toBeNull();
+	});
+
+	it('shows the tempo played, also without a cold review, and nothing without one', () => {
+		render(SummaryScreen, {
+			props: {
+				summary: { ...summary, attemptCount: 0, correctCount: 0 },
+				now: 0,
+				onhome: () => {},
+				onmap: () => {}
+			}
+		});
+		expect(screen.getByText('Tempo')).toBeTruthy();
+		expect(screen.getByText('92 bpm')).toBeTruthy();
+		cleanup();
+		render(SummaryScreen, {
+			props: { summary: { ...summary, tempoBpm: null }, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.queryByText('Tempo')).toBeNull();
+		expect(screen.queryByText(/bpm/)).toBeNull();
 	});
 
 	it('navigates home and to the map', async () => {

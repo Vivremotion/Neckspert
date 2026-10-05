@@ -3,6 +3,8 @@ import { defineMessages } from '$lib/i18n/index.svelte';
 export const summaryMessages = defineMessages({
 	fr: {
 		title: 'Bilan',
+		tempo: 'Tempo',
+		bpm: (n: number) => `${n} bpm`,
 		accuracy: 'Précision à froid',
 		accuracyAll: 'Précision',
 		median: 'Écart au temps',
@@ -25,6 +27,8 @@ export const summaryMessages = defineMessages({
 	},
 	en: {
 		title: 'Summary',
+		tempo: 'Tempo',
+		bpm: (n: number) => `${n} bpm`,
 		accuracy: 'Cold accuracy',
 		accuracyAll: 'Accuracy',
 		median: 'From the beat',
