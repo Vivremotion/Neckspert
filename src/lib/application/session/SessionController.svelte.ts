@@ -270,7 +270,10 @@ export class SessionController implements PlaySessionController {
 
 	/** Provisional until planned items name their mechanic: the direction is the mechanic id. */
 	private presenterFor(item: PlannedItem): MechanicPresenter {
-		return this.deps.mechanics[item.target.direction];
+		const id = item.target.direction;
+		const presenter = this.deps.mechanics[id];
+		if (!presenter) throw new Error(`No presenter for mechanic: ${id}`);
+		return presenter;
 	}
 
 	/** One source per sensor the mechanics use, opened with the calibrated latency. */
@@ -278,10 +281,9 @@ export class SessionController implements PlaySessionController {
 		this.closeAllSources();
 		const kinds = new Set(Object.values(this.deps.mechanics).map((p) => p.sensor));
 		for (const kind of kinds) {
-			const source = this.deps.sensors[kind]({
-				latencyMs: this.latencyMs,
-				clock: this.deps.clock
-			});
+			const factory = this.deps.sensors[kind];
+			if (!factory) throw new Error(`No factory for sensor: ${kind}`);
+			const source = factory({ latencyMs: this.latencyMs, clock: this.deps.clock });
 			this.sources.set(kind, source);
 			this.closeSources.push(
 				source.onObservation((observation) => this.onObservation(kind, observation))

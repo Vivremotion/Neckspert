@@ -652,6 +652,8 @@ describe('SessionController identify', () => {
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
 		expect(controller.view.scene).toBe('guitar');
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt).not.toBeNull();
 
 		const targetTime = deps.metronome.beatTime(8);
 		deps.detector.emitNote({
@@ -701,6 +703,8 @@ describe('SessionController identify', () => {
 		expect(deps.metronome.audible).toBe(true);
 		atBeat(deps, 12);
 		expect(controller.view.scene).toBe('guitar');
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt).not.toBeNull();
 		expect(deps.metronome.audible).toBe(true);
 	});
 
@@ -856,6 +860,8 @@ describe('SessionController identify', () => {
 		expect(controller.view.countdown).toBe(4);
 		tick(deps, 0.75 * 4);
 		expect(controller.view.scene).toBe('screen');
+		expect(controller.view.status).toBe('awaiting');
+		expect(controller.view.prompt).not.toBeNull();
 	});
 
 	it('adds no bar between two prompts in the same direction', async () => {
@@ -885,6 +891,20 @@ describe('SessionController identify', () => {
 		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
 		controller.answer('F');
 		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+	});
+});
+
+describe('SessionController wiring', () => {
+	it('names a mechanic without a presenter', async () => {
+		const deps = { ...createDeps(), mechanics: {} };
+		const controller = make(planWith([locateItem()]), deps);
+		await expect(controller.start()).rejects.toThrow('No presenter for mechanic: locate');
+	});
+
+	it('names a sensor without a factory', async () => {
+		const deps = { ...createDeps(), sensors: {} };
+		const controller = make(planWith([locateItem()]), deps);
+		await expect(controller.start()).rejects.toThrow('No factory for sensor: note');
 	});
 });
 
