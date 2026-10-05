@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import type { LocateTarget } from '$lib/domain/types';
-import { isMirrorPair, mirrorTargets, openPitch } from './mirror';
+import type { LocateItem, NeckCard } from './items';
+import { isMirrorPair, mirrorItems, openPitch } from './mirror';
 
-const on = (string: LocateTarget['string'], pitch: LocateTarget['pitch']): LocateTarget => ({
-	direction: 'locate',
+const item = (string: LocateItem['string'], pitch: LocateItem['pitch']): LocateItem => ({
 	string,
 	pitch
+});
+const on = (string: LocateItem['string'], pitch: LocateItem['pitch']): NeckCard => ({
+	mechanic: 'locate',
+	item: item(string, pitch)
 });
 
 describe('openPitch', () => {
 	it('names each string by its open note', () => {
-		expect([1, 2, 3, 4, 5, 6].map((s) => openPitch(s as LocateTarget['string']))).toEqual([
+		expect([1, 2, 3, 4, 5, 6].map((s) => openPitch(s as LocateItem['string']))).toEqual([
 			'E',
 			'B',
 			'G',
@@ -40,14 +43,16 @@ describe('isMirrorPair', () => {
 	it('leaves other notes, identical cards and mode 2 alone', () => {
 		expect(isMirrorPair(on(6, 'A'), on(5, 'F'))).toBe(false);
 		expect(isMirrorPair(on(6, 'A'), on(6, 'A'))).toBe(false);
-		expect(isMirrorPair(on(6, 'A'), { direction: 'identify', string: 5, fret: 7 })).toBe(false);
+		expect(isMirrorPair(on(6, 'A'), { mechanic: 'identify', item: { string: 5, fret: 7 } })).toBe(
+			false
+		);
 	});
 });
 
-describe('mirrorTargets', () => {
-	it('lists every mirror of a locate target', () => {
-		expect(mirrorTargets(on(5, 'E'))).toEqual([on(1, 'A'), on(6, 'A')]);
-		expect(mirrorTargets(on(6, 'A'))).toEqual([on(5, 'E')]);
-		expect(mirrorTargets(on(6, 'F'))).toEqual([]);
+describe('mirrorItems', () => {
+	it('lists every mirror of a locate item', () => {
+		expect(mirrorItems(item(5, 'E'))).toEqual([item(1, 'A'), item(6, 'A')]);
+		expect(mirrorItems(item(6, 'A'))).toEqual([item(5, 'E')]);
+		expect(mirrorItems(item(6, 'F'))).toEqual([]);
 	});
 });

@@ -1,13 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import {
-	cardKey,
-	type Attempt,
-	type CardState,
-	type IdentifyTarget,
-	type LocateTarget
-} from '$lib/domain/types';
+import type { Attempt, CardState } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
+import { beatTiming, identifyTiming } from '$lib/domain/timing';
 import {
 	applyColdAttempt,
 	cardStatus,
@@ -21,32 +16,34 @@ import {
 
 const NOW = Date.parse('2026-04-01T10:00:00.000Z');
 const TEMPO = 80;
-const LOCATE: LocateTarget = { direction: 'locate', string: 6, pitch: 'G' };
-const IDENTIFY: IdentifyTarget = { direction: 'identify', string: 6, fret: 3 };
+const LOCATE = { key: 'locate:6:G', mechanic: 'locate', item: { string: 6, pitch: 'G' } };
+const IDENTIFY = { key: 'identify:6:3', mechanic: 'identify', item: { string: 6, fret: 3 } };
 
+/** A cold locate review, played at TEMPO. */
 function attempt(overrides: Partial<Attempt>): Attempt {
 	return {
 		sessionId: 's-review',
-		cardKey: cardKey(LOCATE),
-		target: LOCATE,
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
+		cardKey: LOCATE.key,
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: 2,
 		promptedAt: NOW,
-		answer: { kind: 'note', midi: 43 },
-		correct: true,
-		verdict: 'perfect',
+		tempoBpm: TEMPO,
+		leadBeats: 2,
 		timingOffsetMs: 0,
 		reactionMs: 1600,
-		confusion: null,
+		correct: true,
+		verdict: 'perfect',
+		data: { item: LOCATE.item, answer: { midi: 43 }, confusion: null },
 		...overrides
 	};
 }
 
 describe('introduceCard', () => {
 	it('creates a New locate card due after the cold delay with lead 8', () => {
-		const card = introduceCard(LOCATE, NOW, 's-learn');
+		const card = introduceCard(LOCATE, NOW, 's-learn', beatTiming);
 		expect(card.key).toBe('locate:6:G');
 		expect(card.introducedAt).toBe(NOW);
 		expect(card.introducedInSession).toBe('s-learn');
@@ -59,13 +56,18 @@ describe('introduceCard', () => {
 	});
 
 	it('creates identify cards on the shortest lead', () => {
-		expect(introduceCard(IDENTIFY, NOW, 's-learn').leadBeats).toBe(2);
+		expect(introduceCard(IDENTIFY, NOW, 's-learn', identifyTiming).leadBeats).toBe(2);
 	});
 });
 
 describe('markLearned', () => {
 	it('gives a learned locate card the direct-recall lead and a first cold check after the delay', () => {
-		const card = markLearned(introduceCard(LOCATE, NOW - 60_000, 's-learn'), NOW, TEMPO);
+		const card = markLearned(
+			introduceCard(LOCATE, NOW - 60_000, 's-learn', beatTiming),
+			NOW,
+			beatTiming,
+			TEMPO
+		);
 		expect(card.learnedAt).toBe(NOW);
 		expect(card.leadBeats).toBe(2);
 		expect(card.scheduling.due).toBe(NOW + MIN_COLD_DELAY_MS);
@@ -73,14 +75,19 @@ describe('markLearned', () => {
 	});
 
 	it('keeps identify cards on the shortest lead', () => {
-		expect(markLearned(introduceCard(IDENTIFY, NOW, 's-learn'), NOW, TEMPO).leadBeats).toBe(2);
+		const card = introduceCard(IDENTIFY, NOW, 's-learn', identifyTiming);
+		expect(markLearned(card, NOW, identifyTiming, null).leadBeats).toBe(2);
 	});
 });
 
 describe('probeCard', () => {
 	it('returns null when the answer is wrong or not direct recall', () => {
-		expect(probeCard(LOCATE, attempt({ correct: false, leadBeats: 2 }), NOW, 's-p', 80)).toBeNull();
-		expect(probeCard(LOCATE, attempt({ correct: true, leadBeats: 4 }), NOW, 's-p', 80)).toBeNull();
+		expect(
+			probeCard(LOCATE, attempt({ correct: false, leadBeats: 2 }), NOW, 's-p', beatTiming)
+		).toBeNull();
+		expect(
+			probeCard(LOCATE, attempt({ correct: true, leadBeats: 4 }), NOW, 's-p', beatTiming)
+		).toBeNull();
 	});
 
 	it('creates an acquired Review card on direct-recall success', () => {
@@ -89,7 +96,7 @@ describe('probeCard', () => {
 			attempt({ correct: true, leadBeats: 2, sessionId: 's-p' }),
 			NOW,
 			's-p',
-			80
+			beatTiming
 		);
 		expect(card).not.toBeNull();
 		expect(card!.scheduling.state).toBe(State.Review);
@@ -102,43 +109,47 @@ describe('probeCard', () => {
 	it('creates an identify card on a name tapped within the naming threshold', () => {
 		const tapped = (reactionMs: number) =>
 			attempt({
-				cardKey: cardKey(IDENTIFY),
-				target: IDENTIFY,
+				exerciseId: 'identify-neck',
+				mechanic: 'identify',
+				cardKey: IDENTIFY.key,
+				tempoBpm: null,
 				leadBeats: null,
-				answer: { kind: 'name', pitch: 'G' },
+				timingOffsetMs: null,
+				data: { item: IDENTIFY.item, answer: { pitch: 'G' }, confusion: null },
 				reactionMs
 			});
-		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', 80);
+		const card = probeCard(IDENTIFY, tapped(3000), NOW, 's-p', identifyTiming);
 		expect(card?.key).toBe('identify:6:3');
 		expect(card?.leadBeats).toBe(2);
 		expect(card?.acquiredAt).toBe(NOW);
-		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', 80)).toBeNull();
+		expect(probeCard(IDENTIFY, tapped(3001), NOW, 's-p', identifyTiming)).toBeNull();
 	});
 });
 
 describe('probeTemperature', () => {
 	it('records a passed probe cold and a missed probe hot', () => {
-		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), 80)).toBe('cold');
-		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), 80)).toBe('hot');
+		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), beatTiming)).toBe('cold');
+		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), beatTiming)).toBe('hot');
+		const named = { correct: true, leadBeats: null, tempoBpm: null } as const;
 		expect(
-			probeTemperature({ verdict: 'perfect', correct: true, leadBeats: null, reactionMs: 3000 }, 80)
+			probeTemperature({ ...named, verdict: 'perfect', reactionMs: 3000 }, identifyTiming)
 		).toBe('cold');
-		expect(
-			probeTemperature({ verdict: 'late', correct: true, leadBeats: null, reactionMs: 3001 }, 80)
-		).toBe('hot');
+		expect(probeTemperature({ ...named, verdict: 'late', reactionMs: 3001 }, identifyTiming)).toBe(
+			'hot'
+		);
 	});
 });
 
 describe('applyColdAttempt', () => {
 	it('ignores hot attempts', () => {
-		const state = introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0');
+		const state = introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0', beatTiming);
 		const hot = attempt({ temperature: 'hot', leadBeats: 8 });
-		expect(applyColdAttempt(state, hot, [hot], NOW, TEMPO)).toEqual(state);
+		expect(applyColdAttempt(state, hot, [hot], NOW, beatTiming)).toEqual(state);
 	});
 
 	it('shortens lead and grades Good on cold direct recall in a later session', () => {
 		const introduced = NOW - MIN_COLD_DELAY_MS;
-		const state = introduceCard(LOCATE, introduced, 's-learn');
+		const state = introduceCard(LOCATE, introduced, 's-learn', beatTiming);
 		const due = { ...state, scheduling: { ...state.scheduling, due: NOW } };
 		const cold = attempt({
 			sessionId: 's-review',
@@ -147,7 +158,7 @@ describe('applyColdAttempt', () => {
 			promptedAt: NOW
 		});
 		// lead 8 at 80 bpm is not direct recall → Hard, but still shortens lead
-		const afterHard = applyColdAttempt(due, cold, [cold], NOW, TEMPO);
+		const afterHard = applyColdAttempt(due, cold, [cold], NOW, beatTiming);
 		expect(afterHard.leadBeats).toBe(4);
 		expect(afterHard.acquiredAt).toBeNull();
 		expect(afterHard.scheduling.reps).toBe(1);
@@ -159,36 +170,36 @@ describe('applyColdAttempt', () => {
 			promptedAt: NOW + 60_000
 		});
 		const history = [cold, direct];
-		const afterGood = applyColdAttempt(afterHard, direct, history, NOW + 60_000, TEMPO);
+		const afterGood = applyColdAttempt(afterHard, direct, history, NOW + 60_000, beatTiming);
 		expect(afterGood.leadBeats).toBe(2);
 		expect(afterGood.acquiredAt).toBe(NOW + 60_000);
 	});
 
 	it('lengthens lead and grades Again on a miss', () => {
 		const state: CardState = {
-			...introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0'),
+			...introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0', beatTiming),
 			leadBeats: 2
 		};
 		const miss = attempt({ correct: false, leadBeats: 2, verdict: 'wrong' });
-		const after = applyColdAttempt(state, miss, [miss], NOW, TEMPO);
+		const after = applyColdAttempt(state, miss, [miss], NOW, beatTiming);
 		expect(after.leadBeats).toBe(4);
 		expect(after.scheduling.reps).toBeGreaterThanOrEqual(1);
 	});
 
 	it('grades an off-beat answer Hard, lengthens the lead and never acquires', () => {
 		const state: CardState = {
-			...introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0'),
+			...introduceCard(LOCATE, NOW - MIN_COLD_DELAY_MS, 's0', beatTiming),
 			leadBeats: 2,
 			learnedAt: NOW - MIN_COLD_DELAY_MS
 		};
 		const offbeat = attempt({ verdict: 'offbeat', correct: true, leadBeats: 2 });
-		const after = applyColdAttempt(state, offbeat, [offbeat], NOW, TEMPO);
+		const after = applyColdAttempt(state, offbeat, [offbeat], NOW, beatTiming);
 		const hard = applyColdAttempt(
 			state,
 			{ ...offbeat, verdict: 'late', leadBeats: 8 },
 			[],
 			NOW,
-			TEMPO
+			beatTiming
 		);
 		expect(after.leadBeats).toBe(4);
 		expect(after.acquiredAt).toBeNull();
@@ -200,15 +211,15 @@ describe('applyColdAttempt', () => {
 describe('isAcquired / isMastered / cardStatus', () => {
 	it('cardStatus walks unseen → learning → acquired → mastered', () => {
 		expect(cardStatus(undefined)).toBe('unseen');
-		const learning = introduceCard(LOCATE, NOW, 's0');
+		const learning = introduceCard(LOCATE, NOW, 's0', beatTiming);
 		expect(cardStatus(learning)).toBe('learning');
 		expect(cardStatus({ ...learning, acquiredAt: NOW })).toBe('acquired');
 		expect(cardStatus({ ...learning, acquiredAt: NOW, masteredAt: NOW })).toBe('mastered');
 	});
 
 	it('isAcquired is true once acquiredAt is set, or from a later-session direct recall', () => {
-		const state = introduceCard(LOCATE, NOW, 's-learn');
-		expect(isAcquired(state, [], TEMPO)).toBe(false);
+		const state = introduceCard(LOCATE, NOW, 's-learn', beatTiming);
+		expect(isAcquired(state, [], beatTiming)).toBe(false);
 		const later = attempt({
 			sessionId: 's-later',
 			leadBeats: 2,
@@ -216,8 +227,8 @@ describe('isAcquired / isMastered / cardStatus', () => {
 			temperature: 'cold',
 			promptedAt: NOW + MIN_COLD_DELAY_MS
 		});
-		expect(isAcquired(state, [later], TEMPO)).toBe(true);
-		expect(isAcquired({ ...state, acquiredAt: NOW }, [], TEMPO)).toBe(true);
+		expect(isAcquired(state, [later], beatTiming)).toBe(true);
+		expect(isAcquired({ ...state, acquiredAt: NOW }, [], beatTiming)).toBe(true);
 	});
 
 	it('isMastered requires accuracy, three successful sessions, and a 72h gap', () => {
@@ -236,7 +247,7 @@ describe('isAcquired / isMastered / cardStatus', () => {
 				})
 			);
 		}
-		expect(isMastered(history, TEMPO)).toBe(true);
+		expect(isMastered(history, beatTiming)).toBe(true);
 
 		// A missed probe is stored hot and never counts against mastery.
 		const missedProbe = attempt({
@@ -246,7 +257,7 @@ describe('isAcquired / isMastered / cardStatus', () => {
 			correct: false,
 			promptedAt: NOW - day
 		});
-		expect(isMastered([missedProbe, ...history], TEMPO)).toBe(true);
+		expect(isMastered([missedProbe, ...history], beatTiming)).toBe(true);
 
 		// 10% miss breaks accuracy (need ≥ 90 %)
 		const withMiss = [
@@ -260,6 +271,22 @@ describe('isAcquired / isMastered / cardStatus', () => {
 			})
 		];
 		// 3/4 = 0.75 < 0.9
-		expect(isMastered(withMiss, TEMPO)).toBe(false);
+		expect(isMastered(withMiss, beatTiming)).toBe(false);
+	});
+
+	it('judges every attempt at its own tempo', () => {
+		const gap = 72 * 60 * 60 * 1000;
+		const history = (tempoBpm: number) =>
+			['a', 'b', 'c'].map((sessionId, i) =>
+				attempt({
+					sessionId,
+					leadBeats: 4,
+					temperature: 'cold',
+					promptedAt: NOW + i * gap,
+					tempoBpm
+				})
+			);
+		expect(isMastered(history(160), beatTiming)).toBe(true);
+		expect(isMastered(history(80), beatTiming)).toBe(false);
 	});
 });

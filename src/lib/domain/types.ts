@@ -1,66 +1,26 @@
-import {
-	CHROMATIC_NOTES,
-	MAX_PROMPT_FRET,
-	type Midi,
-	type PitchName,
-	type StringNumber
-} from './music/types';
+import type { PitchName, StringNumber } from './music/types';
+import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
+
+export type { Execution, ExerciseId, MechanicId, Progression };
 
 export type Locale = 'fr' | 'en';
 
-export type Direction = 'locate' | 'identify';
-
-/** Mode 1: play `pitch` on `string`, any octave playable on that string. */
-export interface LocateTarget {
-	direction: 'locate';
-	string: StringNumber;
-	pitch: PitchName;
-}
-
-/** Mode 2: name the note at `string`, `fret` (0 to MAX_PROMPT_FRET). */
-export interface IdentifyTarget {
-	direction: 'identify';
-	string: StringNumber;
-	fret: number;
-}
-
-export type Target = LocateTarget | IdentifyTarget;
-
+/** `${mechanic}:${itemKey}`: `locate:6:F`, `identify:6:3`. */
 export type CardKey = string;
 
-export function cardKey(target: Target): CardKey {
-	return target.direction === 'locate'
-		? `locate:${target.string}:${target.pitch}`
-		: `identify:${target.string}:${target.fret}`;
+export function cardKey(mechanic: MechanicId, itemKey: string): CardKey {
+	return `${mechanic}:${itemKey}`;
 }
 
-export function parseCardKey(key: CardKey): Target {
-	const parts = key.split(':');
-	if (parts.length !== 3) {
+/** Splits at the first `:`; throws without one or with an empty side. */
+export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: string } {
+	const colon = key.indexOf(':');
+	const mechanic = colon < 0 ? '' : key.slice(0, colon);
+	const itemKey = colon < 0 ? '' : key.slice(colon + 1);
+	if (mechanic === '' || itemKey === '') {
 		throw new Error(`Invalid card key: ${key}`);
 	}
-	const [direction, rawString, value] = parts;
-	if (value === '') {
-		throw new Error(`Invalid card key: ${key}`);
-	}
-	const string = Number(rawString);
-	if (!Number.isInteger(string) || string < 1 || string > 6) {
-		throw new Error(`Invalid string in card key: ${key}`);
-	}
-	if (direction === 'locate') {
-		if (!(CHROMATIC_NOTES as readonly string[]).includes(value)) {
-			throw new Error(`Invalid pitch in card key: ${key}`);
-		}
-		return { direction, string: string as StringNumber, pitch: value as PitchName };
-	}
-	if (direction === 'identify') {
-		const fret = Number(value);
-		if (!Number.isInteger(fret) || fret < 0 || fret > MAX_PROMPT_FRET) {
-			throw new Error(`Invalid fret in card key: ${key}`);
-		}
-		return { direction, string: string as StringNumber, fret };
-	}
-	throw new Error(`Invalid direction in card key: ${key}`);
+	return { mechanic, itemKey };
 }
 
 /**
@@ -109,41 +69,30 @@ export const SHORTEST_LEAD: LeadBeats = LEAD_STEPS[LEAD_STEPS.length - 1];
 /** Lead stored on an attempt: attempts recorded before 2026-10-04 can hold the old 1-beat step. */
 export type RecordedLeadBeats = LeadBeats | 1;
 
-/** What the guitarist answered: a played note (mode 1) or a tapped name (mode 2). */
-export type Answer = { kind: 'note'; midi: Midi } | { kind: 'name'; pitch: PitchName };
-
-/**
- * How a wrong answer relates to the expected one. `string-name` (mode 1): the note the prompted
- * string is named after, read from the prompt instead of the target ("A, corde de E" → E).
- */
-export type Confusion =
-	| { kind: 'semitone'; delta: -2 | -1 | 1 | 2 }
-	| { kind: 'octave' }
-	| { kind: 'string-name' }
-	| { kind: 'other'; semitones: number };
-
-export interface Attempt {
+export interface Attempt<D = unknown> {
 	id?: number;
 	sessionId: string;
+	exerciseId: ExerciseId;
+	mechanic: MechanicId;
 	cardKey: CardKey;
-	target: Target;
 	phase: ItemPhase;
 	temperature: Temperature;
 	aid: AidLevel;
-	/** Mode 1 only. */
-	leadBeats: RecordedLeadBeats | null;
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
-	/** Null when nothing was answered before the window closed. */
-	answer: Answer | null;
-	/** Pitch (mode 1) or name (mode 2) is right, whatever the timing. */
-	correct: boolean;
-	verdict: Verdict;
-	/** Mode 1 only: latency-corrected onset minus target beat time, in ms. */
+	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
+	tempoBpm: number | null;
+	/** Time relation: null when answering at one's own pace. */
+	leadBeats: RecordedLeadBeats | null;
+	/** Latency-corrected onset minus target beat time, in ms. Null off the beat or unanswered. */
 	timingOffsetMs: number | null;
 	/** Prompt to answer, in ms. Null without an answer. */
 	reactionMs: number | null;
-	confusion: Confusion | null;
+	/** The answer is right, whatever the timing. */
+	correct: boolean;
+	verdict: Verdict;
+	/** Mechanic-specific: item, answer and confusion. */
+	data: D;
 }
 
 /** Serializable mirror of a ts-fsrs Card; dates are epoch ms. */
@@ -161,13 +110,14 @@ export interface SchedulingState {
 	lastReview: number | null;
 }
 
-export interface CardState {
+export interface CardState<I = unknown> {
 	key: CardKey;
-	target: Target;
+	mechanic: MechanicId;
+	item: I;
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
 	introducedInSession: string;
-	/** Current lead step, mode 1 only; identify cards keep SHORTEST_LEAD. */
+	/** Current lead step of the "beat" relation; other cards keep SHORTEST_LEAD. */
 	leadBeats: LeadBeats;
 	scheduling: SchedulingState;
 	/** Epoch ms when in-session learning completed. Null while the card is being learned. */
@@ -176,16 +126,18 @@ export interface CardState {
 	masteredAt: number | null;
 }
 
-export interface PlannedItem {
-	target: Target;
+export interface PlannedItem<I = unknown> {
+	exerciseId: ExerciseId;
+	mechanic: MechanicId;
+	item: I;
 	phase: ItemPhase;
 	temperature: Temperature;
 	aid: AidLevel;
-	/** Mode 1 only. */
+	/** Time relation "beat" only. */
 	leadBeats: LeadBeats | null;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
-	/** Mode 1 removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
+	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
 }
 
@@ -195,8 +147,8 @@ export interface SessionRecord {
 	startedAt: number;
 	endedAt: number | null;
 	fatigueDetected: boolean;
-	/** Tempo copied from settings when the session started. Null on older records. */
-	tempoBpm: number | null;
+	/** The exercises run in the session, each with its tempo frozen at the start. */
+	executions: Execution[];
 }
 
 /** Linear gain applied only to a built-in computer mic, before level and pitch. */
@@ -214,7 +166,6 @@ export function clampBuiltInInputGain(gain: number): number {
 
 export interface Settings {
 	locale: Locale;
-	tempoBpm: number;
 	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
 	calibrationOffsetMs: number | null;
 	inputDeviceId: string | null;
@@ -224,7 +175,6 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
 	locale: 'fr',
-	tempoBpm: 80,
 	calibrationOffsetMs: null,
 	inputDeviceId: null,
 	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN
@@ -274,8 +224,8 @@ export interface NeckMapCell {
 	identify: CardStatus;
 	/**
 	 * Proven recall: lead of the latest cold success of the locate card (passed probes included,
-	 * off beat excluded), in ms at the tempo of that attempt's session. A later miss leaves it.
-	 * Null without such a success in a session of known tempo.
+	 * off beat excluded), in ms at the tempo of that attempt. A later miss leaves it.
+	 * Null without such a success at a known tempo.
 	 */
 	locateRecallMs: number | null;
 	/** Median tap time for cold identify attempts at this fret. */
@@ -285,9 +235,10 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 1;
+	version: 2;
 	exportedAt: number;
 	settings: Settings;
+	progressions: Progression[];
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];

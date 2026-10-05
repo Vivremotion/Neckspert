@@ -1,29 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { cardKey, parseCardKey, type Target } from './types';
+import { cardKey, parseCardKey } from './types';
 
 describe('cardKey', () => {
-	it('encodes locate and identify targets', () => {
-		expect(cardKey({ direction: 'locate', string: 2, pitch: 'F' })).toBe('locate:2:F');
-		expect(cardKey({ direction: 'identify', string: 5, fret: 8 })).toBe('identify:5:8');
+	it('prefixes an item key with its mechanic', () => {
+		expect(cardKey('locate', '6:F')).toBe('locate:6:F');
+		expect(cardKey('identify', '5:8')).toBe('identify:5:8');
 	});
 
-	it('round-trips through parseCardKey', () => {
-		const targets: Target[] = [
-			{ direction: 'locate', string: 6, pitch: 'G#' },
-			{ direction: 'identify', string: 1, fret: 0 },
-			{ direction: 'identify', string: 3, fret: 11 }
-		];
-		for (const target of targets) {
-			expect(parseCardKey(cardKey(target))).toEqual(target);
-		}
+	it('splits a key into its mechanic and its item key', () => {
+		expect(parseCardKey('identify:6:3')).toEqual({ mechanic: 'identify', itemKey: '6:3' });
+		expect(parseCardKey(cardKey('locate', '6:G#'))).toEqual({
+			mechanic: 'locate',
+			itemKey: '6:G#'
+		});
 	});
 
-	it('rejects malformed keys', () => {
-		expect(() => parseCardKey('locate:7:F')).toThrow();
-		expect(() => parseCardKey('locate:2:H')).toThrow();
-		expect(() => parseCardKey('identify:2:12')).toThrow();
-		expect(() => parseCardKey('play:2:F')).toThrow();
-		expect(() => parseCardKey('identify:2:')).toThrow();
-		expect(() => parseCardKey('locate:2:F:extra')).toThrow();
+	it('rejects a key without a mechanic or an item', () => {
+		expect(() => parseCardKey('locate')).toThrow();
+		expect(() => parseCardKey('locate:')).toThrow();
+		expect(() => parseCardKey(':6:F')).toThrow();
 	});
 });

@@ -4,8 +4,8 @@ import { locateRules } from './locate';
 import type { MechanicRules } from './types';
 
 export * from './types';
-export { identifyRules } from './identify';
-export { locateRules } from './locate';
+export { identifyRules, type IdentifyData } from './identify';
+export { locateRules, type LocateData } from './locate';
 
 /** Every known mechanic. For validation and migration only: no other logic goes through it. */
 export const MECHANIC_RULES: readonly MechanicRules[] = [locateRules, identifyRules];

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	asNeckCard,
 	identifyItemKey,
 	locateItemKey,
 	neckCardKey,
@@ -48,5 +49,20 @@ describe('neckCardKey', () => {
 			'identify:6:3'
 		);
 		expect(neckCardKey({ mechanic: 'locate', item: { string: 6, pitch: 'F' } })).toBe('locate:6:F');
+	});
+});
+
+describe('asNeckCard', () => {
+	it('reads a card of either neck mechanic', () => {
+		const card = { key: 'locate:6:F', mechanic: 'locate', item: { string: 6, pitch: 'F' } };
+		expect(asNeckCard(card)).toEqual({ mechanic: 'locate', item: { string: 6, pitch: 'F' } });
+		expect(asNeckCard({ mechanic: 'identify', item: { string: 6, fret: 3 } })).toEqual({
+			mechanic: 'identify',
+			item: { string: 6, fret: 3 }
+		});
+	});
+
+	it('throws on another mechanic', () => {
+		expect(() => asNeckCard({ mechanic: 'chords', item: {} })).toThrow(/chords/);
 	});
 });

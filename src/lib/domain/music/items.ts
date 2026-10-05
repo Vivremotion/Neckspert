@@ -1,4 +1,4 @@
-import type { CardKey } from '$lib/domain/types';
+import { cardKey, type CardKey } from '$lib/domain/types';
 import { CHROMATIC_NOTES, MAX_PROMPT_FRET, type PitchName, type StringNumber } from './types';
 
 /** Locate: play `pitch` on `string`, any octave playable on that string. */
@@ -56,7 +56,15 @@ export function parseIdentifyItem(key: string): IdentifyItem {
 }
 
 export function neckCardKey(card: NeckCard): CardKey {
-	const itemKey =
-		card.mechanic === 'locate' ? locateItemKey(card.item) : identifyItemKey(card.item);
-	return `${card.mechanic}:${itemKey}`;
+	return cardKey(
+		card.mechanic,
+		card.mechanic === 'locate' ? locateItemKey(card.item) : identifyItemKey(card.item)
+	);
+}
+
+/** A card, attempt-free prompt or planned item of the neck, read as a `NeckCard`. */
+export function asNeckCard(x: { mechanic: string; item: unknown }): NeckCard {
+	if (x.mechanic === 'locate') return { mechanic: 'locate', item: x.item as LocateItem };
+	if (x.mechanic === 'identify') return { mechanic: 'identify', item: x.item as IdentifyItem };
+	throw new Error(`Not a neck mechanic: ${x.mechanic}`);
 }

@@ -16,7 +16,6 @@ export {
 } from './constants';
 
 export { classifyTemperature } from './temperature';
-export { leadForThreshold } from './lead';
 export {
 	introduceCard,
 	applyColdAttempt,
@@ -27,20 +26,10 @@ export {
 	isMastered,
 	cardStatus
 } from './cards';
-export { introductionOrder, nextNewTarget } from './introduction';
+export { introductionOrder, nextNewCard } from './introduction';
 export { createListSelector } from './selector';
 export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan } from './plans';
-export {
-	TEMPO_MIN_BPM,
-	TEMPO_MAX_BPM,
-	TEMPO_STEP_BPM,
-	TEMPO_RAISE_AT,
-	TEMPO_LOWER_AT,
-	TEMPO_MIN_PROMPTS,
-	clampTempo,
-	nextSessionTempo
-} from './tempo';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

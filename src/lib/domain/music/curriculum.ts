@@ -1,6 +1,6 @@
 import { MAX_PROMPT_FRET, type StringNumber } from '$lib/domain/music/types';
-import type { IdentifyTarget, LocateTarget, Target } from '$lib/domain/types';
 import { pitchOnString } from './fretboard';
+import type { LocateItem, NeckCard } from './items';
 
 /** Teaching order: low E string first. */
 export const CURRICULUM_STRINGS: readonly StringNumber[] = [6, 5, 4, 3, 2, 1];
@@ -11,27 +11,23 @@ export const LEARNABLE_FRETS: readonly number[] = Array.from(
 	(_, index) => index + 1
 );
 
-function locateTarget(string: StringNumber, fret: number): LocateTarget {
-	return { direction: 'locate', string, pitch: pitchOnString(string, fret) };
+function locateItem(string: StringNumber, fret: number): LocateItem {
+	return { string, pitch: pitchOnString(string, fret) };
 }
 
-function identifyTarget(string: StringNumber, fret: number): IdentifyTarget {
-	return { direction: 'identify', string, fret };
-}
-
-/** Every mode 1 target: strings 6 to 1, frets 1 to 11 on each (66 targets). */
-export function locateTargets(): LocateTarget[] {
+/** Every locate item: strings 6 to 1, frets 1 to 11 on each (66 items). */
+export function locateItems(): LocateItem[] {
 	return CURRICULUM_STRINGS.flatMap((string) =>
-		LEARNABLE_FRETS.map((fret) => locateTarget(string, fret))
+		LEARNABLE_FRETS.map((fret) => locateItem(string, fret))
 	);
 }
 
-/** Every target free play draws from: 66 in mode 1, then 66 in mode 2. */
-export function practiceTargets(): Target[] {
+/** Every card free play draws from: 66 locate, then 66 identify. */
+export function practiceCards(): NeckCard[] {
 	return [
-		...locateTargets(),
+		...locateItems().map((item): NeckCard => ({ mechanic: 'locate', item })),
 		...CURRICULUM_STRINGS.flatMap((string) =>
-			LEARNABLE_FRETS.map((fret) => identifyTarget(string, fret))
+			LEARNABLE_FRETS.map((fret): NeckCard => ({ mechanic: 'identify', item: { string, fret } }))
 		)
 	];
 }

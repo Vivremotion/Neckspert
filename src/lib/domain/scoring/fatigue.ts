@@ -13,11 +13,11 @@ export const FATIGUE_ACCURACY_DROP = 0.2;
 /** Median reaction time increase between the slices, as a fraction (0.25 = 25 %). To calibrate. */
 export const FATIGUE_REACTION_INCREASE = 0.25;
 
-/** `attempts` of one session, oldest first. Unanswered attempts are left out. */
+/** `attempts` of one session, oldest first. Unanswered attempts (no reaction time) are left out. */
 export function detectFatigue(attempts: readonly Attempt[]): boolean {
 	// Probes measure what was never learned, not tiredness.
 	const answered = attempts.filter(
-		(attempt) => attempt.answer !== null && attempt.phase !== 'probe'
+		(attempt) => attempt.reactionMs !== null && attempt.phase !== 'probe'
 	);
 	if (answered.length < FATIGUE_MIN_ANSWERS) return false;
 	const first = answered.slice(0, FATIGUE_WINDOW);

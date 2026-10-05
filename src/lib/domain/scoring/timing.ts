@@ -1,6 +1,4 @@
-import type { Midi } from '$lib/domain/music/types';
 import type { Verdict } from '$lib/domain/types';
-import { secondsToMs, unanswered, type Judgement } from './judgement';
 
 /** Largest |offset| from the target beat still judged perfect. To calibrate. */
 export const PERFECT_WINDOW_MS = 80;
@@ -49,42 +47,13 @@ export function isInWindow(correctedTime: number, window: AnswerWindow): boolean
 	);
 }
 
-/**
- * Times in audio seconds. `onset.time` is raw; latencyMs is subtracted.
- * Inside the window: timed verdict. After it, up to `captureUntil` (default: no capture): a
- * right note is `offbeat`, a wrong one stays wrong. Anywhere else: no answer.
- */
-export function judgeLocate(input: {
-	acceptable: readonly Midi[];
-	promptTime: number;
-	targetTime: number;
-	onset: { time: number; midi: Midi } | null;
-	latencyMs: number;
-	captureUntil?: number;
-}): Judgement {
-	const { acceptable, promptTime, targetTime, onset, latencyMs } = input;
-	if (onset === null) return unanswered();
-	const corrected = onset.time - latencyMs / 1000;
-	const window = answerWindow(promptTime, targetTime);
-	const inWindow = isInWindow(corrected, window);
-	const captured =
-		!inWindow &&
-		input.captureUntil !== undefined &&
-		corrected > window.closesAt &&
-		corrected <= input.captureUntil + EDGE_TOLERANCE_S;
-	if (!inWindow && !captured) return unanswered();
-	const correct = acceptable.includes(onset.midi);
-	const timingOffsetMs = secondsToMs(corrected - targetTime);
-	return {
-		answer: { kind: 'note', midi: onset.midi },
-		correct,
-		verdict: !correct ? 'wrong' : captured ? 'offbeat' : timingVerdict(timingOffsetMs),
-		timingOffsetMs,
-		reactionMs: secondsToMs(corrected - promptTime)
-	};
-}
-
 export function timingVerdict(offsetMs: number): Verdict {
 	if (Math.abs(offsetMs) <= PERFECT_WINDOW_MS) return 'perfect';
 	return offsetMs < 0 ? 'early' : 'late';
+}
+
+/** Whole milliseconds, rounded half away from zero so early and late stay symmetric; never -0. */
+export function secondsToMs(seconds: number): number {
+	const ms = Math.round(Math.abs(seconds) * 1000);
+	return seconds < 0 && ms !== 0 ? -ms : ms;
 }

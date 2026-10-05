@@ -6,7 +6,9 @@ const CONTEXT = { now: 0, elapsedMs: 0, fatigued: false };
 
 function item(pitch: 'F' | 'G'): PlannedItem {
 	return {
-		target: { direction: 'locate', string: 6, pitch },
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
+		item: { string: 6, pitch },
 		phase: 'free',
 		temperature: 'hot',
 		aid: 'none',

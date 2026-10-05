@@ -1,22 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { cardKey, type CardState, type LocateTarget, type Target } from '$lib/domain/types';
-import { FREE_PLAY_COUNT, MIN_COLD_DELAY_MS } from './constants';
+import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
+import { beatTiming } from '$lib/domain/timing';
+import { FREE_PLAY_COUNT } from './constants';
 import { introduceCard } from './cards';
+import { keyed } from './neck';
 import { buildFreePlan } from './plans';
 
 const NOW = Date.parse('2026-05-01T12:00:00.000Z');
 
-const L1: Target = { direction: 'locate', string: 6, pitch: 'G' };
-const L2: Target = { direction: 'locate', string: 6, pitch: 'A' };
-
-function dueCard(target: Target, due: number, session = 's0'): CardState {
-	const card = introduceCard(target, due - MIN_COLD_DELAY_MS, session);
-	return { ...card, scheduling: { ...card.scheduling, due } };
-}
+const L1: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
+const L2: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
 
 describe('buildFreePlan', () => {
 	it('draws from every position, including ones with no card yet', () => {
-		const known = introduceCard(L1, NOW, 's0');
+		const known = introduceCard(keyed(L1), NOW, 's0', beatTiming);
 		known.leadBeats = 2;
 		const plan = buildFreePlan({
 			cards: [known],
@@ -28,10 +25,13 @@ describe('buildFreePlan', () => {
 		expect(plan.every((item) => item.phase === 'free')).toBe(true);
 		expect(plan.every((item) => item.temperature === 'hot')).toBe(true);
 		expect(plan.every((item) => item.aid === 'none')).toBe(true);
-		expect(plan.filter((item) => item.target.direction === 'identify')).toHaveLength(66);
-		expect(plan.find((item) => cardKey(item.target) === cardKey(L1))?.leadBeats).toBe(2);
-		expect(plan.find((item) => cardKey(item.target) === cardKey(L2))?.leadBeats).toBe(8);
-		expect(plan.find((item) => item.target.direction === 'identify')?.leadBeats).toBeNull();
+		expect(plan.filter((item) => item.mechanic === 'identify')).toHaveLength(66);
+		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
+		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(2);
+		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(8);
+		expect(plan.find((item) => item.mechanic === 'identify')?.leadBeats).toBeNull();
+		expect(plan.find((item) => item.mechanic === 'locate')?.exerciseId).toBe('locate-neck');
+		expect(plan.find((item) => item.mechanic === 'identify')?.exerciseId).toBe('identify-neck');
 	});
 
 	it('plays one series of the free-play length by default', () => {

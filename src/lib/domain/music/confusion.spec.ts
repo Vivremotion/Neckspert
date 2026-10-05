@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LocateTarget } from '$lib/domain/types';
+import type { LocateItem } from './items';
 import { CHROMATIC_NOTES } from '$lib/domain/music/types';
 import { classifyNameConfusion, classifyNoteConfusion } from './confusion';
 
@@ -53,9 +53,9 @@ describe('classifyNameConfusion', () => {
 
 describe('classifyNoteConfusion', () => {
 	/** Accepts MIDI 65 and 77 (frets 6 and 18). */
-	const fOnB: LocateTarget = { direction: 'locate', string: 2, pitch: 'F' };
+	const fOnB: LocateItem = { string: 2, pitch: 'F' };
 	/** Accepts MIDI 40, 52 and 64 (frets 0, 12 and 24). */
-	const eOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'E' };
+	const eOnLowE: LocateItem = { string: 6, pitch: 'E' };
 
 	it('returns null for every playable octave of the target on its string', () => {
 		expect(classifyNoteConfusion(fOnB, 65)).toBeNull();
@@ -88,17 +88,17 @@ describe('classifyNoteConfusion', () => {
 	});
 
 	it('breaks a tie toward the lower acceptable note', () => {
-		const gOnD: LocateTarget = { direction: 'locate', string: 4, pitch: 'G' };
+		const gOnD: LocateItem = { string: 4, pitch: 'G' };
 		expect(classifyNoteConfusion(gOnD, 61)).toEqual({ kind: 'other', semitones: 6 });
 	});
 
 	it('flags the note the prompted string is named after, in any octave', () => {
-		const aOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'A' };
+		const aOnLowE: LocateItem = { string: 6, pitch: 'A' };
 		expect(classifyNoteConfusion(aOnLowE, 40)).toEqual({ kind: 'string-name' });
 		expect(classifyNoteConfusion(aOnLowE, 52)).toEqual({ kind: 'string-name' });
 		expect(classifyNoteConfusion(fOnB, 71)).toEqual({ kind: 'string-name' });
 		// One fret above the open string: reading the string name wins over a semitone.
-		const fOnLowE: LocateTarget = { direction: 'locate', string: 6, pitch: 'F' };
+		const fOnLowE: LocateItem = { string: 6, pitch: 'F' };
 		expect(classifyNoteConfusion(fOnLowE, 40)).toEqual({ kind: 'string-name' });
 	});
 });

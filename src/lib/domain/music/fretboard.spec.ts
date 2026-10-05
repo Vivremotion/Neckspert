@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LocateTarget } from '$lib/domain/types';
+import type { LocateItem } from './items';
 import {
 	CHROMATIC_NOTES,
 	STANDARD_TUNING,
@@ -64,16 +64,16 @@ describe('fretsForPitch', () => {
 
 describe('acceptableMidis', () => {
 	it('returns every octave of the pitch playable on the string', () => {
-		expect(acceptableMidis({ direction: 'locate', string: 2, pitch: 'F' })).toEqual([65, 77]);
-		expect(acceptableMidis({ direction: 'locate', string: 6, pitch: 'E' })).toEqual([40, 52, 64]);
-		expect(acceptableMidis({ direction: 'locate', string: 1, pitch: 'E' })).toEqual([64, 76, 88]);
-		expect(acceptableMidis({ direction: 'locate', string: 4, pitch: 'C#' })).toEqual([61, 73]);
+		expect(acceptableMidis({ string: 2, pitch: 'F' })).toEqual([65, 77]);
+		expect(acceptableMidis({ string: 6, pitch: 'E' })).toEqual([40, 52, 64]);
+		expect(acceptableMidis({ string: 1, pitch: 'E' })).toEqual([64, 76, 88]);
+		expect(acceptableMidis({ string: 4, pitch: 'C#' })).toEqual([61, 73]);
 	});
 
 	it('keeps to the target pitch and the string range for all 72 targets', () => {
 		for (const string of STRING_NUMBERS) {
 			for (const pitch of CHROMATIC_NOTES) {
-				const target: LocateTarget = { direction: 'locate', string, pitch };
+				const target: LocateItem = { string, pitch };
 				const midis = acceptableMidis(target);
 				expect(midis.length).toBeGreaterThanOrEqual(2);
 				expect(midis.length).toBeLessThanOrEqual(3);

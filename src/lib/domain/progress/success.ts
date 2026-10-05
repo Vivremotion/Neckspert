@@ -8,12 +8,12 @@ export function successRate(attempts: readonly Attempt[]): number | null {
 }
 
 /**
- * Rolling success of a session: its last SUCCESS_WINDOW mode 1 prompts, probes left out
+ * Rolling success of a session: its last SUCCESS_WINDOW locate prompts, probes left out
  * (a missed probe measures what was never learned). `attempts`: this session's, oldest first.
  */
 export function sessionSuccessRate(attempts: readonly Attempt[]): number | null {
 	const locate = attempts.filter(
-		(attempt) => attempt.target.direction === 'locate' && attempt.phase !== 'probe'
+		(attempt) => attempt.mechanic === 'locate' && attempt.phase !== 'probe'
 	);
 	return successRate(locate.slice(-SUCCESS_WINDOW));
 }

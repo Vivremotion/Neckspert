@@ -3,8 +3,12 @@ import type { Attempt } from '$lib/domain/types';
 import { LOCATE_NECK } from './catalog';
 import {
 	DEFAULT_TEMPO_BPM,
+	TEMPO_LOWER_AT,
 	TEMPO_MAX_BPM,
 	TEMPO_MIN_BPM,
+	TEMPO_MIN_PROMPTS,
+	TEMPO_RAISE_AT,
+	TEMPO_STEP_BPM,
 	clampTempo,
 	nextTempo,
 	startTempo
@@ -96,5 +100,12 @@ describe('tempo range', () => {
 	it('clamps and rounds', () => {
 		expect([TEMPO_MIN_BPM, TEMPO_MAX_BPM]).toEqual([80, 160]);
 		expect(clampTempo(79.6)).toBe(80);
+		expect(clampTempo(60)).toBe(80);
+		expect(clampTempo(200)).toBe(160);
+	});
+
+	it('moves 5 bpm, above 90 % or under 70 %, after ten prompts', () => {
+		expect(TEMPO_STEP_BPM).toBe(5);
+		expect([TEMPO_RAISE_AT, TEMPO_LOWER_AT, TEMPO_MIN_PROMPTS]).toEqual([0.9, 0.7, 10]);
 	});
 });

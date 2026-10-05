@@ -1,35 +1,44 @@
 import { describe, expect, it } from 'vitest';
-import { cardKey, type Attempt, type CardState, type Target } from '$lib/domain/types';
+import { neckCardKey, type NeckCard } from '$lib/domain/music';
+import type { Attempt, CardState } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import { MIN_COLD_DELAY_MS } from './constants';
+import { keyed, neckExerciseId, neckTiming } from './neck';
 import { lastAttemptByCard, nextReviewAt, reviewableAt, reviewableCards } from './review';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
-const G: Target = { direction: 'locate', string: 6, pitch: 'G' };
-const A: Target = { direction: 'locate', string: 6, pitch: 'A' };
-const I: Target = { direction: 'identify', string: 6, fret: 3 };
+const G: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
+const A: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
+const I: NeckCard = { mechanic: 'identify', item: { string: 6, fret: 3 } };
 
-function learned(target: Target, due: number): CardState {
-	const card = markLearned(introduceCard(target, NOW - 10 * MIN_COLD_DELAY_MS, 's0'), NOW, 80);
-	return { ...card, scheduling: { ...card.scheduling, due } };
+function introduced(card: NeckCard, now: number): CardState {
+	return introduceCard(keyed(card), now, 's0', neckTiming(card.mechanic));
 }
 
-function attemptOn(target: Target, promptedAt: number, phase: Attempt['phase']): Attempt {
+function learned(card: NeckCard, due: number): CardState {
+	const timing = neckTiming(card.mechanic);
+	const state = markLearned(introduced(card, NOW - 10 * MIN_COLD_DELAY_MS), NOW, timing, 80);
+	return { ...state, scheduling: { ...state.scheduling, due } };
+}
+
+/** An unanswered hot attempt on `card`, at 80 bpm. */
+function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']): Attempt {
 	return {
 		sessionId: 's-free',
-		cardKey: cardKey(target),
-		target,
+		exerciseId: neckExerciseId(card.mechanic),
+		mechanic: card.mechanic,
+		cardKey: neckCardKey(card),
 		phase,
 		temperature: 'hot',
 		aid: 'none',
-		leadBeats: 2,
 		promptedAt,
-		answer: null,
-		correct: false,
-		verdict: 'wrong',
+		tempoBpm: 80,
+		leadBeats: 2,
 		timingOffsetMs: null,
 		reactionMs: null,
-		confusion: null
+		correct: false,
+		verdict: 'wrong',
+		data: { item: card.item, answer: null, confusion: null }
 	};
 }
 
@@ -40,8 +49,8 @@ describe('lastAttemptByCard', () => {
 			attemptOn(G, NOW - 1000, 'free'),
 			attemptOn(A, NOW - 3000, 'learning')
 		]);
-		expect(last.get(cardKey(G))).toBe(NOW - 1000);
-		expect(last.get(cardKey(A))).toBe(NOW - 3000);
+		expect(last.get(neckCardKey(G))).toBe(NOW - 1000);
+		expect(last.get(neckCardKey(A))).toBe(NOW - 3000);
 	});
 });
 
@@ -56,7 +65,7 @@ describe('reviewableAt', () => {
 	});
 
 	it('is null for a card still being learned', () => {
-		const card = { ...introduceCard(G, NOW - MIN_COLD_DELAY_MS * 2, 's0') };
+		const card = { ...introduced(G, NOW - MIN_COLD_DELAY_MS * 2) };
 		expect(reviewableAt(card, undefined)).toBeNull();
 		expect(reviewableCards([card], new Map(), NOW)).toEqual([]);
 	});
@@ -85,6 +94,6 @@ describe('nextReviewAt', () => {
 	});
 
 	it('is null without a learned card', () => {
-		expect(nextReviewAt([introduceCard(G, NOW, 's0')], new Map())).toBeNull();
+		expect(nextReviewAt([introduced(G, NOW)], new Map())).toBeNull();
 	});
 });

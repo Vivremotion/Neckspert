@@ -12,7 +12,6 @@ describe('progress index', () => {
 
 		for (const name of [
 			'classifyTemperature',
-			'leadForThreshold',
 			'introduceCard',
 			'applyColdAttempt',
 			'probeCard',
@@ -22,7 +21,7 @@ describe('progress index', () => {
 			'isMastered',
 			'cardStatus',
 			'introductionOrder',
-			'nextNewTarget',
+			'nextNewCard',
 			'createLearnSelector',
 			'createListSelector',
 			'buildFreePlan',

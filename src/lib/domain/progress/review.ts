@@ -1,4 +1,5 @@
-import type { Attempt, CardKey, CardState, Target } from '$lib/domain/types';
+import type { MechanicId } from '$lib/domain/exercise/types';
+import type { Attempt, CardKey, CardState } from '$lib/domain/types';
 import { MIN_COLD_DELAY_MS } from './constants';
 
 /** Latest prompt time of each card, any phase. */
@@ -23,8 +24,8 @@ export function reviewableAt(card: CardState, lastAttemptAt: number | undefined)
 	return Math.max(card.scheduling.due, lastAttemptAt + MIN_COLD_DELAY_MS);
 }
 
-function directionRank(target: Target): number {
-	return target.direction === 'locate' ? 0 : 1;
+function mechanicRank(mechanic: MechanicId): number {
+	return mechanic === 'locate' ? 0 : 1;
 }
 
 /** Cards that would be reviewed cold now: by due time, locate first, then key. */
@@ -40,8 +41,8 @@ export function reviewableCards(
 		})
 		.sort((a, b) => {
 			if (a.scheduling.due !== b.scheduling.due) return a.scheduling.due - b.scheduling.due;
-			const byDirection = directionRank(a.target) - directionRank(b.target);
-			if (byDirection !== 0) return byDirection;
+			const byMechanic = mechanicRank(a.mechanic) - mechanicRank(b.mechanic);
+			if (byMechanic !== 0) return byMechanic;
 			return a.key.localeCompare(b.key);
 		});
 }

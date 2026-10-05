@@ -6,21 +6,27 @@ function attempts(
 	n: number,
 	{ correct, perfect }: { correct: number; perfect: number }
 ): Attempt[] {
+	const played = (midi: number) => ({
+		item: { string: 2, pitch: 'F' },
+		answer: { midi },
+		confusion: null
+	});
 	const base: Attempt = {
 		sessionId: 's1',
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
 		cardKey: 'locate:2:F',
-		target: { direction: 'locate', string: 2, pitch: 'F' },
 		phase: 'free',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: null,
 		promptedAt: 0,
-		answer: { kind: 'note', midi: 65 },
-		correct: true,
-		verdict: 'perfect',
+		tempoBpm: 80,
+		leadBeats: null,
 		timingOffsetMs: 0,
 		reactionMs: 1000,
-		confusion: null
+		correct: true,
+		verdict: 'perfect',
+		data: played(65)
 	};
 
 	const out: Attempt[] = [];
@@ -31,14 +37,14 @@ function attempts(
 				...base,
 				correct: true,
 				verdict: isPerfect ? 'perfect' : 'late',
-				answer: { kind: 'note', midi: 65 }
+				data: played(65)
 			});
 		} else {
 			out.push({
 				...base,
 				correct: false,
 				verdict: 'wrong',
-				answer: { kind: 'note', midi: 66 }
+				data: played(66)
 			});
 		}
 	}

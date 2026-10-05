@@ -1,7 +1,16 @@
 import { CHROMATIC_NOTES, pitchOfMidi, type Midi, type PitchName } from '$lib/domain/music/types';
-import type { Confusion, LocateTarget } from '$lib/domain/types';
 import { acceptableMidis, pitchOnString } from './fretboard';
 import type { LocateItem } from './items';
+
+/**
+ * How a wrong answer relates to the expected one. `string-name` (locate): the note the prompted
+ * string is named after, read from the prompt instead of the target ("A, corde de E" → E).
+ */
+export type Confusion =
+	| { kind: 'semitone'; delta: -2 | -1 | 1 | 2 }
+	| { kind: 'octave' }
+	| { kind: 'string-name' }
+	| { kind: 'other'; semitones: number };
 
 const OCTAVE = 12;
 
@@ -17,11 +26,8 @@ function fromDistance(semitones: number): Confusion {
 		: { kind: 'other', semitones };
 }
 
-/** Null when the played note is acceptable. `LocateTarget`: as in `acceptableMidis`. */
-export function classifyNoteConfusion(
-	item: LocateItem | LocateTarget,
-	playedMidi: Midi
-): Confusion | null {
+/** Null when the played note is acceptable. */
+export function classifyNoteConfusion(item: LocateItem, playedMidi: Midi): Confusion | null {
 	const acceptable = acceptableMidis(item);
 	if (acceptable.includes(playedMidi)) return null;
 	if (pitchOfMidi(playedMidi) === item.pitch) return { kind: 'octave' };

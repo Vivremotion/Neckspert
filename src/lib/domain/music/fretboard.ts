@@ -7,7 +7,6 @@ import {
 	type PitchName,
 	type StringNumber
 } from '$lib/domain/music/types';
-import type { LocateTarget } from '$lib/domain/types';
 import type { LocateItem } from './items';
 
 const OCTAVE = 12;
@@ -43,9 +42,8 @@ export function fretsForPitch(
 
 /**
  * MIDI notes accepted for a locate item: every octave of the pitch on that string, frets
- * 0..MAX_PLAYABLE_FRET. `LocateTarget` is spelled out only so target literals still pass until
- * the stored model carries items.
+ * 0..MAX_PLAYABLE_FRET.
  */
-export function acceptableMidis(item: LocateItem | LocateTarget): Midi[] {
+export function acceptableMidis(item: LocateItem): Midi[] {
 	return fretsForPitch(item.string, item.pitch).map((fret) => midiOnString(item.string, fret));
 }

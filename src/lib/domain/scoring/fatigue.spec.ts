@@ -8,27 +8,35 @@ import {
 	detectFatigue
 } from './fatigue';
 
+const F_ON_B = { string: 2, pitch: 'F' } as const;
+
 function answered(correct: boolean, reactionMs = 1000): Attempt {
 	return {
 		sessionId: 's1',
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
 		cardKey: 'locate:2:F',
-		target: { direction: 'locate', string: 2, pitch: 'F' },
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: null,
 		promptedAt: 0,
-		answer: { kind: 'note', midi: correct ? 65 : 66 },
-		correct,
-		verdict: correct ? 'perfect' : 'wrong',
+		tempoBpm: 80,
+		leadBeats: null,
 		timingOffsetMs: 0,
 		reactionMs,
-		confusion: null
+		correct,
+		verdict: correct ? 'perfect' : 'wrong',
+		data: { item: F_ON_B, answer: { midi: correct ? 65 : 66 }, confusion: null }
 	};
 }
 
 function unanswered(): Attempt {
-	return { ...answered(false), answer: null, timingOffsetMs: null, reactionMs: null };
+	return {
+		...answered(false),
+		timingOffsetMs: null,
+		reactionMs: null,
+		data: { item: F_ON_B, answer: null, confusion: null }
+	};
 }
 
 function times(count: number, make: () => Attempt): Attempt[] {

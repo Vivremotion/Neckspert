@@ -1,17 +1,14 @@
 import {
 	CURRICULUM_STRINGS,
 	LEARNABLE_FRETS,
-	mirrorTargets,
-	pitchOnString
+	mirrorItems,
+	neckCardKey,
+	pitchOnString,
+	type LocateItem,
+	type NeckCard
 } from '$lib/domain/music';
 import type { StringNumber } from '$lib/domain/music/types';
-import {
-	cardKey,
-	type CardState,
-	type IdentifyTarget,
-	type LocateTarget,
-	type Target
-} from '$lib/domain/types';
+import type { CardState } from '$lib/domain/types';
 
 /** Fret markers: naturals on them come first on each string. */
 const MARKER_FRETS: readonly number[] = [3, 5, 7, 9];
@@ -55,51 +52,46 @@ function orderedPositions(): Position[] {
 	return [...alternate(naturals), ...alternate(altered)];
 }
 
+function locateAt(position: Position): { mechanic: 'locate'; item: LocateItem } {
+	return {
+		mechanic: 'locate',
+		item: { string: position.string, pitch: pitchOnString(position.string, position.fret) }
+	};
+}
+
 /**
- * Mode 1 introduction queue: naturals, then altered notes, alternating strings 6 to 1.
+ * Locate introduction queue: naturals, then altered notes, alternating strings 6 to 1.
  * On each string, naturals on a fret marker come first. The only place that fixes the order.
  */
-export function introductionOrder(): LocateTarget[] {
+export function introductionOrder(): LocateItem[] {
 	return orderedPositions().map((position) => ({
-		direction: 'locate',
 		string: position.string,
 		pitch: pitchOnString(position.string, position.fret)
 	}));
 }
 
 /**
- * Next note to introduce: the identify position of an acquired locate card first, in queue
- * order; otherwise the next locate position without a card whose mirror (see `mirrorTargets`)
+ * Next card to introduce: the identify position of an acquired locate card first, in queue
+ * order; otherwise the next locate position without a card whose mirror (see `mirrorItems`)
  * has no card still to acquire. Null when nothing is left.
  */
-export function nextNewTarget(cards: readonly CardState[]): Target | null {
+export function nextNewCard(cards: readonly CardState[]): NeckCard | null {
 	const byKey = new Map(cards.map((card) => [card.key, card]));
 	const positions = orderedPositions();
 	for (const position of positions) {
-		const locate = byKey.get(
-			cardKey({
-				direction: 'locate',
-				string: position.string,
-				pitch: pitchOnString(position.string, position.fret)
-			})
-		);
-		const identify: IdentifyTarget = {
-			direction: 'identify',
-			string: position.string,
-			fret: position.fret
+		const locate = byKey.get(neckCardKey(locateAt(position)));
+		const identify: NeckCard = {
+			mechanic: 'identify',
+			item: { string: position.string, fret: position.fret }
 		};
-		if (locate?.acquiredAt != null && !byKey.has(cardKey(identify))) return identify;
+		if (locate?.acquiredAt != null && !byKey.has(neckCardKey(identify))) return identify;
 	}
 	for (const position of positions) {
-		const locate: LocateTarget = {
-			direction: 'locate',
-			string: position.string,
-			pitch: pitchOnString(position.string, position.fret)
-		};
-		if (byKey.has(cardKey(locate))) continue;
+		const locate = locateAt(position);
+		if (byKey.has(neckCardKey(locate))) continue;
 		// A note waits while its mirror is still fragile: learning both at once mixes them up.
-		const fragileMirror = mirrorTargets(locate).some((mirror) => {
-			const card = byKey.get(cardKey(mirror));
+		const fragileMirror = mirrorItems(locate.item).some((mirror) => {
+			const card = byKey.get(neckCardKey({ mechanic: 'locate', item: mirror }));
 			return card !== undefined && card.acquiredAt === null;
 		});
 		if (!fragileMirror) return locate;

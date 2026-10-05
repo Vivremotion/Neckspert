@@ -1,12 +1,12 @@
-import { secondsToMs } from '$lib/domain/scoring/judgement';
 import {
 	answerWindow,
 	isInWindow,
 	lateCaptureEnd,
+	secondsToMs,
 	timingVerdict
 } from '$lib/domain/scoring/timing';
-import { adjustLeadBeats, leadForThreshold } from '$lib/domain/progress/lead';
 import {
+	LEAD_STEPS,
 	RECALL_THRESHOLD_MS,
 	SHORTEST_LEAD,
 	type LeadBeats,
@@ -25,6 +25,22 @@ const FALLBACK_LEAD = BEATS_PER_BAR;
 const EDGE_TOLERANCE_S = 1e-6;
 
 type State = 'listening' | 'capturing' | 'settled';
+
+/** Longest lead step whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS; at least SHORTEST_LEAD. */
+function leadForThreshold(tempoBpm: number): LeadBeats {
+	// LEAD_STEPS is longest→shortest; first fit is the longest allowed.
+	for (const step of LEAD_STEPS) {
+		if ((step * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS) return step;
+	}
+	return SHORTEST_LEAD;
+}
+
+/** One LEAD_STEPS step shorter on success, one longer on failure. */
+function adjustLeadBeats(current: LeadBeats, success: boolean): LeadBeats {
+	const index = LEAD_STEPS.indexOf(current);
+	const nextIndex = success ? Math.min(index + 1, LEAD_STEPS.length - 1) : Math.max(index - 1, 0);
+	return LEAD_STEPS[nextIndex];
+}
 
 class BeatRound implements Round {
 	readonly targetBeatIndex: number;
@@ -139,5 +155,5 @@ export const beatTiming: TimingRelation = {
 		return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
 	},
 	learnedLead: (tempoBpm) => (tempoBpm === null ? SHORTEST_LEAD : leadForThreshold(tempoBpm)),
-	adjustLead: (current, success) => adjustLeadBeats(current, success, 'locate')
+	adjustLead: adjustLeadBeats
 };

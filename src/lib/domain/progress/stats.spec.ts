@@ -1,42 +1,69 @@
 import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_SETTINGS,
-	cardKey,
 	type Attempt,
 	type CardState,
-	type SessionRecord,
-	type Target
+	type SessionRecord
 } from '$lib/domain/types';
+import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import { MIN_COLD_DELAY_MS, TREND_WINDOW_MS } from './constants';
 import { introduceCard, markLearned } from './cards';
+import { keyed, neckExerciseId, neckTiming } from './neck';
 import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 
-const L1: Target = { direction: 'locate', string: 1, pitch: 'E' };
-const L2: Target = { direction: 'locate', string: 1, pitch: 'F' };
-const L3: Target = { direction: 'locate', string: 1, pitch: 'F#' };
+const L1: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'E' } };
+const L2: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F' } };
+const L3: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F#' } };
+const I0: NeckCard = { mechanic: 'identify', item: { string: 1, fret: 0 } };
 
+function introduced(card: NeckCard, now: number, sessionId: string): CardState {
+	return introduceCard(keyed(card), now, sessionId, neckTiming(card.mechanic));
+}
+
+function learnedAt(state: CardState, now: number): CardState {
+	return markLearned(state, now, neckTiming(state.mechanic), 80);
+}
+
+/** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */
+function on(card: NeckCard): Partial<Attempt> {
+	return {
+		exerciseId: neckExerciseId(card.mechanic),
+		mechanic: card.mechanic,
+		cardKey: neckCardKey(card),
+		tempoBpm: card.mechanic === 'locate' ? 80 : null,
+		data: { item: card.item, answer: null, confusion: null }
+	};
+}
+
+/** A cold locate review of L1 at 80 bpm, played right on the beat. */
 function coldAttempt(overrides: Partial<Attempt>): Attempt {
 	return {
 		sessionId: 's1',
-		cardKey: cardKey(L1),
-		target: L1,
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
+		cardKey: neckCardKey(L1),
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
-		leadBeats: 2,
 		promptedAt: NOW,
-		answer: { kind: 'note', midi: 64 },
-		correct: true,
-		verdict: 'perfect',
+		tempoBpm: 80,
+		leadBeats: 2,
 		timingOffsetMs: 0,
 		reactionMs: 1000,
-		confusion: null,
+		correct: true,
+		verdict: 'perfect',
+		data: { item: L1.item, answer: { midi: 64 }, confusion: null },
 		...overrides
 	};
 }
+
+const RECORD_EXECUTIONS: SessionRecord['executions'] = [
+	{ exerciseId: 'locate-neck', tempoBpm: 80 },
+	{ exerciseId: 'identify-neck', tempoBpm: null }
+];
 
 describe('computeHomeStats', () => {
 	it('has nothing due and no next review on a fresh install', () => {
@@ -51,11 +78,10 @@ describe('computeHomeStats', () => {
 	});
 
 	it('counts due reviews but not a card played in free play ten minutes ago', () => {
-		const learnedDue = (target: Target, due: number): CardState => {
-			const card = markLearned(
-				introduceCard(target, NOW - 3 * MIN_COLD_DELAY_MS, 's0'),
-				NOW - 2 * MIN_COLD_DELAY_MS,
-				80
+		const learnedDue = (target: NeckCard, due: number): CardState => {
+			const card = learnedAt(
+				introduced(target, NOW - 3 * MIN_COLD_DELAY_MS, 's0'),
+				NOW - 2 * MIN_COLD_DELAY_MS
 			);
 			return { ...card, scheduling: { ...card.scheduling, due } };
 		};
@@ -64,8 +90,7 @@ describe('computeHomeStats', () => {
 			cards: [learnedDue(L1, NOW - 5), learnedDue(L2, NOW - 1)],
 			attempts: [
 				coldAttempt({
-					cardKey: cardKey(L2),
-					target: L2,
+					...on(L2),
 					phase: 'free',
 					temperature: 'hot',
 					promptedAt: recent
@@ -79,7 +104,7 @@ describe('computeHomeStats', () => {
 	});
 
 	it('tells when the next review comes when nothing is due', () => {
-		const card = markLearned(introduceCard(L1, NOW - 3 * MIN_COLD_DELAY_MS, 's0'), NOW, 80);
+		const card = learnedAt(introduced(L1, NOW - 3 * MIN_COLD_DELAY_MS, 's0'), NOW);
 		const stats = computeHomeStats({
 			cards: [{ ...card, scheduling: { ...card.scheduling, due: NOW + 10_000 } }],
 			attempts: [],
@@ -103,7 +128,7 @@ describe('computeHomeStats', () => {
 					timingOffsetMs: 500
 				}),
 				coldAttempt({
-					target: { direction: 'identify', string: 1, fret: 0 },
+					...on(I0),
 					leadBeats: null,
 					timingOffsetMs: null,
 					reactionMs: 400
@@ -136,7 +161,7 @@ describe('computeHomeStats', () => {
 				startedAt: NOW - 60_000,
 				endedAt: NOW,
 				fatigueDetected: false,
-				tempoBpm: 80
+				executions: RECORD_EXECUTIONS
 			},
 			attempts: [coldAttempt({}), coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })],
 			allAttempts: [],
@@ -210,8 +235,7 @@ describe('summarizeSession', () => {
 		}),
 		coldAttempt({
 			sessionId: 'sess',
-			target: { direction: 'identify', string: 1, fret: 0 },
-			cardKey: 'identify:1:0',
+			...on(I0),
 			leadBeats: null,
 			timingOffsetMs: null,
 			reactionMs: 640,
@@ -219,24 +243,22 @@ describe('summarizeSession', () => {
 		})
 	];
 	const cards = [
-		markLearned(introduceCard(L1, NOW - 50_000, 'sess'), NOW - 30_000, 80),
+		learnedAt(introduced(L1, NOW - 50_000, 'sess'), NOW - 30_000),
 		{
-			...markLearned(
-				introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 3, 'older'),
-				NOW - MIN_COLD_DELAY_MS * 2,
-				80
+			...learnedAt(
+				introduced(L2, NOW - MIN_COLD_DELAY_MS * 3, 'older'),
+				NOW - MIN_COLD_DELAY_MS * 2
 			),
 			scheduling: {
-				...introduceCard(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older').scheduling,
+				...introduced(L2, NOW - MIN_COLD_DELAY_MS * 2, 'older').scheduling,
 				due: NOW + 1000
 			}
 		},
-		introduceCard(L3, NOW - 40_000, 'sess')
+		introduced(L3, NOW - 40_000, 'sess')
 	];
 	const pending = coldAttempt({
 		sessionId: 'sess',
-		cardKey: cardKey(L3),
-		target: L3,
+		...on(L3),
 		phase: 'learning',
 		temperature: 'hot',
 		promptedAt: NOW - 40_000
@@ -247,7 +269,7 @@ describe('summarizeSession', () => {
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: true,
-		tempoBpm: 80
+		executions: RECORD_EXECUTIONS
 	});
 
 	it('summarizes cold accuracy, notes learned, notes pending and the next review', () => {
@@ -345,45 +367,45 @@ describe('summarizeSession', () => {
 
 describe('buildNeckMap', () => {
 	it('leaves a missed probe out of cold accuracy', () => {
-		const target: Target = { direction: 'locate', string: 2, pitch: 'C' };
-		const card = { ...introduceCard(target, NOW, 's0'), acquiredAt: NOW };
+		const target: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const card = { ...introduced(target, NOW, 's0'), acquiredAt: NOW };
 		const attempts = [
 			coldAttempt({
-				cardKey: card.key,
-				target,
+				...on(target),
 				phase: 'probe',
 				temperature: 'hot',
 				correct: false
 			}),
-			coldAttempt({ cardKey: card.key, target, correct: true, promptedAt: NOW + 1 })
+			coldAttempt({ ...on(target), correct: true, promptedAt: NOW + 1 })
 		];
 		const cells = buildNeckMap({
 			cards: [card],
 			attempts,
-			sessions: [],
 			pitchAt: () => 'C'
 		});
 		expect(cells.find((cell) => cell.string === 2 && cell.fret === 1)?.coldAccuracy).toBe(1);
 	});
 
 	it('builds 72 cells with injected pitches and per-sense status', () => {
+		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const FRET_1: NeckCard = { mechanic: 'identify', item: { string: 2, fret: 1 } };
 		const locate = {
-			...introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 's0'),
+			...introduced(C_ON_B, NOW, 's0'),
 			acquiredAt: NOW,
 			leadBeats: 2 as const
 		};
-		const identify = introduceCard({ direction: 'identify', string: 2, fret: 1 }, NOW, 's0');
+		const identify = introduced(FRET_1, NOW, 's0');
 		const attempts = [
 			coldAttempt({
-				cardKey: locate.key,
-				target: locate.target,
+				...on(C_ON_B),
+				// Played at no known tempo.
+				tempoBpm: null,
 				reactionMs: 700,
 				correct: true,
 				promptedAt: NOW - 1
 			}),
 			coldAttempt({
-				cardKey: identify.key,
-				target: identify.target,
+				...on(FRET_1),
 				leadBeats: null,
 				reactionMs: 900,
 				correct: false,
@@ -393,7 +415,6 @@ describe('buildNeckMap', () => {
 		const cells = buildNeckMap({
 			cards: [locate, identify],
 			attempts,
-			sessions: [],
 			pitchAt: (string: StringNumber, fret: number): PitchName => {
 				void string;
 				const names: PitchName[] = [
@@ -424,7 +445,7 @@ describe('buildNeckMap', () => {
 		const locateCell = cells.find((c) => c.string === 2 && c.fret === 8);
 		expect(locateCell?.pitch).toBe('C');
 		expect(locateCell?.locate).toBe('acquired');
-		// Its cold success comes from a session without a known tempo.
+		// Its cold success was played at no known tempo.
 		expect(locateCell?.locateRecallMs).toBeNull();
 		expect(locateCell?.identifyMedianReactionMs).toBeNull();
 		expect(locateCell?.coldAccuracy).toBe(1);
@@ -433,22 +454,23 @@ describe('buildNeckMap', () => {
 	});
 
 	describe('last cold recall of a locate card', () => {
-		const C_ON_B = { direction: 'locate', string: 2, pitch: 'C' } as const;
-		const card = { ...introduceCard(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
-		const sessions = [
-			{ id: 'intro', tempoBpm: 80 },
-			{ id: 'slow', tempoBpm: 80 },
-			{ id: 'fast', tempoBpm: 115 },
-			{ id: 'old', tempoBpm: null }
-		];
-		const cold = (overrides: Partial<Attempt>) =>
-			coldAttempt({ cardKey: card.key, target: card.target, leadBeats: 2, ...overrides });
+		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const card = { ...introduced(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
+		/** Each session's attempts carry its tempo; 'old' is from before tempos were recorded. */
+		const tempos: Record<string, number | null> = { slow: 80, fast: 115, old: null };
+		const cold = (overrides: Partial<Attempt> & { sessionId: string }) =>
+			coldAttempt({
+				...on(C_ON_B),
+				leadBeats: 2,
+				tempoBpm: tempos[overrides.sessionId],
+				...overrides
+			});
 		const recallMs = (attempts: Attempt[]) =>
-			buildNeckMap({ cards: [card], attempts, sessions, pitchAt: () => 'C' }).find(
+			buildNeckMap({ cards: [card], attempts, pitchAt: () => 'C' }).find(
 				(c) => c.string === 2 && c.fret === 8
 			)?.locateRecallMs;
 
-		it('times the attempt lead at the tempo of its own session', () => {
+		it('times the attempt lead at its own tempo', () => {
 			expect(recallMs([cold({ sessionId: 'fast' })])).toBe(1043);
 		});
 
@@ -489,7 +511,7 @@ describe('buildNeckMap', () => {
 			expect(recallMs([cold({ sessionId: 'fast', phase: 'probe' })])).toBe(1043);
 		});
 
-		it('skips a success from a session without tempo, back to the one before', () => {
+		it('skips a success without tempo, back to the one before', () => {
 			expect(
 				recallMs([
 					cold({ sessionId: 'slow', promptedAt: NOW - 2000 }),
@@ -502,5 +524,15 @@ describe('buildNeckMap', () => {
 		it('reads an old attempt at the dropped one-beat lead', () => {
 			expect(recallMs([cold({ sessionId: 'slow', leadBeats: 1 })])).toBe(750);
 		});
+	});
+
+	it('reads the tempo of the attempt, without a list of sessions', () => {
+		const card = introduced({ mechanic: 'locate', item: { string: 2, pitch: 'C' } }, NOW, 's0');
+		const cells = buildNeckMap({
+			cards: [card],
+			attempts: [coldAttempt({ cardKey: card.key, leadBeats: 4, tempoBpm: 120 })],
+			pitchAt: () => 'C'
+		});
+		expect(cells.find((c) => c.string === 2 && c.fret === 8)?.locateRecallMs).toBe(2000);
 	});
 });

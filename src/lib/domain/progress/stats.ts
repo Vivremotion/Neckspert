@@ -1,8 +1,7 @@
-import { LEARNABLE_FRETS } from '$lib/domain/music';
+import { LEARNABLE_FRETS, neckCardKey } from '$lib/domain/music';
 import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
-	cardKey,
 	isSuccess,
 	type Attempt,
 	type CardState,
@@ -22,26 +21,22 @@ function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'col
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
 		// Off-beat answers are far past the window: they would hide the distance to the beat.
 		if (!isSuccess(attempt)) return [];
-		if (attempt.target.direction !== 'locate' || attempt.timingOffsetMs === null) return [];
+		if (attempt.mechanic !== 'locate' || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
 }
 
 /**
  * Lead of the latest cold success (`isSuccess`) of a locate card, in ms at the tempo of that
- * attempt's session. Successes from sessions without a tempo are skipped.
+ * attempt. Successes without a tempo are skipped.
  */
-function lastColdRecallMs(
-	key: string,
-	attempts: readonly Attempt[],
-	sessions: ReadonlyMap<string, { tempoBpm?: number | null }>
-): number | null {
+function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | null {
 	let latest: { at: number; ms: number } | null = null;
 	for (const attempt of attempts) {
 		if (attempt.cardKey !== key || attempt.temperature !== 'cold' || !isSuccess(attempt)) continue;
 		if (attempt.leadBeats === null) continue;
-		const tempo = sessions.get(attempt.sessionId)?.tempoBpm;
-		if (tempo == null || tempo <= 0) continue;
+		const tempo = attempt.tempoBpm;
+		if (tempo === null || tempo <= 0) continue;
 		if (latest && attempt.promptedAt < latest.at) continue;
 		latest = { at: attempt.promptedAt, ms: Math.round((attempt.leadBeats * 60_000) / tempo) };
 	}
@@ -51,7 +46,7 @@ function lastColdRecallMs(
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
-		if (attempt.target.direction !== 'identify') return [];
+		if (attempt.mechanic !== 'identify') return [];
 		if (attempt.reactionMs === null) return [];
 		return [attempt.reactionMs];
 	});
@@ -136,18 +131,16 @@ export function summarizeSession(input: {
 export function buildNeckMap(input: {
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
-	sessions: readonly { id: string; tempoBpm?: number | null }[];
 	pitchAt: (string: StringNumber, fret: number) => PitchName;
 }): NeckMapCell[] {
 	const byKey = new Map(input.cards.map((card) => [card.key, card]));
-	const bySession = new Map(input.sessions.map((session) => [session.id, session]));
 	const cells: NeckMapCell[] = [];
 
 	for (let string = 1 as StringNumber; string <= 6; string = (string + 1) as StringNumber) {
 		for (const fret of LEARNABLE_FRETS) {
 			const pitch = input.pitchAt(string, fret);
-			const locateKey = cardKey({ direction: 'locate', string, pitch });
-			const identifyKey = cardKey({ direction: 'identify', string, fret });
+			const locateKey = neckCardKey({ mechanic: 'locate', item: { string, pitch } });
+			const identifyKey = neckCardKey({ mechanic: 'identify', item: { string, fret } });
 			const locateCard = byKey.get(locateKey);
 			const cold = input.attempts.filter(
 				(attempt) =>
@@ -165,7 +158,7 @@ export function buildNeckMap(input: {
 				pitch,
 				locate: cardStatus(locateCard),
 				identify: cardStatus(byKey.get(identifyKey)),
-				locateRecallMs: locateCard ? lastColdRecallMs(locateKey, input.attempts, bySession) : null,
+				locateRecallMs: locateCard ? lastColdRecallMs(locateKey, input.attempts) : null,
 				identifyMedianReactionMs: median(identifyReaction),
 				coldAccuracy: cold.length === 0 ? null : cold.filter(isSuccess).length / cold.length
 			});

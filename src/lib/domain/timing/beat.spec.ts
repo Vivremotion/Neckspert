@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { LEAD_STEPS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import { beatTiming } from './beat';
 
 const beatTime = (i: number) => 0.1 + i * 0.75;
@@ -57,6 +58,66 @@ describe('beatTiming', () => {
 		const late = round().observe(note(6.2));
 		expect(early).toMatchObject({ outcome: { verdict: 'early', timingOffsetMs: -100 } });
 		expect(late).toMatchObject({ outcome: { verdict: 'late', timingOffsetMs: 100 } });
+	});
+
+	it('keeps exactly PERFECT_WINDOW_MS on either side perfect', () => {
+		expect(round().observe(note(6.18))).toMatchObject({
+			outcome: { verdict: 'perfect', timingOffsetMs: 80 }
+		});
+		expect(round().observe(note(6.02))).toMatchObject({
+			outcome: { verdict: 'perfect', timingOffsetMs: -80 }
+		});
+	});
+
+	it('judges one millisecond beyond the perfect window as late or early', () => {
+		expect(round().observe(note(6.181))).toMatchObject({
+			outcome: { correct: true, verdict: 'late', timingOffsetMs: 81, reactionMs: 3081 }
+		});
+		expect(round().observe(note(6.019))).toMatchObject({
+			outcome: { correct: true, verdict: 'early', timingOffsetMs: -81, reactionMs: 2919 }
+		});
+	});
+
+	it('decides the verdict on the rounded offset', () => {
+		expect(round().observe(note(6.1804))).toMatchObject({
+			outcome: { verdict: 'perfect', timingOffsetMs: 80 }
+		});
+		expect(round().observe(note(6.1806))).toMatchObject({
+			outcome: { verdict: 'late', timingOffsetMs: 81 }
+		});
+	});
+
+	it('judges a right note soon after the prompt as early', () => {
+		expect(round().observe(note(3.455))).toMatchObject({
+			outcome: { verdict: 'early', timingOffsetMs: -2645, reactionMs: 355 }
+		});
+	});
+
+	it('takes the last instant of the window as late', () => {
+		expect(round().observe(note(6.5))).toMatchObject({
+			outcome: { verdict: 'late', timingOffsetMs: 400, reactionMs: 3400 }
+		});
+	});
+
+	it('accepts a note that lands on the closing edge after latency correction', () => {
+		const edge = (i: number) => 0.028 + (i - 4) * 0.25;
+		expect(round(edge, 0.25).observe(note(1.453 - 25 / 1000))).toMatchObject({
+			outcome: { verdict: 'late', timingOffsetMs: 400, reactionMs: 1400 }
+		});
+	});
+
+	it('keeps a wrong note wrong, with its answer and its timing', () => {
+		expect(round().observe(note(6.1, false))).toEqual({
+			kind: 'settled',
+			outcome: {
+				verdict: 'wrong',
+				correct: false,
+				answer: 'a',
+				timingOffsetMs: 0,
+				reactionMs: 3000,
+				laneBeat: 8
+			}
+		});
 	});
 
 	it('keeps a wrong note wrong, with its offset', () => {
@@ -165,6 +226,32 @@ describe('beatTiming', () => {
 		expect(beatTiming.isDirectRecall({ ...base, verdict: 'offbeat' })).toBe(false);
 		expect(beatTiming.isDirectRecall({ ...base, tempoBpm: null })).toBe(false);
 		expect(beatTiming.isDirectRecall({ ...base, leadBeats: 4, tempoBpm: 160 })).toBe(true);
+	});
+
+	it('calls direct recall on the lead duration, not the reaction time, and only when right', () => {
+		const base = { correct: true, verdict: 'perfect' as const, tempoBpm: 80 };
+		expect(beatTiming.isDirectRecall({ ...base, reactionMs: 1510, leadBeats: 2 })).toBe(true);
+		expect(beatTiming.isDirectRecall({ ...base, reactionMs: 100, leadBeats: 4 })).toBe(false);
+		expect(
+			beatTiming.isDirectRecall({ ...base, correct: false, reactionMs: 1510, leadBeats: 2 })
+		).toBe(false);
+	});
+
+	it('learns at the longest step that still fits in RECALL_THRESHOLD_MS', () => {
+		// 60 bpm: 2 beats = 2000 ms, too long, but 2 is the shortest step
+		expect(beatTiming.learnedLead(60)).toBe(2);
+		// 120 bpm: 2 beats = 1000 ms, 4 beats = 2000 ms
+		expect(beatTiming.learnedLead(120)).toBe(2);
+		for (const bpm of [80, 100, 140, 160]) {
+			const beats = beatTiming.learnedLead(bpm);
+			expect((beats * 60_000) / bpm).toBeLessThanOrEqual(RECALL_THRESHOLD_MS);
+		}
+	});
+
+	it('steps the lead one step at a time, never below two beats', () => {
+		expect(beatTiming.adjustLead(8, true)).toBe(4);
+		expect(beatTiming.adjustLead(4, false)).toBe(8);
+		expect(LEAD_STEPS).toEqual([8, 4, 2]);
 	});
 
 	it('climbs the lead ladder', () => {

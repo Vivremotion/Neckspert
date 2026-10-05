@@ -5,19 +5,20 @@ import { cardSuccessRate, sessionSuccessRate, successRate } from './success';
 function attempt(overrides: Partial<Attempt> = {}): Attempt {
 	return {
 		sessionId: 's',
+		exerciseId: 'locate-neck',
+		mechanic: 'locate',
 		cardKey: 'locate:6:G',
-		target: { direction: 'locate', string: 6, pitch: 'G' },
 		phase: 'learning',
 		temperature: 'hot',
 		aid: 'none',
-		leadBeats: 2,
 		promptedAt: 0,
-		answer: null,
-		correct: true,
-		verdict: 'perfect',
+		tempoBpm: 80,
+		leadBeats: 2,
 		timingOffsetMs: 0,
 		reactionMs: 1000,
-		confusion: null,
+		correct: true,
+		verdict: 'perfect',
+		data: { item: { string: 6, pitch: 'G' }, answer: null, confusion: null },
 		...overrides
 	};
 }
@@ -39,7 +40,12 @@ describe('sessionSuccessRate', () => {
 		const ignored = [
 			attempt({ phase: 'probe', correct: false, verdict: 'wrong' }),
 			attempt({
-				target: { direction: 'identify', string: 6, fret: 3 },
+				exerciseId: 'identify-neck',
+				mechanic: 'identify',
+				cardKey: 'identify:6:3',
+				tempoBpm: null,
+				leadBeats: null,
+				data: { item: { string: 6, fret: 3 }, answer: null, confusion: null },
 				correct: false,
 				verdict: 'wrong'
 			})

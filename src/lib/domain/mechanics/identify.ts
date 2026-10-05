@@ -3,12 +3,20 @@ import {
 	identifyItemKey,
 	parseIdentifyItem,
 	pitchOnString,
+	type Confusion,
 	type IdentifyItem
 } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
 import { identifyTiming } from '$lib/domain/timing';
-import type { Confusion } from '$lib/domain/types';
 import type { MechanicRules } from './types';
+
+/** `Attempt.data` of an identify attempt. */
+export interface IdentifyData {
+	item: IdentifyItem;
+	/** The tapped name; null without an answer. */
+	answer: { pitch: PitchName } | null;
+	confusion: Confusion | null;
+}
 
 /** Name the note at a fret of a string, at your own pace. */
 export const identifyRules: MechanicRules<

@@ -1,4 +1,4 @@
-import { secondsToMs } from '$lib/domain/scoring/judgement';
+import { secondsToMs } from '$lib/domain/scoring/timing';
 import { IDENTIFY_RECALL_THRESHOLD_MS, SHORTEST_LEAD } from '$lib/domain/types';
 import type { Round, RoundEvent, RoundOutcome, TimingRelation } from './types';
 
