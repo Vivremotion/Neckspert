@@ -88,7 +88,7 @@ Le jeu se pilote au taux de réussite (une réussite : juste et dans le temps ; 
 - **Séquences** (essai) : les consignes vont par séquences de 4, au même temps d'avance et dans la même scène ; un changement de temps d'avance entre deux séquences est annoncé par une mesure décomptée.
 - **Corde dessinée** (essai) : une aide qui se retire dès qu'elle ne sert plus. Les six cordes sont dessinées, la corde demandée marquée avec sa lettre, à la présentation aidée d'une note nouvelle et à la consigne qui suit un raté de cette note dans la session ; elles disparaissent après une réussite de la note. Jamais aux révisions à froid ni aux sondages.
 
-Le tempo reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
+Le tempo est propre à chaque exercice (modes 1 et 2 ont chacun le leur, voir `docs/plateforme.md`) et n'est plus réglable dans les Réglages. Il reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
 
 Apprendre une note (mode 1), après un sondage manqué : présentation à 8 temps avec la position affichée, dès la consigne suivante. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
 
@@ -111,7 +111,7 @@ Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décompté
 - **Temps d'avance** : nombre de temps entre l'apparition de la note et la cible : 8, 4 ou 2 (jamais 1). La cible tombe sur le temps 1.
 - **Respiration** : la mesure qui suit la cible, sans nouvelle consigne ; la correction s'y affiche après un raté.
 - **Hors temps** : bonne note jouée après la fenêtre, pendant l'écoute prolongée. Juste, jamais rappel direct : ne rend pas une note acquise, fait remonter le temps d'avance.
-- **Tempo adaptatif** : le tempo de la session d'Apprentissage suivante, ajusté sur la réussite de celle-ci.
+- **Tempo adaptatif** : propre à chaque exercice ; le tempo de l'exercice à la session d'Apprentissage suivante, ajusté sur la réussite de celle-ci. Il n'est pas réglable dans les Réglages.
 - **Apprise** : réussie 2 fois sans aide, en rappel direct, dans la session où elle a été introduite. État à chaud, de court terme ; fait avancer la file, ne compte pas pour la rétention.
 - **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage, ou au sondage.
 - **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.

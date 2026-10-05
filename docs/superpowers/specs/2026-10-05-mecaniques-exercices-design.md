@@ -144,13 +144,17 @@ interface Attempt<D = unknown> {
 	data: D;
 }
 
-// locate   : { item: LocateItem; answer: { midi: Midi } | null; confusion: NoteConfusion | null }
-// identify : { item: IdentifyItem; answer: { pitch: PitchName } | null; confusion: NameConfusion | null }
+// locate   : { item: LocateItem; answer: { midi: Midi } | null; confusion: Confusion | null }
+// identify : { item: IdentifyItem; answer: { pitch: PitchName } | null; confusion: Confusion | null }
 ```
 
 `leadBeats` et `timingOffsetMs` restent communs : ils décrivent le rapport au temps, qui appartient au cœur. Enregistrer les observations brutes (étape 2) reste hors périmètre.
 
-`Answer`, `Confusion`, `Target`, `LocateTarget`, `IdentifyTarget`, `Direction`, `cardKey(target)` et `parseCardKey` quittent `domain/types.ts`. `LocateItem { string; pitch }` et `IdentifyItem { string; fret }` vont dans `domain/music/`. Une union fermée `NeckCard = { mechanic: 'locate'; item: LocateItem } | { mechanic: 'identify'; item: IdentifyItem }` est permise **dans le seul domaine du manche** : sélecteur d’Apprentissage, file d’introduction, miroirs, ordre de tirage, plan du jeu libre, statistiques et carte du manche. Ce domaine porte sur les deux mécaniques à la fois ; le cœur, lui, ne les connaît pas.
+`Answer`, `Target`, `LocateTarget`, `IdentifyTarget` et `Direction` quittent `domain/types.ts`.
+
+_Écart à l’implémentation :_ un seul type `Confusion` subsiste, dans `domain/music/confusion.ts` (`classifyNoteConfusion` et `classifyNameConfusion` le produisent, sans `NoteConfusion` ni `NameConfusion`). `cardKey(mechanic, itemKey)` et `parseCardKey` restent dans `domain/types.ts`, mais construisent la clé `${mechanic}:${itemKey}` à partir d’une mécanique et d’une clé d’item au lieu d’une cible.
+
+`LocateItem { string; pitch }` et `IdentifyItem { string; fret }` vont dans `domain/music/`. Une union fermée `NeckCard = { mechanic: 'locate'; item: LocateItem } | { mechanic: 'identify'; item: IdentifyItem }` est permise **dans le seul domaine du manche** : sélecteur d’Apprentissage, file d’introduction, miroirs, ordre de tirage, plan du jeu libre, statistiques et carte du manche. Ce domaine porte sur les deux mécaniques à la fois ; le cœur, lui, ne les connaît pas.
 
 ### Consigne planifiée
 
@@ -228,10 +232,12 @@ interface Round {
 	onBeat(beat: BeatEvent): RoundEvent;
 	/** Pause ou quitter : une écoute hors temps ouverte se règle sans réponse ; sinon null (rien n’est enregistré). */
 	abandon(): RoundOutcome | null;
-	/** Temps le plus tôt de la consigne suivante ; null tant que la manche n’est pas réglée. */
-	nextPromptEarliest(): number | null;
+	/** Null tant que la manche n’est pas réglée. `advanceAt` : premier temps où la consigne suivante est choisie ; `earliestPrompt` : premier temps où elle peut s’afficher. */
+	after(): { advanceAt: number; earliestPrompt: number } | null;
 }
 ```
+
+_Écart à l’implémentation :_ `open()` prend `now` (heure audio de la consigne, en secondes) à la place de `promptTime`, et `planned` y est réduit à `{ leadBeats }` ; `nextPromptEarliest()` est remplacée par `after()`, qui donne aussi le temps où choisir la consigne suivante.
 
 C’est la manche qui décide quand elle est réglée ; le contrôleur ne suppose jamais qu’une observation est une réponse.
 

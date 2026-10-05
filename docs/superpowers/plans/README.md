@@ -13,6 +13,12 @@ Prototype : modes 1 et 2, répétition espacée, tableau de bord de rétention (
 
 Chemin critique : P0 → H (le plus long de la vague 1) → I2 ou J → K.
 
+Plans ultérieurs :
+
+| Plan | Contenu | Spec |
+|---|---|---|
+| Mécaniques et exercices | mécaniques, exercices, exécutions et tempo propre à chaque exercice (2026-10-05) | `docs/superpowers/specs/2026-10-05-mecaniques-exercices-design.md` |
+
 ## Règles d'exécution parallèle
 
 1. Chaque plan s'exécute dans son propre worktree et sa branche `plan/<id>` (par exemple `plan/a-musique`), créée depuis `main` au début de la vague.
