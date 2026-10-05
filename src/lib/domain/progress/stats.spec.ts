@@ -424,73 +424,83 @@ describe('buildNeckMap', () => {
 		const locateCell = cells.find((c) => c.string === 2 && c.fret === 8);
 		expect(locateCell?.pitch).toBe('C');
 		expect(locateCell?.locate).toBe('acquired');
-		expect(locateCell?.locateLeadBeats).toBe(2);
-		expect(locateCell?.locateLeadMs).toBeNull();
+		// Its cold success comes from a session without a known tempo.
+		expect(locateCell?.locateRecallMs).toBeNull();
 		expect(locateCell?.identifyMedianReactionMs).toBeNull();
 		expect(locateCell?.coldAccuracy).toBe(1);
-		expect(identifyCell?.locateLeadBeats).toBeNull();
+		expect(identifyCell?.locateRecallMs).toBeNull();
 		expect(identifyCell?.identifyMedianReactionMs).toBe(900);
 	});
 
-	it('shows the current lead at the tempo of the session that last set it', () => {
-		const intro = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'slow');
-		const card = { ...intro, leadBeats: 2 as const };
-		const cells = buildNeckMap({
-			cards: [card],
-			attempts: [
-				coldAttempt({
-					cardKey: card.key,
-					target: card.target,
-					phase: 'review',
-					temperature: 'cold',
-					sessionId: 'fast',
-					promptedAt: NOW
-				})
-			],
-			sessions: [
-				{ id: 'slow', tempoBpm: 60 },
-				{ id: 'fast', tempoBpm: 120 }
-			],
-			pitchAt: () => 'C'
-		});
-		const cell = cells.find((c) => c.string === 2 && c.fret === 8);
-		expect(cell?.locateLeadMs).toBe(1000);
-	});
+	describe('last cold recall of a locate card', () => {
+		const C_ON_B = { direction: 'locate', string: 2, pitch: 'C' } as const;
+		const card = { ...introduceCard(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
+		const sessions = [
+			{ id: 'intro', tempoBpm: 80 },
+			{ id: 'slow', tempoBpm: 80 },
+			{ id: 'fast', tempoBpm: 115 },
+			{ id: 'old', tempoBpm: null }
+		];
+		const cold = (overrides: Partial<Attempt>) =>
+			coldAttempt({ cardKey: card.key, target: card.target, leadBeats: 2, ...overrides });
+		const recallMs = (attempts: Attempt[]) =>
+			buildNeckMap({ cards: [card], attempts, sessions, pitchAt: () => 'C' }).find(
+				(c) => c.string === 2 && c.fret === 8
+			)?.locateRecallMs;
 
-	it('takes the lead tempo from a cold free-play attempt too', () => {
-		const intro = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'slow');
-		const card = { ...intro, leadBeats: 2 as const };
-		const cells = buildNeckMap({
-			cards: [card],
-			attempts: [
-				coldAttempt({
-					cardKey: card.key,
-					target: card.target,
-					phase: 'free',
-					temperature: 'cold',
-					sessionId: 'fast',
-					promptedAt: NOW
-				})
-			],
-			sessions: [
-				{ id: 'slow', tempoBpm: 60 },
-				{ id: 'fast', tempoBpm: 120 }
-			],
-			pitchAt: () => 'C'
+		it('times the attempt lead at the tempo of its own session', () => {
+			expect(recallMs([cold({ sessionId: 'fast' })])).toBe(1043);
 		});
-		expect(cells.find((c) => c.string === 2 && c.fret === 8)?.locateLeadMs).toBe(1000);
-	});
 
-	it('omits the lead duration when that session has no tempo', () => {
-		const card = introduceCard({ direction: 'locate', string: 2, pitch: 'C' }, NOW, 'old');
-		const cells = buildNeckMap({
-			cards: [{ ...card, leadBeats: 2 }],
-			attempts: [],
-			sessions: [{ id: 'old', tempoBpm: null }],
-			pitchAt: () => 'C'
+		it('keeps the most recent success', () => {
+			expect(
+				recallMs([
+					cold({ sessionId: 'slow', promptedAt: NOW - 2000 }),
+					cold({ sessionId: 'fast', promptedAt: NOW - 1000 })
+				])
+			).toBe(1043);
 		});
-		const cell = cells.find((c) => c.string === 2 && c.fret === 8);
-		expect(cell?.locateLeadBeats).toBe(2);
-		expect(cell?.locateLeadMs).toBeNull();
+
+		it('keeps showing the last success after a missed review', () => {
+			expect(
+				recallMs([
+					cold({ sessionId: 'fast', promptedAt: NOW - 2000 }),
+					cold({
+						sessionId: 'slow',
+						promptedAt: NOW - 1000,
+						leadBeats: 4,
+						correct: false,
+						verdict: 'wrong'
+					})
+				])
+			).toBe(1043);
+		});
+
+		it('proves nothing with hot successes or an off-beat answer', () => {
+			expect(
+				recallMs([cold({ sessionId: 'fast', temperature: 'hot', phase: 'consolidation' })])
+			).toBeNull();
+			expect(
+				recallMs([cold({ sessionId: 'fast', verdict: 'offbeat', timingOffsetMs: 1200 })])
+			).toBeNull();
+		});
+
+		it('counts a passed probe', () => {
+			expect(recallMs([cold({ sessionId: 'fast', phase: 'probe' })])).toBe(1043);
+		});
+
+		it('skips a success from a session without tempo, back to the one before', () => {
+			expect(
+				recallMs([
+					cold({ sessionId: 'slow', promptedAt: NOW - 2000 }),
+					cold({ sessionId: 'old', promptedAt: NOW - 1000 })
+				])
+			).toBe(1500);
+			expect(recallMs([cold({ sessionId: 'old' })])).toBeNull();
+		});
+
+		it('reads an old attempt at the dropped one-beat lead', () => {
+			expect(recallMs([cold({ sessionId: 'slow', leadBeats: 1 })])).toBe(750);
+		});
 	});
 });

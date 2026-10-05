@@ -22,8 +22,7 @@ function buildCells(): NeckMapCell[] {
 				pitch: 'E',
 				locate: mastered ? 'mastered' : learning ? 'learning' : 'unseen',
 				identify: mastered ? 'acquired' : 'unseen',
-				locateLeadBeats: mastered ? 2 : learning ? 4 : null,
-				locateLeadMs: mastered ? 2000 : null,
+				locateRecallMs: mastered ? 2000 : null,
 				identifyMedianReactionMs: mastered ? 900 : null,
 				coldAccuracy: null
 			});
@@ -40,7 +39,7 @@ describe('NeckMapScreen', () => {
 		expect(marked.textContent).toMatch(/2,00 s/);
 		expect(marked.textContent).not.toMatch(/2 temps/);
 		expect(marked.textContent).toMatch(/0,90 s/);
-		expect(marked.getAttribute('aria-label')).toMatch(/2,00 s/);
+		expect(marked.getAttribute('aria-label')).toMatch(/dernier rappel à froid réussi en 2,00 s/);
 		expect(marked.getAttribute('aria-label')).toMatch(/acquis/i);
 		const learning = screen.getByRole('gridcell', { name: /corde 6.*case 4/i });
 		expect(learning.textContent).toMatch(/en cours/);

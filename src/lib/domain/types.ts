@@ -272,10 +272,12 @@ export interface NeckMapCell {
 	pitch: PitchName;
 	locate: CardStatus;
 	identify: CardStatus;
-	/** Announcement the locate card has earned. Null when that sense has no card. */
-	locateLeadBeats: LeadBeats | null;
-	/** Duration of locateLeadBeats at the tempo of the session that set it. Null when unknown. */
-	locateLeadMs: number | null;
+	/**
+	 * Proven recall: lead of the latest cold success of the locate card (passed probes included,
+	 * off beat excluded), in ms at the tempo of that attempt's session. A later miss leaves it.
+	 * Null without such a success in a session of known tempo.
+	 */
+	locateRecallMs: number | null;
 	/** Median tap time for cold identify attempts at this fret. */
 	identifyMedianReactionMs: number | null;
 	coldAccuracy: number | null;

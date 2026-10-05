@@ -110,6 +110,15 @@ Cette spec corrige ce que l’export du 2026-10-04 a montré : FSRS bloqué en a
   - Ce n’est pas un manche pour répondre (principe 4 respecté).
 - **Mesure** : nouvelle confusion `{ kind: 'string-name' }` : note jouée de la hauteur à vide de la corde demandée, différente de la cible. Elle passe avant l’écart d’un ou deux demi-tons. Le validateur de sauvegarde vérifie désormais le champ `confusion`.
 
+## 8 bis. Carte du manche : le dernier rappel prouvé
+
+Ajouté après le test à la guitare. La case du mode 1 affichait le temps d’avance que la carte aura à sa prochaine consigne, converti au tempo de la dernière session à froid : 1,5 s partout pour des révisions faites à 80 bpm, alors que l’utilisateur joue à 115 bpm, et un temps plus long après une révision ratée sans que rien ne signale l’échec.
+
+- `NeckMapCell.locateRecallMs` (remplace `locateLeadBeats` et `locateLeadMs`) : temps d’avance de la dernière tentative à froid réussie de la carte (`temperature === 'cold'` et `isSuccess`, toutes phases, sondage réussi compris, hors temps exclu), en ms, au tempo de la session de cette tentative, à partir du temps d’avance enregistré sur la tentative (1 temps accepté pour l’historique).
+- Une session sans tempo est ignorée : la réussite précédente s’affiche. Sans réussite exploitable : `null`, la case montre son statut.
+- Une révision ratée après une réussite ne change pas la valeur ; l’échec se lit dans le statut et la précision à froid.
+- Le texte de la case reste la durée seule (place limitée) ; le libellé accessible dit « dernier rappel à froid réussi en 1,04 s » (EN « last cold recall in 1,04 s »).
+
 ## 9. Documentation
 
 `PRODUCT.md`, `CLAUDE.md` (« Rules that span files ») et `docs/superpowers/plans/README.md` décrivent le nouveau comportement.

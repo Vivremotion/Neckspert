@@ -10,8 +10,7 @@ function cell(string: 1 | 2 | 3 | 4 | 5 | 6, fret: number): NeckMapCell {
 		pitch: 'C',
 		locate: 'unseen',
 		identify: 'unseen',
-		locateLeadBeats: null,
-		locateLeadMs: null,
+		locateRecallMs: null,
 		identifyMedianReactionMs: null,
 		coldAccuracy: null
 	};

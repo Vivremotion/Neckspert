@@ -7,7 +7,6 @@ import {
 	type Attempt,
 	type CardState,
 	type HomeStats,
-	type LeadBeats,
 	type NeckMapCell,
 	type SessionRecord,
 	type SessionSummary,
@@ -28,30 +27,25 @@ function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'col
 	});
 }
 
-function locateLead(card: CardState | undefined): LeadBeats | null {
-	if (!card || card.target.direction !== 'locate') return null;
-	return card.leadBeats;
-}
-
-function leadTempoBpm(
-	card: CardState,
+/**
+ * Lead of the latest cold success (`isSuccess`) of a locate card, in ms at the tempo of that
+ * attempt's session. Successes from sessions without a tempo are skipped.
+ */
+function lastColdRecallMs(
+	key: string,
 	attempts: readonly Attempt[],
 	sessions: ReadonlyMap<string, { tempoBpm?: number | null }>
 ): number | null {
-	if (card.target.direction !== 'locate') return null;
-	let latest: Attempt | null = null;
+	let latest: { at: number; ms: number } | null = null;
 	for (const attempt of attempts) {
-		if (
-			attempt.cardKey !== card.key ||
-			(attempt.phase !== 'review' && attempt.phase !== 'free') ||
-			attempt.temperature !== 'cold'
-		) {
-			continue;
-		}
-		if (!latest || attempt.promptedAt >= latest.promptedAt) latest = attempt;
+		if (attempt.cardKey !== key || attempt.temperature !== 'cold' || !isSuccess(attempt)) continue;
+		if (attempt.leadBeats === null) continue;
+		const tempo = sessions.get(attempt.sessionId)?.tempoBpm;
+		if (tempo == null || tempo <= 0) continue;
+		if (latest && attempt.promptedAt < latest.at) continue;
+		latest = { at: attempt.promptedAt, ms: Math.round((attempt.leadBeats * 60_000) / tempo) };
 	}
-	const tempo = sessions.get(latest?.sessionId ?? card.introducedInSession)?.tempoBpm;
-	return tempo == null || tempo <= 0 ? null : tempo;
+	return latest?.ms ?? null;
 }
 
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
@@ -155,7 +149,6 @@ export function buildNeckMap(input: {
 			const locateKey = cardKey({ direction: 'locate', string, pitch });
 			const identifyKey = cardKey({ direction: 'identify', string, fret });
 			const locateCard = byKey.get(locateKey);
-			const tempo = locateCard ? leadTempoBpm(locateCard, input.attempts, bySession) : null;
 			const cold = input.attempts.filter(
 				(attempt) =>
 					attempt.temperature === 'cold' &&
@@ -172,9 +165,7 @@ export function buildNeckMap(input: {
 				pitch,
 				locate: cardStatus(locateCard),
 				identify: cardStatus(byKey.get(identifyKey)),
-				locateLeadBeats: locateLead(locateCard),
-				locateLeadMs:
-					tempo == null || !locateCard ? null : Math.round((locateCard.leadBeats * 60_000) / tempo),
+				locateRecallMs: locateCard ? lastColdRecallMs(locateKey, input.attempts, bySession) : null,
 				identifyMedianReactionMs: median(identifyReaction),
 				coldAccuracy: cold.length === 0 ? null : cold.filter(isSuccess).length / cold.length
 			});
