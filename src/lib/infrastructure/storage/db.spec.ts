@@ -52,7 +52,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(5);
+		expect(db.verno).toBe(6);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -140,7 +140,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(5);
+		expect(db.verno).toBe(6);
 		expect(
 			(await db.cards.orderBy('key').toArray()).map((card) => [card.key, card.leadBeats])
 		).toEqual([
@@ -176,7 +176,7 @@ describe('createDatabase', () => {
 		const before = Date.now();
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(5);
+		expect(db.verno).toBe(6);
 
 		const { target: _target, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
@@ -200,7 +200,8 @@ describe('createDatabase', () => {
 			reactionMs: 1510,
 			correct: true,
 			verdict: 'perfect',
-			data: { item: { string: 6, pitch: 'A' }, answer: { midi: 45 }, confusion: null }
+			data: { item: { string: 6, pitch: 'A' }, answer: { midi: 45 }, confusion: null },
+			observations: null
 		});
 		expect(identify).toMatchObject({
 			id: 2,
@@ -221,7 +222,8 @@ describe('createDatabase', () => {
 				executions: [
 					{ exerciseId: 'locate-neck', tempoBpm: 100 },
 					{ exerciseId: 'identify-neck', tempoBpm: null }
-				]
+				],
+				latencyMs: null
 			}
 		]);
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
@@ -238,10 +240,51 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 5 and stores rows', async () => {
+	it('gives attempts and sessions of a version 5 database no observations and no latency', async () => {
+		const name = crypto.randomUUID();
+		const old = versionFive(name);
+		await old.open();
+		const attempt = {
+			sessionId: 's1',
+			exerciseId: 'locate-neck',
+			mechanic: 'locate',
+			cardKey: 'locate:6:A',
+			phase: 'review',
+			temperature: 'cold',
+			aid: 'none',
+			promptedAt: 1,
+			tempoBpm: 100,
+			leadBeats: 2,
+			timingOffsetMs: 10,
+			reactionMs: 1510,
+			correct: true,
+			verdict: 'perfect',
+			data: { item: { string: 6, pitch: 'A' }, answer: { midi: 45 }, confusion: null }
+		};
+		const session = {
+			id: 's1',
+			kind: 'learn',
+			startedAt: 1,
+			endedAt: 2,
+			fatigueDetected: false,
+			executions: [{ exerciseId: 'locate-neck', tempoBpm: 100 }]
+		};
+		await old.table('attempts').add(attempt);
+		await old.table('sessions').put(session);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(6);
+		expect(await db.attempts.toArray()).toEqual([{ ...attempt, id: 1, observations: null }]);
+		expect(await db.sessions.toArray()).toEqual([{ ...session, latencyMs: null }]);
+		db.close();
+	});
+
+	it('opens at version 6 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(5);
+		expect(db.verno).toBe(6);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		const progression = {
@@ -346,6 +389,18 @@ function versionFour(name: string): Dexie {
 		cards: 'key',
 		sessions: 'id, startedAt',
 		settings: 'id'
+	});
+	return old;
+}
+
+function versionFive(name: string): Dexie {
+	const old = versionFour(name);
+	old.version(5).stores({
+		attempts: '++id, cardKey, sessionId, promptedAt',
+		cards: 'key',
+		sessions: 'id, startedAt',
+		settings: 'id',
+		progressions: 'exerciseId'
 	});
 	return old;
 }

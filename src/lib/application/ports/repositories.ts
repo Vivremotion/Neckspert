@@ -5,6 +5,7 @@ import type {
 	CardState,
 	ExerciseId,
 	Progression,
+	RecordedObservation,
 	SessionRecord,
 	Settings
 } from '$lib/domain/types';
@@ -12,6 +13,8 @@ import type {
 export interface AttemptRepositoryPort {
 	/** Stores the attempt and returns its id. */
 	add(attempt: Attempt): Promise<number>;
+	/** Replaces the observations of attempt `id`, leaving its other fields. Rejects an unknown id. */
+	setObservations(id: number, observations: RecordedObservation[]): Promise<void>;
 	/** Oldest first. */
 	listByCard(key: CardKey): Promise<Attempt[]>;
 	/** Oldest first. */

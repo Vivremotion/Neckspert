@@ -104,6 +104,24 @@ export class NeckspertDb extends Dexie {
 				await tx.table('sessions').bulkAdd(converted.sessions);
 				await tx.table('progressions').bulkAdd(converted.progressions);
 			});
+		// Version 6 keeps the raw observations of each attempt and the calibrated latency of each
+		// session (spec 2026-10-06, section 5). Rows written before have neither.
+		this.version(6)
+			.stores({ ...stores, progressions: 'exerciseId' })
+			.upgrade(async (tx) => {
+				await tx
+					.table('attempts')
+					.toCollection()
+					.modify((row) => {
+						row.observations = null;
+					});
+				await tx
+					.table('sessions')
+					.toCollection()
+					.modify((row) => {
+						row.latencyMs = null;
+					});
+			});
 	}
 }
 

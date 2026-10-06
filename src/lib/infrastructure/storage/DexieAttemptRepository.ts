@@ -1,5 +1,5 @@
 import type { AttemptRepositoryPort } from '$lib/application/ports';
-import type { Attempt, CardKey } from '$lib/domain/types';
+import type { Attempt, CardKey, RecordedObservation } from '$lib/domain/types';
 import type { NeckspertDb } from './db';
 
 export class DexieAttemptRepository implements AttemptRepositoryPort {
@@ -9,6 +9,11 @@ export class DexieAttemptRepository implements AttemptRepositoryPort {
 		const record: Attempt = { ...attempt };
 		delete record.id;
 		return (await this.db.attempts.add(record)) as number;
+	}
+
+	async setObservations(id: number, observations: RecordedObservation[]): Promise<void> {
+		const updated = await this.db.attempts.update(id, { observations });
+		if (updated === 0) throw new Error(`No attempt with id ${id}`);
 	}
 
 	listByCard(key: CardKey): Promise<Attempt[]> {

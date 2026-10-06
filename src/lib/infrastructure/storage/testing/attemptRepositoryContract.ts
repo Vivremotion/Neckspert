@@ -73,5 +73,22 @@ export function attemptRepositoryContract(name: string, create: () => AttemptRep
 			const tied = await repo.add(makeAttempt({ promptedAt: 2000 }));
 			expect((await repo.all()).map((a) => a.id)).toEqual([early, late, tied]);
 		});
+
+		it('replaces the observations of a stored attempt', async () => {
+			const id = await repo.add(makeAttempt());
+			const observation = {
+				atMs: 5000,
+				sensor: 'note',
+				fate: 'answer' as const,
+				correct: true,
+				payload: { midi: 65 }
+			};
+			await repo.setObservations(id, [observation]);
+			expect(await repo.all()).toEqual([{ ...makeAttempt(), id, observations: [observation] }]);
+		});
+
+		it('rejects observations for an unknown attempt', async () => {
+			await expect(repo.setObservations(999, [])).rejects.toThrow();
+		});
 	});
 }

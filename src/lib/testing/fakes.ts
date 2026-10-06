@@ -5,6 +5,7 @@ import {
 	type CardState,
 	type ExerciseId,
 	type Progression,
+	type RecordedObservation,
 	type SessionRecord,
 	type Settings,
 	type Verdict
@@ -189,6 +190,12 @@ export class InMemoryAttemptRepository implements AttemptRepositoryPort {
 		const id = this.attempts.length + 1;
 		this.attempts.push({ ...attempt, id });
 		return id;
+	}
+
+	async setObservations(id: number, observations: RecordedObservation[]): Promise<void> {
+		const index = this.attempts.findIndex((a) => a.id === id);
+		if (index < 0) throw new Error(`No attempt with id ${id}`);
+		this.attempts[index] = { ...this.attempts[index], observations };
 	}
 
 	async listByCard(key: CardKey): Promise<Attempt[]> {
