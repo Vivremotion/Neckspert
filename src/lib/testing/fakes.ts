@@ -18,6 +18,7 @@ import type {
 	MetronomePort,
 	NoteDetectorPort,
 	NoteOnset,
+	NoteRejection,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
@@ -124,6 +125,7 @@ export class FakeNoteDetector implements NoteDetectorPort {
 	running = false;
 	deviceId: string | null = null;
 	private readonly noteListeners = new Set<(onset: NoteOnset) => void>();
+	private readonly rejectionListeners = new Set<(rejection: NoteRejection) => void>();
 	private readonly levelListeners = new Set<(rms: number) => void>();
 
 	async listInputs(): Promise<AudioInputDevice[]> {
@@ -150,6 +152,11 @@ export class FakeNoteDetector implements NoteDetectorPort {
 		return () => this.noteListeners.delete(callback);
 	}
 
+	onRejected(callback: (rejection: NoteRejection) => void): () => void {
+		this.rejectionListeners.add(callback);
+		return () => this.rejectionListeners.delete(callback);
+	}
+
 	onLevel(callback: (rms: number) => void): () => void {
 		this.levelListeners.add(callback);
 		return () => this.levelListeners.delete(callback);
@@ -158,6 +165,11 @@ export class FakeNoteDetector implements NoteDetectorPort {
 	emitNote(onset: NoteOnset): void {
 		if (!this.running) return;
 		this.noteListeners.forEach((listener) => listener(onset));
+	}
+
+	emitRejection(rejection: NoteRejection): void {
+		if (!this.running) return;
+		this.rejectionListeners.forEach((listener) => listener(rejection));
 	}
 
 	emitLevel(rms: number): void {

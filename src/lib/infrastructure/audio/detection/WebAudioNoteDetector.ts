@@ -1,4 +1,9 @@
-import type { AudioInputDevice, NoteDetectorPort, NoteOnset } from '$lib/application/ports';
+import type {
+	AudioInputDevice,
+	NoteDetectorPort,
+	NoteOnset,
+	NoteRejection
+} from '$lib/application/ports';
 import { clampBuiltInInputGain, DEFAULT_BUILT_IN_INPUT_GAIN } from '$lib/domain/types';
 import frameProcessorUrl from './frame-processor.ts?worker&url';
 import { DEFAULT_DETECTOR_CONFIG, type DetectorConfig } from './config';
@@ -51,6 +56,7 @@ export class WebAudioNoteDetector implements NoteDetectorPort {
 	private tracker: NoteTracker | null = null;
 	private workletLoaded = false;
 	private readonly noteListeners = new Set<(onset: NoteOnset) => void>();
+	private readonly rejectionListeners = new Set<(rejection: NoteRejection) => void>();
 	private readonly levelListeners = new Set<(rms: number) => void>();
 
 	private readonly resumeAudio: (() => Promise<void>) | undefined;
@@ -95,7 +101,9 @@ export class WebAudioNoteDetector implements NoteDetectorPort {
 		const label = this.stream.getAudioTracks()[0]?.label ?? '';
 		this.boostBuiltIn = isBuiltInMicLabel(label);
 
-		this.tracker = new NoteTracker(this.config, ctx.sampleRate);
+		this.tracker = new NoteTracker(this.config, ctx.sampleRate, (rejection) =>
+			this.rejectionListeners.forEach((listener) => listener(rejection))
+		);
 		this.source = ctx.createMediaStreamSource(this.stream);
 		// Chrome drops a mono mic (the MacBook one) when this node is forced to
 		// two discrete channels. Follow the track, and mix if the counts disagree.
@@ -150,6 +158,11 @@ export class WebAudioNoteDetector implements NoteDetectorPort {
 	onNote(callback: (onset: NoteOnset) => void): () => void {
 		this.noteListeners.add(callback);
 		return () => this.noteListeners.delete(callback);
+	}
+
+	onRejected(callback: (rejection: NoteRejection) => void): () => void {
+		this.rejectionListeners.add(callback);
+		return () => this.rejectionListeners.delete(callback);
 	}
 
 	onLevel(callback: (rms: number) => void): () => void {

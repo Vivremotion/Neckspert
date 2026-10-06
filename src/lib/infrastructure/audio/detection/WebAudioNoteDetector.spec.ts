@@ -4,7 +4,9 @@ vi.mock('./frame-processor.ts?worker&url', () => ({
 	default: '/virtual/note-frame-processor.js'
 }));
 
+import type { NoteOnset, NoteRejection } from '$lib/application/ports';
 import { WebAudioNoteDetector } from './WebAudioNoteDetector';
+import { synthesizePluck } from './synth';
 
 class FakeNode {
 	port = { onmessage: null as ((ev: MessageEvent) => void) | null };
@@ -14,6 +16,7 @@ class FakeNode {
 
 class FakeContext {
 	currentTime = 0;
+	sampleRate = 48000;
 	destination = {};
 	audioWorklet = {
 		addModule: vi.fn(async () => undefined)
@@ -267,6 +270,42 @@ describe('WebAudioNoteDetector', () => {
 		node.port.onmessage!({ data: { samples: frame, frameTime: 1 } } as MessageEvent);
 		expect(levels.length).toBe(1);
 		expect(levels[0]).toBeGreaterThan(0);
+		detector.stop();
+	});
+
+	it('sends a rejected attack to rejection listeners only', async () => {
+		installMedia();
+		const fake = new FakeContext();
+		const node = new FakeNode();
+		vi.stubGlobal(
+			'AudioWorkletNode',
+			vi.fn(function AudioWorkletNode() {
+				return node;
+			})
+		);
+		const detector = new WebAudioNoteDetector(() => fake as unknown as AudioContext, {
+			minMidi: 60
+		});
+		const notes: NoteOnset[] = [];
+		const rejections: NoteRejection[] = [];
+		detector.onNote((onset) => notes.push(onset));
+		detector.onRejected((rejection) => rejections.push(rejection));
+		await detector.start(null);
+
+		const signal = synthesizePluck({
+			frequencyHz: 82.40689,
+			sampleRate: 48000,
+			durationS: 1.2,
+			attackSample: 4800
+		});
+		for (let offset = 0; offset + 512 <= signal.length; offset += 512) {
+			node.port.onmessage!({
+				data: { samples: signal.slice(offset, offset + 512), frameTime: offset / 48000 }
+			} as MessageEvent);
+		}
+		expect(notes).toEqual([]);
+		expect(rejections).toHaveLength(1);
+		expect(rejections[0].reason).toBe('out-of-range');
 		detector.stop();
 	});
 });

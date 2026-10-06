@@ -1,4 +1,4 @@
-import type { NoteOnset } from '$lib/application/ports';
+import type { NoteOnset, NoteRejection, NoteRejectionReason } from '$lib/application/ports';
 import { describeFrequency, describeReading, logDetection } from '$lib/debug/detectionLog';
 import { confirmedPitch } from './confirmPitch';
 import { CONFIRM_CENTS, type DetectorConfig } from './config';
@@ -20,7 +20,8 @@ export class NoteTracker {
 
 	constructor(
 		private readonly config: DetectorConfig,
-		private readonly sampleRate: number
+		private readonly sampleRate: number,
+		private readonly onRejected?: (rejection: NoteRejection) => void
 	) {
 		this.onset = new OnsetDetector(config, sampleRate);
 		this.maxBuffer = config.windowSize * 4;
@@ -84,6 +85,14 @@ export class NoteTracker {
 			`analyse : 2 × ${this.config.windowSize} échantillons (${Math.round(windowMs)} ms chacune) après l’attaque`
 		];
 
+		const reject = (reason: NoteRejectionReason) =>
+			this.onRejected?.({
+				time: onsetTime,
+				reason,
+				attack: { frequencyHz: a.frequencyHz, clarity: a.clarity },
+				sustain: { frequencyHz: b.frequencyHz, clarity: b.clarity }
+			});
+
 		if (!reading) {
 			const aPass = a.frequencyHz > 0 && a.clarity >= attackThreshold;
 			const bPass = b.frequencyHz > 0 && b.clarity >= sustainThreshold;
@@ -104,6 +113,13 @@ export class NoteTracker {
 				`raison : ${reasons.join(' ; ')}`,
 				...windows
 			]);
+			reject(
+				!(a.frequencyHz > 0) || !(b.frequencyHz > 0)
+					? 'no-pitch'
+					: !aPass || !bPass
+						? 'unclear'
+						: 'unstable'
+			);
 			return null;
 		}
 
@@ -116,6 +132,7 @@ export class NoteTracker {
 				`MIDI brut ${rawMidi}, plage ${this.config.minMidi}–${this.config.maxMidi}`,
 				...windows
 			]);
+			reject('out-of-range');
 			return null;
 		}
 		logDetection('hauteur confirmée', [

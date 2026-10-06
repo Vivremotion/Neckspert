@@ -67,6 +67,21 @@ describe('FakeNoteDetector', () => {
 		detector.emitNote({ time: 2, midi: 62, frequencyHz: 293.7, clarity: 0.95 });
 		expect(seen).toEqual([62]);
 	});
+
+	it('only emits rejections while running', async () => {
+		const detector = new FakeNoteDetector();
+		const seen: number[] = [];
+		detector.onRejected((rejection) => seen.push(rejection.time));
+		const rejection = {
+			reason: 'unclear' as const,
+			attack: { frequencyHz: 220, clarity: 0.4 },
+			sustain: { frequencyHz: 220, clarity: 0.5 }
+		};
+		detector.emitRejection({ ...rejection, time: 1 });
+		await detector.start(null);
+		detector.emitRejection({ ...rejection, time: 2 });
+		expect(seen).toEqual([2]);
+	});
 });
 
 describe('in-memory repositories', () => {

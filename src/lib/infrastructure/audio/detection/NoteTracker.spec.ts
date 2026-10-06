@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { NoteOnset } from '$lib/application/ports';
+import type { NoteOnset, NoteRejection } from '$lib/application/ports';
 import { DEFAULT_DETECTOR_CONFIG } from './config';
 import { NoteTracker } from './NoteTracker';
 import { pushAll, synthesizePluck } from './synth';
@@ -99,5 +99,117 @@ describe.each([44100, 48000])('NoteTracker at %s Hz', (sampleRate) => {
 		const noise = new Float32Array(sampleRate);
 		for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 2 - 1) * 0.2;
 		expect(pushAll(tracker, noise, sampleRate)).toEqual([]);
+	});
+});
+
+describe('rejections', () => {
+	const sampleRate = 48000;
+
+	function run(config: Partial<typeof DEFAULT_DETECTOR_CONFIG>, signal: Float32Array) {
+		const rejections: NoteRejection[] = [];
+		const tracker = new NoteTracker(
+			{ ...DEFAULT_DETECTOR_CONFIG, ...config },
+			sampleRate,
+			(rejection) => rejections.push(rejection)
+		);
+		const onsets = pushAll(tracker, signal, sampleRate);
+		return { rejections, onsets };
+	}
+
+	it('never reports a valid pluck', () => {
+		const signal = synthesizePluck({
+			frequencyHz: NOTES.A2.hz,
+			sampleRate,
+			durationS: 1.2,
+			attackSample: 4800
+		});
+		const { rejections, onsets } = run({}, signal);
+		expect(onsets).toHaveLength(1);
+		expect(rejections).toEqual([]);
+	});
+
+	it('reports an attack followed by noise as no-pitch, with finite readings', () => {
+		const signal = new Float32Array(sampleRate);
+		for (let i = 4800; i < signal.length; i++) {
+			signal[i] = (i - 4800 < 48 ? 1 : 0) * 0.5;
+		}
+		const { rejections, onsets } = run({}, signal);
+		expect(onsets).toEqual([]);
+		expect(rejections.length).toBeGreaterThanOrEqual(1);
+		const rejection = rejections[0];
+		expect(rejection.reason).toBe('no-pitch');
+		expect(Math.abs(rejection.time - 4800 / sampleRate)).toBeLessThan(0.01);
+		expect(Number.isFinite(rejection.attack.frequencyHz)).toBe(true);
+		expect(Number.isFinite(rejection.sustain.frequencyHz)).toBe(true);
+		expect(JSON.parse(JSON.stringify(rejection))).toEqual(rejection);
+	});
+
+	it('reports a pitch below the clarity thresholds as unclear', () => {
+		const signal = synthesizePluck({
+			frequencyHz: NOTES.A2.hz,
+			sampleRate,
+			durationS: 1.2,
+			attackSample: 4800
+		});
+		const { rejections, onsets } = run(
+			{ clarityThreshold: 0.999999, attackClarityThreshold: 0.999999 },
+			signal
+		);
+		expect(onsets).toEqual([]);
+		expect(rejections).toHaveLength(1);
+		const rejection = rejections[0];
+		expect(rejection.reason).toBe('unclear');
+		expect(Math.abs(rejection.time - 4800 / sampleRate)).toBeLessThan(0.01);
+		expect(rejection.attack.frequencyHz).toBeGreaterThan(0);
+		expect(rejection.sustain.frequencyHz).toBeGreaterThan(0);
+		expect(rejection.attack.clarity).toBeLessThan(0.999999);
+	});
+
+	it('reports a pitch that moves between the two windows as unstable', () => {
+		const attackSample = 4800;
+		const window = DEFAULT_DETECTOR_CONFIG.windowSize;
+		const signal = new Float32Array(sampleRate);
+		const low = synthesizePluck({
+			frequencyHz: NOTES.A2.hz,
+			sampleRate,
+			durationS: 1,
+			attackSample: 0
+		});
+		const high = synthesizePluck({
+			frequencyHz: NOTES.A2.hz * 1.5,
+			sampleRate,
+			durationS: 1,
+			attackSample: 0
+		});
+		signal.set(low.subarray(0, window), attackSample);
+		signal.set(high.subarray(window, window * 3), attackSample + window);
+		const { rejections, onsets } = run(
+			{ clarityThreshold: 0.5, attackClarityThreshold: 0.5 },
+			signal
+		);
+		expect(onsets).toEqual([]);
+		expect(rejections).toHaveLength(1);
+		const rejection = rejections[0];
+		expect(rejection.reason).toBe('unstable');
+		expect(Math.abs(rejection.time - attackSample / sampleRate)).toBeLessThan(0.01);
+		expect(rejection.attack.frequencyHz).toBeCloseTo(NOTES.A2.hz, -1);
+		expect(rejection.sustain.frequencyHz).toBeGreaterThan(rejection.attack.frequencyHz * 1.2);
+	});
+
+	it('reports a pitch outside the guitar range as out-of-range', () => {
+		const signal = synthesizePluck({
+			frequencyHz: NOTES.E2.hz,
+			sampleRate,
+			durationS: 1.2,
+			attackSample: 4800
+		});
+		const { rejections, onsets } = run({ minMidi: 60 }, signal);
+		expect(onsets).toEqual([]);
+		expect(rejections).toHaveLength(1);
+		const rejection = rejections[0];
+		expect(rejection.reason).toBe('out-of-range');
+		expect(Math.abs(rejection.time - 4800 / sampleRate)).toBeLessThan(0.01);
+		expect(rejection.attack.frequencyHz).toBeCloseTo(NOTES.E2.hz, 0);
+		expect(rejection.sustain.frequencyHz).toBeCloseTo(NOTES.E2.hz, 0);
 	});
 });
