@@ -12,6 +12,7 @@ import type {
 	Execution,
 	MechanicId,
 	PlannedItem,
+	RecordedObservation,
 	Temperature
 } from '$lib/domain/types';
 import type { RoundOutcome } from '$lib/domain/timing';
@@ -46,6 +47,10 @@ export interface AttemptRecorderDeps {
 export class AttemptRecorder {
 	private readonly deps: AttemptRecorderDeps;
 	private readonly attempts: Attempt<AttemptData>[] = [];
+	/** Per recorded attempt, the id its write returns (rejects when the write fails). */
+	private readonly ids = new Map<Attempt, Promise<number>>();
+	/** Writes and completions started and not yet forgotten, for `settled`. */
+	private readonly pending = new Set<Promise<unknown>>();
 
 	constructor(deps: AttemptRecorderDeps) {
 		this.deps = deps;
@@ -59,14 +64,16 @@ export class AttemptRecorder {
 	/**
 	 * Synchronous part done on return (attempt pushed, selector told), so fatigue and the next
 	 * beat see it; `stored` settles once card and attempt are written. The attempt carries the
-	 * exercise and tempo of `execution`, the run the prompt belongs to.
+	 * exercise and tempo of `execution`, the run the prompt belongs to. `observations` is the
+	 * snapshot stored with the attempt; `completeObservations` replaces it once the rest is in.
 	 */
 	record(
 		planned: PlannedItem,
 		outcome: RoundOutcome,
 		promptTime: number,
 		judged: JudgedAnswer,
-		execution: Execution
+		execution: Execution,
+		observations: RecordedObservation[]
 	): { attempt: Attempt<AttemptData>; stored: Promise<void> } {
 		const { selector, sessionId, clock } = this.deps;
 		const rules = this.deps.rules(planned.mechanic);
@@ -105,7 +112,7 @@ export class AttemptRecorder {
 				answer: judged?.answer ?? null,
 				confusion: judged?.confusion ?? null
 			},
-			observations: []
+			observations
 		};
 
 		// Fatigue and the selector must see the attempt before any await, so the next onBeat
@@ -113,8 +120,45 @@ export class AttemptRecorder {
 		this.attempts.push(attempt);
 		const recorded = selector.record(attempt, this.deps.now());
 
-		const stored = this.store(planned, rules, attempt, recorded, attemptedInSession);
+		let resolveId!: (id: number) => void;
+		let rejectId!: (reason: unknown) => void;
+		const id = new Promise<number>((resolve, reject) => {
+			resolveId = resolve;
+			rejectId = reject;
+		});
+		// Awaited by completions only; a failed write is reported through `stored`.
+		id.catch(() => {});
+		this.ids.set(attempt, id);
+		const stored = this.store(planned, rules, attempt, recorded, attemptedInSession, resolveId);
+		stored.catch(rejectId);
+		this.track(stored);
 		return { attempt, stored };
+	}
+
+	/** Waits for the attempt's write, then replaces its observations. No-op for an attempt this recorder did not record. */
+	completeObservations(attempt: Attempt, observations: RecordedObservation[]): Promise<void> {
+		const id = this.ids.get(attempt);
+		if (!id) return Promise.resolve();
+		attempt.observations = observations;
+		const done = id.then((attemptId) =>
+			this.deps.attempts.setObservations(attemptId, observations)
+		);
+		this.track(done);
+		return done;
+	}
+
+	/** Settles once every write and completion started so far has settled. */
+	async settled(): Promise<void> {
+		while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
+	}
+
+	private track(promise: Promise<unknown>): void {
+		const entry = promise.then(
+			() => {},
+			() => {}
+		);
+		this.pending.add(entry);
+		void entry.then(() => this.pending.delete(entry));
 	}
 
 	private async store(
@@ -122,7 +166,8 @@ export class AttemptRecorder {
 		rules: MechanicRules,
 		attempt: Attempt,
 		outcome: ReturnType<SessionSelector['record']>,
-		attemptedInSession: boolean
+		attemptedInSession: boolean,
+		attemptId: (id: number) => void
 	): Promise<void> {
 		const { attempts, cards } = this.deps;
 		const key = attempt.cardKey;
@@ -140,7 +185,7 @@ export class AttemptRecorder {
 					});
 		attempt.temperature = temperature;
 
-		await attempts.add(attempt);
+		attemptId(await attempts.add(attempt));
 
 		// Only a memory learner keeps FSRS cards; a skill learner will keep its own state.
 		if (rules.learner !== 'memory') return;

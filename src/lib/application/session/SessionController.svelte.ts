@@ -629,7 +629,8 @@ export class SessionController implements PlaySessionController {
 			outcome,
 			this.round.promptTime,
 			judged,
-			this.executionOf(this.current)
+			this.executionOf(this.current),
+			[]
 		);
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
