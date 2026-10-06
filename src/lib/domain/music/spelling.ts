@@ -38,6 +38,18 @@ function semitonesOf(note: SpelledNote): number {
 	return mod(NATURAL_SEMITONES[note.letter] + note.accidental, OCTAVE);
 }
 
+/** Throws unless `note` is one of the seven letters with an integer accidental from −2 to +2. */
+export function assertSpelledNote(note: SpelledNote): void {
+	const { letter, accidental } = note ?? {};
+	if (
+		!LETTERS.includes(letter) ||
+		!Number.isInteger(accidental) ||
+		Math.abs(accidental) > MAX_ACCIDENTAL
+	) {
+		throw new RangeError(`Not a spelled note: ${JSON.stringify(note)}`);
+	}
+}
+
 export function pitchOfSpelled(note: SpelledNote): PitchName {
 	return CHROMATIC_NOTES[semitonesOf(note)];
 }

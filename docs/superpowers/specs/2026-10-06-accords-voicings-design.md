@@ -102,7 +102,7 @@ interface Voicing {
 }
 ```
 
-- Le groupe de cordes peut avoir n’importe quelle taille et des cordes non voisines (6‑4). Un degré de l’accord peut manquer (shell sans quinte) ou être doublé (forme ouverte). Chaque degré du voicing doit appartenir à la qualité de l’accord ; sinon `RangeError`.
+- Le groupe de cordes peut avoir n’importe quelle taille et des cordes non voisines (6‑4). Un degré de l’accord peut manquer (shell sans quinte) ou être doublé (forme ouverte). Chaque degré du voicing doit appartenir à la qualité de l’accord, et la fondamentale doit être une `SpelledNote` valide (une des sept lettres, altération entière de −2 à +2) ; sinon `RangeError`, pour qu’aucune clé ne s’écrive à partir d’une donnée mal formée.
 - **Clé d’item** : `voicingKey(voicing)` donne `${hauteur}|${qualité}|${corde}:${degré},…`, cordes de la plus grave à la plus aiguë, hauteur canonique. Exemple : D, fondamentale sur si, sur sol‑si‑mi → `D|maj|3:5,2:1,1:3`. Ebm et D#m donnent la même clé : même forme sous les doigts, même carte. L’orthographe vient de l’exercice, à l’affichage. Cette clé sera stockée dans les cartes : un test la fige. `parseVoicingKey` fait l’inverse, avec une fondamentale écrite en dièses.
 
 ### Occurrences
@@ -122,7 +122,7 @@ interface VoicingOccurrence {
 }
 ```
 
-- `voicingOccurrences(voicing)` : chaque combinaison de cases où chaque corde porte son degré, de la case 0 à `MAX_VOICING_FRET`, dont l’écart entre la case jouée la plus basse et la plus haute ne dépasse pas `MAX_SPAN_FRETS`, et dont les hauteurs montent strictement d’une corde à la suivante (pas de croisement : A n’a pas d’occurrence 14‑14‑0, où le mi à vide sonnerait sous le C#). Les cordes à vide ne comptent pas dans l’écart. Tri du plus grave au plus aigu : hauteur de la corde la plus grave, puis des suivantes.
+- `voicingOccurrences(voicing)` : chaque combinaison de cases où chaque corde porte son degré, de la case 0 à `MAX_VOICING_FRET`, dont l’écart entre la case jouée la plus basse et la plus haute ne dépasse pas `MAX_SPAN_FRETS`, et dont chaque corde sonne plus haut que la précédente, de moins d’une octave. Pas de croisement : A n’a pas d’occurrence 14‑14‑0, où le mi à vide sonnerait sous le C#. Pas d’écartement non plus : G, fondamentale sur sol, n’a pas d’occurrence 0‑0‑10 (G3 B3 D5), qui n’est plus une triade serrée ; sa seule occurrence est 12‑12‑10. Les drop et les shells respectent cette règle ; un voicing écarté de plus d’une octave entre deux cordes voisines demandera, le jour venu, de le dire dans le voicing. Les cordes à vide ne comptent pas dans l’écart. Tri du plus grave au plus aigu : hauteur de la corde la plus grave, puis des suivantes.
 - `occurrencePositions(occurrence): FretPosition[]` : les positions de la carte du manche. C’est le point d’accroche du lien avec la file des notes (sous-projet C).
 
 | Constante          | Valeur | Raison                                                                                            |
@@ -166,10 +166,10 @@ Colocalisés (`*.spec.ts`, projet Vitest `server`), écrits avant le code :
 
 - orthographe : Ebm → Eb‑Gb‑Bb, Abm → Ab‑Cb‑Eb, C# → C#‑E#‑G#, Ebdim → Eb‑Gb‑Bbb ; aller-retour `parseSpelledNote` / `formatSpelledNote` ; rejet de `H`, `Eb#`, `Ebbb` ;
 - occurrences de D sur sol‑si‑mi : 2‑3‑2, 7‑7‑5, 11‑10‑10, 14‑15‑14 ; A avec le mi à vide : 2‑2‑0 et 14‑14‑12 ;
-- généralité : shell Cmaj7 sur 6‑4‑3 (1, 7, 3) → 8‑9‑9, avec une qualité construite dans le test ; G sur 6‑4 (1, 5), groupe non voisin sans tierce → 3‑0 et 15‑12, mais pas 15‑0 (croisement) ;
+- généralité : shell Cmaj7 sur 6‑4‑3 (1, 7, 3) → 8‑9‑9, avec une qualité construite dans le test ; G sur 6‑4 (1, 5), groupe non voisin sans tierce → 3‑0 et 15‑12, mais pas 15‑0 (croisement) ; G fondamentale sur sol → 12‑12‑10 seulement ; une fondamentale mal formée lève une `RangeError` ;
 - `voicingKey` figée sur l’exemple ci-dessus, même clé pour Ebm et D#m, aller-retour avec `parseVoicingKey` ;
 - candidats de D 2‑3‑2, tels que listés en section 5 ;
-- propriétés sur toutes les triades serrées des 12 fondamentales × 4 qualités × sol‑si‑mi et ré‑sol‑si : chaque note est une note de l’accord, chaque occurrence respecte l’écart de main, la case maximale et l’absence de croisement, chaque voicing a au moins une occurrence.
+- propriétés sur toutes les triades serrées des 12 fondamentales × 4 qualités × sol‑si‑mi et ré‑sol‑si : chaque note est une note de l’accord, chaque occurrence respecte l’écart de main, la case maximale, l’absence de croisement et tient dans une octave, chaque voicing a au moins une occurrence.
 
 Barrière de fusion : `npm test && npm run check`.
 

@@ -1,6 +1,6 @@
 import { DEGREES, qualityById, spellInterval, type Chord, type Degree } from './chord';
 import { midiOnString } from './fretboard';
-import { pitchOfSpelled, spelledFromPitch, type SpelledNote } from './spelling';
+import { assertSpelledNote, pitchOfSpelled, spelledFromPitch, type SpelledNote } from './spelling';
 import {
 	CHROMATIC_NOTES,
 	STRING_NUMBERS,
@@ -48,8 +48,12 @@ export interface VoicingOccurrence {
 
 const OCTAVE = 12;
 
-/** Throws on empty, doubled or unordered strings and on degrees outside the quality. */
+/**
+ * Throws on a malformed root, on empty, doubled or unordered strings and on degrees outside the
+ * quality.
+ */
 export function createVoicing(chord: Chord, strings: readonly VoicingString[]): Voicing {
+	assertSpelledNote(chord.root);
 	if (strings.length === 0) throw new RangeError('A voicing needs at least one string');
 	strings.forEach(({ string, degree }, i) => {
 		if (!STRING_NUMBERS.includes(string)) throw new RangeError(`Not a string: ${string}`);
@@ -97,10 +101,19 @@ function fretsCarrying(string: StringNumber, pitch: PitchName): number[] {
 	return frets;
 }
 
+/** Each string sounds above the previous one, less than an octave higher: a close shape stays close. */
+function spaced(notes: readonly VoicingNote[]): boolean {
+	return notes.every((n, i) => {
+		if (i === 0) return true;
+		const gap = n.midi - notes[i - 1].midi;
+		return gap > 0 && gap < OCTAVE;
+	});
+}
+
 function playable(notes: readonly VoicingNote[]): boolean {
 	const fretted = notes.filter((n) => n.fret > 0).map((n) => n.fret);
 	const span = fretted.length > 0 ? Math.max(...fretted) - Math.min(...fretted) : 0;
-	return span <= MAX_SPAN_FRETS && notes.every((n, i) => i === 0 || n.midi > notes[i - 1].midi);
+	return span <= MAX_SPAN_FRETS && spaced(notes);
 }
 
 function compareMidis(a: VoicingOccurrence, b: VoicingOccurrence): number {
@@ -112,7 +125,7 @@ function compareMidis(a: VoicingOccurrence, b: VoicingOccurrence): number {
 
 /**
  * Every fret combination, 0 to MAX_VOICING_FRET, where each string carries its degree, within
- * MAX_SPAN_FRETS and with pitches rising string to string. Lowest first.
+ * MAX_SPAN_FRETS, each string less than an octave above the previous one. Lowest first.
  */
 export function voicingOccurrences(voicing: Voicing): VoicingOccurrence[] {
 	const choices = voicing.strings.map(({ string, degree }) => {

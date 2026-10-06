@@ -49,6 +49,21 @@ describe('createVoicing', () => {
 		expect(() => createVoicing(d, strings('1:1,2:3,3:5'))).toThrow(RangeError);
 	});
 
+	it('rejects a malformed root', () => {
+		const strings3 = strings('3:1,2:b3,1:5');
+		const bad = [
+			{ letter: 'Eb', accidental: 0 },
+			{ letter: 'E', accidental: '-1' },
+			{ letter: 'e', accidental: -1 },
+			{ letter: 'E', accidental: 3 },
+			{ letter: 'E', accidental: 0.5 }
+		];
+		for (const root of bad) {
+			const malformed = { root, quality: qualityById('min') } as unknown as Chord;
+			expect(() => createVoicing(malformed, strings3)).toThrow(RangeError);
+		}
+	});
+
 	it('rejects a degree outside the quality', () => {
 		expect(() => createVoicing(chord('D', 'maj'), strings('3:b3,2:5,1:1'))).toThrow(RangeError);
 	});
@@ -111,6 +126,10 @@ describe('voicingOccurrences', () => {
 			[3, 0],
 			[15, 12]
 		]);
+	});
+
+	it('keeps neighbouring strings within an octave, so a close shape stays close', () => {
+		expect(allFrets('G', 'maj', '3:1,2:3,1:5')).toEqual([[12, 12, 10]]);
 	});
 
 	it('describes each note', () => {

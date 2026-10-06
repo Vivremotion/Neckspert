@@ -61,6 +61,7 @@ describe('closeTriadVoicings', () => {
 							expect(span).toBeLessThanOrEqual(MAX_SPAN_FRETS);
 							expect(notes.every((n) => n.fret <= MAX_VOICING_FRET)).toBe(true);
 							expect(notes.every((n, i) => i === 0 || n.midi > notes[i - 1].midi)).toBe(true);
+							expect(notes[notes.length - 1].midi - notes[0].midi).toBeLessThan(12);
 						}
 					}
 				}
