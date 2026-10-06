@@ -13,6 +13,7 @@ import {
 	type Temperature
 } from '$lib/domain/types';
 import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
+import { fromV2 } from './legacy/v2';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -26,6 +27,14 @@ const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
 const CONFUSION_KINDS: readonly string[] = ['semitone', 'octave', 'string-name', 'other'];
+const OBSERVATION_FATES: readonly string[] = [
+	'answer',
+	'settled',
+	'before-window',
+	'after-capture',
+	'other-sensor',
+	'unreadable'
+];
 const MECHANIC_IDS: readonly string[] = MECHANIC_RULES.map((rules) => rules.id);
 
 function isFields(value: unknown): value is Fields {
@@ -317,8 +326,8 @@ function checkProgression(progression: Fields): string | null {
 	return null;
 }
 
-/** Checks a version 2 file and returns it unchanged. */
-export function validateBackupV2(file: unknown): BackupFile {
+/** Checks a version 2 file, as exported before 2026-10-06, and returns it unchanged. */
+export function validateBackupV2(file: unknown): Fields {
 	const backup = checkHeader(file, 2);
 	const settingsProblem = checkSettings(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
@@ -326,16 +335,16 @@ export function validateBackupV2(file: unknown): BackupFile {
 	checkEntries(backup.cards, 'cards', checkCard);
 	checkEntries(backup.attempts, 'attempts', checkAttempt);
 	checkEntries(backup.sessions, 'sessions', checkSession);
-	return backup as unknown as BackupFile;
+	return backup;
 }
 
-function fromV1(backup: V1Backup, now: number): BackupFile {
+function fromV1(backup: V1Backup, now: number): Fields {
 	const { settings, progressions, cards, attempts, sessions } = convertV1(backup, now);
 	return {
 		app: backup.app,
 		version: 2,
 		exportedAt: backup.exportedAt,
-		settings: settings as BackupFile['settings'],
+		settings,
 		progressions,
 		cards,
 		attempts,
@@ -343,14 +352,67 @@ function fromV1(backup: V1Backup, now: number): BackupFile {
 	};
 }
 
+// Version 3: attempts keep their raw observations, sessions their measured latency.
+
+function checkObservation(observation: unknown, index: number): string | null {
+	const field = `observations[${index}]`;
+	if (!isFields(observation)) return `${field} must be an object`;
+	if (!isFiniteNumber(observation.atMs)) return `${field}.atMs must be a number`;
+	if (!isNonEmptyString(observation.sensor)) return `${field}.sensor must be a non-empty string`;
+	if (!isOneOf(observation.fate, OBSERVATION_FATES)) {
+		return `${field}.fate must be one of ${OBSERVATION_FATES.join(', ')}`;
+	}
+	if (observation.correct !== null && typeof observation.correct !== 'boolean') {
+		return `${field}.correct must be a boolean or null`;
+	}
+	if (!Object.hasOwn(observation, 'payload')) return `${field}.payload is required`;
+	return null;
+}
+
+function checkObservations(value: unknown): string | null {
+	if (value === null) return null;
+	if (!Array.isArray(value)) return 'observations must be null or an array';
+	for (const [index, observation] of value.entries()) {
+		const problem = checkObservation(observation, index);
+		if (problem) return problem;
+	}
+	return null;
+}
+
+function checkAttemptV3(attempt: Fields): string | null {
+	return checkAttempt(attempt) ?? checkObservations(attempt.observations);
+}
+
+function checkSessionV3(session: Fields): string | null {
+	return (
+		checkSession(session) ??
+		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null')
+	);
+}
+
+/** Checks a version 3 file and returns it unchanged. */
+export function validateBackupV3(file: unknown): BackupFile {
+	const backup = checkHeader(file, 3);
+	const settingsProblem = checkSettings(backup.settings as Fields);
+	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
+	checkEntries(backup.progressions, 'progressions', checkProgression);
+	checkEntries(backup.cards, 'cards', checkCard);
+	checkEntries(backup.attempts, 'attempts', checkAttemptV3);
+	checkEntries(backup.sessions, 'sessions', checkSessionV3);
+	return backup as unknown as BackupFile;
+}
+
 /**
- * Accepts version 2, and version 1 converted to version 2 (`now` stamps the progression made
- * from its tempo). Throws a readable error on anything else.
+ * Accepts version 3, and versions 1 and 2 converted to it (`now` stamps the progression made
+ * from a version 1 tempo). Throws a readable error on anything else.
  */
 export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	if (file.version === 1) return validateBackupV2(fromV1(validateBackupV1(file), now));
-	if (file.version === 2) return validateBackupV2(file);
+	if (file.version === 1) {
+		return validateBackupV3(fromV2(fromV1(validateBackupV1(file), now)));
+	}
+	if (file.version === 2) return validateBackupV3(fromV2(validateBackupV2(file)));
+	if (file.version === 3) return validateBackupV3(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
 	makeAttempt,
 	makeBackup,
+	makeBackupV2,
 	makeCard,
 	makeProgression,
 	makeSession
 } from './testing/fixtures';
-import { validateBackup, validateBackupV1, validateBackupV2 } from './validateBackup';
+import {
+	validateBackup,
+	validateBackupV1,
+	validateBackupV2,
+	validateBackupV3
+} from './validateBackup';
 
 const NOW = 9000;
 
@@ -130,8 +136,8 @@ describe('validateBackup', () => {
 	});
 
 	it('rejects unsupported versions', () => {
-		expect(() => validateBackup({ ...makeBackup(), version: 3 })).toThrow(
-			'Unsupported backup version: 3'
+		expect(() => validateBackup({ ...makeBackup(), version: 4 })).toThrow(
+			'Unsupported backup version: 4'
 		);
 		expect(() => validateBackup({ ...makeBackup(), version: undefined })).toThrow(
 			'Unsupported backup version: undefined'
@@ -336,9 +342,9 @@ describe('validateBackup', () => {
 	});
 
 	describe('with a version 1 file', () => {
-		it('converts it, then checks it as version 2', () => {
+		it('converts it, then checks it as version 3', () => {
 			const file = validateBackup(makeV1Backup(), NOW);
-			expect(file.version).toBe(2);
+			expect(file.version).toBe(3);
 			expect(file.app).toBe('neckspert-play');
 			expect(file.exportedAt).toBe(5000);
 			expect(file.settings).toEqual({
@@ -365,7 +371,9 @@ describe('validateBackup', () => {
 				{ exerciseId: 'locate-neck', tempoBpm: 100 },
 				{ exerciseId: 'identify-neck', tempoBpm: null }
 			]);
-			expect(() => validateBackupV2(file)).not.toThrow();
+			expect(() => validateBackupV3(file)).not.toThrow();
+			expect(file.attempts[0].observations).toBeNull();
+			expect(file.sessions[0].latencyMs).toBeNull();
 		});
 
 		it('stamps the conversion with the current time by default', () => {
@@ -398,8 +406,122 @@ describe('validateBackup', () => {
 		it('is checked on its own by validateBackupV1', () => {
 			const v1 = makeV1Backup();
 			expect(validateBackupV1(v1)).toBe(v1);
-			expect(() => validateBackupV1(makeBackup())).toThrow('Unsupported backup version: 2');
+			expect(() => validateBackupV1(makeBackupV2())).toThrow('Unsupported backup version: 2');
 			expect(() => validateBackupV2(v1)).toThrow('Unsupported backup version: 1');
+			expect(() => validateBackupV3(v1)).toThrow('Unsupported backup version: 1');
 		});
+	});
+});
+
+describe('with a version 2 file', () => {
+	it('lands on version 3 with no observations and no latency', () => {
+		const file = validateBackup(makeBackupV2());
+		expect(file.version).toBe(3);
+		expect(file.attempts.map((attempt) => attempt.observations)).toEqual([null]);
+		expect(file.sessions.map((session) => session.latencyMs)).toEqual([null]);
+	});
+
+	it('is checked on its own by validateBackupV2, which does not ask for the new fields', () => {
+		expect(() => validateBackupV2(makeBackupV2())).not.toThrow();
+		expect(() => validateBackupV2(makeBackup())).toThrow('Unsupported backup version: 3');
+		expect(() => validateBackupV3(makeBackupV2())).toThrow('Unsupported backup version: 2');
+	});
+
+	it('keeps the version 2 checks and their messages', () => {
+		const v2 = makeBackupV2();
+		expect(() => validateBackup({ ...v2, sessions: [{ id: '' }] })).toThrow(
+			'Invalid sessions entry at index 0: id must be a non-empty string'
+		);
+	});
+});
+
+describe('validateBackupV3', () => {
+	const observation = { atMs: 1200, sensor: 'note', fate: 'answer', correct: true, payload: {} };
+
+	it('accepts observations of every fate, and a latency', () => {
+		const fates = [
+			'answer',
+			'settled',
+			'before-window',
+			'after-capture',
+			'other-sensor',
+			'unreadable'
+		];
+		const file = makeBackup({
+			attempts: [
+				makeAttempt({ id: 1, observations: null }),
+				makeAttempt({ id: 2, observations: [] }),
+				makeAttempt({
+					id: 3,
+					observations: fates.map((fate) => ({ ...observation, fate, correct: null })) as never
+				})
+			],
+			sessions: [makeSession({ latencyMs: 12 }), makeSession({ id: 's2', latencyMs: null })]
+		});
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
+	it('refuses a file of another version', () => {
+		expect(() => validateBackupV3({ ...makeBackup(), version: 2 })).toThrow(
+			'Unsupported backup version: 2'
+		);
+	});
+
+	function withObservations(observations: unknown): unknown {
+		return { ...makeBackup(), attempts: [{ ...makeAttempt({ id: 1 }), observations }] };
+	}
+
+	it.each([
+		[
+			'observations that are neither null nor an array',
+			'x',
+			'observations must be null or an array'
+		],
+		['an observation that is not an object', [3], 'observations[0] must be an object'],
+		[
+			'an atMs that is not finite',
+			[{ ...observation, atMs: Infinity }],
+			'observations[0].atMs must be a number'
+		],
+		[
+			'an empty sensor',
+			[{ ...observation, sensor: '' }],
+			'observations[0].sensor must be a non-empty string'
+		],
+		['an unknown fate', [{ ...observation, fate: 'maybe' }], 'observations[0].fate must be'],
+		[
+			'a correct that is not a boolean or null',
+			[{ ...observation, correct: 'yes' }],
+			'observations[0].correct must be a boolean or null'
+		],
+		[
+			'a missing payload',
+			[{ atMs: 1, sensor: 'note', fate: 'answer', correct: true }],
+			'observations[0].payload is required'
+		]
+	])('rejects %s', (_name, observations, message) => {
+		expect(() => validateBackupV3(withObservations(observations))).toThrow(
+			`Invalid attempts entry at index 0: ${message}`
+		);
+	});
+
+	it('rejects an attempt without the observations field', () => {
+		const { observations: _dropped, ...attempt } = makeAttempt({ id: 1 });
+		expect(() => validateBackupV3({ ...makeBackup(), attempts: [attempt] })).toThrow(
+			'observations must be null or an array'
+		);
+	});
+
+	it('rejects a latency that is not a number or null', () => {
+		const sessions = [{ ...makeSession(), latencyMs: 'x' }];
+		expect(() => validateBackupV3({ ...makeBackup(), sessions })).toThrow(
+			'Invalid sessions entry at index 0: latencyMs must be a number or null'
+		);
+	});
+
+	it('keeps the version 2 checks', () => {
+		expect(() =>
+			validateBackupV3({ ...makeBackup(), attempts: [{ ...makeAttempt({ id: 1 }), phase: 'x' }] })
+		).toThrow('Invalid attempts entry at index 0: phase must be');
 	});
 });

@@ -11,6 +11,7 @@ import { DexieSettingsRepository } from './DexieSettingsRepository';
 import {
 	makeAttempt,
 	makeBackup,
+	makeBackupV2,
 	makeCard,
 	makeProgression,
 	makeSession
@@ -65,7 +66,7 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(2);
+			expect(file.version).toBe(3);
 			expect(file.exportedAt).toBe(123);
 			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', calibrationOffsetMs: 42 });
 			expect(file.cards.map((card) => card.key).sort()).toEqual(['identify:5:8', 'locate:2:F']);
@@ -77,7 +78,7 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 2,
+				version: 3,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
 				progressions: [],
@@ -87,10 +88,10 @@ describe('DexieBackup', () => {
 			});
 		});
 
-		it('exports version 2 with progressions', async () => {
+		it('exports version 3 with progressions', async () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
-			expect(file.version).toBe(2);
+			expect(file.version).toBe(3);
 			expect(
 				[...file.progressions].sort((a, b) => a.exerciseId.localeCompare(b.exerciseId))
 			).toEqual([
@@ -212,6 +213,47 @@ describe('DexieBackup', () => {
 			(await new DexieSessionRepository(fresh).list()).map((session) => session.executions)
 		).toEqual([makeSession().executions, [{ exerciseId: 'locate-neck', tempoBpm: 96 }]]);
 		expect(await fresh.progressions.count()).toBe(2);
+	});
+
+	it('round-trips observations and latency, null, empty or listed', async () => {
+		const observation = {
+			atMs: 1200,
+			sensor: 'note',
+			fate: 'answer',
+			correct: true,
+			payload: { midi: 45 }
+		} as const;
+		const attempts = new DexieAttemptRepository(db);
+		await attempts.add(makeAttempt({ promptedAt: 1000, observations: null }));
+		await attempts.add(makeAttempt({ promptedAt: 2000, observations: [] }));
+		await attempts.add(
+			makeAttempt({
+				promptedAt: 3000,
+				observations: [
+					observation,
+					{ ...observation, fate: 'settled', correct: null, payload: null }
+				]
+			})
+		);
+		const sessions = new DexieSessionRepository(db);
+		await sessions.put(makeSession({ id: 's1', latencyMs: null }));
+		await sessions.put(makeSession({ id: 's2', startedAt: 2500, latencyMs: 12 }));
+		const first = await new DexieBackup(db, () => 1000).exportAll();
+
+		const fresh = createDatabase(crypto.randomUUID());
+		await new DexieBackup(fresh, () => 0).importAll(JSON.parse(JSON.stringify(first)));
+
+		expect(await new DexieAttemptRepository(fresh).all()).toEqual(first.attempts);
+		expect(first.attempts.map((a) => a.observations?.length ?? null)).toEqual([null, 0, 2]);
+		expect(await new DexieSessionRepository(fresh).list()).toEqual(first.sessions);
+		expect(first.sessions.map((s) => s.latencyMs)).toEqual([null, 12]);
+	});
+
+	it('imports a version 2 file with no observations and no latency', async () => {
+		await new DexieBackup(db).importAll(makeBackupV2());
+
+		expect((await new DexieAttemptRepository(db).all()).map((a) => a.observations)).toEqual([null]);
+		expect((await new DexieSessionRepository(db).list()).map((s) => s.latencyMs)).toEqual([null]);
 	});
 
 	it('imports a version 1 file through the conversion, at the time of the import', async () => {

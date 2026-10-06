@@ -111,13 +111,25 @@ export function makeProgression(overrides: Partial<Progression> = {}): Progressi
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 2,
+		version: 3,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [makeProgression()],
 		cards: [makeCard()],
 		attempts: [makeAttempt({ id: 1 })],
 		sessions: [makeSession()],
+		...overrides
+	};
+}
+
+/** A version 2 export: attempts without observations, sessions without latency. */
+export function makeBackupV2(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { attempts, sessions, ...rest } = makeBackup();
+	return {
+		...rest,
+		version: 2,
+		attempts: attempts.map(({ observations: _observations, ...attempt }) => attempt),
+		sessions: sessions.map(({ latencyMs: _latencyMs, ...session }) => session),
 		...overrides
 	};
 }

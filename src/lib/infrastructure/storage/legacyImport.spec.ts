@@ -8,6 +8,7 @@ import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
 import { DexieProgressionRepository } from './DexieProgressionRepository';
+import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -182,6 +183,10 @@ describe('importing an export of 2026-10-04', () => {
 		const attempts = await new DexieAttemptRepository(db).all();
 		expect(attempts.map((a) => a.leadBeats)).toEqual([1, 4, null]);
 		expect(attempts.map((a) => a.tempoBpm)).toEqual([80, 80, null]);
+		expect(attempts.map((a) => a.observations)).toEqual([null, null, null]);
+		const sessions = await new DexieSessionRepository(db).list();
+		expect(sessions.map((s) => s.latencyMs)).toEqual(sessions.map(() => null));
+		expect(sessions.length).toBeGreaterThan(0);
 		expect(attempts.map((a) => a.exerciseId)).toEqual([
 			'locate-neck',
 			'locate-neck',
