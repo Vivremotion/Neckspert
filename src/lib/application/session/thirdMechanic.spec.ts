@@ -127,6 +127,26 @@ describe('a third mechanic, unknown to the core', () => {
 		});
 	});
 
+	it('keeps the answer among the observations of the attempt, as its sensor read it', async () => {
+		const ctx = setup();
+		await reachPrompt(ctx);
+
+		ctx.push({ value: 3 });
+		await drain();
+
+		const [attempt] = await ctx.deps.attempts.all();
+		const promptToTargetMs = (ctx.metronome.beatTime(8) - ctx.metronome.beatTime(4)) * 1000;
+		expect(attempt.observations).toEqual([
+			{
+				atMs: expect.closeTo(promptToTargetMs, 6),
+				sensor: 'fake',
+				fate: 'answer',
+				correct: true,
+				payload: { value: 3 }
+			}
+		]);
+	});
+
 	it('shows what the mechanic reveals after a miss', async () => {
 		const ctx = setup();
 		await reachPrompt(ctx);

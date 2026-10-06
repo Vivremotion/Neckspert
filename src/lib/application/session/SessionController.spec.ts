@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import type { Attempt, CardState, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
 import { beatTiming } from '$lib/domain/timing';
 import { classifyNoteConfusion } from '$lib/domain/music';
@@ -213,7 +213,9 @@ describe('SessionController skeleton', () => {
 		await controller.start();
 		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
 		controller.quit();
-		for (let i = 0; i < 8; i++) await Promise.resolve();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get('sess-1'))?.endedAt).not.toBeNull()
+		);
 		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
 	});
 
@@ -1434,6 +1436,195 @@ describe('SessionController with a selector', () => {
 		await drain();
 		expect((await deps.attempts.all())[0].temperature).toBe('hot');
 		expect(await deps.cards.get('locate:2:F')).toEqual(card);
+	});
+});
+
+describe('SessionController observations', () => {
+	function note(deps: ReturnType<typeof createDeps>, time: number, midi: number) {
+		deps.detector.emitNote({ time, midi, frequencyHz: 349.23, clarity: 0.95 });
+	}
+
+	function rejection(deps: ReturnType<typeof createDeps>, time: number) {
+		deps.detector.emitRejection({
+			time,
+			reason: 'no-pitch',
+			attack: { frequencyHz: 0, clarity: 0.2 },
+			sustain: { frequencyHz: 0, clarity: 0.1 }
+		});
+	}
+
+	const F_THEN_C = [
+		locateItem({ leadBeats: 4 }),
+		locateItem({ item: { string: 3, pitch: 'C' }, leadBeats: 4 })
+	];
+
+	it('keeps every observation of a prompt with its attempt, completed at the next prompt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith(F_THEN_C), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		const promptTime = deps.metronome.beatTime(4);
+		const targetTime = deps.metronome.beatTime(8);
+		note(deps, promptTime + 0.2, 60);
+		note(deps, targetTime, 65);
+		note(deps, targetTime + 0.05, 67);
+		await drain();
+		const [written] = await deps.attempts.all();
+		expect(written.observations).toEqual([
+			{
+				atMs: expect.closeTo(200, 6),
+				sensor: 'note',
+				fate: 'before-window',
+				correct: false,
+				payload: { midi: 60, frequencyHz: 349.23, clarity: 0.95 }
+			},
+			{
+				atMs: expect.closeTo((targetTime - promptTime) * 1000, 6),
+				sensor: 'note',
+				fate: 'answer',
+				correct: true,
+				payload: { midi: 65, frequencyHz: 349.23, clarity: 0.95 }
+			}
+		]);
+
+		// The breathing bar: the round is over, the next prompt not shown yet.
+		atBeat(deps, 11);
+		expect(controller.view.status).toBe('count-in');
+		note(deps, deps.metronome.beatTime(11), 65);
+		rejection(deps, deps.metronome.beatTime(11) + 0.1);
+		await drain();
+		expect((await deps.attempts.all())[0].observations).toHaveLength(2);
+
+		atBeat(deps, 12);
+		await drain();
+		const [completed] = await deps.attempts.all();
+		expect(completed.observations?.map((o) => [o.fate, o.correct])).toEqual([
+			['before-window', false],
+			['answer', true],
+			['settled', false],
+			['settled', true],
+			['unreadable', null]
+		]);
+		expect(completed.observations?.[4]).toMatchObject({
+			sensor: 'note',
+			payload: { reason: 'no-pitch' }
+		});
+	});
+
+	it('keeps a note of the first count-in out of every attempt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith(F_THEN_C), deps);
+		await controller.start();
+		atBeat(deps, 2);
+		note(deps, deps.metronome.beatTime(2), 65);
+		atBeat(deps, 4);
+		playRight(deps, controller);
+		atBeat(deps, 12);
+		await drain();
+		const [attempt] = await deps.attempts.all();
+		expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer']);
+	});
+
+	it('gives a note of the counted bar before a change of scene to the previous attempt', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4 }), identifyItem()]), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		playRight(deps, controller);
+		atBeat(deps, 11);
+		expect(controller.view).toMatchObject({ status: 'count-in', scene: 'screen' });
+		note(deps, deps.metronome.beatTime(11), 60);
+		atBeat(deps, 13);
+		expect(controller.view.status).toBe('awaiting');
+		await drain();
+		const [attempt] = await deps.attempts.all();
+		expect(attempt.observations?.map((o) => [o.sensor, o.fate, o.correct])).toEqual([
+			['note', 'answer', true],
+			['note', 'settled', false]
+		]);
+	});
+
+	it('keeps a guitar note played on a screen prompt as another sensor’s, still awaiting the tap', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([identifyItem()]), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		expect(controller.view.status).toBe('awaiting');
+		note(deps, deps.clock.now(), 65);
+		expect(controller.view.status).toBe('awaiting');
+		controller.answer('F');
+		expect(controller.view.lastVerdict?.verdict).toBe('perfect');
+		await drain();
+		const [attempt] = await deps.attempts.all();
+		expect(attempt.observations).toEqual([
+			{
+				atMs: expect.any(Number),
+				sensor: 'note',
+				fate: 'other-sensor',
+				correct: null,
+				payload: { midi: 65, frequencyHz: 349.23, clarity: 0.95 }
+			},
+			{ atMs: expect.any(Number), sensor: 'tap', fate: 'answer', correct: true, payload: 'F' }
+		]);
+	});
+
+	it('keeps what came before a pause in the late capture, nothing after the resume', async () => {
+		const deps = createDeps();
+		const controller = make(planWith(F_THEN_C), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		note(deps, deps.metronome.beatTime(4) + 0.2, 65);
+		atBeat(deps, 9);
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+		rejection(deps, deps.clock.now());
+		controller.pause();
+		controller.resume();
+		atBeat(deps, 1);
+		note(deps, deps.metronome.beatTime(1), 65);
+		atBeat(deps, 4);
+		expect(controller.view.prompt?.primary).toBe('C');
+		note(deps, deps.metronome.beatTime(8), 60);
+		await drain();
+		const [paused, next] = await deps.attempts.all();
+		expect(paused.observations?.map((o) => o.fate)).toEqual(['before-window', 'unreadable']);
+		expect(next.observations?.map((o) => o.fate)).toEqual(['answer']);
+	});
+
+	it('writes the completed observations before the end of the session on quit', async () => {
+		const deps = createDeps();
+		const write = deps.attempts.setObservations.bind(deps.attempts);
+		deps.attempts.setObservations = async (id, observations) => {
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			return write(id, observations);
+		};
+		let atEnd: Promise<Attempt[]> | null = null;
+		const put = deps.sessions.put.bind(deps.sessions);
+		deps.sessions.put = (record) => {
+			if (record.endedAt !== null) atEnd = deps.attempts.all();
+			return put(record);
+		};
+		const controller = make(planWith(F_THEN_C), deps);
+		await controller.start();
+		atBeat(deps, 4);
+		playRight(deps, controller);
+		atBeat(deps, 10);
+		note(deps, deps.metronome.beatTime(10), 60);
+		await drain();
+
+		controller.quit();
+		// A note heard after quitting answers nothing and is kept nowhere.
+		deps.detector.running = true;
+		expect(() => note(deps, deps.clock.now(), 65)).not.toThrow();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get('sess-1'))?.endedAt).not.toBeNull()
+		);
+
+		const [whenEnded] = await atEnd!;
+		expect(whenEnded.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
+		await drain();
+		const attempts = await deps.attempts.all();
+		expect(attempts).toHaveLength(1);
+		expect(attempts[0].observations).toHaveLength(2);
 	});
 });
 

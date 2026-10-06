@@ -3,6 +3,7 @@ import { DEFAULT_TEMPO_BPM, nextTempo } from '$lib/domain/exercise';
 import { cardKeyOf } from '$lib/domain/mechanics';
 import type { SessionSelector } from '$lib/domain/progress';
 import type {
+	Attempt,
 	Execution,
 	Locale,
 	MechanicId,
@@ -25,6 +26,7 @@ import {
 import { AttemptRecorder, type JudgedAnswer } from './AttemptRecorder';
 import { openAudioInput } from './audioInput';
 import { sessionTempo } from './executions';
+import { ObservationSpan } from './observationSpan';
 import type { Observation, ObservationSource } from './sensors';
 
 type InternalStatus = PlayView['status'];
@@ -91,6 +93,13 @@ export class SessionController implements PlaySessionController {
 	private current: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
+	/**
+	 * Observations of the last prompt shown, from its round's opening to the next one, a pause or
+	 * the end; it outlives the round through the breathing and counted bars.
+	 */
+	private span: ObservationSpan | null = null;
+	/** The attempt the span's round produced, completed with the span when it closes. */
+	private spanAttempt: Attempt | null = null;
 	private recorder: AttemptRecorder | null = null;
 	private run = 0;
 	private starting = false;
@@ -238,6 +247,7 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
+		this.closeSpan();
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -332,6 +342,18 @@ export class SessionController implements PlaySessionController {
 		if (outcome) this.settle(outcome, null);
 	}
 
+	/** Ends the open span; its attempt, if its round produced one, takes the final list. */
+	private closeSpan(): void {
+		const span = this.span;
+		const attempt = this.spanAttempt;
+		this.span = null;
+		this.spanAttempt = null;
+		if (!span) return;
+		const observations = span.close();
+		// Not awaited: the beat loop stays synchronous; finish() waits for it through the recorder.
+		if (attempt) void this.recorder?.completeObservations(attempt, observations);
+	}
+
 	private onBeat(beat: BeatEvent): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 
@@ -421,46 +443,59 @@ export class SessionController implements PlaySessionController {
 	}
 
 	/**
-	 * Routes an observation to the current round when it comes from the sensor of the current
-	 * prompt's mechanic, judged by that mechanic; any other is logged and ignored.
+	 * Keeps an observation in the open span with its fate, and routes it to the current round when
+	 * it is readable and comes from the sensor of the span's prompt, judged by that prompt's
+	 * mechanic. Without a span (count-in, finished), it is only logged.
 	 */
 	private onObservation(sensor: SensorKind, observation: Observation): void {
-		const item = this.current;
-		if (!this.round || !item) {
+		const span = this.span;
+		if (!span) {
 			this.logSkipped(sensor, observation);
 			return;
 		}
-		const presenter = this.presenterFor(item);
-		if (sensor !== presenter.sensor) {
-			logDetection('observation ignorée', [
-				`raison : la consigne en cours attend le capteur « ${presenter.sensor} »`,
-				describeObservation(sensor, observation)
-			]);
-			return;
-		}
+		const planned = span.planned;
+		const presenter = this.presenterFor(planned);
 		if (!observation.readable) {
+			span.add(sensor, observation, 'unreadable', null);
 			logDetection('observation illisible', [
 				describeObservation(sensor, observation),
 				JSON.stringify(observation.payload)
 			]);
 			return;
 		}
-		const judged = presenter.rules.judge(item.item, observation.payload);
+		if (sensor !== presenter.sensor) {
+			span.add(sensor, observation, 'other-sensor', null);
+			logDetection('observation ignorée', [
+				`raison : la consigne en cours attend le capteur « ${presenter.sensor} »`,
+				describeObservation(sensor, observation)
+			]);
+			return;
+		}
+		const judged = presenter.rules.judge(planned.item, observation.payload);
+		if (!this.round) {
+			// Breathing or counted bar: the round is over, its span still listens.
+			span.add(sensor, observation, 'settled', judged.correct);
+			this.logSkipped(sensor, observation);
+			return;
+		}
 		const event = this.round.observe({
 			time: observation.time,
 			correct: judged.correct,
 			answer: judged.answer
 		});
 		if (event.kind === 'ignored') {
+			span.add(sensor, observation, event.reason, judged.correct);
 			logDetection('observation ignorée', [
 				`raison : ${IGNORED_BECAUSE[event.reason]}`,
 				describeObservation(sensor, observation),
-				...(presenter.debugLines?.(item.item, observation.payload) ?? [])
+				...(presenter.debugLines?.(planned.item, observation.payload) ?? [])
 			]);
 			return;
 		}
 		if (event.kind === 'settled') {
-			this.logDecision(presenter, item, sensor, observation, event.outcome);
+			// Kept before the attempt is written: its snapshot includes the answer.
+			span.add(sensor, observation, 'answer', judged.correct);
+			this.logDecision(presenter, planned, sensor, observation, event.outcome);
 			this.settle(event.outcome, { answer: judged.answer, confusion: judged.confusion });
 			return;
 		}
@@ -556,6 +591,8 @@ export class SessionController implements PlaySessionController {
 			beatTime: (index) => this.deps.metronome.beatTime(index),
 			secondsPerBeat: this.deps.metronome.secondsPerBeat()
 		});
+		this.closeSpan();
+		this.span = new ObservationSpan(this.round.promptTime, item);
 
 		// The lane runs with the guitar only; the screen answers at its own pace, in silence.
 		const onLane = presenter.scene === 'guitar';
@@ -624,14 +661,15 @@ export class SessionController implements PlaySessionController {
 
 	private persistAttempt(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		if (!this.current || !this.round || !this.recorder) return;
-		void this.recorder.record(
+		const { attempt } = this.recorder.record(
 			this.current,
 			outcome,
 			this.round.promptTime,
 			judged,
 			this.executionOf(this.current),
-			[]
+			this.span?.snapshot() ?? []
 		);
+		if (this.span) this.spanAttempt = attempt;
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
 	}
@@ -672,7 +710,9 @@ export class SessionController implements PlaySessionController {
 		const sessionId = this.sessionId;
 		const fatigueDetected = this.view.fatigueDetected;
 		const executions = this.executions;
-		const attempts = [...(this.recorder?.sessionAttempts ?? [])];
+		const recorder = this.recorder;
+		const attempts = [...(recorder?.sessionAttempts ?? [])];
+		this.closeSpan();
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubBeat = null;
@@ -702,6 +742,8 @@ export class SessionController implements PlaySessionController {
 				});
 			}
 		}
+		// The ended session implies its attempts are written with their complete observations.
+		await recorder?.settled();
 		const startedAt = (await this.deps.sessions.get(sessionId))?.startedAt ?? this.deps.now();
 		await this.deps.sessions.put({
 			id: sessionId,
