@@ -103,7 +103,7 @@ export type ObservationFate = 'answer' | IgnoreReason | 'other-sensor' | 'unread
 
 /** One raw observation of a prompt, kept with its attempt. */
 export interface RecordedObservation<P = unknown> {
-	/** Epoch ms of the observation. */
+	/** Ms since the prompt (the round's audio time), latency removed; negative when before. */
 	atMs: number;
 	sensor: string;
 	fate: ObservationFate;
