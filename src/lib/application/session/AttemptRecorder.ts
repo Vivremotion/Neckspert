@@ -153,9 +153,10 @@ export class AttemptRecorder {
 	}
 
 	private track(promise: Promise<unknown>): void {
+		// Reported, not swallowed: nothing else tells anyone an attempt was not written.
 		const entry = promise.then(
 			() => {},
-			() => {}
+			(error) => console.error('[neckspert] attempt write failed', error)
 		);
 		this.pending.add(entry);
 		void entry.then(() => this.pending.delete(entry));

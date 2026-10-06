@@ -219,6 +219,28 @@ describe('SessionController skeleton', () => {
 		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
 	});
 
+	it('keeps its own latency when a new series starts before the session record is final', async () => {
+		await deps.settings.update({ calibrationOffsetMs: 42 });
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		// The final record is read late: the new series is up before it is written.
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		const get = deps.sessions.get.bind(deps.sessions);
+		deps.sessions.get = async (id: string) => {
+			await gate;
+			return get(id);
+		};
+		controller.quit();
+		await deps.settings.update({ calibrationOffsetMs: 99 });
+		await controller.start();
+		release();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get('sess-1'))?.endedAt).not.toBeNull()
+		);
+		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
+	});
+
 	it('stores a zero latency when the input is not calibrated', async () => {
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();

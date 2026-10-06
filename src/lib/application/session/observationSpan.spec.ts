@@ -57,4 +57,10 @@ describe('ObservationSpan', () => {
 		expect(span.close()).toHaveLength(1);
 		expect(() => span.add('note', heard(2), 'answer', true)).toThrow(Error);
 	});
+
+	it('stores null for an undefined payload so it survives a JSON round trip', () => {
+		const span = new ObservationSpan(0, planned);
+		span.add('tap', { time: 1, payload: undefined, readable: true }, 'answer', true);
+		expect(Object.hasOwn(JSON.parse(JSON.stringify(span.snapshot()[0])), 'payload')).toBe(true);
+	});
 });

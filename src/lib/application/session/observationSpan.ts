@@ -23,7 +23,8 @@ export class ObservationSpan {
 			sensor,
 			fate,
 			correct,
-			payload: observation.payload
+			// null, not undefined: JSON drops an undefined key and backup validation requires it.
+			payload: observation.payload ?? null
 		});
 	}
 

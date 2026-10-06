@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, Execution, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import type { SessionSelector } from '$lib/domain/progress';
 import type { RoundOutcome } from '$lib/domain/timing';
@@ -337,6 +337,28 @@ describe('AttemptRecorder', () => {
 			await stored;
 			await recorder.completeObservations({ ...attempt }, full);
 			expect((await attempts.all())[0].observations).toEqual(snapshot);
+		});
+
+		it('reports a failed write and still settles', async () => {
+			const { recorder, attempts } = setup();
+			const failure = new Error('quota');
+			attempts.add = async () => {
+				throw failure;
+			};
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const { attempt, stored } = recorder.record(
+				item(),
+				outcome(),
+				1,
+				judged,
+				LOCATE_RUN,
+				snapshot
+			);
+			await expect(stored).rejects.toBe(failure);
+			await recorder.completeObservations(attempt, full).catch(() => {});
+			await recorder.settled();
+			expect(log).toHaveBeenCalledWith(expect.stringContaining('[neckspert]'), failure);
+			log.mockRestore();
 		});
 	});
 });

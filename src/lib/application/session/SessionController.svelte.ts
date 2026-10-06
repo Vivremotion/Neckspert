@@ -499,7 +499,9 @@ export class SessionController implements PlaySessionController {
 			this.settle(event.outcome, { answer: judged.answer, confusion: judged.confusion });
 			return;
 		}
-		this.apply(event);
+		// `observe` of today's time relations only ignores or settles; anything else would drop
+		// the observation from the span, so it must fail loudly rather than lose it.
+		throw new Error(`Round.observe returned '${event.kind}': its observation cannot be kept`);
 	}
 
 	private promptViewOf(item: PlannedItem): PromptView {
@@ -711,6 +713,8 @@ export class SessionController implements PlaySessionController {
 		const fatigueDetected = this.view.fatigueDetected;
 		const executions = this.executions;
 		const recorder = this.recorder;
+		// Captured now: a series started during the awaits below re-reads the settings.
+		const latencyMs = this.latencyMs;
 		const attempts = [...(recorder?.sessionAttempts ?? [])];
 		this.closeSpan();
 		this.setStatus('finished');
@@ -752,7 +756,7 @@ export class SessionController implements PlaySessionController {
 			endedAt: this.deps.now(),
 			fatigueDetected,
 			executions,
-			latencyMs: this.latencyMs
+			latencyMs
 		});
 	}
 }
