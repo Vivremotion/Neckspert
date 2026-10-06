@@ -269,10 +269,15 @@ describe('AttemptRecorder', () => {
 			const { recorder, attempts } = setup();
 			let release!: () => void;
 			const gate = new Promise<void>((resolve) => (release = resolve));
+			let copied!: () => void;
+			const added = new Promise<void>((resolve) => (copied = resolve));
 			const add = attempts.add.bind(attempts);
+			// The row is copied first, then the write stays pending until released.
 			attempts.add = async (a: Attempt) => {
+				const id = await add(a);
+				copied();
 				await gate;
-				return add(a);
+				return id;
 			};
 			const { attempt, stored } = recorder.record(
 				item(),
@@ -282,8 +287,10 @@ describe('AttemptRecorder', () => {
 				LOCATE_RUN,
 				snapshot
 			);
+			await added;
 			const completed = recorder.completeObservations(attempt, full);
 			expect(attempt.observations).toEqual(full);
+			expect((await attempts.all())[0].observations).toEqual(snapshot);
 			release();
 			await Promise.all([stored, completed]);
 			expect((await attempts.all())[0].observations).toEqual(full);
@@ -291,9 +298,29 @@ describe('AttemptRecorder', () => {
 
 		it('settled waits for completions', async () => {
 			const { recorder, attempts } = setup();
-			const { attempt } = recorder.record(item(), outcome(), 1, judged, LOCATE_RUN, snapshot);
+			const { attempt, stored } = recorder.record(
+				item(),
+				outcome(),
+				1,
+				judged,
+				LOCATE_RUN,
+				snapshot
+			);
+			await stored;
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const set = attempts.setObservations.bind(attempts);
+			attempts.setObservations = async (id, observations) => {
+				await gate;
+				return set(id, observations);
+			};
 			void recorder.completeObservations(attempt, full);
-			await recorder.settled();
+			let settled = false;
+			const waiting = recorder.settled().then(() => (settled = true));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(settled).toBe(false);
+			release();
+			await waiting;
 			expect((await attempts.all())[0].observations).toEqual(full);
 		});
 
