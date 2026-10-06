@@ -18,7 +18,7 @@ import {
 	type LocateItem
 } from '$lib/domain/music';
 import { MAX_PROMPT_FRET, type Midi } from '$lib/domain/music/types';
-import type { NoteOnset } from '$lib/application/ports';
+import type { NotePayload } from '$lib/application/session/sensors';
 import type { MechanicPresenter } from './types';
 
 /** Highest fret shown in a correction: fret 12 stands for the open string, which is never prompted. */
@@ -50,12 +50,12 @@ export const locatePresenter: MechanicPresenter<LocateItem, { midi: Midi }> = {
 		return `${stringLabel(item.string, locale)}, ${fretLabel(fret ?? CORRECTION_MAX_FRET, locale)}`;
 	},
 	debugLines: (item, payload) => {
-		const onset = payload as NoteOnset;
+		const onset = payload as NotePayload;
 		const acceptable = acceptableMidis(item);
 		const lines = [
 			`cible : ${item.pitch} · ${stringLabel(item.string, 'fr')}`,
 			`fréquences acceptées : ${describeAcceptable(acceptable)}`,
-			`reçu : ${describeFrequency(onset.frequencyHz)}, MIDI retenu ${onset.midi} (${noteWithOctave(onset.midi)}), clarté ${onset.clarity.toFixed(2)}, t brut = ${onset.time.toFixed(3)} s`
+			`reçu : ${describeFrequency(onset.frequencyHz)}, MIDI retenu ${onset.midi} (${noteWithOctave(onset.midi)}), clarté ${onset.clarity.toFixed(2)}`
 		];
 		const nearest = nearestAcceptable(onset.frequencyHz, acceptable);
 		if (nearest) {

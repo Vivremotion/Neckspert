@@ -438,6 +438,13 @@ export class SessionController implements PlaySessionController {
 			]);
 			return;
 		}
+		if (!observation.readable) {
+			logDetection('observation illisible', [
+				describeObservation(sensor, observation),
+				JSON.stringify(observation.payload)
+			]);
+			return;
+		}
 		const judged = presenter.rules.judge(item.item, observation.payload);
 		const event = this.round.observe({
 			time: observation.time,

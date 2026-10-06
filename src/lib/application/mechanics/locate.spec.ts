@@ -71,8 +71,9 @@ describe('locatePresenter', () => {
 	it('logs the accepted frequencies and the cents to each', () => {
 		const lines = locatePresenter.debugLines!(
 			{ string: 2, pitch: 'F' },
-			{ time: 1, midi: 65, frequencyHz: 349.23, clarity: 0.95 }
+			{ midi: 65, frequencyHz: 349.23, clarity: 0.95 }
 		);
+		expect(lines.some((line) => line.includes('t brut'))).toBe(false);
 		expect(lines.some((line) => line.startsWith('fréquences acceptées : F4 MIDI 65'))).toBe(true);
 		expect(lines.some((line) => line.startsWith('écart au plus proche accepté (F4)'))).toBe(true);
 	});

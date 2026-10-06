@@ -91,7 +91,8 @@ function setup() {
 		async () => ({ selector: createListSelector([ITEM]), executions: EXECUTIONS }),
 		deps
 	);
-	const push = (payload: unknown) => listener?.({ time: metronome.beatTime(8), payload });
+	const push = (payload: unknown) =>
+		listener?.({ time: metronome.beatTime(8), payload, readable: true });
 	return { deps, controller, metronome, clock, push };
 }
 

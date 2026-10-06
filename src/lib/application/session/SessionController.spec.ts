@@ -320,6 +320,23 @@ describe('SessionController locate judgement', () => {
 		expect(deps.cues.played).toHaveLength(1);
 	});
 
+	it('does not settle the round on an unreadable observation', async () => {
+		const deps = createDeps();
+		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
+		await controller.start();
+		tick(deps, 0.1 + 0.75 * 4);
+		expect(controller.view.status).toBe('awaiting');
+		deps.detector.emitRejection({
+			time: deps.metronome.beatTime(8),
+			reason: 'no-pitch',
+			attack: { frequencyHz: 0, clarity: 0.2 },
+			sustain: { frequencyHz: 0, clarity: 0.1 }
+		});
+		expect(controller.view.status).toBe('awaiting');
+		expect(deps.cues.played).toEqual([]);
+		expect(await deps.attempts.listBySession(controller.sessionId)).toEqual([]);
+	});
+
 	it('judges a right note just past the window as off beat', async () => {
 		const deps = createDeps();
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
