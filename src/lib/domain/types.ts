@@ -1,4 +1,5 @@
 import type { PitchName, StringNumber } from './music/types';
+import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
 
 export type { Execution, ExerciseId, MechanicId, Progression };
@@ -93,6 +94,23 @@ export interface Attempt<D = unknown> {
 	verdict: Verdict;
 	/** Mechanic-specific: item, answer and confusion. */
 	data: D;
+	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
+	observations: RecordedObservation[] | null;
+}
+
+/** What became of an observation heard during a prompt: the answer, or why it was not. */
+export type ObservationFate = 'answer' | IgnoreReason | 'other-sensor' | 'unreadable';
+
+/** One raw observation of a prompt, kept with its attempt. */
+export interface RecordedObservation<P = unknown> {
+	/** Epoch ms of the observation. */
+	atMs: number;
+	sensor: string;
+	fate: ObservationFate;
+	/** Whether the observation matched the expected answer; null when it cannot say. */
+	correct: boolean | null;
+	/** Sensor-specific content (note, level...). */
+	payload: P;
 }
 
 /** Serializable mirror of a ts-fsrs Card; dates are epoch ms. */
@@ -149,6 +167,8 @@ export interface SessionRecord {
 	fatigueDetected: boolean;
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
+	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */
+	latencyMs: number | null;
 }
 
 /** Linear gain applied only to a built-in computer mic, before level and pitch. */

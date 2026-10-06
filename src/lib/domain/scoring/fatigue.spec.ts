@@ -26,7 +26,8 @@ function answered(correct: boolean, reactionMs = 1000): Attempt {
 		reactionMs,
 		correct,
 		verdict: correct ? 'perfect' : 'wrong',
-		data: { item: F_ON_B, answer: { midi: correct ? 65 : 66 }, confusion: null }
+		data: { item: F_ON_B, answer: { midi: correct ? 65 : 66 }, confusion: null },
+		observations: []
 	};
 }
 

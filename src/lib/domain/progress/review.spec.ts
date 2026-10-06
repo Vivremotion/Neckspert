@@ -38,7 +38,8 @@ function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']):
 		reactionMs: null,
 		correct: false,
 		verdict: 'wrong',
-		data: { item: card.item, answer: null, confusion: null }
+		data: { item: card.item, answer: null, confusion: null },
+		observations: []
 	};
 }
 

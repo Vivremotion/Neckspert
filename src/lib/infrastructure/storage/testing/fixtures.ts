@@ -47,6 +47,7 @@ export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
 		correct: true,
 		verdict: 'perfect',
 		data,
+		observations: [],
 		...overrides
 	};
 }
@@ -92,6 +93,7 @@ export function makeSession(overrides: Partial<SessionRecord> = {}): SessionReco
 			{ exerciseId: 'locate-neck', tempoBpm: 80 },
 			{ exerciseId: 'identify-neck', tempoBpm: null }
 		],
+		latencyMs: 0,
 		...overrides
 	};
 }

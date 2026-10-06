@@ -19,6 +19,7 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
 		correct: true,
 		verdict: 'perfect',
 		data: { item: { string: 6, pitch: 'G' }, answer: null, confusion: null },
+		observations: [],
 		...overrides
 	};
 }

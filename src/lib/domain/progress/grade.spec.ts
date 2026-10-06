@@ -26,7 +26,8 @@ function attempts(
 		reactionMs: 1000,
 		correct: true,
 		verdict: 'perfect',
-		data: played(65)
+		data: played(65),
+		observations: []
 	};
 
 	const out: Attempt[] = [];

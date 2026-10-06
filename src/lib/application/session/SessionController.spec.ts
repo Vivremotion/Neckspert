@@ -207,6 +207,22 @@ describe('SessionController skeleton', () => {
 		expect(deps.detector.running).toBe(false);
 	});
 
+	it('stores the calibrated latency with the session', async () => {
+		await deps.settings.update({ calibrationOffsetMs: 42 });
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
+		controller.quit();
+		for (let i = 0; i < 8; i++) await Promise.resolve();
+		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
+	});
+
+	it('stores a zero latency when the input is not calibrated', async () => {
+		const controller = make(planWith([locateItem()]), deps);
+		await controller.start();
+		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(0);
+	});
+
 	it('stores the executions at start and keeps them after the progression changes', async () => {
 		const at100: Execution[] = [
 			{ exerciseId: 'locate-neck', tempoBpm: 100 },

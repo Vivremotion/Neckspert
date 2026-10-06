@@ -27,6 +27,7 @@ function attempt(overrides: Partial<Attempt>): Attempt {
 		timingOffsetMs: 10,
 		reactionMs: 900,
 		data: { item: { string: 2, pitch: 'F' }, answer: { midi: 65 }, confusion: null },
+		observations: [],
 		...overrides
 	};
 }

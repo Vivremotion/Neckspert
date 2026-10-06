@@ -108,6 +108,7 @@ function answer(item: Prompt, overrides: Partial<Attempt> = {}): Attempt {
 		correct: true,
 		verdict: 'perfect',
 		data: { item: item.item, answer: null, confusion: null },
+		observations: [],
 		...overrides
 	};
 }

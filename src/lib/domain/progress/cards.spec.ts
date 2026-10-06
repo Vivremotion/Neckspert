@@ -37,6 +37,7 @@ function attempt(overrides: Partial<Attempt>): Attempt {
 		correct: true,
 		verdict: 'perfect',
 		data: { item: LOCATE.item, answer: { midi: 43 }, confusion: null },
+		observations: [],
 		...overrides
 	};
 }

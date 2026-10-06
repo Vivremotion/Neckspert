@@ -104,7 +104,8 @@ export class AttemptRecorder {
 				item: planned.item,
 				answer: judged?.answer ?? null,
 				confusion: judged?.confusion ?? null
-			}
+			},
+			observations: []
 		};
 
 		// Fatigue and the selector must see the attempt before any await, so the next onBeat

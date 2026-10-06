@@ -56,6 +56,7 @@ function coldAttempt(overrides: Partial<Attempt>): Attempt {
 		correct: true,
 		verdict: 'perfect',
 		data: { item: L1.item, answer: { midi: 64 }, confusion: null },
+		observations: [],
 		...overrides
 	};
 }
@@ -161,7 +162,8 @@ describe('computeHomeStats', () => {
 				startedAt: NOW - 60_000,
 				endedAt: NOW,
 				fatigueDetected: false,
-				executions: RECORD_EXECUTIONS
+				executions: RECORD_EXECUTIONS,
+				latencyMs: 0
 			},
 			attempts: [coldAttempt({}), coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })],
 			allAttempts: [],
@@ -269,7 +271,8 @@ describe('summarizeSession', () => {
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: true,
-		executions: RECORD_EXECUTIONS
+		executions: RECORD_EXECUTIONS,
+		latencyMs: 0
 	});
 
 	it('summarizes cold accuracy, notes learned, notes pending and the next review', () => {

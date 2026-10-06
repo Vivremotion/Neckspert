@@ -218,7 +218,8 @@ export class SessionController implements PlaySessionController {
 			startedAt: this.startedAt,
 			endedAt: null,
 			fatigueDetected: false,
-			executions: this.executions
+			executions: this.executions,
+			latencyMs: this.latencyMs
 		});
 		if (this.run !== run) return;
 
@@ -700,7 +701,8 @@ export class SessionController implements PlaySessionController {
 			startedAt,
 			endedAt: this.deps.now(),
 			fatigueDetected,
-			executions
+			executions,
+			latencyMs: this.latencyMs
 		});
 	}
 }
