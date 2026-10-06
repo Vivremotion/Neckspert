@@ -5,3 +5,8 @@ export * from './confusion';
 export * from './curriculum';
 export * from './mirror';
 export * from './items';
+export * from './spelling';
+export * from './chord';
+export * from './voicing';
+export * from './triads';
+export * from './candidates';

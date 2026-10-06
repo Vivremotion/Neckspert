@@ -19,7 +19,20 @@ const PUBLIC_FUNCTIONS = [
 	'mirrorItems',
 	'neckCardKey',
 	'asNeckCard',
-	'pitchOfMidi'
+	'pitchOfMidi',
+	'parseSpelledNote',
+	'formatSpelledNote',
+	'pitchOfSpelled',
+	'spelledFromPitch',
+	'chordTones',
+	'chordLabel',
+	'createVoicing',
+	'voicingKey',
+	'parseVoicingKey',
+	'voicingOccurrences',
+	'occurrencePositions',
+	'closeTriadVoicings',
+	'voicingCandidates'
 ] as const;
 
 describe('music index', () => {
@@ -41,5 +54,7 @@ describe('music index', () => {
 		expect(music.fretLabel(music.fretsForPitch(2, 'F', music.MAX_PROMPT_FRET)[0], 'fr')).toBe(
 			'case 6'
 		);
+		const d = { root: music.parseSpelledNote('D'), quality: music.qualityById('maj') };
+		expect(music.voicingKey(music.closeTriadVoicings(d, [3, 2, 1])[2])).toBe('D|maj|3:5,2:1,1:3');
 	});
 });
