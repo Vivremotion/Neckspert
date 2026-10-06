@@ -18,13 +18,13 @@ Décisions de la conversation de recherche du 2026-10-06, tirées du bilan du co
 
 Découpage :
 
-| | Sous-projet | Dépend du POC |
-|---|---|---|
-| **A** | Accords et voicings (cette spec) | non |
-| B | Contrat du capteur d’accords et capteur factice | en partie |
-| C | Voie de la mémoire : mécaniques, file d’introduction, lien avec la file des notes | pour le branchement réel |
-| D | Voie du geste : rapport au temps « grille », performance, contraintes, exercices | idem |
-| E | Session à deux voies : blocs, métronome relancé au changement de tempo, ouverture des étapes | non |
+|       | Sous-projet                                                                                  | Dépend du POC            |
+| ----- | -------------------------------------------------------------------------------------------- | ------------------------ |
+| **A** | Accords et voicings (cette spec)                                                             | non                      |
+| B     | Contrat du capteur d’accords et capteur factice                                              | en partie                |
+| C     | Voie de la mémoire : mécaniques, file d’introduction, lien avec la file des notes            | pour le branchement réel |
+| D     | Voie du geste : rapport au temps « grille », performance, contraintes, exercices             | idem                     |
+| E     | Session à deux voies : blocs, métronome relancé au changement de tempo, ouverture des étapes | non                      |
 
 ## Objectifs
 
@@ -56,10 +56,10 @@ interface SpelledNote {
 
 Un degré est un identifiant de la table des degrés, avec ses demi-tons et ses pas de lettre :
 
-| Degré | `1` | `b3` | `3` | `b5` | `5` | `#5` | `6` | `b7` | `7` |
-|---|---|---|---|---|---|---|---|---|---|
-| demi-tons | 0 | 3 | 4 | 6 | 7 | 8 | 9 | 10 | 11 |
-| pas de lettre | 0 | 2 | 2 | 4 | 4 | 4 | 5 | 6 | 6 |
+| Degré         | `1` | `b3` | `3` | `b5` | `5` | `#5` | `6` | `b7` | `7` |
+| ------------- | --- | ---- | --- | ---- | --- | ---- | --- | ---- | --- |
+| demi-tons     | 0   | 3    | 4   | 6    | 7   | 8    | 9   | 10   | 11  |
+| pas de lettre | 0   | 2    | 2   | 4    | 4   | 4    | 5   | 6    | 6   |
 
 Une qualité est une liste nommée de degrés, avec son suffixe d’affichage. La table contient les quatre qualités de triade ; les septièmes arriveront avec le sous-projet D, une ligne chacune.
 
@@ -78,12 +78,12 @@ interface Chord {
 }
 ```
 
-| Qualité | Degrés | Suffixe |
-|---|---|---|
-| `maj` | 1, 3, 5 | |
-| `min` | 1, b3, 5 | m |
-| `dim` | 1, b3, b5 | dim |
-| `aug` | 1, 3, #5 | aug |
+| Qualité | Degrés    | Suffixe |
+| ------- | --------- | ------- |
+| `maj`   | 1, 3, 5   |         |
+| `min`   | 1, b3, 5  | m       |
+| `dim`   | 1, b3, b5 | dim     |
+| `aug`   | 1, 3, #5  | aug     |
 
 - `chordTones(chord)` : pour chaque degré, la note écrite et la hauteur.
 - `chordLabel(chord)` : `Ebm`, `C#`, `Bdim`.
@@ -125,10 +125,10 @@ interface VoicingOccurrence {
 - `voicingOccurrences(voicing)` : chaque combinaison de cases où chaque corde porte son degré, de la case 0 à `MAX_VOICING_FRET`, dont l’écart entre la case jouée la plus basse et la plus haute ne dépasse pas `MAX_SPAN_FRETS`, et dont les hauteurs montent strictement d’une corde à la suivante (pas de croisement : A n’a pas d’occurrence 14‑14‑0, où le mi à vide sonnerait sous le C#). Les cordes à vide ne comptent pas dans l’écart. Tri du plus grave au plus aigu : hauteur de la corde la plus grave, puis des suivantes.
 - `occurrencePositions(occurrence): FretPosition[]` : les positions de la carte du manche. C’est le point d’accroche du lien avec la file des notes (sous-projet C).
 
-| Constante | Valeur | Raison |
-|---|---|---|
-| `MAX_VOICING_FRET` | 17 | la montée de la grille du devoir sur sol‑si‑mi y arrive (Ab, 17‑16‑16) |
-| `MAX_SPAN_FRETS` | 4 | une main ; les triades serrées sur cordes voisines restent en deçà, la marge sert aux futurs drop |
+| Constante          | Valeur | Raison                                                                                            |
+| ------------------ | ------ | ------------------------------------------------------------------------------------------------- |
+| `MAX_VOICING_FRET` | 17     | la montée de la grille du devoir sur sol‑si‑mi y arrive (Ab, 17‑16‑16)                            |
+| `MAX_SPAN_FRETS`   | 4      | une main ; les triades serrées sur cordes voisines restent en deçà, la marge sert aux futurs drop |
 
 Toutes deux à calibrer.
 
@@ -154,7 +154,7 @@ interface VoicingCandidate {
 - `expected` : l’occurrence elle-même ;
 - `other-octave` : les autres occurrences du même voicing ;
 - `other-inversion` : pour chaque autre voicing de `inversions` (les voicings du même accord sur le même groupe, fournis par l’appelant, par exemple `closeTriadVoicings`), son occurrence la plus proche, celle qui minimise la somme des écarts de case corde à corde ; à égalité, la plus grave ;
-- `other-quality` : les accords de même fondamentale dont la qualité, dans la table, diffère d’un seul degré décalé d’un demi-ton (maj ↔ min, maj ↔ aug, min ↔ dim), joués avec les mêmes cordes et les mêmes degrés correspondants, à leur occurrence la plus proche. C’est « une case à côté sur une corde qui donne un autre accord connu ».
+- `other-quality` : les accords de même fondamentale dont la qualité, dans la table, diffère d’un seul degré décalé d’un demi-ton (maj ↔ min, maj ↔ aug, min ↔ dim), joués avec les mêmes cordes et les mêmes degrés correspondants, à leur occurrence la plus proche. C’est « une case à côté sur une corde qui donne un autre accord connu ». La règle couvrira d’elle-même les accords suspendus quand la table les aura : la tierce majeure montée d’un demi-ton donne sus4 (D → Dsus4), la tierce mineure descendue d’un demi-ton donne sus2 (Dm → Dsus2). Ils n’y entrent pas maintenant : aucun exercice ne les demande, et cette erreur reste visible comme une triade incomplète.
 
 Exemple, attendu D, fondamentale sur si, 2‑3‑2 : `expected` A3 D4 F#4 ; `other-octave` 14‑15‑14 ; `other-inversion` 7‑7‑5 et 11‑10‑10 ; `other-quality` Dm 2‑3‑1 et Daug 3‑3‑2.
 
