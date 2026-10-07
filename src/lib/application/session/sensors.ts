@@ -1,5 +1,7 @@
 import type {
 	AudioClockPort,
+	ChordReport,
+	ChordVerifierPort,
 	NoteDetectorPort,
 	NoteOnset,
 	NoteRejection
@@ -18,6 +20,11 @@ export interface ObservationSource {
 	onObservation(callback: (observation: Observation) => void): () => void;
 	/** Sources fed by the screen take their values here. */
 	push?(payload: unknown): void;
+	/**
+	 * What the round that opens listens for, as its mechanic prepared it; null when nothing.
+	 * Opaque to the core: only the sensor reads it.
+	 */
+	expect?(expectation: unknown): void;
 }
 
 /** Opens a source for one series, once the calibrated latency is known. */
@@ -76,4 +83,26 @@ export function tapSensor(): SensorFactory {
 			}
 		};
 	};
+}
+
+/** Payload of a chord report: what was heard and judged, not when. */
+export type ChordObservationPayload = Omit<ChordReport, 'time'>;
+
+/**
+ * Played chords: each report of the verifier, dated at its attack minus the calibrated latency.
+ * The expectation of each round goes to the verifier as the mechanic prepared it.
+ */
+export function chordSensor(verifier: ChordVerifierPort): SensorFactory {
+	return ({ latencyMs }) => ({
+		onObservation: (callback) =>
+			verifier.onReport(({ time, ...payload }) =>
+				callback({
+					time: time - latencyMs / 1000,
+					payload: payload satisfies ChordObservationPayload,
+					readable: true
+				})
+			),
+		expect: (expectation) =>
+			verifier.expect(expectation as Parameters<ChordVerifierPort['expect']>[0])
+	});
 }

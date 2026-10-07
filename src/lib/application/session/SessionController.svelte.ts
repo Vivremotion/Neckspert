@@ -248,6 +248,7 @@ export class SessionController implements PlaySessionController {
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
 		this.closeSpan();
+		this.expectAll(null, null);
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -323,6 +324,13 @@ export class SessionController implements PlaySessionController {
 			this.closeSources.push(
 				source.onObservation((observation) => this.onObservation(kind, observation))
 			);
+		}
+	}
+
+	/** The source of `sensor` listens for `expectation`; every other source, for nothing. */
+	private expectAll(sensor: SensorKind | null, expectation: unknown): void {
+		for (const [kind, source] of this.sources) {
+			source.expect?.(kind === sensor ? expectation : null);
 		}
 	}
 
@@ -595,6 +603,12 @@ export class SessionController implements PlaySessionController {
 		});
 		this.closeSpan();
 		this.span = new ObservationSpan(this.round.promptTime, item);
+		this.expectAll(
+			presenter.sensor,
+			presenter.expectation
+				? presenter.expectation(item.item, { opensAt: this.round.promptTime })
+				: null
+		);
 
 		// The lane runs with the guitar only; the screen answers at its own pace, in silence.
 		const onLane = presenter.scene === 'guitar';
@@ -720,6 +734,7 @@ export class SessionController implements PlaySessionController {
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubBeat = null;
+		this.expectAll(null, null);
 		this.closeAllSources();
 
 		// Yield before stop when still running so onBeat→finish mid-flush does not

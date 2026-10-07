@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FakeClock, FakeNoteDetector } from '$lib/testing/fakes';
-import { noteSensor, tapSensor, type Observation } from './sensors';
+import { FakeChordVerifier, FakeClock, FakeNoteDetector } from '$lib/testing/fakes';
+import { chordSensor, noteSensor, tapSensor, type Observation } from './sensors';
 
 describe('noteSensor', () => {
 	it('dates each attack on the audio clock, latency removed', async () => {
@@ -74,5 +74,46 @@ describe('tapSensor', () => {
 		source.onObservation((observation) => seen.push(observation))();
 		source.push!('G');
 		expect(seen).toEqual([]);
+	});
+});
+
+describe('chordSensor', () => {
+	const expectation = {
+		opensAt: 1,
+		expected: 'a',
+		candidates: [],
+		style: 'strummed' as const
+	};
+
+	it('hands the expectation to the verifier', () => {
+		const verifier = new FakeChordVerifier();
+		const source = chordSensor(verifier)({ latencyMs: 25, clock: new FakeClock() });
+		source.expect?.(expectation);
+		source.expect?.(null);
+		expect(verifier.expectations).toEqual([expectation, null]);
+	});
+
+	it('dates each report at its attack, latency removed, the rest as payload', () => {
+		const verifier = new FakeChordVerifier();
+		const source = chordSensor(verifier)({ latencyMs: 25, clock: new FakeClock() });
+		const seen: Observation[] = [];
+		const stop = source.onObservation((observation) => seen.push(observation));
+		const report = {
+			time: 2,
+			windowMs: 250,
+			decided: 'a',
+			variants: [{ id: 'default', decided: 'a', scores: { a: 0.8 } }]
+		};
+		verifier.emit(report);
+		stop();
+		verifier.emit(report);
+		expect(seen).toHaveLength(1);
+		expect(seen[0].time).toBeCloseTo(1.975, 9);
+		expect(seen[0].readable).toBe(true);
+		expect(seen[0].payload).toEqual({
+			windowMs: 250,
+			decided: 'a',
+			variants: [{ id: 'default', decided: 'a', scores: { a: 0.8 } }]
+		});
 	});
 });

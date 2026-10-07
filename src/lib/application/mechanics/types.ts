@@ -27,4 +27,9 @@ export interface MechanicPresenter<I = any, A = any> {
 	answerChoices?(): AnswerChoice[];
 	/** Detection log lines of this mechanic for one observation payload. */
 	debugLines?(item: I, payload: unknown): string[];
+	/**
+	 * What its sensor should listen for in a round that opens at `opensAt` (audio s). Opaque to
+	 * the core. Without it, the sensor is told null.
+	 */
+	expectation?(item: I, round: { opensAt: number }): unknown;
 }
