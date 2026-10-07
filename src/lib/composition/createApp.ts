@@ -1,11 +1,13 @@
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { NECK_PRESENTERS } from '$lib/application/mechanics';
-import { noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from '$lib/infrastructure/audio/cues';
 import { CalibrationService } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
+import { WebAudioInput } from '$lib/infrastructure/audio/input';
+import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 import {
 	createDatabase,
 	DexieAttemptRepository,
@@ -25,7 +27,8 @@ export interface CreateAppOptions {
 
 /**
  * Composition root. One WebAudioClock owns the single AudioContext (lazy on resume).
- * Metronome, cues and detector share () => clock.context(). One Dexie database feeds
+ * Metronome, cues and detector share () => clock.context(). One audio input feeds both the note
+ * detector and the chord verifier; the detector opens and closes it. One Dexie database feeds
  * every repository and DexieBackup. Calibration reads inputDeviceId from settings.
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
@@ -33,7 +36,9 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const context = () => clock.context();
 	const metronome = new WebAudioMetronome(context);
 	const cues = new WebAudioCues(context);
-	const detector = new WebAudioNoteDetector(context, { resume: () => clock.resume() });
+	const input = new WebAudioInput(context, { resume: () => clock.resume() });
+	const detector = new WebAudioNoteDetector(context, { input });
+	const chords = new NnlsChordVerifier(input);
 
 	const db = createDatabase(options.databaseName);
 	const attempts = new DexieAttemptRepository(db);
@@ -66,6 +71,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		newId: () => crypto.randomUUID(),
 		mechanics: NECK_PRESENTERS,
-		sensors: { note: noteSensor(detector), tap: tapSensor() }
+		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
 	});
 }

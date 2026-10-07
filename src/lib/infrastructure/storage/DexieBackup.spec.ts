@@ -249,6 +249,33 @@ describe('DexieBackup', () => {
 		expect(first.sessions.map((s) => s.latencyMs)).toEqual([null, 12]);
 	});
 
+	it('round-trips a chord observation with its spectrum', async () => {
+		const payload = {
+			windowMs: 2000,
+			decided: '2,3,2',
+			variants: [{ id: 'default', decided: '2,3,2', scores: { '2,3,2': 0.61, '7,7,5': 0.2 } }],
+			spectrum: {
+				fromHz: 70.3125,
+				binHz: 5.859375,
+				magnitudes: Array.from({ length: 100 }, (_, i) => i / 7)
+			}
+		};
+		const attempts = new DexieAttemptRepository(db);
+		await attempts.add(
+			makeAttempt({
+				promptedAt: 1000,
+				observations: [{ atMs: 40, sensor: 'chord', fate: 'answer', correct: true, payload }]
+			})
+		);
+		const exported = await new DexieBackup(db, () => 1000).exportAll();
+
+		const fresh = createDatabase(crypto.randomUUID());
+		await new DexieBackup(fresh, () => 0).importAll(JSON.parse(JSON.stringify(exported)));
+
+		const [restored] = await new DexieAttemptRepository(fresh).all();
+		expect(restored.observations?.[0].payload).toEqual(payload);
+	});
+
 	it('imports a version 2 file with no observations and no latency', async () => {
 		await new DexieBackup(db).importAll(makeBackupV2());
 
