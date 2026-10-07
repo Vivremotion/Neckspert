@@ -90,7 +90,7 @@ export function tapSensor(): SensorFactory {
 	};
 }
 
-/** Payload of a chord report: what was heard and judged, not when. */
+/** Payload of a chord report: what was heard and judged, and whether it is final; not when. */
 export type ChordObservationPayload = Omit<ChordReport, 'time'>;
 
 /**
@@ -104,7 +104,8 @@ export function chordSensor(verifier: ChordVerifierPort): SensorFactory {
 				callback({
 					time: time - latencyMs / 1000,
 					payload: payload satisfies ChordObservationPayload,
-					readable: true
+					readable: true,
+					final: payload.final
 				})
 			),
 		expect: (expectation) =>

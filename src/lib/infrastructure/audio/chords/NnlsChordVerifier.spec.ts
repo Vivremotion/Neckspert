@@ -9,8 +9,8 @@ import { dCandidates, synthChordSignal } from './testing/synthChord';
 
 const D_232 = [57, 62, 66];
 
-function expectation(opensAt: number): ChordExpectation {
-	return { opensAt, expected: '2,3,2', candidates: dCandidates(), style: 'strummed' };
+function expectation(opensAt: number, expected: readonly string[] = ['2,3,2']): ChordExpectation {
+	return { opensAt, expected, candidates: dCandidates(), style: 'strummed' };
 }
 
 function setup(sampleRate = 48000, midis: number[] = D_232, options = {}) {
@@ -33,6 +33,38 @@ describe('NnlsChordVerifier', () => {
 			expect(report.decided).toBe('2,3,2');
 		}
 		expect(reports.every((r) => !('spectrum' in r))).toBe(true);
+	});
+
+	it('marks final the first report that retains the expected chord, and every one after it', () => {
+		const { source, verifier, reports } = setup();
+		verifier.expect(expectation(0.9));
+		source.playUntil();
+		expect(reports.map((r) => [r.windowMs, r.final])).toEqual([
+			[250, true],
+			[500, true],
+			[1000, true],
+			[2000, true]
+		]);
+	});
+
+	it('marks final only the last report of an attack whose chord is not the expected one', () => {
+		const { source, verifier, reports } = setup();
+		verifier.expect(expectation(0.9, ['0,1,0']));
+		source.playUntil();
+		expect(reports.map((r) => [r.windowMs, r.final])).toEqual([
+			[250, false],
+			[500, false],
+			[1000, false],
+			[2000, true]
+		]);
+	});
+
+	it('marks final a report cut by the next expectation', () => {
+		const { source, verifier, reports } = setup();
+		verifier.expect(expectation(0.9, ['0,1,0']));
+		source.playUntil(1.6);
+		verifier.expect(expectation(1.6, ['0,1,0']));
+		expect(reports.map((r) => r.final)).toEqual([false, false, true]);
 	});
 
 	it('reports nothing without an attack', () => {

@@ -80,7 +80,7 @@ describe('tapSensor', () => {
 describe('chordSensor', () => {
 	const expectation = {
 		opensAt: 1,
-		expected: 'a',
+		expected: ['a'],
 		candidates: [],
 		style: 'strummed' as const
 	};
@@ -102,6 +102,7 @@ describe('chordSensor', () => {
 			time: 2,
 			windowMs: 250,
 			decided: 'a',
+			final: false,
 			variants: [{ id: 'default', decided: 'a', scores: { a: 0.8 } }]
 		};
 		verifier.emit(report);
@@ -110,9 +111,11 @@ describe('chordSensor', () => {
 		expect(seen).toHaveLength(1);
 		expect(seen[0].time).toBeCloseTo(1.975, 9);
 		expect(seen[0].readable).toBe(true);
+		expect(seen[0].final).toBe(false);
 		expect(seen[0].payload).toEqual({
 			windowMs: 250,
 			decided: 'a',
+			final: false,
 			variants: [{ id: 'default', decided: 'a', scores: { a: 0.8 } }]
 		});
 	});

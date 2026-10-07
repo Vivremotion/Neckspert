@@ -40,6 +40,8 @@ interface OpenWindow {
 	attack: number;
 	pooled: Float64Array | null;
 	nextPoint: number;
+	/** A report already retained an expected candidate: every later one is final too. */
+	settled: boolean;
 }
 
 /**
@@ -119,7 +121,7 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		if (!this.expectation) return;
 
 		if (attack !== null && attack >= this.expectation.opensAt) {
-			this.windows.push({ attack, pooled: null, nextPoint: 0 });
+			this.windows.push({ attack, pooled: null, nextPoint: 0, settled: false });
 		}
 		if (this.windows.length === 0) return;
 
@@ -143,7 +145,8 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 				w.nextPoint < REPORT_POINTS_MS.length &&
 				this.lastFrameEnd >= w.attack + REPORT_POINTS_MS[w.nextPoint] / 1000
 			) {
-				if (w.pooled) this.report(w, REPORT_POINTS_MS[w.nextPoint]);
+				const last = w.nextPoint === REPORT_POINTS_MS.length - 1;
+				if (w.pooled) this.report(w, REPORT_POINTS_MS[w.nextPoint], last);
 				w.nextPoint++;
 			}
 		}
@@ -154,12 +157,12 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	private flushWindows(): void {
 		for (const w of this.windows) {
 			if (!w.pooled) continue;
-			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000));
+			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
 		}
 		this.windows = [];
 	}
 
-	private report(w: OpenWindow, windowMs: number): void {
+	private report(w: OpenWindow, windowMs: number, last: boolean): void {
 		const expectation = this.expectation;
 		const pooled = w.pooled;
 		if (!expectation || !pooled) return;
@@ -169,10 +172,13 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 			judgeWindow(pooled, this.rate, expectation.candidates, variant)
 		);
 		const judgeMs = journal ? performance.now() - started : 0;
+		const decided = variants.find((v) => v.id === this.active)?.decided ?? null;
+		if (decided !== null && expectation.expected.includes(decided)) w.settled = true;
 		const report: ChordReport = {
 			time: w.attack,
 			windowMs,
-			decided: variants.find((v) => v.id === this.active)?.decided ?? null,
+			decided,
+			final: w.settled || last,
 			variants
 		};
 		journal?.event('chord.report', report.time, {

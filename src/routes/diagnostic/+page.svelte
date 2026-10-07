@@ -96,7 +96,7 @@
 		}));
 		verifier.expect({
 			opensAt: context.currentTime,
-			expected: fretsOf(occurrence),
+			expected: [fretsOf(occurrence)],
 			candidates,
 			style: 'unknown'
 		});

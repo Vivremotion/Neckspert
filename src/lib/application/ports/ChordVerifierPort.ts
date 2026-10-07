@@ -13,8 +13,8 @@ export interface ChordCandidate {
 export interface ChordExpectation {
 	/** Audio time (s) the round opens at. */
 	opensAt: number;
-	/** Id of the expected candidate. */
-	expected: string;
+	/** Ids of the expected candidates: any of them is the right chord. */
+	expected: readonly string[];
 	candidates: readonly ChordCandidate[];
 	style: 'strummed' | 'arpeggiated' | 'mixed' | 'unknown';
 }
@@ -35,6 +35,11 @@ export interface ChordReport {
 	windowMs: number;
 	/** The active variant's decision. */
 	decided: string | null;
+	/**
+	 * No better reading of this attack will follow: the decision is an expected candidate (and
+	 * every report after it), or this is the attack's last report (last point, or cut short).
+	 */
+	final: boolean;
 	variants: readonly ChordVariantReport[];
 }
 

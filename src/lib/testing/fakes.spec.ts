@@ -89,11 +89,11 @@ describe('FakeNoteDetector', () => {
 describe('FakeChordVerifier', () => {
 	const expectation = {
 		opensAt: 1,
-		expected: 'a',
+		expected: ['a'],
 		candidates: [{ id: 'a', kind: 'expected', notes: [{ string: 3 as const, fret: 2, midi: 57 }] }],
 		style: 'strummed' as const
 	};
-	const report = { time: 1.2, windowMs: 250, decided: 'a', variants: [] };
+	const report = { time: 1.2, windowMs: 250, decided: 'a', final: true, variants: [] };
 
 	it('keeps every expectation in order', () => {
 		const verifier = new FakeChordVerifier();

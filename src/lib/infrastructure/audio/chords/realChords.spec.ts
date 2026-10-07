@@ -83,7 +83,7 @@ function decisionOf(fixture: Fixture): string | null {
 	verifier.onReport((report) => reports.push(report));
 	verifier.expect({
 		opensAt: fixture.beatSec - OPENS_BEFORE_BEAT_S,
-		expected: fixture.frets.join(','),
+		expected: [fixture.frets.join(',')],
 		candidates: candidatesOf(fixture),
 		style: 'unknown'
 	});
