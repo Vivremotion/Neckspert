@@ -3,9 +3,13 @@
 	import type { AudioInputDevice } from '$lib/application/ports';
 	import {
 		DEFAULT_BUILT_IN_INPUT_GAIN,
+		DEFAULT_SETTINGS,
 		clampBuiltInInputGain,
+		resolveDiagnosticsEnabled,
+		type DiagnosticsSettings,
 		type Locale
 	} from '$lib/domain/types';
+	import { downloadDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 	import { downloadBackup, readBackupFile, validateBackup } from '$lib/infrastructure/storage';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import SettingsScreen from '$lib/ui/screens/settings/SettingsScreen.svelte';
@@ -22,6 +26,9 @@
 	let pendingImport: unknown = null;
 	let unlocking = $state(false);
 	let notice = $state<string | null>(null);
+	let diagnostics = $state<DiagnosticsSettings>({ ...DEFAULT_SETTINGS.diagnostics });
+	let diagnosticsUsedBytes = $state(0);
+	const diagnosticsEnabled = $derived(resolveDiagnosticsEnabled(diagnostics, import.meta.env.DEV));
 	/** Bumped by user edits so a late initial load cannot overwrite them. */
 	let loadSeq = 0;
 
@@ -36,11 +43,17 @@
 		inputDeviceId = settings.inputDeviceId ?? devices[0]?.id ?? null;
 		builtInInputGain = clampBuiltInInputGain(settings.builtInInputGain);
 		calibrationOffsetMs = settings.calibrationOffsetMs;
+		diagnostics = settings.diagnostics;
 		inputs = devices;
 		i18n.locale = settings.locale;
 	}
 
+	async function loadUsage() {
+		diagnosticsUsedBytes = (await services.diagnostics.usage()).bytes;
+	}
+
 	void load();
+	void loadUsage();
 
 	async function onlocale(next: Locale) {
 		loadSeq += 1;
@@ -114,6 +127,29 @@
 		}
 	}
 
+	async function saveDiagnostics(next: DiagnosticsSettings) {
+		loadSeq += 1;
+		diagnostics = next;
+		await services.settings.update({ diagnostics: next });
+	}
+
+	function ondiagnostics(enabled: boolean) {
+		return saveDiagnostics({ ...diagnostics, enabled });
+	}
+
+	function ondiagnosticsbudget(budgetMb: number) {
+		return saveDiagnostics({ ...diagnostics, budgetMb });
+	}
+
+	async function ondiagnosticsexport() {
+		downloadDiagnosticArchive(await services.diagnostics.exportArchive());
+	}
+
+	async function ondiagnosticsclear() {
+		await services.diagnostics.clear();
+		await loadUsage();
+	}
+
 	function onimportcancel() {
 		confirmingImport = false;
 		pendingImport = null;
@@ -137,4 +173,11 @@
 	{onimportcancel}
 	{onunlock}
 	{notice}
+	{diagnosticsEnabled}
+	diagnosticsBudgetMb={diagnostics.budgetMb}
+	{diagnosticsUsedBytes}
+	{ondiagnostics}
+	{ondiagnosticsbudget}
+	{ondiagnosticsexport}
+	{ondiagnosticsclear}
 />

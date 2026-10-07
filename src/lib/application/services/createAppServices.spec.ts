@@ -12,6 +12,7 @@ import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeClock,
+	FakeDiagnostics,
 	FakeMetronome,
 	FakeNoteDetector,
 	FakeSoundCues,
@@ -73,7 +74,8 @@ function harness(): {
 	const services = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
-		calibration: new FakeCalibration()
+		calibration: new FakeCalibration(),
+		diagnostics: new FakeDiagnostics()
 	});
 	return { services, deps };
 }
@@ -107,6 +109,11 @@ function locateMidiFromPrompt(primary: string, secondary: string): number {
 }
 
 describe('createAppServices', () => {
+	it('hands the diagnostic journal to the screens as given', async () => {
+		const { services } = harness();
+		expect(await services.diagnostics.usage()).toEqual({ bytes: 0, takes: 0 });
+	});
+
 	it('wires homeStats, neckMap and sessionSummary through C and A', async () => {
 		const { services } = harness();
 		const stats = await services.homeStats();

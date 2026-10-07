@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { readZip } from '$lib/infrastructure/diagnostics/testing/readZip';
 import { createApp } from './createApp';
 
 class StubAudioContext {
@@ -125,5 +126,31 @@ describe('createApp', () => {
 		expect(file.attempts).toEqual([]);
 		expect(file.cards).toEqual([]);
 		expect(file.sessions).toEqual([]);
+	});
+
+	it('exports the diagnostic journal with the learning backup, and clears it', async () => {
+		const services = createApp({
+			createContext: () => new StubAudioContext() as unknown as AudioContext,
+			databaseName: crypto.randomUUID(),
+			diagnosticsDatabaseName: crypto.randomUUID()
+		});
+		await services.settings.update({ locale: 'en' });
+
+		expect(await services.diagnostics.usage()).toEqual({ bytes: 0, takes: 0 });
+		const archive = await services.diagnostics.exportArchive();
+		expect(archive.type).toBe('application/zip');
+		// jsdom's Blob has neither arrayBuffer() nor stream().
+		const buffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onload = () => resolve(reader.result as ArrayBuffer);
+			reader.onerror = () => reject(reader.error);
+			reader.readAsArrayBuffer(archive);
+		});
+		const bytes = new Uint8Array(buffer);
+		const entries = readZip(bytes);
+		expect(entries.map((e) => e.path)).toEqual(['apprentissage.json']);
+		const learning = JSON.parse(new TextDecoder().decode(entries[0].bytes));
+		expect(learning.settings.locale).toBe('en');
+		await expect(services.diagnostics.clear()).resolves.toBeUndefined();
 	});
 });

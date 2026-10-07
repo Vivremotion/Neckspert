@@ -8,6 +8,7 @@ import { CalibrationService } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
 import { WebAudioInput } from '$lib/infrastructure/audio/input';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
+import { buildDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 import {
 	createDatabase,
 	DexieAttemptRepository,
@@ -17,28 +18,30 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
+import { createDiagnosticJournal } from './diagnostics';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
 	createContext?: () => AudioContext;
 	/** Injected in tests. Production uses the default Dexie name `neckspert-play`. */
 	databaseName?: string;
+	/** Injected in tests. Production uses `neckspert-play-diagnostics`. */
+	diagnosticsDatabaseName?: string;
 }
 
 /**
  * Composition root. One WebAudioClock owns the single AudioContext (lazy on resume).
  * Metronome, cues and detector share () => clock.context(). One audio input feeds both the note
  * detector and the chord verifier; the detector opens and closes it. One Dexie database feeds
- * every repository and DexieBackup. Calibration reads inputDeviceId from settings.
+ * every repository and DexieBackup. Calibration reads inputDeviceId from settings. The diagnostic
+ * journal has its own database: the input opens a take each time it opens, and the input and the
+ * chord verifier write to it; the core never sees it.
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	const metronome = new WebAudioMetronome(context);
 	const cues = new WebAudioCues(context);
-	const input = new WebAudioInput(context, { resume: () => clock.resume() });
-	const detector = new WebAudioNoteDetector(context, { input });
-	const chords = new NnlsChordVerifier(input);
 
 	const db = createDatabase(options.databaseName);
 	const attempts = new DexieAttemptRepository(db);
@@ -47,6 +50,11 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const progressions = new DexieProgressionRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
+
+	const journal = createDiagnosticJournal(settings, { name: options.diagnosticsDatabaseName });
+	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
+	const detector = new WebAudioNoteDetector(context, { input });
+	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
 
 	const calibration = new CalibrationService({
 		clock,
@@ -67,6 +75,14 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		settings,
 		backup,
 		calibration,
+		diagnostics: {
+			usage: () => journal.usage(),
+			exportArchive: async () => {
+				const archive = await buildDiagnosticArchive(journal, await backup.exportAll());
+				return new Blob([archive as BlobPart], { type: 'application/zip' });
+			},
+			clear: () => journal.clear()
+		},
 		now: () => Date.now(),
 		random: () => Math.random(),
 		newId: () => crypto.randomUUID(),

@@ -26,6 +26,9 @@ function renderScreen(
 		onimportcancel: () => void;
 		inputs: AudioInputDevice[];
 		onunlock: () => void;
+		diagnosticsEnabled: boolean;
+		diagnosticsBudgetMb: number;
+		diagnosticsUsedBytes: number;
 	}> = {}
 ) {
 	const props = {
@@ -43,6 +46,13 @@ function renderScreen(
 		onimportfile: vi.fn(),
 		onimportconfirm: vi.fn(),
 		onimportcancel: vi.fn(),
+		diagnosticsEnabled: true,
+		diagnosticsBudgetMb: 300,
+		diagnosticsUsedBytes: 0,
+		ondiagnostics: vi.fn(),
+		ondiagnosticsbudget: vi.fn(),
+		ondiagnosticsexport: vi.fn(),
+		ondiagnosticsclear: vi.fn(),
 		...overrides
 	};
 	return { ...render(SettingsScreen, { props }), props };
@@ -90,7 +100,7 @@ describe('SettingsScreen', () => {
 		const { props } = renderScreen();
 		const link = screen.getByRole('link', { name: /calibration/i });
 		expect(link.getAttribute('href')).toBe('/calibration');
-		await fireEvent.click(screen.getByRole('button', { name: /exporter/i }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Exporter' }));
 		expect(props.onexport).toHaveBeenCalledTimes(1);
 	});
 
@@ -111,5 +121,61 @@ describe('SettingsScreen', () => {
 
 		renderScreen({ importError: 'Not a Neckspert Play backup' });
 		expect(screen.getByText(/Not a Neckspert Play backup/)).toBeTruthy();
+	});
+
+	describe('diagnostic block', () => {
+		it('turns the journal off from its toggle when it is on, and on when it is off', async () => {
+			const { props } = renderScreen({ diagnosticsEnabled: true });
+			const toggle = screen.getByRole('button', {
+				name: /enregistrer le son et les détails de la détection/i
+			});
+			expect(toggle.getAttribute('aria-pressed')).toBe('true');
+			await fireEvent.click(toggle);
+			expect(props.ondiagnostics).toHaveBeenCalledWith(false);
+			cleanup();
+
+			const off = renderScreen({ diagnosticsEnabled: false });
+			const again = screen.getByRole('button', {
+				name: /enregistrer le son et les détails de la détection/i
+			});
+			expect(again.getAttribute('aria-pressed')).toBe('false');
+			await fireEvent.click(again);
+			expect(off.props.ondiagnostics).toHaveBeenCalledWith(true);
+		});
+
+		it('offers three budgets, the current one disabled', async () => {
+			const { props } = renderScreen({ diagnosticsBudgetMb: 300 });
+			expect((screen.getByRole('button', { name: '300 Mo' }) as HTMLButtonElement).disabled).toBe(
+				true
+			);
+			expect((screen.getByRole('button', { name: '100 Mo' }) as HTMLButtonElement).disabled).toBe(
+				false
+			);
+			await fireEvent.click(screen.getByRole('button', { name: '1000 Mo' }));
+			expect(props.ondiagnosticsbudget).toHaveBeenCalledWith(1000);
+		});
+
+		it('shows the space taken against the budget', () => {
+			renderScreen({ diagnosticsUsedBytes: 42 * 1024 * 1024, diagnosticsBudgetMb: 300 });
+			expect(screen.getByText('42 Mo sur 300')).toBeTruthy();
+		});
+
+		it('shows the space in English', () => {
+			i18n.locale = 'en';
+			renderScreen({ locale: 'en', diagnosticsUsedBytes: 42 * 1024 * 1024 });
+			expect(screen.getByText('42 MB of 300')).toBeTruthy();
+			expect(
+				screen.getByRole('button', { name: /record sound and detection details/i })
+			).toBeTruthy();
+			expect(screen.getByRole('button', { name: 'Export diagnostics' })).toBeTruthy();
+		});
+
+		it('exports and clears the journal', async () => {
+			const { props } = renderScreen();
+			await fireEvent.click(screen.getByRole('button', { name: 'Exporter le diagnostic' }));
+			expect(props.ondiagnosticsexport).toHaveBeenCalledTimes(1);
+			await fireEvent.click(screen.getByRole('button', { name: 'Effacer' }));
+			expect(props.ondiagnosticsclear).toHaveBeenCalledTimes(1);
+		});
 	});
 });

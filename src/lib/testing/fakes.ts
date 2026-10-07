@@ -32,6 +32,7 @@ import type {
 	SettingsRepositoryPort,
 	SoundCuePort
 } from '$lib/application/ports';
+import type { DiagnosticsService } from '$lib/application/app';
 
 export class FakeSoundCues implements SoundCuePort {
 	readonly played: { verdict: Verdict; time: number | undefined }[] = [];
@@ -228,6 +229,29 @@ export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 	async closeTake(endedAt: number): Promise<void> {
 		const open = this.takes.at(-1);
 		if (open && open.endedAt === null) open.endedAt = endedAt;
+	}
+}
+
+/** The settings screen's view of the journal: a used size the test sets, calls counted. */
+export class FakeDiagnostics implements DiagnosticsService {
+	used = 0;
+	takes = 0;
+	exports = 0;
+	clears = 0;
+
+	async usage(): Promise<{ bytes: number; takes: number }> {
+		return { bytes: this.used, takes: this.takes };
+	}
+
+	async exportArchive(): Promise<Blob> {
+		this.exports++;
+		return new Blob([], { type: 'application/zip' });
+	}
+
+	async clear(): Promise<void> {
+		this.clears++;
+		this.used = 0;
+		this.takes = 0;
 	}
 }
 

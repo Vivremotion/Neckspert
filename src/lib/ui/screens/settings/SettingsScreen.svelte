@@ -2,6 +2,7 @@
 	import { resolve } from '$app/paths';
 	import type { AudioInputDevice } from '$lib/application/ports';
 	import {
+		DIAGNOSTIC_BUDGETS_MB,
 		MAX_BUILT_IN_INPUT_GAIN,
 		MIN_BUILT_IN_INPUT_GAIN,
 		clampBuiltInInputGain,
@@ -28,7 +29,14 @@
 		onimportconfirm,
 		onimportcancel,
 		onunlock,
-		notice = null
+		notice = null,
+		diagnosticsEnabled,
+		diagnosticsBudgetMb,
+		diagnosticsUsedBytes,
+		ondiagnostics,
+		ondiagnosticsbudget,
+		ondiagnosticsexport,
+		ondiagnosticsclear
 	}: {
 		locale: Locale;
 		inputs: AudioInputDevice[];
@@ -46,7 +54,17 @@
 		onimportcancel: () => void;
 		onunlock?: () => void;
 		notice?: string | null;
+		/** The journal as it applies now: the build default already resolved. */
+		diagnosticsEnabled: boolean;
+		diagnosticsBudgetMb: number;
+		diagnosticsUsedBytes: number;
+		ondiagnostics: (enabled: boolean) => void;
+		ondiagnosticsbudget: (budgetMb: number) => void;
+		ondiagnosticsexport: () => void;
+		ondiagnosticsclear: () => void;
 	} = $props();
+
+	const BYTES_PER_MB = 1024 * 1024;
 
 	const m = $derived(settingsMessages());
 	let fileInput: HTMLInputElement | undefined = $state();
@@ -154,6 +172,38 @@
 		{/if}
 	</PixelBox>
 
+	<PixelBox variant="double">
+		<p class="label"><PixelText scale={1}>{m.diagnostics}</PixelText></p>
+		<p class="label"><PixelText scale={1}>{m.diagnosticsRecord}</PixelText></p>
+		<PixelButton
+			size="large"
+			pressed={diagnosticsEnabled}
+			label={m.diagnosticsToggle(diagnosticsEnabled)}
+			onclick={() => ondiagnostics(!diagnosticsEnabled)}
+			>{m.diagnosticsState(diagnosticsEnabled)}</PixelButton
+		>
+		<p class="usage">
+			<PixelText scale={1}
+				>{m.diagnosticsUsage(diagnosticsUsedBytes / BYTES_PER_MB, diagnosticsBudgetMb)}</PixelText
+			>
+		</p>
+		<p class="label"><PixelText scale={1}>{m.diagnosticsBudget}</PixelText></p>
+		<div class="row" role="group" aria-label={m.diagnosticsBudget}>
+			{#each DIAGNOSTIC_BUDGETS_MB as budget (budget)}
+				<PixelButton
+					size="large"
+					disabled={diagnosticsBudgetMb === budget}
+					onclick={() => ondiagnosticsbudget(budget)}
+					>{m.diagnosticsBudgetOption(budget)}</PixelButton
+				>
+			{/each}
+		</div>
+		<div class="row actions">
+			<PixelButton size="large" onclick={ondiagnosticsexport}>{m.diagnosticsExport}</PixelButton>
+			<PixelButton size="large" onclick={ondiagnosticsclear}>{m.diagnosticsClear}</PixelButton>
+		</div>
+	</PixelBox>
+
 	{#if confirmingImport}
 		<PixelBox variant="inverted">
 			<p><PixelText scale={2}>{m.confirmTitle}</PixelText></p>
@@ -201,6 +251,15 @@
 
 	.hint {
 		margin: var(--np-tile, 8px) 0 0;
+	}
+
+	.usage {
+		margin: var(--np-space-2, 16px) 0;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.actions {
+		margin-top: var(--np-space-2, 16px);
 	}
 
 	.row {

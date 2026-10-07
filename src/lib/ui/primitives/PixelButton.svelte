@@ -6,6 +6,7 @@
 		disabled = false,
 		size = 'large',
 		label,
+		pressed,
 		children
 	}: {
 		onclick: (e: MouseEvent) => void;
@@ -13,6 +14,8 @@
 		size?: 'large' | 'huge';
 		/** Accessible name when the visible glyph is shared with another control. */
 		label?: string;
+		/** Makes it a toggle button (aria-pressed). */
+		pressed?: boolean;
 		children: Snippet;
 	} = $props();
 </script>
@@ -22,6 +25,7 @@
 	class="btn"
 	class:huge={size === 'huge'}
 	aria-label={label}
+	aria-pressed={pressed}
 	{disabled}
 	{onclick}
 >

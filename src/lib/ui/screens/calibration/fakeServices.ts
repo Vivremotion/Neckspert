@@ -8,7 +8,7 @@ import type {
 import type { BackupFile, HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
 import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import { validateBackup } from '$lib/infrastructure/storage';
-import { FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
+import { FakeDiagnostics, FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
 
 export class FakeCalibration implements CalibrationPort {
 	nextOutcome: CalibrationOutcome = { ok: true, offsetMs: 35, spreadMs: 8 };
@@ -93,11 +93,13 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 	calibration: FakeCalibration;
 	backup: FakeBackup;
 	settings: InMemorySettingsRepository;
+	diagnostics: FakeDiagnostics;
 } {
 	const settings = new InMemorySettingsRepository();
 	const detector = new FakeNoteDetector();
 	const calibration = new FakeCalibration();
 	const backup = new FakeBackup(settings);
+	const diagnostics = new FakeDiagnostics();
 
 	return {
 		homeStats: async () => EMPTY_HOME,
@@ -110,6 +112,7 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 		settings,
 		detector,
 		calibration,
-		backup
+		backup,
+		diagnostics
 	};
 }

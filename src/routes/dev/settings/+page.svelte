@@ -19,6 +19,9 @@
 	let calibrationOffsetMs = $state<number | null>(42);
 	let importError = $state<string | null>(null);
 	let confirmingImport = $state(false);
+	let diagnosticsEnabled = $state(true);
+	let diagnosticsBudgetMb = $state(300);
+	let diagnosticsUsedBytes = $state(42 * 1024 * 1024);
 
 	function onlocale(next: Locale) {
 		locale = next;
@@ -44,4 +47,11 @@
 	}}
 	onimportconfirm={() => (confirmingImport = false)}
 	onimportcancel={() => (confirmingImport = false)}
+	{diagnosticsEnabled}
+	{diagnosticsBudgetMb}
+	{diagnosticsUsedBytes}
+	ondiagnostics={(enabled) => (diagnosticsEnabled = enabled)}
+	ondiagnosticsbudget={(mb) => (diagnosticsBudgetMb = mb)}
+	ondiagnosticsexport={() => undefined}
+	ondiagnosticsclear={() => (diagnosticsUsedBytes = 0)}
 />

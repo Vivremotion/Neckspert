@@ -1,4 +1,4 @@
-import type { AppServices } from '$lib/application/app';
+import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
@@ -16,13 +16,18 @@ import {
 import type { Execution, SessionKind } from '$lib/domain/types';
 
 export function createAppServices(
-	deps: SessionDeps & { backup: BackupPort; calibration: CalibrationPort }
+	deps: SessionDeps & {
+		backup: BackupPort;
+		calibration: CalibrationPort;
+		diagnostics: DiagnosticsService;
+	}
 ): AppServices {
 	return {
 		settings: deps.settings,
 		backup: deps.backup,
 		detector: deps.detector,
 		calibration: deps.calibration,
+		diagnostics: deps.diagnostics,
 
 		async homeStats() {
 			const [cards, attempts, settings] = await Promise.all([

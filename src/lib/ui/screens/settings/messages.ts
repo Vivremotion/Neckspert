@@ -1,5 +1,11 @@
 import { defineMessages } from '$lib/i18n/index.svelte';
 
+/** Whole megabytes from 10 up; one decimal below, so a first short take does not read 0. */
+function formatMb(mb: number, locale: 'fr' | 'en'): string {
+	const text = mb >= 10 ? String(Math.round(mb)) : mb.toFixed(1).replace(/\.0$/, '');
+	return locale === 'fr' ? text.replace('.', ',') : text;
+}
+
 export const settingsMessages = defineMessages({
 	fr: {
 		title: 'Réglages',
@@ -21,7 +27,17 @@ export const settingsMessages = defineMessages({
 		confirm: 'Confirmer',
 		cancel: 'Annuler',
 		decrease: '−',
-		increase: '+'
+		increase: '+',
+		diagnostics: 'Diagnostic',
+		diagnosticsRecord: 'Enregistrer le son et les détails de la détection',
+		diagnosticsToggle: (on: boolean) =>
+			`Enregistrer le son et les détails de la détection : ${on ? 'activé' : 'coupé'}`,
+		diagnosticsState: (on: boolean) => (on ? 'Activé' : 'Coupé'),
+		diagnosticsUsage: (mb: number, budgetMb: number) => `${formatMb(mb, 'fr')} Mo sur ${budgetMb}`,
+		diagnosticsBudget: 'Place réservée',
+		diagnosticsBudgetOption: (mb: number) => `${mb} Mo`,
+		diagnosticsExport: 'Exporter le diagnostic',
+		diagnosticsClear: 'Effacer'
 	},
 	en: {
 		title: 'Settings',
@@ -43,6 +59,15 @@ export const settingsMessages = defineMessages({
 		confirm: 'Confirm',
 		cancel: 'Cancel',
 		decrease: '−',
-		increase: '+'
+		increase: '+',
+		diagnostics: 'Diagnostics',
+		diagnosticsRecord: 'Record sound and detection details',
+		diagnosticsToggle: (on: boolean) => `Record sound and detection details: ${on ? 'on' : 'off'}`,
+		diagnosticsState: (on: boolean) => (on ? 'On' : 'Off'),
+		diagnosticsUsage: (mb: number, budgetMb: number) => `${formatMb(mb, 'en')} MB of ${budgetMb}`,
+		diagnosticsBudget: 'Space allowed',
+		diagnosticsBudgetOption: (mb: number) => `${mb} MB`,
+		diagnosticsExport: 'Export diagnostics',
+		diagnosticsClear: 'Clear'
 	}
 });

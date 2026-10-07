@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { useAppServices } from '$lib/application/app';
 	import type { AudioInputDevice, ChordReport, NoteOnset } from '$lib/application/ports';
+	import { createDiagnosticJournal } from '$lib/composition/diagnostics';
 	import {
 		closeTriadVoicings,
 		parseSpelledNote,
@@ -33,6 +35,9 @@
 	let log = $state<NoteOnset[]>([]);
 	let error = $state<string | null>(null);
 
+	/** This page's own input is journaled like the app's: each Start opens a take. */
+	const journal = createDiagnosticJournal(useAppServices().settings);
+
 	let context: AudioContext | null = null;
 	let detector: WebAudioNoteDetector | null = null;
 	let input: WebAudioInput | null = null;
@@ -42,10 +47,10 @@
 	/** One input for both detectors, created with the context. */
 	function ensureDetectors() {
 		context ??= new AudioContext();
-		input ??= new WebAudioInput(() => context!);
+		input ??= new WebAudioInput(() => context!, { diagnostics: journal });
 		detector ??= new WebAudioNoteDetector(() => context!, { input });
 		if (!verifier) {
-			verifier = new NnlsChordVerifier(input);
+			verifier = new NnlsChordVerifier(input, { diagnostics: journal });
 			unsubReport = verifier.onReport((report) => {
 				reports = [report, ...reports].slice(0, 20);
 			});
