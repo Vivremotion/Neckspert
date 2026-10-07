@@ -1,5 +1,11 @@
-import type { AudioInputDevice } from '$lib/application/ports';
+import type {
+	AudioInputDevice,
+	DiagnosticInputInfo,
+	DiagnosticSink,
+	DiagnosticTakes
+} from '$lib/application/ports';
 import { clampBuiltInInputGain, DEFAULT_BUILT_IN_INPUT_GAIN } from '$lib/domain/types';
+import { DiagnosticAudioRecorder } from '$lib/infrastructure/diagnostics/DiagnosticAudioRecorder';
 import frameProcessorUrl from '../detection/frame-processor.ts?worker&url';
 
 /** A block of mono samples from the input, at its audio time (s). */
@@ -61,12 +67,25 @@ export class WebAudioInput {
 	private readonly frameListeners = new Set<(frame: AudioFrame) => void>();
 	private readonly levelListeners = new Set<(rms: number) => void>();
 	private readonly resumeAudio: (() => Promise<void>) | undefined;
+	private readonly diagnostics: (DiagnosticSink & DiagnosticTakes) | undefined;
+	private readonly recorder: DiagnosticAudioRecorder | null;
+	private readonly now: () => number;
+	/** The context of the take being journaled, if one was opened. */
+	private takeContext: AudioContext | null = null;
 
 	constructor(
 		private readonly context: () => AudioContext,
-		options?: { resume?: () => Promise<void> }
+		options?: {
+			resume?: () => Promise<void>;
+			/** Each opening of the input is a take of the diagnostic journal. */
+			diagnostics?: DiagnosticSink & DiagnosticTakes;
+			now?: () => number;
+		}
 	) {
 		this.resumeAudio = options?.resume;
+		this.diagnostics = options?.diagnostics;
+		this.recorder = this.diagnostics ? new DiagnosticAudioRecorder(this.diagnostics) : null;
+		this.now = options?.now ?? Date.now;
 	}
 
 	/** Sample rate of the open input; 0 before the first start. */
@@ -136,9 +155,47 @@ export class WebAudioInput {
 		};
 		// The permission prompt can suspend the context after the first resume.
 		await this.resumeAudio?.();
+		await this.openTake(ctx, node, label, channelCount);
+	}
+
+	private async openTake(
+		ctx: AudioContext,
+		node: AudioWorkletNode,
+		label: string,
+		channelCount: number
+	): Promise<void> {
+		const diagnostics = this.diagnostics;
+		if (!diagnostics || this.node !== node) return;
+		const input: DiagnosticInputInfo = {
+			label,
+			sampleRate: ctx.sampleRate,
+			channelCount,
+			builtInGain: this.boostBuiltIn ? this.builtInGain : 1
+		};
+		// Set first: a stop while the take opens still closes it.
+		this.takeContext = ctx;
+		await diagnostics.openTake({
+			startedAt: this.now(),
+			startedAudioTime: ctx.currentTime,
+			input
+		});
+		if (this.node !== node || !diagnostics.enabled) return;
+		diagnostics.event('input.opened', ctx.currentTime, input);
+		this.recorder?.start(this);
+	}
+
+	private closeTake(): void {
+		const ctx = this.takeContext;
+		const diagnostics = this.diagnostics;
+		if (!ctx || !diagnostics) return;
+		this.takeContext = null;
+		this.recorder?.stop();
+		if (diagnostics.enabled) diagnostics.event('input.closed', ctx.currentTime, null);
+		void diagnostics.closeTake(this.now());
 	}
 
 	stop(): void {
+		this.closeTake();
 		this.node?.port && (this.node.port.onmessage = null);
 		this.node?.disconnect();
 		this.source?.disconnect();

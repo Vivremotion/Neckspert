@@ -4,6 +4,7 @@ vi.mock('../detection/frame-processor.ts?worker&url', () => ({
 	default: '/virtual/note-frame-processor.js'
 }));
 
+import { FakeDiagnosticSink } from '$lib/testing/fakes';
 import { WebAudioInput, type AudioFrame } from './WebAudioInput';
 
 class FakeNode {
@@ -99,5 +100,89 @@ describe('WebAudioInput', () => {
 		handler?.({ data: { samples: new Float32Array([0.1]), frameTime: 0 } } as MessageEvent);
 		expect(node.port.onmessage).toBeNull();
 		expect(frames).toHaveLength(0);
+	});
+
+	describe('with a diagnostic journal', () => {
+		function journaled(label: string) {
+			const node = install(label);
+			const context = new FakeContext();
+			context.currentTime = 12.5;
+			const diagnostics = new FakeDiagnosticSink();
+			let now = 1_000_000;
+			const input = new WebAudioInput(() => context as unknown as AudioContext, {
+				diagnostics,
+				now: () => now
+			});
+			return { node, context, diagnostics, input, later: (ms: number) => (now += ms) };
+		}
+
+		it('opens a take with the input it opened, then writes input.opened', async () => {
+			const { diagnostics, input } = journaled('USB Audio CODEC');
+			await input.start(null);
+			const info = { label: 'USB Audio CODEC', sampleRate: 48000, channelCount: 1, builtInGain: 1 };
+			expect(diagnostics.takes).toEqual([
+				{ opened: { startedAt: 1_000_000, startedAudioTime: 12.5, input: info }, endedAt: null }
+			]);
+			expect(diagnostics.events).toEqual([{ kind: 'input.opened', audioTime: 12.5, data: info }]);
+			input.stop();
+		});
+
+		it('records the gain applied to a built-in mic', async () => {
+			const { diagnostics, input } = journaled('MacBook Pro Microphone');
+			await input.start(null);
+			const opened = diagnostics.takes[0].opened as { input: { builtInGain: number } };
+			expect(opened.input.builtInGain).toBe(8);
+			input.stop();
+		});
+
+		it('records the sound of the take and closes it on stop', async () => {
+			const { node, context, diagnostics, input, later } = journaled('USB Audio CODEC');
+			await input.start(null);
+			for (let i = 0; i < 10; i++) send(node, new Array(512).fill(0.1), 12.5 + (i * 512) / 48000);
+			context.currentTime = 20;
+			later(7500);
+			input.stop();
+
+			expect(diagnostics.chunks).toHaveLength(1);
+			expect(diagnostics.chunks[0].sampleRate).toBe(16000);
+			expect(diagnostics.events.at(-1)).toEqual({
+				kind: 'input.closed',
+				audioTime: 20,
+				data: null
+			});
+			expect(diagnostics.takes[0].endedAt).toBe(1_007_500);
+		});
+
+		it('closes the take of a first opening before the next one', async () => {
+			const { diagnostics, input } = journaled('USB Audio CODEC');
+			await input.start(null);
+			await input.start(null);
+			input.stop();
+			expect(diagnostics.takes).toHaveLength(2);
+			expect(diagnostics.takes.every((take) => take.endedAt !== null)).toBe(true);
+			expect(diagnostics.events.map((e) => e.kind)).toEqual([
+				'input.opened',
+				'input.closed',
+				'input.opened',
+				'input.closed'
+			]);
+		});
+
+		it('writes nothing on a stop with no take open', () => {
+			const { diagnostics, input } = journaled('USB Audio CODEC');
+			input.stop();
+			expect(diagnostics.events).toEqual([]);
+			expect(diagnostics.takes).toEqual([]);
+		});
+
+		it('records no sound when the journal is off', async () => {
+			const { node, diagnostics, input } = journaled('USB Audio CODEC');
+			diagnostics.enabled = false;
+			await input.start(null);
+			send(node, new Array(512).fill(0.1), 12.5);
+			input.stop();
+			expect(diagnostics.chunks).toEqual([]);
+			expect(diagnostics.events).toEqual([]);
+		});
 	});
 });
