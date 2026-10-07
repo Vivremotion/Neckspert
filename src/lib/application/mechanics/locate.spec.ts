@@ -10,7 +10,7 @@ describe('locatePresenter', () => {
 	it('plays on the guitar, heard by the note sensor', () => {
 		expect(locatePresenter.rules).toBe(locateRules);
 		expect(locatePresenter.scene).toBe('guitar');
-		expect(locatePresenter.sensor).toBe('note');
+		expect(locatePresenter.sensors).toEqual(['note']);
 		expect(locatePresenter.answerChoices).toBeUndefined();
 		expect(NECK_PRESENTERS.locate).toBe(locatePresenter);
 	});

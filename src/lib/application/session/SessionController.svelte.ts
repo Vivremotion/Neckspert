@@ -99,6 +99,8 @@ export class SessionController implements PlaySessionController {
 	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
 	private counting = false;
 	private current: PlannedItem | null = null;
+	/** The prompt shown before the current one in the series, for the next round's expectation. */
+	private previousPrompt: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
 	/**
@@ -175,6 +177,7 @@ export class SessionController implements PlaySessionController {
 		this.view.countdown = null;
 		this.recorder = null;
 		this.current = null;
+		this.previousPrompt = null;
 		this.clearItemState();
 		this.view.history = [];
 		this.view.lastVerdict = null;
@@ -256,7 +259,7 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
-		this.expectAll(null, null);
+		this.expectAll({});
 		this.closeSpan();
 		this.view.countdown = null;
 		this.view.preview = null;
@@ -334,7 +337,7 @@ export class SessionController implements PlaySessionController {
 	/** One source per sensor the mechanics use, opened with the calibrated latency. */
 	private openSources(): void {
 		this.closeAllSources();
-		const kinds = new Set(Object.values(this.deps.mechanics).map((p) => p.sensor));
+		const kinds = new Set(Object.values(this.deps.mechanics).flatMap((p) => p.sensors));
 		for (const kind of kinds) {
 			const factory = this.deps.sensors[kind];
 			if (!factory) throw new Error(`No factory for sensor: ${kind}`);
@@ -346,10 +349,10 @@ export class SessionController implements PlaySessionController {
 		}
 	}
 
-	/** The source of `sensor` listens for `expectation`; every other source, for nothing. */
-	private expectAll(sensor: SensorKind | null, expectation: unknown): void {
+	/** Each source listens for its own expectation; a source left out, for nothing. */
+	private expectAll(expectations: Partial<Record<SensorKind, unknown>>): void {
 		for (const [kind, source] of this.sources) {
-			source.expect?.(kind === sensor ? expectation : null);
+			source.expect?.(expectations[kind] ?? null);
 		}
 	}
 
@@ -487,15 +490,15 @@ export class SessionController implements PlaySessionController {
 			]);
 			return;
 		}
-		if (sensor !== presenter.sensor) {
+		if (!presenter.sensors.includes(sensor)) {
 			span.add(sensor, observation, 'other-sensor', null);
 			logDetection('observation ignorée', [
-				`raison : la consigne en cours attend le capteur « ${presenter.sensor} »`,
+				`raison : la consigne en cours attend les capteurs « ${presenter.sensors.join(', ')} »`,
 				describeObservation(sensor, observation)
 			]);
 			return;
 		}
-		const judged = presenter.rules.judge(planned.item, observation.payload);
+		const judged = presenter.rules.judge(planned.item, observation.payload, sensor);
 		if (!this.round) {
 			// Breathing or counted bar: the round is over, its span still listens.
 			span.add(sensor, observation, 'settled', judged.correct);
@@ -505,7 +508,8 @@ export class SessionController implements PlaySessionController {
 		const event = this.round.observe({
 			time: observation.time,
 			correct: judged.correct,
-			answer: judged.answer
+			answer: judged.answer,
+			sensor
 		});
 		if (event.kind === 'ignored') {
 			span.add(sensor, observation, event.reason, judged.correct);
@@ -612,7 +616,7 @@ export class SessionController implements PlaySessionController {
 		this.view.scene = presenter.scene;
 		// Withdrawn while the previous span is still open: what the sensors report at once
 		// (a chord window cut short) belongs to the round that is closing.
-		this.expectAll(null, null);
+		this.expectAll({});
 		this.round = this.timingOf(item).open({
 			planned: item,
 			promptBeat: beat.index,
@@ -623,11 +627,12 @@ export class SessionController implements PlaySessionController {
 		this.closeSpan();
 		this.span = new ObservationSpan(this.round.promptTime, item);
 		this.expectAll(
-			presenter.sensor,
-			presenter.expectation
-				? presenter.expectation(item.item, { opensAt: this.round.promptTime })
-				: null
+			presenter.expectation?.(item.item, {
+				opensAt: this.round.promptTime,
+				previous: this.previousPrompt
+			}) ?? {}
 		);
+		this.previousPrompt = item;
 
 		// The lane runs with the guitar only; the screen answers at its own pace, in silence.
 		const onLane = presenter.scene === 'guitar';
@@ -749,7 +754,7 @@ export class SessionController implements PlaySessionController {
 		// Captured now: a series started during the awaits below re-reads the settings.
 		const latencyMs = this.latencyMs;
 		const attempts = [...(recorder?.sessionAttempts ?? [])];
-		this.expectAll(null, null);
+		this.expectAll({});
 		this.closeSpan();
 		this.setStatus('finished');
 		this.unsubBeat?.();

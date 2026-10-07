@@ -42,7 +42,7 @@ const pacedRules: MechanicRules<FakeItem, { value: number }, { value: number }, 
 const pacedPresenter: MechanicPresenter<FakeItem, { value: number }> = {
 	rules: pacedRules,
 	scene: 'guitar',
-	sensor: 'fake',
+	sensors: ['fake'],
 	prompt: ({ n }) => ({ primary: String(n), secondary: '', aid: null, diagram: null }),
 	answerLabel: ({ value }) => String(value),
 	reveal: () => null

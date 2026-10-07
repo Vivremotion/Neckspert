@@ -40,7 +40,7 @@ const fakeRules: MechanicRules<FakeItem, { value: number }, { value: number }, n
 const basePresenter: MechanicPresenter<FakeItem, { value: number }> = {
 	rules: fakeRules,
 	scene: 'guitar',
-	sensor: 'fake',
+	sensors: ['fake'],
 	prompt: ({ n }) => ({ primary: String(n), secondary: '', aid: null, diagram: null }),
 	answerLabel: ({ value }) => String(value),
 	reveal: ({ n }, { verdict }) => (verdict === 'wrong' ? `n = ${n}` : null)
@@ -60,7 +60,7 @@ const ITEM: PlannedItem = {
 
 const expectingPresenter: MechanicPresenter<FakeItem, { value: number }> = {
 	...basePresenter,
-	expectation: (item, { opensAt }) => ({ n: item.n, opensAt })
+	expectation: (item, { opensAt }) => ({ fake: { n: item.n, opensAt } })
 };
 
 function setup(presenter: MechanicPresenter<FakeItem, { value: number }>) {

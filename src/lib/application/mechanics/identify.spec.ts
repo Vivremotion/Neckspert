@@ -10,7 +10,7 @@ describe('identifyPresenter', () => {
 	it('is answered on the screen, by a tap', () => {
 		expect(identifyPresenter.rules).toBe(identifyRules);
 		expect(identifyPresenter.scene).toBe('screen');
-		expect(identifyPresenter.sensor).toBe('tap');
+		expect(identifyPresenter.sensors).toEqual(['tap']);
 		expect(NECK_PRESENTERS.identify).toBe(identifyPresenter);
 	});
 

@@ -25,7 +25,13 @@ export interface Round {
 	readonly targetBeatIndex: number | null;
 	/** Audio seconds. */
 	readonly promptTime: number;
-	observe(observation: { time: number; correct: boolean; answer: unknown }): RoundEvent;
+	/** `sensor`: the sensor that read the observation; relations heard by one sensor ignore it. */
+	observe(observation: {
+		time: number;
+		correct: boolean;
+		answer: unknown;
+		sensor?: string;
+	}): RoundEvent;
 	onBeat(beat: { index: number; time: number }): RoundEvent;
 	/** Settles an open capture as unanswered; null when listening or already settled. */
 	abandon(): RoundOutcome | null;

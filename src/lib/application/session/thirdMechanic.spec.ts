@@ -40,7 +40,7 @@ const fakeRules: MechanicRules<FakeItem, { value: number }, { value: number }, n
 const fakePresenter: MechanicPresenter<FakeItem, { value: number }> = {
 	rules: fakeRules,
 	scene: 'guitar',
-	sensor: 'fake',
+	sensors: ['fake'],
 	prompt: ({ n }) => ({ primary: String(n), secondary: '', aid: null, diagram: null }),
 	answerLabel: ({ value }) => String(value),
 	reveal: ({ n }, { verdict }) => (verdict === 'wrong' ? `n = ${n}` : null)

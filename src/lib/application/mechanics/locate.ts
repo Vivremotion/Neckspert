@@ -31,7 +31,7 @@ const CLOSE_CENTS = 15;
 export const locatePresenter: MechanicPresenter<LocateItem, { midi: Midi }> = {
 	rules: locateRules,
 	scene: 'guitar',
-	sensor: 'note',
+	sensors: ['note'],
 	prompt: (item, { aid, stringAid }, locale, random) => {
 		const frets = fretsForPitch(item.string, item.pitch, MAX_PROMPT_FRET);
 		return {

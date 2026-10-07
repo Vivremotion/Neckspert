@@ -1,0 +1,177 @@
+import { describe, expect, it } from 'vitest';
+import type { MechanicRules } from '$lib/domain/mechanics';
+import { beatTiming } from '$lib/domain/timing';
+import { createListSelector } from '$lib/domain/progress';
+import type { Execution, PlannedItem } from '$lib/domain/types';
+import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import {
+	FakeClock,
+	FakeMetronome,
+	FakeNoteDetector,
+	FakeSoundCues,
+	InMemoryAttemptRepository,
+	InMemoryCardStateRepository,
+	InMemoryProgressionRepository,
+	InMemorySessionRepository,
+	InMemorySettingsRepository
+} from '$lib/testing/fakes';
+import type { Observation, SensorFactory } from './sensors';
+import type { SessionDeps } from './SessionDeps';
+import { SessionController } from './SessionController.svelte';
+
+interface FakeItem {
+	n: number;
+}
+
+/** Heard by two sensors: right when the value equals n, whichever sensor read it. */
+const twoRules: MechanicRules<FakeItem, { value: number }, { value: number; by: string }, never> = {
+	id: 'two',
+	timing: beatTiming,
+	learner: 'memory',
+	itemKey: ({ n }) => String(n),
+	parseItem: (key) => ({ n: Number(key) }),
+	judge: (item, payload, sensor) => ({
+		correct: payload.value === item.n,
+		answer: { value: payload.value, by: sensor ?? '' },
+		confusion: null
+	})
+};
+
+const rounds: { n: number; previous: PlannedItem | null }[] = [];
+
+const twoPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	rules: twoRules,
+	scene: 'guitar',
+	sensors: ['a', 'b'],
+	prompt: ({ n }) => ({ primary: String(n), secondary: '', aid: null, diagram: null }),
+	answerLabel: ({ value }) => String(value),
+	reveal: () => null,
+	expectation: (item, { previous }) => {
+		rounds.push({ n: item.n, previous });
+		return { a: `a${item.n}`, b: `b${item.n}` };
+	}
+};
+
+/** Another mechanic, so that a third sensor is open in the series. */
+const otherPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	...twoPresenter,
+	rules: { ...twoRules, id: 'other' },
+	sensors: ['c']
+};
+
+const EXECUTIONS: Execution[] = [{ exerciseId: 'two-ex', tempoBpm: 100 }];
+
+function item(n: number): PlannedItem {
+	return {
+		exerciseId: 'two-ex',
+		mechanic: 'two',
+		item: { n },
+		phase: 'review',
+		temperature: 'cold',
+		aid: 'none',
+		leadBeats: 4
+	};
+}
+
+function setup() {
+	rounds.length = 0;
+	const clock = new FakeClock();
+	const metronome = new FakeMetronome(clock);
+	const listeners = new Map<string, (observation: Observation) => void>();
+	const expected = new Map<string, unknown[]>();
+	const sensor =
+		(kind: string): SensorFactory =>
+		() => ({
+			onObservation: (callback) => {
+				listeners.set(kind, callback);
+				return () => listeners.delete(kind);
+			},
+			expect: (expectation) => {
+				expected.set(kind, [...(expected.get(kind) ?? []), expectation]);
+			}
+		});
+	const deps: SessionDeps = {
+		clock,
+		metronome,
+		detector: new FakeNoteDetector(),
+		cues: new FakeSoundCues(),
+		attempts: new InMemoryAttemptRepository(),
+		cards: new InMemoryCardStateRepository(),
+		sessions: new InMemorySessionRepository(),
+		progressions: new InMemoryProgressionRepository(),
+		settings: new InMemorySettingsRepository(),
+		now: () => clock.toEpochMs(clock.now()),
+		random: () => 0,
+		newId: () => 'id-1',
+		mechanics: { two: twoPresenter, other: otherPresenter },
+		sensors: { a: sensor('a'), b: sensor('b'), c: sensor('c') }
+	};
+	const controller = new SessionController(
+		{ id: 'sess-1', kind: 'free' },
+		async () => ({ selector: createListSelector([item(3), item(5)]), executions: EXECUTIONS }),
+		deps
+	);
+	const atBeat = (index: number) => {
+		const announced = metronome.beatTime(index) - 0.1;
+		if (announced > clock.now()) clock.advance(announced - clock.now());
+		metronome.flush();
+	};
+	const emit = (kind: string, value: number, beat: number) =>
+		listeners.get(kind)?.({ time: metronome.beatTime(beat), payload: { value }, readable: true });
+	return { controller, deps, atBeat, emit, expected };
+}
+
+async function drain() {
+	for (let i = 0; i < 8; i++) await Promise.resolve();
+}
+
+describe('a mechanic heard by two sensors', () => {
+	it('gives each sensor its own expectation, and nothing to a sensor it does not listen to', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		expect(ctx.expected.get('a')?.at(-1)).toBe('a3');
+		expect(ctx.expected.get('b')?.at(-1)).toBe('b3');
+		expect(ctx.expected.get('c')?.at(-1)).toBeNull();
+	});
+
+	it('takes an answer from either of its sensors, judged with the sensor that read it', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('b', 3, 8);
+		await drain();
+		expect(ctx.controller.view.lastVerdict?.verdict).toBe('perfect');
+		const [attempt] = await ctx.deps.attempts.all();
+		expect(attempt.data).toMatchObject({ answer: { value: 3, by: 'b' } });
+	});
+
+	it('files an observation of a sensor it does not listen to as another sensor', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('c', 3, 7);
+		ctx.emit('a', 3, 8);
+		await drain();
+		const [attempt] = await ctx.deps.attempts.all();
+		expect(attempt.observations?.map((o) => [o.sensor, o.fate, o.correct])).toEqual([
+			['c', 'other-sensor', null],
+			['a', 'answer', true]
+		]);
+	});
+
+	it('tells the expectation the prompt before it', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('a', 3, 8);
+		await drain();
+		for (let beat = 9; beat <= 16; beat++) ctx.atBeat(beat);
+		expect(rounds.map((r) => [r.n, (r.previous?.item as FakeItem | undefined)?.n ?? null])).toEqual(
+			[
+				[3, null],
+				[5, 3]
+			]
+		);
+	});
+});

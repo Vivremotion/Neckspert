@@ -15,7 +15,7 @@ import type { MechanicPresenter } from './types';
 export const identifyPresenter: MechanicPresenter<IdentifyItem, { pitch: PitchName }> = {
 	rules: identifyRules,
 	scene: 'screen',
-	sensor: 'tap',
+	sensors: ['tap'],
 	prompt: (item, { aid }, locale, random) => ({
 		primary: fretLabel(item.fret, locale),
 		secondary: stringLabel(item.string, locale),
