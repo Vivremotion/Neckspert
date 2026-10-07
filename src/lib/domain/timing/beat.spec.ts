@@ -1,19 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import { LEAD_STEPS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
-import { beatTiming } from './beat';
+import { DEFAULT_PACING } from '$lib/domain/exercise';
+import { beatTiming as defaultBeatTiming, createBeatTiming } from './beat';
 
 const beatTime = (i: number) => 0.1 + i * 0.75;
-const round = (bt: (i: number) => number = beatTime, spb = 0.75) =>
-	beatTiming.open({
-		planned: { leadBeats: 4 },
-		promptBeat: 4,
-		now: 0,
-		beatTime: bt,
-		secondsPerBeat: spb
-	});
 const note = (time: number, correct = true) => ({ time, correct, answer: 'a' });
 
-describe('beatTiming', () => {
+describe.each([
+	['beatTiming', defaultBeatTiming],
+	['createBeatTiming(DEFAULT_PACING)', createBeatTiming(DEFAULT_PACING)]
+])('%s', (_name, beatTiming) => {
+	const round = (bt: (i: number) => number = beatTime, spb = 0.75) =>
+		beatTiming.open({
+			planned: { leadBeats: 4 },
+			promptBeat: 4,
+			now: 0,
+			beatTime: bt,
+			secondsPerBeat: spb
+		});
+
 	it('aligns the prompt so the target lands on a bar start', () => {
 		expect(beatTiming.promptBeat(4, { leadBeats: 2 })).toBe(6);
 		expect(beatTiming.promptBeat(4, { leadBeats: 4 })).toBe(4);
@@ -262,5 +267,45 @@ describe('beatTiming', () => {
 		expect(beatTiming.adjustLead(2, true)).toBe(2);
 		expect(beatTiming.adjustLead(2, false)).toBe(4);
 		expect(beatTiming.adjustLead(8, false)).toBe(8);
+	});
+});
+
+describe('createBeatTiming', () => {
+	const timing = createBeatTiming({ leadSteps: [8, 4], respirationBars: 2, learnedAfter: 2 });
+
+	it('climbs only the steps of its pacing', () => {
+		expect(timing.initialLead).toBe(8);
+		expect(timing.adjustLead(8, true)).toBe(4);
+		expect(timing.adjustLead(4, true)).toBe(4);
+		expect(timing.adjustLead(4, false)).toBe(8);
+		expect(timing.learnedLead(80)).toBe(4);
+	});
+
+	it('waits its breathing bars after the target before the next prompt', () => {
+		const r = timing.open({
+			planned: { leadBeats: 4 },
+			promptBeat: 4,
+			now: 0,
+			beatTime,
+			secondsPerBeat: 0.75
+		});
+		r.observe(note(6.13));
+		expect(r.after()).toEqual({ advanceAt: 9, earliestPrompt: 16 });
+	});
+
+	it('ends the late capture at the string preview of a prompt two bars later', () => {
+		const r = timing.open({
+			planned: { leadBeats: 4 },
+			promptBeat: 4,
+			now: 0,
+			beatTime,
+			secondsPerBeat: 0.75
+		});
+		r.onBeat({ index: 9, time: 6.85 });
+		// One bar of breathing would end the capture at beat 11 (8.35 s); two leave it the full 2.4 s.
+		expect(r.observe(note(8.4))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'offbeat' }
+		});
 	});
 });

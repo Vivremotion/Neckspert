@@ -5,18 +5,11 @@ import {
 	secondsToMs,
 	timingVerdict
 } from '$lib/domain/scoring/timing';
-import {
-	LEAD_STEPS,
-	RECALL_THRESHOLD_MS,
-	SHORTEST_LEAD,
-	type LeadBeats,
-	type Verdict
-} from '$lib/domain/types';
+import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
+import type { ExercisePacing } from '$lib/domain/exercise/types';
+import { RECALL_THRESHOLD_MS, type LeadBeats, type Verdict } from '$lib/domain/types';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import type { Round, RoundEvent, RoundOutcome, TimingRelation } from './types';
-
-/** First lead of a new card: the longest step. */
-const INITIAL_LEAD: LeadBeats = 8;
 
 /** Lead of a prompt planned without one (none today: every mode 1 prompt has a lead). */
 const FALLBACK_LEAD = BEATS_PER_BAR;
@@ -26,20 +19,31 @@ const EDGE_TOLERANCE_S = 1e-6;
 
 type State = 'listening' | 'capturing' | 'settled';
 
-/** Longest lead step whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS; at least SHORTEST_LEAD. */
-function leadForThreshold(tempoBpm: number): LeadBeats {
-	// LEAD_STEPS is longest→shortest; first fit is the longest allowed.
-	for (const step of LEAD_STEPS) {
+/**
+ * Longest of `steps` (longest first) whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS;
+ * at least the shortest step.
+ */
+function leadForThreshold(steps: readonly LeadBeats[], tempoBpm: number): LeadBeats {
+	for (const step of steps) {
 		if ((step * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS) return step;
 	}
-	return SHORTEST_LEAD;
+	return steps[steps.length - 1];
 }
 
-/** One LEAD_STEPS step shorter on success, one longer on failure. */
-function adjustLeadBeats(current: LeadBeats, success: boolean): LeadBeats {
-	const index = LEAD_STEPS.indexOf(current);
-	const nextIndex = success ? Math.min(index + 1, LEAD_STEPS.length - 1) : Math.max(index - 1, 0);
-	return LEAD_STEPS[nextIndex];
+/**
+ * One step shorter on success, one longer on failure. A lead outside `steps` (a card met in
+ * another exercise) starts from the shortest step at least as long.
+ */
+function adjustLeadBeats(
+	steps: readonly LeadBeats[],
+	current: LeadBeats,
+	success: boolean
+): LeadBeats {
+	const found = steps.indexOf(current);
+	const longer = steps.filter((step) => step >= current).length - 1;
+	const index = found >= 0 ? found : Math.max(longer, 0);
+	const nextIndex = success ? Math.min(index + 1, steps.length - 1) : Math.max(index - 1, 0);
+	return steps[nextIndex];
 }
 
 class BeatRound implements Round {
@@ -55,7 +59,8 @@ class BeatRound implements Round {
 	constructor(
 		readonly promptBeatIndex: number,
 		leadBeats: number,
-		beatTime: (index: number) => number
+		beatTime: (index: number) => number,
+		private readonly respirationBars: number
 	) {
 		this.targetBeatIndex = promptBeatIndex + leadBeats;
 		this.promptTime = beatTime(promptBeatIndex);
@@ -63,7 +68,7 @@ class BeatRound implements Round {
 		this.window = answerWindow(this.promptTime, this.targetTime);
 		this.captureEnd = lateCaptureEnd(
 			this.targetTime,
-			beatTime(respirationStart(this.targetBeatIndex) - STRING_PREVIEW_BEATS)
+			beatTime(respirationStart(this.targetBeatIndex, respirationBars) - STRING_PREVIEW_BEATS)
 		);
 	}
 
@@ -122,7 +127,7 @@ class BeatRound implements Round {
 		if (this.state !== 'settled') return null;
 		return {
 			advanceAt: (this.closingBeat ?? this.targetBeatIndex) + 1,
-			earliestPrompt: respirationStart(this.targetBeatIndex)
+			earliestPrompt: respirationStart(this.targetBeatIndex, this.respirationBars)
 		};
 	}
 
@@ -138,22 +143,34 @@ class BeatRound implements Round {
 	}
 }
 
+/** Mode 1 on the beat, at the rhythm of an exercise: its lead ladder and its breathing bars. */
+export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
+	const steps = pacing.leadSteps;
+	return {
+		id: 'beat',
+		usesTempo: true,
+		previewBeats: STRING_PREVIEW_BEATS,
+		initialLead: steps[0],
+		promptBeat: (earliest, planned) =>
+			alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
+		open: ({ planned, promptBeat, beatTime }) =>
+			new BeatRound(
+				promptBeat,
+				planned.leadBeats ?? FALLBACK_LEAD,
+				beatTime,
+				pacing.respirationBars
+			),
+		isDirectRecall: (attempt) => {
+			// Found after the window means found by calculation: never direct recall.
+			if (!attempt.correct || attempt.verdict === 'offbeat') return false;
+			if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
+			return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
+		},
+		learnedLead: (tempoBpm) =>
+			tempoBpm === null ? steps[steps.length - 1] : leadForThreshold(steps, tempoBpm),
+		adjustLead: (current, success) => adjustLeadBeats(steps, current, success)
+	};
+}
+
 /** Mode 1: play the note on a target beat, a lead of beats after the prompt. */
-export const beatTiming: TimingRelation = {
-	id: 'beat',
-	usesTempo: true,
-	previewBeats: STRING_PREVIEW_BEATS,
-	initialLead: INITIAL_LEAD,
-	promptBeat: (earliest, planned) =>
-		alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
-	open: ({ planned, promptBeat, beatTime }) =>
-		new BeatRound(promptBeat, planned.leadBeats ?? FALLBACK_LEAD, beatTime),
-	isDirectRecall: (attempt) => {
-		// Found after the window means found by calculation: never direct recall.
-		if (!attempt.correct || attempt.verdict === 'offbeat') return false;
-		if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
-		return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
-	},
-	learnedLead: (tempoBpm) => (tempoBpm === null ? SHORTEST_LEAD : leadForThreshold(tempoBpm)),
-	adjustLead: adjustLeadBeats
-};
+export const beatTiming: TimingRelation = createBeatTiming(DEFAULT_PACING);

@@ -15,7 +15,7 @@ import type {
 	RecordedObservation,
 	Temperature
 } from '$lib/domain/types';
-import type { RoundOutcome } from '$lib/domain/timing';
+import type { RoundOutcome, TimingRelation } from '$lib/domain/timing';
 import type { AudioClockPort } from '$lib/application/ports';
 import type {
 	AttemptRepositoryPort,
@@ -41,6 +41,8 @@ export interface AttemptRecorderDeps {
 	sessionId: string;
 	/** Rules of a prompt's mechanic: its card key, its time relation and its learner model. */
 	rules: (mechanic: MechanicId) => MechanicRules;
+	/** Time relation of a prompt at its exercise's rhythm; the mechanic's own when omitted. */
+	timing?: (planned: PlannedItem) => TimingRelation;
 }
 
 /** Turns settled rounds into stored attempts and card updates, for one series. */
@@ -171,6 +173,7 @@ export class AttemptRecorder {
 		attemptId: (id: number) => void
 	): Promise<void> {
 		const { attempts, cards } = this.deps;
+		const timing = this.deps.timing?.(item) ?? rules.timing;
 		const key = attempt.cardKey;
 		const history = await attempts.listByCard(key);
 		const existing = await cards.get(key);
@@ -178,7 +181,7 @@ export class AttemptRecorder {
 		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
 		const temperature =
 			item.phase === 'probe'
-				? probeTemperature(attempt, rules.timing)
+				? probeTemperature(attempt, timing)
 				: this.temperatureFor(item, existing, {
 						lastAttemptAt,
 						attemptedInSession,
@@ -194,7 +197,7 @@ export class AttemptRecorder {
 		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
-				await this.storeCard(applyColdAttempt(existing, attempt, fullHistory, now, rules.timing));
+				await this.storeCard(applyColdAttempt(existing, attempt, fullHistory, now, timing));
 			}
 		} else if (item.phase === 'probe') {
 			if (outcome) await this.storeCard(outcome.card);
@@ -202,7 +205,7 @@ export class AttemptRecorder {
 			if (outcome) await this.storeCard(outcome.card);
 			else if (!existing) {
 				const card = { key, mechanic: item.mechanic, item: item.item };
-				await this.storeCard(introduceCard(card, now, this.deps.sessionId, rules.timing));
+				await this.storeCard(introduceCard(card, now, this.deps.sessionId, timing));
 			}
 		}
 	}

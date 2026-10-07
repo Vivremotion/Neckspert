@@ -16,7 +16,7 @@ export function alignedPromptBeat(earliest: number, lead: number): number {
 	return misalignment === 0 ? earliest : earliest + BEATS_PER_BAR - misalignment;
 }
 
-/** First beat on which the next prompt may appear after a target on `targetBeat`. */
-export function respirationStart(targetBeat: number): number {
-	return targetBeat + BEATS_PER_BAR * RESPIRATION_BARS;
+/** First beat on which the next prompt may appear after a target on `targetBeat`, `bars` later. */
+export function respirationStart(targetBeat: number, bars: number = RESPIRATION_BARS): number {
+	return targetBeat + BEATS_PER_BAR * bars;
 }

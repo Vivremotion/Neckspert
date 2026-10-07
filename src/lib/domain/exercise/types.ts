@@ -1,3 +1,5 @@
+import type { LeadBeats } from '$lib/domain/types';
+
 export type MechanicId = string;
 export type ExerciseId = string;
 
@@ -23,4 +25,15 @@ export interface Progression {
 export interface Execution {
 	exerciseId: ExerciseId;
 	tempoBpm: number | null;
+}
+
+/**
+ * The rhythm of an exercise on the beat: the lead ladder of its prompts, the bars of breathing
+ * after a target, and the successes at the shortest lead that make an item learned.
+ */
+export interface ExercisePacing {
+	/** Longest first; each step one of LEAD_STEPS. */
+	leadSteps: readonly LeadBeats[];
+	respirationBars: number;
+	learnedAfter: number;
 }

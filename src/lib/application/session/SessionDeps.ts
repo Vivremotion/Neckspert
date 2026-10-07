@@ -10,7 +10,7 @@ import type {
 	SoundCuePort
 } from '$lib/application/ports';
 import type { MechanicPresenter, SensorKind } from '$lib/application/mechanics/types';
-import type { MechanicId } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import type { SensorFactory } from './sensors';
 
 export interface SessionDeps {
@@ -32,4 +32,6 @@ export interface SessionDeps {
 	mechanics: Record<MechanicId, MechanicPresenter>;
 	/** The observation sources a series opens, by sensor kind. */
 	sensors: Record<SensorKind, SensorFactory>;
+	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
+	exercise?: (id: ExerciseId) => ExerciseDefinition;
 }

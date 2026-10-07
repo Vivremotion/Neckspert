@@ -1,5 +1,12 @@
 import { logDetection } from '$lib/debug/detectionLog';
-import { DEFAULT_TEMPO_BPM, nextTempo } from '$lib/domain/exercise';
+import {
+	DEFAULT_TEMPO_BPM,
+	exerciseById,
+	nextTempo,
+	pacingOf,
+	type ExerciseDefinition,
+	type ExerciseId
+} from '$lib/domain/exercise';
 import { cardKeyOf } from '$lib/domain/mechanics';
 import type { SessionSelector } from '$lib/domain/progress';
 import type {
@@ -21,7 +28,8 @@ import {
 	type IgnoreReason,
 	type Round,
 	type RoundEvent,
-	type RoundOutcome
+	type RoundOutcome,
+	type TimingRelation
 } from '$lib/domain/timing';
 import { AttemptRecorder, type JudgedAnswer } from './AttemptRecorder';
 import { openAudioInput } from './audioInput';
@@ -196,7 +204,8 @@ export class SessionController implements PlaySessionController {
 				now: this.deps.now,
 				selector: this.selector,
 				sessionId: this.sessionId,
-				rules: (mechanic) => this.presenterOf(mechanic).rules
+				rules: (mechanic) => this.presenterOf(mechanic).rules,
+				timing: (planned) => this.timingOf(planned)
 			});
 		}
 
@@ -302,6 +311,16 @@ export class SessionController implements PlaySessionController {
 		return presenter;
 	}
 
+	/** The time relation of a prompt, at the rhythm of its exercise when its mechanic has one. */
+	private timingOf(item: PlannedItem): TimingRelation {
+		const { rules } = this.presenterFor(item);
+		return rules.timingFor?.(pacingOf(this.exerciseOf(item.exerciseId))) ?? rules.timing;
+	}
+
+	private exerciseOf(id: ExerciseId): ExerciseDefinition {
+		return (this.deps.exercise ?? exerciseById)(id);
+	}
+
 	/**
 	 * The execution a prompt belongs to, by its exercise. Its tempo is the one the attempt is
 	 * judged at; a change of tempo between executions would start here (decision 4).
@@ -404,7 +423,7 @@ export class SessionController implements PlaySessionController {
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
 		// Prompts with a preview come in two steps: the string first, then the note on the prompt beat.
 		this.view.preview =
-			left <= this.presenterFor(this.pending).rules.timing.previewBeats
+			left <= this.timingOf(this.pending).previewBeats
 				? this.pendingPromptView(this.pending)
 				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
@@ -412,10 +431,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
-		return this.presenterFor(item).rules.timing.promptBeat(
-			Math.max(this.earliestPromptBeat, beatIndex),
-			item
-		);
+		return this.timingOf(item).promptBeat(Math.max(this.earliestPromptBeat, beatIndex), item);
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -597,7 +613,7 @@ export class SessionController implements PlaySessionController {
 		// Withdrawn while the previous span is still open: what the sensors report at once
 		// (a chord window cut short) belongs to the round that is closing.
 		this.expectAll(null, null);
-		this.round = presenter.rules.timing.open({
+		this.round = this.timingOf(item).open({
 			planned: item,
 			promptBeat: beat.index,
 			now: this.deps.clock.now(),
