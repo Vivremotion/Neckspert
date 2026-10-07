@@ -16,6 +16,9 @@ import type {
 	AudioInputDevice,
 	BeatEvent,
 	CardStateRepositoryPort,
+	ChordExpectation,
+	ChordReport,
+	ChordVerifierPort,
 	MetronomePort,
 	NoteDetectorPort,
 	NoteOnset,
@@ -176,6 +179,25 @@ export class FakeNoteDetector implements NoteDetectorPort {
 	emitLevel(rms: number): void {
 		if (!this.running) return;
 		this.levelListeners.forEach((listener) => listener(rms));
+	}
+}
+
+export class FakeChordVerifier implements ChordVerifierPort {
+	/** Every call to expect, in order. */
+	readonly expectations: (ChordExpectation | null)[] = [];
+	private readonly listeners = new Set<(report: ChordReport) => void>();
+
+	expect(expectation: ChordExpectation | null): void {
+		this.expectations.push(expectation);
+	}
+
+	onReport(callback: (report: ChordReport) => void): () => void {
+		this.listeners.add(callback);
+		return () => this.listeners.delete(callback);
+	}
+
+	emit(report: ChordReport): void {
+		this.listeners.forEach((listener) => listener(report));
 	}
 }
 

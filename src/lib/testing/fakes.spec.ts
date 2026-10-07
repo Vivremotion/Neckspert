@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Attempt, CardState } from '$lib/domain/types';
 import type { BeatEvent } from '$lib/application/ports';
 import {
+	FakeChordVerifier,
 	FakeClock,
 	FakeMetronome,
 	FakeNoteDetector,
@@ -81,6 +82,33 @@ describe('FakeNoteDetector', () => {
 		await detector.start(null);
 		detector.emitRejection({ ...rejection, time: 2 });
 		expect(seen).toEqual([2]);
+	});
+});
+
+describe('FakeChordVerifier', () => {
+	const expectation = {
+		opensAt: 1,
+		expected: 'a',
+		candidates: [{ id: 'a', kind: 'expected', notes: [{ string: 3 as const, fret: 2, midi: 57 }] }],
+		style: 'strummed' as const
+	};
+	const report = { time: 1.2, windowMs: 250, decided: 'a', variants: [] };
+
+	it('keeps every expectation in order', () => {
+		const verifier = new FakeChordVerifier();
+		verifier.expect(expectation);
+		verifier.expect(null);
+		expect(verifier.expectations).toEqual([expectation, null]);
+	});
+
+	it('emits reports to subscribers until they unsubscribe', () => {
+		const verifier = new FakeChordVerifier();
+		const received: unknown[] = [];
+		const stop = verifier.onReport((r) => received.push(r));
+		verifier.emit(report);
+		stop();
+		verifier.emit(report);
+		expect(received).toEqual([report]);
 	});
 });
 

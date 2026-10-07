@@ -18,3 +18,10 @@ export type {
 	SessionRepositoryPort,
 	SettingsRepositoryPort
 } from './repositories';
+export type {
+	ChordCandidate,
+	ChordExpectation,
+	ChordReport,
+	ChordVariantReport,
+	ChordVerifierPort
+} from './ChordVerifierPort';
