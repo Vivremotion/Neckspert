@@ -25,3 +25,10 @@ export type {
 	ChordVariantReport,
 	ChordVerifierPort
 } from './ChordVerifierPort';
+export type {
+	DiagnosticAudioChunk,
+	DiagnosticInputInfo,
+	DiagnosticSink,
+	DiagnosticTakeOpening,
+	DiagnosticTakes
+} from './DiagnosticSink';

@@ -19,6 +19,10 @@ import type {
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
+	DiagnosticAudioChunk,
+	DiagnosticSink,
+	DiagnosticTakeOpening,
+	DiagnosticTakes,
 	MetronomePort,
 	NoteDetectorPort,
 	NoteOnset,
@@ -198,6 +202,32 @@ export class FakeChordVerifier implements ChordVerifierPort {
 
 	emit(report: ChordReport): void {
 		this.listeners.forEach((listener) => listener(report));
+	}
+}
+
+/** Records everything it is given, enabled or not: a test asserts that a producer stayed quiet. */
+export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
+	readonly events: { kind: string; audioTime: number; data: unknown }[] = [];
+	readonly chunks: DiagnosticAudioChunk[] = [];
+	readonly takes: { opened: DiagnosticTakeOpening; endedAt: number | null }[] = [];
+
+	constructor(public enabled = true) {}
+
+	event(kind: string, audioTime: number, data: unknown): void {
+		this.events.push({ kind, audioTime, data });
+	}
+
+	audio(chunk: DiagnosticAudioChunk): void {
+		this.chunks.push(chunk);
+	}
+
+	async openTake(take: DiagnosticTakeOpening): Promise<void> {
+		this.takes.push({ opened: take, endedAt: null });
+	}
+
+	async closeTake(endedAt: number): Promise<void> {
+		const open = this.takes.at(-1);
+		if (open && open.endedAt === null) open.endedAt = endedAt;
 	}
 }
 

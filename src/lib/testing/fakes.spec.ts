@@ -4,6 +4,7 @@ import type { BeatEvent } from '$lib/application/ports';
 import {
 	FakeChordVerifier,
 	FakeClock,
+	FakeDiagnosticSink,
 	FakeMetronome,
 	FakeNoteDetector,
 	InMemoryAttemptRepository,
@@ -109,6 +110,36 @@ describe('FakeChordVerifier', () => {
 		stop();
 		verifier.emit(report);
 		expect(received).toEqual([report]);
+	});
+});
+
+describe('FakeDiagnosticSink', () => {
+	it('keeps events, audio chunks and takes in order', async () => {
+		const sink = new FakeDiagnosticSink();
+		expect(sink.enabled).toBe(true);
+		const input = { label: 'USB', sampleRate: 48000, channelCount: 1, builtInGain: 1 };
+		await sink.openTake({ startedAt: 1000, startedAudioTime: 2, input });
+		sink.event('input.opened', 2, input);
+		const samples = new Int16Array([1, 2, 3]);
+		sink.audio({ audioTime: 2.5, sampleRate: 16000, samples });
+		sink.event('input.closed', 3, null);
+		await sink.closeTake(2000);
+
+		expect(sink.events).toEqual([
+			{ kind: 'input.opened', audioTime: 2, data: input },
+			{ kind: 'input.closed', audioTime: 3, data: null }
+		]);
+		expect(sink.chunks).toEqual([{ audioTime: 2.5, sampleRate: 16000, samples }]);
+		expect(sink.takes).toEqual([
+			{ opened: { startedAt: 1000, startedAudioTime: 2, input }, endedAt: 2000 }
+		]);
+	});
+
+	it('can start disabled, as a journal turned off', () => {
+		const sink = new FakeDiagnosticSink(false);
+		expect(sink.enabled).toBe(false);
+		sink.enabled = true;
+		expect(sink.enabled).toBe(true);
 	});
 });
 
