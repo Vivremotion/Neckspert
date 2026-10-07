@@ -184,6 +184,24 @@ export function clampBuiltInInputGain(gain: number): number {
 	return rounded;
 }
 
+/** Budgets offered for the diagnostic journal, in MB. */
+export const DIAGNOSTIC_BUDGETS_MB: readonly number[] = [100, 300, 1000];
+
+/** The diagnostic journal: sound and detector details, kept apart from learning data. */
+export interface DiagnosticsSettings {
+	/** Null: the build decides (on in development, off in a published build). */
+	enabled: boolean | null;
+	budgetMb: number;
+}
+
+/** The journal is on when the player turned it on, or by the build's default until they choose. */
+export function resolveDiagnosticsEnabled(
+	settings: DiagnosticsSettings,
+	buildDefault: boolean
+): boolean {
+	return settings.enabled ?? buildDefault;
+}
+
 export interface Settings {
 	locale: Locale;
 	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
@@ -191,13 +209,15 @@ export interface Settings {
 	inputDeviceId: string | null;
 	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
 	builtInInputGain: number;
+	diagnostics: DiagnosticsSettings;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
 	locale: 'fr',
 	calibrationOffsetMs: null,
 	inputDeviceId: null,
-	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN
+	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
+	diagnostics: { enabled: null, budgetMb: 300 }
 };
 
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { cardKey, parseCardKey } from './types';
+import {
+	cardKey,
+	DEFAULT_SETTINGS,
+	DIAGNOSTIC_BUDGETS_MB,
+	parseCardKey,
+	resolveDiagnosticsEnabled
+} from './types';
 
 describe('cardKey', () => {
 	it('prefixes an item key with its mechanic', () => {
@@ -19,5 +25,19 @@ describe('cardKey', () => {
 		expect(() => parseCardKey('locate')).toThrow();
 		expect(() => parseCardKey('locate:')).toThrow();
 		expect(() => parseCardKey(':6:F')).toThrow();
+	});
+});
+
+describe('diagnostics settings', () => {
+	it('leave the journal to the build by default, within 300 MB', () => {
+		expect(DEFAULT_SETTINGS.diagnostics).toEqual({ enabled: null, budgetMb: 300 });
+		expect(DIAGNOSTIC_BUDGETS_MB).toEqual([100, 300, 1000]);
+	});
+
+	it('follow the build default until the player chooses', () => {
+		expect(resolveDiagnosticsEnabled({ enabled: null, budgetMb: 300 }, true)).toBe(true);
+		expect(resolveDiagnosticsEnabled({ enabled: null, budgetMb: 300 }, false)).toBe(false);
+		expect(resolveDiagnosticsEnabled({ enabled: false, budgetMb: 300 }, true)).toBe(false);
+		expect(resolveDiagnosticsEnabled({ enabled: true, budgetMb: 300 }, false)).toBe(true);
 	});
 });

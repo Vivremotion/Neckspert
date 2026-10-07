@@ -194,6 +194,20 @@ describe('DexieBackup', () => {
 		expect({ ...second, exportedAt: first.exportedAt }).toEqual(first);
 	});
 
+	it('round-trips the diagnostics setting', async () => {
+		await new DexieSettingsRepository(db).update({
+			diagnostics: { enabled: true, budgetMb: 1000 }
+		});
+		const file = await new DexieBackup(db, () => 1000).exportAll();
+
+		const fresh = createDatabase(crypto.randomUUID());
+		await new DexieBackup(fresh, () => 0).importAll(JSON.parse(JSON.stringify(file)));
+		expect((await new DexieSettingsRepository(fresh).get()).diagnostics).toEqual({
+			enabled: true,
+			budgetMb: 1000
+		});
+	});
+
 	it('restores progressions and executions after an export and an import', async () => {
 		await seed(db);
 		const file = await new DexieBackup(db, () => 1000).exportAll();

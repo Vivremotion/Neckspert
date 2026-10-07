@@ -34,4 +34,12 @@ describe('DexieSettingsRepository', () => {
 			calibrationOffsetMs: 104
 		});
 	});
+
+	it('reads settings stored before the diagnostics field with the default journal settings', async () => {
+		const db = createDatabase(crypto.randomUUID());
+		await db.settings.put({ id: 'settings', locale: 'en', calibrationOffsetMs: 12 });
+		const settings = await new DexieSettingsRepository(db).get();
+		expect(settings.diagnostics).toEqual({ enabled: null, budgetMb: 300 });
+		expect(settings.locale).toBe('en');
+	});
 });

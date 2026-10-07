@@ -100,6 +100,19 @@ function checkSettings(settings: Fields): string | null {
 	) {
 		return `builtInInputGain must be a number from ${MIN_BUILT_IN_INPUT_GAIN} to ${MAX_BUILT_IN_INPUT_GAIN}`;
 	}
+	return checkDiagnosticsSettings(settings.diagnostics);
+}
+
+/** Optional: files exported before the diagnostic journal have none. */
+function checkDiagnosticsSettings(diagnostics: unknown): string | null {
+	if (diagnostics === undefined) return null;
+	if (!isFields(diagnostics)) return 'diagnostics must be an object';
+	if (diagnostics.enabled !== null && typeof diagnostics.enabled !== 'boolean') {
+		return 'diagnostics.enabled must be true, false or null';
+	}
+	if (!isPositiveNumber(diagnostics.budgetMb)) {
+		return 'diagnostics.budgetMb must be a positive number';
+	}
 	return null;
 }
 

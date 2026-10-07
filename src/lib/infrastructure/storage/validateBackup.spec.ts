@@ -165,6 +165,30 @@ describe('validateBackup', () => {
 		).toThrow('Invalid backup settings: builtInInputGain must be a number from 1 to 16');
 	});
 
+	it('accepts settings with or without the diagnostics field, and rejects a bad one', () => {
+		const file = makeBackup();
+		const { diagnostics: _diagnostics, ...withoutDiagnostics } = file.settings;
+		expect(() => validateBackup({ ...file, settings: withoutDiagnostics })).not.toThrow();
+		const withDiagnostics = (diagnostics: unknown) => ({
+			...file,
+			settings: { ...file.settings, diagnostics }
+		});
+		expect(() => validateBackup(withDiagnostics({ enabled: true, budgetMb: 300 }))).not.toThrow();
+		expect(() => validateBackup(withDiagnostics({ enabled: null, budgetMb: 100 }))).not.toThrow();
+		expect(() => validateBackup(withDiagnostics({ enabled: true, budgetMb: 0 }))).toThrow(
+			'Invalid backup settings: diagnostics.budgetMb must be a positive number'
+		);
+		expect(() => validateBackup(withDiagnostics({ enabled: true, budgetMb: 'x' }))).toThrow(
+			'Invalid backup settings: diagnostics.budgetMb must be a positive number'
+		);
+		expect(() => validateBackup(withDiagnostics({ enabled: 'yes', budgetMb: 300 }))).toThrow(
+			'Invalid backup settings: diagnostics.enabled must be true, false or null'
+		);
+		expect(() => validateBackup(withDiagnostics('on'))).toThrow(
+			'Invalid backup settings: diagnostics must be an object'
+		);
+	});
+
 	it('rejects a table that is not an array', () => {
 		expect(() => validateBackup({ ...makeBackup(), cards: {} })).toThrow(
 			'Backup field "cards" must be an array'
