@@ -163,7 +163,7 @@
 		"previous": [7, 7, 5],
 		"beatSec": 0.4,
 		"expect": "frozen",
-		"frozenDecision": "7,7,5"
+		"frozenDecision": "11,10,10"
 	},
 	{
 		"file": "12-relier_Ab_plaque_di-8-9-8.wav",

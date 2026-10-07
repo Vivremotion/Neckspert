@@ -30,13 +30,15 @@ const PICKS: Pick[] = [
 	{ key: 'relier_Em_plaque_micro', frets: [0, 0, 0], previous: null, expect: 'recognized' },
 	{ key: 'relier_Ab_arpege_micro', frets: [5, 4, 4], previous: null, expect: 'recognized' },
 	// The spike's two octave traps: a shape sharing two notes with the chord still ringing.
-	// D: the ringing 7-7-5 wins, as the spike found. Ab: nothing is retained.
+	// The ringing chord is never a candidate. D: a FALSE ACCEPTANCE today, another inversion
+	// (11-10-10) is retained instead of 2-3-2 — a known risk for the memory mechanics.
+	// Ab: nothing is retained.
 	{
 		key: 'relier_D_plaque_di',
 		frets: [2, 3, 2],
 		previous: [7, 7, 5],
 		expect: 'frozen',
-		frozenDecision: '7,7,5'
+		frozenDecision: '11,10,10'
 	},
 	{
 		key: 'relier_Ab_plaque_di',

@@ -247,8 +247,8 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
-		this.closeSpan();
 		this.expectAll(null, null);
+		this.closeSpan();
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -594,6 +594,9 @@ export class SessionController implements PlaySessionController {
 		const presenter = this.presenterFor(item);
 		this.lastScene = presenter.scene;
 		this.view.scene = presenter.scene;
+		// Withdrawn while the previous span is still open: what the sensors report at once
+		// (a chord window cut short) belongs to the round that is closing.
+		this.expectAll(null, null);
 		this.round = presenter.rules.timing.open({
 			planned: item,
 			promptBeat: beat.index,
@@ -730,11 +733,11 @@ export class SessionController implements PlaySessionController {
 		// Captured now: a series started during the awaits below re-reads the settings.
 		const latencyMs = this.latencyMs;
 		const attempts = [...(recorder?.sessionAttempts ?? [])];
+		this.expectAll(null, null);
 		this.closeSpan();
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubBeat = null;
-		this.expectAll(null, null);
 		this.closeAllSources();
 
 		// Yield before stop when still running so onBeat→finish mid-flush does not

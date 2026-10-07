@@ -66,7 +66,11 @@ function candidatesOf(fixture: Fixture) {
 		(o) => o.notes.map((n) => n.fret).join(',') === fixture.frets.join(',')
 	);
 	if (!occurrence) throw new Error(`${fixture.file}: no occurrence at ${fixture.frets}`);
-	return voicingCandidates(occurrence, inversions).map(toCandidate);
+	// A mechanic never offers the chord still ringing as a candidate (spec, section 1).
+	const previous = fixture.previous?.join(',');
+	return voicingCandidates(occurrence, inversions)
+		.map(toCandidate)
+		.filter((candidate) => candidate.id !== previous);
 }
 
 /** The decision on the longest window of the first attack in the round. */

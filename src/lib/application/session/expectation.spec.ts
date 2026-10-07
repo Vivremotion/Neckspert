@@ -15,7 +15,7 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
-import type { SensorFactory } from './sensors';
+import type { Observation, SensorFactory } from './sensors';
 import type { SessionDeps } from './SessionDeps';
 import { SessionController } from './SessionController.svelte';
 
@@ -67,10 +67,28 @@ function setup(presenter: MechanicPresenter<FakeItem, { value: number }>) {
 	const clock = new FakeClock();
 	const metronome = new FakeMetronome(clock);
 	const expected: unknown[] = [];
-	const fakeSensor: SensorFactory = () => ({
-		onObservation: () => () => {},
-		expect: (expectation) => expected.push(expectation)
-	});
+	let flushes = 0;
+	/** Like the chord verifier: replacing an expectation reports, at once, what was still heard. */
+	const fakeSensor: SensorFactory = () => {
+		let listener: ((observation: Observation) => void) | null = null;
+		let current: unknown = null;
+		return {
+			onObservation: (callback) => {
+				listener = callback;
+				return () => {
+					listener = null;
+				};
+			},
+			expect: (expectation) => {
+				expected.push(expectation);
+				if (current !== null) {
+					flushes++;
+					listener?.({ time: clock.now(), payload: { cut: flushes }, readable: true });
+				}
+				current = expectation;
+			}
+		};
+	};
 	const deps: SessionDeps = {
 		clock,
 		metronome,
@@ -92,7 +110,7 @@ function setup(presenter: MechanicPresenter<FakeItem, { value: number }>) {
 		async () => ({ selector: createListSelector([ITEM, ITEM]), executions: EXECUTIONS }),
 		deps
 	);
-	return { controller, metronome, clock, expected };
+	return { controller, metronome, clock, expected, deps };
 }
 
 async function reachPrompt(ctx: ReturnType<typeof setup>) {
@@ -135,5 +153,23 @@ describe('the expectation of a round', () => {
 		await reachPrompt(ctx);
 		expect(ctx.expected.length).toBeGreaterThan(0);
 		expect(ctx.expected.every((e) => e === null)).toBe(true);
+	});
+
+	it('files what was still heard with the round that is closing', async () => {
+		const ctx = setup(expectingPresenter);
+		await reachPrompt(ctx);
+		// Next prompt: 8 beats after the target, after the breathing bar.
+		ctx.clock.advance(ctx.metronome.beatTime(16) - ctx.clock.now() + 0.2);
+		ctx.metronome.flush();
+		await drain();
+		ctx.controller.quit();
+		await drain();
+		const attempts = await ctx.deps.attempts.all();
+		const cuts = attempts.map((a) =>
+			(a.observations ?? []).flatMap((o) =>
+				(o.payload as { cut?: number })?.cut ? [o.payload] : []
+			)
+		);
+		expect(cuts).toEqual([[{ cut: 1 }], [{ cut: 2 }]]);
 	});
 });
