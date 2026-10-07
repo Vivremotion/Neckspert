@@ -9,7 +9,7 @@ import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
 import type { ExercisePacing } from '$lib/domain/exercise/types';
 import { RECALL_THRESHOLD_MS, type LeadBeats, type Verdict } from '$lib/domain/types';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
-import type { Round, RoundEvent, RoundOutcome, TimingRelation } from './types';
+import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 /** Lead of a prompt planned without one (none today: every mode 1 prompt has a lead). */
 const FALLBACK_LEAD = BEATS_PER_BAR;
@@ -55,6 +55,8 @@ class BeatRound implements Round {
 	private state: State = 'listening';
 	/** Index of the beat on which the window closed unanswered, if it did. */
 	private closingBeat: number | null = null;
+	/** A reading taken as the answer, waiting for a better reading of the same attack. */
+	private pending: RoundObservation | null = null;
 
 	constructor(
 		readonly promptBeatIndex: number,
@@ -72,7 +74,7 @@ class BeatRound implements Round {
 		);
 	}
 
-	observe(observation: { time: number; correct: boolean; answer: unknown }): RoundEvent {
+	observe(observation: RoundObservation): RoundEvent {
 		if (this.state === 'settled') return { kind: 'ignored', reason: 'settled' };
 		const { time } = observation;
 		const inWindow = isInWindow(time, this.window);
@@ -83,44 +85,63 @@ class BeatRound implements Round {
 		if (time > this.captureEnd + EDGE_TOLERANCE_S) {
 			return { kind: 'ignored', reason: 'after-capture' };
 		}
-		const captured = !inWindow && time > this.window.closesAt;
-		const offsetMs = secondsToMs(time - this.targetTime);
-		const verdict: Verdict = !observation.correct
-			? 'wrong'
-			: captured
-				? 'offbeat'
-				: timingVerdict(offsetMs);
+		// First attack is the answer: while one of its readings waits, another attack is not.
+		if (this.pending && this.pending.time !== time) return { kind: 'ignored', reason: 'settled' };
+		if (observation.final === false && !observation.correct) {
+			this.pending = observation;
+			return { kind: 'pending' };
+		}
+		this.pending = null;
 		this.state = 'settled';
-		return {
-			kind: 'settled',
-			outcome: {
-				verdict,
-				correct: observation.correct,
-				answer: observation.answer,
-				timingOffsetMs: offsetMs,
-				reactionMs: secondsToMs(time - this.promptTime),
-				laneBeat: this.targetBeatIndex
-			}
-		};
+		return { kind: 'settled', outcome: this.outcomeOf(observation) };
 	}
 
 	onBeat(beat: { index: number; time: number }): RoundEvent {
 		if (this.state === 'listening' && beat.time >= this.window.closesAt) {
 			this.state = 'capturing';
 			this.closingBeat = beat.index;
+			// A reading still waiting is the answer: no miss to show before it is judged.
+			if (this.pending) return { kind: 'none' };
 			return { kind: 'provisional', outcome: this.unanswered() };
 		}
 		if (this.state === 'capturing' && beat.time >= this.captureEnd) {
-			this.state = 'settled';
-			return { kind: 'settled', outcome: this.unanswered() };
+			return { kind: 'settled', outcome: this.settleAsIs() };
 		}
 		return { kind: 'none' };
 	}
 
 	abandon(): RoundOutcome | null {
-		if (this.state !== 'capturing') return null;
+		if (this.state === 'settled') return null;
+		if (this.state === 'listening' && !this.pending) return null;
+		return this.settleAsIs();
+	}
+
+	/** Settles on the reading still waiting, judged as it is, or as unanswered without one. */
+	private settleAsIs(): RoundOutcome {
+		const pending = this.pending;
+		this.pending = null;
 		this.state = 'settled';
-		return this.unanswered();
+		return pending ? this.outcomeOf(pending) : this.unanswered();
+	}
+
+	private outcomeOf(observation: RoundObservation): RoundOutcome {
+		const { time } = observation;
+		const captured = !isInWindow(time, this.window) && time > this.window.closesAt;
+		const offsetMs = secondsToMs(time - this.targetTime);
+		const verdict: Verdict = !observation.correct
+			? 'wrong'
+			: captured
+				? 'offbeat'
+				: timingVerdict(offsetMs);
+		return {
+			verdict,
+			correct: observation.correct,
+			answer: observation.answer,
+			...(observation.confusion !== undefined && { confusion: observation.confusion }),
+			timingOffsetMs: offsetMs,
+			reactionMs: secondsToMs(time - this.promptTime),
+			laneBeat: this.targetBeatIndex
+		};
 	}
 
 	after(): { advanceAt: number; earliestPrompt: number } | null {

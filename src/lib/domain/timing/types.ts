@@ -7,6 +7,8 @@ export interface RoundOutcome {
 	verdict: Verdict;
 	correct: boolean;
 	answer: unknown | null;
+	/** The judge's confusion for `answer`, carried as is; omitted or null without one. */
+	confusion?: unknown;
 	timingOffsetMs: number | null;
 	reactionMs: number | null;
 	/** Beat the verdict is drawn on in the lane, if any. */
@@ -16,8 +18,20 @@ export interface RoundOutcome {
 export type RoundEvent =
 	| { kind: 'none' }
 	| { kind: 'ignored'; reason: IgnoreReason }
+	/** Taken as (part of) the answer; the verdict waits for a better reading or another part. */
+	| { kind: 'pending' }
 	| { kind: 'provisional'; outcome: RoundOutcome }
 	| { kind: 'settled'; outcome: RoundOutcome };
+
+/** An observation as a round sees it: when, whether it is right, and what the judge said. */
+export interface RoundObservation {
+	time: number;
+	correct: boolean;
+	answer: unknown;
+	confusion?: unknown;
+	sensor?: string;
+	final?: boolean;
+}
 
 /** One prompt, from its appearance to its verdict. Times are audio seconds, latency-corrected. */
 export interface Round {
@@ -25,15 +39,16 @@ export interface Round {
 	readonly targetBeatIndex: number | null;
 	/** Audio seconds. */
 	readonly promptTime: number;
-	/** `sensor`: the sensor that read the observation; relations heard by one sensor ignore it. */
-	observe(observation: {
-		time: number;
-		correct: boolean;
-		answer: unknown;
-		sensor?: string;
-	}): RoundEvent;
+	/**
+	 * `sensor`: the sensor that read the observation; relations heard by one sensor ignore it.
+	 * `final` false: a better reading of the same attack (same `time`) will follow.
+	 */
+	observe(observation: RoundObservation): RoundEvent;
 	onBeat(beat: { index: number; time: number }): RoundEvent;
-	/** Settles an open capture as unanswered; null when listening or already settled. */
+	/**
+	 * Settles an open capture as unanswered, or a reading still waiting as it is; null when
+	 * listening without one or already settled.
+	 */
 	abandon(): RoundOutcome | null;
 	/**
 	 * Null until settled. `advanceAt`: first beat on which the next prompt is chosen;

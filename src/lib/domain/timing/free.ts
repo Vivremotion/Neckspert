@@ -1,6 +1,6 @@
 import { secondsToMs } from '$lib/domain/scoring/timing';
 import { IDENTIFY_RECALL_THRESHOLD_MS, SHORTEST_LEAD } from '$lib/domain/types';
-import type { Round, RoundEvent, RoundOutcome, TimingRelation } from './types';
+import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 class FreeRound implements Round {
 	readonly targetBeatIndex = null;
@@ -15,7 +15,7 @@ class FreeRound implements Round {
 		private readonly secondsPerBeat: number
 	) {}
 
-	observe(observation: { time: number; correct: boolean; answer: unknown }): RoundEvent {
+	observe(observation: RoundObservation): RoundEvent {
 		if (this.outcome) return { kind: 'ignored', reason: 'settled' };
 		const reactionMs = secondsToMs(observation.time - this.promptTime);
 		if (reactionMs < 0) return { kind: 'ignored', reason: 'before-window' };
@@ -28,6 +28,7 @@ class FreeRound implements Round {
 					: 'late',
 			correct: observation.correct,
 			answer: observation.answer,
+			...(observation.confusion !== undefined && { confusion: observation.confusion }),
 			timingOffsetMs: null,
 			reactionMs,
 			laneBeat: null

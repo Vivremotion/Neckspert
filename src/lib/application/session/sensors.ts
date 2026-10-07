@@ -13,6 +13,11 @@ export interface Observation {
 	payload: unknown;
 	/** False when the sensor perceived something but could not read it (its payload says why). */
 	readable: boolean;
+	/**
+	 * False when a better reading of the same attack (same `time`) will follow. Omitted: final,
+	 * as every note and tap is.
+	 */
+	final?: boolean;
 }
 
 export interface ObservationSource {

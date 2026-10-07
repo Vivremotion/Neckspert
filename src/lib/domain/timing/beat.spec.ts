@@ -309,3 +309,95 @@ describe('createBeatTiming', () => {
 		});
 	});
 });
+
+describe('a reading that refines itself', () => {
+	const open = () =>
+		defaultBeatTiming.open({
+			planned: { leadBeats: 4 },
+			promptBeat: 4,
+			now: 0,
+			beatTime,
+			secondsPerBeat: 0.75
+		});
+	const reading = (time: number, correct: boolean, answer: string, final: boolean) => ({
+		time,
+		correct,
+		answer,
+		confusion: correct ? null : { kind: answer },
+		final
+	});
+
+	it('waits on a provisional wrong reading and settles on the final one of the same attack', () => {
+		const r = open();
+		expect(r.observe(reading(6.13, false, 'x', false))).toEqual({ kind: 'pending' });
+		expect(r.after()).toBeNull();
+		expect(r.observe(reading(6.13, true, 'd', true))).toEqual({
+			kind: 'settled',
+			outcome: {
+				verdict: 'perfect',
+				correct: true,
+				answer: 'd',
+				confusion: null,
+				timingOffsetMs: 30,
+				reactionMs: 3030,
+				laneBeat: 8
+			}
+		});
+	});
+
+	it('settles at once on a provisional reading that is right', () => {
+		expect(open().observe(reading(6.13, true, 'd', false))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'perfect', answer: 'd' }
+		});
+	});
+
+	it('keeps waiting past the window and judges the last reading when the capture ends', () => {
+		const r = open();
+		r.observe(reading(6.13, false, 'x', false));
+		r.observe(reading(6.13, false, 'y', false));
+		// The window closes on beat 9: no provisional miss while a reading waits.
+		expect(r.onBeat({ index: 9, time: 6.85 })).toEqual({ kind: 'none' });
+		expect(r.observe(reading(6.13, false, 'z', false))).toEqual({ kind: 'pending' });
+		expect(r.onBeat({ index: 10, time: 7.6 })).toEqual({ kind: 'none' });
+		expect(r.onBeat({ index: 11, time: 8.35 })).toEqual({
+			kind: 'settled',
+			outcome: {
+				verdict: 'wrong',
+				correct: false,
+				answer: 'z',
+				confusion: { kind: 'z' },
+				timingOffsetMs: 30,
+				reactionMs: 3030,
+				laneBeat: 8
+			}
+		});
+		expect(r.after()).toEqual({ advanceAt: 10, earliestPrompt: 12 });
+	});
+
+	it('ignores another attack while a reading waits', () => {
+		const r = open();
+		r.observe(reading(6.13, false, 'x', false));
+		expect(r.observe(reading(6.4, true, 'd', true))).toEqual({
+			kind: 'ignored',
+			reason: 'settled'
+		});
+	});
+
+	it('judges a waiting reading as it is when abandoned', () => {
+		const r = open();
+		r.observe(reading(6.13, false, 'x', false));
+		expect(r.abandon()).toMatchObject({ verdict: 'wrong', answer: 'x', confusion: { kind: 'x' } });
+		expect(r.abandon()).toBeNull();
+	});
+
+	it('keeps a provisional right reading off beat when it came after the window', () => {
+		const r = open();
+		r.onBeat({ index: 9, time: 6.85 });
+		expect(r.observe(reading(7.0, false, 'x', false))).toEqual({ kind: 'pending' });
+		expect(r.observe(reading(7.0, true, 'd', true))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'offbeat', correct: true }
+		});
+	});
+});

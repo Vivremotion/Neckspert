@@ -369,7 +369,7 @@ export class SessionController implements PlaySessionController {
 	/** Settles an open late capture as unanswered and stores it; nothing otherwise. */
 	private abandonRound(): void {
 		const outcome = this.round?.abandon();
-		if (outcome) this.settle(outcome, null);
+		if (outcome) this.settle(outcome);
 	}
 
 	/** Ends the open span; its attempt, if its round produced one, takes the final list. */
@@ -509,7 +509,9 @@ export class SessionController implements PlaySessionController {
 			time: observation.time,
 			correct: judged.correct,
 			answer: judged.answer,
-			sensor
+			confusion: judged.confusion,
+			sensor,
+			final: observation.final
 		});
 		if (event.kind === 'ignored') {
 			span.add(sensor, observation, event.reason, judged.correct);
@@ -524,7 +526,16 @@ export class SessionController implements PlaySessionController {
 			// Kept before the attempt is written: its snapshot includes the answer.
 			span.add(sensor, observation, 'answer', judged.correct);
 			this.logDecision(presenter, planned, sensor, observation, event.outcome);
-			this.settle(event.outcome, { answer: judged.answer, confusion: judged.confusion });
+			this.settle(event.outcome);
+			return;
+		}
+		if (event.kind === 'pending') {
+			// Taken as the answer, or part of it; the verdict waits for a better reading.
+			span.add(sensor, observation, 'answer', judged.correct);
+			logDetection('réponse en attente', [
+				describeObservation(sensor, observation),
+				`juste : ${judged.correct ? 'oui' : 'non'} — le verdict attend une meilleure lecture`
+			]);
 			return;
 		}
 		// `observe` of today's time relations only ignores or settles; anything else would drop
@@ -549,7 +560,7 @@ export class SessionController implements PlaySessionController {
 	/** Beat events only: a round settles with an answer on an observation, never on a beat. */
 	private apply(event: RoundEvent): void {
 		if (event.kind === 'provisional') this.showProvisional(event.outcome);
-		else if (event.kind === 'settled') this.settle(event.outcome, null);
+		else if (event.kind === 'settled') this.settle(event.outcome);
 	}
 
 	/**
@@ -570,10 +581,11 @@ export class SessionController implements PlaySessionController {
 
 	/**
 	 * Final verdict, with its correction, and the attempt stored. After a provisional miss, the
-	 * lane entry and the cue change only if the verdict did. `judged`: the mechanic's judgement
+	 * lane entry and the cue change only if the verdict did. The answer and its confusion are the
+	 * judge's, as the round kept them; none without an answer.
 	 * of the answer, null without one.
 	 */
-	private settle(outcome: RoundOutcome, judged: JudgedAnswer): void {
+	private settle(outcome: RoundOutcome): void {
 		const provisional = this.view.status === 'verdict';
 		const shown = this.view.lastVerdict?.verdict;
 		this.view.lastVerdict = this.verdictView(outcome);
@@ -588,7 +600,12 @@ export class SessionController implements PlaySessionController {
 			this.deps.cues.play(outcome.verdict);
 		}
 		this.setStatus('verdict');
-		this.persistAttempt(outcome, judged);
+		this.persistAttempt(
+			outcome,
+			outcome.answer === null
+				? null
+				: { answer: outcome.answer, confusion: outcome.confusion ?? null }
+		);
 	}
 
 	private addToLane(outcome: RoundOutcome): void {
