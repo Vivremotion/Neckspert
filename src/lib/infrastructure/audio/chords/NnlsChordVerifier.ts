@@ -1,11 +1,16 @@
-import type { ChordExpectation, ChordReport, ChordVerifierPort } from '$lib/application/ports';
+import type {
+	ChordExpectation,
+	ChordReport,
+	ChordVerifierPort,
+	DiagnosticSink
+} from '$lib/application/ports';
 import type { AudioFrame } from '../input/WebAudioInput';
 import { DEFAULT_DETECTOR_CONFIG } from '../detection/config';
 import { OnsetDetector } from '../detection/OnsetDetector';
 import {
-	MIN_HZ,
 	REPORT_POINTS_MS,
 	SPECTRUM_KEEP_MAX_HZ,
+	SPECTRUM_KEEP_MIN_HZ,
 	fftSizeFor,
 	hopSizeFor
 } from './constants';
@@ -20,7 +25,14 @@ export interface FrameSource {
 	onFrame(callback: (frame: AudioFrame) => void): () => void;
 }
 
-/** Significant digits kept for each stored magnitude. */
+/** Spectrum of a window, as written to the diagnostic journal. */
+export interface KeptSpectrum {
+	fromHz: number;
+	binHz: number;
+	magnitudes: number[];
+}
+
+/** Significant digits kept for each journaled magnitude. */
 const KEPT_DIGITS = 4;
 
 /** One attack being listened to: the peak of each bin since it, and the next report due. */
@@ -38,6 +50,7 @@ interface OpenWindow {
 export class NnlsChordVerifier implements ChordVerifierPort {
 	private readonly variants: readonly JudgeVariant[];
 	private readonly active: string;
+	private readonly diagnostics: DiagnosticSink | undefined;
 	private readonly listeners = new Set<(report: ChordReport) => void>();
 	private expectation: ChordExpectation | null = null;
 	private windows: OpenWindow[] = [];
@@ -53,8 +66,14 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 
 	constructor(
 		private readonly input: FrameSource,
-		options: { variants?: readonly JudgeVariant[]; active?: string } = {}
+		options: {
+			variants?: readonly JudgeVariant[];
+			active?: string;
+			/** Gets each expectation and each report whole, with its spectrum, when enabled. */
+			diagnostics?: DiagnosticSink;
+		} = {}
 	) {
+		this.diagnostics = options.diagnostics;
 		this.variants = options.variants ?? [DEFAULT_VARIANT];
 		this.active = options.active ?? this.variants[0].id;
 		if (!this.variants.some((v) => v.id === this.active)) {
@@ -66,6 +85,9 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	expect(expectation: ChordExpectation | null): void {
 		this.flushWindows();
 		this.expectation = expectation;
+		if (this.diagnostics?.enabled) {
+			this.diagnostics.event('chord.expectation', this.lastFrameEnd, expectation);
+		}
 	}
 
 	onReport(callback: (report: ChordReport) => void): () => void {
@@ -121,8 +143,7 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 				w.nextPoint < REPORT_POINTS_MS.length &&
 				this.lastFrameEnd >= w.attack + REPORT_POINTS_MS[w.nextPoint] / 1000
 			) {
-				const last = w.nextPoint === REPORT_POINTS_MS.length - 1;
-				if (w.pooled) this.report(w, REPORT_POINTS_MS[w.nextPoint], last);
+				if (w.pooled) this.report(w, REPORT_POINTS_MS[w.nextPoint]);
 				w.nextPoint++;
 			}
 		}
@@ -133,30 +154,38 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	private flushWindows(): void {
 		for (const w of this.windows) {
 			if (!w.pooled) continue;
-			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
+			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000));
 		}
 		this.windows = [];
 	}
 
-	private report(w: OpenWindow, windowMs: number, keepSpectrum: boolean): void {
+	private report(w: OpenWindow, windowMs: number): void {
 		const expectation = this.expectation;
-		if (!expectation || !w.pooled) return;
+		const pooled = w.pooled;
+		if (!expectation || !pooled) return;
+		const journal = this.diagnostics?.enabled ? this.diagnostics : null;
+		const started = journal ? performance.now() : 0;
 		const variants = this.variants.map((variant) =>
-			judgeWindow(w.pooled as Float64Array, this.rate, expectation.candidates, variant)
+			judgeWindow(pooled, this.rate, expectation.candidates, variant)
 		);
+		const judgeMs = journal ? performance.now() - started : 0;
 		const report: ChordReport = {
 			time: w.attack,
 			windowMs,
 			decided: variants.find((v) => v.id === this.active)?.decided ?? null,
-			variants,
-			...(keepSpectrum ? { spectrum: this.keptSpectrum(w.pooled) } : {})
+			variants
 		};
+		journal?.event('chord.report', report.time, {
+			...report,
+			judgeMs,
+			spectrum: this.keptSpectrum(pooled)
+		});
 		this.listeners.forEach((listener) => listener(report));
 	}
 
-	private keptSpectrum(pooled: Float64Array): NonNullable<ChordReport['spectrum']> {
+	private keptSpectrum(pooled: Float64Array): KeptSpectrum {
 		const width = binHz(this.rate, this.fftSize);
-		const from = Math.ceil(MIN_HZ / width);
+		const from = Math.max(0, Math.floor(SPECTRUM_KEEP_MIN_HZ / width));
 		const to = Math.min(pooled.length, Math.floor(SPECTRUM_KEEP_MAX_HZ / width) + 1);
 		const magnitudes = Array.from(pooled.subarray(from, to), (v) =>
 			Number(v.toPrecision(KEPT_DIGITS))

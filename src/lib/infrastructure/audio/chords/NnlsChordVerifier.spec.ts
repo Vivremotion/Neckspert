@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
+import { FakeDiagnosticSink } from '$lib/testing/fakes';
+import { SPECTRUM_KEEP_MAX_HZ, SPECTRUM_KEEP_MIN_HZ } from './constants';
 import { NnlsChordVerifier } from './NnlsChordVerifier';
 import { DEFAULT_VARIANT } from './variants';
 import { FakeFrameSource } from './testing/frames';
@@ -21,7 +23,7 @@ function setup(sampleRate = 48000, midis: number[] = D_232, options = {}) {
 }
 
 describe('NnlsChordVerifier', () => {
-	it('reports a strummed chord at each window, the longest with its spectrum', () => {
+	it('reports a strummed chord at each window, without its spectrum', () => {
 		const { source, verifier, reports } = setup();
 		verifier.expect(expectation(0.9));
 		source.playUntil();
@@ -30,10 +32,7 @@ describe('NnlsChordVerifier', () => {
 			expect(Math.abs(report.time - 1.0)).toBeLessThan(0.015);
 			expect(report.decided).toBe('2,3,2');
 		}
-		expect(reports.slice(0, 3).every((r) => r.spectrum === undefined)).toBe(true);
-		const spectrum = reports[3].spectrum;
-		expect(spectrum?.magnitudes.length).toBeGreaterThan(900);
-		expect(spectrum?.fromHz).toBeGreaterThanOrEqual(70);
+		expect(reports.every((r) => !('spectrum' in r))).toBe(true);
 	});
 
 	it('reports nothing without an attack', () => {
@@ -59,7 +58,6 @@ describe('NnlsChordVerifier', () => {
 		const last = reports[cut - 1];
 		expect(last.windowMs).toBeGreaterThan(280);
 		expect(last.windowMs).toBeLessThan(320);
-		expect(last.spectrum).toBeDefined();
 		expect(reports).toHaveLength(cut);
 	});
 
@@ -99,5 +97,56 @@ describe('NnlsChordVerifier', () => {
 		expect(last?.variants.map((v) => v.id)).toEqual(['default', 'strict']);
 		expect(last?.variants[0].decided).toBe('2,3,2');
 		expect(last?.decided).toBeNull();
+	});
+
+	describe('with a diagnostic journal', () => {
+		it('writes nothing to a journal that is off', () => {
+			const diagnostics = new FakeDiagnosticSink(false);
+			const { source, verifier, reports } = setup(48000, D_232, { diagnostics });
+			verifier.expect(expectation(0.9));
+			source.playUntil();
+			verifier.expect(null);
+			expect(reports).toHaveLength(4);
+			expect(diagnostics.events).toEqual([]);
+		});
+
+		it('writes each expectation, null included, at the audio time of the last frame', () => {
+			const diagnostics = new FakeDiagnosticSink();
+			const { source, verifier } = setup(48000, D_232, { diagnostics });
+			source.playUntil(0.5);
+			verifier.expect(expectation(0.9));
+			source.playUntil(0.6);
+			verifier.expect(null);
+			const expectations = diagnostics.events.filter((e) => e.kind === 'chord.expectation');
+			expect(expectations.map((e) => e.data)).toEqual([expectation(0.9), null]);
+			expect(Math.abs(expectations[0].audioTime - 0.5)).toBeLessThan(512 / 48000);
+			expect(Math.abs(expectations[1].audioTime - 0.6)).toBeLessThan(512 / 48000);
+		});
+
+		it('writes every report whole, with the spectrum from 20 Hz to 6.3 kHz and the judging time', () => {
+			const diagnostics = new FakeDiagnosticSink();
+			const { source, verifier, reports } = setup(48000, D_232, { diagnostics });
+			verifier.expect(expectation(0.9));
+			source.playUntil();
+			const written = diagnostics.events.filter((e) => e.kind === 'chord.report');
+			expect(written).toHaveLength(reports.length);
+			written.forEach((event, i) => {
+				const data = event.data as ChordReport & {
+					judgeMs: number;
+					spectrum: { fromHz: number; binHz: number; magnitudes: number[] };
+				};
+				expect(event.audioTime).toBe(reports[i].time);
+				expect(data).toMatchObject(reports[i]);
+				expect(data.judgeMs).toBeGreaterThanOrEqual(0);
+				const { fromHz, binHz, magnitudes } = data.spectrum;
+				expect(fromHz).toBeLessThanOrEqual(SPECTRUM_KEEP_MIN_HZ + binHz);
+				expect(fromHz + (magnitudes.length - 1) * binHz).toBeGreaterThanOrEqual(
+					SPECTRUM_KEEP_MAX_HZ - binHz
+				);
+				expect(magnitudes.some((m) => m > 0)).toBe(true);
+			});
+			expect(SPECTRUM_KEEP_MIN_HZ).toBe(20);
+			expect(SPECTRUM_KEEP_MAX_HZ).toBe(6300);
+		});
 	});
 });

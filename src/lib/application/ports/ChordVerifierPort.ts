@@ -36,8 +36,6 @@ export interface ChordReport {
 	/** The active variant's decision. */
 	decided: string | null;
 	variants: readonly ChordVariantReport[];
-	/** Kept on the longest window's report only, to replay other variants later. */
-	spectrum?: { fromHz: number; binHz: number; magnitudes: readonly number[] };
 }
 
 /**

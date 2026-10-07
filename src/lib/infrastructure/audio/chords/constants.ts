@@ -21,8 +21,12 @@ export const NOTE_HI = 84;
 export const MIN_HZ = 70;
 export const COMB_MAX_HZ = 5000;
 
-/** Spectrum range kept with the longest report, to replay variants later. */
-export const SPECTRUM_KEEP_MAX_HZ = 6000;
+/**
+ * Spectrum range sent to the diagnostic journal with each report: wide enough for the whitening
+ * bands, so variants can be replayed exactly later.
+ */
+export const SPECTRUM_KEEP_MIN_HZ = 20;
+export const SPECTRUM_KEEP_MAX_HZ = 6300;
 
 export const COMB_HARMONICS = 10;
 /** Gaussian width of each partial, in bins. */

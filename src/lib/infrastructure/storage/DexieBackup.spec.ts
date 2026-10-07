@@ -263,16 +263,14 @@ describe('DexieBackup', () => {
 		expect(first.sessions.map((s) => s.latencyMs)).toEqual([null, 12]);
 	});
 
-	it('round-trips a chord observation with its spectrum', async () => {
+	it('round-trips a chord observation, scores and decisions of every variant', async () => {
 		const payload = {
 			windowMs: 2000,
 			decided: '2,3,2',
-			variants: [{ id: 'default', decided: '2,3,2', scores: { '2,3,2': 0.61, '7,7,5': 0.2 } }],
-			spectrum: {
-				fromHz: 70.3125,
-				binHz: 5.859375,
-				magnitudes: Array.from({ length: 100 }, (_, i) => i / 7)
-			}
+			variants: [
+				{ id: 'default', decided: '2,3,2', scores: { '2,3,2': 0.61, '7,7,5': 0.2 } },
+				{ id: 'strict', decided: null, scores: { '2,3,2': 0.41, '7,7,5': 0.2 } }
+			]
 		};
 		const attempts = new DexieAttemptRepository(db);
 		await attempts.add(
