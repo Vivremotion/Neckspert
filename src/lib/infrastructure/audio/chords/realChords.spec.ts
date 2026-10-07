@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { ChordReport } from '$lib/application/ports';
 import {
@@ -14,6 +12,7 @@ import { NnlsChordVerifier } from './NnlsChordVerifier';
 import { FakeFrameSource } from './testing/frames';
 import { toCandidate } from './testing/synthChord';
 import { readWav } from './testing/wav';
+import index from './fixtures/index.json';
 
 interface Fixture {
 	file: string;
@@ -31,8 +30,20 @@ interface Fixture {
 	frozenDecision?: string | null;
 }
 
-const DIR = join(import.meta.dirname, 'fixtures');
-const FIXTURES: Fixture[] = JSON.parse(readFileSync(join(DIR, 'index.json'), 'utf8'));
+const FIXTURES = index as Fixture[];
+/** Each WAV as a base64 data URL, through Vite: no file system access in the spec. */
+const WAVS = import.meta.glob<string>('./fixtures/*.wav', {
+	query: '?inline',
+	import: 'default',
+	eager: true
+});
+
+function wavBytes(file: string): Uint8Array {
+	const url = WAVS[`./fixtures/${file}`];
+	if (!url) throw new Error(`Missing fixture ${file}`);
+	const binary = atob(url.slice(url.indexOf(',') + 1));
+	return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
 
 /** The round opens a little before the beat: early strums still count. */
 const OPENS_BEFORE_BEAT_S = 0.2;
@@ -60,7 +71,7 @@ function candidatesOf(fixture: Fixture) {
 
 /** The decision on the longest window of the first attack in the round. */
 function decisionOf(fixture: Fixture): string | null {
-	const { sampleRate, samples } = readWav(readFileSync(join(DIR, fixture.file)));
+	const { sampleRate, samples } = readWav(wavBytes(fixture.file));
 	const heard = samples.map((v) => Math.max(-1, Math.min(1, v * fixture.builtInGain)));
 	const source = new FakeFrameSource(sampleRate, heard);
 	const verifier = new NnlsChordVerifier(source);
