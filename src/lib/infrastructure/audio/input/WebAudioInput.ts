@@ -155,7 +155,10 @@ export class WebAudioInput {
 		};
 		// The permission prompt can suspend the context after the first resume.
 		await this.resumeAudio?.();
-		await this.openTake(ctx, node, label, channelCount);
+		// Not awaited: the journal (settings read, pruning of the last take) never delays the input.
+		this.openTake(ctx, node, label, channelCount).catch((error: unknown) =>
+			console.warn('Diagnostic take did not open', error)
+		);
 	}
 
 	private async openTake(

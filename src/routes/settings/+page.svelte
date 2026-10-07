@@ -28,6 +28,8 @@
 	let notice = $state<string | null>(null);
 	let diagnostics = $state<DiagnosticsSettings>({ ...DEFAULT_SETTINGS.diagnostics });
 	let diagnosticsUsedBytes = $state(0);
+	let diagnosticsExporting = $state(false);
+	let diagnosticsError = $state<string | null>(null);
 	const diagnosticsEnabled = $derived(resolveDiagnosticsEnabled(diagnostics, import.meta.env.DEV));
 	/** Bumped by user edits so a late initial load cannot overwrite them. */
 	let loadSeq = 0;
@@ -142,7 +144,16 @@
 	}
 
 	async function ondiagnosticsexport() {
-		downloadDiagnosticArchive(await services.diagnostics.exportArchive());
+		if (diagnosticsExporting) return;
+		diagnosticsExporting = true;
+		diagnosticsError = null;
+		try {
+			downloadDiagnosticArchive(await services.diagnostics.exportArchive());
+		} catch (error) {
+			diagnosticsError = error instanceof Error ? error.message : String(error);
+		} finally {
+			diagnosticsExporting = false;
+		}
 	}
 
 	async function ondiagnosticsclear() {
@@ -180,4 +191,6 @@
 	{ondiagnosticsbudget}
 	{ondiagnosticsexport}
 	{ondiagnosticsclear}
+	{diagnosticsExporting}
+	{diagnosticsError}
 />

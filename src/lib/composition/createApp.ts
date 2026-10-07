@@ -77,10 +77,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		calibration,
 		diagnostics: {
 			usage: () => journal.usage(),
-			exportArchive: async () => {
-				const archive = await buildDiagnosticArchive(journal, await backup.exportAll());
-				return new Blob([archive as BlobPart], { type: 'application/zip' });
-			},
+			exportArchive: async () => buildDiagnosticArchive(journal, await backup.exportAll()),
 			clear: () => journal.clear()
 		},
 		now: () => Date.now(),

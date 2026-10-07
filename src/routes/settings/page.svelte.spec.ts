@@ -135,6 +135,36 @@ describe('/settings page', () => {
 			await waitFor(() => expect(downloadDiagnosticArchive).toHaveBeenCalledTimes(1));
 		});
 
+		it('shows why an export failed', async () => {
+			const services = setup();
+			services.diagnostics.exportArchive = async () => {
+				throw new Error('Quota exceeded');
+			};
+			await waitFor(() => expect(screen.getByText('3 Mo sur 300')).toBeTruthy());
+			await fireEvent.click(screen.getByRole('button', { name: 'Exporter le diagnostic' }));
+			await waitFor(() => expect(screen.getByRole('alert').textContent).toMatch(/Quota exceeded/));
+			expect(downloadDiagnosticArchive).not.toHaveBeenCalled();
+		});
+
+		it('builds one archive at a time', async () => {
+			const services = setup();
+			let finish: (blob: Blob) => void = () => {};
+			let calls = 0;
+			services.diagnostics.exportArchive = () => {
+				calls++;
+				return new Promise<Blob>((resolve) => (finish = resolve));
+			};
+			await waitFor(() => expect(screen.getByText('3 Mo sur 300')).toBeTruthy());
+			const button = screen.getByRole('button', { name: 'Exporter le diagnostic' });
+			await fireEvent.click(button);
+			await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(true));
+			await fireEvent.click(button);
+			expect(calls).toBe(1);
+			finish(new Blob([]));
+			await waitFor(() => expect(downloadDiagnosticArchive).toHaveBeenCalledTimes(1));
+			await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+		});
+
 		it('clears the journal and shows the space freed', async () => {
 			const services = setup();
 			await waitFor(() => expect(screen.getByText('3 Mo sur 300')).toBeTruthy());

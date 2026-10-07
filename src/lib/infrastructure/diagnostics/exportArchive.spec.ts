@@ -38,6 +38,7 @@ function filled(audioTime: number, seconds: number, value: number): DiagnosticAu
 }
 
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
+const entriesOf = async (archive: Blob) => readZip(new Uint8Array(await archive.arrayBuffer()));
 
 describe('buildDiagnosticArchive', () => {
 	it('lays out the learning backup and each take, its sound with the gap filled with silence', async () => {
@@ -50,7 +51,8 @@ describe('buildDiagnosticArchive', () => {
 			journal([take()], { t1: events }, { t1: [filled(100, 1, 16384), filled(102, 0.5, -8192)] }),
 			learning
 		);
-		const entries = readZip(archive);
+		expect(archive.type).toBe('application/zip');
+		const entries = await entriesOf(archive);
 		expect(entries.map((e) => e.path)).toEqual([
 			'apprentissage.json',
 			`${FOLDER}/prise.json`,
@@ -83,7 +85,7 @@ describe('buildDiagnosticArchive', () => {
 			journal([take({ truncated: true })], { t1: [{ audioTime: 1, kind: 'k', data: null }] }, {}),
 			{}
 		);
-		const entries = readZip(archive);
+		const entries = await entriesOf(archive);
 		expect(entries.map((e) => e.path)).toEqual([
 			'apprentissage.json',
 			`${FOLDER}/prise.json`,
@@ -97,7 +99,7 @@ describe('buildDiagnosticArchive', () => {
 	it('keeps takes apart, oldest first, and writes an empty event file for a silent take', async () => {
 		const second = take({ id: 't2', startedAt: STARTED_AT + 60_000 });
 		const archive = await buildDiagnosticArchive(journal([take(), second], {}, {}), {});
-		const paths = readZip(archive).map((e) => e.path);
+		const paths = (await entriesOf(archive)).map((e) => e.path);
 		expect(paths).toEqual([
 			'apprentissage.json',
 			`${FOLDER}/prise.json`,

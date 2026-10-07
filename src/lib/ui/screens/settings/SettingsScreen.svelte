@@ -36,7 +36,9 @@
 		ondiagnostics,
 		ondiagnosticsbudget,
 		ondiagnosticsexport,
-		ondiagnosticsclear
+		ondiagnosticsclear,
+		diagnosticsExporting = false,
+		diagnosticsError = null
 	}: {
 		locale: Locale;
 		inputs: AudioInputDevice[];
@@ -62,6 +64,9 @@
 		ondiagnosticsbudget: (budgetMb: number) => void;
 		ondiagnosticsexport: () => void;
 		ondiagnosticsclear: () => void;
+		/** True while an archive is being built: the export button waits. */
+		diagnosticsExporting?: boolean;
+		diagnosticsError?: string | null;
 	} = $props();
 
 	const BYTES_PER_MB = 1024 * 1024;
@@ -199,9 +204,14 @@
 			{/each}
 		</div>
 		<div class="row actions">
-			<PixelButton size="large" onclick={ondiagnosticsexport}>{m.diagnosticsExport}</PixelButton>
+			<PixelButton size="large" disabled={diagnosticsExporting} onclick={ondiagnosticsexport}
+				>{m.diagnosticsExport}</PixelButton
+			>
 			<PixelButton size="large" onclick={ondiagnosticsclear}>{m.diagnosticsClear}</PixelButton>
 		</div>
+		{#if diagnosticsError}
+			<p class="error" role="alert"><PixelText scale={1}>{diagnosticsError}</PixelText></p>
+		{/if}
 	</PixelBox>
 
 	{#if confirmingImport}

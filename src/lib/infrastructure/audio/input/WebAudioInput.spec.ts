@@ -175,6 +175,27 @@ describe('WebAudioInput', () => {
 			expect(diagnostics.takes).toEqual([]);
 		});
 
+		it('opens the input without waiting for the journal', async () => {
+			const { node, diagnostics, input } = journaled('USB Audio CODEC');
+			let settle: () => void = () => {};
+			const opening = diagnostics.openTake.bind(diagnostics);
+			diagnostics.openTake = (take) =>
+				new Promise<void>((resolve) => (settle = () => void opening(take).then(resolve)));
+			const frames: AudioFrame[] = [];
+			input.onFrame((frame) => frames.push(frame));
+
+			await input.start(null);
+			send(node, new Array(512).fill(0.1), 12.5);
+			expect(frames).toHaveLength(1);
+			expect(diagnostics.events).toEqual([]);
+
+			settle();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(diagnostics.events.map((e) => e.kind)).toEqual(['input.opened']);
+			input.stop();
+			expect(diagnostics.takes[0].endedAt).not.toBeNull();
+		});
+
 		it('records no sound when the journal is off', async () => {
 			const { node, diagnostics, input } = journaled('USB Audio CODEC');
 			diagnostics.enabled = false;
