@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PlayView } from '$lib/application/session/contract';
 import PlayScreen from './PlayScreen.svelte';
+import PixelWord from './PixelWord.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
 
 afterEach(() => cleanup());
@@ -88,6 +89,7 @@ describe('PlayScreen', () => {
 		primary: string;
 		secondary: string;
 		aid: string | null;
+		detail?: string;
 		diagram?: { string: 1 | 2 | 3 | 4 | 5 | 6; label: string } | null;
 	}) {
 		const view: PlayView = {
@@ -139,6 +141,25 @@ describe('PlayScreen', () => {
 		});
 		const { container } = render(PlayScreen, { props: { controller } });
 		expect(container.querySelector('.aid')?.textContent).toBe('F');
+	});
+
+	it('shows a triad prompt: its chord drawn whole, its strings in small', () => {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'Em',
+			secondary: 'fondamentale sur mi',
+			detail: 'sol‑si‑mi',
+			aid: null
+		});
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.string')?.textContent).toBe('fondamentale sur mi');
+		expect(container.querySelector('.detail')?.textContent).toBe('sol‑si‑mi');
+		const drawn = (text: string) => {
+			const { container: word } = render(PixelWord, { props: { text } });
+			return word.querySelectorAll('rect.ink').length;
+		};
+		// The m of a minor chord has its own glyph, not a blank.
+		expect(drawn('Em')).toBeGreaterThan(drawn('E'));
 	});
 
 	it('counts down in place of the prompt during a counted bar', () => {

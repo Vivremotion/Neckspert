@@ -125,6 +125,9 @@
 						<PixelWord text={view.prompt.primary} />
 					{/if}
 					<p class="string">{view.prompt.secondary}</p>
+					{#if view.prompt.detail}
+						<p class="detail">{view.prompt.detail}</p>
+					{/if}
 					<StringDiagram diagram={view.prompt.diagram} />
 					{#if view.prompt.aid}
 						<p class="aid">{view.prompt.aid}</p>
@@ -335,6 +338,15 @@
 	/* Mode 1: the note is the only big letter; the string reads smaller so its name is not played. */
 	.prompt:not(.answering) .string {
 		font-size: var(--np-type-body);
+	}
+
+	/* A triad's strings, under its root string or position: read last, in the dimmer tone. */
+	.detail {
+		margin: 0;
+		color: var(--np-shade);
+		font-size: var(--np-type-meta);
+		line-height: 1;
+		text-align: center;
 	}
 
 	/* The stage changes between lane (guitar) and answer pad (screen): the new one rises in. */

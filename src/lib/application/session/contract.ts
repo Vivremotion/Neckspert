@@ -10,8 +10,10 @@ export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused'
 export interface PromptView {
 	/** Mode 1: the note ("F", "Gb"). Mode 2: the fret ("case 8"). */
 	primary: string;
-	/** The string ("corde de B"). */
+	/** The string ("corde de B"); for a triad, the string of its root or its position. */
 	secondary: string;
+	/** Small, under the prompt: the strings of a triad ("sol‑si‑mi"). */
+	detail?: string;
 	/** Mode 1 learning aid ("case 6"), or null. */
 	aid: string | null;
 	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
