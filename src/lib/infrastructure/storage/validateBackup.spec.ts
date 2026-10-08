@@ -549,3 +549,76 @@ describe('validateBackupV3', () => {
 		).toThrow('Invalid attempts entry at index 0: phase must be');
 	});
 });
+
+describe('with triad cards and attempts', () => {
+	const KEY = 'D|maj|3:5,2:1,1:3';
+	const anchorCard = makeCard({
+		key: `triad-anchor:${KEY}`,
+		mechanic: 'triad-anchor',
+		item: { voicingKey: KEY }
+	});
+	const zoneCard = makeCard({
+		key: `triad-zone:${KEY}`,
+		mechanic: 'triad-zone',
+		item: { voicingKey: KEY }
+	});
+
+	it('accepts an anchor attempt with the confusion of its root or of its chord', () => {
+		const attempt = (id: number, confusion: unknown) =>
+			makeAttempt({
+				id,
+				exerciseId: 'triads-anchor',
+				mechanic: 'triad-anchor',
+				cardKey: `triad-anchor:${KEY}`,
+				data: { item: { voicingKey: KEY }, answer: null, confusion }
+			});
+		const file = makeBackup({
+			cards: [anchorCard],
+			attempts: [
+				attempt(1, { kind: 'semitone', delta: 1, part: 'root' }),
+				attempt(2, { kind: 'no-chord', part: 'chord' }),
+				attempt(3, { kind: 'other-inversion', part: 'chord' }),
+				attempt(4, { kind: 'none', part: 'chord' })
+			]
+		});
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
+	it('accepts a zone attempt whose item holds the position asked, its card the voicing only', () => {
+		const file = makeBackup({
+			cards: [zoneCard],
+			attempts: [
+				makeAttempt({
+					id: 1,
+					exerciseId: 'triads-zone',
+					mechanic: 'triad-zone',
+					cardKey: `triad-zone:${KEY}`,
+					data: {
+						item: { voicingKey: KEY, position: 2 },
+						answer: { decided: null },
+						confusion: { kind: 'other-octave', part: 'chord' }
+					}
+				})
+			]
+		});
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
+	it('still refuses a zone attempt whose item names another voicing than its card', () => {
+		const file = makeBackup({
+			attempts: [
+				makeAttempt({
+					id: 1,
+					mechanic: 'triad-zone',
+					cardKey: `triad-zone:${KEY}`,
+					data: {
+						item: { voicingKey: 'C|maj|3:5,2:1,1:3', position: 2 },
+						answer: null,
+						confusion: null
+					}
+				})
+			]
+		});
+		expect(() => validateBackupV3(file)).toThrow(/data.item does not match cardKey/);
+	});
+});

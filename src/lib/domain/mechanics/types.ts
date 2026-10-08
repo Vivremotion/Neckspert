@@ -14,6 +14,11 @@ export interface MechanicRules<I = unknown, O = unknown, A = unknown, C = unknow
 	/** Throws on an invalid key (backup validation). */
 	parseItem(itemKey: string): I;
 	/**
+	 * The part of a prompted item its card keeps, when a prompt adds to it (a position drawn for
+	 * this prompt only); the item itself without it. `parseItem` returns this part.
+	 */
+	cardItem?(item: I): unknown;
+	/**
 	 * Rightness only; placing the answer in time belongs to the time relation. `sensor`: the
 	 * sensor that read the observation, for a mechanic heard by several (the session always
 	 * passes it; a mechanic heard by one sensor ignores it).

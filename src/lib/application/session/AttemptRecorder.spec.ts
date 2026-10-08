@@ -362,3 +362,27 @@ describe('AttemptRecorder', () => {
 		});
 	});
 });
+
+describe('AttemptRecorder with a prompt that adds to its card', () => {
+	it('keeps on a new card only the part of the item its mechanic keeps', async () => {
+		const { recorder, cards } = setup();
+		const key = 'D|maj|3:5,2:1,1:3';
+		const { stored } = recorder.record(
+			item({
+				exerciseId: 'triads-zone',
+				mechanic: 'triad-zone',
+				item: { voicingKey: key, position: 2 },
+				phase: 'learning',
+				temperature: 'hot',
+				leadBeats: 8
+			}),
+			outcome({ answer: { decided: null } }),
+			1,
+			null,
+			{ exerciseId: 'triads-zone', tempoBpm: 80 },
+			[]
+		);
+		await stored;
+		expect((await cards.get(`triad-zone:${key}`))?.item).toEqual({ voicingKey: key });
+	});
+});

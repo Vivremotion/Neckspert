@@ -46,7 +46,16 @@ function adjustLeadBeats(
 	return steps[nextIndex];
 }
 
-class BeatRound implements Round {
+/** Beats that bound a round on the beat, set by its time relation. */
+export interface BeatRoundBounds {
+	/** The late capture never runs past this beat (the next prompt's string preview). */
+	captureLimitBeat: number;
+	/** First beat the next prompt may show on. */
+	earliestPromptBeat: number;
+}
+
+/** One prompt on the beat: the first answer in the window, or off beat in the late capture. */
+export class BeatRound implements Round {
 	readonly targetBeatIndex: number;
 	readonly promptTime: number;
 	private readonly targetTime: number;
@@ -62,16 +71,13 @@ class BeatRound implements Round {
 		readonly promptBeatIndex: number,
 		leadBeats: number,
 		beatTime: (index: number) => number,
-		private readonly respirationBars: number
+		private readonly bounds: BeatRoundBounds
 	) {
 		this.targetBeatIndex = promptBeatIndex + leadBeats;
 		this.promptTime = beatTime(promptBeatIndex);
 		this.targetTime = beatTime(this.targetBeatIndex);
 		this.window = answerWindow(this.promptTime, this.targetTime);
-		this.captureEnd = lateCaptureEnd(
-			this.targetTime,
-			beatTime(respirationStart(this.targetBeatIndex, respirationBars) - STRING_PREVIEW_BEATS)
-		);
+		this.captureEnd = lateCaptureEnd(this.targetTime, beatTime(bounds.captureLimitBeat));
 	}
 
 	observe(observation: RoundObservation): RoundEvent {
@@ -148,7 +154,7 @@ class BeatRound implements Round {
 		if (this.state !== 'settled') return null;
 		return {
 			advanceAt: (this.closingBeat ?? this.targetBeatIndex) + 1,
-			earliestPrompt: respirationStart(this.targetBeatIndex, this.respirationBars)
+			earliestPrompt: this.bounds.earliestPromptBeat
 		};
 	}
 
@@ -174,13 +180,14 @@ export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
 		initialLead: steps[0],
 		promptBeat: (earliest, planned) =>
 			alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
-		open: ({ planned, promptBeat, beatTime }) =>
-			new BeatRound(
-				promptBeat,
-				planned.leadBeats ?? FALLBACK_LEAD,
-				beatTime,
-				pacing.respirationBars
-			),
+		open: ({ planned, promptBeat, beatTime }) => {
+			const lead = planned.leadBeats ?? FALLBACK_LEAD;
+			const nextPrompt = respirationStart(promptBeat + lead, pacing.respirationBars);
+			return new BeatRound(promptBeat, lead, beatTime, {
+				captureLimitBeat: nextPrompt - STRING_PREVIEW_BEATS,
+				earliestPromptBeat: nextPrompt
+			});
+		},
 		isDirectRecall: (attempt) => {
 			// Found after the window means found by calculation: never direct recall.
 			if (!attempt.correct || attempt.verdict === 'offbeat') return false;

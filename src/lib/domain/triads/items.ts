@@ -7,8 +7,12 @@ import {
 	spelledFromPitch,
 	spellInterval,
 	type PitchName,
+	parseVoicingKey,
+	voicingKey,
+	voicingOccurrences,
 	type StringSet,
-	type Voicing
+	type Voicing,
+	type VoicingOccurrence
 } from '$lib/domain/music';
 
 /** What a triads exercise is made of, and its rhythm. */
@@ -53,4 +57,30 @@ export function voicingPositions(voicing: Voicing): string[] {
 	return voicing.strings.map(({ string, degree }) =>
 		positionKey(string, pitchOfSpelled(spellInterval(voicing.chord.root, degree)))
 	);
+}
+
+/** Joins the voicing key and the frets of a shape: `D|maj|3:5,2:1,1:3@2-3-2`. */
+const OCCURRENCE_SEPARATOR = '@';
+
+/** The id of a shape among chord candidates: its voicing and its frets. */
+export function occurrenceId(occurrence: VoicingOccurrence): string {
+	const frets = occurrence.notes.map((note) => note.fret).join('-');
+	return `${voicingKey(occurrence.voicing)}${OCCURRENCE_SEPARATOR}${frets}`;
+}
+
+/** The voicing and the shape an id names; null for an id that names none. */
+export function occurrenceOfId(id: string): VoicingOccurrence | null {
+	const at = id.lastIndexOf(OCCURRENCE_SEPARATOR);
+	if (at < 0) return null;
+	try {
+		const voicing = parseVoicingKey(id.slice(0, at));
+		const frets = id.slice(at + 1);
+		return (
+			voicingOccurrences(voicing).find(
+				(o) => o.notes.map((note) => note.fret).join('-') === frets
+			) ?? null
+		);
+	} catch {
+		return null;
+	}
 }

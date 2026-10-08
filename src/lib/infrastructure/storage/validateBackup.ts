@@ -26,7 +26,18 @@ const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
-const CONFUSION_KINDS: readonly string[] = ['semitone', 'octave', 'string-name', 'other'];
+/** Notes (locate, identify, a triad's root) and chords (a triad's chord). */
+const CONFUSION_KINDS: readonly string[] = [
+	'semitone',
+	'octave',
+	'string-name',
+	'other',
+	'other-octave',
+	'other-inversion',
+	'other-quality',
+	'none',
+	'no-chord'
+];
 const OBSERVATION_FATES: readonly string[] = [
 	'answer',
 	'settled',
@@ -265,7 +276,8 @@ function checkItem(
 	key: unknown,
 	item: unknown,
 	keyField: string,
-	itemField: string
+	itemField: string,
+	prompted = false
 ): string | null {
 	const rules = rulesOf(mechanic);
 	if (!rules) return MECHANIC_PROBLEM;
@@ -280,7 +292,9 @@ function checkItem(
 	}
 	if (cardKey(rules.id, rules.itemKey(parsed)) !== key)
 		return `${keyField} is not a valid card key`;
-	if (!sameValue(item, parsed)) return `${itemField} does not match ${keyField}`;
+	// A prompted item may add to its card's (a position drawn for one prompt).
+	const kept = prompted && rules.cardItem ? rules.cardItem(item) : item;
+	if (!sameValue(kept, parsed)) return `${itemField} does not match ${keyField}`;
 	return null;
 }
 
@@ -303,7 +317,7 @@ function checkAttempt(attempt: Fields): string | null {
 		return 'tempoBpm must be a positive number or null';
 	}
 	return (
-		checkItem(attempt.mechanic, attempt.cardKey, data.item, 'cardKey', 'data.item') ??
+		checkItem(attempt.mechanic, attempt.cardKey, data.item, 'cardKey', 'data.item', true) ??
 		checkAttemptFields(attempt) ??
 		checkConfusion(data.confusion, 'data.confusion')
 	);

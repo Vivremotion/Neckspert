@@ -204,7 +204,9 @@ export class AttemptRecorder {
 		} else if (item.phase === 'learning') {
 			if (outcome) await this.storeCard(outcome.card);
 			else if (!existing) {
-				const card = { key, mechanic: item.mechanic, item: item.item };
+				// A prompt may add to its card's item (a position drawn for it): the card keeps its own.
+				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
+				const card = { key, mechanic: item.mechanic, item: kept };
 				await this.storeCard(introduceCard(card, now, this.deps.sessionId, timing));
 			}
 		}
