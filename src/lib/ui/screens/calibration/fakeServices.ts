@@ -103,6 +103,8 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 
 	return {
 		homeStats: async () => EMPTY_HOME,
+		triadsDue: async () => 0,
+		contestAttempt: async () => {},
 		sessionSummary: async () => EMPTY_SUMMARY,
 		neckMap: async (): Promise<NeckMapCell[]> => [],
 		startSession: async () => {

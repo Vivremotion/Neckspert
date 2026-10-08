@@ -288,6 +288,20 @@ describe('DexieBackup', () => {
 		expect(restored.observations?.[0].payload).toEqual(payload);
 	});
 
+	it('round-trips a contested attempt and a triads session', async () => {
+		const attempts = new DexieAttemptRepository(db);
+		const id = await attempts.add(makeAttempt({ promptedAt: 1000 }));
+		await attempts.setContested(id);
+		await new DexieSessionRepository(db).put(makeSession({ kind: 'triads' }));
+		const exported = await new DexieBackup(db, () => 1000).exportAll();
+
+		const fresh = createDatabase(crypto.randomUUID());
+		await new DexieBackup(fresh, () => 0).importAll(JSON.parse(JSON.stringify(exported)));
+
+		expect((await new DexieAttemptRepository(fresh).all())[0].contested).toBe(true);
+		expect((await new DexieSessionRepository(fresh).list())[0].kind).toBe('triads');
+	});
+
 	it('imports a version 2 file with no observations and no latency', async () => {
 		await new DexieBackup(db).importAll(makeBackupV2());
 

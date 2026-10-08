@@ -7,11 +7,18 @@
 	const services = useAppServices();
 
 	let stats = $state<HomeStats | null>(null);
+	let triadsDue = $state(0);
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
 	$effect(() => {
 		let cancelled = false;
+		void services.triadsDue().then(
+			(value) => {
+				if (!cancelled) triadsDue = value;
+			},
+			() => {}
+		);
 		void services.homeStats().then(
 			(value) => {
 				if (!cancelled) {
@@ -33,6 +40,10 @@
 		void goto('/session?kind=learn');
 	}
 
+	function startTriads() {
+		void goto('/session?kind=triads');
+	}
+
 	function onKeydown(event: KeyboardEvent) {
 		if (event.code !== 'Space' && event.key !== ' ') return;
 		if (event.repeat) return;
@@ -48,5 +59,5 @@
 {#if error}
 	<p role="alert">{error}</p>
 {:else if stats}
-	<HomeScreen {stats} {now} onstart={start} />
+	<HomeScreen {stats} {now} onstart={start} {triadsDue} ontriads={startTriads} />
 {/if}

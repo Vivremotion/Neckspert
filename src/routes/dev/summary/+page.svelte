@@ -17,9 +17,36 @@
 		grade: 'S+',
 		tempoBpm: 92
 	};
+
+	const KEY = 'D|maj|3:5,2:1,1:3';
+	const triads: SessionSummary = {
+		...summary,
+		pool: 'cold',
+		grade: null,
+		identifyMedianReactionMs: null,
+		triads: {
+			refused: [
+				{
+					attemptId: 1,
+					mechanic: 'triad-anchor',
+					item: { voicingKey: KEY },
+					heard: `${KEY}@14-15-14`,
+					contested: false
+				},
+				{
+					attemptId: 2,
+					mechanic: 'triad-zone',
+					item: { voicingKey: KEY, position: 2 },
+					heard: null,
+					contested: true
+				}
+			]
+		}
+	};
 </script>
 
 <SummaryScreen {summary} now={0} onhome={() => {}} onmap={() => {}} />
+<SummaryScreen summary={triads} now={0} onhome={() => {}} onmap={() => {}} oncontest={() => {}} />
 
 <style>
 	:global(html),

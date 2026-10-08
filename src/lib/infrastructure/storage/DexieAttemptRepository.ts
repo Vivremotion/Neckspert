@@ -16,6 +16,11 @@ export class DexieAttemptRepository implements AttemptRepositoryPort {
 		if (updated === 0) throw new Error(`No attempt with id ${id}`);
 	}
 
+	async setContested(id: number): Promise<void> {
+		const updated = await this.db.attempts.update(id, { contested: true });
+		if (updated === 0) throw new Error(`No attempt with id ${id}`);
+	}
+
 	listByCard(key: CardKey): Promise<Attempt[]> {
 		return this.db.attempts.where('cardKey').equals(key).sortBy('promptedAt');
 	}

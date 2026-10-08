@@ -127,4 +127,66 @@ describe('SummaryScreen', () => {
 		expect(onhome).toHaveBeenCalledOnce();
 		expect(onmap).toHaveBeenCalledOnce();
 	});
+
+	describe('of a triads session', () => {
+		const KEY = 'D|maj|3:5,2:1,1:3';
+		const triads: SessionSummary = {
+			...summary,
+			identifyMedianReactionMs: null,
+			learnedCount: 1,
+			knownCount: 2,
+			triads: {
+				refused: [
+					{
+						attemptId: 7,
+						mechanic: 'triad-anchor',
+						item: { voicingKey: KEY },
+						heard: `${KEY}@14-15-14`,
+						contested: false
+					},
+					{
+						attemptId: 9,
+						mechanic: 'triad-zone',
+						item: { voicingKey: KEY, position: 2 },
+						heard: null,
+						contested: true
+					}
+				]
+			}
+		};
+
+		it('counts triads, not notes, and leaves naming out', () => {
+			render(SummaryScreen, {
+				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {} }
+			});
+			expect(screen.getByText(/triades apprises/i)).toBeTruthy();
+			expect(screen.getByText('2 triades déjà sues')).toBeTruthy();
+			expect(screen.queryByText(/nommer/i)).toBeNull();
+		});
+
+		it('lists the refused chords, with what was heard', () => {
+			render(SummaryScreen, {
+				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {} }
+			});
+			const items = screen.getAllByRole('listitem').filter((li) => li.closest('.refused'));
+			expect(items.map((li) => li.querySelector('.asked')?.textContent)).toEqual([
+				'D · fondamentale sur si',
+				'D · position 2'
+			]);
+			expect(items[0].querySelector('.heard')?.textContent).toBe('14‑15‑14');
+			expect(items[1].querySelector('.heard')?.textContent).toBe('—');
+		});
+
+		it('contests a refused chord: the attempt is labelled, the button says so', async () => {
+			const oncontest = vi.fn(async () => {});
+			render(SummaryScreen, {
+				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {}, oncontest }
+			});
+			const contested = screen.getByRole('button', { name: 'Contesté' }) as HTMLButtonElement;
+			expect(contested.disabled).toBe(true);
+			await fireEvent.click(screen.getByRole('button', { name: 'Joué juste' }));
+			expect(oncontest).toHaveBeenCalledWith(7);
+			expect(screen.getAllByRole('button', { name: 'Contesté' })).toHaveLength(2);
+		});
+	});
 });

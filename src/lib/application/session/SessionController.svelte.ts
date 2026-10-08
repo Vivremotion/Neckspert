@@ -829,8 +829,9 @@ export class SessionController implements PlaySessionController {
 		}
 		if (this.run === run) this.deps.detector.stop();
 
-		if (this.kind === 'learn') {
-			// Each exercise on the beat runs next at a tempo fitted to its own success here.
+		if (this.kind !== 'free') {
+			// A learning session (notes or triads): each exercise on the beat runs next at a tempo
+			// fitted to its own success here.
 			for (const { exerciseId, tempoBpm } of executions) {
 				if (tempoBpm === null) continue;
 				const own = attempts.filter((attempt) => attempt.exerciseId === exerciseId);

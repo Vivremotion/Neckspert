@@ -274,6 +274,12 @@ export class InMemoryAttemptRepository implements AttemptRepositoryPort {
 		this.attempts[index] = { ...this.attempts[index], observations };
 	}
 
+	async setContested(id: number): Promise<void> {
+		const index = this.attempts.findIndex((a) => a.id === id);
+		if (index < 0) throw new Error(`No attempt with id ${id}`);
+		this.attempts[index] = { ...this.attempts[index], contested: true };
+	}
+
 	async listByCard(key: CardKey): Promise<Attempt[]> {
 		return this.attempts.filter((a) => a.cardKey === key).sort(byPromptedAt);
 	}

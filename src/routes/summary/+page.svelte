@@ -42,5 +42,11 @@
 {#if error}
 	<p role="alert">{error}</p>
 {:else if summary}
-	<SummaryScreen {summary} {now} onhome={() => void goto('/')} onmap={() => void goto('/map')} />
+	<SummaryScreen
+		{summary}
+		{now}
+		onhome={() => void goto('/')}
+		onmap={() => void goto('/map')}
+		oncontest={(attemptId) => services.contestAttempt(attemptId)}
+	/>
 {/if}

@@ -284,10 +284,10 @@ describe('validateBackup', () => {
 	it('rejects an invalid session', () => {
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'weekly' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
+		).toThrow('Invalid sessions entry at index 0: kind must be learn, free or triads');
 		expect(() =>
 			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'placement' }] })
-		).toThrow('Invalid sessions entry at index 0: kind must be learn or free');
+		).toThrow('Invalid sessions entry at index 0: kind must be learn, free or triads');
 		expect(() =>
 			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), phase: 'placement' }] })
 		).toThrow(
@@ -620,5 +620,20 @@ describe('with triad cards and attempts', () => {
 			]
 		});
 		expect(() => validateBackupV3(file)).toThrow(/data.item does not match cardKey/);
+	});
+});
+
+describe('the triads session and the contest of an attempt', () => {
+	it('accepts a triads session and a contested attempt', () => {
+		const file = makeBackup({
+			attempts: [makeAttempt({ id: 1, contested: true }), makeAttempt({ id: 2 })],
+			sessions: [makeSession({ kind: 'triads' })]
+		});
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
+	it('rejects a contest that is not a boolean', () => {
+		const file = makeBackup({ attempts: [makeAttempt({ id: 1, contested: 'yes' as never })] });
+		expect(() => validateBackupV3(file)).toThrow(/contested must be a boolean/);
 	});
 });

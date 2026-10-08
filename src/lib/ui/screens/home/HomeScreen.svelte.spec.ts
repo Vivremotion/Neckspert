@@ -90,4 +90,23 @@ describe('HomeScreen', () => {
 		expect(screen.getByRole('button').textContent).toMatch(/learn/i);
 		expect(screen.getByText('2 reviews due')).toBeTruthy();
 	});
+
+	it('starts the triads with their own button and their reviews due', async () => {
+		const ontriads = vi.fn();
+		render(HomeScreen, {
+			props: { stats: base, now: 0, onstart: () => {}, triadsDue: 3, ontriads }
+		});
+		const button = screen.getByRole('button', { name: /triades/i });
+		expect(screen.getByText('3 révisions de triades dues')).toBeTruthy();
+		await fireEvent.click(button);
+		expect(ontriads).toHaveBeenCalledOnce();
+	});
+
+	it('shows the triads button without a count when none is due', () => {
+		render(HomeScreen, {
+			props: { stats: base, now: 0, onstart: () => {}, triadsDue: 0, ontriads: () => {} }
+		});
+		expect(screen.getByRole('button', { name: /triades/i })).toBeTruthy();
+		expect(screen.queryByText(/triades dues?/i)).toBeNull();
+	});
 });

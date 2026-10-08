@@ -2,10 +2,11 @@
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
-	const fixtures: { label: string; stats: HomeStats; now: number }[] = [
+	const fixtures: { label: string; stats: HomeStats; now: number; triadsDue?: number }[] = [
 		{
 			label: 'learn, reviews due',
 			now: 0,
+			triadsDue: 4,
 			stats: {
 				dueCount: 6,
 				nextReviewAt: null,
@@ -40,7 +41,13 @@
 	{#each fixtures as fixture (fixture.label)}
 		<section>
 			<h1>{fixture.label}</h1>
-			<HomeScreen stats={fixture.stats} now={fixture.now} onstart={() => {}} />
+			<HomeScreen
+				stats={fixture.stats}
+				now={fixture.now}
+				onstart={() => {}}
+				triadsDue={fixture.triadsDue ?? 0}
+				ontriads={() => {}}
+			/>
 		</section>
 	{/each}
 </main>

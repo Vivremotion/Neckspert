@@ -10,11 +10,17 @@
 	let {
 		stats,
 		now,
-		onstart
+		onstart,
+		triadsDue = 0,
+		ontriads
 	}: {
 		stats: HomeStats;
 		now: number;
 		onstart: () => void;
+		/** Triad reviews due now. */
+		triadsDue?: number;
+		/** Starts a triads session; without it, no triads button. */
+		ontriads?: () => void;
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -66,6 +72,14 @@
 						</p>
 					{/if}
 				</div>
+				{#if ontriads}
+					<div class="action">
+						<PixelButton size="large" onclick={ontriads}>{t.triads}</PixelButton>
+						{#if triadsDue > 0}
+							<p class="reviews"><PixelText scale={1}>{t.triadsDue(triadsDue)}</PixelText></p>
+						{/if}
+					</div>
+				{/if}
 				<div class="stat">
 					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>
 					<PixelText scale={4}>{reaction}</PixelText>

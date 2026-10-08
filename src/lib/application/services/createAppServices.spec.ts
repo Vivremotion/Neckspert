@@ -11,6 +11,7 @@ import type { BackupFile } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
+	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
 	FakeMetronome,
@@ -23,8 +24,10 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { createAppServices } from './createAppServices';
-import { NECK_PRESENTERS } from '$lib/application/mechanics';
-import { noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { triadAnchorRules } from '$lib/domain/mechanics';
+import { introduceCard, markLearned } from '$lib/domain/progress';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -47,10 +50,12 @@ function harness(): {
 		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
 	};
+	chords: FakeChordVerifier;
 } {
 	const clock = new FakeClock();
 	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
+	const chords = new FakeChordVerifier();
 	const deps: SessionDeps & {
 		clock: FakeClock;
 		metronome: FakeMetronome;
@@ -68,8 +73,8 @@ function harness(): {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
-		mechanics: NECK_PRESENTERS,
-		sensors: { note: noteSensor(detector), tap: tapSensor() }
+		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS },
+		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
 	};
 	const services = createAppServices({
 		...deps,
@@ -77,7 +82,7 @@ function harness(): {
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics()
 	});
-	return { services, deps };
+	return { services, deps, chords };
 }
 
 function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
@@ -253,5 +258,75 @@ describe('createAppServices', () => {
 		});
 		const summary = await services.sessionSummary(controller.sessionId);
 		expect(summary.sessionId).toBe(controller.sessionId);
+	});
+
+	it('counts the triad reviews due apart from the notes', async () => {
+		const { services, deps } = harness();
+		const key = 'D|maj|3:5,2:1,1:3';
+		const card = markLearned(
+			introduceCard(
+				{ key: `triad-anchor:${key}`, mechanic: 'triad-anchor', item: { voicingKey: key } },
+				0,
+				's-old',
+				triadAnchorRules.timing
+			),
+			0,
+			triadAnchorRules.timing,
+			80
+		);
+		await deps.cards.put(card);
+		expect(await services.triadsDue()).toBe(1);
+		expect((await services.homeStats()).dueCount).toBe(0);
+	});
+
+	it('contests an attempt without touching its card', async () => {
+		const { services, deps } = harness();
+		const key = 'D|maj|3:5,2:1,1:3';
+		const card = introduceCard(
+			{ key: `triad-anchor:${key}`, mechanic: 'triad-anchor', item: { voicingKey: key } },
+			0,
+			's-old',
+			triadAnchorRules.timing
+		);
+		await deps.cards.put(card);
+		const id = await deps.attempts.add({
+			sessionId: 's',
+			exerciseId: 'triads-anchor',
+			mechanic: 'triad-anchor',
+			cardKey: card.key,
+			phase: 'review',
+			temperature: 'cold',
+			aid: 'none',
+			promptedAt: 1,
+			tempoBpm: 80,
+			leadBeats: 2,
+			timingOffsetMs: 0,
+			reactionMs: 1500,
+			correct: false,
+			verdict: 'wrong',
+			data: { item: { voicingKey: key }, answer: null, confusion: null },
+			observations: []
+		});
+		await services.contestAttempt(id);
+		expect((await deps.attempts.all())[0].contested).toBe(true);
+		expect(await deps.cards.get(card.key)).toEqual(card);
+	});
+
+	it('startSession(triads) probes the first triad of the queue on its root and chord', async () => {
+		const { services, deps, chords } = harness();
+		const controller = await services.startSession('triads');
+		await controller.start();
+		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
+		expect(controller.view.prompt).toMatchObject({
+			primary: 'C',
+			secondary: 'fondamentale sur si',
+			detail: 'sol‑si‑mi',
+			aid: null
+		});
+		expect(controller.view.leadBeats).toBe(2);
+		expect(chords.expectations.at(-1)?.expected).toEqual([
+			'C|maj|3:5,2:1,1:3@0-1-0',
+			'C|maj|3:5,2:1,1:3@12-13-12'
+		]);
 	});
 });

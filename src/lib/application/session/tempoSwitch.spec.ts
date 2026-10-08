@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
 import { createListSelector } from '$lib/domain/progress';
-import type { Execution, PlannedItem } from '$lib/domain/types';
+import type { Execution, PlannedItem, SessionKind } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
 	FakeClock,
@@ -57,7 +57,7 @@ function item(exerciseId: string, n: number): PlannedItem {
 	};
 }
 
-function setup(executions: Execution[], items: PlannedItem[]) {
+function setup(executions: Execution[], items: PlannedItem[], kind: SessionKind = 'free') {
 	const clock = new FakeClock();
 	const metronome = new FakeMetronome(clock);
 	let listener: ((observation: Observation) => void) | null = null;
@@ -86,7 +86,7 @@ function setup(executions: Execution[], items: PlannedItem[]) {
 		sensors: { fake: sensor }
 	};
 	const controller = new SessionController(
-		{ id: 'sess-1', kind: 'free' },
+		{ id: 'sess-1', kind },
 		async () => ({ selector: createListSelector(items), executions }),
 		deps
 	);
@@ -184,5 +184,32 @@ describe('a change of tempo between two sequences', () => {
 		await ctx.controller.start();
 		expect(ctx.metronome.getTempo()).toBe(100);
 		expect(ctx.controller.view.tempoBpm).toBe(100);
+	});
+
+	it('writes the next tempo of each exercise at the end of a triads session', async () => {
+		const items = [
+			...Array.from({ length: 10 }, (_, i) => item('slow', i)),
+			...Array.from({ length: 10 }, (_, i) => item('fast', i))
+		];
+		const ctx = setup(TWO_TEMPOS, items, 'triads');
+		await ctx.controller.start();
+		let answered: number | null = null;
+		for (let guard = 0; guard < 2000 && ctx.controller.view.status !== 'finished'; guard++) {
+			const { status, promptBeatIndex, targetBeatIndex, prompt } = ctx.controller.view;
+			if (status === 'awaiting' && targetBeatIndex !== null && promptBeatIndex !== answered) {
+				answered = promptBeatIndex;
+				ctx.play(Number(prompt?.primary), ctx.metronome.beatTime(targetBeatIndex));
+				await drain();
+			}
+			ctx.clock.advance(0.1);
+			ctx.metronome.flush();
+		}
+		await drain();
+		expect(ctx.controller.view.status).toBe('finished');
+		const progressions = await ctx.deps.progressions.all();
+		expect(progressions.map((p) => [p.exerciseId, p.tempoBpm]).sort()).toEqual([
+			['fast', 105],
+			['slow', 85]
+		]);
 	});
 });

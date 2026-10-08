@@ -90,5 +90,15 @@ export function attemptRepositoryContract(name: string, create: () => AttemptRep
 		it('rejects observations for an unknown attempt', async () => {
 			await expect(repo.setObservations(999, [])).rejects.toThrow();
 		});
+
+		it('marks a stored attempt contested, leaving the rest', async () => {
+			const id = await repo.add(makeAttempt());
+			await repo.setContested(id);
+			expect(await repo.all()).toEqual([{ ...makeAttempt(), id, contested: true }]);
+		});
+
+		it('rejects contesting an unknown attempt', async () => {
+			await expect(repo.setContested(999)).rejects.toThrow();
+		});
 	});
 }

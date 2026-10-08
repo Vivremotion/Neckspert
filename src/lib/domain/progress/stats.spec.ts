@@ -558,3 +558,115 @@ describe('buildNeckMap', () => {
 		expect(cells.find((c) => c.string === 2 && c.fret === 8)?.locateRecallMs).toBe(2000);
 	});
 });
+
+describe('summarizeSession of a triads session', () => {
+	const KEY = 'D|maj|3:5,2:1,1:3';
+	const triad = (overrides: Partial<Attempt>): Attempt =>
+		coldAttempt({
+			id: 1,
+			sessionId: 'tri',
+			exerciseId: 'triads-anchor',
+			mechanic: 'triad-anchor',
+			cardKey: `triad-anchor:${KEY}`,
+			data: { item: { voicingKey: KEY }, answer: null, confusion: null },
+			...overrides
+		});
+	const record: SessionRecord = {
+		id: 'tri',
+		kind: 'triads',
+		startedAt: NOW - 60_000,
+		endedAt: NOW,
+		fatigueDetected: false,
+		executions: [
+			{ exerciseId: 'triads-anchor', tempoBpm: 90 },
+			{ exerciseId: 'triads-zone', tempoBpm: 85 }
+		],
+		latencyMs: 0
+	};
+	const attempts = [
+		triad({ id: 1, timingOffsetMs: 20 }),
+		triad({
+			id: 2,
+			correct: false,
+			verdict: 'wrong',
+			data: {
+				item: { voicingKey: KEY },
+				answer: { root: { midi: 62 }, chord: { decided: `${KEY}@14-15-14` } },
+				confusion: { kind: 'other-inversion', part: 'chord' }
+			},
+			contested: true
+		}),
+		triad({
+			id: 3,
+			correct: false,
+			verdict: 'wrong',
+			data: {
+				item: { voicingKey: KEY },
+				answer: { root: { midi: 63 }, chord: null },
+				confusion: { kind: 'semitone', delta: 1, part: 'root' }
+			}
+		}),
+		triad({
+			id: 4,
+			exerciseId: 'triads-zone',
+			mechanic: 'triad-zone',
+			cardKey: `triad-zone:${KEY}`,
+			correct: false,
+			verdict: 'wrong',
+			data: {
+				item: { voicingKey: KEY, position: 2 },
+				answer: { decided: null },
+				confusion: { kind: 'none', part: 'chord' }
+			}
+		})
+	];
+	const summary = summarizeSession({
+		record,
+		attempts,
+		allAttempts: attempts,
+		cards: [],
+		now: NOW
+	});
+
+	it('measures the cold triads on the beat, at the anchor tempo', () => {
+		expect(summary).toMatchObject({
+			pool: 'cold',
+			attemptCount: 4,
+			correctCount: 1,
+			medianOffsetMs: 20,
+			identifyMedianReactionMs: null,
+			tempoBpm: 90
+		});
+	});
+
+	it('lists the chords refused, a wrong root left out, with their contest', () => {
+		expect(summary.triads?.refused).toEqual([
+			{
+				attemptId: 2,
+				mechanic: 'triad-anchor',
+				item: { voicingKey: KEY },
+				heard: `${KEY}@14-15-14`,
+				contested: true
+			},
+			{
+				attemptId: 4,
+				mechanic: 'triad-zone',
+				item: { voicingKey: KEY, position: 2 },
+				heard: null,
+				contested: false
+			}
+		]);
+	});
+
+	it('says nothing of triads for a notes session', () => {
+		expect(
+			summarizeSession({
+				record: { ...record, kind: 'learn' },
+				attempts: [],
+				allAttempts: [],
+				cards: [],
+				now: NOW
+			}).triads
+		).toBeUndefined();
+	});
+});

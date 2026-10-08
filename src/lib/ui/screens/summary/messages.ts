@@ -23,7 +23,16 @@ export const summaryMessages = defineMessages({
 		inDays: (n: number) => (n === 1 ? 'Dans 1 j' : `Dans ${n} j`),
 		home: 'Accueil',
 		map: 'Carte du manche',
-		empty: '—'
+		empty: '—',
+		learnedTriads: 'Triades apprises',
+		pendingTriads: (n: number) =>
+			n === 1
+				? '1 triade reprendra la prochaine fois'
+				: `${n} triades reprendront la prochaine fois`,
+		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`),
+		refused: 'Accords refusés',
+		playedRight: 'Joué juste',
+		contested: 'Contesté'
 	},
 	en: {
 		title: 'Summary',
@@ -47,6 +56,13 @@ export const summaryMessages = defineMessages({
 		inDays: (n: number) => (n === 1 ? 'In 1 d' : `In ${n} d`),
 		home: 'Home',
 		map: 'Neck map',
-		empty: '—'
+		empty: '—',
+		learnedTriads: 'Triads learned',
+		pendingTriads: (n: number) =>
+			n === 1 ? '1 triad will resume next time' : `${n} triads will resume next time`,
+		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`),
+		refused: 'Chords refused',
+		playedRight: 'Played right',
+		contested: 'Contested'
 	}
 });

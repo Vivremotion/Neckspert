@@ -3,6 +3,9 @@ import { defineMessages } from '$lib/i18n/index.svelte';
 export const homeMessages = defineMessages({
 	fr: {
 		session: 'Apprentissage',
+		triads: 'Triades',
+		triadsDue: (n: number) =>
+			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
 		nextReviews: 'Prochaines révisions',
 		soon: 'Bientôt',
@@ -18,6 +21,8 @@ export const homeMessages = defineMessages({
 	},
 	en: {
 		session: 'Learn',
+		triads: 'Triads',
+		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',
 		soon: 'Soon',

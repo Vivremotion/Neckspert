@@ -24,6 +24,10 @@ export interface AppServices {
 	calibration: CalibrationPort;
 	diagnostics: DiagnosticsService;
 	homeStats(): Promise<HomeStats>;
+	/** Triad reviews a triads session would serve cold right now. */
+	triadsDue(): Promise<number>;
+	/** "Joué juste": marks a refused chord's attempt contested. FSRS stays as it is. */
+	contestAttempt(attemptId: number): Promise<void>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
 	/** Plans the session and returns its controller, not yet started. */

@@ -5,19 +5,41 @@
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
 	import { coldAccuracyRatio } from '$lib/ui/screens/home/coldAccuracy';
 	import { formatRelativeDelay } from '$lib/ui/screens/home/relativeTime';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { summaryMessages } from './messages';
+	import { refusedView } from './refused';
 
 	let {
 		summary,
 		now,
 		onhome,
-		onmap
+		onmap,
+		oncontest
 	}: {
 		summary: SessionSummary;
 		now: number;
 		onhome: () => void;
 		onmap: () => void;
+		/** "Joué juste" on a refused chord: labels its attempt. */
+		oncontest?: (attemptId: number) => void | Promise<void>;
 	} = $props();
+
+	/** Attempts contested from this screen, on top of those the summary says were. */
+	let contestedHere = $state<number[]>([]);
+
+	const triads = $derived(summary.triads ?? null);
+	const refused = $derived(
+		(triads?.refused ?? []).map((entry) => ({
+			...entry,
+			...refusedView(entry, i18n.locale),
+			contested: entry.contested || contestedHere.includes(entry.attemptId)
+		}))
+	);
+
+	async function contest(attemptId: number) {
+		contestedHere = [...contestedHere, attemptId];
+		await oncontest?.(attemptId);
+	}
 
 	const t = $derived(summaryMessages());
 	const accuracyLabel = $derived(summary.pool === 'all' ? t.accuracyAll : t.accuracy);
@@ -79,23 +101,29 @@
 						<span>{t.median}</span>
 						<strong>{median}</strong>
 					</li>
-					<li>
-						<span>{t.naming}</span>
-						<strong>{naming}</strong>
-					</li>
+					{#if !triads}
+						<li>
+							<span>{t.naming}</span>
+							<strong>{naming}</strong>
+						</li>
+					{/if}
 				{/if}
 				<li>
-					<span>{t.learned}</span>
+					<span>{triads ? t.learnedTriads : t.learned}</span>
 					<strong>{summary.learnedCount}</strong>
 				</li>
 				{#if summary.knownCount > 0}
 					<li>
-						<span>{t.known(summary.knownCount)}</span>
+						<span>{triads ? t.knownTriads(summary.knownCount) : t.known(summary.knownCount)}</span>
 					</li>
 				{/if}
 				{#if summary.pendingCount > 0}
 					<li>
-						<span>{t.pending(summary.pendingCount)}</span>
+						<span
+							>{triads
+								? t.pendingTriads(summary.pendingCount)
+								: t.pending(summary.pendingCount)}</span
+						>
 					</li>
 				{/if}
 				<li class="fatigue" class:alert={summary.fatigueDetected}>
@@ -109,6 +137,27 @@
 				{/if}
 			</ul>
 		</PixelBox>
+		{#if refused.length > 0}
+			<PixelBox>
+				<section class="refused" aria-label={t.refused}>
+					<p class="refused-title">{t.refused}</p>
+					<ul>
+						{#each refused as entry (entry.attemptId)}
+							<li>
+								<span class="asked">{entry.asked}</span>
+								<span class="heard">{entry.heard ?? t.empty}</span>
+								<PixelButton
+									disabled={entry.contested}
+									onclick={() => void contest(entry.attemptId)}
+								>
+									{entry.contested ? t.contested : t.playedRight}
+								</PixelButton>
+							</li>
+						{/each}
+					</ul>
+				</section>
+			</PixelBox>
+		{/if}
 		<nav class="nav">
 			<PixelButton size="large" onclick={onhome}>{t.home}</PixelButton>
 			<PixelButton size="large" onclick={onmap}>{t.map}</PixelButton>
@@ -207,6 +256,49 @@
 		background: var(--np-ink);
 		color: var(--np-bg);
 		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
+	}
+
+	.refused {
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-space-2, 16px);
+		padding: var(--np-space-3, 24px) var(--np-space-4, 32px);
+		box-sizing: border-box;
+		font-family: var(--np-font-pixel);
+		font-size: var(--np-type-body);
+		color: var(--np-ink);
+		background: var(--np-bg);
+	}
+
+	.refused-title {
+		margin: 0;
+		text-transform: uppercase;
+		font-weight: 700;
+	}
+
+	.refused ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-space-2, 16px);
+	}
+
+	.refused li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--np-space-1, 8px) var(--np-space-2, 16px);
+	}
+
+	.asked {
+		flex: 1 1 12rem;
+	}
+
+	.heard {
+		color: var(--np-shade);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.nav {

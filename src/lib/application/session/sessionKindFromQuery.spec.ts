@@ -8,4 +8,8 @@ describe('sessionKindFromQuery', () => {
 		expect(sessionKindFromQuery(null)).toBe('learn');
 		expect(sessionKindFromQuery('placement')).toBe('learn');
 	});
+
+	it('runs the triads when asked', () => {
+		expect(sessionKindFromQuery('triads')).toBe('triads');
+	});
 });

@@ -22,7 +22,7 @@ const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free'];
+const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free', 'triads'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
@@ -172,7 +172,7 @@ function checkAttemptHeader(attempt: Fields): string | null {
 
 function checkSessionFields(session: Fields): string | null {
 	if (typeof session.id !== 'string' || session.id === '') return 'id must be a non-empty string';
-	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn or free';
+	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn, free or triads';
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';
@@ -406,8 +406,17 @@ function checkObservations(value: unknown): string | null {
 	return null;
 }
 
+/** Optional: absent until a refused chord is contested. */
+function checkContested(value: unknown): string | null {
+	return value === undefined || typeof value === 'boolean' ? null : 'contested must be a boolean';
+}
+
 function checkAttemptV3(attempt: Fields): string | null {
-	return checkAttempt(attempt) ?? checkObservations(attempt.observations);
+	return (
+		checkAttempt(attempt) ??
+		checkObservations(attempt.observations) ??
+		checkContested(attempt.contested)
+	);
 }
 
 function checkSessionV3(session: Fields): string | null {

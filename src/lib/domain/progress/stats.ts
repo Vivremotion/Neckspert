@@ -11,7 +11,7 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
-import { LOCATE_NECK } from '$lib/domain/exercise/catalog';
+import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
@@ -42,6 +42,28 @@ function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | n
 		latest = { at: attempt.promptedAt, ms: Math.round((attempt.leadBeats * 60_000) / tempo) };
 	}
 	return latest?.ms ?? null;
+}
+
+/** |offset| of the cold successes on the beat of a triads session, whatever their mechanic. */
+function beatOffsets(attempts: readonly Attempt[]): number[] {
+	return attempts.flatMap((attempt) => {
+		if (attempt.temperature !== 'cold' || !isSuccess(attempt)) return [];
+		return attempt.timingOffsetMs === null ? [] : [Math.abs(attempt.timingOffsetMs)];
+	});
+}
+
+/** The chord part of a triad confusion: the chord heard was not the one asked. */
+function refusedChord(attempt: Attempt): boolean {
+	if (attempt.correct) return false;
+	const confusion = (attempt.data as { confusion?: { part?: unknown } } | null)?.confusion;
+	return confusion?.part === 'chord';
+}
+
+/** The chord a triad attempt's answer holds (zone: the reading; anchor: its chord part). */
+function chordHeard(attempt: Attempt): string | null {
+	const answer = (attempt.data as { answer?: unknown } | null)?.answer as
+		{ decided?: string | null; chord?: { decided?: string | null } | null } | null | undefined;
+	return answer?.chord?.decided ?? answer?.decided ?? null;
 }
 
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
@@ -105,6 +127,7 @@ export function summarizeSession(input: {
 		pool === 'all' ? scored : scored.filter((attempt) => attempt.temperature === 'cold');
 	const startedAt = input.record.startedAt;
 	const endedAt = input.record.endedAt ?? input.now;
+	const triads = input.record.kind === 'triads';
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
 	);
@@ -113,7 +136,7 @@ export function summarizeSession(input: {
 		pool,
 		attemptCount: counted.length,
 		correctCount: counted.filter(isSuccess).length,
-		medianOffsetMs: median(locateOffsets(scored, pool)),
+		medianOffsetMs: median(triads ? beatOffsets(counted) : locateOffsets(scored, pool)),
 		identifyMedianReactionMs: median(identifyReactions(scored, pool)),
 		learnedCount: input.cards.filter(
 			(card) => card.learnedAt !== null && card.learnedAt >= startedAt && card.learnedAt <= endedAt
@@ -127,8 +150,20 @@ export function summarizeSession(input: {
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
 		tempoBpm:
-			input.record.executions.find((execution) => execution.exerciseId === LOCATE_NECK.id)
-				?.tempoBpm ?? null
+			input.record.executions.find(
+				(execution) => execution.exerciseId === (triads ? TRIADS_ANCHOR.id : LOCATE_NECK.id)
+			)?.tempoBpm ?? null,
+		...(triads && {
+			triads: {
+				refused: input.attempts.filter(refusedChord).map((attempt) => ({
+					attemptId: attempt.id ?? 0,
+					mechanic: attempt.mechanic,
+					item: (attempt.data as { item: unknown }).item,
+					heard: chordHeard(attempt),
+					contested: attempt.contested === true
+				}))
+			}
+		})
 	};
 }
 

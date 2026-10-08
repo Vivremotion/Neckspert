@@ -49,7 +49,8 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-export type SessionKind = 'learn' | 'free';
+/** Notes: learn and free play; the memory track of the triads (spec 2026-10-08). */
+export type SessionKind = 'learn' | 'free' | 'triads';
 
 /** Where an attempt happened inside a session. */
 export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
@@ -96,6 +97,11 @@ export interface Attempt<D = unknown> {
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
 	observations: RecordedObservation[] | null;
+	/**
+	 * The player said a refused chord was played right ("Joué juste"): a label for the judge's
+	 * analysis, never read by FSRS. Absent until then.
+	 */
+	contested?: boolean;
 }
 
 /** What became of an observation heard during a prompt: the answer, or why it was not. */
@@ -253,8 +259,23 @@ export interface SessionSummary {
 	/** Earliest time a learned card can be reviewed cold. Informational. */
 	nextReviewAt: number | null;
 	grade: SessionGrade | null;
-	/** Tempo the locate exercise was played at in this session. Null when it did not run. */
+	/**
+	 * Tempo the locate exercise (the anchor in a triads session) was played at in this session.
+	 * Null when it did not run.
+	 */
 	tempoBpm: number | null;
+	/** A triads session only: the chords the judge refused, to contest. */
+	triads?: { refused: RefusedChord[] };
+}
+
+/** A triad attempt whose chord was judged wrong, as the summary lists it. */
+export interface RefusedChord {
+	attemptId: number;
+	mechanic: MechanicId;
+	item: unknown;
+	/** Candidate id of the chord the judge retained; null when it recognized none. */
+	heard: string | null;
+	contested: boolean;
 }
 
 /** One cell of the neck map: a position and what is known about it. */
