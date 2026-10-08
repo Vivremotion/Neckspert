@@ -174,4 +174,19 @@ describe('a mechanic heard by two sensors', () => {
 			]
 		);
 	});
+
+	it('tells no prompt before the first one after a pause: nothing rings any more', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.controller.pause();
+		ctx.controller.resume();
+		for (let beat = 0; beat <= 4; beat++) ctx.atBeat(beat);
+		expect(rounds.map((r) => [r.n, (r.previous?.item as FakeItem | undefined)?.n ?? null])).toEqual(
+			[
+				[3, null],
+				[5, null]
+			]
+		);
+	});
 });

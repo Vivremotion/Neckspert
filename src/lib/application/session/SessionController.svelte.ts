@@ -268,6 +268,8 @@ export class SessionController implements PlaySessionController {
 		this.view.preview = null;
 		// Discard in-progress item without recording.
 		this.current = null;
+		// Nothing rings after a pause: the next round has no prompt before it.
+		this.previousPrompt = null;
 		this.clearItemState();
 		this.view.prompt = null;
 		this.view.answerChoices = null;
@@ -285,9 +287,10 @@ export class SessionController implements PlaySessionController {
 		this.counting = true;
 		this.clearItemState();
 		this.prepareStage();
-		// A change of tempo still waiting happens now: the resume counts its bar anyway.
-		if (this.switchTo !== null) this.setTempo(this.switchTo);
+		// The resume counts its bar anyway: it starts at the tempo of the prompt it leads to.
 		this.switchTo = null;
+		const tempo = this.pending ? this.executionOf(this.pending).tempoBpm : null;
+		if (tempo !== null) this.setTempo(tempo);
 		this.deps.metronome.setTempo(this.tempoBpm);
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);

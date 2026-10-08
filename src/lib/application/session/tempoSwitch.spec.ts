@@ -161,6 +161,17 @@ describe('a change of tempo between two sequences', () => {
 		expect(attempt).toMatchObject({ exerciseId: 'slow', tempoBpm: 80, verdict: 'offbeat' });
 	});
 
+	it('resumes at the tempo of the prompt that follows a pause', async () => {
+		const ctx = setup(TWO_TEMPOS, [item('slow', 1), item('fast', 2)]);
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		expect(ctx.controller.view.prompt?.primary).toBe('1');
+		ctx.controller.pause();
+		ctx.controller.resume();
+		expect(ctx.metronome.getTempo()).toBe(100);
+		expect(ctx.controller.view.tempoBpm).toBe(100);
+	});
+
 	it('restarts nothing between two sequences at the same tempo', async () => {
 		const ctx = setup(
 			[

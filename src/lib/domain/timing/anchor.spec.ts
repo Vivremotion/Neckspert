@@ -60,13 +60,14 @@ describe('anchorTiming', () => {
 		});
 	});
 
-	it('misses a right root without a chord before the end of the bar', () => {
+	it('misses a right root without a chord, once no late reading can come any more', () => {
 		const r = open();
 		r.observe(root(6.13));
-		for (const index of [9, 10, 11]) {
+		// Beat 15 is the string preview of the next prompt: a chord attacked in the bar has had its say.
+		for (const index of [9, 10, 11, 12, 13, 14]) {
 			expect(r.onBeat({ index, time: beatTime(index) })).toEqual({ kind: 'none' });
 		}
-		expect(r.onBeat({ index: 12, time: beatTime(12) })).toMatchObject({
+		expect(r.onBeat({ index: 15, time: beatTime(15) })).toMatchObject({
 			kind: 'settled',
 			outcome: {
 				verdict: 'wrong',
@@ -85,8 +86,29 @@ describe('anchorTiming', () => {
 			kind: 'ignored',
 			reason: 'after-capture'
 		});
-		expect(r.onBeat({ index: 12, time: beatTime(12) })).toMatchObject({
+		expect(r.onBeat({ index: 15, time: beatTime(15) })).toMatchObject({
 			outcome: { verdict: 'wrong', confusion: NO_CHORD }
+		});
+	});
+
+	it('waits past the end of the bar for the reading of a chord attacked late in it', () => {
+		const r = open();
+		r.observe(root(6.13));
+		expect(r.onBeat({ index: 12, time: beatTime(12) })).toEqual({ kind: 'none' });
+		// Attacked 250 ms before the bar ends; its first reading comes after the bar-end beat.
+		expect(r.observe(chord(8.85))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'perfect', correct: true }
+		});
+	});
+
+	it('takes the final reading of the chord attack even after the end of the bar', () => {
+		const r = open();
+		r.observe(root(6.13));
+		expect(r.observe(chord(beatTime(11), false, false))).toEqual({ kind: 'pending' });
+		expect(r.onBeat({ index: 12, time: beatTime(12) })).toEqual({ kind: 'none' });
+		expect(r.observe(chord(beatTime(11), true, true))).toMatchObject({
+			outcome: { verdict: 'perfect', correct: true }
 		});
 	});
 
@@ -111,7 +133,7 @@ describe('anchorTiming', () => {
 		});
 	});
 
-	it('takes the first chord attack, refined until final, judged as it is at the end of the bar', () => {
+	it('takes the first chord attack, refined until final, judged as it is when the wait ends', () => {
 		const r = open();
 		r.observe(root(6.13));
 		expect(r.observe(chord(beatTime(10), false, false))).toEqual({ kind: 'pending' });
@@ -119,21 +141,28 @@ describe('anchorTiming', () => {
 			kind: 'ignored',
 			reason: 'settled'
 		});
-		expect(r.onBeat({ index: 12, time: beatTime(12) })).toMatchObject({
+		expect(r.onBeat({ index: 12, time: beatTime(12) })).toEqual({ kind: 'none' });
+		expect(r.onBeat({ index: 15, time: beatTime(15) })).toMatchObject({
 			outcome: { verdict: 'wrong', answer: { chord: { decided: 'x' } } }
 		});
 	});
 
-	it('shows a missed root at once, and keeps an off-beat root found later', () => {
+	it('shows a missed root at once, and keeps an off-beat root found before beat 2', () => {
 		const r = open();
 		expect(r.onBeat({ index: 9, time: beatTime(9) })).toMatchObject({
 			kind: 'provisional',
 			outcome: { verdict: 'wrong' }
 		});
-		expect(r.observe(root(7.0))).toEqual({ kind: 'pending' });
+		expect(r.observe(root(6.7))).toEqual({ kind: 'pending' });
 		expect(r.observe(chord(beatTime(10)))).toMatchObject({
 			outcome: { verdict: 'offbeat', correct: true }
 		});
+	});
+
+	it('never takes the strum of the chord, from beat 2 on, for a late root', () => {
+		const r = open();
+		r.onBeat({ index: 9, time: beatTime(9) });
+		expect(r.observe(root(beatTime(10)))).toEqual({ kind: 'ignored', reason: 'after-capture' });
 	});
 
 	it('settles what it holds when abandoned, nothing before any answer', () => {

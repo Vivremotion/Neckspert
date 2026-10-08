@@ -1,6 +1,6 @@
 import type { ExercisePacing } from '$lib/domain/exercise/types';
 import { BeatRound, createBeatTiming } from './beat';
-import { BEATS_PER_BAR, respirationStart } from './grid';
+import { BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 /** The sensor that hears the root, on the target beat. */
@@ -25,8 +25,8 @@ const FALLBACK_LEAD = BEATS_PER_BAR;
 /**
  * Two targets in one bar: the root on its first beat, judged as a located note (perfect, early,
  * late, off beat, wrong); then the chord, any time from beat 2 to the end of the bar, the first
- * attack being the answer and its readings refining it. Right when both are; the verdict in time
- * is the root's. Settled when both are known, at the latest when the bar ends.
+ * attack being the answer and its readings refining it, awaited until the next prompt's preview.
+ * Right when both are; the verdict in time is the root's. Settled when both are known.
  */
 class AnchorRound implements Round {
 	readonly targetBeatIndex: number;
@@ -34,6 +34,8 @@ class AnchorRound implements Round {
 	private readonly root: BeatRound;
 	private readonly chordOpens: number;
 	private readonly chordCloses: number;
+	/** Readings of a chord attacked in its window are awaited until the next prompt's preview. */
+	private readonly chordWaitEnd: number;
 	private rootOutcome: RoundOutcome | null = null;
 	/** The chord answer: undefined while it may still come, null when none came. */
 	private chord: RoundObservation | null | undefined = undefined;
@@ -49,14 +51,16 @@ class AnchorRound implements Round {
 	) {
 		const target = promptBeatIndex + leadBeats;
 		const barEnd = target + ANCHOR_CHORD_UNTIL_BEATS;
+		// The root's late capture stops where the chord's window opens: a strum is never a root.
 		this.root = new BeatRound(promptBeatIndex, leadBeats, beatTime, {
-			captureLimitBeat: barEnd,
+			captureLimitBeat: target + ANCHOR_CHORD_FROM_BEATS,
 			earliestPromptBeat: barEnd
 		});
 		this.targetBeatIndex = target;
 		this.promptTime = this.root.promptTime;
 		this.chordOpens = beatTime(target + ANCHOR_CHORD_FROM_BEATS);
 		this.chordCloses = beatTime(barEnd);
+		this.chordWaitEnd = beatTime(respirationStart(barEnd, respirationBars) - STRING_PREVIEW_BEATS);
 	}
 
 	observe(observation: RoundObservation): RoundEvent {
@@ -80,8 +84,12 @@ class AnchorRound implements Round {
 			else if (root.kind === 'provisional') event = root;
 		}
 		if (beat.time >= this.chordCloses - EDGE_TOLERANCE_S) {
-			this.closeChord();
 			this.rootOutcome ??= this.root.abandon() ?? this.unanswered();
+			// A chord attacked late in the bar is read after it: wait for its readings, unless the
+			// root already decided the miss.
+			if (!this.rootOutcome.correct || beat.time >= this.chordWaitEnd - EDGE_TOLERANCE_S) {
+				this.closeChord();
+			}
 		}
 		const settled = this.settleIfKnown();
 		return settled.kind === 'settled' ? settled : event;
@@ -127,7 +135,7 @@ class AnchorRound implements Round {
 		return this.settleIfKnown();
 	}
 
-	/** The window is over: the reading still waiting is the chord, as it is; else none came. */
+	/** The wait is over: the reading still waiting is the chord, as it is; else none came. */
 	private closeChord(): void {
 		if (this.chord !== undefined) return;
 		this.chord = this.chordPending;
