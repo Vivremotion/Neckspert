@@ -1097,14 +1097,15 @@ describe('SessionController wiring', () => {
 		await expect(controller.start()).rejects.toThrow('No factory for sensor: note');
 	});
 
-	it('refuses a session whose executions run at two tempos', async () => {
+	it("starts a session whose executions run at two tempos at its first prompt's", async () => {
 		const deps = createDeps();
 		const executions: Execution[] = [
-			{ exerciseId: 'locate-neck', tempoBpm: 100 },
-			{ exerciseId: 'locate-g', tempoBpm: 120 }
+			{ exerciseId: 'locate-g', tempoBpm: 120 },
+			{ exerciseId: 'locate-neck', tempoBpm: 100 }
 		];
 		const controller = make(planWith([locateItem()], 'learn', executions), deps);
-		await expect(controller.start()).rejects.toThrow(/decision 4/);
+		await controller.start();
+		expect(deps.metronome.getTempo()).toBe(100);
 	});
 });
 

@@ -82,6 +82,8 @@ export class SessionController implements PlaySessionController {
 	private tempoBpm: number = DEFAULT_TEMPO_BPM;
 	/** Epoch ms when the current series started; the selector measures elapsed time from it. */
 	private startedAt = 0;
+	/** Tempo the metronome restarts at once the breathing ends; null when it keeps its own. */
+	private switchTo: number | null = null;
 	/** Prompt chosen ahead of a counted bar, shown when the bar ends. */
 	private pending: PlannedItem | null = null;
 	/** Display of `pending`, built once so the string preview and the prompt spell the note alike. */
@@ -154,11 +156,11 @@ export class SessionController implements PlaySessionController {
 			if (this.run !== run) return;
 			this.selector = selector;
 			this.executions = executions;
-			this.tempoBpm = sessionTempo(executions);
-			this.view.tempoBpm = this.tempoBpm;
 			this.startedAt = this.deps.now();
 			// Show the first prompt's stage right away, before audio and the microphone.
 			this.prepareStage();
+			// The metronome starts at the tempo of the first prompt's exercise.
+			this.setTempo(sessionTempo(executions, this.pending?.exerciseId));
 			await this.beginAudio(run);
 		} finally {
 			if (this.run === run) this.starting = false;
@@ -171,6 +173,7 @@ export class SessionController implements PlaySessionController {
 		this.executions = [];
 		this.pending = null;
 		this.pendingPrompt = null;
+		this.switchTo = null;
 		this.view.preview = null;
 		this.lastScene = null;
 		this.view.scene = 'guitar';
@@ -278,11 +281,14 @@ export class SessionController implements PlaySessionController {
 	resume(): void {
 		if (this.view.status !== 'paused') return;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
-		this.deps.metronome.setTempo(this.tempoBpm);
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.counting = true;
 		this.clearItemState();
 		this.prepareStage();
+		// A change of tempo still waiting happens now: the resume counts its bar anyway.
+		if (this.switchTo !== null) this.setTempo(this.switchTo);
+		this.switchTo = null;
+		this.deps.metronome.setTempo(this.tempoBpm);
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
 	}
@@ -326,7 +332,7 @@ export class SessionController implements PlaySessionController {
 
 	/**
 	 * The execution a prompt belongs to, by its exercise. Its tempo is the one the attempt is
-	 * judged at; a change of tempo between executions would start here (decision 4).
+	 * judged at; a prompt of another tempo restarts the metronome (decision 4).
 	 */
 	private executionOf(item: PlannedItem): Execution {
 		const execution = this.executions.find((e) => e.exerciseId === item.exerciseId);
@@ -416,6 +422,11 @@ export class SessionController implements PlaySessionController {
 			void this.finish();
 			return;
 		}
+		if (this.switchTo !== null) {
+			// The breathing ends at the old tempo; the new one starts on the next beat.
+			if (beat.index >= this.earliestPromptBeat - 1) this.restartAt(this.switchTo, beat);
+			return;
+		}
 		const promptBeat = this.promptBeatFor(this.pending, beat.index);
 		if (beat.index >= promptBeat) {
 			this.counting = false;
@@ -431,6 +442,31 @@ export class SessionController implements PlaySessionController {
 				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
 		if (this.view.countdown !== null) this.view.lastVerdict = null;
+	}
+
+	/**
+	 * Stops the metronome and starts it again at `tempoBpm` on the beat after `beat`, the new grid
+	 * opening with a counted bar, as a resume does. Its beats are numbered from 0 again: the lane
+	 * forgets the old ones.
+	 */
+	private restartAt(tempoBpm: number, beat: BeatEvent): void {
+		const metronome = this.deps.metronome;
+		const at = Math.max(metronome.beatTime(beat.index + 1), this.deps.clock.now() + 0.1);
+		metronome.stop();
+		this.switchTo = null;
+		this.setTempo(tempoBpm);
+		metronome.setTempo(tempoBpm);
+		this.earliestPromptBeat = BEATS_PER_BAR;
+		this.counting = true;
+		this.view.preview = null;
+		this.view.history = [];
+		logDetection('changement de tempo', [`nouveau tempo : ${tempoBpm} bpm, une mesure comptée`]);
+		metronome.start(at);
+	}
+
+	private setTempo(tempoBpm: number): void {
+		this.tempoBpm = tempoBpm;
+		this.view.tempoBpm = tempoBpm;
 	}
 
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
@@ -745,12 +781,19 @@ export class SessionController implements PlaySessionController {
 		}
 		this.pending = item;
 		const presenter = this.presenterFor(item);
+		const tempo = this.executionOf(item).tempoBpm;
+		// Another tempo: the metronome restarts after the breathing, with its own counted bar.
+		if (tempo !== null && tempo !== this.tempoBpm) this.switchTo = tempo;
+		// A restart counts its own bar: no second one for a change of scene or of lead.
+		const counted = this.switchTo === null;
 		if (this.lastScene !== null && presenter.scene !== this.lastScene) {
 			// Switching between guitar and screen: one counted bar to get the hands there.
-			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
-			this.counting = true;
+			if (counted) {
+				this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+				this.counting = true;
+			}
 			this.enterScene(presenter);
-		} else if (item.countIn) {
+		} else if (item.countIn && counted) {
 			// A new sequence at another lead: one counted bar announces it.
 			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
 			this.counting = true;

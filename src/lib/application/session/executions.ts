@@ -1,21 +1,13 @@
 import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
-import type { Execution } from '$lib/domain/types';
+import type { Execution, ExerciseId } from '$lib/domain/types';
 
 /**
- * Tempo the metronome runs a session at: the only non-null tempo of its executions, the default
- * without one. Two different tempos throw (decision 4): restarting the metronome in a counted bar
- * will come with the first need, where the change of scene is; the controller already reads the
- * tempo of each prompt's execution so that change stays local.
+ * Tempo the metronome starts a series at: the tempo of `first`'s execution (the exercise of the
+ * first prompt), else the first tempo of the executions, else the default. A later prompt of an
+ * execution at another tempo restarts the metronome after a counted bar (decision 4).
  */
-export function sessionTempo(executions: readonly Execution[]): number {
-	const tempos = new Set(
-		executions.flatMap((execution) => (execution.tempoBpm === null ? [] : [execution.tempoBpm]))
-	);
-	if (tempos.size > 1) {
-		throw new Error(
-			`A session runs at one tempo (decision 4), got ${[...tempos].join(' and ')} bpm`
-		);
-	}
-	const [tempo] = tempos;
-	return tempo ?? DEFAULT_TEMPO_BPM;
+export function sessionTempo(executions: readonly Execution[], first?: ExerciseId): number {
+	const own = executions.find((execution) => execution.exerciseId === first)?.tempoBpm ?? null;
+	const any = executions.find((execution) => execution.tempoBpm !== null)?.tempoBpm ?? null;
+	return own ?? any ?? DEFAULT_TEMPO_BPM;
 }

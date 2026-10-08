@@ -15,12 +15,12 @@ describe('sessionTempo', () => {
 		expect(sessionTempo([{ exerciseId: 'identify-neck', tempoBpm: null }])).toBe(80);
 	});
 
-	it('refuses two different tempos, naming decision 4', () => {
-		expect(() =>
-			sessionTempo([
-				{ exerciseId: 'locate-neck', tempoBpm: 100 },
-				{ exerciseId: 'locate-g', tempoBpm: 120 }
-			])
-		).toThrow(/decision 4/);
+	it('is the tempo of the first prompt when the executions have several', () => {
+		const executions = [
+			{ exerciseId: 'locate-neck', tempoBpm: 100 },
+			{ exerciseId: 'locate-g', tempoBpm: 120 }
+		];
+		expect(sessionTempo(executions, 'locate-g')).toBe(120);
+		expect(sessionTempo(executions)).toBe(100);
 	});
 });
