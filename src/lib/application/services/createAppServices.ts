@@ -11,8 +11,10 @@ import {
 	computeHomeStats,
 	createLearnSelector,
 	createListSelector,
+	isNeck,
 	summarizeSession
 } from '$lib/domain/progress';
+import { triadNotesToLearn } from '$lib/domain/triads';
 import type { Execution, SessionKind } from '$lib/domain/types';
 
 export function createAppServices(
@@ -82,15 +84,18 @@ export function createAppServices(
 				// The learn selector fits learned leads to the locate tempo.
 				const locateTempo =
 					executions.find((e) => e.exerciseId === LOCATE_NECK.id)?.tempoBpm ?? DEFAULT_TEMPO_BPM;
+				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
+				const neckCards = cards.filter(isNeck);
 				const selector =
 					kind === 'free'
-						? createListSelector(buildFreePlan({ cards, random: deps.random }))
+						? createListSelector(buildFreePlan({ cards: neckCards, random: deps.random }))
 						: createLearnSelector({
-								cards,
-								attempts,
+								cards: neckCards,
+								attempts: attempts.filter(isNeck),
 								sessionId,
 								tempoBpm: locateTempo,
-								random: deps.random
+								random: deps.random,
+								priority: triadNotesToLearn(cards)
 							});
 				return { selector, executions };
 			};

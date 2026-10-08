@@ -33,4 +33,5 @@ export { createLearnSelector } from './learnSelector';
 export { createTriadSelector } from './triadSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan } from './plans';
+export { isNeck } from './neck';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

@@ -5,7 +5,7 @@ import {
 	type IdentifyData,
 	type LocateData
 } from '$lib/domain/mechanics';
-import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
+import { asNeckCard, neckCardKey, type LocateItem, type NeckCard } from '$lib/domain/music';
 import {
 	isSuccess,
 	LEAD_STEPS,
@@ -112,7 +112,8 @@ class LearnSelector implements SessionSelector {
 		private readonly sessionId: string,
 		private readonly tempoBpm: number,
 		private readonly random: () => number,
-		private readonly sequences: boolean
+		private readonly sequences: boolean,
+		private readonly priority: readonly LocateItem[]
 	) {
 		this.cards = new Map(cards.map((card) => [card.key, card]));
 		this.last = lastAttemptByCard(attempts);
@@ -510,7 +511,7 @@ class LearnSelector implements SessionSelector {
 		if (beingLearned >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
 		if (gated && !this.readyForNewNote(cards)) return null;
 		if (this.workingSet.size >= MAX_WORKING_SET) return null;
-		const next = nextNewCard(cards);
+		const next = nextNewCard(cards, this.priority);
 		if (!next || !allowedAfter(next, this.previous)) return null;
 		const lead = next.mechanic === 'locate' ? locateRules.timing.learnedLead(this.tempoBpm) : null;
 		if (!fit(next.mechanic, lead)) return null;
@@ -581,6 +582,8 @@ export function createLearnSelector(input: {
 	random?: () => number;
 	/** Sequences trial; defaults to SEQUENCES_ENABLED. */
 	sequences?: boolean;
+	/** Notes introduced first: those of the triads being learned (spec 2026-10-08, section 2). */
+	priority?: readonly LocateItem[];
 }): SessionSelector {
 	return new LearnSelector(
 		input.cards,
@@ -588,6 +591,7 @@ export function createLearnSelector(input: {
 		input.sessionId,
 		input.tempoBpm,
 		input.random ?? Math.random,
-		input.sequences ?? SEQUENCES_ENABLED
+		input.sequences ?? SEQUENCES_ENABLED,
+		input.priority ?? []
 	);
 }

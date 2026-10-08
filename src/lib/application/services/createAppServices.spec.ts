@@ -136,6 +136,39 @@ describe('createAppServices', () => {
 		expect(controller.view.leadBeats).toBe(2);
 	});
 
+	it('startSession(learn) probes first the notes of a triad being anchored', async () => {
+		const { services, deps } = harness();
+		const key = 'D|maj|3:5,2:1,1:3';
+		await deps.cards.put({
+			key: `triad-anchor:${key}`,
+			mechanic: 'triad-anchor',
+			item: { voicingKey: key },
+			introducedAt: 0,
+			introducedInSession: 's-old',
+			leadBeats: 8,
+			scheduling: {
+				due: 0,
+				stability: 0,
+				difficulty: 0,
+				elapsedDays: 0,
+				scheduledDays: 0,
+				learningSteps: 0,
+				reps: 0,
+				lapses: 0,
+				state: 0,
+				lastReview: null
+			},
+			learnedAt: null,
+			acquiredAt: null,
+			masteredAt: null
+		});
+		const controller = await services.startSession('learn');
+		await controller.start();
+		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
+		// A on the G string: the first note of D 2-3-2 that locate does not know.
+		expect(controller.view.prompt).toMatchObject({ primary: 'A', secondary: 'corde de G' });
+	});
+
 	it('runs locate at its progression tempo, within range, and identify without one', async () => {
 		for (const [stored, expected] of [
 			[100, 100],

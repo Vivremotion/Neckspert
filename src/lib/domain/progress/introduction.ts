@@ -52,6 +52,22 @@ function orderedPositions(): Position[] {
 	return [...alternate(naturals), ...alternate(altered)];
 }
 
+/**
+ * The positions of `priority` (locate items, fret 1 to 11 on their string), in their order and
+ * once each, then the rest of the queue.
+ */
+function prioritized(priority: readonly LocateItem[]): Position[] {
+	const positions = orderedPositions();
+	const first: Position[] = [];
+	for (const item of priority) {
+		const position = positions.find(
+			(p) => p.string === item.string && pitchOnString(p.string, p.fret) === item.pitch
+		);
+		if (position && !first.includes(position)) first.push(position);
+	}
+	return [...first, ...positions.filter((position) => !first.includes(position))];
+}
+
 function locateAt(position: Position): { mechanic: 'locate'; item: LocateItem } {
 	return {
 		mechanic: 'locate',
@@ -62,22 +78,26 @@ function locateAt(position: Position): { mechanic: 'locate'; item: LocateItem } 
 /**
  * Locate introduction queue: naturals, then altered notes, alternating strings 6 to 1.
  * On each string, naturals on a fret marker come first. The only place that fixes the order.
+ * `priority` (the notes of the triads being learned) comes before everything, in its order.
  */
-export function introductionOrder(): LocateItem[] {
-	return orderedPositions().map((position) => ({
+export function introductionOrder(priority: readonly LocateItem[] = []): LocateItem[] {
+	return prioritized(priority).map((position) => ({
 		string: position.string,
 		pitch: pitchOnString(position.string, position.fret)
 	}));
 }
 
 /**
- * Next card to introduce: the identify position of an acquired locate card first, in queue
- * order; otherwise the next locate position without a card whose mirror (see `mirrorItems`)
+ * Next card to introduce (queue led by `priority`): the identify position of an acquired locate
+ * card first, in queue order; otherwise the next locate position without a card whose mirror (see `mirrorItems`)
  * has no card still to acquire. Null when nothing is left.
  */
-export function nextNewCard(cards: readonly CardState[]): NeckCard | null {
+export function nextNewCard(
+	cards: readonly CardState[],
+	priority: readonly LocateItem[] = []
+): NeckCard | null {
 	const byKey = new Map(cards.map((card) => [card.key, card]));
-	const positions = orderedPositions();
+	const positions = prioritized(priority);
 	for (const position of positions) {
 		const locate = byKey.get(neckCardKey(locateAt(position)));
 		const identify: NeckCard = {

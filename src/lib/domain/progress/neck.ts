@@ -17,6 +17,11 @@ export function neckExerciseId(mechanic: MechanicId): ExerciseId {
 	return asNeckMechanic(mechanic) === 'locate' ? LOCATE_NECK.id : IDENTIFY_NECK.id;
 }
 
+/** Whether a card or an attempt belongs to the neck, not to another track (triads). */
+export function isNeck(x: { mechanic: MechanicId }): boolean {
+	return x.mechanic === 'locate' || x.mechanic === 'identify';
+}
+
 /** Throws on a mechanic outside the neck domain. */
 function asNeckMechanic(mechanic: MechanicId): NeckCard['mechanic'] {
 	if (mechanic === 'locate' || mechanic === 'identify') return mechanic;

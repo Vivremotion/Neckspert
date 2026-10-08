@@ -108,3 +108,18 @@ describe('nextNewCard', () => {
 		expect(nextNewCard(cards)).toBeNull();
 	});
 });
+
+describe('the notes of the triads being learned', () => {
+	const cSharpOnE: LocateItem = { string: 1, pitch: 'C#' };
+
+	it('come first in the queue, in their order, once each', () => {
+		const order = introductionOrder([cSharpOnE, cSharpOnE]);
+		expect(keys(order.slice(0, 1))).toEqual(['1:C#']);
+		expect(keys(order).filter((key) => key === '1:C#')).toHaveLength(1);
+		expect(order).toHaveLength(introductionOrder().length);
+	});
+
+	it('are the next note introduced', () => {
+		expect(nextNewCard([], [cSharpOnE])).toEqual(locate(cSharpOnE));
+	});
+});

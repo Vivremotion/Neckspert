@@ -825,3 +825,21 @@ describe('learn session never stalls', () => {
 		expect(repeats(items)).toBe(0);
 	});
 });
+
+describe('createLearnSelector with the notes of the triads being learned', () => {
+	it('probes them first', () => {
+		const selector = createLearnSelector({
+			cards: [],
+			attempts: [],
+			sessionId: 's-now',
+			tempoBpm: TEMPO,
+			random: () => 0,
+			priority: [{ string: 1, pitch: 'C#' }]
+		});
+		expect(selector.next({ now: NOW, elapsedMs: 0, fatigued: false })).toMatchObject({
+			mechanic: 'locate',
+			item: { string: 1, pitch: 'C#' },
+			phase: 'probe'
+		});
+	});
+});
