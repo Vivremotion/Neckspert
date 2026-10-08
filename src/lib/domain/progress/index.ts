@@ -30,6 +30,7 @@ export { introductionOrder, nextNewCard } from './introduction';
 export { createListSelector } from './selector';
 export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
+export { createTriadSelector } from './triadSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan } from './plans';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';
