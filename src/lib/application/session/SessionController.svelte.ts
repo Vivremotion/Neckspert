@@ -290,6 +290,8 @@ export class SessionController implements PlaySessionController {
 		this.counting = true;
 		this.clearItemState();
 		this.prepareStage();
+		// The metronome numbers its beats from 0 again: the lane forgets the old ones.
+		this.view.history = [];
 		// The resume counts its bar anyway: it starts at the tempo of the prompt it leads to.
 		this.switchTo = null;
 		const tempo = this.pending ? this.executionOf(this.pending).tempoBpm : null;

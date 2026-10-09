@@ -198,6 +198,22 @@ describe('SessionController skeleton', () => {
 		expect(controller.view.prompt?.primary).toBe('C');
 	});
 
+	it('forgets the lane on resume: its beats are numbered from 0 again', async () => {
+		const controller = make(
+			planWith([locateItem(), locateItem({ item: { string: 3, pitch: 'C' } })]),
+			deps
+		);
+		await controller.start();
+		// The first prompt (target beat 8) goes unanswered: its miss is drawn on the lane.
+		tick(deps, 0.1 + 0.75 * 12);
+		expect(controller.view.history.map((entry) => entry.beatIndex)).toEqual([8]);
+
+		controller.pause();
+		controller.resume();
+		// An old verdict would sit on the new target beat 8 and hide its note.
+		expect(controller.view.history).toEqual([]);
+	});
+
 	it('quit stops audio and marks finished', async () => {
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
