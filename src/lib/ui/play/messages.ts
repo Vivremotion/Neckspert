@@ -24,6 +24,7 @@ export const playMessages = defineMessages({
 			early: 'En avance',
 			late: 'En retard',
 			offbeat: 'Hors temps',
+			corrected: 'Corrigé',
 			wrong: 'Mauvaise note'
 		} as const,
 		noInput:
@@ -48,6 +49,7 @@ export const playMessages = defineMessages({
 			early: 'Early',
 			late: 'Late',
 			offbeat: 'Off beat',
+			corrected: 'Corrected',
 			wrong: 'Wrong note'
 		} as const,
 		noInput:

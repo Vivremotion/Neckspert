@@ -61,6 +61,18 @@ export const CUE_SPECS: Readonly<Record<Verdict, readonly ToneSpec[]>> = {
 			peakGain: 0.12
 		}
 	],
+	/** Put right after a miss: two soft notes climbing back, below off beat, above wrong. */
+	corrected: [
+		{ waveform: 'triangle', offset: 0, duration: 0.06, startHz: 392, endHz: 392, peakGain: 0.1 },
+		{
+			waveform: 'triangle',
+			offset: 0.06,
+			duration: 0.07,
+			startHz: 523.25,
+			endHz: 523.25,
+			peakGain: 0.1
+		}
+	],
 	wrong: [
 		{ waveform: 'square', offset: 0, duration: 0.14, startHz: 110, endHz: 98, peakGain: 0.05 }
 	]

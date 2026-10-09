@@ -55,4 +55,10 @@ describe('CUE_SPECS', () => {
 		expect(wrong.waveform).toBe('square');
 		expect(Math.max(wrong.startHz, wrong.endHz)).toBeLessThan(lowestOther / 4);
 	});
+
+	it('plays corrected apart from wrong and off beat', () => {
+		expect(CUE_SPECS.corrected).toBeDefined();
+		expect(CUE_SPECS.corrected).not.toEqual(CUE_SPECS.wrong);
+		expect(CUE_SPECS.corrected).not.toEqual(CUE_SPECS.offbeat);
+	});
 });

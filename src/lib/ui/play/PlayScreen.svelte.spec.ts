@@ -311,6 +311,28 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.correction')?.textContent).toBe('corde de E grave, case 5');
 	});
 
+	it('names a corrected attempt in the banner', () => {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'A',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'verdict',
+			lastVerdict: {
+				verdict: 'corrected',
+				offsetMs: null,
+				reactionMs: null,
+				answerLabel: null,
+				correction: 'corde de E grave, case 5'
+			}
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.banner')?.textContent).toBe('Corrigé');
+	});
+
 	it('shows no aid on an unaided prompt', () => {
 		const controller = aidedController({
 			scene: 'guitar',

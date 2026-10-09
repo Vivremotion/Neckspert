@@ -3,7 +3,9 @@ import {
 	cardKey,
 	DEFAULT_SETTINGS,
 	DIAGNOSTIC_BUDGETS_MB,
+	isSuccess,
 	parseCardKey,
+	VERDICTS,
 	resolveDiagnosticsEnabled
 } from './types';
 
@@ -39,5 +41,15 @@ describe('diagnostics settings', () => {
 		expect(resolveDiagnosticsEnabled({ enabled: null, budgetMb: 300 }, false)).toBe(false);
 		expect(resolveDiagnosticsEnabled({ enabled: false, budgetMb: 300 }, true)).toBe(false);
 		expect(resolveDiagnosticsEnabled({ enabled: true, budgetMb: 300 }, false)).toBe(true);
+	});
+});
+
+describe('verdicts', () => {
+	it('ranks corrected between off beat and wrong', () => {
+		expect(VERDICTS).toEqual(['perfect', 'early', 'late', 'offbeat', 'corrected', 'wrong']);
+	});
+
+	it('never counts a corrected attempt as a success', () => {
+		expect(isSuccess({ correct: false, verdict: 'corrected' })).toBe(false);
 	});
 });

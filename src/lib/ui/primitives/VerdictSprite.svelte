@@ -37,6 +37,16 @@
 		<rect x="2" y="11" width="3" height="2" fill="currentColor" />
 		<rect x="11" y="11" width="3" height="2" fill="currentColor" />
 		<rect x="4" y="13" width="8" height="2" fill="currentColor" />
+	{:else if verdict === 'corrected'}
+		<!-- Corrected: the miss's cross, half of it turned into a tick. Wrong first, then right. -->
+		<rect x="2" y="2" width="3" height="3" fill="currentColor" />
+		<rect x="5" y="5" width="3" height="3" fill="currentColor" />
+		<rect x="2" y="11" width="3" height="3" fill="currentColor" />
+		<rect x="5" y="8" width="3" height="3" fill="currentColor" />
+		<rect x="8" y="9" width="2" height="2" fill="currentColor" />
+		<rect x="10" y="6" width="2" height="3" fill="currentColor" />
+		<rect x="12" y="3" width="2" height="3" fill="currentColor" />
+		<rect x="14" y="1" width="1" height="2" fill="currentColor" />
 	{:else if verdict === 'early'}
 		<rect x="7" y="6" width="8" height="4" fill="currentColor" />
 		<rect x="7" y="4" width="2" height="8" fill="currentColor" />

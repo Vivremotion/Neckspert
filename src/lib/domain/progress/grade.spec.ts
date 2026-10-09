@@ -80,4 +80,12 @@ describe('sessionGrade', () => {
 		expect(sessionGrade(offbeat)).toBe('C');
 		expect(sessionGrade(wrong)).toBe('F+');
 	});
+
+	it('ranks a corrected attempt as a whole miss', () => {
+		const wrong = attempts(4, { correct: 2, perfect: 2 });
+		const corrected = wrong.map((attempt) =>
+			attempt.correct ? attempt : { ...attempt, verdict: 'corrected' as const }
+		);
+		expect(sessionGrade(corrected)).toBe(sessionGrade(wrong));
+	});
 });

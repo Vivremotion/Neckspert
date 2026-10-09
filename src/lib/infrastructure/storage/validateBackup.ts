@@ -157,7 +157,7 @@ function checkAttemptFields(attempt: Fields): string | null {
 	if (!isFiniteNumber(attempt.promptedAt)) return 'promptedAt must be a number';
 	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
 	if (!isOneOf(attempt.verdict, VERDICTS))
-		return 'verdict must be perfect, early, late, offbeat or wrong';
+		return 'verdict must be perfect, early, late, offbeat, corrected or wrong';
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
 	return null;
 }

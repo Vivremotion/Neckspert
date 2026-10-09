@@ -25,13 +25,22 @@ export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: str
 }
 
 /**
- * Best to worst: perfect > early / late > offbeat > wrong. `offbeat` (mode 1): the right note,
- * heard after the window while still listening. Right but never direct recall.
+ * Best to worst: perfect > early / late > offbeat > corrected > wrong. `offbeat` (mode 1): the right
+ * note, heard after the window while still listening. Right but never direct recall. `corrected`
+ * (triad anchor): a wrong chord put right later in its window; a miss everywhere (`correct` false),
+ * only the screen salutes it.
  */
-export type Verdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'wrong';
+export type Verdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
 
 /** Every verdict, best first. */
-export const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'late', 'offbeat', 'wrong'];
+export const VERDICTS: readonly Verdict[] = [
+	'perfect',
+	'early',
+	'late',
+	'offbeat',
+	'corrected',
+	'wrong'
+];
 
 /**
  * A success: the right answer, in time. Off beat, wrong and unanswered prompts are misses.
