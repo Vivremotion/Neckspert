@@ -13,6 +13,7 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   - comment l’insérer sans casser la pulsation : arrêt et mesure comptée, comme un changement de tempo ou de scène, ou une pause explicite ;
   - si elle vit dans la définition (donc en données, partageable, écrite par un professeur ou un LLM) ou dans la mécanique (code) ;
   - son lien avec le sondage : un sondage raté parce que le geste n’était pas compris ne mesure pas la mémoire.
+- **Depuis le 2026-10-09** : l’ancrage et la zone sont deux exercices, chacun sa session et sa consigne ; la zone apparaît à l’accueil quand l’ancrage lui a fourni assez de triades (`ZONE_MIN_ACQUIRED_TRIADS`). Le passage de l’un à l’autre au sein d’une même session n’était pas clair, même pour qui connaît l’application. Les intégrer aux sessions d’Apprentissage reste à penser, et **le changement d’exercice doit y être manifeste**.
 
 ## Une vue de jeu par mécanique
 
