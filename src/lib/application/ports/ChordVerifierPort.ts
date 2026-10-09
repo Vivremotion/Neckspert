@@ -36,8 +36,9 @@ export interface ChordReport {
 	/** The active variant's decision. */
 	decided: string | null;
 	/**
-	 * No better reading of this attack will follow: the decision is an expected candidate (and
-	 * every report after it), or this is the attack's last report (last point, or cut short).
+	 * No better reading of this attack will follow, and none comes after it: the decision is an
+	 * expected candidate, or the same shape held long enough, or nothing recognized for long
+	 * enough, or this is the attack's last reading (last one, cut short, or closed by a new attack).
 	 */
 	final: boolean;
 	variants: readonly ChordVariantReport[];

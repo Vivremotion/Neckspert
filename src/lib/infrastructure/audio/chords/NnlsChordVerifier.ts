@@ -8,8 +8,14 @@ import type { AudioFrame } from '../input/WebAudioInput';
 import { DEFAULT_DETECTOR_CONFIG } from '../detection/config';
 import { OnsetDetector } from '../detection/OnsetDetector';
 import {
-	REPORT_POINTS_MS,
+	ARPEGGIO_SPAN_MS,
+	FIRST_READING_MS,
+	JUDGE_EVERY_MS,
+	LAST_READING_MS,
+	NOTHING_FINAL_MS,
 	SPECTRUM_KEEP_MAX_HZ,
+	SPECTRUM_POINTS_MS,
+	STABLE_READINGS,
 	SPECTRUM_KEEP_MIN_HZ,
 	fftSizeFor,
 	hopSizeFor
@@ -35,19 +41,24 @@ export interface KeptSpectrum {
 /** Significant digits kept for each journaled magnitude. */
 const KEPT_DIGITS = 4;
 
-/** One attack being listened to: the peak of each bin since it, and the next report due. */
+/** One attack being listened to: the peak of each bin since it, and its readings so far. */
 interface OpenWindow {
 	attack: number;
 	pooled: Float64Array | null;
-	nextPoint: number;
-	/** A report already retained an expected candidate: every later one is final too. */
-	settled: boolean;
+	/** Length of the next reading due, ms. */
+	nextMs: number;
+	/** The last reading's decision; undefined before the first one. */
+	decided: string | null | undefined;
+	/** How many readings in a row decided it. */
+	sameCount: number;
 }
 
 /**
  * Chord verification by fitting harmonic combs (the spike's `nnls-abs` judge): after each attack
  * in a round, the peak-held spectrum since the attack is judged against the expected candidates by
- * every variant, at each report point. Between rounds, only the onset envelope runs.
+ * every variant, from FIRST_READING_MS every JUDGE_EVERY_MS until a reading is final. A new attack
+ * closes an earlier window that has decided a shape or outlived an arpeggio: a chord played again
+ * is read on its own. Between rounds, only the onset envelope runs.
  */
 export class NnlsChordVerifier implements ChordVerifierPort {
 	private readonly variants: readonly JudgeVariant[];
@@ -121,7 +132,14 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		if (!this.expectation) return;
 
 		if (attack !== null && attack >= this.expectation.opensAt) {
-			this.windows.push({ attack, pooled: null, nextPoint: 0, settled: false });
+			this.closeBefore(attack);
+			this.windows.push({
+				attack,
+				pooled: null,
+				nextMs: FIRST_READING_MS,
+				decided: undefined,
+				sameCount: 0
+			});
 		}
 		if (this.windows.length === 0) return;
 
@@ -140,32 +158,42 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 			}
 		}
 
+		const done = new Set<OpenWindow>();
 		for (const w of this.windows) {
-			while (
-				w.nextPoint < REPORT_POINTS_MS.length &&
-				this.lastFrameEnd >= w.attack + REPORT_POINTS_MS[w.nextPoint] / 1000
-			) {
-				const last = w.nextPoint === REPORT_POINTS_MS.length - 1;
-				if (w.pooled) this.report(w, REPORT_POINTS_MS[w.nextPoint], last);
-				w.nextPoint++;
+			while (!done.has(w) && this.lastFrameEnd >= w.attack + w.nextMs / 1000) {
+				const windowMs = w.nextMs;
+				w.nextMs = Math.min(windowMs + JUDGE_EVERY_MS, LAST_READING_MS);
+				if (w.pooled && this.report(w, windowMs, windowMs >= LAST_READING_MS)) done.add(w);
+				else if (windowMs >= LAST_READING_MS) done.add(w);
 			}
 		}
-		this.windows = this.windows.filter((w) => w.nextPoint < REPORT_POINTS_MS.length);
+		this.windows = this.windows.filter((w) => !done.has(w));
+	}
+
+	/** A new attack at `attack`: the windows it closes give their final reading now. */
+	private closeBefore(attack: number): void {
+		this.windows = this.windows.filter((w) => {
+			const ageMs = (attack - w.attack) * 1000;
+			const closes = (w.decided !== undefined && w.decided !== null) || ageMs > ARPEGGIO_SPAN_MS;
+			if (!closes) return true;
+			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
+			return false;
+		});
 	}
 
 	/** The windows still open report what they heard, then are forgotten. */
 	private flushWindows(): void {
 		for (const w of this.windows) {
-			if (!w.pooled) continue;
 			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
 		}
 		this.windows = [];
 	}
 
-	private report(w: OpenWindow, windowMs: number, last: boolean): void {
+	/** Judges the window at `windowMs`; true when the reading is final. */
+	private report(w: OpenWindow, windowMs: number, last: boolean): boolean {
 		const expectation = this.expectation;
 		const pooled = w.pooled;
-		if (!expectation || !pooled) return;
+		if (!expectation || !pooled) return false;
 		const journal = this.diagnostics?.enabled ? this.diagnostics : null;
 		const started = journal ? performance.now() : 0;
 		const variants = this.variants.map((variant) =>
@@ -173,20 +201,19 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		);
 		const judgeMs = journal ? performance.now() - started : 0;
 		const decided = variants.find((v) => v.id === this.active)?.decided ?? null;
-		if (decided !== null && expectation.expected.includes(decided)) w.settled = true;
-		const report: ChordReport = {
-			time: w.attack,
-			windowMs,
-			decided,
-			final: w.settled || last,
-			variants
-		};
-		journal?.event('chord.report', report.time, {
-			...report,
-			judgeMs,
-			spectrum: this.keptSpectrum(pooled)
-		});
+		w.sameCount = decided !== null && decided === w.decided ? w.sameCount + 1 : 1;
+		w.decided = decided;
+		const final =
+			last ||
+			(decided !== null && expectation.expected.includes(decided)) ||
+			(decided !== null && w.sameCount >= STABLE_READINGS) ||
+			(decided === null && windowMs >= NOTHING_FINAL_MS);
+		const report: ChordReport = { time: w.attack, windowMs, decided, final, variants };
+		const spectrum =
+			final || SPECTRUM_POINTS_MS.includes(windowMs) ? { spectrum: this.keptSpectrum(pooled) } : {};
+		journal?.event('chord.report', report.time, { ...report, judgeMs, ...spectrum });
 		this.listeners.forEach((listener) => listener(report));
+		return final;
 	}
 
 	private keptSpectrum(pooled: Float64Array): KeptSpectrum {

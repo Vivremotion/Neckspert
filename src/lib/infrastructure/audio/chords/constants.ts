@@ -10,8 +10,22 @@ export const TARGET_WINDOW_S = 0.17;
 /** A spectrum every FFT_SIZE / HOP_DIVISOR samples (1024 at 48 kHz, about 21 ms). */
 export const HOP_DIVISOR = 8;
 
-/** Reports after each attack, at these window lengths. */
-export const REPORT_POINTS_MS: readonly number[] = [250, 500, 1000, 2000];
+/** First reading of an attack: before it, the window holds mostly the attack's noise. */
+export const FIRST_READING_MS = 250;
+/** Readings follow every JUDGE_EVERY_MS, until LAST_READING_MS, the last one. */
+export const JUDGE_EVERY_MS = 100;
+export const LAST_READING_MS = 2000;
+/** The same wrong shape decided this many readings in a row is final. */
+export const STABLE_READINGS = 3;
+/** A reading that still recognizes nothing at this length is final. */
+export const NOTHING_FINAL_MS = 1000;
+/**
+ * A new attack closes the window of an earlier one that has decided a shape, or that is older than
+ * this: the notes of an arpeggio come within it, a chord played again comes later.
+ */
+export const ARPEGGIO_SPAN_MS = 500;
+/** Readings journaled with their spectrum, besides the final one. */
+export const SPECTRUM_POINTS_MS: readonly number[] = [250, 500, 1000, 2000];
 
 /** MIDI notes a comb is built for. Beyond them a candidate scores 0. */
 export const NOTE_LO = 52;
