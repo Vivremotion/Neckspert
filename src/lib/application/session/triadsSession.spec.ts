@@ -127,7 +127,7 @@ async function currentPrompt(h: Harness, controller: PlaySessionController) {
 		mechanic: zone ? 'triad-zone' : 'triad-anchor',
 		voicingKey: key,
 		position: zone ? position : undefined,
-		phase: controller.view.prompt?.aid ? 'aided' : 'unaided'
+		phase: controller.view.prompt?.aid || controller.view.prompt?.shape ? 'aided' : 'unaided'
 	};
 }
 

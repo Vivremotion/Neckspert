@@ -1,5 +1,5 @@
 import type { StringNumber } from '$lib/domain/music/types';
-import type { LeadBeats, Verdict } from '$lib/domain/types';
+import type { ChordDiagramStyle, LeadBeats, Verdict } from '$lib/domain/types';
 import type { Scene } from '$lib/application/mechanics/types';
 
 export type { Scene };
@@ -23,6 +23,8 @@ export interface PromptView {
 	target?: string;
 	/** On the band of a second gesture, when there is one: the chord of a triad anchor ("Cm"). */
 	band?: string;
+	/** A shape to draw as the aid (a triad anchor's, aided). */
+	shape?: ShapeView;
 	/** Mode 1 learning aid ("case 6"), or null. */
 	aid: string | null;
 	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
@@ -38,6 +40,11 @@ export interface VerdictView {
 	answerLabel: string | null;
 	/** After a miss: the right answer, the position in mode 1 ("corde de E grave, case 5"), the name in mode 2. */
 	correction: string | null;
+	/** After a miss of a mechanic that draws shapes: the shape heard (null: none recognized). */
+	heard?: ShapeView | null;
+	/** …the shape asked, and what tells them apart ("autre renversement"). */
+	expected?: ShapeView | null;
+	gap?: string | null;
 }
 
 /** A played target on the lane, at the beat it was due. */
@@ -77,6 +84,8 @@ export interface PlayView {
 	countdown: number | null;
 	/** Mode 1: the next prompt, shown string first before its note appears. Only its string shows. */
 	preview: PromptView | null;
+	/** How chord shapes are drawn for the current prompt: its exercise's style, else the player's. */
+	chordDiagram: ChordDiagramStyle;
 	/** 'input': no audio input could be opened at start; the screen says so. */
 	audioError: 'input' | null;
 }

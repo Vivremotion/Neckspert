@@ -3,12 +3,14 @@ import {
 	DEFAULT_TEMPO_BPM,
 	exerciseById,
 	nextTempo,
+	chordDiagramFor,
 	pacingOf,
 	type ExerciseDefinition,
 	type ExerciseId
 } from '$lib/domain/exercise';
 import { cardKeyOf } from '$lib/domain/mechanics';
 import type { SessionSelector } from '$lib/domain/progress';
+import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import type {
 	Attempt,
 	Execution,
@@ -134,6 +136,7 @@ export class SessionController implements PlaySessionController {
 			promptBeatIndex: null,
 			targetBeatIndex: null,
 			followUp: null,
+			chordDiagram: DEFAULT_SETTINGS.chordDiagram,
 			leadBeats: null,
 			history: [],
 			answerChoices: null,
@@ -711,6 +714,10 @@ export class SessionController implements PlaySessionController {
 		this.view.promptBeatIndex = onLane ? this.round.promptBeatIndex : null;
 		this.view.targetBeatIndex = onLane ? this.round.targetBeatIndex : null;
 		this.view.followUp = onLane ? (this.round.followUp ?? null) : null;
+		// The style matters only where shapes are drawn: the exercise may impose it there.
+		this.view.chordDiagram = presenter.feedback
+			? chordDiagramFor(this.exerciseOf(item.exerciseId), this.settings)
+			: this.settings.chordDiagram;
 		this.view.leadBeats = onLane ? item.leadBeats : null;
 		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
@@ -758,7 +765,20 @@ export class SessionController implements PlaySessionController {
 			outcome.answer === null || !item || !presenter
 				? null
 				: presenter.answerLabel(outcome.answer, item.item, this.locale, this.deps.random);
+		const drawn =
+			item && presenter?.feedback
+				? presenter.feedback(
+						item.item,
+						{
+							answer: outcome.answer,
+							confusion: outcome.confusion ?? null,
+							verdict: outcome.verdict
+						},
+						this.locale
+					)
+				: null;
 		return {
+			...drawn,
 			verdict: outcome.verdict,
 			offsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,

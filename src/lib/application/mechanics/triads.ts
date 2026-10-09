@@ -11,6 +11,7 @@ import {
 	closeTriadVoicings,
 	formatSpelledNote,
 	parseVoicingKey,
+	pitchOfMidi,
 	spellInterval,
 	spelledFromPitch,
 	pitchOfSpelled,
@@ -23,8 +24,8 @@ import {
 } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
 import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
-import type { Locale, PlannedItem } from '$lib/domain/types';
-import type { PromptView } from '$lib/application/session/contract';
+import type { Locale, PlannedItem, Verdict } from '$lib/domain/types';
+import type { PromptView, ShapeView } from '$lib/application/session/contract';
 import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
 import type { MechanicPresenter } from './types';
 
@@ -131,6 +132,49 @@ function chordExpectation(
 	};
 }
 
+function shapeOf(occurrence: VoicingOccurrence): ShapeView {
+	return { notes: occurrence.notes.map(({ string, fret }) => ({ string, fret })) };
+}
+
+/** The shape of a reading, null when it recognized nothing. */
+function heardOf(reading: ChordReading | null | undefined): VoicingOccurrence | null {
+	return reading?.decided ? occurrenceOfId(reading.decided) : null;
+}
+
+/** The voicing's shape closest to the one played (by their position), else its lowest. */
+function closestShape(voicing: Voicing, played: VoicingOccurrence | null): VoicingOccurrence {
+	if (!played) return lowestShape(voicing);
+	const at = (shape: VoicingOccurrence) => {
+		const position = occurrencePosition(shape);
+		return position === 'open' ? 0 : position;
+	};
+	const target = at(played);
+	return voicingOccurrences(voicing).reduce((best, shape) =>
+		Math.abs(at(shape) - target) < Math.abs(at(best) - target) ? shape : best
+	);
+}
+
+/** Nothing to draw on a right answer: the miss and the correction only. */
+function isMiss(verdict: Verdict): boolean {
+	return verdict === 'wrong' || verdict === 'corrected';
+}
+
+/** What a chord confusion says, or null when it says nothing (a right chord). */
+function chordGap(confusion: unknown, locale: Locale): string | null {
+	const kind = (confusion as { kind?: string } | null)?.kind;
+	const gap = TRIAD_MESSAGES[locale].gap;
+	switch (kind) {
+		case 'other-inversion':
+		case 'other-quality':
+		case 'other-octave':
+		case 'none':
+		case 'no-chord':
+			return gap[kind];
+		default:
+			return null;
+	}
+}
+
 function chordHeard(reading: ChordReading | null | undefined): string | null {
 	const heard = reading?.decided ? occurrenceOfId(reading.decided) : null;
 	return heard ? fretsOf(heard) : null;
@@ -159,16 +203,34 @@ export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	sensors: ['note', 'chord'],
 	prompt: (item, { aid }, locale) => {
 		const voicing = parseVoicingKey(item.voicingKey);
-		const prompt = triadPrompt(
-			voicing,
-			rootOnLabel(voicing, locale),
-			aid === 'show-position' ? fretsOf(lowestShape(voicing)) : null,
-			locale
-		);
+		const prompt = triadPrompt(voicing, rootOnLabel(voicing, locale), null, locale);
 		// The lane: the root alone on the target tile, then the chord on the band after it.
-		return { ...prompt, target: formatSpelledNote(chartRoot(voicing)), band: prompt.primary };
+		return {
+			...prompt,
+			target: formatSpelledNote(chartRoot(voicing)),
+			band: prompt.primary,
+			...(aid === 'show-position' && { shape: shapeOf(lowestShape(voicing)) })
+		};
 	},
 	answerLabel: (answer) => chordHeard((answer as { chord?: ChordReading | null }).chord),
+	feedback: (item, { answer, confusion, verdict }, locale) => {
+		if (!isMiss(verdict)) return null;
+		const voicing = parseVoicingKey(item.voicingKey);
+		const parts = answer as { root: { midi: number } | null; chord: ChordReading | null } | null;
+		const heard = heardOf(parts?.chord);
+		const part = (confusion as { part?: string } | null)?.part;
+		const gap = TRIAD_MESSAGES[locale].gap;
+		const text = !parts?.root
+			? gap.noRoot
+			: part === 'root'
+				? gap.rootHeard(pitchOfMidi(parts.root.midi))
+				: chordGap(confusion, locale);
+		return {
+			heard: heard && shapeOf(heard),
+			expected: shapeOf(closestShape(voicing, heard)),
+			gap: text
+		};
+	},
 	reveal: (item, { verdict }) => {
 		if (verdict !== 'wrong') return null;
 		const shape = lowestShape(parseVoicingKey(item.voicingKey));
@@ -195,6 +257,15 @@ export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> 
 		);
 	},
 	answerLabel: (answer) => chordHeard(answer),
+	feedback: (item, { answer, confusion, verdict }, locale) => {
+		if (!isMiss(verdict)) return null;
+		const heard = heardOf(answer as ChordReading | null);
+		return {
+			heard: heard && shapeOf(heard),
+			expected: shapeOf(shapeAt(parseVoicingKey(item.voicingKey), item.position)),
+			gap: answer === null ? TRIAD_MESSAGES[locale].gap.noChordHeard : chordGap(confusion, locale)
+		};
+	},
 	reveal: (item, { verdict }) => {
 		if (verdict !== 'wrong') return null;
 		const shape = shapeAt(parseVoicingKey(item.voicingKey), item.position);

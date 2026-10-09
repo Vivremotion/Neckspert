@@ -73,6 +73,17 @@ const rootAndChordPresenter: MechanicPresenter<FakeItem, { value: number; by: st
 	sensors: ['note', 'chord']
 };
 
+const HEARD = { notes: [{ string: 1 as const, fret: 3 }] };
+const EXPECTED = { notes: [{ string: 1 as const, fret: 5 }] };
+
+/** Draws what it heard after a miss. */
+const drawnPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	...twoPresenter,
+	rules: { ...twoRules, id: 'drawn' },
+	feedback: (_item, { verdict }) =>
+		verdict === 'wrong' ? { heard: HEARD, expected: EXPECTED, gap: 'other' } : null
+};
+
 const EXECUTIONS: Execution[] = [{ exerciseId: 'two-ex', tempoBpm: 100 }];
 
 function item(n: number, mechanic = 'two'): PlannedItem {
@@ -87,7 +98,7 @@ function item(n: number, mechanic = 'two'): PlannedItem {
 	};
 }
 
-function setup(mechanic = 'two') {
+function setup(mechanic = 'two', imposed?: 'strings' | 'grid') {
 	rounds.length = 0;
 	const clock = new FakeClock();
 	const metronome = new FakeMetronome(clock);
@@ -121,8 +132,16 @@ function setup(mechanic = 'two') {
 			two: twoPresenter,
 			other: otherPresenter,
 			anchored: anchoredPresenter,
-			'root-chord': rootAndChordPresenter
+			'root-chord': rootAndChordPresenter,
+			drawn: drawnPresenter
 		},
+		exercise: (id) => ({
+			id,
+			version: 1,
+			mechanic,
+			params: {},
+			...(imposed && { chordDiagram: imposed })
+		}),
 		sensors: {
 			a: sensor('a'),
 			b: sensor('b'),
@@ -255,5 +274,42 @@ describe('a mechanic heard by two sensors', () => {
 		expect(attempts[0].data).toMatchObject({
 			answer: { root: { value: 3 }, chord: { value: 4 }, correction: { value: 3 } }
 		});
+	});
+
+	it('draws in the verdict what the mechanic heard and expected after a miss', async () => {
+		const ctx = setup('drawn');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('a', 4, 8);
+		await drain();
+		expect(ctx.controller.view.lastVerdict).toMatchObject({
+			verdict: 'wrong',
+			heard: HEARD,
+			expected: EXPECTED,
+			gap: 'other'
+		});
+	});
+
+	it('draws nothing in the verdict for a mechanic without shapes', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('a', 4, 8);
+		await drain();
+		expect(ctx.controller.view.lastVerdict?.heard ?? null).toBeNull();
+	});
+
+	it('draws chords as the player chose, unless the exercise says', async () => {
+		const chosen = setup();
+		await chosen.deps.settings.update({ chordDiagram: 'grid' });
+		await chosen.controller.start();
+		chosen.atBeat(4);
+		expect(chosen.controller.view.chordDiagram).toBe('grid');
+
+		const imposed = setup('drawn', 'strings');
+		await imposed.deps.settings.update({ chordDiagram: 'grid' });
+		await imposed.controller.start();
+		imposed.atBeat(4);
+		expect(imposed.controller.view.chordDiagram).toBe('strings');
 	});
 });

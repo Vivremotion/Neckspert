@@ -18,6 +18,7 @@ function view(overrides: Partial<PlayView>): PlayView {
 		promptBeatIndex: null,
 		targetBeatIndex: null,
 		followUp: null,
+		chordDiagram: 'strings',
 		leadBeats: null,
 		history: [],
 		answerChoices: null,
@@ -54,6 +55,7 @@ function locateView(): PlayView {
 		promptBeatIndex: 0,
 		targetBeatIndex: 8,
 		followUp: null,
+		chordDiagram: 'strings',
 		leadBeats: 8
 	});
 }

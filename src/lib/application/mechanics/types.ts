@@ -1,6 +1,6 @@
 import type { MechanicRules } from '$lib/domain/mechanics';
 import type { AidLevel, Locale, PlannedItem, Verdict } from '$lib/domain/types';
-import type { AnswerChoice, PromptView } from '$lib/application/session/contract';
+import type { AnswerChoice, PromptView, ShapeView } from '$lib/application/session/contract';
 
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
@@ -24,6 +24,15 @@ export interface MechanicPresenter<I = any, A = any> {
 	answerLabel(answer: A, item: I, locale: Locale, random: () => number): string | null;
 	/** Shown once the round is settled. Today: the right answer after a miss. */
 	reveal(item: I, outcome: { correct: boolean; verdict: Verdict }, locale: Locale): string | null;
+	/**
+	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn in the
+	 * verdict. Null on a right answer; leave it out for a mechanic that draws no shape.
+	 */
+	feedback?(
+		item: I,
+		outcome: { answer: unknown; confusion: unknown; verdict: Verdict },
+		locale: Locale
+	): { heard: ShapeView | null; expected: ShapeView | null; gap: string | null } | null;
 	/** The answer buttons of a screen mechanic. */
 	answerChoices?(): AnswerChoice[];
 	/** Detection log lines of this mechanic for one observation payload. */

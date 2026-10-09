@@ -10,6 +10,30 @@ const D_ON_G = 'D|maj|3:1,2:3,1:5';
 const EM_ON_E = 'E|min|3:b3,2:5,1:1';
 const EBM_ON_B = 'D#|min|3:5,2:1,1:b3';
 
+const D_232 = {
+	notes: [
+		{ string: 3, fret: 2 },
+		{ string: 2, fret: 3 },
+		{ string: 1, fret: 2 }
+	]
+};
+const D_141514 = {
+	notes: [
+		{ string: 3, fret: 14 },
+		{ string: 2, fret: 15 },
+		{ string: 1, fret: 14 }
+	]
+};
+const shapeOf = (frets: [number, number, number]) => ({
+	notes: [
+		{ string: 3, fret: frets[0] },
+		{ string: 2, fret: frets[1] },
+		{ string: 1, fret: frets[2] }
+	]
+});
+const ROOT_D = { midi: 62 };
+const chordConfusion = (kind: string) => ({ kind, part: 'chord' });
+
 const unaided = { aid: 'none', stringAid: false } as const;
 const aided = { aid: 'show-position', stringAid: false } as const;
 const miss = { correct: false, verdict: 'wrong' } as const;
@@ -55,10 +79,13 @@ describe('triadAnchorPresenter', () => {
 		).toMatchObject({ primary: 'Ebm', target: 'Eb', band: 'Ebm' });
 	});
 
-	it('shows the frets of the lowest shape as the aid', () => {
-		expect(triadAnchorPresenter.prompt({ voicingKey: D_ON_B }, aided, 'fr', () => 0).aid).toBe(
-			'2‑3‑2'
-		);
+	it('draws the lowest shape as the aid, without frets in text', () => {
+		const prompt = triadAnchorPresenter.prompt({ voicingKey: D_ON_B }, aided, 'fr', () => 0);
+		expect(prompt.shape).toEqual(D_232);
+		expect(prompt.aid).toBeNull();
+		expect(
+			triadAnchorPresenter.prompt({ voicingKey: D_ON_B }, unaided, 'fr', () => 0).shape
+		).toBeUndefined();
 	});
 
 	it('spells Eb, Ab and Bb with a flat', () => {
@@ -118,6 +145,144 @@ describe('triadAnchorPresenter', () => {
 				() => 0
 			)
 		).toBe('14‑15‑14');
+	});
+});
+
+describe('triadAnchorPresenter feedback', () => {
+	const item = { voicingKey: D_ON_B };
+	const feedback = (
+		chord: string | null | undefined,
+		confusion: unknown,
+		verdict: 'wrong' | 'corrected' | 'perfect' = 'wrong',
+		locale: 'fr' | 'en' = 'fr',
+		root: { midi: number } | null = ROOT_D
+	) =>
+		triadAnchorPresenter.feedback!(
+			item,
+			{
+				answer: {
+					root,
+					chord: chord === undefined ? null : { decided: chord },
+					correction: null
+				},
+				confusion,
+				verdict
+			},
+			locale
+		);
+
+	it('draws the chord heard, the closest shape asked, and names the gap', () => {
+		expect(feedback('C|maj|3:1,2:3,1:5@5-5-3', chordConfusion('other-quality'))).toEqual({
+			heard: shapeOf([5, 5, 3]),
+			expected: D_232,
+			gap: 'autre qualité'
+		});
+		expect(feedback('D|maj|3:5,2:1,1:3@14-15-14', null, 'perfect')).toBeNull();
+	});
+
+	it('takes the shape asked closest to the one played', () => {
+		expect(feedback('D|maj|3:1,2:3,1:5@7-7-5', chordConfusion('other-inversion'))).toMatchObject({
+			heard: shapeOf([7, 7, 5]),
+			expected: D_232,
+			gap: 'autre renversement'
+		});
+		expect(
+			feedback('D|maj|3:3,2:5,1:1@11-10-10', chordConfusion('other-inversion'))?.expected
+		).toEqual(D_141514);
+	});
+
+	it('says when nothing was recognized, or no chord came in the band', () => {
+		expect(feedback(null, chordConfusion('none'))).toEqual({
+			heard: null,
+			expected: D_232,
+			gap: 'rien de reconnu'
+		});
+		expect(feedback(undefined, { kind: 'no-chord', part: 'chord' })?.gap).toBe(
+			'pas d’accord dans la bande'
+		);
+	});
+
+	it('names the root heard on a wrong root, or its absence', () => {
+		expect(
+			feedback(
+				'D|maj|3:5,2:1,1:3@2-3-2',
+				{ kind: 'semitone', delta: 1, part: 'root' },
+				'wrong',
+				'fr',
+				{
+					midi: 63
+				}
+			)?.gap
+		).toBe('fondamentale entendue : D#');
+		expect(
+			triadAnchorPresenter.feedback!(
+				item,
+				{ answer: null, confusion: null, verdict: 'wrong' },
+				'fr'
+			)
+		).toEqual({ heard: null, expected: D_232, gap: 'fondamentale non entendue' });
+	});
+
+	it('shows the first chord of a corrected attempt, the one that counts', () => {
+		expect(
+			triadAnchorPresenter.feedback!(
+				item,
+				{
+					answer: {
+						root: ROOT_D,
+						chord: { decided: 'D|maj|3:1,2:3,1:5@7-7-5' },
+						correction: { decided: 'D|maj|3:5,2:1,1:3@2-3-2' }
+					},
+					confusion: chordConfusion('other-inversion'),
+					verdict: 'corrected'
+				},
+				'fr'
+			)?.heard
+		).toEqual(shapeOf([7, 7, 5]));
+	});
+
+	it('names the gap in English', () => {
+		const en = (kind: string) => feedback(null, chordConfusion(kind), 'wrong', 'en')?.gap;
+		expect(en('other-inversion')).toBe('other inversion');
+		expect(en('other-quality')).toBe('other quality');
+		expect(en('none')).toBe('nothing recognized');
+		expect(feedback(undefined, { kind: 'no-chord', part: 'chord' }, 'wrong', 'en')?.gap).toBe(
+			'no chord in the band'
+		);
+		expect(feedback(null, { kind: 'octave', part: 'root' }, 'wrong', 'en', { midi: 63 })?.gap).toBe(
+			'root heard: D#'
+		);
+		expect(
+			triadAnchorPresenter.feedback!(
+				item,
+				{ answer: null, confusion: null, verdict: 'wrong' },
+				'en'
+			)?.gap
+		).toBe('no root heard');
+	});
+});
+
+describe('triadZonePresenter feedback', () => {
+	it('draws the shape at the position asked, and names the gap', () => {
+		const item = { voicingKey: D_ON_B, position: 14 as const };
+		expect(
+			triadZonePresenter.feedback!(
+				item,
+				{
+					answer: { decided: 'D|maj|3:5,2:1,1:3@2-3-2' },
+					confusion: chordConfusion('other-octave'),
+					verdict: 'wrong'
+				},
+				'fr'
+			)
+		).toEqual({ heard: D_232, expected: D_141514, gap: 'autre octave' });
+		expect(
+			triadZonePresenter.feedback!(item, { answer: null, confusion: null, verdict: 'wrong' }, 'en')
+		).toEqual({ heard: null, expected: D_141514, gap: 'no chord heard' });
+		expect(
+			triadZonePresenter.feedback!(item, { answer: null, confusion: null, verdict: 'wrong' }, 'fr')
+				?.gap
+		).toBe('pas d’accord entendu');
 	});
 });
 
