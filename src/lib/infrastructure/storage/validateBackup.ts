@@ -1,5 +1,6 @@
 import { MECHANIC_RULES, type MechanicRules } from '$lib/domain/mechanics';
 import {
+	CHORD_DIAGRAM_STYLES,
 	LEAD_STEPS,
 	MAX_BUILT_IN_INPUT_GAIN,
 	MIN_BUILT_IN_INPUT_GAIN,
@@ -110,6 +111,13 @@ function checkSettings(settings: Fields): string | null {
 			settings.builtInInputGain > MAX_BUILT_IN_INPUT_GAIN)
 	) {
 		return `builtInInputGain must be a number from ${MIN_BUILT_IN_INPUT_GAIN} to ${MAX_BUILT_IN_INPUT_GAIN}`;
+	}
+	// Optional: files exported before it have none, and read as drawn on strings.
+	if (
+		settings.chordDiagram !== undefined &&
+		!isOneOf(settings.chordDiagram, CHORD_DIAGRAM_STYLES)
+	) {
+		return 'chordDiagram must be "strings" or "grid"';
 	}
 	return checkDiagnosticsSettings(settings.diagnostics);
 }

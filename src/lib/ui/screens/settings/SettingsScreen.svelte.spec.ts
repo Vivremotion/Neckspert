@@ -29,6 +29,8 @@ function renderScreen(
 		diagnosticsEnabled: boolean;
 		diagnosticsBudgetMb: number;
 		diagnosticsUsedBytes: number;
+		chordDiagram: 'strings' | 'grid';
+		onchorddiagram: (style: 'strings' | 'grid') => void;
 	}> = {}
 ) {
 	const props = {
@@ -53,6 +55,8 @@ function renderScreen(
 		ondiagnosticsbudget: vi.fn(),
 		ondiagnosticsexport: vi.fn(),
 		ondiagnosticsclear: vi.fn(),
+		chordDiagram: 'strings' as 'strings' | 'grid',
+		onchorddiagram: vi.fn(),
 		...overrides
 	};
 	return { ...render(SettingsScreen, { props }), props };
@@ -68,6 +72,16 @@ describe('SettingsScreen', () => {
 		const { props } = renderScreen();
 		await fireEvent.click(screen.getByRole('button', { name: 'EN' }));
 		expect(props.onlocale).toHaveBeenCalledWith('en');
+	});
+
+	it('chooses how chord shapes are drawn, the current style disabled', async () => {
+		const { props } = renderScreen({ chordDiagram: 'strings' });
+		expect(screen.getByText('Dessin des accords')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Cordes' }) as HTMLButtonElement).disabled).toBe(
+			true
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'Grille' }));
+		expect(props.onchorddiagram).toHaveBeenCalledWith('grid');
 	});
 
 	it('sets no tempo: each exercise keeps its own', () => {

@@ -6,6 +6,7 @@
 		DEFAULT_SETTINGS,
 		clampBuiltInInputGain,
 		resolveDiagnosticsEnabled,
+		type ChordDiagramStyle,
 		type DiagnosticsSettings,
 		type Locale
 	} from '$lib/domain/types';
@@ -26,6 +27,7 @@
 	let pendingImport: unknown = null;
 	let unlocking = $state(false);
 	let notice = $state<string | null>(null);
+	let chordDiagram = $state<ChordDiagramStyle>(DEFAULT_SETTINGS.chordDiagram);
 	let diagnostics = $state<DiagnosticsSettings>({ ...DEFAULT_SETTINGS.diagnostics });
 	let diagnosticsUsedBytes = $state(0);
 	let diagnosticsExporting = $state(false);
@@ -46,6 +48,7 @@
 		builtInInputGain = clampBuiltInInputGain(settings.builtInInputGain);
 		calibrationOffsetMs = settings.calibrationOffsetMs;
 		diagnostics = settings.diagnostics;
+		chordDiagram = settings.chordDiagram;
 		inputs = devices;
 		i18n.locale = settings.locale;
 	}
@@ -62,6 +65,12 @@
 		locale = next;
 		i18n.locale = next;
 		await services.settings.update({ locale: next });
+	}
+
+	async function onchorddiagram(next: ChordDiagramStyle) {
+		loadSeq += 1;
+		chordDiagram = next;
+		await services.settings.update({ chordDiagram: next });
 	}
 
 	async function onunlock() {
@@ -176,6 +185,8 @@
 	{importError}
 	{confirmingImport}
 	{onlocale}
+	{chordDiagram}
+	{onchorddiagram}
 	{oninput}
 	{onbuiltingain}
 	{onexport}

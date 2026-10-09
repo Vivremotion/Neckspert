@@ -1,4 +1,4 @@
-import type { LeadBeats } from '$lib/domain/types';
+import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
 export type MechanicId = string;
 export type ExerciseId = string;
@@ -11,6 +11,8 @@ export interface ExerciseDefinition {
 	params: Readonly<Record<string, unknown>>;
 	/** Tempo of a first execution, when the exercise wants its own. */
 	startTempoBpm?: number;
+	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
+	chordDiagram?: ChordDiagramStyle;
 }
 
 /** Tempo reached by the player on an exercise. */

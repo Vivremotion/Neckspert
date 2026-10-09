@@ -3,6 +3,7 @@
 	import {
 		DEFAULT_BUILT_IN_INPUT_GAIN,
 		clampBuiltInInputGain,
+		type ChordDiagramStyle,
 		type Locale
 	} from '$lib/domain/types';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -22,6 +23,7 @@
 	let diagnosticsEnabled = $state(true);
 	let diagnosticsBudgetMb = $state(300);
 	let diagnosticsUsedBytes = $state(42 * 1024 * 1024);
+	let chordDiagram = $state<ChordDiagramStyle>('strings');
 
 	function onlocale(next: Locale) {
 		locale = next;
@@ -54,4 +56,6 @@
 	ondiagnosticsbudget={(mb) => (diagnosticsBudgetMb = mb)}
 	ondiagnosticsexport={() => undefined}
 	ondiagnosticsclear={() => (diagnosticsUsedBytes = 0)}
+	{chordDiagram}
+	onchorddiagram={(style) => (chordDiagram = style)}
 />

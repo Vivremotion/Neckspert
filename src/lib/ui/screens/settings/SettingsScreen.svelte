@@ -6,6 +6,7 @@
 		MAX_BUILT_IN_INPUT_GAIN,
 		MIN_BUILT_IN_INPUT_GAIN,
 		clampBuiltInInputGain,
+		type ChordDiagramStyle,
 		type Locale
 	} from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
@@ -38,7 +39,9 @@
 		ondiagnosticsexport,
 		ondiagnosticsclear,
 		diagnosticsExporting = false,
-		diagnosticsError = null
+		diagnosticsError = null,
+		chordDiagram,
+		onchorddiagram
 	}: {
 		locale: Locale;
 		inputs: AudioInputDevice[];
@@ -67,6 +70,9 @@
 		/** True while an archive is being built: the export button waits. */
 		diagnosticsExporting?: boolean;
 		diagnosticsError?: string | null;
+		/** How chord shapes are drawn, unless an exercise says. */
+		chordDiagram: ChordDiagramStyle;
+		onchorddiagram: (style: ChordDiagramStyle) => void;
 	} = $props();
 
 	const BYTES_PER_MB = 1024 * 1024;
@@ -102,6 +108,22 @@
 			>
 			<PixelButton size="large" disabled={locale === 'en'} onclick={() => onlocale('en')}
 				>EN</PixelButton
+			>
+		</div>
+	</PixelBox>
+
+	<PixelBox variant="double">
+		<p class="label"><PixelText scale={1}>{m.chordDiagram}</PixelText></p>
+		<div class="row" role="group" aria-label={m.chordDiagram}>
+			<PixelButton
+				size="large"
+				disabled={chordDiagram === 'strings'}
+				onclick={() => onchorddiagram('strings')}>{m.chordDiagramStrings}</PixelButton
+			>
+			<PixelButton
+				size="large"
+				disabled={chordDiagram === 'grid'}
+				onclick={() => onchorddiagram('grid')}>{m.chordDiagramGrid}</PixelButton
 			>
 		</div>
 	</PixelBox>

@@ -53,3 +53,9 @@ describe('verdicts', () => {
 		expect(isSuccess({ correct: false, verdict: 'corrected' })).toBe(false);
 	});
 });
+
+describe('chord diagram setting', () => {
+	it('draws chords on strings by default', () => {
+		expect(DEFAULT_SETTINGS.chordDiagram).toBe('strings');
+	});
+});

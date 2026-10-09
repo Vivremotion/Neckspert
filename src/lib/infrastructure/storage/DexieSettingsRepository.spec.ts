@@ -35,6 +35,12 @@ describe('DexieSettingsRepository', () => {
 		});
 	});
 
+	it('reads settings stored before the chord diagram field as drawn on strings', async () => {
+		const db = createDatabase(crypto.randomUUID());
+		await db.settings.put({ id: 'settings', locale: 'en', calibrationOffsetMs: 12 });
+		expect((await new DexieSettingsRepository(db).get()).chordDiagram).toBe('strings');
+	});
+
 	it('reads settings stored before the diagnostics field with the default journal settings', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.settings.put({ id: 'settings', locale: 'en', calibrationOffsetMs: 12 });

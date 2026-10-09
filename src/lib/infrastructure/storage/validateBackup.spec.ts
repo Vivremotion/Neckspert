@@ -170,6 +170,22 @@ describe('validateBackup', () => {
 		).toThrow('Invalid backup settings: builtInInputGain must be a number from 1 to 16');
 	});
 
+	it('accepts settings with or without a chord diagram, and rejects an unknown one', () => {
+		const file = makeBackup();
+		const { chordDiagram: _diagram, ...without } = file.settings as typeof file.settings & {
+			chordDiagram?: string;
+		};
+		expect(() => validateBackup({ ...file, settings: without })).not.toThrow();
+		for (const chordDiagram of ['strings', 'grid']) {
+			expect(() =>
+				validateBackup({ ...file, settings: { ...file.settings, chordDiagram } })
+			).not.toThrow();
+		}
+		expect(() =>
+			validateBackup({ ...file, settings: { ...file.settings, chordDiagram: 'tab' } })
+		).toThrow('Invalid backup settings: chordDiagram must be "strings" or "grid"');
+	});
+
 	it('accepts settings with or without the diagnostics field, and rejects a bad one', () => {
 		const file = makeBackup();
 		const { diagnostics: _diagnostics, ...withoutDiagnostics } = file.settings;

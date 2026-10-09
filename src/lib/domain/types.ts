@@ -217,6 +217,11 @@ export function resolveDiagnosticsEnabled(
 	return settings.enabled ?? buildDefault;
 }
 
+/** How a chord shape is drawn: on six horizontal strings, or on a chord grid. */
+export type ChordDiagramStyle = 'strings' | 'grid';
+
+export const CHORD_DIAGRAM_STYLES: readonly ChordDiagramStyle[] = ['strings', 'grid'];
+
 export interface Settings {
 	locale: Locale;
 	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
@@ -225,6 +230,8 @@ export interface Settings {
 	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
 	builtInInputGain: number;
 	diagnostics: DiagnosticsSettings;
+	/** How chord shapes are drawn, unless the exercise says. */
+	chordDiagram: ChordDiagramStyle;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -232,7 +239,8 @@ export const DEFAULT_SETTINGS: Settings = {
 	calibrationOffsetMs: null,
 	inputDeviceId: null,
 	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
-	diagnostics: { enabled: null, budgetMb: 300 }
+	diagnostics: { enabled: null, budgetMb: 300 },
+	chordDiagram: 'strings'
 };
 
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
