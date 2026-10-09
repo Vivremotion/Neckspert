@@ -66,6 +66,13 @@ const anchoredPresenter: MechanicPresenter<FakeItem, { value: number; by: string
 	rules: { ...twoRules, id: 'anchored', timing: createAnchorTiming(DEFAULT_PACING) }
 };
 
+/** The anchor's two sensors: the root by the note sensor, then the chord by the chord sensor. */
+const rootAndChordPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	...anchoredPresenter,
+	rules: { ...anchoredPresenter.rules, id: 'root-chord' },
+	sensors: ['note', 'chord']
+};
+
 const EXECUTIONS: Execution[] = [{ exerciseId: 'two-ex', tempoBpm: 100 }];
 
 function item(n: number, mechanic = 'two'): PlannedItem {
@@ -110,8 +117,19 @@ function setup(mechanic = 'two') {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => 'id-1',
-		mechanics: { two: twoPresenter, other: otherPresenter, anchored: anchoredPresenter },
-		sensors: { a: sensor('a'), b: sensor('b'), c: sensor('c') }
+		mechanics: {
+			two: twoPresenter,
+			other: otherPresenter,
+			anchored: anchoredPresenter,
+			'root-chord': rootAndChordPresenter
+		},
+		sensors: {
+			a: sensor('a'),
+			b: sensor('b'),
+			c: sensor('c'),
+			note: sensor('note'),
+			chord: sensor('chord')
+		}
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
@@ -215,5 +233,27 @@ describe('a mechanic heard by two sensors', () => {
 		await ctx.controller.start();
 		ctx.atBeat(4);
 		expect(ctx.controller.view.followUp).toBeNull();
+	});
+
+	it('shows a miss read from an observation at once, then the verdict that settles it', async () => {
+		const ctx = setup('root-chord');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('note', 3, 8);
+		ctx.emit('chord', 4, 10);
+		await drain();
+		expect(ctx.controller.view.lastVerdict?.verdict).toBe('wrong');
+		expect(ctx.controller.view.history).toEqual([{ beatIndex: 8, verdict: 'wrong' }]);
+		expect(await ctx.deps.attempts.all()).toHaveLength(0);
+
+		ctx.emit('chord', 3, 11);
+		await drain();
+		expect(ctx.controller.view.lastVerdict?.verdict).toBe('corrected');
+		expect(ctx.controller.view.history).toEqual([{ beatIndex: 8, verdict: 'corrected' }]);
+		const attempts = await ctx.deps.attempts.all();
+		expect(attempts.map((a) => [a.verdict, a.correct])).toEqual([['corrected', false]]);
+		expect(attempts[0].data).toMatchObject({
+			answer: { root: { value: 3 }, chord: { value: 4 }, correction: { value: 3 } }
+		});
 	});
 });

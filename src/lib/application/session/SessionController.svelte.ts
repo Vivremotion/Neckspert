@@ -582,7 +582,14 @@ export class SessionController implements PlaySessionController {
 			]);
 			return;
 		}
-		// `observe` of today's time relations only ignores or settles; anything else would drop
+		if (event.kind === 'provisional') {
+			// A miss the round shows at once while it keeps listening (a chord may be put right).
+			span.add(sensor, observation, 'answer', judged.correct);
+			this.logDecision(presenter, planned, sensor, observation, event.outcome);
+			this.showProvisional(event.outcome);
+			return;
+		}
+		// `observe` ignores, waits, shows a provisional miss or settles; anything else would drop
 		// the observation from the span, so it must fail loudly rather than lose it.
 		throw new Error(`Round.observe returned '${event.kind}': its observation cannot be kept`);
 	}
@@ -603,20 +610,22 @@ export class SessionController implements PlaySessionController {
 
 	/** Beat events only: a round settles with an answer on an observation, never on a beat. */
 	private apply(event: RoundEvent): void {
-		if (event.kind === 'provisional') this.showProvisional(event.outcome);
-		else if (event.kind === 'settled') this.settle(event.outcome);
+		if (event.kind === 'provisional') {
+			logDetection('fenêtre fermée sans réponse', [
+				`cible : ${this.current ? this.cardKeyOf(this.current) : 'inconnue'}`,
+				'aucune réponse n’est arrivée pendant l’attente',
+				'verdict provisoire : faux — l’écoute continue'
+			]);
+			this.showProvisional(event.outcome);
+		} else if (event.kind === 'settled') this.settle(event.outcome);
 	}
 
 	/**
-	 * The window closed unanswered: the miss shows without its correction while the round keeps
-	 * listening (off beat); the attempt waits for the round to settle.
+	 * A provisional miss (a window closed unanswered, or a wrong chord that may still be put right):
+	 * it shows without its correction while the round keeps listening; the attempt waits for the
+	 * round to settle.
 	 */
 	private showProvisional(outcome: RoundOutcome): void {
-		logDetection('fenêtre fermée sans réponse', [
-			`cible : ${this.current ? this.cardKeyOf(this.current) : 'inconnue'}`,
-			'aucune réponse n’est arrivée pendant l’attente',
-			'verdict provisoire : faux — l’écoute continue'
-		]);
 		this.view.lastVerdict = this.verdictView(outcome, false);
 		this.addToLane(outcome);
 		this.deps.cues.play(outcome.verdict);
