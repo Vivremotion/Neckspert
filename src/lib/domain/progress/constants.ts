@@ -37,6 +37,12 @@ export const SEQUENCE_LENGTH = 4;
  */
 export const SEQUENCE_MAX_DELAY = 2;
 
+/**
+ * Triads acquired in anchor before the zone exercise shows on the home screen: one family (a
+ * root's three inversions, in major and minor), enough to fill a session. To calibrate.
+ */
+export const ZONE_MIN_ACQUIRED_TRIADS = 6;
+
 /** Rolling success window: the session's last N mode 1 prompts, probes left out. To calibrate. */
 export const SUCCESS_WINDOW = 10;
 

@@ -58,8 +58,16 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-/** Notes: learn and free play; the memory track of the triads (spec 2026-10-08). */
-export type SessionKind = 'learn' | 'free' | 'triads';
+/**
+ * Notes: learn and free play. The memory track of the triads (spec 2026-10-08), one exercise per
+ * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
+ */
+export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone';
+
+/** A session of the triads' memory track. */
+export function isTriadsKind(kind: SessionKind): boolean {
+	return kind === 'triads' || kind === 'triads-zone';
+}
 
 /** Where an attempt happened inside a session. */
 export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';

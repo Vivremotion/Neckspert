@@ -4,6 +4,7 @@ export const homeMessages = defineMessages({
 	fr: {
 		session: 'Apprentissage',
 		triads: 'Triades',
+		triadsZone: 'Triades vers une case',
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
@@ -22,6 +23,7 @@ export const homeMessages = defineMessages({
 	en: {
 		session: 'Learn',
 		triads: 'Triads',
+		triadsZone: 'Triads around a fret',
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',

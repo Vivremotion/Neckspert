@@ -1,12 +1,13 @@
 <script lang="ts">
+	import type { TriadsHome } from '$lib/application/app';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
-	const fixtures: { label: string; stats: HomeStats; now: number; triadsDue?: number }[] = [
+	const fixtures: { label: string; stats: HomeStats; now: number; triads?: TriadsHome }[] = [
 		{
 			label: 'learn, reviews due',
 			now: 0,
-			triadsDue: 4,
+			triads: { anchorDue: 4, zoneDue: 2 },
 			stats: {
 				dueCount: 6,
 				nextReviewAt: null,
@@ -45,7 +46,7 @@
 				stats={fixture.stats}
 				now={fixture.now}
 				onstart={() => {}}
-				triadsDue={fixture.triadsDue ?? 0}
+				triads={fixture.triads}
 				ontriads={() => {}}
 			/>
 		</section>

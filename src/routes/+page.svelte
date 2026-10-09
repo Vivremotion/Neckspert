@@ -1,21 +1,22 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
+	import type { TriadsHome } from '$lib/application/app';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
 	const services = useAppServices();
 
 	let stats = $state<HomeStats | null>(null);
-	let triadsDue = $state(0);
+	let triads = $state<TriadsHome>({ anchorDue: 0, zoneDue: null });
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
 	$effect(() => {
 		let cancelled = false;
-		void services.triadsDue().then(
+		void services.triads().then(
 			(value) => {
-				if (!cancelled) triadsDue = value;
+				if (!cancelled) triads = value;
 			},
 			() => {}
 		);
@@ -40,8 +41,8 @@
 		void goto('/session?kind=learn');
 	}
 
-	function startTriads() {
-		void goto('/session?kind=triads');
+	function startTriads(kind: 'triads' | 'triads-zone') {
+		void goto(`/session?kind=${kind}`);
 	}
 
 	function onKeydown(event: KeyboardEvent) {
@@ -59,5 +60,5 @@
 {#if error}
 	<p role="alert">{error}</p>
 {:else if stats}
-	<HomeScreen {stats} {now} onstart={start} {triadsDue} ontriads={startTriads} />
+	<HomeScreen {stats} {now} onstart={start} {triads} ontriads={startTriads} />
 {/if}

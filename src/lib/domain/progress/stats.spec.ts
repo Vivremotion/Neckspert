@@ -645,6 +645,21 @@ describe('summarizeSession of a triads session', () => {
 		expect('triads' in summary).toBe(false);
 	});
 
+	it('gives a zone session the tempo of the zone exercise', () => {
+		const zone = summarizeSession({
+			record: {
+				...record,
+				kind: 'triads-zone',
+				executions: [{ exerciseId: 'triads-zone', tempoBpm: 85 }]
+			},
+			attempts: [],
+			allAttempts: [],
+			cards: [],
+			now: NOW
+		});
+		expect(zone).toMatchObject({ kind: 'triads-zone', tempoBpm: 85 });
+	});
+
 	it('says a notes session is one', () => {
 		expect(
 			summarizeSession({

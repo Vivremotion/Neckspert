@@ -91,22 +91,52 @@ describe('HomeScreen', () => {
 		expect(screen.getByText('2 reviews due')).toBeTruthy();
 	});
 
-	it('starts the triads with their own button and their reviews due', async () => {
+	it('starts the triads anchor with its own button and its reviews due', async () => {
 		const ontriads = vi.fn();
 		render(HomeScreen, {
-			props: { stats: base, now: 0, onstart: () => {}, triadsDue: 3, ontriads }
+			props: {
+				stats: base,
+				now: 0,
+				onstart: () => {},
+				triads: { anchorDue: 3, zoneDue: null },
+				ontriads
+			}
 		});
-		const button = screen.getByRole('button', { name: /triades/i });
+		const button = screen.getByRole('button', { name: 'Triades' });
 		expect(screen.getByText('3 révisions de triades dues')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /vers une case/i })).toBeNull();
 		await fireEvent.click(button);
-		expect(ontriads).toHaveBeenCalledOnce();
+		expect(ontriads).toHaveBeenCalledWith('triads');
 	});
 
 	it('shows the triads button without a count when none is due', () => {
 		render(HomeScreen, {
-			props: { stats: base, now: 0, onstart: () => {}, triadsDue: 0, ontriads: () => {} }
+			props: {
+				stats: base,
+				now: 0,
+				onstart: () => {},
+				triads: { anchorDue: 0, zoneDue: null },
+				ontriads: () => {}
+			}
 		});
-		expect(screen.getByRole('button', { name: /triades/i })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Triades' })).toBeTruthy();
 		expect(screen.queryByText(/triades dues?/i)).toBeNull();
+	});
+
+	it('offers the zone once open, with its own reviews due', async () => {
+		const ontriads = vi.fn();
+		render(HomeScreen, {
+			props: {
+				stats: base,
+				now: 0,
+				onstart: () => {},
+				triads: { anchorDue: 0, zoneDue: 2 },
+				ontriads
+			}
+		});
+		const zone = screen.getByRole('button', { name: 'Triades vers une case' });
+		expect(screen.getByText('2 révisions dues')).toBeTruthy();
+		await fireEvent.click(zone);
+		expect(ontriads).toHaveBeenCalledWith('triads-zone');
 	});
 });

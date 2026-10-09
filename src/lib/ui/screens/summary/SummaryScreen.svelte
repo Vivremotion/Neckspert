@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SessionSummary } from '$lib/domain/types';
+	import { isTriadsKind, type SessionSummary } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -19,7 +19,7 @@
 		onmap: () => void;
 	} = $props();
 
-	const triads = $derived(summary.kind === 'triads');
+	const triads = $derived(isTriadsKind(summary.kind));
 
 	const t = $derived(summaryMessages());
 	const accuracyLabel = $derived(summary.pool === 'all' ? t.accuracyAll : t.accuracy);

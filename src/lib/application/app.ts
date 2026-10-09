@@ -16,6 +16,13 @@ export interface DiagnosticsService {
 	clear(): Promise<void>;
 }
 
+/** The triads exercises on the home screen: their reviews due now, and whether the zone is open. */
+export interface TriadsHome {
+	anchorDue: number;
+	/** Null while the zone is closed (`triadZoneOpen`): it is not offered. */
+	zoneDue: number | null;
+}
+
 /** Everything the screens need. Implemented by the application layer, wired by the composition root. */
 export interface AppServices {
 	settings: SettingsRepositoryPort;
@@ -24,8 +31,8 @@ export interface AppServices {
 	calibration: CalibrationPort;
 	diagnostics: DiagnosticsService;
 	homeStats(): Promise<HomeStats>;
-	/** Triad reviews a triads session would serve cold right now. */
-	triadsDue(): Promise<number>;
+	/** The triads exercises as the home screen offers them. */
+	triads(): Promise<TriadsHome>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
 	/** Plans the session and returns its controller, not yet started. */

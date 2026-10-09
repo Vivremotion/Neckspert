@@ -11,5 +11,6 @@ describe('sessionKindFromQuery', () => {
 
 	it('runs the triads when asked', () => {
 		expect(sessionKindFromQuery('triads')).toBe('triads');
+		expect(sessionKindFromQuery('triads-zone')).toBe('triads-zone');
 	});
 });

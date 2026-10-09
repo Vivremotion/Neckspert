@@ -32,15 +32,14 @@ import {
 	NEW_NOTE_MIN_CARD_SUCCESS,
 	NEW_NOTE_MIN_SESSION_SUCCESS,
 	RECOVERY_AFTER_MISSES,
-	SEQUENCE_LENGTH,
-	SEQUENCE_MAX_DELAY,
-	SUCCESS_WINDOW
+	SUCCESS_WINDOW,
+	ZONE_MIN_ACQUIRED_TRIADS
 } from './constants';
 import { lastAttemptByCard, reviewableCards } from './review';
 import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
 import { cardSuccessRate, successRate } from './success';
 
-type TriadMechanic = 'triad-anchor' | 'triad-zone';
+export type TriadMechanic = 'triad-anchor' | 'triad-zone';
 
 const ANCHOR = 'triad-anchor' satisfies TriadMechanic;
 const ZONE = 'triad-zone' satisfies TriadMechanic;
@@ -67,22 +66,10 @@ interface LearningEntry {
 	lead: LeadBeats;
 }
 
-/** A run of prompts of one mechanic. */
-interface Sequence {
-	mechanic: TriadMechanic;
-	count: number;
-}
-
 type Fit = (mechanic: TriadMechanic) => boolean;
-
-const ANY: Fit = () => true;
 
 function retestDueAt(servedAt: number, gap: number): number {
 	return servedAt + gap + 1;
-}
-
-function isOpen(sequence: Sequence | null): sequence is Sequence {
-	return sequence !== null && sequence.count < SEQUENCE_LENGTH;
 }
 
 function asTriadMechanic(mechanic: string): TriadMechanic | null {
@@ -93,7 +80,7 @@ function voicingOfCard(card: CardState): string {
 	return (card.item as { voicingKey: string }).voicingKey;
 }
 
-/** The triads session: the learn session's rules over the two triad mechanics (spec 2026-10-08, §2). */
+/** A triads session: the learn session's rules over one triad mechanic, the anchor or the zone. */
 class TriadSelector implements SessionSelector {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
@@ -113,7 +100,6 @@ class TriadSelector implements SessionSelector {
 	private unansweredProbe: CardKey | null = null;
 	/** Voicing of the last prompt: still ringing, never the next one. */
 	private previous: string | null = null;
-	private sequence: Sequence | null = null;
 	private missStreak = 0;
 	private pendingRecovery: TriadMechanic | null = null;
 	private servedRecovery = false;
@@ -122,6 +108,8 @@ class TriadSelector implements SessionSelector {
 		cards: readonly CardState[],
 		attempts: readonly Attempt[],
 		private readonly sessionId: string,
+		/** The session's exercise: it serves this mechanic's prompts only. */
+		private readonly mechanic: TriadMechanic,
 		private readonly tracks: Record<TriadMechanic, Track>,
 		acquiredPositions: ReadonlySet<string>,
 		private readonly random: () => number
@@ -158,10 +146,6 @@ class TriadSelector implements SessionSelector {
 		if (this.recent.length > CONSOLIDATION_SKIP_RECENT) this.recent.shift();
 		this.served++;
 		this.previous = voicing;
-		this.sequence =
-			isOpen(this.sequence) && this.sequence.mechanic === mechanic
-				? { mechanic, count: this.sequence.count + 1 }
-				: { mechanic, count: 1 };
 		return item;
 	}
 
@@ -214,7 +198,7 @@ class TriadSelector implements SessionSelector {
 		return (this.allByCard.get(key) ?? []).slice(-CONFUSION_LOOKBACK);
 	}
 
-	/** The previous chord still rings: never the same voicing, whatever the mechanic. */
+	/** The previous chord still rings: never the same voicing twice in a row. */
 	private allowed(voicing: string): boolean {
 		return voicing !== this.previous;
 	}
@@ -308,10 +292,6 @@ class TriadSelector implements SessionSelector {
 		this.servedAt.delete(this.unansweredProbe);
 		this.unansweredProbe = null;
 		this.previous = null;
-		if (this.sequence !== null) {
-			this.sequence =
-				this.sequence.count > 1 ? { ...this.sequence, count: this.sequence.count - 1 } : null;
-		}
 	}
 
 	/** A passed probe goes to review; a missed one is presented with its aid as soon as it may. */
@@ -340,33 +320,12 @@ class TriadSelector implements SessionSelector {
 		return entry;
 	}
 
-	private fits(mechanic: TriadMechanic): boolean {
-		return !isOpen(this.sequence) || this.sequence.mechanic === mechanic;
-	}
-
-	/**
-	 * Category priority is fixed: retests, cold reviews, resumed triads, new triads, consolidation;
-	 * in sequences of one mechanic, closed early rather than repeat a triad.
-	 */
+	/** Category priority is fixed: retests, cold reviews, resumed triads, new triads, consolidation. */
 	private pick(context: SelectorContext): PlannedItem | null {
-		if (isOpen(this.sequence) && this.retestOverdue()) this.sequence = null;
-		const fit: Fit = (mechanic) => this.fits(mechanic);
-		const item = this.pickWith(context, fit, !isOpen(this.sequence));
-		if (item || !isOpen(this.sequence)) return item;
-		this.sequence = null;
-		return this.pickWith(context, ANY);
+		return this.pickWith(context, (mechanic) => mechanic === this.mechanic);
 	}
 
-	/** A retest of the other mechanic kept waiting past SEQUENCE_MAX_DELAY ends the sequence. */
-	private retestOverdue(): boolean {
-		for (const entry of this.learning.values()) {
-			if (this.served - entry.dueAt <= SEQUENCE_MAX_DELAY) continue;
-			if (!this.fits(entry.mechanic)) return true;
-		}
-		return false;
-	}
-
-	private pickWith(context: SelectorContext, fit: Fit, lastResort = true): PlannedItem | null {
+	private pickWith(context: SelectorContext, fit: Fit): PlannedItem | null {
 		const dueRetest = this.dueRetest(fit);
 		if (dueRetest) return this.retest(dueRetest);
 		if (!context.fatigued) {
@@ -377,7 +336,6 @@ class TriadSelector implements SessionSelector {
 				this.consolidate(fit, true);
 			if (item) return item;
 		}
-		if (!lastResort) return null;
 		// Nothing else: a retest early, then a recent triad again, then a new one past the gate.
 		const early = this.earliestRetest(
 			(entry) => fit(entry.mechanic) && this.allowed(entry.voicingKey)
@@ -453,11 +411,12 @@ class TriadSelector implements SessionSelector {
 	}
 
 	/**
-	 * A new triad, probed first: in position, a triad acquired in anchor; in anchor, the next one
-	 * of the queue. `gated` false: past the success gate, only when nothing else can be served.
+	 * A new triad, probed first: in zone, a triad acquired in anchor; in anchor, the next one of
+	 * the queue. `gated` false: past the success gate, only when nothing else can be served. The
+	 * slots count the session's own exercise only.
 	 */
 	private introduce(now: number, fit: Fit, gated: boolean): PlannedItem | null {
-		const cards = [...this.cards.values()];
+		const cards = [...this.cards.values()].filter((card) => card.mechanic === this.mechanic);
 		const beingLearned = cards.filter((card) => card.learnedAt === null).length;
 		const unconsolidated = cards.filter(
 			(card) => card.learnedAt !== null && card.acquiredAt === null
@@ -548,7 +507,7 @@ class TriadSelector implements SessionSelector {
 		];
 	}
 
-	/** A prompt of a triad card; in position, with a position drawn for it. */
+	/** A prompt of a triad card; in zone, with a shape and a fret drawn for it. */
 	private planned(
 		mechanic: TriadMechanic,
 		voicing: string,
@@ -594,6 +553,8 @@ function track(definition: ExerciseDefinition, timing: TimingRelation, tempoBpm:
 
 /** Chooses each prompt of a triads session (spec 2026-10-08, section 2). */
 export function createTriadSelector(input: {
+	/** The exercise the session plays: the anchor, or the zone. */
+	mechanic: TriadMechanic;
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
 	sessionId: string;
@@ -613,6 +574,7 @@ export function createTriadSelector(input: {
 		input.cards,
 		input.attempts,
 		input.sessionId,
+		input.mechanic,
 		{
 			[ANCHOR]: track(anchor, anchorTiming, tempoOf(anchor)),
 			[ZONE]: track(zone, zoneTiming, tempoOf(zone))
@@ -620,4 +582,14 @@ export function createTriadSelector(input: {
 		input.acquiredPositions,
 		input.random ?? Math.random
 	);
+}
+
+/**
+ * Whether the zone exercise is open: `ZONE_MIN_ACQUIRED_TRIADS` triads acquired in anchor give it
+ * enough to ask; once it has a card, it stays open.
+ */
+export function triadZoneOpen(cards: readonly CardState[]): boolean {
+	if (cards.some((card) => card.mechanic === ZONE)) return true;
+	const acquired = cards.filter((card) => card.mechanic === ANCHOR && card.acquiredAt !== null);
+	return acquired.length >= ZONE_MIN_ACQUIRED_TRIADS;
 }

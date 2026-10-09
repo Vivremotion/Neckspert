@@ -155,8 +155,8 @@ async function cardOf(h: Harness, mechanic: string, key: string) {
 	return h.deps.cards.get(`${mechanic}:${key}`);
 }
 
-describe('a triads session, from the probe to the position', () => {
-	it('learns C in anchor, acquires it cold, then asks it in a position', async () => {
+describe('the triads exercises, from the probe to the zone', () => {
+	it('learns C in anchor, acquires it cold, then asks it around a fret', async () => {
 		const h = harness();
 
 		// First session: C's probe is missed; its aided presentation follows, then its ladder.
@@ -175,18 +175,27 @@ describe('a triads session, from the probe to the position', () => {
 		expect(learned?.acquiredAt).toBeNull();
 		expect(first.some((p) => p.mechanic === 'triad-zone' && p.voicingKey === C)).toBe(false);
 
-		// A later session, past the cold delay: C is reviewed cold, acquired, then asked in a position.
+		// A later session, past the cold delay: C is reviewed cold and acquired.
 		h.clock.advance(3 * DAY_S);
 		const second = await playSeries(
 			h,
 			await h.services.startSession('triads'),
 			() => false,
-			async (played) => played.at(-1)?.mechanic === 'triad-zone' && played.at(-1)?.voicingKey === C
+			async () => (await cardOf(h, 'triad-anchor', C))?.acquiredAt != null
 		);
 		const review = second.find((p) => p.voicingKey === C && p.mechanic === 'triad-anchor');
 		expect(review).toBeDefined();
-		expect((await cardOf(h, 'triad-anchor', C))?.acquiredAt).not.toBeNull();
-		const zone = second.at(-1)!;
+		expect(second.every((p) => p.mechanic === 'triad-anchor')).toBe(true);
+
+		// The zone exercise, its own session: C is asked around a fret.
+		const third = await playSeries(
+			h,
+			await h.services.startSession('triads-zone'),
+			() => false,
+			async (played) => played.at(-1)?.voicingKey === C
+		);
+		expect(third.every((p) => p.mechanic === 'triad-zone')).toBe(true);
+		const zone = third.at(-1)!;
 		expect(zone).toMatchObject({ mechanic: 'triad-zone', voicingKey: C });
 		// The sensor listens for the shape that covers the fret named, and that shape only.
 		expect(zone.expected).toHaveLength(1);

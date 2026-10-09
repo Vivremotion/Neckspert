@@ -648,7 +648,10 @@ describe('the triads session and the contest of an attempt', () => {
 	it('accepts a triads session and a contested attempt', () => {
 		const file = makeBackup({
 			attempts: [makeAttempt({ id: 1, contested: true }), makeAttempt({ id: 2 })],
-			sessions: [makeSession({ kind: 'triads' })]
+			sessions: [
+				makeSession({ kind: 'triads' }),
+				makeSession({ id: 's-zone', kind: 'triads-zone' })
+			]
 		});
 		expect(validateBackupV3(file)).toBe(file);
 	});

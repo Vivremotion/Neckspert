@@ -34,6 +34,13 @@ describe('PlayScreen', () => {
 		expect(screen.queryByText(/la note défile/i)).toBeNull();
 	});
 
+	it('explains the zone before it starts: the whole chord around a fret', () => {
+		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
+		render(PlayScreen, { props: { controller: demo, kind: 'triads-zone' } });
+		expect(screen.getByText(/vers la case 5/i)).toBeTruthy();
+		expect(screen.queryByText(/fondamentale sur sol/i)).toBeNull();
+	});
+
 	it('explains the notes before a learn session', () => {
 		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
 		render(PlayScreen, { props: { controller: demo } });

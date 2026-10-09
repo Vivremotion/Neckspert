@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { TriadsHome } from '$lib/application/app';
 	import type { HomeStats } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -11,16 +12,16 @@
 		stats,
 		now,
 		onstart,
-		triadsDue = 0,
+		triads = { anchorDue: 0, zoneDue: null },
 		ontriads
 	}: {
 		stats: HomeStats;
 		now: number;
 		onstart: () => void;
-		/** Triad reviews due now. */
-		triadsDue?: number;
-		/** Starts a triads session; without it, no triads button. */
-		ontriads?: () => void;
+		/** The triads exercises: reviews due, and whether the zone is open. */
+		triads?: TriadsHome;
+		/** Starts a session of one triads exercise; without it, no triads button. */
+		ontriads?: (kind: 'triads' | 'triads-zone') => void;
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -74,11 +75,23 @@
 				</div>
 				{#if ontriads}
 					<div class="action">
-						<PixelButton size="large" onclick={ontriads}>{t.triads}</PixelButton>
-						{#if triadsDue > 0}
-							<p class="reviews"><PixelText scale={1}>{t.triadsDue(triadsDue)}</PixelText></p>
+						<PixelButton size="large" onclick={() => ontriads('triads')}>{t.triads}</PixelButton>
+						{#if triads.anchorDue > 0}
+							<p class="reviews">
+								<PixelText scale={1}>{t.triadsDue(triads.anchorDue)}</PixelText>
+							</p>
 						{/if}
 					</div>
+					{#if triads.zoneDue !== null}
+						<div class="action">
+							<PixelButton size="large" onclick={() => ontriads('triads-zone')}>
+								{t.triadsZone}
+							</PixelButton>
+							{#if triads.zoneDue > 0}
+								<p class="reviews"><PixelText scale={1}>{t.due(triads.zoneDue)}</PixelText></p>
+							{/if}
+						</div>
+					{/if}
 				{/if}
 				<div class="stat">
 					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>

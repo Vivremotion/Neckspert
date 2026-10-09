@@ -10,9 +10,8 @@ import {
 } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
-import { SEQUENCE_LENGTH } from './constants';
 import type { SessionSelector } from './selector';
-import { createTriadSelector } from './triadSelector';
+import { createTriadSelector, triadZoneOpen } from './triadSelector';
 
 const NOW = Date.parse('2026-10-08T10:00:00.000Z');
 const HOUR = 60 * 60 * 1000;
@@ -61,9 +60,11 @@ function due(card: CardState): CardState {
 function select(
 	cards: CardState[] = [],
 	random: () => number = () => 0,
-	attempts: Attempt[] = []
+	attempts: Attempt[] = [],
+	mechanic: 'triad-anchor' | 'triad-zone' = 'triad-anchor'
 ): SessionSelector {
 	return createTriadSelector({
+		mechanic,
 		cards,
 		attempts,
 		sessionId: 's-now',
@@ -95,6 +96,11 @@ function attemptOf(item: PlannedItem, right: boolean, at: number): Attempt {
 		data: { item: item.item, answer: null, confusion: null },
 		observations: null
 	};
+}
+
+/** A session of the zone exercise. */
+function selectZone(cards: CardState[] = [], random: () => number = () => 0): SessionSelector {
+	return select(cards, random, [], 'triad-zone');
 }
 
 /** Serves `count` prompts, answering each with `answer(item, index)`. */
@@ -168,8 +174,8 @@ describe('createTriadSelector', () => {
 		expect(learnedAt).not.toBeNull();
 	});
 
-	it('probes in position a triad acquired in anchor', () => {
-		const item = select([acquiredAnchor(ORDER[0])]).next({
+	it('probes around a fret, in a zone session, a triad acquired in anchor', () => {
+		const item = selectZone([acquiredAnchor(ORDER[0])]).next({
 			now: NOW,
 			elapsedMs: 0,
 			fatigued: false
@@ -183,36 +189,42 @@ describe('createTriadSelector', () => {
 		});
 	});
 
-	it('never brings a triad in position before it is acquired in anchor', () => {
-		const served = play(select([anchorCard(ORDER[0]), anchorCard(ORDER[1])]), 30);
-		const zone = served.filter((item) => item.mechanic === 'triad-zone').map(voicingOf);
-		// Probes passed in this session make their triad acquired; the two learned ones are not.
-		expect(zone).not.toContain(ORDER[0]);
-		expect(zone).not.toContain(ORDER[1]);
+	it('never brings a triad in a zone session before it is acquired in anchor', () => {
+		const served = play(selectZone([anchorCard(ORDER[0]), anchorCard(ORDER[1])]), 30);
+		expect(served).toEqual([]);
 	});
 
-	it('never serves the same voicing twice in a row, whatever the mechanic', () => {
-		const random = seeded(7);
-		const cards = [
-			...ORDER.slice(0, 6).map((key) => due(acquiredAnchor(key))),
-			...ORDER.slice(0, 3).map((key) => due(zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })))
-		];
-		const served = play(select(cards, random), 200, () => random() > 0.3);
-		expect(served.length).toBeGreaterThan(20);
-		served.slice(1).forEach((item, i) => expect(voicingOf(item)).not.toBe(voicingOf(served[i])));
-	});
-
-	it('runs in sequences of four prompts of one mechanic', () => {
+	it('serves only anchor prompts in an anchor session, even with zone cards due', () => {
 		const cards = [
 			...ORDER.slice(0, 8).map((key) => due(acquiredAnchor(key))),
 			...ORDER.slice(0, 8).map((key) => due(zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })))
 		];
-		const served = play(select(cards), 16);
-		const mechanics = served.map((item) => item.mechanic);
-		for (let start = 0; start < 16; start += SEQUENCE_LENGTH) {
-			expect(new Set(mechanics.slice(start, start + SEQUENCE_LENGTH)).size).toBe(1);
+		const served = play(select(cards, seeded(2)), 60);
+		expect(served.length).toBeGreaterThan(20);
+		expect(new Set(served.map((item) => item.mechanic))).toEqual(new Set(['triad-anchor']));
+	});
+
+	it('serves only zone prompts in a zone session, even with anchor cards due', () => {
+		const cards = [
+			...ORDER.slice(0, 8).map((key) => due(acquiredAnchor(key))),
+			...ORDER.slice(0, 8).map((key) => due(zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })))
+		];
+		const served = play(selectZone(cards, seeded(2)), 60);
+		expect(served.length).toBeGreaterThan(20);
+		expect(new Set(served.map((item) => item.mechanic))).toEqual(new Set(['triad-zone']));
+	});
+
+	it('never serves the same voicing twice in a row', () => {
+		for (const mechanic of ['triad-anchor', 'triad-zone'] as const) {
+			const random = seeded(7);
+			const cards = [
+				...ORDER.slice(0, 6).map((key) => due(acquiredAnchor(key))),
+				...ORDER.slice(0, 3).map((key) => due(zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })))
+			];
+			const served = play(select(cards, random, [], mechanic), 200, () => random() > 0.3);
+			expect(served.length).toBeGreaterThan(20);
+			served.slice(1).forEach((item, i) => expect(voicingOf(item)).not.toBe(voicingOf(served[i])));
 		}
-		expect(new Set(mechanics).size).toBe(2);
 	});
 
 	it('draws another position than the last one asked for the same card', () => {
@@ -221,7 +233,7 @@ describe('createTriadSelector', () => {
 			...ORDER.slice(0, 3).map((key) => due(acquiredAnchor(key))),
 			...ORDER.slice(0, 3).map((key) => zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR }))
 		];
-		const served = play(select(cards, random), 120, () => random() > 0.5);
+		const served = play(selectZone(cards, random), 120, () => random() > 0.5);
 		const byCard = new Map<string, (number | 'open')[]>();
 		for (const item of served) {
 			if (item.mechanic !== 'triad-zone') continue;
@@ -245,7 +257,7 @@ describe('createTriadSelector', () => {
 			due(acquiredAnchor(key)),
 			zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })
 		]);
-		const served = play(select(cards, random), 120, () => random() > 0.5);
+		const served = play(selectZone(cards, random), 120, () => random() > 0.5);
 		const named = new Set<number>();
 		for (const item of served) {
 			if (item.mechanic !== 'triad-zone') continue;
@@ -264,5 +276,18 @@ describe('createTriadSelector', () => {
 
 	it('ends with the session time', () => {
 		expect(select().next({ now: NOW, elapsedMs: 5 * 60 * 1000, fatigued: false })).toBeNull();
+	});
+});
+
+describe('triadZoneOpen', () => {
+	it('opens the zone once six triads are acquired in anchor', () => {
+		const acquired = ORDER.slice(0, 6).map((key) => acquiredAnchor(key));
+		expect(triadZoneOpen(acquired.slice(0, 5))).toBe(false);
+		expect(triadZoneOpen([...acquired.slice(0, 5), anchorCard(ORDER[5])])).toBe(false);
+		expect(triadZoneOpen(acquired)).toBe(true);
+	});
+
+	it('keeps the zone open once it has a card', () => {
+		expect(triadZoneOpen([acquiredAnchor(ORDER[0]), zoneCard(ORDER[0])])).toBe(true);
 	});
 });

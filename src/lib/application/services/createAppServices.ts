@@ -20,12 +20,21 @@ import {
 	createListSelector,
 	createTriadSelector,
 	isNeck,
+	triadZoneOpen,
+	type TriadMechanic,
 	lastAttemptByCard,
 	reviewableCards,
 	summarizeSession
 } from '$lib/domain/progress';
 import { triadNotesToLearn } from '$lib/domain/triads';
-import type { Attempt, CardState, Execution, Progression, SessionKind } from '$lib/domain/types';
+import {
+	isTriadsKind,
+	type Attempt,
+	type CardState,
+	type Execution,
+	type Progression,
+	type SessionKind
+} from '$lib/domain/types';
 
 export function createAppServices(
 	deps: SessionDeps & {
@@ -56,10 +65,19 @@ export function createAppServices(
 			});
 		},
 
-		async triadsDue() {
+		async triads() {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
-			const triads = cards.filter((card) => !isNeck(card));
-			return reviewableCards(triads, lastAttemptByCard(attempts), deps.now()).length;
+			const last = lastAttemptByCard(attempts);
+			const due = (mechanic: TriadMechanic) =>
+				reviewableCards(
+					cards.filter((card) => card.mechanic === mechanic),
+					last,
+					deps.now()
+				).length;
+			return {
+				anchorDue: due('triad-anchor'),
+				zoneDue: triadZoneOpen(cards) ? due('triad-zone') : null
+			};
 		},
 
 		async sessionSummary(sessionId: string) {
@@ -73,7 +91,7 @@ export function createAppServices(
 				deps.cards.all()
 			]);
 			// Next reviews of the session's own track: the neck's, or the triads'.
-			const ofTrack = (x: { mechanic: string }) => isNeck(x) === (record.kind !== 'triads');
+			const ofTrack = (x: { mechanic: string }) => isNeck(x) === !isTriadsKind(record.kind);
 			return summarizeSession({
 				record,
 				attempts,
@@ -89,23 +107,25 @@ export function createAppServices(
 		},
 
 		async startSession(kind: SessionKind) {
-			/** The two triads exercises, each at its own tempo, on the triad selector. */
+			/** One triads exercise, at its own tempo, on the triad selector. */
 			const prepareTriads = (
+				mechanic: TriadMechanic,
 				sessionId: string,
 				cards: CardState[],
 				attempts: Attempt[],
 				progressions: Progression[]
 			) => {
-				const executions: Execution[] = [TRIADS_ANCHOR, TRIADS_ZONE].map((e) => ({
-					exerciseId: e.id,
-					tempoBpm: startTempo(e, progressions)
-				}));
+				const exercise = mechanic === 'triad-zone' ? TRIADS_ZONE : TRIADS_ANCHOR;
+				const executions: Execution[] = [
+					{ exerciseId: exercise.id, tempoBpm: startTempo(exercise, progressions) }
+				];
 				const acquiredPositions = new Set(
 					cards
 						.filter((card) => card.mechanic === locateRules.id && card.acquiredAt !== null)
 						.map((card) => locateRules.itemKey(card.item as LocateItem))
 				);
 				const selector = createTriadSelector({
+					mechanic,
 					cards,
 					attempts,
 					sessionId,
@@ -123,7 +143,10 @@ export function createAppServices(
 					deps.attempts.all(),
 					deps.progressions.all()
 				]);
-				if (kind === 'triads') return prepareTriads(sessionId, cards, attempts, progressions);
+				if (kind === 'triads')
+					return prepareTriads('triad-anchor', sessionId, cards, attempts, progressions);
+				if (kind === 'triads-zone')
+					return prepareTriads('triad-zone', sessionId, cards, attempts, progressions);
 				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => ({
 					exerciseId: e.id,
 					tempoBpm: mechanicRules(e.mechanic).timing.usesTempo ? startTempo(e, progressions) : null

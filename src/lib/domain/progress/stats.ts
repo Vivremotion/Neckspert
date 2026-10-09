@@ -3,6 +3,7 @@ import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	isSuccess,
+	isTriadsKind,
 	type Attempt,
 	type CardState,
 	type HomeStats,
@@ -11,7 +12,7 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
-import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
+import { LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise/catalog';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
@@ -113,7 +114,10 @@ export function summarizeSession(input: {
 		pool === 'all' ? scored : scored.filter((attempt) => attempt.temperature === 'cold');
 	const startedAt = input.record.startedAt;
 	const endedAt = input.record.endedAt ?? input.now;
-	const triads = input.record.kind === 'triads';
+	const triads = isTriadsKind(input.record.kind);
+	// The tempo shown is the session's exercise's: locate for the notes.
+	const shownExercise =
+		input.record.kind === 'triads-zone' ? TRIADS_ZONE : triads ? TRIADS_ANCHOR : LOCATE_NECK;
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
 	);
@@ -136,9 +140,8 @@ export function summarizeSession(input: {
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
 		tempoBpm:
-			input.record.executions.find(
-				(execution) => execution.exerciseId === (triads ? TRIADS_ANCHOR.id : LOCATE_NECK.id)
-			)?.tempoBpm ?? null,
+			input.record.executions.find((execution) => execution.exerciseId === shownExercise.id)
+				?.tempoBpm ?? null,
 		kind: input.record.kind
 	};
 }

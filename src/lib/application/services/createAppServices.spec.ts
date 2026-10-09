@@ -7,7 +7,7 @@ import type {
 	CalibrationProgress
 } from '$lib/application/ports';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import type { BackupFile } from '$lib/domain/types';
+import type { BackupFile, CardState } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -26,7 +26,7 @@ import {
 import { createAppServices } from './createAppServices';
 import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
-import { triadAnchorRules } from '$lib/domain/mechanics';
+import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 
 class FakeBackup implements BackupPort {
@@ -83,6 +83,23 @@ function harness(): {
 		diagnostics: new FakeDiagnostics()
 	});
 	return { services, deps, chords };
+}
+
+/** A learned triad card, due at once. */
+function learnedTriad(mechanic: 'triad-anchor' | 'triad-zone', key: string): CardState {
+	const timing = mechanic === 'triad-anchor' ? triadAnchorRules.timing : triadZoneRules.timing;
+	const card = markLearned(
+		introduceCard(
+			{ key: `${mechanic}:${key}`, mechanic, item: { voicingKey: key } },
+			0,
+			's-old',
+			timing
+		),
+		0,
+		timing,
+		80
+	);
+	return { ...card, scheduling: { ...card.scheduling, due: 0 } };
 }
 
 function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
@@ -260,23 +277,41 @@ describe('createAppServices', () => {
 		expect(summary.sessionId).toBe(controller.sessionId);
 	});
 
-	it('counts the triad reviews due apart from the notes', async () => {
+	it('counts the triad reviews due apart from the notes, the zone closed', async () => {
 		const { services, deps } = harness();
-		const key = 'D|maj|3:5,2:1,1:3';
-		const card = markLearned(
-			introduceCard(
-				{ key: `triad-anchor:${key}`, mechanic: 'triad-anchor', item: { voicingKey: key } },
-				0,
-				's-old',
-				triadAnchorRules.timing
-			),
-			0,
-			triadAnchorRules.timing,
-			80
-		);
-		await deps.cards.put(card);
-		expect(await services.triadsDue()).toBe(1);
+		await deps.cards.put(learnedTriad('triad-anchor', 'D|maj|3:5,2:1,1:3'));
+		expect(await services.triads()).toEqual({ anchorDue: 1, zoneDue: null });
 		expect((await services.homeStats()).dueCount).toBe(0);
+	});
+
+	it('opens the zone once six triads are acquired in anchor, and counts its reviews', async () => {
+		const { services, deps } = harness();
+		const keys = [
+			'C|maj|3:5,2:1,1:3',
+			'C|maj|3:1,2:3,1:5',
+			'C|maj|3:3,2:5,1:1',
+			'C|min|3:5,2:1,1:b3',
+			'C|min|3:1,2:b3,1:5',
+			'C|min|3:b3,2:5,1:1'
+		];
+		for (const key of keys) {
+			await deps.cards.put({ ...learnedTriad('triad-anchor', key), acquiredAt: 0 });
+		}
+		expect((await services.triads()).zoneDue).toBe(0);
+		await deps.cards.put(learnedTriad('triad-zone', keys[0]));
+		expect((await services.triads()).zoneDue).toBe(1);
+	});
+
+	it('startSession(triads-zone) asks a triad acquired in anchor around a fret', async () => {
+		const { services, deps } = harness();
+		await deps.cards.put({ ...learnedTriad('triad-anchor', 'C|maj|3:5,2:1,1:3'), acquiredAt: 0 });
+		const controller = await services.startSession('triads-zone');
+		await controller.start();
+		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
+			tick(deps, deps.metronome.secondsPerBeat());
+		}
+		expect(controller.view.prompt).toMatchObject({ primary: 'C', detail: 'sol‑si‑mi' });
+		expect(controller.view.prompt?.secondary).toMatch(/^vers la case \d+$/);
 	});
 
 	it('startSession(triads) probes the first triad of the queue on its root and chord', async () => {
