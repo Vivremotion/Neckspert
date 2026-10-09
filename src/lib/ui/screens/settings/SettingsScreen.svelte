@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { AudioInputDevice } from '$lib/application/ports';
+	import type { ShapeView } from '$lib/application/session/contract';
 	import {
 		DIAGNOSTIC_BUDGETS_MB,
 		MAX_BUILT_IN_INPUT_GAIN,
@@ -9,6 +10,7 @@
 		type ChordDiagramStyle,
 		type Locale
 	} from '$lib/domain/types';
+	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -77,6 +79,15 @@
 
 	const BYTES_PER_MB = 1024 * 1024;
 
+	/** D, root on B: the shape each chord drawing style shows as its example. */
+	const SAMPLE_SHAPE = {
+		notes: [
+			{ string: 3, fret: 2 },
+			{ string: 2, fret: 3 },
+			{ string: 1, fret: 2 }
+		]
+	} satisfies ShapeView;
+
 	const m = $derived(settingsMessages());
 	let fileInput: HTMLInputElement | undefined = $state();
 
@@ -115,16 +126,22 @@
 	<PixelBox variant="double">
 		<p class="label"><PixelText scale={1}>{m.chordDiagram}</PixelText></p>
 		<div class="row" role="group" aria-label={m.chordDiagram}>
-			<PixelButton
-				size="large"
-				disabled={chordDiagram === 'strings'}
-				onclick={() => onchorddiagram('strings')}>{m.chordDiagramStrings}</PixelButton
-			>
-			<PixelButton
-				size="large"
-				disabled={chordDiagram === 'grid'}
-				onclick={() => onchorddiagram('grid')}>{m.chordDiagramGrid}</PixelButton
-			>
+			<div class="diagram-choice">
+				<PixelButton
+					size="large"
+					disabled={chordDiagram === 'strings'}
+					onclick={() => onchorddiagram('strings')}>{m.chordDiagramStrings}</PixelButton
+				>
+				<ChordShape shape={SAMPLE_SHAPE} style="strings" {locale} size="small" />
+			</div>
+			<div class="diagram-choice">
+				<PixelButton
+					size="large"
+					disabled={chordDiagram === 'grid'}
+					onclick={() => onchorddiagram('grid')}>{m.chordDiagramGrid}</PixelButton
+				>
+				<ChordShape shape={SAMPLE_SHAPE} style="grid" {locale} size="small" />
+			</div>
 		</div>
 	</PixelBox>
 
@@ -356,5 +373,11 @@
 	.error {
 		margin: 0;
 		color: var(--np-ink, #451218);
+	}
+
+	.diagram-choice {
+		display: grid;
+		justify-items: center;
+		gap: var(--np-space-1, 8px);
 	}
 </style>

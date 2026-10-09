@@ -6,6 +6,11 @@ export type { Scene };
 
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
+/** A chord shape to draw: the fret pressed on each of its strings (0: open). */
+export interface ShapeView {
+	notes: { string: StringNumber; fret: number }[];
+}
+
 /** Localized prompt, ready to display. */
 export interface PromptView {
 	/** Mode 1: the note ("F", "Gb"). Mode 2: the fret ("case 8"). */

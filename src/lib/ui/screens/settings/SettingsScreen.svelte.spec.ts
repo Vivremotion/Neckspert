@@ -84,6 +84,12 @@ describe('SettingsScreen', () => {
 		expect(props.onchorddiagram).toHaveBeenCalledWith('grid');
 	});
 
+	it('shows each chord drawing style beside its choice', () => {
+		const { container } = renderScreen();
+		expect(container.querySelector('.chord-shape[data-style="strings"]')).not.toBeNull();
+		expect(container.querySelector('.chord-shape[data-style="grid"]')).not.toBeNull();
+	});
+
 	it('sets no tempo: each exercise keeps its own', () => {
 		renderScreen();
 		expect(screen.queryByText(/tempo/i)).toBeNull();
