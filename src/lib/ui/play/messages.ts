@@ -17,7 +17,7 @@ export const playMessages = defineMessages({
 			learn: HOW_TO_NOTES_FR,
 			free: HOW_TO_NOTES_FR,
 			triads:
-				'Deux consignes alternent. « C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. « C · position 5 » : plaque l’accord à cette position quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.'
+				'Deux consignes alternent. « C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. « C · vers la case 5 » : plaque l’accord sur la forme qui couvre cette case quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Parfait',
@@ -46,7 +46,7 @@ export const playMessages = defineMessages({
 			learn: HOW_TO_NOTES_EN,
 			free: HOW_TO_NOTES_EN,
 			triads:
-				'Two prompts take turns. “C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. “C · position 5”: strum the chord at that position when its tile reaches the line. The click comes from the computer speakers.'
+				'Two prompts take turns. “C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. “C · around fret 5”: strum the chord in the shape that covers that fret when its tile reaches the line. The click comes from the computer speakers.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Perfect',

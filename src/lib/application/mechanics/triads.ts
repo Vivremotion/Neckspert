@@ -71,10 +71,10 @@ function rootOnLabel(voicing: Voicing, locale: Locale): string {
 	return TRIAD_MESSAGES[locale].rootOn(TRIAD_STRING_NAMES[locale][rootPosition(voicing).string]);
 }
 
-function positionLabel(position: number | 'open', locale: Locale): string {
-	return position === 'open'
-		? TRIAD_MESSAGES[locale].open
-		: TRIAD_MESSAGES[locale].position(position);
+/** "vers la case 3": the fret drawn for the prompt, else (older attempts) the shape's lowest. */
+function aroundLabel(item: TriadZoneItem, locale: Locale): string {
+	if (item.position === 'open') return TRIAD_MESSAGES[locale].open;
+	return TRIAD_MESSAGES[locale].around(item.fret ?? item.position);
 }
 
 /** The lowest fretted shape of a voicing; a shape on open strings only when it has no other. */
@@ -243,7 +243,7 @@ export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	}
 };
 
-/** Find a triad in a position: "D · position 2". */
+/** Find a triad around a fret: "D · vers la case 3". */
 export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> = {
 	rules: triadZoneRules,
 	scene: 'guitar',
@@ -253,7 +253,7 @@ export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> 
 		const voicing = parseVoicingKey(item.voicingKey);
 		return triadPrompt(
 			voicing,
-			positionLabel(item.position, locale),
+			aroundLabel(item, locale),
 			aid === 'show-position' ? rootOnLabel(voicing, locale) : null,
 			locale
 		);

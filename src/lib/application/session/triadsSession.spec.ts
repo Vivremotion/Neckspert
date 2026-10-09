@@ -6,12 +6,7 @@ import { createAppServices } from '$lib/application/services/createAppServices';
 import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import { rootPosition } from '$lib/domain/mechanics';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
-import {
-	occurrenceOfId,
-	occurrencePosition,
-	triadIntroductionOrder,
-	triadParams
-} from '$lib/domain/triads';
+import { cueFrets, occurrenceOfId, triadIntroductionOrder, triadParams } from '$lib/domain/triads';
 import {
 	FakeChordVerifier,
 	FakeClock,
@@ -72,7 +67,8 @@ async function drain() {
 interface Played {
 	mechanic: string;
 	voicingKey: string;
-	position?: number | 'open';
+	/** The fret a zone prompt names; 'open' for a shape on open strings only. */
+	fret?: number | 'open';
 	phase: string;
 	expected: readonly string[];
 }
@@ -115,18 +111,18 @@ async function playSeries(
 
 /**
  * The prompt being played, as the screen and the chord sensor see it: the screen names a root
- * string (anchor) or a position (zone); the chord expectation names the voicing.
+ * string (anchor) or a fret (zone); the chord expectation names the voicing.
  */
 async function currentPrompt(h: Harness, controller: PlaySessionController) {
 	const expected = h.chords.expectations.at(-1)?.expected ?? [];
 	const [key] = (expected[0] ?? '').split('@');
 	const secondary = controller.view.prompt?.secondary ?? '';
-	const zone = secondary.startsWith('position') || secondary === 'à vide';
-	const position = secondary === 'à vide' ? 'open' : Number(secondary.replace('position ', ''));
+	const zone = secondary.startsWith('vers la case') || secondary === 'à vide';
+	const fret = secondary === 'à vide' ? 'open' : Number(secondary.replace('vers la case ', ''));
 	return {
 		mechanic: zone ? 'triad-zone' : 'triad-anchor',
 		voicingKey: key,
-		position: zone ? position : undefined,
+		fret: zone ? fret : undefined,
 		phase: controller.view.prompt?.aid || controller.view.prompt?.shape ? 'aided' : 'unaided'
 	};
 }
@@ -192,11 +188,11 @@ describe('a triads session, from the probe to the position', () => {
 		expect((await cardOf(h, 'triad-anchor', C))?.acquiredAt).not.toBeNull();
 		const zone = second.at(-1)!;
 		expect(zone).toMatchObject({ mechanic: 'triad-zone', voicingKey: C });
-		// The sensor listens for the shape at the position asked, and that shape only.
+		// The sensor listens for the shape that covers the fret named, and that shape only.
 		expect(zone.expected).toHaveLength(1);
 		const shape = occurrenceOfId(zone.expected[0]);
 		expect(shape && voicingKey(shape.voicing)).toBe(C);
-		expect(shape && occurrencePosition(shape)).toBe(zone.position);
+		expect(shape && cueFrets(shape)).toContain(zone.fret);
 		const attempts = await h.deps.attempts.all();
 		const cold = attempts.find(
 			(a) => a.cardKey === `triad-anchor:${C}` && a.phase === 'review' && a.temperature === 'cold'

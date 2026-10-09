@@ -23,14 +23,14 @@ export const TRIAD_MESSAGES: Record<
 	Locale,
 	{
 		rootOn: (string: string) => string;
-		position: (fret: number) => string;
+		around: (fret: number) => string;
 		open: string;
 		gap: TriadGapMessages;
 	}
 > = {
 	fr: {
 		rootOn: (string) => `fondamentale sur ${string}`,
-		position: (fret) => `position ${fret}`,
+		around: (fret) => `vers la case ${fret}`,
 		open: 'à vide',
 		gap: {
 			'other-inversion': 'autre renversement',
@@ -45,7 +45,7 @@ export const TRIAD_MESSAGES: Record<
 	},
 	en: {
 		rootOn: (string) => `root on ${string}`,
-		position: (fret) => `position ${fret}`,
+		around: (fret) => `around fret ${fret}`,
 		open: 'open',
 		gap: {
 			'other-inversion': 'other inversion',

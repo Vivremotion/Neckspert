@@ -293,17 +293,25 @@ describe('triadZonePresenter', () => {
 		expect(TRIAD_PRESENTERS['triad-zone']).toBe(triadZonePresenter);
 	});
 
-	it('names the chord and the position asked, the string of its root as the aid', () => {
-		const item = { voicingKey: D_ON_B, position: 2 as const };
+	it('names the chord and the fret drawn for it, the string of its root as the aid', () => {
+		const item = { voicingKey: D_ON_B, position: 2 as const, fret: 3 };
 		expect(triadZonePresenter.prompt(item, unaided, 'fr', () => 0)).toEqual({
 			primary: 'D',
-			secondary: 'position 2',
+			secondary: 'vers la case 3',
 			detail: 'sol‑si‑mi',
 			aid: null,
 			diagram: null
 		});
 		expect(triadZonePresenter.prompt(item, aided, 'fr', () => 0).aid).toBe('fondamentale sur si');
 		expect(triadZonePresenter.prompt(item, aided, 'en', () => 0).aid).toBe('root on B');
+		expect(triadZonePresenter.prompt(item, unaided, 'en', () => 0).secondary).toBe('around fret 3');
+	});
+
+	it('names the lowest fret of the shape for an attempt stored without a fret', () => {
+		const item = { voicingKey: D_ON_B, position: 2 as const };
+		expect(triadZonePresenter.prompt(item, unaided, 'fr', () => 0).secondary).toBe(
+			'vers la case 2'
+		);
 	});
 
 	it('calls a shape on open strings open', () => {

@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
-import { triadIntroductionOrder, triadParams } from '$lib/domain/triads';
+import {
+	cueFrets,
+	occurrencePosition,
+	triadIntroductionOrder,
+	triadParams
+} from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import { SEQUENCE_LENGTH } from './constants';
@@ -232,6 +237,29 @@ describe('createTriadSelector', () => {
 		for (const positions of runs) {
 			positions.slice(1).forEach((p, i) => expect(p).not.toBe(positions[i]));
 		}
+	});
+
+	it('names a fret the asked shape covers, drawn anew at each prompt', () => {
+		const random = seeded(5);
+		const cards = ORDER.slice(0, 3).flatMap((key) => [
+			due(acquiredAnchor(key)),
+			zoneCard(key, { acquiredAt: NOW - 2 * 24 * HOUR })
+		]);
+		const served = play(select(cards, random), 120, () => random() > 0.5);
+		const named = new Set<number>();
+		for (const item of served) {
+			if (item.mechanic !== 'triad-zone') continue;
+			const { position, fret } = item.item as { position: number | 'open'; fret?: number };
+			const shape = voicingOccurrences(parseVoicingKey(voicingOf(item))).find(
+				(o) => occurrencePosition(o) === position
+			);
+			if (!shape) throw new Error('no shape at the asked position');
+			const frets = cueFrets(shape);
+			if (frets.length === 0) expect(fret).toBeUndefined();
+			else expect(frets).toContain(fret);
+			if (fret !== undefined && fret !== position) named.add(fret);
+		}
+		expect(named.size).toBeGreaterThan(0);
 	});
 
 	it('ends with the session time', () => {

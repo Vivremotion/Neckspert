@@ -4,11 +4,16 @@ import { createBeatTiming } from '$lib/domain/timing';
 import { classifyChord, type ChordConfusion, type ChordReading } from './triadChord';
 import type { MechanicRules } from './types';
 
-/** Find a triad in a position: the voicing (the card) and the position asked this time. */
+/** Find a triad around a fret: the voicing (the card) and the shape asked this time. */
 export interface TriadZoneItem {
 	voicingKey: string;
 	/** Lowest fretted fret of the shape asked; 'open' for a shape on open strings only. */
 	position: number | 'open';
+	/**
+	 * Fret the prompt names, drawn among those the shape covers (`cueFrets`); absent for a shape
+	 * on open strings only, and on attempts stored before it (the position is named then).
+	 */
+	fret?: number;
 }
 
 /** `Attempt.data` of a zone attempt. */

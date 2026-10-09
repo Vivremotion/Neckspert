@@ -1,9 +1,14 @@
 import { DEFAULT_TEMPO_BPM, pacingOf } from '$lib/domain/exercise';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
-import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
+import { triadAnchorRules, triadZoneRules, type TriadZoneItem } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
 import type { TimingRelation } from '$lib/domain/timing';
-import { occurrencePosition, triadIntroductionOrder, triadParams } from '$lib/domain/triads';
+import {
+	cueFrets,
+	occurrencePosition,
+	triadIntroductionOrder,
+	triadParams
+} from '$lib/domain/triads';
 import {
 	cardKey,
 	isSuccess,
@@ -550,13 +555,21 @@ class TriadSelector implements SessionSelector {
 		fields: Omit<PlannedItem, 'exerciseId' | 'mechanic' | 'item'>
 	): PlannedItem {
 		const key = cardKey(mechanic, voicing);
-		const item =
-			mechanic === ZONE
-				? { voicingKey: voicing, position: this.drawPosition(key, voicing) }
-				: { voicingKey: voicing };
-		if (mechanic === ZONE)
-			this.lastPosition.set(key, (item as { position: number | 'open' }).position);
+		const item = mechanic === ZONE ? this.zoneItem(key, voicing) : { voicingKey: voicing };
 		return { exerciseId: this.tracks[mechanic].definition.id, mechanic, item, ...fields };
+	}
+
+	/** A shape of the voicing, and a fret it covers for the prompt to name. */
+	private zoneItem(key: CardKey, voicing: string): TriadZoneItem {
+		const position = this.drawPosition(key, voicing);
+		this.lastPosition.set(key, position);
+		const shape = voicingOccurrences(parseVoicingKey(voicing)).find(
+			(occurrence) => occurrencePosition(occurrence) === position
+		);
+		const fret = shape ? this.pickAtRandom(cueFrets(shape)) : null;
+		return fret === null
+			? { voicingKey: voicing, position }
+			: { voicingKey: voicing, position, fret };
 	}
 
 	/** A position among the voicing's shapes, another than the last one asked of this card. */
