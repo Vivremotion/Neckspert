@@ -45,7 +45,7 @@ describe('anchorTiming', () => {
 			outcome: {
 				verdict: 'perfect',
 				correct: true,
-				answer: { root: { midi: 62 }, chord: { decided: 'd' } },
+				answer: { root: { midi: 62 }, chord: { decided: 'd' }, correction: null },
 				confusion: null,
 				timingOffsetMs: 30,
 				reactionMs: 3030,
@@ -76,7 +76,7 @@ describe('anchorTiming', () => {
 			outcome: {
 				verdict: 'wrong',
 				correct: false,
-				answer: { root: { midi: 62 }, chord: null },
+				answer: { root: { midi: 62 }, chord: null, correction: null },
 				confusion: NO_CHORD
 			}
 		});
@@ -133,8 +133,77 @@ describe('anchorTiming', () => {
 		const r = open();
 		r.observe(root(6.13));
 		expect(r.observe(chord(beatTime(10), false))).toMatchObject({
+			kind: 'provisional',
 			outcome: { verdict: 'wrong', confusion: { kind: 'other-inversion', part: 'chord' } }
 		});
+	});
+
+	it('settles a right chord after a wrong one as corrected, a miss timed by the root', () => {
+		const r = open();
+		r.observe(root(6.13));
+		r.observe(chord(beatTime(10), false));
+		expect(r.observe(chord(beatTime(11)))).toEqual({
+			kind: 'settled',
+			outcome: {
+				verdict: 'corrected',
+				correct: false,
+				answer: { root: { midi: 62 }, chord: { decided: 'x' }, correction: { decided: 'd' } },
+				confusion: { kind: 'other-inversion', part: 'chord' },
+				timingOffsetMs: 30,
+				reactionMs: 3030,
+				laneBeat: 8
+			}
+		});
+	});
+
+	it('settles wrong when no correction comes before the end of the wait', () => {
+		const r = open();
+		r.observe(root(6.13));
+		r.observe(chord(beatTime(10), false));
+		for (const index of [11, 12, 13, 14]) {
+			expect(r.onBeat({ index, time: beatTime(index) })).toEqual({ kind: 'none' });
+		}
+		expect(r.onBeat({ index: 15, time: beatTime(15) })).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'wrong', answer: { chord: { decided: 'x' }, correction: null } }
+		});
+	});
+
+	it('takes no correction attacked after the band, nor a wrong one', () => {
+		const r = open();
+		r.observe(root(6.13));
+		r.observe(chord(beatTime(10), false));
+		expect(r.observe(chord(beatTime(10) + 0.4, false))).toEqual({
+			kind: 'ignored',
+			reason: 'settled'
+		});
+		expect(r.observe(chord(beatTime(12) + 0.01))).toEqual({
+			kind: 'ignored',
+			reason: 'after-capture'
+		});
+		expect(r.onBeat({ index: 15, time: beatTime(15) })).toMatchObject({
+			outcome: { verdict: 'wrong' }
+		});
+	});
+
+	it('never corrects a wrong root', () => {
+		const r = open();
+		r.observe(root(6.13, false));
+		expect(r.observe(chord(beatTime(10), false))).toMatchObject({
+			kind: 'settled',
+			outcome: { verdict: 'wrong' }
+		});
+	});
+
+	it('settles a provisional miss as wrong when abandoned', () => {
+		const r = open();
+		r.observe(root(6.13));
+		r.observe(chord(beatTime(10), false));
+		expect(r.abandon()).toMatchObject({
+			verdict: 'wrong',
+			answer: { chord: { decided: 'x' }, correction: null }
+		});
+		expect(r.observe(chord(beatTime(11)))).toEqual({ kind: 'ignored', reason: 'settled' });
 	});
 
 	it('takes the first chord attack, refined until final, judged as it is when the wait ends', () => {

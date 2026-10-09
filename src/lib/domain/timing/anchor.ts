@@ -26,7 +26,9 @@ const FALLBACK_LEAD = BEATS_PER_BAR;
  * Two targets in one bar: the root on its first beat, judged as a located note (perfect, early,
  * late, off beat, wrong); then the chord, any time from beat 2 to the end of the bar, the first
  * attack being the answer and its readings refining it, awaited until the next prompt's preview.
- * Right when both are; the verdict in time is the root's. Settled when both are known.
+ * Right when both are; the verdict in time is the root's. Settled when both are known, except
+ * after a right root and a wrong first chord: that miss shows at once (provisional) while a later
+ * attack in the bar may still put it right, which settles it `corrected`, a miss all the same.
  */
 class AnchorRound implements Round {
 	readonly targetBeatIndex: number;
@@ -42,6 +44,10 @@ class AnchorRound implements Round {
 	private chord: RoundObservation | null | undefined = undefined;
 	/** A reading of the chord attack, waiting for a better one. */
 	private chordPending: RoundObservation | null = null;
+	/** A later attack read right after a wrong first chord. */
+	private correction: RoundObservation | null = null;
+	/** The wrong first chord has shown as a provisional miss; a correction may still come. */
+	private provisional = false;
 	private outcome: RoundOutcome | null = null;
 
 	constructor(
@@ -93,8 +99,9 @@ class AnchorRound implements Round {
 				this.closeChord();
 			}
 		}
-		const settled = this.settleIfKnown();
-		return settled.kind === 'settled' ? settled : event;
+		const waitOver = beat.time >= this.chordWaitEnd - EDGE_TOLERANCE_S;
+		const settled = this.settleIfKnown(waitOver);
+		return settled.kind === 'settled' || settled.kind === 'provisional' ? settled : event;
 	}
 
 	abandon(): RoundOutcome | null {
@@ -105,7 +112,7 @@ class AnchorRound implements Round {
 		if (!root && !chord) return null;
 		this.rootOutcome = root ?? this.unanswered();
 		this.closeChord();
-		this.settleIfKnown();
+		this.settleIfKnown(true);
 		return this.outcome;
 	}
 
@@ -123,7 +130,7 @@ class AnchorRound implements Round {
 		if (time >= this.chordCloses - EDGE_TOLERANCE_S) {
 			return { kind: 'ignored', reason: 'after-capture' };
 		}
-		if (this.chord !== undefined) return { kind: 'ignored', reason: 'settled' };
+		if (this.chord !== undefined) return this.observeCorrection(observation);
 		// The first chord attack is the answer: another one is not, while its readings come.
 		if (this.chordPending && this.chordPending.time !== time) {
 			return { kind: 'ignored', reason: 'settled' };
@@ -137,6 +144,20 @@ class AnchorRound implements Round {
 		return this.settleIfKnown();
 	}
 
+	/** After a wrong first chord: a later attack read right puts it right; nothing else counts. */
+	private observeCorrection(observation: RoundObservation): RoundEvent {
+		const first = this.chord;
+		const canCorrect =
+			this.rootOutcome?.correct === true && first !== null && first?.correct === false;
+		if (!canCorrect || observation.time === first.time)
+			return { kind: 'ignored', reason: 'settled' };
+		if (!observation.correct || observation.final === false) {
+			return { kind: 'ignored', reason: 'settled' };
+		}
+		this.correction = observation;
+		return this.settleIfKnown(true);
+	}
+
 	/** The wait is over: the reading still waiting is the chord, as it is; else none came. */
 	private closeChord(): void {
 		if (this.chord !== undefined) return;
@@ -144,14 +165,24 @@ class AnchorRound implements Round {
 		this.chordPending = null;
 	}
 
-	private settleIfKnown(): RoundEvent {
+	/** `final`: no correction can come any more. */
+	private settleIfKnown(final = false): RoundEvent {
 		if (!this.rootOutcome || this.chord === undefined) return { kind: 'pending' };
-		this.outcome = this.combine(this.rootOutcome, this.chord);
-		return { kind: 'settled', outcome: this.outcome };
+		const outcome = this.combine(this.rootOutcome, this.chord);
+		const correctable =
+			this.rootOutcome.correct && this.chord !== null && !this.chord.correct && !this.correction;
+		if (correctable && !final) {
+			if (this.provisional) return { kind: 'pending' };
+			this.provisional = true;
+			return { kind: 'provisional', outcome };
+		}
+		this.outcome = outcome;
+		return { kind: 'settled', outcome };
 	}
 
 	private combine(root: RoundOutcome, chord: RoundObservation | null): RoundOutcome {
 		const correct = root.correct && chord?.correct === true;
+		const corrected = root.correct && chord?.correct === false && this.correction !== null;
 		const answered = root.answer !== null || chord !== null;
 		// Where it went wrong: the root first, as located; then the chord.
 		const confusion = !root.correct
@@ -164,9 +195,15 @@ class AnchorRound implements Round {
 					? null
 					: (chord.confusion ?? null);
 		return {
-			verdict: correct ? root.verdict : 'wrong',
+			verdict: correct ? root.verdict : corrected ? 'corrected' : 'wrong',
 			correct,
-			answer: answered ? { root: root.answer, chord: chord?.answer ?? null } : null,
+			answer: answered
+				? {
+						root: root.answer,
+						chord: chord?.answer ?? null,
+						correction: this.correction?.answer ?? null
+					}
+				: null,
 			confusion,
 			timingOffsetMs: root.timingOffsetMs,
 			reactionMs: root.reactionMs,

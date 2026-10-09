@@ -28,8 +28,15 @@ export type TriadAnchorConfusion =
 /** `Attempt.data` of an anchor attempt. */
 export interface TriadAnchorData {
 	item: TriadAnchorItem;
-	/** What was heard of each part; null without any answer. */
-	answer: { root: { midi: Midi } | null; chord: ChordReading | null } | null;
+	/**
+	 * What was heard of each part; null without any answer. `chord` is the first chord, the
+	 * answer; `correction`, a later chord read right that put a wrong one right.
+	 */
+	answer: {
+		root: { midi: Midi } | null;
+		chord: ChordReading | null;
+		correction: ChordReading | null;
+	} | null;
 	confusion: TriadAnchorConfusion | null;
 }
 
