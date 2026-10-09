@@ -45,7 +45,12 @@
 </script>
 
 {#if style === 'strings'}
-	<div class="chord-shape strings {size}" data-style="strings" aria-hidden="true">
+	<div
+		class="chord-shape strings"
+		class:small={size === 'small'}
+		data-style="strings"
+		aria-hidden="true"
+	>
 		{#each HIGH_FIRST as string (string)}
 			{@const fret = fretOf.get(string)}
 			<div class="row" class:played={fret !== undefined}>
@@ -57,7 +62,7 @@
 		{/each}
 	</div>
 {:else}
-	<div class="chord-shape grid {size}" data-style="grid" aria-hidden="true">
+	<div class="chord-shape grid" class:small={size === 'small'} data-style="grid" aria-hidden="true">
 		{#if base > 1}<span class="base">{base}</span>{/if}
 		<svg viewBox="0 0 {width} {height}" shape-rendering="crispEdges">
 			{#if base === 1}

@@ -1,6 +1,6 @@
-import { cleanup, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { PlayView } from '$lib/application/session/contract';
+import type { PlayView, ShapeView, VerdictView } from '$lib/application/session/contract';
 import PlayScreen from './PlayScreen.svelte';
 import PixelWord from './PixelWord.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
@@ -109,6 +109,7 @@ describe('PlayScreen', () => {
 		detail?: string;
 		target?: string;
 		band?: string;
+		shape?: ShapeView;
 		diagram?: { string: 1 | 2 | 3 | 4 | 5 | 6; label: string } | null;
 	}) {
 		const view: PlayView = {
@@ -139,10 +140,120 @@ describe('PlayScreen', () => {
 			pause: () => {},
 			resume: () => {},
 			answer: () => {},
-			contest: () => {},
+			contests: 0,
+			contest() {
+				this.contests += 1;
+			},
 			quit: () => {}
 		};
 	}
+
+	/** D on G-B-E, root on B. */
+	const D_232: ShapeView = {
+		notes: [
+			{ string: 3, fret: 2 },
+			{ string: 2, fret: 3 },
+			{ string: 1, fret: 2 }
+		]
+	};
+	const D_775: ShapeView = {
+		notes: [
+			{ string: 3, fret: 7 },
+			{ string: 2, fret: 7 },
+			{ string: 1, fret: 5 }
+		]
+	};
+
+	function triadMiss(
+		verdict: Partial<VerdictView>,
+		contest: PlayView['contest'] = null
+	): ReturnType<typeof aidedController> {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'D',
+			secondary: 'fondamentale sur si',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'verdict',
+			contest,
+			lastVerdict: {
+				verdict: 'wrong',
+				offsetMs: null,
+				reactionMs: null,
+				answerLabel: null,
+				correction: null,
+				...verdict
+			}
+		};
+		return controller;
+	}
+
+	it('draws the aid of a triad under its prompt, in the style of the exercise', () => {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'D',
+			secondary: 'fondamentale sur si',
+			aid: null,
+			shape: D_232
+		});
+		controller.view = { ...controller.view, chordDiagram: 'grid' };
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.prompt .chord-shape')?.getAttribute('data-style')).toBe(
+			'grid'
+		);
+		expect(container.querySelector('.aid')).toBeNull();
+	});
+
+	it('draws what was played and what was expected after a triad miss, with the gap', () => {
+		const { container } = render(PlayScreen, {
+			props: {
+				controller: triadMiss({ heard: D_775, expected: D_232, gap: 'autre renversement' })
+			}
+		});
+		const drawn = container.querySelector('.drawn');
+		expect([...drawn!.querySelectorAll('.drawn-label')].map((l) => l.textContent)).toEqual([
+			'Joué',
+			'Attendu'
+		]);
+		expect(drawn!.querySelectorAll('.chord-shape')).toHaveLength(2);
+		expect(container.querySelector('.gap')?.textContent).toBe('autre renversement');
+	});
+
+	it('writes the gap in place of the shape played when nothing was recognized', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: triadMiss({ heard: null, expected: D_232, gap: 'rien de reconnu' }) }
+		});
+		expect(container.querySelectorAll('.drawn .chord-shape')).toHaveLength(1);
+		expect(container.querySelector('.drawn .heard-none')?.textContent).toBe('rien de reconnu');
+		expect(container.querySelector('.gap')).toBeNull();
+	});
+
+	it('offers « Joué juste » after a contestable miss, by click or by Enter', async () => {
+		const controller = triadMiss({ heard: D_775, expected: D_232, gap: 'g' }, 'available');
+		render(PlayScreen, { props: { controller } });
+		const button = screen.getByRole('button', { name: 'Joué juste' });
+		await fireEvent.click(button);
+		expect(controller.contests).toBe(1);
+		await fireEvent.keyDown(window, { key: 'Enter', code: 'Enter' });
+		expect(controller.contests).toBe(2);
+		await fireEvent.keyDown(button, { key: 'Enter', code: 'Enter' });
+		expect(controller.contests).toBe(2);
+	});
+
+	it('says a contested miss is contested, without a button', () => {
+		render(PlayScreen, { props: { controller: triadMiss({}, 'done') } });
+		expect(screen.queryByRole('button', { name: 'Joué juste' })).toBeNull();
+		expect(screen.getByText('Contesté')).toBeTruthy();
+	});
+
+	it('draws nothing more after a locate miss', () => {
+		const controller = triadMiss({ correction: 'corde de E grave, case 5' });
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.drawn')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Joué juste' })).toBeNull();
+	});
 
 	it('shows the position of an aided locate prompt', () => {
 		const controller = aidedController({

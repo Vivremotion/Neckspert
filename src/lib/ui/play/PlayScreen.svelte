@@ -5,7 +5,9 @@
 	import { laneTiles } from './lane';
 	import { playMessages } from './messages';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
+	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import PixelWord from './PixelWord.svelte';
 	import StringDiagram from './StringDiagram.svelte';
 	import AnswerPanel from './answer/AnswerPanel.svelte';
@@ -48,6 +50,12 @@
 	const lanePast = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const laneAhead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
+	/** A miss of a mechanic that draws shapes: what was played and what was expected. */
+	const drawn = $derived(
+		view.lastVerdict && (view.lastVerdict.heard || view.lastVerdict.expected)
+			? view.lastVerdict
+			: null
+	);
 
 	function formatOffset(ms: number): string {
 		const sign = ms > 0 ? '+' : '';
@@ -68,12 +76,19 @@
 	}
 
 	function onKeydown(event: KeyboardEvent) {
-		if (event.code !== 'Space') return;
+		if (event.code !== 'Space' && event.key !== 'Enter') return;
 		const target = event.target;
 		if (
 			target instanceof HTMLElement &&
 			target.closest('button, input, textarea, select') !== null
 		) {
+			return;
+		}
+		// Enter (or a pedal sending it): « Joué juste », while a miss is offered to contest.
+		if (event.key === 'Enter') {
+			if (view.contest !== 'available') return;
+			event.preventDefault();
+			controller.contest();
 			return;
 		}
 		event.preventDefault();
@@ -136,6 +151,9 @@
 						<p class="detail">{view.prompt.detail}</p>
 					{/if}
 					<StringDiagram diagram={view.prompt.diagram} />
+					{#if view.prompt.shape}
+						<ChordShape shape={view.prompt.shape} style={view.chordDiagram} locale={i18n.locale} />
+					{/if}
 					{#if view.prompt.aid}
 						<p class="aid">{view.prompt.aid}</p>
 					{/if}
@@ -144,7 +162,7 @@
 
 			{#if view.lastVerdict}
 				<div class="verdict pixel-frame">
-					<div class="verdict-inner pixel-frame-inner">
+					<div class="verdict-inner pixel-frame-inner" class:with-shapes={drawn !== null}>
 						<div class="verdict-arrow" aria-hidden="true">
 							<VerdictSprite verdict={view.lastVerdict.verdict} size={200} />
 						</div>
@@ -153,6 +171,46 @@
 						</div>
 						{#if view.lastVerdict.correction}
 							<p class="correction">{view.lastVerdict.correction}</p>
+						{/if}
+						{#if drawn}
+							<div class="drawn">
+								<div class="drawn-part">
+									<p class="drawn-label">{t.played}</p>
+									{#if drawn.heard}
+										<ChordShape
+											shape={drawn.heard}
+											style={view.chordDiagram}
+											locale={i18n.locale}
+											size="small"
+										/>
+									{:else}
+										<p class="heard-none">{drawn.gap}</p>
+									{/if}
+								</div>
+								<div class="drawn-part">
+									<p class="drawn-label">{t.expected}</p>
+									{#if drawn.expected}
+										<ChordShape
+											shape={drawn.expected}
+											style={view.chordDiagram}
+											locale={i18n.locale}
+											size="small"
+										/>
+									{/if}
+								</div>
+							</div>
+							{#if drawn.heard && drawn.gap}
+								<p class="gap">{drawn.gap}</p>
+							{/if}
+						{/if}
+						{#if view.contest === 'available'}
+							<div class="contest">
+								<PixelButton size="large" onclick={() => controller.contest()}
+									>{t.playedRight}</PixelButton
+								>
+							</div>
+						{:else if view.contest === 'done'}
+							<p class="contested">{t.contested}</p>
 						{/if}
 						{#if view.lastVerdict.offsetMs !== null}
 							<p class="offset">{formatOffset(view.lastVerdict.offsetMs)}</p>
@@ -506,6 +564,55 @@
 		text-align: center;
 		text-transform: uppercase;
 		overflow-wrap: anywhere;
+	}
+
+	/* With shapes drawn, the sprite gives them its room. */
+	.with-shapes .verdict-arrow {
+		flex: 0 0 auto;
+		block-size: 96px;
+		padding: 8px;
+	}
+
+	.drawn {
+		display: flex;
+		justify-content: center;
+		gap: var(--np-space-3, 24px);
+		padding: 10px 12px 0;
+	}
+
+	.drawn-part {
+		display: grid;
+		justify-items: center;
+		align-content: start;
+		gap: 4px;
+	}
+
+	.drawn-label,
+	.heard-none,
+	.gap,
+	.contested {
+		margin: 0;
+		color: var(--np-ink);
+		font-size: var(--np-type-meta);
+		line-height: 1;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.heard-none {
+		max-inline-size: 10ch;
+		padding-block-start: var(--np-space-2, 16px);
+	}
+
+	.gap,
+	.contested {
+		padding: 10px 12px 0;
+	}
+
+	.contest {
+		display: flex;
+		justify-content: center;
+		padding: 10px 12px 0;
 	}
 
 	.offset,

@@ -29,6 +29,10 @@ export const playMessages = defineMessages({
 		} as const,
 		noInput:
 			'Aucune entrée audio ne s’ouvre. Branche ton interface ou autorise le micro, puis recommence.',
+		played: 'Joué',
+		expected: 'Attendu',
+		playedRight: 'Joué juste',
+		contested: 'Contesté',
 		stringOf: (name: string) => `corde de ${name}`,
 		aidFret: (fret: number) => `case ${fret}`
 	},
@@ -54,6 +58,10 @@ export const playMessages = defineMessages({
 		} as const,
 		noInput:
 			'No audio input could be opened. Plug in your interface or allow the microphone, then start again.',
+		played: 'Played',
+		expected: 'Expected',
+		playedRight: 'Played right',
+		contested: 'Contested',
 		stringOf: (name: string) => `${name} string`,
 		aidFret: (fret: number) => `fret ${fret}`
 	}
