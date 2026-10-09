@@ -169,7 +169,7 @@
 						<div class="banner-frame pixel-frame">
 							<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
 						</div>
-						{#if view.lastVerdict.correction}
+						{#if view.lastVerdict.correction && !drawn}
 							<p class="correction">{view.lastVerdict.correction}</p>
 						{/if}
 						{#if drawn}

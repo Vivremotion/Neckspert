@@ -209,9 +209,16 @@ describe('PlayScreen', () => {
 	it('draws what was played and what was expected after a triad miss, with the gap', () => {
 		const { container } = render(PlayScreen, {
 			props: {
-				controller: triadMiss({ heard: D_775, expected: D_232, gap: 'autre renversement' })
+				controller: triadMiss({
+					heard: D_775,
+					expected: D_232,
+					gap: 'autre renversement',
+					correction: '2‑3‑2 · A D F#'
+				})
 			}
 		});
+		// The drawing says it: no correction in text as well.
+		expect(container.querySelector('.correction')).toBeNull();
 		const drawn = container.querySelector('.drawn');
 		expect([...drawn!.querySelectorAll('.drawn-label')].map((l) => l.textContent)).toEqual([
 			'Joué',

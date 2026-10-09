@@ -204,3 +204,51 @@ describe('a triads session, from the probe to the position', () => {
 		expect(cold?.correct).toBe(true);
 	});
 });
+
+describe('a triad put right in the band', () => {
+	it('is a corrected miss, shown at once, and can be contested in play', async () => {
+		const h = harness();
+		const controller = await h.services.startSession('triads');
+		await controller.start();
+		for (let guard = 0; guard < 400 && controller.view.status !== 'awaiting'; guard++) {
+			h.clock.advance(0.1);
+			h.metronome.flush();
+			await drain();
+		}
+		const target = controller.view.targetBeatIndex!;
+		const expectation = h.chords.expectations.at(-1)!;
+		const right = expectation.expected[0];
+		const wrong = expectation.candidates.find((c) => c.kind !== 'expected')!.id;
+		const played = (await currentPrompt(h, controller)) as Played;
+		const midi = acceptableMidis(rootPosition(parseVoicingKey(played.voicingKey)))[0];
+		h.detector.emitNote({ time: h.metronome.beatTime(target), midi, frequencyHz: 0, clarity: 0.9 });
+		const chord = (beat: number, decided: string) =>
+			h.chords.emit({
+				time: h.metronome.beatTime(beat),
+				windowMs: 450,
+				decided,
+				final: true,
+				variants: []
+			});
+		chord(target + 1, wrong);
+		await drain();
+		expect(controller.view.lastVerdict?.verdict).toBe('wrong');
+		expect(controller.view.lastVerdict?.heard).not.toBeNull();
+		expect(controller.view.contest).toBe('available');
+
+		chord(target + 2, right);
+		await drain();
+		expect(controller.view.lastVerdict?.verdict).toBe('corrected');
+		controller.contest();
+		await drain();
+		controller.quit();
+		await drain();
+
+		const [attempt] = await h.deps.attempts.all();
+		expect(attempt).toMatchObject({ verdict: 'corrected', correct: false, contested: true });
+		expect(attempt.data).toMatchObject({
+			answer: { chord: { decided: wrong }, correction: { decided: right } }
+		});
+		expect((await cardOf(h, 'triad-anchor', played.voicingKey))?.learnedAt ?? null).toBeNull();
+	});
+});

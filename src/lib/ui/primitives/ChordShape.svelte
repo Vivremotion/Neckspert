@@ -109,12 +109,15 @@
 	/* Strings: as the locate aid draws one string, the shape's three thick, named, with frets. */
 	.strings {
 		display: grid;
-		inline-size: min(240px, 100%);
+		inline-size: 240px;
+		max-inline-size: 100%;
 		padding-block: var(--np-space-1, 8px);
 	}
 
+	/* A fixed width: inside a centered column, the strings would shrink to nothing. */
 	.strings.small {
-		inline-size: min(160px, 100%);
+		inline-size: 160px;
+		max-inline-size: 100%;
 	}
 
 	.row {
@@ -158,12 +161,14 @@
 	/* Grid: strings down, frets across, the fret it starts from written beside it. */
 	.grid {
 		position: relative;
-		inline-size: min(160px, 100%);
+		inline-size: 160px;
+		max-inline-size: 100%;
 		padding-inline-start: var(--np-space-3, 24px);
 	}
 
 	.grid.small {
-		inline-size: min(110px, 100%);
+		inline-size: 110px;
+		max-inline-size: 100%;
 	}
 
 	.grid svg {
