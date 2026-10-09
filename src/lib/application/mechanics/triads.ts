@@ -159,12 +159,14 @@ export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	sensors: ['note', 'chord'],
 	prompt: (item, { aid }, locale) => {
 		const voicing = parseVoicingKey(item.voicingKey);
-		return triadPrompt(
+		const prompt = triadPrompt(
 			voicing,
 			rootOnLabel(voicing, locale),
 			aid === 'show-position' ? fretsOf(lowestShape(voicing)) : null,
 			locale
 		);
+		// The lane: the root alone on the target tile, then the chord on the band after it.
+		return { ...prompt, target: formatSpelledNote(chartRoot(voicing)), band: prompt.primary };
 	},
 	answerLabel: (answer) => chordHeard((answer as { chord?: ChordReading | null }).chord),
 	reveal: (item, { verdict }) => {

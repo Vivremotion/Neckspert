@@ -14,6 +14,10 @@ export interface PromptView {
 	secondary: string;
 	/** Small, under the prompt: the strings of a triad ("sol‑si‑mi"). */
 	detail?: string;
+	/** On the target tile, when it is not `primary`: the root of a triad anchor ("C" for "Cm"). */
+	target?: string;
+	/** On the band of a second gesture, when there is one: the chord of a triad anchor ("Cm"). */
+	band?: string;
 	/** Mode 1 learning aid ("case 6"), or null. */
 	aid: string | null;
 	/** Mode 1, while a note is learned: the prompted string to draw, with its open note. Else null. */
@@ -54,6 +58,8 @@ export interface PlayView {
 	promptBeatIndex: number | null;
 	/** Mode 1: beat on which the note is due. */
 	targetBeatIndex: number | null;
+	/** A second gesture expected anywhere in these beats after the target (`untilBeat` excluded). */
+	followUp: { fromBeat: number; untilBeat: number } | null;
 	leadBeats: LeadBeats | null;
 	/** Targets already played in this series, oldest first. */
 	history: LaneEntry[];

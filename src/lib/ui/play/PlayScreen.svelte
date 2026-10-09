@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { PlaySessionController } from '$lib/application/session/contract';
+	import type { SessionKind } from '$lib/domain/types';
 	import { laneTiles } from './lane';
 	import { playMessages } from './messages';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -13,11 +14,14 @@
 	let {
 		controller,
 		platesOnly = false,
-		quitToSummary = false
+		quitToSummary = false,
+		kind = 'learn'
 	}: {
 		controller: PlaySessionController;
 		platesOnly?: boolean;
 		quitToSummary?: boolean;
+		/** Which session runs: its how-to shows before the start. */
+		kind?: SessionKind;
 	} = $props();
 
 	const answering = $derived(showsAnswerPad(controller.view));
@@ -27,12 +31,15 @@
 	const view = $derived(controller.view);
 	const tiles = $derived.by(() => {
 		const target = view.targetBeatIndex;
-		const beatsAfter = target == null ? 8 : Math.max(8, target - Math.floor(nowBeat) + 1);
+		// Up to one beat past the target, or to the end of the band that follows it.
+		const last = view.followUp?.untilBeat ?? (target == null ? null : target + 1);
+		const beatsAfter = last == null ? 8 : Math.max(8, last - Math.floor(nowBeat));
 		return laneTiles({
 			nowBeat,
 			beatsPerBar: view.beatsPerBar,
 			promptBeatIndex: view.promptBeatIndex,
 			targetBeatIndex: target,
+			followUp: view.followUp,
 			history: view.history,
 			beatsBefore: 4,
 			beatsAfter
@@ -172,11 +179,16 @@
 									<div
 										class="body"
 										class:due={tile.kind === 'target'}
+										class:band={tile.kind === 'band'}
+										class:band-start={tile.bandEdge === 'start'}
+										class:band-end={tile.bandEdge === 'end'}
 										class:inverted={tile.justPlayed}
 										class:imprint={tile.justPlayed && view.status === 'verdict'}
 									>
 										{#if tile.kind === 'target' && view.prompt}
-											<span class="note">{view.prompt.primary}</span>
+											<span class="note">{view.prompt.target ?? view.prompt.primary}</span>
+										{:else if tile.bandEdge === 'start' && view.prompt?.band}
+											<span class="note band-label">{view.prompt.band}</span>
 										{:else if tile.verdict}
 											<VerdictSprite verdict={tile.verdict} size={64} inverted={tile.justPlayed} />
 										{/if}
@@ -204,9 +216,17 @@
 									{#if tile.label !== null}
 										<span class="beat-no">{tile.label}</span>
 									{/if}
-									<div class="body ahead" class:due={tile.kind === 'target'}>
+									<div
+										class="body ahead"
+										class:due={tile.kind === 'target'}
+										class:band={tile.kind === 'band'}
+										class:band-start={tile.bandEdge === 'start'}
+										class:band-end={tile.bandEdge === 'end'}
+									>
 										{#if tile.kind === 'target' && view.prompt}
-											<span class="note">{view.prompt.primary}</span>
+											<span class="note">{view.prompt.target ?? view.prompt.primary}</span>
+										{:else if tile.bandEdge === 'start' && view.prompt?.band}
+											<span class="note band-label">{view.prompt.band}</span>
 										{/if}
 									</div>
 								</div>
@@ -224,7 +244,7 @@
 				{:else if view.audioError === 'input'}
 					<p class="how no-input" role="alert">{t.noInput}</p>
 				{:else}
-					<p class="how">{t.howTo}</p>
+					<p class="how">{t.howTo[kind]}</p>
 				{/if}
 				<PixelButton size="huge" onclick={() => controller.start()}
 					>{view.status === 'finished' ? t.again : t.start}</PixelButton
@@ -596,6 +616,37 @@
 	.body.ahead.due {
 		background: var(--np-ink);
 		color: var(--np-bg);
+	}
+
+	/*
+	 * A second gesture due anywhere in these beats (the chord of a triad anchor): one band in the
+	 * shade tone, joined across the gaps between its tiles, closed at its two ends.
+	 */
+	.body.band,
+	.body.ahead.band {
+		position: relative;
+		background: var(--np-shade);
+		color: var(--np-bg);
+		border-inline-width: 0;
+		margin-inline-end: -6px;
+		place-items: center start;
+	}
+
+	.body.band.band-start {
+		border-inline-start-width: 4px;
+	}
+
+	.body.band.band-end {
+		border-inline-end-width: 4px;
+		margin-inline-end: 0;
+	}
+
+	/* The chord name is written once, from the start of the band, over the tiles that follow. */
+	.band-label {
+		position: relative;
+		z-index: 1;
+		padding-inline-start: 8px;
+		white-space: nowrap;
 	}
 
 	.body.inverted {

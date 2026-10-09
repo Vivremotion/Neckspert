@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
-import { beatTiming } from '$lib/domain/timing';
+import { beatTiming, createAnchorTiming } from '$lib/domain/timing';
+import { DEFAULT_PACING } from '$lib/domain/exercise';
 import { createListSelector } from '$lib/domain/progress';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
@@ -59,12 +60,18 @@ const otherPresenter: MechanicPresenter<FakeItem, { value: number; by: string }>
 	sensors: ['c']
 };
 
+/** The same, with a second gesture in the rest of the target bar. */
+const anchoredPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	...twoPresenter,
+	rules: { ...twoRules, id: 'anchored', timing: createAnchorTiming(DEFAULT_PACING) }
+};
+
 const EXECUTIONS: Execution[] = [{ exerciseId: 'two-ex', tempoBpm: 100 }];
 
-function item(n: number): PlannedItem {
+function item(n: number, mechanic = 'two'): PlannedItem {
 	return {
 		exerciseId: 'two-ex',
-		mechanic: 'two',
+		mechanic,
 		item: { n },
 		phase: 'review',
 		temperature: 'cold',
@@ -73,7 +80,7 @@ function item(n: number): PlannedItem {
 	};
 }
 
-function setup() {
+function setup(mechanic = 'two') {
 	rounds.length = 0;
 	const clock = new FakeClock();
 	const metronome = new FakeMetronome(clock);
@@ -103,12 +110,15 @@ function setup() {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => 'id-1',
-		mechanics: { two: twoPresenter, other: otherPresenter },
+		mechanics: { two: twoPresenter, other: otherPresenter, anchored: anchoredPresenter },
 		sensors: { a: sensor('a'), b: sensor('b'), c: sensor('c') }
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
-		async () => ({ selector: createListSelector([item(3), item(5)]), executions: EXECUTIONS }),
+		async () => ({
+			selector: createListSelector([item(3, mechanic), item(5, mechanic)]),
+			executions: EXECUTIONS
+		}),
 		deps
 	);
 	const atBeat = (index: number) => {
@@ -188,5 +198,22 @@ describe('a mechanic heard by two sensors', () => {
 				[5, null]
 			]
 		);
+	});
+
+	it('shows the beats of a second gesture after the target, and only for its prompt', async () => {
+		const ctx = setup('anchored');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		expect(ctx.controller.view.targetBeatIndex).toBe(8);
+		expect(ctx.controller.view.followUp).toEqual({ fromBeat: 9, untilBeat: 12 });
+		ctx.controller.pause();
+		expect(ctx.controller.view.followUp).toBeNull();
+	});
+
+	it('shows no second gesture for a prompt played on the beat alone', async () => {
+		const ctx = setup();
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		expect(ctx.controller.view.followUp).toBeNull();
 	});
 });

@@ -31,6 +31,10 @@ const chord = (time: number, correct = true, final = true) => ({
 });
 
 describe('anchorTiming', () => {
+	it('shows the chord window from beat 2 to the end of the target bar', () => {
+		expect(open().followUp).toEqual({ fromBeat: 9, untilBeat: 12 });
+	});
+
 	it('judges the root on the target beat and the chord in the rest of the bar', () => {
 		const r = open();
 		expect(r.targetBeatIndex).toBe(8);

@@ -69,6 +69,7 @@ export class DemoPlaySession implements PlaySessionController {
 			beatsPerBar: 4,
 			promptBeatIndex: null,
 			targetBeatIndex: null,
+			followUp: null,
 			leadBeats: null,
 			history: [],
 			answerChoices: null,

@@ -37,6 +37,8 @@ export interface RoundObservation {
 export interface Round {
 	readonly promptBeatIndex: number;
 	readonly targetBeatIndex: number | null;
+	/** A second gesture expected anywhere in these beats (`untilBeat` excluded), after the target. */
+	readonly followUp?: { fromBeat: number; untilBeat: number };
 	/** Audio seconds. */
 	readonly promptTime: number;
 	/**

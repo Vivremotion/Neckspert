@@ -1,4 +1,10 @@
 import { defineMessages } from '$lib/i18n/index.svelte';
+import type { SessionKind } from '$lib/domain/types';
+
+const HOW_TO_NOTES_FR =
+	'La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.';
+const HOW_TO_NOTES_EN =
+	'The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.';
 
 export const playMessages = defineMessages({
 	fr: {
@@ -7,8 +13,12 @@ export const playMessages = defineMessages({
 		quit: 'Quitter',
 		start: 'Commencer',
 		again: 'Recommencer',
-		howTo:
-			'La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.',
+		howTo: {
+			learn: HOW_TO_NOTES_FR,
+			free: HOW_TO_NOTES_FR,
+			triads:
+				'Deux consignes alternent. « C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. « C · position 5 » : plaque l’accord à cette position quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.'
+		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Parfait',
 			early: 'En avance',
@@ -27,8 +37,12 @@ export const playMessages = defineMessages({
 		quit: 'Quit',
 		start: 'Start',
 		again: 'Restart',
-		howTo:
-			'The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.',
+		howTo: {
+			learn: HOW_TO_NOTES_EN,
+			free: HOW_TO_NOTES_EN,
+			triads:
+				'Two prompts take turns. “C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. “C · position 5”: strum the chord at that position when its tile reaches the line. The click comes from the computer speakers.'
+		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Perfect',
 			early: 'Early',

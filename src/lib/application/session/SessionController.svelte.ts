@@ -133,6 +133,7 @@ export class SessionController implements PlaySessionController {
 			beatsPerBar: BEATS_PER_BAR,
 			promptBeatIndex: null,
 			targetBeatIndex: null,
+			followUp: null,
 			leadBeats: null,
 			history: [],
 			answerChoices: null,
@@ -189,6 +190,7 @@ export class SessionController implements PlaySessionController {
 		this.view.answerChoices = null;
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
+		this.view.followUp = null;
 		this.view.leadBeats = null;
 	}
 
@@ -275,6 +277,7 @@ export class SessionController implements PlaySessionController {
 		this.view.answerChoices = null;
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
+		this.view.followUp = null;
 		this.view.leadBeats = null;
 		this.deps.metronome.stop();
 		this.setStatus('paused');
@@ -696,6 +699,7 @@ export class SessionController implements PlaySessionController {
 		this.view.prompt = built ?? this.promptViewOf(item);
 		this.view.promptBeatIndex = onLane ? this.round.promptBeatIndex : null;
 		this.view.targetBeatIndex = onLane ? this.round.targetBeatIndex : null;
+		this.view.followUp = onLane ? (this.round.followUp ?? null) : null;
 		this.view.leadBeats = onLane ? item.leadBeats : null;
 		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
@@ -776,6 +780,7 @@ export class SessionController implements PlaySessionController {
 		this.view.prompt = null;
 		this.view.promptBeatIndex = null;
 		this.view.targetBeatIndex = null;
+		this.view.followUp = null;
 		this.view.leadBeats = null;
 		const item = this.takeNext();
 		if (!item) {

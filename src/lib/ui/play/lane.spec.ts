@@ -72,4 +72,33 @@ describe('laneTiles', () => {
 		expect(tiles.every((t) => !t.justPlayed)).toBe(true);
 		expect(tiles.find((t) => t.current)?.beatIndex).toBe(4);
 	});
+
+	it('draws a follow-up span after the target as one band, with its ends marked', () => {
+		const map = byIndex(
+			laneTiles({
+				...base,
+				nowBeat: 10.25,
+				followUp: { fromBeat: 17, untilBeat: 20 },
+				beatsAfter: 12
+			})
+		);
+		expect(map.get(16)?.kind).toBe('target');
+		expect([17, 18, 19].map((i) => map.get(i)?.kind)).toEqual(['band', 'band', 'band']);
+		expect([17, 18, 19].map((i) => map.get(i)?.bandEdge)).toEqual(['start', null, 'end']);
+		expect(map.get(20)?.kind).toBe('empty');
+		expect(map.get(20)?.bandEdge).toBeNull();
+	});
+
+	it('keeps a played verdict over the band', () => {
+		const map = byIndex(
+			laneTiles({
+				...base,
+				nowBeat: 10.25,
+				followUp: { fromBeat: 9, untilBeat: 12 },
+				history: [{ beatIndex: 10, verdict: 'late' }]
+			})
+		);
+		expect(map.get(10)?.kind).toBe('history');
+		expect(map.get(11)?.kind).toBe('band');
+	});
 });

@@ -17,6 +17,7 @@ function view(overrides: Partial<PlayView>): PlayView {
 		beatsPerBar: 4,
 		promptBeatIndex: null,
 		targetBeatIndex: null,
+		followUp: null,
 		leadBeats: null,
 		history: [],
 		answerChoices: null,
@@ -52,6 +53,7 @@ function locateView(): PlayView {
 		},
 		promptBeatIndex: 0,
 		targetBeatIndex: 8,
+		followUp: null,
 		leadBeats: 8
 	});
 }

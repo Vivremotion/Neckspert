@@ -12,7 +12,7 @@ related_targets: []
 ## Surface
 
 - **Public et tâche :** le guitariste, à 60 cm – 1 m, mains sur la guitare, lit la consigne, joue la note sur le temps et lit son verdict. La guitare est le contrôleur ; barre d'espace ou grand bouton pour la pause, entre les séries seulement.
-- **Contenu :** consigne (note, corde), temps (deux mesures d'annonce), verdict (Parfait, En avance, En retard, Mauvaise note ; écart en ms ; temps de réaction), historique de la série sur la piste. Rien d'autre.
+- **Contenu :** consigne (note, corde), temps (deux mesures d'annonce), verdict (Parfait, En avance, En retard, Mauvaise note ; écart en ms ; temps de réaction), historique de la série sur la piste. Rien d'autre. Triades d'ancrage : la case cible porte la fondamentale seule, suivie d'une bande d'un seul tenant (ton `--np-shade`, nom de l'accord écrit une fois au début) sur les temps 2 à 4 de la mesure, où l'accord se plaque n'importe quand.
 - **Comp approuvée :** `.impeccable/mocks/comp-4-full-bleed-lane.png`. Corrections obligatoires : seuls les huit temps à venir portent des numéros (1 2 3 4 1 2 3 4), aucun chiffre au-dessus des cibles jouées, pas de « 10 », « 14 », « 15 » ; la tuile inversée de la dernière note jouée se place juste à gauche de la ligne d'arrivée ; le temps en cours est la première tuile à droite de la ligne.
 - **Moment mémorable :** la piste qui défile de droite à gauche, la note qui tombe sur la ligne fixe, et le verdict qui s'imprime en sprite dans la tuile au moment où elle passe la ligne.
 

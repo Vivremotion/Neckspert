@@ -27,6 +27,19 @@ describe('PlayScreen', () => {
 		expect(screen.getByRole('button', { name: /commencer/i })).toBeTruthy();
 	});
 
+	it('explains the triads before they start: the root alone, then the chord', () => {
+		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
+		render(PlayScreen, { props: { controller: demo, kind: 'triads' } });
+		expect(screen.getByText(/fondamentale seule/i)).toBeTruthy();
+		expect(screen.queryByText(/la note défile/i)).toBeNull();
+	});
+
+	it('explains the notes before a learn session', () => {
+		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
+		render(PlayScreen, { props: { controller: demo } });
+		expect(screen.getByText(/la note défile/i)).toBeTruthy();
+	});
+
 	it('says no audio input opened, in place of the how-to, with the start button', () => {
 		const demo = new DemoPlaySession({ clock: new ManualDemoClock() });
 		demo.view.audioError = 'input';
@@ -59,6 +72,7 @@ describe('PlayScreen', () => {
 				beatsPerBar: 4 as const,
 				promptBeatIndex: 0,
 				targetBeatIndex: 8,
+				followUp: null,
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,
@@ -90,6 +104,8 @@ describe('PlayScreen', () => {
 		secondary: string;
 		aid: string | null;
 		detail?: string;
+		target?: string;
+		band?: string;
 		diagram?: { string: 1 | 2 | 3 | 4 | 5 | 6; label: string } | null;
 	}) {
 		const view: PlayView = {
@@ -100,6 +116,7 @@ describe('PlayScreen', () => {
 			beatsPerBar: 4,
 			promptBeatIndex: scene === 'guitar' ? 0 : null,
 			targetBeatIndex: scene === 'guitar' ? 8 : null,
+			followUp: null,
 			leadBeats: scene === 'guitar' ? 8 : null,
 			history: [],
 			answerChoices: null,
@@ -160,6 +177,35 @@ describe('PlayScreen', () => {
 		};
 		// The m of a minor chord has its own glyph, not a blank.
 		expect(drawn('Em')).toBeGreaterThan(drawn('E'));
+	});
+
+	it('lays the band of the chord after the root tile of a triad anchor', () => {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'Cm',
+			secondary: 'fondamentale sur sol',
+			target: 'C',
+			band: 'Cm',
+			aid: null
+		});
+		controller.view = { ...controller.view, followUp: { fromBeat: 9, untilBeat: 12 } };
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.body.due .note')?.textContent).toBe('C');
+		const band = [...container.querySelectorAll('.body.band')];
+		expect(band).toHaveLength(3);
+		expect(band.map((tile) => tile.textContent?.trim())).toEqual(['Cm', '', '']);
+	});
+
+	it('draws no band without a second gesture', () => {
+		const controller = aidedController({
+			scene: 'guitar',
+			primary: 'G',
+			secondary: 'corde de E grave',
+			aid: null
+		});
+		const { container } = render(PlayScreen, { props: { controller } });
+		expect(container.querySelector('.body.due .note')?.textContent).toBe('G');
+		expect(container.querySelectorAll('.body.band')).toHaveLength(0);
 	});
 
 	it('counts down in place of the prompt during a counted bar', () => {
@@ -293,6 +339,7 @@ describe('PlayScreen', () => {
 				beatsPerBar: 4 as const,
 				promptBeatIndex: 0,
 				targetBeatIndex: 8,
+				followUp: null,
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,

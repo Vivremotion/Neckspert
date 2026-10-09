@@ -30,6 +30,7 @@ const FALLBACK_LEAD = BEATS_PER_BAR;
  */
 class AnchorRound implements Round {
 	readonly targetBeatIndex: number;
+	readonly followUp: { fromBeat: number; untilBeat: number };
 	readonly promptTime: number;
 	private readonly root: BeatRound;
 	private readonly chordOpens: number;
@@ -57,6 +58,7 @@ class AnchorRound implements Round {
 			earliestPromptBeat: barEnd
 		});
 		this.targetBeatIndex = target;
+		this.followUp = { fromBeat: target + ANCHOR_CHORD_FROM_BEATS, untilBeat: barEnd };
 		this.promptTime = this.root.promptTime;
 		this.chordOpens = beatTime(target + ANCHOR_CHORD_FROM_BEATS);
 		this.chordCloses = beatTime(barEnd);

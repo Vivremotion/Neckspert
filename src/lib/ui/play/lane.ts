@@ -1,7 +1,7 @@
 import type { LaneEntry } from '$lib/application/session/contract';
 import type { Verdict } from '$lib/domain/types';
 
-export type LaneTileKind = 'empty' | 'target' | 'history';
+export type LaneTileKind = 'empty' | 'target' | 'band' | 'history';
 
 export interface LaneTile {
 	beatIndex: number;
@@ -13,6 +13,8 @@ export interface LaneTile {
 	verdict: Verdict | null;
 	justPlayed: boolean;
 	current: boolean;
+	/** On a band, its first and last tiles, drawn closed; null inside it and elsewhere. */
+	bandEdge: 'start' | 'end' | null;
 }
 
 export function laneTiles(input: {
@@ -20,11 +22,16 @@ export function laneTiles(input: {
 	beatsPerBar: number;
 	promptBeatIndex: number | null;
 	targetBeatIndex: number | null;
+	/** Beats where a second gesture is expected after the target (`untilBeat` excluded). */
+	followUp?: { fromBeat: number; untilBeat: number } | null;
 	history: readonly LaneEntry[];
 	beatsBefore: number;
 	beatsAfter: number;
 }): LaneTile[] {
 	const { nowBeat, beatsPerBar, targetBeatIndex, history, beatsBefore, beatsAfter } = input;
+	const band = input.followUp ?? null;
+	const inBand = (beatIndex: number) =>
+		band !== null && beatIndex >= band.fromBeat && beatIndex < band.untilBeat;
 	const currentBeatIndex = Math.floor(nowBeat) + 1;
 	const first = currentBeatIndex - beatsBefore;
 	const last = currentBeatIndex + beatsAfter - 1;
@@ -52,7 +59,9 @@ export function laneTiles(input: {
 			? 'history'
 			: beatIndex === targetBeatIndex
 				? 'target'
-				: 'empty';
+				: inBand(beatIndex)
+					? 'band'
+					: 'empty';
 		tiles.push({
 			beatIndex,
 			offset,
@@ -60,7 +69,15 @@ export function laneTiles(input: {
 			kind,
 			verdict: entry?.verdict ?? null,
 			justPlayed: justPlayedBeat !== null && beatIndex === justPlayedBeat,
-			current: beatIndex === currentBeatIndex
+			current: beatIndex === currentBeatIndex,
+			bandEdge:
+				kind !== 'band'
+					? null
+					: beatIndex === band!.fromBeat
+						? 'start'
+						: beatIndex === band!.untilBeat - 1
+							? 'end'
+							: null
 		});
 	}
 	return tiles;

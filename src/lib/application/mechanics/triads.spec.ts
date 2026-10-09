@@ -39,12 +39,20 @@ describe('triadAnchorPresenter', () => {
 			primary: 'D',
 			secondary: 'fondamentale sur si',
 			detail: 'sol‑si‑mi',
+			target: 'D',
+			band: 'D',
 			aid: null,
 			diagram: null
 		});
 		expect(
 			triadAnchorPresenter.prompt({ voicingKey: D_ON_G }, unaided, 'en', () => 0)
 		).toMatchObject({ primary: 'D', secondary: 'root on G', detail: 'G‑B‑E' });
+	});
+
+	it('puts the root on the target tile and the chord on the band that follows', () => {
+		expect(
+			triadAnchorPresenter.prompt({ voicingKey: EBM_ON_B }, unaided, 'fr', () => 0)
+		).toMatchObject({ primary: 'Ebm', target: 'Eb', band: 'Ebm' });
 	});
 
 	it('shows the frets of the lowest shape as the aid', () => {

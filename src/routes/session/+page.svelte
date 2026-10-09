@@ -40,5 +40,5 @@
 {#if error}
 	<p>{error}</p>
 {:else if controller}
-	<PlayScreen {controller} quitToSummary />
+	<PlayScreen {controller} {kind} quitToSummary />
 {/if}

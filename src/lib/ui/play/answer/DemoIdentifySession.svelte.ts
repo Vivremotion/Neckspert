@@ -40,6 +40,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		beatsPerBar: 4,
 		promptBeatIndex: null,
 		targetBeatIndex: null,
+		followUp: null,
 		leadBeats: null,
 		history: [],
 		answerChoices: identifyChoices(),
