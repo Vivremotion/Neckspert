@@ -52,20 +52,6 @@ function beatOffsets(attempts: readonly Attempt[]): number[] {
 	});
 }
 
-/** The chord part of a triad confusion: the chord heard was not the one asked. */
-function refusedChord(attempt: Attempt): boolean {
-	if (attempt.correct) return false;
-	const confusion = (attempt.data as { confusion?: { part?: unknown } } | null)?.confusion;
-	return confusion?.part === 'chord';
-}
-
-/** The chord a triad attempt's answer holds (zone: the reading; anchor: its chord part). */
-function chordHeard(attempt: Attempt): string | null {
-	const answer = (attempt.data as { answer?: unknown } | null)?.answer as
-		{ decided?: string | null; chord?: { decided?: string | null } | null } | null | undefined;
-	return answer?.chord?.decided ?? answer?.decided ?? null;
-}
-
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
@@ -153,17 +139,7 @@ export function summarizeSession(input: {
 			input.record.executions.find(
 				(execution) => execution.exerciseId === (triads ? TRIADS_ANCHOR.id : LOCATE_NECK.id)
 			)?.tempoBpm ?? null,
-		...(triads && {
-			triads: {
-				refused: input.attempts.filter(refusedChord).map((attempt) => ({
-					attemptId: attempt.id ?? 0,
-					mechanic: attempt.mechanic,
-					item: (attempt.data as { item: unknown }).item,
-					heard: chordHeard(attempt),
-					contested: attempt.contested === true
-				}))
-			}
-		})
+		kind: input.record.kind
 	};
 }
 

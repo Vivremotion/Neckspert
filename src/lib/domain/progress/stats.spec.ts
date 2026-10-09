@@ -297,7 +297,8 @@ describe('summarizeSession', () => {
 			fatigueDetected: true,
 			nextReviewAt: NOW + 1000,
 			grade: null,
-			tempoBpm: 80
+			tempoBpm: 80,
+			kind: 'learn'
 		});
 	});
 
@@ -639,26 +640,12 @@ describe('summarizeSession of a triads session', () => {
 		});
 	});
 
-	it('lists the chords refused, a wrong root left out, with their contest', () => {
-		expect(summary.triads?.refused).toEqual([
-			{
-				attemptId: 2,
-				mechanic: 'triad-anchor',
-				item: { voicingKey: KEY },
-				heard: `${KEY}@14-15-14`,
-				contested: true
-			},
-			{
-				attemptId: 4,
-				mechanic: 'triad-zone',
-				item: { voicingKey: KEY, position: 2 },
-				heard: null,
-				contested: false
-			}
-		]);
+	it('says it was a triads session, and lists no refused chords: they are contested in play', () => {
+		expect(summary.kind).toBe('triads');
+		expect('triads' in summary).toBe(false);
 	});
 
-	it('says nothing of triads for a notes session', () => {
+	it('says a notes session is one', () => {
 		expect(
 			summarizeSession({
 				record: { ...record, kind: 'learn' },
@@ -666,7 +653,7 @@ describe('summarizeSession of a triads session', () => {
 				allAttempts: [],
 				cards: [],
 				now: NOW
-			}).triads
-		).toBeUndefined();
+			}).kind
+		).toBe('learn');
 	});
 });

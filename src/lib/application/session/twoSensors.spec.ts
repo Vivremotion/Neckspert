@@ -81,7 +81,15 @@ const drawnPresenter: MechanicPresenter<FakeItem, { value: number; by: string }>
 	...twoPresenter,
 	rules: { ...twoRules, id: 'drawn' },
 	feedback: (_item, { verdict }) =>
-		verdict === 'wrong' ? { heard: HEARD, expected: EXPECTED, gap: 'other' } : null
+		verdict === 'wrong' ? { heard: HEARD, expected: EXPECTED, gap: 'other' } : null,
+	contestable: true
+};
+
+/** The anchor's sensors, its misses contestable. */
+const contestedAnchorPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
+	...rootAndChordPresenter,
+	rules: { ...rootAndChordPresenter.rules, id: 'contested-anchor' },
+	contestable: true
 };
 
 const EXECUTIONS: Execution[] = [{ exerciseId: 'two-ex', tempoBpm: 100 }];
@@ -133,7 +141,8 @@ function setup(mechanic = 'two', imposed?: 'strings' | 'grid') {
 			other: otherPresenter,
 			anchored: anchoredPresenter,
 			'root-chord': rootAndChordPresenter,
-			drawn: drawnPresenter
+			drawn: drawnPresenter,
+			'contested-anchor': contestedAnchorPresenter
 		},
 		exercise: (id) => ({
 			id,
@@ -311,5 +320,72 @@ describe('a mechanic heard by two sensors', () => {
 		await imposed.controller.start();
 		imposed.atBeat(4);
 		expect(imposed.controller.view.chordDiagram).toBe('strings');
+	});
+
+	it('offers to contest a miss of a contestable mechanic, and labels its attempt', async () => {
+		const ctx = setup('drawn');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('a', 4, 8);
+		await drain();
+		expect(ctx.controller.view.contest).toBe('available');
+		ctx.controller.contest();
+		expect(ctx.controller.view.contest).toBe('done');
+		await drain();
+		expect((await ctx.deps.attempts.all())[0].contested).toBe(true);
+	});
+
+	it('offers nothing after a success, nor for a mechanic that is not contestable', async () => {
+		const right = setup('drawn');
+		await right.controller.start();
+		right.atBeat(4);
+		right.emit('a', 3, 8);
+		await drain();
+		expect(right.controller.view.contest).toBeNull();
+		right.controller.contest();
+		expect(right.controller.view.contest).toBeNull();
+
+		const plain = setup();
+		await plain.controller.start();
+		plain.atBeat(4);
+		plain.emit('a', 4, 8);
+		await drain();
+		expect(plain.controller.view.contest).toBeNull();
+	});
+
+	it('labels an attempt contested before it was written, once it is', async () => {
+		const ctx = setup('contested-anchor');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('note', 3, 8);
+		ctx.emit('chord', 4, 10);
+		await drain();
+		expect(ctx.controller.view.contest).toBe('available');
+		ctx.controller.contest();
+		expect(await ctx.deps.attempts.all()).toHaveLength(0);
+		ctx.emit('chord', 3, 11);
+		await drain();
+		expect((await ctx.deps.attempts.all()).map((a) => [a.verdict, a.contested])).toEqual([
+			['corrected', true]
+		]);
+	});
+
+	it('withdraws the offer when the next prompt comes, or on pause', async () => {
+		const ctx = setup('drawn');
+		await ctx.controller.start();
+		ctx.atBeat(4);
+		ctx.emit('a', 4, 8);
+		await drain();
+		for (let beat = 9; beat <= 16; beat++) ctx.atBeat(beat);
+		expect(ctx.controller.view.prompt?.primary).toBe('5');
+		expect(ctx.controller.view.contest).toBeNull();
+
+		const paused = setup('drawn');
+		await paused.controller.start();
+		paused.atBeat(4);
+		paused.emit('a', 4, 8);
+		await drain();
+		paused.controller.pause();
+		expect(paused.controller.view.contest).toBeNull();
 	});
 });

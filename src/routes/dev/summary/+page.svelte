@@ -15,38 +15,21 @@
 		fatigueDetected: false,
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+',
-		tempoBpm: 92
+		tempoBpm: 92,
+		kind: 'learn'
 	};
 
-	const KEY = 'D|maj|3:5,2:1,1:3';
 	const triads: SessionSummary = {
 		...summary,
 		pool: 'cold',
 		grade: null,
 		identifyMedianReactionMs: null,
-		triads: {
-			refused: [
-				{
-					attemptId: 1,
-					mechanic: 'triad-anchor',
-					item: { voicingKey: KEY },
-					heard: `${KEY}@14-15-14`,
-					contested: false
-				},
-				{
-					attemptId: 2,
-					mechanic: 'triad-zone',
-					item: { voicingKey: KEY, position: 2 },
-					heard: null,
-					contested: true
-				}
-			]
-		}
+		kind: 'triads'
 	};
 </script>
 
 <SummaryScreen {summary} now={0} onhome={() => {}} onmap={() => {}} />
-<SummaryScreen summary={triads} now={0} onhome={() => {}} onmap={() => {}} oncontest={() => {}} />
+<SummaryScreen summary={triads} now={0} onhome={() => {}} onmap={() => {}} />
 
 <style>
 	:global(html),

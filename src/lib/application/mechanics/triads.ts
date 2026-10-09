@@ -201,6 +201,7 @@ export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	rules: triadAnchorRules,
 	scene: 'guitar',
 	sensors: ['note', 'chord'],
+	contestable: true,
 	prompt: (item, { aid }, locale) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		const prompt = triadPrompt(voicing, rootOnLabel(voicing, locale), null, locale);
@@ -247,6 +248,7 @@ export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> 
 	rules: triadZoneRules,
 	scene: 'guitar',
 	sensors: ['chord'],
+	contestable: true,
 	prompt: (item, { aid }, locale) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return triadPrompt(

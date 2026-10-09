@@ -74,6 +74,7 @@ describe('PlayScreen', () => {
 				targetBeatIndex: 8,
 				followUp: null,
 				chordDiagram: 'strings' as const,
+				contest: null,
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,
@@ -88,6 +89,7 @@ describe('PlayScreen', () => {
 			pause: () => {},
 			resume: () => {},
 			answer: () => {},
+			contest: () => {},
 			quit: () => {}
 		};
 		render(PlayScreen, { props: { controller } });
@@ -119,6 +121,7 @@ describe('PlayScreen', () => {
 			targetBeatIndex: scene === 'guitar' ? 8 : null,
 			followUp: null,
 			chordDiagram: 'strings',
+			contest: null,
 			leadBeats: scene === 'guitar' ? 8 : null,
 			history: [],
 			answerChoices: null,
@@ -136,6 +139,7 @@ describe('PlayScreen', () => {
 			pause: () => {},
 			resume: () => {},
 			answer: () => {},
+			contest: () => {},
 			quit: () => {}
 		};
 	}
@@ -365,6 +369,7 @@ describe('PlayScreen', () => {
 				targetBeatIndex: 8,
 				followUp: null,
 				chordDiagram: 'strings' as const,
+				contest: null,
 				leadBeats: 8 as const,
 				history: [],
 				answerChoices: null,
@@ -379,6 +384,7 @@ describe('PlayScreen', () => {
 			pause: () => {},
 			resume: () => {},
 			answer: () => {},
+			contest: () => {},
 			quit: () => {
 				quitCalls += 1;
 			}

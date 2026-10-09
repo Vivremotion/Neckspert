@@ -62,8 +62,6 @@ export function createAppServices(
 			return reviewableCards(triads, lastAttemptByCard(attempts), deps.now()).length;
 		},
 
-		contestAttempt: (attemptId: number) => deps.attempts.setContested(attemptId),
-
 		async sessionSummary(sessionId: string) {
 			const record = await deps.sessions.get(sessionId);
 			if (!record) {

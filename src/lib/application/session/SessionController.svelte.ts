@@ -18,7 +18,8 @@ import type {
 	MechanicId,
 	PlannedItem,
 	SessionKind,
-	Settings
+	Settings,
+	Verdict
 } from '$lib/domain/types';
 import type { BeatEvent } from '$lib/application/ports';
 import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
@@ -114,6 +115,9 @@ export class SessionController implements PlaySessionController {
 	private span: ObservationSpan | null = null;
 	/** The attempt the span's round produced, completed with the span when it closes. */
 	private spanAttempt: Attempt | null = null;
+	/** The attempt of the miss offered to contest, once written; pressed before that: wanted. */
+	private contestAttempt: Attempt | null = null;
+	private contestWanted = false;
 	private recorder: AttemptRecorder | null = null;
 	private run = 0;
 	private starting = false;
@@ -144,6 +148,7 @@ export class SessionController implements PlaySessionController {
 			scene: 'guitar',
 			countdown: null,
 			preview: null,
+			contest: null,
 			audioError: null
 		});
 	}
@@ -188,6 +193,7 @@ export class SessionController implements PlaySessionController {
 		this.clearItemState();
 		this.view.history = [];
 		this.view.lastVerdict = null;
+		this.withdrawContest();
 		this.view.fatigueDetected = false;
 		this.view.prompt = null;
 		this.view.answerChoices = null;
@@ -269,6 +275,7 @@ export class SessionController implements PlaySessionController {
 		this.abandonRound();
 		this.expectAll({});
 		this.closeSpan();
+		this.withdrawContest();
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -302,6 +309,13 @@ export class SessionController implements PlaySessionController {
 		this.deps.metronome.setTempo(this.tempoBpm);
 		this.setStatus('count-in');
 		this.deps.metronome.start(this.deps.clock.now() + 0.1);
+	}
+
+	contest(): void {
+		if (this.view.contest !== 'available') return;
+		this.view.contest = 'done';
+		if (this.contestAttempt && this.recorder) void this.recorder.contest(this.contestAttempt);
+		else this.contestWanted = true;
 	}
 
 	answer(value: string): void {
@@ -501,6 +515,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private prepareStage(): void {
 		this.view.lastVerdict = null;
+		this.withdrawContest();
 		this.view.countdown = null;
 		this.pending ??= this.takeNext();
 		if (!this.pending) return;
@@ -630,6 +645,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private showProvisional(outcome: RoundOutcome): void {
 		this.view.lastVerdict = this.verdictView(outcome, false);
+		this.offerContest(outcome.verdict);
 		this.addToLane(outcome);
 		this.deps.cues.play(outcome.verdict);
 		this.setStatus('verdict');
@@ -645,6 +661,7 @@ export class SessionController implements PlaySessionController {
 		const provisional = this.view.status === 'verdict';
 		const shown = this.view.lastVerdict?.verdict;
 		this.view.lastVerdict = this.verdictView(outcome);
+		this.offerContest(outcome.verdict);
 		this.view.answerChoices = null;
 		if (!provisional) {
 			this.addToLane(outcome);
@@ -721,6 +738,7 @@ export class SessionController implements PlaySessionController {
 		this.view.leadBeats = onLane ? item.leadBeats : null;
 		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
+		this.withdrawContest();
 		this.setStatus('awaiting');
 	}
 
@@ -790,6 +808,20 @@ export class SessionController implements PlaySessionController {
 		};
 	}
 
+	/** A miss of a contestable mechanic may be contested until the next prompt; nothing else. */
+	private offerContest(verdict: Verdict): void {
+		const presenter = this.current ? this.presenterFor(this.current) : null;
+		const miss = verdict === 'wrong' || verdict === 'corrected';
+		if (!presenter?.contestable || !miss) this.withdrawContest();
+		else if (this.view.contest === null) this.view.contest = 'available';
+	}
+
+	private withdrawContest(): void {
+		this.view.contest = null;
+		this.contestAttempt = null;
+		this.contestWanted = false;
+	}
+
 	private persistAttempt(outcome: RoundOutcome, judged: JudgedAnswer): void {
 		if (!this.current || !this.round || !this.recorder) return;
 		const { attempt } = this.recorder.record(
@@ -801,6 +833,10 @@ export class SessionController implements PlaySessionController {
 			this.span?.snapshot() ?? []
 		);
 		if (this.span) this.spanAttempt = attempt;
+		if (this.view.contest !== null) {
+			this.contestAttempt = attempt;
+			if (this.contestWanted) void this.recorder.contest(attempt);
+		}
 		// Fatigue sees the attempt at once; the write settles on its own.
 		if (detectFatigue(this.recorder.sessionAttempts)) this.view.fatigueDetected = true;
 	}

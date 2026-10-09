@@ -42,6 +42,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		targetBeatIndex: null,
 		followUp: null,
 		chordDiagram: 'strings',
+		contest: null,
 		leadBeats: null,
 		history: [],
 		answerChoices: identifyChoices(),
@@ -118,6 +119,9 @@ export class DemoIdentifySession implements PlaySessionController {
 			this.showPromptOrFinish();
 		}, this.verdictMs);
 	}
+
+	/** Nothing to contest in a demo. */
+	contest(): void {}
 
 	quit(): void {
 		if (this.timer !== null) clearTimeout(this.timer);

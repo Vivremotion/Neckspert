@@ -71,6 +71,7 @@ export class DemoPlaySession implements PlaySessionController {
 			targetBeatIndex: null,
 			followUp: null,
 			chordDiagram: 'strings',
+			contest: null,
 			leadBeats: null,
 			history: [],
 			answerChoices: null,
@@ -144,6 +145,9 @@ export class DemoPlaySession implements PlaySessionController {
 	answer(_value: string): void {
 		/* mode 1: guitar only */
 	}
+
+	/** Nothing to contest in a demo. */
+	contest(): void {}
 
 	quit(): void {
 		this.view.status = 'finished';

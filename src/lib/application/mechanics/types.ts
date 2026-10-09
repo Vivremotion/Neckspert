@@ -33,6 +33,8 @@ export interface MechanicPresenter<I = any, A = any> {
 		outcome: { answer: unknown; confusion: unknown; verdict: Verdict },
 		locale: Locale
 	): { heard: ShapeView | null; expected: ShapeView | null; gap: string | null } | null;
+	/** Its misses may be contested during play (« Joué juste »): the judge may be wrong. */
+	contestable?: boolean;
 	/** The answer buttons of a screen mechanic. */
 	answerChoices?(): AnswerChoice[];
 	/** Detection log lines of this mechanic for one observation payload. */

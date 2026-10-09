@@ -22,7 +22,8 @@ const summary: SessionSummary = {
 	fatigueDetected: true,
 	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null,
-	tempoBpm: 92
+	tempoBpm: 92,
+	kind: 'learn'
 };
 
 describe('SummaryScreen', () => {
@@ -135,24 +136,7 @@ describe('SummaryScreen', () => {
 			identifyMedianReactionMs: null,
 			learnedCount: 1,
 			knownCount: 2,
-			triads: {
-				refused: [
-					{
-						attemptId: 7,
-						mechanic: 'triad-anchor',
-						item: { voicingKey: KEY },
-						heard: `${KEY}@14-15-14`,
-						contested: false
-					},
-					{
-						attemptId: 9,
-						mechanic: 'triad-zone',
-						item: { voicingKey: KEY, position: 2 },
-						heard: null,
-						contested: true
-					}
-				]
-			}
+			kind: 'triads'
 		};
 
 		it('counts triads, not notes, and leaves naming out', () => {
@@ -164,29 +148,12 @@ describe('SummaryScreen', () => {
 			expect(screen.queryByText(/nommer/i)).toBeNull();
 		});
 
-		it('lists the refused chords, with what was heard', () => {
+		it('offers no « Joué juste »: misses are contested during play', () => {
 			render(SummaryScreen, {
 				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {} }
 			});
-			const items = screen.getAllByRole('listitem').filter((li) => li.closest('.refused'));
-			expect(items.map((li) => li.querySelector('.asked')?.textContent)).toEqual([
-				'D · fondamentale sur si',
-				'D · position 2'
-			]);
-			expect(items[0].querySelector('.heard')?.textContent).toBe('14‑15‑14');
-			expect(items[1].querySelector('.heard')?.textContent).toBe('—');
-		});
-
-		it('contests a refused chord: the attempt is labelled, the button says so', async () => {
-			const oncontest = vi.fn(async () => {});
-			render(SummaryScreen, {
-				props: { summary: triads, now: 0, onhome: () => {}, onmap: () => {}, oncontest }
-			});
-			const contested = screen.getByRole('button', { name: 'Contesté' }) as HTMLButtonElement;
-			expect(contested.disabled).toBe(true);
-			await fireEvent.click(screen.getByRole('button', { name: 'Joué juste' }));
-			expect(oncontest).toHaveBeenCalledWith(7);
-			expect(screen.getAllByRole('button', { name: 'Contesté' })).toHaveLength(2);
+			expect(screen.queryByRole('button', { name: 'Joué juste' })).toBeNull();
+			expect(document.querySelector('.refused')).toBeNull();
 		});
 	});
 });

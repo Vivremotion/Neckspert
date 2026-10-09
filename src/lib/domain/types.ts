@@ -281,20 +281,11 @@ export interface SessionSummary {
 	 * Null when it did not run.
 	 */
 	tempoBpm: number | null;
-	/** A triads session only: the chords the judge refused, to contest. */
-	triads?: { refused: RefusedChord[] };
+	/** Which session it was: a triads session counts triads, not notes. */
+	kind: SessionKind;
 }
 
 /** A triad attempt whose chord was judged wrong, as the summary lists it. */
-export interface RefusedChord {
-	attemptId: number;
-	mechanic: MechanicId;
-	item: unknown;
-	/** Candidate id of the chord the judge retained; null when it recognized none. */
-	heard: string | null;
-	contested: boolean;
-}
-
 /** One cell of the neck map: a position and what is known about it. */
 export interface NeckMapCell {
 	string: StringNumber;

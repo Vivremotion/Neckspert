@@ -19,6 +19,7 @@ function view(overrides: Partial<PlayView>): PlayView {
 		targetBeatIndex: null,
 		followUp: null,
 		chordDiagram: 'strings',
+		contest: null,
 		leadBeats: null,
 		history: [],
 		answerChoices: null,
@@ -56,6 +57,7 @@ function locateView(): PlayView {
 		targetBeatIndex: 8,
 		followUp: null,
 		chordDiagram: 'strings',
+		contest: null,
 		leadBeats: 8
 	});
 }
@@ -74,6 +76,7 @@ function fakeController(initial: PlayView) {
 		answer(value) {
 			calls.answers.push(value);
 		},
+		contest() {},
 		quit() {}
 	};
 	return { controller, calls };

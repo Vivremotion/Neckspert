@@ -85,7 +85,8 @@ const EMPTY_SUMMARY: SessionSummary = {
 	fatigueDetected: false,
 	nextReviewAt: null,
 	grade: null,
-	tempoBpm: null
+	tempoBpm: null,
+	kind: 'learn'
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {
@@ -104,7 +105,6 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 	return {
 		homeStats: async () => EMPTY_HOME,
 		triadsDue: async () => 0,
-		contestAttempt: async () => {},
 		sessionSummary: async () => EMPTY_SUMMARY,
 		neckMap: async (): Promise<NeckMapCell[]> => [],
 		startSession: async () => {

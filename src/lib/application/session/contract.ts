@@ -86,6 +86,11 @@ export interface PlayView {
 	preview: PromptView | null;
 	/** How chord shapes are drawn for the current prompt: its exercise's style, else the player's. */
 	chordDiagram: ChordDiagramStyle;
+	/**
+	 * After a miss of a contestable mechanic, until the next prompt: 'available' offers « Joué
+	 * juste », 'done' once pressed; null otherwise.
+	 */
+	contest: 'available' | 'done' | null;
 	/** 'input': no audio input could be opened at start; the screen says so. */
 	audioError: 'input' | null;
 }
@@ -107,6 +112,8 @@ export interface PlaySessionController {
 	resume(): void;
 	/** A tap on an answer choice (its `value`). Ignored on the guitar and outside `awaiting`. */
 	answer(value: string): void;
+	/** « Joué juste »: labels the attempt of the miss on show contested. Only while offered. */
+	contest(): void;
 	/** Ends the session and stops audio. */
 	quit(): void;
 }

@@ -279,39 +279,6 @@ describe('createAppServices', () => {
 		expect((await services.homeStats()).dueCount).toBe(0);
 	});
 
-	it('contests an attempt without touching its card', async () => {
-		const { services, deps } = harness();
-		const key = 'D|maj|3:5,2:1,1:3';
-		const card = introduceCard(
-			{ key: `triad-anchor:${key}`, mechanic: 'triad-anchor', item: { voicingKey: key } },
-			0,
-			's-old',
-			triadAnchorRules.timing
-		);
-		await deps.cards.put(card);
-		const id = await deps.attempts.add({
-			sessionId: 's',
-			exerciseId: 'triads-anchor',
-			mechanic: 'triad-anchor',
-			cardKey: card.key,
-			phase: 'review',
-			temperature: 'cold',
-			aid: 'none',
-			promptedAt: 1,
-			tempoBpm: 80,
-			leadBeats: 2,
-			timingOffsetMs: 0,
-			reactionMs: 1500,
-			correct: false,
-			verdict: 'wrong',
-			data: { item: { voicingKey: key }, answer: null, confusion: null },
-			observations: []
-		});
-		await services.contestAttempt(id);
-		expect((await deps.attempts.all())[0].contested).toBe(true);
-		expect(await deps.cards.get(card.key)).toEqual(card);
-	});
-
 	it('startSession(triads) probes the first triad of the queue on its root and chord', async () => {
 		const { services, deps, chords } = harness();
 		const controller = await services.startSession('triads');

@@ -29,10 +29,7 @@ export const summaryMessages = defineMessages({
 			n === 1
 				? '1 triade reprendra la prochaine fois'
 				: `${n} triades reprendront la prochaine fois`,
-		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`),
-		refused: 'Accords refusés',
-		playedRight: 'Joué juste',
-		contested: 'Contesté'
+		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`)
 	},
 	en: {
 		title: 'Summary',
@@ -60,9 +57,6 @@ export const summaryMessages = defineMessages({
 		learnedTriads: 'Triads learned',
 		pendingTriads: (n: number) =>
 			n === 1 ? '1 triad will resume next time' : `${n} triads will resume next time`,
-		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`),
-		refused: 'Chords refused',
-		playedRight: 'Played right',
-		contested: 'Contested'
+		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`)
 	}
 });

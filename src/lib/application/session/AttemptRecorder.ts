@@ -149,6 +149,16 @@ export class AttemptRecorder {
 		return done;
 	}
 
+	/** Waits for the attempt's write, then labels it contested. No-op for an attempt this recorder did not record. */
+	contest(attempt: Attempt): Promise<void> {
+		const id = this.ids.get(attempt);
+		if (!id) return Promise.resolve();
+		attempt.contested = true;
+		const done = id.then((attemptId) => this.deps.attempts.setContested(attemptId));
+		this.track(done);
+		return done;
+	}
+
 	/** Settles once every write and completion started so far has settled. */
 	async settled(): Promise<void> {
 		while (this.pending.size > 0) await Promise.allSettled([...this.pending]);
