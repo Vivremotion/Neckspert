@@ -57,8 +57,8 @@ interface OpenWindow {
  * Chord verification by fitting harmonic combs (the spike's `nnls-abs` judge): after each attack
  * in a round, the peak-held spectrum since the attack is judged against the expected candidates by
  * every variant, from FIRST_READING_MS every JUDGE_EVERY_MS until a reading is final. A new attack
- * closes an earlier window that has decided a shape or outlived an arpeggio: a chord played again
- * is read on its own. Between rounds, only the onset envelope runs.
+ * closes an earlier window that has outlived an arpeggio: a chord played again is read on its own.
+ * Between rounds, only the onset envelope runs.
  */
 export class NnlsChordVerifier implements ChordVerifierPort {
 	private readonly variants: readonly JudgeVariant[];
@@ -162,7 +162,9 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		for (const w of this.windows) {
 			while (!done.has(w) && this.lastFrameEnd >= w.attack + w.nextMs / 1000) {
 				const windowMs = w.nextMs;
-				w.nextMs = Math.min(windowMs + JUDGE_EVERY_MS, LAST_READING_MS);
+				// On the grid of JUDGE_EVERY_MS after the first reading: 250, 300, 400 … 2000.
+				const next = (Math.floor(windowMs / JUDGE_EVERY_MS) + 1) * JUDGE_EVERY_MS;
+				w.nextMs = Math.min(next, LAST_READING_MS);
 				if (w.pooled && this.report(w, windowMs, windowMs >= LAST_READING_MS)) done.add(w);
 				else if (windowMs >= LAST_READING_MS) done.add(w);
 			}
@@ -173,9 +175,9 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	/** A new attack at `attack`: the windows it closes give their final reading now. */
 	private closeBefore(attack: number): void {
 		this.windows = this.windows.filter((w) => {
-			const ageMs = (attack - w.attack) * 1000;
-			const closes = (w.decided !== undefined && w.decided !== null) || ageMs > ARPEGGIO_SPAN_MS;
-			if (!closes) return true;
+			// Younger, it may be an arpeggio whose notes have not all come: two of them can already
+			// read as another shape. Known risk: a chord played again this soon is read with the first.
+			if ((attack - w.attack) * 1000 <= ARPEGGIO_SPAN_MS) return true;
 			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
 			return false;
 		});

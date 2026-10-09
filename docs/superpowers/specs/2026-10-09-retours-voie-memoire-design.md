@@ -26,6 +26,7 @@ Suite de C1 (`2026-10-08-voie-memoire-triades-design.md`), avant sa fusion. Vien
   Après une lecture finale, l’attaque ne rapporte plus rien.
 
 - **Attaques séparées.** Une attaque dont la lecture est finale cesse de cumuler son spectre ; une nouvelle attaque ouvre sa propre fenêtre, qui ne contient que ce qui a sonné depuis elle. Un accord faux puis le bon donnent ainsi deux lectures distinctes. Un arpège n’est pas coupé : tant que la première note sonne seule, rien n’est décidé, sa fenêtre cumule les notes suivantes. Risque connu : deux notes d’un arpège décidées comme une autre forme, stable, avant la troisième ; à surveiller dans les données de jeu réel.
+- **Révision après revue (2026-10-09).** Fermer une fenêtre dès qu'elle a décidé une forme coupait les arpèges : deux notes suffisent à faire décider une autre forme. Une nouvelle attaque ne ferme donc une fenêtre que si celle-ci a plus de `ARPEGGIO_SPAN_MS` (500 ms). Risque connu : un accord rejoué moins de 500 ms après le premier est lu avec lui. Les lectures après la première tombent sur les multiples de 100 ms (250, 300, 400 … 2000), pour que les spectres à 500 et 1000 ms soient journalisés.
 - **Journal de diagnostic.** Chaque lecture y est écrite ; le spectre n’accompagne que les lectures à 250, 500, 1000, 2000 ms et la lecture finale, pour ne pas multiplier le volume du journal.
 - Les variantes du juge restent jugées côte à côte, à chaque lecture.
 

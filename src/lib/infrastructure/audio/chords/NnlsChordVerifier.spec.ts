@@ -53,8 +53,8 @@ describe('NnlsChordVerifier', () => {
 		source.playUntil();
 		expect(reports.map((r) => [r.windowMs, r.final, r.decided])).toEqual([
 			[250, false, '2,3,2'],
-			[350, false, '2,3,2'],
-			[450, true, '2,3,2']
+			[300, false, '2,3,2'],
+			[400, true, '2,3,2']
 		]);
 	});
 
@@ -63,7 +63,7 @@ describe('NnlsChordVerifier', () => {
 		verifier.expect(expectation(0.9));
 		source.playUntil();
 		expect(reports.every((r) => r.decided === null)).toBe(true);
-		expect(reports.map((r) => r.windowMs)).toEqual([250, 350, 450, 550, 650, 750, 850, 950, 1050]);
+		expect(reports.map((r) => r.windowMs)).toEqual([250, 300, 400, 500, 600, 700, 800, 900, 1000]);
 		expect(reports.map((r) => r.final)).toEqual([...Array(8).fill(false), true]);
 	});
 
@@ -92,15 +92,17 @@ describe('NnlsChordVerifier', () => {
 		expect(reports.find((r) => r.time === second && r.final)?.decided).toBe('2,3,2');
 	});
 
-	it('does not cut an arpeggio', () => {
+	/** D 2-3-2 plucked low to high, each note louder so that each one sets off an onset. */
+	function arpeggio(spacingS: number) {
 		const sampleRate = 48000;
 		const signal = new Float32Array(sampleRate * 3.6);
 		D_232.forEach((midi, i) => {
 			const note = synthChordSignal([midi], sampleRate, {
 				durationS: 3.6,
-				attackS: 1.0 + i * 0.15
+				attackS: 1.0 + i * spacingS
 			});
-			for (let j = 0; j < signal.length; j++) signal[j] += note[j];
+			const gain = [1, 1.8, 3.2][i];
+			for (let j = 0; j < signal.length; j++) signal[j] += note[j] * gain;
 		});
 		const source = new FakeFrameSource(sampleRate, signal);
 		const verifier = new NnlsChordVerifier(source);
@@ -108,12 +110,19 @@ describe('NnlsChordVerifier', () => {
 		verifier.onReport((report) => reports.push(report));
 		verifier.expect(expectation(0.9));
 		source.playUntil();
-		const first = Math.min(...reports.map((r) => r.time));
-		const firstReadings = reports.filter((r) => r.time === first);
-		expect(Math.abs(first - 1.0)).toBeLessThan(0.015);
-		expect(firstReadings.at(-1)).toMatchObject({ final: true, decided: '2,3,2' });
-		expect(firstReadings.filter((r) => r.final)).toHaveLength(1);
-	});
+		return reports;
+	}
+
+	for (const spacingS of [0.13, 0.2]) {
+		it(`does not cut an arpeggio of notes ${spacingS * 1000} ms apart`, () => {
+			const reports = arpeggio(spacingS);
+			const first = Math.min(...reports.map((r) => r.time));
+			const firstFinal = reports.filter((r) => r.time === first && r.final);
+			expect(Math.abs(first - 1.0)).toBeLessThan(0.015);
+			expect(firstFinal).toHaveLength(1);
+			expect(firstFinal[0].decided).toBe('2,3,2');
+		});
+	}
 
 	it('marks final a report cut by the next expectation', () => {
 		const { source, verifier, reports } = setup();
@@ -212,13 +221,13 @@ describe('NnlsChordVerifier', () => {
 
 		it('writes every report, with the spectrum only at 250, 500, 1000, 2000 ms and when final', () => {
 			const diagnostics = new FakeDiagnosticSink();
-			const { source, verifier, reports } = setup(48000, D_232, { diagnostics });
-			verifier.expect(expectation(0.9, ['0,1,0']));
+			const { source, verifier, reports } = setup(48000, [60, 64, 67], { diagnostics });
+			verifier.expect(expectation(0.9));
 			source.playUntil();
 			const written = diagnostics.events.filter((e) => e.kind === 'chord.report');
 			expect(written).toHaveLength(reports.length);
 			const withSpectrum = written.filter((e) => 'spectrum' in (e.data as object));
-			expect(withSpectrum.map((e) => (e.data as ChordReport).windowMs)).toEqual([250, 450]);
+			expect(withSpectrum.map((e) => (e.data as ChordReport).windowMs)).toEqual([250, 500, 1000]);
 			written.forEach((event, i) => {
 				const data = event.data as ChordReport & { judgeMs: number };
 				expect(event.audioTime).toBe(reports[i].time);

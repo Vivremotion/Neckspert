@@ -20,8 +20,8 @@ export const STABLE_READINGS = 3;
 /** A reading that still recognizes nothing at this length is final. */
 export const NOTHING_FINAL_MS = 1000;
 /**
- * A new attack closes the window of an earlier one that has decided a shape, or that is older than
- * this: the notes of an arpeggio come within it, a chord played again comes later.
+ * A new attack closes the window of an earlier one older than this: the notes of an arpeggio come
+ * within it, a chord played again comes later (sooner, it is read with the first one).
  */
 export const ARPEGGIO_SPAN_MS = 500;
 /** Readings journaled with their spectrum, besides the final one. */
