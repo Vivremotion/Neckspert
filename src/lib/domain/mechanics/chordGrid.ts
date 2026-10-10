@@ -85,10 +85,14 @@ export function shapePosition(occurrence: VoicingOccurrence): number {
 	return position === 'open' ? 0 : position;
 }
 
-/** Every fret of the shape lies in the zone; an open string is out of any zone. */
+/**
+ * Every fret of the shape lies in the zone. An open string is inside the zone at fret 1, the
+ * nut's, and out of any other.
+ */
 export function inZone(occurrence: VoicingOccurrence, zone: { from: number; to: number }): boolean {
 	return occurrence.notes.every(
-		(note) => note.fret >= Math.max(zone.from, 1) && note.fret <= zone.to
+		(note) =>
+			note.fret <= zone.to && (note.fret >= zone.from || (note.fret === 0 && zone.from === 1))
 	);
 }
 

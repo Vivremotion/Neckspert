@@ -16,8 +16,11 @@ export const LINK_SHAPES = 4;
 /** Width of a zone, in frets. To calibrate. */
 export const ZONE_FRETS = 4;
 
-/** How far the zone moves from one passage to the next, in frets. To calibrate. */
-export const ZONE_STEP_FRETS = 3;
+/**
+ * How far the zone moves from one passage to the next, in frets, modulo the starts: prime to their
+ * number, so every start comes before any repeat. To calibrate.
+ */
+export const ZONE_STEP_FRETS = 5;
 
 /** Share of its changes right and in time that makes a passage succeed. To calibrate. */
 export const PASSAGE_SUCCESS = 0.9;
@@ -59,9 +62,21 @@ export function zoneFits(
 	);
 }
 
+/** Every fret a zone may start on, from 1 to the last whose zone stays under MAX_VOICING_FRET. */
+export const ZONE_STARTS: readonly number[] = Array.from(
+	{ length: MAX_VOICING_FRET - ZONE_FRETS + 1 },
+	(_, i) => i + 1
+);
+
+/** The start after `from`: ZONE_STEP_FRETS further, wrapping modulo the starts. */
+export function nextZoneStart(from: number): number {
+	const index = ZONE_STARTS.indexOf(from);
+	return ZONE_STARTS[(Math.max(index, 0) + ZONE_STEP_FRETS) % ZONE_STARTS.length];
+}
+
 /**
- * The zone of the next passage: ZONE_STEP_FRETS above the last one, back to fret 1 once it would
- * pass MAX_VOICING_FRET; a zone where a chord of the grid has no shape on any set is skipped.
+ * The zone of the next passage: the first start (fret 1) without a last one, else the start after
+ * the last (`nextZoneStart`); a zone where a chord of the grid has no shape on any set is skipped.
  * Throws when no zone fits.
  */
 export function nextZone(
@@ -69,11 +84,10 @@ export function nextZone(
 	sets: readonly (readonly StringNumber[])[],
 	last: { from: number } | null
 ): { from: number; to: number } {
-	const wrap = (from: number) => (from + ZONE_FRETS - 1 > MAX_VOICING_FRET ? 1 : from);
-	let from = wrap(last === null ? 1 : last.from + ZONE_STEP_FRETS);
-	for (let tries = 0; tries <= MAX_VOICING_FRET; tries++) {
+	let from = last === null ? ZONE_STARTS[0] : nextZoneStart(last.from);
+	for (let tries = 0; tries < ZONE_STARTS.length; tries++) {
 		if (zoneFits(grid, sets, from)) return { from, to: from + ZONE_FRETS - 1 };
-		from = wrap(from + ZONE_STEP_FRETS);
+		from = nextZoneStart(from);
 	}
 	throw new RangeError(`No zone of ${ZONE_FRETS} frets fits the grid ${grid.id}`);
 }

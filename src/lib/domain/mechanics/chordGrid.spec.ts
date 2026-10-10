@@ -143,9 +143,15 @@ describe('chordGridRules', () => {
 			});
 		});
 
-		it('leaves an open string out of the zone', () => {
-			const open = item({ rule: 'zone', chord: 'E|min', zone: { from: 1, to: 4 } });
-			expect(judge(open, shapeId('E', 'min', G_B_E, '0-0-0')).confusion?.kind).toBe('out-of-zone');
+		it('counts an open string inside the zone at fret 1, outside any other', () => {
+			const low = item({ rule: 'zone', chord: 'E|min', zone: { from: 1, to: 4 } });
+			expect(judge(low, shapeId('E', 'min', G_B_E, '0-0-0')).correct).toBe(true);
+			const c = item({ rule: 'zone', chord: 'C|maj', zone: { from: 1, to: 4 } });
+			expect(judge(c, shapeId('C', 'maj', D_G_B, '2-0-1')).correct).toBe(true);
+			const higher = item({ rule: 'zone', chord: 'A|maj', zone: { from: 2, to: 5 } });
+			expect(judge(higher, shapeId('A', 'maj', G_B_E, '2-2-0')).confusion?.kind).toBe(
+				'out-of-zone'
+			);
 		});
 	});
 

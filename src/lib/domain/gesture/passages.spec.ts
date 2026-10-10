@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { gridById } from '$lib/domain/grid';
-import { MAX_VOICING_FRET, parseSpelledNote, qualityById } from '$lib/domain/music';
+import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
+import {
+	closeTriadVoicings,
+	MAX_VOICING_FRET,
+	parseSpelledNote,
+	qualityById,
+	voicingOccurrences
+} from '$lib/domain/music';
 import type { Attempt, Verdict } from '$lib/domain/types';
+import { inZone } from '$lib/domain/mechanics';
+import { shapeAt } from '$lib/testing/shapes';
 import {
 	LINK_SHAPES,
+	nextZoneStart,
+	ZONE_STARTS,
 	linkShapes,
 	nextZone,
 	PASSAGE_SUCCESS,
@@ -56,50 +66,79 @@ describe('linkShapes', () => {
 
 describe('nextZone', () => {
 	const iohefy = gridById('iohefy-a');
+	const blues = gridById('blues-f');
 	const sets = [
 		[3, 2, 1],
 		[4, 3, 2]
 	] as const;
+	const LAST_START = MAX_VOICING_FRET - ZONE_FRETS + 1;
 
-	it('spans ZONE_FRETS frets and moves by ZONE_STEP_FRETS, skipping a zone a chord cannot be played in', () => {
-		expect([ZONE_FRETS, ZONE_STEP_FRETS]).toEqual([4, 3]);
-		// G has no shape in frets 1 to 4 nor 4 to 7 on either set: the first zone is 7 to 10.
-		expect(zoneFits(iohefy, sets, 1)).toBe(false);
+	it('visits every start fret once, moving by ZONE_STEP_FRETS modulo the starts', () => {
+		expect([ZONE_FRETS, ZONE_STEP_FRETS, LAST_START]).toEqual([4, 5, 14]);
+		const starts = [ZONE_STARTS[0]];
+		for (let i = 1; i < 15; i++) starts.push(nextZoneStart(starts[i - 1]));
+		expect(starts).toEqual([1, 6, 11, 2, 7, 12, 3, 8, 13, 4, 9, 14, 5, 10, 1]);
+	});
+
+	it('skips a zone a chord of the grid cannot be played in', () => {
+		// 4 to 7: no G nor Ebm on either set.
 		expect(zoneFits(iohefy, sets, 4)).toBe(false);
-		const first = nextZone(iohefy, sets, null);
-		expect(first).toEqual({ from: 7, to: 10 });
-		expect(nextZone(iohefy, sets, first)).toEqual({ from: 10, to: 13 });
+		const visited = zonesOf(iohefy);
+		expect(visited).not.toContain(4);
+		expect(visited[0]).toBe(1);
+		for (const from of visited) expect(zoneFits(iohefy, sets, from)).toBe(true);
+		expect(nextZone(iohefy, sets, { from: 2 })).toEqual({ from: 7, to: 10 });
 	});
 
-	it('comes back down the neck past MAX_VOICING_FRET', () => {
-		let zone = nextZone(iohefy, sets, null);
-		const seen = [zone.from];
-		for (let i = 0; i < 6; i++) {
-			zone = nextZone(iohefy, sets, zone);
-			seen.push(zone.from);
+	it('counts the open strings inside the zone at fret 1 only', () => {
+		expect(inZone(shapeAt('E', 'min', [3, 2, 1], '0-0-0'), { from: 1, to: 4 })).toBe(true);
+		expect(inZone(shapeAt('C', 'maj', [3, 2, 1], '0-1-0'), { from: 1, to: 4 })).toBe(true);
+		expect(inZone(shapeAt('C', 'maj', [4, 3, 2], '2-0-1'), { from: 1, to: 4 })).toBe(true);
+		expect(inZone(shapeAt('A', 'maj', [3, 2, 1], '2-2-0'), { from: 2, to: 5 })).toBe(false);
+	});
+
+	it('visits every zone that fits the grid, so each shape that fits a zone is asked in one', () => {
+		// Asked: every shape of every chord in a visited zone. Impossible while a zone where a
+		// chord has no shape is skipped: iohefy-a fits at 1, 7 and 10 only (Em has no shape in
+		// 5 to 8, nor C 5-5-3's zone 2 to 5); blues-f at 1, 3, 4, 5, 8, 10 and 12.
+		expect(zonesOf(iohefy).sort((a, b) => a - b)).toEqual([1, 7, 10]);
+		expect(zonesOf(blues).sort((a, b) => a - b)).toEqual([1, 3, 4, 5, 8, 10, 12]);
+		for (const grid of [iohefy, blues]) {
+			const fitting = ZONE_STARTS.filter((from) => zoneFits(grid, sets, from));
+			const visited = zonesOf(grid);
+			const zone = (from: number) => ({ from, to: from + ZONE_FRETS - 1 });
+			for (const symbol of new Set(gridChanges(grid).map((change) => change.symbol))) {
+				for (const set of sets) {
+					for (const shape of closeTriadVoicings(triadOf(symbol), set).flatMap((v) =>
+						voicingOccurrences(v)
+					)) {
+						const fits = fitting.some((from) => inZone(shape, zone(from)));
+						const asked = visited.some((from) => inZone(shape, zone(from)));
+						const frets = shape.notes.map((n) => n.fret).join('-');
+						expect(asked, `${grid.id} ${symbol} ${frets}`).toBe(fits);
+					}
+				}
+			}
 		}
-		expect(Math.max(...seen.map((from) => from + ZONE_FRETS - 1))).toBeLessThanOrEqual(
-			MAX_VOICING_FRET
-		);
-		// 13 to 16 has no G (nor C) on either set; 16 to 19 passes fret 17: back to 1, 4, then 7.
-		expect(zoneFits(iohefy, sets, 13)).toBe(false);
-		expect(seen.slice(0, 4)).toEqual([7, 10, 7, 10]);
+		// The blues asks C 5-5-3 in 3 to 6; iohefy-a never does.
+		const c553 = shapeAt('C', 'maj', [3, 2, 1], '5-5-3');
+		expect(zonesOf(blues).some((from) => inZone(c553, zone4(from)))).toBe(true);
+		expect(zonesOf(iohefy).some((from) => inZone(c553, zone4(from)))).toBe(false);
 	});
 
-	it('starts at fret 1 when every chord fits there', () => {
-		const blues = gridById('blues-f');
-		expect(nextZone(blues, sets, null).from).toBe(zoneStart(blues));
-	});
+	const zone4 = (from: number) => ({ from, to: from + ZONE_FRETS - 1 });
+
+	/** The starts the rotation visits for a grid, from the first, once each. */
+	function zonesOf(grid: ReturnType<typeof gridById>): number[] {
+		const seen: number[] = [];
+		let zone = nextZone(grid, sets, null);
+		while (!seen.includes(zone.from)) {
+			seen.push(zone.from);
+			zone = nextZone(grid, sets, zone);
+		}
+		return seen;
+	}
 });
-
-/** The first zone of a grid: the lowest start every chord fits. */
-function zoneStart(grid: ReturnType<typeof gridById>): number {
-	const sets = [
-		[3, 2, 1],
-		[4, 3, 2]
-	] as const;
-	for (let from = 1; ; from += ZONE_STEP_FRETS) if (zoneFits(grid, sets, from)) return from;
-}
 
 describe('passageSucceeded', () => {
 	const changes = (verdicts: Verdict[]) =>
