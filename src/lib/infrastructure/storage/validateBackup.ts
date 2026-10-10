@@ -27,7 +27,7 @@ const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free', 'triads', 'triad
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
-/** Notes (locate, identify, a triad's root) and chords (a triad's chord). */
+/** Notes (locate, identify, a triad's root), chords (a triad's chord, a grid's change). */
 const CONFUSION_KINDS: readonly string[] = [
 	'semitone',
 	'octave',
@@ -37,7 +37,13 @@ const CONFUSION_KINDS: readonly string[] = [
 	'other-inversion',
 	'other-quality',
 	'none',
-	'no-chord'
+	'no-chord',
+	'other-chord',
+	'other-set',
+	'other-shape',
+	'not-higher',
+	'not-lower',
+	'out-of-zone'
 ];
 const OBSERVATION_FATES: readonly string[] = [
 	'answer',

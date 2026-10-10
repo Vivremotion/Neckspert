@@ -661,3 +661,69 @@ describe('the triads session and the contest of an attempt', () => {
 		expect(() => validateBackupV3(file)).toThrow(/contested must be a boolean/);
 	});
 });
+
+describe('with chord-grid attempts', () => {
+	it('takes a gesture attempt through an export and an import, its whole change kept', () => {
+		const item = {
+			rule: 'climb',
+			element: 'climb:iohefy-a:3,2,1',
+			passageId: 's1:0',
+			index: 2,
+			changes: [
+				{ at: 0, length: 4, symbol: 'Dm7' },
+				{ at: 4, length: 4, symbol: 'G7' },
+				{ at: 8, length: 4, symbol: 'Dm7' }
+			],
+			symbol: 'Dm7',
+			chord: 'D|min',
+			sets: [[3, 2, 1]],
+			direction: 'up',
+			previous: 'G|maj|3:1,2:3,1:5@12-12-10'
+		};
+		const attempt = makeAttempt({
+			id: 1,
+			exerciseId: 'gesture-climb',
+			mechanic: 'chord-grid',
+			cardKey: 'chord-grid:climb:iohefy-a:3,2,1#2',
+			phase: 'free',
+			temperature: 'hot',
+			leadBeats: null,
+			correct: false,
+			verdict: 'wrong',
+			data: {
+				item,
+				answer: { decided: 'D|min|3:5,2:1,1:b3@7-6-5' },
+				confusion: { kind: 'not-higher', part: 'chord' }
+			}
+		});
+		const exported = JSON.parse(JSON.stringify(makeBackup({ attempts: [attempt] })));
+		expect(validateBackupV3(exported)).toEqual(exported);
+		expect(exported.attempts[0].data.item).toEqual(item);
+	});
+
+	it('names every confusion of a chord change', () => {
+		const kinds = [
+			'other-chord',
+			'other-set',
+			'other-shape',
+			'not-higher',
+			'not-lower',
+			'out-of-zone'
+		];
+		const attempts = kinds.map((kind, i) =>
+			makeAttempt({
+				id: i + 1,
+				exerciseId: 'gesture-jam',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:jam:blues-f#0',
+				data: {
+					item: { element: 'jam:blues-f', index: 0 },
+					answer: null,
+					confusion: { kind, part: 'chord' }
+				}
+			})
+		);
+		const file = makeBackup({ attempts });
+		expect(validateBackupV3(file)).toBe(file);
+	});
+});

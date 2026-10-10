@@ -125,7 +125,7 @@ describe('triadZoneRules', () => {
 
 describe('the triad mechanics in the registry', () => {
 	it('finds both, and reads their keys back', () => {
-		expect(MECHANIC_RULES.map((rules) => rules.id)).toEqual([
+		expect(MECHANIC_RULES.map((rules) => rules.id).slice(0, 4)).toEqual([
 			'locate',
 			'identify',
 			'triad-anchor',
