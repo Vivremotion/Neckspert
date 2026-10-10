@@ -23,6 +23,7 @@ export {
 	admits,
 	admittedShapes,
 	chordGridRules,
+	inZone,
 	parseTriadId,
 	shapePosition,
 	triadId,

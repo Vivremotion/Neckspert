@@ -85,6 +85,13 @@ export function shapePosition(occurrence: VoicingOccurrence): number {
 	return position === 'open' ? 0 : position;
 }
 
+/** Every fret of the shape lies in the zone; an open string is out of any zone. */
+export function inZone(occurrence: VoicingOccurrence, zone: { from: number; to: number }): boolean {
+	return occurrence.notes.every(
+		(note) => note.fret >= Math.max(zone.from, 1) && note.fret <= zone.to
+	);
+}
+
 function stringsOf(occurrence: VoicingOccurrence): string {
 	return occurrence.notes.map((note) => note.string).join();
 }
@@ -112,12 +119,8 @@ function classify(item: ChordGridItem, heard: VoicingOccurrence | null): ChordGr
 			if (item.direction === 'down') return position < last ? null : confusion('not-lower');
 			return position > last ? null : confusion('not-higher');
 		}
-		case 'zone': {
-			const { from, to } = item.zone ?? { from: 0, to: -1 };
-			// An open string is out of any zone.
-			const inside = heard.notes.every((note) => note.fret >= Math.max(from, 1) && note.fret <= to);
-			return inside ? null : confusion('out-of-zone');
-		}
+		case 'zone':
+			return item.zone && inZone(heard, item.zone) ? null : confusion('out-of-zone');
 		case 'jam':
 			return null;
 	}
