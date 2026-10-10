@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	QUALITIES,
+	SEVENTH_QUALITIES,
 	chordLabel,
 	chordTones,
 	qualityById,
@@ -52,6 +53,25 @@ describe('chordLabel', () => {
 describe('qualities', () => {
 	it('holds the four triad qualities', () => {
 		expect(QUALITIES.map((quality) => quality.id)).toEqual(['maj', 'min', 'dim', 'aug']);
+	});
+
+	it('holds the seventh qualities apart, found by id like the triads', () => {
+		expect(SEVENTH_QUALITIES.map((quality) => quality.id)).toEqual([
+			'maj7',
+			'7',
+			'm7',
+			'm7b5',
+			'6',
+			'm6',
+			'7#5'
+		]);
+		expect(written(chord('C', 'maj7'))).toEqual(['C', 'E', 'G', 'B']);
+		expect(written(chord('D', 'm7b5'))).toEqual(['D', 'F', 'Ab', 'C']);
+		expect(written(chord('G', '7'))).toEqual(['G', 'B', 'D', 'F']);
+		expect(written(chord('Eb', 'm7'))).toEqual(['Eb', 'Gb', 'Bb', 'Db']);
+		expect(written(chord('C', '6'))).toEqual(['C', 'E', 'G', 'A']);
+		expect(written(chord('A', 'm6'))).toEqual(['A', 'C', 'E', 'F#']);
+		expect(written(chord('E', '7#5'))).toEqual(['E', 'G#', 'B#', 'D']);
 	});
 
 	it('rejects an unknown quality', () => {

@@ -39,6 +39,10 @@ describe('closeTriadVoicings', () => {
 		expect(first.notes.map((n) => formatSpelledNote(n.note))).toEqual(['Eb', 'Gb', 'Bb']);
 	});
 
+	it('refuses a seventh quality', () => {
+		expect(() => closeTriadVoicings(chord('D', 'm7'), G_B_E)).toThrow(RangeError);
+	});
+
 	it('needs a three-note quality and three strings', () => {
 		const maj7: ChordQuality = { id: 'maj7', suffix: 'maj7', degrees: ['1', '3', '5', '7'] };
 		expect(() => closeTriadVoicings(chord('C', maj7), G_B_E)).toThrow(RangeError);
