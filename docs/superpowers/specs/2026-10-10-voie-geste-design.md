@@ -303,3 +303,41 @@ Les observations restent rattachées à la manche ouverte **à leur arrivée**. 
 ## Hors périmètre
 
 La session à deux voies (E), l’accompagnement de batterie, les formes pleines (CAGED), les tétrades jouées, les changements sur des subdivisions cliquées par le métronome, le passage des notes et des triades à `PlayFrame`, la Généralisation (`docs/todo.md`) et un éditeur de grilles.
+
+## Réalisation (2026-10-10)
+
+Branche `plan/voie-geste`, plan `docs/superpowers/plans/2026-10-10-voie-geste.md`, puis corrections demandées à la relecture. Ce qui suit dit où la réalisation s’écarte de la spec ou la précise.
+
+### Écarts et décisions
+
+- **Contrainte : le sens tourne où le manche s’arrête.** La règle seule rend toute grille injouable : sur `iohefy-a` en montant sur sol‑si‑mi, en prenant chaque fois la forme admise la plus basse, Dm 1, G 3, Dm 5, G 7, C 8, F 13, Em 15, et Ebm n’a plus de forme au-dessus de 15. Un passage de 9 changements perdait donc toujours au moins un changement, sous `PASSAGE_SUCCESS`. Désormais, à un changement où aucune forme de l’accord sur le groupe n’est strictement au-delà de `previous` dans le sens courant, le sens s’inverse à ce changement et le reste jusqu’à la fin du passage (`climbDirection`). Le sélecteur le calcule après `record()` et le porte sur les items suivants : le juge reste pur. L’aide suit le nouveau sens. La règle vaut à chaque fois que le manche s’arrête : un sens déjà inversé peut tourner encore. L’alternance d’un passage à l’autre suit le sens de départ du passage, pas le sens tourné. Sur `iohefy-a` (sol‑si‑mi et ré‑sol‑si) et `blues-f`, un passage joué en suivant l’aide est gagné.
+- **Zones.**
+  - Une corde à vide est dans la zone qui commence à la case 1, hors de toute autre (Em 0‑0‑0, C 0‑1‑0 et 2‑0‑1 dans 1 à 4).
+  - La zone parcourt tous les départs, de 1 à `MAX_VOICING_FRET − ZONE_FRETS + 1` (14) : `ZONE_STEP_FRETS` vaut 5, modulo le nombre de départs, si bien que tous passent avant qu’un revienne (1, 6, 11, 2, 7, 12, 3, 8, 13, 4, 9, 14, 5, 10). Une zone où un accord de la grille n’a aucune forme reste sautée.
+  - **Impossible tel quel** : que chaque forme de chaque accord soit jouée dans au moins une zone visitée. Tant qu’une zone sans forme pour un accord est sautée, `iohefy-a` ne tient que dans les zones 1, 7 et 10 (Em n’a rien dans 5 à 8, C 5‑5‑3 n’a pas sa zone 2 à 5 ou 3 à 6 ; 27 formes ne sont jamais demandées), `blues-f` dans 1, 3, 4, 5, 8, 10 et 12 (C 17‑17‑15 et 17‑17‑17 jamais). La réalisation garantit le plus proche : toute zone qui convient est visitée, donc toute forme qui tient dans une zone convenable y est demandée.
+  - L’explication donnée d’abord (« G n’a aucune forme dans 1 à 4 ») était fausse : G a 4‑3‑3 sur sol‑si‑mi. La zone 1 à 4 était sautée parce que C et Em n’y tenaient qu’avec des cordes à vide, alors comptées hors zone ; 4 à 7 l’est pour G et Ebm.
+- **Un tempo par exercice et par grille.** Une ballade et un blues progressent à part : la contrainte, la zone et le jam ont un tempo par grille ; relier garde un tempo pour l’exercice. Le cœur reste sans mécanique : une portée générique et facultative du tempo, `Execution.scope`, `Progression.scope`, `PlannedItem.tempoScope`, et `Attempt.tempoScope` sur l’essai. `startTempo` et l’écriture de fin de session travaillent par (exercice, portée) ; le contrôleur associe une consigne à son exécution par les deux, et une autre portée à un autre tempo redémarre le métronome comme un autre exercice. Une nouvelle portée commence au tempo de départ de l’exercice (80), jamais au tempo d’une autre grille. Sans portée, rien ne change. Stockage : Dexie version 7 ajoute la table `scopedProgressions` (clé `[exerciseId+scope]`) à côté de `progressions`, sans migration ; la sauvegarde reste en version 3, les champs sont facultatifs et validés (chaîne non vide). Le bilan a une ligne par exercice et grille.
+- **Une seule table de qualités.** Les septièmes sont des lignes de `QUALITIES` ; le code des triades garde les qualités à trois degrés (`isTriadQuality`).
+- **9 changements par grille, pas 8** (le plan se trompait) : `iohefy-a` donne Dm7, G7, Dm7, G7, Cmaj7, F7, Em7, Ebm7, Ab7 ; `blues-f` donne F7, Bb7, F7, Bb7, F7, C7, Bb7, F7, C7.
+- **Signatures du cœur, en ajout facultatif** : `TimingRelation.open` reçoit `item?` et `chained?` (absent : faux) ; `PlayView.stage?` ; `Round.abandon(now?)`. Avec l’heure, une manche de grille réglée à la passe l’est même quand aucun temps n’a fermé sa fenêtre (un changement d’un temps à 160 bpm). Une pause avant la fermeture de la fenêtre, sans réponse, abandonne le changement au lieu d’enregistrer un raté, comme `BeatRound`.
+- **`MechanicPresenter.stage` reçoit l’aide de la consigne** (`aids: { aid }`) en quatrième argument : l’aide dépend de `PlannedItem.aid`, que l’item ne porte pas.
+- **Chaque exercice du geste a `startTempoBpm: 80`** : ils partagent la mécanique `chord-grid`, et `startTempo` prendrait sinon le tempo d’un autre.
+- **Ouverture du jam** : pour chaque triade de la grille, un groupe où ses trois renversements sont acquis en ancrage.
+- **Éléments de relier** : 12 fondamentales écrites comme une grille (C, C#, D, Eb, E, F, F#, G, Ab, A, Bb, B) × majeur et mineur × groupe, l’accord avant le groupe, si bien qu’à égalité les deux groupes d’un accord se suivent.
+- **Aide de la contrainte sans forme de référence** : la plus basse en montant, la plus haute en descendant.
+- **Bilan** : les ratés sont les changements faux (`correct` faux) ; un hors-temps n’y figure pas. Le reste du bilan n’est pas montré pour le geste.
+- **Reprise après une pause** au changement suivant, comme la spec le dit : le changement interrompu n’est pas rejoué.
+- **Tests** : la vue factice est donnée à `PlayFrame` par une prop `views` (par défaut `PLAY_VIEWS`) ; le choix par l’exercice est vérifié dans `stage.spec.ts`. Attentes de specs existantes changées : la liste du registre des mécaniques (`.slice(0, 4)`), le titre et le contenu du test des qualités, le nombre de tables et `verno` dans `db.spec.ts`, le harnais de `createAppServices.spec.ts` (présentateurs du geste ajoutés).
+
+### Risques connus
+
+- La détection de fatigue lit les essais du geste comme des temps de réaction de mode 2 (pas de `leadBeats`), mesurés depuis la consigne : environ 750 ms au premier changement d’un passage, 150 à 200 ms aux changements enchaînés. La médiane devrait l’absorber ; non vérifié.
+- Le jam donne beaucoup de candidats (les deux groupes, tous les accords de la grille sur tout le manche).
+- Chaque essai du geste garde toute la grille de son passage.
+- Une grille dont un accord n’a pas de forme dans une zone de 4 cases ne laisse jouer en zone qu’une part de ses formes (voir plus haut).
+
+### Non vérifié
+
+- Le son réel et le vrai vérificateur d’accords.
+- Une session réelle avec des changements entre deux temps (croche, triolet) : seul le rapport au temps est testé, le contrôleur n’a enchaîné que des temps entiers.
+- L’affichage : vu en capture headless sur `/dev/gesture` à 1280×800 et 390×844 (aucun texte sous 16 px, pas de défilement horizontal) ; `scripts/functional-ui.mjs` ne couvre pas cette page.
