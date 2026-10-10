@@ -42,6 +42,12 @@ export interface Round {
 	/** Audio seconds. */
 	readonly promptTime: number;
 	/**
+	 * The next round may open without a gap at this audio time (s), on this (fractional) beat.
+	 * A round that has one is settled at the latest then, by the session (`abandon`), never by
+	 * `after().advanceAt`.
+	 */
+	readonly handover?: { beat: number; time: number };
+	/**
 	 * `sensor`: the sensor that read the observation; relations heard by one sensor ignore it.
 	 * `final` false: a better reading of the same attack (same `time`) will follow.
 	 */
@@ -49,9 +55,10 @@ export interface Round {
 	onBeat(beat: { index: number; time: number }): RoundEvent;
 	/**
 	 * Settles an open capture as unanswered, or a reading still waiting as it is; null when
-	 * listening without one or already settled.
+	 * listening without one or already settled. `now` (audio s): when the session abandons it; a
+	 * relation that tells an open window from a closed one by the time reads it.
 	 */
-	abandon(): RoundOutcome | null;
+	abandon(now?: number): RoundOutcome | null;
 	/**
 	 * Null until settled. `advanceAt`: first beat on which the next prompt is chosen;
 	 * `earliestPrompt`: first beat it may show.
