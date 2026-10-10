@@ -10,6 +10,7 @@ import {
 	expectedShape,
 	parseTriadId,
 	rootPosition,
+	shapePosition,
 	triadId,
 	triadShapes,
 	type ChordGridConfusion,
@@ -40,6 +41,38 @@ export type GridCue =
 	| { kind: 'climb'; set: string; direction: 'up' | 'down' }
 	| { kind: 'zone'; from: number; to: number }
 	| { kind: 'jam' };
+
+/** A shape of a link passage, as `link-path` draws it. */
+export interface LinkPathShape {
+	/** Its place in the climb, from 1. */
+	number: number;
+	notes: { string: StringNumber; fret: number }[];
+	/** Its lowest fretted fret (0 on open strings only). */
+	position: number;
+	/** « fondamentale sur si ». */
+	inversion: string;
+}
+
+/** The screen model of a link passage, read by the `link-path` view: the path on the neck. */
+export interface LinkPathModel {
+	kind: 'link-path';
+	/** The chord, as the chart writes it: « E ». */
+	chord: string;
+	/** « sol‑si‑mi ». */
+	set: string;
+	/** The strings of the set, low first, with their names. */
+	strings: { string: StringNumber; name: string }[];
+	/** The distinct shapes, in the order they are climbed. */
+	shapes: LinkPathShape[];
+	/** For each change of the passage, the index of its shape in `shapes`. */
+	path: number[];
+	changes: readonly GridChange[];
+	/** The change on show. */
+	index: number;
+	beatsPerBar: 4;
+	/** The passage is aided: every shape's frets are drawn. */
+	aided: boolean;
+}
 
 /** The screen model of a chord grid, read by its views (`grid-scroll`). */
 export interface GridStageModel {
@@ -237,6 +270,34 @@ function isMiss(verdict: Verdict): boolean {
 	return verdict === 'wrong' || verdict === 'corrected';
 }
 
+/** The path of a link passage: its shapes climbed in order, then the way back down. */
+function linkPathModel(item: ChordGridItem, locale: Locale, aided: boolean): LinkPathModel {
+	const [set] = item.sets;
+	const played = linkShapes(parseTriadId(item.chord), set);
+	// Up, then down without the top twice: the climb is the first half and the top.
+	const up = played.slice(0, (played.length + 1) / 2);
+	const ids = up.map(occurrenceId);
+	return {
+		kind: 'link-path',
+		chord: item.symbol,
+		set: setLabel(set, locale),
+		strings: set.map((string) => ({ string, name: TRIAD_STRING_NAMES[locale][string] })),
+		shapes: up.map((shape, i) => ({
+			number: i + 1,
+			notes: shape.notes.map(({ string, fret }) => ({ string, fret })),
+			position: shapePosition(shape),
+			inversion: TRIAD_MESSAGES[locale].rootOn(
+				TRIAD_STRING_NAMES[locale][rootPosition(shape.voicing).string]
+			)
+		})),
+		path: played.map((shape) => ids.indexOf(occurrenceId(shape))),
+		changes: item.changes,
+		index: item.index,
+		beatsPerBar: 4,
+		aided
+	};
+}
+
 /** A change of a chord grid: its symbol, the cue of its exercise, heard by the chord sensor. */
 export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> = {
 	rules: chordGridRules,
@@ -272,6 +333,9 @@ export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> 
 	},
 	expectation: (item, round) => ({ chord: gridExpectation(item, round.opensAt) }),
 	stage: (item, settled, locale, { aid }) => {
+		if (item.rule === 'link') {
+			return { model: linkPathModel(item, locale, aid === 'show-position') };
+		}
 		const heard = (settled?.answer as ChordReading | null | undefined)?.decided ?? null;
 		const shown = aid === 'show-position' ? aidFor(item, heard) : null;
 		const model: GridStageModel = {

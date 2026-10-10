@@ -6,27 +6,46 @@ import type {
 } from '$lib/application/session/contract';
 import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { triadId, type ChordGridItem } from '$lib/domain/mechanics';
+import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
+import { linkShapes } from '$lib/domain/gesture/passages';
+import { occurrenceId } from '$lib/domain/triads';
 import type { Verdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import type { DemoClock } from './DemoPlaySession.svelte';
 
 /** A counted bar, then the passage. */
 const COUNT_IN = 4;
-const CHANGES = gridChanges(gridById('iohefy-a'));
+const GRID = gridChanges(gridById('iohefy-a'));
+/** E on G-B-E, linked up the neck and back: one shape per bar. */
+const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
+const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
 /** The verdict of each change, as the demo plays it. */
 const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'perfect', 'late', 'wrong', 'perfect'];
 /** Each change is judged this long after it. */
 const JUDGED_AFTER_BEATS = 0.5;
 
-function itemAt(index: number): ChordGridItem {
-	const symbol = CHANGES[index].symbol;
+function itemAt(mode: DemoGestureMode, index: number): ChordGridItem {
+	if (mode === 'link') {
+		return {
+			rule: 'link',
+			element: 'link:E|maj:3,2,1',
+			passageId: 'demo:0',
+			index,
+			changes: LINK,
+			symbol: 'E',
+			chord: 'E|maj',
+			sets: [[3, 2, 1]],
+			shape: occurrenceId(LINK_SHAPES_E[index]),
+			previous: null
+		};
+	}
+	const symbol = GRID[index].symbol;
 	return {
 		rule: 'climb',
 		element: 'climb:iohefy-a:3,2,1',
 		passageId: 'demo:0',
 		index,
-		changes: CHANGES,
+		changes: GRID,
 		symbol,
 		chord: triadId(triadOf(symbol)),
 		sets: [[3, 2, 1]],
@@ -35,7 +54,10 @@ function itemAt(index: number): ChordGridItem {
 	};
 }
 
-/** A climb on iohefy-a played by script, for /dev/gesture: the grid view without audio. */
+/** Which exercise the demo plays: the link on its path, or a climb on the scrolling grid. */
+export type DemoGestureMode = 'link' | 'climb';
+
+/** A gesture passage played by script, for /dev/gesture: its view without audio. */
 export class DemoGestureSession implements PlaySessionController {
 	readonly sessionId = 'demo-gesture';
 	readonly view: PlayView;
@@ -43,8 +65,11 @@ export class DemoGestureSession implements PlaySessionController {
 	#clock: DemoClock;
 	#index = -1;
 
-	constructor(clock: DemoClock) {
+	readonly #mode: DemoGestureMode;
+
+	constructor(clock: DemoClock, mode: DemoGestureMode = 'link') {
 		this.#clock = clock;
+		this.#mode = mode;
 		this.timeline = { nowBeat: () => this.#clock.nowBeat() };
 		this.view = $state({
 			status: 'idle',
@@ -76,6 +101,7 @@ export class DemoGestureSession implements PlaySessionController {
 		this.view.lastVerdict = null;
 		this.view.targetBeatIndex = null;
 		this.view.status = 'count-in';
+		this.view.countdown = COUNT_IN;
 		this.#stage(0);
 	}
 
@@ -84,6 +110,7 @@ export class DemoGestureSession implements PlaySessionController {
 		if (this.view.status === 'idle' || this.view.status === 'finished') return;
 		if (this.view.status === 'paused') return;
 		const now = this.#clock.nowBeat();
+		const CHANGES = this.#mode === 'link' ? LINK : GRID;
 		if (now < COUNT_IN) {
 			this.view.countdown = COUNT_IN - Math.floor(now);
 			return;
@@ -94,7 +121,8 @@ export class DemoGestureSession implements PlaySessionController {
 			due >= CHANGES.length - 1 &&
 			now >= COUNT_IN + CHANGES.at(-1)!.at + CHANGES.at(-1)!.length
 		) {
-			this.view.status = 'finished';
+			// The demo plays its passage again and again.
+			void this.start();
 			return;
 		}
 		if (due !== this.#index) {
@@ -136,9 +164,9 @@ export class DemoGestureSession implements PlaySessionController {
 	}
 
 	#stage(index: number): void {
-		const { model } = chordGridPresenter.stage!(itemAt(index), null, i18n.locale, {
+		const { model } = chordGridPresenter.stage!(itemAt(this.#mode, index), null, i18n.locale, {
 			aid: 'show-position'
 		});
-		this.view.stage = { view: 'grid-scroll', model };
+		this.view.stage = { view: this.#mode === 'link' ? 'link-path' : 'grid-scroll', model };
 	}
 }

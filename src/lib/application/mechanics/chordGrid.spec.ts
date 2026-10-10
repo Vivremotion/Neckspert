@@ -7,7 +7,8 @@ import {
 	chordGridPresenter,
 	GESTURE_PRESENTERS,
 	gridExpectation,
-	type GridStageModel
+	type GridStageModel,
+	type LinkPathModel
 } from './chordGrid';
 
 const G_B_E: StringNumber[] = [3, 2, 1];
@@ -168,19 +169,38 @@ describe('chordGridPresenter', () => {
 				{ aid }
 			).model as GridStageModel;
 
-		it('link: the set and the inversion asked, the next shape as the aid', () => {
-			expect(stage(link(1, shapeId('D', 'maj', G_B_E, '7-7-5')))).toEqual({
-				title: 'D',
-				beatsPerBar: 4,
+		it('link: the path on the neck, its shapes in climbing order, the way down, aided or not', () => {
+			const model = chordGridPresenter.stage!(
+				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
+				null,
+				'fr',
+				{ aid: 'show-position' }
+			).model as LinkPathModel;
+			expect(model).toMatchObject({
+				kind: 'link-path',
+				chord: 'D',
+				set: 'sol‑si‑mi',
+				strings: [
+					{ string: 3, name: 'sol' },
+					{ string: 2, name: 'si' },
+					{ string: 1, name: 'mi' }
+				],
+				path: [0, 1, 2, 3, 2, 1, 0],
 				changes: LINK_D,
 				index: 1,
-				cue: { kind: 'link', set: 'sol‑si‑mi', inversion: 'fondamentale sur sol' },
-				aid: view('11-10-10')
+				aided: true
 			});
-			expect(stage(link(6, shapeId('D', 'maj', G_B_E, '2-3-2'))).aid).toBeNull();
-			expect(
-				stage(link(1, shapeId('D', 'maj', G_B_E, '7-7-5')), null, 'none' as never).aid
-			).toBeNull();
+			expect(model.shapes.map((s) => [s.number, s.position, s.inversion])).toEqual([
+				[1, 2, 'fondamentale sur si'],
+				[2, 5, 'fondamentale sur sol'],
+				[3, 10, 'fondamentale sur mi'],
+				[4, 14, 'fondamentale sur si']
+			]);
+			expect(model.shapes[1].notes).toEqual(view('7-7-5').notes);
+			const unaided = chordGridPresenter.stage!(link(1, ''), null, 'en', { aid: 'none' })
+				.model as LinkPathModel;
+			expect(unaided).toMatchObject({ aided: false, set: 'G‑B‑E' });
+			expect(unaided.shapes[0].inversion).toBe('root on B');
 		});
 
 		it('climb: the arrow, and the aid closest to the shape just heard', () => {

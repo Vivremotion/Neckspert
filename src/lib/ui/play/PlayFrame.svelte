@@ -78,13 +78,6 @@
 		<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
 	</div>
 
-	{#if view.countdown !== null}
-		<!-- The counted bar, down to the change itself: big, over the view. -->
-		<div class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
-			<div class="count"><PixelWord text={String(view.countdown)} /></div>
-		</div>
-	{/if}
-
 	<div class="stage">
 		{#if Stage && view.stage}
 			<Stage {controller} model={view.stage.model} />
@@ -92,7 +85,16 @@
 	</div>
 
 	<div class="status">
-		{#if view.lastVerdict && view.countdown === null}
+		{#if view.countdown !== null}
+			<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
+			<!-- In text: PixelWord draws the note letters only, no digit. -->
+			<div class="counting">
+				<p class="label">{t.startsIn}</p>
+				<p class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
+					{view.countdown}
+				</p>
+			</div>
+		{:else if view.lastVerdict}
 			<div class="verdict">
 				<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
 				{#if drawn}
@@ -221,20 +223,21 @@
 	}
 
 	/* The view takes the room it needs; the verdict follows right under it, in sight. */
-	.countdown {
-		position: absolute;
-		z-index: 5;
-		inset-inline: 0;
-		top: calc(var(--np-tile) * 16);
+	.counting {
 		display: flex;
-		justify-content: center;
-		pointer-events: none;
+		align-items: center;
+		gap: var(--np-space-2, 16px);
 	}
 
-	.count {
-		padding: var(--np-space-2, 16px) var(--np-space-4, 32px);
-		background: var(--np-bg);
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
+	.countdown {
+		margin: 0;
+		min-inline-size: calc(var(--np-tile) * 12);
+		padding: 0 var(--np-space-2, 16px);
+		background: var(--np-ink);
+		color: var(--np-bg);
+		font-size: var(--np-type-hero);
+		line-height: 1;
+		text-align: center;
 	}
 
 	.stage {

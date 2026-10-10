@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import { ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
 	import { DemoGestureSession } from '$lib/ui/play/demo/DemoGestureSession.svelte';
 
+	// `?view=grid`: a climb on the scrolling grid; the link on its path otherwise.
 	const clock = new ManualDemoClock();
-	const controller = new DemoGestureSession(clock);
+	const controller = new DemoGestureSession(
+		clock,
+		page.url.searchParams.get('view') === 'grid' ? 'climb' : 'link'
+	);
 
 	onMount(() => {
 		// The demo plays at once: nothing to hear, only the view to see.

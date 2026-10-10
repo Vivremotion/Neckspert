@@ -13,7 +13,9 @@ export {
 	gridExpectation,
 	NEIGHBOUR_FRETS,
 	type GridCue,
-	type GridStageModel
+	type GridStageModel,
+	type LinkPathModel,
+	type LinkPathShape
 } from './chordGrid';
 
 /** The neck's mechanics as the session shows them, by mechanic id. */
