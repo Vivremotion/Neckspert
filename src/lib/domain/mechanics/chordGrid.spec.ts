@@ -108,6 +108,19 @@ describe('chordGridRules', () => {
 			);
 		});
 
+		it('starts again, free, once no shape of the chord goes further up the neck', () => {
+			// After Em 16-17-15 (position 15), Ebm has no shape above it on G-B-E.
+			const top = item({
+				rule: 'climb',
+				sets: [G_B_E],
+				direction: 'up',
+				chord: 'Eb|min',
+				previous: shapeId('E', 'min', G_B_E, '16-17-15')
+			});
+			expect(judge(top, shapeId('D#', 'min', G_B_E, '3-4-2')).correct).toBe(true);
+			expect(admittedShapes(top)).toHaveLength(4);
+		});
+
 		it('going down, takes a shape strictly lower', () => {
 			expect(
 				judge(climb('down', after775), shapeId('D', 'maj', G_B_E, '11-10-10')).confusion

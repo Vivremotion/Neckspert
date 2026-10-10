@@ -115,9 +115,15 @@ function classify(item: ChordGridItem, heard: VoicingOccurrence | null): ChordGr
 		case 'climb': {
 			const before = item.previous === null ? null : occurrenceOfId(item.previous);
 			if (!before) return null;
-			const [position, last] = [shapePosition(heard), shapePosition(before)];
-			if (item.direction === 'down') return position < last ? null : confusion('not-lower');
-			return position > last ? null : confusion('not-higher');
+			const last = shapePosition(before);
+			const down = item.direction === 'down';
+			const further = (o: VoicingOccurrence) =>
+				down ? shapePosition(o) < last : shapePosition(o) > last;
+			if (further(heard)) return null;
+			// The end of the neck: no shape of the chord goes further, so the climb starts again,
+			// free like its first change (ruling of 2026-10-10: the rule alone makes a grid unplayable).
+			if (!triadShapes(item).some(further)) return null;
+			return confusion(down ? 'not-lower' : 'not-higher');
 		}
 		case 'zone':
 			return item.zone && inZone(heard, item.zone) ? null : confusion('out-of-zone');
