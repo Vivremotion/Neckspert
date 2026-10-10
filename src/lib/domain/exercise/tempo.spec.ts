@@ -109,3 +109,26 @@ describe('tempo range', () => {
 		expect([TEMPO_RAISE_AT, TEMPO_LOWER_AT, TEMPO_MIN_PROMPTS]).toEqual([0.9, 0.7, 10]);
 	});
 });
+
+describe('startTempo within a scope', () => {
+	const CLIMB = { ...LOCATE_NECK, id: 'gesture-climb', mechanic: 'chord-grid', startTempoBpm: 80 };
+	const scoped = (scope: string, tempoBpm: number) => ({
+		...p('gesture-climb', 'chord-grid', tempoBpm, 1),
+		scope
+	});
+
+	it('takes the progression of its own exercise and scope', () => {
+		const progressions = [scoped('iohefy-a', 95), scoped('blues-f', 110)];
+		expect(startTempo(CLIMB, progressions, 'iohefy-a')).toBe(95);
+		expect(startTempo(CLIMB, progressions, 'blues-f')).toBe(110);
+	});
+
+	it('starts a new scope at the exercise own start tempo, never at another scope tempo', () => {
+		expect(startTempo(CLIMB, [scoped('iohefy-a', 95)], 'blues-f')).toBe(80);
+	});
+
+	it('keeps a tempo without scope apart from the scoped ones', () => {
+		expect(startTempo(CLIMB, [scoped('iohefy-a', 95)])).toBe(80);
+		expect(startTempo(LOCATE_NECK, [p('locate-neck', 'locate', 100, 1)], 'x')).toBe(80);
+	});
+});

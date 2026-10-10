@@ -253,6 +253,21 @@ describe('createGestureSelector', () => {
 		expect(tired.next({ now: NOW, elapsedMs: 0, fatigued: true })).toBeNull();
 	});
 
+	it('runs a grid passage at the tempo of its grid, a link at its exercise own', () => {
+		const s = selector(ALL_OPEN);
+		const clock = { now: NOW };
+		const scopes = Array.from({ length: 4 }, () => {
+			const [first] = playPassage(s, clock);
+			return [first.exerciseId, first.tempoScope];
+		});
+		expect(scopes).toEqual([
+			['gesture-link', undefined],
+			['gesture-climb', 'iohefy-a'],
+			['gesture-zone', 'iohefy-a'],
+			['gesture-jam', 'iohefy-a']
+		]);
+	});
+
 	it('serves nothing when nothing is open', () => {
 		expect(selector([]).next({ now: NOW, elapsedMs: 0, fatigued: false })).toBeNull();
 	});

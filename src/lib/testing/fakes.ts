@@ -364,15 +364,17 @@ export class InMemorySessionRepository implements SessionRepositoryPort {
 }
 
 export class InMemoryProgressionRepository implements ProgressionRepositoryPort {
-	private readonly progressions = new Map<ExerciseId, Progression>();
+	/** By exercise and scope: `JSON.stringify([exerciseId, scope ?? null])`. */
+	private readonly progressions = new Map<string, Progression>();
 
-	async get(exerciseId: ExerciseId): Promise<Progression | undefined> {
-		const stored = this.progressions.get(exerciseId);
+	async get(exerciseId: ExerciseId, scope?: string): Promise<Progression | undefined> {
+		const stored = this.progressions.get(JSON.stringify([exerciseId, scope ?? null]));
 		return stored && { ...stored };
 	}
 
 	async put(progression: Progression): Promise<void> {
-		this.progressions.set(progression.exerciseId, { ...progression });
+		const key = JSON.stringify([progression.exerciseId, progression.scope ?? null]);
+		this.progressions.set(key, { ...progression });
 	}
 
 	async all(): Promise<Progression[]> {

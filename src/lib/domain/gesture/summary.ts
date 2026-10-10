@@ -19,7 +19,7 @@ function decidedOf(attempt: Attempt): string | null {
 }
 
 /**
- * A gesture session by exercise played (spec 2026-10-10, section 7): passages succeeded of those
+ * A gesture session by exercise and grid played (spec 2026-10-10, section 7): passages succeeded of those
  * played, the share of changes right and in time, the tempo played and the next one; then the
  * missed changes, with the shape heard and the shape due.
  */
@@ -28,8 +28,11 @@ export function summarizeGesture(
 	attempts: readonly Attempt[]
 ): GestureSummary {
 	const changes = attempts.filter((attempt) => attempt.mechanic === 'chord-grid');
-	const exercises = executions.flatMap(({ exerciseId, tempoBpm }) => {
-		const own = changes.filter((attempt) => attempt.exerciseId === exerciseId);
+	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
+		const own = changes.filter(
+			(attempt) =>
+				attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
+		);
 		if (own.length === 0 || tempoBpm === null) return [];
 		const passages = new Map<string, Attempt[]>();
 		for (const attempt of own) {
@@ -39,6 +42,7 @@ export function summarizeGesture(
 		return [
 			{
 				exerciseId,
+				...(scope !== undefined && { scope }),
 				passagesPlayed: passages.size,
 				passagesSucceeded: [...passages.values()].filter(passageSucceeded).length,
 				changeSuccessRate: own.filter(isSuccess).length / own.length,

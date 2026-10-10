@@ -24,6 +24,8 @@ export class NeckspertDb extends Dexie {
 	sessions!: EntityTable<SessionRecord, 'id'>;
 	settings!: EntityTable<SettingsRow, 'id'>;
 	progressions!: EntityTable<Progression, 'exerciseId'>;
+	/** Progressions in a scope of their exercise (a grid), by exercise and scope. */
+	scopedProgressions!: EntityTable<Progression & { scope: string }, 'exerciseId'>;
 
 	constructor(name: string) {
 		super(name);
@@ -122,6 +124,13 @@ export class NeckspertDb extends Dexie {
 						row.latencyMs = null;
 					});
 			});
+		// Version 7 keeps the tempo of a scope of an exercise (a grid) apart from the exercise's own
+		// (spec 2026-10-10, review): a new table keyed by both, the old rows untouched.
+		this.version(7).stores({
+			...stores,
+			progressions: 'exerciseId',
+			scopedProgressions: '[exerciseId+scope]'
+		});
 	}
 }
 

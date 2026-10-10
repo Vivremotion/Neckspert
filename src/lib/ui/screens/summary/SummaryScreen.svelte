@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { GRIDS } from '$lib/domain/grid';
 	import { isTriadsKind, type SessionSummary } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -21,6 +22,14 @@
 		/** « Joué juste » on a missed gesture change; without it, misses are listed only. */
 		oncontest?: (attemptId: number) => Promise<void>;
 	} = $props();
+
+	/** The exercise, and the grid its tempo belongs to when it has one. */
+	function exerciseLabel(exerciseId: string, scope: string | undefined): string {
+		const name = t.exercise[exerciseId] ?? exerciseId;
+		if (scope === undefined) return name;
+		const grid = GRIDS.find((candidate) => candidate.id === scope);
+		return `${name} · ${grid?.title ?? scope}`;
+	}
 
 	/** Misses contested on this screen, on top of those stored contested. */
 	let contestedHere = $state<number[]>([]);
@@ -75,9 +84,9 @@
 		{#if summary.gesture}
 			<PixelBox variant="double">
 				<ul class="rows">
-					{#each summary.gesture.exercises as exercise (exercise.exerciseId)}
+					{#each summary.gesture.exercises as exercise (`${exercise.exerciseId}:${exercise.scope ?? ''}`)}
 						<li class="exercise">
-							<strong>{t.exercise[exercise.exerciseId] ?? exercise.exerciseId}</strong>
+							<strong>{exerciseLabel(exercise.exerciseId, exercise.scope)}</strong>
 							<span>{t.passages(exercise.passagesSucceeded, exercise.passagesPlayed)}</span>
 							<span>{t.changes(Math.round(exercise.changeSuccessRate * 100))}</span>
 							<span>{t.tempos(exercise.tempoBpm, exercise.nextTempoBpm)}</span>

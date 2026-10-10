@@ -732,3 +732,38 @@ describe('with chord-grid attempts', () => {
 		expect(validateBackupV3(file)).toBe(file);
 	});
 });
+
+describe('tempo scopes', () => {
+	it('accepts a scope on progressions and executions, and a tempo scope on attempts', () => {
+		const file = makeBackup({
+			progressions: [
+				makeProgression(),
+				makeProgression({ exerciseId: 'gesture-climb', mechanic: 'chord-grid', scope: 'blues-f' })
+			],
+			sessions: [
+				makeSession({
+					kind: 'gesture',
+					executions: [{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 80 }]
+				})
+			],
+			attempts: [makeAttempt({ id: 1, tempoScope: 'blues-f' })]
+		});
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
+	it('refuses an empty scope', () => {
+		expect(() =>
+			validateBackupV3(makeBackup({ progressions: [makeProgression({ scope: '' })] }))
+		).toThrow(/scope/);
+		expect(() =>
+			validateBackupV3(
+				makeBackup({
+					sessions: [makeSession({ executions: [{ exerciseId: 'x', scope: '', tempoBpm: 80 }] })]
+				})
+			)
+		).toThrow(/scope/);
+		expect(() =>
+			validateBackupV3(makeBackup({ attempts: [makeAttempt({ id: 1, tempoScope: '' })] }))
+		).toThrow(/tempoScope/);
+	});
+});

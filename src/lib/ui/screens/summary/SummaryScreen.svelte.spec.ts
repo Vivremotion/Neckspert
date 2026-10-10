@@ -211,4 +211,27 @@ describe('SummaryScreen of a gesture session', () => {
 		expect(await screen.findByText('Contesté')).toBeTruthy();
 		expect(screen.queryByRole('button', { name: 'Joué juste' })).toBeNull();
 	});
+
+	it('names the grid of each line, one line per exercise and grid', () => {
+		const climbs: SessionSummary = {
+			...gesture,
+			gesture: {
+				exercises: ['iohefy-a', 'blues-f'].map((scope) => ({
+					exerciseId: 'gesture-climb',
+					scope,
+					passagesPlayed: 1,
+					passagesSucceeded: 1,
+					changeSuccessRate: 1,
+					tempoBpm: 80,
+					nextTempoBpm: 80
+				})),
+				misses: []
+			}
+		};
+		render(SummaryScreen, {
+			props: { summary: climbs, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Contrainte de déplacement · I Only Have Eyes for You')).toBeTruthy();
+		expect(screen.getByText('Contrainte de déplacement · Blues F')).toBeTruthy();
+	});
 });

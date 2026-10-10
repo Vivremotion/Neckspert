@@ -399,4 +399,41 @@ describe('the gesture track', () => {
 		const summary = await services.sessionSummary('g1');
 		expect(summary).toMatchObject({ kind: 'gesture', gesture: { exercises: [], misses: [] } });
 	});
+
+	it('runs each open grid of an exercise at its own tempo, the climb of each grid apart', async () => {
+		const { services, deps } = harness();
+		const triads = [
+			['D', 'min'],
+			['G', 'maj'],
+			['C', 'maj'],
+			['F', 'maj'],
+			['E', 'min'],
+			['Eb', 'min'],
+			['Ab', 'maj'],
+			['Bb', 'maj']
+		] as const;
+		await deps.cards.putMany(
+			triads.flatMap(([root, quality]) => triadCards('triad-anchor', root, quality, [3, 2, 1]))
+		);
+		await deps.progressions.put({
+			exerciseId: 'gesture-climb',
+			mechanic: 'chord-grid',
+			scope: 'iohefy-a',
+			tempoBpm: 95,
+			updatedAt: 1
+		});
+		const controller = await services.startSession('gesture');
+		await controller.start();
+		const record = await deps.sessions.get(controller.sessionId);
+		const executions = record?.executions ?? [];
+		expect(executions.filter((e) => e.exerciseId === 'gesture-link')).toEqual([
+			{ exerciseId: 'gesture-link', tempoBpm: 80 }
+		]);
+		expect(executions.filter((e) => e.exerciseId !== 'gesture-link')).toEqual([
+			{ exerciseId: 'gesture-climb', scope: 'iohefy-a', tempoBpm: 95 },
+			{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 80 },
+			{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
+			{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 80 }
+		]);
+	});
 });

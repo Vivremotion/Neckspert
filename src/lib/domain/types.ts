@@ -102,6 +102,8 @@ export interface Attempt<D = unknown> {
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
 	tempoBpm: number | null;
+	/** The scope of that execution's tempo (`PlannedItem.tempoScope`); absent without one. */
+	tempoScope?: string;
 	/** Time relation: null when answering at one's own pace. */
 	leadBeats: RecordedLeadBeats | null;
 	/** Latency-corrected onset minus target beat time, in ms. Null off the beat or unanswered. */
@@ -179,6 +181,11 @@ export interface PlannedItem<I = unknown> {
 	leadBeats: LeadBeats | null;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
+	/**
+	 * The scope of its exercise's tempo (`Execution.scope`): the prompt runs at, and moves, the
+	 * tempo of its exercise in that scope. Absent: the exercise's own tempo.
+	 */
+	tempoScope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
 }
@@ -298,8 +305,10 @@ export interface SessionSummary {
 
 /** What a gesture session did, exercise by exercise, and the changes it missed. */
 export interface GestureSummary {
+	/** One line per exercise and tempo scope (its grid; none for the link). */
 	exercises: {
 		exerciseId: ExerciseId;
+		scope?: string;
 		passagesPlayed: number;
 		passagesSucceeded: number;
 		/** Share of its changes right and in time (`isSuccess`). */

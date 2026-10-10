@@ -104,6 +104,7 @@ export class AttemptRecorder {
 			aid: planned.aid,
 			promptedAt,
 			tempoBpm: execution.tempoBpm,
+			...(planned.tempoScope !== undefined && { tempoScope: planned.tempoScope }),
 			leadBeats: planned.leadBeats,
 			timingOffsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,

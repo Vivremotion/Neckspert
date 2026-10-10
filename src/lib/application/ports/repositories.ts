@@ -43,7 +43,8 @@ export interface SessionRepositoryPort {
 
 /** The tempo reached on each exercise, one row per exercise. */
 export interface ProgressionRepositoryPort {
-	get(exerciseId: ExerciseId): Promise<Progression | undefined>;
+	/** The progression of the exercise in `scope`; without one, the exercise's own. */
+	get(exerciseId: ExerciseId, scope?: string): Promise<Progression | undefined>;
 	/** Replaces the progression stored for the same exercise. */
 	put(progression: Progression): Promise<void>;
 	all(): Promise<Progression[]>;

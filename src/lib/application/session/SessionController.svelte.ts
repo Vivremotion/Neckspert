@@ -178,7 +178,7 @@ export class SessionController implements PlaySessionController {
 			// Show the first prompt's stage right away, before audio and the microphone.
 			this.prepareStage();
 			// The metronome starts at the tempo of the first prompt's exercise.
-			this.setTempo(sessionTempo(executions, this.pending?.exerciseId));
+			this.setTempo(sessionTempo(executions, this.pending?.exerciseId, this.pending?.tempoScope));
 			await this.beginAudio(run);
 		} finally {
 			if (this.run === run) this.starting = false;
@@ -370,11 +370,13 @@ export class SessionController implements PlaySessionController {
 	}
 
 	/**
-	 * The execution a prompt belongs to, by its exercise. Its tempo is the one the attempt is
-	 * judged at; a prompt of another tempo restarts the metronome (decision 4).
+	 * The execution a prompt belongs to, by its exercise and its tempo scope. Its tempo is the one
+	 * the attempt is judged at; a prompt of another tempo restarts the metronome (decision 4).
 	 */
 	private executionOf(item: PlannedItem): Execution {
-		const execution = this.executions.find((e) => e.exerciseId === item.exerciseId);
+		const execution = this.executions.find(
+			(e) => e.exerciseId === item.exerciseId && (e.scope ?? null) === (item.tempoScope ?? null)
+		);
 		if (!execution) throw new Error(`No execution for exercise: ${item.exerciseId}`);
 		return execution;
 	}
@@ -1009,14 +1011,19 @@ export class SessionController implements PlaySessionController {
 		if (this.kind !== 'free') {
 			// A learning session (notes or triads): each exercise on the beat runs next at a tempo
 			// fitted to its own success here.
-			for (const { exerciseId, tempoBpm } of executions) {
+			for (const { exerciseId, scope, tempoBpm } of executions) {
 				if (tempoBpm === null) continue;
-				const own = attempts.filter((attempt) => attempt.exerciseId === exerciseId);
+				// An execution in a scope moves on the attempts of that scope only.
+				const own = attempts.filter(
+					(attempt) =>
+						attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
+				);
 				const next = nextTempo(tempoBpm, own);
 				if (next === tempoBpm) continue;
 				// A tempo moves only after enough attempts, so `own` names the exercise's mechanic.
 				await this.deps.progressions.put({
 					exerciseId,
+					...(scope !== undefined && { scope }),
 					mechanic: own[0].mechanic,
 					tempoBpm: next,
 					updatedAt: this.deps.now()

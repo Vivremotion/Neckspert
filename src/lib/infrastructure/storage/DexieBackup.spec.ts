@@ -334,4 +334,25 @@ describe('DexieBackup', () => {
 		});
 		expect(await db.cards.count()).toBe(0);
 	});
+
+	it('exports the progressions of every scope and imports them back apart', async () => {
+		const scoped = makeProgression({
+			exerciseId: 'gesture-climb',
+			mechanic: 'chord-grid',
+			scope: 'blues-f',
+			tempoBpm: 110
+		});
+		const progressions = new DexieProgressionRepository(db);
+		await progressions.put(makeProgression());
+		await progressions.put(scoped);
+		const file = await new DexieBackup(db).exportAll();
+		expect(file.progressions).toHaveLength(2);
+		await progressions.put({ ...scoped, scope: 'iohefy-a' });
+
+		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(file)));
+
+		expect(await progressions.get('gesture-climb', 'blues-f')).toEqual(scoped);
+		expect(await progressions.get('gesture-climb', 'iohefy-a')).toBeUndefined();
+		expect(await progressions.get('locate-neck')).toEqual(makeProgression());
+	});
 });

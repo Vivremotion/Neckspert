@@ -106,4 +106,40 @@ describe('summarizeGesture', () => {
 			}
 		]);
 	});
+
+	it('sums each grid of an exercise apart, at its own tempo', () => {
+		const ballad = Array.from({ length: 10 }, (_, i) =>
+			change('gesture-jam', 'p1', i % 9, 'perfect', null, { tempoScope: 'iohefy-a' })
+		);
+		const blues = [
+			change('gesture-jam', 'p2', 0, 'wrong', null, { tempoScope: 'blues-f', tempoBpm: 100 })
+		];
+		const summary = summarizeGesture(
+			[
+				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
+				{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 100 }
+			],
+			[...ballad, ...blues]
+		);
+		expect(summary.exercises).toEqual([
+			{
+				exerciseId: 'gesture-jam',
+				scope: 'iohefy-a',
+				passagesPlayed: 1,
+				passagesSucceeded: 1,
+				changeSuccessRate: 1,
+				tempoBpm: 80,
+				nextTempoBpm: 85
+			},
+			{
+				exerciseId: 'gesture-jam',
+				scope: 'blues-f',
+				passagesPlayed: 1,
+				passagesSucceeded: 0,
+				changeSuccessRate: 0,
+				tempoBpm: 100,
+				nextTempoBpm: 100
+			}
+		]);
+	});
 });

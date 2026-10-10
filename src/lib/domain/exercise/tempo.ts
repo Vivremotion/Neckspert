@@ -27,19 +27,36 @@ export function clampTempo(bpm: number): number {
 	return Math.min(TEMPO_MAX_BPM, Math.max(TEMPO_MIN_BPM, Math.round(bpm)));
 }
 
+/** The progression belongs to this exercise and this scope (none: the exercise's own). */
+export function isProgressionOf(
+	progression: Pick<Progression, 'exerciseId' | 'scope'>,
+	exerciseId: string,
+	scope?: string
+): boolean {
+	return progression.exerciseId === exerciseId && (progression.scope ?? null) === (scope ?? null);
+}
+
 /**
- * Tempo of a first or next execution: the exercise's own progression, else its own start tempo,
- * else the latest progression of the same mechanic, else the default. Always within range.
+ * Tempo of a first or next execution: the exercise's own progression (in `scope`, when given),
+ * else its own start tempo, else the latest progression of the same mechanic, else the default.
+ * A new scope never starts at another scope's tempo: the definition's start tempo comes first.
+ * Always within range.
  */
 export function startTempo(
 	definition: ExerciseDefinition,
-	progressions: readonly Progression[]
+	progressions: readonly Progression[],
+	scope?: string
 ): number {
-	const own = progressions.find((p) => p.exerciseId === definition.id);
+	const own = progressions.find((p) => isProgressionOf(p, definition.id, scope));
 	if (own) return clampTempo(own.tempoBpm);
 	if (definition.startTempoBpm !== undefined) return clampTempo(definition.startTempoBpm);
 	const sameMechanic = progressions
-		.filter((p) => p.mechanic === definition.mechanic)
+		// In a scope, never another scope of the same exercise (another grid's tempo).
+		.filter(
+			(p) =>
+				p.mechanic === definition.mechanic &&
+				(scope === undefined || p.exerciseId !== definition.id)
+		)
 		.reduce<Progression | null>(
 			(latest, p) => (!latest || p.updatedAt > latest.updatedAt ? p : latest),
 			null

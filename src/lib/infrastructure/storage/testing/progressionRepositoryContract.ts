@@ -50,6 +50,25 @@ export function progressionRepositoryContract(
 			expect((await repo.all()).sort(byExercise)).toEqual([...progressions].sort(byExercise));
 		});
 
+		it('keeps a progression per scope of an exercise, apart from its own', async () => {
+			const own = makeProgression({ exerciseId: 'gesture-link', mechanic: 'chord-grid' });
+			const ballad = makeProgression({
+				exerciseId: 'gesture-climb',
+				mechanic: 'chord-grid',
+				scope: 'iohefy-a',
+				tempoBpm: 90
+			});
+			const blues = { ...ballad, scope: 'blues-f', tempoBpm: 110 };
+			for (const progression of [own, ballad, blues]) await repo.put(progression);
+			await repo.put({ ...ballad, tempoBpm: 95 });
+			expect(await repo.get('gesture-climb', 'iohefy-a')).toEqual({ ...ballad, tempoBpm: 95 });
+			expect(await repo.get('gesture-climb', 'blues-f')).toEqual(blues);
+			expect(await repo.get('gesture-climb')).toBeUndefined();
+			expect(await repo.get('gesture-link')).toEqual(own);
+			expect(await repo.get('gesture-link', 'iohefy-a')).toBeUndefined();
+			expect(await repo.all()).toHaveLength(3);
+		});
+
 		it('does not hand out the stored object', async () => {
 			const progression = makeProgression();
 			await repo.put(progression);

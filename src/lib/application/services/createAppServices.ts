@@ -2,7 +2,7 @@ import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import { GESTURE_EXERCISES, gestureOpen } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
 	IDENTIFY_NECK,
@@ -159,14 +159,21 @@ export function createAppServices(
 				if (kind === 'triads-zone')
 					return prepareTriads('triad-zone', sessionId, cards, attempts, progressions);
 				if (kind === 'gesture') {
-					// The open exercises, each at its own tempo, in the order of the ladder.
+					// The open exercises in the order of the ladder: one tempo per grid open in each,
+					// one for the link, which plays no grid.
 					const definitions = GESTURE_EXERCISES.filter((definition) =>
 						gestureOpen(definition, cards)
 					);
-					const executions: Execution[] = definitions.map((definition) => ({
-						exerciseId: definition.id,
-						tempoBpm: startTempo(definition, progressions)
-					}));
+					const executions: Execution[] = definitions.flatMap((definition) => {
+						const grids = [
+							...new Set(openElements(definition, cards).map((element) => element.gridId))
+						];
+						return grids.map((scope) => ({
+							exerciseId: definition.id,
+							...(scope !== undefined && { scope }),
+							tempoBpm: startTempo(definition, progressions, scope)
+						}));
+					});
 					const selector = createGestureSelector({
 						definitions,
 						cards,

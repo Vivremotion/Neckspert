@@ -134,7 +134,9 @@ class GestureSelector implements SessionSelector {
 			temperature: 'hot',
 			aid: passage.aided ? 'show-position' : 'none',
 			leadBeats: null,
-			...(index === 0 && { countIn: true })
+			...(index === 0 && { countIn: true }),
+			// A grid progresses at its own tempo: a ballad and a blues apart.
+			...(element.gridId !== undefined && { tempoScope: element.gridId })
 		};
 	}
 
