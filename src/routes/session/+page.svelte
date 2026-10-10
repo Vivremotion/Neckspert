@@ -17,6 +17,8 @@
 	onMount(async () => {
 		try {
 			controller = await useAppServices().startSession(kind);
+			// The gesture frame tells the first exercise's instruction on its start screen.
+			if (kind === 'gesture') await controller.ready?.();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unavailable';
 		}

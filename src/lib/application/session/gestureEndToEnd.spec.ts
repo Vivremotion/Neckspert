@@ -72,7 +72,7 @@ async function setup(cards: CardState[]) {
 	});
 	const controller = await services.startSession('gesture');
 	await controller.start();
-	return { services, deps, clock, metronome, chords, controller };
+	return { services, deps, clock, metronome, chords, controller, briefings: [] as string[] };
 }
 
 type Ctx = Awaited<ReturnType<typeof setup>>;
@@ -93,11 +93,17 @@ async function play(
 	choose: (expectation: ChordExpectation, n: number) => string | null
 ): Promise<Played[]> {
 	const played: Played[] = [];
+	const briefings: string[] = [];
 	let lastTarget: number | null = null;
 	let due: { time: number; expectation: ChordExpectation } | null = null;
 	for (let step = 0; step < 100_000 && played.length < changes; step++) {
 		ctx.clock.advance(0.01);
 		ctx.metronome.flush();
+		// An exercise met for the first time stops on its instruction: « C'est parti ».
+		if (ctx.controller.view.status === 'paused' && ctx.controller.view.briefing) {
+			briefings.push(ctx.controller.view.briefing.text);
+			ctx.controller.resume();
+		}
 		const target = ctx.controller.view.targetBeatIndex;
 		if (target !== null && target !== lastTarget && ctx.metronome.isRunning()) {
 			lastTarget = target;
@@ -113,6 +119,7 @@ async function play(
 		}
 		if (step % 50 === 0) await Promise.resolve();
 	}
+	ctx.briefings.push(...briefings);
 	return played;
 }
 
@@ -182,6 +189,11 @@ describe('a gesture session, end to end', () => {
 
 		const attempts = await ctx.deps.attempts.all();
 		const exercises = attempts.map((a) => a.exerciseId);
+		// The link came first, told on the start screen; the climb and the jam each stopped once.
+		expect(ctx.briefings).toEqual([
+			expect.stringMatching(/^Joue la grille sur le groupe/),
+			expect.stringMatching(/^Joue la grille comme tu veux/)
+		]);
 		expect(exercises.slice(0, 7).every((id) => id === 'gesture-link')).toBe(true);
 		expect(exercises.slice(7, 16).every((id) => id === 'gesture-climb')).toBe(true);
 		expect(exercises.slice(16, 25).every((id) => id === 'gesture-jam')).toBe(true);

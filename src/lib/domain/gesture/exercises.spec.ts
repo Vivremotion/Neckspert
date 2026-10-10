@@ -10,19 +10,23 @@ import {
 } from './exercises';
 
 describe('the gesture exercises', () => {
-	it('are four, in the order of the ladder, in the catalog, shown on the scrolling grid', () => {
+	it('are four, in the order of the ladder, in the catalog, each with its view and instruction', () => {
 		expect(GESTURE_EXERCISES.map((e) => e.id)).toEqual([
 			'gesture-link',
 			'gesture-climb',
 			'gesture-zone',
 			'gesture-jam'
 		]);
+		expect(GESTURE_EXERCISES.map((e) => e.view)).toEqual([
+			'link-path',
+			'grid-scroll',
+			'grid-scroll',
+			'grid-scroll'
+		]);
+		expect(GESTURE_LINK.howTo?.fr).toMatch(/^Joue les formes de l’accord/);
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(exercise).toMatchObject({
-				mechanic: 'chord-grid',
-				view: 'grid-scroll',
-				startTempoBpm: 80
-			});
+			expect(exercise).toMatchObject({ mechanic: 'chord-grid', startTempoBpm: 80 });
+			expect(exercise.howTo?.fr && exercise.howTo.en).toBeTruthy();
 			expect(EXERCISES).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);
 		}

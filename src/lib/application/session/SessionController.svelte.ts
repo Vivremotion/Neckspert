@@ -114,6 +114,10 @@ export class SessionController implements PlaySessionController {
 	private previousPrompt: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
+	/** The exercises whose instruction was told in this series. */
+	private readonly introduced = new Set<ExerciseId>();
+	/** The series `ready` prepared before the start, taken by `start`. */
+	private prepared: Awaited<ReturnType<PrepareSeries>> | null = null;
 	/** A count that runs past the round's opening, down to its target; null otherwise. */
 	private countdownTo: number | null = null;
 	/** Cancels the wake-up at the current round's handover, when it has one. */
@@ -160,8 +164,25 @@ export class SessionController implements PlaySessionController {
 			preview: null,
 			contest: null,
 			audioError: null,
-			stage: null
+			stage: null,
+			briefing: null
 		});
+	}
+
+	async ready(): Promise<void> {
+		if (this.view.status !== 'idle' || this.prepared || this.starting) return;
+		const run = this.run;
+		const [series, settings] = await Promise.all([
+			this.prepare(this.sessionId),
+			this.deps.settings.get()
+		]);
+		if (this.run !== run || this.view.status !== 'idle') return;
+		this.prepared = series;
+		this.locale = settings.locale;
+		this.selector = series.selector;
+		this.pending ??= this.takeNext();
+		const text = this.pending ? this.howToOf(this.pending) : null;
+		this.view.briefing = text === null ? null : { text };
 	}
 
 	async start(): Promise<void> {
@@ -172,13 +193,17 @@ export class SessionController implements PlaySessionController {
 		const run = ++this.run;
 		try {
 			if (this.view.status === 'finished') this.beginNewSeries();
-			const { selector, executions } = await this.prepare(this.sessionId);
+			const { selector, executions } = this.prepared ?? (await this.prepare(this.sessionId));
+			this.prepared = null;
 			if (this.run !== run) return;
 			this.selector = selector;
 			this.executions = executions;
 			this.startedAt = this.deps.now();
 			// Show the first prompt's stage right away, before audio and the microphone.
 			this.prepareStage();
+			// Its instruction, if any, was on the start screen: no stop of its own.
+			if (this.pending) this.introduced.add(this.pending.exerciseId);
+			this.view.briefing = null;
 			// The metronome starts at the tempo of the first prompt's exercise.
 			this.setTempo(sessionTempo(executions, this.pending?.exerciseId, this.pending?.tempoScope));
 			await this.beginAudio(run);
@@ -189,6 +214,8 @@ export class SessionController implements PlaySessionController {
 
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
+		this.introduced.clear();
+		this.view.briefing = null;
 		this.selector = null;
 		this.executions = [];
 		this.pending = null;
@@ -311,6 +338,7 @@ export class SessionController implements PlaySessionController {
 
 	resume(): void {
 		if (this.view.status !== 'paused') return;
+		this.view.briefing = null;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.counting = true;
@@ -962,6 +990,43 @@ export class SessionController implements PlaySessionController {
 		this.waitOnGrid(item, beat.index);
 	}
 
+	/** The instruction of an exercise, in the player's language; null without one. */
+	private howToOf(item: PlannedItem): string | null {
+		try {
+			return this.exerciseOf(item.exerciseId)?.howTo?.[this.locale] ?? null;
+		} catch {
+			// An exercise the catalog does not know (a test's) has no instruction.
+			return null;
+		}
+	}
+
+	/** The first prompt of an exercise with an instruction, in this series. */
+	private needsBriefing(item: PlannedItem): boolean {
+		return !this.introduced.has(item.exerciseId) && this.howToOf(item) !== null;
+	}
+
+	/**
+	 * Stops before `item`, as at the start of a series, to tell its exercise's instruction:
+	 * the metronome stopped, the span of the round before closed. `resume` goes on with a counted
+	 * bar at the exercise's tempo, in place of a restart for the tempo.
+	 */
+	private brief(item: PlannedItem): void {
+		this.introduced.add(item.exerciseId);
+		this.dropHandover();
+		this.expectAll({});
+		this.closeSpan();
+		this.pending = item;
+		this.pendingPrompt = null;
+		this.switchTo = null;
+		this.countdownTo = null;
+		this.view.countdown = null;
+		this.view.preview = null;
+		this.view.briefing = { text: this.howToOf(item) ?? '' };
+		this.showStage(item, null);
+		this.deps.metronome.stop();
+		this.setStatus('paused');
+	}
+
 	/** The round is over: its prompt leaves the screen. */
 	private clearPrompt(): void {
 		this.clearItemState();
@@ -978,6 +1043,10 @@ export class SessionController implements PlaySessionController {
 	 * for a new sequence or scene, after a restart for another tempo.
 	 */
 	private waitOnGrid(item: PlannedItem, beatIndex: number): void {
+		if (this.needsBriefing(item)) {
+			this.brief(item);
+			return;
+		}
 		this.pending = item;
 		this.showStage(item, null);
 		const presenter = this.presenterFor(item);

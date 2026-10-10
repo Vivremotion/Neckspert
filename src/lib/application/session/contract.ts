@@ -101,6 +101,11 @@ export interface PlayView {
 	 * it; null (or absent) for a mechanic without one, whose prompt the play screen shows.
 	 */
 	stage?: { view: string; model: unknown } | null;
+	/**
+	 * The instruction of the exercise about to start for the first time in the series: on the
+	 * start screen (idle), or at a stop of its own (paused, `resume` goes on); null otherwise.
+	 */
+	briefing?: { text: string } | null;
 }
 
 export interface PlayTimeline {
@@ -114,6 +119,11 @@ export interface PlaySessionController {
 	/** Deeply reactive ($state). Read-only for the UI. */
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;
+	/**
+	 * Prepares the series without audio, so the start screen can tell the first exercise's
+	 * instruction (`PlayView.briefing`). Optional; `start` prepares it otherwise.
+	 */
+	ready?(): Promise<void>;
 	/** Starts audio and the series. Call from a user gesture. */
 	start(): Promise<void>;
 	pause(): void;

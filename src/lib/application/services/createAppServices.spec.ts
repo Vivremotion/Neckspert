@@ -352,7 +352,7 @@ describe('the gesture track', () => {
 			kind: 'gesture',
 			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }]
 		});
-		expect(controller.view.stage?.view).toBe('grid-scroll');
+		expect(controller.view.stage?.view).toBe('link-path');
 		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
 			tick(deps, deps.metronome.secondsPerBeat());
 		}

@@ -30,25 +30,50 @@ function gestureParams(rule: GestureRule, grids: boolean): GestureParams {
  * A gesture exercise. They share the chord-grid mechanic, so each starts at its own tempo rather
  * than the last tempo of another (`startTempo`).
  */
-function gestureExercise(id: ExerciseId, rule: GestureRule, grids: boolean): ExerciseDefinition {
+function gestureExercise(
+	id: ExerciseId,
+	rule: GestureRule,
+	grids: boolean,
+	howTo: { fr: string; en: string },
+	view = 'grid-scroll'
+): ExerciseDefinition {
 	return {
 		id,
 		version: 1,
 		mechanic: 'chord-grid',
 		params: { ...gestureParams(rule, grids) },
 		startTempoBpm: 80,
-		view: 'grid-scroll'
+		view,
+		howTo
 	};
 }
 
 /** Link the shapes of a chord on a set, up the neck then down. */
-export const GESTURE_LINK = gestureExercise('gesture-link', 'link', false);
+export const GESTURE_LINK = gestureExercise(
+	'gesture-link',
+	'link',
+	false,
+	{
+		fr: 'Joue les formes de l’accord l’une après l’autre en montant le manche, une par mesure, puis redescends par le même chemin. Attaque chaque forme sur le premier temps, puis joue le rythme que tu veux.',
+		en: 'Play the shapes of the chord one after the other up the neck, one per bar, then come back down the same way. Attack each shape on the first beat, then play any rhythm you like.'
+	},
+	'link-path'
+);
 /** Play a grid on a set, each shape higher (or lower) than the one before. */
-export const GESTURE_CLIMB = gestureExercise('gesture-climb', 'climb', true);
+export const GESTURE_CLIMB = gestureExercise('gesture-climb', 'climb', true, {
+	fr: 'Joue la grille sur le groupe indiqué. À chaque changement, choisis une forme plus haute sur le manche que la précédente (ou plus basse si la flèche descend). Quand le manche s’arrête, repars dans l’autre sens.',
+	en: 'Play the chart on the strings shown. At each change, pick a shape higher up the neck than the one before (or lower if the arrow points down). When the neck runs out, turn back the other way.'
+});
 /** Play a grid within a zone of frets. */
-export const GESTURE_ZONE = gestureExercise('gesture-zone', 'zone', true);
+export const GESTURE_ZONE = gestureExercise('gesture-zone', 'zone', true, {
+	fr: 'Joue la grille sans sortir de la zone indiquée, sur l’un des deux groupes de cordes.',
+	en: 'Play the chart without leaving the frets shown, on either set of strings.'
+});
 /** Play a grid anywhere. */
-export const GESTURE_JAM = gestureExercise('gesture-jam', 'jam', true);
+export const GESTURE_JAM = gestureExercise('gesture-jam', 'jam', true, {
+	fr: 'Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.',
+	en: 'Play the chart as you like: any shape, any rhythm. Only the chord counts.'
+});
 
 /** The gesture exercises, in the order of the ladder. */
 export const GESTURE_EXERCISES: readonly ExerciseDefinition[] = [

@@ -145,11 +145,17 @@
 			{:else if view.audioError === 'input'}
 				<p class="how" role="alert">{t.noInput}</p>
 			{:else}
-				<p class="how">{t.howTo[kind]}</p>
+				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
 			{/if}
 			<PixelButton size="huge" onclick={() => controller.start()}
 				>{view.status === 'finished' ? t.again : t.start}</PixelButton
 			>
+		</div>
+	{:else if view.status === 'paused' && view.briefing}
+		<!-- An exercise met for the first time: its instruction, then a counted bar. -->
+		<div class="overlay" role="dialog" aria-label={t.go}>
+			<p class="how">{view.briefing.text}</p>
+			<PixelButton size="huge" onclick={() => controller.resume()}>{t.go}</PixelButton>
 		</div>
 	{:else if view.status === 'paused'}
 		<div class="overlay">

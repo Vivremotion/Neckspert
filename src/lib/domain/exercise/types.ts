@@ -15,6 +15,11 @@ export interface ExerciseDefinition {
 	chordDiagram?: ChordDiagramStyle;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
+	/**
+	 * What to do, told before the exercise's first prompt in a series: on the start screen when it
+	 * comes first, else at a stop of its own. Data, in each language.
+	 */
+	howTo?: { fr: string; en: string };
 }
 
 /**

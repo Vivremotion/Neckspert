@@ -90,4 +90,22 @@ describe('PlayFrame', () => {
 		const count = document.querySelector('.countdown');
 		expect(count?.getAttribute('aria-label')).toBe('1');
 	});
+
+	it('tells an exercise instruction, on the start screen and at its own stop', async () => {
+		const controller = new StageController();
+		controller.view.briefing = { text: 'Joue les formes.' };
+		render(PlayFrame, { props: { controller } });
+		expect(screen.getByText('Joue les formes.')).toBeTruthy();
+		cleanup();
+		const stopped = new StageController();
+		stopped.view.status = 'paused';
+		stopped.view.briefing = { text: 'Joue la grille.' };
+		render(PlayFrame, { props: { controller: stopped } });
+		expect(screen.getByText('Joue la grille.')).toBeTruthy();
+		await fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+		expect(stopped.calls).toEqual(['resume']);
+		stopped.view.status = 'paused';
+		await fireEvent.click(await screen.findByRole('button', { name: /c’est parti/i }));
+		expect(stopped.calls).toEqual(['resume', 'resume']);
+	});
 });

@@ -40,6 +40,7 @@ export const playMessages = defineMessages({
 		stringOf: (name: string) => `corde de ${name}`,
 		aidFret: (fret: number) => `case ${fret}`,
 		finished: 'Série terminée',
+		go: 'C’est parti',
 		fatigue: 'Fatigue détectée : la session s’arrête à la fin du passage'
 	},
 	en: {
@@ -75,6 +76,7 @@ export const playMessages = defineMessages({
 		stringOf: (name: string) => `${name} string`,
 		aidFret: (fret: number) => `fret ${fret}`,
 		finished: 'Series over',
+		go: 'Let’s go',
 		fatigue: 'Fatigue detected: the session stops at the end of the passage'
 	}
 });
