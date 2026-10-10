@@ -6,6 +6,7 @@
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import { finishDestination } from '$lib/application/session/finishDestination';
 	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
+	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 
 	let controller = $state<PlaySessionController | null>(null);
@@ -39,6 +40,9 @@
 
 {#if error}
 	<p>{error}</p>
+{:else if controller && kind === 'gesture'}
+	<!-- The gesture track shows its exercise's view in the common frame; notes and triads keep their screen. -->
+	<PlayFrame {controller} {kind} quitToSummary />
 {:else if controller}
 	<PlayScreen {controller} {kind} quitToSummary />
 {/if}

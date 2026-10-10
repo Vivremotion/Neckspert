@@ -38,7 +38,9 @@ export const playMessages = defineMessages({
 		playedRight: 'Joué juste',
 		contested: 'Contesté',
 		stringOf: (name: string) => `corde de ${name}`,
-		aidFret: (fret: number) => `case ${fret}`
+		aidFret: (fret: number) => `case ${fret}`,
+		finished: 'Série terminée',
+		fatigue: 'Fatigue détectée : la session s’arrête à la fin du passage'
 	},
 	en: {
 		pause: 'Pause',
@@ -71,6 +73,8 @@ export const playMessages = defineMessages({
 		playedRight: 'Played right',
 		contested: 'Contested',
 		stringOf: (name: string) => `${name} string`,
-		aidFret: (fret: number) => `fret ${fret}`
+		aidFret: (fret: number) => `fret ${fret}`,
+		finished: 'Series over',
+		fatigue: 'Fatigue detected: the session stops at the end of the passage'
 	}
 });

@@ -21,6 +21,7 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
 - **Origine** : 2026-10-08, bande de l’accord des triades d’ancrage sur la piste. Il n’y a qu’un écran de jeu (`PlayScreen`, scènes piste et pavé) ; chaque mécanique y ajoute des champs facultatifs (`detail`, `diagram`, la bande de l’ancrage), si bien qu’un changement pour une mécanique touche la vue de toutes.
 - **Direction** : un cadre commun (pause, quitter, overlays, métronome) et une vue par mécanique, enregistrée par son id, assemblée à partir de briques communes (piste, consigne, verdict, pavé). Le présentateur donne des données d’écran opaques, lues par la seule vue de sa mécanique ; le cœur ne nomme toujours aucune mécanique. Une vue par mécanique et non par exercice : un exercice est une définition en données qui réutilise la vue de sa mécanique (décisions 1 et 8).
 - **À reprendre** alors : `PromptView.detail`, `diagram`, `target`, `band`, `shape`, `VerdictView.heard`, `expected`, `gap`, `PlayView.followUp` et `contest` quittent le contrat commun.
+- **Fait en partie** (2026-10-10, voie du geste) : le cadre commun existe (`PlayFrame`), avec le registre des vues (`PLAY_VIEWS`) et le modèle d’écran opaque (`MechanicPresenter.stage`, `PlayView.stage`) ; la vue est nommée par l’exercice (`ExerciseDefinition.view`). Reste : `PlayFrame` pour les notes et les triades, qui gardent `PlayScreen`.
 
 ## Généraliser les accords à tous les instruments, groupes et qualités
 
