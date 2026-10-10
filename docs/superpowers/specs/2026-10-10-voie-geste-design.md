@@ -1,0 +1,305 @@
+# Design — voie du geste (D)
+
+Sous-projet D de l’étape 3 (`docs/plateforme.md`). Conçu dans la conversation du 2026-10-10, à partir du cours du 2026-09-24 (`docs/brief.md`) et de ses devoirs : la grille d’« I Only Have Eyes for You », lignes 1 et 2, en montant le manche puis, à la reprise, en descendant ; retrouver plusieurs formes d’un même accord. Specs liées : `2026-10-06-accords-voicings-design.md` (A), `2026-10-07-capteur-accords-design.md` (B1), `2026-10-08-voie-memoire-triades-design.md` (C1), `2026-10-09-retours-voie-memoire-design.md`.
+
+## Décisions de pédagogie
+
+- **La pédagogie décide, la technique suit.** Le geste se joue comme en jam : l’accord est attaqué sur son changement, puis le rythme est libre (plaqué, arpégé, mélangé).
+- **La mémoire (C1) apprend les formes ; le geste les enchaîne.** Ici, pas de carte FSRS : on mesure un savoir-faire, et sa courbe est le tempo tenu.
+- **Un passage** est une grille jouée une fois, sans arrêt, au tempo de l’exercice. **Chaque changement d’accord est un essai.**
+- **Quatre exercices, dans l’ordre de l’échelle** : relier les formes, contrainte de déplacement, rester dans une zone, jam. Un exercice s’ouvre quand la voie de la mémoire a appris ses triades.
+- **Les grilles sont des données** écrites avec leurs vrais symboles (Dm7, G7, Cmaj7…). Une règle, elle aussi en données, donne la triade jouée pour chaque symbole. Les grilles resteront justes le jour où on jouera des tétrades.
+- **La vue appartient à l’exercice** : le moteur produit un modèle d’écran, l’exercice nomme la vue qui l’affiche. Une nouvelle présentation (grille du prof, partition, piste) est une nouvelle vue, sans toucher au moteur.
+
+## 1. Les quatre exercices
+
+Contenu de départ : triades majeures et mineures serrées sur sol‑si‑mi `[3, 2, 1]` et ré‑sol‑si `[4, 3, 2]`, comme en C1.
+
+| Exercice                  | Id              | Élément                  | Passage                                                                     | Juste quand l’accord joué…                                                                                                                   | Repère affiché                                               |
+| ------------------------- | --------------- | ------------------------ | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Relier les formes         | `gesture-link`  | un accord sur un groupe  | ses formes en montant puis en descendant, une par mesure                    | est la forme demandée                                                                                                                        | le groupe, le renversement demandé (« fondamentale sur si ») |
+| Contrainte de déplacement | `gesture-climb` | une grille sur un groupe | la grille, en montant ou en descendant, en alternant d’un passage à l’autre | est sur le groupe, à une position strictement plus haute (montée) ou plus basse (descente) que la forme jouée avant, la première étant libre | le groupe et une flèche ↑ ou ↓                               |
+| Rester dans une zone      | `gesture-zone`  | une grille               | la grille, dans une zone de 4 cases qui change à chaque passage             | a toutes ses cases dans la zone, sur l’un des deux groupes                                                                                   | « cases 5 à 8 »                                              |
+| Jam                       | `gesture-jam`   | une grille               | la grille                                                                   | est le bon accord, sur l’un des deux groupes, à n’importe quelle position                                                                    | les accords seuls                                            |
+
+- **Relier.** Les formes d’un passage sont les `LINK_SHAPES` (4) premières occurrences de l’accord sur le groupe, de position croissante à partir de la plus basse : les trois renversements, puis le premier à l’octave. Le passage les monte puis les redescend sans répéter la plus haute (D sur sol‑si‑mi : 2‑3‑2, 7‑7‑5, 11‑10‑10, 14‑15‑14, 11‑10‑10, 7‑7‑5, 2‑3‑2, soit 7 mesures). Sans occurrence à l’octave, le tour s’arrête aux trois renversements.
+- **Contrainte.** La position d’une forme est celle de C1 (`occurrencePosition` : la case fretté la plus basse ; une forme à vide vaut 0). On la compare à la **dernière forme entendue dans le passage**. Sans forme entendue, le changement est libre. Le premier passage d’un élément monte ; ensuite, le sens alterne d’un passage à l’autre, comme les devoirs : « à la reprise, la contrainte inverse ».
+- **Zone.** Une zone couvre `ZONE_FRETS` (4) cases, de `from` à `from + 3`. Une corde à vide est hors zone. D’un passage à l’autre, la zone avance de `ZONE_STEP_FRETS` (3) cases et revient en bas du manche après `MAX_VOICING_FRET`. Une zone est sautée quand un accord de la grille n’y a aucune forme, sur aucun des deux groupes. Une zone de 4 cases sépare les formes jumelles des deux groupes, qui sonnent pareil mais sont à environ 5 cases l’une de l’autre.
+- **Jam.** Aucune contrainte de position.
+
+**Attaque et rythme, partout.** L’attaque est jugée à chaque changement : `perfect`, `early` ou `late`, avec les tolérances des notes (section 4). La première attaque est la réponse. Les suivantes sont gardées dans les observations mais pas jugées : le rythme reste libre jusqu’au changement suivant.
+
+**Aides.** Une aide montre la forme à jouer **au prochain changement** :
+
+- en relier, la forme demandée ;
+- en contrainte, la forme admise la plus proche de celle qu’on vient d’entendre ;
+- en zone, la forme la plus basse dans la zone ;
+- en jam, rien.
+
+Un passage est aidé quand son élément n’a encore aucun passage réussi, ou quand son dernier passage a échoué. L’aide disparaît après un passage réussi (`PlannedItem.aid`, `'show-position'` ou `'none'`).
+
+### Grilles de départ (`domain/grid/catalog.ts`)
+
+- **`iohefy-a`** : « I Only Have Eyes for You », lignes 1 et 2 avec la première fin (relevé iReal Pro du cours), 8 mesures en 4/4 :
+
+  | Mesure  | 1   | 2   | 3   | 4   | 5     | 6                  | 7   | 8                  |
+  | ------- | --- | --- | --- | --- | ----- | ------------------ | --- | ------------------ |
+  | Accords | Dm7 | G7  | Dm7 | G7  | Cmaj7 | Cmaj7, F7 sur le 3 | Em7 | Ebm7, Ab7 sur le 3 |
+
+  Triades : Dm, G, C, F, Em, Ebm, Ab.
+
+- **`blues-f`** : blues en F, 12 mesures : F7 | Bb7 | F7 | F7 | Bb7 | Bb7 | F7 | F7 | C7 | Bb7 | F7 | C7. C’est la forme simple. Le cours ne précisait pas laquelle ; à confirmer avec le prof, c’est une donnée.
+
+Deux symboles égaux qui se suivent forment **un seul changement** : en mesure 5, Cmaj7 dure 6 temps.
+
+## 2. Grilles et symboles (`src/lib/domain/grid/`)
+
+```ts
+/** Où un accord commence : mesure (1…) et temps (1…), fractionnaire (4.5 : la croche après le 4). */
+interface GridChord {
+	bar: number;
+	beat: number;
+	symbol: string;
+}
+interface ChordGrid {
+	id: string;
+	title: string;
+	beatsPerBar: 4;
+	bars: number;
+	chords: readonly GridChord[];
+}
+
+/** Un changement : son début et sa durée en temps depuis le début de la grille, et son symbole. */
+interface GridChange {
+	at: number;
+	length: number;
+	symbol: string;
+}
+function gridChanges(grid: ChordGrid): GridChange[]; // fusionne les symboles égaux consécutifs
+```
+
+- **Validation** (`RangeError`) : le premier accord est en mesure 1, temps 1 ; les positions croissent strictement ; chaque temps est dans `[1, beatsPerBar + 1)` ; chaque mesure est dans la grille ; chaque symbole se lit. Un temps est un nombre : une triolet (1 + 2/3) est approchée, et les tests comparent avec `toBeCloseTo`.
+- **Lecteur de symboles** `parseChordSymbol(symbol)` → `{ root: SpelledNote; quality: string; extensions: string[]; bass: SpelledNote | null }`.
+  - La fondamentale est une lettre suivie de `#` ou `b`.
+  - Le suffixe est cherché dans une **table de données** (`SUFFIXES`, la plus longue correspondance d’abord). Elle connaît `''`, `m`, `-`, `7`, `maj7`, `M7`, `Δ7`, `Δ`, `m7`, `-7`, `6`, `m6`, `ø`, `ø7`, `m7b5`, `dim`, `o`, `aug`, `+`, `7#5`, `7+5`, `7b9`, `7#9`, `7#11`, `7b13`, `9`, `sus2` et `sus4`.
+  - La table donne l’id de la qualité et les extensions, gardées en données (`b9`, `#11`… : les degrés au-delà de l’octave viendront avec la Généralisation).
+  - `/F` donne la basse.
+  - Un symbole inconnu lève une `RangeError` qui le cite.
+- **Qualités de septième.** De nouvelles lignes entrent dans la table de `chord.ts` : `maj7` (1, 3, 5, 7), `7` (1, 3, 5, b7), `m7` (1, b3, 5, b7), `m7b5` (1, b3, b5, b7), `6` (1, 3, 5, 6), `m6` (1, b3, 5, 6) et `7#5` (1, 3, #5, b7). Elles n’utilisent que les degrés existants ; `dim7`, qui demande `bb7`, attend la Généralisation. `closeTriadVoicings` refuse toujours ce qui n’est pas une triade.
+- **Triade d’un symbole** `triadOf(symbol)` → `Chord`, par la table de données `TRIAD_OF_QUALITY` :
+  - `maj`, `7`, `maj7`, `6` et `9` donnent `maj` ;
+  - `min`, `m7` et `m6` donnent `min` ;
+  - `m7b5` et `dim` donnent `dim` ;
+  - `aug` et `7#5` donnent `aug`.
+
+  `sus2` et `sus4` n’ont pas de triade : une `RangeError` refuse la grille dans un exercice de triades. La basse est ignorée : G7/F se joue G.
+
+- **Temps audio.** Un changement à `at` temps du début du passage tombe à `beatTime(début + at)`, et le métronome clique les temps. Aucune grille de départ n’a de changement entre deux temps, mais le moteur les accepte : un test en fait jouer un à la croche et un à la triolet.
+
+## 3. La mécanique `chord-grid`
+
+Une seule mécanique pour les quatre exercices : ils ne diffèrent que par leurs données. `src/lib/domain/mechanics/chordGrid.ts` et `src/lib/domain/gesture/`.
+
+```ts
+type GestureRule = 'link' | 'climb' | 'zone' | 'jam';
+
+/** Un changement d'un passage : tout ce qu'il faut pour le juger, l'écouter et l'afficher. */
+interface ChordGridItem {
+	rule: GestureRule;
+	/** L'élément (stable) : 'link:D|maj:3,2,1', 'climb:iohefy-a:3,2,1', 'zone:iohefy-a', 'jam:blues-f'. */
+	element: string;
+	/** Ce passage dans la série : les essais d'un passage se regroupent par lui. */
+	passageId: string;
+	index: number;
+	changes: readonly GridChange[]; // la grille du passage, pour la vue
+	symbol: string; // ce changement
+	chord: string; // sa triade : 'D|min'
+	sets: readonly (readonly StringNumber[])[];
+	shape?: string; // relier : l'occurrence demandée (occurrenceId)
+	direction?: 'up' | 'down'; // contrainte
+	zone?: { from: number; to: number }; // zone
+	/** La dernière forme entendue dans le passage (occurrenceId) : elle sonne encore ; la contrainte s'y compare. */
+	previous: string | null;
+}
+```
+
+- **Clé et sauvegarde.** `itemKey` vaut `${element}#${index}`. `cardItem` et `parseItem` rendent `{ element, index }`, si bien que la validation de la sauvegarde accepte les essais (un aller-retour testé). `learner` vaut `'skill'` (section 5).
+- **Juge** `judge(item, { decided })`. Il est pur et ne lit que l’item. Dans l’ordre :
+  1. rien de reconnu donne `none` ;
+  2. une autre fondamentale donne `other-chord` ;
+  3. la même fondamentale avec une autre qualité donne `other-quality` ;
+  4. une forme hors des groupes du passage donne `other-set` ;
+  5. ensuite, selon la règle :
+     - relier : une autre forme que celle demandée donne `other-shape` ;
+     - contrainte : une position qui ne monte pas donne `not-higher`, une position qui ne descend pas donne `not-lower` ;
+     - zone : une forme hors de la zone donne `out-of-zone` ;
+     - jam : tout le reste est juste.
+
+  Confusion : `{ kind, part: 'chord' }`, comme en C1.
+
+- **Candidats** (`MechanicPresenter.expectation`, capteur `chord`) :
+  - **attendues** : les formes que la règle admet, sur les groupes du passage ;
+  - **voisines** : les autres formes du même accord sur ces groupes, celles de l’autre qualité, et celles des autres accords de la grille, à `NEIGHBOUR_FRETS` (2) cases au plus de la plage des attendues (en jam, tout le manche) ;
+  - **jamais la forme qui sonne encore** (`previous`), ni aucune forme de mêmes hauteurs.
+
+  Style `'unknown'`.
+
+- **Présentateur** `chordGridPresenter` (`src/lib/application/mechanics/chordGrid.ts`) : capteur `chord`, scène `guitar`, `contestable`. Il donne :
+  - `prompt` (le symbole et le repère, pour le contrat commun) ;
+  - `feedback` (la forme entendue, la forme admise la plus proche, la confusion) ;
+  - `expectation` ;
+  - `stage` (section 6).
+
+## 4. Le temps : des manches contiguës
+
+Une consigne de grille est **un changement**. Les manches d’un passage se suivent **sans respiration ni mesure comptée**.
+
+### Le rapport au temps `gridTiming` (`domain/timing/gridChange.ts`)
+
+- **Tolérance en avance** : `early = min(GRID_EARLY_MS, GRID_EARLY_MAX_BEATS × durée d'un temps)`, soit 200 ms à 80 bpm et 150 ms à 160 bpm. Elle reste sous la demi-temps : une attaque de l’accord précédent sur la croche d’avant ne passe jamais pour le changement.
+- **La manche du changement k** :
+  - elle écoute de `change − early` à **la passe** : `changement suivant − early`, ou fin du passage − early pour le dernier ;
+  - fenêtre juste : jusqu’à `change + LATE_LIMIT_MS`, bornée par la passe. Dedans, une attaque juste reçoit `timingVerdict(écart)` : `perfect`, `early` ou `late` ;
+  - après, jusqu’à la passe : `offbeat` si l’accord est juste, `wrong` sinon ;
+  - sans réponse quand la fenêtre se ferme, un raté provisoire s’affiche, comme pour `BeatRound` ;
+  - la première attaque est la réponse ; ses lectures se précisent (`final`), comme en C1 ;
+  - une attaque d’avant l’ouverture est `before-window`, une attaque d’après la passe est `after-capture`.
+- **Ouverture d’une manche.**
+  - Une manche qui suit une passe (`chained`) a son changement au temps fractionnaire de la passe.
+  - Autrement (début de passage, reprise après une pause), elle s’ouvre sur le temps 4 d’une mesure et son changement tombe sur le 1 suivant (`promptBeat = alignedPromptBeat(earliest, 1)`). Après une pause, le passage reprend au changement suivant, après la mesure comptée.
+- `isDirectRecall` vaut toujours false ; `leadBeats` est null ; `previewBeats` vaut 0.
+
+### Ce que le cœur gagne (générique, ne nomme aucune mécanique)
+
+- **`Round.handover?: { beat: number; time: number }`** : « la manche suivante peut s’ouvrir sans intervalle à cette heure audio, sur ce temps (fractionnaire) ». Une manche qui a une passe s’est réglée au plus tard à cette heure. Le contrôleur n’avance plus sur `after().advanceAt` : seule la passe le fait.
+- **`TimingRelation.open` reçoit `chained: boolean`** et l’item de la consigne (`planned.item`), en plus de `leadBeats`.
+- **`MetronomePort.at(time, callback): () => void`** appelle `callback` une fois que l’horloge audio a atteint `time`, au réveil suivant de l’ordonnanceur (au plus `DEFAULT_LOOKAHEAD_MS` de retard, jamais en avance). L’appel est annulé par `stop()` ou par la fonction rendue. `FakeMetronome.flush()` déclenche les réveils dus dans l’ordre du temps, entre les temps.
+- **La passe, dans le contrôleur.** À l’ouverture d’une manche qui a une passe, le contrôleur programme `metronome.at(handover.time)`. Au réveil, dans l’ordre :
+  1. retirer les attentes (`expectAll({})`), pour que la fenêtre coupée du capteur rapporte dans la manche qui finit ;
+  2. régler la manche (`abandon`) et enregistrer son essai, ce qui informe le sélecteur ;
+  3. prendre la consigne suivante. S’il n’y en a pas, la session se termine. Si elle n’a ni `countIn`, ni autre tempo, ni autre scène, sa manche s’ouvre aussitôt, `chained`, au temps de la passe (`beginNextItem`). Sinon, elle attend sur la grille des temps comme aujourd’hui, à partir du premier temps entier après la passe, avec mesure comptée et changement de tempo.
+
+  Une pause, un arrêt ou la fin annulent le réveil.
+
+Les observations restent rattachées à la manche ouverte **à leur arrivée**. Les attentes changent à la passe, et le capteur rapporte la fenêtre coupée dans la manche qui finit : une attaque faite avant la passe est lue avec l’attente de son changement.
+
+## 5. Progrès, ouverture, session
+
+- **`MechanicRules.learner: 'memory' | 'skill'`.** Les essais d’un apprenant `skill` sont enregistrés avec leurs observations, mais ne créent ni ne touchent aucune carte. `AttemptRecorder` le fait déjà.
+- **Réussite d’un passage** : la part de ses changements `isSuccess` vaut au moins `PASSAGE_SUCCESS` (0,9). Les changements se regroupent par `passageId`.
+- **Le tempo, courbe de progrès, par exercice** : chaque exercice a son `Progression`. La fin de session applique `nextTempo` à chacun, comme aujourd’hui pour tout genre autre que `free`. Le tempo de départ est 80 (`startTempo`).
+- **Ouverture** (`domain/gesture/opening.ts`). « Acquise » veut dire une carte `acquiredAt !== null` :
+  - relier (accord, groupe) : ses 3 renversements sur le groupe sont acquis en ancrage ;
+  - contrainte (grille, groupe) : chaque renversement de chaque triade de la grille sur le groupe est acquis en ancrage ;
+  - zone (grille) : chaque renversement de chaque triade sur les deux groupes est acquis en zone ;
+  - jam (grille) : chaque renversement de chaque triade est acquis en ancrage sur au moins un groupe.
+
+  Un exercice est ouvert quand l’un de ses éléments l’est.
+
+- **La session « Geste »** (genre `gesture`, `createGestureSelector`) :
+  - elle fait des tours dans l’ordre de l’échelle, un passage par exercice ouvert à chaque tour ;
+  - pour chaque exercice, elle choisit l’élément ouvert joué le moins récemment, d’après l’historique et la séance ; à égalité, l’ordre du contenu l’emporte, ce qui alterne les groupes ;
+  - elle ne commence plus de passage après `GESTURE_SESSION_MS` (5 min) ou quand la fatigue est détectée ; un passage commencé finit toujours ;
+  - le premier changement d’un passage a `countIn` ; les autres non ;
+  - chaque exercice joue à son tempo ; un autre tempo redémarre le métronome avec une mesure comptée (C1) ;
+  - le sélecteur garde `previous` (la forme `decided` de la dernière réponse du passage, qui sonne encore), le sens de la contrainte, la zone et l’aide de chaque élément.
+
+## 6. La vue : un modèle d’écran et un registre
+
+- **`MechanicPresenter.stage?(item, settled, locale)`** rend `{ model }`, un modèle d’écran opaque au cœur. Le contrôleur le pose dans **`PlayView.stage: { view: string; model: unknown } | null`**, avec `view` tiré de `ExerciseDefinition.view` (à défaut, `'grid-scroll'`). Le modèle est calculé :
+  - pour la consigne en attente pendant la mesure comptée (la grille se montre avant le premier accord) ;
+  - à l’ouverture de chaque manche ;
+  - au réglage de la manche, avec sa réponse (`settled`), parce que l’aide de la contrainte dépend de la forme entendue.
+
+  Les autres mécaniques n’ont pas de `stage` : `PlayView.stage` reste null et leur écran ne change pas.
+
+- **Modèle de la grille**, défini par la mécanique et lu par ses vues :
+
+  ```ts
+  { title, beatsPerBar, changes: GridChange[], index,
+    cue: { kind: 'link'; set: string; inversion: string }
+       | { kind: 'climb'; set: string; direction: 'up' | 'down' }
+       | { kind: 'zone'; from: number; to: number } | { kind: 'jam' },
+    aid: ShapeView | null }
+  ```
+
+  Avec `PlayView.targetBeatIndex` (le temps du changement en cours, donc le début du passage) et `PlayView.history` (un verdict par changement, à son temps), une vue sait tout placer.
+
+- **Registre** `src/lib/ui/play/views/index.ts` : `PLAY_VIEWS: Record<string, Component<{ controller: PlaySessionController; model: unknown }>>`. Une vue factice enregistrée sous un autre nom et nommée par un exercice factice est choisie à sa place (test).
+- **Cadre commun** `PlayFrame.svelte` : démarrer, pause (Espace), quitter, décompte, « Joué juste » (Entrée), erreur d’entrée audio, fatigue. Au centre, la vue du registre. La page `/session` l’emploie pour le genre `gesture` ; les notes et les triades gardent `PlayScreen` (leur migration reste dans `docs/todo.md`).
+- **Vue `grid-scroll`** (`GridScrollView.svelte`, Game Boy, `DESIGN.md`) :
+  - la ligne des accords défile mesure par mesure, comme la ligne du prof ;
+  - l’accord en cours est grand, le suivant est visible et annoncé au moins un temps avant, les suivants sont petits ;
+  - les accords joués portent leur verdict ;
+  - le repère de l’exercice est affiché, et l’aide est dessinée avec `ChordShape` ;
+  - aucun texte sous 16 px ;
+  - `prefers-reduced-motion` coupe le défilement animé et les pops.
+
+## 7. Accueil et bilan
+
+- **Accueil** : un bouton « Geste », visible dès qu’un exercice est ouvert (`AppServices.gesture(): Promise<{ open: boolean }>`).
+- **Bilan** (`SessionSummary.gesture`), par exercice joué :
+  - passages réussis sur passages joués ;
+  - part des changements justes et à temps (`isSuccess`) ;
+  - tempo joué et tempo suivant.
+
+  Suivent les changements ratés (accord, forme entendue, forme attendue), chacun avec « Joué juste » (`AppServices.contest(attemptId)`, qui étiquette l’essai sans rien changer d’autre). Le bilan des notes et des triades ne change pas.
+
+## 8. Constantes (à calibrer)
+
+| Constante              | Valeur  | Rôle                                                |
+| ---------------------- | ------- | --------------------------------------------------- |
+| `GRID_EARLY_MS`        | 200     | avance tolérée sur un changement                    |
+| `GRID_EARLY_MAX_BEATS` | 0,4     | …jamais plus de 0,4 temps                           |
+| `PASSAGE_SUCCESS`      | 0,9     | part des changements réussis pour un passage réussi |
+| `LINK_SHAPES`          | 4       | formes montées en relier                            |
+| `ZONE_FRETS`           | 4       | largeur d’une zone                                  |
+| `ZONE_STEP_FRETS`      | 3       | avance de la zone d’un passage à l’autre            |
+| `NEIGHBOUR_FRETS`      | 2       | portée des candidats voisins                        |
+| `GESTURE_SESSION_MS`   | 300 000 | durée d’une session Geste                           |
+
+`LATE_LIMIT_MS`, `PERFECT_WINDOW_MS` et `nextTempo` sont ceux des notes.
+
+## 9. Tests (écrits avant le code)
+
+- **Domaine** :
+  - lecteur de symboles : tous les symboles des deux grilles, Δ et ø, G7/F, et des erreurs (`H7`, `Dm7#`, `Gsus` inconnu) ;
+  - `triadOf` ;
+  - `gridChanges` : fusion de Cmaj7, positions et durées d’`iohefy-a`, validation ;
+  - position fractionnaire en heure audio, à 80 et 120 bpm (croche, triolet) ;
+  - juge des quatre règles avec leurs confusions (trop basse, hors zone, autre groupe, autre forme, autre accord) ;
+  - candidats sans la forme qui sonne ni ses jumelles ;
+  - formes de relier pour D et Ab ;
+  - rotation des zones, avec les zones sautées ;
+  - ouverture des quatre exercices.
+- **Temps** : `GridRound` (avance, juste, en retard, hors temps, sans réponse, lecture qui se précise, attaque d’avant l’ouverture).
+- **Cœur** : une mécanique factice dont trois consignes s’enchaînent par passes, jouée de bout en bout par le contrôleur avec `FakeMetronome` :
+  - pas de respiration ;
+  - une attaque 100 ms avant un changement compte pour lui, en avance ;
+  - une attaque 300 ms avant reste dans la manche précédente ;
+  - une passe sans réponse se règle en raté ;
+  - la pause annule la passe ;
+  - le tempo change au début du passage suivant.
+
+  Les sessions de notes et de triades restent inchangées (leurs specs passent telles quelles).
+
+- **`FakeMetronome.at` et `WebAudioMetronome.at`** : jamais en avance, annulation, ordre avec les temps.
+- **Apprenant `skill`** : essais enregistrés, aucune carte ; aller-retour par la sauvegarde.
+- **Sélecteur** : ordre de l’échelle, élément le moins récent, alternance des groupes et du sens, `countIn` au premier changement, fin après 5 min et à la fatigue, `previous` suivi.
+- **Vues** (`*.svelte.spec.ts`) :
+  - la grille défilante montre l’accord en cours, le suivant, le repère et l’aide ;
+  - une vue factice est choisie par son exercice ;
+  - `PlayFrame` met en pause et reprend.
+- **De bout en bout** : un passage de relier sur D, des passages de contrainte et de jam sur `iohefy-a`, avec un vérificateur factice ; tempo suivant écrit ; bilan.
+
+## Risques connus
+
+- **Formes jumelles** : en jam, deux groupes peuvent sonner à l’identique, et le juge s’en moque. En contrainte, le groupe est annoncé. En zone, la largeur de 4 cases les sépare.
+- **`previous` est la forme de la réponse**, pas celle d’une attaque plus tardive du même changement. Quand le joueur change de forme en cours d’accord, la forme qui sonne à la passe peut être une autre : elle reste candidate.
+- **Candidats nombreux en jam** : les jumelles et les autres accords de la grille sur tout le manche. Le journal de diagnostic (variantes) dira si le juge s’y perd.
+- **Attaque à cheval sur la passe** : coupée par le changement d’attente, elle rapporte une lecture courte dans la manche qui finit, et le changement suivant prend l’attaque d’après.
+- Le **« Joué juste » en jeu** dure jusqu’au changement suivant : c’est court en jouant. Le bilan l’offre aussi.
+
+## Hors périmètre
+
+La session à deux voies (E), l’accompagnement de batterie, les formes pleines (CAGED), les tétrades jouées, les changements sur des subdivisions cliquées par le métronome, le passage des notes et des triades à `PlayFrame`, la Généralisation (`docs/todo.md`) et un éditeur de grilles.
