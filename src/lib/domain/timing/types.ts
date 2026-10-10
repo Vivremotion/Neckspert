@@ -70,6 +70,12 @@ export interface TimingRelation {
 	id: string;
 	usesTempo: boolean;
 	previewBeats: number;
+	/**
+	 * Beats from a round's opening on the beat grid to its target, for a relation whose counted
+	 * bar counts down to its target rather than to its opening: the session then takes its
+	 * earliest beat as the target's and counts to it. Omitted: 0, the count ends on the opening.
+	 */
+	targetOffset?: number;
 	promptBeat(earliest: number, planned: { leadBeats: LeadBeats | null }): number;
 	/**
 	 * `planned.item`: the mechanic's item, for a relation that reads it (opaque otherwise).

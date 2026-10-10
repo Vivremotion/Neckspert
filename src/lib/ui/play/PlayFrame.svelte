@@ -78,6 +78,13 @@
 		<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
 	</div>
 
+	{#if view.countdown !== null}
+		<!-- The counted bar, down to the change itself: big, over the view. -->
+		<div class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
+			<div class="count"><PixelWord text={String(view.countdown)} /></div>
+		</div>
+	{/if}
+
 	<div class="stage">
 		{#if Stage && view.stage}
 			<Stage {controller} model={view.stage.model} />
@@ -85,9 +92,7 @@
 	</div>
 
 	<div class="status">
-		{#if view.status === 'count-in' && view.countdown !== null}
-			<div class="countdown" aria-live="polite"><PixelWord text={String(view.countdown)} /></div>
-		{:else if view.lastVerdict}
+		{#if view.lastVerdict && view.countdown === null}
 			<div class="verdict">
 				<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
 				{#if drawn}
@@ -210,6 +215,22 @@
 	}
 
 	/* The view takes the room it needs; the verdict follows right under it, in sight. */
+	.countdown {
+		position: absolute;
+		z-index: 5;
+		inset-inline: 0;
+		top: calc(var(--np-tile) * 16);
+		display: flex;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.count {
+		padding: var(--np-space-2, 16px) var(--np-space-4, 32px);
+		background: var(--np-bg);
+		border: calc(var(--np-tile) / 2) solid var(--np-ink);
+	}
+
 	.stage {
 		display: flex;
 		flex: 0 1 auto;

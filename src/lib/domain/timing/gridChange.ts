@@ -149,6 +149,8 @@ export function createGridTiming(timingOf: (item: unknown) => GridChangeTiming):
 		id: 'grid-change',
 		usesTempo: true,
 		previewBeats: 0,
+		// Opened a beat before its change, so an early attack counts; the count ends on the change.
+		targetOffset: 1,
 		initialLead: SHORTEST_LEAD,
 		promptBeat: (earliest) => alignedPromptBeat(earliest, 1),
 		open: ({ planned, promptBeat, beatTime, secondsPerBeat, chained = false }) =>

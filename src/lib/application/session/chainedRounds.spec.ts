@@ -79,7 +79,7 @@ const PASSAGES = [
 	change('D', 'grid-b', true)
 ];
 
-/** At 80 bpm from 0.1 s: the first change on beat 8, the next ones every 2 beats. */
+/** At 80 bpm from 0.1 s: the first change on beat 4 after one counted bar, then every 2 beats. */
 const beat80 = (i: number) => 0.1 + i * 0.75;
 
 function setup(items: PlannedItem[] = PASSAGES) {
@@ -151,30 +151,30 @@ describe('rounds handing over without a gap', () => {
 		const ctx = setup();
 		await ctx.controller.start();
 		const targets: (number | null)[] = [];
-		for (let t = 0.2; t < 10.3; t += 0.05) {
+		for (let t = 0.2; t < 7.3; t += 0.05) {
 			ctx.runTo(t);
 			const target = ctx.controller.view.targetBeatIndex;
 			if (target !== targets.at(-1)) targets.push(target);
 		}
-		expect(targets.filter((t) => t !== null)).toEqual([8, 10, 12]);
+		expect(targets.filter((t) => t !== null)).toEqual([4, 6, 8]);
 		// Never a moment without a change on screen between the first and the third.
-		const first = targets.indexOf(8);
-		expect(targets.slice(first, targets.indexOf(12) + 1)).toEqual([8, 10, 12]);
+		const first = targets.indexOf(4);
+		expect(targets.slice(first, targets.indexOf(8) + 1)).toEqual([4, 6, 8]);
 		await drain();
 		const attempts = await ctx.deps.attempts.all();
 		expect(attempts).toHaveLength(2);
-		// The second change shows at the first one's handover: beat 10 minus 200 ms.
-		expect(attempts[1].promptedAt).toBeCloseTo(ctx.clock.toEpochMs(beat80(10) - 0.2), 0);
+		// The second change shows at the first one's handover: beat 6 minus 200 ms.
+		expect(attempts[1].promptedAt).toBeCloseTo(ctx.clock.toEpochMs(beat80(6) - 0.2), 0);
 	});
 
 	it('takes an attack 100 ms before a change as its early answer', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(8));
+		ctx.runTo(beat80(4));
 		ctx.play('A');
-		ctx.runTo(beat80(10) - 0.1);
+		ctx.runTo(beat80(6) - 0.1);
 		ctx.play('B');
-		ctx.runTo(beat80(12) - 0.1);
+		ctx.runTo(beat80(8) - 0.1);
 		await drain();
 		const [first, second] = await ctx.deps.attempts.all();
 		expect(first).toMatchObject({ verdict: 'perfect', correct: true });
@@ -184,9 +184,9 @@ describe('rounds handing over without a gap', () => {
 	it('leaves an attack 300 ms before a change in the round before', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(10) - 0.3);
+		ctx.runTo(beat80(6) - 0.3);
 		ctx.play('B');
-		ctx.runTo(beat80(12) - 0.1);
+		ctx.runTo(beat80(8) - 0.1);
 		await drain();
 		const [first, second] = await ctx.deps.attempts.all();
 		// The first change took it as its answer, the wrong chord, late.
@@ -198,17 +198,17 @@ describe('rounds handing over without a gap', () => {
 	it('withdraws the expectation before settling: a window cut short reports into the round that ends', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(10) - 0.25);
-		const handover = beat80(10) - 0.2;
-		// The sensor's window, attacked at 9.5 beats, is cut by the handover: it reports then.
-		ctx.withdraw(() => ctx.play('A', beat80(9.5)));
+		ctx.runTo(beat80(6) - 0.25);
+		const handover = beat80(6) - 0.2;
+		// The sensor's window, attacked at 5.5 beats, is cut by the handover: it reports then.
+		ctx.withdraw(() => ctx.play('A', beat80(5.5)));
 		ctx.runTo(handover + 0.03);
 		await drain();
 		const told = ctx.expectations.filter((e) => e.at >= handover - 1e-9);
 		expect(told.map((e) => e.value)).toEqual([null, null, 'B']);
 		const [first] = await ctx.deps.attempts.all();
 		expect(first).toMatchObject({ verdict: 'offbeat', data: { answer: { decided: 'A' } } });
-		ctx.runTo(beat80(12));
+		ctx.runTo(beat80(8));
 		await drain();
 		const [, second] = await ctx.deps.attempts.all();
 		expect(second.observations).toEqual([]);
@@ -217,10 +217,10 @@ describe('rounds handing over without a gap', () => {
 	it('stores a change left unanswered as wrong at its handover', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(10) - 0.21);
+		ctx.runTo(beat80(6) - 0.21);
 		await drain();
 		expect(await ctx.deps.attempts.all()).toHaveLength(0);
-		ctx.runTo(beat80(10) - 0.17);
+		ctx.runTo(beat80(6) - 0.17);
 		await drain();
 		const [first] = await ctx.deps.attempts.all();
 		expect(first).toMatchObject({ verdict: 'wrong', correct: false, data: { answer: null } });
@@ -229,11 +229,11 @@ describe('rounds handing over without a gap', () => {
 	it('cancels the handover on pause, and resumes on the next change after a counted bar', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(8));
+		ctx.runTo(beat80(4));
 		ctx.play('A');
-		ctx.runTo(beat80(10) + 0.1);
+		ctx.runTo(beat80(6) + 0.1);
 		ctx.controller.pause();
-		ctx.runTo(beat80(14));
+		ctx.runTo(beat80(10));
 		await drain();
 		// The second change, paused in its window unanswered, is dropped.
 		expect(await ctx.deps.attempts.all()).toHaveLength(1);
@@ -243,26 +243,26 @@ describe('rounds handing over without a gap', () => {
 		expect(ctx.controller.view.status).toBe('count-in');
 		expect(ctx.controller.view.prompt).toBeNull();
 		// A counted bar, then the third change on the 1 after its prompt beat.
-		ctx.runTo(ctx.metronome.beatTime(7));
+		ctx.runTo(ctx.metronome.beatTime(3));
 		expect(ctx.controller.view.prompt?.primary).toBe('C');
-		expect(ctx.controller.view.targetBeatIndex).toBe(8);
+		expect(ctx.controller.view.targetBeatIndex).toBe(4);
 	});
 
 	it('restarts the metronome at the next passage tempo after a counted bar', async () => {
 		const ctx = setup();
 		await ctx.controller.start();
-		ctx.runTo(beat80(14) - 0.15);
+		ctx.runTo(beat80(10) - 0.15);
 		expect(ctx.controller.view.status).toBe('count-in');
 		expect(ctx.metronome.getTempo()).toBe(80);
-		ctx.runTo(beat80(14) + 0.2);
+		ctx.runTo(beat80(10) + 0.2);
 		expect(ctx.metronome.getTempo()).toBe(120);
 		// A counted bar at 120 bpm, then D on the 1.
-		ctx.runTo(ctx.metronome.beatTime(4));
+		ctx.runTo(ctx.metronome.beatTime(1));
 		expect(ctx.controller.view.countdown).not.toBeNull();
-		ctx.runTo(ctx.metronome.beatTime(7));
+		ctx.runTo(ctx.metronome.beatTime(3));
 		expect(ctx.controller.view.prompt?.primary).toBe('D');
-		expect(ctx.controller.view.targetBeatIndex).toBe(8);
-		ctx.runTo(ctx.metronome.beatTime(10));
+		expect(ctx.controller.view.targetBeatIndex).toBe(4);
+		ctx.runTo(ctx.metronome.beatTime(6));
 		await drain();
 		expect(ctx.controller.view.status).toBe('finished');
 		expect(await ctx.deps.attempts.all()).toHaveLength(4);

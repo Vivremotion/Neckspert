@@ -114,6 +114,8 @@ export class SessionController implements PlaySessionController {
 	private previousPrompt: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
+	/** A count that runs past the round's opening, down to its target; null otherwise. */
+	private countdownTo: number | null = null;
 	/** Cancels the wake-up at the current round's handover, when it has one. */
 	private cancelHandover: (() => void) | null = null;
 	/**
@@ -289,6 +291,7 @@ export class SessionController implements PlaySessionController {
 		this.expectAll({});
 		this.closeSpan();
 		this.withdrawContest();
+		this.countdownTo = null;
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -478,6 +481,11 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 
 		if (this.round) {
+			if (this.countdownTo !== null) {
+				const left = this.countdownTo - beat.index;
+				this.view.countdown = left > 0 ? left : null;
+				if (left <= 0) this.countdownTo = null;
+			}
 			this.apply(this.round.onBeat(beat));
 			// A round that hands over moves on at its handover only.
 			if (this.round.handover) return;
@@ -514,16 +522,24 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 		const promptBeat = this.promptBeatFor(this.pending, beat.index);
+		// A relation that counts to its target keeps counting once its round has opened.
+		const targetOffset = this.timingOf(this.pending).targetOffset ?? 0;
 		if (beat.index >= promptBeat) {
+			const counted = this.counting;
 			this.counting = false;
 			this.beginNextItem(beat.index);
+			const target = this.round?.targetBeatIndex ?? null;
+			if (counted && targetOffset > 0 && target !== null && target > beat.index) {
+				this.countdownTo = target;
+				this.view.countdown = target - beat.index;
+			}
 			return;
 		}
-		const left = promptBeat - beat.index;
+		const left = promptBeat + targetOffset - beat.index;
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
 		// Prompts with a preview come in two steps: the string first, then the note on the prompt beat.
 		this.view.preview =
-			left <= this.timingOf(this.pending).previewBeats
+			promptBeat - beat.index <= this.timingOf(this.pending).previewBeats
 				? this.pendingPromptView(this.pending)
 				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
@@ -555,8 +571,14 @@ export class SessionController implements PlaySessionController {
 		this.view.tempoBpm = tempoBpm;
 	}
 
+	/**
+	 * For a relation that counts to its target, `earliestPromptBeat` is its target's earliest
+	 * beat: its round may open `targetOffset` beats before.
+	 */
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
-		return this.timingOf(item).promptBeat(Math.max(this.earliestPromptBeat, beatIndex), item);
+		const timing = this.timingOf(item);
+		const earliest = this.earliestPromptBeat - (timing.targetOffset ?? 0);
+		return timing.promptBeat(Math.max(earliest, beatIndex), item);
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -790,6 +812,7 @@ export class SessionController implements PlaySessionController {
 		// (a chord window cut short) belongs to the round that is closing.
 		this.expectAll({});
 		this.dropHandover();
+		this.countdownTo = null;
 		this.round = this.timingOf(item).open({
 			planned: item,
 			promptBeat,

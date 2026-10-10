@@ -81,4 +81,13 @@ describe('PlayFrame', () => {
 		render(PlayFrame, { props: { controller: tired } });
 		expect(screen.getByRole('status').textContent).toMatch(/fatigue/i);
 	});
+
+	it('keeps counting, big, until the change itself, after its round has opened', () => {
+		const controller = new StageController();
+		controller.view.status = 'awaiting';
+		controller.view.countdown = 1;
+		render(PlayFrame, { props: { controller } });
+		const count = document.querySelector('.countdown');
+		expect(count?.getAttribute('aria-label')).toBe('1');
+	});
 });
