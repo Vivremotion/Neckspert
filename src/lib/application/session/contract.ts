@@ -4,6 +4,9 @@ import type { Scene } from '$lib/application/mechanics/types';
 
 export type { Scene };
 
+/** The view that shows a mechanic's screen model when its exercise names none. */
+export const DEFAULT_PLAY_VIEW = 'grid-scroll';
+
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
 /** A chord shape to draw: the fret pressed on each of its strings (0: open). */
@@ -93,6 +96,11 @@ export interface PlayView {
 	contest: 'available' | 'done' | null;
 	/** 'input': no audio input could be opened at start; the screen says so. */
 	audioError: 'input' | null;
+	/**
+	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
+	 * it; null (or absent) for a mechanic without one, whose prompt the play screen shows.
+	 */
+	stage?: { view: string; model: unknown } | null;
 }
 
 export interface PlayTimeline {

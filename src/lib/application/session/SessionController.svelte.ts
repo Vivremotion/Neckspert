@@ -24,7 +24,13 @@ import type {
 import type { BeatEvent } from '$lib/application/ports';
 import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
 import { detectFatigue } from '$lib/domain/scoring';
-import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
+import {
+	DEFAULT_PLAY_VIEW,
+	type PlaySessionController,
+	type PlayView,
+	type PromptView,
+	type VerdictView
+} from './contract';
 import type { SessionDeps } from './SessionDeps';
 import {
 	BEATS_PER_BAR,
@@ -151,7 +157,8 @@ export class SessionController implements PlaySessionController {
 			countdown: null,
 			preview: null,
 			contest: null,
-			audioError: null
+			audioError: null,
+			stage: null
 		});
 	}
 
@@ -203,12 +210,15 @@ export class SessionController implements PlaySessionController {
 		this.view.targetBeatIndex = null;
 		this.view.followUp = null;
 		this.view.leadBeats = null;
+		this.view.stage = null;
 	}
 
 	private async beginAudio(run: number): Promise<void> {
 		this.settings = await this.deps.settings.get();
 		if (this.run !== run) return;
 		this.locale = this.settings.locale;
+		// The stage shown before the settings were read speaks the player's language now.
+		if (this.pending) this.showStage(this.pending, null);
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
 		logDetection('entrée audio', [
 			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
@@ -571,6 +581,21 @@ export class SessionController implements PlaySessionController {
 		const presenter = this.presenterFor(this.pending);
 		this.lastScene = presenter.scene;
 		this.enterScene(presenter);
+		this.showStage(this.pending, null);
+	}
+
+	/**
+	 * The screen model of `item` in the view its exercise names, before its round (`settled`
+	 * null) or once settled; null for a mechanic without one.
+	 */
+	private showStage(
+		item: PlannedItem,
+		settled: { answer: unknown; verdict: Verdict } | null
+	): void {
+		const stage = this.presenterFor(item).stage?.(item.item, settled, this.locale);
+		this.view.stage = stage
+			? { view: this.exerciseOf(item.exerciseId).view ?? DEFAULT_PLAY_VIEW, model: stage.model }
+			: null;
 	}
 
 	/** Lane and clicks for the guitar; answer pad and silence for the screen. */
@@ -722,6 +747,9 @@ export class SessionController implements PlaySessionController {
 			this.deps.cues.play(outcome.verdict);
 		}
 		this.setStatus('verdict');
+		if (this.current) {
+			this.showStage(this.current, { answer: outcome.answer, verdict: outcome.verdict });
+		}
 		this.persistAttempt(
 			outcome,
 			outcome.answer === null
@@ -794,6 +822,7 @@ export class SessionController implements PlaySessionController {
 		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
 		this.withdrawContest();
+		this.showStage(item, null);
 		this.setStatus('awaiting');
 	}
 
@@ -923,6 +952,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private waitOnGrid(item: PlannedItem, beatIndex: number): void {
 		this.pending = item;
+		this.showStage(item, null);
 		const presenter = this.presenterFor(item);
 		const tempo = this.executionOf(item).tempoBpm;
 		// Another tempo: the metronome restarts after the breathing, with its own counted bar.
@@ -960,6 +990,7 @@ export class SessionController implements PlaySessionController {
 		this.dropHandover();
 		this.expectAll({});
 		this.closeSpan();
+		this.view.stage = null;
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubBeat = null;

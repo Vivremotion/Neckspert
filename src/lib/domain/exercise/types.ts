@@ -13,6 +13,8 @@ export interface ExerciseDefinition {
 	startTempoBpm?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;
+	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
+	view?: string;
 }
 
 /** Tempo reached by the player on an exercise. */

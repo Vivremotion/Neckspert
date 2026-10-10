@@ -48,4 +48,14 @@ export interface MechanicPresenter<I = any, A = any> {
 		item: I,
 		round: { opensAt: number; previous: PlannedItem | null }
 	): Partial<Record<SensorKind, unknown>>;
+	/**
+	 * The screen model of a prompt, opaque to the core, shown by the view its exercise names:
+	 * before its round (`settled` null) and once settled, with the round's answer and verdict.
+	 * Leave it out for a mechanic shown by the play screen's own lane.
+	 */
+	stage?(
+		item: I,
+		settled: { answer: unknown; verdict: Verdict } | null,
+		locale: Locale
+	): { model: unknown };
 }
