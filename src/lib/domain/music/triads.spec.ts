@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { QUALITIES, chordTones, qualityById, type Chord, type ChordQuality } from './chord';
+import {
+	QUALITIES,
+	chordTones,
+	isTriadQuality,
+	qualityById,
+	type Chord,
+	type ChordQuality
+} from './chord';
 import { formatSpelledNote, parseSpelledNote, pitchOfSpelled, spelledFromPitch } from './spelling';
 import { closeTriadVoicings } from './triads';
 import { CHROMATIC_NOTES } from './types';
@@ -51,7 +58,7 @@ describe('closeTriadVoicings', () => {
 
 	it('always fits the neck and the hand, with chord tones rising string to string', () => {
 		for (const pitch of CHROMATIC_NOTES) {
-			for (const quality of QUALITIES) {
+			for (const quality of QUALITIES.filter(isTriadQuality)) {
 				const triad: Chord = { root: spelledFromPitch(pitch), quality };
 				const tones = chordTones(triad).map((tone) => tone.pitch);
 				for (const strings of [G_B_E, D_G_B]) {

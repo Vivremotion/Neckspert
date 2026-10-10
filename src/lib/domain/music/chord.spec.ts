@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	QUALITIES,
-	SEVENTH_QUALITIES,
+	isTriadQuality,
 	chordLabel,
 	chordTones,
 	qualityById,
@@ -51,12 +51,12 @@ describe('chordLabel', () => {
 });
 
 describe('qualities', () => {
-	it('holds the four triad qualities', () => {
-		expect(QUALITIES.map((quality) => quality.id)).toEqual(['maj', 'min', 'dim', 'aug']);
-	});
-
-	it('holds the seventh qualities apart, found by id like the triads', () => {
-		expect(SEVENTH_QUALITIES.map((quality) => quality.id)).toEqual([
+	it('holds the triad and seventh qualities', () => {
+		expect(QUALITIES.map((quality) => quality.id)).toEqual([
+			'maj',
+			'min',
+			'dim',
+			'aug',
 			'maj7',
 			'7',
 			'm7',
@@ -64,6 +64,12 @@ describe('qualities', () => {
 			'6',
 			'm6',
 			'7#5'
+		]);
+		expect(QUALITIES.filter(isTriadQuality).map((quality) => quality.id)).toEqual([
+			'maj',
+			'min',
+			'dim',
+			'aug'
 		]);
 		expect(written(chord('C', 'maj7'))).toEqual(['C', 'E', 'G', 'B']);
 		expect(written(chord('D', 'm7b5'))).toEqual(['D', 'F', 'Ab', 'C']);

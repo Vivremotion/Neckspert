@@ -24,19 +24,16 @@ export interface ChordQuality {
 	degrees: readonly Degree[];
 }
 
-/** Triad qualities: the shapes the triads exercises play. */
+/**
+ * Every chord quality, one row each: the triads, then the sevenths and sixths the grids write.
+ * Existing degrees only: dim7 (bb7) waits for more degrees. What plays triads keeps the triads
+ * (`isTriadQuality`).
+ */
 export const QUALITIES: readonly ChordQuality[] = [
 	{ id: 'maj', suffix: '', degrees: ['1', '3', '5'] },
 	{ id: 'min', suffix: 'm', degrees: ['1', 'b3', '5'] },
 	{ id: 'dim', suffix: 'dim', degrees: ['1', 'b3', 'b5'] },
-	{ id: 'aug', suffix: 'aug', degrees: ['1', '3', '#5'] }
-];
-
-/**
- * Seventh and sixth qualities, as the grids write them, kept apart from the triads so that what
- * walks the triads never meets them. Existing degrees only: dim7 (bb7) waits for more degrees.
- */
-export const SEVENTH_QUALITIES: readonly ChordQuality[] = [
+	{ id: 'aug', suffix: 'aug', degrees: ['1', '3', '#5'] },
 	{ id: 'maj7', suffix: 'maj7', degrees: ['1', '3', '5', '7'] },
 	{ id: '7', suffix: '7', degrees: ['1', '3', '5', 'b7'] },
 	{ id: 'm7', suffix: 'm7', degrees: ['1', 'b3', '5', 'b7'] },
@@ -46,9 +43,14 @@ export const SEVENTH_QUALITIES: readonly ChordQuality[] = [
 	{ id: '7#5', suffix: '7#5', degrees: ['1', '3', '#5', 'b7'] }
 ];
 
-/** A triad or seventh quality by id. Throws on an unknown one. */
+/** Three degrees: a quality a close triad can play. */
+export function isTriadQuality(quality: ChordQuality): boolean {
+	return quality.degrees.length === 3;
+}
+
+/** A quality by id. Throws on an unknown one. */
 export function qualityById(id: string): ChordQuality {
-	const quality = [...QUALITIES, ...SEVENTH_QUALITIES].find((q) => q.id === id);
+	const quality = QUALITIES.find((q) => q.id === id);
 	if (!quality) throw new RangeError(`Unknown chord quality: ${id}`);
 	return quality;
 }
