@@ -108,6 +108,8 @@ export class SessionController implements PlaySessionController {
 	private previousPrompt: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
+	/** Cancels the wake-up at the current round's handover, when it has one. */
+	private cancelHandover: (() => void) | null = null;
 	/**
 	 * Observations of the last prompt shown, from its round's opening to the next one, a pause or
 	 * the end; it outlives the round through the breathing and counted bars.
@@ -271,6 +273,7 @@ export class SessionController implements PlaySessionController {
 
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.dropHandover();
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
 		this.expectAll({});
@@ -324,6 +327,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	quit(): void {
+		this.dropHandover();
 		// A late capture still open settles as unanswered: the attempt is not lost.
 		this.abandonRound();
 		this.deps.metronome.stop();
@@ -399,8 +403,51 @@ export class SessionController implements PlaySessionController {
 
 	/** Settles an open late capture as unanswered and stores it; nothing otherwise. */
 	private abandonRound(): void {
-		const outcome = this.round?.abandon();
+		const outcome = this.round?.abandon(this.deps.clock.now());
 		if (outcome) this.settle(outcome);
+	}
+
+	private dropHandover(): void {
+		this.cancelHandover?.();
+		this.cancelHandover = null;
+	}
+
+	/**
+	 * The current round's handover: its expectations withdrawn first, so what a sensor reports at
+	 * once (a window cut short) lands in the round that ends; then the round settled and stored,
+	 * which tells the selector; then the next prompt, opened at once on the handover beat when it
+	 * goes on without a counted bar, else waiting on the beat grid from the first whole beat after.
+	 */
+	private handOver(): void {
+		this.cancelHandover = null;
+		const handover = this.round?.handover;
+		if (!handover || this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.expectAll({});
+		this.abandonRound();
+		this.clearPrompt();
+		const item = this.takeNext();
+		if (!item) {
+			void this.finish();
+			return;
+		}
+		if (this.chainable(item)) {
+			this.pending = item;
+			this.beginNextItem(handover.beat, true);
+			return;
+		}
+		const firstWholeBeat = Math.ceil(handover.beat);
+		this.earliestPromptBeat = firstWholeBeat;
+		this.waitOnGrid(item, firstWholeBeat - 1);
+	}
+
+	/** Goes on without a gap: no counted bar asked, the same tempo, the same scene. */
+	private chainable(item: PlannedItem): boolean {
+		const tempo = this.executionOf(item).tempoBpm;
+		return (
+			!item.countIn &&
+			(tempo === null || tempo === this.tempoBpm) &&
+			this.presenterFor(item).scene === this.lastScene
+		);
 	}
 
 	/** Ends the open span; its attempt, if its round produced one, takes the final list. */
@@ -420,6 +467,8 @@ export class SessionController implements PlaySessionController {
 
 		if (this.round) {
 			this.apply(this.round.onBeat(beat));
+			// A round that hands over moves on at its handover only.
+			if (this.round.handover) return;
 			// The next prompt is chosen only once the attempt is stored and the selector knows it.
 			const after = this.round.after();
 			if (after && beat.index >= after.advanceAt) {
@@ -455,7 +504,7 @@ export class SessionController implements PlaySessionController {
 		const promptBeat = this.promptBeatFor(this.pending, beat.index);
 		if (beat.index >= promptBeat) {
 			this.counting = false;
-			this.beginNextItem(beat);
+			this.beginNextItem(beat.index);
 			return;
 		}
 		const left = promptBeat - beat.index;
@@ -689,7 +738,8 @@ export class SessionController implements PlaySessionController {
 		];
 	}
 
-	private beginNextItem(beat: BeatEvent): void {
+	/** `chained`: opened at the previous round's handover, on its (fractional) beat. */
+	private beginNextItem(promptBeat: number, chained = false): void {
 		const item = this.pending ?? this.takeNext();
 		const built = this.pending === item ? this.pendingPrompt : null;
 		this.pending = null;
@@ -707,14 +757,18 @@ export class SessionController implements PlaySessionController {
 		// Withdrawn while the previous span is still open: what the sensors report at once
 		// (a chord window cut short) belongs to the round that is closing.
 		this.expectAll({});
+		this.dropHandover();
 		this.round = this.timingOf(item).open({
 			planned: item,
-			promptBeat: beat.index,
+			promptBeat,
 			now: this.deps.clock.now(),
 			beatTime: (index) => this.deps.metronome.beatTime(index),
 			secondsPerBeat: this.deps.metronome.secondsPerBeat(),
-			chained: false
+			chained
 		});
+		const handover = this.round.handover;
+		if (handover)
+			this.cancelHandover = this.deps.metronome.at(handover.time, () => this.handOver());
 		this.closeSpan();
 		this.span = new ObservationSpan(this.round.promptTime, item);
 		this.expectAll(
@@ -843,6 +897,17 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private advanceAfterVerdict(beat: BeatEvent): void {
+		this.clearPrompt();
+		const item = this.takeNext();
+		if (!item) {
+			void this.finish();
+			return;
+		}
+		this.waitOnGrid(item, beat.index);
+	}
+
+	/** The round is over: its prompt leaves the screen. */
+	private clearPrompt(): void {
 		this.clearItemState();
 		this.current = null;
 		this.view.prompt = null;
@@ -850,11 +915,13 @@ export class SessionController implements PlaySessionController {
 		this.view.targetBeatIndex = null;
 		this.view.followUp = null;
 		this.view.leadBeats = null;
-		const item = this.takeNext();
-		if (!item) {
-			void this.finish();
-			return;
-		}
+	}
+
+	/**
+	 * `item` waits on the beat grid from `beatIndex`, the last beat heard: after a counted bar
+	 * for a new sequence or scene, after a restart for another tempo.
+	 */
+	private waitOnGrid(item: PlannedItem, beatIndex: number): void {
 		this.pending = item;
 		const presenter = this.presenterFor(item);
 		const tempo = this.executionOf(item).tempoBpm;
@@ -865,13 +932,13 @@ export class SessionController implements PlaySessionController {
 		if (this.lastScene !== null && presenter.scene !== this.lastScene) {
 			// Switching between guitar and screen: one counted bar to get the hands there.
 			if (counted) {
-				this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+				this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + BEATS_PER_BAR);
 				this.counting = true;
 			}
 			this.enterScene(presenter);
 		} else if (item.countIn && counted) {
 			// A new sequence at another lead: one counted bar announces it.
-			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + BEATS_PER_BAR);
 			this.counting = true;
 			this.view.answerChoices = null;
 		} else if (presenter.scene === 'guitar') {
@@ -890,6 +957,7 @@ export class SessionController implements PlaySessionController {
 		// Captured now: a series started during the awaits below re-reads the settings.
 		const latencyMs = this.latencyMs;
 		const attempts = [...(recorder?.sessionAttempts ?? [])];
+		this.dropHandover();
 		this.expectAll({});
 		this.closeSpan();
 		this.setStatus('finished');
