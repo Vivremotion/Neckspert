@@ -712,7 +712,8 @@ export class SessionController implements PlaySessionController {
 			promptBeat: beat.index,
 			now: this.deps.clock.now(),
 			beatTime: (index) => this.deps.metronome.beatTime(index),
-			secondsPerBeat: this.deps.metronome.secondsPerBeat()
+			secondsPerBeat: this.deps.metronome.secondsPerBeat(),
+			chained: false
 		});
 		this.closeSpan();
 		this.span = new ObservationSpan(this.round.promptTime, item);

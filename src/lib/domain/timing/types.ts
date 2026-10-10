@@ -64,12 +64,18 @@ export interface TimingRelation {
 	usesTempo: boolean;
 	previewBeats: number;
 	promptBeat(earliest: number, planned: { leadBeats: LeadBeats | null }): number;
+	/**
+	 * `planned.item`: the mechanic's item, for a relation that reads it (opaque otherwise).
+	 * `chained`: the round opens at the previous round's handover, on its (fractional) beat,
+	 * without a gap; omitted or false after a wait on the beat grid. The session passes both.
+	 */
 	open(input: {
-		planned: { leadBeats: LeadBeats | null };
+		planned: { leadBeats: LeadBeats | null; item?: unknown };
 		promptBeat: number;
 		now: number;
 		beatTime: (index: number) => number;
 		secondsPerBeat: number;
+		chained?: boolean;
 	}): Round;
 	isDirectRecall(attempt: {
 		correct: boolean;

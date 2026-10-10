@@ -8,8 +8,11 @@ export interface MechanicRules<I = unknown, O = unknown, A = unknown, C = unknow
 	timing: TimingRelation;
 	/** The time relation at the rhythm of an exercise; without it, `timing` serves every exercise. */
 	timingFor?(pacing: ExercisePacing): TimingRelation;
-	/** Learner model. Only 'memory' (FSRS) exists; 'skill' comes with the first gesture exercise. */
-	learner: 'memory';
+	/**
+	 * Learner model. 'memory': FSRS cards. 'skill': a know-how measured by its attempts (their
+	 * observations kept), which never creates nor touches a card.
+	 */
+	learner: 'memory' | 'skill';
 	itemKey(item: I): string;
 	/** Throws on an invalid key (backup validation). */
 	parseItem(itemKey: string): I;
