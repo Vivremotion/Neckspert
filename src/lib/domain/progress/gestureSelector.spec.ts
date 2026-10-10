@@ -204,10 +204,10 @@ describe('createGestureSelector', () => {
 			const passage = playPassage(s, clock);
 			if (passage[0].exerciseId === 'gesture-zone') zones.push(itemOf(passage[0]).zone);
 		}
-		// From fret 1, five frets on (modulo the starts), 6, 11 and 2 do not fit: 7.
+		// From fret 1, ZONE_STEP_FRETS on.
 		expect(zones).toEqual([
-			{ from: 1, to: 4 },
-			{ from: 7, to: 10 }
+			{ from: 1, to: 5 },
+			{ from: 6, to: 10 }
 		]);
 	});
 

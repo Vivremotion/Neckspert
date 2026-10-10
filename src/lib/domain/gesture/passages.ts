@@ -14,7 +14,7 @@ import { isSuccess, type Attempt } from '$lib/domain/types';
 export const LINK_SHAPES = 4;
 
 /** Width of a zone, in frets. To calibrate. */
-export const ZONE_FRETS = 4;
+export const ZONE_FRETS = 5;
 
 /**
  * How far the zone moves from one passage to the next, in frets, modulo the starts: prime to their
