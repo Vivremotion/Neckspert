@@ -5,9 +5,10 @@ import { gridById, triadOf, type GridChange } from '$lib/domain/grid';
 import {
 	admittedShapes,
 	chordGridRules,
+	closestShape,
+	expectedShape,
 	parseTriadId,
 	rootPosition,
-	shapePosition,
 	triadId,
 	triadShapes,
 	type ChordGridConfusion,
@@ -75,19 +76,6 @@ function pitchesOf(occurrence: VoicingOccurrence): string {
 function heardOf(answer: unknown): VoicingOccurrence | null {
 	const decided = (answer as ChordReading | null)?.decided ?? null;
 	return decided === null ? null : occurrenceOfId(decided);
-}
-
-/** The shape among `shapes` whose position is closest to `reference`'s; the lowest without one. */
-function closest(
-	shapes: readonly VoicingOccurrence[],
-	reference: VoicingOccurrence | null
-): VoicingOccurrence | null {
-	if (shapes.length === 0) return null;
-	if (!reference) return shapes[0];
-	const target = shapePosition(reference);
-	return shapes.reduce((best, shape) =>
-		Math.abs(shapePosition(shape) - target) < Math.abs(shapePosition(best) - target) ? shape : best
-	);
 }
 
 /** The element's grid, for a grid passage; null for a link. */
@@ -171,7 +159,7 @@ function aidFor(item: ChordGridItem, heard: string | null): VoicingOccurrence | 
 	if (next.rule === 'climb') {
 		const reference = next.previous === null ? null : occurrenceOfId(next.previous);
 		if (!reference && next.direction === 'down') return admitted.at(-1) ?? null;
-		return closest(admitted, reference);
+		return closestShape(admitted, reference);
 	}
 	return admitted[0] ?? null;
 }
@@ -270,8 +258,7 @@ export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> 
 	feedback: (item, { answer, confusion, verdict }, locale) => {
 		if (!isMiss(verdict)) return null;
 		const heard = heardOf(answer);
-		const ringing = item.previous === null ? null : occurrenceOfId(item.previous);
-		const expected = closest(admittedShapes(item), heard ?? ringing);
+		const expected = expectedShape(item, heard && occurrenceId(heard));
 		const kind = (confusion as ChordGridConfusion | null)?.kind;
 		const gap = CHORD_GRID_MESSAGES[locale].gap;
 		return {

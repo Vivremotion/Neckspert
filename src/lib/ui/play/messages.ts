@@ -19,7 +19,9 @@ export const playMessages = defineMessages({
 			triads:
 				'« C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. Le clic sort des enceintes de l’ordinateur.',
 			'triads-zone':
-				'« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.'
+				'« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.',
+			gesture:
+				'Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Parfait',
@@ -50,7 +52,9 @@ export const playMessages = defineMessages({
 			triads:
 				'“C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. The click comes from the computer speakers.',
 			'triads-zone':
-				'“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.'
+				'“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.',
+			gesture:
+				'Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Perfect',

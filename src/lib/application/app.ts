@@ -33,6 +33,10 @@ export interface AppServices {
 	homeStats(): Promise<HomeStats>;
 	/** The triads exercises as the home screen offers them. */
 	triads(): Promise<TriadsHome>;
+	/** The gesture track: open once one of its exercises is. */
+	gesture(): Promise<{ open: boolean }>;
+	/** « Joué juste » from the summary: labels the attempt contested, nothing else. */
+	contest(attemptId: number): Promise<void>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
 	/** Plans the session and returns its controller, not yet started. */

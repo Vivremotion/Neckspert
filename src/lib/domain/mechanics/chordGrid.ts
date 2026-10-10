@@ -144,6 +144,32 @@ export function admittedShapes(item: ChordGridItem): VoicingOccurrence[] {
 	return triadShapes(item).filter((occurrence) => admits(item, occurrence));
 }
 
+/** The shape among `shapes` whose position is closest to `reference`'s; the first without one. */
+export function closestShape(
+	shapes: readonly VoicingOccurrence[],
+	reference: VoicingOccurrence | null
+): VoicingOccurrence | null {
+	if (shapes.length === 0) return null;
+	if (!reference) return shapes[0];
+	const target = shapePosition(reference);
+	return shapes.reduce((best, shape) =>
+		Math.abs(shapePosition(shape) - target) < Math.abs(shapePosition(best) - target) ? shape : best
+	);
+}
+
+/**
+ * After a miss, the shape that was due: the admitted shape closest to the one heard, else to the
+ * one still ringing, else the lowest; null when the rule admits none.
+ */
+export function expectedShape(
+	item: ChordGridItem,
+	decided: string | null
+): VoicingOccurrence | null {
+	const heard = decided === null ? null : occurrenceOfId(decided);
+	const ringing = item.previous === null ? null : occurrenceOfId(item.previous);
+	return closestShape(admittedShapes(item), heard ?? ringing);
+}
+
 function parseItem(itemKey: string): { element: string; index: number } {
 	const at = itemKey.lastIndexOf(INDEX_SEPARATOR);
 	const element = at < 0 ? '' : itemKey.slice(0, at);

@@ -9,6 +9,7 @@
 
 	let stats = $state<HomeStats | null>(null);
 	let triads = $state<TriadsHome>({ anchorDue: 0, zoneDue: null });
+	let gesture = $state({ open: false });
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
@@ -17,6 +18,12 @@
 		void services.triads().then(
 			(value) => {
 				if (!cancelled) triads = value;
+			},
+			() => {}
+		);
+		void services.gesture().then(
+			(value) => {
+				if (!cancelled) gesture = value;
 			},
 			() => {}
 		);
@@ -45,6 +52,10 @@
 		void goto(`/session?kind=${kind}`);
 	}
 
+	function startGesture() {
+		void goto('/session?kind=gesture');
+	}
+
 	function onKeydown(event: KeyboardEvent) {
 		if (event.code !== 'Space' && event.key !== ' ') return;
 		if (event.repeat) return;
@@ -60,5 +71,13 @@
 {#if error}
 	<p role="alert">{error}</p>
 {:else if stats}
-	<HomeScreen {stats} {now} onstart={start} {triads} ontriads={startTriads} />
+	<HomeScreen
+		{stats}
+		{now}
+		onstart={start}
+		{triads}
+		ontriads={startTriads}
+		{gesture}
+		ongesture={startGesture}
+	/>
 {/if}

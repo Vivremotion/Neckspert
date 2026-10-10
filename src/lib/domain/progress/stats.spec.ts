@@ -672,3 +672,60 @@ describe('summarizeSession of a triads session', () => {
 		).toBe('learn');
 	});
 });
+
+describe('summarizeSession of a gesture session', () => {
+	const record = (kind: 'gesture' | 'learn') => ({
+		id: 's1',
+		kind,
+		startedAt: NOW - 60_000,
+		endedAt: NOW,
+		fatigueDetected: false,
+		executions: [{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+		latencyMs: 0
+	});
+
+	it('sums the passages up by exercise, and only for a gesture session', () => {
+		const attempts = [0, 1].map((index) =>
+			coldAttempt({
+				exerciseId: 'gesture-jam',
+				mechanic: 'chord-grid',
+				cardKey: `chord-grid:jam:blues-f#${index}`,
+				temperature: 'hot',
+				phase: 'free',
+				data: {
+					item: {
+						rule: 'jam',
+						element: 'jam:blues-f',
+						passageId: 's1:0',
+						index,
+						changes: [
+							{ at: 0, length: 4, symbol: 'F7' },
+							{ at: 4, length: 4, symbol: 'Bb7' }
+						],
+						symbol: index === 0 ? 'F7' : 'Bb7',
+						chord: index === 0 ? 'F|maj' : 'Bb|maj',
+						sets: [[3, 2, 1]],
+						previous: null
+					},
+					answer: null,
+					confusion: null
+				}
+			})
+		);
+		const input = { attempts, allAttempts: [], cards: [], now: NOW };
+		expect(summarizeSession({ ...input, record: record('gesture') }).gesture).toEqual({
+			exercises: [
+				{
+					exerciseId: 'gesture-jam',
+					passagesPlayed: 1,
+					passagesSucceeded: 1,
+					changeSuccessRate: 1,
+					tempoBpm: 80,
+					nextTempoBpm: 80
+				}
+			],
+			misses: []
+		});
+		expect(summarizeSession({ ...input, record: record('learn') }).gesture).toBeUndefined();
+	});
+});

@@ -23,6 +23,8 @@ export {
 	admits,
 	admittedShapes,
 	chordGridRules,
+	closestShape,
+	expectedShape,
 	inZone,
 	parseTriadId,
 	shapePosition,

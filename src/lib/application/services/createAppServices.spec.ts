@@ -24,10 +24,11 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { createAppServices } from './createAppServices';
-import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
+import { triadCards } from '$lib/testing/shapes';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -73,7 +74,7 @@ function harness(): {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
-		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS },
+		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
 		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
 	};
 	const services = createAppServices({
@@ -330,5 +331,72 @@ describe('createAppServices', () => {
 			'C|maj|3:5,2:1,1:3@0-1-0',
 			'C|maj|3:5,2:1,1:3@12-13-12'
 		]);
+	});
+});
+
+describe('the gesture track', () => {
+	it('is open once a chord is acquired in anchor on a string set', async () => {
+		const { services, deps } = harness();
+		expect(await services.gesture()).toEqual({ open: false });
+		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		expect(await services.gesture()).toEqual({ open: true });
+	});
+
+	it('startSession(gesture) runs the open exercises, each at its own tempo', async () => {
+		const { services, deps, chords } = harness();
+		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		const controller = await services.startSession('gesture');
+		await controller.start();
+		const record = await deps.sessions.get(controller.sessionId);
+		expect(record).toMatchObject({
+			kind: 'gesture',
+			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }]
+		});
+		expect(controller.view.stage?.view).toBe('grid-scroll');
+		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
+			tick(deps, deps.metronome.secondsPerBeat());
+		}
+		expect(controller.view.prompt).toMatchObject({ primary: 'D', detail: 'sol‑si‑mi' });
+		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
+	});
+
+	it('contest labels an attempt and changes nothing else', async () => {
+		const { services, deps } = harness();
+		const id = await deps.attempts.add({
+			sessionId: 's1',
+			exerciseId: 'gesture-jam',
+			mechanic: 'chord-grid',
+			cardKey: 'chord-grid:jam:blues-f#0',
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			promptedAt: 0,
+			tempoBpm: 80,
+			leadBeats: null,
+			timingOffsetMs: null,
+			reactionMs: null,
+			correct: false,
+			verdict: 'wrong',
+			data: { item: { element: 'jam:blues-f', index: 0 }, answer: null, confusion: null },
+			observations: []
+		});
+		await services.contest(id);
+		const [attempt] = await deps.attempts.all();
+		expect(attempt).toMatchObject({ contested: true, correct: false, verdict: 'wrong' });
+	});
+
+	it('sums a gesture session up by exercise', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put({
+			id: 'g1',
+			kind: 'gesture',
+			startedAt: 0,
+			endedAt: 1,
+			fatigueDetected: false,
+			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }],
+			latencyMs: 0
+		});
+		const summary = await services.sessionSummary('g1');
+		expect(summary).toMatchObject({ kind: 'gesture', gesture: { exercises: [], misses: [] } });
 	});
 });

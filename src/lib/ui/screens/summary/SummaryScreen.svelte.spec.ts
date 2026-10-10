@@ -157,3 +157,58 @@ describe('SummaryScreen', () => {
 		});
 	});
 });
+
+describe('SummaryScreen of a gesture session', () => {
+	const gesture: SessionSummary = {
+		...summary,
+		kind: 'gesture',
+		gesture: {
+			exercises: [
+				{
+					exerciseId: 'gesture-link',
+					passagesPlayed: 4,
+					passagesSucceeded: 3,
+					changeSuccessRate: 0.86,
+					tempoBpm: 80,
+					nextTempoBpm: 85
+				}
+			],
+			misses: [
+				{
+					attemptId: 12,
+					exerciseId: 'gesture-link',
+					symbol: 'D',
+					heard: '2-3-2',
+					expected: '7-7-5',
+					contested: false
+				}
+			]
+		}
+	};
+
+	it('shows each exercise played, its passages, its changes and its tempos, and nothing of the notes', () => {
+		render(SummaryScreen, {
+			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Relier les formes')).toBeTruthy();
+		expect(screen.getByText('3 / 4 passages réussis')).toBeTruthy();
+		expect(screen.getByText('86 % justes et à temps')).toBeTruthy();
+		expect(screen.getByText('80 → 85 bpm')).toBeTruthy();
+		expect(screen.queryByText('Notes apprises')).toBeNull();
+		expect(screen.queryByText('Précision à froid')).toBeNull();
+	});
+
+	it('lists the missed changes, each contestable once', async () => {
+		const oncontest = vi.fn(async () => {});
+		render(SummaryScreen, {
+			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {}, oncontest }
+		});
+		expect(screen.getByText('D')).toBeTruthy();
+		expect(screen.getByText('Joué 2-3-2')).toBeTruthy();
+		expect(screen.getByText('Attendu 7-7-5')).toBeTruthy();
+		await fireEvent.click(screen.getByRole('button', { name: 'Joué juste' }));
+		expect(oncontest).toHaveBeenCalledWith(12);
+		expect(await screen.findByText('Contesté')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Joué juste' })).toBeNull();
+	});
+});

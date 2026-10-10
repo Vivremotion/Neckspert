@@ -61,8 +61,9 @@ export type Temperature = 'cold' | 'hot';
 /**
  * Notes: learn and free play. The memory track of the triads (spec 2026-10-08), one exercise per
  * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
+ * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
  */
-export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone';
+export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone' | 'gesture';
 
 /** A session of the triads' memory track. */
 export function isTriadsKind(kind: SessionKind): boolean {
@@ -291,6 +292,30 @@ export interface SessionSummary {
 	tempoBpm: number | null;
 	/** Which session it was: a triads session counts triads, not notes. */
 	kind: SessionKind;
+	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
+	gesture?: GestureSummary;
+}
+
+/** What a gesture session did, exercise by exercise, and the changes it missed. */
+export interface GestureSummary {
+	exercises: {
+		exerciseId: ExerciseId;
+		passagesPlayed: number;
+		passagesSucceeded: number;
+		/** Share of its changes right and in time (`isSuccess`). */
+		changeSuccessRate: number;
+		tempoBpm: number;
+		nextTempoBpm: number;
+	}[];
+	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
+	misses: {
+		attemptId: number;
+		exerciseId: ExerciseId;
+		symbol: string;
+		heard: string | null;
+		expected: string | null;
+		contested: boolean;
+	}[];
 }
 
 /** A triad attempt whose chord was judged wrong, as the summary lists it. */

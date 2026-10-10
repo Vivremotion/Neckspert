@@ -701,6 +701,11 @@ describe('with chord-grid attempts', () => {
 		expect(exported.attempts[0].data.item).toEqual(item);
 	});
 
+	it('accepts a gesture session', () => {
+		const file = makeBackup({ sessions: [makeSession({ kind: 'gesture' })] });
+		expect(validateBackupV3(file)).toBe(file);
+	});
+
 	it('names every confusion of a chord change', () => {
 		const kinds = [
 			'other-chord',

@@ -11,13 +11,25 @@
 		summary,
 		now,
 		onhome,
-		onmap
+		onmap,
+		oncontest
 	}: {
 		summary: SessionSummary;
 		now: number;
 		onhome: () => void;
 		onmap: () => void;
+		/** « Joué juste » on a missed gesture change; without it, misses are listed only. */
+		oncontest?: (attemptId: number) => Promise<void>;
 	} = $props();
+
+	/** Misses contested on this screen, on top of those stored contested. */
+	let contestedHere = $state<number[]>([]);
+
+	async function contest(attemptId: number) {
+		if (!oncontest || contestedHere.includes(attemptId)) return;
+		contestedHere = [...contestedHere, attemptId];
+		await oncontest(attemptId);
+	}
 
 	const triads = $derived(isTriadsKind(summary.kind));
 
@@ -60,63 +72,102 @@
 		{#if summary.grade}
 			<p class="grade"><PixelText scale={4}>{summary.grade}</PixelText></p>
 		{/if}
-		<PixelBox variant="double">
-			<ul class="rows">
-				{#if summary.tempoBpm !== null}
-					<li>
-						<span>{t.tempo}</span>
-						<strong>{t.bpm(summary.tempoBpm)}</strong>
-					</li>
-				{/if}
-				{#if noCold}
-					<li>
-						<span>{t.noCold}</span>
-					</li>
-				{:else}
-					<li>
-						<span>{accuracyLabel}</span>
-						<strong>{accuracy}</strong>
-					</li>
-					<li>
-						<span>{t.median}</span>
-						<strong>{median}</strong>
-					</li>
-					{#if !triads}
+		{#if summary.gesture}
+			<PixelBox variant="double">
+				<ul class="rows">
+					{#each summary.gesture.exercises as exercise (exercise.exerciseId)}
+						<li class="exercise">
+							<strong>{t.exercise[exercise.exerciseId] ?? exercise.exerciseId}</strong>
+							<span>{t.passages(exercise.passagesSucceeded, exercise.passagesPlayed)}</span>
+							<span>{t.changes(Math.round(exercise.changeSuccessRate * 100))}</span>
+							<span>{t.tempos(exercise.tempoBpm, exercise.nextTempoBpm)}</span>
+						</li>
+					{/each}
+				</ul>
+			</PixelBox>
+			{#if summary.gesture.misses.length > 0}
+				<PixelBox variant="double">
+					<ul class="rows" aria-label={t.misses}>
+						<li><span>{t.misses}</span></li>
+						{#each summary.gesture.misses as miss (miss.attemptId)}
+							<li class="miss">
+								<strong>{miss.symbol}</strong>
+								<span>{miss.heard === null ? t.nothingHeard : t.heard(miss.heard)}</span>
+								{#if miss.expected !== null}
+									<span>{t.expected(miss.expected)}</span>
+								{/if}
+								{#if miss.contested || contestedHere.includes(miss.attemptId)}
+									<span>{t.contested}</span>
+								{:else if oncontest}
+									<PixelButton onclick={() => contest(miss.attemptId)}>
+										{t.playedRight}
+									</PixelButton>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</PixelBox>
+			{/if}
+		{:else}
+			<PixelBox variant="double">
+				<ul class="rows">
+					{#if summary.tempoBpm !== null}
 						<li>
-							<span>{t.naming}</span>
-							<strong>{naming}</strong>
+							<span>{t.tempo}</span>
+							<strong>{t.bpm(summary.tempoBpm)}</strong>
 						</li>
 					{/if}
-				{/if}
-				<li>
-					<span>{triads ? t.learnedTriads : t.learned}</span>
-					<strong>{summary.learnedCount}</strong>
-				</li>
-				{#if summary.knownCount > 0}
+					{#if noCold}
+						<li>
+							<span>{t.noCold}</span>
+						</li>
+					{:else}
+						<li>
+							<span>{accuracyLabel}</span>
+							<strong>{accuracy}</strong>
+						</li>
+						<li>
+							<span>{t.median}</span>
+							<strong>{median}</strong>
+						</li>
+						{#if !triads}
+							<li>
+								<span>{t.naming}</span>
+								<strong>{naming}</strong>
+							</li>
+						{/if}
+					{/if}
 					<li>
-						<span>{triads ? t.knownTriads(summary.knownCount) : t.known(summary.knownCount)}</span>
+						<span>{triads ? t.learnedTriads : t.learned}</span>
+						<strong>{summary.learnedCount}</strong>
 					</li>
-				{/if}
-				{#if summary.pendingCount > 0}
-					<li>
-						<span
-							>{triads
-								? t.pendingTriads(summary.pendingCount)
-								: t.pending(summary.pendingCount)}</span
-						>
+					{#if summary.knownCount > 0}
+						<li>
+							<span>{triads ? t.knownTriads(summary.knownCount) : t.known(summary.knownCount)}</span
+							>
+						</li>
+					{/if}
+					{#if summary.pendingCount > 0}
+						<li>
+							<span
+								>{triads
+									? t.pendingTriads(summary.pendingCount)
+									: t.pending(summary.pendingCount)}</span
+							>
+						</li>
+					{/if}
+					<li class="fatigue" class:alert={summary.fatigueDetected}>
+						<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
 					</li>
-				{/if}
-				<li class="fatigue" class:alert={summary.fatigueDetected}>
-					<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
-				</li>
-				{#if summary.pool !== 'all'}
-					<li>
-						<span>{t.next}</span>
-						<strong>{next}</strong>
-					</li>
-				{/if}
-			</ul>
-		</PixelBox>
+					{#if summary.pool !== 'all'}
+						<li>
+							<span>{t.next}</span>
+							<strong>{next}</strong>
+						</li>
+					{/if}
+				</ul>
+			</PixelBox>
+		{/if}
 		<nav class="nav">
 			<PixelButton size="large" onclick={onhome}>{t.home}</PixelButton>
 			<PixelButton size="large" onclick={onmap}>{t.map}</PixelButton>
@@ -209,6 +260,13 @@
 		font-size: var(--np-type-title);
 		font-variant-numeric: tabular-nums;
 		white-space: normal;
+	}
+
+	.rows li.exercise,
+	.rows li.miss {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--np-space-1, 8px);
 	}
 
 	.fatigue.alert {

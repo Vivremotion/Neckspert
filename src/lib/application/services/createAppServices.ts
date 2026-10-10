@@ -2,6 +2,7 @@ import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
+import { GESTURE_EXERCISES, gestureOpen } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
 	IDENTIFY_NECK,
@@ -17,6 +18,7 @@ import {
 	buildNeckMap,
 	computeHomeStats,
 	createLearnSelector,
+	createGestureSelector,
 	createListSelector,
 	createTriadSelector,
 	isNeck,
@@ -78,6 +80,15 @@ export function createAppServices(
 				anchorDue: due('triad-anchor'),
 				zoneDue: triadZoneOpen(cards) ? due('triad-zone') : null
 			};
+		},
+
+		async gesture() {
+			const cards = await deps.cards.all();
+			return { open: GESTURE_EXERCISES.some((definition) => gestureOpen(definition, cards)) };
+		},
+
+		async contest(attemptId: number) {
+			await deps.attempts.setContested(attemptId);
 		},
 
 		async sessionSummary(sessionId: string) {
@@ -147,6 +158,23 @@ export function createAppServices(
 					return prepareTriads('triad-anchor', sessionId, cards, attempts, progressions);
 				if (kind === 'triads-zone')
 					return prepareTriads('triad-zone', sessionId, cards, attempts, progressions);
+				if (kind === 'gesture') {
+					// The open exercises, each at its own tempo, in the order of the ladder.
+					const definitions = GESTURE_EXERCISES.filter((definition) =>
+						gestureOpen(definition, cards)
+					);
+					const executions: Execution[] = definitions.map((definition) => ({
+						exerciseId: definition.id,
+						tempoBpm: startTempo(definition, progressions)
+					}));
+					const selector = createGestureSelector({
+						definitions,
+						cards,
+						attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+						sessionId
+					});
+					return { selector, executions };
+				}
 				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => ({
 					exerciseId: e.id,
 					tempoBpm: mechanicRules(e.mechanic).timing.usesTempo ? startTempo(e, progressions) : null

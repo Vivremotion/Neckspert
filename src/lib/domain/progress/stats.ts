@@ -13,6 +13,7 @@ import {
 	type Settings
 } from '$lib/domain/types';
 import { LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise/catalog';
+import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
@@ -142,7 +143,10 @@ export function summarizeSession(input: {
 		tempoBpm:
 			input.record.executions.find((execution) => execution.exerciseId === shownExercise.id)
 				?.tempoBpm ?? null,
-		kind: input.record.kind
+		kind: input.record.kind,
+		...(input.record.kind === 'gesture' && {
+			gesture: summarizeGesture(input.record.executions, input.attempts)
+		})
 	};
 }
 
