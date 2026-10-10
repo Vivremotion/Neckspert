@@ -13,6 +13,7 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   - comment l’insérer sans casser la pulsation : arrêt et mesure comptée, comme un changement de tempo ou de scène, ou une pause explicite ;
   - si elle vit dans la définition (donc en données, partageable, écrite par un professeur ou un LLM) ou dans la mécanique (code) ;
   - son lien avec le sondage : un sondage raté parce que le geste n’était pas compris ne mesure pas la mémoire.
+- **Depuis le 2026-10-11** : couvert en partie par la voie du geste : un exercice peut porter sa consigne en données (`ExerciseDefinition.howTo`) ; le contrôleur s’arrête avant son premier passage dans la série pour la dire, puis compte une mesure (la première consigne est sur l’écran de départ). Reste à faire : les notes et les triades n’ont pas de consigne par exercice, et le retour après une longue absence ou à la demande n’existe pas.
 - **Depuis le 2026-10-09** : l’ancrage et la zone sont deux exercices, chacun sa session et sa consigne ; la zone apparaît à l’accueil quand l’ancrage lui a fourni assez de triades (`ZONE_MIN_ACQUIRED_TRIADS`). Le passage de l’un à l’autre au sein d’une même session n’était pas clair, même pour qui connaît l’application. Les intégrer aux sessions d’Apprentissage reste à penser, et **le changement d’exercice doit y être manifeste**.
 
 ## Une vue de jeu par mécanique
@@ -45,3 +46,4 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
 - Essayer le jam avec le son réel et le vrai vérificateur d’accords (beaucoup de candidats). Origine : voie du geste, 2026-10-10.
 - Jouer en session réelle une grille avec des changements entre deux temps (croches, triolets). Origine : voie du geste, 2026-10-10.
 - Réduire la taille des essais du geste : chacun garde toute la grille de son passage. Origine : voie du geste, 2026-10-10.
+- Le décompte de l’écran des notes et des triades est invisible : `PixelWord` n’a pas de chiffres. Origine : refonte de relier, 2026-10-11.
