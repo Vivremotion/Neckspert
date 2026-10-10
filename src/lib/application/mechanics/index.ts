@@ -7,6 +7,14 @@ export * from './types';
 export { identifyPresenter } from './identify';
 export { locatePresenter } from './locate';
 export { TRIAD_PRESENTERS, triadAnchorPresenter, triadZonePresenter } from './triads';
+export {
+	chordGridPresenter,
+	GESTURE_PRESENTERS,
+	gridExpectation,
+	NEIGHBOUR_FRETS,
+	type GridCue,
+	type GridStageModel
+} from './chordGrid';
 
 /** The neck's mechanics as the session shows them, by mechanic id. */
 export const NECK_PRESENTERS: Record<MechanicId, MechanicPresenter> = {

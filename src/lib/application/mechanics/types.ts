@@ -50,12 +50,13 @@ export interface MechanicPresenter<I = any, A = any> {
 	): Partial<Record<SensorKind, unknown>>;
 	/**
 	 * The screen model of a prompt, opaque to the core, shown by the view its exercise names:
-	 * before its round (`settled` null) and once settled, with the round's answer and verdict.
-	 * Leave it out for a mechanic shown by the play screen's own lane.
+	 * before its round (`settled` null) and once settled, with the round's answer and verdict;
+	 * `aids`, the prompt's aid. Leave it out for a mechanic shown by the play screen's own lane.
 	 */
 	stage?(
 		item: I,
 		settled: { answer: unknown; verdict: Verdict } | null,
-		locale: Locale
+		locale: Locale,
+		aids: { aid: AidLevel }
 	): { model: unknown };
 }

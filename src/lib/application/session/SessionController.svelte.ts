@@ -592,7 +592,9 @@ export class SessionController implements PlaySessionController {
 		item: PlannedItem,
 		settled: { answer: unknown; verdict: Verdict } | null
 	): void {
-		const stage = this.presenterFor(item).stage?.(item.item, settled, this.locale);
+		const stage = this.presenterFor(item).stage?.(item.item, settled, this.locale, {
+			aid: item.aid
+		});
 		this.view.stage = stage
 			? { view: this.exerciseOf(item.exerciseId).view ?? DEFAULT_PLAY_VIEW, model: stage.model }
 			: null;

@@ -1,5 +1,5 @@
 import { createAppServices } from '$lib/application/services/createAppServices';
-import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
@@ -83,7 +83,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		now: () => Date.now(),
 		random: () => Math.random(),
 		newId: () => crypto.randomUUID(),
-		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS },
+		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
 		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
 	});
 }
