@@ -6,6 +6,7 @@ import {
 	admits,
 	admittedShapes,
 	chordGridRules,
+	climbDirection,
 	shapePosition,
 	type ChordGridItem
 } from './chordGrid';
@@ -108,7 +109,7 @@ describe('chordGridRules', () => {
 			);
 		});
 
-		it('starts again, free, once no shape of the chord goes further up the neck', () => {
+		it('judges by the direction the item carries: no shape beyond the one before is refused', () => {
 			// After Em 16-17-15 (position 15), Ebm has no shape above it on G-B-E.
 			const top = item({
 				rule: 'climb',
@@ -117,8 +118,18 @@ describe('chordGridRules', () => {
 				chord: 'Eb|min',
 				previous: shapeId('E', 'min', G_B_E, '16-17-15')
 			});
-			expect(judge(top, shapeId('D#', 'min', G_B_E, '3-4-2')).correct).toBe(true);
-			expect(admittedShapes(top)).toHaveLength(4);
+			expect(judge(top, shapeId('D#', 'min', G_B_E, '3-4-2')).confusion?.kind).toBe('not-higher');
+			expect(admittedShapes(top)).toEqual([]);
+		});
+
+		it('turns the climb where the neck runs out, and only there', () => {
+			const at = (direction: 'up' | 'down', chord: string, previous: string | null) =>
+				climbDirection({ chord, sets: [G_B_E], direction, previous });
+			const em15 = shapeId('E', 'min', G_B_E, '16-17-15');
+			expect(at('up', 'Eb|min', em15)).toBe('down');
+			expect(at('up', 'Ab|maj', em15)).toBe('up');
+			expect(at('down', 'Eb|min', shapeId('D', 'min', G_B_E, '2-3-1'))).toBe('up');
+			expect(at('down', 'Eb|min', null)).toBe('down');
 		});
 
 		it('going down, takes a shape strictly lower', () => {

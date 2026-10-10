@@ -5,6 +5,7 @@ import { gridById, triadOf, type GridChange } from '$lib/domain/grid';
 import {
 	admittedShapes,
 	chordGridRules,
+	climbDirection,
 	closestShape,
 	expectedShape,
 	parseTriadId,
@@ -130,14 +131,14 @@ function cueText(cue: GridCue, locale: Locale): string {
 
 /**
  * The next change of the passage, as the selector will serve it, the shape `heard` ringing
- * (else the one that rang before); null after the last change.
+ * (else the one that rang before), a climb turned where the neck runs out; null after the last.
  */
 function nextChange(item: ChordGridItem, heard: string | null): ChordGridItem | null {
 	const index = item.index + 1;
 	const change = item.changes[index];
 	if (!change) return null;
 	const shape = item.rule === 'link' ? linkShape(item, index) : null;
-	return {
+	const next: ChordGridItem = {
 		...item,
 		index,
 		symbol: change.symbol,
@@ -145,11 +146,13 @@ function nextChange(item: ChordGridItem, heard: string | null): ChordGridItem | 
 		...(shape && { shape: occurrenceId(shape) }),
 		previous: heard ?? item.previous
 	};
+	// A climb turns where the neck runs out, as the selector will turn it.
+	return next.rule === 'climb' ? { ...next, direction: climbDirection(next) } : next;
 }
 
 /**
  * The shape to play at the next change: link, the shape asked; climb, the admitted shape closest
- * to the one just heard (else the one before; the lowest going up, the highest going down
+ * to the one just heard, in the direction the climb goes then (else the one before; the lowest going up, the highest going down
  * without any); zone, the lowest in the zone; jam, none.
  */
 function aidFor(item: ChordGridItem, heard: string | null): VoicingOccurrence | null {

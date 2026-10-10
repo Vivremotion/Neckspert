@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
-import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
+import {
+	admittedShapes,
+	chordGridRules,
+	closestShape,
+	type ChordGridItem
+} from '$lib/domain/mechanics';
+import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';
@@ -249,5 +255,79 @@ describe('createGestureSelector', () => {
 
 	it('serves nothing when nothing is open', () => {
 		expect(selector([]).next({ now: NOW, elapsedMs: 0, fatigued: false })).toBeNull();
+	});
+
+	describe('a climb that runs out of neck', () => {
+		/** Plays a climb passage along the aid: the admitted shape closest to the one before. */
+		function climbAlongTheAid(
+			gridId: string,
+			set: readonly (1 | 2 | 3 | 4)[],
+			triads: readonly (readonly [string, string])[]
+		) {
+			const cards = triads.flatMap(([root, quality]) =>
+				triadCards('triad-anchor', root, quality, set)
+			);
+			const s = createGestureSelector({
+				definitions: GESTURE_EXERCISES.filter((d) => d.id === 'gesture-climb'),
+				cards,
+				attempts: [],
+				sessionId: 's1'
+			});
+			const directions: string[] = [];
+			let right = 0;
+			for (let n = 0; n < 40; n++) {
+				const planned = s.next({ now: NOW, elapsedMs: 0, fatigued: false })!;
+				const item = itemOf(planned);
+				if (!item.element.includes(gridId)) throw new Error(`unexpected ${item.element}`);
+				directions.push(item.direction ?? '');
+				const reference = item.previous === null ? null : occurrenceOfId(item.previous);
+				const shape = closestShape(admittedShapes(item), reference);
+				const decided = shape && occurrenceId(shape);
+				const judged = chordGridRules.judge(item, { decided });
+				if (judged.correct) right++;
+				s.record(attemptOf(planned, NOW + n, judged.correct, decided), NOW);
+				if (item.index === item.changes.length - 1)
+					return { directions, right, length: item.changes.length };
+			}
+			throw new Error('no end');
+		}
+
+		const IOHEFY_TRIADS = IOHEFY as readonly (readonly [string, string])[];
+		const BLUES_TRIADS = [
+			['F', 'maj'],
+			['Bb', 'maj'],
+			['C', 'maj']
+		] as const;
+		const up = (n: number) => Array(n).fill('up');
+		const down = (n: number) => Array(n).fill('down');
+
+		it('iohefy-a on G-B-E: up to Em at 15, down from Ebm on, every change right', () => {
+			expect(climbAlongTheAid('iohefy-a', [3, 2, 1], IOHEFY_TRIADS)).toEqual({
+				directions: [...up(7), ...down(2)],
+				right: 9,
+				length: 9
+			});
+		});
+
+		it('iohefy-a on D-G-B: down from Ab on', () => {
+			expect(climbAlongTheAid('iohefy-a', [4, 3, 2], IOHEFY_TRIADS)).toEqual({
+				directions: [...up(8), ...down(1)],
+				right: 9,
+				length: 9
+			});
+		});
+
+		it('blues-f on G-B-E and D-G-B: turns once, and wins', () => {
+			for (const set of [
+				[3, 2, 1],
+				[4, 3, 2]
+			] as const) {
+				const played = climbAlongTheAid('blues-f', set, BLUES_TRIADS);
+				expect(played.right).toBe(9);
+				const turn = played.directions.indexOf('down');
+				expect(turn).toBeGreaterThan(0);
+				expect(played.directions.slice(turn).every((d) => d === 'down')).toBe(true);
+			}
+		});
 	});
 });

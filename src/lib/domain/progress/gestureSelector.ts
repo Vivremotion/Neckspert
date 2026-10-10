@@ -8,6 +8,7 @@ import {
 } from '$lib/domain/gesture';
 import { gridById, gridChanges, triadOf, type GridChange } from '$lib/domain/grid';
 import {
+	climbDirection,
 	parseTriadId,
 	triadId,
 	type ChordGridItem,
@@ -101,6 +102,16 @@ class GestureSelector implements SessionSelector {
 		const index = passage.next++;
 		const change = passage.changes[index];
 		const { element } = passage;
+		const chord = element.chord ?? triadId(triadOf(change.symbol));
+		if (passage.direction) {
+			// Where the neck runs out, the climb turns, for this change and the rest of the passage.
+			passage.direction = climbDirection({
+				chord,
+				sets: element.sets,
+				direction: passage.direction,
+				previous: this.previous
+			});
+		}
 		const item: ChordGridItem = {
 			rule: element.rule,
 			element: element.key,
@@ -108,7 +119,7 @@ class GestureSelector implements SessionSelector {
 			index,
 			changes: passage.changes,
 			symbol: change.symbol,
-			chord: element.chord ?? triadId(triadOf(change.symbol)),
+			chord,
 			sets: element.sets,
 			...(passage.shapes && { shape: passage.shapes[index] }),
 			...(passage.direction && { direction: passage.direction }),
@@ -156,7 +167,8 @@ class GestureSelector implements SessionSelector {
 			state.lastPassage = { id: item.passageId, attempts: [] };
 		}
 		state.lastPassage.attempts.push(attempt);
-		if (item.direction) state.direction = item.direction;
+		// The direction a passage started in: a turn on the way does not count.
+		if (item.direction && item.index === 0) state.direction = item.direction;
 		if (item.zone) state.zone = item.zone;
 	}
 

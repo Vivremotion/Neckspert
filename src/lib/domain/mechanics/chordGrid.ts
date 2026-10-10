@@ -119,14 +119,8 @@ function classify(item: ChordGridItem, heard: VoicingOccurrence | null): ChordGr
 		case 'climb': {
 			const before = item.previous === null ? null : occurrenceOfId(item.previous);
 			if (!before) return null;
-			const last = shapePosition(before);
 			const down = item.direction === 'down';
-			const further = (o: VoicingOccurrence) =>
-				down ? shapePosition(o) < last : shapePosition(o) > last;
-			if (further(heard)) return null;
-			// The end of the neck: no shape of the chord goes further, so the climb starts again,
-			// free like its first change (ruling of 2026-10-10: the rule alone makes a grid unplayable).
-			if (!triadShapes(item).some(further)) return null;
+			if (beyond(heard, before, down ? 'down' : 'up')) return null;
 			return confusion(down ? 'not-lower' : 'not-higher');
 		}
 		case 'zone':
@@ -134,6 +128,32 @@ function classify(item: ChordGridItem, heard: VoicingOccurrence | null): ChordGr
 		case 'jam':
 			return null;
 	}
+}
+
+/** `shape` lies strictly beyond `before` on the neck, going `direction`. */
+function beyond(
+	shape: VoicingOccurrence,
+	before: VoicingOccurrence,
+	direction: 'up' | 'down'
+): boolean {
+	const [position, last] = [shapePosition(shape), shapePosition(before)];
+	return direction === 'down' ? position < last : position > last;
+}
+
+/**
+ * The direction a climb change goes: its own, unless no shape of its chord on its sets lies
+ * strictly beyond the shape before in it (the neck runs out), where it turns. The session carries
+ * the turned direction on this change and the ones after it.
+ */
+export function climbDirection(
+	item: Pick<ChordGridItem, 'chord' | 'sets' | 'direction' | 'previous'>
+): 'up' | 'down' {
+	const direction = item.direction ?? 'up';
+	const before = item.previous === null ? null : occurrenceOfId(item.previous);
+	if (!before || triadShapes(item).some((shape) => beyond(shape, before, direction))) {
+		return direction;
+	}
+	return direction === 'up' ? 'down' : 'up';
 }
 
 /** The shape is right for the change: its chord, on one of its sets, as its rule asks. */

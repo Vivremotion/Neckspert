@@ -23,6 +23,7 @@ export {
 	admits,
 	admittedShapes,
 	chordGridRules,
+	climbDirection,
 	closestShape,
 	expectedShape,
 	inZone,

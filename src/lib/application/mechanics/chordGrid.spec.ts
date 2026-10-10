@@ -195,6 +195,12 @@ describe('chordGridPresenter', () => {
 			expect(stage(first, shapeId('D', 'min', G_B_E, '7-6-5')).aid).toEqual(view('7-8-7'));
 		});
 
+		it('climb: the aid turns with the climb where the neck runs out', () => {
+			// Em 16-17-15 heard going up: no Ebm above it, so the climb turns down to 15-16-14.
+			const em = climb('up', shapeId('G', 'maj', G_B_E, '12-12-10'), 6);
+			expect(stage(em, shapeId('E', 'min', G_B_E, '16-17-15')).aid).toEqual(view('15-16-14'));
+		});
+
 		it('zone: the frets, and the lowest shape of the next chord in them', () => {
 			const zone = item({ rule: 'zone', element: 'zone:iohefy-a', zone: { from: 7, to: 10 } });
 			expect(stage(zone)).toMatchObject({ cue: { kind: 'zone', from: 7, to: 10 } });
