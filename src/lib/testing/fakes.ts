@@ -67,6 +67,7 @@ export class FakeMetronome implements MetronomePort {
 	private firstBeatTime: number | null = null;
 	private lastEmitted = -1;
 	private readonly listeners = new Set<(beat: BeatEvent) => void>();
+	private wakeUps: { time: number; callback: () => void }[] = [];
 
 	/** `lookaheadS` mirrors the real scheduler: beats are announced up to that far before their time. */
 	constructor(
@@ -99,10 +100,20 @@ export class FakeMetronome implements MetronomePort {
 
 	stop(): void {
 		this.firstBeatTime = null;
+		this.wakeUps = [];
 	}
 
 	isRunning(): boolean {
 		return this.firstBeatTime !== null;
+	}
+
+	at(time: number, callback: () => void): () => void {
+		if (this.firstBeatTime === null) throw new Error('Metronome not running');
+		const wakeUp = { time, callback };
+		this.wakeUps.push(wakeUp);
+		return () => {
+			this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
+		};
 	}
 
 	beatTime(index: number): number {
@@ -115,17 +126,36 @@ export class FakeMetronome implements MetronomePort {
 		return () => this.listeners.delete(callback);
 	}
 
-	/** Emits every beat whose audio time is within the lookahead of the clock. */
+	/**
+	 * Emits every beat whose audio time is within the lookahead of the clock, and calls every
+	 * wake-up whose time the clock reached, in the order they come due: a beat at its time minus
+	 * the lookahead, a wake-up at its time (a beat first on a tie). Either may stop or restart it.
+	 */
 	flush(): void {
-		if (this.firstBeatTime === null) return;
-		while (this.beatTime(this.lastEmitted + 1) <= this.clock.now() + this.lookaheadS) {
-			this.lastEmitted++;
-			const beat: BeatEvent = {
-				index: this.lastEmitted,
-				time: this.beatTime(this.lastEmitted),
-				isDownbeat: this.lastEmitted % this.beatsPerBar === 0
-			};
-			this.listeners.forEach((listener) => listener(beat));
+		const now = this.clock.now();
+		for (;;) {
+			if (this.firstBeatTime === null) return;
+			const nextBeat = this.beatTime(this.lastEmitted + 1);
+			const wakeUp = this.wakeUps
+				.filter((w) => w.time <= now)
+				.reduce<{ time: number; callback: () => void } | null>(
+					(earliest, w) => (!earliest || w.time < earliest.time ? w : earliest),
+					null
+				);
+			const beatFirst =
+				nextBeat <= now + this.lookaheadS && (!wakeUp || nextBeat - this.lookaheadS <= wakeUp.time);
+			if (beatFirst) {
+				this.lastEmitted++;
+				const beat: BeatEvent = {
+					index: this.lastEmitted,
+					time: this.beatTime(this.lastEmitted),
+					isDownbeat: this.lastEmitted % this.beatsPerBar === 0
+				};
+				this.listeners.forEach((listener) => listener(beat));
+			} else if (wakeUp) {
+				this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
+				wakeUp.callback();
+			} else return;
 		}
 	}
 }

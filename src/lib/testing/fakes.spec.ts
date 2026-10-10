@@ -57,6 +57,67 @@ describe('FakeMetronome', () => {
 		metronome.start(0);
 		expect(() => metronome.setTempo(100)).toThrow();
 	});
+
+	it('calls a wake-up once the clock reaches its time, never before', () => {
+		const clock = new FakeClock();
+		const metronome = new FakeMetronome(clock);
+		const calledAt: number[] = [];
+		metronome.start(1);
+		metronome.at(1.3, () => calledAt.push(clock.now()));
+		clock.advance(1.29);
+		metronome.flush();
+		expect(calledAt).toEqual([]);
+		clock.advance(0.02);
+		metronome.flush();
+		metronome.flush();
+		expect(calledAt).toHaveLength(1);
+	});
+
+	it('interleaves beats and wake-ups in the order they are due', () => {
+		const clock = new FakeClock();
+		// A beat at 1.0 s is announced at 0.9 s (lookahead 0.1).
+		const metronome = new FakeMetronome(clock, 4, 0.1);
+		metronome.setTempo(60);
+		const order: string[] = [];
+		metronome.onBeat((beat) => order.push(`beat ${beat.index}`));
+		metronome.start(1);
+		metronome.at(0.95, () => order.push('0.95'));
+		metronome.at(0.85, () => order.push('0.85'));
+		clock.advance(1);
+		metronome.flush();
+		expect(order).toEqual(['0.85', 'beat 0', '0.95']);
+	});
+
+	it('forgets a cancelled wake-up and every wake-up on stop', () => {
+		const clock = new FakeClock();
+		const metronome = new FakeMetronome(clock);
+		const called: string[] = [];
+		metronome.start(1);
+		const cancel = metronome.at(0.5, () => called.push('cancelled'));
+		cancel();
+		metronome.at(0.6, () => called.push('stopped'));
+		metronome.stop();
+		metronome.start(1);
+		clock.advance(1);
+		metronome.flush();
+		expect(called).toEqual([]);
+	});
+
+	it('lets a wake-up restart the metronome', () => {
+		const clock = new FakeClock();
+		const metronome = new FakeMetronome(clock, 4, 0.1);
+		metronome.setTempo(60);
+		const beats: number[] = [];
+		metronome.onBeat((beat) => beats.push(beat.time));
+		metronome.start(1);
+		metronome.at(1.5, () => {
+			metronome.stop();
+			metronome.start(3);
+		});
+		clock.advance(3);
+		metronome.flush();
+		expect(beats).toEqual([1, 3]);
+	});
 });
 
 describe('FakeNoteDetector', () => {

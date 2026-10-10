@@ -391,3 +391,88 @@ describe('WebAudioMetronome scheduling', () => {
 		expect(vi.getTimerCount()).toBe(0);
 	});
 });
+
+describe('WebAudioMetronome wake-ups', () => {
+	it('never calls a wake-up before its time, and calls it on the first wake-up past it', () => {
+		const { audio, metronome } = setup();
+		const calledAt: number[] = [];
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		metronome.at(1.3, () => calledAt.push(audio.currentTime));
+		wakeAt(audio, 1.29);
+		expect(calledAt).toEqual([]);
+		wakeAt(audio, 1.31);
+		wakeAt(audio, 1.4);
+		expect(calledAt).toEqual([1.31]);
+	});
+
+	it('calls a wake-up after the beats of the same scheduler wake-up', () => {
+		const { audio, metronome } = setup();
+		const order: string[] = [];
+		metronome.onBeat((beat) => order.push(`beat ${beat.index}`));
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		metronome.at(1.2, () => order.push('wake-up'));
+		wakeAt(audio, 1.45);
+		expect(order).toEqual(['beat 0', 'beat 1', 'wake-up']);
+	});
+
+	it('calls wake-ups due together in the order of their times', () => {
+		const { audio, metronome } = setup();
+		const order: number[] = [];
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		metronome.at(1.2, () => order.push(1.2));
+		metronome.at(1.1, () => order.push(1.1));
+		wakeAt(audio, 1.25);
+		expect(order).toEqual([1.1, 1.2]);
+	});
+
+	it('forgets a cancelled wake-up', () => {
+		const { audio, metronome } = setup();
+		const called = vi.fn();
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		const cancel = metronome.at(1.1, called);
+		cancel();
+		wakeAt(audio, 1.2);
+		expect(called).not.toHaveBeenCalled();
+	});
+
+	it('forgets every wake-up on stop()', () => {
+		const { audio, metronome } = setup();
+		const called = vi.fn();
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		metronome.at(1.1, called);
+		metronome.stop();
+		audio.currentTime = 1.05;
+		metronome.start(1.1);
+		wakeAt(audio, 1.2);
+		expect(called).not.toHaveBeenCalled();
+	});
+
+	it('lets a wake-up stop the metronome', () => {
+		const { audio, metronome } = setup();
+		const later = vi.fn();
+		metronome.setTempo(120);
+		audio.currentTime = 0.95;
+		metronome.start(1);
+		metronome.at(1.1, () => metronome.stop());
+		metronome.at(1.15, later);
+		wakeAt(audio, 1.2);
+		expect(metronome.isRunning()).toBe(false);
+		expect(later).not.toHaveBeenCalled();
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it('refuses a wake-up while stopped', () => {
+		const { metronome } = setup();
+		expect(() => metronome.at(1, () => {})).toThrow(/not running/);
+	});
+});
