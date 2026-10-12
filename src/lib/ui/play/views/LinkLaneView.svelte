@@ -10,7 +10,8 @@
 	const lane = $derived(model as LinkLaneModel);
 	const view = $derived(controller.view);
 	const t = $derived(viewMessages());
-	const counting = $derived(view.countdown !== null);
+	// The silence and the counted bar before a new chord: it takes the screen.
+	const counting = $derived(view.status === 'count-in' || view.countdown !== null);
 
 	let nowBeat = $state(0);
 	$effect(() => {

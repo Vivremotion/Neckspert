@@ -107,6 +107,8 @@ export class SessionController implements PlaySessionController {
 	private sources = new Map<SensorKind, ObservationSource>();
 	private closeSources: (() => void)[] = [];
 	private earliestPromptBeat: number = BEATS_PER_BAR;
+	/** The click is silenced for `PlannedItem.restBars` before a counted bar. */
+	private resting = false;
 	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
 	private counting = false;
 	private current: PlannedItem | null = null;
@@ -315,6 +317,7 @@ export class SessionController implements PlaySessionController {
 
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.rest(false);
 		this.dropHandover();
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
@@ -567,6 +570,8 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 		const left = promptBeat + targetOffset - beat.index;
+		// The rest ends with the beat before the counted bar: its first beat clicks.
+		if (this.resting && left <= BEATS_PER_BAR + 1) this.rest(false);
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
 		// Prompts with a preview come in two steps: the string first, then the note on the prompt beat.
 		this.view.preview =
@@ -595,6 +600,13 @@ export class SessionController implements PlaySessionController {
 		this.view.history = [];
 		logDetection('changement de tempo', [`nouveau tempo : ${tempoBpm} bpm, une mesure comptée`]);
 		metronome.start(at);
+	}
+
+	/** Silences the click for a rest, or gives it back to a guitar scene. */
+	private rest(resting: boolean): void {
+		if (!resting && !this.resting) return;
+		this.resting = resting;
+		this.deps.metronome.setAudible(!resting && this.view.scene === 'guitar');
 	}
 
 	private setTempo(tempoBpm: number): void {
@@ -1066,9 +1078,11 @@ export class SessionController implements PlaySessionController {
 			}
 			this.enterScene(presenter);
 		} else if (item.countIn && counted) {
-			// A new sequence at another lead: one counted bar announces it.
-			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + BEATS_PER_BAR);
+			// A new sequence at another lead: one counted bar announces it, after its rest in silence.
+			const rest = (item.restBars ?? 0) * BEATS_PER_BAR;
+			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + rest + BEATS_PER_BAR);
 			this.counting = true;
+			if (rest > 0) this.rest(true);
 			this.view.answerChoices = null;
 		} else if (presenter.scene === 'guitar') {
 			this.view.answerChoices = null;

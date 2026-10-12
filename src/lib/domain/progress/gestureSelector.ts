@@ -1,6 +1,7 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
 	LINK_AID_AFTER_MISSES,
+	LINK_REST_BARS,
 	linkShapes,
 	nextZone,
 	openElements,
@@ -53,6 +54,8 @@ interface Passage {
 	aided: boolean;
 	/** Link: chained to the tour before, on the same element. */
 	continued: boolean;
+	/** Link: another chord or set after a passage of the session: a silence breaks before it. */
+	rests: boolean;
 	next: number;
 }
 
@@ -144,6 +147,7 @@ class GestureSelector implements SessionSelector {
 			leadBeats: null,
 			// A chained tour carries on without a counted bar.
 			...(index === 0 && !passage.continued && { countIn: true }),
+			...(index === 0 && passage.rests && { restBars: LINK_REST_BARS }),
 			// A grid progresses at its own tempo: a ballad and a blues apart.
 			...(element.gridId !== undefined && { tempoScope: element.gridId })
 		};
@@ -246,6 +250,7 @@ class GestureSelector implements SessionSelector {
 			shapes: null,
 			aided: !last || !passageSucceeded(last.attempts),
 			continued,
+			rests: element.rule === 'link' && !continued && finished !== null,
 			next: 0
 		};
 		if (element.rule === 'link') {

@@ -181,6 +181,8 @@ export interface PlannedItem<I = unknown> {
 	leadBeats: LeadBeats | null;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
+	/** With `countIn`: bars of silence before the counted bar, a break heard without looking. */
+	restBars?: number;
 	/**
 	 * The scope of its exercise's tempo (`Execution.scope`): the prompt runs at, and moves, the
 	 * tempo of its exercise in that scope. Absent: the exercise's own tempo.

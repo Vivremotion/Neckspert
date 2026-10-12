@@ -181,6 +181,52 @@ describe('the counted bar before a chord change', () => {
 		expect(ctx.controller.view.targetBeatIndex).toBe(4);
 	});
 
+	it('rests restBars in silence before the counted bar, then counts as usual', async () => {
+		const a = change('A', 'grid-a', true);
+		const b = { ...change('B', 'grid-a', true), restBars: 1 };
+		const ctx = setup([{ ...a, item: { chord: 'A', length: 4 } }, b]);
+		/** Whether each beat clicked: read before the session hears the beat. */
+		const clicked = new Map<number, boolean>();
+		ctx.metronome.onBeat((beat) => clicked.set(beat.index, ctx.metronome.audible));
+		await ctx.controller.start();
+		// A fills the bar from 4; silence over 8 to 11; the count over 12 to 15; B on 16.
+		expect(countsOn(ctx, 8, 16)).toEqual([
+			[8, null, null],
+			[9, null, null],
+			[10, null, null],
+			[11, null, null],
+			[12, 4, null],
+			[13, 3, null],
+			[14, 2, null],
+			[15, 1, 16],
+			[16, null, 16]
+		]);
+		expect([...Array(10)].map((_, i) => clicked.get(7 + i))).toEqual([
+			true,
+			false,
+			false,
+			false,
+			false,
+			true,
+			true,
+			true,
+			true,
+			true
+		]);
+	});
+
+	it('clicks again after a pause in the rest', async () => {
+		const a = change('A', 'grid-a', true);
+		const b = { ...change('B', 'grid-a', true), restBars: 1 };
+		const ctx = setup([{ ...a, item: { chord: 'A', length: 4 } }, b]);
+		await ctx.controller.start();
+		ctx.runTo(ctx.metronome.beatTime(9) + 0.01);
+		expect(ctx.metronome.audible).toBe(false);
+		ctx.controller.pause();
+		ctx.controller.resume();
+		expect(ctx.metronome.audible).toBe(true);
+	});
+
 	it('counts one bar between two passages, the next change on the downbeat after it', async () => {
 		const a = change('A', 'grid-a', true);
 		const items = [{ ...a, item: { chord: 'A', length: 4 } }, change('B', 'grid-a', true)];

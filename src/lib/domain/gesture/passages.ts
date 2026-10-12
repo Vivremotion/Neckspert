@@ -28,6 +28,9 @@ export const PASSAGE_SUCCESS = 0.9;
 /** Missed changes in a link tour before its shapes are drawn on the neck. To calibrate. */
 export const LINK_AID_AFTER_MISSES = 2;
 
+/** Bars of silence before the counted bar of a new link chord or set, heard without looking. To calibrate. */
+export const LINK_REST_BARS = 1;
+
 function compareShapes(a: VoicingOccurrence, b: VoicingOccurrence): number {
 	return (
 		shapePosition(a) - shapePosition(b) ||

@@ -83,6 +83,13 @@ describe('LinkLaneView', () => {
 		]);
 	});
 
+	it('shows the root bigger during the silence before the counted bar', () => {
+		const controller = new StageController();
+		controller.view.status = 'count-in';
+		render(LinkLaneView, { props: { controller, model: model(0, false) } });
+		expect(screen.getByTestId('link-root').classList.contains('counting')).toBe(true);
+	});
+
 	it('shows the root bigger during the counted bar', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';

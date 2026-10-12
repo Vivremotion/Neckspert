@@ -10,7 +10,7 @@ import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';
-import { LINK_AID_AFTER_MISSES } from '$lib/domain/gesture';
+import { LINK_AID_AFTER_MISSES, LINK_REST_BARS } from '$lib/domain/gesture';
 import type { SessionSelector } from './selector';
 
 const NOW = Date.parse('2026-10-10T10:00:00.000Z');
@@ -448,6 +448,19 @@ describe('the link', () => {
 		const first = playLink(s, clock, () => true, false);
 		const [next] = playLink(s, clock);
 		expect(itemOf(next).element).not.toBe(itemOf(first[0]).element);
+	});
+
+	it('rests LINK_REST_BARS in silence when the chord or the set changes, never in a chained tour', () => {
+		expect(LINK_REST_BARS).toBe(1);
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock, (i) => i !== 3);
+		expect(first[0].restBars).toBeUndefined();
+		const chained = playLink(s, clock);
+		expect(chained.every((p) => p.restBars === undefined)).toBe(true);
+		const [other, ...rest] = playLink(s, clock);
+		expect(other).toMatchObject({ countIn: true, restBars: LINK_REST_BARS });
+		expect(rest.every((p) => p.restBars === undefined)).toBe(true);
 	});
 
 	it('counts a bar when only the set changes', () => {
