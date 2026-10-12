@@ -353,3 +353,32 @@ Branche `plan/voie-geste`, plan `docs/superpowers/plans/2026-10-10-voie-geste.md
 - Le son réel et le vrai vérificateur d’accords.
 - Une session réelle avec des changements entre deux temps (croche, triolet) : seul le rapport au temps est testé, le contrôleur n’a enchaîné que des temps entiers.
 - L’affichage : vu en capture headless sur `/dev/gesture` à 1280×800 et 390×844 (aucun texte sous 16 px, pas de défilement horizontal) ; `scripts/functional-ui.mjs` ne couvre pas cette page.
+
+## Deuxième refonte de relier : la Lane (2026-10-12)
+
+Conçue dans la conversation du 2026-10-12, après de vraies sessions sur `link-path`. Maquette approuvée : `.impeccable/mocks/link-lane.html`.
+
+### Retour du guitariste
+
+- La fondamentale, dans un coin, ne se remarque pas, ni quand elle change : c'est le plus gros problème.
+- Il ne sait toujours pas quand jouer l'accord suivant, ni où il en est s'il s'est perdu.
+- La pause entre deux tours d'une même fondamentale casse le rythme.
+- L'écran est trop lourd : des composants compliqués qui clignotent sans rien éclairer.
+- Les autres exercices ont la Lane, qui dit simplement quoi jouer et quand ; monter et descendre se disent par des flèches.
+
+### Décisions
+
+- **La vue `link-path` est remplacée par une Lane d'une tuile par mesure.** L'accord se joue quand sa tuile touche la barre. Toutes les tuiles ont la même taille. La première tuile d'une série porte la fondamentale (« E ») ; les suivantes ne portent qu'une flèche, ↗ (forme suivante plus haut) ou ↘ (plus bas), ni chiffre ni lettre. Les tuiles passées portent leur verdict au-dessus, comme la Lane des notes. Couleurs de la Lane des notes : tuile en cours `--i`, suivante `--m`, plus loin un contour `--s`, passées en damier.
+- **Le temps de la mesure** s'écrit en chiffre au-dessus de la tuile juste à droite de la barre, dans le style des numéros de temps de la Lane des notes. Pas de carrés de temps.
+- **En haut à gauche**, la fondamentale en très grand, la qualité (« majeur »), puis « sur cordes » et le groupe (« sol · si · mi »). Plus de « MAINTENANT », d'« ENSUITE », de numéros de forme, ni de « où j'en suis ».
+- **Pas de manche sans aide.** Le joueur cherche les formes lui-même.
+- **L'aide** : le manche du groupe sous la Lane, avec les notes des deux formes à jouer dans des cercles (exception assumée aux formes carrées de `DESIGN.md`), chaque cercle de la teinte de sa tuile : forme en cours `--i`, suivante `--m`. Aucune autre forme. Elle apparaît après `LINK_AID_AFTER_MISSES` (2) changements ratés dans un tour, au changement suivant, et reste jusqu'à un tour réussi. Elle ne dépend plus du passage précédent.
+- **On reste sur un accord et un groupe jusqu'à un tour réussi** (`passageSucceeded`), sans minimum ni maximum : un succès immédiat passe plus vite à une autre fondamentale, et le joueur finit toujours par réussir. Ce n'est pas un paramètre de l'exercice.
+- **Pas de pause entre deux tours du même accord sur le même groupe, et pas de doublement.** Le tour suivant enchaîne sans mesure comptée et commence à la deuxième forme : la forme la plus grave, jouée à la fin de la descente, sert de départ (1 2 3 4 3 2 1 2 3 4 3 2 1…). Sa première tuile est donc une flèche ↗. Un tour enchaîné a `LINK_SHAPES` × 2 − 2 changements (6) ; le premier en a un de plus (7).
+- **Une mesure comptée, et elle seule, quand l'accord ou le groupe change.** La nouvelle fondamentale prend l'écran en très grand, l'ancienne s'efface ; sa tuile arrive sur la Lane comme les autres ; le décompte s'écrit « Départ dans 3 temps ».
+- **La consigne** (`howTo`, avant le premier passage de l'exercice dans la série) : jouer l'accord demandé sur les cordes indiquées en partant de sa position la plus grave, monter les renversements un par un vers l'aigu puis redescendre par le même chemin, un accord par mesure sur le premier temps ; les flèches donnent le sens. Elle montre une petite Lane d'exemple : « E » (l'accord), ↗ ↗ (monte), ↘ (descends).
+
+### Risques connus
+
+- Choisir de rester sur l'accord demande de savoir si le tour est réussi au moment d'ouvrir le suivant, enchaîné, alors que le dernier changement du tour peut ne pas être encore réglé (lecture d'accord en cours). À vérifier dans le contrôleur : le choix peut attendre le réglage, ou se faire au changement suivant.
+- Sans doublement, rien ne marque la reprise d'un tour : c'est voulu, le guitariste jugera à l'usage.

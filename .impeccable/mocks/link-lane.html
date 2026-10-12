@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Relier — maquettes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
+<style>
+	:root {
+		--g: #e99568;
+		--m: #be6754;
+		--s: #813b2a;
+		--i: #451218;
+		--check: repeating-conic-gradient(var(--m) 0 25%, var(--g) 0 50%) 0 0 / 4px 4px;
+	}
+	* { box-sizing: border-box; margin: 0; }
+	body { background: #222; color: var(--g); font-family: 'VT323', monospace; padding: 24px; }
+	h1 { font-size: 40px; margin-bottom: 8px; }
+	.note { font-size: 22px; max-width: 1000px; margin-bottom: 24px; line-height: 1.2; opacity: 0.9; }
+	h2 { font-size: 30px; margin: 32px 0 4px; }
+	.cap { font-size: 22px; max-width: 1000px; margin-bottom: 10px; line-height: 1.2; opacity: 0.9; }
+	.frame {
+		position: relative; width: 1000px; height: 600px; background: var(--g);
+		border: 4px solid var(--i); color: var(--i); overflow: hidden;
+	}
+	.abs { position: absolute; }
+	.meta { font-size: 24px; }
+	.body { font-size: 32px; }
+	.root { font-size: 168px; line-height: 0.8; }
+	.hit { position: absolute; width: 6px; left: 254px; background: var(--i); top: 210px; height: 150px; }
+	.tile {
+		position: absolute; top: 240px; width: 140px; height: 80px; border: 3px solid var(--i); background: var(--g);
+		display: flex; align-items: center; justify-content: center; font-size: 56px;
+	}
+	.tile.next { background: var(--m); }
+	.tile.later { border-color: var(--s); color: var(--s); }
+	.tile.now { background: var(--i); color: var(--g); }
+	.tile.past { background: var(--check); border-color: var(--s); color: var(--s); }
+	.ok { position: absolute; top: -26px; left: 50%; transform: translateX(-50%); font-size: 24px; color: var(--i); }
+	.beat-no { position: absolute; left: 260px; top: 210px; width: 140px; text-align: center; font-size: 24px; line-height: 1; }
+	.dim { opacity: 0.35; }
+	.neck line { stroke: var(--s); stroke-width: 2; }
+	.btn { position: absolute; border: 4px solid var(--i); background: var(--m); font-size: 32px; padding: 8px 24px; }
+	.how { position: absolute; left: 60px; top: 150px; width: 880px; font-size: 32px; line-height: 1.25; }
+	.how p + p { margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Relier les formes — variante B ajustée</h1>
+<p class="note">
+	Passage : E majeur sur sol-si-mi, 7 mesures. Formes 1-0-0, 4-5-4, 9-9-7, 13-12-12, puis retour.
+	Une case de la Lane = une mesure ; on joue l'accord quand la case touche la barre.
+	La première case d'un tour porte la fondamentale ; les suivantes, le sens seul.
+</p>
+
+<!-- ============ 1. Consigne ============ -->
+<h2>1 · Consigne, au démarrage de l'exercice</h2>
+<p class="cap">Métronome arrêté ; la Lane d'exemple montre ce que disent les cases.</p>
+<div class="frame">
+	<div class="abs" style="left:60px; top:48px; font-size:48px">Relier les formes</div>
+	<div class="how">
+		<p>Joue l'accord demandé sur les cordes indiquées, en partant de sa position la plus grave.</p>
+		<p>Monte ses renversements un par un vers l'aigu, puis redescends par le même chemin. Un accord par mesure, sur le premier temps.</p>
+	</div>
+	<div class="tile" style="left:60px; top:400px">E</div>
+	<div class="tile" style="left:216px; top:400px">↗</div>
+	<div class="tile" style="left:372px; top:400px">↗</div>
+	<div class="tile" style="left:528px; top:400px">↘</div>
+	<div class="abs meta" style="left:60px; top:490px; width:140px; text-align:center">l'accord</div>
+	<div class="abs meta" style="left:216px; top:490px; width:296px; text-align:center">monte</div>
+	<div class="abs meta" style="left:528px; top:490px; width:140px; text-align:center">descends</div>
+	<div class="btn" style="left:740px; top:500px">C'est parti</div>
+</div>
+
+<!-- ============ 2. Décompte ============ -->
+<h2>2 · Mesure comptée, au changement de fondamentale</h2>
+<p class="cap">Seule pause du passage. Temps 2 de la mesure comptée : E vient de finir, A arrive sur la barre.</p>
+<div class="frame">
+	<div class="abs dim root" style="left:40px; top:44px; font-size:96px">E</div>
+	<div class="abs" style="left:300px; top:40px; font-size:200px; line-height:0.8">A</div>
+	<div class="abs body" style="left:470px; top:60px">majeur</div>
+	<div class="abs meta" style="left:470px; top:100px">sur cordes</div>
+	<div class="abs meta" style="left:470px; top:124px">sol · si · mi</div>
+
+	<div class="hit"></div>
+	<div class="tile past dim" style="left:-60px">↘</div>
+	<div class="tile past dim" style="left:100px">↘</div>
+	<div class="beat-no">2</div>
+	<div class="tile next" style="left:260px">A</div>
+	<div class="tile later" style="left:420px">↗</div>
+	<div class="tile later" style="left:580px">↗</div>
+	<div class="tile later" style="left:740px">↗</div>
+	<div class="tile later" style="left:900px">↘</div>
+
+	<div class="abs" style="left:0; top:430px; width:100%; text-align:center; font-size:64px">Départ dans 3 temps</div>
+</div>
+
+<!-- ============ 3. En cours ============ -->
+<h2>3 · Pendant un tour</h2>
+<p class="cap">Mesure 3 : la case en cours (pleine) dit de monter encore. Pas de manche : le joueur cherche lui-même.</p>
+<div class="frame">
+	<div class="abs root" style="left:40px; top:44px">E</div>
+	<div class="abs body" style="left:170px; top:48px">majeur</div>
+	<div class="abs meta" style="left:170px; top:88px">sur cordes</div>
+	<div class="abs meta" style="left:170px; top:112px">sol · si · mi</div>
+
+	<div class="hit"></div>
+	<div class="tile past" style="left:-60px">E<span class="ok">✓</span></div>
+	<div class="tile past" style="left:100px">↗<span class="ok">✓</span></div>
+	<div class="beat-no">2</div>
+	<div class="tile now" style="left:260px">↗</div>
+	<div class="tile next" style="left:420px">↗</div>
+	<div class="tile later" style="left:580px">↘</div>
+	<div class="tile later" style="left:740px">↘</div>
+	<div class="tile later" style="left:900px">↘</div>
+</div>
+
+<!-- ============ 4. Avec aide ============ -->
+<h2>4 · Pendant un tour, avec l'aide</h2>
+<p class="cap">
+	Seulement après plusieurs échecs. Le manche du groupe apparaît sous la Lane : les notes de la forme en cours en cercles pleins,
+	celles de la suivante dans la teinte de sa tuile.
+</p>
+<div class="frame">
+	<div class="abs root" style="left:40px; top:44px">E</div>
+	<div class="abs body" style="left:170px; top:48px">majeur</div>
+	<div class="abs meta" style="left:170px; top:88px">sur cordes</div>
+	<div class="abs meta" style="left:170px; top:112px">sol · si · mi</div>
+
+	<div class="hit"></div>
+	<div class="tile past" style="left:-60px">E<span class="ok">✓</span></div>
+	<div class="tile past" style="left:100px">↗<span class="ok">✗</span></div>
+	<div class="beat-no">2</div>
+	<div class="tile now" style="left:260px">↗</div>
+	<div class="tile next" style="left:420px">↗</div>
+	<div class="tile later" style="left:580px">↘</div>
+	<div class="tile later" style="left:740px">↘</div>
+	<div class="tile later" style="left:900px">↘</div>
+
+	<!-- frets 0..14, 61.3 px each; note centred in its fret space -->
+	<svg class="abs neck" style="left:40px; top:400px" width="920" height="150" viewBox="0 0 920 150">
+		<line x1="0" y1="24" x2="920" y2="24" /><line x1="0" y1="70" x2="920" y2="70" /><line x1="0" y1="116" x2="920" y2="116" />
+		<g fill="#813B2A"><rect x="0" y="4" width="5" height="132"/><rect x="61" y="4" width="3" height="132"/><rect x="122" y="4" width="3" height="132"/><rect x="184" y="4" width="3" height="132"/><rect x="245" y="4" width="3" height="132"/><rect x="306" y="4" width="3" height="132"/><rect x="368" y="4" width="3" height="132"/><rect x="429" y="4" width="3" height="132"/><rect x="490" y="4" width="3" height="132"/><rect x="552" y="4" width="3" height="132"/><rect x="613" y="4" width="3" height="132"/><rect x="674" y="4" width="3" height="132"/><rect x="736" y="4" width="3" height="132"/><rect x="797" y="4" width="3" height="132"/><rect x="858" y="4" width="3" height="132"/></g>
+		<g font-family="VT323" font-size="22" text-anchor="middle">
+			<!-- now: 9-9-7 (sol 9 = E, si 9 = G#, mi 7 = B) -->
+			<circle cx="398" cy="24" r="19" fill="#451218" /><text x="398" y="31" fill="#E99568">B</text>
+			<circle cx="521" cy="70" r="19" fill="#451218" /><text x="521" y="77" fill="#E99568">G#</text>
+			<circle cx="521" cy="116" r="19" fill="#451218" /><text x="521" y="123" fill="#E99568">E</text>
+			<!-- next: 13-12-12 (sol 13 = G#, si 12 = B, mi 12 = E) -->
+			<circle cx="705" cy="24" r="19" fill="#BE6754" /><text x="705" y="31" fill="#451218">E</text>
+			<circle cx="705" cy="70" r="19" fill="#BE6754" /><text x="705" y="77" fill="#451218">B</text>
+			<circle cx="767" cy="116" r="19" fill="#BE6754" /><text x="767" y="123" fill="#451218">G#</text>
+		</g>
+	</svg>
+	<div class="abs meta" style="left:10px; top:416px; color:#813B2A; line-height:46px">mi<br />si<br />sol</div>
+	<div class="abs meta" style="left:40px; top:552px; width:920px; color:#813B2A">
+		<span class="abs" style="left:150px">3</span><span class="abs" style="left:273px">5</span><span class="abs" style="left:395px">7</span><span class="abs" style="left:518px">9</span><span class="abs" style="left:702px">12</span>
+	</div>
+</div>
+</body>
+</html>
