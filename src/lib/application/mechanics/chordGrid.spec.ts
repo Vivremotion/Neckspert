@@ -187,6 +187,7 @@ describe('chordGridPresenter', () => {
 					{ string: 1, name: 'mi' }
 				],
 				tiles: ['root', 'up', 'up', 'up', 'down', 'down', 'down'],
+				following: ['up', 'up', 'up', 'down', 'down', 'down'],
 				changes: LINK_D,
 				index: 1,
 				beatsPerBar: 4,

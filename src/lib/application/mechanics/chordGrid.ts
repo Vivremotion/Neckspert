@@ -66,6 +66,8 @@ export interface LinkLaneModel {
 	strings: { string: StringNumber; name: string }[];
 	/** One per change of the tour. */
 	tiles: LinkTile[];
+	/** The tiles of a chained tour, drawn after the last bar: the tour may go on. */
+	following: LinkTile[];
 	changes: readonly GridChange[];
 	/** The change on show. */
 	index: number;
@@ -291,11 +293,14 @@ function linkLaneModel(item: ChordGridItem, locale: Locale, aided: boolean): Lin
 	const [set] = item.sets;
 	const shapes = tourShapes(item);
 	const lowest = linkShapes(parseTriadId(item.chord), set)[0];
-	const tiles = shapes.map((shape, i): LinkTile => {
-		const before = i > 0 ? shapes[i - 1] : item.continued ? lowest : null;
-		if (!before) return 'root';
-		return shapePosition(shape) > shapePosition(before) ? 'up' : 'down';
-	});
+	const tilesOf = (tour: VoicingOccurrence[], chained: boolean) =>
+		tour.map((shape, i): LinkTile => {
+			const before = i > 0 ? tour[i - 1] : chained ? lowest : null;
+			if (!before) return 'root';
+			return shapePosition(shape) > shapePosition(before) ? 'up' : 'down';
+		});
+	const tiles = tilesOf(shapes, item.continued === true);
+	const following = tilesOf(linkShapes(parseTriadId(item.chord), set, true), true);
 	const now = shapes[item.index];
 	const next = shapes[item.index + 1] ?? null;
 	return {
@@ -305,6 +310,7 @@ function linkLaneModel(item: ChordGridItem, locale: Locale, aided: boolean): Lin
 		set: set.map((string) => TRIAD_STRING_NAMES[locale][string]).join(' · '),
 		strings: set.map((string) => ({ string, name: TRIAD_STRING_NAMES[locale][string] })),
 		tiles,
+		following,
 		changes: item.changes,
 		index: item.index,
 		beatsPerBar: 4,
