@@ -29,7 +29,22 @@ export const summaryMessages = defineMessages({
 			n === 1
 				? '1 triade reprendra la prochaine fois'
 				: `${n} triades reprendront la prochaine fois`,
-		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`)
+		knownTriads: (n: number) => (n === 1 ? '1 triade déjà sue' : `${n} triades déjà sues`),
+		exercise: {
+			'gesture-link': 'Relier les formes',
+			'gesture-climb': 'Contrainte de déplacement',
+			'gesture-zone': 'Rester dans une zone',
+			'gesture-jam': 'Jam'
+		} as Record<string, string>,
+		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages réussis`,
+		changes: (percent: number) => `${percent} % justes et à temps`,
+		tempos: (played: number, next: number) => `${played} → ${next} bpm`,
+		misses: 'Changements ratés',
+		heard: (frets: string) => `Joué ${frets}`,
+		nothingHeard: 'Rien entendu',
+		expected: (frets: string) => `Attendu ${frets}`,
+		playedRight: 'Joué juste',
+		contested: 'Contesté'
 	},
 	en: {
 		title: 'Summary',
@@ -57,6 +72,21 @@ export const summaryMessages = defineMessages({
 		learnedTriads: 'Triads learned',
 		pendingTriads: (n: number) =>
 			n === 1 ? '1 triad will resume next time' : `${n} triads will resume next time`,
-		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`)
+		knownTriads: (n: number) => (n === 1 ? '1 triad already known' : `${n} triads already known`),
+		exercise: {
+			'gesture-link': 'Link the shapes',
+			'gesture-climb': 'Move constraint',
+			'gesture-zone': 'Stay in a zone',
+			'gesture-jam': 'Jam'
+		} as Record<string, string>,
+		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages succeeded`,
+		changes: (percent: number) => `${percent} % right and in time`,
+		tempos: (played: number, next: number) => `${played} → ${next} bpm`,
+		misses: 'Missed changes',
+		heard: (frets: string) => `Played ${frets}`,
+		nothingHeard: 'Nothing heard',
+		expected: (frets: string) => `Expected ${frets}`,
+		playedRight: 'Played right',
+		contested: 'Contested'
 	}
 });

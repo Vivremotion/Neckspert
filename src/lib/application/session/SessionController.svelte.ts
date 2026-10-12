@@ -24,7 +24,13 @@ import type {
 import type { BeatEvent } from '$lib/application/ports';
 import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
 import { detectFatigue } from '$lib/domain/scoring';
-import type { PlaySessionController, PlayView, PromptView, VerdictView } from './contract';
+import {
+	DEFAULT_PLAY_VIEW,
+	type PlaySessionController,
+	type PlayView,
+	type PromptView,
+	type VerdictView
+} from './contract';
 import type { SessionDeps } from './SessionDeps';
 import {
 	BEATS_PER_BAR,
@@ -101,6 +107,8 @@ export class SessionController implements PlaySessionController {
 	private sources = new Map<SensorKind, ObservationSource>();
 	private closeSources: (() => void)[] = [];
 	private earliestPromptBeat: number = BEATS_PER_BAR;
+	/** The click is silenced for `PlannedItem.restBars` before a counted bar. */
+	private resting = false;
 	/** The wait before the next prompt is a counted bar (start, resume, change of scene): 4 to 1 shows. */
 	private counting = false;
 	private current: PlannedItem | null = null;
@@ -108,6 +116,14 @@ export class SessionController implements PlaySessionController {
 	private previousPrompt: PlannedItem | null = null;
 	/** Timing of the current prompt, from its appearance to its verdict. */
 	private round: Round | null = null;
+	/** The exercises whose instruction was told in this series. */
+	private readonly introduced = new Set<ExerciseId>();
+	/** The series `ready` prepared before the start, taken by `start`. */
+	private prepared: Awaited<ReturnType<PrepareSeries>> | null = null;
+	/** A count that runs past the round's opening, down to its target; null otherwise. */
+	private countdownTo: number | null = null;
+	/** Cancels the wake-up at the current round's handover, when it has one. */
+	private cancelHandover: (() => void) | null = null;
 	/**
 	 * Observations of the last prompt shown, from its round's opening to the next one, a pause or
 	 * the end; it outlives the round through the breathing and counted bars.
@@ -149,8 +165,26 @@ export class SessionController implements PlaySessionController {
 			countdown: null,
 			preview: null,
 			contest: null,
-			audioError: null
+			audioError: null,
+			stage: null,
+			briefing: null
 		});
+	}
+
+	async ready(): Promise<void> {
+		if (this.view.status !== 'idle' || this.prepared || this.starting) return;
+		const run = this.run;
+		const [series, settings] = await Promise.all([
+			this.prepare(this.sessionId),
+			this.deps.settings.get()
+		]);
+		if (this.run !== run || this.view.status !== 'idle') return;
+		this.prepared = series;
+		this.locale = settings.locale;
+		this.selector = series.selector;
+		this.pending ??= this.takeNext();
+		const text = this.pending ? this.howToOf(this.pending) : null;
+		this.view.briefing = text === null ? null : { text };
 	}
 
 	async start(): Promise<void> {
@@ -161,15 +195,19 @@ export class SessionController implements PlaySessionController {
 		const run = ++this.run;
 		try {
 			if (this.view.status === 'finished') this.beginNewSeries();
-			const { selector, executions } = await this.prepare(this.sessionId);
+			const { selector, executions } = this.prepared ?? (await this.prepare(this.sessionId));
+			this.prepared = null;
 			if (this.run !== run) return;
 			this.selector = selector;
 			this.executions = executions;
 			this.startedAt = this.deps.now();
 			// Show the first prompt's stage right away, before audio and the microphone.
 			this.prepareStage();
+			// Its instruction, if any, was on the start screen: no stop of its own.
+			if (this.pending) this.introduced.add(this.pending.exerciseId);
+			this.view.briefing = null;
 			// The metronome starts at the tempo of the first prompt's exercise.
-			this.setTempo(sessionTempo(executions, this.pending?.exerciseId));
+			this.setTempo(sessionTempo(executions, this.pending?.exerciseId, this.pending?.tempoScope));
 			await this.beginAudio(run);
 		} finally {
 			if (this.run === run) this.starting = false;
@@ -178,6 +216,8 @@ export class SessionController implements PlaySessionController {
 
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
+		this.introduced.clear();
+		this.view.briefing = null;
 		this.selector = null;
 		this.executions = [];
 		this.pending = null;
@@ -201,12 +241,15 @@ export class SessionController implements PlaySessionController {
 		this.view.targetBeatIndex = null;
 		this.view.followUp = null;
 		this.view.leadBeats = null;
+		this.view.stage = null;
 	}
 
 	private async beginAudio(run: number): Promise<void> {
 		this.settings = await this.deps.settings.get();
 		if (this.run !== run) return;
 		this.locale = this.settings.locale;
+		// The stage shown before the settings were read speaks the player's language now.
+		if (this.pending) this.showStage(this.pending, null);
 		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
 		logDetection('entrée audio', [
 			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
@@ -257,6 +300,9 @@ export class SessionController implements PlaySessionController {
 			latencyMs: this.latencyMs
 		});
 		if (this.run !== run) return;
+		// A fresh output loses its first sounds: the counted bar's downbeat must be heard.
+		await this.deps.clock.settle();
+		if (this.run !== run) return;
 
 		this.unsubBeat?.();
 		this.unsubBeat = this.deps.metronome.onBeat((beat) => this.onBeat(beat));
@@ -271,11 +317,14 @@ export class SessionController implements PlaySessionController {
 
 	pause(): void {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.rest(false);
+		this.dropHandover();
 		// A miss already shown is kept: the open late capture settles as unanswered.
 		this.abandonRound();
 		this.expectAll({});
 		this.closeSpan();
 		this.withdrawContest();
+		this.countdownTo = null;
 		this.view.countdown = null;
 		this.view.preview = null;
 		// Discard in-progress item without recording.
@@ -295,6 +344,7 @@ export class SessionController implements PlaySessionController {
 
 	resume(): void {
 		if (this.view.status !== 'paused') return;
+		this.view.briefing = null;
 		if (this.deps.metronome.isRunning()) this.deps.metronome.stop();
 		this.earliestPromptBeat = BEATS_PER_BAR;
 		this.counting = true;
@@ -324,6 +374,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	quit(): void {
+		this.dropHandover();
 		// A late capture still open settles as unanswered: the attempt is not lost.
 		this.abandonRound();
 		this.deps.metronome.stop();
@@ -356,11 +407,13 @@ export class SessionController implements PlaySessionController {
 	}
 
 	/**
-	 * The execution a prompt belongs to, by its exercise. Its tempo is the one the attempt is
-	 * judged at; a prompt of another tempo restarts the metronome (decision 4).
+	 * The execution a prompt belongs to, by its exercise and its tempo scope. Its tempo is the one
+	 * the attempt is judged at; a prompt of another tempo restarts the metronome (decision 4).
 	 */
 	private executionOf(item: PlannedItem): Execution {
-		const execution = this.executions.find((e) => e.exerciseId === item.exerciseId);
+		const execution = this.executions.find(
+			(e) => e.exerciseId === item.exerciseId && (e.scope ?? null) === (item.tempoScope ?? null)
+		);
 		if (!execution) throw new Error(`No execution for exercise: ${item.exerciseId}`);
 		return execution;
 	}
@@ -399,8 +452,51 @@ export class SessionController implements PlaySessionController {
 
 	/** Settles an open late capture as unanswered and stores it; nothing otherwise. */
 	private abandonRound(): void {
-		const outcome = this.round?.abandon();
+		const outcome = this.round?.abandon(this.deps.clock.now());
 		if (outcome) this.settle(outcome);
+	}
+
+	private dropHandover(): void {
+		this.cancelHandover?.();
+		this.cancelHandover = null;
+	}
+
+	/**
+	 * The current round's handover: its expectations withdrawn first, so what a sensor reports at
+	 * once (a window cut short) lands in the round that ends; then the round settled and stored,
+	 * which tells the selector; then the next prompt, opened at once on the handover beat when it
+	 * goes on without a counted bar, else waiting on the beat grid from the first whole beat after.
+	 */
+	private handOver(): void {
+		this.cancelHandover = null;
+		const handover = this.round?.handover;
+		if (!handover || this.view.status === 'paused' || this.view.status === 'finished') return;
+		this.expectAll({});
+		this.abandonRound();
+		this.clearPrompt();
+		const item = this.takeNext();
+		if (!item) {
+			void this.finish();
+			return;
+		}
+		if (this.chainable(item)) {
+			this.pending = item;
+			this.beginNextItem(handover.beat, true);
+			return;
+		}
+		const firstWholeBeat = Math.ceil(handover.beat);
+		this.earliestPromptBeat = firstWholeBeat;
+		this.waitOnGrid(item, firstWholeBeat - 1);
+	}
+
+	/** Goes on without a gap: no counted bar asked, the same tempo, the same scene. */
+	private chainable(item: PlannedItem): boolean {
+		const tempo = this.executionOf(item).tempoBpm;
+		return (
+			!item.countIn &&
+			(tempo === null || tempo === this.tempoBpm) &&
+			this.presenterFor(item).scene === this.lastScene
+		);
 	}
 
 	/** Ends the open span; its attempt, if its round produced one, takes the final list. */
@@ -419,7 +515,14 @@ export class SessionController implements PlaySessionController {
 		if (this.view.status === 'paused' || this.view.status === 'finished') return;
 
 		if (this.round) {
+			if (this.countdownTo !== null) {
+				const left = this.countdownTo - beat.index;
+				this.view.countdown = left > 0 ? left : null;
+				if (left <= 0) this.countdownTo = null;
+			}
 			this.apply(this.round.onBeat(beat));
+			// A round that hands over moves on at its handover only.
+			if (this.round.handover) return;
 			// The next prompt is chosen only once the attempt is stored and the selector knows it.
 			const after = this.round.after();
 			if (after && beat.index >= after.advanceAt) {
@@ -453,16 +556,26 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 		const promptBeat = this.promptBeatFor(this.pending, beat.index);
+		// A relation that counts to its target keeps counting once its round has opened.
+		const targetOffset = this.timingOf(this.pending).targetOffset ?? 0;
 		if (beat.index >= promptBeat) {
+			const counted = this.counting;
 			this.counting = false;
-			this.beginNextItem(beat);
+			this.beginNextItem(beat.index);
+			const target = this.round?.targetBeatIndex ?? null;
+			if (counted && targetOffset > 0 && target !== null && target > beat.index) {
+				this.countdownTo = target;
+				this.view.countdown = target - beat.index;
+			}
 			return;
 		}
-		const left = promptBeat - beat.index;
+		const left = promptBeat + targetOffset - beat.index;
+		// The rest ends with the beat before the counted bar: its first beat clicks.
+		if (this.resting && left <= BEATS_PER_BAR + 1) this.rest(false);
 		this.view.countdown = this.counting && left <= BEATS_PER_BAR ? left : null;
 		// Prompts with a preview come in two steps: the string first, then the note on the prompt beat.
 		this.view.preview =
-			left <= this.timingOf(this.pending).previewBeats
+			promptBeat - beat.index <= this.timingOf(this.pending).previewBeats
 				? this.pendingPromptView(this.pending)
 				: null;
 		// The verdict stays on screen until a counted bar actually starts counting.
@@ -489,13 +602,26 @@ export class SessionController implements PlaySessionController {
 		metronome.start(at);
 	}
 
+	/** Silences the click for a rest, or gives it back to a guitar scene. */
+	private rest(resting: boolean): void {
+		if (!resting && !this.resting) return;
+		this.resting = resting;
+		this.deps.metronome.setAudible(!resting && this.view.scene === 'guitar');
+	}
+
 	private setTempo(tempoBpm: number): void {
 		this.tempoBpm = tempoBpm;
 		this.view.tempoBpm = tempoBpm;
 	}
 
+	/**
+	 * For a relation that counts to its target, `earliestPromptBeat` is its target's earliest
+	 * beat: its round may open `targetOffset` beats before.
+	 */
 	private promptBeatFor(item: PlannedItem, beatIndex: number): number {
-		return this.timingOf(item).promptBeat(Math.max(this.earliestPromptBeat, beatIndex), item);
+		const timing = this.timingOf(item);
+		const earliest = this.earliestPromptBeat - (timing.targetOffset ?? 0);
+		return timing.promptBeat(Math.max(earliest, beatIndex), item);
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -522,6 +648,23 @@ export class SessionController implements PlaySessionController {
 		const presenter = this.presenterFor(this.pending);
 		this.lastScene = presenter.scene;
 		this.enterScene(presenter);
+		this.showStage(this.pending, null);
+	}
+
+	/**
+	 * The screen model of `item` in the view its exercise names, before its round (`settled`
+	 * null) or once settled; null for a mechanic without one.
+	 */
+	private showStage(
+		item: PlannedItem,
+		settled: { answer: unknown; verdict: Verdict } | null
+	): void {
+		const stage = this.presenterFor(item).stage?.(item.item, settled, this.locale, {
+			aid: item.aid
+		});
+		this.view.stage = stage
+			? { view: this.exerciseOf(item.exerciseId).view ?? DEFAULT_PLAY_VIEW, model: stage.model }
+			: null;
 	}
 
 	/** Lane and clicks for the guitar; answer pad and silence for the screen. */
@@ -673,6 +816,9 @@ export class SessionController implements PlaySessionController {
 			this.deps.cues.play(outcome.verdict);
 		}
 		this.setStatus('verdict');
+		if (this.current) {
+			this.showStage(this.current, { answer: outcome.answer, verdict: outcome.verdict });
+		}
 		this.persistAttempt(
 			outcome,
 			outcome.answer === null
@@ -689,7 +835,8 @@ export class SessionController implements PlaySessionController {
 		];
 	}
 
-	private beginNextItem(beat: BeatEvent): void {
+	/** `chained`: opened at the previous round's handover, on its (fractional) beat. */
+	private beginNextItem(promptBeat: number, chained = false): void {
 		const item = this.pending ?? this.takeNext();
 		const built = this.pending === item ? this.pendingPrompt : null;
 		this.pending = null;
@@ -707,13 +854,19 @@ export class SessionController implements PlaySessionController {
 		// Withdrawn while the previous span is still open: what the sensors report at once
 		// (a chord window cut short) belongs to the round that is closing.
 		this.expectAll({});
+		this.dropHandover();
+		this.countdownTo = null;
 		this.round = this.timingOf(item).open({
 			planned: item,
-			promptBeat: beat.index,
+			promptBeat,
 			now: this.deps.clock.now(),
 			beatTime: (index) => this.deps.metronome.beatTime(index),
-			secondsPerBeat: this.deps.metronome.secondsPerBeat()
+			secondsPerBeat: this.deps.metronome.secondsPerBeat(),
+			chained
 		});
+		const handover = this.round.handover;
+		if (handover)
+			this.cancelHandover = this.deps.metronome.at(handover.time, () => this.handOver());
 		this.closeSpan();
 		this.span = new ObservationSpan(this.round.promptTime, item);
 		this.expectAll(
@@ -739,6 +892,7 @@ export class SessionController implements PlaySessionController {
 		this.view.answerChoices = presenter.answerChoices?.() ?? null;
 		this.view.lastVerdict = null;
 		this.withdrawContest();
+		this.showStage(item, null);
 		this.setStatus('awaiting');
 	}
 
@@ -842,6 +996,54 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private advanceAfterVerdict(beat: BeatEvent): void {
+		this.clearPrompt();
+		const item = this.takeNext();
+		if (!item) {
+			void this.finish();
+			return;
+		}
+		this.waitOnGrid(item, beat.index);
+	}
+
+	/** The instruction of an exercise, in the player's language; null without one. */
+	private howToOf(item: PlannedItem): string | null {
+		try {
+			return this.exerciseOf(item.exerciseId)?.howTo?.[this.locale] ?? null;
+		} catch {
+			// An exercise the catalog does not know (a test's) has no instruction.
+			return null;
+		}
+	}
+
+	/** The first prompt of an exercise with an instruction, in this series. */
+	private needsBriefing(item: PlannedItem): boolean {
+		return !this.introduced.has(item.exerciseId) && this.howToOf(item) !== null;
+	}
+
+	/**
+	 * Stops before `item`, as at the start of a series, to tell its exercise's instruction:
+	 * the metronome stopped, the span of the round before closed. `resume` goes on with a counted
+	 * bar at the exercise's tempo, in place of a restart for the tempo.
+	 */
+	private brief(item: PlannedItem): void {
+		this.introduced.add(item.exerciseId);
+		this.dropHandover();
+		this.expectAll({});
+		this.closeSpan();
+		this.pending = item;
+		this.pendingPrompt = null;
+		this.switchTo = null;
+		this.countdownTo = null;
+		this.view.countdown = null;
+		this.view.preview = null;
+		this.view.briefing = { text: this.howToOf(item) ?? '' };
+		this.showStage(item, null);
+		this.deps.metronome.stop();
+		this.setStatus('paused');
+	}
+
+	/** The round is over: its prompt leaves the screen. */
+	private clearPrompt(): void {
 		this.clearItemState();
 		this.current = null;
 		this.view.prompt = null;
@@ -849,12 +1051,19 @@ export class SessionController implements PlaySessionController {
 		this.view.targetBeatIndex = null;
 		this.view.followUp = null;
 		this.view.leadBeats = null;
-		const item = this.takeNext();
-		if (!item) {
-			void this.finish();
+	}
+
+	/**
+	 * `item` waits on the beat grid from `beatIndex`, the last beat heard: after a counted bar
+	 * for a new sequence or scene, after a restart for another tempo.
+	 */
+	private waitOnGrid(item: PlannedItem, beatIndex: number): void {
+		if (this.needsBriefing(item)) {
+			this.brief(item);
 			return;
 		}
 		this.pending = item;
+		this.showStage(item, null);
 		const presenter = this.presenterFor(item);
 		const tempo = this.executionOf(item).tempoBpm;
 		// Another tempo: the metronome restarts after the breathing, with its own counted bar.
@@ -864,14 +1073,16 @@ export class SessionController implements PlaySessionController {
 		if (this.lastScene !== null && presenter.scene !== this.lastScene) {
 			// Switching between guitar and screen: one counted bar to get the hands there.
 			if (counted) {
-				this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+				this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + BEATS_PER_BAR);
 				this.counting = true;
 			}
 			this.enterScene(presenter);
 		} else if (item.countIn && counted) {
-			// A new sequence at another lead: one counted bar announces it.
-			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beat.index + BEATS_PER_BAR);
+			// A new sequence at another lead: one counted bar announces it, after its rest in silence.
+			const rest = (item.restBars ?? 0) * BEATS_PER_BAR;
+			this.earliestPromptBeat = Math.max(this.earliestPromptBeat, beatIndex + rest + BEATS_PER_BAR);
 			this.counting = true;
+			if (rest > 0) this.rest(true);
 			this.view.answerChoices = null;
 		} else if (presenter.scene === 'guitar') {
 			this.view.answerChoices = null;
@@ -889,8 +1100,10 @@ export class SessionController implements PlaySessionController {
 		// Captured now: a series started during the awaits below re-reads the settings.
 		const latencyMs = this.latencyMs;
 		const attempts = [...(recorder?.sessionAttempts ?? [])];
+		this.dropHandover();
 		this.expectAll({});
 		this.closeSpan();
+		this.view.stage = null;
 		this.setStatus('finished');
 		this.unsubBeat?.();
 		this.unsubBeat = null;
@@ -907,14 +1120,19 @@ export class SessionController implements PlaySessionController {
 		if (this.kind !== 'free') {
 			// A learning session (notes or triads): each exercise on the beat runs next at a tempo
 			// fitted to its own success here.
-			for (const { exerciseId, tempoBpm } of executions) {
+			for (const { exerciseId, scope, tempoBpm } of executions) {
 				if (tempoBpm === null) continue;
-				const own = attempts.filter((attempt) => attempt.exerciseId === exerciseId);
+				// An execution in a scope moves on the attempts of that scope only.
+				const own = attempts.filter(
+					(attempt) =>
+						attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
+				);
 				const next = nextTempo(tempoBpm, own);
 				if (next === tempoBpm) continue;
 				// A tempo moves only after enough attempts, so `own` names the exercise's mechanic.
 				await this.deps.progressions.put({
 					exerciseId,
+					...(scope !== undefined && { scope }),
 					mechanic: own[0].mechanic,
 					tempoBpm: next,
 					updatedAt: this.deps.now()

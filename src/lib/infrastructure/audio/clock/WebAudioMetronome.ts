@@ -39,6 +39,8 @@ export class WebAudioMetronome implements MetronomePort {
 	private noise: { context: AudioContext; buffer: AudioBuffer } | null = null;
 	private audible = true;
 	private readonly listeners = new Set<(beat: BeatEvent) => void>();
+	/** Wake-ups waiting for the audio clock, called after the beats of a scheduler wake-up. */
+	private wakeUps: { time: number; callback: () => void }[] = [];
 	private readonly beatsPerBar: number;
 	private readonly lookaheadMs: number;
 	private readonly scheduleAheadS: number;
@@ -96,6 +98,7 @@ export class WebAudioMetronome implements MetronomePort {
 		if (this.timer !== null) clearTimeout(this.timer);
 		this.timer = null;
 		this.firstBeatTime = null;
+		this.wakeUps = [];
 	}
 
 	isRunning(): boolean {
@@ -111,6 +114,15 @@ export class WebAudioMetronome implements MetronomePort {
 		this.listeners.add(callback);
 		return () => {
 			this.listeners.delete(callback);
+		};
+	}
+
+	at(time: number, callback: () => void): () => void {
+		if (this.firstBeatTime === null) throw new Error('Metronome not running');
+		const wakeUp = { time, callback };
+		this.wakeUps.push(wakeUp);
+		return () => {
+			this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
 		};
 	}
 
@@ -136,7 +148,28 @@ export class WebAudioMetronome implements MetronomePort {
 			// A listener may have stopped or restarted the metronome.
 			if (run !== this.run) return;
 		}
+		if (!this.wakeDue(context.currentTime, run)) return;
 		this.timer = setTimeout(() => this.tick(run), this.lookaheadMs);
+	}
+
+	/** Calls the wake-ups due at `now`, earliest first; false when one stopped or restarted it. */
+	private wakeDue(now: number, run: number): boolean {
+		for (;;) {
+			const due = this.wakeUps
+				.filter((w) => w.time <= now)
+				.reduce<{ time: number; callback: () => void } | null>(
+					(earliest, w) => (!earliest || w.time < earliest.time ? w : earliest),
+					null
+				);
+			if (!due) return true;
+			this.wakeUps = this.wakeUps.filter((w) => w !== due);
+			try {
+				due.callback();
+			} catch (error) {
+				console.error('Metronome wake-up failed', error);
+			}
+			if (run !== this.run) return false;
+		}
 	}
 
 	private click(context: AudioContext, beat: BeatEvent): void {

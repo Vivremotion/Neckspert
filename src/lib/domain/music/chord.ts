@@ -24,14 +24,31 @@ export interface ChordQuality {
 	degrees: readonly Degree[];
 }
 
-/** Triad qualities. Sevenths come with the grids that need them. */
+/**
+ * Every chord quality, one row each: the triads, then the sevenths and sixths the grids write.
+ * Existing degrees only: dim7 (bb7) waits for more degrees. What plays triads keeps the triads
+ * (`isTriadQuality`).
+ */
 export const QUALITIES: readonly ChordQuality[] = [
 	{ id: 'maj', suffix: '', degrees: ['1', '3', '5'] },
 	{ id: 'min', suffix: 'm', degrees: ['1', 'b3', '5'] },
 	{ id: 'dim', suffix: 'dim', degrees: ['1', 'b3', 'b5'] },
-	{ id: 'aug', suffix: 'aug', degrees: ['1', '3', '#5'] }
+	{ id: 'aug', suffix: 'aug', degrees: ['1', '3', '#5'] },
+	{ id: 'maj7', suffix: 'maj7', degrees: ['1', '3', '5', '7'] },
+	{ id: '7', suffix: '7', degrees: ['1', '3', '5', 'b7'] },
+	{ id: 'm7', suffix: 'm7', degrees: ['1', 'b3', '5', 'b7'] },
+	{ id: 'm7b5', suffix: 'm7b5', degrees: ['1', 'b3', 'b5', 'b7'] },
+	{ id: '6', suffix: '6', degrees: ['1', '3', '5', '6'] },
+	{ id: 'm6', suffix: 'm6', degrees: ['1', 'b3', '5', '6'] },
+	{ id: '7#5', suffix: '7#5', degrees: ['1', '3', '#5', 'b7'] }
 ];
 
+/** Three degrees: a quality a close triad can play. */
+export function isTriadQuality(quality: ChordQuality): boolean {
+	return quality.degrees.length === 3;
+}
+
+/** A quality by id. Throws on an unknown one. */
 export function qualityById(id: string): ChordQuality {
 	const quality = QUALITIES.find((q) => q.id === id);
 	if (!quality) throw new RangeError(`Unknown chord quality: ${id}`);

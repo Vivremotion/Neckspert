@@ -4,6 +4,9 @@ import type { Scene } from '$lib/application/mechanics/types';
 
 export type { Scene };
 
+/** The view that shows a mechanic's screen model when its exercise names none. */
+export const DEFAULT_PLAY_VIEW = 'grid-scroll';
+
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
 /** A chord shape to draw: the fret pressed on each of its strings (0: open). */
@@ -93,6 +96,16 @@ export interface PlayView {
 	contest: 'available' | 'done' | null;
 	/** 'input': no audio input could be opened at start; the screen says so. */
 	audioError: 'input' | null;
+	/**
+	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
+	 * it; null (or absent) for a mechanic without one, whose prompt the play screen shows.
+	 */
+	stage?: { view: string; model: unknown } | null;
+	/**
+	 * The instruction of the exercise about to start for the first time in the series: on the
+	 * start screen (idle), or at a stop of its own (paused, `resume` goes on); null otherwise.
+	 */
+	briefing?: { text: string } | null;
 }
 
 export interface PlayTimeline {
@@ -106,6 +119,11 @@ export interface PlaySessionController {
 	/** Deeply reactive ($state). Read-only for the UI. */
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;
+	/**
+	 * Prepares the series without audio, so the start screen can tell the first exercise's
+	 * instruction (`PlayView.briefing`). Optional; `start` prepares it otherwise.
+	 */
+	ready?(): Promise<void>;
 	/** Starts audio and the series. Call from a user gesture. */
 	start(): Promise<void>;
 	pause(): void;

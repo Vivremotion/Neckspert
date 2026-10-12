@@ -1,4 +1,4 @@
-import { DEGREES, QUALITIES, type ChordQuality } from './chord';
+import { DEGREES, isTriadQuality, QUALITIES, type ChordQuality } from './chord';
 import {
 	createVoicing,
 	voicingKey,
@@ -69,7 +69,7 @@ export function voicingCandidates(
 		const found = nearest(inversion, occurrence);
 		if (found) candidates.push({ kind: 'other-inversion', occurrence: found });
 	}
-	for (const quality of QUALITIES) {
+	for (const quality of QUALITIES.filter(isTriadQuality)) {
 		if (!oneSemitoneAway(voicing.chord.quality, quality)) continue;
 		const found = nearest(withQuality(voicing, quality), occurrence);
 		if (found) candidates.push({ kind: 'other-quality', occurrence: found });

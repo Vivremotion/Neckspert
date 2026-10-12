@@ -13,4 +13,8 @@ describe('sessionKindFromQuery', () => {
 		expect(sessionKindFromQuery('triads')).toBe('triads');
 		expect(sessionKindFromQuery('triads-zone')).toBe('triads-zone');
 	});
+
+	it('runs the gesture track when asked', () => {
+		expect(sessionKindFromQuery('gesture')).toBe('gesture');
+	});
 });

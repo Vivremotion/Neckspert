@@ -23,4 +23,13 @@ describe('sessionTempo', () => {
 		expect(sessionTempo(executions, 'locate-g')).toBe(120);
 		expect(sessionTempo(executions)).toBe(100);
 	});
+
+	it('is the tempo of the first prompt execution, matched by its scope too', () => {
+		const executions = [
+			{ exerciseId: 'gesture-climb', scope: 'iohefy-a', tempoBpm: 95 },
+			{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 110 }
+		];
+		expect(sessionTempo(executions, 'gesture-climb', 'blues-f')).toBe(110);
+		expect(sessionTempo(executions, 'gesture-climb', 'iohefy-a')).toBe(95);
+	});
 });

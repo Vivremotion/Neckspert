@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { WebAudioClock } from './WebAudioClock';
+import { OUTPUT_WARMUP_S, SETTLE_TIMEOUT_MS, WebAudioClock } from './WebAudioClock';
 
 class FakeContext {
 	currentTime = 0;
@@ -95,5 +95,45 @@ describe('WebAudioClock.toEpochMs', () => {
 		const { clock } = clockWith(fake);
 		await clock.resume();
 		expect(clock.toEpochMs(4)).toBe(1_790_000_000_000 + 1000);
+	});
+});
+
+describe('WebAudioClock.settle', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('waits until the output has played OUTPUT_WARMUP_S, the first sounds of a fresh output being lost', async () => {
+		expect(OUTPUT_WARMUP_S).toBe(0.5);
+		vi.useFakeTimers();
+		const fake = new FakeContext();
+		const { clock } = clockWith(fake);
+		await clock.resume();
+		let settled = false;
+		void clock.settle().then(() => (settled = true));
+		fake.currentTime = 0.2;
+		await vi.advanceTimersByTimeAsync(200);
+		expect(settled).toBe(false);
+		fake.currentTime = 0.5;
+		await vi.advanceTimersByTimeAsync(50);
+		expect(settled).toBe(true);
+	});
+
+	it('does not wait for an output already running', async () => {
+		const fake = new FakeContext();
+		fake.currentTime = 12;
+		const { clock } = clockWith(fake);
+		await clock.resume();
+		await expect(clock.settle()).resolves.toBeUndefined();
+	});
+
+	it('gives up waiting on a clock that does not move', async () => {
+		vi.useFakeTimers();
+		const { clock } = clockWith(new FakeContext());
+		await clock.resume();
+		let settled = false;
+		void clock.settle().then(() => (settled = true));
+		await vi.advanceTimersByTimeAsync(SETTLE_TIMEOUT_MS);
+		expect(settled).toBe(true);
 	});
 });

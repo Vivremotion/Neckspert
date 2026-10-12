@@ -23,11 +23,11 @@ const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free', 'triads', 'triads-zone'];
+const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free', 'triads', 'triads-zone', 'gesture'];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
-/** Notes (locate, identify, a triad's root) and chords (a triad's chord). */
+/** Notes (locate, identify, a triad's root), chords (a triad's chord, a grid's change). */
 const CONFUSION_KINDS: readonly string[] = [
 	'semitone',
 	'octave',
@@ -37,7 +37,13 @@ const CONFUSION_KINDS: readonly string[] = [
 	'other-inversion',
 	'other-quality',
 	'none',
-	'no-chord'
+	'no-chord',
+	'other-chord',
+	'other-set',
+	'other-shape',
+	'not-higher',
+	'not-lower',
+	'out-of-zone'
 ];
 const OBSERVATION_FATES: readonly string[] = [
 	'answer',
@@ -331,6 +337,11 @@ function checkAttempt(attempt: Fields): string | null {
 	);
 }
 
+/** Optional: a tempo scope is absent, or a non-empty string. */
+function isScope(value: unknown): boolean {
+	return value === undefined || isNonEmptyString(value);
+}
+
 function checkExecution(execution: unknown, index: number): string | null {
 	if (!isFields(execution)) return `executions[${index}] must be an object`;
 	if (!isNonEmptyString(execution.exerciseId)) {
@@ -339,6 +350,7 @@ function checkExecution(execution: unknown, index: number): string | null {
 	if (execution.tempoBpm !== null && !isPositiveNumber(execution.tempoBpm)) {
 		return `executions[${index}].tempoBpm must be a positive number or null`;
 	}
+	if (!isScope(execution.scope)) return `executions[${index}].scope must be a non-empty string`;
 	return null;
 }
 
@@ -358,6 +370,7 @@ function checkProgression(progression: Fields): string | null {
 	if (!rulesOf(progression.mechanic)) return MECHANIC_PROBLEM;
 	if (!isPositiveNumber(progression.tempoBpm)) return 'tempoBpm must be a positive number';
 	if (!isFiniteNumber(progression.updatedAt)) return 'updatedAt must be a number';
+	if (!isScope(progression.scope)) return 'scope must be a non-empty string';
 	return null;
 }
 
@@ -423,7 +436,8 @@ function checkAttemptV3(attempt: Fields): string | null {
 	return (
 		checkAttempt(attempt) ??
 		checkObservations(attempt.observations) ??
-		checkContested(attempt.contested)
+		checkContested(attempt.contested) ??
+		(isScope(attempt.tempoScope) ? null : 'tempoScope must be a non-empty string')
 	);
 }
 

@@ -21,4 +21,10 @@ export interface MetronomePort {
 	beatTime(index: number): number;
 	/** Called once per beat, slightly ahead of its audio time. Returns an unsubscribe function. */
 	onBeat(callback: (beat: BeatEvent) => void): () => void;
+	/**
+	 * Calls back once the audio clock reaches `time` (s), at the scheduler's next wake-up: never
+	 * early, at most its period late, after the beats of that wake-up. Cancelled by stop() or the
+	 * returned function. Throws when not running.
+	 */
+	at(time: number, callback: () => void): () => void;
 }

@@ -139,4 +139,18 @@ describe('HomeScreen', () => {
 		await fireEvent.click(zone);
 		expect(ontriads).toHaveBeenCalledWith('triads-zone');
 	});
+
+	it('offers the gesture track once one of its exercises is open', async () => {
+		const ongesture = vi.fn();
+		render(HomeScreen, {
+			props: { stats: base, now: 0, onstart: () => {}, gesture: { open: false }, ongesture }
+		});
+		expect(screen.queryByRole('button', { name: /geste/i })).toBeNull();
+		cleanup();
+		render(HomeScreen, {
+			props: { stats: base, now: 0, onstart: () => {}, gesture: { open: true }, ongesture }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: /geste/i }));
+		expect(ongesture).toHaveBeenCalledOnce();
+	});
 });

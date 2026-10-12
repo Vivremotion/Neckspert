@@ -1,3 +1,4 @@
+import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
 import type { ExerciseDefinition, ExerciseId } from './types';
 
 export const LOCATE_NECK: ExerciseDefinition = {
@@ -46,7 +47,8 @@ export const EXERCISES: readonly ExerciseDefinition[] = [
 	LOCATE_NECK,
 	IDENTIFY_NECK,
 	TRIADS_ANCHOR,
-	TRIADS_ZONE
+	TRIADS_ZONE,
+	...GESTURE_EXERCISES
 ];
 
 export function exerciseById(id: ExerciseId): ExerciseDefinition {

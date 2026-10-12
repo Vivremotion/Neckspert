@@ -104,6 +104,7 @@ export class AttemptRecorder {
 			aid: planned.aid,
 			promptedAt,
 			tempoBpm: execution.tempoBpm,
+			...(planned.tempoScope !== undefined && { tempoScope: planned.tempoScope }),
 			leadBeats: planned.leadBeats,
 			timingOffsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,
@@ -201,7 +202,7 @@ export class AttemptRecorder {
 
 		attemptId(await attempts.add(attempt));
 
-		// Only a memory learner keeps FSRS cards; a skill learner will keep its own state.
+		// Only a memory learner keeps FSRS cards; a skill learner is measured by its attempts alone.
 		if (rules.learner !== 'memory') return;
 		const now = this.deps.now();
 		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {

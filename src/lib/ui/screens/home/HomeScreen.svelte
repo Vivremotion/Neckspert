@@ -13,7 +13,9 @@
 		now,
 		onstart,
 		triads = { anchorDue: 0, zoneDue: null },
-		ontriads
+		ontriads,
+		gesture = { open: false },
+		ongesture
 	}: {
 		stats: HomeStats;
 		now: number;
@@ -22,6 +24,10 @@
 		triads?: TriadsHome;
 		/** Starts a session of one triads exercise; without it, no triads button. */
 		ontriads?: (kind: 'triads' | 'triads-zone') => void;
+		/** The gesture track: offered once one of its exercises is open. */
+		gesture?: { open: boolean };
+		/** Starts a gesture session; without it, no gesture button. */
+		ongesture?: () => void;
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -92,6 +98,11 @@
 							{/if}
 						</div>
 					{/if}
+				{/if}
+				{#if ongesture && gesture.open}
+					<div class="action">
+						<PixelButton size="large" onclick={ongesture}>{t.gesture}</PixelButton>
+					</div>
 				{/if}
 				<div class="stat">
 					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>

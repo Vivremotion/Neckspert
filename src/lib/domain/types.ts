@@ -61,8 +61,9 @@ export type Temperature = 'cold' | 'hot';
 /**
  * Notes: learn and free play. The memory track of the triads (spec 2026-10-08), one exercise per
  * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
+ * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
  */
-export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone';
+export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone' | 'gesture';
 
 /** A session of the triads' memory track. */
 export function isTriadsKind(kind: SessionKind): boolean {
@@ -101,6 +102,8 @@ export interface Attempt<D = unknown> {
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
 	tempoBpm: number | null;
+	/** The scope of that execution's tempo (`PlannedItem.tempoScope`); absent without one. */
+	tempoScope?: string;
 	/** Time relation: null when answering at one's own pace. */
 	leadBeats: RecordedLeadBeats | null;
 	/** Latency-corrected onset minus target beat time, in ms. Null off the beat or unanswered. */
@@ -178,6 +181,13 @@ export interface PlannedItem<I = unknown> {
 	leadBeats: LeadBeats | null;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
+	/** With `countIn`: bars of silence before the counted bar, a break heard without looking. */
+	restBars?: number;
+	/**
+	 * The scope of its exercise's tempo (`Execution.scope`): the prompt runs at, and moves, the
+	 * tempo of its exercise in that scope. Absent: the exercise's own tempo.
+	 */
+	tempoScope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
 }
@@ -291,6 +301,32 @@ export interface SessionSummary {
 	tempoBpm: number | null;
 	/** Which session it was: a triads session counts triads, not notes. */
 	kind: SessionKind;
+	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
+	gesture?: GestureSummary;
+}
+
+/** What a gesture session did, exercise by exercise, and the changes it missed. */
+export interface GestureSummary {
+	/** One line per exercise and tempo scope (its grid; none for the link). */
+	exercises: {
+		exerciseId: ExerciseId;
+		scope?: string;
+		passagesPlayed: number;
+		passagesSucceeded: number;
+		/** Share of its changes right and in time (`isSuccess`). */
+		changeSuccessRate: number;
+		tempoBpm: number;
+		nextTempoBpm: number;
+	}[];
+	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
+	misses: {
+		attemptId: number;
+		exerciseId: ExerciseId;
+		symbol: string;
+		heard: string | null;
+		expected: string | null;
+		contested: boolean;
+	}[];
 }
 
 /** A triad attempt whose chord was judged wrong, as the summary lists it. */

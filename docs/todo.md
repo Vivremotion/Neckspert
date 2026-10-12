@@ -13,6 +13,7 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   - comment l’insérer sans casser la pulsation : arrêt et mesure comptée, comme un changement de tempo ou de scène, ou une pause explicite ;
   - si elle vit dans la définition (donc en données, partageable, écrite par un professeur ou un LLM) ou dans la mécanique (code) ;
   - son lien avec le sondage : un sondage raté parce que le geste n’était pas compris ne mesure pas la mémoire.
+- **Depuis le 2026-10-11** : couvert en partie par la voie du geste : un exercice peut porter sa consigne en données (`ExerciseDefinition.howTo`) ; le contrôleur s’arrête avant son premier passage dans la série pour la dire, puis compte une mesure (la première consigne est sur l’écran de départ). Reste à faire : les notes et les triades n’ont pas de consigne par exercice, et le retour après une longue absence ou à la demande n’existe pas.
 - **Depuis le 2026-10-09** : l’ancrage et la zone sont deux exercices, chacun sa session et sa consigne ; la zone apparaît à l’accueil quand l’ancrage lui a fourni assez de triades (`ZONE_MIN_ACQUIRED_TRIADS`). Le passage de l’un à l’autre au sein d’une même session n’était pas clair, même pour qui connaît l’application. Les intégrer aux sessions d’Apprentissage reste à penser, et **le changement d’exercice doit y être manifeste**.
 
 ## Une vue de jeu par mécanique
@@ -21,6 +22,7 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
 - **Origine** : 2026-10-08, bande de l’accord des triades d’ancrage sur la piste. Il n’y a qu’un écran de jeu (`PlayScreen`, scènes piste et pavé) ; chaque mécanique y ajoute des champs facultatifs (`detail`, `diagram`, la bande de l’ancrage), si bien qu’un changement pour une mécanique touche la vue de toutes.
 - **Direction** : un cadre commun (pause, quitter, overlays, métronome) et une vue par mécanique, enregistrée par son id, assemblée à partir de briques communes (piste, consigne, verdict, pavé). Le présentateur donne des données d’écran opaques, lues par la seule vue de sa mécanique ; le cœur ne nomme toujours aucune mécanique. Une vue par mécanique et non par exercice : un exercice est une définition en données qui réutilise la vue de sa mécanique (décisions 1 et 8).
 - **À reprendre** alors : `PromptView.detail`, `diagram`, `target`, `band`, `shape`, `VerdictView.heard`, `expected`, `gap`, `PlayView.followUp` et `contest` quittent le contrat commun.
+- **Fait en partie** (2026-10-10, voie du geste) : le cadre commun existe (`PlayFrame`), avec le registre des vues (`PLAY_VIEWS`) et le modèle d’écran opaque (`MechanicPresenter.stage`, `PlayView.stage`) ; la vue est nommée par l’exercice (`ExerciseDefinition.view`). Reste : `PlayFrame` pour les notes et les triades, qui gardent `PlayScreen`.
 
 ## Généraliser les accords à tous les instruments, groupes et qualités
 
@@ -33,3 +35,15 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   3. **Familles de voicings** : un seul générateur aujourd’hui (`closeTriadVoicings`). Ajouter drop 2, drop 3, shells…, chacune comme générateur nommé dans les données de l’exercice.
   4. **Degrés étendus** : la table des degrés s’arrête à l’octave. Ajouter 9, 11, 13 et les altérations (b9, #9, #11, b13), puis les qualités de tétrades et d’accords enrichis ou altérés ; l’orthographe et les candidats « une case à côté » suivent.
 - **Limite physique, pas du code** : tous groupes confondus, deux formes de groupes différents peuvent sonner à l’identique. Le jam (qui ne juge que l’accord) le supporte ; une contrainte de position (monter, zone large) non, sauf capteur hexaphonique.
+
+---
+
+# Actions directes
+
+À part des entrées de conception ci-dessus (qui deviendront des tickets) : ce que le guitariste fait lui-même, une ligne chacune avec son origine.
+
+- Vérifier la détection de fatigue sur des sessions « Geste » : les temps de réaction y sont mesurés depuis la consigne, environ 750 ms au premier changement d’un passage, 150 à 200 ms aux changements enchaînés. Origine : voie du geste, 2026-10-10.
+- Essayer le jam avec le son réel et le vrai vérificateur d’accords (beaucoup de candidats). Origine : voie du geste, 2026-10-10.
+- Jouer en session réelle une grille avec des changements entre deux temps (croches, triolets). Origine : voie du geste, 2026-10-10.
+- Réduire la taille des essais du geste : chacun garde toute la grille de son passage. Origine : voie du geste, 2026-10-10.
+- Le décompte de l’écran des notes et des triades est invisible : `PixelWord` n’a pas de chiffres. Origine : refonte de relier, 2026-10-11.

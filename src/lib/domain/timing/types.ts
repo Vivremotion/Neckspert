@@ -42,6 +42,12 @@ export interface Round {
 	/** Audio seconds. */
 	readonly promptTime: number;
 	/**
+	 * The next round may open without a gap at this audio time (s), on this (fractional) beat.
+	 * A round that has one is settled at the latest then, by the session (`abandon`), never by
+	 * `after().advanceAt`.
+	 */
+	readonly handover?: { beat: number; time: number };
+	/**
 	 * `sensor`: the sensor that read the observation; relations heard by one sensor ignore it.
 	 * `final` false: a better reading of the same attack (same `time`) will follow.
 	 */
@@ -49,9 +55,10 @@ export interface Round {
 	onBeat(beat: { index: number; time: number }): RoundEvent;
 	/**
 	 * Settles an open capture as unanswered, or a reading still waiting as it is; null when
-	 * listening without one or already settled.
+	 * listening without one or already settled. `now` (audio s): when the session abandons it; a
+	 * relation that tells an open window from a closed one by the time reads it.
 	 */
-	abandon(): RoundOutcome | null;
+	abandon(now?: number): RoundOutcome | null;
 	/**
 	 * Null until settled. `advanceAt`: first beat on which the next prompt is chosen;
 	 * `earliestPrompt`: first beat it may show.
@@ -63,13 +70,25 @@ export interface TimingRelation {
 	id: string;
 	usesTempo: boolean;
 	previewBeats: number;
+	/**
+	 * Beats from a round's opening on the beat grid to its target, for a relation whose counted
+	 * bar counts down to its target rather than to its opening: the session then takes its
+	 * earliest beat as the target's and counts to it. Omitted: 0, the count ends on the opening.
+	 */
+	targetOffset?: number;
 	promptBeat(earliest: number, planned: { leadBeats: LeadBeats | null }): number;
+	/**
+	 * `planned.item`: the mechanic's item, for a relation that reads it (opaque otherwise).
+	 * `chained`: the round opens at the previous round's handover, on its (fractional) beat,
+	 * without a gap; omitted or false after a wait on the beat grid. The session passes both.
+	 */
 	open(input: {
-		planned: { leadBeats: LeadBeats | null };
+		planned: { leadBeats: LeadBeats | null; item?: unknown };
 		promptBeat: number;
 		now: number;
 		beatTime: (index: number) => number;
 		secondsPerBeat: number;
+		chained?: boolean;
 	}): Round;
 	isDirectRecall(attempt: {
 		correct: boolean;

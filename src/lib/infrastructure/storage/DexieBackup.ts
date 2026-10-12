@@ -18,7 +18,7 @@ export class DexieBackup implements BackupPort {
 		const { db } = this;
 		return db.transaction(
 			'r',
-			[db.attempts, db.cards, db.sessions, db.settings, db.progressions],
+			[db.attempts, db.cards, db.sessions, db.settings, db.progressions, db.scopedProgressions],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
 				version: 3,
@@ -35,12 +35,20 @@ export class DexieBackup implements BackupPort {
 	async importAll(file: unknown): Promise<void> {
 		const backup = validateBackup(file, this.now());
 		const { db } = this;
-		const tables = [db.attempts, db.cards, db.sessions, db.settings, db.progressions];
+		const tables = [
+			db.attempts,
+			db.cards,
+			db.sessions,
+			db.settings,
+			db.progressions,
+			db.scopedProgressions
+		];
 		await db.transaction('rw', tables, async () => {
 			await Promise.all(tables.map((table) => table.clear()));
 			// Device ids belong to one browser and one origin: an imported one would not open.
 			await db.settings.put({ ...backup.settings, inputDeviceId: null, id: SETTINGS_ROW_ID });
-			await db.progressions.bulkAdd(backup.progressions);
+			const progressions = new DexieProgressionRepository(db);
+			for (const progression of backup.progressions) await progressions.put(progression);
 			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);
