@@ -298,6 +298,9 @@ export class SessionController implements PlaySessionController {
 			latencyMs: this.latencyMs
 		});
 		if (this.run !== run) return;
+		// A fresh output loses its first sounds: the counted bar's downbeat must be heard.
+		await this.deps.clock.settle();
+		if (this.run !== run) return;
 
 		this.unsubBeat?.();
 		this.unsubBeat = this.deps.metronome.onBeat((beat) => this.onBeat(beat));

@@ -168,6 +168,20 @@ describe('SessionController skeleton', () => {
 		expect(controller.view.prompt?.primary).toBe('F');
 	});
 
+	it('waits for the audio output to settle before the first click', async () => {
+		let settle: (() => void) | null = null;
+		deps.clock.settle = () => new Promise<void>((resolve) => (settle = resolve));
+		const controller = make(planWith([locateItem()]), deps);
+		const started = controller.start();
+		await vi.waitFor(() => expect(settle).not.toBeNull());
+		for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(deps.metronome.isRunning()).toBe(false);
+		settle!();
+		await started;
+		expect(deps.metronome.isRunning()).toBe(true);
+		expect(controller.view.status).toBe('count-in');
+	});
+
 	it('exposes fractional nowBeat from the clock and beatTime(0)', async () => {
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();

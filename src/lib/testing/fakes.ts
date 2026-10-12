@@ -48,6 +48,8 @@ export class FakeClock implements AudioClockPort {
 
 	async resume(): Promise<void> {}
 
+	async settle(): Promise<void> {}
+
 	now(): number {
 		return this.time;
 	}
