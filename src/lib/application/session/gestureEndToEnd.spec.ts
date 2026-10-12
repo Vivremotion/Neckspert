@@ -138,7 +138,7 @@ const right = (expectation: ChordExpectation) => expectation.expected[0];
 const dataOf = (attempt: Attempt) => attempt.data as ChordGridData;
 
 describe('a gesture session, end to end', () => {
-	it('links D on G-B-E right: seven changes, no card, the passage won, the aid gone after it', async () => {
+	it('links D on G-B-E right: seven changes, no card, the passage won, never aided', async () => {
 		const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
 		const ctx = await setup(cards);
 		const played = await play(ctx, 14, right);
@@ -153,8 +153,7 @@ describe('a gesture session, end to end', () => {
 		expect(attempts.slice(0, 14).every((a) => a.correct && a.mechanic === 'chord-grid')).toBe(true);
 		const passages = new Set(attempts.map((a) => dataOf(a).item.passageId));
 		expect(passages.size).toBeGreaterThanOrEqual(2);
-		expect(attempts.slice(0, 7).every((a) => a.aid === 'show-position')).toBe(true);
-		expect(attempts.slice(7, 14).every((a) => a.aid === 'none')).toBe(true);
+		expect(attempts.slice(0, 14).every((a) => a.aid === 'none')).toBe(true);
 		expect(await ctx.deps.cards.all()).toEqual(cards);
 		expect(await ctx.deps.progressions.get('gesture-link')).toMatchObject({ tempoBpm: 85 });
 

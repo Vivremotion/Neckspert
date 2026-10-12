@@ -35,6 +35,8 @@ export interface ChordGridItem {
 	sets: readonly (readonly StringNumber[])[];
 	/** Link: the shape asked (occurrenceId). */
 	shape?: string;
+	/** Link: a tour chained to a tour of the same element; its lowest shape is not played again. */
+	continued?: true;
 	/** Climb. */
 	direction?: 'up' | 'down';
 	/** Zone: frets from `from` to `to`, both in. */

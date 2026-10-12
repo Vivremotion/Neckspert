@@ -25,6 +25,9 @@ export const ZONE_STEP_FRETS = 5;
 /** Share of its changes right and in time that makes a passage succeed. To calibrate. */
 export const PASSAGE_SUCCESS = 0.9;
 
+/** Missed changes in a link tour before its shapes are drawn on the neck. To calibrate. */
+export const LINK_AID_AFTER_MISSES = 2;
+
 function compareShapes(a: VoicingOccurrence, b: VoicingOccurrence): number {
 	return (
 		shapePosition(a) - shapePosition(b) ||
@@ -36,13 +39,20 @@ function compareShapes(a: VoicingOccurrence, b: VoicingOccurrence): number {
  * The shapes of a link passage, one per bar: the first LINK_SHAPES shapes of the chord on the set
  * by rising position (the inversions, then the first at the octave), then down again without
  * playing the highest twice. Without the octave on the neck, the turn stops at the inversions.
+ * A `continued` tour, chained to one on the same chord, leaves out the lowest shape.
  */
-export function linkShapes(chord: Chord, set: readonly StringNumber[]): VoicingOccurrence[] {
+export function linkShapes(
+	chord: Chord,
+	set: readonly StringNumber[],
+	continued = false
+): VoicingOccurrence[] {
 	const up = closeTriadVoicings(chord, set)
 		.flatMap((voicing) => voicingOccurrences(voicing))
 		.sort(compareShapes)
 		.slice(0, LINK_SHAPES);
-	return [...up, ...up.slice(0, -1).reverse()];
+	const tour = [...up, ...up.slice(0, -1).reverse()];
+	// A chained tour starts from the lowest shape, which ended the tour before: not played twice.
+	return continued ? tour.slice(1) : tour;
 }
 
 /** Every chord of the grid has a shape in the zone starting at `from`, on one of the sets. */

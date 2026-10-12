@@ -31,6 +31,17 @@ const frets = (shapes: ReturnType<typeof linkShapes>) =>
 	shapes.map((s) => s.notes.map((n) => n.fret).join('-'));
 
 describe('linkShapes', () => {
+	it('starts a continued tour at the second shape: the lowest one rang at the end of the last', () => {
+		expect(frets(linkShapes(chord('D'), [3, 2, 1], true))).toEqual([
+			'7-7-5',
+			'11-10-10',
+			'14-15-14',
+			'11-10-10',
+			'7-7-5',
+			'2-3-2'
+		]);
+	});
+
 	it('climbs the first LINK_SHAPES shapes of a chord on a set, then comes down', () => {
 		expect(LINK_SHAPES).toBe(4);
 		expect(frets(linkShapes(chord('D'), [3, 2, 1]))).toEqual([

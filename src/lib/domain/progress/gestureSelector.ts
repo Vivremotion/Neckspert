@@ -1,5 +1,6 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
+	LINK_AID_AFTER_MISSES,
 	linkShapes,
 	nextZone,
 	openElements,
@@ -16,7 +17,7 @@ import {
 } from '$lib/domain/mechanics';
 import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
+import { isSuccess, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
 
 /** No passage starts after this long in a gesture session; one begun always ends. To calibrate. */
@@ -35,6 +36,8 @@ interface ElementState {
 	lastPassage: { id: string; attempts: Attempt[] } | null;
 	direction: 'up' | 'down' | null;
 	zone: { from: number; to: number } | null;
+	/** Link: its shapes are drawn, from a tour with LINK_AID_AFTER_MISSES misses until one succeeds. This session only. */
+	aidOn: boolean;
 }
 
 /** A passage under way: its changes, and what each needs. */
@@ -46,7 +49,10 @@ interface Passage {
 	shapes: string[] | null;
 	direction?: 'up' | 'down';
 	zone?: { from: number; to: number };
+	/** Grids: the whole passage is aided. A link decides change by change. */
 	aided: boolean;
+	/** Link: chained to the tour before, on the same element. */
+	continued: boolean;
 	next: number;
 }
 
@@ -93,9 +99,10 @@ class GestureSelector implements SessionSelector {
 
 	next(context: SelectorContext): PlannedItem | null {
 		if (!this.passage || this.passage.next >= this.passage.changes.length) {
+			const finished = this.passage;
 			this.passage = null;
 			if (context.elapsedMs >= GESTURE_SESSION_MS || context.fatigued) return null;
-			this.passage = this.startPassage(context.now);
+			this.passage = this.startPassage(context.now, finished);
 			if (!this.passage) return null;
 		}
 		const passage = this.passage;
@@ -124,6 +131,7 @@ class GestureSelector implements SessionSelector {
 			...(passage.shapes && { shape: passage.shapes[index] }),
 			...(passage.direction && { direction: passage.direction }),
 			...(passage.zone && { zone: passage.zone }),
+			...(passage.continued && { continued: true as const }),
 			previous: this.previous
 		};
 		return {
@@ -132,9 +140,10 @@ class GestureSelector implements SessionSelector {
 			item,
 			phase: 'free',
 			temperature: 'hot',
-			aid: passage.aided ? 'show-position' : 'none',
+			aid: this.aided(passage) ? 'show-position' : 'none',
 			leadBeats: null,
-			...(index === 0 && { countIn: true }),
+			// A chained tour carries on without a counted bar.
+			...(index === 0 && !passage.continued && { countIn: true }),
 			// A grid progresses at its own tempo: a ballad and a blues apart.
 			...(element.gridId !== undefined && { tempoScope: element.gridId })
 		};
@@ -174,16 +183,46 @@ class GestureSelector implements SessionSelector {
 		if (item.zone) state.zone = item.zone;
 	}
 
-	/** The next exercise of the ladder with something open, on its least recently played element. */
-	private startPassage(now: number): Passage | null {
+	/** The attempts recorded so far in a passage. */
+	private attemptsOf(passage: Passage): Attempt[] {
+		const last = this.state(passage.element.key).lastPassage;
+		return last?.id === passage.id ? last.attempts : [];
+	}
+
+	/**
+	 * A grid passage is aided as a whole; a link change is aided once its tour has missed
+	 * LINK_AID_AFTER_MISSES changes, and until a tour succeeds.
+	 */
+	private aided(passage: Passage): boolean {
+		if (passage.element.rule !== 'link') return passage.aided;
+		const state = this.state(passage.element.key);
+		const misses = this.attemptsOf(passage).filter((attempt) => !isSuccess(attempt)).length;
+		if (misses >= LINK_AID_AFTER_MISSES) state.aidOn = true;
+		return state.aidOn;
+	}
+
+	/**
+	 * A link tour not yet succeeded goes on, chained, on its element; otherwise the next exercise
+	 * of the ladder with something open, on its least recently played element. A tour is judged on
+	 * the attempts recorded so far.
+	 */
+	private startPassage(now: number, finished: Passage | null): Passage | null {
 		if (this.exercises.length === 0) return null;
-		const { elements } = this.exercises[this.turn % this.exercises.length];
-		this.turn++;
-		const element = elements.reduce((oldest, candidate) =>
-			this.state(candidate.key).lastPlayedAt < this.state(oldest.key).lastPlayedAt
-				? candidate
-				: oldest
-		);
+		let element: GestureElement;
+		let continued = false;
+		if (finished?.element.rule === 'link' && !passageSucceeded(this.attemptsOf(finished))) {
+			element = finished.element;
+			continued = true;
+		} else {
+			if (finished?.element.rule === 'link') this.state(finished.element.key).aidOn = false;
+			const { elements } = this.exercises[this.turn % this.exercises.length];
+			this.turn++;
+			element = elements.reduce((oldest, candidate) =>
+				this.state(candidate.key).lastPlayedAt < this.state(oldest.key).lastPlayedAt
+					? candidate
+					: oldest
+			);
+		}
 		const state = this.state(element.key);
 		const last = state.lastPassage;
 		const passage: Passage = {
@@ -192,11 +231,12 @@ class GestureSelector implements SessionSelector {
 			changes: [],
 			shapes: null,
 			aided: !last || !passageSucceeded(last.attempts),
+			continued,
 			next: 0
 		};
 		if (element.rule === 'link') {
 			const [set] = element.sets;
-			const shapes = linkShapes(parseTriadId(element.chord ?? ''), set);
+			const shapes = linkShapes(parseTriadId(element.chord ?? ''), set, continued);
 			const symbol = chordSymbol(element.chord ?? '');
 			passage.changes = shapes.map((_, i) => ({
 				at: i * LINK_BAR_BEATS,
@@ -219,7 +259,8 @@ class GestureSelector implements SessionSelector {
 		}
 		// Played from now: a passage left without an attempt still takes its turn.
 		state.lastPlayedAt = Math.max(state.lastPlayedAt, now);
-		this.previous = null;
+		// The lowest shape still rings into a chained tour.
+		if (!continued) this.previous = null;
 		return passage;
 	}
 }

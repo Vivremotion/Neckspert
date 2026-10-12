@@ -10,6 +10,7 @@ import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';
+import { LINK_AID_AFTER_MISSES } from '$lib/domain/gesture';
 import type { SessionSelector } from './selector';
 
 const NOW = Date.parse('2026-10-10T10:00:00.000Z');
@@ -225,13 +226,28 @@ describe('createGestureSelector', () => {
 		expect(itemOf(s.next(ctx)!).previous).toBe(heard);
 	});
 
-	it('aids a passage until one succeeds, and again after a failed one', () => {
-		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+	it('aids a grid passage until one succeeds, and again after a failed one', () => {
+		// One set: a single climb element, iohefy-a on sol-si-mi.
+		const s = selector(
+			IOHEFY.flatMap(([root, quality]) => triadCards('triad-anchor', root, quality, G_B_E))
+		);
 		const clock = { now: NOW };
-		const aids = [true, false, true, true].map((correct) => {
-			const passage = playPassage(s, clock, correct);
-			return passage[0].aid;
-		});
+		const climbs = [true, false, true, true];
+		const aids: string[] = [];
+		while (aids.length < climbs.length) {
+			const first = s.next({ now: clock.now, elapsedMs: 0, fatigued: false })!;
+			const climb = first.exerciseId === 'gesture-climb';
+			const correct = climb ? climbs[aids.length] : true;
+			if (climb) aids.push(first.aid);
+			let planned: PlannedItem = first;
+			for (;;) {
+				clock.now += 1000;
+				s.record(attemptOf(planned, clock.now, correct), clock.now);
+				const item = itemOf(planned);
+				if (item.index === item.changes.length - 1) break;
+				planned = s.next({ now: clock.now, elapsedMs: 0, fatigued: false })!;
+			}
+		}
 		expect(aids).toEqual(['show-position', 'none', 'show-position', 'none']);
 	});
 
@@ -344,5 +360,118 @@ describe('createGestureSelector', () => {
 				expect(played.directions.slice(turn).every((d) => d === 'down')).toBe(true);
 			}
 		});
+	});
+});
+
+describe('the link', () => {
+	const D_ON_BOTH = [
+		...triadCards('triad-anchor', 'D', 'maj', G_B_E),
+		...triadCards('triad-anchor', 'D', 'maj', D_G_B)
+	];
+
+	/** Plays a passage, each change right or not by its index; the shapes heard are the shapes asked. */
+	function playLink(
+		s: SessionSelector,
+		clock: { now: number },
+		correctAt: (index: number) => boolean = () => true,
+		record = true
+	): PlannedItem[] {
+		const played: PlannedItem[] = [];
+		for (;;) {
+			const planned = s.next({ now: clock.now, elapsedMs: 0, fatigued: false });
+			if (!planned) throw new Error('no change');
+			played.push(planned);
+			clock.now += 1000;
+			const item = itemOf(planned);
+			const last = item.index === item.changes.length - 1;
+			if (record || !last) {
+				s.record(
+					attemptOf(planned, clock.now, correctAt(item.index), item.shape ?? null),
+					clock.now
+				);
+			}
+			if (last) return played;
+		}
+	}
+
+	it('stays on the chord until a tour succeeds, the next tour chained from the second shape', () => {
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock, (i) => i !== 3);
+		expect(first).toHaveLength(7);
+		expect(first[0].countIn).toBe(true);
+		expect(itemOf(first[0]).continued).toBeUndefined();
+
+		const second = playLink(s, clock);
+		expect(itemOf(second[0]).element).toBe(itemOf(first[0]).element);
+		expect(second).toHaveLength(6);
+		expect(second.every((p) => itemOf(p).continued === true)).toBe(true);
+		expect(second[0].countIn).toBeUndefined();
+		expect(itemOf(second[0]).shape).toBe(itemOf(first[1]).shape);
+
+		const third = playLink(s, clock);
+		expect(itemOf(third[0]).element).not.toBe(itemOf(first[0]).element);
+		expect(third[0].countIn).toBe(true);
+		expect(itemOf(third[0]).continued).toBeUndefined();
+	});
+
+	it('keeps the shape still ringing into a chained tour', () => {
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock, (i) => i !== 0);
+		const [opening] = playLink(s, clock);
+		expect(itemOf(opening).previous).toBe(itemOf(first[6]).shape);
+	});
+
+	it('decides on the attempts recorded so far', () => {
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock, () => true, false);
+		const [next] = playLink(s, clock);
+		expect(itemOf(next).element).not.toBe(itemOf(first[0]).element);
+	});
+
+	it('counts a bar when only the set changes', () => {
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock);
+		const [next] = playLink(s, clock);
+		expect(itemOf(next).chord).toBe(itemOf(first[0]).chord);
+		expect(itemOf(next).sets).not.toEqual(itemOf(first[0]).sets);
+		expect(next.countIn).toBe(true);
+	});
+
+	it('aids from the change after the second miss of a tour, until a tour succeeds', () => {
+		expect(LINK_AID_AFTER_MISSES).toBe(2);
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first = playLink(s, clock, (i) => i > 1);
+		expect(first.map((p) => p.aid)).toEqual([
+			'none',
+			'none',
+			'show-position',
+			'show-position',
+			'show-position',
+			'show-position',
+			'show-position'
+		]);
+		const second = playLink(s, clock);
+		expect(second.every((p) => p.aid === 'show-position')).toBe(true);
+		const third = playLink(s, clock);
+		expect(third[0].aid).toBe('none');
+	});
+
+	it('starts a session on a counted, unaided tour, whatever the last session left', () => {
+		const clock = { now: NOW };
+		const before = selector(D_ON_BOTH, [], 's0');
+		const missed: Attempt[] = [];
+		for (const planned of playLink(before, clock, () => false)) {
+			missed.push(attemptOf(planned, clock.now, false));
+		}
+		const s = selector(D_ON_BOTH, missed);
+		const [opening] = playLink(s, clock);
+		expect(opening.countIn).toBe(true);
+		expect(itemOf(opening).continued).toBeUndefined();
+		expect(opening.aid).toBe('none');
 	});
 });
