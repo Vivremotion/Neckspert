@@ -54,10 +54,10 @@ export const GESTURE_LINK = gestureExercise(
 	'link',
 	false,
 	{
-		fr: 'Joue les formes de l’accord l’une après l’autre en montant le manche, une par mesure, puis redescends par le même chemin. Attaque chaque forme sur le premier temps, puis joue le rythme que tu veux.',
-		en: 'Play the shapes of the chord one after the other up the neck, one per bar, then come back down the same way. Attack each shape on the first beat, then play any rhythm you like.'
+		fr: 'Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.',
+		en: 'Play the chord asked on the strings shown, starting from its lowest position. Climb its inversions one by one, then come back down the same way: one chord per bar, struck on the first beat. The arrows give the way: ↗ up, ↘ down.'
 	},
-	'link-path'
+	'link-lane'
 );
 /** Play a grid on a set, each shape higher (or lower) than the one before. */
 export const GESTURE_CLIMB = gestureExercise('gesture-climb', 'climb', true, {

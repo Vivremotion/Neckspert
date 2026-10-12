@@ -8,7 +8,7 @@ import {
 	GESTURE_PRESENTERS,
 	gridExpectation,
 	type GridStageModel,
-	type LinkPathModel
+	type LinkLaneModel
 } from './chordGrid';
 
 const G_B_E: StringNumber[] = [3, 2, 1];
@@ -169,38 +169,72 @@ describe('chordGridPresenter', () => {
 				{ aid }
 			).model as GridStageModel;
 
-		it('link: the path on the neck, its shapes in climbing order, the way down, aided or not', () => {
+		it('link: the lane, the root then the way of each shape, the chord and its strings', () => {
 			const model = chordGridPresenter.stage!(
 				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
 				null,
 				'fr',
-				{ aid: 'show-position' }
-			).model as LinkPathModel;
-			expect(model).toMatchObject({
-				kind: 'link-path',
-				chord: 'D',
-				set: 'sol‑si‑mi',
+				{ aid: 'none' }
+			).model as LinkLaneModel;
+			expect(model).toEqual({
+				kind: 'link-lane',
+				root: 'D',
+				quality: 'majeur',
+				set: 'sol · si · mi',
 				strings: [
 					{ string: 3, name: 'sol' },
 					{ string: 2, name: 'si' },
 					{ string: 1, name: 'mi' }
 				],
-				path: [0, 1, 2, 3, 2, 1, 0],
+				tiles: ['root', 'up', 'up', 'up', 'down', 'down', 'down'],
 				changes: LINK_D,
 				index: 1,
-				aided: true
+				beatsPerBar: 4,
+				aid: null
 			});
-			expect(model.shapes.map((s) => [s.number, s.position, s.inversion])).toEqual([
-				[1, 2, 'fondamentale sur si'],
-				[2, 5, 'fondamentale sur sol'],
-				[3, 10, 'fondamentale sur mi'],
-				[4, 14, 'fondamentale sur si']
-			]);
-			expect(model.shapes[1].notes).toEqual(view('7-7-5').notes);
-			const unaided = chordGridPresenter.stage!(link(1, ''), null, 'en', { aid: 'none' })
-				.model as LinkPathModel;
-			expect(unaided).toMatchObject({ aided: false, set: 'G‑B‑E' });
-			expect(unaided.shapes[0].inversion).toBe('root on B');
+			const english = chordGridPresenter.stage!(link(1, ''), null, 'en', { aid: 'none' })
+				.model as LinkLaneModel;
+			expect(english).toMatchObject({ quality: 'major', set: 'G · B · E' });
+		});
+
+		it('link: a chained tour starts on an arrow, from the second shape', () => {
+			const chained = { ...link(0, shapeId('D', 'maj', G_B_E, '7-7-5')), continued: true as const };
+			const model = chordGridPresenter.stage!(
+				{ ...chained, changes: LINK_D.slice(1) },
+				null,
+				'fr',
+				{ aid: 'show-position' }
+			).model as LinkLaneModel;
+			expect(model.tiles).toEqual(['up', 'up', 'up', 'down', 'down', 'down']);
+			expect(model.aid?.now.map((n) => n.fret)).toEqual([7, 7, 5]);
+		});
+
+		it('link: aided, the notes of the shape now and of the next one', () => {
+			const model = chordGridPresenter.stage!(
+				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
+				null,
+				'fr',
+				{ aid: 'show-position' }
+			).model as LinkLaneModel;
+			expect(model.aid).toEqual({
+				now: [
+					{ string: 3, fret: 7, name: 'D' },
+					{ string: 2, fret: 7, name: 'F#' },
+					{ string: 1, fret: 5, name: 'A' }
+				],
+				next: [
+					{ string: 3, fret: 11, name: 'F#' },
+					{ string: 2, fret: 10, name: 'A' },
+					{ string: 1, fret: 10, name: 'D' }
+				]
+			});
+			const last = chordGridPresenter.stage!(
+				link(6, shapeId('D', 'maj', G_B_E, '2-3-2')),
+				null,
+				'fr',
+				{ aid: 'show-position' }
+			).model as LinkLaneModel;
+			expect(last.aid?.next).toBeNull();
 		});
 
 		it('climb: the arrow, and the aid closest to the shape just heard', () => {

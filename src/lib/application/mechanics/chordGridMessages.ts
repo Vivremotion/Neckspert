@@ -13,6 +13,8 @@ export const CHORD_GRID_MESSAGES: Record<
 		up: string;
 		down: string;
 		zone: (from: number, to: number) => string;
+		/** A chord's quality, by id: « majeur ». */
+		quality: (id: string) => string;
 		gap: ChordGridGapMessages;
 	}
 > = {
@@ -20,6 +22,7 @@ export const CHORD_GRID_MESSAGES: Record<
 		up: '↑ en montant',
 		down: '↓ en descendant',
 		zone: (from, to) => `cases ${from} à ${to}`,
+		quality: (id) => ({ maj: 'majeur', min: 'mineur' })[id] ?? id,
 		gap: {
 			none: 'rien de reconnu',
 			'other-chord': 'autre accord',
@@ -36,6 +39,7 @@ export const CHORD_GRID_MESSAGES: Record<
 		up: '↑ going up',
 		down: '↓ going down',
 		zone: (from, to) => `frets ${from} to ${to}`,
+		quality: (id) => ({ maj: 'major', min: 'minor' })[id] ?? id,
 		gap: {
 			none: 'nothing recognized',
 			'other-chord': 'other chord',

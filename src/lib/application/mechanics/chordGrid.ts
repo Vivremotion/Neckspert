@@ -18,6 +18,7 @@ import {
 	type ChordReading
 } from '$lib/domain/mechanics';
 import {
+	formatSpelledNote,
 	pitchOfSpelled,
 	qualityById,
 	type StringNumber,
@@ -42,36 +43,35 @@ export type GridCue =
 	| { kind: 'zone'; from: number; to: number }
 	| { kind: 'jam' };
 
-/** A shape of a link passage, as `link-path` draws it. */
-export interface LinkPathShape {
-	/** Its place in the climb, from 1. */
-	number: number;
-	notes: { string: StringNumber; fret: number }[];
-	/** Its lowest fretted fret (0 on open strings only). */
-	position: number;
-	/** « fondamentale sur si ». */
-	inversion: string;
+/** A tile of the link's lane: the root on the first of a series, then the way to the next shape. */
+export type LinkTile = 'root' | 'up' | 'down';
+
+/** A note of a shape drawn by the link's aid: « G# » on its string and fret. */
+export interface LinkAidNote {
+	string: StringNumber;
+	fret: number;
+	name: string;
 }
 
-/** The screen model of a link passage, read by the `link-path` view: the path on the neck. */
-export interface LinkPathModel {
-	kind: 'link-path';
+/** The screen model of a link tour, read by the `link-lane` view (spec 2026-10-10, second redesign). */
+export interface LinkLaneModel {
+	kind: 'link-lane';
 	/** The chord, as the chart writes it: « E ». */
-	chord: string;
-	/** « sol‑si‑mi ». */
+	root: string;
+	/** « majeur ». */
+	quality: string;
+	/** « sol · si · mi ». */
 	set: string;
 	/** The strings of the set, low first, with their names. */
 	strings: { string: StringNumber; name: string }[];
-	/** The distinct shapes, in the order they are climbed. */
-	shapes: LinkPathShape[];
-	/** For each change of the passage, the index of its shape in `shapes`. */
-	path: number[];
+	/** One per change of the tour. */
+	tiles: LinkTile[];
 	changes: readonly GridChange[];
 	/** The change on show. */
 	index: number;
 	beatsPerBar: 4;
-	/** The passage is aided: every shape's frets are drawn. */
-	aided: boolean;
+	/** The notes of the shapes to play now and next, when the change is aided. */
+	aid: { now: LinkAidNote[]; next: LinkAidNote[] | null } | null;
 }
 
 /** The screen model of a chord grid, read by its views (`grid-scroll`). */
@@ -119,9 +119,14 @@ function gridOf(item: ChordGridItem): { title: string } | null {
 	return gridById(gridId);
 }
 
+/** The shapes of a link tour, a chained one without its lowest. */
+function tourShapes(item: ChordGridItem): VoicingOccurrence[] {
+	return linkShapes(parseTriadId(item.chord), item.sets[0], item.continued === true);
+}
+
 /** The shape a link asks at `index` of the passage. */
 function linkShape(item: ChordGridItem, index: number): VoicingOccurrence | null {
-	return linkShapes(parseTriadId(item.chord), item.sets[0])[index] ?? null;
+	return tourShapes(item)[index] ?? null;
 }
 
 function cueOf(item: ChordGridItem, locale: Locale): GridCue {
@@ -270,31 +275,40 @@ function isMiss(verdict: Verdict): boolean {
 	return verdict === 'wrong' || verdict === 'corrected';
 }
 
-/** The path of a link passage: its shapes climbed in order, then the way back down. */
-function linkPathModel(item: ChordGridItem, locale: Locale, aided: boolean): LinkPathModel {
+function aidNotes(occurrence: VoicingOccurrence): LinkAidNote[] {
+	return occurrence.notes.map(({ string, fret, note }) => ({
+		string,
+		fret,
+		name: formatSpelledNote(note)
+	}));
+}
+
+/**
+ * The lane of a link tour: the root on its first tile, then whether each shape lies higher or
+ * lower than the one before (a chained tour climbs from the lowest, played at the end of the last).
+ */
+function linkLaneModel(item: ChordGridItem, locale: Locale, aided: boolean): LinkLaneModel {
 	const [set] = item.sets;
-	const played = linkShapes(parseTriadId(item.chord), set);
-	// Up, then down without the top twice: the climb is the first half and the top.
-	const up = played.slice(0, (played.length + 1) / 2);
-	const ids = up.map(occurrenceId);
+	const shapes = tourShapes(item);
+	const lowest = linkShapes(parseTriadId(item.chord), set)[0];
+	const tiles = shapes.map((shape, i): LinkTile => {
+		const before = i > 0 ? shapes[i - 1] : item.continued ? lowest : null;
+		if (!before) return 'root';
+		return shapePosition(shape) > shapePosition(before) ? 'up' : 'down';
+	});
+	const now = shapes[item.index];
+	const next = shapes[item.index + 1] ?? null;
 	return {
-		kind: 'link-path',
-		chord: item.symbol,
-		set: setLabel(set, locale),
+		kind: 'link-lane',
+		root: item.symbol,
+		quality: CHORD_GRID_MESSAGES[locale].quality(parseTriadId(item.chord).quality.id),
+		set: set.map((string) => TRIAD_STRING_NAMES[locale][string]).join(' · '),
 		strings: set.map((string) => ({ string, name: TRIAD_STRING_NAMES[locale][string] })),
-		shapes: up.map((shape, i) => ({
-			number: i + 1,
-			notes: shape.notes.map(({ string, fret }) => ({ string, fret })),
-			position: shapePosition(shape),
-			inversion: TRIAD_MESSAGES[locale].rootOn(
-				TRIAD_STRING_NAMES[locale][rootPosition(shape.voicing).string]
-			)
-		})),
-		path: played.map((shape) => ids.indexOf(occurrenceId(shape))),
+		tiles,
 		changes: item.changes,
 		index: item.index,
 		beatsPerBar: 4,
-		aided
+		aid: aided && now ? { now: aidNotes(now), next: next && aidNotes(next) } : null
 	};
 }
 
@@ -334,7 +348,7 @@ export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> 
 	expectation: (item, round) => ({ chord: gridExpectation(item, round.opensAt) }),
 	stage: (item, settled, locale, { aid }) => {
 		if (item.rule === 'link') {
-			return { model: linkPathModel(item, locale, aid === 'show-position') };
+			return { model: linkLaneModel(item, locale, aid === 'show-position') };
 		}
 		const heard = (settled?.answer as ChordReading | null | undefined)?.decided ?? null;
 		const shown = aid === 'show-position' ? aidFor(item, heard) : null;

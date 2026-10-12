@@ -18,12 +18,14 @@ describe('the gesture exercises', () => {
 			'gesture-jam'
 		]);
 		expect(GESTURE_EXERCISES.map((e) => e.view)).toEqual([
-			'link-path',
+			'link-lane',
 			'grid-scroll',
 			'grid-scroll',
 			'grid-scroll'
 		]);
-		expect(GESTURE_LINK.howTo?.fr).toMatch(/^Joue les formes de l’accord/);
+		expect(GESTURE_LINK.howTo?.fr).toMatch(
+			/^Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave/
+		);
 		for (const exercise of GESTURE_EXERCISES) {
 			expect(exercise).toMatchObject({ mechanic: 'chord-grid', startTempoBpm: 80 });
 			expect(exercise.howTo?.fr && exercise.howTo.en).toBeTruthy();

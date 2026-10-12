@@ -1,7 +1,7 @@
 import type { Component } from 'svelte';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import GridScrollView from './GridScrollView.svelte';
-import LinkPathView from './LinkPathView.svelte';
+import LinkLaneView from './LinkLaneView.svelte';
 
 /** What a play view is given: the session, and the screen model of its mechanic. */
 export type PlayViewProps = { controller: PlaySessionController; model: unknown };
@@ -12,5 +12,5 @@ export type PlayViewProps = { controller: PlaySessionController; model: unknown 
  */
 export const PLAY_VIEWS: Record<string, Component<PlayViewProps>> = {
 	'grid-scroll': GridScrollView,
-	'link-path': LinkPathView
+	'link-lane': LinkLaneView
 };

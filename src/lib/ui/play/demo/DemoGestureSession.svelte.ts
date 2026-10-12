@@ -167,6 +167,6 @@ export class DemoGestureSession implements PlaySessionController {
 		const { model } = chordGridPresenter.stage!(itemAt(this.#mode, index), null, i18n.locale, {
 			aid: 'show-position'
 		});
-		this.view.stage = { view: this.#mode === 'link' ? 'link-path' : 'grid-scroll', model };
+		this.view.stage = { view: this.#mode === 'link' ? 'link-lane' : 'grid-scroll', model };
 	}
 }

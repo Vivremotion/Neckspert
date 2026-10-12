@@ -163,7 +163,13 @@ class GestureSelector implements SessionSelector {
 	private state(key: string): ElementState {
 		let state = this.states.get(key);
 		if (!state) {
-			state = { lastPlayedAt: -Infinity, lastPassage: null, direction: null, zone: null };
+			state = {
+				lastPlayedAt: -Infinity,
+				lastPassage: null,
+				direction: null,
+				zone: null,
+				aidOn: false
+			};
 			this.states.set(key, state);
 		}
 		return state;
