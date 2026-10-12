@@ -423,6 +423,25 @@ describe('the link', () => {
 		expect(itemOf(opening).previous).toBe(itemOf(first[6]).shape);
 	});
 
+	it('rings the lowest shape into a chained tour when the last change heard nothing', () => {
+		const s = selector(D_ON_BOTH);
+		const clock = { now: NOW };
+		const first: PlannedItem[] = [];
+		for (;;) {
+			const planned = s.next({ now: clock.now, elapsedMs: 0, fatigued: false })!;
+			first.push(planned);
+			clock.now += 1000;
+			const item = itemOf(planned);
+			const last = item.index === item.changes.length - 1;
+			// The last change goes unheard: no shape decided.
+			s.record(attemptOf(planned, clock.now, !last, last ? null : (item.shape ?? null)), clock.now);
+			if (last) break;
+		}
+		const [opening] = playLink(s, clock);
+		expect(itemOf(opening).continued).toBe(true);
+		expect(itemOf(opening).previous).toBe(itemOf(first[6]).shape);
+	});
+
 	it('decides on the attempts recorded so far', () => {
 		const s = selector(D_ON_BOTH);
 		const clock = { now: NOW };

@@ -219,6 +219,14 @@ class GestureSelector implements SessionSelector {
 		if (finished?.element.rule === 'link' && !passageSucceeded(this.attemptsOf(finished))) {
 			element = finished.element;
 			continued = true;
+			// Nothing heard at the end of the tour: the lowest shape asked is taken as ringing,
+			// never the shape before it, which the chained tour asks first.
+			const last = this.attemptsOf(finished).at(-1);
+			const decided = (last?.data as { answer?: ChordReading | null } | undefined)?.answer?.decided;
+			const lastIndex = finished.changes.length - 1;
+			if (!last || itemOf(last)?.index !== lastIndex || !decided) {
+				this.previous = finished.shapes?.[lastIndex] ?? this.previous;
+			}
 		} else {
 			if (finished?.element.rule === 'link') this.state(finished.element.key).aidOn = false;
 			const { elements } = this.exercises[this.turn % this.exercises.length];
