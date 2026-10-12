@@ -31,12 +31,14 @@
 ### Task 1: Tours enchaînés et aide par changement (domaine)
 
 **Files:**
+
 - Modify: `src/lib/domain/mechanics/chordGrid.ts` (`ChordGridItem`)
 - Modify: `src/lib/domain/gesture/passages.ts` (`linkShapes`)
 - Modify: `src/lib/domain/progress/gestureSelector.ts`
 - Test: `src/lib/domain/gesture/passages.spec.ts`, `src/lib/domain/progress/gestureSelector.spec.ts`
 
 **Interfaces:**
+
 - Produces: `ChordGridItem.continued?: true` — un tour de relier qui suit un tour du même élément : sa forme la plus grave n'est pas rejouée. `linkShapes(chord, set, continued = false): VoicingOccurrence[]` — sans la première forme quand `continued`. `LINK_AID_AFTER_MISSES = 2` exporté de `passages.ts`.
 
 - [ ] **Step 1: tests qui échouent**
@@ -56,23 +58,29 @@
 ### Task 2: Modèle de la Lane de relier (présentateur)
 
 **Files:**
+
 - Modify: `src/lib/application/mechanics/chordGrid.ts`
 - Test: `src/lib/application/mechanics/chordGrid.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `ChordGridItem.continued`, `linkShapes(chord, set, continued)`.
 - Produces (remplace `LinkPathModel` et `LinkPathShape`, supprimés) :
 
 ```ts
 export type LinkTile = 'root' | 'up' | 'down';
-export interface LinkAidNote { string: StringNumber; fret: number; name: string } // name: « G# »
+export interface LinkAidNote {
+	string: StringNumber;
+	fret: number;
+	name: string;
+} // name: « G# »
 export interface LinkLaneModel {
 	kind: 'link-lane';
-	root: string;        // « E », le symbole
-	quality: string;     // « majeur » / « major »
-	set: string;         // « sol · si · mi »
+	root: string; // « E », le symbole
+	quality: string; // « majeur » / « major »
+	set: string; // « sol · si · mi »
 	strings: { string: StringNumber; name: string }[]; // low first
-	tiles: LinkTile[];   // une par changement du passage
+	tiles: LinkTile[]; // une par changement du passage
 	changes: readonly GridChange[];
 	index: number;
 	beatsPerBar: 4;
@@ -94,11 +102,13 @@ export interface LinkLaneModel {
 ### Task 3: La vue `link-lane`
 
 **Files:**
+
 - Create: `src/lib/ui/play/views/linkLane.ts`, `linkLane.spec.ts`, `LinkLaneView.svelte`, `LinkLaneView.svelte.spec.ts`
 - Delete: `src/lib/ui/play/views/linkPath.ts`, `linkPath.spec.ts`, `LinkPathView.svelte`, `LinkPathView.svelte.spec.ts`
 - Modify: `views/index.ts` (`'link-lane': LinkLaneView`, plus de `'link-path'`), `views/messages.ts` (retirer les messages de link-path devenus inutiles ; ajouter `onStrings: 'sur cordes' / 'on strings'`), `src/lib/domain/gesture/exercises.ts` (vue `'link-lane'`, consigne), `src/lib/ui/play/demo/DemoGestureSession.svelte.ts` si elle nomme la vue ou le modèle.
 
 **Interfaces:**
+
 - Consumes: `LinkLaneModel`.
 - Produces:
 
@@ -132,6 +142,7 @@ export function linkLaneLayout(
 ### Task 4: Décompte, documentation, vérification
 
 **Files:**
+
 - Modify: `src/lib/ui/play/PlayFrame.svelte`, `src/lib/ui/play/messages.ts` (`startsIn: (n) => \`Départ dans ${n} temps\`` / `` `Starting in ${n} beats` ``, une ligne)
 - Modify: test de `PlayFrame` qui lit « Départ dans »
 - Modify: `docs/superpowers/specs/2026-10-10-voie-geste-design.md` (« Réalisation » de la deuxième refonte : la Lane d'exemple de la consigne devient la phrase sur les flèches ; ce qui a été décidé en route), `CLAUDE.md` (la vue de relier s'appelle `link-lane`, `views/linkLane.ts`, tours enchaînés, `LINK_AID_AFTER_MISSES`)

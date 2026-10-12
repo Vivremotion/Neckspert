@@ -152,13 +152,14 @@
 		line-height: 1;
 	}
 
+	/* The chord is the event of the screen: far above the hero size, whatever the container. */
 	.root {
-		font-size: var(--np-type-hero);
+		font-size: calc(var(--np-tile) * 16);
 	}
 
 	/* The counted bar: the new chord takes the screen. */
 	.root.counting {
-		font-size: calc(var(--np-type-hero) * 2);
+		font-size: calc(var(--np-tile) * 28);
 	}
 
 	.what {

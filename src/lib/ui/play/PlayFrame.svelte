@@ -89,9 +89,8 @@
 			<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
 			<!-- In text: PixelWord draws the note letters only, no digit. -->
 			<div class="counting">
-				<p class="label">{t.startsIn}</p>
 				<p class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
-					{view.countdown}
+					{t.startsIn(view.countdown)}
 				</p>
 			</div>
 		{:else if view.lastVerdict}
@@ -231,11 +230,7 @@
 
 	.countdown {
 		margin: 0;
-		min-inline-size: calc(var(--np-tile) * 12);
-		padding: 0 var(--np-space-2, 16px);
-		background: var(--np-ink);
-		color: var(--np-bg);
-		font-size: var(--np-type-hero);
+		font-size: var(--np-type-display);
 		line-height: 1;
 		text-align: center;
 	}

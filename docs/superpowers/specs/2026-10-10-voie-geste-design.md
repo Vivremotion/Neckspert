@@ -382,3 +382,14 @@ Conçue dans la conversation du 2026-10-12, après de vraies sessions sur `link-
 
 - Choisir de rester sur l'accord demande de savoir si le tour est réussi au moment d'ouvrir le suivant, enchaîné, alors que le dernier changement du tour peut ne pas être encore réglé (lecture d'accord en cours). À vérifier dans le contrôleur : le choix peut attendre le réglage, ou se faire au changement suivant.
 - Sans doublement, rien ne marque la reprise d'un tour : c'est voulu, le guitariste jugera à l'usage.
+
+### Réalisation (2026-10-12)
+
+Plan : `docs/superpowers/plans/2026-10-12-relier-en-lane.md`.
+
+- **Tours enchaînés** : `ChordGridItem.continued` marque un tour qui suit un tour du même élément ; `linkShapes(chord, set, continued)` laisse alors la forme la plus grave. Le sélecteur garde la forme qui sonne (`previous`) dans le tour enchaîné et ne compte pas de mesure. Un tour se juge sur les essais enregistrés au moment d'ouvrir le suivant ; un essai encore en lecture ne compte pas comme raté.
+- **Aide** : `ElementState.aidOn`, allumée quand un tour compte `LINK_AID_AFTER_MISSES` ratés (un raté = un essai qui n'est pas `isSuccess`), éteinte quand un tour réussit ; elle vit dans la session seulement : une nouvelle session commence sans aide. La contrainte, la zone et le jam gardent l'aide au passage.
+- **Vue `link-lane`** (`LinkLaneView`, placement pur `views/linkLane.ts`, modèle `LinkLaneModel`) : une tuile par changement, son bord gauche sur la barre à son changement ; `LANE_BARS_BEFORE` (2) mesures passées, `LANE_BARS_AFTER` (4) à venir ; les mesures des passages précédents viennent de l'historique, sans symbole. Pendant la mesure comptée, la vue place les tuiles sur le décompte (`countdown`, figé à chaque temps). La fondamentale fait 16 tuiles de haut, 28 pendant la mesure comptée.
+- **Consigne** : la Lane d'exemple n'a pas été faite ; la consigne dit les flèches en texte (« ↗ monte, ↘ descends »), le cadre n'affichant que du texte.
+- **Décompte** : « Départ dans 3 temps » (« Starting in 3 beats »), en une phrase, pour tout le geste.
+- Vu en capture sur `/dev/gesture` (1280×800, 390×844) : pas de texte sous 16 px, pas de défilement horizontal. Non vérifié : le son réel, et le choix du tour suivant quand le dernier accord est encore en lecture.

@@ -82,6 +82,14 @@ describe('PlayFrame', () => {
 		expect(screen.getByRole('status').textContent).toMatch(/fatigue/i);
 	});
 
+	it('writes the count as a sentence', () => {
+		const controller = new StageController();
+		controller.view.status = 'count-in';
+		controller.view.countdown = 3;
+		render(PlayFrame, { props: { controller } });
+		expect(document.querySelector('.counting')?.textContent?.trim()).toBe('Départ dans 3 temps');
+	});
+
 	it('keeps counting, big, until the change itself, after its round has opened', () => {
 		const controller = new StageController();
 		controller.view.status = 'awaiting';
