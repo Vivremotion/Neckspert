@@ -50,20 +50,29 @@ describe('LinkLaneView', () => {
 
 	it('draws the root on the first tile, arrows after', () => {
 		render(LinkLaneView, { props: { controller: running(0, 0.5), model: model(0, false) } });
+		// A tile per beat: the way on the first beat of each bar only, two bars ahead.
 		expect(screen.getAllByTestId('link-tile').map((t) => t.textContent?.trim())).toEqual([
 			'E',
 			'↗',
-			'↗',
-			'↗',
-			'↘'
+			'↗'
 		]);
 	});
 
-	it('puts the beat of the bar over the next tile', () => {
+	it('numbers the beats ahead, as on the notes lane, the change asked due', () => {
 		render(LinkLaneView, { props: { controller: running(2, 9), model: model(2, false) } });
-		const label = screen.getByTestId('link-beat');
-		expect(label.textContent?.trim()).toBe('2');
-		expect(label.closest('[data-state]')?.getAttribute('data-state')).toBe('next');
+		expect(screen.getAllByTestId('link-beat').map((b) => b.textContent?.trim())).toEqual([
+			'3',
+			'4',
+			'1',
+			'2',
+			'3',
+			'4',
+			'1',
+			'2'
+		]);
+		const due = document.querySelectorAll('.body.due');
+		expect(due).toHaveLength(1);
+		expect(due[0].textContent?.trim()).toBe('↗');
 	});
 
 	it('draws no neck unaided, the notes in circles aided, each the colour of its tile', () => {

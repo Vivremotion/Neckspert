@@ -31,13 +31,15 @@
 		countedBeat = left === null ? null : Math.round(controller.timeline.nowBeat()) + left;
 	});
 
-	const layout = $derived(
+	const tiles = $derived(
 		linkLaneLayout(lane, {
 			anchorBeat: view.targetBeatIndex ?? countedBeat,
 			nowBeat,
 			history: view.history
 		})
 	);
+	const past = $derived(tiles.filter((tile) => tile.offset <= 0));
+	const ahead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const ARROWS = { up: '↗', down: '↘' } as const;
 
 	/** The aid's neck: the frets of the two shapes, one either side; the high string on top. */
@@ -72,20 +74,46 @@
 		</div>
 	</header>
 
-	<div class="lane">
-		<span class="bar" aria-hidden="true"></span>
-		{#each layout.tiles as tile, i (i)}
-			<div class="slot" style:--offset={tile.offset} data-state={tile.state}>
-				{#if tile.labelled && layout.beat !== null}
-					<span class="beat-no" data-testid="link-beat">{layout.beat}</span>
-				{:else if tile.verdict && tile.state === 'past'}
-					<span class="verdict"><VerdictSprite verdict={tile.verdict} size={24} /></span>
-				{/if}
-				<span class="tile {tile.state}" data-testid={tile.symbol ? 'link-tile' : undefined}>
-					{tile.symbol === 'root' ? lane.root : tile.symbol ? ARROWS[tile.symbol] : ''}
-				</span>
+	<!-- The notes' lane: a tile per beat, the way on the first beat of each bar. -->
+	<div class="lane pixel-frame">
+		<div class="lane-inner pixel-frame-inner">
+			<div class="track">
+				<div class="tiles">
+					{#each past as tile (tile.beatIndex)}
+						<div class="cell">
+							<div class="body" class:due={tile.due} class:inverted={tile.justPlayed}>
+								{#if tile.symbol}
+									<span class="way" data-testid="link-tile"
+										>{tile.symbol === 'root' ? lane.root : ARROWS[tile.symbol]}</span
+									>
+								{:else if tile.verdict}
+									<VerdictSprite verdict={tile.verdict} size={48} inverted={tile.justPlayed} />
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+				<div class="finish">
+					<div class="hit" aria-hidden="true"></div>
+				</div>
+				<div class="tiles ahead-tiles">
+					{#each ahead as tile (tile.beatIndex)}
+						<div class="cell">
+							<span class="beat-no" data-testid={tile.label !== null ? 'link-beat' : undefined}
+								>{tile.label ?? ''}</span
+							>
+							<div class="body ahead" class:due={tile.due}>
+								{#if tile.symbol}
+									<span class="way" data-testid="link-tile"
+										>{tile.symbol === 'root' ? lane.root : ARROWS[tile.symbol]}</span
+									>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
 			</div>
-		{/each}
+		</div>
 	</div>
 
 	{#if neck}
@@ -126,8 +154,6 @@
 <style>
 	.link-lane {
 		--row: calc(var(--np-tile) * 6);
-		--hit: 25%;
-		--bar-width: 18%;
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -177,68 +203,93 @@
 	}
 
 	.lane {
-		position: relative;
-		block-size: calc(var(--np-tile) * 14);
+		display: flex;
+		min-width: 0;
+	}
+
+	/* The notes' lane frame (PlayScreen): a shade border, its corners cut. */
+	.pixel-frame {
+		box-sizing: border-box;
+		background: var(--np-shade);
+		border: 4px solid var(--np-ink);
+		padding: 4px 4px 7px 7px;
+		clip-path: polygon(
+			4px 0,
+			calc(100% - 4px) 0,
+			calc(100% - 4px) 4px,
+			100% 4px,
+			100% calc(100% - 4px),
+			calc(100% - 4px) calc(100% - 4px),
+			calc(100% - 4px) 100%,
+			4px 100%,
+			4px calc(100% - 4px),
+			0 calc(100% - 4px),
+			0 4px,
+			4px 4px
+		);
+	}
+
+	.pixel-frame-inner {
+		box-sizing: border-box;
+		height: 100%;
+		border: 4px solid var(--np-ink);
+		background: var(--np-bg);
+	}
+
+	.lane-inner {
+		display: flex;
+		flex: 1;
+		flex-direction: column;
+		min-width: 0;
+		padding: 8px 12px 12px;
+	}
+
+	.track {
+		display: flex;
+		align-items: flex-end;
+		gap: 8px;
+		min-width: 0;
 		overflow: hidden;
 	}
 
-	.bar {
-		position: absolute;
-		inset-block: 0;
-		inset-inline-start: var(--hit);
-		inline-size: calc(var(--np-tile) * 3 / 4);
-		margin-inline-start: calc(var(--np-tile) * -3 / 4);
-		background: var(--np-ink);
-		z-index: 1;
+	.tiles {
+		display: flex;
+		align-items: flex-end;
+		gap: 6px;
 	}
 
-	.slot {
-		position: absolute;
-		inset-block-end: var(--np-space-2, 16px);
-		inset-inline-start: calc(var(--hit) + var(--offset) * var(--bar-width));
-		inline-size: calc(var(--bar-width) - var(--np-space-2, 16px));
-		display: grid;
-		justify-items: center;
-		gap: 4px;
+	.ahead-tiles {
+		flex: 1;
 	}
 
-	.beat-no,
-	.verdict {
+	.cell {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: stretch;
+		width: clamp(32px, 7cqi, 72px);
+		flex: 0 0 auto;
+	}
+
+	.beat-no {
+		min-height: var(--np-type-meta);
+		text-align: center;
 		font-size: var(--np-type-meta);
 		line-height: 1;
-		min-block-size: var(--np-type-meta);
 	}
 
-	.tile {
+	.body {
 		box-sizing: border-box;
 		display: grid;
 		place-items: center;
-		inline-size: 100%;
-		block-size: calc(var(--np-tile) * 9);
-		border: calc(var(--np-tile) / 2) solid var(--np-ink);
+		height: 72px;
+		border: 4px solid var(--np-ink);
 		background: var(--np-bg);
-		font-size: var(--np-type-display);
-		line-height: 1;
 	}
 
-	.tile.now {
-		background: var(--np-ink);
-		color: var(--np-bg);
-	}
-
-	.tile.next {
-		background: var(--np-mid);
-	}
-
-	.tile.later {
-		border-color: var(--np-shade);
-		color: var(--np-shade);
-	}
-
-	/* Played: a checker of ground and mid, as DESIGN.md makes a fifth tone. */
-	.tile.past {
-		border-color: var(--np-shade);
-		color: var(--np-shade);
+	/* Ahead: a checker of ground and mid, as DESIGN.md makes a fifth tone. */
+	.body.ahead {
+		background-color: var(--np-bg);
 		background-image:
 			linear-gradient(
 				45deg,
@@ -254,9 +305,32 @@
 		background-size: 8px 8px;
 	}
 
-	.verdict {
-		display: inline-flex;
-		animation: imprint 120ms ease-out both;
+	.body.due,
+	.body.ahead.due,
+	.body.inverted {
+		background: var(--np-ink);
+		color: var(--np-bg);
+	}
+
+	.way {
+		font-size: var(--np-type-display);
+		line-height: 1;
+	}
+
+	.finish {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-end;
+	}
+
+	.hit {
+		width: 4px;
+		height: 72px;
+		background: var(--np-ink);
+		box-shadow:
+			-8px 0 0 var(--np-ink),
+			8px 0 0 var(--np-ink);
 	}
 
 	.neck {
@@ -308,20 +382,5 @@
 	.note.next {
 		background: var(--np-mid);
 		color: var(--np-ink);
-	}
-
-	@keyframes imprint {
-		from {
-			transform: scale(1.4);
-		}
-		to {
-			transform: scale(1);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.verdict {
-			animation: none;
-		}
 	}
 </style>

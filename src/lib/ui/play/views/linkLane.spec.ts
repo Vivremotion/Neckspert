@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LinkLaneModel } from '$lib/application/mechanics/chordGrid';
-import { LANE_BARS_AFTER, LANE_BARS_BEFORE, linkLaneLayout } from './linkLane';
+import { LANE_BEATS_AFTER, LANE_BEATS_BEFORE, linkLaneLayout } from './linkLane';
 
 const CHANGES = [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'D' }));
 
@@ -20,51 +20,46 @@ function model(index: number): LinkLaneModel {
 	};
 }
 
-const placed = (layout: ReturnType<typeof linkLaneLayout>) =>
-	layout.tiles.map((t) => [t.symbol, t.state, t.offset]);
+/** Beat, symbol, due, label of each tile. */
+const row = (tiles: ReturnType<typeof linkLaneLayout>) =>
+	tiles.map((t) => [t.beatIndex, t.symbol, t.due, t.label]);
 
 describe('linkLaneLayout', () => {
-	it('shows LANE_BARS_BEFORE bars past and LANE_BARS_AFTER to come', () => {
-		expect([LANE_BARS_BEFORE, LANE_BARS_AFTER]).toEqual([2, 4]);
+	it('shows the beats of the notes lane: LANE_BEATS_BEFORE past, LANE_BEATS_AFTER ahead', () => {
+		expect([LANE_BEATS_BEFORE, LANE_BEATS_AFTER]).toEqual([4, 8]);
 	});
 
-	it('moves bar by bar: the bar under way ends on the bar line, the next starts there', () => {
-		// The passage starts on beat 0; change 2 falls on beat 8. Beats 8 to 11: the same places.
-		for (const nowBeat of [8, 9.5, 10.99]) {
-			expect(placed(linkLaneLayout(model(2), { anchorBeat: 8, nowBeat, history: [] }))).toEqual([
-				['root', 'past', -3],
-				['up', 'past', -2],
-				['up', 'now', -1],
-				['up', 'next', 0],
-				['down', 'later', 1],
-				['down', 'later', 2],
-				['down', 'later', 3]
-			]);
-		}
-	});
-
-	it('counts the beat of the bar over the tile right of the bar line', () => {
-		const at = (nowBeat: number) =>
-			linkLaneLayout(model(2), { anchorBeat: 8, nowBeat, history: [] });
-		expect(at(9).beat).toBe(2);
-		expect(at(9).tiles.find((t) => t.labelled)?.offset).toBe(0);
-		// Beat 4 of bar 1: change 2 is asked already, still right of the line.
-		expect(at(7.2).beat).toBe(4);
-		expect(at(7.2).tiles.find((t) => t.labelled)).toMatchObject({ state: 'now', offset: 0 });
+	it('draws one tile per beat, the way only on the first beat of each bar, the change asked due', () => {
+		// The passage starts on beat 0; change 2 falls on beat 8; it is beat 9.
+		const tiles = linkLaneLayout(model(2), { anchorBeat: 8, nowBeat: 9.4, history: [] });
+		expect(row(tiles)).toEqual([
+			[6, null, false, null],
+			[7, null, false, null],
+			[8, 'up', true, null],
+			[9, null, false, null],
+			[10, null, false, 3],
+			[11, null, false, 4],
+			[12, 'up', false, 1],
+			[13, null, false, 2],
+			[14, null, false, 3],
+			[15, null, false, 4],
+			[16, 'down', false, 1],
+			[17, null, false, 2]
+		]);
+		expect(tiles.filter((t) => t.offset <= 0).map((t) => t.beatIndex)).toEqual([6, 7, 8, 9]);
 	});
 
 	it('draws the next tour after the last bar, as if the tour went on', () => {
-		const layout = linkLaneLayout(model(6), { anchorBeat: 24, nowBeat: 25, history: [] });
-		expect(placed(layout).slice(-4)).toEqual([
-			['up', 'next', 0],
-			['up', 'later', 1],
-			['up', 'later', 2],
-			['down', 'later', 3]
+		const tiles = linkLaneLayout(model(6), { anchorBeat: 24, nowBeat: 25, history: [] });
+		expect(tiles.filter((t) => t.symbol).map((t) => [t.beatIndex, t.symbol, t.due])).toEqual([
+			[24, 'down', true],
+			[28, 'up', false],
+			[32, 'up', false]
 		]);
 	});
 
-	it('carries the verdicts of the changes played', () => {
-		const { tiles } = linkLaneLayout(model(2), {
+	it('carries the verdicts played, the latest one marked', () => {
+		const tiles = linkLaneLayout(model(2), {
 			anchorBeat: 8,
 			nowBeat: 9,
 			history: [
@@ -72,38 +67,22 @@ describe('linkLaneLayout', () => {
 				{ beatIndex: 8, verdict: 'late' }
 			]
 		});
-		expect(tiles.filter((t) => t.verdict).map((t) => [t.state, t.verdict])).toEqual([
-			['past', 'perfect'],
-			['now', 'late']
-		]);
+		expect(
+			tiles.filter((t) => t.verdict).map((t) => [t.beatIndex, t.verdict, t.justPlayed])
+		).toEqual([[8, 'late', true]]);
 	});
 
-	it('puts the first change right of the line during the counted bar', () => {
-		const { tiles, beat } = linkLaneLayout(model(0), { anchorBeat: 40, nowBeat: 38, history: [] });
-		expect(tiles[0]).toMatchObject({ symbol: 'root', state: 'now', offset: 0, labelled: true });
-		expect(beat).toBe(3);
+	it('puts the first change ahead during the counted bar, counting to it', () => {
+		const tiles = linkLaneLayout(model(0), { anchorBeat: 40, nowBeat: 37.5, history: [] });
+		expect(tiles.find((t) => t.symbol === 'root')).toMatchObject({ beatIndex: 40, due: true });
+		expect(tiles.filter((t) => t.beatIndex >= 38 && t.beatIndex <= 40).map((t) => t.label)).toEqual(
+			[3, 4, 1]
+		);
 	});
 
-	it('draws earlier bars from the history, one tile per bar, without a symbol', () => {
-		const { tiles } = linkLaneLayout(model(0), {
-			anchorBeat: 40,
-			nowBeat: 40.5,
-			history: [
-				{ beatIndex: 32, verdict: 'wrong' },
-				{ beatIndex: 34, verdict: 'late' },
-				{ beatIndex: 36, verdict: 'perfect' },
-				{ beatIndex: 0, verdict: 'perfect' }
-			]
-		});
-		expect(tiles.filter((t) => t.symbol === null).map((t) => [t.offset, t.verdict])).toEqual([
-			[-3, 'late'],
-			[-2, 'perfect']
-		]);
-	});
-
-	it('places nothing in time without an anchor', () => {
-		const { tiles, beat } = linkLaneLayout(model(0), { anchorBeat: null, nowBeat: 3, history: [] });
-		expect(tiles[0]).toMatchObject({ state: 'now', offset: 0 });
-		expect(beat).toBeNull();
+	it('waits without an anchor: the first change next, nothing counted', () => {
+		const tiles = linkLaneLayout(model(0), { anchorBeat: null, nowBeat: 3.2, history: [] });
+		expect(tiles.find((t) => t.symbol === 'root')).toMatchObject({ beatIndex: 4, due: true });
+		expect(tiles.every((t) => t.label === null)).toBe(true);
 	});
 });
