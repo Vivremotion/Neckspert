@@ -1,4 +1,4 @@
-import { MECHANIC_RULES } from '$lib/domain/mechanics';
+import { isTimed, MECHANIC_RULES } from '$lib/domain/mechanics';
 import {
 	isResponseSuccess,
 	type AidLevel,
@@ -28,7 +28,8 @@ export type AttemptOverrides<D = unknown> = Partial<ResponseAttemptFields<D>>;
 
 /** The relation an old mechanic's attempts were judged by; `beat` for a mechanic unknown here. */
 function relationOf(mechanic: string): string {
-	return MECHANIC_RULES.find((rules) => rules.id === mechanic)?.timing.id ?? 'beat';
+	const rules = MECHANIC_RULES.find((candidate) => candidate.id === mechanic);
+	return rules && isTimed(rules) ? rules.timing.id : 'beat';
 }
 
 /**

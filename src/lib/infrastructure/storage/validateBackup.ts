@@ -1,4 +1,4 @@
-import { MECHANIC_RULES, type MechanicRules } from '$lib/domain/mechanics';
+import { MECHANIC_RULES, type MechanicIdentity } from '$lib/domain/mechanics';
 import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
@@ -27,7 +27,14 @@ const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = ['learn', 'free', 'triads', 'triads-zone', 'gesture'];
+const SESSION_KINDS: readonly SessionKind[] = [
+	'learn',
+	'free',
+	'triads',
+	'triads-zone',
+	'gesture',
+	'exercise'
+];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
 const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
@@ -103,7 +110,7 @@ function sameValue(a: unknown, b: unknown): boolean {
 	);
 }
 
-function rulesOf(mechanic: unknown): MechanicRules | null {
+function rulesOf(mechanic: unknown): MechanicIdentity | null {
 	return MECHANIC_RULES.find((rules) => rules.id === mechanic) ?? null;
 }
 
@@ -527,9 +534,15 @@ function checkAttemptV3(attempt: Fields): string | null {
 }
 
 function checkSessionV3(session: Fields): string | null {
+	// A session of one exercise names it; no other session has to.
+	const exerciseOk =
+		session.kind === 'exercise' || session.exerciseId !== undefined
+			? isNonEmptyString(session.exerciseId)
+			: true;
 	return (
 		checkSession(session) ??
-		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null')
+		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
+		(exerciseOk ? null : 'exerciseId must be a non-empty string')
 	);
 }
 

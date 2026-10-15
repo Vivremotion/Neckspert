@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, Execution, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import type { SessionSelector } from '$lib/domain/progress';
 import type { RoundOutcome } from '$lib/domain/timing';
-import { identifyRules, locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { identifyRules, locateRules, mechanicRules, timedRules } from '$lib/domain/mechanics';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
@@ -69,7 +69,7 @@ function setup(selector?: Partial<SessionSelector>) {
 		now: () => clock.toEpochMs(clock.now()),
 		selector: spy,
 		sessionId: 'sess-1',
-		rules: mechanicRules
+		rules: (mechanic) => timedRules(mechanicRules(mechanic))
 	});
 	return { recorder, attempts, cards, recorded };
 }
@@ -161,7 +161,7 @@ describe('AttemptRecorder', () => {
 			now: () => 0,
 			selector: { next: () => null, record: () => null, cardChanged: () => {} },
 			sessionId: 'sess-1',
-			rules: mechanicRules,
+			rules: (mechanic) => timedRules(mechanicRules(mechanic)),
 			timing: () => identifyRules.timing
 		});
 		const { attempt } = recorder.record(

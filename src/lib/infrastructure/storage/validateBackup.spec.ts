@@ -795,6 +795,30 @@ describe('the triads session and the contest of an attempt', () => {
 	});
 });
 
+describe('the exercise session', () => {
+	it('accepts an exercise session with its exercise', () => {
+		const file = makeBackup({
+			sessions: [makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats' })]
+		});
+		expect(validateBackupV4(file)).toBe(file);
+	});
+
+	it('rejects an exercise session without a usable exercise id', () => {
+		const withId = (exerciseId: unknown) =>
+			makeBackup({ sessions: [{ ...makeSession({ kind: 'exercise' }), exerciseId } as never] });
+		expect(() => validateBackupV4(withId(undefined))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV4(withId(''))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV4(withId(3))).toThrow(/exerciseId must be a non-empty/);
+	});
+
+	it('rejects an exercise id that is not a string on any session', () => {
+		const file = makeBackup({
+			sessions: [{ ...makeSession({ kind: 'learn' }), exerciseId: 3 } as never]
+		});
+		expect(() => validateBackupV4(file)).toThrow(/exerciseId must be a non-empty/);
+	});
+});
+
 describe('with chord-grid attempts', () => {
 	it('takes a gesture attempt through an export and an import, its whole change kept', () => {
 		const item = {

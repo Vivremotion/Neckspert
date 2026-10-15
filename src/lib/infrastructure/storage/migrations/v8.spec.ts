@@ -1,7 +1,7 @@
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { describe, expect, it } from 'vitest';
-import { mechanicRules } from '$lib/domain/mechanics';
+import { mechanicRules, timedRules } from '$lib/domain/mechanics';
 import v3Export from '../fixtures/backup-v3.json';
 import { createDatabase } from '../db';
 import { makeAttempt } from '../testing/fixtures';
@@ -57,7 +57,7 @@ describe('relationOfMechanic', () => {
 	// decided (the frozen table is the truth of version 7 and stays as it is).
 	it('agrees with the relations of today’s registry', () => {
 		for (const [mechanic, relation] of Object.entries(V7_RELATIONS)) {
-			expect(mechanicRules(mechanic).timing.id).toBe(relation);
+			expect(timedRules(mechanicRules(mechanic)).timing.id).toBe(relation);
 		}
 	});
 

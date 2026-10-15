@@ -11,7 +11,7 @@ import {
 	TRIADS_ZONE,
 	startTempo
 } from '$lib/domain/exercise';
-import { locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { isTimed, locateRules, mechanicRules } from '$lib/domain/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -182,10 +182,13 @@ export function createAppServices(
 					});
 					return { selector, executions };
 				}
-				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => ({
-					exerciseId: e.id,
-					tempoBpm: mechanicRules(e.mechanic).timing.usesTempo ? startTempo(e, progressions) : null
-				}));
+				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => {
+					const rules = mechanicRules(e.mechanic);
+					return {
+						exerciseId: e.id,
+						tempoBpm: isTimed(rules) && rules.timing.usesTempo ? startTempo(e, progressions) : null
+					};
+				});
 				// The learn selector fits learned leads to the locate tempo.
 				const locateTempo =
 					executions.find((e) => e.exerciseId === LOCATE_NECK.id)?.tempoBpm ?? DEFAULT_TEMPO_BPM;

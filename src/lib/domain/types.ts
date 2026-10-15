@@ -87,7 +87,14 @@ export type Temperature = 'cold' | 'hot';
  * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
  * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
  */
-export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone' | 'gesture';
+export type SessionKind =
+	| 'learn'
+	| 'free'
+	| 'triads'
+	| 'triads-zone'
+	| 'gesture'
+	/** Free play of one exercise (`SessionRecord.exerciseId`): the rhythm exercises. */
+	| 'exercise';
 
 /** A session of the triads' memory track. */
 export function isTriadsKind(kind: SessionKind): boolean {
@@ -232,6 +239,8 @@ export interface SessionRecord {
 	fatigueDetected: boolean;
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
+	/** The exercise played, for a session of kind `'exercise'`. */
+	exerciseId?: ExerciseId;
 	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */
 	latencyMs: number | null;
 }
