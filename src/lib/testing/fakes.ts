@@ -11,6 +11,8 @@ import {
 	type Verdict
 } from '$lib/domain/types';
 import type {
+	AttackDetectorPort,
+	AttackEvent,
 	AttemptRepositoryPort,
 	AudioClockPort,
 	AudioInputDevice,
@@ -159,6 +161,25 @@ export class FakeMetronome implements MetronomePort {
 				wakeUp.callback();
 			} else return;
 		}
+	}
+}
+
+/** Pitchless attacks a test emits by hand. */
+export class FakeAttackDetector implements AttackDetectorPort {
+	private readonly attackListeners = new Set<(attack: AttackEvent) => void>();
+
+	/** How many callbacks are listening. */
+	get listeners(): number {
+		return this.attackListeners.size;
+	}
+
+	onAttack(callback: (attack: AttackEvent) => void): () => void {
+		this.attackListeners.add(callback);
+		return () => this.attackListeners.delete(callback);
+	}
+
+	emit(attack: AttackEvent): void {
+		[...this.attackListeners].forEach((listener) => listener(attack));
 	}
 }
 

@@ -14,6 +14,12 @@ export interface AudioFrame {
 	frameTime: number;
 }
 
+/** Where a detector takes its frames: the shared input, or a test double. */
+export interface FrameSource {
+	readonly sampleRate: number;
+	onFrame(callback: (frame: AudioFrame) => void): () => void;
+}
+
 function rmsOf(frame: Float32Array): number {
 	let sum = 0;
 	for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];

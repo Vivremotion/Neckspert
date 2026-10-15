@@ -1,1 +1,1 @@
-export { WebAudioInput, type AudioFrame } from './WebAudioInput';
+export { WebAudioInput, type AudioFrame, type FrameSource } from './WebAudioInput';

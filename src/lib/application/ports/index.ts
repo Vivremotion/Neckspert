@@ -9,6 +9,7 @@ export type {
 	NoteRejectionReason,
 	PitchWindow
 } from './NoteDetectorPort';
+export type { AttackDetectorPort, AttackEvent } from './AttackDetectorPort';
 export type { CalibrationOutcome, CalibrationPort, CalibrationProgress } from './CalibrationPort';
 export type {
 	AttemptRepositoryPort,

@@ -4,7 +4,7 @@ import type {
 	ChordVerifierPort,
 	DiagnosticSink
 } from '$lib/application/ports';
-import type { AudioFrame } from '../input/WebAudioInput';
+import type { AudioFrame, FrameSource } from '../input/WebAudioInput';
 import { DEFAULT_DETECTOR_CONFIG } from '../detection/config';
 import { OnsetDetector } from '../detection/OnsetDetector';
 import {
@@ -24,12 +24,6 @@ import { magnitudeSpectrum } from '../spectral/fft';
 import { judgeWindow } from './judge';
 import { binHz, hannWindow, maxPool } from './spectrum';
 import { DEFAULT_VARIANT, type JudgeVariant } from './variants';
-
-/** Where the verifier takes its frames: the shared input, or a test double. */
-export interface FrameSource {
-	readonly sampleRate: number;
-	onFrame(callback: (frame: AudioFrame) => void): () => void;
-}
 
 /** Spectrum of a window, as written to the diagnostic journal. */
 export interface KeptSpectrum {
