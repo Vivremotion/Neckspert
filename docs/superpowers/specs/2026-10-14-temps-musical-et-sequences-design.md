@@ -421,6 +421,8 @@ Durée : une suite de 20 à 30 s compte 40 à 60 attaques, soit 3 à 5 minutes ;
 | `LISTEN_IN_BARS` | 2 | mesures d’écoute avant la mesure comptée |
 | `PLAIN_WORDS_SESSIONS` | 3 | séances avant que la phrase simple s’efface |
 | `MARK_MIN_OFFSET_PX` | 6 | écart visuel minimal d’une marque décalée |
+| `WORDS_MIN_MS` | 15 | sous cet écart (ms), un cycle réussi ne dit ni sa tenue, ni sa régularité, ni son placement, ni sa précision (un cycle raté dit toujours ce qui l’a fait rater) |
+| `WORDS_MIN_DRIFT_MS_PER_BAR` | 5 | sous cette dérive (ms par mesure), un cycle réussi ne dit ni « accélères » ni « ralentis » |
 | `MIN_ATTACK_GAP_MS` | 25 | écart minimal entre deux attaques |
 | `BLEED_CHECK_CLICKS` | 8 | clics de la phase d’écoute de la calibration |
 | `CLICK_BLEED_RATIO` | 0,2 | part de ces clics entendus comme attaques au-delà de laquelle un casque est demandé |

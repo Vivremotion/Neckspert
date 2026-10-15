@@ -163,6 +163,30 @@ describe('RhythmFigureView', () => {
 		expect(line.querySelector('.term')?.textContent).toBe('régularité');
 	});
 
+	it('tells the reason the judge failed the cycle for, not a measure that passed', () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({
+					settled: [
+						{
+							report: {
+								...REPORT,
+								expectations: REPORT.expectations.slice(0, 4),
+								measures: {
+									regularity: { value: 45, unit: 'ms' },
+									holdOffset: { value: -20, unit: 'ms' }
+								}
+							},
+							verdict: { passed: false, reasons: ['regularity'] }
+						}
+					]
+				})
+			}
+		});
+		expect(screen.getByTestId('rhythm-feedback').textContent).toContain('Irrégulier (± 45 ms)');
+	});
+
 	it('in summary, tells each cycle passed or failed, without marks', async () => {
 		render(RhythmFigureView, {
 			props: {

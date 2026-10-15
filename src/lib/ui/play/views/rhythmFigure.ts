@@ -5,7 +5,9 @@ import {
 	attackPositions,
 	barLength,
 	Fraction,
+	type CycleFailure,
 	type CycleReport,
+	type CycleVerdict,
 	type Feedback,
 	type Figure,
 	type Voice
@@ -123,62 +125,123 @@ export function labelRows(marks: readonly Mark[], charWidthPx: number): (0 | 1 |
 	});
 }
 
+type Line = { words: string; term: FeedbackTerm | null };
+type Words = (typeof RHYTHM_MESSAGES)[Locale]['words'];
+
+/** The order the judge lists its reasons in (`cycleVerdict`), and the order they are told in. */
+const REASON_ORDER: readonly CycleFailure[] = [
+	'shift',
+	'missed',
+	'extra',
+	'hold',
+	'regularity',
+	'precision'
+];
+
+/** A lost or added beat (a negative shift is a beat lost), or null. */
+function shiftLine(report: CycleReport, words: Words): Line | null {
+	if (!report.shift) return null;
+	const bar = report.shift.bar + 1;
+	return {
+		words: report.shift.byS < 0 ? words.lost(bar) : words.added(bar),
+		term: 'fidelity'
+	};
+}
+
+/** The notes forgotten and the notes added, or null. */
+function fidelityLine(report: CycleReport, words: Words): Line | null {
+	const forgotten = report.expectations.filter((e) => e.verdict === 'missed').length;
+	if (forgotten === 0 && report.extra === 0) return null;
+	const parts = [
+		forgotten > 0 ? words.forgotten(forgotten) : null,
+		report.extra > 0 ? words.extra(report.extra) : null
+	].filter((part) => part !== null);
+	return { words: parts.join(', '), term: 'fidelity' };
+}
+
+/** The hold, its offset and its drift, each told from its cut-off (0: whatever its size). */
+function holdLine(
+	report: CycleReport,
+	words: Words,
+	cutOffs: { ms: number; msPerBar: number }
+): Line | null {
+	const offset = report.measures.holdOffset?.value;
+	const drift = report.measures.holdDrift?.value;
+	const said = (value: number | undefined, cutOff: number): value is number =>
+		value !== undefined && value !== 0 && Math.abs(value) >= cutOff;
+	const holdOffset = said(offset, cutOffs.ms) ? offset : null;
+	const holdDrift: DriftWords = said(drift, cutOffs.msPerBar)
+		? drift < 0
+			? 'rush'
+			: 'drag'
+		: null;
+	if (holdOffset === null && holdDrift === null) return null;
+	return { words: words.hold(holdOffset, holdDrift), term: 'hold' };
+}
+
+function regularityLine(report: CycleReport, words: Words, cutOff: number): Line | null {
+	const spread = report.measures.regularity?.value;
+	if (spread === undefined || spread < cutOff) return null;
+	return { words: words.uneven(Math.round(spread)), term: 'regularity' };
+}
+
+function precisionLine(report: CycleReport, words: Words, cutOff: number): Line | null {
+	const precision = report.measures.precision?.value;
+	if (precision === undefined || precision < cutOff) return null;
+	return { words: words.precision(Math.round(precision)), term: 'precision' };
+}
+
+/** The line of one failure reason, whatever the size of its measure. */
+function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Line | null {
+	switch (reason) {
+		case 'shift':
+			return shiftLine(report, words);
+		case 'missed':
+		case 'extra':
+			return fidelityLine(report, words);
+		case 'hold':
+			return holdLine(report, words, { ms: 0, msPerBar: 0 });
+		case 'regularity':
+			return regularityLine(report, words, 0);
+		case 'precision':
+			return precisionLine(report, words, 0);
+	}
+}
+
 /**
  * The plain-words line and its term, by locale: « Sans clic, tu passes devant (−35 ms) · tenue ».
- * One thing is told, the first that applies: a lost or added beat, the notes forgotten or
+ * One thing is told. A failed cycle is told by what failed it: the first of its `verdict`
+ * reasons in the judge's order (shift, missed or extra, hold, regularity, precision), whatever
+ * its size. Otherwise (passed, or no verdict) the first that applies and is worth a sentence
+ * (`WORDS_MIN_MS`, `WORDS_MIN_DRIFT_MS_PER_BAR`): a lost or added beat, the notes forgotten or
  * added, the hold, the spread, then (only when the latency was measured without the player)
- * the placement and the precision; « En place » when nothing is worth a sentence.
+ * the placement and the precision; « En place » when nothing is.
  */
-export function feedbackLine(
-	report: CycleReport,
-	locale: Locale
-): { words: string; term: FeedbackTerm | null } {
+export function feedbackLine(report: CycleReport, locale: Locale, verdict?: CycleVerdict): Line {
 	const { words } = RHYTHM_MESSAGES[locale];
-	const { measures } = report;
 
-	if (report.shift) {
-		const bar = report.shift.bar + 1;
-		return {
-			words: report.shift.byS < 0 ? words.lost(bar) : words.added(bar),
-			term: 'fidelity'
-		};
-	}
-	const forgotten = report.expectations.filter((e) => e.verdict === 'missed').length;
-	if (forgotten > 0 || report.extra > 0) {
-		const parts = [
-			forgotten > 0 ? words.forgotten(forgotten) : null,
-			report.extra > 0 ? words.extra(report.extra) : null
-		].filter((part) => part !== null);
-		return { words: parts.join(', '), term: 'fidelity' };
+	if (verdict && !verdict.passed) {
+		for (const reason of REASON_ORDER) {
+			if (!verdict.reasons.includes(reason)) continue;
+			const line = reasonLine(reason, report, words);
+			if (line) return line;
+		}
 	}
 
-	const offset = measures.holdOffset?.value;
-	const drift = measures.holdDrift?.value;
-	const holdOffset = offset !== undefined && Math.abs(offset) >= WORDS_MIN_MS ? offset : null;
-	const holdDrift: DriftWords =
-		drift === undefined || Math.abs(drift) < WORDS_MIN_DRIFT_MS_PER_BAR
-			? null
-			: drift < 0
-				? 'rush'
-				: 'drag';
-	if (holdOffset !== null || holdDrift !== null) {
-		return { words: words.hold(holdOffset, holdDrift), term: 'hold' };
-	}
-
-	const spread = measures.regularity?.value;
-	if (spread !== undefined && spread >= WORDS_MIN_MS) {
-		return { words: words.uneven(Math.round(spread)), term: 'regularity' };
-	}
+	const line =
+		shiftLine(report, words) ??
+		fidelityLine(report, words) ??
+		holdLine(report, words, { ms: WORDS_MIN_MS, msPerBar: WORDS_MIN_DRIFT_MS_PER_BAR }) ??
+		regularityLine(report, words, WORDS_MIN_MS);
+	if (line) return line;
 
 	if (report.latency?.provenance === 'system') {
-		const placement = measures.placement?.value;
+		const placement = report.measures.placement?.value;
 		if (placement !== undefined && Math.abs(placement) >= WORDS_MIN_MS) {
 			return { words: words.placement(placement), term: 'placement' };
 		}
-		const precision = measures.precision?.value;
-		if (precision !== undefined && precision >= WORDS_MIN_MS) {
-			return { words: words.precision(Math.round(precision)), term: 'precision' };
-		}
+		const precision = precisionLine(report, words, WORDS_MIN_MS);
+		if (precision) return precision;
 	}
 	return { words: words.inPlace, term: null };
 }

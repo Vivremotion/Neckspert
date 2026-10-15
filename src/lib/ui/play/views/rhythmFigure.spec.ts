@@ -288,6 +288,55 @@ describe('feedbackLine', () => {
 		expect(feedbackLine(report(), 'fr')).toEqual({ words: 'En place', term: null });
 	});
 
+	it('tells what failed the cycle, not a measure that passed', () => {
+		// Silent bars at the base thresholds: regularity 45 > 40 fails, hold −20 (of 60) passes.
+		const measures: CycleReport['measures'] = {
+			regularity: { value: 45, unit: 'ms' },
+			holdOffset: { value: -20, unit: 'ms' }
+		};
+		expect(
+			feedbackLine(report({ measures }), 'fr', { passed: false, reasons: ['regularity'] })
+		).toEqual({ words: 'Irrégulier (± 45 ms)', term: 'regularity' });
+		// Passed, the same cycle is told by its hold.
+		expect(feedbackLine(report({ measures }), 'fr', { passed: true }).term).toBe('hold');
+	});
+
+	it('tells a failed precision by its precision, not by the placement', () => {
+		const line = feedbackLine(
+			report({
+				measures: {
+					placement: { value: -30, unit: 'ms' },
+					precision: { value: 70, unit: 'ms' }
+				},
+				latency: { ms: 12, provenance: 'system' }
+			}),
+			'fr',
+			{ passed: false, reasons: ['precision'] }
+		);
+		expect(line).toEqual({ words: 'À 70 ms du temps en moyenne', term: 'precision' });
+	});
+
+	it('tells a failed hold even under the word cut-offs', () => {
+		const line = feedbackLine(
+			report({ measures: { holdDrift: { value: -3, unit: 'ms/bar' } } }),
+			'fr',
+			{ passed: false, reasons: ['hold'] }
+		);
+		expect(line).toEqual({ words: 'Sans clic, tu accélères', term: 'hold' });
+	});
+
+	it('follows the judge’s order when several reasons failed the cycle', () => {
+		const line = feedbackLine(
+			report({
+				extra: 1,
+				measures: { regularity: { value: 50, unit: 'ms' } }
+			}),
+			'fr',
+			{ passed: false, reasons: ['extra', 'regularity'] }
+		);
+		expect(line).toEqual({ words: '1 note en trop', term: 'fidelity' });
+	});
+
 	it('speaks English', () => {
 		expect(
 			feedbackLine(report({ measures: { holdOffset: { value: -35, unit: 'ms' } } }), 'en').words

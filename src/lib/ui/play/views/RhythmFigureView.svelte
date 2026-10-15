@@ -55,7 +55,7 @@
 	const header = $derived(t.header(m.exerciseLabel, levelText, t.tempo(m.tempo.unit, m.tempo.bpm)));
 	const phaseText = $derived(t.phase[m.phase]);
 	const told = $derived(breathing ? toldCycle(m.settled) : null);
-	const line = $derived(told ? feedbackLine(told.report, i18n.locale) : null);
+	const line = $derived(told ? feedbackLine(told.report, i18n.locale, told.verdict) : null);
 
 	// VexFlow is heavy: the notation adapter is loaded once this view shows, never before.
 	let notation = $state<Notation | null>(null);
