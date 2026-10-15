@@ -116,26 +116,65 @@ export class FakeSoundScheduler implements SoundSchedulerPort {
 	}
 }
 
+/**
+ * A take buffer that keeps time spans, not samples: the input arrives with `hear(time)`, and a
+ * start asked ahead of time forgets the last take once the input reaches it, as the real one
+ * does. `plays` says whether the span asked was still whole when it was played.
+ */
 export class FakeTakeBuffer implements TakeBufferPort {
-	/** Every `keepFrom` and `keepUntil`, in order. */
-	readonly kept: { method: 'keepFrom' | 'keepUntil'; time: number }[] = [];
+	/** Every `keepFrom`, `keepUntil` and `stopKeeping`, in order. */
+	readonly kept: { method: 'keepFrom' | 'keepUntil' | 'stopKeeping'; time: number | null }[] = [];
 	readonly plays: {
 		from: number;
 		to: number;
 		sounds: readonly ScheduledSound[];
 		latencyS: number;
+		/** The whole span was kept when it was asked for. */
+		whole: boolean;
 	}[] = [];
 	stops = 0;
 	/** When true, a `play` resolves only on `release()` or `stop()`; else at once. */
 	hold = false;
+	/** The span of input kept, null when none. */
+	span: { from: number; to: number } | null = null;
+	/** Whether the input is being kept (until the next `keepFrom` once stopped). */
+	keeping = false;
+	private from = -Infinity;
+	private until = Infinity;
+	private heard = -Infinity;
 	private pending: (() => void) | null = null;
 
 	keepFrom(fromTime: number): void {
 		this.kept.push({ method: 'keepFrom', time: fromTime });
+		this.from = fromTime;
+		this.until = Infinity;
+		this.keeping = true;
+		if (fromTime <= this.heard) this.forgetBefore(fromTime);
 	}
 
 	keepUntil(toTime: number): void {
 		this.kept.push({ method: 'keepUntil', time: toTime });
+		this.until = toTime;
+		if (this.span) {
+			this.span.to = Math.min(this.span.to, toTime);
+			if (this.span.to <= this.span.from) this.span = null;
+		}
+	}
+
+	stopKeeping(): void {
+		this.kept.push({ method: 'stopKeeping', time: null });
+		this.keeping = false;
+	}
+
+	/** The input arrives up to `time` (audio s). */
+	hear(time: number): void {
+		const start = Math.max(this.heard, this.from);
+		const end = Math.min(time, this.until);
+		if (this.keeping && end > start) {
+			this.forgetBefore(this.from);
+			this.span = this.span ? { from: this.span.from, to: end } : { from: start, to: end };
+		}
+		this.heard = Math.max(this.heard, time);
 	}
 
 	play(
@@ -144,7 +183,8 @@ export class FakeTakeBuffer implements TakeBufferPort {
 		sounds: readonly ScheduledSound[],
 		latencyS: number
 	): Promise<void> {
-		this.plays.push({ from, to, sounds: [...sounds], latencyS });
+		const whole = this.span !== null && this.span.from <= from && this.span.to >= to;
+		this.plays.push({ from, to, sounds: [...sounds], latencyS, whole });
 		if (!this.hold) return Promise.resolve();
 		return new Promise((resolve) => (this.pending = resolve));
 	}
@@ -159,6 +199,11 @@ export class FakeTakeBuffer implements TakeBufferPort {
 	stop(): void {
 		this.stops++;
 		this.release();
+	}
+
+	private forgetBefore(time: number): void {
+		if (!this.span || this.span.from >= time) return;
+		this.span = this.span.to > time ? { from: time, to: this.span.to } : null;
 	}
 }
 

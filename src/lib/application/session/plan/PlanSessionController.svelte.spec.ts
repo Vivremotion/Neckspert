@@ -117,6 +117,7 @@ async function setup(
 		while (clock.time < to - 1e-9) {
 			clock.time = Math.min(to, (Math.floor(clock.time * STEPS_PER_S + 1e-6) + 1) / STEPS_PER_S);
 			sounds.flush();
+			takes.hear(clock.time);
 			if (playing) player.step();
 		}
 		await settled();
@@ -599,6 +600,7 @@ describe('PlanSessionController, hearing the last run again', () => {
 		expect(take.from).toBeCloseTo(runFrom, 9);
 		expect(take.to).toBeCloseTo(runTo, 9);
 		expect(take.latencyS).toBe(0);
+		expect(take.whole).toBe(true);
 		// Every beat of the 19 bars clicked, the accent on 1, the muted bars as the others.
 		expect(take.sounds).toHaveLength(19 * 4);
 		take.sounds.forEach((sound, i) => {
@@ -626,13 +628,17 @@ describe('PlanSessionController, hearing the last run again', () => {
 		const pausedAt = clock.now();
 		const heard = sounds.emitted().filter((s) => s.time >= runFrom && s.time < pausedAt);
 		controller.pause();
-		expect(takes.kept.at(-1)).toEqual({ method: 'keepUntil', time: pausedAt });
+		expect(takes.kept.slice(-2)).toEqual([
+			{ method: 'keepUntil', time: pausedAt },
+			{ method: 'stopKeeping', time: null }
+		]);
 		await controller.replay();
 		expect(takes.plays).toHaveLength(1);
 		const [take] = takes.plays;
 		expect(take.from).toBeCloseTo(runFrom, 9);
 		expect(take.to).toBe(pausedAt);
 		expect(take.latencyS).toBeCloseTo(0.03, 9);
+		expect(take.whole).toBe(true);
 		expect(heard.length).toBeGreaterThan(0);
 		expect(take.sounds).toEqual(heard);
 		expect(controller.view.status).toBe('count-in');
@@ -678,6 +684,69 @@ describe('PlanSessionController, hearing the last run again', () => {
 		await settled();
 		expect(controller.view.status).toBe('count-in');
 		expect(begins).toBe(1);
+		controller.quit();
+	});
+
+	it('keeps the run playable through a pause in the last bar of its breath', async () => {
+		const { controller, takes, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		// cycles 3-6, the breath 7-8; the next run, at the same tempo, asks for bar 9 from bar 8
+		await advance(ORIGIN + 8.5 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		controller.pause();
+		expect(takes.keeping).toBe(false);
+		// The input goes on well past the start the next run had asked for.
+		await advance(ORIGIN + 14 * OFFBEATS_BAR_S);
+		await controller.replay();
+		expect(takes.plays).toHaveLength(1);
+		const [take] = takes.plays;
+		expect(take.from).toBeCloseTo(ORIGIN + 3 * OFFBEATS_BAR_S, 9);
+		expect(take.to).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
+		expect(take.whole).toBe(true);
+		controller.quit();
+	});
+
+	it('replays the same run again from a pause in the listen-in that follows a replay', async () => {
+		const { controller, takes, clock, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 7.5 * OFFBEATS_BAR_S);
+		await controller.replay();
+		expect(controller.view.status).toBe('count-in');
+		await settled();
+		// Paused in the listen-in, then well past the start the resumed run had asked for.
+		await advance(clock.now() + 1.5 * OFFBEATS_BAR_S, false);
+		controller.pause();
+		await advance(clock.now() + 6 * OFFBEATS_BAR_S, false);
+		await controller.replay();
+		expect(takes.plays).toHaveLength(2);
+		const [first, second] = takes.plays;
+		expect(second.from).toBe(first.from);
+		expect(second.to).toBe(first.to);
+		expect(second.whole).toBe(true);
+		controller.quit();
+	});
+
+	it('keeps no input once the series is quit, even with a start asked ahead', async () => {
+		const { controller, takes, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 1.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		expect(takes.keeping).toBe(false);
+		await advance(ORIGIN + 10 * OFFBEATS_BAR_S, false);
+		expect(takes.span).toBeNull();
+	});
+
+	it('does nothing when the run was cut before its first bar sounded', async () => {
+		const { controller, takes, sounds, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		// Every wake-up 50 ms early: the run's first bar is entered before it sounds.
+		const at = sounds.at.bind(sounds);
+		sounds.at = (time, callback) => at(time - 0.05, callback);
+		await controller.start();
+		await advance(ORIGIN + 3 * OFFBEATS_BAR_S - 0.03, false);
+		controller.pause();
+		await controller.replay();
+		expect(takes.plays).toEqual([]);
+		expect(controller.view.status).toBe('paused');
 		controller.quit();
 	});
 

@@ -12,6 +12,11 @@ export interface TakeBufferPort {
 	 * (a pause, a breath) never pushes the run out of the buffer.
 	 */
 	keepUntil(toTime: number): void;
+	/**
+	 * Keeps nothing more until the next `keepFrom`, and drops a start asked ahead of time: what
+	 * is kept stays whole, to be played (a pause, a quit, the end of a series).
+	 */
+	stopKeeping(): void;
 	/** Plays what was kept between from and to, with `sounds` resynthesized at their times shifted by `latencyS`. Resolves when done. */
 	play(
 		from: number,

@@ -4,9 +4,14 @@ import { NoiseBuffers, TIMBRES, playBurst } from '../sounds/clickSound';
 import type { AudioFrame, FrameSource } from './WebAudioInput';
 
 /** The most input kept: past it, the oldest frames are forgotten. */
-export const TAKE_BUFFER_MAX_S = 60;
+export const TAKE_BUFFER_MAX_S = 120;
 /** A take starts playing this long after `play`, so its first sound is never already past. */
 export const REPLAY_START_DELAY_S = 0.1;
+/**
+ * A take whose output never says it ended (a suspended or closed context) is over this long
+ * after its length anyway.
+ */
+export const REPLAY_TIMEOUT_MARGIN_S = 1;
 
 /**
  * The input of the run under way, kept in memory only, frame by frame, from `keepFrom` to
@@ -43,6 +48,11 @@ export class TakeBuffer implements TakeBufferPort {
 		this.until = toTime;
 		this.frames = this.frames.filter((frame) => frame.frameTime < toTime);
 		this.count();
+	}
+
+	stopKeeping(): void {
+		// Nothing passes before the next `keepFrom`, so a start asked ahead never forgets the take.
+		this.until = -Infinity;
 	}
 
 	/** The samples kept over [from, to), at the input's rate; silence where nothing was kept. */
@@ -92,6 +102,18 @@ export class TakeBuffer implements TakeBufferPort {
 			};
 			this.playing = playing;
 			recorded.onended = () => playing.done();
+			const timeoutS = samples.length / buffer.sampleRate + REPLAY_START_DELAY_S;
+			const timer = setTimeout(
+				() => {
+					if (this.playing === playing) this.stop();
+				},
+				(timeoutS + REPLAY_TIMEOUT_MARGIN_S) * 1000
+			);
+			const done = playing.done;
+			playing.done = () => {
+				clearTimeout(timer);
+				done();
+			};
 		});
 	}
 

@@ -1,7 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FRAME_SIZE, FakeFrameSource } from '../chords/testing/frames';
 import { CLICK_DURATION_S, DOWNBEAT_CLICK } from '../sounds/clickSound';
-import { REPLAY_START_DELAY_S, TAKE_BUFFER_MAX_S, TakeBuffer } from './TakeBuffer';
+import {
+	REPLAY_START_DELAY_S,
+	REPLAY_TIMEOUT_MARGIN_S,
+	TAKE_BUFFER_MAX_S,
+	TakeBuffer
+} from './TakeBuffer';
 
 /** 512-sample frames last exactly half a second. */
 const RATE = 2 * FRAME_SIZE;
@@ -160,15 +165,32 @@ describe('TakeBuffer, keeping the input', () => {
 		expect(Array.from(take.samples(3, 4))).toEqual(Array.from(ramp(6).slice(3 * RATE, 4 * RATE)));
 	});
 
-	it(`forgets the oldest frames beyond ${TAKE_BUFFER_MAX_S} s kept`, () => {
-		expect(TAKE_BUFFER_MAX_S).toBe(60);
-		const { input, take } = setup(70);
+	it('drops a start asked ahead of time once it stops keeping, the last take whole', () => {
+		const { input, take } = setup(8);
 		take.keepFrom(0);
-		input.playUntil(70);
+		input.playUntil(2);
+		take.keepUntil(2);
+		take.keepFrom(3);
+		take.stopKeeping();
+		input.playUntil(6);
+		expect(Array.from(take.samples(0, 2))).toEqual(Array.from(ramp(8).slice(0, 2 * RATE)));
+		expect(Array.from(take.samples(2, 6)).every((s) => s === 0)).toBe(true);
+		// Kept again from the next start.
+		take.keepFrom(6);
+		input.playUntil(8);
+		expect(Array.from(take.samples(0, 2)).every((s) => s === 0)).toBe(true);
+		expect(Array.from(take.samples(6, 8))).toEqual(Array.from(ramp(8).slice(6 * RATE)));
+	});
+
+	it(`forgets the oldest frames beyond ${TAKE_BUFFER_MAX_S} s kept`, () => {
+		expect(TAKE_BUFFER_MAX_S).toBe(120);
+		const { input, take } = setup(130);
+		take.keepFrom(0);
+		input.playUntil(130);
 		expect(Array.from(take.samples(0, 10)).every((s) => s === 0)).toBe(true);
-		const kept = take.samples(10, 70);
+		const kept = take.samples(10, 130);
 		expect(kept[0]).toBe(10 * RATE);
-		expect(kept[kept.length - 1]).toBe(70 * RATE - 1);
+		expect(kept[kept.length - 1]).toBe(130 * RATE - 1);
 	});
 });
 
@@ -218,6 +240,24 @@ describe('TakeBuffer, playing a take', () => {
 		take.stop();
 		await expect(done).resolves.toBeUndefined();
 		expect(audio.sources.every((source) => source.stopTime !== null)).toBe(true);
+	});
+
+	it(`resolves ${REPLAY_TIMEOUT_MARGIN_S} s after the take's length when the output never ends it`, async () => {
+		vi.useFakeTimers();
+		try {
+			const { input, audio, take } = setup(2);
+			take.keepFrom(0);
+			input.playUntil(2);
+			let resolved = false;
+			void take.play(0, 2, [], 0).then(() => (resolved = true));
+			await vi.advanceTimersByTimeAsync((2 + REPLAY_START_DELAY_S) * 1000);
+			expect(resolved).toBe(false);
+			await vi.advanceTimersByTimeAsync(REPLAY_TIMEOUT_MARGIN_S * 1000);
+			expect(resolved).toBe(true);
+			expect(audio.sources[0].stopTime).not.toBeNull();
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it('resolves at once when nothing is to be played', async () => {

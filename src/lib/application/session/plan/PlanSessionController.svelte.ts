@@ -273,13 +273,14 @@ export class PlanSessionController implements PlaySessionController {
 	 */
 	async replay(): Promise<void> {
 		const take = this.take;
-		if (!take || take.to === null) return;
+		const to = take?.to ?? null;
+		// A run cut before its first bar sounded has nothing to replay.
+		if (!take || to === null || to <= take.from) return;
 		if (this.view.status !== 'paused') {
 			if (!this.inBreath()) return;
 			this.pause();
 		}
-		const { from, to, sounds } = take;
-		if (to === null) return;
+		const { from, sounds } = take;
 		const generation = ++this.generation;
 		const latencyS = (this.latency()?.ms ?? 0) / 1000;
 		try {
@@ -715,6 +716,9 @@ export class PlanSessionController implements PlaySessionController {
 	private stopPlaying(): void {
 		// Before the transport stops: stopping empties the journal of the sounds.
 		if (this.begun) this.closeTake(this.deps.clock.now());
+		// Even with no take, or one already closed: a start asked ahead must not wipe it, and no
+		// input is kept while nothing plays.
+		this.deps.takes.stopKeeping();
 		this.transport.stop();
 		this.ending = false;
 		const now = this.deps.clock.now();
