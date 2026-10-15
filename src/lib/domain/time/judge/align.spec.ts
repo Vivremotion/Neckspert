@@ -139,6 +139,18 @@ describe('captureLeadIn', () => {
 		expect(captureLeadIn(plan, map100, of(1))).toBeCloseTo(0.075);
 	});
 
+	it('keeps the zone after the last target inside the window', () => {
+		// First note a sixteenth in, last one a sixteenth before the end: the window ends on the bar end.
+		const plan = cycle('0100000000000001', 1, { ms: 120 }, of(1, 16));
+		expect(captureLeadIn(plan, map100, of(1))).toBeCloseTo(0);
+		// A lone note closer to the end than its zone: the lead turns negative, the window starts late.
+		const tight = cycle('00000000000000000000000000000001', 1, { ms: 120 }, of(1, 32));
+		const timed = timeExpectations(tight, map100, of(1));
+		const lead = captureLeadIn(tight, map100, of(1));
+		const end = alignContext(tight, map100, of(1)).endS;
+		expect(end - lead - timed[0].time).toBeGreaterThanOrEqual(timed[0].zoneS - 1e-9);
+	});
+
 	it('is nil for a plan that does not loop and for a plan without target', () => {
 		const plan = cycle('10101010', 1, { ms: 120 });
 		expect(captureLeadIn({ ...plan, handover: undefined }, map100, of(1))).toBe(0);

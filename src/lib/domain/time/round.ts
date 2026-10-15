@@ -61,7 +61,8 @@ export const CYCLE_VERDICT_VERSION = 1;
  * observations, never from a clock.
  *
  * The capture window is `[startTime - lead, endTime - lead)`, where `lead` (`captureLeadIn`)
- * is the zone before the plan's first expectation when the plan loops, 0 otherwise. The round
+ * is the zone before the plan's first expectation when the plan loops (shortened so that the
+ * zone after its last expectation stays inside the window; 0 for a plan that does not loop). The round
  * listens over its own expectations' zones, not over its bar: a downbeat played a few ms early
  * belongs to the cycle it opens, a last note played late to the cycle it closes, and cycles of one
  * plan chained end to end tile time with no gap and no overlap. An observation outside the window

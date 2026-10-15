@@ -262,6 +262,26 @@ describe('PlanRound capture window on chained cycles', () => {
 		expect((two.detail as { extra: number }).extra).toBe(0);
 	});
 
+	it.each([0, 0.02])(
+		'keeps a last note close to the cycle end in its cycle, played %d s late',
+		(late) => {
+			// First note a sixteenth in, last one a sixteenth before the end: ♩ = 100, step 0.15 s.
+			const plan = oneBar(figureOf('0100000000000001', of(1, 16)));
+			const first = at(plan, 1);
+			const second = at(plan, 2);
+			const played = [...times(plan, 1), ...times(plan, 2)];
+			played[1] += late;
+			feed([first, second], played);
+			const one = first.settle();
+			const two = second.settle();
+			expect((one.detail as { extra: number }).extra).toBe(0);
+			expect(one.measures.fidelity?.value).toBe(1);
+			expect(one.success).toBe(true);
+			expect(two.measures.fidelity?.value).toBe(1);
+			expect((two.detail as { extra: number }).extra).toBe(0);
+		}
+	);
+
 	it('tiles time: consecutive cycles leave no gap and no overlap', () => {
 		const plan = oneBar(figureOf('10101010', of(1, 8)));
 		const first = at(plan, 1);

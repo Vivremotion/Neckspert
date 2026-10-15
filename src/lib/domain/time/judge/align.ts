@@ -58,7 +58,7 @@ export interface Alignment {
  * What the shift search needs beyond the timed expectations: the steps it tries and the span
  * of the round, in seconds. A shift is tried by a beat (`beatS`, when known), then by the
  * smallest subdivision (`subdivisionS`), each forward then backward. Expectations a shift
- * moves outside `[startS, endS)` cannot be played in this round. Build it with
+ * moves outside the round's span cannot be played in it: `[startS, endS)` moved by `leadInS`. Build it with
  * `alignContext(plan, map, startPosition)`; it is required so that no caller can align
  * without looking for a lost or added beat.
  */
@@ -68,8 +68,8 @@ export interface AlignContext {
 	startS: number;
 	endS: number;
 	/**
-	 * How far before `startS` the round already listens, in seconds (default 0): the zone of its
-	 * first expectation when the plan loops, see `captureLeadIn`. The span of the round for the
+	 * How far before `startS` the round already listens, in seconds (default 0; negative when it
+	 * listens later): when the plan loops, see `captureLeadIn`. The span of the round for the
 	 * shift search is then `[startS - leadInS, endS - leadInS)`.
 	 */
 	leadInS?: number;
@@ -160,26 +160,36 @@ export function alignContext(
 }
 
 /**
- * How early, in seconds, the round of a looping plan starts to listen: the zone before its first
- * target, so that a downbeat played a little early is the next cycle's, not the previous one's
- * added attack. It is the shortest of `MATCH_LIMIT` (measured on the map from `startPosition`),
- * half the gap between the last target and the first one of the next loop, and the first
- * target's own zone (an attack farther than that pairs with nothing). Cycles of one plan
- * chained end to end then tile time: each captures `[start - lead, end - lead)`. Zero when the
- * plan does not loop (its `handover` is not its length) or has no target.
+ * How early, in seconds, the round of a looping plan starts to listen, measured from the bar
+ * start: the zone before its first target, so that a downbeat played a little early is the next
+ * cycle's, not the previous one's added attack. It is the shortest of `MATCH_LIMIT` (measured on
+ * the map from `startPosition`), half the gap between the last target and the first one of the
+ * next loop, and the first target's own zone (an attack farther than that pairs with nothing).
+ * Cycles of one plan chained end to end then tile time: each captures `[start - lead, end - lead)`.
+ *
+ * It is also bounded by the last target, so that an attack within that target's zone after it
+ * stays in this cycle: the window must end at least that zone after the last target, i.e.
+ * `lead <= (end - lastTime) - min(zone of the last target, half the loop gap)`. The bound can
+ * make the lead negative: a last target closer to the end than its zone pushes the window's start
+ * after the bar start. Zero when the plan does not loop (its `handover` is not its length) or
+ * has no target.
  */
 export function captureLeadIn(plan: RoundPlan, map: TempoMap, startPosition: Fraction): number {
 	if (!plan.handover || !plan.handover.equals(plan.length)) return 0;
 	const list = targets(plan);
 	if (list.length === 0) return 0;
-	const firstZone = timeExpectations(plan, map, startPosition)[0].zoneS;
+	const timed = timeExpectations(plan, map, startPosition);
 	const limit = Math.min(
 		secondsOf(map, startPosition, MATCH_LIMIT),
 		secondsOf(map, startPosition, Fraction.ZERO.sub(MATCH_LIMIT))
 	);
 	const lastTime = map.toSeconds(startPosition.add(list[list.length - 1].e.at));
+	const endTime = map.toSeconds(startPosition.add(plan.length));
 	const nextFirstTime = map.toSeconds(startPosition.add(plan.length).add(list[0].e.at));
-	return Math.max(0, Math.min(limit, (nextFirstTime - lastTime) / 2, firstZone));
+	const halfLoopGap = (nextFirstTime - lastTime) / 2;
+	const before = Math.min(limit, halfLoopGap, timed[0].zoneS);
+	const afterLast = Math.min(timed[timed.length - 1].zoneS, halfLoopGap);
+	return Math.min(before, endTime - lastTime - afterLast);
 }
 
 interface Attack {
