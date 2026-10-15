@@ -82,6 +82,63 @@ describe('renderFigure', () => {
 		expect(narrow.barX.some((x, i) => i > 0 && x <= narrow.barX[0])).toBe(true);
 	});
 
+	it('says which line each attack is on, and where the lines and bars are', () => {
+		const layout = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 360 });
+		expect(layout.noteLine).toHaveLength(layout.noteX.length);
+		expect(layout.noteLine[0]).toBe(0);
+		expect(layout.noteLine.at(-1)).toBe(layout.lineY.length - 1);
+		expect(layout.lineY.length).toBeGreaterThan(1);
+		expect(layout.noteLine.every((line, i) => i === 0 || line >= layout.noteLine[i - 1])).toBe(
+			true
+		);
+		// Within a line the notes run left to right; a new line starts back at the left.
+		for (const [i, x] of layout.noteX.entries()) {
+			if (i > 0 && layout.noteLine[i] === layout.noteLine[i - 1]) {
+				expect(x).toBeGreaterThan(layout.noteX[i - 1]);
+			}
+		}
+		expect(increasing(layout.lineY)).toBe(true);
+		expect(layout.lineY[0]).toBe(0);
+		expect(layout.lineY[1]).toBe(layout.rowHeight);
+		expect(layout.height).toBe(layout.lineY.length * layout.rowHeight);
+		expect(layout.barWidth).toBeGreaterThan(0);
+		expect(layout.barWidth).toBeLessThanOrEqual(layout.width);
+		expect(layout.barX.at(-1)).toBeLessThanOrEqual(layout.width - layout.barWidth);
+	});
+
+	it('puts every line of a one-line figure at the top', () => {
+		const layout = renderFigure(host, figure(eighths(8)), { maxWidth: 600 });
+		expect(layout.lineY).toEqual([0]);
+		expect(layout.noteLine).toEqual(Array(8).fill(0));
+	});
+
+	it('stacks the voices of a line, so a line is as tall as its rows', () => {
+		const two: Figure = {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 2,
+			voices: [
+				{ id: 'a', elements: eighths(16) },
+				{ id: 'b', elements: [note(1, 1), note(1, 1)] }
+			]
+		};
+		const layout = renderFigure(host, two, { maxWidth: 200 });
+		expect(layout.lineY).toHaveLength(2);
+		expect(layout.lineY[1]).toBe(2 * layout.rowHeight);
+		expect(layout.height).toBe(layout.lineY.length * 2 * layout.rowHeight);
+	});
+
+	it('scales lines, rows and bar width with the drawing', () => {
+		// The same room per bar (360 px of figure at scale 1, 720 at scale 2): the same layout, doubled.
+		const one = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 360 });
+		const two = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 720, scale: 2 });
+		expect(two.noteLine).toEqual(one.noteLine);
+		expect(two.rowHeight).toBe(one.rowHeight * 2);
+		expect(two.barWidth).toBe(one.barWidth * 2);
+		expect(two.lineY).toEqual(one.lineY.map((y) => y * 2));
+		expect(two.barX).toEqual(one.barX.map((x) => x * 2));
+	});
+
 	it('keeps one bar a single line when it fits', () => {
 		const narrow = renderFigure(host, figure(eighths(8)), { maxWidth: 360 });
 		const wide = renderFigure(host, figure(eighths(8)), { maxWidth: 800 });
@@ -165,6 +222,31 @@ describe('renderFigure', () => {
 		expect(host.querySelectorAll('svg')).toHaveLength(1);
 		expect(host.querySelector('svg')?.getAttribute('width')).toBe(String(layout.width));
 		expect(host.querySelector('svg')?.getAttribute('height')).toBe(String(layout.height));
+	});
+
+	it('beams 6/8 by dotted quarter: four beams over two bars of eighths', () => {
+		const sixEight: Figure = {
+			schema: 1,
+			meter: { count: 6, unit: of(1, 8), grouping: [3, 3] },
+			bars: 2,
+			voices: [{ id: 'main', elements: eighths(12) }]
+		};
+		const layout = renderFigure(host, sixEight, { maxWidth: 600 });
+		expect(layout.noteX).toHaveLength(12);
+		expect(layout.barX).toHaveLength(2);
+		expect(host.querySelectorAll('.vf-beam')).toHaveLength(4);
+	});
+
+	it('beams 7/8 as 2+2+3', () => {
+		const sevenEight: Figure = {
+			schema: 1,
+			meter: { count: 7, unit: of(1, 8), grouping: [2, 2, 3] },
+			bars: 1,
+			voices: [{ id: 'main', elements: eighths(7) }]
+		};
+		const layout = renderFigure(host, sevenEight, { maxWidth: 600 });
+		expect(layout.noteX).toHaveLength(7);
+		expect(host.querySelectorAll('.vf-beam')).toHaveLength(3);
 	});
 
 	it('refuses an invalid figure', () => {

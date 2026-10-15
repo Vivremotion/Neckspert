@@ -60,8 +60,19 @@ describe('lilypond boundary', () => {
 		expect(
 			offendersIn({
 				'/src/routes/dev/x.ts': `import { renderFigure } from '$lib/ui/notation';`,
-				'/src/lib/ui/play/y.ts': `import { renderFigure } from "../notation/renderFigure";`
+				'/src/lib/ui/play/y.ts': `import { renderFigure } from '$lib/ui/notation';`
 			})
+		).toEqual([]);
+	});
+
+	it('flags a relative import of the notation barrel from ui/play: use $lib/ui/notation', () => {
+		// Intended: a relative `../notation` cannot be told from the parser's barrel by its text,
+		// so the engraving adapter is imported by its alias, which this boundary lets through.
+		expect(
+			offendersIn({ '/src/lib/ui/play/y.ts': `import { renderFigure } from '../notation';` })
+		).toEqual(['/src/lib/ui/play/y.ts']);
+		expect(
+			offendersIn({ '/src/lib/ui/play/y.ts': `import { renderFigure } from '$lib/ui/notation';` })
 		).toEqual([]);
 	});
 });

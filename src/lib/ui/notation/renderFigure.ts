@@ -30,10 +30,18 @@ export interface FigureLayout {
 	 * never); on a wrapped figure the x restarts at each line.
 	 */
 	noteX: number[];
-	/** The left edge of each bar. */
+	/** The left edge of each bar (restarting at each line). */
 	barX: number[];
 	width: number;
 	height: number;
+	/** The line each attack of `noteX` is on (0 is the first line), parallel to `noteX`. */
+	noteLine: number[];
+	/** The top y of each line, in output pixels; a line holds one row per voice. */
+	lineY: number[];
+	/** The height of one voice's row within a line, in output pixels. */
+	rowHeight: number;
+	/** The width of a bar (all bars are equally wide), in output pixels. */
+	barWidth: number;
 }
 
 export interface RenderOptions {
@@ -261,6 +269,7 @@ export function renderFigure(
 	ctx.setStrokeStyle(INK);
 
 	const noteX: number[] = [];
+	const noteLine: number[] = [];
 	const barX: number[] = [];
 	// The rows of lines hold one stave per voice, voice after voice.
 	const lineOf = (bar: number) => Math.floor(bar / perLine);
@@ -285,6 +294,7 @@ export function renderFigure(
 				for (const head of bar.heads) {
 					if (head.attack) {
 						noteX.push((head.note.getAbsoluteX() + head.note.getGlyphWidth() / 2) * scale);
+						noteLine.push(line);
 					}
 				}
 			}
@@ -292,7 +302,9 @@ export function renderFigure(
 		drawTies(ctx, heads);
 	}
 
-	return { noteX, barX, width, height };
+	const rowHeight = ROW_HEIGHT * scale;
+	const lineY = Array.from({ length: lines }, (_, line) => line * figure.voices.length * rowHeight);
+	return { noteX, barX, width, height, noteLine, lineY, rowHeight, barWidth: barWidth * scale };
 }
 
 /** Ties each head flagged for it to the next one; across a line break, two half ties. */
