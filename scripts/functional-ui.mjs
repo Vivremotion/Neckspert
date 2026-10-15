@@ -365,6 +365,37 @@ try {
 		noteTiny('settings', run.texts);
 	}
 
+	// The rhythm view does not exist yet: this page engraves figures through the same adapter
+	// (`renderFigure`). Move the check to the rhythm view when it is built.
+	console.log('\nNotation /dev/notation');
+	{
+		const call = await open(process.env.NOTATION_URL ?? 'http://localhost:5201/dev/notation');
+		const run = await evaluate(
+			call,
+			`async () => {
+				await document.fonts.ready;
+				const head = document.querySelector('.vf-notehead path, .vf-notehead');
+				const box = head?.getBBox?.();
+				const faces = [...document.fonts].filter((face) => face.family.replaceAll('"', '') === 'Bravura');
+				const texts = [...document.querySelectorAll('body *')]
+					.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+					.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
+				return {
+					check: document.fonts.check('30px Bravura'),
+					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),
+					head: box ? box.width : 0,
+					svgs: document.querySelectorAll('svg').length,
+					texts
+				};
+			}`
+		);
+		check(assert(run.check, 'document.fonts.check(« 30px Bravura ») est vrai'));
+		check(assert(run.loaded, 'la police Bravura embarquée est chargée'));
+		check(assert(run.head > 0, `la tête de note a une largeur (${run.head})`));
+		check(assert(run.svgs >= 3, `les trois figures sont gravées (${run.svgs})`));
+		noteTiny('notation', run.texts);
+	}
+
 	console.log('\nTextes sous 16 px');
 	const seen = new Set();
 	for (const row of tiny) {

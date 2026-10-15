@@ -13,7 +13,9 @@ const ALLOWED_PREFIXES = ['/src/lib/domain/time/notation/', '/src/lib/domain/exe
 // The parser by any path (`$lib/domain/time/notation/lilypond`, `./notation/lilypond`,
 // `../notation/lilypond`), or the notation folder itself as a barrel (`./notation`,
 // `./notation/index`), which would let the parser through unseen.
-const REACHES_PARSER = /notation\/lilypond|['"][^'"\n]*\/notation(?:\/index)?(?:\.js|\.ts)?['"]/;
+// The engraving adapter's own folder, `ui/notation`, is another thing and may be imported freely.
+const REACHES_PARSER =
+	/notation\/lilypond|['"](?![^'"\n]*\/ui\/notation['"])[^'"\n]*\/notation(?:\/index)?(?:\.js|\.ts)?['"]/;
 
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
@@ -54,6 +56,12 @@ describe('lilypond boundary', () => {
 		expect(offendersIn({ '/src/lib/domain/time/notation/other.ts': line })).toEqual([]);
 		expect(
 			offendersIn({ '/src/lib/domain/music/x.ts': '// staff notation is out of scope' })
+		).toEqual([]);
+		expect(
+			offendersIn({
+				'/src/routes/dev/x.ts': `import { renderFigure } from '$lib/ui/notation';`,
+				'/src/lib/ui/play/y.ts': `import { renderFigure } from "../notation/renderFigure";`
+			})
 		).toEqual([]);
 	});
 });
