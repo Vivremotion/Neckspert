@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
-import type { Attempt, Verdict } from '$lib/domain/types';
+import type { Attempt, ResponseVerdict } from '$lib/domain/types';
 import { shapeId } from '$lib/testing/shapes';
 import { summarizeGesture } from './summary';
 
@@ -11,7 +11,7 @@ function change(
 	exerciseId: string,
 	passageId: string,
 	index: number,
-	verdict: Verdict,
+	verdict: ResponseVerdict,
 	decided: string | null = null,
 	extra: Partial<Attempt> = {}
 ): Attempt {

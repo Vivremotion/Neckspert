@@ -5,7 +5,7 @@ import {
 	DIAGNOSTIC_BUDGETS_MB,
 	isSuccess,
 	parseCardKey,
-	VERDICTS,
+	RESPONSE_VERDICTS,
 	resolveDiagnosticsEnabled
 } from './types';
 
@@ -46,7 +46,14 @@ describe('diagnostics settings', () => {
 
 describe('verdicts', () => {
 	it('ranks corrected between off beat and wrong', () => {
-		expect(VERDICTS).toEqual(['perfect', 'early', 'late', 'offbeat', 'corrected', 'wrong']);
+		expect(RESPONSE_VERDICTS).toEqual([
+			'perfect',
+			'early',
+			'late',
+			'offbeat',
+			'corrected',
+			'wrong'
+		]);
 	});
 
 	it('never counts a corrected attempt as a success', () => {

@@ -7,7 +7,7 @@ import {
 	qualityById,
 	voicingOccurrences
 } from '$lib/domain/music';
-import type { Attempt, Verdict } from '$lib/domain/types';
+import type { Attempt, ResponseVerdict } from '$lib/domain/types';
 import { inZone } from '$lib/domain/mechanics';
 import { shapeAt } from '$lib/testing/shapes';
 import {
@@ -117,7 +117,7 @@ describe('nextZone', () => {
 });
 
 describe('passageSucceeded', () => {
-	const changes = (verdicts: Verdict[]) =>
+	const changes = (verdicts: ResponseVerdict[]) =>
 		verdicts.map((verdict) => ({ correct: verdict !== 'wrong', verdict }) as Attempt);
 
 	it('needs PASSAGE_SUCCESS of its changes right and in time', () => {

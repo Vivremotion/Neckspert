@@ -8,7 +8,7 @@ import {
 	type RecordedObservation,
 	type SessionRecord,
 	type Settings,
-	type Verdict
+	type ResponseVerdict
 } from '$lib/domain/types';
 import type {
 	AttackDetectorPort,
@@ -38,9 +38,9 @@ import type {
 import type { DiagnosticsService } from '$lib/application/app';
 
 export class FakeSoundCues implements SoundCuePort {
-	readonly played: { verdict: Verdict; time: number | undefined }[] = [];
+	readonly played: { verdict: ResponseVerdict; time: number | undefined }[] = [];
 
-	play(verdict: Verdict, time?: number): void {
+	play(verdict: ResponseVerdict, time?: number): void {
 		this.played.push({ verdict, time });
 	}
 }

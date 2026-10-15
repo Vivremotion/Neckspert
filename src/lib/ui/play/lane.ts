@@ -1,5 +1,5 @@
 import type { LaneEntry } from '$lib/application/session/contract';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 
 export type LaneTileKind = 'empty' | 'target' | 'band' | 'history';
 
@@ -10,7 +10,7 @@ export interface LaneTile {
 	/** Beat-in-bar 1..beatsPerBar for the upcoming window only; null otherwise. */
 	label: number | null;
 	kind: LaneTileKind;
-	verdict: Verdict | null;
+	verdict: ResponseVerdict | null;
 	justPlayed: boolean;
 	current: boolean;
 	/** On a band, its first and last tiles, drawn closed; null inside it and elsewhere. */

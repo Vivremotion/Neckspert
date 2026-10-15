@@ -1,4 +1,4 @@
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 
 /** Largest |offset| from the target beat still judged perfect. To calibrate. */
 export const PERFECT_WINDOW_MS = 80;
@@ -47,7 +47,7 @@ export function isInWindow(correctedTime: number, window: AnswerWindow): boolean
 	);
 }
 
-export function timingVerdict(offsetMs: number): Verdict {
+export function timingVerdict(offsetMs: number): ResponseVerdict {
 	if (Math.abs(offsetMs) <= PERFECT_WINDOW_MS) return 'perfect';
 	return offsetMs < 0 ? 'early' : 'late';
 }

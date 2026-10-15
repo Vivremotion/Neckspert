@@ -30,10 +30,10 @@ export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: str
  * (triad anchor): a wrong chord put right later in its window; a miss everywhere (`correct` false),
  * only the screen salutes it.
  */
-export type Verdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
+export type ResponseVerdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
 
 /** Every verdict, best first. */
-export const VERDICTS: readonly Verdict[] = [
+export const RESPONSE_VERDICTS: readonly ResponseVerdict[] = [
 	'perfect',
 	'early',
 	'late',
@@ -112,7 +112,7 @@ export interface Attempt<D = unknown> {
 	reactionMs: number | null;
 	/** The answer is right, whatever the timing. */
 	correct: boolean;
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 	/** Mechanic-specific: item, answer and confusion. */
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */

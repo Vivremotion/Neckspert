@@ -1,6 +1,6 @@
 import type { LaneEntry } from '$lib/application/session/contract';
 import type { GridChange } from '$lib/domain/grid';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 
 /** Far below a beat: absorbs floating-point error when matching a verdict to its change. */
 const BEAT_TOLERANCE = 1e-6;
@@ -16,7 +16,7 @@ export interface GridCell {
 	/** It began in a bar before: its symbol was written there. */
 	continued: boolean;
 	state: CellState;
-	verdict: Verdict | null;
+	verdict: ResponseVerdict | null;
 }
 
 export interface GridPlacement {
@@ -58,7 +58,7 @@ export function gridPlacement(input: {
 	const nextAnnounced =
 		next !== null && start !== null && start + changes[next].at - nowBeat <= 1 + BEAT_TOLERANCE;
 
-	const verdictAt = (change: GridChange): Verdict | null => {
+	const verdictAt = (change: GridChange): ResponseVerdict | null => {
 		if (start === null) return null;
 		const beat = start + change.at;
 		return (

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { VERDICTS as ALL_VERDICTS, type Verdict } from '$lib/domain/types';
+import { RESPONSE_VERDICTS as ALL_VERDICTS, type ResponseVerdict } from '$lib/domain/types';
 import { CUE_ATTACK_S, CUE_SPECS, MAX_CUE_DURATION_S, MAX_CUE_GAIN, cueDuration } from './cueSpecs';
 
-const VERDICTS: readonly Verdict[] = ALL_VERDICTS;
+const VERDICTS: readonly ResponseVerdict[] = ALL_VERDICTS;
 
 describe('CUE_SPECS', () => {
 	it('keeps every cue shorter than 150 ms', () => {

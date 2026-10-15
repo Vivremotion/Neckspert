@@ -24,7 +24,7 @@ import {
 } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
 import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
-import type { Locale, PlannedItem, Verdict } from '$lib/domain/types';
+import type { Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import type { PromptView, ShapeView } from '$lib/application/session/contract';
 import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
 import type { MechanicPresenter } from './types';
@@ -155,7 +155,7 @@ function closestShape(voicing: Voicing, played: VoicingOccurrence | null): Voici
 }
 
 /** Nothing to draw on a right answer: the miss and the correction only. */
-function isMiss(verdict: Verdict): boolean {
+function isMiss(verdict: ResponseVerdict): boolean {
 	return verdict === 'wrong' || verdict === 'corrected';
 }
 

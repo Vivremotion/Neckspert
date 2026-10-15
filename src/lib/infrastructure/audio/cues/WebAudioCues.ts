@@ -1,12 +1,12 @@
 import type { SoundCuePort } from '$lib/application/ports';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import { CUE_ATTACK_S, CUE_SILENCE, CUE_SPECS, type ToneSpec } from './cueSpecs';
 
 /** Plays the reserved verdict sounds on the shared audio clock. */
 export class WebAudioCues implements SoundCuePort {
 	constructor(private readonly context: () => AudioContext) {}
 
-	play(verdict: Verdict, time?: number): void {
+	play(verdict: ResponseVerdict, time?: number): void {
 		const context = this.context();
 		// A start time in the past would cut the envelope short.
 		const at = Math.max(time ?? context.currentTime, context.currentTime);

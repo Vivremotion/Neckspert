@@ -1,5 +1,5 @@
 import type { StringNumber } from '$lib/domain/music/types';
-import type { ChordDiagramStyle, LeadBeats, Verdict } from '$lib/domain/types';
+import type { ChordDiagramStyle, LeadBeats, ResponseVerdict } from '$lib/domain/types';
 import type { Scene } from '$lib/application/mechanics/types';
 
 export type { Scene };
@@ -35,7 +35,7 @@ export interface PromptView {
 }
 
 export interface VerdictView {
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 	/** Mode 1: onset minus target beat, ms. */
 	offsetMs: number | null;
 	reactionMs: number | null;
@@ -53,7 +53,7 @@ export interface VerdictView {
 /** A played target on the lane, at the beat it was due. */
 export interface LaneEntry {
 	beatIndex: number;
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 }
 
 export interface AnswerChoice {

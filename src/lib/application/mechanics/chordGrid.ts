@@ -25,7 +25,7 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
-import type { Locale, Verdict } from '$lib/domain/types';
+import type { Locale, ResponseVerdict } from '$lib/domain/types';
 import { CHORD_GRID_MESSAGES } from './chordGridMessages';
 import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
 import type { MechanicPresenter } from './types';
@@ -273,7 +273,7 @@ export function gridExpectation(item: ChordGridItem, opensAt: number): ChordExpe
 	};
 }
 
-function isMiss(verdict: Verdict): boolean {
+function isMiss(verdict: ResponseVerdict): boolean {
 	return verdict === 'wrong' || verdict === 'corrected';
 }
 

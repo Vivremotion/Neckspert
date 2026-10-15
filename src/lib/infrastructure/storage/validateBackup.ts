@@ -4,7 +4,7 @@ import {
 	LEAD_STEPS,
 	MAX_BUILT_IN_INPUT_GAIN,
 	MIN_BUILT_IN_INPUT_GAIN,
-	VERDICTS,
+	RESPONSE_VERDICTS,
 	cardKey,
 	parseCardKey,
 	type BackupFile,
@@ -173,7 +173,7 @@ function checkAttemptFields(attempt: Fields): string | null {
 	if (!isOneOf(attempt.temperature, TEMPERATURES)) return 'temperature must be cold or hot';
 	if (!isFiniteNumber(attempt.promptedAt)) return 'promptedAt must be a number';
 	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
-	if (!isOneOf(attempt.verdict, VERDICTS))
+	if (!isOneOf(attempt.verdict, RESPONSE_VERDICTS))
 		return 'verdict must be perfect, early, late, offbeat, corrected or wrong';
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
 	return null;
