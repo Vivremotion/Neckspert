@@ -40,6 +40,12 @@ export interface RoundPlan {
 	/** Length of the round, as a fraction of a whole note. */
 	length: Fraction;
 	policy: RoundPolicy;
+	/**
+	 * Where the next round may open without a gap, relative to this round's start: rounds that
+	 * chain (the cycles of a loop, the changes of a grid) hand over there. Absent: the round
+	 * ends on its own and the next one waits for it.
+	 */
+	handover?: Fraction;
 	/** Bars of the cycle (from 0) where the accompaniment is silent. */
 	mutedBars: number[];
 }
@@ -52,6 +58,13 @@ function validateWindow(window: ExpectationWindow): boolean {
 /** Null when the plan is well formed, else what is wrong with it. */
 export function validateRoundPlan(plan: RoundPlan): string | null {
 	if (plan.length.n <= 0) return `plan length must be positive, got ${plan.length}`;
+	const first = plan.expectations[0];
+	if (plan.prompt && first && plan.prompt.compare(first.at) > 0) {
+		return `prompt at ${plan.prompt} comes after the first expectation at ${first.at}`;
+	}
+	if (plan.handover && (plan.handover.n <= 0 || plan.handover.compare(plan.length) > 0)) {
+		return `handover at ${plan.handover} is outside (0, ${plan.length}]`;
+	}
 	let previous: Fraction | null = null;
 	for (const [i, e] of plan.expectations.entries()) {
 		if (e.at.compare(Fraction.ZERO) < 0 || e.at.compare(plan.length) >= 0) {
@@ -79,7 +92,8 @@ export function validateRoundPlan(plan: RoundPlan): string | null {
 
 /**
  * The plan of a looped figure played over `cycleBars` bars, the cycle beginning at bar
- * `startBar` of the figure loop (it wraps, the figure repeats). One point target per note
+ * `startBar` of the figure loop (it wraps, the figure repeats); `cycleBars` is a whole number
+ * of figure loops. One point target per note
  * of the figure's first voice, tied notes counted once. The accompaniment cycle is rotated
  * by the same `startBar`: cycle bar `i` is muted when `accompanimentBars[(startBar + i) % n]`
  * is `'off'`, so the cycle starts where the silence does (spec section 6, landing).
@@ -101,6 +115,11 @@ export function compileCyclePlan(input: {
 	if (!Number.isInteger(startBar) || startBar < 0) {
 		throw new RangeError(`startBar must be a non-negative integer, got ${startBar}`);
 	}
+	if (cycleBars % figure.bars !== 0) {
+		throw new RangeError(
+			`cycleBars (${cycleBars}) must be a whole number of figure loops of ${figure.bars} bars`
+		);
+	}
 	if (accompanimentBars.length === 0) {
 		throw new RangeError('an accompaniment needs at least one bar');
 	}
@@ -121,17 +140,19 @@ export function compileCyclePlan(input: {
 				role: 'target',
 				sensor,
 				content: null,
-				window,
+				window: { ...window },
 				bar: i
 			});
 		}
 		if (accompanimentBars[(startBar + i) % accompanimentBars.length] === 'off') mutedBars.push(i);
 	}
+	const length = bar.mul(Fraction.of(cycleBars));
 	return {
 		prompt: null,
 		expectations,
-		length: bar.mul(Fraction.of(cycleBars)),
+		length,
 		policy: { unit: 'cycle', firstAnswerOnly: false, lateCapture: false, provisional: false },
+		handover: length,
 		mutedBars
 	};
 }

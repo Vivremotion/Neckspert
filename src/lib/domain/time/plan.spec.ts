@@ -56,7 +56,10 @@ describe('compileCyclePlan', () => {
 		expect(plan.expectations).toHaveLength(20);
 		expect(plan.expectations.every((e) => e.role === 'target' && e.span === 'point')).toBe(true);
 		expect(plan.expectations.every((e) => e.sensor === 'attack' && e.content === null)).toBe(true);
-		expect(plan.expectations.every((e) => e.window === window)).toBe(true);
+		expect(plan.expectations.every((e) => e.window !== window && 'ms' in e.window)).toBe(true);
+		expect(plan.expectations[0].window).toEqual(window);
+		expect(plan.expectations[0].window).not.toBe(plan.expectations[1].window);
+		expect(plan.handover?.equals(of(4))).toBe(true);
 		expect(plan.policy.unit).toBe('cycle');
 		expect(plan.prompt).toBeNull();
 		expect(plan.length.equals(of(4))).toBe(true);
@@ -146,6 +149,18 @@ describe('compileCyclePlan', () => {
 		expect(() => compileCyclePlan({ ...base, startBar: -1 })).toThrow(RangeError);
 		expect(() => compileCyclePlan({ ...base, accompanimentBars: [] })).toThrow(RangeError);
 	});
+
+	it('refuses a cycle that is not a whole number of figure loops', () => {
+		const base = {
+			figure: twoBars,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			accompanimentBars: ['on'] as ('on' | 'off')[]
+		};
+		expect(() => compileCyclePlan({ ...base, cycleBars: 3 })).toThrow(RangeError);
+		expect(compileCyclePlan({ ...base, cycleBars: 4 }).expectations).toHaveLength(6);
+	});
 });
 
 describe('validateRoundPlan', () => {
@@ -201,6 +216,26 @@ describe('validateRoundPlan', () => {
 		expect(validateRoundPlan(plan)).toContain('span');
 		plan.expectations[1].span = { until: of(3, 2) };
 		expect(validateRoundPlan(plan)).toContain('span');
+	});
+
+	it('refuses a prompt placed after the first expectation', () => {
+		const plan = valid();
+		plan.prompt = of(1, 4);
+		expect(validateRoundPlan(plan)).toContain('prompt');
+		plan.prompt = of(0);
+		expect(validateRoundPlan(plan)).toBeNull();
+		plan.prompt = of(-1, 2);
+		expect(validateRoundPlan(plan)).toBeNull();
+	});
+
+	it('refuses a hand-over outside (0, length]', () => {
+		const plan = valid();
+		plan.handover = of(1);
+		expect(validateRoundPlan(plan)).toBeNull();
+		plan.handover = Fraction.ZERO;
+		expect(validateRoundPlan(plan)).toContain('handover');
+		plan.handover = of(9, 8);
+		expect(validateRoundPlan(plan)).toContain('handover');
 	});
 
 	it('refuses an empty length, a bad window or a bad muted bar', () => {

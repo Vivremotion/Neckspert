@@ -27,6 +27,17 @@ describe('paper plans of the existing relations', () => {
 			mutedBars: []
 		};
 		expect(validateRoundPlan(plan)).toBeNull();
+		expect(plan.prompt?.equals(of(-1, 2))).toBe(true);
+		expect(plan.expectations).toHaveLength(1);
+		expect(plan.expectations[0].sensor).toBe('note');
+		expect(plan.expectations[0].span).toBe('point');
+		expect(plan.expectations[0].content).toEqual({ string: 2, note: 'F' });
+		expect(plan.policy).toEqual({
+			unit: 'response',
+			firstAnswerOnly: true,
+			lateCapture: true,
+			provisional: false
+		});
 	});
 
 	it('anchor (triads): the root on the downbeat, then the chord from beat 2 to the bar end', () => {
@@ -41,6 +52,13 @@ describe('paper plans of the existing relations', () => {
 			mutedBars: []
 		};
 		expect(validateRoundPlan(plan)).toBeNull();
+		expect(plan.expectations.map((e) => e.sensor)).toEqual(['note', 'chord']);
+		expect(plan.expectations[0].span).toBe('point');
+		expect(plan.expectations[0].content).toBe('root');
+		expect(plan.expectations[1].span).toEqual({ until: of(1) });
+		expect(plan.expectations[1].content).toBe('triad');
+		expect(plan.policy.provisional).toBe(true);
+		expect(plan.policy.unit).toBe('response');
 	});
 
 	it('gridChange (gesture): one chord expectation per change, rounds handed over', () => {
@@ -52,8 +70,20 @@ describe('paper plans of the existing relations', () => {
 			expectations: changes,
 			length: of(4),
 			policy: { unit: 'cycle', firstAnswerOnly: false, lateCapture: false, provisional: false },
+			handover: of(4),
 			mutedBars: []
 		};
 		expect(validateRoundPlan(plan)).toBeNull();
+		expect(plan.prompt).toBeNull();
+		expect(plan.expectations).toHaveLength(4);
+		expect(plan.expectations.every((e) => e.sensor === 'chord' && e.span === 'point')).toBe(true);
+		expect(plan.expectations.map((e) => e.content)).toEqual([
+			'chord-0',
+			'chord-1',
+			'chord-2',
+			'chord-3'
+		]);
+		expect(plan.policy.unit).toBe('cycle');
+		expect(plan.handover?.equals(plan.length)).toBe(true);
 	});
 });
