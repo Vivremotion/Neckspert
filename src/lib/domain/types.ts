@@ -1,8 +1,9 @@
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
+import type { Aid, Measures, VerdictEnvelope } from './time';
 
-export type { Execution, ExerciseId, MechanicId, Progression };
+export type { Aid, Execution, ExerciseId, Measures, MechanicId, Progression, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 
@@ -42,12 +43,26 @@ export const RESPONSE_VERDICTS: readonly ResponseVerdict[] = [
 	'wrong'
 ];
 
+/** The time relations whose rounds take one answer and judge it with a `ResponseVerdict`. */
+export const RESPONSE_RELATIONS: readonly string[] = ['beat', 'free', 'anchor', 'grid-change'];
+
+/** The response verdict of an attempt of a response relation, else null. */
+export function responseVerdictOf(attempt: Pick<Attempt, 'verdict'>): ResponseVerdict | null {
+	const { relation, value } = attempt.verdict;
+	if (!RESPONSE_RELATIONS.includes(relation)) return null;
+	return RESPONSE_VERDICTS.includes(value as ResponseVerdict) ? (value as ResponseVerdict) : null;
+}
+
 /**
- * A success: the right answer, in time. Off beat, wrong and unanswered prompts are misses.
- * A right but slow name in mode 2 (`late`) is a success.
+ * For the recorder until the migration: success of a response round. The right answer, in time;
+ * off beat, wrong and unanswered prompts are misses. A right but slow name in mode 2 (`late`) is
+ * a success. Readers of stored attempts read `Attempt.success`.
  */
-export function isSuccess(attempt: Pick<Attempt, 'correct' | 'verdict'>): boolean {
-	return attempt.correct && attempt.verdict !== 'offbeat';
+export function isResponseSuccess(outcome: {
+	correct: boolean;
+	verdict: ResponseVerdict;
+}): boolean {
+	return outcome.correct && outcome.verdict !== 'offbeat';
 }
 
 /** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */
@@ -97,7 +112,8 @@ export interface Attempt<D = unknown> {
 	cardKey: CardKey;
 	phase: ItemPhase;
 	temperature: Temperature;
-	aid: AidLevel;
+	/** What the round showed or played for the player (`AidLevel` is the planned aid). */
+	aids: Aid[];
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
@@ -110,9 +126,16 @@ export interface Attempt<D = unknown> {
 	timingOffsetMs: number | null;
 	/** Prompt to answer, in ms. Null without an answer. */
 	reactionMs: number | null;
-	/** The answer is right, whatever the timing. */
-	correct: boolean;
-	verdict: ResponseVerdict;
+	/** The judge's word on the content played, whatever the timing; null when nothing was judged. */
+	correct: boolean | null;
+	/** The relation's word on whether the round passed: what stats, grades and pacing read. */
+	success: boolean;
+	/** The relation's own verdict (`responseVerdictOf` for a one-answer relation). */
+	verdict: VerdictEnvelope;
+	/** Measures of the round; {} for the one-answer relations. */
+	measures: Measures;
+	/** The round's resolved plan; null before plans and for the one-answer relations. */
+	plan: unknown | null;
 	/** Mechanic-specific: item, answer and confusion. */
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
@@ -318,7 +341,7 @@ export interface GestureSummary {
 		scope?: string;
 		passagesPlayed: number;
 		passagesSucceeded: number;
-		/** Share of its changes right and in time (`isSuccess`). */
+		/** Share of its changes right and in time (`Attempt.success`). */
 		changeSuccessRate: number;
 		tempoBpm: number;
 		nextTempoBpm: number;

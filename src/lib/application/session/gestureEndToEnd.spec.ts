@@ -153,7 +153,7 @@ describe('a gesture session, end to end', () => {
 		expect(attempts.slice(0, 14).every((a) => a.correct && a.mechanic === 'chord-grid')).toBe(true);
 		const passages = new Set(attempts.map((a) => dataOf(a).item.passageId));
 		expect(passages.size).toBeGreaterThanOrEqual(2);
-		expect(attempts.slice(0, 14).every((a) => a.aid === 'none')).toBe(true);
+		expect(attempts.slice(0, 14).every((a) => a.aids.length === 0)).toBe(true);
 		expect(await ctx.deps.cards.all()).toEqual(cards);
 		expect(await ctx.deps.progressions.get('gesture-link')).toMatchObject({ tempoBpm: 85 });
 
@@ -199,7 +199,7 @@ describe('a gesture session, end to end', () => {
 
 		const missed = attempts[9];
 		expect(dataOf(missed).item).toMatchObject({ rule: 'climb', symbol: 'Dm7', direction: 'up' });
-		expect(missed).toMatchObject({ correct: false, verdict: 'wrong' });
+		expect(missed).toMatchObject({ correct: false, success: false, verdict: { value: 'wrong' } });
 		expect(dataOf(missed).confusion).toEqual({ kind: 'not-higher', part: 'chord' });
 		// The G still ringing was never a candidate of that change.
 		const ringing = dataOf(missed).item.previous;

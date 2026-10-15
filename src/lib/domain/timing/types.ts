@@ -90,9 +90,9 @@ export interface TimingRelation {
 		secondsPerBeat: number;
 		chained?: boolean;
 	}): Round;
+	/** Read on a stored attempt: `success` is right and in time (never off the beat). */
 	isDirectRecall(attempt: {
-		correct: boolean;
-		verdict: ResponseVerdict;
+		success: boolean;
 		reactionMs: number | null;
 		leadBeats: RecordedLeadBeats | null;
 		tempoBpm: number | null;

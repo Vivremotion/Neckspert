@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
 import { createListSelector } from '$lib/domain/progress';
-import type { Execution, PlannedItem } from '$lib/domain/types';
+import { responseVerdictOf, type Execution, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
 	FakeClock,
@@ -166,6 +166,6 @@ describe('an answer that refines itself', () => {
 		await drain();
 		const [attempt] = await ctx.deps.attempts.all();
 		expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
-		expect(attempt.verdict).toBe('wrong');
+		expect(responseVerdictOf(attempt)).toBe('wrong');
 	});
 });

@@ -1,5 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import { applyColdAttempt } from '$lib/domain/progress';
 import { beatTiming } from '$lib/domain/timing';
 import type { Attempt } from '$lib/domain/types';
@@ -219,7 +220,7 @@ describe('importing an export of 2026-10-04', () => {
 		const card = (await new DexieCardStateRepository(db).get('locate:6:A'))!;
 		const now = T0 + 2 * DAY;
 		const [stored] = await new DexieAttemptRepository(db).listByCard('locate:6:A');
-		const success: Attempt = {
+		const success: Attempt = responseAttempt({
 			...stored,
 			id: undefined,
 			sessionId: 's3',
@@ -231,7 +232,7 @@ describe('importing an export of 2026-10-04', () => {
 			timingOffsetMs: 10,
 			reactionMs: 1510,
 			data: { item: card.item, answer: { midi: 45 }, confusion: null }
-		};
+		});
 		const after = applyColdAttempt(card, success, [success], now, beatTiming);
 		expect(after.scheduling.state).toBe(2);
 		expect(after.acquiredAt).toBe(now);

@@ -11,7 +11,6 @@ import {
 } from '$lib/domain/triads';
 import {
 	cardKey,
-	isSuccess,
 	type Attempt,
 	type CardKey,
 	type CardState,
@@ -164,7 +163,7 @@ class TriadSelector implements SessionSelector {
 		const entry = this.learning.get(attempt.cardKey);
 		const servedAt = this.servedAt.get(attempt.cardKey);
 		if (!entry || servedAt === undefined) return null;
-		const step = this.climb(entry, isSuccess(attempt));
+		const step = this.climb(entry, attempt.success);
 		if (step === 'learned') {
 			this.learning.delete(attempt.cardKey);
 			const card = this.cards.get(attempt.cardKey);
@@ -227,7 +226,7 @@ class TriadSelector implements SessionSelector {
 
 	private countMiss(attempt: Attempt): void {
 		if (attempt.phase === 'probe') return;
-		if (isSuccess(attempt)) {
+		if (attempt.success) {
 			this.missStreak = 0;
 			this.pendingRecovery = null;
 			return;
@@ -253,7 +252,7 @@ class TriadSelector implements SessionSelector {
 				card.mechanic === mechanic &&
 				card.acquiredAt !== null &&
 				!reviewable.has(card.key) &&
-				this.recentAttempts(card.key).every(isSuccess) &&
+				this.recentAttempts(card.key).every((attempt) => attempt.success) &&
 				this.fitsWorkingSet(card.key) &&
 				this.allowed(voicingOfCard(card))
 		);

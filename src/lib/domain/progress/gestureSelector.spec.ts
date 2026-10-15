@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import {
 	admittedShapes,
@@ -52,7 +53,7 @@ function attemptOf(
 	correct = true,
 	decided: string | null = null
 ): Attempt {
-	return {
+	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: planned.exerciseId,
 		mechanic: 'chord-grid',
@@ -69,7 +70,7 @@ function attemptOf(
 		verdict: correct ? 'perfect' : 'wrong',
 		data: { item: planned.item, answer: decided === null ? null : { decided }, confusion: null },
 		observations: []
-	};
+	});
 }
 
 /** Plays a whole passage, every change right unless `correct` says. Returns its changes. */

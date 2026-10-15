@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 import {
 	asNeckCard,
@@ -91,8 +92,8 @@ type Prompt = Pick<
 >;
 
 /** A right answer to `item`, at TEMPO in locate. */
-function answer(item: Prompt, overrides: Partial<Attempt> = {}): Attempt {
-	return {
+function answer(item: Prompt, overrides: AttemptOverrides = {}): Attempt {
+	return responseAttempt({
 		sessionId: 's-now',
 		exerciseId: neckExerciseId(item.mechanic),
 		mechanic: item.mechanic,
@@ -110,14 +111,14 @@ function answer(item: Prompt, overrides: Partial<Attempt> = {}): Attempt {
 		data: { item: item.item, answer: null, confusion: null },
 		observations: [],
 		...overrides
-	};
+	});
 }
 
 /** Plays `count` prompts, answering each correctly, and returns their keys. */
 function play(
 	selector: SessionSelector,
 	count: number,
-	overrides: Partial<Attempt> = {}
+	overrides: AttemptOverrides = {}
 ): string[] {
 	const keys: string[] = [];
 	for (let i = 0; i < count; i++) {

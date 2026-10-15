@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
 import type {
 	BackupPort,
@@ -362,27 +363,34 @@ describe('the gesture track', () => {
 
 	it('contest labels an attempt and changes nothing else', async () => {
 		const { services, deps } = harness();
-		const id = await deps.attempts.add({
-			sessionId: 's1',
-			exerciseId: 'gesture-jam',
-			mechanic: 'chord-grid',
-			cardKey: 'chord-grid:jam:blues-f#0',
-			phase: 'free',
-			temperature: 'hot',
-			aid: 'none',
-			promptedAt: 0,
-			tempoBpm: 80,
-			leadBeats: null,
-			timingOffsetMs: null,
-			reactionMs: null,
-			correct: false,
-			verdict: 'wrong',
-			data: { item: { element: 'jam:blues-f', index: 0 }, answer: null, confusion: null },
-			observations: []
-		});
+		const id = await deps.attempts.add(
+			responseAttempt({
+				sessionId: 's1',
+				exerciseId: 'gesture-jam',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:jam:blues-f#0',
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				promptedAt: 0,
+				tempoBpm: 80,
+				leadBeats: null,
+				timingOffsetMs: null,
+				reactionMs: null,
+				correct: false,
+				verdict: 'wrong',
+				data: { item: { element: 'jam:blues-f', index: 0 }, answer: null, confusion: null },
+				observations: []
+			})
+		);
 		await services.contest(id);
 		const [attempt] = await deps.attempts.all();
-		expect(attempt).toMatchObject({ contested: true, correct: false, verdict: 'wrong' });
+		expect(attempt).toMatchObject({
+			contested: true,
+			correct: false,
+			success: false,
+			verdict: { relation: 'grid-change', version: 1, value: 'wrong' }
+		});
 	});
 
 	it('sums a gesture session up by exercise', async () => {

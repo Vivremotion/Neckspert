@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
 import { createListSelector } from '$lib/domain/progress';
-import type { Execution, PlannedItem, SessionKind } from '$lib/domain/types';
+import {
+	responseVerdictOf,
+	type Execution,
+	type PlannedItem,
+	type SessionKind
+} from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
 	FakeClock,
@@ -138,7 +143,7 @@ describe('a change of tempo between two sequences', () => {
 		ctx.play(2, ctx.metronome.beatTime(8));
 		await drain();
 		const attempts = await ctx.deps.attempts.all();
-		expect(attempts.map((a) => [a.exerciseId, a.tempoBpm, a.verdict])).toEqual([
+		expect(attempts.map((a) => [a.exerciseId, a.tempoBpm, responseVerdictOf(a)])).toEqual([
 			['slow', 80, 'perfect'],
 			['fast', 100, 'perfect']
 		]);
@@ -158,7 +163,11 @@ describe('a change of tempo between two sequences', () => {
 		await drain();
 		expect(ctx.metronome.getTempo()).toBe(100);
 		const [attempt] = await ctx.deps.attempts.all();
-		expect(attempt).toMatchObject({ exerciseId: 'slow', tempoBpm: 80, verdict: 'offbeat' });
+		expect(attempt).toMatchObject({
+			exerciseId: 'slow',
+			tempoBpm: 80,
+			verdict: { value: 'offbeat' }
+		});
 	});
 
 	it('resumes at the tempo of the prompt that follows a pause', async () => {

@@ -4,12 +4,17 @@ import {
 	LEAD_STEPS,
 	MAX_BUILT_IN_INPUT_GAIN,
 	MIN_BUILT_IN_INPUT_GAIN,
+	RESPONSE_RELATIONS,
 	RESPONSE_VERDICTS,
 	cardKey,
+	isResponseSuccess,
 	parseCardKey,
+	type Aid,
+	type Attempt,
 	type BackupFile,
 	type ItemPhase,
 	type Locale,
+	type ResponseVerdict,
 	type SessionKind,
 	type Temperature
 } from '$lib/domain/types';
@@ -54,6 +59,15 @@ const OBSERVATION_FATES: readonly string[] = [
 	'unreadable'
 ];
 const MECHANIC_IDS: readonly string[] = MECHANIC_RULES.map((rules) => rules.id);
+const AIDS: readonly Aid[] = [
+	'show-position',
+	'string-aid',
+	'cursor',
+	'listen',
+	'play-along',
+	'aid-level'
+];
+const VERDICT_PROBLEM = 'must be perfect, early, late, offbeat, corrected or wrong';
 
 function isFields(value: unknown): value is Fields {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -167,16 +181,82 @@ function checkConfusion(confusion: unknown, field: string): string | null {
 	return null;
 }
 
+/**
+ * An attempt stored before the target model: a bare response verdict, a boolean `correct`, the
+ * planned `aid`, no success. Files of every version may still hold them.
+ */
+function isBeforeTarget(attempt: Fields): boolean {
+	return typeof attempt.verdict === 'string';
+}
+
+function checkVerdictBeforeTarget(attempt: Fields): string | null {
+	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
+	if (!isOneOf(attempt.verdict, RESPONSE_VERDICTS)) return `verdict ${VERDICT_PROBLEM}`;
+	return null;
+}
+
+function checkTargetOutcome(attempt: Fields): string | null {
+	if (attempt.correct !== null && typeof attempt.correct !== 'boolean') {
+		return 'correct must be a boolean or null';
+	}
+	if (typeof attempt.success !== 'boolean') return 'success must be a boolean';
+	const verdict = attempt.verdict;
+	if (
+		!isFields(verdict) ||
+		!isNonEmptyString(verdict.relation) ||
+		!Number.isInteger(verdict.version) ||
+		!Object.hasOwn(verdict, 'value')
+	) {
+		return 'verdict must be { relation, version, value }';
+	}
+	if (
+		RESPONSE_RELATIONS.includes(verdict.relation as string) &&
+		!isOneOf(verdict.value, RESPONSE_VERDICTS)
+	) {
+		return `verdict.value ${VERDICT_PROBLEM}`;
+	}
+	if (!Array.isArray(attempt.aids) || !attempt.aids.every((aid) => isOneOf(aid, AIDS))) {
+		return `aids must be a list of ${AIDS.join(', ')}`;
+	}
+	if (!isFields(attempt.measures)) return 'measures must be an object';
+	if (!Object.hasOwn(attempt, 'plan') || attempt.plan === undefined) {
+		return 'plan is required (null without one)';
+	}
+	return null;
+}
+
 function checkAttemptFields(attempt: Fields): string | null {
 	if (!isOneOf(attempt.phase, ITEM_PHASES))
 		return 'phase must be probe, review, learning, consolidation or free';
 	if (!isOneOf(attempt.temperature, TEMPERATURES)) return 'temperature must be cold or hot';
 	if (!isFiniteNumber(attempt.promptedAt)) return 'promptedAt must be a number';
-	if (typeof attempt.correct !== 'boolean') return 'correct must be a boolean';
-	if (!isOneOf(attempt.verdict, RESPONSE_VERDICTS))
-		return 'verdict must be perfect, early, late, offbeat, corrected or wrong';
+	const outcome = isBeforeTarget(attempt)
+		? checkVerdictBeforeTarget(attempt)
+		: checkTargetOutcome(attempt);
+	if (outcome) return outcome;
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
 	return null;
+}
+
+/**
+ * The target attempt of one stored before it, by the rule of the storage spec (2026-10-14,
+ * section 9): success is right and not off the beat, the verdict is wrapped for the relation of
+ * its mechanic, the planned aid becomes the aids (the drawn string was not stored). Until the
+ * shared migration chain replaces it.
+ */
+function toTargetAttempt(attempt: Fields): Fields {
+	if (!isBeforeTarget(attempt)) return attempt;
+	const { aid, ...rest } = attempt;
+	const verdict = attempt.verdict as ResponseVerdict;
+	const relation = (rulesOf(attempt.mechanic) as MechanicRules).timing.id;
+	const target: Pick<Attempt, 'success' | 'verdict' | 'aids' | 'measures' | 'plan'> = {
+		success: isResponseSuccess({ correct: attempt.correct as boolean, verdict }),
+		verdict: { relation, version: 1, value: verdict },
+		aids: aid === 'show-position' ? ['show-position'] : [],
+		measures: {},
+		plan: null
+	};
+	return { ...rest, ...target };
 }
 
 function checkAttemptHeader(attempt: Fields): string | null {
@@ -451,7 +531,10 @@ function checkSessionV3(session: Fields): string | null {
 	);
 }
 
-/** Checks a version 3 file and returns it unchanged. */
+/**
+ * Checks a version 3 file and returns it unchanged, or with its attempts stored before the
+ * target model brought to it (`toTargetAttempt`).
+ */
 export function validateBackupV3(file: unknown): BackupFile {
 	const backup = checkHeader(file, 3);
 	const settingsProblem = checkSettings(backup.settings as Fields);
@@ -460,7 +543,9 @@ export function validateBackupV3(file: unknown): BackupFile {
 	checkEntries(backup.cards, 'cards', checkCard);
 	checkEntries(backup.attempts, 'attempts', checkAttemptV3);
 	checkEntries(backup.sessions, 'sessions', checkSessionV3);
-	return backup as unknown as BackupFile;
+	const attempts = backup.attempts as Fields[];
+	if (!attempts.some(isBeforeTarget)) return backup as unknown as BackupFile;
+	return { ...backup, attempts: attempts.map(toTargetAttempt) } as unknown as BackupFile;
 }
 
 /**

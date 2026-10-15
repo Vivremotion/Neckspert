@@ -190,7 +190,7 @@ export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
 		},
 		isDirectRecall: (attempt) => {
 			// Found after the window means found by calculation: never direct recall.
-			if (!attempt.correct || attempt.verdict === 'offbeat') return false;
+			if (!attempt.success) return false;
 			if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
 			return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
 		},

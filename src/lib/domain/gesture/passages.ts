@@ -8,7 +8,7 @@ import {
 	type StringNumber,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import { isSuccess, type Attempt } from '$lib/domain/types';
+import type { Attempt } from '$lib/domain/types';
 
 /** Shapes climbed in a link passage: the three inversions, then the first at the octave. To calibrate. */
 export const LINK_SHAPES = 4;
@@ -106,9 +106,7 @@ export function nextZone(
 }
 
 /** A passage succeeds when PASSAGE_SUCCESS of its changes are right and in time. */
-export function passageSucceeded(
-	attempts: readonly Pick<Attempt, 'correct' | 'verdict'>[]
-): boolean {
+export function passageSucceeded(attempts: readonly Pick<Attempt, 'success'>[]): boolean {
 	if (attempts.length === 0) return false;
-	return attempts.filter(isSuccess).length / attempts.length >= PASSAGE_SUCCESS;
+	return attempts.filter((attempt) => attempt.success).length / attempts.length >= PASSAGE_SUCCESS;
 }

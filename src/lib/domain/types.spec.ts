@@ -3,9 +3,11 @@ import {
 	cardKey,
 	DEFAULT_SETTINGS,
 	DIAGNOSTIC_BUDGETS_MB,
-	isSuccess,
+	isResponseSuccess,
 	parseCardKey,
+	RESPONSE_RELATIONS,
 	RESPONSE_VERDICTS,
+	responseVerdictOf,
 	resolveDiagnosticsEnabled
 } from './types';
 
@@ -57,7 +59,34 @@ describe('verdicts', () => {
 	});
 
 	it('never counts a corrected attempt as a success', () => {
-		expect(isSuccess({ correct: false, verdict: 'corrected' })).toBe(false);
+		expect(isResponseSuccess({ correct: false, verdict: 'corrected' })).toBe(false);
+	});
+
+	it('counts a right answer in time as a success, never one off the beat', () => {
+		expect(isResponseSuccess({ correct: true, verdict: 'late' })).toBe(true);
+		expect(isResponseSuccess({ correct: true, verdict: 'offbeat' })).toBe(false);
+		expect(isResponseSuccess({ correct: false, verdict: 'wrong' })).toBe(false);
+	});
+});
+
+describe('responseVerdictOf', () => {
+	it('names the one-answer relations', () => {
+		expect(RESPONSE_RELATIONS).toEqual(['beat', 'free', 'anchor', 'grid-change']);
+	});
+
+	it('reads the verdict of a one-answer relation', () => {
+		expect(responseVerdictOf({ verdict: { relation: 'beat', version: 1, value: 'offbeat' } })).toBe(
+			'offbeat'
+		);
+		expect(
+			responseVerdictOf({ verdict: { relation: 'grid-change', version: 1, value: 'perfect' } })
+		).toBe('perfect');
+	});
+
+	it('reads nothing from another relation', () => {
+		expect(
+			responseVerdictOf({ verdict: { relation: 'cycle', version: 1, value: { passed: true } } })
+		).toBeNull();
 	});
 });
 

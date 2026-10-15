@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import {
 	DEFAULT_SETTINGS,
 	type Attempt,
@@ -28,7 +29,7 @@ function learnedAt(state: CardState, now: number): CardState {
 }
 
 /** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */
-function on(card: NeckCard): Partial<Attempt> {
+function on(card: NeckCard): AttemptOverrides {
 	return {
 		exerciseId: neckExerciseId(card.mechanic),
 		mechanic: card.mechanic,
@@ -39,8 +40,8 @@ function on(card: NeckCard): Partial<Attempt> {
 }
 
 /** A cold locate review of L1 at 80 bpm, played right on the beat. */
-function coldAttempt(overrides: Partial<Attempt>): Attempt {
-	return {
+function coldAttempt(overrides: AttemptOverrides): Attempt {
+	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -58,7 +59,7 @@ function coldAttempt(overrides: Partial<Attempt>): Attempt {
 		data: { item: L1.item, answer: { midi: 64 }, confusion: null },
 		observations: [],
 		...overrides
-	};
+	});
 }
 
 const RECORD_EXECUTIONS: SessionRecord['executions'] = [
@@ -321,7 +322,7 @@ describe('summarizeSession', () => {
 	});
 
 	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {
-		const probe = (overrides: Partial<Attempt>) =>
+		const probe = (overrides: AttemptOverrides) =>
 			coldAttempt({ sessionId: 'sess', phase: 'probe', promptedAt: NOW - 5_000, ...overrides });
 		const sessionAttempts = [
 			probe({ correct: true, timingOffsetMs: 3 }),
@@ -481,7 +482,7 @@ describe('buildNeckMap', () => {
 		const card = { ...introduced(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
 		/** Each session's attempts carry its tempo; 'old' is from before tempos were recorded. */
 		const tempos: Record<string, number | null> = { slow: 80, fast: 115, old: null };
-		const cold = (overrides: Partial<Attempt> & { sessionId: string }) =>
+		const cold = (overrides: AttemptOverrides & { sessionId: string }) =>
 			coldAttempt({
 				...on(C_ON_B),
 				leadBeats: 2,
@@ -562,7 +563,7 @@ describe('buildNeckMap', () => {
 
 describe('summarizeSession of a triads session', () => {
 	const KEY = 'D|maj|3:5,2:1,1:3';
-	const triad = (overrides: Partial<Attempt>): Attempt =>
+	const triad = (overrides: AttemptOverrides): Attempt =>
 		coldAttempt({
 			id: 1,
 			sessionId: 'tri',

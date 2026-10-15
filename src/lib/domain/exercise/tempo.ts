@@ -1,4 +1,4 @@
-import { isSuccess, type Attempt } from '$lib/domain/types';
+import type { Attempt } from '$lib/domain/types';
 import type { ExerciseDefinition, Progression } from './types';
 
 /** Tempo of a first execution when nothing else says otherwise. */
@@ -71,11 +71,11 @@ export function startTempo(
  */
 export function nextTempo(
 	tempoBpm: number,
-	attempts: readonly Pick<Attempt, 'phase' | 'correct' | 'verdict'>[]
+	attempts: readonly Pick<Attempt, 'phase' | 'success'>[]
 ): number {
 	const counted = attempts.filter((attempt) => attempt.phase !== 'probe');
 	if (counted.length < TEMPO_MIN_PROMPTS) return tempoBpm;
-	const rate = counted.filter(isSuccess).length / counted.length;
+	const rate = counted.filter((attempt) => attempt.success).length / counted.length;
 	const step = rate > TEMPO_RAISE_AT ? TEMPO_STEP_BPM : rate < TEMPO_LOWER_AT ? -TEMPO_STEP_BPM : 0;
 	if (step === 0) return tempoBpm;
 	const next = clampTempo(tempoBpm + step);

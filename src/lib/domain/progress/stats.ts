@@ -2,7 +2,6 @@ import { LEARNABLE_FRETS, neckCardKey } from '$lib/domain/music';
 import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
-	isSuccess,
 	isTriadsKind,
 	type Attempt,
 	type CardState,
@@ -23,20 +22,20 @@ function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'col
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
 		// Off-beat answers are far past the window: they would hide the distance to the beat.
-		if (!isSuccess(attempt)) return [];
+		if (!attempt.success) return [];
 		if (attempt.mechanic !== 'locate' || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
 }
 
 /**
- * Lead of the latest cold success (`isSuccess`) of a locate card, in ms at the tempo of that
+ * Lead of the latest cold success (`Attempt.success`) of a locate card, in ms at the tempo of that
  * attempt. Successes without a tempo are skipped.
  */
 function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | null {
 	let latest: { at: number; ms: number } | null = null;
 	for (const attempt of attempts) {
-		if (attempt.cardKey !== key || attempt.temperature !== 'cold' || !isSuccess(attempt)) continue;
+		if (attempt.cardKey !== key || attempt.temperature !== 'cold' || !attempt.success) continue;
 		if (attempt.leadBeats === null) continue;
 		const tempo = attempt.tempoBpm;
 		if (tempo === null || tempo <= 0) continue;
@@ -49,7 +48,7 @@ function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | n
 /** |offset| of the cold successes on the beat of a triads session, whatever their mechanic. */
 function beatOffsets(attempts: readonly Attempt[]): number[] {
 	return attempts.flatMap((attempt) => {
-		if (attempt.temperature !== 'cold' || !isSuccess(attempt)) return [];
+		if (attempt.temperature !== 'cold' || !attempt.success) return [];
 		return attempt.timingOffsetMs === null ? [] : [Math.abs(attempt.timingOffsetMs)];
 	});
 }
@@ -126,7 +125,7 @@ export function summarizeSession(input: {
 		sessionId: input.record.id,
 		pool,
 		attemptCount: counted.length,
-		correctCount: counted.filter(isSuccess).length,
+		correctCount: counted.filter((attempt) => attempt.success).length,
 		medianOffsetMs: median(triads ? beatOffsets(counted) : locateOffsets(scored, pool)),
 		identifyMedianReactionMs: median(identifyReactions(scored, pool)),
 		learnedCount: input.cards.filter(
@@ -182,7 +181,8 @@ export function buildNeckMap(input: {
 				identify: cardStatus(byKey.get(identifyKey)),
 				locateRecallMs: locateCard ? lastColdRecallMs(locateKey, input.attempts) : null,
 				identifyMedianReactionMs: median(identifyReaction),
-				coldAccuracy: cold.length === 0 ? null : cold.filter(isSuccess).length / cold.length
+				coldAccuracy:
+					cold.length === 0 ? null : cold.filter((attempt) => attempt.success).length / cold.length
 			});
 		}
 	}

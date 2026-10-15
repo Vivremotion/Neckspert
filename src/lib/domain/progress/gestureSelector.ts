@@ -18,7 +18,7 @@ import {
 } from '$lib/domain/mechanics';
 import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
-import { isSuccess, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
+import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
 
 /** No passage starts after this long in a gesture session; one begun always ends. To calibrate. */
@@ -206,7 +206,7 @@ class GestureSelector implements SessionSelector {
 	private aided(passage: Passage): boolean {
 		if (passage.element.rule !== 'link') return passage.aided;
 		const state = this.state(passage.element.key);
-		const misses = this.attemptsOf(passage).filter((attempt) => !isSuccess(attempt)).length;
+		const misses = this.attemptsOf(passage).filter((attempt) => !attempt.success).length;
 		if (misses >= LINK_AID_AFTER_MISSES) state.aidOn = true;
 		return state.aidOn;
 	}

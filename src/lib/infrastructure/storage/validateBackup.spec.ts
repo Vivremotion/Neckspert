@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { Attempt } from '$lib/domain/types';
 import {
 	makeAttempt,
 	makeBackup,
@@ -115,12 +116,28 @@ describe('validateBackup', () => {
 	});
 
 	it('accepts an off-beat attempt', () => {
-		const file = makeBackup({ attempts: [makeAttempt({ verdict: 'offbeat', correct: true })] });
+		const file = makeBackup({
+			attempts: [
+				makeAttempt({
+					verdict: { relation: 'beat', version: 1, value: 'offbeat' },
+					correct: true,
+					success: false
+				})
+			]
+		});
 		expect(() => validateBackup(file)).not.toThrow();
 	});
 
 	it('accepts a corrected attempt', () => {
-		const file = makeBackup({ attempts: [makeAttempt({ verdict: 'corrected', correct: false })] });
+		const file = makeBackup({
+			attempts: [
+				makeAttempt({
+					verdict: { relation: 'anchor', version: 1, value: 'corrected' },
+					correct: false,
+					success: false
+				})
+			]
+		});
 		expect(() => validateBackup(file)).not.toThrow();
 	});
 
@@ -476,6 +493,84 @@ describe('validateBackup', () => {
 	});
 });
 
+/** `attempt` as stored before the target model: a bare verdict, the planned aid, no success. */
+function beforeTarget(attempt: Attempt, fields: Record<string, unknown>): Record<string, unknown> {
+	const { success, verdict, aids, measures, plan, ...rest } = attempt;
+	void [success, verdict, aids, measures, plan];
+	return { ...rest, aid: 'none', ...fields };
+}
+
+describe('attempts stored before the target model', () => {
+	it('derive success, the verdict of their relation and their aids', () => {
+		const locate = makeAttempt({ id: 1 });
+		const identify = makeAttempt({ id: 2, mechanic: 'identify' });
+		const file = makeBackup({
+			attempts: [
+				beforeTarget(locate, { correct: true, verdict: 'offbeat', aid: 'show-position' }),
+				beforeTarget(identify, { correct: true, verdict: 'late' })
+			] as never
+		});
+		const [first, second] = validateBackup(file).attempts;
+		expect(first).toEqual({
+			...locate,
+			correct: true,
+			success: false,
+			verdict: { relation: 'beat', version: 1, value: 'offbeat' },
+			aids: ['show-position']
+		});
+		expect(first).not.toHaveProperty('aid');
+		expect(second).toEqual({
+			...identify,
+			success: true,
+			verdict: { relation: 'free', version: 1, value: 'late' },
+			aids: []
+		});
+	});
+
+	it('are checked as before', () => {
+		const old = beforeTarget(makeAttempt(), { correct: 'yes', verdict: 'perfect' });
+		expect(() => validateBackup(makeBackup({ attempts: [old] as never }))).toThrow(
+			'Invalid attempts entry at index 0: correct must be a boolean'
+		);
+	});
+});
+
+describe('target attempts', () => {
+	const invalid = (fields: Record<string, unknown>) =>
+		validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), ...fields }] });
+
+	it('accept a null correct and an envelope of a relation they do not know', () => {
+		expect(() =>
+			invalid({ correct: null, verdict: { relation: 'cycle', version: 1, value: {} } })
+		).not.toThrow();
+	});
+
+	it('reject a bad success, verdict, aids, measures or plan', () => {
+		const problem = (fields: Record<string, unknown>) => () => invalid(fields);
+		expect(problem({ success: 'yes' })).toThrow(
+			'Invalid attempts entry at index 0: success must be a boolean'
+		);
+		expect(problem({ correct: 'yes' })).toThrow(
+			'Invalid attempts entry at index 0: correct must be a boolean or null'
+		);
+		expect(problem({ verdict: { relation: '', version: 1, value: 'perfect' } })).toThrow(
+			'Invalid attempts entry at index 0: verdict must be { relation, version, value }'
+		);
+		expect(problem({ verdict: { relation: 'beat', version: 1, value: 'great' } })).toThrow(
+			'Invalid attempts entry at index 0: verdict.value must be perfect, early, late, offbeat, corrected or wrong'
+		);
+		expect(problem({ aids: ['magic'] })).toThrow(
+			'Invalid attempts entry at index 0: aids must be a list of show-position, string-aid, cursor, listen, play-along, aid-level'
+		);
+		expect(problem({ measures: null })).toThrow(
+			'Invalid attempts entry at index 0: measures must be an object'
+		);
+		expect(problem({ plan: undefined })).toThrow(
+			'Invalid attempts entry at index 0: plan is required (null without one)'
+		);
+	});
+});
+
 describe('with a version 2 file', () => {
 	it('lands on version 3 with no observations and no latency', () => {
 		const file = validateBackup(makeBackupV2());
@@ -707,7 +802,8 @@ describe('with chord-grid attempts', () => {
 			temperature: 'hot',
 			leadBeats: null,
 			correct: false,
-			verdict: 'wrong',
+			success: false,
+			verdict: { relation: 'grid-change', version: 1, value: 'wrong' },
 			data: {
 				item,
 				answer: { decided: 'D|min|3:5,2:1,1:b3@7-6-5' },

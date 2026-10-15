@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Attempt } from '$lib/domain/types';
+import { responseAttempt, type ResponseAttemptFields } from '$lib/testing/attempts';
 import { sessionGrade } from './grade';
 
 function attempts(
@@ -11,7 +12,7 @@ function attempts(
 		answer: { midi },
 		confusion: null
 	});
-	const base: Attempt = {
+	const base: ResponseAttemptFields = {
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -34,19 +35,16 @@ function attempts(
 	for (let i = 0; i < n; i++) {
 		if (i < correct) {
 			const isPerfect = i < perfect;
-			out.push({
-				...base,
-				correct: true,
-				verdict: isPerfect ? 'perfect' : 'late',
-				data: played(65)
-			});
+			out.push(
+				responseAttempt({
+					...base,
+					correct: true,
+					verdict: isPerfect ? 'perfect' : 'late',
+					data: played(65)
+				})
+			);
 		} else {
-			out.push({
-				...base,
-				correct: false,
-				verdict: 'wrong',
-				data: played(66)
-			});
+			out.push(responseAttempt({ ...base, correct: false, verdict: 'wrong', data: played(66) }));
 		}
 	}
 	return out;
@@ -70,10 +68,9 @@ describe('sessionGrade', () => {
 	});
 
 	it('ranks an off-beat answer between a timed one and a miss: half a miss', () => {
-		const offbeat = attempts(4, { correct: 4, perfect: 0 }).map((attempt) => ({
-			...attempt,
-			verdict: 'offbeat' as const
-		}));
+		const offbeat = attempts(4, { correct: 4, perfect: 0 }).map((attempt) =>
+			responseAttempt({ ...attempt, verdict: 'offbeat' })
+		);
 		const wrong = attempts(4, { correct: 0, perfect: 0 });
 		const late = attempts(4, { correct: 4, perfect: 0 });
 		expect(sessionGrade(late)).toBe('S');
@@ -84,7 +81,7 @@ describe('sessionGrade', () => {
 	it('ranks a corrected attempt as a whole miss', () => {
 		const wrong = attempts(4, { correct: 2, perfect: 2 });
 		const corrected = wrong.map((attempt) =>
-			attempt.correct ? attempt : { ...attempt, verdict: 'corrected' as const }
+			attempt.correct ? attempt : responseAttempt({ ...attempt, verdict: 'corrected' })
 		);
 		expect(sessionGrade(corrected)).toBe(sessionGrade(wrong));
 	});

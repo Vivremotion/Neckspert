@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import type { Attempt } from '$lib/domain/types';
 import {
 	FATIGUE_ACCURACY_DROP,
@@ -11,7 +12,7 @@ import {
 const F_ON_B = { string: 2, pitch: 'F' } as const;
 
 function answered(correct: boolean, reactionMs = 1000): Attempt {
-	return {
+	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -28,7 +29,7 @@ function answered(correct: boolean, reactionMs = 1000): Attempt {
 		verdict: correct ? 'perfect' : 'wrong',
 		data: { item: F_ON_B, answer: { midi: correct ? 65 : 66 }, confusion: null },
 		observations: []
-	};
+	});
 }
 
 function unanswered(): Attempt {

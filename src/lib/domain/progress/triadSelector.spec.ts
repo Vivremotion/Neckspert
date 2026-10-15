@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
@@ -78,7 +79,7 @@ function select(
 /** The attempt a prompt gets, right in time or a miss. */
 function attemptOf(item: PlannedItem, right: boolean, at: number): Attempt {
 	const { voicingKey: key } = item.item as { voicingKey: string };
-	return {
+	return responseAttempt({
 		sessionId: 's-now',
 		exerciseId: item.exerciseId,
 		mechanic: item.mechanic,
@@ -95,7 +96,7 @@ function attemptOf(item: PlannedItem, right: boolean, at: number): Attempt {
 		verdict: right ? 'perfect' : 'wrong',
 		data: { item: item.item, answer: null, confusion: null },
 		observations: null
-	};
+	});
 }
 
 /** A session of the zone exercise. */

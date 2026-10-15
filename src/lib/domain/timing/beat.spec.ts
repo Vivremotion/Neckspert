@@ -220,25 +220,25 @@ describe.each([
 
 	it('calls direct recall from the lead at the attempt tempo', () => {
 		const base = {
-			correct: true,
-			verdict: 'perfect' as const,
+			success: true,
 			reactionMs: 1600,
 			leadBeats: 2 as const,
 			tempoBpm: 80
 		};
 		expect(beatTiming.isDirectRecall(base)).toBe(true);
 		expect(beatTiming.isDirectRecall({ ...base, leadBeats: 4 })).toBe(false);
-		expect(beatTiming.isDirectRecall({ ...base, verdict: 'offbeat' })).toBe(false);
+		// Off the beat is no success: found by calculation, never direct recall.
+		expect(beatTiming.isDirectRecall({ ...base, success: false })).toBe(false);
 		expect(beatTiming.isDirectRecall({ ...base, tempoBpm: null })).toBe(false);
 		expect(beatTiming.isDirectRecall({ ...base, leadBeats: 4, tempoBpm: 160 })).toBe(true);
 	});
 
 	it('calls direct recall on the lead duration, not the reaction time, and only when right', () => {
-		const base = { correct: true, verdict: 'perfect' as const, tempoBpm: 80 };
+		const base = { success: true, tempoBpm: 80 };
 		expect(beatTiming.isDirectRecall({ ...base, reactionMs: 1510, leadBeats: 2 })).toBe(true);
 		expect(beatTiming.isDirectRecall({ ...base, reactionMs: 100, leadBeats: 4 })).toBe(false);
 		expect(
-			beatTiming.isDirectRecall({ ...base, correct: false, reactionMs: 1510, leadBeats: 2 })
+			beatTiming.isDirectRecall({ ...base, success: false, reactionMs: 1510, leadBeats: 2 })
 		).toBe(false);
 	});
 

@@ -31,7 +31,13 @@ async function seed(db: NeckspertDb): Promise<void> {
 		makeCard({ mechanic: 'identify', leadBeats: 2 })
 	]);
 	const attempts = new DexieAttemptRepository(db);
-	await attempts.add(makeAttempt({ promptedAt: 3000, verdict: 'late', reactionMs: 1800 }));
+	await attempts.add(
+		makeAttempt({
+			promptedAt: 3000,
+			verdict: { relation: 'beat', version: 1, value: 'late' },
+			reactionMs: 1800
+		})
+	);
 	await attempts.add(makeAttempt({ promptedAt: 1000 }));
 	await attempts.add(
 		makeAttempt({
@@ -39,7 +45,8 @@ async function seed(db: NeckspertDb): Promise<void> {
 			promptedAt: 2000,
 			data: { item: { string: 5, fret: 8 }, answer: { pitch: 'E' }, confusion: null },
 			correct: false,
-			verdict: 'wrong'
+			success: false,
+			verdict: { relation: 'free', version: 1, value: 'wrong' }
 		})
 	);
 	const sessions = new DexieSessionRepository(db);

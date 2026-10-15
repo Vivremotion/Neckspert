@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
@@ -20,8 +21,8 @@ const LOCATE = { key: 'locate:6:G', mechanic: 'locate', item: { string: 6, pitch
 const IDENTIFY = { key: 'identify:6:3', mechanic: 'identify', item: { string: 6, fret: 3 } };
 
 /** A cold locate review, played at TEMPO. */
-function attempt(overrides: Partial<Attempt>): Attempt {
-	return {
+function attempt(overrides: AttemptOverrides): Attempt {
+	return responseAttempt({
 		sessionId: 's-review',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -39,7 +40,7 @@ function attempt(overrides: Partial<Attempt>): Attempt {
 		data: { item: LOCATE.item, answer: { midi: 43 }, confusion: null },
 		observations: [],
 		...overrides
-	};
+	});
 }
 
 describe('introduceCard', () => {
@@ -131,13 +132,9 @@ describe('probeTemperature', () => {
 	it('records a passed probe cold and a missed probe hot', () => {
 		expect(probeTemperature(attempt({ correct: true, leadBeats: 2 }), beatTiming)).toBe('cold');
 		expect(probeTemperature(attempt({ correct: false, leadBeats: 2 }), beatTiming)).toBe('hot');
-		const named = { correct: true, leadBeats: null, tempoBpm: null } as const;
-		expect(
-			probeTemperature({ ...named, verdict: 'perfect', reactionMs: 3000 }, identifyTiming)
-		).toBe('cold');
-		expect(probeTemperature({ ...named, verdict: 'late', reactionMs: 3001 }, identifyTiming)).toBe(
-			'hot'
-		);
+		const named = { success: true, leadBeats: null, tempoBpm: null } as const;
+		expect(probeTemperature({ ...named, reactionMs: 3000 }, identifyTiming)).toBe('cold');
+		expect(probeTemperature({ ...named, reactionMs: 3001 }, identifyTiming)).toBe('hot');
 	});
 });
 
@@ -197,7 +194,7 @@ describe('applyColdAttempt', () => {
 		const after = applyColdAttempt(state, offbeat, [offbeat], NOW, beatTiming);
 		const hard = applyColdAttempt(
 			state,
-			{ ...offbeat, verdict: 'late', leadBeats: 8 },
+			responseAttempt({ ...offbeat, verdict: 'late', leadBeats: 8 }),
 			[],
 			NOW,
 			beatTiming

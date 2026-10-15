@@ -26,7 +26,7 @@ export function detectFatigue(attempts: readonly Attempt[]): boolean {
 }
 
 function correctCount(attempts: readonly Attempt[]): number {
-	return attempts.filter((attempt) => attempt.correct).length;
+	return attempts.filter((attempt) => attempt.correct === true).length;
 }
 
 /** Counts are subtracted before dividing: 1 − 4/5 in floating point falls just under 0.2. */

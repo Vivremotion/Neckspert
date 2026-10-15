@@ -118,6 +118,63 @@ describe('AttemptRecorder', () => {
 		expect(b.attempt.temperature).toBe('hot');
 	});
 
+	it('stores the target attempt: success, a verdict of its relation, its aids', () => {
+		const { recorder } = setup();
+		const { attempt } = recorder.record(
+			item({ aid: 'show-position', stringAid: true }),
+			outcome({ verdict: 'late' }),
+			1,
+			locateRules.judge(F_ON_B, { midi: 65 }),
+			LOCATE_RUN,
+			[]
+		);
+		expect(attempt).toMatchObject({
+			correct: true,
+			success: true,
+			verdict: { relation: locateRules.timing.id, version: 1, value: 'late' },
+			aids: ['show-position', 'string-aid'],
+			measures: {},
+			plan: null
+		});
+		expect(attempt).not.toHaveProperty('aid');
+	});
+
+	it('stores a right answer off the beat as a miss, and no aid as none', () => {
+		const { recorder } = setup();
+		const { attempt } = recorder.record(
+			item(),
+			outcome({ verdict: 'offbeat' }),
+			1,
+			locateRules.judge(F_ON_B, { midi: 65 }),
+			LOCATE_RUN,
+			[]
+		);
+		expect(attempt).toMatchObject({ correct: true, success: false, aids: [] });
+	});
+
+	it('names the relation the exercise plays the prompt at', () => {
+		const clock = new FakeClock();
+		const recorder = new AttemptRecorder({
+			attempts: new InMemoryAttemptRepository(),
+			cards: new InMemoryCardStateRepository(),
+			clock,
+			now: () => 0,
+			selector: { next: () => null, record: () => null, cardChanged: () => {} },
+			sessionId: 'sess-1',
+			rules: mechanicRules,
+			timing: () => identifyRules.timing
+		});
+		const { attempt } = recorder.record(
+			item(),
+			outcome(),
+			1,
+			locateRules.judge(F_ON_B, { midi: 65 }),
+			LOCATE_RUN,
+			[]
+		);
+		expect(attempt.verdict.relation).toBe(identifyRules.timing.id);
+	});
+
 	it('creates the card of a learning prompt the selector does not report', async () => {
 		const { recorder, cards } = setup();
 		const planned = item({ phase: 'learning', temperature: 'hot' });

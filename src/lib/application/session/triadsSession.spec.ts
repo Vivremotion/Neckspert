@@ -250,7 +250,12 @@ describe('a triad put right in the band', () => {
 		await drain();
 
 		const [attempt] = await h.deps.attempts.all();
-		expect(attempt).toMatchObject({ verdict: 'corrected', correct: false, contested: true });
+		expect(attempt).toMatchObject({
+			verdict: { relation: 'anchor', value: 'corrected' },
+			correct: false,
+			success: false,
+			contested: true
+		});
 		expect(attempt.data).toMatchObject({
 			answer: { chord: { decided: wrong }, correction: { decided: right } }
 		});
