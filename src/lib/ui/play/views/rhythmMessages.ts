@@ -32,7 +32,7 @@ const FR = {
 	listen: 'Écouter la figure',
 	played: 'Joué',
 	toPlay: 'À jouer',
-	cycle: (n: number) => `tour ${n}`,
+	cycle: (n: number) => `cycle ${n}`,
 	passed: 'réussi',
 	failed: 'raté',
 	announcement: {
@@ -93,7 +93,7 @@ const EN: typeof FR = {
 	listen: 'Listen to the figure',
 	played: 'Played',
 	toPlay: 'To play',
-	cycle: (n) => `turn ${n}`,
+	cycle: (n) => `cycle ${n}`,
 	passed: 'passed',
 	failed: 'failed',
 	announcement: {

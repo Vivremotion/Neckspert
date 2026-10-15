@@ -37,8 +37,10 @@
 	const GAP_PX = 24;
 	/** The column of the cycle numbers, left of the run played. */
 	const CYCLE_COLUMN_PX = 32;
-	/** Width of a character of a mark's figure, to keep two figures apart. */
-	const FIGURE_CHAR_PX = 11;
+	/** Width of a character of a mark's figure, in ems of its size, to keep two figures apart. */
+	const FIGURE_CHAR_EM = 0.7;
+	/** The figures' size (`--np-type-body`) before it is measured. */
+	const FIGURE_FALLBACK_PX = 22;
 
 	const m = $derived(model as RhythmStageModel);
 	const t = $derived(rhythmMessages());
@@ -89,6 +91,17 @@
 		return () => observer.disconnect();
 	});
 	const width = $derived(measured > 0 ? measured : FALLBACK_WIDTH);
+
+	/** The figures are drawn large: their size follows the screen, read off a probe. */
+	let figureProbe = $state<HTMLElement | null>(null);
+	let figurePx = $state(FIGURE_FALLBACK_PX);
+	$effect(() => {
+		void width;
+		const probe = figureProbe;
+		if (!probe) return;
+		const size = Number.parseFloat(getComputedStyle(probe).fontSize);
+		if (size > 0) figurePx = size;
+	});
 	const sideBySide = $derived(width >= SIDE_BY_SIDE_PX);
 	const playedWidth = $derived(
 		(sideBySide ? Math.floor((width - GAP_PX) * PLAYED_SHARE) : width) - CYCLE_COLUMN_PX
@@ -166,7 +179,7 @@
 			height: (layout.lineY[line + 1] ?? layout.height) - top,
 			strips: perCycle.map((all, cycle) => {
 				const marks = all.filter((mark) => mark.line === line);
-				const rows = labelRows(marks, FIGURE_CHAR_PX);
+				const rows = labelRows(marks, figurePx * FIGURE_CHAR_EM);
 				return { cycle, marks: marks.map((mark, i) => ({ mark, row: rows[i] })) };
 			})
 		}));
@@ -200,6 +213,7 @@
 			<section class="panel faded" data-testid="rhythm-played" aria-label={t.played}>
 				<h2 class="panel-title">{t.played}</h2>
 				<div class="played" style:--cycle-column="{CYCLE_COLUMN_PX}px">
+					<span class="figure-label probe" aria-hidden="true" bind:this={figureProbe}>0</span>
 					{#each playedLines as block (block.line)}
 						<div
 							class="engraving line"
@@ -213,10 +227,14 @@
 							{/if}
 						</div>
 						{#each block.strips as strip (strip.cycle)}
-							<div class="strip-row" data-testid="rhythm-strip" data-line={block.line}>
-								<span class="strip-label" aria-label={t.cycle(strip.cycle + 1)}
-									>{strip.cycle + 1}</span
-								>
+							<div
+								class="strip-row"
+								data-testid="rhythm-strip"
+								data-line={block.line}
+								role="group"
+								aria-label={t.cycle(strip.cycle + 1)}
+							>
+								<span class="strip-label" aria-hidden="true">{strip.cycle + 1}</span>
 								<div class="strip" style:width="{playedLayout?.width ?? 0}px">
 									{#each strip.marks as { mark, row }, i (i)}
 										<span
@@ -437,10 +455,11 @@
 		color: var(--np-shade);
 	}
 
+	/* The shape on top, then two rows of figures. */
 	.strip {
 		position: relative;
 		flex: none;
-		height: 64px;
+		height: calc(24px + 2 * var(--np-type-body));
 	}
 
 	.mark {
@@ -507,9 +526,10 @@
 		margin-block: 2px;
 	}
 
+	/* « Le chiffre en grand »: read from a metre away. */
 	.figure-label {
-		top: 22px;
-		font-size: 18px;
+		top: 20px;
+		font-size: var(--np-type-body);
 		font-weight: 600;
 		line-height: 1;
 		white-space: nowrap;
@@ -517,7 +537,13 @@
 	}
 
 	.figure-label.second {
-		top: 44px;
+		top: calc(22px + var(--np-type-body));
+	}
+
+	.figure-label.probe {
+		position: absolute;
+		visibility: hidden;
+		pointer-events: none;
 	}
 
 	.cycles {

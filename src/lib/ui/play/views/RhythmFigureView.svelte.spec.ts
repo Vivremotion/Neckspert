@@ -146,6 +146,10 @@ describe('RhythmFigureView', () => {
 		const kinds = screen.getAllByTestId('rhythm-mark').map((m) => m.dataset.kind);
 		expect(kinds).toEqual(['on-time', 'on-time', 'late', 'on-time', 'missed']);
 		expect(screen.getByText('+90')).toBeTruthy();
+		// Each strip is announced as its cycle, each mark by what it says.
+		const strip = screen.getByRole('group', { name: 'cycle 1' });
+		expect(strip.querySelectorAll('[role="img"]')).toHaveLength(5);
+		expect(screen.getByRole('img', { name: 'derrière +90 ms' })).toBeTruthy();
 	});
 
 	it('scales the marks by the tempo the run was played at, not the next run’s', async () => {
@@ -267,8 +271,8 @@ describe('RhythmFigureView', () => {
 		});
 		await engraved(2);
 		expect(screen.getAllByTestId('rhythm-cycle').map((c) => c.textContent?.trim())).toEqual([
-			'tour 1 · réussi',
-			'tour 2 · raté'
+			'cycle 1 · réussi',
+			'cycle 2 · raté'
 		]);
 		expect(screen.queryAllByTestId('rhythm-mark')).toHaveLength(0);
 	});
