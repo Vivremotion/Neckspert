@@ -44,10 +44,13 @@ describe('createDiagnosticJournal', () => {
 });
 
 describe('createDiagnosticJournal native rate', () => {
-	async function nativeAfterOpening(nativeRate: boolean | undefined): Promise<boolean> {
+	async function nativeAfterOpening(
+		nativeRate: boolean | undefined,
+		buildDefault = true
+	): Promise<boolean> {
 		const settings = new InMemorySettingsRepository();
 		await settings.update({ diagnostics: { enabled: true, budgetMb: 300, nativeRate } });
-		const journal = createDiagnosticJournal(settings, { name: crypto.randomUUID() });
+		const journal = createDiagnosticJournal(settings, { name: crypto.randomUUID(), buildDefault });
 		await journal.openTake({ startedAt: 1, startedAudioTime: 0, input: INPUT });
 		return journal.nativeRate;
 	}
@@ -56,6 +59,10 @@ describe('createDiagnosticJournal native rate', () => {
 		expect(await nativeAfterOpening(undefined)).toBe(false);
 		expect(await nativeAfterOpening(false)).toBe(false);
 		expect(await nativeAfterOpening(true)).toBe(true);
+	});
+
+	it('ignores the setting in a published build, whatever a backup carried', async () => {
+		expect(await nativeAfterOpening(true, false)).toBe(false);
 	});
 });
 

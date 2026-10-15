@@ -10,7 +10,8 @@ import { DexieDiagnosticSink } from '$lib/infrastructure/diagnostics';
 
 /**
  * The diagnostic journal, reading its setting at each opening of the input: on by default in
- * development, off in a published build, until the player chooses.
+ * development, off in a published build, until the player chooses. The native rate is a
+ * development tool: a published build ignores the setting, so an imported backup cannot raise it.
  */
 export function createDiagnosticJournal(
 	settings: SettingsRepositoryPort,
@@ -24,7 +25,7 @@ export function createDiagnosticJournal(
 			return {
 				enabled: resolveDiagnosticsEnabled(diagnostics, buildDefault),
 				budgetMb: diagnostics.budgetMb,
-				nativeRate: diagnostics.nativeRate === true
+				nativeRate: buildDefault && diagnostics.nativeRate === true
 			};
 		},
 		newId: () => crypto.randomUUID()
