@@ -2,7 +2,7 @@ import type { Fraction } from './fraction';
 import type { LevelParams } from './levels';
 import type { RoundPlan } from './plan';
 import type { TempoMap } from './tempoMap';
-import { alignAttacks, alignContext, timeExpectations } from './judge/align';
+import { alignAttacks, alignContext, captureLeadIn, timeExpectations } from './judge/align';
 import {
 	cycleReport,
 	cycleVerdict,
@@ -56,13 +56,18 @@ export type PlanFate = 'answer' | 'other-sensor' | 'unreadable' | 'after-capture
 export const CYCLE_VERDICT_VERSION = 1;
 
 /**
- * The round of a plan whose unit is the whole cycle: it keeps the attacks heard between its
- * start and its end, and judges them together once settled (`settle`). Pure: time comes from
- * the observations, never from a clock.
+ * The round of a plan whose unit is the whole cycle: it keeps the attacks heard in its capture
+ * window and judges them together once settled (`settle`). Pure: time comes from the
+ * observations, never from a clock.
  *
- * An observation outside `[startTime, endTime)` is not this round's, whatever it is: the
- * controller gives it to the neighbouring round (`'after-capture'`). Inside, only a readable
- * observation of the plan's sensor is kept as an attack.
+ * The capture window is `[startTime - lead, endTime - lead)`, where `lead` (`captureLeadIn`)
+ * is the zone before the plan's first expectation when the plan loops, 0 otherwise. The round
+ * listens over its own expectations' zones, not over its bar: a downbeat played a few ms early
+ * belongs to the cycle it opens, a last note played late to the cycle it closes, and cycles of one
+ * plan chained end to end tile time with no gap and no overlap. An observation outside the window
+ * is not this round's, whatever it is: the controller gives it to the neighbouring round
+ * (`'after-capture'`). Inside, only a readable observation of the plan's sensor is kept as an
+ * attack. `startTime` and `endTime` stay the bar span of the cycle.
  */
 export class PlanRound {
 	/** Audio seconds at which the cycle opens. */
@@ -77,6 +82,8 @@ export class PlanRound {
 	readonly #thresholds: LevelParams['thresholds'];
 	readonly #aids: Aid[];
 	readonly #sensors: Set<string>;
+	/** Seconds before `startTime` (and `endTime`) at which the capture window opens (and closes). */
+	readonly #lead: number;
 	#attacks: number[] = [];
 	#settled = false;
 
@@ -98,11 +105,16 @@ export class PlanRound {
 		this.#sensors = sensors.size > 0 ? sensors : new Set([RHYTHM_SENSOR]);
 		this.startTime = input.map.toSeconds(input.start);
 		this.endTime = input.map.toSeconds(input.start.add(input.plan.length));
+		this.#lead = captureLeadIn(input.plan, input.map, input.start);
 	}
 
 	/** Keeps a readable observation of an expected sensor; returns its fate. */
 	observe(observation: PlanObservation): PlanFate {
-		if (this.#settled || observation.time < this.startTime || observation.time >= this.endTime) {
+		if (
+			this.#settled ||
+			observation.time < this.startTime - this.#lead ||
+			observation.time >= this.endTime - this.#lead
+		) {
 			return 'after-capture';
 		}
 		if (!this.#sensors.has(observation.sensor)) return 'other-sensor';

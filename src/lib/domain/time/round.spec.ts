@@ -124,11 +124,11 @@ describe('PlanRound', () => {
 	it('hands back what falls outside the cycle to the neighbouring round', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
-		expect(r.observe(attack(r.startTime - 0.01))).toBe('after-capture');
+		expect(r.observe(attack(r.startTime - 0.2))).toBe('after-capture');
 		expect(r.observe(attack(r.endTime))).toBe('after-capture');
 		expect(r.observe(attack(r.endTime + 1))).toBe('after-capture');
 		expect(r.observe(attack(r.startTime))).toBe('answer');
-		expect(r.observe(attack(r.endTime - 0.001))).toBe('answer');
+		expect(r.observe(attack(r.endTime - 0.2))).toBe('answer');
 	});
 
 	it('does not count an attack handed back as an added one', () => {
@@ -166,5 +166,110 @@ describe('PlanRound', () => {
 		const r = round(plan);
 		for (const time of exactTimes(plan)) r.observe(attack(time));
 		expect(r.settle()).toEqual(r.settle());
+	});
+
+	it('falls back to the attack sensor for a plan without expectations', () => {
+		const empty: RoundPlan = { ...cyclePlan(), expectations: [] };
+		const r = round(empty);
+		expect(r.observe(attack(3))).toBe('answer');
+		expect(r.observe({ time: 3, sensor: 'note', readable: true, payload: null })).toBe(
+			'other-sensor'
+		);
+	});
+});
+
+describe('PlanRound capture window on chained cycles', () => {
+	/** A bar of 4/4 from a pattern of steps of `step`: a note where it says 1, a rest at 0. */
+	function figureOf(pattern: string, step: Fraction): Figure {
+		return {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 1,
+			voices: [
+				{
+					id: 'main',
+					elements: [...pattern].map((c): FigureElement =>
+						c === '1'
+							? { kind: 'note', duration: step, content: null }
+							: { kind: 'rest', duration: step }
+					)
+				}
+			]
+		};
+	}
+
+	function oneBar(figure: Figure): RoundPlan {
+		return compileCyclePlan({
+			figure,
+			cycleBars: 1,
+			startBar: 0,
+			sensor: 'attack',
+			window: { ms: 120 },
+			accompanimentBars: ['on']
+		});
+	}
+
+	function at(plan: RoundPlan, bar: number): PlanRound {
+		return new PlanRound({
+			plan,
+			map,
+			start: of(bar),
+			latency: SYSTEM,
+			thresholds: THRESHOLDS,
+			aids: []
+		});
+	}
+
+	const times = (plan: RoundPlan, bar: number) =>
+		plan.expectations.map((e) => map.toSeconds(of(bar).add(e.at)));
+
+	/** Feeds every observation to the round that owns it, the way the controller does. */
+	function feed(rounds: PlanRound[], played: number[]): void {
+		for (const time of played) {
+			for (const r of rounds) if (r.observe(attack(time)) === 'answer') break;
+		}
+	}
+
+	it('gives a downbeat played early to the cycle it opens, not to the previous one', () => {
+		const plan = oneBar(figureOf('10101010', of(1, 8)));
+		const first = at(plan, 1);
+		const second = at(plan, 2);
+		const played = [...times(plan, 1), ...times(plan, 2)];
+		played[4] -= 0.02; // the second cycle's downbeat, 20 ms early
+		feed([first, second], played);
+		const one = first.settle();
+		const two = second.settle();
+		expect((one.detail as { extra: number }).extra).toBe(0);
+		expect(one.success).toBe(true);
+		expect(two.measures.fidelity?.value).toBe(1);
+		const downbeat = (two.detail as { expectations: { verdict: string }[] }).expectations[0];
+		expect(['on-time', 'early']).toContain(downbeat.verdict);
+		expect(two.success).toBe(true);
+	});
+
+	it('keeps a last note played late in its own cycle', () => {
+		const plan = oneBar(figureOf('1000000000000001', of(1, 16)));
+		const first = at(plan, 1);
+		const second = at(plan, 2);
+		const played = [...times(plan, 1), ...times(plan, 2)];
+		played[1] += 0.02; // the last note of the first cycle, 20 ms late
+		feed([first, second], played);
+		const one = first.settle();
+		const two = second.settle();
+		expect((one.detail as { extra: number }).extra).toBe(0);
+		expect(one.measures.fidelity?.value).toBe(1);
+		expect(two.measures.fidelity?.value).toBe(1);
+		expect((two.detail as { extra: number }).extra).toBe(0);
+	});
+
+	it('tiles time: consecutive cycles leave no gap and no overlap', () => {
+		const plan = oneBar(figureOf('10101010', of(1, 8)));
+		const first = at(plan, 1);
+		const second = at(plan, 2);
+		const edge = 4.8 - 0.15; // half a zone before the second downbeat
+		expect(first.observe(attack(edge - 1e-6))).toBe('answer');
+		expect(first.observe(attack(edge + 1e-6))).toBe('after-capture');
+		expect(second.observe(attack(edge - 1e-6))).toBe('after-capture');
+		expect(second.observe(attack(edge + 1e-6))).toBe('answer');
 	});
 });

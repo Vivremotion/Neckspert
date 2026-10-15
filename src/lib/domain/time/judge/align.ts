@@ -67,6 +67,12 @@ export interface AlignContext {
 	subdivisionS: number | null;
 	startS: number;
 	endS: number;
+	/**
+	 * How far before `startS` the round already listens, in seconds (default 0): the zone of its
+	 * first expectation when the plan loops, see `captureLeadIn`. The span of the round for the
+	 * shift search is then `[startS - leadInS, endS - leadInS)`.
+	 */
+	leadInS?: number;
 }
 
 /** The tempo segment that holds at `position` (the first one also holds before it starts). */
@@ -148,8 +154,32 @@ export function alignContext(
 		beatS,
 		subdivisionS: smallest ? secondsOf(map, startPosition, smallest) : null,
 		startS: map.toSeconds(startPosition),
-		endS: map.toSeconds(startPosition.add(plan.length))
+		endS: map.toSeconds(startPosition.add(plan.length)),
+		leadInS: captureLeadIn(plan, map, startPosition)
 	};
+}
+
+/**
+ * How early, in seconds, the round of a looping plan starts to listen: the zone before its first
+ * target, so that a downbeat played a little early is the next cycle's, not the previous one's
+ * added attack. It is the shortest of `MATCH_LIMIT` (measured on the map from `startPosition`),
+ * half the gap between the last target and the first one of the next loop, and the first
+ * target's own zone (an attack farther than that pairs with nothing). Cycles of one plan
+ * chained end to end then tile time: each captures `[start - lead, end - lead)`. Zero when the
+ * plan does not loop (its `handover` is not its length) or has no target.
+ */
+export function captureLeadIn(plan: RoundPlan, map: TempoMap, startPosition: Fraction): number {
+	if (!plan.handover || !plan.handover.equals(plan.length)) return 0;
+	const list = targets(plan);
+	if (list.length === 0) return 0;
+	const firstZone = timeExpectations(plan, map, startPosition)[0].zoneS;
+	const limit = Math.min(
+		secondsOf(map, startPosition, MATCH_LIMIT),
+		secondsOf(map, startPosition, Fraction.ZERO.sub(MATCH_LIMIT))
+	);
+	const lastTime = map.toSeconds(startPosition.add(list[list.length - 1].e.at));
+	const nextFirstTime = map.toSeconds(startPosition.add(plan.length).add(list[0].e.at));
+	return Math.max(0, Math.min(limit, (nextFirstTime - lastTime) / 2, firstZone));
 }
 
 interface Attack {
@@ -241,10 +271,13 @@ function shifted(
 	byS: number,
 	context: AlignContext
 ): { playable: TimedExpectation[]; dropped: number[] } {
+	const lead = context.leadInS ?? 0;
 	const moved = expectations
 		.filter((e) => e.bar >= bar)
 		.map((e) => ({ ...e, time: e.time + byS }))
-		.filter((e) => e.time >= context.startS - EPSILON && e.time < context.endS - EPSILON);
+		.filter(
+			(e) => e.time >= context.startS - lead - EPSILON && e.time < context.endS - lead - EPSILON
+		);
 	const first = moved[0]?.time ?? Infinity;
 	const kept = expectations.filter((e) => e.bar < bar && e.time < first - EPSILON);
 	const playable = [...kept, ...moved];

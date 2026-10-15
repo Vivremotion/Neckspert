@@ -12,6 +12,7 @@ import { createTempoMap } from '../tempoMap';
 import {
 	alignAttacks,
 	alignContext,
+	captureLeadIn,
 	MATCH_LIMIT,
 	type AlignContext,
 	SHIFT_MIN_MATCHES,
@@ -123,6 +124,36 @@ describe('alignContext', () => {
 		expect(context.subdivisionS).toBeCloseTo(0.3);
 		expect(context.startS).toBeCloseTo(2.4);
 		expect(context.endS).toBeCloseTo(2.4 + 4.8);
+	});
+});
+
+describe('captureLeadIn', () => {
+	it('is the zone before the first target of a looping plan, at most MATCH_LIMIT', () => {
+		const plan = cycle('10101010', 1, { ms: 120 });
+		expect(captureLeadIn(plan, map100, of(1))).toBeCloseTo(0.15);
+		expect(alignContext(plan, map100, of(1)).leadInS).toBeCloseTo(0.15);
+	});
+
+	it('is half the gap from the last target to the first of the next loop when that is shorter', () => {
+		const plan = cycle('1000000000000001', 1, { ms: 120 }, of(1, 16));
+		expect(captureLeadIn(plan, map100, of(1))).toBeCloseTo(0.075);
+	});
+
+	it('is nil for a plan that does not loop and for a plan without target', () => {
+		const plan = cycle('10101010', 1, { ms: 120 });
+		expect(captureLeadIn({ ...plan, handover: undefined }, map100, of(1))).toBe(0);
+		expect(captureLeadIn({ ...plan, expectations: [] }, map100, of(1))).toBe(0);
+	});
+
+	it('lets an attack before the first target pair with it', () => {
+		const plan = cycle('10101010', 1, { ms: 120 });
+		const timed = timeExpectations(plan, map100, of(1));
+		const attacks = timed.map((e) => e.time);
+		attacks[0] -= 0.02;
+		const alignment = alignAttacks(timed, attacks, alignContext(plan, map100, of(1)));
+		expect(alignment.pairs).toHaveLength(4);
+		expect(alignment.extra).toEqual([]);
+		expect(alignment.pairs[0].offsetMs).toBeCloseTo(-20);
 	});
 });
 
