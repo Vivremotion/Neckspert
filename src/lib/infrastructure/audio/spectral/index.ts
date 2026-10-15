@@ -1,4 +1,4 @@
-export { magnitudeSpectrum } from './fft';
+export { magnitudeSpectrum, magnitudeSpectrumInto, type FftScratch } from './fft';
 export {
 	createSemitoneFilterbank,
 	type SemitoneFilterbank,
