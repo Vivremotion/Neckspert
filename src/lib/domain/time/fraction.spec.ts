@@ -42,6 +42,15 @@ describe('Fraction', () => {
 		expect(() => of(1, Number.MAX_SAFE_INTEGER).mul(of(1, 2))).toThrow(RangeError);
 	});
 
+	it('raises RangeError when unsafe terms would cancel into a small result', () => {
+		// Both cross terms are about 1.15e18, far beyond 2^53; they round, then cancel.
+		const a = of(1_100_000_000_001, 1_048_573);
+		const b = of(1_100_000_000_000, 1_048_571);
+		expect(() => a.sub(b)).toThrow(RangeError);
+		expect(() => a.add(of(-1_100_000_000_000, 1_048_571))).toThrow(RangeError);
+		expect(() => b.sub(a)).toThrow(RangeError);
+	});
+
 	it('compares and sorts', () => {
 		expect(of(1, 4).compare(of(3, 8))).toBe(-1);
 		expect(of(1, 2).compare(of(2, 4))).toBe(0);

@@ -42,7 +42,10 @@ export class Fraction {
 		return new Fraction(safe((sign * n) / g, 'numerator'), Math.abs(d) / g);
 	}
 
-	/** Reads `"3/8"`, `"2"` or `"-1/4"`; throws on anything else. */
+	/**
+	 * Reads `"3/8"`, `"2"` or `"-1/4"`; throws on anything else. Only the canonical
+	 * `toString` shape is accepted (no negative denominator, whitespace, `+` or decimals).
+	 */
 	static parse(text: string): Fraction {
 		const match = TEXT.exec(text);
 		if (!match) throw new SyntaxError(`not a fraction: "${text}"`);
@@ -51,7 +54,11 @@ export class Fraction {
 
 	add(o: Fraction): Fraction {
 		const g = gcd(this.d, o.d);
-		return Fraction.of(this.n * (o.d / g) + o.n * (this.d / g), (this.d / g) * o.d);
+		// Each term is checked on its own: unsafe terms of opposite signs could round and
+		// cancel into a small, safe, but wrong numerator.
+		const left = safe(this.n * (o.d / g), 'numerator term');
+		const right = safe(o.n * (this.d / g), 'numerator term');
+		return Fraction.of(left + right, (this.d / g) * o.d);
 	}
 
 	sub(o: Fraction): Fraction {
