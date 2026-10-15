@@ -17,6 +17,7 @@ import {
 	FakeNoteDetector,
 	FakeSoundCues,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryLevelStateRepository,
 	InMemoryCardStateRepository,
@@ -69,6 +70,7 @@ async function setup(cards: CardState[]) {
 	const services = createAppServices({
 		...deps,
 		sounds: new FakeSoundScheduler(clock),
+		takes: new FakeTakeBuffer(),
 		levels: new InMemoryLevelStateRepository(),
 		backup: new FakeBackup(),
 		calibration: new FakeCalibration(),

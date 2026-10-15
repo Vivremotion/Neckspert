@@ -36,7 +36,8 @@ import type {
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
 	SoundCuePort,
-	SoundSchedulerPort
+	SoundSchedulerPort,
+	TakeBufferPort
 } from '$lib/application/ports';
 import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
@@ -112,6 +113,52 @@ export class FakeSoundScheduler implements SoundSchedulerPort {
 			this.wakeUps = this.wakeUps.filter((w) => w !== done);
 			done.callback();
 		}
+	}
+}
+
+export class FakeTakeBuffer implements TakeBufferPort {
+	/** Every `keepFrom` and `keepUntil`, in order. */
+	readonly kept: { method: 'keepFrom' | 'keepUntil'; time: number }[] = [];
+	readonly plays: {
+		from: number;
+		to: number;
+		sounds: readonly ScheduledSound[];
+		latencyS: number;
+	}[] = [];
+	stops = 0;
+	/** When true, a `play` resolves only on `release()` or `stop()`; else at once. */
+	hold = false;
+	private pending: (() => void) | null = null;
+
+	keepFrom(fromTime: number): void {
+		this.kept.push({ method: 'keepFrom', time: fromTime });
+	}
+
+	keepUntil(toTime: number): void {
+		this.kept.push({ method: 'keepUntil', time: toTime });
+	}
+
+	play(
+		from: number,
+		to: number,
+		sounds: readonly ScheduledSound[],
+		latencyS: number
+	): Promise<void> {
+		this.plays.push({ from, to, sounds: [...sounds], latencyS });
+		if (!this.hold) return Promise.resolve();
+		return new Promise((resolve) => (this.pending = resolve));
+	}
+
+	/** Ends the take under way, as if it had played to its end. */
+	release(): void {
+		const pending = this.pending;
+		this.pending = null;
+		pending?.();
+	}
+
+	stop(): void {
+		this.stops++;
+		this.release();
 	}
 }
 

@@ -15,6 +15,7 @@ import {
 	FakeNoteDetector,
 	FakeSoundCues,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryLevelStateRepository,
 	InMemoryCardStateRepository,
@@ -54,6 +55,7 @@ function harness() {
 	const services: AppServices = createAppServices({
 		...deps,
 		sounds: new FakeSoundScheduler(clock),
+		takes: new FakeTakeBuffer(),
 		levels: new InMemoryLevelStateRepository(),
 		backup: {} as BackupPort,
 		calibration: {} as CalibrationPort,

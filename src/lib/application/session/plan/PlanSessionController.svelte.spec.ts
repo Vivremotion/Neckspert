@@ -22,6 +22,7 @@ import {
 	FakeNoteDetector,
 	FakeSoundCues,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
@@ -80,6 +81,7 @@ async function setup(
 	const settings = new InMemorySettingsRepository();
 	const sessions = new InMemorySessionRepository();
 	const detector = new FakeNoteDetector();
+	const takes = new FakeTakeBuffer();
 	if (options.met) await attempts.add(earlier(exercise.id));
 	await settings.update({
 		latency: options.latency ? { attack: options.latency } : {},
@@ -104,7 +106,8 @@ async function setup(
 		mechanics: {},
 		sensors: { attack: attackSensor(attacks) },
 		sounds,
-		levels
+		levels,
+		takes
 	};
 	const controller = new PlanSessionController({ id: 'series', exerciseId: exercise.id }, deps);
 	const player = new Player(controller, attacks, clock);
@@ -127,6 +130,7 @@ async function setup(
 		levels,
 		sessions,
 		detector,
+		takes,
 		controller,
 		player,
 		advance,
@@ -568,6 +572,128 @@ describe('PlanSessionController, latency', () => {
 		expect(first.success).toBe(false);
 		expect(first.verdict.value).toEqual({ passed: false, reasons: ['precision'] });
 		controller.quit();
+	});
+});
+
+describe('PlanSessionController, hearing the last run again', () => {
+	const SILENT_BAR_S = 3; // ♩ = 80 bpm
+
+	it('replays the run from the breath with the click on every beat, the silent bars included, then counts in', async () => {
+		const { controller, takes, sounds, clock, advance } = await setup(RHYTHM_SILENT_BARS, {
+			met: true
+		});
+		await controller.start();
+		// listen-in 0-1, count 2, entry 3-5, cycles 6-9, 10-13, 14-17, 18-21 (bars 6, 10, 14, 18
+		// silent), the breath from bar 22
+		await advance(ORIGIN + 22.3 * SILENT_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		const runFrom = ORIGIN + 3 * SILENT_BAR_S;
+		const runTo = ORIGIN + 22 * SILENT_BAR_S;
+		expect(takes.kept[0].method).toBe('keepFrom');
+		expect(takes.kept[0].time).toBeCloseTo(runFrom, 9);
+		const until = takes.kept.find((k) => k.method === 'keepUntil');
+		expect(until?.time).toBeCloseTo(runTo, 9);
+		await controller.replay();
+		expect(takes.plays).toHaveLength(1);
+		const [take] = takes.plays;
+		expect(take.from).toBeCloseTo(runFrom, 9);
+		expect(take.to).toBeCloseTo(runTo, 9);
+		expect(take.latencyS).toBe(0);
+		// Every beat of the 19 bars clicked, the accent on 1, the muted bars as the others.
+		expect(take.sounds).toHaveLength(19 * 4);
+		take.sounds.forEach((sound, i) => {
+			expect(sound.time).toBeCloseTo(runFrom + i * 0.75, 9);
+			expect(sound.sound).toBe(i % 4 === 0 ? 'click-accent' : 'click');
+		});
+		// Then on as after a pause: the listen-in and a counted bar, from now.
+		expect(controller.view.status).toBe('count-in');
+		expect(stageOf(controller).phase).toBe('listen-in');
+		const resumedAt = clock.now() + ORIGIN;
+		expect(sounds.emitted()[0].time).toBeCloseTo(resumedAt, 9);
+		await advance(resumedAt + 2.1 * SILENT_BAR_S, false);
+		expect(controller.view.countdown).toBe(4);
+		controller.quit();
+	});
+
+	it('replays from the pause what was played, shifted by the calibrated latency', async () => {
+		const { controller, takes, sounds, clock, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			latency: { ms: 30, provenance: 'system' }
+		});
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		const runFrom = ORIGIN + 3 * OFFBEATS_BAR_S;
+		const pausedAt = clock.now();
+		const heard = sounds.emitted().filter((s) => s.time >= runFrom && s.time < pausedAt);
+		controller.pause();
+		expect(takes.kept.at(-1)).toEqual({ method: 'keepUntil', time: pausedAt });
+		await controller.replay();
+		expect(takes.plays).toHaveLength(1);
+		const [take] = takes.plays;
+		expect(take.from).toBeCloseTo(runFrom, 9);
+		expect(take.to).toBe(pausedAt);
+		expect(take.latencyS).toBeCloseTo(0.03, 9);
+		expect(heard.length).toBeGreaterThan(0);
+		expect(take.sounds).toEqual(heard);
+		expect(controller.view.status).toBe('count-in');
+		controller.quit();
+	});
+
+	it('does nothing while a cycle is played, nor before a run was played', async () => {
+		const { controller, takes, clock, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
+		controller.pause();
+		await controller.replay();
+		expect(takes.plays).toEqual([]);
+		expect(controller.view.status).toBe('paused');
+		controller.resume();
+		await settled();
+		// A cycle of the run that follows the listen-in and the counted bar.
+		await advance(clock.now() + 4.5 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('play');
+		await controller.replay();
+		expect(takes.plays).toEqual([]);
+		expect(controller.view.status).toBe('awaiting');
+		controller.quit();
+	});
+
+	it('stops the replay on resume, and counts in once', async () => {
+		const { controller, takes, clock, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		controller.pause();
+		takes.hold = true;
+		let begins = 0;
+		clock.settle = async () => {
+			begins++;
+		};
+		const replaying = controller.replay();
+		await settled();
+		expect(takes.plays).toHaveLength(1);
+		expect(controller.view.status).toBe('paused');
+		controller.resume();
+		expect(takes.stops).toBeGreaterThan(0);
+		await replaying;
+		await settled();
+		expect(controller.view.status).toBe('count-in');
+		expect(begins).toBe(1);
+		controller.quit();
+	});
+
+	it('stops the replay on quit', async () => {
+		const { controller, takes, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		controller.pause();
+		takes.hold = true;
+		const replaying = controller.replay();
+		await settled();
+		controller.quit();
+		await replaying;
+		await settled();
+		expect(takes.stops).toBeGreaterThan(0);
+		expect(controller.view.status).toBe('finished');
 	});
 });
 

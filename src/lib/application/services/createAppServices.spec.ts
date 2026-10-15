@@ -19,6 +19,7 @@ import {
 	FakeNoteDetector,
 	FakeSoundCues,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
@@ -81,6 +82,7 @@ function harness(): {
 		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
 		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
 		sounds: new FakeSoundScheduler(clock),
+		takes: new FakeTakeBuffer(),
 		levels: new InMemoryLevelStateRepository()
 	};
 	const services = createAppServices({

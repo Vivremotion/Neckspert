@@ -9,12 +9,14 @@ import {
 	compileCyclePlan,
 	levelRange,
 	nextLevelState,
+	renderSounds,
 	type CycleReport,
 	type CycleVerdict,
 	type Figure,
 	type LevelParams,
 	type LevelState,
-	type Meter
+	type Meter,
+	type ScheduledSound
 } from '$lib/domain/time';
 import { DEFAULT_SETTINGS, type PlannedItem, type Settings } from '$lib/domain/types';
 import { openAudioInput } from '../audioInput';
@@ -64,6 +66,17 @@ interface Run {
 	settled: SettledCycle[];
 	/** The figure of the last cycle laid out: the one the breath shows as played. */
 	lastFigure: Figure;
+}
+
+/** The input of the last run kept by the take buffer, and the sounds to put back over it. */
+interface Take {
+	run: Run;
+	/** Audio time of the run's first bar. */
+	from: number;
+	/** Audio time the run ended (its breath, or a pause); null while it goes on. */
+	to: number | null;
+	/** What the run made sound, and the click of its muted bars, in time order. */
+	sounds: ScheduledSound[];
 }
 
 /** A cycle on the transport: played (judged by its round) or heard (no round, no attempt). */
@@ -155,6 +168,8 @@ export class PlanSessionController implements PlaySessionController {
 	private ending = false;
 	private shown: { bar: number; beat: number } | null = null;
 	private stopObservations: (() => void) | null = null;
+	/** The last run, to be heard again from its breath or a pause (`replay`). */
+	private take: Take | null = null;
 	private readonly writes = new Set<Promise<unknown>>();
 	private levelWrite: Promise<void> = Promise.resolve();
 
@@ -248,8 +263,33 @@ export class PlanSessionController implements PlaySessionController {
 
 	resume(): void {
 		if (this.view.status !== 'paused') return;
+		void this.resumeRun();
+	}
+
+	/**
+	 * « Réécouter », from the breath or the pause: the last run as the input heard it, with the
+	 * click put back, over the muted bars too; then on as after a pause. Does nothing elsewhere,
+	 * or before a run was played.
+	 */
+	async replay(): Promise<void> {
+		const take = this.take;
+		if (!take || take.to === null) return;
+		if (this.view.status !== 'paused') {
+			if (!this.inBreath()) return;
+			this.pause();
+		}
+		const { from, to, sounds } = take;
+		if (to === null) return;
 		const generation = ++this.generation;
-		void this.beginRun(generation, false);
+		const latencyS = (this.latency()?.ms ?? 0) / 1000;
+		try {
+			await this.deps.takes.play(from, to, sounds, latencyS);
+		} catch (error) {
+			// Not heard again, but play goes on as after a pause.
+			console.warn('The last run could not be played again', error);
+		}
+		if (this.generation !== generation || this.view.status !== 'paused') return;
+		await this.resumeRun();
 	}
 
 	listen(): void {
@@ -267,6 +307,7 @@ export class PlanSessionController implements PlaySessionController {
 		if (this.view.status === 'finished') return;
 		this.generation++;
 		this.starting = false;
+		this.deps.takes.stop();
 		this.stopPlaying();
 		void this.finish();
 	}
@@ -304,6 +345,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.prepared = false;
 		this.playedInSeries = 0;
 		this.listened = false;
+		this.take = null;
 		this.view.stage = null;
 		this.view.countdown = null;
 	}
@@ -341,6 +383,7 @@ export class PlanSessionController implements PlaySessionController {
 		run.playFrom = playFrom;
 		run.lastFigure = first.figure;
 		this.run = run;
+		this.keepInputOf(run);
 		for (let bar = 0; bar < playFrom; bar++) {
 			const heard = bar >= LISTEN_IN_BARS && bar < LISTEN_IN_BARS + demoBars;
 			this.bars.set(bar, {
@@ -350,6 +393,13 @@ export class PlanSessionController implements PlaySessionController {
 		}
 		this.prepareBar(0);
 		this.show(0, 0);
+	}
+
+	/** On again after a pause or a replay: the listen-in and a counted bar. */
+	private resumeRun(): Promise<void> {
+		const generation = ++this.generation;
+		this.deps.takes.stop();
+		return this.beginRun(generation, false);
 	}
 
 	private newRun(playFrom: number): Run {
@@ -400,6 +450,8 @@ export class PlanSessionController implements PlaySessionController {
 	private onBeat(bar: number, beat: number): void {
 		if (this.view.status !== 'count-in' && this.view.status !== 'awaiting') return;
 		if (beat === 0) {
+			// Before the next bar is laid out: a run of one bar has its breath laid out there.
+			this.openTake(bar);
 			this.prepareBar(bar + 1);
 			this.enterBar(bar);
 		}
@@ -473,6 +525,7 @@ export class PlanSessionController implements PlaySessionController {
 			// and the last cycle settles at `from + SETTLE_AFTER_BARS`: this needs a breath of at
 			// least 2 bars, which every catalog exercise gives (pinned by a catalog test).
 			const { from, to } = this.transport.breath(bar);
+			this.closeTake(this.timeOfBar(from));
 			for (let b = from; b < to; b++) this.bars.set(b, this.idleBar(run, run.lastFigure, 'breath'));
 			this.run = null;
 			return this.bars.get(bar) ?? null;
@@ -493,9 +546,13 @@ export class PlanSessionController implements PlaySessionController {
 		const segments = this.transport.map.segments;
 		const tempo = segments[segments.length - 1];
 		const next = run.params.tempo;
-		if (next.bpm === tempo.bpm && next.unit.equals(tempo.unit)) return true;
+		if (next.bpm === tempo.bpm && next.unit.equals(tempo.unit)) {
+			this.keepInputOf(run);
+			return true;
+		}
 		const { playFrom } = this.transport.changeTempo(bar, next, unmuted(run.params.accompaniment));
 		run.playFrom = playFrom;
+		this.keepInputOf(run);
 		for (let b = bar; b < playFrom; b++) {
 			this.bars.set(
 				b,
@@ -656,6 +713,8 @@ export class PlanSessionController implements PlaySessionController {
 	 * way is dropped without an attempt.
 	 */
 	private stopPlaying(): void {
+		// Before the transport stops: stopping empties the journal of the sounds.
+		if (this.begun) this.closeTake(this.deps.clock.now());
 		this.transport.stop();
 		this.ending = false;
 		const now = this.deps.clock.now();
@@ -690,6 +749,58 @@ export class PlanSessionController implements PlaySessionController {
 		const ended = this.sessionRecord(this.deps.now());
 		while (this.writes.size > 0) await Promise.allSettled([...this.writes]);
 		await this.deps.sessions.put(ended);
+	}
+
+	// Take ---------------------------------------------------------------------------------
+
+	/** The input is kept from the run's first bar on, a bar or more ahead of it. */
+	private keepInputOf(run: Run): void {
+		this.deps.takes.keepFrom(this.timeOfBar(run.playFrom));
+	}
+
+	/** The run whose first bar `bar` is becomes the take, the last one forgotten. */
+	private openTake(bar: number): void {
+		const run = this.bars.get(bar)?.run;
+		if (!run || run.playFrom !== bar || this.take?.run === run) return;
+		this.take = { run, from: this.timeOfBar(bar), to: null, sounds: [] };
+	}
+
+	/**
+	 * Ends the take at `to` (its breath, or a pause), with the sounds the run made and the click
+	 * of its muted bars; a pause before its breath cuts a take already ended short.
+	 */
+	private closeTake(to: number): void {
+		const take = this.take;
+		if (!take) return;
+		if (take.to !== null) {
+			if (to >= take.to) return;
+			take.to = to;
+			take.sounds = take.sounds.filter((sound) => sound.time < to);
+			this.deps.takes.keepUntil(to);
+			return;
+		}
+		const { run, from } = take;
+		const heard = this.deps.sounds.emitted().filter((s) => s.time >= from && s.time < to);
+		const { accompaniment } = run.params;
+		const n = accompaniment.bars.length;
+		const muted: ScheduledSound[] = [];
+		for (let bar = run.playFrom; this.timeOfBar(bar) < to; bar++) {
+			if (accompaniment.bars[(bar - run.playFrom) % n] !== 'off') continue;
+			const clicks = renderSounds(unmuted(accompaniment), this.transport.map, bar, bar + 1);
+			muted.push(...clicks.filter((sound) => sound.time < to));
+		}
+		take.to = to;
+		take.sounds = [...heard, ...muted].sort((a, b) => a.time - b.time);
+		this.deps.takes.keepUntil(to);
+	}
+
+	private inBreath(): boolean {
+		if (this.view.status !== 'awaiting' || !this.shown) return false;
+		return this.bars.get(this.shown.bar)?.phase === 'breath';
+	}
+
+	private timeOfBar(bar: number): number {
+		return this.transport.map.toSeconds(Fraction.of(bar).mul(barLength(this.meter)));
 	}
 
 	// Screen -------------------------------------------------------------------------------

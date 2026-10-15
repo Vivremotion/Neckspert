@@ -7,7 +7,7 @@ import { WebAudioCues } from '$lib/infrastructure/audio/cues';
 import { CalibrationService } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
 import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
-import { WebAudioInput } from '$lib/infrastructure/audio/input';
+import { TakeBuffer, WebAudioInput } from '$lib/infrastructure/audio/input';
 import { WebAudioSoundScheduler } from '$lib/infrastructure/audio/sounds';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 import { buildDiagnosticArchive } from '$lib/infrastructure/diagnostics';
@@ -62,6 +62,8 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const detector = new WebAudioNoteDetector(context, { input });
 	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
 	const attacks = new WebAudioAttackDetector(input, { diagnostics: journal });
+	// The input of the last run of a rhythm exercise, kept in memory to be heard again.
+	const takes = new TakeBuffer(input, context);
 	// The attack detector runs in the shadow of the note detector, both journaled for comparison.
 	shadowAttacks(journal, detector, attacks);
 
@@ -83,6 +85,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		progressions,
 		levels,
 		sounds,
+		takes,
 		settings,
 		backup,
 		calibration,
