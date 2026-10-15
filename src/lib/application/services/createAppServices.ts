@@ -1,7 +1,8 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import type { SessionDeps } from '$lib/application/session/SessionDeps';
+import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
+import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
@@ -39,7 +40,7 @@ import {
 } from '$lib/domain/types';
 
 export function createAppServices(
-	deps: SessionDeps & {
+	deps: PlanSessionDeps & {
 		backup: BackupPort;
 		calibration: CalibrationPort;
 		diagnostics: DiagnosticsService;
@@ -208,6 +209,10 @@ export function createAppServices(
 				return { selector, executions };
 			};
 			return new SessionController({ id: deps.newId(), kind }, prepare, deps);
+		},
+
+		async startExercise(exerciseId) {
+			return new PlanSessionController({ id: deps.newId(), exerciseId }, deps);
 		}
 	};
 }

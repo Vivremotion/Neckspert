@@ -87,6 +87,7 @@ describe('createApp', () => {
 		expect(typeof services.sessionSummary).toBe('function');
 		expect(typeof services.neckMap).toBe('function');
 		expect(typeof services.startSession).toBe('function');
+		expect(typeof services.startExercise).toBe('function');
 
 		const settings = await services.settings.get();
 		expect(settings.locale).toBe('fr');

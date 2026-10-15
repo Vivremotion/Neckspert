@@ -8,6 +8,7 @@ import { CalibrationService } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
 import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 import { WebAudioInput } from '$lib/infrastructure/audio/input';
+import { WebAudioSoundScheduler } from '$lib/infrastructure/audio/sounds';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 import { buildDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 import {
@@ -15,6 +16,7 @@ import {
 	DexieAttemptRepository,
 	DexieBackup,
 	DexieCardStateRepository,
+	DexieLevelStateRepository,
 	DexieProgressionRepository,
 	DexieSessionRepository,
 	DexieSettingsRepository
@@ -42,6 +44,8 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	const metronome = new WebAudioMetronome(context);
+	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).
+	const sounds = new WebAudioSoundScheduler(context);
 	const cues = new WebAudioCues(context);
 
 	const db = createDatabase(options.databaseName);
@@ -49,6 +53,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const cards = new DexieCardStateRepository(db);
 	const sessions = new DexieSessionRepository(db);
 	const progressions = new DexieProgressionRepository(db);
+	const levels = new DexieLevelStateRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
 
@@ -76,6 +81,8 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		cards,
 		sessions,
 		progressions,
+		levels,
+		sounds,
 		settings,
 		backup,
 		calibration,

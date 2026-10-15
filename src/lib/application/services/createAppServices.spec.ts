@@ -7,7 +7,7 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
-import type { SessionDeps } from '$lib/application/session/SessionDeps';
+import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { BackupFile, CardState } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
@@ -18,8 +18,10 @@ import {
 	FakeMetronome,
 	FakeNoteDetector,
 	FakeSoundCues,
+	FakeSoundScheduler,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
+	InMemoryLevelStateRepository,
 	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
@@ -30,6 +32,7 @@ import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sen
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -47,7 +50,7 @@ class FakeCalibration implements CalibrationPort {
 
 function harness(): {
 	services: AppServices;
-	deps: SessionDeps & {
+	deps: PlanSessionDeps & {
 		clock: FakeClock;
 		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
@@ -58,7 +61,7 @@ function harness(): {
 	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
-	const deps: SessionDeps & {
+	const deps: PlanSessionDeps & {
 		clock: FakeClock;
 		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
@@ -76,7 +79,9 @@ function harness(): {
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
 		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
+		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
+		sounds: new FakeSoundScheduler(clock),
+		levels: new InMemoryLevelStateRepository()
 	};
 	const services = createAppServices({
 		...deps,
@@ -443,5 +448,22 @@ describe('the gesture track', () => {
 			{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
 			{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 80 }
 		]);
+	});
+});
+
+describe('the rhythm exercises', () => {
+	it('startExercise plays the asked exercise, its how-to told the first time', async () => {
+		const { services } = harness();
+		const controller = await services.startExercise('rhythm-offbeats');
+		await controller.ready?.();
+		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
+		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(typeof controller.listen).toBe('function');
+	});
+
+	it('startExercise refuses an exercise it does not know, or one without levels', async () => {
+		const { services } = harness();
+		await expect(services.startExercise('nope')).rejects.toThrow();
+		await expect(services.startExercise('locate-neck')).rejects.toThrow();
 	});
 });
