@@ -69,6 +69,7 @@ const SLOW: Level['params'] = { tempo: tempo(65), cursor: false, window: { ms: 5
 export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	id: 'rhythm-silent-bars',
 	version: 1,
+	title: { fr: 'Mesures silencieuses', en: 'Silent bars' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack' },
 	view: 'rhythm-figure',
@@ -124,6 +125,7 @@ const TWO_FOUR_BASE: LevelParams = {
 export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	id: 'rhythm-two-four',
 	version: 1,
+	title: { fr: 'Métronome sur 2 et 4', en: 'Click on 2 and 4' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack' },
 	view: 'rhythm-figure',
@@ -161,12 +163,13 @@ const OFFBEATS_BASE: LevelParams = {
 export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	id: 'rhythm-offbeats',
 	version: 1,
+	title: { fr: 'Contretemps', en: 'Offbeats' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack' },
 	view: 'rhythm-figure',
 	howTo: {
-		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, et rien sur le temps lui-même. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',
-		en: 'Play the offbeats: one attack on the “and” of each beat, and nothing on the beat itself. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1.'
+		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',
+		en: 'Play the offbeats: one attack on the “and” of each beat, plus the first beat of the bar. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1.'
 	},
 	base: OFFBEATS_BASE,
 	figures: [

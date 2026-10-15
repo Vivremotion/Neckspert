@@ -101,7 +101,13 @@ describe('the rhythm exercises', () => {
 			expect(exercise.params).toMatchObject({ sensor: 'attack' });
 			expect(exercise.howTo?.fr.length).toBeGreaterThan(20);
 			expect(exercise.howTo?.en.length).toBeGreaterThan(20);
+			expect(exercise.title?.fr.length).toBeGreaterThan(3);
+			expect(exercise.title?.en.length).toBeGreaterThan(3);
 		}
+		expect(RHYTHM_OFFBEATS.title).toEqual({ fr: 'Contretemps', en: 'Offbeats' });
+		// The offbeat figure attacks the first beat of the bar too: its how-to says so.
+		expect(RHYTHM_OFFBEATS.howTo?.fr).toContain('plus le premier temps de la mesure');
+		expect(RHYTHM_OFFBEATS.howTo?.en).toContain('plus the first beat of the bar');
 		expect(RHYTHM_SILENT_BARS.base?.cyclesPerBreath).toBe(4);
 		expect(RHYTHM_SILENT_BARS.base?.thresholds).toEqual({
 			regularity: 40,

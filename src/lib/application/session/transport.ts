@@ -55,18 +55,24 @@ export class Transport {
 	}
 
 	/**
-	 * Cancels any earlier run, waits for `clock.settle()`, then plays `LISTEN_IN_BARS` bars of
-	 * `accompaniment` and a counted bar. If `stop()` or another `begin()` comes while it waits,
-	 * nothing is scheduled and it rejects with `TransportStopped`. Rejects with a `RangeError`
-	 * when the accompaniment is not in `meter`.
+	 * Cancels any earlier run, waits for `clock.settle()`, then plays `listenInBars` bars of
+	 * `accompaniment` (`LISTEN_IN_BARS` by default: longer when a demonstration plays over them)
+	 * and a counted bar. If `stop()` or another `begin()` comes while it waits, nothing is
+	 * scheduled and it rejects with `TransportStopped`. Rejects with a `RangeError` when the
+	 * accompaniment is not in `meter` or the listen-in is not a whole number of bars.
 	 */
 	async begin(input: {
 		meter: Meter;
 		tempo: TempoSegment;
 		accompaniment: Accompaniment;
+		listenInBars?: number;
 	}): Promise<{ map: TempoMap; playFrom: number }> {
 		const { clock, sounds } = this.deps;
 		this.checkMeter(input.accompaniment, input.meter);
+		const listenInBars = input.listenInBars ?? LISTEN_IN_BARS;
+		if (!Number.isInteger(listenInBars) || listenInBars < 0) {
+			throw new RangeError(`listen-in must be a whole number of bars, got ${listenInBars}`);
+		}
 		const generation = ++this.generation;
 		sounds.cancelAll();
 		await clock.settle();
@@ -76,7 +82,10 @@ export class Transport {
 		this.scheduledUntilBar = 0;
 		const origin = clock.now() + START_DELAY_S;
 		this.tempoMap = createTempoMap(origin, [{ ...input.tempo, at: Fraction.ZERO }]);
-		return { map: this.tempoMap, playFrom: this.listenInAndCount(0, input.accompaniment) };
+		return {
+			map: this.tempoMap,
+			playFrom: this.listenInAndCount(0, input.accompaniment, listenInBars)
+		};
 	}
 
 	/** Schedules the accompaniment of bars [from, to) on the current map. */
@@ -177,9 +186,13 @@ export class Transport {
 	}
 
 	/** Listen-in bars from `fromBar`, then the counted bar. Returns the first bar to play. */
-	private listenInAndCount(fromBar: number, accompaniment: Accompaniment): number {
+	private listenInAndCount(
+		fromBar: number,
+		accompaniment: Accompaniment,
+		listenInBars = LISTEN_IN_BARS
+	): number {
 		const map = this.map;
-		const counted = fromBar + LISTEN_IN_BARS;
+		const counted = fromBar + listenInBars;
 		this.schedule(renderSounds(accompaniment, map, fromBar, counted));
 		this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
 		this.counted.add(counted);

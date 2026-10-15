@@ -74,6 +74,33 @@ describe('Transport.begin', () => {
 		expect(transport.map).toBe(map);
 	});
 
+	it('lengthens the listen-in when asked, the count after the last listen-in bar', async () => {
+		const { sounds, transport } = setup();
+		const { playFrom } = await transport.begin({
+			meter: METER_4_4,
+			tempo: tempo(100),
+			accompaniment: clicks,
+			listenInBars: LISTEN_IN_BARS + 2
+		});
+		expect(playFrom).toBe(LISTEN_IN_BARS + 2 + 1);
+		expect(transport.countdownAt(LISTEN_IN_BARS + 2)).toBe(4);
+		expect(transport.countdownAt(LISTEN_IN_BARS)).toBeNull();
+		// four listen-in bars of four clicks, then the counted bar
+		expect(sounds.emitted()).toHaveLength(5 * 4);
+	});
+
+	it('refuses a listen-in that is not a whole number of bars', async () => {
+		const { transport } = setup();
+		await expect(
+			transport.begin({
+				meter: METER_4_4,
+				tempo: tempo(100),
+				accompaniment: clicks,
+				listenInBars: -1
+			})
+		).rejects.toThrow(RangeError);
+	});
+
 	it('counts down 4, 3, 2, 1 over the counted bar and is null elsewhere', async () => {
 		const { transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });

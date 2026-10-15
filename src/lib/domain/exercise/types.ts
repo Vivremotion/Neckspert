@@ -21,6 +21,8 @@ export interface ExerciseDefinition {
 	 * comes first, else at a stop of its own. Data, in each language.
 	 */
 	howTo?: { fr: string; en: string };
+	/** Its name on screen, in each language, when it is shown by name (the rhythm exercises). */
+	title?: { fr: string; en: string };
 	/** Rhythm exercises: the levels (aid levels first) and the params they override. */
 	levels?: readonly Level[];
 	base?: LevelParams;
