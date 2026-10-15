@@ -94,9 +94,10 @@ export interface LevelState {
 /**
  * The state after one cycle. An aided cycle counts neither way (it only resets the run of
  * successes) and leaves the run of failures as it is. `aided` means played with an aid
- * other than the level's own (listen, play-along, cursor...): the caller passes
- * `aided: false` for a cycle whose only aid is that of an aid level, so that the player can
- * climb out of the aid levels. Going down stops at level 1: the aid levels are reached by
+ * the level itself does not give (listen, play-along, a cursor the level does not give...):
+ * the aids the level gives (its cursor, an aid level's aid) do not block, so the caller passes
+ * `aided: false` for a cycle whose only aid is its level's, and the player can climb out of
+ * the aid levels. Going down stops at level 1: the aid levels are reached by
  * the anti-blocking of a session, never by failing. At the floor (level 0 or an aid level)
  * failures keep counting, for that anti-blocking to read, and its owner resets them. A level
  * change starts both runs again.
