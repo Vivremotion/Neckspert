@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { fftSizeFor } from './constants';
+import { fftSizeFor } from '../chords/constants';
 import { magnitudeSpectrum } from './fft';
-import { binHz, hannWindow } from './spectrum';
+import { binHz, hannWindow } from '../chords/spectrum';
 
 describe('fftSizeFor', () => {
 	it('is the power of two nearest to the target window', () => {

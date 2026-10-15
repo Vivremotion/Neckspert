@@ -20,7 +20,7 @@ import {
 	fftSizeFor,
 	hopSizeFor
 } from './constants';
-import { magnitudeSpectrum } from './fft';
+import { magnitudeSpectrum } from '../spectral/fft';
 import { judgeWindow } from './judge';
 import { binHz, hannWindow, maxPool } from './spectrum';
 import { DEFAULT_VARIANT, type JudgeVariant } from './variants';
