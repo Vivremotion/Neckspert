@@ -148,6 +148,27 @@ describe('RhythmFigureView', () => {
 		expect(screen.getByText('+90')).toBeTruthy();
 	});
 
+	it('scales the marks by the tempo the run was played at, not the next run’s', async () => {
+		/** The left of the late mark, the run played at `playedBpm` and the next at 90. */
+		async function lateMarkLeft(playedBpm: number): Promise<number> {
+			const controller = running();
+			controller.view.tempoBpm = playedBpm;
+			render(RhythmFigureView, { props: { controller, model: breath() } });
+			await engraved(2);
+			const late = await vi.waitFor(() => {
+				const mark = screen.getAllByTestId('rhythm-mark').find((m) => m.dataset.kind === 'late');
+				if (!mark) throw new Error('no late mark yet');
+				return mark;
+			});
+			const left = Number.parseFloat(late.style.left);
+			cleanup();
+			return left;
+		}
+		const sameTempo = await lateMarkLeft(90);
+		// Played at half the tempo, a beat lasts twice as long: the same 90 ms is a smaller share.
+		expect(await lateMarkLeft(45)).toBeLessThan(sameTempo);
+	});
+
 	it('tells the cycle in plain words, the term as a label', () => {
 		render(RhythmFigureView, {
 			props: {

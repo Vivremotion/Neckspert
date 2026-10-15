@@ -138,7 +138,8 @@
 		if (!breathing || !layout || m.feedback === 'summary') return [];
 		const beats = beatPositions(figure.meter).length;
 		const beatWidth = layout.barWidth / beats;
-		const beatMs = 60000 / m.tempo.bpm;
+		// The model's tempo is the next run's at the breath; the frame's is the run played.
+		const beatMs = 60000 / (controller.view.tempoBpm || m.tempo.bpm);
 		const perCycle = m.settled.map((cycle) =>
 			cycleMarks(cycle.report, layout, m.feedback, beatWidth, beatMs)
 		);

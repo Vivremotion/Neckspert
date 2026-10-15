@@ -390,6 +390,8 @@ describe('PlanSessionController, a level at another tempo', () => {
 		const breath = stageOf(controller);
 		expect(breath).toMatchObject({ phase: 'breath', announcement: 'level-up' });
 		expect(breath.tempo).toEqual({ bpm: 120, unit: '♩' });
+		// The frame keeps the tempo the run was played at: the view scales its marks by it.
+		expect(controller.view.tempoBpm).toBe(100);
 		// The breath's last bar does not count down: a listen-in at the new tempo comes first.
 		expect(controller.view.countdown).toBeNull();
 		const changeAt = ORIGIN + 21 * TWO_FOUR_BAR_S;
