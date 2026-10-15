@@ -1,4 +1,4 @@
-import { magnitudeSpectrum } from '../spectral/fft';
+import { magnitudeSpectrumInto } from '../spectral/fft';
 import { createSemitoneFilterbank, type SemitoneFilterbank } from '../spectral/semitoneBands';
 import { DEFAULT_ATTACK_CONFIG, type AttackConfig } from './config';
 
@@ -60,6 +60,9 @@ export class AttackTracker {
 	private readonly hann: Float64Array;
 	private readonly gain: number;
 	private readonly frame: Float64Array;
+	/** Buffers of the analysis, reused by every frame. */
+	private readonly scratch: { re: Float64Array; im: Float64Array };
+	private readonly magnitudes: Float64Array;
 	private readonly reference: Float64Array;
 
 	private readonly history: Float32Array;
@@ -107,6 +110,8 @@ export class AttackTracker {
 		}
 		this.gain = REFERENCE_WINDOW_SUM / windowSum;
 		this.frame = new Float64Array(this.fftSize);
+		this.scratch = { re: new Float64Array(this.fftSize), im: new Float64Array(this.fftSize) };
+		this.magnitudes = new Float64Array(this.fftSize / 2);
 		this.reference = new Float64Array(this.bank.bands);
 
 		const historySize = 2 ** Math.ceil(Math.log2(this.fftSize + HISTORY_EXTRA_S * sampleRate));
@@ -170,7 +175,8 @@ export class AttackTracker {
 			energy += sample * sample;
 			this.frame[i] = sample * this.hann[i];
 		}
-		const magnitudes = magnitudeSpectrum(this.frame);
+		const magnitudes = this.magnitudes;
+		magnitudeSpectrumInto(this.frame, magnitudes, this.scratch);
 		for (let i = 0; i < magnitudes.length; i++) magnitudes[i] *= this.gain;
 		const t = this.frames;
 		const current = this.spectra[t % this.spectra.length];
@@ -241,7 +247,9 @@ export class AttackTracker {
 			oldest + REFINE_ORDER + rmsLength
 		);
 		const to = Math.min(this.received - 1, Math.round(end + REFINE_AFTER_MS * ms));
-		if (from > to) return coarse;
+		// Never before the window's start, which already keeps the minimum gap from the last onset.
+		const fallback = Math.max(coarse, from);
+		if (from > to) return fallback;
 		const fitStart = Math.max(oldest, from - Math.round(REFINE_BACKGROUND_MS * ms));
 
 		const length = to - fitStart + 1;
@@ -275,7 +283,7 @@ export class AttackTracker {
 			if (i - rmsLength >= 0) sum -= squared[i - rmsLength];
 			if (sum > limit) return fitStart + i;
 		}
-		return coarse;
+		return fallback;
 	}
 }
 

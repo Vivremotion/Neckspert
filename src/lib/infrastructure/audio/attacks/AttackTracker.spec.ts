@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MIN_ATTACK_GAP_MS } from './config';
 import { AttackTracker } from './AttackTracker';
 import { feed, glide, hum, mutedBurst, plucks, vibratoNote } from './testing/signals';
 
@@ -94,5 +95,24 @@ describe('AttackTracker', () => {
 			expect(a.strength).toBeGreaterThanOrEqual(0);
 			expect(a.strength).toBeLessThanOrEqual(1);
 		}
+	});
+});
+
+describe('AttackTracker refinement fallback', () => {
+	it('keeps the minimum gap from the previous attack when no sample crosses the threshold', () => {
+		const rate = 48000;
+		const perMs = rate / 1000;
+		// Reaches into the tracker: digital silence after an onset 20 ms before the peak frame's end
+		// finds no onset in the window, which opens only 25 ms after the last one.
+		const inner = new AttackTracker(rate) as unknown as {
+			received: number;
+			lastOnset: number;
+			refine(end: number): number;
+		};
+		const end = 20000;
+		inner.received = end + 4800;
+		inner.lastOnset = end - 20 * perMs;
+		const onset = inner.refine(end);
+		expect(onset - inner.lastOnset).toBeGreaterThanOrEqual(MIN_ATTACK_GAP_MS * perMs);
 	});
 });
