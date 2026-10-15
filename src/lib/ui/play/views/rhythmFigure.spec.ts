@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
 import {
 	attackPositions,
@@ -70,6 +70,10 @@ const entry = (
 	offsetMs: number | null
 ) => ({ index, verdict, offsetMs });
 
+/** The four expectations of `LAYOUT`, on time, with the entries given put in their place. */
+const played = (...entries: ReturnType<typeof entry>[]) =>
+	[0, 1, 2, 3].map((index) => entries.find((e) => e.index === index) ?? entry(index, 'on-time', 0));
+
 describe('markOffsetPx', () => {
 	it('draws a 5 ms offset at the minimal visible offset, on its side', () => {
 		expect(markOffsetPx(5, BEAT_PX, BEAT_MS)).toBe(MARK_MIN_OFFSET_PX);
@@ -92,13 +96,13 @@ describe('markOffsetPx', () => {
 describe('cycleMarks', () => {
 	it('puts a 5 ms late attack MARK_MIN_OFFSET_PX right of its note', () => {
 		const marks = cycleMarks(
-			report({ expectations: [entry(0, 'late', 5)] }),
+			report({ expectations: played(entry(0, 'late', 5)) }),
 			LAYOUT,
 			'every-cycle',
 			BEAT_PX,
 			BEAT_MS
 		);
-		expect(marks).toEqual([{ x: 60 + MARK_MIN_OFFSET_PX, line: 0, kind: 'late', label: '+5' }]);
+		expect(marks[0]).toEqual({ x: 60 + MARK_MIN_OFFSET_PX, line: 0, kind: 'late', label: '+5' });
 	});
 
 	it('gives every expectation its mark: early left with its figure, missed on the note', () => {
@@ -145,7 +149,7 @@ describe('cycleMarks', () => {
 
 	it('draws no mark in summary: the cycle is told passed or failed', () => {
 		const marks = cycleMarks(
-			report({ expectations: [entry(0, 'late', 90)] }),
+			report({ expectations: played(entry(0, 'late', 90)) }),
 			LAYOUT,
 			'summary',
 			BEAT_PX,
@@ -180,13 +184,28 @@ describe('cycleMarks', () => {
 	it('places a mark on the line its note was engraved on', () => {
 		const wrapped: FigureLayout = { ...LAYOUT, noteLine: [0, 0, 1, 1], lineY: [0, 90] };
 		const marks = cycleMarks(
-			report({ expectations: [entry(2, 'on-time', 0)] }),
+			report({ expectations: played() }),
 			wrapped,
 			'every-cycle',
 			BEAT_PX,
 			BEAT_MS
 		);
-		expect(marks[0]).toMatchObject({ x: 260, line: 1 });
+		expect(marks[2]).toMatchObject({ x: 260, line: 1 });
+	});
+
+	it('says in development when the cycle and the engraving do not match', () => {
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			cycleMarks(report(), LAYOUT, 'every-cycle', BEAT_PX, BEAT_MS);
+			expect(error).not.toHaveBeenCalled();
+			const eight = report({
+				expectations: Array.from({ length: 8 }, (_, i) => entry(i, 'on-time', 0))
+			});
+			cycleMarks(eight, LAYOUT, 'every-cycle', BEAT_PX, BEAT_MS);
+			expect(error).toHaveBeenCalledWith(expect.stringContaining('8 expectations'));
+		} finally {
+			error.mockRestore();
+		}
 	});
 });
 

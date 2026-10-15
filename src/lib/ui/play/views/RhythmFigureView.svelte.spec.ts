@@ -49,6 +49,10 @@ const REPORT: CycleReport = {
 	measures: { regularity: { value: 31, unit: 'ms' } },
 	latency: null
 };
+/** The same cycle with every note played. */
+const ALL_PLAYED: CycleReport['expectations'] = REPORT.expectations.map((e) =>
+	e.verdict === 'missed' ? { ...e, verdict: 'on-time', offsetMs: 0 } : e
+);
 const FAILED: SettledCycle = {
 	report: REPORT,
 	verdict: { passed: false, reasons: ['missed'] }
@@ -151,7 +155,7 @@ describe('RhythmFigureView', () => {
 				model: breath({
 					settled: [
 						{
-							report: { ...REPORT, expectations: REPORT.expectations.slice(0, 4) },
+							report: { ...REPORT, expectations: ALL_PLAYED },
 							verdict: { passed: false, reasons: ['regularity'] }
 						}
 					]
@@ -172,7 +176,7 @@ describe('RhythmFigureView', () => {
 						{
 							report: {
 								...REPORT,
-								expectations: REPORT.expectations.slice(0, 4),
+								expectations: ALL_PLAYED,
 								measures: {
 									regularity: { value: 45, unit: 'ms' },
 									holdOffset: { value: -20, unit: 'ms' }

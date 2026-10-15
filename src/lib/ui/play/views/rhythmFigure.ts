@@ -69,8 +69,15 @@ export function cycleMarks(
 	beatWidthPx: number,
 	beatMs: number
 ): Mark[] {
-	if (feedback === 'summary') return [];
 	const notes = layout.noteX.length;
+	if (import.meta.env.DEV && report.expectations.length !== notes) {
+		// Marks would land on the wrong notes: the cycle is not the figure engraved (a cycle
+		// starting inside a multi-bar figure, or another figure of the run).
+		console.error(
+			`rhythm marks: ${report.expectations.length} expectations over ${notes} engraved attacks`
+		);
+	}
+	if (feedback === 'summary') return [];
 	const marks: Mark[] = [];
 	if (notes > 0) {
 		for (const { index, verdict, offsetMs } of report.expectations) {
