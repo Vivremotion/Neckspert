@@ -1,6 +1,7 @@
 export { NeckspertDb, createDatabase } from './db';
 export { DexieAttemptRepository } from './DexieAttemptRepository';
 export { DexieCardStateRepository } from './DexieCardStateRepository';
+export { DexieLevelStateRepository } from './DexieLevelStateRepository';
 export { DexieProgressionRepository } from './DexieProgressionRepository';
 export { DexieSessionRepository } from './DexieSessionRepository';
 export { DexieSettingsRepository } from './DexieSettingsRepository';

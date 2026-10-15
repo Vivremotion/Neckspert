@@ -4,7 +4,7 @@ import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
 import { compileCyclePlan, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
-import { PlanRound, type Aid, type PlanObservation } from './round';
+import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 
 const of = Fraction.of;
 
@@ -64,6 +64,21 @@ const attack = (time: number): PlanObservation => ({
 function exactTimes(plan: RoundPlan): number[] {
 	return plan.expectations.map((e) => map.toSeconds(start.add(e.at)));
 }
+
+describe('AIDS', () => {
+	it('lists every aid once, the drawn fret first', () => {
+		const all: readonly Aid[] = AIDS;
+		expect(all).toEqual([
+			'show-position',
+			'string-aid',
+			'cursor',
+			'listen',
+			'play-along',
+			'aid-level'
+		]);
+		expect(new Set(all).size).toBe(all.length);
+	});
+});
 
 describe('PlanRound', () => {
 	it('spans the plan from its start to its start plus its length, in audio seconds', () => {

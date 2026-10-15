@@ -4,6 +4,7 @@ import {
 	type CardKey,
 	type CardState,
 	type ExerciseId,
+	type LevelState,
 	type Progression,
 	type RecordedObservation,
 	type SessionRecord,
@@ -18,6 +19,7 @@ import type {
 	AudioInputDevice,
 	BeatEvent,
 	CardStateRepositoryPort,
+	LevelStateRepositoryPort,
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
@@ -414,6 +416,28 @@ export class InMemoryProgressionRepository implements ProgressionRepositoryPort 
 
 	async all(): Promise<Progression[]> {
 		return [...this.progressions.values()].map((progression) => ({ ...progression }));
+	}
+}
+
+export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
+	/** By exercise, scope and item: `JSON.stringify([exerciseId, scope, item])`. */
+	private readonly states = new Map<string, LevelState>();
+
+	async get(key: {
+		exerciseId: string;
+		scope: string;
+		item: string;
+	}): Promise<LevelState | undefined> {
+		const stored = this.states.get(JSON.stringify([key.exerciseId, key.scope, key.item]));
+		return stored && { ...stored };
+	}
+
+	async put(state: LevelState): Promise<void> {
+		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+	}
+
+	async all(): Promise<LevelState[]> {
+		return [...this.states.values()].map((state) => ({ ...state }));
 	}
 }
 

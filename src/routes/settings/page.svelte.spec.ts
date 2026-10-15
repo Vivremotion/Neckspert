@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
-import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import { createFakeAppServices } from '$lib/ui/screens/calibration/fakeServices';
 import TestHarness from './TestHarness.svelte';
@@ -72,7 +71,13 @@ describe('/settings page', () => {
 					app: 'neckspert-play',
 					version: 1,
 					exportedAt: 9,
-					settings: { ...DEFAULT_SETTINGS, locale: 'en', tempoBpm: 100 },
+					settings: {
+						locale: 'en',
+						tempoBpm: 100,
+						calibrationOffsetMs: null,
+						inputDeviceId: null,
+						builtInInputGain: 8
+					},
 					cards: [],
 					attempts: [],
 					sessions: []

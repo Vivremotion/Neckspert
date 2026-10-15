@@ -26,13 +26,25 @@ export function settingsRepositoryContract(
 
 		it('keeps earlier updates', async () => {
 			await repo.update({ locale: 'en' });
-			await repo.update({ calibrationOffsetMs: 42, inputDeviceId: 'usb-1' });
+			await repo.update({ clickBleed: true, inputDeviceId: 'usb-1' });
 			expect(await repo.get()).toEqual({
 				...DEFAULT_SETTINGS,
 				locale: 'en',
-				calibrationOffsetMs: 42,
+				clickBleed: true,
 				inputDeviceId: 'usb-1'
 			});
+		});
+
+		it('keeps a latency per sensor with its provenance, replaced as a whole', async () => {
+			expect((await repo.get()).latency).toEqual({});
+			const latency = {
+				attack: { ms: 12, provenance: 'system' as const },
+				note: { ms: 40, provenance: 'system' as const }
+			};
+			await repo.update({ latency });
+			expect((await repo.get()).latency).toEqual(latency);
+			await repo.update({ latency: { note: { ms: 38, provenance: 'player' } } });
+			expect((await repo.get()).latency).toEqual({ note: { ms: 38, provenance: 'player' } });
 		});
 
 		it('keeps diagnostics.nativeRate, and reads it as absent when never set', async () => {
@@ -46,9 +58,9 @@ export function settingsRepositoryContract(
 		});
 
 		it('clears a field set back to null', async () => {
-			await repo.update({ calibrationOffsetMs: 42 });
-			await repo.update({ calibrationOffsetMs: null });
-			expect((await repo.get()).calibrationOffsetMs).toBeNull();
+			await repo.update({ inputDeviceId: 'usb-1' });
+			await repo.update({ inputDeviceId: null });
+			expect((await repo.get()).inputDeviceId).toBeNull();
 		});
 	});
 }

@@ -8,7 +8,8 @@
 		MIN_BUILT_IN_INPUT_GAIN,
 		clampBuiltInInputGain,
 		type ChordDiagramStyle,
-		type Locale
+		type Locale,
+		type Settings
 	} from '$lib/domain/types';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
@@ -21,7 +22,7 @@
 		inputs,
 		inputDeviceId,
 		builtInInputGain,
-		calibrationOffsetMs,
+		latency,
 		importError,
 		confirmingImport,
 		onlocale,
@@ -51,7 +52,8 @@
 		inputs: AudioInputDevice[];
 		inputDeviceId: string | null;
 		builtInInputGain: number;
-		calibrationOffsetMs: number | null;
+		/** The calibrated latency by sensor; the note sensor's is shown. */
+		latency: Settings['latency'];
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: Locale) => void;
@@ -197,7 +199,7 @@
 
 	<PixelBox variant="plain">
 		<p class="label"><PixelText scale={1}>{m.calibration}</PixelText></p>
-		<p><PixelText scale={1}>{m.offset(calibrationOffsetMs)}</PixelText></p>
+		<p><PixelText scale={1}>{m.offset(latency.note?.ms ?? null)}</PixelText></p>
 		<a class="calibration-link" href={resolve('/calibration')}>
 			<PixelText scale={2}>{m.calibrationLink}</PixelText>
 		</a>

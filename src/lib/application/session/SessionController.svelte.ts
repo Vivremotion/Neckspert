@@ -250,7 +250,8 @@ export class SessionController implements PlaySessionController {
 		this.locale = this.settings.locale;
 		// The stage shown before the settings were read speaks the player's language now.
 		if (this.pending) this.showStage(this.pending, null);
-		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
+		// The note sensor's latency serves every sensor of these rounds, as one offset did before.
+		this.latencyMs = this.settings.latency.note?.ms ?? 0;
 		logDetection('entrée audio', [
 			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
 			`tempo : ${this.tempoBpm} bpm`,

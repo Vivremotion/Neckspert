@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { AudioInputDevice } from '$lib/application/ports';
+import type { Settings } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import SettingsScreen from './SettingsScreen.svelte';
 
@@ -14,7 +15,7 @@ function renderScreen(
 		locale: 'fr' | 'en';
 		inputDeviceId: string | null;
 		builtInInputGain: number;
-		calibrationOffsetMs: number | null;
+		latency: Settings['latency'];
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: 'fr' | 'en') => void;
@@ -39,7 +40,7 @@ function renderScreen(
 		inputs: INPUTS,
 		inputDeviceId: 'usb' as string | null,
 		builtInInputGain: 8,
-		calibrationOffsetMs: 42 as number | null,
+		latency: { note: { ms: 42, provenance: 'player' } } as Settings['latency'],
 		importError: null as string | null,
 		confirmingImport: false,
 		onlocale: vi.fn(),
@@ -116,6 +117,14 @@ describe('SettingsScreen', () => {
 			'disabled',
 			true
 		);
+	});
+
+	it('shows the calibrated latency of the note sensor, or that there is none', () => {
+		renderScreen();
+		expect(screen.getByText('Offset : 42 ms')).toBeTruthy();
+		cleanup();
+		renderScreen({ latency: { chord: { ms: 30, provenance: 'player' } } });
+		expect(screen.getByText('Pas encore calibré')).toBeTruthy();
 	});
 
 	it('links to calibration and exports on click', async () => {

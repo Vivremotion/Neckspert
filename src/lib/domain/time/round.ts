@@ -14,8 +14,18 @@ import {
 /** The sensor a rhythm plan listens to when its expectations do not name one. */
 export const RHYTHM_SENSOR = 'attack';
 
+/** Every aid a round can give; `Aid` is read from it, so the two never part. */
+export const AIDS = [
+	'show-position',
+	'string-aid',
+	'cursor',
+	'listen',
+	'play-along',
+	'aid-level'
+] as const;
+
 /** What a round showed or played for the player: recorded with the outcome, so a result is read with its aids. */
-export type Aid = 'show-position' | 'string-aid' | 'cursor' | 'listen' | 'play-along' | 'aid-level';
+export type Aid = (typeof AIDS)[number];
 
 /**
  * A verdict the core carries without reading: the relation that judged it and the version of

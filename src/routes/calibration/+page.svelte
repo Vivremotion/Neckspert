@@ -72,8 +72,10 @@
 		outcome = result;
 		phase = 'done';
 		if (result.ok) {
+			// Measured on the player's attacks on the click: the latency of the note and chord sensors.
+			const played = { ms: result.offsetMs, provenance: 'player' } as const;
 			await services.settings.update({
-				calibrationOffsetMs: result.offsetMs,
+				latency: { ...(await services.settings.get()).latency, note: played, chord: played },
 				inputDeviceId: selectedDeviceId
 			});
 		}

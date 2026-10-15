@@ -15,6 +15,7 @@ export type {
 	AttemptRepositoryPort,
 	BackupPort,
 	CardStateRepositoryPort,
+	LevelStateRepositoryPort,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort

@@ -1,25 +1,24 @@
 import { MECHANIC_RULES, type MechanicRules } from '$lib/domain/mechanics';
+import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
+	LATENCY_PROVENANCES,
 	LEAD_STEPS,
 	MAX_BUILT_IN_INPUT_GAIN,
 	MIN_BUILT_IN_INPUT_GAIN,
 	RESPONSE_RELATIONS,
 	RESPONSE_VERDICTS,
 	cardKey,
-	isResponseSuccess,
 	parseCardKey,
-	type Aid,
-	type Attempt,
 	type BackupFile,
 	type ItemPhase,
 	type Locale,
-	type ResponseVerdict,
 	type SessionKind,
 	type Temperature
 } from '$lib/domain/types';
 import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
 import { fromV2 } from './legacy/v2';
+import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -59,14 +58,6 @@ const OBSERVATION_FATES: readonly string[] = [
 	'unreadable'
 ];
 const MECHANIC_IDS: readonly string[] = MECHANIC_RULES.map((rules) => rules.id);
-const AIDS: readonly Aid[] = [
-	'show-position',
-	'string-aid',
-	'cursor',
-	'listen',
-	'play-along',
-	'aid-level'
-];
 const VERDICT_PROBLEM = 'must be perfect, early, late, offbeat, corrected or wrong';
 
 function isFields(value: unknown): value is Fields {
@@ -116,11 +107,43 @@ function rulesOf(mechanic: unknown): MechanicRules | null {
 	return MECHANIC_RULES.find((rules) => rules.id === mechanic) ?? null;
 }
 
+/** Settings of versions 1 to 3: one calibrated offset. */
 function checkSettings(settings: Fields): string | null {
 	if (!isOneOf(settings.locale, LOCALES)) return 'locale must be "fr" or "en"';
 	if (!isNullableNumber(settings.calibrationOffsetMs)) {
 		return 'calibrationOffsetMs must be a number or null';
 	}
+	return checkCommonSettings(settings);
+}
+
+function checkLatency(latency: unknown): string | null {
+	if (!isFields(latency)) return 'latency must be an object';
+	for (const [sensor, value] of Object.entries(latency)) {
+		if (
+			!isFields(value) ||
+			!isFiniteNumber(value.ms) ||
+			!isOneOf(value.provenance, LATENCY_PROVENANCES)
+		) {
+			return `latency.${sensor} must be { ms, provenance: "system" or "player" }`;
+		}
+	}
+	return null;
+}
+
+/** Settings of version 4: a latency per sensor, the click bleed. */
+function checkSettingsV4(settings: Fields): string | null {
+	if (!isOneOf(settings.locale, LOCALES)) return 'locale must be "fr" or "en"';
+	if (Object.hasOwn(settings, 'calibrationOffsetMs')) {
+		return 'calibrationOffsetMs is replaced by latency';
+	}
+	const latencyProblem = checkLatency(settings.latency);
+	if (latencyProblem) return latencyProblem;
+	if (typeof settings.clickBleed !== 'boolean') return 'clickBleed must be true or false';
+	return checkCommonSettings(settings);
+}
+
+/** Every version: the input, the diagram style, the diagnostic journal. */
+function checkCommonSettings(settings: Fields): string | null {
 	if (settings.inputDeviceId !== null && typeof settings.inputDeviceId !== 'string') {
 		return 'inputDeviceId must be a string or null';
 	}
@@ -236,27 +259,6 @@ function checkAttemptFields(attempt: Fields): string | null {
 	if (outcome) return outcome;
 	if (!isNullableNumber(attempt.reactionMs)) return 'reactionMs must be a number or null';
 	return null;
-}
-
-/**
- * The target attempt of one stored before it, by the rule of the storage spec (2026-10-14,
- * section 9): success is right and not off the beat, the verdict is wrapped for the relation of
- * its mechanic, the planned aid becomes the aids (the drawn string was not stored). Until the
- * shared migration chain replaces it.
- */
-function toTargetAttempt(attempt: Fields): Fields {
-	if (!isBeforeTarget(attempt)) return attempt;
-	const { aid, ...rest } = attempt;
-	const verdict = attempt.verdict as ResponseVerdict;
-	const relation = (rulesOf(attempt.mechanic) as MechanicRules).timing.id;
-	const target: Pick<Attempt, 'success' | 'verdict' | 'aids' | 'measures' | 'plan'> = {
-		success: isResponseSuccess({ correct: attempt.correct as boolean, verdict }),
-		verdict: { relation, version: 1, value: verdict },
-		aids: aid === 'show-position' ? ['show-position'] : [],
-		measures: {},
-		plan: null
-	};
-	return { ...rest, ...target };
 }
 
 function checkAttemptHeader(attempt: Fields): string | null {
@@ -532,10 +534,10 @@ function checkSessionV3(session: Fields): string | null {
 }
 
 /**
- * Checks a version 3 file and returns it unchanged, or with its attempts stored before the
- * target model brought to it (`toTargetAttempt`).
+ * Checks a version 3 file and returns it unchanged. Its attempts may be stored before the target
+ * model or at it (the recorder wrote both before version 4).
  */
-export function validateBackupV3(file: unknown): BackupFile {
+export function validateBackupV3(file: unknown): Fields {
 	const backup = checkHeader(file, 3);
 	const settingsProblem = checkSettings(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
@@ -543,22 +545,59 @@ export function validateBackupV3(file: unknown): BackupFile {
 	checkEntries(backup.cards, 'cards', checkCard);
 	checkEntries(backup.attempts, 'attempts', checkAttemptV3);
 	checkEntries(backup.sessions, 'sessions', checkSessionV3);
-	const attempts = backup.attempts as Fields[];
-	if (!attempts.some(isBeforeTarget)) return backup as unknown as BackupFile;
-	return { ...backup, attempts: attempts.map(toTargetAttempt) } as unknown as BackupFile;
+	return backup;
+}
+
+// Version 4: the target model. Attempts carry their success and the verdict of their relation,
+// settings a latency per sensor; level states.
+
+function checkAttemptV4(attempt: Fields): string | null {
+	if (isBeforeTarget(attempt)) return 'verdict must be { relation, version, value }';
+	return checkAttemptV3(attempt);
+}
+
+function isNaturalNumber(value: unknown): boolean {
+	return Number.isInteger(value) && (value as number) >= 0;
+}
+
+function checkLevelState(state: Fields): string | null {
+	if (!isNonEmptyString(state.exerciseId)) return 'exerciseId must be a non-empty string';
+	if (typeof state.scope !== 'string') return 'scope must be a string (empty without one)';
+	if (typeof state.item !== 'string') return 'item must be a string (empty without one)';
+	if (!Number.isInteger(state.level)) return 'level must be an integer';
+	if (!isNaturalNumber(state.successes)) return 'successes must be a whole number';
+	if (!isNaturalNumber(state.failures)) return 'failures must be a whole number';
+	if (!isNullableNumber(state.resumeAfter)) return 'resumeAfter must be a number or null';
+	return null;
+}
+
+/** Checks a version 4 file and returns it unchanged. */
+export function validateBackupV4(file: unknown): BackupFile {
+	const backup = checkHeader(file, 4);
+	const settingsProblem = checkSettingsV4(backup.settings as Fields);
+	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
+	checkEntries(backup.progressions, 'progressions', checkProgression);
+	checkEntries(backup.cards, 'cards', checkCard);
+	checkEntries(backup.attempts, 'attempts', checkAttemptV4);
+	checkEntries(backup.sessions, 'sessions', checkSessionV3);
+	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
+	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 3, and versions 1 and 2 converted to it (`now` stamps the progression made
- * from a version 1 tempo). Throws a readable error on anything else.
+ * Accepts version 4, and versions 1 to 3 brought to it by the migration chain, the one the
+ * database upgrade runs (`now` stamps the progression made from a version 1 tempo). Throws a
+ * readable error on anything else.
  */
 export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
+	const toV4 = (v3: Fields) => validateBackupV4(backupV3ToV4(v3, relationOfMechanic));
 	if (file.version === 1) {
-		return validateBackupV3(fromV2(fromV1(validateBackupV1(file), now)));
+		return toV4(validateBackupV3(fromV2(fromV1(validateBackupV1(file), now))));
 	}
-	if (file.version === 2) return validateBackupV3(fromV2(validateBackupV2(file)));
-	if (file.version === 3) return validateBackupV3(file);
+	if (file.version === 2) return toV4(validateBackupV3(fromV2(validateBackupV2(file))));
+	if (file.version === 3) return toV4(validateBackupV3(file));
+	if (file.version === 4) return validateBackupV4(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

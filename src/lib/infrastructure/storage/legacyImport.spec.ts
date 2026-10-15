@@ -209,7 +209,15 @@ describe('importing an export of 2026-10-04', () => {
 		});
 
 		const settings = await new DexieSettingsRepository(db).get();
-		expect(settings).toMatchObject({ calibrationOffsetMs: 35, inputDeviceId: null });
+		expect(settings).toMatchObject({
+			latency: {
+				note: { ms: 35, provenance: 'player' },
+				chord: { ms: 35, provenance: 'player' }
+			},
+			clickBleed: false,
+			inputDeviceId: null
+		});
+		expect(settings).not.toHaveProperty('calibrationOffsetMs');
 		expect(settings).not.toHaveProperty('tempoBpm');
 		db.close();
 	});

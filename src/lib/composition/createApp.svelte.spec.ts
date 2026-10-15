@@ -92,7 +92,7 @@ describe('createApp', () => {
 		expect(settings.locale).toBe('fr');
 		expect(settings).not.toHaveProperty('tempoBpm');
 		expect(settings.inputDeviceId).toBeNull();
-		expect(settings.calibrationOffsetMs).toBeNull();
+		expect(settings.latency).toEqual({});
 
 		const stats = await services.homeStats();
 		expect(stats.dueCount).toBe(0);

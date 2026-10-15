@@ -244,8 +244,10 @@ describe('SessionController skeleton', () => {
 		expect(deps.detector.running).toBe(false);
 	});
 
-	it('stores the calibrated latency with the session', async () => {
-		await deps.settings.update({ calibrationOffsetMs: 42 });
+	it('stores the calibrated latency of the note sensor with the session', async () => {
+		await deps.settings.update({
+			latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
+		});
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
 		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
@@ -257,7 +259,7 @@ describe('SessionController skeleton', () => {
 	});
 
 	it('keeps its own latency when a new series starts before the session record is final', async () => {
-		await deps.settings.update({ calibrationOffsetMs: 42 });
+		await deps.settings.update({ latency: { note: { ms: 42, provenance: 'player' } } });
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
 		// The final record is read late: the new series is up before it is written.
@@ -269,7 +271,7 @@ describe('SessionController skeleton', () => {
 			return get(id);
 		};
 		controller.quit();
-		await deps.settings.update({ calibrationOffsetMs: 99 });
+		await deps.settings.update({ latency: { note: { ms: 99, provenance: 'player' } } });
 		await controller.start();
 		release();
 		await vi.waitFor(async () =>

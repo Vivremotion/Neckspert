@@ -27,7 +27,7 @@ describe('/calibration page', () => {
 		expect(services.detector.running).toBe(false);
 	});
 
-	it('saves offset and device id on a successful run', async () => {
+	it('saves the offset as the note and chord latency, played, and the device id on a successful run', async () => {
 		const services = createFakeAppServices();
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
 		services.calibration.nextOutcome = { ok: true, offsetMs: 42, spreadMs: 4 };
@@ -39,7 +39,10 @@ describe('/calibration page', () => {
 
 		await waitFor(async () => {
 			const settings = await services.settings.get();
-			expect(settings.calibrationOffsetMs).toBe(42);
+			expect(settings.latency).toEqual({
+				note: { ms: 42, provenance: 'player' },
+				chord: { ms: 42, provenance: 'player' }
+			});
 			expect(settings.inputDeviceId).toBe('usb');
 		});
 		expect(services.calibration.runCalls).toBe(1);

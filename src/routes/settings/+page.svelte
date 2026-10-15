@@ -8,7 +8,8 @@
 		resolveDiagnosticsEnabled,
 		type ChordDiagramStyle,
 		type DiagnosticsSettings,
-		type Locale
+		type Locale,
+		type Settings
 	} from '$lib/domain/types';
 	import { downloadDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 	import { downloadBackup, readBackupFile, validateBackup } from '$lib/infrastructure/storage';
@@ -21,7 +22,7 @@
 	let inputs = $state<AudioInputDevice[]>([]);
 	let inputDeviceId = $state<string | null>(null);
 	let builtInInputGain = $state(DEFAULT_BUILT_IN_INPUT_GAIN);
-	let calibrationOffsetMs = $state<number | null>(null);
+	let latency = $state<Settings['latency']>({});
 	let importError = $state<string | null>(null);
 	let confirmingImport = $state(false);
 	let pendingImport: unknown = null;
@@ -46,7 +47,7 @@
 		locale = settings.locale;
 		inputDeviceId = settings.inputDeviceId ?? devices[0]?.id ?? null;
 		builtInInputGain = clampBuiltInInputGain(settings.builtInInputGain);
-		calibrationOffsetMs = settings.calibrationOffsetMs;
+		latency = settings.latency;
 		diagnostics = settings.diagnostics;
 		chordDiagram = settings.chordDiagram;
 		inputs = devices;
@@ -185,7 +186,7 @@
 	{inputs}
 	{inputDeviceId}
 	{builtInInputGain}
-	{calibrationOffsetMs}
+	{latency}
 	{importError}
 	{confirmingImport}
 	{onlocale}

@@ -226,7 +226,7 @@ describe('in-memory repositories', () => {
 	it('merges settings over defaults', async () => {
 		const repo = new InMemorySettingsRepository();
 		expect((await repo.get()).locale).toBe('fr');
-		expect((await repo.update({ calibrationOffsetMs: 42 })).calibrationOffsetMs).toBe(42);
+		expect((await repo.update({ clickBleed: true })).clickBleed).toBe(true);
 		expect((await repo.get()).locale).toBe('fr');
 	});
 });

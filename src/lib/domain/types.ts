@@ -1,9 +1,18 @@
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
-import type { Aid, Measures, VerdictEnvelope } from './time';
+import type { Aid, LevelState, Measures, VerdictEnvelope } from './time';
 
-export type { Aid, Execution, ExerciseId, Measures, MechanicId, Progression, VerdictEnvelope };
+export type {
+	Aid,
+	Execution,
+	ExerciseId,
+	LevelState,
+	Measures,
+	MechanicId,
+	Progression,
+	VerdictEnvelope
+};
 
 export type Locale = 'fr' | 'en';
 
@@ -268,10 +277,26 @@ export type ChordDiagramStyle = 'strings' | 'grid';
 
 export const CHORD_DIAGRAM_STYLES: readonly ChordDiagramStyle[] = ['strings', 'grid'];
 
+/**
+ * How a latency was measured: `system` without the player's gesture (the sound heard through two
+ * inputs), `player` from the player's own attacks on the click.
+ */
+export type LatencyProvenance = 'system' | 'player';
+
+/** The latency of a sensor, in ms, subtracted from the time it reports an attack at. */
+export interface SensorLatency {
+	ms: number;
+	provenance: LatencyProvenance;
+}
+
+export const LATENCY_PROVENANCES: readonly LatencyProvenance[] = ['system', 'player'];
+
 export interface Settings {
 	locale: Locale;
-	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
-	calibrationOffsetMs: number | null;
+	/** Calibrated latency by sensor (`note`, `chord`, `attack`…); a sensor without one is uncalibrated. */
+	latency: Partial<Record<string, SensorLatency>>;
+	/** The click was heard on the playing input at calibration: the player needs headphones. */
+	clickBleed: boolean;
 	inputDeviceId: string | null;
 	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
 	builtInInputGain: number;
@@ -282,7 +307,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
 	locale: 'fr',
-	calibrationOffsetMs: null,
+	latency: {},
+	clickBleed: false,
 	inputDeviceId: null,
 	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
 	diagnostics: { enabled: null, budgetMb: 300 },
@@ -378,11 +404,12 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 3;
+	version: 4;
 	exportedAt: number;
 	settings: Settings;
 	progressions: Progression[];
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];
+	levelStates: LevelState[];
 }
