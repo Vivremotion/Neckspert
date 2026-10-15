@@ -135,7 +135,7 @@ export function labelRows(marks: readonly Mark[], charWidthPx: number): (0 | 1 |
 type Line = { words: string; term: FeedbackTerm | null };
 type Words = (typeof RHYTHM_MESSAGES)[Locale]['words'];
 
-/** The order the judge lists its reasons in (`cycleVerdict`), and the order they are told in. */
+/** The order a failed cycle's reasons are told in (`cycleVerdict` lists them in another order). */
 const REASON_ORDER: readonly CycleFailure[] = [
 	'shift',
 	'missed',
@@ -218,7 +218,7 @@ function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Li
 /**
  * The plain-words line and its term, by locale: « Sans clic, tu passes devant (−35 ms) · tenue ».
  * One thing is told. A failed cycle is told by what failed it: the first of its `verdict`
- * reasons in the judge's order (shift, missed or extra, hold, regularity, precision), whatever
+ * reasons in `REASON_ORDER` (shift, missed or extra, hold, regularity, precision), whatever
  * its size. Otherwise (passed, or no verdict) the first that applies and is worth a sentence
  * (`WORDS_MIN_MS`, `WORDS_MIN_DRIFT_MS_PER_BAR`): a lost or added beat, the notes forgotten or
  * added, the hold, the spread, then (only when the latency was measured without the player)
