@@ -1,13 +1,17 @@
 import { Fraction } from './fraction';
 import { barLength, validateMeter, type Meter } from './meter';
 
+/** The sounds a note can ask for: the click, the figure heard as a demo, the learner's own part. */
+export const SOUND_IDS = ['click-accent', 'click', 'demo', 'play-along'] as const;
+export type SoundId = (typeof SOUND_IDS)[number];
+
 /**
  * One event of a voice. Durations are the sounding ones, as fractions of a whole note:
- * a triplet of eighths is three `1/12`. `content` is reserved for what a note carries
- * (a chord, a string...); it is null for now.
+ * a triplet of eighths is three `1/12`. `content` is what a note carries:
+ * the sound it plays in an accompaniment, null in a bare rhythm (a chord, a string... later).
  */
 export type FigureElement =
-	| { kind: 'note'; duration: Fraction; tieToNext?: boolean; content: null }
+	| { kind: 'note'; duration: Fraction; tieToNext?: boolean; content: null | SoundId }
 	| { kind: 'rest'; duration: Fraction };
 
 /** `from` and `to` are element indexes (both included); `ratio` is [played, in the time of]. */
@@ -186,7 +190,9 @@ function elementFromJson(value: unknown, where: string): FigureElement {
 	const duration = asFraction(e.duration, `${where} duration`);
 	if (e.kind === 'rest') return { kind: 'rest', duration };
 	if (e.kind !== 'note') throw new Error(`${where} kind must be "note" or "rest"`);
-	if (e.content !== null) throw new Error(`${where} content must be null`);
+	if (e.content !== null && !SOUND_IDS.some((id) => id === e.content)) {
+		throw new Error(`${where} content must be null or one of ${SOUND_IDS.join(', ')}`);
+	}
 	if (e.tieToNext !== undefined && typeof e.tieToNext !== 'boolean') {
 		throw new Error(`${where} tieToNext must be a boolean`);
 	}
@@ -194,7 +200,7 @@ function elementFromJson(value: unknown, where: string): FigureElement {
 		kind: 'note',
 		duration,
 		...(e.tieToNext ? { tieToNext: true } : {}),
-		content: null
+		content: e.content as null | SoundId
 	};
 }
 
