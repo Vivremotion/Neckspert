@@ -7,7 +7,7 @@ import {
 	type Figure,
 	type TempoSegment
 } from '$lib/domain/time';
-import { BREATH_MIN_MS, LISTEN_IN_BARS, Transport } from './transport';
+import { BREATH_MIN_MS, LISTEN_IN_BARS, Transport, TransportStopped } from './transport';
 
 const f = Fraction.of;
 const tempo = (bpm: number): TempoSegment => ({ at: Fraction.ZERO, bpm, unit: f(1, 4) });
@@ -205,5 +205,121 @@ describe('Transport.stop', () => {
 		sounds.flush();
 		expect(called).toBe(false);
 		expect(sounds.emitted()).toEqual([]);
+	});
+});
+
+describe('Transport.changeTempo after a breath', () => {
+	it('flows from the breath into the new tempo with exact times', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		transport.accompany(3, 10, clicks);
+		const breath = transport.breath(10);
+		const before = sounds.emitted().length;
+		const { playFrom } = transport.changeTempo(breath.to, tempo(60), offbeats);
+		expect(playFrom).toBe(breath.to + 3);
+		const added = sounds.emitted().slice(before);
+		const start = transport.map.toSeconds(f(breath.to));
+		expect(added[0].time).toBeCloseTo(start + 1, 9);
+		expect(added[4].time).toBeCloseTo(start + 2 * 4, 9);
+		expect(start).toBeCloseTo(transport.map.origin + breath.to * 2, 9);
+	});
+
+	it('throws when accompaniment is already scheduled past the bar', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		transport.accompany(3, 12, clicks);
+		expect(() => transport.changeTempo(10, tempo(120), clicks)).toThrow(RangeError);
+		expect(() => transport.changeTempo(12, tempo(120), clicks)).not.toThrow();
+	});
+
+	it('counts the begin bars as scheduled, and rejects a bar not after the last segment', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		expect(() => transport.changeTempo(2, tempo(120), clicks)).toThrow(RangeError);
+		expect(() => transport.changeTempo(0, tempo(120), clicks)).toThrow(/after/);
+	});
+});
+
+describe('Transport.changeTempo after a figure', () => {
+	it('throws while a played figure still runs past the bar', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const figure: Figure = {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 2,
+			voices: [{ id: 'a', elements: [{ kind: 'note', duration: f(2), content: null }] }]
+		};
+		transport.playFigure(figure, 'play-along', 3);
+		expect(() => transport.changeTempo(4, tempo(120), clicks)).toThrow(RangeError);
+		expect(() => transport.changeTempo(5, tempo(120), clicks)).not.toThrow();
+	});
+});
+
+describe('Transport runs', () => {
+	it('schedules nothing when stopped during settle, and begin rejects with TransportStopped', async () => {
+		const { clock, sounds, transport } = setup();
+		let release = () => {};
+		clock.settle = () => new Promise<void>((resolve) => (release = resolve));
+		const begun = transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		transport.stop();
+		release();
+		await expect(begun).rejects.toBeInstanceOf(TransportStopped);
+		expect(sounds.emitted()).toEqual([]);
+	});
+
+	it('keeps only the second run sounds when begun twice', async () => {
+		const { clock, sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		clock.time = 6;
+		const { map } = await transport.begin({
+			meter: METER_4_4,
+			tempo: tempo(100),
+			accompaniment: clicks
+		});
+		expect(sounds.emitted()).toHaveLength(12);
+		expect(sounds.emitted().every((s) => s.time >= map.origin)).toBe(true);
+	});
+
+	it('supersedes a begin still settling when another begins', async () => {
+		const { clock, sounds, transport } = setup();
+		let release = () => {};
+		clock.settle = () => new Promise<void>((resolve) => (release = resolve));
+		const first = transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const firstRelease = release;
+		const second = transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		firstRelease();
+		release();
+		await expect(first).rejects.toBeInstanceOf(TransportStopped);
+		await second;
+		expect(sounds.emitted()).toHaveLength(12);
+	});
+});
+
+describe('Transport meter', () => {
+	it('rejects an accompaniment of another meter', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const waltz = clickAccompaniment({
+			meter: { count: 3, unit: f(1, 4), grouping: [1, 1, 1] },
+			beats: [1],
+			accent: [],
+			bars: ['on']
+		});
+		expect(() => transport.accompany(3, 4, waltz)).toThrow(RangeError);
+		expect(() => transport.changeTempo(10, tempo(120), waltz)).toThrow(RangeError);
+	});
+
+	it('rejects an accompaniment of another meter at begin', async () => {
+		const { transport } = setup();
+		const waltz = clickAccompaniment({
+			meter: { count: 3, unit: f(1, 4), grouping: [1, 1, 1] },
+			beats: [1],
+			accent: [],
+			bars: ['on']
+		});
+		await expect(
+			transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: waltz })
+		).rejects.toBeInstanceOf(RangeError);
 	});
 });
