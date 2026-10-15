@@ -298,6 +298,8 @@ export class PlanSessionController implements PlaySessionController {
 
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
+		// Not opened yet: a quit before the input opens writes no session.
+		this.startedAt = 0;
 		this.view.status = 'idle';
 		this.prepared = false;
 		this.playedInSeries = 0;
@@ -608,7 +610,10 @@ export class PlanSessionController implements PlaySessionController {
 				aided: levelAided(outcome.aids, cycle.setup.params)
 			});
 			this.levelState = state;
-			this.levelWrite = this.levelWrite.then(() => this.deps.levels.put(state));
+			// From a recovered promise: one failed write must not stop the later ones.
+			this.levelWrite = this.levelWrite
+				.catch(() => undefined)
+				.then(() => this.deps.levels.put(state));
 			this.track(this.levelWrite);
 		}
 		// A later cycle has begun: this one's span is complete now. Else it stays open (breath).
@@ -677,10 +682,11 @@ export class PlanSessionController implements PlaySessionController {
 		this.stopObservations?.();
 		this.stopObservations = null;
 		this.deps.detector.stop();
-		const sessionId = this.sessionId;
-		while (this.writes.size > 0) await Promise.allSettled([...this.writes]);
+		// The record is taken before the wait: a restart meanwhile gives the next series its own.
 		if (!this.startedAt) return;
-		await this.deps.sessions.put({ ...this.sessionRecord(this.deps.now()), id: sessionId });
+		const ended = this.sessionRecord(this.deps.now());
+		while (this.writes.size > 0) await Promise.allSettled([...this.writes]);
+		await this.deps.sessions.put(ended);
 	}
 
 	// Screen -------------------------------------------------------------------------------

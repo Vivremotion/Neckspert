@@ -79,6 +79,7 @@ async function setup(
 	const levels = new InMemoryLevelStateRepository();
 	const settings = new InMemorySettingsRepository();
 	const sessions = new InMemorySessionRepository();
+	const detector = new FakeNoteDetector();
 	if (options.met) await attempts.add(earlier(exercise.id));
 	await settings.update({
 		latency: options.latency ? { attack: options.latency } : {},
@@ -90,7 +91,7 @@ async function setup(
 	const deps: PlanSessionDeps = {
 		clock,
 		metronome: new FakeMetronome(clock),
-		detector: new FakeNoteDetector(),
+		detector,
 		cues: new FakeSoundCues(),
 		attempts,
 		cards: new InMemoryCardStateRepository(),
@@ -118,7 +119,19 @@ async function setup(
 		await settled();
 	}
 
-	return { clock, sounds, attacks, attempts, levels, sessions, controller, player, advance, wall };
+	return {
+		clock,
+		sounds,
+		attacks,
+		attempts,
+		levels,
+		sessions,
+		detector,
+		controller,
+		player,
+		advance,
+		wall
+	};
 }
 
 /** Lets the writes started by the controller finish. */
@@ -244,6 +257,25 @@ describe('PlanSessionController, a series of offbeats played exactly', () => {
 	});
 });
 
+describe('PlanSessionController, the level written', () => {
+	it('goes on writing after a write that failed', async () => {
+		const { controller, levels, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		const put = levels.put.bind(levels);
+		let calls = 0;
+		levels.put = async (state) => {
+			calls++;
+			if (calls === 1) throw new Error('disk full');
+			return put(state);
+		};
+		await controller.start();
+		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		expect(calls).toBeGreaterThan(1);
+		const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
+		expect(state?.level).toBe(1);
+		controller.quit();
+	});
+});
+
 describe('PlanSessionController, pausing', () => {
 	it('drops the cycle under way, keeps the ones over, and counts in again on resume', async () => {
 		const { controller, attempts, sounds, clock, advance } = await setup(RHYTHM_OFFBEATS, {
@@ -279,6 +311,49 @@ describe('PlanSessionController, another series', () => {
 		expect(controller.sessionId).toBe('s1');
 		expect(controller.view.status).toBe('count-in');
 		expect(await sessions.get('s1')).toMatchObject({ kind: 'exercise', endedAt: null });
+		controller.quit();
+	});
+
+	it('writes no session for a second series whose input never opened', async () => {
+		const { controller, sessions, detector, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		detector.start = () => Promise.reject(new Error('no input'));
+		await controller.start();
+		expect(controller.view.audioError).toBe('input');
+		expect(controller.sessionId).toBe('s1');
+		controller.quit();
+		await settled();
+		expect(await sessions.get('s1')).toBeUndefined();
+	});
+
+	it('keeps the start of the series that ends when another starts before its writes are done', async () => {
+		const { controller, attempts, sessions, clock, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true
+		});
+		let release: () => void = () => {};
+		const gate = new Promise<void>((resolve) => (release = resolve));
+		const add = attempts.add.bind(attempts);
+		attempts.add = async (attempt) => {
+			await gate;
+			return add(attempt);
+		};
+		await controller.start();
+		const opened = await sessions.get('series');
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		// The first cycle is settled, its write pending: the quit waits for it.
+		controller.quit();
+		await settled();
+		clock.time += 60;
+		await controller.start();
+		expect(controller.sessionId).toBe('s1');
+		release();
+		await settled();
+		const ended = await sessions.get('series');
+		expect(ended?.startedAt).toBe(opened?.startedAt);
+		expect(ended?.endedAt).not.toBeNull();
 		controller.quit();
 	});
 });
