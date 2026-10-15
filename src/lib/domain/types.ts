@@ -366,6 +366,21 @@ export interface SessionSummary {
 	kind: SessionKind;
 	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
 	gesture?: GestureSummary;
+	/** A rhythm exercise session: the rest of the summary is not shown for it. */
+	rhythm?: RhythmSummary;
+}
+
+/** What a rhythm exercise session did: the level it ended on and its cycles. */
+export interface RhythmSummary {
+	exerciseId: ExerciseId;
+	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 »). */
+	levelReached: { shown: number; of: number };
+	/** Cycles played. */
+	cycles: number;
+	/** Cycles that succeeded (`Attempt.success`). */
+	successes: number;
+	/** Cycles played with an aid the level does not give (they do not count towards moving up). */
+	aided: number;
 }
 
 /** What a gesture session did, exercise by exercise, and the changes it missed. */

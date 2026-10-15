@@ -1,0 +1,38 @@
+import type { ExerciseDefinition } from '$lib/domain/exercise';
+import { levelRange, type LevelState } from '$lib/domain/time';
+import type { Attempt, RhythmSummary } from '$lib/domain/types';
+import { levelAided, type RhythmAttemptData } from './recordCycle';
+import { levelParamsOf, rhythmLevels } from './rhythmExercise';
+import { levelView } from './rhythmStage';
+
+/**
+ * What a rhythm session did: the cycles it played, those that succeeded, those played with an
+ * aid the level does not give, and the level held when it ended. That level is the stored one
+ * (`state`, written after each cycle, so it counts the last move); without it, the level of the
+ * last cycle played, else the first level.
+ */
+export function summarizeRhythm(input: {
+	exercise: ExerciseDefinition;
+	/** The session's attempts. */
+	attempts: readonly Attempt[];
+	state: LevelState | undefined;
+}): RhythmSummary {
+	const { exercise } = input;
+	const { levels } = rhythmLevels(exercise);
+	const cycles = input.attempts.filter(
+		(attempt): attempt is Attempt<RhythmAttemptData> => attempt.exerciseId === exercise.id
+	);
+	const { lowest, highest } = levelRange(levels);
+	const last = cycles.at(-1);
+	const held = input.state?.level ?? last?.data.level ?? 0;
+	const { shown, of } = levelView(levels, Math.min(highest, Math.max(lowest, held)));
+	return {
+		exerciseId: exercise.id,
+		levelReached: { shown, of },
+		cycles: cycles.length,
+		successes: cycles.filter((attempt) => attempt.success).length,
+		aided: cycles.filter((attempt) =>
+			levelAided(attempt.aids, levelParamsOf(exercise, attempt.data.level))
+		).length
+	};
+}

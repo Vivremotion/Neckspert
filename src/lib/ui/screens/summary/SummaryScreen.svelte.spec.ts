@@ -235,3 +235,45 @@ describe('SummaryScreen of a gesture session', () => {
 		expect(screen.getByText('Contrainte de déplacement · Blues F')).toBeTruthy();
 	});
 });
+
+describe('SummaryScreen of a rhythm session', () => {
+	const rhythm: SessionSummary = {
+		...summary,
+		kind: 'exercise',
+		rhythm: {
+			exerciseId: 'rhythm-offbeats',
+			levelReached: { shown: 3, of: 6 },
+			cycles: 14,
+			successes: 11,
+			aided: 2
+		}
+	};
+
+	it('names the exercise, the level reached and the cycles that succeeded, and nothing of the notes', () => {
+		render(SummaryScreen, {
+			props: { summary: rhythm, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Contretemps')).toBeTruthy();
+		expect(screen.getByText('Niveau atteint : 3 sur 6')).toBeTruthy();
+		expect(screen.getByText('11 cycles réussis sur 14')).toBeTruthy();
+		expect(screen.getByText('2 cycles avec aide')).toBeTruthy();
+		expect(screen.queryByText('Notes apprises')).toBeNull();
+		expect(screen.queryByText('Précision à froid')).toBeNull();
+		expect(screen.queryByText(/fatigue/i)).toBeNull();
+	});
+
+	it('says nothing of aids when none was used, and speaks English in English', () => {
+		i18n.locale = 'en';
+		const unaided: SessionSummary = {
+			...rhythm,
+			rhythm: { ...rhythm.rhythm!, cycles: 1, successes: 1, aided: 0 }
+		};
+		render(SummaryScreen, {
+			props: { summary: unaided, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Offbeats')).toBeTruthy();
+		expect(screen.getByText('Level reached: 3 of 6')).toBeTruthy();
+		expect(screen.getByText('1 cycle succeeded out of 1')).toBeTruthy();
+		expect(screen.queryByText(/aid/i)).toBeNull();
+	});
+});

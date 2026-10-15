@@ -1,11 +1,13 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
+import { summarizeRhythm } from '$lib/application/session/plan/rhythmSummary';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
+	exerciseById,
 	IDENTIFY_NECK,
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
@@ -102,6 +104,25 @@ export function createAppServices(
 				deps.attempts.all(),
 				deps.cards.all()
 			]);
+			if (record.kind === 'exercise' && record.exerciseId !== undefined) {
+				// A rhythm exercise: the level it ends on is the one stored after its last cycle.
+				const exercise = (deps.exercise ?? exerciseById)(record.exerciseId);
+				const state = await deps.levels.get({
+					exerciseId: exercise.id,
+					scope: '',
+					item: ''
+				});
+				return {
+					...summarizeSession({
+						record,
+						attempts: [],
+						allAttempts: [],
+						cards: [],
+						now: deps.now()
+					}),
+					rhythm: summarizeRhythm({ exercise, attempts, state })
+				};
+			}
 			// Next reviews of the session's own track: the neck's, or the triads'.
 			const ofTrack = (x: { mechanic: string }) => isNeck(x) === !isTriadsKind(record.kind);
 			return summarizeSession({

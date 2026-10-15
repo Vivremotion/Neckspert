@@ -44,7 +44,11 @@ export const summaryMessages = defineMessages({
 		nothingHeard: 'Rien entendu',
 		expected: (frets: string) => `Attendu ${frets}`,
 		playedRight: 'Joué juste',
-		contested: 'Contesté'
+		contested: 'Contesté',
+		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
+		cyclesSucceeded: (successes: number, cycles: number) =>
+			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
+		cyclesAided: (n: number) => `${n} ${n > 1 ? 'cycles' : 'cycle'} avec aide`
 	},
 	en: {
 		title: 'Summary',
@@ -87,6 +91,10 @@ export const summaryMessages = defineMessages({
 		nothingHeard: 'Nothing heard',
 		expected: (frets: string) => `Expected ${frets}`,
 		playedRight: 'Played right',
-		contested: 'Contested'
+		contested: 'Contested',
+		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
+		cyclesSucceeded: (successes: number, cycles: number) =>
+			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
+		cyclesAided: (n: number) => `${n} ${n === 1 ? 'cycle' : 'cycles'} with aid`
 	}
 });

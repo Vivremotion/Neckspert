@@ -8,7 +8,7 @@ import type {
 	CalibrationProgress
 } from '$lib/application/ports';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
-import type { BackupFile, CardState } from '$lib/domain/types';
+import type { Attempt, BackupFile, CardState } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -461,6 +461,64 @@ describe('the rhythm exercises', () => {
 		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
 		expect(controller.view.stage?.view).toBe('rhythm-figure');
 		expect(typeof controller.listen).toBe('function');
+	});
+
+	it('sums a rhythm session up from its cycles and the level held', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put({
+			id: 'r1',
+			kind: 'exercise',
+			exerciseId: RHYTHM_OFFBEATS.id,
+			startedAt: 0,
+			endedAt: 1,
+			fatigueDetected: false,
+			executions: [],
+			latencyMs: 0
+		});
+		const cycle = (level: number, success: boolean, sessionId = 'r1') =>
+			({
+				sessionId,
+				exerciseId: RHYTHM_OFFBEATS.id,
+				mechanic: 'rhythm-figure',
+				cardKey: `rhythm-figure:offbeats-1@${level}`,
+				phase: 'free',
+				temperature: 'hot',
+				aids: ['cursor'],
+				promptedAt: 0,
+				tempoBpm: 80,
+				leadBeats: null,
+				timingOffsetMs: null,
+				reactionMs: null,
+				correct: null,
+				success,
+				verdict: { relation: 'plan', version: 1, value: success ? 'ok' : 'miss' },
+				measures: {},
+				plan: null,
+				data: { item: { figureId: 'offbeats-1', level }, level, report: {} },
+				observations: []
+			}) as Attempt;
+		await deps.attempts.add(cycle(0, true));
+		await deps.attempts.add(cycle(1, true));
+		await deps.attempts.add(cycle(1, false));
+		await deps.attempts.add(cycle(0, true, 'other'));
+		await deps.levels.put({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			scope: '',
+			item: '',
+			level: 1,
+			successes: 0,
+			failures: 1,
+			resumeAfter: null
+		});
+		const summary = await services.sessionSummary('r1');
+		expect(summary.kind).toBe('exercise');
+		expect(summary.rhythm).toEqual({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			levelReached: { shown: 2, of: expect.any(Number) },
+			cycles: 3,
+			successes: 2,
+			aided: 0
+		});
 	});
 
 	it('startExercise refuses an exercise it does not know, or one without levels', async () => {

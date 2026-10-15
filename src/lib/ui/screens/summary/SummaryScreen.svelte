@@ -1,5 +1,7 @@
 <script lang="ts">
+	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 	import { GRIDS } from '$lib/domain/grid';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import { isTriadsKind, type SessionSummary } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -29,6 +31,12 @@
 		if (scope === undefined) return name;
 		const grid = GRIDS.find((candidate) => candidate.id === scope);
 		return `${name} · ${grid?.title ?? scope}`;
+	}
+
+	/** A rhythm exercise by its name in the current language. */
+	function rhythmTitle(exerciseId: string): string {
+		const exercise = RHYTHM_EXERCISES.find((candidate) => candidate.id === exerciseId);
+		return exercise?.title?.[i18n.locale] ?? exerciseId;
 	}
 
 	/** Misses contested on this screen, on top of those stored contested. */
@@ -81,7 +89,21 @@
 		{#if summary.grade}
 			<p class="grade"><PixelText scale={4}>{summary.grade}</PixelText></p>
 		{/if}
-		{#if summary.gesture}
+		{#if summary.rhythm}
+			{@const rhythm = summary.rhythm}
+			<PixelBox variant="double">
+				<ul class="rows">
+					<li class="exercise">
+						<strong>{rhythmTitle(rhythm.exerciseId)}</strong>
+						<span>{t.levelReached(rhythm.levelReached.shown, rhythm.levelReached.of)}</span>
+						<span>{t.cyclesSucceeded(rhythm.successes, rhythm.cycles)}</span>
+						{#if rhythm.aided > 0}
+							<span>{t.cyclesAided(rhythm.aided)}</span>
+						{/if}
+					</li>
+				</ul>
+			</PixelBox>
+		{:else if summary.gesture}
 			<PixelBox variant="double">
 				<ul class="rows">
 					{#each summary.gesture.exercises as exercise (`${exercise.exerciseId}:${exercise.scope ?? ''}`)}
