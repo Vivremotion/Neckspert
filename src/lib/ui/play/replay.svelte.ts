@@ -19,7 +19,9 @@ class Gate implements ReplayGate {
 		this.pending = true;
 		replay
 			.call(this.controller)
-			.catch(() => undefined)
+			.catch((error: unknown) => {
+				console.warn('The replay of the last run failed', error);
+			})
 			.finally(() => {
 				this.pending = false;
 			});
