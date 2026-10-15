@@ -8,7 +8,8 @@ const ATTACK_EVENT = 'attack.detected';
 
 /**
  * Pitchless attacks from the shared input. It listens to the frames while it has a listener: the
- * tracker is made with the first one, at the source's rate, and dropped with the last.
+ * tracker is made when the first frame arrives, at the source's rate then (remade if the rate
+ * changes), and dropped with the last listener.
  */
 export class WebAudioAttackDetector implements AttackDetectorPort {
 	private readonly listeners = new Set<(attack: AttackEvent) => void>();
@@ -42,8 +43,17 @@ export class WebAudioAttackDetector implements AttackDetectorPort {
 	}
 
 	private listen(): void {
-		const tracker = new AttackTracker(this.source.sampleRate, this.config);
+		// The input opens after the listener may be added: its rate is read as the frames come, and
+		// a tracker made for another rate is dropped. Nothing is built while the rate is unknown.
+		let tracker: AttackTracker | null = null;
+		let trackerRate = 0;
 		this.stopFrames = this.source.onFrame(({ samples, frameTime }) => {
+			const rate = this.source.sampleRate;
+			if (!(rate > 0)) return;
+			if (!tracker || rate !== trackerRate) {
+				tracker = new AttackTracker(rate, this.config);
+				trackerRate = rate;
+			}
 			for (const { time, strength } of tracker.push(samples, frameTime)) {
 				const attack: AttackEvent =
 					this.channel === undefined

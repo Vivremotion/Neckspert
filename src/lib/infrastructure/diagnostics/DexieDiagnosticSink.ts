@@ -1,6 +1,7 @@
 import type {
 	DiagnosticAudioChunk,
 	DiagnosticSink,
+	DiagnosticTakeNotices,
 	DiagnosticTakeOpening,
 	DiagnosticTakes
 } from '$lib/application/ports';
@@ -27,7 +28,7 @@ interface OpenTake {
  * setting is on at its opening; writes go through one serialized queue, never awaited by the
  * producers. At each closing, the oldest takes are erased whole until the total fits the budget.
  */
-export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
+export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes, DiagnosticTakeNotices {
 	private readonly db: DiagnosticsDb;
 	private readonly settings: () => Promise<ResolvedDiagnosticsSettings>;
 	private readonly newId: () => string;
@@ -38,6 +39,7 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 	private current: OpenTake | null = null;
 	/** Counts openings, closings and clearings: an opening that settles late is not current. */
 	private ticket = 0;
+	private readonly takeListeners = new Set<(enabled: boolean) => void>();
 
 	constructor(options: {
 		name?: string;
@@ -53,10 +55,19 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 		return this.open !== null;
 	}
 
+	onTake(listener: (enabled: boolean) => void): () => void {
+		this.takeListeners.add(listener);
+		return () => this.takeListeners.delete(listener);
+	}
+
+	private notifyTake(enabled: boolean): void {
+		[...this.takeListeners].forEach((listener) => listener(enabled));
+	}
+
 	openTake(opening: DiagnosticTakeOpening): Promise<void> {
 		const ticket = ++this.ticket;
 		this.open = null;
-		return this.enqueue(async () => {
+		const settled = this.enqueue(async () => {
 			if (this.current) await this.close(this.current, opening.startedAt);
 			const settings = await this.settings();
 			if (!settings.enabled) return;
@@ -79,12 +90,17 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 			// Closed or cleared while it was opening: the queued closing ends it.
 			if (ticket === this.ticket) this.open = this.current;
 		});
+		// An opening overtaken by a closing, a clearing or another opening says nothing: they do.
+		return settled.then(() => {
+			if (ticket === this.ticket) this.notifyTake(this.open !== null);
+		});
 	}
 
 	closeTake(endedAt: number): Promise<void> {
 		// Off at once: what comes after the closing belongs to no take.
 		this.ticket++;
 		this.open = null;
+		this.notifyTake(false);
 		return this.enqueue(async () => {
 			if (this.current) await this.close(this.current, endedAt);
 		});
@@ -139,6 +155,7 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 	clear(): Promise<void> {
 		this.ticket++;
 		this.open = null;
+		this.notifyTake(false);
 		return this.enqueue(async () => {
 			this.current = null;
 			await this.db.transaction('rw', this.db.takes, this.db.events, this.db.audio, async () => {

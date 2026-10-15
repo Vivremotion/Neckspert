@@ -4,30 +4,13 @@
 // the audio time of the attack.
 //
 //   node --experimental-transform-types scripts/attack-shadow-report.ts <unzipped-archive>
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
+	attackTimesOf,
 	compareAttacks,
 	type ShadowStats
 } from '../src/lib/infrastructure/diagnostics/attackShadow.ts';
-
-interface Times {
-	notes: number[];
-	attacks: number[];
-}
-
-/** The audio times of both detectors' attacks in one take's events, one JSON per line. */
-function timesOf(jsonl: string): Times {
-	const times: Times = { notes: [], attacks: [] };
-	for (const line of jsonl.split('\n')) {
-		if (line.trim() === '') continue;
-		const event = JSON.parse(line) as { kind?: string; audioTime?: number };
-		if (typeof event.audioTime !== 'number') continue;
-		if (event.kind === 'note.attack') times.notes.push(event.audioTime);
-		else if (event.kind === 'attack.detected') times.attacks.push(event.audioTime);
-	}
-	return times;
-}
 
 const ms = (value: number | null) => (value === null ? '-' : `${value.toFixed(1)} ms`);
 
@@ -52,13 +35,23 @@ if (!existsSync(takesDir)) {
 	process.exit(1);
 }
 
-const all: Times = { notes: [], attacks: [] };
+const all = { notes: [] as number[], attacks: [] as number[] };
 let counted = 0;
 let offset = 0;
 for (const take of readdirSync(takesDir).sort()) {
-	const file = join(takesDir, take, 'evenements.jsonl');
-	if (!existsSync(file)) continue;
-	const times = timesOf(readFileSync(file, 'utf8'));
+	const folder = join(takesDir, take);
+	if (!statSync(folder).isDirectory()) continue;
+	let jsonl: string;
+	try {
+		jsonl = readFileSync(join(folder, 'evenements.jsonl'), 'utf8');
+	} catch {
+		console.log(`${take}: evenements.jsonl missing or unreadable, skipped`);
+		continue;
+	}
+	const times = attackTimesOf(jsonl);
+	if (times.skipped > 0) {
+		console.warn(`${take}: ${times.skipped} unreadable line(s) skipped (truncated or malformed)`);
+	}
 	if (times.notes.length === 0 && times.attacks.length === 0) {
 		console.log(`${take}: no attack events (journal off, or recorded before the shadow)`);
 		continue;

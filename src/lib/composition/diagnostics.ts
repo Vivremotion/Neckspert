@@ -1,6 +1,7 @@
 import type {
 	AttackDetectorPort,
 	DiagnosticSink,
+	DiagnosticTakeNotices,
 	NoteDetectorPort,
 	SettingsRepositoryPort
 } from '$lib/application/ports';
@@ -31,24 +32,38 @@ export function createDiagnosticJournal(
 
 /**
  * Runs the pitchless attack detector in the shadow of the note detector, for comparing them from
- * the journal (`attackShadow.ts`). It holds one attack listener, so the detector listens whenever
- * the input is open: the detector journals its own `attack.detected`, and only when a take is
- * being recorded. Here the note detector's attacks are journaled beside them, at the time of the
- * attack: `note.attack` with the note, `note.rejected` with the reason. Returns the stop function.
+ * the journal (`attackShadow.ts`), while a take is being recorded: at each take that opens with
+ * the journal on it listens to the attacks (the detector journals its own `attack.detected`) and
+ * journals the note detector's attacks beside them, at the time of the attack: `note.attack` with
+ * the note, `note.rejected` with the reason. At the take's closing, or with the journal off, it
+ * listens to nothing, so no frame is analysed for nothing. Returns the stop function.
  */
 export function shadowAttacks(
-	journal: DiagnosticSink,
+	journal: DiagnosticSink & DiagnosticTakeNotices,
 	detector: NoteDetectorPort,
 	attacks: AttackDetectorPort
 ): () => void {
-	const stops = [
-		attacks.onAttack(() => {}),
-		detector.onNote(({ time, midi }) => {
-			if (journal.enabled) journal.event('note.attack', time, { midi });
-		}),
-		detector.onRejected(({ time, reason }) => {
-			if (journal.enabled) journal.event('note.rejected', time, { reason });
-		})
-	];
-	return () => stops.forEach((stop) => stop());
+	let release: (() => void) | null = null;
+	const hold = () => {
+		release?.();
+		release = null;
+	};
+	const stopTakes = journal.onTake((enabled) => {
+		hold();
+		if (!enabled) return;
+		const stops = [
+			attacks.onAttack(() => {}),
+			detector.onNote(({ time, midi }) => {
+				if (journal.enabled) journal.event('note.attack', time, { midi });
+			}),
+			detector.onRejected(({ time, reason }) => {
+				if (journal.enabled) journal.event('note.rejected', time, { reason });
+			})
+		];
+		release = () => stops.forEach((stop) => stop());
+	});
+	return () => {
+		stopTakes();
+		hold();
+	};
 }

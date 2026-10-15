@@ -20,6 +20,35 @@ export interface ShadowStats {
 	biasMs: number | null;
 }
 
+/** The audio times (s) of both detectors' attacks in one take's journal. */
+export interface AttackTimes {
+	notes: number[];
+	attacks: number[];
+	/** Lines that could not be read: not JSON (a truncated last line), or no numeric audio time. */
+	skipped: number;
+}
+
+/** Reads a take's `evenements.jsonl` (one JSON event per line); a line it cannot read is counted. */
+export function attackTimesOf(jsonl: string): AttackTimes {
+	const times: AttackTimes = { notes: [], attacks: [], skipped: 0 };
+	for (const line of jsonl.split('\n')) {
+		if (line.trim() === '') continue;
+		let event: unknown;
+		try {
+			event = JSON.parse(line);
+		} catch {
+			times.skipped++;
+			continue;
+		}
+		const { kind, audioTime } = (event ?? {}) as { kind?: unknown; audioTime?: unknown };
+		if (typeof audioTime !== 'number' || !Number.isFinite(audioTime)) {
+			times.skipped++;
+		} else if (kind === 'note.attack') times.notes.push(audioTime);
+		else if (kind === 'attack.detected') times.attacks.push(audioTime);
+	}
+	return times;
+}
+
 /** Linear-interpolated quantile of a sorted list. */
 function quantile(sorted: readonly number[], q: number): number {
 	const position = (sorted.length - 1) * q;

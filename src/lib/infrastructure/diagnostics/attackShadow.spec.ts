@@ -1,5 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { compareAttacks } from './attackShadow';
+import { attackTimesOf, compareAttacks } from './attackShadow';
+
+describe('attackTimesOf', () => {
+	it('collects the times of both detectors from a take journal', () => {
+		const jsonl = [
+			'{"kind":"note.attack","audioTime":1,"data":{"midi":64}}',
+			'{"kind":"attack.detected","audioTime":1.004,"data":{"strength":0.8}}',
+			'{"kind":"note.rejected","audioTime":2,"data":{"reason":"unclear"}}',
+			''
+		].join('\n');
+		expect(attackTimesOf(jsonl)).toEqual({ notes: [1], attacks: [1.004], skipped: 0 });
+	});
+
+	it('counts and skips a line that is not JSON, such as a truncated last one', () => {
+		const jsonl = '{"kind":"note.attack","audioTime":1,"data":{}}\n{"kind":"attack.det';
+		expect(attackTimesOf(jsonl)).toEqual({ notes: [1], attacks: [], skipped: 1 });
+	});
+
+	it('skips events without a numeric audio time or that are not objects', () => {
+		const jsonl = [
+			'null',
+			'{"kind":"note.attack"}',
+			'[1]',
+			'{"kind":"note.attack","audioTime":"1"}'
+		];
+		expect(attackTimesOf(jsonl.join('\n'))).toEqual({ notes: [], attacks: [], skipped: 4 });
+	});
+});
 
 describe('compareAttacks', () => {
 	it('pairs onsets with the nearest attack within 30 ms, one to one', () => {

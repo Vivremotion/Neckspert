@@ -31,5 +31,6 @@ export type {
 	DiagnosticInputInfo,
 	DiagnosticSink,
 	DiagnosticTakeOpening,
+	DiagnosticTakeNotices,
 	DiagnosticTakes
 } from './DiagnosticSink';
