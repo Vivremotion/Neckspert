@@ -469,6 +469,9 @@ export class PlanSessionController implements PlaySessionController {
 				if (this.live.length === 0) void this.finish();
 				return null;
 			}
+			// The next run reads its level when bar `to` is laid out, on beat 0 of bar `to − 1`,
+			// and the last cycle settles at `from + SETTLE_AFTER_BARS`: this needs a breath of at
+			// least 2 bars, which every catalog exercise gives (pinned by a catalog test).
 			const { from, to } = this.transport.breath(bar);
 			for (let b = from; b < to; b++) this.bars.set(b, this.idleBar(run, run.lastFigure, 'breath'));
 			this.run = null;
