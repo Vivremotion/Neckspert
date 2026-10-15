@@ -1,11 +1,12 @@
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from '$lib/infrastructure/audio/cues';
 import { CalibrationService } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
+import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 import { WebAudioInput } from '$lib/infrastructure/audio/input';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 import { buildDiagnosticArchive } from '$lib/infrastructure/diagnostics';
@@ -18,7 +19,7 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
-import { createDiagnosticJournal } from './diagnostics';
+import { createDiagnosticJournal, shadowAttacks } from './diagnostics';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -55,6 +56,9 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
 	const detector = new WebAudioNoteDetector(context, { input });
 	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
+	const attacks = new WebAudioAttackDetector(input, { diagnostics: journal });
+	// The attack detector runs in the shadow of the note detector, both journaled for comparison.
+	shadowAttacks(journal, detector, attacks);
 
 	const calibration = new CalibrationService({
 		clock,
@@ -84,6 +88,11 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		newId: () => crypto.randomUUID(),
 		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
+		sensors: {
+			note: noteSensor(detector),
+			tap: tapSensor(),
+			chord: chordSensor(chords),
+			attack: attackSensor(attacks)
+		}
 	});
 }

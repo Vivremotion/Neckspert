@@ -1,7 +1,12 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { InMemorySettingsRepository } from '$lib/testing/fakes';
-import { createDiagnosticJournal } from './diagnostics';
+import {
+	FakeAttackDetector,
+	FakeDiagnosticSink,
+	FakeNoteDetector,
+	InMemorySettingsRepository
+} from '$lib/testing/fakes';
+import { createDiagnosticJournal, shadowAttacks } from './diagnostics';
 
 const INPUT = { label: 'USB', sampleRate: 48000, channelCount: 1, builtInGain: 1 };
 
@@ -35,5 +40,42 @@ describe('createDiagnosticJournal', () => {
 		journal.audio({ audioTime: 0, sampleRate: 16000, samples: new Int16Array(60 * 1024 * 1024) });
 		await journal.closeTake(2);
 		expect((await journal.takes())[0].truncated).toBe(true);
+	});
+});
+
+describe('shadowAttacks', () => {
+	it('journals note attacks and keeps one attack listener while the journal is on', async () => {
+		const journal = new FakeDiagnosticSink(true);
+		const notes = new FakeNoteDetector();
+		await notes.start(null);
+		const attacks = new FakeAttackDetector();
+		const stop = shadowAttacks(journal, notes, attacks);
+		expect(attacks.listeners).toBe(1);
+
+		notes.emitNote({ time: 1.25, midi: 64, frequencyHz: 329.6, clarity: 0.9 });
+		notes.emitRejection({
+			time: 2.5,
+			reason: 'unclear',
+			attack: { frequencyHz: 0, clarity: 0 },
+			sustain: { frequencyHz: 0, clarity: 0 }
+		});
+		expect(journal.events).toEqual([
+			{ kind: 'note.attack', audioTime: 1.25, data: { midi: 64 } },
+			{ kind: 'note.rejected', audioTime: 2.5, data: { reason: 'unclear' } }
+		]);
+
+		stop();
+		expect(attacks.listeners).toBe(0);
+		notes.emitNote({ time: 3, midi: 60, frequencyHz: 261.6, clarity: 0.9 });
+		expect(journal.events).toHaveLength(2);
+	});
+
+	it('writes nothing while the journal is off', async () => {
+		const journal = new FakeDiagnosticSink(false);
+		const notes = new FakeNoteDetector();
+		await notes.start(null);
+		shadowAttacks(journal, notes, new FakeAttackDetector());
+		notes.emitNote({ time: 1, midi: 64, frequencyHz: 329.6, clarity: 0.9 });
+		expect(journal.events).toEqual([]);
 	});
 });
