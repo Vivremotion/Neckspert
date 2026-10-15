@@ -298,6 +298,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
+		this.view.status = 'idle';
 		this.prepared = false;
 		this.playedInSeries = 0;
 		this.listened = false;

@@ -268,6 +268,21 @@ describe('PlanSessionController, pausing', () => {
 	});
 });
 
+describe('PlanSessionController, another series', () => {
+	it('starts a new series under a new id once the last one finished', async () => {
+		const { controller, sessions, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		await controller.start();
+		expect(controller.sessionId).toBe('s1');
+		expect(controller.view.status).toBe('count-in');
+		expect(await sessions.get('s1')).toMatchObject({ kind: 'exercise', endedAt: null });
+		controller.quit();
+	});
+});
+
 describe('PlanSessionController, the end of a series', () => {
 	it('ends with the run under way once the series has lasted its time', async () => {
 		const { controller, attempts, sessions, sounds, advance, wall } = await setup(RHYTHM_OFFBEATS, {
