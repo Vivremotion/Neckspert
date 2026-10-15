@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import {
 	attackTimesOf,
 	compareAttacks,
+	hasNoteDetector,
 	type ShadowStats
 } from '../src/lib/infrastructure/diagnostics/attackShadow.ts';
 
@@ -17,6 +18,7 @@ const ms = (value: number | null) => (value === null ? '-' : `${value.toFixed(1)
 function describe(label: string, stats: ShadowStats): string {
 	return (
 		`${label}: both ${stats.both}, only notes ${stats.onlyNotes}, only attacks ${stats.onlyAttacks}, ` +
+		`rejected by notes ${stats.rejectedByNotes}, ` +
 		`median ${ms(stats.medianDeltaMs)}, p90 |delta| ${ms(stats.p90AbsDeltaMs)}, bias ${ms(stats.biasMs)}`
 	);
 }
@@ -35,7 +37,7 @@ if (!existsSync(takesDir)) {
 	process.exit(1);
 }
 
-const all = { notes: [] as number[], attacks: [] as number[] };
+const all = { notes: [] as number[], attacks: [] as number[], rejected: [] as number[] };
 let counted = 0;
 let offset = 0;
 for (const take of readdirSync(takesDir).sort()) {
@@ -52,18 +54,34 @@ for (const take of readdirSync(takesDir).sort()) {
 	if (times.skipped > 0) {
 		console.warn(`${take}: ${times.skipped} unreadable line(s) skipped (truncated or malformed)`);
 	}
-	if (times.notes.length === 0 && times.attacks.length === 0) {
+	if (!hasNoteDetector(times) && times.attacks.length === 0) {
 		console.log(`${take}: no attack events (journal off, or recorded before the shadow)`);
 		continue;
 	}
-	console.log(describe(take, compareAttacks(times.notes, times.attacks)));
+	if (!hasNoteDetector(times)) {
+		// Every attack would read as missed by the notes: say so, and keep the take out of the total.
+		console.log(`${take}: no note detector (${times.attacks.length} attacks, nothing to compare)`);
+		continue;
+	}
+	console.log(describe(take, compareAttacks(times.notes, times.attacks, times.rejected)));
 	// Audio times restart with each context: keep takes apart in the total by shifting them.
-	const last = Math.max(0, ...times.notes, ...times.attacks);
-	all.notes.push(...times.notes.map((time) => time + offset));
-	all.attacks.push(...times.attacks.map((time) => time + offset));
+	let last = 0;
+	for (const list of [times.notes, times.attacks, times.rejected]) {
+		for (const time of list) last = Math.max(last, time);
+	}
+	for (const [target, list] of [
+		[all.notes, times.notes],
+		[all.attacks, times.attacks],
+		[all.rejected, times.rejected]
+	] as const) {
+		for (const time of list) target.push(time + offset);
+	}
 	offset += last + 1;
 	counted++;
 }
 
 if (counted === 0) console.log('no take with attack events');
-else console.log(describe(`total (${counted} takes)`, compareAttacks(all.notes, all.attacks)));
+else
+	console.log(
+		describe(`total (${counted} takes)`, compareAttacks(all.notes, all.attacks, all.rejected))
+	);

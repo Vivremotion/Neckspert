@@ -10,8 +10,10 @@ export interface ShadowStats {
 	both: number;
 	/** Note onsets with no attack. */
 	onlyNotes: number;
-	/** Attacks with no note onset. */
+	/** Attacks with no note onset and no rejection near: the note detector never heard them. */
 	onlyAttacks: number;
+	/** Attacks with no note onset but a rejected attack (`note.rejected`) within the window. */
+	rejectedByNotes: number;
 	/** Median of attack time minus note time over the pairs, ms. */
 	medianDeltaMs: number | null;
 	/** 90th percentile of the absolute delta over the pairs, ms. */
@@ -24,13 +26,15 @@ export interface ShadowStats {
 export interface AttackTimes {
 	notes: number[];
 	attacks: number[];
+	/** Attacks the note detector heard but rejected (`note.rejected`). */
+	rejected: number[];
 	/** Lines that could not be read: not JSON (a truncated last line), or no numeric audio time. */
 	skipped: number;
 }
 
 /** Reads a take's `evenements.jsonl` (one JSON event per line); a line it cannot read is counted. */
 export function attackTimesOf(jsonl: string): AttackTimes {
-	const times: AttackTimes = { notes: [], attacks: [], skipped: 0 };
+	const times: AttackTimes = { notes: [], attacks: [], rejected: [], skipped: 0 };
 	for (const line of jsonl.split('\n')) {
 		if (line.trim() === '') continue;
 		let event: unknown;
@@ -45,6 +49,7 @@ export function attackTimesOf(jsonl: string): AttackTimes {
 			times.skipped++;
 		} else if (kind === 'note.attack') times.notes.push(audioTime);
 		else if (kind === 'attack.detected') times.attacks.push(audioTime);
+		else if (kind === 'note.rejected') times.rejected.push(audioTime);
 	}
 	return times;
 }
@@ -57,46 +62,76 @@ function quantile(sorted: readonly number[], q: number): number {
 	return sorted[below] + (sorted[above] - sorted[below]) * (position - below);
 }
 
+/** Whether a take journaled anything from the note detector (an onset or a rejection). */
+export function hasNoteDetector(times: AttackTimes): boolean {
+	return times.notes.length > 0 || times.rejected.length > 0;
+}
+
 /**
- * Pairs each note onset with the nearest attack within `withinMs`, one to one: candidate pairs are
- * taken from the closest, so an attack goes to the onset it is nearest to. Times are in seconds.
+ * Pairs each time of `left` with the nearest time of `right` within `within` seconds, one to one:
+ * candidate pairs are taken from the closest. Both lists are sorted; returns index pairs.
+ */
+function pairNearest(
+	left: readonly number[],
+	right: readonly number[],
+	within: number
+): { left: number; right: number }[] {
+	const candidates: { left: number; right: number; distance: number }[] = [];
+	let first = 0;
+	left.forEach((time, l) => {
+		while (first < right.length && right[first] < time - within) first++;
+		for (let r = first; r < right.length; r++) {
+			if (right[r] > time + within) break;
+			const distance = Math.abs(right[r] - time);
+			if (distance <= within) candidates.push({ left: l, right: r, distance });
+		}
+	});
+	candidates.sort((a, b) => a.distance - b.distance || a.left - b.left || a.right - b.right);
+
+	const leftTaken = new Set<number>();
+	const rightTaken = new Set<number>();
+	const pairs: { left: number; right: number }[] = [];
+	for (const { left: l, right: r } of candidates) {
+		if (leftTaken.has(l) || rightTaken.has(r)) continue;
+		leftTaken.add(l);
+		rightTaken.add(r);
+		pairs.push({ left: l, right: r });
+	}
+	return pairs;
+}
+
+/**
+ * Pairs each note onset with the nearest attack within `withinMs`, one to one, so an attack goes
+ * to the onset it is nearest to. The attacks left over are then matched the same way with the
+ * note detector's rejections: those are `rejectedByNotes`, the rest `onlyAttacks`. Times are in
+ * seconds.
  */
 export function compareAttacks(
 	notes: readonly number[],
 	attacks: readonly number[],
+	rejected: readonly number[] = [],
 	withinMs = SHADOW_PAIR_WITHIN_MS
 ): ShadowStats {
 	const sortedNotes = [...notes].sort((a, b) => a - b);
 	const sortedAttacks = [...attacks].sort((a, b) => a - b);
 	const within = withinMs / 1000;
 
-	const candidates: { note: number; attack: number; distance: number }[] = [];
-	let first = 0;
-	sortedNotes.forEach((time, note) => {
-		while (first < sortedAttacks.length && sortedAttacks[first] < time - within) first++;
-		for (let attack = first; attack < sortedAttacks.length; attack++) {
-			const distance = Math.abs(sortedAttacks[attack] - time);
-			if (sortedAttacks[attack] > time + within) break;
-			if (distance <= within) candidates.push({ note, attack, distance });
-		}
-	});
-	candidates.sort((a, b) => a.distance - b.distance || a.note - b.note || a.attack - b.attack);
-
-	const noteTaken = new Set<number>();
-	const attackTaken = new Set<number>();
-	const deltas: number[] = [];
-	for (const { note, attack } of candidates) {
-		if (noteTaken.has(note) || attackTaken.has(attack)) continue;
-		noteTaken.add(note);
-		attackTaken.add(attack);
-		deltas.push((sortedAttacks[attack] - sortedNotes[note]) * 1000);
-	}
+	const pairs = pairNearest(sortedNotes, sortedAttacks, within);
+	const deltas = pairs.map((pair) => (sortedAttacks[pair.right] - sortedNotes[pair.left]) * 1000);
+	const paired = new Set(pairs.map((pair) => pair.right));
+	const left = sortedAttacks.filter((_, attack) => !paired.has(attack));
+	const rejectedByNotes = pairNearest(
+		[...rejected].sort((a, b) => a - b),
+		left,
+		within
+	).length;
 
 	const both = deltas.length;
 	const base = {
 		both,
 		onlyNotes: sortedNotes.length - both,
-		onlyAttacks: sortedAttacks.length - both
+		onlyAttacks: left.length - rejectedByNotes,
+		rejectedByNotes
 	};
 	if (both === 0) return { ...base, medianDeltaMs: null, p90AbsDeltaMs: null, biasMs: null };
 
