@@ -310,7 +310,7 @@ describe('alignAttacks: a lost or added beat', () => {
 	const context = alignContext(plan, map100, Fraction.ZERO);
 	const fromBar2 = (by: number) => played(timed, (e) => (e.bar >= 2 ? by : 0));
 
-	it('reports a beat lost from bar 2 as a shift, with no misses after it', () => {
+	it('reports a beat added from bar 2 (a beat late from there) as a positive shift, with no misses after it', () => {
 		const attacks = fromBar2(0.6).filter((t) => t < context.endS);
 		const alignment = alignAttacks(timed, attacks, context);
 		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(0.6) });
@@ -321,7 +321,7 @@ describe('alignAttacks: a lost or added beat', () => {
 		expect(alignment.pairs.every((p) => p.verdict === 'on-time')).toBe(true);
 	});
 
-	it('reports a beat rushed from bar 2 as a negative shift', () => {
+	it('reports a beat lost from bar 2 (a beat early from there) as a negative shift', () => {
 		const alignment = alignAttacks(timed, fromBar2(-0.6), context);
 		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(-0.6) });
 		expect(alignment.missed).toEqual([]);
@@ -329,7 +329,7 @@ describe('alignAttacks: a lost or added beat', () => {
 		expect(alignment.pairs).toHaveLength(16);
 	});
 
-	it('does not call missed the notes of a beat the player skipped to come in early', () => {
+	it('does not call missed the notes of a beat lost: the player skipped it to come in early', () => {
 		// 1 1 1 0 0 1 0 1: the player drops the last beat of bar 1 and plays on a beat early.
 		const skip = cycle('11100101', 4, { ms: 20 });
 		const skipTimed = timeExpectations(skip, map100, Fraction.ZERO);

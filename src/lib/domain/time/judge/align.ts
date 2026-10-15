@@ -48,7 +48,12 @@ export interface Alignment {
 	dropped: number[];
 	/** Indexes (in the attacks given) of the attacks that answer no expectation, in time order. */
 	extra: number[];
-	/** Where the player lost or added time, and by how much: the expectations from `bar` on were heard `byS` seconds later (earlier when negative). */
+	/**
+	 * Where the player lost or added time, and by how much: the expectations from `bar` on were
+	 * heard `byS` seconds later (earlier when negative). Positive: a beat added (the player held
+	 * one more and comes in late, « temps ajouté »); negative: a beat lost (the player skipped
+	 * one and comes in early, « temps perdu »).
+	 */
 	shift: { bar: number; byS: number } | null;
 	/** Windows brought down to the zone (half the gap to a neighbour, or `MATCH_LIMIT`). */
 	clampedWindows: number;
