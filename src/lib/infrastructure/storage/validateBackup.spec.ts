@@ -210,6 +210,24 @@ describe('validateBackup', () => {
 		);
 	});
 
+	it('accepts settings with diagnostics.nativeRate and without it', () => {
+		const file = makeBackup();
+		const withDiagnostics = (diagnostics: unknown) => ({
+			...file,
+			settings: { ...file.settings, diagnostics }
+		});
+		expect(() => validateBackup(withDiagnostics({ enabled: true, budgetMb: 300 }))).not.toThrow();
+		expect(() =>
+			validateBackup(withDiagnostics({ enabled: true, budgetMb: 300, nativeRate: true }))
+		).not.toThrow();
+		expect(() =>
+			validateBackup(withDiagnostics({ enabled: null, budgetMb: 300, nativeRate: false }))
+		).not.toThrow();
+		expect(() =>
+			validateBackup(withDiagnostics({ enabled: true, budgetMb: 300, nativeRate: 'yes' }))
+		).toThrow('Invalid backup settings: diagnostics.nativeRate must be true or false');
+	});
+
 	it('rejects a table that is not an array', () => {
 		expect(() => validateBackup({ ...makeBackup(), cards: {} })).toThrow(
 			'Backup field "cards" must be an array'

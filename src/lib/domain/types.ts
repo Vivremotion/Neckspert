@@ -225,6 +225,11 @@ export interface DiagnosticsSettings {
 	/** Null: the build decides (on in development, off in a published build). */
 	enabled: boolean | null;
 	budgetMb: number;
+	/**
+	 * Development option: keep the sound at the input's own rate rather than 16 kHz, to replay
+	 * attack transients above 8 kHz. Absent = false.
+	 */
+	nativeRate?: boolean;
 }
 
 /** The journal is on when the player turned it on, or by the build's default until they choose. */

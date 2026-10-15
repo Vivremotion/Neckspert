@@ -14,6 +14,11 @@ export interface DiagnosticAudioChunk {
 export interface DiagnosticSink {
 	/** False: nothing is recorded, and producers prepare nothing. */
 	readonly enabled: boolean;
+	/**
+	 * Development option, read when the input opens: record the sound at the input's own rate
+	 * instead of 16 kHz. Absent or false: 16 kHz.
+	 */
+	readonly nativeRate?: boolean;
 	event(kind: string, audioTime: number, data: unknown): void;
 	audio(chunk: DiagnosticAudioChunk): void;
 }

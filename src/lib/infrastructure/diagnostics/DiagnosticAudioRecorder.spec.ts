@@ -54,6 +54,49 @@ describe('DiagnosticAudioRecorder', () => {
 		expect(feed.listening).toBe(0);
 	});
 
+	it('keeps the input rate when the journal asks for the native rate', () => {
+		const sink = new FakeDiagnosticSink();
+		sink.nativeRate = true;
+		const feed = new FrameFeed();
+		const recorder = new DiagnosticAudioRecorder(sink);
+		recorder.start(feed);
+		feed.play(0, 25, 0.25);
+		recorder.stop();
+
+		expect(sink.chunks.map((c) => c.sampleRate)).toEqual([RATE, RATE, RATE]);
+		expect(sink.chunks.map((c) => c.samples.length)).toEqual([10 * RATE, 10 * RATE, 5 * RATE]);
+		sink.chunks.forEach((chunk, i) => expect(chunk.audioTime).toBeCloseTo(i * 10, 6));
+		// Untouched: no filter, so the level is right from the first sample.
+		expect(sink.chunks[0].samples[0]).toBe(Math.round(0.25 * 32767));
+		expect(sink.chunks[0].samples[100]).toBe(Math.round(0.25 * 32767));
+	});
+
+	it('still brings the sound down to 16 kHz by default', () => {
+		const sink = new FakeDiagnosticSink();
+		const feed = new FrameFeed();
+		const recorder = new DiagnosticAudioRecorder(sink);
+		recorder.start(feed);
+		feed.play(0, 12, 0.25);
+		recorder.stop();
+		expect(sink.chunks.map((c) => c.sampleRate)).toEqual([16000, 16000]);
+		expect(sink.chunks[0].samples.length).toBe(160000);
+	});
+
+	it('reads the native rate again at each start', () => {
+		const sink = new FakeDiagnosticSink();
+		const feed = new FrameFeed();
+		const recorder = new DiagnosticAudioRecorder(sink);
+		sink.nativeRate = true;
+		recorder.start(feed);
+		feed.play(0, 1);
+		recorder.stop();
+		sink.nativeRate = false;
+		recorder.start(feed);
+		feed.play(5, 1);
+		recorder.stop();
+		expect(sink.chunks.map((c) => c.sampleRate)).toEqual([RATE, 16000]);
+	});
+
 	it('writes 16-bit samples, rounded and saturated', () => {
 		const sink = new FakeDiagnosticSink();
 		const feed = new FrameFeed();

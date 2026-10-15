@@ -13,6 +13,8 @@ const BYTES_PER_MB = 1024 * 1024;
 export interface ResolvedDiagnosticsSettings {
 	enabled: boolean;
 	budgetMb: number;
+	/** Development option: record the sound at the input's own rate. */
+	nativeRate?: boolean;
 }
 
 /** The take being recorded, as counted in memory. */
@@ -21,6 +23,7 @@ interface OpenTake {
 	bytes: number;
 	truncated: boolean;
 	budgetBytes: number;
+	nativeRate: boolean;
 }
 
 /**
@@ -55,6 +58,11 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes, Dia
 		return this.open !== null;
 	}
 
+	/** Whether the take being recorded keeps the sound at the input's rate. */
+	get nativeRate(): boolean {
+		return this.open?.nativeRate ?? false;
+	}
+
 	onTake(listener: (enabled: boolean) => void): () => void {
 		this.takeListeners.add(listener);
 		return () => this.takeListeners.delete(listener);
@@ -85,7 +93,8 @@ export class DexieDiagnosticSink implements DiagnosticSink, DiagnosticTakes, Dia
 				id: row.id,
 				bytes: 0,
 				truncated: false,
-				budgetBytes: settings.budgetMb * BYTES_PER_MB
+				budgetBytes: settings.budgetMb * BYTES_PER_MB,
+				nativeRate: settings.nativeRate === true
 			};
 			// Closed or cleared while it was opening: the queued closing ends it.
 			if (ticket === this.ticket) this.open = this.current;

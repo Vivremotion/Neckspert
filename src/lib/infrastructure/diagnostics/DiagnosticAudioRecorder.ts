@@ -13,13 +13,22 @@ function toInt16(value: number): number {
 	return scaled > INT16_MAX ? INT16_MAX : scaled < -INT16_MAX ? -INT16_MAX : scaled;
 }
 
+/** The input's samples as they are: nothing to filter, no delay. */
+function passThrough(): Downsampler {
+	return { push: (samples) => samples, reset: () => {}, delayS: 0 };
+}
+
 /**
  * Keeps the sound of a take: the input's frames, brought down to 16 kHz in 16 bits, sent to the
  * journal in blocks of DIAGNOSTIC_CHUNK_S seconds. A gap between frames is written as
- * `input.gap` and starts a new block, the resampler starting again from silence.
+ * `input.gap` and starts a new block, the resampler starting again from silence. When the journal
+ * asks for the native rate (a development option, read at `start`), the frames are kept at the
+ * input's rate, untouched, so the transients above 8 kHz can be replayed.
  */
 export class DiagnosticAudioRecorder {
-	private readonly chunkLength = DIAGNOSTIC_CHUNK_S * DIAGNOSTIC_SAMPLE_RATE;
+	/** Rate of the blocks sent to the journal, set at `start`. */
+	private outputRate = DIAGNOSTIC_SAMPLE_RATE;
+	private chunkLength = DIAGNOSTIC_CHUNK_S * DIAGNOSTIC_SAMPLE_RATE;
 	private unsubscribe: (() => void) | null = null;
 	private downsampler: Downsampler | null = null;
 	private pending = new Int16Array(this.chunkLength);
@@ -35,7 +44,12 @@ export class DiagnosticAudioRecorder {
 	start(source: FrameSource): void {
 		this.stop();
 		if (!this.sink.enabled) return;
-		this.downsampler = createDownsampler(source.sampleRate);
+		const native = this.sink.nativeRate === true;
+		this.outputRate = native ? source.sampleRate : DIAGNOSTIC_SAMPLE_RATE;
+		this.downsampler = native ? passThrough() : createDownsampler(source.sampleRate);
+		this.chunkLength = Math.round(DIAGNOSTIC_CHUNK_S * this.outputRate);
+		this.pending = new Int16Array(this.chunkLength);
+		this.pendingLength = 0;
 		this.unsubscribe = source.onFrame((frame) => this.onFrame(frame, source.sampleRate));
 	}
 
@@ -83,8 +97,8 @@ export class DiagnosticAudioRecorder {
 		const first = this.segmentProduced - this.pendingLength;
 		const delayS = this.downsampler?.delayS ?? 0;
 		this.sink.audio({
-			audioTime: this.segmentStart + first / DIAGNOSTIC_SAMPLE_RATE - delayS,
-			sampleRate: DIAGNOSTIC_SAMPLE_RATE,
+			audioTime: this.segmentStart + first / this.outputRate - delayS,
+			sampleRate: this.outputRate,
 			samples: this.pending.slice(0, this.pendingLength)
 		});
 		this.pendingLength = 0;

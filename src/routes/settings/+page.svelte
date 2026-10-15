@@ -152,6 +152,10 @@
 		return saveDiagnostics({ ...diagnostics, budgetMb });
 	}
 
+	function ondiagnosticsnativerate(nativeRate: boolean) {
+		return saveDiagnostics({ ...diagnostics, nativeRate });
+	}
+
 	async function ondiagnosticsexport() {
 		if (diagnosticsExporting) return;
 		diagnosticsExporting = true;
@@ -200,6 +204,8 @@
 	{diagnosticsUsedBytes}
 	{ondiagnostics}
 	{ondiagnosticsbudget}
+	diagnosticsNativeRate={diagnostics.nativeRate === true}
+	{ondiagnosticsnativerate}
 	{ondiagnosticsexport}
 	{ondiagnosticsclear}
 	{diagnosticsExporting}

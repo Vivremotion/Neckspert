@@ -43,6 +43,22 @@ describe('createDiagnosticJournal', () => {
 	});
 });
 
+describe('createDiagnosticJournal native rate', () => {
+	async function nativeAfterOpening(nativeRate: boolean | undefined): Promise<boolean> {
+		const settings = new InMemorySettingsRepository();
+		await settings.update({ diagnostics: { enabled: true, budgetMb: 300, nativeRate } });
+		const journal = createDiagnosticJournal(settings, { name: crypto.randomUUID() });
+		await journal.openTake({ startedAt: 1, startedAudioTime: 0, input: INPUT });
+		return journal.nativeRate;
+	}
+
+	it('hands the setting to the sink, off when absent', async () => {
+		expect(await nativeAfterOpening(undefined)).toBe(false);
+		expect(await nativeAfterOpening(false)).toBe(false);
+		expect(await nativeAfterOpening(true)).toBe(true);
+	});
+});
+
 const OPENING = { startedAt: 1, startedAudioTime: 0, input: INPUT };
 
 function shadow(enabled = true) {

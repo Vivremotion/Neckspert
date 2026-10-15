@@ -23,7 +23,8 @@ export function createDiagnosticJournal(
 			const { diagnostics } = await settings.get();
 			return {
 				enabled: resolveDiagnosticsEnabled(diagnostics, buildDefault),
-				budgetMb: diagnostics.budgetMb
+				budgetMb: diagnostics.budgetMb,
+				nativeRate: diagnostics.nativeRate === true
 			};
 		},
 		newId: () => crypto.randomUUID()

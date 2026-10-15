@@ -138,6 +138,9 @@ function checkDiagnosticsSettings(diagnostics: unknown): string | null {
 	if (!isPositiveNumber(diagnostics.budgetMb)) {
 		return 'diagnostics.budgetMb must be a positive number';
 	}
+	if (diagnostics.nativeRate !== undefined && typeof diagnostics.nativeRate !== 'boolean') {
+		return 'diagnostics.nativeRate must be true or false';
+	}
 	return null;
 }
 

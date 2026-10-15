@@ -22,6 +22,7 @@
 	let confirmingImport = $state(false);
 	let diagnosticsEnabled = $state(true);
 	let diagnosticsBudgetMb = $state(300);
+	let diagnosticsNativeRate = $state(false);
 	let diagnosticsUsedBytes = $state(42 * 1024 * 1024);
 	let chordDiagram = $state<ChordDiagramStyle>('strings');
 
@@ -54,6 +55,8 @@
 	{diagnosticsUsedBytes}
 	ondiagnostics={(enabled) => (diagnosticsEnabled = enabled)}
 	ondiagnosticsbudget={(mb) => (diagnosticsBudgetMb = mb)}
+	{diagnosticsNativeRate}
+	ondiagnosticsnativerate={(on) => (diagnosticsNativeRate = on)}
 	ondiagnosticsexport={() => undefined}
 	ondiagnosticsclear={() => (diagnosticsUsedBytes = 0)}
 	{chordDiagram}

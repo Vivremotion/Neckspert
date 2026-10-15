@@ -36,8 +36,10 @@
 		diagnosticsEnabled,
 		diagnosticsBudgetMb,
 		diagnosticsUsedBytes,
+		diagnosticsNativeRate = false,
 		ondiagnostics,
 		ondiagnosticsbudget,
+		ondiagnosticsnativerate = () => {},
 		ondiagnosticsexport,
 		ondiagnosticsclear,
 		diagnosticsExporting = false,
@@ -67,6 +69,9 @@
 		diagnosticsUsedBytes: number;
 		ondiagnostics: (enabled: boolean) => void;
 		ondiagnosticsbudget: (budgetMb: number) => void;
+		/** Development option: record the sound at the input's own rate (shown in development only). */
+		diagnosticsNativeRate?: boolean;
+		ondiagnosticsnativerate?: (nativeRate: boolean) => void;
 		ondiagnosticsexport: () => void;
 		ondiagnosticsclear: () => void;
 		/** True while an archive is being built: the export button waits. */
@@ -242,6 +247,17 @@
 				>
 			{/each}
 		</div>
+		{#if import.meta.env.DEV}
+			<p class="label"><PixelText scale={1}>{m.diagnosticsNativeRate}</PixelText></p>
+			<PixelButton
+				size="large"
+				pressed={diagnosticsNativeRate}
+				label={m.diagnosticsNativeRateToggle(diagnosticsNativeRate)}
+				onclick={() => ondiagnosticsnativerate(!diagnosticsNativeRate)}
+				>{m.diagnosticsState(diagnosticsNativeRate)}</PixelButton
+			>
+			<p class="usage"><PixelText scale={1}>{m.diagnosticsNativeRateHint}</PixelText></p>
+		{/if}
 		<div class="row actions">
 			<PixelButton size="large" disabled={diagnosticsExporting} onclick={ondiagnosticsexport}
 				>{m.diagnosticsExport}</PixelButton

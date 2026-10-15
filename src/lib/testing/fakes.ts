@@ -265,6 +265,8 @@ export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes, Diag
 	readonly events: { kind: string; audioTime: number; data: unknown }[] = [];
 	readonly chunks: DiagnosticAudioChunk[] = [];
 	readonly takes: { opened: DiagnosticTakeOpening; endedAt: number | null }[] = [];
+	/** Asks the recorder for the input's own rate instead of 16 kHz. */
+	nativeRate = false;
 
 	private readonly takeListeners = new Set<(enabled: boolean) => void>();
 

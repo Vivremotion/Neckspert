@@ -35,6 +35,16 @@ export function settingsRepositoryContract(
 			});
 		});
 
+		it('keeps diagnostics.nativeRate, and reads it as absent when never set', async () => {
+			expect((await repo.get()).diagnostics.nativeRate).toBeUndefined();
+			await repo.update({ diagnostics: { enabled: true, budgetMb: 100, nativeRate: true } });
+			expect((await repo.get()).diagnostics).toEqual({
+				enabled: true,
+				budgetMb: 100,
+				nativeRate: true
+			});
+		});
+
 		it('clears a field set back to null', async () => {
 			await repo.update({ calibrationOffsetMs: 42 });
 			await repo.update({ calibrationOffsetMs: null });
