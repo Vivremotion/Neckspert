@@ -2,13 +2,30 @@
 // Pure functions on plain records, applied alike by the database upgrade (`db.ts`) and by the
 // import of a backup (`validateBackup.ts`), so both reach the same rows.
 
-import { mechanicRules } from '$lib/domain/mechanics';
-
 type Row = Record<string, unknown>;
 
-/** The time relation a stored attempt was judged by: its mechanic's, from the registry. */
+/**
+ * The time relation of each mechanic a version 7 database or a version 3 backup can hold, frozen
+ * as it was: a migration never reads live code, so renaming a mechanic or changing its relation
+ * later cannot change what this step does to rows still waiting for it.
+ */
+export const V7_RELATIONS: Readonly<Record<string, string>> = Object.freeze({
+	locate: 'beat',
+	identify: 'free',
+	'triad-anchor': 'anchor',
+	'triad-zone': 'beat',
+	'chord-grid': 'grid-change'
+});
+
+/**
+ * The time relation a stored attempt was judged by, from `V7_RELATIONS`. Throws on a mechanic
+ * version 7 did not know: the database upgrade then aborts and leaves the database at version 7.
+ */
 export function relationOfMechanic(mechanic: string): string {
-	return mechanicRules(mechanic).timing.id;
+	if (!Object.hasOwn(V7_RELATIONS, mechanic)) {
+		throw new Error(`Unknown mechanic at version 7: ${mechanic}`);
+	}
+	return V7_RELATIONS[mechanic];
 }
 
 /**

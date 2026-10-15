@@ -1,12 +1,12 @@
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { describe, expect, it } from 'vitest';
-import { MECHANIC_RULES } from '$lib/domain/mechanics';
+import { mechanicRules } from '$lib/domain/mechanics';
 import v3Export from '../fixtures/backup-v3.json';
 import { createDatabase } from '../db';
 import { makeAttempt } from '../testing/fixtures';
 import { validateBackup } from '../validateBackup';
-import { attemptToV8, backupV3ToV4, relationOfMechanic, settingsToV8 } from './v8';
+import { V7_RELATIONS, attemptToV8, backupV3ToV4, relationOfMechanic, settingsToV8 } from './v8';
 
 type Row = Record<string, unknown>;
 
@@ -40,18 +40,32 @@ function oldAttempt(overrides: Row = {}): Row {
 }
 
 describe('relationOfMechanic', () => {
-	it('names the time relation of each mechanic of the registry', () => {
-		expect(MECHANIC_RULES.map((rules) => [rules.id, relationOfMechanic(rules.id)])).toEqual([
-			['locate', 'beat'],
-			['identify', 'free'],
-			['triad-anchor', 'anchor'],
-			['triad-zone', 'beat'],
-			['chord-grid', 'grid-change']
-		]);
+	it('names the relation of each mechanic a version 7 database can hold, frozen', () => {
+		expect(V7_RELATIONS).toEqual({
+			locate: 'beat',
+			identify: 'free',
+			'triad-anchor': 'anchor',
+			'triad-zone': 'beat',
+			'chord-grid': 'grid-change'
+		});
+		for (const [mechanic, relation] of Object.entries(V7_RELATIONS)) {
+			expect(relationOfMechanic(mechanic)).toBe(relation);
+		}
 	});
 
-	it('throws on a mechanic it does not know', () => {
-		expect(() => relationOfMechanic('kazoo')).toThrow('Unknown mechanic: kazoo');
+	// Tripwire: the migration never reads the registry, but a divergence must be noticed, then
+	// decided (the frozen table is the truth of version 7 and stays as it is).
+	it('agrees with the relations of today’s registry', () => {
+		for (const [mechanic, relation] of Object.entries(V7_RELATIONS)) {
+			expect(mechanicRules(mechanic).timing.id).toBe(relation);
+		}
+	});
+
+	it('throws on a mechanic version 7 did not know', () => {
+		expect(() => relationOfMechanic('kazoo')).toThrow('Unknown mechanic at version 7: kazoo');
+		expect(() => relationOfMechanic('constructor')).toThrow(
+			'Unknown mechanic at version 7: constructor'
+		);
 	});
 });
 
@@ -313,5 +327,40 @@ describe('a version 7 database opened at version 8', () => {
 			attempts.filter((attempt) => attempt.cardKey === first.cardKey).length
 		);
 		db.close();
+	});
+});
+
+describe('a version 7 database holding an attempt of an unknown mechanic', () => {
+	it('fails to open at version 8 and keeps every row of version 7 as it was', async () => {
+		const name = crypto.randomUUID();
+		const file = exportV3();
+		const unknown = oldAttempt({ id: 999, mechanic: 'kazoo', cardKey: 'kazoo:1' });
+		const old = versionSeven(name);
+		await old.open();
+		await old.table('attempts').bulkAdd([...file.attempts, unknown]);
+		await old.table('cards').bulkAdd(file.cards as Row[]);
+		await old.table('sessions').bulkAdd(file.sessions as Row[]);
+		const settings = { id: 'settings', locale: 'en', calibrationOffsetMs: 37 };
+		await old.table('settings').put(settings);
+		const before = {
+			attempts: await old.table('attempts').toArray(),
+			cards: await old.table('cards').toArray(),
+			sessions: await old.table('sessions').toArray()
+		};
+		old.close();
+
+		const db = createDatabase(name);
+		await expect(db.open()).rejects.toThrow('Unknown mechanic at version 7: kazoo');
+		db.close();
+
+		const reopened = versionSeven(name);
+		await reopened.open();
+		expect(reopened.verno).toBe(7);
+		expect(await reopened.table('attempts').toArray()).toEqual(before.attempts);
+		expect(await reopened.table('cards').toArray()).toEqual(before.cards);
+		expect(await reopened.table('sessions').toArray()).toEqual(before.sessions);
+		expect(await reopened.table('settings').toArray()).toEqual([settings]);
+		expect(reopened.tables.map((table) => table.name)).not.toContain('levelStates');
+		reopened.close();
 	});
 });

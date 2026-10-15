@@ -151,7 +151,9 @@ export class NeckspertDb extends Dexie {
 					.table('attempts')
 					.toCollection()
 					.modify((row, ref) => {
-						if (typeof row.verdict === 'string') ref.value = attemptToV8(row, relationOfMechanic);
+						// A row already at the target model is not written again.
+						if (typeof row.verdict !== 'string') return false;
+						ref.value = attemptToV8(row, relationOfMechanic);
 					});
 				await tx
 					.table('settings')
