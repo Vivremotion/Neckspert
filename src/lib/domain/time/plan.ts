@@ -42,7 +42,8 @@ export interface RoundPlan {
 	policy: RoundPolicy;
 	/**
 	 * Where the next round may open without a gap, relative to this round's start: rounds that
-	 * chain (the cycles of a loop, the changes of a grid) hand over there. Absent: the round
+	 * chain hand over there: the cycles of a loop at their end, the changes of a grid (one round
+	 * per change) a little before the next change. Absent: the round
 	 * ends on its own and the next one waits for it.
 	 */
 	handover?: Fraction;

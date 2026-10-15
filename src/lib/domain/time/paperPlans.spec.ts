@@ -57,33 +57,39 @@ describe('paper plans of the existing relations', () => {
 		expect(plan.expectations[0].content).toBe('root');
 		expect(plan.expectations[1].span).toEqual({ until: of(1) });
 		expect(plan.expectations[1].content).toBe('triad');
-		expect(plan.policy.provisional).toBe(true);
-		expect(plan.policy.unit).toBe('response');
+		expect(plan.prompt?.equals(of(-1, 2))).toBe(true);
+		expect(plan.policy).toEqual({
+			unit: 'response',
+			firstAnswerOnly: false,
+			lateCapture: false,
+			provisional: true
+		});
 	});
 
-	it('gridChange (gesture): one chord expectation per change, rounds handed over', () => {
-		const changes = [0, 1, 2, 3].map((bar) =>
-			target(of(bar), 'chord', { content: `chord-${bar}`, bar, window: { ofGap: of(1, 2) } })
-		);
+	it('gridChange (gesture): one round per change, handed over a little before the next change', () => {
+		// One change of a grid: a bar, one chord at its start; the next round opens a fortieth
+		// of a whole note early (the next change minus the early margin).
 		const plan: RoundPlan = {
 			prompt: null,
-			expectations: changes,
-			length: of(4),
-			policy: { unit: 'cycle', firstAnswerOnly: false, lateCapture: false, provisional: false },
-			handover: of(4),
+			expectations: [target(of(0), 'chord', { content: 'chord-0', window: { ofGap: of(1, 2) } })],
+			length: of(1),
+			policy: { unit: 'response', firstAnswerOnly: false, lateCapture: false, provisional: false },
+			handover: of(39, 40),
 			mutedBars: []
 		};
 		expect(validateRoundPlan(plan)).toBeNull();
 		expect(plan.prompt).toBeNull();
-		expect(plan.expectations).toHaveLength(4);
-		expect(plan.expectations.every((e) => e.sensor === 'chord' && e.span === 'point')).toBe(true);
-		expect(plan.expectations.map((e) => e.content)).toEqual([
-			'chord-0',
-			'chord-1',
-			'chord-2',
-			'chord-3'
-		]);
-		expect(plan.policy.unit).toBe('cycle');
-		expect(plan.handover?.equals(plan.length)).toBe(true);
+		expect(plan.expectations).toHaveLength(1);
+		expect(plan.expectations[0].sensor).toBe('chord');
+		expect(plan.expectations[0].span).toBe('point');
+		expect(plan.expectations[0].content).toBe('chord-0');
+		expect(plan.policy).toEqual({
+			unit: 'response',
+			firstAnswerOnly: false,
+			lateCapture: false,
+			provisional: false
+		});
+		expect(plan.handover?.equals(of(39, 40))).toBe(true);
+		expect(plan.handover?.compare(plan.length)).toBe(-1);
 	});
 });
