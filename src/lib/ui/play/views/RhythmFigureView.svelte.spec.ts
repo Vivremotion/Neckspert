@@ -1,0 +1,222 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
+import { Fraction, type CycleReport, type Figure } from '$lib/domain/time';
+import { PLAY_VIEWS } from './index';
+import RhythmFigureView from './RhythmFigureView.svelte';
+import { FigureStageController } from './testing/FigureStageController.svelte';
+
+// jsdom has no canvas, and VexFlow measures its text on one: a fixed-size stand-in.
+beforeAll(() => {
+	vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+		() =>
+			({
+				font: '',
+				measureText: () => ({
+					width: 8,
+					actualBoundingBoxLeft: 0,
+					actualBoundingBoxRight: 8,
+					actualBoundingBoxAscent: 8,
+					actualBoundingBoxDescent: 0
+				})
+			}) as unknown as CanvasRenderingContext2D
+	);
+});
+afterAll(() => {
+	vi.restoreAllMocks();
+});
+afterEach(() => cleanup());
+
+function figure(index: number): Figure {
+	const entry = RHYTHM_OFFBEATS.figures?.[index];
+	if (!entry) throw new Error('the offbeats exercise has no such figure');
+	return entry.figure;
+}
+
+/** The offbeats bar: five attacks, the third late by 90 ms, the fifth missed. */
+const REPORT: CycleReport = {
+	expectations: [
+		{ index: 0, verdict: 'on-time', offsetMs: 4 },
+		{ index: 1, verdict: 'on-time', offsetMs: -10 },
+		{ index: 2, verdict: 'late', offsetMs: 90 },
+		{ index: 3, verdict: 'on-time', offsetMs: 0 },
+		{ index: 4, verdict: 'missed', offsetMs: null }
+	],
+	dropped: [],
+	extra: 0,
+	shift: null,
+	measures: { regularity: { value: 31, unit: 'ms' } },
+	latency: null
+};
+const FAILED: SettledCycle = {
+	report: REPORT,
+	verdict: { passed: false, reasons: ['missed'] }
+};
+
+function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
+	return {
+		phase: 'play',
+		exerciseLabel: 'Contretemps',
+		level: { shown: 3, of: 6, aid: false },
+		tempo: { bpm: 90, unit: '♩' },
+		figure: figure(0),
+		next: null,
+		barInCycle: 0,
+		cycleBars: 1,
+		muted: false,
+		cursor: Fraction.of(1, 4),
+		feedback: 'every-cycle',
+		settled: [],
+		announcement: null,
+		listen: 'free',
+		...overrides
+	};
+}
+
+function breath(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
+	return model({
+		phase: 'breath',
+		cursor: null,
+		next: figure(1),
+		settled: [FAILED],
+		...overrides
+	});
+}
+
+function running() {
+	const controller = new FigureStageController();
+	controller.view.status = 'awaiting';
+	return controller;
+}
+
+/** Waits for the engraving: the notation adapter is loaded on demand. */
+async function engraved(count = 1) {
+	await vi.waitFor(() => {
+		expect(document.querySelectorAll('svg').length).toBeGreaterThanOrEqual(count);
+	});
+}
+
+describe('RhythmFigureView', () => {
+	it('is the view of the rhythm exercises', () => {
+		expect(PLAY_VIEWS['rhythm-figure']).toBe(RhythmFigureView);
+	});
+
+	it('names the exercise, its level and its tempo with its unit', () => {
+		render(RhythmFigureView, { props: { controller: running(), model: model() } });
+		expect(screen.getByTestId('rhythm-header').textContent?.trim()).toBe(
+			'Contretemps · niveau 3 sur 6 · ♩ = 90 bpm'
+		);
+	});
+
+	it('engraves the figure large while it is played, with its bar and the click in words', async () => {
+		render(RhythmFigureView, {
+			props: { controller: running(), model: model({ barInCycle: 1, cycleBars: 4 }) }
+		});
+		await engraved();
+		expect(screen.getByTestId('rhythm-bar').textContent).toContain('mesure 2 / 4');
+		expect(screen.getByTestId('rhythm-bar').textContent).toContain('clic');
+		expect(screen.getByTestId('rhythm-cursor')).toBeTruthy();
+		// Nothing about the player's attacks while playing.
+		expect(screen.queryAllByTestId('rhythm-mark')).toHaveLength(0);
+	});
+
+	it('never shows the cursor in a muted bar, and says « silence »', async () => {
+		render(RhythmFigureView, {
+			props: { controller: running(), model: model({ muted: true }) }
+		});
+		await engraved();
+		expect(screen.queryByTestId('rhythm-cursor')).toBeNull();
+		expect(screen.getByTestId('rhythm-bar').textContent).toContain('silence');
+	});
+
+	it('at the breath, puts the run played (faded, with its marks) before the figure to play', async () => {
+		render(RhythmFigureView, { props: { controller: running(), model: breath() } });
+		const played = screen.getByTestId('rhythm-played');
+		const next = screen.getByTestId('rhythm-next');
+		expect(played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(played.classList.contains('faded')).toBe(true);
+		expect(next.classList.contains('faded')).toBe(false);
+		await engraved(2);
+		await vi.waitFor(() => expect(screen.getAllByTestId('rhythm-mark')).toHaveLength(5));
+		const kinds = screen.getAllByTestId('rhythm-mark').map((m) => m.dataset.kind);
+		expect(kinds).toEqual(['on-time', 'on-time', 'late', 'on-time', 'missed']);
+		expect(screen.getByText('+90')).toBeTruthy();
+	});
+
+	it('tells the cycle in plain words, the term as a label', () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({
+					settled: [
+						{
+							report: { ...REPORT, expectations: REPORT.expectations.slice(0, 4) },
+							verdict: { passed: false, reasons: ['regularity'] }
+						}
+					]
+				})
+			}
+		});
+		const line = screen.getByTestId('rhythm-feedback');
+		expect(line.textContent?.replace(/\s+/g, ' ').trim()).toBe('Irrégulier (± 31 ms) · régularité');
+		expect(line.querySelector('.term')?.textContent).toBe('régularité');
+	});
+
+	it('in summary, tells each cycle passed or failed, without marks', async () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({
+					feedback: 'summary',
+					settled: [{ report: REPORT, verdict: { passed: true } }, FAILED]
+				})
+			}
+		});
+		await engraved(2);
+		expect(screen.getAllByTestId('rhythm-cycle').map((c) => c.textContent?.trim())).toEqual([
+			'tour 1 · réussi',
+			'tour 2 · raté'
+		]);
+		expect(screen.queryAllByTestId('rhythm-mark')).toHaveLength(0);
+	});
+
+	it('announces a level change at the breath', () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({ announcement: 'level-up', level: { shown: 4, of: 6, aid: false } })
+			}
+		});
+		expect(screen.getByRole('status').textContent).toContain('niveau 4 sur 6');
+	});
+
+	it('offers « Écouter la figure » with its key when the level lets the figure be heard', async () => {
+		const controller = running();
+		render(RhythmFigureView, { props: { controller, model: model() } });
+		const button = screen.getByRole('button', { name: /écouter la figure/i });
+		expect(button.textContent).toContain('E');
+		await fireEvent.click(button);
+		expect(controller.calls).toEqual(['listen']);
+	});
+
+	it('hides « Écouter la figure » when the level gives no listening', () => {
+		render(RhythmFigureView, {
+			props: { controller: running(), model: model({ listen: 'none' }) }
+		});
+		expect(screen.queryByRole('button', { name: /écouter la figure/i })).toBeNull();
+	});
+
+	it('offers « Réécouter » at the breath only, and shows the replay under way', async () => {
+		const controller = running();
+		const { rerender } = render(RhythmFigureView, { props: { controller, model: model() } });
+		expect(screen.queryByRole('button', { name: /réécouter/i })).toBeNull();
+		await rerender({ controller, model: breath() });
+		await fireEvent.click(screen.getByRole('button', { name: /réécouter/i }));
+		expect(controller.calls).toEqual(['replay']);
+		const busy = screen.getByRole('button', { name: /réécoute…/i });
+		expect((busy as HTMLButtonElement).disabled).toBe(true);
+		controller.finishReplay();
+		await vi.waitFor(() => expect(screen.getByRole('button', { name: /réécouter/i })).toBeTruthy());
+	});
+});

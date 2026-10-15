@@ -1,1 +1,1 @@
-export { renderFigure, type FigureLayout, type RenderOptions } from './renderFigure';
+export { notationReady, renderFigure, type FigureLayout, type RenderOptions } from './renderFigure';

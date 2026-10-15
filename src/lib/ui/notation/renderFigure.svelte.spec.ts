@@ -8,7 +8,7 @@ import {
 	type FigureElement,
 	type Voice
 } from '$lib/domain/time';
-import { renderFigure } from './renderFigure';
+import { notationReady, renderFigure } from './renderFigure';
 
 const of = Fraction.of;
 const note = (n: number, d: number, tieToNext?: boolean): FigureElement => ({
@@ -251,5 +251,30 @@ describe('renderFigure', () => {
 
 	it('refuses an invalid figure', () => {
 		expect(() => renderFigure(host, figure(eighths(7)), { maxWidth: 600 })).toThrow(/bar 1/);
+	});
+});
+
+describe('notationReady', () => {
+	it('waits for the embedded Bravura font, so glyphs are measured on it', async () => {
+		const load = vi.fn(() => Promise.resolve([]));
+		Object.defineProperty(document, 'fonts', { configurable: true, value: { load } });
+		try {
+			await notationReady();
+			expect(load).toHaveBeenCalledWith(expect.stringContaining('Bravura'));
+		} finally {
+			Reflect.deleteProperty(document, 'fonts');
+		}
+	});
+
+	it('goes on where fonts cannot be awaited, or fail to load', async () => {
+		expect('fonts' in document).toBe(false);
+		await expect(notationReady()).resolves.toBeUndefined();
+		const load = vi.fn(() => Promise.reject(new Error('blocked')));
+		Object.defineProperty(document, 'fonts', { configurable: true, value: { load } });
+		try {
+			await expect(notationReady()).resolves.toBeUndefined();
+		} finally {
+			Reflect.deleteProperty(document, 'fonts');
+		}
 	});
 });

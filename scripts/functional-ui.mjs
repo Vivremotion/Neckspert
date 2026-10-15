@@ -365,35 +365,79 @@ try {
 		noteTiny('settings', run.texts);
 	}
 
-	// The rhythm view does not exist yet: this page engraves figures through the same adapter
-	// (`renderFigure`). Move the check to the rhythm view when it is built.
-	console.log('\nNotation /dev/notation');
+	// The rhythm view (`/dev/rhythm`, a still model in the play frame): the embedded Bravura font
+	// is loaded and draws, the run played and the next figure are engraved at the breath, and the
+	// cursor shows on a clicked bar but never on a muted one.
+	const RHYTHM_URL = process.env.RHYTHM_URL ?? 'http://localhost:5201/dev/rhythm';
+	const texts = `[...document.querySelectorAll('body *')]
+		.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+		.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))`;
+	const settle = `async () => {
+		await document.fonts.ready;
+		for (let i = 0; i < 40 && !document.querySelector('svg'); i++) {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}`;
+
+	console.log('\nRythme /dev/rhythm (respiration)');
 	{
-		const call = await open(process.env.NOTATION_URL ?? 'http://localhost:5201/dev/notation');
+		const call = await open(RHYTHM_URL);
 		const run = await evaluate(
 			call,
 			`async () => {
-				await document.fonts.ready;
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 200));
 				const head = document.querySelector('.vf-notehead path, .vf-notehead');
 				const box = head?.getBBox?.();
 				const faces = [...document.fonts].filter((face) => face.family.replaceAll('"', '') === 'Bravura');
-				const texts = [...document.querySelectorAll('body *')]
-					.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
-					.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
+				const played = document.querySelector('[data-testid="rhythm-played"]');
+				const next = document.querySelector('[data-testid="rhythm-next"]');
 				return {
 					check: document.fonts.check('30px Bravura'),
 					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),
 					head: box ? box.width : 0,
 					svgs: document.querySelectorAll('svg').length,
-					texts
+					order: Boolean(played && next && played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING),
+					marks: document.querySelectorAll('[data-testid="rhythm-mark"]').length,
+					texts: ${texts}
 				};
 			}`
 		);
 		check(assert(run.check, 'document.fonts.check(« 30px Bravura ») est vrai'));
 		check(assert(run.loaded, 'la police Bravura embarquée est chargée'));
 		check(assert(run.head > 0, `la tête de note a une largeur (${run.head})`));
-		check(assert(run.svgs >= 3, `les trois figures sont gravées (${run.svgs})`));
-		noteTiny('notation', run.texts);
+		check(assert(run.svgs >= 2, `la suite jouée et la figure à jouer sont gravées (${run.svgs})`));
+		check(assert(run.order, 'la suite jouée précède la figure à jouer'));
+		check(assert(run.marks > 0, `les marques de la suite sont dessinées (${run.marks})`));
+		noteTiny('rhythm-breath', run.texts);
+	}
+
+	for (const [phase, shown] of [
+		['play', true],
+		['muted', false]
+	]) {
+		console.log(`\nRythme /dev/rhythm?phase=${phase}`);
+		const call = await open(`${RHYTHM_URL}?phase=${phase}`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				return {
+					svgs: document.querySelectorAll('svg').length,
+					cursor: document.querySelector('[data-testid="rhythm-cursor"]') !== null,
+					texts: ${texts}
+				};
+			}`
+		);
+		check(assert(run.svgs >= 1, `la figure est gravée (${run.svgs})`));
+		check(
+			assert(
+				run.cursor === shown,
+				shown ? 'le curseur suit une mesure avec clic' : 'aucun curseur pendant une mesure muette'
+			)
+		);
+		noteTiny(`rhythm-${phase}`, run.texts);
 	}
 
 	console.log('\nTextes sous 16 px');

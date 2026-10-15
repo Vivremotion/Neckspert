@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
@@ -7,6 +8,7 @@
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import { playMessages } from './messages';
 	import PixelWord from './PixelWord.svelte';
+	import { replayOf } from './replay.svelte';
 	import { PLAY_VIEWS, type PlayViewProps } from './views';
 	import type { Component } from 'svelte';
 
@@ -31,6 +33,12 @@
 	const running = $derived(
 		view.status === 'count-in' || view.status === 'awaiting' || view.status === 'verdict'
 	);
+	/**
+	 * The controller plays figures: « Écouter la figure » and « Réécouter » have keys, Escape
+	 * closes the pause, and the pause offers to quit the exercise. Other sessions are untouched.
+	 */
+	const figures = $derived(Boolean(controller.listen || controller.replay));
+	const replay = $derived(replayOf(controller));
 	/** A miss drawn by its mechanic: what was played and what was due. */
 	const drawn = $derived(
 		view.lastVerdict && (view.lastVerdict.heard || view.lastVerdict.expected)
@@ -47,7 +55,41 @@
 		if (view.status !== 'idle' && view.status !== 'finished') controller.quit();
 	}
 
+	/** « Quitter l’exercice », from the pause: no shortcut, on purpose. */
+	function quitExercise() {
+		controller.quit();
+		if (!quitToSummary) void goto(resolve('/'));
+	}
+
+	/** E (L in English) listens to the figure, R replays the last run, Escape closes the pause. */
+	function onFigureKey(event: KeyboardEvent): boolean {
+		if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return false;
+		const target = event.target;
+		if (target instanceof HTMLElement && target.closest('input, textarea, select') !== null) {
+			return false;
+		}
+		const key = event.key.toLowerCase();
+		if (controller.listen && key === t.listenKey.toLowerCase()) {
+			if (!running) return false;
+			event.preventDefault();
+			controller.listen();
+			return true;
+		}
+		if (controller.replay && key === t.replayKey.toLowerCase()) {
+			event.preventDefault();
+			replay.run();
+			return true;
+		}
+		if (event.key === 'Escape' && view.status === 'paused' && !view.briefing) {
+			event.preventDefault();
+			controller.resume();
+			return true;
+		}
+		return false;
+	}
+
 	function onKeydown(event: KeyboardEvent) {
+		if (figures && onFigureKey(event)) return;
 		if (event.code !== 'Space' && event.key !== 'Enter') return;
 		const target = event.target;
 		if (
@@ -145,6 +187,8 @@
 				<p class="how">{t.finished}</p>
 			{:else if view.audioError === 'input'}
 				<p class="how" role="alert">{t.noInput}</p>
+			{:else if view.audioError === 'bleed'}
+				<p class="how" role="alert">{t.bleed}</p>
 			{:else}
 				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
 			{/if}
@@ -161,6 +205,14 @@
 	{:else if view.status === 'paused'}
 		<div class="overlay">
 			<PixelButton size="huge" onclick={() => controller.resume()}>{t.resume}</PixelButton>
+			{#if controller.replay}
+				<PixelButton size="large" disabled={replay.pending} onclick={() => replay.run()}
+					>{replay.pending ? t.replaying : `${t.replay} (${t.replayKey})`}</PixelButton
+				>
+			{/if}
+			{#if figures}
+				<PixelButton size="large" onclick={quitExercise}>{t.quitExercise}</PixelButton>
+			{/if}
 		</div>
 	{/if}
 </section>

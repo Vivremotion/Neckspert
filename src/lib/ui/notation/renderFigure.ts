@@ -225,6 +225,23 @@ function newStave(x: number, y: number, width: number, signature: string | null)
 	return stave.setStyle({ fillStyle: INK, strokeStyle: INK });
 }
 
+/** The music font the package registers when it loads; glyph widths are measured on it. */
+const MUSIC_FONT = 'Bravura';
+
+/**
+ * Resolves once the embedded music font can be measured. Engrave after it: a figure engraved
+ * before measures its glyphs on a fallback font, and its spacing and `noteX` are off. Never
+ * rejects: where fonts cannot be awaited (or fail), engraving goes on as it can.
+ */
+export async function notationReady(): Promise<void> {
+	if (typeof document === 'undefined' || typeof document.fonts?.load !== 'function') return;
+	try {
+		await document.fonts.load(`30px ${MUSIC_FONT}`);
+	} catch {
+		// Engraved anyway, on whatever font there is.
+	}
+}
+
 /**
  * Draws a figure (one rhythmic line per voice, bars wrapped to `maxWidth`) into `host`, replacing
  * what it held; returns where each note and bar landed. Every bar gets the same width, as many

@@ -2,7 +2,9 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import PlayFrame from './PlayFrame.svelte';
 import { PLAY_VIEWS } from './views';
+import { i18n } from '$lib/i18n/index.svelte';
 import FakeView from './views/testing/FakeView.svelte';
+import { FigureStageController } from './views/testing/FigureStageController.svelte';
 import { StageController } from './views/testing/StageController.svelte';
 
 afterEach(() => cleanup());
@@ -115,5 +117,79 @@ describe('PlayFrame', () => {
 		stopped.view.status = 'paused';
 		await fireEvent.click(await screen.findByRole('button', { name: /c’est parti/i }));
 		expect(stopped.calls).toEqual(['resume', 'resume']);
+	});
+
+	describe('with a controller that plays figures', () => {
+		function playing() {
+			const controller = new FigureStageController();
+			controller.view.status = 'awaiting';
+			return controller;
+		}
+
+		it('listens to the figure on E in French, L in English', async () => {
+			const controller = playing();
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			await fireEvent.keyDown(window, { key: 'e', code: 'KeyE' });
+			expect(controller.calls).toEqual(['listen']);
+			i18n.locale = 'en';
+			try {
+				await fireEvent.keyDown(window, { key: 'e', code: 'KeyE' });
+				await fireEvent.keyDown(window, { key: 'l', code: 'KeyL' });
+				expect(controller.calls).toEqual(['listen', 'listen']);
+			} finally {
+				i18n.locale = 'fr';
+			}
+		});
+
+		it('replays on R, once until the replay comes back', async () => {
+			const controller = playing();
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			await fireEvent.keyDown(window, { key: 'r', code: 'KeyR' });
+			controller.view.status = 'paused';
+			await fireEvent.keyDown(window, { key: 'r', code: 'KeyR' });
+			expect(controller.calls).toEqual(['replay']);
+			const busy = await screen.findByRole('button', { name: /réécoute…/i });
+			expect((busy as HTMLButtonElement).disabled).toBe(true);
+			controller.finishReplay();
+			await screen.findByRole('button', { name: /réécouter/i });
+			await fireEvent.keyDown(window, { key: 'r', code: 'KeyR' });
+			expect(controller.calls).toEqual(['replay', 'replay']);
+		});
+
+		it('pauses on Space, resumes on Escape, and quits the exercise from the pause', async () => {
+			const controller = playing();
+			render(PlayFrame, { props: { controller, kind: 'exercise', quitToSummary: true } });
+			await fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+			expect(controller.view.status).toBe('paused');
+			await fireEvent.keyDown(window, { code: 'Escape', key: 'Escape' });
+			expect(controller.calls).toEqual(['pause', 'resume']);
+			controller.view.status = 'paused';
+			const quit = await screen.findByRole('button', { name: 'Quitter l’exercice' });
+			expect(quit.textContent?.trim()).toBe('Quitter l’exercice');
+			expect(quit.getAttribute('aria-keyshortcuts')).toBeNull();
+			await fireEvent.click(quit);
+			expect(controller.calls).toEqual(['pause', 'resume', 'quit']);
+		});
+
+		it('asks for headphones when the microphone hears the click', () => {
+			const controller = new FigureStageController();
+			controller.view.audioError = 'bleed';
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			expect(screen.getByRole('alert').textContent).toBe(
+				'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.'
+			);
+		});
+	});
+
+	it('binds no figure key, nor Escape, for a controller that offers none', async () => {
+		const controller = new StageController();
+		controller.view.status = 'awaiting';
+		render(PlayFrame, { props: { controller } });
+		for (const key of ['e', 'l', 'r']) await fireEvent.keyDown(window, { key });
+		await fireEvent.keyDown(window, { code: 'Space', key: ' ' });
+		await fireEvent.keyDown(window, { code: 'Escape', key: 'Escape' });
+		expect(controller.calls).toEqual(['pause']);
+		expect(screen.queryByRole('button', { name: /quitter l’exercice/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /réécouter/i })).toBeNull();
 	});
 });
