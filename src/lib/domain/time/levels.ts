@@ -93,8 +93,13 @@ export interface LevelState {
 
 /**
  * The state after one cycle. An aided cycle counts neither way (it only resets the run of
- * successes). Going down stops at level 1: the aid levels are reached by the anti-blocking
- * of a session, never by failing. A level change starts both runs again.
+ * successes) and leaves the run of failures as it is. `aided` means played with an aid
+ * other than the level's own (listen, play-along, cursor...): the caller passes
+ * `aided: false` for a cycle whose only aid is that of an aid level, so that the player can
+ * climb out of the aid levels. Going down stops at level 1: the aid levels are reached by
+ * the anti-blocking of a session, never by failing. At the floor (level 0 or an aid level)
+ * failures keep counting, for that anti-blocking to read, and its owner resets them. A level
+ * change starts both runs again.
  */
 export function nextLevelState(
 	state: LevelState,
@@ -127,7 +132,8 @@ export function nextLevelState(
 		return { state: { ...state, successes: 0, failures }, changed: null };
 	}
 	if (state.level <= 0) {
-		return { state: { ...state, successes: 0, failures: 0 }, changed: null };
+		// The floor: keep counting, plan 2's anti-blocking reads the run and resets it when it acts.
+		return { state: { ...state, successes: 0, failures }, changed: null };
 	}
 	return {
 		state: { ...state, level: state.level - 1, successes: 0, failures: 0 },
