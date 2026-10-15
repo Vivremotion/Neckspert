@@ -13,6 +13,7 @@ import {
 	alignAttacks,
 	alignContext,
 	MATCH_LIMIT,
+	type AlignContext,
 	SHIFT_MIN_MATCHES,
 	timeExpectations,
 	type TimedExpectation
@@ -98,7 +99,8 @@ describe('timeExpectations', () => {
 			expect(e.windowS).toBeLessThanOrEqual(e.zoneS);
 			expect(e.clamped).toBe(true);
 		}
-		expect(alignAttacks(timed, []).clampedWindows).toBe(16);
+		const context = alignContext(plan, quarterAt(160), Fraction.ZERO);
+		expect(alignAttacks(timed, [], context).clampedWindows).toBe(16);
 	});
 
 	it('leaves judged rests out and keeps the plan indexes of the targets', () => {
@@ -129,17 +131,23 @@ function played(timed: TimedExpectation[], move: (e: TimedExpectation) => number
 	return timed.map((e) => e.time + move(e));
 }
 
+/** A context for hand-made expectations: no beat, the round spanning them widely. */
+const looseContext: AlignContext = { beatS: null, subdivisionS: 0.1, startS: -1, endS: 10 };
+
 describe('alignAttacks', () => {
-	const eighths = timeExpectations(cycle('11111111', 1, { ms: 20 }), map100, Fraction.ZERO);
+	const eighthsPlan = cycle('11111111', 1, { ms: 20 });
+	const eighths = timeExpectations(eighthsPlan, map100, Fraction.ZERO);
+	const context = alignContext(eighthsPlan, map100, Fraction.ZERO);
 
 	it('pairs exact attacks on time', () => {
-		const alignment = alignAttacks(eighths, played(eighths));
+		const alignment = alignAttacks(eighths, played(eighths), context);
 		expect(alignment.pairs).toHaveLength(8);
 		expect(alignment.pairs.every((p) => p.verdict === 'on-time')).toBe(true);
 		expect(alignment.pairs.map((p) => [p.expectation, p.attack])).toEqual(
 			[0, 1, 2, 3, 4, 5, 6, 7].map((i) => [i, i])
 		);
 		expect(alignment.missed).toEqual([]);
+		expect(alignment.dropped).toEqual([]);
 		expect(alignment.extra).toEqual([]);
 		expect(alignment.shift).toBeNull();
 		expect(alignment.clampedWindows).toBe(0);
@@ -148,7 +156,8 @@ describe('alignAttacks', () => {
 	it('calls attacks 30 ms ahead early when the window is 20 ms', () => {
 		const alignment = alignAttacks(
 			eighths,
-			played(eighths, () => -0.03)
+			played(eighths, () => -0.03),
+			context
 		);
 		expect(alignment.pairs).toHaveLength(8);
 		for (const pair of alignment.pairs) {
@@ -160,7 +169,8 @@ describe('alignAttacks', () => {
 	it('calls attacks 30 ms behind late', () => {
 		const alignment = alignAttacks(
 			eighths,
-			played(eighths, () => 0.03)
+			played(eighths, () => 0.03),
+			context
 		);
 		expect(alignment.pairs.every((p) => p.verdict === 'late')).toBe(true);
 		expect(alignment.pairs[0].offsetMs).toBeCloseTo(30);
@@ -168,7 +178,7 @@ describe('alignAttacks', () => {
 
 	it('lists a missing eighth as missed', () => {
 		const attacks = played(eighths).filter((_, i) => i !== 3);
-		const alignment = alignAttacks(eighths, attacks);
+		const alignment = alignAttacks(eighths, attacks, context);
 		expect(alignment.missed).toEqual([3]);
 		expect(alignment.extra).toEqual([]);
 		expect(alignment.pairs).toHaveLength(7);
@@ -178,9 +188,10 @@ describe('alignAttacks', () => {
 
 	it('lists an attack in the middle of a rest as extra', () => {
 		// 1 1 0 1 0 1 0 1: an attack lands on the third eighth, a rest.
-		const timed = timeExpectations(cycle('11010101', 1, { ms: 20 }), map100, Fraction.ZERO);
+		const restPlan = cycle('11010101', 1, { ms: 20 });
+		const timed = timeExpectations(restPlan, map100, Fraction.ZERO);
 		const attacks = [...played(timed), 2 * EIGHTH].sort((a, b) => a - b);
-		const alignment = alignAttacks(timed, attacks);
+		const alignment = alignAttacks(timed, attacks, alignContext(restPlan, map100, Fraction.ZERO));
 		expect(alignment.extra).toEqual([2]);
 		expect(alignment.missed).toEqual([]);
 		expect(alignment.pairs).toHaveLength(5);
@@ -188,23 +199,25 @@ describe('alignAttacks', () => {
 
 	it('never pairs an attack outside the zone of an expectation', () => {
 		// 0.2 s late on an eighth: beyond the 0.15 s zone, a miss and an extra.
-		const lone = timeExpectations(cycle('10000000', 1, { ms: 20 }), map100, Fraction.ZERO);
-		const alignment = alignAttacks(lone, [0.2]);
+		const lonePlan = cycle('10000000', 1, { ms: 20 });
+		const lone = timeExpectations(lonePlan, map100, Fraction.ZERO);
+		const alignment = alignAttacks(lone, [0.2], alignContext(lonePlan, map100, Fraction.ZERO));
 		expect(alignment.pairs).toEqual([]);
 		expect(alignment.missed).toEqual([0]);
 		expect(alignment.extra).toEqual([0]);
 	});
 
 	it('misses every expectation when nothing is played', () => {
-		const alignment = alignAttacks(eighths, []);
+		const alignment = alignAttacks(eighths, [], context);
 		expect(alignment.pairs).toEqual([]);
 		expect(alignment.missed).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+		expect(alignment.dropped).toEqual([]);
 		expect(alignment.extra).toEqual([]);
 		expect(alignment.shift).toBeNull();
 	});
 
 	it('lists every attack as extra when nothing is expected', () => {
-		const alignment = alignAttacks([], [0.1, 0.5]);
+		const alignment = alignAttacks([], [0.1, 0.5], looseContext);
 		expect(alignment.pairs).toEqual([]);
 		expect(alignment.missed).toEqual([]);
 		expect(alignment.extra).toEqual([0, 1]);
@@ -212,7 +225,7 @@ describe('alignAttacks', () => {
 
 	it('reads attacks given out of order by time, keeping their indexes', () => {
 		const attacks = played(eighths).reverse();
-		const alignment = alignAttacks(eighths, attacks);
+		const alignment = alignAttacks(eighths, attacks, context);
 		expect(alignment.pairs.map((p) => [p.expectation, p.attack])).toEqual(
 			[0, 1, 2, 3, 4, 5, 6, 7].map((i) => [i, 7 - i])
 		);
@@ -223,7 +236,7 @@ describe('alignAttacks', () => {
 			{ index: 0, time: 0, zoneS: 0.05, windowS: 0.02, bar: 0 },
 			{ index: 1, time: 0.1, zoneS: 0.05, windowS: 0.02, bar: 0 }
 		];
-		const alignment = alignAttacks(two, [0.05]);
+		const alignment = alignAttacks(two, [0.05], looseContext);
 		expect(alignment.pairs).toEqual([
 			{ expectation: 1, attack: 0, offsetMs: expect.closeTo(-50), verdict: 'early' }
 		]);
@@ -235,7 +248,11 @@ describe('alignAttacks', () => {
 		const timed = timeExpectations(plan, quarterAt(160), Fraction.ZERO);
 		// Alternately 30 ms ahead and 30 ms behind, inside the 46.875 ms zones.
 		const attacks = played(timed, (e) => (e.index % 2 === 0 ? -0.03 : 0.03));
-		const alignment = alignAttacks(timed, attacks);
+		const alignment = alignAttacks(
+			timed,
+			attacks,
+			alignContext(plan, quarterAt(160), Fraction.ZERO)
+		);
 		expect(alignment.pairs.map((p) => p.attack)).toEqual(timed.map((e) => e.index));
 		expect(alignment.pairs.every((p) => p.verdict === 'on-time')).toBe(true);
 		expect(alignment.missed).toEqual([]);
@@ -255,6 +272,7 @@ describe('alignAttacks: a lost or added beat', () => {
 		const alignment = alignAttacks(timed, attacks, context);
 		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(0.6) });
 		expect(alignment.missed).toEqual([]);
+		expect(alignment.dropped).toEqual([]);
 		expect(alignment.extra).toEqual([]);
 		expect(alignment.pairs).toHaveLength(16);
 		expect(alignment.pairs.every((p) => p.verdict === 'on-time')).toBe(true);
@@ -280,6 +298,8 @@ describe('alignAttacks: a lost or added beat', () => {
 		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(-0.6) });
 		expect(alignment.missed).toEqual([]);
 		expect(alignment.extra).toEqual([]);
+		// The skipped note (the last of bar 1, plan index 9) is dropped, not missed.
+		expect(alignment.dropped).toEqual([9]);
 		expect(alignment.pairs).toHaveLength(skipTimed.length - 1);
 	});
 
@@ -295,17 +315,35 @@ describe('alignAttacks: a lost or added beat', () => {
 		const alignment = alignAttacks(lateTimed, attacks, lateContext);
 		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(0.6) });
 		expect(alignment.missed).toEqual([]);
-		// The last note of the cycle would fall after the round: neither paired nor missed.
+		// The last note of the cycle would fall after the round: dropped, not paired nor missed.
+		expect(alignment.dropped).toEqual([lateTimed.length - 1]);
 		expect(alignment.pairs).toHaveLength(lateTimed.length - 1);
+		expect(alignment.pairs.length + alignment.missed.length + alignment.dropped.length).toBe(
+			lateTimed.length
+		);
 	});
 
 	it('sees scattered misses as misses, not as a shift', () => {
-		const eighths = timeExpectations(cycle('11111111', 4, { ms: 20 }), map100, Fraction.ZERO);
-		const eighthsContext = alignContext(cycle('11111111', 4, { ms: 20 }), map100, Fraction.ZERO);
-		const attacks = played(eighths).filter((_, i) => ![3, 12, 25].includes(i));
-		const alignment = alignAttacks(eighths, attacks, eighthsContext);
+		// On a figure a shift would show on, one note missed in each of three bars.
+		const attacks = played(timed).filter((_, i) => ![3, 9, 14].includes(i));
+		const alignment = alignAttacks(timed, attacks, context);
 		expect(alignment.shift).toBeNull();
-		expect(alignment.missed).toEqual([3, 12, 25]);
+		expect(alignment.missed).toEqual([3, 9, 14]);
+		expect(alignment.dropped).toEqual([]);
+		expect(alignment.extra).toEqual([]);
+	});
+
+	it('keeps scattered misplaced notes as misses while a shift gains fewer than SHIFT_MIN_MATCHES', () => {
+		// Three notes over bars 2 and 3 each played a beat late: moving bars 2 and 3 back by an
+		// eighth would pair two more attacks, one short of SHIFT_MIN_MATCHES.
+		const attacks = played(timed, (e) => ([10, 11, 14].includes(e.index) ? 0.6 : 0)).filter(
+			(t) => t < context.endS
+		);
+		const alignment = alignAttacks(timed, attacks, context);
+		expect(alignment.shift).toBeNull();
+		expect(alignment.missed).toEqual([10, 11, 14]);
+		expect(alignment.dropped).toEqual([]);
+		expect(alignment.extra).toHaveLength(3);
 	});
 
 	it('finds a shift by the smallest subdivision', () => {
@@ -313,11 +351,5 @@ describe('alignAttacks: a lost or added beat', () => {
 		const alignment = alignAttacks(timed, attacks, context);
 		expect(alignment.shift).toEqual({ bar: 1, byS: expect.closeTo(0.3) });
 		expect(alignment.missed).toEqual([]);
-	});
-
-	it('looks for a shift by the smallest gap when given no context', () => {
-		const attacks = played(timed, (e) => (e.bar >= 1 ? 0.3 : 0)).filter((t) => t < context.endS);
-		const alignment = alignAttacks(timed, attacks);
-		expect(alignment.shift).toEqual({ bar: 1, byS: expect.closeTo(0.3) });
 	});
 });

@@ -27,6 +27,11 @@ export interface TimedExpectation {
 
 export type ExpectationVerdict = 'on-time' | 'early' | 'late' | 'missed';
 
+/**
+ * Every timed expectation ends up in exactly one of `pairs`, `missed` and `dropped`. After a
+ * shift, `offsetMs` is measured from the moved expectation (where the player now stands), not
+ * from the written one.
+ */
 export interface Alignment {
 	pairs: {
 		expectation: number;
@@ -36,7 +41,12 @@ export interface Alignment {
 	}[];
 	/** Plan indexes of the expectations no attack answered. */
 	missed: number[];
-	/** Indexes (in the attacks given) of the attacks that answer no expectation. */
+	/**
+	 * Plan indexes of the expectations a shift made unplayable in this round (moved outside it,
+	 * or covered by the moved bar): neither answered nor missed. Empty without a shift.
+	 */
+	dropped: number[];
+	/** Indexes (in the attacks given) of the attacks that answer no expectation, in time order. */
 	extra: number[];
 	/** Where the player lost or added time, and by how much: the expectations from `bar` on were heard `byS` seconds later (earlier when negative). */
 	shift: { bar: number; byS: number } | null;
@@ -48,7 +58,9 @@ export interface Alignment {
  * What the shift search needs beyond the timed expectations: the steps it tries and the span
  * of the round, in seconds. A shift is tried by a beat (`beatS`, when known), then by the
  * smallest subdivision (`subdivisionS`), each forward then backward. Expectations a shift
- * moves outside `[startS, endS)` cannot be played in this round.
+ * moves outside `[startS, endS)` cannot be played in this round. Build it with
+ * `alignContext(plan, map, startPosition)`; it is required so that no caller can align
+ * without looking for a lost or added beat.
  */
 export interface AlignContext {
 	beatS: number | null;
@@ -140,23 +152,6 @@ export function alignContext(
 	};
 }
 
-/** Without a context: no beat, the smallest gap between expectations, the span of their zones. */
-function contextOf(expectations: TimedExpectation[]): AlignContext {
-	let smallest: number | null = null;
-	for (let i = 1; i < expectations.length; i++) {
-		const gap = expectations[i].time - expectations[i - 1].time;
-		if (gap > EPSILON && (smallest === null || gap < smallest)) smallest = gap;
-	}
-	const first = expectations[0];
-	const last = expectations[expectations.length - 1];
-	return {
-		beatS: null,
-		subdivisionS: smallest,
-		startS: first ? first.time - first.zoneS : 0,
-		endS: last ? last.time + last.zoneS : 0
-	};
-}
-
 interface Attack {
 	time: number;
 	index: number;
@@ -245,14 +240,16 @@ function shifted(
 	bar: number,
 	byS: number,
 	context: AlignContext
-): TimedExpectation[] {
+): { playable: TimedExpectation[]; dropped: number[] } {
 	const moved = expectations
 		.filter((e) => e.bar >= bar)
 		.map((e) => ({ ...e, time: e.time + byS }))
 		.filter((e) => e.time >= context.startS - EPSILON && e.time < context.endS - EPSILON);
 	const first = moved[0]?.time ?? Infinity;
 	const kept = expectations.filter((e) => e.bar < bar && e.time < first - EPSILON);
-	return [...kept, ...moved];
+	const playable = [...kept, ...moved];
+	const left = new Set(playable.map((e) => e.index));
+	return { playable, dropped: expectations.filter((e) => !left.has(e.index)).map((e) => e.index) };
 }
 
 /**
@@ -265,13 +262,14 @@ function shifted(
  * gains most wins, the earliest bar then the earlier step on a tie. (Keeping the first
  * qualifying bar alone would name the bar before the real one: moving one bar too early loses
  * a few pairs in it but still gains enough after.) The moved alignment is returned; the
- * expectations the move made unplayable are neither paired nor missed. Attacks may come in
+ * expectations the move made unplayable are listed in `dropped`, neither paired nor missed.
+ * Attacks may come in
  * any order; their indexes are kept.
  */
 export function alignAttacks(
 	expectations: TimedExpectation[],
 	attacks: number[],
-	context: AlignContext = contextOf(expectations)
+	context: AlignContext
 ): Alignment {
 	const sorted = [...expectations].sort((a, b) => a.time - b.time);
 	const timed: Attack[] = attacks
@@ -280,7 +278,7 @@ export function alignAttacks(
 	const clampedWindows = expectations.filter((e) => e.clamped).length;
 
 	const plain = optimalPath(sorted, timed);
-	let best: { path: Path; bar: number; byS: number; gain: number } | null = null;
+	let best: { path: Path; dropped: number[]; bar: number; byS: number; gain: number } | null = null;
 	if (timed.length > 0) {
 		const steps = [context.beatS, context.subdivisionS]
 			.filter((s): s is number => s !== null && s > EPSILON)
@@ -289,10 +287,11 @@ export function alignAttacks(
 		const bars = [...new Set(sorted.map((e) => e.bar))].sort((a, b) => a - b);
 		for (const bar of bars) {
 			for (const byS of steps) {
-				const path = optimalPath(shifted(sorted, bar, byS, context), timed);
+				const { playable, dropped } = shifted(sorted, bar, byS, context);
+				const path = optimalPath(playable, timed);
 				const gain = path.pairs.length - plain.pairs.length;
 				if (gain >= SHIFT_MIN_MATCHES && (!best || gain > best.gain)) {
-					best = { path, bar, byS, gain };
+					best = { path, dropped, bar, byS, gain };
 				}
 			}
 		}
@@ -301,6 +300,7 @@ export function alignAttacks(
 	return {
 		pairs: chosen.pairs,
 		missed: chosen.missed,
+		dropped: best ? best.dropped : [],
 		extra: chosen.extra,
 		shift: best ? { bar: best.bar, byS: best.byS } : null,
 		clampedWindows
