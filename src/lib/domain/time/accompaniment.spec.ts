@@ -96,6 +96,26 @@ describe('renderSounds', () => {
 		expect(() => renderSounds(acc, map, 0.5, 2)).toThrow(RangeError);
 	});
 
+	it('throws unless the figure has exactly one voice', () => {
+		const voice = acc.figure.voices[0];
+		const two = { ...acc, figure: { ...acc.figure, voices: [voice, { ...voice, id: 'other' }] } };
+		const none = { ...acc, figure: { ...acc.figure, voices: [] } };
+		expect(() => renderSounds(two, map, 0, 1)).toThrow(RangeError);
+		expect(() => renderSounds(none, map, 0, 1)).toThrow(RangeError);
+	});
+
+	it('throws on a note without a sound even when its bar is muted or not rendered', () => {
+		const silent: Figure = {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 1,
+			voices: [{ id: 'v', elements: [{ kind: 'note', duration: f(1), content: null }] }]
+		};
+		const muted = { figure: silent, bars: ['off' as const] };
+		expect(() => renderSounds(muted, map, 0, 2)).toThrow(RangeError);
+		expect(() => renderSounds(muted, map, 3, 3)).toThrow(RangeError);
+	});
+
 	it('follows tempo changes in the map', () => {
 		const faster = map.withSegment({ at: f(1), bpm: 240, unit: f(1, 4) });
 		const sounds = renderSounds(acc, faster, 0, 2);
@@ -127,6 +147,38 @@ describe('renderFigure', () => {
 			{ time: 4.5, sound: 'demo' },
 			{ time: 5.5, sound: 'demo' }
 		]);
+	});
+
+	it('starts the contretemps (c8 c8 r8 c8 r8 c8 r8 c8) at 4 s from bar 2', () => {
+		const note = { kind: 'note', duration: f(1, 8), content: null } as const;
+		const rest = { kind: 'rest', duration: f(1, 8) } as const;
+		const contretemps: Figure = {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 1,
+			voices: [{ id: 'v', elements: [note, note, rest, note, rest, note, rest, note] }]
+		};
+		const sounds = renderFigure(contretemps, 'demo', map, 2);
+		expect(sounds.map((s) => s.time)).toEqual([4, 4.25, 4.75, 5.25, 5.75]);
+		expect(sounds.every((s) => s.sound === 'demo')).toBe(true);
+	});
+
+	it('renders the attacks of every voice, merged and sorted by time', () => {
+		const note = { kind: 'note', duration: f(1, 2), content: null } as const;
+		const rest = { kind: 'rest', duration: f(1, 4) } as const;
+		const two: Figure = {
+			schema: 1,
+			meter: METER_4_4,
+			bars: 1,
+			voices: [
+				{ id: 'low', elements: [note, note] },
+				{
+					id: 'high',
+					elements: [rest, { ...rest, kind: 'note', content: null }, rest, rest]
+				}
+			]
+		};
+		expect(renderFigure(two, 'play-along', map, 0).map((s) => s.time)).toEqual([0, 0.5, 1]);
 	});
 
 	it('plays a figure of several bars and skips tied notes', () => {

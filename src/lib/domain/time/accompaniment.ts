@@ -1,7 +1,7 @@
 import { Fraction } from './fraction';
 import { barLength, beatPositions, type Meter } from './meter';
 import type { TempoMap } from './tempoMap';
-import { SOUND_IDS, type Figure, type FigureElement, type SoundId } from './figure';
+import { SOUND_IDS, type Figure, type FigureElement, type SoundId, type Voice } from './figure';
 
 export { SOUND_IDS, type SoundId };
 
@@ -69,10 +69,8 @@ interface Attack {
 	sound: SoundId | null;
 }
 
-/** The attacks of the figure's first voice (tied notes sound once), in order. */
-function attacksOf(figure: Figure): Attack[] {
-	const voice = figure.voices[0];
-	if (!voice) throw new RangeError('figure has no voice');
+/** The attacks of one voice (tied notes sound once), in order. */
+function attacksOf(figure: Figure, voice: Voice): Attack[] {
 	const bar = barLength(figure.meter);
 	const attacks: Attack[] = [];
 	let at = Fraction.ZERO;
@@ -112,7 +110,16 @@ export function renderSounds(
 	checkRange(fromBar, toBar);
 	const { figure, bars } = accompaniment;
 	if (bars.length === 0) throw new RangeError('an accompaniment needs at least one bar');
-	const attacks = attacksOf(figure);
+	if (figure.voices.length !== 1) {
+		throw new RangeError(`an accompaniment is one voice, its figure has ${figure.voices.length}`);
+	}
+	// Every note is checked up front, even in a bar that is muted or not rendered.
+	const attacks = attacksOf(figure, figure.voices[0]).map((attack) => {
+		if (attack.sound === null) {
+			throw new RangeError('an accompaniment note must name the sound it plays');
+		}
+		return { ...attack, sound: attack.sound };
+	});
 	const length = barLength(figure.meter);
 	const sounds: ScheduledSound[] = [];
 	for (let bar = fromBar; bar < toBar; bar++) {
@@ -120,9 +127,6 @@ export function renderSounds(
 		const inFigure = bar % figure.bars;
 		for (const attack of attacks) {
 			if (attack.bar !== inFigure) continue;
-			if (attack.sound === null) {
-				throw new RangeError('an accompaniment note must name the sound it plays');
-			}
 			sounds.push({
 				time: map.toSeconds(Fraction.of(bar).mul(length).add(attack.offset)),
 				sound: attack.sound
@@ -133,8 +137,8 @@ export function renderSounds(
 }
 
 /**
- * A figure played as `sound` (its first voice; demo, play-along) over bars
- * [fromBar, fromBar + figure.bars), whatever its notes carry.
+ * A figure played as `sound` (demo, play-along) over bars [fromBar, fromBar + figure.bars),
+ * whatever its notes carry: the attacks of every voice, merged and sorted by time.
  */
 export function renderFigure(
 	figure: Figure,
@@ -144,12 +148,15 @@ export function renderFigure(
 ): ScheduledSound[] {
 	checkRange(fromBar, fromBar + figure.bars);
 	const length = barLength(figure.meter);
-	return attacksOf(figure).map((attack) => ({
-		time: map.toSeconds(
-			Fraction.of(fromBar + attack.bar)
-				.mul(length)
-				.add(attack.offset)
-		),
-		sound
-	}));
+	return figure.voices
+		.flatMap((voice) => attacksOf(figure, voice))
+		.map((attack) => ({
+			time: map.toSeconds(
+				Fraction.of(fromBar + attack.bar)
+					.mul(length)
+					.add(attack.offset)
+			),
+			sound
+		}))
+		.sort((a, b) => a.time - b.time);
 }
