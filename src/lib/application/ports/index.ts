@@ -1,4 +1,5 @@
 export type { SoundCuePort } from './SoundCuePort';
+export type { SoundSchedulerPort } from './SoundSchedulerPort';
 export type { AudioClockPort } from './AudioClockPort';
 export type { BeatEvent, MetronomePort } from './MetronomePort';
 export type {

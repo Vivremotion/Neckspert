@@ -35,8 +35,10 @@ import type {
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort
+	SoundCuePort,
+	SoundSchedulerPort
 } from '$lib/application/ports';
+import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
 
 export class FakeSoundCues implements SoundCuePort {
@@ -65,6 +67,51 @@ export class FakeClock implements AudioClockPort {
 
 	advance(seconds: number): void {
 		this.time += seconds;
+	}
+}
+
+export class FakeSoundScheduler implements SoundSchedulerPort {
+	private log: ScheduledSound[] = [];
+	private wakeUps: { time: number; callback: () => void }[] = [];
+
+	constructor(private readonly clock: FakeClock) {}
+
+	/** Like the real scheduler, a time already past is dropped and not logged. */
+	play(time: number, sound: SoundId): void {
+		if (time < this.clock.now()) return;
+		this.log.push({ time, sound });
+	}
+
+	at(time: number, callback: () => void): () => void {
+		const wakeUp = { time, callback };
+		this.wakeUps.push(wakeUp);
+		return () => {
+			this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
+		};
+	}
+
+	cancelAll(): void {
+		this.log = [];
+		this.wakeUps = [];
+	}
+
+	emitted(): readonly ScheduledSound[] {
+		return [...this.log];
+	}
+
+	/** Runs the wake-ups due up to `clock.now()`, earliest first (a tie in the order asked). */
+	flush(): void {
+		for (;;) {
+			const now = this.clock.now();
+			let due: { time: number; callback: () => void } | null = null;
+			for (const w of this.wakeUps) {
+				if (w.time <= now && (!due || w.time < due.time)) due = w;
+			}
+			if (!due) return;
+			const done = due;
+			this.wakeUps = this.wakeUps.filter((w) => w !== done);
+			done.callback();
+		}
 	}
 }
 
