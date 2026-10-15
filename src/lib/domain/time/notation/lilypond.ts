@@ -44,6 +44,11 @@ class Reader {
 		private readonly meter: Meter
 	) {}
 
+	/** Where the reader stands, for errors that come from elsewhere than `fail`. */
+	get offset(): number {
+		return this.at;
+	}
+
 	private fail(message: string, offset = this.at): never {
 		throw new Error(`lilypond: ${message} at offset ${offset}`);
 	}
@@ -199,5 +204,13 @@ class Reader {
  * worked out from the text. Throws an `Error` whose message names the offending offset (0-based).
  */
 export function parseLilyPondRhythm(text: string, options: { meter?: Meter } = {}): Figure {
-	return new Reader(text, options.meter ?? METER_4_4).read();
+	const reader = new Reader(text, options.meter ?? METER_4_4);
+	try {
+		return reader.read();
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		if (message.startsWith('lilypond:')) throw error;
+		// Exact-arithmetic failures (a ratio that overflows the fractions, say) come from below.
+		throw new Error(`lilypond: ${message} at offset ${reader.offset}`, { cause: error });
+	}
 }

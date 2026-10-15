@@ -130,6 +130,13 @@ describe('parseLilyPondRhythm', () => {
 			expect(() => parseLilyPondRhythm('~ c1')).toThrow();
 		});
 
+		it('prefixes errors from the exact arithmetic and names the offset', () => {
+			const text = [997, 991, 983, 977, 971, 967, 953]
+				.map((n) => `\\tuplet ${n}/1 { c32 }`)
+				.join(' ');
+			expect(() => parseLilyPondRhythm(text)).toThrow(/^lilypond: .*safe integer.* at offset \d+$/);
+		});
+
 		it('rejects an empty text and a note crossing a bar line', () => {
 			expect(() => parseLilyPondRhythm('   ')).toThrow();
 			expect(() => parseLilyPondRhythm('c2 c1 c2')).toThrow(/bar/);
