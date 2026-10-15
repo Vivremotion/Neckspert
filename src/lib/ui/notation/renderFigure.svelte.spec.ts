@@ -70,6 +70,20 @@ describe('renderFigure', () => {
 		expect(layout.height).toBeGreaterThan(0);
 	});
 
+	it('centres the time signature on the single line, inside its row', () => {
+		const layout = renderFigure(host, figure(eighths(8)), { maxWidth: 600 });
+		const digits = [...host.querySelectorAll('.vf-timesignature text')].map((t) =>
+			Number(t.getAttribute('y'))
+		);
+		expect(digits).toHaveLength(2);
+		// The line lies six spaces (60 px) down the row: one digit a space above it, one below.
+		const [top, bottom] = digits;
+		expect((top + bottom) / 2).toBeCloseTo(60);
+		expect(bottom - top).toBeCloseTo(20);
+		// A digit is two spaces high, centred on its baseline: the lower one ends inside the row.
+		expect(bottom + 10).toBeLessThanOrEqual(layout.rowHeight);
+	});
+
 	it('wraps four bars onto several lines at a narrow width', () => {
 		const wide = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 2000 });
 		const narrow = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 360 });

@@ -426,6 +426,16 @@ try {
 				return {
 					svgs: document.querySelectorAll('svg').length,
 					cursor: document.querySelector('[data-testid="rhythm-cursor"]') !== null,
+					// The time signature: its digits' baselines, the staff line and the row, in the
+					// engraving's own units (one line here, so the view box is the row).
+					signature: (() => {
+						const svg = document.querySelector('svg');
+						if (!svg) return null;
+						const digits = [...svg.querySelectorAll('.vf-timesignature text')].map((t) => Number(t.getAttribute('y')));
+						const line = svg.querySelector('.vf-stave')?.getBBox().y ?? null;
+						const row = Number((svg.getAttribute('viewBox') ?? '').split(' ')[3]);
+						return { digits, line, row };
+					})(),
 					texts: ${texts}
 				};
 			}`
@@ -437,6 +447,23 @@ try {
 				shown ? 'le curseur suit une mesure avec clic' : 'aucun curseur pendant une mesure muette'
 			)
 		);
+		if (phase === 'play') {
+			const sig = run.signature;
+			const [top, bottom] = sig?.digits ?? [];
+			const half = (bottom - top) / 2;
+			check(
+				assert(
+					sig?.digits.length === 2 && Math.abs((top + bottom) / 2 - sig.line) <= 1,
+					`le chiffrage est centré sur la ligne (${sig?.digits} autour de ${sig?.line})`
+				)
+			);
+			check(
+				assert(
+					top - half >= 0 && bottom + half <= sig.row,
+					`le chiffrage tient dans sa rangée (${top - half} à ${bottom + half} sur ${sig?.row})`
+				)
+			);
+		}
 		noteTiny(`rhythm-${phase}`, run.texts);
 	}
 

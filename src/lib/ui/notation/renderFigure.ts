@@ -10,6 +10,7 @@ import {
 	StaveNote,
 	StaveTie,
 	Stem,
+	TimeSignature,
 	Tuplet,
 	Voice
 } from 'vexflow/bravura';
@@ -221,7 +222,14 @@ function newStave(x: number, y: number, width: number, signature: string | null)
 		spaceAboveStaffLn: LINES_ABOVE,
 		spaceBelowStaffLn: LINES_BELOW
 	});
-	if (signature) stave.addTimeSignature(signature);
+	if (signature) {
+		// VexFlow sets the digits on lines 1 and 3 of a five-line staff, centred on its middle
+		// line; our single line is line 0: one digit just above it, one just below.
+		const time = new TimeSignature(signature);
+		time.topLine = -1;
+		time.bottomLine = 1;
+		stave.addModifier(time);
+	}
 	return stave.setStyle({ fillStyle: INK, strokeStyle: INK });
 }
 
