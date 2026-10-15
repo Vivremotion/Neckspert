@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 import { Fraction, type CycleReport, type Figure } from '$lib/domain/time';
 import { PLAY_VIEWS } from './index';
 import RhythmFigureView from './RhythmFigureView.svelte';
@@ -167,6 +167,49 @@ describe('RhythmFigureView', () => {
 		const sameTempo = await lateMarkLeft(90);
 		// Played at half the tempo, a beat lasts twice as long: the same 90 ms is a smaller share.
 		expect(await lateMarkLeft(45)).toBeLessThan(sameTempo);
+	});
+
+	it('puts the marks of each line of a wrapped run right under that line', async () => {
+		const eighths = RHYTHM_SILENT_BARS.figures?.[0]?.figure;
+		if (!eighths) throw new Error('the silent bars exercise has no figure');
+		// Twelve bars of eighths cannot hold on one line: the run wraps.
+		const cycle: SettledCycle = {
+			report: {
+				...REPORT,
+				expectations: Array.from({ length: 96 }, (_, index) => ({
+					index,
+					verdict: 'on-time' as const,
+					offsetMs: 0
+				}))
+			},
+			verdict: { passed: true }
+		};
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({ figure: eighths, next: eighths, cycleBars: 12, settled: [cycle, cycle] })
+			}
+		});
+		await vi.waitFor(() => expect(screen.getAllByTestId('rhythm-line').length).toBeGreaterThan(1));
+		const blocks = [
+			...screen.getByTestId('rhythm-played').querySelectorAll('[data-line]')
+		] as HTMLElement[];
+		// Line 0, its two strips, line 1, its two strips…
+		const order = blocks.map((b) => `${b.dataset.testid}:${b.dataset.line}`);
+		const lines = screen.getAllByTestId('rhythm-line').length;
+		expect(order).toEqual(
+			Array.from({ length: lines }, (_, line) => [
+				`rhythm-line:${line}`,
+				`rhythm-strip:${line}`,
+				`rhythm-strip:${line}`
+			]).flat()
+		);
+		// Each line shows its own part of the engraving, and its strips its own marks.
+		const strips = screen.getAllByTestId('rhythm-strip');
+		expect(strips.every((s) => s.querySelectorAll('[data-testid="rhythm-mark"]').length > 0)).toBe(
+			true
+		);
+		expect(screen.getAllByTestId('rhythm-mark')).toHaveLength(192);
 	});
 
 	it('tells the cycle in plain words, the term as a label', () => {

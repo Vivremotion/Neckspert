@@ -98,10 +98,11 @@
 	);
 
 	let figureHost = $state<HTMLElement | null>(null);
-	let playedHost = $state<HTMLElement | null>(null);
 	let nextHost = $state<HTMLElement | null>(null);
 	let figureLayout = $state<FigureLayout | null>(null);
 	let playedLayout = $state<FigureLayout | null>(null);
+	/** The run played, engraved once off screen; each line shows its own part of it. */
+	let playedSvg = $state<SVGElement | null>(null);
 
 	$effect(() => {
 		const host = figureHost;
@@ -109,10 +110,13 @@
 		figureLayout = notation.renderFigure(host, figure, { maxWidth: width, scale: LARGE_SCALE });
 	});
 
-	/** The run played: the cycle's figure whole, as small as it takes to hold on one line. */
+	/**
+	 * The run played: the cycle's figure whole, as small as it takes to hold on one line. It is
+	 * engraved apart, then shown line by line, each line with its strips of marks under it.
+	 */
 	$effect(() => {
-		const host = playedHost;
-		if (!notation || !host || !breathing) return;
+		if (!notation || !breathing) return;
+		const host = document.createElement('div');
 		const played: Figure = cycleFigure(figure, cycleBars);
 		let layout: FigureLayout | null = null;
 		for (const scale of PLAYED_SCALES) {
@@ -120,7 +124,19 @@
 			if (layout.lineY.length === 1) break;
 		}
 		playedLayout = layout;
+		playedSvg = host.querySelector('svg');
 	});
+
+	/** Shows the part of the engraving from `top`, the window's height cutting the rest. */
+	function engravedLine(node: HTMLElement, params: { svg: SVGElement; top: number }) {
+		const show = ({ svg, top }: { svg: SVGElement; top: number }) => {
+			const copy = svg.cloneNode(true) as SVGElement;
+			copy.style.marginTop = `${-top}px`;
+			node.replaceChildren(copy);
+		};
+		show(params);
+		return { update: show };
+	}
 
 	$effect(() => {
 		const host = nextHost;
@@ -132,28 +148,28 @@
 		figureLayout && m.cursor && cursorVisible(m) ? cursorX(figure, figureLayout, m.cursor) : null
 	);
 
-	/** The marks of each settled cycle, one strip per cycle under each engraved line. */
-	const strips = $derived.by(() => {
+	/** Each engraved line of the run played, with one strip of marks per settled cycle under it. */
+	const playedLines = $derived.by(() => {
 		const layout = playedLayout;
-		if (!breathing || !layout || m.feedback === 'summary') return [];
+		if (!breathing || !layout) return [];
 		const beats = beatPositions(figure.meter).length;
 		const beatWidth = layout.barWidth / beats;
 		// The model's tempo is the next run's at the breath; the frame's is the run played.
 		const beatMs = 60000 / (controller.view.tempoBpm || m.tempo.bpm);
-		const perCycle = m.settled.map((cycle) =>
-			cycleMarks(cycle.report, layout, m.feedback, beatWidth, beatMs)
-		);
-		return layout.lineY.flatMap((_, lineIndex) =>
-			perCycle.map((all, cycle) => {
-				const marks = all.filter((mark) => mark.line === lineIndex);
+		const perCycle =
+			m.feedback === 'summary'
+				? []
+				: m.settled.map((cycle) => cycleMarks(cycle.report, layout, m.feedback, beatWidth, beatMs));
+		return layout.lineY.map((top, line) => ({
+			line,
+			top,
+			height: (layout.lineY[line + 1] ?? layout.height) - top,
+			strips: perCycle.map((all, cycle) => {
+				const marks = all.filter((mark) => mark.line === line);
 				const rows = labelRows(marks, FIGURE_CHAR_PX);
-				return {
-					key: `${lineIndex}-${cycle}`,
-					cycle,
-					marks: marks.map((mark, i) => ({ mark, row: rows[i] }))
-				};
+				return { cycle, marks: marks.map((mark, i) => ({ mark, row: rows[i] })) };
 			})
-		);
+		}));
 	});
 
 	function markLabel(mark: Mark): string {
@@ -184,32 +200,44 @@
 			<section class="panel faded" data-testid="rhythm-played" aria-label={t.played}>
 				<h2 class="panel-title">{t.played}</h2>
 				<div class="played" style:--cycle-column="{CYCLE_COLUMN_PX}px">
-					<div class="engraving" bind:this={playedHost}></div>
-					{#each strips as strip (strip.key)}
-						<div class="strip-row">
-							<span class="strip-label" aria-label={t.cycle(strip.cycle + 1)}
-								>{strip.cycle + 1}</span
-							>
-							<div class="strip" style:width="{playedLayout?.width ?? 0}px">
-								{#each strip.marks as { mark, row }, i (i)}
-									<span
-										class="mark {mark.kind}"
-										data-testid="rhythm-mark"
-										data-kind={mark.kind}
-										style:left="{mark.x}px"
-										role="img"
-										aria-label={markLabel(mark)}
-									>
-										<span class="shape" aria-hidden="true"></span>
-										{#if mark.label && row !== null}
-											<span class="figure-label" class:second={row === 1} aria-hidden="true"
-												>{mark.label}</span
-											>
-										{/if}
-									</span>
-								{/each}
-							</div>
+					{#each playedLines as block (block.line)}
+						<div
+							class="engraving line"
+							data-testid="rhythm-line"
+							data-line={block.line}
+							style:height="{block.height}px"
+							style:width="{playedLayout?.width ?? 0}px"
+						>
+							{#if playedSvg}
+								<div use:engravedLine={{ svg: playedSvg, top: block.top }}></div>
+							{/if}
 						</div>
+						{#each block.strips as strip (strip.cycle)}
+							<div class="strip-row" data-testid="rhythm-strip" data-line={block.line}>
+								<span class="strip-label" aria-label={t.cycle(strip.cycle + 1)}
+									>{strip.cycle + 1}</span
+								>
+								<div class="strip" style:width="{playedLayout?.width ?? 0}px">
+									{#each strip.marks as { mark, row }, i (i)}
+										<span
+											class="mark {mark.kind}"
+											data-testid="rhythm-mark"
+											data-kind={mark.kind}
+											style:left="{mark.x}px"
+											role="img"
+											aria-label={markLabel(mark)}
+										>
+											<span class="shape" aria-hidden="true"></span>
+											{#if mark.label && row !== null}
+												<span class="figure-label" class:second={row === 1} aria-hidden="true"
+													>{mark.label}</span
+												>
+											{/if}
+										</span>
+									{/each}
+								</div>
+							</div>
+						{/each}
 					{/each}
 				</div>
 				{#if m.feedback === 'summary'}
@@ -346,6 +374,11 @@
 
 	.engraving :global(svg) {
 		display: block;
+	}
+
+	/* A window on one line of the run played: the engraving above and below it is cut. */
+	.engraving.line {
+		overflow: hidden;
 	}
 
 	.cursor {
