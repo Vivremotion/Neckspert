@@ -157,6 +157,22 @@ describe('DexieBackup', () => {
 			expect(await new DexieLevelStateRepository(db).all()).toEqual([]);
 		});
 
+		it('keeps the level an exercise session ended on through an export and an import', async () => {
+			const held = makeSession({
+				id: 'rhythm',
+				kind: 'exercise',
+				exerciseId: 'rhythm-offbeats',
+				levelReached: 2
+			});
+			await new DexieSessionRepository(db).put(held);
+			const file = JSON.parse(JSON.stringify(await new DexieBackup(db).exportAll()));
+			expect(file.sessions[0].levelReached).toBe(2);
+
+			await db.sessions.clear();
+			await new DexieBackup(db).importAll(file);
+			expect(await new DexieSessionRepository(db).get('rhythm')).toEqual(held);
+		});
+
 		it('keeps every setting but the input device, which belongs to the exporting browser', async () => {
 			const file = makeBackup({
 				settings: { ...DEFAULT_SETTINGS, locale: 'en', inputDeviceId: 'usb-elsewhere' }

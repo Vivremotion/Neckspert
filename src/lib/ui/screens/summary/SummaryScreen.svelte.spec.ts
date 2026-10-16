@@ -256,13 +256,13 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.getByText('Contretemps')).toBeTruthy();
 		expect(screen.getByText('Niveau atteint : 3 sur 6')).toBeTruthy();
 		expect(screen.getByText('11 cycles réussis sur 14')).toBeTruthy();
-		expect(screen.getByText('2 cycles avec aide')).toBeTruthy();
+		expect(screen.getByText('dont 2 avec aide')).toBeTruthy();
 		expect(screen.queryByText('Notes apprises')).toBeNull();
 		expect(screen.queryByText('Précision à froid')).toBeNull();
 		expect(screen.queryByText(/fatigue/i)).toBeNull();
 	});
 
-	it('says nothing of aids when none was used, and speaks English in English', () => {
+	it('says nothing of aids when no success had one, and speaks English in English', () => {
 		i18n.locale = 'en';
 		const unaided: SessionSummary = {
 			...rhythm,
@@ -275,5 +275,14 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.getByText('Level reached: 3 of 6')).toBeTruthy();
 		expect(screen.getByText('1 cycle succeeded out of 1')).toBeTruthy();
 		expect(screen.queryByText(/aid/i)).toBeNull();
+	});
+
+	it('reads the aided successes as part of the successes, in English too', () => {
+		i18n.locale = 'en';
+		render(SummaryScreen, {
+			props: { summary: rhythm, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('11 cycles succeeded out of 14')).toBeTruthy();
+		expect(screen.getByText('of which 2 with aid')).toBeTruthy();
 	});
 });

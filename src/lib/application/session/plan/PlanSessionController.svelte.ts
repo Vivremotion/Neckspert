@@ -929,6 +929,8 @@ export class PlanSessionController implements PlaySessionController {
 					tempoBpm: this.paramsOf(this.levelState.level).tempo.bpm
 				}
 			],
+			// The level held now: a summary read later shows this session's, not the latest.
+			levelReached: this.levelState.level,
 			latencyMs: this.latency()?.ms ?? null
 		};
 	}

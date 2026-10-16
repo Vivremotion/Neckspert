@@ -48,7 +48,7 @@ export const summaryMessages = defineMessages({
 		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
-		cyclesAided: (n: number) => `${n} ${n > 1 ? 'cycles' : 'cycle'} avec aide`
+		successesAided: (n: number) => `dont ${n} avec aide`
 	},
 	en: {
 		title: 'Summary',
@@ -95,6 +95,6 @@ export const summaryMessages = defineMessages({
 		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
-		cyclesAided: (n: number) => `${n} ${n === 1 ? 'cycle' : 'cycles'} with aid`
+		successesAided: (n: number) => `of which ${n} with aid`
 	}
 });

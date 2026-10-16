@@ -542,7 +542,10 @@ function checkSessionV3(session: Fields): string | null {
 	return (
 		checkSession(session) ??
 		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
-		(exerciseOk ? null : 'exerciseId must be a non-empty string')
+		(exerciseOk ? null : 'exerciseId must be a non-empty string') ??
+		(session.levelReached === undefined || Number.isInteger(session.levelReached)
+			? null
+			: 'levelReached must be a whole number')
 	);
 }
 

@@ -6,15 +6,18 @@ import { levelParamsOf, rhythmLevels } from './rhythmExercise';
 import { levelView } from './rhythmStage';
 
 /**
- * What a rhythm session did: the cycles it played, those that succeeded, those played with an
- * aid the level does not give, and the level held when it ended. That level is the stored one
- * (`state`, written after each cycle, so it counts the last move); without it, the level of the
- * last cycle played, else the first level.
+ * What a rhythm session did: the cycles it played, those that succeeded, the successes played
+ * with an aid the level does not give, and the level held when it ended. That level is the
+ * session's own (`levelReached`, kept on its record when it ended, so a later session does not
+ * change it); for a record without it, the stored level (`state`, the latest, written after each
+ * cycle), else the level of the last cycle played, else the first level.
  */
 export function summarizeRhythm(input: {
 	exercise: ExerciseDefinition;
 	/** The session's attempts. */
 	attempts: readonly Attempt[];
+	/** The level the session ended on (`SessionRecord.levelReached`). */
+	levelReached?: number;
 	state: LevelState | undefined;
 }): RhythmSummary {
 	const { exercise } = input;
@@ -24,15 +27,16 @@ export function summarizeRhythm(input: {
 	);
 	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
-	const held = input.state?.level ?? last?.data.level ?? 0;
+	const held = input.levelReached ?? input.state?.level ?? last?.data.level ?? 0;
 	const { shown, of } = levelView(levels, Math.min(highest, Math.max(lowest, held)));
 	return {
 		exerciseId: exercise.id,
 		levelReached: { shown, of },
 		cycles: cycles.length,
 		successes: cycles.filter((attempt) => attempt.success).length,
-		aided: cycles.filter((attempt) =>
-			levelAided(attempt.aids, levelParamsOf(exercise, attempt.data.level))
+		aided: cycles.filter(
+			(attempt) =>
+				attempt.success && levelAided(attempt.aids, levelParamsOf(exercise, attempt.data.level))
 		).length
 	};
 }

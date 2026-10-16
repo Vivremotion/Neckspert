@@ -32,7 +32,8 @@ function state(level: number): LevelState {
 	};
 }
 
-const OF = (RHYTHM_OFFBEATS.levels ?? []).filter((level) => !level.aid).length;
+// The offbeats exercise has four regular levels (the rhythm stage says « sur 4 » for it).
+const OF = 4;
 
 describe('summarizeRhythm', () => {
 	it('counts the cycles, those that succeeded, and the level held at the end', () => {
@@ -46,16 +47,28 @@ describe('summarizeRhythm', () => {
 		});
 	});
 
-	it('counts as aided the cycles that had an aid the level does not give', () => {
+	it('counts as aided the successes that had an aid the level does not give', () => {
 		// The cursor of a level that gives one and the aid level are the level itself.
 		const attempts = [
 			cycle(0, true, ['listen']),
 			cycle(0, true, ['cursor', 'listen']),
-			cycle(0, true, ['cursor'])
+			cycle(0, true, ['cursor']),
+			cycle(0, false, ['listen'])
 		];
 		const summary = summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts, state: state(0) });
 		expect(summary.aided).toBe(2);
 		expect(summary.successes).toBe(3);
+		expect(summary.cycles).toBe(4);
+	});
+
+	it('reads the level the session itself ended on before the stored one, which a later session moves', () => {
+		const summary = summarizeRhythm({
+			exercise: RHYTHM_OFFBEATS,
+			attempts: [cycle(0, true)],
+			levelReached: 1,
+			state: state(3)
+		});
+		expect(summary.levelReached).toEqual({ shown: 2, of: OF });
 	});
 
 	it('falls back on the level of the last cycle when no level is stored', () => {

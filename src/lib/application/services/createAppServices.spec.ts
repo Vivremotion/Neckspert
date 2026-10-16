@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
 import type {
@@ -8,7 +8,7 @@ import type {
 	CalibrationProgress
 } from '$lib/application/ports';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
-import type { Attempt, BackupFile, CardState } from '$lib/domain/types';
+import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -463,62 +463,112 @@ describe('the rhythm exercises', () => {
 		expect(typeof controller.listen).toBe('function');
 	});
 
-	it('sums a rhythm session up from its cycles and the level held', async () => {
+	const rhythmSession = (overrides: Partial<SessionRecord> = {}): SessionRecord => ({
+		id: 'r1',
+		kind: 'exercise',
+		exerciseId: RHYTHM_OFFBEATS.id,
+		startedAt: 0,
+		endedAt: 1,
+		fatigueDetected: false,
+		executions: [],
+		latencyMs: 0,
+		...overrides
+	});
+	const rhythmCycle = (level: number, success: boolean, sessionId = 'r1') =>
+		({
+			sessionId,
+			exerciseId: RHYTHM_OFFBEATS.id,
+			mechanic: 'rhythm-figure',
+			cardKey: `rhythm-figure:offbeats-1@${level}`,
+			phase: 'free',
+			temperature: 'hot',
+			aids: ['cursor'],
+			promptedAt: 0,
+			tempoBpm: 80,
+			leadBeats: null,
+			timingOffsetMs: null,
+			reactionMs: null,
+			correct: null,
+			success,
+			verdict: { relation: 'plan', version: 1, value: success ? 'ok' : 'miss' },
+			measures: {},
+			plan: null,
+			data: { item: { figureId: 'offbeats-1', level }, level, report: {} },
+			observations: []
+		}) as Attempt;
+	const heldLevel = (level: number) => ({
+		exerciseId: RHYTHM_OFFBEATS.id,
+		scope: '',
+		item: '',
+		level,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+
+	it('sums a rhythm session up from its cycles and the level it ended on', async () => {
 		const { services, deps } = harness();
-		await deps.sessions.put({
-			id: 'r1',
-			kind: 'exercise',
-			exerciseId: RHYTHM_OFFBEATS.id,
-			startedAt: 0,
-			endedAt: 1,
-			fatigueDetected: false,
-			executions: [],
-			latencyMs: 0
-		});
-		const cycle = (level: number, success: boolean, sessionId = 'r1') =>
-			({
-				sessionId,
-				exerciseId: RHYTHM_OFFBEATS.id,
-				mechanic: 'rhythm-figure',
-				cardKey: `rhythm-figure:offbeats-1@${level}`,
-				phase: 'free',
-				temperature: 'hot',
-				aids: ['cursor'],
-				promptedAt: 0,
-				tempoBpm: 80,
-				leadBeats: null,
-				timingOffsetMs: null,
-				reactionMs: null,
-				correct: null,
-				success,
-				verdict: { relation: 'plan', version: 1, value: success ? 'ok' : 'miss' },
-				measures: {},
-				plan: null,
-				data: { item: { figureId: 'offbeats-1', level }, level, report: {} },
-				observations: []
-			}) as Attempt;
-		await deps.attempts.add(cycle(0, true));
-		await deps.attempts.add(cycle(1, true));
-		await deps.attempts.add(cycle(1, false));
-		await deps.attempts.add(cycle(0, true, 'other'));
-		await deps.levels.put({
-			exerciseId: RHYTHM_OFFBEATS.id,
-			scope: '',
-			item: '',
-			level: 1,
-			successes: 0,
-			failures: 1,
-			resumeAfter: null
-		});
+		await deps.sessions.put(rhythmSession({ levelReached: 1 }));
+		await deps.attempts.add(rhythmCycle(0, true));
+		await deps.attempts.add(rhythmCycle(1, true));
+		await deps.attempts.add(rhythmCycle(1, false));
+		await deps.attempts.add(rhythmCycle(0, true, 'other'));
 		const summary = await services.sessionSummary('r1');
 		expect(summary.kind).toBe('exercise');
 		expect(summary.rhythm).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
-			levelReached: { shown: 2, of: expect.any(Number) },
+			levelReached: { shown: 2, of: 4 },
 			cycles: 3,
 			successes: 2,
 			aided: 0
 		});
+	});
+
+	it('an older session keeps its own level after a later one moved it', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ id: 'older', levelReached: 1 }));
+		await deps.sessions.put(rhythmSession({ id: 'later', startedAt: 10, levelReached: 3 }));
+		// The stored level is the latest session's.
+		await deps.levels.put(heldLevel(3));
+		expect((await services.sessionSummary('older')).rhythm?.levelReached).toEqual({
+			shown: 2,
+			of: 4
+		});
+		expect((await services.sessionSummary('later')).rhythm?.levelReached).toEqual({
+			shown: 4,
+			of: 4
+		});
+	});
+
+	it('falls back on the stored level for a session recorded without its own', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		await deps.levels.put(heldLevel(2));
+		expect((await services.sessionSummary('r1')).rhythm?.levelReached).toEqual({
+			shown: 3,
+			of: 4
+		});
+	});
+
+	it('gives a summary without rhythm for an exercise no longer in the catalog or not a rhythm one', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ id: 'gone', exerciseId: 'rhythm-removed' }));
+		await deps.sessions.put(rhythmSession({ id: 'neck', exerciseId: 'locate-neck' }));
+		for (const id of ['gone', 'neck']) {
+			const summary = await services.sessionSummary(id);
+			expect(summary.kind).toBe('exercise');
+			expect(summary.rhythm).toBeUndefined();
+		}
+	});
+
+	it('loads the neck data only for a neck session', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		const all = vi.spyOn(deps.attempts, 'all');
+		const cards = vi.spyOn(deps.cards, 'all');
+		await services.sessionSummary('r1');
+		expect(all).not.toHaveBeenCalled();
+		expect(cards).not.toHaveBeenCalled();
 	});
 
 	it('startExercise refuses an exercise it does not know, or one without levels', async () => {

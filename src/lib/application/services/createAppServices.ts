@@ -38,7 +38,8 @@ import {
 	type CardState,
 	type Execution,
 	type Progression,
-	type SessionKind
+	type SessionKind,
+	type SessionRecord
 } from '$lib/domain/types';
 
 export function createAppServices(
@@ -48,6 +49,17 @@ export function createAppServices(
 		diagnostics: DiagnosticsService;
 	}
 ): AppServices {
+	/** The rhythm exercise a session played, when its exercise is still in the catalog with levels. */
+	const rhythmExerciseOf = (record: SessionRecord) => {
+		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
+		try {
+			const exercise = (deps.exercise ?? exerciseById)(record.exerciseId);
+			return exercise.levels && exercise.levels.length > 0 && exercise.base ? exercise : undefined;
+		} catch {
+			return undefined;
+		}
+	};
+
 	return {
 		settings: deps.settings,
 		backup: deps.backup,
@@ -99,19 +111,13 @@ export function createAppServices(
 			if (!record) {
 				throw new Error(`Unknown session: ${sessionId}`);
 			}
-			const [attempts, allAttempts, cards] = await Promise.all([
-				deps.attempts.listBySession(sessionId),
-				deps.attempts.all(),
-				deps.cards.all()
-			]);
-			if (record.kind === 'exercise' && record.exerciseId !== undefined) {
-				// A rhythm exercise: the level it ends on is the one stored after its last cycle.
-				const exercise = (deps.exercise ?? exerciseById)(record.exerciseId);
-				const state = await deps.levels.get({
-					exerciseId: exercise.id,
-					scope: '',
-					item: ''
-				});
+			const exercise = rhythmExerciseOf(record);
+			if (exercise) {
+				// A rhythm exercise: its own cycles and the level it ended on, nothing of the neck.
+				const [attempts, state] = await Promise.all([
+					deps.attempts.listBySession(sessionId),
+					deps.levels.get({ exerciseId: exercise.id, scope: '', item: '' })
+				]);
 				return {
 					...summarizeSession({
 						record,
@@ -120,9 +126,14 @@ export function createAppServices(
 						cards: [],
 						now: deps.now()
 					}),
-					rhythm: summarizeRhythm({ exercise, attempts, state })
+					rhythm: summarizeRhythm({ exercise, attempts, levelReached: record.levelReached, state })
 				};
 			}
+			const [attempts, allAttempts, cards] = await Promise.all([
+				deps.attempts.listBySession(sessionId),
+				deps.attempts.all(),
+				deps.cards.all()
+			]);
 			// Next reviews of the session's own track: the neck's, or the triads'.
 			const ofTrack = (x: { mechanic: string }) => isNeck(x) === !isTriadsKind(record.kind);
 			return summarizeSession({

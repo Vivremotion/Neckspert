@@ -819,6 +819,33 @@ describe('the exercise session', () => {
 	});
 });
 
+describe('the level held by an exercise session', () => {
+	it('accepts a session that ended on a level, an aid level included', () => {
+		const file = makeBackup({
+			sessions: [
+				makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats', levelReached: 2 }),
+				makeSession({ id: 's2', kind: 'exercise', exerciseId: 'rhythm-offbeats', levelReached: -1 })
+			]
+		});
+		expect(validateBackupV4(file)).toBe(file);
+	});
+
+	it('rejects a level that is not a whole number', () => {
+		const withLevel = (levelReached: unknown) =>
+			makeBackup({
+				sessions: [
+					{
+						...makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats' }),
+						levelReached
+					} as never
+				]
+			});
+		expect(() => validateBackupV4(withLevel('3'))).toThrow(/levelReached must be a whole number/);
+		expect(() => validateBackupV4(withLevel(1.5))).toThrow(/levelReached must be a whole number/);
+		expect(() => validateBackupV4(withLevel(null))).toThrow(/levelReached must be a whole number/);
+	});
+});
+
 describe('with chord-grid attempts', () => {
 	it('takes a gesture attempt through an export and an import, its whole change kept', () => {
 		const item = {

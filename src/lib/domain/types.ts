@@ -241,6 +241,11 @@ export interface SessionRecord {
 	executions: Execution[];
 	/** The exercise played, for a session of kind `'exercise'`. */
 	exerciseId?: ExerciseId;
+	/**
+	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
+	 * for a session of kind `'exercise'`; absent from sessions stored before it was kept.
+	 */
+	levelReached?: number;
 	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */
 	latencyMs: number | null;
 }
@@ -379,7 +384,7 @@ export interface RhythmSummary {
 	cycles: number;
 	/** Cycles that succeeded (`Attempt.success`). */
 	successes: number;
-	/** Cycles played with an aid the level does not give (they do not count towards moving up). */
+	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
 	aided: number;
 }
 

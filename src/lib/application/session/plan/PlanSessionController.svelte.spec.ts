@@ -319,6 +319,26 @@ describe('PlanSessionController, another series', () => {
 		controller.quit();
 	});
 
+	it('keeps on its own session the level held when the series ended, whatever a later one does', async () => {
+		const { controller, sessions, levels, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect((await sessions.get('series'))?.levelReached).toBe(1);
+		// Later the stored level moves on: the first session's own record does not.
+		await levels.put({
+			exerciseId: 'rhythm-offbeats',
+			scope: '',
+			item: '',
+			level: 3,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		expect((await sessions.get('series'))?.levelReached).toBe(1);
+	});
+
 	it('writes no session for a second series whose input never opened', async () => {
 		const { controller, sessions, detector, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
 		await controller.start();

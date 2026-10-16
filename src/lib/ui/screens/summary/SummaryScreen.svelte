@@ -98,7 +98,7 @@
 						<span>{t.levelReached(rhythm.levelReached.shown, rhythm.levelReached.of)}</span>
 						<span>{t.cyclesSucceeded(rhythm.successes, rhythm.cycles)}</span>
 						{#if rhythm.aided > 0}
-							<span>{t.cyclesAided(rhythm.aided)}</span>
+							<span>{t.successesAided(rhythm.aided)}</span>
 						{/if}
 					</li>
 				</ul>
