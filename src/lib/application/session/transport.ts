@@ -1,3 +1,4 @@
+import { LISTEN_IN_BARS } from '$lib/domain/time/levels';
 import type { AudioClockPort, SoundSchedulerPort } from '$lib/application/ports';
 import {
 	Fraction,
@@ -14,8 +15,7 @@ import {
 	type TempoSegment
 } from '$lib/domain/time';
 
-/** Bars of accompaniment alone (listen, do not play) before a counted bar. */
-export const LISTEN_IN_BARS = 2;
+export { LISTEN_IN_BARS };
 /** The shortest breath, rounded up to whole bars. */
 export const BREATH_MIN_MS = 4000;
 /** The map starts this long after `now`, so the first sound is never already past. */
@@ -66,12 +66,18 @@ export class Transport {
 		tempo: TempoSegment;
 		accompaniment: Accompaniment;
 		listenInBars?: number;
+		/** False: play starts right after the listen-in, no count clicks. Default true. */
+		countIn?: boolean;
 	}): Promise<{ map: TempoMap; playFrom: number }> {
 		const { clock, sounds } = this.deps;
 		this.checkMeter(input.accompaniment, input.meter);
 		const listenInBars = input.listenInBars ?? LISTEN_IN_BARS;
+		const countIn = input.countIn ?? true;
 		if (!Number.isInteger(listenInBars) || listenInBars < 0) {
 			throw new RangeError(`listen-in must be a whole number of bars, got ${listenInBars}`);
+		}
+		if (!countIn && listenInBars === 0) {
+			throw new RangeError('without a counted bar the listen-in needs at least one bar');
 		}
 		const generation = ++this.generation;
 		sounds.cancelAll();
@@ -84,7 +90,7 @@ export class Transport {
 		this.tempoMap = createTempoMap(origin, [{ ...input.tempo, at: Fraction.ZERO }]);
 		return {
 			map: this.tempoMap,
-			playFrom: this.listenInAndCount(0, input.accompaniment, listenInBars)
+			playFrom: this.listenInAndCount(0, input.accompaniment, listenInBars, countIn)
 		};
 	}
 
@@ -128,7 +134,8 @@ export class Transport {
 	changeTempo(
 		atBar: number,
 		tempo: TempoSegment,
-		accompaniment: Accompaniment
+		accompaniment: Accompaniment,
+		options: { listenInBars?: number; countIn?: boolean } = {}
 	): { playFrom: number } {
 		this.checkMeter(accompaniment, this.meterOf());
 		const at = Fraction.of(atBar).mul(barLength(this.meterOf()));
@@ -142,7 +149,14 @@ export class Transport {
 			);
 		}
 		this.tempoMap = this.map.withSegment({ ...tempo, at });
-		return { playFrom: this.listenInAndCount(atBar, accompaniment) };
+		return {
+			playFrom: this.listenInAndCount(
+				atBar,
+				accompaniment,
+				options.listenInBars ?? LISTEN_IN_BARS,
+				options.countIn ?? true
+			)
+		};
 	}
 
 	/** Plays `figure` as `sound` from `fromBar`. */
@@ -185,15 +199,20 @@ export class Transport {
 		return clickAccompaniment({ meter, beats, accent: [1], bars: ['on'] });
 	}
 
-	/** Listen-in bars from `fromBar`, then the counted bar. Returns the first bar to play. */
+	/** Listen-in bars from `fromBar`, then the counted bar if any. Returns the first bar to play. */
 	private listenInAndCount(
 		fromBar: number,
 		accompaniment: Accompaniment,
-		listenInBars = LISTEN_IN_BARS
+		listenInBars = LISTEN_IN_BARS,
+		countIn = true
 	): number {
 		const map = this.map;
 		const counted = fromBar + listenInBars;
 		this.schedule(renderSounds(accompaniment, map, fromBar, counted));
+		if (!countIn) {
+			this.scheduledUntilBar = Math.max(this.scheduledUntilBar, counted);
+			return counted;
+		}
 		this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
 		this.counted.add(counted);
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, counted + 1);

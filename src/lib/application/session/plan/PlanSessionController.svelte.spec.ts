@@ -69,6 +69,11 @@ function earlier(exerciseId: string): Attempt {
 	};
 }
 
+/** The exercise with a counted bar after its listen-in, whatever its catalog start. */
+function counted(exercise: ExerciseDefinition): ExerciseDefinition {
+	return { ...exercise, base: exercise.base && { ...exercise.base, countIn: true } };
+}
+
 async function setup(
 	exercise: ExerciseDefinition,
 	options: {
@@ -354,7 +359,9 @@ describe('PlanSessionController, pausing in « Métronome sur 2 et 4 »', () => 
 	});
 
 	it('plays the line laid out a bar ahead when paused just before its cycle', async () => {
-		const { controller, attempts, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, attempts, clock, advance } = await setup(counted(RHYTHM_TWO_FOUR), {
+			met: true
+		});
 		await controller.start();
 		// The counted bar: the first cycle, on bar 3, is laid out already.
 		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);
@@ -474,9 +481,36 @@ describe('PlanSessionController, the end of a series', () => {
 	});
 });
 
+describe('PlanSessionController, a series with no counted bar', () => {
+	it('plays right after the listen-in, at the start and after a pause, with no countdown', async () => {
+		const { controller, sounds, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		expect(RHYTHM_TWO_FOUR.base?.countIn).toBe(false);
+		await controller.start();
+		// listen-in 0-1, the first cycle on bar 2: bar 2 is already the line, not a count
+		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('play');
+		expect(controller.view.countdown).toBeNull();
+		// the click on 2 and 4 only: no count clicks on beats 1 and 3
+		const atStart = sounds.emitted().filter((s) => s.sound === 'click-accent');
+		expect(atStart).toHaveLength(0);
+		controller.pause();
+		controller.resume();
+		await settled();
+		const resumedAt = clock.now() + ORIGIN;
+		await advance(resumedAt + 2.5 * TWO_FOUR_BAR_S, false);
+		expect(stageOf(controller).phase).toBe('play');
+		expect(controller.view.countdown).toBeNull();
+		const again = sounds.emitted().filter((s) => s.time >= resumedAt - 1e-9);
+		expect(again.some((s) => s.sound === 'click-accent')).toBe(false);
+		controller.quit();
+	});
+});
+
 describe('PlanSessionController, a level at another tempo', () => {
 	it('changes the tempo at the breath, with a listen-in and a counted bar at the new one', async () => {
-		const { controller, attempts, sounds, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, attempts, sounds, advance } = await setup(counted(RHYTHM_TWO_FOUR), {
+			met: true
+		});
 		await controller.start();
 		// One cycle per run: cycles on bars 3, 9 and 15, each followed by a two-bar breath.
 		await advance(ORIGIN + 20.3 * TWO_FOUR_BAR_S);
@@ -565,7 +599,9 @@ describe('PlanSessionController, silent bars', () => {
 
 describe('PlanSessionController, listening to the figure', () => {
 	it('turns the next cycle into one heard, then marks the cycle after it as helped', async () => {
-		const { controller, attempts, sounds, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		const { controller, attempts, sounds, advance } = await setup(counted(RHYTHM_TWO_FOUR), {
+			met: true
+		});
 		await controller.start();
 		// listen-in 0-1, count 2, cycle 3-6, breath 7-8, then the cycle asked for is heard: 9-12
 		await advance(ORIGIN + 3.6 * TWO_FOUR_BAR_S);

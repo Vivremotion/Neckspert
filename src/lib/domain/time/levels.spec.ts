@@ -80,6 +80,15 @@ describe('resolveLevel', () => {
 		expect(resolved.accompaniment).toBe(accompaniment);
 	});
 
+	it('refuses a start with no listen-in and no counted bar, or a listen-in that is not whole', () => {
+		const at = (params: Partial<LevelParams>) => () => resolveLevel(base, [{ params }], 0);
+		expect(at({ listenInBars: 0, countIn: false })).toThrow(RangeError);
+		expect(at({ listenInBars: -1 })).toThrow(RangeError);
+		expect(at({ listenInBars: 1.5 })).toThrow(RangeError);
+		expect(at({ listenInBars: 0 })()).toMatchObject({ listenInBars: 0 });
+		expect(at({ countIn: false })()).toMatchObject({ countIn: false });
+	});
+
 	it('merges thresholds field by field', () => {
 		const levels: Level[] = [{ params: { thresholds: { precision: 25, holdDrift: 10 } } }];
 		expect(resolveLevel(base, levels, 0).thresholds).toEqual({

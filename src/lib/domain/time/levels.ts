@@ -9,6 +9,9 @@ export const DROP_AFTER_FAILS = 2;
 /** Cycles played before a breath, unless a level says otherwise. */
 export const CYCLES_PER_BREATH = 4;
 
+/** Bars of accompaniment alone (listen, do not play) before play, unless an exercise says otherwise. */
+export const LISTEN_IN_BARS = 2;
+
 export type Feedback = 'every-cycle' | 'summary' | 'out-of-tolerance';
 
 /** Everything a level can change about how an exercise is played. */
@@ -23,6 +26,10 @@ export interface LevelParams {
 	cyclesPerBreath: number;
 	/** Cycles a series plays before it ends; absent: it lasts its time (`RHYTHM_SERIES_MS`). */
 	cyclesPerSeries?: number;
+	/** Bars of accompaniment alone before play; absent: `LISTEN_IN_BARS`. */
+	listenInBars?: number;
+	/** A counted bar (every beat clicked, countdown shown) after the listen-in; absent: true. */
+	countIn?: boolean;
 	thresholds: Partial<Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift', number>>;
 }
 
@@ -61,6 +68,20 @@ export function levelRange(levels: readonly Level[]): LevelRange {
 	};
 }
 
+/**
+ * Refuses a start the player could not use: a listen-in that is not a whole number of bars, or
+ * no listen-in and no counted bar (nothing to hear before playing).
+ */
+export function checkStart(params: Pick<LevelParams, 'listenInBars' | 'countIn'>): void {
+	const listenInBars = params.listenInBars ?? LISTEN_IN_BARS;
+	if (!Number.isInteger(listenInBars) || listenInBars < 0) {
+		throw new RangeError(`listenInBars must be a whole number of bars, got ${listenInBars}`);
+	}
+	if (params.countIn === false && listenInBars === 0) {
+		throw new RangeError('a series with no counted bar needs at least one listen-in bar');
+	}
+}
+
 /** Level `index` (0 = first level, aid levels before it have negative indexes) over the exercise's base params. */
 export function resolveLevel(
 	base: LevelParams,
@@ -77,6 +98,7 @@ export function resolveLevel(
 		if (params[key] !== undefined) Object.assign(resolved, { [key]: params[key] });
 	}
 	resolved.thresholds = { ...base.thresholds, ...thresholds };
+	checkStart(resolved);
 	return resolved;
 }
 

@@ -57,6 +57,31 @@ describe('Transport.begin', () => {
 		emitted.slice(4).forEach((s, b) => expect(s.time).toBeCloseTo(at(2, b), 9));
 	});
 
+	it('plays right after the listen-in, with no count clicks nor countdown, without a counted bar', async () => {
+		const { sounds, transport } = setup();
+		const { playFrom } = await transport.begin({
+			meter: METER_4_4,
+			tempo: tempo(100),
+			accompaniment: offbeats,
+			countIn: false
+		});
+		expect(playFrom).toBe(LISTEN_IN_BARS);
+		expect(sounds.emitted()).toHaveLength(LISTEN_IN_BARS * 2);
+		expect(sounds.emitted().every((s) => s.sound === 'click')).toBe(true);
+		[0, 1, 2].forEach((bar) => expect(transport.countdownAt(bar)).toBeNull());
+	});
+
+	it('honours a custom listen-in, with or without a counted bar', async () => {
+		const { transport } = setup();
+		const input = { meter: METER_4_4, tempo: tempo(100), accompaniment: offbeats };
+		expect((await transport.begin({ ...input, listenInBars: 4 })).playFrom).toBe(5);
+		expect((await transport.begin({ ...input, listenInBars: 1, countIn: false })).playFrom).toBe(1);
+		expect((await transport.begin({ ...input, listenInBars: 0 })).playFrom).toBe(1);
+		await expect(transport.begin({ ...input, listenInBars: 0, countIn: false })).rejects.toThrow(
+			RangeError
+		);
+	});
+
 	it('starts the map at least 0.1 s after now, once the clock has settled', async () => {
 		const { clock, transport } = setup();
 		let settled = false;

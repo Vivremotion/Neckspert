@@ -119,6 +119,8 @@ const TWO_FOUR_BASE: LevelParams = {
 	feedback: 'every-cycle',
 	listen: 'aid',
 	cursor: true,
+	// The click on 2 and 4 is the count: the line starts right after two bars of it.
+	countIn: false,
 	cyclesPerBreath: 1,
 	cyclesPerSeries: 1,
 	thresholds: BASE_THRESHOLDS

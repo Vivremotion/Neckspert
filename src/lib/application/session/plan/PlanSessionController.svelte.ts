@@ -361,6 +361,8 @@ export class PlanSessionController implements PlaySessionController {
 		const run = this.newRun(-1);
 		const first = figureFor(this.exercise, run.params, this.playedInSeries);
 		const demoBars = demo ? first.figure.bars : 0;
+		const listenIn = run.params.listenInBars ?? LISTEN_IN_BARS;
+		const countIn = run.params.countIn ?? true;
 		this.view.status = 'count-in';
 		this.view.tempoBpm = run.params.tempo.bpm;
 		let playFrom: number;
@@ -369,7 +371,8 @@ export class PlanSessionController implements PlaySessionController {
 				meter: this.meter,
 				tempo: run.params.tempo,
 				accompaniment: unmuted(run.params.accompaniment),
-				listenInBars: LISTEN_IN_BARS + demoBars
+				listenInBars: listenIn + demoBars,
+				countIn
 			}));
 		} catch (error) {
 			// Paused or quit while the output warmed up: nothing was scheduled.
@@ -379,7 +382,7 @@ export class PlanSessionController implements PlaySessionController {
 		if (this.generation !== generation) return;
 		this.begun = true;
 		if (demo) {
-			this.transport.playFigure(first.figure, 'demo', LISTEN_IN_BARS);
+			this.transport.playFigure(first.figure, 'demo', listenIn);
 			this.firstEncounter = false;
 			this.listened = true;
 		}
@@ -388,10 +391,10 @@ export class PlanSessionController implements PlaySessionController {
 		this.run = run;
 		this.keepInputOf(run);
 		for (let bar = 0; bar < playFrom; bar++) {
-			const heard = bar >= LISTEN_IN_BARS && bar < LISTEN_IN_BARS + demoBars;
+			const heard = bar >= listenIn && bar < listenIn + demoBars;
 			this.bars.set(bar, {
-				...this.idleBar(run, first.figure, bar < LISTEN_IN_BARS ? 'listen-in' : 'count-in'),
-				...(heard && { phase: 'listening', figureBar: bar - LISTEN_IN_BARS })
+				...this.idleBar(run, first.figure, bar < listenIn ? 'listen-in' : 'count-in'),
+				...(heard && { phase: 'listening', figureBar: bar - listenIn })
 			});
 		}
 		this.prepareBar(0);
@@ -555,13 +558,20 @@ export class PlanSessionController implements PlaySessionController {
 			this.keepInputOf(run);
 			return true;
 		}
-		const { playFrom } = this.transport.changeTempo(bar, next, unmuted(run.params.accompaniment));
+		const { playFrom } = this.transport.changeTempo(bar, next, unmuted(run.params.accompaniment), {
+			listenInBars: run.params.listenInBars,
+			countIn: run.params.countIn
+		});
 		run.playFrom = playFrom;
 		this.keepInputOf(run);
 		for (let b = bar; b < playFrom; b++) {
 			this.bars.set(
 				b,
-				this.idleBar(run, run.lastFigure, b < playFrom - 1 ? 'listen-in' : 'count-in')
+				this.idleBar(
+					run,
+					run.lastFigure,
+					b < playFrom - (run.params.countIn === false ? 0 : 1) ? 'listen-in' : 'count-in'
+				)
 			);
 		}
 		return false;
