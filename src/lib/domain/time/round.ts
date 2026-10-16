@@ -149,6 +149,8 @@ export class PlanRound {
 		const report = cycleReport({
 			alignment,
 			expectations,
+			attacks: this.#attacks,
+			startS: this.startTime,
 			mutedBars: this.#plan.mutedBars,
 			latency: this.#latency
 		});

@@ -4,6 +4,7 @@ import type { RhythmStageModel, SettledCycle } from '$lib/application/session/pl
 import {
 	attackPositions,
 	barLength,
+	beatPositions,
 	Fraction,
 	type CycleFailure,
 	type CycleReport,
@@ -24,6 +25,8 @@ export const MARK_EXAGGERATION = 3;
 export const MARK_MAX_OFFSET_BEATS = 1 / 2;
 /** Room between two added attacks drawn after the last note, in px. */
 const EXTRA_GAP_PX = 2 * MARK_MIN_OFFSET_PX;
+/** Steps per whole note of the position an added attack is drawn at (well under a ms). */
+const EXTRA_POSITION_STEPS = 1920;
 /** Under this, an offset or a spread (ms) is not worth a sentence. */
 export const WORDS_MIN_MS = 15;
 /** Under this, a drift of the hold (ms per bar) is not worth « accélères » or « ralentis ». */
@@ -58,16 +61,19 @@ export function markOffsetPx(offsetMs: number, beatWidthPx: number, beatMs: numb
  * Marks of a cycle over the layout of its figure: offsets drawn exaggerated (×3 of the beat
  * width share), never under MARK_MIN_OFFSET_PX. `every-cycle` marks every expectation,
  * `out-of-tolerance` only those out of the window (and the added attacks), `summary` none.
- * The layout's attacks follow the plan's expectations (the cycle's figure engraved whole). The
- * report does not say where an added attack fell: it is drawn after the last note. `beatMs` is
- * the length of the beat the layout gives `beatWidthPx` to.
+ * The layout's attacks follow the plan's expectations (the cycle's figure engraved whole). An
+ * added attack is drawn where it fell, between the notes around it (`cursorX` over `figure`, the
+ * figure engraved), held inside the figure; a report from before `extraAtMs`, or no `figure`,
+ * draws it after the last note. `beatMs` is the length of the beat the layout gives
+ * `beatWidthPx` to, a bar's share of the meter's beats.
  */
 export function cycleMarks(
 	report: CycleReport,
 	layout: FigureLayout,
 	feedback: Feedback,
 	beatWidthPx: number,
-	beatMs: number
+	beatMs: number,
+	figure?: Figure
 ): Mark[] {
 	const notes = layout.noteX.length;
 	if (import.meta.env.DEV && report.expectations.length !== notes) {
@@ -99,11 +105,32 @@ export function cycleMarks(
 	}
 	const lastX = notes > 0 ? layout.noteX[notes - 1] : 0;
 	const lastLine = notes > 0 ? (layout.noteLine[notes - 1] ?? 0) : 0;
+	const placed =
+		figure && report.extraAtMs && beatMs > 0
+			? report.extraAtMs.map((ms) => extraPlace(figure, layout, ms, beatMs))
+			: [];
 	for (let k = 0; k < report.extra; k++) {
-		const x = Math.min(layout.width, lastX + (k + 1) * EXTRA_GAP_PX);
-		marks.push({ x, line: lastLine, kind: 'extra', label: null });
+		const at = placed[k] ?? {
+			x: Math.min(layout.width, lastX + (k + 1) * EXTRA_GAP_PX),
+			line: lastLine
+		};
+		marks.push({ ...at, kind: 'extra', label: null });
 	}
 	return feedback === 'out-of-tolerance' ? marks.filter((m) => m.kind !== 'on-time') : marks;
+}
+
+/** Where an attack `ms` after the cycle's start stands on the engraving, held inside the figure. */
+function extraPlace(
+	figure: Figure,
+	layout: FigureLayout,
+	ms: number,
+	beatMs: number
+): { x: number; line: number } | null {
+	const bar = barLength(figure.meter).toNumber();
+	const wholes = (ms / beatMs) * (bar / beatPositions(figure.meter).length);
+	const last = Math.round(figure.bars * bar * EXTRA_POSITION_STEPS) - 1;
+	const steps = Math.min(last, Math.max(0, Math.round(wholes * EXTRA_POSITION_STEPS)));
+	return cursorX(figure, layout, Fraction.of(steps, EXTRA_POSITION_STEPS));
 }
 
 /** Room kept between two figures on the same row, in px. */

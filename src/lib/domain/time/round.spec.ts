@@ -5,6 +5,7 @@ import { METER_4_4 } from './meter';
 import { compileCyclePlan, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
+import type { CycleReport } from './judge/measures';
 
 const of = Fraction.of;
 
@@ -162,6 +163,8 @@ describe('PlanRound', () => {
 		const outcome = r.settle();
 		expect(outcome.success).toBe(false);
 		expect(outcome.verdict.value).toEqual({ passed: false, reasons: ['extra'] });
+		const at = (exactTimes(plan)[0] + 0.15 - r.startTime) * 1000;
+		expect((outcome.detail as CycleReport).extraAtMs?.[0]).toBeCloseTo(at, 6);
 	});
 
 	it('closes once settled: later observations belong to the next round', () => {

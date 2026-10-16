@@ -19,6 +19,11 @@ export interface CycleReport {
 	dropped: number[];
 	/** How many attacks answered no expectation. */
 	extra: number;
+	/**
+	 * When each of them fell, in ms from the cycle's start (latency removed), in time order.
+	 * Absent from the reports stored before it existed.
+	 */
+	extraAtMs?: number[];
 	shift: Alignment['shift'];
 	measures: Measures;
 	latency: { ms: number; provenance: LatencyProvenance } | null;
@@ -56,15 +61,19 @@ function slope(points: { x: number; y: number }[]): number {
  * was not played). Placement, precision and hold offset need at least one paired offset (hold
  * offset also needs a muted and a clicked bar with data), regularity at least two, hold drift
  * at least two muted bars with data (each bar by the mean of its offsets). `mutedBars` are the
- * cycle bars where the click is silent. Pure: the same alignment gives the same report.
+ * cycle bars where the click is silent. `attacks` are the times aligned (seconds, latency removed,
+ * indexed as the alignment indexes them) and `startS` the cycle's start, which the extra
+ * attacks are timed from. Pure: the same alignment gives the same report.
  */
 export function cycleReport(input: {
 	alignment: Alignment;
 	expectations: TimedExpectation[];
+	attacks: number[];
+	startS: number;
 	mutedBars: number[];
 	latency: CycleReport['latency'];
 }): CycleReport {
-	const { alignment, expectations, mutedBars, latency } = input;
+	const { alignment, expectations, attacks, startS, mutedBars, latency } = input;
 	const paired = new Map(alignment.pairs.map((p) => [p.expectation, p]));
 	const dropped = new Set(alignment.dropped);
 	const entries: CycleReport['expectations'] = [...expectations]
@@ -115,6 +124,7 @@ export function cycleReport(input: {
 		expectations: entries,
 		dropped: [...alignment.dropped],
 		extra: alignment.extra.length,
+		extraAtMs: alignment.extra.map((i) => (attacks[i] - startS) * 1000),
 		shift: alignment.shift,
 		measures,
 		latency

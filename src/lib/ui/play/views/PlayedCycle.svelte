@@ -74,6 +74,8 @@
 		if (size > 0) figurePx = size;
 	});
 
+	/** The cycle's figure as engraved: its attacks follow the cycle's expectations. */
+	const engraved = $derived(cycleFigure(figure, cycleBars));
 	let playedLayout = $state<FigureLayout | null>(null);
 	/** The run played, engraved once off screen; each line shows its own part of it. */
 	let playedSvg = $state<SVGElement | null>(null);
@@ -85,7 +87,7 @@
 	$effect(() => {
 		if (!notation) return;
 		const host = document.createElement('div');
-		const played: Figure = cycleFigure(figure, cycleBars);
+		const played: Figure = engraved;
 		let layout: FigureLayout | null = null;
 		for (const scale of PLAYED_SCALES) {
 			layout = notation.renderFigure(host, played, { maxWidth, scale });
@@ -115,7 +117,9 @@
 		const perCycle =
 			feedback === 'summary'
 				? []
-				: reports.map((report) => cycleMarks(report, layout, feedback, beatWidth, beatMs));
+				: reports.map((report) =>
+						cycleMarks(report, layout, feedback, beatWidth, beatMs, engraved)
+					);
 		return layout.lineY.map((top, line) => ({
 			line,
 			top,

@@ -158,7 +158,7 @@ describe('cycleMarks', () => {
 		expect(marks).toEqual([]);
 	});
 
-	it('puts the added attacks after the last note, and skips what a shift dropped', () => {
+	it('puts the added attacks of a report without their times after the last note, and skips what a shift dropped', () => {
 		const marks = cycleMarks(
 			report({
 				expectations: [
@@ -179,6 +179,53 @@ describe('cycleMarks', () => {
 		const extras = marks.filter((m) => m.kind === 'extra');
 		expect(extras.every((m) => m.x > 360 && m.x <= LAYOUT.width && m.line === 0)).toBe(true);
 		expect(extras[1].x).toBeGreaterThan(extras[0].x);
+	});
+
+	it('draws each added attack where it fell, between the notes around it, held inside the figure', () => {
+		const quarters = figureOf([note(1, 4), note(1, 4), note(1, 4), note(1, 4)]);
+		const marks = cycleMarks(
+			report({ extra: 4, extraAtMs: [BEAT_MS / 2, 2 * BEAT_MS, -40, 5 * BEAT_MS] }),
+			LAYOUT,
+			'every-cycle',
+			BEAT_PX,
+			BEAT_MS,
+			quarters
+		);
+		const extras = marks.filter((m) => m.kind === 'extra');
+		expect(extras).toHaveLength(4);
+		expect(extras[0].x).toBeCloseTo(110);
+		expect(extras[1].x).toBeCloseTo(260);
+		// Before the cycle: on its first note; past it: by the bar's right edge.
+		expect(extras[2].x).toBeCloseTo(60);
+		expect(extras[3].x).toBeCloseTo(450, 0);
+		expect(extras.every((m) => m.line === 0)).toBe(true);
+	});
+
+	it('draws an added attack on the line of its bar when the figure wraps', () => {
+		const twoBars = figureOf(
+			Array.from({ length: 8 }, () => note(1, 4)),
+			2
+		);
+		const wrapped: FigureLayout = {
+			...LAYOUT,
+			noteX: [60, 160, 260, 360, 60, 160, 260, 360],
+			noteLine: [0, 0, 0, 0, 1, 1, 1, 1],
+			barX: [10, 10],
+			lineY: [0, 90]
+		};
+		const marks = cycleMarks(
+			report({
+				expectations: Array.from({ length: 8 }, (_, i) => entry(i, 'on-time', 0)),
+				extra: 1,
+				extraAtMs: [5.5 * BEAT_MS]
+			}),
+			wrapped,
+			'every-cycle',
+			BEAT_PX,
+			BEAT_MS,
+			twoBars
+		);
+		expect(marks.find((m) => m.kind === 'extra')).toMatchObject({ x: 210, line: 1 });
 	});
 
 	it('places a mark on the line its note was engraved on', () => {

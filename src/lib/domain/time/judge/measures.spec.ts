@@ -37,12 +37,20 @@ const system = { ms: 20, provenance: 'system' } as const;
 
 function report(
 	entries: { bar: number; offsetMs: number | null }[],
-	opts: { mutedBars?: number[]; latency?: CycleReport['latency']; patch?: Partial<Alignment> } = {}
+	opts: {
+		mutedBars?: number[];
+		latency?: CycleReport['latency'];
+		patch?: Partial<Alignment>;
+		attacks?: number[];
+		startS?: number;
+	} = {}
 ) {
 	const { alignment, expectations } = scenario(entries);
 	return cycleReport({
 		alignment: { ...alignment, ...opts.patch },
 		expectations,
+		attacks: opts.attacks ?? Array.from({ length: 10 }, (_, i) => i),
+		startS: opts.startS ?? 0,
 		mutedBars: opts.mutedBars ?? [],
 		latency: opts.latency === undefined ? system : opts.latency
 	});
@@ -94,6 +102,16 @@ describe('cycleReport', () => {
 		expect(r.extra).toBe(2);
 		expect(r.shift).toEqual({ bar: 1, byS: 0.5 });
 		expect(r.measures.fidelity?.value).toBeCloseTo(0.5);
+	});
+
+	it('times the extra attacks in ms from the cycle start', () => {
+		const r = report(exact, {
+			patch: { extra: [1, 3] },
+			attacks: [10, 10.25, 10.5, 11.125],
+			startS: 10
+		});
+		expect(r.extra).toBe(2);
+		expect(r.extraAtMs?.map((ms) => +ms.toFixed(6))).toEqual([250, 1125]);
 	});
 
 	it('keeps the latency and its provenance', () => {
