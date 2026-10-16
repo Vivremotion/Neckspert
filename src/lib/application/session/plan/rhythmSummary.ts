@@ -1,5 +1,5 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise';
-import { levelRange, type LevelState } from '$lib/domain/time';
+import { levelRange, type CycleVerdict, type LevelState } from '$lib/domain/time';
 import type { Attempt, RhythmSummary } from '$lib/domain/types';
 import { levelAided, type RhythmAttemptData } from './recordCycle';
 import { levelParamsOf, rhythmLevels } from './rhythmExercise';
@@ -28,6 +28,11 @@ export function summarizeRhythm(input: {
 	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
 	const held = input.levelReached ?? input.state?.level ?? last?.data.level ?? 0;
+	const value = last?.verdict?.value as CycleVerdict | undefined;
+	// An attempt stored before the report existed, or by a test double, has neither: no report then.
+	const verdict =
+		typeof value === 'object' && value !== null && 'passed' in value ? value : undefined;
+	const readable = Array.isArray(last?.data.report?.expectations);
 	return {
 		exerciseId: exercise.id,
 		levelReached: levelView(levels, Math.min(highest, Math.max(lowest, held))),
@@ -36,6 +41,15 @@ export function summarizeRhythm(input: {
 		aided: cycles.filter(
 			(attempt) =>
 				attempt.success && levelAided(attempt.aids, levelParamsOf(exercise, attempt.data.level))
-		).length
+		).length,
+		...(last?.data.report &&
+			verdict &&
+			readable && {
+				lastCycle: {
+					report: last.data.report,
+					verdict,
+					thresholds: levelParamsOf(exercise, last.data.level).thresholds
+				}
+			})
 	};
 }

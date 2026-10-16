@@ -518,8 +518,10 @@ export class PlanSessionController implements PlaySessionController {
 				return this.bars.get(bar) ?? null;
 			}
 		}
-		if (run.played >= run.params.cyclesPerBreath) {
-			if (this.deps.now() - this.startedAt >= RHYTHM_SERIES_MS) {
+		const { cyclesPerSeries } = run.params;
+		const cycleDone = cyclesPerSeries !== undefined && this.playedInSeries >= cyclesPerSeries;
+		if (cycleDone || run.played >= run.params.cyclesPerBreath) {
+			if (cycleDone || this.deps.now() - this.startedAt >= RHYTHM_SERIES_MS) {
 				this.ending = true;
 				if (this.live.length === 0) void this.finish();
 				return null;

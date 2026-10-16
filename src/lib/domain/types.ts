@@ -1,7 +1,15 @@
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
-import type { Aid, LevelState, Measures, VerdictEnvelope } from './time';
+import type {
+	Aid,
+	CycleReport,
+	CycleVerdict,
+	LevelParams,
+	LevelState,
+	Measures,
+	VerdictEnvelope
+} from './time';
 
 export type {
 	Aid,
@@ -386,6 +394,13 @@ export interface RhythmSummary {
 	successes: number;
 	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
 	aided: number;
+	/** The last cycle played, in full (a series of one cycle shows its report). Absent without a cycle. */
+	lastCycle?: {
+		report: CycleReport;
+		verdict: CycleVerdict;
+		/** The thresholds of the level it was played at. */
+		thresholds: LevelParams['thresholds'];
+	};
 }
 
 /** What a gesture session did, exercise by exercise, and the changes it missed. */

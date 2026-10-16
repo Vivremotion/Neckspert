@@ -2,6 +2,7 @@
 	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 	import { GRIDS } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import { rhythmReportView } from './rhythmReport';
 	import { isTriadsKind, type RhythmSummary, type SessionSummary } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -108,6 +109,23 @@
 					</li>
 				</ul>
 			</PixelBox>
+			{#if rhythm.lastCycle}
+				{@const report = rhythmReportView(rhythm.lastCycle, t.report, i18n.locale)}
+				<PixelBox variant="double">
+					<div class="report">
+						<strong>{report.headline}</strong>
+						<span>{report.feedback}</span>
+						{#if report.reasons}<span>{report.reasons}</span>{/if}
+						<ul>
+							{#each report.measures as line (line)}<li>{line}</li>{/each}
+							<li>{report.latency}</li>
+						</ul>
+						<ul>
+							{#each report.attacks as line, i (i)}<li>{line}</li>{/each}
+						</ul>
+					</div>
+				</PixelBox>
+			{/if}
 		{:else if summary.gesture}
 			<PixelBox variant="double">
 				<ul class="rows">
@@ -260,6 +278,23 @@
 	.grade {
 		margin: 0;
 		text-align: center;
+	}
+
+	.report {
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-space-1, 8px);
+		padding: var(--np-space-3, 24px) var(--np-space-4, 32px);
+		font-size: var(--np-type-body);
+	}
+
+	.report ul {
+		list-style: none;
+		margin: var(--np-space-1, 8px) 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
 	}
 
 	.rows {

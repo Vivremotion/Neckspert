@@ -55,6 +55,7 @@ const SILENT_BARS_BASE: LevelParams = {
 	listen: 'free',
 	cursor: true,
 	cyclesPerBreath: 4,
+	cyclesPerSeries: 1,
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -119,6 +120,7 @@ const TWO_FOUR_BASE: LevelParams = {
 	listen: 'aid',
 	cursor: true,
 	cyclesPerBreath: 1,
+	cyclesPerSeries: 1,
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -157,6 +159,7 @@ const OFFBEATS_BASE: LevelParams = {
 	listen: 'free',
 	cursor: true,
 	cyclesPerBreath: 4,
+	cyclesPerSeries: 1,
 	thresholds: BASE_THRESHOLDS
 };
 

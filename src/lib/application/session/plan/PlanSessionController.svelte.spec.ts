@@ -77,8 +77,17 @@ async function setup(
 		/** Latencies of other sensors, beside the attack's. */
 		latencies?: Settings['latency'];
 		clickBleed?: boolean;
+		/** Keep the catalog's `cyclesPerSeries`; the other tests play the runs of a series by time. */
+		oneCycle?: boolean;
 	} = {}
 ) {
+	if (!options.oneCycle) {
+		exercise = {
+			...exercise,
+			base: exercise.base && { ...exercise.base, cyclesPerSeries: undefined }
+		};
+	}
+	const played = exercise;
 	const clock = new FakeClock();
 	const sounds = new FakeSoundScheduler(clock);
 	const attacks = new FakeAttackDetector();
@@ -109,6 +118,7 @@ async function setup(
 		now: () => clock.toEpochMs(clock.now()) + wall.extraMs,
 		random: () => 0,
 		newId: () => `s${++ids}`,
+		exercise: () => played,
 		mechanics: {},
 		sensors: { attack: attackSensor(attacks) },
 		sounds,
@@ -893,5 +903,20 @@ describe('PlanSessionController, before playing', () => {
 		await controller.ready();
 		expect(controller.view.audioError).toBe('bleed');
 		expect(controller.view.briefing).toBeNull();
+	});
+});
+
+describe('PlanSessionController, one cycle per series', () => {
+	it('a series of an exercise with cyclesPerSeries 1 ends after its first cycle and writes one attempt', async () => {
+		const { controller, attempts, sessions, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			oneCycle: true
+		});
+		expect(RHYTHM_OFFBEATS.base?.cyclesPerSeries).toBe(1);
+		await controller.start();
+		await advance(ORIGIN + 6 * OFFBEATS_BAR_S);
+		expect(controller.view.status).toBe('finished');
+		expect(await attempts.listBySession('series')).toHaveLength(1);
+		expect((await sessions.get('series'))?.endedAt).not.toBeNull();
 	});
 });
