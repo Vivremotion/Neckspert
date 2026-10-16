@@ -30,6 +30,7 @@ const FR = {
 		breath: 'Respiration'
 	},
 	listen: 'Écouter la figure',
+	notationFailed: 'La partition n’a pas pu se charger : recharge la page.',
 	played: 'Joué',
 	toPlay: 'À jouer',
 	cycle: (n: number) => `cycle ${n}`,
@@ -91,6 +92,7 @@ const EN: typeof FR = {
 		breath: 'Breathe'
 	},
 	listen: 'Listen to the figure',
+	notationFailed: 'The score could not load: reload the page.',
 	played: 'Played',
 	toPlay: 'To play',
 	cycle: (n) => `cycle ${n}`,

@@ -61,13 +61,20 @@
 
 	// VexFlow is heavy: the notation adapter is loaded once this view shows, never before.
 	let notation = $state<Notation | null>(null);
+	/** The notation did not load (a stale deploy, offline): the stage says so, play goes on. */
+	let notationFailed = $state(false);
 	onMount(() => {
 		let live = true;
-		void import('$lib/ui/notation').then(async (loaded) => {
-			// Engraved on the music font itself, or the notes are spaced on a fallback's widths.
-			await loaded.notationReady();
-			if (live) notation = loaded;
-		});
+		import('$lib/ui/notation')
+			.then(async (loaded) => {
+				// Engraved on the music font itself, or the notes are spaced on a fallback's widths.
+				await loaded.notationReady();
+				if (live) notation = loaded;
+			})
+			.catch((error: unknown) => {
+				console.warn('The notation could not load', error);
+				if (live) notationFailed = true;
+			});
 		return () => {
 			live = false;
 		};
@@ -204,6 +211,10 @@
 			<p class="phase">{phaseText}</p>
 		{/if}
 	</header>
+
+	{#if notationFailed}
+		<p class="notation-error" role="alert">{t.notationFailed}</p>
+	{/if}
 
 	{#if breathing}
 		{#if m.announcement}
@@ -364,8 +375,13 @@
 	}
 
 	.where,
-	.phase {
+	.phase,
+	.notation-error {
 		font-size: var(--np-type-meta);
+	}
+
+	.notation-error {
+		margin: 0;
 	}
 
 	.where {
