@@ -40,7 +40,7 @@ export interface AppServices {
 	contest(attemptId: number): Promise<void>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
-	/** Plans the session and returns its controller, not yet started. */
+	/** Plans the session and returns its controller, not yet started. Rejects `'exercise'` (see `startExercise`). */
 	startSession(kind: SessionKind): Promise<PlaySessionController>;
 	/**
 	 * Free play of one exercise played cycle after cycle (a session of kind `'exercise'`): its

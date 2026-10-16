@@ -167,6 +167,11 @@ describe('createAppServices', () => {
 		expect(controller.view.leadBeats).toBe(2);
 	});
 
+	it('startSession refuses an exercise session, which starts only through startExercise', async () => {
+		const { services } = harness();
+		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
+	});
+
 	it('startSession(learn) probes first the notes of a triad being anchored', async () => {
 		const { services, deps } = harness();
 		const key = 'D|maj|3:5,2:1,1:3';

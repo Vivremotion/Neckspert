@@ -151,6 +151,8 @@ export function createAppServices(
 		},
 
 		async startSession(kind: SessionKind) {
+			// An exercise session needs its exercise: recorded without it, no backup would import.
+			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
 			/** One triads exercise, at its own tempo, on the triad selector. */
 			const prepareTriads = (
 				mechanic: TriadMechanic,
