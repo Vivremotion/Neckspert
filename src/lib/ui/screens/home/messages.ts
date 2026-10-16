@@ -6,6 +6,8 @@ export const homeMessages = defineMessages({
 		triads: 'Triades',
 		triadsZone: 'Triades vers une case',
 		gesture: 'Geste',
+		rhythm: 'Rythme',
+		rhythmExercises: 'Exercices de rythme',
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
@@ -26,6 +28,8 @@ export const homeMessages = defineMessages({
 		triads: 'Triads',
 		triadsZone: 'Triads around a fret',
 		gesture: 'Gesture',
+		rhythm: 'Rhythm',
+		rhythmExercises: 'Rhythm exercises',
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',

@@ -1,5 +1,5 @@
 import type { StringNumber } from '$lib/domain/music/types';
-import type { ChordDiagramStyle, LeadBeats, Verdict } from '$lib/domain/types';
+import type { ChordDiagramStyle, LeadBeats, ResponseVerdict } from '$lib/domain/types';
 import type { Scene } from '$lib/application/mechanics/types';
 
 export type { Scene };
@@ -35,7 +35,7 @@ export interface PromptView {
 }
 
 export interface VerdictView {
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 	/** Mode 1: onset minus target beat, ms. */
 	offsetMs: number | null;
 	reactionMs: number | null;
@@ -53,7 +53,7 @@ export interface VerdictView {
 /** A played target on the lane, at the beat it was due. */
 export interface LaneEntry {
 	beatIndex: number;
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 }
 
 export interface AnswerChoice {
@@ -94,8 +94,12 @@ export interface PlayView {
 	 * juste », 'done' once pressed; null otherwise.
 	 */
 	contest: 'available' | 'done' | null;
-	/** 'input': no audio input could be opened at start; the screen says so. */
-	audioError: 'input' | null;
+	/**
+	 * 'input': no audio input could be opened at start; 'bleed': the calibration heard the click
+	 * on the playing input, so an exercise that listens to attacks asks for headphones. The
+	 * screen says so.
+	 */
+	audioError: 'input' | 'bleed' | null;
 	/**
 	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
 	 * it; null (or absent) for a mechanic without one, whose prompt the play screen shows.
@@ -132,6 +136,13 @@ export interface PlaySessionController {
 	answer(value: string): void;
 	/** « Joué juste »: labels the attempt of the miss on show contested. Only while offered. */
 	contest(): void;
+	/**
+	 * « Écouter la figure »: the next cycle is heard rather than played, then play goes on.
+	 * Offered by the controllers that play figures; ignored where the level gives no listening.
+	 */
+	listen?(): void;
+	/** « Réécouter »: plays the last run again with its click, from the breath or the pause. */
+	replay?(): Promise<void>;
 	/** Ends the session and stops audio. */
 	quit(): void;
 }

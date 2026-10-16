@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { FakeChordVerifier, FakeClock, FakeNoteDetector } from '$lib/testing/fakes';
-import { chordSensor, noteSensor, tapSensor, type Observation } from './sensors';
+import {
+	FakeAttackDetector,
+	FakeChordVerifier,
+	FakeClock,
+	FakeNoteDetector
+} from '$lib/testing/fakes';
+import { attackSensor, chordSensor, noteSensor, tapSensor, type Observation } from './sensors';
 
 describe('noteSensor', () => {
 	it('dates each attack on the audio clock, latency removed', async () => {
@@ -53,6 +58,34 @@ describe('noteSensor', () => {
 			attack: { frequencyHz: 0, clarity: 0.2 },
 			sustain: { frequencyHz: 0, clarity: 0.1 }
 		});
+		expect(seen).toEqual([]);
+	});
+});
+
+describe('attackSensor', () => {
+	it('dates each attack minus the calibrated latency, readable, with its strength', () => {
+		const detector = new FakeAttackDetector();
+		const source = attackSensor(detector)({ latencyMs: 12, clock: new FakeClock() });
+		const seen: Observation[] = [];
+		source.onObservation((observation) => seen.push(observation));
+		detector.emit({ time: 1, strength: 0.5 });
+		detector.emit({ time: 2, strength: 0.9, channel: 1 });
+		expect(seen).toHaveLength(2);
+		expect(seen[0].time).toBeCloseTo(0.988, 9);
+		expect(seen[0].payload).toEqual({ strength: 0.5 });
+		expect(seen[0].readable).toBe(true);
+		expect(seen[1].payload).toEqual({ strength: 0.9, channel: 1 });
+	});
+
+	it('stops listening once unsubscribed', () => {
+		const detector = new FakeAttackDetector();
+		const source = attackSensor(detector)({ latencyMs: 0, clock: new FakeClock() });
+		const seen: Observation[] = [];
+		const unsubscribe = source.onObservation((observation) => seen.push(observation));
+		expect(detector.listeners).toBe(1);
+		unsubscribe();
+		detector.emit({ time: 1, strength: 0.5 });
+		expect(detector.listeners).toBe(0);
 		expect(seen).toEqual([]);
 	});
 });

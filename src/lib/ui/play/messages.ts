@@ -21,7 +21,9 @@ export const playMessages = defineMessages({
 			'triads-zone':
 				'« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.',
 			gesture:
-				'Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.'
+				'Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.',
+			exercise:
+				'Joue ce que l’exercice demande, en suivant le clic. Sa consigne s’affiche avant la première série.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Parfait',
@@ -42,7 +44,15 @@ export const playMessages = defineMessages({
 		finished: 'Série terminée',
 		go: 'C’est parti',
 		startsIn: (beats: number) => `Départ dans ${beats} temps`,
-		fatigue: 'Fatigue détectée : la session s’arrête à la fin du passage'
+		fatigue: 'Fatigue détectée : la session s’arrête à la fin du passage',
+		bleed:
+			'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.',
+		quitExercise: 'Quitter l’exercice',
+		replay: 'Réécouter',
+		replaying: 'Réécoute…',
+		/** The key of « Écouter la figure »: E, for écouter. */
+		listenKey: 'E',
+		replayKey: 'R'
 	},
 	en: {
 		pause: 'Pause',
@@ -58,7 +68,9 @@ export const playMessages = defineMessages({
 			'triads-zone':
 				'“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.',
 			gesture:
-				'Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.'
+				'Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.',
+			exercise:
+				'Play what the exercise asks, following the click. Its instructions show before the first run.'
 		} satisfies Record<SessionKind, string>,
 		verdict: {
 			perfect: 'Perfect',
@@ -79,6 +91,14 @@ export const playMessages = defineMessages({
 		finished: 'Series over',
 		go: 'Let’s go',
 		startsIn: (beats: number) => `Starting in ${beats} ${beats === 1 ? 'beat' : 'beats'}`,
-		fatigue: 'Fatigue detected: the session stops at the end of the passage'
+		fatigue: 'Fatigue detected: the session stops at the end of the passage',
+		bleed:
+			'The microphone hears the click: plug in headphones, or your guitar through an interface, then start again.',
+		quitExercise: 'Quit the exercise',
+		replay: 'Replay',
+		replaying: 'Replaying…',
+		/** The key of “Listen to the figure”: L, for listen. */
+		listenKey: 'L',
+		replayKey: 'R'
 	}
 });

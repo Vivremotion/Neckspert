@@ -1,6 +1,10 @@
 <script lang="ts">
+	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 	import { GRIDS } from '$lib/domain/grid';
-	import { isTriadsKind, type SessionSummary } from '$lib/domain/types';
+	import { i18n } from '$lib/i18n/index.svelte';
+	import { rhythmReportView } from './rhythmReport';
+	import { isTriadsKind, type RhythmSummary, type SessionSummary } from '$lib/domain/types';
+	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -23,12 +27,28 @@
 		oncontest?: (attemptId: number) => Promise<void>;
 	} = $props();
 
+	/** The width the played cycle may take (its box, measured). */
+	let playedWidth = $state(0);
+	/** Width assumed before the box is measured. */
+	const FALLBACK_WIDTH = 640;
+
 	/** The exercise, and the grid its tempo belongs to when it has one. */
 	function exerciseLabel(exerciseId: string, scope: string | undefined): string {
 		const name = t.exercise[exerciseId] ?? exerciseId;
 		if (scope === undefined) return name;
 		const grid = GRIDS.find((candidate) => candidate.id === scope);
 		return `${name} · ${grid?.title ?? scope}`;
+	}
+
+	/** The level a rhythm session ended on, an aid level named as the play header names it. */
+	function rhythmLevel(level: RhythmSummary['levelReached']): string {
+		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
+	}
+
+	/** A rhythm exercise by its name in the current language. */
+	function rhythmTitle(exerciseId: string): string {
+		const exercise = RHYTHM_EXERCISES.find((candidate) => candidate.id === exerciseId);
+		return exercise?.title?.[i18n.locale] ?? exerciseId;
 	}
 
 	/** Misses contested on this screen, on top of those stored contested. */
@@ -81,7 +101,52 @@
 		{#if summary.grade}
 			<p class="grade"><PixelText scale={4}>{summary.grade}</PixelText></p>
 		{/if}
-		{#if summary.gesture}
+		{#if summary.rhythm}
+			{@const rhythm = summary.rhythm}
+			<PixelBox variant="double">
+				<ul class="rows">
+					<li class="exercise">
+						<strong>{rhythmTitle(rhythm.exerciseId)}</strong>
+						<span>{rhythmLevel(rhythm.levelReached)}</span>
+						<span>{t.cyclesSucceeded(rhythm.successes, rhythm.cycles)}</span>
+						{#if rhythm.aided > 0}
+							<span>{t.successesAided(rhythm.aided)}</span>
+						{/if}
+					</li>
+				</ul>
+			</PixelBox>
+			{#if rhythm.lastCycle}
+				{@const report = rhythmReportView(rhythm.lastCycle, t.report, i18n.locale)}
+				{@const played = rhythm.lastCycle.played}
+				{#if played}
+					<PixelBox variant="double">
+						<div class="played-cycle" bind:clientWidth={playedWidth}>
+							<PlayedCycle
+								figure={played.figure}
+								cycleBars={played.cycleBars}
+								reports={[rhythm.lastCycle.report]}
+								feedback="every-cycle"
+								beatMs={60000 / played.tempoBpm}
+								maxWidth={playedWidth > CYCLE_COLUMN_PX
+									? playedWidth - CYCLE_COLUMN_PX
+									: FALLBACK_WIDTH}
+							/>
+						</div>
+					</PixelBox>
+				{/if}
+				<PixelBox variant="double">
+					<div class="report">
+						<strong>{report.headline}</strong>
+						<span>{report.feedback}</span>
+						{#if report.reasons}<span>{report.reasons}</span>{/if}
+						<ul>
+							{#each report.measures as line (line)}<li>{line}</li>{/each}
+							<li>{report.latency}</li>
+						</ul>
+					</div>
+				</PixelBox>
+			{/if}
+		{:else if summary.gesture}
 			<PixelBox variant="double">
 				<ul class="rows">
 					{#each summary.gesture.exercises as exercise (`${exercise.exerciseId}:${exercise.scope ?? ''}`)}
@@ -233,6 +298,27 @@
 	.grade {
 		margin: 0;
 		text-align: center;
+	}
+
+	.played-cycle {
+		min-width: 0;
+	}
+
+	.report {
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-space-1, 8px);
+		padding: var(--np-space-3, 24px) var(--np-space-4, 32px);
+		font-size: var(--np-type-body);
+	}
+
+	.report ul {
+		list-style: none;
+		margin: var(--np-space-1, 8px) 0 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
 	}
 
 	.rows {

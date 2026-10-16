@@ -6,10 +6,25 @@ describe('createFakeAppServices', () => {
 	it('exposes P0 settings defaults and a controllable calibration', async () => {
 		const services = createFakeAppServices();
 		expect(await services.settings.get()).toEqual(DEFAULT_SETTINGS);
-		services.calibration.nextOutcome = { ok: true, offsetMs: 42, spreadMs: 5 };
+		const next = {
+			ok: true as const,
+			latency: { attack: { ms: 42, provenance: 'system' as const } },
+			clickBleed: false,
+			measure: {
+				referenceMs: 40,
+				referenceSpreadMs: 0,
+				offsetMs: 2,
+				pairs: 16,
+				played: 16,
+				spreadMs: 1,
+				latencyMs: 42
+			}
+		};
+		services.calibration.nextOutcome = next;
 		const progress: number[] = [];
-		const outcome = await services.calibration.run((p) => progress.push(p.hits));
-		expect(outcome).toEqual({ ok: true, offsetMs: 42, spreadMs: 5 });
+		const outcome = await services.calibration.run('usb', (p) => progress.push(p.done));
+		expect(outcome).toEqual(next);
+		expect(services.calibration.lastDeviceId).toBe('usb');
 		expect(progress.length).toBeGreaterThan(0);
 	});
 

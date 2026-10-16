@@ -8,7 +8,8 @@
 		MIN_BUILT_IN_INPUT_GAIN,
 		clampBuiltInInputGain,
 		type ChordDiagramStyle,
-		type Locale
+		type Locale,
+		type Settings
 	} from '$lib/domain/types';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
@@ -21,7 +22,7 @@
 		inputs,
 		inputDeviceId,
 		builtInInputGain,
-		calibrationOffsetMs,
+		latency,
 		importError,
 		confirmingImport,
 		onlocale,
@@ -36,8 +37,10 @@
 		diagnosticsEnabled,
 		diagnosticsBudgetMb,
 		diagnosticsUsedBytes,
+		diagnosticsNativeRate = false,
 		ondiagnostics,
 		ondiagnosticsbudget,
+		ondiagnosticsnativerate = () => {},
 		ondiagnosticsexport,
 		ondiagnosticsclear,
 		diagnosticsExporting = false,
@@ -49,7 +52,8 @@
 		inputs: AudioInputDevice[];
 		inputDeviceId: string | null;
 		builtInInputGain: number;
-		calibrationOffsetMs: number | null;
+		/** The calibrated latency by sensor; the note sensor's is shown. */
+		latency: Settings['latency'];
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: Locale) => void;
@@ -67,6 +71,9 @@
 		diagnosticsUsedBytes: number;
 		ondiagnostics: (enabled: boolean) => void;
 		ondiagnosticsbudget: (budgetMb: number) => void;
+		/** Development option: record the sound at the input's own rate (shown in development only). */
+		diagnosticsNativeRate?: boolean;
+		ondiagnosticsnativerate?: (nativeRate: boolean) => void;
 		ondiagnosticsexport: () => void;
 		ondiagnosticsclear: () => void;
 		/** True while an archive is being built: the export button waits. */
@@ -192,7 +199,7 @@
 
 	<PixelBox variant="plain">
 		<p class="label"><PixelText scale={1}>{m.calibration}</PixelText></p>
-		<p><PixelText scale={1}>{m.offset(calibrationOffsetMs)}</PixelText></p>
+		<p><PixelText scale={1}>{m.offset(latency.note?.ms ?? null)}</PixelText></p>
 		<a class="calibration-link" href={resolve('/calibration')}>
 			<PixelText scale={2}>{m.calibrationLink}</PixelText>
 		</a>
@@ -242,6 +249,17 @@
 				>
 			{/each}
 		</div>
+		{#if import.meta.env.DEV}
+			<p class="label"><PixelText scale={1}>{m.diagnosticsNativeRate}</PixelText></p>
+			<PixelButton
+				size="large"
+				pressed={diagnosticsNativeRate}
+				label={m.diagnosticsNativeRateToggle(diagnosticsNativeRate)}
+				onclick={() => ondiagnosticsnativerate(!diagnosticsNativeRate)}
+				>{m.diagnosticsState(diagnosticsNativeRate)}</PixelButton
+			>
+			<p class="usage"><PixelText scale={1}>{m.diagnosticsNativeRateHint}</PixelText></p>
+		{/if}
 		<div class="row actions">
 			<PixelButton size="large" disabled={diagnosticsExporting} onclick={ondiagnosticsexport}
 				>{m.diagnosticsExport}</PixelButton

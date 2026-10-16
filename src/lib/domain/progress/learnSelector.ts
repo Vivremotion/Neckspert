@@ -7,7 +7,6 @@ import {
 } from '$lib/domain/mechanics';
 import { asNeckCard, neckCardKey, type LocateItem, type NeckCard } from '$lib/domain/music';
 import {
-	isSuccess,
 	LEAD_STEPS,
 	type Attempt,
 	type CardKey,
@@ -161,7 +160,7 @@ class LearnSelector implements SessionSelector {
 		const [shortGap, longGap] = LEARN_RETEST_GAPS;
 		const step =
 			entry.card.mechanic === 'locate'
-				? this.climbLead(entry, isSuccess(attempt))
+				? this.climbLead(entry, attempt.success)
 				: this.climbIdentify(entry, attempt);
 		if (step === 'learned') {
 			this.learning.delete(attempt.cardKey);
@@ -179,7 +178,7 @@ class LearnSelector implements SessionSelector {
 	private fadeStringAid(attempt: Attempt): void {
 		if (attempt.mechanic !== 'locate') return;
 		const key = attempt.cardKey;
-		if (!isSuccess(attempt)) {
+		if (!attempt.success) {
 			this.stringAid.set(key, 0);
 			return;
 		}
@@ -197,7 +196,7 @@ class LearnSelector implements SessionSelector {
 	/** A miss (probes and recovery prompts left out) calls for a solid card on the next prompt. */
 	private countMiss(attempt: Attempt): void {
 		if (attempt.phase === 'probe') return;
-		if (isSuccess(attempt)) {
+		if (attempt.success) {
 			this.missStreak = 0;
 			this.pendingRecovery = null;
 			return;
@@ -231,7 +230,7 @@ class LearnSelector implements SessionSelector {
 				card.acquiredAt !== null &&
 				card.mechanic === pending.mechanic &&
 				!reviewable.has(card.key) &&
-				(this.history.get(card.key) ?? []).every(isSuccess) &&
+				(this.history.get(card.key) ?? []).every((attempt) => attempt.success) &&
 				this.fitsWorkingSet(card.key)
 		);
 		const card = pickAtRandom(solid, this.previous, this.random);
@@ -315,7 +314,7 @@ class LearnSelector implements SessionSelector {
 	/** Mode 2: name shown until answered right, then LEARN_SUCCESSES quick unaided answers. */
 	private climbIdentify(entry: LearningEntry, attempt: Attempt): 'short' | 'long' | 'learned' {
 		if (entry.aided) {
-			entry.aided = !attempt.correct;
+			entry.aided = attempt.correct !== true;
 			entry.successes = 0;
 			return 'short';
 		}

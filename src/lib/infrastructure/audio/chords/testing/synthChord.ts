@@ -8,7 +8,7 @@ import {
 	type VoicingCandidate
 } from '$lib/domain/music';
 import { fftSizeFor, hopSizeFor } from '../constants';
-import { magnitudeSpectrum } from '../fft';
+import { magnitudeSpectrum } from '../../spectral/fft';
 import { hannWindow, maxPool } from '../spectrum';
 import { midiToHz } from '../comb';
 

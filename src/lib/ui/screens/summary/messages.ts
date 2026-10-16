@@ -44,7 +44,54 @@ export const summaryMessages = defineMessages({
 		nothingHeard: 'Rien entendu',
 		expected: (frets: string) => `Attendu ${frets}`,
 		playedRight: 'Joué juste',
-		contested: 'Contesté'
+		contested: 'Contesté',
+		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
+		aidLevelReached: 'Niveau atteint : niveau d’aide',
+		cyclesSucceeded: (successes: number, cycles: number) =>
+			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
+		successesAided: (n: number) => `dont ${n} avec aide`,
+		report: {
+			colon: ' : ',
+			passed: 'Cycle réussi',
+			failed: 'Cycle raté',
+			reasons: (list: string[]) => `Raisons : ${list.join(', ')}`,
+			reason: {
+				missed: 'notes oubliées',
+				extra: 'notes en trop',
+				shift: 'décalage de temps',
+				precision: 'précision',
+				regularity: 'régularité',
+				hold: 'tenue'
+			},
+			ms: (n: number) => `${n} ms`,
+			msPerBar: (n: number) => `${n} ms/mesure`,
+			limit: (limit: string) => `limite ${limit}`,
+			within: 'dans la limite',
+			over: 'au-delà de la limite',
+			notJudged: 'non jugé',
+			precision: 'Précision',
+			regularity: 'Régularité',
+			holdOffset: 'Tenue, décalage',
+			holdDrift: 'Tenue, dérive',
+			placement: 'Placement',
+			fidelity: (played: number, expected: number, forgotten: number, extra: number) =>
+				`Fidélité : ${played} notes jouées sur ${expected}, ${forgotten} oubliée${forgotten > 1 ? 's' : ''}, ${extra} en trop`,
+			shift: (bar: number, ms: number) =>
+				`Décalage de temps : mesure ${bar}, temps ${ms < 0 ? 'perdu' : 'ajouté'} (${Math.abs(ms)} ms)`,
+			latency: {
+				system: (ms: number) => `Latence mesurée : ${ms} ms`,
+				player: (ms: number) => `Latence du joueur : ${ms} ms`,
+				none: 'Pas de latence'
+			},
+			latencyNotJudged: 'placement et précision non jugés',
+			note: (n: number) => `Note ${n}`,
+			early: 'en avance',
+			late: 'en retard',
+			onTime: 'pile',
+			forgotten: 'oubliée',
+			dropped: 'non jouable (décalage)',
+			extras: (n: number) => `Attaques en trop : ${n}`
+		}
 	},
 	en: {
 		title: 'Summary',
@@ -87,6 +134,53 @@ export const summaryMessages = defineMessages({
 		nothingHeard: 'Nothing heard',
 		expected: (frets: string) => `Expected ${frets}`,
 		playedRight: 'Played right',
-		contested: 'Contested'
+		contested: 'Contested',
+		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
+		aidLevelReached: 'Level reached: aid level',
+		cyclesSucceeded: (successes: number, cycles: number) =>
+			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
+		successesAided: (n: number) => `of which ${n} with aid`,
+		report: {
+			colon: ': ',
+			passed: 'Cycle passed',
+			failed: 'Cycle failed',
+			reasons: (list: string[]) => `Reasons: ${list.join(', ')}`,
+			reason: {
+				missed: 'missed notes',
+				extra: 'added notes',
+				shift: 'time shift',
+				precision: 'precision',
+				regularity: 'regularity',
+				hold: 'hold'
+			},
+			ms: (n: number) => `${n} ms`,
+			msPerBar: (n: number) => `${n} ms/bar`,
+			limit: (limit: string) => `limit ${limit}`,
+			within: 'within the limit',
+			over: 'over the limit',
+			notJudged: 'not judged',
+			precision: 'Precision',
+			regularity: 'Regularity',
+			holdOffset: 'Hold, offset',
+			holdDrift: 'Hold, drift',
+			placement: 'Placement',
+			fidelity: (played: number, expected: number, forgotten: number, extra: number) =>
+				`Fidelity: ${played} of ${expected} notes played, ${forgotten} missed, ${extra} added`,
+			shift: (bar: number, ms: number) =>
+				`Time shift: bar ${bar}, beat ${ms < 0 ? 'lost' : 'added'} (${Math.abs(ms)} ms)`,
+			latency: {
+				system: (ms: number) => `Measured latency: ${ms} ms`,
+				player: (ms: number) => `Player's latency: ${ms} ms`,
+				none: 'No latency'
+			},
+			latencyNotJudged: 'placement and precision not judged',
+			note: (n: number) => `Note ${n}`,
+			early: 'early',
+			late: 'late',
+			onTime: 'on time',
+			forgotten: 'missed',
+			dropped: 'unplayable (shift)',
+			extras: (n: number) => `Added attacks: ${n}`
+		}
 	}
 });

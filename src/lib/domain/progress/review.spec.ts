@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
@@ -23,7 +24,7 @@ function learned(card: NeckCard, due: number): CardState {
 
 /** An unanswered hot attempt on `card`, at 80 bpm. */
 function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']): Attempt {
-	return {
+	return responseAttempt({
 		sessionId: 's-free',
 		exerciseId: neckExerciseId(card.mechanic),
 		mechanic: card.mechanic,
@@ -40,7 +41,7 @@ function attemptOn(card: NeckCard, promptedAt: number, phase: Attempt['phase']):
 		verdict: 'wrong',
 		data: { item: card.item, answer: null, confusion: null },
 		observations: []
-	};
+	});
 }
 
 describe('lastAttemptByCard', () => {

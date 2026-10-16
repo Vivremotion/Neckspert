@@ -1,5 +1,5 @@
 import type { MechanicRules } from '$lib/domain/mechanics';
-import type { AidLevel, Locale, PlannedItem, Verdict } from '$lib/domain/types';
+import type { AidLevel, Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import type { AnswerChoice, PromptView, ShapeView } from '$lib/application/session/contract';
 
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
@@ -23,14 +23,18 @@ export interface MechanicPresenter<I = any, A = any> {
 	/** What was answered, localized, or null when the mechanic does not say. */
 	answerLabel(answer: A, item: I, locale: Locale, random: () => number): string | null;
 	/** Shown once the round is settled. Today: the right answer after a miss. */
-	reveal(item: I, outcome: { correct: boolean; verdict: Verdict }, locale: Locale): string | null;
+	reveal(
+		item: I,
+		outcome: { correct: boolean; verdict: ResponseVerdict },
+		locale: Locale
+	): string | null;
 	/**
 	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn in the
 	 * verdict. Null on a right answer; leave it out for a mechanic that draws no shape.
 	 */
 	feedback?(
 		item: I,
-		outcome: { answer: unknown; confusion: unknown; verdict: Verdict },
+		outcome: { answer: unknown; confusion: unknown; verdict: ResponseVerdict },
 		locale: Locale
 	): { heard: ShapeView | null; expected: ShapeView | null; gap: string | null } | null;
 	/** Its misses may be contested during play (« Joué juste »): the judge may be wrong. */
@@ -55,7 +59,7 @@ export interface MechanicPresenter<I = any, A = any> {
 	 */
 	stage?(
 		item: I,
-		settled: { answer: unknown; verdict: Verdict } | null,
+		settled: { answer: unknown; verdict: ResponseVerdict } | null,
 		locale: Locale,
 		aids: { aid: AidLevel }
 	): { model: unknown };

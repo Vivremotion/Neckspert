@@ -6,14 +6,16 @@ import {
 	probeTemperature,
 	type SessionSelector
 } from '$lib/domain/progress';
-import type {
-	Attempt,
-	CardState,
-	Execution,
-	MechanicId,
-	PlannedItem,
-	RecordedObservation,
-	Temperature
+import {
+	isResponseSuccess,
+	type Aid,
+	type Attempt,
+	type CardState,
+	type Execution,
+	type MechanicId,
+	type PlannedItem,
+	type RecordedObservation,
+	type Temperature
 } from '$lib/domain/types';
 import type { RoundOutcome, TimingRelation } from '$lib/domain/timing';
 import type { AudioClockPort } from '$lib/application/ports';
@@ -43,6 +45,14 @@ export interface AttemptRecorderDeps {
 	rules: (mechanic: MechanicId) => MechanicRules;
 	/** Time relation of a prompt at its exercise's rhythm; the mechanic's own when omitted. */
 	timing?: (planned: PlannedItem) => TimingRelation;
+}
+
+/** The aids a planned prompt showed: the fret (`show-position`) and the drawn string. */
+function aidsOf(planned: PlannedItem): Aid[] {
+	return [
+		...(planned.aid === 'show-position' ? (['show-position'] as const) : []),
+		...(planned.stringAid ? (['string-aid'] as const) : [])
+	];
 }
 
 /** Turns settled rounds into stored attempts and card updates, for one series. */
@@ -79,6 +89,7 @@ export class AttemptRecorder {
 	): { attempt: Attempt<AttemptData>; stored: Promise<void> } {
 		const { selector, sessionId, clock } = this.deps;
 		const rules = this.deps.rules(planned.mechanic);
+		const timing = this.deps.timing?.(planned) ?? rules.timing;
 		const key = cardKeyOf(rules, planned.item);
 		const promptedAt = clock.toEpochMs(promptTime);
 		const attemptedInSession = this.attempts.some((a) => a.cardKey === key);
@@ -101,7 +112,7 @@ export class AttemptRecorder {
 			cardKey: key,
 			phase: planned.phase,
 			temperature: provisionalTemperature,
-			aid: planned.aid,
+			aids: aidsOf(planned),
 			promptedAt,
 			tempoBpm: execution.tempoBpm,
 			...(planned.tempoScope !== undefined && { tempoScope: planned.tempoScope }),
@@ -109,7 +120,11 @@ export class AttemptRecorder {
 			timingOffsetMs: outcome.timingOffsetMs,
 			reactionMs: outcome.reactionMs,
 			correct: outcome.correct,
-			verdict: outcome.verdict,
+			// An old one-answer round, until its relation moves to the target contract (plan H).
+			success: isResponseSuccess(outcome),
+			verdict: { relation: timing.id, version: 1, value: outcome.verdict },
+			measures: {},
+			plan: null,
 			data: {
 				item: planned.item,
 				answer: judged?.answer ?? null,
@@ -132,7 +147,15 @@ export class AttemptRecorder {
 		// Awaited by completions only; a failed write is reported through `stored`.
 		id.catch(() => {});
 		this.ids.set(attempt, id);
-		const stored = this.store(planned, rules, attempt, recorded, attemptedInSession, resolveId);
+		const stored = this.store(
+			planned,
+			rules,
+			timing,
+			attempt,
+			recorded,
+			attemptedInSession,
+			resolveId
+		);
 		stored.catch(rejectId);
 		this.track(stored);
 		return { attempt, stored };
@@ -178,13 +201,13 @@ export class AttemptRecorder {
 	private async store(
 		item: PlannedItem,
 		rules: MechanicRules,
+		timing: TimingRelation,
 		attempt: Attempt,
 		outcome: ReturnType<SessionSelector['record']>,
 		attemptedInSession: boolean,
 		attemptId: (id: number) => void
 	): Promise<void> {
 		const { attempts, cards } = this.deps;
-		const timing = this.deps.timing?.(item) ?? rules.timing;
 		const key = attempt.cardKey;
 		const history = await attempts.listByCard(key);
 		const existing = await cards.get(key);

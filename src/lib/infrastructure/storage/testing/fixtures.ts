@@ -10,6 +10,7 @@ import {
 	type Progression,
 	type SessionRecord
 } from '$lib/domain/types';
+import type { LevelState } from '$lib/domain/time';
 
 export const LOCATE_ITEM: LocateItem = { string: 2, pitch: 'F' };
 
@@ -38,14 +39,17 @@ export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
 		cardKey: keyOf(mechanic, finalData.item),
 		phase: 'review',
 		temperature: 'cold',
-		aid: 'none',
+		aids: [],
 		promptedAt: 1000,
 		tempoBpm: identify ? null : 80,
 		leadBeats: identify ? null : 2,
 		timingOffsetMs: identify ? null : 10,
 		reactionMs: 900,
 		correct: true,
-		verdict: 'perfect',
+		success: true,
+		verdict: { relation: identify ? 'free' : 'beat', version: 1, value: 'perfect' },
+		measures: {},
+		plan: null,
 		data,
 		observations: [],
 		...overrides
@@ -111,25 +115,55 @@ export function makeProgression(overrides: Partial<Progression> = {}): Progressi
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 3,
+		version: 4,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [makeProgression()],
 		cards: [makeCard()],
 		attempts: [makeAttempt({ id: 1 })],
 		sessions: [makeSession()],
+		levelStates: [],
+		...overrides
+	};
+}
+
+/**
+ * A version 3 export: one calibrated offset in the settings, no level states. Its attempts are
+ * at the target model, as the recorder wrote them before version 4.
+ */
+export function makeBackupV3(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { settings, levelStates: _levelStates, ...rest } = makeBackup();
+	const { latency: _latency, clickBleed: _clickBleed, ...kept } = settings;
+	return {
+		...rest,
+		version: 3,
+		settings: { ...kept, calibrationOffsetMs: null },
 		...overrides
 	};
 }
 
 /** A version 2 export: attempts without observations, sessions without latency. */
 export function makeBackupV2(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	const { attempts, sessions, ...rest } = makeBackup();
+	const { attempts, sessions, ...rest } = makeBackupV3() as unknown as BackupFile;
 	return {
 		...rest,
 		version: 2,
 		attempts: attempts.map(({ observations: _observations, ...attempt }) => attempt),
 		sessions: sessions.map(({ latencyMs: _latencyMs, ...session }) => session),
+		...overrides
+	};
+}
+
+/** The level state of a rhythm exercise: no scope, no item, at level 1. */
+export function makeLevelState(overrides: Partial<LevelState> = {}): LevelState {
+	return {
+		exerciseId: 'rhythm-silent-bars',
+		scope: '',
+		item: '',
+		level: 0,
+		successes: 2,
+		failures: 0,
+		resumeAfter: null,
 		...overrides
 	};
 }

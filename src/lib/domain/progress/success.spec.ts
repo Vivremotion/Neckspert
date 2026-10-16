@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt } from '$lib/domain/types';
 import { cardSuccessRate, sessionSuccessRate, successRate } from './success';
 
-function attempt(overrides: Partial<Attempt> = {}): Attempt {
-	return {
+function attempt(overrides: AttemptOverrides = {}): Attempt {
+	return responseAttempt({
 		sessionId: 's',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -21,7 +22,7 @@ function attempt(overrides: Partial<Attempt> = {}): Attempt {
 		data: { item: { string: 6, pitch: 'G' }, answer: null, confusion: null },
 		observations: [],
 		...overrides
-	};
+	});
 }
 
 const miss = attempt({ correct: false, verdict: 'wrong' });

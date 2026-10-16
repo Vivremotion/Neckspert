@@ -177,8 +177,12 @@ describe('rounds handing over without a gap', () => {
 		ctx.runTo(beat80(8) - 0.1);
 		await drain();
 		const [first, second] = await ctx.deps.attempts.all();
-		expect(first).toMatchObject({ verdict: 'perfect', correct: true });
-		expect(second).toMatchObject({ verdict: 'early', timingOffsetMs: -100, correct: true });
+		expect(first).toMatchObject({ verdict: { value: 'perfect' }, correct: true });
+		expect(second).toMatchObject({
+			verdict: { value: 'early' },
+			timingOffsetMs: -100,
+			correct: true
+		});
 	});
 
 	it('leaves an attack 300 ms before a change in the round before', async () => {
@@ -190,8 +194,11 @@ describe('rounds handing over without a gap', () => {
 		await drain();
 		const [first, second] = await ctx.deps.attempts.all();
 		// The first change took it as its answer, the wrong chord, late.
-		expect(first).toMatchObject({ verdict: 'wrong', data: { answer: { decided: 'B' } } });
-		expect(second).toMatchObject({ verdict: 'wrong', data: { answer: null } });
+		expect(first).toMatchObject({
+			verdict: { value: 'wrong' },
+			data: { answer: { decided: 'B' } }
+		});
+		expect(second).toMatchObject({ verdict: { value: 'wrong' }, data: { answer: null } });
 		expect(second.observations).toEqual([]);
 	});
 
@@ -207,7 +214,11 @@ describe('rounds handing over without a gap', () => {
 		const told = ctx.expectations.filter((e) => e.at >= handover - 1e-9);
 		expect(told.map((e) => e.value)).toEqual([null, null, 'B']);
 		const [first] = await ctx.deps.attempts.all();
-		expect(first).toMatchObject({ verdict: 'offbeat', data: { answer: { decided: 'A' } } });
+		expect(first).toMatchObject({
+			verdict: { value: 'offbeat' },
+			success: false,
+			data: { answer: { decided: 'A' } }
+		});
 		ctx.runTo(beat80(8));
 		await drain();
 		const [, second] = await ctx.deps.attempts.all();
@@ -223,7 +234,11 @@ describe('rounds handing over without a gap', () => {
 		ctx.runTo(beat80(6) - 0.17);
 		await drain();
 		const [first] = await ctx.deps.attempts.all();
-		expect(first).toMatchObject({ verdict: 'wrong', correct: false, data: { answer: null } });
+		expect(first).toMatchObject({
+			verdict: { value: 'wrong' },
+			correct: false,
+			data: { answer: null }
+		});
 	});
 
 	it('cancels the handover on pause, and resumes on the next change after a counted bar', async () => {

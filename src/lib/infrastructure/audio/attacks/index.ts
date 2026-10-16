@@ -1,0 +1,1 @@
+export { WebAudioAttackDetector } from './WebAudioAttackDetector';

@@ -2,6 +2,7 @@ import type { BackupPort } from '$lib/application/ports';
 import type { BackupFile } from '$lib/domain/types';
 import { SETTINGS_ROW_ID, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
+import { DexieLevelStateRepository } from './DexieLevelStateRepository';
 import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
@@ -18,16 +19,25 @@ export class DexieBackup implements BackupPort {
 		const { db } = this;
 		return db.transaction(
 			'r',
-			[db.attempts, db.cards, db.sessions, db.settings, db.progressions, db.scopedProgressions],
+			[
+				db.attempts,
+				db.cards,
+				db.sessions,
+				db.settings,
+				db.progressions,
+				db.scopedProgressions,
+				db.levelStates
+			],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
-				version: 3,
+				version: 4,
 				exportedAt: this.now(),
 				settings: await new DexieSettingsRepository(db).get(),
 				progressions: await new DexieProgressionRepository(db).all(),
 				cards: await db.cards.toArray(),
 				attempts: await new DexieAttemptRepository(db).all(),
-				sessions: await new DexieSessionRepository(db).list()
+				sessions: await new DexieSessionRepository(db).list(),
+				levelStates: await new DexieLevelStateRepository(db).all()
 			})
 		);
 	}
@@ -41,7 +51,8 @@ export class DexieBackup implements BackupPort {
 			db.sessions,
 			db.settings,
 			db.progressions,
-			db.scopedProgressions
+			db.scopedProgressions,
+			db.levelStates
 		];
 		await db.transaction('rw', tables, async () => {
 			await Promise.all(tables.map((table) => table.clear()));
@@ -52,6 +63,7 @@ export class DexieBackup implements BackupPort {
 			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);
+			await db.levelStates.bulkAdd(backup.levelStates);
 		});
 	}
 }

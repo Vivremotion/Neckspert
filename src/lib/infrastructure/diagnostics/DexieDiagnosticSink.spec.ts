@@ -165,6 +165,20 @@ describe('DexieDiagnosticSink', () => {
 		expect((await sink.takes()).map((t) => t.id)).toEqual(['take-1']);
 	});
 
+	it('tells whether the take being recorded keeps the native rate', async () => {
+		const { sink, settings } = journal();
+		expect(sink.nativeRate).toBe(false);
+		await open(sink, 1000);
+		expect(sink.nativeRate).toBe(false);
+		await sink.closeTake(2000);
+
+		Object.assign(settings, { nativeRate: true });
+		await open(sink, 3000);
+		expect(sink.nativeRate).toBe(true);
+		await sink.closeTake(4000);
+		expect(sink.nativeRate).toBe(false);
+	});
+
 	it('reports its usage and clears everything', async () => {
 		const { sink } = journal();
 		await open(sink, 1000);

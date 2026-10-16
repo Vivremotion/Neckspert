@@ -62,8 +62,7 @@ export function createFreeTiming(options: { recallThresholdMs: number }): Timing
 		open: ({ promptBeat, now, beatTime, secondsPerBeat }) =>
 			new FreeRound(promptBeat, now, options.recallThresholdMs, beatTime(0), secondsPerBeat),
 		isDirectRecall: (attempt) =>
-			attempt.correct &&
-			attempt.verdict !== 'offbeat' &&
+			attempt.success &&
 			attempt.reactionMs !== null &&
 			attempt.reactionMs <= options.recallThresholdMs,
 		learnedLead: () => SHORTEST_LEAD,

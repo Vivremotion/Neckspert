@@ -1,4 +1,4 @@
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 
 export type Waveform = 'sine' | 'triangle' | 'square' | 'sawtooth';
 
@@ -25,7 +25,7 @@ const C6_HZ = 1046.5;
 const E6_HZ = 1318.51;
 
 /** One reserved sound per verdict, recognizable without looking. */
-export const CUE_SPECS: Readonly<Record<Verdict, readonly ToneSpec[]>> = {
+export const CUE_SPECS: Readonly<Record<ResponseVerdict, readonly ToneSpec[]>> = {
 	perfect: [
 		{
 			waveform: 'triangle',

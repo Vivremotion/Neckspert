@@ -1,5 +1,4 @@
-import type { AudioFrame } from '../../input/WebAudioInput';
-import type { FrameSource } from '../NnlsChordVerifier';
+import type { AudioFrame, FrameSource } from '../../input/WebAudioInput';
 
 export const FRAME_SIZE = 512;
 
@@ -10,8 +9,15 @@ export class FakeFrameSource implements FrameSource {
 
 	constructor(
 		readonly sampleRate: number,
-		private readonly signal: Float32Array
+		private readonly signal: Float32Array,
+		/** Audio time (s) of the signal's first sample. */
+		private readonly startTime = 0
 	) {}
+
+	/** How many callbacks are listening. */
+	get subscribers(): number {
+		return this.listeners.size;
+	}
 
 	onFrame(callback: (frame: AudioFrame) => void): () => void {
 		this.listeners.add(callback);
@@ -24,7 +30,7 @@ export class FakeFrameSource implements FrameSource {
 		while (this.played + FRAME_SIZE <= last) {
 			const frame = {
 				samples: this.signal.slice(this.played, this.played + FRAME_SIZE),
-				frameTime: this.played / this.sampleRate
+				frameTime: this.startTime + this.played / this.sampleRate
 			};
 			this.played += FRAME_SIZE;
 			this.listeners.forEach((listener) => listener(frame));

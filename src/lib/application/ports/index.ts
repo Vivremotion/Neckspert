@@ -1,4 +1,6 @@
 export type { SoundCuePort } from './SoundCuePort';
+export type { SoundSchedulerPort } from './SoundSchedulerPort';
+export type { TakeBufferPort } from './TakeBufferPort';
 export type { AudioClockPort } from './AudioClockPort';
 export type { BeatEvent, MetronomePort } from './MetronomePort';
 export type {
@@ -9,11 +11,20 @@ export type {
 	NoteRejectionReason,
 	PitchWindow
 } from './NoteDetectorPort';
-export type { CalibrationOutcome, CalibrationPort, CalibrationProgress } from './CalibrationPort';
+export type { AttackDetectorPort, AttackEvent } from './AttackDetectorPort';
+export type {
+	CalibrationMeasure,
+	CalibrationOutcome,
+	CalibrationPhase,
+	CalibrationPort,
+	CalibrationProgress,
+	ReferenceDetail
+} from './CalibrationPort';
 export type {
 	AttemptRepositoryPort,
 	BackupPort,
 	CardStateRepositoryPort,
+	LevelStateRepositoryPort,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort
@@ -30,5 +41,6 @@ export type {
 	DiagnosticInputInfo,
 	DiagnosticSink,
 	DiagnosticTakeOpening,
+	DiagnosticTakeNotices,
 	DiagnosticTakes
 } from './DiagnosticSink';

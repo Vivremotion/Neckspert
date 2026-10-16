@@ -1,10 +1,10 @@
-import { isSuccess, type Attempt, type CardKey } from '$lib/domain/types';
+import type { Attempt, CardKey } from '$lib/domain/types';
 import { NEW_NOTE_CARD_WINDOW, SUCCESS_WINDOW } from './constants';
 
-/** Share of successes (`isSuccess`); null without attempts. */
+/** Share of successes (`Attempt.success`); null without attempts. */
 export function successRate(attempts: readonly Attempt[]): number | null {
 	if (attempts.length === 0) return null;
-	return attempts.filter(isSuccess).length / attempts.length;
+	return attempts.filter((attempt) => attempt.success).length / attempts.length;
 }
 
 /**

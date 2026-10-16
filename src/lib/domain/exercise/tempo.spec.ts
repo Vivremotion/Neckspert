@@ -54,10 +54,10 @@ describe('startTempo', () => {
 	});
 });
 
-type Outcome = Pick<Attempt, 'phase' | 'correct' | 'verdict'>;
+type Outcome = Pick<Attempt, 'phase' | 'success'>;
 
-const hit: Outcome = { phase: 'review', correct: true, verdict: 'perfect' };
-const miss: Outcome = { phase: 'review', correct: false, verdict: 'wrong' };
+const hit: Outcome = { phase: 'review', success: true };
+const miss: Outcome = { phase: 'review', success: false };
 
 function session(hits: number, misses: number): Outcome[] {
 	return [
@@ -91,7 +91,8 @@ describe('nextTempo', () => {
 	it('needs ten prompts, probes left out, off beat counted as a miss', () => {
 		const probes = Array.from({ length: 10 }, () => ({ ...hit, phase: 'probe' as const }));
 		expect(nextTempo(80, [...session(9, 0), ...probes])).toBe(80);
-		const offbeat = Array.from({ length: 4 }, () => ({ ...hit, verdict: 'offbeat' as const }));
+		// Off the beat is stored as no success.
+		const offbeat = Array.from({ length: 4 }, () => ({ ...hit, success: false }));
 		expect(nextTempo(100, [...session(6, 0), ...offbeat])).toBe(95);
 	});
 });

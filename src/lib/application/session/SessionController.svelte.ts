@@ -19,7 +19,7 @@ import type {
 	PlannedItem,
 	SessionKind,
 	Settings,
-	Verdict
+	ResponseVerdict
 } from '$lib/domain/types';
 import type { BeatEvent } from '$lib/application/ports';
 import type { MechanicPresenter, Scene, SensorKind } from '$lib/application/mechanics/types';
@@ -250,7 +250,8 @@ export class SessionController implements PlaySessionController {
 		this.locale = this.settings.locale;
 		// The stage shown before the settings were read speaks the player's language now.
 		if (this.pending) this.showStage(this.pending, null);
-		this.latencyMs = this.settings.calibrationOffsetMs ?? 0;
+		// The note sensor's latency serves every sensor of these rounds, as one offset did before.
+		this.latencyMs = this.settings.latency.note?.ms ?? 0;
 		logDetection('entrée audio', [
 			`latence calibrée : ${this.latencyMs} ms (retirés du temps de l’attaque)`,
 			`tempo : ${this.tempoBpm} bpm`,
@@ -657,7 +658,7 @@ export class SessionController implements PlaySessionController {
 	 */
 	private showStage(
 		item: PlannedItem,
-		settled: { answer: unknown; verdict: Verdict } | null
+		settled: { answer: unknown; verdict: ResponseVerdict } | null
 	): void {
 		const stage = this.presenterFor(item).stage?.(item.item, settled, this.locale, {
 			aid: item.aid
@@ -963,7 +964,7 @@ export class SessionController implements PlaySessionController {
 	}
 
 	/** A miss of a contestable mechanic may be contested until the next prompt; nothing else. */
-	private offerContest(verdict: Verdict): void {
+	private offerContest(verdict: ResponseVerdict): void {
 		const presenter = this.current ? this.presenterFor(this.current) : null;
 		const miss = verdict === 'wrong' || verdict === 'corrected';
 		if (!presenter?.contestable || !miss) this.withdrawContest();

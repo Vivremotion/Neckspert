@@ -39,6 +39,11 @@ export const settingsMessages = defineMessages({
 		diagnosticsUsage: (mb: number, budgetMb: number) => `${formatMb(mb, 'fr')} Mo sur ${budgetMb}`,
 		diagnosticsBudget: 'Place réservée',
 		diagnosticsBudgetOption: (mb: number) => `${mb} Mo`,
+		diagnosticsNativeRate: 'Enregistrer au débit natif',
+		diagnosticsNativeRateToggle: (on: boolean) =>
+			`Enregistrer au débit natif : ${on ? 'activé' : 'coupé'}`,
+		diagnosticsNativeRateHint:
+			'Développement : garde les attaques au-dessus de 8 kHz, bien plus lourd.',
 		diagnosticsExport: 'Exporter le diagnostic',
 		diagnosticsClear: 'Effacer'
 	},
@@ -73,6 +78,9 @@ export const settingsMessages = defineMessages({
 		diagnosticsUsage: (mb: number, budgetMb: number) => `${formatMb(mb, 'en')} MB of ${budgetMb}`,
 		diagnosticsBudget: 'Space allowed',
 		diagnosticsBudgetOption: (mb: number) => `${mb} MB`,
+		diagnosticsNativeRate: 'Record at the native rate',
+		diagnosticsNativeRateToggle: (on: boolean) => `Record at the native rate: ${on ? 'on' : 'off'}`,
+		diagnosticsNativeRateHint: 'Development: keeps attacks above 8 kHz, much heavier.',
 		diagnosticsExport: 'Export diagnostics',
 		diagnosticsClear: 'Clear'
 	}

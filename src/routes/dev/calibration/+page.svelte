@@ -25,7 +25,7 @@
 
 	function onstart() {
 		phase = 'running';
-		progress = { hits: 4, needed: 10, lastOffsetMs: 28 };
+		progress = { phase: 'compare', done: 4, needed: 16 };
 		outcome = null;
 	}
 
@@ -54,4 +54,9 @@
 	{onstart}
 	{oncancel}
 	{onretry}
+	oncalibrateonclick={() => {
+		phase = 'running';
+		progress = { phase: 'play', done: 3, needed: 10 };
+		outcome = null;
+	}}
 />

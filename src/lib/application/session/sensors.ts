@@ -1,4 +1,5 @@
 import type {
+	AttackDetectorPort,
 	AudioClockPort,
 	ChordReport,
 	ChordVerifierPort,
@@ -70,6 +71,28 @@ export function noteSensor(detector: NoteDetectorPort): SensorFactory {
 				stopRejections();
 			};
 		}
+	});
+}
+
+/** Payload of a pitchless attack: how hard it was, and where it came from. */
+export type AttackPayload = { strength: number; channel?: number };
+
+/**
+ * Pitchless attacks: each one, dated minus the calibrated latency. Nothing is read from the
+ * sound, so every attack is readable.
+ */
+export function attackSensor(detector: AttackDetectorPort): SensorFactory {
+	return ({ latencyMs }) => ({
+		onObservation: (callback) =>
+			detector.onAttack(({ time, strength, channel }) =>
+				callback({
+					time: time - latencyMs / 1000,
+					payload: (channel === undefined
+						? { strength }
+						: { strength, channel }) satisfies AttackPayload,
+					readable: true
+				})
+			)
 	});
 }
 

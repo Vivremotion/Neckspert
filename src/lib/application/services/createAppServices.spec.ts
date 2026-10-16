@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
 import type {
 	BackupPort,
@@ -6,8 +7,8 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
-import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import type { BackupFile, CardState } from '$lib/domain/types';
+import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
+import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -17,8 +18,11 @@ import {
 	FakeMetronome,
 	FakeNoteDetector,
 	FakeSoundCues,
+	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
+	InMemoryLevelStateRepository,
 	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
@@ -29,6 +33,7 @@ import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sen
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -38,7 +43,13 @@ class FakeBackup implements BackupPort {
 }
 
 class FakeCalibration implements CalibrationPort {
-	async run(_onProgress: (p: CalibrationProgress) => void): Promise<CalibrationOutcome> {
+	async run(
+		_deviceId: string | null,
+		_onProgress: (p: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
+		return { ok: false, reason: 'cancelled' };
+	}
+	async runOnClick(): Promise<CalibrationOutcome> {
 		return { ok: false, reason: 'cancelled' };
 	}
 	cancel(): void {}
@@ -46,7 +57,7 @@ class FakeCalibration implements CalibrationPort {
 
 function harness(): {
 	services: AppServices;
-	deps: SessionDeps & {
+	deps: PlanSessionDeps & {
 		clock: FakeClock;
 		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
@@ -57,7 +68,7 @@ function harness(): {
 	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
-	const deps: SessionDeps & {
+	const deps: PlanSessionDeps & {
 		clock: FakeClock;
 		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
@@ -75,7 +86,10 @@ function harness(): {
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
 		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) }
+		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
+		sounds: new FakeSoundScheduler(clock),
+		takes: new FakeTakeBuffer(),
+		levels: new InMemoryLevelStateRepository()
 	};
 	const services = createAppServices({
 		...deps,
@@ -157,6 +171,11 @@ describe('createAppServices', () => {
 			aid: null
 		});
 		expect(controller.view.leadBeats).toBe(2);
+	});
+
+	it('startSession refuses an exercise session, which starts only through startExercise', async () => {
+		const { services } = harness();
+		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
 	});
 
 	it('startSession(learn) probes first the notes of a triad being anchored', async () => {
@@ -362,27 +381,34 @@ describe('the gesture track', () => {
 
 	it('contest labels an attempt and changes nothing else', async () => {
 		const { services, deps } = harness();
-		const id = await deps.attempts.add({
-			sessionId: 's1',
-			exerciseId: 'gesture-jam',
-			mechanic: 'chord-grid',
-			cardKey: 'chord-grid:jam:blues-f#0',
-			phase: 'free',
-			temperature: 'hot',
-			aid: 'none',
-			promptedAt: 0,
-			tempoBpm: 80,
-			leadBeats: null,
-			timingOffsetMs: null,
-			reactionMs: null,
-			correct: false,
-			verdict: 'wrong',
-			data: { item: { element: 'jam:blues-f', index: 0 }, answer: null, confusion: null },
-			observations: []
-		});
+		const id = await deps.attempts.add(
+			responseAttempt({
+				sessionId: 's1',
+				exerciseId: 'gesture-jam',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:jam:blues-f#0',
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				promptedAt: 0,
+				tempoBpm: 80,
+				leadBeats: null,
+				timingOffsetMs: null,
+				reactionMs: null,
+				correct: false,
+				verdict: 'wrong',
+				data: { item: { element: 'jam:blues-f', index: 0 }, answer: null, confusion: null },
+				observations: []
+			})
+		);
 		await services.contest(id);
 		const [attempt] = await deps.attempts.all();
-		expect(attempt).toMatchObject({ contested: true, correct: false, verdict: 'wrong' });
+		expect(attempt).toMatchObject({
+			contested: true,
+			correct: false,
+			success: false,
+			verdict: { relation: 'grid-change', version: 1, value: 'wrong' }
+		});
 	});
 
 	it('sums a gesture session up by exercise', async () => {
@@ -435,5 +461,133 @@ describe('the gesture track', () => {
 			{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
 			{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 80 }
 		]);
+	});
+});
+
+describe('the rhythm exercises', () => {
+	it('startExercise plays the asked exercise, its how-to told the first time', async () => {
+		const { services } = harness();
+		const controller = await services.startExercise('rhythm-offbeats');
+		await controller.ready?.();
+		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
+		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(typeof controller.listen).toBe('function');
+	});
+
+	const rhythmSession = (overrides: Partial<SessionRecord> = {}): SessionRecord => ({
+		id: 'r1',
+		kind: 'exercise',
+		exerciseId: RHYTHM_OFFBEATS.id,
+		startedAt: 0,
+		endedAt: 1,
+		fatigueDetected: false,
+		executions: [],
+		latencyMs: 0,
+		...overrides
+	});
+	const rhythmCycle = (level: number, success: boolean, sessionId = 'r1') =>
+		({
+			sessionId,
+			exerciseId: RHYTHM_OFFBEATS.id,
+			mechanic: 'rhythm-figure',
+			cardKey: `rhythm-figure:offbeats-1@${level}`,
+			phase: 'free',
+			temperature: 'hot',
+			aids: ['cursor'],
+			promptedAt: 0,
+			tempoBpm: 80,
+			leadBeats: null,
+			timingOffsetMs: null,
+			reactionMs: null,
+			correct: null,
+			success,
+			verdict: { relation: 'plan', version: 1, value: success ? 'ok' : 'miss' },
+			measures: {},
+			plan: null,
+			data: { item: { figureId: 'offbeats-1', level }, level, report: {} },
+			observations: []
+		}) as Attempt;
+	const heldLevel = (level: number) => ({
+		exerciseId: RHYTHM_OFFBEATS.id,
+		scope: '',
+		item: '',
+		level,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+
+	it('sums a rhythm session up from its cycles and the level it ended on', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ levelReached: 1 }));
+		await deps.attempts.add(rhythmCycle(0, true));
+		await deps.attempts.add(rhythmCycle(1, true));
+		await deps.attempts.add(rhythmCycle(1, false));
+		await deps.attempts.add(rhythmCycle(0, true, 'other'));
+		const summary = await services.sessionSummary('r1');
+		expect(summary.kind).toBe('exercise');
+		expect(summary.rhythm).toEqual({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			levelReached: { shown: 2, of: 4, aid: false },
+			cycles: 3,
+			successes: 2,
+			aided: 0
+		});
+	});
+
+	it('an older session keeps its own level after a later one moved it', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ id: 'older', levelReached: 1 }));
+		await deps.sessions.put(rhythmSession({ id: 'later', startedAt: 10, levelReached: 3 }));
+		// The stored level is the latest session's.
+		await deps.levels.put(heldLevel(3));
+		expect((await services.sessionSummary('older')).rhythm?.levelReached).toEqual({
+			shown: 2,
+			of: 4,
+			aid: false
+		});
+		expect((await services.sessionSummary('later')).rhythm?.levelReached).toEqual({
+			shown: 4,
+			of: 4,
+			aid: false
+		});
+	});
+
+	it('falls back on the stored level for a session recorded without its own', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		await deps.levels.put(heldLevel(2));
+		expect((await services.sessionSummary('r1')).rhythm?.levelReached).toEqual({
+			shown: 3,
+			of: 4,
+			aid: false
+		});
+	});
+
+	it('gives a summary without rhythm for an exercise no longer in the catalog or not a rhythm one', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ id: 'gone', exerciseId: 'rhythm-removed' }));
+		await deps.sessions.put(rhythmSession({ id: 'neck', exerciseId: 'locate-neck' }));
+		for (const id of ['gone', 'neck']) {
+			const summary = await services.sessionSummary(id);
+			expect(summary.kind).toBe('exercise');
+			expect(summary.rhythm).toBeUndefined();
+		}
+	});
+
+	it('loads the neck data only for a neck session', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		const all = vi.spyOn(deps.attempts, 'all');
+		const cards = vi.spyOn(deps.cards, 'all');
+		await services.sessionSummary('r1');
+		expect(all).not.toHaveBeenCalled();
+		expect(cards).not.toHaveBeenCalled();
+	});
+
+	it('startExercise refuses an exercise it does not know, or one without levels', async () => {
+		const { services } = harness();
+		await expect(services.startExercise('nope')).rejects.toThrow();
+		await expect(services.startExercise('locate-neck')).rejects.toThrow();
 	});
 });

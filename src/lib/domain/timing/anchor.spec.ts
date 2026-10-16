@@ -251,8 +251,8 @@ describe('anchorTiming', () => {
 		expect(timing.initialLead).toBe(8);
 		expect(timing.adjustLead(8, true)).toBe(4);
 		expect(timing.promptBeat(5, { leadBeats: 4 })).toBe(8);
-		const base = { correct: true, reactionMs: 1, leadBeats: 2 as const, tempoBpm: 80 };
-		expect(timing.isDirectRecall({ ...base, verdict: 'perfect' })).toBe(true);
-		expect(timing.isDirectRecall({ ...base, verdict: 'offbeat' })).toBe(false);
+		const base = { reactionMs: 1, leadBeats: 2 as const, tempoBpm: 80 };
+		expect(timing.isDirectRecall({ ...base, success: true })).toBe(true);
+		expect(timing.isDirectRecall({ ...base, success: false })).toBe(false);
 	});
 });

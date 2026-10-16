@@ -2,12 +2,15 @@ import type {
 	AttemptRepositoryPort,
 	AudioClockPort,
 	CardStateRepositoryPort,
+	LevelStateRepositoryPort,
 	MetronomePort,
 	NoteDetectorPort,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort
+	SoundCuePort,
+	SoundSchedulerPort,
+	TakeBufferPort
 } from '$lib/application/ports';
 import type { MechanicPresenter, SensorKind } from '$lib/application/mechanics/types';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
@@ -34,4 +37,15 @@ export interface SessionDeps {
 	sensors: Record<SensorKind, SensorFactory>;
 	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
 	exercise?: (id: ExerciseId) => ExerciseDefinition;
+}
+
+/**
+ * What a session that plays figures cycle after cycle needs beyond the core's: the one path every
+ * sound takes, where each exercise stands in its levels, and the input of the last run kept to be
+ * heard again.
+ */
+export interface PlanSessionDeps extends SessionDeps {
+	sounds: SoundSchedulerPort;
+	levels: LevelStateRepositoryPort;
+	takes: TakeBufferPort;
 }

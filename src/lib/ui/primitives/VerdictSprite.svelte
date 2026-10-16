@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { Verdict } from '$lib/domain/types';
+	import type { ResponseVerdict } from '$lib/domain/types';
 
 	let {
 		verdict,
 		size = 32,
 		inverted = false
 	}: {
-		verdict: Verdict;
+		verdict: ResponseVerdict;
 		size?: number;
 		inverted?: boolean;
 	} = $props();

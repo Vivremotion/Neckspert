@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt, CardState } from '$lib/domain/types';
 import type { BeatEvent } from '$lib/application/ports';
 import {
@@ -12,8 +13,8 @@ import {
 	InMemorySettingsRepository
 } from './fakes';
 
-function attempt(overrides: Partial<Attempt>): Attempt {
-	return {
+function attempt(overrides: AttemptOverrides): Attempt {
+	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -31,7 +32,7 @@ function attempt(overrides: Partial<Attempt>): Attempt {
 		data: { item: { string: 2, pitch: 'F' }, answer: { midi: 65 }, confusion: null },
 		observations: [],
 		...overrides
-	};
+	});
 }
 
 describe('FakeMetronome', () => {
@@ -225,7 +226,7 @@ describe('in-memory repositories', () => {
 	it('merges settings over defaults', async () => {
 		const repo = new InMemorySettingsRepository();
 		expect((await repo.get()).locale).toBe('fr');
-		expect((await repo.update({ calibrationOffsetMs: 42 })).calibrationOffsetMs).toBe(42);
+		expect((await repo.update({ clickBleed: true })).clickBleed).toBe(true);
 		expect((await repo.get()).locale).toBe('fr');
 	});
 });

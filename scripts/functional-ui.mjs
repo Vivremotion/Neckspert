@@ -365,6 +365,108 @@ try {
 		noteTiny('settings', run.texts);
 	}
 
+	// The rhythm view (`/dev/rhythm`, a still model in the play frame): the embedded Bravura font
+	// is loaded and draws, the run played and the next figure are engraved at the breath, and the
+	// cursor shows on a clicked bar but never on a muted one.
+	const RHYTHM_URL = process.env.RHYTHM_URL ?? 'http://localhost:5201/dev/rhythm';
+	const texts = `[...document.querySelectorAll('body *')]
+		.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+		.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))`;
+	const settle = `async () => {
+		await document.fonts.ready;
+		for (let i = 0; i < 40 && !document.querySelector('svg'); i++) {
+			await new Promise((resolve) => setTimeout(resolve, 50));
+		}
+	}`;
+
+	console.log('\nRythme /dev/rhythm (respiration)');
+	{
+		const call = await open(RHYTHM_URL);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				const head = document.querySelector('.vf-notehead path, .vf-notehead');
+				const box = head?.getBBox?.();
+				const faces = [...document.fonts].filter((face) => face.family.replaceAll('"', '') === 'Bravura');
+				const played = document.querySelector('[data-testid="rhythm-played"]');
+				const next = document.querySelector('[data-testid="rhythm-next"]');
+				return {
+					check: document.fonts.check('30px Bravura'),
+					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),
+					head: box ? box.width : 0,
+					svgs: document.querySelectorAll('svg').length,
+					order: Boolean(played && next && played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING),
+					marks: document.querySelectorAll('[data-testid="rhythm-mark"]').length,
+					texts: ${texts}
+				};
+			}`
+		);
+		check(assert(run.check, 'document.fonts.check(« 30px Bravura ») est vrai'));
+		check(assert(run.loaded, 'la police Bravura embarquée est chargée'));
+		check(assert(run.head > 0, `la tête de note a une largeur (${run.head})`));
+		check(assert(run.svgs >= 2, `la suite jouée et la figure à jouer sont gravées (${run.svgs})`));
+		check(assert(run.order, 'la suite jouée précède la figure à jouer'));
+		check(assert(run.marks > 0, `les marques de la suite sont dessinées (${run.marks})`));
+		noteTiny('rhythm-breath', run.texts);
+	}
+
+	for (const [phase, shown] of [
+		['play', true],
+		['muted', false]
+	]) {
+		console.log(`\nRythme /dev/rhythm?phase=${phase}`);
+		const call = await open(`${RHYTHM_URL}?phase=${phase}`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				return {
+					svgs: document.querySelectorAll('svg').length,
+					cursor: document.querySelector('[data-testid="rhythm-cursor"]') !== null,
+					// The time signature: its digits' baselines, the staff line and the row, in the
+					// engraving's own units (one line here, so the view box is the row).
+					signature: (() => {
+						const svg = document.querySelector('svg');
+						if (!svg) return null;
+						const digits = [...svg.querySelectorAll('.vf-timesignature text')].map((t) => Number(t.getAttribute('y')));
+						const line = svg.querySelector('.vf-stave')?.getBBox().y ?? null;
+						const row = Number((svg.getAttribute('viewBox') ?? '').split(' ')[3]);
+						return { digits, line, row };
+					})(),
+					texts: ${texts}
+				};
+			}`
+		);
+		check(assert(run.svgs >= 1, `la figure est gravée (${run.svgs})`));
+		check(
+			assert(
+				run.cursor === shown,
+				shown ? 'le curseur suit une mesure avec clic' : 'aucun curseur pendant une mesure muette'
+			)
+		);
+		if (phase === 'play') {
+			const sig = run.signature;
+			const [top, bottom] = sig?.digits ?? [];
+			const half = (bottom - top) / 2;
+			check(
+				assert(
+					sig?.digits.length === 2 && Math.abs((top + bottom) / 2 - sig.line) <= 1,
+					`le chiffrage est centré sur la ligne (${sig?.digits} autour de ${sig?.line})`
+				)
+			);
+			check(
+				assert(
+					top - half >= 0 && bottom + half <= sig.row,
+					`le chiffrage tient dans sa rangée (${top - half} à ${bottom + half} sur ${sig?.row})`
+				)
+			);
+		}
+		noteTiny(`rhythm-${phase}`, run.texts);
+	}
+
 	console.log('\nTextes sous 16 px');
 	const seen = new Set();
 	for (const row of tiny) {

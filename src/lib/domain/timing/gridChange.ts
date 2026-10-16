@@ -1,5 +1,5 @@
 import { LATE_LIMIT_MS, secondsToMs, timingVerdict } from '$lib/domain/scoring/timing';
-import { SHORTEST_LEAD, type Verdict } from '$lib/domain/types';
+import { SHORTEST_LEAD, type ResponseVerdict } from '$lib/domain/types';
 import { alignedPromptBeat } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
@@ -111,7 +111,7 @@ class GridRound implements Round {
 		const { time } = observation;
 		const offsetMs = secondsToMs(time - this.changeTime);
 		const inTime = time <= this.closesAt + EDGE_TOLERANCE_S;
-		const verdict: Verdict = !observation.correct
+		const verdict: ResponseVerdict = !observation.correct
 			? 'wrong'
 			: inTime
 				? timingVerdict(offsetMs)

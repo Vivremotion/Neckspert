@@ -1,3 +1,11 @@
-export { DEFAULT_CALIBRATION_CONFIG, type CalibrationConfig } from './config';
+export {
+	BLEED_CHECK_CLICKS,
+	CALIBRATION_ATTACKS,
+	CLICK_BLEED_RATIO,
+	DEFAULT_CALIBRATION_CONFIG,
+	REFERENCE_ATTACK_CONFIG,
+	type CalibrationConfig
+} from './config';
 export { computeCalibration } from './computeCalibration';
-export { CalibrationService } from './CalibrationService';
+export { loopLatency, pairedDelay } from './compare';
+export { CalibrationService, type SecondInput } from './CalibrationService';

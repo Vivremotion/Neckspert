@@ -1,5 +1,12 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import type { Attempt, CardState, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
+import {
+	responseVerdictOf,
+	type Attempt,
+	type CardState,
+	type Execution,
+	type PlannedItem,
+	type SessionKind
+} from '$lib/domain/types';
 import { beatTiming } from '$lib/domain/timing';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
@@ -237,8 +244,10 @@ describe('SessionController skeleton', () => {
 		expect(deps.detector.running).toBe(false);
 	});
 
-	it('stores the calibrated latency with the session', async () => {
-		await deps.settings.update({ calibrationOffsetMs: 42 });
+	it('stores the calibrated latency of the note sensor with the session', async () => {
+		await deps.settings.update({
+			latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
+		});
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
 		expect((await deps.sessions.get('sess-1'))?.latencyMs).toBe(42);
@@ -250,7 +259,7 @@ describe('SessionController skeleton', () => {
 	});
 
 	it('keeps its own latency when a new series starts before the session record is final', async () => {
-		await deps.settings.update({ calibrationOffsetMs: 42 });
+		await deps.settings.update({ latency: { note: { ms: 42, provenance: 'player' } } });
 		const controller = make(planWith([locateItem()]), deps);
 		await controller.start();
 		// The final record is read late: the new series is up before it is written.
@@ -262,7 +271,7 @@ describe('SessionController skeleton', () => {
 			return get(id);
 		};
 		controller.quit();
-		await deps.settings.update({ calibrationOffsetMs: 99 });
+		await deps.settings.update({ latency: { note: { ms: 99, provenance: 'player' } } });
 		await controller.start();
 		release();
 		await vi.waitFor(async () =>
@@ -621,7 +630,12 @@ describe('SessionController late capture', () => {
 		expect(deps.cues.played.map((cue) => cue.verdict)).toEqual(['wrong', 'offbeat']);
 		const attempts = await deps.attempts.all();
 		expect(attempts).toHaveLength(1);
-		expect(attempts[0]).toMatchObject({ correct: true, verdict: 'offbeat', timingOffsetMs: 1200 });
+		expect(attempts[0]).toMatchObject({
+			correct: true,
+			success: false,
+			verdict: { relation: 'beat', version: 1, value: 'offbeat' },
+			timingOffsetMs: 1200
+		});
 
 		note(deps, deps.metronome.beatTime(8) + 1.5, 60);
 		await drain();
@@ -640,7 +654,7 @@ describe('SessionController late capture', () => {
 		const [attempt] = await deps.attempts.all();
 		expect(attempt).toMatchObject({
 			correct: false,
-			verdict: 'wrong',
+			verdict: { value: 'wrong' },
 			data: { answer: { midi: 60 } }
 		});
 		expect(await deps.attempts.all()).toHaveLength(1);
@@ -663,7 +677,11 @@ describe('SessionController late capture', () => {
 		atBeat(deps, 11);
 		await drain();
 		const [attempt] = await deps.attempts.all();
-		expect(attempt).toMatchObject({ data: { answer: null }, correct: false, verdict: 'wrong' });
+		expect(attempt).toMatchObject({
+			data: { answer: null },
+			correct: false,
+			verdict: { value: 'wrong' }
+		});
 		expect(controller.view.lastVerdict?.correction).toBe('corde de B, case 6');
 		expect(deps.cues.played.map((cue) => cue.verdict)).toEqual(['wrong']);
 		expect(controller.view.preview?.secondary).toBe('corde de G');
@@ -681,7 +699,7 @@ describe('SessionController late capture', () => {
 			await drain();
 			const attempts = await deps.attempts.all();
 			expect(attempts).toHaveLength(1);
-			expect(attempts[0]).toMatchObject({ data: { answer: null }, verdict: 'wrong' });
+			expect(attempts[0]).toMatchObject({ data: { answer: null }, verdict: { value: 'wrong' } });
 		}
 	});
 
@@ -1179,7 +1197,7 @@ describe('SessionController persistence', () => {
 		expect(attempts[0].data).toMatchObject({
 			confusion: classifyNoteConfusion(F_ON_B.item, 66)
 		});
-		expect(attempts[0].verdict).toBe('wrong');
+		expect(responseVerdictOf(attempts[0])).toBe('wrong');
 	});
 });
 

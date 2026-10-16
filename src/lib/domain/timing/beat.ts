@@ -7,7 +7,7 @@ import {
 } from '$lib/domain/scoring/timing';
 import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
 import type { ExercisePacing } from '$lib/domain/exercise/types';
-import { RECALL_THRESHOLD_MS, type LeadBeats, type Verdict } from '$lib/domain/types';
+import { RECALL_THRESHOLD_MS, type LeadBeats, type ResponseVerdict } from '$lib/domain/types';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
@@ -134,7 +134,7 @@ export class BeatRound implements Round {
 		const { time } = observation;
 		const captured = !isInWindow(time, this.window) && time > this.window.closesAt;
 		const offsetMs = secondsToMs(time - this.targetTime);
-		const verdict: Verdict = !observation.correct
+		const verdict: ResponseVerdict = !observation.correct
 			? 'wrong'
 			: captured
 				? 'offbeat'
@@ -190,7 +190,7 @@ export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
 		},
 		isDirectRecall: (attempt) => {
 			// Found after the window means found by calculation: never direct recall.
-			if (!attempt.correct || attempt.verdict === 'offbeat') return false;
+			if (!attempt.success) return false;
 			if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
 			return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
 		},

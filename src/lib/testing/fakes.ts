@@ -4,24 +4,29 @@ import {
 	type CardKey,
 	type CardState,
 	type ExerciseId,
+	type LevelState,
 	type Progression,
 	type RecordedObservation,
 	type SessionRecord,
 	type Settings,
-	type Verdict
+	type ResponseVerdict
 } from '$lib/domain/types';
 import type {
+	AttackDetectorPort,
+	AttackEvent,
 	AttemptRepositoryPort,
 	AudioClockPort,
 	AudioInputDevice,
 	BeatEvent,
 	CardStateRepositoryPort,
+	LevelStateRepositoryPort,
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
 	DiagnosticAudioChunk,
 	DiagnosticSink,
 	DiagnosticTakeOpening,
+	DiagnosticTakeNotices,
 	DiagnosticTakes,
 	MetronomePort,
 	NoteDetectorPort,
@@ -30,14 +35,17 @@ import type {
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort
+	SoundCuePort,
+	SoundSchedulerPort,
+	TakeBufferPort
 } from '$lib/application/ports';
+import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
 
 export class FakeSoundCues implements SoundCuePort {
-	readonly played: { verdict: Verdict; time: number | undefined }[] = [];
+	readonly played: { verdict: ResponseVerdict; time: number | undefined }[] = [];
 
-	play(verdict: Verdict, time?: number): void {
+	play(verdict: ResponseVerdict, time?: number): void {
 		this.played.push({ verdict, time });
 	}
 }
@@ -60,6 +68,142 @@ export class FakeClock implements AudioClockPort {
 
 	advance(seconds: number): void {
 		this.time += seconds;
+	}
+}
+
+export class FakeSoundScheduler implements SoundSchedulerPort {
+	private log: ScheduledSound[] = [];
+	private wakeUps: { time: number; callback: () => void }[] = [];
+
+	constructor(private readonly clock: FakeClock) {}
+
+	/** Like the real scheduler, a time already past is dropped and not logged. */
+	play(time: number, sound: SoundId): void {
+		if (time < this.clock.now()) return;
+		this.log.push({ time, sound });
+	}
+
+	at(time: number, callback: () => void): () => void {
+		const wakeUp = { time, callback };
+		this.wakeUps.push(wakeUp);
+		return () => {
+			this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
+		};
+	}
+
+	cancelAll(): void {
+		this.log = [];
+		this.wakeUps = [];
+	}
+
+	emitted(): readonly ScheduledSound[] {
+		return [...this.log];
+	}
+
+	/** Runs the wake-ups due up to `clock.now()`, earliest first (a tie in the order asked). */
+	flush(): void {
+		for (;;) {
+			const now = this.clock.now();
+			let due: { time: number; callback: () => void } | null = null;
+			for (const w of this.wakeUps) {
+				if (w.time <= now && (!due || w.time < due.time)) due = w;
+			}
+			if (!due) return;
+			const done = due;
+			this.wakeUps = this.wakeUps.filter((w) => w !== done);
+			done.callback();
+		}
+	}
+}
+
+/**
+ * A take buffer that keeps time spans, not samples: the input arrives with `hear(time)`, and a
+ * start asked ahead of time forgets the last take once the input reaches it, as the real one
+ * does. `plays` says whether the span asked was still whole when it was played.
+ */
+export class FakeTakeBuffer implements TakeBufferPort {
+	/** Every `keepFrom`, `keepUntil` and `stopKeeping`, in order. */
+	readonly kept: { method: 'keepFrom' | 'keepUntil' | 'stopKeeping'; time: number | null }[] = [];
+	readonly plays: {
+		from: number;
+		to: number;
+		sounds: readonly ScheduledSound[];
+		latencyS: number;
+		/** The whole span was kept when it was asked for. */
+		whole: boolean;
+	}[] = [];
+	stops = 0;
+	/** When true, a `play` resolves only on `release()` or `stop()`; else at once. */
+	hold = false;
+	/** The span of input kept, null when none. */
+	span: { from: number; to: number } | null = null;
+	/** Whether the input is being kept (until the next `keepFrom` once stopped). */
+	keeping = false;
+	private from = -Infinity;
+	private until = Infinity;
+	private heard = -Infinity;
+	private pending: (() => void) | null = null;
+
+	keepFrom(fromTime: number): void {
+		this.kept.push({ method: 'keepFrom', time: fromTime });
+		this.from = fromTime;
+		this.until = Infinity;
+		this.keeping = true;
+		if (fromTime <= this.heard) this.forgetBefore(fromTime);
+	}
+
+	keepUntil(toTime: number): void {
+		this.kept.push({ method: 'keepUntil', time: toTime });
+		this.until = toTime;
+		if (this.span) {
+			this.span.to = Math.min(this.span.to, toTime);
+			if (this.span.to <= this.span.from) this.span = null;
+		}
+	}
+
+	stopKeeping(): void {
+		this.kept.push({ method: 'stopKeeping', time: null });
+		this.keeping = false;
+	}
+
+	/** The input arrives up to `time` (audio s). */
+	hear(time: number): void {
+		const start = Math.max(this.heard, this.from);
+		const end = Math.min(time, this.until);
+		if (this.keeping && end > start) {
+			this.forgetBefore(this.from);
+			this.span = this.span ? { from: this.span.from, to: end } : { from: start, to: end };
+		}
+		this.heard = Math.max(this.heard, time);
+	}
+
+	play(
+		from: number,
+		to: number,
+		sounds: readonly ScheduledSound[],
+		latencyS: number
+	): Promise<void> {
+		const whole = this.span !== null && this.span.from <= from && this.span.to >= to;
+		this.plays.push({ from, to, sounds: [...sounds], latencyS, whole });
+		if (!this.hold) return Promise.resolve();
+		return new Promise((resolve) => (this.pending = resolve));
+	}
+
+	/** Ends the take under way, as if it had played to its end. */
+	release(): void {
+		const pending = this.pending;
+		this.pending = null;
+		pending?.();
+	}
+
+	stop(): void {
+		this.stops++;
+		this.release();
+	}
+
+	private forgetBefore(time: number): void {
+		if (!this.span || this.span.from >= time) return;
+		this.span = this.span.to > time ? { from: time, to: this.span.to } : null;
 	}
 }
 
@@ -162,6 +306,25 @@ export class FakeMetronome implements MetronomePort {
 	}
 }
 
+/** Pitchless attacks a test emits by hand. */
+export class FakeAttackDetector implements AttackDetectorPort {
+	private readonly attackListeners = new Set<(attack: AttackEvent) => void>();
+
+	/** How many callbacks are listening. */
+	get listeners(): number {
+		return this.attackListeners.size;
+	}
+
+	onAttack(callback: (attack: AttackEvent) => void): () => void {
+		this.attackListeners.add(callback);
+		return () => this.attackListeners.delete(callback);
+	}
+
+	emit(attack: AttackEvent): void {
+		[...this.attackListeners].forEach((listener) => listener(attack));
+	}
+}
+
 export class FakeNoteDetector implements NoteDetectorPort {
 	running = false;
 	deviceId: string | null = null;
@@ -239,12 +402,21 @@ export class FakeChordVerifier implements ChordVerifierPort {
 }
 
 /** Records everything it is given, enabled or not: a test asserts that a producer stayed quiet. */
-export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
+export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes, DiagnosticTakeNotices {
 	readonly events: { kind: string; audioTime: number; data: unknown }[] = [];
 	readonly chunks: DiagnosticAudioChunk[] = [];
 	readonly takes: { opened: DiagnosticTakeOpening; endedAt: number | null }[] = [];
+	/** Asks the recorder for the input's own rate instead of 16 kHz. */
+	nativeRate = false;
+
+	private readonly takeListeners = new Set<(enabled: boolean) => void>();
 
 	constructor(public enabled = true) {}
+
+	onTake(listener: (enabled: boolean) => void): () => void {
+		this.takeListeners.add(listener);
+		return () => this.takeListeners.delete(listener);
+	}
 
 	event(kind: string, audioTime: number, data: unknown): void {
 		this.events.push({ kind, audioTime, data });
@@ -256,11 +428,13 @@ export class FakeDiagnosticSink implements DiagnosticSink, DiagnosticTakes {
 
 	async openTake(take: DiagnosticTakeOpening): Promise<void> {
 		this.takes.push({ opened: take, endedAt: null });
+		[...this.takeListeners].forEach((listener) => listener(this.enabled));
 	}
 
 	async closeTake(endedAt: number): Promise<void> {
 		const open = this.takes.at(-1);
 		if (open && open.endedAt === null) open.endedAt = endedAt;
+		[...this.takeListeners].forEach((listener) => listener(false));
 	}
 }
 
@@ -381,6 +555,28 @@ export class InMemoryProgressionRepository implements ProgressionRepositoryPort 
 
 	async all(): Promise<Progression[]> {
 		return [...this.progressions.values()].map((progression) => ({ ...progression }));
+	}
+}
+
+export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
+	/** By exercise, scope and item: `JSON.stringify([exerciseId, scope, item])`. */
+	private readonly states = new Map<string, LevelState>();
+
+	async get(key: {
+		exerciseId: string;
+		scope: string;
+		item: string;
+	}): Promise<LevelState | undefined> {
+		const stored = this.states.get(JSON.stringify([key.exerciseId, key.scope, key.item]));
+		return stored && { ...stored };
+	}
+
+	async put(state: LevelState): Promise<void> {
+		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+	}
+
+	async all(): Promise<LevelState[]> {
+		return [...this.states.values()].map((state) => ({ ...state }));
 	}
 }
 

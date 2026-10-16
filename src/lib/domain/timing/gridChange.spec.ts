@@ -170,8 +170,7 @@ describe('a chord change on the grid', () => {
 	it('never decides direct recall, and has no lead nor preview', () => {
 		expect(
 			timing.isDirectRecall({
-				correct: true,
-				verdict: 'perfect',
+				success: true,
 				reactionMs: 1,
 				leadBeats: null,
 				tempoBpm: 80

@@ -6,7 +6,7 @@ import type {
 	PlayView,
 	VerdictView
 } from '$lib/application/session/contract';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import { playMessages } from '../messages';
 
 export interface DemoClock {
@@ -34,7 +34,7 @@ export class ManualDemoClock implements DemoClock {
 const SCRIPT: {
 	primary: string;
 	stringName: string;
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 	offsetMs: number;
 	reactionMs: number;
 }[] = [

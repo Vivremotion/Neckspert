@@ -10,11 +10,12 @@ describe('createDatabase', () => {
 		expect(db.name).toBe('neckspert-play');
 	});
 
-	it('declares the six tables with their keys and indexes', () => {
+	it('declares the seven tables with their keys and indexes', () => {
 		const db = createDatabase(crypto.randomUUID());
 		expect(db.tables.map((table) => table.name).sort()).toEqual([
 			'attempts',
 			'cards',
+			'levelStates',
 			'progressions',
 			'scopedProgressions',
 			'sessions',
@@ -33,6 +34,7 @@ describe('createDatabase', () => {
 		expect(db.settings.schema.primKey.keyPath).toBe('id');
 		expect(db.progressions.schema.primKey.keyPath).toBe('exerciseId');
 		expect(db.progressions.schema.indexes).toEqual([]);
+		expect(db.levelStates.schema.primKey.keyPath).toEqual(['exerciseId', 'scope', 'item']);
 	});
 
 	it('empties every table when a version 1 database is opened', async () => {
@@ -53,7 +55,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(7);
+		expect(db.verno).toBe(8);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -92,7 +94,11 @@ describe('createDatabase', () => {
 			'learn',
 			'learn'
 		]);
-		expect(await db.settings.get('settings')).toEqual({ id: 'settings' });
+		expect(await db.settings.get('settings')).toEqual({
+			id: 'settings',
+			latency: {},
+			clickBleed: false
+		});
 		expect(await db.progressions.toArray()).toEqual([
 			expect.objectContaining({ exerciseId: 'locate-neck', tempoBpm: 96 })
 		]);
@@ -141,7 +147,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(7);
+		expect(db.verno).toBe(8);
 		expect(
 			(await db.cards.orderBy('key').toArray()).map((card) => [card.key, card.leadBeats])
 		).toEqual([
@@ -177,7 +183,7 @@ describe('createDatabase', () => {
 		const before = Date.now();
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(7);
+		expect(db.verno).toBe(8);
 
 		const { target: _target, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
@@ -193,14 +199,17 @@ describe('createDatabase', () => {
 			cardKey: 'locate:6:A',
 			phase: 'review',
 			temperature: 'cold',
-			aid: 'none',
+			aids: [],
 			promptedAt: 1,
 			tempoBpm: 100,
 			leadBeats: 2,
 			timingOffsetMs: 10,
 			reactionMs: 1510,
 			correct: true,
-			verdict: 'perfect',
+			success: true,
+			verdict: { relation: 'beat', version: 1, value: 'perfect' },
+			measures: {},
+			plan: null,
 			data: { item: { string: 6, pitch: 'A' }, answer: { midi: 45 }, confusion: null },
 			observations: null
 		});
@@ -212,6 +221,7 @@ describe('createDatabase', () => {
 			data: { item: { string: 6, fret: 3 }, answer: { pitch: 'G' }, confusion: null }
 		});
 		expect(identify).not.toHaveProperty('target');
+		expect(identify.verdict).toEqual({ relation: 'free', version: 1, value: 'perfect' });
 
 		expect(await db.sessions.toArray()).toEqual([
 			{
@@ -227,7 +237,12 @@ describe('createDatabase', () => {
 				latencyMs: null
 			}
 		]);
-		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
+		expect(await db.settings.get('settings')).toEqual({
+			id: 'settings',
+			locale: 'en',
+			latency: {},
+			clickBleed: false
+		});
 
 		const progressions = await db.progressions.toArray();
 		expect(progressions).toEqual([
@@ -276,16 +291,28 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(7);
-		expect(await db.attempts.toArray()).toEqual([{ ...attempt, id: 1, observations: null }]);
+		expect(db.verno).toBe(8);
+		const { aid: _aid, ...kept } = attempt;
+		expect(await db.attempts.toArray()).toEqual([
+			{
+				...kept,
+				id: 1,
+				observations: null,
+				success: true,
+				verdict: { relation: 'beat', version: 1, value: 'perfect' },
+				aids: [],
+				measures: {},
+				plan: null
+			}
+		]);
 		expect(await db.sessions.toArray()).toEqual([{ ...session, latencyMs: null }]);
 		db.close();
 	});
 
-	it('opens at version 6 and stores rows', async () => {
+	it('opens at version 8 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(7);
+		expect(db.verno).toBe(8);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		const progression = {
@@ -428,7 +455,7 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(7);
+		expect(db.verno).toBe(8);
 		expect(await db.progressions.toArray()).toEqual([progression]);
 		expect(db.scopedProgressions.schema.primKey.keyPath).toEqual(['exerciseId', 'scope']);
 		db.close();

@@ -3,7 +3,7 @@ import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming, createAnchorTiming } from '$lib/domain/timing';
 import { DEFAULT_PACING } from '$lib/domain/exercise';
 import { createListSelector } from '$lib/domain/progress';
-import type { Execution, PlannedItem } from '$lib/domain/types';
+import { responseVerdictOf, type Execution, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
 	FakeClock,
@@ -279,7 +279,7 @@ describe('a mechanic heard by two sensors', () => {
 		expect(ctx.controller.view.lastVerdict?.verdict).toBe('corrected');
 		expect(ctx.controller.view.history).toEqual([{ beatIndex: 8, verdict: 'corrected' }]);
 		const attempts = await ctx.deps.attempts.all();
-		expect(attempts.map((a) => [a.verdict, a.correct])).toEqual([['corrected', false]]);
+		expect(attempts.map((a) => [responseVerdictOf(a), a.correct])).toEqual([['corrected', false]]);
 		expect(attempts[0].data).toMatchObject({
 			answer: { root: { value: 3 }, chord: { value: 4 }, correction: { value: 3 } }
 		});
@@ -365,9 +365,9 @@ describe('a mechanic heard by two sensors', () => {
 		expect(await ctx.deps.attempts.all()).toHaveLength(0);
 		ctx.emit('chord', 3, 11);
 		await drain();
-		expect((await ctx.deps.attempts.all()).map((a) => [a.verdict, a.contested])).toEqual([
-			['corrected', true]
-		]);
+		expect((await ctx.deps.attempts.all()).map((a) => [responseVerdictOf(a), a.contested])).toEqual(
+			[['corrected', true]]
+		);
 	});
 
 	it('withdraws the offer when the next prompt comes, or on pause', async () => {

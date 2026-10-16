@@ -1,6 +1,5 @@
 import type { TimingRelation } from '$lib/domain/timing';
 import {
-	isSuccess,
 	SHORTEST_LEAD,
 	type Attempt,
 	type CardKey,
@@ -21,10 +20,10 @@ interface NewCard<I> {
 }
 
 /** Fields of an attempt the time relation judges direct recall on, at the attempt's tempo. */
-type RecallFields = Pick<Attempt, 'correct' | 'verdict' | 'reactionMs' | 'leadBeats' | 'tempoBpm'>;
+type RecallFields = Pick<Attempt, 'success' | 'reactionMs' | 'leadBeats' | 'tempoBpm'>;
 
 function gradeFor(attempt: Attempt, timing: TimingRelation): Grade {
-	if (!attempt.correct) return Rating.Again;
+	if (attempt.correct !== true) return Rating.Again;
 	// Off beat (found too late) and right-but-not-direct both grade Hard.
 	if (timing.isDirectRecall(attempt)) return Rating.Good;
 	return Rating.Hard;
@@ -126,7 +125,7 @@ export function applyColdAttempt<I>(
 
 	const scheduling = reviewScheduling(state.scheduling, gradeFor(attempt, timing), now);
 	// An off-beat answer lengthens the lead like a miss.
-	const leadBeats = timing.adjustLead(state.leadBeats, isSuccess(attempt));
+	const leadBeats = timing.adjustLead(state.leadBeats, attempt.success);
 	const acquiredAt = state.acquiredAt ?? (qualifiesAsAcquired(state, attempt, timing) ? now : null);
 	const next: CardState<I> = {
 		...state,

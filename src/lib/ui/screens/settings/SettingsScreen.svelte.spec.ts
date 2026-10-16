@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import type { AudioInputDevice } from '$lib/application/ports';
+import type { Settings } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import SettingsScreen from './SettingsScreen.svelte';
 
@@ -14,7 +15,7 @@ function renderScreen(
 		locale: 'fr' | 'en';
 		inputDeviceId: string | null;
 		builtInInputGain: number;
-		calibrationOffsetMs: number | null;
+		latency: Settings['latency'];
 		importError: string | null;
 		confirmingImport: boolean;
 		onlocale: (locale: 'fr' | 'en') => void;
@@ -29,6 +30,7 @@ function renderScreen(
 		diagnosticsEnabled: boolean;
 		diagnosticsBudgetMb: number;
 		diagnosticsUsedBytes: number;
+		diagnosticsNativeRate: boolean;
 		chordDiagram: 'strings' | 'grid';
 		onchorddiagram: (style: 'strings' | 'grid') => void;
 	}> = {}
@@ -38,7 +40,7 @@ function renderScreen(
 		inputs: INPUTS,
 		inputDeviceId: 'usb' as string | null,
 		builtInInputGain: 8,
-		calibrationOffsetMs: 42 as number | null,
+		latency: { note: { ms: 42, provenance: 'player' } } as Settings['latency'],
 		importError: null as string | null,
 		confirmingImport: false,
 		onlocale: vi.fn(),
@@ -53,6 +55,7 @@ function renderScreen(
 		diagnosticsUsedBytes: 0,
 		ondiagnostics: vi.fn(),
 		ondiagnosticsbudget: vi.fn(),
+		ondiagnosticsnativerate: vi.fn(),
 		ondiagnosticsexport: vi.fn(),
 		ondiagnosticsclear: vi.fn(),
 		chordDiagram: 'strings' as 'strings' | 'grid',
@@ -114,6 +117,14 @@ describe('SettingsScreen', () => {
 			'disabled',
 			true
 		);
+	});
+
+	it('shows the calibrated latency of the note sensor, or that there is none', () => {
+		renderScreen();
+		expect(screen.getByText('Offset : 42 ms')).toBeTruthy();
+		cleanup();
+		renderScreen({ latency: { chord: { ms: 30, provenance: 'player' } } });
+		expect(screen.getByText('Pas encore calibré')).toBeTruthy();
 	});
 
 	it('links to calibration and exports on click', async () => {
@@ -188,6 +199,35 @@ describe('SettingsScreen', () => {
 				screen.getByRole('button', { name: /record sound and detection details/i })
 			).toBeTruthy();
 			expect(screen.getByRole('button', { name: 'Export diagnostics' })).toBeTruthy();
+		});
+
+		it('offers the native rate in development and saves the choice', async () => {
+			const { props } = renderScreen({ diagnosticsNativeRate: false });
+			expect(screen.getByText('Enregistrer au débit natif')).toBeTruthy();
+			const toggle = screen.getByRole('button', { name: /enregistrer au débit natif/i });
+			expect(toggle.getAttribute('aria-pressed')).toBe('false');
+			await fireEvent.click(toggle);
+			expect(props.ondiagnosticsnativerate).toHaveBeenCalledWith(true);
+		});
+
+		it('shows the native rate as on, and offers to turn it off', async () => {
+			i18n.locale = 'en';
+			const { props } = renderScreen({ locale: 'en', diagnosticsNativeRate: true });
+			const toggle = screen.getByRole('button', { name: 'Record at the native rate: on' });
+			expect(toggle.getAttribute('aria-pressed')).toBe('true');
+			await fireEvent.click(toggle);
+			expect(props.ondiagnosticsnativerate).toHaveBeenCalledWith(false);
+		});
+
+		it('hides the native rate outside development', () => {
+			vi.stubEnv('DEV', false);
+			try {
+				renderScreen();
+				expect(screen.queryByText('Enregistrer au débit natif')).toBeNull();
+				expect(screen.queryByRole('button', { name: /débit natif/i })).toBeNull();
+			} finally {
+				vi.unstubAllEnvs();
+			}
 		});
 
 		it('exports and clears the journal', async () => {

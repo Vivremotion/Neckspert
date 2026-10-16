@@ -26,10 +26,25 @@
 		identifyMedianReactionMs: null,
 		kind: 'triads'
 	};
+
+	const rhythm: SessionSummary = {
+		...summary,
+		pool: 'cold',
+		grade: null,
+		kind: 'exercise',
+		rhythm: {
+			exerciseId: 'rhythm-offbeats',
+			levelReached: { shown: 3, of: 6, aid: false },
+			cycles: 14,
+			successes: 11,
+			aided: 2
+		}
+	};
 </script>
 
 <SummaryScreen {summary} now={0} onhome={() => {}} onmap={() => {}} />
 <SummaryScreen summary={triads} now={0} onhome={() => {}} onmap={() => {}} />
+<SummaryScreen summary={rhythm} now={0} onhome={() => {}} onmap={() => {}} />
 
 <style>
 	:global(html),

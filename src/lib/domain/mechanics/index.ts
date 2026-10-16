@@ -2,11 +2,13 @@ import type { MechanicId } from '$lib/domain/exercise/types';
 import { chordGridRules } from './chordGrid';
 import { identifyRules } from './identify';
 import { locateRules } from './locate';
+import { rhythmFigureRules } from './rhythmFigure';
 import { triadAnchorRules } from './triadAnchor';
 import { triadZoneRules } from './triadZone';
-import type { MechanicRules } from './types';
+import type { MechanicIdentity } from './types';
 
 export * from './types';
+export { rhythmFigureRules, type RhythmItem } from './rhythmFigure';
 export { identifyRules, type IdentifyData } from './identify';
 export { locateRules, type LocateData } from './locate';
 export {
@@ -37,17 +39,22 @@ export {
 	type GestureRule
 } from './chordGrid';
 
-/** Every known mechanic. For validation and migration only: no other logic goes through it. */
-export const MECHANIC_RULES: readonly MechanicRules[] = [
+/**
+ * Every known mechanic, by its identity. For validation and migration only: no other logic goes
+ * through it. A mechanic with a one-answer time relation also has `timing` (narrow with
+ * `'timing' in rules`); the rhythm figure has none.
+ */
+export const MECHANIC_RULES: readonly MechanicIdentity[] = [
 	locateRules,
 	identifyRules,
 	triadAnchorRules,
 	triadZoneRules,
-	chordGridRules
+	chordGridRules,
+	rhythmFigureRules
 ];
 
 /** Throws on an unknown id. */
-export function mechanicRules(id: MechanicId): MechanicRules {
+export function mechanicRules(id: MechanicId): MechanicIdentity {
 	const rules = MECHANIC_RULES.find((candidate) => candidate.id === id);
 	if (!rules) throw new Error(`Unknown mechanic: ${id}`);
 	return rules;

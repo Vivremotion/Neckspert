@@ -17,4 +17,8 @@ describe('sessionKindFromQuery', () => {
 	it('runs the gesture track when asked', () => {
 		expect(sessionKindFromQuery('gesture')).toBe('gesture');
 	});
+
+	it('runs an exercise when asked', () => {
+		expect(sessionKindFromQuery('exercise')).toBe('exercise');
+	});
 });

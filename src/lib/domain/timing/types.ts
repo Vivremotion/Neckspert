@@ -1,10 +1,10 @@
-import type { LeadBeats, RecordedLeadBeats, Verdict } from '$lib/domain/types';
+import type { LeadBeats, RecordedLeadBeats, ResponseVerdict } from '$lib/domain/types';
 
 /** Why a note did not answer the current round. */
 export type IgnoreReason = 'settled' | 'before-window' | 'after-capture';
 
 export interface RoundOutcome {
-	verdict: Verdict;
+	verdict: ResponseVerdict;
 	correct: boolean;
 	answer: unknown | null;
 	/** The judge's confusion for `answer`, carried as is; omitted or null without one. */
@@ -90,9 +90,9 @@ export interface TimingRelation {
 		secondsPerBeat: number;
 		chained?: boolean;
 	}): Round;
+	/** Read on a stored attempt: `success` is right and in time (never off the beat). */
 	isDirectRecall(attempt: {
-		correct: boolean;
-		verdict: Verdict;
+		success: boolean;
 		reactionMs: number | null;
 		leadBeats: RecordedLeadBeats | null;
 		tempoBpm: number | null;

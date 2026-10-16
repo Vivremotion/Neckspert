@@ -3,7 +3,7 @@ import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
 import { expectedShape } from '$lib/domain/mechanics/chordGrid';
 import type { VoicingOccurrence } from '$lib/domain/music';
 import { occurrenceOfId } from '$lib/domain/triads';
-import { isSuccess, type Attempt, type Execution, type GestureSummary } from '$lib/domain/types';
+import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
 import { passageSucceeded } from './passages';
 
 function fretsOf(occurrence: VoicingOccurrence | null): string | null {
@@ -45,14 +45,14 @@ export function summarizeGesture(
 				...(scope !== undefined && { scope }),
 				passagesPlayed: passages.size,
 				passagesSucceeded: [...passages.values()].filter(passageSucceeded).length,
-				changeSuccessRate: own.filter(isSuccess).length / own.length,
+				changeSuccessRate: own.filter((attempt) => attempt.success).length / own.length,
 				tempoBpm,
 				nextTempoBpm: nextTempo(tempoBpm, own)
 			}
 		];
 	});
 	const misses = changes
-		.filter((attempt) => !attempt.correct && attempt.id !== undefined)
+		.filter((attempt) => attempt.correct !== true && attempt.id !== undefined)
 		.map((attempt) => {
 			const decided = decidedOf(attempt);
 			return {

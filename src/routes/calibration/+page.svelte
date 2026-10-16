@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useAppServices } from '$lib/application/app';
-	import type {
-		AudioInputDevice,
-		CalibrationOutcome,
-		CalibrationProgress
-	} from '$lib/application/ports';
+	import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
 	import CalibrationScreen from '$lib/ui/screens/calibration/CalibrationScreen.svelte';
+	import type { CalibrationScreenOutcome } from '$lib/ui/screens/calibration/outcome';
 
 	const services = useAppServices();
 
@@ -16,7 +13,7 @@
 	let levelRms = $state(0);
 	let phase = $state<'idle' | 'running' | 'done'>('idle');
 	let progress = $state<CalibrationProgress | null>(null);
-	let outcome = $state<CalibrationOutcome | null>(null);
+	let outcome = $state<CalibrationScreenOutcome | null>(null);
 	let notice = $state<string | null>(null);
 
 	let stopLevel: (() => void) | null = null;
@@ -60,23 +57,45 @@
 		}
 	}
 
-	async function onstart() {
+	/** Runs one calibration; on success, saves the device, its latency per sensor and its bleed. */
+	async function calibrate(kind: 'compare' | 'click') {
 		if (phase === 'running') return;
 		phase = 'running';
 		progress = null;
 		outcome = null;
-		if (!listening) await onlisten();
-		const result = await services.calibration.run((next) => {
+		notice = null;
+		const deviceId = selectedDeviceId;
+		const onProgress = (next: CalibrationProgress) => {
 			progress = next;
-		});
-		outcome = result;
-		phase = 'done';
-		if (result.ok) {
-			await services.settings.update({
-				calibrationOffsetMs: result.offsetMs,
-				inputDeviceId: selectedDeviceId
-			});
+		};
+		try {
+			if (!listening) await onlisten();
+			const result =
+				kind === 'compare'
+					? await services.calibration.run(deviceId, onProgress)
+					: await services.calibration.runOnClick(deviceId, onProgress);
+			if (result.ok) {
+				// Saved together, only on success. A bleed not checked keeps the one known.
+				await services.settings.update({
+					latency: { ...(await services.settings.get()).latency, ...result.latency },
+					...(result.clickBleed === null ? {} : { clickBleed: result.clickBleed }),
+					inputDeviceId: deviceId
+				});
+			}
+			outcome = result;
+		} catch (error) {
+			outcome = { ok: false, reason: 'error' };
+			notice = error instanceof Error ? error.message : String(error);
 		}
+		phase = 'done';
+	}
+
+	function onstart() {
+		void calibrate('compare');
+	}
+
+	function oncalibrateonclick() {
+		void calibrate('click');
 	}
 
 	function oncancel() {
@@ -113,5 +132,6 @@
 	{onstart}
 	{oncancel}
 	{onretry}
+	{oncalibrateonclick}
 	{notice}
 />

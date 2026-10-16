@@ -11,23 +11,59 @@ import { validateBackup } from '$lib/infrastructure/storage';
 import { FakeDiagnostics, FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
 
 export class FakeCalibration implements CalibrationPort {
-	nextOutcome: CalibrationOutcome = { ok: true, offsetMs: 35, spreadMs: 8 };
+	nextOutcome: CalibrationOutcome = {
+		ok: true,
+		latency: {
+			attack: { ms: 35, provenance: 'system' },
+			note: { ms: 41, provenance: 'system' },
+			chord: { ms: 41, provenance: 'system' }
+		},
+		clickBleed: false,
+		measure: {
+			referenceMs: 52.1,
+			referenceSpreadMs: 0.4,
+			offsetMs: -17.3,
+			pairs: 15,
+			played: 16,
+			spreadMs: 2.6,
+			latencyMs: 35
+		}
+	};
+	/** What `runOnClick` gives. */
+	nextClickOutcome: CalibrationOutcome = { ok: false, reason: 'no-sound' };
+	clickCalls = 0;
 	progressSteps: CalibrationProgress[] = [
-		{ hits: 1, needed: 10, lastOffsetMs: 40 },
-		{ hits: 5, needed: 10, lastOffsetMs: 30 },
-		{ hits: 10, needed: 10, lastOffsetMs: 35 }
+		{ phase: 'listen', done: 0, needed: 8 },
+		{ phase: 'listen', done: 8, needed: 8 },
+		{ phase: 'compare', done: 5, needed: 16 },
+		{ phase: 'compare', done: 16, needed: 16 }
 	];
 	runCalls = 0;
+	lastDeviceId: string | null | undefined = undefined;
 	cancelled = false;
 
-	async run(onProgress: (progress: CalibrationProgress) => void): Promise<CalibrationOutcome> {
+	async run(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
 		this.runCalls += 1;
+		this.lastDeviceId = deviceId;
 		this.cancelled = false;
 		for (const step of this.progressSteps) {
 			if (this.cancelled) return { ok: false, reason: 'cancelled' };
 			onProgress(step);
 		}
 		return this.nextOutcome;
+	}
+
+	async runOnClick(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
+		this.clickCalls += 1;
+		this.lastDeviceId = deviceId;
+		onProgress({ phase: 'play', done: 0, needed: 10 });
+		return this.nextClickOutcome;
 	}
 
 	cancel(): void {
@@ -38,13 +74,14 @@ export class FakeCalibration implements CalibrationPort {
 export class FakeBackup implements BackupPort {
 	private file: BackupFile = {
 		app: 'neckspert-play',
-		version: 3,
+		version: 4,
 		exportedAt: 1,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [],
 		cards: [],
 		attempts: [],
-		sessions: []
+		sessions: [],
+		levelStates: []
 	};
 
 	constructor(private readonly settingsRepo: InMemorySettingsRepository) {}
@@ -111,6 +148,9 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 		neckMap: async (): Promise<NeckMapCell[]> => [],
 		startSession: async () => {
 			throw new Error('startSession is not used by I3 screens');
+		},
+		startExercise: async () => {
+			throw new Error('startExercise is not used by I3 screens');
 		},
 		...overrides,
 		settings,

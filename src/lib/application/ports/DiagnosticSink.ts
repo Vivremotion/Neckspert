@@ -14,6 +14,11 @@ export interface DiagnosticAudioChunk {
 export interface DiagnosticSink {
 	/** False: nothing is recorded, and producers prepare nothing. */
 	readonly enabled: boolean;
+	/**
+	 * Development option, read when the input opens: record the sound at the input's own rate
+	 * instead of 16 kHz. Absent or false: 16 kHz.
+	 */
+	readonly nativeRate?: boolean;
 	event(kind: string, audioTime: number, data: unknown): void;
 	audio(chunk: DiagnosticAudioChunk): void;
 }
@@ -42,4 +47,13 @@ export interface DiagnosticTakeOpening {
 export interface DiagnosticTakes {
 	openTake(take: DiagnosticTakeOpening): Promise<void>;
 	closeTake(endedAt: number): Promise<void>;
+}
+
+/** Tells when a take starts being recorded or stops, for adapters that follow the journal. */
+export interface DiagnosticTakeNotices {
+	/**
+	 * Called with true once a take's opening has settled with the journal recording it, with false
+	 * when it settles with the journal off and when a take closes or is cleared.
+	 */
+	onTake(listener: (enabled: boolean) => void): () => void;
 }

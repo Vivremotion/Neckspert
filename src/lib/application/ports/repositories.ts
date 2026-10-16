@@ -4,6 +4,7 @@ import type {
 	CardKey,
 	CardState,
 	ExerciseId,
+	LevelState,
 	Progression,
 	RecordedObservation,
 	SessionRecord,
@@ -48,6 +49,14 @@ export interface ProgressionRepositoryPort {
 	/** Replaces the progression stored for the same exercise. */
 	put(progression: Progression): Promise<void>;
 	all(): Promise<Progression[]>;
+}
+
+/** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */
+export interface LevelStateRepositoryPort {
+	get(key: { exerciseId: string; scope: string; item: string }): Promise<LevelState | undefined>;
+	/** Replaces the state stored under the same exercise, scope and item. */
+	put(state: LevelState): Promise<void>;
+	all(): Promise<LevelState[]>;
 }
 
 export interface SettingsRepositoryPort {

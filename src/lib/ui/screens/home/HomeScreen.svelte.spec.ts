@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 import type { HomeStats } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import HomeScreen from './HomeScreen.svelte';
@@ -152,5 +153,36 @@ describe('HomeScreen', () => {
 		});
 		await fireEvent.click(screen.getByRole('button', { name: /geste/i }));
 		expect(ongesture).toHaveBeenCalledOnce();
+	});
+});
+
+describe('HomeScreen rhythm', () => {
+	const rhythm = RHYTHM_EXERCISES;
+
+	it('offers no rhythm button without the exercises', () => {
+		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {} } });
+		expect(screen.queryByRole('button', { name: 'Rythme' })).toBeNull();
+	});
+
+	it('opens the list of the three exercises, each linking to its own session', async () => {
+		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {}, rhythm } });
+		expect(screen.queryAllByRole('link')).toHaveLength(0);
+		await fireEvent.click(screen.getByRole('button', { name: 'Rythme' }));
+		const links = screen.getAllByRole('link') as HTMLAnchorElement[];
+		expect(links).toHaveLength(3);
+		expect(links.map((link) => link.getAttribute('href'))).toEqual(
+			rhythm.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
+		);
+		expect(links.map((link) => link.textContent?.trim())).toEqual(rhythm.map((e) => e.title?.fr));
+	});
+
+	it('closes the list again, and names the exercises in English', async () => {
+		i18n.locale = 'en';
+		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {}, rhythm } });
+		const button = screen.getByRole('button', { name: 'Rhythm' });
+		await fireEvent.click(button);
+		expect(screen.getByRole('link', { name: 'Offbeats' })).toBeTruthy();
+		await fireEvent.click(button);
+		expect(screen.queryAllByRole('link')).toHaveLength(0);
 	});
 });

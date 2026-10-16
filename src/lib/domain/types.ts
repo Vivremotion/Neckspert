@@ -1,8 +1,27 @@
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
+import type {
+	Aid,
+	CycleReport,
+	CycleVerdict,
+	Figure,
+	LevelParams,
+	LevelState,
+	Measures,
+	VerdictEnvelope
+} from './time';
 
-export type { Execution, ExerciseId, MechanicId, Progression };
+export type {
+	Aid,
+	Execution,
+	ExerciseId,
+	LevelState,
+	Measures,
+	MechanicId,
+	Progression,
+	VerdictEnvelope
+};
 
 export type Locale = 'fr' | 'en';
 
@@ -30,10 +49,10 @@ export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: str
  * (triad anchor): a wrong chord put right later in its window; a miss everywhere (`correct` false),
  * only the screen salutes it.
  */
-export type Verdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
+export type ResponseVerdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
 
 /** Every verdict, best first. */
-export const VERDICTS: readonly Verdict[] = [
+export const RESPONSE_VERDICTS: readonly ResponseVerdict[] = [
 	'perfect',
 	'early',
 	'late',
@@ -42,12 +61,26 @@ export const VERDICTS: readonly Verdict[] = [
 	'wrong'
 ];
 
+/** The time relations whose rounds take one answer and judge it with a `ResponseVerdict`. */
+export const RESPONSE_RELATIONS: readonly string[] = ['beat', 'free', 'anchor', 'grid-change'];
+
+/** The response verdict of an attempt of a response relation, else null. */
+export function responseVerdictOf(attempt: Pick<Attempt, 'verdict'>): ResponseVerdict | null {
+	const { relation, value } = attempt.verdict;
+	if (!RESPONSE_RELATIONS.includes(relation)) return null;
+	return RESPONSE_VERDICTS.includes(value as ResponseVerdict) ? (value as ResponseVerdict) : null;
+}
+
 /**
- * A success: the right answer, in time. Off beat, wrong and unanswered prompts are misses.
- * A right but slow name in mode 2 (`late`) is a success.
+ * For the recorder until the migration: success of a response round. The right answer, in time;
+ * off beat, wrong and unanswered prompts are misses. A right but slow name in mode 2 (`late`) is
+ * a success. Readers of stored attempts read `Attempt.success`.
  */
-export function isSuccess(attempt: Pick<Attempt, 'correct' | 'verdict'>): boolean {
-	return attempt.correct && attempt.verdict !== 'offbeat';
+export function isResponseSuccess(outcome: {
+	correct: boolean;
+	verdict: ResponseVerdict;
+}): boolean {
+	return outcome.correct && outcome.verdict !== 'offbeat';
 }
 
 /** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */
@@ -63,7 +96,14 @@ export type Temperature = 'cold' | 'hot';
  * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
  * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
  */
-export type SessionKind = 'learn' | 'free' | 'triads' | 'triads-zone' | 'gesture';
+export type SessionKind =
+	| 'learn'
+	| 'free'
+	| 'triads'
+	| 'triads-zone'
+	| 'gesture'
+	/** Free play of one exercise (`SessionRecord.exerciseId`): the rhythm exercises. */
+	| 'exercise';
 
 /** A session of the triads' memory track. */
 export function isTriadsKind(kind: SessionKind): boolean {
@@ -97,7 +137,8 @@ export interface Attempt<D = unknown> {
 	cardKey: CardKey;
 	phase: ItemPhase;
 	temperature: Temperature;
-	aid: AidLevel;
+	/** What the round showed or played for the player (`AidLevel` is the planned aid). */
+	aids: Aid[];
 	/** Epoch ms when the prompt appeared. */
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
@@ -110,9 +151,16 @@ export interface Attempt<D = unknown> {
 	timingOffsetMs: number | null;
 	/** Prompt to answer, in ms. Null without an answer. */
 	reactionMs: number | null;
-	/** The answer is right, whatever the timing. */
-	correct: boolean;
-	verdict: Verdict;
+	/** The judge's word on the content played, whatever the timing; null when nothing was judged. */
+	correct: boolean | null;
+	/** The relation's word on whether the round passed: what stats, grades and pacing read. */
+	success: boolean;
+	/** The relation's own verdict (`responseVerdictOf` for a one-answer relation). */
+	verdict: VerdictEnvelope;
+	/** Measures of the round; {} for the one-answer relations. */
+	measures: Measures;
+	/** The round's resolved plan; null before plans and for the one-answer relations. */
+	plan: unknown | null;
 	/** Mechanic-specific: item, answer and confusion. */
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
@@ -200,6 +248,13 @@ export interface SessionRecord {
 	fatigueDetected: boolean;
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
+	/** The exercise played, for a session of kind `'exercise'`. */
+	exerciseId?: ExerciseId;
+	/**
+	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
+	 * for a session of kind `'exercise'`; absent from sessions stored before it was kept.
+	 */
+	levelReached?: number;
 	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */
 	latencyMs: number | null;
 }
@@ -225,6 +280,11 @@ export interface DiagnosticsSettings {
 	/** Null: the build decides (on in development, off in a published build). */
 	enabled: boolean | null;
 	budgetMb: number;
+	/**
+	 * Development option: keep the sound at the input's own rate rather than 16 kHz, to replay
+	 * attack transients above 8 kHz. Absent = false.
+	 */
+	nativeRate?: boolean;
 }
 
 /** The journal is on when the player turned it on, or by the build's default until they choose. */
@@ -240,10 +300,26 @@ export type ChordDiagramStyle = 'strings' | 'grid';
 
 export const CHORD_DIAGRAM_STYLES: readonly ChordDiagramStyle[] = ['strings', 'grid'];
 
+/**
+ * How a latency was measured: `system` without the player's gesture (the sound heard through two
+ * inputs), `player` from the player's own attacks on the click.
+ */
+export type LatencyProvenance = 'system' | 'player';
+
+/** The latency of a sensor, in ms, subtracted from the time it reports an attack at. */
+export interface SensorLatency {
+	ms: number;
+	provenance: LatencyProvenance;
+}
+
+export const LATENCY_PROVENANCES: readonly LatencyProvenance[] = ['system', 'player'];
+
 export interface Settings {
 	locale: Locale;
-	/** Detection latency in ms, subtracted from onset times. Null until calibrated. */
-	calibrationOffsetMs: number | null;
+	/** Calibrated latency by sensor (`note`, `chord`, `attack`…); a sensor without one is uncalibrated. */
+	latency: Partial<Record<string, SensorLatency>>;
+	/** The click was heard on the playing input at calibration: the player needs headphones. */
+	clickBleed: boolean;
 	inputDeviceId: string | null;
 	/** Multiplier for the computer's built-in mic. External interfaces stay at unity. */
 	builtInInputGain: number;
@@ -254,7 +330,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
 	locale: 'fr',
-	calibrationOffsetMs: null,
+	latency: {},
+	clickBleed: false,
 	inputDeviceId: null,
 	builtInInputGain: DEFAULT_BUILT_IN_INPUT_GAIN,
 	diagnostics: { enabled: null, budgetMb: 300 },
@@ -303,6 +380,30 @@ export interface SessionSummary {
 	kind: SessionKind;
 	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
 	gesture?: GestureSummary;
+	/** A rhythm exercise session: the rest of the summary is not shown for it. */
+	rhythm?: RhythmSummary;
+}
+
+/** What a rhythm exercise session did: the level it ended on and its cycles. */
+export interface RhythmSummary {
+	exerciseId: ExerciseId;
+	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level). */
+	levelReached: { shown: number; of: number; aid: boolean };
+	/** Cycles played. */
+	cycles: number;
+	/** Cycles that succeeded (`Attempt.success`). */
+	successes: number;
+	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
+	aided: number;
+	/** The last cycle played, in full (a series of one cycle shows its report). Absent without a cycle. */
+	lastCycle?: {
+		report: CycleReport;
+		verdict: CycleVerdict;
+		/** The thresholds of the level it was played at. */
+		thresholds: LevelParams['thresholds'];
+		/** The cycle as played, to engrave it with its marks; absent when its plan cannot be read. */
+		played?: { figure: Figure; cycleBars: number; tempoBpm: number };
+	};
 }
 
 /** What a gesture session did, exercise by exercise, and the changes it missed. */
@@ -313,7 +414,7 @@ export interface GestureSummary {
 		scope?: string;
 		passagesPlayed: number;
 		passagesSucceeded: number;
-		/** Share of its changes right and in time (`isSuccess`). */
+		/** Share of its changes right and in time (`Attempt.success`). */
 		changeSuccessRate: number;
 		tempoBpm: number;
 		nextTempoBpm: number;
@@ -350,11 +451,12 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 3;
+	version: 4;
 	exportedAt: number;
 	settings: Settings;
 	progressions: Progression[];
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];
+	levelStates: LevelState[];
 }

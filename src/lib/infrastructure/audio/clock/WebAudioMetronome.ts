@@ -1,6 +1,21 @@
 import type { BeatEvent, MetronomePort } from '$lib/application/ports';
 import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
+import {
+	BEAT_CLICK,
+	CLICK_DURATION_S,
+	DOWNBEAT_CLICK,
+	NoiseBuffers,
+	playBurst
+} from '../sounds/clickSound';
 import { beatsToSchedule } from './beatsToSchedule';
+
+export {
+	BEAT_CLICK,
+	CLICK_DURATION_S,
+	CLICK_FILTER_Q,
+	CLICK_SILENCE,
+	DOWNBEAT_CLICK
+} from '../sounds/clickSound';
 
 export const MIN_TEMPO_BPM = 20;
 export const MAX_TEMPO_BPM = 300;
@@ -9,14 +24,6 @@ export const DEFAULT_BEATS_PER_BAR = 4;
 export const DEFAULT_LOOKAHEAD_MS = 25;
 /** How far past the current audio time beats are scheduled; must exceed the wake-up period. */
 export const DEFAULT_SCHEDULE_AHEAD_S = 0.1;
-export const CLICK_DURATION_S = 0.05;
-export const CLICK_SILENCE = 0.001;
-/** A wide band keeps the burst pitchless, so the pitch detector never reads it as a note. */
-export const CLICK_FILTER_Q = 0.7;
-/** The accent is level and brightness, never a tonal frequency. Loud enough to hear over a guitar. */
-export const DOWNBEAT_CLICK = { filterHz: 3000, gain: 0.9 } as const;
-export const BEAT_CLICK = { filterHz: 1500, gain: 0.7 } as const;
-
 export interface MetronomeOptions {
 	beatsPerBar?: number;
 	lookaheadMs?: number;
@@ -36,7 +43,7 @@ export class WebAudioMetronome implements MetronomePort {
 	private nextIndex = 0;
 	private run = 0;
 	private timer: ReturnType<typeof setTimeout> | null = null;
-	private noise: { context: AudioContext; buffer: AudioBuffer } | null = null;
+	private readonly noise = new NoiseBuffers();
 	private audible = true;
 	private readonly listeners = new Set<(beat: BeatEvent) => void>();
 	/** Wake-ups waiting for the audio clock, called after the beats of a scheduler wake-up. */
@@ -174,33 +181,8 @@ export class WebAudioMetronome implements MetronomePort {
 
 	private click(context: AudioContext, beat: BeatEvent): void {
 		if (!this.audible) return;
-		const { filterHz, gain: level } = beat.isDownbeat ? DOWNBEAT_CLICK : BEAT_CLICK;
-		const end = beat.time + CLICK_DURATION_S;
-		const source = context.createBufferSource();
-		const filter = context.createBiquadFilter();
-		const gain = context.createGain();
-		source.buffer = this.noiseBuffer(context);
-		filter.type = 'bandpass';
-		filter.frequency.setValueAtTime(filterHz, beat.time);
-		filter.Q.setValueAtTime(CLICK_FILTER_Q, beat.time);
-		gain.gain.setValueAtTime(level, beat.time);
-		gain.gain.exponentialRampToValueAtTime(CLICK_SILENCE, end);
-		source.connect(filter);
-		filter.connect(gain);
-		gain.connect(context.destination);
-		source.start(beat.time);
-		source.stop(end);
-	}
-
-	/** White noise, generated once per AudioContext and shared by every click. */
-	private noiseBuffer(context: AudioContext): AudioBuffer {
-		if (this.noise?.context === context) return this.noise.buffer;
-		const length = Math.round(context.sampleRate * CLICK_DURATION_S);
-		const buffer = context.createBuffer(1, length, context.sampleRate);
-		const samples = buffer.getChannelData(0);
-		for (let i = 0; i < length; i++) samples[i] = Math.random() * 2 - 1;
-		this.noise = { context, buffer };
-		return buffer;
+		const { filterHz, gain } = beat.isDownbeat ? DOWNBEAT_CLICK : BEAT_CLICK;
+		playBurst(context, this.noise, beat.time, { filterHz, gain, durationS: CLICK_DURATION_S });
 	}
 
 	private emit(beat: BeatEvent): void {

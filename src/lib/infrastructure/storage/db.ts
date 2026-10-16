@@ -1,13 +1,15 @@
-import Dexie, { type EntityTable } from 'dexie';
+import Dexie, { type EntityTable, type Table } from 'dexie';
 import {
 	SHORTEST_LEAD,
 	type Attempt,
 	type CardState,
+	type LevelState,
 	type Progression,
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
 import { convertV1 } from './legacy/v1';
+import { attemptToV8, relationOfMechanic, settingsToV8 } from './migrations/v8';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -26,6 +28,8 @@ export class NeckspertDb extends Dexie {
 	progressions!: EntityTable<Progression, 'exerciseId'>;
 	/** Progressions in a scope of their exercise (a grid), by exercise and scope. */
 	scopedProgressions!: EntityTable<Progression & { scope: string }, 'exerciseId'>;
+	/** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */
+	levelStates!: Table<LevelState, [string, string, string]>;
 
 	constructor(name: string) {
 		super(name);
@@ -131,6 +135,33 @@ export class NeckspertDb extends Dexie {
 			progressions: 'exerciseId',
 			scopedProgressions: '[exerciseId+scope]'
 		});
+		// Version 8 is the target model (spec 2026-10-14, section 9): attempts with their success, a
+		// verdict wrapped for its relation and their aids; a latency per sensor; level states. The
+		// same conversion as the import of a version 3 backup (`migrations/v8.ts`). Attempts the
+		// recorder already wrote at the target model are left as they are.
+		this.version(8)
+			.stores({
+				...stores,
+				progressions: 'exerciseId',
+				scopedProgressions: '[exerciseId+scope]',
+				levelStates: '[exerciseId+scope+item]'
+			})
+			.upgrade(async (tx) => {
+				await tx
+					.table('attempts')
+					.toCollection()
+					.modify((row, ref) => {
+						// A row already at the target model is not written again.
+						if (typeof row.verdict !== 'string') return false;
+						ref.value = attemptToV8(row, relationOfMechanic);
+					});
+				await tx
+					.table('settings')
+					.toCollection()
+					.modify((row, ref) => {
+						ref.value = settingsToV8(row);
+					});
+			});
 	}
 }
 

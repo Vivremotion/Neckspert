@@ -9,7 +9,7 @@ import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import type { DemoClock } from './DemoPlaySession.svelte';
 
@@ -20,7 +20,14 @@ const GRID = gridChanges(gridById('iohefy-a'));
 const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
 const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
 /** The verdict of each change, as the demo plays it. */
-const VERDICTS: readonly Verdict[] = ['perfect', 'early', 'perfect', 'late', 'wrong', 'perfect'];
+const VERDICTS: readonly ResponseVerdict[] = [
+	'perfect',
+	'early',
+	'perfect',
+	'late',
+	'wrong',
+	'perfect'
+];
 /** Each change is judged this long after it. */
 const JUDGED_AFTER_BEATS = 0.5;
 

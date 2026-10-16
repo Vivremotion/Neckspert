@@ -7,6 +7,7 @@ import {
 	TRIADS_ZONE,
 	exerciseById
 } from './catalog';
+import { Fraction } from '$lib/domain/time';
 import { pacingOf } from './pacing';
 
 describe('exercise catalog', () => {
@@ -47,6 +48,10 @@ describe('exercise catalog', () => {
 	});
 
 	it('holds data only', () => {
-		expect(JSON.parse(JSON.stringify(EXERCISES))).toEqual(EXERCISES);
+		// Fractions are written as text (`1/4`, `0`) and read back as fractions; no other text in
+		// the catalog looks like one.
+		const fractionsBack = (_key: string, value: unknown) =>
+			typeof value === 'string' && /^-?\d+(\/\d+)?$/.test(value) ? Fraction.parse(value) : value;
+		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
 	});
 });

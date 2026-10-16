@@ -1,6 +1,6 @@
 import type { LinkLaneModel, LinkTile } from '$lib/application/mechanics/chordGrid';
 import type { LaneEntry } from '$lib/application/session/contract';
-import type { Verdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 
 /** Beats on show behind the hit line, as on the notes' lane. */
 export const LANE_BEATS_BEFORE = 4;
@@ -20,7 +20,7 @@ export interface LinkLaneTile {
 	due: boolean;
 	/** Beat in the bar, 1 to 4, on the beats ahead, once the lane runs in time. */
 	label: number | null;
-	verdict: Verdict | null;
+	verdict: ResponseVerdict | null;
 	/** The latest verdict played. */
 	justPlayed: boolean;
 }

@@ -33,6 +33,7 @@
 	"dependencies": {
 		"dexie": "^4.4.6",
 		"pitchy": "^4.1.0",
-		"ts-fsrs": "^5.4.2"
+		"ts-fsrs": "^5.4.2",
+		"vexflow": "5.0.0"
 	}
 }

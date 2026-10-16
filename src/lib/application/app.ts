@@ -1,4 +1,5 @@
 import { getContext, setContext } from 'svelte';
+import type { ExerciseId } from '$lib/domain/exercise/types';
 import type { HomeStats, NeckMapCell, SessionKind, SessionSummary } from '$lib/domain/types';
 import type {
 	BackupPort,
@@ -39,8 +40,13 @@ export interface AppServices {
 	contest(attemptId: number): Promise<void>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
-	/** Plans the session and returns its controller, not yet started. */
+	/** Plans the session and returns its controller, not yet started. Rejects `'exercise'` (see `startExercise`). */
 	startSession(kind: SessionKind): Promise<PlaySessionController>;
+	/**
+	 * Free play of one exercise played cycle after cycle (a session of kind `'exercise'`): its
+	 * controller, not yet started. Rejects an unknown exercise, or one without levels.
+	 */
+	startExercise(exerciseId: ExerciseId): Promise<PlaySessionController>;
 }
 
 const APP_SERVICES = Symbol('app-services');

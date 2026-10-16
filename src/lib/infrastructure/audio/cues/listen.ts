@@ -1,4 +1,4 @@
-import { VERDICTS } from '$lib/domain/types';
+import { RESPONSE_VERDICTS } from '$lib/domain/types';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from './WebAudioCues';
 
@@ -20,13 +20,13 @@ export async function listen(
 	const metronome = new WebAudioMetronome(() => clock.context());
 	const cues = new WebAudioCues(() => clock.context());
 	metronome.setTempo(options.tempoBpm ?? 80);
-	let order = [...VERDICTS];
+	let order = [...RESPONSE_VERDICTS];
 	const unsubscribe = metronome.onBeat((beat) => {
 		const bar = Math.floor(beat.index / BEATS_PER_BAR);
 		const beatInBar = beat.index % BEATS_PER_BAR;
 		if (bar % 2 === 0) return;
 		if (beatInBar === 0) {
-			order = options.shuffle ? shuffled(VERDICTS) : [...VERDICTS];
+			order = options.shuffle ? shuffled(RESPONSE_VERDICTS) : [...RESPONSE_VERDICTS];
 			console.info(`Bar ${bar + 1}: ${order.join(', ')}`);
 		}
 		// Five cues, four off-beats: the bar plays the first four of this order.

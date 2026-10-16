@@ -1,4 +1,4 @@
-import type { Attempt, SessionGrade } from '$lib/domain/types';
+import { responseVerdictOf, type Attempt, type SessionGrade } from '$lib/domain/types';
 
 const PLUS = { S: 'S+', A: 'A+', B: 'B+', C: 'C+', D: 'D+' } as const;
 
@@ -6,13 +6,13 @@ const PLUS = { S: 'S+', A: 'A+', B: 'B+', C: 'C+', D: 'D+' } as const;
 const OFFBEAT_MISS_WEIGHT = 0.5;
 
 function missWeight(attempt: Attempt): number {
-	if (!attempt.correct) return 1;
-	return attempt.verdict === 'offbeat' ? OFFBEAT_MISS_WEIGHT : 0;
+	if (attempt.correct !== true) return 1;
+	return responseVerdictOf(attempt) === 'offbeat' ? OFFBEAT_MISS_WEIGHT : 0;
 }
 
 export function sessionGrade(attempts: readonly Attempt[]): SessionGrade | null {
 	if (attempts.length === 0) return null;
-	const correct = attempts.filter((attempt) => attempt.correct);
+	const correct = attempts.filter((attempt) => attempt.correct === true);
 	if (correct.length === 0) return 'F+';
 	const wrongRatio =
 		attempts.reduce((sum, attempt) => sum + missWeight(attempt), 0) / attempts.length;
@@ -26,6 +26,6 @@ export function sessionGrade(attempts: readonly Attempt[]): SessionGrade | null 
 					: wrongRatio < 0.75
 						? 'C'
 						: 'D';
-	const clean = correct.filter((attempt) => attempt.verdict === 'perfect').length;
+	const clean = correct.filter((attempt) => responseVerdictOf(attempt) === 'perfect').length;
 	return clean / correct.length >= 0.5 ? PLUS[letter] : letter;
 }

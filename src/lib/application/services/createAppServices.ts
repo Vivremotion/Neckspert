@@ -1,17 +1,20 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import type { SessionDeps } from '$lib/application/session/SessionDeps';
+import { summarizeRhythm } from '$lib/application/session/plan/rhythmSummary';
+import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
+import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
+	exerciseById,
 	IDENTIFY_NECK,
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
 	TRIADS_ZONE,
 	startTempo
 } from '$lib/domain/exercise';
-import { locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { isTimed, locateRules, mechanicRules } from '$lib/domain/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -35,16 +38,28 @@ import {
 	type CardState,
 	type Execution,
 	type Progression,
-	type SessionKind
+	type SessionKind,
+	type SessionRecord
 } from '$lib/domain/types';
 
 export function createAppServices(
-	deps: SessionDeps & {
+	deps: PlanSessionDeps & {
 		backup: BackupPort;
 		calibration: CalibrationPort;
 		diagnostics: DiagnosticsService;
 	}
 ): AppServices {
+	/** The rhythm exercise a session played, when its exercise is still in the catalog with levels. */
+	const rhythmExerciseOf = (record: SessionRecord) => {
+		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
+		try {
+			const exercise = (deps.exercise ?? exerciseById)(record.exerciseId);
+			return exercise.levels && exercise.levels.length > 0 && exercise.base ? exercise : undefined;
+		} catch {
+			return undefined;
+		}
+	};
+
 	return {
 		settings: deps.settings,
 		backup: deps.backup,
@@ -96,6 +111,24 @@ export function createAppServices(
 			if (!record) {
 				throw new Error(`Unknown session: ${sessionId}`);
 			}
+			const exercise = rhythmExerciseOf(record);
+			if (exercise) {
+				// A rhythm exercise: its own cycles and the level it ended on, nothing of the neck.
+				const [attempts, state] = await Promise.all([
+					deps.attempts.listBySession(sessionId),
+					deps.levels.get({ exerciseId: exercise.id, scope: '', item: '' })
+				]);
+				return {
+					...summarizeSession({
+						record,
+						attempts: [],
+						allAttempts: [],
+						cards: [],
+						now: deps.now()
+					}),
+					rhythm: summarizeRhythm({ exercise, attempts, levelReached: record.levelReached, state })
+				};
+			}
 			const [attempts, allAttempts, cards] = await Promise.all([
 				deps.attempts.listBySession(sessionId),
 				deps.attempts.all(),
@@ -118,6 +151,8 @@ export function createAppServices(
 		},
 
 		async startSession(kind: SessionKind) {
+			// An exercise session needs its exercise: recorded without it, no backup would import.
+			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
 			/** One triads exercise, at its own tempo, on the triad selector. */
 			const prepareTriads = (
 				mechanic: TriadMechanic,
@@ -182,10 +217,13 @@ export function createAppServices(
 					});
 					return { selector, executions };
 				}
-				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => ({
-					exerciseId: e.id,
-					tempoBpm: mechanicRules(e.mechanic).timing.usesTempo ? startTempo(e, progressions) : null
-				}));
+				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => {
+					const rules = mechanicRules(e.mechanic);
+					return {
+						exerciseId: e.id,
+						tempoBpm: isTimed(rules) && rules.timing.usesTempo ? startTempo(e, progressions) : null
+					};
+				});
 				// The learn selector fits learned leads to the locate tempo.
 				const locateTempo =
 					executions.find((e) => e.exerciseId === LOCATE_NECK.id)?.tempoBpm ?? DEFAULT_TEMPO_BPM;
@@ -205,6 +243,10 @@ export function createAppServices(
 				return { selector, executions };
 			};
 			return new SessionController({ id: deps.newId(), kind }, prepare, deps);
+		},
+
+		async startExercise(exerciseId) {
+			return new PlanSessionController({ id: deps.newId(), exerciseId }, deps);
 		}
 	};
 }

@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
 	import type { TriadsHome } from '$lib/application/app';
+	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
@@ -79,5 +80,6 @@
 		ontriads={startTriads}
 		{gesture}
 		ongesture={startGesture}
+		rhythm={RHYTHM_EXERCISES}
 	/>
 {/if}
