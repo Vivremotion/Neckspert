@@ -46,6 +46,7 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Joué juste',
 		contested: 'Contesté',
 		levelReached: (shown: number, of: number) => `Niveau atteint : ${shown} sur ${of}`,
+		aidLevelReached: 'Niveau atteint : niveau d’aide',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes > 1 ? 'cycles réussis' : 'cycle réussi'} sur ${cycles}`,
 		successesAided: (n: number) => `dont ${n} avec aide`
@@ -93,6 +94,7 @@ export const summaryMessages = defineMessages({
 		playedRight: 'Played right',
 		contested: 'Contested',
 		levelReached: (shown: number, of: number) => `Level reached: ${shown} of ${of}`,
+		aidLevelReached: 'Level reached: aid level',
 		cyclesSucceeded: (successes: number, cycles: number) =>
 			`${successes} ${successes === 1 ? 'cycle' : 'cycles'} succeeded out of ${cycles}`,
 		successesAided: (n: number) => `of which ${n} with aid`

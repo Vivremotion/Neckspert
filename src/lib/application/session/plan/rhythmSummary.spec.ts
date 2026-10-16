@@ -40,7 +40,7 @@ describe('summarizeRhythm', () => {
 		const attempts = [cycle(0, true), cycle(0, false), cycle(1, true)];
 		expect(summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
-			levelReached: { shown: 3, of: OF },
+			levelReached: { shown: 3, of: OF, aid: false },
 			cycles: 3,
 			successes: 2,
 			aided: 0
@@ -68,7 +68,17 @@ describe('summarizeRhythm', () => {
 			levelReached: 1,
 			state: state(3)
 		});
-		expect(summary.levelReached).toEqual({ shown: 2, of: OF });
+		expect(summary.levelReached).toEqual({ shown: 2, of: OF, aid: false });
+	});
+
+	it('says when the level held is an aid level', () => {
+		const summary = summarizeRhythm({
+			exercise: RHYTHM_OFFBEATS,
+			attempts: [cycle(-1, true)],
+			levelReached: -1,
+			state: state(-1)
+		});
+		expect(summary.levelReached).toEqual({ shown: 0, of: OF, aid: true });
 	});
 
 	it('falls back on the level of the last cycle when no level is stored', () => {
@@ -77,12 +87,16 @@ describe('summarizeRhythm', () => {
 			attempts: [cycle(0, true), cycle(1, true)],
 			state: undefined
 		});
-		expect(summary.levelReached).toEqual({ shown: 2, of: OF });
+		expect(summary.levelReached).toEqual({ shown: 2, of: OF, aid: false });
 	});
 
 	it('shows the first level for a session with no cycle and nothing stored', () => {
 		const summary = summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts: [], state: undefined });
-		expect(summary).toMatchObject({ levelReached: { shown: 1, of: OF }, cycles: 0, successes: 0 });
+		expect(summary).toMatchObject({
+			levelReached: { shown: 1, of: OF, aid: false },
+			cycles: 0,
+			successes: 0
+		});
 	});
 
 	it('leaves out the attempts of another exercise', () => {

@@ -378,8 +378,8 @@ export interface SessionSummary {
 /** What a rhythm exercise session did: the level it ended on and its cycles. */
 export interface RhythmSummary {
 	exerciseId: ExerciseId;
-	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 »). */
-	levelReached: { shown: number; of: number };
+	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level). */
+	levelReached: { shown: number; of: number; aid: boolean };
 	/** Cycles played. */
 	cycles: number;
 	/** Cycles that succeeded (`Attempt.success`). */

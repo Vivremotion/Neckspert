@@ -34,7 +34,7 @@
 		kind: 'exercise',
 		rhythm: {
 			exerciseId: 'rhythm-offbeats',
-			levelReached: { shown: 3, of: 6 },
+			levelReached: { shown: 3, of: 6, aid: false },
 			cycles: 14,
 			successes: 11,
 			aided: 2

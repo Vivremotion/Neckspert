@@ -28,10 +28,9 @@ export function summarizeRhythm(input: {
 	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
 	const held = input.levelReached ?? input.state?.level ?? last?.data.level ?? 0;
-	const { shown, of } = levelView(levels, Math.min(highest, Math.max(lowest, held)));
 	return {
 		exerciseId: exercise.id,
-		levelReached: { shown, of },
+		levelReached: levelView(levels, Math.min(highest, Math.max(lowest, held))),
 		cycles: cycles.length,
 		successes: cycles.filter((attempt) => attempt.success).length,
 		aided: cycles.filter(

@@ -242,7 +242,7 @@ describe('SummaryScreen of a rhythm session', () => {
 		kind: 'exercise',
 		rhythm: {
 			exerciseId: 'rhythm-offbeats',
-			levelReached: { shown: 3, of: 6 },
+			levelReached: { shown: 3, of: 6, aid: false },
 			cycles: 14,
 			successes: 11,
 			aided: 2
@@ -284,5 +284,24 @@ describe('SummaryScreen of a rhythm session', () => {
 		});
 		expect(screen.getByText('11 cycles succeeded out of 14')).toBeTruthy();
 		expect(screen.getByText('of which 2 with aid')).toBeTruthy();
+	});
+
+	it('names an aid level as the play header does, in French and in English', () => {
+		const aided: SessionSummary = {
+			...rhythm,
+			rhythm: { ...rhythm.rhythm!, levelReached: { shown: 0, of: 6, aid: true } }
+		};
+		render(SummaryScreen, {
+			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Niveau atteint : niveau d’aide')).toBeTruthy();
+		expect(screen.queryByText(/0 sur 6/)).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		render(SummaryScreen, {
+			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('Level reached: aid level')).toBeTruthy();
+		expect(screen.queryByText(/0 of 6/)).toBeNull();
 	});
 });

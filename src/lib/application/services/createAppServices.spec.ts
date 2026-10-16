@@ -517,7 +517,7 @@ describe('the rhythm exercises', () => {
 		expect(summary.kind).toBe('exercise');
 		expect(summary.rhythm).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
-			levelReached: { shown: 2, of: 4 },
+			levelReached: { shown: 2, of: 4, aid: false },
 			cycles: 3,
 			successes: 2,
 			aided: 0
@@ -532,11 +532,13 @@ describe('the rhythm exercises', () => {
 		await deps.levels.put(heldLevel(3));
 		expect((await services.sessionSummary('older')).rhythm?.levelReached).toEqual({
 			shown: 2,
-			of: 4
+			of: 4,
+			aid: false
 		});
 		expect((await services.sessionSummary('later')).rhythm?.levelReached).toEqual({
 			shown: 4,
-			of: 4
+			of: 4,
+			aid: false
 		});
 	});
 
@@ -546,7 +548,8 @@ describe('the rhythm exercises', () => {
 		await deps.levels.put(heldLevel(2));
 		expect((await services.sessionSummary('r1')).rhythm?.levelReached).toEqual({
 			shown: 3,
-			of: 4
+			of: 4,
+			aid: false
 		});
 	});
 

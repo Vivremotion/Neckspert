@@ -2,7 +2,7 @@
 	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 	import { GRIDS } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import { isTriadsKind, type SessionSummary } from '$lib/domain/types';
+	import { isTriadsKind, type RhythmSummary, type SessionSummary } from '$lib/domain/types';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -31,6 +31,11 @@
 		if (scope === undefined) return name;
 		const grid = GRIDS.find((candidate) => candidate.id === scope);
 		return `${name} · ${grid?.title ?? scope}`;
+	}
+
+	/** The level a rhythm session ended on, an aid level named as the play header names it. */
+	function rhythmLevel(level: RhythmSummary['levelReached']): string {
+		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
 	}
 
 	/** A rhythm exercise by its name in the current language. */
@@ -95,7 +100,7 @@
 				<ul class="rows">
 					<li class="exercise">
 						<strong>{rhythmTitle(rhythm.exerciseId)}</strong>
-						<span>{t.levelReached(rhythm.levelReached.shown, rhythm.levelReached.of)}</span>
+						<span>{rhythmLevel(rhythm.levelReached)}</span>
 						<span>{t.cyclesSucceeded(rhythm.successes, rhythm.cycles)}</span>
 						{#if rhythm.aided > 0}
 							<span>{t.successesAided(rhythm.aided)}</span>
