@@ -206,7 +206,9 @@
 			{:else if view.audioError === 'input'}
 				<p class="how" role="alert">{t.noInput}</p>
 			{:else if view.audioError === 'bleed'}
+				<!-- The game is not refused: a first encounter still reads its instruction. -->
 				<p class="how" role="alert">{t.bleed}</p>
+				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
 			{:else}
 				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
 			{/if}

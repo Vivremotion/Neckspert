@@ -234,6 +234,15 @@ describe('PlayFrame', () => {
 				'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.'
 			);
 		});
+
+		it('still tells a first encounter its instruction when the microphone hears the click', () => {
+			const controller = new FigureStageController();
+			controller.view.audioError = 'bleed';
+			controller.view.briefing = { text: 'Joue sur les contretemps.' };
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			expect(screen.getByRole('alert').textContent).toMatch(/entend le clic/);
+			expect(screen.getByText('Joue sur les contretemps.')).toBeTruthy();
+		});
 	});
 
 	it('binds no figure key, nor Escape, for a controller that offers none', async () => {
