@@ -82,7 +82,7 @@ describe('/calibration page', () => {
 		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
 		await fireEvent.change(screen.getByRole('combobox'), { target: { value: 'built' } });
 		await fireEvent.click(screen.getByRole('button', { name: /calibrer/i }));
-		await waitFor(() => expect(screen.getByText(/dispersées/i)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(/ne s’accordent pas assez/i)).toBeTruthy());
 		expect(services.calibration.lastDeviceId).toBe('built');
 		const settings = await services.settings.get();
 		expect(settings.inputDeviceId).toBeNull();

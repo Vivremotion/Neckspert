@@ -61,13 +61,14 @@ export const calibrationMessages = defineMessages({
 			(delay === null || spread === null ? '' : ` (± ${fr(spread)} ms)`) +
 			'.',
 		referenceAdvice:
-			'Il en faut au moins la moitié, à un écart stable : monte le son des enceintes, rapproche l’ordinateur, et reste silencieux pendant les clics.',
+			'Il en faut au moins la moitié, à un écart stable : monte le son des enceintes, rapproche l’ordinateur, et reste silencieux pendant les clics. Dans Firefox, le micro de l’ordinateur entend mal les clics : calibre plutôt dans Chrome.',
 		clickChoice: 'Calibrer sur mon jeu au clic',
 		clickChoiceNote:
 			'Elle mesure aussi ton jeu : la latence obtenue est affichée, jamais utilisée pour juger.',
 		bleed: 'Ton entrée entend le clic : pour les exercices de rythme, joue au casque.',
 		'no-sound': 'Aucun son détecté. Réessaie plus fort, ou change d’entrée.',
-		inconsistent: 'Mesures trop dispersées. Réessaie au calme, en suivant la consigne.',
+		inconsistent:
+			'Les deux entrées ne s’accordent pas assez (dispersion ci-dessous). Ce n’est pas ton jeu : réessaie, en laissant sonner chaque note.',
 		'second-input':
 			'Le micro de l’ordinateur n’a pas entendu tes notes. Rapproche la guitare de l’ordinateur et réessaie.',
 		cancelled: 'Calibration annulée.',
@@ -119,13 +120,14 @@ export const calibrationMessages = defineMessages({
 			(delay === null || spread === null ? '' : ` (± ${en(spread)} ms)`) +
 			'.',
 		referenceAdvice:
-			'It needs at least half of them, at a steady delay: turn the speakers up, bring the computer closer, and stay silent during the clicks.',
+			'It needs at least half of them, at a steady delay: turn the speakers up, bring the computer closer, and stay silent during the clicks. In Firefox the computer’s mic hears the clicks poorly: calibrate in Chrome instead.',
 		clickChoice: 'Calibrate on my playing on the click',
 		clickChoiceNote:
 			'It measures your playing too: the latency it gives is shown, never used to judge.',
 		bleed: 'Your input hears the click: wear headphones for the rhythm exercises.',
 		'no-sound': 'No sound detected. Try louder, or pick another input.',
-		inconsistent: 'Measurements too scattered. Retry in a quiet room, following the instruction.',
+		inconsistent:
+			'The two inputs do not agree closely enough (spread below). It is not your playing: retry, letting each note ring.',
 		'second-input':
 			'The computer’s mic did not hear your notes. Bring the guitar closer to the computer and retry.',
 		cancelled: 'Calibration cancelled.',
