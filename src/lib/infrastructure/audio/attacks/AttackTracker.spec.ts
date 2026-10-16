@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MIN_ATTACK_GAP_MS } from './config';
+import { ATTACK_MERGE_MS, MIN_ATTACK_GAP_MS } from './config';
 import { AttackTracker } from './AttackTracker';
 import { feed, glide, hum, mutedBurst, plucks, vibratoNote } from './testing/signals';
 
@@ -17,7 +17,7 @@ describe('AttackTracker', () => {
 		expect(Math.abs(attacks[0].time - 0.3)).toBeLessThanOrEqual(tol(rate));
 	});
 
-	it.each([0.075, 0.05, 0.03])('separates plucks %f s apart', (gap) => {
+	it.each([0.075, 0.05])('separates plucks %f s apart', (gap) => {
 		const rate = 48000;
 		const times = [0.2, 0.2 + gap, 0.2 + 2 * gap, 0.2 + 3 * gap];
 		const attacks = feed(
@@ -27,6 +27,36 @@ describe('AttackTracker', () => {
 		);
 		expect(attacks.map((a) => a.time)).toHaveLength(4);
 		attacks.forEach((a, i) => expect(Math.abs(a.time - times[i])).toBeLessThanOrEqual(0.002));
+	});
+
+	it.each([0.03, 0.04])(
+		'makes one attack, at the stronger, of a faint pluck then a firm one %f s later (within the merge span)',
+		(gap) => {
+			expect(gap * 1000).toBeLessThan(ATTACK_MERGE_MS);
+			const rate = 48000;
+			const touch = plucks({ rate, durationS: 1, attacksS: [0.2], hz: 330, amplitude: 0.02 });
+			const note = plucks({ rate, durationS: 1, attacksS: [0.2 + gap], hz: 330, amplitude: 0.4 });
+			const attacks = feed(
+				new AttackTracker(rate),
+				touch.map((v, i) => v + note[i]),
+				rate
+			);
+			expect(attacks).toHaveLength(1);
+			expect(Math.abs(attacks[0].time - (0.2 + gap))).toBeLessThanOrEqual(0.002);
+		}
+	);
+
+	it('makes one attack, at the first, of a firm pluck then a fainter one 30 ms later', () => {
+		const rate = 48000;
+		const firm = plucks({ rate, durationS: 1, attacksS: [0.2], hz: 330, amplitude: 0.4 });
+		const faint = plucks({ rate, durationS: 1, attacksS: [0.23], hz: 330, amplitude: 0.1 });
+		const attacks = feed(
+			new AttackTracker(rate),
+			firm.map((v, i) => v + faint[i]),
+			rate
+		);
+		expect(attacks).toHaveLength(1);
+		expect(Math.abs(attacks[0].time - 0.2)).toBeLessThanOrEqual(0.002);
 	});
 
 	it('hears a muted strum (pitchless burst)', () => {

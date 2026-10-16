@@ -1,5 +1,13 @@
-/** Two attacks closer than this are one attack (a strum's strings, a flam). */
+/** An onset is never refined to closer than this to the previous attack's. */
 export const MIN_ATTACK_GAP_MS = 25;
+
+/**
+ * Flux peaks closer than this are one attack (a strum's strings, a flam, the pick touching the
+ * string before the note sounds), timed at the strongest. Through an interface a picked note often
+ * gives a faint peak then, 25–40 ms later, the note itself some 25 dB louder (real practice,
+ * 2026-10-16). The fastest rhythm the app targets, 32nds at 160 bpm, are 47 ms apart.
+ */
+export const ATTACK_MERGE_MS = 45;
 
 /**
  * SuperFlux (Böck and Widmer, DAFx 2013) tuned for a guitar. Times are in milliseconds, so the
@@ -23,6 +31,8 @@ export interface AttackConfig {
 	/** Threshold above the local mean, in units of the log-band flux. */
 	delta: number;
 	minGapMs: number;
+	/** Peaks closer than this to the strongest one held are merged into it. */
+	mergeMs: number;
 	/** Below this window RMS, the input is silence and has no flux. */
 	minRms: number;
 	/** Strength 1 needs at least this flux, so a lone soft attack is not full strength. */
@@ -31,8 +41,10 @@ export interface AttackConfig {
 
 /**
  * Tuned on the synthetic signals of the spec and the real triads of `chords/fixtures/`:
- * - `preMaxMs` 20, not 30: plucks 30 ms apart must stay apart, and a window as long as the gap
+ * - `preMaxMs` 20, not 30: plucks 50 ms apart must stay apart, and a window as long as the gap
  *   lets the first, stronger peak hide the next one;
+ * - `mergeMs` 45: peaks closer than that are one attack, timed at the strongest, so a pick's touch
+ *   before its note is not an attack of its own (plucks 30 ms apart are now one attack);
  * - `delta` 3.5 and `preAvgMs` 50: the flux of a real strum peaks around 16–32, an arpeggiated
  *   note over ringing strings around 6–14, the noise of a DI input under 2.5, of the built-in
  *   mic (gain 8) up to 6. Over 50 ms the mean still holds a strum's first string, so its later
@@ -51,6 +63,7 @@ export const DEFAULT_ATTACK_CONFIG: AttackConfig = {
 	postAvgMs: 10,
 	delta: 3.5,
 	minGapMs: MIN_ATTACK_GAP_MS,
+	mergeMs: ATTACK_MERGE_MS,
 	minRms: 0.002,
 	strengthFloor: 40
 };

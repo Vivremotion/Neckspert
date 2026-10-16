@@ -42,6 +42,8 @@ function nearestPowerOfTwo(n: number): number {
  * quarter-tone spectrum against a reference frame widened by a maximum filter across bands (a
  * vibrato or a bend raises no flux), local adaptive threshold, peak picking. The onset time is
  * then refined in the raw samples, where the sound stops being predictable from what rang before.
+ * Peaks closer than `mergeMs` are one attack, timed at the strongest, so an attack is emitted
+ * `mergeMs` after its peak at the latest.
  */
 export class AttackTracker {
 	private readonly config: AttackConfig;
@@ -55,6 +57,7 @@ export class AttackTracker {
 	private readonly postAvg: number;
 	private readonly settleAfter: number;
 	private readonly minGap: number;
+	private readonly merge: number;
 	private readonly strengthFrames: number;
 	private readonly bank: SemitoneFilterbank;
 	private readonly hann: Float64Array;
@@ -78,9 +81,13 @@ export class AttackTracker {
 	private received = 0;
 	/** Frames analysed since the last reset. */
 	private frames = 0;
+	/** Peak frame of the last attack emitted. */
 	private lastPeak = -Infinity;
-	/** Sample of the last attack's onset. */
+	/** Sample of the last emitted attack's onset. */
 	private lastOnset = -Infinity;
+	/** The strongest peak of the attack being heard, emitted once `mergeMs` has passed after it. */
+	private pending: { peak: number; flux: number; onset: number; attack: DetectedAttack } | null =
+		null;
 
 	constructor(
 		private readonly sampleRate: number,
@@ -99,6 +106,7 @@ export class AttackTracker {
 		this.postAvg = steps(c.postAvgMs);
 		this.settleAfter = Math.max(this.postMax, this.postAvg);
 		this.minGap = steps(c.minGapMs);
+		this.merge = steps(c.mergeMs);
 		this.strengthFrames = steps(STRENGTH_MEMORY_S * 1000);
 
 		this.bank = createSemitoneFilterbank({ sampleRate, fftSize: this.fftSize });
@@ -124,12 +132,15 @@ export class AttackTracker {
 
 	/** Feeds one block of mono samples starting at `frameTime` (audio s); returns the attacks settled by it. */
 	push(samples: Float32Array, frameTime: number): DetectedAttack[] {
+		const attacks: DetectedAttack[] = [];
 		const halfBlock = samples.length / 2 / this.sampleRate;
-		if (this.expected !== null && Math.abs(frameTime - this.expected) > halfBlock) this.reset();
+		if (this.expected !== null && Math.abs(frameTime - this.expected) > halfBlock) {
+			if (this.pending) attacks.push(this.pending.attack);
+			this.reset();
+		}
 		if (this.origin === null) this.origin = frameTime;
 		this.expected = frameTime + samples.length / this.sampleRate;
 
-		const attacks: DetectedAttack[] = [];
 		for (let i = 0; i < samples.length; i++) {
 			this.history[this.received & this.historyMask] = samples[i];
 			this.received++;
@@ -149,6 +160,7 @@ export class AttackTracker {
 		this.frames = 0;
 		this.lastPeak = -Infinity;
 		this.lastOnset = -Infinity;
+		this.pending = null;
 		this.flux.fill(0);
 	}
 
@@ -201,13 +213,45 @@ export class AttackTracker {
 		return this.settle(t - this.settleAfter);
 	}
 
-	/** Decides whether frame `c`, whose look-ahead is now complete, is an attack. */
+	/**
+	 * Settles frame `c`, whose look-ahead is now complete: emits the attack held once `mergeMs`
+	 * has passed after its peak, then holds `c` if it is a peak, unless a stronger one is held.
+	 */
 	private settle(c: number): DetectedAttack | null {
 		if (c < 0) return null;
+		let emitted: DetectedAttack | null = null;
+		if (this.pending && c - this.pending.peak >= this.merge) {
+			emitted = this.pending.attack;
+			this.lastPeak = this.pending.peak;
+			this.lastOnset = this.pending.onset;
+			this.pending = null;
+		}
 		const value = this.fluxAt(c);
-		if (value <= 0 || c - this.lastPeak < this.minGap) return null;
+		if (!this.isPeak(c, value) || (this.pending && this.pending.flux >= value)) return emitted;
+
+		let recent = Math.max(value, this.config.strengthFloor);
+		for (let f = Math.max(0, c - this.strengthFrames + 1); f < c; f++) {
+			recent = Math.max(recent, this.fluxAt(f));
+		}
+		// Refined against the last attack emitted, never against the weaker peak this one replaces.
+		const onset = this.refine(this.frameEnd(c));
+		this.pending = {
+			peak: c,
+			flux: value,
+			onset,
+			attack: {
+				time: (this.origin ?? 0) + onset / this.sampleRate,
+				strength: Math.min(1, Math.max(0, value / recent))
+			}
+		};
+		return emitted;
+	}
+
+	/** Whether frame `c` is a flux peak standing above its neighbourhood. */
+	private isPeak(c: number, value: number): boolean {
+		if (value <= 0 || c - this.lastPeak < this.minGap) return false;
 		for (let f = Math.max(0, c - this.preMax); f <= c + this.postMax; f++) {
-			if (this.fluxAt(f) > value) return null;
+			if (this.fluxAt(f) > value) return false;
 		}
 		let sum = 0;
 		let count = 0;
@@ -215,26 +259,14 @@ export class AttackTracker {
 			sum += this.fluxAt(f);
 			count++;
 		}
-		if (value < sum / count + this.config.delta) return null;
-		this.lastPeak = c;
-
-		let recent = Math.max(value, this.config.strengthFloor);
-		for (let f = Math.max(0, c - this.strengthFrames + 1); f < c; f++) {
-			recent = Math.max(recent, this.fluxAt(f));
-		}
-		const onset = this.refine(this.frameEnd(c));
-		this.lastOnset = onset;
-		return {
-			time: (this.origin ?? 0) + onset / this.sampleRate,
-			strength: Math.min(1, Math.max(0, value / recent))
-		};
+		return value >= sum / count + this.config.delta;
 	}
 
 	/**
 	 * The onset of the attack whose flux peaks in the frame ending at `end`: the first sample
 	 * where the sound stops following its linear prediction from the background just before
 	 * (residual RMS over the last millisecond above `REFINE_RATIO` times the background's
-	 * median). Never before the previous attack plus the minimum gap.
+	 * median). Never before the last emitted attack plus the minimum gap.
 	 */
 	private refine(end: number): number {
 		const ms = this.sampleRate / 1000;

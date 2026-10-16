@@ -73,3 +73,29 @@ describe('the attack tracker on real recorded triads', () => {
 		}
 	);
 });
+
+/**
+ * Picked single notes through an audio interface (FM3), cut from 8.9 s to 10.5 s of a diagnostic
+ * take of the offbeats exercise (2026-10-16, 16 kHz). Each note comes as a faint touch of the pick
+ * (≈ −42 dBFS) then, 25–40 ms later, the note itself, ≈ 25 dB louder: the musical onset is the
+ * second. Onsets measured on the envelope (0.25 ms RMS), seconds from the excerpt's start.
+ */
+const PICKED_NOTES = import.meta.glob<string>('./fixtures/picked-notes-fm3.wav', {
+	query: '?inline',
+	import: 'default',
+	eager: true
+})['./fixtures/picked-notes-fm3.wav'];
+const PICKED_ONSETS_S = [0.2665, 0.6267, 1.342];
+const PICKED_TOLERANCE_S = 0.005;
+
+describe('the attack tracker on picked notes through an interface', () => {
+	it('hears one attack per note, at the loud onset, not at the touch of the pick', () => {
+		const binary = atob(PICKED_NOTES.slice(PICKED_NOTES.indexOf(',') + 1));
+		const { sampleRate, samples } = readWav(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+		const attacks = feed(new AttackTracker(sampleRate), samples, sampleRate);
+		expect(attacks.map((a) => a.time)).toHaveLength(PICKED_ONSETS_S.length);
+		attacks.forEach((a, i) =>
+			expect(Math.abs(a.time - PICKED_ONSETS_S[i])).toBeLessThanOrEqual(PICKED_TOLERANCE_S)
+		);
+	});
+});
