@@ -160,7 +160,7 @@ export class PlanSessionController implements PlaySessionController {
 	private live: Cycle[] = [];
 	/** The played cycle under way: its span takes what no round's window holds. */
 	private current: Cycle | null = null;
-	/** Cycles played in the series: the next figure in turn. */
+	/** Cycles played in the series (laid out, not dropped by a pause): the next figure in turn. */
 	private playedInSeries = 0;
 	/** `listen()` was asked: the next cycle laid out is heard. */
 	private listenNext = false;
@@ -713,7 +713,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	/**
 	 * Stops the sounds and the wake-ups; a cycle already over is settled and stored, one under
-	 * way is dropped without an attempt.
+	 * way (or laid out ahead) is dropped without an attempt, and its figure comes again next.
 	 */
 	private stopPlaying(): void {
 		// Before the transport stops: stopping empties the journal of the sounds.
@@ -730,6 +730,8 @@ export class PlanSessionController implements PlaySessionController {
 		for (const cycle of this.live) {
 			cycle.spanOpen = false;
 			cycle.span?.close();
+			// Counted when laid out: a dropped cycle gives its figure back.
+			this.playedInSeries--;
 		}
 		this.live = [];
 		if (this.current) this.closeSpan(this.current);

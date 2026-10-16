@@ -311,6 +311,63 @@ describe('PlanSessionController, pausing', () => {
 	});
 });
 
+describe('PlanSessionController, pausing in « Métronome sur 2 et 4 »', () => {
+	/** The lines of the cycles stored, in order. */
+	async function lines(attempts: InMemoryAttemptRepository): Promise<string[]> {
+		const stored = await attempts.listBySession('series');
+		return stored.map((attempt) => (attempt.data as RhythmAttemptData).item.figureId);
+	}
+
+	/** Resumes, then lets two cycles be played (unanswered) from the run that follows. */
+	async function resumeForTwoCycles(
+		controller: PlanSessionController,
+		clock: FakeClock,
+		advance: (to: number, playing?: boolean) => Promise<void>
+	): Promise<void> {
+		controller.resume();
+		await settled();
+		// listen-in 0-1, count 2, cycle 3-6, breath 7-8, cycle 9-12, settled past 13
+		await advance(clock.now() + ORIGIN + 13.5 * TWO_FOUR_BAR_S, false);
+	}
+
+	it('plays again the line it was reading when paused during its cycle', async () => {
+		const { controller, attempts, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		// The first line's cycle, bars 3 to 6, under way.
+		await advance(ORIGIN + 4.5 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('play');
+		controller.pause();
+		expect(await lines(attempts)).toEqual([]);
+		await resumeForTwoCycles(controller, clock, advance);
+		expect(await lines(attempts)).toEqual(['line-1', 'line-2']);
+		controller.quit();
+	});
+
+	it('plays the line laid out a bar ahead when paused just before its cycle', async () => {
+		const { controller, attempts, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		// The counted bar: the first cycle, on bar 3, is laid out already.
+		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('count-in');
+		controller.pause();
+		await resumeForTwoCycles(controller, clock, advance);
+		expect(await lines(attempts)).toEqual(['line-1', 'line-2']);
+		controller.quit();
+	});
+
+	it('goes on to the next line after a cycle played to its end', async () => {
+		const { controller, attempts, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		// The first line settled; the breath, bars 7 and 8.
+		await advance(ORIGIN + 7.5 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		controller.pause();
+		await resumeForTwoCycles(controller, clock, advance);
+		expect(await lines(attempts)).toEqual(['line-1', 'line-2', 'line-3']);
+		controller.quit();
+	});
+});
+
 describe('PlanSessionController, another series', () => {
 	it('starts a new series under a new id once the last one finished', async () => {
 		const { controller, sessions, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
