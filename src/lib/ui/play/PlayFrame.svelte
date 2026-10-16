@@ -92,7 +92,13 @@
 		if (figures && onFigureKey(event)) return;
 		if (event.code !== 'Space' && event.key !== 'Enter') return;
 		const target = event.target;
+		// A control a view marks `data-frame-space` leaves Space to the frame: it pauses there too.
+		const frameSpace =
+			event.code === 'Space' &&
+			target instanceof HTMLElement &&
+			target.closest('[data-frame-space]') !== null;
 		if (
+			!frameSpace &&
 			target instanceof HTMLElement &&
 			target.closest('button, input, textarea, select') !== null
 		) {

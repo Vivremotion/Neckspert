@@ -300,9 +300,11 @@
 
 	<div class="actions">
 		{#if m.listen !== 'none'}
+			<!-- Space pauses, as elsewhere: it must not press this button again once clicked. -->
 			<button
 				type="button"
 				class="action"
+				data-frame-space
 				aria-keyshortcuts={frame.listenKey}
 				onclick={() => controller.listen?.()}
 			>

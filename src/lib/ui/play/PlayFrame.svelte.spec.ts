@@ -1,5 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { PLAY_VIEWS } from './views';
 import { i18n } from '$lib/i18n/index.svelte';
@@ -169,6 +171,57 @@ describe('PlayFrame', () => {
 			expect(quit.getAttribute('aria-keyshortcuts')).toBeNull();
 			await fireEvent.click(quit);
 			expect(controller.calls).toEqual(['pause', 'resume', 'quit']);
+		});
+
+		it('pauses on Space from a focused « Écouter la figure », and does not listen again', async () => {
+			// jsdom has no canvas, and VexFlow measures its text on one: a fixed-size stand-in.
+			vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+				() =>
+					({
+						font: '',
+						measureText: () => ({
+							width: 8,
+							actualBoundingBoxLeft: 0,
+							actualBoundingBoxRight: 8,
+							actualBoundingBoxAscent: 8,
+							actualBoundingBoxDescent: 0
+						})
+					}) as unknown as CanvasRenderingContext2D
+			);
+			try {
+				const controller = playing();
+				const figure = RHYTHM_OFFBEATS.figures![0].figure;
+				const model: RhythmStageModel = {
+					phase: 'play',
+					exerciseLabel: 'Contretemps',
+					level: { shown: 1, of: 4, aid: false },
+					tempo: { bpm: 80, unit: '♩' },
+					figure,
+					next: null,
+					barInCycle: 0,
+					cycleBars: 1,
+					muted: false,
+					cursor: null,
+					feedback: 'every-cycle',
+					settled: [],
+					announcement: null,
+					listen: 'free'
+				};
+				controller.view.stage = { view: 'rhythm-figure', model };
+				render(PlayFrame, { props: { controller, kind: 'exercise' } });
+				const listen = screen.getByRole('button', { name: /écouter la figure/i });
+				await fireEvent.click(listen);
+				listen.focus();
+				// Not prevented, the browser would press the focused button again.
+				const pressed = await fireEvent.keyDown(listen, { code: 'Space', key: ' ' });
+				expect(pressed).toBe(false);
+				expect(controller.calls).toEqual(['listen', 'pause']);
+				// Enter on it still presses it.
+				controller.view.status = 'awaiting';
+				expect(await fireEvent.keyDown(listen, { key: 'Enter', code: 'Enter' })).toBe(true);
+			} finally {
+				vi.restoreAllMocks();
+			}
 		});
 
 		it('asks for headphones when the microphone hears the click', () => {
