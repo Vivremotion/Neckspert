@@ -61,30 +61,45 @@ describe('/calibration page', () => {
 		expect(screen.getByText(/42 ms/)).toBeTruthy();
 	});
 
-	it('calibrates the input chosen on the screen, even before it is saved', async () => {
+	it('calibrates the input chosen on the screen, and saves nothing when the run fails', async () => {
 		const services = createFakeAppServices();
 		services.detector.listInputs = async () => [
 			{ id: 'usb', label: 'Scarlett 2i2 USB' },
 			{ id: 'built', label: 'Built-in Microphone' }
 		];
-		let measured: string | null = null;
-		services.calibration.run = async () => {
-			measured = (await services.settings.get()).inputDeviceId;
-			return { ok: false, reason: 'cancelled' };
-		};
+		services.calibration.nextOutcome = { ok: false, reason: 'inconsistent' };
 		render(TestHarness, { props: { services } });
 
 		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
 		await fireEvent.change(screen.getByRole('combobox'), { target: { value: 'built' } });
 		await fireEvent.click(screen.getByRole('button', { name: /calibrer/i }));
-		await waitFor(() => expect(measured).toBe('built'));
+		await waitFor(() => expect(screen.getByText(/dispersées/i)).toBeTruthy());
+		expect(services.calibration.lastDeviceId).toBe('built');
+		const settings = await services.settings.get();
+		expect(settings.inputDeviceId).toBeNull();
+		expect(settings.latency).toEqual({});
+	});
+
+	it('says the input did not open when the run fails to start, and offers a retry', async () => {
+		const services = createFakeAppServices();
+		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+		services.calibration.run = async () => {
+			throw new Error('NotFoundError: Requested device not found');
+		};
+		render(TestHarness, { props: { services } });
+
+		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: /calibrer/i }));
+		await waitFor(() => expect(screen.getByText(/ne s’est pas ouverte/i)).toBeTruthy());
+		expect(screen.getByText(/Requested device not found/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /réessayer/i })).toBeTruthy();
 	});
 
 	it('cancels an in-flight run when the user presses cancel', async () => {
 		const services = createFakeAppServices();
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
 		let release!: (outcome: { ok: false; reason: 'cancelled' }) => void;
-		services.calibration.run = async (onProgress) => {
+		services.calibration.run = async (_deviceId, onProgress) => {
 			onProgress({ phase: 'listen', done: 1, needed: 8 });
 			return new Promise((resolve) => {
 				release = resolve;

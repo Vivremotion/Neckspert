@@ -43,7 +43,10 @@ class FakeBackup implements BackupPort {
 }
 
 class FakeCalibration implements CalibrationPort {
-	async run(_onProgress: (p: CalibrationProgress) => void): Promise<CalibrationOutcome> {
+	async run(
+		_deviceId: string | null,
+		_onProgress: (p: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
 		return { ok: false, reason: 'cancelled' };
 	}
 	cancel(): void {}

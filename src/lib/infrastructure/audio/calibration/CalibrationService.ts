@@ -3,6 +3,7 @@ import type {
 	AudioClockPort,
 	AudioInputDevice,
 	CalibrationOutcome,
+	CalibrationPhase,
 	CalibrationPort,
 	CalibrationProgress,
 	NoteDetectorPort,
@@ -22,10 +23,12 @@ import {
 	COMPARE_SETTLE_S,
 	COMPARE_TIMEOUT_S,
 	DEFAULT_CALIBRATION_CONFIG,
+	LISTEN_MAX_SPREAD_MS,
 	LISTEN_MIN_HEARD_RATIO,
 	LISTEN_WINDOW_S,
 	MIC_DISTANCE_MS,
 	MIN_PAIRED_SHARE,
+	NOTE_DELAY_MIN_PAIRS,
 	PAIR_WINDOW_S,
 	PLAY_SKIPPED_CLICKS,
 	type CalibrationConfig
@@ -42,6 +45,9 @@ const ALIAS_IDS = new Set(['default', 'communications']);
 
 const CANCELLED: CalibrationOutcome = { ok: false, reason: 'cancelled' };
 
+/** Thrown inside a run once it is closed: it stops there and touches no shared port again. */
+class RunClosed extends Error {}
+
 /** What the inputs heard during the current phase, in audio seconds. */
 interface Heard {
 	play: number[];
@@ -56,13 +62,29 @@ class Run {
 	onNote: ((time: number) => void) | null = null;
 	private readonly cleanups: Array<() => void> = [];
 	private resolveCancel: ((outcome: CalibrationOutcome) => void) | null = null;
+	private resolveClosed: (() => void) | null = null;
 	readonly cancelled = new Promise<CalibrationOutcome>((resolve) => {
 		this.resolveCancel = resolve;
+	});
+	private readonly whenClosed = new Promise<void>((resolve) => {
+		this.resolveClosed = resolve;
 	});
 
 	add(cleanup: () => void): void {
 		if (this.closed) cleanup();
 		else this.cleanups.push(cleanup);
+	}
+
+	/** Awaits `promise`, or the close of the run, whichever comes first; throws once closed. */
+	async step<T>(promise: Promise<T>): Promise<T> {
+		const value = await Promise.race([promise, this.whenClosed.then(() => undefined)]);
+		this.check();
+		return value as T;
+	}
+
+	/** Throws once closed. */
+	check(): void {
+		if (this.closed) throw new RunClosed();
 	}
 
 	cancel(): void {
@@ -76,6 +98,7 @@ class Run {
 		this.onNote = null;
 		for (const cleanup of this.cleanups.reverse()) cleanup();
 		this.cleanups.length = 0;
+		this.resolveClosed?.();
 	}
 }
 
@@ -102,19 +125,24 @@ function computerMic(devices: AudioInputDevice[], playingId: string | null) {
 /**
  * Measures the latency of the playing input without the player's timing in it.
  *
- * 1. Listen: `BLEED_CHECK_CLICKS` clicks, the player silent. The playing input tells whether it
- *    hears the click (bleed). The computer's mic hears it: its loop latency `R` (output + mic).
+ * 1. Listen: `BLEED_CHECK_CLICKS` clicks, the player silent. The computer's mic hears them: its
+ *    loop latency `R` (output + mic), from the clicks heard at one common delay
+ *    (`loopLatency`). An interface tells at the same time whether it hears the click (bleed).
+ * 1b. With the computer's mic as the playing input, its headphones were held against it: the
+ *    bleed is told by `BLEED_CHECK_CLICKS` more clicks, headphones back on.
  * 2. Compare: the player plays `CALIBRATION_ATTACKS` notes freely; the interface's attacks pair
- *    with the mic's, and `attack = R + median(t_interface − t_mic) + d`. When the playing input
- *    is the computer's mic, `attack = R` and this phase only serves the note detector.
+ *    with the mic's, and `attack = R + median(t_interface − t_mic) + d`. With the computer's mic
+ *    as the playing input, `attack = R` and this phase only serves the note detector.
  * 3. The note detector's own delay behind the attacks of the same input, measured on the same
  *    notes: `note = chord = attack + delay`.
- * 4. Fallback, when the mic does not open or hears nothing in 1: the player on the click,
- *    every latency of provenance `player`.
+ * 4. Fallback, when the mic does not open or does not hear the clicks in 1: the player on the
+ *    click, every latency of provenance `player`.
  */
 export class CalibrationService implements CalibrationPort {
 	private readonly config: CalibrationConfig;
 	private active: Run | null = null;
+	/** Settles once the last run has let go of the shared ports, cancelled or not. */
+	private settling: Promise<unknown> = Promise.resolve();
 
 	constructor(
 		private readonly deps: {
@@ -124,7 +152,6 @@ export class CalibrationService implements CalibrationPort {
 			detector: NoteDetectorPort;
 			/** The attacks of the playing input. */
 			attacks: AttackDetectorPort;
-			deviceId: () => Promise<string | null>;
 			/** Opens the computer's mic beside the playing input; throws when it cannot. */
 			openSecondInput: (deviceId: string) => Promise<SecondInput>;
 		},
@@ -133,12 +160,18 @@ export class CalibrationService implements CalibrationPort {
 		this.config = { ...DEFAULT_CALIBRATION_CONFIG, ...config };
 	}
 
-	async run(onProgress: (progress: CalibrationProgress) => void): Promise<CalibrationOutcome> {
+	async run(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
 		if (this.active) throw new Error('Calibration already running');
 		const run = new Run();
 		this.active = run;
+		// A cancelled run may still be opening an input: the next one starts once it let go.
+		const execution = this.settling.then(() => this.execute(run, deviceId, onProgress));
+		this.settling = execution.catch(() => undefined);
 		try {
-			return await Promise.race([this.execute(run, onProgress), run.cancelled]);
+			return await Promise.race([execution, run.cancelled]);
 		} finally {
 			run.close();
 			this.active = null;
@@ -151,20 +184,34 @@ export class CalibrationService implements CalibrationPort {
 
 	private async execute(
 		run: Run,
+		id: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
+		try {
+			return await this.measure(run, id, onProgress);
+		} catch (error) {
+			if (error instanceof RunClosed) return CANCELLED;
+			throw error;
+		}
+	}
+
+	private async measure(
+		run: Run,
+		id: string | null,
 		onProgress: (progress: CalibrationProgress) => void
 	): Promise<CalibrationOutcome> {
 		const { clock, sounds, detector, attacks } = this.deps;
-		await clock.resume();
-		const id = await this.deps.deviceId();
-		const devices = await detector.listInputs();
-		if (run.closed) return CANCELLED;
+		run.check();
+		await run.step(clock.resume());
+		const devices = await run.step(detector.listInputs());
 		const playing = playingDevice(devices, id);
 		const builtIn = playing !== null && isBuiltInMicLabel(playing.label);
 
+		// Not raced: an input opened after a cancel is closed here, by `add`.
 		await detector.start(id);
 		run.add(() => detector.stop());
+		run.check();
 		run.add(() => sounds.cancelAll());
-		if (run.closed) return CANCELLED;
 
 		const heard: Heard = { play: [], mic: [], notes: [] };
 		run.add(
@@ -192,25 +239,32 @@ export class CalibrationService implements CalibrationPort {
 		if (mic) {
 			const opened = mic;
 			run.add(() => opened.close());
+			run.check();
 			run.add(opened.attacks.onAttack(({ time }) => heard.mic.push(time)));
 		}
-		if (run.closed) return CANCELLED;
+		run.check();
 
 		// A fresh output loses its first sounds: the first click must be heard.
-		await clock.settle();
-		if (run.closed) return CANCELLED;
+		await run.step(clock.settle());
 
-		const clicks = await this.listen(run, onProgress);
-		const clickBleed =
-			loopLatency(clicks, heard.play, LISTEN_WINDOW_S).heardRatio >= CLICK_BLEED_RATIO;
+		const clicks = await run.step(this.clicks(run, 'listen', onProgress));
 		const reference = builtIn ? heard.play : mic ? heard.mic : null;
-		const loop = reference ? loopLatency(clicks, reference, LISTEN_WINDOW_S) : null;
-		const referenceMs = loop && loop.heardRatio >= LISTEN_MIN_HEARD_RATIO ? loop.ms : null;
+		const referenceMs = reference ? heardAt(clicks, reference) : null;
+		let clickBleed = isBleed(clicks, heard.play);
 		clear(heard);
+		if (builtIn) {
+			const again = await run.step(this.clicks(run, 'bleed', onProgress));
+			clickBleed = isBleed(again, heard.play);
+			clear(heard);
+		}
 
-		if (referenceMs === null) return this.playOnClick(run, heard, clickBleed, onProgress);
+		if (referenceMs === null) {
+			return run.step(this.playOnClick(run, heard, clickBleed, onProgress));
+		}
 
-		const played = await this.compare(run, heard, onProgress);
+		// The computer's mic as the playing input hears the room: its notes are counted.
+		const counted = builtIn ? heard.notes : heard.play;
+		const played = await run.step(this.compare(run, heard, counted, builtIn, onProgress));
 		if (!played) return { ok: false, reason: 'no-sound' };
 		let attackMs = referenceMs;
 		if (mic) {
@@ -221,52 +275,61 @@ export class CalibrationService implements CalibrationPort {
 			}
 			attackMs = referenceMs + diff.ms + MIC_DISTANCE_MS;
 		}
-		const delay = noteDelay(heard.notes, heard.play, heard.play.length);
+		const delay = noteDelay(heard.notes, heard.play);
 		if (delay === null) return { ok: false, reason: 'inconsistent' };
 		return { ok: true, latency: latencies(attackMs, attackMs + delay, 'system'), clickBleed };
 	}
 
-	/** Plays the clicks of the listen phase; resolves with their times once the last is heard. */
-	private listen(run: Run, onProgress: (progress: CalibrationProgress) => void): Promise<number[]> {
+	/** Plays `BLEED_CHECK_CLICKS` clicks, the player silent; resolves once the last is heard. */
+	private clicks(
+		run: Run,
+		phase: CalibrationPhase,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<number[]> {
 		const { clock, sounds } = this.deps;
 		const beatS = 60 / this.config.bpm;
 		const first = clock.now() + CALIBRATION_START_DELAY_S;
 		const clicks = Array.from({ length: BLEED_CHECK_CLICKS }, (_, i) => first + i * beatS);
 		const needed = BLEED_CHECK_CLICKS;
-		onProgress({ phase: 'listen', done: 0, needed });
+		onProgress({ phase, done: 0, needed });
 		return new Promise((resolve) => {
 			clicks.forEach((time, i) => {
 				sounds.play(time, i % 4 === 0 ? 'click-accent' : 'click');
-				run.add(sounds.at(time, () => onProgress({ phase: 'listen', done: i + 1, needed })));
+				run.add(sounds.at(time, () => onProgress({ phase, done: i + 1, needed })));
 			});
 			run.add(sounds.at(clicks[clicks.length - 1] + LISTEN_WINDOW_S, () => resolve(clicks)));
 		});
 	}
 
 	/**
-	 * The player plays `CALIBRATION_ATTACKS` notes, counted on the playing input's attacks; the
-	 * slower input's readings of the last one still arrive for `COMPARE_SETTLE_S`. False when
-	 * nothing was played before `COMPARE_TIMEOUT_S`.
+	 * The player plays `CALIBRATION_ATTACKS` notes, counted on `counted` (the interface's attacks,
+	 * or the notes of the computer's mic); the slower input's readings of the last one still
+	 * arrive for `COMPARE_SETTLE_S`. False when nothing was played before `COMPARE_TIMEOUT_S`.
 	 */
 	private compare(
 		run: Run,
 		heard: Heard,
+		counted: number[],
+		onNotes: boolean,
 		onProgress: (progress: CalibrationProgress) => void
 	): Promise<boolean> {
 		const { clock, sounds } = this.deps;
 		const needed = CALIBRATION_ATTACKS;
 		onProgress({ phase: 'compare', done: 0, needed });
 		return new Promise((resolve) => {
-			run.add(sounds.at(clock.now() + COMPARE_TIMEOUT_S, () => resolve(heard.play.length > 0)));
-			run.onPlayAttack = () => {
-				const done = heard.play.length;
+			run.add(sounds.at(clock.now() + COMPARE_TIMEOUT_S, () => resolve(counted.length > 0)));
+			const count = () => {
+				const done = counted.length;
 				if (done > needed) return;
 				onProgress({ phase: 'compare', done, needed });
 				if (done < needed) return;
 				run.onPlayAttack = null;
-				const last = Math.max(clock.now(), heard.play[done - 1]);
+				run.onNote = null;
+				const last = Math.max(clock.now(), counted[done - 1], ...heard.play.slice(-1));
 				run.add(sounds.at(last + COMPARE_SETTLE_S, () => resolve(true)));
 			};
+			if (onNotes) run.onNote = count;
+			else run.onPlayAttack = count;
 		});
 	}
 
@@ -307,7 +370,7 @@ export class CalibrationService implements CalibrationPort {
 					return;
 				}
 				// The attack sensor reads the same attacks ahead of the note detector.
-				const delay = noteDelay(heard.notes, heard.play, heard.notes.length) ?? 0;
+				const delay = noteDelay(heard.notes, heard.play) ?? 0;
 				resolve({
 					ok: true,
 					latency: latencies(result.offsetMs - delay, result.offsetMs, 'player'),
@@ -324,12 +387,27 @@ function clear(heard: Heard): void {
 	heard.notes.length = 0;
 }
 
+/** The loop latency of an input that heard the clicks at a steady delay; null otherwise. */
+function heardAt(clicks: number[], heard: number[]): number | null {
+	const loop = loopLatency(clicks, heard, LISTEN_WINDOW_S);
+	if (loop.heardRatio < LISTEN_MIN_HEARD_RATIO) return null;
+	if (loop.spreadMs === null || loop.spreadMs > LISTEN_MAX_SPREAD_MS) return null;
+	return loop.ms;
+}
+
+/** The input hears the click: enough clicks heard at one common delay. */
+function isBleed(clicks: number[], heard: number[]): boolean {
+	return loopLatency(clicks, heard, LISTEN_WINDOW_S).heardRatio >= CLICK_BLEED_RATIO;
+}
+
 /**
- * How long after the attack sensor the note detector reads the same attack, in ms; null when
- * fewer than `MIN_PAIRED_SHARE` of the `anchors` pair.
+ * How long after the attack sensor the note detector reads the same attack, in ms, anchored on
+ * the notes: an attack with no note (a breath, a fret noise) does not count against it. Null
+ * when fewer than `NOTE_DELAY_MIN_PAIRS`, or than `MIN_PAIRED_SHARE` of the notes, pair.
  */
-function noteDelay(notes: number[], attacks: number[], anchors: number): number | null {
+function noteDelay(notes: number[], attacks: number[]): number | null {
 	const delay = pairedDelay(notes, attacks, PAIR_WINDOW_S);
-	if (!delay || anchors === 0 || delay.pairs < Math.ceil(MIN_PAIRED_SHARE * anchors)) return null;
+	const needed = Math.max(NOTE_DELAY_MIN_PAIRS, Math.ceil(MIN_PAIRED_SHARE * notes.length));
+	if (!delay || delay.pairs < needed) return null;
 	return delay.ms;
 }

@@ -1,10 +1,12 @@
 import type { SensorLatency } from '$lib/domain/types';
 
 /**
- * `listen`: clicks on the output, the player silent; `compare`: the player plays notes freely,
- * heard by two inputs (or two sensors of one); `play`: the fallback, the player on the click.
+ * `listen`: clicks on the output, the player silent; `bleed`: clicks again, headphones back on,
+ * to tell whether the computer's mic, as the playing input, hears the click; `compare`: the
+ * player plays notes freely, heard by two inputs (or two sensors of one); `play`: the fallback,
+ * the player on the click.
  */
-export type CalibrationPhase = 'listen' | 'compare' | 'play';
+export type CalibrationPhase = 'listen' | 'bleed' | 'compare' | 'play';
 
 export interface CalibrationProgress {
 	phase: CalibrationPhase;
@@ -22,6 +24,10 @@ export type CalibrationOutcome =
  * click otherwise (`player`). Also says whether the playing input hears the click.
  */
 export interface CalibrationPort {
-	run(onProgress: (progress: CalibrationProgress) => void): Promise<CalibrationOutcome>;
+	/** Calibrates the input `deviceId` (null = the default device). */
+	run(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome>;
 	cancel(): void;
 }

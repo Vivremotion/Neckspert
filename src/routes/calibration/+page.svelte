@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
 	import { useAppServices } from '$lib/application/app';
-	import type {
-		AudioInputDevice,
-		CalibrationOutcome,
-		CalibrationProgress
-	} from '$lib/application/ports';
+	import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
 	import CalibrationScreen from '$lib/ui/screens/calibration/CalibrationScreen.svelte';
+	import type { CalibrationScreenOutcome } from '$lib/ui/screens/calibration/outcome';
 
 	const services = useAppServices();
 
@@ -16,7 +13,7 @@
 	let levelRms = $state(0);
 	let phase = $state<'idle' | 'running' | 'done'>('idle');
 	let progress = $state<CalibrationProgress | null>(null);
-	let outcome = $state<CalibrationOutcome | null>(null);
+	let outcome = $state<CalibrationScreenOutcome | null>(null);
 	let notice = $state<string | null>(null);
 
 	let stopLevel: (() => void) | null = null;
@@ -65,22 +62,27 @@
 		phase = 'running';
 		progress = null;
 		outcome = null;
-		if (!listening) await onlisten();
-		// The calibration measures the input chosen here.
-		await services.settings.update({ inputDeviceId: selectedDeviceId });
-		const result = await services.calibration.run((next) => {
-			progress = next;
-		});
-		outcome = result;
-		phase = 'done';
-		if (result.ok) {
-			// Each sensor measured keeps its latency and provenance; the others keep theirs.
-			await services.settings.update({
-				latency: { ...(await services.settings.get()).latency, ...result.latency },
-				clickBleed: result.clickBleed,
-				inputDeviceId: selectedDeviceId
+		notice = null;
+		const deviceId = selectedDeviceId;
+		try {
+			if (!listening) await onlisten();
+			const result = await services.calibration.run(deviceId, (next) => {
+				progress = next;
 			});
+			if (result.ok) {
+				// Saved together, only on success: the device, its latency per sensor, its bleed.
+				await services.settings.update({
+					latency: { ...(await services.settings.get()).latency, ...result.latency },
+					clickBleed: result.clickBleed,
+					inputDeviceId: deviceId
+				});
+			}
+			outcome = result;
+		} catch (error) {
+			outcome = { ok: false, reason: 'error' };
+			notice = error instanceof Error ? error.message : String(error);
 		}
+		phase = 'done';
 	}
 
 	function oncancel() {

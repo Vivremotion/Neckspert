@@ -29,12 +29,22 @@ export const CALIBRATION_ATTACKS = 16;
  * add up, and Firefox's are large.
  */
 export const LISTEN_WINDOW_S = 0.5;
-/** A reference input must hear at least this share of the clicks for its loop latency to count. */
+/**
+ * A reference input must hear at least this share of the clicks, at one common delay (within
+ * `PAIR_WINDOW_S` of the mode), for its loop latency to count.
+ */
 export const LISTEN_MIN_HEARD_RATIO = 0.5;
+/**
+ * Largest spread (median absolute deviation) of the delays of the clicks heard, in ms: a click
+ * scheduled on the audio clock comes back at a steady delay.
+ */
+export const LISTEN_MAX_SPREAD_MS = 5;
 /** Two readings of one attack pair within this distance of their constant offset, in seconds. */
 export const PAIR_WINDOW_S = 0.03;
 /** The share of the anchor's attacks that must pair for a delay to count. */
 export const MIN_PAIRED_SHARE = 0.75;
+/** Notes that must find their attack for the note detector's delay to count. */
+export const NOTE_DELAY_MIN_PAIRS = 8;
 /** Interface attacks that must find their mic reading. */
 export const COMPARE_MIN_PAIRS = Math.ceil(MIN_PAIRED_SHARE * CALIBRATION_ATTACKS);
 /**

@@ -27,10 +27,15 @@ export class FakeCalibration implements CalibrationPort {
 		{ phase: 'compare', done: 16, needed: 16 }
 	];
 	runCalls = 0;
+	lastDeviceId: string | null | undefined = undefined;
 	cancelled = false;
 
-	async run(onProgress: (progress: CalibrationProgress) => void): Promise<CalibrationOutcome> {
+	async run(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
 		this.runCalls += 1;
+		this.lastDeviceId = deviceId;
 		this.cancelled = false;
 		for (const step of this.progressSteps) {
 			if (this.cancelled) return { ok: false, reason: 'cancelled' };

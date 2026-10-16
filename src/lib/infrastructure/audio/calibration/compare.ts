@@ -1,4 +1,5 @@
 import { median } from '$lib/domain/stats';
+import { PAIR_WINDOW_S } from './config';
 
 /**
  * How far the constant offset between two inputs is looked for, in seconds. Large on purpose:
@@ -7,23 +8,46 @@ import { median } from '$lib/domain/stats';
 export const OFFSET_SEARCH_S = 0.25;
 
 /**
- * Clicks heard by a silent input: median delay and the share of clicks heard (bleed). A click is
- * heard by the first attack that follows it within `withinS`; any other attack (an echo, a noise
- * of the room) is ignored. A sound cannot come before its click, so nothing earlier is paired.
+ * Clicks heard by a silent input: median delay, the share of clicks heard (bleed) and the spread
+ * (median absolute deviation, ms). Every attack within `withinS` after a click is a candidate
+ * delay; the delays gather at the input's loop latency, so the mode of the candidates (the delay
+ * with the most others within `clusterS`) is kept, and a click is heard only by a candidate in
+ * that cluster, the nearest to its centre. Noises of the room, at any other delay, are ignored;
+ * nothing before its click is a candidate.
  */
 export function loopLatency(
 	clickTimes: number[],
 	heard: number[],
-	withinS: number
-): { ms: number | null; heardRatio: number } {
-	if (clickTimes.length === 0) return { ms: null, heardRatio: 0 };
-	const sorted = [...heard].sort((x, y) => x - y);
-	const delaysMs: number[] = [];
-	for (const click of clickTimes) {
-		const first = sorted.find((t) => t >= click && t - click <= withinS);
-		if (first !== undefined) delaysMs.push((first - click) * 1000);
+	withinS: number,
+	clusterS: number = PAIR_WINDOW_S
+): { ms: number | null; heardRatio: number; spreadMs: number | null } {
+	const candidates: { click: number; delay: number }[] = [];
+	clickTimes.forEach((click, index) => {
+		for (const t of heard) {
+			if (t >= click && t - click <= withinS) candidates.push({ click: index, delay: t - click });
+		}
+	});
+	let cluster: number[] = [];
+	for (const { delay } of candidates) {
+		const near = candidates
+			.filter((other) => Math.abs(other.delay - delay) <= clusterS)
+			.map((other) => other.delay);
+		if (near.length > cluster.length) cluster = near;
 	}
-	return { ms: median(delaysMs), heardRatio: delaysMs.length / clickTimes.length };
+	const centre = median(cluster);
+	if (centre === null) return { ms: null, heardRatio: 0, spreadMs: null };
+	const best = new Map<number, number>();
+	for (const { click, delay } of candidates) {
+		if (Math.abs(delay - centre) > clusterS) continue;
+		const kept = best.get(click);
+		if (kept === undefined || Math.abs(delay - centre) < Math.abs(kept - centre)) {
+			best.set(click, delay);
+		}
+	}
+	const delaysMs = [...best.values()].map((delay) => delay * 1000);
+	const ms = median(delaysMs);
+	const spreadMs = ms === null ? null : median(delaysMs.map((d) => Math.abs(d - ms)));
+	return { ms, heardRatio: delaysMs.length / Math.max(1, clickTimes.length), spreadMs };
 }
 
 /**

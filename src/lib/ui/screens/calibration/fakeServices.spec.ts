@@ -13,8 +13,9 @@ describe('createFakeAppServices', () => {
 		};
 		services.calibration.nextOutcome = next;
 		const progress: number[] = [];
-		const outcome = await services.calibration.run((p) => progress.push(p.done));
+		const outcome = await services.calibration.run('usb', (p) => progress.push(p.done));
 		expect(outcome).toEqual(next);
+		expect(services.calibration.lastDeviceId).toBe('usb');
 		expect(progress.length).toBeGreaterThan(0);
 	});
 

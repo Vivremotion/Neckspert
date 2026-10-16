@@ -1,14 +1,11 @@
 <script lang="ts">
-	import type {
-		AudioInputDevice,
-		CalibrationOutcome,
-		CalibrationProgress
-	} from '$lib/application/ports';
+	import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
 	import { isBuiltInInput } from './isBuiltInInput';
 	import { calibrationMessages } from './messages';
+	import type { CalibrationScreenOutcome } from './outcome';
 
 	type Phase = 'idle' | 'running' | 'done';
 
@@ -33,7 +30,7 @@
 		levelRms: number;
 		phase: Phase;
 		progress: CalibrationProgress | null;
-		outcome: CalibrationOutcome | null;
+		outcome: CalibrationScreenOutcome | null;
 		onselectdevice: (id: string | null) => void;
 		onlisten: () => void;
 		onstart: () => void;
@@ -46,9 +43,10 @@
 	const selected = $derived(inputs.find((device) => device.id === selectedDeviceId) ?? null);
 	const showHeadphones = $derived(selected !== null && isBuiltInInput(selected));
 	const levelPercent = $derived(Math.round(Math.min(1, Math.max(0, levelRms)) * 100));
-	/** What to do now: the phase running, else the first one (silence). */
+	/** What to do now, once the run has started. */
 	const instruction = $derived.by(() => {
-		if (phase !== 'running' || !progress) return m.listenInstruction;
+		if (phase !== 'running' || !progress) return null;
+		if (progress.phase === 'bleed') return m.bleedInstruction;
 		if (progress.phase === 'compare') return m.compareInstruction(progress.needed);
 		if (progress.phase === 'play') return m.playInstruction;
 		return m.listenInstruction;
@@ -130,7 +128,9 @@
 	</div>
 
 	<footer class="bottom">
-		<p class="instruction" aria-live="polite"><PixelText scale={2}>{instruction}</PixelText></p>
+		<p class="instruction" aria-live="polite">
+			{#if instruction}<PixelText scale={2}>{instruction}</PixelText>{/if}
+		</p>
 		{#if notice}
 			<p class="instruction" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
 		{/if}

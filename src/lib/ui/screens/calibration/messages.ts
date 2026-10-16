@@ -15,6 +15,8 @@ export const calibrationMessages = defineMessages({
 		/** The listen phase: the clicks, the player silent. */
 		listenInstruction:
 			'Ne joue pas. Si tu joues au casque, pose-le contre le micro de l’ordinateur.',
+		/** The bleed check of the computer's mic as the playing input. */
+		bleedInstruction: 'Remets ton casque, et ne joue pas.',
 		/** The compare phase: notes played freely. */
 		compareInstruction: (notes: number) =>
 			`Joue ${notes} notes, comme tu veux, sans retour par les haut-parleurs.`,
@@ -32,7 +34,8 @@ export const calibrationMessages = defineMessages({
 		inconsistent: 'Mesures trop dispersées. Réessaie au calme, en suivant la consigne.',
 		'second-input':
 			'Le micro de l’ordinateur n’a pas entendu tes notes. Rapproche la guitare de l’ordinateur et réessaie.',
-		cancelled: 'Calibration annulée.'
+		cancelled: 'Calibration annulée.',
+		error: 'L’entrée audio ne s’est pas ouverte. Vérifie qu’elle est branchée, puis réessaie.'
 	},
 	en: {
 		title: 'Calibration',
@@ -46,6 +49,7 @@ export const calibrationMessages = defineMessages({
 		retry: 'Retry',
 		listenInstruction:
 			'Don’t play. If you play with headphones, hold them against the computer’s mic.',
+		bleedInstruction: 'Put your headphones back on, and don’t play.',
 		compareInstruction: (notes: number) =>
 			`Play ${notes} notes, any way you like, with no sound from the speakers.`,
 		playInstruction: 'Play a muted string on every metronome click.',
@@ -61,6 +65,7 @@ export const calibrationMessages = defineMessages({
 		inconsistent: 'Measurements too scattered. Retry in a quiet room, following the instruction.',
 		'second-input':
 			'The computer’s mic did not hear your notes. Bring the guitar closer to the computer and retry.',
-		cancelled: 'Calibration cancelled.'
+		cancelled: 'Calibration cancelled.',
+		error: 'The audio input did not open. Check that it is plugged in, then retry.'
 	}
 });

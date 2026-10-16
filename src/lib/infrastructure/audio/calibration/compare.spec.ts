@@ -10,24 +10,42 @@ function jitter(i: number, amplitude: number): number {
 }
 
 describe('loopLatency', () => {
-	it('gives the median delay of the clicks heard and the share heard', () => {
+	it('gives the median delay of the clicks heard, the share heard and the spread', () => {
 		const heard = clicks.slice(0, 7).map((t) => t + 0.012);
 		const result = loopLatency(clicks, heard, 0.3);
 		expect(result.ms).toBeCloseTo(12, 6);
 		expect(result.heardRatio).toBe(0.875);
+		expect(result.spreadMs).toBeCloseTo(0, 6);
 	});
 
 	it('gives no latency when nothing was heard', () => {
-		expect(loopLatency(clicks, [], 0.3)).toEqual({ ms: null, heardRatio: 0 });
+		expect(loopLatency(clicks, [], 0.3)).toEqual({ ms: null, heardRatio: 0, spreadMs: null });
 	});
 
 	it('ignores sounds outside the window and pairs one sound per click', () => {
-		const heard = clicks.flatMap((t) => [t + 0.02, t + 0.05]);
+		const heard = clicks.flatMap((t) => [t + 0.02, t + 0.09]);
 		// A sound before any click, and one far after the last.
 		heard.push(-0.2, 7 * BEAT_S + 0.5);
 		const result = loopLatency(clicks, heard, 0.3);
 		expect(result.ms).toBeCloseTo(20, 6);
 		expect(result.heardRatio).toBe(1);
+	});
+
+	it('keeps the clicks heard at the common delay, not noises in their windows', () => {
+		// Six clicks heard 40 ms after (±1 ms); the last two missed, a noise in each window.
+		const heard = clicks.slice(0, 6).map((t, i) => t + 0.04 + jitter(i, 0.001));
+		heard.push(clicks[6] + 0.2, clicks[7] + 0.35);
+		// A breath between a click and its sound.
+		heard.push(clicks[2] + 0.005);
+		const result = loopLatency(clicks, heard, 0.5);
+		expect(result.ms).toBeCloseTo(40, 0);
+		expect(result.heardRatio).toBe(0.75);
+		expect(result.spreadMs).toBeLessThanOrEqual(1);
+	});
+
+	it('does not take two noises of a silent input for clicks heard', () => {
+		const heard = [clicks[1] + 0.12, clicks[5] + 0.31];
+		expect(loopLatency(clicks, heard, 0.5).heardRatio).toBe(0.125);
 	});
 });
 

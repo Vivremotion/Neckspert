@@ -1,12 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
-import type {
-	AudioInputDevice,
-	CalibrationOutcome,
-	CalibrationProgress
-} from '$lib/application/ports';
+import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
 import { i18n } from '$lib/i18n/index.svelte';
 import CalibrationScreen from './CalibrationScreen.svelte';
+import type { CalibrationScreenOutcome } from './outcome';
 
 const INPUTS: AudioInputDevice[] = [
 	{ id: 'built', label: 'Built-in Microphone' },
@@ -20,7 +17,7 @@ function renderScreen(
 		levelRms: number;
 		phase: 'idle' | 'running' | 'done';
 		progress: CalibrationProgress | null;
-		outcome: CalibrationOutcome | null;
+		outcome: CalibrationScreenOutcome | null;
 		onselectdevice: (id: string | null) => void;
 		onlisten: () => void;
 		onstart: () => void;
@@ -66,17 +63,26 @@ describe('CalibrationScreen', () => {
 		expect(props.onlisten).toHaveBeenCalledTimes(1);
 	});
 
-	it('tells the player to stay silent while the clicks play', () => {
+	it('tells the player to stay silent while the clicks play, once the run starts', () => {
 		renderScreen();
+		expect(screen.queryByText(/ne joue pas/i)).toBeNull();
+		cleanup();
+		renderScreen({ phase: 'running', progress: { phase: 'listen', done: 3, needed: 8 } });
 		expect(
 			screen.getByText(
 				'Ne joue pas. Si tu joues au casque, pose-le contre le micro de l’ordinateur.'
 			)
 		).toBeTruthy();
-		cleanup();
-		renderScreen({ phase: 'running', progress: { phase: 'listen', done: 3, needed: 8 } });
-		expect(screen.getByText(/ne joue pas/i)).toBeTruthy();
 		expect(screen.getByText(/3\s*\/\s*8/)).toBeTruthy();
+	});
+
+	it('asks for the headphones back on for the bleed check', () => {
+		renderScreen({ phase: 'running', progress: { phase: 'bleed', done: 1, needed: 8 } });
+		expect(screen.getByText('Remets ton casque, et ne joue pas.')).toBeTruthy();
+		cleanup();
+		i18n.locale = 'en';
+		renderScreen({ phase: 'running', progress: { phase: 'bleed', done: 1, needed: 8 } });
+		expect(screen.getByText('Put your headphones back on, and don’t play.')).toBeTruthy();
 	});
 
 	it('asks for notes played freely in the compare phase', () => {
@@ -122,6 +128,12 @@ describe('CalibrationScreen', () => {
 		});
 		expect(screen.getByText('Latence mesurée : 38 ms, sur ton jeu au clic.')).toBeTruthy();
 		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('says when the input did not open', () => {
+		renderScreen({ phase: 'done', outcome: { ok: false, reason: 'error' } });
+		expect(screen.getByText(/ne s’est pas ouverte/i)).toBeTruthy();
+		expect(screen.getByRole('button', { name: /réessayer/i })).toBeTruthy();
 	});
 
 	it('says when the computer mic did not hear the notes', () => {
