@@ -77,6 +77,7 @@ export class WebAudioInput {
 	private readonly diagnostics: (DiagnosticSink & DiagnosticTakes) | undefined;
 	private readonly recorder: DiagnosticAudioRecorder | null;
 	private readonly now: () => number;
+	private readonly raw: boolean;
 	/** The context of the take being journaled, if one was opened. */
 	private takeContext: AudioContext | null = null;
 
@@ -87,8 +88,14 @@ export class WebAudioInput {
 			/** Each opening of the input is a take of the diagnostic journal. */
 			diagnostics?: DiagnosticSink & DiagnosticTakes;
 			now?: () => number;
+			/**
+			 * Always raw, even a Firefox built-in mic: no echo cancellation, which would remove the
+			 * browser's own clicks a calibration reference must hear.
+			 */
+			raw?: boolean;
 		}
 	) {
+		this.raw = options?.raw ?? false;
 		this.resumeAudio = options?.resume;
 		this.diagnostics = options?.diagnostics;
 		this.recorder = this.diagnostics ? new DiagnosticAudioRecorder(this.diagnostics) : null;
@@ -122,7 +129,7 @@ export class WebAudioInput {
 			audio: inputConstraints(deviceId, false)
 		});
 		const opened = this.stream.getAudioTracks()[0];
-		if (opened && firefoxBuiltInMic(opened.label)) {
+		if (opened && !this.raw && firefoxBuiltInMic(opened.label)) {
 			opened.stop();
 			this.stream = await navigator.mediaDevices.getUserMedia({
 				audio: inputConstraints(deviceId, true)

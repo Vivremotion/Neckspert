@@ -26,13 +26,13 @@ class FakeContext {
 	}));
 }
 
-function install(label = '') {
+function install(label = '', userAgent = 'Mozilla/5.0 Chrome/140.0') {
 	const track = { stop: vi.fn(), label, getSettings: () => ({ channelCount: 1 }) };
 	const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
 	Object.defineProperty(globalThis, 'navigator', {
 		configurable: true,
 		value: {
-			userAgent: 'Mozilla/5.0 Chrome/140.0',
+			userAgent,
 			mediaDevices: {
 				getUserMedia: vi.fn(async () => stream),
 				enumerateDevices: vi.fn(async () => [])
@@ -86,6 +86,28 @@ describe('WebAudioInput', () => {
 		await input.start(null);
 		send(node, [0.1], 0);
 		expect(frames[0].samples[0]).toBeCloseTo(0.4, 6);
+		input.stop();
+	});
+
+	it('opens a raw input on the Firefox built-in mic when asked, with no voice processing', async () => {
+		install(
+			'MacBook Pro Microphone',
+			'Mozilla/5.0 (Macintosh; rv:143.0) Gecko/20100101 Firefox/143.0'
+		);
+		const input = new WebAudioInput(() => new FakeContext() as unknown as AudioContext, {
+			raw: true
+		});
+		await input.start('mac');
+		const getUserMedia = vi.mocked(navigator.mediaDevices.getUserMedia);
+		expect(getUserMedia).toHaveBeenCalledOnce();
+		expect(getUserMedia).toHaveBeenCalledWith({
+			audio: {
+				deviceId: { exact: 'mac' },
+				echoCancellation: false,
+				noiseSuppression: false,
+				autoGainControl: false
+			}
+		});
 		input.stop();
 	});
 
