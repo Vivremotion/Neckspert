@@ -143,9 +143,6 @@
 							{#each report.measures as line (line)}<li>{line}</li>{/each}
 							<li>{report.latency}</li>
 						</ul>
-						<ul>
-							{#each report.attacks as line, i (i)}<li>{line}</li>{/each}
-						</ul>
 					</div>
 				</PixelBox>
 			{/if}

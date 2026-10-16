@@ -13,13 +13,11 @@ export interface RhythmReportView {
 	/** One line per measure the report holds. */
 	measures: string[];
 	latency: string;
-	/** One line per expected note, then the added attacks. */
-	attacks: string[];
 }
 
 const signed = (ms: number): string => (ms > 0 ? `+${ms}` : ms < 0 ? `−${-ms}` : '0');
 
-/** The cycle a rhythm summary keeps, said in plain words: its verdict, its measures and its attacks. */
+/** The cycle a rhythm summary keeps, said in plain words: its verdict and its measures. */
 export function rhythmReportView(
 	last: NonNullable<RhythmSummary['lastCycle']>,
 	words: Words,
@@ -80,24 +78,12 @@ export function rhythmReportView(
 		? words.latency[systemLatency ? 'system' : 'player'](Math.round(report.latency.ms))
 		: words.latency.none;
 
-	const attacks = report.expectations.map((e, i) => {
-		const note = words.note(i + 1);
-		if (e.offsetMs !== null) {
-			const ms = Math.round(e.offsetMs);
-			const when = ms < 0 ? words.early : ms > 0 ? words.late : words.onTime;
-			return `${note}${words.colon}${signed(ms)} ms (${when})`;
-		}
-		return `${note}${words.colon}${e.verdict === 'dropped' ? words.dropped : words.forgotten}`;
-	});
-	attacks.push(words.extras(report.extra));
-
 	return {
 		passed: verdict.passed,
 		headline: verdict.passed ? words.passed : words.failed,
 		feedback: feedbackLine(report, locale, verdict).words,
 		reasons: verdict.passed ? null : words.reasons(verdict.reasons.map((r) => words.reason[r])),
 		measures: lines,
-		latency: systemLatency ? latency : `${latency} (${words.latencyNotJudged})`,
-		attacks
+		latency: systemLatency ? latency : `${latency} (${words.latencyNotJudged})`
 	};
 }

@@ -64,7 +64,7 @@ const props = (summary: SessionSummary) => ({
 });
 
 describe('SummaryScreen of a one-cycle rhythm series', () => {
-	it('reports the verdict, every measure with its limit, the shift, the latency and each attack', () => {
+	it('reports the verdict, every measure with its limit, the shift, and the latency, without a line per note', () => {
 		render(SummaryScreen, { props: props(failed) });
 		const text = document.body.textContent ?? '';
 		for (const part of [
@@ -77,14 +77,11 @@ describe('SummaryScreen of a one-cycle rhythm series', () => {
 			'Placement : +41 ms',
 			'Fidélité : 2 notes jouées sur 3, 1 oubliée, 2 en trop',
 			'Décalage de temps : mesure 3, temps perdu (500 ms)',
-			'Latence mesurée : 42 ms',
-			'Note 1 : −12 ms (en avance)',
-			'Note 2 : +95 ms (en retard)',
-			'Note 3 : oubliée',
-			'Attaques en trop : 2'
+			'Latence mesurée : 42 ms'
 		]) {
 			expect(text).toContain(part);
 		}
+		expect(text).not.toContain('Note 1 :');
 	});
 
 	it('says it in English, and when placement and precision were not judged', () => {
@@ -109,9 +106,7 @@ describe('SummaryScreen of a one-cycle rhythm series', () => {
 			'Placement: +41 ms (not judged)',
 			"Player's latency: 30 ms (placement and precision not judged)",
 			'Fidelity: 2 of 3 notes played, 1 missed, 2 added',
-			'Time shift: bar 3, beat lost (500 ms)',
-			'Note 3: missed',
-			'Added attacks: 2'
+			'Time shift: bar 3, beat lost (500 ms)'
 		]) {
 			expect(text).toContain(part);
 		}
