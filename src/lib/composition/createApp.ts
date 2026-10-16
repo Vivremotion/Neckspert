@@ -4,7 +4,7 @@ import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/applicati
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
 import { WebAudioCues } from '$lib/infrastructure/audio/cues';
-import { CalibrationService } from '$lib/infrastructure/audio/calibration';
+import { CalibrationService, REFERENCE_ATTACK_CONFIG } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
 import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 import { TakeBuffer, WebAudioInput } from '$lib/infrastructure/audio/input';
@@ -84,8 +84,15 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 				mic.stop();
 				throw error;
 			}
-			return { attacks: new WebAudioAttackDetector(mic), close: () => mic.stop() };
-		}
+			// A tracker more sensitive than the playing input's: the clicks from monitors a metre
+			// away can stay under the default threshold. Noise is left out by the listen cluster.
+			const micAttacks = new WebAudioAttackDetector(mic, { config: REFERENCE_ATTACK_CONFIG });
+			return { attacks: micAttacks, close: () => mic.stop() };
+		},
+		// In dev builds, each phase's raw data goes to the console: a hardware run explains itself.
+		log: import.meta.env.DEV
+			? (phase, data) => console.info(`[calibration] ${phase}`, data)
+			: undefined
 	});
 
 	return createAppServices({

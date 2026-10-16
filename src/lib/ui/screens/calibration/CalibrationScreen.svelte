@@ -1,5 +1,10 @@
 <script lang="ts">
-	import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
+	import type {
+		AudioInputDevice,
+		CalibrationMeasure,
+		CalibrationProgress,
+		ReferenceDetail
+	} from '$lib/application/ports';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -22,6 +27,7 @@
 		onstart,
 		oncancel,
 		onretry,
+		oncalibrateonclick,
 		notice = null
 	}: {
 		inputs: AudioInputDevice[];
@@ -36,6 +42,8 @@
 		onstart: () => void;
 		oncancel: () => void;
 		onretry: () => void;
+		/** The calibration on the click, the player's second choice when the reference failed. */
+		oncalibrateonclick: () => void;
 		notice?: string | null;
 	} = $props();
 
@@ -48,7 +56,7 @@
 		if (phase !== 'running' || !progress) return null;
 		if (progress.phase === 'bleed') return m.bleedInstruction;
 		if (progress.phase === 'compare') return m.compareInstruction(progress.needed);
-		if (progress.phase === 'play') return m.playInstruction;
+		if (progress.phase === 'play') return m.playInstruction(progress.needed);
 		return m.listenInstruction;
 	});
 	/** The latency the result names: the attacks', else the notes'. */
@@ -56,11 +64,50 @@
 		outcome?.ok ? (outcome.latency.attack ?? outcome.latency.note ?? null) : null
 	);
 
+	/** The click is offered when the computer's mic could not serve as the reference. */
+	const offerClick = $derived(
+		outcome !== null &&
+			!outcome.ok &&
+			(outcome.reason === 'reference' || outcome.reason === 'second-input')
+	);
+
+	function referenceText(detail: ReferenceDetail): string {
+		if (detail.mic === null) return m.referenceMissing;
+		if (!detail.opened) return m.referenceClosed(detail.mic);
+		return m.referenceHeard(
+			detail.mic,
+			detail.heard,
+			detail.clicks,
+			detail.delayMs,
+			detail.spreadMs
+		);
+	}
+
 	function onDeviceChange(event: Event) {
 		const value = (event.currentTarget as HTMLSelectElement).value;
 		onselectdevice(value === '' ? null : value);
 	}
 </script>
+
+{#snippet measureLines(measure: CalibrationMeasure)}
+	{#if measure.referenceMs !== null}
+		<p class="detail">
+			<PixelText scale={1}
+				>{m.referenceLine(measure.referenceMs, measure.referenceSpreadMs)}</PixelText
+			>
+		</p>
+	{/if}
+	{#if measure.offsetMs !== null}
+		<p class="detail"><PixelText scale={1}>{m.offsetLine(measure.offsetMs)}</PixelText></p>
+	{/if}
+	<p class="detail">
+		<PixelText scale={1}
+			>{measure.referenceMs === null
+				? m.hitsLine(measure.pairs, measure.spreadMs)
+				: m.pairsLine(measure.pairs, measure.played, measure.spreadMs)}</PixelText
+		>
+	</p>
+{/snippet}
 
 <section class="calibration-screen" aria-labelledby="calibration-title">
 	<!-- PixelText (H) does not forward id; wrap for aria-labelledby. -->
@@ -143,19 +190,38 @@
 			</PixelBox>
 		{:else if phase === 'done' && outcome}
 			<PixelBox variant="inverted">
-				<p class="outcome" aria-live="polite">
-					{#if outcome.ok}
-						{#if measured}
+				{#if outcome.ok}
+					{#if measured}
+						<p class="outcome" aria-live="polite">
 							<PixelText scale={2}>{m.ok(measured.ms, measured.provenance)}</PixelText>
-						{/if}
-					{:else}
-						<PixelText scale={2}>{m[outcome.reason]}</PixelText>
+						</p>
 					{/if}
-				</p>
-				{#if outcome.ok && outcome.clickBleed}
-					<p class="outcome" role="status"><PixelText scale={2}>{m.bleed}</PixelText></p>
+					{@render measureLines(outcome.measure)}
+					{#if outcome.clickBleed}
+						<p class="outcome" role="status"><PixelText scale={2}>{m.bleed}</PixelText></p>
+					{/if}
+				{:else if outcome.reason === 'reference'}
+					<p class="outcome" aria-live="polite">
+						<PixelText scale={2}>{referenceText(outcome.detail)}</PixelText>
+					</p>
+					{#if outcome.detail.mic !== null && outcome.detail.opened}
+						<p class="detail"><PixelText scale={1}>{m.referenceAdvice}</PixelText></p>
+					{/if}
+				{:else}
+					<p class="outcome" aria-live="polite">
+						<PixelText scale={2}>{m[outcome.reason]}</PixelText>
+					</p>
+					{#if outcome.reason === 'inconsistent' && outcome.measure}
+						{@render measureLines(outcome.measure)}
+					{/if}
 				{/if}
 			</PixelBox>
+			{#if offerClick}
+				<p class="detail"><PixelText scale={1}>{m.clickChoiceNote}</PixelText></p>
+				<div class="actions">
+					<PixelButton size="large" onclick={oncalibrateonclick}>{m.clickChoice}</PixelButton>
+				</div>
+			{/if}
 		{/if}
 	</footer>
 </section>
@@ -225,6 +291,7 @@
 	}
 
 	.hint,
+	.detail,
 	.instruction,
 	.progress,
 	.outcome,

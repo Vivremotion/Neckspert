@@ -9,7 +9,16 @@ describe('createFakeAppServices', () => {
 		const next = {
 			ok: true as const,
 			latency: { attack: { ms: 42, provenance: 'system' as const } },
-			clickBleed: false
+			clickBleed: false,
+			measure: {
+				referenceMs: 40,
+				referenceSpreadMs: 0,
+				offsetMs: 2,
+				pairs: 16,
+				played: 16,
+				spreadMs: 1,
+				latencyMs: 42
+			}
 		};
 		services.calibration.nextOutcome = next;
 		const progress: number[] = [];

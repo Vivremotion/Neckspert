@@ -42,6 +42,9 @@ class FakeCalibration implements CalibrationPort {
 	async run(): Promise<CalibrationOutcome> {
 		return { ok: false, reason: 'cancelled' };
 	}
+	async runOnClick(): Promise<CalibrationOutcome> {
+		return { ok: false, reason: 'cancelled' };
+	}
 	cancel(): void {}
 }
 

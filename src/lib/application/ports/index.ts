@@ -13,10 +13,12 @@ export type {
 } from './NoteDetectorPort';
 export type { AttackDetectorPort, AttackEvent } from './AttackDetectorPort';
 export type {
+	CalibrationMeasure,
 	CalibrationOutcome,
 	CalibrationPhase,
 	CalibrationPort,
-	CalibrationProgress
+	CalibrationProgress,
+	ReferenceDetail
 } from './CalibrationPort';
 export type {
 	AttemptRepositoryPort,

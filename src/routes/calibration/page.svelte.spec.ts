@@ -38,7 +38,16 @@ describe('/calibration page', () => {
 				note: { ms: 50, provenance: 'system' },
 				chord: { ms: 50, provenance: 'system' }
 			},
-			clickBleed: true
+			clickBleed: true,
+			measure: {
+				referenceMs: 40,
+				referenceSpreadMs: 0.5,
+				offsetMs: -25,
+				pairs: 16,
+				played: 16,
+				spreadMs: 2,
+				latencyMs: 42
+			}
 		};
 		render(TestHarness, { props: { services } });
 
@@ -93,6 +102,54 @@ describe('/calibration page', () => {
 		await waitFor(() => expect(screen.getByText(/ne s’est pas ouverte/i)).toBeTruthy());
 		expect(screen.getByText(/Requested device not found/)).toBeTruthy();
 		expect(screen.getByRole('button', { name: /réessayer/i })).toBeTruthy();
+	});
+
+	it('offers the click once the reference failed, and keeps the bleed it did not check', async () => {
+		const services = createFakeAppServices();
+		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+		await services.settings.update({ clickBleed: true });
+		services.calibration.nextOutcome = {
+			ok: false,
+			reason: 'reference',
+			detail: {
+				mic: 'MacBook Pro Microphone',
+				opened: true,
+				heard: 1,
+				clicks: 8,
+				delayMs: 60,
+				spreadMs: 0
+			}
+		};
+		services.calibration.nextClickOutcome = {
+			ok: true,
+			latency: { attack: { ms: 31, provenance: 'player' } },
+			clickBleed: null,
+			measure: {
+				referenceMs: null,
+				referenceSpreadMs: null,
+				offsetMs: null,
+				pairs: 10,
+				played: 10,
+				spreadMs: 4,
+				latencyMs: 31
+			}
+		};
+		render(TestHarness, { props: { services } });
+
+		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: /^calibrer$/i }));
+		const onClick = await screen.findByRole('button', { name: 'Calibrer sur mon jeu au clic' });
+		// Nothing is saved from a failed run.
+		expect((await services.settings.get()).latency).toEqual({});
+		await fireEvent.click(onClick);
+		await waitFor(async () => {
+			const settings = await services.settings.get();
+			expect(settings.latency).toEqual({ attack: { ms: 31, provenance: 'player' } });
+			expect(settings.inputDeviceId).toBe('usb');
+		});
+		expect(services.calibration.clickCalls).toBe(1);
+		expect(services.calibration.lastDeviceId).toBe('usb');
+		expect((await services.settings.get()).clickBleed).toBe(true);
 	});
 
 	it('cancels an in-flight run when the user presses cancel', async () => {

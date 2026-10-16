@@ -57,23 +57,28 @@
 		}
 	}
 
-	async function onstart() {
+	/** Runs one calibration; on success, saves the device, its latency per sensor and its bleed. */
+	async function calibrate(kind: 'compare' | 'click') {
 		if (phase === 'running') return;
 		phase = 'running';
 		progress = null;
 		outcome = null;
 		notice = null;
 		const deviceId = selectedDeviceId;
+		const onProgress = (next: CalibrationProgress) => {
+			progress = next;
+		};
 		try {
 			if (!listening) await onlisten();
-			const result = await services.calibration.run(deviceId, (next) => {
-				progress = next;
-			});
+			const result =
+				kind === 'compare'
+					? await services.calibration.run(deviceId, onProgress)
+					: await services.calibration.runOnClick(deviceId, onProgress);
 			if (result.ok) {
-				// Saved together, only on success: the device, its latency per sensor, its bleed.
+				// Saved together, only on success. A bleed not checked keeps the one known.
 				await services.settings.update({
 					latency: { ...(await services.settings.get()).latency, ...result.latency },
-					clickBleed: result.clickBleed,
+					...(result.clickBleed === null ? {} : { clickBleed: result.clickBleed }),
 					inputDeviceId: deviceId
 				});
 			}
@@ -83,6 +88,14 @@
 			notice = error instanceof Error ? error.message : String(error);
 		}
 		phase = 'done';
+	}
+
+	function onstart() {
+		void calibrate('compare');
+	}
+
+	function oncalibrateonclick() {
+		void calibrate('click');
 	}
 
 	function oncancel() {
@@ -119,5 +132,6 @@
 	{onstart}
 	{oncancel}
 	{onretry}
+	{oncalibrateonclick}
 	{notice}
 />

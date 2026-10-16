@@ -18,8 +18,20 @@ export class FakeCalibration implements CalibrationPort {
 			note: { ms: 41, provenance: 'system' },
 			chord: { ms: 41, provenance: 'system' }
 		},
-		clickBleed: false
+		clickBleed: false,
+		measure: {
+			referenceMs: 52.1,
+			referenceSpreadMs: 0.4,
+			offsetMs: -17.3,
+			pairs: 15,
+			played: 16,
+			spreadMs: 2.6,
+			latencyMs: 35
+		}
 	};
+	/** What `runOnClick` gives. */
+	nextClickOutcome: CalibrationOutcome = { ok: false, reason: 'no-sound' };
+	clickCalls = 0;
 	progressSteps: CalibrationProgress[] = [
 		{ phase: 'listen', done: 0, needed: 8 },
 		{ phase: 'listen', done: 8, needed: 8 },
@@ -42,6 +54,16 @@ export class FakeCalibration implements CalibrationPort {
 			onProgress(step);
 		}
 		return this.nextOutcome;
+	}
+
+	async runOnClick(
+		deviceId: string | null,
+		onProgress: (progress: CalibrationProgress) => void
+	): Promise<CalibrationOutcome> {
+		this.clickCalls += 1;
+		this.lastDeviceId = deviceId;
+		onProgress({ phase: 'play', done: 0, needed: 10 });
+		return this.nextClickOutcome;
 	}
 
 	cancel(): void {

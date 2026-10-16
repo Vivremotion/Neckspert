@@ -13,7 +13,8 @@ import {
 	COMPARE_SETTLE_S,
 	COMPARE_TIMEOUT_S,
 	DEFAULT_CALIBRATION_CONFIG,
-	LISTEN_WINDOW_S
+	LISTEN_WINDOW_S,
+	PLAY_MAX_OFFSET_MS
 } from './config';
 
 const INTERFACE: AudioInputDevice = { id: 'fm3', label: 'FM3 Audio' };
@@ -53,8 +54,9 @@ function setup(
 		return { attacks: mic, close };
 	});
 	const playDevice = options.playDevice === undefined ? INTERFACE.id : options.playDevice;
+	const log = vi.fn();
 	const service = new CalibrationService(
-		{ clock, sounds, detector, attacks, openSecondInput },
+		{ clock, sounds, detector, attacks, openSecondInput, log },
 		options.config
 	);
 	const progress: CalibrationProgress[] = [];
@@ -68,11 +70,13 @@ function setup(
 		warn,
 		held,
 		openSecondInput,
+		log,
 		service,
 		progress,
 		/** Clicks already played by the test. */
 		consumed: 0,
-		run: () => service.run(playDevice, (p) => progress.push({ ...p }))
+		run: () => service.run(playDevice, (p) => progress.push({ ...p })),
+		runOnClick: () => service.runOnClick(playDevice, (p) => progress.push({ ...p }))
 	};
 	return rig;
 }
@@ -170,10 +174,14 @@ describe('CalibrationService with an interface and the computer mic', () => {
 
 		// R_micro = 40 ms; the interface does not hear the click.
 		await clicksPhase(rig, { mic: 0.04 });
+		const play = vi.spyOn(rig.sounds, 'play');
 		// t_interface − t_micro = −25 ms; the note detector reads 10 ms after the attack.
 		await compare(rig, { mic: -0.025, note: 0.01 });
+		// The compare phase plays no click: only the player's attacks are compared.
+		expect(play).not.toHaveBeenCalled();
 
-		await expect(outcome).resolves.toEqual({
+		const result = await outcome;
+		expect(result).toMatchObject({
 			ok: true,
 			latency: {
 				attack: { ms: 15, provenance: 'system' },
@@ -182,6 +190,21 @@ describe('CalibrationService with an interface and the computer mic', () => {
 			},
 			clickBleed: false
 		});
+		// The measure, shown to the player.
+		const measure = result.ok ? result.measure : null;
+		expect(measure?.referenceMs).toBeCloseTo(40, 0);
+		expect(measure?.referenceSpreadMs).toBeLessThanOrEqual(1);
+		expect(measure?.offsetMs).toBeCloseTo(-25, 3);
+		expect(measure).toMatchObject({ pairs: 16, played: 16, spreadMs: 0, latencyMs: 15 });
+		// In dev builds, each phase's raw data is logged.
+		expect(rig.log).toHaveBeenCalledWith(
+			'listen',
+			expect.objectContaining({ clicks: expect.any(Array), mic: expect.any(Array) })
+		);
+		expect(rig.log).toHaveBeenCalledWith(
+			'compare',
+			expect.objectContaining({ play: expect.any(Array), mic: expect.any(Array) })
+		);
 		expect(rig.progress[0]).toEqual({ phase: 'listen', done: 0, needed: BLEED_CHECK_CLICKS });
 		expect(rig.progress).toContainEqual({
 			phase: 'listen',
@@ -234,7 +257,7 @@ describe('CalibrationService with an interface and the computer mic', () => {
 		});
 	});
 
-	it('falls back when the mic hears the clicks at scattered delays', async () => {
+	it('says the reference failed when the mic hears the clicks at scattered delays', async () => {
 		const rig = setup();
 		const outcome = rig.run();
 		await settle();
@@ -244,9 +267,16 @@ describe('CalibrationService with an interface and the computer mic', () => {
 			rig.mic.emit({ time: click + 0.04 + (i % 4) * 0.009, strength: 1 })
 		);
 		await clicksPhase(rig, {});
-		expect(rig.progress.at(-1)).toMatchObject({ phase: 'play' });
-		rig.service.cancel();
-		await expect(outcome).resolves.toEqual({ ok: false, reason: 'cancelled' });
+		const result = await outcome;
+		expect(result).toMatchObject({
+			ok: false,
+			reason: 'reference',
+			detail: { mic: 'MacBook Pro Microphone', opened: true, heard: 8, clicks: 8 }
+		});
+		const detail = !result.ok && result.reason === 'reference' ? result.detail : null;
+		expect(detail?.delayMs).toBeCloseTo(53.5, 0);
+		expect(detail?.spreadMs).toBeGreaterThan(5);
+		expect(rig.progress.some((p) => p.phase === 'play')).toBe(false);
 	});
 
 	it('records the bleed when the interface hears the click', async () => {
@@ -302,7 +332,12 @@ describe('CalibrationService with an interface and the computer mic', () => {
 			if (i % 3 === 0) rig.mic.emit({ time: t + 0.02, strength: 1 });
 		}
 		await advanceTo(rig, start + CALIBRATION_ATTACKS * 0.6 + COMPARE_SETTLE_S + 0.01);
-		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+		// The numbers that tell why.
+		await expect(outcome).resolves.toMatchObject({
+			ok: false,
+			reason: 'inconsistent',
+			measure: { pairs: 6, played: CALIBRATION_ATTACKS }
+		});
 		expect(rig.close).toHaveBeenCalledOnce();
 	});
 
@@ -312,7 +347,7 @@ describe('CalibrationService with an interface and the computer mic', () => {
 		await settle();
 		await clicksPhase(rig, { mic: 0.04 });
 		await compare(rig, { mic: -0.025, note: null });
-		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+		await expect(outcome).resolves.toMatchObject({ ok: false, reason: 'inconsistent' });
 	});
 
 	it('says the second input heard nothing when the mic stays silent while the player plays', async () => {
@@ -335,7 +370,69 @@ describe('CalibrationService with an interface and the computer mic', () => {
 	});
 });
 
-describe('CalibrationService falls back to the player on the click', () => {
+describe('CalibrationService says why the reference failed, and never falls back by itself', () => {
+	it('when the computer mic does not open', async () => {
+		const rig = setup({ secondInput: 'fails' });
+		const outcome = rig.run();
+		await settle();
+		expect(rig.warn).toHaveBeenCalledOnce();
+		await clicksPhase(rig);
+		await expect(outcome).resolves.toEqual({
+			ok: false,
+			reason: 'reference',
+			detail: {
+				mic: 'MacBook Pro Microphone',
+				opened: false,
+				heard: 0,
+				clicks: BLEED_CHECK_CLICKS,
+				delayMs: null,
+				spreadMs: null
+			}
+		});
+		expect(rig.progress.some((p) => p.phase === 'play')).toBe(false);
+	});
+
+	it('when there is no computer mic to compare with', async () => {
+		const rig = setup({ devices: [INTERFACE] });
+		const outcome = rig.run();
+		await settle();
+		expect(rig.openSecondInput).not.toHaveBeenCalled();
+		await clicksPhase(rig);
+		await expect(outcome).resolves.toMatchObject({
+			ok: false,
+			reason: 'reference',
+			detail: { mic: null, opened: false, heard: 0 }
+		});
+	});
+
+	it('when the mic does not hear the clicks', async () => {
+		const rig = setup();
+		const outcome = rig.run();
+		await settle();
+		await clicksPhase(rig, { mic: null });
+		await expect(outcome).resolves.toMatchObject({
+			ok: false,
+			reason: 'reference',
+			detail: { mic: 'MacBook Pro Microphone', opened: true, heard: 0 }
+		});
+		expect(rig.close).toHaveBeenCalledOnce();
+	});
+
+	it('when the computer mic as the playing input does not hear the clicks', async () => {
+		const rig = setup({ devices: [BUILT_IN], playDevice: 'mac' });
+		const outcome = rig.run();
+		await settle();
+		await clicksPhase(rig, {});
+		await expect(outcome).resolves.toMatchObject({
+			ok: false,
+			reason: 'reference',
+			detail: { mic: 'MacBook Pro Microphone', opened: true, heard: 0 }
+		});
+		expect(rig.progress.some((p) => p.phase === 'bleed')).toBe(false);
+	});
+});
+
+describe('CalibrationService.runOnClick, the player on the click, chosen explicitly', () => {
 	async function playOnClicks(rig: Rig, noteDelay: number | null, attack: number | null) {
 		const clicks = newClicks(rig);
 		for (let index = 0; index < clicks.length; index++) {
@@ -346,13 +443,16 @@ describe('CalibrationService falls back to the player on the click', () => {
 		}
 	}
 
-	it('when the second input does not open: every latency comes from the player', async () => {
-		const rig = setup({ secondInput: 'fails' });
-		const outcome = rig.run();
+	it('measures every latency on the player, and says the bleed was not checked', async () => {
+		const rig = setup();
+		const outcome = rig.runOnClick();
 		await settle();
-		expect(rig.warn).toHaveBeenCalledOnce();
-		await clicksPhase(rig);
-		expect(rig.progress.at(-1)).toMatchObject({ phase: 'play', done: 0 });
+		expect(rig.openSecondInput).not.toHaveBeenCalled();
+		expect(rig.progress[0]).toEqual({
+			phase: 'play',
+			done: 0,
+			needed: DEFAULT_CALIBRATION_CONFIG.hitsNeeded
+		});
 		await playOnClicks(rig, 0.038, 0.03);
 		await expect(outcome).resolves.toEqual({
 			ok: true,
@@ -361,7 +461,16 @@ describe('CalibrationService falls back to the player on the click', () => {
 				note: { ms: 38, provenance: 'player' },
 				chord: { ms: 38, provenance: 'player' }
 			},
-			clickBleed: false
+			clickBleed: null,
+			measure: {
+				referenceMs: null,
+				referenceSpreadMs: null,
+				offsetMs: null,
+				pairs: DEFAULT_CALIBRATION_CONFIG.hitsNeeded,
+				played: DEFAULT_CALIBRATION_CONFIG.hitsNeeded,
+				spreadMs: 0,
+				latencyMs: 30
+			}
 		});
 		expect(rig.progress.at(-1)).toEqual({
 			phase: 'play',
@@ -370,37 +479,35 @@ describe('CalibrationService falls back to the player on the click', () => {
 		});
 	});
 
-	it('when there is no computer mic to compare with', async () => {
-		const rig = setup({ devices: [INTERFACE] });
-		const outcome = rig.run();
+	it('takes no note on the offbeat: only notes within PLAY_MAX_OFFSET_MS of a click count', async () => {
+		const rig = setup();
+		const outcome = rig.runOnClick();
 		await settle();
-		expect(rig.openSecondInput).not.toHaveBeenCalled();
-		await clicksPhase(rig);
-		await playOnClicks(rig, 0.038, 0.03);
-		await expect(outcome).resolves.toMatchObject({
-			ok: true,
-			latency: { attack: { provenance: 'player' } }
-		});
+		// Half a beat after each click: 375 ms, the offbeat.
+		await playOnClicks(rig, 0.375, null);
+		await advanceTo(rig, rig.clock.now() + 1);
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'no-sound' });
 	});
 
-	it('when the mic does not hear the clicks', async () => {
-		const rig = setup();
-		const outcome = rig.run();
+	it('counts a note up to PLAY_MAX_OFFSET_MS late, not beyond', async () => {
+		const late = setup({ config: { hitsNeeded: 3 } });
+		const counted = late.runOnClick();
 		await settle();
-		await clicksPhase(rig, { mic: null });
-		await playOnClicks(rig, 0.038, 0.03);
-		await expect(outcome).resolves.toMatchObject({
-			ok: true,
-			latency: { attack: { ms: 30, provenance: 'player' } }
-		});
-		expect(rig.close).toHaveBeenCalledOnce();
+		await playOnClicks(late, (PLAY_MAX_OFFSET_MS - 5) / 1000, null);
+		await expect(counted).resolves.toMatchObject({ ok: true });
+
+		const beyond = setup({ config: { hitsNeeded: 3 } });
+		const ignored = beyond.runOnClick();
+		await settle();
+		await playOnClicks(beyond, (PLAY_MAX_OFFSET_MS + 5) / 1000, null);
+		await advanceTo(beyond, beyond.clock.now() + 1);
+		await expect(ignored).resolves.toEqual({ ok: false, reason: 'no-sound' });
 	});
 
 	it('gives no-sound when nothing is played on the click', async () => {
-		const rig = setup({ secondInput: 'fails' });
-		const outcome = rig.run();
+		const rig = setup();
+		const outcome = rig.runOnClick();
 		await settle();
-		await clicksPhase(rig);
 		await playOnClicks(rig, null, null);
 		await advanceTo(rig, rig.clock.now() + 1);
 		await expect(outcome).resolves.toEqual({ ok: false, reason: 'no-sound' });
@@ -408,31 +515,36 @@ describe('CalibrationService falls back to the player on the click', () => {
 	});
 
 	it('is inconsistent when the clicks run out before enough hits', async () => {
-		const rig = setup({ secondInput: 'fails' });
-		const outcome = rig.run();
+		const rig = setup();
+		const outcome = rig.runOnClick();
 		await settle();
-		await clicksPhase(rig);
 		const clicks = newClicks(rig);
 		for (let index = 0; index < clicks.length; index++) {
 			await advanceTo(rig, clicks[index]);
 			if (index === 5 || index === 9) rig.detector.emitNote(note(clicks[index] + 0.03));
 		}
 		await advanceTo(rig, rig.clock.now() + 1);
-		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+		await expect(outcome).resolves.toMatchObject({ ok: false, reason: 'inconsistent' });
 	});
 
-	it('is inconsistent when the hits are scattered', async () => {
-		const rig = setup({ secondInput: 'fails', config: { hitsNeeded: 5, maxSpreadMs: 5 } });
-		const outcome = rig.run();
+	it('is inconsistent when the hits are scattered, and says by how much', async () => {
+		const rig = setup({ config: { hitsNeeded: 5, maxSpreadMs: 5 } });
+		const outcome = rig.runOnClick();
 		await settle();
-		await clicksPhase(rig);
 		const clicks = newClicks(rig);
 		const offsets = [0, 0.05, 0.1, 0, 0.08];
 		for (let index = 0; index < 4 + offsets.length; index++) {
 			await advanceTo(rig, clicks[index]);
 			if (index >= 4) rig.detector.emitNote(note(clicks[index] + offsets[index - 4]));
 		}
-		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+		const result = await outcome;
+		expect(result).toMatchObject({
+			ok: false,
+			reason: 'inconsistent',
+			measure: { played: 5 }
+		});
+		const measure = !result.ok && result.reason === 'inconsistent' ? result.measure : null;
+		expect(measure?.spreadMs).toBeGreaterThan(5);
 	});
 });
 
@@ -461,7 +573,17 @@ describe('CalibrationService with the computer mic as the playing input', () => 
 				note: { ms: 72, provenance: 'system' },
 				chord: { ms: 72, provenance: 'system' }
 			},
-			clickBleed: false
+			clickBleed: false,
+			measure: {
+				referenceMs: expect.closeTo(60, 0),
+				referenceSpreadMs: expect.any(Number),
+				// No second input: nothing to compare the attacks with.
+				offsetMs: null,
+				pairs: CALIBRATION_ATTACKS,
+				played: CALIBRATION_ATTACKS,
+				spreadMs: 0,
+				latencyMs: 60
+			}
 		});
 		// Counted on the notes, not on the breaths.
 		const counted = rig.progress.filter((p) => p.phase === 'compare').map((p) => p.done);

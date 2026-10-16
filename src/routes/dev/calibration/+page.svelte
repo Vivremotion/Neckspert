@@ -54,4 +54,9 @@
 	{onstart}
 	{oncancel}
 	{onretry}
+	oncalibrateonclick={() => {
+		phase = 'running';
+		progress = { phase: 'play', done: 3, needed: 10 };
+		outcome = null;
+	}}
 />
