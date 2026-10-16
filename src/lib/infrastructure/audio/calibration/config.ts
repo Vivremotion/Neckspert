@@ -1,3 +1,5 @@
+import type { AttackConfig } from '../attacks/config';
+
 /** The fallback calibration, the player on the click. */
 export interface CalibrationConfig {
 	bpm: number;
@@ -16,6 +18,16 @@ export const DEFAULT_CALIBRATION_CONFIG: CalibrationConfig = {
 
 /** Audio seconds after `clock.now()` before the first click (must be ≥ 0.1). */
 export const CALIBRATION_START_DELAY_S = 0.5;
+
+/**
+ * The attack tracker of the reference mic (the computer's, opened beside an interface). The
+ * default `delta` (3.5) hears nothing of an app click under about −25 dBFS at the tracker,
+ * about −43 dBFS at the raw built-in mic (gain 8): clicks from monitors a metre away can stay
+ * under it. At 2 the click is heard down to about −30 dBFS, timed as well (well under 1 ms of
+ * its onset); the real built-in mic takes then give some 3 to 5 false attacks a second, which
+ * the listen phase's cluster and the compare phase's pairing leave out.
+ */
+export const REFERENCE_ATTACK_CONFIG: Partial<AttackConfig> = { delta: 2 };
 
 /** Clicks of the listen phase, the player silent. */
 export const BLEED_CHECK_CLICKS = 8;
@@ -61,5 +73,10 @@ export const COMPARE_TIMEOUT_S = 90;
  * asked: neglected under 50 cm.
  */
 export const MIC_DISTANCE_MS = 0;
-/** The first bar of the fallback is ignored: the player finds the click. */
+/**
+ * On the click, a note counts only this close to a click, in ms: a note on the offbeat
+ * (half a beat, 375 ms at ♩ = 80 bpm) is not a latency.
+ */
+export const PLAY_MAX_OFFSET_MS = 150;
+/** The first bar on the click is ignored: the player finds the click. */
 export const PLAY_SKIPPED_CLICKS = 4;

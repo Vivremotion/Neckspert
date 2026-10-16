@@ -158,3 +158,41 @@ export function feed(
 	}
 	return attacks;
 }
+
+/**
+ * The app's click as the sound scheduler plays it (`clickSound.ts`): white noise through a
+ * band-pass (RBJ, Q 0.7) at `filterHz`, its gain ramped exponentially from `gain` to 0.001 over
+ * 50 ms. `seed` makes the noise reproducible.
+ */
+export function appClick(input: {
+	rate: number;
+	filterHz: number;
+	gain: number;
+	seed?: number;
+}): Float32Array {
+	const { rate, filterHz, gain } = input;
+	const random = seeded(input.seed ?? 11);
+	const length = Math.round(0.05 * rate);
+	const w0 = (2 * Math.PI * filterHz) / rate;
+	const alpha = Math.sin(w0) / (2 * 0.7);
+	const a0 = 1 + alpha;
+	const b0 = alpha / a0;
+	const b2 = -alpha / a0;
+	const a1 = (-2 * Math.cos(w0)) / a0;
+	const a2 = (1 - alpha) / a0;
+	const out = new Float32Array(length);
+	let x1 = 0;
+	let x2 = 0;
+	let y1 = 0;
+	let y2 = 0;
+	for (let i = 0; i < length; i++) {
+		const x = random() * 2 - 1;
+		const y = b0 * x + b2 * x2 - a1 * y1 - a2 * y2;
+		x2 = x1;
+		x1 = x;
+		y2 = y1;
+		y1 = y;
+		out[i] = y * gain * Math.pow(0.001 / gain, i / length);
+	}
+	return out;
+}
