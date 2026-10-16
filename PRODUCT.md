@@ -103,6 +103,16 @@ Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décompté
 - **Mode 2** : une position entre dans la file en mode 2 dès qu'elle est acquise en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
 - **Modes 3 à 5** : s'ouvrent sur un pourcentage du manche maîtrisé, à définir avec ces modes.
 
+### Rythme
+
+Le rythme est une compétence à part entière, pas un décor des exercices du manche : jouer une figure en place, la tenir quand le clic se tait, la lire d’un trait. Seules les attaques comptent, pas les hauteurs ; toute attaque vaut (médiator, cordes étouffées, percussion). Trois exercices du professeur ouvrent la compétence, depuis « Rythme » à l’accueil : **mesures silencieuses**, **métronome sur 2 et 4**, **contretemps** (spec `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md`).
+
+- **On joue en continu** : la figure se joue en boucle, chaque **cycle** est jugé ; une **respiration** (au moins 4 s, clic audible, on ne joue pas) vient après chaque **suite** de cycles et montre seulement alors le retour de la suite. Rien n’est affiché sur les attaques pendant le jeu.
+- **Une mesure dit ce qu’elle prouve** : fidélité à la figure (aucune note oubliée, aucune en trop, aucun temps perdu ou ajouté), régularité, tenue sans clic (décalage, dérive : seule la dérive dit « tu accélères »), placement et précision. Placement et précision ne jugent que si la latence a été mesurée sans le joueur ; sinon ils sont affichés sans compter.
+- **Niveaux** : chaque exercice a son échelle (moins de clic, plus vite, ou plus lent quand c’est plus dur) ; on monte après 3 cycles réussis d’affilée sans aide, on redescend après 2 échecs ; les changements s’annoncent à la respiration, où le tempo peut changer (« ♩ = 100 bpm » → « ♩ = 120 bpm »). Des niveaux d’aide existent sous le niveau 1.
+- **Écouter la figure** (E) avant de la jouer, **réécouter sa suite** (R) avec le clic remis sur les mesures muettes. En lecture, écouter avant de jouer est une aide : le cycle qui suit ne compte pas pour monter.
+- Tout se joue à chaud : le rythme se mesure par sa progression, pas encore par la rétention.
+
 ### Terminologie
 
 - **À froid / à chaud** : premier essai d'une position après un délai / essais suivants. Exception : un sondage manqué est enregistré à chaud, parce qu'il ne mesure pas un oubli (la note n'a jamais été apprise) ; un sondage réussi est à froid.
