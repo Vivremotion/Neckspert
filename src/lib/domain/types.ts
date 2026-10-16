@@ -5,6 +5,7 @@ import type {
 	Aid,
 	CycleReport,
 	CycleVerdict,
+	Figure,
 	LevelParams,
 	LevelState,
 	Measures,
@@ -400,6 +401,8 @@ export interface RhythmSummary {
 		verdict: CycleVerdict;
 		/** The thresholds of the level it was played at. */
 		thresholds: LevelParams['thresholds'];
+		/** The cycle as played, to engrave it with its marks; absent when its plan cannot be read. */
+		played?: { figure: Figure; cycleBars: number; tempoBpm: number };
 	};
 }
 

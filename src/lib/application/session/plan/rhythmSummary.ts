@@ -1,9 +1,33 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise';
-import { levelRange, type CycleVerdict, type LevelState } from '$lib/domain/time';
+import {
+	figureFromJson,
+	levelRange,
+	type CycleVerdict,
+	type Figure,
+	type LevelState
+} from '$lib/domain/time';
 import type { Attempt, RhythmSummary } from '$lib/domain/types';
-import { levelAided, type RhythmAttemptData } from './recordCycle';
+import { levelAided, type CyclePlanRecord, type RhythmAttemptData } from './recordCycle';
 import { levelParamsOf, rhythmLevels } from './rhythmExercise';
 import { levelView } from './rhythmStage';
+
+/** The figure and bars of a cycle as its attempt's plan keeps them; none when the plan is not readable. */
+function playedOf(
+	attempt: Attempt
+): { figure: Figure; cycleBars: number; tempoBpm: number } | null {
+	const plan = attempt.plan as Partial<CyclePlanRecord> | null;
+	const tempoBpm = plan?.tempo?.bpm ?? attempt.tempoBpm;
+	if (!plan || typeof plan.cycleBars !== 'number' || !plan.figure || !tempoBpm) return null;
+	try {
+		return {
+			figure: figureFromJson(plan.figure),
+			cycleBars: plan.cycleBars,
+			tempoBpm
+		};
+	} catch {
+		return null;
+	}
+}
 
 /**
  * What a rhythm session did: the cycles it played, those that succeeded, the successes played
@@ -32,6 +56,7 @@ export function summarizeRhythm(input: {
 	// An attempt stored before the report existed, or by a test double, has neither: no report then.
 	const verdict =
 		typeof value === 'object' && value !== null && 'passed' in value ? value : undefined;
+	const played = last ? playedOf(last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
 	return {
 		exerciseId: exercise.id,
@@ -48,7 +73,8 @@ export function summarizeRhythm(input: {
 				lastCycle: {
 					report: last.data.report,
 					verdict,
-					thresholds: levelParamsOf(exercise, last.data.level).thresholds
+					thresholds: levelParamsOf(exercise, last.data.level).thresholds,
+					...(played && { played })
 				}
 			})
 	};

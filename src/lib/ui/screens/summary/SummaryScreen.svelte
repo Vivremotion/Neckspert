@@ -4,6 +4,7 @@
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
 	import { isTriadsKind, type RhythmSummary, type SessionSummary } from '$lib/domain/types';
+	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import PixelText from '$lib/ui/primitives/PixelText.svelte';
@@ -25,6 +26,11 @@
 		/** « Joué juste » on a missed gesture change; without it, misses are listed only. */
 		oncontest?: (attemptId: number) => Promise<void>;
 	} = $props();
+
+	/** The width the played cycle may take (its box, measured). */
+	let playedWidth = $state(0);
+	/** Width assumed before the box is measured. */
+	const FALLBACK_WIDTH = 640;
 
 	/** The exercise, and the grid its tempo belongs to when it has one. */
 	function exerciseLabel(exerciseId: string, scope: string | undefined): string {
@@ -111,6 +117,23 @@
 			</PixelBox>
 			{#if rhythm.lastCycle}
 				{@const report = rhythmReportView(rhythm.lastCycle, t.report, i18n.locale)}
+				{@const played = rhythm.lastCycle.played}
+				{#if played}
+					<PixelBox variant="double">
+						<div class="played-cycle" bind:clientWidth={playedWidth}>
+							<PlayedCycle
+								figure={played.figure}
+								cycleBars={played.cycleBars}
+								reports={[rhythm.lastCycle.report]}
+								feedback="every-cycle"
+								beatMs={60000 / played.tempoBpm}
+								maxWidth={playedWidth > CYCLE_COLUMN_PX
+									? playedWidth - CYCLE_COLUMN_PX
+									: FALLBACK_WIDTH}
+							/>
+						</div>
+					</PixelBox>
+				{/if}
 				<PixelBox variant="double">
 					<div class="report">
 						<strong>{report.headline}</strong>
@@ -278,6 +301,10 @@
 	.grade {
 		margin: 0;
 		text-align: center;
+	}
+
+	.played-cycle {
+		min-width: 0;
 	}
 
 	.report {
