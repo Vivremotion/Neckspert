@@ -560,7 +560,22 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 
 ### Calibration et essai à deux entrées
 
-- **Essai à deux entrées** (`/dev/two-inputs`) : la page est construite (elle refuse d’ouvrir le même micro deux fois et apparie les attaques une à une). Résultat : en attente de l’essai sur le matériel réel.
+- **Essai à deux entrées** (page jetable `/dev/two-inputs`, retirée ensuite ; 2026-10-16, Fractal FM3 et micro d’un MacBook Pro) : **les deux entrées s’ouvrent ensemble** dans Chrome comme dans Firefox, et les attaques de l’interface trouvent presque toutes leur paire au micro.
+
+  |                                              | Chrome                | Firefox                            |
+  | -------------------------------------------- | --------------------- | ---------------------------------- |
+  | Attaques interface / micro                   | 43 / 137              | 26 / 29                            |
+  | Paires (sans paire : interface, micro)       | 42 (1, 95)            | 25 (1, 4)                          |
+  | Décalage `t_interface − t_micro`             | −29,73 ms             | −121,42 ms                         |
+  | Dispersion (MAD), écart maximal à la médiane | 2,32 ms, 13,53 ms     | 4,79 ms, 20,06 ms                  |
+  | Canaux, débit annoncés (interface ; micro)   | 2, 48 kHz ; 1, 48 kHz | 4, 0 Hz ; 3, 0 Hz (non renseignés) |
+
+  Ce qu’on en retient pour la calibration :
+  - **La comparaison est faisable** : le décalage est stable (MAD de 2 à 5 ms), mais il dépend du navigateur (−30 ms dans Chrome, −121 ms dans Firefox). La latence se mesure donc par navigateur et par appareil, jamais une fois pour toutes.
+  - **Le micro de Chrome entend tout** : la respiration, les clics, le clavier, la main posée sur l’ordinateur (95 attaques sans paire). Firefox traite le micro intégré (gain bien plus faible). La comparaison n’utilise donc que des paires : on part des attaques de l’interface, et une attaque du micro ne compte que si elle tombe dans la fenêtre d’une attaque de l’interface. Le décalage retenu est une médiane, et la calibration exige un nombre minimal de paires.
+  - **L’étalonnage du micro sur les clics** (étape 1) demande le silence : les bruits de la pièce y deviennent des attaques. Il apparie chaque attaque au clic attendu le plus proche et écarte les autres.
+  - **Le niveau de l’interface était très bas** (jauge presque vide), et pourtant les attaques ont été détectées. Un niveau trop faible reste à signaler au joueur.
+
 - **La calibration par comparaison n’est pas faite.** La calibration actuelle écrit la latence `player` des capteurs `note` et `chord` ; le capteur `attack` n’en a pas encore à lui : il prend celle de `note` (même entrée, mesurée sur les attaques du joueur au clic) en provenance `player`, qui corrige les attaques, le rapport et la réécoute ; placement et précision des exercices de rythme sont affichés sans juger, et rien n’écrit encore `clickBleed`.
 
 ### Risques connus (plan A)
