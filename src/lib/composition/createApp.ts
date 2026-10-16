@@ -36,7 +36,8 @@ export interface CreateAppOptions {
  * Composition root. One WebAudioClock owns the single AudioContext (lazy on resume).
  * Metronome, cues and detector share () => clock.context(). One audio input feeds both the note
  * detector and the chord verifier; the detector opens and closes it. One Dexie database feeds
- * every repository and DexieBackup. Calibration reads inputDeviceId from settings. The diagnostic
+ * every repository and DexieBackup. Calibration reads inputDeviceId from settings and may open a
+ * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
  * chord verifier write to it; the core never sees it.
  */
@@ -69,9 +70,22 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 
 	const calibration = new CalibrationService({
 		clock,
-		metronome,
+		sounds,
 		detector,
-		deviceId: async () => (await settings.get()).inputDeviceId
+		attacks,
+		deviceId: async () => (await settings.get()).inputDeviceId,
+		// The computer's mic, opened beside the playing input in the same context (one clock),
+		// unjournaled, and closed when the calibration ends.
+		openSecondInput: async (deviceId) => {
+			const mic = new WebAudioInput(context, { resume: () => clock.resume() });
+			try {
+				await mic.start(deviceId);
+			} catch (error) {
+				mic.stop();
+				throw error;
+			}
+			return { attacks: new WebAudioAttackDetector(mic), close: () => mic.stop() };
+		}
 	});
 
 	return createAppServices({

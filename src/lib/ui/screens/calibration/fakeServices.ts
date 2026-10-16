@@ -11,11 +11,20 @@ import { validateBackup } from '$lib/infrastructure/storage';
 import { FakeDiagnostics, FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
 
 export class FakeCalibration implements CalibrationPort {
-	nextOutcome: CalibrationOutcome = { ok: true, offsetMs: 35, spreadMs: 8 };
+	nextOutcome: CalibrationOutcome = {
+		ok: true,
+		latency: {
+			attack: { ms: 35, provenance: 'system' },
+			note: { ms: 41, provenance: 'system' },
+			chord: { ms: 41, provenance: 'system' }
+		},
+		clickBleed: false
+	};
 	progressSteps: CalibrationProgress[] = [
-		{ hits: 1, needed: 10, lastOffsetMs: 40 },
-		{ hits: 5, needed: 10, lastOffsetMs: 30 },
-		{ hits: 10, needed: 10, lastOffsetMs: 35 }
+		{ phase: 'listen', done: 0, needed: 8 },
+		{ phase: 'listen', done: 8, needed: 8 },
+		{ phase: 'compare', done: 5, needed: 16 },
+		{ phase: 'compare', done: 16, needed: 16 }
 	];
 	runCalls = 0;
 	cancelled = false;

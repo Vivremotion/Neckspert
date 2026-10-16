@@ -66,16 +66,18 @@
 		progress = null;
 		outcome = null;
 		if (!listening) await onlisten();
+		// The calibration measures the input chosen here.
+		await services.settings.update({ inputDeviceId: selectedDeviceId });
 		const result = await services.calibration.run((next) => {
 			progress = next;
 		});
 		outcome = result;
 		phase = 'done';
 		if (result.ok) {
-			// Measured on the player's attacks on the click: the latency of the note and chord sensors.
-			const played = { ms: result.offsetMs, provenance: 'player' } as const;
+			// Each sensor measured keeps its latency and provenance; the others keep theirs.
 			await services.settings.update({
-				latency: { ...(await services.settings.get()).latency, note: played, chord: played },
+				latency: { ...(await services.settings.get()).latency, ...result.latency },
+				clickBleed: result.clickBleed,
 				inputDeviceId: selectedDeviceId
 			});
 		}

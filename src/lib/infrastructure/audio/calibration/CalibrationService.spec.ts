@@ -1,239 +1,351 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { CalibrationProgress } from '$lib/application/ports';
-import { FakeClock, FakeMetronome, FakeNoteDetector } from '$lib/testing/fakes';
+import type { AudioInputDevice, CalibrationProgress } from '$lib/application/ports';
+import {
+	FakeAttackDetector,
+	FakeClock,
+	FakeNoteDetector,
+	FakeSoundScheduler
+} from '$lib/testing/fakes';
 import { CalibrationService } from './CalibrationService';
-import { CALIBRATION_START_DELAY_S, DEFAULT_CALIBRATION_CONFIG } from './config';
+import {
+	BLEED_CHECK_CLICKS,
+	CALIBRATION_ATTACKS,
+	COMPARE_SETTLE_S,
+	DEFAULT_CALIBRATION_CONFIG,
+	LISTEN_WINDOW_S
+} from './config';
 
-function setup(config?: Partial<typeof DEFAULT_CALIBRATION_CONFIG>) {
+const INTERFACE: AudioInputDevice = { id: 'fm3', label: 'FM3 Audio' };
+const BUILT_IN: AudioInputDevice = { id: 'mac', label: 'MacBook Pro Microphone' };
+const DEFAULT_ALIAS: AudioInputDevice = {
+	id: 'default',
+	label: 'Default - MacBook Pro Microphone'
+};
+
+function setup(
+	options: {
+		devices?: AudioInputDevice[];
+		playDevice?: string | null;
+		secondInput?: 'opens' | 'fails';
+		config?: Partial<typeof DEFAULT_CALIBRATION_CONFIG>;
+	} = {}
+) {
 	const clock = new FakeClock();
-	const metronome = new FakeMetronome(clock);
+	const sounds = new FakeSoundScheduler(clock);
 	const detector = new FakeNoteDetector();
-	const deviceId = vi.fn(async () => 'input-1');
-	const service = new CalibrationService({ clock, metronome, detector, deviceId }, config);
-	return { clock, metronome, detector, deviceId, service };
+	const devices = options.devices ?? [DEFAULT_ALIAS, INTERFACE, BUILT_IN];
+	detector.listInputs = async () => devices;
+	const attacks = new FakeAttackDetector();
+	const mic = new FakeAttackDetector();
+	const close = vi.fn();
+	const openSecondInput = vi.fn(async (deviceId: string) => {
+		void deviceId;
+		if (options.secondInput === 'fails') throw new Error('NotReadableError');
+		return { attacks: mic, close };
+	});
+	const playDevice = options.playDevice === undefined ? INTERFACE.id : options.playDevice;
+	const service = new CalibrationService(
+		{
+			clock,
+			sounds,
+			detector,
+			attacks,
+			deviceId: async () => playDevice,
+			openSecondInput
+		},
+		options.config
+	);
+	const progress: CalibrationProgress[] = [];
+	return { clock, sounds, detector, attacks, mic, close, openSecondInput, service, progress };
 }
 
-/** Let `CalibrationService.run` finish its awaits (resume, deviceId, detector.start). */
-async function settleRun(metronome: FakeMetronome): Promise<void> {
-	for (let i = 0; i < 20 && !metronome.isRunning(); i++) {
-		await Promise.resolve();
+type Rig = ReturnType<typeof setup>;
+
+/** Lets the service's awaits (resume, inputs, settle) run. */
+async function settle(): Promise<void> {
+	for (let i = 0; i < 50; i++) await Promise.resolve();
+}
+
+/** Moves the audio clock to `time` and runs the wake-ups due. */
+async function advanceTo(rig: Rig, time: number): Promise<void> {
+	if (rig.clock.now() < time) rig.clock.time = time;
+	rig.sounds.flush();
+	await settle();
+}
+
+function clickTimes(rig: Rig): number[] {
+	return rig.sounds
+		.emitted()
+		.filter((s) => s.sound === 'click' || s.sound === 'click-accent')
+		.map((s) => s.time);
+}
+
+function note(time: number) {
+	return { time, midi: 52, frequencyHz: 164.8, clarity: 0.95 };
+}
+
+/** The listen phase: `heard` gives, per click, what each input hears of it. */
+async function listen(
+	rig: Rig,
+	heard: { play?: number | null; mic?: number | null } = {}
+): Promise<number[]> {
+	const clicks = clickTimes(rig);
+	expect(clicks).toHaveLength(BLEED_CHECK_CLICKS);
+	for (const click of clicks) {
+		if (heard.mic != null) rig.mic.emit({ time: click + heard.mic, strength: 1 });
+		if (heard.play != null) rig.attacks.emit({ time: click + heard.play, strength: 1 });
+		await advanceTo(rig, click);
 	}
+	await advanceTo(rig, clicks[clicks.length - 1] + LISTEN_WINDOW_S + 0.01);
+	return clicks;
 }
 
-/** Advance the clock and flush until beat `index` has been announced (lookahead 0.1 s). */
-function announceThrough(clock: FakeClock, metronome: FakeMetronome, index: number): void {
-	if (!metronome.isRunning()) return;
-	const need = metronome.beatTime(index) - 0.1;
-	if (clock.now() < need) clock.advance(need - clock.now());
-	// Finish may stop the metronome inside an onBeat listener; FakeMetronome.flush then
-	// throws on the next while-check. Treat that as end of announcements.
-	try {
-		metronome.flush();
-	} catch (error) {
-		if (!(error instanceof Error) || error.message !== 'Metronome not running') throw error;
+/** The compare phase: the player plays `count` notes, each heard as described. */
+async function compare(
+	rig: Rig,
+	readings: { mic?: number | null; note?: number | null; count?: number } = {}
+): Promise<void> {
+	const start = rig.clock.now() + 1;
+	const count = readings.count ?? CALIBRATION_ATTACKS;
+	for (let i = 0; i < count; i++) {
+		const t = start + i * 0.6 + (i % 3) * 0.05;
+		rig.attacks.emit({ time: t, strength: 1 });
+		if (readings.mic != null) rig.mic.emit({ time: t - readings.mic, strength: 1 });
+		if (readings.note != null) rig.detector.emitNote(note(t + readings.note));
 	}
+	await advanceTo(rig, start + count * 0.6 + COMPARE_SETTLE_S + 0.01);
 }
 
-describe('CalibrationService.run', () => {
-	it('resumes, starts the detector with deviceId, sets tempo, and starts later than now', async () => {
-		const { clock, metronome, detector, deviceId, service } = setup({
-			hitsNeeded: 1,
-			noSoundBeats: 64
-		});
-		const resume = vi.spyOn(clock, 'resume');
-		const progress: { hits: number; needed: number; lastOffsetMs: number | null }[] = [];
+describe('CalibrationService with an interface and the computer mic', () => {
+	it('calibrates the mic on the clicks, then the interface against it, without the player', async () => {
+		const rig = setup();
+		const outcome = rig.service.run((p) => rig.progress.push({ ...p }));
+		await settle();
+		expect(rig.detector.running).toBe(true);
+		expect(rig.detector.deviceId).toBe('fm3');
+		// The mic, never an alias of the default device.
+		expect(rig.openSecondInput).toHaveBeenCalledWith('mac');
 
-		const runPromise = service.run((p) => progress.push({ ...p }));
-		await settleRun(metronome);
+		// R_micro = 40 ms; the interface does not hear the click.
+		await listen(rig, { mic: 0.04 });
+		// t_interface − t_micro = −25 ms; the note detector reads 10 ms after the attack.
+		await compare(rig, { mic: -0.025, note: 0.01 });
 
-		// Beat 0 announced ~0.1 s before 0.5 → clock at 0.4
-		announceThrough(clock, metronome, 0);
-		expect(resume).toHaveBeenCalledOnce();
-		expect(deviceId).toHaveBeenCalledOnce();
-		expect(detector.running).toBe(true);
-		expect(detector.deviceId).toBe('input-1');
-		expect(metronome.getTempo()).toBe(80);
-		expect(metronome.isRunning()).toBe(true);
-		expect(metronome.beatTime(0)).toBeCloseTo(CALIBRATION_START_DELAY_S);
-
-		// Skip first bar (beats 0..3); accept on beat 4
-		announceThrough(clock, metronome, 4);
-		detector.emitNote({
-			time: metronome.beatTime(4) + 0.038,
-			midi: 40,
-			frequencyHz: 82.4,
-			clarity: 0.95
-		});
-
-		await expect(runPromise).resolves.toEqual({
+		await expect(outcome).resolves.toEqual({
 			ok: true,
-			offsetMs: 38,
-			spreadMs: 0
+			latency: {
+				attack: { ms: 15, provenance: 'system' },
+				note: { ms: 25, provenance: 'system' },
+				chord: { ms: 25, provenance: 'system' }
+			},
+			clickBleed: false
 		});
-		expect(progress).toEqual([{ hits: 1, needed: 1, lastOffsetMs: 38 }]);
-		expect(metronome.isRunning()).toBe(false);
-		expect(detector.running).toBe(false);
+		expect(rig.progress[0]).toEqual({ phase: 'listen', done: 0, needed: BLEED_CHECK_CLICKS });
+		expect(rig.progress).toContainEqual({
+			phase: 'listen',
+			done: BLEED_CHECK_CLICKS,
+			needed: BLEED_CHECK_CLICKS
+		});
+		expect(rig.progress.at(-1)).toEqual({
+			phase: 'compare',
+			done: CALIBRATION_ATTACKS,
+			needed: CALIBRATION_ATTACKS
+		});
+		expect(rig.close).toHaveBeenCalledOnce();
+		expect(rig.detector.running).toBe(false);
+		expect(rig.attacks.listeners).toBe(0);
+		expect(rig.mic.listeners).toBe(0);
 	});
 
-	it('collects ten ~38 ms hits after the first bar and reports offsetMs near 38', async () => {
-		const { clock, metronome, detector, service } = setup();
-		const progress: number[] = [];
+	it('finds the large offset of Firefox, and ignores what the mic hears of the room', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig, { mic: 0.18 });
+		// Breaths and keys between the notes, heard by the mic only.
+		const from = rig.clock.now();
+		for (let i = 0; i < 40; i++) rig.mic.emit({ time: from + 1.3 + i * 0.23, strength: 0.5 });
+		await compare(rig, { mic: -0.121, note: 0 });
+		const result = await outcome;
+		expect(result).toMatchObject({ ok: true, latency: { attack: { ms: 59 } } });
+	});
 
-		const runPromise = service.run((p) => {
-			if (p.lastOffsetMs !== null) progress.push(p.lastOffsetMs);
-		});
-		await settleRun(metronome);
+	it('records the bleed when the interface hears the click', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig, { mic: 0.04, play: 0.03 });
+		await compare(rig, { mic: -0.02, note: 0 });
+		await expect(outcome).resolves.toMatchObject({ ok: true, clickBleed: true });
+	});
 
-		for (let index = 0; index < 4 + 10; index++) {
-			announceThrough(clock, metronome, index);
-			if (index < 4) continue;
-			detector.emitNote({
-				time: metronome.beatTime(index) + 0.038,
-				midi: 40,
-				frequencyHz: 82.4,
-				clarity: 0.95
-			});
+	it('is inconsistent when too few attacks find their mic reading', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig, { mic: 0.04 });
+		const start = rig.clock.now() + 1;
+		for (let i = 0; i < CALIBRATION_ATTACKS; i++) {
+			const t = start + i * 0.6;
+			rig.attacks.emit({ time: t, strength: 1 });
+			rig.detector.emitNote(note(t));
+			// The mic hears only a third of the notes.
+			if (i % 3 === 0) rig.mic.emit({ time: t + 0.02, strength: 1 });
 		}
+		await advanceTo(rig, start + CALIBRATION_ATTACKS * 0.6 + COMPARE_SETTLE_S + 0.01);
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+		expect(rig.close).toHaveBeenCalledOnce();
+	});
 
-		const outcome = await runPromise;
-		expect(outcome).toEqual({ ok: true, offsetMs: 38, spreadMs: 0 });
-		expect(progress).toHaveLength(10);
-		expect(progress.every((ms) => ms === 38)).toBe(true);
+	it('says the second input heard nothing when the mic stays silent while the player plays', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig, { mic: 0.04 });
+		await compare(rig, { mic: null, note: 0 });
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'second-input' });
 	});
 });
 
-describe('CalibrationService outcomes', () => {
-	it('ignores the first bar and onsets farther than half a beat', async () => {
-		const { clock, metronome, detector, service } = setup({
-			hitsNeeded: 2,
-			noSoundBeats: 64
-		});
-		const progress: CalibrationProgress[] = [];
-		const runPromise = service.run((p) => progress.push({ ...p }));
-		await settleRun(metronome);
-
-		// First bar: emit on every beat — must be ignored
-		for (let index = 0; index < 4; index++) {
-			announceThrough(clock, metronome, index);
-			detector.emitNote({
-				time: metronome.beatTime(index) + 0.02,
-				midi: 40,
-				frequencyHz: 82.4,
-				clarity: 0.95
-			});
+describe('CalibrationService falls back to the player on the click', () => {
+	async function playOnClicks(rig: Rig, note: number | null, attack: number | null) {
+		const clicks = clickTimes(rig).slice(BLEED_CHECK_CLICKS);
+		for (let index = 0; index < clicks.length; index++) {
+			await advanceTo(rig, clicks[index]);
+			if (index < 4) continue;
+			if (note !== null) rig.detector.emitNote(noteAt(clicks[index] + note));
+			if (attack !== null) rig.attacks.emit({ time: clicks[index] + attack, strength: 1 });
 		}
-		expect(progress).toEqual([]);
+	}
+	const noteAt = note;
 
-		// Beat 4: onset more than half a beat away (half beat at 80 bpm = 0.375 s)
-		announceThrough(clock, metronome, 4);
-		detector.emitNote({
-			time: metronome.beatTime(4) + 0.4,
-			midi: 40,
-			frequencyHz: 82.4,
-			clarity: 0.95
+	it('when the second input does not open: every latency comes from the player', async () => {
+		const rig = setup({ secondInput: 'fails' });
+		const outcome = rig.service.run((p) => rig.progress.push({ ...p }));
+		await settle();
+		await listen(rig);
+		expect(rig.progress.at(-1)).toMatchObject({ phase: 'play', done: 0 });
+		await playOnClicks(rig, 0.038, 0.03);
+		await expect(outcome).resolves.toEqual({
+			ok: true,
+			latency: {
+				attack: { ms: 30, provenance: 'player' },
+				note: { ms: 38, provenance: 'player' },
+				chord: { ms: 38, provenance: 'player' }
+			},
+			clickBleed: false
 		});
-		expect(progress).toEqual([]);
-
-		// Two accepted hits
-		detector.emitNote({
-			time: metronome.beatTime(4) + 0.038,
-			midi: 40,
-			frequencyHz: 82.4,
-			clarity: 0.95
+		expect(rig.progress.at(-1)).toEqual({
+			phase: 'play',
+			done: DEFAULT_CALIBRATION_CONFIG.hitsNeeded,
+			needed: DEFAULT_CALIBRATION_CONFIG.hitsNeeded
 		});
-		announceThrough(clock, metronome, 5);
-		detector.emitNote({
-			time: metronome.beatTime(5) + 0.038,
-			midi: 40,
-			frequencyHz: 82.4,
-			clarity: 0.95
-		});
-
-		await expect(runPromise).resolves.toMatchObject({ ok: true, offsetMs: 38 });
-		expect(progress).toHaveLength(2);
 	});
 
-	it('returns inconsistent when the spread exceeds maxSpreadMs', async () => {
-		const { clock, metronome, detector, service } = setup({
-			hitsNeeded: 5,
-			maxSpreadMs: 5,
-			noSoundBeats: 64
+	it('when there is no computer mic to compare with', async () => {
+		const rig = setup({ devices: [INTERFACE] });
+		const outcome = rig.service.run(() => {});
+		await settle();
+		expect(rig.openSecondInput).not.toHaveBeenCalled();
+		await listen(rig);
+		await playOnClicks(rig, 0.038, 0.03);
+		await expect(outcome).resolves.toMatchObject({
+			ok: true,
+			latency: { attack: { provenance: 'player' } }
 		});
-		const runPromise = service.run(() => {});
-		await settleRun(metronome);
+	});
 
-		const offsetsS = [0.0, 0.05, 0.1, 0.0, 0.08];
-		for (let i = 0; i < 4 + offsetsS.length; i++) {
-			announceThrough(clock, metronome, i);
-			if (i < 4) continue;
-			detector.emitNote({
-				time: metronome.beatTime(i) + offsetsS[i - 4],
-				midi: 40,
-				frequencyHz: 82.4,
-				clarity: 0.95
-			});
+	it('when the mic does not hear the clicks', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig, { mic: null });
+		await playOnClicks(rig, 0.038, 0.03);
+		await expect(outcome).resolves.toMatchObject({
+			ok: true,
+			latency: { attack: { ms: 30, provenance: 'player' } }
+		});
+		expect(rig.close).toHaveBeenCalledOnce();
+	});
+
+	it('gives no-sound when nothing is played on the click', async () => {
+		const rig = setup({ secondInput: 'fails' });
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig);
+		await playOnClicks(rig, null, null);
+		await advanceTo(rig, rig.clock.now() + 1);
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'no-sound' });
+		expect(rig.detector.running).toBe(false);
+	});
+
+	it('is inconsistent when the hits are scattered', async () => {
+		const rig = setup({ secondInput: 'fails', config: { hitsNeeded: 5, maxSpreadMs: 5 } });
+		const outcome = rig.service.run(() => {});
+		await settle();
+		await listen(rig);
+		const clicks = clickTimes(rig).slice(BLEED_CHECK_CLICKS);
+		const offsets = [0, 0.05, 0.1, 0, 0.08];
+		for (let index = 0; index < 4 + offsets.length; index++) {
+			await advanceTo(rig, clicks[index]);
+			if (index >= 4) rig.detector.emitNote(note(clicks[index] + offsets[index - 4]));
 		}
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'inconsistent' });
+	});
+});
 
-		await expect(runPromise).resolves.toEqual({ ok: false, reason: 'inconsistent' });
-		expect(metronome.isRunning()).toBe(false);
-		expect(detector.running).toBe(false);
+describe('CalibrationService with the computer mic as the playing input', () => {
+	it('takes the loop latency of the clicks as the attack latency, and the bleed', async () => {
+		const rig = setup({ devices: [BUILT_IN], playDevice: 'mac' });
+		const outcome = rig.service.run(() => {});
+		await settle();
+		expect(rig.openSecondInput).not.toHaveBeenCalled();
+		await listen(rig, { play: 0.06 });
+		// The note detector's own delay, measured on notes played freely.
+		await compare(rig, { note: 0.012 });
+		await expect(outcome).resolves.toEqual({
+			ok: true,
+			latency: {
+				attack: { ms: 60, provenance: 'system' },
+				note: { ms: 72, provenance: 'system' },
+				chord: { ms: 72, provenance: 'system' }
+			},
+			clickBleed: true
+		});
 	});
 
-	it('returns no-sound after noSoundBeats beats with no accepted hit', async () => {
-		const { clock, metronome, detector, service } = setup({
-			hitsNeeded: 10,
-			noSoundBeats: 8
+	it('takes the default device for the mic when its label says so', async () => {
+		const rig = setup({ devices: [DEFAULT_ALIAS], playDevice: null });
+		const outcome = rig.service.run(() => {});
+		await settle();
+		expect(rig.openSecondInput).not.toHaveBeenCalled();
+		await listen(rig, { play: 0.05 });
+		await compare(rig, { note: 0 });
+		await expect(outcome).resolves.toMatchObject({
+			ok: true,
+			latency: { attack: { ms: 50, provenance: 'system' } }
 		});
-		const runPromise = service.run(() => {});
-		await settleRun(metronome);
+	});
+});
 
-		for (let index = 0; index < 8; index++) {
-			announceThrough(clock, metronome, index);
-			// Onsets only in the first bar — never accepted
-			if (index < 4) {
-				detector.emitNote({
-					time: metronome.beatTime(index) + 0.01,
-					midi: 40,
-					frequencyHz: 82.4,
-					clarity: 0.95
-				});
-			}
-		}
-
-		await expect(runPromise).resolves.toEqual({ ok: false, reason: 'no-sound' });
-		expect(metronome.isRunning()).toBe(false);
-		expect(detector.running).toBe(false);
+describe('CalibrationService.cancel', () => {
+	it('stops a run in progress and closes both inputs', async () => {
+		const rig = setup();
+		const outcome = rig.service.run(() => {});
+		await settle();
+		rig.service.cancel();
+		await expect(outcome).resolves.toEqual({ ok: false, reason: 'cancelled' });
+		expect(rig.sounds.emitted()).toEqual([]);
+		expect(rig.close).toHaveBeenCalledOnce();
+		expect(rig.detector.running).toBe(false);
 	});
 
-	it('returns cancelled when cancel() is called mid-run', async () => {
-		const { clock, metronome, service } = setup({ noSoundBeats: 64 });
-		const runPromise = service.run(() => {});
-		await settleRun(metronome);
-		announceThrough(clock, metronome, 0);
-		service.cancel();
-		await expect(runPromise).resolves.toEqual({ ok: false, reason: 'cancelled' });
-		expect(metronome.isRunning()).toBe(false);
-	});
-
-	it('cancel is a no-op when idle, and a second run throws while busy', async () => {
-		const { clock, metronome, detector, service } = setup({
-			hitsNeeded: 1,
-			noSoundBeats: 64
-		});
-		service.cancel();
-
-		const first = service.run(() => {});
-		await settleRun(metronome);
-		announceThrough(clock, metronome, 0);
-		await expect(service.run(() => {})).rejects.toThrow('Calibration already running');
-
-		announceThrough(clock, metronome, 4);
-		detector.emitNote({
-			time: metronome.beatTime(4) + 0.038,
-			midi: 40,
-			frequencyHz: 82.4,
-			clarity: 0.95
-		});
-		await first;
+	it('is a no-op when idle, and a second run throws while busy', async () => {
+		const rig = setup();
+		rig.service.cancel();
+		const first = rig.service.run(() => {});
+		await expect(rig.service.run(() => {})).rejects.toThrow('Calibration already running');
+		rig.service.cancel();
+		await expect(first).resolves.toEqual({ ok: false, reason: 'cancelled' });
 	});
 });

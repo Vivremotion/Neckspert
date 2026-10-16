@@ -27,10 +27,19 @@ describe('/calibration page', () => {
 		expect(services.detector.running).toBe(false);
 	});
 
-	it('saves the offset as the note and chord latency, played, and the device id on a successful run', async () => {
+	it('saves the latency of each sensor measured, the bleed, and the device id on a successful run', async () => {
 		const services = createFakeAppServices();
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
-		services.calibration.nextOutcome = { ok: true, offsetMs: 42, spreadMs: 4 };
+		await services.settings.update({ latency: { tap: { ms: 5, provenance: 'player' } } });
+		services.calibration.nextOutcome = {
+			ok: true,
+			latency: {
+				attack: { ms: 42, provenance: 'system' },
+				note: { ms: 50, provenance: 'system' },
+				chord: { ms: 50, provenance: 'system' }
+			},
+			clickBleed: true
+		};
 		render(TestHarness, { props: { services } });
 
 		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
@@ -40,13 +49,35 @@ describe('/calibration page', () => {
 		await waitFor(async () => {
 			const settings = await services.settings.get();
 			expect(settings.latency).toEqual({
-				note: { ms: 42, provenance: 'player' },
-				chord: { ms: 42, provenance: 'player' }
+				tap: { ms: 5, provenance: 'player' },
+				attack: { ms: 42, provenance: 'system' },
+				note: { ms: 50, provenance: 'system' },
+				chord: { ms: 50, provenance: 'system' }
 			});
+			expect(settings.clickBleed).toBe(true);
 			expect(settings.inputDeviceId).toBe('usb');
 		});
 		expect(services.calibration.runCalls).toBe(1);
-		expect(screen.getByText(/42/)).toBeTruthy();
+		expect(screen.getByText(/42 ms/)).toBeTruthy();
+	});
+
+	it('calibrates the input chosen on the screen, even before it is saved', async () => {
+		const services = createFakeAppServices();
+		services.detector.listInputs = async () => [
+			{ id: 'usb', label: 'Scarlett 2i2 USB' },
+			{ id: 'built', label: 'Built-in Microphone' }
+		];
+		let measured: string | null = null;
+		services.calibration.run = async () => {
+			measured = (await services.settings.get()).inputDeviceId;
+			return { ok: false, reason: 'cancelled' };
+		};
+		render(TestHarness, { props: { services } });
+
+		await waitFor(() => expect(screen.getByRole('combobox')).toBeTruthy());
+		await fireEvent.change(screen.getByRole('combobox'), { target: { value: 'built' } });
+		await fireEvent.click(screen.getByRole('button', { name: /calibrer/i }));
+		await waitFor(() => expect(measured).toBe('built'));
 	});
 
 	it('cancels an in-flight run when the user presses cancel', async () => {
@@ -54,7 +85,7 @@ describe('/calibration page', () => {
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
 		let release!: (outcome: { ok: false; reason: 'cancelled' }) => void;
 		services.calibration.run = async (onProgress) => {
-			onProgress({ hits: 1, needed: 10, lastOffsetMs: 10 });
+			onProgress({ phase: 'listen', done: 1, needed: 8 });
 			return new Promise((resolve) => {
 				release = resolve;
 				services.calibration.cancel = () => {

@@ -6,10 +6,15 @@ describe('createFakeAppServices', () => {
 	it('exposes P0 settings defaults and a controllable calibration', async () => {
 		const services = createFakeAppServices();
 		expect(await services.settings.get()).toEqual(DEFAULT_SETTINGS);
-		services.calibration.nextOutcome = { ok: true, offsetMs: 42, spreadMs: 5 };
+		const next = {
+			ok: true as const,
+			latency: { attack: { ms: 42, provenance: 'system' as const } },
+			clickBleed: false
+		};
+		services.calibration.nextOutcome = next;
 		const progress: number[] = [];
-		const outcome = await services.calibration.run((p) => progress.push(p.hits));
-		expect(outcome).toEqual({ ok: true, offsetMs: 42, spreadMs: 5 });
+		const outcome = await services.calibration.run((p) => progress.push(p.done));
+		expect(outcome).toEqual(next);
 		expect(progress.length).toBeGreaterThan(0);
 	});
 

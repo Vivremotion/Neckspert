@@ -46,6 +46,17 @@
 	const selected = $derived(inputs.find((device) => device.id === selectedDeviceId) ?? null);
 	const showHeadphones = $derived(selected !== null && isBuiltInInput(selected));
 	const levelPercent = $derived(Math.round(Math.min(1, Math.max(0, levelRms)) * 100));
+	/** What to do now: the phase running, else the first one (silence). */
+	const instruction = $derived.by(() => {
+		if (phase !== 'running' || !progress) return m.listenInstruction;
+		if (progress.phase === 'compare') return m.compareInstruction(progress.needed);
+		if (progress.phase === 'play') return m.playInstruction;
+		return m.listenInstruction;
+	});
+	/** The latency the result names: the attacks', else the notes'. */
+	const measured = $derived(
+		outcome?.ok ? (outcome.latency.attack ?? outcome.latency.note ?? null) : null
+	);
 
 	function onDeviceChange(event: Event) {
 		const value = (event.currentTarget as HTMLSelectElement).value;
@@ -119,7 +130,7 @@
 	</div>
 
 	<footer class="bottom">
-		<p class="instruction"><PixelText scale={2}>{m.instruction}</PixelText></p>
+		<p class="instruction" aria-live="polite"><PixelText scale={2}>{instruction}</PixelText></p>
 		{#if notice}
 			<p class="instruction" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
 		{/if}
@@ -127,18 +138,23 @@
 		{#if phase === 'running' && progress}
 			<PixelBox variant="inverted">
 				<p class="progress" aria-live="polite">
-					<PixelText scale={2}>{m.progress(progress.hits, progress.needed)}</PixelText>
+					<PixelText scale={2}>{m.progress(progress.done, progress.needed)}</PixelText>
 				</p>
 			</PixelBox>
 		{:else if phase === 'done' && outcome}
 			<PixelBox variant="inverted">
 				<p class="outcome" aria-live="polite">
 					{#if outcome.ok}
-						<PixelText scale={2}>{m.ok(outcome.offsetMs)}</PixelText>
+						{#if measured}
+							<PixelText scale={2}>{m.ok(measured.ms, measured.provenance)}</PixelText>
+						{/if}
 					{:else}
 						<PixelText scale={2}>{m[outcome.reason]}</PixelText>
 					{/if}
 				</p>
+				{#if outcome.ok && outcome.clickBleed}
+					<p class="outcome" role="status"><PixelText scale={2}>{m.bleed}</PixelText></p>
+				{/if}
 			</PixelBox>
 		{/if}
 	</footer>

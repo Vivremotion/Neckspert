@@ -12,7 +12,12 @@ export type {
 	PitchWindow
 } from './NoteDetectorPort';
 export type { AttackDetectorPort, AttackEvent } from './AttackDetectorPort';
-export type { CalibrationOutcome, CalibrationPort, CalibrationProgress } from './CalibrationPort';
+export type {
+	CalibrationOutcome,
+	CalibrationPhase,
+	CalibrationPort,
+	CalibrationProgress
+} from './CalibrationPort';
 export type {
 	AttemptRepositoryPort,
 	BackupPort,

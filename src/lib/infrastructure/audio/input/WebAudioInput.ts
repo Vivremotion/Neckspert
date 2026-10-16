@@ -26,7 +26,8 @@ function rmsOf(frame: Float32Array): number {
 	return Math.sqrt(sum / Math.max(1, frame.length));
 }
 
-function isBuiltInMicLabel(label: string): boolean {
+/** Heuristic: browsers expose no built-in flag, only a label (the MacBook mic, a "built-in" one). */
+export function isBuiltInMicLabel(label: string): boolean {
 	return /macbook|built-?in|internal|intégr|interne/i.test(label);
 }
 
