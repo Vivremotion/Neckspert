@@ -511,14 +511,19 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 - **Dérive de tenue** : pente aux moindres carrés sur les seules mesures muettes ; absente sous deux mesures muettes mesurées (le décalage de tenue reste mesuré).
 - **Sans latence calibrée** pour le capteur (`CycleReport.latency` nul), placement et précision ne jugent jamais.
 - **Limite connue** : un temps perdu dans une figure uniforme (croches continues) est invisible à l’alignement ; un échec aux mesures silencieuses se lit alors en tenue (décalage, dérive).
+- **Limite connue** : un joueur qui traîne régulièrement juste au-delà de la zone d’appariement est lu comme un décalage d’une subdivision à la première mesure (« temps ajouté » ou « perdu » au lieu de « derrière le temps »).
 
 ### Niveaux
 
 - `LevelState` porte aussi les séries en cours (`successes`, `failures`). Au niveau le plus bas, les échecs continuent de compter : l’anti-blocage du plan 2 doit en lire `BLOCK_AFTER_FAILS` d’affilée, et les remettra à zéro.
 - **Les aides que le niveau donne ne bloquent pas la montée** : son curseur et `'aid-level'` sont enregistrés dans `aids` mais ne comptent pas comme aidés (`levelAided`) ; les aides que le joueur demande (`'listen'` quand l’écoute vaut une aide, `'play-along'`) bloquent. Sinon aucun niveau à curseur ne se passerait.
-- **Une suite garde son niveau jusqu’à la respiration** : le changement y est annoncé, et le tempo y change (mesures d’écoute et mesure comptée au nouveau tempo). Les cycles d’une suite joués après le changement ne font pas bouger les compteurs du nouveau niveau.
+- **Une suite garde son niveau jusqu’à la respiration** : le changement y est annoncé, et le tempo y change (mesures d’écoute et mesure comptée au nouveau tempo). Un cycle joué au niveau précédent et jugé après le changement ne fait pas bouger les compteurs du nouveau niveau.
 - La respiration dure au moins deux mesures à chaque niveau de chaque exercice (test du catalogue) : le niveau de la suite suivante n’est lu qu’une fois le dernier cycle jugé.
-- **Catalogue** : contretemps à ♩ = 80 bpm, puis sur deux mesures, puis à ♩ = 90 bpm et ♩ = 100 bpm (sans curseur) ; niveau d’aide à ♩ = 70 bpm. Métronome sur 2 et 4 : une respiration après chaque ligne (`cyclesPerBreath: 1`). Mesures silencieuses à ♩ = 65 bpm : sans curseur, fenêtres resserrées, retour `summary` puis `out-of-tolerance` aux derniers niveaux. `ExerciseDefinition` gagne `title`, `base`, `levels`, `figures` et `pick` (`'loop'` : la même figure en boucle ; `'next'` : une ligne nouvelle à chaque cycle).
+- **Catalogue** (niveaux numérotés comme à l’écran ; chaque niveau ne surcharge que les paramètres de base de l’exercice) :
+  - **Mesures silencieuses** (base : ♩ = 80 bpm, fenêtre 80 ms, curseur, retour à chaque cycle, 4 cycles par suite) : niveau d’aide 4+0 ; niveaux 1 à 3 : 3+1, 2+2, 1+3 à ♩ = 80 bpm ; niveaux 4 à 6 : la même échelle à ♩ = 65 bpm, sans curseur, fenêtre 50 ms, le niveau 5 en retour `summary`, le niveau 6 en `out-of-tolerance` avec une fenêtre de 30 ms et des seuils resserrés (régularité 20 ms, tenue 25 ms et 10 ms par mesure, précision 30 ms).
+  - **Métronome sur 2 et 4** (base : clic sur 2 et 4, fenêtre 80 ms, curseur, écoute comptée comme aide, une respiration après chaque ligne, `cyclesPerBreath: 1`) : niveau d’aide avec un clic sur chaque temps à ♩ = 100 bpm ; niveaux 1 à 3 : ♩ = 100 bpm, ♩ = 120 bpm, ♩ = 140 bpm sans curseur.
+  - **Contretemps** (base : clic sur chaque temps, ♩ = 80 bpm, une mesure, curseur, 4 cycles par suite) : niveau d’aide à ♩ = 70 bpm ; niveau 1 : une mesure, seuils larges (régularité 80 ms, tenue 200 ms et 100 ms par mesure) ; niveaux 2 à 4 : deux mesures, aux seuils de base, à ♩ = 80 bpm, ♩ = 90 bpm, puis ♩ = 100 bpm sans curseur.
+- `ExerciseDefinition` gagne `title`, `base`, `levels`, `figures` et `pick` (`'loop'` : la même figure en boucle ; `'next'` : une ligne nouvelle à chaque cycle).
 
 ### Séance, transport, écoute
 
@@ -534,6 +539,7 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 - `TakeBufferPort` gagne **`keepUntil(to)`** (la suite cesse d’être gardée à sa fin : une respiration ou une pause ne la pousse pas hors de la mémoire) et **`stopKeeping()`** (pause, quitter, fin : ce qui est gardé reste entier, un début demandé d’avance est abandonné). Un `keepFrom` futur n’oublie la prise précédente qu’une fois atteint : la suite reste réécoutable pendant la dernière mesure de la respiration.
 - **Plafond `TAKE_BUFFER_MAX_S` = 120 s** au lieu de 60 : la suite la plus lente du catalogue (mesures silencieuses) dure environ 70 s.
 - La réécoute s’arrête au plus tard une seconde après la durée de la prise ; la résonance après la fin de la suite est coupée.
+- **Limite connue** : réécouter à une respiration alors que le temps de la série est écoulé fait continuer la série au lieu de la finir.
 
 ### Stockage
 
@@ -550,15 +556,17 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 - **Reporté au plan 2** : les attaques ajoutées sont dessinées après la dernière note (le rapport en donne le nombre, pas les positions) ; « temps perdu » n’est pas dessiné sur sa mesure.
 - Les marques de toute la suite sont dessinées sur sa dernière figure : juste pour le catalogue (une seule ligne de lecture par suite, aucun cycle qui commence au milieu d’une figure).
 - `PlayFrame` garde l’apparence Game Boy pendant ce plan ; seul le contenu de la vue de rythme suit la nouvelle direction (tokens existants, aucun élément de pixel art). `/dev/rhythm` montre la vue ; `scripts/functional-ui.mjs` la vérifie (police, glyphes, curseur absent d’une mesure muette, texte ≥ 16 px).
-- **Bilan minimal** (`SessionSummary.rhythm`) : niveau atteint, cycles réussis, cycles aidés ; le reste au plan 2. À l’accueil, « Rythme » ouvre la liste des trois exercices.
+- **Bilan minimal** (`SessionSummary.rhythm`) : niveau atteint, cycles réussis, dont réussis avec une aide que le niveau ne donne pas ; le reste au plan 2. À l’accueil, « Rythme » ouvre la liste des trois exercices.
 
 ### Calibration et essai à deux entrées
 
-- **Essai à deux entrées** (`/dev/two-inputs`, tâche 14) : la page est construite (elle refuse d’ouvrir le même micro deux fois et apparie les attaques une à une). Résultat : en attente de l’essai sur le matériel réel.
-- **La calibration par comparaison (tâche 15) n’est pas faite.** La calibration actuelle écrit la latence `player` des capteurs `note` et `chord` ; le capteur `attack` n’a donc aucune latence : placement et précision des exercices de rythme sont affichés sans juger, et rien n’écrit encore `clickBleed`.
+- **Essai à deux entrées** (`/dev/two-inputs`) : la page est construite (elle refuse d’ouvrir le même micro deux fois et apparie les attaques une à une). Résultat : en attente de l’essai sur le matériel réel.
+- **La calibration par comparaison n’est pas faite.** La calibration actuelle écrit la latence `player` des capteurs `note` et `chord` ; le capteur `attack` n’a donc aucune latence : placement et précision des exercices de rythme sont affichés sans juger, et rien n’écrit encore `clickBleed`.
 
 ### Risques connus (plan A)
 
 - **Accord plaqué lentement** (prise 12) : lu comme une seule attaque seulement pour `delta` entre 3,25 et 3,75 ; aucun test ne fixe cette borne, à régler à la journée de validation.
 - **Micro de l’appareil** : 0 à 2 fausses attaques par extrait dans le bruit ; à régler à la journée de validation.
 - `delta` et `strengthFloor` sont absolus, alors que l’échelle du flux dépend du débit : 16 kHz n’est pas essayé sur du son réel.
+- **Bandes graves dédoublées** : une bande plus étroite qu’une raie de la FFT prend la raie la plus proche, si bien que plusieurs bandes graves lisent la même raie et que le grave pèse plus dans le flux ; laissé au réglage de la journée de validation.
+- **`AttackTracker` ne se charge pas sous Node** (imports sans extension) : le script de l’oracle (plan 2) devra le charger par Vite ou corriger ses imports.
