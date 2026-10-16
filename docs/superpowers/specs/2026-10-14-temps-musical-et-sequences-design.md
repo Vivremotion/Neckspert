@@ -561,7 +561,7 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 ### Calibration et essai à deux entrées
 
 - **Essai à deux entrées** (`/dev/two-inputs`) : la page est construite (elle refuse d’ouvrir le même micro deux fois et apparie les attaques une à une). Résultat : en attente de l’essai sur le matériel réel.
-- **La calibration par comparaison n’est pas faite.** La calibration actuelle écrit la latence `player` des capteurs `note` et `chord` ; le capteur `attack` n’a donc aucune latence : placement et précision des exercices de rythme sont affichés sans juger, et rien n’écrit encore `clickBleed`.
+- **La calibration par comparaison n’est pas faite.** La calibration actuelle écrit la latence `player` des capteurs `note` et `chord` ; le capteur `attack` n’en a pas encore à lui : il prend celle de `note` (même entrée, mesurée sur les attaques du joueur au clic) en provenance `player`, qui corrige les attaques, le rapport et la réécoute ; placement et précision des exercices de rythme sont affichés sans juger, et rien n’écrit encore `clickBleed`.
 
 ### Risques connus (plan A)
 

@@ -50,6 +50,8 @@ export const RHYTHM_SERIES_MS = 300_000;
  * late (detection, the scheduler's wake-up) still reaches it.
  */
 export const SETTLE_AFTER_BARS = Fraction.of(1, 4);
+/** The sensor whose latency the attack sensor takes while it has none of its own. */
+export const ATTACK_LATENCY_FALLBACK = 'note';
 
 /** A run of cycles between two breaths, at one level. */
 interface Run {
@@ -885,10 +887,17 @@ export class PlanSessionController implements PlaySessionController {
 		return this.exercise.view ?? DEFAULT_PLAY_VIEW;
 	}
 
-	/** The calibrated latency of the sensor, with its provenance; null when uncalibrated. */
+	/**
+	 * The calibrated latency of the sensor, with its provenance; null when uncalibrated. Until the
+	 * attack sensor has its own, it takes the note's (same input, measured on the player's attacks
+	 * on the click): provenance `player`, shown, not judged.
+	 */
 	private latency(): CycleReport['latency'] {
-		const latency = this.settings.latency[this.sensor];
-		return latency ? { ms: latency.ms, provenance: latency.provenance } : null;
+		const own = this.settings.latency[this.sensor];
+		if (own) return { ms: own.ms, provenance: own.provenance };
+		const fallback =
+			this.sensor === RHYTHM_SENSOR ? this.settings.latency[ATTACK_LATENCY_FALLBACK] : undefined;
+		return fallback ? { ms: fallback.ms, provenance: 'player' } : null;
 	}
 
 	private openObservations(): void {

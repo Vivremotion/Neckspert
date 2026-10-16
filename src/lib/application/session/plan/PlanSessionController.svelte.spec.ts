@@ -14,7 +14,7 @@ import {
 	type CycleReport,
 	type Figure
 } from '$lib/domain/time';
-import type { Attempt, SensorLatency } from '$lib/domain/types';
+import type { Attempt, SensorLatency, Settings } from '$lib/domain/types';
 import {
 	FakeAttackDetector,
 	FakeClock,
@@ -71,7 +71,13 @@ function earlier(exerciseId: string): Attempt {
 
 async function setup(
 	exercise: ExerciseDefinition,
-	options: { met?: boolean; latency?: SensorLatency; clickBleed?: boolean } = {}
+	options: {
+		met?: boolean;
+		latency?: SensorLatency;
+		/** Latencies of other sensors, beside the attack's. */
+		latencies?: Settings['latency'];
+		clickBleed?: boolean;
+	} = {}
 ) {
 	const clock = new FakeClock();
 	const sounds = new FakeSoundScheduler(clock);
@@ -84,7 +90,7 @@ async function setup(
 	const takes = new FakeTakeBuffer();
 	if (options.met) await attempts.add(earlier(exercise.id));
 	await settings.update({
-		latency: options.latency ? { attack: options.latency } : {},
+		latency: { ...options.latencies, ...(options.latency && { attack: options.latency }) },
 		clickBleed: options.clickBleed ?? false
 	});
 	let ids = 0;
@@ -593,6 +599,42 @@ describe('PlanSessionController, latency', () => {
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
 		const [first] = await attempts.listBySession('series');
 		expect(first.success).toBe(false);
+		expect(first.verdict.value).toEqual({ passed: false, reasons: ['precision'] });
+		controller.quit();
+	});
+
+	it('a calibrated note latency corrects attacks until the attack sensor has its own', async () => {
+		const { controller, attempts, player, takes, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			latencies: { note: { ms: 70, provenance: 'system' } }
+		});
+		player.offsetS = 0.07;
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		const [first] = await attempts.listBySession('series');
+		const report = (first.data as RhythmAttemptData).report as CycleReport;
+		// Measured on the player's attacks: shown, not judged.
+		expect(report.latency).toEqual({ ms: 70, provenance: 'player' });
+		expect(first.measures.precision?.value).toBeCloseTo(0, 0);
+		expect(first.success).toBe(true);
+		controller.pause();
+		await controller.replay();
+		expect(takes.plays[0].latencyS).toBeCloseTo(0.07, 9);
+		controller.quit();
+	});
+
+	it("takes the attack sensor's own latency over the note's", async () => {
+		const { controller, attempts, player, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			latency: { ms: 0, provenance: 'system' },
+			latencies: { note: { ms: 70, provenance: 'system' } }
+		});
+		player.offsetS = 0.07;
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		const [first] = await attempts.listBySession('series');
+		const report = (first.data as RhythmAttemptData).report as CycleReport;
+		expect(report.latency).toEqual({ ms: 0, provenance: 'system' });
 		expect(first.verdict.value).toEqual({ passed: false, reasons: ['precision'] });
 		controller.quit();
 	});
