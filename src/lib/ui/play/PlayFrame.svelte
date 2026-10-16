@@ -115,9 +115,21 @@
 		if (view.status === 'paused') controller.resume();
 		else if (running) controller.pause();
 	}
+
+	/** A button is pressed by Space on keyup in some browsers: a marked control's Space stays the frame's. */
+	function onKeyup(event: KeyboardEvent) {
+		const target = event.target;
+		if (
+			event.code === 'Space' &&
+			target instanceof HTMLElement &&
+			target.closest('[data-frame-space]') !== null
+		) {
+			event.preventDefault();
+		}
+	}
 </script>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window onkeydown={onKeydown} onkeyup={onKeyup} />
 <section class="frame" data-status={view.status}>
 	<div class="chrome">
 		{#if running}

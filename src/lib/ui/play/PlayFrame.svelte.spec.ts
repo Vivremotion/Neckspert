@@ -215,6 +215,8 @@ describe('PlayFrame', () => {
 				// Not prevented, the browser would press the focused button again.
 				const pressed = await fireEvent.keyDown(listen, { code: 'Space', key: ' ' });
 				expect(pressed).toBe(false);
+				// Some browsers press a button on Space's keyup: that one is prevented too.
+				expect(await fireEvent.keyUp(listen, { code: 'Space', key: ' ' })).toBe(false);
 				expect(controller.calls).toEqual(['listen', 'pause']);
 				// Enter on it still presses it.
 				controller.view.status = 'awaiting';
