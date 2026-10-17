@@ -174,6 +174,11 @@ function stageOf(controller: PlanSessionController): RhythmStageModel {
  */
 class Player {
 	offsetS = 0;
+	/** Attack `skip` of each bar is not played (the player misreads the same note). */
+	skip: number | null = null;
+	/** Each attack alternately this early and this late (the player plays unevenly). */
+	jitterS = 0;
+	private played = 0;
 	private bar = -1;
 	private playFrom: number | null = null;
 	private queue: number[] = [];
@@ -195,7 +200,9 @@ class Player {
 			if (model.phase === 'play') {
 				this.playFrom ??= bar;
 				this.queue.push(
-					...barAttacks(model.figure, bar - this.playFrom, ORIGIN + bar * barS, barS)
+					...barAttacks(model.figure, bar - this.playFrom, ORIGIN + bar * barS, barS).filter(
+						(_, index) => index !== this.skip
+					)
 				);
 			} else {
 				this.playFrom = null;
@@ -203,7 +210,10 @@ class Player {
 		}
 		const due = this.queue.filter((t) => t <= this.clock.now());
 		this.queue = this.queue.filter((t) => t > this.clock.now());
-		for (const time of due) this.attacks.emit({ time: time + this.offsetS, strength: 1 });
+		for (const time of due) {
+			const jitter = this.jitterS * (this.played++ % 2 === 0 ? -1 : 1);
+			this.attacks.emit({ time: time + this.offsetS + jitter, strength: 1 });
+		}
 	}
 }
 
@@ -586,6 +596,102 @@ describe('PlanSessionController, the trace of a series', () => {
 		controller.quit();
 		await settled();
 		expect(seriesOf(memory).reason).toBe('quit');
+	});
+});
+
+/** The announcements shown while the clock moves to `to`. */
+async function watch(
+	controller: PlanSessionController,
+	advance: (to: number) => Promise<void>,
+	clock: FakeClock,
+	to: number
+): Promise<Set<string>> {
+	const seen = new Set<string>();
+	while (clock.time < to - 1e-9) {
+		await advance(Math.min(to, clock.time + 0.25));
+		const announcement = controller.view.stage
+			? (stageOf(controller).announcement as string | null)
+			: null;
+		if (announcement) seen.add(announcement);
+	}
+	return seen;
+}
+
+describe('PlanSessionController, unblocking', () => {
+	it('a reading block is heard, then played along', async () => {
+		const { controller, memory, sounds, attempts, player, clock, advance } = await setup(
+			RHYTHM_OFFBEATS,
+			{ met: true }
+		);
+		player.skip = 3;
+		await controller.start();
+		// run 1 on bars 3-6 (all fail), breath 7-8, run 2 from 9: a listen, then a play-along
+		const seen = await watch(controller, advance, clock, ORIGIN + 12.5 * OFFBEATS_BAR_S);
+		// Read before quitting: stopping empties the journal of the sounds.
+		const emitted = sounds.emitted();
+		controller.quit();
+		await settled();
+		expect(seen.has('listen-remedy')).toBe(true);
+		expect(seen.has('play-along')).toBe(true);
+		const runs = seriesOf(memory).children.filter((segment) => segment.role === 'run');
+		expect(roles(runs[1]).slice(0, 2)).toEqual(['listen', 'round']);
+		const along = (await attempts.listBySession('series')).find(
+			(a) => a.id === runs[1].children[1].attemptId
+		);
+		expect(along?.aids).toContain('play-along');
+		const alongFrom = runs[1].children[1].startS;
+		expect(
+			emitted.some((s) => s.sound === 'play-along' && Math.abs(s.time - alongFrom) < 0.6)
+		).toBe(true);
+	});
+
+	it('an execution block takes the aid level at the breath', async () => {
+		const { controller, memory, attempts, player, clock, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true
+		});
+		player.jitterS = 0.1;
+		await controller.start();
+		// the aid level is at ♩ = 70 bpm: a listen-in and a counted bar after the breath
+		const seen = await watch(controller, advance, clock, ORIGIN + 16 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect(seen.has('aid-level')).toBe(true);
+		const runs = seriesOf(memory).children.filter((segment) => segment.role === 'run');
+		expect(runs[1].level).toBe(-1);
+		const first = (await attempts.listBySession('series')).find(
+			(a) => a.id === runs[1].children[0].attemptId
+		);
+		expect(first?.aids).toContain('aid-level');
+	});
+
+	it('the lowest aid level that blocks changes the air', async () => {
+		const { controller, memory, attempts, levels, player, advance, clock } = await setup(
+			RHYTHM_OFFBEATS,
+			{ met: true }
+		);
+		await levels.put({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			scope: '',
+			item: '',
+			level: -1,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		player.jitterS = 0.1;
+		await controller.start();
+		// ♩ = 70 bpm at the aid level: bars of 60 / 70 * 4 s; run 1 on bars 3-6.
+		const barS = (60 / 70) * 4;
+		await advance(ORIGIN + 9 * barS);
+		expect(controller.view.status).toBe('finished');
+		await settled();
+		const series = seriesOf(memory);
+		expect(series.reason).toBe('change-of-air');
+		expect(series.breaking).toBe('regularity');
+		expect(await attempts.listBySession('series')).toHaveLength(4);
+		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
+		expect(state?.resumeAfter).toBeGreaterThan(clock.toEpochMs(0));
+		expect(state?.failures).toBe(0);
 	});
 });
 

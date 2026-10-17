@@ -127,7 +127,10 @@ export function settle(
 	round: SettledRound,
 	nowMs: number
 ): { state: SeriesState; changed: 'up' | 'down' | null; acted: BlockAct | null } {
-	if (round.level !== state.levelState.level) return { state, changed: null, acted: null };
+	// A round of another level, or one judged after « On change d’air »: the exercise rests as left.
+	if (round.level !== state.levelState.level || state.ending === 'change-of-air') {
+		return { state, changed: null, acted: null };
+	}
 	const moved = nextLevelState(state.levelState, rules.levels, {
 		success: round.success,
 		aided: round.aided

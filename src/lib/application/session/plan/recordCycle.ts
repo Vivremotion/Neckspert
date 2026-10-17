@@ -62,18 +62,21 @@ export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
 
 /**
  * The aids a cycle is played with: the cursor when the level gives it, a listen to the figure
- * just before when the level counts listening as an aid (`listen: 'aid'`), and the aid level.
+ * just before when the level counts listening as an aid (`listen: 'aid'`), the aid level, and
+ * the figure played along with it (the anti-blocking's remedy).
  */
 export function cycleAids(input: {
 	params: LevelParams;
 	aidLevel: boolean;
 	listened: boolean;
+	playAlong: boolean;
 }): Aid[] {
-	const { params, aidLevel, listened } = input;
+	const { params, aidLevel, listened, playAlong } = input;
 	return [
 		...(params.cursor ? (['cursor'] as const) : []),
 		...(listened && params.listen === 'aid' ? (['listen'] as const) : []),
-		...(aidLevel ? (['aid-level'] as const) : [])
+		...(aidLevel ? (['aid-level'] as const) : []),
+		...(playAlong ? (['play-along'] as const) : [])
 	];
 }
 

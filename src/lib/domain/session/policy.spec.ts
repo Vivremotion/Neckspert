@@ -215,6 +215,13 @@ describe('settle', () => {
 		expect(state.levelState.resumeAfter).toBe(5000 + BLOCK_REST_MS);
 	});
 
+	it('once the air changes, later rounds move nothing', () => {
+		const ending = playing(-1, { ending: 'change-of-air' });
+		const { state, acted } = settle(ending, rules(), round(-1, ['hold']), 0);
+		expect(state).toEqual(ending);
+		expect(acted).toBeNull();
+	});
+
 	it('an aid level above the lowest goes one deeper', () => {
 		const { state, acted } = settleAll(playing(-1), rules({ levels: TWO_AIDS }), [
 			round(-1, ['hold']),

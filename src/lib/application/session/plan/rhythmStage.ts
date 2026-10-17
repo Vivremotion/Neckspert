@@ -19,6 +19,9 @@ import {
  */
 export type RhythmPhase = 'listen-in' | 'count-in' | 'play' | 'listening' | 'breath';
 
+export type Announcement =
+	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
+
 /** One settled cycle of the run, as the breath shows it. */
 export interface SettledCycle {
 	report: CycleReport;
@@ -53,8 +56,12 @@ export interface RhythmStageModel {
 	feedback: Feedback;
 	/** The cycles of the run settled so far, oldest first; shown at the breath. */
 	settled: SettledCycle[];
-	/** At the breath, the level the run moved to, if it moved. */
-	announcement: 'level-up' | 'level-down' | null;
+	/**
+	 * What is said now: at the breath, the level the run moved to (an aid level is announced as
+	 * such); during a cycle, the anti-blocking's remedy under way; once the series changes the
+	 * air, that.
+	 */
+	announcement: Announcement | null;
 	/** What listening to the figure is worth at this level (`listen()`); `none` hides the button. */
 	listen: LevelParams['listen'];
 }

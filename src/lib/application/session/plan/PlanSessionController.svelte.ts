@@ -107,6 +107,10 @@ interface Cycle {
 	written: Promise<number> | null;
 	/** Its segment in the trace, once its first bar is entered. */
 	segment: number | null;
+	/** Laid out by the anti-blocking (a listen or a play-along it asked). */
+	remedy: boolean;
+	/** The figure sounds with the player (the anti-blocking's play-along). */
+	playAlong: boolean;
 }
 
 /** What one transport bar is, as laid out (one bar ahead) for its sounds and its screen. */
@@ -540,13 +544,14 @@ export class PlanSessionController implements PlaySessionController {
 			accompanimentFrom(run.params.accompaniment, run.playFrom)
 		);
 		const figure = laid.figure;
+		const sounding = laid.phase === 'listening' || cycle?.playAlong;
 		if (
-			laid.phase === 'listening' &&
+			sounding &&
 			cycle &&
 			laid.figureBar % figure.bars === 0 &&
 			bar + figure.bars <= cycle.toBar
 		) {
-			this.transport.playFigure(figure, 'demo', bar);
+			this.transport.playFigure(figure, laid.phase === 'listening' ? 'demo' : 'play-along', bar);
 		}
 	}
 
@@ -595,7 +600,10 @@ export class PlanSessionController implements PlaySessionController {
 			this.run = null;
 			return this.bars.get(bar) ?? null;
 		}
-		this.layCycle(bar, run, decided.role === 'listen' ? 'listening' : 'play');
+		this.layCycle(bar, run, decided.role === 'listen' ? 'listening' : 'play', {
+			remedy: decided.remedy,
+			playAlong: decided.role === 'round' && decided.aid === 'play-along'
+		});
 		return this.bars.get(bar) ?? null;
 	}
 
@@ -632,7 +640,12 @@ export class PlanSessionController implements PlaySessionController {
 		return false;
 	}
 
-	private layCycle(bar: number, run: Run, kind: Cycle['kind']): void {
+	private layCycle(
+		bar: number,
+		run: Run,
+		kind: Cycle['kind'],
+		how: { remedy: boolean; playAlong: boolean }
+	): void {
 		const { params } = run;
 		const startBar = bar - run.playFrom;
 		const choice = figureFor(this.exercise, params, this.playedInSeries);
@@ -654,10 +667,17 @@ export class PlanSessionController implements PlaySessionController {
 			spanOpen: false,
 			settled: false,
 			written: null,
-			segment: null
+			segment: null,
+			remedy: how.remedy,
+			playAlong: how.playAlong
 		};
 		if (kind === 'play') {
-			const aids = cycleAids({ params, aidLevel: run.level < 0, listened: this.listened });
+			const aids = cycleAids({
+				params,
+				aidLevel: run.level < 0,
+				listened: this.listened,
+				playAlong: how.playAlong
+			});
 			this.listened = false;
 			const plan = compileCyclePlan({
 				figure: choice.figure,
@@ -1039,7 +1059,13 @@ export class PlanSessionController implements PlaySessionController {
 				: null,
 			feedback: run.params.feedback,
 			settled: [...run.settled],
-			announcement: breath ? this.announcement(run.level, level) : null,
+			announcement: breath
+				? this.announcement(run.level, level)
+				: laid.cycle?.remedy
+					? laid.cycle.playAlong
+						? 'play-along'
+						: 'listen-remedy'
+					: null,
 			listen: params.listen
 		};
 		this.view.stage = { view: this.viewName(), model };
@@ -1074,6 +1100,8 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	private announcement(played: number, reached: number): RhythmStageModel['announcement'] {
+		if (this.end?.reason === 'change-of-air') return 'change-of-air';
+		if (reached < 0 && played >= 0) return 'aid-level';
 		if (reached > played) return 'level-up';
 		if (reached < played) return 'level-down';
 		return null;
