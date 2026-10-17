@@ -32,7 +32,7 @@
 		pool: 'cold',
 		grade: null,
 		kind: 'exercise',
-		rhythm: {
+		exercise: {
 			exerciseId: 'rhythm-offbeats',
 			levelReached: { shown: 3, of: 6, aid: false },
 			cycles: 14,

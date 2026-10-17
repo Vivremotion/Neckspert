@@ -712,3 +712,19 @@ Rien n’échoue sur le papier. Ce qui reste hors des segments, et y reste : la 
 - **Plan 2**, réglé sur ce que la journée de validation (G) demande : la trace et la politique pour les séances d’exercice (`PlanSessionController` exécute `next`), retrait de `cyclesPerSeries`, l’anti-blocage dans la politique, la mémoire tampon de séance et le bilan sur la trace (une réécoute par suite), le lexique, la contestation par raison (développement), l’oracle, « temps perdu » dessiné sur sa mesure. Ce que G ne lit pas attend : le contrat `choose` au-delà d’une séance d’un exercice, les segments en temps libre, `SESSION_MS` pour les séances des notes, des triades et du geste.
 - **H** : les quatre relations et les sélecteurs passent sur la politique et la trace (segments en temps libre compris) ; `SESSION_MS` devient la durée de toutes les séances. Le schéma ne change pas à H.
 - **Chantier 2** : la fin de `SessionKind` avec les parcours en données ; `SessionRecord.kind` est remplacé par ses séries (Dexie 9, sauvegarde 5, une étape de plus dans `migrations/`).
+
+### Réalisation du plan 2 (2026-10-17)
+
+Branche `plan/temps-musical-2`, plan `docs/superpowers/plans/2026-10-17-2-avant-validation.md`. Ce que la réalisation a décidé contre l’amendement ou le plan :
+
+- **Les instants de la trace sont des secondes de l’horloge audio** (`startS`, `endS`), pas des `TimePoint` : le transport recrée sa carte de tempo à chaque reprise après une pause ; l’horloge audio est la seule commune à toute la séance et vaut aussi pour le temps libre. `TraceBuilder.startOf` s’ajoute : une coupure est ramenée au début d’un segment ouvert par un réveil en avance.
+- **`resumeAfter`** = l’instant du « On change d’air » + `BLOCK_REST_MS` (1 h) ; l’exercice reste jouable, l’accueil le marque « On y revient plus tard ». Une fois l’air changé, les cycles qui se règlent encore (posés d’avance) ne touchent plus l’état de niveau.
+- Un blocage `unclear` d’un exercice qui ne sait pas faire sonner son contenu passe directement au niveau d’aide.
+- **La mémoire des prises garde des `Float32`**, pas des entiers 16 bits : environ 69 Mo pour 6 min à 48 kHz, en mémoire seulement.
+- **Contester** se fait depuis le bilan seulement (la réécoute de chaque suite y est), et seulement en développement (`development`, depuis `dev`) ; le rapport complet du dernier cycle aussi.
+- **Le bilan détaillé** n’existe que tant que la séance est dans `SessionMemory` : rouvert après un rechargement, il ne montre que les comptes.
+- La ligne sans phrase simple dit le terme entier et son nombre (« fidélité à la figure 3/4 », « tenue −35 ms »).
+- **L’oracle se compare dans la page** `/diagnostic/oracle` (`DiagnosticsService.oracleReport`), pas par un script Node : les modules du domaine ne se chargent pas sous Node sans Vite. Les types du rapport sont dans `application/ports/oracle.ts`.
+- `SessionSummary.rhythm` devient `SessionSummary.exercise` (`ExerciseSummary`, `summarizeExercise`).
+- `scripts/functional-ui.mjs` échoue sur 9 vérifications anciennes (accueil, bilan, carte, calibration) au commit de départ comme après ; les nouvelles (temps perdu, jouer avec) passent, aucun texte sous 16 px.
+- **Après la relecture de la branche** : l’anti-blocage n’agit que sur les échecs de la série en cours (`recent`), jamais sur ceux gardés d’une séance précédente ; « On change d’air » écarte le cycle déjà posé d’avance mais pas commencé (le clic de la mesure suivante sonne encore jusqu’au règlement du cycle en cours, un quart de mesure) ; une pause une fois la fin décidée termine la série ; un tour coupé ne compte pas comme joué dans le bilan ; le plan résolu d’un cycle garde son instant audio (`CyclePlanRecord.startAudioS`), sur lequel l’oracle le place (sans lui, par la correspondance horloge murale ↔ audio de la prise, décalée de la latence de sortie).

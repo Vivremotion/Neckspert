@@ -4,7 +4,7 @@ import { CLICK_DURATION_S, DOWNBEAT_CLICK } from '../sounds/clickSound';
 import {
 	REPLAY_START_DELAY_S,
 	REPLAY_TIMEOUT_MARGIN_S,
-	TAKE_BUFFER_MAX_S,
+	SESSION_TAKE_MAX_S,
 	TakeBuffer
 } from './TakeBuffer';
 
@@ -130,15 +130,14 @@ describe('TakeBuffer, keeping the input', () => {
 		expect(Array.from(take.samples(0, 2)).every((s) => s === 0)).toBe(true);
 	});
 
-	it('forgets what came before a new start, and keeps a start already past', () => {
+	it('a start already past keeps what came before it', () => {
 		const { input, take } = setup(4);
 		take.keepFrom(0);
 		input.playUntil(2);
-		// Asked a little late: the frames from 1.5 on are still there.
+		// Asked a little late: nothing is forgotten, nothing is kept twice.
 		take.keepFrom(1.5);
 		input.playUntil(4);
-		expect(Array.from(take.samples(0, 1.5)).every((s) => s === 0)).toBe(true);
-		expect(Array.from(take.samples(1.5, 4))).toEqual(Array.from(ramp(4).slice(1.5 * RATE)));
+		expect(Array.from(take.samples(0, 4))).toEqual(Array.from(ramp(4)));
 	});
 
 	it('stops keeping at the end asked, until the next start', () => {
@@ -153,19 +152,21 @@ describe('TakeBuffer, keeping the input', () => {
 		expect(Array.from(take.samples(4, 6))).toEqual(Array.from(ramp(6).slice(4 * RATE)));
 	});
 
-	it('keeps the last take whole until a start asked ahead of time comes', () => {
+	it('keeps every run of the session', () => {
 		const { input, take } = setup(6);
 		take.keepFrom(0);
 		input.playUntil(2);
 		take.keepUntil(2);
 		take.keepFrom(3);
-		expect(Array.from(take.samples(0, 2))).toEqual(Array.from(ramp(6).slice(0, 2 * RATE)));
 		input.playUntil(4);
-		expect(Array.from(take.samples(0, 3)).every((s) => s === 0)).toBe(true);
+		expect(Array.from(take.samples(0, 2))).toEqual(Array.from(ramp(6).slice(0, 2 * RATE)));
+		expect(Array.from(take.samples(2, 3)).every((s) => s === 0)).toBe(true);
 		expect(Array.from(take.samples(3, 4))).toEqual(Array.from(ramp(6).slice(3 * RATE, 4 * RATE)));
+		expect(take.holds(0, 2)).toBe(true);
+		expect(take.holds(3, 4)).toBe(true);
 	});
 
-	it('drops a start asked ahead of time once it stops keeping, the last take whole', () => {
+	it('drops a start asked ahead of time once it stops keeping, the runs before whole', () => {
 		const { input, take } = setup(8);
 		take.keepFrom(0);
 		input.playUntil(2);
@@ -173,24 +174,41 @@ describe('TakeBuffer, keeping the input', () => {
 		take.keepFrom(3);
 		take.stopKeeping();
 		input.playUntil(6);
-		expect(Array.from(take.samples(0, 2))).toEqual(Array.from(ramp(8).slice(0, 2 * RATE)));
 		expect(Array.from(take.samples(2, 6)).every((s) => s === 0)).toBe(true);
-		// Kept again from the next start.
 		take.keepFrom(6);
 		input.playUntil(8);
-		expect(Array.from(take.samples(0, 2)).every((s) => s === 0)).toBe(true);
+		expect(Array.from(take.samples(0, 2))).toEqual(Array.from(ramp(8).slice(0, 2 * RATE)));
 		expect(Array.from(take.samples(6, 8))).toEqual(Array.from(ramp(8).slice(6 * RATE)));
 	});
 
-	it(`forgets the oldest frames beyond ${TAKE_BUFFER_MAX_S} s kept`, () => {
-		expect(TAKE_BUFFER_MAX_S).toBe(120);
-		const { input, take } = setup(130);
+	it(`forgets the oldest input past ${SESSION_TAKE_MAX_S} s kept`, () => {
+		expect(SESSION_TAKE_MAX_S).toBe(360);
+		const { input, take } = setup(400);
 		take.keepFrom(0);
-		input.playUntil(130);
+		input.playUntil(400);
 		expect(Array.from(take.samples(0, 10)).every((s) => s === 0)).toBe(true);
-		const kept = take.samples(10, 130);
-		expect(kept[0]).toBe(10 * RATE);
-		expect(kept[kept.length - 1]).toBe(130 * RATE - 1);
+		const kept = take.samples(40, 400);
+		expect(kept[0]).toBe(40 * RATE);
+		expect(kept[kept.length - 1]).toBe(400 * RATE - 1);
+		expect(take.holds(0, 10)).toBe(false);
+		expect(take.holds(390, 400)).toBe(true);
+	});
+
+	it('holds nothing not yet heard', () => {
+		const { input, take } = setup(4);
+		take.keepFrom(0);
+		input.playUntil(2);
+		expect(take.holds(0, 2)).toBe(true);
+		expect(take.holds(1, 3)).toBe(false);
+	});
+
+	it('clear forgets everything', () => {
+		const { input, take } = setup(4);
+		take.keepFrom(0);
+		input.playUntil(2);
+		take.clear();
+		expect(take.holds(0, 2)).toBe(false);
+		expect(Array.from(take.samples(0, 2)).every((s) => s === 0)).toBe(true);
 	});
 });
 

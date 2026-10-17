@@ -44,3 +44,4 @@ export type {
 	DiagnosticTakeNotices,
 	DiagnosticTakes
 } from './DiagnosticSink';
+export type { OracleReport, OracleSuite, SensorComparison } from './oracle';

@@ -6,7 +6,7 @@ import {
 	type Figure,
 	type LevelState
 } from '$lib/domain/time';
-import type { Attempt, RhythmSummary } from '$lib/domain/types';
+import type { Attempt, ExerciseSummary } from '$lib/domain/types';
 import { levelAided, type CyclePlanRecord, type RhythmAttemptData } from './recordCycle';
 import { levelParamsOf, rhythmLevels } from './rhythmExercise';
 import { levelView } from './rhythmStage';
@@ -36,14 +36,14 @@ function playedOf(
  * change it); for a record without it, the stored level (`state`, the latest, written after each
  * cycle), else the level of the last cycle played, else the first level.
  */
-export function summarizeRhythm(input: {
+export function summarizeExercise(input: {
 	exercise: ExerciseDefinition;
 	/** The session's attempts. */
 	attempts: readonly Attempt[];
 	/** The level the session ended on (`SessionRecord.levelReached`). */
 	levelReached?: number;
 	state: LevelState | undefined;
-}): RhythmSummary {
+}): ExerciseSummary {
 	const { exercise } = input;
 	const { levels } = rhythmLevels(exercise);
 	const cycles = input.attempts.filter(

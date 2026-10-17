@@ -16,8 +16,11 @@ export class DexieAttemptRepository implements AttemptRepositoryPort {
 		if (updated === 0) throw new Error(`No attempt with id ${id}`);
 	}
 
-	async setContested(id: number): Promise<void> {
-		const updated = await this.db.attempts.update(id, { contested: true });
+	async setContested(id: number, reason?: string): Promise<void> {
+		const updated = await this.db.attempts.update(id, {
+			contested: true,
+			...(reason !== undefined && { contestReason: reason })
+		});
 		if (updated === 0) throw new Error(`No attempt with id ${id}`);
 	}
 

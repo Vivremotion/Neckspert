@@ -54,8 +54,11 @@ describe('recordCycle', () => {
 			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
 			outcome,
 			promptedAt: 1234,
+			startAudioS: 12.5,
 			observations
 		});
+		// The audio time of the cycle's start, on the clock the diagnostic journal also uses.
+		expect((attempt.plan as { startAudioS?: number }).startAudioS).toBe(12.5);
 		expect(attempt).toMatchObject({
 			sessionId: 's1',
 			exerciseId: 'rhythm-offbeats',
@@ -89,6 +92,7 @@ describe('recordCycle', () => {
 			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
 			outcome,
 			promptedAt: 0,
+			startAudioS: 0,
 			observations: []
 		});
 		expect(attempt.success).toBe(false);
@@ -123,16 +127,28 @@ describe('recordCycle', () => {
 describe('cycleAids', () => {
 	it('names the cursor the level gives, a listen worth an aid, and an aid level', () => {
 		const params = resolveLevelOf(RHYTHM_OFFBEATS, 0);
-		expect(cycleAids({ params, aidLevel: false, listened: false })).toEqual(['cursor']);
+		expect(cycleAids({ params, aidLevel: false, listened: false, playAlong: false })).toEqual([
+			'cursor'
+		]);
 		expect(
 			cycleAids({
 				params: { ...params, cursor: false, listen: 'aid' },
 				aidLevel: true,
-				listened: true
+				listened: true,
+				playAlong: false
 			})
 		).toEqual(['listen', 'aid-level']);
 		// Listening is free at this level: it is no aid.
-		expect(cycleAids({ params, aidLevel: false, listened: true })).toEqual(['cursor']);
+		expect(cycleAids({ params, aidLevel: false, listened: true, playAlong: false })).toEqual([
+			'cursor'
+		]);
+	});
+
+	it('names playing along, which the level never gives', () => {
+		const params = resolveLevelOf(RHYTHM_OFFBEATS, 0);
+		const aids = cycleAids({ params, aidLevel: false, listened: false, playAlong: true });
+		expect(aids).toContain('play-along');
+		expect(levelAided(aids, params)).toBe(true);
 	});
 });
 

@@ -57,7 +57,7 @@ const summary = {
 	grade: null,
 	tempoBpm: 80,
 	kind: 'exercise',
-	rhythm: {
+	exercise: {
 		exerciseId: 'rhythm-offbeats',
 		levelReached: { shown: 1, of: 4, aid: false },
 		cycles: 1,
@@ -86,7 +86,7 @@ const summary = {
 describe('SummaryScreen of a rhythm session', () => {
 	it('engraves the played cycle with one mark per expected note, before the text report', async () => {
 		render(SummaryScreen, {
-			props: { summary, now: 0, onhome: () => {}, onmap: () => {} }
+			props: { summary, now: 0, onhome: () => {}, onmap: () => {}, development: true }
 		});
 		await waitFor(() => expect(screen.getAllByTestId('rhythm-mark')).toHaveLength(4));
 		expect(

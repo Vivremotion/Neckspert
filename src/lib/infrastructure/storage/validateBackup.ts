@@ -524,11 +524,17 @@ function checkContested(value: unknown): string | null {
 	return value === undefined || typeof value === 'boolean' ? null : 'contested must be a boolean';
 }
 
+/** Optional: why a cycle was contested (development builds). */
+function checkContestReason(value: unknown): string | null {
+	return value === undefined || typeof value === 'string' ? null : 'contestReason must be a string';
+}
+
 function checkAttemptV3(attempt: Fields): string | null {
 	return (
 		checkAttempt(attempt) ??
 		checkObservations(attempt.observations) ??
 		checkContested(attempt.contested) ??
+		checkContestReason(attempt.contestReason) ??
 		(isScope(attempt.tempoScope) ? null : 'tempoScope must be a non-empty string')
 	);
 }

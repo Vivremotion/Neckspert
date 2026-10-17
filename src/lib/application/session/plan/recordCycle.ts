@@ -40,6 +40,11 @@ export interface CyclePlanRecord {
 	tempo: { at: string; bpm: number; unit: string };
 	window: { ms: number } | { ofGap: string };
 	thresholds: LevelParams['thresholds'];
+	/**
+	 * Audio time (s) the cycle started, on the clock the diagnostic journal uses too: the oracle
+	 * places the cycle by it. Absent from the cycles stored before it was kept.
+	 */
+	startAudioS?: number;
 }
 
 export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
@@ -62,18 +67,21 @@ export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
 
 /**
  * The aids a cycle is played with: the cursor when the level gives it, a listen to the figure
- * just before when the level counts listening as an aid (`listen: 'aid'`), and the aid level.
+ * just before when the level counts listening as an aid (`listen: 'aid'`), the aid level, and
+ * the figure played along with it (the anti-blocking's remedy).
  */
 export function cycleAids(input: {
 	params: LevelParams;
 	aidLevel: boolean;
 	listened: boolean;
+	playAlong: boolean;
 }): Aid[] {
-	const { params, aidLevel, listened } = input;
+	const { params, aidLevel, listened, playAlong } = input;
 	return [
 		...(params.cursor ? (['cursor'] as const) : []),
 		...(listened && params.listen === 'aid' ? (['listen'] as const) : []),
-		...(aidLevel ? (['aid-level'] as const) : [])
+		...(aidLevel ? (['aid-level'] as const) : []),
+		...(playAlong ? (['play-along'] as const) : [])
 	];
 }
 
@@ -98,6 +106,8 @@ export function recordCycle(input: {
 	outcome: RoundOutcome;
 	/** Epoch ms of the cycle's first bar. */
 	promptedAt: number;
+	/** Audio time (s) of the cycle's first bar. */
+	startAudioS: number;
 	observations: RecordedObservation[];
 }): Attempt<RhythmAttemptData> {
 	const { setup, outcome } = input;
@@ -119,7 +129,7 @@ export function recordCycle(input: {
 		success: outcome.success,
 		verdict: outcome.verdict,
 		measures: outcome.measures,
-		plan: cyclePlanRecord(setup),
+		plan: { ...cyclePlanRecord(setup), startAudioS: input.startAudioS },
 		data: { item, level: setup.level, report: outcome.detail as CycleReport },
 		observations: input.observations
 	};

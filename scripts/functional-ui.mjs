@@ -467,6 +467,50 @@ try {
 		noteTiny(`rhythm-${phase}`, run.texts);
 	}
 
+	console.log('\nRythme /dev/rhythm?phase=shift');
+	{
+		const call = await open(`${RHYTHM_URL}?phase=shift`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				const label = document.querySelector('[data-testid="rhythm-shift"]');
+				const strip = label?.closest('.strip');
+				const box = label?.getBoundingClientRect();
+				const stripBox = strip?.getBoundingClientRect();
+				return {
+					text: label?.textContent ?? null,
+					fontSize: label ? parseFloat(getComputedStyle(label).fontSize) : 0,
+					inside: Boolean(box && stripBox && box.left >= stripBox.left - 1 && box.right <= stripBox.right + 1),
+					texts: ${texts}
+				};
+			}`
+		);
+		check(
+			assert(run.text === 'temps perdu', `« temps perdu » est écrit sur sa mesure (${run.text})`)
+		);
+		check(assert(run.fontSize >= 16, `« temps perdu » fait au moins 16 px (${run.fontSize})`));
+		check(assert(run.inside, '« temps perdu » tient dans la largeur de la suite'));
+		noteTiny('rhythm-shift', run.texts);
+	}
+
+	console.log('\nRythme /dev/rhythm?phase=along');
+	{
+		const call = await open(`${RHYTHM_URL}?phase=along`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				return { status: document.querySelector('[role="status"]')?.textContent ?? null, texts: ${texts} };
+			}`
+		);
+		check(
+			assert(run.status === 'On la joue ensemble', `l’aide en cours est annoncée (${run.status})`)
+		);
+		noteTiny('rhythm-along', run.texts);
+	}
+
 	console.log('\nTextes sous 16 px');
 	const seen = new Set();
 	for (const row of tiny) {

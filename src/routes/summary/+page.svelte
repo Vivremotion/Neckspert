@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { useAppServices } from '$lib/application/app';
@@ -47,6 +48,9 @@
 		{now}
 		onhome={() => void goto('/')}
 		onmap={() => void goto('/map')}
-		oncontest={(attemptId) => services.contest(attemptId)}
+		oncontest={(attemptId, reason) => services.contest(attemptId, reason)}
+		onreplay={(runId) => services.replayRun(summary?.sessionId ?? '', runId)}
+		onstopreplay={() => services.stopReplay()}
+		development={dev}
 	/>
 {/if}

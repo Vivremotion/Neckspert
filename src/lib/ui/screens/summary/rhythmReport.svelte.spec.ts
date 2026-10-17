@@ -24,7 +24,7 @@ const failed: SessionSummary = {
 	grade: null,
 	tempoBpm: 80,
 	kind: 'exercise',
-	rhythm: {
+	exercise: {
 		exerciseId: 'rhythm-offbeats',
 		levelReached: { shown: 1, of: 4, aid: false },
 		cycles: 1,
@@ -59,6 +59,8 @@ const failed: SessionSummary = {
 const props = (summary: SessionSummary) => ({
 	summary,
 	now: 0,
+	// The judge's full report is shown in development builds only.
+	development: true,
 	onhome: () => {},
 	onmap: () => {}
 });
@@ -86,11 +88,11 @@ describe('SummaryScreen of a one-cycle rhythm series', () => {
 
 	it('says it in English, and when placement and precision were not judged', () => {
 		i18n.locale = 'en';
-		const last = failed.rhythm!.lastCycle!;
+		const last = failed.exercise!.lastCycle!;
 		const player: SessionSummary = {
 			...failed,
-			rhythm: {
-				...failed.rhythm!,
+			exercise: {
+				...failed.exercise!,
 				lastCycle: {
 					...last,
 					verdict: { passed: true },

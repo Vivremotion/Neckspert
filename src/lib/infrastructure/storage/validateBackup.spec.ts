@@ -793,6 +793,17 @@ describe('the triads session and the contest of an attempt', () => {
 		const file = makeBackup({ attempts: [makeAttempt({ id: 1, contested: 'yes' as never })] });
 		expect(() => validateBackupV4(file)).toThrow(/contested must be a boolean/);
 	});
+
+	it('accepts the reason of a contest, a string, and refuses another type', () => {
+		const ok = makeBackup({
+			attempts: [makeAttempt({ id: 1, contested: true, contestReason: 'regularity' })]
+		});
+		expect(validateBackupV4(ok).attempts[0].contestReason).toBe('regularity');
+		const bad = makeBackup({
+			attempts: [makeAttempt({ id: 1, contested: true, contestReason: 3 as never })]
+		});
+		expect(() => validateBackupV4(bad)).toThrow(/contestReason must be a string/);
+	});
 });
 
 describe('the exercise session', () => {

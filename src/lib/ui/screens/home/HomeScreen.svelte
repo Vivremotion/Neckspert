@@ -18,7 +18,8 @@
 		ontriads,
 		gesture = { open: false },
 		ongesture,
-		rhythm
+		rhythm,
+		resting = []
 	}: {
 		stats: HomeStats;
 		now: number;
@@ -33,6 +34,8 @@
 		ongesture?: () => void;
 		/** The rhythm exercises, each a link to its session; without them, no rhythm button. */
 		rhythm?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
+		/** Exercises resting after « On change d’air »: marked, still to be played. */
+		resting?: readonly string[];
 	} = $props();
 
 	let rhythmOpen = $state(false);
@@ -127,6 +130,9 @@
 										<a href={`/session?kind=exercise&exercise=${exercise.id}`}>
 											{exercise.title?.[i18n.locale] ?? exercise.id}
 										</a>
+										{#if resting.includes(exercise.id)}
+											<span class="resting">{t.resting}</span>
+										{/if}
 									</li>
 								{/each}
 							</ul>
@@ -244,6 +250,14 @@
 		text-align: center;
 		text-decoration: none;
 		text-transform: uppercase;
+	}
+
+	.resting {
+		display: block;
+		margin-top: var(--np-space-1, 8px);
+		color: var(--np-shade);
+		font-size: var(--np-type-body);
+		text-align: center;
 	}
 
 	.exercises a:hover,

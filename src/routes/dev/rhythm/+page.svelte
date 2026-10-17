@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Dev only: the rhythm view in its frame, with a still model, to look at it in a real browser
 	// (scripts/functional-ui.mjs checks the Bravura font, the cursor and the text sizes here).
-	// `?phase=play` a clicked bar, `?phase=muted` a silent one, the breath otherwise.
+	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
+	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, the breath otherwise.
 	import { page } from '$app/state';
 	import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
 	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
@@ -63,22 +64,45 @@
 		feedback: 'every-cycle',
 		settled: [],
 		announcement: null,
-		listen: 'free'
+		listen: 'free',
+		plainWords: true
+	};
+	/** A failed cycle whose second bar lost a beat. */
+	function lostBeat(): SettledCycle {
+		const failed = cycle(4, false);
+		return {
+			report: { ...failed.report, shift: { bar: 1, byS: -0.375 } },
+			verdict: { passed: false, reasons: ['shift'] }
+		};
+	}
+
+	const breath: RhythmStageModel = {
+		...base,
+		phase: 'breath',
+		cursor: null,
+		next: figure,
+		settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
+		announcement: 'level-up',
+		level: { shown: 4, of: 6, aid: false }
 	};
 	const model: RhythmStageModel =
 		phase === 'play'
 			? base
 			: phase === 'muted'
 				? { ...base, barInCycle: 0, muted: true }
-				: {
-						...base,
-						phase: 'breath',
-						cursor: null,
-						next: figure,
-						settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
-						announcement: 'level-up',
-						level: { shown: 4, of: 6, aid: false }
-					};
+				: phase === 'along'
+					? { ...base, announcement: 'play-along' }
+					: phase === 'shift'
+						? { ...breath, settled: [lostBeat()], announcement: null }
+						: {
+								...base,
+								phase: 'breath',
+								cursor: null,
+								next: figure,
+								settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
+								announcement: 'level-up',
+								level: { shown: 4, of: 6, aid: false }
+							};
 
 	const controller = new DevRhythmController();
 	controller.view.status = 'awaiting';

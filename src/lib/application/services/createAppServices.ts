@@ -1,13 +1,17 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import { summarizeRhythm } from '$lib/application/session/plan/rhythmSummary';
+import { summarizeExercise } from '$lib/application/session/plan/exerciseSummary';
+import { levelAided } from '$lib/application/session/plan/recordCycle';
+import { levelParamsOf } from '$lib/application/session/plan/rhythmExercise';
+import { summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
 	exerciseById,
+	type ExerciseDefinition,
 	IDENTIFY_NECK,
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
@@ -36,6 +40,7 @@ import {
 	isTriadsKind,
 	type Attempt,
 	type CardState,
+	type ExerciseSummary,
 	type Execution,
 	type Progression,
 	type SessionKind,
@@ -49,6 +54,33 @@ export function createAppServices(
 		diagnostics: DiagnosticsService;
 	}
 ): AppServices {
+	/** The series of a session still in memory, and the runs whose take is still held. */
+	const seriesInMemory = (
+		sessionId: string,
+		exercise: ExerciseDefinition,
+		attempts: readonly Attempt[]
+	): Pick<ExerciseSummary, 'series' | 'replayable'> => {
+		const playback = deps.memory.get(sessionId);
+		const series = playback?.trace.children.find((segment) => segment.role === 'series');
+		if (!playback || !series) return {};
+		const summary = summarizeSeries({
+			series,
+			attempts,
+			aided: (attempt) =>
+				levelAided(
+					attempt.aids,
+					levelParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0)
+				)
+		});
+		const replayable = summary.runs
+			.map((run) => run.id)
+			.filter((id) => {
+				const take = playback.takes.get(id);
+				return take !== undefined && deps.takes.holds(take.from, take.to);
+			});
+		return { series: summary, replayable };
+	};
+
 	/** The rhythm exercise a session played, when its exercise is still in the catalog with levels. */
 	const rhythmExerciseOf = (record: SessionRecord) => {
 		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
@@ -102,8 +134,32 @@ export function createAppServices(
 			return { open: GESTURE_EXERCISES.some((definition) => gestureOpen(definition, cards)) };
 		},
 
-		async contest(attemptId: number) {
-			await deps.attempts.setContested(attemptId);
+		async contest(attemptId: number, reason?: string) {
+			await deps.attempts.setContested(attemptId, reason);
+		},
+
+		async replayRun(sessionId: string, runId: number) {
+			const playback = deps.memory.get(sessionId);
+			const take = playback?.takes.get(runId);
+			if (!playback || !take || !deps.takes.holds(take.from, take.to)) {
+				throw new Error(`Run ${runId} of session ${sessionId} cannot be heard again`);
+			}
+			await deps.takes.play(take.from, take.to, take.sounds, playback.latencyS);
+		},
+
+		stopReplay() {
+			deps.takes.stop();
+		},
+
+		async resting(exerciseIds) {
+			const now = deps.now();
+			const states = await Promise.all(
+				exerciseIds.map((exerciseId) => deps.levels.get({ exerciseId, scope: '', item: '' }))
+			);
+			return exerciseIds.filter((_, i) => {
+				const resumeAfter = states[i]?.resumeAfter;
+				return typeof resumeAfter === 'number' && resumeAfter > now;
+			});
 		},
 
 		async sessionSummary(sessionId: string) {
@@ -126,7 +182,15 @@ export function createAppServices(
 						cards: [],
 						now: deps.now()
 					}),
-					rhythm: summarizeRhythm({ exercise, attempts, levelReached: record.levelReached, state })
+					exercise: {
+						...summarizeExercise({
+							exercise,
+							attempts,
+							levelReached: record.levelReached,
+							state
+						}),
+						...seriesInMemory(sessionId, exercise, attempts)
+					}
 				};
 			}
 			const [attempts, allAttempts, cards] = await Promise.all([

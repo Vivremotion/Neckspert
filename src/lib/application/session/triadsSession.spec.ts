@@ -1,3 +1,4 @@
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { describe, expect, it } from 'vitest';
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
@@ -56,6 +57,7 @@ function harness() {
 		...deps,
 		sounds: new FakeSoundScheduler(clock),
 		takes: new FakeTakeBuffer(),
+		memory: new SessionMemory(),
 		levels: new InMemoryLevelStateRepository(),
 		backup: {} as BackupPort,
 		calibration: {} as CalibrationPort,

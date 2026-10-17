@@ -1,3 +1,4 @@
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
@@ -10,7 +11,11 @@ import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 import { TakeBuffer, WebAudioInput } from '$lib/infrastructure/audio/input';
 import { WebAudioSoundScheduler } from '$lib/infrastructure/audio/sounds';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
-import { buildDiagnosticArchive } from '$lib/infrastructure/diagnostics';
+import {
+	buildDiagnosticArchive,
+	buildOracleArchive,
+	oracleReport
+} from '$lib/infrastructure/diagnostics';
 import {
 	createDatabase,
 	DexieAttemptRepository,
@@ -107,12 +112,15 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		levels,
 		sounds,
 		takes,
+		memory: new SessionMemory(),
 		settings,
 		backup,
 		calibration,
 		diagnostics: {
 			usage: () => journal.usage(),
 			exportArchive: async () => buildDiagnosticArchive(journal, await backup.exportAll()),
+			oracleArchive: async () => buildOracleArchive(journal, await attempts.all(), Math.random),
+			oracleReport,
 			clear: () => journal.clear()
 		},
 		now: () => Date.now(),

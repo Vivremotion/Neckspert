@@ -19,6 +19,7 @@ import {
 	feedbackLine,
 	labelRows,
 	markOffsetPx,
+	shiftMark,
 	toldCycle
 } from './rhythmFigure';
 
@@ -286,7 +287,7 @@ describe('feedbackLine', () => {
 			report({ measures: { holdOffset: { value: -35, unit: 'ms' } } }),
 			'fr'
 		);
-		expect(line).toEqual({ words: 'Sans clic, tu passes devant (−35 ms)', term: 'hold' });
+		expect(line).toMatchObject({ words: 'Sans clic, tu passes devant (−35 ms)', term: 'hold' });
 		expect(
 			feedbackLine(report({ measures: { holdOffset: { value: 28.4, unit: 'ms' } } }), 'fr').words
 		).toBe('Sans clic, tu passes derrière (+28 ms)');
@@ -312,7 +313,7 @@ describe('feedbackLine', () => {
 			}),
 			'fr'
 		);
-		expect(lost).toEqual({ words: 'Temps perdu mesure 3', term: 'fidelity' });
+		expect(lost).toMatchObject({ words: 'Temps perdu mesure 3', term: 'fidelity' });
 		expect(feedbackLine(report({ shift: { bar: 0, byS: 0.66 } }), 'fr').words).toBe(
 			'Temps ajouté mesure 1'
 		);
@@ -327,14 +328,17 @@ describe('feedbackLine', () => {
 				entry(3, 'on-time', 0)
 			]
 		});
-		expect(feedbackLine(missed, 'fr')).toEqual({ words: '2 notes oubliées', term: 'fidelity' });
+		expect(feedbackLine(missed, 'fr')).toMatchObject({
+			words: '2 notes oubliées',
+			term: 'fidelity'
+		});
 		expect(feedbackLine(report({ extra: 1 }), 'fr').words).toBe('1 note en trop');
 	});
 
 	it('tells an uneven cycle by its spread', () => {
 		expect(
 			feedbackLine(report({ measures: { regularity: { value: 27.6, unit: 'ms' } } }), 'fr')
-		).toEqual({ words: 'Irrégulier (± 28 ms)', term: 'regularity' });
+		).toMatchObject({ words: 'Irrégulier (± 28 ms)', term: 'regularity' });
 	});
 
 	it('tells the placement only when the latency was measured without the player', () => {
@@ -347,11 +351,11 @@ describe('feedbackLine', () => {
 			report({ measures, latency: { ms: 12, provenance: 'system' } }),
 			'fr'
 		);
-		expect(system).toEqual({ words: 'Tu joues devant le temps (−22 ms)', term: 'placement' });
+		expect(system).toMatchObject({ words: 'Tu joues devant le temps (−22 ms)', term: 'placement' });
 	});
 
 	it('says « En place » when there is nothing to tell', () => {
-		expect(feedbackLine(report(), 'fr')).toEqual({ words: 'En place', term: null });
+		expect(feedbackLine(report(), 'fr')).toMatchObject({ words: 'En place', term: null });
 	});
 
 	it('tells what failed the cycle, not a measure that passed', () => {
@@ -362,7 +366,7 @@ describe('feedbackLine', () => {
 		};
 		expect(
 			feedbackLine(report({ measures }), 'fr', { passed: false, reasons: ['regularity'] })
-		).toEqual({ words: 'Irrégulier (± 45 ms)', term: 'regularity' });
+		).toMatchObject({ words: 'Irrégulier (± 45 ms)', term: 'regularity' });
 		// Passed, the same cycle is told by its hold.
 		expect(feedbackLine(report({ measures }), 'fr', { passed: true }).term).toBe('hold');
 	});
@@ -379,7 +383,7 @@ describe('feedbackLine', () => {
 			'fr',
 			{ passed: false, reasons: ['precision'] }
 		);
-		expect(line).toEqual({ words: 'À 70 ms du temps en moyenne', term: 'precision' });
+		expect(line).toMatchObject({ words: 'À 70 ms du temps en moyenne', term: 'precision' });
 	});
 
 	it('tells a failed hold even under the word cut-offs', () => {
@@ -388,7 +392,7 @@ describe('feedbackLine', () => {
 			'fr',
 			{ passed: false, reasons: ['hold'] }
 		);
-		expect(line).toEqual({ words: 'Sans clic, tu accélères', term: 'hold' });
+		expect(line).toMatchObject({ words: 'Sans clic, tu accélères', term: 'hold' });
 	});
 
 	it('follows the judge’s order when several reasons failed the cycle', () => {
@@ -400,7 +404,7 @@ describe('feedbackLine', () => {
 			'fr',
 			{ passed: false, reasons: ['extra', 'regularity'] }
 		);
-		expect(line).toEqual({ words: '1 note en trop', term: 'fidelity' });
+		expect(line).toMatchObject({ words: '1 note en trop', term: 'fidelity' });
 	});
 
 	it('speaks English', () => {
@@ -428,9 +432,43 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		settled: [],
 		announcement: null,
 		listen: 'free',
+		plainWords: true,
 		...overrides
 	};
 }
+
+describe('feedbackLine without plain words', () => {
+	const held = report({ measures: { holdOffset: { value: -35, unit: 'ms' } } });
+
+	it('keeps the term and its number', () => {
+		expect(feedbackLine(held, 'fr').words).toBe('Sans clic, tu passes devant (−35 ms)');
+		expect(feedbackLine(held, 'fr', undefined, false).words).toBe('tenue −35 ms');
+		expect(feedbackLine(held, 'en', undefined, false).words).toBe('hold −35 ms');
+	});
+
+	it('says the regularity, a lost beat and the fidelity by their term', () => {
+		const uneven = report({ measures: { regularity: { value: 24.4, unit: 'ms' } } });
+		expect(feedbackLine(uneven, 'fr', undefined, false).words).toBe('régularité ± 24 ms');
+		const lost = report({ shift: { bar: 1, byS: -0.4 } });
+		expect(feedbackLine(lost, 'fr', undefined, false).words).toBe('temps perdu, mesure 2');
+		const forgot = report({ expectations: played(entry(1, 'missed', null)) });
+		expect(feedbackLine(forgot, 'fr', undefined, false).words).toBe('fidélité à la figure 3/4');
+	});
+
+	it('a line without a number is the same either way', () => {
+		expect(feedbackLine(report(), 'fr', undefined, false).words).toBe(
+			feedbackLine(report(), 'fr').words
+		);
+	});
+});
+
+describe('shiftMark', () => {
+	it('names the bar of a lost beat, or of an added one', () => {
+		expect(shiftMark(report({ shift: { bar: 2, byS: -0.3 } }))).toEqual({ bar: 2, lost: true });
+		expect(shiftMark(report({ shift: { bar: 0, byS: 0.3 } }))).toEqual({ bar: 0, lost: false });
+		expect(shiftMark(report())).toBeNull();
+	});
+});
 
 describe('cursorVisible', () => {
 	it('shows the cursor while a clicked bar is played', () => {

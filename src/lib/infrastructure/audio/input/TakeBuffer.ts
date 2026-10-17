@@ -3,8 +3,8 @@ import type { ScheduledSound } from '$lib/domain/time';
 import { NoiseBuffers, TIMBRES, playBurst } from '../sounds/clickSound';
 import type { AudioFrame, FrameSource } from './WebAudioInput';
 
-/** The most input kept: past it, the oldest frames are forgotten. */
-export const TAKE_BUFFER_MAX_S = 120;
+/** The most input kept over a session: past it, the oldest frames are forgotten. */
+export const SESSION_TAKE_MAX_S = 360;
 /** A take starts playing this long after `play`, so its first sound is never already past. */
 export const REPLAY_START_DELAY_S = 0.1;
 /**
@@ -14,9 +14,9 @@ export const REPLAY_START_DELAY_S = 0.1;
 export const REPLAY_TIMEOUT_MARGIN_S = 1;
 
 /**
- * The input of the run under way, kept in memory only, frame by frame, from `keepFrom` to
- * `keepUntil` and at most `TAKE_BUFFER_MAX_S`. A start asked ahead of time forgets the last take
- * only once it comes, so that take can still be heard until then. `play` gives it back through the one audio
+ * The input of the runs of a session, kept in memory only, frame by frame, between each
+ * `keepFrom` and its `keepUntil`, at most `SESSION_TAKE_MAX_S` in all (the oldest forgotten);
+ * `clear` forgets everything at a new series. `play` gives it back through the one audio
  * context, with the sounds the application made resynthesized the way the sound scheduler
  * renders them, shifted by the latency so they fall where the input heard the player.
  */
@@ -29,6 +29,8 @@ export class TakeBuffer implements TakeBufferPort {
 	private until = Infinity;
 	/** The end of the latest frame heard, kept or not. */
 	private heardUntil = -Infinity;
+	/** Input before this was forgotten (the cap, or `clear`). */
+	private forgottenUntil = -Infinity;
 	private playing: { sources: AudioBufferSourceNode[]; done: () => void } | null = null;
 
 	constructor(
@@ -41,7 +43,6 @@ export class TakeBuffer implements TakeBufferPort {
 	keepFrom(fromTime: number): void {
 		this.from = fromTime;
 		this.until = Infinity;
-		if (fromTime <= this.heardUntil) this.forgetBefore(fromTime);
 	}
 
 	keepUntil(toTime: number): void {
@@ -51,8 +52,20 @@ export class TakeBuffer implements TakeBufferPort {
 	}
 
 	stopKeeping(): void {
-		// Nothing passes before the next `keepFrom`, so a start asked ahead never forgets the take.
+		// Nothing passes before the next `keepFrom`.
 		this.until = -Infinity;
+	}
+
+	clear(): void {
+		this.frames = [];
+		this.keptSamples = 0;
+		this.from = null;
+		this.until = Infinity;
+		this.forgottenUntil = this.heardUntil;
+	}
+
+	holds(from: number, to: number): boolean {
+		return from >= this.forgottenUntil && to <= this.heardUntil && from < to;
 	}
 
 	/** The samples kept over [from, to), at the input's rate; silence where nothing was kept. */
@@ -134,25 +147,18 @@ export class TakeBuffer implements TakeBufferPort {
 		this.heardUntil = Math.max(this.heardUntil, end);
 		if (this.from === null) return;
 		if (end <= this.from || frame.frameTime >= this.until) return;
-		this.forgetBefore(this.from);
 		this.frames.push(frame);
 		this.keptSamples += frame.samples.length;
-		const max = TAKE_BUFFER_MAX_S * this.source.sampleRate;
+		const max = SESSION_TAKE_MAX_S * this.source.sampleRate;
 		while (this.keptSamples > max && this.frames.length > 0) {
-			const oldest = this.frames.shift();
-			this.keptSamples -= oldest?.samples.length ?? 0;
+			const oldest = this.frames.shift() as AudioFrame;
+			this.keptSamples -= oldest.samples.length;
+			this.forgottenUntil = Math.max(this.forgottenUntil, this.endOf(oldest));
 		}
 	}
 
 	private endOf(frame: AudioFrame): number {
 		return frame.frameTime + frame.samples.length / this.source.sampleRate;
-	}
-
-	/** Forgets the frames that end by `time` (frames are kept in order). */
-	private forgetBefore(time: number): void {
-		if (this.frames.length === 0 || this.endOf(this.frames[0]) > time) return;
-		this.frames = this.frames.filter((frame) => this.endOf(frame) > time);
-		this.count();
 	}
 
 	private count(): void {

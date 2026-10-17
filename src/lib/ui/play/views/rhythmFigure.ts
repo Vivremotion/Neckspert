@@ -159,8 +159,13 @@ export function labelRows(marks: readonly Mark[], charWidthPx: number): (0 | 1 |
 	});
 }
 
-type Line = { words: string; term: FeedbackTerm | null };
-type Words = (typeof RHYTHM_MESSAGES)[Locale]['words'];
+/**
+ * A feedback line: its words, its term, and the number the term goes with once the plain words
+ * have faded (null when it has none: the line then stays in words).
+ */
+type Line = { words: string; term: FeedbackTerm | null; value: string | null };
+type Messages = (typeof RHYTHM_MESSAGES)[Locale];
+type Words = Messages['words'];
 
 /** The order a failed cycle's reasons are told in (`cycleVerdict` lists them in another order). */
 const REASON_ORDER: readonly CycleFailure[] = [
@@ -178,7 +183,8 @@ function shiftLine(report: CycleReport, words: Words): Line | null {
 	const bar = report.shift.bar + 1;
 	return {
 		words: report.shift.byS < 0 ? words.lost(bar) : words.added(bar),
-		term: 'fidelity'
+		term: 'fidelity',
+		value: null
 	};
 }
 
@@ -190,7 +196,14 @@ function fidelityLine(report: CycleReport, words: Words): Line | null {
 		forgotten > 0 ? words.forgotten(forgotten) : null,
 		report.extra > 0 ? words.extra(report.extra) : null
 	].filter((part) => part !== null);
-	return { words: parts.join(', '), term: 'fidelity' };
+	const heard = report.expectations.filter(
+		(e) => e.verdict !== 'missed' && e.verdict !== 'dropped'
+	).length;
+	return {
+		words: parts.join(', '),
+		term: 'fidelity',
+		value: `${heard}/${report.expectations.length}`
+	};
 }
 
 /** The hold, its offset and its drift, each told from its cut-off (0: whatever its size). */
@@ -210,19 +223,33 @@ function holdLine(
 			: 'drag'
 		: null;
 	if (holdOffset === null && holdDrift === null) return null;
-	return { words: words.hold(holdOffset, holdDrift), term: 'hold' };
+	const value = [
+		holdOffset === null ? null : `${signed(holdOffset)} ms`,
+		holdDrift === null || drift === undefined ? null : `${signed(drift)} ${words.perBar}`
+	]
+		.filter((part) => part !== null)
+		.join(', ');
+	return { words: words.hold(holdOffset, holdDrift), term: 'hold', value };
 }
 
 function regularityLine(report: CycleReport, words: Words, cutOff: number): Line | null {
 	const spread = report.measures.regularity?.value;
 	if (spread === undefined || spread < cutOff) return null;
-	return { words: words.uneven(Math.round(spread)), term: 'regularity' };
+	return {
+		words: words.uneven(Math.round(spread)),
+		term: 'regularity',
+		value: `± ${Math.round(spread)} ms`
+	};
 }
 
 function precisionLine(report: CycleReport, words: Words, cutOff: number): Line | null {
 	const precision = report.measures.precision?.value;
 	if (precision === undefined || precision < cutOff) return null;
-	return { words: words.precision(Math.round(precision)), term: 'precision' };
+	return {
+		words: words.precision(Math.round(precision)),
+		term: 'precision',
+		value: `${Math.round(precision)} ms`
+	};
 }
 
 /** The line of one failure reason, whatever the size of its measure. */
@@ -251,9 +278,31 @@ function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Li
  * added, the hold, the spread, then (only when the latency was measured without the player)
  * the placement and the precision; « En place » when nothing is.
  */
-export function feedbackLine(report: CycleReport, locale: Locale, verdict?: CycleVerdict): Line {
-	const { words } = RHYTHM_MESSAGES[locale];
+export function feedbackLine(
+	report: CycleReport,
+	locale: Locale,
+	verdict?: CycleVerdict,
+	plain = true
+): Line {
+	const messages = RHYTHM_MESSAGES[locale];
+	const line = toldLine(report, messages.words, verdict);
+	if (plain) return line;
+	// The plain words faded (`PLAIN_WORDS_SESSIONS`): the term and its number stay.
+	if (line.term && line.value !== null) {
+		return { ...line, words: `${messages.term[line.term]} ${line.value}` };
+	}
+	if (report.shift && line.term === 'fidelity' && line.value === null) {
+		const bar = report.shift.bar + 1;
+		return {
+			...line,
+			words: report.shift.byS < 0 ? messages.brief.lost(bar) : messages.brief.added(bar)
+		};
+	}
+	return line;
+}
 
+/** The plain-words line (see `feedbackLine`). */
+function toldLine(report: CycleReport, words: Words, verdict?: CycleVerdict): Line {
 	if (verdict && !verdict.passed) {
 		for (const reason of REASON_ORDER) {
 			if (!verdict.reasons.includes(reason)) continue;
@@ -272,12 +321,22 @@ export function feedbackLine(report: CycleReport, locale: Locale, verdict?: Cycl
 	if (report.latency?.provenance === 'system') {
 		const placement = report.measures.placement?.value;
 		if (placement !== undefined && Math.abs(placement) >= WORDS_MIN_MS) {
-			return { words: words.placement(placement), term: 'placement' };
+			return {
+				words: words.placement(placement),
+				term: 'placement',
+				value: `${signed(placement)} ms`
+			};
 		}
 		const precision = precisionLine(report, words, WORDS_MIN_MS);
 		if (precision) return precision;
 	}
-	return { words: words.inPlace, term: null };
+	return { words: words.inPlace, term: null, value: null };
+}
+
+/** Where a beat was lost or added in a cycle (its bar, from 0), or null without a shift. */
+export function shiftMark(report: CycleReport): { bar: number; lost: boolean } | null {
+	if (!report.shift) return null;
+	return { bar: report.shift.bar, lost: report.shift.byS < 0 };
 }
 
 /** The cursor shows only on the figure played or heard, and never during a muted bar. */

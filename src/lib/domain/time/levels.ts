@@ -24,8 +24,6 @@ export interface LevelParams {
 	listen: 'free' | 'aid' | 'none';
 	cursor: boolean;
 	cyclesPerBreath: number;
-	/** Cycles a series plays before it ends; absent: it lasts its time (`RHYTHM_SERIES_MS`). */
-	cyclesPerSeries?: number;
 	/** Bars of accompaniment alone before play; absent: `LISTEN_IN_BARS`. */
 	listenInBars?: number;
 	/** A counted bar (every beat clicked, countdown shown) after the listen-in; absent: true. */

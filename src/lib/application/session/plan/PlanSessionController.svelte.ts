@@ -7,8 +7,8 @@ import {
 	barLength,
 	beatPositions,
 	compileCyclePlan,
+	MATCH_LIMIT,
 	levelRange,
-	nextLevelState,
 	renderSounds,
 	type CycleReport,
 	type CycleVerdict,
@@ -18,12 +18,25 @@ import {
 	type Meter,
 	type ScheduledSound
 } from '$lib/domain/time';
+import {
+	SESSION_MS,
+	TraceBuilder,
+	askListen,
+	next,
+	settle,
+	startRun,
+	startSeries,
+	type SeriesRules,
+	type SeriesState,
+	type SegmentRole
+} from '$lib/domain/session';
 import { DEFAULT_SETTINGS, type PlannedItem, type Settings } from '$lib/domain/types';
 import { openAudioInput } from '../audioInput';
 import { DEFAULT_PLAY_VIEW, type PlaySessionController, type PlayView } from '../contract';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
+import type { RunTake } from '../sessionMemory';
 import { LISTEN_IN_BARS, Transport, TransportStopped } from '../transport';
 import { cycleAids, levelAided, recordCycle, type CycleSetup } from './recordCycle';
 import {
@@ -36,6 +49,7 @@ import {
 } from './rhythmExercise';
 import {
 	figurePosition,
+	PLAIN_WORDS_SESSIONS,
 	levelView,
 	tempoView,
 	type RhythmPhase,
@@ -43,8 +57,6 @@ import {
 	type SettledCycle
 } from './rhythmStage';
 
-/** How long a series of a rhythm exercise lasts; it ends with the run under way. */
-export const RHYTHM_SERIES_MS = 300_000;
 /**
  * A cycle is settled this far (in bars) after its last bar ends, so an attack reported a little
  * late (detection, the scheduler's wake-up) still reaches it.
@@ -63,8 +75,8 @@ interface Run {
 	/** Clicked bars played before the first cycle, which starts on the first muted bar. */
 	landing: number;
 	entryLaid: boolean;
-	/** Cycles played (not heard) laid out so far. */
-	played: number;
+	/** Its segment in the trace, once its first bar is entered. */
+	segment: number | null;
 	settled: SettledCycle[];
 	/** The figure of the last cycle laid out: the one the breath shows as played. */
 	lastFigure: Figure;
@@ -94,6 +106,12 @@ interface Cycle {
 	settled: boolean;
 	/** The id of its attempt once written. */
 	written: Promise<number> | null;
+	/** Its segment in the trace, once its first bar is entered. */
+	segment: number | null;
+	/** Laid out by the anti-blocking (a listen or a play-along it asked). */
+	remedy: boolean;
+	/** The figure sounds with the player (the anti-blocking's play-along). */
+	playAlong: boolean;
 }
 
 /** What one transport bar is, as laid out (one bar ahead) for its sounds and its screen. */
@@ -143,15 +161,20 @@ export class PlanSessionController implements PlaySessionController {
 	private readonly levelKey: { exerciseId: string; scope: string; item: string };
 
 	private settings: Settings = DEFAULT_SETTINGS;
-	private levelState: LevelState;
+	/** What the series plays next and where its level stands (`domain/session/policy.ts`). */
+	private series: SeriesState;
 	private prepared = false;
 	/** No attempt of the exercise yet: its how-to and a demonstration come first. */
 	private firstEncounter = false;
+	/** Fewer than `PLAIN_WORDS_SESSIONS` sessions of the exercise ended: the feedback in plain words. */
+	private plainWords = true;
 	private startedAt = 0;
 	private begun = false;
 	/** Bumped by every start, pause and quit: an await that comes back in another run gives up. */
 	private generation = 0;
 	private starting = false;
+	/** The player quit: the series ends for that reason. */
+	private quitting = false;
 
 	private bars = new Map<number, Bar>();
 	/** The run being laid out; null between a breath and the next run. */
@@ -162,8 +185,6 @@ export class PlanSessionController implements PlaySessionController {
 	private current: Cycle | null = null;
 	/** Cycles played in the series (laid out, not dropped by a pause): the next figure in turn. */
 	private playedInSeries = 0;
-	/** `listen()` was asked: the next cycle laid out is heard. */
-	private listenNext = false;
 	/** The figure was just heard: the next played cycle carries it (`cycleAids`). */
 	private listened = false;
 	/** The series is over: no bar is laid out any more, the last cycles settle and it finishes. */
@@ -172,6 +193,20 @@ export class PlanSessionController implements PlaySessionController {
 	private stopObservations: (() => void) | null = null;
 	/** The last run, to be heard again from its breath or a pause (`replay`). */
 	private take: Take | null = null;
+	/** The take of each run of the series, by its segment, for the summary. */
+	private runTakes = new Map<number, RunTake>();
+	/** What happened, segment by segment; null before the series opens. */
+	private trace: TraceBuilder | null = null;
+	/** The segments open in the trace: the series, the run, the leaf under way, a pause. */
+	private traced: {
+		series: number | null;
+		run: Run | null;
+		part: number | null;
+		partKey: string | null;
+		pause: number | null;
+	} = { series: null, run: null, part: null, partKey: null, pause: null };
+	/** Why the series ends, once the policy says it does, and the bar it ends on. */
+	private end: { reason: 'time' | 'change-of-air'; bar: number } | null = null;
 	private readonly writes = new Set<Promise<unknown>>();
 	private levelWrite: Promise<void> = Promise.resolve();
 
@@ -185,7 +220,13 @@ export class PlanSessionController implements PlaySessionController {
 		this.sensor = typeof sensor === 'string' ? sensor : RHYTHM_SENSOR;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
 		this.levelKey = { exerciseId: this.exercise.id, scope: '', item: '' };
-		this.levelState = { ...this.levelKey, level: 0, successes: 0, failures: 0, resumeAfter: null };
+		this.series = startSeries({
+			...this.levelKey,
+			level: 0,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
 		const first = this.paramsOf(0);
 		this.view = $state<PlayView>({
 			status: 'idle',
@@ -209,6 +250,10 @@ export class PlanSessionController implements PlaySessionController {
 			stage: null,
 			briefing: null
 		});
+	}
+
+	private get levelState(): LevelState {
+		return this.series.levelState;
 	}
 
 	async ready(): Promise<void> {
@@ -243,6 +288,9 @@ export class PlanSessionController implements PlaySessionController {
 			await deps.clock.resume();
 			if (this.generation !== generation) return;
 			this.startedAt = deps.now();
+			// A new series: the takes of the one before are not this one's.
+			deps.takes.clear();
+			this.openTrace();
 			// Tracked: a quit meanwhile writes the ended record only after this one.
 			const opened = deps.sessions.put(this.sessionRecord(null));
 			this.track(opened);
@@ -259,8 +307,16 @@ export class PlanSessionController implements PlaySessionController {
 		if (this.view.status !== 'count-in' && this.view.status !== 'awaiting') return;
 		this.generation++;
 		this.starting = false;
+		if (this.end !== null) {
+			// The series was already ending (its time spent, or the air changed): it ends now.
+			void this.finish();
+			return;
+		}
 		this.stopPlaying();
 		this.view.status = 'paused';
+		if (this.trace && this.traced.pause === null) {
+			this.traced.pause = this.trace.open('pause', this.deps.clock.now());
+		}
 	}
 
 	resume(): void {
@@ -297,7 +353,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	listen(): void {
 		if (this.view.status !== 'count-in' && this.view.status !== 'awaiting') return;
-		this.listenNext = true;
+		this.series = askListen(this.series, this.rules());
 	}
 
 	/** Nothing to answer on screen: every attack is heard by the sensor. */
@@ -308,6 +364,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	quit(): void {
 		if (this.view.status === 'finished') return;
+		this.quitting = true;
 		this.generation++;
 		this.starting = false;
 		this.deps.takes.stop();
@@ -321,15 +378,23 @@ export class PlanSessionController implements PlaySessionController {
 	private async prepare(): Promise<void> {
 		if (this.prepared) return;
 		const { deps } = this;
-		const [settings, stored, attempts] = await Promise.all([
+		const [settings, stored, attempts, sessions] = await Promise.all([
 			deps.settings.get(),
 			deps.levels.get(this.levelKey),
-			deps.attempts.all()
+			deps.attempts.all(),
+			deps.sessions.list()
 		]);
+		const ended = sessions.filter(
+			(session) => session.exerciseId === this.exercise.id && session.endedAt !== null
+		);
+		this.plainWords = ended.length < PLAIN_WORDS_SESSIONS;
 		this.settings = settings;
 		if (stored) {
 			const { lowest, highest } = levelRange(rhythmLevels(this.exercise).levels);
-			this.levelState = { ...stored, level: Math.min(highest, Math.max(lowest, stored.level)) };
+			this.series = startSeries({
+				...stored,
+				level: Math.min(highest, Math.max(lowest, stored.level))
+			});
 		}
 		this.firstEncounter = !attempts.some((attempt) => attempt.exerciseId === this.exercise.id);
 		this.prepared = true;
@@ -349,6 +414,11 @@ export class PlanSessionController implements PlaySessionController {
 		this.playedInSeries = 0;
 		this.listened = false;
 		this.take = null;
+		this.runTakes = new Map();
+		this.trace = null;
+		this.end = null;
+		this.quitting = false;
+		this.series = startSeries(this.series.levelState);
 		this.view.stage = null;
 		this.view.countdown = null;
 	}
@@ -409,6 +479,7 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	private newRun(playFrom: number): Run {
+		this.series = startRun(this.series);
 		const level = this.levelState.level;
 		const params = this.paramsOf(level);
 		return {
@@ -417,7 +488,7 @@ export class PlanSessionController implements PlaySessionController {
 			playFrom,
 			landing: landingBar(params.accompaniment),
 			entryLaid: false,
-			played: 0,
+			segment: null,
 			settled: [],
 			lastFigure: figureFor(this.exercise, params, this.playedInSeries).figure
 		};
@@ -466,6 +537,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	private enterBar(bar: number): void {
 		const laid = this.bars.get(bar);
+		if (laid) this.traceBar(bar, laid);
 		const cycle = laid?.cycle;
 		if (cycle && cycle.kind === 'play' && cycle.fromBar === bar) {
 			const previous = this.current;
@@ -485,13 +557,14 @@ export class PlanSessionController implements PlaySessionController {
 			accompanimentFrom(run.params.accompaniment, run.playFrom)
 		);
 		const figure = laid.figure;
+		const sounding = laid.phase === 'listening' || cycle?.playAlong;
 		if (
-			laid.phase === 'listening' &&
+			sounding &&
 			cycle &&
 			laid.figureBar % figure.bars === 0 &&
 			bar + figure.bars <= cycle.toBar
 		) {
-			this.transport.playFigure(figure, 'demo', bar);
+			this.transport.playFigure(figure, laid.phase === 'listening' ? 'demo' : 'play-along', bar);
 		}
 	}
 
@@ -521,14 +594,16 @@ export class PlanSessionController implements PlaySessionController {
 				return this.bars.get(bar) ?? null;
 			}
 		}
-		const { cyclesPerSeries } = run.params;
-		const cycleDone = cyclesPerSeries !== undefined && this.playedInSeries >= cyclesPerSeries;
-		if (cycleDone || run.played >= run.params.cyclesPerBreath) {
-			if (cycleDone || this.deps.now() - this.startedAt >= RHYTHM_SERIES_MS) {
-				this.ending = true;
-				if (this.live.length === 0) void this.finish();
-				return null;
-			}
+		const step = next(this.series, this.rules(), this.deps.now() - this.startedAt);
+		this.series = step.state;
+		const decided = step.next;
+		if (decided.role === 'end') {
+			this.end = { reason: decided.reason, bar };
+			this.ending = true;
+			if (this.live.length === 0) void this.finish();
+			return null;
+		}
+		if (decided.role === 'breath') {
 			// The next run reads its level when bar `to` is laid out, on beat 0 of bar `to − 1`,
 			// and the last cycle settles at `from + SETTLE_AFTER_BARS`: this needs a breath of at
 			// least 2 bars, which every catalog exercise gives (pinned by a catalog test).
@@ -538,9 +613,10 @@ export class PlanSessionController implements PlaySessionController {
 			this.run = null;
 			return this.bars.get(bar) ?? null;
 		}
-		const heard = this.listenNext && run.params.listen !== 'none';
-		this.listenNext = false;
-		this.layCycle(bar, run, heard ? 'listening' : 'play');
+		this.layCycle(bar, run, decided.role === 'listen' ? 'listening' : 'play', {
+			remedy: decided.remedy,
+			playAlong: decided.role === 'round' && decided.aid === 'play-along'
+		});
 		return this.bars.get(bar) ?? null;
 	}
 
@@ -577,7 +653,12 @@ export class PlanSessionController implements PlaySessionController {
 		return false;
 	}
 
-	private layCycle(bar: number, run: Run, kind: Cycle['kind']): void {
+	private layCycle(
+		bar: number,
+		run: Run,
+		kind: Cycle['kind'],
+		how: { remedy: boolean; playAlong: boolean }
+	): void {
 		const { params } = run;
 		const startBar = bar - run.playFrom;
 		const choice = figureFor(this.exercise, params, this.playedInSeries);
@@ -598,10 +679,18 @@ export class PlanSessionController implements PlaySessionController {
 			span: null,
 			spanOpen: false,
 			settled: false,
-			written: null
+			written: null,
+			segment: null,
+			remedy: how.remedy,
+			playAlong: how.playAlong
 		};
 		if (kind === 'play') {
-			const aids = cycleAids({ params, aidLevel: run.level < 0, listened: this.listened });
+			const aids = cycleAids({
+				params,
+				aidLevel: run.level < 0,
+				listened: this.listened,
+				playAlong: how.playAlong
+			});
 			this.listened = false;
 			const plan = compileCyclePlan({
 				figure: choice.figure,
@@ -621,7 +710,6 @@ export class PlanSessionController implements PlaySessionController {
 			});
 			cycle.span = new ObservationSpan(cycle.round.startTime, this.plannedItem(setup));
 			cycle.spanOpen = true;
-			run.played++;
 			this.playedInSeries++;
 			this.live.push(cycle);
 			this.transport.at(Fraction.of(cycle.toBar).add(SETTLE_AFTER_BARS), () =>
@@ -680,15 +768,30 @@ export class PlanSessionController implements PlaySessionController {
 			verdict: outcome.verdict.value as CycleVerdict
 		});
 		if (cycle.setup.level === this.levelState.level) {
-			const { state } = nextLevelState(this.levelState, rhythmLevels(this.exercise).levels, {
-				success: outcome.success,
-				aided: levelAided(outcome.aids, cycle.setup.params)
-			});
-			this.levelState = state;
+			const { setup } = cycle;
+			const { tempo } = setup.params;
+			const wholeS = 60 / tempo.bpm / tempo.unit.toNumber();
+			const { state, acted } = settle(
+				this.series,
+				this.rules(),
+				{
+					level: setup.level,
+					item: `${setup.figureId}@${setup.level}`,
+					success: outcome.success,
+					aided: levelAided(outcome.aids, setup.params),
+					report: outcome.detail as CycleReport,
+					verdict: outcome.verdict.value as CycleVerdict,
+					spotMs: MATCH_LIMIT.toNumber() * wholeS * 1000
+				},
+				this.deps.now()
+			);
+			this.series = state;
+			if (acted?.act === 'change-of-air') this.dropLaidAhead();
+			const written = state.levelState;
 			// From a recovered promise: one failed write must not stop the later ones.
 			this.levelWrite = this.levelWrite
 				.catch(() => undefined)
-				.then(() => this.deps.levels.put(state));
+				.then(() => this.deps.levels.put(written));
 			this.track(this.levelWrite);
 		}
 		// A later cycle has begun: this one's span is complete now. Else it stays open (breath).
@@ -704,12 +807,44 @@ export class PlanSessionController implements PlaySessionController {
 			setup: cycle.setup,
 			outcome,
 			promptedAt: this.deps.clock.toEpochMs(round.startTime),
+			startAudioS: round.startTime,
 			observations
 		});
 		cycle.written = this.deps.attempts.add(attempt);
 		this.track(cycle.written);
+		const segment = cycle.segment;
+		const trace = this.trace;
+		if (segment !== null && trace) {
+			void cycle.written.then(
+				(attemptId) => trace.set(segment, { attemptId }),
+				() => undefined
+			);
+		}
 		if (this.shown) this.show(this.shown.bar, this.shown.beat);
 		if (this.ending && this.live.length === 0) void this.finish();
+	}
+
+	/**
+	 * « On change d’air »: the cycles laid out ahead and not begun are never played, nor judged;
+	 * the series ends on the first of them, once the cycle under way is settled.
+	 */
+	private dropLaidAhead(): void {
+		const entered = this.shown?.bar ?? -1;
+		const ahead = this.live.filter((cycle) => cycle.fromBar > entered);
+		if (ahead.length === 0) return;
+		for (const cycle of ahead) {
+			// Marked settled: its wake-up must not judge it.
+			cycle.settled = true;
+			cycle.spanOpen = false;
+			cycle.span?.close();
+			// Counted when laid out: a dropped cycle gives its figure back.
+			this.playedInSeries--;
+		}
+		this.live = this.live.filter((cycle) => !ahead.includes(cycle));
+		const from = Math.min(...ahead.map((cycle) => cycle.fromBar));
+		for (const bar of [...this.bars.keys()]) if (bar >= from) this.bars.delete(bar);
+		this.end = { reason: 'change-of-air', bar: from };
+		this.ending = true;
 	}
 
 	/** Ends a settled cycle's span; its attempt takes the final list. */
@@ -730,6 +865,7 @@ export class PlanSessionController implements PlaySessionController {
 	private stopPlaying(): void {
 		// Before the transport stops: stopping empties the journal of the sounds.
 		if (this.begun) this.closeTake(this.deps.clock.now());
+		this.cutTrace();
 		// Even with no take, or one already closed: a start asked ahead must not wipe it, and no
 		// input is kept while nothing plays.
 		this.deps.takes.stopKeeping();
@@ -750,7 +886,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.current = null;
 		this.bars.clear();
 		this.run = null;
-		this.listenNext = false;
+		this.series = { ...this.series, run: null, listenAsked: false };
 		this.shown = null;
 		this.begun = false;
 		this.view.countdown = null;
@@ -767,7 +903,11 @@ export class PlanSessionController implements PlaySessionController {
 		// The record is taken before the wait: a restart meanwhile gives the next series its own.
 		if (!this.startedAt) return;
 		const ended = this.sessionRecord(this.deps.now());
+		const remember = this.closeTrace();
+		remember();
 		while (this.writes.size > 0) await Promise.allSettled([...this.writes]);
+		// Again, with the ids of the attempts written meanwhile.
+		remember();
 		await this.deps.sessions.put(ended);
 	}
 
@@ -797,6 +937,7 @@ export class PlanSessionController implements PlaySessionController {
 			take.to = to;
 			take.sounds = take.sounds.filter((sound) => sound.time < to);
 			this.deps.takes.keepUntil(to);
+			this.keepRunTake(take);
 			return;
 		}
 		const { run, from } = take;
@@ -812,6 +953,114 @@ export class PlanSessionController implements PlaySessionController {
 		take.to = to;
 		take.sounds = [...heard, ...muted].sort((a, b) => a.time - b.time);
 		this.deps.takes.keepUntil(to);
+		this.keepRunTake(take);
+	}
+
+	/** The take of a run, kept for the summary under the run's segment. */
+	private keepRunTake(take: Take): void {
+		const segment = take.run.segment;
+		if (segment === null || take.to === null) return;
+		this.runTakes.set(segment, { from: take.from, to: take.to, sounds: [...take.sounds] });
+	}
+
+	// Trace --------------------------------------------------------------------------------
+
+	private openTrace(): void {
+		const now = this.deps.clock.now();
+		this.trace = new TraceBuilder(now);
+		const series = this.trace.open('series', now, { exerciseId: this.exercise.id });
+		this.traced = { series, run: null, part: null, partKey: null, pause: null };
+	}
+
+	/**
+	 * Writes bar `bar` into the trace as it begins, never when it is laid out ahead: a segment
+	 * opens on its first bar and closes when the next one begins.
+	 */
+	private traceBar(bar: number, laid: Bar): void {
+		const trace = this.trace;
+		if (!trace) return;
+		const at = this.timeOfBar(bar);
+		const t = this.traced;
+		if (t.pause !== null) {
+			trace.close(t.pause, Math.max(at, trace.startOf(t.pause)));
+			t.pause = null;
+		}
+		const inRun = (laid.phase === 'play' || laid.phase === 'listening') && bar >= laid.run.playFrom;
+		const partKey = inRun ? (laid.cycle ? `cycle:${laid.cycle.fromBar}` : null) : laid.phase;
+		const changesRun = t.run !== (inRun ? laid.run : null);
+		const changesPart = changesRun || partKey !== t.partKey;
+		if (changesPart && t.part !== null) {
+			trace.close(t.part, at);
+			t.part = null;
+			t.partKey = null;
+		}
+		if (changesRun && t.run?.segment != null) {
+			trace.close(t.run.segment, at);
+			t.run = null;
+		}
+		if (changesRun && inRun) {
+			laid.run.segment = trace.open('run', at, { level: laid.run.level });
+			t.run = laid.run;
+		}
+		if (changesPart && partKey !== null) {
+			const cycle = inRun ? laid.cycle : null;
+			const role: SegmentRole = cycle
+				? cycle.kind === 'play'
+					? 'round'
+					: 'listen'
+				: laid.phase === 'listening'
+					? 'listen'
+					: (laid.phase as SegmentRole);
+			const setup = cycle?.setup;
+			t.part = trace.open(
+				role,
+				at,
+				setup ? { level: setup.level, item: `${setup.figureId}@${setup.level}` } : {}
+			);
+			t.partKey = partKey;
+			if (cycle) cycle.segment = t.part;
+		}
+	}
+
+	/**
+	 * Ends the run and the leaf under way: where the series ended on its own, done; else (a
+	 * pause, a quit) cut now.
+	 */
+	private cutTrace(): void {
+		const trace = this.trace;
+		if (!trace) return;
+		const t = this.traced;
+		const now = this.deps.clock.now();
+		// Ended on its own once its last bar is reached; before (a pause, a quit), cut now.
+		const natural =
+			this.end !== null && !this.quitting && this.begun && now >= this.timeOfBar(this.end.bar);
+		const at = natural ? this.timeOfBar((this.end as { bar: number }).bar) : now;
+		const ended = natural ? 'done' : 'interrupted';
+		for (const id of [t.part, t.run?.segment ?? null]) {
+			if (id !== null) trace.close(id, Math.max(at, trace.startOf(id)), ended);
+		}
+		t.part = null;
+		t.partKey = null;
+		t.run = null;
+	}
+
+	/** Closes the series with why it ended; returns how to hand it to the session memory. */
+	private closeTrace(): () => void {
+		const trace = this.trace;
+		const t = this.traced;
+		if (!trace || t.series === null) return () => undefined;
+		const now = this.deps.clock.now();
+		if (t.pause !== null) trace.close(t.pause, Math.max(now, trace.startOf(t.pause)));
+		t.pause = null;
+		const reason = this.quitting ? 'quit' : (this.end?.reason ?? 'quit');
+		const breaking = reason === 'change-of-air' ? this.series.breaking : null;
+		trace.set(t.series, { reason, ...(breaking && { breaking }) });
+		const end = Math.max(now, trace.tree().endS);
+		trace.closeAll(end, 'done');
+		const sessionId = this.sessionId;
+		const takes = this.runTakes;
+		const latencyS = (this.latency()?.ms ?? 0) / 1000;
+		return () => this.deps.memory.remember({ sessionId, trace: trace.tree(), takes, latencyS });
 	}
 
 	private inBreath(): boolean {
@@ -851,8 +1100,15 @@ export class PlanSessionController implements PlaySessionController {
 				: null,
 			feedback: run.params.feedback,
 			settled: [...run.settled],
-			announcement: breath ? this.announcement(run.level, level) : null,
-			listen: params.listen
+			announcement: breath
+				? this.announcement(run.level, level)
+				: laid.cycle?.remedy
+					? laid.cycle.playAlong
+						? 'play-along'
+						: 'listen-remedy'
+					: null,
+			listen: params.listen,
+			plainWords: this.plainWords
 		};
 		this.view.stage = { view: this.viewName(), model };
 		this.view.status =
@@ -881,17 +1137,30 @@ export class PlanSessionController implements PlaySessionController {
 			feedback: params.feedback,
 			settled: [],
 			announcement: null,
-			listen: params.listen
+			listen: params.listen,
+			plainWords: this.plainWords
 		};
 	}
 
 	private announcement(played: number, reached: number): RhythmStageModel['announcement'] {
+		if (this.end?.reason === 'change-of-air') return 'change-of-air';
+		if (reached < 0 && played >= 0) return 'aid-level';
 		if (reached > played) return 'level-up';
 		if (reached < played) return 'level-down';
 		return null;
 	}
 
 	// Helpers ------------------------------------------------------------------------------
+
+	private rules(): SeriesRules {
+		return {
+			levels: rhythmLevels(this.exercise).levels,
+			params: (level) => this.paramsOf(level),
+			// An exercise of figures can always make its figure sound.
+			canSound: true,
+			budgetMs: SESSION_MS
+		};
+	}
 
 	private paramsOf(level: number): LevelParams {
 		return levelParamsOf(this.exercise, level);

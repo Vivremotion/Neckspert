@@ -1,3 +1,4 @@
+import type { SessionMemory } from './sessionMemory';
 import type {
 	AttemptRepositoryPort,
 	AudioClockPort,
@@ -48,4 +49,6 @@ export interface PlanSessionDeps extends SessionDeps {
 	sounds: SoundSchedulerPort;
 	levels: LevelStateRepositoryPort;
 	takes: TakeBufferPort;
+	/** Where a series leaves its trace and its takes for the summary. */
+	memory: SessionMemory;
 }

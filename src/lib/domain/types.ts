@@ -1,3 +1,4 @@
+import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
@@ -170,6 +171,8 @@ export interface Attempt<D = unknown> {
 	 * analysis, never read by FSRS. Absent until then.
 	 */
 	contested?: boolean;
+	/** Why it was contested, when the judge gave reasons (a cycle's `CycleFailure`). */
+	contestReason?: string;
 }
 
 /** What became of an observation heard during a prompt: the answer, or why it was not. */
@@ -381,11 +384,11 @@ export interface SessionSummary {
 	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
 	gesture?: GestureSummary;
 	/** A rhythm exercise session: the rest of the summary is not shown for it. */
-	rhythm?: RhythmSummary;
+	exercise?: ExerciseSummary;
 }
 
 /** What a rhythm exercise session did: the level it ended on and its cycles. */
-export interface RhythmSummary {
+export interface ExerciseSummary {
 	exerciseId: ExerciseId;
 	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level). */
 	levelReached: { shown: number; of: number; aid: boolean };
@@ -395,7 +398,11 @@ export interface RhythmSummary {
 	successes: number;
 	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
 	aided: number;
-	/** The last cycle played, in full (a series of one cycle shows its report). Absent without a cycle. */
+	/** The series as its trace tells it; absent once the session is no longer in memory (a reload). */
+	series?: SeriesSummary;
+	/** The runs whose take is still held, by the id of their segment: each can be heard again. */
+	replayable?: number[];
+	/** The last cycle played, in full; shown in development builds. Absent without a cycle. */
 	lastCycle?: {
 		report: CycleReport;
 		verdict: CycleVerdict;
