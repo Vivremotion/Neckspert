@@ -766,7 +766,7 @@ export class PlanSessionController implements PlaySessionController {
 			const { setup } = cycle;
 			const { tempo } = setup.params;
 			const wholeS = 60 / tempo.bpm / tempo.unit.toNumber();
-			const { state } = settle(
+			const { state, acted } = settle(
 				this.series,
 				this.rules(),
 				{
@@ -781,6 +781,7 @@ export class PlanSessionController implements PlaySessionController {
 				this.deps.now()
 			);
 			this.series = state;
+			if (acted?.act === 'change-of-air') this.dropLaidAhead();
 			const written = state.levelState;
 			// From a recovered promise: one failed write must not stop the later ones.
 			this.levelWrite = this.levelWrite
@@ -815,6 +816,29 @@ export class PlanSessionController implements PlaySessionController {
 		}
 		if (this.shown) this.show(this.shown.bar, this.shown.beat);
 		if (this.ending && this.live.length === 0) void this.finish();
+	}
+
+	/**
+	 * « On change d’air »: the cycles laid out ahead and not begun are never played, nor judged;
+	 * the series ends on the first of them, once the cycle under way is settled.
+	 */
+	private dropLaidAhead(): void {
+		const entered = this.shown?.bar ?? -1;
+		const ahead = this.live.filter((cycle) => cycle.fromBar > entered);
+		if (ahead.length === 0) return;
+		for (const cycle of ahead) {
+			// Marked settled: its wake-up must not judge it.
+			cycle.settled = true;
+			cycle.spanOpen = false;
+			cycle.span?.close();
+			// Counted when laid out: a dropped cycle gives its figure back.
+			this.playedInSeries--;
+		}
+		this.live = this.live.filter((cycle) => !ahead.includes(cycle));
+		const from = Math.min(...ahead.map((cycle) => cycle.fromBar));
+		for (const bar of [...this.bars.keys()]) if (bar >= from) this.bars.delete(bar);
+		this.end = { reason: 'change-of-air', bar: from };
+		this.ending = true;
 	}
 
 	/** Ends a settled cycle's span; its attempt takes the final list. */

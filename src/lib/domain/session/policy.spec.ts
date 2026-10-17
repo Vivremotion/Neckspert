@@ -215,6 +215,15 @@ describe('settle', () => {
 		expect(state.levelState.resumeAfter).toBe(5000 + BLOCK_REST_MS);
 	});
 
+	it('failures stored from earlier sessions do not block on a first miss', () => {
+		const stored = startRun(startSeries({ ...levelState(-1), failures: 12 }));
+		const { state, acted } = settle(stored, rules(), round(-1, ['hold']), 0);
+		expect(acted).toBeNull();
+		expect(state.ending).toBeNull();
+		const atOne = startRun(startSeries({ ...levelState(0), failures: 12 }));
+		expect(settle(atOne, rules(), round(0, ['regularity']), 0).acted).toBeNull();
+	});
+
 	it('once the air changes, later rounds move nothing', () => {
 		const ending = playing(-1, { ending: 'change-of-air' });
 		const { state, acted } = settle(ending, rules(), round(-1, ['hold']), 0);

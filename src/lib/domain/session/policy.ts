@@ -146,7 +146,11 @@ export function settle(
 		round.success && !round.aided ? [] : [...state.recent, round].slice(-BLOCK_AFTER_FAILS);
 	const held: SeriesState = { ...state, levelState: moved.state, recent };
 	const { level, failures } = held.levelState;
-	if (failures < BLOCK_AFTER_FAILS || level > 0) return { state: held, changed: null, acted: null };
+	// The run of failures must be this series' own: failures stored from earlier sessions count
+	// for the level, never alone for the anti-blocking.
+	if (failures < BLOCK_AFTER_FAILS || recent.length < BLOCK_AFTER_FAILS || level > 0) {
+		return { state: held, changed: null, acted: null };
+	}
 
 	if (level === 0 && !held.remedied) {
 		const diagnosis = diagnoseBlock(recent);

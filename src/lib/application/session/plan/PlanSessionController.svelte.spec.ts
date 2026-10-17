@@ -664,6 +664,41 @@ describe('PlanSessionController, unblocking', () => {
 		expect(first?.aids).toContain('aid-level');
 	});
 
+	it('a change of air never plays the cycle laid out ahead', async () => {
+		// Eight cycles a run: when the third settles, the fifth is already laid out.
+		const long = {
+			...RHYTHM_OFFBEATS,
+			base: RHYTHM_OFFBEATS.base && { ...RHYTHM_OFFBEATS.base, cyclesPerBreath: 8 }
+		};
+		const { controller, memory, attempts, levels, player, advance } = await setup(long, {
+			met: true
+		});
+		await levels.put({
+			exerciseId: RHYTHM_OFFBEATS.id,
+			scope: '',
+			item: '',
+			level: -1,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		player.jitterS = 0.1;
+		await controller.start();
+		const barS = (60 / 70) * 4;
+		await advance(ORIGIN + 12 * barS);
+		expect(controller.view.status).toBe('finished');
+		await settled();
+		// cycles on bars 3, 4, 5 fail; the third settles a quarter into bar 6, under way: judged;
+		// bar 7, laid out ahead, is never played.
+		expect(await attempts.listBySession('series')).toHaveLength(4);
+		const series = seriesOf(memory);
+		expect(series.reason).toBe('change-of-air');
+		const run = series.children.find((segment) => segment.role === 'run') as Segment;
+		expect(run).toMatchObject({ ended: 'done' });
+		expect(run.children).toHaveLength(4);
+		expect(run.endS).toBeCloseTo(ORIGIN + 7 * barS, 9);
+	});
+
 	it('the lowest aid level that blocks changes the air', async () => {
 		const { controller, memory, attempts, levels, player, advance, clock } = await setup(
 			RHYTHM_OFFBEATS,
