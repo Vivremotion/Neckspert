@@ -47,6 +47,13 @@ describe('TraceBuilder', () => {
 		expect(series.children[0].children).toEqual([]);
 	});
 
+	it('startOf tells when a segment started', () => {
+		const trace = new TraceBuilder(0);
+		const run = trace.open('run', 2.5);
+		expect(trace.startOf(run)).toBe(2.5);
+		expect(() => trace.startOf(99)).toThrow(RangeError);
+	});
+
 	it('set merges fields', () => {
 		const trace = new TraceBuilder(0);
 		const round = trace.open('round', 1, { level: 2, item: 'a@2' });

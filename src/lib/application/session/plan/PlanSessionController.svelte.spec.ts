@@ -32,7 +32,9 @@ import {
 } from '$lib/testing/fakes';
 import { attackSensor } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
-import { PlanSessionController, RHYTHM_SERIES_MS } from './PlanSessionController.svelte';
+import { SESSION_MS, type Segment } from '$lib/domain/session';
+import { SessionMemory } from '../sessionMemory';
+import { PlanSessionController } from './PlanSessionController.svelte';
 import type { CyclePlanRecord, RhythmAttemptData } from './recordCycle';
 import type { RhythmStageModel } from './rhythmStage';
 
@@ -94,6 +96,7 @@ async function setup(
 	const sessions = new InMemorySessionRepository();
 	const detector = new FakeNoteDetector();
 	const takes = new FakeTakeBuffer();
+	const memory = new SessionMemory();
 	if (options.met) await attempts.add(earlier(exercise.id));
 	await settings.update({
 		latency: { ...options.latencies, ...(options.latency && { attack: options.latency }) },
@@ -120,7 +123,8 @@ async function setup(
 		sensors: { attack: attackSensor(attacks) },
 		sounds,
 		levels,
-		takes
+		takes,
+		memory
 	};
 	const controller = new PlanSessionController({ id: 'series', exerciseId: exercise.id }, deps);
 	const player = new Player(controller, attacks, clock);
@@ -145,6 +149,7 @@ async function setup(
 		sessions,
 		detector,
 		takes,
+		memory,
 		controller,
 		player,
 		advance,
@@ -462,7 +467,7 @@ describe('PlanSessionController, the end of a series', () => {
 		});
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
-		wall.extraMs = RHYTHM_SERIES_MS;
+		wall.extraMs = SESSION_MS;
 		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
 		expect(controller.view.status).toBe('finished');
 		// The four cycles of the run, and no breath after them.
@@ -470,6 +475,117 @@ describe('PlanSessionController, the end of a series', () => {
 		const breathAt = ORIGIN + 7 * OFFBEATS_BAR_S;
 		expect(sounds.emitted().filter((s) => s.time >= breathAt - 1e-9)).toEqual([]);
 		expect((await sessions.get('series'))?.endedAt).not.toBeNull();
+	});
+});
+
+/** The `series` segment of the session the memory holds, and its children's roles. */
+function seriesOf(memory: SessionMemory): Segment {
+	const playback = memory.get('series');
+	if (!playback) throw new Error('no session in memory');
+	const series = playback.trace.children.find((segment) => segment.role === 'series');
+	if (!series) throw new Error('no series in the trace');
+	return series;
+}
+
+const roles = (segment: Segment) => segment.children.map((child) => child.role);
+
+describe('PlanSessionController, the trace of a series', () => {
+	it('traces a series as it is played', async () => {
+		const { controller, memory, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		// listen-in 0-1, count 2, cycles 3-6, breath from 7
+		await advance(ORIGIN + 8.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		const series = seriesOf(memory);
+		expect(series.exerciseId).toBe(RHYTHM_OFFBEATS.id);
+		expect(roles(series).slice(0, 4)).toEqual(['listen-in', 'count-in', 'run', 'breath']);
+		const [listenIn, count, run, breath] = series.children;
+		expect(listenIn.startS).toBeCloseTo(ORIGIN, 9);
+		expect(count.startS).toBeCloseTo(ORIGIN + 2 * OFFBEATS_BAR_S, 9);
+		expect(run).toMatchObject({ level: 0, ended: 'done' });
+		expect(run.startS).toBeCloseTo(ORIGIN + 3 * OFFBEATS_BAR_S, 9);
+		expect(run.endS).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
+		expect(roles(run)).toEqual(['round', 'round', 'round', 'round']);
+		expect(run.children.every((round) => typeof round.attemptId === 'number')).toBe(true);
+		expect(run.children[1].startS).toBeCloseTo(ORIGIN + 4 * OFFBEATS_BAR_S, 9);
+		expect(breath.startS).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
+	});
+
+	it('a pause cuts the run and its round', async () => {
+		const { controller, memory, clock, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 5.5 * OFFBEATS_BAR_S);
+		const pausedAt = clock.now();
+		controller.pause();
+		controller.resume();
+		await settled();
+		await advance(ORIGIN + 9 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		const series = seriesOf(memory);
+		const run = series.children.find((segment) => segment.role === 'run') as Segment;
+		expect(run).toMatchObject({ ended: 'interrupted' });
+		expect(run.endS).toBeCloseTo(pausedAt, 9);
+		expect(run.children.at(-1)).toMatchObject({ role: 'round', ended: 'interrupted' });
+		expect(run.children.at(-1)?.endS).toBeCloseTo(pausedAt, 9);
+		const after = roles(series).slice(roles(series).indexOf('pause'));
+		expect(after.slice(0, 4)).toEqual(['pause', 'listen-in', 'count-in', 'run']);
+	});
+
+	it('a heard cycle is a listen segment', async () => {
+		const { controller, memory, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 3.5 * OFFBEATS_BAR_S);
+		controller.listen();
+		await advance(ORIGIN + 6.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		const run = seriesOf(memory).children.find((segment) => segment.role === 'run') as Segment;
+		const listen = run.children.find((segment) => segment.role === 'listen');
+		expect(listen).toBeDefined();
+		expect(listen?.attemptId).toBeUndefined();
+	});
+
+	it('each run keeps its take', async () => {
+		const { controller, memory, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		// two runs of four cycles with their breaths
+		await advance(ORIGIN + 17.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		const playback = memory.get('series');
+		const runs = seriesOf(memory).children.filter((segment) => segment.role === 'run');
+		expect(runs.length).toBeGreaterThanOrEqual(2);
+		for (const run of runs.slice(0, 2)) {
+			const take = playback?.takes.get(run.id);
+			expect(take?.from).toBeCloseTo(run.startS, 9);
+			expect(take?.to).toBeCloseTo(run.endS, 9);
+		}
+	});
+
+	it('the series ends after SESSION_MS with its run, for its time', async () => {
+		const { controller, memory, wall, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		wall.extraMs = SESSION_MS;
+		await advance(ORIGIN + 8 * OFFBEATS_BAR_S);
+		expect(controller.view.status).toBe('finished');
+		await settled();
+		const series = seriesOf(memory);
+		expect(series.reason).toBe('time');
+		const run = series.children.find((segment) => segment.role === 'run') as Segment;
+		expect(run).toMatchObject({ ended: 'done' });
+		expect(run.endS).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
+	});
+
+	it('quit marks the series', async () => {
+		const { controller, memory, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 4.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect(seriesOf(memory).reason).toBe('quit');
 	});
 });
 

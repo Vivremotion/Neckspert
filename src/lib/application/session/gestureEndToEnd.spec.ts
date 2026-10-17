@@ -1,3 +1,4 @@
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { describe, expect, it } from 'vitest';
 import type {
 	BackupPort,
@@ -74,6 +75,7 @@ async function setup(cards: CardState[]) {
 		...deps,
 		sounds: new FakeSoundScheduler(clock),
 		takes: new FakeTakeBuffer(),
+		memory: new SessionMemory(),
 		levels: new InMemoryLevelStateRepository(),
 		backup: new FakeBackup(),
 		calibration: new FakeCalibration(),

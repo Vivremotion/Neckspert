@@ -1,3 +1,4 @@
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { describe, expect, it, vi } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
@@ -89,6 +90,7 @@ function harness(): {
 		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
 		sounds: new FakeSoundScheduler(clock),
 		takes: new FakeTakeBuffer(),
+		memory: new SessionMemory(),
 		levels: new InMemoryLevelStateRepository()
 	};
 	const services = createAppServices({

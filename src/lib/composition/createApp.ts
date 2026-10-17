@@ -1,3 +1,4 @@
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
@@ -107,6 +108,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		levels,
 		sounds,
 		takes,
+		memory: new SessionMemory(),
 		settings,
 		backup,
 		calibration,

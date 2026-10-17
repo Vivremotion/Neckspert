@@ -90,6 +90,13 @@ export class TraceBuilder {
 		return node.id;
 	}
 
+	/** When segment `id` started. */
+	startOf(id: number): number {
+		const node = this.byId.get(id);
+		if (!node) throw new RangeError(`no segment ${id}`);
+		return node.startS;
+	}
+
 	set(id: number, fields: SegmentFields): void {
 		const node = this.byId.get(id);
 		if (!node) throw new RangeError(`no segment ${id}`);
