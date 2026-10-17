@@ -7,7 +7,7 @@
 	import { onMount } from 'svelte';
 	import { beatPositions, type CycleReport, type Feedback, type Figure } from '$lib/domain/time';
 	import type { FigureLayout } from '$lib/ui/notation';
-	import { cycleFigure, cycleMarks, labelRows, type Mark } from './rhythmFigure';
+	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './rhythmFigure';
 	import { rhythmMessages } from './rhythmMessages';
 
 	/**
@@ -120,6 +120,11 @@
 				: reports.map((report) =>
 						cycleMarks(report, layout, feedback, beatWidth, beatMs, engraved)
 					);
+		// The line of each bar: a bar whose x does not move right starts a new line.
+		let barLine = 0;
+		const barLines = layout.barX.map((x, b) =>
+			b > 0 && x <= layout.barX[b - 1] ? ++barLine : barLine
+		);
 		return layout.lineY.map((top, line) => ({
 			line,
 			top,
@@ -127,7 +132,13 @@
 			strips: perCycle.map((all, cycle) => {
 				const marks = all.filter((mark) => mark.line === line);
 				const rows = labelRows(marks, figurePx * FIGURE_CHAR_EM);
-				return { cycle, marks: marks.map((mark, i) => ({ mark, row: rows[i] })) };
+				const shift = shiftMark(reports[cycle]);
+				const shown = shift && barLines[shift.bar] === line ? shift : null;
+				return {
+					cycle,
+					marks: marks.map((mark, i) => ({ mark, row: rows[i] })),
+					shift: shown && { x: layout.barX[shown.bar] ?? 0, lost: shown.lost }
+				};
 			})
 		}));
 	});
@@ -178,6 +189,11 @@
 							{/if}
 						</span>
 					{/each}
+					{#if strip.shift}
+						<span class="shift" data-testid="rhythm-shift" style:left="{strip.shift.x}px"
+							>{strip.shift.lost ? t.shift.lost : t.shift.added}</span
+						>
+					{/if}
 				</div>
 			</div>
 		{/each}
@@ -216,6 +232,16 @@
 	/* The engraving and the strips of marks share one x: the cycle numbers sit left of both. */
 	.played .engraving {
 		margin-inline-start: var(--cycle-column);
+	}
+
+	/* Above the bar where a beat was lost or added, in words. */
+	.shift {
+		position: absolute;
+		top: 0;
+		white-space: nowrap;
+		font-size: max(16px, var(--np-type-meta));
+		line-height: 20px;
+		color: var(--np-ink);
 	}
 
 	.strip-row {

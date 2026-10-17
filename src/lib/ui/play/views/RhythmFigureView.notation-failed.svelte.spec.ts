@@ -31,7 +31,8 @@ function model(): RhythmStageModel {
 		feedback: 'every-cycle',
 		settled: [],
 		announcement: null,
-		listen: 'free'
+		listen: 'free',
+		plainWords: true
 	};
 }
 

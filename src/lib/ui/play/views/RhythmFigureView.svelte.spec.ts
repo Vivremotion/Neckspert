@@ -74,6 +74,7 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		settled: [],
 		announcement: null,
 		listen: 'free',
+		plainWords: true,
 		...overrides
 	};
 }
@@ -275,6 +276,56 @@ describe('RhythmFigureView', () => {
 			'cycle 2 · raté'
 		]);
 		expect(screen.queryAllByTestId('rhythm-mark')).toHaveLength(0);
+	});
+
+	it('writes a lost beat above its bar at the breath', async () => {
+		const lost: SettledCycle = {
+			report: { ...REPORT, shift: { bar: 0, byS: -0.4 } },
+			verdict: { passed: false, reasons: ['shift'] }
+		};
+		render(RhythmFigureView, {
+			props: { controller: running(), model: breath({ settled: [lost] }) }
+		});
+		await engraved();
+		await vi.waitFor(() =>
+			expect(screen.getByTestId('rhythm-shift').textContent).toBe('temps perdu')
+		);
+	});
+
+	it('announces the remedies of the anti-blocking while they play', () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: model({ phase: 'listening', announcement: 'listen-remedy' })
+			}
+		});
+		expect(screen.getByRole('status').textContent).toBe('On réécoute la figure');
+		cleanup();
+		render(RhythmFigureView, {
+			props: { controller: running(), model: model({ announcement: 'play-along' }) }
+		});
+		expect(screen.getByRole('status').textContent).toBe('On la joue ensemble');
+	});
+
+	it('announces the aid level at the breath', () => {
+		render(RhythmFigureView, {
+			props: {
+				controller: running(),
+				model: breath({ announcement: 'aid-level', level: { shown: 0, of: 4, aid: true } })
+			}
+		});
+		expect(screen.getByRole('status').textContent).toContain('Niveau d’aide');
+	});
+
+	it('gives the term of the feedback its definition, and drops the plain words later', async () => {
+		render(RhythmFigureView, { props: { controller: running(), model: breath() } });
+		const term = screen.getByTestId('rhythm-feedback').querySelector('.term-first');
+		expect(term).toBeTruthy();
+		cleanup();
+		render(RhythmFigureView, {
+			props: { controller: running(), model: breath({ plainWords: false }) }
+		});
+		expect(screen.getByTestId('rhythm-feedback').textContent).toContain('fidélité à la figure 4/5');
 	});
 
 	it('announces a level change at the breath', () => {

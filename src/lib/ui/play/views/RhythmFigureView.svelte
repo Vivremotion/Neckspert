@@ -19,6 +19,8 @@
 	} from './rhythmFigure';
 	import { rhythmMessages } from './rhythmMessages';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from './PlayedCycle.svelte';
+	import Term from '$lib/ui/primitives/Term.svelte';
+	import { provideGlossaryScope } from '$lib/ui/primitives/glossaryScope';
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
@@ -35,6 +37,8 @@
 	/** Gap between the two panels (the grid's `--np-space-3`). */
 	const GAP_PX = 24;
 
+	provideGlossaryScope();
+
 	const m = $derived(model as RhythmStageModel);
 	const t = $derived(rhythmMessages());
 	const frame = $derived(playMessages());
@@ -50,7 +54,9 @@
 	const header = $derived(t.header(m.exerciseLabel, levelText, t.tempo(m.tempo.unit, m.tempo.bpm)));
 	const phaseText = $derived(t.phase[m.phase]);
 	const told = $derived(breathing ? toldCycle(m.settled) : null);
-	const line = $derived(told ? feedbackLine(told.report, i18n.locale, told.verdict) : null);
+	const line = $derived(
+		told ? feedbackLine(told.report, i18n.locale, told.verdict, m.plainWords) : null
+	);
 
 	// VexFlow is heavy: the notation adapter is loaded once this view shows, never before.
 	let notation = $state<Notation | null>(null);
@@ -172,14 +178,26 @@
 		</div>
 		{#if line}
 			<p class="feedback" data-testid="rhythm-feedback">
-				<span>{line.words}</span>
-				{#if line.term}
-					<span class="sep" aria-hidden="true">·</span>
-					<span class="term">{t.term[line.term]}</span>
+				{#if !m.plainWords && line.term && line.value !== null}
+					<span class="term"
+						><Term id={line.term} locale={i18n.locale}>{t.term[line.term]}</Term></span
+					>
+					<span>{line.value}</span>
+				{:else}
+					<span>{line.words}</span>
+					{#if line.term}
+						<span class="sep" aria-hidden="true">·</span>
+						<span class="term"
+							><Term id={line.term} locale={i18n.locale}>{t.term[line.term]}</Term></span
+						>
+					{/if}
 				{/if}
 			</p>
 		{/if}
 	{:else}
+		{#if m.announcement}
+			<p class="announcement" role="status">{t.announcement[m.announcement](levelText)}</p>
+		{/if}
 		<div class="score">
 			<div class="engraving large" bind:this={figureHost}></div>
 			{#if cursor && figureLayout}

@@ -27,11 +27,11 @@
 	const open = $derived(!inactive && (hovered || focused || touched));
 </script>
 
-{#if inactive}
-	<span class="term" class:term-first={first}>{@render children()}</span>
-{:else}
-	<span class="term" class:term-first={first}>
-		<button
+<!-- Written without whitespace between its parts: the term sits inside running text. -->
+{#if inactive}<span class="term" class:term-first={first}>{@render children()}</span>{:else}<span
+		class="term"
+		class:term-first={first}
+		><button
 			type="button"
 			class="word"
 			aria-describedby={open ? tipId : undefined}
@@ -43,12 +43,10 @@
 				touched = false;
 			}}
 			onclick={() => (touched = !touched)}>{@render children()}</button
-		>
-		{#if open}
-			<span class="definition" role="tooltip" id={tipId}>{GLOSSARY[id][locale].definition}</span>
-		{/if}
-	</span>
-{/if}
+		>{#if open}<span class="definition" role="tooltip" id={tipId}
+				>{GLOSSARY[id][locale].definition}</span
+			>{/if}</span
+	>{/if}
 
 <style>
 	.term {

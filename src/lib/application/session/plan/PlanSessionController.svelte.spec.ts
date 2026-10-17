@@ -36,7 +36,7 @@ import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { SessionMemory } from '../sessionMemory';
 import { PlanSessionController } from './PlanSessionController.svelte';
 import type { CyclePlanRecord, RhythmAttemptData } from './recordCycle';
-import type { RhythmStageModel } from './rhythmStage';
+import { PLAIN_WORDS_SESSIONS, type RhythmStageModel } from './rhythmStage';
 
 /** The transport starts its map this long after `now`; the tests start at clock time 0. */
 const ORIGIN = 0.1;
@@ -692,6 +692,32 @@ describe('PlanSessionController, unblocking', () => {
 		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
 		expect(state?.resumeAfter).toBeGreaterThan(clock.toEpochMs(0));
 		expect(state?.failures).toBe(0);
+	});
+});
+
+describe('PlanSessionController, plain words', () => {
+	async function plainWordsAfter(ended: number): Promise<boolean> {
+		const { controller, sessions } = await setup(RHYTHM_OFFBEATS, { met: true });
+		for (let i = 0; i < ended; i++) {
+			await sessions.put({
+				id: `old-${i}`,
+				kind: 'exercise',
+				exerciseId: RHYTHM_OFFBEATS.id,
+				startedAt: i,
+				endedAt: i + 1,
+				fatigueDetected: false,
+				executions: [],
+				latencyMs: null
+			});
+		}
+		await controller.ready();
+		return stageOf(controller).plainWords;
+	}
+
+	it('tells the feedback in plain words until the exercise has PLAIN_WORDS_SESSIONS ended sessions', async () => {
+		expect(PLAIN_WORDS_SESSIONS).toBe(3);
+		expect(await plainWordsAfter(2)).toBe(true);
+		expect(await plainWordsAfter(3)).toBe(false);
 	});
 });
 

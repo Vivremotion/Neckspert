@@ -76,8 +76,16 @@ const FR = {
 		placement: (offsetMs: number) =>
 			`Tu joues ${offsetMs < 0 ? 'devant' : 'derrière'} le temps (${signedMs(offsetMs)})`,
 		precision: (ms: number) => `À ${ms} ms du temps en moyenne`,
-		inPlace: 'En place'
-	}
+		inPlace: 'En place',
+		perBar: 'ms/mesure'
+	},
+	/** Once the plain words have faded: the term and its number. */
+	brief: {
+		lost: (bar: number) => `temps perdu, mesure ${bar}`,
+		added: (bar: number) => `temps ajouté, mesure ${bar}`
+	},
+	/** Written above the bar where a beat was lost or added. */
+	shift: { lost: 'temps perdu', added: 'temps ajouté' }
 };
 
 const EN: typeof FR = {
@@ -142,8 +150,14 @@ const EN: typeof FR = {
 		placement: (offsetMs) =>
 			`You play ${offsetMs < 0 ? 'ahead of' : 'behind'} the beat (${signedMs(offsetMs)})`,
 		precision: (ms) => `${ms} ms from the beat on average`,
-		inPlace: 'In time'
-	}
+		inPlace: 'In time',
+		perBar: 'ms/bar'
+	},
+	brief: {
+		lost: (bar) => `beat lost, bar ${bar}`,
+		added: (bar) => `beat added, bar ${bar}`
+	},
+	shift: { lost: 'beat lost', added: 'beat added' }
 };
 
 /** The rhythm view's copy, by locale: the pure module reads it for a given locale. */

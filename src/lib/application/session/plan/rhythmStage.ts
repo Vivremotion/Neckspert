@@ -64,7 +64,12 @@ export interface RhythmStageModel {
 	announcement: Announcement | null;
 	/** What listening to the figure is worth at this level (`listen()`); `none` hides the button. */
 	listen: LevelParams['listen'];
+	/** The feedback is told in plain words; once the exercise is familiar, by its term alone. */
+	plainWords: boolean;
 }
+
+/** Sessions of an exercise after which its feedback drops the plain words and keeps the term. */
+export const PLAIN_WORDS_SESSIONS = 3;
 
 /** The note value of a beat unit, as a glyph; the fraction itself when it has none. */
 const UNIT_GLYPHS: Record<string, string> = {

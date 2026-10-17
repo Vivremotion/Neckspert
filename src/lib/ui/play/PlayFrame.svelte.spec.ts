@@ -205,7 +205,8 @@ describe('PlayFrame', () => {
 					feedback: 'every-cycle',
 					settled: [],
 					announcement: null,
-					listen: 'free'
+					listen: 'free',
+					plainWords: true
 				};
 				controller.view.stage = { view: 'rhythm-figure', model };
 				render(PlayFrame, { props: { controller, kind: 'exercise' } });

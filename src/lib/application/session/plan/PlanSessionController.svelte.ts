@@ -49,6 +49,7 @@ import {
 } from './rhythmExercise';
 import {
 	figurePosition,
+	PLAIN_WORDS_SESSIONS,
 	levelView,
 	tempoView,
 	type RhythmPhase,
@@ -165,6 +166,8 @@ export class PlanSessionController implements PlaySessionController {
 	private prepared = false;
 	/** No attempt of the exercise yet: its how-to and a demonstration come first. */
 	private firstEncounter = false;
+	/** Fewer than `PLAIN_WORDS_SESSIONS` sessions of the exercise ended: the feedback in plain words. */
+	private plainWords = true;
 	private startedAt = 0;
 	private begun = false;
 	/** Bumped by every start, pause and quit: an await that comes back in another run gives up. */
@@ -370,11 +373,16 @@ export class PlanSessionController implements PlaySessionController {
 	private async prepare(): Promise<void> {
 		if (this.prepared) return;
 		const { deps } = this;
-		const [settings, stored, attempts] = await Promise.all([
+		const [settings, stored, attempts, sessions] = await Promise.all([
 			deps.settings.get(),
 			deps.levels.get(this.levelKey),
-			deps.attempts.all()
+			deps.attempts.all(),
+			deps.sessions.list()
 		]);
+		const ended = sessions.filter(
+			(session) => session.exerciseId === this.exercise.id && session.endedAt !== null
+		);
+		this.plainWords = ended.length < PLAIN_WORDS_SESSIONS;
 		this.settings = settings;
 		if (stored) {
 			const { lowest, highest } = levelRange(rhythmLevels(this.exercise).levels);
@@ -1066,7 +1074,8 @@ export class PlanSessionController implements PlaySessionController {
 						? 'play-along'
 						: 'listen-remedy'
 					: null,
-			listen: params.listen
+			listen: params.listen,
+			plainWords: this.plainWords
 		};
 		this.view.stage = { view: this.viewName(), model };
 		this.view.status =
@@ -1095,7 +1104,8 @@ export class PlanSessionController implements PlaySessionController {
 			feedback: params.feedback,
 			settled: [],
 			announcement: null,
-			listen: params.listen
+			listen: params.listen,
+			plainWords: this.plainWords
 		};
 	}
 
