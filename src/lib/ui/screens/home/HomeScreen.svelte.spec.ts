@@ -176,6 +176,18 @@ describe('HomeScreen rhythm', () => {
 		expect(links.map((link) => link.textContent?.trim())).toEqual(rhythm.map((e) => e.title?.fr));
 	});
 
+	it('marks an exercise resting after a change of air, still to be played', async () => {
+		render(HomeScreen, {
+			props: { stats: base, now: 0, onstart: () => {}, rhythm, resting: ['rhythm-offbeats'] }
+		});
+		await fireEvent.click(screen.getByRole('button', { name: 'Rythme' }));
+		const offbeats = screen.getByRole('link', { name: /Contretemps/ });
+		expect(offbeats.getAttribute('href')).toBe('/session?kind=exercise&exercise=rhythm-offbeats');
+		expect(offbeats.closest('li')?.textContent).toContain('On y revient plus tard');
+		const silent = screen.getByRole('link', { name: /Mesures silencieuses/ });
+		expect(silent.closest('li')?.textContent).not.toContain('On y revient plus tard');
+	});
+
 	it('closes the list again, and names the exercises in English', async () => {
 		i18n.locale = 'en';
 		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {}, rhythm } });

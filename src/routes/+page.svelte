@@ -11,6 +11,7 @@
 	let stats = $state<HomeStats | null>(null);
 	let triads = $state<TriadsHome>({ anchorDue: 0, zoneDue: null });
 	let gesture = $state({ open: false });
+	let resting = $state<string[]>([]);
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
@@ -19,6 +20,12 @@
 		void services.triads().then(
 			(value) => {
 				if (!cancelled) triads = value;
+			},
+			() => {}
+		);
+		void services.resting(RHYTHM_EXERCISES.map((exercise) => exercise.id)).then(
+			(value) => {
+				if (!cancelled) resting = value;
 			},
 			() => {}
 		);
@@ -81,5 +88,6 @@
 		{gesture}
 		ongesture={startGesture}
 		rhythm={RHYTHM_EXERCISES}
+		{resting}
 	/>
 {/if}
