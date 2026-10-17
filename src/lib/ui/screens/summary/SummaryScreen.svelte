@@ -3,7 +3,7 @@
 	import { GRIDS } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
-	import { isTriadsKind, type RhythmSummary, type SessionSummary } from '$lib/domain/types';
+	import { isTriadsKind, type ExerciseSummary, type SessionSummary } from '$lib/domain/types';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
 	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -41,7 +41,7 @@
 	}
 
 	/** The level a rhythm session ended on, an aid level named as the play header names it. */
-	function rhythmLevel(level: RhythmSummary['levelReached']): string {
+	function rhythmLevel(level: ExerciseSummary['levelReached']): string {
 		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
 	}
 
@@ -101,8 +101,8 @@
 		{#if summary.grade}
 			<p class="grade"><PixelText scale={4}>{summary.grade}</PixelText></p>
 		{/if}
-		{#if summary.rhythm}
-			{@const rhythm = summary.rhythm}
+		{#if summary.exercise}
+			{@const rhythm = summary.exercise}
 			<PixelBox variant="double">
 				<ul class="rows">
 					<li class="exercise">

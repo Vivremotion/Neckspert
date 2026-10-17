@@ -3,7 +3,7 @@ import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { RhythmAttemptData } from './recordCycle';
-import { summarizeRhythm } from './rhythmSummary';
+import { summarizeExercise } from './exerciseSummary';
 
 function cycle(
 	level: number,
@@ -35,10 +35,10 @@ function state(level: number): LevelState {
 // The offbeats exercise has four regular levels (the rhythm stage says « sur 4 » for it).
 const OF = 4;
 
-describe('summarizeRhythm', () => {
+describe('summarizeExercise', () => {
 	it('counts the cycles, those that succeeded, and the level held at the end', () => {
 		const attempts = [cycle(0, true), cycle(0, false), cycle(1, true)];
-		expect(summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
+		expect(summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts, state: state(2) })).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
 			levelReached: { shown: 3, of: OF, aid: false },
 			cycles: 3,
@@ -55,14 +55,14 @@ describe('summarizeRhythm', () => {
 			cycle(0, true, ['cursor']),
 			cycle(0, false, ['listen'])
 		];
-		const summary = summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts, state: state(0) });
+		const summary = summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts, state: state(0) });
 		expect(summary.aided).toBe(2);
 		expect(summary.successes).toBe(3);
 		expect(summary.cycles).toBe(4);
 	});
 
 	it('reads the level the session itself ended on before the stored one, which a later session moves', () => {
-		const summary = summarizeRhythm({
+		const summary = summarizeExercise({
 			exercise: RHYTHM_OFFBEATS,
 			attempts: [cycle(0, true)],
 			levelReached: 1,
@@ -72,7 +72,7 @@ describe('summarizeRhythm', () => {
 	});
 
 	it('says when the level held is an aid level', () => {
-		const summary = summarizeRhythm({
+		const summary = summarizeExercise({
 			exercise: RHYTHM_OFFBEATS,
 			attempts: [cycle(-1, true)],
 			levelReached: -1,
@@ -82,7 +82,7 @@ describe('summarizeRhythm', () => {
 	});
 
 	it('falls back on the level of the last cycle when no level is stored', () => {
-		const summary = summarizeRhythm({
+		const summary = summarizeExercise({
 			exercise: RHYTHM_OFFBEATS,
 			attempts: [cycle(0, true), cycle(1, true)],
 			state: undefined
@@ -91,7 +91,11 @@ describe('summarizeRhythm', () => {
 	});
 
 	it('shows the first level for a session with no cycle and nothing stored', () => {
-		const summary = summarizeRhythm({ exercise: RHYTHM_OFFBEATS, attempts: [], state: undefined });
+		const summary = summarizeExercise({
+			exercise: RHYTHM_OFFBEATS,
+			attempts: [],
+			state: undefined
+		});
 		expect(summary).toMatchObject({
 			levelReached: { shown: 1, of: OF, aid: false },
 			cycles: 0,
@@ -101,7 +105,7 @@ describe('summarizeRhythm', () => {
 
 	it('leaves out the attempts of another exercise', () => {
 		const other = { ...cycle(0, true), exerciseId: 'rhythm-two-four' };
-		const summary = summarizeRhythm({
+		const summary = summarizeExercise({
 			exercise: RHYTHM_OFFBEATS,
 			attempts: [cycle(0, true), other],
 			state: state(0)

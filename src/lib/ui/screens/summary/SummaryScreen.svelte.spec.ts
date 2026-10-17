@@ -240,7 +240,7 @@ describe('SummaryScreen of a rhythm session', () => {
 	const rhythm: SessionSummary = {
 		...summary,
 		kind: 'exercise',
-		rhythm: {
+		exercise: {
 			exerciseId: 'rhythm-offbeats',
 			levelReached: { shown: 3, of: 6, aid: false },
 			cycles: 14,
@@ -266,7 +266,7 @@ describe('SummaryScreen of a rhythm session', () => {
 		i18n.locale = 'en';
 		const unaided: SessionSummary = {
 			...rhythm,
-			rhythm: { ...rhythm.rhythm!, cycles: 1, successes: 1, aided: 0 }
+			exercise: { ...rhythm.exercise!, cycles: 1, successes: 1, aided: 0 }
 		};
 		render(SummaryScreen, {
 			props: { summary: unaided, now: 0, onhome: () => {}, onmap: () => {} }
@@ -289,7 +289,7 @@ describe('SummaryScreen of a rhythm session', () => {
 	it('names an aid level as the play header does, in French and in English', () => {
 		const aided: SessionSummary = {
 			...rhythm,
-			rhythm: { ...rhythm.rhythm!, levelReached: { shown: 0, of: 6, aid: true } }
+			exercise: { ...rhythm.exercise!, levelReached: { shown: 0, of: 6, aid: true } }
 		};
 		render(SummaryScreen, {
 			props: { summary: aided, now: 0, onhome: () => {}, onmap: () => {} }

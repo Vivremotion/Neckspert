@@ -57,7 +57,7 @@ const summary = {
 	grade: null,
 	tempoBpm: 80,
 	kind: 'exercise',
-	rhythm: {
+	exercise: {
 		exerciseId: 'rhythm-offbeats',
 		levelReached: { shown: 1, of: 4, aid: false },
 		cycles: 1,

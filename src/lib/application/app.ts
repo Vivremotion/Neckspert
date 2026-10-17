@@ -36,8 +36,16 @@ export interface AppServices {
 	triads(): Promise<TriadsHome>;
 	/** The gesture track: open once one of its exercises is. */
 	gesture(): Promise<{ open: boolean }>;
-	/** « Joué juste » from the summary: labels the attempt contested, nothing else. */
-	contest(attemptId: number): Promise<void>;
+	/**
+	 * « Joué juste » or « C’était en place » from the summary: labels the attempt contested, with
+	 * the reason contested when there is one, nothing else.
+	 */
+	contest(attemptId: number, reason?: string): Promise<void>;
+	/** Plays run `runId` of a session still in memory; rejects a run whose take is not held. */
+	replayRun(sessionId: string, runId: number): Promise<void>;
+	stopReplay(): void;
+	/** Of `exerciseIds`, those resting after « On change d’air » (`resumeAfter` still ahead). */
+	resting(exerciseIds: readonly ExerciseId[]): Promise<ExerciseId[]>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
 	/** Plans the session and returns its controller, not yet started. Rejects `'exercise'` (see `startExercise`). */

@@ -1,4 +1,4 @@
-import type { Locale, RhythmSummary } from '$lib/domain/types';
+import type { Locale, ExerciseSummary } from '$lib/domain/types';
 import { feedbackLine } from '$lib/ui/play/views/rhythmFigure';
 import type { summaryMessages } from './messages';
 
@@ -19,7 +19,7 @@ const signed = (ms: number): string => (ms > 0 ? `+${ms}` : ms < 0 ? `−${-ms}`
 
 /** The cycle a rhythm summary keeps, said in plain words: its verdict and its measures. */
 export function rhythmReportView(
-	last: NonNullable<RhythmSummary['lastCycle']>,
+	last: NonNullable<ExerciseSummary['lastCycle']>,
 	words: Words,
 	locale: Locale
 ): RhythmReportView {

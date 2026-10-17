@@ -16,8 +16,11 @@ export interface AttemptRepositoryPort {
 	add(attempt: Attempt): Promise<number>;
 	/** Replaces the observations of attempt `id`, leaving its other fields. Rejects an unknown id. */
 	setObservations(id: number, observations: RecordedObservation[]): Promise<void>;
-	/** Marks attempt `id` contested (a refused chord played right). Rejects an unknown id. */
-	setContested(id: number): Promise<void>;
+	/**
+	 * Marks attempt `id` contested (a refused chord played right, or a cycle in place), with the
+	 * reason when one is given. Rejects an unknown id.
+	 */
+	setContested(id: number, reason?: string): Promise<void>;
 	/** Oldest first. */
 	listByCard(key: CardKey): Promise<Attempt[]>;
 	/** Oldest first. */

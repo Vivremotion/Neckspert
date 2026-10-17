@@ -34,7 +34,8 @@ import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sen
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
+import { TraceBuilder } from '$lib/domain/session';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {
@@ -528,7 +529,7 @@ describe('the rhythm exercises', () => {
 		await deps.attempts.add(rhythmCycle(0, true, 'other'));
 		const summary = await services.sessionSummary('r1');
 		expect(summary.kind).toBe('exercise');
-		expect(summary.rhythm).toEqual({
+		expect(summary.exercise).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
 			levelReached: { shown: 2, of: 4, aid: false },
 			cycles: 3,
@@ -537,18 +538,106 @@ describe('the rhythm exercises', () => {
 		});
 	});
 
+	/** A trace of session r1: two runs, the first with attempt `a`, the second with `b`. */
+	function rememberTwoRuns(deps: PlanSessionDeps, a: number, b: number) {
+		const trace = new TraceBuilder(0);
+		const series = trace.open('series', 0, { exerciseId: RHYTHM_OFFBEATS.id });
+		const first = trace.open('run', 1, { level: 0 });
+		trace.open('round', 1, { level: 0, attemptId: a });
+		trace.close(first, 5);
+		const second = trace.open('run', 6, { level: 1 });
+		trace.open('round', 6, { level: 1, attemptId: b });
+		trace.close(second, 10);
+		trace.set(series, { reason: 'time' });
+		trace.closeAll(10, 'done');
+		deps.memory.remember({
+			sessionId: 'r1',
+			trace: trace.tree(),
+			takes: new Map([
+				[first, { from: 1, to: 5, sounds: [] }],
+				[second, { from: 6, to: 10, sounds: [] }]
+			]),
+			latencyS: 0.02
+		});
+		return { first, second };
+	}
+
+	it('the summary of a session in memory has its series and the runs still held', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		const a = await deps.attempts.add(rhythmCycle(0, true));
+		const b = await deps.attempts.add(rhythmCycle(1, false));
+		const { first } = rememberTwoRuns(deps, a, b);
+		const takes = deps.takes as FakeTakeBuffer;
+		takes.keepFrom(0);
+		takes.hear(8);
+		const summary = (await services.sessionSummary('r1')).exercise;
+		expect(summary?.series?.runs.map((run) => run.level)).toEqual([0, 1]);
+		expect(summary?.series?.ended).toBe('time');
+		expect(summary?.replayable).toEqual([first]);
+	});
+
+	it('after a reload the summary keeps its counts', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession());
+		await deps.attempts.add(rhythmCycle(0, true));
+		const summary = (await services.sessionSummary('r1')).exercise;
+		expect(summary?.cycles).toBe(1);
+		expect(summary?.series).toBeUndefined();
+		expect(summary?.replayable).toBeUndefined();
+	});
+
+	it("replayRun plays the run's take, and refuses one not held", async () => {
+		const { services, deps } = harness();
+		const { first, second } = rememberTwoRuns(deps, 1, 2);
+		const takes = deps.takes as FakeTakeBuffer;
+		takes.keepFrom(0);
+		takes.hear(8);
+		await services.replayRun('r1', first);
+		expect(takes.plays).toEqual([{ from: 1, to: 5, sounds: [], latencyS: 0.02, whole: true }]);
+		await expect(services.replayRun('r1', second)).rejects.toThrow();
+		await expect(services.replayRun('r1', 99)).rejects.toThrow();
+		await expect(services.replayRun('other', first)).rejects.toThrow();
+		services.stopReplay();
+		expect(takes.stops).toBe(1);
+	});
+
+	it('contest stores its reason', async () => {
+		const { services, deps } = harness();
+		const id = await deps.attempts.add(rhythmCycle(0, false));
+		await services.contest(id, 'regularity');
+		expect((await deps.attempts.all())[0]).toMatchObject({
+			contested: true,
+			contestReason: 'regularity'
+		});
+	});
+
+	it('resting lists the exercises whose resumeAfter is ahead', async () => {
+		const { services, deps } = harness();
+		const now = deps.now();
+		await deps.levels.put({ ...heldLevel(0), resumeAfter: now + 1 });
+		await deps.levels.put({
+			...heldLevel(0),
+			exerciseId: RHYTHM_TWO_FOUR.id,
+			resumeAfter: now - 1
+		});
+		expect(
+			await services.resting([RHYTHM_OFFBEATS.id, RHYTHM_TWO_FOUR.id, RHYTHM_SILENT_BARS.id])
+		).toEqual([RHYTHM_OFFBEATS.id]);
+	});
+
 	it('an older session keeps its own level after a later one moved it', async () => {
 		const { services, deps } = harness();
 		await deps.sessions.put(rhythmSession({ id: 'older', levelReached: 1 }));
 		await deps.sessions.put(rhythmSession({ id: 'later', startedAt: 10, levelReached: 3 }));
 		// The stored level is the latest session's.
 		await deps.levels.put(heldLevel(3));
-		expect((await services.sessionSummary('older')).rhythm?.levelReached).toEqual({
+		expect((await services.sessionSummary('older')).exercise?.levelReached).toEqual({
 			shown: 2,
 			of: 4,
 			aid: false
 		});
-		expect((await services.sessionSummary('later')).rhythm?.levelReached).toEqual({
+		expect((await services.sessionSummary('later')).exercise?.levelReached).toEqual({
 			shown: 4,
 			of: 4,
 			aid: false
@@ -559,7 +648,7 @@ describe('the rhythm exercises', () => {
 		const { services, deps } = harness();
 		await deps.sessions.put(rhythmSession());
 		await deps.levels.put(heldLevel(2));
-		expect((await services.sessionSummary('r1')).rhythm?.levelReached).toEqual({
+		expect((await services.sessionSummary('r1')).exercise?.levelReached).toEqual({
 			shown: 3,
 			of: 4,
 			aid: false
@@ -573,7 +662,7 @@ describe('the rhythm exercises', () => {
 		for (const id of ['gone', 'neck']) {
 			const summary = await services.sessionSummary(id);
 			expect(summary.kind).toBe('exercise');
-			expect(summary.rhythm).toBeUndefined();
+			expect(summary.exercise).toBeUndefined();
 		}
 	});
 

@@ -91,6 +91,13 @@ export function attemptRepositoryContract(name: string, create: () => AttemptRep
 			await expect(repo.setObservations(999, [])).rejects.toThrow();
 		});
 
+		it('keeps the reason a cycle was contested for', async () => {
+			const repo = await create();
+			const id = await repo.add(makeAttempt());
+			await repo.setContested(id, 'hold');
+			expect((await repo.all())[0]).toMatchObject({ contested: true, contestReason: 'hold' });
+		});
+
 		it('marks a stored attempt contested, leaving the rest', async () => {
 			const id = await repo.add(makeAttempt());
 			await repo.setContested(id);
