@@ -305,3 +305,132 @@ describe('SummaryScreen of a rhythm session', () => {
 		expect(screen.queryByText(/0 of 6/)).toBeNull();
 	});
 });
+
+describe('SummaryScreen of a series in memory', () => {
+	const base: SessionSummary = {
+		...summary,
+		kind: 'exercise',
+		exercise: {
+			exerciseId: 'rhythm-offbeats',
+			levelReached: { shown: 0, of: 4, aid: true },
+			cycles: 8,
+			successes: 3,
+			aided: 0,
+			replayable: [2],
+			series: {
+				exerciseId: 'rhythm-offbeats',
+				ended: 'time',
+				breaking: null,
+				levels: [0, 1, -1],
+				rounds: 8,
+				successes: 3,
+				aided: 0,
+				listens: 1,
+				playedShare: 0.62,
+				runs: [
+					{
+						id: 2,
+						level: 0,
+						ended: 'done',
+						rounds: 4,
+						successes: 3,
+						measures: { regularity: { value: 24.4, unit: 'ms' } },
+						failed: [{ attemptId: 11, reasons: ['regularity', 'hold'] }]
+					},
+					{
+						id: 7,
+						level: -1,
+						ended: 'interrupted',
+						rounds: 4,
+						successes: 0,
+						measures: {},
+						failed: []
+					}
+				]
+			}
+		}
+	};
+
+	it('shows each run, with a replay only for the runs still held', async () => {
+		const replayed: number[] = [];
+		render(SummaryScreen, {
+			props: {
+				summary: base,
+				now: 0,
+				onhome: () => {},
+				onmap: () => {},
+				onreplay: async (runId: number) => {
+					replayed.push(runId);
+				}
+			}
+		});
+		expect(screen.getByText('Suite 1')).toBeTruthy();
+		expect(screen.getByText('Suite 2')).toBeTruthy();
+		expect(screen.getByText('3 réussis sur 4')).toBeTruthy();
+		expect(screen.getByText('régularité')).toBeTruthy();
+		expect(screen.getByText('24 ms')).toBeTruthy();
+		const buttons = screen.getAllByRole('button', { name: 'Réécouter la suite' });
+		expect(buttons).toHaveLength(1);
+		await fireEvent.click(buttons[0]);
+		expect(replayed).toEqual([2]);
+	});
+
+	it('tells the level changes, the listens and the share of time played', () => {
+		render(SummaryScreen, { props: { summary: base, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(screen.getByText('niveau 1 → niveau 2 → niveau d’aide')).toBeTruthy();
+		expect(screen.getByText('1 écoute')).toBeTruthy();
+		expect(screen.getByText('62 % du temps joué')).toBeTruthy();
+	});
+
+	it('a change of air names what breaks and offers the other exercises', () => {
+		const blocked: SessionSummary = {
+			...base,
+			exercise: {
+				...base.exercise!,
+				series: { ...base.exercise!.series!, ended: 'change-of-air', breaking: 'hold' }
+			}
+		};
+		render(SummaryScreen, {
+			props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('On change d’air')).toBeTruthy();
+		expect(screen.getByText('Ce qui casse :')).toBeTruthy();
+		expect(screen.getByText('tenue')).toBeTruthy();
+		const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
+		expect(links).toContain('/session?kind=exercise&exercise=rhythm-silent-bars');
+		expect(links).toContain('/session?kind=exercise&exercise=rhythm-two-four');
+		expect(links).not.toContain('/session?kind=exercise&exercise=rhythm-offbeats');
+	});
+
+	it('without a series, the counts alone and no replay', () => {
+		const counts: SessionSummary = {
+			...base,
+			exercise: { ...base.exercise!, series: undefined, replayable: undefined }
+		};
+		render(SummaryScreen, {
+			props: { summary: counts, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('3 cycles réussis sur 8')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Réécouter la suite' })).toBeNull();
+	});
+
+	it('contests a failed cycle by reason only in development', async () => {
+		const contested: [number, string | undefined][] = [];
+		const props = {
+			summary: base,
+			now: 0,
+			onhome: () => {},
+			onmap: () => {},
+			oncontest: async (attemptId: number, reason?: string) => {
+				contested.push([attemptId, reason]);
+			}
+		};
+		render(SummaryScreen, { props });
+		expect(screen.queryByText(/C’était en place/)).toBeNull();
+		cleanup();
+		render(SummaryScreen, { props: { ...props, development: true } });
+		await fireEvent.click(screen.getByRole('button', { name: 'C’était en place · régularité' }));
+		expect(contested).toEqual([[11, 'regularity']]);
+		expect(screen.getByRole('button', { name: 'C’était en place · tenue' })).toBeTruthy();
+	});
+});

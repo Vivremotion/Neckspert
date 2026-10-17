@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
+	import { GLOSSARY, termOfFailure, termOfMeasure } from '$lib/domain/glossary';
+	import type { MeasureId } from '$lib/domain/time';
+	import Term from '$lib/ui/primitives/Term.svelte';
+	import { provideGlossaryScope } from '$lib/ui/primitives/glossaryScope';
 	import { GRIDS } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
@@ -17,15 +21,63 @@
 		now,
 		onhome,
 		onmap,
-		oncontest
+		oncontest,
+		onreplay,
+		onstopreplay,
+		development = false
 	}: {
 		summary: SessionSummary;
 		now: number;
 		onhome: () => void;
 		onmap: () => void;
-		/** « Joué juste » on a missed gesture change; without it, misses are listed only. */
-		oncontest?: (attemptId: number) => Promise<void>;
+		/**
+		 * « Joué juste » on a missed gesture change, « C’était en place » with its reason on a
+		 * failed cycle (development builds); without it, misses are listed only.
+		 */
+		oncontest?: (attemptId: number, reason?: string) => Promise<void>;
+		/** Plays a run of the series again (its segment id). */
+		onreplay?: (runId: number) => Promise<void>;
+		onstopreplay?: () => void;
+		/** A development build: the judge's full report and the contest of cycles. */
+		development?: boolean;
 	} = $props();
+
+	provideGlossaryScope();
+
+	/** The run being heard again, if any. */
+	let replaying = $state<number | null>(null);
+
+	async function replay(runId: number) {
+		if (!onreplay) return;
+		replaying = runId;
+		try {
+			await onreplay(runId);
+		} finally {
+			if (replaying === runId) replaying = null;
+		}
+	}
+
+	function stopReplay() {
+		onstopreplay?.();
+		replaying = null;
+	}
+
+	/** A run's mean measure as the screen writes it. */
+	function measureText(value: number, unit: string): string {
+		if (unit === 'ratio') return `${Math.round(value * 100)} %`;
+		if (unit === 'ms/bar') return `${Math.round(value)} ${t.perBar}`;
+		return `${Math.round(value)} ms`;
+	}
+
+	/** Cycles contested by reason on this screen: `${attemptId}:${reason}`. */
+	let contestedReasons = $state<string[]>([]);
+
+	async function contestReason(attemptId: number, reason: string) {
+		const key = `${attemptId}:${reason}`;
+		if (!oncontest || contestedReasons.includes(key)) return;
+		contestedReasons = [...contestedReasons, key];
+		await oncontest(attemptId, reason);
+	}
 
 	/** The width the played cycle may take (its box, measured). */
 	let playedWidth = $state(0);
@@ -115,7 +167,72 @@
 					</li>
 				</ul>
 			</PixelBox>
-			{#if rhythm.lastCycle}
+			{#if rhythm.series}
+				{@const series = rhythm.series}
+				<PixelBox variant="double">
+					<ul class="rows series">
+						<li class="exercise">
+							<span>{series.levels.map((level) => t.levelName(level)).join(' → ')}</span>
+							{#if series.listens > 0}<span>{t.listens(series.listens)}</span>{/if}
+							<span>{t.playedShare(Math.round(series.playedShare * 100))}</span>
+						</li>
+						{#if series.ended === 'change-of-air'}
+							<li class="exercise change-of-air">
+								<strong>{t.changeOfAir}</strong>
+								{#if series.breaking}
+									{@const term = termOfFailure(series.breaking)}
+									<span
+										>{t.breaking}
+										<Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term
+										></span
+									>
+								{/if}
+								<span>{t.tryInstead}</span>
+								{#each RHYTHM_EXERCISES.filter((e) => e.id !== rhythm.exerciseId) as other (other.id)}
+									<a href={`/session?kind=exercise&exercise=${other.id}`}
+										>{other.title?.[i18n.locale] ?? other.id}</a
+									>
+								{/each}
+							</li>
+						{/if}
+						{#each series.runs as run, index (run.id)}
+							<li class="exercise run">
+								<strong>{t.run(index + 1)}</strong>
+								<span>{t.levelName(run.level)}</span>
+								<span>{t.runCycles(run.successes, run.rounds)}</span>
+								{#if run.ended === 'interrupted'}<span>{t.runCut}</span>{/if}
+								{#each Object.entries(run.measures) as [id, measure] (id)}
+									{@const term = termOfMeasure(id as MeasureId)}
+									<span
+										><Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term>
+										<span>{measureText(measure.value, measure.unit)}</span></span
+									>
+								{/each}
+								{#if onreplay && rhythm.replayable?.includes(run.id)}
+									{#if replaying === run.id}
+										<PixelButton onclick={stopReplay}>{t.stopReplay}</PixelButton>
+									{:else}
+										<PixelButton onclick={() => replay(run.id)}>{t.replayRun}</PixelButton>
+									{/if}
+								{/if}
+								{#if development && oncontest}
+									{#each run.failed as cycle (cycle.attemptId)}
+										{#each cycle.reasons as reason (reason)}
+											{@const term = termOfFailure(reason)}
+											<PixelButton
+												disabled={contestedReasons.includes(`${cycle.attemptId}:${reason}`)}
+												onclick={() => contestReason(cycle.attemptId, reason)}
+												>{`${t.inPlace} ${GLOSSARY[term][i18n.locale].term}`}</PixelButton
+											>
+										{/each}
+									{/each}
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				</PixelBox>
+			{/if}
+			{#if development && rhythm.lastCycle}
 				{@const report = rhythmReportView(rhythm.lastCycle, t.report, i18n.locale)}
 				{@const played = rhythm.lastCycle.played}
 				{#if played}

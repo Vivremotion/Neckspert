@@ -59,6 +59,8 @@ const failed: SessionSummary = {
 const props = (summary: SessionSummary) => ({
 	summary,
 	now: 0,
+	// The judge's full report is shown in development builds only.
+	development: true,
 	onhome: () => {},
 	onmap: () => {}
 });
