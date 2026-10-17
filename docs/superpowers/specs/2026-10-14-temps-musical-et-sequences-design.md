@@ -226,6 +226,8 @@ interface RoundOutcome {
 
 ## 6. Le cycle et la série
 
+> Remplacée par l’« Amendement (2026-10-17) : la séance en segments », en fin de document.
+
 - **Cycles enchaînés** : la figure se joue en boucle, chaque cycle est un tour (`unit: 'cycle'`) qui passe la main au suivant sans trou.
 - **Respiration tous les `cyclesPerBreath` cycles** (donné par le niveau, défaut `CYCLES_PER_BREATH` = 4), d’au moins `BREATH_MIN_MS` (4 s) arrondis à des mesures entières, clic audible, on ne joue pas. Elle montre le retour des cycles de la suite qui vient de finir (section 10).
 - **Atterrissage** : pour un exercice à mesures muettes, **le cycle commence à la première mesure muette** (les mesures avec clic qui la précèdent appartiennent au cycle précédent, ou à l’entrée en jeu au début de la série). Le 1 où le clic revient est donc dans le même cycle que le silence : il est jugé une seule fois, et c’est là que le joueur vérifie à l’oreille qu’il est resté calé.
@@ -393,7 +395,7 @@ Lexique en données (`domain/glossary/`, fr/en), une définition par terme (fid�
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | **A**                          | Capteur d’attaques, module spectral, en ombre ; option d’enregistrement au débit natif                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | non, **en parallèle** dès le départ |
 | **1. Première séance jouable** | `domain/time/` (fractions, mètre, carte de tempo, figure, parseur), plan d’attentes, juge et `CycleReport`, contrat de tour cible, `PlanRound`, `SoundSchedulerPort` et transport pour le nouveau moteur, essai jetable des deux entrées, calibration par comparaison (latence par capteur et provenance), mécanique, les trois exercices, niveaux et niveaux d’aide, vue (VexFlow, marques, respiration), réécoute, séance `'exercise'`, **Dexie 8 et sauvegarde 4 au modèle cible** avec la chaîne de migration unique et ses lecteurs (statistiques, notes, `AttemptRecorder`, validation de sauvegarde) | oui                                 |
-| **2. Avant la validation**     | anti-blocage (`diagnoseBlock`, « joué avec », « on change d’air »), lexique, bilan complet, contestation par raison (développement), export et comparaison de l’oracle                                                                                                                                                                                                                                                                                                                                                                                                                                      | oui                                 |
+| **2. Avant la validation**     | **revu par l’amendement du 2026-10-17** : anti-blocage (`diagnoseBlock`, « joué avec », « on change d’air »), lexique, bilan complet, contestation par raison (développement), export et comparaison de l’oracle                                                                                                                                                                                                                                                                                                                                                                                            | oui                                 |
 | **G**                          | Validation en usage réel                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | —                                   |
 | **H. Migration**               | les quatre relations sur le contrat cible, les consommateurs en mémoire de l’ancien `Verdict` (vues, sons), le transport pour les exercices existants, suppression de `MetronomePort` et de l’ancien code                                                                                                                                                                                                                                                                                                                                                                                                   | oui                                 |
 
@@ -602,3 +604,111 @@ Branche `plan/temps-musical` : plan A (`docs/superpowers/plans/2026-10-15-a-capt
 - **`AttackTracker` ne se charge pas sous Node** (imports sans extension) : le script de l’oracle (plan 2) devra le charger par Vite ou corriger ses imports.
 - **Un cycle par série** (provisoire, pour juger le moteur) : `LevelParams.cyclesPerSeries` (absent : la série dure `RHYTHM_SERIES_MS`) vaut 1 sur les trois exercices ; la série s’arrête une fois ce cycle réglé, sans souffle, les niveaux avançant comme avant. Le bilan (`RhythmSummary.lastCycle`) montre le rapport du cycle : verdict, mesures et seuils, fidélité, décalage, latence, chaque attaque.
 - **Départ d’un exercice, en données** : `LevelParams.listenInBars` (entier ≥ 0, défaut `LISTEN_IN_BARS` = 2) et `countIn` (défaut vrai) ; `Transport.begin`, `changeTempo` et la reprise après une pause les suivent : sans mesure comptée le jeu commence juste après la mise en oreille, aucun clic de compte, `countdownAt` nul. `resolveLevel` refuse `countIn: false` avec `listenInBars: 0`. « Métronome sur 2 et 4 » est sans mesure comptée.
+
+## Amendement (2026-10-17) : la séance en segments
+
+Décidé dans la conversation du 2026-10-17, en préparant le plan 2. Il remplace la section 6, réoriente le plan 2 et étend H. Constat de départ : le plan 2 tel qu’il était listé développait des exercices (une durée de série propre au rythme, un diagnostic du rythme, un bilan du rythme), alors que le but est un moteur qui permet de les construire.
+
+### Décisions
+
+- **Aucune frontière entre familles d’exercices.** `SessionKind` (`learn`, `free`, `triads`, `triads-zone`, `gesture`, `exercise`) disparaît : une séance est une suite de **séries**, une série étant un exercice joué d’affilée. Ce qui distingue aujourd’hui les sortes de séance devient soit une donnée de l’exercice, soit le **choix des items**, qui ne dépend d’aucune famille (section « Le choix des items » ci-dessous). Les types propres à une famille (`isTriadsKind`, `AppServices.triads()`, `gesture()`) disparaissent avec elle. **Quand** : au chantier 2 de `docs/vision.md`, avec les parcours en données qui remplacent les entrées de l’accueil ; le plan 2 et H n’ajoutent aucune dépendance à `SessionKind` et s’appuient sur les séries et le choix des items.
+- **La durée d’une séance appartient à la séance.** `LEARN_SESSION_MS`, `GESTURE_SESSION_MS` et `RHYTHM_SERIES_MS` (trois fois 5 minutes) deviennent un seul paramètre de séance, `SESSION_MS` par défaut, que le planificateur fixera (chantier 5). `LevelParams.cyclesPerSeries` (provisoire, un cycle par série) est retiré.
+- **Deux pièces, aucune théorie de plus** : une **trace** (ce qui a eu lieu) et une **politique** (ce qui vient ensuite). Les ensembles décrivent la trace (des intervalles emboîtés), pas la génération : une série réagit (niveau, écoute demandée, blocage, fin du temps), ce qu’aucun ensemble ni aucune grammaire ne dit. Les statecharts seraient la théorie exacte du problème ; ils ne sont pas introduits tant qu’aucun exercice ne l’exige.
+- **La trace n’est pas stockée pour l’instant** : elle vit en mémoire le temps de la séance et sert au bilan. **On la stockera pour l’analyse entre séances** (profil de groove, part du temps joué au fil des jours) quand la première analyse la lira ; ajouter un champ non indexé ne demande pas de nouvelle version de schéma. Les tentatives gardent déjà leur plan résolu et leurs instants ; seuls les segments sans tentative (mise en oreille, respirations, écoutes) sont perdus d’ici là.
+- **Pas de note de ressenti** pour l’instant : une donnée n’a de valeur que si on l’utilise. Si elle revient, ce sera du texte libre (`SessionRecord.remark`), lisible par un prof ou un LLM.
+- **Pas de champ « exercice voisin »** : une arête du graphe des compétences écrite avant le graphe. « On change d’air » propose les autres exercices (section « Contre le blocage » ci-dessous) ; le voisin viendra du graphe (chantier 5).
+
+### La trace : des segments emboîtés
+
+```ts
+type TimePoint = { at: Fraction } | { ms: number }; // sur la carte de tempo, ou en temps libre
+
+interface Segment {
+	role: SegmentRole;
+	start: TimePoint;
+	end: TimePoint; // l’instant réel de fin, coupure comprise
+	ended: 'done' | 'interrupted'; // une pause, « Quitter », la fin du temps
+	exerciseId?: ExerciseId;
+	item?: string;
+	level?: number;
+	attemptId?: string; // pour un tour joué
+	children: Segment[];
+}
+```
+
+- **Famille laminaire** : deux segments sont disjoints ou l’un contient l’autre. Le bilan, la réécoute et les observations la lisent (une suite réécoutée est la prise découpée sur son intervalle).
+- **La trace dit ce qui s’est passé, pas ce qui était prévu** : un segment prévu mais jamais joué n’y entre pas ; un segment coupé finit à l’instant de la coupure et porte `interrupted`.
+- **Temps musical ou temps libre** : un segment est placé sur la carte de tempo (en fractions, un changement de tempo n’y casse rien), sauf en temps libre (identifier, une consigne, une pause), où il l’est en millisecondes.
+- **Rôles, avec le mot de l’écran** (noms à valider avec le plan) :
+
+| Rôle        | À l’écran       | Ce que c’est                                                              |
+| ----------- | --------------- | ------------------------------------------------------------------------- |
+| `session`   | séance          | la racine                                                                 |
+| `series`    | série           | un exercice joué d’affilée                                                |
+| `run`       | (aucun)         | les tours entre deux respirations ; mot d’écran seulement s’il en faut un |
+| `listen-in` | mise en oreille | l’accompagnement seul, on ne joue pas                                     |
+| `rest`      | silence         | les mesures muettes avant une mesure comptée                              |
+| `count-in`  | mesure comptée  |                                                                           |
+| `round`     | tour, cycle     | un tour jugé ; un cycle est un tour de `unit: 'cycle'`                    |
+| `listen`    | écoute          | la figure jouée par l’application, sans jugement                          |
+| `breath`    | respiration     | on ne joue pas, le retour s’affiche                                       |
+| `briefing`  | consigne        | l’arrêt sur le `howTo`                                                    |
+| `pause`     | pause           |                                                                           |
+
+- **« Séquence » retrouve un seul sens** : plusieurs cibles dans un tour (titre de cette spec). L’essai `SEQUENCE_LENGTH` / `SEQUENCES_ENABLED` des notes, qui portait le même mot, est supprimé à H s’il n’a pas été justifié par l’usage (comme le prévoit `docs/vision.md`), renommé sinon.
+
+### La politique : une seule fonction `next`
+
+- **Pure, dans le domaine, une pour tous les exercices** : `next(state, event) → SegmentIntent | end`. L’état porte la série en cours, l’état de niveau, les derniers résultats, les demandes du joueur (écouter), le temps écoulé et le budget de la séance ; l’événement est un tour jugé, une demande, une pause, une reprise, la fin d’un segment. Elle rend le prochain segment à jouer (rôle, longueur, plan du tour, accompagnement, tempo) ou la fin.
+- **L’exercice ne donne que des données** (paramètres résolus par niveau : mise en oreille, mesure comptée, tours par respiration, longueur de la respiration, échelle de niveaux) ; ce que la série joue (quel exercice, quel item) vient du choix des items, pas de l’exercice.
+- **Le contrôleur exécute** : il programme les segments par le transport, ouvre et règle les tours, enregistre les tentatives et la trace. Il ne décide plus de l’enchaînement.
+- À H, les sélecteurs actuels (`learnSelector`, `triadSelector`, `gestureSelector`, `createListSelector`) passent sur ce même contrat ; aucun chemin parallèle ne reste.
+
+### Le choix des items
+
+- **Un choix parmi des candidats** (exercice × item), comme le planificateur de `docs/vision.md` : urgence (probabilité d’oubli), frange (le graphe des prérequis : acquis, pas maîtrisé), faiblesse (confusions récentes), objectif, moins la fatigue et la répétition. Le graphe en est une source parmi d’autres ; aucune source n’est propre à une famille d’exercices.
+- **La mémoire n’est pas une famille d’exercices.** Elle vaut pour tout ce qui s’apprend : les notes du manche, les formes, le geste (la mémoire musculaire). Le modèle de l’apprenant pose deux questions aux mêmes observations de n’importe quelle compétence : **ce qui reste sans pratique** (rétention : le froid, FSRS) et **ce qui progresse avec la pratique** (acquisition : courbes de tempo, de précision). Les deux sont deux projections d’un seul état par (compétence, item). L’actuel `learner: 'card' | 'skill'` par mécanique, qui range les notes du côté « mémoire » et le geste du côté « compétence », est l’erreur que le chantier 5 corrige (`docs/vision.md`, « À reconstruire »).
+- **Les niveaux ne sont pas un modèle de l’apprenant** : ils règlent la difficulté que l’exercice présente ; le choix des items les lit comme un état, au même titre que la rétention.
+- **La création n’est pas de la récitation** : un exercice d’improvisation ne rappelle pas une réponse, il est jugé sur un ensemble admis (chantier 3). Ce qui s’y retient (le vocabulaire, les formes) relève de la rétention ; ce qui s’y produit relève de l’acquisition.
+- **Dans ce chantier** : le contrat du choix (`choose(candidates, state)`), avec le seul cas d’une séance d’un exercice (son item, ou ses figures dans l’ordre de l’exercice) ; les sélecteurs actuels y passent à H ; le score et le graphe viennent au chantier 5.
+
+### Contre le blocage, dans la politique
+
+- Après `BLOCK_AFTER_FAILS` tours ratés d’affilée au niveau 1, `diagnoseBlock(reports)` lit les verdicts **par attente** des derniers tours (tout tour sur un plan en a ; il ne sait rien du rythme) et rend :
+  - `reading` : les mêmes attentes ratent, ou des ajoutées reviennent aux mêmes endroits, sur au moins `BLOCK_SAME_SPOT_CYCLES` des tours (le joueur ne sait pas quoi jouer : il joue le 1 que la figure n’a pas) ;
+  - `execution` : la figure est jouée fidèlement, ce sont les mesures (régularité, tenue) ou un décalage qui reviennent qui font rater (il sait quoi jouer, pas en place) ;
+  - `unclear` : les signes se mêlent ; l’application ne prétend pas savoir.
+- **Remèdes**, dans l’ordre : `reading` → un tour d’écoute, puis un tour « joué avec » si l’exercice sait faire sonner son contenu, sinon le niveau d’aide ; `execution` → le niveau d’aide (le plus proche du niveau 1) ; `unclear` → un tour d’écoute, puis le niveau d’aide. Un tour joué avec une aide la porte dans `aids` et ne compte jamais pour monter.
+- **Au bout** (encore `BLOCK_AFTER_FAILS` échecs au niveau d’aide le plus bas) : « On change d’air » : la série se termine, le bilan nomme la mesure qui casse, l’écran propose les autres exercices ; l’exercice bloqué n’est pas proposé avant la séance suivante (`LevelState.resumeAfter`). La boucle a donc une fin.
+- Seuils en constantes nommées, réglés à la journée de validation.
+
+### Le bilan, sur la trace
+
+Calculé sur la trace de n’importe quel exercice à plan, sans branche par famille : par série, le niveau atteint et les changements de niveau, les tours réussis (aidés à part), les écoutes, la part du temps joué (tours sur la durée de la série), la tendance des mesures par suite, la mesure qui casse en cas de blocage, et **une réécoute par suite** (la mémoire tampon garde toute la séance, en mémoire seulement, plafond `SESSION_TAKE_MAX_S` ; environ 29 Mo pour 5 minutes en mono 16 bits à 48 kHz). En développement, chaque tour raté se conteste avec sa raison.
+
+### Le lexique et l’oracle, génériques
+
+- **Lexique** : un terme pour chaque `MeasureId`, chaque raison d’échec, chaque rôle montré et « niveau » / « niveau d’aide » ; un test exige qu’aucun identifiant affiché n’en manque.
+- **Oracle** : un format par capteur (un WAV tiré du journal de diagnostic, des étiquettes Audacity des événements du capteur) ; le script compare les événements et rejoue le juge sur les étiquettes corrigées. Le capteur d’attaques en premier ; le vérificateur d’accords et la vérification de hauteur passeront par le même banc.
+
+### Vérification sur le papier
+
+| Exercice ou relation    | En segments                                                                                                                                                                                                 |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mesures silencieuses    | `series` := `listen-in` `count-in` (`run` := `round`×4 `breath`)\* ; un tour commence sur la première mesure muette ; un changement de tempo à une respiration : `listen-in` `count-in` à nouveau           |
+| Métronome sur 2 et 4    | `series` := `listen-in` (`run` := `round` `breath`)\*, sans `count-in` (une ligne par tour)                                                                                                                 |
+| Contretemps             | comme les mesures silencieuses                                                                                                                                                                              |
+| `beat` (localiser)      | `series` := `count-in` (`round` `breath`)\* ; la consigne est dans le plan du tour (`prompt` à −avance) ; `breath` = la mesure de respiration ; un changement d’avance : `rest` facultatif puis `count-in`  |
+| `anchor` (triades)      | comme `beat`, un tour d’une mesure                                                                                                                                                                          |
+| `gridChange` (geste)    | `run` := `round`+ enchaînés par `handover`, sans respiration ; entre deux passages, `count-in` si la scène, le tempo ou `countIn` change ; un tour de relier raté rejoué tout de suite, enchaîné            |
+| `free` (identifier)     | `round`\* en temps libre (`{ ms }`), sans carte de tempo                                                                                                                                                    |
+| Apprentissage des notes | une `series` de « localiser » dont les items viennent du choix des items (aujourd’hui : retests, révisions à froid, introduction, consolidation) ; changement d’exercice dans la séance = nouvelle `series` |
+| `howTo`, pause          | `briefing` et `pause` en temps libre ; le segment coupé par une pause porte `interrupted`                                                                                                                   |
+
+Rien n’échoue sur le papier. Ce qui reste hors des segments, et y reste : la fatigue (une lecture des tentatives), la fenêtre de contestation (un état de l’écran).
+
+### Ce que ça change à l’ordre de construction
+
+- **Plan 2**, réglé sur ce que la journée de validation (G) demande : la trace et la politique pour les séances d’exercice (`PlanSessionController` exécute `next`), retrait de `cyclesPerSeries`, l’anti-blocage dans la politique, la mémoire tampon de séance et le bilan sur la trace (une réécoute par suite), le lexique, la contestation par raison (développement), l’oracle, « temps perdu » dessiné sur sa mesure. Ce que G ne lit pas attend : le contrat `choose` au-delà d’une séance d’un exercice, les segments en temps libre, `SESSION_MS` pour les séances des notes, des triades et du geste.
+- **H** : les quatre relations et les sélecteurs passent sur la politique et la trace (segments en temps libre compris) ; `SESSION_MS` devient la durée de toutes les séances. Le schéma ne change pas à H.
+- **Chantier 2** : la fin de `SessionKind` avec les parcours en données ; `SessionRecord.kind` est remplacé par ses séries (Dexie 9, sauvegarde 5, une étape de plus dans `migrations/`).
