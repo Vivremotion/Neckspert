@@ -7,6 +7,7 @@ export interface RunSummary {
 	id: number;
 	level: number;
 	ended: 'done' | 'interrupted';
+	/** Rounds judged (a round cut short is not). */
 	rounds: number;
 	successes: number;
 	/** Mean of each measure over the run's rounds that have it. */
@@ -80,7 +81,8 @@ export function summarizeSeries(input: {
 				id: run.id,
 				level: run.level ?? 0,
 				ended: run.ended,
-				rounds: own.length,
+				// Judged rounds only: a round cut by a pause or a quit has no attempt.
+				rounds: attempts.length,
 				successes: attempts.filter((attempt) => attempt.success).length,
 				measures: meanMeasures(attempts),
 				failed: attempts
@@ -99,7 +101,7 @@ export function summarizeSeries(input: {
 		ended: series.reason ?? 'quit',
 		breaking: series.breaking ?? null,
 		levels,
-		rounds: rounds.length,
+		rounds: played.length,
 		successes: played.filter((attempt) => attempt.success).length,
 		aided: played.filter((attempt) => attempt.success && input.aided(attempt)).length,
 		listens: all.filter((segment) => segment.role === 'listen').length,

@@ -157,3 +157,24 @@ describe('summarizeSeries', () => {
 		).toBe('quit');
 	});
 });
+
+describe('summarizeSeries, a round cut short', () => {
+	it('counts only the rounds that were judged', () => {
+		const trace = new TraceBuilder(0);
+		const series = trace.open('series', 0, { exerciseId: 'x' });
+		const run = trace.open('run', 0, { level: 0 });
+		const judged = trace.open('round', 0, { level: 0, attemptId: 1 });
+		trace.close(judged, 10);
+		trace.open('round', 10, { level: 0 });
+		trace.close(run, 14, 'interrupted');
+		trace.set(series, { reason: 'quit' });
+		trace.closeAll(14, 'done');
+		const summary = summarizeSeries({
+			series: trace.tree().children[0],
+			attempts: [attempt(1, [])],
+			aided: () => false
+		});
+		expect(summary.rounds).toBe(1);
+		expect(summary.runs[0]).toMatchObject({ rounds: 1, successes: 1, ended: 'interrupted' });
+	});
+});
