@@ -885,6 +885,16 @@ describe('PlanSessionController, hearing the last run again', () => {
 		controller.quit();
 	});
 
+	it('forgets the takes of an earlier session when a series starts', async () => {
+		const { controller, takes } = await setup(RHYTHM_OFFBEATS, { met: true });
+		takes.keepFrom(-10);
+		takes.hear(-5);
+		expect(takes.spans).toHaveLength(1);
+		await controller.start();
+		expect(takes.spans).toEqual([]);
+		controller.quit();
+	});
+
 	it('keeps no input once the series is quit, even with a start asked ahead', async () => {
 		const { controller, takes, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
 		await controller.start();
@@ -892,7 +902,7 @@ describe('PlanSessionController, hearing the last run again', () => {
 		controller.quit();
 		expect(takes.keeping).toBe(false);
 		await advance(ORIGIN + 10 * OFFBEATS_BAR_S, false);
-		expect(takes.span).toBeNull();
+		expect(takes.spans).toEqual([]);
 	});
 
 	it('does nothing when the run was cut before its first bar sounded', async () => {

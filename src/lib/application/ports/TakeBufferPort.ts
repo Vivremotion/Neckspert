@@ -1,11 +1,12 @@
 import type { ScheduledSound } from '$lib/domain/time';
 
 /**
- * Keeps the input of the run under way, in memory only, so the player can hear it again with
- * the click put back (spec 2026-10-14, section 7, « Réécouter »). Times are audio seconds.
+ * Keeps the input of the runs of a session, in memory only, so the player can hear each again
+ * with the click put back (spec 2026-10-14, section 7, « Réécouter », and its amendment of
+ * 2026-10-17: a replay per run in the summary). Times are audio seconds.
  */
 export interface TakeBufferPort {
-	/** Starts keeping the input from `fromTime` (audio s), forgetting what came before. */
+	/** Starts keeping the input again from `fromTime` (audio s); what was kept stays. */
 	keepFrom(fromTime: number): void;
 	/**
 	 * Stops keeping the input at `toTime` (audio s), until the next `keepFrom`: what comes after
@@ -17,6 +18,10 @@ export interface TakeBufferPort {
 	 * is kept stays whole, to be played (a pause, a quit, the end of a series).
 	 */
 	stopKeeping(): void;
+	/** Forgets everything kept: a new series. */
+	clear(): void;
+	/** Whether [from, to) is still wholly there: heard, and not forgotten past the cap or by `clear`. */
+	holds(from: number, to: number): boolean;
 	/** Plays what was kept between from and to, with `sounds` resynthesized at their times shifted by `latencyS`. Resolves when done. */
 	play(
 		from: number,

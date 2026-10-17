@@ -243,6 +243,8 @@ export class PlanSessionController implements PlaySessionController {
 			await deps.clock.resume();
 			if (this.generation !== generation) return;
 			this.startedAt = deps.now();
+			// A new series: the takes of the one before are not this one's.
+			deps.takes.clear();
 			// Tracked: a quit meanwhile writes the ended record only after this one.
 			const opened = deps.sessions.put(this.sessionRecord(null));
 			this.track(opened);
