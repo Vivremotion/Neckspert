@@ -460,6 +460,10 @@ export class FakeDiagnostics implements DiagnosticsService {
 		return new Blob([], { type: 'application/zip' });
 	}
 
+	async oracleArchive(): Promise<Blob> {
+		return new Blob([], { type: 'application/zip' });
+	}
+
 	async clear(): Promise<void> {
 		this.clears++;
 		this.used = 0;

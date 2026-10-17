@@ -14,6 +14,8 @@ export interface DiagnosticsService {
 	usage(): Promise<{ bytes: number; takes: number }>;
 	/** A zip (application/zip): the learning backup and every take. */
 	exportArchive(): Promise<Blob>;
+	/** A zip of runs for the oracle of the attack sensor: their sound, their labels, `suites.json`. */
+	oracleArchive(): Promise<Blob>;
 	clear(): Promise<void>;
 }
 
