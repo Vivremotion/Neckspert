@@ -54,8 +54,11 @@ describe('recordCycle', () => {
 			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
 			outcome,
 			promptedAt: 1234,
+			startAudioS: 12.5,
 			observations
 		});
+		// The audio time of the cycle's start, on the clock the diagnostic journal also uses.
+		expect((attempt.plan as { startAudioS?: number }).startAudioS).toBe(12.5);
 		expect(attempt).toMatchObject({
 			sessionId: 's1',
 			exerciseId: 'rhythm-offbeats',
@@ -89,6 +92,7 @@ describe('recordCycle', () => {
 			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
 			outcome,
 			promptedAt: 0,
+			startAudioS: 0,
 			observations: []
 		});
 		expect(attempt.success).toBe(false);

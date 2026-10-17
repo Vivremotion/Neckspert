@@ -40,6 +40,11 @@ export interface CyclePlanRecord {
 	tempo: { at: string; bpm: number; unit: string };
 	window: { ms: number } | { ofGap: string };
 	thresholds: LevelParams['thresholds'];
+	/**
+	 * Audio time (s) the cycle started, on the clock the diagnostic journal uses too: the oracle
+	 * places the cycle by it. Absent from the cycles stored before it was kept.
+	 */
+	startAudioS?: number;
 }
 
 export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
@@ -101,6 +106,8 @@ export function recordCycle(input: {
 	outcome: RoundOutcome;
 	/** Epoch ms of the cycle's first bar. */
 	promptedAt: number;
+	/** Audio time (s) of the cycle's first bar. */
+	startAudioS: number;
 	observations: RecordedObservation[];
 }): Attempt<RhythmAttemptData> {
 	const { setup, outcome } = input;
@@ -122,7 +129,7 @@ export function recordCycle(input: {
 		success: outcome.success,
 		verdict: outcome.verdict,
 		measures: outcome.measures,
-		plan: cyclePlanRecord(setup),
+		plan: { ...cyclePlanRecord(setup), startAudioS: input.startAudioS },
 		data: { item, level: setup.level, report: outcome.detail as CycleReport },
 		observations: input.observations
 	};

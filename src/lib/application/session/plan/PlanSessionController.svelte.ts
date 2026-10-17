@@ -802,6 +802,7 @@ export class PlanSessionController implements PlaySessionController {
 			setup: cycle.setup,
 			outcome,
 			promptedAt: this.deps.clock.toEpochMs(round.startTime),
+			startAudioS: round.startTime,
 			observations
 		});
 		cycle.written = this.deps.attempts.add(attempt);

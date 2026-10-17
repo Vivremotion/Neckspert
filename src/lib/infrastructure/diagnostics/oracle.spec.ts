@@ -256,3 +256,23 @@ describe('oracleReport', () => {
 		expect(report.unmatched).toEqual(['suite-09.txt']);
 	});
 });
+
+describe('buildOracleSuite, placing the cycles', () => {
+	it('places a cycle by its own audio start, not by the wall clock', () => {
+		const row = take('t1', 1_000, 60_000);
+		const played = cycle(1, 's', 11_000);
+		// The wall clock says audio 12 s; the round itself started at 12.05 s.
+		(played.plan as { startAudioS?: number }).startAudioS = 12.05;
+		const { suite } = buildOracleSuite({
+			name: 'suite-01',
+			run: { sessionId: 's', attemptIds: [1], fromMs: 11_000, toMs: 14_000, contested: false },
+			take: row,
+			events: [{ audioTime: 12.45, kind: 'attack.detected', data: {} }],
+			chunks: [{ audioTime: 2, sampleRate: 100, samples: new Int16Array(3000) }],
+			attempts: [played]
+		});
+		expect(suite.sliceStartAudioS).toBeCloseTo(12.05 - ORACLE_MARGIN_S, 9);
+		expect(suite.cycles[0].startS).toBeCloseTo(ORACLE_MARGIN_S, 9);
+		expect(suite.detected[0]).toBeCloseTo(1.4, 9);
+	});
+});

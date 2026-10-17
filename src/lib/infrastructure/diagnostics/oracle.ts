@@ -182,8 +182,20 @@ export function buildOracleSuite(input: {
 }): { suite: OracleSuite; wav: Uint8Array } {
 	const { run, take } = input;
 	const audioOf = (epochMs: number) => take.startedAudioTime + (epochMs - take.startedAt) / 1000;
-	const from = audioOf(run.fromMs) - ORACLE_MARGIN_S;
-	const to = audioOf(run.toMs) + ORACLE_MARGIN_S;
+	const played = run.attemptIds
+		.map((id) => input.attempts.find((candidate) => candidate.id === id))
+		.filter((attempt): attempt is Attempt => attempt !== undefined);
+	// A cycle's own audio start when it has one (the journal's clock); else the wall clock's
+	// mapping of the take, off by the output latency.
+	const startOf = (attempt: Attempt) =>
+		(attempt.plan as Partial<CyclePlanRecord> | null)?.startAudioS ?? audioOf(attempt.promptedAt);
+	const first = played[0];
+	const last = played.at(-1);
+	const lastCycle = last && cycleOf(last);
+	const from = (first ? startOf(first) : audioOf(run.fromMs)) - ORACLE_MARGIN_S;
+	const to =
+		(last && lastCycle ? startOf(last) + lastCycle.cycleMs / 1000 : audioOf(run.toMs)) +
+		ORACLE_MARGIN_S;
 	const { sampleRate, samples } = sliceSamples(input.chunks, from, to);
 	const detected = input.events
 		.filter(
@@ -200,7 +212,7 @@ export function buildOracleSuite(input: {
 		cycles.push({
 			attemptId: id,
 			plan: cycle.plan,
-			startS: audioOf(attempt.promptedAt) - from,
+			startS: startOf(attempt) - from,
 			latency: report?.latency ?? null,
 			verdict: attempt.verdict.value as CycleVerdict
 		});
