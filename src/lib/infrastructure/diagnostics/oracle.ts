@@ -1,8 +1,19 @@
-import type { DiagnosticAudioChunk } from '$lib/application/ports';
+import type {
+	DiagnosticAudioChunk,
+	OracleReport,
+	OracleSuite,
+	SensorComparison
+} from '$lib/application/ports';
 import type { CyclePlanRecord } from '$lib/application/session/plan/recordCycle';
+
+export type { OracleReport, OracleSuite, SensorComparison };
 import {
 	Fraction,
+	PlanRound,
+	RHYTHM_SENSOR,
 	barLength,
+	compileCyclePlan,
+	createTempoMap,
 	figureFromJson,
 	type CycleReport,
 	type CycleVerdict
@@ -34,28 +45,6 @@ export interface OracleRun {
 	fromMs: number;
 	toMs: number;
 	contested: boolean;
-}
-
-/** A run cut out for the oracle, as `suites.json` keeps it: all that the comparison needs. */
-export interface OracleSuite {
-	/** "suite-01": its WAV and its labels are named after it. */
-	name: string;
-	sessionId: string;
-	takeId: string;
-	attemptIds: number[];
-	/** Audio time of the slice's first sample. */
-	sliceStartAudioS: number;
-	sampleRate: number;
-	/** The attacks the sensor heard, s from the slice start, before latency correction. */
-	detected: number[];
-	/** Each cycle as played: its plan, its start (s from the slice start), its latency and verdict. */
-	cycles: {
-		attemptId: number;
-		plan: CyclePlanRecord;
-		startS: number;
-		latency: CycleReport['latency'];
-		verdict: CycleVerdict;
-	}[];
 }
 
 /** The plan of a cycle attempt, and its length and bar in ms; null for any other attempt. */
@@ -265,4 +254,115 @@ export async function buildOracleArchive(
 	}
 	zip.add('suites.json', [encoder.encode(JSON.stringify(suites, null, 2))]);
 	return zip.finish();
+}
+
+/** Two attacks closer than this (ms) are the same attack. */
+export const ORACLE_MATCH_MS = 25;
+
+/** One to one, in time order, within `ORACLE_MATCH_MS`. Times in seconds. */
+export function compareAttacks(
+	detected: readonly number[],
+	truth: readonly number[]
+): SensorComparison {
+	const heard = [...detected].sort((a, b) => a - b);
+	const real = [...truth].sort((a, b) => a - b);
+	const limit = ORACLE_MATCH_MS / 1000;
+	const deltas: number[] = [];
+	let i = 0;
+	let j = 0;
+	while (i < heard.length && j < real.length) {
+		const delta = heard[i] - real[j];
+		if (Math.abs(delta) <= limit) {
+			deltas.push(delta * 1000);
+			i++;
+			j++;
+		} else if (delta < 0) i++;
+		else j++;
+	}
+	const matched = deltas.length;
+	const mean = matched > 0 ? deltas.reduce((sum, d) => sum + d, 0) / matched : null;
+	const spread =
+		mean === null ? null : Math.sqrt(deltas.reduce((sum, d) => sum + (d - mean) ** 2, 0) / matched);
+	return {
+		matched,
+		missed: real.length - matched,
+		falseAttacks: heard.length - matched,
+		biasMs: mean,
+		spreadMs: spread
+	};
+}
+
+/** Each cycle of a suite judged again on `truth` (s from the slice start, before latency). */
+export function rejudge(
+	suite: OracleSuite,
+	truth: readonly number[]
+): { attemptId: number; before: CycleVerdict; after: CycleVerdict }[] {
+	return suite.cycles.map(({ attemptId, plan, startS, latency, verdict }) => {
+		const figure = figureFromJson(plan.figure);
+		const window =
+			'ms' in plan.window ? { ms: plan.window.ms } : { ofGap: Fraction.parse(plan.window.ofGap) };
+		const tempo = {
+			at: Fraction.ZERO,
+			bpm: plan.tempo.bpm,
+			unit: Fraction.parse(plan.tempo.unit)
+		};
+		const round = new PlanRound({
+			plan: compileCyclePlan({
+				figure,
+				cycleBars: plan.cycleBars,
+				startBar: plan.startBar,
+				sensor: RHYTHM_SENSOR,
+				window,
+				accompanimentBars: plan.accompaniment.bars
+			}),
+			map: createTempoMap(startS, [tempo]),
+			start: Fraction.ZERO,
+			latency,
+			thresholds: plan.thresholds,
+			aids: []
+		});
+		const latencyS = (latency?.ms ?? 0) / 1000;
+		for (const time of truth) {
+			round.observe({
+				time: time - latencyS,
+				sensor: RHYTHM_SENSOR,
+				readable: true,
+				payload: null
+			});
+		}
+		return { attemptId, before: verdict, after: round.settle().verdict.value as CycleVerdict };
+	});
+}
+
+/** The report of an annotated oracle: `suites.json` and one `suite-NN.txt` per suite. */
+export function oracleReport(files: readonly { name: string; text: string }[]): OracleReport {
+	const index = files.find((file) => file.name.endsWith('suites.json'));
+	const suites: OracleSuite[] = index ? (JSON.parse(index.text) as OracleSuite[]) : [];
+	const labels = files.filter((file) => file.name.endsWith('.txt'));
+	const base = (name: string) => name.replace(/^.*\//, '').replace(/\.txt$/, '');
+	const rows: OracleReport['suites'] = [];
+	const all = { detected: [] as number[], truth: [] as number[] };
+	let offset = 0;
+	for (const suite of suites) {
+		const file = labels.find((label) => base(label.name) === suite.name);
+		if (!file) continue;
+		const truth = parseAudacityLabels(file.text);
+		rows.push({
+			name: suite.name,
+			sensor: compareAttacks(suite.detected, truth),
+			changed: rejudge(suite, truth).filter(
+				(cycle) => JSON.stringify(cycle.before) !== JSON.stringify(cycle.after)
+			)
+		});
+		// The suites laid end to end, far apart, for the totals.
+		all.detected.push(...suite.detected.map((t) => t + offset));
+		all.truth.push(...truth.map((t) => t + offset));
+		offset += 1e6;
+	}
+	const names = new Set(suites.map((suite) => suite.name));
+	return {
+		suites: rows,
+		total: compareAttacks(all.detected, all.truth),
+		unmatched: labels.filter((label) => !names.has(base(label.name))).map((label) => label.name)
+	};
 }

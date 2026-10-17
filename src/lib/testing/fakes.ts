@@ -1,3 +1,4 @@
+import type { OracleReport } from '$lib/application/ports';
 import {
 	DEFAULT_SETTINGS,
 	type Attempt,
@@ -462,6 +463,11 @@ export class FakeDiagnostics implements DiagnosticsService {
 
 	async oracleArchive(): Promise<Blob> {
 		return new Blob([], { type: 'application/zip' });
+	}
+
+	oracleReport(): OracleReport {
+		const none = { matched: 0, missed: 0, falseAttacks: 0, biasMs: null, spreadMs: null };
+		return { suites: [], total: none, unmatched: [] };
 	}
 
 	async clear(): Promise<void> {

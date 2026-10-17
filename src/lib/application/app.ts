@@ -1,3 +1,4 @@
+import type { OracleReport } from '$lib/application/ports';
 import { getContext, setContext } from 'svelte';
 import type { ExerciseId } from '$lib/domain/exercise/types';
 import type { HomeStats, NeckMapCell, SessionKind, SessionSummary } from '$lib/domain/types';
@@ -16,6 +17,8 @@ export interface DiagnosticsService {
 	exportArchive(): Promise<Blob>;
 	/** A zip of runs for the oracle of the attack sensor: their sound, their labels, `suites.json`. */
 	oracleArchive(): Promise<Blob>;
+	/** The report of an annotated oracle: `suites.json` and the corrected `suite-NN.txt`. */
+	oracleReport(files: readonly { name: string; text: string }[]): OracleReport;
 	clear(): Promise<void>;
 }
 

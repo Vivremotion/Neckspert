@@ -11,7 +11,11 @@ import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 import { TakeBuffer, WebAudioInput } from '$lib/infrastructure/audio/input';
 import { WebAudioSoundScheduler } from '$lib/infrastructure/audio/sounds';
 import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
-import { buildDiagnosticArchive, buildOracleArchive } from '$lib/infrastructure/diagnostics';
+import {
+	buildDiagnosticArchive,
+	buildOracleArchive,
+	oracleReport
+} from '$lib/infrastructure/diagnostics';
 import {
 	createDatabase,
 	DexieAttemptRepository,
@@ -116,6 +120,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 			usage: () => journal.usage(),
 			exportArchive: async () => buildDiagnosticArchive(journal, await backup.exportAll()),
 			oracleArchive: async () => buildOracleArchive(journal, await attempts.all(), Math.random),
+			oracleReport,
 			clear: () => journal.clear()
 		},
 		now: () => Date.now(),

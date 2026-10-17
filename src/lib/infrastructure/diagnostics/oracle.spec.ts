@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
-import { figureToJson } from '$lib/domain/time';
+import { attackPositions, figureToJson } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { DiagnosticTakeRow } from './diagnosticsDb';
 import {
@@ -8,7 +8,11 @@ import {
 	ORACLE_TAKES,
 	audacityLabels,
 	buildOracleSuite,
+	compareAttacks,
+	oracleReport,
 	oracleRuns,
+	rejudge,
+	type OracleSuite,
 	parseAudacityLabels,
 	pickOracleRuns,
 	type OracleRun
@@ -176,5 +180,79 @@ describe('buildOracleSuite', () => {
 		expect(suite.sampleRate).toBe(rate);
 		// 3 s and the two margins, 16-bit mono, after the 44-byte header.
 		expect(wav.length).toBe(44 + (3 + 2 * ORACLE_MARGIN_S) * rate * 2);
+	});
+});
+
+describe('compareAttacks', () => {
+	it('pairs one to one within ORACLE_MATCH_MS, and tells the bias', () => {
+		const result = compareAttacks([1.0, 2.01, 3.5], [1.005, 2.0, 4.0]);
+		expect(result).toMatchObject({ matched: 2, missed: 1, falseAttacks: 1 });
+		expect(result.biasMs).toBeCloseTo(2.5, 6);
+		expect(result.spreadMs).toBeCloseTo(7.5, 6);
+	});
+
+	it('has no bias without a pair', () => {
+		expect(compareAttacks([], [1])).toEqual({
+			matched: 0,
+			missed: 1,
+			falseAttacks: 0,
+			biasMs: null,
+			spreadMs: null
+		});
+	});
+});
+
+/** One offbeats cycle starting 1 s into the slice; the figure's attacks played exactly. */
+const BAR_S = 3;
+const exact = attackPositions(figure as NonNullable<typeof figure>).map(
+	(at) => 1 + at.toNumber() * 4 * (BAR_S / 4)
+);
+
+function suite(detected: number[], verdict: OracleSuite['cycles'][number]['verdict']): OracleSuite {
+	const plan = cycle(1, 's', 0).plan as OracleSuite['cycles'][number]['plan'];
+	return {
+		name: 'suite-01',
+		sessionId: 's',
+		takeId: 't',
+		attemptIds: [1],
+		sliceStartAudioS: 10,
+		sampleRate: 16_000,
+		detected,
+		cycles: [{ attemptId: 1, plan, startS: 1, latency: { ms: 0, provenance: 'system' }, verdict }]
+	};
+}
+
+describe('rejudge', () => {
+	it('keeps the verdict when the truth is what was heard', () => {
+		const [result] = rejudge(suite(exact, { passed: true }), exact);
+		expect(result.after).toEqual(result.before);
+	});
+
+	it('shows a verdict the sensor changed', () => {
+		const heard = [...exact, 1.55].sort((a, b) => a - b);
+		const [result] = rejudge(suite(heard, { passed: false, reasons: ['extra'] }), exact);
+		expect(result.before).toEqual({ passed: false, reasons: ['extra'] });
+		expect(result.after).toEqual({ passed: true });
+	});
+});
+
+describe('oracleReport', () => {
+	it('reads suites.json and the labels by name, naming a label file without a suite', () => {
+		const heard = [...exact, 1.55].sort((a, b) => a - b);
+		const report = oracleReport([
+			{
+				name: 'suites.json',
+				text: JSON.stringify([suite(heard, { passed: false, reasons: ['extra'] })])
+			},
+			{ name: 'suite-01.txt', text: audacityLabels(exact) },
+			{ name: 'suite-09.txt', text: audacityLabels([1]) }
+		]);
+		expect(report.suites).toHaveLength(1);
+		expect(report.suites[0].sensor).toMatchObject({ matched: exact.length, falseAttacks: 1 });
+		expect(report.suites[0].changed).toEqual([
+			{ attemptId: 1, before: { passed: false, reasons: ['extra'] }, after: { passed: true } }
+		]);
+		expect(report.total.falseAttacks).toBe(1);
+		expect(report.unmatched).toEqual(['suite-09.txt']);
 	});
 });

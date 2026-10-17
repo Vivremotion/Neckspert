@@ -2,11 +2,32 @@
 	// Dev only (the /diagnostic layout 404s in production): the oracle of the attack sensor
 	// (spec 2026-10-14, section 11, « L’oracle, concrètement »).
 	import { useAppServices } from '$lib/application/app';
+	import type { OracleReport, SensorComparison } from '$lib/application/ports';
 	import { ORACLE_TAKES } from '$lib/infrastructure/diagnostics';
 
 	const services = useAppServices();
 
 	let exporting = $state(false);
+	let report = $state<OracleReport | null>(null);
+
+	/** The annotated files dropped: `suites.json` and the corrected `suite-NN.txt`. */
+	async function compare(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const files = [...(input.files ?? [])];
+		error = null;
+		try {
+			const read = await Promise.all(
+				files.map(async (file) => ({ name: file.name, text: await file.text() }))
+			);
+			report = services.diagnostics.oracleReport(read);
+		} catch (err) {
+			error = err instanceof Error ? err.message : String(err);
+		}
+	}
+
+	const ms = (value: number | null) => (value === null ? '–' : `${value.toFixed(1)} ms`);
+	const line = (s: SensorComparison) =>
+		`${s.matched} appariées, ${s.missed} manquées, ${s.falseAttacks} fausses ; biais ${ms(s.biasMs)}, dispersion ${ms(s.spreadMs)}`;
 	let error = $state<string | null>(null);
 
 	async function exportSuites() {
@@ -70,6 +91,35 @@
 				nom.
 			</li>
 		</ol>
+	</section>
+
+	<section>
+		<h2>3. Comparer</h2>
+		<p>Déposer <code>suites.json</code> et les <code>.txt</code> corrigés.</p>
+		<input type="file" multiple accept=".json,.txt" onchange={compare} />
+		{#if report}
+			<p><strong>Total :</strong> {line(report.total)}</p>
+			{#each report.suites as row (row.name)}
+				<h3>{row.name}</h3>
+				<p>{line(row.sensor)}</p>
+				{#if row.changed.length === 0}
+					<p>Aucun verdict ne change.</p>
+				{:else}
+					<ul>
+						{#each row.changed as cycle (cycle.attemptId)}
+							<li>
+								Tentative {cycle.attemptId} :
+								{cycle.before.passed ? 'réussi' : `raté (${cycle.before.reasons.join(', ')})`} →
+								{cycle.after.passed ? 'réussi' : `raté (${cycle.after.reasons.join(', ')})`}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			{/each}
+			{#if report.unmatched.length > 0}
+				<p>Étiquettes sans suite, ignorées : {report.unmatched.join(', ')}</p>
+			{/if}
+		{/if}
 	</section>
 </main>
 
