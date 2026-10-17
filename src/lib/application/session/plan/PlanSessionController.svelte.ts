@@ -307,6 +307,11 @@ export class PlanSessionController implements PlaySessionController {
 		if (this.view.status !== 'count-in' && this.view.status !== 'awaiting') return;
 		this.generation++;
 		this.starting = false;
+		if (this.end !== null) {
+			// The series was already ending (its time spent, or the air changed): it ends now.
+			void this.finish();
+			return;
+		}
 		this.stopPlaying();
 		this.view.status = 'paused';
 		if (this.trace && this.traced.pause === null) {
@@ -1025,8 +1030,11 @@ export class PlanSessionController implements PlaySessionController {
 		const trace = this.trace;
 		if (!trace) return;
 		const t = this.traced;
-		const natural = this.end !== null && !this.quitting && this.begun;
-		const at = natural ? this.timeOfBar((this.end as { bar: number }).bar) : this.deps.clock.now();
+		const now = this.deps.clock.now();
+		// Ended on its own once its last bar is reached; before (a pause, a quit), cut now.
+		const natural =
+			this.end !== null && !this.quitting && this.begun && now >= this.timeOfBar(this.end.bar);
+		const at = natural ? this.timeOfBar((this.end as { bar: number }).bar) : now;
 		const ended = natural ? 'done' : 'interrupted';
 		for (const id of [t.part, t.run?.segment ?? null]) {
 			if (id !== null) trace.close(id, Math.max(at, trace.startOf(id)), ended);

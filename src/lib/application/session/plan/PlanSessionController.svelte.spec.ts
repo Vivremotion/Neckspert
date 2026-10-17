@@ -589,6 +589,29 @@ describe('PlanSessionController, the trace of a series', () => {
 		expect(run.endS).toBeCloseTo(ORIGIN + 7 * OFFBEATS_BAR_S, 9);
 	});
 
+	it('a pause once the end is decided ends the series, it does not bring it back', async () => {
+		const { controller, memory, attempts, wall, advance } = await setup(RHYTHM_OFFBEATS, {
+			met: true
+		});
+		await controller.start();
+		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
+		wall.extraMs = SESSION_MS;
+		// The end is decided on beat 1 of bar 6 (bar 7 would be the breath); pause in bar 6.
+		await advance(ORIGIN + 6.5 * OFFBEATS_BAR_S);
+		controller.pause();
+		await settled();
+		expect(controller.view.status).toBe('finished');
+		controller.resume();
+		await advance(ORIGIN + 14 * OFFBEATS_BAR_S, false);
+		expect(controller.view.status).toBe('finished');
+		expect(seriesOf(memory).reason).toBe('time');
+		expect(await attempts.listBySession('series')).toHaveLength(3);
+		// Cut by the pause, before the bar it was to end on.
+		const run = seriesOf(memory).children.find((segment) => segment.role === 'run') as Segment;
+		expect(run.ended).toBe('interrupted');
+		expect(run.endS).toBeLessThan(ORIGIN + 7 * OFFBEATS_BAR_S);
+	});
+
 	it('quit marks the series', async () => {
 		const { controller, memory, advance } = await setup(RHYTHM_OFFBEATS, { met: true });
 		await controller.start();
