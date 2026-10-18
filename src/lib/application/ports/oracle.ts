@@ -41,10 +41,19 @@ export interface SensorComparison {
 	spreadMs: number | null;
 }
 
+/** Where the comparison found each attack, s on the WAV's timeline, to listen to them again. */
+export interface AttackMatch {
+	/** Each pair at its label, and detected − truth (ms). */
+	pairs: { truthS: number; deltaMs: number }[];
+	missedS: number[];
+	falseS: number[];
+}
+
 export interface OracleReport {
 	suites: {
 		name: string;
 		sensor: SensorComparison;
+		attacks: AttackMatch;
 		/** The cycles whose verdict the truth changes. */
 		changed: { attemptId: number; before: CycleVerdict; after: CycleVerdict }[];
 	}[];

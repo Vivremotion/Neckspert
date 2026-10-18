@@ -12,6 +12,8 @@ export {
 	buildOracleSuite,
 	compareAttacks,
 	ORACLE_MATCH_MS,
+	ORACLE_OFFSET_SHOWN_MS,
+	matchAttacks,
 	oracleReport,
 	oracleRuns,
 	rejudge,

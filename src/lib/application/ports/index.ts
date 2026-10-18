@@ -11,7 +11,7 @@ export type {
 	NoteRejectionReason,
 	PitchWindow
 } from './NoteDetectorPort';
-export type { AttackDetectorPort, AttackEvent } from './AttackDetectorPort';
+export type { AttackDetectorPort, AttackEvent, PreAttack } from './AttackDetectorPort';
 export type {
 	CalibrationMeasure,
 	CalibrationOutcome,
@@ -44,4 +44,4 @@ export type {
 	DiagnosticTakeNotices,
 	DiagnosticTakes
 } from './DiagnosticSink';
-export type { OracleReport, OracleSuite, SensorComparison } from './oracle';
+export type { AttackMatch, OracleReport, OracleSuite, SensorComparison } from './oracle';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ATTACK_MERGE_MS, MIN_ATTACK_GAP_MS } from './config';
+import { ATTACK_MERGE_MS, MIN_ATTACK_GAP_MS, PRE_ATTACK_DB, PRE_ATTACK_MS } from './config';
 import { AttackTracker } from './AttackTracker';
 import { feed, glide, hum, mutedBurst, plucks, vibratoNote } from './testing/signals';
 
@@ -125,6 +125,52 @@ describe('AttackTracker', () => {
 			expect(a.strength).toBeGreaterThanOrEqual(0);
 			expect(a.strength).toBeLessThanOrEqual(1);
 		}
+	});
+});
+
+/** A faint pluck (−20 dB) at `faintS` and a firm one at `firmS`, summed. */
+function faintThenFirm(rate: number, faintS: number, firmS: number): Float32Array {
+	const faint = plucks({ rate, durationS: 1, attacksS: [faintS], hz: 330, amplitude: 0.04 });
+	const firm = plucks({ rate, durationS: 1, attacksS: [firmS], hz: 330, amplitude: 0.4 });
+	return firm.map((v, i) => v + faint[i]);
+}
+
+describe('AttackTracker pre-attacks', () => {
+	it('holds the window and the level of a pre-attack beyond the merge', () => {
+		expect(PRE_ATTACK_MS).toBeGreaterThan(ATTACK_MERGE_MS);
+		expect(PRE_ATTACK_DB).toBeGreaterThan(0);
+	});
+
+	it.each(RATES.flatMap((rate) => [0.05, 0.09].map((gap) => [rate, gap] as const)))(
+		'at %i Hz, folds a faint pluck %f s before a firm one into it, as its pre-attack',
+		(rate, gap) => {
+			const attacks = feed(new AttackTracker(rate), faintThenFirm(rate, 0.3 - gap, 0.3), rate);
+			expect(attacks).toHaveLength(1);
+			expect(Math.abs(attacks[0].time - 0.3)).toBeLessThanOrEqual(tol(rate));
+			expect(attacks[0].preAttack?.beforeMs).toBeCloseTo(gap * 1000, -1);
+			expect(attacks[0].preAttack?.belowDb).toBeGreaterThanOrEqual(PRE_ATTACK_DB);
+		}
+	);
+
+	it('keeps a faint pluck apart when the firm one comes later than the window', () => {
+		const rate = 48000;
+		const firmS = 0.2 + PRE_ATTACK_MS / 1000 + 0.05;
+		const attacks = feed(new AttackTracker(rate), faintThenFirm(rate, 0.2, firmS), rate);
+		expect(attacks).toHaveLength(2);
+		expect(attacks.every((a) => a.preAttack === undefined)).toBe(true);
+	});
+
+	it('keeps a firm pluck and a fainter one after it apart', () => {
+		const rate = 48000;
+		const firm = plucks({ rate, durationS: 1, attacksS: [0.2], hz: 330, amplitude: 0.4 });
+		const faint = plucks({ rate, durationS: 1, attacksS: [0.27], hz: 440, amplitude: 0.1 });
+		const attacks = feed(
+			new AttackTracker(rate),
+			firm.map((v, i) => v + faint[i]),
+			rate
+		);
+		expect(attacks).toHaveLength(2);
+		expect(attacks.every((a) => a.preAttack === undefined)).toBe(true);
 	});
 });
 

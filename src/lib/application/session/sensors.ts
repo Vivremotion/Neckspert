@@ -5,7 +5,8 @@ import type {
 	ChordVerifierPort,
 	NoteDetectorPort,
 	NoteOnset,
-	NoteRejection
+	NoteRejection,
+	PreAttack
 } from '$lib/application/ports';
 
 /** Something a sensor perceived, at its audio time (seconds), latency already removed. */
@@ -75,7 +76,7 @@ export function noteSensor(detector: NoteDetectorPort): SensorFactory {
 }
 
 /** Payload of a pitchless attack: how hard it was, and where it came from. */
-export type AttackPayload = { strength: number; channel?: number };
+export type AttackPayload = { strength: number; channel?: number; preAttack?: PreAttack };
 
 /**
  * Pitchless attacks: each one, dated minus the calibrated latency. Nothing is read from the
@@ -84,15 +85,12 @@ export type AttackPayload = { strength: number; channel?: number };
 export function attackSensor(detector: AttackDetectorPort): SensorFactory {
 	return ({ latencyMs }) => ({
 		onObservation: (callback) =>
-			detector.onAttack(({ time, strength, channel }) =>
-				callback({
-					time: time - latencyMs / 1000,
-					payload: (channel === undefined
-						? { strength }
-						: { strength, channel }) satisfies AttackPayload,
-					readable: true
-				})
-			)
+			detector.onAttack(({ time, strength, channel, preAttack }) => {
+				const payload: AttackPayload = { strength };
+				if (channel !== undefined) payload.channel = channel;
+				if (preAttack) payload.preAttack = preAttack;
+				callback({ time: time - latencyMs / 1000, payload, readable: true });
+			})
 	});
 }
 

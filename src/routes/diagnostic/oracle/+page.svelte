@@ -3,7 +3,7 @@
 	// (spec 2026-10-14, section 11, « L’oracle, concrètement »).
 	import { useAppServices } from '$lib/application/app';
 	import type { OracleReport, SensorComparison } from '$lib/application/ports';
-	import { ORACLE_TAKES } from '$lib/infrastructure/diagnostics';
+	import { ORACLE_OFFSET_SHOWN_MS, ORACLE_TAKES } from '$lib/infrastructure/diagnostics';
 
 	const services = useAppServices();
 
@@ -29,6 +29,9 @@
 	const line = (s: SensorComparison) =>
 		`${s.matched} appariées, ${s.missed} manquées, ${s.falseAttacks} fausses ; biais ${ms(s.biasMs)}, dispersion ${ms(s.spreadMs)}`;
 	let error = $state<string | null>(null);
+	/** Seconds as Audacity shows them on its timeline. */
+	const at = (s: number) => `${s.toFixed(3)} s`;
+	const signed = (ms: number) => `${ms > 0 ? '+' : ''}${ms.toFixed(1)} ms`;
 
 	async function exportSuites() {
 		exporting = true;
@@ -84,7 +87,11 @@
 			</li>
 			<li>
 				Convention : le début d’une attaque est le premier point où la forme d’onde monte nettement
-				au-dessus du bruit. On ne note aucun verdict, aucun timecode à la main.
+				au-dessus du bruit, avant le premier pic. On ne note aucun verdict, aucun timecode à la main.
+				Une pré-attaque (l’ongle ou le médiator qui touche la corde juste avant la note, faible
+				et inaudible sous elle) n’est pas une attaque : pas d’étiquette, l’étiquette va sur la note.
+				Une attaque entendue mais peu visible reste une attaque : la vue spectrogramme
+				(<em>Vue multiple</em> dans le menu de la piste) la montre mieux que la forme d’onde.
 			</li>
 			<li>
 				<em>Fichier › Exporter › Exporter les étiquettes</em> : un <code>.txt</code> par suite, du même
@@ -102,6 +109,21 @@
 			{#each report.suites as row (row.name)}
 				<h3>{row.name}</h3>
 				<p>{line(row.sensor)}</p>
+				{#if row.attacks.falseS.length > 0}
+					<p>Fausses (le capteur, sans étiquette) : {row.attacks.falseS.map(at).join(', ')}</p>
+				{/if}
+				{#if row.attacks.missedS.length > 0}
+					<p>Manquées (une étiquette, rien du capteur) : {row.attacks.missedS.map(at).join(', ')}</p>
+				{/if}
+				{#if row.attacks.pairs.some((pair) => Math.abs(pair.deltaMs) > ORACLE_OFFSET_SHOWN_MS)}
+					<p>
+						Écarts de plus de {ORACLE_OFFSET_SHOWN_MS} ms (capteur − étiquette) :
+						{row.attacks.pairs
+							.filter((pair) => Math.abs(pair.deltaMs) > ORACLE_OFFSET_SHOWN_MS)
+							.map((pair) => `${at(pair.truthS)} (${signed(pair.deltaMs)})`)
+							.join(', ')}
+					</p>
+				{/if}
 				{#if row.changed.length === 0}
 					<p>Aucun verdict ne change.</p>
 				{:else}

@@ -63,6 +63,27 @@ describe('WebAudioAttackDetector', () => {
 		expect(diagnostics.events[0].data).toEqual({ strength: attacks[0].strength });
 	});
 
+	it('passes on and journals the pre-attack folded into an attack', () => {
+		const faint = plucks({ rate: RATE, durationS: 1, attacksS: [0.25], hz: 330, amplitude: 0.04 });
+		const firm = plucks({ rate: RATE, durationS: 1, attacksS: [0.3], hz: 330, amplitude: 0.4 });
+		const source = new FakeFrameSource(
+			RATE,
+			firm.map((v, i) => v + faint[i]),
+			START
+		);
+		const diagnostics = new FakeDiagnosticSink(true);
+		const detector = new WebAudioAttackDetector(source, { diagnostics });
+		const attacks: AttackEvent[] = [];
+		detector.onAttack((attack) => attacks.push(attack));
+		source.playUntil();
+		expect(attacks).toHaveLength(1);
+		expect(attacks[0].preAttack?.beforeMs).toBeGreaterThan(40);
+		expect(diagnostics.events[0].data).toEqual({
+			strength: attacks[0].strength,
+			preAttack: attacks[0].preAttack
+		});
+	});
+
 	it('journals nothing when the journal is off', () => {
 		const diagnostics = new FakeDiagnosticSink(false);
 		const { source, detector } = setup({ diagnostics });

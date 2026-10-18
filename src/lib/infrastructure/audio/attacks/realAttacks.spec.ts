@@ -99,3 +99,45 @@ describe('the attack tracker on picked notes through an interface', () => {
 		);
 	});
 });
+
+/**
+ * Picked notes through the interface, cut from the oracle suites of 2026-10-18 (16 kHz): before
+ * most notes the nail touches the string, 45 to 90 ms earlier and 12 to 40 dB fainter, unheard
+ * in the sound. Onsets are the player's labels in Audacity, seconds from the excerpt's start.
+ */
+const PRE_ATTACK_WAVS = import.meta.glob<string>('./fixtures/pre-attack*-fm3.wav', {
+	query: '?inline',
+	import: 'default',
+	eager: true
+});
+const PRE_ATTACK_CASES = [
+	{
+		file: './fixtures/pre-attacks-fm3.wav',
+		onsetsS: [0.1906, 0.5574, 0.9318],
+		/** Each note's pre-attack, ms before its onset; null when the sensor heard none. */
+		preAttackMs: [null, 48, 49]
+	},
+	{ file: './fixtures/pre-attack-far-fm3.wav', onsetsS: [0.2786], preAttackMs: [87] }
+];
+/** The oracle's pairing: the same attack within this. */
+const ORACLE_PAIR_S = 0.025;
+
+describe('the attack tracker on pre-attacks of the nail', () => {
+	it.each(PRE_ATTACK_CASES.map((c) => [c.file, c] as const))(
+		'hears one attack per note in %s, the pre-attack kept on it',
+		(_, { file, onsetsS, preAttackMs }) => {
+			const url = PRE_ATTACK_WAVS[file];
+			const binary = atob(url.slice(url.indexOf(',') + 1));
+			const { sampleRate, samples } = readWav(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+			const attacks = feed(new AttackTracker(sampleRate), samples, sampleRate);
+			expect(attacks).toHaveLength(onsetsS.length);
+			attacks.forEach((a, i) => {
+				expect(Math.abs(a.time - onsetsS[i])).toBeLessThanOrEqual(ORACLE_PAIR_S);
+				const before = preAttackMs[i];
+				if (before === null) return;
+				expect(a.preAttack?.beforeMs).toBeGreaterThan(before - 15);
+				expect(a.preAttack?.beforeMs).toBeLessThan(before + 15);
+			});
+		}
+	);
+});

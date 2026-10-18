@@ -1,12 +1,21 @@
+import type { PreAttack } from '$lib/application/ports';
 import { magnitudeSpectrumInto } from '../spectral/fft';
 import { createSemitoneFilterbank, type SemitoneFilterbank } from '../spectral/semitoneBands';
-import { DEFAULT_ATTACK_CONFIG, type AttackConfig } from './config';
+import {
+	DEFAULT_ATTACK_CONFIG,
+	PRE_ATTACK_DB,
+	PRE_ATTACK_LEVEL_MS,
+	PRE_ATTACK_MS,
+	type AttackConfig
+} from './config';
 
 export interface DetectedAttack {
 	/** Audio time (s) of the attack's start, before latency correction. */
 	time: number;
 	/** Flux of the attack against the strongest of the last seconds, in [0, 1]. */
 	strength: number;
+	/** The fainter peak just before it, folded into it (`PRE_ATTACK_MS`): kept, not heard. */
+	preAttack?: PreAttack;
 }
 
 /** Strength compares an attack with the flux heard over this long. */
@@ -42,8 +51,9 @@ function nearestPowerOfTwo(n: number): number {
  * quarter-tone spectrum against a reference frame widened by a maximum filter across bands (a
  * vibrato or a bend raises no flux), local adaptive threshold, peak picking. The onset time is
  * then refined in the raw samples, where the sound stops being predictable from what rang before.
- * Peaks closer than `mergeMs` are one attack, timed at the strongest, so an attack is emitted
- * `mergeMs` after its peak at the latest.
+ * Peaks closer than `mergeMs` are one attack, timed at the strongest; a peak followed within
+ * `PRE_ATTACK_MS` by one `PRE_ATTACK_DB` louder is that one's pre-attack, kept on it. So an
+ * attack is emitted `PRE_ATTACK_MS` after its peak at the latest.
  */
 export class AttackTracker {
 	private readonly config: AttackConfig;
@@ -58,6 +68,9 @@ export class AttackTracker {
 	private readonly settleAfter: number;
 	private readonly minGap: number;
 	private readonly merge: number;
+	private readonly hold: number;
+	/** `PRE_ATTACK_LEVEL_MS` in samples. */
+	private readonly levelWindow: number;
 	private readonly strengthFrames: number;
 	private readonly bank: SemitoneFilterbank;
 	private readonly hann: Float64Array;
@@ -85,9 +98,13 @@ export class AttackTracker {
 	private lastPeak = -Infinity;
 	/** Sample of the last emitted attack's onset. */
 	private lastOnset = -Infinity;
-	/** The strongest peak of the attack being heard, emitted once `mergeMs` has passed after it. */
-	private pending: { peak: number; flux: number; onset: number; attack: DetectedAttack } | null =
-		null;
+	/** The attack being heard, emitted once `PRE_ATTACK_MS` has passed after its peak. */
+	private pending: {
+		peak: number;
+		flux: number;
+		onset: number;
+		attack: DetectedAttack;
+	} | null = null;
 
 	constructor(
 		private readonly sampleRate: number,
@@ -107,6 +124,8 @@ export class AttackTracker {
 		this.settleAfter = Math.max(this.postMax, this.postAvg);
 		this.minGap = steps(c.minGapMs);
 		this.merge = steps(c.mergeMs);
+		this.hold = Math.max(this.merge, steps(PRE_ATTACK_MS));
+		this.levelWindow = Math.round((PRE_ATTACK_LEVEL_MS / 1000) * sampleRate);
 		this.strengthFrames = steps(STRENGTH_MEMORY_S * 1000);
 
 		this.bank = createSemitoneFilterbank({ sampleRate, fftSize: this.fftSize });
@@ -214,37 +233,75 @@ export class AttackTracker {
 	}
 
 	/**
-	 * Settles frame `c`, whose look-ahead is now complete: emits the attack held once `mergeMs`
-	 * has passed after its peak, then holds `c` if it is a peak, unless a stronger one is held.
+	 * Settles frame `c`, whose look-ahead is now complete: emits the attack held once it can no
+	 * longer be a pre-attack, then holds `c` if it is a peak. Within `mergeMs` of the held one, a
+	 * peak replaces it only if stronger; beyond, only if `PRE_ATTACK_DB` louder (the held one is
+	 * its pre-attack), else the held one is emitted and `c` held apart.
 	 */
 	private settle(c: number): DetectedAttack | null {
 		if (c < 0) return null;
 		let emitted: DetectedAttack | null = null;
-		if (this.pending && c - this.pending.peak >= this.merge) {
-			emitted = this.pending.attack;
-			this.lastPeak = this.pending.peak;
-			this.lastOnset = this.pending.onset;
-			this.pending = null;
-		}
+		if (this.pending && c - this.pending.peak >= this.hold) emitted = this.emitPending();
 		const value = this.fluxAt(c);
-		if (!this.isPeak(c, value) || (this.pending && this.pending.flux >= value)) return emitted;
+		if (!this.isPeak(c, value)) return emitted;
+		const held = this.pending;
+		const merged = held !== null && c - held.peak < this.merge;
+		if (merged && held.flux >= value) return emitted;
+
+		// Each level around its flux peak; the held one's now that its samples have all come.
+		const belowDb = held
+			? this.levelDb(this.peakWindowStart(c), this.frameEnd(c) + this.levelWindow) -
+				this.levelDb(
+					this.peakWindowStart(held.peak),
+					Math.min(this.frameEnd(held.peak) + this.levelWindow, this.peakWindowStart(c))
+				)
+			: 0;
+		const louder = held !== null && belowDb >= PRE_ATTACK_DB;
+		if (held && !merged && !louder) emitted = this.emitPending();
+		// Refined against the last attack emitted, never against the weaker peak this one replaces.
+		const onset = this.refine(this.frameEnd(c));
 
 		let recent = Math.max(value, this.config.strengthFloor);
 		for (let f = Math.max(0, c - this.strengthFrames + 1); f < c; f++) {
 			recent = Math.max(recent, this.fluxAt(f));
 		}
-		// Refined against the last attack emitted, never against the weaker peak this one replaces.
-		const onset = this.refine(this.frameEnd(c));
-		this.pending = {
-			peak: c,
-			flux: value,
-			onset,
-			attack: {
-				time: (this.origin ?? 0) + onset / this.sampleRate,
-				strength: Math.min(1, Math.max(0, value / recent))
-			}
+		const attack: DetectedAttack = {
+			time: (this.origin ?? 0) + onset / this.sampleRate,
+			strength: Math.min(1, Math.max(0, value / recent))
 		};
+		if (held && louder) {
+			attack.preAttack = {
+				beforeMs: ((onset - held.onset) / this.sampleRate) * 1000,
+				belowDb
+			};
+		}
+		this.pending = { peak: c, flux: value, onset, attack };
 		return emitted;
+	}
+
+	private emitPending(): DetectedAttack | null {
+		const pending = this.pending;
+		if (!pending) return null;
+		this.lastPeak = pending.peak;
+		this.lastOnset = pending.onset;
+		this.pending = null;
+		return pending.attack;
+	}
+
+	/** First sample of the level window of the flux peak in frame `f`. */
+	private peakWindowStart(f: number): number {
+		return this.frameEnd(f) - this.levelWindow;
+	}
+
+	/** Peak level (dBFS) of the raw samples from `from` to `until` (exclusive), as received. */
+	private levelDb(from: number, until: number): number {
+		const end = Math.min(this.received, until);
+		let peak = 0;
+		const start = Math.max(from, this.received - this.history.length);
+		for (let i = start; i < end; i++) {
+			peak = Math.max(peak, Math.abs(this.sampleAt(i)));
+		}
+		return 20 * Math.log10(Math.max(peak, 1e-9));
 	}
 
 	/** Whether frame `c` is a flux peak standing above its neighbourhood. */

@@ -10,6 +10,17 @@ export const MIN_ATTACK_GAP_MS = 25;
 export const ATTACK_MERGE_MS = 45;
 
 /**
+ * A peak followed within this by one at least `PRE_ATTACK_DB` louder is its pre-attack: the nail
+ * or the pick touching the string before the note, unheard under it. Through an interface it
+ * comes 45 to 90 ms before the note, 12 to 40 dB fainter (oracle of 2026-10-18), beyond
+ * `ATTACK_MERGE_MS`. Every attack is emitted this long after its peak at the latest.
+ */
+export const PRE_ATTACK_MS = 100;
+/** How much louder the note must be, by peak level within `PRE_ATTACK_LEVEL_MS` of each flux peak. */
+export const PRE_ATTACK_DB = 9;
+export const PRE_ATTACK_LEVEL_MS = 10;
+
+/**
  * SuperFlux (Böck and Widmer, DAFx 2013) tuned for a guitar. Times are in milliseconds, so the
  * tracker behaves the same at any sample rate.
  */

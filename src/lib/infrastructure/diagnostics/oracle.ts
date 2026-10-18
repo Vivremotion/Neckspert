@@ -1,4 +1,5 @@
 import type {
+	AttackMatch,
 	DiagnosticAudioChunk,
 	OracleReport,
 	OracleSuite,
@@ -6,7 +7,7 @@ import type {
 } from '$lib/application/ports';
 import type { CyclePlanRecord } from '$lib/application/session/plan/recordCycle';
 
-export type { OracleReport, OracleSuite, SensorComparison };
+export type { AttackMatch, OracleReport, OracleSuite, SensorComparison };
 import {
 	Fraction,
 	PlanRound,
@@ -271,34 +272,45 @@ export async function buildOracleArchive(
 /** Two attacks closer than this (ms) are the same attack. */
 export const ORACLE_MATCH_MS = 25;
 
+/** A pair further apart than this (ms) is listed in the report, to be listened to again. */
+export const ORACLE_OFFSET_SHOWN_MS = 5;
+
 /** One to one, in time order, within `ORACLE_MATCH_MS`. Times in seconds. */
-export function compareAttacks(
-	detected: readonly number[],
-	truth: readonly number[]
-): SensorComparison {
+export function matchAttacks(detected: readonly number[], truth: readonly number[]): AttackMatch {
 	const heard = [...detected].sort((a, b) => a - b);
 	const real = [...truth].sort((a, b) => a - b);
 	const limit = ORACLE_MATCH_MS / 1000;
-	const deltas: number[] = [];
+	const match: AttackMatch = { pairs: [], missedS: [], falseS: [] };
 	let i = 0;
 	let j = 0;
 	while (i < heard.length && j < real.length) {
 		const delta = heard[i] - real[j];
 		if (Math.abs(delta) <= limit) {
-			deltas.push(delta * 1000);
+			match.pairs.push({ truthS: real[j], deltaMs: delta * 1000 });
 			i++;
 			j++;
-		} else if (delta < 0) i++;
-		else j++;
+		} else if (delta < 0) match.falseS.push(heard[i++]);
+		else match.missedS.push(real[j++]);
 	}
+	match.falseS.push(...heard.slice(i));
+	match.missedS.push(...real.slice(j));
+	return match;
+}
+
+export function compareAttacks(
+	detected: readonly number[],
+	truth: readonly number[]
+): SensorComparison {
+	const { pairs, missedS, falseS } = matchAttacks(detected, truth);
+	const deltas = pairs.map((pair) => pair.deltaMs);
 	const matched = deltas.length;
 	const mean = matched > 0 ? deltas.reduce((sum, d) => sum + d, 0) / matched : null;
 	const spread =
 		mean === null ? null : Math.sqrt(deltas.reduce((sum, d) => sum + (d - mean) ** 2, 0) / matched);
 	return {
 		matched,
-		missed: real.length - matched,
-		falseAttacks: heard.length - matched,
+		missed: missedS.length,
+		falseAttacks: falseS.length,
 		biasMs: mean,
 		spreadMs: spread
 	};
@@ -362,6 +374,7 @@ export function oracleReport(files: readonly { name: string; text: string }[]): 
 		rows.push({
 			name: suite.name,
 			sensor: compareAttacks(suite.detected, truth),
+			attacks: matchAttacks(suite.detected, truth),
 			changed: rejudge(suite, truth).filter(
 				(cycle) => JSON.stringify(cycle.before) !== JSON.stringify(cycle.after)
 			)

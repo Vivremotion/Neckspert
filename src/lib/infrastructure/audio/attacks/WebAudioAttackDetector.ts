@@ -54,12 +54,17 @@ export class WebAudioAttackDetector implements AttackDetectorPort {
 				tracker = new AttackTracker(rate, this.config);
 				trackerRate = rate;
 			}
-			for (const { time, strength } of tracker.push(samples, frameTime)) {
-				const attack: AttackEvent =
-					this.channel === undefined
-						? { time, strength }
-						: { time, strength, channel: this.channel };
-				if (this.diagnostics?.enabled) this.diagnostics.event(ATTACK_EVENT, time, { strength });
+			for (const { time, strength, preAttack } of tracker.push(samples, frameTime)) {
+				const attack: AttackEvent = { time, strength };
+				if (this.channel !== undefined) attack.channel = this.channel;
+				if (preAttack) attack.preAttack = preAttack;
+				if (this.diagnostics?.enabled) {
+					this.diagnostics.event(
+						ATTACK_EVENT,
+						time,
+						preAttack ? { strength, preAttack } : { strength }
+					);
+				}
 				[...this.listeners].forEach((listener) => listener(attack));
 			}
 		});

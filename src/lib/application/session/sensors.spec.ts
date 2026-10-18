@@ -77,6 +77,15 @@ describe('attackSensor', () => {
 		expect(seen[1].payload).toEqual({ strength: 0.9, channel: 1 });
 	});
 
+	it('keeps the pre-attack folded into an attack in its payload', () => {
+		const detector = new FakeAttackDetector();
+		const source = attackSensor(detector)({ latencyMs: 0, clock: new FakeClock() });
+		const seen: Observation[] = [];
+		source.onObservation((observation) => seen.push(observation));
+		detector.emit({ time: 1, strength: 0.7, preAttack: { beforeMs: 48, belowDb: 15 } });
+		expect(seen[0].payload).toEqual({ strength: 0.7, preAttack: { beforeMs: 48, belowDb: 15 } });
+	});
+
 	it('stops listening once unsubscribed', () => {
 		const detector = new FakeAttackDetector();
 		const source = attackSensor(detector)({ latencyMs: 0, clock: new FakeClock() });

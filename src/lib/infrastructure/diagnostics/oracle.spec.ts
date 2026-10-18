@@ -9,6 +9,7 @@ import {
 	audacityLabels,
 	buildOracleSuite,
 	compareAttacks,
+	matchAttacks,
 	oracleReport,
 	oracleRuns,
 	rejudge,
@@ -202,6 +203,17 @@ describe('compareAttacks', () => {
 	});
 });
 
+describe('matchAttacks', () => {
+	it('tells where each pair, miss and false attack is, on the truth timeline', () => {
+		const result = matchAttacks([1.0, 2.01, 3.5], [1.005, 2.0, 4.0]);
+		expect(result.pairs.map((pair) => pair.truthS)).toEqual([1.005, 2.0]);
+		expect(result.pairs[0].deltaMs).toBeCloseTo(-5, 6);
+		expect(result.pairs[1].deltaMs).toBeCloseTo(10, 6);
+		expect(result.missedS).toEqual([4.0]);
+		expect(result.falseS).toEqual([3.5]);
+	});
+});
+
 /** One offbeats cycle starting 1 s into the slice; the figure's attacks played exactly. */
 const BAR_S = 3;
 const exact = attackPositions(figure as NonNullable<typeof figure>).map(
@@ -249,6 +261,8 @@ describe('oracleReport', () => {
 		]);
 		expect(report.suites).toHaveLength(1);
 		expect(report.suites[0].sensor).toMatchObject({ matched: exact.length, falseAttacks: 1 });
+		expect(report.suites[0].attacks.falseS).toEqual([1.55]);
+		expect(report.suites[0].attacks.missedS).toEqual([]);
 		expect(report.suites[0].changed).toEqual([
 			{ attemptId: 1, before: { passed: false, reasons: ['extra'] }, after: { passed: true } }
 		]);
