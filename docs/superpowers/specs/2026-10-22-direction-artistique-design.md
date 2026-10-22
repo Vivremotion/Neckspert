@@ -154,4 +154,14 @@ Chaque plan se fait sur sa branche ; aucun ne touche le cœur, ils peuvent donc 
 
 ## Réalisation
 
-(à remplir à la fin de chaque plan : ce que le code a décidé contre cette spec)
+Plan 1 (2026-10-22) :
+
+- les tokens de taille et d'espacement du nouveau monde s'appellent `--np-size-*` et `--np-step-*` (les noms `--np-type-*` / `--np-space-*` sont pris par l'ancien monde) ; s'y ajoutent `--np-size-correction`, `--np-size-cell` ;
+- le dégradé du champ a son milieu à `#656968` (et non `#6c706f`) pour tenir 4,5:1 ; aucun texte sur son haut le plus clair ;
+- piste : une case par temps, toutes de même largeur (1/(3 × temps par mesure)), la ligne fixe au tiers, les cases en trop rognées à droite ; la marque de verdict garde une taille fixe (32 px) pour rester lisible sur téléphone ;
+- marques : les six validées sur planche le 2026-10-22 (parfait point centré, avance ◀, retard ▶, hors temps ▷ sur case bordée, corrigé ✕● sur case sombre, mauvaise note ✕ sur case sombre) ;
+- après un raté : le rappel montre la note seule et la correction en grand est la phrase du cœur (« corde de B, case 6 »), décision de l'utilisateur ; la case passée montre la marque seule jusqu'à la migration H ;
+- le bouton « pause » discret reste à côté de « quitter » (décision de l'utilisateur) ;
+- le mode 2 répond sur un clavier de piano d'une octave (`AnswerKeyboard`), qui remplace `AnswerPad` ; il passe dès ce plan ;
+- la barre de navigation disparaît sur `/session` (et `/dev/identify`) ;
+- reporté au plan 3 : le dossier de build Game Boy d'impeccable (`.impeccable/build/state.json`, les comps approuvés) et les tailles internes de `ChordShape` ; le lien de sortie sur l'erreur de chargement de `/session`.

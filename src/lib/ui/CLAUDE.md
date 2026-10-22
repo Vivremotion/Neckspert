@@ -1,0 +1,5 @@
+# UI
+
+## Visual system
+
+`DESIGN.md` and `.impeccable/design.json` describe the new system (« Près du silence »), built from the code. Its tokens are the second `:root` block of `src/lib/ui/tokens.css` (`--np-ground`, `--np-text`, `--np-now` amber only for the now line and the main action, `--np-field`, `--np-on-field`, `--np-size-*`, `--np-step-*`, `--np-cell*`, `--np-motion-*`); never use raw values. Shared primitives live in `src/lib/ui/primitives/` (Button, InfoLine, VerdictMark + `verdictTone`, Lane/LaneCell, Prompt) plus the mode-2 `AnswerKeyboard`. The play screen of notes and triads is migrated; the other screens, `PlayFrame` and its views still use the Game Boy tokens (first `:root` block, VT323) until plans 2 and 3, and one screen never mixes the two worlds; new screens use the new tokens only. Play-screen rules: no explanatory words in play, the verdict shown on the lane by shape, text at least 16px; the direction contract is `.impeccable/surfaces/src-routes-session-page-svelte.md`. `prefers-reduced-motion` drops the imprint and the scene rise.

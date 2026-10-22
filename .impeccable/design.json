@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-22T18:44:59.985Z",
+  "title": "Design System: Neckspert Play",
+  "extensions": {
+    "colorMeta": {
+      "amber-now": {
+        "role": "primary",
+        "displayName": "Amber Now",
+        "canonical": "#d9a13b",
+        "purpose": "The now line, the primary button, the picked key and its focus ring. Nothing else.",
+        "tonalRamp": [
+          "#32250e",
+          "#533e17",
+          "#755720",
+          "#966f29",
+          "#c89436",
+          "#e0b362",
+          "#eed4a5",
+          "#faf2e3"
+        ]
+      },
+      "ground-mist": {
+        "role": "neutral",
+        "displayName": "Ground Mist",
+        "canonical": "#ece8e2",
+        "purpose": "Light pages (start, pause, end) under ink.",
+        "tonalRamp": [
+          "#272625",
+          "#41403e",
+          "#5b5957",
+          "#747270",
+          "#9b9995",
+          "#bab7b2",
+          "#d9d6d0",
+          "#f4f2ef"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#23211f",
+        "purpose": "Text on light grounds, primary label, missed cell, black keys.",
+        "tonalRamp": [
+          "#282624",
+          "#413f3e",
+          "#5a5957",
+          "#747371",
+          "#9a9998",
+          "#b8b7b7",
+          "#d7d6d6",
+          "#f2f2f2"
+        ]
+      },
+      "on-field": {
+        "role": "neutral",
+        "displayName": "On Field",
+        "canonical": "#ece8e2",
+        "purpose": "Every text and line on the field; target and hit cells; white keys.",
+        "tonalRamp": [
+          "#272625",
+          "#41403e",
+          "#5b5957",
+          "#747270",
+          "#9b9995",
+          "#bab7b2",
+          "#d9d6d0",
+          "#f4f2ef"
+        ]
+      },
+      "slate": {
+        "role": "neutral",
+        "displayName": "Slate",
+        "canonical": "#7a7f80",
+        "purpose": "Declared for coming screens; unused by built components.",
+        "tonalRamp": [
+          "#252727",
+          "#3e4041",
+          "#575a5b",
+          "#6f7475",
+          "#969a9b",
+          "#b6b8b9",
+          "#d5d7d7",
+          "#f2f2f2"
+        ]
+      },
+      "umber": {
+        "role": "neutral",
+        "displayName": "Umber",
+        "canonical": "#8c6e52",
+        "purpose": "Declared for coming screens (the « why » of a block); unused by built components.",
+        "tonalRamp": [
+          "#2e241b",
+          "#4d3d2d",
+          "#6c553f",
+          "#8b6d51",
+          "#ab9580",
+          "#c4b5a6",
+          "#ddd5cc",
+          "#f4f2ef"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "rgba(35, 33, 31, 0.12)",
+        "purpose": "Thin rules, ink at 12%; declared, unused yet."
+      },
+      "field-light": {
+        "role": "neutral",
+        "displayName": "Field, light stop",
+        "canonical": "#8d908e",
+        "purpose": "Top-left stop of the field gradient.",
+        "tonalRamp": [
+          "#262726",
+          "#3f403f",
+          "#585a59",
+          "#717472",
+          "#979a98",
+          "#b6b8b7",
+          "#d6d7d6",
+          "#f2f2f2"
+        ]
+      },
+      "field-mid": {
+        "role": "neutral",
+        "displayName": "Field, middle stop",
+        "canonical": "#656968",
+        "purpose": "Middle stop of the field gradient.",
+        "tonalRamp": [
+          "#252726",
+          "#3e4140",
+          "#575a5a",
+          "#707473",
+          "#979a99",
+          "#b6b8b8",
+          "#d5d7d6",
+          "#f2f2f2"
+        ]
+      },
+      "field-deep": {
+        "role": "neutral",
+        "displayName": "Field, deep stop",
+        "canonical": "#4a4440",
+        "purpose": "Umber-tinted bottom stop of the field gradient.",
+        "tonalRamp": [
+          "#292623",
+          "#443f3b",
+          "#5d5854",
+          "#76726f",
+          "#9c9896",
+          "#b9b7b6",
+          "#d7d6d5",
+          "#f3f2f2"
+        ]
+      },
+      "cell": {
+        "role": "neutral",
+        "displayName": "Cell",
+        "canonical": "rgba(236, 232, 226, 0.14)",
+        "purpose": "An empty beat of the lane over the field."
+      },
+      "cell-downbeat": {
+        "role": "neutral",
+        "displayName": "Cell Downbeat",
+        "canonical": "rgba(236, 232, 226, 0.26)",
+        "purpose": "The first beat of a bar; a held chord band."
+      }
+    },
+    "gradients": [
+      {
+        "name": "field",
+        "value": "radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%)",
+        "purpose": "The play ground (--np-field)."
+      },
+      {
+        "name": "field-veil",
+        "value": "linear-gradient(rgba(35, 33, 31, 0.4), transparent 160px)",
+        "purpose": "Over the field under the info line, play screen only."
+      }
+    ],
+    "typographyMeta": {
+      "hero": {
+        "displayName": "Hero",
+        "purpose": "The prompted note alone; the only big letter on screen."
+      },
+      "correction": {
+        "displayName": "Correction",
+        "purpose": "The right answer in the prompt’s place after a miss; wraps."
+      },
+      "prompt": {
+        "displayName": "Prompt",
+        "purpose": "The string under the note, the recalled prompt, the countdown, mode 2 prompt."
+      },
+      "cell": {
+        "displayName": "Cell",
+        "purpose": "A name inside a lane cell."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Primary button, learning-aid tile."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "How-to on light pages, mode 2 answer caption."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Info line, pause/quitter, verdict caption, key names, drawn-string letters."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "imprint",
+        "value": "120ms",
+        "purpose": "The just-played cell scales 1.12 → 1. 0ms under prefers-reduced-motion."
+      },
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "The one easing (--np-motion-ease)."
+      },
+      {
+        "name": "scene-in",
+        "value": "240ms",
+        "purpose": "The bottom stage rises 16px and fades in when lane and keyboard swap; removed under reduced motion."
+      }
+    ],
+    "lane": {
+      "cellsVisible": "3 × beats per bar (1 bar past, 2 bars to come)",
+      "cellGap": "6px",
+      "height": "clamp(96px, 8.4vw, 120px)",
+      "pastOpacity": 0.45,
+      "nowLine": "4px amber, overhangs cells by 16px above and below",
+      "verdictMarkPx": 32
+    },
+    "verdictMarks": [
+      {
+        "verdict": "perfect",
+        "shape": "filled dot",
+        "tone": "hit"
+      },
+      {
+        "verdict": "early",
+        "shape": "filled triangle pointing left",
+        "tone": "hit"
+      },
+      {
+        "verdict": "late",
+        "shape": "filled triangle pointing right",
+        "tone": "hit"
+      },
+      {
+        "verdict": "offbeat",
+        "shape": "outlined triangle pointing right",
+        "tone": "partial"
+      },
+      {
+        "verdict": "corrected",
+        "shape": "cross with a small filled dot",
+        "tone": "miss"
+      },
+      {
+        "verdict": "wrong",
+        "shape": "cross",
+        "tone": "miss"
+      }
+    ],
+    "breakpoints": []
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one amber action of a page (Commencer, Reprendre).",
+      "html": "<button class=\"ds-btn-primary\">Commencer</button>",
+      "css": ".ds-btn-primary { background: var(--np-now, #d9a13b); color: var(--np-text, #23211f); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: clamp(24px, 1.5vw + 14px, 32px); padding: 16px 32px; border: 0; border-radius: 2px; cursor: pointer; } .ds-btn-primary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: default; }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "Secondary actions: pause, Joué juste.",
+      "html": "<div class=\"ds-field\"><button class=\"ds-btn-quiet\">pause</button></div>",
+      "css": ".ds-field { background: #656968; color: #ece8e2; padding: 16px; } .ds-btn-quiet { background: none; border: 0; color: inherit; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; letter-spacing: 0.06em; padding: 8px 0; cursor: pointer; } .ds-btn-quiet:hover, .ds-btn-quiet:focus-visible { text-decoration: underline; text-underline-offset: 4px; } .ds-btn-quiet:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }"
+    },
+    {
+      "name": "Info Line",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "Discreet top line of the play screen, with pause and quitter at its end.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-info\"><p class=\"ds-info-parts\"><b>Apprentissage</b> · ♩ = 80</p><span class=\"ds-info-end\"><span>pause</span><span>quitter</span></span></div></div>",
+      "css": ".ds-field { background: #656968; color: #ece8e2; padding: 16px; } .ds-info { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: 18px; font-variant-numeric: tabular-nums; } .ds-info-parts { margin: 0; opacity: 0.9; } .ds-info-parts b { font-weight: 500; } .ds-info-end { display: flex; gap: 24px; letter-spacing: 0.06em; }"
+    },
+    {
+      "name": "Prompt",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The note at hero size, the string under it.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-prompt\"><p class=\"ds-hero\">F</p><p class=\"ds-line\">corde de B</p></div></div>",
+      "css": ".ds-field { background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%); color: #ece8e2; padding: 32px; } .ds-prompt { display: flex; flex-direction: column; align-items: center; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-prompt p { margin: 0; } .ds-hero { font-size: 160px; font-weight: 300; line-height: 1; } .ds-line { font-size: 36px; line-height: 1.1; }"
+    },
+    {
+      "name": "Lane",
+      "kind": "custom",
+      "refersTo": "lane-cell",
+      "description": "One cell per beat, past dimmed, the amber now line, the target named, a missed cell with its cross.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-lane\"><div class=\"ds-c ds-past ds-down\"></div><div class=\"ds-c ds-past\"></div><div class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></div><span class=\"ds-now\"></span><div class=\"ds-c\"></div><div class=\"ds-c ds-target\">F</div><div class=\"ds-c\"></div><div class=\"ds-c ds-down\"></div><div class=\"ds-c\"></div></div></div>",
+      "css": ".ds-field { background: #565a59; padding: 32px 16px; } .ds-lane { display: flex; gap: 6px; height: 96px; } .ds-c { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(236,232,226,0.14); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-down { background: rgba(236,232,226,0.26); } .ds-past { opacity: 0.45; } .ds-target { background: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; } .ds-now { flex: none; width: 4px; margin: -16px -5px; background: #d9a13b; }"
+    },
+    {
+      "name": "Verdict Marks",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Form before tint: hit cells (perfect, early, late), partial (offbeat), miss (wrong).",
+      "html": "<div class=\"ds-row\"><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"5\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><path d=\"M16 5 L6 12 L16 19 Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-hit\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\"><path d=\"M8 5 L18 12 L8 19 Z\" fill=\"currentColor\"/></svg></span><span class=\"ds-c ds-partial\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M8 5 L18 12 L8 19 Z\" stroke-width=\"2\" stroke-linejoin=\"round\"/></svg></span><span class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></span></div>",
+      "css": ".ds-row { display: flex; gap: 6px; background: #565a59; padding: 24px; } .ds-c { width: 72px; height: 96px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 2px solid transparent; } .ds-hit { background: #ece8e2; color: #23211f; } .ds-partial { border-color: #ece8e2; color: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; }"
+    },
+    {
+      "name": "Answer Keyboard",
+      "kind": "custom",
+      "refersTo": "answer-key-white",
+      "description": "Mode 2: one octave, the pressed key in amber.",
+      "html": "<div class=\"ds-kb\"><button class=\"ds-w\" style=\"left:0\">C</button><button class=\"ds-w ds-picked\" style=\"left:33.33%\">D</button><button class=\"ds-w\" style=\"left:66.66%\">E</button><button class=\"ds-b\" style=\"left:23.33%\">C#<br>Db</button><button class=\"ds-b\" style=\"left:56.66%\">D#<br>Eb</button></div>",
+      "css": ".ds-kb { position: relative; height: 180px; } .ds-kb button { position: absolute; top: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding: 8px 0; border: 1px solid #23211f; font: 400 16px/1.2 'Atkinson Hyperlegible Next', system-ui, sans-serif; cursor: pointer; } .ds-w { width: 33.33%; height: 100%; background: #ece8e2; color: #23211f; } .ds-b { width: 20%; height: 60%; background: #23211f; color: #ece8e2; z-index: 1; } .ds-kb button:focus-visible { outline: 3px solid #d9a13b; outline-offset: 2px; z-index: 2; } .ds-kb .ds-picked { background: #d9a13b; color: #23211f; }"
+    },
+    {
+      "name": "Drawn String",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "Learning aid: six strings, the prompted one thick with its letter.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-ds\"><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r ds-t\"><span>B</span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div></div></div>",
+      "css": ".ds-field { background: #656968; color: #ece8e2; padding: 24px; } .ds-ds { width: 240px; font: 16px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-r { display: grid; grid-template-columns: 24px 1fr; align-items: center; height: 12px; } .ds-r span { text-align: center; line-height: 1; } .ds-r i { display: block; height: 1px; background: #ece8e2; opacity: 0.45; } .ds-t { height: 20px; } .ds-t i { height: 4px; opacity: 1; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Près du silence",
+    "overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success makes the centre fall silent and the lane says it; a miss puts the correction in the prompt's place. Light pages (start, pause, end) are mist with ink and one amber button.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
+    "keyCharacteristics": [
+      "Five named roles plus a hazy field; amber reserved for « now » and the main action.",
+      "One face, Atkinson Hyperlegible Next, light (300) at the largest sizes; nothing under 16px.",
+      "States told by form before tint: a verdict is a shape, its cell's tone only confirms it.",
+      "One scale from one session to the next; the bar grid is the armature of the lane.",
+      "Flat: no shadows, no cards; depth only from the field's gradient and a veil."
+    ],
+    "rules": [
+      {
+        "name": "The One Amber Rule",
+        "body": "Amber marks « now » and the single main action of a screen; a second amber element on a screen is a defect.",
+        "section": "colors"
+      },
+      {
+        "name": "The Form Before Tint Rule",
+        "body": "A state is first a shape (verdict marks, outlined vs filled cells); colour only confirms it. Never encode a verdict by hue alone, and never add hues for verdicts (no green/red).",
+        "section": "colors"
+      },
+      {
+        "name": "The One Big Letter Rule",
+        "body": "Only the prompted note is set at hero size; the string beneath stays at prompt size, and in mode 2 the whole prompt drops to prompt size.",
+        "section": "typography"
+      },
+      {
+        "name": "The 16px Floor Rule",
+        "body": "No text under 16px at any width; every role is a clamp whose floor is at least 16px (`scripts/functional-ui.mjs` enforces it).",
+        "section": "typography"
+      },
+      {
+        "name": "The Lane Is The Clock Rule",
+        "body": "What to play and when is shown by the lane alone: one cell per beat, plain, the name in its cell. No legend, no « maintenant », no « dans 2 temps », no bar numbers during play; an empty bar is the breath.",
+        "section": "layout"
+      },
+      {
+        "name": "The No Card Rule",
+        "body": "Nothing floats: no shadows, no cards, no containers with borders around the prompt or the lane.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One World Per Screen Rule",
+        "body": "A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A migrated screen resets what the global pixel rules impose (weight, smoothing, image rendering), as `PlayScreen` does. The old tokens, VT323, the scaffold region variables and the pixel primitives are deleted when the last screen migrates.",
+        "section": "migration"
+      }
+    ],
+    "dos": [
+      "**Do** use the `--np-*` tokens of the « Près du silence » block in `src/lib/ui/tokens.css`, never raw values.",
+      "**Do** keep amber for the now line and the one main action of a screen.",
+      "**Do** tell a state by its shape first (verdict marks, filled vs outlined cells).",
+      "**Do** keep every text at 16px or more, and set the largest text light (300).",
+      "**Do** drop the imprint and the scene rise under `prefers-reduced-motion`.",
+      "**Do** write a tempo as « ♩ = 80 »."
+    ],
+    "donts": [
+      "**Don't** add hues for verdicts, or a second accent beside amber.",
+      "**Don't** add legends, « maintenant », countdown words or bar numbers to the lane during play.",
+      "**Don't** add shadows, cards or bordered containers around the prompt or the lane.",
+      "**Don't** set anything but the prompted note at hero size.",
+      "**Don't** mix this world with the Game Boy tokens on one screen."
+    ]
+  }
+}
