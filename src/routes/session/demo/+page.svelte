@@ -25,8 +25,8 @@
 				controller.view.prompt = {
 					primary: 'F',
 					secondary: 'corde de B',
-					aid: null,
-					diagram: null
+					aid: withAid ? 'case 6' : null,
+					diagram: withAid ? { string: 2, label: 'B' } : null
 				};
 				controller.view.promptBeatIndex = 12;
 				controller.view.targetBeatIndex = 16;
@@ -80,7 +80,7 @@
 				controller.view.lastVerdict = missed
 					? {
 							verdict: 'wrong',
-							offsetMs: null,
+							offsetMs: 30,
 							reactionMs: null,
 							answerLabel: 'F#',
 							correction: 'corde de B, case 6'

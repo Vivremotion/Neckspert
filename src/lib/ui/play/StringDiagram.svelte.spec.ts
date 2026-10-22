@@ -9,17 +9,18 @@ describe('StringDiagram', () => {
 		expect(STRING_DIAGRAM_AID).toBe(true);
 	});
 
-	it('draws six strings and marks the prompted one with its letter', () => {
-		const { container } = render(StringDiagram, {
-			props: { diagram: { string: 6, label: 'E' } }
-		});
+	it('draws six strings and marks the prompted one', () => {
+		const { container } = render(StringDiagram, { props: { diagram: { string: 6 } } });
 		const rows = container.querySelectorAll('.row');
 		expect(rows).toHaveLength(6);
-		const target = container.querySelector('.row.target');
-		expect(target).toBe(rows[5]);
-		expect(target?.querySelector('.letter')?.textContent).toBe('E');
-		const letters = [...container.querySelectorAll('.letter')].map((el) => el.textContent?.trim());
-		expect(letters.filter(Boolean)).toEqual(['E']);
+		expect(container.querySelector('.row.target')).toBe(rows[5]);
+	});
+
+	it('writes no letter beside the strings: the prompt names the string above', () => {
+		const diagram = { string: 2 as const, label: 'B' };
+		const { container } = render(StringDiagram, { props: { diagram } });
+		expect(container.querySelector('.diagram')!.textContent!.trim()).toBe('');
+		expect(container.querySelector('.letter')).toBeNull();
 	});
 
 	it('draws nothing without a diagram', () => {

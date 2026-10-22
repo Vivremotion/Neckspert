@@ -64,6 +64,21 @@ describe('Lane', () => {
 		}
 	});
 
+	it('marks every cell of a band as band, closed at its first and last', () => {
+		const tiles = [
+			tile({ beatIndex: 1, kind: 'target' }),
+			tile({ beatIndex: 2, kind: 'band', bandEdge: 'start' }),
+			tile({ beatIndex: 3, kind: 'band' }),
+			tile({ beatIndex: 4, kind: 'band', bandEdge: 'end' })
+		];
+		const { container } = render(Lane, { props: { ...props, tiles, bandLabel: 'Do' } });
+		const band = [...container.querySelectorAll('[data-kind="band"]')];
+		expect(band).toHaveLength(3);
+		expect(band.map((cell) => cell.getAttribute('data-band-edge'))).toEqual(['start', null, 'end']);
+		// The cell before the band is the target, drawn apart from it.
+		expect(band[0].previousElementSibling!.getAttribute('data-kind')).toBe('target');
+	});
+
 	it('marks a played cell with its verdict and tone', () => {
 		const tiles = [tile({ beatIndex: 0, offset: 0, kind: 'history', verdict: 'late' })];
 		const { container } = render(Lane, { props: { ...props, tiles } });
@@ -85,7 +100,7 @@ describe('Lane', () => {
 		expect(container.querySelector('.caption')!.textContent).toBe('F# joué');
 	});
 
-	it('anchors the caption under the cell just played, counted back from the now line', () => {
+	it('anchors the caption over the cell just played, counted back from the now line', () => {
 		const tiles = [
 			tile({ beatIndex: -3, offset: -2.5, kind: 'history', verdict: 'perfect', justPlayed: true }),
 			tile({ beatIndex: -2, offset: -1.5 }),

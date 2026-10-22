@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import type { PlaySessionController, VerdictView } from '$lib/application/session/contract';
-	import type { SessionKind } from '$lib/domain/types';
+	import type { ResponseVerdict, SessionKind } from '$lib/domain/types';
 	import { laneTiles, laneWindow } from './lane';
 	import { playMessages } from './messages';
 	import Button from '$lib/ui/primitives/Button.svelte';
@@ -13,6 +13,9 @@
 	import StringDiagram from './StringDiagram.svelte';
 	import AnswerPanel from './answer/AnswerPanel.svelte';
 	import { showsAnswerPad } from './answer/showsAnswerPad';
+
+	/** The verdicts of a success, said in the centre in the prompt's place. */
+	const HITS: ReadonlySet<ResponseVerdict> = new Set(['perfect', 'early', 'late', 'offbeat']);
 
 	let {
 		controller,
@@ -73,23 +76,25 @@
 	 */
 	const correctionRecall = $derived(answering ? recall : (view.prompt?.primary ?? null));
 	const caption = $derived(verdict ? captionOf(verdict) : null);
+	/** A hit: its verdict, and its offset when timed, take the prompt's place. */
+	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
 
+	/** Signed, with a true minus: « +42 ms », « −8 ms », « 0 ms ». */
 	function formatOffset(ms: number): string {
-		const sign = ms > 0 ? '+' : '';
-		return `${sign}${ms} ms`;
+		const rounded = Math.round(ms);
+		const sign = rounded > 0 ? '+' : rounded < 0 ? '\u2212' : '';
+		return `${sign}${Math.abs(rounded)} ms`;
 	}
 
-	/** One line under the played cell: the verdict and its offset, or what was played. */
+	/** One line over the played cell: the verdict or what was played, then its offset when timed. */
 	function captionOf(v: VerdictView): string {
-		const name = t.verdict[v.verdict].toLowerCase();
-		if (v.verdict === 'wrong') return v.answerLabel ? t.playedAs(v.answerLabel) : t.nothingHeard;
-		if (
-			(v.verdict === 'early' || v.verdict === 'late' || v.verdict === 'offbeat') &&
-			v.offsetMs !== null
-		) {
-			return `${name} · ${formatOffset(v.offsetMs)}`;
-		}
-		return name;
+		const said =
+			v.verdict === 'wrong'
+				? v.answerLabel
+					? t.playedAs(v.answerLabel)
+					: t.nothingHeard
+				: t.verdict[v.verdict].toLowerCase();
+		return v.offsetMs === null ? said : `${said} · ${formatOffset(v.offsetMs)}`;
 	}
 
 	function leave(event: MouseEvent) {
@@ -206,8 +211,15 @@
 				<Prompt main={correction} recall={correctionRecall} size="correction">
 					{@render contest()}
 				</Prompt>
+			{:else if hit}
+				<!-- A hit: its verdict in the prompt's place, its offset beside it. -->
+				<p class="hit" aria-live="polite">
+					<span class="hit-name">{t.verdict[hit.verdict]}</span>
+					{#if hit.offsetMs !== null}<span class="hit-offset">· {formatOffset(hit.offsetMs)}</span
+						>{/if}
+				</p>
+				{@render contest()}
 			{:else if verdict}
-				<!-- A hit: the centre is quiet, the lane says it. -->
 				{@render contest()}
 			{:else if view.prompt && view.status !== 'count-in' && view.status !== 'idle'}
 				<Prompt
@@ -378,6 +390,25 @@
 		color: var(--np-text);
 		font-size: var(--np-size-title);
 		line-height: 1;
+	}
+
+	/* Under the hero note, at the correction's scale: read from a metre away. */
+	.hit {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: baseline;
+		column-gap: 0.3em;
+		font-size: var(--np-size-correction);
+		font-weight: 300;
+		line-height: 1.05;
+	}
+
+	.hit-offset {
+		font-size: var(--np-size-prompt);
+		font-weight: 400;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
 	}
 
 	.missed {

@@ -72,7 +72,11 @@
 		font-size: var(--np-size-prompt);
 	}
 
+	/* What comes under the prompt (drawn string, aid tile, shape) shares its centre axis. */
 	.below {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		margin-top: var(--np-step-3);
 	}
 </style>

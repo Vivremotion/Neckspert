@@ -12,8 +12,8 @@
 	let {
 		diagram
 	}: {
-		/** The prompted string and the open note it is named after; null hides the drawing. */
-		diagram: { string: StringNumber; label: string } | null;
+		/** The prompted string (the prompt names it in words above); null hides the drawing. */
+		diagram: { string: StringNumber } | null;
 	} = $props();
 
 	/** Tab order: high E on top. */
@@ -24,7 +24,6 @@
 	<div class="diagram" data-string={diagram.string} aria-hidden="true">
 		{#each STRINGS as string (string)}
 			<div class="row" class:target={string === diagram.string}>
-				<span class="letter">{string === diagram.string ? diagram.label : ''}</span>
 				<span class="line"></span>
 			</div>
 		{/each}
@@ -32,39 +31,28 @@
 {/if}
 
 <style>
-	/* Six strings in the tone of the field, the prompted one thicker with its letter: an aid that goes away. */
+	/* Six strings in the tone of the field, the prompted one thicker: an aid that goes away. No letter
+	   beside them, so the drawing sits on the prompt's axis. */
 	.diagram {
 		display: grid;
 		gap: 0;
-		inline-size: min(240px, 100%);
+		inline-size: 240px;
+		max-inline-size: 100%;
 		padding-block: var(--np-step-1);
-		color: var(--np-on-field);
-		font-family: var(--np-font-text);
 	}
 
 	.row {
-		display: grid;
-		grid-template-columns: var(--np-step-3) 1fr;
+		display: flex;
 		align-items: center;
 		block-size: 12px;
 	}
 
-	.letter {
-		font-size: var(--np-size-meta);
-		line-height: 1;
-		text-align: center;
-	}
-
 	.line {
 		display: block;
+		flex: 1;
 		block-size: 1px;
 		background: var(--np-on-field);
 		opacity: 0.45;
-	}
-
-	/* Tall enough for its letter, which never spills over the next strings. */
-	.row.target {
-		block-size: calc(var(--np-size-meta) + 4px);
 	}
 
 	.target .line {

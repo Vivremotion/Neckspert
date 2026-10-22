@@ -467,7 +467,7 @@ describe('PlayScreen', () => {
 		expect(screen.getByRole('link', { name: /quitter/i })).toBeTruthy();
 	});
 
-	it('writes the verdict under the played cell', () => {
+	it('writes the verdict over the played cell', () => {
 		const { container } = render(PlayScreen, {
 			props: { controller: verdictController({ verdict: 'late', offsetMs: 42, answerLabel: 'F' }) }
 		});
@@ -478,7 +478,37 @@ describe('PlayScreen', () => {
 		const { container } = render(PlayScreen, {
 			props: { controller: verdictController({ verdict: 'wrong', answerLabel: 'F#' }) }
 		});
-		expect(playedCell(container)).toContain('F# joué');
+		expect(playedCell(container)).toBe('F# joué');
+	});
+
+	it('writes the offset of a perfect hit, signed with a true minus', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'perfect', offsetMs: -8 }) }
+		});
+		expect(playedCell(container)).toBe('parfait · \u22128 ms');
+	});
+
+	it('writes a zero offset without a sign', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'perfect', offsetMs: 0 }) }
+		});
+		expect(playedCell(container)).toBe('parfait · 0 ms');
+	});
+
+	it('writes the offset of a wrong note when it has one', () => {
+		const { container } = render(PlayScreen, {
+			props: {
+				controller: verdictController({ verdict: 'wrong', answerLabel: 'F#', offsetMs: 30 })
+			}
+		});
+		expect(playedCell(container)).toBe('F# joué · +30 ms');
+	});
+
+	it('writes no offset when there is none, as in mode 2', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'perfect', offsetMs: null }) }
+		});
+		expect(playedCell(container)).toBe('parfait');
 	});
 
 	it('says nothing was heard after a silent miss', () => {
@@ -534,11 +564,39 @@ describe('PlayScreen', () => {
 		expect(centre.querySelector('.main')?.textContent).toBe('F# / Gb');
 	});
 
-	it('keeps the centre quiet after a hit', () => {
+	it('shows the verdict and its offset in place of the prompt after a hit', () => {
 		const { container } = render(PlayScreen, {
 			props: { controller: verdictController({ verdict: 'late', offsetMs: 42, answerLabel: 'F' }) }
 		});
-		expect(container.querySelector('.centre')?.textContent?.trim()).toBe('');
+		const centre = container.querySelector('.centre')!;
+		expect(centre.querySelector('.hit')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+			'En retard · +42 ms'
+		);
+		expect(centre.querySelector('[data-size="hero"]')).toBeNull();
+		expect(centre.textContent).not.toContain('corde de B');
+	});
+
+	it('shows the verdict alone in the centre when the hit has no offset', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'perfect', offsetMs: null }) }
+		});
+		expect(container.querySelector('.centre .hit')?.textContent?.trim()).toBe('Parfait');
+	});
+
+	it('says no verdict word in the centre after a miss', () => {
+		const { container } = render(PlayScreen, {
+			props: {
+				controller: verdictController({
+					verdict: 'wrong',
+					offsetMs: 30,
+					answerLabel: 'F#',
+					correction: 'corde de B, case 6'
+				})
+			}
+		});
+		const centre = container.querySelector('.centre')!;
+		expect(centre.querySelector('.hit')).toBeNull();
+		expect(centre.textContent).not.toMatch(/ms/);
 	});
 
 	it('shows no reaction time', () => {

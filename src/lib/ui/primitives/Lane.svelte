@@ -55,7 +55,7 @@
 		<div class="now" aria-hidden="true"></div>
 	</div>
 	{#if caption && back !== null}
-		<!-- Outside the clip: one line under the cell just played, kept inside the lane's left edge. -->
+		<!-- Outside the clip: one line over the cell just played, kept inside the lane's left edge. -->
 		<p class="caption" style="--caption-back: {back};">{caption}</p>
 	{/if}
 </div>
@@ -152,12 +152,12 @@
 			(var(--lane-before) - 1 - var(--caption-back)) * var(--cell-pitch) + var(--cell-w) / 2
 		);
 		position: absolute;
-		top: 100%;
+		bottom: 100%;
 		left: var(--caption-centre);
-		/* Centred under its cell, unless that would cross the lane's left edge. */
+		/* Centred over its cell, unless that would cross the lane's left edge. */
 		translate: max(-50%, calc(-1 * var(--caption-centre))) 0;
-		/* Below the now line's overhang. */
-		margin: var(--np-step-3) 0 0;
+		/* Above the now line's overhang, clear of the cells. */
+		margin: 0 0 var(--np-step-4);
 		color: var(--np-on-field);
 		font-family: var(--np-font-text);
 		font-size: var(--np-size-meta);
