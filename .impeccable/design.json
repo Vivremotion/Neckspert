@@ -1,6 +1,6 @@
 {
 	"schemaVersion": 2,
-	"generatedAt": "2026-10-22T18:44:59.985Z",
+	"generatedAt": "2026-10-22T23:50:03.479Z",
 	"title": "Design System: Neckspert Play",
 	"extensions": {
 		"colorMeta": {
@@ -8,7 +8,7 @@
 				"role": "primary",
 				"displayName": "Amber Now",
 				"canonical": "#d9a13b",
-				"purpose": "The now line, the primary button, the picked key and its focus ring. Nothing else.",
+				"purpose": "« Now » and the one thing to do: the now line, the primary button, the picked key and its focus ring; off play the active destination's filet, the current block's filet, and the one main action of a screen.",
 				"tonalRamp": [
 					"#32250e",
 					"#533e17",
@@ -24,7 +24,7 @@
 				"role": "neutral",
 				"displayName": "Ground Mist",
 				"canonical": "#ece8e2",
-				"purpose": "Light pages (start, pause, end) under ink.",
+				"purpose": "Light pages over the field and the whole off-play shell; the rail's label, a pressed choice's text, a mastered cell's text.",
 				"tonalRamp": [
 					"#272625",
 					"#41403e",
@@ -40,7 +40,7 @@
 				"role": "neutral",
 				"displayName": "Ink",
 				"canonical": "#23211f",
-				"purpose": "Text on light grounds, primary label, missed cell, black keys.",
+				"purpose": "Text on light grounds, primary label, missed cell, black keys; off play the rail's spine, the rule under a page title, choice and select outlines, neck-cell borders and the mastered fill, alert filets, the meter's fill.",
 				"tonalRamp": [
 					"#282624",
 					"#413f3e",
@@ -72,7 +72,7 @@
 				"role": "neutral",
 				"displayName": "Slate",
 				"canonical": "#7a7f80",
-				"purpose": "Declared for coming screens; unused by built components.",
+				"purpose": "Base slate, for rules and large text only; no migrated component reads it directly yet.",
 				"tonalRamp": [
 					"#252727",
 					"#3e4041",
@@ -88,7 +88,7 @@
 				"role": "neutral",
 				"displayName": "Umber",
 				"canonical": "#8c6e52",
-				"purpose": "Declared for coming screens (the « why » of a block); unused by built components.",
+				"purpose": "Base umber, for rules and large text only; no migrated component reads it directly yet.",
 				"tonalRamp": [
 					"#2e241b",
 					"#4d3d2d",
@@ -100,11 +100,43 @@
 					"#f4f2ef"
 				]
 			},
+			"slate-text": {
+				"role": "neutral",
+				"displayName": "Slate Text",
+				"canonical": "#606566",
+				"purpose": "Slate for text at body and meta sizes (≥ 4.5:1 on the ground): labels and hints.",
+				"tonalRamp": [
+					"#252727",
+					"#3e4142",
+					"#575b5c",
+					"#6f7576",
+					"#969b9c",
+					"#b5b9ba",
+					"#d5d7d7",
+					"#f2f3f3"
+				]
+			},
+			"umber-text": {
+				"role": "neutral",
+				"displayName": "Umber Text",
+				"canonical": "#775a41",
+				"purpose": "Umber for text at body and meta sizes (≥ 4.5:1 on the ground): a block's why, the trend, the summary's detail lines.",
+				"tonalRamp": [
+					"#31251b",
+					"#523e2d",
+					"#73573f",
+					"#947051",
+					"#b7977b",
+					"#cdb6a3",
+					"#e2d5ca",
+					"#f6f2ef"
+				]
+			},
 			"rule": {
 				"role": "neutral",
 				"displayName": "Rule",
 				"canonical": "rgba(35, 33, 31, 0.12)",
-				"purpose": "Thin rules, ink at 12%; declared, unused yet."
+				"purpose": "Ink at 12%: rules between blocks, summary rows and settings headings; an unseen neck cell's border; the meter's track; a chord shape's accent on the ground."
 			},
 			"field-light": {
 				"role": "neutral",
@@ -192,15 +224,27 @@
 			},
 			"correction": {
 				"displayName": "Correction",
-				"purpose": "The right answer in the prompt’s place after a miss (wraps); the verdict's name after a hit."
+				"purpose": "The right answer in the prompt’s place after a miss (wraps); the verdict's name after a hit. Off play, the summary's grade."
 			},
 			"prompt": {
 				"displayName": "Prompt",
-				"purpose": "The string under the note, the recalled prompt, the offset beside a hit's verdict, the countdown, mode 2 prompt."
+				"purpose": "The string under the note, the recalled prompt, the offset beside a hit's verdict, the countdown, mode 2 prompt. Off play, the calibration's instruction."
+			},
+			"page-title": {
+				"displayName": "Page Title",
+				"purpose": "The h1 of every off-play page, light, over a 1px ink rule."
 			},
 			"cell": {
 				"displayName": "Cell",
 				"purpose": "A name inside a lane cell."
+			},
+			"block-title": {
+				"displayName": "Block Title",
+				"purpose": "A block's name in a block list; the subtitle after « · » at 400."
+			},
+			"figure": {
+				"displayName": "Figure",
+				"purpose": "Numbers read at a glance off play: a block's duration, the cold offset, summary values, the gain stepper, the calibration's progress."
 			},
 			"title": {
 				"displayName": "Title",
@@ -208,11 +252,11 @@
 			},
 			"body": {
 				"displayName": "Body",
-				"purpose": "How-to on light pages, mode 2 answer caption."
+				"purpose": "How-to on light pages, mode 2 answer caption; off play the settings, calibration and summary rows; settings headings at 700 over a rule."
 			},
 			"meta": {
 				"displayName": "Meta",
-				"purpose": "Info line, pause/quitter, verdict caption over the played cell, key names."
+				"purpose": "Info line, pause/quitter, verdict caption, key names; off play the rail's links, a block's why, labels, a neck cell's recall times."
 			}
 		},
 		"shadows": [],
@@ -231,6 +275,11 @@
 				"name": "scene-in",
 				"value": "240ms",
 				"purpose": "The bottom stage rises 16px and fades in when lane and keyboard swap; removed under reduced motion."
+			},
+			{
+				"name": "meter",
+				"value": "var(--np-motion-imprint) var(--np-motion-ease)",
+				"purpose": "The calibration meter's fill scales from the left; no transition under reduced motion."
 			}
 		],
 		"lane": {
@@ -275,14 +324,81 @@
 				"tone": "miss"
 			}
 		],
-		"breakpoints": []
+		"breakpoints": [
+			{
+				"name": "shell-bar",
+				"value": "container app < 720px",
+				"purpose": "The rail becomes a top bar; one column; page side padding 24px; a block's subtitle on its own line."
+			},
+			{
+				"name": "short-viewport",
+				"value": "height < 600px",
+				"purpose": "The rail's vertical brand is dropped."
+			}
+		],
+		"shell": {
+			"railWidth": "168px",
+			"pageColumn": "44rem",
+			"pagePadding": "64px 64px 96px (phone: 64px 24px 64px)",
+			"railFreePaths": ["/session", "/dev/identify", "/dev/gesture", "/dev/rhythm", "/diagnostic"],
+			"destinations": {
+				"practice": "Pratiquer",
+				"library": "Bibliothèque",
+				"progress": "Progrès",
+				"settings": "Réglages"
+			}
+		},
+		"neckMapStates": [
+			{
+				"state": "unseen",
+				"form": "1px rule border, pitch alone"
+			},
+			{
+				"state": "learning",
+				"form": "1px ink border"
+			},
+			{
+				"state": "acquired",
+				"form": "2px ink border"
+			},
+			{
+				"state": "mastered",
+				"form": "filled ink, mist text"
+			}
+		],
+		"filets": [
+			{
+				"name": "active-destination",
+				"value": "4px amber, left edge of the spine (phone: underline)"
+			},
+			{
+				"name": "current-block",
+				"value": "box-shadow: inset 4px 0 0 var(--np-now)",
+				"purpose": "A line, not elevation."
+			},
+			{
+				"name": "alert",
+				"value": "border-left: 4px solid var(--np-text); bold",
+				"purpose": "Errors, notices, fatigue."
+			}
+		],
+		"migration": {
+			"oldWorldStill": [
+				"PlayFrame and its views (grid scroll, link lane, rhythm figure, played cycle, PixelWord)",
+				"diagnostic oracle page",
+				"ChordShape internals (themed by --shape-*)",
+				"Term fallbacks (themed by --term-*)",
+				"Pixel* primitives and VerdictSprite (inside PlayFrame only)",
+				"dev-only played cycle bridge on the summary (until plan 3)"
+			]
+		}
 	},
 	"components": [
 		{
 			"name": "Primary Button",
 			"kind": "button",
 			"refersTo": "button-primary",
-			"description": "The one amber action of a page (Commencer, Reprendre).",
+			"description": "The one amber action of a screen (Commencer, Reprendre, Pratiquer on the summary, the calibration step at hand).",
 			"html": "<button class=\"ds-btn-primary\">Commencer</button>",
 			"css": ".ds-btn-primary { background: var(--np-now, #d9a13b); color: var(--np-text, #23211f); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: clamp(24px, 1.5vw + 14px, 32px); padding: 16px 32px; border: 0; border-radius: 2px; cursor: pointer; } .ds-btn-primary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; } .ds-btn-primary:disabled { opacity: 0.6; cursor: default; }"
 		},
@@ -341,32 +457,85 @@
 			"description": "Learning aid: six strings, the prompted one thicker; no letter, on the prompt's centre axis.",
 			"html": "<div class=\"ds-field\"><div class=\"ds-ds\"><i></i><i class=\"ds-t\"></i><i></i><i></i><i></i><i></i></div></div>",
 			"css": ".ds-field { background: #656968; padding: 24px; display: flex; justify-content: center; } .ds-ds { width: 240px; display: grid; } .ds-ds i { display: block; height: 1px; margin-block: 5.5px; background: #ece8e2; opacity: 0.45; } .ds-ds i.ds-t { height: 4px; margin-block: 4px; opacity: 1; }"
+		},
+		{
+			"name": "Choice Button",
+			"kind": "button",
+			"refersTo": "button-choice",
+			"description": "Outlined option in settings groups; filled ink only when pressed; never amber.",
+			"html": "<div class=\"ds-choices\"><button class=\"ds-btn-choice\" aria-pressed=\"true\">FR</button><button class=\"ds-btn-choice\" aria-pressed=\"false\">EN</button></div>",
+			"css": ".ds-choices { display: flex; gap: 16px; } .ds-btn-choice { font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: clamp(18px, 1vw + 12px, 20px); background: transparent; color: var(--np-text, #23211f); border: 1px solid var(--np-text, #23211f); padding: 8px 24px; border-radius: 0; cursor: pointer; } .ds-btn-choice[aria-pressed='true'] { background: var(--np-text, #23211f); color: var(--np-ground, #ece8e2); } .ds-btn-choice:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }"
+		},
+		{
+			"name": "Nav Rail",
+			"kind": "nav",
+			"refersTo": "nav-rail",
+			"description": "Dark ink spine of the off-play shell: lowercase links, the active one by a 4px amber filet, « neckspert » up the spine.",
+			"html": "<nav class=\"ds-rail\"><ul><li><a href=\"#\" aria-current=\"page\">Pratiquer</a></li><li><a href=\"#\">Bibliothèque</a></li><li><a href=\"#\">Progrès</a></li><li><a href=\"#\">Réglages</a></li></ul><span class=\"ds-rail-brand\" aria-hidden=\"true\">neckspert</span></nav>",
+			"css": ".ds-rail { position: relative; box-sizing: border-box; width: 168px; height: 480px; padding: 40px 0 0 24px; background: var(--np-text, #23211f); color: var(--np-ground, #ece8e2); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-rail ul { display: grid; gap: 24px; margin: 0; padding: 0; list-style: none; } .ds-rail li { position: relative; } .ds-rail a { color: inherit; font-size: clamp(16px, 0.9vw + 11px, 18px); letter-spacing: 0.06em; text-transform: lowercase; text-decoration: none; opacity: 0.62; } .ds-rail a:hover, .ds-rail a:focus-visible, .ds-rail a[aria-current='page'] { opacity: 1; } .ds-rail a:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; } .ds-rail a[aria-current='page']::before { content: ''; position: absolute; left: -24px; top: -4px; bottom: -4px; width: 4px; background: var(--np-now, #d9a13b); } .ds-rail-brand { position: absolute; left: 0; bottom: 40px; padding-left: 24px; writing-mode: vertical-rl; transform: rotate(180deg); font-size: clamp(24px, 1.5vw + 14px, 32px); font-weight: 300; letter-spacing: 0.4em; pointer-events: none; }"
+		},
+		{
+			"name": "Page",
+			"kind": "card",
+			"refersTo": "page",
+			"description": "Frame of an off-play screen: the h1 light at prompt size over a 1px ink rule, a 44rem column.",
+			"html": "<section class=\"ds-page\"><header><h1>Réglages</h1></header><p>Contenu de la page.</p></section>",
+			"css": ".ds-page { max-width: 44rem; padding: 64px; background: var(--np-ground, #ece8e2); color: var(--np-text, #23211f); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: clamp(18px, 1vw + 12px, 20px); } .ds-page header { border-bottom: 1px solid var(--np-text, #23211f); padding-bottom: 24px; } .ds-page h1 { margin: 0; font-size: clamp(28px, 2vw + 20px, 48px); font-weight: 300; }"
+		},
+		{
+			"name": "Block List",
+			"kind": "custom",
+			"refersTo": "block-row",
+			"description": "Practice blocks: bold title, subtitle after « · », why in umber text, light duration on the right; the current block by an inset amber filet; whole row clickable.",
+			"html": "<ul class=\"ds-blocks\"><li aria-current=\"true\"><button><b>Apprentissage</b></button><span class=\"ds-dur\">5′</span><p class=\"ds-why\">6 révisions dues</p></li><li><button><b>Rythme</b> · Contretemps</button><span class=\"ds-dur\">5′</span></li></ul>",
+			"css": ".ds-blocks { list-style: none; margin: 0; padding: 0; max-width: 36rem; background: var(--np-ground, #ece8e2); color: var(--np-text, #23211f); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-blocks li { position: relative; display: grid; grid-template-columns: 1fr auto; align-items: baseline; padding: 24px 0 16px; border-bottom: 1px solid var(--np-rule, rgba(35,33,31,0.12)); font-size: clamp(24px, 1.5vw + 14px, 32px); } .ds-blocks li[aria-current='true'] { box-shadow: inset 4px 0 0 var(--np-now, #d9a13b); padding-left: 16px; } .ds-blocks b { font-weight: 700; } .ds-blocks button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; cursor: pointer; } .ds-blocks button::after { content: ''; position: absolute; inset: 0; } .ds-blocks button:hover, .ds-blocks button:focus-visible { text-decoration: underline; text-underline-offset: 4px; } .ds-blocks button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; } .ds-dur { font-weight: 300; font-variant-numeric: tabular-nums; } .ds-why { grid-column: 1 / -1; margin: 8px 0 0; font-size: clamp(16px, 0.9vw + 11px, 18px); color: var(--np-earth-text, #775a41); }"
+		},
+		{
+			"name": "Select",
+			"kind": "input",
+			"refersTo": "select",
+			"description": "Native select restyled: full width, 48px, mist ground, 1px ink border, square.",
+			"html": "<select class=\"ds-select\"><option>Interface audio USB</option><option>Micro intégré</option></select>",
+			"css": ".ds-select { display: block; width: 100%; max-width: 28rem; min-height: 48px; box-sizing: border-box; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; font-size: clamp(18px, 1vw + 12px, 20px); padding: 8px 16px; background: var(--np-ground, #ece8e2); color: var(--np-text, #23211f); border: 1px solid var(--np-text, #23211f); border-radius: 0; } .ds-select:focus-visible { outline: 2px solid var(--np-text, #23211f); outline-offset: 2px; }"
+		},
+		{
+			"name": "Neck Map Cells",
+			"kind": "custom",
+			"refersTo": "neck-cell",
+			"description": "State by form: unseen rule border and pitch alone, learning 1px ink, acquired 2px ink, mastered filled ink.",
+			"html": "<div class=\"ds-neck\"><div class=\"ds-cell\"><span>E</span></div><div class=\"ds-cell ds-learning\"><span>F</span><small>6,00 s</small></div><div class=\"ds-cell ds-acquired\"><span>F#</span><small>1,50 s</small></div><div class=\"ds-cell ds-mastered\"><span>G</span><small>0,64 s</small></div></div>",
+			"css": ".ds-neck { display: flex; gap: 2px; background: var(--np-ground, #ece8e2); font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-cell { box-sizing: border-box; width: 96px; height: 96px; padding: 8px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--np-rule, rgba(35,33,31,0.12)); color: var(--np-text, #23211f); font-variant-numeric: tabular-nums; } .ds-cell span { font-size: clamp(18px, 1vw + 12px, 20px); font-weight: 500; } .ds-cell small { font-size: clamp(16px, 0.9vw + 11px, 18px); } .ds-learning { border-color: var(--np-text, #23211f); } .ds-acquired { border: 2px solid var(--np-text, #23211f); } .ds-mastered { border-color: var(--np-text, #23211f); background: var(--np-text, #23211f); color: var(--np-ground, #ece8e2); }"
 		}
 	],
 	"narrative": {
 		"northStar": "Près du silence",
-		"overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
+		"overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.\n\nOff play, the app is a sleeve's back cover: a dark ink spine on the left with the destinations and the word « neckspert » running up it, and a single mist column of text beside it. Each page is named by a light title over a thin ink rule; content is rows parted by faint rules, never cards. Practice (« Pratiquer »), the summary, the settings, the calibration and the neck map live there.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
 		"keyCharacteristics": [
 			"Five named roles plus a hazy field; amber reserved for « now » and the main action.",
 			"One face, Atkinson Hyperlegible Next, light (300) at the largest sizes; nothing under 16px.",
-			"States told by form before tint: a verdict is a shape, its cell's tone only confirms it.",
+			"States told by form before tint: a verdict is a shape, its cell's tone only confirms it; a neck cell's state is its border weight.",
 			"One scale from one session to the next; the bar grid is the armature of the lane.",
-			"Flat: no shadows, no cards; depth only from the field's gradient and a veil."
+			"Flat: no shadows, no cards; depth only from the field's gradient and a veil in play, from rules and the ink spine off play."
 		],
 		"rules": [
 			{
 				"name": "The One Amber Rule",
-				"body": "Amber marks « now » and the single main action of a screen; a second amber element on a screen is a defect.",
+				"body": "Amber means « now »: the now line, the active destination, the current block, and the single main action of a screen. Only one amber ground per screen (per phase in the calibration); the other ambers are filets that point at it. A screen with nothing to start, like the settings, carries no amber ground at all.",
+				"section": "colors"
+			},
+			{
+				"name": "The Text Variant Rule",
+				"body": "Secondary text at body or meta size uses `umber-text` or `slate-text`, never the base `umber` or `slate`, which are for rules and large text.",
 				"section": "colors"
 			},
 			{
 				"name": "The Form Before Tint Rule",
-				"body": "A state is first a shape (verdict marks, outlined vs filled cells); colour only confirms it. Never encode a verdict by hue alone, and never add hues for verdicts (no green/red).",
+				"body": "A state is first a shape (verdict marks, outlined vs filled cells, a neck cell's border weight); colour only confirms it. Never encode a verdict by hue alone, and never add hues for verdicts (no green/red).",
 				"section": "colors"
 			},
 			{
 				"name": "The One Big Letter Rule",
-				"body": "Only the prompted note is set at hero size; the string beneath stays at prompt size, and in mode 2 the whole prompt drops to prompt size.",
+				"body": "Only the prompted note is set at hero size; the string beneath stays at prompt size, and in mode 2 the whole prompt drops to prompt size. Off play nothing goes above correction size, and only the summary's grade reaches it.",
 				"section": "typography"
 			},
 			{
@@ -380,30 +549,39 @@
 				"section": "layout"
 			},
 			{
+				"name": "The One Page Column Rule",
+				"body": "An off-play page is a single column of rows under its title: no side panels, no grid of tiles, no dashboard.",
+				"section": "layout"
+			},
+			{
 				"name": "The No Card Rule",
-				"body": "Nothing floats: no shadows, no cards, no containers with borders around the prompt or the lane.",
+				"body": "Nothing floats: no shadows, no cards, no bordered containers around the prompt, the lane, a block or a page section. Borders belong to controls (choices, selects) and to data cells (lane cells, neck cells).",
 				"section": "elevation"
 			},
 			{
 				"name": "The One World Per Screen Rule",
-				"body": "A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A migrated screen resets what the global pixel rules impose (weight, smoothing, image rendering), as `PlayScreen` does. The old tokens, VT323, the scaffold region variables and the pixel primitives are deleted when the last screen migrates.",
+				"body": "A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A migrated screen resets what the global pixel rules impose (weight, smoothing, image rendering), as `PlayScreen` and the shell do. A shared component used in both worlds is themed by the screen through its own variables, never by old tokens leaking in; the local bridge on the summary is the one sanctioned exception, scoped and dated. The old tokens, VT323, the scaffold region variables, the bridge and the pixel primitives are deleted when the last screen migrates.",
 				"section": "migration"
 			}
 		],
 		"dos": [
-			"**Do** use the `--np-*` tokens of the « Près du silence » block in `src/lib/ui/tokens.css`, never raw values.",
-			"**Do** keep amber for the now line and the one main action of a screen.",
-			"**Do** tell a state by its shape first (verdict marks, filled vs outlined cells).",
-			"**Do** keep every text at 16px or more, and set the largest text light (300).",
-			"**Do** drop the imprint and the scene rise under `prefers-reduced-motion`.",
-			"**Do** write a tempo as « ♩ = 80 »."
+			"Do use the `--np-*` tokens of the « Près du silence » block in `src/lib/ui/tokens.css`, never raw values.",
+			"Do keep amber for « now »: the now line, the active destination, the current block, and the one main action of a screen.",
+			"Do set secondary text at body or meta size in `--np-earth-text` or `--np-muted-text`; keep `--np-earth` and `--np-muted` for rules and large text.",
+			"Do put every off-play screen in `Page`, inside the shell, and its choices in `Button` with the `choice` variant.",
+			"Do tell a state by its shape first (verdict marks, filled vs outlined cells, a neck cell's border weight).",
+			"Do keep every text at 16px or more, and set the largest text light (300).",
+			"Do drop the imprint, the scene rise and the meter's easing under `prefers-reduced-motion`.",
+			"Do write a tempo as « ♩ = 92 », a latency as « Latence : 12 ms », a duration as « 5′ » with its spoken form, and name destinations « Pratiquer », « Bibliothèque », « Progrès », « Réglages »."
 		],
 		"donts": [
-			"**Don't** add hues for verdicts, or a second accent beside amber.",
-			"**Don't** add legends, « maintenant », countdown words or bar numbers to the lane during play.",
-			"**Don't** add shadows, cards or bordered containers around the prompt or the lane.",
-			"**Don't** set anything but the prompted note at hero size.",
-			"**Don't** mix this world with the Game Boy tokens on one screen."
+			"Don't add hues for verdicts, or a second accent beside amber.",
+			"Don't put two amber grounds on one screen, or amber on a screen with nothing to start.",
+			"Don't add legends, « maintenant », countdown words or bar numbers to the lane during play.",
+			"Don't add shadows, cards or bordered containers around the prompt, the lane, a block or a section.",
+			"Don't set anything but the prompted note at hero size.",
+			"Don't show the rail during play.",
+			"Don't mix this world with the Game Boy tokens on one screen."
 		]
 	}
 }
