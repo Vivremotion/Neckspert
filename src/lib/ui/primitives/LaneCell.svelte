@@ -1,3 +1,8 @@
+<script lang="ts" module>
+	/** The mark never scales with the cell: its glyph stays about 16px, even on a phone lane. */
+	export const MARK_SIZE_PX = 32;
+</script>
+
 <script lang="ts">
 	import type { LaneTile } from '$lib/ui/play/lane';
 	import VerdictMark from './VerdictMark.svelte';
@@ -36,7 +41,7 @@
 	{#if tone !== null && tile.verdict !== null}
 		<!-- The verdict's form under the name, at the bottom of the cell, never in its place. -->
 		<span class="mark" data-with-label={label ? '' : undefined}>
-			<VerdictMark verdict={tile.verdict} size={28} />
+			<VerdictMark verdict={tile.verdict} size={MARK_SIZE_PX} />
 		</span>
 	{/if}
 	{#if caption}
@@ -73,9 +78,9 @@
 		justify-content: center;
 		inline-size: 100%;
 	}
+	/* A fixed size: on a phone the mark may fill the cell's width, never shrink under it. */
 	.mark :global(svg) {
-		inline-size: min(28px, 70%);
-		block-size: auto;
+		flex: none;
 	}
 	.cell:has(.mark[data-with-label]) {
 		padding-block-end: var(--np-step-3);
