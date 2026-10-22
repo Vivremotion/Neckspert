@@ -98,3 +98,26 @@ export function laneTiles(input: {
 	}
 	return tiles;
 }
+
+/**
+ * How many cells the cell just played sits left of the now line (0: right before it), counted
+ * among the past tiles; null when it is no longer on the lane. The caption under it is anchored
+ * there, outside the lane's clip, and kept inside the lane's left edge.
+ */
+export function justPlayedBack(tiles: readonly LaneTile[]): number | null {
+	const past = tiles.filter((tile) => tile.offset <= 0);
+	const index = past.findIndex((tile) => tile.justPlayed);
+	return index < 0 ? null : past.length - 1 - index;
+}
+
+/**
+ * The band's visible cells, as positions on the lane (index of its first visible tile, from the
+ * lane's left edge, and how many follow): its name runs across them from its left edge.
+ */
+export function bandSpan(tiles: readonly LaneTile[]): { start: number; cells: number } | null {
+	const start = tiles.findIndex((tile) => tile.kind === 'band');
+	if (start < 0) return null;
+	let cells = 0;
+	while (tiles[start + cells]?.kind === 'band') cells++;
+	return { start, cells };
+}

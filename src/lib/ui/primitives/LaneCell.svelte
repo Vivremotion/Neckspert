@@ -11,12 +11,10 @@
 	let {
 		tile,
 		label = null,
-		caption = null,
 		imprint = false
 	}: {
 		tile: LaneTile;
 		label?: string | null;
-		caption?: string | null;
 		imprint?: boolean;
 	} = $props();
 
@@ -43,9 +41,6 @@
 		<span class="mark" data-with-label={label ? '' : undefined}>
 			<VerdictMark verdict={tile.verdict} size={MARK_SIZE_PX} />
 		</span>
-	{/if}
-	{#if caption}
-		<span class="caption">{caption}</span>
 	{/if}
 </div>
 
@@ -116,17 +111,6 @@
 	}
 	.cell[data-imprint] {
 		animation: imprint var(--np-motion-imprint) var(--np-motion-ease);
-	}
-	.caption {
-		position: absolute;
-		top: 100%;
-		left: 50%;
-		transform: translateX(-50%);
-		/* Below the now line's overhang. */
-		margin-top: var(--np-step-3);
-		font-size: var(--np-size-meta);
-		color: var(--np-on-field);
-		white-space: nowrap;
 	}
 	@keyframes imprint {
 		from {

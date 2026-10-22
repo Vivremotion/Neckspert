@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laneTiles, laneWindow, type LaneTile } from './lane';
+import { bandSpan, justPlayedBack, laneTiles, laneWindow, type LaneTile } from './lane';
 
 const base = {
 	beatsPerBar: 4 as const,
@@ -141,5 +141,53 @@ describe('laneWindow', () => {
 			...w
 		});
 		expect(tiles[tiles.length - 1].beatIndex).toBeGreaterThanOrEqual(35);
+	});
+});
+
+describe('justPlayedBack', () => {
+	const tiles = (nowBeat: number, played: number) =>
+		laneTiles({
+			...base,
+			nowBeat,
+			history: [{ beatIndex: played, verdict: 'late' as const }]
+		});
+
+	it('puts the cell just played right before the now line on its beat', () => {
+		expect(justPlayedBack(tiles(14, 14))).toBe(0);
+	});
+
+	it('counts the cells it slid back through the breathing bar, to the leftmost', () => {
+		expect(justPlayedBack(tiles(15.5, 14))).toBe(1);
+		expect(justPlayedBack(tiles(17, 14))).toBe(3);
+	});
+
+	it('gives nothing once the cell has left the lane', () => {
+		expect(justPlayedBack(tiles(18, 14))).toBeNull();
+	});
+});
+
+describe('bandSpan', () => {
+	const tiles = (nowBeat: number) =>
+		laneTiles({
+			...base,
+			nowBeat,
+			history: [],
+			followUp: { fromBeat: 17, untilBeat: 20 },
+			beatsAfter: 12
+		});
+
+	it('starts at the first band cell, after the target, and spans the band', () => {
+		const lane = tiles(12);
+		const span = bandSpan(lane)!;
+		expect(lane[span.start - 1].kind).toBe('target');
+		expect(span).toEqual({ start: 8, cells: 3 });
+	});
+
+	it('keeps to the cells still on the lane once the band slides out on the left', () => {
+		expect(bandSpan(tiles(21.5))).toEqual({ start: 0, cells: 2 });
+	});
+
+	it('gives nothing without a band', () => {
+		expect(bandSpan(laneTiles({ ...base, nowBeat: 12 }))).toBeNull();
 	});
 });

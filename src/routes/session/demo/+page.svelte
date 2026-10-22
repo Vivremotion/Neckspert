@@ -11,6 +11,9 @@
 	const shot = $derived(page.url.searchParams.get('shot'));
 	const withAid = $derived(page.url.searchParams.get('aid') === '1');
 	const missed = $derived(page.url.searchParams.get('miss') === '1');
+	/** Beats since the target: the played cell slides back through the breathing bar. */
+	const late = $derived(Number(page.url.searchParams.get('late') ?? 0) || 0);
+	const beat = $derived(page.url.searchParams.get('beat'));
 
 	onMount(() => {
 		let raf = 0;
@@ -34,8 +37,31 @@
 				ready = true;
 				return;
 			}
+			if (shot === 'triad') {
+				// A triad anchor with a long chord name: the root on its target, the chord on the band.
+				clock.setBeat(beat === null ? 12 : Number(beat));
+				controller.view.status = 'awaiting';
+				controller.view.prompt = {
+					primary: 'F#dim',
+					secondary: 'fondamentale sur sol',
+					detail: 'sol‑si‑mi',
+					target: 'F#',
+					band: 'F#dim',
+					aid: null,
+					diagram: null
+				};
+				controller.view.promptBeatIndex = 8;
+				controller.view.targetBeatIndex = 16;
+				controller.view.followUp = { fromBeat: 17, untilBeat: 20 };
+				controller.view.leadBeats = 8;
+				controller.view.lastVerdict = null;
+				controller.view.preview = null;
+				controller.view.history = [{ beatIndex: 4, verdict: 'perfect' }];
+				ready = true;
+				return;
+			}
 			if (shot === '1') {
-				clock.setBeat(14);
+				clock.setBeat(14 + late);
 				controller.view.status = 'verdict';
 				controller.view.prompt = {
 					primary: 'F',
@@ -44,7 +70,8 @@
 					diagram: withAid ? { string: 2, label: 'B' } : null
 				};
 				controller.view.promptBeatIndex = 8;
-				controller.view.targetBeatIndex = 16;
+				// Through the breathing bar, the next target is not announced yet.
+				controller.view.targetBeatIndex = late > 0 ? null : 16;
 				controller.view.leadBeats = 8;
 				controller.view.history = [
 					{ beatIndex: 6, verdict: 'perfect' },

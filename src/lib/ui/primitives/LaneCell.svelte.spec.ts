@@ -40,12 +40,11 @@ describe('LaneCell', () => {
 
 	it('marks the cell just played so the past fade spares it', () => {
 		const { container } = render(LaneCell, {
-			props: { tile: played({ verdict: 'perfect' }), caption: 'parfait' }
+			props: { tile: played({ verdict: 'perfect' }) }
 		});
 		const cell = container.querySelector('.cell')!;
 		expect(cell.hasAttribute('data-past')).toBe(true);
 		expect(cell.hasAttribute('data-just-played')).toBe(true);
-		expect(cell.querySelector('.caption')!.textContent).toBe('parfait');
 	});
 
 	it('draws the mark at a fixed size that a narrow cell does not shrink', () => {
