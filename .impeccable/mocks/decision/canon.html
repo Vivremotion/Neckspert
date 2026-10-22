@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le standard de la catégorie</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #121418; --card: #1E222A; --card2: #262B35; --green: #3DDC84; --pink: #FF4D6D;
+    --white: #FFFFFF; --muted: #8B93A3; --amber: #FFB547;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--bg); color: var(--white); font-family: "Manrope", system-ui, sans-serif; display: grid; grid-template-columns: 96px 768px 576px; }
+  .rail { background: #0C0E11; display: flex; flex-direction: column; align-items: center; padding: 28px 0; gap: 14px; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: var(--green); margin-bottom: 18px; }
+  .item { width: 72px; padding: 10px 0; border-radius: 14px; text-align: center; font-size: 12px; font-weight: 700; color: var(--muted); }
+  .item i { display: block; width: 26px; height: 26px; margin: 0 auto 6px; border-radius: 8px; border: 2.5px solid currentColor; }
+  .item.on { background: var(--card); color: var(--green); }
+  .plan { padding: 36px 36px 0 40px; display: flex; flex-direction: column; gap: 20px; }
+  .top { display: flex; align-items: center; justify-content: space-between; }
+  .eyebrow { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+  h1 { font-size: 52px; font-weight: 800; letter-spacing: -1px; line-height: 1.05; margin-top: 6px; }
+  .ring { width: 116px; height: 116px; border-radius: 50%; background: conic-gradient(var(--green) 0 100%); display: grid; place-items: center; position: relative; }
+  .ring::after { content: ""; position: absolute; inset: 12px; border-radius: 50%; background: var(--bg); }
+  .ring b { position: relative; z-index: 1; font-size: 30px; font-weight: 800; text-align: center; line-height: 1; }
+  .ring b small { display: block; font-size: 13px; color: var(--muted); font-weight: 700; }
+  .go { display: flex; align-items: center; justify-content: space-between; background: var(--green); color: #07140C; border-radius: 20px; padding: 22px 30px; font-size: 28px; font-weight: 800; }
+  .go span { font-size: 18px; font-weight: 700; opacity: .75; }
+  .list { display: flex; flex-direction: column; gap: 12px; }
+  .row { background: var(--card); border-radius: 18px; padding: 16px 20px; display: grid; grid-template-columns: 60px 1fr auto; gap: 18px; align-items: center; }
+  .mini { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; position: relative; }
+  .mini::after { content: ""; position: absolute; inset: 6px; border-radius: 50%; background: var(--card); }
+  .mini em { position: relative; z-index: 1; font-style: normal; font-size: 13px; font-weight: 800; }
+  .r1 { background: conic-gradient(#5AA9FF 0 40%, #2A303B 0); }
+  .r2 { background: conic-gradient(var(--amber) 0 60%, #2A303B 0); }
+  .r3 { background: conic-gradient(#B98CFF 0 33%, #2A303B 0); }
+  .r4 { background: conic-gradient(var(--green) 0 20%, #2A303B 0); }
+  .row h2 { font-size: 22px; font-weight: 800; }
+  .row p { font-size: 15px; color: var(--muted); margin-top: 4px; }
+  .row .t { font-size: 18px; font-weight: 700; color: var(--muted); background: var(--card2); border-radius: 10px; padding: 8px 12px; }
+  .today { font-size: 16px; color: var(--muted); font-weight: 600; display: flex; gap: 10px; align-items: center; }
+  .today b { color: var(--white); }
+  /* play moment */
+  .play { background: #0A0B0E; padding: 36px 36px 32px; display: flex; flex-direction: column; gap: 18px; }
+  .label { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; display: flex; justify-content: space-between; }
+  .stage { flex: 1; border-radius: 28px; background: radial-gradient(circle at 50% 40%, #1C2230 0, #0A0B0E 70%); display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px solid #1E222A; }
+  .note { font-size: 290px; font-weight: 800; line-height: .85; letter-spacing: -8px; }
+  .string { font-size: 42px; font-weight: 700; color: var(--muted); margin-top: 16px; }
+  .string b { color: var(--white); }
+  .beats { display: flex; gap: 12px; margin-top: 44px; }
+  .bt { width: 52px; height: 10px; border-radius: 6px; background: #2A303B; }
+  .bt.done { background: #4A5263; }
+  .bt.now { background: var(--white); height: 14px; }
+  .bt.target { background: var(--green); width: 80px; }
+  .pos { font-size: 18px; color: var(--muted); font-weight: 700; margin-top: 14px; }
+  .verdict { background: var(--card); border-radius: 20px; padding: 18px 22px; display: flex; align-items: center; gap: 18px; border-left: 6px solid var(--amber); }
+  .arrow { width: 54px; height: 54px; border-radius: 50%; background: rgba(255,181,71,.15); display: grid; place-items: center; }
+  .arrow i { width: 0; height: 0; border-top: 13px solid transparent; border-bottom: 13px solid transparent; border-left: 20px solid var(--amber); margin-left: 5px; }
+  .vtext { font-size: 30px; font-weight: 800; color: var(--amber); }
+  .vtext small { display: block; font-size: 15px; color: var(--muted); font-weight: 600; }
+</style>
+</head>
+<body>
+  <nav class="rail">
+    <div class="logo"></div>
+    <div class="item on"><i></i>Pratiquer</div>
+    <div class="item"><i></i>Bibliothèque</div>
+    <div class="item"><i></i>Progrès</div>
+    <div class="item"><i></i>Réglages</div>
+  </nav>
+  <section class="plan">
+    <div class="top">
+      <div>
+        <div class="eyebrow">Neckspert Play</div>
+        <h1>Prochaine séance</h1>
+      </div>
+      <div class="ring"><b>14<small>min</small></b></div>
+    </div>
+    <div class="go">Commencer <span>4 blocs · ~14 min</span></div>
+    <div class="list">
+      <div class="row"><div class="mini r1"><em>3′</em></div><div><h2>Révisions à froid · 7 positions dues</h2><p>Dues depuis mardi, seul le froid compte</p></div><span class="t">~3 min</span></div>
+      <div class="row"><div class="mini r2"><em>4′</em></div><div><h2>Rythme · Mesures silencieuses, niveau 3</h2><p>1 mesure de clic, 3 muettes · ♩ = 100 bpm · 3 cycles réussis d'affilée hier</p></div><span class="t">~4 min</span></div>
+      <div class="row"><div class="mini r3"><em>4′</em></div><div><h2>Triades · Ancrer D, A, F#m sur G-B-E</h2><p>La zone s'ouvre quand les trois tiennent à froid</p></div><span class="t">~4 min</span></div>
+      <div class="row"><div class="mini r4"><em>3′</em></div><div><h2>Transfert · « I Only Have Eyes for You »</h2><p>Relier sans aide, pour prouver hors de l'aide</p></div><span class="t">~3 min</span></div>
+    </div>
+    <div class="today">Fait aujourd'hui <b>Rythme · contretemps, ce matin</b></div>
+  </section>
+  <aside class="play">
+    <div class="label"><span>En séance</span><span>♩ = 100</span></div>
+    <div class="stage">
+      <div class="note">F</div>
+      <div class="string">corde de <b>B</b></div>
+      <div class="beats">
+        <span class="bt done"></span><span class="bt done"></span><span class="bt now"></span><span class="bt"></span><span class="bt target"></span>
+      </div>
+      <div class="pos">Mesure 2 de 2 · temps 3 de 4</div>
+    </div>
+    <div class="verdict">
+      <div class="arrow"><i></i></div>
+      <div class="vtext">En retard · +42 ms<small>Note précédente : G, corde de E grave</small></div>
+    </div>
+  </aside>
+</body>
+</html>

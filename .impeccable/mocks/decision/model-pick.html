@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La setlist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --moquette: #2A2724; --gaffer: #EDE8DE; --marqueur: #141210; --tungstene: #E8A54B; --spike: #5E8F5B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--moquette); color: var(--gaffer); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+    display: grid; grid-template-columns: 864px 576px; }
+  .left { padding: 36px 64px 44px; display: grid; grid-template-rows: auto auto 1fr auto; position: relative;
+    background: radial-gradient(70% 55% at 18% 0%, rgba(232, 165, 75, .16), transparent 70%); }
+  nav { display: flex; gap: 32px; align-items: center; font-size: 17px; font-weight: 700; }
+  nav .marque { margin-right: auto; font-family: "Barlow Condensed", sans-serif; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; }
+  nav a { color: rgba(237, 232, 222, .62); text-decoration: none; }
+  nav a.on { color: var(--gaffer); box-shadow: inset 0 -3px 0 var(--tungstene); padding-bottom: 6px; }
+  header { margin-top: 52px; display: flex; align-items: baseline; gap: 28px; }
+  h1 { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 64px; text-transform: uppercase; letter-spacing: .01em; }
+  .duree { font-size: 26px; font-weight: 700; color: var(--tungstene); }
+  ol { list-style: none; margin-top: 28px; display: grid; gap: 18px; align-content: start; }
+  li { position: relative; background: var(--gaffer); color: var(--marqueur); padding: 12px 24px 12px 72px;
+    display: grid; grid-template-columns: 1fr auto; align-items: baseline; width: 92%; }
+  li:nth-child(1) { transform: rotate(-.5deg); }
+  li:nth-child(2) { transform: rotate(.4deg); width: 96%; }
+  li:nth-child(3) { transform: rotate(-.3deg); width: 90%; }
+  li:nth-child(4) { transform: rotate(.6deg); width: 94%; }
+  li::before { content: attr(data-n); position: absolute; left: 22px; top: 8px; font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 40px; }
+  .titre { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 38px; text-transform: uppercase; line-height: 1.05; }
+  .min { font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 32px; }
+  .pourquoi { grid-column: 1 / -1; font-size: 16px; font-weight: 700; color: #4a443d; margin-top: 2px; }
+  footer { display: flex; align-items: center; justify-content: space-between; margin-top: 20px; }
+  .fait { font-size: 17px; font-weight: 700; color: rgba(237, 232, 222, .7); }
+  .fait s { color: var(--gaffer); text-decoration-thickness: 3px; text-decoration-color: var(--tungstene); }
+  button { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 34px; text-transform: uppercase; letter-spacing: .04em;
+    background: var(--tungstene); color: var(--marqueur); border: 0; padding: 16px 52px; cursor: pointer; }
+  /* Instant de jeu : la bande blanche au centre du champ, repères de scène au sol */
+  .right { position: relative; background: #1f1c1a; border-left: 2px solid #3a3530; overflow: hidden; }
+  .right::before { content: ""; position: absolute; inset: 0; background: radial-gradient(60% 45% at 50% 30%, rgba(232, 165, 75, .22), transparent 75%); }
+  .tag { position: absolute; top: 40px; left: 44px; font-size: 16px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: rgba(237, 232, 222, .6); }
+  .bande { position: absolute; top: 170px; left: 56px; right: 56px; background: var(--gaffer); color: var(--marqueur); transform: rotate(-1deg);
+    text-align: center; padding: 6px 0 22px; }
+  .note { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 260px; line-height: .95; }
+  .corde { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 46px; text-transform: uppercase; }
+  .sol { position: absolute; left: 44px; right: 44px; bottom: 150px; display: grid; grid-template-columns: repeat(8, 1fr); align-items: center; justify-items: center; }
+  .sol i { width: 30px; height: 6px; background: rgba(237, 232, 222, .5); }
+  .sol i.un { width: 46px; height: 10px; background: var(--gaffer); }
+  .sol i.ici { width: 54px; height: 54px; background: var(--spike); clip-path: polygon(40% 0, 60% 0, 60% 40%, 100% 40%, 100% 60%, 60% 60%, 60% 100%, 40% 100%, 40% 60%, 0 60%, 0 40%, 40% 40%); }
+  .pos { position: absolute; left: 44px; right: 44px; bottom: 104px; display: flex; justify-content: space-between; font-size: 18px; font-weight: 700; color: rgba(237, 232, 222, .75); }
+  .verdict { position: absolute; left: 44px; right: 44px; bottom: 34px; display: flex; align-items: center; gap: 20px; }
+  .fleche { width: 0; height: 0; border-top: 18px solid transparent; border-bottom: 18px solid transparent; border-left: 30px solid var(--tungstene); }
+  .verdict p { font-family: "Barlow Condensed", sans-serif; font-weight: 800; font-size: 40px; text-transform: uppercase; }
+  .verdict p span { color: var(--tungstene); }
+</style>
+</head>
+<body>
+  <section class="left">
+    <nav>
+      <span class="marque">Neckspert</span>
+      <a class="on" href="#">Pratiquer</a>
+      <a href="#">Bibliothèque</a>
+      <a href="#">Progrès</a>
+      <a href="#">Réglages</a>
+    </nav>
+    <header>
+      <h1>Prochaine séance</h1>
+      <span class="duree">≈ 14 min</span>
+    </header>
+    <ol>
+      <li data-n="1"><span class="titre">Révisions à froid · 7 positions</span><span class="min">3′</span>
+        <span class="pourquoi">Dues depuis mardi. Seul le froid compte.</span></li>
+      <li data-n="2"><span class="titre">Mesures silencieuses · niv. 3</span><span class="min">4′</span>
+        <span class="pourquoi">1 mesure de clic, 3 muettes, ♩ = 100 bpm. 3 cycles réussis d’affilée au niveau 2 hier.</span></li>
+      <li data-n="3"><span class="titre">Ancrer D, A, F#m · G-B-E</span><span class="min">4′</span>
+        <span class="pourquoi">La zone s’ouvre quand les trois tiennent à froid.</span></li>
+      <li data-n="4"><span class="titre">Relier · I Only Have Eyes for You</span><span class="min">3′</span>
+        <span class="pourquoi">Sans aide : prouver hors de l’aide.</span></li>
+    </ol>
+    <footer>
+      <p class="fait">Fait aujourd’hui : <s>Rythme · contretemps</s>, ce matin</p>
+      <button>Commencer</button>
+    </footer>
+  </section>
+  <section class="right" aria-label="En séance">
+    <p class="tag">En séance</p>
+    <div class="bande">
+      <div class="note">F</div>
+      <div class="corde">Corde de B</div>
+    </div>
+    <div class="sol"><i class="un"></i><i></i><i></i><i></i><i class="un"></i><i></i><i class="ici"></i><i></i></div>
+    <div class="pos"><span>Mesure 2 / 2</span><span>Temps 3 / 4</span></div>
+    <div class="verdict">
+      <span class="fleche" aria-hidden="true"></span>
+      <p>En retard <span>+42 ms</span></p>
+    </div>
+  </section>
+</body>
+</html>

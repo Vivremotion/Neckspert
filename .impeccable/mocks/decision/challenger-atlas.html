@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>L'atlas céleste</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;800&family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Spectral:ital,wght@1,400&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+:root{--night:#0D1B2A;--deep:#091421;--chalk:#F4F1E8;--amber:#E2683C;--slate:#7A8BA6;--grid:rgba(122,139,166,.22)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden;background:var(--night);color:var(--chalk);font-family:'Atkinson Hyperlegible Next',sans-serif}
+body{background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:120px 120px}
+.app{display:grid;grid-template-columns:200px 520px 1fr;height:900px}
+.mono{font-family:'Atkinson Hyperlegible Mono',monospace}
+.it{font-family:Spectral,serif;font-style:italic}
+nav{background:var(--deep);border-right:1px solid var(--slate);padding:26px 0;display:flex;flex-direction:column}
+.brand{padding:0 22px 26px;font:800 22px 'Atkinson Hyperlegible Next'}
+.brand span{display:block;font:400 14px Spectral;font-style:italic;color:var(--slate);margin-top:4px}
+.plate{display:grid;grid-template-columns:44px 1fr;align-items:center;padding:14px 22px;border-top:1px solid var(--grid);font:600 22px 'Atkinson Hyperlegible Next'}
+.plate b{font:600 15px 'Atkinson Hyperlegible Mono';color:var(--slate)}
+.plate.on{color:var(--night);background:var(--chalk)}
+.plate.on b{color:var(--amber)}
+.plate.off{opacity:.35}
+nav .foot{margin-top:auto;padding:0 22px;font:400 13px 'Atkinson Hyperlegible Mono';color:var(--slate);line-height:1.6}
+.chart{padding:30px 32px;border-right:1px solid var(--slate);background:rgba(9,20,33,.55);display:flex;flex-direction:column}
+.chart h1{font:800 40px 'Atkinson Hyperlegible Next'}
+.meta{display:flex;justify-content:space-between;align-items:center;margin:8px 0 22px}
+.meta span{font:400 18px 'Atkinson Hyperlegible Mono';color:var(--slate)}
+.go{font:800 24px 'Atkinson Hyperlegible Next';background:var(--amber);color:var(--night);border:0;padding:12px 28px;border-radius:3px}
+.objs{position:relative;padding-left:56px}
+.objs::before{content:"";position:absolute;left:21px;top:22px;bottom:70px;width:1px;background:var(--chalk);opacity:.45}
+.obj{position:relative;padding:12px 0 16px;border-bottom:1px solid var(--grid)}
+.dot{position:absolute;left:-35px;top:18px;border-radius:50%;background:var(--chalk);transform:translateX(-50%)}
+.obj.now .dot{box-shadow:0 0 0 5px var(--night),0 0 0 7px var(--amber)}
+.obj .row{display:flex;justify-content:space-between;align-items:baseline}
+.name{font:600 23px 'Atkinson Hyperlegible Next'}
+.dur{font:600 20px 'Atkinson Hyperlegible Mono';color:var(--amber)}
+.kind{font:400 13px 'Atkinson Hyperlegible Mono';letter-spacing:.14em;color:var(--slate);text-transform:uppercase}
+.why{font:400 16px Spectral;font-style:italic;color:#C9C6BD;margin-top:3px}
+.done{margin-top:auto;display:flex;align-items:center;gap:14px;color:var(--slate);font:400 16px Spectral;font-style:italic}
+.done i{width:8px;height:8px;border-radius:50%;border:1px solid var(--slate)}
+.play{padding:30px 34px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;font:400 15px 'Atkinson Hyperlegible Mono';color:var(--slate);letter-spacing:.06em}
+.top .pause{border:1px solid var(--slate);padding:4px 10px;color:var(--chalk)}
+.target{display:grid;grid-template-columns:auto 1fr;gap:34px;align-items:end;margin-top:44px}
+.big{font:800 300px/0.8 'Atkinson Hyperlegible Next';color:var(--chalk)}
+.str{font:600 54px 'Atkinson Hyperlegible Next'}
+.eta{font:600 32px 'Atkinson Hyperlegible Mono';color:var(--amber);margin-top:16px}
+.eta small{display:block;font:400 18px 'Atkinson Hyperlegible Mono';color:var(--slate);margin-top:6px}
+.band{margin-top:80px;border:1px solid var(--slate);background:rgba(9,20,33,.7);padding:16px 18px 14px}
+.band .k{display:flex;justify-content:space-between;font:400 13px 'Atkinson Hyperlegible Mono';letter-spacing:.14em;color:var(--slate)}
+.lane{position:relative;width:640px;height:200px;margin-top:8px}
+.axis{position:absolute;left:12px;width:616px;top:120px;height:1px;background:var(--chalk);opacity:.6}
+.bar{position:absolute;top:104px;height:32px;width:1px;background:var(--chalk)}
+.bar i{position:absolute;top:36px;left:-5px;font:600 18px 'Atkinson Hyperlegible Mono';font-style:normal;color:var(--slate)}
+.tick{position:absolute;top:114px;height:12px;width:1px;background:var(--slate)}
+.dusk{position:absolute;top:40px;height:96px;background:linear-gradient(180deg,rgba(122,139,166,0),rgba(122,139,166,.16))}
+.dusk span{position:absolute;top:4px;left:8px;font:400 15px Spectral;font-style:italic;color:var(--slate)}
+.meridian{position:absolute;top:0;bottom:22px;width:2px;background:var(--amber)}
+.meridian span{position:absolute;top:0;left:8px;font:600 12px 'Atkinson Hyperlegible Mono';letter-spacing:.16em;color:var(--amber)}
+.star{position:absolute;border-radius:50%;background:var(--chalk);transform:translate(-50%,-50%)}
+.lbl{position:absolute;transform:translateX(-50%);white-space:nowrap}
+.lbl.big2{font:800 26px 'Atkinson Hyperlegible Next'}
+.lbl.dim{font:400 17px Spectral;font-style:italic;color:var(--slate);text-decoration:line-through}
+.ring{position:absolute;border-radius:50%;transform:translate(-50%,-50%)}
+.verdict{position:absolute;display:flex;gap:8px;align-items:center;font:600 16px 'Atkinson Hyperlegible Mono';color:var(--amber)}
+.tri{width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:11px solid var(--amber)}
+.legend{display:flex;gap:24px;margin-top:6px;font:400 14px Spectral;font-style:italic;color:var(--slate)}
+.legend b{font:400 18px 'Noto Music';font-style:normal;color:var(--chalk);margin-right:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <div class="brand">Neckspert Play<span>atlas du guitariste</span></div>
+    <div class="plate on"><b>I</b>Pratiquer</div>
+    <div class="plate"><b>II</b>Bibliothèque</div>
+    <div class="plate"><b>III</b>Progrès</div>
+    <div class="plate"><b>IV</b>Réglages</div>
+    <div class="plate off"><b>V</b>Atelier</div>
+    <div class="foot">ESPACE · pause<br>E · écouter</div>
+  </nav>
+
+  <section class="chart">
+    <h1>Prochaine séance</h1>
+    <div class="meta"><span>≈ 14 min · 4 objets</span><button class="go">Commencer</button></div>
+    <div class="objs">
+      <div class="obj now"><div class="dot" style="width:22px;height:22px"></div><div class="kind">I · manche</div><div class="row"><span class="name">Révisions à froid · 7 positions</span><span class="dur">03′</span></div><div class="why">Dues depuis mardi : seul le froid compte.</div></div>
+      <div class="obj"><div class="dot" style="width:18px;height:18px"></div><div class="kind">II · rythme · ♩ = 100</div><div class="row"><span class="name">Mesures silencieuses · niveau 3</span><span class="dur">04′</span></div><div class="why">1 mesure de clic, 3 muettes ; 3 cycles réussis d'affilée hier.</div></div>
+      <div class="obj"><div class="dot" style="width:14px;height:14px"></div><div class="kind">III · triades</div><div class="row"><span class="name">Ancrer D, A, F#m sur G-B-E</span><span class="dur">04′</span></div><div class="why">La zone s'ouvre quand les trois tiennent à froid.</div></div>
+      <div class="obj"><div class="dot" style="width:10px;height:10px"></div><div class="kind">IV · transfert</div><div class="row"><span class="name">Relier · I Only Have Eyes for You</span><span class="dur">03′</span></div><div class="why">Sans aide : prouver hors de l'aide.</div></div>
+    </div>
+    <div class="done"><i></i>Fait aujourd'hui : rythme, contretemps, ce matin</div>
+  </section>
+
+  <section class="play">
+    <div class="top"><span>EN SÉANCE · I / IV · RÉVISIONS À FROID · 3 / 7</span><span class="pause">Pause · espace</span></div>
+    <div class="target">
+      <div class="big">F</div>
+      <div><div class="str">corde de B</div><div class="eta">dans 2 temps<small>mesure 4 · temps 1</small></div></div>
+    </div>
+    <div class="band">
+      <div class="k"><span>TEMPS · 4/4 · ♩ = 100</span><span>LE MÉRIDIEN, C'EST MAINTENANT</span></div>
+      <div class="lane">
+        <div class="dusk" style="left:100px;width:88px"><span>respiration</span></div>
+        <div class="dusk" style="left:364px;width:88px"><span>respiration</span></div>
+        <div class="axis"></div>
+        <div class="bar" style="left:12px"><i>1</i></div><div class="bar" style="left:100px"><i>2</i></div><div class="bar" style="left:188px"><i>3</i></div><div class="bar" style="left:276px"><i>4</i></div><div class="bar" style="left:364px"><i>5</i></div><div class="bar" style="left:452px"><i>6</i></div><div class="bar" style="left:540px"><i>7</i></div><div class="bar" style="left:628px"></div>
+        <div class="tick" style="left:34px"></div><div class="tick" style="left:56px"></div><div class="tick" style="left:78px"></div><div class="tick" style="left:122px"></div><div class="tick" style="left:144px"></div><div class="tick" style="left:166px"></div><div class="tick" style="left:210px"></div><div class="tick" style="left:232px"></div><div class="tick" style="left:254px"></div><div class="tick" style="left:298px"></div><div class="tick" style="left:320px"></div><div class="tick" style="left:342px"></div><div class="tick" style="left:386px"></div><div class="tick" style="left:408px"></div><div class="tick" style="left:430px"></div><div class="tick" style="left:474px"></div><div class="tick" style="left:496px"></div><div class="tick" style="left:518px"></div><div class="tick" style="left:562px"></div><div class="tick" style="left:584px"></div><div class="tick" style="left:606px"></div>
+        <div class="star" style="left:12px;top:120px;width:9px;height:9px;opacity:.55"></div>
+        <div class="ring" style="left:18px;top:120px;width:26px;height:26px;border:1.5px dashed var(--amber)"></div>
+        <div class="lbl dim" style="left:44px;top:62px">G · E aigu</div>
+        <div class="verdict" style="left:12px;top:172px"><span class="tri"></span>En retard +42 ms</div>
+        <div class="meridian" style="left:231px"><span>MAINTENANT</span></div>
+        <div class="star" style="left:276px;top:120px;width:22px;height:22px"></div>
+        <div class="ring" style="left:276px;top:120px;width:40px;height:40px;border:2px solid var(--amber)"></div>
+        <div class="lbl big2" style="left:296px;top:44px">F · B</div>
+        <div class="ring" style="left:540px;top:120px;width:28px;height:28px;border:1.5px dashed var(--chalk)"></div>
+        <div class="lbl dim" style="left:552px;top:62px;text-decoration:none">objet attendu</div>
+      </div>
+      <div class="legend"><span><b>●</b>une note</span><span><b>✳</b>un accord, même ciel</span><span><b>𝅘𝅥𝅮𝅘𝅥𝅮</b>une figure : un amas sur ses temps</span></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

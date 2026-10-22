@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Correspondances</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;800&family=Atkinson+Hyperlegible+Mono:wght@400;600&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+:root{--prusse:#1D3557;--prusse2:#16294A;--pale:#F3F5F7;--gold:#D4A72C;--ink:#0E1116;--gap:#D9481E;--fog:#8C9AB0;--rule:#D5DBE3}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;display:grid;grid-template-columns:200px 540px 700px;font-family:'Atkinson Hyperlegible Next',sans-serif;background:var(--pale);color:var(--ink)}
+.mono{font-family:'Atkinson Hyperlegible Mono',monospace}.mus{font-family:'Noto Music',serif}
+/* rail */
+.rail{background:var(--prusse2);color:var(--pale);padding:26px 0;display:flex;flex-direction:column}
+.logo{padding:0 22px;font-weight:800;font-size:22px;letter-spacing:-.01em}
+.logo span{color:var(--gold)}
+.nav{margin-top:34px;display:flex;flex-direction:column}
+.nav a{padding:13px 22px;font-size:17px;color:#C9D3E2;border-left:3px solid transparent}
+.nav a.on{color:#fff;font-weight:600;border-left-color:var(--gold);background:rgba(255,255,255,.05)}
+.nav a.off{color:#5E7290}
+.tr{margin-top:30px;padding:0 22px}
+.tr h4{font-family:'Atkinson Hyperlegible Mono',monospace;font-weight:400;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--fog)}
+.tr p{margin-top:12px;font-size:14px;color:#C9D3E2;display:flex;align-items:center;gap:6px}
+.tr p i{flex:1;height:1px;background:var(--gold);position:relative}
+.tr p i:after{content:'';position:absolute;right:-1px;top:-3px;border-left:6px solid var(--gold);border-top:3.5px solid transparent;border-bottom:3.5px solid transparent}
+.rail .foot{margin-top:auto;padding:0 22px;font-size:13px;color:var(--fog)}
+/* plan */
+.plan{padding:40px 36px;display:flex;flex-direction:column;border-right:1px solid var(--rule)}
+h1{font-weight:800;font-size:42px;letter-spacing:-.015em;line-height:1}
+.sub{margin-top:10px;font-size:17px;color:#5A6577}
+.blk{margin-top:22px;padding:16px 0 16px;border-top:1px solid var(--rule)}
+.top{display:flex;align-items:baseline;gap:12px}
+.top b{font-size:22px;font-weight:600}
+.top .d{margin-left:auto;font-size:15px;color:#5A6577}
+.map{margin-top:10px;display:flex;align-items:center;gap:10px;font-size:15px}
+.map .a{padding:4px 10px;background:var(--prusse);color:var(--pale);border-radius:3px}
+.map .b{padding:4px 10px;border:1.5px solid var(--prusse);border-radius:3px;color:var(--prusse)}
+.map i{width:46px;height:2px;background:var(--gold);position:relative}
+.map i:after{content:'';position:absolute;right:-2px;top:-4px;border-left:8px solid var(--gold);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.why{margin-top:8px;font-size:15px;color:#5A6577}
+.done{margin-top:18px;font-size:15px;color:#5A6577}.done b{color:var(--ink)}
+.btn{margin-top:auto;align-self:flex-start;background:var(--gold);color:var(--ink);font-weight:800;font-size:24px;padding:18px 44px;border-radius:4px}
+/* séance */
+.play{display:grid;grid-template-rows:56px 420px 64px 1fr;background:var(--pale);position:relative}
+.ph{background:var(--prusse);color:#C9D3E2;display:flex;align-items:center;gap:14px;padding:0 28px;font-size:15px;border-bottom:1px solid #2B4A75}
+.ph b{color:#fff;font-weight:600}.ph .k{margin-left:auto}
+.q{background:var(--prusse);color:var(--pale);position:relative}
+.qlab{position:absolute;left:28px;top:20px;font-family:'Atkinson Hyperlegible Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--fog)}
+.F{position:absolute;left:276px;top:20px;font-weight:800;font-size:250px;line-height:.9;letter-spacing:-.02em;color:#fff}
+.str{position:absolute;left:304px;top:262px;font-size:36px;font-weight:600;color:var(--pale)}
+.when{position:absolute;left:304px;top:318px;font-size:24px;font-weight:600;color:var(--gold)}
+.drop{position:absolute;left:291px;top:250px;width:3px;height:170px;background:var(--gold)}
+.oldq{position:absolute;left:24px;top:250px;opacity:.55}
+.oldq b{font-size:56px;font-weight:800}.oldq p{font-size:15px;margin-top:4px}
+.oldq i,.hid i{position:absolute;left:4px;top:126px;width:2px;height:44px;background:var(--gold);opacity:.6}
+.hid{position:absolute;left:520px;top:250px}
+.hid div{width:72px;height:76px;border:2px dashed var(--gold);border-radius:4px;display:grid;place-items:center;font-size:40px;color:var(--gold)}
+.hid p{font-size:14px;color:var(--fog);margin-top:6px}
+.hid i{left:36px;top:96px;height:74px;border-left:2px dashed var(--gold);background:none;width:0}
+/* seam = time */
+.seam{position:relative;background:linear-gradient(var(--prusse) 50%,var(--pale) 50%)}
+.axis{position:absolute;left:28px;right:28px;top:31px;height:2px;background:var(--gold)}
+.bar{position:absolute;top:14px;height:36px;width:2px;background:var(--ink)}
+.bar.d{background:#fff}
+.tick{position:absolute;top:26px;height:12px;width:1px;background:var(--fog)}
+.bn{position:absolute;top:40px;font-family:'Atkinson Hyperlegible Mono',monospace;font-size:12px;color:#5A6577}
+.now{position:absolute;left:263px;top:-420px;bottom:-200px;width:3px;background:var(--gold);opacity:.95}
+.nowl{position:absolute;left:272px;top:-410px;font-family:'Atkinson Hyperlegible Mono',monospace;font-size:12px;color:var(--gold);letter-spacing:.06em}
+.land{position:absolute;left:340px;top:21px;width:22px;height:22px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 6px rgba(212,167,44,.25)}
+.rlab{position:absolute;top:2px;font-size:14px;font-style:italic;color:#C9D3E2}
+/* heard side */
+.a{position:relative;padding:22px 28px}
+.alab{font-family:'Atkinson Hyperlegible Mono',monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5A6577}
+.exp{position:absolute;left:47px;top:-33px;width:12px;height:12px;border:2px solid var(--ink);border-radius:50%;background:var(--pale)}
+.heard{position:absolute;left:60px;top:-36px;width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:14px solid var(--gap)}
+.gapl{position:absolute;left:53px;top:-8px;width:16px;height:2px;background:var(--gap)}
+.vcard{position:absolute;left:44px;top:46px;display:grid;grid-template-columns:auto auto;gap:4px 18px;font-size:15px}
+.vcard .v{grid-column:1/3;font-weight:800;font-size:24px;color:var(--gap);display:flex;align-items:center;gap:10px}
+.vcard .v:before{content:'';border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:14px solid var(--gap)}
+.vcard span{color:#5A6577}.vcard em{font-style:normal;font-weight:600}
+.legend{position:absolute;left:330px;top:46px;right:28px;font-size:14px;color:#5A6577;line-height:1.7}
+.legend b{color:var(--ink)}.legend .mus{font-size:18px;color:var(--ink)}
+</style>
+</head>
+<body>
+<aside class="rail">
+  <div class="logo">Neckspert<span>·</span></div>
+  <nav class="nav"><a class="on">Pratiquer</a><a>Bibliothèque</a><a>Progrès</a><a>Réglages</a><a class="off">Atelier · bientôt</a></nav>
+  <div class="tr"><h4>Traductions</h4>
+    <p>nom<i></i>position</p><p>position<i></i>nom</p><p>symbole<i></i>forme</p><p>figure<i></i>attaques</p><p>grille<i></i>voisines</p>
+  </div>
+  <div class="foot mono">Interface · 18 ms mesurées</div>
+</aside>
+<section class="plan">
+  <h1>Prochaine séance</h1>
+  <p class="sub">≈ 14 min · quatre traductions</p>
+  <div class="blk"><div class="top"><b>Révisions à froid · 7 positions</b><span class="d mono">3 min</span></div><div class="map"><span class="a">nom</span><i></i><span class="b">position jouée</span></div><p class="why">Dues depuis mardi. Seul le froid compte.</p></div>
+  <div class="blk"><div class="top"><b>Rythme · Mesures silencieuses</b><span class="d mono">4 min</span></div><div class="map"><span class="a">figure</span><i></i><span class="b">attaques</span></div><p class="why">Niveau 3, 1 mesure de clic et 3 muettes, ♩ = 100 bpm. 3 cycles d'affilée au niveau 2 hier.</p></div>
+  <div class="blk"><div class="top"><b>Triades · Ancrer D, A, F♯m</b><span class="d mono">4 min</span></div><div class="map"><span class="a">symbole + corde</span><i></i><span class="b">forme jouée</span></div><p class="why">Sur G-B-E. La zone s'ouvre quand les trois tiennent à froid.</p></div>
+  <div class="blk"><div class="top"><b>Transfert · Relier sans aide</b><span class="d mono">3 min</span></div><div class="map"><span class="a">grille</span><i></i><span class="b">forme voisine</span></div><p class="why">« I Only Have Eyes for You ». Prouver hors de l'aide.</p></div>
+  <p class="done">Fait aujourd'hui : <b>Rythme · contretemps</b>, ce matin.</p>
+  <span class="btn">Commencer</span>
+</section>
+<section class="play">
+  <div class="ph"><b>En séance</b><span>Bloc 1 sur 4 · Révisions à froid · 3 / 7</span><span class="mono">♩ = 100 · 4/4</span><span class="k mono">Pause · Espace</span></div>
+  <div class="q">
+    <span class="qlab">Question · nom</span>
+    <div class="oldq"><b>G</b><p>corde de E aigu</p><i></i></div>
+    <div class="drop"></div><div class="F">F</div><div class="str">corde de B</div><div class="when">dans 2 temps · mesure 4, temps 1</div>
+    <div class="hid"><div>?</div><p>cible · mesure 7</p><i></i></div>
+  </div>
+  <div class="seam">
+    <span class="rlab" style="left:134px">respiration</span><span class="rlab" style="left:398px">respiration</span>
+    <div class="axis"></div>
+    <div class="bar" style="left:28px"></div><span class="bn" style="left:34px">1</span>
+    <div class="tick" style="left:50px"></div><div class="tick" style="left:72px"></div><div class="tick" style="left:94px"></div>
+    <div class="bar" style="left:116px"></div><span class="bn" style="left:122px">2</span>
+    <div class="tick" style="left:138px"></div><div class="tick" style="left:160px"></div><div class="tick" style="left:182px"></div>
+    <div class="bar" style="left:204px"></div><span class="bn" style="left:210px">3</span>
+    <div class="tick" style="left:226px"></div><div class="tick" style="left:248px"></div><div class="tick" style="left:270px"></div>
+    <div class="bar" style="left:292px"></div><span class="bn" style="left:298px">4</span>
+    <div class="tick" style="left:314px"></div><div class="tick" style="left:336px"></div><div class="tick" style="left:358px"></div>
+    <div class="bar" style="left:380px"></div><span class="bn" style="left:386px">5</span>
+    <div class="tick" style="left:402px"></div><div class="tick" style="left:424px"></div><div class="tick" style="left:446px"></div>
+    <div class="bar" style="left:468px"></div><span class="bn" style="left:474px">6</span>
+    <div class="tick" style="left:490px"></div><div class="tick" style="left:512px"></div><div class="tick" style="left:534px"></div>
+    <div class="bar" style="left:556px"></div><span class="bn" style="left:562px">7</span>
+    <div class="tick" style="left:578px"></div><div class="tick" style="left:600px"></div><div class="tick" style="left:622px"></div>
+    <div class="bar" style="left:644px"></div>
+    <div class="land" style="left:281px"></div>
+  </div>
+  <div class="a">
+    <div class="now" style="left:248px"></div>
+    <span class="alab">Entendu</span>
+    <div class="exp" style="left:22px"></div><div class="heard" style="left:30px"></div><div class="gapl" style="left:29px"></div>
+    <div class="vcard"><div class="v">En retard · +42 ms</div><span>attendu</span><em>G · corde de E aigu, temps 1</em><span>entendu</span><em>G, 42 ms après</em></div>
+    <div class="legend">La même ligne relie toute question à son temps : <b>F</b> une note, <b>D/F♯</b> un accord, <b class="mus">𝅘𝅥 𝅘𝅥𝅮𝅘𝅥𝅮 𝄽</b> une figure. Au-dessus, ce qui est demandé ; au-dessous, ce qui a sonné.</div>
+  </div>
+</section>
+</body>
+</html>

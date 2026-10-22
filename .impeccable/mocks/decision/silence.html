@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Près du silence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;500;700&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+  :root { --brume: #ECE8E2; --encre: #23211F; --ardoise: #7A7F80; --ombre: #8C6E52; --ambre: #D9A13B; --filet: rgba(35,33,31,.12); --clair: rgba(236,232,226,.9); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--brume); color: var(--encre); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; display: grid; grid-template-columns: 168px 568px 704px; }
+  /* Rail : le dos de pochette */
+  .rail { background: var(--encre); color: var(--brume); position: relative; padding: 40px 0 0 28px; }
+  .rail ol { list-style: none; display: grid; gap: 22px; }
+  .rail li { font-size: 17px; letter-spacing: .06em; opacity: .62; position: relative; }
+  .rail li.on { opacity: 1; }
+  .rail li.on::before { content: ""; position: absolute; left: -28px; top: -4px; bottom: -4px; width: 4px; background: var(--ambre); }
+  .rail li.off { opacity: .3; }
+  .dos { position: absolute; left: 30px; bottom: 40px; transform: rotate(-90deg); transform-origin: left bottom; font-size: 24px; letter-spacing: .4em; font-weight: 300; white-space: nowrap; }
+  /* Prochaine séance */
+  .plan { padding: 64px 48px 44px; display: grid; grid-template-rows: auto 1fr auto; border-right: 1px solid var(--filet); }
+  header { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--encre); padding-bottom: 16px; }
+  h1 { font-weight: 300; font-size: 40px; }
+  .tot { font-size: 24px; font-weight: 300; color: var(--ombre); font-variant-numeric: tabular-nums; }
+  .plan ol { list-style: none; margin-top: 6px; }
+  .plan li { display: grid; grid-template-columns: 40px 1fr 56px; align-items: baseline; padding: 18px 0 16px; border-bottom: 1px solid var(--filet); }
+  .plan li.ici { box-shadow: inset 4px 0 0 var(--ambre); padding-left: 14px; margin-left: -14px; }
+  .n { font-size: 24px; font-weight: 300; color: var(--ardoise); }
+  .t { font-size: 24px; } .t b { font-weight: 700; }
+  .y { grid-column: 2; font-size: 15px; color: var(--ombre); margin-top: 6px; }
+  .m { font-size: 24px; font-weight: 300; text-align: right; font-variant-numeric: tabular-nums; }
+  .plan footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .fait { font-size: 15px; color: var(--ardoise); } .fait em { font-style: normal; color: var(--encre); }
+  button { font: inherit; font-size: 24px; font-weight: 500; background: var(--ambre); color: var(--encre); border: 0; padding: 20px 44px; }
+  /* En séance : la consigne, puis la piste. Rien d'autre. */
+  .jeu { position: relative; background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #6c706f 50%, #4a4440 100%); color: var(--brume); overflow: hidden; }
+  .sortir { position: absolute; top: 32px; right: 40px; font-size: 15px; letter-spacing: .08em; opacity: .6; }
+  .infos { position: absolute; top: 32px; left: 40px; font-size: 15px; letter-spacing: .06em; opacity: .75; font-variant-numeric: tabular-nums; }
+  .infos b { font-weight: 500; }
+  .consigne { position: absolute; left: 0; right: 0; top: 120px; text-align: center; }
+  .note { font-size: 300px; font-weight: 300; line-height: .8; }
+  .corde { font-size: 48px; margin-top: 26px; }
+  /* 12 temps : 4 passés (1/3), 8 à venir (2/3) */
+  .piste { position: absolute; left: 40px; right: 40px; top: 640px; height: 120px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
+  .c { background: rgba(236,232,226,.14); display: grid; place-items: center; position: relative; }
+  .c.un { background: rgba(236,232,226,.26); }
+  .c.passe { opacity: .55; }
+  .c.cible { background: var(--brume); color: var(--encre); font-size: 56px; font-weight: 500; opacity: 1; }
+  .ligne { position: absolute; top: 624px; height: 152px; width: 4px; background: var(--ambre); left: calc(40px + (100% - 80px + 6px) * 4 / 12 - 5px); }
+</style>
+</head>
+<body>
+  <nav class="rail" aria-label="Navigation">
+    <ol>
+      <li class="on">pratiquer</li>
+      <li>bibliothèque</li>
+      <li>progrès</li>
+      <li>réglages</li>
+      <li class="off">atelier</li>
+    </ol>
+    <div class="dos">neckspert</div>
+  </nav>
+  <section class="plan">
+    <header><h1>Prochaine séance</h1><span class="tot">env. 14 min</span></header>
+    <ol>
+      <li class="ici"><span class="n">1</span><span class="t"><b>Révisions à froid</b> · 7 positions</span><span class="m">3′</span><span class="y">dues depuis mardi · seul le froid compte</span></li>
+      <li><span class="n">2</span><span class="t"><b>Rythme</b> · Mesures silencieuses</span><span class="m">4′</span><span class="y">niveau 3 : 1 mesure de clic, 3 muettes · ♩ = 100 bpm · 3 cycles réussis d’affilée au niveau 2 hier</span></li>
+      <li><span class="n">3</span><span class="t"><b>Triades</b> · Ancrer D, A, F#m</span><span class="m">4′</span><span class="y">sur G-B-E · la zone s’ouvre quand les trois tiennent à froid</span></li>
+      <li><span class="n">4</span><span class="t"><b>Transfert</b> · Relier sur la grille</span><span class="m">3′</span><span class="y">« I Only Have Eyes for You », sans aide · prouver hors de l’aide</span></li>
+    </ol>
+    <footer><p class="fait">fait aujourd’hui · <em>Rythme, contretemps, ce matin</em></p><button>Commencer</button></footer>
+  </section>
+  <section class="jeu" aria-label="En séance">
+    <span class="infos">1 / 4 · <b>Révisions à froid</b> · 3 / 7 · ♩ = 100</span>
+    <span class="sortir">quitter</span>
+    <div class="consigne">
+      <div class="note">F</div>
+      <div class="corde">corde de B</div>
+    </div>
+    <div class="piste">
+      <div class="c passe"></div><div class="c passe"></div><div class="c un passe"></div><div class="c passe"></div>
+      <div class="c"></div><div class="c"></div><div class="c cible">F</div><div class="c"></div>
+      <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+    </div>
+    <div class="ligne"></div>
+  </section>
+</body>
+</html>

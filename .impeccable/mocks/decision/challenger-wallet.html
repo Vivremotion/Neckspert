@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le carnet de coupons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;800&family=Archivo+Narrow:wght@500;700&family=Courier+Prime:wght@700&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+:root{--stock:#FFFFFF;--navy:#1B2B5A;--red:#C8102E;--carbon:#5B3A8E;--rule:#C9CEDB;--ground:#E9EBF1;--muted:#6B7390}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1440px;height:900px;overflow:hidden;background:var(--ground);font-family:Archivo,sans-serif;color:var(--navy)}
+.app{display:grid;grid-template-columns:184px 512px 1fr;height:900px}
+.spine{background:var(--navy);color:#fff;display:flex;flex-direction:column;padding:24px 0}
+.brand{font:800 22px Archivo;padding:0 20px 28px;letter-spacing:.02em}
+.brand small{display:block;font:500 12px 'Archivo Narrow';letter-spacing:.2em;opacity:.6;margin-top:4px}
+.tab{font:700 22px 'Archivo Narrow';text-transform:uppercase;letter-spacing:.06em;padding:16px 20px;border-top:1px solid rgba(255,255,255,.15);position:relative}
+.tab.on{background:var(--stock);color:var(--navy);margin-right:-1px}
+.tab.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:var(--red)}
+.tab.off{opacity:.35}
+.spine .foot{margin-top:auto;padding:0 20px;font:500 13px 'Archivo Narrow';letter-spacing:.12em;opacity:.6}
+.book{background:var(--stock);padding:28px 28px 24px;border-right:2px dashed var(--rule);display:flex;flex-direction:column}
+.book h1{font:800 40px Archivo;letter-spacing:-.01em}
+.meta{display:flex;justify-content:space-between;align-items:center;margin:6px 0 18px;font:700 19px 'Courier Prime';color:var(--carbon);white-space:nowrap}
+.go{font:800 24px Archivo;background:var(--red);color:#fff;border:0;padding:12px 26px;border-radius:2px;letter-spacing:.04em}
+.coupon{display:grid;grid-template-columns:1fr 92px;border:1.5px solid var(--navy);margin-bottom:10px}
+.coupon .body{padding:10px 14px}
+.head{font:700 13px 'Archivo Narrow';letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.title{font:600 22px Archivo;margin-top:2px;white-space:nowrap}
+.why{font:400 14px Archivo;color:var(--muted);margin-top:4px}
+.stub{border-left:2px dashed var(--navy);display:flex;flex-direction:column;align-items:center;justify-content:center}
+.stub b{font:700 30px 'Courier Prime';color:var(--carbon)}
+.stub span{font:700 11px 'Archivo Narrow';letter-spacing:.18em}
+.coupon.next{border-width:3px}
+.coupon.next .head{color:var(--red)}
+.used{position:relative;opacity:.55;border-style:dashed}
+.used .title{white-space:normal;font-size:20px;padding-right:60px}
+.stamp{position:absolute;right:10px;top:16px;transform:rotate(-8deg);border:3px solid var(--red);color:var(--red);font:800 22px Archivo;padding:2px 10px;letter-spacing:.1em}
+.play{padding:28px 26px;display:flex;flex-direction:column}
+.bar{display:flex;justify-content:space-between;font:700 15px 'Archivo Narrow';letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.bar .pause{border:1.5px solid var(--navy);color:var(--navy);padding:4px 10px}
+.pass{background:var(--stock);border:2px solid var(--navy);margin-top:18px;display:grid;grid-template-columns:1fr 250px;height:380px}
+.pass .main{padding:18px 28px;position:relative}
+.big{font:800 250px/0.9 Archivo;color:var(--navy);letter-spacing:-.04em}
+.str{font:600 52px Archivo;margin-top:6px}
+.when{border-left:2px dashed var(--navy);padding:22px;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.when .k{font:700 13px 'Archivo Narrow';letter-spacing:.18em;color:var(--muted)}
+.when .v{font:700 36px 'Courier Prime';color:var(--carbon);line-height:1;white-space:nowrap}
+.when .v.red{color:var(--red);font-size:28px}
+.route{margin-top:28px;background:var(--stock);border:2px solid var(--navy);padding:16px 18px 18px;position:relative}
+.route .k{font:700 13px 'Archivo Narrow';letter-spacing:.18em;color:var(--muted);display:flex;justify-content:space-between}
+.lane{position:relative;height:150px;margin-top:22px;width:640px}
+.leg{position:absolute;top:44px;height:56px;border-left:2px solid var(--navy)}
+.leg i{position:absolute;top:2px;left:5px;font:700 18px 'Courier Prime';color:var(--navy);font-style:normal}
+.beat{position:absolute;top:66px;width:6px;height:6px;border-radius:50%;background:var(--rule)}
+.rest{position:absolute;top:44px;height:56px;background:repeating-linear-gradient(135deg,#EEF0F5 0 6px,#fff 6px 12px)}
+.rest span{position:absolute;bottom:3px;left:4px;font:700 11px 'Archivo Narrow';letter-spacing:.16em;color:var(--muted)}
+.track{position:absolute;top:69px;left:12px;width:616px;height:2px;background:var(--navy)}
+.now{position:absolute;top:18px;bottom:6px;width:4px;background:var(--red)}
+.now::after{content:"MAINTENANT";position:absolute;top:-14px;left:-30px;font:700 11px 'Archivo Narrow';letter-spacing:.16em;color:var(--red)}
+.tag{position:absolute;top:0;border-left:4px solid var(--red);background:var(--navy);color:#fff;font:800 22px Archivo;padding:4px 10px;border-radius:2px}
+.tag.past{background:#fff;color:var(--muted);border:1.5px dashed var(--muted);text-decoration:line-through}
+.tag.hidden{background:#fff;color:var(--navy);border:2px dashed var(--navy)}
+.verdict{position:absolute;top:110px;display:flex;align-items:center;gap:6px;font:700 15px 'Archivo Narrow';letter-spacing:.06em;color:var(--red);border:2.5px solid var(--red);padding:2px 8px;transform:rotate(-4deg)}
+.tri{width:0;height:0;border-top:8px solid transparent;border-bottom:8px solid transparent;border-left:12px solid var(--red)}
+.legend{display:flex;gap:22px;margin-top:8px;font:500 13px Archivo;color:var(--muted)}
+.legend b{font:400 18px 'Noto Music';color:var(--navy);margin-right:4px}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="spine">
+    <div class="brand">Neckspert Play<small>CARNET DU JOUR</small></div>
+    <div class="tab on">Pratiquer</div>
+    <div class="tab">Bibliothèque</div>
+    <div class="tab">Progrès</div>
+    <div class="tab">Réglages</div>
+    <div class="tab off">Atelier</div>
+    <div class="foot">ESPACE · PAUSE</div>
+  </nav>
+
+  <section class="book">
+    <h1>Prochaine séance</h1>
+    <div class="meta"><span>≈ 14 MIN · 4 COUPONS</span><button class="go">Commencer</button></div>
+    <div class="coupon next"><div class="body"><div class="head">Coupon 1 / 4 · Manche</div><div class="title">Révisions à froid · 7 positions</div><div class="why">Dues depuis mardi : seul le froid compte.</div></div><div class="stub"><b>3</b><span>MIN</span></div></div>
+    <div class="coupon"><div class="body"><div class="head">Coupon 2 / 4 · Rythme</div><div class="title">Mesures silencieuses · niveau 3</div><div class="why">1 mesure de clic, 3 muettes, ♩ = 100 bpm. 3 cycles réussis d'affilée au niveau 2 hier.</div></div><div class="stub"><b>4</b><span>MIN</span></div></div>
+    <div class="coupon"><div class="body"><div class="head">Coupon 3 / 4 · Triades</div><div class="title">Ancrer D, A, F#m sur G-B-E</div><div class="why">La zone s'ouvre quand les trois tiennent à froid.</div></div><div class="stub"><b>4</b><span>MIN</span></div></div>
+    <div class="coupon"><div class="body"><div class="head">Coupon 4 / 4 · Transfert</div><div class="title">Relier · I Only Have Eyes for You</div><div class="why">Sans aide : prouver hors de l'aide.</div></div><div class="stub"><b>3</b><span>MIN</span></div></div>
+    <div class="coupon used"><div class="body"><div class="head">Fait aujourd'hui</div><div class="title">Rythme · contretemps, ce matin</div></div><div class="stub"></div><div class="stamp">VALIDÉ</div></div>
+  </section>
+
+  <section class="play">
+    <div class="bar"><span>En séance · coupon 1 / 4 · révisions à froid · 3 / 7</span><span class="pause">Pause · espace</span></div>
+    <div class="pass">
+      <div class="main"><div class="head">Joue</div><div class="big">F</div><div class="str">corde de B</div></div>
+      <div class="when">
+        <div class="k">ARRIVÉE</div><div class="v red">dans 2 temps</div>
+        <div class="k">MESURE · TEMPS</div><div class="v">4 · 1</div>
+        <div class="k">TEMPO</div><div class="v">♩ = 100</div>
+      </div>
+    </div>
+    <div class="route">
+      <div class="k"><span>TRAJET DE LA SÉRIE · 4/4</span><span>UNE ESCALE PAR CIBLE</span></div>
+      <div class="lane">
+        <div class="rest" style="left:100px;width:88px"><span>RESPIRATION</span></div>
+        <div class="rest" style="left:364px;width:88px"><span>RESPIRATION</span></div>
+        <div class="track"></div>
+        <div class="leg" style="left:12px"><i>1</i></div><div class="leg" style="left:100px"><i>2</i></div><div class="leg" style="left:188px"><i>3</i></div><div class="leg" style="left:276px"><i>4</i></div><div class="leg" style="left:364px"><i>5</i></div><div class="leg" style="left:452px"><i>6</i></div><div class="leg" style="left:540px"><i>7</i></div><div class="leg" style="left:628px"></div>
+        <div class="beat" style="left:31px"></div><div class="beat" style="left:53px"></div><div class="beat" style="left:75px"></div>
+        <div class="beat" style="left:207px"></div><div class="beat" style="left:229px"></div><div class="beat" style="left:251px"></div>
+        <div class="beat" style="left:295px"></div><div class="beat" style="left:317px"></div><div class="beat" style="left:339px"></div>
+        <div class="beat" style="left:471px"></div><div class="beat" style="left:493px"></div><div class="beat" style="left:515px"></div>
+        <div class="beat" style="left:559px"></div><div class="beat" style="left:581px"></div><div class="beat" style="left:603px"></div>
+        <div class="tag past" style="left:12px">G · E aigu</div>
+        <div class="verdict" style="left:12px"><span class="tri"></span>En retard +42 ms</div>
+        <div class="now" style="left:230px"></div>
+        <div class="tag" style="left:276px">F · B</div>
+        <div class="tag hidden" style="left:540px">? · m. 7</div>
+      </div>
+      <div class="legend"><span><b>♪</b>note</span><span><b>𝄞</b>accord sur la même escale</span><span><b>𝅘𝅥𝅮𝅘𝅥𝅮</b>figure : coupon 2, même trajet</span></div>
+    </div>
+  </section>
+</div>
+</body>
+</html>

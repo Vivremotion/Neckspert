@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La fiche de tirage</title>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;700;800&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+:root{--z0:#0b0b0b;--z1:#161616;--z2:#232323;--z3:#333;--z4:#474747;--z5:#5c5c5c;--z6:#7a7a7a;--z7:#9b9b9b;--z8:#c9c9c9;--z9:#e2e1dd;--z10:#f2f2f0;--mg:#C21E8C;
+--cond:'Barlow Condensed',sans-serif;--sans:'Atkinson Hyperlegible Next',sans-serif;--mono:'JetBrains Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--z8);font-family:var(--sans);color:var(--z1);position:relative}
+.cap{font-family:var(--cond);font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* barre d'application */
+.top{position:absolute;left:0;top:0;width:1440px;height:60px;display:flex;align-items:center;padding:0 24px;gap:28px}
+.brand{font-size:24px;color:var(--z1)}
+.ramp{margin-left:auto;display:flex;align-items:center;gap:10px}
+.ramp i{display:block;width:18px;height:18px}
+.tempo{font-size:22px}
+/* feuilles de navigation : on écarte une feuille, on ne change pas de page */
+.tabs{position:absolute;left:24px;top:62px;display:flex;gap:2px;z-index:3}
+.tab{height:40px;padding:8px 18px 0;font-size:22px;background:var(--z9);border:1px solid var(--z6);border-bottom:0;color:var(--z5)}
+.tab.on{background:var(--z10);color:var(--z1);height:44px;margin-top:-4px}
+.tab.off{color:var(--z7);background:repeating-linear-gradient(135deg,var(--z9) 0 6px,var(--z8) 6px 7px)}
+.under{position:absolute;border:1px solid var(--z6);background:var(--z9)}
+.under.lib{left:36px;top:94px;width:620px;height:790px;background:
+ linear-gradient(var(--z9),var(--z9)) padding-box,
+ repeating-linear-gradient(0deg,transparent 0 23px,var(--z7) 23px 24px),repeating-linear-gradient(90deg,transparent 0 23px,var(--z7) 23px 24px)}
+.under.prog{left:48px;top:90px;width:620px;height:790px}
+/* feuille Prochaine séance */
+.plan{position:absolute;left:24px;top:102px;width:616px;height:782px;background:var(--z10);border:1px solid var(--z6);padding:36px 40px 32px 36px;z-index:2}
+.plan h1{font-size:46px;font-weight:800;letter-spacing:-.01em;line-height:1}
+.meta{margin-top:12px;font-size:22px;color:var(--z5)}
+.rows{margin-top:30px;border-top:2px solid var(--z1)}
+.row{display:grid;grid-template-columns:44px 52px 1fr 86px;gap:0 16px;align-items:start;padding:16px 0;border-bottom:1px solid var(--z7)}
+.load{width:44px;height:64px;border:1px solid var(--z4)}
+.l1{background:repeating-linear-gradient(45deg,var(--z4) 0 1px,transparent 1px 9px)}
+.l2{background:repeating-linear-gradient(45deg,var(--z3) 0 1.5px,transparent 1.5px 6px)}
+.l3{background:repeating-linear-gradient(45deg,var(--z2) 0 2px,transparent 2px 5px)}
+.l4{background:repeating-linear-gradient(45deg,var(--z2) 0 2px,transparent 2px 5px),repeating-linear-gradient(-45deg,var(--z2) 0 2px,transparent 2px 5px)}
+.num{font-size:26px;color:var(--z5);padding-top:2px}
+.t{font-size:24px;font-weight:700;line-height:1.15}
+.why{font-size:15px;color:var(--z4);margin-top:5px;line-height:1.35}
+.proof{display:inline-flex;gap:8px;align-items:center;margin-top:7px;font-size:13px;color:var(--z3);border:1px dotted var(--z5);padding:2px 8px}
+.proof b{display:inline-block;width:34px;height:10px;background:repeating-linear-gradient(90deg,var(--z3) 0 1px,transparent 1px 3px)}
+.dur{font-size:26px;text-align:right;padding-top:2px}
+.go{margin-top:28px;display:flex;align-items:center;justify-content:space-between;height:68px;padding:0 26px;background:var(--z1);color:var(--z10);font-size:28px;font-weight:700;border:0;width:100%}
+.go span{font-family:var(--mono);font-size:18px;color:var(--z7)}
+.done{margin-top:20px;font-size:16px;color:var(--z5)}
+.done s{color:var(--z4)}
+/* feuille En séance, posée de biais, carrée à l'intérieur */
+.play{position:absolute;left:600px;top:80px;width:816px;height:806px;background:rgba(18,18,18,.97);border:1px solid var(--z0);transform:rotate(-.6deg);z-index:4;padding:30px 40px;color:var(--z10);box-shadow:-14px 10px 0 rgba(0,0,0,.08)}
+.phead{display:flex;justify-content:space-between;align-items:baseline;font-size:22px;color:var(--z7)}
+.phead .cap{color:var(--z9)}
+.prompt{display:flex;align-items:flex-end;gap:36px;margin-top:22px;height:330px}
+.big{font-size:330px;font-weight:800;line-height:.78;letter-spacing:-.03em;color:var(--z10)}
+.side{padding-bottom:10px}
+.string{font-size:64px;font-weight:700;line-height:1}
+.arr{margin-top:22px;font-size:26px;color:var(--z8)}
+.soon{margin-top:10px;font-size:44px;font-weight:800;color:var(--mg)}
+/* la piste : la gamme de zones est la ligne de temps */
+.lane{position:absolute;left:40px;top:440px;width:728px;height:190px}
+.bar{position:absolute;top:34px;height:124px;width:104px;border-left:2px solid var(--z6)}
+.bar .lbl{position:absolute;top:-34px;left:4px;font-size:22px;color:var(--z7)}
+.beat{position:absolute;top:34px;height:124px;border-left:1px solid var(--z3)}
+.rest{background:repeating-linear-gradient(-45deg,transparent 0 7px,var(--z3) 7px 8px)}
+.rest .lbl{color:var(--z6)}
+.tg{position:absolute;top:34px;height:124px;width:26px}
+.tg.past{background:var(--z6);color:var(--z1)}
+.tg.cur{background:var(--z10);outline:2px solid var(--z10)}
+.tg.next{border:2px dashed var(--z7)}
+.tg em{position:absolute;bottom:-34px;left:-4px;font-style:normal;font-size:22px;font-weight:700;white-space:nowrap}
+.late{position:absolute;top:34px;height:124px;width:0;border-left:3px solid var(--z10)}
+.late:after{content:"";position:absolute;left:-1px;top:52px;border:9px solid transparent;border-left:13px solid var(--z10)}
+.now{position:absolute;top:0;height:190px;border-left:3px solid var(--mg)}
+.now span{position:absolute;top:-4px;left:8px;font-size:18px;color:var(--mg)}
+.gap{position:absolute;top:96px;height:2px;background:var(--mg)}
+.verdict{position:absolute;left:40px;top:688px;display:flex;align-items:center;gap:14px;font-size:24px}
+.verdict i{display:block;width:0;height:0;border:11px solid transparent;border-left:16px solid var(--z10)}
+.carries{position:absolute;right:40px;top:690px;display:flex;align-items:center;gap:14px;font-size:18px;color:var(--z7)}
+.carries .k{font-size:22px;color:var(--z9);border:1px solid var(--z4);padding:2px 10px}
+.carries .mus{font-family:'Noto Music',serif;font-size:26px}
+.foot{position:absolute;left:40px;right:40px;bottom:24px;display:flex;justify-content:space-between;font-size:18px;color:var(--z6)}
+</style>
+</head>
+<body>
+<div class="top">
+ <div class="brand cap">Neckspert Play</div>
+ <div class="ramp" aria-label="Gamme de zones">
+  <span class="cap" style="font-size:16px;color:var(--z4)">Zones</span>
+  <i style="background:var(--z0)"></i><i style="background:var(--z1)"></i><i style="background:var(--z2)"></i><i style="background:var(--z3)"></i><i style="background:var(--z4)"></i><i style="background:var(--z5)"></i><i style="background:var(--z6)"></i><i style="background:var(--z7)"></i><i style="background:var(--z8);outline:1px solid var(--z6)"></i><i style="background:var(--z9);outline:1px solid var(--z6)"></i><i style="background:var(--z10);outline:1px solid var(--z6)"></i>
+ </div>
+ <div class="tempo mono">♩ = 100 · 4/4</div>
+</div>
+
+<nav class="tabs" aria-label="Vues">
+ <div class="tab on cap">Pratiquer</div>
+ <div class="tab cap">Bibliothèque</div>
+ <div class="tab cap">Progrès</div>
+ <div class="tab cap">Réglages</div>
+ <div class="tab off cap">Atelier</div>
+</nav>
+<div class="under prog"></div>
+<div class="under lib"></div>
+
+<section class="plan">
+ <h1>Prochaine séance</h1>
+ <div class="meta mono">≈ 14 min · 4 blocs</div>
+ <div class="rows">
+  <div class="row"><div class="load l3"></div><div class="num mono">01</div>
+   <div><div class="t">Révisions à froid · 7 positions</div><div class="why">Dues depuis mardi ; seul le froid compte.</div><div class="proof"><b></b>dernier froid : 9 / 10, mardi</div></div><div class="dur mono">3:00</div></div>
+  <div class="row"><div class="load l4"></div><div class="num mono">02</div>
+   <div><div class="t">Rythme · Mesures silencieuses</div><div class="why">Niveau 3 : 1 mesure de clic, 3 muettes · ♩ = 100. 3 cycles réussis d’affilée au niveau 2 hier.</div><div class="proof"><b></b>prise d’hier, cycle 7</div></div><div class="dur mono">4:00</div></div>
+  <div class="row"><div class="load l2"></div><div class="num mono">03</div>
+   <div><div class="t">Triades · Ancrer D, A, F#m</div><div class="why">Cordes G-B-E. La zone s’ouvre quand les trois tiennent à froid.</div><div class="proof"><b></b>D et A tiennent, F#m pas encore</div></div><div class="dur mono">4:00</div></div>
+  <div class="row"><div class="load l1"></div><div class="num mono">04</div>
+   <div><div class="t">Transfert · Relier, sans aide</div><div class="why">Sur « I Only Have Eyes for You ». Prouver hors de l’aide.</div></div><div class="dur mono">3:00</div></div>
+ </div>
+ <button class="go">Commencer <span>↵ entrée</span></button>
+ <div class="done">Fait aujourd’hui : <s>Rythme · contretemps</s>, ce matin</div>
+</section>
+
+<section class="play" aria-label="En séance">
+ <div class="phead"><span class="cap">En séance · Bloc 1 / 4 · Révisions à froid</span><span class="mono">3 / 7</span></div>
+ <div class="prompt">
+  <div class="big">F</div>
+  <div class="side">
+   <div class="string">corde de B</div>
+   <div class="arr mono">arrive temps 1 · mesure 4</div>
+   <div class="soon">dans 2 temps</div>
+  </div>
+ </div>
+
+ <div class="lane" aria-label="Piste de temps">
+  <div class="bar" style="left:0"><span class="lbl cap">m. 1</span></div>
+  <div class="bar rest" style="left:104px"><span class="lbl cap">Respiration</span></div>
+  <div class="bar" style="left:208px"><span class="lbl cap">m. 3</span></div>
+  <div class="bar" style="left:312px"><span class="lbl cap">m. 4</span></div>
+  <div class="bar rest" style="left:416px"><span class="lbl cap">Respir.</span></div>
+  <div class="bar" style="left:520px"><span class="lbl cap">m. 6</span></div>
+  <div class="bar" style="left:624px;border-right:2px solid var(--z6)"><span class="lbl cap">m. 7</span></div>
+  <div class="beat" style="left:26px"></div><div class="beat" style="left:52px"></div><div class="beat" style="left:78px"></div>
+  <div class="beat" style="left:234px"></div><div class="beat" style="left:260px"></div><div class="beat" style="left:286px"></div>
+  <div class="beat" style="left:338px"></div><div class="beat" style="left:364px"></div><div class="beat" style="left:390px"></div>
+  <div class="beat" style="left:546px"></div><div class="beat" style="left:572px"></div><div class="beat" style="left:598px"></div>
+  <div class="beat" style="left:650px"></div><div class="beat" style="left:676px"></div><div class="beat" style="left:702px"></div>
+  <div class="tg past" style="left:0"><em style="color:var(--z7)">G</em></div>
+  <div class="late" style="left:12px"></div>
+  <div class="tg cur" style="left:312px"><em>F</em></div>
+  <div class="tg next" style="left:624px"><em style="color:var(--z7);font-weight:400">?</em></div>
+  <div class="gap" style="left:260px;width:52px"></div>
+  <div class="now" style="left:260px"><span class="cap">Maintenant</span></div>
+ </div>
+
+ <div class="verdict"><i></i><span><b>En retard</b> <span class="mono">+42 ms</span> · G, corde de E aigu</span></div>
+ <div class="carries"><span class="cap">La piste porte</span><span class="k">F</span><span class="k">D/F#</span><span class="k mus">♩♫𝄽♩</span></div>
+ <div class="foot"><span class="mono">Pause · espace</span><span class="cap">Cible suivante : mesure 7, dévoilée à son temps</span></div>
+</section>
+</body>
+</html>

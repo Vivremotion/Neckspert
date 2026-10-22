@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La face A</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+  :root { --stock:#FAFAF7; --ink:#1E3AA8; --pencil:#9A9A9A; --stripe:#D2232A; --line:#C9D3EE; --text:#1B1F2E; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { width:1440px; height:900px; overflow:hidden; background:#E9E8E3; color:var(--text); font-family:'Atkinson Hyperlegible',system-ui,sans-serif; }
+  .app { display:grid; grid-template-columns:864px 576px; height:900px; }
+  /* shell */
+  nav { position:absolute; top:0; left:0; width:864px; height:64px; display:flex; align-items:center; gap:32px; padding:0 48px; background:var(--stock); border-bottom:6px solid var(--stripe); }
+  nav .brand { font-weight:700; font-size:22px; letter-spacing:.02em; margin-right:auto; }
+  nav a { font-size:18px; color:var(--text); text-decoration:none; padding:20px 0; }
+  nav a.on { color:var(--ink); font-weight:700; border-bottom:3px solid var(--ink); }
+  .plan { position:relative; padding:104px 48px 40px; background:var(--stock); }
+  .head { display:flex; align-items:baseline; gap:24px; margin-bottom:8px; }
+  h1 { font-family:'Patrick Hand',cursive; font-weight:400; font-size:64px; color:var(--ink); line-height:1; }
+  .total { font-size:26px; color:var(--ink); font-family:'Patrick Hand',cursive; }
+  .side { display:flex; align-items:center; gap:12px; margin:20px 0 6px; font-family:'Patrick Hand',cursive; font-size:30px; color:var(--ink); text-decoration:underline; text-underline-offset:6px; }
+  /* signature: the tracklist timed to fill the side exactly */
+  ol { list-style:none; border-top:2px solid var(--line); }
+  li { display:grid; grid-template-columns:44px 1fr 96px; align-items:start; padding:12px 0 10px; border-bottom:2px solid var(--line); }
+  .n { font-family:'Patrick Hand',cursive; font-size:30px; color:var(--ink); }
+  .t { font-family:'Patrick Hand',cursive; font-size:32px; color:var(--ink); line-height:1.1; }
+  .why { font-size:16px; color:#4A5068; margin-top:4px; }
+  .d { font-family:'Patrick Hand',cursive; font-size:30px; color:var(--ink); text-align:right; }
+  .tape { margin-top:18px; display:flex; align-items:center; gap:16px; }
+  .tape .bar { flex:1; height:14px; border:2px solid var(--ink); border-radius:7px; position:relative; }
+  .tape .bar span { position:absolute; inset:2px; border-radius:4px; background:repeating-linear-gradient(90deg,var(--ink) 0 52px,transparent 52px 56px); }
+  .tape small { font-size:16px; color:#4A5068; }
+  .foot { display:flex; align-items:center; justify-content:space-between; margin-top:26px; }
+  .done { font-size:18px; color:#4A5068; }
+  .done b { font-family:'Patrick Hand',cursive; font-weight:400; font-size:26px; color:var(--pencil); text-decoration:line-through; margin-left:8px; }
+  .go { font:700 24px 'Atkinson Hyperlegible',sans-serif; color:#fff; background:var(--ink); border:0; border-radius:8px; padding:18px 40px; }
+  /* play */
+  .play { position:relative; background:#fff; border-left:2px solid var(--line); display:flex; flex-direction:column; padding:28px 40px; }
+  .label { font-size:16px; color:var(--pencil); letter-spacing:.08em; text-transform:uppercase; }
+  .stripe { height:6px; background:var(--stripe); margin:16px -40px 0; }
+  .ruled { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; background:repeating-linear-gradient(180deg,transparent 0 63px,var(--line) 63px 65px); }
+  .note { font-family:'Patrick Hand',cursive; font-size:360px; line-height:.8; color:var(--ink); }
+  .string { font-family:'Patrick Hand',cursive; font-size:52px; color:var(--ink); margin-top:8px; }
+  .meter { display:flex; gap:28px; justify-content:center; margin:20px 0 8px; }
+  .bar2 { display:flex; gap:10px; }
+  .beat { width:30px; height:30px; border:2px solid var(--ink); border-radius:50%; }
+  .beat.past { background:var(--ink); }
+  .beat.now { background:var(--stripe); border-color:var(--stripe); }
+  .pos { text-align:center; font-size:18px; color:#4A5068; }
+  .verdict { display:flex; align-items:center; gap:16px; margin-top:24px; padding:16px 20px; border:2px dashed var(--ink); }
+  .verdict .shape { width:0; height:0; border-top:18px solid transparent; border-bottom:18px solid transparent; border-left:28px solid var(--ink); }
+  .verdict p { font-family:'Patrick Hand',cursive; font-size:36px; color:var(--ink); }
+  .verdict small { font-size:16px; color:#4A5068; margin-left:auto; }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="plan">
+    <nav>
+      <span class="brand">Neckspert Play</span>
+      <a class="on" href="#">Pratiquer</a><a href="#">Bibliothèque</a><a href="#">Progrès</a><a href="#">Réglages</a>
+    </nav>
+    <div class="head"><h1>Prochaine séance</h1><span class="total">≈ 14 min</span></div>
+    <div class="side">Face A</div>
+    <ol>
+      <li><span class="n">1</span><div><div class="t">Révisions à froid · 7 positions du manche</div><div class="why">Dues depuis mardi : seul le froid compte.</div></div><span class="d">3:00</span></li>
+      <li><span class="n">2</span><div><div class="t">Rythme · Mesures silencieuses, niveau 3</div><div class="why">1 mesure de clic, 3 muettes, ♩ = 100 bpm. 3 cycles réussis d'affilée au niveau 2 hier.</div></div><span class="d">4:00</span></li>
+      <li><span class="n">3</span><div><div class="t">Triades · Ancrer D, A, F#m sur G-B-E</div><div class="why">La zone s'ouvre quand les trois tiennent à froid.</div></div><span class="d">4:00</span></li>
+      <li><span class="n">4</span><div><div class="t">Transfert · Relier sur « I Only Have Eyes for You »</div><div class="why">Sans aide : prouver hors de l'aide.</div></div><span class="d">3:00</span></li>
+    </ol>
+    <div class="tape"><div class="bar"><span></span></div><small>14:00 sur la face</small></div>
+    <div class="foot">
+      <div class="done">Fait aujourd'hui <b>Rythme · contretemps, ce matin</b></div>
+      <button class="go">Commencer</button>
+    </div>
+  </section>
+  <section class="play">
+    <div class="label">En séance · piste 1 · révisions à froid</div>
+    <div class="stripe"></div>
+    <div class="ruled">
+      <div class="note">F</div>
+      <div class="string">corde de B</div>
+    </div>
+    <div class="meter">
+      <div class="bar2"><span class="beat past"></span><span class="beat past"></span><span class="beat past"></span><span class="beat past"></span></div>
+      <div class="bar2"><span class="beat past"></span><span class="beat past"></span><span class="beat now"></span><span class="beat"></span></div>
+    </div>
+    <div class="pos">Mesure 2 de 2 · temps 3 de 4</div>
+    <div class="verdict"><span class="shape" aria-hidden="true"></span><p>En retard · +42 ms</p><small>note précédente</small></div>
+  </section>
+</div>
+</body>
+</html>

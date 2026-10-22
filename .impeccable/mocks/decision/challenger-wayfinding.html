@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le panneau</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root { --y:#FFD100; --k:#111111; --w:#FFFFFF; --g:#3A3A3A; --ground:#ECECEA; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  html,body { width:1440px; height:900px; overflow:hidden; background:var(--ground); color:var(--k); font-family:'Source Sans 3',system-ui,sans-serif; }
+  .app { display:grid; grid-template-columns:864px 576px; height:900px; }
+  nav { height:72px; display:flex; align-items:center; gap:36px; padding:0 48px; background:var(--k); color:var(--w); }
+  nav .brand { font-weight:800; font-size:22px; margin-right:auto; }
+  nav a { color:#CFCFCF; text-decoration:none; font-size:18px; font-weight:600; padding:24px 0; }
+  nav a.on { color:var(--y); box-shadow:inset 0 -4px 0 var(--y); }
+  .plan { display:flex; flex-direction:column; }
+  .body { padding:36px 48px 32px; display:flex; flex-direction:column; flex:1; }
+  .head { display:flex; align-items:baseline; justify-content:space-between; }
+  h1 { font-size:48px; font-weight:800; letter-spacing:-.01em; }
+  .total { font-size:28px; font-weight:600; color:var(--g); }
+  /* signature: the next decision hangs as one monumental yellow band; the rest wait in minutes */
+  .band { margin-top:24px; background:var(--y); display:grid; grid-template-columns:96px 1fr auto; align-items:center; gap:24px; padding:22px 28px; }
+  .pict { width:96px; height:96px; background:var(--k); color:var(--w); display:grid; place-items:center; font-size:56px; font-weight:800; }
+  .band .t { font-size:40px; font-weight:800; line-height:1.05; }
+  .band .why { font-size:18px; font-weight:600; margin-top:6px; }
+  .band .d { font-size:44px; font-weight:800; }
+  .band .d small { font-size:22px; font-weight:700; }
+  ul { list-style:none; margin-top:12px; }
+  li { display:grid; grid-template-columns:56px 1fr auto; align-items:center; gap:20px; padding:14px 28px; background:var(--w); border-left:8px solid var(--k); margin-top:8px; }
+  li .i { width:44px; height:44px; background:var(--g); color:var(--w); display:grid; place-items:center; font-weight:800; font-size:24px; }
+  li .t { font-size:26px; font-weight:700; }
+  li .why { font-size:16px; color:var(--g); }
+  li .d { font-size:26px; font-weight:700; color:var(--g); }
+  .foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; }
+  .done { font-size:18px; color:var(--g); }
+  .done b { color:var(--k); font-weight:700; }
+  .go { font:800 26px 'Source Sans 3',sans-serif; background:var(--k); color:var(--y); border:0; padding:20px 44px; display:flex; align-items:center; gap:16px; }
+  .go::after { content:"→"; font-size:30px; }
+  /* play */
+  .play { background:var(--k); color:var(--w); display:flex; flex-direction:column; }
+  .label { padding:26px 40px 0; font-size:16px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color:#9C9C9C; }
+  .sign { margin:20px 0 0; background:var(--y); color:var(--k); padding:28px 40px 32px; display:grid; grid-template-columns:auto 1fr; align-items:end; gap:28px; }
+  .note { font-size:300px; font-weight:800; line-height:.78; letter-spacing:-.04em; }
+  .dir { display:flex; flex-direction:column; gap:14px; padding-bottom:12px; }
+  .arrow { font-size:72px; font-weight:800; line-height:1; }
+  .string { font-size:44px; font-weight:800; line-height:1; }
+  .meter { padding:30px 40px 0; }
+  .meter p { font-size:24px; font-weight:700; }
+  .meter p span { color:#9C9C9C; font-weight:600; }
+  .beats { display:flex; gap:10px; margin-top:14px; }
+  .bt { flex:1; height:44px; border:3px solid #5A5A5A; display:grid; place-items:center; font-weight:800; font-size:20px; color:#9C9C9C; }
+  .bt.past { background:#3A3A3A; border-color:#3A3A3A; }
+  .bt.now { background:var(--y); border-color:var(--y); color:var(--k); }
+  .gap { width:18px; }
+  .verdict { margin:auto 40px 36px; border:3px solid var(--w); display:grid; grid-template-columns:72px 1fr; align-items:center; }
+  .verdict .shape { height:72px; background:var(--w); color:var(--k); display:grid; place-items:center; font-size:44px; font-weight:800; }
+  .verdict p { padding:0 22px; font-size:30px; font-weight:800; }
+  .verdict p small { display:block; font-size:16px; font-weight:600; color:#9C9C9C; }
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="plan">
+    <nav>
+      <span class="brand">Neckspert Play</span>
+      <a class="on" href="#">Pratiquer</a><a href="#">Bibliothèque</a><a href="#">Progrès</a><a href="#">Réglages</a>
+    </nav>
+    <div class="body">
+      <div class="head"><h1>Prochaine séance</h1><span class="total">≈ 14 min</span></div>
+      <div class="band">
+        <div class="pict">1</div>
+        <div><div class="t">Révisions à froid · 7 positions du manche</div><div class="why">Dues depuis mardi : seul le froid compte.</div></div>
+        <div class="d">3 <small>min</small></div>
+      </div>
+      <ul>
+        <li><span class="i">2</span><div><div class="t">Rythme · Mesures silencieuses, niveau 3</div><div class="why">1 mesure de clic, 3 muettes, ♩ = 100 bpm · 3 cycles réussis d'affilée au niveau 2 hier</div></div><span class="d">4 min</span></li>
+        <li><span class="i">3</span><div><div class="t">Triades · Ancrer D, A, F#m sur G-B-E</div><div class="why">La zone s'ouvre quand les trois tiennent à froid</div></div><span class="d">4 min</span></li>
+        <li><span class="i">4</span><div><div class="t">Transfert · Relier sur « I Only Have Eyes for You »</div><div class="why">Sans aide : prouver hors de l'aide</div></div><span class="d">3 min</span></li>
+      </ul>
+      <div class="foot">
+        <div class="done">Fait aujourd'hui : <b>Rythme · contretemps, ce matin</b></div>
+        <button class="go">Commencer</button>
+      </div>
+    </div>
+  </section>
+  <section class="play">
+    <div class="label">En séance · révisions à froid</div>
+    <div class="sign">
+      <div class="note">F</div>
+      <div class="dir"><span class="arrow">↘</span><span class="string">corde de B</span></div>
+    </div>
+    <div class="meter">
+      <p>Mesure 2 de 2 <span>· temps 3 de 4</span></p>
+      <div class="beats">
+        <span class="bt past">1</span><span class="bt past">2</span><span class="bt past">3</span><span class="bt past">4</span>
+        <span class="gap"></span>
+        <span class="bt past">1</span><span class="bt past">2</span><span class="bt now">3</span><span class="bt">4</span>
+      </div>
+    </div>
+    <div class="verdict"><span class="shape" aria-hidden="true">▶</span><p>En retard · +42 ms<small>note précédente</small></p></div>
+  </section>
+</div>
+</body>
+</html>

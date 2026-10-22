@@ -2,36 +2,39 @@
 version: 1
 slug: "src-routes-session-page-svelte"
 primary_target: "src/routes/session/+page.svelte"
-related_targets: []
+related_targets: ["src/routes/+page.svelte","src/lib/ui/play/PlayFrame.svelte"]
 ---
 
 ## Scope
 
-Écran de jeu pendant une série (session du jour, mode 1 Localisation en premier). Mode Operate. Premier écran de l'univers visuel de la famille Neckspert.
+Le monde visuel de la plateforme, éprouvé sur deux écrans : « Prochaine séance » (vue Pratiquer, futur accueil) et « En séance » (`PlayFrame`, lane des notes). Mode Operate. Remplace la cartouche Game Boy, abandonnée.
 
 ## Surface
 
-- **Public et tâche :** le guitariste, à 60 cm – 1 m, mains sur la guitare, lit la consigne, joue la note sur le temps et lit son verdict. La guitare est le contrôleur ; barre d'espace ou grand bouton pour la pause, entre les séries seulement.
-- **Contenu :** consigne (note, corde), temps (deux mesures d'annonce), verdict (Parfait, En avance, En retard, Mauvaise note ; écart en ms ; temps de réaction), historique de la série sur la piste. Rien d'autre. Triades d'ancrage : la case cible porte la fondamentale seule, suivie d'une bande d'un seul tenant (ton `--np-shade`, nom de l'accord écrit une fois au début) sur les temps 2 à 4 de la mesure, où l'accord se plaque n'importe quand. Leur aide aidée est la forme dessinée sous la consigne (cordes ou grille, au choix du réglage « Dessin des accords »). Après un raté ou un « Corrigé » de triade, la boîte du verdict réduit le sprite et montre « Joué » et « Attendu » dessinés côte à côte, une ligne qui nomme l'écart, et le bouton « Joué juste » (touche Entrée) jusqu'à la consigne suivante.
-- **Comp approuvée :** `.impeccable/mocks/comp-4-full-bleed-lane.png`. Corrections obligatoires : seuls les huit temps à venir portent des numéros (1 2 3 4 1 2 3 4), aucun chiffre au-dessus des cibles jouées, pas de « 10 », « 14 », « 15 » ; la tuile inversée de la dernière note jouée se place juste à gauche de la ligne d'arrivée ; le temps en cours est la première tuile à droite de la ligne.
-- **Moment mémorable :** la piste qui défile de droite à gauche, la note qui tombe sur la ligne fixe, et le verdict qui s'imprime en sprite dans la tuile au moment où elle passe la ligne.
+- **Public et tâche :** le guitariste, à 60 cm – 1 m, mains sur la guitare. Avant : il voit la séance, pourquoi chaque bloc, combien de temps, et la lance d'un bouton. Pendant : il lit la consigne de loin, voit arriver ce qu'il faut jouer et quand, joue sur le temps.
+- **En séance, règles de l'utilisateur (2026-10-21) :** le moins d'éléments possible pour dire le nécessaire ; la lane le montre sans l'écrire. Une case par temps, fond uni, le nom de ce qu'il faut jouer dans sa case. Passé 1/3, futur 2/3, au moins deux mesures à venir visibles. Ligne fixe, sans le mot « maintenant ». Pas de consigne = respiration, sans le mot. Ni « dans 2 temps », ni « mesure 4 », ni légende, ni numéros pendant l'exercice. La consigne énorme reste au-dessus.
+- **En séance, ce qui s'ajoute (2026-10-22) :** une ligne d'infos discrète en haut (« 1 / 4 · Révisions à froid · 3 / 7 · ♩ = 100 ») et « quitter ». Le verdict reste sur la piste : la case jouée garde son nom et porte la forme du verdict (▶ en retard, ◀ en avance, ✕ raté sur case sombre), une seule ligne dessous (« en retard · +42 ms », « F# joué »). Réussi : le centre se tait. Raté : la correction prend la place de la consigne (« F · corde de B » en rappel, « case 6 » en grand). Planche : `.impeccable/mocks/decision/silence-etats.html`, état 3 retenu.
+- **Navigation :** rail sombre en dos de pochette, intitulés sans numéros, l'actif marqué d'un filet ambre.
+- **Esquisse approuvée :** `.impeccable/mocks/decision/silence.html` (construction code d'abord : c'est la composition à suivre).
+- **Moment mémorable :** la consigne seule dans le champ brumeux, et les cases qui arrivent sur la ligne ambre.
 
 ## Direction contract
 
-THESIS: L'écran de jeu est une cartouche Game Boy aux couleurs de la guitare : consigne énorme, temps en piste de tuiles qui arrive sur une ligne fixe. Refuse l'écran habituel de la catégorie : manche dessiné, carte centrale arrondie, barre de progression.
+THESIS: Près du silence : un écran qui se tait à mesure que l'aide s'efface, mais dit toujours ce qui vient et quand. Refuse l'appli de guitare sombre à néons, cartes et anneaux de progression, et le tableau de bord gamifié.
 
-OWN-WORLD: Quatre tons stricts mesurés sur la Strandberg Bonfire Red (fond #E99568, moyen #BE6754, ombre #813B2A, encre #451218), damier de tramage pour tout cinquième ton, grille de tuiles 8×8, police pixel en capitales, hiérarchie par cadres doubles et inversion. Les verdicts sont des sprites (rond, flèche gauche, flèche droite, croix) avec inversion, mouvement et son, jamais une couleur propre.
+OWN-WORLD: Pochettes ECM. Brume #ECE8E2, encre #23211F, ardoise #7A7F80, terre d'ombre #8C6E52, ambre #D9A13B réservé au maintenant et à l'action principale. Champ de jeu brumeux (ardoise vers terre d'ombre). Une grotesque précise, Atkinson Hyperlegible Next, corps légers et grands, marges immenses, filets fins. États par la forme avant la teinte ; une seule échelle d'une séance à l'autre ; la grille des mesures comme armature.
 
-STORY: Le guitariste lit la note et la corde à distance, voit les deux mesures arriver, joue sur la ligne, lit son verdict, et voit la série défiler derrière la ligne.
+STORY: Le joueur lit la séance comme un dos de pochette, la lance, puis lit la consigne à distance et voit les cases arriver deux mesures à l'avance jusqu'à la ligne.
 
-FIRST VIEWPORT: Plein cadre 16:9, sans bandes. Haut (65 %) : « F » géant ombré et « corde de B » à gauche (60 %) ; boîte verdict à double cadre à droite (40 %) : sprite, bandeau inversé, écart en ms, temps de réaction. Bas (35 %) : piste de tuiles, ligne d'arrivée fixe au quart gauche surmontée d'un cœur, cibles jouées à gauche avec leur sprite, huit temps à droite, cible « F » au bout, « MESURE 2/2 TEMPS 3/4 » au-dessus à droite. Aucune action à l'écran : la guitare joue.
+FIRST VIEWPORT: Rail sombre de 168 px (pratiquer actif, bibliothèque, progrès, réglages, atelier grisé, « neckspert » le long du dos). Prochaine séance : titre léger 40 px et durée totale, quatre blocs numérotés (titre gras, pourquoi en terre d'ombre, durée à droite), le bloc en cours marqué d'un filet ambre, « fait aujourd'hui » et « Commencer » ambre en pied. En séance : champ brumeux, « F » de 300 px centré, « corde de B » 48 px, en bas une piste de 12 cases unies (4 passées, 8 à venir), ligne ambre au tiers, la cible porte son nom ; la ligne d'infos discrète en haut à gauche, « quitter » en haut à droite ; rien d'autre.
 
-FORM: Challenger de catalogue digital-design-canon-gameboy-four-shade-field, fusionné, palette traduite vers la Bonfire mesurée à la demande de l'utilisateur ; hors de ma liste ordonnée (tirage : position 4, chronométrage officiel, écarté par l'utilisateur). Seed 5dc1b320.
+FORM: Direction n° 7 de ma liste ordonnée (pochettes ECM), assignée au premier tirage, gardée par l'utilisateur à la relance audacieuse. seed:47f9b36fdc1a27e0
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 
 ## Unresolved
 
-- Adaptation portrait (téléphone) : la piste passe sous la consigne, le verdict se superpose ou se réduit ; à éprouver à la construction.
-- Écran de réponse du mode 2 (douze grands boutons), accueil, bilan et carte du manche : surfaces à venir, dans le même univers.
-- Sons et mouvements de chaque verdict.
+- La forme de parfait et de hors temps dans la case (en retard, en avance et raté sont décidés).
+- Les autres vues sur la même piste (accords, grille, lien, figure rythmique), plus tard.
+- Clair et sombre : la séance claire, le jeu sombre ; thèmes plus tard.
+- Téléphone en portrait ; mode 2 (douze boutons) ; bilan, progrès, bibliothèque.

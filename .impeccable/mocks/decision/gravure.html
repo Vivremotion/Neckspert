@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>La gravure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+  :root { --plaque: #FAFAF8; --gravure: #121212; --henle: #2E4C84; --crayon: #C23B22; --portee: #9AA0A6; --filet: rgba(18,18,18,.14); }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--plaque); color: var(--gravure); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; }
+  .serif { font-family: "Source Serif 4", Georgia, serif; }
+  .music { font-family: "Noto Music", serif; }
+  /* La couverture Urtext comme barre d'application */
+  .bande { height: 96px; background: var(--henle); color: #fff; display: flex; align-items: center; padding: 0 40px; gap: 40px; }
+  .cartouche { background: #fff; color: var(--henle); padding: 10px 22px 8px; border: 1px solid #fff; outline: 1px solid #fff; outline-offset: 3px; }
+  .cartouche b { display: block; font-family: "Source Serif 4", serif; font-weight: 600; font-size: 26px; letter-spacing: .14em; text-transform: uppercase; }
+  .cartouche span { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; }
+  .bande nav { display: flex; gap: 6px; margin-left: 24px; }
+  .bande a { color: #fff; text-decoration: none; font-size: 18px; padding: 12px 18px; letter-spacing: .04em; border: 1px solid transparent; }
+  .bande a.on { border-color: rgba(255,255,255,.9); background: rgba(255,255,255,.1); }
+  .bande a.off { opacity: .45; }
+  .bande .ed { margin-left: auto; font-size: 15px; letter-spacing: .1em; text-transform: uppercase; opacity: .8; }
+  main { display: grid; grid-template-columns: 624px 816px; height: 804px; }
+  /* Table des matières */
+  .toc { padding: 52px 48px 40px; border-right: 1px solid var(--filet); display: grid; grid-template-rows: auto 1fr auto; }
+  .toc h1 { font-family: "Source Serif 4", serif; font-weight: 400; font-size: 44px; }
+  .toc h1 + p { font-size: 15px; letter-spacing: .12em; text-transform: uppercase; color: var(--henle); margin-top: 8px; }
+  .toc ol { list-style: none; margin-top: 28px; }
+  .toc li { padding: 14px 0 12px; border-top: 1px solid var(--filet); }
+  .toc li.ici { border-top: 2px solid var(--henle); }
+  .ligne { display: flex; align-items: baseline; gap: 10px; font-family: "Source Serif 4", serif; font-size: 25px; }
+  .ligne .n { color: var(--henle); width: 28px; font-weight: 600; }
+  .ligne .pts { flex: 1; border-bottom: 2px dotted var(--portee); transform: translateY(-6px); }
+  .ligne .min { font-variant-numeric: tabular-nums; }
+  .why { margin-left: 38px; font-size: 15px; color: #5a5f66; margin-top: 4px; }
+  .toc footer { display: flex; align-items: center; justify-content: space-between; }
+  .fait { font-size: 15px; color: #5a5f66; }
+  button { font: inherit; font-size: 24px; font-weight: 500; color: #fff; background: var(--henle); border: 0; padding: 20px 44px; letter-spacing: .04em; }
+  /* En séance : le système de portée */
+  .jeu { position: relative; padding: 0 32px; }
+  .etat { position: absolute; top: 28px; left: 48px; right: 48px; display: flex; justify-content: space-between; font-size: 15px; letter-spacing: .06em; color: #5a5f66; }
+  .etat b { color: var(--gravure); }
+  .consigne { position: absolute; top: 76px; left: 336px; }
+  .consigne .note { font-family: "Source Serif 4", serif; font-size: 250px; line-height: .86; }
+  .consigne .corde { font-size: 42px; margin-top: 10px; }
+  .consigne .quand { font-size: 26px; color: var(--henle); margin-top: 10px; }
+  .avant { position: absolute; top: 140px; left: 48px; font-size: 22px; color: #6b7076; line-height: 1.4; width: 260px; }
+  .systeme { position: absolute; top: 530px; left: 48px; width: 720px; height: 200px; }
+  .mnum { position: absolute; top: 0; font-family: "Source Serif 4", serif; font-size: 17px; font-style: italic; color: #4b5057; }
+  .ligneP { position: absolute; left: 0; right: 48px; top: 120px; height: 2px; background: var(--gravure); }
+  .barre { position: absolute; top: 96px; width: 2px; height: 50px; background: var(--gravure); }
+  .barre.fin { width: 6px; box-shadow: -8px 0 0 -2px var(--gravure); }
+  .sl { position: absolute; top: 110px; width: 9px; height: 22px; background: var(--gravure); transform: skewX(-24deg); }
+  .sl.ok { opacity: .3; }
+  .pause { position: absolute; top: 96px; width: 96px; text-align: center; font-family: "Noto Music", serif; font-size: 52px; line-height: .6; }
+  .pause small { display: block; font-family: "Atkinson Hyperlegible Next", sans-serif; font-size: 15px; color: #6b7076; margin-top: 34px; }
+  .sym { position: absolute; top: 34px; font-family: "Source Serif 4", serif; font-size: 36px; font-weight: 600; line-height: 1; }
+  .sym small { display: block; font-family: "Atkinson Hyperlegible Next", sans-serif; font-size: 15px; font-weight: 400; margin-top: 4px; }
+  .sym.passe { color: #8a8f96; }
+  .sym.cache { border: 2px dashed var(--gravure); padding: 4px 12px 2px; font-weight: 400; }
+  .tete { position: absolute; top: 18px; width: 3px; height: 150px; background: var(--henle); }
+  .tete::after { content: "maintenant"; position: absolute; top: 154px; left: -38px; font-size: 15px; color: var(--henle); }
+  .rouge { position: absolute; border: 2.5px solid var(--crayon); border-radius: 50%; transform: rotate(-8deg); }
+  .rouge-t { position: absolute; color: var(--crayon); font-size: 17px; font-weight: 500; transform: rotate(-3deg); white-space: nowrap; }
+  .apres { position: absolute; left: 48px; right: 48px; bottom: 34px; display: flex; gap: 48px; align-items: baseline; font-size: 15px; color: #5a5f66; border-top: 1px solid var(--filet); padding-top: 14px; }
+  .apres .music { font-size: 24px; color: var(--gravure); }
+  .apres .serif { font-size: 22px; color: var(--gravure); font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="bande">
+    <div class="cartouche"><b>Neckspert</b><span>Urtext · guitare</span></div>
+    <nav aria-label="Navigation"><a class="on" href="#">Pratiquer</a><a href="#">Bibliothèque</a><a href="#">Progrès</a><a href="#">Réglages</a><a class="off" href="#">Atelier</a></nav>
+    <span class="ed">Séance du mardi</span>
+  </div>
+  <main>
+    <section class="toc">
+      <div><h1>Prochaine séance</h1><p>env. 14 min · 4 pièces</p></div>
+      <ol>
+        <li class="ici"><div class="ligne"><span class="n">1</span>Révisions à froid<span class="pts"></span><span class="min">3 min</span></div><p class="why">7 positions du manche, dues depuis mardi · seul le froid compte</p></li>
+        <li><div class="ligne"><span class="n">2</span>Mesures silencieuses<span class="pts"></span><span class="min">4 min</span></div><p class="why">niveau 3 : 1 mesure de clic, 3 muettes · ♩ = 100 bpm · 3 cycles réussis d’affilée au niveau 2 hier</p></li>
+        <li><div class="ligne"><span class="n">3</span>Ancrer D, A, F#m<span class="pts"></span><span class="min">4 min</span></div><p class="why">triades sur G-B-E · la zone s’ouvre quand les trois tiennent à froid</p></li>
+        <li><div class="ligne"><span class="n">4</span>Relier, sans aide<span class="pts"></span><span class="min">3 min</span></div><p class="why">« I Only Have Eyes for You » · prouver hors de l’aide</p></li>
+      </ol>
+      <footer><p class="fait">fait aujourd’hui · Rythme, contretemps, ce matin</p><button>Commencer</button></footer>
+    </section>
+    <section class="jeu" aria-label="En séance">
+      <div class="etat"><span><b>Pièce 1 / 4</b> · révisions à froid · 3 / 7 · ♩ = 100</span><span>pause ␣</span></div>
+      <div class="avant">G · corde de E aigu<br>joué en retard</div>
+      <div class="consigne"><div class="note">F</div><div class="corde">corde de B</div><div class="quand">mesure 4, temps 1 · dans 2 temps</div></div>
+      <div class="systeme">
+        <span class="mnum" style="left:0">1</span><span class="mnum" style="left:96px">2</span><span class="mnum" style="left:192px">3</span><span class="mnum" style="left:288px">4</span><span class="mnum" style="left:384px">5</span><span class="mnum" style="left:480px">6</span><span class="mnum" style="left:576px">7</span>
+        <div class="ligneP"></div>
+        <div class="barre" style="left:0"></div><div class="barre" style="left:96px"></div><div class="barre" style="left:192px"></div><div class="barre" style="left:288px"></div><div class="barre" style="left:384px"></div><div class="barre" style="left:480px"></div><div class="barre" style="left:576px"></div><div class="barre fin" style="left:670px"></div>
+        <div class="sl ok" style="left:10px"></div><div class="sl ok" style="left:34px"></div><div class="sl ok" style="left:58px"></div><div class="sl ok" style="left:82px"></div>
+        <div class="pause" style="left:96px">𝄻<small>respiration</small></div>
+        <div class="sl ok" style="left:202px"></div><div class="sl ok" style="left:226px"></div><div class="sl" style="left:250px"></div><div class="sl" style="left:274px"></div>
+        <div class="sl" style="left:298px"></div><div class="sl" style="left:322px"></div><div class="sl" style="left:346px"></div><div class="sl" style="left:370px"></div>
+        <div class="pause" style="left:384px">𝄻<small>respiration</small></div>
+        <div class="sl" style="left:490px"></div><div class="sl" style="left:514px"></div><div class="sl" style="left:538px"></div><div class="sl" style="left:562px"></div>
+        <div class="sl" style="left:586px"></div><div class="sl" style="left:610px"></div><div class="sl" style="left:634px"></div><div class="sl" style="left:658px"></div>
+        <div class="sym passe" style="left:6px">G<small>E aigu</small></div>
+        <div class="sym" style="left:294px">F<small>corde de B</small></div>
+        <div class="sym cache" style="left:582px">?</div>
+        <div class="rouge" style="left:2px;top:100px;width:44px;height:40px"></div>
+        <span class="rouge-t" style="left:4px;top:150px">→ en retard<br>+42 ms</span>
+        <div class="tete" style="left:240px"></div>
+      </div>
+      <div class="apres"><span>la même portée porte la suite :</span><span>pièce 2 <span class="music">𝅘𝅥 𝅘𝅥𝅮𝅘𝅥𝅮 𝄽 𝅘𝅥</span></span><span>pièce 3 <span class="serif">D · A · F#m</span></span></div>
+    </section>
+  </main>
+</body>
+</html>

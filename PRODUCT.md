@@ -12,50 +12,57 @@ SvelteKit en site statique, Svelte 5 (runes uniquement), CSS natif avec variable
 
 ## Users
 
-**Utilisateur principal : l'auteur.** Guitariste de niveau avancé, jusqu'à 5 h de pratique par jour, qui aime l'improvisation, la technique et le son, et que les reprises ennuient. Il suit des cours avec un professeur. Son problème : les notes du manche ne s'impriment pas. La recherche devient rapide après quelques répétitions, mais tout est à refaire 10 minutes plus tard ou le lendemain. Il retrouve les notes par calcul à partir des repères (points des cases 3, 5, 7, 9 ; « C est une case au-dessus de B ») ou par tâtonnement, jamais par accès direct. Deux semaines de l'exercice classique n'ont rien changé.
+**Des guitaristes investis**, du débutant motivé à l'expert, qui savent qu'il faut travailler pour progresser ; pas des gens qui veulent « jouer des morceaux » sans compétence réelle. Ils suivent un cursus, avec ou sans professeur : l'application marche **en autonomie, sans professeur**.
 
-**Ensuite : d'autres guitaristes avancés.** L'application sera publiée après usage personnel, comme Neckspert. Ils partagent le même besoin : mémoriser durablement le manche plutôt que réussir un exercice sur le moment.
+**Le premier utilisateur est l'auteur.** Guitariste avancé, jusqu'à 5 h de pratique par jour, qui aime l'improvisation, la technique et le son, et suit des cours. Son problème de départ : les notes du manche ne s'impriment pas ; il les retrouve par calcul à partir des repères, jamais par accès direct, et tout est à refaire le lendemain.
 
-Ce qui marche pour ce public : des exercices simples et ciblés, avec un objectif défini, un progrès mesurable et des critères observables. Rhythm Doctor a très bien fonctionné pour le rythme, parce qu'il était à la fois gratifiant et utile. Ce qui ne marche pas : les exercices qui « ne mènent nulle part », sans critère de réussite ni progrès visible.
+**Les professeurs** sont un second public : ils créent des exercices pour leurs élèves et suivent leurs progrès entre les cours. L'application prolonge un cours, elle ne le remplace pas.
+
+Ce qui marche pour ce public : des exercices simples et ciblés, avec un objectif défini, un progrès mesurable et des critères observables. Ce qui ne marche pas : les exercices qui « ne mènent nulle part », sans critère de réussite ni progrès visible.
 
 ## Product Purpose
 
-Faire passer la connaissance du manche du calcul au rappel direct, et le prouver. L'application choisit quoi réviser, fait jouer la réponse sur une vraie guitare, sur le temps, et mesure ce qui reste d'une session à l'autre.
+**Une plateforme d'apprentissage de la guitare** dont le moteur permet d'écrire n'importe quel exercice et de structurer l'apprentissage : notes du manche, formes d'accord, précision rythmique aujourd'hui ; lecture, oreille, improvisation ensuite. On joue sur une vraie guitare, sur le temps, et l'application mesure ce qui reste d'une séance à l'autre. Vision et feuille de route : `docs/vision.md`.
 
-Le succès : une position est **maîtrisée** quand elle est retrouvée juste et vite, à froid, dans des sessions distinctes espacées de plusieurs jours. Valeurs initiales, à calibrer : 90 % de premières réponses justes, en moins de 1,5 s, sur trois sessions, la dernière réussite au moins 72 h après la précédente.
+La revendication : **mesurer ce qui reste, pas ce qui réussit pendant l'exercice.** Le froid compte à part du chaud ; la maîtrise exige le rappel espacé et le transfert hors de l'aide. Exemple pour le manche : une position est **maîtrisée** quand elle est retrouvée juste et vite, à froid, dans des séances distinctes espacées de plusieurs jours (valeurs initiales, à calibrer : 90 % de premières réponses justes, en moins de 1,5 s, sur trois séances, la dernière réussite au moins 72 h après la précédente).
 
-À terme, la mémoire du manche sert la musique : renversements, déplacements sur une grille, notes cibles puis improvisation sur backing track.
+Gratuite et open source : au moins le moteur et les exercices fondamentaux. Un modèle économique, s'il existe, ne passe jamais par les compétences fondamentales.
 
 ## Positioning
 
-Les autres entraîneurs de manche mesurent si tu trouves la note pendant l'exercice ; celui-ci mesure si tu la trouves encore le lendemain, sans réfléchir.
+**« JTC rendu interactif »** : un cours pour guitaristes investis, du débutant motivé à l'expert, avec de vraies leçons et des exercices variés, pas une porte d'entrée pour débutants ni un jeu sans portée pédagogique (Yousician, Rocksmith). JTC n'est pas interactif ; ici, chaque exercice écoute la guitare et juge.
 
-Le mécanisme : le premier essai d'une position après un délai (à froid) est compté à part des suivants (à chaud), et seul le froid alimente les statistiques de rétention. La répétition espacée (FSRS) ramène les positions faibles. Le seuil de temps sépare le rappel direct du calcul. La forme de jeu de rythme (répondre sur le temps) et le parcours vers la musique (modes à débloquer) servent cette revendication centrale.
+Le mécanisme que les autres n'ont pas : le premier essai d'un item après un délai (à froid) est compté à part des suivants (à chaud), et seul le froid alimente la rétention ; la répétition espacée (FSRS) ramène ce qui faiblit ; chaque mesure dit ce qu'elle prouve (justesse, rappel, précision, régularité, tenue, placement). Les autres entraîneurs mesurent si tu trouves pendant l'exercice ; celui-ci mesure si tu trouves encore le lendemain, sans réfléchir et sans l'écran.
+
+Ce projet remplacera Neckspert, l'outil d'origine.
 
 ## Operating Context
 
 - **Mains prises, loin de l'écran.** Le guitariste tient sa guitare, à 60 cm à 1 m de l'écran. Il ne peut pas manipuler l'interface pendant une série.
 - **Tous les écrans**, du téléphone à l'ordinateur de bureau.
 - **Entrée audio.** Guitare branchée sur une interface audio, recommandée. Le micro de l'appareil est toléré, avec une détection moins fiable.
-- **Contrôles.** Un grand bouton tactile ou cliquable entre les séries, et la barre d'espace sur un clavier. Pas de prise en charge de pédale. Exception : en mode 2, la réponse se donne à l'écran avec de grands boutons.
-- **Plusieurs sessions courtes par jour**, au milieu d'une pratique beaucoup plus longue. L'application reste minoritaire dans la pratique quotidienne.
-- **Contexte pédagogique**, qui alimente les modes avancés : le professeur donne des renversements, des grilles et des tonalités d'improvisation qui changent d'un cours à l'autre. Les modes 3 à 5 ne sont pas liés à ces exemples.
+- **Contrôles.** Un grand bouton tactile ou cliquable entre les séries, la barre d'espace et quelques touches sur un clavier (E écouter, R réécouter). Pas de prise en charge de pédale. Exception : en mode 2, la réponse se donne à l'écran avec de grands boutons.
+- **Plusieurs séances courtes par jour**, au milieu d'une pratique beaucoup plus longue. L'application reste minoritaire dans la pratique quotidienne.
+- **Contexte pédagogique** : un professeur donne des renversements, des grilles, des figures rythmiques et des tonalités d'improvisation qui changent d'un cours à l'autre. Le corpus de référence est deux ans de cours de l'auteur (39 cours, 43 exercices), hors dépôt.
 
 ## Capabilities and Constraints
 
-### Modes
+### Ce qui existe aujourd'hui
+
+**Notes du manche**
 
 1. **Localisation** (nom vers position) : « F, corde de B », à jouer sur le temps.
 2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La guitare ne sert pas : la réponse se donne en touchant ou cliquant le nom parmi douze grands boutons, les mêmes sur tous les appareils. Les notes altérées portent les deux formes (F# / Gb). Le premier bouton touché est la réponse. Le temps est mesuré de l'affichage de la consigne au toucher. Ce mode suppose d'être à portée de l'écran.
-3. **Renversements** : produire un renversement donné, pour n'importe quel accord et groupe de cordes. Après la réponse, afficher les notes attendues et le degré porté par chaque corde (fondamentale, tierce, quinte).
-4. **Ascension** : sur une grille programmable, chaque accord plus haut que le précédent, attaque sur le temps, sans rupture de pulsation ; puis la descente.
-5. **Boss musical** : backing track dans une tonalité donnée, notes cibles sur les changements d'accord, puis improvisation libre.
 
-**Premier prototype :** modes 1 et 2, répétition espacée, tableau de bord de rétention.
+**Triades** (cordes G-B-E), en deux voies : la **mémoire** (ancrer une triade : symbole et corde de la fondamentale vers forme jouée, puis une zone du manche) et le **geste** (relier des formes voisines sur une grille, monter, jouer dans une zone, puis en jam). Les grilles s'écrivent en vrais symboles d'accord. Après un raté, l'écran dessine ce qui a été entendu et ce qui était attendu.
+
+**Rythme** : trois exercices du professeur (mesures silencieuses, métronome sur 2 et 4, contretemps), une figure jouée en boucle et jugée par cycle, des niveaux, l'écoute et la réécoute de sa prise (voir « Rythme » plus bas).
+
+**À venir** (`docs/vision.md`, « Ordre des chantiers ») : séquences et figures sur les exercices du manche, ensembles admis et formes pleines, audio joué et prises partagées, compétences et planificateur, langage d'exercices et Atelier. Les vues prévues : Prochaine séance, Séance, Bilan, Progrès, Bibliothèque, Fiche d'exercice, Atelier, Réglages.
 
 ### Règles de jeu
 
-- **La première note jouée est la réponse.** Aucune correction après une fausse note.
+- **La première note jouée est la réponse.** Une exception : à l'ancrage d'une triade, un premier accord faux remis juste plus tard dans la fenêtre est salué à l'écran (« corrigé »), mais compte comme un raté.
 - **Visualiser avant de jouer.** La consigne arrive avant la cible, mains immobiles, puis la note doit tomber sur le temps. La note cible tombe toujours sur le temps 1 d'une mesure ; la consigne apparaît 8 temps avant (temps 1, deux mesures avant), 4 temps avant (temps 1 de la mesure précédente) ou 2 temps avant (temps 3). Jamais de consigne ni de cible sur les temps 2 ou 4. En mode 1, la corde s'affiche un temps avant la note ; la note est la seule lettre en grand.
 - **Respiration.** Après une cible, la consigne suivante attend le temps 1 de la mesure suivante. Pendant ce temps, après une fausse note ou une absence de réponse, l'écran montre la bonne réponse : la position en mode 1 (« corde de E grave, case 5 »), le nom en mode 2.
 - **Hors temps.** Après la fenêtre de réponse, l'écoute continue environ 2 s (jamais au-delà de l'apparition de la consigne suivante). Une bonne note jouée là est « hors temps » : trouvée, mais pas en rappel direct. Une note jouée avant la consigne, ou dans les 300 ms qui suivent son apparition, appartient à la consigne précédente.
@@ -65,7 +72,7 @@ Le mécanisme : le premier essai d'une position après un délai (à froid) est 
 - **Progression par une file ordonnée** : les naturelles d'abord, en alternant les cordes, celles placées sur un point du manche en premier ; puis les altérées. Une note nouvelle entre dès qu'une place se libère (fenêtre glissante).
 - **Cordes à vide supposées connues** : la consigne nomme la corde par sa note à vide ; la case 0 n'est jamais demandée.
 - **Retrait progressif de l'aide** : position affichée, puis nom seul, puis accord seul.
-- **Le jeu décide quoi travailler.** Les modes se débloquent progressivement.
+- **Le jeu propose, tout reste accessible.** La séance est un bouton : le jeu compose ce qu'il faut travailler et le dit. Chaque exercice reste jouable en jeu libre ; la règle froid / chaud garde les statistiques honnêtes.
 - **Temps de jeu illimité, révisions à froid limitées.** L'Apprentissage et le jeu libre restent toujours ouverts ; ce qui est rejoué à chaud ne compte pas dans la rétention. Un essai à froid compte quel que soit le mode : en jeu libre, une position déjà apprise et non jouée depuis au moins 1 h compte comme une révision. La fatigue est signalée (baisse de précision, temps de réaction qui s'allonge).
 
 ### Apprentissage
@@ -101,7 +108,7 @@ Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décompté
 - **Sondage** : la première fois qu'une note sort de la file, elle est demandée sans aide (mode 1 au temps d'avance du rappel direct, mode 2 avec son seuil). Retrouvée en rappel direct, elle passe directement en révision, acquise ; sinon l'aide arrive à la consigne suivante et l'apprentissage commence. Rien n'annonce un sondage à l'écran. Le sondage dispense de l'enseignement, jamais de la vérification. Il n'y a plus de session de positionnement (spec `docs/superpowers/specs/2026-10-03-sondage-avant-apprentissage-design.md`).
 - **File d'introduction** : naturelles puis altérées, cordes alternées, cases 1 à 11. Une note entre quand une place de la fenêtre se libère, pas quand un ensemble est acquis.
 - **Mode 2** : une position entre dans la file en mode 2 dès qu'elle est acquise en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
-- **Modes 3 à 5** : s'ouvrent sur un pourcentage du manche maîtrisé, à définir avec ces modes.
+- **Triades et geste** : la zone des triades s'ouvre une fois les ancrages acquis ; la voie du geste s'ouvre sur les triades acquises. Les déblocages par compétence viendront avec le graphe de compétences et le planificateur (`docs/vision.md`, chantier 5).
 
 ### Rythme
 
@@ -124,45 +131,47 @@ Le rythme est une compétence à part entière, pas un décor des exercices du m
 - **Tempo adaptatif** : propre à chaque exercice ; le tempo de l'exercice à la session d'Apprentissage suivante, ajusté sur la réussite de celle-ci. Il n'est pas réglable dans les Réglages.
 - **Apprise** : réussie 2 fois sans aide, en rappel direct, dans la session où elle a été introduite. État à chaud, de court terme ; fait avancer la file, ne compte pas pour la rétention.
 - **Acquis** : position réussie juste et sous le seuil de rappel direct, à froid, au moins une fois dans une session postérieure à son apprentissage, ou au sondage.
-- **Maîtrisé** : voir Product Purpose. Alimente le tableau de bord et débloque les modes.
+- **Maîtrisé** : voir Product Purpose. Alimente « Où j'en suis » et les déblocages.
 - **Noms des notes** : toujours en lettres (C, D, E…), dans les deux langues. Les notes altérées apparaissent sous les deux formes (F# ou Gb), tirées au hasard, et les deux sont acceptées en réponse.
 - **Langue de l'interface** : bilingue, français et anglais.
 
 ### Contraintes techniques
 
 - Toute la temporisation est calée sur `AudioContext.currentTime`.
-- Détection des accords par HPCP (`essentia.js`), reprise de Neckspert ; détection des notes avec octave par un détecteur de hauteur (par exemple `pitchy`), dans le même traitement audio.
+- Détection des notes avec octave par un détecteur de hauteur ; des accords par vérification de candidats (NNLS : on vérifie la forme attendue plutôt que de transcrire) ; des attaques sans hauteur pour le rythme. Une seule entrée audio alimente tous les capteurs ; la latence se calibre contre le micro de l'ordinateur, sans le geste du joueur.
 - Chaque tentative est conservée avec son horodatage.
 - Données en local uniquement, sans compte. Export et import de fichier pour sauvegarder ou changer d'appareil.
 
 ### Décisions ouvertes
 
-- **Renversements (mode 3)** : HPCP reconnaît les notes de l'accord, pas la note à la basse ni le groupe de cordes joué.
 - **Reconnaissance de la corde au timbre** (inharmonicité) : expérience possible plus tard, avec calibration par guitare et interface audio. D'abord en simple signalement dans les statistiques, sans effet sur le verdict.
-- **Nom définitif.** « Neckspert Play » est le nom de travail.
+- **Nom définitif.** « Neckspert Play » est le nom de travail ; « Neckspert » nomme le manche, pas une plateforme multi-compétences.
 
 ## Brand Commitments
 
-- **Famille Neckspert.** Produit frère de Neckspert (`~/Development/Neckspert`), avec lequel il partage le nom. Neckspert n'a pas d'identité visuelle propre (Tailwind par défaut) : l'univers visuel de Neckspert Play devient celui de la famille, que Neckspert pourra adopter plus tard. Nom de travail : Neckspert Play.
-- **Pas de gamification générique** : ni points d'expérience, ni séries quotidiennes culpabilisantes. La récompense, c'est le progrès mesuré.
-- **Rhythm Doctor** est la référence d'expérience : gratifiant et utile à la fois.
+- **Personnalité : sérieux mais engageant.** Chaleureux, qui donne envie de revenir ; ni froideur clinique ni bonne humeur forcée. L'atmosphère d'une salle de répétition.
+- **Ton : un bon prof.** Direct, chaleureux, une pointe d'humour sec, jamais infantilisant ; le vocabulaire des musiciens. Un seul mot par concept, le même dans le code, l'interface et le langage d'exercices (« niveau », « respiration », « suite »…).
+- **Pas de gamification creuse** : ni séries, ni XP, ni classements, ni récompenses inventées, ni temps total comme exploit, ni score global. L'engagement vient du progrès visible, de la musique, des prises réécoutées, des déblocages réels. Anti-modèle : Duolingo.
+- **Le Game Boy est abandonné** (2026-10-13) : la direction pixel en quatre tons a été jugée laide en pratique et pas sérieuse. Elle ne sert plus de référence.
+- **Thèmes plus tard** : la peau pourra changer ; la sémantique des verdicts et des degrés, jamais.
 
 ## Evidence on Hand
 
-- `docs/brief.md` : brief d'origine, décisions et questions ouvertes.
-- Code réutilisable de Neckspert : `src/lib/domain/music/` (hauteurs, positions, formes, voicings, transposition), `src/lib/domain/hpcp/` et `src/lib/services/HPCPDetector/` (détection d'accords), `src/lib/services/Metronome.ts` et `src/lib/services/CalibrationService.ts` (à adapter à l'horloge audio), les ports de `src/lib/application/ports/`. Ne pas reprendre `TrainerManager.ts` ni les composants d'interface.
-- Aucune donnée d'usage, aucun utilisateur externe, aucun témoignage : ne rien inventer de tel.
+- `docs/vision.md` : vision, principes, vues prévues et ordre des chantiers. `docs/brief.md` : brief d'origine.
+- Les écrans existants (accueil, séance, bilan, carte du manche, réglages, calibration) et leurs vues de jeu : consigne de note, grille d'accords, lane du lien, figure rythmique en notation (`src/lib/ui/`).
+- Le corpus de cours de l'auteur (coffre Obsidian, hors dépôt) : c'est l'œuvre du professeur, à ne pas reproduire.
+- Aucune donnée d'usage externe, aucun utilisateur externe, aucun témoignage : ne rien inventer de tel.
 
 ## Product Principles
 
-1. **La rétention à froid fait foi.** Ce qui est rejoué à chaud ne compte pas dans les statistiques de rétention.
-2. **Décider avant de jouer.** La consigne arrive avant la cible, la première note jouée est la réponse, et elle tombe sur le temps.
-3. **Le jeu choisit, le guitariste joue.** Pas de menu d'exercices ; progression par petits ensembles, aide retirée peu à peu.
-4. **Lire la guitare, pas l'écran.** Consignes textuelles lisibles à distance ; aucun manche dessiné pour répondre.
-5. **Le seul gain, c'est le progrès mesuré.** Pas de points d'expérience ni de séries culpabilisantes ; l'application reste une petite part de la pratique.
+1. **Une mesure dit ce qu'elle prouve.** Le froid fait foi pour la rétention ; un verdict faux est pire qu'aucun ; ce que l'application ne sait pas juger est dit, pas maquillé ; le nombre d'essais est toujours dit.
+2. **Ne jamais rendre dépendant de l'interface.** L'écran donne la question, jamais la réponse (noms, symboles, grilles, pas de coordonnées de case) ; chaque aide s'efface, la structure du temps aussi, jusqu'aux yeux fermés. Seul le jeu sans aide prouve le transfert.
+3. **Décider avant de jouer.** La consigne arrive avant la cible, la première réponse compte, et elle tombe sur le temps.
+4. **Pédagogie avant technologie.** On conçoit l'exercice pour apprendre, puis la détection pour lui ; on ne plie jamais un exercice à une limite technique.
+5. **Le seul gain, c'est le progrès mesuré.** Pas de gamification creuse ; l'application reste une petite part de la pratique et prolonge le cours, elle ne le remplace pas. Local-first : données sur l'appareil, sans compte.
 
 ## Accessibility & Inclusion
 
 - Consignes lisibles à 60 cm – 1 m, sur tous les formats d'écran.
 - Aucune interaction fine pendant une série ; cibles larges entre les séries et pour les réponses du mode 2, barre d'espace au clavier.
-- Chaque verdict reste compréhensible sans la couleur.
+- Chaque verdict reste compréhensible sans la couleur : couleurs lisibles par les daltoniens, toujours doublées d'une forme.

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Le pupitre</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,700&family=JetBrains+Mono:wght@400;600&family=Noto+Music&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0F172A;--slate:#1E293B;--line:#334155;--mute:#64748B;--soft:#CBD5E1;--paper:#F1F5F9;--teal:#14B8A6;--late:#F59E0B}
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1440px;height:900px;overflow:hidden;background:var(--ink);color:var(--soft);font-family:'Atkinson Hyperlegible Next',sans-serif}
+.serif{font-family:'Source Serif 4',serif}.mono{font-family:'JetBrains Mono',monospace}.mus{font-family:'Noto Music',serif}
+/* toolbar */
+.bar{height:64px;display:flex;align-items:center;gap:28px;padding:0 24px;background:var(--slate);border-bottom:1px solid var(--line)}
+.brand{font-family:'Source Serif 4',serif;font-weight:700;font-size:24px;color:var(--paper)}
+.brand b{color:var(--teal)}
+.seg{display:flex;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:3px}
+.seg a{padding:9px 18px;border-radius:6px;font-size:16px;color:var(--soft);text-decoration:none}
+.seg a.on{background:var(--line);color:var(--paper);font-weight:600;box-shadow:inset 0 -2px 0 var(--teal)}
+.seg a.off{color:var(--mute)}
+.status{margin-left:auto;display:flex;gap:10px}
+.chip{font-family:'JetBrains Mono',monospace;font-size:13px;padding:7px 12px;border:1px solid var(--line);border-radius:6px;color:var(--soft)}
+.chip i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--teal);margin-right:8px}
+/* panes */
+.main{display:grid;grid-template-columns:620px 820px;height:836px}
+.plan{padding:36px 36px;border-right:1px solid var(--line);display:flex;flex-direction:column}
+h1{font-family:'Source Serif 4',serif;font-weight:700;font-size:44px;color:var(--paper);line-height:1}
+.sub{margin-top:10px;font-size:17px;color:var(--mute)}
+.rows{margin-top:30px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:44px 1fr 70px;gap:12px;padding:18px 0;border-bottom:1px solid var(--line)}
+.n{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--teal);padding-top:4px}
+.t{font-size:22px;font-weight:600;color:var(--paper)}
+.t em{font-style:normal;font-family:'Source Serif 4',serif;font-weight:700}
+.why{margin-top:6px;font-size:15px;color:var(--mute)}
+.d{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--soft);text-align:right;padding-top:5px}
+.done{margin-top:22px;font-size:15px;color:var(--mute)}.done b{color:var(--soft);font-weight:600}
+.go{margin-top:auto;display:flex;align-items:center;gap:16px}
+.btn{background:var(--teal);color:var(--ink);font-weight:700;font-size:24px;padding:18px 40px;border-radius:10px}
+.key{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--mute)}
+/* séance */
+.play{padding:28px 32px;display:flex;flex-direction:column;background:linear-gradient(#0F172A,#111c33)}
+.ph{display:flex;align-items:center;gap:14px;font-size:16px;color:var(--mute)}
+.ph b{color:var(--soft);font-weight:600}
+.ph .pause{margin-left:auto}
+.lbl{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+.line{display:grid;grid-template-columns:repeat(4,1fr);border-left:2px solid var(--line)}
+.m{position:relative;border-right:2px solid var(--line);padding:10px 12px}
+.m .no{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--mute)}
+.beats{position:absolute;left:0;right:0;bottom:0;height:14px;display:grid;grid-template-columns:repeat(4,1fr)}
+.beats span{border-left:1px solid var(--line)}.beats span:first-child{border-left:none}
+.next{margin-top:14px;height:150px;opacity:.55}
+.next .m{height:150px}
+.rest{font-family:'Source Serif 4',serif;font-style:italic;font-size:22px;color:var(--mute);margin-top:34px}
+.hidden{position:absolute;left:12px;top:36px;width:92px;height:88px;border:2px dashed var(--soft);border-radius:8px;display:grid;place-items:center;font-family:'Source Serif 4',serif;font-size:44px;color:var(--soft)}
+.cur{margin-top:26px;height:430px;position:relative}
+.cur .m{height:430px}
+.past{opacity:.5}
+.g{font-family:'Source Serif 4',serif;font-weight:700;font-size:72px;color:var(--soft);line-height:1;margin-top:24px}
+.gs{font-size:16px;color:var(--mute);margin-top:6px}
+.hit{position:absolute;bottom:14px;left:22px;width:2px;height:120px;background:var(--soft)}
+.verd{position:absolute;bottom:36px;left:30px;display:flex;align-items:center;gap:8px;font-size:15px;color:var(--late);font-weight:600}
+.verd .tri{width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent;border-left:14px solid var(--late)}
+.now{position:absolute;top:-8px;bottom:-4px;left:calc(50% + 0px);width:4px;background:var(--teal);border-radius:2px;box-shadow:0 0 0 6px rgba(20,184,166,.15)}
+.nowl{position:absolute;top:-30px;left:calc(50% - 40px);font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--teal)}
+.target{position:absolute;inset:0;padding:10px 12px;background:rgba(20,184,166,.06)}
+.F{font-family:'Source Serif 4',serif;font-weight:700;font-size:236px;line-height:.82;color:var(--paper);margin-top:30px;margin-left:-6px}
+.F .mus{font-size:54px;color:var(--teal);vertical-align:top;margin-left:6px}
+.str{font-size:34px;font-weight:600;color:var(--paper);margin-top:14px}
+.when{position:absolute;top:10px;right:12px;font-weight:700;font-size:24px;color:var(--teal)}
+.legend{margin-top:auto;display:flex;align-items:center;gap:22px;font-size:14px;color:var(--mute)}
+.legend span{display:flex;align-items:center;gap:8px}
+.legend .s{font-family:'Source Serif 4',serif;font-weight:700;font-size:20px;color:var(--soft)}
+.legend .mus{font-size:20px;color:var(--soft)}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="brand">Neck<b>spert</b></div>
+  <nav class="seg"><a class="on">Pratiquer</a><a>Bibliothèque</a><a>Progrès</a><a>Réglages</a><a class="off">Atelier</a></nav>
+  <div class="status"><span class="chip"><i></i>Interface · entrée 1</span><span class="chip">Latence 18 ms · mesurée</span></div>
+</header>
+<div class="main">
+  <section class="plan">
+    <h1>Prochaine séance</h1>
+    <p class="sub">≈ 14 min · quatre blocs, dans cet ordre</p>
+    <div class="rows">
+      <div class="row"><span class="n">01</span><div><div class="t">Révisions à froid · 7 positions</div><div class="why">Dues depuis mardi. Seul le froid compte.</div></div><span class="d">3 min</span></div>
+      <div class="row"><span class="n">02</span><div><div class="t">Rythme · Mesures silencieuses</div><div class="why">Niveau 3 : 1 mesure de clic, 3 muettes, ♩ = 100 bpm. 3 cycles d'affilée au niveau 2 hier.</div></div><span class="d">4 min</span></div>
+      <div class="row"><span class="n">03</span><div><div class="t">Triades · Ancrer <em>D</em>, <em>A</em>, <em>F♯m</em></div><div class="why">Sur G-B-E. La zone s'ouvre quand les trois tiennent à froid.</div></div><span class="d">4 min</span></div>
+      <div class="row"><span class="n">04</span><div><div class="t">Transfert · Relier sans aide</div><div class="why">Sur « I Only Have Eyes for You ». Prouver hors de l'aide.</div></div><span class="d">3 min</span></div>
+    </div>
+    <p class="done">Fait aujourd'hui : <b>Rythme · contretemps</b>, ce matin.</p>
+    <div class="go"><span class="btn">Commencer</span><span class="key">ou Entrée</span></div>
+  </section>
+  <section class="play">
+    <div class="ph"><span class="lbl">En séance</span><b>Bloc 1 sur 4 · Révisions à froid</b><span>3 / 7</span><span class="mono">♩ = 100 · 4/4</span><span class="pause key">Pause · Espace</span></div>
+    <div class="line next">
+      <div class="m"><span class="no">5</span><div class="rest">respiration</div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m"><span class="no">6</span><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m"><span class="no">7</span><div class="hidden">?</div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m"><span class="no">8</span><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="line cur">
+      <div class="m past"><span class="no">1</span><div class="g">G</div><div class="gs">corde de E aigu</div><div class="hit"></div><div class="verd"><span class="tri"></span>En retard · +42 ms</div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m past"><span class="no">2</span><div class="rest">respiration</div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m"><span class="no">3</span><span class="nowl">maintenant</span><div class="now"></div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+      <div class="m"><div class="target"><span class="no">4</span><span class="when">dans 2 temps</span><div class="F">F<span class="mus">𝅘𝅥</span></div><div class="str">corde de B</div></div><div class="beats"><span></span><span></span><span></span><span></span></div></div>
+    </div>
+    <div class="legend"><span class="lbl">La piste porte</span><span><b class="s">F</b> une note</span><span><b class="s">D/F♯</b> un accord</span><span><b class="mus">𝅘𝅥 𝅘𝅥𝅮 𝅘𝅥𝅮 𝄽</b> une figure</span><span>Ligne du haut : ce qui vient</span></div>
+  </section>
+</div>
+</body>
+</html>

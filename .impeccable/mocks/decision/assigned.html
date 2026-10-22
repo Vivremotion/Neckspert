@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Près du silence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --brume: #ECE8E2; --encre: #23211F; --ardoise: #7A7F80; --ombre: #8C6E52; --ambre: #D9A13B;
+    --filet: rgba(35, 33, 31, .12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--brume); color: var(--encre); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; display: grid; grid-template-columns: 864px 576px; }
+  .left { padding: 40px 72px 48px 72px; display: grid; grid-template-rows: auto 1fr auto; }
+  nav { display: flex; gap: 40px; align-items: baseline; font-size: 15px; letter-spacing: .12em; text-transform: lowercase; color: var(--ardoise); }
+  nav .marque { color: var(--encre); font-weight: 500; letter-spacing: .2em; margin-right: auto; }
+  nav a { color: inherit; text-decoration: none; }
+  nav a.on { color: var(--encre); border-bottom: 1px solid var(--encre); padding-bottom: 4px; }
+  header { margin-top: 88px; display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--encre); padding-bottom: 18px; }
+  h1 { font-weight: 300; font-size: 44px; letter-spacing: .02em; }
+  .duree-tot { font-size: 24px; font-weight: 300; color: var(--ombre); font-variant-numeric: tabular-nums; }
+  ol { list-style: none; margin-top: 8px; }
+  li { display: grid; grid-template-columns: 56px 1fr 96px; align-items: baseline; padding: 20px 0 18px; border-bottom: 1px solid var(--filet); }
+  .n { font-size: 24px; font-weight: 300; color: var(--ardoise); font-variant-numeric: tabular-nums; }
+  .titre { font-size: 26px; font-weight: 400; }
+  .titre b { font-weight: 700; }
+  .pourquoi { grid-column: 2; font-size: 15px; color: var(--ombre); margin-top: 6px; letter-spacing: .02em; }
+  .min { font-size: 24px; font-weight: 300; text-align: right; font-variant-numeric: tabular-nums; }
+  footer { display: flex; align-items: center; justify-content: space-between; }
+  .fait { font-size: 15px; color: var(--ardoise); letter-spacing: .04em; }
+  .fait em { font-style: normal; color: var(--encre); }
+  button { font: inherit; font-size: 24px; font-weight: 500; letter-spacing: .06em; background: var(--ambre); color: var(--encre); border: 0; padding: 22px 56px; cursor: pointer; }
+  /* Instant de jeu : champ brumeux sur la grille des mesures */
+  .right { position: relative; background:
+      radial-gradient(120% 80% at 30% 20%, #9a9d9b 0%, #7A7F80 45%, #5d5650 100%); color: var(--brume); overflow: hidden; }
+  .tag { position: absolute; top: 44px; left: 48px; font-size: 15px; letter-spacing: .2em; text-transform: lowercase; opacity: .8; }
+  .grille { position: absolute; inset: 0 48px; display: grid; grid-template-columns: repeat(8, 1fr); }
+  .grille span { border-left: 1px solid rgba(236, 232, 226, .16); }
+  .grille span.mes { border-left: 1px solid rgba(236, 232, 226, .42); }
+  .consigne { position: absolute; top: 210px; left: 0; right: 0; text-align: center; }
+  .note { font-size: 300px; font-weight: 300; line-height: .9; letter-spacing: -.02em; }
+  .corde { font-size: 40px; font-weight: 400; margin-top: 18px; letter-spacing: .04em; }
+  /* Position dans la mesure : forme avant teinte */
+  .temps { position: absolute; left: 48px; right: 48px; bottom: 150px; height: 64px; display: grid; grid-template-columns: repeat(8, 1fr); align-items: end; }
+  .temps i { display: block; width: 2px; height: 18px; background: rgba(236, 232, 226, .55); }
+  .temps i.un { height: 30px; background: var(--brume); }
+  .temps i.ici { width: 4px; height: 64px; background: var(--ambre); box-shadow: 8px 0 0 var(--ambre); }
+  .pos { position: absolute; left: 48px; right: 48px; bottom: 112px; display: flex; justify-content: space-between; font-size: 15px; letter-spacing: .14em; opacity: .85; }
+  /* Verdict pendant la respiration : trait d'écart à droite de la ligne */
+  .verdict { position: absolute; left: 48px; right: 48px; bottom: 40px; display: flex; align-items: center; gap: 22px; }
+  .jauge { position: relative; width: 120px; height: 36px; }
+  .jauge::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; border-left: 1px dashed rgba(236, 232, 226, .7); }
+  .jauge::after { content: ""; position: absolute; left: calc(50% + 28px); top: 4px; bottom: 4px; width: 3px; background: var(--brume); box-shadow: 6px 0 0 var(--brume); }
+  .verdict p { font-size: 28px; font-weight: 400; }
+  .verdict p span { font-weight: 300; font-variant-numeric: tabular-nums; opacity: .85; }
+</style>
+</head>
+<body>
+  <section class="left">
+    <div>
+      <nav>
+        <span class="marque">neckspert</span>
+        <a class="on" href="#">pratiquer</a>
+        <a href="#">bibliothèque</a>
+        <a href="#">progrès</a>
+        <a href="#">réglages</a>
+      </nav>
+      <header>
+        <h1>Prochaine séance</h1>
+        <span class="duree-tot">env. 14 min</span>
+      </header>
+    </div>
+    <ol>
+      <li><span class="n">1</span><span class="titre"><b>Révisions à froid</b> · 7 positions du manche</span><span class="min">3′</span>
+        <span class="pourquoi">dues depuis mardi · seul le froid compte</span></li>
+      <li><span class="n">2</span><span class="titre"><b>Rythme</b> · Mesures silencieuses, niveau 3</span><span class="min">4′</span>
+        <span class="pourquoi">1 mesure de clic, 3 muettes · ♩ = 100 bpm · 3 cycles réussis d’affilée au niveau 2 hier</span></li>
+      <li><span class="n">3</span><span class="titre"><b>Triades</b> · Ancrer D, A, F#m sur G-B-E</span><span class="min">4′</span>
+        <span class="pourquoi">la zone s’ouvre quand les trois tiennent à froid</span></li>
+      <li><span class="n">4</span><span class="titre"><b>Transfert</b> · Relier sur « I Only Have Eyes for You »</span><span class="min">3′</span>
+        <span class="pourquoi">sans aide · prouver hors de l’aide</span></li>
+    </ol>
+    <footer>
+      <p class="fait">fait aujourd’hui · <em>Rythme, contretemps, ce matin</em></p>
+      <button>Commencer</button>
+    </footer>
+  </section>
+  <section class="right" aria-label="En séance">
+    <div class="grille"><span class="mes"></span><span></span><span></span><span></span><span class="mes"></span><span></span><span></span><span></span></div>
+    <p class="tag">en séance</p>
+    <div class="consigne">
+      <div class="note">F</div>
+      <div class="corde">corde de B</div>
+    </div>
+    <div class="temps"><i class="un"></i><i></i><i></i><i></i><i class="un"></i><i></i><i class="ici"></i><i></i></div>
+    <div class="pos"><span>mesure 2 / 2</span><span>temps 3 / 4</span></div>
+    <div class="verdict">
+      <div class="jauge" aria-hidden="true"></div>
+      <p>En retard <span>· +42 ms</span></p>
+    </div>
+  </section>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>L'appli chaleureuse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ground: #F6F0E8; --card: #FFFFFF; --ink: #26221E; --muted: #7A7068;
+    --action: #2F6FED; --line: #E9E0D4; --late: #C4621A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--ground); color: var(--ink); font-family: "Nunito", system-ui, sans-serif; display: grid; grid-template-columns: 864px 576px; }
+  .plan { padding: 32px 40px 0 48px; display: flex; flex-direction: column; gap: 20px; }
+  nav { display: flex; align-items: center; gap: 8px; }
+  .brand { font-weight: 900; font-size: 22px; margin-right: 24px; }
+  .tab { font-size: 17px; font-weight: 700; padding: 10px 18px; border-radius: 999px; color: var(--muted); }
+  .tab.on { background: var(--action); color: #fff; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; margin-top: 8px; }
+  h1 { font-size: 56px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; }
+  .dur { font-size: 24px; font-weight: 700; color: var(--muted); margin-top: 10px; }
+  .go { background: var(--action); color: #fff; font-size: 26px; font-weight: 800; border: 0; border-radius: 22px; padding: 22px 44px; box-shadow: 0 6px 0 #1F55C4; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card { background: var(--card); border-radius: 28px; padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 1px 0 var(--line); min-height: 196px; }
+  .kick { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .card h2 { font-size: 26px; font-weight: 800; line-height: 1.15; }
+  .card p { font-size: 16px; color: var(--muted); line-height: 1.4; }
+  .why { margin-top: auto; font-size: 15px; font-weight: 700; color: var(--ink); background: var(--ground); border-radius: 14px; padding: 10px 14px; }
+  .today { background: var(--card); border-radius: 22px; padding: 16px 22px; display: flex; gap: 14px; align-items: center; font-size: 18px; font-weight: 700; }
+  .today span { color: var(--muted); font-weight: 600; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #3E9B6B; }
+  /* play moment */
+  .play { background: #EFE6DA; padding: 32px 40px 32px 32px; display: flex; flex-direction: column; gap: 18px; }
+  .label { font-size: 15px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stage { flex: 1; background: var(--card); border-radius: 36px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+  .note { font-size: 300px; font-weight: 900; line-height: .85; letter-spacing: -6px; }
+  .string { font-size: 44px; font-weight: 800; color: var(--muted); margin-top: 18px; }
+  .string b { color: var(--ink); }
+  .bar { display: flex; gap: 10px; margin-top: 40px; }
+  .beat { width: 46px; height: 46px; border-radius: 16px; background: var(--ground); display: grid; place-items: center; font-size: 22px; font-weight: 800; color: var(--muted); }
+  .beat.done { background: #DCD2C4; color: var(--ink); }
+  .beat.now { background: var(--ink); color: #fff; }
+  .beat.target { border: 4px solid var(--action); background: #fff; color: var(--action); }
+  .gap { width: 14px; }
+  .pos { font-size: 18px; font-weight: 700; color: var(--muted); margin-top: 12px; }
+  .verdict { background: var(--card); border-radius: 26px; padding: 18px 22px; display: flex; align-items: center; gap: 18px; }
+  .shape { width: 56px; height: 56px; border-radius: 18px; background: #FBE9DC; display: grid; place-items: center; }
+  .shape i { width: 0; height: 0; border-top: 14px solid transparent; border-bottom: 14px solid transparent; border-left: 22px solid var(--late); margin-left: 6px; }
+  .vtext { font-size: 30px; font-weight: 900; color: var(--late); }
+  .vtext small { display: block; font-size: 16px; font-weight: 700; color: var(--muted); }
+  .pause { margin-left: auto; font-size: 16px; font-weight: 800; color: var(--muted); border: 2px solid var(--line); border-radius: 999px; padding: 10px 18px; }
+</style>
+</head>
+<body>
+  <section class="plan">
+    <nav>
+      <span class="brand">Neckspert Play</span>
+      <span class="tab on">Pratiquer</span>
+      <span class="tab">Bibliothèque</span>
+      <span class="tab">Progrès</span>
+      <span class="tab">Réglages</span>
+    </nav>
+    <div class="head">
+      <div>
+        <h1>Prochaine séance</h1>
+        <div class="dur">Environ 14 min · 4 blocs</div>
+      </div>
+      <button class="go">Commencer</button>
+    </div>
+    <div class="cards">
+      <article class="card">
+        <div class="kick"><span>Révisions à froid</span><span>~3 min</span></div>
+        <h2>7 positions du manche dues</h2>
+        <p>Une seule tentative compte par position.</p>
+        <div class="why">Dues depuis mardi : seul le froid compte.</div>
+      </article>
+      <article class="card">
+        <div class="kick"><span>Rythme</span><span>~4 min</span></div>
+        <h2>Mesures silencieuses · niveau 3</h2>
+        <p>1 mesure de clic, 3 muettes · ♩ = 100 bpm</p>
+        <div class="why">3 cycles réussis d'affilée au niveau 2 hier.</div>
+      </article>
+      <article class="card">
+        <div class="kick"><span>Triades</span><span>~4 min</span></div>
+        <h2>Ancrer D, A, F#m sur G-B-E</h2>
+        <p>Symbole et corde de la fondamentale, forme jouée.</p>
+        <div class="why">La zone s'ouvre quand les trois tiennent à froid.</div>
+      </article>
+      <article class="card">
+        <div class="kick"><span>Transfert</span><span>~3 min</span></div>
+        <h2>Relier sur « I Only Have Eyes for You »</h2>
+        <p>Sans aide, sur la grille entière.</p>
+        <div class="why">Prouver hors de l'aide.</div>
+      </article>
+    </div>
+    <div class="today"><span class="dot"></span>Fait aujourd'hui <span>Rythme · contretemps, ce matin</span></div>
+  </section>
+  <aside class="play">
+    <div class="label">En séance</div>
+    <div class="stage">
+      <div class="note">F</div>
+      <div class="string">corde de <b>B</b></div>
+      <div class="bar">
+        <span class="beat done">1</span><span class="beat done">2</span><span class="beat now">3</span><span class="beat">4</span>
+        <span class="gap"></span>
+        <span class="beat target">F</span>
+      </div>
+      <div class="pos">Mesure 2 de 2 · temps 3 de 4</div>
+    </div>
+    <div class="verdict">
+      <div class="shape"><i></i></div>
+      <div class="vtext">En retard · +42 ms<small>Note précédente : G, corde de E grave</small></div>
+      <span class="pause">Espace · pause</span>
+    </div>
+  </aside>
+</body>
+</html>

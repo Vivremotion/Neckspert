@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Près du silence · états de jeu</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --brume: #ECE8E2; --encre: #23211F; --ardoise: #7A7F80; --ombre: #8C6E52; --ambre: #D9A13B; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1440px; height: 900px; overflow: hidden; }
+  body { background: var(--encre); font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 2px; }
+  .etat { display: grid; grid-template-rows: 28px 1fr; }
+  .titre { background: var(--brume); color: var(--encre); font-size: 15px; letter-spacing: .04em; padding: 5px 20px; }
+  .titre b { font-weight: 700; }
+  /* Le champ de jeu */
+  .f { position: relative; background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #6c706f 50%, #4a4440 100%); color: var(--brume); overflow: hidden; }
+  .infos { position: absolute; top: 18px; left: 28px; font-size: 15px; letter-spacing: .06em; opacity: .75; font-variant-numeric: tabular-nums; }
+  .infos b { font-weight: 500; }
+  .sortir { position: absolute; top: 18px; right: 28px; font-size: 15px; letter-spacing: .08em; opacity: .6; }
+  .haut { position: absolute; left: 0; right: 0; top: 64px; text-align: center; }
+  .note { font-size: 170px; font-weight: 300; line-height: .8; }
+  .corde { font-size: 32px; margin-top: 18px; }
+  /* Correction à la place de la consigne */
+  .rappel { font-size: 32px; opacity: .8; }
+  .case { font-size: 120px; font-weight: 300; line-height: 1; margin-top: 12px; }
+  /* La piste : 12 temps, 4 passés, 8 à venir */
+  .piste { position: absolute; left: 28px; right: 28px; bottom: 56px; height: 76px; display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+  .piste.monte { bottom: 104px; }
+  .c { background: rgba(236,232,226,.14); display: grid; place-items: center; position: relative; font-size: 36px; font-weight: 500; }
+  .c.un { background: rgba(236,232,226,.26); }
+  .c.passe { opacity: .55; }
+  .c.cible { background: var(--brume); color: var(--encre); }
+  /* Verdicts : la forme d'abord, la teinte ensuite */
+  .c.joue { background: var(--brume); color: var(--encre); opacity: 1; }
+  .c.rate { background: var(--encre); color: var(--brume); opacity: 1; }
+  .c .marque { position: absolute; bottom: 4px; font-size: 22px; line-height: 1; }
+  .c { padding-bottom: 14px; }
+  .c .marque.tard { bottom: 8px; width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 13px solid currentColor; transform: translateX(10px); }
+  .ecart { position: absolute; bottom: 20px; font-size: 22px; font-variant-numeric: tabular-nums; white-space: nowrap; transform: translateX(-50%); }
+  .ligne { position: absolute; bottom: 44px; height: 100px; width: 4px; background: var(--ambre); left: calc(28px + (100% - 56px + 4px) * 4 / 12 - 4px); }
+  .ligne.monte { bottom: 92px; }
+  .dessous { position: absolute; left: 28px; right: 28px; bottom: 30px; text-align: center; font-size: 32px; }
+  .dessous b { font-weight: 500; }
+</style>
+</head>
+<body>
+  <!-- 1. La consigne : F sur la corde de B, cible au temps 1 de la mesure suivante -->
+  <section class="etat">
+    <p class="titre"><b>1 · Consigne</b> · la cible arrive dans deux temps</p>
+    <div class="f">
+      <span class="infos">1 / 4 · <b>Révisions à froid</b> · 3 / 7 · ♩ = 100</span><span class="sortir">quitter</span>
+      <div class="haut"><div class="note">F</div><div class="corde">corde de B</div></div>
+      <div class="piste">
+        <div class="c passe"></div><div class="c passe"></div><div class="c un passe"></div><div class="c passe"></div>
+        <div class="c"></div><div class="c"></div><div class="c cible">F</div><div class="c"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+      </div>
+      <div class="ligne"></div>
+    </div>
+  </section>
+
+  <!-- 2. Réussi en retard : le verdict sur la piste, le centre se tait -->
+  <section class="etat">
+    <p class="titre"><b>2 · Réussi, en retard</b> · le verdict sur la piste, rien au centre</p>
+    <div class="f">
+      <span class="infos">1 / 4 · <b>Révisions à froid</b> · 3 / 7 · ♩ = 100</span><span class="sortir">quitter</span>
+      <div class="piste">
+        <div class="c passe"></div><div class="c passe"></div><div class="c un joue">F<span class="marque tard"></span></div><div class="c passe"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+      </div>
+      <span class="ecart" style="left: calc(28px + (100% - 56px + 4px) * 2.5 / 12 - 2px)">en retard · +42 ms</span>
+      <div class="ligne"></div>
+    </div>
+  </section>
+
+  <!-- 3. Raté : la correction prend la place de la consigne -->
+  <section class="etat">
+    <p class="titre"><b>3 · Raté, correction à la place de la consigne</b></p>
+    <div class="f">
+      <span class="infos">1 / 4 · <b>Révisions à froid</b> · 3 / 7 · ♩ = 100</span><span class="sortir">quitter</span>
+      <div class="haut"><div class="rappel">F · corde de B</div><div class="case">case 6</div></div>
+      <div class="piste">
+        <div class="c passe"></div><div class="c passe"></div><div class="c un rate">F<span class="marque">✕</span></div><div class="c passe"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+      </div>
+      <span class="ecart" style="left: calc(28px + (100% - 56px + 4px) * 2.5 / 12 - 2px)">F# joué</span>
+      <div class="ligne"></div>
+    </div>
+  </section>
+
+  <!-- 4. Raté : la correction sous la piste -->
+  <section class="etat">
+    <p class="titre"><b>4 · Raté, correction sous la piste</b></p>
+    <div class="f">
+      <span class="infos">1 / 4 · <b>Révisions à froid</b> · 3 / 7 · ♩ = 100</span><span class="sortir">quitter</span>
+      <div class="piste monte">
+        <div class="c passe"></div><div class="c passe"></div><div class="c un rate">F<span class="marque">✕</span></div><div class="c passe"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+        <div class="c"></div><div class="c"></div><div class="c un"></div><div class="c"></div>
+      </div>
+      <div class="ligne monte"></div>
+      <p class="dessous">F# joué · <b>F est case 6</b> sur la corde de B</p>
+    </div>
+  </section>
+</body>
+</html>
