@@ -19,7 +19,7 @@ function tile(over: Partial<LaneTile> & { beatIndex: number }): LaneTile {
 	};
 }
 
-const props = { targetLabel: null, bandLabel: null, caption: null, imprint: false };
+const props = { targetLabel: null, bandLabel: null, caption: null, imprint: false, beatsPerBar: 4 };
 
 describe('Lane', () => {
 	it("writes the target's name in its cell", () => {
@@ -84,5 +84,23 @@ describe('Lane', () => {
 	it('hides the now line from assistive tech', () => {
 		const { container } = render(Lane, { props: { ...props, tiles: [tile({ beatIndex: 1 })] } });
 		expect(container.querySelector('.now')!.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('gives every cell the same width whatever the number of tiles, and clips', () => {
+		const run = (count: number) => {
+			const tiles = Array.from({ length: count }, (_, i) => tile({ beatIndex: i, offset: i - 4 }));
+			const { container, unmount } = render(Lane, { props: { ...props, tiles } });
+			const lane = container.querySelector('.lane') as HTMLElement;
+			const style = lane.getAttribute('style');
+			expect(container.querySelectorAll('.cell')).toHaveLength(count);
+			unmount();
+			return style;
+		};
+		const few = run(7);
+		const many = run(16);
+		expect(few).toBe(many);
+		expect(few).toContain('--lane-cells: 12');
+		expect(few).toContain('--lane-before: 4');
+		expect(few).toContain('overflow: hidden');
 	});
 });

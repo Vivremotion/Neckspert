@@ -42,8 +42,8 @@
 <style>
 	.cell {
 		position: relative;
-		flex: 1 1 0;
-		min-width: 0;
+		flex: none;
+		width: var(--cell-w);
 		display: flex;
 		align-items: center;
 		justify-content: center;
