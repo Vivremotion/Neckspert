@@ -217,6 +217,8 @@ body {
 	/* Lane */
 	--np-cell: rgba(236, 232, 226, 0.14);
 	--np-cell-downbeat: rgba(236, 232, 226, 0.26);
+	/* A held chord's window: clearly lighter than any beat, darker than the target; ink names. */
+	--np-cell-band: rgba(236, 232, 226, 0.5);
 	--np-cell-past-opacity: 0.45;
 	--np-cell-gap: 6px;
 }

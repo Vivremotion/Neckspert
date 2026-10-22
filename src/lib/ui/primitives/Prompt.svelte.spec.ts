@@ -13,6 +13,12 @@ describe('Prompt', () => {
 		expect(root.textContent?.replace(/\s+/g, ' ').trim()).toBe('F corde de B');
 	});
 
+	it('keeps the hero word on one line, sized by its length', () => {
+		const { container } = render(Prompt, { props: { main: 'F#dim' } });
+		const root = container.firstElementChild as HTMLElement;
+		expect(root.getAttribute('style')).toContain('--prompt-chars: 5');
+	});
+
 	it('recalls the prompt above a correction', () => {
 		const { container } = render(Prompt, {
 			props: { recall: 'F', main: 'corde de B, case 6', size: 'correction' }

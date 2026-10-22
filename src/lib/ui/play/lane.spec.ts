@@ -86,6 +86,20 @@ describe('laneTiles', () => {
 		expect(map.get(20)?.bandEdge).toBeNull();
 	});
 
+	it('closes a one-beat band on both sides', () => {
+		const map = byIndex(
+			laneTiles({
+				...base,
+				nowBeat: 10.25,
+				followUp: { fromBeat: 17, untilBeat: 18 },
+				beatsAfter: 12
+			})
+		);
+		expect(map.get(17)?.kind).toBe('band');
+		expect(map.get(17)?.bandEdge).toBe('both');
+		expect(map.get(18)?.kind).toBe('empty');
+	});
+
 	it('keeps a played verdict over the band', () => {
 		const map = byIndex(
 			laneTiles({

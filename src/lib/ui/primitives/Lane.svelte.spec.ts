@@ -79,6 +79,21 @@ describe('Lane', () => {
 		expect(band[0].previousElementSibling!.getAttribute('data-kind')).toBe('target');
 	});
 
+	it('draws a one-beat band closed on both sides, its name in it', () => {
+		const tiles = [
+			tile({ beatIndex: 1, kind: 'target' }),
+			tile({ beatIndex: 2, kind: 'band', bandEdge: 'both' }),
+			tile({ beatIndex: 3 })
+		];
+		const { container } = render(Lane, { props: { ...props, tiles, bandLabel: 'Do' } });
+		const band = container.querySelectorAll('[data-kind="band"]');
+		expect(band).toHaveLength(1);
+		expect(band[0].getAttribute('data-band-edge')).toBe('both');
+		expect(container.querySelector('.band-label')!.getAttribute('style')).toContain(
+			'--band-cells: 1'
+		);
+	});
+
 	it('marks a played cell with its verdict and tone', () => {
 		const tiles = [tile({ beatIndex: 0, offset: 0, kind: 'history', verdict: 'late' })];
 		const { container } = render(Lane, { props: { ...props, tiles } });

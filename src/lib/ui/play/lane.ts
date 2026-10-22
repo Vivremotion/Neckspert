@@ -13,8 +13,11 @@ export interface LaneTile {
 	verdict: ResponseVerdict | null;
 	justPlayed: boolean;
 	current: boolean;
-	/** On a band, its first and last tiles, drawn closed; null inside it and elsewhere. */
-	bandEdge: 'start' | 'end' | null;
+	/**
+	 * On a band, its first and last tiles, drawn closed (`both`: a one-beat band, closed on both
+	 * sides); null inside it and elsewhere.
+	 */
+	bandEdge: 'start' | 'end' | 'both' | null;
 }
 
 /**
@@ -86,17 +89,19 @@ export function laneTiles(input: {
 			verdict: entry?.verdict ?? null,
 			justPlayed: justPlayedBeat !== null && beatIndex === justPlayedBeat,
 			current: beatIndex === currentBeatIndex,
-			bandEdge:
-				kind !== 'band'
-					? null
-					: beatIndex === band!.fromBeat
-						? 'start'
-						: beatIndex === band!.untilBeat - 1
-							? 'end'
-							: null
+			bandEdge: kind === 'band' ? bandEdgeOf(beatIndex, band!) : null
 		});
 	}
 	return tiles;
+}
+
+function bandEdgeOf(
+	beatIndex: number,
+	band: { fromBeat: number; untilBeat: number }
+): LaneTile['bandEdge'] {
+	const first = beatIndex === band.fromBeat;
+	const last = beatIndex === band.untilBeat - 1;
+	return first && last ? 'both' : first ? 'start' : last ? 'end' : null;
 }
 
 /**

@@ -110,7 +110,7 @@
 		display: flex;
 		align-items: center;
 		padding-inline: var(--np-step-2);
-		color: var(--np-on-field);
+		color: var(--np-text);
 		font-family: var(--np-font-text);
 		font-size: var(--np-size-cell);
 		font-weight: 500;

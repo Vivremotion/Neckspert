@@ -362,6 +362,8 @@
 	}
 
 	.centre {
+		/* The prompt's hero word scales to this width (cqi). */
+		container-type: inline-size;
 		display: flex;
 		flex-direction: column;
 		align-items: center;

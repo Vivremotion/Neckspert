@@ -19,7 +19,8 @@
 	} = $props();
 </script>
 
-<div class="prompt" data-size={size}>
+<!-- The main word never breaks: its length lets the hero size shrink to the width it has. -->
+<div class="prompt" data-size={size} style="--prompt-chars: {[...main].length};">
 	{#if recall}<p class="recall">{recall}</p>{/if}
 	<p class="main">{main}</p>
 	{#if line}<p class="line">{line}</p>{/if}
@@ -53,8 +54,11 @@
 		line-height: 1.1;
 	}
 
+	/* One line, whatever the word: scaled down to fit the nearest container's width (the play
+	   screen's centre), about 0.6em per glyph. */
 	.prompt[data-size='hero'] .main {
-		font-size: var(--np-size-hero);
+		font-size: min(var(--np-size-hero), calc(100cqi / (var(--prompt-chars) * 0.6)));
+		white-space: nowrap;
 		font-weight: 300;
 		line-height: 1;
 	}
