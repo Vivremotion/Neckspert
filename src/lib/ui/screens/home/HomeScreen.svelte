@@ -154,7 +154,7 @@
 
 	.label {
 		font-size: var(--np-size-meta);
-		color: var(--np-muted);
+		color: var(--np-muted-text);
 	}
 
 	.value {
@@ -165,6 +165,6 @@
 
 	.trend {
 		font-size: var(--np-size-meta);
-		color: var(--np-earth);
+		color: var(--np-earth-text);
 	}
 </style>

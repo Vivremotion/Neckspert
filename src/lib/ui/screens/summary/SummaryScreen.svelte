@@ -330,9 +330,11 @@
 						>
 					</li>
 				{/if}
-				<li class="fatigue" class:alert={summary.fatigueDetected}>
-					<span>{summary.fatigueDetected ? t.fatigue : t.noFatigue}</span>
-				</li>
+				{#if summary.fatigueDetected}
+					<li class="fatigue alert">
+						<span>{t.fatigue}</span>
+					</li>
+				{/if}
 				{#if summary.pool !== 'all'}
 					<li>
 						<span>{t.next}</span>
@@ -361,7 +363,7 @@
 	}
 
 	.grade {
-		margin: 0;
+		margin: var(--np-step-4) 0 0;
 		font-size: var(--np-size-correction);
 		font-weight: 300;
 		line-height: 1;
@@ -409,7 +411,7 @@
 	.rows li.miss span {
 		flex: 0 0 auto;
 		font-size: var(--np-size-meta);
-		color: var(--np-earth);
+		color: var(--np-earth-text);
 	}
 
 	.rows li.exercise strong,
@@ -460,7 +462,7 @@
 		flex-direction: column;
 		gap: var(--np-step-1);
 		font-size: var(--np-size-meta);
-		color: var(--np-earth);
+		color: var(--np-earth-text);
 	}
 
 	.nav {

@@ -201,7 +201,8 @@
 		<a class="calibration-link" href={resolve('/calibration')}>{m.calibrationLink}</a>
 	</section>
 
-	<div class="group">
+	<section class="group" aria-labelledby="g-backup">
+		<h2 id="g-backup">{m.backup}</h2>
 		<div class="row">
 			<Button variant="quiet" onclick={onexport}>{m.export}</Button>
 			<Button variant="quiet" onclick={() => fileInput?.click()}>{m.import}</Button>
@@ -217,7 +218,7 @@
 		{#if importError}
 			<p class="error" role="alert">{importError}</p>
 		{/if}
-	</div>
+	</section>
 
 	<section class="group" aria-labelledby="g-diagnostics">
 		<h2 id="g-diagnostics">{m.diagnostics}</h2>
@@ -310,7 +311,7 @@
 
 	.hint,
 	.usage {
-		color: var(--np-muted);
+		color: var(--np-muted-text);
 	}
 
 	.usage {
@@ -326,7 +327,8 @@
 	}
 
 	.stepper {
-		justify-content: space-between;
+		justify-content: flex-start;
+		gap: var(--np-step-2);
 	}
 
 	.stepper-value {
@@ -390,7 +392,7 @@
 
 	.diagram-choice {
 		display: grid;
-		justify-items: center;
+		justify-items: start;
 		gap: var(--np-step-2);
 		--shape-ink: var(--np-text);
 		--shape-ground: var(--np-ground);

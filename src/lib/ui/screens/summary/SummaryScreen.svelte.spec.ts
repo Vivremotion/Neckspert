@@ -123,7 +123,7 @@ describe('SummaryScreen', () => {
 		const onhome = vi.fn();
 		const onmap = vi.fn();
 		render(SummaryScreen, { props: { summary, now: 0, onhome, onmap } });
-		await fireEvent.click(screen.getByRole('button', { name: /accueil|home/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /pratiquer|practice/i }));
 		await fireEvent.click(screen.getByRole('button', { name: /carte|map/i }));
 		expect(onhome).toHaveBeenCalledOnce();
 		expect(onmap).toHaveBeenCalledOnce();

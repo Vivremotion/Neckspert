@@ -181,6 +181,9 @@ body {
 	--np-text: #23211f;
 	--np-muted: #7a7f80;
 	--np-earth: #8c6e52;
+	/* umber / slate for text at body and meta sizes, ≥ 4.5:1 on the ground */
+	--np-earth-text: #775a41;
+	--np-muted-text: #606566;
 	--np-now: #d9a13b; /* the now line and the main action only */
 	--np-on-field: #ece8e2;
 	--np-rule: rgba(35, 33, 31, 0.12);

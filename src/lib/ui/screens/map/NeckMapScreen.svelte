@@ -39,14 +39,18 @@
 							<span class="pitch">{cell.pitch}</span>
 							<span class="dirs">
 								<span data-status={cell.locate}>
-									{cell.locateRecallMs == null
-										? t.status[cell.locate]
-										: t.seconds(cell.locateRecallMs)}
+									{#if cell.locate !== 'unseen'}
+										{cell.locateRecallMs == null
+											? t.status[cell.locate]
+											: t.seconds(cell.locateRecallMs)}
+									{/if}
 								</span>
 								<span data-status={cell.identify}>
-									{cell.identifyMedianReactionMs == null
-										? t.status[cell.identify]
-										: t.seconds(cell.identifyMedianReactionMs)}
+									{#if cell.identify !== 'unseen'}
+										{cell.identifyMedianReactionMs == null
+											? t.status[cell.identify]
+											: t.seconds(cell.identifyMedianReactionMs)}
+									{/if}
 								</span>
 							</span>
 						</div>

@@ -39,7 +39,9 @@
 </ul>
 
 {#snippet heading(block: Block)}
-	<b>{block.title}</b>{#if block.subtitle}<span class="subtitle">{' · '}{block.subtitle}</span>{/if}
+	<b>{block.title}</b>{#if block.subtitle}<span class="subtitle"
+			><span class="sep" aria-hidden="true">{' · '}</span>{block.subtitle}</span
+		>{/if}
 {/snippet}
 
 <style>
@@ -72,6 +74,16 @@
 
 	.subtitle {
 		font-weight: 400;
+	}
+
+	@container app (width < 720px) {
+		.subtitle {
+			display: block;
+		}
+
+		.sep {
+			display: none;
+		}
 	}
 
 	.title a,
@@ -116,7 +128,7 @@
 		grid-column: 1 / -1;
 		margin: var(--np-step-1) 0 0;
 		font-size: var(--np-size-meta);
-		color: var(--np-earth);
+		color: var(--np-earth-text);
 	}
 
 	.visually-hidden {

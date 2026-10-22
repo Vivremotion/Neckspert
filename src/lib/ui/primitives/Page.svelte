@@ -23,7 +23,7 @@
 	.page {
 		box-sizing: border-box;
 		max-width: 44rem;
-		padding: var(--np-step-7) var(--np-step-7) 0;
+		padding: var(--np-step-7) var(--np-step-7) var(--np-step-8);
 		font-family: var(--np-font-text);
 		color: var(--np-text);
 	}
@@ -55,7 +55,7 @@
 
 	@container app (width < 720px) {
 		.page {
-			padding: var(--np-step-7) var(--np-step-3) 0;
+			padding: var(--np-step-7) var(--np-step-3) var(--np-step-7);
 		}
 	}
 </style>
