@@ -130,7 +130,7 @@
 
 	<section class="group" aria-labelledby="g-diagram">
 		<h2 id="g-diagram">{m.chordDiagram}</h2>
-		<div class="row" role="group" aria-label={m.chordDiagram}>
+		<div class="row diagram-row" role="group" aria-label={m.chordDiagram}>
 			<div class="diagram-choice">
 				<Button
 					variant="choice"
@@ -201,7 +201,7 @@
 		<a class="calibration-link" href={resolve('/calibration')}>{m.calibrationLink}</a>
 	</section>
 
-	<section class="group" aria-label={m.export}>
+	<div class="group">
 		<div class="row">
 			<Button variant="quiet" onclick={onexport}>{m.export}</Button>
 			<Button variant="quiet" onclick={() => fileInput?.click()}>{m.import}</Button>
@@ -217,7 +217,7 @@
 		{#if importError}
 			<p class="error" role="alert">{importError}</p>
 		{/if}
-	</section>
+	</div>
 
 	<section class="group" aria-labelledby="g-diagnostics">
 		<h2 id="g-diagnostics">{m.diagnostics}</h2>
@@ -382,6 +382,10 @@
 		padding-left: var(--np-step-2);
 		border-left: 4px solid var(--np-text);
 		font-weight: 700;
+	}
+
+	.diagram-row {
+		align-items: start;
 	}
 
 	.diagram-choice {

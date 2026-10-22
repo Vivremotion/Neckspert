@@ -143,7 +143,9 @@
 
 		<div class="actions">
 			{#if !listening}
-				<Button variant="primary" onclick={onlisten}>{m.listen}</Button>
+				<Button variant={phase === 'idle' ? 'primary' : 'quiet'} onclick={onlisten}
+					>{m.listen}</Button
+				>
 			{:else}
 				<p class="listening">{m.listening}</p>
 			{/if}
@@ -252,6 +254,7 @@
 	}
 
 	.instruction {
+		min-height: calc(var(--np-size-prompt) * 1.5);
 		font-size: var(--np-size-prompt);
 		font-weight: 400;
 	}
@@ -288,7 +291,7 @@
 		height: 100%;
 		transform-origin: left center;
 		background: var(--np-text);
-		transition: transform 80ms cubic-bezier(0.16, 1, 0.3, 1);
+		transition: transform var(--np-motion-imprint) var(--np-motion-ease);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
