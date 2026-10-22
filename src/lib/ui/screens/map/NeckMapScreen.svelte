@@ -18,7 +18,8 @@
 </script>
 
 <Page title={t.title} wide>
-	<div class="frame">
+	<!-- svelte-ignore a11y_no_noninteractive_tabindex: a scrollable region must take focus so the keyboard can scroll it -->
+	<div class="frame" role="region" tabindex="0" aria-label={t.board}>
 		<div class="board" role="grid" aria-label={t.title}>
 			{#each rows as row (row[0].string)}
 				<div class="row" role="row">
@@ -39,14 +40,18 @@
 							<span class="pitch">{cell.pitch}</span>
 							<span class="dirs">
 								<span data-status={cell.locate}>
-									{#if cell.locate !== 'unseen'}
+									{#if cell.locate === 'unseen' && cell.identify !== 'unseen'}
+										<span aria-hidden="true">&nbsp;</span>
+									{:else if cell.locate !== 'unseen'}
 										{cell.locateRecallMs == null
 											? t.status[cell.locate]
 											: t.seconds(cell.locateRecallMs)}
 									{/if}
 								</span>
 								<span data-status={cell.identify}>
-									{#if cell.identify !== 'unseen'}
+									{#if cell.identify === 'unseen' && cell.locate !== 'unseen'}
+										<span aria-hidden="true">&nbsp;</span>
+									{:else if cell.identify !== 'unseen'}
 										{cell.identifyMedianReactionMs == null
 											? t.status[cell.identify]
 											: t.seconds(cell.identifyMedianReactionMs)}
@@ -69,6 +74,11 @@
 		margin-top: var(--np-step-6);
 		overflow-x: auto;
 		padding-bottom: var(--np-step-1);
+	}
+
+	.frame:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 2px;
 	}
 
 	.board {

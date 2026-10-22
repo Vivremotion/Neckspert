@@ -78,6 +78,7 @@
 		min-height: 100dvh;
 	}
 
+	:global(html:has(.shell)),
 	:global(body:has(.shell)) {
 		background: var(--np-ground);
 	}

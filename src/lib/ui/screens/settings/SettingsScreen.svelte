@@ -82,6 +82,7 @@
 		chordDiagram: ChordDiagramStyle;
 		onchorddiagram: (style: ChordDiagramStyle) => void;
 	} = $props();
+	const uid = $props.id();
 
 	const BYTES_PER_MB = 1024 * 1024;
 
@@ -110,8 +111,8 @@
 </script>
 
 <Page title={m.title}>
-	<section class="group" aria-labelledby="g-language">
-		<h2 id="g-language">{m.language}</h2>
+	<section class="group" aria-labelledby="{uid}-language">
+		<h2 id="{uid}-language">{m.language}</h2>
 		<div class="row" role="group" aria-label={m.language}>
 			<Button
 				variant="choice"
@@ -128,8 +129,8 @@
 		</div>
 	</section>
 
-	<section class="group" aria-labelledby="g-diagram">
-		<h2 id="g-diagram">{m.chordDiagram}</h2>
+	<section class="group" aria-labelledby="{uid}-diagram">
+		<h2 id="{uid}-diagram">{m.chordDiagram}</h2>
 		<div class="row diagram-row" role="group" aria-label={m.chordDiagram}>
 			<div class="diagram-choice">
 				<Button
@@ -152,8 +153,8 @@
 		</div>
 	</section>
 
-	<section class="group" aria-labelledby="g-input">
-		<h2 id="g-input"><label for="settings-input">{m.input}</label></h2>
+	<section class="group" aria-labelledby="{uid}-input">
+		<h2 id="{uid}-input"><label for="settings-input">{m.input}</label></h2>
 		{#if inputs.length === 0}
 			<p>{m.emptyInputs}</p>
 			<div class="row">
@@ -195,14 +196,14 @@
 		<p class="hint">{m.builtInGainHint}</p>
 	</section>
 
-	<section class="group" aria-labelledby="g-calibration">
-		<h2 id="g-calibration">{m.calibration}</h2>
-		<p class="latency">{m.offset(latency.note?.ms ?? null)}</p>
+	<section class="group" aria-labelledby="{uid}-calibration">
+		<h2 id="{uid}-calibration">{m.calibration}</h2>
+		<p class="latency">{m.latency(latency.note?.ms ?? null)}</p>
 		<a class="calibration-link" href={resolve('/calibration')}>{m.calibrationLink}</a>
 	</section>
 
-	<section class="group" aria-labelledby="g-backup">
-		<h2 id="g-backup">{m.backup}</h2>
+	<section class="group" aria-labelledby="{uid}-backup">
+		<h2 id="{uid}-backup">{m.backup}</h2>
 		<div class="row">
 			<Button variant="quiet" onclick={onexport}>{m.export}</Button>
 			<Button variant="quiet" onclick={() => fileInput?.click()}>{m.import}</Button>
@@ -220,8 +221,8 @@
 		{/if}
 	</section>
 
-	<section class="group" aria-labelledby="g-diagnostics">
-		<h2 id="g-diagnostics">{m.diagnostics}</h2>
+	<section class="group" aria-labelledby="{uid}-diagnostics">
+		<h2 id="{uid}-diagnostics">{m.diagnostics}</h2>
 		<p class="sub">{m.diagnosticsRecord}</p>
 		<div class="row">
 			<Button
@@ -271,8 +272,8 @@
 	</section>
 
 	{#if confirmingImport}
-		<section class="group confirm" aria-labelledby="g-confirm">
-			<h2 id="g-confirm">{m.confirmTitle}</h2>
+		<section class="group confirm" aria-labelledby="{uid}-confirm">
+			<h2 id="{uid}-confirm">{m.confirmTitle}</h2>
 			<p>{m.confirmBody}</p>
 			<div class="row">
 				<Button variant="choice" onclick={onimportconfirm}>{m.confirm}</Button>

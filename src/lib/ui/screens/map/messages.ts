@@ -4,6 +4,7 @@ import type { CardStatus } from '$lib/domain/types';
 export const mapMessages = defineMessages({
 	fr: {
 		title: 'Carte du manche',
+		board: 'Manche',
 		home: 'Pratiquer',
 		locate: 'Localisation',
 		identify: 'Identification',
@@ -20,6 +21,7 @@ export const mapMessages = defineMessages({
 	},
 	en: {
 		title: 'Neck map',
+		board: 'Neck',
 		home: 'Practice',
 		locate: 'Locate',
 		identify: 'Identify',

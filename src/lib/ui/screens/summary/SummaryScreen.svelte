@@ -289,7 +289,7 @@
 				{#if summary.tempoBpm !== null}
 					<li>
 						<span>{t.tempo}</span>
-						<strong>{t.bpm(summary.tempoBpm)}</strong>
+						<strong>{t.tempoValue(summary.tempoBpm)}</strong>
 					</li>
 				{/if}
 				{#if noCold}

@@ -88,6 +88,13 @@
 		font-weight: 300;
 		letter-spacing: 0.4em;
 		white-space: nowrap;
+		pointer-events: none;
+	}
+
+	@media (max-height: 600px) {
+		.brand {
+			display: none;
+		}
 	}
 
 	@container app (width < 720px) {

@@ -39,7 +39,7 @@
 	];
 </script>
 
-<main class="dev">
+<div class="dev">
 	{#each fixtures as fixture (fixture.label)}
 		<section>
 			<h1>{fixture.label}</h1>
@@ -53,7 +53,7 @@
 			/>
 		</section>
 	{/each}
-</main>
+</div>
 
 <style>
 	.dev {
