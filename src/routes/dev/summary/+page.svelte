@@ -52,6 +52,5 @@
 		width: auto;
 		height: auto;
 		min-height: 100dvh;
-		overflow: auto;
 	}
 </style>

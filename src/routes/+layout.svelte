@@ -70,12 +70,12 @@
 </div>
 
 <style>
+	/* No overflow here: the document scrolls, so the rail's sticky binds to the viewport. */
 	:global(html),
 	:global(body) {
 		width: auto;
 		height: auto;
 		min-height: 100dvh;
-		overflow: auto;
 	}
 
 	.app {
