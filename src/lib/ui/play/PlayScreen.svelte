@@ -399,7 +399,8 @@
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
-		align-items: baseline;
+		/* The offset sits on the verdict's middle, not on its baseline. */
+		align-items: center;
 		column-gap: 0.3em;
 		font-size: var(--np-size-correction);
 		font-weight: 300;
