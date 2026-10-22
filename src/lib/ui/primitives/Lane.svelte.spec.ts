@@ -101,6 +101,18 @@ describe('Lane', () => {
 		expect(few).toBe(many);
 		expect(few).toContain('--lane-cells: 12');
 		expect(few).toContain('--lane-before: 4');
-		expect(few).toContain('overflow: hidden');
+		expect(few).toContain('overflow-x: clip');
+	});
+
+	it('clips only horizontally so the caption and the line show past the cells', () => {
+		const tiles = [
+			tile({ beatIndex: 0, offset: 0, kind: 'history', verdict: 'perfect', justPlayed: true })
+		];
+		const { container } = render(Lane, { props: { ...props, tiles, caption: 'Juste' } });
+		expect(screen.getByText('Juste')).toBeTruthy();
+		const lane = container.querySelector('.lane') as HTMLElement;
+		expect(lane.getAttribute('style')).toContain('overflow-y: visible');
+		expect(lane.getAttribute('style')).not.toContain('overflow: hidden');
+		expect(container.querySelector('.past')!.getAttribute('style') ?? '').not.toContain('hidden');
 	});
 });

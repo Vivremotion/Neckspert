@@ -31,7 +31,7 @@
 
 <div
 	class="lane"
-	style="--lane-cells: {3 * beatsPerBar}; --lane-before: {beatsPerBar}; overflow: hidden;"
+	style="--lane-cells: {3 * beatsPerBar}; --lane-before: {beatsPerBar}; overflow-x: clip; overflow-y: visible;"
 >
 	<div class="side past">
 		{#each past as tile (tile.beatIndex)}
@@ -60,6 +60,7 @@
 			var(--lane-before) * var(--cell-w) + (var(--lane-before) - 1) * var(--np-cell-gap)
 		);
 		container-type: inline-size;
+		width: 100%;
 		position: relative;
 		display: flex;
 		height: 120px;
@@ -68,7 +69,6 @@
 	.side {
 		display: flex;
 		gap: var(--np-cell-gap);
-		overflow: hidden;
 	}
 	.past {
 		flex: none;
@@ -79,6 +79,8 @@
 		flex: 1 1 0;
 		min-width: 0;
 		justify-content: flex-start;
+		overflow-x: clip;
+		overflow-y: visible;
 	}
 	.now {
 		position: absolute;
