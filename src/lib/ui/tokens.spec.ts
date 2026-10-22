@@ -19,12 +19,12 @@ const ROLE_TOKENS = [
 	'--np-rule',
 	'--np-field',
 	'--np-font-text',
-	'--np-type-meta',
-	'--np-type-body',
-	'--np-type-title',
-	'--np-type-prompt',
-	'--np-type-hero',
-	...Array.from({ length: 8 }, (_, i) => `--np-space-${i + 1}`),
+	'--np-size-meta',
+	'--np-size-body',
+	'--np-size-title',
+	'--np-size-prompt',
+	'--np-size-hero',
+	...Array.from({ length: 8 }, (_, i) => `--np-step-${i + 1}`),
 	'--np-motion-imprint',
 	'--np-motion-ease',
 	'--np-cell',
@@ -57,8 +57,16 @@ describe('quiet direction tokens', () => {
 		expect(css).toMatch(/--np-cell-downbeat\s*:\s*rgba\(/);
 	});
 
+	it('declares no custom property twice', () => {
+		// A media query may restate a token (reduced motion); only top-level rules count.
+		const flat = css.replace(/@media[^{]*{[^{}]*{[^}]*}\s*}/g, '');
+		const names = [...flat.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map((m) => m[1]);
+		const repeated = names.filter((name, i) => names.indexOf(name) !== i);
+		expect(repeated).toEqual([]);
+	});
+
 	it('keeps the meta size at 16px or more', () => {
-		const declaration = css.match(/--np-type-meta\s*:\s*clamp\(\s*([\d.]+)px/);
+		const declaration = css.match(/--np-size-meta\s*:\s*clamp\(\s*([\d.]+)px/);
 		expect(declaration).not.toBeNull();
 		expect(Number(declaration![1])).toBeGreaterThanOrEqual(16);
 	});

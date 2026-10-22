@@ -188,21 +188,21 @@ body {
 
 	/* Type: nothing under 16px */
 	--np-font-text: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
-	--np-type-meta: clamp(16px, 0.9vw + 11px, 18px);
-	--np-type-body: clamp(18px, 1vw + 12px, 20px);
-	--np-type-title: clamp(24px, 1.5vw + 14px, 32px);
-	--np-type-prompt: clamp(40px, 3vw + 20px, 64px);
-	--np-type-hero: clamp(72px, 7vw + 24px, 144px);
+	--np-size-meta: clamp(16px, 0.9vw + 11px, 18px);
+	--np-size-body: clamp(18px, 1vw + 12px, 20px);
+	--np-size-title: clamp(24px, 1.5vw + 14px, 32px);
+	--np-size-prompt: clamp(40px, 3vw + 20px, 64px);
+	--np-size-hero: clamp(72px, 7vw + 24px, 144px);
 
 	/* Space, 8px base */
-	--np-space-1: 8px;
-	--np-space-2: 16px;
-	--np-space-3: 24px;
-	--np-space-4: 32px;
-	--np-space-5: 40px;
-	--np-space-6: 48px;
-	--np-space-7: 64px;
-	--np-space-8: 96px;
+	--np-step-1: 8px;
+	--np-step-2: 16px;
+	--np-step-3: 24px;
+	--np-step-4: 32px;
+	--np-step-5: 40px;
+	--np-step-6: 48px;
+	--np-step-7: 64px;
+	--np-step-8: 96px;
 
 	/* Motion */
 	--np-motion-imprint: 120ms;

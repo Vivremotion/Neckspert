@@ -19,9 +19,9 @@
 		display: flex;
 		align-items: baseline;
 		justify-content: space-between;
-		gap: var(--np-space-2);
+		gap: var(--np-step-2);
 		font-family: var(--np-font-text);
-		font-size: var(--np-type-meta);
+		font-size: var(--np-size-meta);
 		font-variant-numeric: tabular-nums;
 		color: var(--np-text);
 	}

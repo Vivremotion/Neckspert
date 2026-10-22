@@ -21,7 +21,7 @@
 <style>
 	button {
 		font-family: var(--np-font-text);
-		font-size: var(--np-type-body);
+		font-size: var(--np-size-body);
 		cursor: pointer;
 		border: 0;
 	}
@@ -34,15 +34,15 @@
 	button[data-variant='primary'] {
 		background: var(--np-now);
 		color: var(--np-text);
-		font-size: var(--np-type-title);
-		padding: var(--np-space-2) var(--np-space-4);
+		font-size: var(--np-size-title);
+		padding: var(--np-step-2) var(--np-step-4);
 		border-radius: 2px;
 	}
 
 	button[data-variant='quiet'] {
 		background: none;
 		color: inherit;
-		padding: var(--np-space-1) 0;
+		padding: var(--np-step-1) 0;
 	}
 
 	button[data-variant='quiet']:hover,
