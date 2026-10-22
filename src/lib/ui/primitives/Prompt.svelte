@@ -41,8 +41,8 @@
 	}
 
 	.recall {
-		font-size: var(--np-size-meta);
-		opacity: 0.7;
+		font-size: var(--np-size-body);
+		opacity: 0.8;
 	}
 
 	.main {
@@ -58,7 +58,6 @@
 
 	.line {
 		font-size: var(--np-size-prompt);
-		color: var(--np-earth);
 	}
 
 	.below {
