@@ -52,7 +52,7 @@ Ce projet remplacera Neckspert, l'outil d'origine.
 **Notes du manche**
 
 1. **Localisation** (nom vers position) : « F, corde de B », à jouer sur le temps.
-2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La guitare ne sert pas : la réponse se donne en touchant ou cliquant le nom parmi douze grands boutons, les mêmes sur tous les appareils. Les notes altérées portent les deux formes (F# / Gb). Le premier bouton touché est la réponse. Le temps est mesuré de l'affichage de la consigne au toucher. Ce mode suppose d'être à portée de l'écran.
+2. **Identification inverse** (position vers nom) : consigne textuelle (« corde de A, case 8 ») plutôt qu'un manche dessiné. La guitare ne sert pas : la réponse se donne sur un clavier de piano d'une octave (C à B, touches noires à leur place), le nom écrit sur chaque touche, le même sur tous les appareils. Les touches noires portent les deux formes (F# / Gb). La première touche est la réponse. Le temps est mesuré de l'affichage de la consigne au toucher. Apprendre la disposition du clavier fait partie du bénéfice. Ce mode suppose d'être à portée de l'écran.
 
 **Triades** (cordes G-B-E), en deux voies : la **mémoire** (ancrer une triade : symbole et corde de la fondamentale vers forme jouée, puis une zone du manche) et le **geste** (relier des formes voisines sur une grille, monter, jouer dans une zone, puis en jam). Les grilles s'écrivent en vrais symboles d'accord. Après un raté, l'écran dessine ce qui a été entendu et ce qui était attendu.
 

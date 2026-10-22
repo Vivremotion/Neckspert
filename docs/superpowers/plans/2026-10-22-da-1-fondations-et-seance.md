@@ -4,7 +4,7 @@
 
 **Goal:** Poser les tokens et les primitives du monde « Près du silence », et passer l'écran de séance des notes et des triades (`PlayScreen`) à ce monde, jusqu'au premier `DESIGN.md` écrit depuis le code.
 
-**Architecture:** Les nouveaux tokens s'ajoutent à `src/lib/ui/tokens.css` sous des noms qui ne recouvrent pas ceux du Game Boy, qui restent pour les écrans pas encore migrés. Six primitives de présentation pure dans `src/lib/ui/primitives/` (`Button`, `InfoLine`, `VerdictMark`, `LaneCell`, `Lane`, `Prompt`). `PlayScreen` les compose ; la logique de fenêtre de la piste reste pure dans `src/lib/ui/play/lane.ts`. Rien ne change dans `application/` ni `domain/`.
+**Architecture:** Les nouveaux tokens s'ajoutent à `src/lib/ui/tokens.css` sous des noms qui ne recouvrent pas ceux du Game Boy, qui restent pour les écrans pas encore migrés. Six primitives de présentation pure et un clavier de réponse dans `src/lib/ui/primitives/` (`Button`, `InfoLine`, `VerdictMark`, `LaneCell`, `Lane`, `Prompt`). `PlayScreen` les compose ; la logique de fenêtre de la piste reste pure dans `src/lib/ui/play/lane.ts`. Rien ne change dans `application/` ni `domain/`.
 
 **Tech Stack:** Svelte 5 (runes), CSS natif, Vitest (`*.svelte.spec.ts` en jsdom), impeccable 4.7 (détecteur, relecture de finition, documentaliste).
 
@@ -19,7 +19,8 @@
 - En jeu : aucun texte explicatif (« maintenant », « respiration », « dans N temps », numéros de temps ou de mesure, légende). Le temps de réaction n'est plus affiché.
 - `prefers-reduced-motion` supprime l'impression du verdict.
 - Les textes nouveaux vont dans `src/lib/ui/play/messages.ts`, en fr et en en.
-- Un écran ne mêle jamais les deux mondes : `PlayScreen`, sa grille de réponse du mode 2 (`AnswerPanel`, `AnswerPad`), `StringDiagram` et la barre de navigation sur `/session` passent ensemble.
+- Un écran ne mêle jamais les deux mondes : `PlayScreen`, la réponse du mode 2 (`AnswerPanel` et le nouveau clavier), `StringDiagram` et la barre de navigation sur `/session` passent ensemble.
+- Mode 2 : un clavier de piano d'une octave remplace les douze boutons (spec, « La réponse du mode 2 : un clavier »).
 - Barrière de fusion : `npm test && npm run check`.
 
 ## Review Focus
@@ -27,7 +28,7 @@
 1. **Une cible annoncée huit temps à l'avance** (temps d'avance 8) doit être dans la piste dès le temps de la consigne, pas un temps plus tard. Test dans la tâche 3.
 2. **Un temps d'avance de 2** : la cible est à deux cases de la ligne, la piste montre quand même deux mesures à venir. Test dans la tâche 3.
 3. **Une bande de triade qui dépasse deux mesures** reste entière dans la piste. Test dans la tâche 3.
-4. **Un raté sans réponse** (`answerLabel` nul) : la ligne sous la case dit « rien entendu », jamais « null joué ». Test dans la tâche 7.
+4. **Un raté sans réponse** (`answerLabel` nul) : la ligne sous la case dit « rien entendu », jamais « null joué ». Test dans la tâche 8.
 5. **Hors temps et corrigé** ne se lisent pas comme des réussites : case bordée pour hors temps, case sombre pour corrigé. Test dans la tâche 4.
 
 ---
@@ -141,13 +142,33 @@
 - [ ] **Step 4: Run** la même spec ; attendu : PASS.
 - [ ] **Step 5: Commit** `feat: add the prompt of the quiet direction`.
 
-### Task 7: L'écran de séance
+### Task 7: Le clavier de réponse du mode 2
 
 **Files:**
-- Modify: `src/lib/ui/play/PlayScreen.svelte`, `PlayScreen.svelte.spec.ts`, `src/lib/ui/play/messages.ts`, `src/lib/ui/play/StringDiagram.svelte`, `src/lib/ui/primitives/ChordShape.svelte`, `src/lib/ui/play/answer/AnswerPanel.svelte`, `src/lib/ui/play/answer/AnswerPad.svelte`, `src/routes/+layout.svelte`
+- Create: `src/lib/ui/play/answer/AnswerKeyboard.svelte`, `AnswerKeyboard.svelte.spec.ts`, `src/lib/ui/play/answer/keyboard.ts`, `keyboard.spec.ts`
+- Delete: `src/lib/ui/play/answer/AnswerPad.svelte`, `AnswerPad.svelte.spec.ts` (le clavier les remplace ; un seul nom : « clavier »)
+- Modify: `src/lib/ui/play/answer/AnswerPanel.svelte`, `AnswerPanel.svelte.spec.ts`, `src/lib/ui/play/answer/messages.ts`
 
 **Interfaces:**
-- Consumes: `Button`, `InfoLine` (tâche 2), `laneWindow` et `laneTiles` (tâche 3), `Lane` (tâche 5), `Prompt` (tâche 6).
+- Consumes: `AnswerChoice` (`value` : hauteur de `CHROMATIC_NOTES`, `label` : « F# / Gb »), `orderChoices`.
+- Produces: `keyboardKeys(choices: readonly AnswerChoice[]): KeyboardKey[]`, avec `KeyboardKey = { choice: AnswerChoice; color: 'white' | 'black'; whiteIndex: number }` (`whiteIndex` : rang de la touche blanche, 0 à 6 ; pour une noire, celui de la blanche à sa gauche). `AnswerKeyboard` props `{ choices: AnswerChoice[]; disabled: boolean; onanswer: (value: string) => void }`, les mêmes que l'ancien `AnswerPad`.
+
+- [ ] **Step 1: Write the failing tests**
+  - `keyboard.spec.ts` : `lays one octave like a piano` (blanches `C D E F G A B` aux rangs 0 à 6 ; noires `C# D# F# G# A#` après les rangs 0, 1, 3, 4, 5 ; aucune noire après E ni après B) ; `ignores the order the choices came in`.
+  - `AnswerKeyboard.svelte.spec.ts` : `writes each key's name` (« C », et « F# / Gb » sur la noire) ; `sends the pitch of the key pressed` (clic sur « F# / Gb » → `onanswer('F#')`) ; `takes only the first press` ; `ignores presses while disabled` ; `is a group of buttons named for the screen reader` (rôle `group`, douze `button`).
+  - Reprends dans `AnswerPanel.svelte.spec.ts` les tests qui visaient la grille.
+- [ ] **Step 2: Run** `npx vitest run src/lib/ui/play/answer/keyboard.spec.ts && npx vitest run --project client src/lib/ui/play/answer` ; attendu : FAIL.
+- [ ] **Step 3: Implement.** Sept touches blanches de même largeur sur toute la largeur disponible ; les noires, à 60 % de la largeur d'une blanche et 60 % de sa hauteur, posées à cheval sur la frontière droite de leur blanche. Blanches `--np-on-field` texte `--np-text`, noires `--np-text` texte `--np-on-field` ; nom en bas de chaque touche, les deux graphies sur deux lignes sur les noires ; aucun texte sous 16 px (sur téléphone, le clavier prend toute la largeur). La touche appuyée garde un état visible jusqu'à la consigne suivante. Chaque touche est un `<button>`.
+- [ ] **Step 4: Run** les mêmes commandes ; attendu : PASS.
+- [ ] **Step 5: Commit** `feat: answer mode 2 on one octave of a piano keyboard`.
+
+### Task 8: L'écran de séance
+
+**Files:**
+- Modify: `src/lib/ui/play/PlayScreen.svelte`, `PlayScreen.svelte.spec.ts`, `src/lib/ui/play/messages.ts`, `src/lib/ui/play/StringDiagram.svelte`, `src/lib/ui/primitives/ChordShape.svelte`, `src/lib/ui/play/answer/AnswerPanel.svelte`, `src/routes/+layout.svelte`
+
+**Interfaces:**
+- Consumes: `Button`, `InfoLine` (tâche 2), `laneWindow` et `laneTiles` (tâche 3), `Lane` (tâche 5), `Prompt` (tâche 6), `AnswerKeyboard` (tâche 7).
 - Produces: messages `kindName: Record<SessionKind, string>` (fr : Apprentissage, Jeu libre, Triades, Triades · zone, Geste, Exercice ; en : Learn, Free play, Triads, Triads · zone, Gesture, Exercise), `playedAs: (label: string) => string` (« F# joué » / « F# played »), `nothingHeard` (« rien entendu » / « nothing heard »), `tempo: (bpm: number) => string` (« ♩ = 100 »). `ChordShape` lit ses couleurs dans `--shape-ink`, `--shape-ground`, `--shape-accent`, qui valent par défaut ses couleurs Game Boy actuelles ; `PlayScreen` les pose au nouveau monde.
 
 - [ ] **Step 1: Update the tests** de `PlayScreen.svelte.spec.ts`. Les tests de comportement restent (départ, mode d'emploi, entrée audio absente, recommencer, pause, « Joué juste » au clic et sur Entrée, quitter vers le bilan, compte à rebours, corde avant la note, aide, bande de triade, grille de réponse). Ceux qui lisaient la structure Game Boy (`PixelWord` et ses `rect.ink`, `.body.due .note`, `.verdict`) lisent la nouvelle (texte de la consigne, `Lane`). Nouveaux tests :
@@ -162,12 +183,12 @@
 - [ ] **Step 2: Run** `npx vitest run --project client src/lib/ui/play/PlayScreen.svelte.spec.ts` ; attendu : FAIL.
 - [ ] **Step 3: Implement.**
   - `PlayScreen` : champ `--np-field` plein cadre ; en haut `InfoLine` avec `kindName[kind]` et `tempo(view.tempoBpm)`, et à droite « pause » (`Button quiet`, pendant le jeu) et « quitter » ; au centre `Prompt` ; en bas `Lane` (fenêtre de `laneWindow`). Sur un verdict raté (`correction` ou formes), `Prompt` montre la correction avec la consigne en rappel, ou les deux `ChordShape` ; sur une réussite, le centre est vide. `caption` : `verdict[v].toLowerCase() + ' · ' + offset` pour `early`, `late` et `offbeat` avec écart, `playedAs(answerLabel)` ou `nothingHeard` pour `wrong`, le nom du verdict sinon. Compte à rebours dans `Prompt` (`size: 'prompt'`). Départ, fin et pause : page claire `--np-ground`, mode d'emploi en `--np-type-body`, un `Button` primaire. « Joué juste » : `Button quiet` sous la correction. Plus de `PixelWord`, `PixelButton` ni `VerdictSprite` ici.
-  - `StringDiagram`, `AnswerPanel`, `AnswerPad` : mêmes structures, couleurs et police du nouveau monde (cordes en `--np-on-field`, la corde demandée plus épaisse ; boutons de réponse en cases unies).
+  - `StringDiagram`, `AnswerPanel` : mêmes structures, couleurs et police du nouveau monde (cordes en `--np-on-field`, la corde demandée plus épaisse ; `AnswerPanel` montre `AnswerKeyboard`).
   - `+layout.svelte` : pas de barre de navigation sur `/session`.
 - [ ] **Step 4: Run** `npm test && npm run check` ; attendu : tout passe.
 - [ ] **Step 5: Commit** `feat: play the notes and triads in the quiet direction`.
 
-### Task 8: Vérification, relecture de finition et DESIGN.md
+### Task 9: Vérification, relecture de finition et DESIGN.md
 
 **Files:**
 - Create: `.impeccable/review/desktop.png`, `.impeccable/review/mobile.png`, `DESIGN.md` (remplace), `.impeccable/design.json`

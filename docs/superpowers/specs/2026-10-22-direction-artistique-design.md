@@ -109,16 +109,20 @@ Un **rail sombre** à gauche (encre), en dos de pochette : intitulés sans numé
 
 La composition de « Prochaine séance » (titre léger et durée, blocs avec leur pourquoi et leur durée, « fait aujourd'hui » sans compteur, un bouton ambre), remplie avec **ce que l'accueil sait déjà** : l'apprentissage du jour (révisions dues ou heure des suivantes), les triades, le geste, le rythme. Aucun plan composé, aucune durée ni « pourquoi » inventés : le planificateur (chantier 5) les apportera.
 
+### La réponse du mode 2 : un clavier
+
+Décidé le 2026-10-22 : les douze boutons de noms laissent la place à **un clavier de piano d'une octave**, de C à B, touches blanches et noires à leur vraie place, le nom écrit sur chaque touche (les deux graphies sur les noires, « C# / Db »). Quitte à chercher où appuyer, autant apprendre la disposition du clavier, une compétence utile en musique occidentale ; qui la connaît déjà gagne du temps. Le premier appui reste la réponse ; la valeur envoyée est la hauteur (`AnswerChoice.value`), le cœur ne change pas. Conséquence : le temps de réponse du mode 2 change de sens (chercher une touche plutôt qu'un bouton), son seuil se recalibre sur l'usage, comme prévu dans `PRODUCT.md`.
+
 ### Les autres écrans
 
-Bilan, réglages, calibration, carte du manche, réponse du mode 2 (`AnswerPad`), puis les vues d'exercice (grille, lien, figure rythmique) passent au même système, chacun dans son plan (« Ordre »). La notation rythmique (VexFlow) s'engrave en brume sur le champ.
+Bilan, réglages, calibration, carte du manche, puis les vues d'exercice (grille, lien, figure rythmique) passent au même système, chacun dans son plan (« Ordre »). La notation rythmique (VexFlow) s'engrave en brume sur le champ.
 
 ## Ordre
 
 Trois plans, chacun fini par la relecture de finition d'impeccable, le détecteur, `DESIGN.md` à jour et `npm test && npm run check` :
 
-1. **Fondations et séance.** Tokens, police, primitives `Lane`, `LaneCell`, `VerdictMark`, `Prompt`, `InfoLine`, `Button` ; la séance des notes et des triades (la piste et le cadre de `PlayScreen`). Fin : relecture de finition sur l'écran de jeu, premier `DESIGN.md` et `.impeccable/design.json` par le documentaliste. `PlayScreen` disparaîtra au chantier 2 ; ce plan sort donc sa piste dans les primitives, qui lui survivent, et ne restyle que le reste.
-2. **Coquille et écrans.** `NavRail`, `BlockList` ; la coquille (`+layout.svelte`), Pratiquer, bilan, réglages, calibration, carte, `AnswerPad`.
+1. **Fondations et séance.** Tokens, police, primitives `Lane`, `LaneCell`, `VerdictMark`, `Prompt`, `InfoLine`, `Button` ; la séance des notes et des triades (la piste et le cadre de `PlayScreen`, et le clavier du mode 2, qui s'affiche dans le même écran). Fin : relecture de finition sur l'écran de jeu, premier `DESIGN.md` et `.impeccable/design.json` par le documentaliste. `PlayScreen` disparaîtra au chantier 2 ; ce plan sort donc sa piste dans les primitives, qui lui survivent, et ne restyle que le reste.
+2. **Coquille et écrans.** `NavRail`, `BlockList` ; la coquille (`+layout.svelte`), Pratiquer, bilan, réglages, calibration, carte.
 3. **Vues d'exercice et ménage.** `PlayFrame` avec ses vues : grille, lien, figure rythmique et cycle joué sur la grammaire de la piste ; puis tout ce qui disparaît.
 
 Chaque plan se fait sur sa branche ; aucun ne touche le cœur, ils peuvent donc courir pendant la migration H du temps musical.
