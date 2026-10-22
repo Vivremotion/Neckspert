@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
-	import { laneTiles } from './lane';
+	import { laneTiles, laneWindow } from './lane';
 	import { playMessages } from './messages';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
@@ -33,9 +33,12 @@
 	const view = $derived(controller.view);
 	const tiles = $derived.by(() => {
 		const target = view.targetBeatIndex;
-		// Up to one beat past the target, or to the end of the band that follows it.
-		const last = view.followUp?.untilBeat ?? (target == null ? null : target + 1);
-		const beatsAfter = last == null ? 8 : Math.max(8, last - Math.floor(nowBeat));
+		const { beatsBefore, beatsAfter } = laneWindow({
+			nowBeat,
+			beatsPerBar: view.beatsPerBar,
+			targetBeatIndex: target,
+			followUp: view.followUp
+		});
 		return laneTiles({
 			nowBeat,
 			beatsPerBar: view.beatsPerBar,
@@ -43,7 +46,7 @@
 			targetBeatIndex: target,
 			followUp: view.followUp,
 			history: view.history,
-			beatsBefore: 4,
+			beatsBefore,
 			beatsAfter
 		});
 	});
@@ -271,9 +274,6 @@
 						<div class="tiles ahead-tiles">
 							{#each laneAhead as tile (tile.beatIndex)}
 								<div class="cell">
-									{#if tile.label !== null}
-										<span class="beat-no">{tile.label}</span>
-									{/if}
 									<div
 										class="body ahead"
 										class:due={tile.kind === 'target'}
@@ -675,13 +675,6 @@
 		align-items: stretch;
 		width: clamp(44px, 7cqi, 72px);
 		flex: 0 0 auto;
-	}
-
-	.beat-no {
-		min-height: var(--np-type-meta);
-		text-align: center;
-		font-size: var(--np-type-meta);
-		line-height: 1;
 	}
 
 	.body {

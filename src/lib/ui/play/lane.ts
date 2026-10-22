@@ -7,14 +7,31 @@ export interface LaneTile {
 	beatIndex: number;
 	/** Beat units relative to the hit line: negative = past (left), positive = upcoming (right). */
 	offset: number;
-	/** Beat-in-bar 1..beatsPerBar for the upcoming window only; null otherwise. */
-	label: number | null;
+	/** First beat of a bar. */
+	downbeat: boolean;
 	kind: LaneTileKind;
 	verdict: ResponseVerdict | null;
 	justPlayed: boolean;
 	current: boolean;
 	/** On a band, its first and last tiles, drawn closed; null inside it and elsewhere. */
 	bandEdge: 'start' | 'end' | null;
+}
+
+/**
+ * The lane shows one bar behind and two bars ahead, and always holds the
+ * announced target and the whole band that follows it.
+ */
+export function laneWindow(input: {
+	nowBeat: number;
+	beatsPerBar: number;
+	targetBeatIndex: number | null;
+	followUp: { fromBeat: number; untilBeat: number } | null;
+}): { beatsBefore: number; beatsAfter: number } {
+	const { nowBeat, beatsPerBar, targetBeatIndex, followUp } = input;
+	// Up to one beat past the target, or to the end of the band that follows it.
+	const last = followUp?.untilBeat ?? (targetBeatIndex === null ? null : targetBeatIndex + 1);
+	const held = last === null ? 0 : last - Math.floor(nowBeat);
+	return { beatsBefore: beatsPerBar, beatsAfter: Math.max(2 * beatsPerBar, held) };
 }
 
 export function laneTiles(input: {
@@ -54,7 +71,6 @@ export function laneTiles(input: {
 	for (let beatIndex = first; beatIndex <= last; beatIndex++) {
 		const offset = beatIndex - nowBeat;
 		const entry = historyByBeat.get(beatIndex);
-		const upcoming = beatIndex >= currentBeatIndex && beatIndex < currentBeatIndex + beatsAfter;
 		const kind: LaneTileKind = entry
 			? 'history'
 			: beatIndex === targetBeatIndex
@@ -65,7 +81,7 @@ export function laneTiles(input: {
 		tiles.push({
 			beatIndex,
 			offset,
-			label: upcoming ? (beatIndex % beatsPerBar) + 1 : null,
+			downbeat: beatIndex % beatsPerBar === 0,
 			kind,
 			verdict: entry?.verdict ?? null,
 			justPlayed: justPlayedBeat !== null && beatIndex === justPlayedBeat,

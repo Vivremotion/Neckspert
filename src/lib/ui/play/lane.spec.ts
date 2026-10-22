@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { laneTiles, type LaneTile } from './lane';
+import { laneTiles, laneWindow, type LaneTile } from './lane';
 
 const base = {
 	beatsPerBar: 4 as const,
@@ -38,13 +38,10 @@ describe('laneTiles', () => {
 		expect(tiles.filter((t) => t.justPlayed)).toHaveLength(1);
 	});
 
-	it('numbers only the eight upcoming beats 1–4 cycling; past and far tiles stay unlabeled', () => {
-		const tiles = laneTiles({ ...base, nowBeat: 10.25 });
-		const upcoming = tiles.filter((t) => t.offset > 0);
-		expect(upcoming).toHaveLength(8);
-		expect(upcoming.map((t) => t.label)).toEqual([4, 1, 2, 3, 4, 1, 2, 3]);
-		expect(tiles.filter((t) => t.offset <= 0).every((t) => t.label === null)).toBe(true);
-		expect(tiles.every((t) => t.label === null || (t.label >= 1 && t.label <= 4))).toBe(true);
+	it('marks downbeats', () => {
+		const map = byIndex(laneTiles({ ...base, nowBeat: 1.5, beatsBefore: 4, beatsAfter: 12 }));
+		for (const i of [0, 4, 8]) expect(map.get(i)?.downbeat).toBe(true);
+		for (const i of [1, 2, 3, 5, 6, 7, 9]) expect(map.get(i)?.downbeat).toBe(false);
 	});
 
 	it('exposes beatsBefore past slots and beatsAfter upcoming slots', () => {
@@ -100,5 +97,49 @@ describe('laneTiles', () => {
 		);
 		expect(map.get(10)?.kind).toBe('history');
 		expect(map.get(11)?.kind).toBe('band');
+	});
+});
+
+describe('laneWindow', () => {
+	const none = { beatsPerBar: 4, targetBeatIndex: null, followUp: null };
+
+	it('shows one bar behind and two ahead without a target', () => {
+		expect(laneWindow({ ...none, nowBeat: 10.25 })).toEqual({ beatsBefore: 4, beatsAfter: 8 });
+	});
+
+	it('holds the target as soon as it is announced', () => {
+		const w = laneWindow({ ...none, nowBeat: 16, targetBeatIndex: 24 });
+		expect(w.beatsAfter).toBeGreaterThanOrEqual(9);
+		const tiles = laneTiles({
+			...base,
+			nowBeat: 16,
+			promptBeatIndex: 8,
+			targetBeatIndex: 24,
+			history: [],
+			...w
+		});
+		expect(tiles.some((t) => t.kind === 'target')).toBe(true);
+	});
+
+	it('keeps two bars ahead with a short lead', () => {
+		expect(laneWindow({ ...none, nowBeat: 22, targetBeatIndex: 24 }).beatsAfter).toBe(8);
+	});
+
+	it('holds a whole band', () => {
+		const w = laneWindow({
+			...none,
+			nowBeat: 20,
+			targetBeatIndex: 24,
+			followUp: { fromBeat: 25, untilBeat: 36 }
+		});
+		const tiles = laneTiles({
+			...base,
+			nowBeat: 20,
+			targetBeatIndex: 24,
+			followUp: { fromBeat: 25, untilBeat: 36 },
+			history: [],
+			...w
+		});
+		expect(tiles[tiles.length - 1].beatIndex).toBeGreaterThanOrEqual(35);
 	});
 });
