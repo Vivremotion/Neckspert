@@ -79,10 +79,11 @@
 
 	.brand {
 		position: absolute;
-		left: var(--np-step-3);
+		left: 0;
 		bottom: var(--np-step-5);
-		transform: rotate(-90deg);
-		transform-origin: left bottom;
+		padding-left: var(--np-step-3);
+		writing-mode: vertical-rl;
+		transform: rotate(180deg);
 		font-size: var(--np-size-title);
 		font-weight: 300;
 		letter-spacing: 0.4em;
@@ -103,6 +104,8 @@
 			position: static;
 			order: -1;
 			display: block;
+			padding-left: 0;
+			writing-mode: horizontal-tb;
 			transform: none;
 			margin-bottom: var(--np-step-1);
 			font-size: var(--np-size-meta);
@@ -110,9 +113,14 @@
 		}
 
 		ul {
-			grid-auto-flow: column;
+			display: flex;
+			flex-wrap: wrap;
 			justify-content: start;
-			gap: var(--np-step-3);
+			gap: var(--np-step-1) var(--np-step-2);
+		}
+
+		a {
+			letter-spacing: 0;
 		}
 
 		a[aria-current='page']::before {

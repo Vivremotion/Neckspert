@@ -78,6 +78,10 @@
 		min-height: 100dvh;
 	}
 
+	:global(body:has(.shell)) {
+		background: var(--np-ground);
+	}
+
 	.app {
 		box-sizing: border-box;
 		width: 100%;
@@ -113,6 +117,7 @@
 	@container app (width < 720px) {
 		.shell {
 			grid-template-columns: 1fr;
+			grid-template-rows: auto 1fr;
 		}
 	}
 </style>

@@ -18,7 +18,10 @@
 	} = $props();
 </script>
 
-<button type="button" data-variant={variant} {onclick}
+<button
+	type="button"
+	data-variant={variant}
+	{onclick}
 	{disabled}
 	aria-label={label}
 	aria-pressed={pressed}
