@@ -417,6 +417,18 @@
 		font-weight: 700;
 	}
 
+	.rows a {
+		color: var(--np-text);
+		font-size: var(--np-size-meta);
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	.rows a:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 4px;
+	}
+
 	.fatigue.alert {
 		font-weight: 700;
 		border-inline-start: 4px solid var(--np-text);
@@ -446,7 +458,7 @@
 		padding: 0;
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: var(--np-step-1);
 		font-size: var(--np-size-meta);
 		color: var(--np-earth);
 	}
