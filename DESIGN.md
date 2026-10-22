@@ -116,7 +116,7 @@ components:
 
 An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.
 
-The play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success makes the centre fall silent and the lane says it; a miss puts the correction in the prompt's place. Light pages (start, pause, end) are mist with ink and one amber button.
+The play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.
 
 Confirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.
 
@@ -161,12 +161,12 @@ A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber 
 ### Hierarchy
 
 - **Hero** (300, up to 300px at 1440×900, bounded by width and height, line-height 1): the note of the prompt, alone. The only big letter on screen.
-- **Correction** (300, up to 120px, line-height 1.05, wraps): the right answer after a miss, in the prompt's place (« corde de B, case 6 »).
-- **Prompt** (400, 28–48px, line-height 1.1): the string under the note (« corde de B »), the recalled prompt above a correction, the countdown, and the main line in mode 2.
+- **Correction** (300, up to 120px, line-height 1.05, wraps): the right answer after a miss, in the prompt's place (« corde de B, case 6 »), and the verdict's name after a hit (« Parfait »), its offset beside it at prompt size.
+- **Prompt** (400, 28–48px, line-height 1.1): the string under the note (« corde de B »), the recalled prompt above a correction, the offset beside a hit's verdict, the countdown, and the main line in mode 2.
 - **Cell** (500, 16–56px, line-height 1): a name inside a lane cell.
 - **Title** (400, 24–32px): the primary button and the learning-aid tile.
 - **Body** (400, 18–20px, line-height 1.5, max 36rem): the how-to on light pages, the mode-2 answer caption.
-- **Meta** (400, 16–18px, tabular figures): the info line, « pause » and « quitter » (lowercase, letter-spacing 0.06em), the verdict caption under a cell, drawn-string letters, keyboard key names.
+- **Meta** (400, 16–18px, tabular figures): the info line, « pause » and « quitter » (lowercase, letter-spacing 0.06em), the verdict caption over a cell, keyboard key names.
 
 ### Named Rules
 
@@ -214,15 +214,15 @@ The discreet top line: parts joined by « · » (« Apprentissage · ♩ = 80 »
 
 ### Prompt
 
-The centre of the screen, in on-field mist, centred. Three sizes: `hero` (the note, string beneath at prompt size), `prompt` (mode 2 and the string preview before the note), `correction` (the right answer in the prompt's place, with the note recalled above at prompt size and 80% opacity). Below it may come the drawn string, a chord shape, a detail line (meta, 85%) or the learning-aid tile.
+The centre of the screen, in on-field mist, centred. Three sizes: `hero` (the note, string beneath at prompt size), `prompt` (mode 2 and the string preview before the note), `correction` (the right answer in the prompt's place, with the note recalled above at prompt size and 80% opacity). Below it may come the drawn string, a chord shape, a detail line (meta, 85%) or the learning-aid tile, all on the prompt's centre axis. After a hit the verdict's name takes the prompt's place at correction size, its signed offset beside it at prompt size (« En retard · +42 ms »).
 
 ### Lane and cells (signature component)
 
 - **Empty cell:** `cell` ground; the first beat of a bar takes `cell-downbeat`.
 - **Target:** mist ground, ink name at cell size: the note to play, on beat 1 of its bar.
-- **Band:** a chord held over several beats: downbeat ground, name written once, mist edges on its first and last cells.
+- **Band:** a chord held over several beats, drawn as one joined band: its cells span the gaps between them (their footprint on the lane is unchanged), downbeat ground, name written once from its left edge, closed by mist edges on its first and last cells; the gap before it keeps it apart from the target.
 - **Past:** 45% opacity, except the cell just played, read at full strength.
-- **Played cell:** keeps its name when it has one, the verdict mark below it at the cell's bottom; a single caption line under the lane in meta (« en retard · +42 ms », « F# joué »).
+- **Played cell:** keeps its name when it has one, the verdict mark below it at the cell's bottom; a single caption line over the lane, above that cell, in meta (« en retard · +42 ms », « F# joué · +30 ms »: the signed offset whenever there is one), clear of the now line's overhang and kept inside the lane's left edge.
 - **Imprint:** the just-played cell scales from 1.12 to 1 in 120ms; removed under `prefers-reduced-motion`.
 
 ### Verdict marks (by shape)
@@ -238,11 +238,11 @@ SVG in current colour, fixed 32px in the lane (never scaled with the cell), with
 | corrected | cross with a small filled dot      | miss: ink cell, mist mark                   |
 | wrong     | cross (✕)                          | miss                                        |
 
-A success leaves the centre silent; the lane says it.
+A success also says its verdict and offset in the centre, in words, so it reads without colour.
 
 ### Drawn string (learning aid)
 
-Six strings, high E on top, 240px wide at most, in on-field mist: thin 1px lines at 45%, the prompted string 4px at full strength with its open-note letter at meta size to the left. A removable aid shown under the prompt; never a neck to answer on.
+Six strings, high E on top, 240px wide at most, in on-field mist: thin 1px lines at 45%, the prompted string 4px at full strength; no letter (the prompt names the string above), so the drawing sits on the prompt's centre axis with the aid tile. A removable aid shown under the prompt; never a neck to answer on.
 
 ### Answer keyboard (mode 2)
 

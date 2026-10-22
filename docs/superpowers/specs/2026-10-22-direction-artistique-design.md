@@ -85,8 +85,8 @@ Règles de l'utilisateur, à tenir pour toutes les vues de jeu :
 4. **Aucun texte explicatif pendant le jeu** : ni « maintenant », ni « respiration » (pas de consigne = respiration), ni « dans 2 temps », ni « mesure 4 », ni légende.
 5. **La consigne** au centre, énorme : la note, la corde dessous.
 6. **La ligne d'infos** en haut, discrète : « 1 / 4 · Révisions à froid · 3 / 7 · ♩ = 100 » (exercice, nom, compteur de consigne ou de cycle, tempo), et « quitter ». Dans l'écran actuel, les éléments qui n'ont pas encore de donnée (le « 1 / 4 » de la séance composée vient avec le planificateur) sont omis, pas inventés.
-7. **Le verdict reste sur la piste.** La case jouée, juste à gauche de la ligne, porte la marque de son verdict ; une seule ligne dessous : « en retard · +42 ms », « F# joué » (depuis `VerdictView.offsetMs` et `answerLabel`). Le temps de réaction quitte l'écran de jeu (il reste dans les tentatives et le bilan).
-8. **Réussi : le centre se tait. Raté : la correction prend la place de la consigne** (`VerdictView.correction` en grand, la consigne rappelée au-dessus). Pour les triades, les formes entendue et attendue (`ChordShape`) prennent cette place.
+7. **Le verdict reste sur la piste.** La case jouée, juste à gauche de la ligne, porte la marque de son verdict ; une seule ligne au-dessus d'elle : « en retard · +42 ms », « parfait · −8 ms », « F# joué · +30 ms » (depuis `VerdictView.offsetMs` et `answerLabel`) ; l'écart en millisecondes, signé, s'écrit chaque fois qu'il existe (jamais en mode 2, qui n'en a pas). Le temps de réaction quitte l'écran de jeu (il reste dans les tentatives et le bilan).
+8. **Réussi : le verdict prend la place de la consigne**, avec son écart à côté (« Parfait · −8 ms »), à l'échelle de la correction, sous celle de la note. **Raté : la correction prend la place de la consigne** (`VerdictView.correction` en grand, la consigne rappelée au-dessus). Pour les triades, les formes entendue et attendue (`ChordShape`) prennent cette place.
 
 Marques de verdict (forme d'abord, teinte ensuite ; case claire = réussi, case sombre = raté) :
 
@@ -166,4 +166,5 @@ Plan 1 (2026-10-22) :
 - le mode 2 répond sur un clavier de piano d'une octave (`AnswerKeyboard`), qui remplace `AnswerPad` ; il passe dès ce plan ;
 - la barre de navigation disparaît sur `/session` (et `/dev/identify`) ; l'erreur de chargement de `/session` porte son lien « Retour à l'accueil » ;
 - les écrans du geste et du rythme (`PlayFrame`, encore dans l'ancien monde) perdent aussi la barre de navigation sur `/session` ; `PlayFrame` garde son propre lien « quitter » ;
+- retours de l'utilisateur après essai (2026-10-22) : après une réussite, le verdict et son écart prennent la place de la consigne (le centre ne se tait plus) ; l'écart signé s'écrit dans les deux endroits dès qu'il existe, y compris après une mauvaise note ; la légende passe au-dessus de la piste, qui collait au bas de la fenêtre ; la corde dessinée perd sa lettre (la consigne nomme déjà la corde), ce qui la recentre sur l'axe de la consigne avec la tuile de l'aide ; la bande d'un accord (ancre de triade) redevient une seule bande jointe sur ses temps, fermée à ses deux bouts, comme sur `main` ;
 - reporté au plan 3 : le dossier de build Game Boy d'impeccable (`.impeccable/build/state.json`, les comps approuvés) et les tailles internes de `ChordShape`.
