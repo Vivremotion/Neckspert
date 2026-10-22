@@ -52,6 +52,11 @@ describe('quiet direction tokens', () => {
 		}
 	});
 
+	it('gives the lane cells fill colours, not sizes', () => {
+		expect(css).toMatch(/--np-cell\s*:\s*rgba\(/);
+		expect(css).toMatch(/--np-cell-downbeat\s*:\s*rgba\(/);
+	});
+
 	it('keeps the meta size at 16px or more', () => {
 		const declaration = css.match(/--np-type-meta\s*:\s*clamp\(\s*([\d.]+)px/);
 		expect(declaration).not.toBeNull();
