@@ -327,7 +327,8 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.lane [data-kind="target"]')?.textContent?.trim()).toBe('C');
 		const band = [...container.querySelectorAll('.lane [data-kind="band"]')];
 		expect(band).toHaveLength(3);
-		expect(band.map((tile) => tile.textContent?.trim())).toEqual(['Cm', '', '']);
+		expect(band.map((tile) => tile.textContent?.trim())).toEqual(['', '', '']);
+		expect(container.querySelector('.lane .band-label')?.textContent).toBe('Cm');
 	});
 
 	it('draws no band without a second gesture', () => {
@@ -455,7 +456,7 @@ describe('PlayScreen', () => {
 	}
 
 	function playedCell(container: HTMLElement): string {
-		return container.querySelector('.lane [data-kind="history"]')?.textContent?.trim() ?? '';
+		return container.querySelector('.lane .caption')?.textContent?.trim() ?? '';
 	}
 
 	it('shows the info line: session, tempo, quit', () => {
@@ -506,6 +507,31 @@ describe('PlayScreen', () => {
 		expect(centre.querySelector('.main')?.textContent).toBe('corde de B, case 6');
 		expect(centre.querySelector('[data-size="correction"]')).not.toBeNull();
 		expect(centre.querySelector('[data-size="hero"]')).toBeNull();
+	});
+
+	it('recalls the whole prompt above the note name after an identify miss', () => {
+		const controller = aidedController({
+			scene: 'screen',
+			primary: 'case 8',
+			secondary: 'corde de A',
+			aid: null
+		});
+		controller.view = {
+			...controller.view,
+			status: 'verdict',
+			lastVerdict: {
+				verdict: 'wrong',
+				offsetMs: null,
+				reactionMs: null,
+				answerLabel: 'G',
+				correction: 'F# / Gb'
+			}
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
+		const centre = container.querySelector('.centre')!;
+		// The note name alone would lose the string: the fret and the string are recalled.
+		expect(centre.querySelector('.recall')?.textContent).toBe('case 8 · corde de A');
+		expect(centre.querySelector('.main')?.textContent).toBe('F# / Gb');
 	});
 
 	it('keeps the centre quiet after a hit', () => {

@@ -67,8 +67,11 @@
 	const correction = $derived(!drawn && verdict?.correction ? verdict.correction : null);
 	/** Above drawn shapes: the whole prompt recalled. */
 	const recall = $derived(view.prompt ? `${view.prompt.primary} · ${view.prompt.secondary}` : null);
-	/** Above a correction: the note asked, alone; the correction names the string itself. */
-	const correctionRecall = $derived(view.prompt?.primary ?? null);
+	/**
+	 * Above a correction: on the guitar, the note asked alone, since the correction names the
+	 * string itself; on the answer keyboard the correction is a note name, so the whole prompt.
+	 */
+	const correctionRecall = $derived(answering ? recall : (view.prompt?.primary ?? null));
 	const caption = $derived(verdict ? captionOf(verdict) : null);
 
 	function formatOffset(ms: number): string {
