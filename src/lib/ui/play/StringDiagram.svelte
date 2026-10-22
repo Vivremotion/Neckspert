@@ -32,41 +32,43 @@
 {/if}
 
 <style>
-	/* Six strings, the prompted one in a thick ink line with its letter: an aid that goes away. */
+	/* Six strings in the tone of the field, the prompted one thicker with its letter: an aid that goes away. */
 	.diagram {
 		display: grid;
 		gap: 0;
 		inline-size: min(240px, 100%);
-		padding-block: var(--np-space-1, 8px);
+		padding-block: var(--np-step-1);
+		color: var(--np-on-field);
+		font-family: var(--np-font-text);
 	}
 
 	.row {
 		display: grid;
-		grid-template-columns: var(--np-space-3, 24px) 1fr;
+		grid-template-columns: var(--np-step-3) 1fr;
 		align-items: center;
 		block-size: 12px;
 	}
 
 	.letter {
-		color: var(--np-ink);
-		font-size: var(--np-type-meta);
+		font-size: var(--np-size-meta);
 		line-height: 1;
 		text-align: center;
 	}
 
 	.line {
 		display: block;
-		block-size: 4px;
-		background: var(--np-mid);
+		block-size: 1px;
+		background: var(--np-on-field);
+		opacity: 0.45;
 	}
 
 	/* Tall enough for its letter, which never spills over the next strings. */
 	.row.target {
-		block-size: var(--np-type-meta);
+		block-size: calc(var(--np-size-meta) + 4px);
 	}
 
 	.target .line {
-		block-size: var(--np-tile, 8px);
-		background: var(--np-ink);
+		block-size: 4px;
+		opacity: 1;
 	}
 </style>

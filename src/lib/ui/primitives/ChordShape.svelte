@@ -100,8 +100,12 @@
 {/if}
 
 <style>
+	/*
+	 * Colours from --shape-ink (strings played, dots, names), --shape-ground (the tile under a
+	 * fret) and --shape-accent (strings and frets not played); unset, the Game Boy tones.
+	 */
 	.chord-shape {
-		color: var(--np-ink);
+		color: var(--shape-ink, var(--np-ink));
 		font-size: var(--np-type-meta);
 		line-height: 1;
 	}
@@ -139,12 +143,12 @@
 		position: relative;
 		display: block;
 		block-size: 4px;
-		background: var(--np-mid);
+		background: var(--shape-accent, var(--np-mid));
 	}
 
 	.played .line {
 		block-size: var(--np-tile, 8px);
-		background: var(--np-ink);
+		background: var(--shape-ink, var(--np-ink));
 	}
 
 	/* The fret sits on its string, in a tile of the background. */
@@ -154,8 +158,8 @@
 		inset-inline-start: 50%;
 		transform: translate(-50%, -50%);
 		padding-inline: 6px;
-		background: var(--np-bg);
-		border: 2px solid var(--np-ink);
+		background: var(--shape-ground, var(--np-bg));
+		border: 2px solid var(--shape-ink, var(--np-ink));
 	}
 
 	/* Grid: strings down, frets across, the fret it starts from written beside it. */
@@ -185,17 +189,17 @@
 
 	.nut,
 	.dot {
-		fill: var(--np-ink);
+		fill: var(--shape-ink, var(--np-ink));
 	}
 
 	.fret-line,
 	.string-line {
-		fill: var(--np-shade);
+		fill: var(--shape-accent, var(--np-shade));
 	}
 
 	.open {
 		fill: none;
-		stroke: var(--np-ink);
+		stroke: var(--shape-ink, var(--np-ink));
 		stroke-width: 1.5;
 	}
 </style>

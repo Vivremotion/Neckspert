@@ -25,7 +25,8 @@
 	});
 	const nav = $derived(navMessages());
 	const path = $derived(page.url.pathname);
-	const kind = $derived(page.url.searchParams.get('kind'));
+	/** During a session the play takes the whole screen: no navigation. */
+	const inSession = $derived(path === '/session' || path.startsWith('/session/'));
 
 	$effect(() => {
 		let cancelled = false;
@@ -43,17 +44,16 @@
 </svelte:head>
 
 <div class="app">
-	<nav class="nav" aria-label={nav.label}>
-		<a href={resolve('/')} aria-current={path === '/' ? 'page' : undefined}>{nav.home}</a>
-		<a
-			href={resolve('/session?kind=free')}
-			aria-current={path === '/session' && kind === 'free' ? 'page' : undefined}>{nav.free}</a
-		>
-		<a href={resolve('/map')} aria-current={path === '/map' ? 'page' : undefined}>{nav.map}</a>
-		<a href={resolve('/settings')} aria-current={path === '/settings' ? 'page' : undefined}
-			>{nav.settings}</a
-		>
-	</nav>
+	{#if !inSession}
+		<nav class="nav" aria-label={nav.label}>
+			<a href={resolve('/')} aria-current={path === '/' ? 'page' : undefined}>{nav.home}</a>
+			<a href={resolve('/session?kind=free')}>{nav.free}</a>
+			<a href={resolve('/map')} aria-current={path === '/map' ? 'page' : undefined}>{nav.map}</a>
+			<a href={resolve('/settings')} aria-current={path === '/settings' ? 'page' : undefined}
+				>{nav.settings}</a
+			>
+		</nav>
+	{/if}
 	{@render children()}
 </div>
 

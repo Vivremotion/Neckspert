@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PlayView, ShapeView, VerdictView } from '$lib/application/session/contract';
 import PlayScreen from './PlayScreen.svelte';
-import PixelWord from './PixelWord.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
 
 afterEach(() => cleanup());
@@ -14,11 +14,16 @@ describe('PlayScreen', () => {
 		await demo.start();
 		clock.setBeat(4);
 		demo.tick();
-		clock.setBeat(12.25);
-		demo.tick();
-		render(PlayScreen, { props: { controller: demo } });
+		const { container } = render(PlayScreen, { props: { controller: demo } });
 		expect(screen.getAllByText('F').length).toBeGreaterThan(0);
 		expect(screen.getByText(/corde de B/i)).toBeTruthy();
+		clock.setBeat(12.25);
+		demo.tick();
+		await tick();
+		// The played cell carries its verdict's mark, not the note's name.
+		const played = container.querySelector('.lane [data-kind="history"]');
+		expect(played?.querySelector('svg')).not.toBeNull();
+		expect(played?.textContent).not.toContain('F');
 	});
 
 	it('shows a start control while idle', () => {
@@ -207,13 +212,13 @@ describe('PlayScreen', () => {
 		});
 		controller.view = { ...controller.view, chordDiagram: 'grid' };
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.prompt .chord-shape')?.getAttribute('data-style')).toBe(
+		expect(container.querySelector('.centre .chord-shape')?.getAttribute('data-style')).toBe(
 			'grid'
 		);
 		expect(container.querySelector('.aid')).toBeNull();
 	});
 
-	it('draws what was played and what was expected after a triad miss, with the gap', () => {
+	it('draws heard and expected shapes in place of the prompt after a triad miss', () => {
 		const { container } = render(PlayScreen, {
 			props: {
 				controller: triadMiss({
@@ -233,6 +238,9 @@ describe('PlayScreen', () => {
 		]);
 		expect(drawn!.querySelectorAll('.chord-shape')).toHaveLength(2);
 		expect(container.querySelector('.gap')?.textContent).toBe('autre renversement');
+		// In place of the prompt: the prompt recalled above, no big letter of it.
+		expect(screen.getByText('D · fondamentale sur si')).toBeTruthy();
+		expect(container.querySelector('.centre [data-size="hero"]')).toBeNull();
 	});
 
 	it('writes the gap in place of the shape played when nothing was recognized', () => {
@@ -300,14 +308,9 @@ describe('PlayScreen', () => {
 			aid: null
 		});
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.string')?.textContent).toBe('fondamentale sur mi');
+		expect(container.querySelector('.centre [data-size="hero"] .main')?.textContent).toBe('Em');
+		expect(screen.getByText('fondamentale sur mi')).toBeTruthy();
 		expect(container.querySelector('.detail')?.textContent).toBe('sol‑si‑mi');
-		const drawn = (text: string) => {
-			const { container: word } = render(PixelWord, { props: { text } });
-			return word.querySelectorAll('rect.ink').length;
-		};
-		// The m of a minor chord has its own glyph, not a blank.
-		expect(drawn('Em')).toBeGreaterThan(drawn('E'));
 	});
 
 	it('lays the band of the chord after the root tile of a triad anchor', () => {
@@ -321,8 +324,8 @@ describe('PlayScreen', () => {
 		});
 		controller.view = { ...controller.view, followUp: { fromBeat: 9, untilBeat: 12 } };
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.body.due .note')?.textContent).toBe('C');
-		const band = [...container.querySelectorAll('.body.band')];
+		expect(container.querySelector('.lane [data-kind="target"]')?.textContent?.trim()).toBe('C');
+		const band = [...container.querySelectorAll('.lane [data-kind="band"]')];
 		expect(band).toHaveLength(3);
 		expect(band.map((tile) => tile.textContent?.trim())).toEqual(['Cm', '', '']);
 	});
@@ -335,8 +338,8 @@ describe('PlayScreen', () => {
 			aid: null
 		});
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.body.due .note')?.textContent).toBe('G');
-		expect(container.querySelectorAll('.body.band')).toHaveLength(0);
+		expect(container.querySelector('.lane [data-kind="target"]')?.textContent?.trim()).toBe('G');
+		expect(container.querySelectorAll('.lane [data-kind="band"]')).toHaveLength(0);
 	});
 
 	it('counts down in place of the prompt during a counted bar', () => {
@@ -354,7 +357,7 @@ describe('PlayScreen', () => {
 		};
 		const { container } = render(PlayScreen, { props: { controller } });
 		expect(container.querySelector('.countdown')?.textContent).toContain('3');
-		expect(container.querySelector('.string')).toBeNull();
+		expect(screen.queryByText('corde de E grave')).toBeNull();
 	});
 
 	it('sets the answer keyboard on stage while counting down to a screen prompt', () => {
@@ -371,7 +374,8 @@ describe('PlayScreen', () => {
 			countdown: 4
 		};
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.lane-slot.answering')).not.toBeNull();
+		expect(screen.getByRole('group', { name: 'Nom de la note' })).toBeTruthy();
+		expect(container.querySelector('.lane')).toBeNull();
 		expect(container.querySelector('.countdown')?.textContent).toContain('4');
 	});
 
@@ -394,8 +398,9 @@ describe('PlayScreen', () => {
 			}
 		};
 		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.string')?.textContent).toBe('corde de E grave');
-		expect(container.querySelector('.prompt svg, .prompt .primary')).toBeNull();
+		expect(screen.getByText('corde de E grave')).toBeTruthy();
+		expect(screen.queryByText('A')).toBeNull();
+		expect(container.querySelector('.centre [data-size="hero"]')).toBeNull();
 		expect(container.querySelector('.diagram')?.getAttribute('data-string')).toBe('6');
 	});
 
@@ -420,48 +425,107 @@ describe('PlayScreen', () => {
 		expect(again.container.querySelector('.diagram')).toBeNull();
 	});
 
-	it('shows the right position with the verdict after a miss', () => {
+	function verdictController(
+		verdict: Partial<VerdictView>,
+		history: PlayView['history'] = [{ beatIndex: 8, verdict: verdict.verdict ?? 'wrong' }]
+	) {
 		const controller = aidedController({
 			scene: 'guitar',
-			primary: 'A',
-			secondary: 'corde de E grave',
+			primary: 'F',
+			secondary: 'corde de B',
 			aid: null
 		});
 		controller.view = {
 			...controller.view,
 			status: 'verdict',
+			promptBeatIndex: 0,
+			targetBeatIndex: 8,
+			history,
 			lastVerdict: {
 				verdict: 'wrong',
 				offsetMs: null,
 				reactionMs: null,
 				answerLabel: null,
-				correction: 'corde de E grave, case 5'
+				correction: null,
+				...verdict
 			}
 		};
-		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.correction')?.textContent).toBe('corde de E grave, case 5');
+		controller.timeline = { nowBeat: () => 8.5 };
+		return controller;
+	}
+
+	function playedCell(container: HTMLElement): string {
+		return container.querySelector('.lane [data-kind="history"]')?.textContent?.trim() ?? '';
+	}
+
+	it('shows the info line: session, tempo, quit', () => {
+		const controller = verdictController({});
+		controller.view = { ...controller.view, status: 'awaiting', lastVerdict: null, tempoBpm: 100 };
+		const { container } = render(PlayScreen, { props: { controller, kind: 'learn' } });
+		expect(container.querySelector('.info-parts')?.textContent).toBe('Apprentissage · ♩ = 100');
+		expect(screen.getByRole('link', { name: /quitter/i })).toBeTruthy();
 	});
 
-	it('names a corrected attempt in the banner', () => {
-		const controller = aidedController({
-			scene: 'guitar',
-			primary: 'A',
-			secondary: 'corde de E grave',
-			aid: null
+	it('writes the verdict under the played cell', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'late', offsetMs: 42, answerLabel: 'F' }) }
 		});
-		controller.view = {
-			...controller.view,
-			status: 'verdict',
-			lastVerdict: {
-				verdict: 'corrected',
-				offsetMs: null,
-				reactionMs: null,
-				answerLabel: null,
-				correction: 'corde de E grave, case 5'
+		expect(playedCell(container)).toContain('en retard · +42 ms');
+	});
+
+	it('writes what was played after a wrong note', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'wrong', answerLabel: 'F#' }) }
+		});
+		expect(playedCell(container)).toContain('F# joué');
+	});
+
+	it('says nothing was heard after a silent miss', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'wrong', answerLabel: null }) }
+		});
+		expect(playedCell(container)).toContain('rien entendu');
+	});
+
+	it('names a corrected attempt under its cell', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'corrected' }) }
+		});
+		expect(playedCell(container)).toContain('corrigé');
+	});
+
+	it('puts the correction in place of the prompt', () => {
+		const { container } = render(PlayScreen, {
+			props: {
+				controller: verdictController({ verdict: 'wrong', correction: 'corde de B, case 6' })
 			}
-		};
-		const { container } = render(PlayScreen, { props: { controller } });
-		expect(container.querySelector('.banner')?.textContent).toBe('Corrigé');
+		});
+		const centre = container.querySelector('.centre')!;
+		expect(centre.querySelector('.recall')?.textContent).toBe('F · corde de B');
+		expect(centre.querySelector('.main')?.textContent).toBe('corde de B, case 6');
+		expect(centre.querySelector('[data-size="hero"]')).toBeNull();
+		expect([...centre.querySelectorAll('p')].some((p) => p.textContent === 'F')).toBe(false);
+	});
+
+	it('keeps the centre quiet after a hit', () => {
+		const { container } = render(PlayScreen, {
+			props: { controller: verdictController({ verdict: 'late', offsetMs: 42, answerLabel: 'F' }) }
+		});
+		expect(container.querySelector('.centre')?.textContent?.trim()).toBe('');
+	});
+
+	it('shows no reaction time', () => {
+		const { container } = render(PlayScreen, {
+			props: {
+				controller: verdictController({
+					verdict: 'late',
+					offsetMs: 42,
+					reactionMs: 1210,
+					answerLabel: 'F'
+				})
+			}
+		});
+		expect(container.textContent).not.toMatch(/1[,.]21/);
 	});
 
 	it('shows no aid on an unaided prompt', () => {

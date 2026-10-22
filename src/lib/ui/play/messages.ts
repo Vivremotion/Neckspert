@@ -48,6 +48,17 @@ export const playMessages = defineMessages({
 		bleed:
 			'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.',
 		quitExercise: 'Quitter l’exercice',
+		kindName: {
+			learn: 'Apprentissage',
+			free: 'Jeu libre',
+			triads: 'Triades',
+			'triads-zone': 'Triades · zone',
+			gesture: 'Geste',
+			exercise: 'Exercice'
+		} satisfies Record<SessionKind, string>,
+		playedAs: (label: string) => `${label} joué`,
+		nothingHeard: 'rien entendu',
+		tempo: (bpm: number) => `♩ = ${bpm}`,
 		replay: 'Réécouter',
 		replaying: 'Réécoute…',
 		/** The key of « Écouter la figure »: E, for écouter. */
@@ -95,6 +106,17 @@ export const playMessages = defineMessages({
 		bleed:
 			'The microphone hears the click: plug in headphones, or your guitar through an interface, then start again.',
 		quitExercise: 'Quit the exercise',
+		kindName: {
+			learn: 'Learn',
+			free: 'Free play',
+			triads: 'Triads',
+			'triads-zone': 'Triads · zone',
+			gesture: 'Gesture',
+			exercise: 'Exercise'
+		} satisfies Record<SessionKind, string>,
+		playedAs: (label: string) => `${label} played`,
+		nothingHeard: 'nothing heard',
+		tempo: (bpm: number) => `♩ = ${bpm}`,
 		replay: 'Replay',
 		replaying: 'Replaying…',
 		/** The key of “Listen to the figure”: L, for listen. */
