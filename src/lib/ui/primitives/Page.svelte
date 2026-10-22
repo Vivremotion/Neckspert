@@ -1,12 +1,17 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	let { title, children, aside }: { title: string; children: Snippet; aside?: Snippet } = $props();
+	let {
+		title,
+		children,
+		aside,
+		wide = false
+	}: { title: string; children: Snippet; aside?: Snippet; wide?: boolean } = $props();
 
 	const headingId = $props.id();
 </script>
 
-<section class="page" aria-labelledby={headingId}>
+<section class="page" data-wide={wide} aria-labelledby={headingId}>
 	<header>
 		<h1 id={headingId}>{title}</h1>
 		{#if aside}<div class="aside">{@render aside()}</div>{/if}
@@ -21,6 +26,10 @@
 		padding: var(--np-step-7) var(--np-step-7) 0;
 		font-family: var(--np-font-text);
 		color: var(--np-text);
+	}
+
+	.page[data-wide='true'] {
+		max-width: none;
 	}
 
 	header {

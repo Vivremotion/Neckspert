@@ -23,4 +23,12 @@ describe('Page', () => {
 		render(Page, { props: { title: 'A', children: body, aside: side } });
 		expect(screen.getByText('Total')).toBeTruthy();
 	});
+
+	it('widens its column only when asked', () => {
+		const first = render(Page, { props: { title: 'A', children: body } });
+		expect(screen.getByRole('region').getAttribute('data-wide')).toBe('false');
+		first.unmount();
+		render(Page, { props: { title: 'A', children: body, wide: true } });
+		expect(screen.getByRole('region').getAttribute('data-wide')).toBe('true');
+	});
 });
