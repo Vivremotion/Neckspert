@@ -23,7 +23,6 @@
 
 <style>
 	.rail {
-		--rail-width: 168px;
 		box-sizing: border-box;
 		position: sticky;
 		top: 0;
@@ -92,6 +91,8 @@
 
 	@container app (width < 720px) {
 		.rail {
+			display: flex;
+			flex-direction: column;
 			position: static;
 			width: 100%;
 			height: auto;
@@ -100,20 +101,12 @@
 
 		.brand {
 			position: static;
+			order: -1;
 			display: block;
 			transform: none;
 			margin-bottom: var(--np-step-1);
 			font-size: var(--np-size-meta);
 			letter-spacing: 0.4em;
-		}
-
-		.brand {
-			order: -1;
-		}
-
-		.rail {
-			display: flex;
-			flex-direction: column;
 		}
 
 		ul {

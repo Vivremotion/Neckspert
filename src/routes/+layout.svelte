@@ -102,8 +102,8 @@
 	}
 
 	.shell ::selection {
-		background: color-mix(in srgb, var(--np-now) 35%, var(--np-ground));
-		color: var(--np-text);
+		background: var(--np-text);
+		color: var(--np-ground);
 	}
 
 	main {
