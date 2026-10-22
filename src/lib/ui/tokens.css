@@ -139,3 +139,84 @@ body {
 		calc(var(--np-tile) / 2) calc(var(--np-tile) / 2);
 	background-size: var(--np-tile) var(--np-tile);
 }
+
+/* ---- « Près du silence » (quiet direction) ----
+   New world, used by migrated screens only. The tokens above stay for screens not yet migrated. */
+
+@font-face {
+	font-family: 'Atkinson Hyperlegible Next';
+	font-style: normal;
+	font-weight: 300;
+	font-display: swap;
+	src: url('/fonts/atkinson-hyperlegible-next-300.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Atkinson Hyperlegible Next';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('/fonts/atkinson-hyperlegible-next-400.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Atkinson Hyperlegible Next';
+	font-style: normal;
+	font-weight: 500;
+	font-display: swap;
+	src: url('/fonts/atkinson-hyperlegible-next-500.woff2') format('woff2');
+}
+
+@font-face {
+	font-family: 'Atkinson Hyperlegible Next';
+	font-style: normal;
+	font-weight: 700;
+	font-display: swap;
+	src: url('/fonts/atkinson-hyperlegible-next-700.woff2') format('woff2');
+}
+
+:root {
+	/* Roles */
+	--np-ground: #ece8e2;
+	--np-text: #23211f;
+	--np-muted: #7a7f80;
+	--np-earth: #8c6e52;
+	--np-now: #d9a13b; /* the now line and the main action only */
+	--np-on-field: #ece8e2;
+	--np-rule: rgba(35, 33, 31, 0.12);
+	--np-field: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%);
+
+	/* Type: nothing under 16px */
+	--np-font-text: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+	--np-type-meta: clamp(16px, 0.9vw + 11px, 18px);
+	--np-type-body: clamp(18px, 1vw + 12px, 20px);
+	--np-type-title: clamp(24px, 1.5vw + 14px, 32px);
+	--np-type-prompt: clamp(40px, 3vw + 20px, 64px);
+	--np-type-hero: clamp(72px, 7vw + 24px, 144px);
+
+	/* Space, 8px base */
+	--np-space-1: 8px;
+	--np-space-2: 16px;
+	--np-space-3: 24px;
+	--np-space-4: 32px;
+	--np-space-5: 40px;
+	--np-space-6: 48px;
+	--np-space-7: 64px;
+	--np-space-8: 96px;
+
+	/* Motion */
+	--np-motion-imprint: 120ms;
+	--np-motion-ease: cubic-bezier(0.2, 0, 0, 1);
+
+	/* Lane */
+	--np-cell: 72px;
+	--np-cell-downbeat: 96px;
+	--np-cell-past-opacity: 0.45;
+	--np-cell-gap: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	:root {
+		--np-motion-imprint: 0ms;
+	}
+}
