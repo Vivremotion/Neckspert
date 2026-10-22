@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { useAppServices } from '$lib/application/app';
 	import type { PlaySessionController } from '$lib/application/session/contract';
@@ -9,10 +10,12 @@
 	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
+	import { sessionPageMessages } from './messages';
 
 	let controller = $state<PlaySessionController | null>(null);
 	let error = $state<string | null>(null);
 
+	const t = $derived(sessionPageMessages());
 	const kind = $derived(sessionKindFromQuery(page.url.searchParams.get('kind')));
 
 	/** The common frame shows the exercise's own view: the gesture track and the rhythm exercises. */
@@ -56,10 +59,38 @@
 </script>
 
 {#if error}
-	<p>{error}</p>
+	<!-- The nav bar is hidden on /session: the way out is here. -->
+	<div class="error" role="alert">
+		<p>{error}</p>
+		<a href={resolve('/')}>{t.home}</a>
+	</div>
 {:else if controller && framed}
 	<!-- The gesture track and the rhythm exercises show their view in the common frame; notes and triads keep their screen. -->
 	<PlayFrame {controller} {kind} quitToSummary />
 {:else if controller}
 	<PlayScreen {controller} {kind} quitToSummary />
 {/if}
+
+<style>
+	.error {
+		display: grid;
+		place-content: center;
+		justify-items: center;
+		gap: var(--np-step-4);
+		min-height: 100dvh;
+		padding: var(--np-step-4);
+		box-sizing: border-box;
+		background: var(--np-ground);
+		color: var(--np-text);
+		font-family: var(--np-font-text);
+		font-size: var(--np-size-body);
+		text-align: center;
+	}
+	.error p {
+		margin: 0;
+	}
+	.error a {
+		color: inherit;
+		text-underline-offset: 4px;
+	}
+</style>

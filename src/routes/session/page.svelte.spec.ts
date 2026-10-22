@@ -66,3 +66,21 @@ describe('/session page, kind exercise', () => {
 		}
 	);
 });
+
+describe('/session page, when the session cannot start', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it('says why and links back home, the nav bar being hidden', async () => {
+		nav.search = '?kind=learn';
+		const startSession = vi.fn(async () => {
+			throw new Error('Pas d’entrée audio');
+		});
+		const services = createFakeAppServices({ startSession });
+		render(SessionHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByText('Pas d’entrée audio')).toBeTruthy());
+		const home = screen.getByRole('link', { name: 'Retour à l’accueil' });
+		expect(home.getAttribute('href')).toBe('/');
+	});
+});
