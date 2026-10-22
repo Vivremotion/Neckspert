@@ -7,6 +7,8 @@
 	import { provideAppServices } from '$lib/application/app';
 	import { createApp } from '$lib/composition/createApp';
 	import { defineMessages, i18n } from '$lib/i18n/index.svelte';
+	import NavRail from '$lib/ui/primitives/NavRail.svelte';
+	import { activeDestination, showsRail } from '$lib/ui/shell/navigation';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -16,19 +18,30 @@
 	const navMessages = defineMessages({
 		fr: {
 			label: 'Navigation',
-			home: 'Accueil',
-			free: 'Jeu libre',
-			map: 'Carte',
+			brand: 'neckspert',
+			practice: 'Pratiquer',
+			library: 'Bibliothèque',
+			progress: 'Progrès',
 			settings: 'Réglages'
 		},
-		en: { label: 'Navigation', home: 'Home', free: 'Free play', map: 'Neck', settings: 'Settings' }
+		en: {
+			label: 'Navigation',
+			brand: 'neckspert',
+			practice: 'Practice',
+			library: 'Library',
+			progress: 'Progress',
+			settings: 'Settings'
+		}
 	});
 	const nav = $derived(navMessages());
 	const path = $derived(page.url.pathname);
-	/** During a session (and its mode-2 demo) the play takes the whole screen: no navigation. */
-	const inSession = $derived(
-		path === '/session' || path.startsWith('/session/') || path === '/dev/identify'
-	);
+	const rail = $derived(showsRail(path));
+	const items = $derived([
+		{ key: 'practice', href: resolve('/'), label: nav.practice },
+		{ key: 'library', href: resolve('/session?kind=free'), label: nav.library },
+		{ key: 'progress', href: resolve('/map'), label: nav.progress },
+		{ key: 'settings', href: resolve('/settings'), label: nav.settings }
+	]);
 
 	$effect(() => {
 		let cancelled = false;
@@ -46,20 +59,25 @@
 </svelte:head>
 
 <div class="app">
-	{#if !inSession}
-		<nav class="nav" aria-label={nav.label}>
-			<a href={resolve('/')} aria-current={path === '/' ? 'page' : undefined}>{nav.home}</a>
-			<a href={resolve('/session?kind=free')}>{nav.free}</a>
-			<a href={resolve('/map')} aria-current={path === '/map' ? 'page' : undefined}>{nav.map}</a>
-			<a href={resolve('/settings')} aria-current={path === '/settings' ? 'page' : undefined}
-				>{nav.settings}</a
-			>
-		</nav>
+	{#if rail}
+		<div class="shell">
+			<NavRail label={nav.label} brand={nav.brand} {items} current={activeDestination(path)} />
+			<main>{@render children()}</main>
+		</div>
+	{:else}
+		{@render children()}
 	{/if}
-	{@render children()}
 </div>
 
 <style>
+	:global(html),
+	:global(body) {
+		width: auto;
+		height: auto;
+		min-height: 100dvh;
+		overflow: auto;
+	}
+
 	.app {
 		box-sizing: border-box;
 		width: 100%;
@@ -69,27 +87,32 @@
 		container: app / inline-size;
 	}
 
-	.nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--np-space-2);
-		padding: var(--np-space-2);
-		background: var(--np-ink);
-		color: var(--np-bg);
+	/* The light world: the Game Boy rule on html and body stays for the session. */
+	.shell {
+		--rail-width: 168px;
+		display: grid;
+		grid-template-columns: var(--rail-width) 1fr;
+		min-height: 100dvh;
+		background: var(--np-ground);
+		color: var(--np-text);
+		font-family: var(--np-font-text);
+		font-weight: 400;
+		-webkit-font-smoothing: auto;
+		image-rendering: auto;
 	}
 
-	.nav a {
-		color: inherit;
-		font-family: var(--np-font-pixel);
-		font-size: var(--np-type-body);
-		font-weight: 700;
-		text-decoration: none;
-		text-transform: uppercase;
-		padding: 4px 8px;
+	.shell ::selection {
+		background: color-mix(in srgb, var(--np-now) 35%, var(--np-ground));
+		color: var(--np-text);
 	}
 
-	.nav a[aria-current='page'] {
-		background: var(--np-bg);
-		color: var(--np-ink);
+	main {
+		min-width: 0;
+	}
+
+	@container app (width < 720px) {
+		.shell {
+			grid-template-columns: 1fr;
+		}
 	}
 </style>
