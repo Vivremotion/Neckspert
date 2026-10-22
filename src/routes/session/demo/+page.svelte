@@ -8,7 +8,7 @@
 	const controller = new DemoPlaySession({ clock });
 	let ready = $state(false);
 	const platesOnly = $derived(page.url.searchParams.get('platesOnly') === '1');
-	const shot = $derived(page.url.searchParams.get('shot') === '1');
+	const shot = $derived(page.url.searchParams.get('shot'));
 	const withAid = $derived(page.url.searchParams.get('aid') === '1');
 	const missed = $derived(page.url.searchParams.get('miss') === '1');
 
@@ -16,7 +16,25 @@
 		let raf = 0;
 		void (async () => {
 			await controller.start();
-			if (shot) {
+			if (shot === 'prompt') {
+				clock.setBeat(13);
+				controller.view.status = 'awaiting';
+				controller.view.prompt = {
+					primary: 'F',
+					secondary: 'corde de B',
+					aid: null,
+					diagram: null
+				};
+				controller.view.promptBeatIndex = 12;
+				controller.view.targetBeatIndex = 16;
+				controller.view.leadBeats = 4;
+				controller.view.lastVerdict = null;
+				controller.view.preview = null;
+				controller.view.history = [{ beatIndex: 6, verdict: 'late' }];
+				ready = true;
+				return;
+			}
+			if (shot === '1') {
 				clock.setBeat(14);
 				controller.view.status = 'verdict';
 				controller.view.prompt = {
@@ -29,18 +47,15 @@
 				controller.view.targetBeatIndex = 16;
 				controller.view.leadBeats = 8;
 				controller.view.history = [
-					{ beatIndex: 10, verdict: 'perfect' },
-					{ beatIndex: 11, verdict: 'perfect' },
-					{ beatIndex: 12, verdict: 'early' },
-					{ beatIndex: 13, verdict: 'wrong' },
-					{ beatIndex: 14, verdict: 'late' }
+					{ beatIndex: 6, verdict: 'perfect' },
+					{ beatIndex: 14, verdict: missed ? 'wrong' : 'late' }
 				];
 				controller.view.lastVerdict = missed
 					? {
 							verdict: 'wrong',
 							offsetMs: null,
 							reactionMs: null,
-							answerLabel: null,
+							answerLabel: 'F#',
 							correction: 'corde de B, case 6'
 						}
 					: {
