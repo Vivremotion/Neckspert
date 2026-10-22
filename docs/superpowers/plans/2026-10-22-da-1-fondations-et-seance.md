@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Ne pas modifier `src/lib/application/`, `src/lib/domain/`, ni leurs contrats (`PlayView`, `VerdictView`, `LaneEntry`). L'interface n'affiche que ce que la vue lui donne.
-- Nouveaux tokens : `--np-ground` `#ECE8E2`, `--np-text` `#23211F`, `--np-muted` `#7A7F80`, `--np-earth` `#8C6E52`, `--np-now` `#D9A13B`, `--np-on-field` `#ECE8E2`, `--np-rule` (encre à 12 %), `--np-field` (dégradé ardoise → terre d'ombre), plus `--np-type-*`, `--np-space-*`, `--np-motion-*` et les tokens de la piste. Ne jamais réutiliser `--np-bg`, `--np-mid`, `--np-shade`, `--np-ink`, `--np-tile`, `--np-font-pixel`.
+- Nouveaux tokens : `--np-ground` `#ECE8E2`, `--np-text` `#23211F`, `--np-muted` `#7A7F80`, `--np-earth` `#8C6E52`, `--np-now` `#D9A13B`, `--np-on-field` `#ECE8E2`, `--np-rule` (encre à 12 %), `--np-field` (dégradé ardoise → terre d'ombre), plus `--np-size-*`, `--np-step-*`, `--np-motion-*` et les tokens de la piste. Ne jamais réutiliser `--np-bg`, `--np-mid`, `--np-shade`, `--np-ink`, `--np-tile`, `--np-font-pixel`.
 - `--np-now` (ambre) sert à deux choses seulement : la ligne du maintenant et l'action principale.
 - Police : Atkinson Hyperlegible Next, auto-hébergée dans `static/fonts/` (avec sa licence OFL). Aucun texte sous 16 px.
 - En jeu : aucun texte explicatif (« maintenant », « respiration », « dans N temps », numéros de temps ou de mesure, légende). Le temps de réaction n'est plus affiché.
@@ -41,12 +41,12 @@
 - Create: `src/lib/ui/contrast.ts`, `src/lib/ui/tokens.spec.ts`
 
 **Interfaces:**
-- Produces: les tokens CSS listés dans Global Constraints ; `--np-font-text` (la famille) ; `--np-type-meta|body|title|prompt|hero` ; `--np-space-1..8` (base 8 px) ; `--np-motion-imprint` (≤ 150 ms) et `--np-motion-ease` ; piste : `--np-cell`, `--np-cell-downbeat`, `--np-cell-past-opacity`, `--np-cell-gap`. `contrastRatio(foreground: string, background: string): number` (hex `#RRGGBB`, ratio WCAG).
+- Produces: les tokens CSS listés dans Global Constraints ; `--np-font-text` (la famille) ; `--np-size-meta|body|title|prompt|hero` ; `--np-step-1..8` (base 8 px) ; `--np-motion-imprint` (≤ 150 ms) et `--np-motion-ease` ; piste : `--np-cell`, `--np-cell-downbeat`, `--np-cell-past-opacity`, `--np-cell-gap`. `contrastRatio(foreground: string, background: string): number` (hex `#RRGGBB`, ratio WCAG).
 
 - [ ] **Step 1: Write the failing tests** in `src/lib/ui/tokens.spec.ts` (projet node) :
   - `defines every role token of the new world` : lit `tokens.css` avec `fs`, attend une déclaration pour chaque nom de Global Constraints et de Produces.
   - `declares the self-hosted text face` : un `@font-face` pour `'Atkinson Hyperlegible Next'` dont chaque `url()` pointe vers un fichier qui existe dans `static/`.
-  - `keeps the meta size at 16px or more` : le minimum du `clamp()` de `--np-type-meta` vaut au moins 16 px.
+  - `keeps the meta size at 16px or more` : le minimum du `clamp()` de `--np-size-meta` vaut au moins 16 px.
   - `contrastRatio` : `contrastRatio('#000000', '#FFFFFF')` vaut 21 à 0,01 près ; `contrastRatio('#23211F', '#ECE8E2') >= 7` ; `contrastRatio('#ECE8E2', '#6C706F') >= 4.5` (texte sur le milieu du champ) ; `contrastRatio('#23211F', '#D9A13B') >= 4.5` (texte du bouton ambre).
 - [ ] **Step 2: Run** `npx vitest run src/lib/ui/tokens.spec.ts` ; attendu : FAIL.
 - [ ] **Step 3: Implement.** `contrast.ts` : luminance relative WCAG 2.x. Ajoute les tokens et le `@font-face` (quatre graisses, `font-display: swap`) à `tokens.css` sans toucher aux tokens Game Boy. Les fichiers woff2 et la licence viennent du paquet npm `@fontsource/atkinson-hyperlegible-next` (sous-ensemble latin), copiés à la main dans `static/fonts/` ; le paquet n'est pas ajouté aux dépendances. Le dégradé `--np-field` reprend celui de l'esquisse (`#8d908e` → `#6c706f` → `#4a4440`). Si un ratio échoue, ajuste la valeur du champ, pas le test.
@@ -65,7 +65,7 @@
   - `Button` : `renders a button with its label and variant` (rôle `button`, nom, `data-variant="primary"` par défaut) ; `calls onclick` ; `stays readable when disabled` (attribut `disabled`, même texte).
   - `InfoLine` : `joins the parts with a middle dot` (`['Apprentissage', '♩ = 100']` → texte `Apprentissage · ♩ = 100`) ; `skips empty parts` (`['', '♩ = 100']` → `♩ = 100`) ; `renders its end slot`.
 - [ ] **Step 2: Run** `npx vitest run --project client src/lib/ui/primitives/Button.svelte.spec.ts src/lib/ui/primitives/InfoLine.svelte.spec.ts` ; attendu : FAIL.
-- [ ] **Step 3: Implement.** `primary` : fond `--np-now`, texte `--np-text`, grand corps ; `quiet` : texte seul, souligné au survol et au focus, hérite de la couleur du parent. Focus visible sur les deux. `InfoLine` en `--np-type-meta`, opacité réduite, chiffres tabulaires.
+- [ ] **Step 3: Implement.** `primary` : fond `--np-now`, texte `--np-text`, grand corps ; `quiet` : texte seul, souligné au survol et au focus, hérite de la couleur du parent. Focus visible sur les deux. `InfoLine` en `--np-size-meta`, opacité réduite, chiffres tabulaires.
 - [ ] **Step 4: Run** les mêmes specs ; attendu : PASS.
 - [ ] **Step 5: Commit** `feat: add the button and the info line of the quiet direction`.
 
@@ -138,7 +138,7 @@
 
 - [ ] **Step 1: Write the failing tests** : `shows the note big and its string below` ; `recalls the prompt above a correction` (`recall: 'F · corde de B'`, `main: 'corde de B, case 6'`, `size: 'prompt'` → ordre du texte : rappel puis correction, `data-size="prompt"`) ; `renders its children below`.
 - [ ] **Step 2: Run** `npx vitest run --project client src/lib/ui/primitives/Prompt.svelte.spec.ts` ; attendu : FAIL.
-- [ ] **Step 3: Implement** : centré, `--np-type-hero` graisse 300 pour `hero`, `--np-type-prompt` pour `prompt` et `line`.
+- [ ] **Step 3: Implement** : centré, `--np-size-hero` graisse 300 pour `hero`, `--np-size-prompt` pour `prompt` et `line`.
 - [ ] **Step 4: Run** la même spec ; attendu : PASS.
 - [ ] **Step 5: Commit** `feat: add the prompt of the quiet direction`.
 
@@ -182,7 +182,7 @@
   - `shows no reaction time`.
 - [ ] **Step 2: Run** `npx vitest run --project client src/lib/ui/play/PlayScreen.svelte.spec.ts` ; attendu : FAIL.
 - [ ] **Step 3: Implement.**
-  - `PlayScreen` : champ `--np-field` plein cadre ; en haut `InfoLine` avec `kindName[kind]` et `tempo(view.tempoBpm)`, et à droite « pause » (`Button quiet`, pendant le jeu) et « quitter » ; au centre `Prompt` ; en bas `Lane` (fenêtre de `laneWindow`). Sur un verdict raté (`correction` ou formes), `Prompt` montre la correction avec la consigne en rappel, ou les deux `ChordShape` ; sur une réussite, le centre est vide. `caption` : `verdict[v].toLowerCase() + ' · ' + offset` pour `early`, `late` et `offbeat` avec écart, `playedAs(answerLabel)` ou `nothingHeard` pour `wrong`, le nom du verdict sinon. Compte à rebours dans `Prompt` (`size: 'prompt'`). Départ, fin et pause : page claire `--np-ground`, mode d'emploi en `--np-type-body`, un `Button` primaire. « Joué juste » : `Button quiet` sous la correction. Plus de `PixelWord`, `PixelButton` ni `VerdictSprite` ici.
+  - `PlayScreen` : champ `--np-field` plein cadre ; en haut `InfoLine` avec `kindName[kind]` et `tempo(view.tempoBpm)`, et à droite « pause » (`Button quiet`, pendant le jeu) et « quitter » ; au centre `Prompt` ; en bas `Lane` (fenêtre de `laneWindow`). Sur un verdict raté (`correction` ou formes), `Prompt` montre la correction avec la consigne en rappel, ou les deux `ChordShape` ; sur une réussite, le centre est vide. `caption` : `verdict[v].toLowerCase() + ' · ' + offset` pour `early`, `late` et `offbeat` avec écart, `playedAs(answerLabel)` ou `nothingHeard` pour `wrong`, le nom du verdict sinon. Compte à rebours dans `Prompt` (`size: 'prompt'`). Départ, fin et pause : page claire `--np-ground`, mode d'emploi en `--np-size-body`, un `Button` primaire. « Joué juste » : `Button quiet` sous la correction. Plus de `PixelWord`, `PixelButton` ni `VerdictSprite` ici.
   - `StringDiagram`, `AnswerPanel` : mêmes structures, couleurs et police du nouveau monde (cordes en `--np-on-field`, la corde demandée plus épaisse ; `AnswerPanel` montre `AnswerKeyboard`).
   - `+layout.svelte` : pas de barre de navigation sur `/session`.
 - [ ] **Step 4: Run** `npm test && npm run check` ; attendu : tout passe.
