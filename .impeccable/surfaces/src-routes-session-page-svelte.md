@@ -1,8 +1,8 @@
 ---
 version: 1
-slug: "src-routes-session-page-svelte"
-primary_target: "src/routes/session/+page.svelte"
-related_targets: ["src/routes/+page.svelte","src/lib/ui/play/PlayFrame.svelte"]
+slug: 'src-routes-session-page-svelte'
+primary_target: 'src/routes/session/+page.svelte'
+related_targets: ['src/routes/+page.svelte', 'src/lib/ui/play/PlayFrame.svelte']
 ---
 
 ## Scope

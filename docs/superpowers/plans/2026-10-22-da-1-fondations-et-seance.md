@@ -36,11 +36,13 @@
 ### Task 1: Tokens, police et contrastes
 
 **Files:**
+
 - Modify: `src/lib/ui/tokens.css`
 - Create: `static/fonts/atkinson-hyperlegible-next-{300,400,500,700}.woff2`, `static/fonts/OFL-atkinson-hyperlegible-next.txt`
 - Create: `src/lib/ui/contrast.ts`, `src/lib/ui/tokens.spec.ts`
 
 **Interfaces:**
+
 - Produces: les tokens CSS listés dans Global Constraints ; `--np-font-text` (la famille) ; `--np-size-meta|body|title|prompt|hero` ; `--np-step-1..8` (base 8 px) ; `--np-motion-imprint` (≤ 150 ms) et `--np-motion-ease` ; piste : `--np-cell`, `--np-cell-downbeat`, `--np-cell-past-opacity`, `--np-cell-gap`. `contrastRatio(foreground: string, background: string): number` (hex `#RRGGBB`, ratio WCAG).
 
 - [ ] **Step 1: Write the failing tests** in `src/lib/ui/tokens.spec.ts` (projet node) :
@@ -56,9 +58,11 @@
 ### Task 2: Button et InfoLine
 
 **Files:**
+
 - Create: `src/lib/ui/primitives/Button.svelte`, `Button.svelte.spec.ts`, `InfoLine.svelte`, `InfoLine.svelte.spec.ts`
 
 **Interfaces:**
+
 - Produces: `Button` props `{ variant?: 'primary' | 'quiet'; onclick?: (event: MouseEvent) => void; disabled?: boolean; children: Snippet }` → un `<button type="button">` avec `data-variant`. `InfoLine` props `{ parts: string[]; end?: Snippet }` → les parties non vides jointes par « · », la première en graisse moyenne ; `end` à droite (quitter, pause).
 
 - [ ] **Step 1: Write the failing tests**
@@ -72,9 +76,11 @@
 ### Task 3: La fenêtre de la piste
 
 **Files:**
+
 - Modify: `src/lib/ui/play/lane.ts`, `src/lib/ui/play/lane.spec.ts`
 
 **Interfaces:**
+
 - Produces: `laneWindow(input: { nowBeat: number; beatsPerBar: number; targetBeatIndex: number | null; followUp: { fromBeat: number; untilBeat: number } | null }): { beatsBefore: number; beatsAfter: number }`. `LaneTile` perd `label` et gagne `downbeat: boolean` (`beatIndex % beatsPerBar === 0`).
 
 - [ ] **Step 1: Write the failing tests** dans `lane.spec.ts` :
@@ -92,10 +98,12 @@
 ### Task 4: VerdictMark, et la planche des marques
 
 **Files:**
+
 - Create: `src/lib/ui/primitives/VerdictMark.svelte`, `VerdictMark.svelte.spec.ts`, `src/lib/ui/primitives/verdictTone.ts`, `verdictTone.spec.ts`
 - Modify: `.impeccable/mocks/decision/silence-etats.html` (une rangée des six marques)
 
 **Interfaces:**
+
 - Consumes: `ResponseVerdict` de `$lib/domain/types` ; `playMessages().verdict`.
 - Produces: `verdictTone(verdict: ResponseVerdict): 'hit' | 'partial' | 'miss'` (`perfect`, `early`, `late` → `hit` ; `offbeat` → `partial` ; `corrected`, `wrong` → `miss`). `VerdictMark` props `{ verdict: ResponseVerdict; size?: number }` → un `<svg role="img">` nommé par `playMessages().verdict[verdict]`, avec `data-verdict`.
 
@@ -111,9 +119,11 @@
 ### Task 5: LaneCell et Lane
 
 **Files:**
+
 - Create: `src/lib/ui/primitives/LaneCell.svelte`, `Lane.svelte`, `Lane.svelte.spec.ts`
 
 **Interfaces:**
+
 - Consumes: `LaneTile` (tâche 3), `VerdictMark` et `verdictTone` (tâche 4).
 - Produces: `Lane` props `{ tiles: LaneTile[]; targetLabel: string | null; bandLabel: string | null; caption: string | null; imprint: boolean }`. Les cases d'`offset <= 0` à gauche de la ligne, les autres à droite ; la ligne au tiers, `aria-hidden`. `targetLabel` dans la case `target`, `bandLabel` une fois au début de la bande, `caption` sous la case `justPlayed`, `imprint` anime cette case. `LaneCell` est interne à `Lane`.
 
@@ -131,9 +141,11 @@
 ### Task 6: Prompt
 
 **Files:**
+
 - Create: `src/lib/ui/primitives/Prompt.svelte`, `Prompt.svelte.spec.ts`
 
 **Interfaces:**
+
 - Produces: `Prompt` props `{ main: string; line?: string | null; recall?: string | null; size?: 'hero' | 'prompt'; children?: Snippet }`. `recall` au-dessus en petit (la consigne rappelée pendant une correction), `main` énorme (`hero`) ou grand (`prompt`, pour une correction ou un compte à rebours), `line` dessous (la corde), `children` dessous (forme d'accord, corde dessinée).
 
 - [ ] **Step 1: Write the failing tests** : `shows the note big and its string below` ; `recalls the prompt above a correction` (`recall: 'F · corde de B'`, `main: 'corde de B, case 6'`, `size: 'prompt'` → ordre du texte : rappel puis correction, `data-size="prompt"`) ; `renders its children below`.
@@ -145,11 +157,13 @@
 ### Task 7: Le clavier de réponse du mode 2
 
 **Files:**
+
 - Create: `src/lib/ui/play/answer/AnswerKeyboard.svelte`, `AnswerKeyboard.svelte.spec.ts`, `src/lib/ui/play/answer/keyboard.ts`, `keyboard.spec.ts`
 - Delete: `src/lib/ui/play/answer/AnswerPad.svelte`, `AnswerPad.svelte.spec.ts` (le clavier les remplace ; un seul nom : « clavier »)
 - Modify: `src/lib/ui/play/answer/AnswerPanel.svelte`, `AnswerPanel.svelte.spec.ts`, `src/lib/ui/play/answer/messages.ts`
 
 **Interfaces:**
+
 - Consumes: `AnswerChoice` (`value` : hauteur de `CHROMATIC_NOTES`, `label` : « F# / Gb »), `orderChoices`.
 - Produces: `keyboardKeys(choices: readonly AnswerChoice[]): KeyboardKey[]`, avec `KeyboardKey = { choice: AnswerChoice; color: 'white' | 'black'; whiteIndex: number }` (`whiteIndex` : rang de la touche blanche, 0 à 6 ; pour une noire, celui de la blanche à sa gauche). `AnswerKeyboard` props `{ choices: AnswerChoice[]; disabled: boolean; onanswer: (value: string) => void }`, les mêmes que l'ancien `AnswerPad`.
 
@@ -165,9 +179,11 @@
 ### Task 8: L'écran de séance
 
 **Files:**
+
 - Modify: `src/lib/ui/play/PlayScreen.svelte`, `PlayScreen.svelte.spec.ts`, `src/lib/ui/play/messages.ts`, `src/lib/ui/play/StringDiagram.svelte`, `src/lib/ui/primitives/ChordShape.svelte`, `src/lib/ui/play/answer/AnswerPanel.svelte`, `src/routes/+layout.svelte`
 
 **Interfaces:**
+
 - Consumes: `Button`, `InfoLine` (tâche 2), `laneWindow` et `laneTiles` (tâche 3), `Lane` (tâche 5), `Prompt` (tâche 6), `AnswerKeyboard` (tâche 7).
 - Produces: messages `kindName: Record<SessionKind, string>` (fr : Apprentissage, Jeu libre, Triades, Triades · zone, Geste, Exercice ; en : Learn, Free play, Triads, Triads · zone, Gesture, Exercise), `playedAs: (label: string) => string` (« F# joué » / « F# played »), `nothingHeard` (« rien entendu » / « nothing heard »), `tempo: (bpm: number) => string` (« ♩ = 100 »). `ChordShape` lit ses couleurs dans `--shape-ink`, `--shape-ground`, `--shape-accent`, qui valent par défaut ses couleurs Game Boy actuelles ; `PlayScreen` les pose au nouveau monde.
 
@@ -191,6 +207,7 @@
 ### Task 9: Vérification, relecture de finition et DESIGN.md
 
 **Files:**
+
 - Create: `.impeccable/review/desktop.png`, `.impeccable/review/mobile.png`, `DESIGN.md` (remplace), `.impeccable/design.json`
 - Modify: `src/lib/ui/CLAUDE.md`, `CLAUDE.md` (la ligne du Game Boy dans « Architecture »), `docs/superpowers/specs/2026-10-22-direction-artistique-design.md` (« Réalisation »)
 

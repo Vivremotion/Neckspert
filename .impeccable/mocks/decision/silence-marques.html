@@ -1,45 +1,168 @@
 <!doctype html>
 <html lang="fr">
-<head>
-<meta charset="utf-8">
-<title>Près du silence · marques de verdict</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;500;700&display=swap" rel="stylesheet">
-<style>
-  :root { --brume: #ECE8E2; --encre: #23211F; --ambre: #D9A13B; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { width: 1440px; height: 520px; overflow: hidden; }
-  body { font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif; color: var(--brume);
-    background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #6c706f 50%, #4a4440 100%); padding: 56px 72px; }
-  h1 { font-size: 24px; font-weight: 400; opacity: .8; margin-bottom: 40px; }
-  .rang { display: grid; grid-template-columns: repeat(6, 1fr); gap: 28px; }
-  .v { display: grid; justify-items: center; gap: 18px; }
-  .c { width: 120px; height: 150px; display: grid; place-items: center; position: relative; font-size: 56px; font-weight: 500; padding-bottom: 30px; }
-  .hit { background: var(--brume); color: var(--encre); }
-  .partial { background: transparent; color: var(--brume); box-shadow: inset 0 0 0 3px var(--brume); }
-  .miss { background: var(--encre); color: var(--brume); }
-  .m { position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%); }
-  .point { width: 18px; height: 18px; border-radius: 50%; background: currentColor; }
-  .tri { width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
-  .tri.d { border-left: 16px solid currentColor; transform: translateX(-30%); }
-  .tri.g { border-right: 16px solid currentColor; transform: translateX(-70%); }
-  .tri.creux { width: 16px; height: 20px; border: 0; background: none; transform: translateX(-30%); }
-  .tri.creux::before { content: ""; position: absolute; inset: 0; clip-path: polygon(0 0, 100% 50%, 0 100%, 0 0, 3px 5px, 3px 15px, 11px 10px, 3px 5px); background: currentColor; }
-  .x { font-size: 26px; line-height: 1; }
-  .cx { display: flex; gap: 8px; align-items: center; }
-  .cx .point { width: 14px; height: 14px; }
-  p { font-size: 22px; } p small { display: block; font-size: 16px; opacity: .75; margin-top: 4px; }
-</style>
-</head>
-<body>
-  <h1>La case jouée, après le temps : nom de la note, marque du verdict dessous</h1>
-  <div class="rang">
-    <div class="v"><div class="c hit">F<span class="m point"></span></div><p>Parfait<small>proposé : point centré</small></p></div>
-    <div class="v"><div class="c hit">F<span class="m tri g"></span></div><p>En avance<small>décidé : ◀</small></p></div>
-    <div class="v"><div class="c hit">F<span class="m tri d"></span></div><p>En retard<small>décidé : ▶</small></p></div>
-    <div class="v"><div class="c partial">F<span class="m tri creux"></span></div><p>Hors temps<small>proposé : ▶ creux, case bordée</small></p></div>
-    <div class="v"><div class="c miss">F<span class="m cx"><span class="x">✕</span><span class="point"></span></span></div><p>Corrigé<small>proposé : ✕ puis ●, case sombre</small></p></div>
-    <div class="v"><div class="c miss">F<span class="m x">✕</span></div><p>Mauvaise note<small>décidé : ✕, case sombre</small></p></div>
-  </div>
-</body>
+	<head>
+		<meta charset="utf-8" />
+		<title>Près du silence · marques de verdict</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@300;400;500;700&display=swap"
+			rel="stylesheet"
+		/>
+		<style>
+			:root {
+				--brume: #ece8e2;
+				--encre: #23211f;
+				--ambre: #d9a13b;
+			}
+			* {
+				box-sizing: border-box;
+				margin: 0;
+				padding: 0;
+			}
+			html,
+			body {
+				width: 1440px;
+				height: 520px;
+				overflow: hidden;
+			}
+			body {
+				font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif;
+				color: var(--brume);
+				background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #6c706f 50%, #4a4440 100%);
+				padding: 56px 72px;
+			}
+			h1 {
+				font-size: 24px;
+				font-weight: 400;
+				opacity: 0.8;
+				margin-bottom: 40px;
+			}
+			.rang {
+				display: grid;
+				grid-template-columns: repeat(6, 1fr);
+				gap: 28px;
+			}
+			.v {
+				display: grid;
+				justify-items: center;
+				gap: 18px;
+			}
+			.c {
+				width: 120px;
+				height: 150px;
+				display: grid;
+				place-items: center;
+				position: relative;
+				font-size: 56px;
+				font-weight: 500;
+				padding-bottom: 30px;
+			}
+			.hit {
+				background: var(--brume);
+				color: var(--encre);
+			}
+			.partial {
+				background: transparent;
+				color: var(--brume);
+				box-shadow: inset 0 0 0 3px var(--brume);
+			}
+			.miss {
+				background: var(--encre);
+				color: var(--brume);
+			}
+			.m {
+				position: absolute;
+				bottom: 14px;
+				left: 50%;
+				transform: translateX(-50%);
+			}
+			.point {
+				width: 18px;
+				height: 18px;
+				border-radius: 50%;
+				background: currentColor;
+			}
+			.tri {
+				width: 0;
+				height: 0;
+				border-top: 10px solid transparent;
+				border-bottom: 10px solid transparent;
+			}
+			.tri.d {
+				border-left: 16px solid currentColor;
+				transform: translateX(-30%);
+			}
+			.tri.g {
+				border-right: 16px solid currentColor;
+				transform: translateX(-70%);
+			}
+			.tri.creux {
+				width: 16px;
+				height: 20px;
+				border: 0;
+				background: none;
+				transform: translateX(-30%);
+			}
+			.tri.creux::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				clip-path: polygon(0 0, 100% 50%, 0 100%, 0 0, 3px 5px, 3px 15px, 11px 10px, 3px 5px);
+				background: currentColor;
+			}
+			.x {
+				font-size: 26px;
+				line-height: 1;
+			}
+			.cx {
+				display: flex;
+				gap: 8px;
+				align-items: center;
+			}
+			.cx .point {
+				width: 14px;
+				height: 14px;
+			}
+			p {
+				font-size: 22px;
+			}
+			p small {
+				display: block;
+				font-size: 16px;
+				opacity: 0.75;
+				margin-top: 4px;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>La case jouée, après le temps : nom de la note, marque du verdict dessous</h1>
+		<div class="rang">
+			<div class="v">
+				<div class="c hit">F<span class="m point"></span></div>
+				<p>Parfait<small>proposé : point centré</small></p>
+			</div>
+			<div class="v">
+				<div class="c hit">F<span class="m tri g"></span></div>
+				<p>En avance<small>décidé : ◀</small></p>
+			</div>
+			<div class="v">
+				<div class="c hit">F<span class="m tri d"></span></div>
+				<p>En retard<small>décidé : ▶</small></p>
+			</div>
+			<div class="v">
+				<div class="c partial">F<span class="m tri creux"></span></div>
+				<p>Hors temps<small>proposé : ▶ creux, case bordée</small></p>
+			</div>
+			<div class="v">
+				<div class="c miss">
+					F<span class="m cx"><span class="x">✕</span><span class="point"></span></span>
+				</div>
+				<p>Corrigé<small>proposé : ✕ puis ●, case sombre</small></p>
+			</div>
+			<div class="v">
+				<div class="c miss">F<span class="m x">✕</span></div>
+				<p>Mauvaise note<small>décidé : ✕, case sombre</small></p>
+			</div>
+		</div>
+	</body>
 </html>

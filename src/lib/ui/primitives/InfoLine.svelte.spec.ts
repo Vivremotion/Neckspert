@@ -17,7 +17,9 @@ describe('InfoLine', () => {
 	});
 
 	it('renders its end slot', () => {
-		const end = createRawSnippet(() => ({ render: () => '<button type="button">Quitter</button>' }));
+		const end = createRawSnippet(() => ({
+			render: () => '<button type="button">Quitter</button>'
+		}));
 		render(InfoLine, { props: { parts: ['A'], end } });
 		expect(screen.getByRole('button', { name: 'Quitter' })).toBeTruthy();
 	});

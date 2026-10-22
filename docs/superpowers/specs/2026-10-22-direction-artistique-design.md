@@ -19,16 +19,16 @@ Pièces de référence :
 
 ### Couleurs, par rôle
 
-| Token | Valeur | Rôle |
-| --- | --- | --- |
-| `--np-ground` | `#ECE8E2` brume | fond des écrans hors jeu |
-| `--np-text` | `#23211F` encre | texte, rail de navigation |
-| `--np-muted` | `#7A7F80` ardoise | texte secondaire, filets |
-| `--np-earth` | `#8C6E52` terre d'ombre | le « pourquoi », les durées, les annotations |
-| `--np-now` | `#D9A13B` ambre | le maintenant (ligne de la piste) et l'action principale, rien d'autre |
-| `--np-field` | dégradé ardoise → terre d'ombre | le champ de jeu |
-| `--np-on-field` | brume | texte et cases sur le champ |
-| `--np-rule` | encre à 12 % | filets sur fond clair |
+| Token           | Valeur                          | Rôle                                                                   |
+| --------------- | ------------------------------- | ---------------------------------------------------------------------- |
+| `--np-ground`   | `#ECE8E2` brume                 | fond des écrans hors jeu                                               |
+| `--np-text`     | `#23211F` encre                 | texte, rail de navigation                                              |
+| `--np-muted`    | `#7A7F80` ardoise               | texte secondaire, filets                                               |
+| `--np-earth`    | `#8C6E52` terre d'ombre         | le « pourquoi », les durées, les annotations                           |
+| `--np-now`      | `#D9A13B` ambre                 | le maintenant (ligne de la piste) et l'action principale, rien d'autre |
+| `--np-field`    | dégradé ardoise → terre d'ombre | le champ de jeu                                                        |
+| `--np-on-field` | brume                           | texte et cases sur le champ                                            |
+| `--np-rule`     | encre à 12 %                    | filets sur fond clair                                                  |
 
 La séance se joue sur un champ sombre et brumeux ; les autres écrans sont clairs. Les valeurs exactes du champ (dégradé, opacités des cases) se fixent à la construction, mesurées sur le contraste (voir « Vérification »).
 
@@ -54,16 +54,16 @@ La piste suit l'indice de temps audio à chaque image, comme aujourd'hui. Un ver
 
 Dans `src/lib/ui/primitives/`, chacune avec sa spec `*.svelte.spec.ts`, pure présentation (props, pas de services) :
 
-| Primitive | Ce qu'elle porte |
-| --- | --- |
-| `Lane` | la piste : une case par temps, ligne du maintenant fixe, fenêtre passé / futur, temps forts ; prend des cases déjà calculées |
-| `LaneCell` | une case : vide, cible (son nom), bande (accord plaqué sur plusieurs temps, nom écrit une fois), jouée (marque de verdict) |
-| `VerdictMark` | la forme d'un verdict, avec son nom accessible |
-| `Prompt` | la consigne énorme et sa ligne (la corde), ou la correction à sa place |
-| `InfoLine` | la ligne discrète du haut : exercice n / N, nom, compteur, tempo |
-| `NavRail` | le rail de navigation en dos de pochette |
-| `Button` | l'action principale (ambre) et les actions secondaires |
-| `BlockList` | une liste de blocs : titre, pourquoi, durée, bloc en cours marqué |
+| Primitive     | Ce qu'elle porte                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `Lane`        | la piste : une case par temps, ligne du maintenant fixe, fenêtre passé / futur, temps forts ; prend des cases déjà calculées |
+| `LaneCell`    | une case : vide, cible (son nom), bande (accord plaqué sur plusieurs temps, nom écrit une fois), jouée (marque de verdict)   |
+| `VerdictMark` | la forme d'un verdict, avec son nom accessible                                                                               |
+| `Prompt`      | la consigne énorme et sa ligne (la corde), ou la correction à sa place                                                       |
+| `InfoLine`    | la ligne discrète du haut : exercice n / N, nom, compteur, tempo                                                             |
+| `NavRail`     | le rail de navigation en dos de pochette                                                                                     |
+| `Button`      | l'action principale (ambre) et les actions secondaires                                                                       |
+| `BlockList`   | une liste de blocs : titre, pourquoi, durée, bloc en cours marqué                                                            |
 
 `ChordShape` et `Term` restent et passent au nouveau monde. `VerdictSprite`, `PixelBox`, `PixelButton`, `PixelText` et `PixelWord` disparaissent à la fin de la migration. Les vues d'exercice (`ui/play/views/`) composent ces blocs et gardent leur logique pure (`laneTiles`, `gridScroll`, `linkLane`, `rhythmFigure`) : une vue change sans toucher les autres.
 
@@ -90,14 +90,14 @@ Règles de l'utilisateur, à tenir pour toutes les vues de jeu :
 
 Marques de verdict (forme d'abord, teinte ensuite ; case claire = réussi, case sombre = raté) :
 
-| Verdict | Marque | Statut |
-| --- | --- | --- |
-| En retard | ▶ sous le nom, case claire | décidé |
-| En avance | ◀ sous le nom, case claire | décidé |
-| Mauvaise note, pas de réponse | ✕, case sombre | décidé |
-| Parfait | ● centré, case claire | proposé, à valider sur planche |
-| Hors temps | ▶ creux, case claire bordée | proposé, à valider sur planche |
-| Corrigé (triades) | ✕ puis ●, case sombre | proposé, à valider sur planche |
+| Verdict                       | Marque                      | Statut                         |
+| ----------------------------- | --------------------------- | ------------------------------ |
+| En retard                     | ▶ sous le nom, case claire  | décidé                         |
+| En avance                     | ◀ sous le nom, case claire  | décidé                         |
+| Mauvaise note, pas de réponse | ✕, case sombre              | décidé                         |
+| Parfait                       | ● centré, case claire       | proposé, à valider sur planche |
+| Hors temps                    | ▶ creux, case claire bordée | proposé, à valider sur planche |
+| Corrigé (triades)             | ✕ puis ●, case sombre       | proposé, à valider sur planche |
 
 Le cadre commun (`PlayFrame` : départ et mode d'emploi, pause sur Espace, compte à rebours, erreur audio, fatigue, briefing) passe au même monde avec ses vues, au plan 3, pour qu'un écran ne mêle jamais les deux mondes ; la même chose vaut pour le cadre de `PlayScreen` au plan 1 : le compte à rebours occupe la place de la consigne ; le départ est une page claire avec un seul bouton ambre. « Joué juste » reste réservé au développement, discret. Le passé de la piste ne montre que la marque du verdict : le nom de la note jouée n'est pas dans `LaneEntry` et ne s'y ajoute pas pendant cette piste.
 
@@ -160,8 +160,10 @@ Plan 1 (2026-10-22) :
 - le dégradé du champ a son milieu à `#656968` (et non `#6c706f`) pour tenir 4,5:1 ; aucun texte sur son haut le plus clair ;
 - piste : une case par temps, toutes de même largeur (1/(3 × temps par mesure)), la ligne fixe au tiers, les cases en trop rognées à droite ; la marque de verdict garde une taille fixe (32 px) pour rester lisible sur téléphone ;
 - marques : les six validées sur planche le 2026-10-22 (parfait point centré, avance ◀, retard ▶, hors temps ▷ sur case bordée, corrigé ✕● sur case sombre, mauvaise note ✕ sur case sombre) ;
-- après un raté : le rappel montre la note seule et la correction en grand est la phrase du cœur (« corde de B, case 6 »), décision de l'utilisateur ; la case passée montre la marque seule jusqu'à la migration H ;
+- après un raté : le rappel montre la note seule et la correction en grand est la phrase du cœur (« corde de B, case 6 »), décision de l'utilisateur ; en mode 2, où la correction est le nom de la note (« F# / Gb »), le rappel reprend toute la consigne (« case 8 · corde de A ») ; la case passée montre la marque seule jusqu'à la migration H ;
+- la légende sous la case jouée reste sur une ligne, hors du rognage de la piste : centrée sous sa case, elle se décale vers la droite plutôt que de passer le bord gauche de la piste quand la case recule dans la mesure de respiration ; le nom d'accord d'une bande (ancre de triade) part du bord gauche de la bande et court sur ses cases, jamais sur la case de la fondamentale, et ne s'affiche qu'une fois entier dans les cases visibles ;
 - le bouton « pause » discret reste à côté de « quitter » (décision de l'utilisateur) ;
 - le mode 2 répond sur un clavier de piano d'une octave (`AnswerKeyboard`), qui remplace `AnswerPad` ; il passe dès ce plan ;
-- la barre de navigation disparaît sur `/session` (et `/dev/identify`) ;
-- reporté au plan 3 : le dossier de build Game Boy d'impeccable (`.impeccable/build/state.json`, les comps approuvés) et les tailles internes de `ChordShape` ; le lien de sortie sur l'erreur de chargement de `/session`.
+- la barre de navigation disparaît sur `/session` (et `/dev/identify`) ; l'erreur de chargement de `/session` porte son lien « Retour à l'accueil » ;
+- les écrans du geste et du rythme (`PlayFrame`, encore dans l'ancien monde) perdent aussi la barre de navigation sur `/session` ; `PlayFrame` garde son propre lien « quitter » ;
+- reporté au plan 3 : le dossier de build Game Boy d'impeccable (`.impeccable/build/state.json`, les comps approuvés) et les tailles internes de `ChordShape`.
