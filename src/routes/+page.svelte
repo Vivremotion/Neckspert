@@ -68,7 +68,7 @@
 		if (event.code !== 'Space' && event.key !== ' ') return;
 		if (event.repeat) return;
 		const target = event.target as HTMLElement | null;
-		if (target && /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target.tagName)) return;
+		if (target && /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(target.tagName)) return;
 		event.preventDefault();
 		start();
 	}

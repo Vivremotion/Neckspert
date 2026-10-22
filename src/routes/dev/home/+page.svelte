@@ -56,14 +56,6 @@
 </main>
 
 <style>
-	:global(html),
-	:global(body) {
-		width: auto;
-		height: auto;
-		min-height: 100dvh;
-		overflow: auto;
-	}
-
 	.dev {
 		display: flex;
 		flex-direction: column;

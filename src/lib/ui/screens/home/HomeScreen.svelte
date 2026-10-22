@@ -1,11 +1,15 @@
 <script lang="ts">
 	import type { TriadsHome } from '$lib/application/app';
+	import { GESTURE_SESSION_MS, LEARN_SESSION_MS } from '$lib/domain/progress';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
+	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import type { HomeStats } from '$lib/domain/types';
-	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
-	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
-	import PixelText from '$lib/ui/primitives/PixelText.svelte';
+	import BlockList from '$lib/ui/primitives/BlockList.svelte';
+	import type { Block } from '$lib/ui/primitives/BlockList.svelte';
+	import Button from '$lib/ui/primitives/Button.svelte';
+	import Page from '$lib/ui/primitives/Page.svelte';
+	import { formatMinutes } from './duration';
 	import { formatRelativeDelay } from './relativeTime';
 	import { formatTrend } from './trend';
 	import { homeMessages } from './messages';
@@ -26,41 +30,40 @@
 		onstart: () => void;
 		/** The triads exercises: reviews due, and whether the zone is open. */
 		triads?: TriadsHome;
-		/** Starts a session of one triads exercise; without it, no triads button. */
+		/** Starts a session of one triads exercise; without it, no triads block. */
 		ontriads?: (kind: 'triads' | 'triads-zone') => void;
 		/** The gesture track: offered once one of its exercises is open. */
 		gesture?: { open: boolean };
-		/** Starts a gesture session; without it, no gesture button. */
+		/** Starts a gesture session; without it, no gesture block. */
 		ongesture?: () => void;
-		/** The rhythm exercises, each a link to its session; without them, no rhythm button. */
+		/** The rhythm exercises, each a link to its session; without them, no rhythm block. */
 		rhythm?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
 		resting?: readonly string[];
 	} = $props();
 
-	let rhythmOpen = $state(false);
-
 	const t = $derived(homeMessages());
 
+	const words = $derived({ short: t.minutes, spoken: t.minutesSpoken });
+
 	/** Due reviews, or when the next ones come; nothing without a learned card. */
-	const reviews = $derived.by((): { label: string; delay: string | null } | null => {
-		if (stats.dueCount > 0) return { label: t.due(stats.dueCount), delay: null };
+	const reviews = $derived.by((): string | null => {
+		if (stats.dueCount > 0) return t.due(stats.dueCount);
 		if (stats.nextReviewAt == null) return null;
-		return {
-			label: t.nextReviews,
-			delay: formatRelativeDelay(stats.nextReviewAt, now, {
-				soon: t.soon,
-				inMinutes: t.inMinutes,
-				inHours: t.inHours,
-				inDays: t.inDays
-			})
-		};
+		const delay = formatRelativeDelay(stats.nextReviewAt, now, {
+			soon: t.soon,
+			inMinutes: t.inMinutes,
+			inHours: t.inHours,
+			inDays: t.inDays
+		});
+		return `${t.nextReviews} · ${delay}`;
 	});
 
-	const reaction = $derived.by(() => {
-		if (stats.medianColdOffsetMs == null) return t.emptyReaction;
-		return `${Math.round(stats.medianColdOffsetMs)} ms`;
-	});
+	const reaction = $derived(
+		stats.medianColdOffsetMs == null
+			? t.emptyReaction
+			: `${Math.round(stats.medianColdOffsetMs)} ms`
+	);
 
 	const trend = $derived(
 		formatTrend(stats.trend, {
@@ -69,230 +72,99 @@
 			worsening: t.worsening
 		})
 	);
+
+	const blocks = $derived.by((): Block[] => {
+		const list: Block[] = [
+			{
+				key: 'learn',
+				title: t.session,
+				why: reviews ?? undefined,
+				duration: formatMinutes(LEARN_SESSION_MS, words),
+				onselect: onstart
+			}
+		];
+		if (ontriads) {
+			list.push({
+				key: 'triads',
+				title: t.triads,
+				why: triads.anchorDue > 0 ? t.triadsDue(triads.anchorDue) : undefined,
+				duration: formatMinutes(LEARN_SESSION_MS, words),
+				onselect: () => ontriads('triads')
+			});
+			if (triads.zoneDue !== null) {
+				list.push({
+					key: 'triads-zone',
+					title: t.triadsZone,
+					why: triads.zoneDue > 0 ? t.due(triads.zoneDue) : undefined,
+					duration: formatMinutes(LEARN_SESSION_MS, words),
+					onselect: () => ontriads('triads-zone')
+				});
+			}
+		}
+		if (ongesture && gesture.open) {
+			list.push({
+				key: 'gesture',
+				title: t.gesture,
+				duration: formatMinutes(GESTURE_SESSION_MS, words),
+				onselect: ongesture
+			});
+		}
+		for (const exercise of rhythm ?? []) {
+			list.push({
+				key: `rhythm-${exercise.id}`,
+				title: t.rhythm,
+				subtitle: exercise.title?.[i18n.locale] ?? exercise.id,
+				why: resting.includes(exercise.id) ? t.resting : undefined,
+				duration: formatMinutes(SESSION_MS, words),
+				href: `/session?kind=exercise&exercise=${exercise.id}`
+			});
+		}
+		return list;
+	});
 </script>
 
-<section class="home" aria-label="Neckspert Play">
-	<div class="cartridge">
-		<PixelBox variant="double">
-			<div class="inner">
-				<p class="how"><PixelText scale={1}>{t.how}</PixelText></p>
-				<div class="action">
-					<PixelButton size="huge" onclick={onstart}>
-						{t.session}
-					</PixelButton>
-					{#if reviews}
-						<p class="reviews">
-							<PixelText scale={1}>{reviews.label}</PixelText>
-							{#if reviews.delay}
-								<PixelText scale={1}>{reviews.delay}</PixelText>
-							{/if}
-						</p>
-					{/if}
-				</div>
-				{#if ontriads}
-					<div class="action">
-						<PixelButton size="large" onclick={() => ontriads('triads')}>{t.triads}</PixelButton>
-						{#if triads.anchorDue > 0}
-							<p class="reviews">
-								<PixelText scale={1}>{t.triadsDue(triads.anchorDue)}</PixelText>
-							</p>
-						{/if}
-					</div>
-					{#if triads.zoneDue !== null}
-						<div class="action">
-							<PixelButton size="large" onclick={() => ontriads('triads-zone')}>
-								{t.triadsZone}
-							</PixelButton>
-							{#if triads.zoneDue > 0}
-								<p class="reviews"><PixelText scale={1}>{t.due(triads.zoneDue)}</PixelText></p>
-							{/if}
-						</div>
-					{/if}
-				{/if}
-				{#if ongesture && gesture.open}
-					<div class="action">
-						<PixelButton size="large" onclick={ongesture}>{t.gesture}</PixelButton>
-					</div>
-				{/if}
-				{#if rhythm && rhythm.length > 0}
-					<div class="action">
-						<PixelButton
-							size="large"
-							pressed={rhythmOpen}
-							onclick={() => (rhythmOpen = !rhythmOpen)}
-						>
-							{t.rhythm}
-						</PixelButton>
-						{#if rhythmOpen}
-							<ul class="exercises" aria-label={t.rhythmExercises}>
-								{#each rhythm as exercise (exercise.id)}
-									<li>
-										<a href={`/session?kind=exercise&exercise=${exercise.id}`}>
-											{exercise.title?.[i18n.locale] ?? exercise.id}
-										</a>
-										{#if resting.includes(exercise.id)}
-											<span class="resting">{t.resting}</span>
-										{/if}
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					</div>
-				{/if}
-				<div class="stat">
-					<p class="caption"><PixelText scale={1}>{t.reactionLabel}</PixelText></p>
-					<PixelText scale={4}>{reaction}</PixelText>
-					{#if trend}
-						<PixelText scale={1}>{trend}</PixelText>
-					{/if}
-				</div>
-			</div>
-		</PixelBox>
-	</div>
-</section>
+<Page title={t.title}>
+	<BlockList label={t.blocks} {blocks} current="learn" />
+	<footer>
+		<p class="gap">
+			<span class="label">{t.reactionLabel}</span>
+			<span class="value">{reaction}</span>
+			{#if trend}<span class="trend">{trend}</span>{/if}
+		</p>
+		<Button onclick={onstart}>{t.start}</Button>
+	</footer>
+</Page>
 
 <style>
-	:global(html),
-	:global(body) {
-		width: auto;
-		height: auto;
-		min-height: 100dvh;
-		overflow: auto;
-	}
-
-	.home {
-		min-height: 100dvh;
+	footer {
 		display: flex;
-		flex-direction: column;
 		align-items: center;
-		justify-content: center;
-		padding: var(--np-space-4, 32px);
-		box-sizing: border-box;
-		background-color: var(--np-bg);
-		background-image:
-			linear-gradient(
-				45deg,
-				var(--np-mid) 25%,
-				transparent 25%,
-				transparent 75%,
-				var(--np-mid) 75%
-			),
-			linear-gradient(45deg, var(--np-mid) 25%, transparent 25%, transparent 75%, var(--np-mid) 75%);
-		background-position:
-			0 0,
-			calc(var(--np-tile, 8px)) calc(var(--np-tile, 8px));
-		background-size: calc(var(--np-tile, 8px) * 2) calc(var(--np-tile, 8px) * 2);
+		justify-content: space-between;
+		gap: var(--np-step-2);
+		margin-top: var(--np-step-6);
 	}
 
-	.cartridge {
-		width: min(100%, 28rem);
-		animation: imprint 120ms ease-out both;
-	}
-
-	.inner {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--np-space-8, 64px);
-		padding: var(--np-space-6, 48px) var(--np-space-4, 32px);
-		box-sizing: border-box;
-		background: var(--np-bg);
-	}
-
-	.how {
-		margin: 0;
-		max-width: 28rem;
-		text-align: center;
-	}
-
-	.action {
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--np-space-2, 16px);
-	}
-
-	.reviews {
+	.gap {
 		margin: 0;
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: center;
-		gap: var(--np-space-1, 8px);
-		text-align: center;
+		align-items: baseline;
+		gap: var(--np-step-1) var(--np-step-2);
 	}
 
-	.action :global(button) {
-		width: 100%;
-		max-width: 100%;
+	.label {
+		font-size: var(--np-size-meta);
+		color: var(--np-muted);
 	}
 
-	.exercises {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: var(--np-space-1, 8px);
-	}
-
-	.exercises a {
-		display: block;
-		box-sizing: border-box;
-		padding: var(--np-space-2, 16px);
-		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink);
-		background: var(--np-bg);
-		color: var(--np-ink);
-		font-family: var(--np-font-pixel);
-		font-size: var(--np-type-body);
-		font-weight: 700;
-		text-align: center;
-		text-decoration: none;
-		text-transform: uppercase;
-	}
-
-	.resting {
-		display: block;
-		margin-top: var(--np-space-1, 8px);
-		color: var(--np-shade);
-		font-size: var(--np-type-body);
-		text-align: center;
-	}
-
-	.exercises a:hover,
-	.exercises a:focus-visible {
-		background: var(--np-ink);
-		color: var(--np-bg);
-	}
-
-	.stat {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: var(--np-space-1, 8px);
+	.value {
+		font-size: var(--np-size-title);
+		font-weight: 300;
 		font-variant-numeric: tabular-nums;
 	}
 
-	.caption {
-		margin: 0;
-		text-transform: uppercase;
-	}
-
-	@keyframes imprint {
-		from {
-			transform: scale(0.96);
-			opacity: 0.85;
-		}
-		to {
-			transform: scale(1);
-			opacity: 1;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.cartridge {
-			animation: none;
-		}
+	.trend {
+		font-size: var(--np-size-meta);
+		color: var(--np-earth);
 	}
 </style>

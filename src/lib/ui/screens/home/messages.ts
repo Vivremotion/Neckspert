@@ -2,12 +2,16 @@ import { defineMessages } from '$lib/i18n/index.svelte';
 
 export const homeMessages = defineMessages({
 	fr: {
+		title: 'Pratiquer',
+		blocks: 'Séances',
+		start: 'Commencer',
+		minutes: (n: number) => `${n}′`,
+		minutesSpoken: (n: number) => `${n} min`,
 		session: 'Apprentissage',
 		triads: 'Triades',
 		triadsZone: 'Triades vers une case',
 		gesture: 'Geste',
 		rhythm: 'Rythme',
-		rhythmExercises: 'Exercices de rythme',
 		resting: 'On y revient plus tard',
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
@@ -21,16 +25,19 @@ export const homeMessages = defineMessages({
 		stable: 'stable',
 		worsening: 'plus loin',
 		reactionLabel: 'Écart au temps',
-		emptyReaction: '—',
-		how: 'Le bouton lance l’Apprentissage : environ 5 minutes, à relancer quand tu veux. La note défile dans la piste : joue-la, sur la corde indiquée, quand sa case atteint le trait. Les cordes à vide sont supposées connues. Le clic sort des enceintes de l’ordinateur.'
+		emptyReaction: '—'
 	},
 	en: {
+		title: 'Practice',
+		blocks: 'Sessions',
+		start: 'Start',
+		minutes: (n: number) => `${n}′`,
+		minutesSpoken: (n: number) => `${n} min`,
 		session: 'Learn',
 		triads: 'Triads',
 		triadsZone: 'Triads around a fret',
 		gesture: 'Gesture',
 		rhythm: 'Rhythm',
-		rhythmExercises: 'Rhythm exercises',
 		resting: 'Back to it later',
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
@@ -43,7 +50,6 @@ export const homeMessages = defineMessages({
 		stable: 'stable',
 		worsening: 'farther',
 		reactionLabel: 'From the beat',
-		emptyReaction: '—',
-		how: 'The button starts Learn: about 5 minutes, start again whenever you like. The note travels along the lane: play it, on the string shown, when its tile reaches the line. Open strings are assumed known. The click comes from the computer speakers.'
+		emptyReaction: '—'
 	}
 });
