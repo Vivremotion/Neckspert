@@ -14,6 +14,7 @@ colors:
   field-deep: '#4a4440'
   cell: 'rgba(236, 232, 226, 0.14)'
   cell-downbeat: 'rgba(236, 232, 226, 0.26)'
+  cell-band: 'rgba(236, 232, 226, 0.5)'
 typography:
   hero:
     fontFamily: 'Atkinson Hyperlegible Next, system-ui, sans-serif'
@@ -85,6 +86,9 @@ components:
   lane-cell-hit:
     backgroundColor: '{colors.on-field}'
     textColor: '{colors.ink}'
+  lane-cell-band:
+    backgroundColor: '{colors.cell-band}'
+    textColor: '{colors.ink}'
   lane-cell-partial:
     textColor: '{colors.on-field}'
   lane-cell-miss:
@@ -143,6 +147,7 @@ A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber 
 - **On Field** (`on-field`, same value as Ground Mist, separate role): every text and line on the field: prompt, info line, captions, drawn string, target and hit cells, white keys, the learning-aid tile.
 - **The Field** (`field-light` → `field-mid` → `field-deep`): a radial gradient (110% × 80% at 45% 20%), light slate at the top left fading to umber-tinted dark at the bottom. It is the play ground, declared as one token (`--np-field`). The play screen adds a veil of Ink at 40% over its top 160px so the info line reads on the lightest stop.
 - **Cell** (`cell`) and **Cell Downbeat** (`cell-downbeat`): mist at 14% and 26% over the field, for an empty beat and the first beat of a bar. Past cells drop to 45% opacity.
+- **Cell Band** (`cell-band`): mist at 50% over the field, the fill of a held chord's band, under ink names (above 4.5:1).
 - **Slate** (`slate`), **Umber** (`umber`), **Rule** (`rule`): declared roles for the coming screens (the session plan's « why » in umber, thin rules in ink at 12%); no built component uses them yet.
 
 ### Named Rules
@@ -160,7 +165,7 @@ A muted, cool-to-warm sleeve palette: mist and ink for reading, slate and umber 
 
 ### Hierarchy
 
-- **Hero** (300, up to 300px at 1440×900, bounded by width and height, line-height 1): the note of the prompt, alone. The only big letter on screen.
+- **Hero** (300, up to 300px at 1440×900, bounded by width and height, line-height 1): the note of the prompt, alone, on one line: never broken, it scales down to the centre's width (about 0.6em per glyph), so « F#dim » fits a phone. The only big letter on screen.
 - **Correction** (300, up to 120px, line-height 1.05, wraps): the right answer after a miss, in the prompt's place (« corde de B, case 6 »), and the verdict's name after a hit (« Parfait »), its offset beside it at prompt size.
 - **Prompt** (400, 28–48px, line-height 1.1): the string under the note (« corde de B »), the recalled prompt above a correction, the offset beside a hit's verdict, the countdown, and the main line in mode 2.
 - **Cell** (500, 16–56px, line-height 1): a name inside a lane cell.
@@ -194,7 +199,7 @@ Flat. No shadows anywhere. Depth comes only from the field's radial gradient, th
 
 ## Shapes
 
-Square by default. The primary button has a barely softened corner (2px); cells, keys and the learning-aid tile are square. Lines are thin: 1px for the drawn strings and key borders, 2px for a cell's outline (offbeat, the edges of a held chord band), 4px for the prompted string and for the now line, which overhangs the cells by 16px above and below as the strongest mark on screen.
+Square by default. The primary button has a barely softened corner (2px); cells, keys and the learning-aid tile are square. Lines are thin: 1px for the drawn strings and key borders, 2px for a cell's outline (offbeat, the outline of a held chord band), 4px for the prompted string and for the now line, which overhangs the cells by 16px above and below as the strongest mark on screen.
 
 ## Components
 
@@ -220,7 +225,7 @@ The centre of the screen, in on-field mist, centred. Three sizes: `hero` (the no
 
 - **Empty cell:** `cell` ground; the first beat of a bar takes `cell-downbeat`.
 - **Target:** mist ground, ink name at cell size: the note to play, on beat 1 of its bar.
-- **Band:** a chord held over several beats, drawn as one joined band: its cells span the gaps between them (their footprint on the lane is unchanged), downbeat ground, name written once from its left edge, closed by mist edges on its first and last cells; the gap before it keeps it apart from the target.
+- **Band:** the window where a held chord may be played (triad anchor), drawn as one joined band: its cells span the gaps between them (their footprint on the lane is unchanged) and share one `cell-band` fill (mist at 50%, clearly lighter than any beat, darker than the target) inside a 2px mist outline, open only at the joints, closed at its first and last beats (a one-beat band is closed on both sides); the chord's name once, in ink, from its left edge; the gap before it keeps it apart from the target.
 - **Past:** 45% opacity, except the cell just played, read at full strength.
 - **Played cell:** keeps its name when it has one, the verdict mark below it at the cell's bottom; a single caption line over the lane, above that cell, in meta (« en retard · +42 ms », « F# joué · +30 ms »: the signed offset whenever there is one), clear of the now line's overhang and kept inside the lane's left edge.
 - **Imprint:** the just-played cell scales from 1.12 to 1 in 120ms; removed under `prefers-reduced-motion`.

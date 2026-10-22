@@ -164,7 +164,13 @@
 				"role": "neutral",
 				"displayName": "Cell Downbeat",
 				"canonical": "rgba(236, 232, 226, 0.26)",
-				"purpose": "The first beat of a bar; a held chord band."
+				"purpose": "The first beat of a bar."
+			},
+			"cell-band": {
+				"role": "neutral",
+				"displayName": "Cell Band",
+				"canonical": "rgba(236, 232, 226, 0.5)",
+				"purpose": "A held chord's band: one joined fill under a 2px mist outline, ink name."
 			}
 		},
 		"gradients": [
@@ -182,15 +188,15 @@
 		"typographyMeta": {
 			"hero": {
 				"displayName": "Hero",
-				"purpose": "The prompted note alone; the only big letter on screen."
+				"purpose": "The prompted note alone, on one line, scaled down to the centre's width; the only big letter on screen."
 			},
 			"correction": {
 				"displayName": "Correction",
-				"purpose": "The right answer in the prompt’s place after a miss; wraps."
+				"purpose": "The right answer in the prompt’s place after a miss (wraps); the verdict's name after a hit."
 			},
 			"prompt": {
 				"displayName": "Prompt",
-				"purpose": "The string under the note, the recalled prompt, the countdown, mode 2 prompt."
+				"purpose": "The string under the note, the recalled prompt, the offset beside a hit's verdict, the countdown, mode 2 prompt."
 			},
 			"cell": {
 				"displayName": "Cell",
@@ -206,7 +212,7 @@
 			},
 			"meta": {
 				"displayName": "Meta",
-				"purpose": "Info line, pause/quitter, verdict caption, key names, drawn-string letters."
+				"purpose": "Info line, pause/quitter, verdict caption over the played cell, key names."
 			}
 		},
 		"shadows": [],
@@ -233,7 +239,9 @@
 			"height": "clamp(96px, 8.4vw, 120px)",
 			"pastOpacity": 0.45,
 			"nowLine": "4px amber, overhangs cells by 16px above and below",
-			"verdictMarkPx": 32
+			"verdictMarkPx": 32,
+			"caption": "One line over the cell just played, clear of the now line's overhang, kept inside the lane's left edge; the signed offset whenever there is one.",
+			"band": "One joined band over its beats: cells span the gaps, cell-band fill, 2px mist outline closed at both ends, the chord name once in ink."
 		},
 		"verdictMarks": [
 			{
@@ -298,7 +306,7 @@
 			"name": "Prompt",
 			"kind": "custom",
 			"refersTo": null,
-			"description": "The note at hero size, the string under it.",
+			"description": "The note at hero size on one line (scaled to the width), the string under it; after a hit, the verdict and its offset in its place.",
 			"html": "<div class=\"ds-field\"><div class=\"ds-prompt\"><p class=\"ds-hero\">F</p><p class=\"ds-line\">corde de B</p></div></div>",
 			"css": ".ds-field { background: radial-gradient(110% 80% at 45% 20%, #8d908e 0%, #656968 50%, #4a4440 100%); color: #ece8e2; padding: 32px; } .ds-prompt { display: flex; flex-direction: column; align-items: center; gap: 16px; font-family: 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-prompt p { margin: 0; } .ds-hero { font-size: 160px; font-weight: 300; line-height: 1; } .ds-line { font-size: 36px; line-height: 1.1; }"
 		},
@@ -306,9 +314,9 @@
 			"name": "Lane",
 			"kind": "custom",
 			"refersTo": "lane-cell",
-			"description": "One cell per beat, past dimmed, the amber now line, the target named, a missed cell with its cross.",
-			"html": "<div class=\"ds-field\"><div class=\"ds-lane\"><div class=\"ds-c ds-past ds-down\"></div><div class=\"ds-c ds-past\"></div><div class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></div><span class=\"ds-now\"></span><div class=\"ds-c\"></div><div class=\"ds-c ds-target\">F</div><div class=\"ds-c\"></div><div class=\"ds-c ds-down\"></div><div class=\"ds-c\"></div></div></div>",
-			"css": ".ds-field { background: #565a59; padding: 32px 16px; } .ds-lane { display: flex; gap: 6px; height: 96px; } .ds-c { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(236,232,226,0.14); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-down { background: rgba(236,232,226,0.26); } .ds-past { opacity: 0.45; } .ds-target { background: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; } .ds-now { flex: none; width: 4px; margin: -16px -5px; background: #d9a13b; }"
+			"description": "One cell per beat, past dimmed, the amber now line, the caption over the cell just played, the target named, then a held chord's joined band.",
+			"html": "<div class=\"ds-field\"><p class=\"ds-cap\">F# joué · +30 ms</p><div class=\"ds-lane\"><div class=\"ds-c ds-past ds-down\"></div><div class=\"ds-c ds-miss\"><svg width=\"32\" height=\"32\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\"><path d=\"M6 6 L18 18 M18 6 L6 18\" stroke-width=\"2.5\" stroke-linecap=\"round\"/></svg></div><span class=\"ds-now\"></span><div class=\"ds-c\"></div><div class=\"ds-c ds-target\">F</div><div class=\"ds-band\">Do</div><div class=\"ds-c ds-down\"></div></div></div>",
+			"css": ".ds-field { background: #565a59; padding: 32px 16px; } .ds-cap { margin: 0 0 32px 72px; color: #ece8e2; font: 500 18px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-lane { display: flex; gap: 6px; height: 96px; } .ds-c { flex: 1; display: flex; align-items: center; justify-content: center; background: rgba(236,232,226,0.14); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-down { background: rgba(236,232,226,0.26); } .ds-past { opacity: 0.45; } .ds-target { background: #ece8e2; } .ds-miss { background: #23211f; color: #ece8e2; } .ds-band { flex: 3.1; display: flex; align-items: center; padding-inline: 16px; box-sizing: border-box; border: 2px solid #ece8e2; background: rgba(236,232,226,0.5); color: #23211f; font: 500 40px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-now { flex: none; width: 4px; margin: -16px -5px; background: #d9a13b; }"
 		},
 		{
 			"name": "Verdict Marks",
@@ -330,14 +338,14 @@
 			"name": "Drawn String",
 			"kind": "custom",
 			"refersTo": null,
-			"description": "Learning aid: six strings, the prompted one thick with its letter.",
-			"html": "<div class=\"ds-field\"><div class=\"ds-ds\"><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r ds-t\"><span>B</span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div><div class=\"ds-r\"><span></span><i></i></div></div></div>",
-			"css": ".ds-field { background: #656968; color: #ece8e2; padding: 24px; } .ds-ds { width: 240px; font: 16px 'Atkinson Hyperlegible Next', system-ui, sans-serif; } .ds-r { display: grid; grid-template-columns: 24px 1fr; align-items: center; height: 12px; } .ds-r span { text-align: center; line-height: 1; } .ds-r i { display: block; height: 1px; background: #ece8e2; opacity: 0.45; } .ds-t { height: 20px; } .ds-t i { height: 4px; opacity: 1; }"
+			"description": "Learning aid: six strings, the prompted one thicker; no letter, on the prompt's centre axis.",
+			"html": "<div class=\"ds-field\"><div class=\"ds-ds\"><i></i><i class=\"ds-t\"></i><i></i><i></i><i></i><i></i></div></div>",
+			"css": ".ds-field { background: #656968; padding: 24px; display: flex; justify-content: center; } .ds-ds { width: 240px; display: grid; } .ds-ds i { display: block; height: 1px; margin-block: 5.5px; background: #ece8e2; opacity: 0.45; } .ds-ds i.ds-t { height: 4px; margin-block: 4px; opacity: 1; }"
 		}
 	],
 	"narrative": {
 		"northStar": "Près du silence",
-		"overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success makes the centre fall silent and the lane says it; a miss puts the correction in the prompt's place. Light pages (start, pause, end) are mist with ink and one amber button.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
+		"overview": "An ECM sleeve: mist, ink, a hazy field of slate going to umber, one light grotesque set large, wide margins, thin rules. The screen goes quiet as the aids fade, but it always says what comes next and when. The player reads it from 60 cm to 1 m, hands on the guitar, so everything that must be read in play is large, and everything else is absent.\n\nThe play screen is the first surface built in this world. It holds a hazy field, one enormous prompt in the centre, a lane of plain cells at the bottom running into a fixed amber line, and a discreet info line at the top. A success puts its verdict and offset in the prompt's place (« Parfait · −8 ms »); a miss puts the correction there. Light pages (start, pause, end) are mist with ink and one amber button.\n\nConfirmed rejections (direction contract): the dark neon guitar app with cards and progress rings, the gamified dashboard, and the Game Boy cartridge this world replaces.",
 		"keyCharacteristics": [
 			"Five named roles plus a hazy field; amber reserved for « now » and the main action.",
 			"One face, Atkinson Hyperlegible Next, light (300) at the largest sizes; nothing under 16px.",
