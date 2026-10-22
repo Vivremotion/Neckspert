@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import AnswerPad from './AnswerPad.svelte';
+	import AnswerKeyboard from './AnswerKeyboard.svelte';
 	import { identifyChoices } from './choices';
 
 	let { controller }: { controller: PlaySessionController } = $props();
@@ -9,4 +9,4 @@
 	const disabled = $derived(controller.view.status !== 'awaiting');
 </script>
 
-<AnswerPad {choices} {disabled} onanswer={(value) => controller.answer(value)} />
+<AnswerKeyboard {choices} {disabled} onanswer={(value) => controller.answer(value)} />

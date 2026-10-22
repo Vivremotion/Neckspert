@@ -94,7 +94,7 @@ const PAD = { name: 'Nom de la note' };
 describe('PlayScreen in mode 2', () => {
 	afterEach(() => cleanup());
 
-	it('replaces the lane with the answer pad for an identify prompt', async () => {
+	it('replaces the lane with the answer keyboard for an identify prompt', async () => {
 		const { controller, calls } = fakeController(identifyView());
 		render(PlayScreen, { props: { controller } });
 		const pad = within(screen.getByRole('group', PAD));
@@ -103,7 +103,7 @@ describe('PlayScreen in mode 2', () => {
 		expect(calls.answers).toEqual(['F']);
 	});
 
-	it('shows no answer pad for a locate prompt', () => {
+	it('shows no answer keyboard for a locate prompt', () => {
 		const { controller } = fakeController(locateView());
 		render(PlayScreen, { props: { controller } });
 		expect(screen.queryByRole('group', PAD)).toBeNull();

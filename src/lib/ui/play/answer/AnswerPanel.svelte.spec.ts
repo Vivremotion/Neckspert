@@ -11,7 +11,7 @@ function isDisabled(element: HTMLElement): boolean {
 	);
 }
 
-const pad = () => within(screen.getByRole('group', { name: 'Nom de la note' }));
+const keys = () => within(screen.getByRole('group', { name: 'Nom de la note' }));
 
 describe('AnswerPanel', () => {
 	beforeEach(() => {
@@ -24,15 +24,15 @@ describe('AnswerPanel', () => {
 		vi.useRealTimers();
 	});
 
-	it('keeps the pad disabled until a prompt is awaiting', async () => {
+	it('keeps the keyboard disabled until a prompt is awaiting', async () => {
 		const demo = new DemoIdentifySession();
 		render(AnswerPanel, { props: { controller: demo } });
-		expect(pad().getAllByRole('button').every(isDisabled)).toBe(true);
+		expect(keys().getAllByRole('button').every(isDisabled)).toBe(true);
 
 		await demo.start();
 		await tick();
-		expect(pad().getAllByRole('button')).toHaveLength(12);
-		expect(pad().getAllByRole('button').some(isDisabled)).toBe(false);
+		expect(keys().getAllByRole('button')).toHaveLength(12);
+		expect(keys().getAllByRole('button').some(isDisabled)).toBe(false);
 	});
 
 	it('sends a double tap to the controller once', async () => {
@@ -43,29 +43,29 @@ describe('AnswerPanel', () => {
 		await tick();
 
 		vi.advanceTimersByTime(600);
-		void fireEvent.click(pad().getByRole('button', { name: 'F' }));
-		void fireEvent.click(pad().getByRole('button', { name: 'G' }));
+		void fireEvent.click(keys().getByRole('button', { name: 'F' }));
+		void fireEvent.click(keys().getByRole('button', { name: 'G' }));
 		await tick();
 
 		expect(answer).toHaveBeenCalledTimes(1);
 		expect(answer).toHaveBeenCalledWith('F');
 		expect(demo.view.lastVerdict?.verdict).toBe('perfect');
-		expect(pad().getAllByRole('button').every(isDisabled)).toBe(true);
+		expect(keys().getAllByRole('button').every(isDisabled)).toBe(true);
 	});
 
-	it('re-enables the pad for the next prompt and reports a slow answer late', async () => {
+	it('re-enables the keyboard for the next prompt and reports a slow answer late', async () => {
 		const demo = new DemoIdentifySession();
 		render(AnswerPanel, { props: { controller: demo } });
 		await demo.start();
 		await tick();
-		await fireEvent.click(pad().getByRole('button', { name: 'F' }));
+		await fireEvent.click(keys().getByRole('button', { name: 'F' }));
 
 		vi.advanceTimersByTime(DEMO_VERDICT_MS);
 		await tick();
-		expect(pad().getAllByRole('button').some(isDisabled)).toBe(false);
+		expect(keys().getAllByRole('button').some(isDisabled)).toBe(false);
 
 		vi.advanceTimersByTime(3100);
-		await fireEvent.click(pad().getByRole('button', { name: 'F# / Gb' }));
+		await fireEvent.click(keys().getByRole('button', { name: 'F# / Gb' }));
 		expect(demo.view.lastVerdict?.verdict).toBe('late');
 	});
 });

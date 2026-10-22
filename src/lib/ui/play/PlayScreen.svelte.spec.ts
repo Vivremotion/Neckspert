@@ -357,7 +357,7 @@ describe('PlayScreen', () => {
 		expect(container.querySelector('.string')).toBeNull();
 	});
 
-	it('sets the answer pad on stage while counting down to a screen prompt', () => {
+	it('sets the answer keyboard on stage while counting down to a screen prompt', () => {
 		const controller = aidedController({
 			scene: 'screen',
 			primary: 'case 8',

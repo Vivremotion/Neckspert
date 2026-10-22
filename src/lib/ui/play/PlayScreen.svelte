@@ -427,7 +427,7 @@
 		text-align: center;
 	}
 
-	/* The stage changes between lane (guitar) and answer pad (screen): the new one rises in. */
+	/* The stage changes between lane (guitar) and answer keyboard (screen): the new one rises in. */
 	.scene-in {
 		animation: scene-in 240ms ease-out both;
 	}
