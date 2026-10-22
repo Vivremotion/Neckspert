@@ -24,6 +24,8 @@ const ROLE_TOKENS = [
 	'--np-size-title',
 	'--np-size-prompt',
 	'--np-size-hero',
+	'--np-size-correction',
+	'--np-size-cell',
 	...Array.from({ length: 8 }, (_, i) => `--np-step-${i + 1}`),
 	'--np-motion-imprint',
 	'--np-motion-ease',

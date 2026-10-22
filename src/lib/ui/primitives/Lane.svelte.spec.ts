@@ -50,6 +50,20 @@ describe('Lane', () => {
 		expect(container.querySelector('[data-kind="history"]')!.getAttribute('data-tone')).toBe('hit');
 	});
 
+	it('leaves the cell just played out of the faded past, caption included', () => {
+		const tiles = [
+			tile({ beatIndex: -1, offset: -1, kind: 'history', verdict: 'perfect' }),
+			tile({ beatIndex: 0, offset: 0, kind: 'history', verdict: 'wrong', justPlayed: true })
+		];
+		const { container } = render(Lane, { props: { ...props, tiles, caption: 'F# joué' } });
+		const [older, just] = [...container.querySelectorAll('.cell')];
+		expect(older.hasAttribute('data-just-played')).toBe(false);
+		expect(older.hasAttribute('data-past')).toBe(true);
+		expect(just.hasAttribute('data-just-played')).toBe(true);
+		expect(just.getAttribute('data-tone')).toBe('miss');
+		expect(just.querySelector('.caption')!.textContent).toBe('F# joué');
+	});
+
 	it('writes the caption under the cell just played', () => {
 		const tiles = [
 			tile({ beatIndex: -1, offset: -1, kind: 'history', verdict: 'wrong' }),

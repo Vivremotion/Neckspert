@@ -31,7 +31,8 @@
 
 <div
 	class="lane"
-	style="--lane-cells: {3 * beatsPerBar}; --lane-before: {beatsPerBar}; overflow-x: clip; overflow-y: visible;"
+	style="--lane-cells: {3 *
+		beatsPerBar}; --lane-before: {beatsPerBar}; overflow-x: clip; overflow-y: visible;"
 >
 	<div class="side past">
 		{#each past as tile (tile.beatIndex)}
@@ -63,7 +64,8 @@
 		width: 100%;
 		position: relative;
 		display: flex;
-		height: 120px;
+		/* 120px at 1440; lower on a phone, where the cells are narrow. */
+		height: clamp(var(--np-step-8), 8.4vw, 120px);
 		gap: var(--np-cell-gap);
 	}
 	.side {
@@ -84,10 +86,11 @@
 	}
 	.now {
 		position: absolute;
-		top: calc(-1 * var(--np-step-1));
-		bottom: calc(-1 * var(--np-step-1));
+		/* The strongest mark on screen: it overhangs the cells above and below. */
+		top: calc(-1 * var(--np-step-2));
+		bottom: calc(-1 * var(--np-step-2));
 		left: calc(var(--past-w) + var(--np-cell-gap) / 2);
-		width: 3px;
+		width: 4px;
 		transform: translateX(-50%);
 		background: var(--np-now);
 		pointer-events: none;

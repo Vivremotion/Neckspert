@@ -13,7 +13,8 @@
 		line?: string | null;
 		/** Above, small: the prompt recalled during a correction. */
 		recall?: string | null;
-		size?: 'hero' | 'prompt';
+		/** hero: the note alone; prompt: a smaller main line; correction: a fret in the prompt's place. */
+		size?: 'hero' | 'prompt' | 'correction';
 		children?: Snippet;
 	} = $props();
 </script>
@@ -41,7 +42,8 @@
 	}
 
 	.recall {
-		font-size: var(--np-size-body);
+		font-size: var(--np-size-prompt);
+		line-height: 1.1;
 		opacity: 0.8;
 	}
 
@@ -54,6 +56,16 @@
 	.prompt[data-size='hero'] .main {
 		font-size: var(--np-size-hero);
 		font-weight: 300;
+		line-height: 1;
+	}
+
+	/* Light and large, but it wraps: never wider than the screen. */
+	.prompt[data-size='correction'] .main {
+		max-inline-size: 100%;
+		font-size: var(--np-size-correction);
+		font-weight: 300;
+		line-height: 1.05;
+		overflow-wrap: break-word;
 	}
 
 	.line {

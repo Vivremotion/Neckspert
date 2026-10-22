@@ -191,8 +191,14 @@ body {
 	--np-size-meta: clamp(16px, 0.9vw + 11px, 18px);
 	--np-size-body: clamp(18px, 1vw + 12px, 20px);
 	--np-size-title: clamp(24px, 1.5vw + 14px, 32px);
-	--np-size-prompt: clamp(40px, 3vw + 20px, 64px);
-	--np-size-hero: clamp(72px, 7vw + 24px, 144px);
+	/* The string under the note: 48px at 1440, so the note is the only big letter. */
+	--np-size-prompt: clamp(28px, 2vw + 20px, 48px);
+	/* The note of the prompt: about 300px at 1440×900, bounded by width and height. */
+	--np-size-hero: clamp(72px, min(40vw, 33dvh), 300px);
+	/* A correction's fret, in the place of the prompt: about 120px at 1440, wraps on a phone. */
+	--np-size-correction: clamp(40px, min(8.4vw, 14dvh), 120px);
+	/* A name in a lane cell: 56px at 1440, 16px on a phone. */
+	--np-size-cell: clamp(16px, 3.9vw, 56px);
 
 	/* Space, 8px base */
 	--np-step-1: 8px;

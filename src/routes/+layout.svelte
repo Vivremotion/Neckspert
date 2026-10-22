@@ -25,8 +25,10 @@
 	});
 	const nav = $derived(navMessages());
 	const path = $derived(page.url.pathname);
-	/** During a session the play takes the whole screen: no navigation. */
-	const inSession = $derived(path === '/session' || path.startsWith('/session/'));
+	/** During a session (and its mode-2 demo) the play takes the whole screen: no navigation. */
+	const inSession = $derived(
+		path === '/session' || path.startsWith('/session/') || path === '/dev/identify'
+	);
 
 	$effect(() => {
 		let cancelled = false;

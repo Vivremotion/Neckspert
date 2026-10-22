@@ -501,10 +501,11 @@ describe('PlayScreen', () => {
 			}
 		});
 		const centre = container.querySelector('.centre')!;
-		expect(centre.querySelector('.recall')?.textContent).toBe('F · corde de B');
+		// The note asked recalled alone above; the correction, untouched, is the big line.
+		expect(centre.querySelector('.recall')?.textContent).toBe('F');
 		expect(centre.querySelector('.main')?.textContent).toBe('corde de B, case 6');
+		expect(centre.querySelector('[data-size="correction"]')).not.toBeNull();
 		expect(centre.querySelector('[data-size="hero"]')).toBeNull();
-		expect([...centre.querySelectorAll('p')].some((p) => p.textContent === 'F')).toBe(false);
 	});
 
 	it('keeps the centre quiet after a hit', () => {

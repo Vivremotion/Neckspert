@@ -60,7 +60,8 @@
 		--white: calc(100% / 7);
 		position: relative;
 		inline-size: 100%;
-		block-size: clamp(176px, 38cqi, 300px);
+		/* Bounded by the screen's height too: the white keys' names stay in view. */
+		block-size: clamp(160px, min(38cqi, 30dvh), 300px);
 	}
 
 	.key {

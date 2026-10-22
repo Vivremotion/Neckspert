@@ -15,13 +15,13 @@ describe('Prompt', () => {
 
 	it('recalls the prompt above a correction', () => {
 		const { container } = render(Prompt, {
-			props: { recall: 'F · corde de B', main: 'corde de B, case 6', size: 'prompt' }
+			props: { recall: 'F', main: 'corde de B, case 6', size: 'correction' }
 		});
 		const root = container.firstElementChild as HTMLElement;
-		expect(root.getAttribute('data-size')).toBe('prompt');
-		const text = root.textContent ?? '';
-		expect(text.indexOf('F · corde de B')).toBeGreaterThanOrEqual(0);
-		expect(text.indexOf('F · corde de B')).toBeLessThan(text.indexOf('corde de B, case 6'));
+		expect(root.getAttribute('data-size')).toBe('correction');
+		expect(root.querySelector('.recall')!.textContent).toBe('F');
+		expect(root.querySelector('.main')!.textContent).toBe('corde de B, case 6');
+		expect(root.querySelector('.recall')!.nextElementSibling).toBe(root.querySelector('.main'));
 	});
 
 	it('renders its children below', () => {

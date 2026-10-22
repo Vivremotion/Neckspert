@@ -65,7 +65,10 @@
 	const drawn = $derived(verdict && (verdict.heard || verdict.expected) ? verdict : null);
 	/** A miss with the right answer to give: it takes the place of the prompt. */
 	const correction = $derived(!drawn && verdict?.correction ? verdict.correction : null);
+	/** Above drawn shapes: the whole prompt recalled. */
 	const recall = $derived(view.prompt ? `${view.prompt.primary} · ${view.prompt.secondary}` : null);
+	/** Above a correction: the note asked, alone; the correction names the string itself. */
+	const correctionRecall = $derived(view.prompt?.primary ?? null);
 	const caption = $derived(verdict ? captionOf(verdict) : null);
 
 	function formatOffset(ms: number): string {
@@ -197,7 +200,7 @@
 					{@render contest()}
 				</div>
 			{:else if correction}
-				<Prompt main={correction} {recall} size="prompt">
+				<Prompt main={correction} recall={correctionRecall} size="correction">
 					{@render contest()}
 				</Prompt>
 			{:else if verdict}

@@ -25,14 +25,19 @@
 	data-kind={tile.kind}
 	data-downbeat={tile.downbeat ? '' : undefined}
 	data-past={tile.offset <= 0 ? '' : undefined}
+	data-just-played={tile.justPlayed ? '' : undefined}
 	data-tone={tone ?? undefined}
 	data-band-edge={tile.bandEdge ?? undefined}
 	data-imprint={imprint ? '' : undefined}
 >
-	{#if tone !== null && tile.verdict !== null}
-		<VerdictMark verdict={tile.verdict} size={28} />
-	{:else if label}
+	{#if label}
 		<span class="label">{label}</span>
+	{/if}
+	{#if tone !== null && tile.verdict !== null}
+		<!-- The verdict's form under the name, at the bottom of the cell, never in its place. -->
+		<span class="mark" data-with-label={label ? '' : undefined}>
+			<VerdictMark verdict={tile.verdict} size={28} />
+		</span>
 	{/if}
 	{#if caption}
 		<span class="caption">{caption}</span>
@@ -50,15 +55,35 @@
 		background: var(--np-cell);
 		color: var(--np-text);
 		font-family: var(--np-font-text);
-		font-size: var(--np-size-title);
+		font-size: var(--np-size-cell);
+		font-weight: 500;
+		line-height: 1;
 		box-sizing: border-box;
 		border: 2px solid transparent;
 	}
 	.cell[data-downbeat] {
 		background: var(--np-cell-downbeat);
 	}
-	.cell[data-past] {
+	/* The past fades, except the cell just played: its verdict is read at full strength. */
+	.cell[data-past]:not([data-just-played]) {
 		opacity: var(--np-cell-past-opacity);
+	}
+	.mark {
+		display: flex;
+		justify-content: center;
+		inline-size: 100%;
+	}
+	.mark :global(svg) {
+		inline-size: min(28px, 70%);
+		block-size: auto;
+	}
+	.cell:has(.mark[data-with-label]) {
+		padding-block-end: var(--np-step-3);
+	}
+	.mark[data-with-label] {
+		position: absolute;
+		inset-block-end: var(--np-step-1);
+		inset-inline: 0;
 	}
 	.cell[data-kind='target'],
 	.cell[data-tone='hit'] {
@@ -92,7 +117,8 @@
 		top: 100%;
 		left: 50%;
 		transform: translateX(-50%);
-		margin-top: var(--np-step-1);
+		/* Below the now line's overhang. */
+		margin-top: var(--np-step-3);
 		font-size: var(--np-size-meta);
 		color: var(--np-on-field);
 		white-space: nowrap;
