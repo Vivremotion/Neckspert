@@ -1,11 +1,12 @@
 /**
- * Functional checks for the wave-2 screens, in a real browser.
+ * Functional checks for the screens served under /dev, in a real browser.
  * Not a unit test: it loads the dev servers and drives the pages.
  *
- * Start the three worktrees first:
- *   .worktrees/plan-i1-accueil     → 5191
- *   .worktrees/plan-i2-reponse     → 5180
- *   .worktrees/plan-i3-calibration → 5193
+ * Start the dev servers from the checkout under test, on the ports it expects
+ * (5201 serves /dev/rhythm; override with RHYTHM_URL):
+ *   for port in 5191 5180 5193 5201; do
+ *     npx vite dev --port $port --strictPort --host 127.0.0.1 &
+ *   done
  *
  *   node scripts/functional-ui.mjs
  *
@@ -126,32 +127,29 @@ try {
 		const page = await evaluate(
 			call,
 			`() => {
-				const buttons = [...document.querySelectorAll('button')].map((b) => ({
-					text: b.textContent.trim(),
-					disabled: b.disabled
-				}));
+				const buttons = [...document.querySelectorAll('button')].map((b) => b.textContent.trim());
+				const links = [...document.querySelectorAll('a')].map((a) => a.textContent.trim());
 				const texts = [...document.querySelectorAll('body *')]
 					.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
 					.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
-				return { buttons, texts };
+				return { buttons, links, texts, text: document.body.innerText };
 			}`
 		);
-		const byText = Object.fromEntries(page.buttons.map((b) => [b.text, b.disabled]));
-		check(assert(byText['Session du jour'] === false, 'le bouton Session du jour est actif'));
-		check(assert(byText['Positionnement'] === false, 'le bouton Positionnement est actif'));
-		check(assert(byText['Dans 2 h'] === true, 'le bouton d’attente « Dans 2 h » est désactivé'));
+		const count = (label) => page.buttons.filter((b) => b === label).length;
+		const body = page.text.toLocaleLowerCase('fr');
+		check(assert(count('Apprentissage') > 0, 'le bouton Apprentissage est présent'));
+		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
+		check(assert(count('Rythme') > 0, 'le bouton Rythme est présent'));
 		check(
 			assert(
-				page.texts.some((t) => t.text.includes('1,18 s')),
-				'la médiane 1,18 s est affichée'
+				page.links.join('|') === 'Accueil|Jeu libre|Carte|Réglages',
+				`la navigation a ses quatre liens (${page.links.join('|')})`
 			)
 		);
-		check(
-			assert(
-				page.texts.some((t) => t.text === 'en baisse'),
-				'la tendance « en baisse » est affichée'
-			)
-		);
+		check(assert(body.includes('6 révisions dues'), 'les révisions dues sont comptées'));
+		check(assert(body.includes('dans 2 h'), 'la prochaine révision est « Dans 2 h »'));
+		check(assert(body.includes('40 ms'), 'l’écart au temps de 40 ms est affiché'));
+		check(assert(body.includes('plus près'), 'la tendance « Plus près » est affichée'));
 		noteTiny('home', page.texts);
 	}
 
@@ -168,10 +166,14 @@ try {
 			})`
 		);
 		const summary = page.text.toLocaleLowerCase('fr');
-		check(assert(summary.includes('positions apprises'), 'les positions apprises sont affichées'));
+		check(assert(summary.includes('notes apprises'), 'les notes apprises sont affichées'));
+		check(assert(summary.includes('triades apprises'), 'les triades apprises sont affichées'));
 		check(assert(summary.includes('pas de fatigue'), 'l’absence de fatigue est affichée'));
-		check(assert(summary.includes('prochaine session'), 'la prochaine session est affichée'));
+		check(
+			assert(summary.includes('prochaines révisions'), 'les prochaines révisions sont affichées')
+		);
 		check(assert(summary.includes('dans 2 h'), 'l’heure conseillée est « Dans 2 h »'));
+		check(assert(summary.includes('niveau atteint'), 'le niveau atteint du rythme est affiché'));
 		noteTiny('summary', page.texts);
 	}
 
@@ -195,7 +197,7 @@ try {
 				};
 			}`
 		);
-		check(assert(page.count === 72, `la carte a 72 cases (${page.count})`));
+		check(assert(page.count === 66, `la carte a 66 cases (${page.count})`));
 		check(assert(page.rowCount === 6, `la carte a 6 cordes (${page.rowCount})`));
 		check(
 			assert(
@@ -219,20 +221,22 @@ try {
 		const before = await evaluate(
 			call,
 			`() => {
-				const buttons = [...document.querySelectorAll('button')].filter((b) => /[A-G]/.test(b.textContent));
+				const buttons = [...document.querySelectorAll('[role="group"] button')];
 				return {
-					labels: buttons.map((b) => b.textContent.trim()),
+					labels: buttons.map((b) => b.getAttribute('aria-label')),
+					group: document.querySelector('[role="group"]')?.getAttribute('aria-label'),
 					status: document.querySelector('.play')?.getAttribute('data-status'),
 					lane: Boolean(document.querySelector('.lane')),
 					prompt: document.body.innerText.includes('case 8')
 				};
 			}`
 		);
-		check(assert(before.labels.length === 12, `le pavé a 12 boutons (${before.labels.length})`));
+		check(assert(before.labels.length === 12, `le clavier a 12 touches (${before.labels.length})`));
+		check(assert(before.group === 'Nom de la note', `le clavier est nommé (${before.group})`));
 		check(assert(before.labels[0] === 'C', `l’ordre commence par C (${before.labels[0]})`));
 		check(
 			assert(
-				before.labels.some((l) => l.includes('F# / Gb')),
+				before.labels.some((l) => l === 'F# / Gb'),
 				'les altérations affichent dièse et bémol'
 			)
 		);
@@ -241,7 +245,7 @@ try {
 		const after = await evaluate(
 			call,
 			`async () => {
-				const buttons = () => [...document.querySelectorAll('button')].filter((b) => /[A-G]/.test(b.textContent));
+				const buttons = () => [...document.querySelectorAll('[role="group"] button')];
 				buttons()[0].click();
 				buttons()[1].click();
 				await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -255,15 +259,10 @@ try {
 		check(
 			assert(
 				after.disabled === 12,
-				`le premier toucher verrouille les 12 boutons (${after.disabled})`
+				`le premier toucher verrouille les 12 touches (${after.disabled})`
 			)
 		);
-		check(
-			assert(
-				/parfait|en retard|mauvaise|en avance/.test(after.text.toLocaleLowerCase('fr')),
-				'un verdict s’affiche après le toucher'
-			)
-		);
+		check(assert(after.text.includes('C joué'), 'la note jouée s’affiche après le toucher'));
 	}
 
 	console.log('\nMode 1 /session/demo');
@@ -302,7 +301,7 @@ try {
 				const headphone = has('porte un casque');
 				click('Calibrer');
 				await frame();
-				const progress = document.body.innerText.includes('4') && document.body.innerText.includes('10');
+				const progress = /4\\s*\\/\\s*16/.test(document.body.innerText);
 				click('Annuler');
 				await frame();
 				const cancelled = has('annulée');
@@ -319,7 +318,7 @@ try {
 			console.log('  …', run.sample.replace(/\\s+/g, ' '));
 		}
 		check(assert(run.headphone, 'le micro intégré recommande un casque'));
-		check(assert(run.progress, 'Calibrer affiche la progression 4/10'));
+		check(assert(run.progress, 'Calibrer affiche la progression 4 / 16'));
 		check(assert(run.cancelled, 'Annuler affiche l’annulation'));
 		check(assert(run.idle, 'Réessayer revient à l’état initial'));
 		noteTiny('calibration', run.texts);
