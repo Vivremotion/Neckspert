@@ -39,7 +39,7 @@
 	];
 </script>
 
-<main class="dev">
+<div class="dev">
 	{#each fixtures as fixture (fixture.label)}
 		<section>
 			<h1>{fixture.label}</h1>
@@ -53,17 +53,9 @@
 			/>
 		</section>
 	{/each}
-</main>
+</div>
 
 <style>
-	:global(html),
-	:global(body) {
-		width: auto;
-		height: auto;
-		min-height: 100dvh;
-		overflow: auto;
-	}
-
 	.dev {
 		display: flex;
 		flex-direction: column;

@@ -121,7 +121,7 @@ describe('SettingsScreen', () => {
 
 	it('shows the calibrated latency of the note sensor, or that there is none', () => {
 		renderScreen();
-		expect(screen.getByText('Offset : 42 ms')).toBeTruthy();
+		expect(screen.getByText('Latence : 42 ms')).toBeTruthy();
 		cleanup();
 		renderScreen({ latency: { chord: { ms: 30, provenance: 'player' } } });
 		expect(screen.getByText('Pas encore calibré')).toBeTruthy();

@@ -45,4 +45,18 @@ describe('NeckMapScreen', () => {
 		expect(learning.textContent).toMatch(/en cours/);
 		expect(learning.textContent).not.toMatch(/temps/);
 	});
+
+	it('keeps a time in its own slot when only one mode is seen', () => {
+		const cells = buildCells().map((c) =>
+			c.string === 6 && c.fret === 5
+				? { ...c, identify: 'acquired' as const, identifyMedianReactionMs: 1200 }
+				: c
+		);
+		render(NeckMapScreen, { props: { cells, onhome: () => {} } });
+		const cell = screen.getByRole('gridcell', { name: /corde 6.*case 5/i });
+		const slots = cell.querySelectorAll('.dirs > span');
+		expect(slots).toHaveLength(2);
+		expect(slots[0].textContent?.trim()).toBe('');
+		expect(slots[1].textContent).toMatch(/1,20 s/);
+	});
 });

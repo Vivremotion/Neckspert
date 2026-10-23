@@ -282,3 +282,10 @@ describe('CalibrationScreen', () => {
 		expect(document.activeElement).toBe(start);
 	});
 });
+
+describe('CalibrationScreen primary action', () => {
+	it('has exactly one primary action when done, even without listening', () => {
+		renderScreen({ phase: 'done', listening: false, outcome: { ok: false, reason: 'error' } });
+		expect(document.querySelectorAll('[data-variant="primary"]')).toHaveLength(1);
+	});
+});

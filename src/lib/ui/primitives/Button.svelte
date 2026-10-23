@@ -5,16 +5,27 @@
 		variant = 'primary',
 		onclick,
 		disabled = false,
+		label,
+		pressed,
 		children
 	}: {
-		variant?: 'primary' | 'quiet';
+		variant?: 'primary' | 'quiet' | 'choice';
 		onclick?: (event: MouseEvent) => void;
 		disabled?: boolean;
+		label?: string;
+		pressed?: boolean;
 		children: Snippet;
 	} = $props();
 </script>
 
-<button type="button" data-variant={variant} {onclick} {disabled}>
+<button
+	type="button"
+	data-variant={variant}
+	{onclick}
+	{disabled}
+	aria-label={label}
+	aria-pressed={pressed}
+>
 	{@render children()}
 </button>
 
@@ -51,8 +62,24 @@
 		text-underline-offset: 4px;
 	}
 
+	button[data-variant='choice'] {
+		background: transparent;
+		color: inherit;
+		border: 1px solid var(--np-text);
+		padding: var(--np-step-1) var(--np-step-3);
+	}
+
+	button[data-variant='choice'][aria-pressed='true'] {
+		background: var(--np-text);
+		color: var(--np-ground);
+	}
+
 	button:disabled {
 		cursor: default;
 		opacity: 0.6;
+	}
+
+	button[data-variant='choice'][aria-pressed='true']:disabled {
+		opacity: 1;
 	}
 </style>

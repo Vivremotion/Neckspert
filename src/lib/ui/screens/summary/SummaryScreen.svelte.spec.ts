@@ -110,20 +110,20 @@ describe('SummaryScreen', () => {
 			}
 		});
 		expect(screen.getByText('Tempo')).toBeTruthy();
-		expect(screen.getByText('92 bpm')).toBeTruthy();
+		expect(screen.getByText('♩ = 92')).toBeTruthy();
 		cleanup();
 		render(SummaryScreen, {
 			props: { summary: { ...summary, tempoBpm: null }, now: 0, onhome: () => {}, onmap: () => {} }
 		});
 		expect(screen.queryByText('Tempo')).toBeNull();
-		expect(screen.queryByText(/bpm/)).toBeNull();
+		expect(screen.queryByText(/♩/)).toBeNull();
 	});
 
 	it('navigates home and to the map', async () => {
 		const onhome = vi.fn();
 		const onmap = vi.fn();
 		render(SummaryScreen, { props: { summary, now: 0, onhome, onmap } });
-		await fireEvent.click(screen.getByRole('button', { name: /accueil|home/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /pratiquer|practice/i }));
 		await fireEvent.click(screen.getByRole('button', { name: /carte|map/i }));
 		expect(onhome).toHaveBeenCalledOnce();
 		expect(onmap).toHaveBeenCalledOnce();
@@ -193,7 +193,7 @@ describe('SummaryScreen of a gesture session', () => {
 		expect(screen.getByText('Relier les formes')).toBeTruthy();
 		expect(screen.getByText('3 / 4 passages réussis')).toBeTruthy();
 		expect(screen.getByText('86 % justes et à temps')).toBeTruthy();
-		expect(screen.getByText('80 → 85 bpm')).toBeTruthy();
+		expect(screen.getByText('♩ = 80 → ♩ = 85')).toBeTruthy();
 		expect(screen.queryByText('Notes apprises')).toBeNull();
 		expect(screen.queryByText('Précision à froid')).toBeNull();
 	});

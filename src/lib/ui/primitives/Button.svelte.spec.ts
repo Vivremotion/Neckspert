@@ -33,4 +33,22 @@ describe('Button', () => {
 		expect(button.hasAttribute('disabled')).toBe(true);
 		expect(button.textContent).toBe('Commencer');
 	});
+
+	it('names itself with label', () => {
+		render(Button, { props: { label: 'Plus fort', children: label } });
+		expect(screen.getByRole('button', { name: 'Plus fort' })).toBeTruthy();
+	});
+
+	it('exposes pressed only when given', () => {
+		const first = render(Button, { props: { pressed: true, children: label } });
+		expect(screen.getByRole('button').getAttribute('aria-pressed')).toBe('true');
+		first.unmount();
+		render(Button, { props: { children: label } });
+		expect(screen.getByRole('button').hasAttribute('aria-pressed')).toBe(false);
+	});
+
+	it('takes the choice variant', () => {
+		render(Button, { props: { variant: 'choice', children: label } });
+		expect(screen.getByRole('button').getAttribute('data-variant')).toBe('choice');
+	});
 });

@@ -14,6 +14,8 @@ const ROLE_TOKENS = [
 	'--np-text',
 	'--np-muted',
 	'--np-earth',
+	'--np-earth-text',
+	'--np-muted-text',
 	'--np-now',
 	'--np-on-field',
 	'--np-rule',
@@ -83,6 +85,13 @@ describe('contrastRatio', () => {
 	});
 	it('keeps text readable on the middle of the field', () => {
 		expect(contrastRatio('#ECE8E2', '#656968')).toBeGreaterThanOrEqual(4.5);
+	});
+	it('keeps the text variants of umber and slate readable on the ground', () => {
+		for (const name of ['--np-earth-text', '--np-muted-text']) {
+			const value = css.match(new RegExp(`${name}\\s*:\\s*(#[0-9a-fA-F]{6})`))?.[1];
+			expect(value, name).toBeDefined();
+			expect(contrastRatio(value!, '#ECE8E2'), name).toBeGreaterThanOrEqual(4.5);
+		}
 	});
 	it('keeps the amber button label readable', () => {
 		expect(contrastRatio('#23211F', '#D9A13B')).toBeGreaterThanOrEqual(4.5);

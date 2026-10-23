@@ -45,13 +45,3 @@
 <SummaryScreen {summary} now={0} onhome={() => {}} onmap={() => {}} />
 <SummaryScreen summary={triads} now={0} onhome={() => {}} onmap={() => {}} />
 <SummaryScreen summary={rhythm} now={0} onhome={() => {}} onmap={() => {}} />
-
-<style>
-	:global(html),
-	:global(body) {
-		width: auto;
-		height: auto;
-		min-height: 100dvh;
-		overflow: auto;
-	}
-</style>

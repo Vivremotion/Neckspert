@@ -12,9 +12,8 @@
 		type Settings
 	} from '$lib/domain/types';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
-	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
-	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
-	import PixelText from '$lib/ui/primitives/PixelText.svelte';
+	import Button from '$lib/ui/primitives/Button.svelte';
+	import Page from '$lib/ui/primitives/Page.svelte';
 	import { settingsMessages } from './messages';
 
 	let {
@@ -83,6 +82,7 @@
 		chordDiagram: ChordDiagramStyle;
 		onchorddiagram: (style: ChordDiagramStyle) => void;
 	} = $props();
+	const uid = $props.id();
 
 	const BYTES_PER_MB = 1024 * 1024;
 
@@ -110,57 +110,58 @@
 	}
 </script>
 
-<section class="settings-screen" aria-labelledby="settings-title">
-	<!-- PixelText (H) does not forward id; wrap for aria-labelledby. -->
-	<header class="top">
-		<div id="settings-title">
-			<PixelText as="h1" scale={4}>{m.title}</PixelText>
-		</div>
-	</header>
-
-	<PixelBox variant="double">
-		<p class="label"><PixelText scale={1}>{m.language}</PixelText></p>
+<Page title={m.title}>
+	<section class="group" aria-labelledby="{uid}-language">
+		<h2 id="{uid}-language">{m.language}</h2>
 		<div class="row" role="group" aria-label={m.language}>
-			<PixelButton size="large" disabled={locale === 'fr'} onclick={() => onlocale('fr')}
-				>FR</PixelButton
+			<Button
+				variant="choice"
+				pressed={locale === 'fr'}
+				disabled={locale === 'fr'}
+				onclick={() => onlocale('fr')}>FR</Button
 			>
-			<PixelButton size="large" disabled={locale === 'en'} onclick={() => onlocale('en')}
-				>EN</PixelButton
+			<Button
+				variant="choice"
+				pressed={locale === 'en'}
+				disabled={locale === 'en'}
+				onclick={() => onlocale('en')}>EN</Button
 			>
 		</div>
-	</PixelBox>
+	</section>
 
-	<PixelBox variant="double">
-		<p class="label"><PixelText scale={1}>{m.chordDiagram}</PixelText></p>
-		<div class="row" role="group" aria-label={m.chordDiagram}>
+	<section class="group" aria-labelledby="{uid}-diagram">
+		<h2 id="{uid}-diagram">{m.chordDiagram}</h2>
+		<div class="row diagram-row" role="group" aria-label={m.chordDiagram}>
 			<div class="diagram-choice">
-				<PixelButton
-					size="large"
+				<Button
+					variant="choice"
+					pressed={chordDiagram === 'strings'}
 					disabled={chordDiagram === 'strings'}
-					onclick={() => onchorddiagram('strings')}>{m.chordDiagramStrings}</PixelButton
+					onclick={() => onchorddiagram('strings')}>{m.chordDiagramStrings}</Button
 				>
 				<ChordShape shape={SAMPLE_SHAPE} style="strings" {locale} size="small" />
 			</div>
 			<div class="diagram-choice">
-				<PixelButton
-					size="large"
+				<Button
+					variant="choice"
+					pressed={chordDiagram === 'grid'}
 					disabled={chordDiagram === 'grid'}
-					onclick={() => onchorddiagram('grid')}>{m.chordDiagramGrid}</PixelButton
+					onclick={() => onchorddiagram('grid')}>{m.chordDiagramGrid}</Button
 				>
 				<ChordShape shape={SAMPLE_SHAPE} style="grid" {locale} size="small" />
 			</div>
 		</div>
-	</PixelBox>
+	</section>
 
-	<PixelBox variant="double">
-		<label class="label" for="settings-input">
-			<PixelText scale={1}>{m.input}</PixelText>
-		</label>
+	<section class="group" aria-labelledby="{uid}-input">
+		<h2 id="{uid}-input"><label for="settings-input">{m.input}</label></h2>
 		{#if inputs.length === 0}
-			<p><PixelText scale={1}>{m.emptyInputs}</PixelText></p>
-			<PixelButton size="large" onclick={() => onunlock?.()}>{m.unlock}</PixelButton>
+			<p>{m.emptyInputs}</p>
+			<div class="row">
+				<Button variant="quiet" onclick={() => onunlock?.()}>{m.unlock}</Button>
+			</div>
 			{#if notice}
-				<p class="error" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
+				<p class="error" role="alert">{notice}</p>
 			{/if}
 		{:else}
 			<select
@@ -174,41 +175,38 @@
 				{/each}
 			</select>
 		{/if}
-		<p class="label gain-label"><PixelText scale={1}>{m.builtInGain}</PixelText></p>
+		<p class="sub">{m.builtInGain}</p>
 		<div class="row stepper" role="group" aria-label={m.builtInGain}>
-			<PixelButton
-				size="huge"
+			<Button
+				variant="choice"
 				label={m.decreaseBuiltInGain}
 				disabled={builtInInputGain <= MIN_BUILT_IN_INPUT_GAIN}
 				onclick={() => onbuiltingain(clampBuiltInInputGain(builtInInputGain - 1))}
-				>{m.decrease}</PixelButton
+				>{m.decrease}</Button
 			>
-			<span class="stepper-value" aria-live="polite">
-				<PixelText scale={4}>{`×${builtInInputGain}`}</PixelText>
-			</span>
-			<PixelButton
-				size="huge"
+			<span class="stepper-value" aria-live="polite">{`×${builtInInputGain}`}</span>
+			<Button
+				variant="choice"
 				label={m.increaseBuiltInGain}
 				disabled={builtInInputGain >= MAX_BUILT_IN_INPUT_GAIN}
 				onclick={() => onbuiltingain(clampBuiltInInputGain(builtInInputGain + 1))}
-				>{m.increase}</PixelButton
+				>{m.increase}</Button
 			>
 		</div>
-		<p class="hint"><PixelText scale={1}>{m.builtInGainHint}</PixelText></p>
-	</PixelBox>
+		<p class="hint">{m.builtInGainHint}</p>
+	</section>
 
-	<PixelBox variant="plain">
-		<p class="label"><PixelText scale={1}>{m.calibration}</PixelText></p>
-		<p><PixelText scale={1}>{m.offset(latency.note?.ms ?? null)}</PixelText></p>
-		<a class="calibration-link" href={resolve('/calibration')}>
-			<PixelText scale={2}>{m.calibrationLink}</PixelText>
-		</a>
-	</PixelBox>
+	<section class="group" aria-labelledby="{uid}-calibration">
+		<h2 id="{uid}-calibration">{m.calibration}</h2>
+		<p class="latency">{m.latency(latency.note?.ms ?? null)}</p>
+		<a class="calibration-link" href={resolve('/calibration')}>{m.calibrationLink}</a>
+	</section>
 
-	<PixelBox variant="double">
+	<section class="group" aria-labelledby="{uid}-backup">
+		<h2 id="{uid}-backup">{m.backup}</h2>
 		<div class="row">
-			<PixelButton size="huge" onclick={onexport}>{m.export}</PixelButton>
-			<PixelButton size="huge" onclick={() => fileInput?.click()}>{m.import}</PixelButton>
+			<Button variant="quiet" onclick={onexport}>{m.export}</Button>
+			<Button variant="quiet" onclick={() => fileInput?.click()}>{m.import}</Button>
 			<input
 				bind:this={fileInput}
 				class="file"
@@ -219,130 +217,126 @@
 		</div>
 
 		{#if importError}
-			<p class="error" role="alert"><PixelText scale={1}>{importError}</PixelText></p>
+			<p class="error" role="alert">{importError}</p>
 		{/if}
-	</PixelBox>
+	</section>
 
-	<PixelBox variant="double">
-		<p class="label"><PixelText scale={1}>{m.diagnostics}</PixelText></p>
-		<p class="label"><PixelText scale={1}>{m.diagnosticsRecord}</PixelText></p>
-		<PixelButton
-			size="large"
-			pressed={diagnosticsEnabled}
-			label={m.diagnosticsToggle(diagnosticsEnabled)}
-			onclick={() => ondiagnostics(!diagnosticsEnabled)}
-			>{m.diagnosticsState(diagnosticsEnabled)}</PixelButton
-		>
-		<p class="usage">
-			<PixelText scale={1}
-				>{m.diagnosticsUsage(diagnosticsUsedBytes / BYTES_PER_MB, diagnosticsBudgetMb)}</PixelText
+	<section class="group" aria-labelledby="{uid}-diagnostics">
+		<h2 id="{uid}-diagnostics">{m.diagnostics}</h2>
+		<p class="sub">{m.diagnosticsRecord}</p>
+		<div class="row">
+			<Button
+				variant="choice"
+				pressed={diagnosticsEnabled}
+				label={m.diagnosticsToggle(diagnosticsEnabled)}
+				onclick={() => ondiagnostics(!diagnosticsEnabled)}
+				>{m.diagnosticsState(diagnosticsEnabled)}</Button
 			>
+		</div>
+		<p class="usage">
+			{m.diagnosticsUsage(diagnosticsUsedBytes / BYTES_PER_MB, diagnosticsBudgetMb)}
 		</p>
-		<p class="label"><PixelText scale={1}>{m.diagnosticsBudget}</PixelText></p>
+		<p class="sub">{m.diagnosticsBudget}</p>
 		<div class="row" role="group" aria-label={m.diagnosticsBudget}>
 			{#each DIAGNOSTIC_BUDGETS_MB as budget (budget)}
-				<PixelButton
-					size="large"
+				<Button
+					variant="choice"
+					pressed={diagnosticsBudgetMb === budget}
 					disabled={diagnosticsBudgetMb === budget}
-					onclick={() => ondiagnosticsbudget(budget)}
-					>{m.diagnosticsBudgetOption(budget)}</PixelButton
+					onclick={() => ondiagnosticsbudget(budget)}>{m.diagnosticsBudgetOption(budget)}</Button
 				>
 			{/each}
 		</div>
 		{#if import.meta.env.DEV}
-			<p class="label"><PixelText scale={1}>{m.diagnosticsNativeRate}</PixelText></p>
-			<PixelButton
-				size="large"
-				pressed={diagnosticsNativeRate}
-				label={m.diagnosticsNativeRateToggle(diagnosticsNativeRate)}
-				onclick={() => ondiagnosticsnativerate(!diagnosticsNativeRate)}
-				>{m.diagnosticsState(diagnosticsNativeRate)}</PixelButton
-			>
-			<p class="usage"><PixelText scale={1}>{m.diagnosticsNativeRateHint}</PixelText></p>
+			<p class="sub">{m.diagnosticsNativeRate}</p>
+			<div class="row">
+				<Button
+					variant="choice"
+					pressed={diagnosticsNativeRate}
+					label={m.diagnosticsNativeRateToggle(diagnosticsNativeRate)}
+					onclick={() => ondiagnosticsnativerate(!diagnosticsNativeRate)}
+					>{m.diagnosticsState(diagnosticsNativeRate)}</Button
+				>
+			</div>
+			<p class="usage">{m.diagnosticsNativeRateHint}</p>
 		{/if}
 		<div class="row actions">
-			<PixelButton size="large" disabled={diagnosticsExporting} onclick={ondiagnosticsexport}
-				>{m.diagnosticsExport}</PixelButton
+			<Button variant="quiet" disabled={diagnosticsExporting} onclick={ondiagnosticsexport}
+				>{m.diagnosticsExport}</Button
 			>
-			<PixelButton size="large" onclick={ondiagnosticsclear}>{m.diagnosticsClear}</PixelButton>
+			<Button variant="quiet" onclick={ondiagnosticsclear}>{m.diagnosticsClear}</Button>
 		</div>
 		{#if diagnosticsError}
-			<p class="error" role="alert"><PixelText scale={1}>{diagnosticsError}</PixelText></p>
+			<p class="error" role="alert">{diagnosticsError}</p>
 		{/if}
-	</PixelBox>
+	</section>
 
 	{#if confirmingImport}
-		<PixelBox variant="inverted">
-			<p><PixelText scale={2}>{m.confirmTitle}</PixelText></p>
-			<p><PixelText scale={1}>{m.confirmBody}</PixelText></p>
+		<section class="group confirm" aria-labelledby="{uid}-confirm">
+			<h2 id="{uid}-confirm">{m.confirmTitle}</h2>
+			<p>{m.confirmBody}</p>
 			<div class="row">
-				<PixelButton size="huge" onclick={onimportconfirm}>{m.confirm}</PixelButton>
-				<PixelButton size="large" onclick={onimportcancel}>{m.cancel}</PixelButton>
+				<Button variant="choice" onclick={onimportconfirm}>{m.confirm}</Button>
+				<Button variant="quiet" onclick={onimportcancel}>{m.cancel}</Button>
 			</div>
-		</PixelBox>
+		</section>
 	{/if}
-</section>
+</Page>
 
 <style>
-	.settings-screen {
-		display: flex;
-		flex-direction: column;
-		gap: var(--np-space-3, 24px);
-		padding: var(--np-space-2, 16px);
-		width: 100%;
-		max-width: 40rem;
-		min-width: 0;
-		margin-inline: auto;
-		box-sizing: border-box;
-		background: var(--np-bg, #e99568);
-		color: var(--np-ink, #451218);
-		caret-color: var(--np-ink, #451218);
+	.group {
+		margin-top: var(--np-step-6);
+		font-size: var(--np-size-body);
 	}
 
-	.settings-screen ::selection {
-		background: var(--np-ink, #451218);
-		color: var(--np-bg, #e99568);
+	h2 {
+		margin: 0 0 var(--np-step-2);
+		padding-bottom: var(--np-step-1);
+		border-bottom: 1px solid var(--np-rule);
+		font-size: var(--np-size-body);
+		font-weight: 700;
 	}
 
-	.top {
-		margin-block-end: var(--np-tile, 8px);
+	h2 label {
+		font-weight: inherit;
 	}
 
-	.label {
-		margin: 0 0 var(--np-tile, 8px);
+	p {
+		margin: var(--np-step-2) 0 0;
 	}
 
-	.gain-label {
-		margin-top: var(--np-space-2, 16px);
+	.sub {
+		font-weight: 700;
+		margin-top: var(--np-step-4);
 	}
 
-	.hint {
-		margin: var(--np-tile, 8px) 0 0;
+	.hint,
+	.usage {
+		color: var(--np-muted-text);
 	}
 
 	.usage {
-		margin: var(--np-space-2, 16px) 0;
 		font-variant-numeric: tabular-nums;
-	}
-
-	.actions {
-		margin-top: var(--np-space-2, 16px);
 	}
 
 	.row {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--np-tile, 8px);
+		gap: var(--np-step-2);
 		align-items: center;
+		margin-top: var(--np-step-2);
 	}
 
 	.stepper {
-		justify-content: space-between;
+		justify-content: flex-start;
+		gap: var(--np-step-2);
 	}
 
 	.stepper-value {
 		min-width: 4ch;
 		text-align: center;
+		font-size: var(--np-size-title);
+		font-weight: 300;
 		font-variant-numeric: tabular-nums;
 	}
 
@@ -350,20 +344,19 @@
 		display: block;
 		width: 100%;
 		min-height: 48px;
+		box-sizing: border-box;
 		font: inherit;
-		font-family: var(--np-font-pixel, inherit);
-		font-size: var(--np-type-body);
-		text-transform: uppercase;
-		padding: var(--np-tile, 8px);
-		background: var(--np-mid, #be6754);
-		color: var(--np-ink, #451218);
-		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
+		font-size: var(--np-size-body);
+		padding: var(--np-step-1) var(--np-step-2);
+		background: var(--np-ground);
+		color: var(--np-text);
+		border: 1px solid var(--np-text);
 		border-radius: 0;
 	}
 
 	.device-select:focus-visible {
-		outline: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
-		outline-offset: calc(var(--np-tile, 8px) / 2);
+		outline: 2px solid var(--np-text);
+		outline-offset: 2px;
 	}
 
 	.calibration-link {
@@ -376,8 +369,8 @@
 	}
 
 	.calibration-link:focus-visible {
-		outline: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
-		outline-offset: calc(var(--np-tile, 8px) / 2);
+		outline: 2px solid currentColor;
+		outline-offset: 4px;
 	}
 
 	.file {
@@ -389,13 +382,21 @@
 	}
 
 	.error {
-		margin: 0;
-		color: var(--np-ink, #451218);
+		padding-left: var(--np-step-2);
+		border-left: 4px solid var(--np-text);
+		font-weight: 700;
+	}
+
+	.diagram-row {
+		align-items: start;
 	}
 
 	.diagram-choice {
 		display: grid;
-		justify-items: center;
-		gap: var(--np-space-1, 8px);
+		justify-items: start;
+		gap: var(--np-step-2);
+		--shape-ink: var(--np-text);
+		--shape-ground: var(--np-ground);
+		--shape-accent: var(--np-rule);
 	}
 </style>

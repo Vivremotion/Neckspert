@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 import type { HomeStats } from '$lib/domain/types';
@@ -17,184 +17,166 @@ const base: HomeStats = {
 	trend: 'improving'
 };
 
+const props = (over: Record<string, unknown> = {}) => ({
+	stats: base,
+	now: 0,
+	onstart: () => {},
+	...over
+});
+
+const blocks = () => screen.getByRole('list', { name: 'Séances' });
+
 describe('HomeScreen', () => {
-	it('opens learn on the first visit, with no placement', () => {
+	it('is a page titled Pratiquer with a list of sessions', () => {
+		render(HomeScreen, { props: props() });
+		expect(screen.getByRole('heading', { level: 1, name: 'Pratiquer' })).toBeTruthy();
+		expect(blocks()).toBeTruthy();
+	});
+
+	it('makes Apprentissage the current block, five minutes long', () => {
+		render(HomeScreen, { props: props() });
+		const first = within(blocks()).getAllByRole('listitem')[0];
+		expect(first.getAttribute('aria-current')).toBe('true');
+		expect(first.textContent).toContain('Apprentissage');
+		expect(first.textContent).toContain('5′');
+		expect(first.textContent).toContain('5 min');
+	});
+
+	it('starts from the block title and from Commencer', async () => {
+		const onstart = vi.fn();
+		render(HomeScreen, { props: props({ onstart }) });
+		await fireEvent.click(within(blocks()).getByRole('button', { name: /Apprentissage/ }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Commencer' }));
+		expect(onstart).toHaveBeenCalledTimes(2);
+	});
+
+	it('has Commencer as its only primary button', () => {
+		render(HomeScreen, { props: props() });
+		const primary = document.querySelectorAll('button[data-variant="primary"]');
+		expect(primary).toHaveLength(1);
+		expect(primary[0].textContent?.trim()).toBe('Commencer');
+	});
+
+	it('says nothing about reviews on the first visit', () => {
 		const first: HomeStats = {
 			dueCount: 0,
 			nextReviewAt: null,
 			medianColdOffsetMs: null,
 			trend: null
 		};
-		render(HomeScreen, { props: { stats: first, now: 0, onstart: () => {} } });
-		expect(screen.getByRole('button').textContent).toMatch(/apprentissage/i);
-		expect(screen.queryByText(/positionnement/i)).toBeNull();
-	});
-
-	it('shows one huge start button and the one reaction number with trend', () => {
-		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {} } });
-		const button = screen.getByRole('button') as HTMLButtonElement;
-		expect(button.textContent).toMatch(/apprentissage/i);
-		expect(button.disabled).toBe(false);
-		expect(screen.getByText(/écart au temps/i)).toBeTruthy();
-		expect(screen.getByText('40 ms')).toBeTruthy();
-		expect(screen.getByText(/plus près/i)).toBeTruthy();
-	});
-
-	it('keeps the button active and says nothing when no review is planned', () => {
-		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {} } });
-		expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false);
+		render(HomeScreen, { props: props({ stats: first }) });
 		expect(screen.queryByText(/révision/i)).toBeNull();
+		expect(screen.getByText('Apprentissage')).toBeTruthy();
 	});
 
-	it('counts the reviews due', () => {
-		render(HomeScreen, { props: { stats: { ...base, dueCount: 6 }, now: 0, onstart: () => {} } });
-		expect(screen.getByText('6 révisions dues')).toBeTruthy();
+	it('counts the reviews due as the why of the first block', () => {
+		render(HomeScreen, { props: props({ stats: { ...base, dueCount: 6 } }) });
+		const first = within(blocks()).getAllByRole('listitem')[0];
+		expect(first.textContent).toContain('6 révisions dues');
 		cleanup();
-		render(HomeScreen, { props: { stats: { ...base, dueCount: 1 }, now: 0, onstart: () => {} } });
+		render(HomeScreen, { props: props({ stats: { ...base, dueCount: 1 } }) });
 		expect(screen.getByText('1 révision due')).toBeTruthy();
 	});
 
-	it('tells when the next reviews come, button still active', () => {
-		const stats: HomeStats = { ...base, nextReviewAt: 2 * 60 * 60 * 1000 };
-		render(HomeScreen, { props: { stats, now: 0, onstart: () => {} } });
-		expect(screen.getByText(/prochaines révisions/i)).toBeTruthy();
-		expect(screen.getByText(/dans 2 h/i)).toBeTruthy();
-		expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false);
+	it('tells when the next reviews come', () => {
+		render(HomeScreen, { props: props({ stats: { ...base, nextReviewAt: 2 * 60 * 60 * 1000 } }) });
+		expect(screen.getByText('Prochaines révisions · Dans 2 h')).toBeTruthy();
 	});
 
-	it('calls onstart when the button is clicked', async () => {
-		const onstart = vi.fn();
-		render(HomeScreen, { props: { stats: base, now: 0, onstart } });
-		await fireEvent.click(screen.getByRole('button'));
-		expect(onstart).toHaveBeenCalledOnce();
+	it('shows the gap to the beat with its trend, and a dash when unknown', () => {
+		render(HomeScreen, { props: props() });
+		expect(screen.getByText('Écart au temps')).toBeTruthy();
+		expect(screen.getByText('40 ms')).toBeTruthy();
+		expect(screen.getByText('plus près')).toBeTruthy();
+		cleanup();
+		render(HomeScreen, {
+			props: props({ stats: { ...base, medianColdOffsetMs: null, trend: null } })
+		});
+		expect(screen.getByText('—')).toBeTruthy();
 	});
 
 	it('switches copy to English', () => {
 		i18n.locale = 'en';
 		render(HomeScreen, {
-			props: {
-				stats: { ...base, medianColdOffsetMs: 12, trend: 'stable' },
-				now: 0,
-				onstart: () => {}
-			}
+			props: props({ stats: { ...base, dueCount: 2, medianColdOffsetMs: 12, trend: 'stable' } })
 		});
-		expect(screen.getByRole('button').textContent).toMatch(/learn/i);
-		expect(screen.queryByText(/placement/i)).toBeNull();
-		expect(screen.getByText(/from the beat/i)).toBeTruthy();
-		expect(screen.getByText('12 ms')).toBeTruthy();
-		expect(screen.getByText(/stable/i)).toBeTruthy();
-	});
-
-	it('names the learn session in English', () => {
-		i18n.locale = 'en';
-		render(HomeScreen, { props: { stats: { ...base, dueCount: 2 }, now: 0, onstart: () => {} } });
-		expect(screen.getByRole('button').textContent).toMatch(/learn/i);
+		expect(screen.getByRole('heading', { level: 1, name: 'Practice' })).toBeTruthy();
+		expect(screen.getByRole('list', { name: 'Sessions' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
 		expect(screen.getByText('2 reviews due')).toBeTruthy();
+		expect(screen.getByText('From the beat')).toBeTruthy();
+		expect(screen.getByText('12 ms')).toBeTruthy();
 	});
 
-	it('starts the triads anchor with its own button and its reviews due', async () => {
+	it('lists the triads block with its reviews due, without when none', async () => {
 		const ontriads = vi.fn();
 		render(HomeScreen, {
-			props: {
-				stats: base,
-				now: 0,
-				onstart: () => {},
-				triads: { anchorDue: 3, zoneDue: null },
-				ontriads
-			}
+			props: props({ triads: { anchorDue: 3, zoneDue: null }, ontriads })
 		});
-		const button = screen.getByRole('button', { name: 'Triades' });
 		expect(screen.getByText('3 révisions de triades dues')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: /vers une case/i })).toBeNull();
-		await fireEvent.click(button);
+		expect(screen.queryByText(/vers une case/i)).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: /^Triades$/ }));
 		expect(ontriads).toHaveBeenCalledWith('triads');
-	});
-
-	it('shows the triads button without a count when none is due', () => {
+		cleanup();
 		render(HomeScreen, {
-			props: {
-				stats: base,
-				now: 0,
-				onstart: () => {},
-				triads: { anchorDue: 0, zoneDue: null },
-				ontriads: () => {}
-			}
+			props: props({ triads: { anchorDue: 0, zoneDue: null }, ontriads: () => {} })
 		});
-		expect(screen.getByRole('button', { name: 'Triades' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /^Triades$/ })).toBeTruthy();
 		expect(screen.queryByText(/triades dues?/i)).toBeNull();
 	});
 
-	it('offers the zone once open, with its own reviews due', async () => {
+	it('offers the zone once open, with its reviews due', async () => {
 		const ontriads = vi.fn();
 		render(HomeScreen, {
-			props: {
-				stats: base,
-				now: 0,
-				onstart: () => {},
-				triads: { anchorDue: 0, zoneDue: 2 },
-				ontriads
-			}
+			props: props({ triads: { anchorDue: 0, zoneDue: 2 }, ontriads })
 		});
-		const zone = screen.getByRole('button', { name: 'Triades vers une case' });
 		expect(screen.getByText('2 révisions dues')).toBeTruthy();
-		await fireEvent.click(zone);
+		await fireEvent.click(screen.getByRole('button', { name: /Triades vers une case/ }));
 		expect(ontriads).toHaveBeenCalledWith('triads-zone');
 	});
 
-	it('offers the gesture track once one of its exercises is open', async () => {
+	it('offers the gesture track once open', async () => {
 		const ongesture = vi.fn();
-		render(HomeScreen, {
-			props: { stats: base, now: 0, onstart: () => {}, gesture: { open: false }, ongesture }
-		});
+		render(HomeScreen, { props: props({ gesture: { open: false }, ongesture }) });
 		expect(screen.queryByRole('button', { name: /geste/i })).toBeNull();
 		cleanup();
-		render(HomeScreen, {
-			props: { stats: base, now: 0, onstart: () => {}, gesture: { open: true }, ongesture }
-		});
+		render(HomeScreen, { props: props({ gesture: { open: true }, ongesture }) });
 		await fireEvent.click(screen.getByRole('button', { name: /geste/i }));
 		expect(ongesture).toHaveBeenCalledOnce();
 	});
-});
 
-describe('HomeScreen rhythm', () => {
-	const rhythm = RHYTHM_EXERCISES;
+	describe('rhythm', () => {
+		const rhythm = RHYTHM_EXERCISES;
 
-	it('offers no rhythm button without the exercises', () => {
-		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {} } });
-		expect(screen.queryByRole('button', { name: 'Rythme' })).toBeNull();
-	});
-
-	it('opens the list of the three exercises, each linking to its own session', async () => {
-		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {}, rhythm } });
-		expect(screen.queryAllByRole('link')).toHaveLength(0);
-		await fireEvent.click(screen.getByRole('button', { name: 'Rythme' }));
-		const links = screen.getAllByRole('link') as HTMLAnchorElement[];
-		expect(links).toHaveLength(3);
-		expect(links.map((link) => link.getAttribute('href'))).toEqual(
-			rhythm.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
-		);
-		expect(links.map((link) => link.textContent?.trim())).toEqual(rhythm.map((e) => e.title?.fr));
-	});
-
-	it('marks an exercise resting after a change of air, still to be played', async () => {
-		render(HomeScreen, {
-			props: { stats: base, now: 0, onstart: () => {}, rhythm, resting: ['rhythm-offbeats'] }
+		it('has no rhythm block without the exercises', () => {
+			render(HomeScreen, { props: props() });
+			expect(screen.queryAllByRole('link')).toHaveLength(0);
 		});
-		await fireEvent.click(screen.getByRole('button', { name: 'Rythme' }));
-		const offbeats = screen.getByRole('link', { name: /Contretemps/ });
-		expect(offbeats.getAttribute('href')).toBe('/session?kind=exercise&exercise=rhythm-offbeats');
-		expect(offbeats.closest('li')?.textContent).toContain('On y revient plus tard');
-		const silent = screen.getByRole('link', { name: /Mesures silencieuses/ });
-		expect(silent.closest('li')?.textContent).not.toContain('On y revient plus tard');
-	});
 
-	it('closes the list again, and names the exercises in English', async () => {
-		i18n.locale = 'en';
-		render(HomeScreen, { props: { stats: base, now: 0, onstart: () => {}, rhythm } });
-		const button = screen.getByRole('button', { name: 'Rhythm' });
-		await fireEvent.click(button);
-		expect(screen.getByRole('link', { name: 'Offbeats' })).toBeTruthy();
-		await fireEvent.click(button);
-		expect(screen.queryAllByRole('link')).toHaveLength(0);
+		it('has one block per exercise, each linking to its own session', () => {
+			render(HomeScreen, { props: props({ rhythm }) });
+			const links = screen.getAllByRole('link') as HTMLAnchorElement[];
+			expect(links.map((link) => link.getAttribute('href'))).toEqual(
+				rhythm.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
+			);
+			links.forEach((link, i) => {
+				expect(link.textContent).toContain('Rythme');
+				expect(link.textContent).toContain(rhythm[i].title?.fr);
+			});
+		});
+
+		it('marks an exercise resting after a change of air', () => {
+			render(HomeScreen, { props: props({ rhythm, resting: ['rhythm-offbeats'] }) });
+			const offbeats = screen.getByRole('link', { name: /Contretemps/ });
+			expect(offbeats.closest('li')?.textContent).toContain('On y revient plus tard');
+			const silent = screen.getByRole('link', { name: /Mesures silencieuses/ });
+			expect(silent.closest('li')?.textContent).not.toContain('On y revient plus tard');
+		});
+
+		it('names the exercises in English', () => {
+			i18n.locale = 'en';
+			render(HomeScreen, { props: props({ rhythm }) });
+			expect(screen.getByRole('link', { name: /Offbeats/ })).toBeTruthy();
+		});
 	});
 });

@@ -29,13 +29,3 @@
 </script>
 
 <NeckMapScreen {cells} onhome={() => {}} />
-
-<style>
-	:global(html),
-	:global(body) {
-		width: auto;
-		height: auto;
-		min-height: 100dvh;
-		overflow: auto;
-	}
-</style>

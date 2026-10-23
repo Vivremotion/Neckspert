@@ -4,7 +4,8 @@ import type { CardStatus } from '$lib/domain/types';
 export const mapMessages = defineMessages({
 	fr: {
 		title: 'Carte du manche',
-		home: 'Accueil',
+		board: 'Manche',
+		home: 'Pratiquer',
 		locate: 'Localisation',
 		identify: 'Identification',
 		cell: (string: number, fret: number) => `Corde ${string}, case ${fret}`,
@@ -20,7 +21,8 @@ export const mapMessages = defineMessages({
 	},
 	en: {
 		title: 'Neck map',
-		home: 'Home',
+		board: 'Neck',
+		home: 'Practice',
 		locate: 'Locate',
 		identify: 'Identify',
 		cell: (string: number, fret: number) => `String ${string}, fret ${fret}`,

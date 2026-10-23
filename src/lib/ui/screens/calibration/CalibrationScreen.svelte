@@ -5,9 +5,8 @@
 		CalibrationProgress,
 		ReferenceDetail
 	} from '$lib/application/ports';
-	import PixelBox from '$lib/ui/primitives/PixelBox.svelte';
-	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
-	import PixelText from '$lib/ui/primitives/PixelText.svelte';
+	import Button from '$lib/ui/primitives/Button.svelte';
+	import Page from '$lib/ui/primitives/Page.svelte';
 	import { isBuiltInInput } from './isBuiltInInput';
 	import { calibrationMessages } from './messages';
 	import type { CalibrationScreenOutcome } from './outcome';
@@ -91,37 +90,24 @@
 
 {#snippet measureLines(measure: CalibrationMeasure)}
 	{#if measure.referenceMs !== null}
-		<p class="detail">
-			<PixelText scale={1}
-				>{m.referenceLine(measure.referenceMs, measure.referenceSpreadMs)}</PixelText
-			>
-		</p>
+		<p class="detail">{m.referenceLine(measure.referenceMs, measure.referenceSpreadMs)}</p>
 	{/if}
 	{#if measure.offsetMs !== null}
-		<p class="detail"><PixelText scale={1}>{m.offsetLine(measure.offsetMs)}</PixelText></p>
+		<p class="detail">{m.offsetLine(measure.offsetMs)}</p>
 	{/if}
 	<p class="detail">
-		<PixelText scale={1}
-			>{measure.referenceMs === null
-				? m.hitsLine(measure.pairs, measure.spreadMs)
-				: m.pairsLine(measure.pairs, measure.played, measure.spreadMs)}</PixelText
-		>
+		{measure.referenceMs === null
+			? m.hitsLine(measure.pairs, measure.spreadMs)
+			: m.pairsLine(measure.pairs, measure.played, measure.spreadMs)}
 	</p>
 {/snippet}
 
-<section class="calibration-screen" aria-labelledby="calibration-title">
-	<!-- PixelText (H) does not forward id; wrap for aria-labelledby. -->
-	<header class="top">
-		<div id="calibration-title">
-			<PixelText as="h1" scale={4}>{m.title}</PixelText>
-		</div>
-
-		<PixelBox variant="double">
-			<label class="field" for="calibration-input">
-				<PixelText scale={1}>{m.input}</PixelText>
-			</label>
+<Page title={m.title}>
+	<div class="stack">
+		<div class="block">
+			<label class="field" for="calibration-input">{m.input}</label>
 			{#if inputs.length === 0}
-				<p><PixelText scale={1}>{m.emptyInputs}</PixelText></p>
+				<p>{m.emptyInputs}</p>
 			{:else}
 				<select
 					id="calibration-input"
@@ -137,14 +123,12 @@
 			{/if}
 
 			{#if showHeadphones}
-				<p class="hint"><PixelText scale={2}>{m.headphones}</PixelText></p>
+				<p class="hint">{m.headphones}</p>
 			{/if}
-		</PixelBox>
-	</header>
+		</div>
 
-	<div class="center">
-		<div class="level-block">
-			<span id="level-label"><PixelText scale={1}>{m.level}</PixelText></span>
+		<div class="block">
+			<span id="level-label">{m.level}</span>
 			<div
 				class="meter"
 				role="meter"
@@ -159,135 +143,104 @@
 
 		<div class="actions">
 			{#if !listening}
-				<PixelButton size="huge" onclick={onlisten}>{m.listen}</PixelButton>
+				<Button variant={phase === 'idle' ? 'primary' : 'quiet'} onclick={onlisten}
+					>{m.listen}</Button
+				>
 			{:else}
-				<p class="listening"><PixelText scale={2}>{m.listening}</PixelText></p>
+				<p class="listening">{m.listening}</p>
 			{/if}
 
 			{#if phase === 'running' && progress}
-				<PixelButton size="large" onclick={oncancel}>{m.cancel}</PixelButton>
+				<Button variant="quiet" onclick={oncancel}>{m.cancel}</Button>
 			{:else if phase === 'done' && outcome}
-				<PixelButton size="huge" onclick={onretry}>{m.retry}</PixelButton>
+				<Button variant="primary" onclick={onretry}>{m.retry}</Button>
 			{:else}
-				<PixelButton size="huge" disabled={!listening} onclick={onstart}>{m.start}</PixelButton>
+				<Button variant={listening ? 'primary' : 'quiet'} disabled={!listening} onclick={onstart}
+					>{m.start}</Button
+				>
+			{/if}
+		</div>
+
+		<div class="block">
+			<p class="instruction" aria-live="polite">
+				{#if instruction}{instruction}{/if}
+			</p>
+			{#if notice}
+				<p class="notice" role="alert">{notice}</p>
+			{/if}
+
+			{#if phase === 'running' && progress}
+				<p class="progress" aria-live="polite">{m.progress(progress.done, progress.needed)}</p>
+			{:else if phase === 'done' && outcome}
+				<div class="result">
+					{#if outcome.ok}
+						{#if measured}
+							<p class="outcome" aria-live="polite">{m.ok(measured.ms, measured.provenance)}</p>
+						{/if}
+						{@render measureLines(outcome.measure)}
+						{#if outcome.clickBleed}
+							<p class="outcome" role="status">{m.bleed}</p>
+						{/if}
+					{:else if outcome.reason === 'reference'}
+						<p class="outcome" aria-live="polite">{referenceText(outcome.detail)}</p>
+						{#if outcome.detail.mic !== null && outcome.detail.opened}
+							<p class="detail">{m.referenceAdvice}</p>
+						{/if}
+					{:else}
+						<p class="outcome" aria-live="polite">{m[outcome.reason]}</p>
+						{#if outcome.reason === 'inconsistent' && outcome.measure}
+							{@render measureLines(outcome.measure)}
+						{/if}
+					{/if}
+				</div>
+				{#if offerClick}
+					<p class="detail">{m.clickChoiceNote}</p>
+					<div class="actions">
+						<Button variant="quiet" onclick={oncalibrateonclick}>{m.clickChoice}</Button>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
-
-	<footer class="bottom">
-		<p class="instruction" aria-live="polite">
-			{#if instruction}<PixelText scale={2}>{instruction}</PixelText>{/if}
-		</p>
-		{#if notice}
-			<p class="instruction" role="alert"><PixelText scale={1}>{notice}</PixelText></p>
-		{/if}
-
-		{#if phase === 'running' && progress}
-			<PixelBox variant="inverted">
-				<p class="progress" aria-live="polite">
-					<PixelText scale={2}>{m.progress(progress.done, progress.needed)}</PixelText>
-				</p>
-			</PixelBox>
-		{:else if phase === 'done' && outcome}
-			<PixelBox variant="inverted">
-				{#if outcome.ok}
-					{#if measured}
-						<p class="outcome" aria-live="polite">
-							<PixelText scale={2}>{m.ok(measured.ms, measured.provenance)}</PixelText>
-						</p>
-					{/if}
-					{@render measureLines(outcome.measure)}
-					{#if outcome.clickBleed}
-						<p class="outcome" role="status"><PixelText scale={2}>{m.bleed}</PixelText></p>
-					{/if}
-				{:else if outcome.reason === 'reference'}
-					<p class="outcome" aria-live="polite">
-						<PixelText scale={2}>{referenceText(outcome.detail)}</PixelText>
-					</p>
-					{#if outcome.detail.mic !== null && outcome.detail.opened}
-						<p class="detail"><PixelText scale={1}>{m.referenceAdvice}</PixelText></p>
-					{/if}
-				{:else}
-					<p class="outcome" aria-live="polite">
-						<PixelText scale={2}>{m[outcome.reason]}</PixelText>
-					</p>
-					{#if outcome.reason === 'inconsistent' && outcome.measure}
-						{@render measureLines(outcome.measure)}
-					{/if}
-				{/if}
-			</PixelBox>
-			{#if offerClick}
-				<p class="detail"><PixelText scale={1}>{m.clickChoiceNote}</PixelText></p>
-				<div class="actions">
-					<PixelButton size="large" onclick={oncalibrateonclick}>{m.clickChoice}</PixelButton>
-				</div>
-			{/if}
-		{/if}
-	</footer>
-</section>
+</Page>
 
 <style>
-	.calibration-screen {
+	.stack {
 		display: flex;
 		flex-direction: column;
-		gap: var(--np-space-3, 24px);
-		padding: var(--np-space-2, 16px);
-		min-height: 100dvh;
-		width: 100%;
-		max-width: 40rem;
-		min-width: 0;
-		margin-inline: auto;
-		box-sizing: border-box;
-		background: var(--np-bg, #e99568);
-		color: var(--np-ink, #451218);
-		caret-color: var(--np-ink, #451218);
+		gap: var(--np-step-6);
+		margin-top: var(--np-step-6);
+		font-size: var(--np-size-body);
 	}
 
-	.calibration-screen ::selection {
-		background: var(--np-ink, #451218);
-		color: var(--np-bg, #e99568);
-	}
-
-	.top,
-	.center,
-	.bottom {
+	.block {
 		display: flex;
 		flex-direction: column;
-		gap: var(--np-space-2, 16px);
-	}
-
-	.top {
-		gap: var(--np-space-3, 24px);
-	}
-
-	#calibration-title {
-		margin-block-end: var(--np-tile, 8px);
+		gap: var(--np-step-2);
 	}
 
 	.field {
 		display: block;
-		margin-bottom: var(--np-tile, 8px);
+		font-weight: 700;
 	}
 
 	.device-select {
 		display: block;
 		width: 100%;
 		min-height: 48px;
+		box-sizing: border-box;
 		font: inherit;
-		font-family: var(--np-font-pixel, inherit);
-		font-size: var(--np-type-body);
-		text-transform: uppercase;
-		padding: var(--np-tile, 8px);
-		background: var(--np-mid, #be6754);
-		color: var(--np-ink, #451218);
-		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
+		font-size: var(--np-size-body);
+		padding: var(--np-step-1) var(--np-step-2);
+		background: var(--np-ground);
+		color: var(--np-text);
+		border: 1px solid var(--np-text);
 		border-radius: 0;
-		caret-color: var(--np-ink, #451218);
 	}
 
 	.device-select:focus-visible {
-		outline: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
-		outline-offset: calc(var(--np-tile, 8px) / 2);
+		outline: 2px solid var(--np-text);
+		outline-offset: 2px;
 	}
 
 	.hint,
@@ -295,22 +248,41 @@
 	.instruction,
 	.progress,
 	.outcome,
-	.listening {
+	.listening,
+	.notice {
 		margin: 0;
 	}
 
-	.level-block {
+	.instruction {
+		min-height: calc(var(--np-size-prompt) * 1.5);
+		font-size: var(--np-size-prompt);
+		font-weight: 400;
+	}
+
+	.progress {
+		font-size: var(--np-size-title);
+		font-weight: 300;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.notice {
+		padding-left: var(--np-step-2);
+		border-left: 4px solid var(--np-text);
+		font-weight: 700;
+	}
+
+	.result {
 		display: flex;
 		flex-direction: column;
-		gap: var(--np-tile, 8px);
+		gap: var(--np-step-2);
+		border-top: 1px solid var(--np-text);
+		padding-top: var(--np-step-3);
 	}
 
 	.meter {
 		width: 100%;
-		height: calc(var(--np-tile, 8px) * 6);
-		border: calc(var(--np-tile, 8px) / 2) solid var(--np-ink, #451218);
-		background: var(--np-mid, #be6754);
-		image-rendering: pixelated;
+		height: var(--np-step-1);
+		background: var(--np-rule);
 		overflow: hidden;
 	}
 
@@ -318,20 +290,8 @@
 		width: 100%;
 		height: 100%;
 		transform-origin: left center;
-		/* Fifth tone = checkerboard tramage of ink on shade (DESIGN.md). */
-		background-color: var(--np-shade, #813b2a);
-		background-image:
-			linear-gradient(45deg, var(--np-ink, #451218) 25%, transparent 25%),
-			linear-gradient(-45deg, var(--np-ink, #451218) 25%, transparent 25%),
-			linear-gradient(45deg, transparent 75%, var(--np-ink, #451218) 75%),
-			linear-gradient(-45deg, transparent 75%, var(--np-ink, #451218) 75%);
-		background-size: calc(var(--np-tile, 8px) * 2) calc(var(--np-tile, 8px) * 2);
-		background-position:
-			0 0,
-			0 calc(var(--np-tile, 8px)),
-			calc(var(--np-tile, 8px)) calc(var(--np-tile, 8px) * -1),
-			calc(var(--np-tile, 8px) * -1) 0;
-		transition: transform 80ms cubic-bezier(0.16, 1, 0.3, 1);
+		background: var(--np-text);
+		transition: transform var(--np-motion-imprint) var(--np-motion-ease);
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -344,6 +304,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--np-space-2, 16px);
+		gap: var(--np-step-4);
 	}
 </style>
