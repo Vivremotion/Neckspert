@@ -79,8 +79,8 @@ class FirstAnswerPairing implements Pairing {
 			}
 			return { fate: 'settled', judged };
 		}
-		if (unanswered.length === 0) return { fate: 'settled', judged: null };
-		const fate = time < unanswered[0].opensS - EDGE_TOLERANCE_S ? 'before-window' : 'after-capture';
+		// Outside every zone of the sensor, answered or not (a settled round is the engine's word).
+		const fate = time < candidates[0].opensS - EDGE_TOLERANCE_S ? 'before-window' : 'after-capture';
 		return { fate, judged: null };
 	}
 

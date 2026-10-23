@@ -166,6 +166,22 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.awaiting()).toBe(false);
 	});
 
+	it('judges an attack outside every zone by the zones, answered or not', () => {
+		const located = pairingOf(locatePlan());
+		located.offer(attack(6.13));
+		expect(located.offer(attack(8.36)).fate).toBe('after-capture');
+		expect(located.offer(attack(3.0)).fate).toBe('before-window');
+
+		const anchor = pairingOf({
+			...anchorPlan(),
+			policy: { ...anchorPlan().policy, correction: true }
+		});
+		anchor.offer(attack(6.1));
+		anchor.offer(attack(7.0, wrong, 'chord'));
+		expect(anchor.offer(attack(9.1, right, 'chord')).fate).toBe('after-capture');
+		expect(anchor.offer(attack(6.5, right, 'chord')).fate).toBe('before-window');
+	});
+
 	it('never corrects a point, nor a chord after a wrong root', () => {
 		const correcting = { ...anchorPlan().policy, correction: true };
 		const point = pairingOf({
