@@ -129,21 +129,27 @@ try {
 			`() => {
 				const buttons = [...document.querySelectorAll('button')].map((b) => b.textContent.trim());
 				const links = [...document.querySelectorAll('a')].map((a) => a.textContent.trim());
+				const nav = [...document.querySelectorAll('nav a')].map((a) => a.textContent.trim());
 				const texts = [...document.querySelectorAll('body *')]
 					.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
 					.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }));
-				return { buttons, links, texts, text: document.body.innerText };
+				return { buttons, links, nav, texts, text: document.body.innerText };
 			}`
 		);
 		const count = (label) => page.buttons.filter((b) => b === label).length;
 		const body = page.text.toLocaleLowerCase('fr');
 		check(assert(count('Apprentissage') > 0, 'le bouton Apprentissage est présent'));
 		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
-		check(assert(count('Rythme') > 0, 'le bouton Rythme est présent'));
 		check(
 			assert(
-				page.links.join('|') === 'Accueil|Jeu libre|Carte|Réglages',
-				`la navigation a ses quatre liens (${page.links.join('|')})`
+				page.links.some((link) => link.startsWith('Rythme')),
+				'un bloc Rythme mène à son exercice'
+			)
+		);
+		check(
+			assert(
+				page.nav.join('|') === 'Pratiquer|Bibliothèque|Progrès|Réglages',
+				`la navigation a ses quatre liens (${page.nav.join('|')})`
 			)
 		);
 		check(assert(body.includes('6 révisions dues'), 'les révisions dues sont comptées'));
@@ -168,7 +174,9 @@ try {
 		const summary = page.text.toLocaleLowerCase('fr');
 		check(assert(summary.includes('notes apprises'), 'les notes apprises sont affichées'));
 		check(assert(summary.includes('triades apprises'), 'les triades apprises sont affichées'));
-		check(assert(summary.includes('pas de fatigue'), 'l’absence de fatigue est affichée'));
+		check(
+			assert(!summary.includes('pas de fatigue'), 'le bilan ne dit rien de la fatigue absente')
+		);
 		check(
 			assert(summary.includes('prochaines révisions'), 'les prochaines révisions sont affichées')
 		);
