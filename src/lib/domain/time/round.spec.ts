@@ -7,7 +7,7 @@ import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
-import type { PairingMode, RoundModes } from './modes/types';
+import type { PairingMode, PairingResult, RoundModes } from './modes/types';
 import { anchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
 
 const of = Fraction.of;
@@ -538,6 +538,16 @@ describe('PlanRound routing', () => {
 		const outcome = r.close(7.0);
 		expect(outcome?.success).toBe(false);
 		expect(outcome?.verdict.value).toMatchObject({ verdict: 'wrong' });
+	});
+
+	it('lets time pass before closing: a reading still waiting is final as it stands', () => {
+		const r = responseRound(withContent(locatePlan()));
+		expect(r.observe(played(6.13, WRONG, 'note', false)).event).toEqual({ kind: 'pending' });
+		const outcome = r.close(8.35);
+		expect(outcome?.verdict.value).toMatchObject({ verdict: 'wrong' });
+		expect((outcome?.detail as PairingResult).pairs).toMatchObject([
+			{ expectation: 0, time: 6.13, pending: false }
+		]);
 	});
 
 	it('judges content with the judge of its kind', () => {

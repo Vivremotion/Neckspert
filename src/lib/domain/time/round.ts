@@ -192,6 +192,8 @@ export class PlanRound {
 	close(now: number): RoundOutcome | null {
 		if (this.#settled) return null;
 		this.#settled = true;
+		// Time passes first: a reading the pairing decides by now is final in the outcome.
+		this.#pairing.advance(now);
 		if (this.#pairing.droppable(now)) return null;
 		return this.#outcome();
 	}
