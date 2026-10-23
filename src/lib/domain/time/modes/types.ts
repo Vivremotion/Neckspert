@@ -1,5 +1,8 @@
 import type { Fraction } from '../fraction';
+import type { CycleReport } from '../judge/measures';
+import type { LevelParams } from '../levels';
 import type { Judged, RoundPlan } from '../plan';
+import type { Aid, RoundOutcome } from '../round';
 import type { TempoMap } from '../tempoMap';
 import type { RoundTimes } from './zones';
 
@@ -73,4 +76,27 @@ export interface Pairing {
 export interface PairingMode {
 	id: string;
 	create(context: PairingContext): Pairing;
+}
+
+/** What a verdict mode reads beside the pairing result. */
+export interface VerdictContext {
+	plan: RoundPlan;
+	times: RoundTimes;
+	clock: RoundClock;
+	latency: CycleReport['latency'];
+	/** null for a response plan. */
+	thresholds: LevelParams['thresholds'] | null;
+	aids: Aid[];
+}
+
+/** Turns what a round paired into its outcome. */
+export interface VerdictMode {
+	id: string;
+	outcome(result: PairingResult, context: VerdictContext): RoundOutcome;
+}
+
+/** The modes a round engine can be given, by id. */
+export interface RoundModes {
+	pairings: Readonly<Record<string, PairingMode>>;
+	verdicts: Readonly<Record<string, VerdictMode>>;
 }

@@ -71,7 +71,26 @@ describe('verdicts', () => {
 
 describe('responseVerdictOf', () => {
 	it('names the one-answer relations', () => {
-		expect(RESPONSE_RELATIONS).toEqual(['beat', 'free', 'anchor', 'grid-change']);
+		expect(RESPONSE_RELATIONS).toEqual(['beat', 'free', 'anchor', 'grid-change', 'response']);
+	});
+
+	it('reads the verdict of a response envelope', () => {
+		const value = {
+			verdict: 'late',
+			timingOffsetMs: 120,
+			reactionMs: 3120,
+			leadMs: 3000,
+			expectations: []
+		};
+		expect(responseVerdictOf({ verdict: { relation: 'response', version: 1, value } })).toBe(
+			'late'
+		);
+		expect(responseVerdictOf({ verdict: { relation: 'beat', version: 1, value: 'perfect' } })).toBe(
+			'perfect'
+		);
+		expect(
+			responseVerdictOf({ verdict: { relation: 'response', version: 1, value: { verdict: 'x' } } })
+		).toBeNull();
 	});
 
 	it('reads the verdict of a one-answer relation', () => {

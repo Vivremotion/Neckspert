@@ -2,6 +2,7 @@ import type { Fraction } from './fraction';
 import type { LevelParams } from './levels';
 import type { RoundPlan } from './plan';
 import type { TempoMap } from './tempoMap';
+import { CYCLE_VERDICT_VERSION } from './modes/cycleVerdict';
 import { alignAttacks, alignContext, captureLeadIn, timeExpectations } from './judge/align';
 import {
 	cycleReport,
@@ -64,8 +65,7 @@ export interface PlanObservation {
 /** The fate of an observation offered to a plan round. */
 export type PlanFate = 'answer' | 'other-sensor' | 'unreadable' | 'after-capture';
 
-/** The version of the shape of a cycle verdict (`CycleVerdict`). */
-export const CYCLE_VERDICT_VERSION = 1;
+export { CYCLE_VERDICT_VERSION };
 
 /**
  * The round of a plan whose unit is the whole cycle: it keeps the attacks heard in its capture
