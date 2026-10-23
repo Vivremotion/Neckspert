@@ -169,7 +169,9 @@ try {
 		check(assert(summary.includes('notes apprises'), 'les notes apprises sont affichées'));
 		check(assert(summary.includes('triades apprises'), 'les triades apprises sont affichées'));
 		check(assert(summary.includes('pas de fatigue'), 'l’absence de fatigue est affichée'));
-		check(assert(summary.includes('prochaines révisions'), 'les prochaines révisions sont affichées'));
+		check(
+			assert(summary.includes('prochaines révisions'), 'les prochaines révisions sont affichées')
+		);
 		check(assert(summary.includes('dans 2 h'), 'l’heure conseillée est « Dans 2 h »'));
 		check(assert(summary.includes('niveau atteint'), 'le niveau atteint du rythme est affiché'));
 		noteTiny('summary', page.texts);
@@ -260,12 +262,7 @@ try {
 				`le premier toucher verrouille les 12 touches (${after.disabled})`
 			)
 		);
-		check(
-			assert(
-				after.text.includes('C joué'),
-				'la note jouée s’affiche après le toucher'
-			)
-		);
+		check(assert(after.text.includes('C joué'), 'la note jouée s’affiche après le toucher'));
 	}
 
 	console.log('\nMode 1 /session/demo');
