@@ -10,6 +10,7 @@ import {
 	RESPONSE_VERDICTS,
 	cardKey,
 	parseCardKey,
+	responseVerdictOf,
 	type BackupFile,
 	type ItemPhase,
 	type Locale,
@@ -239,9 +240,14 @@ function checkTargetOutcome(attempt: Fields): string | null {
 	) {
 		return 'verdict must be { relation, version, value }';
 	}
+	const envelope = {
+		relation: verdict.relation as string,
+		version: verdict.version as number,
+		value: verdict.value
+	};
 	if (
-		RESPONSE_RELATIONS.includes(verdict.relation as string) &&
-		!isOneOf(verdict.value, RESPONSE_VERDICTS)
+		RESPONSE_RELATIONS.includes(envelope.relation) &&
+		responseVerdictOf({ verdict: envelope }) === null
 	) {
 		return `verdict.value ${VERDICT_PROBLEM}`;
 	}

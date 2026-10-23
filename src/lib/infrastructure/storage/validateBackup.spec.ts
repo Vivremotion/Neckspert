@@ -565,6 +565,24 @@ describe('target attempts', () => {
 		).not.toThrow();
 	});
 
+	it('accept a response envelope holding a response value', () => {
+		const value = {
+			verdict: 'perfect',
+			timingOffsetMs: 12,
+			reactionMs: 1212,
+			leadMs: 1200,
+			expectations: []
+		};
+		expect(() => invalid({ verdict: { relation: 'response', version: 1, value } })).not.toThrow();
+	});
+
+	it('reject a response envelope whose value names an unknown verdict', () => {
+		const value = { verdict: 'great', timingOffsetMs: null, reactionMs: null, leadMs: null };
+		expect(() => invalid({ verdict: { relation: 'response', version: 1, value } })).toThrow(
+			'Invalid attempts entry at index 0: verdict.value must be perfect, early, late, offbeat, corrected or wrong'
+		);
+	});
+
 	it('reject a bad success, verdict, aids, measures or plan', () => {
 		const problem = (fields: Record<string, unknown>) => () => invalid(fields);
 		expect(problem({ success: 'yes' })).toThrow(
