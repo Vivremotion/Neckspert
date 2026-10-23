@@ -4,7 +4,7 @@ import type { LevelParams } from '../levels';
 import type { Judged, RoundPlan } from '../plan';
 import type { Aid, RoundOutcome } from '../round';
 import type { TempoMap } from '../tempoMap';
-import type { RoundTimes } from './zones';
+import type { RoundTimes } from './times';
 
 /** A round on the tempo map, from `start`; or in free time, from the instant of its prompt. */
 export type RoundClock = { map: TempoMap; start: Fraction } | { promptS: number };
@@ -49,6 +49,7 @@ export interface PairingResult {
 
 export interface PairingContext {
 	plan: RoundPlan;
+	/** The round's instants, as its pairing mode gave them (`PairingMode.times`). */
 	times: RoundTimes;
 	clock: RoundClock;
 	/** Judges a payload against the content of expectation `index`; null without content. */
@@ -71,12 +72,20 @@ export interface Pairing {
 
 export interface PairingMode {
 	id: string;
+	/** Null when the plan suits this mode (its own settings above all), else what is wrong. */
+	validate?(plan: RoundPlan): string | null;
+	/**
+	 * The round's instants when this mode shifts them from those of the plan (`base`, from
+	 * `roundTimes`); absent, the engine keeps `base`.
+	 */
+	times?(plan: RoundPlan, clock: RoundClock, chained: boolean, base: RoundTimes): RoundTimes;
 	create(context: PairingContext): Pairing;
 }
 
 /** What a verdict mode reads beside the pairing result. */
 export interface VerdictContext {
 	plan: RoundPlan;
+	/** The round's instants, as its pairing mode gave them. */
 	times: RoundTimes;
 	clock: RoundClock;
 	latency: CycleReport['latency'];

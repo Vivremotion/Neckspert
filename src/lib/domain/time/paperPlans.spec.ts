@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
-import {
-	validateRoundPlan,
-	type Expectation,
-	type LateCapture,
-	type Opening,
-	type RoundPlan,
-	type RoundPolicy
-} from './plan';
+import { validateRoundPlan, type Expectation, type RoundPlan, type RoundPolicy } from './plan';
+import type { LateCapture, Opening } from './modes';
 
 // Paper plans (spec 2026-10-14, section 3): the existing timing relations written by hand
 // on the expectation contract, to prove it carries them before the engine is written.

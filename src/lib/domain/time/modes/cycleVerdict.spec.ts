@@ -7,7 +7,7 @@ import { createTempoMap } from '../tempoMap';
 import { CYCLE_VERDICT_VERSION as PUBLIC } from '..';
 import { CYCLE_VERDICT_VERSION, cycleVerdictMode } from './cycleVerdict';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
-import { roundTimes } from './zones';
+import { roundTimes } from './times';
 
 const of = Fraction.of;
 
@@ -44,7 +44,7 @@ const clock: RoundClock = {
 function context(thresholds: VerdictContext['thresholds']): VerdictContext {
 	return {
 		plan,
-		times: roundTimes(plan, clock, false),
+		times: roundTimes(plan, clock),
 		clock,
 		latency: { ms: 20, provenance: 'system' },
 		thresholds,

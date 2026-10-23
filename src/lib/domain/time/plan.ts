@@ -28,17 +28,14 @@ export interface ExpectedContent {
 	value: unknown;
 }
 
-/** Where an answer may start: a delay after the prompt, or a tolerance before the expectation (capped in beats). */
-export type Opening = { afterPromptMs: number } | { beforeMs: number; maxBeats: number };
+/**
+ * How a round pairs attacks with expectations: the pairing mode it names (`mode`, read in the
+ * registry of modes) and that mode's own settings, which the mode reads and validates.
+ */
+export type PairingPolicy = { mode: string } & Record<string, unknown>;
 
-/** After the in-time zone: a capture of `ms` (off the beat), up to the end of listening, or none. */
-export type LateCapture = { ms: number } | 'to-end' | null;
-
-export type PairingPolicy =
-	| { mode: 'first-answer'; opens: Opening; lateMs: number; lateCapture: LateCapture }
-	| { mode: 'alignment' };
-
-export type VerdictModeId = 'response' | 'cycle';
+/** The verdict mode a round names, read in the registry of modes. */
+export type VerdictModeId = string;
 
 export interface RoundPolicy {
 	/** One answer closes the round, or the whole cycle is judged. */
@@ -88,7 +85,10 @@ function validateWindow(window: ExpectationWindow): boolean {
 	return window.ofGap.n > 0;
 }
 
-/** Null when the plan is well formed, else what is wrong with it. */
+/**
+ * Null when the plan is well formed whatever its modes, else what is wrong with it. What a mode
+ * asks of a plan, the mode checks (`PairingMode.validate`, run by the round engine).
+ */
 export function validateRoundPlan(plan: RoundPlan): string | null {
 	if (plan.length.n <= 0) return `plan length must be positive, got ${plan.length}`;
 	for (const [i, e] of plan.expectations.entries()) {
@@ -97,11 +97,6 @@ export function validateRoundPlan(plan: RoundPlan): string | null {
 	const free = plan.expectations.filter((e) => e.at === null).length;
 	if (free > 0 && free < plan.expectations.length) {
 		return 'a plan cannot mix timed and free-time expectations';
-	}
-	if (free > 0 && plan.policy.pairing.mode === 'first-answer') {
-		if (!('afterPromptMs' in plan.policy.pairing.opens)) {
-			return 'a free-time plan must open with afterPromptMs';
-		}
 	}
 	const first = plan.expectations[0];
 	if (plan.prompt && first && first.at && plan.prompt.compare(first.at) > 0) {

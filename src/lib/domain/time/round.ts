@@ -11,7 +11,7 @@ import type {
 	VerdictContext,
 	VerdictMode
 } from './modes/types';
-import { roundTimes } from './modes/zones';
+import { roundTimes } from './modes/times';
 
 /** The sensor a rhythm plan listens to when its expectations do not name one. */
 export const RHYTHM_SENSOR = 'attack';
@@ -132,7 +132,12 @@ export class PlanRound {
 			: undefined;
 		if (!verdict) throw new Error(`unknown verdict mode: ${verdictId}`);
 
-		const times = roundTimes(plan, clock, input.chained ?? false);
+		const problem = pairingMode.validate?.(plan) ?? null;
+		if (problem) throw new RangeError(`plan unfit for pairing mode ${pairingId}: ${problem}`);
+		const base = roundTimes(plan, clock);
+		const times = pairingMode.times
+			? pairingMode.times(plan, clock, input.chained ?? false, base)
+			: base;
 		this.startTime = times.startS;
 		this.endTime = times.endS;
 		this.promptTime = times.promptS;

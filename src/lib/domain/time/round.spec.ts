@@ -401,6 +401,8 @@ describe('PlanRound routing', () => {
 	it('plugs a pairing mode it does not know of without changing', () => {
 		const everyAttack: PairingMode = {
 			id: 'every-attack',
+			validate: (plan) => (plan.policy.pairing.patience === 'none' ? null : 'needs no patience'),
+			times: (_plan, _clock, _chained, base) => ({ ...base, promptS: base.startS }),
 			create: () => {
 				let heard: number | null = null;
 				return {
@@ -444,28 +446,33 @@ describe('PlanRound routing', () => {
 			verdicts: ROUND_MODES.verdicts
 		};
 		const base = locatePlan();
-		const plan = {
+		const plan: RoundPlan = {
 			...base,
-			policy: { ...base.policy, pairing: { mode: 'every-attack' } }
-		} as unknown as RoundPlan;
+			policy: { ...base.policy, pairing: { mode: 'every-attack', patience: 'none' } }
+		};
 		const r = responseRound(plan, carried, modes);
+		expect(r.promptTime).toBe(r.startTime);
 		const seen = r.observe(played(1.0, RIGHT));
 		expect(seen.fate).toBe('answer');
 		expect(seen.event.kind).toBe('settled');
 		expect(r.observe(played(1.1, RIGHT)).fate).toBe('settled');
+		const impatient: RoundPlan = {
+			...base,
+			policy: { ...base.policy, pairing: { mode: 'every-attack' } }
+		};
+		expect(() => responseRound(impatient, carried, modes)).toThrow(
+			'plan unfit for pairing mode every-attack: needs no patience'
+		);
 	});
 
 	it('refuses a plan whose mode is not registered', () => {
 		const base = locatePlan();
-		const kazoo = {
+		const kazoo: RoundPlan = {
 			...base,
 			policy: { ...base.policy, pairing: { mode: 'kazoo' } }
-		} as unknown as RoundPlan;
+		};
 		expect(() => responseRound(kazoo)).toThrow('unknown pairing mode: kazoo');
-		const silent = {
-			...base,
-			policy: { ...base.policy, verdict: 'silence' }
-		} as unknown as RoundPlan;
+		const silent: RoundPlan = { ...base, policy: { ...base.policy, verdict: 'silence' } };
 		expect(() => responseRound(silent)).toThrow('unknown verdict mode: silence');
 	});
 

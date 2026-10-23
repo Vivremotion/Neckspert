@@ -277,18 +277,6 @@ describe('validateRoundPlan', () => {
 		expect(validateRoundPlan(plan)).toContain('free-time');
 	});
 
-	it('refuses a first-answer free-time plan that opens before its expectation', () => {
-		const plan = valid();
-		plan.expectations = [{ ...plan.expectations[0], at: null }];
-		plan.policy.pairing = {
-			mode: 'first-answer',
-			opens: { beforeMs: 200, maxBeats: 0.4 },
-			lateMs: 400,
-			lateCapture: null
-		};
-		expect(validateRoundPlan(plan)).toContain('afterPromptMs');
-	});
-
 	it('refuses listenUntil outside (0, length]', () => {
 		const plan = valid();
 		plan.listenUntil = Fraction.ZERO;

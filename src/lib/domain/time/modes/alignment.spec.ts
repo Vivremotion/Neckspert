@@ -7,7 +7,7 @@ import { alignAttacks, alignContext, timeExpectations } from '../judge/align';
 import { createTempoMap } from '../tempoMap';
 import { alignmentPairing } from './alignment';
 import type { Attack, Pairing } from './types';
-import { roundTimes } from './zones';
+import { roundTimes } from './times';
 
 const of = Fraction.of;
 const map = createTempoMap(0, [{ at: Fraction.ZERO, bpm: 100, unit: of(1, 4) }]);
@@ -46,7 +46,7 @@ function pairingOf(plan: RoundPlan): Pairing {
 	const clock = { map, start };
 	return alignmentPairing.create({
 		plan,
-		times: roundTimes(plan, clock, false),
+		times: roundTimes(plan, clock),
 		clock,
 		judge: () => null
 	});
@@ -61,7 +61,7 @@ describe('alignmentPairing', () => {
 		expect(() =>
 			alignmentPairing.create({
 				plan,
-				times: roundTimes(plan, { promptS: 0 }, false),
+				times: roundTimes(plan, { promptS: 0 }),
 				clock: { promptS: 0 },
 				judge: () => null
 			})

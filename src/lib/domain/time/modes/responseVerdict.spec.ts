@@ -3,7 +3,8 @@ import type { Judged, RoundPlan } from '../plan';
 import { anchorPlan, F, freeTimePlan, locatePlan, map, mapAt } from './testing/plans';
 import { isDirectRecall, responseVerdict, type ResponseValue } from './responseVerdict';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
-import { roundTimes } from './zones';
+import { firstAnswerTimes } from './firstAnswerTimes';
+import { roundTimes } from './times';
 
 const RIGHT: Judged = { correct: true, answer: 'F', confusion: null };
 const WRONG: Judged = { correct: false, answer: 'G', confusion: 'neighbour' };
@@ -13,7 +14,7 @@ const beatClock = (bpm = 80): RoundClock => ({ map: bpm === 80 ? map : mapAt(bpm
 function context(plan: RoundPlan, clock: RoundClock = beatClock()): VerdictContext {
 	return {
 		plan,
-		times: roundTimes(plan, clock, false),
+		times: firstAnswerTimes(plan, clock, false, roundTimes(plan, clock)),
 		clock,
 		latency: null,
 		thresholds: null,

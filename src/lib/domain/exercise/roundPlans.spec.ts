@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from '../time/fraction';
 import { METER_4_4 } from '../time/meter';
 import { validateRoundPlan, type RoundPlan } from '../time/plan';
-import { roundTimes } from '../time/modes/zones';
+import {
+	firstAnswerTimes,
+	responseZones,
+	validateFirstAnswer
+} from '../time/modes/firstAnswerTimes';
+import { roundTimes } from '../time/modes/times';
 import {
 	anchorPlan as fixtureAnchor,
 	gridPlan as fixtureGrid,
@@ -30,13 +35,15 @@ describe('round plans of the four relations', () => {
 		for (const lengthBeats of [2, 4]) plans.push(gridChangePlan({ content, lengthBeats, meter }));
 		plans.push(freePlan({ content, recallThresholdMs: 3000 }));
 		expect(plans.map(validateRoundPlan)).toEqual(plans.map(() => null));
+		expect(plans.map(validateFirstAnswer)).toEqual(plans.map(() => null));
 	});
 
 	it('times a located note on the beat relation’s grid', () => {
 		const plan = beatPlan({ content, leadBeats: 4, meter, respirationBars: 1 });
-		const t = roundTimes(plan, { map, start: Fraction.of(2) }, false);
+		const clock = { map, start: Fraction.of(2) };
+		const t = firstAnswerTimes(plan, clock, false, roundTimes(plan, clock));
 		expect(t.promptS).toBeCloseTo(3.1, 9);
-		expect(t.zones[0].captureEndS).toBeCloseTo(8.35, 9);
+		expect(responseZones(plan, clock, t)[0].captureEndS).toBeCloseTo(8.35, 9);
 	});
 
 	it('waits for the chord until the next prompt’s string shows', () => {

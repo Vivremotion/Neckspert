@@ -5,7 +5,8 @@ import { responseVerdict } from './responseVerdict';
 import type { PairingMode, RoundModes, VerdictMode } from './types';
 
 export * from './types';
-export * from './zones';
+export * from './times';
+export * from './firstAnswerTimes';
 export * from './firstAnswer';
 export * from './alignment';
 export * from './responseVerdict';

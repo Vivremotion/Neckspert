@@ -70,7 +70,7 @@ function expectationResult(index: number, pair: PairedAnswer | undefined): Expec
 export const responseVerdict: VerdictMode = {
 	id: 'response',
 	outcome(result: PairingResult, context: VerdictContext): RoundOutcome {
-		const { plan, times } = context;
+		const { plan, times, clock } = context;
 		const timedIndex = plan.expectations.findIndex((e) => e.span === 'point');
 		if (timedIndex < 0) throw new RangeError('a response verdict needs a point expectation');
 		const timed = plan.expectations[timedIndex];
@@ -79,7 +79,7 @@ export const responseVerdict: VerdictMode = {
 
 		const byIndex = new Map(result.pairs.map((p) => [p.expectation, p]));
 		const timedPair = byIndex.get(timedIndex);
-		const atS = times.zones[timedIndex]?.atS ?? null;
+		const atS = 'map' in clock && timed.at ? clock.map.toSeconds(clock.start.add(timed.at)) : null;
 
 		const reactionMs = timedPair ? secondsToMs(timedPair.time - times.promptS) : null;
 		const timingOffsetMs = timedPair && atS !== null ? secondsToMs(timedPair.time - atS) : null;

@@ -8,7 +8,14 @@ import type {
 	PairedAnswer,
 	PairingResult
 } from './types';
-import { EDGE_TOLERANCE_S, type ResponseZone } from './zones';
+import {
+	firstAnswerSettings,
+	firstAnswerTimes,
+	responseZones,
+	validateFirstAnswer,
+	type ResponseZone
+} from './firstAnswerTimes';
+import { EDGE_TOLERANCE_S } from './times';
 
 interface Answer {
 	time: number;
@@ -40,15 +47,14 @@ class FirstAnswerPairing implements Pairing {
 	private readonly toEnd: boolean;
 
 	constructor(private readonly context: PairingContext) {
-		this.zones = context.times.zones;
+		this.zones = responseZones(context.plan, context.clock, context.times);
 		this.states = this.zones.map(() => ({
 			answer: null,
 			correction: null,
 			closed: false,
 			zoneClosed: false
 		}));
-		const pairing = context.plan.policy.pairing;
-		this.toEnd = pairing.mode === 'first-answer' && pairing.lateCapture === 'to-end';
+		this.toEnd = firstAnswerSettings(context.plan).lateCapture === 'to-end';
 	}
 
 	offer(attack: Attack): { fate: 'answer' | IgnoreReason; judged: Judged | null } {
@@ -230,5 +236,7 @@ class FirstAnswerPairing implements Pairing {
 /** « La première est la réponse »: the pairing of the one-answer rounds. */
 export const firstAnswerPairing: PairingMode = {
 	id: 'first-answer',
+	validate: validateFirstAnswer,
+	times: firstAnswerTimes,
 	create: (context) => new FirstAnswerPairing(context)
 };

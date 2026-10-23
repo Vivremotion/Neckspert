@@ -19,7 +19,7 @@ import type { ResponseValue } from './modes/responseVerdict';
 import type { ContentJudges, ExpectedContent, RoundPlan } from './plan';
 import { PlanRound, type RoundEvent, type RoundOutcome } from './round';
 import { createTempoMap } from './tempoMap';
-import { EDGE_TOLERANCE_S } from './modes/zones';
+import { EDGE_TOLERANCE_S } from './modes/times';
 
 /**
  * The parity bench: the one-answer relations of `domain/timing` and the round engine judge the

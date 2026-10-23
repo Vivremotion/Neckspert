@@ -3,7 +3,8 @@ import type { Judged, RoundPlan } from '../plan';
 import { firstAnswerPairing } from './firstAnswer';
 import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map } from './testing/plans';
 import type { Attack, Pairing, RoundClock } from './types';
-import { roundTimes } from './zones';
+import { firstAnswerTimes } from './firstAnswerTimes';
+import { roundTimes } from './times';
 
 const right: Judged = { correct: true, answer: 'right', confusion: null };
 const wrong: Judged = { correct: false, answer: 'wrong', confusion: 'other' };
@@ -11,7 +12,7 @@ const wrong: Judged = { correct: false, answer: 'wrong', confusion: 'other' };
 function pairingOf(plan: RoundPlan, clock: RoundClock = { map, start: F(2) }): Pairing {
 	return firstAnswerPairing.create({
 		plan,
-		times: roundTimes(plan, clock, false),
+		times: firstAnswerTimes(plan, clock, false, roundTimes(plan, clock)),
 		clock,
 		judge: (_, payload) => payload as Judged
 	});
@@ -225,7 +226,8 @@ describe('firstAnswerPairing', () => {
 	it('hands over at the next change: an attack on the handover is not this round’s', () => {
 		const plan = gridPlan();
 		const clock: RoundClock = { map, start: F(2) };
-		const handoverS = roundTimes(plan, clock, false).handoverS as number;
+		const handoverS = firstAnswerTimes(plan, clock, false, roundTimes(plan, clock))
+			.handoverS as number;
 		const pairing = pairingOf(plan, clock);
 		expect(pairing.offer(attack(handoverS, right, 'chord')).fate).toBe('after-capture');
 		expect(pairing.offer(attack(handoverS - 0.001, right, 'chord')).fate).toBe('answer');
@@ -252,7 +254,7 @@ describe('firstAnswerPairing', () => {
 		const clock: RoundClock = { map, start: F(2) };
 		const pairing = firstAnswerPairing.create({
 			plan,
-			times: roundTimes(plan, clock, false),
+			times: firstAnswerTimes(plan, clock, false, roundTimes(plan, clock)),
 			clock,
 			judge: () => null
 		});
