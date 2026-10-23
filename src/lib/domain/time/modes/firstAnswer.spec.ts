@@ -73,13 +73,11 @@ describe('firstAnswerPairing', () => {
 			fate: 'answer',
 			judged: wrong
 		});
-		expect(pairing.awaiting()).toBe(true);
 		expect(pairing.done(6.13)).toBe(false);
 		expect(pairing.result().pairs[0]).toMatchObject({ pending: true, judged: wrong });
 		expect(pairing.offer(attack(6.4)).fate).toBe('settled');
 		expect(pairing.offer(attack(6.13, right, 'note', true)).fate).toBe('answer');
 		expect(pairing.done(6.2)).toBe(true);
-		expect(pairing.awaiting()).toBe(false);
 		expect(pairing.result().pairs[0]).toMatchObject({ time: 6.13, pending: false, judged: right });
 	});
 
@@ -88,7 +86,6 @@ describe('firstAnswerPairing', () => {
 		pairing.offer(attack(6.13, wrong, 'note', false));
 		expect(pairing.done(8.35)).toBe(true);
 		pairing.advance(8.35);
-		expect(pairing.awaiting()).toBe(false);
 		expect(pairing.result().pairs[0]).toMatchObject({ pending: false, judged: wrong });
 		expect(pairing.offer(attack(6.13, right)).fate).toBe('settled');
 	});
@@ -113,8 +110,6 @@ describe('firstAnswerPairing', () => {
 
 	it('misses a root nobody played once its zone is over, and stops listening at the chord’s end', () => {
 		const pairing = pairingOf(anchorPlan());
-		expect(pairing.zonesOver(9.0)).toBe(false);
-		expect(pairing.zonesOver(9.1)).toBe(true);
 		expect(pairing.done(9.0)).toBe(false);
 		expect(pairing.done(9.1)).toBe(true);
 		expect(pairing.done(11.35)).toBe(true);
@@ -140,7 +135,6 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.offer(attack(6.1)).fate).toBe('answer');
 		expect(pairing.offer(attack(7.0, wrong, 'chord')).fate).toBe('answer');
 		expect(pairing.shownMisses(7.0)).toContain(1);
-		expect(pairing.awaiting()).toBe(true);
 		expect(pairing.done(8.0)).toBe(false);
 		expect(pairing.offer(attack(8.0, right, 'chord'))).toEqual({ fate: 'answer', judged: right });
 		expect(pairing.result().pairs[1]).toMatchObject({
@@ -149,7 +143,6 @@ describe('firstAnswerPairing', () => {
 			correction: { time: 8.0, judged: right }
 		});
 		expect(pairing.shownMisses(8.0)).not.toContain(1);
-		expect(pairing.awaiting()).toBe(false);
 		expect(pairing.done(8.0)).toBe(true);
 		expect(pairing.offer(attack(8.5, right, 'chord')).fate).toBe('settled');
 	});
@@ -163,9 +156,7 @@ describe('firstAnswerPairing', () => {
 		});
 		pairing.offer(attack(6.1));
 		pairing.offer(attack(7.0, wrong, 'chord'));
-		expect(pairing.awaiting()).toBe(true);
 		pairing.advance(9.1);
-		expect(pairing.awaiting()).toBe(false);
 		expect(pairing.offer(attack(8.0, right, 'chord')).fate).toBe('settled');
 	});
 
@@ -179,7 +170,6 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.done(11.3)).toBe(false);
 		expect(pairing.done(11.35)).toBe(true);
 		pairing.advance(11.35);
-		expect(pairing.awaiting()).toBe(false);
 	});
 
 	it('waits for the last expectation until listenUntil while the chain before it holds', () => {
@@ -238,7 +228,6 @@ describe('firstAnswerPairing', () => {
 		const anchor = pairingOf({ ...anchorPlan(), policy: correcting });
 		anchor.offer(attack(6.1, wrong));
 		anchor.offer(attack(7.0, wrong, 'chord'));
-		expect(anchor.awaiting()).toBe(false);
 		expect(anchor.shownMisses(7.0)).not.toContain(1);
 		expect(anchor.offer(attack(8.0, right, 'chord')).fate).toBe('settled');
 		expect(anchor.result().pairs.map((p) => p.correction)).toEqual([null, null]);
@@ -267,7 +256,6 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.offer(attack(14)).fate).toBe('answer');
 		expect(pairing.result().pairs[0].late).toBe(false);
 		expect(pairing.done(14)).toBe(true);
-		expect(pairing.zonesOver(1e9)).toBe(false);
 	});
 
 	it('takes an answer without content as right', () => {

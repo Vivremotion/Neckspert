@@ -410,8 +410,6 @@ describe('PlanRound routing', () => {
 					},
 					advance: () => {},
 					done: () => heard !== null,
-					zonesOver: () => heard !== null,
-					awaiting: () => false,
 					droppable: () => heard === null,
 					shownMisses: () => [],
 					result: () => ({

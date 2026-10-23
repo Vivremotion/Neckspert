@@ -80,7 +80,6 @@ describe('alignmentPairing', () => {
 		expect(pairing.offer(attack(endS + 1)).fate).toBe('after-capture');
 		expect(pairing.result().attacks).toEqual([startS - 0.01, startS + 0.3]);
 		expect(pairing.droppable(startS)).toBe(false);
-		expect(pairing.awaiting()).toBe(false);
 		expect(pairing.shownMisses(endS)).toEqual([]);
 	});
 
@@ -89,9 +88,7 @@ describe('alignmentPairing', () => {
 		const pairing = pairingOf(plan);
 		const endS = map.toSeconds(start.add(plan.length));
 		expect(pairing.done(endS - 0.5)).toBe(false);
-		expect(pairing.zonesOver(endS - 0.5)).toBe(false);
 		expect(pairing.done(endS)).toBe(true);
-		expect(pairing.zonesOver(endS)).toBe(true);
 	});
 
 	it('aligns what it kept as the cycle judge does', () => {

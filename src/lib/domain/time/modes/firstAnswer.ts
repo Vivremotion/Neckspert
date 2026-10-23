@@ -111,16 +111,6 @@ class FirstAnswerPairing implements Pairing {
 		return this.states.every((_, index) => this.decided(index, now));
 	}
 
-	zonesOver(now: number): boolean {
-		return this.zones.every((z) => now >= z.captureEndS - EDGE_TOLERANCE_S);
-	}
-
-	awaiting(): boolean {
-		return this.states.some(
-			(state, index) => state.answer?.pending === true || this.correctable(index)
-		);
-	}
-
 	droppable(now: number): boolean {
 		if (this.states.some((state) => state.answer !== null)) return false;
 		const first = this.zones[0];

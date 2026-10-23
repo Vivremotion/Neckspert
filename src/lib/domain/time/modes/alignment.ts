@@ -48,14 +48,6 @@ class AlignmentPairing implements Pairing {
 		return now >= this.closesS;
 	}
 
-	zonesOver(now: number): boolean {
-		return this.done(now);
-	}
-
-	awaiting(): boolean {
-		return false;
-	}
-
 	droppable(): boolean {
 		return false;
 	}

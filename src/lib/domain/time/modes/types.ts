@@ -61,10 +61,6 @@ export interface Pairing {
 	advance(now: number): void;
 	/** Every expectation decided: nothing heard later can change the result. */
 	done(now: number): boolean;
-	/** No new attack can answer any expectation (readings of attacks heard may still come). */
-	zonesOver(now: number): boolean;
-	/** A reading may still change a pair: a pending reading, or a span still correctable. */
-	awaiting(): boolean;
 	/** Closing now drops the round: nothing heard and its first in-time zone still open. */
 	droppable(now: number): boolean;
 	/** Expectations shown as missed so far (see « Le direct »). */
