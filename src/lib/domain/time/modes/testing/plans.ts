@@ -46,14 +46,15 @@ export function locatePlan(): RoundPlan {
 	};
 }
 
-/** The anchor of a triad: the root on the target, the chord over the rest of the bar. */
+/** The anchor of a triad: the root on the target, the chord over the rest of the bar, a wrong chord correctable. */
 export function anchorPlan(): RoundPlan {
 	const plan = locatePlan();
 	return {
 		...plan,
 		expectations: [...plan.expectations, expectation(quarter, { until: F(1) }, 'chord')],
 		length: F(2),
-		listenUntil: F(7, 4)
+		listenUntil: F(7, 4),
+		policy: { ...plan.policy, correction: true }
 	};
 }
 

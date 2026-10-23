@@ -70,11 +70,7 @@ describe('round plans of the four relations', () => {
 			noContent(
 				anchorPlan({ root: content, chord: content, leadBeats: 4, meter, respirationBars: 1 })
 			)
-		).toEqual({
-			...fixtureAnchor(),
-			// the fixture leaves correction off; the relation sets it on (brief)
-			policy: { ...fixtureAnchor().policy, correction: true }
-		});
+		).toEqual(fixtureAnchor());
 		expect(noContent(gridChangePlan({ content, lengthBeats: 4, meter }))).toEqual(fixtureGrid());
 	});
 });

@@ -128,10 +128,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('puts a wrong first chord right with a later right one in the span', () => {
-		const pairing = pairingOf({
-			...anchorPlan(),
-			policy: { ...anchorPlan().policy, correction: true }
-		});
+		const pairing = pairingOf(anchorPlan());
 		expect(pairing.offer(attack(6.1)).fate).toBe('answer');
 		expect(pairing.offer(attack(7.0, wrong, 'chord')).fate).toBe('answer');
 		expect(pairing.shownMisses(7.0)).toContain(1);
@@ -151,8 +148,7 @@ describe('firstAnswerPairing', () => {
 		const plan = anchorPlan();
 		const pairing = pairingOf({
 			...plan,
-			expectations: [...plan.expectations, { ...plan.expectations[0], at: F(3, 2), sensor: 'tap' }],
-			policy: { ...plan.policy, correction: true }
+			expectations: [...plan.expectations, { ...plan.expectations[0], at: F(3, 2), sensor: 'tap' }]
 		});
 		pairing.offer(attack(6.1));
 		pairing.offer(attack(7.0, wrong, 'chord'));
@@ -161,10 +157,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('closes a correction still awaited once listening ends', () => {
-		const pairing = pairingOf({
-			...anchorPlan(),
-			policy: { ...anchorPlan().policy, correction: true }
-		});
+		const pairing = pairingOf(anchorPlan());
 		pairing.offer(attack(6.1));
 		pairing.offer(attack(7.0, wrong, 'chord'));
 		expect(pairing.done(11.3)).toBe(false);
@@ -205,10 +198,7 @@ describe('firstAnswerPairing', () => {
 		silentRoot.advance(6.85);
 		expect(silentRoot.offer(attack(7.0)).fate).toBe('settled');
 
-		const anchor = pairingOf({
-			...anchorPlan(),
-			policy: { ...anchorPlan().policy, correction: true }
-		});
+		const anchor = pairingOf(anchorPlan());
 		anchor.offer(attack(6.1));
 		anchor.offer(attack(7.0, wrong, 'chord'));
 		expect(anchor.offer(attack(9.1, right, 'chord')).fate).toBe('after-capture');
@@ -216,7 +206,6 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('never corrects a point, nor a chord after a wrong root', () => {
-		const correcting = { ...anchorPlan().policy, correction: true };
 		const point = pairingOf({
 			...locatePlan(),
 			policy: { ...locatePlan().policy, correction: true }
@@ -225,7 +214,7 @@ describe('firstAnswerPairing', () => {
 		expect(point.offer(attack(6.2)).fate).toBe('settled');
 		expect(point.result().pairs[0].correction).toBeNull();
 
-		const anchor = pairingOf({ ...anchorPlan(), policy: correcting });
+		const anchor = pairingOf(anchorPlan());
 		anchor.offer(attack(6.1, wrong));
 		anchor.offer(attack(7.0, wrong, 'chord'));
 		expect(anchor.shownMisses(7.0)).not.toContain(1);
