@@ -111,11 +111,12 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.droppable(6.0)).toBe(false);
 	});
 
-	it('misses a root nobody played once its zone is over, and waits for the last expectation until listenUntil', () => {
+	it('misses a root nobody played once its zone is over, and stops listening at the chord’s end', () => {
 		const pairing = pairingOf(anchorPlan());
 		expect(pairing.zonesOver(9.0)).toBe(false);
 		expect(pairing.zonesOver(9.1)).toBe(true);
-		expect(pairing.done(9.1)).toBe(false);
+		expect(pairing.done(9.0)).toBe(false);
+		expect(pairing.done(9.1)).toBe(true);
 		expect(pairing.done(11.35)).toBe(true);
 		expect(pairing.shownMisses(9.1)).not.toContain(1);
 		expect(pairing.shownMisses(9.1)).toEqual([0]);
@@ -153,6 +154,21 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.offer(attack(8.5, right, 'chord')).fate).toBe('settled');
 	});
 
+	it('stops correcting a span that is not the last once its zone has passed', () => {
+		const plan = anchorPlan();
+		const pairing = pairingOf({
+			...plan,
+			expectations: [...plan.expectations, { ...plan.expectations[0], at: F(3, 2), sensor: 'tap' }],
+			policy: { ...plan.policy, correction: true }
+		});
+		pairing.offer(attack(6.1));
+		pairing.offer(attack(7.0, wrong, 'chord'));
+		expect(pairing.awaiting()).toBe(true);
+		pairing.advance(9.1);
+		expect(pairing.awaiting()).toBe(false);
+		expect(pairing.offer(attack(8.0, right, 'chord')).fate).toBe('settled');
+	});
+
 	it('closes a correction still awaited once listening ends', () => {
 		const pairing = pairingOf({
 			...anchorPlan(),
@@ -166,11 +182,38 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.awaiting()).toBe(false);
 	});
 
-	it('judges an attack outside every zone by the zones, answered or not', () => {
+	it('waits for the last expectation until listenUntil while the chain before it holds', () => {
+		const pairing = pairingOf(anchorPlan());
+		pairing.offer(attack(6.1));
+		expect(pairing.done(9.1)).toBe(false);
+		expect(pairing.done(11.35)).toBe(true);
+	});
+
+	it('takes a chord reading still waiting as it stands at the bar’s end after a wrong root', () => {
+		const pairing = pairingOf(anchorPlan());
+		pairing.offer(attack(6.1, wrong));
+		pairing.offer(attack(7.0, wrong, 'chord', false));
+		expect(pairing.result().pairs[1].pending).toBe(true);
+		pairing.advance(9.1);
+		expect(pairing.done(9.1)).toBe(true);
+		expect(pairing.result().pairs[1]).toMatchObject({ pending: false, judged: wrong });
+	});
+
+	it('settles every later attack of a decided point, and judges a span by its zone', () => {
 		const located = pairingOf(locatePlan());
-		located.offer(attack(6.13));
 		expect(located.offer(attack(8.36)).fate).toBe('after-capture');
-		expect(located.offer(attack(3.0)).fate).toBe('before-window');
+		located.offer(attack(6.13));
+		expect(located.offer(attack(8.36)).fate).toBe('settled');
+		expect(located.offer(attack(3.0)).fate).toBe('settled');
+
+		const answeredRoot = pairingOf(anchorPlan());
+		answeredRoot.offer(attack(6.1));
+		expect(answeredRoot.offer(attack(7.0)).fate).toBe('settled');
+
+		const silentRoot = pairingOf(anchorPlan());
+		expect(silentRoot.offer(attack(7.0)).fate).toBe('after-capture');
+		silentRoot.advance(6.85);
+		expect(silentRoot.offer(attack(7.0)).fate).toBe('settled');
 
 		const anchor = pairingOf({
 			...anchorPlan(),

@@ -20,8 +20,10 @@ interface Answer {
 interface ExpectationState {
 	answer: Answer | null;
 	correction: { time: number; judged: Judged } | null;
-	/** Listening is over: no correction can come any more. */
+	/** Its zone has passed or listening is over: no correction can come any more. */
 	closed: boolean;
+	/** `advance` went past its zone's end. */
+	zoneClosed: boolean;
 }
 
 /** An expectation without content is answered right by any attack. */
@@ -39,7 +41,12 @@ class FirstAnswerPairing implements Pairing {
 
 	constructor(private readonly context: PairingContext) {
 		this.zones = context.times.zones;
-		this.states = this.zones.map(() => ({ answer: null, correction: null, closed: false }));
+		this.states = this.zones.map(() => ({
+			answer: null,
+			correction: null,
+			closed: false,
+			zoneClosed: false
+		}));
 		const pairing = context.plan.policy.pairing;
 		this.toEnd = pairing.mode === 'first-answer' && pairing.lateCapture === 'to-end';
 	}
@@ -79,6 +86,10 @@ class FirstAnswerPairing implements Pairing {
 			}
 			return { fate: 'settled', judged };
 		}
+		// A point decided (answered, or its zone closed) settles every later attack of its sensor.
+		if (candidates.some((z) => z.span === 'point' && this.pointDecided(z.index))) {
+			return { fate: 'settled', judged: null };
+		}
 		// Outside every zone of the sensor, answered or not (a settled round is the engine's word).
 		const fate = time < candidates[0].opensS - EDGE_TOLERANCE_S ? 'before-window' : 'after-capture';
 		return { fate, judged: null };
@@ -90,8 +101,9 @@ class FirstAnswerPairing implements Pairing {
 			if (listened || this.zonePassed(index, now)) {
 				// Decided: the reading still waiting is the answer, as it stands.
 				if (state.answer) state.answer.pending = false;
+				state.closed = true;
 			}
-			if (listened) state.closed = true;
+			if (now >= this.zones[index].captureEndS - EDGE_TOLERANCE_S) state.zoneClosed = true;
 		}
 	}
 
@@ -200,10 +212,24 @@ class FirstAnswerPairing implements Pairing {
 		return !this.mayBeCorrected(index) || state.correction !== null;
 	}
 
-	/** Not the last expectation, and its zone is over. */
+	/** Its zone is over, and it is not the last expectation or the chain before it broke. */
 	private zonePassed(index: number, now: number): boolean {
+		if (now < this.zones[index].captureEndS - EDGE_TOLERANCE_S) return false;
 		const last = index === this.zones.length - 1;
-		return !last && now >= this.zones[index].captureEndS - EDGE_TOLERANCE_S;
+		return !last || this.chainBroken(index, now);
+	}
+
+	/** An expectation before `index` is decided as missed or wrong: listening stops there. */
+	private chainBroken(index: number, now: number): boolean {
+		return this.states.slice(0, index).some((state, before) => {
+			if (!this.decided(before, now)) return false;
+			return state.answer === null || !isRight(state.answer.judged);
+		});
+	}
+
+	/** Decided by its state, never by an attack's own time: answered, or closed by `advance`. */
+	private pointDecided(index: number): boolean {
+		return this.isAnswered(index) || this.states[index].zoneClosed;
 	}
 
 	private listened(now: number): boolean {
