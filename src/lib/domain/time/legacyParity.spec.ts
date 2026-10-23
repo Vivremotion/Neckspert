@@ -19,6 +19,7 @@ import type { ResponseValue } from './modes/responseVerdict';
 import type { ContentJudges, ExpectedContent, RoundPlan } from './plan';
 import { PlanRound, type RoundEvent, type RoundOutcome } from './round';
 import { createTempoMap } from './tempoMap';
+import { EDGE_TOLERANCE_S } from './modes/zones';
 
 /**
  * The parity bench: the one-answer relations of `domain/timing` and the round engine judge the
@@ -48,6 +49,8 @@ interface Reading {
 	final: boolean;
 	correct: boolean;
 	answer: string;
+	/** Readings of one generated attack share its id. */
+	attack?: number;
 }
 
 type Step = { observe: Reading } | { beat: number } | { abandon: number };
@@ -226,7 +229,8 @@ function playLegacy({ setup, steps }: Script): Trace {
 	const record = recorder<LegacyOutcome>((o) => normalizeLegacy(setup.kind, o));
 	steps.forEach((step, index) => {
 		if ('observe' in step) {
-			const event: LegacyEvent = round.observe({ ...step.observe });
+			const { attack: _attack, ...observation } = step.observe;
+			const event: LegacyEvent = round.observe(observation);
 			record.trace.fates.push(event.kind === 'ignored' ? event.reason : 'answer');
 			record.event(index, event);
 			return;
@@ -615,14 +619,19 @@ interface RootClosing {
 	endStep: number;
 	/** No root answer before that beat. */
 	unanswered: boolean;
-	/** The time of a root reading still waiting at that beat, if any. */
-	pendingAt: number | null;
+	/** The attack of a root reading still waiting at that beat, if any. */
+	pendingAttack: number | null;
+	/**
+	 * The step from which the old side says `settled` to every root attack: its inner root (or
+	 * the whole anchor) settled. Infinity when it never does.
+	 */
+	oldRootSettledStep: number;
 }
 
 function rootClosing({ setup, steps }: Script, legacy: Trace): RootClosing {
 	const beatTime = beatTimeOf(setup);
 	const endS = beatTime(setup.promptBeat + (setup.leadBeats as number) + 1);
-	const found = steps.findIndex((s) => 'beat' in s && beatTime(s.beat) >= endS - 1e-6);
+	const found = steps.findIndex((s) => 'beat' in s && beatTime(s.beat) >= endS - EDGE_TOLERANCE_S);
 	const endStep = found < 0 ? Infinity : found;
 	let answer: Reading | null = null;
 	steps.forEach((step, index) => {
@@ -631,24 +640,65 @@ function rootClosing({ setup, steps }: Script, legacy: Trace): RootClosing {
 	});
 	const last = answer as Reading | null;
 	const pending = last !== null && !last.final && !last.correct;
-	return { endS, endStep, unanswered: last === null, pendingAt: pending ? last.time : null };
+	return {
+		endS,
+		endStep,
+		unanswered: last === null,
+		pendingAttack: pending ? (last.attack ?? null) : null,
+		oldRootSettledStep: Math.min(
+			oldRootSettledStep({ setup, steps }),
+			legacy.settled?.step ?? Infinity
+		)
+	};
 }
 
-/** A note observation reaching the round after the root closed, timed after its zone or for the reading still waiting. */
-const isLateRootObservation = (step: Step, index: number, d1: RootClosing): boolean =>
+/**
+ * Replays the old side and gives the step after which its inner root round (a `BeatRound`, read
+ * through its public `after()`, non-null once settled) is settled.
+ */
+function oldRootSettledStep(script: Script): number {
+	const round = openLegacy(script.setup);
+	const root = (round as unknown as { root: { after(): unknown } }).root;
+	const beatTime = beatTimeOf(script.setup);
+	for (const [index, step] of script.steps.entries()) {
+		if ('observe' in step) {
+			const { attack: _attack, ...observation } = step.observe;
+			round.observe(observation);
+		} else if ('beat' in step) round.onBeat({ index: step.beat, time: beatTime(step.beat) });
+		else round.abandon(step.abandon);
+		if (root.after() !== null) return index;
+	}
+	return Infinity;
+}
+
+/** A note observation reaching the round after the engine closed the root, before the old side did. */
+const isBetweenRootClosings = (
+	step: Step,
+	index: number,
+	d1: RootClosing
+): step is { observe: Reading } =>
 	'observe' in step &&
 	step.observe.sensor === 'note' &&
 	index > d1.endStep &&
-	(step.observe.time > d1.endS + 1e-6 || step.observe.time === d1.pendingAt);
+	index <= d1.oldRootSettledStep;
+
+/** A later reading of the root's attack still waiting at its zone end. */
+const isRootReRead = (step: Step, index: number, d1: RootClosing): boolean =>
+	d1.pendingAttack !== null &&
+	isBetweenRootClosings(step, index, d1) &&
+	step.observe.attack === d1.pendingAttack;
+
+/** Between the two closings: an attack after the root's zone, or a re-reading of its waiting one. */
+const isLateRootObservation = (step: Step, index: number, d1: RootClosing): boolean =>
+	isRootReRead(step, index, d1) ||
+	(isBetweenRootClosings(step, index, d1) && step.observe.time > d1.endS + EDGE_TOLERANCE_S);
 
 /** The root's miss is decided at a different step: unanswered or still waiting at its zone end. */
-const rootDecidedApart = (d1: RootClosing): boolean => d1.unanswered || d1.pendingAt !== null;
+const rootDecidedApart = (d1: RootClosing): boolean => d1.unanswered || d1.pendingAttack !== null;
 
 /** A later reading of the root's waiting attack came: the old side may judge the root on it. */
 const rootReadAgain = (script: Script, d1: RootClosing): boolean =>
-	script.steps.some(
-		(step, index) => isLateRootObservation(step, index, d1) && d1.pendingAt !== null
-	);
+	script.steps.some((step, index) => isRootReRead(step, index, d1));
 
 /** The trace with what D1 explains blanked out; everything else is kept for comparison. */
 function withoutRootClosing(script: Script, trace: Trace, d1: RootClosing): Trace {
@@ -660,7 +710,7 @@ function withoutRootClosing(script: Script, trace: Trace, d1: RootClosing): Trac
 	const provisional = d1.unanswered ? null : trace.provisional;
 	let settled = trace.settled;
 	if (settled && decidedApart) settled = { ...settled, step: -1 };
-	if (settled?.outcome && d1.pendingAt !== null) {
+	if (settled?.outcome && d1.pendingAttack !== null) {
 		const answer = { ...(settled.outcome.answer as object), root: 'D1' };
 		const outcome = rootReadAgain(script, d1)
 			? { ...settled.outcome, verdict: 'D1', correct: false, answer }
@@ -746,9 +796,11 @@ function randomScript(kind: Kind, seed: number): Script {
 			const time = int(ms(promptS - 0.5), ms(listenUntilS + 0.5)) / 1000;
 			// A tap is read once, final: the old free relation never knew another reading.
 			const twice = kind !== 'free' && random() < 0.3;
+			const attack = label;
 			const reading = (final: boolean): Step => {
 				const correct = random() < 0.5;
-				return { observe: { time, sensor, final, correct, answer: `${sensor}-${label++}` } };
+				const answer = `${sensor}-${label++}`;
+				return { observe: { time, sensor, final, correct, answer, attack } };
 			};
 			const firstAt = time + (random() < 0.7 ? 0 : int(1, 150) / 1000);
 			timed.push({
