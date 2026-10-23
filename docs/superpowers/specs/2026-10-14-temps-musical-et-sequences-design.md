@@ -412,6 +412,8 @@ Une **journée de pratique intensive** des trois exercices par l’auteur, au mo
 
 La décision (migrer, ou recalibrer d’abord) se prend sur ces résultats.
 
+**Fait (2026-10-23).** Le capteur d’attaques tient sur l’oracle annoté ; les corrections demandées sont dans le code. Décision : migrer (H).
+
 #### L’oracle, concrètement
 
 Il valide **le capteur** (les attaques entendues et leurs instants) ; les calculs du juge sont validés par les tests, ses seuils par l’écoute musicale des réécoutes.
@@ -430,7 +432,7 @@ Durée : une suite de 20 à 30 s compte 40 à 60 attaques, soit 3 à 5 minutes ;
 
 ### H — critère de fin
 
-`domain/timing/beat.ts`, `anchor.ts`, `gridChange.ts`, `free.ts`, `grid.ts` (`BEATS_PER_BAR`, `alignedPromptBeat`), `MetronomePort` et `isSuccess` n’existent plus ; `leadBeats`, `initialLead`, `learnedLead`, `adjustLead`, `targetBeatIndex`, `laneBeat` sortent du contrat (l’avance devient la position de la consigne dans le plan, son ajustement passe dans les niveaux de « localiser », par carte) ; une recherche dans le dépôt ne trouve plus aucun de ces noms. Le schéma de stockage ne change pas à H.
+`domain/timing/beat.ts`, `anchor.ts`, `gridChange.ts`, `free.ts`, `grid.ts` (`BEATS_PER_BAR`, `alignedPromptBeat`), `MetronomePort` et `isSuccess` n’existent plus ; `leadBeats`, `initialLead`, `learnedLead`, `adjustLead`, `targetBeatIndex`, `laneBeat` sortent du contrat (l’avance devient la position de la consigne dans le plan, son ajustement passe dans les niveaux de « localiser », par carte) ; une recherche dans le dépôt ne trouve plus aucun de ces noms. Le schéma de stockage ne change pas à H. **Revu par l’amendement du 2026-10-23** : le critère complet y est, et l’avance quitte la carte pour `levelStates` (Dexie 9, sauvegarde 5).
 
 ## 12. Constantes (à calibrer)
 
@@ -710,8 +712,8 @@ Rien n’échoue sur le papier. Ce qui reste hors des segments, et y reste : la 
 ### Ce que ça change à l’ordre de construction
 
 - **Plan 2**, réglé sur ce que la journée de validation (G) demande : la trace et la politique pour les séances d’exercice (`PlanSessionController` exécute `next`), retrait de `cyclesPerSeries`, l’anti-blocage dans la politique, la mémoire tampon de séance et le bilan sur la trace (une réécoute par suite), le lexique, la contestation par raison (développement), l’oracle, « temps perdu » dessiné sur sa mesure. Ce que G ne lit pas attend : le contrat `choose` au-delà d’une séance d’un exercice, les segments en temps libre, `SESSION_MS` pour les séances des notes, des triades et du geste.
-- **H** : les quatre relations et les sélecteurs passent sur la politique et la trace (segments en temps libre compris) ; `SESSION_MS` devient la durée de toutes les séances. Le schéma ne change pas à H.
-- **Chantier 2** : la fin de `SessionKind` avec les parcours en données ; `SessionRecord.kind` est remplacé par ses séries (Dexie 9, sauvegarde 5, une étape de plus dans `migrations/`).
+- **H** : les quatre relations et les sélecteurs passent sur la politique et la trace (segments en temps libre compris) ; `SESSION_MS` devient la durée de toutes les séances. Le schéma ne change pas à H (revu le 2026-10-23 : Dexie 9 à H, voir l’amendement).
+- **Chantier 2** : la fin de `SessionKind` avec les parcours en données ; `SessionRecord.kind` est remplacé par ses séries (Dexie 10, sauvegarde 6, une étape de plus dans `migrations/` ; la version 9 est prise par H).
 
 ### Réalisation du plan 2 (2026-10-17)
 
@@ -728,3 +730,150 @@ Branche `plan/temps-musical-2`, plan `docs/superpowers/plans/2026-10-17-2-avant-
 - `SessionSummary.rhythm` devient `SessionSummary.exercise` (`ExerciseSummary`, `summarizeExercise`).
 - `scripts/functional-ui.mjs` échoue sur 9 vérifications anciennes (accueil, bilan, carte, calibration) au commit de départ comme après ; les nouvelles (temps perdu, jouer avec) passent, aucun texte sous 16 px.
 - **Après la relecture de la branche** : l’anti-blocage n’agit que sur les échecs de la série en cours (`recent`), jamais sur ceux gardés d’une séance précédente ; « On change d’air » écarte le cycle déjà posé d’avance mais pas commencé (le clic de la mesure suivante sonne encore jusqu’au règlement du cycle en cours, un quart de mesure) ; une pause une fois la fin décidée termine la série ; un tour coupé ne compte pas comme joué dans le bilan ; le plan résolu d’un cycle garde son instant audio (`CyclePlanRecord.startAudioS`), sur lequel l’oracle le place (sans lui, par la correspondance horloge murale ↔ audio de la prise, décalée de la latence de sortie).
+
+## Amendement (2026-10-23) : la migration (H) comme généralisation
+
+Décidé dans la conversation du 2026-10-23, après la journée de validation (G, faite : voir section 11). Il précise H et remplace, pour H, ce que la section 11 et l’amendement du 2026-10-17 en disaient quand ils le contredisent.
+
+### Le principe
+
+H ne vaut que s’il **généralise** : supprimer les quatre relations et les sélecteurs n’a d’intérêt que si ce qui les remplace sert à écrire de nouveaux exercices **sans nouveau code**. Réécrire la même spécialisation ailleurs n’est pas un gain. Chaque pièce de H est donc une primitive du moteur, branchée par des données ; ce qui reste propre à un exercice passe derrière une interface, et n’est généralisé que quand un deuxième exercice réel le demande (règle de `docs/vision.md`).
+
+Corollaire, pour tout ce que H remplace : on ne reproduit pas l’ancien comportement pour lui-même. Ce qui compte est que le joueur progresse ; un autre ordre des items, une règle en moins, sont bienvenus s’ils ne nuisent pas à l’apprentissage et simplifient le moteur.
+
+### Décisions
+
+- **H porte aussi les notes et les triades sur `PlayFrame`** (fin de `PlayScreen`) : la forme du verdict que l’écran lit change à H, le travail ne se fait qu’une fois. Retiré du chantier 2 (`docs/vision.md`).
+- **Les séquences (`SEQUENCES_ENABLED`, `sequence.ts`) sont supprimées** : l’usage ne les a pas justifiées ; l’auteur testera sans elles. Un changement d’avance n’est plus annoncé par une mesure comptée.
+- **Un seul moteur de tour** pour tous les plans, à emplacements (ci-dessous) ; écarté : deux moteurs côte à côte (la séquence avec contenu en demanderait un troisième), un compilateur et une machine par relation (la spécialisation déplacée).
+- **Une seule procédure d’apprentissage** pour les items à retenir, qui remplace `learnSelector` et `triadSelector` (les mêmes notions en double) ; le générateur du geste passe derrière l’interface des sources d’items sans être réécrit.
+- **Un seul contrôleur**, `PlanSessionController` élargi et découpé, qui reprend le nom `SessionController`.
+- **Le stockage change à H** : l’avance quitte `CardState` pour `levelStates` (Dexie 9, sauvegarde 5). Le chantier 2 prend la version 10.
+
+### 1. Les pièces et les plans
+
+De bas en haut :
+
+1. **Le moteur de tour** (domaine) : juge tout `RoundPlan` par trois emplacements (juge de contenu, appariement, verdict) ; le direct est une responsabilité à part.
+2. **La procédure d’apprentissage, les sources d’items, `choose`** (domaine).
+3. **Le contrôleur unique** (application) : exécute ce que la politique `next` décide, en temps musical ou en temps libre.
+4. **Les vues** (interface) : la piste et le clavier entrent dans le registre de `PlayFrame`.
+
+| Plan   | Contenu                                                                                                                                 | Touche l’existant   |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| **H1** | moteur de tour, registres de modes et juges de contenu, à côté ; les specs de `beat`, `anchor`, `gridChange`, `free` rejouées sur lui   | non                 |
+| **H2** | procédure d’apprentissage, sources d’items, `choose`, à côté ; règles pédagogiques en invariants                                        | non                 |
+| **H3** | le contrôleur unique joue tout ; notes, triades et geste y basculent une mécanique à la fois ; suppression de l’ancien chemin ; Dexie 9 | oui, la bascule     |
+| **H4** | briques et vues piste et clavier dans `PlayFrame` ; suppression de `PlayScreen`                                                         | interface seulement |
+
+Une branche à la fois. H4 après H3 : brancher les vues sur l’ancien contrôleur serait du travail fait deux fois.
+
+### 2. Le moteur de tour
+
+**La politique du plan nomme ses modes.** `RoundPolicy` cesse d’être une liste de drapeaux (`firstAnswerOnly`, `lateCapture`, `provisional`) :
+
+```ts
+interface RoundPolicy {
+	unit: 'response' | 'cycle';
+	pairing: { mode: 'first-answer'; lateCaptureMs: number | null } | { mode: 'alignment' };
+	verdict: 'response' | 'cycle';
+	/** Un premier verdict faux peut être corrigé par une réponse juste plus tard dans l’étendue. */
+	correction: boolean;
+}
+```
+
+`unit` reste ce qu’il est (ce qui clôt le tour : une réponse ou le cycle entier ; la trace le lit) ; `verdict` nomme le mode de verdict, qui porte aujourd’hui le même nom que l’unité sans lui être lié. Les noms de champs sont ceux du plan H1 ; les réglages d’un mode (`lateCaptureMs`, et ce que H1 y trouve) sont des données du mode, pas du moteur. Le plan résolu reste du JSON stocké avec la tentative.
+
+**`Expectation.at` peut être `null`** : une attente en **temps libre** (identifier), à laquelle on répond quand on veut ; seul le temps de réaction se mesure.
+
+**Les trois emplacements, chacun un registre** (comme `PLAY_VIEWS`, `MECHANIC_RULES`) :
+
+1. **Juge de contenu**, par sorte de contenu, pas par mécanique : `note` (la hauteur sur la corde, avec ses confusions : nom de la corde à vide, une case à côté…), `chord` (la forme lue par le vérificateur), `name` (le nom tapé). Il rend `{ correct, answer, confusion }`. Les `judge` des mécaniques y migrent ; un nouvel exercice qui attend une note sur une corde réutilise `note`.
+2. **Appariement** : quelle observation répond à quelle attente, et le sort de chaque observation (`answer`, `IgnoreReason`, `other-sensor`, `unreadable`).
+   - `first-answer` : la fenêtre s’ouvre `MIN_RESPONSE_MS` après la consigne ; la première observation est la réponse, les suivantes sont ignorées ; capture tardive facultative, bornée par l’aperçu de la consigne suivante (`lateCaptureEnd`) ;
+   - `alignment` : l’aligneur actuel (`alignAttacks`), tel quel.
+3. **Verdict** : de l’appariement au `RoundOutcome` (l’enveloppe déjà stockée).
+   - `response` : `perfect` / `early` / `late` / `offbeat` / `corrected` / `wrong`, et `success` (ce que fait `isResponseSuccess` aujourd’hui) ; il porte aussi la lecture du rappel direct (`isDirectRecall`) et celle des verdicts stockés (`responseVerdictOf`) ;
+   - `cycle` : `cycleReport`, `cycleVerdict` et les mesures, tels quels.
+
+**Le direct est à part.** Le tour émet des événements communs à tous les modes (`pending`, `provisional`, `settled`) ; c’est le modèle d’écran de l’exercice qui en fait un affichage. L’appariement ne sait pas qu’il y a un écran.
+
+**Le moteur** (`PlanRound` élargi) ne fait que router : il date les attentes sur la carte de tempo, donne chaque observation à l’appariement, celui-ci au juge de contenu, et le tout au verdict à la clôture. Il ne connaît que les interfaces : ajouter ou changer un mode ne le touche pas.
+
+**Les relations actuelles, en plans** :
+
+| Relation                | Attentes                                                  | Appariement                       | Verdict    | Particularité                             |
+| ----------------------- | --------------------------------------------------------- | --------------------------------- | ---------- | ----------------------------------------- |
+| `beat` (localiser)      | `note` à 0, consigne à −avance                            | `first-answer`, capture tardive   | `response` | respiration après le tour                 |
+| `anchor` (triades)      | `note` à 0, puis `chord` du temps 2 à la fin de la mesure | `first-answer`                    | `response` | `correction`                              |
+| `gridChange` (geste)    | `chord` à chaque changement, fenêtre `{ ofGap }`          | `first-answer`                    | `response` | `handover` avant le changement suivant    |
+| `free` (identifier)     | `name`, `at: null`                                        | `first-answer`                    | `response` | temps libre, pas d’`early` ni d’`offbeat` |
+| figures de rythme       | attaques sans contenu                                     | `alignment`                       | `cycle`    | inchangé                                  |
+| séquence (S, plus tard) | `note` × N                                                | l’un ou l’autre, selon l’exercice | `cycle`    | sans code de plus                         |
+
+### 3. La procédure d’apprentissage, les sources d’items, `choose`
+
+**La procédure** reprend, sans rien qui nomme les notes ou les triades :
+
+- les catégories, dans l’ordre : retests dus, révisions à froid, items repris, items nouveaux (sous les seuils de réussite), consolidation ; après un raté, un item solide en rattrapage ;
+- le cycle d’un item nouveau : sondage sans aide ; réussi, l’item passe en révision (`probeCard`) ; raté, la présentation aidée à la consigne suivante, puis les retests espacés ;
+- l’ensemble de travail borné (`MAX_WORKING_SET`) ; le tirage au hasard (injecté) dans une catégorie.
+
+**L’exercice donne en données** : l’univers des items et leur ordre d’introduction ; une relation **voisin** (jamais l’item précédent ni son voisin : le miroir des notes ; « une autre corde si possible » en est une préférence) ; une condition **prêt** (une note attend que son miroir soit acquis) ; son **échelle d’aides** (présentation aidée, corde dessinée qui s’efface après `STRING_AID_FADE_SUCCESSES`).
+
+**Les invariants testés** sont les règles pédagogiques des specs d’apprentissage (2026-10-02, 2026-10-03, 2026-10-08), pas l’ancienne suite d’items : un item nouveau est d’abord sondé sans aide ; un raté revient en retest espacé ; l’aide s’efface après des réussites ; jamais deux fois de suite le même item ni son voisin ; l’ensemble de travail reste borné ; un item nouveau n’arrive que sous les seuils de réussite ; seuls les essais froids nourrissent FSRS (`probeTemperature` inchangé). L’ordre est libre, et la procédure peut viser moins de répétition. **Simplifier fait partie du travail** : une règle des sélecteurs n’est gardée que si elle sert l’apprentissage ; celles que H2 retire sont listées dans le plan avec leur raison, pour que l’auteur tranche.
+
+**L’avance devient un niveau par item.** « Localiser » a des niveaux d’avance 8, 4, 2 tenus dans `LevelState` par carte ; `adjustLead` cède la place à `nextLevelState`, avec `pass = 1` et `drop = 1` (une réussite raccourcit d’un cran, un raté rallonge d’un cran, comme aujourd’hui). On ne descend jamais sous le niveau 1 en ratant : l’avance 8 reste la plus longue. L’avance du rappel direct reste fonction du tempo (aujourd’hui `leadForThreshold`) ; H2 l’écrit en données des niveaux.
+
+**Les sources d’items** : l’interface derrière laquelle passent la procédure d’apprentissage, la liste fixe (jeu libre) et le générateur du geste (passages de grille, rotation des zones, montée qui tourne, tour de relier rejoué), ce dernier sans réécriture. Une source rend le prochain item et prépare son plan de tour ; elle reçoit le résultat de chaque tour.
+
+**`choose`** au-dessus : dans H, le seul cas « une série, un exercice, sa source » ; le chantier 5 y met le score (urgence, frange, faiblesse) en lisant les candidats que les sources exposent.
+
+### 4. Le contrôleur unique
+
+`PlanSessionController` absorbe `SessionController` et reprend son nom. Il est découpé :
+
+| Pièce             | Tâche                                                                                                                                                                 |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| contrôleur        | exécute ce que `next` rend (tour, écoute, respiration, mesure comptée, silence, consigne, fin), en temps musical par le transport, en temps libre par l’horloge seule |
+| exécuteur de tour | ouvre le moteur de tour sur le plan, donne aux capteurs leur attente, route les observations, retire les attentes avant la clôture, passe la main (`handover`)        |
+| enregistreur      | une tentative par tour et son étendue d’observations (`ObservationSpan`) ; pour les items à retenir, froid ou chaud, FSRS, inchangés                                  |
+| modèle d’écran    | l’emplacement de l’exercice qui fait des événements du tour un modèle de vue (`MechanicPresenter.stage`, `rhythmStage`)                                               |
+| trace, prises     | inchangées, pour tous les exercices                                                                                                                                   |
+
+- **La politique `next` apprend, en données de l’exercice** : un tour par respiration et une respiration de `RESPIRATION_BARS` (localiser, triades) ; des tours enchaînés par passage de main sans respiration (geste) ; une mesure comptée au changement de scène, de tempo ou d’exercice, avec silence facultatif avant.
+- **Une séance qui mêle plusieurs exercices** (l’Apprentissage : localiser et identifier) : chaque changement d’exercice ouvre une série, décidée par `choose` depuis la source.
+- **Deviennent communs à tous les exercices** : la réécoute de la dernière suite, l’écoute quand l’exercice sait faire sonner son contenu, la consigne (`howTo`), la fatigue, « Joué juste » (en développement seulement : le juge doit avoir raison seul).
+- **`SESSION_MS`** est la durée de toutes les séances (`LEARN_SESSION_MS`, `GESTURE_SESSION_MS` disparaissent).
+- **Garde-fous** : le test de frontière (le cœur ne nomme aucune mécanique) couvre le contrôleur unique ; la séance de bout en bout d’une mécanique factice (`thirdMechanic.spec.ts`) passe sur le nouveau chemin.
+
+### 5. Les vues et le contrat d’écran
+
+- **`PlayView` ne garde que ce dont le cadre a besoin** : statut, mesure comptée, consigne, erreur audio, fatigue, « Joué juste », le tempo écrit comme la carte de tempo l’écrit (♩ = 100), et `stage: { view, model }`. Sortent : `beatsPerBar`, `promptBeatIndex`, `targetBeatIndex`, `leadBeats`, `history`, `preview`, `followUp`, `answerChoices`, `chordDiagram`, `scene`, et les champs de `PromptView` / `VerdictView` propres à une mécanique (`detail`, `diagram`, `target`, `band`, `shape`, `heard`, `expected`, `gap`). Ils entrent dans le modèle d’écran de l’exercice, opaque au cœur.
+- **`PlayScreen` devient des briques puis des vues** (une vue par mécanique, assemblée de briques communes ; changer l’une ne touche pas l’autre). Briques, reprises de `PlayScreen` avec le travail visuel de da-1 tel quel : la piste, le mot de consigne, le verdict et son écart, la bande de l’accord, la corde dessinée, le clavier de réponse. Vues du registre : `note-lane` (localiser), `triad-lane` (ancrage, zone), `answer-keys` (identifier).
+- **La réponse tapée est un capteur** (`tap`), lu par le juge `name` : le contrôleur ne sait plus qu’il existe un pavé.
+- **`/session` n’a plus qu’un chemin** (`PlayFrame`) ; `/dev/identify` et `/session/demo` suivent.
+
+### 6. Données, critère de fin, tests, risques
+
+**Données**
+
+- Les tentatives stockées ne changent pas : `success`, `correct`, l’enveloppe `verdict` et `plan` y sont ; `responseVerdictOf` passe dans le mode de verdict `response`.
+- Le plan résolu d’une tentative des notes et des triades est désormais un vrai `RoundPlan`, politique comprise ; les tentatives anciennes gardent le leur.
+- **Dexie 9, sauvegarde 5** : une étape pure dans `migrations/` (`v9.ts`), appliquée par la mise à niveau et par l’import, copie l’avance de chaque carte (`CardState.leadBeats`) dans `levelStates` (clé `[exerciseId+scope+item]`) et retire le champ ; son test d’aller-retour.
+
+**Critère de fin.** Une recherche dans le dépôt ne trouve plus : `domain/timing/`, `TimingRelation`, `MetronomePort`, `WebAudioMetronome`, `BEATS_PER_BAR`, `alignedPromptBeat` ; `leadBeats` (hors migrations), `adjustLead`, `learnedLead`, `initialLead`, `laneBeat`, `isResponseSuccess` ; `learnSelector`, `triadSelector`, `sequence.ts`, `SEQUENCES_ENABLED` ; l’ancien `SessionController`, `PlanSessionController` (renommé), `PlayScreen` ; `LEARN_SESSION_MS`, `GESTURE_SESSION_MS`. `SessionKind` reste (chantier 2).
+
+**Tests**
+
+- H1 : les specs des quatre relations rejouées sur le moteur comme cas d’acceptation ; un mode factice branché sans toucher au moteur.
+- H2 : les invariants pédagogiques (section 3), sur la procédure seule et pour chaque exercice qui l’utilise.
+- H3 : les séances de bout en bout actuelles (`gestureEndToEnd`, `triadsSession`, `thirdMechanic`, `chainedRounds`…) sur le chemin unique ; le test de frontière ; la migration 8 → 9.
+- H4 : les specs de `PlayScreen` reportées sur les vues ; `scripts/functional-ui.mjs` sur les mêmes écrans.
+- À la fin : une séance réelle de l’auteur, notes, triades, geste et rythme, sans séquences.
+
+**Risques nommés**
+
+- **Perdre une règle qui comptait** en simplifiant la procédure : les invariants en couvrent une partie, la pratique réelle tranche le reste.
+- **Le temps réel** : le verdict direct ne prend pas de retard en passant par le moteur ; les attentes du capteur d’accords sont retirées avant la clôture, comme aujourd’hui.
+- **La taille de H3** : la bascule se fait mécanique par mécanique dans la même branche, chacune verte avant la suivante, l’ancien code supprimé à la fin.
