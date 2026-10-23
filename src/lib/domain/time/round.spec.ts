@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
-import { compileCyclePlan, type RoundPlan } from './plan';
+import { compileCyclePlan, type ContentJudges, type Judged, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
+import { ROUND_MODES } from './modes';
+import type { PairingMode, RoundModes } from './modes/types';
+import { anchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
 
 const of = Fraction.of;
 
@@ -43,15 +46,27 @@ const start = of(1);
 const THRESHOLDS = { precision: 40, regularity: 30 };
 const SYSTEM = { ms: 20, provenance: 'system' as const };
 
+/** A cycle judges no content: any judge asked for is a wiring error. */
+const noJudges: ContentJudges = (kind) => {
+	throw new Error(`no content judge in a cycle: ${kind}`);
+};
+
 function round(plan = cyclePlan(), aids: Aid[] = []) {
 	return new PlanRound({
 		plan,
-		map,
-		start,
+		clock: { map, start },
+		judges: noJudges,
 		latency: SYSTEM,
 		thresholds: THRESHOLDS,
 		aids
 	});
+}
+
+/** Closes a cycle once it is over: a cycle always gives an outcome. */
+function closed(r: PlanRound) {
+	const outcome = r.close(r.endTime);
+	if (outcome === null) throw new Error('a cycle closed without an outcome');
+	return outcome;
 }
 
 const attack = (time: number): PlanObservation => ({
@@ -91,8 +106,8 @@ describe('PlanRound', () => {
 	it('passes a cycle of exact off-beats, with no judge verdict of its own', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
-		for (const time of exactTimes(plan)) expect(r.observe(attack(time))).toBe('answer');
-		const outcome = r.settle();
+		for (const time of exactTimes(plan)) expect(r.observe(attack(time)).fate).toBe('answer');
+		const outcome = closed(r);
 		expect(outcome.success).toBe(true);
 		expect(outcome.correct).toBeNull();
 		expect(outcome.verdict).toEqual({ relation: 'cycle', version: 1, value: { passed: true } });
@@ -104,13 +119,13 @@ describe('PlanRound', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
 		for (const time of exactTimes(plan)) r.observe(attack(time));
-		const detail = r.settle().detail as { latency: unknown; expectations: unknown[] };
+		const detail = closed(r).detail as { latency: unknown; expectations: unknown[] };
 		expect(detail.latency).toEqual(SYSTEM);
 		expect(detail.expectations).toHaveLength(plan.expectations.length);
 	});
 
 	it('fails a cycle where nothing was played, and says it missed', () => {
-		const outcome = round().settle();
+		const outcome = closed(round());
 		expect(outcome.success).toBe(false);
 		expect(outcome.correct).toBeNull();
 		expect(outcome.verdict.value).toEqual({ passed: false, reasons: ['missed'] });
@@ -120,9 +135,9 @@ describe('PlanRound', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
 		const note: PlanObservation = { time: 3.0, sensor: 'note', readable: true, payload: 'E' };
-		expect(r.observe(note)).toBe('other-sensor');
+		expect(r.observe(note).fate).toBe('other-sensor');
 		for (const time of exactTimes(plan)) r.observe(attack(time));
-		const outcome = r.settle();
+		const outcome = closed(r);
 		expect(outcome.success).toBe(true);
 		expect((outcome.detail as { extra: number }).extra).toBe(0);
 	});
@@ -130,21 +145,21 @@ describe('PlanRound', () => {
 	it('ignores an unreadable observation', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
-		expect(r.observe({ time: 3.0, sensor: 'attack', readable: false, payload: null })).toBe(
+		expect(r.observe({ time: 3.0, sensor: 'attack', readable: false, payload: null }).fate).toBe(
 			'unreadable'
 		);
 		for (const time of exactTimes(plan)) r.observe(attack(time));
-		expect(r.settle().success).toBe(true);
+		expect(closed(r).success).toBe(true);
 	});
 
 	it('hands back what falls outside the cycle to the neighbouring round', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
-		expect(r.observe(attack(r.startTime - 0.2))).toBe('after-capture');
-		expect(r.observe(attack(r.endTime))).toBe('after-capture');
-		expect(r.observe(attack(r.endTime + 1))).toBe('after-capture');
-		expect(r.observe(attack(r.startTime))).toBe('answer');
-		expect(r.observe(attack(r.endTime - 0.2))).toBe('answer');
+		expect(r.observe(attack(r.startTime - 0.2)).fate).toBe('after-capture');
+		expect(r.observe(attack(r.endTime)).fate).toBe('after-capture');
+		expect(r.observe(attack(r.endTime + 1)).fate).toBe('after-capture');
+		expect(r.observe(attack(r.startTime)).fate).toBe('answer');
+		expect(r.observe(attack(r.endTime - 0.2)).fate).toBe('answer');
 	});
 
 	it('does not count an attack handed back as an added one', () => {
@@ -152,7 +167,7 @@ describe('PlanRound', () => {
 		const r = round(plan);
 		r.observe(attack(r.endTime + 0.3));
 		for (const time of exactTimes(plan)) r.observe(attack(time));
-		expect(r.settle().success).toBe(true);
+		expect(closed(r).success).toBe(true);
 	});
 
 	it('counts an extra attack of the cycle against it', () => {
@@ -160,37 +175,54 @@ describe('PlanRound', () => {
 		const r = round(plan);
 		for (const time of exactTimes(plan)) r.observe(attack(time));
 		r.observe(attack(exactTimes(plan)[0] + 0.15));
-		const outcome = r.settle();
+		const outcome = closed(r);
 		expect(outcome.success).toBe(false);
 		expect(outcome.verdict.value).toEqual({ passed: false, reasons: ['extra'] });
 		const at = (exactTimes(plan)[0] + 0.15 - r.startTime) * 1000;
 		expect((outcome.detail as CycleReport).extraAtMs?.[0]).toBeCloseTo(at, 6);
 	});
 
-	it('closes once settled: later observations belong to the next round', () => {
+	it('closes once settled: later observations are settled, the modes no longer asked', () => {
 		const r = round();
-		r.settle();
-		expect(r.observe(attack(3))).toBe('after-capture');
+		closed(r);
+		expect(r.observe(attack(3))).toEqual({
+			fate: 'settled',
+			judged: null,
+			event: { kind: 'none' }
+		});
 	});
 
 	it('hands the aids over as given', () => {
 		const aids: Aid[] = ['cursor', 'listen'];
-		const outcome = round(cyclePlan(), aids).settle();
+		const outcome = closed(round(cyclePlan(), aids));
 		expect(outcome.aids).toEqual(['cursor', 'listen']);
 	});
 
-	it('settles to the same outcome each time', () => {
+	it('settles once: closing again gives nothing', () => {
 		const plan = cyclePlan();
 		const r = round(plan);
 		for (const time of exactTimes(plan)) r.observe(attack(time));
-		expect(r.settle()).toEqual(r.settle());
+		expect(closed(r).success).toBe(true);
+		expect(r.close(r.endTime)).toBeNull();
+	});
+
+	it('settles a cycle as it advances past its capture window, once', () => {
+		const plan = cyclePlan();
+		const r = round(plan);
+		for (const time of exactTimes(plan)) r.observe(attack(time));
+		expect(r.advance(r.startTime + 1)).toEqual({ kind: 'none' });
+		const event = r.advance(r.endTime);
+		expect(event.kind).toBe('settled');
+		expect(event.kind === 'settled' && event.outcome.success).toBe(true);
+		expect(r.advance(r.endTime + 1)).toEqual({ kind: 'none' });
+		expect(r.close(r.endTime + 1)).toBeNull();
 	});
 
 	it('falls back to the attack sensor for a plan without expectations', () => {
 		const empty: RoundPlan = { ...cyclePlan(), expectations: [] };
 		const r = round(empty);
-		expect(r.observe(attack(3))).toBe('answer');
-		expect(r.observe({ time: 3, sensor: 'note', readable: true, payload: null })).toBe(
+		expect(r.observe(attack(3)).fate).toBe('answer');
+		expect(r.observe({ time: 3, sensor: 'note', readable: true, payload: null }).fate).toBe(
 			'other-sensor'
 		);
 	});
@@ -230,8 +262,8 @@ describe('PlanRound capture window on chained cycles', () => {
 	function at(plan: RoundPlan, bar: number): PlanRound {
 		return new PlanRound({
 			plan,
-			map,
-			start: of(bar),
+			clock: { map, start: of(bar) },
+			judges: noJudges,
 			latency: SYSTEM,
 			thresholds: THRESHOLDS,
 			aids: []
@@ -244,7 +276,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	/** Feeds every observation to the round that owns it, the way the controller does. */
 	function feed(rounds: PlanRound[], played: number[]): void {
 		for (const time of played) {
-			for (const r of rounds) if (r.observe(attack(time)) === 'answer') break;
+			for (const r of rounds) if (r.observe(attack(time)).fate === 'answer') break;
 		}
 	}
 
@@ -255,8 +287,8 @@ describe('PlanRound capture window on chained cycles', () => {
 		const played = [...times(plan, 1), ...times(plan, 2)];
 		played[4] -= 0.02; // the second cycle's downbeat, 20 ms early
 		feed([first, second], played);
-		const one = first.settle();
-		const two = second.settle();
+		const one = closed(first);
+		const two = closed(second);
 		expect((one.detail as { extra: number }).extra).toBe(0);
 		expect(one.success).toBe(true);
 		expect(two.measures.fidelity?.value).toBe(1);
@@ -272,8 +304,8 @@ describe('PlanRound capture window on chained cycles', () => {
 		const played = [...times(plan, 1), ...times(plan, 2)];
 		played[1] += 0.02; // the last note of the first cycle, 20 ms late
 		feed([first, second], played);
-		const one = first.settle();
-		const two = second.settle();
+		const one = closed(first);
+		const two = closed(second);
 		expect((one.detail as { extra: number }).extra).toBe(0);
 		expect(one.measures.fidelity?.value).toBe(1);
 		expect(two.measures.fidelity?.value).toBe(1);
@@ -290,8 +322,8 @@ describe('PlanRound capture window on chained cycles', () => {
 			const played = [...times(plan, 1), ...times(plan, 2)];
 			played[1] += late;
 			feed([first, second], played);
-			const one = first.settle();
-			const two = second.settle();
+			const one = closed(first);
+			const two = closed(second);
 			expect((one.detail as { extra: number }).extra).toBe(0);
 			expect(one.measures.fidelity?.value).toBe(1);
 			expect(one.success).toBe(true);
@@ -305,9 +337,221 @@ describe('PlanRound capture window on chained cycles', () => {
 		const first = at(plan, 1);
 		const second = at(plan, 2);
 		const edge = 4.8 - 0.15; // half a zone before the second downbeat
-		expect(first.observe(attack(edge - 1e-6))).toBe('answer');
-		expect(first.observe(attack(edge + 1e-6))).toBe('after-capture');
-		expect(second.observe(attack(edge - 1e-6))).toBe('after-capture');
-		expect(second.observe(attack(edge + 1e-6))).toBe('answer');
+		expect(first.observe(attack(edge - 1e-6)).fate).toBe('answer');
+		expect(first.observe(attack(edge + 1e-6)).fate).toBe('after-capture');
+		expect(second.observe(attack(edge - 1e-6)).fate).toBe('after-capture');
+		expect(second.observe(attack(edge + 1e-6)).fate).toBe('answer');
+	});
+});
+
+describe('PlanRound routing', () => {
+	const RIGHT: Judged = { correct: true, answer: 'F', confusion: null };
+	const WRONG: Judged = { correct: false, answer: 'G', confusion: 'neighbour' };
+
+	/** A content judge that hands back the judgement carried by the payload. */
+	const carried: ContentJudges = () => ({ judge: (_, payload) => payload as Judged });
+
+	/** Gives the first expectation of a plan a content of kind `kind`. */
+	function withContent(plan: RoundPlan, kind = 'note', index = 0): RoundPlan {
+		const expectations = plan.expectations.map((e, i) =>
+			i === index ? { ...e, content: { kind, value: `value-${i}` } } : e
+		);
+		return { ...plan, expectations };
+	}
+
+	function responseRound(plan: RoundPlan, judges: ContentJudges = carried, modes?: RoundModes) {
+		return new PlanRound({
+			plan,
+			clock: { map: beatMap, start: of(2) },
+			judges,
+			latency: null,
+			thresholds: null,
+			aids: [],
+			...(modes ? { modes } : {})
+		});
+	}
+
+	const played = (time: number, judged: Judged, sensor = 'note', final = true) => ({
+		time,
+		sensor,
+		readable: true,
+		payload: judged,
+		final
+	});
+
+	it('reads the instants of the round from its plan', () => {
+		const r = responseRound(locatePlan());
+		expect(r.promptTime).toBeCloseTo(3.1, 9);
+		expect(r.startTime).toBeCloseTo(6.1, 9);
+		expect(r.endTime).toBeCloseTo(9.1, 9);
+		expect(r.listenUntilTime).toBeCloseTo(8.35, 9);
+		expect(r.handoverTime).toBeNull();
+	});
+
+	it('plugs a pairing mode it does not know of without changing', () => {
+		const everyAttack: PairingMode = {
+			id: 'every-attack',
+			create: () => {
+				let heard: number | null = null;
+				return {
+					offer: (a) => {
+						heard ??= a.time;
+						return { fate: 'answer', judged: null };
+					},
+					advance: () => {},
+					done: () => heard !== null,
+					zonesOver: () => heard !== null,
+					awaiting: () => false,
+					droppable: () => heard === null,
+					shownMisses: () => [],
+					result: () => ({
+						pairs:
+							heard === null
+								? []
+								: [
+										{
+											expectation: 0,
+											time: heard,
+											judged: null,
+											late: false,
+											pending: false,
+											correction: null,
+											timing: null,
+											offsetMs: null
+										}
+									],
+						missed: heard === null ? [0] : [],
+						dropped: [],
+						extra: [],
+						shift: null,
+						clampedWindows: 0,
+						attacks: heard === null ? [] : [heard]
+					})
+				};
+			}
+		};
+		expect(Object.keys(ROUND_MODES.pairings)).not.toContain('every-attack');
+		const modes: RoundModes = {
+			pairings: { ...ROUND_MODES.pairings, 'every-attack': everyAttack },
+			verdicts: ROUND_MODES.verdicts
+		};
+		const base = locatePlan();
+		const plan = {
+			...base,
+			policy: { ...base.policy, pairing: { mode: 'every-attack' } }
+		} as unknown as RoundPlan;
+		const r = responseRound(plan, carried, modes);
+		const seen = r.observe(played(1.0, RIGHT));
+		expect(seen.fate).toBe('answer');
+		expect(seen.event.kind).toBe('settled');
+		expect(r.observe(played(1.1, RIGHT)).fate).toBe('settled');
+	});
+
+	it('refuses a plan whose mode is not registered', () => {
+		const base = locatePlan();
+		const kazoo = {
+			...base,
+			policy: { ...base.policy, pairing: { mode: 'kazoo' } }
+		} as unknown as RoundPlan;
+		expect(() => responseRound(kazoo)).toThrow('unknown pairing mode: kazoo');
+		const silent = {
+			...base,
+			policy: { ...base.policy, verdict: 'silence' }
+		} as unknown as RoundPlan;
+		expect(() => responseRound(silent)).toThrow('unknown verdict mode: silence');
+	});
+
+	it('settles a located note at once, shows a provisional miss at the window’s close, then settles off the beat', () => {
+		const plan = withContent(locatePlan());
+		const atOnce = responseRound(plan).observe(played(6.13, RIGHT));
+		expect(atOnce.fate).toBe('answer');
+		expect(atOnce.judged).toEqual(RIGHT);
+		expect(atOnce.event.kind === 'settled' && atOnce.event.outcome.verdict.value).toMatchObject({
+			verdict: 'perfect'
+		});
+
+		const r = responseRound(plan);
+		expect(r.advance(6.3)).toEqual({ kind: 'none' });
+		const shown = r.advance(6.5);
+		expect(shown.kind).toBe('provisional');
+		expect(shown.kind === 'provisional' && shown.outcome.verdict.value).toMatchObject({
+			verdict: 'wrong'
+		});
+		expect(r.advance(6.6)).toEqual({ kind: 'none' });
+		const late = r.observe(played(7.0, RIGHT));
+		expect(late.fate).toBe('answer');
+		expect(late.event.kind).toBe('settled');
+		if (late.event.kind !== 'settled') return;
+		expect(late.event.outcome.verdict.value).toMatchObject({ verdict: 'offbeat' });
+		expect(late.event.outcome.success).toBe(false);
+		expect(late.event.outcome.correct).toBe(true);
+	});
+
+	it('waits on an attack taken but not deciding the round', () => {
+		const r = responseRound(withContent(anchorPlan()));
+		const root = r.observe(played(6.1, RIGHT));
+		expect(root.fate).toBe('answer');
+		expect(root.event).toEqual({ kind: 'pending' });
+		expect(r.observe(played(4, RIGHT, 'attack')).fate).toBe('other-sensor');
+		expect(r.observe({ time: 7, sensor: 'note', readable: false, payload: null }).fate).toBe(
+			'unreadable'
+		);
+	});
+
+	it('settles a lost anchor once its zones are over, without waiting for readings', () => {
+		const r = responseRound(withContent(anchorPlan()));
+		const root = r.observe(played(6.1, WRONG));
+		expect(root.fate).toBe('answer');
+		expect(root.event.kind).toBe('pending');
+		expect(r.advance(9.0)).toEqual({ kind: 'none' });
+		const lost = r.advance(9.1);
+		expect(lost.kind).toBe('settled');
+		if (lost.kind !== 'settled') return;
+		expect(lost.outcome.success).toBe(false);
+		expect(lost.outcome.verdict.value).toMatchObject({ verdict: 'wrong' });
+	});
+
+	it('drops a round closed early with nothing heard', () => {
+		const r = responseRound(locatePlan());
+		expect(r.close(6.0)).toBeNull();
+		expect(r.observe(played(6.1, RIGHT))).toEqual({
+			fate: 'settled',
+			judged: null,
+			event: { kind: 'none' }
+		});
+		expect(r.advance(9.1)).toEqual({ kind: 'none' });
+	});
+
+	it('closes a round heard as it stands', () => {
+		const r = responseRound(withContent(anchorPlan()));
+		r.observe(played(6.1, RIGHT));
+		const outcome = r.close(7.0);
+		expect(outcome?.success).toBe(false);
+		expect(outcome?.verdict.value).toMatchObject({ verdict: 'wrong' });
+	});
+
+	it('judges content with the judge of its kind', () => {
+		const calls: [string, unknown, unknown][] = [];
+		const judges: ContentJudges = (kind) => ({
+			judge: (value, payload) => {
+				calls.push([kind, value, payload]);
+				return RIGHT;
+			}
+		});
+		const r = responseRound(withContent(locatePlan(), 'note-kind'), judges);
+		const seen = r.observe({ time: 6.1, sensor: 'note', readable: true, payload: { midi: 65 } });
+		expect(seen.judged).toEqual(RIGHT);
+		expect(calls).toEqual([['note-kind', 'value-0', { midi: 65 }]]);
+	});
+
+	it('judges an expectation without content as nothing', () => {
+		const calls: string[] = [];
+		const judges: ContentJudges = (kind) => {
+			calls.push(kind);
+			return { judge: () => RIGHT };
+		};
+		const seen = responseRound(locatePlan(), judges).observe(played(6.1, RIGHT));
+		expect(seen.judged).toBeNull();
+		expect(calls).toEqual([]);
 	});
 });

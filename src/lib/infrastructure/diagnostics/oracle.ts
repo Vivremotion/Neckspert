@@ -19,6 +19,7 @@ import {
 	type CycleReport,
 	type CycleVerdict
 } from '$lib/domain/time';
+import { contentJudges } from '$lib/domain/judges';
 import type { Attempt } from '$lib/domain/types';
 import type { DexieDiagnosticSink } from './DexieDiagnosticSink';
 import type { DiagnosticTakeRow } from './diagnosticsDb';
@@ -339,8 +340,8 @@ export function rejudge(
 				window,
 				accompanimentBars: plan.accompaniment.bars
 			}),
-			map: createTempoMap(startS, [tempo]),
-			start: Fraction.ZERO,
+			clock: { map: createTempoMap(startS, [tempo]), start: Fraction.ZERO },
+			judges: contentJudges,
 			latency,
 			thresholds: plan.thresholds,
 			aids: []
@@ -354,7 +355,9 @@ export function rejudge(
 				payload: null
 			});
 		}
-		return { attemptId, before: verdict, after: round.settle().verdict.value as CycleVerdict };
+		const outcome = round.close(round.endTime);
+		if (outcome === null) throw new Error('a cycle closed without an outcome');
+		return { attemptId, before: verdict, after: outcome.verdict.value as CycleVerdict };
 	});
 }
 

@@ -4,7 +4,7 @@ import type { Figure, FigureElement } from '../figure';
 import { METER_4_4 } from '../meter';
 import { compileCyclePlan } from '../plan';
 import { createTempoMap } from '../tempoMap';
-import { CYCLE_VERDICT_VERSION as FROM_ROUND } from '../round';
+import { CYCLE_VERDICT_VERSION as PUBLIC } from '..';
 import { CYCLE_VERDICT_VERSION, cycleVerdictMode } from './cycleVerdict';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
 import { roundTimes } from './zones';
@@ -117,8 +117,8 @@ describe('cycleVerdictMode', () => {
 		);
 	});
 
-	it('keeps its version where the plan round reads it', () => {
+	it('keeps its version in the public API of the time domain', () => {
 		expect(CYCLE_VERDICT_VERSION).toBe(1);
-		expect(FROM_ROUND).toBe(CYCLE_VERDICT_VERSION);
+		expect(PUBLIC).toBe(CYCLE_VERDICT_VERSION);
 	});
 });

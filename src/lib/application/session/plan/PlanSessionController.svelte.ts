@@ -1,4 +1,5 @@
 import { exerciseById, type ExerciseDefinition, type ExerciseId } from '$lib/domain/exercise';
+import { contentJudges } from '$lib/domain/judges';
 import { rhythmFigureRules, type RhythmItem } from '$lib/domain/mechanics';
 import {
 	Fraction,
@@ -702,8 +703,8 @@ export class PlanSessionController implements PlaySessionController {
 			});
 			cycle.round = new PlanRound({
 				plan,
-				map: this.transport.map,
-				start: Fraction.of(bar).mul(barLength(this.meter)),
+				clock: { map: this.transport.map, start: Fraction.of(bar).mul(barLength(this.meter)) },
+				judges: contentJudges,
 				latency: this.latency(),
 				thresholds: params.thresholds,
 				aids
@@ -746,8 +747,9 @@ export class PlanSessionController implements PlaySessionController {
 			payload: observation.payload
 		};
 		for (const cycle of this.live) {
-			const fate = cycle.round?.observe(seen);
-			if (fate && fate !== 'after-capture') {
+			const fate = cycle.round?.observe(seen).fate;
+			// A settled cycle has left the live ones: what it would not take goes on to the next.
+			if (fate && fate !== 'after-capture' && fate !== 'settled') {
 				if (cycle.spanOpen) cycle.span?.add(this.sensor, observation, fate, null);
 				return;
 			}
@@ -762,7 +764,8 @@ export class PlanSessionController implements PlaySessionController {
 		if (cycle.settled || !round) return;
 		cycle.settled = true;
 		this.live = this.live.filter((c) => c !== cycle);
-		const outcome = round.settle();
+		const outcome = round.close(this.deps.clock.now());
+		if (outcome === null) throw new Error('a played cycle closed without an outcome');
 		cycle.run.settled.push({
 			report: outcome.detail as CycleReport,
 			verdict: outcome.verdict.value as CycleVerdict

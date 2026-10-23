@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
+import { contentJudges } from '$lib/domain/judges';
 import {
 	PlanRound,
 	attackPositions,
@@ -28,8 +29,8 @@ function settledCycle(exact: boolean) {
 	const map = createTempoMap(10, [params.tempo]);
 	const round = new PlanRound({
 		plan,
-		map,
-		start: Fraction.ZERO,
+		clock: { map, start: Fraction.ZERO },
+		judges: contentJudges,
 		latency: null,
 		thresholds: params.thresholds,
 		aids: ['cursor']
@@ -39,7 +40,9 @@ function settledCycle(exact: boolean) {
 			round.observe({ time: map.toSeconds(at), sensor: 'attack', readable: true, payload: {} });
 		}
 	}
-	return { params, outcome: round.settle(), startTime: round.startTime };
+	const outcome = round.close(round.endTime);
+	if (outcome === null) throw new Error('a cycle closed without an outcome');
+	return { params, outcome, startTime: round.startTime };
 }
 
 describe('recordCycle', () => {
