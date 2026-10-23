@@ -332,6 +332,16 @@ describe('PlanRound capture window on chained cycles', () => {
 		}
 	);
 
+	it('takes an attack at the very edge of its window without settling inside observe', () => {
+		const plan = oneBar(figureOf('10101010', of(1, 8)));
+		const first = at(plan, 1);
+		const closesS = 4.8 - 0.15; // half a zone before the next downbeat
+		const edge = first.observe(attack(closesS - 5e-7)); // inside the edge tolerance
+		expect(edge.fate).toBe('answer');
+		expect(edge.event.kind).not.toBe('settled');
+		expect(first.close(closesS)).not.toBeNull();
+	});
+
 	it('tiles time: consecutive cycles leave no gap and no overlap', () => {
 		const plan = oneBar(figureOf('10101010', of(1, 8)));
 		const first = at(plan, 1);

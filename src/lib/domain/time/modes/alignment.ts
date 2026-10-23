@@ -7,7 +7,6 @@ import type {
 	PairingMode,
 	PairingResult
 } from './types';
-import { EDGE_TOLERANCE_S } from './zones';
 
 /**
  * The attacks of a round's capture window, paired once by the optimal alignment (`alignAttacks`)
@@ -44,8 +43,9 @@ class AlignmentPairing implements Pairing {
 
 	advance(): void {}
 
+	/** Over exactly where `offer` stops taking attacks: one it can still take never finds it done. */
 	done(now: number): boolean {
-		return now >= this.closesS - EDGE_TOLERANCE_S;
+		return now >= this.closesS;
 	}
 
 	zonesOver(now: number): boolean {
