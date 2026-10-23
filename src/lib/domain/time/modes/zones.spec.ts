@@ -1,77 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Fraction } from '../fraction';
-import type { Expectation, RoundPlan } from '../plan';
-import { createTempoMap } from '../tempoMap';
+import type { RoundPlan } from '../plan';
+import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map, mapAt } from './testing/plans';
 import { EDGE_TOLERANCE_S, roundTimes } from './zones';
-
-const F = Fraction.of;
-const quarter = F(1, 4);
-const mapAt = (bpm: number) => createTempoMap(0.1, [{ at: Fraction.ZERO, bpm, unit: quarter }]);
-const map = mapAt(80);
-
-function expectation(at: Fraction, span: Expectation['span'], sensor: string): Expectation {
-	return {
-		at,
-		span,
-		role: 'target',
-		sensor,
-		content: null,
-		window: { ms: 80 },
-		bar: 0
-	};
-}
-
-function locatePlan(): RoundPlan {
-	return {
-		prompt: F(-1),
-		expectations: [expectation(Fraction.ZERO, 'point', 'note')],
-		length: F(1),
-		listenUntil: F(3, 4),
-		mutedBars: [],
-		policy: {
-			unit: 'response',
-			verdict: 'response',
-			correction: false,
-			pairing: {
-				mode: 'first-answer',
-				opens: { afterPromptMs: 300 },
-				lateMs: 400,
-				lateCapture: { ms: 2000 }
-			}
-		}
-	};
-}
-
-function anchorPlan(): RoundPlan {
-	const plan = locatePlan();
-	return {
-		...plan,
-		expectations: [...plan.expectations, expectation(quarter, { until: F(1) }, 'chord')],
-		length: F(2),
-		listenUntil: F(7, 4)
-	};
-}
-
-function gridPlan(): RoundPlan {
-	return {
-		prompt: F(-1, 4),
-		expectations: [expectation(Fraction.ZERO, 'point', 'chord')],
-		length: F(1),
-		handover: F(1),
-		mutedBars: [],
-		policy: {
-			unit: 'response',
-			verdict: 'response',
-			correction: false,
-			pairing: {
-				mode: 'first-answer',
-				opens: { beforeMs: 200, maxBeats: 0.4 },
-				lateMs: 400,
-				lateCapture: 'to-end'
-			}
-		}
-	};
-}
 
 describe('roundTimes', () => {
 	it('times a located note as the beat relation does', () => {
@@ -120,12 +50,7 @@ describe('roundTimes', () => {
 	});
 
 	it('opens a free-time expectation at the prompt and never closes it', () => {
-		const plan: RoundPlan = {
-			...locatePlan(),
-			prompt: null,
-			expectations: [{ ...expectation(Fraction.ZERO, 'point', 'note'), at: null }]
-		};
-		const t = roundTimes(plan, { promptS: 10 }, false);
+		const t = roundTimes(freeTimePlan(), { promptS: 10 }, false);
 		expect(t.zones[0].opensS).toBeCloseTo(10.3, 9);
 		expect(t.zones[0].inTimeEndS).toBe(Infinity);
 		expect(t.zones[0].captureEndS).toBe(Infinity);
