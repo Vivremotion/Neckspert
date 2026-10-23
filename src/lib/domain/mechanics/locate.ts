@@ -1,11 +1,5 @@
-import {
-	acceptableMidis,
-	classifyNoteConfusion,
-	locateItemKey,
-	parseLocateItem,
-	type Confusion,
-	type LocateItem
-} from '$lib/domain/music';
+import { CONTENT_JUDGES, NOTE_CONTENT } from '$lib/domain/judges';
+import { locateItemKey, parseLocateItem, type Confusion, type LocateItem } from '$lib/domain/music';
 import type { Midi } from '$lib/domain/music/types';
 import { beatTiming } from '$lib/domain/timing';
 import type { MechanicRules } from './types';
@@ -25,9 +19,10 @@ export const locateRules: MechanicRules<LocateItem, { midi: Midi }, { midi: Midi
 	learner: 'memory',
 	itemKey: locateItemKey,
 	parseItem: parseLocateItem,
-	judge: (item, { midi }) => ({
-		correct: acceptableMidis(item).includes(midi),
-		answer: { midi },
-		confusion: classifyNoteConfusion(item, midi)
-	})
+	judge: (item, payload) =>
+		CONTENT_JUDGES[NOTE_CONTENT].judge(item, payload) as {
+			correct: boolean;
+			answer: { midi: Midi };
+			confusion: Confusion | null;
+		}
 };

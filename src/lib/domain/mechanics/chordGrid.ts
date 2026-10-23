@@ -1,18 +1,25 @@
 import type { GridChange } from '$lib/domain/grid';
 import {
 	closeTriadVoicings,
-	formatSpelledNote,
-	parseSpelledNote,
-	pitchOfSpelled,
-	qualityById,
 	voicingOccurrences,
-	type Chord,
 	type StringNumber,
 	type VoicingOccurrence
 } from '$lib/domain/music';
+import { CHORD_GRID_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
 import { createGridTiming } from '$lib/domain/timing';
-import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
+import { occurrenceOfId } from '$lib/domain/triads';
 import type { ChordReading } from './triadChord';
+import {
+	beyond,
+	classifyGridChord,
+	inZone,
+	parseTriadId,
+	shapePosition,
+	triadId,
+	type ChordGridConfusion
+} from './gridClassify';
+export { classifyGridChord, inZone, parseTriadId, shapePosition, triadId };
+export type { ChordGridConfusion };
 import type { MechanicRules } from './types';
 
 /** How a gesture exercise judges a shape: the one asked, higher or lower, in a zone, anywhere. */
@@ -45,20 +52,6 @@ export interface ChordGridItem {
 	previous: string | null;
 }
 
-/** What went wrong with the chord of a change. */
-export type ChordGridConfusion = {
-	kind:
-		| 'none'
-		| 'other-chord'
-		| 'other-quality'
-		| 'other-set'
-		| 'other-shape'
-		| 'not-higher'
-		| 'not-lower'
-		| 'out-of-zone';
-	part: 'chord';
-};
-
 /** `Attempt.data` of a chord change. */
 export interface ChordGridData {
 	item: ChordGridItem;
@@ -68,79 +61,6 @@ export interface ChordGridData {
 
 /** Joins the element and the change's index in its passage: `link:D|maj:3,2,1#2`. */
 const INDEX_SEPARATOR = '#';
-
-/** `D|maj`: a triad, its root as spelled. */
-export function triadId(chord: Chord): string {
-	return `${formatSpelledNote(chord.root)}|${chord.quality.id}`;
-}
-
-/** The triad of a `triadId`. Throws on a malformed one. */
-export function parseTriadId(id: string): Chord {
-	const [root, quality, ...rest] = id.split('|');
-	if (rest.length > 0 || !root || !quality) throw new RangeError(`Not a triad id: "${id}"`);
-	return { root: parseSpelledNote(root), quality: qualityById(quality) };
-}
-
-/** Where a shape sits: its lowest fretted fret, a shape on open strings only at 0. */
-export function shapePosition(occurrence: VoicingOccurrence): number {
-	const position = occurrencePosition(occurrence);
-	return position === 'open' ? 0 : position;
-}
-
-/**
- * Every fret of the shape lies in the zone. An open string is inside the zone at fret 1, the
- * nut's, and out of any other.
- */
-export function inZone(occurrence: VoicingOccurrence, zone: { from: number; to: number }): boolean {
-	return occurrence.notes.every(
-		(note) =>
-			note.fret <= zone.to && (note.fret >= zone.from || (note.fret === 0 && zone.from === 1))
-	);
-}
-
-function stringsOf(occurrence: VoicingOccurrence): string {
-	return occurrence.notes.map((note) => note.string).join();
-}
-
-function confusion(kind: ChordGridConfusion['kind']): ChordGridConfusion {
-	return { kind, part: 'chord' };
-}
-
-/** How the shape heard relates to the change, by its rule; null when it is right. */
-function classify(item: ChordGridItem, heard: VoicingOccurrence | null): ChordGridConfusion | null {
-	if (!heard) return confusion('none');
-	const asked = parseTriadId(item.chord);
-	if (pitchOfSpelled(heard.voicing.chord.root) !== pitchOfSpelled(asked.root)) {
-		return confusion('other-chord');
-	}
-	if (heard.voicing.chord.quality.id !== asked.quality.id) return confusion('other-quality');
-	if (!item.sets.some((set) => set.join() === stringsOf(heard))) return confusion('other-set');
-	switch (item.rule) {
-		case 'link':
-			return occurrenceId(heard) === item.shape ? null : confusion('other-shape');
-		case 'climb': {
-			const before = item.previous === null ? null : occurrenceOfId(item.previous);
-			if (!before) return null;
-			const down = item.direction === 'down';
-			if (beyond(heard, before, down ? 'down' : 'up')) return null;
-			return confusion(down ? 'not-lower' : 'not-higher');
-		}
-		case 'zone':
-			return item.zone && inZone(heard, item.zone) ? null : confusion('out-of-zone');
-		case 'jam':
-			return null;
-	}
-}
-
-/** `shape` lies strictly beyond `before` on the neck, going `direction`. */
-function beyond(
-	shape: VoicingOccurrence,
-	before: VoicingOccurrence,
-	direction: 'up' | 'down'
-): boolean {
-	const [position, last] = [shapePosition(shape), shapePosition(before)];
-	return direction === 'down' ? position < last : position > last;
-}
 
 /**
  * The direction a climb change goes: its own, unless no shape of its chord on its sets lies
@@ -160,7 +80,7 @@ export function climbDirection(
 
 /** The shape is right for the change: its chord, on one of its sets, as its rule asks. */
 export function admits(item: ChordGridItem, occurrence: VoicingOccurrence): boolean {
-	return classify(item, occurrence) === null;
+	return classifyGridChord(item, occurrence) === null;
 }
 
 /** Every shape of the change's triad on its sets, lowest first. */
@@ -232,8 +152,11 @@ export const chordGridRules: MechanicRules<
 	// An attempt keeps the whole change; its key, the element and the place in the passage.
 	parseItem: (itemKey) => parseItem(itemKey) as ChordGridItem,
 	cardItem: (item) => ({ element: item.element, index: item.index }),
-	judge: (item, { decided }) => {
-		const found = classify(item, decided === null ? null : occurrenceOfId(decided));
-		return { correct: found === null, answer: { decided }, confusion: found };
+	judge: (item, reading) => {
+		return CONTENT_JUDGES[CHORD_GRID_CONTENT].judge(item, reading) as {
+			correct: boolean;
+			answer: ChordReading;
+			confusion: ChordGridConfusion | null;
+		};
 	}
 };
