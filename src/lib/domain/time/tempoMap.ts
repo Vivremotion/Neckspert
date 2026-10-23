@@ -81,3 +81,20 @@ export function createTempoMap(origin: number, segments: TempoSegment[]): TempoM
 		}
 	};
 }
+
+/** The tempo segment that holds at `position` (the first one also holds before it starts). */
+export function segmentAt(map: TempoMap, position: Fraction): TempoSegment {
+	let segment = map.segments[0];
+	for (const s of map.segments) if (s.at.compare(position) <= 0) segment = s;
+	return segment;
+}
+
+/** Seconds that `length` lasts from `position`, forward (or backward when `length` is negative). */
+export function secondsOf(map: TempoMap, position: Fraction, length: Fraction): number {
+	return Math.abs(map.toSeconds(position.add(length)) - map.toSeconds(position));
+}
+
+/** Seconds of one beat at `position`. */
+export function beatSecondsAt(map: TempoMap, position: Fraction): number {
+	return secondsOf(map, position, segmentAt(map, position).unit);
+}

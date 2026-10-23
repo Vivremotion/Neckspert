@@ -1,6 +1,6 @@
 import { Fraction } from '../fraction';
 import type { Expectation, RoundPlan } from '../plan';
-import type { TempoMap } from '../tempoMap';
+import { secondsOf, segmentAt, type TempoMap } from '../tempoMap';
 
 /** The widest an attack may stand from an expectation and still be paired with it, in whole notes. */
 export const MATCH_LIMIT = Fraction.of(1, 16);
@@ -80,20 +80,15 @@ export interface AlignContext {
 	leadInS?: number;
 }
 
-/** The tempo segment that holds at `position` (the first one also holds before it starts). */
-function segmentAt(map: TempoMap, position: Fraction) {
-	let segment = map.segments[0];
-	for (const s of map.segments) if (s.at.compare(position) <= 0) segment = s;
-	return segment;
-}
+/** An expectation with a position: alignment only listens for those (free time has none). */
+type DatedExpectation = Expectation & { at: Fraction };
 
-/** Seconds that `length` lasts from `position`, forward (or backward when `length` is negative). */
-function secondsOf(map: TempoMap, position: Fraction, length: Fraction): number {
-	return Math.abs(map.toSeconds(position.add(length)) - map.toSeconds(position));
-}
-
-function targets(plan: RoundPlan): { e: Expectation; index: number }[] {
-	return plan.expectations.map((e, index) => ({ e, index })).filter(({ e }) => e.role === 'target');
+function targets(plan: RoundPlan): { e: DatedExpectation; index: number }[] {
+	return plan.expectations
+		.map((e, index) => ({ e, index }))
+		.filter(
+			(t): t is { e: DatedExpectation; index: number } => t.e.role === 'target' && t.e.at !== null
+		);
 }
 
 /**

@@ -57,6 +57,8 @@ export interface PlanObservation {
 	sensor: string;
 	readable: boolean;
 	payload: unknown;
+	/** The sensor will not revise this reading. */
+	final?: boolean;
 }
 
 /** The fate of an observation offered to a plan round. */

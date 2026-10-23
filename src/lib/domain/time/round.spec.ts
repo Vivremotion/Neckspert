@@ -63,7 +63,7 @@ const attack = (time: number): PlanObservation => ({
 
 /** The exact times of the off-beats of the two bars from the start. */
 function exactTimes(plan: RoundPlan): number[] {
-	return plan.expectations.map((e) => map.toSeconds(start.add(e.at)));
+	return plan.expectations.map((e) => map.toSeconds(start.add(e.at!)));
 }
 
 describe('AIDS', () => {
@@ -239,7 +239,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	}
 
 	const times = (plan: RoundPlan, bar: number) =>
-		plan.expectations.map((e) => map.toSeconds(of(bar).add(e.at)));
+		plan.expectations.map((e) => map.toSeconds(of(bar).add(e.at!)));
 
 	/** Feeds every observation to the round that owns it, the way the controller does. */
 	function feed(rounds: PlanRound[], played: number[]): void {

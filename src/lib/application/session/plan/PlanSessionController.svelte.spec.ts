@@ -862,7 +862,7 @@ describe('PlanSessionController, silent bars', () => {
 				accompanimentBars: plan.accompaniment.bars
 			});
 			return compiled.expectations.map((e) => ({
-				ms: attempt.promptedAt + e.at.toNumber() * wholeMs,
+				ms: attempt.promptedAt + e.at!.toNumber() * wholeMs,
 				bar: e.bar,
 				muted: compiled.mutedBars
 			}));
