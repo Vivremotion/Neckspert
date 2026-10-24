@@ -1,3 +1,5 @@
+import type { AttemptRecorder } from './AttemptRecorder';
+import type { PlanSource } from './series/planSource';
 import type { SessionMemory } from './sessionMemory';
 import type {
 	AttemptRepositoryPort,
@@ -15,6 +17,7 @@ import type {
 } from '$lib/application/ports';
 import type { MechanicPresenter, SensorKind } from '$lib/application/mechanics/types';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
+import type { Locale } from '$lib/domain/types';
 import type { SensorFactory } from './sensors';
 
 export interface SessionDeps {
@@ -51,4 +54,21 @@ export interface PlanSessionDeps extends SessionDeps {
 	takes: TakeBufferPort;
 	/** Where a series leaves its trace and its takes for the summary. */
 	memory: SessionMemory;
+}
+
+/**
+ * What a series of response rounds on the transport needs: the one path every sound takes, the
+ * sensors and presenters of its mechanics, where it writes, the plan of each item, and whether
+ * the development tools (« Joué juste ») show.
+ */
+export interface ResponseSeriesDeps {
+	clock: AudioClockPort;
+	sounds: SoundSchedulerPort;
+	sensors: SessionDeps['sensors'];
+	mechanics: SessionDeps['mechanics'];
+	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings' | 'progressions'>;
+	recorder: AttemptRecorder;
+	plans: PlanSource;
+	locale: () => Locale;
+	development: boolean;
 }
