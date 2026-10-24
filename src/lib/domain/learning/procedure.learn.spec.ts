@@ -391,6 +391,18 @@ describe('createLearningProcedure record', () => {
 		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'probe' });
 	});
 
+	it('ignores a stored attempt of another exercise in the session’s success', () => {
+		// Misses of this session stored before the procedure was built, in another exercise.
+		const misses = Array.from({ length: SUCCESS_WINDOW }, () =>
+			played(0, 'consolidation', {
+				success: false,
+				exerciseId: 'another-exercise' as ExerciseId
+			})
+		);
+		const source = procedure({ cards: [learned(0)], attempts: misses });
+		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'probe' });
+	});
+
 	it('counts every attempt of the procedure in the session’s success, probes left out', () => {
 		const subject = fakeSubject({ items: 20, mechanics: [FAKE, OTHER] });
 		const cards = [0, 1, 2, 3].flatMap((item) => [learned(item), learned(item, 1, OTHER)]);

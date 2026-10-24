@@ -74,7 +74,7 @@ class Procedure implements LearningProcedure {
 	private reviews = 0;
 	/** The item last served: the next one is never it, nor its neighbour. */
 	private previous: CardRef | null = null;
-	/** This session's attempts of the cards owned, oldest first: success rates steer new items. */
+	/** This session's attempts the procedure plays (`plays`), oldest first: success rates steer new items. */
 	private readonly played: Attempt[] = [];
 	/** Items served hot in this session: the working set. */
 	private readonly workingSet = new Set<CardKey>();
@@ -103,7 +103,7 @@ class Procedure implements LearningProcedure {
 			const list = this.history.get(attempt.cardKey) ?? [];
 			list.push(attempt);
 			this.history.set(attempt.cardKey, list);
-			if (attempt.sessionId === sessionId && subject.owns(attempt)) this.played.push(attempt);
+			if (attempt.sessionId === sessionId && this.plays(attempt)) this.played.push(attempt);
 		}
 		for (const level of levels) {
 			if (level.scope === '') this.levels.set(levelKey(level.exerciseId, level.item), level);
@@ -135,8 +135,7 @@ class Procedure implements LearningProcedure {
 	 * recovery and draws or fades the aid. An attempt of a card the subject does not own: null.
 	 */
 	record(attempt: Attempt, now: number): RecordOutcome {
-		if (!this.subject.owns(attempt)) return null;
-		if (attempt.exerciseId !== this.subject.exerciseOf(attempt.mechanic)) return null;
+		if (!this.plays(attempt)) return null;
 		this.last.set(attempt.cardKey, attempt.promptedAt);
 		const list = this.history.get(attempt.cardKey) ?? [];
 		list.push(attempt);
@@ -178,6 +177,13 @@ class Procedure implements LearningProcedure {
 			entry.dueAt = retestDueAt(servedAt, servedAided || !success ? shortGap : longGap);
 		}
 		return { level };
+	}
+
+	/** An attempt of a card the subject owns, played in the exercise it plays that mechanic in. */
+	private plays(attempt: Attempt): boolean {
+		return (
+			this.subject.owns(attempt) && attempt.exerciseId === this.subject.exerciseOf(attempt.mechanic)
+		);
 	}
 
 	cardChanged(card: CardState): void {
