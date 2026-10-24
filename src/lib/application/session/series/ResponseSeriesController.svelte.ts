@@ -638,10 +638,15 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (outcome) this.settle(round, outcome);
 	}
 
-	/** Ends the span of the last round: its attempt takes the final list (`recordResponse`). */
+	/**
+	 * Ends the span of the last round: its expectations withdrawn first, so a window a sensor
+	 * cuts short reports into it; then its attempt takes the final list (`recordResponse`).
+	 */
 	private closeSpan(): void {
-		const span = this.round?.runner.span;
-		if (span && !span.isClosed) span.close();
+		const runner = this.round?.runner;
+		if (!runner || runner.span.isClosed) return;
+		runner.withdraw();
+		runner.span.close();
 	}
 
 	/** A miss of a contestable mechanic may be contested until the next round, in development only. */

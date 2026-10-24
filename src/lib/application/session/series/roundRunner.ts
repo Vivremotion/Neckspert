@@ -51,6 +51,7 @@ export class RoundRunner {
 	/** `close` is withdrawing the expectations: a settlement then is returned by `close`. */
 	#closing = false;
 	#closedWith: RoundOutcome | null = null;
+	#withdrawn = false;
 
 	constructor(input: {
 		plan: RoundPlan;
@@ -121,10 +122,20 @@ export class RoundRunner {
 	close(now: number): RoundOutcome | null {
 		this.cancel();
 		this.#closing = true;
-		for (const source of this.#sources.values()) source.expect?.(null);
+		this.withdraw();
 		const outcome = this.#closedWith ?? (this.#settled ? null : this.#round.close(now));
 		this.#settled = true;
 		return outcome;
+	}
+
+	/**
+	 * Tells every sensor to listen for nothing more, once: what one reports then still goes into
+	 * this round's span. The controller calls it before the span closes.
+	 */
+	withdraw(): void {
+		if (this.#withdrawn) return;
+		this.#withdrawn = true;
+		for (const source of this.#sources.values()) source.expect?.(null);
 	}
 
 	/** Cancels every wake-up (pause, quit). */

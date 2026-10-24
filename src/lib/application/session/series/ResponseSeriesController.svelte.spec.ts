@@ -332,6 +332,51 @@ describe('ResponseSeriesController', () => {
 		});
 	});
 
+	describe('a round without a handover', () => {
+		// Listening ends at 3.5 beats; nothing hands over.
+		const plans = (item: PlannedItem): RoundPlan => {
+			const plan: RoundPlan = {
+				...gesturePlan(item.item as ChordGridItem, METER_4_4),
+				listenUntil: Fraction.of(7, 8)
+			};
+			delete plan.handover;
+			return plan;
+		};
+
+		it('withdraws its expectation before the next round opens: a report then lands in the round that ends', async () => {
+			const ctx = setup(passage(), { plans });
+			await ctx.controller.start();
+			// Settled (nothing heard) at its end of listening, the next change counted in.
+			ctx.runTo(ctx.bar(2.75) - 0.01);
+			expect(await ctx.stored()).toHaveLength(1);
+			ctx.verifier.onWithdraw = () => ctx.play(ctx.bar(2.7), rightShape(change(0)));
+			ctx.runTo(ctx.bar(2.75));
+			expect(ctx.verifier.expectations.slice(-2)).toEqual([null, expect.anything()]);
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.play(ctx.bar(3) + 0.02, rightShape(change(1)));
+			ctx.controller.quit();
+			await drain();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			const [first, second] = await ctx.stored();
+			expect(first.observations?.map((o) => o.fate)).toEqual(['settled']);
+			expect(second.observations?.map((o) => o.fate)).toEqual(['answer']);
+		});
+
+		it('withdraws its expectation before the end: a report then lands in the round that ends', async () => {
+			const ctx = setup(passage(), { plans });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1.875) + 0.01);
+			expect(await ctx.stored()).toHaveLength(1);
+			ctx.verifier.onWithdraw = () => ctx.play(ctx.bar(1.85), rightShape(change(0)));
+			ctx.controller.quit();
+			await drain();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(ctx.verifier.expectations.at(-1)).toBeNull();
+			const [first] = await ctx.stored();
+			expect(first.observations?.map((o) => o.fate)).toEqual(['settled']);
+		});
+	});
+
 	describe('« Joué juste »', () => {
 		it('offers it after a miss in development, until the next change', async () => {
 			const ctx = setup(passage(), { development: true });
