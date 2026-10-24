@@ -913,6 +913,7 @@ Branche `plan/temps-musical-h2`, plan `docs/superpowers/plans/2026-10-24-h2-proc
 - **La réussite glissante compte tous les essais hors sondages** (C3, accepté) : identifier y entre aussi, les triades le faisaient déjà. Les essais de la séance à la construction amorcent les seuils de réussite.
 - **Le seuil du rappel direct est une donnée de l’exercice** (`params.recallThresholdMs`, lu par `recallThresholdOf`) : le catalogue déclare 1500 ms pour localiser et les triades, 3000 ms pour identifier. Absent : jamais de rappel direct. La règle est `directRecallOf(thresholdMs)`, qui lit l’enveloppe `response` ou, pour les essais anciens, les champs enregistrés.
 - **Au haut de l’échelle, une réponse juste qui n’est pas un rappel direct compte comme un raté** et fait descendre d’un cran, comme identifier et localiser le faisaient. Sa passe complète marque l’item appris.
+- **Le haut d’une échelle d’avance n’est jamais aidé** : quand un seul cran est gardé (un seul cran donné, ou le plus long tient déjà dans le seuil), l’échelle a deux niveaux à cette avance, aidé puis sans aide. Un item n’est jamais appris pendant que la réponse est montrée.
 - **`Level` est générique** (`Level<P>`) : l’échelle d’un item et les niveaux du rythme partagent `nextLevelState`.
 - **Un sondage raté est présenté aidé tout de suite sur la touche, pas sur les triades** (`presentsAtOnce`, donnée du sujet) : les triades attendent une consigne où l’accord ne sonne plus. Cas limite : s’il ne reste que cette position, `next` rend null, comme avant.
 - **Un sondage abandonné (pause) reprend son compte de consignes servies** : l’espacement des retests ignore une consigne non jouée.
@@ -923,7 +924,11 @@ Branche `plan/temps-musical-h2`, plan `docs/superpowers/plans/2026-10-24-h2-proc
 
 **Ce qui reste à H3**
 
-- Charger et écrire `levelStates` (Dexie 9) et y migrer l’avance des cartes : une carte sans niveau est servie à l’avance la plus longue, aidée, même en révision à froid, donc la migration doit semer le niveau de chaque carte.
+- Charger et écrire `levelStates` (Dexie 9) et y migrer l’avance des cartes. Une carte sans niveau est servie à l’avance la plus longue (aidée seulement dans la phase d’apprentissage) ; le vrai dommage est une révision à froid à 8 temps, qui ne peut jamais être un rappel direct : notée Difficile, jamais acquise. La migration sème donc le niveau de chaque carte en rapportant son avance à son niveau sur l’échelle, au tempo de son exercice.
+- Un niveau ramené dans l’échelle (`ladderLevel`, tempo proche de `TEMPO_MAX_BPM`) est enregistré plus bas qu’il n’était : envisager de ne pas enregistrer un tel ramené quand il n’a pas d’autre effet.
+- L’enregistreur doit prendre la température d’un sondage du rappel direct du sujet (`subject.recall`), plus de la `TimingRelation`.
+- Le `tempoBpm: number | null` des exécutions doit être filtré avant de former `tempos`.
+- Le contrôleur fait respecter `SESSION_MS` : la procédure ne finit jamais une séance par le temps.
 - Préparer le plan de tour de chaque item, brancher la procédure et les sujets dans le contrôleur unique.
 - Rendre obligatoire l’entrée `attempts` de `triadSubject` une fois branché.
 - Supprimer `learnSelector`, `triadSelector`, `cardLeadAfter` et `CardState.leadBeats`.
