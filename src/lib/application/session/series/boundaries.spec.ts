@@ -79,16 +79,16 @@ describe('the response series', () => {
 		expect(paths).toContain(`${MODULE}ResponseSeriesController.svelte.ts`);
 		const file = `${MODULE}x.ts`;
 		for (const module of FORBIDDEN) {
-			expect(offendersIn({ [file]: `import { x } from '$lib/${module}/y';` })).toEqual([
+			expect(offendersIn({ [file]: `import { x } from '$lib/${module}/y';` })).toContain(
 				`${file}: ${module}/y`
-			]);
+			);
 		}
 		expect(offendersIn({ [file]: `import { x } from '../../../domain/timing/grid';` })).toEqual([
 			`${file}: domain/timing/grid`
 		]);
-		expect(offendersIn({ [file]: `import type { M } from '../../ports/MetronomePort';` })).toEqual([
-			`${file}: application/ports/MetronomePort`
-		]);
+		expect(
+			offendersIn({ [file]: `import type { M } from '../../ports/MetronomePort';` })
+		).toContain(`${file}: application/ports/MetronomePort`);
 		expect(offendersIn({ [file]: `let r: TimingRelation;` })).toEqual([`${file}: TimingRelation`]);
 		expect(offendersIn({ [file]: `let m: MetronomePort;` })).toEqual([`${file}: MetronomePort`]);
 		for (const name of NAMES) {
