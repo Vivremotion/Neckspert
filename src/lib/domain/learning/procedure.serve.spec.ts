@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { ExerciseId, MechanicId } from '../exercise/types';
-import { LEARN_COLD_CAP, MAX_WORKING_SET } from '../progress/constants';
+import {
+	CONSOLIDATION_SKIP_RECENT,
+	LEARN_COLD_CAP,
+	LEARNING_SLOTS,
+	MAX_UNCONSOLIDATED,
+	MAX_WORKING_SET
+} from '../progress/constants';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { createLearningProcedure } from './procedure';
@@ -170,8 +176,13 @@ describe('createLearningProcedure next', () => {
 			expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
 			return source.next(at(0))?.phase === 'probe';
 		};
-		// The item being learned at 0.6.
-		expect(newComesAfter(played(0, [true, false, true, false, true]))).toBe(false);
+		// The item being learned at 0.6, the session at 0.8 over its last ten.
+		expect(
+			newComesAfter([
+				...played(0, [true, false, true, false, true], 0),
+				...played(1, [true, true, true, true, true], 10)
+			])
+		).toBe(false);
 		// The item at 1, the session at 0.6 over its last ten.
 		expect(
 			newComesAfter([
@@ -205,15 +216,17 @@ describe('createLearningProcedure next', () => {
 
 	it('serves only retests when the player is tired', () => {
 		const source = procedure({
-			cards: [learning(0), learning(1), learned(2), reviewable(3)],
+			cards: [learning(0), learning(1), learned(2), reviewable(3), reviewable(4, 10_000)],
 			attempts: [...played(0, [true, true]), ...played(1, [true, true], 5)]
 		});
 		// Rested: the review, then both items being learned.
 		const rested = [source.next(at(0)), source.next(at(0)), source.next(at(0))];
 		expect(rested.map((item) => item?.phase)).toEqual(['review', 'learning', 'learning']);
 		const tired: (PlannedItem | null)[] = [];
-		for (let draw = 0; draw < 10; draw++) tired.push(source.next(at(0, true)));
+		// Tired once the second review is due: it waits.
+		for (let draw = 0; draw < 10; draw++) tired.push(source.next(at(10_000, true)));
 		expect(tired.every((item) => item?.phase === 'learning')).toBe(true);
+		expect(tired.some((item) => item?.item === 4)).toBe(false);
 		expect(new Set(tired.map((item) => item?.item))).toEqual(new Set([0, 1]));
 	});
 
@@ -255,6 +268,64 @@ describe('createLearningProcedure next', () => {
 			aid: 'show-position',
 			stringAid: true
 		});
+	});
+
+	it('keeps new items out once LEARNING_SLOTS items are being learned', () => {
+		// The items being learned are all neighbours: once one is served, the others wait.
+		const subject = fakeSubject({ neighbours: (a, b) => a === b || (a < 3 && b < 3) });
+		const secondAfter = (being: number[]) => {
+			const source = procedure({
+				subject,
+				cards: [...being.map(learning), learned(5)],
+				attempts: being.flatMap((item, index) => played(item, [true, true], index * 10))
+			});
+			expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
+			return source.next(at(0));
+		};
+		expect(LEARNING_SLOTS).toBe(3);
+		expect(secondAfter([0, 1, 2])).toMatchObject({ item: 5, phase: 'consolidation' });
+		expect(secondAfter([0, 1])).toMatchObject({ item: 3, phase: 'probe' });
+	});
+
+	it('keeps new items out once MAX_UNCONSOLIDATED learned items are not acquired', () => {
+		const firstAfter = (count: number) =>
+			procedure({ cards: Array.from({ length: count }, (_, item) => learned(item)) }).next(at(0));
+		expect(firstAfter(MAX_UNCONSOLIDATED)?.phase).toBe('consolidation');
+		expect(firstAfter(MAX_UNCONSOLIDATED - 1)).toMatchObject({
+			item: MAX_UNCONSOLIDATED - 1,
+			phase: 'probe'
+		});
+	});
+
+	it('falls back on a recent item when every learned one was just served', () => {
+		const source = procedure({
+			subject: fakeSubject({ items: CONSOLIDATION_SKIP_RECENT }),
+			cards: Array.from({ length: CONSOLIDATION_SKIP_RECENT }, (_, item) => learned(item))
+		});
+		const items = Array.from({ length: 6 }, () => source.next(at(0)));
+		expect(items.every((item) => item?.phase === 'consolidation')).toBe(true);
+		expect(items.map((item) => item?.item)).toEqual([0, 1, 0, 1, 0, 1]);
+	});
+
+	it('probes a new item past the thresholds when nothing else can be served', () => {
+		const source = procedure({
+			cards: [learned(0)],
+			attempts: played(0, [false, false, false, false, false])
+		});
+		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'consolidation' });
+		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'probe' });
+	});
+
+	it('serves a retest early before falling back on anything else', () => {
+		// The session is weak: no new item within the thresholds.
+		const source = procedure({
+			cards: [learning(0), learned(1)],
+			attempts: played(1, [false, false, false, false, false])
+		});
+		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
+		expect(source.next(at(0))).toMatchObject({ item: 1, phase: 'consolidation' });
+		// Item 0's retest is not due yet (after the short gap); item 1 is the previous one.
+		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
 	});
 
 	it('serves nothing rather than the previous item again', () => {

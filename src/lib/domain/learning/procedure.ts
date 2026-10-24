@@ -211,6 +211,8 @@ class Procedure implements LearningProcedure {
 	/** A due retest; the aided presentation after a missed probe comes first. */
 	private dueRetest(): LearningEntry | null {
 		const due = [...this.learning.values()].filter((entry) => entry.dueAt <= this.served);
+		// The aided presentation after a missed probe comes at once, even after its neighbour (or
+		// itself, the probe being the previous item): the aid must follow the miss directly.
 		const afterProbe = due.find((entry) => entry.dueAt === -Infinity);
 		if (afterProbe) return afterProbe;
 		return this.draw(due, (entry) => entry.ref);
