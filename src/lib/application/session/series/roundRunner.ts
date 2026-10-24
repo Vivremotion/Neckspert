@@ -12,7 +12,7 @@ import {
 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import type { SensorKind } from '$lib/application/mechanics/types';
-import { aidsOf } from '../AttemptRecorder';
+import { aidsOf } from '../aids';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation, ObservationSource } from '../sensors';
 import type { Transport } from '../transport';

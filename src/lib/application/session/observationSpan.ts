@@ -5,6 +5,7 @@ import type { Observation } from './sensors';
 export class ObservationSpan {
 	private readonly entries: RecordedObservation[] = [];
 	private closed = false;
+	private readonly closeListeners: ((observations: RecordedObservation[]) => void)[] = [];
 
 	constructor(
 		private readonly promptTime: number,
@@ -36,6 +37,18 @@ export class ObservationSpan {
 	/** Ends the span; no observation can be added afterwards. */
 	close(): RecordedObservation[] {
 		this.closed = true;
-		return this.snapshot();
+		const observations = this.snapshot();
+		for (const listener of this.closeListeners.splice(0)) listener([...observations]);
+		return observations;
+	}
+
+	/** Whether the span has ended. */
+	get isClosed(): boolean {
+		return this.closed;
+	}
+
+	/** Calls `listener` with the final list once the span ends; never when it has already ended. */
+	onClose(listener: (observations: RecordedObservation[]) => void): void {
+		if (!this.closed) this.closeListeners.push(listener);
 	}
 }
