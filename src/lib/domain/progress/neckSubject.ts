@@ -1,9 +1,14 @@
 import { pacingOf } from '$lib/domain/exercise/pacing';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
-import { aidLadder, leadLadder } from '$lib/domain/learning/ladder';
-import { directRecallOf, type DirectRecall } from '$lib/domain/learning/recall';
-import type { CardRef, LearningSubject } from '$lib/domain/learning/subject';
+import {
+	aidLadder,
+	directRecallOf,
+	leadLadder,
+	type CardRef,
+	type DirectRecall,
+	type LearningSubject
+} from '$lib/domain/learning';
 import type { IdentifyData, LocateData } from '$lib/domain/mechanics';
 import {
 	asNeckCard,
