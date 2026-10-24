@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming, createBeatTiming } from '$lib/domain/timing';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
@@ -102,7 +102,7 @@ function setup(exercise: ExerciseDefinition) {
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
 		async () => ({
-			selector: createListSelector([item(exercise.id, 1), item(exercise.id, 2)]),
+			selector: createListSource([item(exercise.id, 1), item(exercise.id, 2)]),
 			executions
 		}),
 		deps

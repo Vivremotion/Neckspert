@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
-import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
 import {
 	cueFrets,
@@ -11,7 +10,7 @@ import {
 } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
-import type { SessionSelector } from './selector';
+import type { ItemSource } from './selector';
 import { createTriadSelector, triadZoneOpen } from './triadSelector';
 
 const NOW = Date.parse('2026-10-08T10:00:00.000Z');
@@ -25,12 +24,9 @@ function anchorCard(key: string, overrides: Partial<CardState> = {}): CardState 
 		introduceCard(
 			{ key: cardKey('triad-anchor', key), mechanic: 'triad-anchor', item: { voicingKey: key } },
 			NOW - 3 * 24 * HOUR,
-			's-old',
-			triadAnchorRules.timing
+			's-old'
 		),
-		NOW - 3 * 24 * HOUR,
-		triadAnchorRules.timing,
-		80
+		NOW - 3 * 24 * HOUR
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: FAR }, ...overrides };
 }
@@ -44,12 +40,9 @@ function zoneCard(key: string, overrides: Partial<CardState> = {}): CardState {
 		introduceCard(
 			{ key: cardKey('triad-zone', key), mechanic: 'triad-zone', item: { voicingKey: key } },
 			NOW - 3 * 24 * HOUR,
-			's-old',
-			triadZoneRules.timing
+			's-old'
 		),
-		NOW - 3 * 24 * HOUR,
-		triadZoneRules.timing,
-		80
+		NOW - 3 * 24 * HOUR
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: FAR }, ...overrides };
 }
@@ -63,7 +56,7 @@ function select(
 	random: () => number = () => 0,
 	attempts: Attempt[] = [],
 	mechanic: 'triad-anchor' | 'triad-zone' = 'triad-anchor'
-): SessionSelector {
+): ItemSource {
 	return createTriadSelector({
 		mechanic,
 		cards,
@@ -100,13 +93,13 @@ function attemptOf(item: PlannedItem, right: boolean, at: number): Attempt {
 }
 
 /** A session of the zone exercise. */
-function selectZone(cards: CardState[] = [], random: () => number = () => 0): SessionSelector {
+function selectZone(cards: CardState[] = [], random: () => number = () => 0): ItemSource {
 	return select(cards, random, [], 'triad-zone');
 }
 
 /** Serves `count` prompts, answering each with `answer(item, index)`. */
 function play(
-	selector: SessionSelector,
+	selector: ItemSource,
 	count: number,
 	answer: (item: PlannedItem, index: number) => boolean = () => true
 ): PlannedItem[] {
@@ -169,7 +162,7 @@ describe('createTriadSelector', () => {
 			const first = voicingOf(item) === ORDER[0];
 			if (first && item.phase === 'learning') leads.push(item.leadBeats);
 			const outcome = selector.record(attemptOf(item, !(first && item.phase === 'probe'), at), at);
-			if (first && outcome?.card.learnedAt) learnedAt = outcome.card.learnedAt;
+			if (first && outcome?.card?.learnedAt) learnedAt = outcome.card.learnedAt;
 		}
 		expect(leads).toEqual([8, 4, 2, 2]);
 		expect(learnedAt).not.toBeNull();

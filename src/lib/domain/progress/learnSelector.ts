@@ -17,7 +17,7 @@ import {
 import { advance, announcesLead, fits, isOpen, type Sequence } from './sequence';
 import { cardSuccessRate, sessionSuccessRate } from './success';
 import { allowedAfter, pickAtRandom } from './order';
-import { introduceCard, markLearned, probeCard } from './cards';
+import { cardLeadAfter, introduceCard, markLearned, probeCard } from './cards';
 import {
 	CONFUSION_LOOKBACK,
 	CONSOLIDATION_POOL,
@@ -40,7 +40,7 @@ import {
 import { nextNewCard } from './introduction';
 import { keyed, neckTiming, plannedFor } from './neck';
 import { lastAttemptByCard, reviewableCards } from './review';
-import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
 
 /** A note presented in this session and not learned yet. */
 interface LearningEntry {
@@ -69,7 +69,7 @@ function wasConfused(attempt: Attempt): boolean {
 
 const ANY: Fit = () => true;
 
-class LearnSelector implements SessionSelector {
+class LearnSelector implements ItemSource {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
 	private readonly history = new Map<CardKey, Attempt[]>();
@@ -166,7 +166,10 @@ class LearnSelector implements SessionSelector {
 			this.learning.delete(attempt.cardKey);
 			const card = this.cards.get(attempt.cardKey);
 			if (!card) return null;
-			const learned = markLearned(card, now, neckTiming(entry.card.mechanic), this.tempoBpm);
+			const marked = markLearned(card, now);
+			const timing = neckTiming(entry.card.mechanic);
+			const leadBeats = cardLeadAfter(marked, timing, { learned: this.tempoBpm });
+			const learned = { ...marked, leadBeats };
 			this.cards.set(learned.key, learned);
 			return { card: learned };
 		}
@@ -280,7 +283,12 @@ class LearnSelector implements SessionSelector {
 	private recordProbe(attempt: Attempt, now: number): RecordOutcome {
 		const card = this.cards.get(attempt.cardKey);
 		if (!card) return null;
-		const known = probeCard(card, attempt, now, this.sessionId, neckTiming(card.mechanic));
+		const timing = neckTiming(card.mechanic);
+		const probed = probeCard(card, attempt, now, this.sessionId, (a) => timing.isDirectRecall(a));
+		const known = probed && {
+			...probed,
+			leadBeats: cardLeadAfter(probed, timing, { probe: attempt })
+		};
 		if (known) {
 			this.cards.set(known.key, known);
 			return { card: known };
@@ -514,7 +522,9 @@ class LearnSelector implements SessionSelector {
 		if (!next || !allowedAfter(next, this.previous)) return null;
 		const lead = next.mechanic === 'locate' ? locateRules.timing.learnedLead(this.tempoBpm) : null;
 		if (!fit(next.mechanic, lead)) return null;
-		const card = introduceCard(keyed(next), now, this.sessionId, neckTiming(next.mechanic));
+		const introduced = introduceCard(keyed(next), now, this.sessionId);
+		const leadBeats = cardLeadAfter(introduced, neckTiming(next.mechanic), 'introduced');
+		const card = { ...introduced, leadBeats };
 		this.cards.set(card.key, card);
 		this.unansweredProbe = card.key;
 		return plannedFor(next, { phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: lead });
@@ -583,7 +593,7 @@ export function createLearnSelector(input: {
 	sequences?: boolean;
 	/** Notes introduced first: those of the triads being learned (spec 2026-10-08, section 2). */
 	priority?: readonly LocateItem[];
-}): SessionSelector {
+}): ItemSource {
 	return new LearnSelector(
 		input.cards,
 		input.attempts,

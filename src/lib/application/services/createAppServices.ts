@@ -26,7 +26,7 @@ import {
 	computeHomeStats,
 	createLearnSelector,
 	createGestureSelector,
-	createListSelector,
+	createListSource,
 	createTriadSelector,
 	isNeck,
 	triadZoneOpen,
@@ -295,7 +295,7 @@ export function createAppServices(
 				const neckCards = cards.filter(isNeck);
 				const selector =
 					kind === 'free'
-						? createListSelector(buildFreePlan({ cards: neckCards, random: deps.random }))
+						? createListSource(buildFreePlan({ cards: neckCards, random: deps.random }))
 						: createLearnSelector({
 								cards: neckCards,
 								attempts: attempts.filter(isNeck),

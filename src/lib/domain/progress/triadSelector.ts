@@ -17,7 +17,7 @@ import {
 	type LeadBeats,
 	type PlannedItem
 } from '$lib/domain/types';
-import { introduceCard, isAcquired, markLearned, probeCard } from './cards';
+import { cardLeadAfter, introduceCard, isAcquired, markLearned, probeCard } from './cards';
 import {
 	CONFUSION_LOOKBACK,
 	CONSOLIDATION_POOL,
@@ -35,7 +35,7 @@ import {
 	ZONE_MIN_ACQUIRED_TRIADS
 } from './constants';
 import { lastAttemptByCard, reviewableCards } from './review';
-import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
 import { cardSuccessRate, successRate } from './success';
 
 export type TriadMechanic = 'triad-anchor' | 'triad-zone';
@@ -80,7 +80,7 @@ function voicingOfCard(card: CardState): string {
 }
 
 /** A triads session: the learn session's rules over one triad mechanic, the anchor or the zone. */
-class TriadSelector implements SessionSelector {
+class TriadSelector implements ItemSource {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
 	/** Every attempt of each card, oldest first: acquisition reads them. */
@@ -169,7 +169,9 @@ class TriadSelector implements SessionSelector {
 			const card = this.cards.get(attempt.cardKey);
 			if (!card) return null;
 			const track = this.tracks[mechanic];
-			const learned = markLearned(card, now, track.timing, track.tempoBpm);
+			const marked = markLearned(card, now);
+			const leadBeats = cardLeadAfter(marked, track.timing, { learned: track.tempoBpm });
+			const learned = { ...marked, leadBeats };
 			this.cards.set(learned.key, learned);
 			return { card: learned };
 		}
@@ -297,7 +299,12 @@ class TriadSelector implements SessionSelector {
 	private recordProbe(attempt: Attempt, mechanic: TriadMechanic, now: number): RecordOutcome {
 		const card = this.cards.get(attempt.cardKey);
 		if (!card) return null;
-		const known = probeCard(card, attempt, now, this.sessionId, this.tracks[mechanic].timing);
+		const { timing } = this.tracks[mechanic];
+		const probed = probeCard(card, attempt, now, this.sessionId, (a) => timing.isDirectRecall(a));
+		const known = probed && {
+			...probed,
+			leadBeats: cardLeadAfter(probed, timing, { probe: attempt })
+		};
 		if (known) {
 			this.cards.set(known.key, known);
 			return { card: known };
@@ -427,12 +434,15 @@ class TriadSelector implements SessionSelector {
 		if (!next) return null;
 		const track = this.tracks[next.mechanic];
 		const key = cardKey(next.mechanic, next.voicing);
-		const card = introduceCard(
+		const introduced = introduceCard(
 			{ key, mechanic: next.mechanic, item: { voicingKey: next.voicing } },
 			now,
-			this.sessionId,
-			track.timing
+			this.sessionId
 		);
+		const card = {
+			...introduced,
+			leadBeats: cardLeadAfter(introduced, track.timing, 'introduced')
+		};
 		this.cards.set(card.key, card);
 		this.unansweredProbe = card.key;
 		return this.planned(next.mechanic, next.voicing, {
@@ -449,7 +459,8 @@ class TriadSelector implements SessionSelector {
 				if (!this.allowed(voicing) || this.cards.has(cardKey(ZONE, voicing))) continue;
 				const anchor = this.cards.get(cardKey(ANCHOR, voicing));
 				const history = this.allByCard.get(cardKey(ANCHOR, voicing)) ?? [];
-				if (anchor && isAcquired(anchor, history, this.tracks[ANCHOR].timing)) {
+				const { timing } = this.tracks[ANCHOR];
+				if (anchor && isAcquired(anchor, history, (a) => timing.isDirectRecall(a))) {
 					return { mechanic: ZONE, voicing };
 				}
 			}
@@ -563,7 +574,7 @@ export function createTriadSelector(input: {
 	/** Tempo of each exercise's execution in this session. */
 	tempos: Readonly<Record<ExerciseId, number | null>>;
 	random?: () => number;
-}): SessionSelector {
+}): ItemSource {
 	const { anchor, zone } = input.definitions;
 	const tempoOf = (definition: ExerciseDefinition) =>
 		input.tempos[definition.id] ?? DEFAULT_TEMPO_BPM;

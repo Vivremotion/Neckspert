@@ -1,10 +1,11 @@
 import { cardKeyOf, type MechanicRules } from '$lib/domain/mechanics';
 import {
 	applyColdAttempt,
+	cardLeadAfter,
 	classifyTemperature,
 	introduceCard,
 	probeTemperature,
-	type SessionSelector
+	type ItemSource
 } from '$lib/domain/progress';
 import {
 	isResponseSuccess,
@@ -39,7 +40,7 @@ export interface AttemptRecorderDeps {
 	cards: CardStateRepositoryPort;
 	clock: AudioClockPort;
 	now: () => number;
-	selector: SessionSelector;
+	selector: ItemSource;
 	sessionId: string;
 	/** Rules of a prompt's mechanic: its card key, its time relation and its learner model. */
 	rules: (mechanic: MechanicId) => MechanicRules;
@@ -203,7 +204,7 @@ export class AttemptRecorder {
 		rules: MechanicRules,
 		timing: TimingRelation,
 		attempt: Attempt,
-		outcome: ReturnType<SessionSelector['record']>,
+		outcome: ReturnType<ItemSource['record']>,
 		attemptedInSession: boolean,
 		attemptId: (id: number) => void
 	): Promise<void> {
@@ -215,7 +216,7 @@ export class AttemptRecorder {
 		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
 		const temperature =
 			item.phase === 'probe'
-				? probeTemperature(attempt, timing)
+				? probeTemperature(attempt, (a) => timing.isDirectRecall(a))
 				: this.temperatureFor(item, existing, {
 						lastAttemptAt,
 						attemptedInSession,
@@ -231,17 +232,23 @@ export class AttemptRecorder {
 		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
-				await this.storeCard(applyColdAttempt(existing, attempt, fullHistory, now, timing));
+				const applied = applyColdAttempt(existing, attempt, fullHistory, now, (a) =>
+					timing.isDirectRecall(a)
+				);
+				const leadBeats = cardLeadAfter(existing, timing, { cold: attempt });
+				await this.storeCard({ ...applied, leadBeats });
 			}
 		} else if (item.phase === 'probe') {
-			if (outcome) await this.storeCard(outcome.card);
+			if (outcome?.card) await this.storeCard(outcome.card);
 		} else if (item.phase === 'learning') {
-			if (outcome) await this.storeCard(outcome.card);
+			if (outcome?.card) await this.storeCard(outcome.card);
 			else if (!existing) {
 				// A prompt may add to its card's item (a position drawn for it): the card keeps its own.
 				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
 				const card = { key, mechanic: item.mechanic, item: kept };
-				await this.storeCard(introduceCard(card, now, this.deps.sessionId, timing));
+				const introduced = introduceCard(card, now, this.deps.sessionId);
+				const leadBeats = cardLeadAfter(introduced, timing, 'introduced');
+				await this.storeCard({ ...introduced, leadBeats });
 			}
 		}
 	}

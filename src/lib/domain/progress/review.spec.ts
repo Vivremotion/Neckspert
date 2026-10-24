@@ -4,7 +4,7 @@ import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import { MIN_COLD_DELAY_MS } from './constants';
-import { keyed, neckExerciseId, neckTiming } from './neck';
+import { keyed, neckExerciseId } from './neck';
 import { lastAttemptByCard, nextReviewAt, reviewableAt, reviewableCards } from './review';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
@@ -13,12 +13,11 @@ const A: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
 const I: NeckCard = { mechanic: 'identify', item: { string: 6, fret: 3 } };
 
 function introduced(card: NeckCard, now: number): CardState {
-	return introduceCard(keyed(card), now, 's0', neckTiming(card.mechanic));
+	return introduceCard(keyed(card), now, 's0');
 }
 
 function learned(card: NeckCard, due: number): CardState {
-	const timing = neckTiming(card.mechanic);
-	const state = markLearned(introduced(card, NOW - 10 * MIN_COLD_DELAY_MS), NOW, timing, 80);
+	const state = markLearned(introduced(card, NOW - 10 * MIN_COLD_DELAY_MS), NOW);
 	return { ...state, scheduling: { ...state.scheduling, due } };
 }
 

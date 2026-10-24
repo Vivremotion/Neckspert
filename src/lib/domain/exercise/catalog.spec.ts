@@ -12,12 +12,17 @@ import { pacingOf } from './pacing';
 
 describe('exercise catalog', () => {
 	it('describes the two neck exercises', () => {
-		expect(LOCATE_NECK).toEqual({ id: 'locate-neck', version: 1, mechanic: 'locate', params: {} });
+		expect(LOCATE_NECK).toEqual({
+			id: 'locate-neck',
+			version: 1,
+			mechanic: 'locate',
+			params: { recallThresholdMs: 1500 }
+		});
 		expect(IDENTIFY_NECK).toEqual({
 			id: 'identify-neck',
 			version: 1,
 			mechanic: 'identify',
-			params: {}
+			params: { recallThresholdMs: 3000 }
 		});
 	});
 
@@ -33,7 +38,8 @@ describe('exercise catalog', () => {
 				[4, 3, 2]
 			],
 			qualities: ['maj', 'min'],
-			pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 }
+			pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 },
+			recallThresholdMs: 1500
 		};
 		expect(TRIADS_ANCHOR).toEqual({
 			id: 'triads-anchor',

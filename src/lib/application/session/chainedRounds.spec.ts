@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { createGridTiming } from '$lib/domain/timing';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
@@ -124,7 +124,7 @@ function setup(items: PlannedItem[] = PASSAGES) {
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
-		async () => ({ selector: createListSelector(items), executions: EXECUTIONS }),
+		async () => ({ selector: createListSource(items), executions: EXECUTIONS }),
 		deps
 	);
 	/** Moves the clock to `time` by 10 ms steps, the metronome waking at each. */

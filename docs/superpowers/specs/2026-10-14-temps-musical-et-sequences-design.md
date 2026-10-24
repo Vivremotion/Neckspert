@@ -903,3 +903,32 @@ Branche `plan/temps-musical-h1`, plan `docs/superpowers/plans/2026-10-23-h1-mote
 - **Le tour laisse passer le temps avant de se clore** : `close(now)` appelle `advance(now)` avant de lire le résultat, si bien qu’un tour réglé ne porte jamais de lecture `pending`.
 - **Les tests d’égalité gardent leur sens après la délégation.** Les tests qui comparent les juges de contenu aux `judge` des mécaniques, et le verdict de cycle à l’ancien `PlanRound.settle()`, affirment des valeurs écrites en dur, relevées avant que les mécaniques ne délèguent ou que le moteur ne soit réécrit : comparer une fonction à elle-même ne prouverait rien.
 - **Structure.** La classification pure de la grille passe dans `src/lib/domain/mechanics/gridClassify.ts`, réexportée par `chordGrid.ts`, pour éviter un cycle d’imports avec `domain/judges/`. Les plans de test partagés sont dans `src/lib/domain/time/modes/testing/plans.ts`. `legacyParity.spec.ts` est supprimé en H3 avec `domain/timing/`.
+
+### Réalisation du plan H2 (2026-10-24)
+
+Branche `plan/temps-musical-h2`, plan `docs/superpowers/plans/2026-10-24-h2-procedure-apprentissage.md`. Ce que la réalisation a décidé contre l’amendement ou le plan :
+
+- **Un seul niveau par item** (C1, accepté par l’auteur) : l’avance de la carte et l’échelle d’apprentissage en séance deviennent un `LevelState` par item, déplacé à chaque essai jugé, chaud ou froid. Un item repris commence à son niveau, et n’est présenté aidé que s’il est au niveau le plus long.
+- **Le haut de l’échelle est le même pour tous** (C2, accepté) : le cran le plus long dont la durée tient dans le seuil de rappel direct au tempo de l’exécution. Les triades finissent à 4 temps au-dessus de 150 bpm.
+- **La réussite glissante compte tous les essais hors sondages** (C3, accepté) : identifier y entre aussi, les triades le faisaient déjà. Les essais de la séance à la construction amorcent les seuils de réussite.
+- **Le seuil du rappel direct est une donnée de l’exercice** (`params.recallThresholdMs`, lu par `recallThresholdOf`) : le catalogue déclare 1500 ms pour localiser et les triades, 3000 ms pour identifier. Absent : jamais de rappel direct. La règle est `directRecallOf(thresholdMs)`, qui lit l’enveloppe `response` ou, pour les essais anciens, les champs enregistrés.
+- **Au haut de l’échelle, une réponse juste qui n’est pas un rappel direct compte comme un raté** et fait descendre d’un cran, comme identifier et localiser le faisaient. Sa passe complète marque l’item appris.
+- **Le haut d’une échelle d’avance n’est jamais aidé** : quand un seul cran est gardé (un seul cran donné, ou le plus long tient déjà dans le seuil), l’échelle a deux niveaux à cette avance, aidé puis sans aide. Un item n’est jamais appris pendant que la réponse est montrée.
+- **`Level` est générique** (`Level<P>`) : l’échelle d’un item et les niveaux du rythme partagent `nextLevelState`.
+- **Un sondage raté est présenté aidé tout de suite sur la touche, pas sur les triades** (`presentsAtOnce`, donnée du sujet) : les triades attendent une consigne où l’accord ne sonne plus. Cas limite : s’il ne reste que cette position, `next` rend null, comme avant.
+- **Un sondage abandonné (pause) reprend son compte de consignes servies** : l’espacement des retests ignore une consigne non jouée.
+- **`ItemSource.record` rend `{ card?, level? }`** : une carte changée, un niveau changé, ou les deux.
+- **Les sources d’items portent un seul nom** : `SessionSelector` devient `ItemSource`, `createListSelector` devient `createListSource`. `choose` choisit la série parmi les candidats, avec son seul cas pour l’instant.
+- **`cardLeadAfter` garde l’avance de l’ancien chemin jusqu’à H3**, et `progress/cards.ts` importe encore le type de `domain/timing` pour elle.
+- **Préparer le plan de tour d’un item** est laissé à H3 : H2 rend un `PlannedItem` dont le niveau donne l’avance et l’aide.
+
+**Ce qui reste à H3**
+
+- Charger et écrire `levelStates` (Dexie 9) et y migrer l’avance des cartes. Une carte sans niveau est servie à l’avance la plus longue (aidée seulement dans la phase d’apprentissage) ; le vrai dommage est une révision à froid à 8 temps, qui ne peut jamais être un rappel direct : notée Difficile, jamais acquise. La migration sème donc le niveau de chaque carte en rapportant son avance à son niveau sur l’échelle, au tempo de son exercice.
+- Un niveau ramené dans l’échelle (`ladderLevel`, tempo proche de `TEMPO_MAX_BPM`) est enregistré plus bas qu’il n’était : envisager de ne pas enregistrer un tel ramené quand il n’a pas d’autre effet.
+- L’enregistreur doit prendre la température d’un sondage du rappel direct du sujet (`subject.recall`), plus de la `TimingRelation`.
+- Le `tempoBpm: number | null` des exécutions doit être filtré avant de former `tempos`.
+- Le contrôleur fait respecter `SESSION_MS` : la procédure ne finit jamais une séance par le temps.
+- Préparer le plan de tour de chaque item, brancher la procédure et les sujets dans le contrôleur unique.
+- Rendre obligatoire l’entrée `attempts` de `triadSubject` une fois branché.
+- Supprimer `learnSelector`, `triadSelector`, `cardLeadAfter` et `CardState.leadBeats`.

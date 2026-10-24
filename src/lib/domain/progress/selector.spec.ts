@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
-import { createListSelector } from './selector';
+import { createListSource } from './selector';
 
 const CONTEXT = { now: 0, elapsedMs: 0, fatigued: false };
 
@@ -16,17 +16,17 @@ function item(pitch: 'F' | 'G'): PlannedItem {
 	};
 }
 
-describe('createListSelector', () => {
-	it('serves the items in order, then null', () => {
-		const selector = createListSelector([item('F'), item('G')]);
-		expect(selector.next(CONTEXT)).toEqual(item('F'));
-		expect(selector.next(CONTEXT)).toEqual(item('G'));
-		expect(selector.next(CONTEXT)).toBeNull();
+describe('createListSource', () => {
+	it('serves a fixed list in order', () => {
+		const source = createListSource([item('F'), item('G')]);
+		expect(source.next(CONTEXT)).toEqual(item('F'));
+		expect(source.next(CONTEXT)).toEqual(item('G'));
+		expect(source.next(CONTEXT)).toBeNull();
 	});
 
 	it('learns nothing from attempts', () => {
-		const selector = createListSelector([item('F')]);
-		expect(selector.record({} as Attempt, 0)).toBeNull();
-		expect(() => selector.cardChanged({} as CardState)).not.toThrow();
+		const source = createListSource([item('F')]);
+		expect(source.record({} as Attempt, 0)).toBeNull();
+		expect(() => source.cardChanged({} as CardState)).not.toThrow();
 	});
 });

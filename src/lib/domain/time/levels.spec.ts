@@ -282,3 +282,28 @@ describe('nextLevelState', () => {
 		expect(() => nextLevelState(stateAt(5), plain, ok)).toThrow(RangeError);
 	});
 });
+
+describe('generic levels', () => {
+	it('moves any ladder of levels, not only the rhythm’s', () => {
+		const ladder: Level<{ leadBeats: number }>[] = [4, 2, 1].map((leadBeats) => ({
+			params: { leadBeats },
+			pass: { successes: 1 },
+			drop: { failures: 1 }
+		}));
+		const at = (level: number): LevelState => ({
+			exerciseId: 'x',
+			scope: '',
+			item: 'i',
+			level,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		const up = nextLevelState(at(0), ladder, { success: true, aided: false });
+		expect(up.changed).toBe('up');
+		expect(up.state.level).toBe(1);
+		const down = nextLevelState(at(1), ladder, { success: false, aided: false });
+		expect(down.changed).toBe('down');
+		expect(down.state.level).toBe(0);
+	});
+});

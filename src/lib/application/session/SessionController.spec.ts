@@ -7,14 +7,13 @@ import {
 	type PlannedItem,
 	type SessionKind
 } from '$lib/domain/types';
-import { beatTiming } from '$lib/domain/timing';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
-	createListSelector,
+	createListSource,
 	introduceCard,
 	LEARN_SESSION_MS,
 	markLearned,
-	type SessionSelector
+	type ItemSource
 } from '$lib/domain/progress';
 import {
 	FakeClock,
@@ -59,7 +58,7 @@ function progression(tempoBpm: number) {
 
 type Prepare = (
 	sessionId: string
-) => Promise<{ selector: SessionSelector; executions: Execution[] }>;
+) => Promise<{ selector: ItemSource; executions: Execution[] }>;
 
 interface TestPlan {
 	id: string;
@@ -75,7 +74,7 @@ function planWith(
 	return {
 		id: 'sess-1',
 		kind,
-		prepare: async () => ({ selector: createListSelector(items), executions })
+		prepare: async () => ({ selector: createListSource(items), executions })
 	};
 }
 
@@ -89,7 +88,7 @@ function planFromProgression(
 		id: 'sess-1',
 		kind,
 		prepare: async () => ({
-			selector: createListSelector(items),
+			selector: createListSource(items),
 			executions: [
 				{
 					exerciseId: 'locate-neck',
@@ -1178,7 +1177,7 @@ describe('SessionController persistence', () => {
 
 	it('records a cold locate attempt with confusion on a wrong pitch', async () => {
 		const deps = createDeps();
-		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming));
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'sess-1'));
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
@@ -1203,12 +1202,12 @@ describe('SessionController persistence', () => {
 
 /** List selector that records what the controller passes it. */
 function spySelector(items: PlannedItem[]) {
-	const list = createListSelector(items);
+	const list = createListSource(items);
 	const contexts: { now: number; elapsedMs: number; fatigued: boolean }[] = [];
 	const recorded: Attempt[] = [];
 	const changed: CardState[] = [];
-	let outcome: ReturnType<SessionSelector['record']> = null;
-	const selector: SessionSelector = {
+	let outcome: ReturnType<ItemSource['record']> = null;
+	const selector: ItemSource = {
 		next(context) {
 			contexts.push(context);
 			return list.next(context);
@@ -1226,13 +1225,13 @@ function spySelector(items: PlannedItem[]) {
 		contexts,
 		recorded,
 		changed,
-		learnOnRecord(value: ReturnType<SessionSelector['record']>) {
+		learnOnRecord(value: ReturnType<ItemSource['record']>) {
 			outcome = value;
 		}
 	};
 }
 
-function withSelector(selector: SessionSelector, deps: SessionDeps, kind: SessionKind = 'learn') {
+function withSelector(selector: ItemSource, deps: SessionDeps, kind: SessionKind = 'learn') {
 	return new SessionController(
 		{ id: 'sess-1', kind },
 		async () => ({ selector, executions: EXECUTIONS }),
@@ -1302,7 +1301,7 @@ describe('SessionController with a selector', () => {
 
 	it('stops after the current verdict once five minutes have passed', async () => {
 		const deps = createDeps();
-		const selector: SessionSelector = {
+		const selector: ItemSource = {
 			next: (context) => (context.elapsedMs >= LEARN_SESSION_MS ? null : locateItem()),
 			record: () => null,
 			cardChanged: () => {}
@@ -1358,16 +1357,11 @@ describe('SessionController with a selector', () => {
 
 	it('stores the card the selector reports as learned', async () => {
 		const deps = createDeps();
-		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'old', beatTiming));
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'old'));
 		const spy = spySelector([
 			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 4 })
 		]);
-		const learned = markLearned(
-			introduceCard(F_ON_B, deps.now(), 'old', beatTiming),
-			123,
-			beatTiming,
-			80
-		);
+		const learned = markLearned(introduceCard(F_ON_B, deps.now(), 'old'), 123);
 		spy.learnOnRecord({ card: learned });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1405,7 +1399,7 @@ describe('SessionController with a selector', () => {
 		const deps = createDeps();
 		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 4 });
 		const spy = spySelector([probe]);
-		const known = { ...introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming), acquiredAt: 456 };
+		const known = { ...introduceCard(F_ON_B, deps.now(), 'sess-1'), acquiredAt: 456 };
 		spy.learnOnRecord({ card: known });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1430,12 +1424,7 @@ describe('SessionController with a selector', () => {
 
 	it('counts a cold free-play attempt on a learned card', async () => {
 		const deps = createDeps();
-		const card = markLearned(
-			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
-			-9_000_000,
-			beatTiming,
-			80
-		);
+		const card = markLearned(introduceCard(F_ON_B, -10_000_000, 'old'), -9_000_000);
 		await deps.cards.put(card);
 		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 });
 		const spy = spySelector([free]);
@@ -1457,8 +1446,7 @@ describe('SessionController with a selector', () => {
 		const being = introduceCard(
 			{ key: 'locate:3:C', mechanic: 'locate', item: { string: 3, pitch: 'C' } },
 			-10_000_000,
-			'old',
-			beatTiming
+			'old'
 		);
 		await deps.cards.put(being);
 		const items = [
@@ -1492,12 +1480,7 @@ describe('SessionController with a selector', () => {
 
 	it('keeps consolidation hot and leaves the card alone', async () => {
 		const deps = createDeps();
-		const card = markLearned(
-			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
-			-9_000_000,
-			beatTiming,
-			80
-		);
+		const card = markLearned(introduceCard(F_ON_B, -10_000_000, 'old'), -9_000_000);
 		await deps.cards.put(card);
 		const item = locateItem({ phase: 'consolidation', temperature: 'hot', leadBeats: 4 });
 		const controller = withSelector(spySelector([item]).selector, deps);

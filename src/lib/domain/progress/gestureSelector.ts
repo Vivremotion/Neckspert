@@ -19,7 +19,7 @@ import {
 import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
-import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
 
 /** No passage starts after this long in a gesture session; one begun always ends. To calibrate. */
 export const GESTURE_SESSION_MS = 300_000;
@@ -76,7 +76,7 @@ function chordSymbol(chord: string): string {
  * on a tie). A passage is a change per item, the first counted in; none starts after
  * GESTURE_SESSION_MS or once fatigued.
  */
-class GestureSelector implements SessionSelector {
+class GestureSelector implements ItemSource {
 	private readonly exercises: { definition: ExerciseDefinition; elements: GestureElement[] }[];
 	private readonly states = new Map<string, ElementState>();
 	private passage: Passage | null = null;
@@ -290,6 +290,6 @@ export function createGestureSelector(input: {
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
 	sessionId: string;
-}): SessionSelector {
+}): ItemSource {
 	return new GestureSelector(input.definitions, input.cards, input.attempts, input.sessionId);
 }

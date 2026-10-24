@@ -35,8 +35,8 @@ export interface LevelParams {
  * A level of an exercise: a partial override of the exercise's params, with its conditions
  * as data. `aid` levels sit first in the list, below level 1.
  */
-export interface Level {
-	params: Partial<LevelParams>;
+export interface Level<P = LevelParams> {
+	params: Partial<P>;
 	pass?: { successes: number };
 	drop?: { failures: number };
 	aid?: true;
@@ -53,7 +53,7 @@ export interface LevelRange {
 	highest: number;
 }
 
-export function levelRange(levels: readonly Level[]): LevelRange {
+export function levelRange(levels: readonly Level<unknown>[]): LevelRange {
 	const aidCount = levels.findIndex((level) => !level.aid);
 	if (aidCount < 0) throw new RangeError('an exercise needs at least one level that is not an aid');
 	if (levels.slice(aidCount).some((level) => level.aid)) {
@@ -126,7 +126,7 @@ export interface LevelState {
  */
 export function nextLevelState(
 	state: LevelState,
-	levels: readonly Level[],
+	levels: readonly Level<unknown>[],
 	cycle: { success: boolean; aided: boolean }
 ): { state: LevelState; changed: 'up' | 'down' | null } {
 	const { lowest, highest } = levelRange(levels);
