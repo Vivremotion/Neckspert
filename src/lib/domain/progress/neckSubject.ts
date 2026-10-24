@@ -1,3 +1,4 @@
+import { pacingOf } from '$lib/domain/exercise/pacing';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import { aidLadder, leadLadder } from '$lib/domain/learning/ladder';
@@ -12,8 +13,6 @@ import {
 	type LocateItem,
 	type NeckCard
 } from '$lib/domain/music';
-import { LEAD_STEPS } from '$lib/domain/types';
-import { LEARN_SUCCESSES } from './constants';
 import { nextNewCard } from './introduction';
 import { isNeck } from './neck';
 
@@ -21,6 +20,13 @@ import { isNeck } from './neck';
 function neckMechanic(mechanic: MechanicId): NeckCard['mechanic'] {
 	if (mechanic === 'locate' || mechanic === 'identify') return mechanic;
 	throw new Error(`Not a neck mechanic: ${mechanic}`);
+}
+
+/** The exercise's recall threshold; the neck's exercises must declare one. */
+function thresholdOf(definition: ExerciseDefinition, name: NeckCard['mechanic']): number {
+	const threshold = recallThresholdOf(definition);
+	if (threshold === null) throw new Error(`the ${name} exercise must declare its recall threshold`);
+	return threshold;
 }
 
 function itemKeyOf(card: NeckCard): string {
@@ -39,14 +45,13 @@ export function neckSubject(input: {
 }): LearningSubject {
 	const { definitions } = input;
 	const priority = input.priority ?? [];
-	const locateThresholdMs = recallThresholdOf(definitions.locate);
-	if (locateThresholdMs === null) {
-		throw new Error('the locate exercise must declare its recall threshold');
-	}
+	const locateThresholdMs = thresholdOf(definitions.locate, 'locate');
 	const recalls: Record<NeckCard['mechanic'], DirectRecall> = {
 		locate: directRecallOf(locateThresholdMs),
-		identify: directRecallOf(recallThresholdOf(definitions.identify))
+		identify: directRecallOf(thresholdOf(definitions.identify, 'identify'))
 	};
+	const locatePacing = pacingOf(definitions.locate);
+	const identifyPacing = pacingOf(definitions.identify);
 
 	return {
 		owns: isNeck,
@@ -68,12 +73,12 @@ export function neckSubject(input: {
 		ladder: (mechanic, tempoBpm) =>
 			neckMechanic(mechanic) === 'locate'
 				? leadLadder({
-						steps: LEAD_STEPS,
+						steps: locatePacing.leadSteps,
 						tempoBpm,
 						recallThresholdMs: locateThresholdMs,
-						learnedAfter: LEARN_SUCCESSES
+						learnedAfter: locatePacing.learnedAfter
 					})
-				: aidLadder(LEARN_SUCCESSES),
+				: aidLadder(identifyPacing.learnedAfter),
 		recall: (mechanic) => recalls[neckMechanic(mechanic)],
 		confused: (attempt) => {
 			const data = attempt.data as LocateData | IdentifyData | null;

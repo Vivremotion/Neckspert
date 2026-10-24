@@ -93,11 +93,32 @@ describe('neckSubject', () => {
 		expect(subject.itemKey(identify(5, 3))).toBe('5:3');
 	});
 
-	it('refuses a locate exercise that declares no recall threshold', () => {
+	it('refuses a locate or identify exercise that declares no recall threshold', () => {
 		const silent = { ...LOCATE_NECK, params: {} };
 		expect(() => neckSubject({ definitions: { locate: silent, identify: IDENTIFY_NECK } })).toThrow(
 			/recall threshold/
 		);
+		const mute = { ...IDENTIFY_NECK, params: {} };
+		expect(() => neckSubject({ definitions: { locate: LOCATE_NECK, identify: mute } })).toThrow(
+			/recall threshold/
+		);
+	});
+
+	it('reads its ladders from the exercises’ pacing', () => {
+		const pacing = { leadSteps: [8, 4], respirationBars: 1, learnedAfter: 3 };
+		const subject = neckSubject({
+			definitions: {
+				locate: { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, pacing } },
+				identify: { ...IDENTIFY_NECK, params: { ...IDENTIFY_NECK.params, pacing } }
+			}
+		});
+		const ladder = subject.ladder(LOCATE, TEMPO);
+		expect(ladder.map((level) => level.params)).toEqual([
+			{ leadBeats: 8, aided: true },
+			{ leadBeats: 4, aided: false }
+		]);
+		expect(ladder.map((level) => level.pass?.successes)).toEqual([1, 3]);
+		expect(subject.ladder(IDENTIFY, TEMPO)).toEqual(aidLadder(3));
 	});
 
 	it('introduces the notes in the order of the neck, the triads’ notes first', () => {
