@@ -197,6 +197,13 @@ describe('Transport.accompany and playFigure', () => {
 		sounds.flush();
 		expect(called).toBe(1);
 	});
+
+	it('tells the length of its bar in whole notes', async () => {
+		const { transport } = setup();
+		expect(() => transport.barLength).toThrow('the transport has not begun');
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		expect(transport.barLength.toString()).toBe('1');
+	});
 });
 
 describe('Transport.breath', () => {

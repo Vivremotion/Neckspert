@@ -189,9 +189,14 @@ export class Transport {
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, fromBar + figure.bars);
 	}
 
+	/** The length of one bar, as a fraction of a whole note (the unit of the map's positions). */
+	get barLength(): Fraction {
+		return barLength(this.meterOf());
+	}
+
 	/** Calls `callback` once the audio clock reaches `bar` (a bar number, fractions inside a bar allowed). */
 	at(bar: Fraction, callback: () => void): () => void {
-		const position = bar.mul(barLength(this.meterOf()));
+		const position = bar.mul(this.barLength);
 		return this.deps.sounds.at(this.map.toSeconds(position), callback);
 	}
 
