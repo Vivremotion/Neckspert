@@ -1,19 +1,20 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
+import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { ExerciseDefinition, ExerciseId } from './types';
 
 export const LOCATE_NECK: ExerciseDefinition = {
 	id: 'locate-neck',
 	version: 1,
 	mechanic: 'locate',
-	params: {}
+	params: { recallThresholdMs: RECALL_THRESHOLD_MS }
 };
 
 export const IDENTIFY_NECK: ExerciseDefinition = {
 	id: 'identify-neck',
 	version: 1,
 	mechanic: 'identify',
-	params: {}
+	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS }
 };
 
 /** The triads of the memory track: close major and minor triads on G-B-E, then D-G-B. */
@@ -24,7 +25,8 @@ function triadsParams() {
 			[4, 3, 2]
 		],
 		qualities: ['maj', 'min'],
-		pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 }
+		pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 },
+		recallThresholdMs: RECALL_THRESHOLD_MS
 	};
 }
 
