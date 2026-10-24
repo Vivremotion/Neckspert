@@ -19,7 +19,7 @@ import {
 	type CardState,
 	type PlannedItem
 } from '$lib/domain/types';
-import { LEARN_SUCCESSES, MAX_WORKING_SET } from './constants';
+import { LEARN_COLD_CAP, LEARN_SUCCESSES, MAX_WORKING_SET } from './constants';
 import { introductionOrder } from './introduction';
 import { neckSubject } from './neckSubject';
 import { graduateToReview } from './scheduling';
@@ -32,6 +32,7 @@ const DEFINITIONS = { locate: LOCATE_NECK, identify: IDENTIFY_NECK };
 const TEMPO = 80;
 const NO_HISTORY = new Map<CardKey, readonly Attempt[]>();
 const NOTHING_BLOCKED = () => false;
+const PROMPTS = 40;
 
 const locate = (item: LocateItem): CardRef => ({ mechanic: LOCATE, item });
 const identify = (string: 1 | 2 | 3 | 4 | 5 | 6, fret: number): CardRef => ({
@@ -51,6 +52,7 @@ function neckCard(
 		item: card.item,
 		introducedAt: 0,
 		introducedInSession: 'past',
+		// The card's stored lead, unread by the procedure (its level gives the lead).
 		leadBeats: 2,
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
@@ -89,6 +91,13 @@ describe('neckSubject', () => {
 		const g = locate({ string: 6, pitch: 'G' });
 		expect(`locate:${subject.itemKey(g)}`).toBe(neckCardKey(asNeckCard(g)));
 		expect(subject.itemKey(identify(5, 3))).toBe('5:3');
+	});
+
+	it('refuses a locate exercise that declares no recall threshold', () => {
+		const silent = { ...LOCATE_NECK, params: {} };
+		expect(() => neckSubject({ definitions: { locate: silent, identify: IDENTIFY_NECK } })).toThrow(
+			/recall threshold/
+		);
 	});
 
 	it('introduces the notes in the order of the neck, the triads’ notes first', () => {
@@ -231,22 +240,24 @@ describe('neckSubject', () => {
 			random
 		});
 
-		// The player: right at every prompt but two items, the first two probed. The first misses
-		// its probe only; the second misses whenever it is asked unaided.
-		const hard: CardKey[] = [];
+		// The player: right at every prompt but the probes of the first locate note and the first
+		// identify one probed, so each of them is learned through its ladder (locate 8, 4, 2, 2;
+		// identify the name shown, then twice unaided).
+		const unknown = new Map<MechanicId, CardKey>();
 		const succeeds = (planned: PlannedItem, key: CardKey): boolean => {
-			if (planned.phase === 'probe' && hard.length < 2 && !hard.includes(key)) hard.push(key);
-			if (key === hard[0]) return planned.phase !== 'probe';
-			if (key === hard[1]) return planned.aid !== 'none';
-			return true;
+			if (planned.phase === 'probe' && !unknown.has(planned.mechanic)) {
+				unknown.set(planned.mechanic, key);
+			}
+			return !(planned.phase === 'probe' && unknown.get(planned.mechanic) === key);
 		};
 
 		const hot = new Set<CardKey>();
 		let previous: { planned: PlannedItem; key: CardKey; success: boolean } | null = null;
 		let missedProbes = 0;
-		let learnedByLadder = 0;
+		const learnedByLadder = new Set<MechanicId>();
+		let reviews = 0;
 		let now = 1_000_000;
-		for (let prompt = 0; prompt < 40; prompt += 1) {
+		for (let prompt = 0; prompt < PROMPTS; prompt += 1) {
 			const planned = procedure.next({ now, elapsedMs: 0, fatigued: false });
 			expect(planned, `prompt ${prompt}`).not.toBeNull();
 			if (!planned) return;
@@ -266,29 +277,34 @@ describe('neckSubject', () => {
 			}
 			if (planned.aid !== 'none') expect(planned.phase).toBe('learning');
 			if (planned.stringAid) expect(planned.mechanic).toBe(LOCATE);
-			// Never the previous item nor its mirror, but for the aided presentation after a missed probe.
+			// Never the previous item nor its mirror, but for the aided presentation right after a
+			// probe not recalled directly (the procedure's judgement, not the player's success).
 			if (previous !== null) {
 				const presentation =
 					previous.planned.phase === 'probe' &&
-					!previous.success &&
 					previous.key === key &&
-					planned.phase === 'learning';
+					planned.phase === 'learning' &&
+					planned.aid === 'show-position';
 				if (!presentation) {
 					expect(key, `prompt ${prompt}`).not.toBe(previous.key);
 					expect(isMirrorPair(card, asNeckCard(previous.planned))).toBe(false);
 				}
 			}
 			if (planned.temperature === 'hot') hot.add(key);
+			if (planned.phase === 'review') reviews += 1;
+			expect(reviews).toBeLessThanOrEqual(LEARN_COLD_CAP);
 			expect(hot.size).toBeLessThanOrEqual(MAX_WORKING_SET);
 
 			const success = succeeds(planned, key);
 			const outcome = procedure.record(answerOf(planned, success, { at: now }), now);
 			if (planned.phase === 'probe' && !success) missedProbes += 1;
-			if (planned.phase === 'learning' && outcome?.card?.learnedAt != null) learnedByLadder += 1;
+			if (planned.phase === 'learning' && outcome?.card?.learnedAt != null) {
+				learnedByLadder.add(planned.mechanic);
+			}
 			previous = { planned, key, success };
 			now += 4_000;
 		}
 		expect(missedProbes).toBeGreaterThanOrEqual(1);
-		expect(learnedByLadder).toBeGreaterThanOrEqual(1);
+		expect([...learnedByLadder].sort()).toEqual([IDENTIFY, LOCATE]);
 	});
 });
