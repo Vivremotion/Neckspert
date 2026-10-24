@@ -1,18 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { gesturePlan } from '$lib/domain/gesture';
+import { exerciseById } from '$lib/domain/exercise';
+import { GESTURE_EXERCISES, gesturePlan } from '$lib/domain/gesture';
 import type { GridChange } from '$lib/domain/grid';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
+import { createGestureSelector } from '$lib/domain/progress';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, METER_4_4, type RoundPlan } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, Execution, PlannedItem } from '$lib/domain/types';
+import { triadCards } from '$lib/testing/shapes';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { GESTURE_PRESENTERS, type GridStageModel } from '$lib/application/mechanics/chordGrid';
 import {
 	FakeChordVerifier,
 	FakeClock,
+	FakeNoteDetector,
 	FakeSoundScheduler,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
@@ -119,36 +123,50 @@ const EXECUTIONS: Execution[] = [
  */
 function setup(
 	items: PlannedItem[],
-	options: { development?: boolean; plans?: ResponseSeriesDeps['plans'] } = {}
+	options: {
+		development?: boolean;
+		plans?: ResponseSeriesDeps['plans'];
+		exercise?: ResponseSeriesDeps['exercise'];
+		/** The source of each series in turn; the first defaults to `items`. */
+		sources?: ItemSource[];
+		executions?: Execution[];
+	} = {}
 ) {
 	const clock = new FakeClock();
 	const sounds = new FakeSoundScheduler(clock);
 	const verifier = new CutShortVerifier();
+	const detector = new FakeNoteDetector();
 	const source = new ScriptedSource([...items]);
+	const sources: ItemSource[] = options.sources ?? [source];
+	const executions = options.executions ?? EXECUTIONS;
 	const repositories = {
 		attempts: new InMemoryAttemptRepository(),
 		sessions: new InMemorySessionRepository(),
 		settings: new InMemorySettingsRepository(),
 		progressions: new InMemoryProgressionRepository()
 	};
-	const recorder = new AttemptRecorder({
-		attempts: repositories.attempts,
-		cards: new InMemoryCardStateRepository(),
-		clock,
-		now: () => clock.toEpochMs(clock.now()),
-		selector: source,
-		sessionId: 'series-1',
-		rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
-	});
+	let ids = 1;
 	const deps: ResponseSeriesDeps = {
 		clock,
 		sounds,
+		detector,
 		sensors: { chord: chordSensor(verifier) },
 		mechanics: GESTURE_PRESENTERS,
 		repositories,
-		recorder,
+		recorderFor: (sessionId) =>
+			new AttemptRecorder({
+				attempts: repositories.attempts,
+				cards: new InMemoryCardStateRepository(),
+				clock,
+				now: () => clock.toEpochMs(clock.now()),
+				selector: source,
+				sessionId,
+				rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
+			}),
 		plans: options.plans ?? ((item) => gesturePlan(item.item as ChordGridItem, METER_4_4)),
+		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
+		newId: () => `series-${++ids}`,
 		development: options.development ?? false
 	};
 	const prepared: string[] = [];
@@ -156,7 +174,9 @@ function setup(
 		{ id: 'series-1', kind: 'gesture' },
 		async (sessionId) => {
 			prepared.push(sessionId);
-			return { source, executions: EXECUTIONS };
+			const next = sources.shift();
+			if (!next) throw new Error('no source left');
+			return { source: next, executions };
 		},
 		deps
 	);
@@ -181,9 +201,10 @@ function setup(
 	const play = (time: number, decided: string | null) => verifier.emit(report(time, decided));
 	/** Bar `bar` (fractions allowed) in audio seconds at ♩ = 120 from 0.1 s. */
 	const bar = (n: number) => 0.1 + 2 * n;
-	const stored = () => repositories.attempts.listBySession('series-1');
+	const stored = (sessionId = 'series-1') => repositories.attempts.listBySession(sessionId);
 	return {
 		clock,
+		detector,
 		sounds,
 		verifier,
 		source,
@@ -592,6 +613,116 @@ describe('ResponseSeriesController', () => {
 			const series = ctx.controller.trace?.children[0];
 			expect(series?.role).toBe('series');
 			expect(series?.reason).toBe('quit');
+		});
+	});
+
+	describe('audio input', () => {
+		it('opens the input of the settings with its built-in gain before anything sounds', async () => {
+			const ctx = setup(passage());
+			await ctx.repositories.settings.update({ inputDeviceId: 'guitar', builtInInputGain: 4 });
+			await ctx.controller.start();
+			expect(ctx.detector).toMatchObject({ running: true, deviceId: 'guitar', builtInGain: 4 });
+			expect(ctx.controller.view.audioError).toBeNull();
+			ctx.controller.quit();
+			await drain();
+			expect(ctx.detector.running).toBe(false);
+		});
+
+		it('says so when no input opens, writes nothing, and starts again later', async () => {
+			const ctx = setup(passage());
+			const start = ctx.detector.start.bind(ctx.detector);
+			ctx.detector.start = async () => {
+				throw new Error('refused');
+			};
+			await ctx.controller.start();
+			expect(ctx.controller.view).toMatchObject({ status: 'idle', audioError: 'input' });
+			expect(ctx.sounds.emitted()).toEqual([]);
+			expect(await ctx.repositories.sessions.list()).toEqual([]);
+			ctx.detector.start = start;
+			await ctx.controller.start();
+			expect(ctx.controller.view).toMatchObject({ status: 'count-in', audioError: null });
+			expect(ctx.prepared).toEqual(['series-1']);
+		});
+	});
+
+	describe('a new series', () => {
+		it('starts again after the end, with a new session id and a new series', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) - 0.2);
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			await ctx.controller.start();
+			expect(ctx.controller.sessionId).toBe('series-2');
+			expect(ctx.prepared).toEqual(['series-1', 'series-2']);
+			expect(ctx.controller.view.status).toBe('count-in');
+			const from = ctx.clock.now();
+			ctx.runTo(from + 2.1);
+			ctx.play(ctx.clock.now(), rightShape(change(0)));
+			const attempts = await ctx.stored('series-2');
+			expect(attempts.map((a) => a.success)).toEqual([true]);
+			expect(model(ctx).history).toEqual([{ beatIndex: 4, verdict: 'perfect' }]);
+			const sessions = await ctx.repositories.sessions.list();
+			expect(sessions.map((s) => s.id).sort()).toEqual(['series-1', 'series-2']);
+		});
+	});
+
+	describe('the exercise catalog', () => {
+		it('reads an exercise through the lookup it is given, and lets an unknown one throw', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), view: 'own-view' });
+			const ctx = setup(passage(), { exercise });
+			await ctx.controller.ready();
+			expect(ctx.controller.view.stage?.view).toBe('own-view');
+			const unknown = setup([change(0, { exerciseId: 'nowhere' })], {
+				executions: [{ exerciseId: 'nowhere', scope: 'iohefy-a', tempoBpm: 120 }]
+			});
+			await expect(unknown.controller.ready()).rejects.toThrow(/nowhere/);
+		});
+	});
+
+	describe('the gesture selector', () => {
+		it('ends a link tour replayed past SESSION_MS at the end of its passage, with no new passage', async () => {
+			const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
+			const selector = createGestureSelector({
+				definitions: GESTURE_EXERCISES,
+				cards,
+				attempts: [],
+				sessionId: 'series-1'
+			});
+			const ctx = setup([], {
+				sources: [selector],
+				executions: [{ exerciseId: 'gesture-link', tempoBpm: 120 }]
+			});
+			await ctx.controller.start();
+			// Nothing is played: the first tour fails and is replayed at once, chained.
+			const indexes: number[] = [];
+			const watch = (until: number) => {
+				while (ctx.clock.now() < until && ctx.controller.view.status !== 'finished') {
+					ctx.runTo(ctx.clock.now() + 0.05);
+					const index = model(ctx)?.index;
+					if (index !== undefined && index !== indexes.at(-1)) indexes.push(index);
+				}
+			};
+			const tour = (model(ctx) as unknown as { changes: unknown[] }).changes.length;
+			watch(ctx.bar(1 + tour) - 0.1);
+			// The replay has begun; the series' time runs out in its middle.
+			watch(ctx.bar(1 + tour + 1));
+			ctx.clock.epochAtZero += SESSION_MS;
+			watch(ctx.bar(1 + 3 * tour));
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			const attempts = await ctx.stored();
+			const passages = new Set(
+				attempts.map((a) => (a.data as { item: ChordGridItem }).item.passageId)
+			);
+			expect(passages.size).toBe(2);
+			const replay = attempts.filter(
+				(a) => (a.data as { item: ChordGridItem }).item.continued === true
+			);
+			expect(replay.length).toBeGreaterThan(0);
+			expect(indexes.length).toBeGreaterThan(tour);
 		});
 	});
 });

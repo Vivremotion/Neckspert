@@ -64,11 +64,18 @@ export interface PlanSessionDeps extends SessionDeps {
 export interface ResponseSeriesDeps {
 	clock: AudioClockPort;
 	sounds: SoundSchedulerPort;
+	/** The guitar input, opened at start with the device and the built-in gain of the settings. */
+	detector: NoteDetectorPort;
 	sensors: SessionDeps['sensors'];
 	mechanics: SessionDeps['mechanics'];
 	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings' | 'progressions'>;
-	recorder: AttemptRecorder;
+	/** The recorder of one series: a new series (a start after the end) gets its own. */
+	recorderFor: (sessionId: string) => AttemptRecorder;
 	plans: PlanSource;
+	/** The definition of an exercise (its view, its instruction); throws on an unknown one. */
+	exercise: (id: ExerciseId) => ExerciseDefinition;
 	locale: () => Locale;
+	/** The id of a new series started after the end. */
+	newId: () => string;
 	development: boolean;
 }

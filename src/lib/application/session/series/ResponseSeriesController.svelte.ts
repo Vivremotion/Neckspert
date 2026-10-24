@@ -29,6 +29,8 @@ import {
 	type PlaySessionController,
 	type PlayView
 } from '../contract';
+import { openAudioInput } from '../audioInput';
+import type { AttemptRecorder } from '../AttemptRecorder';
 import { sessionTempo } from '../executions';
 import type { ResponseSeriesDeps } from '../SessionDeps';
 import { Transport, TransportStopped } from '../transport';
@@ -78,7 +80,8 @@ interface OpenRound {
  * knows no exercise: what it plays comes from its data.
  */
 export class ResponseSeriesController implements PlaySessionController {
-	readonly sessionId: string;
+	/** A new one for each series: a start after the end begins another (`deps.newId`). */
+	sessionId: string;
 	readonly view: PlayView;
 	readonly timeline = {
 		nowBeat: (): number => {
@@ -96,6 +99,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	private readonly click: Accompaniment;
 
 	private source: ItemSource | null = null;
+	/** The recorder of this series, from its start. */
+	private recorder: AttemptRecorder | null = null;
 	private executions: Execution[] = [];
 	private settings: Settings = DEFAULT_SETTINGS;
 	private prepared = false;
@@ -143,7 +148,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.prepare = prepare;
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
-		this.items = new SeriesItems(deps.mechanics, () => this.executions);
+		this.items = new SeriesItems(deps.mechanics, () => this.executions, deps.exercise);
 		this.sensors = new SeriesSensors(deps);
 		const beats = beatPositions(this.meter).map((_, i) => i + 1);
 		this.click = clickAccompaniment({ meter: this.meter, beats, accent: [1], bars: ['on'] });
@@ -167,14 +172,17 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	async start(): Promise<void> {
-		if (this.starting || this.view.status !== 'idle') return;
+		if (this.starting) return;
+		if (this.view.status !== 'idle' && this.view.status !== 'finished') return;
 		this.starting = true;
 		const generation = ++this.generation;
 		try {
+			if (this.view.status === 'finished') this.beginNewSeries();
+			this.view.audioError = null;
 			await this.prepareSeries();
 			if (this.generation !== generation) return;
-			await this.deps.clock.resume();
-			if (this.generation !== generation) return;
+			if (!(await this.openInput(generation))) return;
+			this.recorder = this.deps.recorderFor(this.sessionId);
 			this.startedAt = this.epochNow();
 			const first = this.pending ?? this.takeNext();
 			// Its instruction, if any, was on the start screen: no stop of its own.
@@ -197,6 +205,54 @@ export class ResponseSeriesController implements PlaySessionController {
 		} finally {
 			if (this.generation === generation) this.starting = false;
 		}
+	}
+
+	/**
+	 * Opens the guitar input with the device and built-in gain of the settings, the clock resumed
+	 * before and after (the permission prompt can suspend it). False when another run took over,
+	 * or when no input opens: the screen says so and a later `start` tries again.
+	 */
+	private async openInput(generation: number): Promise<boolean> {
+		const { clock, detector, repositories } = this.deps;
+		this.settings = await repositories.settings.get();
+		if (this.generation !== generation) return false;
+		await clock.resume();
+		if (this.generation !== generation) return false;
+		detector.setBuiltInGain(this.settings.builtInInputGain);
+		try {
+			await openAudioInput(detector, repositories.settings, this.settings.inputDeviceId);
+		} catch {
+			if (this.generation !== generation) return false;
+			this.view.audioError = 'input';
+			this.view.status = 'idle';
+			return false;
+		}
+		if (this.generation !== generation) return false;
+		await clock.resume();
+		return this.generation === generation;
+	}
+
+	/** After the end: another series, with its own id and nothing of the one before. */
+	private beginNewSeries(): void {
+		this.sessionId = this.deps.newId();
+		this.prepared = false;
+		this.source = null;
+		this.recorder = null;
+		this.executions = [];
+		this.tempoBpm = null;
+		this.begun = false;
+		this.quitting = false;
+		this.finishing = null;
+		this.accompaniedUntil = 0;
+		this.pending = null;
+		this.round = null;
+		this.previous = null;
+		this.lastScene = null;
+		this.introduced.clear();
+		this.history = [];
+		this.withdrawContest();
+		this.log = null;
+		Object.assign(this.view, idlePlayView());
 	}
 
 	pause(): void {
@@ -244,7 +300,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (this.view.contest !== 'available') return;
 		this.view.contest = 'done';
 		const attempt = this.contestRound?.attempt;
-		if (attempt) void this.deps.recorder.contest(attempt as Attempt);
+		if (attempt) void this.recorder?.contest(attempt as Attempt);
 		else this.contestWanted = true;
 	}
 
@@ -391,10 +447,9 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.enterScene(presenter);
 		this.view.countdown = chainedAt === null ? this.view.countdown : null;
 		const definition = this.items.definitionOf(item);
-		this.view.chordDiagram =
-			presenter.feedback && definition
-				? chordDiagramFor(definition, this.settings)
-				: this.settings.chordDiagram;
+		this.view.chordDiagram = presenter.feedback
+			? chordDiagramFor(definition, this.settings)
+			: this.settings.chordDiagram;
 		this.showStage(item, null, round.anchorBeat);
 		this.view.status = 'awaiting';
 	}
@@ -540,7 +595,8 @@ export class ResponseSeriesController implements PlaySessionController {
 			promptedAt: this.deps.clock.toEpochMs(round.promptTime),
 			cardKey: this.items.cardKeyOf(item)
 		});
-		const { recorder } = this.deps;
+		const recorder = this.recorder;
+		if (!recorder) return;
 		const written = recorder.recordResponse(attempt, round.runner.span);
 		round.attempt = attempt;
 		this.source?.record(attempt as Attempt, this.epochNow());
@@ -616,7 +672,7 @@ export class ResponseSeriesController implements PlaySessionController {
 				{ anchorBeat, history: [...this.history] }
 			);
 		this.view.stage = staged
-			? { view: this.items.definitionOf(item)?.view ?? DEFAULT_PLAY_VIEW, model: staged.model }
+			? { view: this.items.definitionOf(item).view ?? DEFAULT_PLAY_VIEW, model: staged.model }
 			: null;
 	}
 
@@ -687,15 +743,19 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.view.stage = null;
 		this.view.status = 'finished';
 		this.log?.close(now, this.quitting ? 'quit' : 'time');
-		const { recorder, repositories } = this.deps;
-		if (this.kind !== 'free') {
+		this.deps.detector.stop();
+		// Taken now: a new series started meanwhile has its own.
+		const record = this.sessionRecord(null);
+		const recorder = this.recorder;
+		const { repositories } = this.deps;
+		if (recorder && this.kind !== 'free') {
 			// Each exercise on the beat runs next at a tempo fitted to its own success here.
-			const moved = nextProgressions(this.executions, recorder.sessionAttempts, this.epochNow());
+			const moved = nextProgressions(record.executions, recorder.sessionAttempts, this.epochNow());
 			for (const progression of moved) await repositories.progressions.put(progression);
 		}
 		// The ended session implies its attempts are written with their complete observations.
-		await recorder.settled();
-		await repositories.sessions.put(this.sessionRecord(this.epochNow()));
+		await recorder?.settled();
+		await repositories.sessions.put({ ...record, endedAt: this.epochNow() });
 	}
 
 	private sessionRecord(endedAt: number | null): SessionRecord {

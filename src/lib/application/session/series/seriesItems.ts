@@ -1,5 +1,4 @@
-import { exerciseById } from '$lib/domain/exercise/catalog';
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import {
 	cardKey,
 	type CardKey,
@@ -13,7 +12,8 @@ import type { MechanicPresenter } from '$lib/application/mechanics/types';
 export class SeriesItems {
 	constructor(
 		private readonly mechanics: Record<string, MechanicPresenter>,
-		private readonly executions: () => readonly Execution[]
+		private readonly executions: () => readonly Execution[],
+		private readonly exercise: (id: ExerciseId) => ExerciseDefinition
 	) {}
 
 	presenterOf(item: PlannedItem): MechanicPresenter {
@@ -36,13 +36,9 @@ export class SeriesItems {
 		return execution;
 	}
 
-	definitionOf(item: PlannedItem): ExerciseDefinition | null {
-		try {
-			return exerciseById(item.exerciseId);
-		} catch {
-			// An exercise the catalog does not know (a test's) has no view nor instruction.
-			return null;
-		}
+	/** The definition of an item's exercise; an exercise the catalog does not know throws. */
+	definitionOf(item: PlannedItem): ExerciseDefinition {
+		return this.exercise(item.exerciseId);
 	}
 
 	/** The instruction of an item's exercise, in `locale`; null without one. */
