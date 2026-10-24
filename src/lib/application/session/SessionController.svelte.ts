@@ -9,7 +9,7 @@ import {
 	type ExerciseId
 } from '$lib/domain/exercise';
 import { cardKeyOf } from '$lib/domain/mechanics';
-import type { SessionSelector } from '$lib/domain/progress';
+import type { ItemSource } from '$lib/domain/progress';
 import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import type {
 	Attempt,
@@ -62,7 +62,7 @@ const IGNORED_BECAUSE: Record<IgnoreReason, string> = {
 /** What a series runs: its selector and the executions of its exercises, tempos frozen. */
 export type PrepareSeries = (
 	sessionId: string
-) => Promise<{ selector: SessionSelector; executions: Execution[] }>;
+) => Promise<{ selector: ItemSource; executions: Execution[] }>;
 
 function describeObservation(sensor: SensorKind, observation: Observation): string {
 	return `capteur : ${sensor}, t = ${observation.time.toFixed(3)} s`;
@@ -84,7 +84,7 @@ export class SessionController implements PlaySessionController {
 	private readonly deps: SessionDeps;
 	private readonly kind: SessionKind;
 	private readonly prepare: PrepareSeries;
-	private selector: SessionSelector | null = null;
+	private selector: ItemSource | null = null;
 	/** The series' executions, tempos frozen at the start. */
 	private executions: Execution[] = [];
 	/** Tempo the metronome runs the series at. */

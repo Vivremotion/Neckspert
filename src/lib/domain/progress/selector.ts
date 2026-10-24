@@ -14,18 +14,18 @@ export interface SelectorContext {
  */
 export type RecordOutcome = { card?: CardState; level?: LevelState } | null;
 
-/** Chooses each prompt of a session, one at a time. */
-export interface SessionSelector {
+/** Gives a series its items, one at a time: the learning procedure, a fixed list, the gesture's passages. */
+export interface ItemSource {
 	/** Next prompt, or null when the session is over. */
 	next(context: SelectorContext): PlannedItem | null;
 	/** Synchronous. Feeds a judged attempt back so retests and counters advance. */
 	record(attempt: Attempt, now: number): RecordOutcome;
-	/** A card the session stored (cold review, learning), so the selector's copy stays current. */
+	/** A card the session stored (cold review, learning), so the source's copy stays current. */
 	cardChanged(card: CardState): void;
 }
 
 /** Serves a fixed list in order (free play). */
-export function createListSelector(items: readonly PlannedItem[]): SessionSelector {
+export function createListSource(items: readonly PlannedItem[]): ItemSource {
 	const queue = [...items];
 	return {
 		next: () => queue.shift() ?? null,

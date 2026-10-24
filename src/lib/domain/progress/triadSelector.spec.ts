@@ -10,7 +10,7 @@ import {
 } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
-import type { SessionSelector } from './selector';
+import type { ItemSource } from './selector';
 import { createTriadSelector, triadZoneOpen } from './triadSelector';
 
 const NOW = Date.parse('2026-10-08T10:00:00.000Z');
@@ -56,7 +56,7 @@ function select(
 	random: () => number = () => 0,
 	attempts: Attempt[] = [],
 	mechanic: 'triad-anchor' | 'triad-zone' = 'triad-anchor'
-): SessionSelector {
+): ItemSource {
 	return createTriadSelector({
 		mechanic,
 		cards,
@@ -93,13 +93,13 @@ function attemptOf(item: PlannedItem, right: boolean, at: number): Attempt {
 }
 
 /** A session of the zone exercise. */
-function selectZone(cards: CardState[] = [], random: () => number = () => 0): SessionSelector {
+function selectZone(cards: CardState[] = [], random: () => number = () => 0): ItemSource {
 	return select(cards, random, [], 'triad-zone');
 }
 
 /** Serves `count` prompts, answering each with `answer(item, index)`. */
 function play(
-	selector: SessionSelector,
+	selector: ItemSource,
 	count: number,
 	answer: (item: PlannedItem, index: number) => boolean = () => true
 ): PlannedItem[] {

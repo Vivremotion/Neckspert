@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming, createAnchorTiming } from '$lib/domain/timing';
 import { DEFAULT_PACING } from '$lib/domain/exercise';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import { responseVerdictOf, type Execution, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
@@ -162,7 +162,7 @@ function setup(mechanic = 'two', imposed?: 'strings' | 'grid') {
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
 		async () => ({
-			selector: createListSelector([item(3, mechanic), item(5, mechanic)]),
+			selector: createListSource([item(3, mechanic), item(5, mechanic)]),
 			executions: EXECUTIONS
 		}),
 		deps

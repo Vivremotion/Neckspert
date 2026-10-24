@@ -12,7 +12,7 @@ import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/do
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';
 import { LINK_AID_AFTER_MISSES, LINK_REST_BARS } from '$lib/domain/gesture';
-import type { SessionSelector } from './selector';
+import type { ItemSource } from './selector';
 
 const NOW = Date.parse('2026-10-10T10:00:00.000Z');
 const G_B_E = [3, 2, 1] as const;
@@ -75,7 +75,7 @@ function attemptOf(
 
 /** Plays a whole passage, every change right unless `correct` says. Returns its changes. */
 function playPassage(
-	s: SessionSelector,
+	s: ItemSource,
 	clock: { now: number },
 	correct = true,
 	elapsedMs = 0
@@ -372,7 +372,7 @@ describe('the link', () => {
 
 	/** Plays a passage, each change right or not by its index; the shapes heard are the shapes asked. */
 	function playLink(
-		s: SessionSelector,
+		s: ItemSource,
 		clock: { now: number },
 		correctAt: (index: number) => boolean = () => true,
 		record = true

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
@@ -94,7 +94,7 @@ function setup(items: PlannedItem[]) {
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'learn' },
-		async () => ({ selector: createListSelector(items), executions: EXECUTIONS }),
+		async () => ({ selector: createListSource(items), executions: EXECUTIONS }),
 		deps
 	);
 	return { controller, deps, clock, metronome, sensor: () => listener };

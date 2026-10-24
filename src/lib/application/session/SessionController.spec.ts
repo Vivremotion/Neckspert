@@ -9,11 +9,11 @@ import {
 } from '$lib/domain/types';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
-	createListSelector,
+	createListSource,
 	introduceCard,
 	LEARN_SESSION_MS,
 	markLearned,
-	type SessionSelector
+	type ItemSource
 } from '$lib/domain/progress';
 import {
 	FakeClock,
@@ -58,7 +58,7 @@ function progression(tempoBpm: number) {
 
 type Prepare = (
 	sessionId: string
-) => Promise<{ selector: SessionSelector; executions: Execution[] }>;
+) => Promise<{ selector: ItemSource; executions: Execution[] }>;
 
 interface TestPlan {
 	id: string;
@@ -74,7 +74,7 @@ function planWith(
 	return {
 		id: 'sess-1',
 		kind,
-		prepare: async () => ({ selector: createListSelector(items), executions })
+		prepare: async () => ({ selector: createListSource(items), executions })
 	};
 }
 
@@ -88,7 +88,7 @@ function planFromProgression(
 		id: 'sess-1',
 		kind,
 		prepare: async () => ({
-			selector: createListSelector(items),
+			selector: createListSource(items),
 			executions: [
 				{
 					exerciseId: 'locate-neck',
@@ -1202,12 +1202,12 @@ describe('SessionController persistence', () => {
 
 /** List selector that records what the controller passes it. */
 function spySelector(items: PlannedItem[]) {
-	const list = createListSelector(items);
+	const list = createListSource(items);
 	const contexts: { now: number; elapsedMs: number; fatigued: boolean }[] = [];
 	const recorded: Attempt[] = [];
 	const changed: CardState[] = [];
-	let outcome: ReturnType<SessionSelector['record']> = null;
-	const selector: SessionSelector = {
+	let outcome: ReturnType<ItemSource['record']> = null;
+	const selector: ItemSource = {
 		next(context) {
 			contexts.push(context);
 			return list.next(context);
@@ -1225,13 +1225,13 @@ function spySelector(items: PlannedItem[]) {
 		contexts,
 		recorded,
 		changed,
-		learnOnRecord(value: ReturnType<SessionSelector['record']>) {
+		learnOnRecord(value: ReturnType<ItemSource['record']>) {
 			outcome = value;
 		}
 	};
 }
 
-function withSelector(selector: SessionSelector, deps: SessionDeps, kind: SessionKind = 'learn') {
+function withSelector(selector: ItemSource, deps: SessionDeps, kind: SessionKind = 'learn') {
 	return new SessionController(
 		{ id: 'sess-1', kind },
 		async () => ({ selector, executions: EXECUTIONS }),
@@ -1301,7 +1301,7 @@ describe('SessionController with a selector', () => {
 
 	it('stops after the current verdict once five minutes have passed', async () => {
 		const deps = createDeps();
-		const selector: SessionSelector = {
+		const selector: ItemSource = {
 			next: (context) => (context.elapsedMs >= LEARN_SESSION_MS ? null : locateItem()),
 			record: () => null,
 			cardChanged: () => {}

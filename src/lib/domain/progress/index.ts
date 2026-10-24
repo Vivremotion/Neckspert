@@ -28,8 +28,8 @@ export {
 	cardStatus
 } from './cards';
 export { introductionOrder, nextNewCard } from './introduction';
-export { createListSelector } from './selector';
-export type { SessionSelector, SelectorContext, RecordOutcome } from './selector';
+export { createListSource } from './selector';
+export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
 export { createTriadSelector, triadZoneOpen, type TriadMechanic } from './triadSelector';
 export { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';

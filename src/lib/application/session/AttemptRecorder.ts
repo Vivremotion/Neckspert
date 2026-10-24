@@ -5,7 +5,7 @@ import {
 	classifyTemperature,
 	introduceCard,
 	probeTemperature,
-	type SessionSelector
+	type ItemSource
 } from '$lib/domain/progress';
 import {
 	isResponseSuccess,
@@ -40,7 +40,7 @@ export interface AttemptRecorderDeps {
 	cards: CardStateRepositoryPort;
 	clock: AudioClockPort;
 	now: () => number;
-	selector: SessionSelector;
+	selector: ItemSource;
 	sessionId: string;
 	/** Rules of a prompt's mechanic: its card key, its time relation and its learner model. */
 	rules: (mechanic: MechanicId) => MechanicRules;
@@ -204,7 +204,7 @@ export class AttemptRecorder {
 		rules: MechanicRules,
 		timing: TimingRelation,
 		attempt: Attempt,
-		outcome: ReturnType<SessionSelector['record']>,
+		outcome: ReturnType<ItemSource['record']>,
 		attemptedInSession: boolean,
 		attemptId: (id: number) => void
 	): Promise<void> {

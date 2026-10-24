@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import {
 	responseVerdictOf,
 	type Execution,
@@ -92,7 +92,7 @@ function setup(executions: Execution[], items: PlannedItem[], kind: SessionKind 
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind },
-		async () => ({ selector: createListSelector(items), executions }),
+		async () => ({ selector: createListSource(items), executions }),
 		deps
 	);
 	const starts = vi.spyOn(metronome, 'start');

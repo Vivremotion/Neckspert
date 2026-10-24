@@ -40,7 +40,7 @@ import {
 import { nextNewCard } from './introduction';
 import { keyed, neckTiming, plannedFor } from './neck';
 import { lastAttemptByCard, reviewableCards } from './review';
-import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
 
 /** A note presented in this session and not learned yet. */
 interface LearningEntry {
@@ -69,7 +69,7 @@ function wasConfused(attempt: Attempt): boolean {
 
 const ANY: Fit = () => true;
 
-class LearnSelector implements SessionSelector {
+class LearnSelector implements ItemSource {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
 	private readonly history = new Map<CardKey, Attempt[]>();
@@ -593,7 +593,7 @@ export function createLearnSelector(input: {
 	sequences?: boolean;
 	/** Notes introduced first: those of the triads being learned (spec 2026-10-08, section 2). */
 	priority?: readonly LocateItem[];
-}): SessionSelector {
+}): ItemSource {
 	return new LearnSelector(
 		input.cards,
 		input.attempts,

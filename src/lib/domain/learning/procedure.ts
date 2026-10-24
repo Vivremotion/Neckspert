@@ -17,7 +17,7 @@ import {
 	SUCCESS_WINDOW
 } from '../progress/constants';
 import { lastAttemptByCard, reviewableCards } from '../progress/review';
-import type { RecordOutcome, SelectorContext, SessionSelector } from '../progress/selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from '../progress/selector';
 import { cardSuccessRate, successRate } from '../progress/success';
 import { levelRange, nextLevelState, type LevelState } from '../time/levels';
 import {
@@ -33,7 +33,7 @@ import { ladderLevel, passesTop } from './ladder';
 import type { CardRef, Ladder, LadderParams, LearningSubject } from './subject';
 
 /** The source of items of a learning session, whatever the exercise. */
-export interface LearningProcedure extends SessionSelector {
+export interface LearningProcedure extends ItemSource {
 	/** The level an item holds now (as given, or as moved this session). */
 	levelOf(card: CardRef): LevelState;
 }

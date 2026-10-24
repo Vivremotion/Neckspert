@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, Execution, PlannedItem, RecordedObservation } from '$lib/domain/types';
-import type { SessionSelector } from '$lib/domain/progress';
+import type { ItemSource } from '$lib/domain/progress';
 import type { RoundOutcome } from '$lib/domain/timing';
 import { identifyRules, locateRules, mechanicRules, timedRules } from '$lib/domain/mechanics';
 import {
@@ -48,12 +48,12 @@ function outcome(overrides: Partial<RoundOutcome> = {}): RoundOutcome {
 	};
 }
 
-function setup(selector?: Partial<SessionSelector>) {
+function setup(selector?: Partial<ItemSource>) {
 	const clock = new FakeClock();
 	const attempts = new InMemoryAttemptRepository();
 	const cards = new InMemoryCardStateRepository();
 	const recorded: unknown[] = [];
-	const spy: SessionSelector = {
+	const spy: ItemSource = {
 		next: () => null,
 		record: (attempt) => {
 			recorded.push(attempt);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming } from '$lib/domain/timing';
-import { createListSelector } from '$lib/domain/progress';
+import { createListSource } from '$lib/domain/progress';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
@@ -105,7 +105,7 @@ function setup(presenter: MechanicPresenter, exercise: ExerciseDefinition) {
 	};
 	const controller = new SessionController(
 		{ id: 'sess-1', kind: 'free' },
-		async () => ({ selector: createListSelector([item]), executions }),
+		async () => ({ selector: createListSource([item]), executions }),
 		deps
 	);
 	const atBeat = (index: number) => {

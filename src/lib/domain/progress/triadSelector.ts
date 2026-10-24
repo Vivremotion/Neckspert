@@ -35,7 +35,7 @@ import {
 	ZONE_MIN_ACQUIRED_TRIADS
 } from './constants';
 import { lastAttemptByCard, reviewableCards } from './review';
-import type { RecordOutcome, SelectorContext, SessionSelector } from './selector';
+import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
 import { cardSuccessRate, successRate } from './success';
 
 export type TriadMechanic = 'triad-anchor' | 'triad-zone';
@@ -80,7 +80,7 @@ function voicingOfCard(card: CardState): string {
 }
 
 /** A triads session: the learn session's rules over one triad mechanic, the anchor or the zone. */
-class TriadSelector implements SessionSelector {
+class TriadSelector implements ItemSource {
 	private readonly cards: Map<CardKey, CardState>;
 	private readonly last: Map<CardKey, number>;
 	/** Every attempt of each card, oldest first: acquisition reads them. */
@@ -574,7 +574,7 @@ export function createTriadSelector(input: {
 	/** Tempo of each exercise's execution in this session. */
 	tempos: Readonly<Record<ExerciseId, number | null>>;
 	random?: () => number;
-}): SessionSelector {
+}): ItemSource {
 	const { anchor, zone } = input.definitions;
 	const tempoOf = (definition: ExerciseDefinition) =>
 		input.tempos[definition.id] ?? DEFAULT_TEMPO_BPM;

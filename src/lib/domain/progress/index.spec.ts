@@ -23,7 +23,7 @@ describe('progress index', () => {
 			'introductionOrder',
 			'nextNewCard',
 			'createLearnSelector',
-			'createListSelector',
+			'createListSource',
 			'buildFreePlan',
 			'nextReviewAt',
 			'computeHomeStats',

@@ -19,7 +19,7 @@ import {
 import { introductionOrder } from './introduction';
 import { createLearnSelector } from './learnSelector';
 import { keyed, neckExerciseId } from './neck';
-import type { SessionSelector } from './selector';
+import type { ItemSource } from './selector';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
 const TEMPO = 80;
@@ -55,7 +55,7 @@ function select(
 	attempts: Attempt[] = [],
 	random: () => number = () => 0,
 	sequences = false
-): SessionSelector {
+): ItemSource {
 	return createLearnSelector({
 		cards,
 		attempts,
@@ -72,7 +72,7 @@ function draws(...values: number[]): () => number {
 	return () => queue.shift() ?? 0;
 }
 
-function next(selector: SessionSelector, fatigued = false): PlannedItem | null {
+function next(selector: ItemSource, fatigued = false): PlannedItem | null {
 	return selector.next({ now: NOW, elapsedMs: 0, fatigued });
 }
 
@@ -106,7 +106,7 @@ function answer(item: Prompt, overrides: AttemptOverrides = {}): Attempt {
 
 /** Plays `count` prompts, answering each correctly, and returns their keys. */
 function play(
-	selector: SessionSelector,
+	selector: ItemSource,
 	count: number,
 	overrides: AttemptOverrides = {}
 ): string[] {
@@ -610,7 +610,7 @@ describe('learn pacing by success', () => {
 			aid: 'none',
 			leadBeats: 2
 		});
-		const feed = (selector: SessionSelector, misses: number) => {
+		const feed = (selector: ItemSource, misses: number) => {
 			for (let i = 0; i < 10; i++) {
 				const item = consolidation(ORDER[1 + (i % 3)]);
 				selector.record(answer(item, i < misses ? missed : {}), NOW);
