@@ -17,6 +17,8 @@ function model(overrides: Partial<GridStageModel>): GridStageModel {
 		index: 1,
 		cue: { kind: 'climb', set: 'sol‑si‑mi', direction: 'up' },
 		aid: null,
+		anchorBeat: null,
+		history: [],
 		...overrides
 	};
 }

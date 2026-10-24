@@ -1,5 +1,5 @@
 import type { ChordCandidate, ChordExpectation } from '$lib/application/ports';
-import type { ShapeView } from '$lib/application/session/contract';
+import type { LaneEntry, ShapeView } from '$lib/application/session/contract';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, triadOf, type GridChange } from '$lib/domain/grid';
 import {
@@ -14,6 +14,7 @@ import {
 	triadId,
 	triadShapes,
 	type ChordGridConfusion,
+	type ChordGridData,
 	type ChordGridItem,
 	type ChordReading
 } from '$lib/domain/mechanics';
@@ -25,10 +26,11 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
-import type { Locale, ResponseVerdict } from '$lib/domain/types';
+import type { ResponseValue } from '$lib/domain/time';
+import type { AidLevel, Locale, ResponseVerdict } from '$lib/domain/types';
 import { CHORD_GRID_MESSAGES } from './chordGridMessages';
 import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
-import type { MechanicPresenter } from './types';
+import type { MechanicPresenter, StagePlace } from './types';
 
 /** How far around the shapes expected a look-alike stays a candidate, in frets. To calibrate. */
 export const NEIGHBOUR_FRETS = 2;
@@ -74,6 +76,10 @@ export interface LinkLaneModel {
 	beatsPerBar: 4;
 	/** The notes of the shapes to play now and next, when the change is aided. */
 	aid: { now: LinkAidNote[]; next: LinkAidNote[] | null } | null;
+	/** The beat of the change's target, in the map's beats from the series' start; null before. */
+	anchorBeat: number | null;
+	/** The changes played so far, with their verdicts. */
+	history: readonly LaneEntry[];
 }
 
 /** The screen model of a chord grid, read by its views (`grid-scroll`). */
@@ -86,6 +92,10 @@ export interface GridStageModel {
 	cue: GridCue;
 	/** The shape to play at the next change, when the passage is aided. */
 	aid: ShapeView | null;
+	/** The beat of the change's target, in the map's beats from the series' start; null before. */
+	anchorBeat: number | null;
+	/** The changes played so far, with their verdicts. */
+	history: readonly LaneEntry[];
 }
 
 function shapeView(occurrence: VoicingOccurrence): ShapeView {
@@ -289,7 +299,12 @@ function aidNotes(occurrence: VoicingOccurrence): LinkAidNote[] {
  * The lane of a link tour: the root on its first tile, then whether each shape lies higher or
  * lower than the one before (a chained tour climbs from the lowest, played at the end of the last).
  */
-function linkLaneModel(item: ChordGridItem, locale: Locale, aided: boolean): LinkLaneModel {
+function linkLaneModel(
+	item: ChordGridItem,
+	locale: Locale,
+	aided: boolean,
+	place: StagePlace
+): LinkLaneModel {
 	const [set] = item.sets;
 	const shapes = tourShapes(item);
 	const lowest = linkShapes(parseTriadId(item.chord), set)[0];
@@ -314,8 +329,40 @@ function linkLaneModel(item: ChordGridItem, locale: Locale, aided: boolean): Lin
 		changes: item.changes,
 		index: item.index,
 		beatsPerBar: 4,
-		aid: aided && now ? { now: aidNotes(now), next: next && aidNotes(next) } : null
+		aid: aided && now ? { now: aidNotes(now), next: next && aidNotes(next) } : null,
+		anchorBeat: place.anchorBeat,
+		history: place.history
 	};
+}
+
+/** No place: the old controller gives its views their placement apart. */
+const NO_PLACE: StagePlace = { anchorBeat: null, history: [] };
+
+/** The screen model of a change, the shape `heard` (occurrenceId) once settled. */
+function stageModel(
+	item: ChordGridItem,
+	heard: string | null,
+	locale: Locale,
+	aid: AidLevel,
+	place: StagePlace
+): LinkLaneModel | GridStageModel {
+	if (item.rule === 'link') return linkLaneModel(item, locale, aid === 'show-position', place);
+	const shown = aid === 'show-position' ? aidFor(item, heard) : null;
+	return {
+		title: gridOf(item)?.title ?? item.symbol,
+		beatsPerBar: 4,
+		changes: item.changes,
+		index: item.index,
+		cue: cueOf(item, locale),
+		aid: shown && shapeView(shown),
+		anchorBeat: place.anchorBeat,
+		history: place.history
+	};
+}
+
+/** The reading of a response value's only expectation, the chord asked. */
+function readingOf(value: ResponseValue): ChordReading | null {
+	return (value.expectations[0]?.answer as ChordReading | null | undefined) ?? null;
 }
 
 /** A change of a chord grid: its symbol, the cue of its exercise, heard by the chord sensor. */
@@ -353,20 +400,20 @@ export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> 
 	},
 	expectation: (item, round) => ({ chord: gridExpectation(item, round.opensAt) }),
 	stage: (item, settled, locale, { aid }) => {
-		if (item.rule === 'link') {
-			return { model: linkLaneModel(item, locale, aid === 'show-position') };
-		}
 		const heard = (settled?.answer as ChordReading | null | undefined)?.decided ?? null;
-		const shown = aid === 'show-position' ? aidFor(item, heard) : null;
-		const model: GridStageModel = {
-			title: gridOf(item)?.title ?? item.symbol,
-			beatsPerBar: 4,
-			changes: item.changes,
-			index: item.index,
-			cue: cueOf(item, locale),
-			aid: shown && shapeView(shown)
+		return { model: stageModel(item, heard, locale, aid, NO_PLACE) };
+	},
+	stageOf: (item, settled, locale, { aid }, place) => {
+		const heard = settled === null ? null : (readingOf(settled.value)?.decided ?? null);
+		return { model: stageModel(item, heard, locale, aid, place) };
+	},
+	attemptData: (item, value): ChordGridData => {
+		const [asked] = value.expectations;
+		return {
+			item,
+			answer: readingOf(value),
+			confusion: (asked?.confusion as ChordGridConfusion | null | undefined) ?? null
 		};
-		return { model };
 	}
 };
 

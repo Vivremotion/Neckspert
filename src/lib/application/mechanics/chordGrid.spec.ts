@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges, type GridChange } from '$lib/domain/grid';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
+import type { ResponseValue } from '$lib/domain/time';
+import type { LaneEntry } from '$lib/application/session/contract';
 import { shapeAt, shapeId } from '$lib/testing/shapes';
 import {
 	chordGridPresenter,
@@ -191,7 +193,9 @@ describe('chordGridPresenter', () => {
 				changes: LINK_D,
 				index: 1,
 				beatsPerBar: 4,
-				aid: null
+				aid: null,
+				anchorBeat: null,
+				history: []
 			});
 			const english = chordGridPresenter.stage!(link(1, ''), null, 'en', { aid: 'none' })
 				.model as LinkLaneModel;
@@ -264,6 +268,103 @@ describe('chordGridPresenter', () => {
 
 		it('jam: the chords alone, no aid', () => {
 			expect(stage(item({}))).toMatchObject({ cue: { kind: 'jam' }, aid: null });
+		});
+	});
+
+	describe('on the target model', () => {
+		const ringing = shapeId('D', 'maj', G_B_E, '7-7-5');
+		const climbing = item({
+			rule: 'climb',
+			sets: [G_B_E],
+			direction: 'up',
+			chord: 'D|maj',
+			symbol: 'D',
+			previous: ringing
+		});
+		const higher = chordGridRules.judge(climbing, {
+			decided: shapeId('D', 'maj', G_B_E, '11-10-10')
+		});
+		const lower = chordGridRules.judge(climbing, { decided: shapeId('D', 'maj', G_B_E, '2-3-2') });
+
+		const valueOf = (
+			verdict: ResponseValue['verdict'],
+			judged: { answer: unknown; correct: boolean; confusion: unknown } | null,
+			late = false
+		): ResponseValue => ({
+			verdict,
+			timingOffsetMs: judged ? 12 : null,
+			reactionMs: judged ? 400 : null,
+			leadMs: 500,
+			expectations: [
+				{
+					index: 0,
+					answer: judged?.answer ?? null,
+					correct: judged ? judged.correct : null,
+					confusion: judged?.confusion ?? null,
+					correction: null,
+					late
+				}
+			]
+		});
+
+		/** Right, wrong with a confusion, offbeat, unanswered. */
+		const cases = [
+			{ value: valueOf('perfect', higher), success: true },
+			{ value: valueOf('wrong', lower), success: false },
+			{ value: valueOf('offbeat', higher, true), success: false },
+			{ value: valueOf('wrong', null), success: false }
+		];
+		const place = {
+			anchorBeat: 12,
+			history: [{ beatIndex: 8, verdict: 'perfect' }] as readonly LaneEntry[]
+		};
+
+		it('draws the change and its verdict from a response value', () => {
+			expect(lower.confusion).not.toBeNull();
+			const items = [climbing, link(1, shapeId('D', 'maj', G_B_E, '7-7-5'))];
+			for (const it of items) {
+				for (const aid of ['none', 'show-position'] as const) {
+					const before = chordGridPresenter.stageOf!(it, null, 'fr', { aid }, place);
+					expect(before.model).toEqual({
+						...(chordGridPresenter.stage!(it, null, 'fr', { aid }).model as object),
+						...place
+					});
+					for (const settled of cases) {
+						const { answer } = settled.value.expectations[0];
+						const old = chordGridPresenter.stage!(
+							it,
+							{ answer, verdict: settled.value.verdict },
+							'fr',
+							{ aid }
+						).model;
+						expect(chordGridPresenter.stageOf!(it, settled, 'fr', { aid }, place).model).toEqual({
+							...(old as object),
+							...place
+						});
+					}
+				}
+			}
+		});
+
+		it('keeps the attempt data a gesture attempt has today', () => {
+			const today = (judged: { answer: unknown; confusion: unknown } | null) => ({
+				item: climbing,
+				answer: judged?.answer ?? null,
+				confusion: judged?.confusion ?? null
+			});
+			expect(chordGridPresenter.attemptData!(climbing, cases[0].value)).toEqual(today(higher));
+			expect(chordGridPresenter.attemptData!(climbing, cases[1].value)).toEqual(today(lower));
+			expect(chordGridPresenter.attemptData!(climbing, cases[3].value)).toEqual(today(null));
+		});
+
+		it('leaves the place empty on the old path', () => {
+			expect(chordGridPresenter.stage!(climbing, null, 'fr', { aid: 'none' }).model).toMatchObject({
+				anchorBeat: null,
+				history: []
+			});
+			expect(
+				chordGridPresenter.stage!(link(0, ringing), null, 'fr', { aid: 'none' }).model
+			).toMatchObject({ anchorBeat: null, history: [] });
 		});
 	});
 

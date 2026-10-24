@@ -16,7 +16,9 @@ function model(index: number): LinkLaneModel {
 		changes: CHANGES,
 		index,
 		beatsPerBar: 4,
-		aid: null
+		aid: null,
+		anchorBeat: null,
+		history: []
 	};
 }
 
