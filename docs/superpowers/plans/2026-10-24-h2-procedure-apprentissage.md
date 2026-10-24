@@ -15,7 +15,7 @@
 - Branche `plan/temps-musical-h2`, dans `.worktrees/temps-musical-h2`, partie de `main` (H1 fusionné : `7551937`). `npm test && npm run check` vert à chaque commit ; tests avant le code ; chaque test affirme.
 - **`domain/learning/` ne nomme aucune mécanique ni aucun exercice** (`locate`, `identify`, `triad-anchor`, `triad-zone`, `chord-grid`, aucun identifiant de catalogue) et n’importe ni `domain/music`, ni `domain/triads`, ni `domain/gesture`, ni `domain/mechanics`, ni `domain/timing`, ni `application/` (test de frontière, Task 5). Les sujets vivent avec leur domaine : `domain/progress/neckSubject.ts`, `domain/triads/triadSubject.ts`.
 - **On teste les règles, pas l’ancienne suite** : aucun test ne compare la procédure aux sélecteurs actuels ; les invariants pédagogiques sont la spécification. L’ordre exact des items est libre.
-- **L’ancien chemin ne change pas de comportement** : `learnSelector`, `triadSelector`, `gestureSelector`, `SessionController` et `AttemptRecorder` restent ; ils ne changent que par le renommage `SessionSelector` → `ItemSource` (Task 8) et par la séparation de l’avance dans `progress/cards.ts` (Task 2), sans effet.
+- **L’ancien chemin ne change pas de comportement** : `learnSelector`, `triadSelector`, `gestureSelector`, `SessionController` et `AttemptRecorder` restent ; ils ne changent que par le renommage `SessionSelector` → `ItemSource` (Task 9) et par la séparation de l’avance dans `progress/cards.ts` (Task 2), sans effet.
 - **La procédure ne finit jamais une séance par le temps** : la durée appartient à la séance (`SESSION_MS`, amendement 2026-10-17) ; elle ne rend `null` que quand elle n’a rien à servir. `LEARN_SESSION_MS` reste pour l’ancien chemin jusqu’à H3.
 - Constantes réutilisées telles quelles, sans copie, depuis `domain/progress/constants.ts` : `LEARN_COLD_CAP = 20`, `LEARNING_SLOTS = 3`, `MAX_UNCONSOLIDATED = 10`, `LEARN_RETEST_GAPS = [2, 4]`, `LEARN_SUCCESSES = 2`, `SUCCESS_WINDOW = 10`, `NEW_NOTE_MIN_CARD_SUCCESS = 0.8`, `NEW_NOTE_CARD_WINDOW = 5`, `NEW_NOTE_MIN_SESSION_SUCCESS = 0.7`, `RECOVERY_AFTER_MISSES = 1`, `MAX_WORKING_SET = 6`, `STRING_AID_FADE_SUCCESSES = 1`, `CONSOLIDATION_POOL = 3`, `CONSOLIDATION_SKIP_RECENT = 2`, `CONFUSION_LOOKBACK = 3`, `MIN_COLD_DELAY_MS`. `domain/learning/` les importe de `domain/progress/constants.ts` (un fichier de constantes, pas de logique de mécanique : l’import est permis et le test de frontière l’autorise nommément).
 - Un nom par concept : « source d’items » / `ItemSource`, « procédure d’apprentissage » / `LearningProcedure`, « sujet » / `LearningSubject`, « niveau » / `level`, « voisin » / `neighbours`. « Séquence » n’apparaît dans aucun nom neuf.
@@ -38,7 +38,8 @@
 - **Le niveau d’un item vit dans `LevelState`** (`exerciseId`, `scope: ''`, `item` = la clé d’item), reçu à la construction et rendu à chaque changement ; la procédure ne lit pas `CardState.leadBeats`. H3 charge et écrit `levelStates` et migre l’avance des cartes (Dexie 9).
 - **`Level` devient générique** (`Level<P>`), pour que l’échelle d’un item (`{ leadBeats, aided }`) et les niveaux du rythme (`LevelParams`) partagent `nextLevelState`. Le haut de l’échelle porte `pass = { successes: learnedAfter }` : sa passe complète marque l’item appris (`passesTop`).
 - **Au haut de l’échelle, une réussite ne compte que si c’est un rappel direct** ; plus bas, c’est `Attempt.success`. Identifier a deux niveaux (nom montré, puis sans aide) ; localiser et les triades ont leurs crans d’avance, le plus long aidé pendant l’apprentissage.
-- **Le rappel direct est une règle de données** (`directRecallOf(attempt, thresholdMs)`), qui lit l’enveloppe `response` (H1) ou, pour les essais anciens, les champs enregistrés (avance × tempo, ou réaction en temps libre). `progress/cards.ts` la reçoit au lieu d’une `TimingRelation`.
+- **Le seuil du rappel direct est une donnée de l’exercice** (`params.recallThresholdMs`, lu par `recallThresholdOf`), pas une constante d’un sujet : un nouvel exercice de rappel déclare le sien sans code. Absent : jamais de rappel direct.
+- **Le rappel direct est une règle de données** (`directRecallOf(thresholdMs)`), qui lit l’enveloppe `response` (H1) ou, pour les essais anciens, les champs enregistrés (avance × tempo, ou réaction en temps libre). `progress/cards.ts` la reçoit au lieu d’une `TimingRelation`.
 - **`ItemSource.record` rend `{ card?: CardState; level?: LevelState } | null`** : une carte changée, un niveau changé, ou les deux.
 - **Préparer le plan de tour d’un item** (H1, `roundPlans.ts`) est laissé à H3, qui branche le contrôleur : H2 rend un `PlannedItem` dont le niveau donne l’avance et l’aide.
 
@@ -68,6 +69,7 @@
 
 - `src/lib/domain/progress/neckSubject.ts` — `neckSubject(input): LearningSubject` (localiser et identifier).
 - `src/lib/domain/triads/triadSubject.ts` — `triadSubject(input): LearningSubject` (ancrage ou zone).
+- `src/lib/domain/exercise/recall.ts` — `recallThresholdOf` ; `catalog.ts` déclare les seuils.
 
 **Domaine, modifiés**
 
@@ -288,7 +290,7 @@ export function createLearningProcedure(input: {
 }): LearningProcedure;
 ```
 
-`ItemSource`, `SelectorContext`, `RecordOutcome` : voir Task 8 ; dans cette tâche, implémenter `next(context)` contre l’interface actuelle `SessionSelector` (même forme), `record` en Task 5.
+`ItemSource`, `SelectorContext`, `RecordOutcome` : voir Task 9 ; dans cette tâche, implémenter `next(context)` contre l’interface actuelle `SessionSelector` (même forme), `record` en Task 5.
 
 Règles de `next` (chacune a son test) :
 
@@ -362,7 +364,34 @@ Règles de `record` (chacune a son test) :
 
 ---
 
-### Task 6: Le sujet des notes
+### Task 6: Le seuil du rappel direct, dans l’exercice
+
+**Files:**
+
+- Create: `src/lib/domain/exercise/recall.ts`
+- Modify: `src/lib/domain/exercise/catalog.ts` (`LOCATE_NECK`, `IDENTIFY_NECK`, `triadsParams()`), `src/lib/domain/exercise/index.ts`
+- Test: `src/lib/domain/exercise/recall.spec.ts`
+
+**Interfaces:**
+
+- Produces (dans `recall.ts`) :
+
+```ts
+/** The direct-recall threshold an exercise declares in its params (`params.recallThresholdMs`), in ms; null when it declares none (the gesture, the rhythm: never direct recall). Throws on a value that is not a positive finite number. */
+export function recallThresholdOf(definition: ExerciseDefinition): number | null;
+```
+
+- Le catalogue déclare le seuil en données : `LOCATE_NECK.params.recallThresholdMs = RECALL_THRESHOLD_MS`, `IDENTIFY_NECK.params.recallThresholdMs = IDENTIFY_RECALL_THRESHOLD_MS`, `triadsParams().recallThresholdMs = RECALL_THRESHOLD_MS`. Les constantes de `domain/types.ts` restent les valeurs du catalogue (et de l’ancien chemin jusqu’à H3) ; aucun exercice du geste ni du rythme n’en déclare.
+
+- [ ] **Step 1: Write the failing tests** : `it('reads the threshold an exercise declares')` → `LOCATE_NECK` 1500, `IDENTIFY_NECK` 3000, `TRIADS_ANCHOR` et `TRIADS_ZONE` 1500 ; `it('gives none to an exercise that declares none')` → un exercice du geste et un du rythme : `null` ; `it('refuses a threshold that is not a positive number')` → `0`, `-1`, `'1500'` lèvent `recallThresholdMs must be a positive number`.
+- [ ] **Step 2: Run** `npx vitest run src/lib/domain/exercise/recall.spec.ts` → FAIL.
+- [ ] **Step 3: Implement** `recallThresholdOf` et les trois déclarations du catalogue.
+- [ ] **Step 4: Run** `npm test && npm run check` → PASS (l’ancien chemin ne lit pas ce champ).
+- [ ] **Step 5: Commit** `git commit -m "feat: let an exercise declare its direct-recall threshold"`
+
+---
+
+### Task 7: Le sujet des notes
 
 **Files:**
 
@@ -371,14 +400,15 @@ Règles de `record` (chacune a son test) :
 
 **Interfaces:**
 
-- Consumes: `LearningSubject` (Task 3), `leadLadder`, `aidLadder` (Task 1), `directRecallOf` (Task 2) ; `nextNewCard`, `introductionOrder` (`progress/introduction.ts`), `isMirrorPair`, `asNeckCard`, `neckCardKey` (`domain/music`), `neckExerciseId` (`progress/neck.ts`), `LEAD_STEPS`, `RECALL_THRESHOLD_MS`, `IDENTIFY_RECALL_THRESHOLD_MS`, `LEARN_SUCCESSES`.
-- Produces: `neckSubject(input?: { priority?: readonly LocateItem[] }): LearningSubject` — possède `locate` et `identify` ; `nextNew` = `nextNewCard(cards, priority)` hors `blocked` (une note attend que son miroir soit acquis : déjà dans `nextNewCard`) ; voisins = même carte ou paire miroir ; préfère une autre corde ; échelle de localiser `leadLadder({ steps: LEAD_STEPS, tempoBpm, recallThresholdMs: RECALL_THRESHOLD_MS, learnedAfter: LEARN_SUCCESSES })`, d’identifier `aidLadder(LEARN_SUCCESSES)` ; rappel direct `directRecallOf(RECALL_THRESHOLD_MS)` / `directRecallOf(IDENTIFY_RECALL_THRESHOLD_MS)` ; confusion = `data.confusion !== null` ; aide qui s’efface pour localiser.
+- Consumes: `LearningSubject` (Task 3), `leadLadder`, `aidLadder` (Task 1), `directRecallOf` (Task 2) ; `nextNewCard`, `introductionOrder` (`progress/introduction.ts`), `isMirrorPair`, `asNeckCard`, `neckCardKey` (`domain/music`), `neckExerciseId` (`progress/neck.ts`), `LEAD_STEPS`, `LEARN_SUCCESSES` ; `recallThresholdOf` (Task 6) ; l’échelle de localiser reçoit `recallThresholdMs: recallThresholdOf(definitions.locate)`.
+- Produces: `neckSubject(input: { definitions: { locate: ExerciseDefinition; identify: ExerciseDefinition }; priority?: readonly LocateItem[] }): LearningSubject` — possède `locate` et `identify` ; `nextNew` = `nextNewCard(cards, priority)` hors `blocked` (une note attend que son miroir soit acquis : déjà dans `nextNewCard`) ; voisins = même carte ou paire miroir ; préfère une autre corde ; échelle de localiser `leadLadder({ steps: LEAD_STEPS, tempoBpm, recallThresholdMs: RECALL_THRESHOLD_MS, learnedAfter: LEARN_SUCCESSES })`, d’identifier `aidLadder(LEARN_SUCCESSES)` ; rappel direct `directRecallOf(recallThresholdOf(definition))` de l’exercice de chaque mécanique (Task 6), aucune constante de seuil dans le sujet ; confusion = `data.confusion !== null` ; aide qui s’efface pour localiser.
 
 - [ ] **Step 1: Write the failing tests** :
 
 - `it('introduces the notes in the order of the neck, the triads’ notes first')`.
 - `it('keeps a note and its mirror apart, and prefers another string')`.
 - `it('learns locate over its leads and identify over the name shown')`.
+- `it('judges direct recall by the threshold the exercise declares')` : une définition de localiser à `recallThresholdMs: 3000` → à 80 bpm, le haut de l’échelle est 4 temps et un essai à 4 temps réussi est un rappel direct.
 - `it('plays a learn session end to end on the procedure')` : procédure + sujet des notes, 40 consignes jouées avec un joueur scripté (juste aux crans courts sauf pour deux notes), vérifie les invariants des Tasks 4 et 5 à chaque pas (jamais le précédent ni son miroir, catégories, ensemble de travail, aucun sondage chaud, aucune révision aidée).
 
 - [ ] **Step 2: Run** `npx vitest run src/lib/domain/progress/neckSubject.spec.ts` → FAIL.
@@ -388,7 +418,7 @@ Règles de `record` (chacune a son test) :
 
 ---
 
-### Task 7: Le sujet des triades
+### Task 8: Le sujet des triades
 
 **Files:**
 
@@ -397,8 +427,8 @@ Règles de `record` (chacune a son test) :
 
 **Interfaces:**
 
-- Consumes: `LearningSubject`, `leadLadder`, `directRecallOf` ; `triadIntroductionOrder`, `triadParams`, `voicingOccurrences`, `occurrencePosition`, `cueFrets`, `parseVoicingKey`, `voicingKey` (comme `triadSelector.ts` les importe) ; `pacingOf` ; `isAcquired` (Task 2).
-- Produces: `triadSubject(input: { mechanic: 'triad-anchor' | 'triad-zone'; definitions: { anchor: ExerciseDefinition; zone: ExerciseDefinition }; acquiredPositions: ReadonlySet<string> }): LearningSubject` — possède les deux mécaniques de triades (la zone lit les cartes d’ancrage) mais n’introduit que celles de son exercice : en ancrage, la tête de la file `triadIntroductionOrder` ; en zone, une triade acquise en ancrage (`isAcquired` avec `directRecallOf(RECALL_THRESHOLD_MS)`) ; voisins = même voicing (l’accord précédent sonne encore) ; aucune préférence ; échelle `leadLadder` sur `pacingOf(definition).leadSteps` et `learnedAfter` (C2) ; aucune aide qui s’efface ; `promptItem` : en zone, une position parmi les formes du voicing autre que la dernière demandée à cette carte et une case qu’elle couvre (la règle de `triadSelector.zoneItem` et `drawPosition`), la dernière position lue dans `attempt.data.item.position` et tenue par le sujet.
+- Consumes: `LearningSubject`, `leadLadder`, `directRecallOf`, `recallThresholdOf` (Task 6) ; `triadIntroductionOrder`, `triadParams`, `voicingOccurrences`, `occurrencePosition`, `cueFrets`, `parseVoicingKey`, `voicingKey` (comme `triadSelector.ts` les importe) ; `pacingOf` ; `isAcquired` (Task 2).
+- Produces: `triadSubject(input: { mechanic: 'triad-anchor' | 'triad-zone'; definitions: { anchor: ExerciseDefinition; zone: ExerciseDefinition }; acquiredPositions: ReadonlySet<string> }): LearningSubject` — possède les deux mécaniques de triades (la zone lit les cartes d’ancrage) mais n’introduit que celles de son exercice : en ancrage, la tête de la file `triadIntroductionOrder` ; en zone, une triade acquise en ancrage (`isAcquired` avec `directRecallOf(recallThresholdOf(definitions.anchor))`) ; rappel direct et haut de l’échelle par `recallThresholdOf` de l’exercice (Task 6) ; voisins = même voicing (l’accord précédent sonne encore) ; aucune préférence ; échelle `leadLadder` sur `pacingOf(definition).leadSteps` et `learnedAfter` (C2) ; aucune aide qui s’efface ; `promptItem` : en zone, une position parmi les formes du voicing autre que la dernière demandée à cette carte et une case qu’elle couvre (la règle de `triadSelector.zoneItem` et `drawPosition`), la dernière position lue dans `attempt.data.item.position` et tenue par le sujet.
 
 - [ ] **Step 1: Write the failing tests** :
 
@@ -407,7 +437,7 @@ Règles de `record` (chacune a son test) :
 - `it('serves only its own exercise’s cards')` : un sujet de zone ne sert aucune carte d’ancrage, un sujet d’ancrage aucune carte de zone, en révision, reprise ou consolidation.
 - `it('never asks the voicing still ringing')`.
 - `it('asks a zone triad at another position than the last')`.
-- `it('plays a triads session end to end on the procedure')` : comme la Task 6, 30 consignes d’ancrage.
+- `it('plays a triads session end to end on the procedure')` : comme la Task 7, 30 consignes d’ancrage.
 
 - [ ] **Step 2: Run** `npx vitest run src/lib/domain/triads/triadSubject.spec.ts` → FAIL.
 - [ ] **Step 3: Implement** (si la dernière position doit être tenue d’une consigne à l’autre, le sujet la tient dans une fermeture créée par `triadSubject`, une instance par séance).
@@ -416,7 +446,7 @@ Règles de `record` (chacune a son test) :
 
 ---
 
-### Task 8: Les sources d’items et `choose`
+### Task 9: Les sources d’items et `choose`
 
 **Files:**
 
@@ -460,7 +490,7 @@ export function choose(candidates: readonly SeriesCandidate[]): SeriesCandidate 
 
 ---
 
-### Task 9: La doc suit
+### Task 10: La doc suit
 
 **Files:**
 
