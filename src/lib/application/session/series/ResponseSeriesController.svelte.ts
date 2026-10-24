@@ -370,8 +370,14 @@ export class ResponseSeriesController implements PlaySessionController {
 		const start = Fraction.of(at);
 		this.enterScene(this.items.presenterOf(item));
 		this.view.status = 'count-in';
-		// Not placed before its round opens: the view places it where the count ends.
-		this.showStage(item, null, null);
+		// Not placed before its round opens: the view places it where the count ends. A round
+		// settled on screen (its verdict, its drawn miss, its offer) stays until the count starts.
+		const settledOnScreen = this.round?.settled === true;
+		const showWaiting = () => {
+			this.withdrawContest();
+			this.showStage(item, null, null);
+		};
+		if (!settledOnScreen) showWaiting();
 		if (count.restFrom !== null) {
 			this.wakeAt(Fraction.of(count.restFrom), (time) => this.log?.open('rest', time));
 		}
@@ -380,6 +386,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		const beats = beatPositions(this.meter).length;
 		for (let beat = 0; beat < beats; beat++) {
 			this.wakeAt(Fraction.of(countBar).add(Fraction.of(beat, beats)), () => {
+				if (beat === 0 && settledOnScreen) showWaiting();
 				this.view.countdown = this.transport.countdownAt(countBar, beat);
 			});
 		}

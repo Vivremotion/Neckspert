@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import type { ChordGridData, ChordGridItem } from '$lib/domain/mechanics';
+import type { PlannedItem } from '$lib/domain/types';
 import {
 	responseVerdictOf,
 	type Attempt,
@@ -38,6 +39,7 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import {
+	EXECUTIONS,
 	change,
 	clicksBetween,
 	drain,
@@ -545,12 +547,12 @@ describe('the counted bar before a chord change (countdown)', () => {
 		const ctx = gestureSeries([...passage(), ...passage({ passage: 's:1', restBars: 1 })]);
 		await ctx.controller.start();
 		// The passage over bars 1 and 2 (beats 4 to 11); silence over 12 to 15; the count over
-		// 16 to 19; the next passage on 20.
+		// 16 to 19; the next passage on 20. The last change (on 8) stays shown until the count.
 		expect(countsOn(ctx, 12, 20)).toEqual([
-			[12, null, null],
-			[13, null, null],
-			[14, null, null],
-			[15, null, null],
+			[12, null, 8],
+			[13, null, 8],
+			[14, null, 8],
+			[15, null, 8],
 			[16, 4, null],
 			[17, 3, null],
 			[18, 2, null],
@@ -853,6 +855,93 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		await imposed.controller.start();
 		imposed.runTo(imposed.bar(1));
 		expect(imposed.controller.view.chordDiagram).toBe('strings');
+	});
+});
+
+describe('the miss of a passage’s last change (shown until the count starts)', () => {
+	const LINK_SHAPES = ['2-3-2', '7-7-5'].map((frets) => shapeId('D', 'maj', G_B_E, frets));
+
+	/** A link tour of two changes, D on G-B-E, at ♩ = 120 like the jam. */
+	function linkTour(id: string, restBars?: number): PlannedItem[] {
+		return [0, 1].map((index) => {
+			const { tempoScope: _scope, ...base } = change(index, {
+				passage: id,
+				exerciseId: 'gesture-link'
+			});
+			const item: ChordGridItem = {
+				...(base.item as ChordGridItem),
+				rule: 'link',
+				element: 'link:D|maj:3,2,1',
+				chord: 'D|maj',
+				symbol: 'D',
+				changes: [
+					{ at: 0, length: 4, symbol: 'D' },
+					{ at: 4, length: 4, symbol: 'D' }
+				],
+				shape: LINK_SHAPES[index]
+			};
+			return { ...base, item, ...(index === 0 && restBars && { restBars }) };
+		});
+	}
+
+	const LINK_EXECUTIONS = [...EXECUTIONS, { exerciseId: 'gesture-link', tempoBpm: 120 }];
+
+	/** The drawn miss, the contest offer and the change shown, read at `time`. */
+	function at(ctx: Ctx, time: number) {
+		ctx.runTo(time);
+		const shown = model(ctx) as unknown as {
+			miss: unknown;
+			anchorBeat: number | null;
+		};
+		return {
+			miss: shown.miss !== null,
+			anchored: shown.anchorBeat !== null,
+			contest: ctx.controller.view.contest
+		};
+	}
+
+	it('draws a grid’s last change missed with no chord through the rest bar, until the count starts', async () => {
+		const ctx = gestureSeries([...passage(), ...passage({ passage: 's:1', restBars: 1 })], {
+			development: true
+		});
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(2) + 0.02);
+		ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+		// Nothing heard on the last change: it settles wrong at its handover (bar 3 − 0.2 s).
+		expect(at(ctx, ctx.bar(3) - 0.15)).toEqual({
+			miss: true,
+			anchored: true,
+			contest: 'available'
+		});
+		// Bar 3 rests in silence: the miss and its offer stay.
+		expect(at(ctx, ctx.bar(4) - 0.05)).toEqual({
+			miss: true,
+			anchored: true,
+			contest: 'available'
+		});
+		expect(model(ctx)).toMatchObject({ index: 1, history: [expect.anything(), expect.anything()] });
+		// Bar 4 counts: the next passage's first change waits there, not yet placed.
+		expect(at(ctx, ctx.bar(4) + 0.05)).toEqual({ miss: false, anchored: false, contest: null });
+		expect(model(ctx)).toMatchObject({ index: 0 });
+		expect(ctx.controller.view.countdown).toBe(4);
+	});
+
+	it('draws a link tour’s last shape missed until the count starts', async () => {
+		const ctx = gestureSeries([...linkTour('s:0'), ...linkTour('s:1', 1)], {
+			executions: LINK_EXECUTIONS
+		});
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(1) + 0.02);
+		ctx.play(ctx.bar(1) + 0.02, LINK_SHAPES[0]);
+		ctx.runTo(ctx.bar(2) + 0.02);
+		// The lowest shape played again where the next one is asked.
+		ctx.play(ctx.bar(2) + 0.02, LINK_SHAPES[0]);
+		expect(ctx.controller.view.stage?.view).toBe('link-lane');
+		expect(at(ctx, ctx.bar(3) - 0.15)).toMatchObject({ miss: true, anchored: true });
+		expect(at(ctx, ctx.bar(4) - 0.05)).toMatchObject({ miss: true, anchored: true });
+		expect(at(ctx, ctx.bar(4) + 0.05)).toMatchObject({ miss: false, anchored: false });
+		const attempts = await ctx.stored();
+		expect(attempts.map((a) => responseVerdictOf(a))).toEqual(['perfect', 'wrong']);
 	});
 });
 
