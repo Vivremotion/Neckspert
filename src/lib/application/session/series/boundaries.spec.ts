@@ -25,7 +25,7 @@ const NAMES = [
 ];
 
 /** What the series never imports, from `src/lib/`: the old timing and the metronome port. */
-const FORBIDDEN = ['domain/timing', 'application/ports/metronome'];
+const FORBIDDEN = ['domain/timing', 'application/ports/MetronomePort'];
 
 /** Words of the old one-answer timing the series never writes (a direct import is forbidden). */
 const FORBIDDEN_WORDS = ['MetronomePort', 'TimingRelation'];
@@ -86,8 +86,8 @@ describe('the response series', () => {
 		expect(offendersIn({ [file]: `import { x } from '../../../domain/timing/grid';` })).toEqual([
 			`${file}: domain/timing/grid`
 		]);
-		expect(offendersIn({ [file]: `import type { M } from '../../ports/metronome';` })).toEqual([
-			`${file}: application/ports/metronome`
+		expect(offendersIn({ [file]: `import type { M } from '../../ports/MetronomePort';` })).toEqual([
+			`${file}: application/ports/MetronomePort`
 		]);
 		expect(offendersIn({ [file]: `let r: TimingRelation;` })).toEqual([`${file}: TimingRelation`]);
 		expect(offendersIn({ [file]: `let m: MetronomePort;` })).toEqual([`${file}: MetronomePort`]);
