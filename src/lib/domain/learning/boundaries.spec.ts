@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { EXERCISES } from '../exercise/catalog';
+import { MECHANIC_RULES } from '../mechanics';
 
 // The learning module as raw text, keyed by its path from the project root.
 const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
@@ -10,8 +12,18 @@ const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
 const DOMAIN = '/src/lib/domain/';
 const MODULE = `${DOMAIN}learning/`;
 
-/** The ids of mechanics and exercises the procedure never names. */
-const NAMES = ['locate', 'identify', 'triad-anchor', 'triad-zone', 'chord-grid'];
+/** The ids of mechanics and exercises the procedure never names: every one of the registry and the catalog. */
+const NAMES = [
+	...new Set([
+		'locate',
+		'identify',
+		'triad-anchor',
+		'triad-zone',
+		'chord-grid',
+		...MECHANIC_RULES.map((rules) => rules.id),
+		...EXERCISES.map((exercise) => exercise.id)
+	])
+];
 
 /** What the procedure never imports, from `src/lib/`. */
 const FORBIDDEN = [
@@ -72,7 +84,7 @@ function offendersIn(files: Record<string, string>): string[] {
 	for (const [path, text] of Object.entries(files)) {
 		if (!path.startsWith(MODULE) || /\.spec\.ts$/.test(path)) continue;
 		for (const name of NAMES) {
-			if (text.includes(`'${name}'`) || text.includes(`"${name}"`))
+			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
 		for (const imported of importsOf(path, text)) {
@@ -129,7 +141,10 @@ describe('the learning procedure', () => {
 		).toEqual([]);
 		for (const name of NAMES) {
 			expect(offendersIn({ [file]: `const m = '${name}';` })).toEqual([`${file}: ${name}`]);
+			expect(offendersIn({ [file]: `const m = \`${name}\`;` })).toEqual([`${file}: ${name}`]);
 		}
+		// The catalog's exercise ids are names too.
+		expect(NAMES).toEqual(expect.arrayContaining(['locate-neck', 'triads-anchor']));
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
 	});
 });
