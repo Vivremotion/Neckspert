@@ -151,6 +151,7 @@ export class DemoGestureSession implements PlaySessionController {
 				correction: null
 			};
 			this.view.status = 'verdict';
+			this.#stage(due);
 		}
 	}
 
@@ -171,9 +172,13 @@ export class DemoGestureSession implements PlaySessionController {
 	}
 
 	#stage(index: number): void {
-		const { model } = chordGridPresenter.stage!(itemAt(this.#mode, index), null, i18n.locale, {
-			aid: 'show-position'
-		});
+		const { model } = chordGridPresenter.stageOf!(
+			itemAt(this.#mode, index),
+			null,
+			i18n.locale,
+			{ aid: 'show-position' },
+			{ anchorBeat: this.view.targetBeatIndex, history: this.view.history }
+		);
 		this.view.stage = { view: this.#mode === 'link' ? 'link-lane' : 'grid-scroll', model };
 	}
 }

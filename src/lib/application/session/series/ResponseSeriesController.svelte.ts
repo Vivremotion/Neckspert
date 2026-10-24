@@ -370,7 +370,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		const start = Fraction.of(at);
 		this.enterScene(this.items.presenterOf(item));
 		this.view.status = 'count-in';
-		this.showStage(item, null, this.anchorBeatOf(start, plan));
+		// Not placed before its round opens: the view places it where the count ends.
+		this.showStage(item, null, null);
 		if (count.restFrom !== null) {
 			this.wakeAt(Fraction.of(count.restFrom), (time) => this.log?.open('rest', time));
 		}

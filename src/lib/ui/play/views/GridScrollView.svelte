@@ -29,16 +29,7 @@
 	});
 
 	const placement = $derived(
-		gridPlacement({
-			changes: stage.changes,
-			beatsPerBar: stage.beatsPerBar,
-			index: stage.index,
-			targetBeatIndex: view.targetBeatIndex,
-			nowBeat,
-			history: view.history,
-			visibleBars: VISIBLE_BARS,
-			barsBefore: BARS_BEFORE
-		})
+		gridPlacement(stage, { nowBeat, visibleBars: VISIBLE_BARS, barsBefore: BARS_BEFORE })
 	);
 
 	const cue = $derived.by((): string | null => {

@@ -31,13 +31,7 @@
 		countedBeat = left === null ? null : Math.round(controller.timeline.nowBeat()) + left;
 	});
 
-	const tiles = $derived(
-		linkLaneLayout(lane, {
-			anchorBeat: view.targetBeatIndex ?? countedBeat,
-			nowBeat,
-			history: view.history
-		})
-	);
+	const tiles = $derived(linkLaneLayout(lane, { nowBeat, countedBeat }));
 	const past = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const ahead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const ARROWS = { up: '↗', down: '↘' } as const;

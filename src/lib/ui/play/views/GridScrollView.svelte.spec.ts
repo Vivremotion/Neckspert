@@ -27,9 +27,8 @@ describe('GridScrollView', () => {
 	it('shows the chord on show large, the next one, and the cue of the exercise', () => {
 		const controller = new StageController();
 		controller.view.status = 'awaiting';
-		controller.view.targetBeatIndex = 12;
 		controller.nowBeat = 12.2;
-		render(GridScrollView, { props: { controller, model: model({}) } });
+		render(GridScrollView, { props: { controller, model: model({ anchorBeat: 12 }) } });
 		expect(screen.getByTestId('current-chord').textContent).toBe('G7');
 		expect(screen.getByTestId('next-chord').textContent).toBe('Dm7');
 		expect(screen.getByText('sol‑si‑mi · ↑ en montant')).toBeTruthy();
@@ -38,7 +37,6 @@ describe('GridScrollView', () => {
 
 	it('names the zone, and draws the aid of the next change', () => {
 		const controller = new StageController();
-		controller.view.targetBeatIndex = 12;
 		controller.nowBeat = 12.2;
 		const aid = {
 			notes: [
@@ -48,11 +46,23 @@ describe('GridScrollView', () => {
 			]
 		};
 		render(GridScrollView, {
-			props: { controller, model: model({ cue: { kind: 'zone', from: 5, to: 8 }, aid }) }
+			props: {
+				controller,
+				model: model({ cue: { kind: 'zone', from: 5, to: 8 }, aid, anchorBeat: 12 })
+			}
 		});
 		expect(screen.getByText('cases 5 à 8')).toBeTruthy();
 		expect(screen.getByText('Forme suivante')).toBeTruthy();
 		expect(document.querySelector('.chord-shape')).toBeTruthy();
+	});
+
+	it('puts the verdicts of its history on the changes played', () => {
+		const controller = new StageController();
+		controller.view.status = 'verdict';
+		controller.nowBeat = 12.6;
+		const history = [{ beatIndex: 8, verdict: 'perfect' as const }];
+		render(GridScrollView, { props: { controller, model: model({ anchorBeat: 12, history }) } });
+		expect(document.querySelector('.cell.past .verdict')).toBeTruthy();
 	});
 
 	it('shows the first chord as the next one before the passage starts', () => {

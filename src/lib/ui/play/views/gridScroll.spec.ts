@@ -10,15 +10,10 @@ function placement(
 	nowBeat: number,
 	history: { beatIndex: number; verdict: 'perfect' | 'wrong' }[] = []
 ) {
-	return gridPlacement({
-		changes: IOHEFY,
-		beatsPerBar: 4,
-		index,
-		targetBeatIndex: 8 + IOHEFY[index].at,
-		nowBeat,
-		history,
-		visibleBars: 4
-	});
+	return gridPlacement(
+		{ changes: IOHEFY, beatsPerBar: 4, index, anchorBeat: 8 + IOHEFY[index].at, history },
+		{ nowBeat, visibleBars: 4 }
+	);
 }
 
 describe('gridPlacement', () => {
@@ -63,16 +58,16 @@ describe('gridPlacement', () => {
 		expect(p.bars.map((bar) => bar.bar)).toEqual([2, 3, 4, 5]);
 		const before = placement(1, 12.1, [{ beatIndex: 8, verdict: 'perfect' }]);
 		expect(before.bars[0].cells[0]).toMatchObject({ change: 1, state: 'current', verdict: null });
-		const withPast = gridPlacement({
-			changes: IOHEFY,
-			beatsPerBar: 4,
-			index: 1,
-			targetBeatIndex: 12,
-			nowBeat: 12.1,
-			history: [{ beatIndex: 8, verdict: 'perfect' }],
-			visibleBars: 4,
-			barsBefore: 1
-		});
+		const withPast = gridPlacement(
+			{
+				changes: IOHEFY,
+				beatsPerBar: 4,
+				index: 1,
+				anchorBeat: 12,
+				history: [{ beatIndex: 8, verdict: 'perfect' }]
+			},
+			{ nowBeat: 12.1, visibleBars: 4, barsBefore: 1 }
+		);
 		expect(withPast.bars[0].cells[0]).toMatchObject({
 			change: 0,
 			state: 'past',
@@ -81,15 +76,10 @@ describe('gridPlacement', () => {
 	});
 
 	it('before the first change, shows the grid from its start, the first change next', () => {
-		const p = gridPlacement({
-			changes: IOHEFY,
-			beatsPerBar: 4,
-			index: 0,
-			targetBeatIndex: null,
-			nowBeat: 5,
-			history: [],
-			visibleBars: 4
-		});
+		const p = gridPlacement(
+			{ changes: IOHEFY, beatsPerBar: 4, index: 0, anchorBeat: null, history: [] },
+			{ nowBeat: 5, visibleBars: 4 }
+		);
 		expect(p.current).toBeNull();
 		expect(p.next).toBe(0);
 		expect(p.bars.map((bar) => bar.bar)).toEqual([0, 1, 2, 3]);

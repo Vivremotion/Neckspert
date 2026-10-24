@@ -1,4 +1,4 @@
-import type { LaneEntry } from '$lib/application/session/contract';
+import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
 import type { GridChange } from '$lib/domain/grid';
 import type { ResponseVerdict } from '$lib/domain/types';
 
@@ -33,28 +33,25 @@ export interface GridPlacement {
 /**
  * Where each chord of a passage sits on the scrolling line (spec 2026-10-10, section 6): the bars
  * from the current one, the change on show, the next one, announced at least a beat ahead, and
- * the verdict of each change played (from the lane history, at the change's beat). Before the
- * first round, `targetBeatIndex` is null: the grid shows from its start, the first change next.
+ * the verdict of each change played (from the model's history, at the change's beat). Before its
+ * round opens, the model's `anchorBeat` is null: the grid shows from its start, the change next.
  */
-export function gridPlacement(input: {
-	changes: readonly GridChange[];
-	beatsPerBar: number;
-	/** The change of the round on show (or waiting). */
-	index: number;
-	/** Beat of that change, null while no round is open. */
-	targetBeatIndex: number | null;
-	nowBeat: number;
-	history: readonly LaneEntry[];
-	visibleBars: number;
-	/** Bars shown before the current one. */
-	barsBefore?: number;
-}): GridPlacement {
-	const { changes, beatsPerBar, index, targetBeatIndex, nowBeat, history } = input;
-	const opened = targetBeatIndex !== null;
+export function gridPlacement(
+	model: Pick<GridStageModel, 'changes' | 'beatsPerBar' | 'index' | 'anchorBeat' | 'history'>,
+	input: {
+		nowBeat: number;
+		visibleBars: number;
+		/** Bars shown before the current one. */
+		barsBefore?: number;
+	}
+): GridPlacement {
+	const { changes, beatsPerBar, index, anchorBeat, history } = model;
+	const { nowBeat } = input;
+	const opened = anchorBeat !== null;
 	const current = opened ? index : null;
 	const nextIndex = opened ? index + 1 : index;
 	const next = nextIndex < changes.length ? nextIndex : null;
-	const start = opened ? targetBeatIndex - changes[index].at : null;
+	const start = opened ? anchorBeat - changes[index].at : null;
 	const nextAnnounced =
 		next !== null && start !== null && start + changes[next].at - nowBeat <= 1 + BEAT_TOLERANCE;
 

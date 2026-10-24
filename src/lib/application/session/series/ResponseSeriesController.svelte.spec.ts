@@ -272,6 +272,8 @@ describe('ResponseSeriesController', () => {
 			expect(clicksBetween(ctx, 0, ctx.bar(1))).toEqual([0.1, 0.6, 1.1, 1.6]);
 			ctx.runTo(ctx.bar(0.75) - 0.01);
 			expect(expectationsAsked(ctx)).toEqual([]);
+			// Waiting for its round, the change is not placed yet: the view places it on the count.
+			expect(model(ctx)).toMatchObject({ index: 0, anchorBeat: null });
 			ctx.runTo(ctx.bar(0.75));
 			expect(ctx.controller.view.status).toBe('awaiting');
 			expect(expectationsAsked(ctx)).toHaveLength(1);
