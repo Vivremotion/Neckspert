@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TriadsHome } from '$lib/application/app';
-	import { GESTURE_SESSION_MS, LEARN_SESSION_MS } from '$lib/domain/progress';
+	import { LEARN_SESSION_MS } from '$lib/domain/progress';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -105,7 +105,7 @@
 			list.push({
 				key: 'gesture',
 				title: t.gesture,
-				duration: formatMinutes(GESTURE_SESSION_MS, words),
+				duration: formatMinutes(SESSION_MS, words),
 				onselect: ongesture
 			});
 		}

@@ -32,7 +32,7 @@ export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
 export { createLearnSelector } from './learnSelector';
 export { createTriadSelector, triadZoneOpen, type TriadMechanic } from './triadSelector';
-export { createGestureSelector, GESTURE_SESSION_MS } from './gestureSelector';
+export { createGestureSelector } from './gestureSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan } from './plans';
 export { isNeck } from './neck';

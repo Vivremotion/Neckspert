@@ -1,4 +1,5 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { SESSION_MS } from '$lib/domain/session/policy';
 import {
 	LINK_AID_AFTER_MISSES,
 	LINK_REST_BARS,
@@ -20,9 +21,6 @@ import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
-
-/** No passage starts after this long in a gesture session; one begun always ends. To calibrate. */
-export const GESTURE_SESSION_MS = 300_000;
 
 const MECHANIC = 'chord-grid';
 
@@ -74,7 +72,7 @@ function chordSymbol(chord: string): string {
  * The gesture session (spec 2026-10-10, section 5): rounds in the order of the ladder, one
  * passage per open exercise each round, each on its element played least recently (content order
  * on a tie). A passage is a change per item, the first counted in; none starts after
- * GESTURE_SESSION_MS or once fatigued.
+ * `SESSION_MS` (the length of every session) or once fatigued.
  */
 class GestureSelector implements ItemSource {
 	private readonly exercises: { definition: ExerciseDefinition; elements: GestureElement[] }[];
@@ -104,7 +102,7 @@ class GestureSelector implements ItemSource {
 		if (!this.passage || this.passage.next >= this.passage.changes.length) {
 			const finished = this.passage;
 			this.passage = null;
-			if (context.elapsedMs >= GESTURE_SESSION_MS || context.fatigued) return null;
+			if (context.elapsedMs >= SESSION_MS || context.fatigued) return null;
 			this.passage = this.startPassage(context.now, finished);
 			if (!this.passage) return null;
 		}
