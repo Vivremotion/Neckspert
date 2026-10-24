@@ -33,6 +33,19 @@ describe('leadLadder', () => {
 		});
 		expect(fast.map((l) => l.params.leadBeats)).toEqual([8, 4]);
 	});
+
+	it('keeps its top unaided when a single step is kept', () => {
+		const single = (steps: readonly (2 | 4 | 8)[], recallThresholdMs: number) =>
+			leadLadder({ steps, tempoBpm: 80, recallThresholdMs, learnedAfter: 2 });
+		// Steps [8] alone, and the longest step already fitting the threshold (8 beats = 6 000 ms).
+		for (const ladder of [single([8], 1500), single([8, 4, 2], 6000)]) {
+			expect(ladder.map((l) => l.params)).toEqual([
+				{ leadBeats: 8, aided: true },
+				{ leadBeats: 8, aided: false }
+			]);
+			expect(ladder.map((l) => l.pass?.successes)).toEqual([1, 2]);
+		}
+	});
 });
 
 describe('aidLadder', () => {

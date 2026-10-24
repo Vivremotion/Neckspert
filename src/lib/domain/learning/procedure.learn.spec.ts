@@ -265,6 +265,24 @@ describe('createLearningProcedure record', () => {
 		}
 	});
 
+	it('never learns an item while its answer is shown, even on a ladder of one step', () => {
+		// One step (2 beats fits the threshold at 80 bpm): the aided level and the top are apart.
+		const source = procedure({
+			subject: fakeSubject({ items: 8, ladderSteps: [2] }),
+			cards: [1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
+		});
+		source.record(answer(source.next(at(0))!, false), 0);
+		let learnedUnaided = false;
+		for (let draw = 0; draw < 40 && !learnedUnaided; draw++) {
+			const item = source.next(at(0))!;
+			const outcome = source.record(answer(item), 0);
+			if (item.item !== 0 || outcome?.card?.learnedAt == null) continue;
+			expect(item.aid).toBe('none');
+			learnedUnaided = true;
+		}
+		expect(learnedUnaided).toBe(true);
+	});
+
 	it('calls a solid item after a miss, never after a missed recovery', () => {
 		const subject = fakeSubject({ items: 10, mechanics: [FAKE, OTHER] });
 		const cards = [

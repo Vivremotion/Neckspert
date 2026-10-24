@@ -5,7 +5,8 @@ import type { Ladder } from './subject';
 /**
  * Lead steps (longest first) down to the longest one whose duration at `tempoBpm` fits
  * `recallThresholdMs`, at least the shortest; the longest step is aided; `pass = 1`,
- * `drop = 1`, the top's `pass = learnedAfter`.
+ * `drop = 1`, the top's `pass = learnedAfter`. The top is never aided: when a single step is
+ * kept, it gives two levels at that lead, aided then unaided.
  */
 export function leadLadder(input: {
 	steps: readonly LeadBeats[];
@@ -17,7 +18,8 @@ export function leadLadder(input: {
 	if (steps.length === 0) throw new RangeError('a lead ladder needs at least one step');
 	const beatMs = 60_000 / tempoBpm;
 	const fits = steps.findIndex((lead) => lead * beatMs <= recallThresholdMs);
-	const kept = steps.slice(0, (fits < 0 ? steps.length - 1 : fits) + 1);
+	const fitting = steps.slice(0, (fits < 0 ? steps.length - 1 : fits) + 1);
+	const kept = fitting.length === 1 ? [fitting[0], fitting[0]] : fitting;
 	return kept.map((leadBeats, index) => ({
 		params: { leadBeats, aided: index === 0 },
 		pass: { successes: index === kept.length - 1 ? learnedAfter : 1 },
@@ -44,7 +46,10 @@ export function ladderLevel(state: LevelState, ladder: Ladder): LevelState {
 	return level === state.level ? state : { ...state, level, successes: 0, failures: 0 };
 }
 
-/** This success completes the top level's pass: the item is learned. */
+/**
+ * This success completes the top level's pass: the item is learned. The top is never aided
+ * (`leadLadder`, `aidLadder`), so an attempt played with the answer shown never learns its item.
+ */
 export function passesTop(state: LevelState, ladder: Ladder, success: boolean): boolean {
 	const { highest } = levelRange(ladder);
 	if (!success || state.level !== highest) return false;
