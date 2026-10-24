@@ -162,7 +162,7 @@ describe('createTriadSelector', () => {
 			const first = voicingOf(item) === ORDER[0];
 			if (first && item.phase === 'learning') leads.push(item.leadBeats);
 			const outcome = selector.record(attemptOf(item, !(first && item.phase === 'probe'), at), at);
-			if (first && outcome?.card.learnedAt) learnedAt = outcome.card.learnedAt;
+			if (first && outcome?.card?.learnedAt) learnedAt = outcome.card.learnedAt;
 		}
 		expect(leads).toEqual([8, 4, 2, 2]);
 		expect(learnedAt).not.toBeNull();

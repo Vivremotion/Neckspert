@@ -147,7 +147,7 @@ describe('createLearnSelector', () => {
 		const probe = next(selector)!;
 		const outcome = selector.record(answer(probe), NOW);
 		expect(outcome?.card).toMatchObject({ key: GK, learnedAt: NOW, acquiredAt: NOW });
-		expect(outcome?.card.scheduling.state).toBe(2);
+		expect(outcome?.card?.scheduling.state).toBe(2);
 		for (let i = 0; i < 4; i++) {
 			const item = next(selector)!;
 			expect(item.phase).toBe('probe');
@@ -175,7 +175,7 @@ describe('createLearnSelector', () => {
 		const selector = select([]);
 		const probe = next(selector)!;
 		const silent = { correct: false, verdict: 'wrong', reactionMs: null } as const;
-		expect(selector.record(answer(probe, silent), NOW)?.card.learnedAt).toBeNull();
+		expect(selector.record(answer(probe, silent), NOW)?.card?.learnedAt).toBeNull();
 		expect(next(selector)).toMatchObject({ ...G, phase: 'learning', aid: 'show-position' });
 	});
 
@@ -198,7 +198,7 @@ describe('createLearnSelector', () => {
 		selector.record(answer(next(selector)!), NOW);
 		const probe = next(selector)!;
 		const slow = answer(probe, { leadBeats: null, reactionMs: 3001 });
-		expect(selector.record(slow, NOW)?.card.learnedAt).toBeNull();
+		expect(selector.record(slow, NOW)?.card?.learnedAt).toBeNull();
 		expect(next(selector)).toMatchObject({
 			mechanic: probe.mechanic,
 			item: probe.item,
@@ -211,7 +211,7 @@ describe('createLearnSelector', () => {
 	it('resumes_a_missed_probe_with_the_aid', () => {
 		const first = select([]);
 		const probe = next(first)!;
-		const missed = first.record(answer(probe, { correct: false, verdict: 'wrong' }), NOW)!.card;
+		const missed = first.record(answer(probe, { correct: false, verdict: 'wrong' }), NOW)!.card!;
 		expect(next(select([missed]))).toMatchObject({
 			...G,
 			phase: 'learning',
@@ -279,8 +279,8 @@ describe('createLearnSelector', () => {
 		const again = next(selector)!;
 		expect(again).toMatchObject({ ...G, leadBeats: 2 });
 		const outcome = selector.record(answer(again), NOW);
-		expect(outcome?.card.learnedAt).toBe(NOW);
-		expect(outcome?.card.leadBeats).toBe(2);
+		expect(outcome?.card?.learnedAt).toBe(NOW);
+		expect(outcome?.card?.leadBeats).toBe(2);
 	});
 
 	it('doubles the lead after a miss, up to 8, where the position shows again', () => {
