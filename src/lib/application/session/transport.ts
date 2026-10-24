@@ -125,6 +125,30 @@ export class Transport {
 	}
 
 	/**
+	 * `restBars` silent bars from `atBar` (nothing sounds), then one counted bar: every beat
+	 * clicked, accent on 1, `countdownAt` 4..1. Returns the bar play resumes at. Throws a
+	 * `RangeError` when something is already scheduled at or past `atBar`, or `restBars` is
+	 * not a whole number >= 0.
+	 */
+	countIn(atBar: number, options: { restBars?: number } = {}): number {
+		const restBars = options.restBars ?? 0;
+		if (!Number.isInteger(restBars) || restBars < 0) {
+			throw new RangeError(`rest must be a whole number of bars, got ${restBars}`);
+		}
+		const map = this.map;
+		if (this.scheduledUntilBar > atBar) {
+			throw new RangeError(
+				`bars up to ${this.scheduledUntilBar} are already scheduled, a count at bar ${atBar} would overlap them`
+			);
+		}
+		const counted = atBar + restBars;
+		this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
+		this.counted.add(counted);
+		this.scheduledUntilBar = counted + 1;
+		return counted + 1;
+	}
+
+	/**
 	 * A new tempo from `atBar` (after a breath): the listen-in and the counted bar are placed
 	 * at the new tempo. Throws a `RangeError` when `atBar` is not after the last tempo segment,
 	 * or when something is already scheduled at or past `atBar` (it would sound at the old
