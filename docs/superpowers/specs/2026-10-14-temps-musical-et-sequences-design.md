@@ -759,14 +759,15 @@ De bas en haut :
 3. **Le contrôleur unique** (application) : exécute ce que la politique `next` décide, en temps musical ou en temps libre.
 4. **Les vues** (interface) : la piste et le clavier entrent dans le registre de `PlayFrame`.
 
-| Plan   | Contenu                                                                                                                                 | Touche l’existant   |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| **H1** | moteur de tour, registres de modes et juges de contenu, à côté ; les specs de `beat`, `anchor`, `gridChange`, `free` rejouées sur lui   | non                 |
-| **H2** | procédure d’apprentissage, sources d’items, `choose`, à côté ; règles pédagogiques en invariants                                        | non                 |
-| **H3** | le contrôleur unique joue tout ; notes, triades et geste y basculent une mécanique à la fois ; suppression de l’ancien chemin ; Dexie 9 | oui, la bascule     |
-| **H4** | briques et vues piste et clavier dans `PlayFrame` ; suppression de `PlayScreen`                                                         | interface seulement |
+| Plan   | Contenu                                                                                                                                       | Touche l’existant |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| **H1** | moteur de tour, registres de modes et juges de contenu, à côté ; les specs de `beat`, `anchor`, `gridChange`, `free` rejouées sur lui (fait)  | non               |
+| **H2** | procédure d’apprentissage, sources d’items, `choose`, à côté ; règles pédagogiques en invariants (faite)                                      | non               |
+| **H3** | le cœur générique des séries de réponses et le geste, ses vues                                                                                | oui, le geste     |
+| **H4** | les notes : Dexie 9 et les niveaux des cartes, la procédure branchée, `note-lane`, `answer-keys`                                              | oui, les notes    |
+| **H5** | les triades, `triad-lane`, puis les suppressions du critère de fin et l’absorption de `PlanSessionController` sous le nom `SessionController` | oui, les triades  |
 
-Une branche à la fois. H4 après H3 : brancher les vues sur l’ancien contrôleur serait du travail fait deux fois.
+Une branche à la fois. Une famille d’exercices bascule avec sa vue : le nouveau contrôleur ne nourrit jamais l’ancien écran.
 
 ### 2. Le moteur de tour
 
@@ -932,3 +933,26 @@ Branche `plan/temps-musical-h2`, plan `docs/superpowers/plans/2026-10-24-h2-proc
 - Préparer le plan de tour de chaque item, brancher la procédure et les sujets dans le contrôleur unique.
 - Rendre obligatoire l’entrée `attempts` de `triadSubject` une fois branché.
 - Supprimer `learnSelector`, `triadSelector`, `cardLeadAfter` et `CardState.leadBeats`.
+
+### Réalisation du plan H3 (2026-10-24)
+
+Branche `plan/temps-musical-h3`, plan `docs/superpowers/plans/2026-10-24-h3-controleur-et-geste.md`. Ce que la réalisation a décidé contre l’amendement ou le plan :
+
+- **Les vues et le branchement basculent ensemble** : les vues du geste lisent leur placement dans leur modèle et le contrôleur est branché dans le même pas, pour que l’application ne montre jamais des vues du geste cassées entre deux commits.
+- **Le geste joue sur `ResponseSeriesController`** (`application/session/series/` : `RoundRunner`, `recordResponse`, `PlanSource`, et `countIn` du transport), qui garde ce nom jusqu’à H5, où il absorbe `PlanSessionController` et devient `SessionController`.
+- **Le lanceur de tour ne se réveille pas au passage de main** : le contrôleur planifie ce réveil, retire d’abord les attentes du capteur, puis ferme le tour ; l’issue réglée pendant ce retrait revient de `close`. Une fenêtre coupée court rapporte donc dans le tour qui finit.
+- **L’entrée audio est ouverte par le contrôleur** : au démarrage, après le gain de l’entrée intégrée et avant l’enregistrement de la séance ; un échec montre l’erreur et laisse recommencer, et l’horloge reprend après la demande d’autorisation.
+- **Une seule durée de séance, `SESSION_MS`** : la constante propre au geste est supprimée ; aucun nouveau passage ne commence après, un passage commencé se termine.
+- **« Rejouer » commence une nouvelle série avec un nouvel identifiant** et un état neuf.
+- **Le raté dessiné suit l’écran du geste** : ce qui a été entendu, ce qui était attendu et l’écart sont dans le modèle d’écran du geste (style de `Settings.chordDiagram`, sauf si l’exercice en impose un) ; les vues du lien et de la grille les dessinent avec `ChordShape` après un raté, jusqu’au changement suivant. Rien n’est dessiné après une réussite ni un hors-temps.
+- **« Joué juste » n’existe qu’en développement** ; son bouton s’affiche désormais aussi pour le geste dans `PlayFrame`.
+- **Les temps et l’historique de la piste repartent après une reprise ou une consigne** (nouvelle carte de tempo).
+- **La consigne du premier exercice n’est pas remontrée sur « Rejouer »**.
+- **Le test de frontière est textuel** : il lit les fichiers non-spec de `series/` (imports par alias et relatifs, identifiants de mécaniques et d’exercices) ; les imports de types seuls, transitifs par `SessionDeps` et `AttemptRecorder`, sont admis jusqu’à H5.
+- **Les tentatives du geste portent l’enveloppe `response`** et leur plan résolu en JSON (`roundPlanRecord`, fractions en texte).
+
+**Ce qui reste à H4 et H5**
+
+- À H5, supprimer les anciens specs qui ne testent plus que le geste par l’ancien contrôleur (`chainedRounds`, `countdown`, `briefing`, `tempoScope`), l’ancien `stage` et `NO_PLACE` des présentateurs, la copie du bloc de raté dessiné dans `PlayFrame` (garder `DrawnMiss`) et le chemin du geste de l’ancien contrôleur.
+- Quitter pendant la demande d’autorisation du micro peut laisser l’entrée ouverte (même course que l’ancien contrôleur).
+- À H5, fusionner `ResponseSeriesController` et `PlanSessionController`.
