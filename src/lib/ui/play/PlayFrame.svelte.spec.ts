@@ -73,6 +73,19 @@ describe('PlayFrame', () => {
 		expect(screen.getByText('Contesté')).toBeTruthy();
 	});
 
+	it('offers « Joué juste » with its button when the view draws the miss itself', async () => {
+		const controller = new StageController();
+		controller.view.status = 'verdict';
+		controller.view.lastVerdict = null;
+		controller.view.contest = 'available';
+		render(PlayFrame, { props: { controller } });
+		await fireEvent.click(screen.getByRole('button', { name: /joué juste/i }));
+		expect(controller.calls).toEqual(['contest']);
+		controller.view.contest = 'done';
+		await Promise.resolve();
+		expect(screen.getByText('Contesté')).toBeTruthy();
+	});
+
 	it('says when no audio input opens, and when fatigue is detected', () => {
 		const controller = new StageController();
 		controller.view.audioError = 'input';

@@ -144,6 +144,14 @@
 		{/if}
 	</div>
 
+	{#snippet contestOffer()}
+		{#if view.contest === 'available'}
+			<PixelButton size="large" onclick={() => controller.contest()}>{t.playedRight}</PixelButton>
+		{:else if view.contest === 'done'}
+			<p class="label">{t.contested}</p>
+		{/if}
+	{/snippet}
+
 	<div class="status">
 		{#if view.countdown !== null}
 			<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
@@ -185,13 +193,12 @@
 						<p class="label">{drawn.gap}</p>
 					{/if}
 				{/if}
-				{#if view.contest === 'available'}
-					<PixelButton size="large" onclick={() => controller.contest()}
-						>{t.playedRight}</PixelButton
-					>
-				{:else if view.contest === 'done'}
-					<p class="label">{t.contested}</p>
-				{/if}
+				{@render contestOffer()}
+			</div>
+		{:else if view.contest !== null}
+			<!-- A view that draws its own verdicts: the frame still offers « Joué juste ». -->
+			<div class="verdict">
+				{@render contestOffer()}
 			</div>
 		{/if}
 		{#if view.fatigueDetected}
