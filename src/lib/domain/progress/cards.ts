@@ -1,10 +1,12 @@
 import type { TimingRelation } from '$lib/domain/timing';
+import type { DirectRecall } from '$lib/domain/learning/recall';
 import {
 	SHORTEST_LEAD,
 	type Attempt,
 	type CardKey,
 	type CardState,
 	type CardStatus,
+	type LeadBeats,
 	type Temperature
 } from '$lib/domain/types';
 import type { MechanicId } from '$lib/domain/exercise/types';
@@ -19,36 +21,62 @@ interface NewCard<I> {
 	item: I;
 }
 
-/** Fields of an attempt the time relation judges direct recall on, at the attempt's tempo. */
-type RecallFields = Pick<Attempt, 'success' | 'reactionMs' | 'leadBeats' | 'tempoBpm'>;
+/** Fields of an attempt the direct-recall rule reads, at the attempt's tempo. */
+type RecallFields = Parameters<DirectRecall>[0];
 
-function gradeFor(attempt: Attempt, timing: TimingRelation): Grade {
+/**
+ * The stored lead of a card a new card or a probe starts with: a placeholder, the old path sets
+ * the real one with `cardLeadAfter` (H3 removes it with `CardState.leadBeats`).
+ */
+const PLACEHOLDER_LEAD: LeadBeats = SHORTEST_LEAD;
+
+function gradeFor(attempt: Attempt, recall: DirectRecall): Grade {
 	if (attempt.correct !== true) return Rating.Again;
 	// Off beat (found too late) and right-but-not-direct both grade Hard.
-	if (timing.isDirectRecall(attempt)) return Rating.Good;
+	if (recall(attempt)) return Rating.Good;
 	return Rating.Hard;
 }
 
-function qualifiesAsAcquired(state: CardState, attempt: Attempt, timing: TimingRelation): boolean {
+function qualifiesAsAcquired(state: CardState, attempt: Attempt, recall: DirectRecall): boolean {
 	if (attempt.temperature !== 'cold') return false;
-	if (!timing.isDirectRecall(attempt)) return false;
+	if (!recall(attempt)) return false;
 	return attempt.sessionId !== state.introducedInSession;
 }
 
+/** What moved a card's stored lead, for `cardLeadAfter`. */
+export type CardLeadEvent =
+	'introduced' | { learned: number | null } | { probe: Attempt } | { cold: Attempt };
+
+/**
+ * The stored lead of `state` after `event`, as the old path set it: the relation's first lead
+ * at introduction, its direct-recall lead at `learned`'s tempo, the probe's own lead (1 read as
+ * the shortest), one step shorter or longer after a cold attempt (an off-beat answer lengthens it
+ * like a miss). Only the old path calls it; H3 removes it with `CardState.leadBeats`.
+ */
+export function cardLeadAfter(
+	state: CardState,
+	timing: TimingRelation,
+	event: CardLeadEvent
+): LeadBeats {
+	if (event === 'introduced') return timing.initialLead;
+	if ('learned' in event) return timing.learnedLead(event.learned);
+	if ('probe' in event) {
+		const lead = event.probe.leadBeats;
+		return lead === null || lead === 1 ? SHORTEST_LEAD : lead;
+	}
+	if (event.cold.temperature !== 'cold') return state.leadBeats;
+	return timing.adjustLead(state.leadBeats, event.cold.success);
+}
+
 /** New card after warm learning; first cold check is due after MIN_COLD_DELAY_MS. */
-export function introduceCard<I>(
-	card: NewCard<I>,
-	now: number,
-	sessionId: string,
-	timing: TimingRelation
-): CardState<I> {
+export function introduceCard<I>(card: NewCard<I>, now: number, sessionId: string): CardState<I> {
 	return {
 		key: card.key,
 		mechanic: card.mechanic,
 		item: card.item,
 		introducedAt: now,
 		introducedInSession: sessionId,
-		leadBeats: timing.initialLead,
+		leadBeats: PLACEHOLDER_LEAD,
 		scheduling: introScheduling(now),
 		learnedAt: null,
 		acquiredAt: null,
@@ -56,20 +84,11 @@ export function introduceCard<I>(
 	};
 }
 
-/**
- * In-session learning done: direct-recall lead at `tempoBpm` (the execution's), first cold
- * check after MIN_COLD_DELAY_MS.
- */
-export function markLearned<I>(
-	card: CardState<I>,
-	now: number,
-	timing: TimingRelation,
-	tempoBpm: number | null
-): CardState<I> {
+/** In-session learning done: first cold check after MIN_COLD_DELAY_MS. */
+export function markLearned<I>(card: CardState<I>, now: number): CardState<I> {
 	return {
 		...card,
 		learnedAt: now,
-		leadBeats: timing.learnedLead(tempoBpm),
 		scheduling: introScheduling(now)
 	};
 }
@@ -83,17 +102,16 @@ export function probeCard<I>(
 	attempt: Attempt,
 	now: number,
 	sessionId: string,
-	timing: TimingRelation
+	recall: DirectRecall
 ): CardState<I> | null {
-	if (!timing.isDirectRecall(attempt)) return null;
+	if (!recall(attempt)) return null;
 	return {
 		key: card.key,
 		mechanic: card.mechanic,
 		item: card.item,
 		introducedAt: now,
 		introducedInSession: sessionId,
-		leadBeats:
-			attempt.leadBeats === null || attempt.leadBeats === 1 ? SHORTEST_LEAD : attempt.leadBeats,
+		leadBeats: PLACEHOLDER_LEAD,
 		scheduling: graduateToReview(now),
 		learnedAt: now,
 		acquiredAt: now,
@@ -106,12 +124,12 @@ export function probeCard<I>(
  * was never learned, so it must stay out of retention stats.
  * Spec 2026-10-03-sondage-avant-apprentissage-design.md, section 1.
  */
-export function probeTemperature(attempt: RecallFields, timing: TimingRelation): Temperature {
-	return timing.isDirectRecall(attempt) ? 'cold' : 'hot';
+export function probeTemperature(attempt: RecallFields, recall: DirectRecall): Temperature {
+	return recall(attempt) ? 'cold' : 'hot';
 }
 
 /**
- * Updates FSRS, lead, acquiredAt and masteredAt for a cold attempt.
+ * Updates FSRS, acquiredAt and masteredAt for a cold attempt; the stored lead is left as it is.
  * `history` is every attempt of this card, oldest first, including `attempt`.
  */
 export function applyColdAttempt<I>(
@@ -119,44 +137,41 @@ export function applyColdAttempt<I>(
 	attempt: Attempt,
 	history: readonly Attempt[],
 	now: number,
-	timing: TimingRelation
+	recall: DirectRecall
 ): CardState<I> {
 	if (attempt.temperature !== 'cold') return state;
 
-	const scheduling = reviewScheduling(state.scheduling, gradeFor(attempt, timing), now);
-	// An off-beat answer lengthens the lead like a miss.
-	const leadBeats = timing.adjustLead(state.leadBeats, attempt.success);
-	const acquiredAt = state.acquiredAt ?? (qualifiesAsAcquired(state, attempt, timing) ? now : null);
+	const scheduling = reviewScheduling(state.scheduling, gradeFor(attempt, recall), now);
+	const acquiredAt = state.acquiredAt ?? (qualifiesAsAcquired(state, attempt, recall) ? now : null);
 	const next: CardState<I> = {
 		...state,
 		scheduling,
-		leadBeats,
 		acquiredAt
 	};
-	const masteredAt = next.masteredAt ?? (isMastered(history, timing) ? now : null);
+	const masteredAt = next.masteredAt ?? (isMastered(history, recall) ? now : null);
 	return { ...next, masteredAt };
 }
 
 export function isAcquired(
 	state: CardState,
 	history: readonly Attempt[],
-	timing: TimingRelation
+	recall: DirectRecall
 ): boolean {
 	if (state.acquiredAt !== null) return true;
-	return history.some((attempt) => qualifiesAsAcquired(state, attempt, timing));
+	return history.some((attempt) => qualifiesAsAcquired(state, attempt, recall));
 }
 
 /** Each attempt is judged at its own tempo. */
-export function isMastered(history: readonly Attempt[], timing: TimingRelation): boolean {
+export function isMastered(history: readonly Attempt[], recall: DirectRecall): boolean {
 	const cold = history.filter((attempt) => attempt.temperature === 'cold');
 	if (cold.length === 0) return false;
 
-	const directCount = cold.filter((attempt) => timing.isDirectRecall(attempt)).length;
+	const directCount = cold.filter((attempt) => recall(attempt)).length;
 	if (directCount / cold.length < MASTERY_ACCURACY) return false;
 
 	const successBySession = new Map<string, number>();
 	for (const attempt of cold) {
-		if (!timing.isDirectRecall(attempt)) continue;
+		if (!recall(attempt)) continue;
 		const previous = successBySession.get(attempt.sessionId);
 		if (previous === undefined || attempt.promptedAt > previous) {
 			successBySession.set(attempt.sessionId, attempt.promptedAt);

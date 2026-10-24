@@ -10,7 +10,7 @@ import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import { MIN_COLD_DELAY_MS, TREND_WINDOW_MS } from './constants';
 import { introduceCard, markLearned } from './cards';
-import { keyed, neckExerciseId, neckTiming } from './neck';
+import { keyed, neckExerciseId } from './neck';
 import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
@@ -21,11 +21,11 @@ const L3: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F#' } };
 const I0: NeckCard = { mechanic: 'identify', item: { string: 1, fret: 0 } };
 
 function introduced(card: NeckCard, now: number, sessionId: string): CardState {
-	return introduceCard(keyed(card), now, sessionId, neckTiming(card.mechanic));
+	return introduceCard(keyed(card), now, sessionId);
 }
 
 function learnedAt(state: CardState, now: number): CardState {
-	return markLearned(state, now, neckTiming(state.mechanic), 80);
+	return markLearned(state, now);
 }
 
 /** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */

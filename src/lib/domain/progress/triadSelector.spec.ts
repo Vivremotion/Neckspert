@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
-import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
 import {
 	cueFrets,
@@ -25,12 +24,9 @@ function anchorCard(key: string, overrides: Partial<CardState> = {}): CardState 
 		introduceCard(
 			{ key: cardKey('triad-anchor', key), mechanic: 'triad-anchor', item: { voicingKey: key } },
 			NOW - 3 * 24 * HOUR,
-			's-old',
-			triadAnchorRules.timing
+			's-old'
 		),
-		NOW - 3 * 24 * HOUR,
-		triadAnchorRules.timing,
-		80
+		NOW - 3 * 24 * HOUR
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: FAR }, ...overrides };
 }
@@ -44,12 +40,9 @@ function zoneCard(key: string, overrides: Partial<CardState> = {}): CardState {
 		introduceCard(
 			{ key: cardKey('triad-zone', key), mechanic: 'triad-zone', item: { voicingKey: key } },
 			NOW - 3 * 24 * HOUR,
-			's-old',
-			triadZoneRules.timing
+			's-old'
 		),
-		NOW - 3 * 24 * HOUR,
-		triadZoneRules.timing,
-		80
+		NOW - 3 * 24 * HOUR
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: FAR }, ...overrides };
 }

@@ -18,7 +18,7 @@ import {
 } from './constants';
 import { introductionOrder } from './introduction';
 import { createLearnSelector } from './learnSelector';
-import { keyed, neckExerciseId, neckTiming } from './neck';
+import { keyed, neckExerciseId } from './neck';
 import type { SessionSelector } from './selector';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
@@ -33,21 +33,11 @@ function keyOf(x: { mechanic: string; item: unknown }): string {
 }
 
 function learning(target: NeckCard): CardState {
-	return introduceCard(
-		keyed(target),
-		NOW - 2 * 60 * 60 * 1000,
-		's-old',
-		neckTiming(target.mechanic)
-	);
+	return introduceCard(keyed(target), NOW - 2 * 60 * 60 * 1000, 's-old');
 }
 
 function learned(target: NeckCard, overrides: Partial<CardState> = {}): CardState {
-	const card = markLearned(
-		learning(target),
-		NOW - 60 * 60 * 1000,
-		neckTiming(target.mechanic),
-		TEMPO
-	);
+	const card = markLearned(learning(target), NOW - 60 * 60 * 1000);
 	return {
 		...card,
 		...overrides,
@@ -237,7 +227,7 @@ describe('createLearnSelector', () => {
 				answer({ ...target, phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 2 }),
 				NOW - 1000,
 				's-old',
-				beatTiming
+				(a) => beatTiming.isDirectRecall(a)
 			)!
 		);
 		expect(next(select(known))).toMatchObject({ phase: 'probe' });

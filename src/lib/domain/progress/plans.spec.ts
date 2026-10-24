@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
-import { beatTiming } from '$lib/domain/timing';
 import { FREE_PLAY_COUNT } from './constants';
 import { introduceCard } from './cards';
 import { keyed } from './neck';
@@ -13,7 +12,7 @@ const L2: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
 
 describe('buildFreePlan', () => {
 	it('draws from every position, including ones with no card yet', () => {
-		const known = introduceCard(keyed(L1), NOW, 's0', beatTiming);
+		const known = introduceCard(keyed(L1), NOW, 's0');
 		known.leadBeats = 2;
 		const plan = buildFreePlan({
 			cards: [known],

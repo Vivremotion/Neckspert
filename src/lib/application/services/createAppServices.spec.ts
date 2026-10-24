@@ -31,7 +31,6 @@ import {
 import { createAppServices } from './createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
-import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
@@ -105,17 +104,9 @@ function harness(): {
 
 /** A learned triad card, due at once. */
 function learnedTriad(mechanic: 'triad-anchor' | 'triad-zone', key: string): CardState {
-	const timing = mechanic === 'triad-anchor' ? triadAnchorRules.timing : triadZoneRules.timing;
 	const card = markLearned(
-		introduceCard(
-			{ key: `${mechanic}:${key}`, mechanic, item: { voicingKey: key } },
-			0,
-			's-old',
-			timing
-		),
-		0,
-		timing,
-		80
+		introduceCard({ key: `${mechanic}:${key}`, mechanic, item: { voicingKey: key } }, 0, 's-old'),
+		0
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: 0 } };
 }

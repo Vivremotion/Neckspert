@@ -241,7 +241,9 @@ describe('importing an export of 2026-10-04', () => {
 			reactionMs: 1510,
 			data: { item: card.item, answer: { midi: 45 }, confusion: null }
 		});
-		const after = applyColdAttempt(card, success, [success], now, beatTiming);
+		const after = applyColdAttempt(card, success, [success], now, (a) =>
+			beatTiming.isDirectRecall(a)
+		);
 		expect(after.scheduling.state).toBe(2);
 		expect(after.acquiredAt).toBe(now);
 		db.close();

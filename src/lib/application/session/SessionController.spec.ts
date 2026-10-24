@@ -7,7 +7,6 @@ import {
 	type PlannedItem,
 	type SessionKind
 } from '$lib/domain/types';
-import { beatTiming } from '$lib/domain/timing';
 import { classifyNoteConfusion } from '$lib/domain/music';
 import {
 	createListSelector,
@@ -1178,7 +1177,7 @@ describe('SessionController persistence', () => {
 
 	it('records a cold locate attempt with confusion on a wrong pitch', async () => {
 		const deps = createDeps();
-		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming));
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'sess-1'));
 		const controller = make(planWith([locateItem({ leadBeats: 4 })]), deps);
 		await controller.start();
 		tick(deps, 0.1 + 0.75 * 4);
@@ -1358,16 +1357,11 @@ describe('SessionController with a selector', () => {
 
 	it('stores the card the selector reports as learned', async () => {
 		const deps = createDeps();
-		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'old', beatTiming));
+		await deps.cards.put(introduceCard(F_ON_B, deps.now(), 'old'));
 		const spy = spySelector([
 			locateItem({ phase: 'learning', temperature: 'hot', aid: 'none', leadBeats: 4 })
 		]);
-		const learned = markLearned(
-			introduceCard(F_ON_B, deps.now(), 'old', beatTiming),
-			123,
-			beatTiming,
-			80
-		);
+		const learned = markLearned(introduceCard(F_ON_B, deps.now(), 'old'), 123);
 		spy.learnOnRecord({ card: learned });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1405,7 +1399,7 @@ describe('SessionController with a selector', () => {
 		const deps = createDeps();
 		const probe = locateItem({ phase: 'probe', temperature: 'cold', aid: 'none', leadBeats: 4 });
 		const spy = spySelector([probe]);
-		const known = { ...introduceCard(F_ON_B, deps.now(), 'sess-1', beatTiming), acquiredAt: 456 };
+		const known = { ...introduceCard(F_ON_B, deps.now(), 'sess-1'), acquiredAt: 456 };
 		spy.learnOnRecord({ card: known });
 		const controller = withSelector(spy.selector, deps);
 		await controller.start();
@@ -1430,12 +1424,7 @@ describe('SessionController with a selector', () => {
 
 	it('counts a cold free-play attempt on a learned card', async () => {
 		const deps = createDeps();
-		const card = markLearned(
-			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
-			-9_000_000,
-			beatTiming,
-			80
-		);
+		const card = markLearned(introduceCard(F_ON_B, -10_000_000, 'old'), -9_000_000);
 		await deps.cards.put(card);
 		const free = locateItem({ phase: 'free', temperature: 'hot', leadBeats: 4 });
 		const spy = spySelector([free]);
@@ -1457,8 +1446,7 @@ describe('SessionController with a selector', () => {
 		const being = introduceCard(
 			{ key: 'locate:3:C', mechanic: 'locate', item: { string: 3, pitch: 'C' } },
 			-10_000_000,
-			'old',
-			beatTiming
+			'old'
 		);
 		await deps.cards.put(being);
 		const items = [
@@ -1492,12 +1480,7 @@ describe('SessionController with a selector', () => {
 
 	it('keeps consolidation hot and leaves the card alone', async () => {
 		const deps = createDeps();
-		const card = markLearned(
-			introduceCard(F_ON_B, -10_000_000, 'old', beatTiming),
-			-9_000_000,
-			beatTiming,
-			80
-		);
+		const card = markLearned(introduceCard(F_ON_B, -10_000_000, 'old'), -9_000_000);
 		await deps.cards.put(card);
 		const item = locateItem({ phase: 'consolidation', temperature: 'hot', leadBeats: 4 });
 		const controller = withSelector(spySelector([item]).selector, deps);

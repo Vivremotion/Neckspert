@@ -9,7 +9,7 @@ import {
 } from '$lib/domain/music';
 import { introduceCard } from './cards';
 import { introductionOrder, nextNewCard } from './introduction';
-import { keyed, neckTiming } from './neck';
+import { keyed } from './neck';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');
 
@@ -20,7 +20,7 @@ function keys(items: readonly LocateItem[]): string[] {
 const locate = (item: LocateItem): NeckCard => ({ mechanic: 'locate', item });
 
 function introduced(card: NeckCard): CardState {
-	return introduceCard(keyed(card), NOW, 's1', neckTiming(card.mechanic));
+	return introduceCard(keyed(card), NOW, 's1');
 }
 
 function acquired(card: CardState): CardState {
