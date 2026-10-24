@@ -57,6 +57,7 @@ export function neckSubject(input: {
 			if (next === null || blocked(next)) return null;
 			return next;
 		},
+		presentsAtOnce: true,
 		neighbours(a: CardRef, b: CardRef) {
 			const x = asNeckCard(a);
 			const y = asNeckCard(b);

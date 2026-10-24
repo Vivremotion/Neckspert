@@ -31,6 +31,12 @@ export interface LearningSubject {
 		history: ReadonlyMap<CardKey, readonly Attempt[]>,
 		blocked: (card: CardRef) => boolean
 	): CardRef | null;
+	/**
+	 * true: the aided presentation follows its missed probe at once, the neighbour rule aside;
+	 * false: it is due first but waits for a prompt the neighbour rule allows (a chord still ringing
+	 * cannot be judged).
+	 */
+	presentsAtOnce: boolean;
 	/** Never served right after each other (the same item, its mirror, the same voicing). */
 	neighbours(a: CardRef, b: CardRef): boolean;
 	/** Preferred after `previous` when such a candidate exists (another string). Absent: none. */

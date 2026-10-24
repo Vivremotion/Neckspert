@@ -146,6 +146,35 @@ describe('createLearningProcedure record', () => {
 		expect([5, 6]).toContain(due?.item);
 	});
 
+	it('presents a missed probe at once, or after one other prompt when the subject says so', () => {
+		/** Items 5 and 6 resumed, then item 0 probed and missed; the six prompts that follow. */
+		const after = (presentsAtOnce: boolean) => {
+			const source = procedure({
+				subject: fakeSubject({ presentsAtOnce }),
+				cards: [learning(5), learning(6)],
+				attempts: [
+					...[0, 1, 2, 3, 4].map((at) => played(5, 'learning', { at })),
+					...[5, 6, 7, 8, 9].map((at) => played(6, 'learning', { at }))
+				]
+			});
+			source.next(at(0));
+			source.next(at(0));
+			const probe = source.next(at(0))!;
+			expect(probe).toMatchObject({ item: 0, phase: 'probe' });
+			source.record(answer(probe, false), 0);
+			return [source.next(at(0))!, source.next(at(0))!];
+		};
+
+		const [atOnce] = after(true);
+		expect(atOnce).toMatchObject({ item: 0, phase: 'learning', aid: 'show-position' });
+
+		// Not at once: another due retest between, then the presentation before the other one due.
+		const [between, presentation] = after(false);
+		expect(between.phase).toBe('learning');
+		expect([5, 6]).toContain(between.item);
+		expect(presentation).toMatchObject({ item: 0, phase: 'learning', aid: 'show-position' });
+	});
+
 	it('climbs a level on a success and falls one on a miss, hot or cold', () => {
 		const source = procedure({ cards: [reviewable(0), learned(1)] });
 		// The aided level's own aid does not count as aided: its success climbs.

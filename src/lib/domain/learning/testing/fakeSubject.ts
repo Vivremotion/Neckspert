@@ -35,6 +35,8 @@ export function fakeSubject(
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
 		prefers?: (candidate: number, previous: number) => boolean;
+		/** Default true: the aided presentation follows its missed probe at once. */
+		presentsAtOnce?: boolean;
 	} = {}
 ): LearningSubject {
 	const items = input.items ?? 12;
@@ -59,6 +61,7 @@ export function fakeSubject(
 			}
 			return null;
 		},
+		presentsAtOnce: input.presentsAtOnce ?? true,
 		neighbours: (a, b) => neighbours(a.item as number, b.item as number),
 		ladder: (_mechanic, tempoBpm) =>
 			leadLadder({ steps, tempoBpm, recallThresholdMs: 1500, learnedAfter }),
