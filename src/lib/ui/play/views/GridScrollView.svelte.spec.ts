@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
+import type { DrawnMiss, GridStageModel } from '$lib/application/mechanics/chordGrid';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import GridScrollView from './GridScrollView.svelte';
 import { StageController } from './testing/StageController.svelte';
@@ -19,11 +19,48 @@ function model(overrides: Partial<GridStageModel>): GridStageModel {
 		aid: null,
 		anchorBeat: null,
 		history: [],
+		miss: null,
 		...overrides
 	};
 }
 
+/** A G played for a Dm: what was heard, what was asked, what parts them. */
+const MISS: DrawnMiss = {
+	heard: {
+		notes: [
+			{ string: 3, fret: 7 },
+			{ string: 2, fret: 8 },
+			{ string: 1, fret: 7 }
+		]
+	},
+	expected: {
+		notes: [
+			{ string: 3, fret: 7 },
+			{ string: 2, fret: 6 },
+			{ string: 1, fret: 5 }
+		]
+	},
+	gap: 'pas le bon accord',
+	style: 'grid'
+};
+
 describe('GridScrollView', () => {
+	it('draws a miss, heard and expected in its style, until the next change', async () => {
+		const controller = new StageController();
+		controller.nowBeat = 12.5;
+		const { rerender } = render(GridScrollView, {
+			props: { controller, model: model({ anchorBeat: 12, miss: MISS }) }
+		});
+		const miss = screen.getByTestId('miss');
+		expect(miss.textContent).toMatch(/Joué/);
+		expect(miss.textContent).toMatch(/Attendu/);
+		expect(screen.getByText('pas le bon accord')).toBeTruthy();
+		expect(miss.querySelectorAll('.chord-shape[data-style="grid"]')).toHaveLength(2);
+		// The next change, or a change played right: no miss in its model.
+		await rerender({ controller, model: model({ index: 2, anchorBeat: 16 }) });
+		expect(screen.queryByTestId('miss')).toBeNull();
+	});
+
 	it('shows the chord on show large, the next one, and the cue of the exercise', () => {
 		const controller = new StageController();
 		controller.view.status = 'awaiting';

@@ -1,5 +1,11 @@
 import type { MechanicRules } from '$lib/domain/mechanics';
-import type { AidLevel, Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
+import type {
+	AidLevel,
+	ChordDiagramStyle,
+	Locale,
+	PlannedItem,
+	ResponseVerdict
+} from '$lib/domain/types';
 import type { ResponseValue } from '$lib/domain/time';
 import type {
 	AnswerChoice,
@@ -78,7 +84,9 @@ export interface MechanicPresenter<I = any, A = any> {
 	): { model: unknown };
 	/**
 	 * The screen model of a prompt on the target model: before its round (`settled` null) and
-	 * once settled, from the round's response value; `place` tells the view where it stands.
+	 * once settled, from the round's response value; `place` tells the view where it stands, and
+	 * `drawing` how its chord shapes are drawn (the settings' style, default
+	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one).
 	 * Beside `stage`, which the one-answer controller keeps until the migration.
 	 */
 	stageOf?(
@@ -86,7 +94,8 @@ export interface MechanicPresenter<I = any, A = any> {
 		settled: { value: ResponseValue; success: boolean } | null,
 		locale: Locale,
 		aids: { aid: AidLevel },
-		place: StagePlace
+		place: StagePlace,
+		drawing?: { chordDiagram: ChordDiagramStyle }
 	): { model: unknown };
 	/** The mechanic's `Attempt.data` for a round answered with `value`. */
 	attemptData?(item: I, value: ResponseValue): unknown;

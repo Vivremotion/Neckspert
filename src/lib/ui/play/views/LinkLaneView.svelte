@@ -2,6 +2,7 @@
 	import type { LinkLaneModel } from '$lib/application/mechanics/chordGrid';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import DrawnMiss from './DrawnMiss.svelte';
 	import { linkLaneLayout } from './linkLane';
 	import { viewMessages } from './messages';
 
@@ -109,6 +110,10 @@
 			</div>
 		</div>
 	</div>
+
+	{#if lane.miss}
+		<DrawnMiss miss={lane.miss} />
+	{/if}
 
 	{#if neck}
 		<div

@@ -4,6 +4,7 @@
 	import { i18n } from '$lib/i18n/index.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import DrawnMiss from './DrawnMiss.svelte';
 	import { gridPlacement } from './gridScroll';
 	import { viewMessages } from './messages';
 
@@ -79,6 +80,10 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if stage.miss}
+		<DrawnMiss miss={stage.miss} />
+	{/if}
 
 	{#key firstBar}
 		<ol class="bars">

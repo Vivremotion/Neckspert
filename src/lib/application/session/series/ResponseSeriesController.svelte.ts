@@ -670,7 +670,8 @@ export class ResponseSeriesController implements PlaySessionController {
 				settled,
 				this.deps.locale(),
 				{ aid: item.aid },
-				{ anchorBeat, history: [...this.history] }
+				{ anchorBeat, history: [...this.history] },
+				{ chordDiagram: chordDiagramFor(this.items.definitionOf(item), this.settings) }
 			);
 		this.view.stage = staged
 			? { view: this.items.definitionOf(item).view ?? DEFAULT_PLAY_VIEW, model: staged.model }

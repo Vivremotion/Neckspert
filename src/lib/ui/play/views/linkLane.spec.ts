@@ -23,7 +23,8 @@ function model(
 		beatsPerBar: 4,
 		aid: null,
 		anchorBeat: place.anchorBeat ?? null,
-		history: place.history ?? []
+		history: place.history ?? [],
+		miss: null
 	};
 }
 

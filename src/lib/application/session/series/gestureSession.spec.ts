@@ -815,6 +815,31 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
 	});
 
+	it('draws a wrong chord in the change it settles, in the player’s style, until the next change', async () => {
+		const ctx = gestureSeries(passage());
+		await ctx.repositories.settings.update({ chordDiagram: 'grid' });
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(1) + 0.02);
+		ctx.play(ctx.bar(1) + 0.02, rightShape(change(1)));
+		expect(model(ctx).miss).toEqual({
+			heard: { notes: expect.any(Array) },
+			expected: { notes: expect.any(Array) },
+			gap: expect.any(String),
+			style: 'grid'
+		});
+		ctx.runTo(ctx.bar(2) - 0.2);
+		expect(model(ctx)).toMatchObject({ index: 1, miss: null });
+	});
+
+	it('draws nothing after a right chord', async () => {
+		const ctx = gestureSeries(passage());
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(1) + 0.02);
+		ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+		expect(model(ctx).history).toEqual([{ beatIndex: 4, verdict: 'perfect' }]);
+		expect(model(ctx).miss).toBeNull();
+	});
+
 	it('draws chords as the player chose, unless the exercise says', async () => {
 		const chosen = gestureSeries(passage());
 		await chosen.repositories.settings.update({ chordDiagram: 'grid' });

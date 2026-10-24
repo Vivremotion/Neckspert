@@ -44,6 +44,32 @@ function running(nowBeat: number) {
 }
 
 describe('LinkLaneView', () => {
+	it('draws a miss, heard and expected, until the next change', async () => {
+		const miss = {
+			heard: null,
+			expected: {
+				notes: [
+					{ string: 3 as const, fret: 9 },
+					{ string: 2 as const, fret: 9 },
+					{ string: 1 as const, fret: 7 }
+				]
+			},
+			gap: 'aucun accord entendu',
+			style: 'strings' as const
+		};
+		const controller = running(4.5);
+		const { rerender } = render(LinkLaneView, {
+			props: { controller, model: { ...model(1, false, 4), miss } }
+		});
+		const drawn = screen.getByTestId('miss');
+		expect(drawn.textContent).toMatch(/Attendu/);
+		expect(drawn.textContent).not.toMatch(/Joué/);
+		expect(screen.getByText('aucun accord entendu')).toBeTruthy();
+		expect(drawn.querySelectorAll('.chord-shape')).toHaveLength(1);
+		await rerender({ controller, model: model(2, false, 8) });
+		expect(screen.queryByTestId('miss')).toBeNull();
+	});
+
 	it('is the view of the link', () => {
 		expect(PLAY_VIEWS['link-lane']).toBe(LinkLaneView);
 		expect(PLAY_VIEWS['link-path']).toBeUndefined();
