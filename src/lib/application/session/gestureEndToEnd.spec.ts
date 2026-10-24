@@ -9,7 +9,10 @@ import type {
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import type { ChordGridData } from '$lib/domain/mechanics';
-import type { Attempt, BackupFile, CardState } from '$lib/domain/types';
+import type { Attempt, BackupFile, CardState, Execution } from '$lib/domain/types';
+import { startTempo } from '$lib/domain/exercise';
+import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
+import { createGestureSelector } from '$lib/domain/progress';
 import {
 	FakeChordVerifier,
 	FakeClock,
@@ -29,6 +32,7 @@ import {
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { chordSensor, noteSensor, tapSensor } from './sensors';
 import type { SessionDeps } from './SessionDeps';
+import { SessionController } from './SessionController.svelte';
 
 const G_B_E = [3, 2, 1] as const;
 
@@ -81,9 +85,42 @@ async function setup(cards: CardState[]) {
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics()
 	});
-	const controller = await services.startSession('gesture');
+	// The old controller, as the services built it before the gesture moved to the response
+	// series: these scenarios keep it honest until it goes (H5); Task 8 plays them on the series.
+	const controller = new SessionController(
+		{ id: deps.newId(), kind: 'gesture' },
+		gesturePrepare(deps),
+		deps
+	);
 	await controller.start();
 	return { services, deps, clock, metronome, chords, controller, briefings: [] as string[] };
+}
+
+/** The gesture session's preparation on the old controller: the open exercises, one tempo per grid. */
+function gesturePrepare(deps: SessionDeps) {
+	return async (sessionId: string) => {
+		const [cards, attempts, progressions] = await Promise.all([
+			deps.cards.all(),
+			deps.attempts.all(),
+			deps.progressions.all()
+		]);
+		const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
+		const executions: Execution[] = definitions.flatMap((definition) => {
+			const grids = [...new Set(openElements(definition, cards).map((element) => element.gridId))];
+			return grids.map((scope) => ({
+				exerciseId: definition.id,
+				...(scope !== undefined && { scope }),
+				tempoBpm: startTempo(definition, progressions, scope)
+			}));
+		});
+		const selector = createGestureSelector({
+			definitions,
+			cards,
+			attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+			sessionId
+		});
+		return { selector, executions };
+	};
 }
 
 type Ctx = Awaited<ReturnType<typeof setup>>;
