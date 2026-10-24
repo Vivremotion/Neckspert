@@ -44,6 +44,23 @@ const twoBars: Figure = {
 const window = { ms: 80 };
 
 describe('compileCyclePlan', () => {
+	it('writes the cycle policy by its modes', () => {
+		const plan = compileCyclePlan({
+			figure: contretemps,
+			cycleBars: 4,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			accompanimentBars: ['on']
+		});
+		expect(plan.policy).toEqual({
+			unit: 'cycle',
+			pairing: { mode: 'alignment' },
+			verdict: 'cycle',
+			correction: false
+		});
+	});
+
 	it('lists one point target per note of the contretemps over four bars', () => {
 		const plan = compileCyclePlan({
 			figure: contretemps,
@@ -63,10 +80,10 @@ describe('compileCyclePlan', () => {
 		expect(plan.policy.unit).toBe('cycle');
 		expect(plan.prompt).toBeNull();
 		expect(plan.length.equals(of(4))).toBe(true);
-		expect(plan.expectations[0].at.equals(Fraction.ZERO)).toBe(true);
-		expect(plan.expectations[5].at.equals(of(1))).toBe(true);
+		expect(plan.expectations[0].at!.equals(Fraction.ZERO)).toBe(true);
+		expect(plan.expectations[5].at!.equals(of(1))).toBe(true);
 		expect(plan.expectations[5].bar).toBe(1);
-		expect(plan.expectations[19].at.equals(of(3).add(of(7, 8)))).toBe(true);
+		expect(plan.expectations[19].at!.equals(of(3).add(of(7, 8)))).toBe(true);
 		expect(validateRoundPlan(plan)).toBeNull();
 	});
 
@@ -86,7 +103,7 @@ describe('compileCyclePlan', () => {
 			accompanimentBars: ['on']
 		});
 		// The tie joins the half note to the quarter: one attack at 0, then the last quarter.
-		expect(plan.expectations.map((e) => e.at.toString())).toEqual(['0', '3/4', '1', '7/4']);
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '3/4', '1', '7/4']);
 		expect(plan.expectations.map((e) => e.bar)).toEqual([0, 0, 1, 1]);
 	});
 
@@ -100,7 +117,7 @@ describe('compileCyclePlan', () => {
 			accompanimentBars: ['on', 'on']
 		});
 		// Bar 2 (two half notes), then bar 1 (one whole note) again.
-		expect(plan.expectations.map((e) => e.at.toString())).toEqual(['0', '1/2', '1']);
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
 		expect(plan.expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
 	});
 
@@ -113,7 +130,7 @@ describe('compileCyclePlan', () => {
 			window,
 			accompanimentBars: ['on']
 		});
-		expect(plan.expectations.map((e) => e.at.toString())).toEqual(['0', '1/2', '1']);
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
 	});
 
 	it('rotates the accompaniment by the start bar to find the muted bars', () => {
@@ -187,7 +204,17 @@ describe('validateRoundPlan', () => {
 			}
 		],
 		length: of(1),
-		policy: { unit: 'response', firstAnswerOnly: true, lateCapture: false, provisional: false },
+		policy: {
+			unit: 'response',
+			pairing: {
+				mode: 'first-answer',
+				opens: { afterPromptMs: 300 },
+				lateMs: 400,
+				lateCapture: null
+			},
+			verdict: 'response',
+			correction: false
+		},
 		mutedBars: []
 	});
 
@@ -236,6 +263,34 @@ describe('validateRoundPlan', () => {
 		expect(validateRoundPlan(plan)).toContain('handover');
 		plan.handover = of(9, 8);
 		expect(validateRoundPlan(plan)).toContain('handover');
+	});
+
+	it('accepts a free-time plan whose expectations all have no position', () => {
+		const plan = valid();
+		plan.expectations = [{ ...plan.expectations[0], at: null }];
+		expect(validateRoundPlan(plan)).toBeNull();
+	});
+
+	it('refuses a plan that mixes timed and free-time expectations', () => {
+		const plan = valid();
+		plan.expectations[1] = { ...plan.expectations[1], at: null };
+		expect(validateRoundPlan(plan)).toContain('free-time');
+	});
+
+	it('refuses listenUntil outside (0, length]', () => {
+		const plan = valid();
+		plan.listenUntil = Fraction.ZERO;
+		expect(validateRoundPlan(plan)).toContain('listenUntil');
+		plan.listenUntil = plan.length.add(of(1, 4));
+		expect(validateRoundPlan(plan)).toContain('listenUntil');
+		plan.listenUntil = plan.length;
+		expect(validateRoundPlan(plan)).toBeNull();
+	});
+
+	it('refuses a content without kind', () => {
+		const plan = valid();
+		plan.expectations[0].content = { kind: '', value: 1 };
+		expect(validateRoundPlan(plan)).toContain('kind');
 	});
 
 	it('refuses an empty length, a bad window or a bad muted bar', () => {

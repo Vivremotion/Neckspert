@@ -1,6 +1,5 @@
+import { CHORD_VOICING_CONTENT, CONTENT_JUDGES, NOTE_CONTENT } from '$lib/domain/judges';
 import {
-	acceptableMidis,
-	classifyNoteConfusion,
 	parseVoicingKey,
 	pitchOfSpelled,
 	spellInterval,
@@ -11,7 +10,7 @@ import {
 } from '$lib/domain/music';
 import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
 import { createAnchorTiming } from '$lib/domain/timing';
-import { classifyChord, type ChordConfusion, type ChordReading } from './triadChord';
+import type { ChordConfusion, ChordReading } from './triadChord';
 import type { MechanicRules } from './types';
 
 /** Find a triad from its root on a named string: the voicing, all octaves together. */
@@ -71,18 +70,21 @@ export const triadAnchorRules: MechanicRules<
 	judge: (item, payload, sensor) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		if (sensor === 'note') {
-			const { midi } = payload as { midi: Midi };
-			const root = rootPosition(voicing);
-			const confusion = classifyNoteConfusion(root, midi);
+			const root = CONTENT_JUDGES[NOTE_CONTENT].judge(rootPosition(voicing), payload) as {
+				correct: boolean;
+				answer: { midi: Midi };
+				confusion: Confusion | null;
+			};
 			return {
-				correct: acceptableMidis(root).includes(midi),
-				answer: { midi },
-				confusion: confusion && { ...confusion, part: 'root' }
+				...root,
+				confusion: root.confusion && { ...root.confusion, part: 'root' as const }
 			};
 		}
 		if (sensor === 'chord') {
-			const { decided } = payload as ChordReading;
-			return { ...classifyChord(voicing, null, decided), answer: { decided } };
+			return CONTENT_JUDGES[CHORD_VOICING_CONTENT].judge(
+				{ voicingKey: item.voicingKey, position: null },
+				payload
+			) as { correct: boolean; answer: ChordReading; confusion: ChordConfusion | null };
 		}
 		throw new Error(`The anchor hears a root and a chord, not: ${String(sensor)}`);
 	}

@@ -1,8 +1,7 @@
+import { CONTENT_JUDGES, NAME_CONTENT } from '$lib/domain/judges';
 import {
-	classifyNameConfusion,
 	identifyItemKey,
 	parseIdentifyItem,
-	pitchOnString,
 	type Confusion,
 	type IdentifyItem
 } from '$lib/domain/music';
@@ -30,12 +29,10 @@ export const identifyRules: MechanicRules<
 	learner: 'memory',
 	itemKey: identifyItemKey,
 	parseItem: parseIdentifyItem,
-	judge: (item, pitch) => {
-		const expected = pitchOnString(item.string, item.fret);
-		return {
-			correct: pitch === expected,
-			answer: { pitch },
-			confusion: classifyNameConfusion(expected, pitch)
-		};
-	}
+	judge: (item, pitch) =>
+		CONTENT_JUDGES[NAME_CONTENT].judge(item, pitch) as {
+			correct: boolean;
+			answer: { pitch: PitchName };
+			confusion: Confusion | null;
+		}
 };

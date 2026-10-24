@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
-import { createTempoMap } from './tempoMap';
+import { beatSecondsAt, createTempoMap } from './tempoMap';
 
 const of = Fraction.of;
 const quarter = of(1, 4);
@@ -79,5 +79,12 @@ describe('tempo map', () => {
 	it('refuses a segment that does not follow the last one', () => {
 		const map = createTempoMap(0, [{ at: of(1), bpm: 120, unit: quarter }]);
 		expect(() => map.withSegment({ at: of(1), bpm: 60, unit: quarter })).toThrow('sorted');
+	});
+});
+
+describe('beatSecondsAt', () => {
+	it('gives the seconds of a beat where it stands', () => {
+		const map = createTempoMap(0, [{ at: Fraction.ZERO, bpm: 120, unit: Fraction.of(1, 4) }]);
+		expect(beatSecondsAt(map, Fraction.of(1))).toBeCloseTo(0.5, 9);
 	});
 });

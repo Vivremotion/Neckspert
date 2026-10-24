@@ -1,7 +1,8 @@
 import { parseVoicingKey } from '$lib/domain/music';
 import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
 import { createBeatTiming } from '$lib/domain/timing';
-import { classifyChord, type ChordConfusion, type ChordReading } from './triadChord';
+import { CHORD_VOICING_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
+import type { ChordConfusion, ChordReading } from './triadChord';
 import type { MechanicRules } from './types';
 
 /** Find a triad around a fret: the voicing (the card) and the shape asked this time. */
@@ -41,8 +42,9 @@ export const triadZoneRules: MechanicRules<
 		return { voicingKey: itemKey } as TriadZoneItem;
 	},
 	cardItem: (item) => ({ voicingKey: item.voicingKey }),
-	judge: (item, { decided }) => ({
-		...classifyChord(parseVoicingKey(item.voicingKey), item.position, decided),
-		answer: { decided }
-	})
+	judge: (item, reading) =>
+		CONTENT_JUDGES[CHORD_VOICING_CONTENT].judge(
+			{ voicingKey: item.voicingKey, position: item.position },
+			reading
+		) as { correct: boolean; answer: ChordReading; confusion: ChordConfusion | null }
 };

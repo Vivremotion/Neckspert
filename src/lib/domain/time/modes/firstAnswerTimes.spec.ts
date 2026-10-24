@@ -1,0 +1,157 @@
+import { describe, expect, it } from 'vitest';
+import type { RoundPlan } from '../plan';
+import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map, mapAt } from './testing/plans';
+import { firstAnswerTimes, responseZones, validateFirstAnswer } from './firstAnswerTimes';
+import { EDGE_TOLERANCE_S, roundTimes } from './times';
+import type { RoundClock } from './types';
+
+/** The instants a first-answer round is given, with the zones its pairing reads on them. */
+function timesOf(plan: RoundPlan, clock: RoundClock, chained: boolean) {
+	const times = firstAnswerTimes(plan, clock, chained, roundTimes(plan, clock));
+	return { ...times, zones: responseZones(plan, clock, times) };
+}
+
+describe('firstAnswerTimes', () => {
+	it('times a located note as the beat relation does', () => {
+		const t = timesOf(locatePlan(), { map, start: F(2) }, false);
+		expect(t.promptS).toBeCloseTo(3.1, 9);
+		expect(t.zones).toHaveLength(1);
+		expect(t.zones[0].opensS).toBeCloseTo(3.4, 9);
+		expect(t.zones[0].inTimeEndS).toBeCloseTo(6.5, 9);
+		expect(t.zones[0].captureEndS).toBeCloseTo(8.35, 9);
+		expect(t.listenUntilS).toBeCloseTo(8.35, 9);
+		expect(t.startS).toBeCloseTo(6.1, 9);
+		expect(t.endS).toBeCloseTo(6.1 + 3, 9);
+		expect(t.handoverS).toBeNull();
+	});
+
+	it('ends the root’s late capture where the chord’s span opens', () => {
+		const t = timesOf(anchorPlan(), { map, start: F(2) }, false);
+		const [root, chord] = t.zones;
+		expect(root.captureEndS).toBeCloseTo(6.85, 9);
+		expect(chord.opensS).toBeCloseTo(6.85, 9);
+		expect(chord.inTimeEndS).toBeCloseTo(9.1, 9);
+		expect(chord.captureEndS).toBeCloseTo(9.1, 9);
+		expect(chord.span).toBe('span');
+		expect(t.listenUntilS).toBeCloseTo(11.35, 9);
+	});
+
+	it('opens a grid change early by its tolerance, capped in beats', () => {
+		const m = mapAt(120);
+		const startS = m.toSeconds(F(1));
+		const t = timesOf(gridPlan(), { map: m, start: F(1) }, false);
+		expect(t.zones[0].opensS).toBeCloseTo(startS - 0.2, 9);
+		expect(t.zones[0].inTimeEndS).toBeCloseTo(startS + 0.4, 9);
+		expect(t.handoverS).toBeCloseTo(startS + 2 - 0.2, 9);
+		expect(t.listenUntilS).toBeCloseTo(startS + 2 - 0.2, 9);
+		expect(t.zones[0].captureEndS).toBeCloseTo(startS + 2 - 0.2, 9);
+		const slow = timesOf(gridPlan(), { map: mapAt(160), start: F(1) }, false);
+		expect(slow.zones[0].opensS).toBeCloseTo(mapAt(160).toSeconds(F(1)) - 0.15, 9);
+	});
+
+	it('shows a chained grid change at its opening', () => {
+		const chained = timesOf(gridPlan(), { map, start: F(1) }, true);
+		expect(chained.promptS).toBeCloseTo(chained.zones[0].opensS, 9);
+		const alone = timesOf(gridPlan(), { map, start: F(1) }, false);
+		expect(alone.promptS).toBeCloseTo(map.toSeconds(F(1)) - 0.75, 9);
+		expect(EDGE_TOLERANCE_S).toBe(1e-6);
+	});
+
+	it('opens a free-time expectation at the prompt and never closes it', () => {
+		const t = timesOf(freeTimePlan(), { promptS: 10 }, false);
+		expect(t.zones[0].opensS).toBeCloseTo(10.3, 9);
+		expect(t.zones[0].inTimeEndS).toBe(Infinity);
+		expect(t.zones[0].captureEndS).toBe(Infinity);
+		expect(t.zones[0].atS).toBeNull();
+		expect(t.listenUntilS).toBe(Infinity);
+		expect(t.handoverS).toBeNull();
+	});
+
+	it('keeps the instants of a plan that opens after its prompt', () => {
+		const plan = { ...gridPlan(), policy: locatePlan().policy };
+		const clock = { map, start: F(1) };
+		expect(firstAnswerTimes(plan, clock, true, roundTimes(plan, clock))).toEqual(
+			roundTimes(plan, clock)
+		);
+	});
+});
+
+describe('roundTimes', () => {
+	it('places the instants where the plan puts them, whatever its modes', () => {
+		const plan: RoundPlan = {
+			...locatePlan(),
+			prompt: null,
+			handover: F(1),
+			listenUntil: undefined,
+			policy: {
+				...locatePlan().policy,
+				unit: 'cycle',
+				verdict: 'cycle',
+				pairing: { mode: 'alignment' }
+			}
+		};
+		const t = roundTimes(plan, { map, start: F(2) });
+		expect(t.startS).toBeCloseTo(6.1, 9);
+		expect(t.promptS).toBeCloseTo(6.1, 9);
+		expect(t.endS).toBeCloseTo(9.1, 9);
+		expect(t.handoverS).toBeCloseTo(9.1, 9);
+		expect(t.listenUntilS).toBeCloseTo(9.1, 9);
+	});
+
+	it('does not shift a grid change’s handover: the first-answer mode does', () => {
+		const t = roundTimes(gridPlan(), { map, start: F(1) });
+		expect(t.handoverS).toBeCloseTo(map.toSeconds(F(2)), 9);
+		expect(timesOf(gridPlan(), { map, start: F(1) }, false).handoverS).toBeLessThan(
+			t.handoverS as number
+		);
+	});
+
+	it('starts, ends and prompts a free-time round at its prompt, listening ever after', () => {
+		expect(roundTimes(freeTimePlan(), { promptS: 10 })).toEqual({
+			promptS: 10,
+			startS: 10,
+			endS: 10,
+			listenUntilS: Infinity,
+			handoverS: null
+		});
+	});
+});
+
+describe('validateFirstAnswer', () => {
+	it('accepts the plans it is written for', () => {
+		for (const plan of [locatePlan(), anchorPlan(), gridPlan(), freeTimePlan()]) {
+			expect(validateFirstAnswer(plan)).toBeNull();
+		}
+	});
+
+	it('refuses a free-time plan that opens before its expectation', () => {
+		const plan = freeTimePlan();
+		plan.policy.pairing = {
+			mode: 'first-answer',
+			opens: { beforeMs: 200, maxBeats: 0.4 },
+			lateMs: 400,
+			lateCapture: null
+		};
+		expect(validateFirstAnswer(plan)).toContain('afterPromptMs');
+	});
+
+	it('refuses settings it cannot read', () => {
+		const plan = locatePlan();
+		plan.policy.pairing = { mode: 'first-answer', opens: {}, lateMs: 400, lateCapture: null };
+		expect(validateFirstAnswer(plan)).toContain('opens');
+		plan.policy.pairing = {
+			mode: 'first-answer',
+			opens: { afterPromptMs: 300 },
+			lateMs: -1,
+			lateCapture: null
+		};
+		expect(validateFirstAnswer(plan)).toContain('lateMs');
+		plan.policy.pairing = {
+			mode: 'first-answer',
+			opens: { afterPromptMs: 300 },
+			lateMs: 400,
+			lateCapture: 'soon'
+		};
+		expect(validateFirstAnswer(plan)).toContain('late');
+	});
+});

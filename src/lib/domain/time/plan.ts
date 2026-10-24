@@ -7,8 +7,8 @@ export type ExpectationWindow = { ms: number } | { ofGap: Fraction };
 
 /** What the judge listens for at one position of a round. */
 export interface Expectation {
-	/** Position in the round, as a fraction of a whole note from its start. */
-	at: Fraction;
+	/** Position in the round, as a fraction of a whole note from its start; null: free time. */
+	at: Fraction | null;
 	/** A point, or a stretch (the chord of the anchor) that ends at `until`. */
 	span: 'point' | { until: Fraction };
 	/** An expected attack, or a silence that is judged. */
@@ -16,21 +16,48 @@ export interface Expectation {
 	/** Which sensor hears it. */
 	sensor: string;
 	/** What must be played; null in pure rhythm. */
-	content: unknown | null;
+	content: ExpectedContent | null;
 	window: ExpectationWindow;
 	/** Bar of the cycle, from 0: the muted-bar bookkeeping reads it. */
 	bar: number;
 }
 
+/** What must be played at an expectation, judged by the content judge of its `kind`. */
+export interface ExpectedContent {
+	kind: string;
+	value: unknown;
+}
+
+/**
+ * How a round pairs attacks with expectations: the pairing mode it names (`mode`, read in the
+ * registry of modes) and that mode's own settings, which the mode reads and validates.
+ */
+export type PairingPolicy = { mode: string } & Record<string, unknown>;
+
+/** The verdict mode a round names, read in the registry of modes. */
+export type VerdictModeId = string;
+
 export interface RoundPolicy {
 	/** One answer closes the round, or the whole cycle is judged. */
 	unit: 'response' | 'cycle';
-	firstAnswerOnly: boolean;
-	/** A right note after the window is kept as off the beat. */
-	lateCapture: boolean;
-	/** A first verdict that a later attack may correct. */
-	provisional: boolean;
+	pairing: PairingPolicy;
+	verdict: VerdictModeId;
+	/** A wrong first answer of a span may be put right later in the span (`corrected`). */
+	correction: boolean;
 }
+
+export interface Judged {
+	correct: boolean;
+	answer: unknown;
+	confusion: unknown | null;
+}
+
+export interface ContentJudge {
+	judge(value: unknown, payload: unknown): Judged;
+}
+
+/** The judge of a content kind; throws on a kind it does not know. */
+export type ContentJudges = (kind: string) => ContentJudge;
 
 export interface RoundPlan {
 	/** Where the prompt shows (negative: before the round), if the round has one. */
@@ -47,6 +74,8 @@ export interface RoundPlan {
 	 * ends on its own and the next one waits for it.
 	 */
 	handover?: Fraction;
+	/** Last position where the round listens; absent: `handover`, else `length`. */
+	listenUntil?: Fraction;
 	/** Bars of the cycle (from 0) where the accompaniment is silent. */
 	mutedBars: number[];
 }
@@ -56,18 +85,32 @@ function validateWindow(window: ExpectationWindow): boolean {
 	return window.ofGap.n > 0;
 }
 
-/** Null when the plan is well formed, else what is wrong with it. */
+/**
+ * Null when the plan is well formed whatever its modes, else what is wrong with it. What a mode
+ * asks of a plan, the mode checks (`PairingMode.validate`, run by the round engine).
+ */
 export function validateRoundPlan(plan: RoundPlan): string | null {
 	if (plan.length.n <= 0) return `plan length must be positive, got ${plan.length}`;
+	for (const [i, e] of plan.expectations.entries()) {
+		if (e.content && !e.content.kind) return `expectation ${i} content needs a kind`;
+	}
+	const free = plan.expectations.filter((e) => e.at === null).length;
+	if (free > 0 && free < plan.expectations.length) {
+		return 'a plan cannot mix timed and free-time expectations';
+	}
 	const first = plan.expectations[0];
-	if (plan.prompt && first && plan.prompt.compare(first.at) > 0) {
+	if (plan.prompt && first && first.at && plan.prompt.compare(first.at) > 0) {
 		return `prompt at ${plan.prompt} comes after the first expectation at ${first.at}`;
 	}
 	if (plan.handover && (plan.handover.n <= 0 || plan.handover.compare(plan.length) > 0)) {
 		return `handover at ${plan.handover} is outside (0, ${plan.length}]`;
 	}
+	if (plan.listenUntil && (plan.listenUntil.n <= 0 || plan.listenUntil.compare(plan.length) > 0)) {
+		return `listenUntil at ${plan.listenUntil} is outside (0, ${plan.length}]`;
+	}
 	let previous: Fraction | null = null;
 	for (const [i, e] of plan.expectations.entries()) {
+		if (e.at === null) continue;
 		if (e.at.compare(Fraction.ZERO) < 0 || e.at.compare(plan.length) >= 0) {
 			return `expectation ${i} at ${e.at} is outside the plan length ${plan.length}`;
 		}
@@ -152,7 +195,7 @@ export function compileCyclePlan(input: {
 		prompt: null,
 		expectations,
 		length,
-		policy: { unit: 'cycle', firstAnswerOnly: false, lateCapture: false, provisional: false },
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
 		handover: length,
 		mutedBars
 	};

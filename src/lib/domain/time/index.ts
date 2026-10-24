@@ -10,3 +10,4 @@ export * from './levels';
 export * from './judge/align';
 export * from './judge/measures';
 export * from './round';
+export * from './modes';

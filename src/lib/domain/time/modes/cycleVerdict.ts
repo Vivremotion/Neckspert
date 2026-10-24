@@ -1,0 +1,65 @@
+import { timeExpectations, type Alignment } from '../judge/align';
+import { cycleReport, cycleVerdict, type CycleVerdict } from '../judge/measures';
+import type { RoundOutcome } from '../round';
+import type { PairingResult, VerdictContext, VerdictMode } from './types';
+
+/** The version of the shape of a cycle verdict (`CycleVerdict`). */
+export const CYCLE_VERDICT_VERSION = 1;
+
+/** The alignment a pairing result came from, attacks indexed in `result.attacks`. */
+function alignmentOf(result: PairingResult): Alignment {
+	const indexOf = (time: number): number => {
+		const index = result.attacks.indexOf(time);
+		if (index < 0) throw new RangeError('a paired attack is missing from the attacks kept');
+		return index;
+	};
+	return {
+		pairs: result.pairs.map((p) => {
+			if (p.timing === null || p.offsetMs === null) {
+				throw new RangeError('a cycle verdict needs pairs timed by the alignment');
+			}
+			return {
+				expectation: p.expectation,
+				attack: indexOf(p.time),
+				offsetMs: p.offsetMs,
+				verdict: p.timing
+			};
+		}),
+		missed: [...result.missed],
+		dropped: [...result.dropped],
+		extra: result.extra.map(indexOf),
+		shift: result.shift,
+		clampedWindows: result.clampedWindows
+	};
+}
+
+/**
+ * A whole cycle judged at once: the alignment reported (`cycleReport`), then judged against the
+ * level's thresholds (`cycleVerdict`). Time only: `correct` is null.
+ */
+export const cycleVerdictMode: VerdictMode = {
+	id: 'cycle',
+	outcome(result: PairingResult, context: VerdictContext): RoundOutcome {
+		const { plan, clock, thresholds } = context;
+		if (thresholds === null) throw new RangeError('a cycle verdict needs thresholds');
+		if (!('map' in clock)) throw new RangeError('a cycle verdict needs a tempo map');
+		const { map, start } = clock;
+		const report = cycleReport({
+			alignment: alignmentOf(result),
+			expectations: timeExpectations(plan, map, start),
+			attacks: result.attacks,
+			startS: map.toSeconds(start),
+			mutedBars: plan.mutedBars,
+			latency: context.latency
+		});
+		const value: CycleVerdict = cycleVerdict(report, thresholds);
+		return {
+			success: value.passed,
+			correct: null,
+			verdict: { relation: 'cycle', version: CYCLE_VERDICT_VERSION, value },
+			measures: report.measures,
+			aids: [...context.aids],
+			detail: report
+		};
+	}
+};

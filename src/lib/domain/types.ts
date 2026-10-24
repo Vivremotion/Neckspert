@@ -2,6 +2,7 @@ import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './timing/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
+import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
 	Aid,
 	CycleReport,
@@ -44,32 +45,30 @@ export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: str
 	return { mechanic, itemKey };
 }
 
-/**
- * Best to worst: perfect > early / late > offbeat > corrected > wrong. `offbeat` (mode 1): the right
- * note, heard after the window while still listening. Right but never direct recall. `corrected`
- * (triad anchor): a wrong chord put right later in its window; a miss everywhere (`correct` false),
- * only the screen salutes it.
- */
-export type ResponseVerdict = 'perfect' | 'early' | 'late' | 'offbeat' | 'corrected' | 'wrong';
-
-/** Every verdict, best first. */
-export const RESPONSE_VERDICTS: readonly ResponseVerdict[] = [
-	'perfect',
-	'early',
-	'late',
-	'offbeat',
-	'corrected',
-	'wrong'
-];
+// The one-answer verdict lives with the response verdict mode; re-exported for its readers.
+export { RESPONSE_VERDICTS, type ResponseVerdict };
 
 /** The time relations whose rounds take one answer and judge it with a `ResponseVerdict`. */
-export const RESPONSE_RELATIONS: readonly string[] = ['beat', 'free', 'anchor', 'grid-change'];
+export const RESPONSE_RELATIONS: readonly string[] = [
+	'beat',
+	'free',
+	'anchor',
+	'grid-change',
+	'response'
+];
 
-/** The response verdict of an attempt of a response relation, else null. */
+/**
+ * The response verdict of an attempt of a response relation, else null. The relations of the
+ * one-answer path store the verdict itself; the `response` verdict mode stores it in its value.
+ */
 export function responseVerdictOf(attempt: Pick<Attempt, 'verdict'>): ResponseVerdict | null {
 	const { relation, value } = attempt.verdict;
 	if (!RESPONSE_RELATIONS.includes(relation)) return null;
-	return RESPONSE_VERDICTS.includes(value as ResponseVerdict) ? (value as ResponseVerdict) : null;
+	const verdict =
+		typeof value === 'object' && value !== null ? (value as { verdict?: unknown }).verdict : value;
+	return (RESPONSE_VERDICTS as readonly unknown[]).includes(verdict)
+		? (verdict as ResponseVerdict)
+		: null;
 }
 
 /**
