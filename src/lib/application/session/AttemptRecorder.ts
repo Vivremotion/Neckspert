@@ -9,7 +9,6 @@ import {
 } from '$lib/domain/progress';
 import {
 	isResponseSuccess,
-	type Aid,
 	type Attempt,
 	type CardState,
 	type Execution,
@@ -19,6 +18,8 @@ import {
 	type Temperature
 } from '$lib/domain/types';
 import type { RoundOutcome, TimingRelation } from '$lib/domain/timing';
+import { aidsOf } from './aids';
+import type { ObservationSpan } from './observationSpan';
 import type { AudioClockPort } from '$lib/application/ports';
 import type {
 	AttemptRepositoryPort,
@@ -46,14 +47,6 @@ export interface AttemptRecorderDeps {
 	rules: (mechanic: MechanicId) => MechanicRules;
 	/** Time relation of a prompt at its exercise's rhythm; the mechanic's own when omitted. */
 	timing?: (planned: PlannedItem) => TimingRelation;
-}
-
-/** The aids a planned prompt showed: the fret (`show-position`) and the drawn string. */
-function aidsOf(planned: PlannedItem): Aid[] {
-	return [
-		...(planned.aid === 'show-position' ? (['show-position'] as const) : []),
-		...(planned.stringAid ? (['string-aid'] as const) : [])
-	];
 }
 
 /** Turns settled rounds into stored attempts and card updates, for one series. */
@@ -160,6 +153,27 @@ export class AttemptRecorder {
 		stored.catch(rejectId);
 		this.track(stored);
 		return { attempt, stored };
+	}
+
+	/**
+	 * Writes an attempt of the target model (`responseAttempt`) with what its span heard so far,
+	 * then completes its observations when the span closes. It touches no card: the target
+	 * model's learners keep their state elsewhere. Resolves with the attempt's id.
+	 */
+	recordResponse(attempt: Omit<Attempt, 'id'>, span: ObservationSpan): Promise<number> {
+		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
+		const stored = attempt as Attempt<AttemptData>;
+		stored.observations = span.snapshot();
+		this.attempts.push(stored);
+		const id = this.deps.attempts.add(stored);
+		// Awaited by completions only; a failed write is reported through the tracked promise.
+		id.catch(() => {});
+		this.ids.set(stored, id);
+		this.track(id);
+		if (!span.isClosed) {
+			span.onClose((observations) => void this.completeObservations(stored, observations));
+		}
+		return id;
 	}
 
 	/** Waits for the attempt's write, then replaces its observations. No-op for an attempt this recorder did not record. */

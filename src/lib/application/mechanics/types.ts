@@ -1,12 +1,31 @@
 import type { MechanicRules } from '$lib/domain/mechanics';
-import type { AidLevel, Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import type { AnswerChoice, PromptView, ShapeView } from '$lib/application/session/contract';
+import type {
+	AidLevel,
+	ChordDiagramStyle,
+	Locale,
+	PlannedItem,
+	ResponseVerdict
+} from '$lib/domain/types';
+import type { ResponseValue } from '$lib/domain/time';
+import type {
+	AnswerChoice,
+	LaneEntry,
+	PromptView,
+	ShapeView
+} from '$lib/application/session/contract';
 
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
 /** Names an observation source of the session: 'note' and 'chord' (played), 'tap' (on screen). */
 export type SensorKind = string;
+
+/** Where a prompt's view places it: the beat of its target, and the rounds played before it. */
+export interface StagePlace {
+	/** The beat of the target, in the tempo map's beats from the series' start; null before. */
+	anchorBeat: number | null;
+	history: readonly LaneEntry[];
+}
 
 /** How a mechanic shows on the play screen and which sensors answer it. */
 export interface MechanicPresenter<I = any, A = any> {
@@ -63,4 +82,21 @@ export interface MechanicPresenter<I = any, A = any> {
 		locale: Locale,
 		aids: { aid: AidLevel }
 	): { model: unknown };
+	/**
+	 * The screen model of a prompt on the target model: before its round (`settled` null) and
+	 * once settled, from the round's response value; `place` tells the view where it stands, and
+	 * `drawing` how its chord shapes are drawn (the settings' style, default
+	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one).
+	 * Beside `stage`, which the one-answer controller keeps until the migration.
+	 */
+	stageOf?(
+		item: I,
+		settled: { value: ResponseValue; success: boolean } | null,
+		locale: Locale,
+		aids: { aid: AidLevel },
+		place: StagePlace,
+		drawing?: { chordDiagram: ChordDiagramStyle }
+	): { model: unknown };
+	/** The mechanic's `Attempt.data` for a round answered with `value`. */
+	attemptData?(item: I, value: ResponseValue): unknown;
 }

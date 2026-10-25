@@ -1,3 +1,4 @@
+import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
@@ -125,6 +126,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		},
 		now: () => Date.now(),
 		random: () => Math.random(),
+		development: dev,
 		newId: () => crypto.randomUUID(),
 		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
 		sensors: {

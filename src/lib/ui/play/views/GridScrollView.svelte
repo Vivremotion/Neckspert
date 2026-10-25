@@ -4,6 +4,7 @@
 	import { i18n } from '$lib/i18n/index.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import DrawnMiss from './DrawnMiss.svelte';
 	import { gridPlacement } from './gridScroll';
 	import { viewMessages } from './messages';
 
@@ -29,16 +30,7 @@
 	});
 
 	const placement = $derived(
-		gridPlacement({
-			changes: stage.changes,
-			beatsPerBar: stage.beatsPerBar,
-			index: stage.index,
-			targetBeatIndex: view.targetBeatIndex,
-			nowBeat,
-			history: view.history,
-			visibleBars: VISIBLE_BARS,
-			barsBefore: BARS_BEFORE
-		})
+		gridPlacement(stage, { nowBeat, visibleBars: VISIBLE_BARS, barsBefore: BARS_BEFORE })
 	);
 
 	const cue = $derived.by((): string | null => {
@@ -88,6 +80,10 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if stage.miss}
+		<DrawnMiss miss={stage.miss} />
+	{/if}
 
 	{#key firstBar}
 		<ol class="bars">

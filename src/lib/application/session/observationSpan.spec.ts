@@ -58,6 +58,19 @@ describe('ObservationSpan', () => {
 		expect(() => span.add('note', heard(2), 'answer', true)).toThrow(Error);
 	});
 
+	it('tells its final list to those waiting for its close, once', () => {
+		const span = new ObservationSpan(0, planned);
+		const told: number[] = [];
+		span.onClose((observations) => told.push(observations.length));
+		span.add('note', heard(1), 'answer', true);
+		expect(span.isClosed).toBe(false);
+		span.close();
+		span.close();
+		span.onClose((observations) => told.push(observations.length));
+		expect(span.isClosed).toBe(true);
+		expect(told).toEqual([1]);
+	});
+
 	it('stores null for an undefined payload so it survives a JSON round trip', () => {
 		const span = new ObservationSpan(0, planned);
 		span.add('tap', { time: 1, payload: undefined, readable: true }, 'answer', true);

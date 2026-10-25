@@ -8,6 +8,7 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
+import type { LaneEntry } from '$lib/application/session/contract';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis } from '$lib/domain/music';
@@ -28,6 +29,7 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
+import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
 import { createAppServices } from './createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
@@ -56,7 +58,7 @@ class FakeCalibration implements CalibrationPort {
 	cancel(): void {}
 }
 
-function harness(): {
+function harness(options: { development?: boolean } = {}): {
 	services: AppServices;
 	deps: PlanSessionDeps & {
 		clock: FakeClock;
@@ -97,7 +99,8 @@ function harness(): {
 		...deps,
 		backup: new FakeBackup(),
 		calibration: new FakeCalibration(),
-		diagnostics: new FakeDiagnostics()
+		diagnostics: new FakeDiagnostics(),
+		development: options.development ?? false
 	});
 	return { services, deps, chords };
 }
@@ -109,6 +112,15 @@ function learnedTriad(mechanic: 'triad-anchor' | 'triad-zone', key: string): Car
 		0
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: 0 } };
+}
+
+/** Moves the clock by 10 ms steps, the transport's wake-ups run, until `done` or 10 s pass. */
+async function runOnTransport(deps: { clock: FakeClock; sounds: unknown }, done: () => boolean) {
+	for (let step = 0; step < 1000 && !done(); step++) {
+		deps.clock.advance(0.01);
+		(deps.sounds as FakeSoundScheduler).flush();
+		await Promise.resolve();
+	}
 }
 
 function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
@@ -355,10 +367,14 @@ describe('the gesture track', () => {
 		expect(await services.gesture()).toEqual({ open: true });
 	});
 
-	it('startSession(gesture) runs the open exercises, each at its own tempo', async () => {
+	it('plays a gesture session on the response series', async () => {
 		const { services, deps, chords } = harness();
 		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
 		const controller = await services.startSession('gesture');
+		expect(controller).toBeInstanceOf(ResponseSeriesController);
+		await controller.ready?.();
+		// The first exercise's instruction, on the start screen.
+		expect(controller.view.briefing?.text).toBeTruthy();
 		await controller.start();
 		const record = await deps.sessions.get(controller.sessionId);
 		expect(record).toMatchObject({
@@ -366,11 +382,37 @@ describe('the gesture track', () => {
 			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }]
 		});
 		expect(controller.view.stage?.view).toBe('link-lane');
-		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
-			tick(deps, deps.metronome.secondsPerBeat());
-		}
-		expect(controller.view.prompt).toMatchObject({ primary: 'D', detail: 'sol‑si‑mi' });
+		expect(deps.detector.running).toBe(true);
+		// The transport counts a bar, then opens the first change: the metronome stays still.
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		expect(controller.view.status).toBe('awaiting');
+		expect(deps.metronome.isRunning()).toBe(false);
+		expect(controller.view.stage?.model).toMatchObject({ root: 'D', anchorBeat: 4, history: [] });
 		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
+		controller.quit();
+	});
+
+	it('shows « Joué juste » on a gesture session only in development', async () => {
+		const played = async (development: boolean) => {
+			const { services, deps, chords } = harness({ development });
+			await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+			const controller = await services.startSession('gesture');
+			await controller.start();
+			await runOnTransport(deps, () => controller.view.status === 'awaiting');
+			// Another chord on the target, a beat (0.75 s at ♩ = 80) after the prompt: a miss.
+			const target = deps.clock.now() + 0.75;
+			await runOnTransport(deps, () => deps.clock.now() >= target);
+			chords.emit({ time: target, windowMs: 300, decided: 'G|maj', final: true, variants: [] });
+			const history = () =>
+				(controller.view.stage?.model as { history?: LaneEntry[] } | undefined)?.history ?? [];
+			await runOnTransport(deps, () => history().length > 0);
+			expect(history()).toEqual([{ beatIndex: 4, verdict: 'wrong' }]);
+			const contest = controller.view.contest;
+			controller.quit();
+			return contest;
+		};
+		expect(await played(true)).toBe('available');
+		expect(await played(false)).toBeNull();
 	});
 
 	it('contest labels an attempt and changes nothing else', async () => {

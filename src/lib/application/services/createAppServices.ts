@@ -1,13 +1,15 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
+import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
+import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
 import { summarizeExercise } from '$lib/application/session/plan/exerciseSummary';
 import { levelAided } from '$lib/application/session/plan/recordCycle';
 import { levelParamsOf } from '$lib/application/session/plan/rhythmExercise';
 import { summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
-import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES, gestureOpen, gesturePlan, openElements } from '$lib/domain/gesture';
 import {
 	DEFAULT_TEMPO_BPM,
 	exerciseById,
@@ -18,7 +20,8 @@ import {
 	TRIADS_ZONE,
 	startTempo
 } from '$lib/domain/exercise';
-import { isTimed, locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { isTimed, locateRules, mechanicRules, type ChordGridItem } from '$lib/domain/mechanics';
+import { METER_4_4 } from '$lib/domain/time';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -28,6 +31,7 @@ import {
 	createGestureSelector,
 	createListSource,
 	createTriadSelector,
+	type ItemSource,
 	isNeck,
 	triadZoneOpen,
 	type TriadMechanic,
@@ -52,8 +56,79 @@ export function createAppServices(
 		backup: BackupPort;
 		calibration: CalibrationPort;
 		diagnostics: DiagnosticsService;
+		/** The development tools show (« Joué juste » on the gesture): a development build only. */
+		development?: boolean;
 	}
 ): AppServices {
+	/**
+	 * A gesture session, played on the response series: the gesture selector serves the open
+	 * exercises in the order of the ladder, each change a round of `gesturePlan`.
+	 */
+	const startGesture = async (): Promise<ResponseSeriesController> => {
+		const { locale } = await deps.settings.get();
+		/** The selector of each series, by session id: its recorder is told about it. */
+		const sources = new Map<string, ItemSource>();
+		const prepare = async (sessionId: string) => {
+			const [cards, attempts, progressions] = await Promise.all([
+				deps.cards.all(),
+				deps.attempts.all(),
+				deps.progressions.all()
+			]);
+			// The open exercises in the order of the ladder: one tempo per grid open in each,
+			// one for the link, which plays no grid.
+			const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
+			const executions: Execution[] = definitions.flatMap((definition) => {
+				const grids = [
+					...new Set(openElements(definition, cards).map((element) => element.gridId))
+				];
+				return grids.map((scope) => ({
+					exerciseId: definition.id,
+					...(scope !== undefined && { scope }),
+					tempoBpm: startTempo(definition, progressions, scope)
+				}));
+			});
+			const source = createGestureSelector({
+				definitions,
+				cards,
+				attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+				sessionId
+			});
+			sources.set(sessionId, source);
+			return { source, executions };
+		};
+		return new ResponseSeriesController({ id: deps.newId(), kind: 'gesture' }, prepare, {
+			clock: deps.clock,
+			sounds: deps.sounds,
+			detector: deps.detector,
+			sensors: deps.sensors,
+			mechanics: deps.mechanics,
+			repositories: {
+				attempts: deps.attempts,
+				sessions: deps.sessions,
+				settings: deps.settings,
+				progressions: deps.progressions
+			},
+			recorderFor: (sessionId) => {
+				const selector = sources.get(sessionId);
+				if (!selector) throw new Error(`No series prepared for session ${sessionId}`);
+				return new AttemptRecorder({
+					attempts: deps.attempts,
+					cards: deps.cards,
+					clock: deps.clock,
+					now: deps.now,
+					selector,
+					sessionId,
+					rules: (mechanic) => deps.mechanics[mechanic].rules
+				});
+			},
+			plans: (item) => gesturePlan(item.item as ChordGridItem, METER_4_4),
+			exercise: deps.exercise ?? exerciseById,
+			locale: () => locale,
+			newId: deps.newId,
+			development: deps.development ?? false
+		});
+	};
+
 	/** The series of a session still in memory, and the runs whose take is still held. */
 	const seriesInMemory = (
 		sessionId: string,
@@ -217,6 +292,7 @@ export function createAppServices(
 		async startSession(kind: SessionKind) {
 			// An exercise session needs its exercise: recorded without it, no backup would import.
 			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
+			if (kind === 'gesture') return startGesture();
 			/** One triads exercise, at its own tempo, on the triad selector. */
 			const prepareTriads = (
 				mechanic: TriadMechanic,
@@ -257,30 +333,6 @@ export function createAppServices(
 					return prepareTriads('triad-anchor', sessionId, cards, attempts, progressions);
 				if (kind === 'triads-zone')
 					return prepareTriads('triad-zone', sessionId, cards, attempts, progressions);
-				if (kind === 'gesture') {
-					// The open exercises in the order of the ladder: one tempo per grid open in each,
-					// one for the link, which plays no grid.
-					const definitions = GESTURE_EXERCISES.filter((definition) =>
-						gestureOpen(definition, cards)
-					);
-					const executions: Execution[] = definitions.flatMap((definition) => {
-						const grids = [
-							...new Set(openElements(definition, cards).map((element) => element.gridId))
-						];
-						return grids.map((scope) => ({
-							exerciseId: definition.id,
-							...(scope !== undefined && { scope }),
-							tempoBpm: startTempo(definition, progressions, scope)
-						}));
-					});
-					const selector = createGestureSelector({
-						definitions,
-						cards,
-						attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
-						sessionId
-					});
-					return { selector, executions };
-				}
 				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => {
 					const rules = mechanicRules(e.mechanic);
 					return {

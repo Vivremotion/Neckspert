@@ -28,16 +28,18 @@ export interface LinkLaneTile {
 /**
  * The link's lane (spec 2026-10-10, second redesign, after trying it): the notes' lane, a tile per
  * beat, the way only on the first beat of each bar, the change asked due. After the last bar, the
- * next tour as if the tour went on (it stops there once a tour succeeds). `anchorBeat` is the beat
- * of the change on show; without it, that change waits on the next beat and nothing counts.
+ * next tour as if the tour went on (it stops there once a tour succeeds). The model's `anchorBeat`
+ * is the beat of the change on show once its round is open; before, `countedBeat` is where the
+ * counted bar ends. Without either, that change waits on the next beat and nothing counts.
  */
 export function linkLaneLayout(
 	model: LinkLaneModel,
-	time: { anchorBeat: number | null; nowBeat: number; history: readonly LaneEntry[] }
+	time: { nowBeat: number; countedBeat?: number | null }
 ): LinkLaneTile[] {
-	const { changes, index, beatsPerBar } = model;
-	const anchored = time.anchorBeat !== null;
-	const anchor = time.anchorBeat ?? Math.floor(time.nowBeat) + 1;
+	const { changes, index, beatsPerBar, history } = model;
+	const anchorBeat = model.anchorBeat ?? time.countedBeat ?? null;
+	const anchored = anchorBeat !== null;
+	const anchor = anchorBeat ?? Math.floor(time.nowBeat) + 1;
 	const start = anchor - changes[index].at;
 	const lastAt = changes[changes.length - 1].at;
 
@@ -51,7 +53,7 @@ export function linkLaneLayout(
 	});
 
 	const played = anchored
-		? time.history.filter((e) => e.beatIndex <= time.nowBeat + BEAT_TOLERANCE)
+		? history.filter((e) => e.beatIndex <= time.nowBeat + BEAT_TOLERANCE)
 		: [];
 	const latest = played.reduce<LaneEntry | null>(
 		(last, e) => (!last || e.beatIndex > last.beatIndex ? e : last),

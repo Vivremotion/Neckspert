@@ -197,6 +197,13 @@ describe('Transport.accompany and playFigure', () => {
 		sounds.flush();
 		expect(called).toBe(1);
 	});
+
+	it('tells the length of its bar in whole notes', async () => {
+		const { transport } = setup();
+		expect(() => transport.barLength).toThrow('the transport has not begun');
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		expect(transport.barLength.toString()).toBe('1');
+	});
 });
 
 describe('Transport.breath', () => {
@@ -222,6 +229,45 @@ describe('Transport.breath', () => {
 		await transport.begin({ meter: METER_4_4, tempo: tempo(60), accompaniment: clicks });
 		// a bar lasts 4 s: one bar is enough
 		expect(transport.breath(5)).toEqual({ from: 5, to: 6 });
+	});
+});
+
+describe('Transport.countIn', () => {
+	async function started() {
+		const ctx = setup();
+		await ctx.transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		// begin fills bars 0-1 (listen-in) and 2 (count); two more clicked bars follow
+		ctx.transport.accompany(3, 4, clicks);
+		return ctx;
+	}
+
+	it('counts one bar in the middle of a series, then play resumes on the next downbeat', async () => {
+		const { transport } = await started();
+		expect(transport.countIn(4)).toBe(5);
+		expect([0, 1, 2, 3].map((beat) => transport.countdownAt(4, beat))).toEqual([4, 3, 2, 1]);
+		expect(transport.countdownAt(5)).toBeNull();
+	});
+
+	it('keeps restBars silent before the counted bar', async () => {
+		const { sounds, transport } = await started();
+		const before = sounds.emitted().length;
+		expect(transport.countIn(4, { restBars: 2 })).toBe(7);
+		const added = sounds.emitted().slice(before);
+		const startOf = (bar: number) => transport.map.toSeconds(f(bar));
+		expect(added).toHaveLength(4);
+		expect(added.every((s) => s.time >= startOf(6) - 1e-9 && s.time < startOf(7))).toBe(true);
+		expect(added[0].sound).toBe('click-accent');
+		expect(transport.countdownAt(4)).toBeNull();
+		expect(transport.countdownAt(5)).toBeNull();
+		expect(transport.countdownAt(6)).toBe(4);
+	});
+
+	it('refuses a count over bars already scheduled', async () => {
+		const { transport } = await started();
+		expect(() => transport.countIn(3)).toThrow(RangeError);
+		expect(() => transport.countIn(4, { restBars: -1 })).toThrow(RangeError);
+		expect(() => transport.countIn(4, { restBars: 1.5 })).toThrow(RangeError);
+		expect(transport.countdownAt(3)).toBeNull();
 	});
 });
 

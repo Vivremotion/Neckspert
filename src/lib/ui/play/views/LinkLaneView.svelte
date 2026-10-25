@@ -2,6 +2,7 @@
 	import type { LinkLaneModel } from '$lib/application/mechanics/chordGrid';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
+	import DrawnMiss from './DrawnMiss.svelte';
 	import { linkLaneLayout } from './linkLane';
 	import { viewMessages } from './messages';
 
@@ -31,13 +32,7 @@
 		countedBeat = left === null ? null : Math.round(controller.timeline.nowBeat()) + left;
 	});
 
-	const tiles = $derived(
-		linkLaneLayout(lane, {
-			anchorBeat: view.targetBeatIndex ?? countedBeat,
-			nowBeat,
-			history: view.history
-		})
-	);
+	const tiles = $derived(linkLaneLayout(lane, { nowBeat, countedBeat }));
 	const past = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const ahead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const ARROWS = { up: '↗', down: '↘' } as const;
@@ -115,6 +110,10 @@
 			</div>
 		</div>
 	</div>
+
+	{#if lane.miss}
+		<DrawnMiss miss={lane.miss} />
+	{/if}
 
 	{#if neck}
 		<div
