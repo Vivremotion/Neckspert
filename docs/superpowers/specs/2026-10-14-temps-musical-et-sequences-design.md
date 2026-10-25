@@ -958,3 +958,48 @@ Branche `plan/temps-musical-h3`, plan `docs/superpowers/plans/2026-10-24-h3-cont
 - À H5, supprimer les anciens specs qui ne testent plus que le geste par l’ancien contrôleur (`chainedRounds`, `countdown`, `briefing`, `tempoScope`), l’ancien `stage` et `NO_PLACE` des présentateurs, la copie du bloc de raté dessiné dans `PlayFrame` (garder `DrawnMiss`) et le chemin du geste de l’ancien contrôleur.
 - Quitter pendant la demande d’autorisation du micro peut laisser l’entrée ouverte (même course que l’ancien contrôleur).
 - À H5, fusionner `ResponseSeriesController` et `PlanSessionController`.
+
+## Reprise (état au 2026-10-25)
+
+Ce qu’il faut lire pour reprendre H après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23 et les sections « Réalisation » de H1, H2 et H3 ci-dessus.
+
+### Où en est H
+
+- **Cinq plans** (amendement, « 1. Les pièces et les plans ») : une famille d’exercices bascule avec sa vue. H1 (moteur de tour), H2 (procédure d’apprentissage), H3 (contrôleur des séries de réponses et le geste) sont **fusionnés dans `main`** ; H4 (les notes) et H5 (les triades, les suppressions, la fusion avec le rythme) restent.
+- **Ce qui joue sur quoi** : le geste sur `ResponseSeriesController` (`application/session/series/`) ; les notes et les triades encore sur l’ancien `SessionController` et `PlayScreen` ; le rythme sur `PlanSessionController`.
+- Les plans écrits sont dans `docs/superpowers/plans/` (`2026-10-23-h1-…`, `2026-10-24-h2-…`, `2026-10-24-h3-…`) ; H4 et H5 sont à écrire.
+
+### Ce que H4 doit faire en plus du changement des notes
+
+Relevé par la relecture finale de H3 : des primitives du moteur, pas des fonctions des notes.
+
+- **L’enregistreur apprend** : `recordResponse` écrit aujourd’hui `temperature: 'hot'`, `leadBeats: null` et ne touche aucune carte. Il faut un crochet d’apprenant générique : froid ou chaud (`probeTemperature` avec `subject.recall`), FSRS (`applyColdAttempt`), le niveau de l’item (procédure de H2), la carte rendue par `ItemSource.record`.
+- **La scène** : le clic sonne quelle que soit la scène ; l’ancien contrôleur le taisait pour l’écran. `answer()` ne fait rien : le capteur `tap` (identifier) n’a pas de route. Les deux sont génériques (une scène déclarée par la mécanique, une réponse tapée qui entre comme une observation).
+- **Le mètre et la latence** : `METER_4_4` et `beatsPerBar: 4` sont figés dans la série ; `settings.latency.note` sert pour tous les capteurs. Le mètre vient du plan ou de l’exercice ; la latence par capteur vit dans `SeriesSensors` et le `RoundRunner`.
+- **Dexie 9** (« Réalisation du plan H2 », « Ce qui reste à H3 ») : `levelStates` chargé et écrit ; la migration donne un niveau à **chaque** carte depuis son avance et le tempo de son exercice (sans niveau, une révision à froid se joue à 8 temps et ne peut jamais être un rappel direct) ; un niveau ramené sous le haut près de `TEMPO_MAX_BPM` ne s’enregistre pas sans autre effet ; les tempos `null` des exécutions sont filtrés ; la séance fait respecter `SESSION_MS` (la procédure ne finit jamais par le temps).
+- **Le plan de tour d’un item** : la procédure rend un `PlannedItem` ; un `PlanSource` des notes construit `beatPlan` / `freePlan` (H1) depuis le niveau de l’item.
+- **Tests à écrire avec les notes** (chemins sans passage de main ni portée) : une observation après règlement, `chained: true` sans passage de main, une étendue déjà close, une tentative sans portée.
+
+### Ce que H5 doit faire
+
+- Les triades (ancrage, zone) et `triad-lane` ; `triadSubject` reçoit `attempts` obligatoire.
+- **Les suppressions du critère de fin** (amendement, section 6) ; en plus : les specs qui ne testent plus que le geste sur l’ancien contrôleur (`chainedRounds`, `countdown`, `briefing`, `tempoScope`), l’ancien `stage` et `NO_PLACE` du geste, la copie du raté dessiné dans `PlayFrame` (garder `DrawnMiss`), `cardLeadAfter` et `CardState.leadBeats`, `legacyParity.spec.ts`, `nextProgressions` en double de l’ancien bloc de fin.
+- **La fusion** de `ResponseSeriesController` et `PlanSessionController` sous le nom `SessionController` ; le code de placement (`place`, `placeAfter`, `advance`) en unité propre.
+- Quitter pendant la demande d’accès au micro peut laisser l’entrée ouverte (même course que l’ancien contrôleur).
+
+### Points mineurs reportés
+
+Relevés en relecture, jugés sans effet sur le comportement ; à reprendre quand le code concerné est touché.
+
+- **Moteur de tour (H1)** : `captureEndS` non borné par `inTimeEndS` quand une ouverture suivante tombe dans la capture tardive ; « prochaine ouverture » suppose un plan trié ; une réponse sans juge de contenu compte juste ; `indexOf` sur les instants confond deux attaques simultanées (passer des indices) ; plan en temps libre avec `alignment` validé alors que l’alignement ignore les attentes sans date.
+- **Juges (H1)** : le juge `chord-grid` n’est testé que sur le relier ; `chord-voicing` en position `'open'` non testé ; les mécaniques délèguent avec des conversions de type.
+- **Procédure (H2)** : une échelle d’un seul cran est doublée (aidé puis sans aide) — non testée au catalogue ; `directRecallOf` diffère de l’ancien juge sur deux combinaisons de champs qu’aucun essai ne produit ; un essai possédé sans carte tenue ne bouge pas le niveau ; trois fonctions de tirage au hasard (procédure, ancien sélecteur, sujet des triades).
+- **Série (H3)** : la locale lue une fois au départ ; la carte des sources grandit à chaque « Rejouer » ; `recordResponse` modifie l’objet reçu ; `stageOf` reçoit `success` sans le lire ; la page `/dev/gesture` retombe sur un sélecteur neuf au lieu d’échouer ; la vérification de frontière est textuelle (sous-chaînes, pas les `.svelte`).
+- **Prettier** signale trois fichiers non touchés par H (`SessionController.spec.ts`, `learnSelector.spec.ts`, `routes/diagnostic/oracle/+page.svelte`).
+
+### Façon de travailler
+
+- **Un plan à la fois**, écrit (skill `writing-plans`) depuis cette spec, relu par l’auteur, puis exécuté en **subagent-driven** dans un worktree `.worktrees/temps-musical-hN` sur la branche `plan/temps-musical-hN` ; un registre (`.superpowers/sdd/…/progress.md`, ignoré par git) garde chaque tâche, chaque décision et les points mineurs ; une relecture par tâche, une relecture finale de la branche, une seule vague de corrections.
+- **Ce qui revient à l’auteur** : une différence de comportement voulue (pédagogie, ce que le joueur voit) ; le reste se tranche et s’écrit dans « Réalisation ».
+- **Règles de l’auteur** qui guident chaque choix : construire des primitives du moteur, pas des fonctions d’un exercice ; un exercice nouveau doit tenir dans des données ; aucun héritage laissé après une migration ; tester les règles pédagogiques, pas la parité avec l’ancien comportement ; « le juge doit avoir raison » (« Joué juste » seulement en développement).
+- **Avant de fusionner** : `main` porte des modifications non validées de l’auteur (`CLAUDE.md`, `docs/todo.md`). Les mettre de côté sous une étiquette, fusionner (`--no-ff`), les réappliquer, résoudre un conflit en faveur de la version allégée de l’auteur dans `CLAUDE.md`, vérifier `npm test && npm run check`, puis supprimer le worktree et la branche. Ne jamais pousser sans demande.
