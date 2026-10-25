@@ -457,7 +457,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 4;
+	version: 5;
 	exportedAt: number;
 	settings: Settings;
 	progressions: Progression[];

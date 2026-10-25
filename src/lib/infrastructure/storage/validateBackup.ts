@@ -20,6 +20,7 @@ import {
 import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
 import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
+import { backupV4ToV5 } from './migrations/v9';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -599,9 +600,8 @@ function checkLevelState(state: Fields): string | null {
 	return null;
 }
 
-/** Checks a version 4 file and returns it unchanged. */
-export function validateBackupV4(file: unknown): BackupFile {
-	const backup = checkHeader(file, 4);
+/** The checks of versions 4 and 5, which hold the same tables. */
+function checkBackupBody(backup: Fields): void {
 	const settingsProblem = checkSettingsV4(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
 	checkEntries(backup.progressions, 'progressions', checkProgression);
@@ -609,23 +609,38 @@ export function validateBackupV4(file: unknown): BackupFile {
 	checkEntries(backup.attempts, 'attempts', checkAttemptV4);
 	checkEntries(backup.sessions, 'sessions', checkSessionV3);
 	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
+}
+
+/** Checks a version 4 file and returns it unchanged: its level states are those of the exercises. */
+export function validateBackupV4(file: unknown): Fields {
+	const backup = checkHeader(file, 4);
+	checkBackupBody(backup);
+	return backup;
+}
+
+/** Checks a version 5 file and returns it unchanged. */
+export function validateBackupV5(file: unknown): BackupFile {
+	const backup = checkHeader(file, 5);
+	checkBackupBody(backup);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 4, and versions 1 to 3 brought to it by the migration chain, the one the
+ * Accepts version 5, and versions 1 to 4 brought to it by the migration chain, the one the
  * database upgrade runs (`now` stamps the progression made from a version 1 tempo). Throws a
  * readable error on anything else.
  */
 export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV4 = (v3: Fields) => validateBackupV4(backupV3ToV4(v3, relationOfMechanic));
+	const toV5 = (v4: Fields) => validateBackupV5(backupV4ToV5(validateBackupV4(v4)));
+	const toV4 = (v3: Fields) => toV5(backupV3ToV4(v3, relationOfMechanic));
 	if (file.version === 1) {
 		return toV4(validateBackupV3(fromV2(fromV1(validateBackupV1(file), now))));
 	}
 	if (file.version === 2) return toV4(validateBackupV3(fromV2(validateBackupV2(file))));
 	if (file.version === 3) return toV4(validateBackupV3(file));
-	if (file.version === 4) return validateBackupV4(file);
+	if (file.version === 4) return toV5(file);
+	if (file.version === 5) return validateBackupV5(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

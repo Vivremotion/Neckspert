@@ -10,6 +10,7 @@ import {
 } from '$lib/domain/types';
 import { convertV1 } from './legacy/v1';
 import { attemptToV8, relationOfMechanic, settingsToV8 } from './migrations/v8';
+import { levelStatesV9, locateTempoV9 } from './migrations/v9';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -161,6 +162,26 @@ export class NeckspertDb extends Dexie {
 					.modify((row, ref) => {
 						ref.value = settingsToV8(row);
 					});
+			});
+		// Version 9 gives every locate and identify card the level its lead stands for (plan H4):
+		// the notes play on levels. Same conversion as the import of a version 4 backup
+		// (`migrations/v9.ts`); a level state already stored is kept.
+		this.version(9)
+			.stores({
+				...stores,
+				progressions: 'exerciseId',
+				scopedProgressions: '[exerciseId+scope]',
+				levelStates: '[exerciseId+scope+item]'
+			})
+			.upgrade(async (tx) => {
+				const [progressions, cards, levelStates] = await Promise.all([
+					tx.table('progressions').toArray(),
+					tx.table('cards').toArray(),
+					tx.table('levelStates').toArray()
+				]);
+				await tx
+					.table('levelStates')
+					.bulkAdd(levelStatesV9(cards, levelStates, locateTempoV9(progressions)));
 			});
 	}
 }

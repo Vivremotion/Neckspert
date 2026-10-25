@@ -115,7 +115,7 @@ export function makeProgression(overrides: Partial<Progression> = {}): Progressi
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 4,
+		version: 5,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [makeProgression()],
@@ -125,6 +125,11 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 		levelStates: [],
 		...overrides
 	};
+}
+
+/** A version 4 export: the level states hold the exercises' own, no neck card has one. */
+export function makeBackupV4(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return { ...makeBackup(), version: 4, ...overrides };
 }
 
 /**
