@@ -4,12 +4,17 @@
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import Button from '$lib/ui/primitives/Button.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
+	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import { playMessages } from './messages';
 	import PixelWord from './PixelWord.svelte';
+	import QuietField from './QuietField.svelte';
+	import QuietOverlay from './QuietOverlay.svelte';
+	import QuietTop from './QuietTop.svelte';
 	import { replayOf } from './replay.svelte';
-	import { PLAY_VIEWS, type PlayViewProps } from './views';
+	import { PLAY_VIEWS, VIEW_WORLDS, type PlayViewProps, type PlayWorld } from './views';
 	import type { Component } from 'svelte';
 
 	let {
@@ -29,7 +34,20 @@
 	const t = $derived(playMessages());
 	const view = $derived(controller.view);
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
+	/**
+	 * The frame is drawn in the world of the view on stage; with none yet (the start screen, the
+	 * end), in the world of what the session plays: the notes' views are quiet.
+	 */
+	const world: PlayWorld = $derived(
+		view.stage
+			? (VIEW_WORLDS[view.stage.view] ?? 'pixel')
+			: kind === 'learn' || kind === 'free'
+				? 'quiet'
+				: 'pixel'
+	);
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
+	/** In the quiet world, start, end and pause are a light page over the field. */
+	const light = $derived(showStart || view.status === 'paused');
 	const running = $derived(
 		view.status === 'count-in' || view.status === 'awaiting' || view.status === 'verdict'
 	);
@@ -130,121 +148,195 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} onkeyup={onKeyup} />
-<section class="frame" data-status={view.status}>
-	<div class="chrome">
-		{#if running}
-			<PixelButton size="large" onclick={() => controller.pause()}>{t.pause}</PixelButton>
-		{/if}
-		<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
-	</div>
+{#if world === 'quiet'}
+	<QuietField {light} data-world="quiet" data-status={view.status}>
+		<QuietTop
+			parts={[t.kindName[kind], t.tempo(view.tempoBpm)]}
+			playing={running}
+			{light}
+			onpause={() => controller.pause()}
+			onleave={leave}
+		/>
 
-	<div class="stage">
-		{#if Stage && view.stage}
-			<Stage {controller} model={view.stage.model} />
-		{/if}
-	</div>
-
-	{#snippet contestOffer()}
-		{#if view.contest === 'available'}
-			<PixelButton size="large" onclick={() => controller.contest()}>{t.playedRight}</PixelButton>
-		{:else if view.contest === 'done'}
-			<p class="label">{t.contested}</p>
-		{/if}
-	{/snippet}
-
-	<div class="status">
-		{#if view.countdown !== null}
-			<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
-			<!-- In text: PixelWord draws the note letters only, no digit. -->
-			<div class="counting">
-				<p class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
-					{t.startsIn(view.countdown)}
-				</p>
-			</div>
-		{:else if view.lastVerdict}
-			<div class="verdict">
-				<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
-				{#if drawn}
-					<div class="drawn">
-						{#if drawn.heard}
-							<div class="drawn-part">
-								<p class="label">{t.played}</p>
-								<ChordShape
-									shape={drawn.heard}
-									style={view.chordDiagram}
-									locale={i18n.locale}
-									size="small"
-								/>
-							</div>
-						{/if}
-						{#if drawn.expected}
-							<div class="drawn-part">
-								<p class="label">{t.expected}</p>
-								<ChordShape
-									shape={drawn.expected}
-									style={view.chordDiagram}
-									locale={i18n.locale}
-									size="small"
-								/>
-							</div>
-						{/if}
-					</div>
-					{#if drawn.gap}
-						<p class="label">{drawn.gap}</p>
+		<div class="quiet-stage">
+			{#if Stage && view.stage}
+				<Stage {controller} model={view.stage.model} />
+			{:else if view.countdown !== null}
+				<!-- No view yet: the frame counts the bar down in the middle of the field. -->
+				<div class="quiet-count" aria-live="polite">
+					<Prompt main={String(view.countdown)} size="prompt" />
+				</div>
+			{/if}
+			{#if view.contest !== null || view.fatigueDetected}
+				<div class="quiet-status">
+					{#if view.contest === 'available'}
+						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
+					{:else if view.contest === 'done'}
+						<p>{t.contested}</p>
 					{/if}
-				{/if}
-				{@render contestOffer()}
-			</div>
-		{:else if view.contest !== null}
-			<!-- A view that draws its own verdicts: the frame still offers « Joué juste ». -->
-			<div class="verdict">
-				{@render contestOffer()}
-			</div>
-		{/if}
-		{#if view.fatigueDetected}
-			<p class="fatigue" role="status">{t.fatigue}</p>
-		{/if}
-	</div>
+					{#if view.fatigueDetected}
+						<p role="status">{t.fatigue}</p>
+					{/if}
+				</div>
+			{/if}
+		</div>
 
-	{#if showStart}
-		<div class="overlay">
-			{#if view.status === 'finished'}
-				<p class="how">{t.finished}</p>
-			{:else if view.audioError === 'input'}
-				<p class="how" role="alert">{t.noInput}</p>
-			{:else if view.audioError === 'bleed'}
-				<!-- The game is not refused: a first encounter still reads its instruction. -->
-				<p class="how" role="alert">{t.bleed}</p>
-				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
-			{:else}
-				<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
+		<QuietOverlay
+			status={view.status}
+			audioError={view.audioError}
+			how={view.briefing?.text ?? t.howTo[kind]}
+			briefing={view.briefing?.text ?? null}
+			onstart={() => controller.start()}
+			onresume={() => controller.resume()}
+		/>
+	</QuietField>
+{:else}
+	<section class="frame" data-world="pixel" data-status={view.status}>
+		<div class="chrome">
+			{#if running}
+				<PixelButton size="large" onclick={() => controller.pause()}>{t.pause}</PixelButton>
 			{/if}
-			<PixelButton size="huge" onclick={() => controller.start()}
-				>{view.status === 'finished' ? t.again : t.start}</PixelButton
-			>
+			<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
 		</div>
-	{:else if view.status === 'paused' && view.briefing}
-		<!-- An exercise met for the first time: its instruction, then a counted bar. -->
-		<div class="overlay" role="dialog" aria-label={t.go}>
-			<p class="how">{view.briefing.text}</p>
-			<PixelButton size="huge" onclick={() => controller.resume()}>{t.go}</PixelButton>
+
+		<div class="stage">
+			{#if Stage && view.stage}
+				<Stage {controller} model={view.stage.model} />
+			{/if}
 		</div>
-	{:else if view.status === 'paused'}
-		<div class="overlay">
-			<PixelButton size="huge" onclick={() => controller.resume()}>{t.resume}</PixelButton>
-			{#if controller.replay}
-				<PixelButton size="large" disabled={replay.pending} onclick={() => replay.run()}
-					>{replay.pending ? t.replaying : `${t.replay} (${t.replayKey})`}</PixelButton
+
+		{#snippet contestOffer()}
+			{#if view.contest === 'available'}
+				<PixelButton size="large" onclick={() => controller.contest()}>{t.playedRight}</PixelButton>
+			{:else if view.contest === 'done'}
+				<p class="label">{t.contested}</p>
+			{/if}
+		{/snippet}
+
+		<div class="status">
+			{#if view.countdown !== null}
+				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
+				<!-- In text: PixelWord draws the note letters only, no digit. -->
+				<div class="counting">
+					<p class="countdown" aria-live="polite" aria-label={String(view.countdown)}>
+						{t.startsIn(view.countdown)}
+					</p>
+				</div>
+			{:else if view.lastVerdict}
+				<div class="verdict">
+					<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
+					{#if drawn}
+						<div class="drawn">
+							{#if drawn.heard}
+								<div class="drawn-part">
+									<p class="label">{t.played}</p>
+									<ChordShape
+										shape={drawn.heard}
+										style={view.chordDiagram}
+										locale={i18n.locale}
+										size="small"
+									/>
+								</div>
+							{/if}
+							{#if drawn.expected}
+								<div class="drawn-part">
+									<p class="label">{t.expected}</p>
+									<ChordShape
+										shape={drawn.expected}
+										style={view.chordDiagram}
+										locale={i18n.locale}
+										size="small"
+									/>
+								</div>
+							{/if}
+						</div>
+						{#if drawn.gap}
+							<p class="label">{drawn.gap}</p>
+						{/if}
+					{/if}
+					{@render contestOffer()}
+				</div>
+			{:else if view.contest !== null}
+				<!-- A view that draws its own verdicts: the frame still offers « Joué juste ». -->
+				<div class="verdict">
+					{@render contestOffer()}
+				</div>
+			{/if}
+			{#if view.fatigueDetected}
+				<p class="fatigue" role="status">{t.fatigue}</p>
+			{/if}
+		</div>
+
+		{#if showStart}
+			<div class="overlay">
+				{#if view.status === 'finished'}
+					<p class="how">{t.finished}</p>
+				{:else if view.audioError === 'input'}
+					<p class="how" role="alert">{t.noInput}</p>
+				{:else if view.audioError === 'bleed'}
+					<!-- The game is not refused: a first encounter still reads its instruction. -->
+					<p class="how" role="alert">{t.bleed}</p>
+					<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
+				{:else}
+					<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
+				{/if}
+				<PixelButton size="huge" onclick={() => controller.start()}
+					>{view.status === 'finished' ? t.again : t.start}</PixelButton
 				>
-			{/if}
-			{#if figures}
-				<PixelButton size="large" onclick={quitExercise}>{t.quitExercise}</PixelButton>
-			{/if}
-		</div>
-	{/if}
-</section>
+			</div>
+		{:else if view.status === 'paused' && view.briefing}
+			<!-- An exercise met for the first time: its instruction, then a counted bar. -->
+			<div class="overlay" role="dialog" aria-label={t.go}>
+				<p class="how">{view.briefing.text}</p>
+				<PixelButton size="huge" onclick={() => controller.resume()}>{t.go}</PixelButton>
+			</div>
+		{:else if view.status === 'paused'}
+			<div class="overlay">
+				<PixelButton size="huge" onclick={() => controller.resume()}>{t.resume}</PixelButton>
+				{#if controller.replay}
+					<PixelButton size="large" disabled={replay.pending} onclick={() => replay.run()}
+						>{replay.pending ? t.replaying : `${t.replay} (${t.replayKey})`}</PixelButton
+					>
+				{/if}
+				{#if figures}
+					<PixelButton size="large" onclick={quitExercise}>{t.quitExercise}</PixelButton>
+				{/if}
+			</div>
+		{/if}
+	</section>
+{/if}
 
 <style>
+	/* The quiet world: the view fills the field under the info line, its status line below it. */
+	.quiet-stage {
+		grid-row: 2 / -1;
+		display: flex;
+		flex-direction: column;
+		gap: var(--np-step-4);
+		min-width: 0;
+	}
+
+	.quiet-count {
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.quiet-status {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		align-items: baseline;
+		gap: var(--np-step-3);
+		font-size: var(--np-size-meta);
+		text-align: center;
+	}
+
+	.quiet-status p {
+		margin: 0;
+	}
+
 	.frame {
 		position: relative;
 		display: flex;

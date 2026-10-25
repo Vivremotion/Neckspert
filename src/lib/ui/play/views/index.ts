@@ -20,3 +20,18 @@ export const PLAY_VIEWS: Record<string, Component<PlayViewProps>> = {
 	'note-lane': NoteLaneView,
 	'rhythm-figure': RhythmFigureView
 };
+
+/**
+ * The visual world a view is drawn in: « Près du silence » (`quiet`) or the Game Boy (`pixel`),
+ * until plan 3 migrates the last ones. The frame takes the world of its view: one screen never
+ * mixes the two.
+ */
+export type PlayWorld = 'quiet' | 'pixel';
+
+export const VIEW_WORLDS: Record<string, PlayWorld> = {
+	'answer-keys': 'quiet',
+	'grid-scroll': 'pixel',
+	'link-lane': 'pixel',
+	'note-lane': 'quiet',
+	'rhythm-figure': 'pixel'
+};

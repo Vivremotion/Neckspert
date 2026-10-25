@@ -82,6 +82,7 @@ describe('AnswerKeysView', () => {
 		expect(screen.getByRole('group', PAD)).toBeTruthy();
 		expect(container.querySelector('.lane')).toBeNull();
 		expect(screen.queryByText('case 8')).toBeNull();
+		expect(container.querySelector('.centre .countdown .main')?.textContent).toBe('4');
 	});
 
 	it('shows the note name of an aided prompt', () => {

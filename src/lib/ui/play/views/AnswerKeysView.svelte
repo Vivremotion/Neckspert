@@ -23,7 +23,12 @@
 <div class="answer-keys">
 	<div class="centre">
 		{#if counting}
-			<!-- Nothing yet: the frame counts the bar down. -->
+			<!-- The keyboard on stage already; the counted bar in the prompt's place. -->
+			{#if view.countdown !== null}
+				<div class="countdown" aria-live="polite">
+					<Prompt main={String(view.countdown)} size="prompt" />
+				</div>
+			{/if}
 		{:else if verdict?.correction}
 			<Prompt main={verdict.correction} {recall} size="correction" />
 		{:else if hit}
@@ -52,22 +57,13 @@
 </div>
 
 <style>
-	/* The play screen's field (da-1), as `PlayScreen` draws the answer keyboard. */
+	/* The prompt over the keys, as `PlayScreen` draws them; the frame paints the field. */
 	.answer-keys {
 		display: grid;
 		grid-template-rows: 1fr auto;
 		flex: 1;
-		box-sizing: border-box;
 		min-width: 0;
-		min-height: 60dvh;
-		padding: var(--np-step-4) clamp(var(--np-step-2), 3vw, var(--np-step-5)) var(--np-step-6);
 		gap: var(--np-step-4);
-		background: var(--np-field);
-		color: var(--np-on-field);
-		font-family: var(--np-font-text);
-		font-weight: 400;
-		image-rendering: auto;
-		-webkit-font-smoothing: antialiased;
 	}
 
 	.centre {

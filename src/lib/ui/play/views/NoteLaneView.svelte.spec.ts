@@ -14,10 +14,15 @@ const F_ON_B: PromptView = { primary: 'F', secondary: 'corde de B', aid: null, d
 /** F on B, prompted on beat 0 for beat 8; `nowBeat` 1 unless said. */
 function show(
 	overrides: Partial<NoteLaneModel> = {},
-	{ status = 'awaiting', nowBeat = 1 }: { status?: PlayView['status']; nowBeat?: number } = {}
+	{
+		status = 'awaiting',
+		nowBeat = 1,
+		countdown = null
+	}: { status?: PlayView['status']; nowBeat?: number; countdown?: number | null } = {}
 ) {
 	const controller = new StageController();
 	controller.view.status = status;
+	controller.view.countdown = countdown;
 	controller.nowBeat = nowBeat;
 	const model: NoteLaneModel = {
 		prompt: F_ON_B,
@@ -165,5 +170,22 @@ describe('NoteLaneView', () => {
 		expect(container.querySelector('.centre [data-size="hero"]')).toBeNull();
 		expect(container.querySelector('.lane [data-kind="target"]')).toBeNull();
 		expect(container.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
+	});
+
+	it('counts the bar down in place of the prompt, the string under the count', () => {
+		const { container } = show(
+			{
+				anchorBeat: null,
+				promptBeat: null,
+				prompt: { ...F_ON_B, diagram: { string: 2, label: 'B' } }
+			},
+			{ status: 'count-in', countdown: 3 }
+		);
+		const count = container.querySelector('.centre .countdown');
+		expect(count?.getAttribute('aria-live')).toBe('polite');
+		expect(count?.querySelector('.main')?.textContent).toBe('3');
+		expect(count?.textContent).toContain('corde de B');
+		expect(count?.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
+		expect(screen.queryByText('F')).toBeNull();
 	});
 });

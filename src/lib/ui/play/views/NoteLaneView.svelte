@@ -39,7 +39,20 @@
 
 <div class="note-lane">
 	<div class="centre">
-		{#if waiting}
+		{#if view.countdown !== null}
+			<!-- The counted bar in the prompt's place, the string coming under it. -->
+			<div class="countdown" aria-live="polite">
+				<Prompt
+					main={String(view.countdown)}
+					line={waiting ? lane.prompt.secondary : null}
+					size="prompt"
+				>
+					{#if waiting && lane.prompt.diagram}
+						<StringDiagram diagram={lane.prompt.diagram} />
+					{/if}
+				</Prompt>
+			</div>
+		{:else if waiting}
 			<!-- The string comes first; the note, the only big letter, follows on the prompt beat. -->
 			<Prompt main={lane.prompt.secondary} size="prompt">
 				{#if lane.prompt.diagram}
@@ -78,22 +91,13 @@
 </div>
 
 <style>
-	/* The play screen's field (da-1), as `PlayScreen` draws the notes. */
+	/* The prompt over the lane, as `PlayScreen` draws the notes; the frame paints the field. */
 	.note-lane {
 		display: grid;
 		grid-template-rows: 1fr auto;
 		flex: 1;
-		box-sizing: border-box;
 		min-width: 0;
-		min-height: 60dvh;
-		padding: var(--np-step-4) clamp(var(--np-step-2), 3vw, var(--np-step-5)) var(--np-step-6);
 		gap: var(--np-step-4);
-		background: var(--np-field);
-		color: var(--np-on-field);
-		font-family: var(--np-font-text);
-		font-weight: 400;
-		image-rendering: auto;
-		-webkit-font-smoothing: antialiased;
 	}
 
 	.centre {
