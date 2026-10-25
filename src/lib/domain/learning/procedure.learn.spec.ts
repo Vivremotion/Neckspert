@@ -464,4 +464,16 @@ describe('createLearningProcedure level above the ladder', () => {
 		expect(outcome?.level?.level).toBe(0);
 		expect(source.levelOf(ref(0)).level).toBe(0);
 	});
+
+	it('learns a learning item held above the ladder after its successes in a row', () => {
+		const source = procedure({
+			subject: fakeSubject({ ladderSteps: [8, 4], learnedAfter: 2 }),
+			cards: [learning(0)],
+			levels: [levelAt(0, 2)]
+		});
+		const direct = () => played(0, 'learning', { success: true, leadMs: 500 });
+		expect(source.record(direct(), 100)?.card).toBeUndefined();
+		expect(source.levelOf(ref(0))).toMatchObject({ level: 1, successes: 1 });
+		expect(source.record(direct(), 200)?.card).toMatchObject({ item: 0, learnedAt: 200 });
+	});
 });

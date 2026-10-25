@@ -163,8 +163,9 @@ class Procedure implements LearningProcedure {
 				: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
 		const next = nextLevelState(state, ladder, { success, aided: false }).state;
-		// A level a fast tempo only brought down to the top is kept as held (D7); a drop is written.
-		const keep = clamped && next.level === state.level;
+		// A level a fast tempo only brought down to the top is kept as held (D7); a drop is written,
+		// and a learning item always moves, or its successes would never add up.
+		const keep = clamped && attempt.phase !== 'learning' && next.level === state.level;
 		const level = keep ? undefined : this.setLevel(next);
 		const outcome = level ? { level } : {};
 		if (attempt.phase !== 'learning') return outcome;
