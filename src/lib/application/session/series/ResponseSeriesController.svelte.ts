@@ -7,7 +7,9 @@ import {
 	METER_4_4,
 	beatPositions,
 	clickAccompaniment,
+	sameMeter,
 	type Accompaniment,
+	type Meter,
 	type ResponseValue,
 	type RoundOutcome,
 	type RoundPlan,
@@ -22,7 +24,7 @@ import {
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
-import type { MechanicPresenter, Scene } from '$lib/application/mechanics/types';
+import { SCENE_CLICKS, type MechanicPresenter, type Scene } from '$lib/application/mechanics/types';
 import {
 	DEFAULT_PLAY_VIEW,
 	type LaneEntry,
@@ -87,7 +89,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		nowBeat: (): number => {
 			if (!this.begun) return 0;
 			const position = this.transport.map.toPosition(this.deps.clock.now());
-			return position.div(this.meter.unit).toNumber();
+			return position.div(this.seriesMeter.unit).toNumber();
 		}
 	};
 
@@ -95,8 +97,10 @@ export class ResponseSeriesController implements PlaySessionController {
 	private readonly prepare: PrepareResponseSeries;
 	private readonly deps: ResponseSeriesDeps;
 	private readonly transport: Transport;
-	private readonly meter = METER_4_4;
-	private readonly click: Accompaniment;
+	/** The meter of the series, from its first item's exercise; null until the transport begins. */
+	private meter: Meter | null = null;
+	/** Every beat clicked, accent on 1, in the series' meter. */
+	private click: Accompaniment | null = null;
 
 	private source: ItemSource | null = null;
 	/** The recorder of this series, from its start. */
@@ -151,8 +155,6 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
 		this.items = new SeriesItems(deps.mechanics, () => this.executions, deps.exercise);
 		this.sensors = new SeriesSensors(deps);
-		const beats = beatPositions(this.meter).map((_, i) => i + 1);
-		this.click = clickAccompaniment({ meter: this.meter, beats, accent: [1], bars: ['on'] });
 		this.view = $state<PlayView>(idlePlayView());
 	}
 
@@ -245,6 +247,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.executions = [];
 		this.tempoBpm = null;
 		this.begun = false;
+		this.meter = null;
+		this.click = null;
 		this.quitting = false;
 		this.finishing = null;
 		this.accompaniedUntil = 0;
@@ -296,8 +300,11 @@ export class ResponseSeriesController implements PlaySessionController {
 		void this.beginWith(item, generation);
 	}
 
-	answer(): void {
-		// Played on the instrument: nothing is tapped.
+	/** A tapped value, pushed to every source fed by the screen while a round awaits or shows its verdict. */
+	answer(value: string): void {
+		const { status } = this.view;
+		if (status !== 'awaiting' && status !== 'verdict') return;
+		for (const source of this.sensors.sources.values()) source.push?.(value);
 	}
 
 	contest(): void {
@@ -346,17 +353,19 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** Begins the transport at `item`'s tempo: a counted bar, then its round. */
 	private async beginWith(item: PlannedItem, generation: number): Promise<void> {
+		this.keepMeter(item);
 		const tempo = this.tempoOf(item);
 		this.setTempo(tempo);
 		this.pending = item;
 		let playFrom: number;
 		try {
 			({ playFrom } = await this.transport.begin({
-				meter: this.meter,
+				meter: this.seriesMeter,
 				tempo: this.segment(tempo),
-				accompaniment: this.click,
+				accompaniment: this.seriesClick,
 				listenInBars: 0,
-				countIn: true
+				countIn: true,
+				audible: this.clicksOn(item)
 			}));
 		} catch (error) {
 			if (error instanceof TransportStopped) return;
@@ -381,7 +390,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		count: { countBar: number; restFrom: number | null }
 	): void {
 		this.pending = item;
-		const plan = this.deps.plans(item);
+		const plan = this.deps.plans(item, this.seriesMeter);
 		const start = Fraction.of(at);
 		this.enterScene(this.items.presenterOf(item));
 		this.view.status = 'count-in';
@@ -398,7 +407,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 		const { countBar } = count;
 		this.wakeAt(Fraction.of(countBar), (time) => this.log?.open('count-in', time));
-		const beats = beatPositions(this.meter).length;
+		const beats = beatPositions(this.seriesMeter).length;
 		for (let beat = 0; beat < beats; beat++) {
 			this.wakeAt(Fraction.of(countBar).add(Fraction.of(beat, beats)), () => {
 				if (beat === 0 && settledOnScreen) showWaiting();
@@ -426,7 +435,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.pending = null;
 		const presenter = this.items.presenterOf(item);
 		const end = at.add(plan.length.div(this.transport.barLength));
-		this.accompanyTo(end);
+		if (SCENE_CLICKS[presenter.scene]) this.accompanyTo(end);
 		const round = {
 			item,
 			plan,
@@ -501,32 +510,38 @@ export class ResponseSeriesController implements PlaySessionController {
 			void this.finish();
 			return;
 		}
+		this.keepMeter(item);
 		if (this.needsBriefing(item)) {
 			this.brief(item);
 			return;
 		}
 		if (round.runner.handoverTime !== null && this.chainable(item)) {
-			this.openRound(item, this.deps.plans(item), round.end, time, time);
+			this.openRound(item, this.deps.plans(item, this.seriesMeter), round.end, time, time);
 			return;
 		}
 		this.placeAfter(item, Math.max(ceilBar(round.end), this.accompaniedUntil));
 	}
 
-	/** `item` after a counted bar from `bar`: at its tempo, changed first when it differs. */
+	/**
+	 * `item` after a counted bar from `bar`: at its tempo, changed first when it differs; heard
+	 * only before a scene that clicks.
+	 */
 	private placeAfter(item: PlannedItem, bar: number): void {
 		const tempo = this.tempoOf(item);
+		const audible = this.clicksOn(item);
 		if (tempo !== this.tempoBpm) {
 			this.setTempo(tempo);
-			const { playFrom } = this.transport.changeTempo(bar, this.segment(tempo), this.click, {
+			const { playFrom } = this.transport.changeTempo(bar, this.segment(tempo), this.seriesClick, {
 				listenInBars: 0,
-				countIn: true
+				countIn: true,
+				audible
 			});
 			this.accompaniedUntil = playFrom;
 			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
 			return;
 		}
 		const restBars = item.countIn ? (item.restBars ?? 0) : 0;
-		const playFrom = this.transport.countIn(bar, { restBars });
+		const playFrom = this.transport.countIn(bar, { restBars, audible });
 		this.accompaniedUntil = playFrom;
 		this.place(item, playFrom, { countBar: playFrom - 1, restFrom: restBars > 0 ? bar : null });
 	}
@@ -716,7 +731,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	/** The beat of the round's first expectation (its target) on the map. */
 	private anchorBeatOf(at: Fraction, plan: RoundPlan): number {
 		const target = plan.expectations[0]?.at ?? Fraction.ZERO;
-		return at.mul(this.transport.barLength).add(target).div(this.meter.unit).toNumber();
+		return at.mul(this.transport.barLength).add(target).div(this.seriesMeter.unit).toNumber();
 	}
 
 	// ── the transport ────────────────────────────────────────────────────────
@@ -736,7 +751,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	private accompanyTo(end: Fraction): void {
 		const to = ceilBar(end);
 		if (to <= this.accompaniedUntil) return;
-		this.transport.accompany(this.accompaniedUntil, to, this.click);
+		this.transport.accompany(this.accompaniedUntil, to, this.seriesClick);
 		this.accompaniedUntil = to;
 	}
 
@@ -747,7 +762,37 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	private segment(bpm: number): TempoSegment {
-		return { at: Fraction.ZERO, bpm, unit: this.meter.unit };
+		return { at: Fraction.ZERO, bpm, unit: this.seriesMeter.unit };
+	}
+
+	/**
+	 * Takes the meter of `item`'s exercise as the series' when it has none yet; an item of another
+	 * meter throws: the transport keeps one.
+	 */
+	private keepMeter(item: PlannedItem): void {
+		const meter = this.items.definitionOf(item).meter ?? METER_4_4;
+		if (this.meter) {
+			if (!sameMeter(this.meter, meter)) throw new RangeError('a series keeps one meter');
+			return;
+		}
+		this.meter = meter;
+		const beats = beatPositions(meter).map((_, i) => i + 1);
+		this.click = clickAccompaniment({ meter, beats, accent: [1], bars: ['on'] });
+	}
+
+	private get seriesMeter(): Meter {
+		if (!this.meter) throw new Error('the series has no meter before its transport begins');
+		return this.meter;
+	}
+
+	private get seriesClick(): Accompaniment {
+		if (!this.click) throw new Error('the series has no meter before its transport begins');
+		return this.click;
+	}
+
+	/** Whether the click is heard on `item`'s scene. */
+	private clicksOn(item: PlannedItem): boolean {
+		return SCENE_CLICKS[this.items.presenterOf(item).scene];
 	}
 
 	private setTempo(tempo: number): void {

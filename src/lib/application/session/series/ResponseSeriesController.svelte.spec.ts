@@ -4,10 +4,13 @@ import { GESTURE_EXERCISES, gesturePlan } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
-import { Fraction, METER_4_4, type RoundPlan } from '$lib/domain/time';
+import { Fraction, METER_4_4, type Meter, type RoundPlan } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { PlannedItem } from '$lib/domain/types';
 import { triadCards } from '$lib/testing/shapes';
+import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
+import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import type { SensorFactory } from '../sensors';
 import {
 	EXECUTIONS,
 	G_B_E,
@@ -582,6 +585,109 @@ describe('ResponseSeriesController', () => {
 			);
 			expect(replay.length).toBeGreaterThan(0);
 			expect(indexes.length).toBeGreaterThan(tour);
+		});
+	});
+	describe('scenes, taps and the meter', () => {
+		/** The gesture's presenter on the screen: a scene that does not click, answered by taps too. */
+		const SCREEN_GRID: MechanicPresenter = {
+			...GESTURE_PRESENTERS['chord-grid'],
+			scene: 'screen',
+			sensors: ['chord', 'tap']
+		};
+		const mechanics = { ...GESTURE_PRESENTERS, 'screen-grid': SCREEN_GRID };
+		const onScreen = (items: PlannedItem[]) =>
+			items.map((item) => ({ ...item, mechanic: 'screen-grid' }));
+		/** A sensor fed by the screen, keeping what it was pushed. */
+		const pushable = () => {
+			const pushed: unknown[] = [];
+			const factory: SensorFactory = () => ({
+				onObservation: () => () => undefined,
+				push: (payload) => pushed.push(payload)
+			});
+			return { pushed, factory };
+		};
+		const screenSeries = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
+			const tap = pushable();
+			const ctx = setup(items, { mechanics, sensors: { tap: tap.factory }, ...options });
+			return { ...ctx, pushed: tap.pushed };
+		};
+		const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
+
+		it('accompanies no bar on a scene that does not click, and comes back to the guitar through a counted bar heard', async () => {
+			const ctx = screenSeries([...onScreen(passage()), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) - 0.19);
+			expect(ctx.controller.view.scene).toBe('guitar');
+			// The screen's passage, its count included, in silence.
+			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
+			// Bar 3 counted and heard, the guitar's first change on bar 4, clicked.
+			expect(clicksBetween(ctx, ctx.bar(3), ctx.bar(4))).toEqual([6.1, 6.6, 7.1, 7.6]);
+			ctx.runTo(ctx.bar(4) + 0.01);
+			expect(clicksBetween(ctx, ctx.bar(4), ctx.bar(5))).toEqual([8.1, 8.6, 9.1, 9.6]);
+		});
+
+		it('shows a counted bar before a scene that does not click, without a sound', async () => {
+			const ctx = screenSeries([...passage(), ...onScreen(passage({ passage: 's:1' }))]);
+			await ctx.controller.start();
+			const counts: (number | null)[] = [];
+			for (let beat = 0; beat <= 4; beat++) {
+				ctx.runTo(ctx.bar(3 + beat / 4) + 0.01);
+				counts.push(ctx.controller.view.countdown);
+			}
+			expect(counts).toEqual([4, 3, 2, 1, null]);
+			expect(ctx.controller.view.scene).toBe('screen');
+			expect(clicksBetween(ctx, ctx.bar(3) - 0.1, ctx.bar(6))).toEqual([]);
+		});
+
+		it('pushes a tapped answer to the sensor that takes one, only while a round awaits or shows its verdict', async () => {
+			const ctx = screenSeries(onScreen(passage()));
+			ctx.controller.answer('C');
+			await ctx.controller.start();
+			// Counting: no round to answer.
+			ctx.controller.answer('D');
+			ctx.runTo(ctx.bar(0.75));
+			expect(ctx.controller.view.status).toBe('awaiting');
+			ctx.controller.answer('E');
+			ctx.runTo(ctx.bar(1) + 0.5);
+			expect(ctx.controller.view.status).toBe('verdict');
+			ctx.controller.answer('F');
+			ctx.controller.pause();
+			ctx.controller.answer('G');
+			expect(ctx.pushed).toEqual(['E', 'F']);
+		});
+
+		it('begins the transport in the meter of the first item’s exercise, and hands it to the plans', async () => {
+			const meters: Meter[] = [];
+			const ctx = setup(passage(), {
+				exercise: (id) => ({ ...exerciseById(id), meter: METER_3_4 }),
+				plans: (item, meter) => {
+					meters.push(meter);
+					return gesturePlan(item.item as ChordGridItem, meter);
+				}
+			});
+			await ctx.controller.start();
+			// ♩ = 120: the counted bar is three clicks, a bar lasts 1.5 s.
+			expect(clicksBetween(ctx, 0, 1.6)).toEqual([0.1, 0.6, 1.1]);
+			ctx.runTo(1.11);
+			expect(ctx.controller.view.countdown).toBe(1);
+			ctx.runTo(1.6);
+			expect(ctx.controller.view.status).toBe('awaiting');
+			expect(meters.length).toBeGreaterThan(0);
+			expect(meters.every((m) => m === METER_3_4)).toBe(true);
+		});
+
+		it('refuses an item of another meter than the series’', async () => {
+			const ctx = setup(
+				[...passage(), ...passage({ passage: 's:1', exerciseId: 'gesture-zone' })],
+				{
+					exercise: (id) => ({
+						...exerciseById(id),
+						...(id === 'gesture-zone' && { meter: METER_3_4 })
+					})
+				}
+			);
+			await ctx.controller.start();
+			expect(() => ctx.runTo(ctx.bar(3))).toThrow(new RangeError('a series keeps one meter'));
 		});
 	});
 });

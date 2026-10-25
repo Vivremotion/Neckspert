@@ -17,6 +17,9 @@ import type {
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
+/** Whether the click is heard on a scene: on the guitar, not while the player taps the screen. */
+export const SCENE_CLICKS: Readonly<Record<Scene, boolean>> = { guitar: true, screen: false };
+
 /** Names an observation source of the session: 'note' and 'chord' (played), 'tap' (on screen). */
 export type SensorKind = string;
 

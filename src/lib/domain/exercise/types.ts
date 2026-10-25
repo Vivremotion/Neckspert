@@ -1,4 +1,4 @@
-import type { Figure, Level, LevelParams } from '$lib/domain/time';
+import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
 export type MechanicId = string;
@@ -14,6 +14,8 @@ export interface ExerciseDefinition {
 	startTempoBpm?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;
+	/** The meter it is played in; absent: `METER_4_4`. */
+	meter?: Meter;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
 	/**

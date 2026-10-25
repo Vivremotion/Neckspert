@@ -6,7 +6,6 @@ import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
-import { METER_4_4 } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, Execution, PlannedItem } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
@@ -172,7 +171,7 @@ export function gestureSeries(
 			recorders.push(recorder);
 			return recorder;
 		},
-		plans: options.plans ?? ((item) => gesturePlan(item.item as ChordGridItem, METER_4_4)),
+		plans: options.plans ?? ((item, meter) => gesturePlan(item.item as ChordGridItem, meter)),
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,

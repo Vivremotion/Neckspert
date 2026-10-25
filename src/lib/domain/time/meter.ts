@@ -12,6 +12,16 @@ export interface Meter {
 
 export const METER_4_4: Meter = { count: 4, unit: Fraction.of(1, 4), grouping: [1, 1, 1, 1] };
 
+/** The same time signature: count, unit and grouping alike. */
+export function sameMeter(a: Meter, b: Meter): boolean {
+	return (
+		a.count === b.count &&
+		a.unit.compare(b.unit) === 0 &&
+		a.grouping.length === b.grouping.length &&
+		a.grouping.every((g, i) => g === b.grouping[i])
+	);
+}
+
 /** Null when the meter is well formed, else what is wrong with it. */
 export function validateMeter(meter: Meter): string | null {
 	if (!Number.isInteger(meter.count) || meter.count < 1) {

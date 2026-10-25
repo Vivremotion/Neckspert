@@ -21,7 +21,6 @@ import {
 	startTempo
 } from '$lib/domain/exercise';
 import { isTimed, locateRules, mechanicRules, type ChordGridItem } from '$lib/domain/mechanics';
-import { METER_4_4 } from '$lib/domain/time';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -121,7 +120,7 @@ export function createAppServices(
 					rules: (mechanic) => deps.mechanics[mechanic].rules
 				});
 			},
-			plans: (item) => gesturePlan(item.item as ChordGridItem, METER_4_4),
+			plans: (item, meter) => gesturePlan(item.item as ChordGridItem, meter),
 			exercise: deps.exercise ?? exerciseById,
 			locale: () => locale,
 			newId: deps.newId,

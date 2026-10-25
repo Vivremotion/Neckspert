@@ -8,6 +8,7 @@ import {
 	createTempoMap,
 	renderFigure,
 	renderSounds,
+	sameMeter,
 	type Accompaniment,
 	type Figure,
 	type Meter,
@@ -68,6 +69,8 @@ export class Transport {
 		listenInBars?: number;
 		/** False: play starts right after the listen-in, no count clicks. Default true. */
 		countIn?: boolean;
+		/** False: the counted bar is shown (`countdownAt`) but not heard. Default true. */
+		audible?: boolean;
 	}): Promise<{ map: TempoMap; playFrom: number }> {
 		const { clock, sounds } = this.deps;
 		this.checkMeter(input.accompaniment, input.meter);
@@ -90,7 +93,13 @@ export class Transport {
 		this.tempoMap = createTempoMap(origin, [{ ...input.tempo, at: Fraction.ZERO }]);
 		return {
 			map: this.tempoMap,
-			playFrom: this.listenInAndCount(0, input.accompaniment, listenInBars, countIn)
+			playFrom: this.listenInAndCount(
+				0,
+				input.accompaniment,
+				listenInBars,
+				countIn,
+				input.audible ?? true
+			)
 		};
 	}
 
@@ -126,11 +135,12 @@ export class Transport {
 
 	/**
 	 * `restBars` silent bars from `atBar` (nothing sounds), then one counted bar: every beat
-	 * clicked, accent on 1, `countdownAt` 4..1. Returns the bar play resumes at. Throws a
+	 * clicked, accent on 1, `countdownAt` 4..1; with `audible: false` nothing sounds, the count
+	 * is still shown. Returns the bar play resumes at. Throws a
 	 * `RangeError` when something is already scheduled at or past `atBar`, or `restBars` is
 	 * not a whole number >= 0.
 	 */
-	countIn(atBar: number, options: { restBars?: number } = {}): number {
+	countIn(atBar: number, options: { restBars?: number; audible?: boolean } = {}): number {
 		const restBars = options.restBars ?? 0;
 		if (!Number.isInteger(restBars) || restBars < 0) {
 			throw new RangeError(`rest must be a whole number of bars, got ${restBars}`);
@@ -142,7 +152,9 @@ export class Transport {
 			);
 		}
 		const counted = atBar + restBars;
-		this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
+		if (options.audible ?? true) {
+			this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
+		}
 		this.counted.add(counted);
 		this.scheduledUntilBar = counted + 1;
 		return counted + 1;
@@ -159,7 +171,7 @@ export class Transport {
 		atBar: number,
 		tempo: TempoSegment,
 		accompaniment: Accompaniment,
-		options: { listenInBars?: number; countIn?: boolean } = {}
+		options: { listenInBars?: number; countIn?: boolean; audible?: boolean } = {}
 	): { playFrom: number } {
 		this.checkMeter(accompaniment, this.meterOf());
 		const at = Fraction.of(atBar).mul(barLength(this.meterOf()));
@@ -178,7 +190,8 @@ export class Transport {
 				atBar,
 				accompaniment,
 				options.listenInBars ?? LISTEN_IN_BARS,
-				options.countIn ?? true
+				options.countIn ?? true,
+				options.audible ?? true
 			)
 		};
 	}
@@ -228,12 +241,16 @@ export class Transport {
 		return clickAccompaniment({ meter, beats, accent: [1], bars: ['on'] });
 	}
 
-	/** Listen-in bars from `fromBar`, then the counted bar if any. Returns the first bar to play. */
+	/**
+	 * Listen-in bars from `fromBar`, then the counted bar if any, heard unless `audible` is false.
+	 * Returns the first bar to play.
+	 */
 	private listenInAndCount(
 		fromBar: number,
 		accompaniment: Accompaniment,
 		listenInBars = LISTEN_IN_BARS,
-		countIn = true
+		countIn = true,
+		audible = true
 	): number {
 		const map = this.map;
 		const counted = fromBar + listenInBars;
@@ -242,20 +259,15 @@ export class Transport {
 			this.scheduledUntilBar = Math.max(this.scheduledUntilBar, counted);
 			return counted;
 		}
-		this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
+		if (audible) this.schedule(renderSounds(this.countClicks(), map, counted, counted + 1));
 		this.counted.add(counted);
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, counted + 1);
 		return counted + 1;
 	}
 
 	private checkMeter(accompaniment: Accompaniment, meter: Meter): void {
-		const m = accompaniment.figure.meter;
-		const same =
-			m.count === meter.count &&
-			m.unit.compare(meter.unit) === 0 &&
-			m.grouping.length === meter.grouping.length &&
-			m.grouping.every((g, i) => g === meter.grouping[i]);
-		if (!same) throw new RangeError("the accompaniment is not in the transport's meter");
+		if (!sameMeter(accompaniment.figure.meter, meter))
+			throw new RangeError("the accompaniment is not in the transport's meter");
 	}
 
 	private schedule(sounds: { time: number; sound: Parameters<SoundSchedulerPort['play']>[1] }[]) {
