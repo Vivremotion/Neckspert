@@ -152,7 +152,9 @@ class Procedure implements LearningProcedure {
 		}
 
 		const ladder = this.ladderOf(ref);
-		const state = ladderLevel(this.levelOf(ref), ladder);
+		const held = this.levelOf(ref);
+		const state = ladderLevel(held, ladder);
+		const clamped = state !== held;
 		const servedAided = this.levelParams(ref).aided;
 		// At the top, only a direct recall is a success; the level's own aid is not « aided ».
 		const success =
@@ -160,23 +162,26 @@ class Procedure implements LearningProcedure {
 				? this.subject.recall(ref.mechanic)(attempt)
 				: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
-		const level = nextLevelState(state, ladder, { success, aided: false }).state;
-		this.setLevel(level);
-		if (attempt.phase !== 'learning') return { level };
+		const next = nextLevelState(state, ladder, { success, aided: false }).state;
+		// A level a fast tempo only brought down to the top is kept as held (D7); a drop is written.
+		const keep = clamped && next.level === state.level;
+		const level = keep ? undefined : this.setLevel(next);
+		const outcome = level ? { level } : {};
+		if (attempt.phase !== 'learning') return outcome;
 
 		const entry = this.learning.get(attempt.cardKey);
 		if (learned) {
 			this.learning.delete(attempt.cardKey);
 			const marked = markLearned(card, now);
 			this.cards.set(marked.key, marked);
-			return { card: marked, level };
+			return { ...outcome, card: marked };
 		}
 		const servedAt = this.servedAt.get(attempt.cardKey);
 		if (entry && servedAt !== undefined) {
 			const [shortGap, longGap] = LEARN_RETEST_GAPS;
 			entry.dueAt = retestDueAt(servedAt, servedAided || !success ? shortGap : longGap);
 		}
-		return { level };
+		return outcome;
 	}
 
 	/** An attempt of a card the subject owns, played in the exercise it plays that mechanic in. */

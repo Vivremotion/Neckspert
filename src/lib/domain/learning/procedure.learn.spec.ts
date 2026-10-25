@@ -441,3 +441,27 @@ describe('createLearningProcedure record', () => {
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
 	});
 });
+
+describe('createLearningProcedure level above the ladder', () => {
+	// Leads 8 and 4 beats at 80 bpm: neither fits the threshold, so the ladder has levels 0 and 1.
+	const shortLadder = () =>
+		procedure({
+			subject: fakeSubject({ ladderSteps: [8, 4] }),
+			cards: [solid(0)],
+			levels: [levelAt(0, 2)]
+		});
+
+	it('keeps a level above the ladder when the attempt leaves it at the top', () => {
+		const source = shortLadder();
+		const outcome = source.record(played(0, 'review', { success: true, leadMs: 500 }), 100);
+		expect(outcome?.level).toBeUndefined();
+		expect(source.levelOf(ref(0)).level).toBe(2);
+	});
+
+	it('drops a level above the ladder from the top it is brought to, and says so', () => {
+		const source = shortLadder();
+		const outcome = source.record(played(0, 'review', { success: false }), 100);
+		expect(outcome?.level?.level).toBe(0);
+		expect(source.levelOf(ref(0)).level).toBe(0);
+	});
+});
