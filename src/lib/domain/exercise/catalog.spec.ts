@@ -16,12 +16,14 @@ describe('exercise catalog', () => {
 			id: 'locate-neck',
 			version: 1,
 			mechanic: 'locate',
+			view: 'note-lane',
 			params: { recallThresholdMs: 1500 }
 		});
 		expect(IDENTIFY_NECK).toEqual({
 			id: 'identify-neck',
 			version: 1,
 			mechanic: 'identify',
+			view: 'answer-keys',
 			params: { recallThresholdMs: 3000 }
 		});
 	});

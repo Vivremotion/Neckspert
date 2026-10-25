@@ -10,14 +10,14 @@ import {
 } from '$lib/domain/music';
 import { CHROMATIC_NOTES, type PitchName } from '$lib/domain/music/types';
 import type { PromptView, AnswerChoice } from '$lib/application/session/contract';
-import { noteVerdict, type NoteLaneModel } from './locate';
+import { noteVerdict, type NoteVerdictView } from './noteVerdict';
 import type { MechanicPresenter } from './types';
 
 /** The screen model of a note to name: its fret and string, the twelve names, how it went. */
 export interface AnswerKeysModel {
 	prompt: PromptView;
 	choices: AnswerChoice[];
-	verdict: NoteLaneModel['verdict'];
+	verdict: NoteVerdictView | null;
 }
 
 /** Name the note on the screen: the answer pad, silence, the tap sensor. */

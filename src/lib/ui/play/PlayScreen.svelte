@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { PlaySessionController, VerdictView } from '$lib/application/session/contract';
-	import type { ResponseVerdict, SessionKind } from '$lib/domain/types';
+	import type { PlaySessionController } from '$lib/application/session/contract';
+	import type { SessionKind } from '$lib/domain/types';
 	import { laneTiles, laneWindow } from './lane';
 	import { playMessages } from './messages';
+	import { captionOf, formatOffset, HITS } from './verdictLine';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import InfoLine from '$lib/ui/primitives/InfoLine.svelte';
@@ -13,9 +14,6 @@
 	import StringDiagram from './StringDiagram.svelte';
 	import AnswerPanel from './answer/AnswerPanel.svelte';
 	import { showsAnswerPad } from './answer/showsAnswerPad';
-
-	/** The verdicts of a success, said in the centre in the prompt's place. */
-	const HITS: ReadonlySet<ResponseVerdict> = new Set(['perfect', 'early', 'late', 'offbeat']);
 
 	let {
 		controller,
@@ -75,27 +73,9 @@
 	 * string itself; on the answer keyboard the correction is a note name, so the whole prompt.
 	 */
 	const correctionRecall = $derived(answering ? recall : (view.prompt?.primary ?? null));
-	const caption = $derived(verdict ? captionOf(verdict) : null);
+	const caption = $derived(verdict ? captionOf(verdict, t) : null);
 	/** A hit: its verdict, and its offset when timed, take the prompt's place. */
 	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
-
-	/** Signed, with a true minus: « +42 ms », « −8 ms », « 0 ms ». */
-	function formatOffset(ms: number): string {
-		const rounded = Math.round(ms);
-		const sign = rounded > 0 ? '+' : rounded < 0 ? '\u2212' : '';
-		return `${sign}${Math.abs(rounded)} ms`;
-	}
-
-	/** One line over the played cell: the verdict or what was played, then its offset when timed. */
-	function captionOf(v: VerdictView): string {
-		const said =
-			v.verdict === 'wrong'
-				? v.answerLabel
-					? t.playedAs(v.answerLabel)
-					: t.nothingHeard
-				: t.verdict[v.verdict].toLowerCase();
-		return v.offsetMs === null ? said : `${said} · ${formatOffset(v.offsetMs)}`;
-	}
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {

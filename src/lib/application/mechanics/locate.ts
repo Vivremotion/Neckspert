@@ -19,11 +19,10 @@ import {
 } from '$lib/domain/music';
 import { MAX_PROMPT_FRET, type Midi } from '$lib/domain/music/types';
 import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
-import type { ResponseValue } from '$lib/domain/time';
 import type { LocateData } from '$lib/domain/mechanics';
-import type { Locale, ResponseVerdict } from '$lib/domain/types';
 import type { LaneEntry, PromptView } from '$lib/application/session/contract';
 import type { NotePayload } from '$lib/application/session/sensors';
+import { noteVerdict, type NoteVerdictView } from './noteVerdict';
 import type { MechanicPresenter } from './types';
 
 /** Highest fret shown in a correction: fret 12 stands for the open string, which is never prompted. */
@@ -31,14 +30,6 @@ const CORRECTION_MAX_FRET = 12;
 
 /** Within this many cents of an accepted note, the detection log calls a note close. */
 const CLOSE_CENTS = 15;
-
-/** What the lane or the answer pad says of a settled round. */
-export interface NoteVerdictView {
-	verdict: ResponseVerdict;
-	offsetMs: number | null;
-	answerLabel: string | null;
-	correction: string | null;
-}
 
 /** The screen model of a note to play: the string first, then the note, then how it went. */
 export interface NoteLaneModel {
@@ -49,31 +40,6 @@ export interface NoteLaneModel {
 	promptBeat: number | null;
 	history: readonly LaneEntry[];
 	verdict: NoteVerdictView | null;
-}
-
-/**
- * The verdict a settled round tells of a note: its answer spelled as the prompt is, the
- * position or name after a miss, the offset from the beat.
- */
-export function noteVerdict(
-	presenter: Pick<MechanicPresenter, 'answerLabel' | 'reveal'>,
-	item: unknown,
-	value: ResponseValue,
-	locale: Locale,
-	random: () => number
-): NoteVerdictView {
-	const [asked] = value.expectations;
-	return {
-		verdict: value.verdict,
-		offsetMs: value.timingOffsetMs,
-		answerLabel:
-			asked?.answer == null ? null : presenter.answerLabel(asked.answer, item, locale, random),
-		correction: presenter.reveal(
-			item,
-			{ correct: asked?.correct === true, verdict: value.verdict },
-			locale
-		)
-	};
 }
 
 /** Play the note on the guitar: the lane, the clicks, the note sensor. */

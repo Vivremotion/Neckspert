@@ -20,6 +20,15 @@ describe('PlayFrame', () => {
 		expect(controller.calls).toEqual(['start']);
 	});
 
+	it('explains the notes before a learn or a free session', () => {
+		const controller = new StageController();
+		render(PlayFrame, { props: { controller, kind: 'learn' } });
+		expect(screen.getByText(/la note défile/i)).toBeTruthy();
+		cleanup();
+		render(PlayFrame, { props: { controller, kind: 'free' } });
+		expect(screen.getByText(/la note défile/i)).toBeTruthy();
+	});
+
 	it('shows the view its exercise names, from the registry', () => {
 		const controller = new StageController();
 		controller.view.status = 'awaiting';

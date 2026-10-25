@@ -7,6 +7,7 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	id: 'locate-neck',
 	version: 1,
 	mechanic: 'locate',
+	view: 'note-lane',
 	params: { recallThresholdMs: RECALL_THRESHOLD_MS }
 };
 
@@ -14,6 +15,7 @@ export const IDENTIFY_NECK: ExerciseDefinition = {
 	id: 'identify-neck',
 	version: 1,
 	mechanic: 'identify',
+	view: 'answer-keys',
 	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS }
 };
 
