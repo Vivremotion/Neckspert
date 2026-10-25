@@ -293,7 +293,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		const generation = ++this.generation;
 		this.log?.closeStop(this.deps.clock.now());
 		this.view.briefing = null;
-		const item = this.pending ?? this.choose(false);
+		// An item held through the pause starts no round once SESSION_MS is spent: no handover here.
+		const item = this.pending && this.spent() ? null : (this.pending ?? this.choose(false));
 		if (!item) {
 			void this.finish();
 			return;
@@ -627,9 +628,13 @@ export class ResponseSeriesController implements PlaySessionController {
 	private choose(handover: boolean): PlannedItem | null {
 		const item = this.takeNext();
 		if (!item) return null;
-		const spent = this.epochNow() - this.startedAt >= SESSION_MS;
-		if (spent && !(handover && this.chainable(item))) return null;
+		if (this.spent() && !(handover && this.chainable(item))) return null;
 		return item;
+	}
+
+	/** `SESSION_MS` has passed since the series started. */
+	private spent(): boolean {
+		return this.epochNow() - this.startedAt >= SESSION_MS;
 	}
 
 	private takeNext(): PlannedItem | null {

@@ -538,6 +538,24 @@ describe('stops and misses on the notes', () => {
 		expect(attempts[0]).toMatchObject({ cardKey: key, success: false });
 	});
 
+	it('ends on resume when SESSION_MS was spent during a pause in the breath', async () => {
+		const app = await notesApp({ cards: ALL_LOCATE, random: seeded(17) });
+		const controller = await startNotes(app, 'learn');
+		const [played] = await playRounds(app, controller, allRight, { rounds: 1 });
+		await runUntil(app, () => controller.view.status === 'verdict');
+		// In the breathing bar, the next note already chosen and held.
+		await runUntil(app, () => controller.timeline.nowBeat() >= (played.anchorBeat as number) + 1.5);
+		controller.pause();
+		expect(controller.view.status).toBe('paused');
+		app.clock.advance(SESSION_MS / 1000);
+		controller.resume();
+		await drain();
+		expect(controller.view.status).toBe('finished');
+		const attempts = await app.deps.attempts.listBySession(controller.sessionId);
+		expect(attempts).toHaveLength(1);
+		expect((await app.deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull();
+	});
+
 	it('offers no « Joué juste » on a note, even in development', async () => {
 		const app = await notesApp({ cards: ALL_LOCATE, development: true, random: seeded(19) });
 		const controller = await startNotes(app, 'learn');
