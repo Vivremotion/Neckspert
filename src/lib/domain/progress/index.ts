@@ -31,7 +31,6 @@ export {
 export { introductionOrder, nextNewCard } from './introduction';
 export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
-export { createLearnSelector } from './learnSelector';
 export { createTriadSelector, triadZoneOpen, type TriadMechanic } from './triadSelector';
 export { createGestureSelector } from './gestureSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';

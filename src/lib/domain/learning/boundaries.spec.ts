@@ -125,8 +125,8 @@ describe('the learning procedure', () => {
 			`${file}: application/app`
 		]);
 		// Only the allowed modules of the domain.
-		expect(offendersIn({ [file]: `import { x } from '../progress/learnSelector';` })).toEqual([
-			`${file}: domain/progress/learnSelector`
+		expect(offendersIn({ [file]: `import { x } from '../progress/triadSelector';` })).toEqual([
+			`${file}: domain/progress/triadSelector`
 		]);
 		expect(
 			offendersIn({

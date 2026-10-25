@@ -22,7 +22,6 @@ describe('progress index', () => {
 			'cardStatus',
 			'introductionOrder',
 			'nextNewCard',
-			'createLearnSelector',
 			'createListSource',
 			'buildFreePlan',
 			'freeLeadOf',
