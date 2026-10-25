@@ -390,7 +390,7 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
-	it('keeps a short lead played at a fast tempo', async () => {
+	it('serves a short lead at the top of the ladder at a fast tempo, and writes that level', async () => {
 		const card = locate(6, 'G');
 		// Learned at lead 2 (level 2 at ♩ = 80); ♩ = 160 brings the ladder to 8, 4.
 		const app = await notesApp({
@@ -406,11 +406,10 @@ describe('a learn session of the notes', () => {
 		const attempts = await quitAndRead(app, controller);
 		expect(controller.view.tempoBpm).toBe(160);
 		expect(keyOf(played.card)).toBe(keyOf(card));
-		// Served at lead 4, played right: its stored level stays 2 for a slower session, untouched
-		// (a review at the top leaves a level held above it as it was, its runs included).
+		// Served at lead 4, played right: its level is written as played, at the top of this ladder.
 		expect((played.anchorBeat as number) - (played.promptBeat as number)).toBe(4);
 		expect(attempts[0]).toMatchObject({ leadBeats: 4, temperature: 'cold', success: true });
-		expect(await app.deps.levels.get(levelOf(card, 2))).toEqual(levelOf(card, 2));
+		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 1, successes: 1 });
 	});
 
 	it('ends after SESSION_MS once the round under way settles, and moves the locate tempo', async () => {

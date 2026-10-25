@@ -451,14 +451,14 @@ describe('createLearningProcedure level above the ladder', () => {
 			levels: [levelAt(0, 2)]
 		});
 
-	it('keeps a level above the ladder when the attempt leaves it at the top', () => {
+	it('writes a level above the ladder at the top it was played at', () => {
 		const source = shortLadder();
 		const outcome = source.record(played(0, 'review', { success: true, leadMs: 500 }), 100);
-		expect(outcome?.level).toBeUndefined();
-		expect(source.levelOf(ref(0)).level).toBe(2);
+		expect(outcome?.level).toMatchObject({ level: 1, successes: 1 });
+		expect(source.levelOf(ref(0))).toMatchObject({ level: 1, successes: 1 });
 	});
 
-	it('drops a level above the ladder from the top it is brought to, and says so', () => {
+	it('drops a level above the ladder from the top it is brought to', () => {
 		const source = shortLadder();
 		const outcome = source.record(played(0, 'review', { success: false }), 100);
 		expect(outcome?.level?.level).toBe(0);
