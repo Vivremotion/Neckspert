@@ -347,6 +347,19 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
+	it('keeps a named note off the note lane that follows', async () => {
+		// A name to tap due, then a new note to play: identify, a counted bar, locate.
+		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
+		const controller = await startNotes(app, 'learn');
+		const [named, played] = await playRounds(app, controller, allRight, { rounds: 2 });
+		expect([named.card.mechanic, played.card.mechanic]).toEqual(['identify', 'locate']);
+		// Settled, the lane of the note shows its own tile, none for the name tapped before it.
+		expect(lane(controller)?.history).toEqual([
+			{ beatIndex: played.anchorBeat, verdict: 'perfect' }
+		]);
+		await quitAndRead(app, controller);
+	});
+
 	it('keeps a short lead played at a fast tempo', async () => {
 		const card = locate(6, 'G');
 		// Learned at lead 2 (level 2 at ♩ = 80); ♩ = 160 brings the ladder to 8, 4.

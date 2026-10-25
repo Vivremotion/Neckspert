@@ -724,7 +724,10 @@ export class ResponseSeriesController implements PlaySessionController {
 			);
 		}
 		if (detectFatigue(recorder.sessionAttempts)) this.view.fatigueDetected = true;
-		this.history = [...this.history, { beatIndex: round.anchorBeat, verdict: value.verdict }];
+		// A round in free time has no place on the beat: no tile on the lane.
+		if (!inFreeTime(round.plan)) {
+			this.history = [...this.history, { beatIndex: round.anchorBeat, verdict: value.verdict }];
+		}
 		this.offerContest(round, outcome);
 		if (this.contestRound === round && this.contestWanted) {
 			this.contestWanted = false;
