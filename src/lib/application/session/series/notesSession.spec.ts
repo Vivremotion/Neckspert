@@ -487,6 +487,30 @@ describe('a learn session of the notes', () => {
 	});
 });
 
+describe('notes across sessions', () => {
+	it('serves in the next session the level the recorder wrote in this one', async () => {
+		const card = locate(5, 'C');
+		// At ♩ = 80 the ladder is 8, 4, 2: level 1 plays at lead 4, level 2 at lead 2.
+		const app = await notesApp({ cards: [learnedCard(card)], levels: [levelOf(card, 1)] });
+		const first = await startNotes(app, 'learn');
+		const [before] = await playRounds(app, first, allRight, { rounds: 1 });
+		await runUntil(app, () => first.view.status === 'verdict');
+		await quitAndRead(app, first);
+		expect(keyOf(before.card)).toBe(keyOf(card));
+		expect((before.anchorBeat as number) - (before.promptBeat as number)).toBe(4);
+		expect(await app.deps.levels.get(levelOf(card, 0))).toMatchObject({ level: 2 });
+
+		// Due again a month later, on the same stores.
+		app.clock.advance(30 * 24 * 3600);
+		const second = await startNotes(app, 'learn');
+		const [after] = await playRounds(app, second, allRight, { rounds: 1 });
+		await quitAndRead(app, second);
+		expect(second.sessionId).not.toBe(first.sessionId);
+		expect(keyOf(after.card)).toBe(keyOf(card));
+		expect((after.anchorBeat as number) - (after.promptBeat as number)).toBe(2);
+	});
+});
+
 describe('a free session of the notes', () => {
 	it('never prompts an open string', async () => {
 		const app = await notesApp({ random: seeded(13) });
