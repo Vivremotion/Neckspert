@@ -96,7 +96,9 @@ export interface MechanicPresenter<I = any, A = any> {
 	 * The screen model of a prompt on the target model: before its round (`settled` null) and
 	 * once settled, from the round's response value; `place` tells the view where it stands, and
 	 * `drawing` how its chord shapes are drawn (the settings' style, default
-	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one).
+	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one). `random` spells a note:
+	 * the series gives every call for one item the same value, so a note is written alike from
+	 * its preview to its settlement.
 	 * Beside `stage`, which the one-answer controller keeps until the migration.
 	 */
 	stageOf?(
@@ -105,7 +107,8 @@ export interface MechanicPresenter<I = any, A = any> {
 		locale: Locale,
 		aids: { aid: AidLevel; stringAid: boolean },
 		place: StagePlace,
-		drawing?: { chordDiagram: ChordDiagramStyle }
+		drawing: { chordDiagram: ChordDiagramStyle } | undefined,
+		random: () => number
 	): { model: unknown };
 	/** The mechanic's `Attempt.data` for a round answered with `value`. */
 	attemptData?(item: I, value: ResponseValue): unknown;

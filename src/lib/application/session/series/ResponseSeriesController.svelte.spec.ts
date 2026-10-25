@@ -283,6 +283,30 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.timeline.nowBeat()).toBeCloseTo(4.02, 2);
 		});
 
+		it('spells an item alike from its preview to its settlement', async () => {
+			const seen: number[] = [];
+			const presenter: MechanicPresenter = {
+				...GESTURE_PRESENTERS['chord-grid'],
+				stageOf: (_item, _settled, _locale, _aids, _place, _drawing, random) => {
+					seen.push(random());
+					return { model: {} };
+				}
+			};
+			let drawn = 0;
+			const ctx = setup(passage(), {
+				mechanics: { 'chord-grid': presenter },
+				random: () => ++drawn / 100
+			});
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.runTo(ctx.bar(2) - 0.2);
+			expect(seen.length).toBeGreaterThan(2);
+			// One draw per item taken: the first item's preview, round and settlement share it.
+			expect(seen[0]).toBe(0.01);
+			expect(seen.filter((v) => v === 0.01).length).toBeGreaterThanOrEqual(3);
+		});
+
 		it('names its exercise’s view and places the settled changes in its history', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.start();

@@ -142,6 +142,8 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** The round offered to « Joué juste », and whether it was pressed before its attempt was written. */
 	private contestRound: OpenRound | null = null;
+	/** The value drawn for each item taken from the source: it spells the item's notes alike. */
+	private readonly spelling = new WeakMap<PlannedItem, number>();
 	private contestWanted = false;
 
 	/** What happened, segment by segment; null before the series starts. */
@@ -623,13 +625,14 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	private takeNext(): PlannedItem | null {
 		const now = this.epochNow();
-		return (
+		const item =
 			this.source?.next({
 				now,
 				elapsedMs: now - this.startedAt,
 				fatigued: this.view.fatigueDetected
-			}) ?? null
-		);
+			}) ?? null;
+		if (item) this.spelling.set(item, this.deps.random());
+		return item;
 	}
 
 	/** Goes on without a gap: no counted bar asked, the same tempo, the same scene. */
@@ -780,6 +783,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		anchorBeat: number | null,
 		promptBeat: number | null
 	): void {
+		const spelled = this.spelling.get(item) ?? 0;
 		const staged = this.items
 			.presenterOf(item)
 			.stageOf?.(
@@ -788,7 +792,8 @@ export class ResponseSeriesController implements PlaySessionController {
 				this.deps.locale(),
 				{ aid: item.aid, stringAid: item.stringAid ?? false },
 				{ anchorBeat, promptBeat, history: [...this.history] },
-				{ chordDiagram: chordDiagramFor(this.items.definitionOf(item), this.settings) }
+				{ chordDiagram: chordDiagramFor(this.items.definitionOf(item), this.settings) },
+				() => spelled
 			);
 		this.view.stage = staged
 			? { view: this.items.definitionOf(item).view ?? DEFAULT_PLAY_VIEW, model: staged.model }

@@ -124,7 +124,8 @@ export function createAppServices(
 			exercise: deps.exercise ?? exerciseById,
 			locale: () => locale,
 			newId: deps.newId,
-			development: deps.development ?? false
+			development: deps.development ?? false,
+			random: deps.random
 		});
 	};
 

@@ -131,6 +131,7 @@ export function gestureSeries(
 		mechanics?: ResponseSeriesDeps['mechanics'];
 		/** Sensors beside the chord sensor. */
 		sensors?: ResponseSeriesDeps['sensors'];
+		random?: () => number;
 	} = {}
 ) {
 	const clock = new FakeClock();
@@ -175,7 +176,8 @@ export function gestureSeries(
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,
-		development: options.development ?? false
+		development: options.development ?? false,
+		random: options.random ?? (() => 0)
 	};
 	const prepared: string[] = [];
 	const controller = new ResponseSeriesController(

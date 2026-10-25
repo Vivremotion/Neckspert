@@ -333,7 +333,9 @@ describe('chordGridPresenter', () => {
 						null,
 						'fr',
 						{ aid, stringAid: false },
-						place
+						place,
+						undefined,
+						() => 0
 					);
 					expect(before.model).toEqual({
 						...(chordGridPresenter.stage!(it, null, 'fr', { aid }).model as object),
@@ -354,7 +356,9 @@ describe('chordGridPresenter', () => {
 							settled,
 							'fr',
 							{ aid, stringAid: false },
-							place
+							place,
+							undefined,
+							() => 0
 						).model as GridStageModel;
 						// Drawn after a wrong chord or none, as the old verdict: an offbeat played the right one.
 						expect(model.miss !== null).toBe(settled.value.verdict === 'wrong');
@@ -378,7 +382,8 @@ describe('chordGridPresenter', () => {
 					'fr',
 					{ aid: 'none', stringAid: false },
 					place,
-					drawing
+					drawing,
+					() => 0
 				).model as GridStageModel;
 			const feedback = chordGridPresenter.feedback!(
 				jam,
@@ -397,7 +402,9 @@ describe('chordGridPresenter', () => {
 				{ value: valueOf('wrong', null), success: false },
 				'fr',
 				{ aid: 'none', stringAid: false },
-				place
+				place,
+				undefined,
+				() => 0
 			).model as LinkLaneModel;
 			expect(linked.miss).toMatchObject({ heard: null, style: 'strings' });
 		});

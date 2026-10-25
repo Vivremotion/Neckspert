@@ -161,7 +161,8 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			exercise: exerciseById,
 			locale,
 			newId: () => `demo-gesture-${++ids}`,
-			development: true
+			development: true,
+			random: Math.random
 		}
 	);
 
