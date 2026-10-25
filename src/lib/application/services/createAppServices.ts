@@ -11,7 +11,6 @@ import { PlanSessionController } from '$lib/application/session/plan/PlanSession
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, gesturePlan, openElements } from '$lib/domain/gesture';
 import {
-	DEFAULT_TEMPO_BPM,
 	exerciseById,
 	type ExerciseDefinition,
 	IDENTIFY_NECK,
@@ -20,13 +19,12 @@ import {
 	TRIADS_ZONE,
 	startTempo
 } from '$lib/domain/exercise';
-import { isTimed, locateRules, mechanicRules, type ChordGridItem } from '$lib/domain/mechanics';
+import { locateRules, type ChordGridItem } from '$lib/domain/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
 	computeHomeStats,
-	createLearnSelector,
 	createGestureSelector,
 	createListSource,
 	createTriadSelector,
@@ -38,12 +36,17 @@ import {
 	reviewableCards,
 	summarizeSession
 } from '$lib/domain/progress';
+import { neckPlan } from '$lib/domain/progress/neckPlans';
+import { neckSubject } from '$lib/domain/progress/neckSubject';
+import { createLearningProcedure, type DirectRecall } from '$lib/domain/learning';
+import type { PlanSource } from '$lib/application/session/series/planSource';
 import { triadNotesToLearn } from '$lib/domain/triads';
 import {
 	isTriadsKind,
 	type Attempt,
 	type CardState,
 	type ExerciseSummary,
+	type MechanicId,
 	type Execution,
 	type Progression,
 	type SessionKind,
@@ -59,43 +62,32 @@ export function createAppServices(
 		development?: boolean;
 	}
 ): AppServices {
+	/** What a series prepares: its source, its executions, and its mechanics' direct recall. */
+	type PreparedSeries = {
+		source: ItemSource;
+		executions: Execution[];
+		recall?: (mechanic: MechanicId) => DirectRecall;
+	};
+
 	/**
-	 * A gesture session, played on the response series: the gesture selector serves the open
-	 * exercises in the order of the ladder, each change a round of `gesturePlan`.
+	 * A session on the response series: `prepare` reads the stores again for each series, so a
+	 * new one starts at the tempo and the levels the last one reached; each change or note is a
+	 * round of `plans`.
 	 */
-	const startGesture = async (): Promise<ResponseSeriesController> => {
+	const responseSeries = async (
+		kind: SessionKind,
+		prepareSeries: (sessionId: string) => Promise<PreparedSeries>,
+		plans: PlanSource
+	): Promise<ResponseSeriesController> => {
 		const { locale } = await deps.settings.get();
-		/** The selector of each series, by session id: its recorder is told about it. */
-		const sources = new Map<string, ItemSource>();
+		/** What each series prepared, by session id: its recorder is told about it. */
+		const prepared = new Map<string, PreparedSeries>();
 		const prepare = async (sessionId: string) => {
-			const [cards, attempts, progressions] = await Promise.all([
-				deps.cards.all(),
-				deps.attempts.all(),
-				deps.progressions.all()
-			]);
-			// The open exercises in the order of the ladder: one tempo per grid open in each,
-			// one for the link, which plays no grid.
-			const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
-			const executions: Execution[] = definitions.flatMap((definition) => {
-				const grids = [
-					...new Set(openElements(definition, cards).map((element) => element.gridId))
-				];
-				return grids.map((scope) => ({
-					exerciseId: definition.id,
-					...(scope !== undefined && { scope }),
-					tempoBpm: startTempo(definition, progressions, scope)
-				}));
-			});
-			const source = createGestureSelector({
-				definitions,
-				cards,
-				attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
-				sessionId
-			});
-			sources.set(sessionId, source);
-			return { source, executions };
+			const series = await prepareSeries(sessionId);
+			prepared.set(sessionId, series);
+			return { source: series.source, executions: series.executions };
 		};
-		return new ResponseSeriesController({ id: deps.newId(), kind: 'gesture' }, prepare, {
+		return new ResponseSeriesController({ id: deps.newId(), kind }, prepare, {
 			clock: deps.clock,
 			sounds: deps.sounds,
 			detector: deps.detector,
@@ -108,19 +100,20 @@ export function createAppServices(
 				progressions: deps.progressions
 			},
 			recorderFor: (sessionId) => {
-				const selector = sources.get(sessionId);
-				if (!selector) throw new Error(`No series prepared for session ${sessionId}`);
+				const series = prepared.get(sessionId);
+				if (!series) throw new Error(`No series prepared for session ${sessionId}`);
 				return new AttemptRecorder({
 					attempts: deps.attempts,
 					cards: deps.cards,
 					clock: deps.clock,
 					now: deps.now,
-					selector,
+					selector: series.source,
 					sessionId,
-					rules: (mechanic) => deps.mechanics[mechanic].rules
+					rules: (mechanic) => deps.mechanics[mechanic].rules,
+					...(series.recall && { recall: series.recall, levels: deps.levels })
 				});
 			},
-			plans: (item, meter) => gesturePlan(item.item as ChordGridItem, meter),
+			plans,
 			exercise: deps.exercise ?? exerciseById,
 			locale: () => locale,
 			newId: deps.newId,
@@ -128,6 +121,92 @@ export function createAppServices(
 			random: deps.random
 		});
 	};
+
+	/**
+	 * A gesture session, played on the response series: the gesture selector serves the open
+	 * exercises in the order of the ladder, each change a round of `gesturePlan`.
+	 */
+	const startGesture = () =>
+		responseSeries(
+			'gesture',
+			async (sessionId) => {
+				const [cards, attempts, progressions] = await Promise.all([
+					deps.cards.all(),
+					deps.attempts.all(),
+					deps.progressions.all()
+				]);
+				// The open exercises in the order of the ladder: one tempo per grid open in each,
+				// one for the link, which plays no grid.
+				const definitions = GESTURE_EXERCISES.filter((definition) =>
+					gestureOpen(definition, cards)
+				);
+				const executions: Execution[] = definitions.flatMap((definition) => {
+					const grids = [
+						...new Set(openElements(definition, cards).map((element) => element.gridId))
+					];
+					return grids.map((scope) => ({
+						exerciseId: definition.id,
+						...(scope !== undefined && { scope }),
+						tempoBpm: startTempo(definition, progressions, scope)
+					}));
+				});
+				const source = createGestureSelector({
+					definitions,
+					cards,
+					attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+					sessionId
+				});
+				return { source, executions };
+			},
+			(item, meter) => gesturePlan(item.item as ChordGridItem, meter)
+		);
+
+	/**
+	 * A session of the notes, played on the response series: learn on the learning procedure,
+	 * with the levels stored, free play on a fixed list; each note a round of `neckPlan`.
+	 */
+	const startNotes = (kind: 'learn' | 'free') =>
+		responseSeries(
+			kind,
+			async (sessionId) => {
+				const [cards, attempts, progressions, levels] = await Promise.all([
+					deps.cards.all(),
+					deps.attempts.all(),
+					deps.progressions.all(),
+					deps.levels.all()
+				]);
+				// Locate plays on the click at its own tempo; identify is answered in free time.
+				const executions: Execution[] = [
+					{ exerciseId: LOCATE_NECK.id, tempoBpm: startTempo(LOCATE_NECK, progressions) },
+					{ exerciseId: IDENTIFY_NECK.id, tempoBpm: null }
+				];
+				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
+				const subject = neckSubject({
+					definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK },
+					priority: triadNotesToLearn(cards)
+				});
+				const neckCards = cards.filter(isNeck);
+				const source =
+					kind === 'free'
+						? createListSource(buildFreePlan({ cards: neckCards, random: deps.random }))
+						: createLearningProcedure({
+								subject,
+								cards: neckCards,
+								attempts: attempts.filter(isNeck),
+								levels,
+								sessionId,
+								// The ladders fit the leads to a tempo: identify plays without one.
+								tempos: Object.fromEntries(
+									executions.flatMap(({ exerciseId, tempoBpm }) =>
+										tempoBpm === null ? [] : [[exerciseId, tempoBpm]]
+									)
+								),
+								random: deps.random
+							});
+				return { source, executions, recall: (mechanic) => subject.recall(mechanic) };
+			},
+			neckPlan
+		);
 
 	/** The series of a session still in memory, and the runs whose take is still held. */
 	const seriesInMemory = (
@@ -293,6 +372,7 @@ export function createAppServices(
 			// An exercise session needs its exercise: recorded without it, no backup would import.
 			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
 			if (kind === 'gesture') return startGesture();
+			if (kind === 'learn' || kind === 'free') return startNotes(kind);
 			/** One triads exercise, at its own tempo, on the triad selector. */
 			const prepareTriads = (
 				mechanic: TriadMechanic,
@@ -322,6 +402,7 @@ export function createAppServices(
 				});
 				return { selector, executions };
 			};
+			const mechanic: TriadMechanic = kind === 'triads-zone' ? 'triad-zone' : 'triad-anchor';
 			// Read again for each series, so a new one starts at the tempo the last one reached.
 			const prepare = async (sessionId: string) => {
 				const [cards, attempts, progressions] = await Promise.all([
@@ -329,34 +410,7 @@ export function createAppServices(
 					deps.attempts.all(),
 					deps.progressions.all()
 				]);
-				if (kind === 'triads')
-					return prepareTriads('triad-anchor', sessionId, cards, attempts, progressions);
-				if (kind === 'triads-zone')
-					return prepareTriads('triad-zone', sessionId, cards, attempts, progressions);
-				const executions: Execution[] = [LOCATE_NECK, IDENTIFY_NECK].map((e) => {
-					const rules = mechanicRules(e.mechanic);
-					return {
-						exerciseId: e.id,
-						tempoBpm: isTimed(rules) && rules.timing.usesTempo ? startTempo(e, progressions) : null
-					};
-				});
-				// The learn selector fits learned leads to the locate tempo.
-				const locateTempo =
-					executions.find((e) => e.exerciseId === LOCATE_NECK.id)?.tempoBpm ?? DEFAULT_TEMPO_BPM;
-				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
-				const neckCards = cards.filter(isNeck);
-				const selector =
-					kind === 'free'
-						? createListSource(buildFreePlan({ cards: neckCards, random: deps.random }))
-						: createLearnSelector({
-								cards: neckCards,
-								attempts: attempts.filter(isNeck),
-								sessionId,
-								tempoBpm: locateTempo,
-								random: deps.random,
-								priority: triadNotesToLearn(cards)
-							});
-				return { selector, executions };
+				return prepareTriads(mechanic, sessionId, cards, attempts, progressions);
 			};
 			return new SessionController({ id: deps.newId(), kind }, prepare, deps);
 		},

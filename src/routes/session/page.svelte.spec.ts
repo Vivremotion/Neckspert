@@ -19,7 +19,8 @@ vi.mock('$app/state', () => ({
 function idleController(): PlaySessionController {
 	return {
 		sessionId: 's1',
-		view: { status: 'idle', stage: null, briefing: null },
+		view: { status: 'idle', stage: null, briefing: null, history: [], beatsPerBar: 4 },
+		timeline: { nowBeat: () => 0 },
 		start: async () => {},
 		pause: () => {},
 		resume: () => {},
@@ -82,5 +83,34 @@ describe('/session page, when the session cannot start', () => {
 		await waitFor(() => expect(screen.getByText('Pas d’entrée audio')).toBeTruthy());
 		const home = screen.getByRole('link', { name: 'Retour à l’accueil' });
 		expect(home.getAttribute('href')).toBe('/');
+	});
+});
+
+describe('/session page, the notes and the triads', () => {
+	afterEach(() => {
+		cleanup();
+	});
+
+	it.each([['learn'], ['free']])(
+		'shows a %s session in the play frame, its instruction made ready',
+		async (kind) => {
+			nav.search = `?kind=${kind}`;
+			const ready = vi.fn(async () => {});
+			const startSession = vi.fn(async () => ({ ...idleController(), ready }));
+			const services = createFakeAppServices({ startSession });
+			const { container } = render(SessionHarness, { props: { services } });
+			await waitFor(() => expect(startSession).toHaveBeenCalledWith(kind));
+			await waitFor(() => expect(container.querySelector('[data-world="quiet"]')).toBeTruthy());
+			expect(ready).toHaveBeenCalled();
+		}
+	);
+
+	it('keeps the triads on their play screen', async () => {
+		nav.search = '?kind=triads';
+		const startSession = vi.fn(async () => idleController());
+		const services = createFakeAppServices({ startSession });
+		const { container } = render(SessionHarness, { props: { services } });
+		await waitFor(() => expect(container.querySelector('[data-status]')).toBeTruthy());
+		expect(container.querySelector('[data-world]')).toBeNull();
 	});
 });

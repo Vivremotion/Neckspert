@@ -8,6 +8,7 @@
 	import { exerciseFromQuery } from '$lib/application/session/exerciseFromQuery';
 	import { finishDestination } from '$lib/application/session/finishDestination';
 	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
+	import { isTriadsKind } from '$lib/domain/types';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 	import { sessionPageMessages } from './messages';
@@ -18,8 +19,8 @@
 	const t = $derived(sessionPageMessages());
 	const kind = $derived(sessionKindFromQuery(page.url.searchParams.get('kind')));
 
-	/** The common frame shows the exercise's own view: the gesture track and the rhythm exercises. */
-	const framed = $derived(kind === 'gesture' || kind === 'exercise');
+	/** The common frame shows the exercise's own view: every session but the triads'. */
+	const framed = $derived(!isTriadsKind(kind));
 
 	onMount(async () => {
 		try {
@@ -65,7 +66,7 @@
 		<a href={resolve('/')}>{t.home}</a>
 	</div>
 {:else if controller && framed}
-	<!-- The gesture track and the rhythm exercises show their view in the common frame; notes and triads keep their screen. -->
+	<!-- The notes, the gesture track and the rhythm exercises show their view in the common frame; the triads keep their screen. -->
 	<PlayFrame {controller} {kind} quitToSummary />
 {:else if controller}
 	<PlayScreen {controller} {kind} quitToSummary />

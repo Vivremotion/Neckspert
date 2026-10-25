@@ -1,21 +1,15 @@
-import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
+import { identifyPresenter, type AnswerKeysModel } from '$lib/application/mechanics/identify';
 import type {
 	PlaySessionController,
 	PlayTimeline,
 	PlayView
 } from '$lib/application/session/contract';
-import { identifyRules } from '$lib/domain/mechanics';
-import {
-	answerChoiceLabel,
-	fretLabel,
-	pitchOnString,
-	stringLabel,
-	type IdentifyItem
-} from '$lib/domain/music';
+import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK } from '$lib/domain/exercise';
+import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { answerChoiceLabel, pitchOnString, type IdentifyItem } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
-import { identifyTiming } from '$lib/domain/timing';
+import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
-import { identifyChoices } from './choices';
 
 /** Demo prompts: F, F#, G, G#, D. */
 export const DEMO_IDENTIFY_SCRIPT: readonly IdentifyItem[] = [
@@ -29,7 +23,13 @@ export const DEMO_IDENTIFY_SCRIPT: readonly IdentifyItem[] = [
 /** How long the demo shows a verdict before the next prompt. */
 export const DEMO_VERDICT_MS = 1200;
 
-/** Scripted mode 2 session without audio, for the demo page and tests. */
+/** A name given within the exercise's recall threshold is perfect, later late. */
+const RECALL_THRESHOLD_MS = recallThresholdOf(IDENTIFY_NECK) ?? 0;
+
+/**
+ * Scripted mode 2 session without audio, for the demo page and tests: it fills the stage with
+ * the answer keys' model, as the identify presenter draws it.
+ */
 export class DemoIdentifySession implements PlaySessionController {
 	readonly sessionId = 'demo-identify';
 	view = $state<PlayView>({
@@ -45,7 +45,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		contest: null,
 		leadBeats: null,
 		history: [],
-		answerChoices: identifyChoices(),
+		answerChoices: null,
 		fatigueDetected: false,
 		scene: 'screen',
 		countdown: null,
@@ -67,10 +67,14 @@ export class DemoIdentifySession implements PlaySessionController {
 		this.verdictMs = verdictMs;
 	}
 
+	/** The answer keys on stage, when the demo shows them. */
+	get keys(): AnswerKeysModel | null {
+		return this.view.stage ? (this.view.stage.model as AnswerKeysModel) : null;
+	}
+
 	async start(): Promise<void> {
 		if (this.view.status !== 'idle' && this.view.status !== 'finished') return;
 		this.index = 0;
-		this.view.lastVerdict = null;
 		this.showPromptOrFinish();
 	}
 
@@ -85,33 +89,29 @@ export class DemoIdentifySession implements PlaySessionController {
 	}
 
 	answer(value: string): void {
+		const keys = this.keys;
+		if (this.view.status !== 'awaiting' || !keys) return;
 		const pitch = value as PitchName;
-		if (this.view.status !== 'awaiting') return;
 		const target = this.script[this.index];
-		const judged = identifyRules.judge(target, pitch);
-		// Seconds since the epoch stand in for the audio clock: the round only measures the delay.
-		const promptTime = this.promptedAt / 1000;
-		const round = identifyTiming.open({
-			planned: { leadBeats: null },
-			promptBeat: 0,
-			now: promptTime,
-			beatTime: () => promptTime,
-			secondsPerBeat: 60 / this.view.tempoBpm
-		});
-		const event = round.observe({
-			time: Date.now() / 1000,
-			correct: judged.correct,
-			answer: judged.answer
-		});
-		if (event.kind !== 'settled') return;
-		const { verdict, reactionMs } = event.outcome;
-		this.view.lastVerdict = {
-			verdict,
-			offsetMs: null,
-			reactionMs,
-			answerLabel: answerChoiceLabel(pitch),
-			correction:
-				verdict === 'wrong' ? answerChoiceLabel(pitchOnString(target.string, target.fret)) : null
+		const right = pitchOnString(target.string, target.fret);
+		const reactionMs = Date.now() - this.promptedAt;
+		const verdict: ResponseVerdict =
+			pitch !== right ? 'wrong' : reactionMs <= RECALL_THRESHOLD_MS ? 'perfect' : 'late';
+		this.view.stage = {
+			view: 'answer-keys',
+			model: {
+				...keys,
+				verdict: {
+					verdict,
+					offsetMs: null,
+					answerLabel: answerChoiceLabel(pitch),
+					correction: identifyPresenter.reveal(
+						target,
+						{ correct: pitch === right, verdict },
+						i18n.locale
+					)
+				}
+			} satisfies AnswerKeysModel
 		};
 		this.view.status = 'verdict';
 		this.timer = setTimeout(() => {
@@ -136,18 +136,25 @@ export class DemoIdentifySession implements PlaySessionController {
 			this.finish();
 			return;
 		}
-		this.view.prompt = {
-			primary: fretLabel(target.fret, i18n.locale),
-			secondary: stringLabel(target.string, i18n.locale),
-			aid: null,
-			diagram: null
+		this.view.stage = {
+			view: 'answer-keys',
+			model: {
+				prompt: identifyPresenter.prompt(
+					target,
+					{ aid: 'none', stringAid: false },
+					i18n.locale,
+					Math.random
+				),
+				choices: identifyPresenter.answerChoices!(),
+				verdict: null
+			} satisfies AnswerKeysModel
 		};
 		this.promptedAt = Date.now();
 		this.view.status = 'awaiting';
 	}
 
 	private finish(): void {
-		this.view.prompt = null;
+		this.view.stage = null;
 		this.view.status = 'finished';
 	}
 }

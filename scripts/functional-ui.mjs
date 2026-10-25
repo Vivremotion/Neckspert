@@ -233,9 +233,14 @@ try {
 				return {
 					labels: buttons.map((b) => b.getAttribute('aria-label')),
 					group: document.querySelector('[role="group"]')?.getAttribute('aria-label'),
-					status: document.querySelector('.play')?.getAttribute('data-status'),
+					status: document.querySelector('[data-status]')?.getAttribute('data-status'),
+					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					keys: Boolean(document.querySelector('.answer-keys')),
 					lane: Boolean(document.querySelector('.lane')),
-					prompt: document.body.innerText.includes('case 8')
+					prompt: document.body.innerText.includes('case 8'),
+					texts: [...document.querySelectorAll('body *')]
+						.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+						.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))
 				};
 			}`
 		);
@@ -246,6 +251,12 @@ try {
 			assert(
 				before.labels.some((l) => l === 'F# / Gb'),
 				'les altérations affichent dièse et bémol'
+			)
+		);
+		check(
+			assert(
+				before.world === 'quiet' && before.keys,
+				`le cadre de jeu montre le clavier de réponse, au calme (${before.world})`
 			)
 		);
 		check(assert(before.lane === false, 'la piste est absente en mode 2'));
@@ -271,6 +282,7 @@ try {
 			)
 		);
 		check(assert(after.text.includes('C joué'), 'la note jouée s’affiche après le toucher'));
+		noteTiny('identify', before.texts);
 	}
 
 	console.log('\nMode 1 /session/demo');
@@ -278,11 +290,22 @@ try {
 		const call = await open('http://127.0.0.1:5180/session/demo');
 		const page = await evaluate(
 			call,
-			`() => ({
-				status: document.querySelector('.play')?.getAttribute('data-status') ?? 'absent',
-				lane: Boolean(document.querySelector('.lane')),
-				pad: [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'C').length
-			})`
+			`async () => {
+				// The count-in, then the first note on its lane.
+				for (let i = 0; i < 80 && !document.querySelector('[data-status="awaiting"]'); i++) {
+					await new Promise((resolve) => setTimeout(resolve, 50));
+				}
+				return {
+					status: document.querySelector('[data-status]')?.getAttribute('data-status') ?? 'absent',
+					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					lane: Boolean(document.querySelector('.note-lane .lane')),
+					prompt: document.body.innerText.includes('corde de B'),
+					pad: [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'C').length,
+					texts: [...document.querySelectorAll('body *')]
+						.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+						.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))
+				};
+			}`
 		);
 		check(
 			assert(
@@ -290,8 +313,15 @@ try {
 				`la démo du mode 1 tourne (${page.status}), sans bouton Commencer : elle démarre seule`
 			)
 		);
-		check(assert(page.lane, 'la piste du mode 1 est présente'));
+		check(
+			assert(
+				page.world === 'quiet' && page.lane,
+				`la piste des notes est dans le cadre de jeu, au calme (${page.world})`
+			)
+		);
+		check(assert(page.prompt, 'la première note est donnée sur sa corde (corde de B)'));
 		check(assert(page.pad === 0, 'le pavé du mode 2 n’est pas affiché'));
+		noteTiny('session-demo', page.texts);
 	}
 
 	console.log('\nCalibration /dev/calibration');

@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import AnswerPanel from './AnswerPanel.svelte';
-import { DEMO_VERDICT_MS, DemoIdentifySession } from './DemoIdentifySession.svelte';
+import type { PlaySessionController, PlayView } from '$lib/application/session/contract';
+import { identifyChoices } from './choices';
 
 function isDisabled(element: HTMLElement): boolean {
 	return (
@@ -12,6 +13,48 @@ function isDisabled(element: HTMLElement): boolean {
 }
 
 const keys = () => within(screen.getByRole('group', { name: 'Nom de la note' }));
+
+/** A mode 2 controller on PlayScreen's fields: one answer per prompt, `next` opens the next one. */
+function panelController() {
+	const view: PlayView = $state({
+		status: 'idle',
+		prompt: null,
+		lastVerdict: null,
+		tempoBpm: 80,
+		beatsPerBar: 4,
+		promptBeatIndex: null,
+		targetBeatIndex: null,
+		followUp: null,
+		chordDiagram: 'strings',
+		contest: null,
+		leadBeats: null,
+		history: [],
+		answerChoices: identifyChoices(),
+		fatigueDetected: false,
+		scene: 'screen',
+		countdown: null,
+		preview: null,
+		audioError: null
+	});
+	return {
+		sessionId: 'panel',
+		view,
+		timeline: { nowBeat: () => 0 },
+		start: async () => {
+			view.status = 'awaiting';
+		},
+		next: () => {
+			view.status = 'awaiting';
+		},
+		pause: () => {},
+		resume: () => {},
+		answer(_value: string) {
+			if (view.status === 'awaiting') view.status = 'verdict';
+		},
+		contest: () => {},
+		quit: () => {}
+	} satisfies PlaySessionController & { next(): void };
+}
 
 describe('AnswerPanel', () => {
 	beforeEach(() => {
@@ -25,7 +68,7 @@ describe('AnswerPanel', () => {
 	});
 
 	it('keeps the keyboard disabled until a prompt is awaiting', async () => {
-		const demo = new DemoIdentifySession();
+		const demo = panelController();
 		render(AnswerPanel, { props: { controller: demo } });
 		expect(keys().getAllByRole('button').every(isDisabled)).toBe(true);
 
@@ -36,7 +79,7 @@ describe('AnswerPanel', () => {
 	});
 
 	it('sends a double tap to the controller once', async () => {
-		const demo = new DemoIdentifySession();
+		const demo = panelController();
 		const answer = vi.spyOn(demo, 'answer');
 		render(AnswerPanel, { props: { controller: demo } });
 		await demo.start();
@@ -49,23 +92,22 @@ describe('AnswerPanel', () => {
 
 		expect(answer).toHaveBeenCalledTimes(1);
 		expect(answer).toHaveBeenCalledWith('F');
-		expect(demo.view.lastVerdict?.verdict).toBe('perfect');
 		expect(keys().getAllByRole('button').every(isDisabled)).toBe(true);
 	});
 
-	it('re-enables the keyboard for the next prompt and reports a slow answer late', async () => {
-		const demo = new DemoIdentifySession();
+	it('re-enables the keyboard for the next prompt', async () => {
+		const demo = panelController();
+		const answer = vi.spyOn(demo, 'answer');
 		render(AnswerPanel, { props: { controller: demo } });
 		await demo.start();
 		await tick();
 		await fireEvent.click(keys().getByRole('button', { name: 'F' }));
+		expect(keys().getAllByRole('button').every(isDisabled)).toBe(true);
 
-		vi.advanceTimersByTime(DEMO_VERDICT_MS);
+		demo.next();
 		await tick();
 		expect(keys().getAllByRole('button').some(isDisabled)).toBe(false);
-
-		vi.advanceTimersByTime(3100);
 		await fireEvent.click(keys().getByRole('button', { name: 'F# / Gb' }));
-		expect(demo.view.lastVerdict?.verdict).toBe('late');
+		expect(answer).toHaveBeenLastCalledWith('F#');
 	});
 });

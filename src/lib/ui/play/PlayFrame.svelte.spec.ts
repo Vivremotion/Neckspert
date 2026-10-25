@@ -9,6 +9,8 @@ import { i18n } from '$lib/i18n/index.svelte';
 import FakeView from './views/testing/FakeView.svelte';
 import { FigureStageController } from './views/testing/FigureStageController.svelte';
 import { StageController } from './views/testing/StageController.svelte';
+import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
+import { DEMO_IDENTIFY_SCRIPT, DemoIdentifySession } from './answer/DemoIdentifySession.svelte';
 
 afterEach(() => cleanup());
 
@@ -374,5 +376,32 @@ describe('PlayFrame', () => {
 		expect(controller.calls).toEqual(['pause']);
 		expect(screen.queryByRole('button', { name: /quitter l’exercice/i })).toBeNull();
 		expect(screen.queryByRole('button', { name: /réécouter/i })).toBeNull();
+	});
+});
+
+describe('PlayFrame, the notes demonstrated', () => {
+	it('draws the mode 1 demo on the note lane, in the quiet world', async () => {
+		const clock = new ManualDemoClock();
+		const demo = new DemoPlaySession({ clock });
+		await demo.start();
+		clock.setBeat(4);
+		demo.tick();
+		const { container } = render(PlayFrame, { props: { controller: demo, kind: 'learn' } });
+		expect(container.querySelector('[data-world="quiet"] .note-lane')).not.toBeNull();
+		expect(screen.getAllByText('F').length).toBeGreaterThan(0);
+		expect(screen.getByText(/corde de B/i)).toBeTruthy();
+	});
+
+	it('draws the mode 2 demo on the answer keys, which answer it', async () => {
+		const demo = new DemoIdentifySession(DEMO_IDENTIFY_SCRIPT, 60_000);
+		await demo.start();
+		const { container } = render(PlayFrame, { props: { controller: demo, kind: 'learn' } });
+		expect(container.querySelector('[data-world="quiet"] .answer-keys')).not.toBeNull();
+		expect(screen.getByText('case 8')).toBeTruthy();
+		const keys = within(screen.getByRole('group', { name: 'Nom de la note' }));
+		expect(keys.getAllByRole('button')).toHaveLength(12);
+		await fireEvent.click(keys.getByRole('button', { name: 'C' }));
+		expect(screen.getByText(/C joué/)).toBeTruthy();
+		demo.quit();
 	});
 });

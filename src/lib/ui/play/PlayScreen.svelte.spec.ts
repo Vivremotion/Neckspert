@@ -9,16 +9,44 @@ afterEach(() => cleanup());
 
 describe('PlayScreen', () => {
 	it('renders the prompt and unlabeled past tiles', async () => {
-		const clock = new ManualDemoClock();
-		const demo = new DemoPlaySession({ clock });
-		await demo.start();
-		clock.setBeat(4);
-		demo.tick();
-		const { container } = render(PlayScreen, { props: { controller: demo } });
+		let nowBeat = 4;
+		const view: PlayView = $state({
+			status: 'awaiting',
+			prompt: { primary: 'F', secondary: 'corde de B', aid: null, diagram: null },
+			lastVerdict: null,
+			tempoBpm: 80,
+			beatsPerBar: 4,
+			promptBeatIndex: 4,
+			targetBeatIndex: 12,
+			followUp: null,
+			chordDiagram: 'strings',
+			contest: null,
+			leadBeats: 8,
+			history: [],
+			answerChoices: null,
+			fatigueDetected: false,
+			scene: 'guitar',
+			countdown: null,
+			preview: null,
+			audioError: null
+		});
+		const controller = {
+			sessionId: 'note-f',
+			view,
+			timeline: { nowBeat: () => nowBeat },
+			start: async () => {},
+			pause: () => {},
+			resume: () => {},
+			answer: () => {},
+			contest: () => {},
+			quit: () => {}
+		};
+		const { container } = render(PlayScreen, { props: { controller } });
 		expect(screen.getAllByText('F').length).toBeGreaterThan(0);
 		expect(screen.getByText(/corde de B/i)).toBeTruthy();
-		clock.setBeat(12.25);
-		demo.tick();
+		nowBeat = 12.25;
+		view.status = 'verdict';
+		view.history = [{ beatIndex: 12, verdict: 'perfect' }];
 		await tick();
 		// The played cell carries its verdict's mark, not the note's name.
 		const played = container.querySelector('.lane [data-kind="history"]');
