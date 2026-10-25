@@ -188,11 +188,14 @@ export class ResponseSeriesController implements PlaySessionController {
 			const first = this.pending ?? this.takeNext();
 			// Its instruction, if any, was on the start screen: no stop of its own.
 			this.view.briefing = null;
-			this.sensors.open(this.settings.latency.note?.ms ?? 0, (kind, observation) => {
-				// An observation belongs to the span open on its arrival.
-				const runner = this.round?.runner;
-				if (runner && !runner.span.isClosed) runner.observe(kind, observation);
-			});
+			this.sensors.open(
+				(kind) => this.settings.latency[kind]?.ms ?? 0,
+				(kind, observation) => {
+					// An observation belongs to the span open on its arrival.
+					const runner = this.round?.runner;
+					if (runner && !runner.span.isClosed) runner.observe(kind, observation);
+				}
+			);
 			this.log = new SeriesTrace(this.deps.clock.now());
 			const opened = this.deps.repositories.sessions.put(this.sessionRecord(null));
 			await opened;
@@ -424,7 +427,6 @@ export class ResponseSeriesController implements PlaySessionController {
 		const presenter = this.items.presenterOf(item);
 		const end = at.add(plan.length.div(this.transport.barLength));
 		this.accompanyTo(end);
-		const latency = this.settings.latency.note ?? null;
 		const round = {
 			item,
 			plan,
@@ -445,10 +447,14 @@ export class ResponseSeriesController implements PlaySessionController {
 			chained: chainedAt !== null,
 			transport: this.transport,
 			map: this.transport.map,
-			latency: latency && { ms: latency.ms, provenance: latency.provenance },
+			latencyOf: (kind) => {
+				const latency = this.settings.latency[kind];
+				return latency ? { ms: latency.ms, provenance: latency.provenance } : null;
+			},
 			sources: this.sensors.sources,
 			expectation:
 				presenter.expectation?.(item.item, { opensAt: promptTime, previous: this.previous }) ?? {},
+			debug: { lines: (payload) => presenter.debugLines?.(item.item, payload) ?? [] },
 			onEvent: (event) => this.onRunnerEvent(round, event)
 		});
 		this.round = round;
