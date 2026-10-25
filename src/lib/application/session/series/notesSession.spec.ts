@@ -13,6 +13,7 @@ import {
 	type NeckCard
 } from '$lib/domain/music';
 import { STRING_PREVIEW_BEATS, RESPIRATION_BARS } from '$lib/domain/timing/grid';
+import { STRING_AID_FADE_SUCCESSES } from '$lib/domain/progress/constants';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import type { Attempt } from '$lib/domain/types';
@@ -87,8 +88,10 @@ describe('a learn session of the notes', () => {
 		expect(aided.card).toEqual(probe.card);
 		expect(aided.prompt.aid).not.toBeNull();
 		expect(aided.prompt.diagram).not.toBeNull();
-		// Played right once: when it comes back, the string drawn has faded (and the position too).
-		const back = rounds.slice(2).find((round) => keyOf(round.card) === keyOf(probe.card));
+		// Played right STRING_AID_FADE_SUCCESSES times (the aided one first): when it comes back,
+		// the string drawn has faded (and the position too).
+		const met = rounds.filter((round) => keyOf(round.card) === keyOf(probe.card));
+		const back = met[1 + STRING_AID_FADE_SUCCESSES];
 		expect(back).toBeDefined();
 		expect(back?.prompt.diagram).toBeNull();
 		expect(back?.prompt.aid).toBeNull();
@@ -155,6 +158,7 @@ describe('a learn session of the notes', () => {
 		await drain();
 		const probed = rounds[1].card;
 		const afterProbe = await app.deps.cards.get(keyOf(probed));
+		expect(afterProbe).toBeDefined();
 		const levelAfterProbe = await app.deps.levels.get(levelOf(probed, 0));
 		await playRounds(app, controller, allRight, { rounds: 1 });
 		const attempts = await quitAndRead(app, controller);
@@ -228,6 +232,7 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 		const notes = rounds.filter((round) => round.card.mechanic === 'locate');
 		expect(notes.length).toBeGreaterThanOrEqual(10);
+		let pairs = 0;
 		for (const [i, note] of notes.entries()) {
 			const anchor = note.anchorBeat as number;
 			const prompt = note.promptBeat as number;
@@ -241,7 +246,9 @@ describe('a learn session of the notes', () => {
 			const previous = notes[i - 1].anchorBeat as number;
 			expect(prompt - previous).toBeGreaterThanOrEqual(RESPIRATION_BARS * BEATS_PER_BAR);
 			expect(prompt - previous).toBeLessThan((RESPIRATION_BARS + 1) * BEATS_PER_BAR);
+			pairs++;
 		}
+		expect(pairs).toBeGreaterThan(0);
 	});
 
 	it('shows the string a beat before the note, the correction staying through the breath', async () => {
@@ -399,10 +406,11 @@ describe('a learn session of the notes', () => {
 		const attempts = await quitAndRead(app, controller);
 		expect(controller.view.tempoBpm).toBe(160);
 		expect(keyOf(played.card)).toBe(keyOf(card));
-		// Served at lead 4, played right: its stored level stays 2 for a slower session.
+		// Served at lead 4, played right: its stored level stays 2 for a slower session, untouched
+		// (a review at the top leaves a level held above it as it was, its runs included).
 		expect((played.anchorBeat as number) - (played.promptBeat as number)).toBe(4);
 		expect(attempts[0]).toMatchObject({ leadBeats: 4, temperature: 'cold', success: true });
-		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 2 });
+		expect(await app.deps.levels.get(levelOf(card, 2))).toEqual(levelOf(card, 2));
 	});
 
 	it('ends after SESSION_MS once the round under way settles, and moves the locate tempo', async () => {
