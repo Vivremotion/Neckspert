@@ -26,6 +26,9 @@ export const DEMO_VERDICT_MS = 1200;
 /** A name given within the exercise's recall threshold is perfect, later late. */
 const RECALL_THRESHOLD_MS = recallThresholdOf(IDENTIFY_NECK) ?? 0;
 
+/** Spells the demo's notes always alike. */
+const noRandom = () => 0;
+
 /**
  * Scripted mode 2 session without audio, for the demo page and tests: it fills the stage with
  * the answer keys' model, as the identify presenter draws it.
@@ -143,7 +146,7 @@ export class DemoIdentifySession implements PlaySessionController {
 					target,
 					{ aid: 'none', stringAid: false },
 					i18n.locale,
-					Math.random
+					noRandom
 				),
 				choices: identifyPresenter.answerChoices!(),
 				verdict: null

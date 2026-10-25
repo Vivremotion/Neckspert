@@ -1,21 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
 import { FREE_PLAY_COUNT } from './constants';
-import { introduceCard } from './cards';
-import { keyed } from './neck';
-import { buildFreePlan } from './plans';
-
-const NOW = Date.parse('2026-05-01T12:00:00.000Z');
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise';
+import type { LevelState } from '$lib/domain/time/levels';
+import { neckSubject } from './neckSubject';
+import { buildFreePlan, freeLeadOf } from './plans';
 
 const L1: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
 const L2: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
 
 describe('buildFreePlan', () => {
 	it('draws from every position, including ones with no card yet', () => {
-		const known = introduceCard(keyed(L1), NOW, 's0');
-		known.leadBeats = 2;
 		const plan = buildFreePlan({
-			cards: [known],
+			leadOf: (item) => (item.pitch === 'G' ? 2 : 8),
 			count: 1000,
 			random: () => 0
 		});
@@ -34,10 +31,55 @@ describe('buildFreePlan', () => {
 	});
 
 	it('plays one series of the free-play length by default', () => {
-		const capped = buildFreePlan({
-			cards: [],
+		const capped = buildFreePlan({ leadOf: () => 8, random: () => 0 });
+		expect(capped).toHaveLength(FREE_PLAY_COUNT);
+	});
+});
+
+describe('freeLeadOf', () => {
+	const subject = neckSubject({ definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK } });
+	const level = (item: string, at: number): LevelState => ({
+		exerciseId: 'locate-neck',
+		scope: '',
+		item,
+		level: at,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+	const levels = [level('6:G', 2), level('6:A', 1)];
+
+	it('plays a note at the lead of its level, on the ladder of the locate tempo', () => {
+		expect(freeLeadOf({ subject, levels, tempoBpm: 80 })(L1.item)).toBe(2);
+		expect(freeLeadOf({ subject, levels, tempoBpm: 80 })(L2.item)).toBe(4);
+		// At ♩ = 160 the ladder stops at 4: a level above it is brought to its top.
+		expect(freeLeadOf({ subject, levels, tempoBpm: 160 })(L1.item)).toBe(4);
+	});
+
+	it('plays a note with no level at the first lead, as the procedure would', () => {
+		expect(freeLeadOf({ subject, levels: [], tempoBpm: 80 })(L1.item)).toBe(8);
+		// Another exercise's or another scope's level is not the note's.
+		expect(
+			freeLeadOf({
+				subject,
+				levels: [
+					{ ...level('6:G', 2), scope: 'other' },
+					{ ...level('6:G', 2), exerciseId: 'x' }
+				],
+				tempoBpm: 80
+			})(L1.item)
+		).toBe(8);
+	});
+
+	it('serves a free plan at those leads', () => {
+		const plan = buildFreePlan({
+			leadOf: freeLeadOf({ subject, levels, tempoBpm: 160 }),
+			count: 1000,
 			random: () => 0
 		});
-		expect(capped).toHaveLength(FREE_PLAY_COUNT);
+		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
+		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(4);
+		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(4);
+		expect(plan.find((item) => keyOf(item) === 'locate:5:C')?.leadBeats).toBe(8);
 	});
 });

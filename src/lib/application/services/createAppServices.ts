@@ -24,6 +24,7 @@ import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
+	freeLeadOf,
 	computeHomeStats,
 	createGestureSelector,
 	createListSource,
@@ -176,8 +177,9 @@ export function createAppServices(
 					deps.levels.all()
 				]);
 				// Locate plays on the click at its own tempo; identify is answered in free time.
+				const locateTempo = startTempo(LOCATE_NECK, progressions);
 				const executions: Execution[] = [
-					{ exerciseId: LOCATE_NECK.id, tempoBpm: startTempo(LOCATE_NECK, progressions) },
+					{ exerciseId: LOCATE_NECK.id, tempoBpm: locateTempo },
 					{ exerciseId: IDENTIFY_NECK.id, tempoBpm: null }
 				];
 				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
@@ -188,7 +190,13 @@ export function createAppServices(
 				const neckCards = cards.filter(isNeck);
 				const source =
 					kind === 'free'
-						? createListSource(buildFreePlan({ cards: neckCards, random: deps.random }))
+						? createListSource(
+								// A note is free-played at the lead its level gives at the locate tempo.
+								buildFreePlan({
+									leadOf: freeLeadOf({ subject, levels, tempoBpm: locateTempo }),
+									random: deps.random
+								})
+							)
 						: createLearningProcedure({
 								subject,
 								cards: neckCards,

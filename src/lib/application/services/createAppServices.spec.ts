@@ -12,7 +12,7 @@ import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/c
 import type { NoteLaneModel } from '$lib/application/mechanics/locate';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
-import { acceptableMidis } from '$lib/domain/music';
+import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeChordVerifier,
@@ -309,6 +309,42 @@ describe('createAppServices', () => {
 			]);
 			controller.quit();
 		}
+	});
+
+	it('free-plays a note at the lead of its stored level, on the ladder of the locate tempo', async () => {
+		const { services, deps } = harness();
+		// Every note at level 2: lead 2 at ♩ = 80, brought to the top of [8, 4] at ♩ = 160.
+		for (const card of practiceCards().filter((c) => c.mechanic === 'locate')) {
+			await deps.levels.put({
+				exerciseId: 'locate-neck',
+				scope: '',
+				item: neckCardKey(card).slice('locate:'.length),
+				level: 2,
+				successes: 0,
+				failures: 0,
+				resumeAfter: null
+			});
+		}
+		await deps.progressions.put({
+			exerciseId: 'locate-neck',
+			mechanic: 'locate',
+			tempoBpm: 160,
+			updatedAt: 0
+		});
+		const controller = await services.startSession('free');
+		await controller.start();
+		await runOnTransport(
+			deps,
+			() => {
+				if (controller.view.stage?.view === 'answer-keys' && controller.view.status === 'awaiting')
+					controller.answer('C');
+				return controller.view.status === 'awaiting' && noteLane(controller) !== null;
+			},
+			0.05,
+			2000
+		);
+		expect(lead(noteLane(controller))).toBe(4);
+		controller.quit();
 	});
 
 	it('startSession(free) never prompts an open string', async () => {
