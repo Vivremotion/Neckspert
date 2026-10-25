@@ -103,7 +103,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	private recorder: AttemptRecorder | null = null;
 	private executions: Execution[] = [];
 	private settings: Settings = DEFAULT_SETTINGS;
-	private prepared = false;
+	/** The preparation of this series, shared by `ready` and `start`; null until asked. */
+	private preparing: Promise<void> | null = null;
 	private startedAt = 0;
 	private tempoBpm: number | null = null;
 	/** The transport has begun at least once: its map gives the time. */
@@ -235,7 +236,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	/** After the end: another series, with its own id and nothing of the one before. */
 	private beginNewSeries(): void {
 		this.sessionId = this.deps.newId();
-		this.prepared = false;
+		this.preparing = null;
 		this.source = null;
 		this.recorder = null;
 		this.executions = [];
@@ -315,14 +316,25 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	// ── the series on the transport ──────────────────────────────────────────
 
-	private async prepareSeries(): Promise<void> {
-		if (this.prepared) return;
+	/** Prepares the series once, however many callers wait on it; a failure may be retried. */
+	private prepareSeries(): Promise<void> {
+		if (this.preparing) return this.preparing;
+		const preparing = this.loadSeries().catch((error: unknown) => {
+			if (this.preparing === preparing) this.preparing = null;
+			throw error;
+		});
+		this.preparing = preparing;
+		return preparing;
+	}
+
+	private async loadSeries(): Promise<void> {
+		const sessionId = this.sessionId;
 		const [series, settings] = await Promise.all([
-			this.prepare(this.sessionId),
+			this.prepare(sessionId),
 			this.deps.repositories.settings.get()
 		]);
-		if (this.prepared) return;
-		this.prepared = true;
+		// Another series began meanwhile: it has its own preparation.
+		if (this.sessionId !== sessionId) return;
 		this.source = series.source;
 		this.executions = series.executions;
 		this.settings = settings;
@@ -746,6 +758,8 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	private async writeEnd(): Promise<void> {
 		this.generation++;
+		// A start cut short by the end gives up: a later start begins another series.
+		this.starting = false;
 		const now = this.deps.clock.now();
 		this.stopSounds();
 		this.closeRound(now);

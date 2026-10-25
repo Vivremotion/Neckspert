@@ -491,6 +491,43 @@ describe('ResponseSeriesController', () => {
 		});
 	});
 
+	describe('starting', () => {
+		it('starts again after a quit during its start', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			const starting = ctx.controller.start();
+			ctx.controller.quit();
+			await starting;
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			await ctx.controller.start();
+			expect(ctx.controller.view.status).toBe('count-in');
+			expect(ctx.controller.sessionId).toBe('series-2');
+		});
+
+		it('starts again after a series with nothing to play', async () => {
+			const ctx = setup([], {
+				sources: [new ScriptedSource([]), new ScriptedSource(passage())]
+			});
+			await ctx.controller.start();
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			await ctx.controller.start();
+			expect(ctx.controller.view.status).toBe('count-in');
+		});
+
+		it('prepares a series once when the start screen and the start overlap', async () => {
+			const ctx = setup(passage());
+			const ready = ctx.controller.ready();
+			const started = ctx.controller.start();
+			await ready;
+			await started;
+			expect(ctx.prepared).toEqual(['series-1']);
+			expect(ctx.controller.view.status).toBe('count-in');
+		});
+	});
+
 	describe('the exercise catalog', () => {
 		it('reads an exercise through the lookup it is given, and lets an unknown one throw', async () => {
 			const exercise = (id: string) => ({ ...exerciseById(id), view: 'own-view' });
