@@ -25,7 +25,8 @@ export {
 	markLearned,
 	isAcquired,
 	isMastered,
-	cardStatus
+	cardStatus,
+	type CardLeadEvent
 } from './cards';
 export { introductionOrder, nextNewCard } from './introduction';
 export { createListSource } from './selector';

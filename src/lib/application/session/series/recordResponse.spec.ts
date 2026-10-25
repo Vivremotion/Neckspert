@@ -252,6 +252,38 @@ describe('responseAttempt', () => {
 		expect(fresh.misses).toHaveLength(2);
 		expect(fresh).toEqual(summarizeGesture([RUN], make(oldAttempt)));
 	});
+	it('keeps the lead the item was played at', () => {
+		const item = change(1);
+		const { clock } = makeRecorder();
+		const outcome = newOutcome(item, RIGHT, 0);
+		const attempt = responseAttempt({
+			outcome,
+			item: { ...plannedOf(item), leadBeats: 4 },
+			plan: gesturePlan(item, METER_4_4),
+			data: null,
+			sessionId: 'sess-1',
+			execution: RUN,
+			promptedAt: clock.toEpochMs(PROMPT_S),
+			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item))
+		});
+		expect(attempt.leadBeats).toBe(4);
+	});
+
+	it('writes no tempo scope for an execution without one', () => {
+		const item = change(1);
+		const { clock } = makeRecorder();
+		const attempt = responseAttempt({
+			outcome: newOutcome(item, RIGHT, 0),
+			item: plannedOf(item),
+			plan: gesturePlan(item, METER_4_4),
+			data: null,
+			sessionId: 'sess-1',
+			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },
+			promptedAt: clock.toEpochMs(PROMPT_S),
+			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item))
+		});
+		expect(attempt).not.toHaveProperty('tempoScope');
+	});
 });
 
 describe('AttemptRecorder.recordResponse', () => {
@@ -263,7 +295,7 @@ describe('AttemptRecorder.recordResponse', () => {
 		span.add('chord', heard, 'answer', true);
 		const attempt = newAttempt(item, RIGHT, 0);
 
-		const id = await recorder.recordResponse(attempt, span);
+		const id = await recorder.recordResponse(attempt, span, plannedOf(item));
 		const [stored] = await attempts.listByCard(attempt.cardKey);
 		expect(stored).toMatchObject({ id, verdict: { relation: 'response' } });
 		expect(stored.observations).toHaveLength(1);

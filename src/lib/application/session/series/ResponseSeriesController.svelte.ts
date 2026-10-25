@@ -76,7 +76,7 @@ interface OpenRound {
  * without a counted bar at the same tempo and on the same scene (chained), else after a counted
  * bar (silent bars first when the item asks), the tempo changed first for an item of another
  * execution. An exercise met for the first time in the series stops on its instruction. Each
- * settled round is written (`recordResponse`), then told to the source. It judges nothing and
+ * settled round is written (`recordResponse`), which tells the source first. It judges nothing and
  * knows no exercise: what it plays comes from its data.
  */
 export class ResponseSeriesController implements PlaySessionController {
@@ -598,7 +598,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 	}
 
-	/** Writes the round's attempt, tells the source, and shows the settled round. */
+	/** Writes the round's attempt (the recorder tells the source), and shows the settled round. */
 	private settle(round: OpenRound, outcome: RoundOutcome): void {
 		if (round.settled) return;
 		round.settled = true;
@@ -617,9 +617,9 @@ export class ResponseSeriesController implements PlaySessionController {
 		});
 		const recorder = this.recorder;
 		if (!recorder) return;
-		const written = recorder.recordResponse(attempt, round.runner.span);
+		// The recorder tells the source, before any write.
+		const written = recorder.recordResponse(attempt, round.runner.span, item);
 		round.attempt = attempt;
-		this.source?.record(attempt as Attempt, this.epochNow());
 		const { segment } = round;
 		const log = this.log;
 		if (segment !== null && log) {

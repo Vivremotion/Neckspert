@@ -148,6 +148,10 @@ export function gestureSeries(
 		progressions: new InMemoryProgressionRepository()
 	};
 	let ids = 1;
+	/** The source prepared for each session: its recorder tells it each attempt. */
+	const sourceOf = new Map<string, ItemSource>();
+	/** Every recorder handed out, so `stored` reads once their writes have settled. */
+	const recorders: AttemptRecorder[] = [];
 	const deps: ResponseSeriesDeps = {
 		clock,
 		sounds,
@@ -155,16 +159,19 @@ export function gestureSeries(
 		sensors: { chord: chordSensor(verifier), ...options.sensors },
 		mechanics: options.mechanics ?? GESTURE_PRESENTERS,
 		repositories,
-		recorderFor: (sessionId) =>
-			new AttemptRecorder({
+		recorderFor: (sessionId) => {
+			const recorder = new AttemptRecorder({
 				attempts: repositories.attempts,
 				cards: new InMemoryCardStateRepository(),
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
-				selector: source,
+				selector: sourceOf.get(sessionId) ?? source,
 				sessionId,
 				rules: (mechanic) => deps.mechanics[mechanic].rules
-			}),
+			});
+			recorders.push(recorder);
+			return recorder;
+		},
 		plans: options.plans ?? ((item) => gesturePlan(item.item as ChordGridItem, METER_4_4)),
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
@@ -178,6 +185,7 @@ export function gestureSeries(
 			prepared.push(sessionId);
 			const next = sources.shift();
 			if (!next) throw new Error('no source left');
+			sourceOf.set(sessionId, next);
 			return { source: next, executions };
 		},
 		deps
@@ -203,7 +211,10 @@ export function gestureSeries(
 	const play = (time: number, decided: string | null) => verifier.emit(report(time, decided));
 	/** Bar `bar` (fractions allowed) in audio seconds at ♩ = 120 from 0.1 s. */
 	const bar = (n: number) => 0.1 + 2 * n;
-	const stored = (sessionId = 'series-1') => repositories.attempts.listBySession(sessionId);
+	const stored = async (sessionId = 'series-1') => {
+		await Promise.all(recorders.map((recorder) => recorder.settled()));
+		return repositories.attempts.listBySession(sessionId);
+	};
 	return {
 		clock,
 		detector,

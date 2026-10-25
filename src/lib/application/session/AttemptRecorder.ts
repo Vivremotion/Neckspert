@@ -5,13 +5,17 @@ import {
 	classifyTemperature,
 	introduceCard,
 	probeTemperature,
-	type ItemSource
+	type CardLeadEvent,
+	type ItemSource,
+	type RecordOutcome
 } from '$lib/domain/progress';
+import type { DirectRecall } from '$lib/domain/learning';
 import {
 	isResponseSuccess,
 	type Attempt,
 	type CardState,
 	type Execution,
+	type LeadBeats,
 	type MechanicId,
 	type PlannedItem,
 	type RecordedObservation,
@@ -23,7 +27,8 @@ import type { ObservationSpan } from './observationSpan';
 import type { AudioClockPort } from '$lib/application/ports';
 import type {
 	AttemptRepositoryPort,
-	CardStateRepositoryPort
+	CardStateRepositoryPort,
+	LevelStateRepositoryPort
 } from '$lib/application/ports/repositories';
 
 /** What the mechanic's judge said of the answer, stored as is; null without an answer. */
@@ -47,6 +52,33 @@ export interface AttemptRecorderDeps {
 	rules: (mechanic: MechanicId) => MechanicRules;
 	/** Time relation of a prompt at its exercise's rhythm; the mechanic's own when omitted. */
 	timing?: (planned: PlannedItem) => TimingRelation;
+	/** The direct-recall rule of a mechanic (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
+	recall?: (mechanic: MechanicId) => DirectRecall;
+	levels?: LevelStateRepositoryPort;
+}
+
+/** How `store` learns from an attempt: the old path and the target model differ only here. */
+interface Learning {
+	recall: DirectRecall;
+	/** The old path's stored lead (`cardLeadAfter`); the target model keeps none. */
+	leadAfter?: (card: CardState, event: CardLeadEvent) => LeadBeats;
+	/** Where the level the source moved is written; the old path writes none. */
+	levels?: LevelStateRepositoryPort;
+}
+
+/**
+ * Before history is read, for fatigue and the source: the item's own temperature in learning,
+ * consolidation, free play and probes; otherwise cold on the series' first attempt at the card.
+ */
+function provisionalTemperature(item: PlannedItem, attemptedInSession: boolean): Temperature {
+	return item.phase === 'learning' ||
+		item.phase === 'consolidation' ||
+		item.phase === 'free' ||
+		item.phase === 'probe'
+		? item.temperature
+		: attemptedInSession
+			? 'hot'
+			: 'cold';
 }
 
 /** Turns settled rounds into stored attempts and card updates, for one series. */
@@ -88,24 +120,14 @@ export class AttemptRecorder {
 		const promptedAt = clock.toEpochMs(promptTime);
 		const attemptedInSession = this.attempts.some((a) => a.cardKey === key);
 
-		// Provisional temperature for sync fatigue/session tracking; refined after history load.
-		const provisionalTemperature =
-			planned.phase === 'learning' ||
-			planned.phase === 'consolidation' ||
-			planned.phase === 'free' ||
-			planned.phase === 'probe'
-				? planned.temperature
-				: attemptedInSession
-					? 'hot'
-					: 'cold';
-
 		const attempt: Attempt<AttemptData> = {
 			sessionId,
 			exerciseId: execution.exerciseId,
 			mechanic: planned.mechanic,
 			cardKey: key,
 			phase: planned.phase,
-			temperature: provisionalTemperature,
+			// Provisional, for sync fatigue/session tracking; refined after history load.
+			temperature: provisionalTemperature(planned, attemptedInSession),
 			aids: aidsOf(planned),
 			promptedAt,
 			tempoBpm: execution.tempoBpm,
@@ -141,10 +163,14 @@ export class AttemptRecorder {
 		// Awaited by completions only; a failed write is reported through `stored`.
 		id.catch(() => {});
 		this.ids.set(attempt, id);
+		const learning: Learning = {
+			recall: (a) => timing.isDirectRecall(a),
+			leadAfter: (card, event) => cardLeadAfter(card, timing, event)
+		};
 		const stored = this.store(
 			planned,
 			rules,
-			timing,
+			learning,
 			attempt,
 			recorded,
 			attemptedInSession,
@@ -156,20 +182,63 @@ export class AttemptRecorder {
 	}
 
 	/**
-	 * Writes an attempt of the target model (`responseAttempt`) with what its span heard so far,
-	 * then completes its observations when the span closes. It touches no card: the target
-	 * model's learners keep their state elsewhere. Resolves with the attempt's id.
+	 * Writes an attempt of the target model (`responseAttempt`) with what its span heard so far
+	 * and learns from it: synchronously, the source is told (`selector.record`) with the item's
+	 * provisional temperature; then the temperature is settled from the card's history (a probe
+	 * by `probeTemperature` and `recall`), the attempt written, and for a memory learner the card
+	 * stored (a cold review or free attempt through FSRS, a probe or a learning prompt as the
+	 * source returned it, a learning prompt's card introduced) and the level the source moved
+	 * written. Its observations are completed when the span closes. Resolves with the attempt's id.
 	 */
-	recordResponse(attempt: Omit<Attempt, 'id'>, span: ObservationSpan): Promise<number> {
+	recordResponse(
+		attempt: Omit<Attempt, 'id'>,
+		span: ObservationSpan,
+		item: PlannedItem
+	): Promise<number> {
+		const rules = this.deps.rules(item.mechanic);
+		const recall = this.deps.recall?.(item.mechanic);
+		if (!recall && (item.phase === 'probe' || rules.learner === 'memory')) {
+			throw new Error(`No direct-recall rule for mechanic ${item.mechanic}`);
+		}
 		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
 		const stored = attempt as Attempt<AttemptData>;
+		const attemptedInSession = this.attempts.some((a) => a.cardKey === stored.cardKey);
+		stored.temperature = provisionalTemperature(item, attemptedInSession);
 		stored.observations = span.snapshot();
+
+		// Fatigue and the source must see the attempt before any await, so the next round
+		// cannot be drawn from stale state.
 		this.attempts.push(stored);
-		const id = this.deps.attempts.add(stored);
+		const recorded = this.deps.selector.record(stored, this.deps.now());
+		if (recorded?.level && !this.deps.levels) {
+			throw new Error('The source moved a level and no level repository was given');
+		}
+
+		let resolveId!: (id: number) => void;
+		let rejectId!: (reason: unknown) => void;
+		const id = new Promise<number>((resolve, reject) => {
+			resolveId = resolve;
+			rejectId = reject;
+		});
 		// Awaited by completions only; a failed write is reported through the tracked promise.
 		id.catch(() => {});
 		this.ids.set(stored, id);
-		this.track(id);
+		const learning: Learning = {
+			// A skill learner without a rule never asks it: it has no probe and no card.
+			recall: recall ?? (() => false),
+			levels: this.deps.levels
+		};
+		const written = this.store(
+			item,
+			rules,
+			learning,
+			stored,
+			recorded,
+			attemptedInSession,
+			resolveId
+		);
+		written.catch(rejectId);
+		this.track(written);
 		if (!span.isClosed) {
 			span.onClose((observations) => void this.completeObservations(stored, observations));
 		}
@@ -216,9 +285,9 @@ export class AttemptRecorder {
 	private async store(
 		item: PlannedItem,
 		rules: MechanicRules,
-		timing: TimingRelation,
+		learning: Learning,
 		attempt: Attempt,
-		outcome: ReturnType<ItemSource['record']>,
+		outcome: RecordOutcome,
 		attemptedInSession: boolean,
 		attemptId: (id: number) => void
 	): Promise<void> {
@@ -230,7 +299,7 @@ export class AttemptRecorder {
 		// A missed probe is hot: it measures no forgetting (spec 2026-10-03, section 1).
 		const temperature =
 			item.phase === 'probe'
-				? probeTemperature(attempt, (a) => timing.isDirectRecall(a))
+				? probeTemperature(attempt, learning.recall)
 				: this.temperatureFor(item, existing, {
 						lastAttemptAt,
 						attemptedInSession,
@@ -240,17 +309,31 @@ export class AttemptRecorder {
 
 		attemptId(await attempts.add(attempt));
 
-		// Only a memory learner keeps FSRS cards; a skill learner is measured by its attempts alone.
+		await this.learnCard(item, rules, learning, attempt, outcome, history, existing);
+		if (outcome?.level) await learning.levels?.put(outcome.level);
+	}
+
+	/** Only a memory learner keeps FSRS cards; a skill learner is measured by its attempts alone. */
+	private async learnCard(
+		item: PlannedItem,
+		rules: MechanicRules,
+		learning: Learning,
+		attempt: Attempt,
+		outcome: RecordOutcome,
+		history: readonly Attempt[],
+		existing: CardState | undefined
+	): Promise<void> {
 		if (rules.learner !== 'memory') return;
+		const key = attempt.cardKey;
+		const { leadAfter } = learning;
 		const now = this.deps.now();
-		if ((item.phase === 'review' || item.phase === 'free') && temperature === 'cold') {
+		if ((item.phase === 'review' || item.phase === 'free') && attempt.temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
-				const applied = applyColdAttempt(existing, attempt, fullHistory, now, (a) =>
-					timing.isDirectRecall(a)
+				const applied = applyColdAttempt(existing, attempt, fullHistory, now, learning.recall);
+				await this.storeCard(
+					leadAfter ? { ...applied, leadBeats: leadAfter(existing, { cold: attempt }) } : applied
 				);
-				const leadBeats = cardLeadAfter(existing, timing, { cold: attempt });
-				await this.storeCard({ ...applied, leadBeats });
 			}
 		} else if (item.phase === 'probe') {
 			if (outcome?.card) await this.storeCard(outcome.card);
@@ -261,8 +344,9 @@ export class AttemptRecorder {
 				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
 				const card = { key, mechanic: item.mechanic, item: kept };
 				const introduced = introduceCard(card, now, this.deps.sessionId);
-				const leadBeats = cardLeadAfter(introduced, timing, 'introduced');
-				await this.storeCard({ ...introduced, leadBeats });
+				await this.storeCard(
+					leadAfter ? { ...introduced, leadBeats: leadAfter(introduced, 'introduced') } : introduced
+				);
 			}
 		}
 	}

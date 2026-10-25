@@ -55,8 +55,9 @@ export function roundPlanRecord(plan: RoundPlan): RoundPlanRecord {
 /**
  * The attempt of a settled response round, on the target model: success, correct, the verdict
  * envelope, measures and aids are the round's; offset and reaction are read in its response
- * value; the tempo and its scope are the execution's. A hot attempt in the item's phase, with no
- * lead (a plan has none); its observations come from its span (`AttemptRecorder.recordResponse`).
+ * value; the tempo and its scope are the execution's, the lead the item's (the one played, which
+ * statistics read). In the item's phase; its temperature and observations are the recorder's
+ * (`AttemptRecorder.recordResponse`), which settles them.
  */
 export function responseAttempt(input: {
 	outcome: RoundOutcome;
@@ -83,7 +84,7 @@ export function responseAttempt(input: {
 		promptedAt: input.promptedAt,
 		tempoBpm: execution.tempoBpm,
 		...(execution.scope !== undefined && { tempoScope: execution.scope }),
-		leadBeats: null,
+		leadBeats: item.leadBeats,
 		timingOffsetMs: value.timingOffsetMs,
 		reactionMs: value.reactionMs,
 		correct: outcome.correct,

@@ -1,14 +1,29 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Attempt, Execution, PlannedItem, RecordedObservation } from '$lib/domain/types';
-import type { ItemSource } from '$lib/domain/progress';
+import type {
+	Attempt,
+	Execution,
+	LevelState,
+	PlannedItem,
+	RecordedObservation
+} from '$lib/domain/types';
+import { introduceCard, markLearned, type ItemSource } from '$lib/domain/progress';
+import { directRecallOf } from '$lib/domain/learning';
 import type { RoundOutcome } from '$lib/domain/timing';
-import { identifyRules, locateRules, mechanicRules, timedRules } from '$lib/domain/mechanics';
+import {
+	cardKeyOf,
+	identifyRules,
+	locateRules,
+	mechanicRules,
+	timedRules
+} from '$lib/domain/mechanics';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
-	InMemoryCardStateRepository
+	InMemoryCardStateRepository,
+	InMemoryLevelStateRepository
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from './AttemptRecorder';
+import { ObservationSpan } from './observationSpan';
 
 const F_ON_B = { string: 2, pitch: 'F' } as const;
 const LOCATE_RUN: Execution = { exerciseId: 'locate-neck', tempoBpm: 80 };
@@ -441,5 +456,186 @@ describe('AttemptRecorder with a prompt that adds to its card', () => {
 		);
 		await stored;
 		expect((await cards.get(`triad-zone:${key}`))?.item).toEqual({ voicingKey: key });
+	});
+});
+
+describe('AttemptRecorder.recordResponse', () => {
+	const THRESHOLD_MS = 1500;
+	const LOCATE_KEY = cardKeyOf(locateRules, F_ON_B);
+
+	/** A note's response attempt as `responseAttempt` writes it: hot, at the item's lead. */
+	function noteAttempt(
+		planned: PlannedItem,
+		{ success = true, reactionMs = 500 }: { success?: boolean; reactionMs?: number } = {}
+	): Omit<Attempt, 'id'> {
+		return {
+			sessionId: 'sess-1',
+			exerciseId: planned.exerciseId,
+			mechanic: planned.mechanic,
+			cardKey: LOCATE_KEY,
+			phase: planned.phase,
+			temperature: 'hot',
+			aids: [],
+			promptedAt: 1_000,
+			tempoBpm: 80,
+			leadBeats: planned.leadBeats,
+			timingOffsetMs: 0,
+			reactionMs,
+			correct: success,
+			success,
+			verdict: {
+				relation: 'response',
+				version: 1,
+				value: {
+					verdict: success ? 'perfect' : 'wrong',
+					timingOffsetMs: 0,
+					reactionMs,
+					leadMs: 1500,
+					expectations: []
+				}
+			},
+			measures: {},
+			plan: null,
+			data: { item: planned.item, answer: null, confusion: null },
+			observations: []
+		};
+	}
+
+	function setupResponse(selector?: Partial<ItemSource>, learner: 'memory' | 'skill' = 'memory') {
+		const clock = new FakeClock();
+		const attempts = new InMemoryAttemptRepository();
+		const cards = new InMemoryCardStateRepository();
+		const levels = new InMemoryLevelStateRepository();
+		const told: { attempt: Attempt; temperature: string; stored: number }[] = [];
+		let writes = 0;
+		const add = attempts.add.bind(attempts);
+		attempts.add = (attempt) => {
+			writes += 1;
+			return add(attempt);
+		};
+		const source: ItemSource = {
+			next: () => null,
+			record: (attempt) => {
+				told.push({ attempt, temperature: attempt.temperature, stored: writes });
+				return null;
+			},
+			cardChanged: () => {},
+			...selector
+		};
+		const recorder = new AttemptRecorder({
+			attempts,
+			cards,
+			clock,
+			now: () => 5_000,
+			selector: source,
+			sessionId: 'sess-1',
+			rules: (mechanic) => ({ ...timedRules(mechanicRules(mechanic)), learner }),
+			recall: () => directRecallOf(THRESHOLD_MS),
+			levels
+		});
+		return { recorder, attempts, cards, levels, told };
+	}
+
+	const span = (planned: PlannedItem) => new ObservationSpan(1, planned);
+
+	it('tells the source before any write, with a provisional temperature', async () => {
+		const { recorder, attempts, told } = setupResponse();
+		const review = item({ phase: 'review', temperature: 'cold' });
+		const first = noteAttempt(review);
+		const written = recorder.recordResponse(first, span(review), review);
+		expect(told).toEqual([{ attempt: first, temperature: 'cold', stored: 0 }]);
+		await written;
+		const again = noteAttempt(review);
+		void recorder.recordResponse(again, span(review), review);
+		expect(told[1]).toMatchObject({ temperature: 'hot' });
+		await recorder.settled();
+		expect(await attempts.all()).toHaveLength(2);
+	});
+
+	it('stores a missed probe hot and a recalled probe cold, by the given recall rule', async () => {
+		const probe = item({ phase: 'probe', temperature: 'cold' });
+		const passed = setupResponse();
+		const recalled = noteAttempt(probe);
+		await passed.recorder.recordResponse(recalled, span(probe), probe);
+		expect(recalled.temperature).toBe('cold');
+
+		const slow = setupResponse();
+		const late = noteAttempt(probe, { reactionMs: THRESHOLD_MS + 500 });
+		(late.verdict.value as { leadMs: number }).leadMs = THRESHOLD_MS + 500;
+		await slow.recorder.recordResponse(late, span(probe), probe);
+		expect(late.temperature).toBe('hot');
+
+		const missed = setupResponse();
+		const wrong = noteAttempt(probe, { success: false });
+		await missed.recorder.recordResponse(wrong, span(probe), probe);
+		expect(wrong.temperature).toBe('hot');
+		expect((await missed.attempts.all())[0].temperature).toBe('hot');
+	});
+
+	it('refuses a probe without a recall rule', () => {
+		const { recorder } = setup();
+		const probe = item({ phase: 'probe', temperature: 'cold' });
+		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
+	});
+
+	it('grades a cold review through FSRS and stores its card', async () => {
+		const { recorder, cards } = setupResponse();
+		const card = markLearned(
+			introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, 0, 'old'),
+			0
+		);
+		await cards.put(card);
+		const review = item({ phase: 'review', temperature: 'cold' });
+		await recorder.recordResponse(noteAttempt(review), span(review), review);
+		await recorder.settled();
+		const stored = await cards.get(LOCATE_KEY);
+		expect(stored?.scheduling.reps).toBeGreaterThan(card.scheduling.reps);
+		expect(stored?.acquiredAt).toBe(5_000);
+		expect(stored?.leadBeats).toBe(card.leadBeats);
+	});
+
+	it('introduces the card of a first learning prompt', async () => {
+		const { recorder, cards } = setupResponse();
+		const learning = item({ phase: 'learning', temperature: 'hot' });
+		await recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await recorder.settled();
+		expect(await cards.get(LOCATE_KEY)).toMatchObject({
+			key: LOCATE_KEY,
+			item: F_ON_B,
+			introducedAt: 5_000,
+			introducedInSession: 'sess-1',
+			learnedAt: null
+		});
+	});
+
+	it('writes the level the source moved, and none when it moved none', async () => {
+		const level: LevelState = {
+			exerciseId: 'locate-neck',
+			scope: '',
+			item: 'F@2',
+			level: 2,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		};
+		const moved = setupResponse({ record: () => ({ level }) });
+		const learning = item({ phase: 'learning', temperature: 'hot' });
+		await moved.recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await moved.recorder.settled();
+		expect(await moved.levels.all()).toEqual([level]);
+
+		const still = setupResponse();
+		await still.recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await still.recorder.settled();
+		expect(await still.levels.all()).toEqual([]);
+	});
+
+	it('touches no card for a skill learner', async () => {
+		const { recorder, cards, attempts } = setupResponse(undefined, 'skill');
+		const learning = item({ phase: 'learning', temperature: 'hot' });
+		await recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await recorder.settled();
+		expect(await cards.all()).toEqual([]);
+		expect(await attempts.all()).toHaveLength(1);
 	});
 });
