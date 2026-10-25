@@ -76,6 +76,8 @@ async function setup(
 	options: {
 		plan?: RoundPlan;
 		chained?: boolean;
+		/** Seconds after the first change's target the controller opens the round at. */
+		openedAfter?: number;
 		latencyOf?: (sensor: string) => CycleReport['latency'];
 		debug?: { lines(payload: unknown): string[] };
 	} = {}
@@ -111,6 +113,7 @@ async function setup(
 		item: planned,
 		at: Fraction.of(playFrom),
 		chained: options.chained ?? false,
+		openedAt: t0 + (options.openedAfter ?? -0.5),
 		transport,
 		map,
 		latencyOf: options.latencyOf ?? (() => ({ ms: 0, provenance: 'system' })),
@@ -283,6 +286,19 @@ describe('RoundRunner', () => {
 		expect(ctx.runner.span.snapshot()).toMatchObject([
 			{ sensor: 'tap', fate: 'answer', correct: true }
 		]);
+	});
+
+	it('counts a round in free time from the instant the controller opens it', async () => {
+		const plan = freePlan({
+			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
+			recallThresholdMs: 3000
+		});
+		// Opened a little after the downbeat its bar starts on, at the wake-up.
+		const ctx = await setup({ plan, openedAfter: 0.3 });
+		ctx.runTo(ctx.t0 + 1.4);
+		ctx.runner.observe('tap', { time: ctx.t0 + 1.3, payload: 'C', readable: true });
+		expect(ctx.runner.span.snapshot()[0].atMs).toBeCloseTo(1000, 6);
+		expect(ctx.events[0].event.outcome.verdict.value).toMatchObject({ reactionMs: 1000 });
 	});
 
 	it('gives the round the latency of its own sensor', async () => {

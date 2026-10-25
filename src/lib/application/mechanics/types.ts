@@ -23,10 +23,12 @@ export const SCENE_CLICKS: Readonly<Record<Scene, boolean>> = { guitar: true, sc
 /** Names an observation source of the session: 'note' and 'chord' (played), 'tap' (on screen). */
 export type SensorKind = string;
 
-/** Where a prompt's view places it: the beat of its target, and the rounds played before it. */
+/** Where a prompt's view places it: the beats of its prompt and target, and the rounds played before it. */
 export interface StagePlace {
 	/** The beat of the target, in the tempo map's beats from the series' start; null before. */
 	anchorBeat: number | null;
+	/** The beat of the prompt, in the same beats; null while the item is not placed yet. */
+	promptBeat: number | null;
 	history: readonly LaneEntry[];
 }
 
@@ -36,6 +38,11 @@ export interface MechanicPresenter<I = any, A = any> {
 	scene: Scene;
 	/** Every sensor whose observations answer it; the others are filed as another sensor's. */
 	sensors: SensorKind[];
+	/**
+	 * Beats before its prompt that an item following without a counted bar is shown (D5), the
+	 * settled round staying until then; absent: shown at its prompt.
+	 */
+	previewBeats?: number;
 	prompt(
 		item: I,
 		aids: { aid: AidLevel; stringAid: boolean },
@@ -96,7 +103,7 @@ export interface MechanicPresenter<I = any, A = any> {
 		item: I,
 		settled: { value: ResponseValue; success: boolean } | null,
 		locale: Locale,
-		aids: { aid: AidLevel },
+		aids: { aid: AidLevel; stringAid: boolean },
 		place: StagePlace,
 		drawing?: { chordDiagram: ChordDiagramStyle }
 	): { model: unknown };

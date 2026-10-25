@@ -17,6 +17,7 @@ import { aidsOf } from '../aids';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation, ObservationSource } from '../sensors';
 import type { Transport } from '../transport';
+import { inFreeTime } from './placement';
 
 /** What a round tells its controller: a miss shown while it listens on, or its settlement (once). */
 export type RunnerEvent =
@@ -75,6 +76,11 @@ export class RoundRunner {
 		/** Bar position of the round's start on the transport (fractions allowed). */
 		at: Fraction;
 		chained: boolean;
+		/**
+		 * Audio seconds the controller opened the round at: a round in free time counts its
+		 * prompt from there; a timed round's prompt is on the map.
+		 */
+		openedAt: number;
 		transport: Transport;
 		map: TempoMap;
 		/** The calibrated latency of a sensor; the round takes that of its first expectation's. */
@@ -87,7 +93,7 @@ export class RoundRunner {
 	}) {
 		const { plan, transport, map } = input;
 		this.#plan = plan;
-		this.#isFree = plan.expectations.length > 0 && plan.expectations.every((e) => e.at === null);
+		this.#isFree = inFreeTime(plan);
 		this.#sources = input.sources;
 		this.#onEvent = input.onEvent;
 		this.#debug = input.debug ?? null;
@@ -97,7 +103,7 @@ export class RoundRunner {
 		const first = plan.expectations[0];
 		this.#round = new PlanRound({
 			plan,
-			clock: this.#isFree ? { promptS: map.toSeconds(start) } : { map, start },
+			clock: this.#isFree ? { promptS: input.openedAt } : { map, start },
 			chained: input.chained,
 			judges: contentJudges,
 			latency: first ? input.latencyOf(first.sensor) : null,
