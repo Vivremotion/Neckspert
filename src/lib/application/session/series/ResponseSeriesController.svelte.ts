@@ -35,7 +35,7 @@ import { openAudioInput } from '../audioInput';
 import type { AttemptRecorder } from '../AttemptRecorder';
 import { sessionTempo } from '../executions';
 import type { ResponseSeriesDeps } from '../SessionDeps';
-import { Transport, TransportStopped } from '../transport';
+import { START_DELAY_S, Transport, TransportStopped } from '../transport';
 import { responseAttempt } from './recordResponse';
 import { RoundRunner, type RunnerEvent } from './roundRunner';
 import { ceilBar, barAtOrAfter } from './seriesBars';
@@ -584,7 +584,16 @@ export class ResponseSeriesController implements PlaySessionController {
 			}
 			return;
 		}
-		this.placeAfter(item, Math.max(ceilBar(earliest), this.accompaniedUntil));
+		this.placeAfter(item, this.audibleBar(Math.max(ceilBar(earliest), this.accompaniedUntil)));
+	}
+
+	/**
+	 * `bar`, or the bar after it when it begins sooner than `START_DELAY_S` from now: a count
+	 * placed after a round in free time is never heard already late.
+	 */
+	private audibleBar(bar: number): number {
+		const time = this.transport.map.toSeconds(Fraction.of(bar).mul(this.transport.barLength));
+		return time < this.deps.clock.now() + START_DELAY_S ? bar + 1 : bar;
 	}
 
 	/**

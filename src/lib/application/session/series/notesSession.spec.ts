@@ -14,6 +14,7 @@ import {
 } from '$lib/domain/music';
 import { STRING_PREVIEW_BEATS, RESPIRATION_BARS } from '$lib/domain/timing/grid';
 import { SESSION_MS } from '$lib/domain/session';
+import { START_DELAY_S } from '$lib/application/session/transport';
 import type { Attempt } from '$lib/domain/types';
 import {
 	allRight,
@@ -357,6 +358,28 @@ describe('a learn session of the notes', () => {
 		expect(lane(controller)?.history).toEqual([
 			{ beatIndex: played.anchorBeat, verdict: 'perfect' }
 		]);
+		await quitAndRead(app, controller);
+	});
+
+	it('counts back to the guitar no sooner than the start delay after a tap near a bar line', async () => {
+		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
+		const controller = await startNotes(app, 'learn');
+		await runUntil(app, () => controller.view.status === 'awaiting');
+		const named = onStage(controller);
+		expect(named?.card.mechanic).toBe('identify');
+		const beatS = 60 / controller.view.tempoBpm;
+		const nextBar = (Math.floor(controller.timeline.nowBeat() / BEATS_PER_BAR) + 1) * BEATS_PER_BAR;
+		// Tapped a few ms before the next bar line.
+		await runUntil(app, () => (nextBar - controller.timeline.nowBeat()) * beatS <= 0.05);
+		const tappedAt = app.clock.now();
+		expect((nextBar - controller.timeline.nowBeat()) * beatS).toBeGreaterThan(0);
+		controller.answer(rightName((named?.card as Extract<NeckCard, { mechanic: 'identify' }>).item));
+		await runUntil(app, () => controller.view.status === 'awaiting');
+		expect(onStage(controller)?.card.mechanic).toBe('locate');
+		// The count's first click, the first sound since the tap.
+		const [first] = app.sounds.emitted().filter((s) => s.time >= tappedAt);
+		expect(first).toBeDefined();
+		expect(first.time - tappedAt).toBeGreaterThanOrEqual(START_DELAY_S);
 		await quitAndRead(app, controller);
 	});
 

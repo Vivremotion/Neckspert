@@ -20,7 +20,7 @@ export { LISTEN_IN_BARS };
 /** The shortest breath, rounded up to whole bars. */
 export const BREATH_MIN_MS = 4000;
 /** The map starts this long after `now`, so the first sound is never already past. */
-const START_DELAY_S = 0.1;
+export const START_DELAY_S = 0.1;
 /** Absorbs the float error of a bar lasting exactly the minimum. */
 const BAR_ROUNDING_EPSILON = 1e-9;
 
