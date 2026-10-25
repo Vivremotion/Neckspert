@@ -48,6 +48,7 @@ export function neckLevelOfCard(card: Row, locateTempoBpm: number): Row | null {
 	const key = card.key;
 	if (typeof key !== 'string') return null;
 	const colon = key.indexOf(':');
+	if (colon < 0) return null;
 	const mechanic = key.slice(0, colon);
 	const item = key.slice(colon + 1);
 	const learned = card.learnedAt !== null && card.learnedAt !== undefined;
