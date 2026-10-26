@@ -24,6 +24,17 @@ export function targetBarOffsetOf(definition: ExerciseDefinition): Fraction | un
 	return written === undefined ? undefined : Fraction.parse(String(written));
 }
 
+/** Where the counted bar ends: on the prompt, or on the target. */
+export type CountEnd = 'prompt' | 'target';
+
+/**
+ * Where an exercise's counted bar ends (`params.countEndsOn`): on the prompt, as the notes have
+ * always counted, or on the target; undefined when it writes none: on the prompt.
+ */
+export function countEndsOnOf(definition: ExerciseDefinition): CountEnd | undefined {
+	return definition.params.countEndsOn as CountEnd | undefined;
+}
+
 /** The pacing the old one-answer relations read: the breath, and the leads of a ladder. Until H5. */
 export interface BeatPacing extends ExercisePacing {
 	/** Longest first. */

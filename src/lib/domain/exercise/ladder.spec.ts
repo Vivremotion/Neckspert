@@ -50,13 +50,21 @@ describe('ladderOf', () => {
 		const level = LEADS[1];
 		expect(validateLadder(LEADS)).toBeNull();
 		expect(validateLadder([])).toMatch(/empty/);
-		for (const leadBeats of [0, -2, Number.NaN, Infinity]) {
+		for (const leadBeats of [0, -2, Number.NaN, Infinity, 1.0001]) {
 			expect(validateLadder([{ ...level, params: { leadBeats, aided: false } }])).toMatch(/lead/);
 		}
 		for (const successes of [0, 1.5, -1]) {
 			expect(validateLadder([{ ...level, pass: { successes } }])).toMatch(/pass/);
 		}
 		expect(validateLadder([{ ...level, drop: { failures: 0 } }])).toMatch(/drop/);
+		expect(
+			validateLadder([{ ...level, params: { leadBeats: 4, aided: 'yes' as unknown as boolean } }])
+		).toMatch(/level 0: .*aided/);
+		expect(validateLadder([{ ...level, success: 'recall' as unknown as 'direct-recall' }])).toMatch(
+			/level 0: .*success/
+		);
+		// A lead of a beat and a half: an exact fraction of a beat.
+		expect(validateLadder([{ ...level, params: { leadBeats: 1.5, aided: false } }])).toBeNull();
 		// The exercise that writes it is named with the field.
 		expect(() => ladderOf(withLadder([]))).toThrow(/locate-neck.*params\.ladder.*empty/);
 		expect(() => ladderOf(withLadder('8, 4, 2'))).toThrow(/locate-neck.*params\.ladder/);

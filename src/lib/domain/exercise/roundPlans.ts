@@ -1,5 +1,5 @@
 import { Fraction } from '../time/fraction';
-import { barLength, type Meter } from '../time/meter';
+import { barLength, beatsOf, type Meter } from '../time/meter';
 import type { Expectation, ExpectedContent, RoundPlan, RoundPolicy } from '../time/plan';
 import type { LeadBeats } from '../types';
 import type { ResponseWindows } from './windows';
@@ -8,8 +8,6 @@ import type { ResponseWindows } from './windows';
  * The four one-answer relations written as round plans. A round starts at its target
  * (position 0); a « beat » is the meter's unit.
  */
-
-const beats = (meter: Meter, count: number): Fraction => meter.unit.mul(Fraction.of(count));
 
 function pointTarget(sensor: string, content: ExpectedContent, windowMs: number): Expectation {
 	return {
@@ -49,17 +47,21 @@ export function beatPlan(input: {
 	previewBeats: number;
 	/** Where the target falls in its bar; absent: the downbeat. */
 	barOffset?: Fraction;
+	/** Where the counted bar ends; absent: on the prompt. */
+	countEndsOn?: 'prompt' | 'target';
 }): RoundPlan {
 	const { content, leadBeats, meter, respirationBars, windows, previewBeats, barOffset } = input;
+	const { countEndsOn } = input;
 	const length = barLength(meter).mul(Fraction.of(respirationBars));
 	return {
-		prompt: beats(meter, -leadBeats),
+		prompt: beatsOf(meter, -leadBeats),
 		expectations: [pointTarget('note', content, windows.perfectMs)],
 		length,
-		listenUntil: length.sub(beats(meter, previewBeats)),
+		listenUntil: length.sub(beatsOf(meter, previewBeats)),
 		mutedBars: [],
 		policy: onTheBeatPolicy(false, windows),
-		...(barOffset && { barOffset })
+		...(barOffset && { barOffset }),
+		...(countEndsOn && { countEndsOn })
 	};
 }
 
@@ -77,11 +79,11 @@ export function anchorPlan(input: {
 	const bar = barLength(meter);
 	const length = bar.mul(Fraction.of(1 + respirationBars));
 	return {
-		prompt: beats(meter, -leadBeats),
+		prompt: beatsOf(meter, -leadBeats),
 		expectations: [
 			pointTarget('note', root, windows.perfectMs),
 			{
-				at: beats(meter, windows.anchorChordFromBeats),
+				at: beatsOf(meter, windows.anchorChordFromBeats),
 				span: { until: bar },
 				role: 'target',
 				sensor: 'chord',
@@ -91,7 +93,7 @@ export function anchorPlan(input: {
 			}
 		],
 		length,
-		listenUntil: length.sub(beats(meter, previewBeats)),
+		listenUntil: length.sub(beatsOf(meter, previewBeats)),
 		mutedBars: [],
 		policy: onTheBeatPolicy(true, windows)
 	};
@@ -105,9 +107,9 @@ export function gridChangePlan(input: {
 	windows: ResponseWindows;
 }): RoundPlan {
 	const { content, lengthBeats, meter, windows } = input;
-	const length = beats(meter, lengthBeats);
+	const length = beatsOf(meter, lengthBeats);
 	return {
-		prompt: beats(meter, -1),
+		prompt: beatsOf(meter, -1),
 		expectations: [pointTarget('chord', content, windows.perfectMs)],
 		length,
 		handover: length,

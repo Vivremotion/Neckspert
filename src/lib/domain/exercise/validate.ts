@@ -1,5 +1,5 @@
 import { Fraction } from '../time/fraction';
-import { barLength, METER_4_4, validateMeter } from '../time/meter';
+import { barLength, isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import { validateLadder } from './ladder';
 import type { ExerciseDefinition, Ladder } from './types';
 
@@ -10,6 +10,7 @@ const naturalNumber = (value: unknown) =>
 	typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
 const SCENES = ['guitar', 'screen'];
+const COUNT_ENDS = ['prompt', 'target'];
 
 function tempoProblem(definition: ExerciseDefinition): string | null {
 	if (definition.startTempoBpm !== undefined && !positive(definition.startTempoBpm)) {
@@ -70,6 +71,11 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 				return `params.windows.${field} must be a non-negative number, got ${value}`;
 			}
 		}
+		// Placed on the beat: an exact fraction of one.
+		const anchor = (params.windows as Record<string, unknown>).anchorChordFromBeats;
+		if (anchor !== undefined && !isBeatCount(anchor)) {
+			return `params.windows.anchorChordFromBeats must be an exact fraction of a beat, got ${anchor}`;
+		}
 	}
 	if (params.learning !== undefined) {
 		const learning = params.learning as Record<string, unknown>;
@@ -93,6 +99,9 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
+	}
+	if (params.countEndsOn !== undefined && !COUNT_ENDS.includes(params.countEndsOn as string)) {
+		return `params.countEndsOn must be one of ${COUNT_ENDS.join(', ')}, got ${params.countEndsOn}`;
 	}
 	if (params.targetBarOffset !== undefined) {
 		const text = params.targetBarOffset;

@@ -72,6 +72,15 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
 			/^locate-neck: params\.learning\.aidFadeSuccesses /
 		);
+		expect(
+			validateExercise(withParams({ ladder: [{ params: { leadBeats: 1.0001, aided: false } }] }))
+		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*1\.0001/);
+		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
+			/^locate-neck: params\.windows\.anchorChordFromBeats /
+		);
+		expect(validateExercise(withParams({ countEndsOn: 'downbeat' }))).toMatch(
+			/^locate-neck: params\.countEndsOn .*downbeat/
+		);
 		expect(validateExercise(withParams({ targetBarOffset: '4/4' }))).toMatch(
 			/^locate-neck: params\.targetBarOffset /
 		);

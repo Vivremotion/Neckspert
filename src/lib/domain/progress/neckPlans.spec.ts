@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { validateExercise } from '$lib/domain/exercise/validate';
 import { Fraction } from '$lib/domain/time/fraction';
 import { METER_4_4 } from '$lib/domain/time/meter';
 import { validateRoundPlan } from '$lib/domain/time/plan';
@@ -35,8 +36,43 @@ describe('neckPlan', () => {
 		).toBe(true);
 	});
 
-	it('refuses a locate prompt without a lead', () => {
-		expect(() => neckPlan(planned({ leadBeats: null }), METER_4_4, LOCATE_NECK)).toThrow();
+	it('refuses a locate prompt without a lead, naming the exercise and the ladder level', () => {
+		const definition = {
+			...LOCATE_NECK,
+			params: {
+				...LOCATE_NECK.params,
+				ladder: [
+					{ params: { leadBeats: 8, aided: true } },
+					{ params: { leadBeats: null, aided: false } }
+				]
+			}
+		};
+		expect(() => neckPlan(planned({ leadBeats: null }), METER_4_4, definition)).toThrow(
+			'locate-neck: params.ladder level 1 has no lead, a locate prompt needs one'
+		);
+	});
+
+	it('plans a lead that is a fraction of a beat, its exercise valid', () => {
+		const definition = {
+			...LOCATE_NECK,
+			params: {
+				...LOCATE_NECK.params,
+				ladder: [{ params: { leadBeats: 1.5, aided: false } }]
+			}
+		};
+		expect(validateExercise(definition)).toBeNull();
+		const plan = neckPlan(planned({ leadBeats: 1.5 }), METER_4_4, definition);
+		expect(plan.prompt?.toString()).toBe('-3/8');
+		expect(validateRoundPlan(plan)).toBeNull();
+	});
+
+	it('ends the count where its exercise writes it, on the prompt by default', () => {
+		expect(neckPlan(planned({}), METER_4_4, LOCATE_NECK).countEndsOn).toBeUndefined();
+		const definition = {
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, countEndsOn: 'target' }
+		};
+		expect(neckPlan(planned({}), METER_4_4, definition).countEndsOn).toBe('target');
 	});
 
 	it('plans an identify prompt in free time, judged by name', () => {
