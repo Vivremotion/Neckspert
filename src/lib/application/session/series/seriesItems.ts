@@ -1,4 +1,4 @@
-import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition, ExerciseId, Scene } from '$lib/domain/exercise/types';
 import {
 	cardKey,
 	type CardKey,
@@ -39,6 +39,21 @@ export class SeriesItems {
 	/** The definition of an item's exercise; an exercise the catalog does not know throws. */
 	definitionOf(item: PlannedItem): ExerciseDefinition {
 		return this.exercise(item.exerciseId);
+	}
+
+	/** The item's scene, preview and contest: its exercise's, else its mechanic's presenter's. */
+	flowOf(item: PlannedItem): {
+		scene: Scene;
+		previewBeats: number | null;
+		contestable: boolean;
+	} {
+		const presenter = this.presenterOf(item);
+		const flow = this.definitionOf(item)?.flow;
+		return {
+			scene: flow?.scene ?? presenter.scene,
+			previewBeats: flow?.previewBeats ?? presenter.previewBeats ?? null,
+			contestable: flow?.contestable ?? presenter.contestable ?? false
+		};
 	}
 
 	/** The instruction of an item's exercise, in `locale`; null without one. */

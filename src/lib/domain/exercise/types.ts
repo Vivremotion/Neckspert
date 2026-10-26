@@ -6,6 +6,19 @@ export type MechanicId = string;
 export type ExerciseId = string;
 
 /** An exercise is data only: a mechanic plus its parameters. */
+/** Lane and clicks for the guitar; answer pad and silence for the screen. */
+export type Scene = 'guitar' | 'screen';
+
+/** How a session plays an exercise's rounds; what it leaves out, its mechanic's presenter gives. */
+export interface ExerciseFlow {
+	/** Where it is played: the guitar (the click is heard) or the screen (silence). */
+	scene?: Scene;
+	/** Beats before its prompt that it is shown after a round without a counted bar. */
+	previewBeats?: number;
+	/** Whether a miss can be contested in play (development builds). */
+	contestable?: boolean;
+}
+
 export interface ExerciseDefinition {
 	id: ExerciseId;
 	version: number;
@@ -19,6 +32,8 @@ export interface ExerciseDefinition {
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */
 	meter?: Meter;
+	/** Its scene, preview and contest, over its mechanic presenter's defaults. */
+	flow?: ExerciseFlow;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
 	/**

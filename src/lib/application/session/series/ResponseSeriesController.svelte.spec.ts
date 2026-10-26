@@ -708,9 +708,9 @@ describe('ResponseSeriesController', () => {
 					listeners.note?.({ time, payload: { midi }, readable: true })
 			};
 		};
-		const series = (items: PlannedItem[]) => {
+		const series = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
 			const fake = fakeSensors();
-			const ctx = setup(items, { mechanics, plans, sensors: fake.sensors });
+			const ctx = setup(items, { mechanics, plans, sensors: fake.sensors, ...options });
 			return { ...ctx, hear: fake.hear };
 		};
 		const shown = (ctx: Ctx) => ctx.controller.view.stage?.model as Shown;
@@ -848,6 +848,31 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.status).toBe('verdict');
 		});
 
+		it('announces the next prompt as many beats early as its exercise says', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), flow: { previewBeats: 2 } });
+			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5) - 0.01);
+			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx)).toMatchObject({ index: 1, settled: null });
+		});
+
+		it('takes the mechanic’s defaults when the exercise says nothing', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), flow: {} });
+			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
+			ctx.runTo(ctx.bar(3.75));
+			expect(shown(ctx)).toMatchObject({ index: 1 });
+			expect(ctx.controller.view.scene).toBe('guitar');
+		});
+
 		it('without preview beats, shows the next item at its prompt', async () => {
 			const ctx = series([beat(0, 8, {}, 'beat-unannounced'), beat(1, 8, {}, 'beat-unannounced')]);
 			await ctx.controller.start();
@@ -962,6 +987,15 @@ describe('ResponseSeriesController', () => {
 			expect(clicksBetween(ctx, ctx.bar(3), ctx.bar(4))).toEqual([6.1, 6.6, 7.1, 7.6]);
 			ctx.runTo(ctx.bar(4) + 0.01);
 			expect(clicksBetween(ctx, ctx.bar(4), ctx.bar(5))).toEqual([8.1, 8.6, 9.1, 9.6]);
+		});
+
+		it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), flow: { scene: 'screen' as const } });
+			const ctx = setup(passage(), { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(2));
+			expect(ctx.controller.view.scene).toBe('screen');
+			expect(clicksBetween(ctx, 0, ctx.bar(2))).toEqual([]);
 		});
 
 		it('shows a counted bar before a scene that does not click, without a sound', async () => {

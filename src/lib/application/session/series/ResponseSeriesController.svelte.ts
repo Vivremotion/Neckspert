@@ -24,7 +24,7 @@ import {
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
-import { SCENE_CLICKS, type MechanicPresenter, type Scene } from '$lib/application/mechanics/types';
+import { SCENE_CLICKS, type Scene } from '$lib/application/mechanics/types';
 import {
 	DEFAULT_PLAY_VIEW,
 	type LaneEntry,
@@ -404,7 +404,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		// The bars between the count and the round clicked now: laid at the prompt, their beats
 		// before it would already be past.
 		if (this.clicksOn(item)) this.accompanyTo(start);
-		this.enterScene(this.items.presenterOf(item));
+		this.enterScene(item);
 		this.view.status = 'count-in';
 		// Not placed before its round opens: the view places it where the count ends. A round
 		// settled on screen (its verdict, its drawn miss, its offer) stays until the count starts.
@@ -442,10 +442,9 @@ export class ResponseSeriesController implements PlaySessionController {
 		const now = barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
 		let start = this.startOf(plan, earliest.compare(now) >= 0 ? earliest : now);
 		while (this.promptOf(start, plan).compare(now) < 0) start = start.add(Fraction.of(1));
-		const presenter = this.items.presenterOf(item);
-		if (SCENE_CLICKS[presenter.scene]) this.accompanyTo(start);
-		const { previewBeats } = presenter;
-		if (previewBeats !== undefined) {
+		if (this.clicksOn(item)) this.accompanyTo(start);
+		const { previewBeats } = this.items.flowOf(item);
+		if (previewBeats !== null) {
 			const preview = this.seriesMeter.unit
 				.mul(Fraction.of(previewBeats))
 				.div(this.transport.barLength);
@@ -494,7 +493,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.pending = null;
 		const presenter = this.items.presenterOf(item);
 		const end = at.add(plan.length.div(this.transport.barLength));
-		if (SCENE_CLICKS[presenter.scene]) this.accompanyTo(end);
+		if (this.clicksOn(item)) this.accompanyTo(end);
 		const round = {
 			item,
 			plan,
@@ -540,7 +539,7 @@ export class ResponseSeriesController implements PlaySessionController {
 				exerciseId: item.exerciseId,
 				item: this.items.cardKeyOf(item)
 			}) ?? null;
-		this.enterScene(presenter);
+		this.enterScene(item);
 		this.view.countdown = chainedAt === null ? this.view.countdown : null;
 		const definition = this.items.definitionOf(item);
 		this.view.chordDiagram = presenter.feedback
@@ -663,7 +662,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		return (
 			!item.countIn &&
 			this.tempoOf(item) === this.tempoBpm &&
-			this.items.presenterOf(item).scene === this.lastScene
+			this.items.flowOf(item).scene === this.lastScene
 		);
 	}
 
@@ -786,7 +785,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	private offerContest(round: OpenRound, outcome: RoundOutcome): void {
 		if (!this.deps.development) return;
 		const miss = outcome.correct === false;
-		if (!this.items.presenterOf(round.item).contestable || !miss) {
+		if (!this.items.flowOf(round.item).contestable || !miss) {
 			this.withdrawContest();
 			return;
 		}
@@ -826,9 +825,10 @@ export class ResponseSeriesController implements PlaySessionController {
 			: null;
 	}
 
-	private enterScene(presenter: MechanicPresenter): void {
-		this.lastScene = presenter.scene;
-		this.view.scene = presenter.scene;
+	private enterScene(item: PlannedItem): void {
+		const { scene } = this.items.flowOf(item);
+		this.lastScene = scene;
+		this.view.scene = scene;
 	}
 
 	/** The beat of the round's first expectation (its target) on the map. */
@@ -903,7 +903,7 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** Whether the click is heard on `item`'s scene. */
 	private clicksOn(item: PlannedItem): boolean {
-		return SCENE_CLICKS[this.items.presenterOf(item).scene];
+		return SCENE_CLICKS[this.items.flowOf(item).scene];
 	}
 
 	private setTempo(tempo: number): void {
