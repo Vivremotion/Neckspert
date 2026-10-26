@@ -5,8 +5,11 @@
 
 type Row = Record<string, unknown>;
 
-/** The tempo of an exercise whose progression says none, as version 9 knew it. */
-const DEFAULT_TEMPO_V9 = 80;
+/**
+ * The tempo every locate level is seeded at: locate plays at 80 bpm, fixed (spec amendment
+ * 2026-10-26), whatever tempo its progression had reached. At 80 bpm the ladder is 8, 4, 2.
+ */
+const LOCATE_TEMPO_V9 = 80;
 
 /**
  * The neck's ladders as version 9 knew them: frozen, a tripwire test compares them with the live
@@ -34,17 +37,17 @@ function keptLeads(tempoBpm: number): number[] {
 }
 
 /** The level of a learned locate card: its lead's place in the ladder; shorter than the top → the top. */
-function learnedLocateLevel(leadBeats: number, tempoBpm: number): number {
-	const kept = keptLeads(tempoBpm);
+function learnedLocateLevel(leadBeats: number): number {
+	const kept = keptLeads(LOCATE_TEMPO_V9);
 	const index = kept.findLastIndex((lead) => lead >= leadBeats);
 	return index < 0 ? kept.length - 1 : index;
 }
 
 /**
- * The level of a neck card from its lead, at the locate exercise's tempo; null for a card outside
+ * The level of a neck card from its lead, on the locate ladder at 80 bpm; null for a card outside
  * the neck. A card still being learned starts at level 0 (the aided presentation).
  */
-export function neckLevelOfCard(card: Row, locateTempoBpm: number): Row | null {
+export function neckLevelOfCard(card: Row): Row | null {
 	const key = card.key;
 	if (typeof key !== 'string') return null;
 	const colon = key.indexOf(':');
@@ -56,7 +59,7 @@ export function neckLevelOfCard(card: Row, locateTempoBpm: number): Row | null {
 	let level: number;
 	if (mechanic === 'locate') {
 		exerciseId = NECK_LADDER_V9.locate.exerciseId;
-		level = learned ? learnedLocateLevel(card.leadBeats as number, locateTempoBpm) : 0;
+		level = learned ? learnedLocateLevel(card.leadBeats as number) : 0;
 	} else if (mechanic === 'identify') {
 		exerciseId = NECK_LADDER_V9.identify.exerciseId;
 		level = learned ? 1 : 0;
@@ -71,34 +74,23 @@ function stateKey(row: Row): string {
 }
 
 /** Level states for every neck card without one; `existing` keeps a stored state. */
-export function levelStatesV9(cards: Row[], existing: Row[], locateTempoBpm: number): Row[] {
+export function levelStatesV9(cards: Row[], existing: Row[]): Row[] {
 	const stored = new Set(existing.map(stateKey));
 	const seeded: Row[] = [];
 	for (const card of cards) {
-		const state = neckLevelOfCard(card, locateTempoBpm);
+		const state = neckLevelOfCard(card);
 		if (state && !stored.has(stateKey(state))) seeded.push(state);
 	}
 	return seeded;
-}
-
-/** The locate tempo a migration reads: its progression (unscoped), else the default. */
-export function locateTempoV9(progressions: Row[]): number {
-	const own = progressions.find(
-		(row) =>
-			row.exerciseId === NECK_LADDER_V9.locate.exerciseId &&
-			(row.scope === undefined || row.scope === '')
-	);
-	return typeof own?.tempoBpm === 'number' ? own.tempoBpm : DEFAULT_TEMPO_V9;
 }
 
 /** A version 4 backup as version 5: its level states complete with those of the neck cards. */
 export function backupV4ToV5(file: Row): Row {
 	const cards = file.cards as Row[];
 	const existing = file.levelStates as Row[];
-	const tempo = locateTempoV9(file.progressions as Row[]);
 	return {
 		...file,
 		version: 5,
-		levelStates: [...existing, ...levelStatesV9(cards, existing, tempo)]
+		levelStates: [...existing, ...levelStatesV9(cards, existing)]
 	};
 }

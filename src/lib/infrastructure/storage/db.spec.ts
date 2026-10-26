@@ -525,10 +525,10 @@ describe('version 9', () => {
 		const states = await db.levelStates.toArray();
 		expect(states).toHaveLength(4);
 		expect(states).toContainEqual(rhythm);
-		// At 160 bpm the locate ladder has two levels: a lead of 4 is level 1.
-		expect(states).toContainEqual(neckLevelOfCard(cards[0], 160));
-		expect(states).toContainEqual(neckLevelOfCard(cards[1], 160));
-		expect(states).toContainEqual(neckLevelOfCard(cards[2], 160));
+		// Seeded at 80 bpm, the progression's 160 aside: a lead of 4 is level 1.
+		expect(states).toContainEqual(neckLevelOfCard(cards[0]));
+		expect(states).toContainEqual(neckLevelOfCard(cards[1]));
+		expect(states).toContainEqual(neckLevelOfCard(cards[2]));
 		expect(states.find((state) => state.item === '6:F')?.level).toBe(1);
 		expect(states.find((state) => state.item === '5:A')?.level).toBe(0);
 		expect(states.find((state) => state.item === '6:3')?.level).toBe(1);

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { pacingOf } from '$lib/domain/exercise/pacing';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
-import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, locateTempoV9, neckLevelOfCard } from './v9';
+import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, neckLevelOfCard } from './v9';
 
 type Row = Record<string, unknown>;
 
@@ -14,21 +14,15 @@ function identifyCard(learnedAt: number | null, item = '6:3'): Row {
 	return { key: `identify:${item}`, mechanic: 'identify', leadBeats: 2, learnedAt };
 }
 
-function levelOf(card: Row, tempo = 80): unknown {
-	return neckLevelOfCard(card, tempo)?.level;
+function levelOf(card: Row): unknown {
+	return neckLevelOfCard(card)?.level;
 }
 
 describe('neckLevelOfCard', () => {
-	it('gives a learned locate card the level of its lead at the locate tempo', () => {
+	it('gives a learned locate card the level of its lead on the ladder at 80 bpm', () => {
 		expect(levelOf(locateCard(8))).toBe(0);
 		expect(levelOf(locateCard(4))).toBe(1);
 		expect(levelOf(locateCard(2))).toBe(2);
-		// At 160 bpm a lead of 4 beats fits the threshold: the ladder stops there, lead 2 is its top.
-		expect(levelOf(locateCard(4), 160)).toBe(1);
-		expect(levelOf(locateCard(2), 160)).toBe(1);
-		// At 400 bpm a lead of 8 beats fits: one step, two levels at that lead.
-		expect(levelOf(locateCard(8), 400)).toBe(1);
-		expect(levelOf(locateCard(2), 400)).toBe(1);
 	});
 
 	it('starts a locate card still learned at level 0, and an identify card at 0 or at its top', () => {
@@ -38,7 +32,7 @@ describe('neckLevelOfCard', () => {
 	});
 
 	it('names the exercise and the item without the mechanic, with an empty scope and fresh counts', () => {
-		expect(neckLevelOfCard(locateCard(4, 1000, '6:G#'), 80)).toEqual({
+		expect(neckLevelOfCard(locateCard(4, 1000, '6:G#'))).toEqual({
 			exerciseId: 'locate-neck',
 			scope: '',
 			item: '6:G#',
@@ -47,44 +41,31 @@ describe('neckLevelOfCard', () => {
 			failures: 0,
 			resumeAfter: null
 		});
-		expect(neckLevelOfCard(identifyCard(1000, '5:8'), 80)).toMatchObject({
+		expect(neckLevelOfCard(identifyCard(1000, '5:8'))).toMatchObject({
 			exerciseId: 'identify-neck',
 			item: '5:8'
 		});
 	});
 
 	it('gives no level to a card outside the neck', () => {
-		expect(neckLevelOfCard({ key: 'triad-anchor:3-2-1:C:maj:root', learnedAt: 1 }, 80)).toBeNull();
+		expect(neckLevelOfCard({ key: 'triad-anchor:3-2-1:C:maj:root', learnedAt: 1 })).toBeNull();
 	});
 });
 
 describe('levelStatesV9', () => {
 	it('seeds no triad card and keeps a stored level state', () => {
-		const stored = { ...neckLevelOfCard(locateCard(8), 80), level: 2, successes: 1 };
+		const stored = { ...neckLevelOfCard(locateCard(8)), level: 2, successes: 1 };
 		const cards = [
 			locateCard(8),
 			locateCard(4, 1000, '5:A'),
 			{ key: 'triad-zone:x', learnedAt: 1 },
 			identifyCard(1000)
 		];
-		const seeded = levelStatesV9(cards, [stored], 80);
+		const seeded = levelStatesV9(cards, [stored]);
 		expect(seeded.map((state) => `${state.exerciseId}/${state.item}`)).toEqual([
 			'locate-neck/5:A',
 			'identify-neck/6:3'
 		]);
-	});
-});
-
-describe('locateTempoV9', () => {
-	it('reads the locate tempo from its progression, else the default', () => {
-		expect(locateTempoV9([{ exerciseId: 'locate-neck', tempoBpm: 120 }])).toBe(120);
-		expect(
-			locateTempoV9([
-				{ exerciseId: 'locate-neck', scope: 'blues', tempoBpm: 100 },
-				{ exerciseId: 'identify-neck', tempoBpm: 90 }
-			])
-		).toBe(80);
-		expect(locateTempoV9([])).toBe(80);
 	});
 });
 
@@ -124,12 +105,9 @@ describe('backupV4ToV5', () => {
 		expect(v5).toEqual({
 			...v4,
 			version: 5,
-			levelStates: [
-				rhythm,
-				neckLevelOfCard(locateCard(2), 160),
-				neckLevelOfCard(identifyCard(1000), 160)
-			]
+			levelStates: [rhythm, neckLevelOfCard(locateCard(2)), neckLevelOfCard(identifyCard(1000))]
 		});
-		expect((v5.levelStates as Row[])[1].level).toBe(1);
+		// Seeded at 80 bpm whatever the progression: a lead of 2 keeps its level 2.
+		expect((v5.levelStates as Row[])[1].level).toBe(2);
 	});
 });
