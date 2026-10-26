@@ -4,7 +4,7 @@ import { exerciseById } from '$lib/domain/exercise';
 import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
-import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
+import { RESPIRATION_BARS, STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
 import { GESTURE_EXERCISES, GESTURE_LINK, gesturePlan } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
@@ -688,7 +688,8 @@ describe('ResponseSeriesController', () => {
 						leadBeats: item.leadBeats ?? 8,
 						meter,
 						respirationBars: RESPIRATION_BARS,
-						windows: DEFAULT_RESPONSE_WINDOWS
+						windows: DEFAULT_RESPONSE_WINDOWS,
+						previewBeats: STRING_PREVIEW_BEATS
 					});
 		/** Item `index` of `mechanic`, at `lead`; the first one counted in. */
 		const beat = (
@@ -923,6 +924,29 @@ describe('ResponseSeriesController', () => {
 			expect(attempts[1].reactionMs).toBeCloseTo(1000, 6);
 			// Nothing clicks on the screen.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
+		});
+
+		it('lets an item in free time follow in its own meter: it neither sets nor checks the series’', async () => {
+			const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
+			// The timed item's exercise in 3/4, the tapped one's in 4/4.
+			const exercise = (id: string) => ({
+				...exerciseById(id),
+				howTo: undefined,
+				...(id === 'gesture-jam' && { meter: METER_3_4 })
+			});
+			const ctx = series([beat(0, 8), beat(1, 8, { exerciseId: 'gesture-zone' }, 'tap')], {
+				exercise
+			});
+			await ctx.controller.start();
+			// The timed round passes unanswered, then the tapped one opens.
+			let opened = false;
+			expect(() => {
+				for (let time = 0; time < 20 && !opened; time += 0.05) {
+					ctx.runTo(time);
+					opened = ctx.controller.view.status === 'awaiting' && shown(ctx).index === 1;
+				}
+			}).not.toThrow();
+			expect(opened).toBe(true);
 		});
 
 		it('past SESSION_MS: ends after a round without a handover, and begins nothing else', async () => {

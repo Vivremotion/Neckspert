@@ -1,7 +1,6 @@
 import { Fraction } from '../time/fraction';
 import { barLength, type Meter } from '../time/meter';
 import type { Expectation, ExpectedContent, RoundPlan, RoundPolicy } from '../time/plan';
-import { STRING_PREVIEW_BEATS } from '../timing/grid';
 import type { LeadBeats } from '../types';
 import type { ResponseWindows } from './windows';
 
@@ -46,16 +45,18 @@ export function beatPlan(input: {
 	respirationBars: number;
 	/** The exercise's windows (`windowsOf`). */
 	windows: ResponseWindows;
+	/** Beats before the end that the next prompt is shown, where the round stops listening. */
+	previewBeats: number;
 	/** Where the target falls in its bar; absent: the downbeat. */
 	barOffset?: Fraction;
 }): RoundPlan {
-	const { content, leadBeats, meter, respirationBars, windows, barOffset } = input;
+	const { content, leadBeats, meter, respirationBars, windows, previewBeats, barOffset } = input;
 	const length = barLength(meter).mul(Fraction.of(respirationBars));
 	return {
 		prompt: beats(meter, -leadBeats),
 		expectations: [pointTarget('note', content, windows.perfectMs)],
 		length,
-		listenUntil: length.sub(beats(meter, STRING_PREVIEW_BEATS)),
+		listenUntil: length.sub(beats(meter, previewBeats)),
 		mutedBars: [],
 		policy: onTheBeatPolicy(false, windows),
 		...(barOffset && { barOffset })
@@ -69,8 +70,10 @@ export function anchorPlan(input: {
 	meter: Meter;
 	respirationBars: number;
 	windows: ResponseWindows;
+	/** As `beatPlan`'s. */
+	previewBeats: number;
 }): RoundPlan {
-	const { root, chord, leadBeats, meter, respirationBars, windows } = input;
+	const { root, chord, leadBeats, meter, respirationBars, windows, previewBeats } = input;
 	const bar = barLength(meter);
 	const length = bar.mul(Fraction.of(1 + respirationBars));
 	return {
@@ -88,7 +91,7 @@ export function anchorPlan(input: {
 			}
 		],
 		length,
-		listenUntil: length.sub(beats(meter, STRING_PREVIEW_BEATS)),
+		listenUntil: length.sub(beats(meter, previewBeats)),
 		mutedBars: [],
 		policy: onTheBeatPolicy(true, windows)
 	};

@@ -1,3 +1,4 @@
+import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
@@ -15,7 +16,8 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		leadBeats,
 		meter,
 		respirationBars: 1,
-		windows: DEFAULT_RESPONSE_WINDOWS
+		windows: DEFAULT_RESPONSE_WINDOWS,
+		previewBeats: STRING_PREVIEW_BEATS
 	});
 const change = (meter: Meter) =>
 	gridChangePlan({ content: NOTE, lengthBeats: 4, meter, windows: DEFAULT_RESPONSE_WINDOWS });

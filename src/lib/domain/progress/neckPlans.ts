@@ -6,6 +6,7 @@ import { windowsOf } from '$lib/domain/exercise/windows';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import type { Meter } from '$lib/domain/time/meter';
 import type { RoundPlan } from '$lib/domain/time/plan';
+import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
 import type { PlannedItem } from '$lib/domain/types';
 
 /**
@@ -27,6 +28,8 @@ export function neckPlan(
 			meter,
 			respirationBars: pacingOf(definition).respirationBars,
 			windows: windowsOf(definition),
+			// Where the series shows the next prompt: the exercise's preview, else today's.
+			previewBeats: definition.flow?.previewBeats ?? STRING_PREVIEW_BEATS,
 			barOffset: targetBarOffsetOf(definition)
 		});
 	}

@@ -883,14 +883,17 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
-	 * Takes the meter of `item`'s exercise as the series' when it has none yet; an item of another
-	 * meter throws: the transport keeps one.
+	 * Takes the meter of `item`'s exercise as the series' when it has none yet; a timed item of
+	 * another meter throws: the transport keeps one. An item in free time has no use for a meter:
+	 * it never checks the series', and sets its own only when the transport needs one to begin.
 	 */
 	private keepMeter(item: PlannedItem): void {
-		const meter = this.items.definitionOf(item).meter ?? METER_4_4;
+		const definition = this.items.definitionOf(item);
+		const meter = definition.meter ?? METER_4_4;
 		if (this.meter) {
-			if (!sameMeter(this.meter, meter)) throw new RangeError('a series keeps one meter');
-			return;
+			if (sameMeter(this.meter, meter)) return;
+			if (inFreeTime(this.deps.plans(item, meter, definition))) return;
+			throw new RangeError('a series keeps one meter');
 		}
 		this.meter = meter;
 		const beats = beatPositions(meter).map((_, i) => i + 1);

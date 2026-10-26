@@ -53,12 +53,19 @@ describe('validateExercise', () => {
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: -1 } })).toMatch(
 			/^locate-neck: flow\.previewBeats /
 		);
+		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: 1.5 } })).toMatch(
+			/^locate-neck: flow\.previewBeats /
+		);
 		expect(
 			validateExercise({
 				...LOCATE_NECK,
 				meter: { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1] }
 			})
 		).toMatch(/^locate-neck: meter /);
+		// A breath of 0 bars makes a round of length 0.
+		expect(validateExercise(withParams({ pacing: { respirationBars: 0 } }))).toMatch(
+			/^locate-neck: params\.pacing\.respirationBars .*0/
+		);
 		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
 			/^locate-neck: params\.learning\.retestGaps /
 		);

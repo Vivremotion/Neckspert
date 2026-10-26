@@ -1,3 +1,4 @@
+import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
@@ -140,7 +141,8 @@ function planOf(setup: Setup): RoundPlan {
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
 				respirationBars: RESPIRATION_BARS,
-				windows: DEFAULT_RESPONSE_WINDOWS
+				windows: DEFAULT_RESPONSE_WINDOWS,
+				previewBeats: STRING_PREVIEW_BEATS
 			});
 		case 'anchor':
 			return anchorPlan({
@@ -149,7 +151,8 @@ function planOf(setup: Setup): RoundPlan {
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
 				respirationBars: RESPIRATION_BARS,
-				windows: DEFAULT_RESPONSE_WINDOWS
+				windows: DEFAULT_RESPONSE_WINDOWS,
+				previewBeats: STRING_PREVIEW_BEATS
 			});
 		case 'grid':
 			return gridChangePlan({

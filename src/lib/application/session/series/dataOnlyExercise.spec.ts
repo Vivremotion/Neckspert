@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { NoteLaneModel } from '$lib/application/mechanics/locate';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import {
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	validateExercise,
-	type ExerciseDefinition
-} from '$lib/domain/exercise';
+import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
+import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import { Fraction } from '$lib/domain/time/fraction';
 import type { Attempt } from '$lib/domain/types';
@@ -26,7 +22,7 @@ import {
 /**
  * The acceptance test of plan L: an exercise that exists only here, as data, plays end to end on
  * the app's real wiring with no code of its own. It replaces locate in the catalog the notes'
- * sessions read.
+ * sessions read; the identify they mix in stays the catalog's own.
  */
 const WALTZ = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 
@@ -55,9 +51,6 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	}
 };
 
-/** A series keeps one meter: the names the session mixes in are written in 3/4 too. */
-const WALTZ_IDENTIFY: ExerciseDefinition = { ...IDENTIFY_NECK, meter: WALTZ };
-
 const BEATS_PER_BAR = 3;
 const BEAT_S = 60 / 90;
 
@@ -81,16 +74,18 @@ async function quitAndRead(app: NotesApp, controller: PlaySessionController): Pr
 describe('an exercise written only in data', () => {
 	it('plays an exercise written only in data', async () => {
 		expect(validateExercise(WALTZ_LOCATE)).toBeNull();
-		expect(validateExercise(WALTZ_IDENTIFY)).toBeNull();
 		const app = await notesApp({
-			exercises: [WALTZ_LOCATE, WALTZ_IDENTIFY],
+			exercises: [WALTZ_LOCATE],
 			cards: [learnedCard(FIRST), learnedCard(SECOND)],
 			levels: [levelOf(FIRST, 0), levelOf(SECOND, 0)]
 		});
 
 		// The first session: both at level 0, a lead of 6 beats.
 		const first = await startNotes(app, 'learn');
-		const [one] = await playRounds(app, first, allRight, { rounds: 1 });
+		// The first note played 100 ms late: within the 120 ms the exercise writes.
+		const [one] = await playRounds(app, first, () => ({ play: 'right', offsetMs: 100 }), {
+			rounds: 1
+		});
 		await runUntil(app, () => first.view.status === 'verdict');
 		// The next note's string shows alone, 2 beats before its prompt.
 		let shownAt: number | null = null;
@@ -127,13 +122,21 @@ describe('an exercise written only in data', () => {
 		for (let i = 1; i < accents.length; i++) {
 			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
 		}
-		for (const round of [one, two]) {
-			expect(accents.some((time) => Math.abs(round.dueAt - BEAT_S - time) < 0.005)).toBe(true);
+		for (const [round, lateS] of [
+			[one, 0.1],
+			[two, 0]
+		] as const) {
+			const target = round.dueAt - lateS;
+			expect(accents.some((time) => Math.abs(target - BEAT_S - time) < 0.005)).toBe(true);
 		}
 		expect(firstAttempts.map((a) => [a.leadBeats, a.tempoBpm, a.success])).toEqual([
 			[6, 90, true],
 			[6, 90, true]
 		]);
+		// On the beat within 120 ms (today's window is 80 ms): perfect.
+		expect((firstAttempts[0].verdict.value as ResponseValue).verdict).toBe('perfect');
+		// The plan stops listening 2 beats (its preview) before its 2 bars end.
+		expect(firstAttempts[0].plan).toMatchObject({ length: '3/2', listenUntil: '1' });
 		// A success at level 0, where any success counts: both climb to lead 3.
 		expect(await app.deps.levels.get(levelOf(FIRST, 0))).toMatchObject({ level: 1 });
 		expect(await app.deps.levels.get(levelOf(SECOND, 0))).toMatchObject({ level: 1 });

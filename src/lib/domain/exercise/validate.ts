@@ -88,8 +88,10 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 		}
 	}
 	const pacing = params.pacing as { respirationBars?: unknown } | undefined;
-	if (pacing !== undefined && !naturalNumber(pacing.respirationBars)) {
-		return `params.pacing.respirationBars must be a non-negative integer, got ${pacing.respirationBars}`;
+	// A round on the beat lasts its breath: 0 bars would make it last nothing.
+	const bars = pacing?.respirationBars;
+	if (pacing !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
+		return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
 	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
@@ -125,11 +127,9 @@ export function validateExercise(definition: ExerciseDefinition): string | null 
 		const tempo = tempoProblem(definition);
 		if (tempo !== null) return tempo;
 		const flow = definition.flow;
-		if (
-			flow?.previewBeats !== undefined &&
-			!(finite(flow.previewBeats) && flow.previewBeats >= 0)
-		) {
-			return `flow.previewBeats must be a non-negative number, got ${flow.previewBeats}`;
+		// Beats are counted whole on the transport.
+		if (flow?.previewBeats !== undefined && !naturalNumber(flow.previewBeats)) {
+			return `flow.previewBeats must be a non-negative integer, got ${flow.previewBeats}`;
 		}
 		if (flow?.scene !== undefined && !SCENES.includes(flow.scene)) {
 			return `flow.scene must be one of ${SCENES.join(', ')}, got ${flow.scene}`;
