@@ -4,7 +4,7 @@
 
 **Goal:** Faire passer dans les données de l’exercice ce que le moteur décide encore à sa place pour les exercices à une réponse — tempo, échelle des items, fenêtres de réponse, respiration, aperçu, scène, fin du compte, place de la cible, réglages de la procédure, durée de séance — et retirer les règles pédagogiques écrites dans le moteur (C2, la tolérance de D2, la cible forcée sur le temps 1, l’aide forcée en bas d’échelle), pour que H5 porte les triades directement sur ce modèle.
 
-**Architecture:** Chaque paramètre appartient à la pièce qui le lit (amendement du 2026-10-26, tableau « Les paramètres appartiennent aux pièces qui les lisent »). L’exercice les écrit dans sa définition (`ExerciseDefinition`), avec les valeurs d’aujourd’hui comme défauts ; les pièces les lisent par des accesseurs uniques (`tempoOf`, `ladderOf`, `windowsOf`, `learningParamsOf`, `presentationOf`), jamais par une constante. Le moteur ne refuse que ce qu’il ne sait pas exécuter. Le comportement des exercices existants ne change pas, sauf localiser et les triades, passés à 80 bpm fixes (décision de l’auteur, 2026-10-26).
+**Architecture:** Chaque paramètre appartient à la pièce qui le lit (amendement du 2026-10-26, tableau « Les paramètres appartiennent aux pièces qui les lisent »). L’exercice les écrit dans sa définition (`ExerciseDefinition`), avec les valeurs d’aujourd’hui comme défauts ; les pièces les lisent par des accesseurs uniques (`tempoOf`, `ladderOf`, `windowsOf`, `itemLearningOf`, `flowOf`), jamais par une constante. Le moteur ne refuse que ce qu’il ne sait pas exécuter. Le comportement des exercices existants ne change pas, sauf localiser et les triades, passés à 80 bpm fixes (décision de l’auteur, 2026-10-26).
 
 **Tech Stack:** TypeScript, Svelte 5 (runes), Vitest (node : `*.spec.ts` ; jsdom : `*.svelte.spec.ts`), Dexie.
 
@@ -28,8 +28,8 @@
 - **L2 — L’échelle d’un item est écrite dans l’exercice**, niveau par niveau (`Level<LadderParams>` : avance, aide, passage, descente) ; C2 (`leadLadder`), `aidLadder`, « le haut n’est jamais aidé », « un seul cran est doublé » et `pacing.leadSteps`/`learnedAfter` disparaissent. Les échelles d’aujourd’hui à 80 bpm sont écrites telles quelles dans le catalogue.
 - **L3 — « Au haut de l’échelle, seul un rappel direct compte comme réussite » devient une donnée du niveau** : `Level.success?: 'any' | 'direct-recall'` (défaut `'any'`) ; le catalogue la pose sur le haut de l’échelle de localiser, d’identifier et des triades.
 - **L4 — La fin du compte et la place de la cible sont des données du plan** : `RoundPlan.countEndsOn?: 'prompt' | 'target'` (défaut `'prompt'`) et `RoundPlan.barOffset?: Fraction` (place du début du tour dans sa mesure, défaut 0). `timedStart` devient : le premier instant `start ≥ earliest` avec `start ≡ barOffset` (modulo la mesure) et, si le compte finit sur la consigne, `start + prompt ≥ earliest`. `PROMPT_BEFORE_EARLIEST_BEATS` disparaît ; `gridChangePlan` pose `countEndsOn: 'target'`. Même placement qu’aujourd’hui en 4/4 pour les avances 8, 4, 2 et le geste ; en 3/4 à l’avance 4, la respiration redevient entière.
-- **L5 — La présentation d’un exercice surcharge celle de sa mécanique** : `ExerciseDefinition.presentation?: { scene?, previewBeats?, contestable? }` ; le présentateur donne les défauts.
-- **L6 — Les réglages de la procédure d’apprentissage sont des données** : `LearningParams` (les constantes de `progress/constants.ts` qu’elle lit, et l’ordre des catégories) ; défauts `DEFAULT_LEARNING_PARAMS` ; le sujet les tient de la définition de son exercice principal (`neckSubject` : localiser).
+- **L5 — Le déroulé de la séance est réglé par l’exercice** : la scène (et donc le clic), l’aperçu de la consigne suivante et « Joué juste » sont des paramètres du déroulé, pas du dessin. `ExerciseDefinition.flow?: { scene?, previewBeats?, contestable? }` ; le présentateur de la mécanique ne donne plus que les défauts. `Scene` passe dans le domaine (`domain/exercise/types.ts`), l’application le réexporte : le domaine ne dépend jamais de l’application. Le couplage qui reste (un présentateur, rattaché à une mécanique, fabrique le modèle d’une vue donnée) est noté dans l’inventaire de l’amendement, hors de ce plan.
+- **L6 — Les réglages de la procédure d’apprentissage sont des données, chacun chez son propriétaire** : il n’y a pas d’« exercice principal ». **Les réglages d’un item** (écarts des retests, réussites qui effacent l’aide, rattrapage après un raté) sont lus dans l’exercice de chaque item (`params.learning`, `itemLearningOf`). **Les réglages de l’ensemble** (places en apprentissage, ensemble de travail, plafond de révisions, seuils d’introduction, consolidation, confusions, ordre des catégories) appartiennent à la séance qui mêle les exercices : sa préparation les donne à la procédure (`createLearningProcedure({ set })`) ; ils sont écrits aujourd’hui dans la composition des séances (`createAppServices`), et deviennent des données avec les parcours du chantier 2. Défauts : les constantes d’aujourd’hui.
 - **L7 — La durée d’une séance est rendue par sa préparation** (`prepare` rend `durationMs`, défaut `SESSION_MS`).
 - **L8 — Hors de ce plan** (inventaire de l’amendement, à faire quand le code est touché ou par un plan suivant) : les réglages de la mémoire (`MIN_COLD_DELAY_MS`, FSRS, maîtrise), la fatigue, l’anti-blocage et les constantes du rythme non surchargeables (`BREATH_MIN_MS`, `SETTLE_AFTER_BARS`, `PLAIN_WORDS_SESSIONS`), le générateur du geste, le temps libre comme cas des fenêtres, le guide d’écriture. **Ce sont des données d’exercice** : la liste complète, constante par constante, est tenue dans la spec, « Reprise », section « Données d’exercice encore écrites dans le code après le plan L » ; la Task 8 la met à jour.
 
@@ -45,7 +45,7 @@
 
 ## File Structure
 
-- `src/lib/domain/exercise/types.ts` — `ExerciseTempo`, `ExercisePresentation`, champs `tempo?`, `presentation?`, `params.ladder`, `params.windows`, `params.learning` ; `ExercisePacing` réduit à `respirationBars`.
+- `src/lib/domain/exercise/types.ts` — `ExerciseTempo`, `ExerciseFlow`, `Scene`, champs `tempo?`, `flow?`, `params.ladder`, `params.windows`, `params.learning` ; `ExercisePacing` réduit à `respirationBars`.
 - `src/lib/domain/exercise/tempo.ts` — `tempoOf(definition)`, `startTempo`, `nextTempo(definition, tempoBpm, attempts)`, `DEFAULT_TEMPO`.
 - `src/lib/domain/exercise/ladder.ts` (nouveau) — `ladderOf(definition, mechanic?)`, `validateLadder`.
 - `src/lib/domain/exercise/windows.ts` (nouveau) — `ResponseWindows`, `DEFAULT_RESPONSE_WINDOWS`, `windowsOf(definition)`.
@@ -53,10 +53,10 @@
 - `src/lib/domain/exercise/catalog.ts` — localiser, identifier, triades : tempo fixe, échelles écrites, `success: 'direct-recall'` au haut.
 - `src/lib/domain/exercise/roundPlans.ts` — les constructeurs prennent `windows` et `respirationBars` ; `gridChangePlan` pose `countEndsOn: 'target'`.
 - `src/lib/domain/time/plan.ts`, `levels.ts` — `RoundPlan.countEndsOn?`, `RoundPlan.barOffset?`, `Level.success?`.
-- `src/lib/domain/learning/` — `ladder.ts` réduit à `ladderLevel`, `passesTop` ; `subject.ts` (`ladder(mechanic)` sans tempo, `params`) ; `params.ts` (nouveau : `LearningParams`, `DEFAULT_LEARNING_PARAMS`) ; `procedure.ts` lit `params` et `Level.success`.
+- `src/lib/domain/learning/` — `ladder.ts` réduit à `ladderLevel`, `passesTop` ; `subject.ts` (`ladder(mechanic)` sans tempo, `itemLearning(mechanic)`) ; `params.ts` (nouveau : `ItemLearning`, `SetLearning` et leurs défauts) ; `procedure.ts` lit les deux et `Level.success`.
 - `src/lib/domain/progress/` — `neckSubject.ts`, `neckPlans.ts`, `plans.ts` (`freeLeadOf` sans tempo), `constants.ts` (les constantes de la procédure deviennent les défauts), `triadSelector.ts` (adaptateur « until H5 »).
 - `src/lib/domain/triads/triadSubject.ts`, `src/lib/domain/types.ts` (`LeadBeats` = nombre).
-- `src/lib/application/session/series/` — `placement.ts` (L4), `seriesItems.ts` (`presentationOf`), `ResponseSeriesController.svelte.ts`, `seriesEnd.ts`.
+- `src/lib/application/session/series/` — `placement.ts` (L4), `seriesItems.ts` (`flowOf`), `ResponseSeriesController.svelte.ts`, `seriesEnd.ts`.
 - `src/lib/application/services/createAppServices.ts` — préparations (`durationMs`, tempos).
 - Tests d’acceptation : `src/lib/application/session/series/dataOnlyExercise.spec.ts` (nouveau).
 
@@ -223,11 +223,11 @@ barOffset?: Fraction;
 
 ---
 
-### Task 5: La présentation de l’exercice surcharge celle de sa mécanique
+### Task 5: Le déroulé de la séance est réglé par l’exercice
 
 **Files:**
 
-- Modify: `src/lib/domain/exercise/types.ts`, `src/lib/application/session/series/seriesItems.ts`, `ResponseSeriesController.svelte.ts`
+- Modify: `src/lib/domain/exercise/types.ts`, `src/lib/application/mechanics/types.ts` (réexporte `Scene`), `src/lib/application/session/series/seriesItems.ts`, `ResponseSeriesController.svelte.ts`
 - Test: `src/lib/application/session/series/ResponseSeriesController.svelte.spec.ts`, `seriesItems.spec.ts` (nouveau)
 
 **Interfaces:**
@@ -235,16 +235,17 @@ barOffset?: Fraction;
 - Produces :
 
 ```ts
-export interface ExercisePresentation { scene?: Scene; previewBeats?: number; contestable?: boolean }
-// ExerciseDefinition gains presentation?: ExercisePresentation
+export type Scene = 'guitar' | 'screen'; // moved from application/mechanics/types.ts, re-exported there
+export interface ExerciseFlow { scene?: Scene; previewBeats?: number; contestable?: boolean }
+// ExerciseDefinition gains flow?: ExerciseFlow
 // SeriesItems gains
 /** The item's scene, preview and contest: its exercise's, else its mechanic's presenter's. */
-presentationOf(item: PlannedItem): { scene: Scene; previewBeats: number | null; contestable: boolean };
+flowOf(item: PlannedItem): { scene: Scene; previewBeats: number | null; contestable: boolean };
 ```
 
-Le contrôleur lit `presentationOf` partout où il lisait `presenter.scene`, `presenter.previewBeats` et `presenter.contestable` (le type `Scene` passe dans `domain/exercise/types.ts` ou y est réexporté, pour que le domaine ne dépende pas de l’application).
+Le contrôleur lit `flowOf` partout où il lisait `presenter.scene`, `presenter.previewBeats` et `presenter.contestable`.
 
-- [ ] **Step 1: Write the failing tests** : `it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click')` ; `it('announces the next prompt as many beats early as its exercise says')` ; `it('takes the mechanic's presentation when the exercise says nothing')`.
+- [ ] **Step 1: Write the failing tests** : `it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click')` ; `it('announces the next prompt as many beats early as its exercise says')` ; `it('takes the mechanic's defaults when the exercise says nothing')`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `npx vitest run src/lib/application/session && npm run check` → PASS.
@@ -265,18 +266,22 @@ Le contrôleur lit `presentationOf` partout où il lisait `presenter.scene`, `pr
 - Produces :
 
 ```ts
-export interface LearningParams {
+/** What an item's exercise sets for it. */
+export interface ItemLearning {
+	retestGaps: readonly [number, number];
+	aidFadeSuccesses: number;
+	recoveryAfterMisses: number;
+}
+/** What the session sets for the whole set of items it serves, whatever their exercises. */
+export interface SetLearning {
 	learningSlots: number;
 	maxWorkingSet: number;
 	maxUnconsolidated: number;
 	coldCap: number;
-	retestGaps: readonly [number, number];
 	newItemMinCardSuccess: number;
 	newItemCardWindow: number;
 	newItemMinSessionSuccess: number;
 	successWindow: number;
-	recoveryAfterMisses: number;
-	aidFadeSuccesses: number;
 	consolidationPool: number;
 	consolidationSkipRecent: number;
 	confusionLookback: number;
@@ -284,20 +289,22 @@ export interface LearningParams {
 	order: readonly ('retest' | 'cold-review' | 'resumed' | 'new' | 'consolidation')[];
 }
 /** Today's constants of progress/constants.ts, and today's order. */
-export const DEFAULT_LEARNING_PARAMS: LearningParams;
-/** `params.learning` of an exercise over the defaults. */
-export function learningParamsOf(definition: ExerciseDefinition): LearningParams;
-// LearningSubject gains: readonly params: LearningParams
+export const DEFAULT_ITEM_LEARNING: ItemLearning;
+export const DEFAULT_SET_LEARNING: SetLearning;
+/** `params.learning` of an exercise over the item defaults. */
+export function itemLearningOf(definition: ExerciseDefinition): ItemLearning;
+// LearningSubject gains: itemLearning(mechanic: MechanicId): ItemLearning (from the exercise of that mechanic)
+// createLearningProcedure input gains: set?: Partial<SetLearning> (over DEFAULT_SET_LEARNING)
 // PrepareResponseSeries returns { source, executions, durationMs? } — default SESSION_MS
 ```
 
-Les constantes de `progress/constants.ts` lues par la procédure sont retirées de ses imports : elle ne lit que `subject.params`. Les triades sur l’ancien chemin gardent leurs constantes jusqu’à H5. `ResponseSeriesController` lit la durée rendue par `prepare`.
+Les constantes de `progress/constants.ts` lues par la procédure sont retirées de ses imports : elle lit les réglages d’un item dans `subject.itemLearning(item.mechanic)` et ceux de l’ensemble dans `set`. La composition des séances (`createAppServices`) donne `set` et `durationMs` (aujourd’hui les défauts) : c’est le seul endroit qui les connaît, jusqu’aux parcours en données du chantier 2. Les triades sur l’ancien chemin gardent leurs constantes jusqu’à H5. `ResponseSeriesController` lit la durée rendue par `prepare`.
 
-- [ ] **Step 1: Write the failing tests** : `it('serves with the settings its exercise writes')` (un ensemble de travail de 2, des retests à 1 et 3) ; `it('serves today's way when the exercise writes none')` (les specs actuelles de la procédure sur `DEFAULT_LEARNING_PARAMS`) ; `it('serves new items before retests when the order says so')` ; série : `it('ends after the duration its preparation gives')`.
+- [ ] **Step 1: Write the failing tests** : `it('spaces the retests of an item as its exercise says')` (deux exercices dans une séance, retests à 1 et 3 pour l’un, aux défauts pour l’autre) ; `it('serves the set as the session says')` (un ensemble de travail de 2) ; `it('serves today's way when nothing is written')` (les specs actuelles de la procédure) ; `it('serves new items before retests when the order says so')` ; série : `it('ends after the duration its preparation gives')`.
 - [ ] **Step 2: Run** → FAIL.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `npm test && npm run check` → PASS.
-- [ ] **Step 5: Commit** `git commit -m "feat: let an exercise set its learning procedure and a session its length"`
+- [ ] **Step 5: Commit** `git commit -m "feat: let each item's exercise and the session set the learning procedure, and the session its length"`
 
 ---
 
@@ -310,7 +317,7 @@ Les constantes de `progress/constants.ts` lues par la procédure sont retirées 
 
 **Interfaces:**
 
-- Produces : `validateExercise(definition: ExerciseDefinition): string | null` — tempo positif (fixe ou plage cohérente : `min ≤ start ≤ max`, `step > 0`), échelle valide (`validateLadder`), fenêtres positives, `presentation.previewBeats ≥ 0`, mètre valide. Un test parcourt `EXERCISES` et attend `null` partout.
+- Produces : `validateExercise(definition: ExerciseDefinition): string | null` — tempo positif (fixe ou plage cohérente : `min ≤ start ≤ max`, `step > 0`), échelle valide (`validateLadder`), fenêtres positives, `flow.previewBeats ≥ 0`, mètre valide. Un test parcourt `EXERCISES` et attend `null` partout.
 
 - [ ] **Step 1: Write the tests** :
   - `validate.spec.ts` : `it('accepts every exercise of the catalog')` ; `it('names the exercise and the field it cannot run')` (tempo fixe à 0, échelle vide, avance négative) ; `it('accepts an exercise without pedagogical value')` (tempo 300, une échelle 1 → 16 temps qui monte, une fenêtre `perfect` de 5 s).

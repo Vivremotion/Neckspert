@@ -1050,6 +1050,10 @@ Relevé dans le code au 2026-10-26 (branche H4). Une constante n’est pas fauti
 
 - `scene` (et donc le clic), `previewBeats`, `contestable`, et la forme du modèle d’écran sont portés par le présentateur, c’est-à-dire par la mécanique : deux exercices d’une même mécanique ne peuvent pas les régler autrement (une lecture de tablature est localiser avec une autre vue et un autre aperçu). Cible : le présentateur donne des valeurs par défaut, l’exercice les remplace.
 
+**Le présentateur rattaché à une mécanique et à une vue**
+
+- Un présentateur (`application/mechanics/`) appartient à une mécanique et fabrique le modèle d’écran d’une vue donnée : une lecture de tablature qui reprend la mécanique de localiser avec une autre vue demanderait un autre présentateur, donc du code. Cible : le modèle d’écran se construit par vue, depuis le contenu attendu, la réponse et le verdict, pas par mécanique.
+
 **Code par famille (la limite connue, pas des règles de conformité)**
 
 Une famille entièrement nouvelle demande encore du code : un sujet d’apprentissage (`neckSubject`, `triadSubject` : ordre d’introduction, voisins et miroirs, condition « prêt », échelle), un constructeur de plan, un générateur (le geste), un juge de contenu, un présentateur et souvent une vue. La règle de `docs/vision.md` (généraliser quand un deuxième exercice réel le demande) s’applique ; le corpus des cours de l’auteur est le banc qui dira quelles de ces pièces doivent devenir des données du langage.
