@@ -990,9 +990,87 @@ Branche `plan/temps-musical-h4`, plan `docs/superpowers/plans/2026-10-25-h4-les-
 - Les triades sur la série, et tout ce que la contrainte « les triades ne changent pas » a gardé : `SessionController`, `PlayScreen`, `triadSelector`, `AttemptRecorder.record`, `cardLeadAfter`, `CardState.leadBeats`, `domain/timing/` (avec `RESPIRATION_BARS` et `STRING_PREVIEW_BEATS`, que `neckPlans.ts` y importe encore), `LEARN_SESSION_MS`.
 - Les deux mondes de `PlayFrame` jusqu’au plan visuel 3 ; le repli du monde sur le genre de séance disparaît quand chaque séance a une vue en scène dès l’accueil.
 
+## Amendement (2026-10-26) : un langage d’exercices ouvert
+
+Décidé dans la conversation du 2026-10-26, en relisant D7 (H4) et C2 (H2) : deux règles du moteur nées d’un exercice mal construit (localiser mêle le tempo et une avance comptée en temps pour mesurer une seule compétence, répondre en 1500 ms au plus). Il précède H5 et en change le périmètre.
+
+### Le principe
+
+Le langage des exercices est ouvert, comme une langue : il permet d’écrire des exercices sans valeur, sans sens, ou qui mesurent mal une compétence. Ce n’est pas un défaut du langage mais de ce qui écrit l’exercice (une personne, une IA, un générateur). **L’application doit pouvoir faire n’importe quel exercice** ; aucune « règle de conformité » utile à certains exercices ne doit en empêcher d’autres, cohérents.
+
+Conséquences :
+
+- **Un exercice mal construit se corrige dans ses données**, jamais par une règle du moteur qui le compense (D7 retirée le 2026-10-25 ; C2 ensuite).
+- **Le moteur ne refuse que ce qu’il ne sait pas exécuter sans ambiguïté** (validité) : un tempo non positif, une vue ou un mode inconnus, un plan dont les attentes se contredisent dans le temps. Jamais ce qui manque de valeur pédagogique.
+- **Les seules contraintes du moteur sont physiques** : une horloge, une transition (une mesure comptée) pour changer de tempo, un capteur qui entend ce qu’il entend.
+- **Les conseils d’écriture vont dans un guide**, pas dans le code. Exemple : « un niveau d’item garde son sens à tous les niveaux d’exercice » (une avance comptée en temps change de durée avec le tempo) est un bon conseil, pas une règle.
+
+### Les paramètres appartiennent aux pièces qui les lisent
+
+Pas aux familles d’exercices : on ne peut pas savoir qu’un paramètre ne servira qu’à une famille (le curseur du rythme sert une lecture de tablature, qui est localiser présenté autrement). Un exercice choisit ses pièces et règle leurs paramètres ; **un niveau, d’exercice ou d’item, peut surcharger n’importe lequel**, y compris plusieurs axes à la fois (monter le tempo et raccourcir l’avance), sans que le moteur en juge.
+
+| Pièce               | Paramètres (aujourd’hui ou à venir)                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| transport           | tempo (et sa portée), mètre, accompagnement et mesures muettes, écoute avant de jouer, mesure comptée, silence avant le compte, respiration       |
+| compilateur de plan | longueur d’un tour, place de la cible dans la mesure, avance de la consigne, attentes et leur contenu                                             |
+| mode d’appariement  | ouverture et fermeture des zones (`MIN_RESPONSE_MS`, `LATE_LIMIT_MS`, `LATE_CAPTURE_MS`, `GRID_EARLY_MS`), tolérance d’alignement (`MATCH_LIMIT`) |
+| mode de verdict     | fenêtre de `perfect`, seuils de précision, régularité, tenue, rappel direct                                                                       |
+| vue                 | ce qu’elle montre (curseur, aperçu de la consigne, mots ou termes, retour après un raté), son monde visuel                                        |
+| scène               | le clic entendu ou non, l’écran ou l’instrument                                                                                                   |
+| source d’items      | ordre d’introduction, voisins, condition « prêt », échelle d’un item (avance, aide), espacements, ensemble de travail, seuils d’introduction      |
+| séance              | durée, fatigue, anti-blocage, « Joué juste »                                                                                                      |
+
+Le découpage actuel de `LevelParams` (pensé pour le rythme) est remplacé par ce découpage : un socle lu par les pièces communes, et les paramètres déclarés par chaque pièce. Un paramètre qu’aucune pièce de l’exercice ne lit est sans effet ; le moteur peut le signaler à l’écriture, pas le refuser.
+
+### Inventaire : ce que le moteur décide encore à la place de l’exercice
+
+Relevé dans le code au 2026-10-26 (branche H4). Une constante n’est pas fautive en soi : elle l’est quand l’exercice ne peut pas la remplacer par ses données. Pour chaque ligne, la cible.
+
+**Règles pédagogiques écrites dans le moteur (à retirer)**
+
+- **C2, l’échelle ajustée au tempo** (`leadLadder` : garder les crans jusqu’au plus long qui tient dans le seuil de rappel). Elle compense un exercice dont le tempo bouge ; elle fait varier la durée exigée entre la moitié du seuil et le seuil (de 755 à 1500 ms pour localiser). Cible : l’échelle est celle que l’exercice écrit.
+- **La cible sur le premier temps d’une mesure** (règle de placement D2 : un tour commence sur un début de mesure). Cible : la place de la cible dans la mesure est une donnée du plan ; « temps 1 » reste la valeur par défaut.
+- **La tolérance d’un temps de D2** (`PROMPT_BEFORE_EARLIEST_BEATS`), réglée sur les exercices connus (le geste ouvre un temps avant son changement). Cible : le plan dit où le compte finit (sur la consigne ou sur la cible), plus de tolérance.
+- **Le haut d’une échelle d’avance n’est jamais aidé et un seul cran est doublé** (`leadLadder`, H2). Cible : les niveaux d’aide sont ceux que l’exercice écrit (`aid: true`), comme pour le rythme.
+
+**Constantes globales qui doivent devenir des données (d’exercice ou de niveau)**
+
+- **Tempo** : `TEMPO_MIN_BPM`, `TEMPO_MAX_BPM`, `TEMPO_STEP_BPM`, `TEMPO_RAISE_AT`, `TEMPO_LOWER_AT`, `TEMPO_MIN_PROMPTS`, l’arrondi à l’entier, `DEFAULT_TEMPO_BPM`. Cible : le tempo est un paramètre du transport, réglé par l’exercice et ses niveaux (le mécanisme du rythme, `Level`, pour tous les exercices) ; la progression de tempo séparée (`Progression`, `nextTempo`) disparaît quand tous les exercices sont passés aux niveaux. Le moteur accepte déjà des tempos décimaux.
+- **Avance** : le type `LeadBeats` = 8, 4 ou 2 et `LEAD_STEPS`. Cible : un nombre de temps (ou une fraction) quelconque ; en 3/4, 6 et 3 s’écrivent.
+- **Séance** : `SESSION_MS`, `LEARN_SESSION_MS`. Cible : la durée est une donnée de la séance ou de l’exercice, `SESSION_MS` sa valeur par défaut.
+- **Respiration et aperçu** : `RESPIRATION_BARS` (que `neckPlans.ts` lit en dur au lieu de `pacing.respirationBars`), `STRING_PREVIEW_BEATS` (`previewBeats`, propriété du présentateur, donc de la mécanique). Cible : paramètres du transport et de la vue, réglés par l’exercice.
+- **Fenêtres de réponse** : `PERFECT_WINDOW_MS`, `LATE_LIMIT_MS`, `LATE_CAPTURE_MS`, `MIN_RESPONSE_MS`, `GRID_EARLY_MS`, `GRID_EARLY_MAX_BEATS`, `ANCHOR_CHORD_FROM_BEATS`. Ce sont déjà des réglages du plan, mais les plans sont construits par du code (`beatPlan`, `anchorPlan`, `gridChangePlan`, `freePlan`) qui lit ces constantes : l’exercice ne peut pas les changer. Cible : les constructeurs de plan prennent ces valeurs des paramètres de l’exercice, les constantes devenant des valeurs par défaut.
+- **Procédure d’apprentissage** : `LEARNING_SLOTS`, `MAX_WORKING_SET`, `MAX_UNCONSOLIDATED`, `LEARN_COLD_CAP`, `LEARN_RETEST_GAPS`, `NEW_NOTE_MIN_CARD_SUCCESS`, `NEW_NOTE_CARD_WINDOW`, `NEW_NOTE_MIN_SESSION_SUCCESS`, `SUCCESS_WINDOW`, `RECOVERY_AFTER_MISSES`, `STRING_AID_FADE_SUCCESSES`, `CONSOLIDATION_POOL`, `CONSOLIDATION_SKIP_RECENT`, `CONFUSION_LOOKBACK` ; l’ordre des catégories (retests, révisions à froid, repris, nouveaux, consolidation). Cible : paramètres de la source d’items, donnés par l’exercice ; les valeurs actuelles par défaut.
+- **Mémoire** : `MIN_COLD_DELAY_MS`, les réglages de FSRS (sans étapes d’apprentissage), `MASTERY_ACCURACY`, `MASTERY_SESSIONS`, `MASTERY_MIN_GAP_MS`. Cible : paramètres de l’apprenant « mémoire », par exercice.
+- **Rythme** : `PASS_AFTER_CYCLES`, `DROP_AFTER_FAILS`, `CYCLES_PER_BREATH`, `LISTEN_IN_BARS` sont déjà surchargeables par niveau (bien) ; `BLOCK_AFTER_FAILS`, `BLOCK_SAME_SPOT_CYCLES`, `BLOCK_REST_MS`, `BREATH_MIN_MS`, `SETTLE_AFTER_BARS`, `PLAIN_WORDS_SESSIONS` ne le sont pas. Cible : paramètres de la séance et de la vue.
+- **Fatigue** : `FATIGUE_*`. Cible : paramètres de la séance.
+- **Geste** : `LINK_SHAPES`, `ZONE_FRETS`, `ZONE_STEP_FRETS`, `PASSAGE_SUCCESS`, `LINK_AID_AFTER_MISSES`, `LINK_REST_BARS`, `NEIGHBOUR_FRETS`. Cible : paramètres du générateur du geste, donnés par ses exercices.
+
+**Propriétés de la mécanique qui doivent être de l’exercice**
+
+- `scene` (et donc le clic), `previewBeats`, `contestable`, et la forme du modèle d’écran sont portés par le présentateur, c’est-à-dire par la mécanique : deux exercices d’une même mécanique ne peuvent pas les régler autrement (une lecture de tablature est localiser avec une autre vue et un autre aperçu). Cible : le présentateur donne des valeurs par défaut, l’exercice les remplace.
+
+**Code par famille (la limite connue, pas des règles de conformité)**
+
+Une famille entièrement nouvelle demande encore du code : un sujet d’apprentissage (`neckSubject`, `triadSubject` : ordre d’introduction, voisins et miroirs, condition « prêt », échelle), un constructeur de plan, un générateur (le geste), un juge de contenu, un présentateur et souvent une vue. La règle de `docs/vision.md` (généraliser quand un deuxième exercice réel le demande) s’applique ; le corpus des cours de l’auteur est le banc qui dira quelles de ces pièces doivent devenir des données du langage.
+
+**Simplifications du modèle à examiner**
+
+- **Le temps libre comme cas des fenêtres.** Une attente en temps libre (`at: null`, identifier) n’est pas un mode à part : c’est une attente datée à la consigne, dont la zone de réponse n’a pas de fin et dont le verdict lit le temps de réaction au lieu de l’écart à la cible. À vérifier : si cette écriture remplace `at: null` sans perte, une notion du moteur disparaît.
+- **Appariement et verdict restent deux pièces.** Ils répondent à deux questions : quelle observation répond à quelle attente (la zone de capture : une note jouée 300 ms en retard peut encore être la réponse), et ce que vaut la réponse (sa fenêtre de `perfect`, ses seuils). Les deux parlent de tolérance, mais pas de la même : une capture large et un verdict strict se combinent.
+
+### Le cas de localiser
+
+Corrigé dans ses données : tempo fixe à 80 bpm (2 temps y font exactement le seuil de 1500 ms), échelle 8 → 4 → 2 telle qu’écrite, sans niveaux de tempo. Un niveau d’item garde alors le même sens d’une séance à l’autre. Travailler la vitesse au-delà de 1500 ms serait un autre exercice, avec son propre seuil. Les triades (même échelle, même seuil) suivent le même choix, sauf décision contraire de l’auteur.
+
+### Ce qui reste à décider
+
+- **L’ordre** : un plan « langage ouvert » avant H5 (les triades basculeraient directement sur le modèle cible), ou ses morceaux répartis dans H5 et après. Le retrait de la progression de tempo touche aussi le geste et les données en base (progressions enregistrées au-dessus de 80 pour localiser).
+- **Le guide d’écriture** : où il vit (un document, un analyseur qui conseille sans refuser) et ce qu’il contient d’abord.
+
 ## Reprise (état au 2026-10-25, après H4)
 
-Ce qu’il faut lire pour reprendre H après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23 et les sections « Réalisation » de H1, H2, H3 et H4 ci-dessus.
+Ce qu’il faut lire pour reprendre H après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23, les sections « Réalisation » de H1, H2, H3 et H4, et l’amendement du 2026-10-26 (un langage d’exercices ouvert), qui change le périmètre de H5, ci-dessus.
 
 ### Où en est H
 
