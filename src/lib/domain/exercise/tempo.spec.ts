@@ -32,6 +32,14 @@ describe('startTempo', () => {
 		expect(startTempo({ ...LOCATE_NECK, startTempoBpm: 120 }, [])).toBe(120);
 	});
 
+	it('takes a written tempo over startTempoBpm', () => {
+		const both = { ...LOCATE_NECK, startTempoBpm: 120 };
+		expect(startTempo({ ...both, tempo: { fixed: 90 } }, [])).toBe(90);
+		const range = { ...DEFAULT_TEMPO, start: 100 };
+		expect(startTempo({ ...both, tempo: range }, [])).toBe(100);
+		expect(tempoOf({ ...both, tempo: range })).toEqual(range);
+	});
+
 	it('then the latest progression of the same mechanic', () => {
 		expect(
 			startTempo({ ...LOCATE_NECK, id: 'locate-g' }, [

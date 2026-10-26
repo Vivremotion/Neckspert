@@ -396,7 +396,7 @@ describe('createLearningProcedure next', () => {
 			expect(hot.size).toBe(2);
 		});
 
-		it('serves today’s way when nothing is written', () => {
+		it('serves alike with no set, an empty set and the default set', () => {
 			const run = (set?: Partial<SetLearning>) => {
 				const cards = [learning(0), reviewable(1), ...[2, 3, 4, 5].map((item) => learned(item))];
 				const source = procedure({ cards, random: seeded(5), ...(set && { set }) });

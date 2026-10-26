@@ -22,7 +22,7 @@ function leadsLadder(): Ladder {
 }
 
 /** In free time: the answer shown, then unaided, where only a direct recall counts. */
-function aidLadder(): Ladder {
+function freeTimeLadder(): Ladder {
 	return [
 		{ params: { leadBeats: null, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 		{
@@ -48,7 +48,7 @@ export const IDENTIFY_NECK: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'identify',
 	view: 'answer-keys',
-	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS, ladder: aidLadder() }
+	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS, ladder: freeTimeLadder() }
 };
 
 /** The triads of the memory track: close major and minor triads on G-B-E, then D-G-B. */
