@@ -58,7 +58,7 @@ export function anchorPlan(): RoundPlan {
 	};
 }
 
-/** A grid change, opened early by its tolerance and handed over at the next one. */
+/** A grid change, opened early by its tolerance, its count ending on it, handed over at the next one. */
 export function gridPlan(): RoundPlan {
 	return {
 		prompt: F(-1, 4),
@@ -66,6 +66,7 @@ export function gridPlan(): RoundPlan {
 		length: F(1),
 		handover: F(1),
 		mutedBars: [],
+		countEndsOn: 'target',
 		policy: {
 			unit: 'response',
 			verdict: 'response',

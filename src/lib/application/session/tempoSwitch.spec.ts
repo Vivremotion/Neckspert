@@ -88,6 +88,7 @@ function setup(executions: Execution[], items: PlannedItem[], kind: SessionKind 
 		random: () => 0,
 		newId: () => 'id-1',
 		mechanics: { beaty: presenter },
+		exercise: (id) => ({ id, version: 1, mechanic: 'beaty', params: {} }),
 		sensors: { fake: sensor }
 	};
 	const controller = new SessionController(

@@ -1,3 +1,4 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import { gridById, gridChanges } from '$lib/domain/grid';
@@ -5,6 +6,7 @@ import { CHORD_GRID_CONTENT } from '$lib/domain/judges';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import { METER_4_4 } from '$lib/domain/time/meter';
 import { validateRoundPlan } from '$lib/domain/time/plan';
+import { GESTURE_LINK } from './exercises';
 import { gesturePlan } from './plans';
 
 const IOHEFY = gridChanges(gridById('iohefy-a'));
@@ -24,12 +26,13 @@ const item: ChordGridItem = {
 describe('gesturePlan', () => {
 	it('plans a grid change as the grid relation timed it', () => {
 		expect(IOHEFY[1].length).toBe(4);
-		const plan = gesturePlan(item, METER_4_4);
+		const plan = gesturePlan(item, METER_4_4, GESTURE_LINK);
 		expect(plan).toEqual(
 			gridChangePlan({
 				content: { kind: CHORD_GRID_CONTENT, value: item },
 				lengthBeats: 4,
-				meter: METER_4_4
+				meter: METER_4_4,
+				windows: DEFAULT_RESPONSE_WINDOWS
 			})
 		);
 		expect(plan.prompt?.toString()).toBe('-1/4');
@@ -40,5 +43,11 @@ describe('gesturePlan', () => {
 			content: { kind: 'chord-grid', value: item }
 		});
 		expect(validateRoundPlan(plan)).toBeNull();
+	});
+
+	it('takes the windows its exercise writes', () => {
+		const definition = { ...GESTURE_LINK, params: { windows: { perfectMs: 90 } } };
+		const plan = gesturePlan(item, METER_4_4, definition);
+		expect(plan.expectations[0].window).toEqual({ ms: 90 });
 	});
 });

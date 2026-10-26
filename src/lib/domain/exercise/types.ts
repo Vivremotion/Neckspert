@@ -1,8 +1,22 @@
 import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
+import type { ExerciseTempo } from './tempo';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
 export type MechanicId = string;
 export type ExerciseId = string;
+
+/** Lane and clicks for the guitar; answer pad and silence for the screen. */
+export type Scene = 'guitar' | 'screen';
+
+/** How a session plays an exercise's rounds; what it leaves out, its mechanic's presenter gives. */
+export interface ExerciseFlow {
+	/** Where it is played: the guitar (the click is heard) or the screen (silence). */
+	scene?: Scene;
+	/** Beats before its prompt that it is shown after a round without a counted bar. */
+	previewBeats?: number;
+	/** Whether a miss can be contested in play (development builds). */
+	contestable?: boolean;
+}
 
 /** An exercise is data only: a mechanic plus its parameters. */
 export interface ExerciseDefinition {
@@ -10,12 +24,16 @@ export interface ExerciseDefinition {
 	version: number;
 	mechanic: MechanicId;
 	params: Readonly<Record<string, unknown>>;
-	/** Tempo of a first execution, when the exercise wants its own. */
+	/** Its tempo: fixed, or a range it moves within; absent: `DEFAULT_TEMPO`. */
+	tempo?: ExerciseTempo;
+	/** Tempo of a first execution, when the exercise wants its own (the start of its range). */
 	startTempoBpm?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */
 	meter?: Meter;
+	/** Its scene, preview and contest, over its mechanic presenter's defaults. */
+	flow?: ExerciseFlow;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
 	/**
@@ -55,13 +73,20 @@ export interface Execution {
 	tempoBpm: number | null;
 }
 
-/**
- * The rhythm of an exercise on the beat: the lead ladder of its prompts, the bars of breathing
- * after a target, and the successes at the shortest lead that make an item learned.
- */
+/** The rhythm of an exercise on the beat: the bars of breathing after a target. */
 export interface ExercisePacing {
-	/** Longest first; each step one of LEAD_STEPS. */
-	leadSteps: readonly LeadBeats[];
 	respirationBars: number;
-	learnedAfter: number;
 }
+
+/** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
+export interface LadderParams {
+	/** Beats of lead; null when the item has no lead (the answer is not played on a beat). */
+	leadBeats: LeadBeats | null;
+	aided: boolean;
+}
+
+/**
+ * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
+ * lead and aid, its pass and drop, and what counts as a success there.
+ */
+export type Ladder = readonly Level<LadderParams>[];

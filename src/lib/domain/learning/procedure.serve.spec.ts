@@ -9,9 +9,13 @@ import {
 } from '../progress/constants';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
+import { DEFAULT_SET_LEARNING, type SetLearning } from './params';
 import { createLearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
-import { attemptOf, fakeCard, fakeSubject } from './testing/fakeSubject';
+import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
+
+/** A ladder of two levels: 8 beats aided, then 4 beats, the top. */
+const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' as const })];
 
 const FAKE = 'fake' as MechanicId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
@@ -33,8 +37,8 @@ function procedure(
 		cards?: readonly CardState[];
 		attempts?: readonly Attempt[];
 		levels?: readonly LevelState[];
-		tempo?: number;
 		random?: () => number;
+		set?: Partial<SetLearning>;
 	} = {}
 ) {
 	return createLearningProcedure({
@@ -43,8 +47,8 @@ function procedure(
 		attempts: input.attempts ?? [],
 		levels: input.levels ?? [],
 		sessionId: SESSION,
-		tempos: input.tempo === undefined ? {} : { [EXERCISE]: input.tempo },
-		random: input.random ?? (() => 0)
+		random: input.random ?? (() => 0),
+		...(input.set && { set: input.set })
 	});
 }
 
@@ -69,7 +73,7 @@ function played(item: number, successes: readonly boolean[], from = 0): Attempt[
 
 describe('createLearningProcedure next', () => {
 	it('probes a new item first, unaided and cold, at the top of its ladder', () => {
-		const item = procedure({ tempo: 160 }).next(at(0));
+		const item = procedure({ subject: fakeSubject({ ladder: SHORT }) }).next(at(0));
 		expect(item).toMatchObject({
 			exerciseId: EXERCISE,
 			mechanic: FAKE,
@@ -77,7 +81,7 @@ describe('createLearningProcedure next', () => {
 			phase: 'probe',
 			temperature: 'cold',
 			aid: 'none',
-			// 160 bpm: 8 then 4 beats, 4 beats = 1 500 ms fits the threshold, the top.
+			// The top of its written ladder: 4 beats.
 			leadBeats: 4
 		});
 		expect(item?.stringAid ?? false).toBe(false);
@@ -248,7 +252,11 @@ describe('createLearningProcedure next', () => {
 			failures: 0,
 			resumeAfter: null
 		};
-		const source = procedure({ cards: [reviewable(0)], levels: [level], tempo: 160 });
+		const source = procedure({
+			subject: fakeSubject({ ladder: SHORT }),
+			cards: [reviewable(0)],
+			levels: [level]
+		});
 		const card = { mechanic: FAKE, item: 0 };
 		expect(source.levelOf(card)).toEqual(level);
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'review', leadBeats: 4 });
@@ -332,5 +340,98 @@ describe('createLearningProcedure next', () => {
 		const source = procedure({ subject: fakeSubject({ items: 1 }), cards: [learned(0)] });
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'consolidation' });
 		expect(source.next(at(0))).toBeNull();
+	});
+
+	describe('settings', () => {
+		const OTHER = 'other' as MechanicId;
+
+		it('spaces the retests of an item as its exercise says', () => {
+			// Two exercises in one session: the fake's retests at 1 then 3 prompts, the other's at the defaults.
+			// No new item: between the retests, consolidations of other items, never neighbours.
+			const subject = fakeSubject({
+				items: 0,
+				mechanics: [FAKE, OTHER],
+				learning: { [FAKE]: { retestGaps: [1, 3] } }
+			});
+			const source = procedure({
+				subject,
+				cards: [
+					learning(0),
+					fakeCard(9, { mechanic: OTHER, introducedInSession: 'past' }),
+					...[1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
+				]
+			});
+			/** Prompts between two servings of each item being learned, in order. */
+			const gaps = new Map<string, number[]>();
+			const lastServed = new Map<string, number>();
+			for (let draw = 0; draw < 40; draw++) {
+				const item = source.next(at(0));
+				if (item === null) break;
+				const key = `${item.mechanic}:${item.item}`;
+				if (item.phase === 'learning') {
+					const last = lastServed.get(key);
+					if (last !== undefined) gaps.set(key, [...(gaps.get(key) ?? []), draw - last - 1]);
+					lastServed.set(key, draw);
+				}
+				source.record(attemptOf(item, { success: true }), 0);
+			}
+			// Aided first (the short gap), then unaided (the long one) until learned.
+			expect(gaps.get(`${FAKE}:0`)).toEqual([1, 3, 3]);
+			expect(gaps.get(`${OTHER}:9`)).toEqual([2, 4, 4]);
+		});
+
+		it('serves the set as the session says', () => {
+			const cards = Array.from({ length: 10 }, (_, item) => learned(item));
+			const source = procedure({
+				subject: fakeSubject({ items: 10 }),
+				cards,
+				random: seeded(3),
+				set: { maxWorkingSet: 2 }
+			});
+			const hot = new Set<number>();
+			for (let draw = 0; draw < 60; draw++) {
+				const item = source.next(at(0));
+				if (item?.temperature === 'hot') hot.add(item.item as number);
+			}
+			expect(hot.size).toBe(2);
+		});
+
+		it('serves alike with no set, an empty set and the default set', () => {
+			const run = (set?: Partial<SetLearning>) => {
+				const cards = [learning(0), reviewable(1), ...[2, 3, 4, 5].map((item) => learned(item))];
+				const source = procedure({ cards, random: seeded(5), ...(set && { set }) });
+				return Array.from({ length: 30 }, (_, draw) => {
+					const item = source.next(at(0));
+					if (item) source.record(attemptOf(item, { success: draw % 3 !== 0 }), 0);
+					return item && `${item.phase}:${item.item}`;
+				});
+			};
+			const today = run();
+			expect(run({})).toEqual(today);
+			expect(run(DEFAULT_SET_LEARNING)).toEqual(today);
+		});
+
+		it('serves new items before retests when the order says so', () => {
+			const run = (order?: SetLearning['order']) => {
+				const source = procedure({
+					cards: [learning(0)],
+					attempts: played(0, [true, true, true, true, true]),
+					...(order && { set: { order } })
+				});
+				return Array.from({ length: 4 }, () => {
+					const item = source.next(at(0))!;
+					source.record(attemptOf(item, { success: true }), 0);
+					return `${item.phase}:${item.item}`;
+				});
+			};
+			// Today: item 0 resumed, two new items, then item 0's retest, due.
+			expect(run()).toEqual(['learning:0', 'probe:1', 'probe:2', 'learning:0']);
+			expect(run(['resumed', 'new', 'retest', 'cold-review', 'consolidation'])).toEqual([
+				'learning:0',
+				'probe:1',
+				'probe:2',
+				'probe:3'
+			]);
+		});
 	});
 });

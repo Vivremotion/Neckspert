@@ -43,6 +43,21 @@ export class Fraction {
 	}
 
 	/**
+	 * `value` exactly, as the fraction of smallest denominator up to `maxDenominator` whose number
+	 * is `value` (1.5 → 3/2; the double nearest a third → 1/3). Throws `RangeError` when `value` is
+	 * not finite or no such fraction exists, rather than rounding it.
+	 */
+	static fromNumber(value: number, maxDenominator: number): Fraction {
+		if (Number.isFinite(value)) {
+			for (let d = 1; d <= maxDenominator; d++) {
+				const n = Math.round(value * d);
+				if (n / d === value) return Fraction.of(n, d);
+			}
+		}
+		throw new RangeError(`${value} is no fraction with a denominator up to ${maxDenominator}`);
+	}
+
+	/**
 	 * Reads `"3/8"`, `"2"` or `"-1/4"`; throws on anything else. Only the canonical
 	 * `toString` shape is accepted (no negative denominator, whitespace, `+` or decimals).
 	 */

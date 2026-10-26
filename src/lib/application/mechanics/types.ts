@@ -7,6 +7,7 @@ import type {
 	ResponseVerdict
 } from '$lib/domain/types';
 import type { ResponseValue } from '$lib/domain/time';
+import type { Scene } from '$lib/domain/exercise/types';
 import type {
 	AnswerChoice,
 	LaneEntry,
@@ -14,8 +15,8 @@ import type {
 	ShapeView
 } from '$lib/application/session/contract';
 
-/** Lane and clicks for the guitar; answer pad and silence for the screen. */
-export type Scene = 'guitar' | 'screen';
+// The scene lives in the domain (an exercise names it); re-exported for the screens.
+export type { Scene };
 
 /** Whether the click is heard on a scene: on the guitar, not while the player taps the screen. */
 export const SCENE_CLICKS: Readonly<Record<Scene, boolean>> = { guitar: true, screen: false };

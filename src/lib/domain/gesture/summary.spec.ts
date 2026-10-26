@@ -79,6 +79,15 @@ describe('summarizeGesture', () => {
 		expect(summary.misses).toEqual([]);
 	});
 
+	it('refuses an exercise the gesture track does not list, naming it', () => {
+		expect(() =>
+			summarizeGesture(
+				[{ exerciseId: 'gesture-unknown', tempoBpm: 80 }],
+				[change('gesture-unknown', 'p1', 0, 'perfect')]
+			)
+		).toThrow(/gesture-unknown/);
+	});
+
 	it('lists the missed changes with the shape heard and the closest admitted, and their contest', () => {
 		const heard = shapeId('D', 'maj', [3, 2, 1], '7-7-5');
 		const summary = summarizeGesture(

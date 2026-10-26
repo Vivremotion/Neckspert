@@ -14,12 +14,33 @@ import {
 	type ResponseValue,
 	type ResponseVerdict
 } from '../../time/modes/responseVerdict';
-import { leadLadder } from '../ladder';
 import { directRecallOf } from '../recall';
-import type { CardRef, LearningSubject } from '../subject';
+import type { Level } from '../../time/levels';
+import { DEFAULT_ITEM_LEARNING, type ItemLearning } from '../params';
+import type { CardRef, Ladder, LadderParams, LearningSubject } from '../subject';
 
 const FAKE_MECHANIC = 'fake' as MechanicId;
 const FAKE_TEMPO_BPM = 80;
+
+/** A written level of a ladder: `pass` and `drop` 1 unless said otherwise, unaided, any success. */
+export function rung(
+	leadBeats: LeadBeats | null,
+	options: { aided?: boolean; pass?: number; drop?: number; success?: Level['success'] } = {}
+): Level<LadderParams> {
+	return {
+		params: { leadBeats, aided: options.aided ?? false },
+		pass: { successes: options.pass ?? 1 },
+		drop: { failures: options.drop ?? 1 },
+		...(options.success && { success: options.success })
+	};
+}
+
+/** The fake's default ladder, today's at 80 bpm: 8 beats aided, 4, then 2 (direct recall, pass 2). */
+const FAKE_LADDER: Ladder = [
+	rung(8, { aided: true }),
+	rung(4),
+	rung(2, { pass: 2, success: 'direct-recall' })
+];
 
 /**
  * A subject of numbered items `0..items-1`, introduced in order, for the specs of the procedure.
@@ -30,20 +51,21 @@ export function fakeSubject(
 		items?: number;
 		mechanics?: readonly MechanicId[];
 		neighbours?: (a: number, b: number) => boolean;
-		ladderSteps?: readonly LeadBeats[];
-		learnedAfter?: number;
+		/** The ladder of every mechanic; default `FAKE_LADDER`. */
+		ladder?: Ladder;
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
 		prefers?: (candidate: number, previous: number) => boolean;
 		/** Default true: the aided presentation follows its missed probe at once. */
 		presentsAtOnce?: boolean;
+		/** What each mechanic's exercise writes of its items' settings; the defaults otherwise. */
+		learning?: Readonly<Record<string, Partial<ItemLearning>>>;
 	} = {}
 ): LearningSubject {
 	const items = input.items ?? 12;
 	const mechanics = input.mechanics ?? [FAKE_MECHANIC];
 	const neighbours = input.neighbours ?? ((a: number, b: number) => a === b);
-	const steps = input.ladderSteps ?? [8, 4, 2];
-	const learnedAfter = input.learnedAfter ?? 2;
+	const ladder = input.ladder ?? FAKE_LADDER;
 	const recall = directRecallOf(1500);
 	const { ready, prefers } = input;
 
@@ -63,8 +85,8 @@ export function fakeSubject(
 		},
 		presentsAtOnce: input.presentsAtOnce ?? true,
 		neighbours: (a, b) => neighbours(a.item as number, b.item as number),
-		ladder: (_mechanic, tempoBpm) =>
-			leadLadder({ steps, tempoBpm, recallThresholdMs: 1500, learnedAfter }),
+		ladder: () => ladder,
+		itemLearning: (mechanic) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[mechanic] }),
 		recall: () => recall,
 		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true,
 		fadingAid: (mechanic) => mechanic === FAKE_MECHANIC,

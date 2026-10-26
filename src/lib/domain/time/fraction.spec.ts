@@ -25,6 +25,19 @@ describe('Fraction', () => {
 		expect(() => of(Number.MAX_SAFE_INTEGER + 1)).toThrow(RangeError);
 	});
 
+	it('reads a finite number exactly, within a largest denominator, and refuses what it cannot', () => {
+		expect(Fraction.fromNumber(1.5, 960).toString()).toBe('3/2');
+		expect(Fraction.fromNumber(-2, 960).toString()).toBe('-2');
+		expect(Fraction.fromNumber(0.1, 960).toString()).toBe('1/10');
+		// A third as a decimal is the double nearest 1/3: read back as 1/3.
+		expect(Fraction.fromNumber(1 / 3, 960).toString()).toBe('1/3');
+		expect(() => Fraction.fromNumber(1.0001, 960)).toThrow(RangeError);
+		expect(() => Fraction.fromNumber(Math.PI, 960)).toThrow(RangeError);
+		expect(() => Fraction.fromNumber(Number.NaN, 960)).toThrow(RangeError);
+		expect(() => Fraction.fromNumber(Infinity, 960)).toThrow(RangeError);
+		expect(() => Fraction.fromNumber(1e20, 960)).toThrow(RangeError);
+	});
+
 	it('adds, subtracts, multiplies and divides exactly', () => {
 		expect(of(1, 8).add(of(1, 12)).toString()).toBe('5/24');
 		expect(of(1, 2).sub(of(3, 4)).toString()).toBe('-1/4');

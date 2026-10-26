@@ -40,6 +40,8 @@ export interface Level<P = LevelParams> {
 	pass?: { successes: number };
 	drop?: { failures: number };
 	aid?: true;
+	/** What counts as a success at this level: any success (default), or a direct recall only. */
+	success?: 'any' | 'direct-recall';
 }
 
 /**

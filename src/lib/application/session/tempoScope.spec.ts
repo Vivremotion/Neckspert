@@ -90,6 +90,7 @@ function setup(items: PlannedItem[]) {
 		random: () => 0,
 		newId: () => 'id-1',
 		mechanics: { scoped: presenter },
+		exercise: (id) => ({ id, version: 1, mechanic: 'scoped', params: {} }),
 		sensors: { fake: sensor }
 	};
 	const controller = new SessionController(

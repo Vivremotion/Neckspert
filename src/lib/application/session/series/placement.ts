@@ -1,12 +1,9 @@
 import { Fraction, barLength, type Meter, type RoundPlan } from '$lib/domain/time';
 
 /**
- * Where a round goes on the transport when nothing hands over to it (decisions D2, D3): pure,
+ * Where a round goes on the transport when nothing hands over to it (decisions D2, D3, L4): pure,
  * positions in transport bars (fractions of a bar allowed).
  */
-
-/** A prompt may come this many beats before the earliest bar (D2: a grid opens a beat before its change). */
-export const PROMPT_BEFORE_EARLIEST_BEATS = 1;
 
 /** The smallest multiple of `step` at or after `value`, exactly. */
 function ceilTo(value: Fraction, step: Fraction): Fraction {
@@ -18,15 +15,24 @@ function ceilTo(value: Fraction, step: Fraction): Fraction {
 	return Fraction.of(whole).mul(step);
 }
 
-/** The bar a timed round starts on: the first whole bar ≥ `earliest` whose prompt falls at most `PROMPT_BEFORE_EARLIEST_BEATS` beats before `earliest`. */
+/**
+ * Where a timed round starts: the first place ≥ `earliest` that lies `barOffset` into a bar and,
+ * when the count ends on the prompt (the default), whose prompt is not before `earliest`.
+ */
 export function timedStart(earliest: Fraction, plan: RoundPlan, meter: Meter): Fraction {
 	const bar = barLength(meter);
-	const prompt = (plan.prompt ?? Fraction.ZERO).div(bar);
-	const tolerance = meter.unit.mul(Fraction.of(PROMPT_BEFORE_EARLIEST_BEATS)).div(bar);
-	// start + prompt ≥ earliest − tolerance, and start ≥ earliest.
-	const byPrompt = earliest.sub(tolerance).sub(prompt);
-	const lowest = byPrompt.compare(earliest) > 0 ? byPrompt : earliest;
-	return ceilTo(lowest, Fraction.of(1));
+	const offset = plan.barOffset ?? Fraction.ZERO;
+	if (offset.compare(Fraction.ZERO) < 0 || offset.compare(bar) >= 0) {
+		throw new RangeError('barOffset must lie within its bar');
+	}
+	let lowest = earliest;
+	if ((plan.countEndsOn ?? 'prompt') === 'prompt') {
+		// start + prompt ≥ earliest.
+		const byPrompt = earliest.sub((plan.prompt ?? Fraction.ZERO).div(bar));
+		if (byPrompt.compare(lowest) > 0) lowest = byPrompt;
+	}
+	const inBars = offset.div(bar);
+	return ceilTo(lowest.sub(inBars), Fraction.of(1)).add(inBars);
 }
 
 /** A plan whose expectations are all in free time. */

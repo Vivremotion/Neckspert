@@ -8,6 +8,7 @@ import {
 	type SessionKind
 } from '$lib/domain/types';
 import { classifyNoteConfusion } from '$lib/domain/music';
+import { exerciseById } from '$lib/domain/exercise';
 import {
 	createListSource,
 	introduceCard,
@@ -56,9 +57,7 @@ function progression(tempoBpm: number) {
 	return { exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm, updatedAt: 0 };
 }
 
-type Prepare = (
-	sessionId: string
-) => Promise<{ selector: ItemSource; executions: Execution[] }>;
+type Prepare = (sessionId: string) => Promise<{ selector: ItemSource; executions: Execution[] }>;
 
 interface TestPlan {
 	id: string;
@@ -532,6 +531,17 @@ async function playThrough(
 }
 
 describe('SessionController tempo between sessions', () => {
+	// Locate plays a fixed 80 bpm; these cases need an exercise that moves its tempo.
+	function rangeDeps() {
+		return {
+			...createDeps(),
+			exercise: (id: string) => {
+				const { tempo: _fixed, ...range } = exerciseById(id);
+				return range;
+			}
+		};
+	}
+
 	function locateItems(count: number): PlannedItem[] {
 		return Array.from({ length: count }, () => locateItem({ leadBeats: 4 }));
 	}
@@ -544,7 +554,7 @@ describe('SessionController tempo between sessions', () => {
 	}
 
 	it('speeds the next learn session up after more than 90 % right', async () => {
-		const deps = createDeps();
+		const deps = rangeDeps();
 		await playThrough(make(planWith(locateItems(10)), deps), deps, answers(10));
 		expect(await deps.progressions.get('locate-neck')).toMatchObject({
 			mechanic: 'locate',
@@ -554,7 +564,7 @@ describe('SessionController tempo between sessions', () => {
 	});
 
 	it('slows the next learn session down under 70 %, never below 80 bpm', async () => {
-		const faster = createDeps();
+		const faster = rangeDeps();
 		await playThrough(
 			make(planWith(locateItems(10), 'learn', at(100)), faster),
 			faster,
@@ -562,26 +572,32 @@ describe('SessionController tempo between sessions', () => {
 		);
 		expect((await faster.progressions.get('locate-neck'))?.tempoBpm).toBe(95);
 
-		const slowest = createDeps();
+		const slowest = rangeDeps();
 		await playThrough(make(planWith(locateItems(10)), slowest), slowest, answers(6, 4));
 		expect(await slowest.progressions.all()).toEqual([]);
 	});
 
-	it('leaves the tempo alone after free play', async () => {
+	it('writes no progression for locate, which plays a fixed tempo', async () => {
 		const deps = createDeps();
+		await playThrough(make(planWith(locateItems(10)), deps), deps, answers(10));
+		expect(await deps.progressions.all()).toEqual([]);
+	});
+
+	it('leaves the tempo alone after free play', async () => {
+		const deps = rangeDeps();
 		await playThrough(make(planWith(locateItems(10), 'free'), deps), deps, answers(10));
 		expect(await deps.progressions.all()).toEqual([]);
 	});
 
 	it('writes no progression after a learn session of fewer than ten locate prompts', async () => {
-		const deps = createDeps();
+		const deps = rangeDeps();
 		await playThrough(make(planWith(locateItems(9)), deps), deps, answers(9));
 		expect(await deps.progressions.all()).toEqual([]);
 	});
 
 	it('moves the locate tempo on locate attempts only', async () => {
 		// Counted together, 10 right notes and 10 wrong names (50 %) would slow down to 95.
-		const deps = createDeps();
+		const deps = rangeDeps();
 		const items = [...locateItems(10), ...Array.from({ length: 10 }, () => identifyItem())];
 		await playThrough(make(planWith(items, 'learn', at(100)), deps), deps, answers(10, 10));
 		expect(await deps.progressions.all()).toEqual([
@@ -595,7 +611,7 @@ describe('SessionController tempo between sessions', () => {
 	});
 
 	it('starts a new series at the tempo the previous series reached', async () => {
-		const deps = createDeps();
+		const deps = rangeDeps();
 		const controller = make(planFromProgression(locateItems(10), deps), deps);
 		await playThrough(controller, deps, answers(10));
 		expect(controller.view.status).toBe('finished');

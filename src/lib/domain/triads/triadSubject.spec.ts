@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
+import { ladderOf } from '$lib/domain/exercise/ladder';
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
@@ -27,7 +28,6 @@ const DEFINITIONS = { anchor: TRIADS_ANCHOR, zone: TRIADS_ZONE };
 const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
 /** 80 bpm: a beat is 750 ms; leads 8, 4, 2 beats are 6 000, 3 000, 1 500 ms. */
 const TEMPO = 80;
-const TEMPOS = { [TRIADS_ANCHOR.id]: TEMPO, [TRIADS_ZONE.id]: TEMPO };
 const NO_HISTORY = new Map<CardKey, readonly Attempt[]>();
 const NOTHING_BLOCKED = () => false;
 const NOW = 1_000_000;
@@ -112,7 +112,7 @@ function topLevels(
 		exerciseId: subject.exerciseOf(card.mechanic),
 		scope: '',
 		item: subject.itemKey(card),
-		level: subject.ladder(card.mechanic, TEMPO).length - 1,
+		level: subject.ladder(card.mechanic).length - 1,
 		successes: 0,
 		failures: 0,
 		resumeAfter: null
@@ -127,15 +127,15 @@ describe('triadSubject', () => {
 		expect(`triad-anchor:${subject.itemKey(ref(ANCHOR, ORDER[0]))}`).toBe(
 			cardKey(ANCHOR, ORDER[0])
 		);
-		// The longest lead fitting the threshold tops the ladder (1 500 ms: 2 beats at 80 bpm,
-		// 4 beats at 160 bpm).
-		expect(subject.ladder(ANCHOR, TEMPO).map((level) => level.params)).toEqual([
+		// The ladder each exercise writes: 8 beats aided, 4, then 2 where only a direct recall counts.
+		expect(subject.ladder(ANCHOR).map((level) => level.params)).toEqual([
 			{ leadBeats: 8, aided: true },
 			{ leadBeats: 4, aided: false },
 			{ leadBeats: 2, aided: false }
 		]);
-		const fast = subject.ladder(ZONE, 160);
-		expect(fast[fast.length - 1].params.leadBeats).toBe(4);
+		expect(subject.ladder(ANCHOR)).toEqual(ladderOf(TRIADS_ANCHOR));
+		expect(subject.ladder(ZONE)).toEqual(ladderOf(TRIADS_ZONE));
+		expect(subject.ladder(ZONE)[2].success).toBe('direct-recall');
 		expect(subject.fadingAid(ANCHOR)).toBe(false);
 		expect(subject.fadingAid(ZONE)).toBe(false);
 		expect(subject.prefers).toBeUndefined();
@@ -251,7 +251,6 @@ describe('triadSubject', () => {
 				attempts: [],
 				levels: topLevels(subject, cards),
 				sessionId: 'session',
-				tempos: TEMPOS,
 				random: seeded(3)
 			});
 			let now = NOW;
@@ -330,7 +329,6 @@ describe('triadSubject', () => {
 			attempts: [],
 			levels: topLevels(subject, stored),
 			sessionId: 'session',
-			tempos: TEMPOS,
 			random: seeded(11)
 		});
 		const lastPosition = new Map<string, number | 'open'>();
@@ -378,7 +376,6 @@ describe('triadSubject', () => {
 			attempts: [],
 			levels: topLevels(subject, stored),
 			sessionId: 'session',
-			tempos: TEMPOS,
 			random: seeded(7)
 		});
 

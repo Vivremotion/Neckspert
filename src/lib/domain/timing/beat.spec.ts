@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LEAD_STEPS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
-import { DEFAULT_PACING } from '$lib/domain/exercise';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise';
 import { beatTiming as defaultBeatTiming, createBeatTiming } from './beat';
 
 const beatTime = (i: number) => 0.1 + i * 0.75;
@@ -8,7 +8,7 @@ const note = (time: number, correct = true) => ({ time, correct, answer: 'a' });
 
 describe.each([
 	['beatTiming', defaultBeatTiming],
-	['createBeatTiming(DEFAULT_PACING)', createBeatTiming(DEFAULT_PACING)]
+	['createBeatTiming(DEFAULT_BEAT_PACING)', createBeatTiming(DEFAULT_BEAT_PACING)]
 ])('%s', (_name, beatTiming) => {
 	const round = (bt: (i: number) => number = beatTime, spb = 0.75) =>
 		beatTiming.open({
@@ -271,7 +271,7 @@ describe.each([
 });
 
 describe('createBeatTiming', () => {
-	const timing = createBeatTiming({ leadSteps: [8, 4], respirationBars: 2, learnedAfter: 2 });
+	const timing = createBeatTiming({ leadSteps: [8, 4], respirationBars: 2 });
 
 	it('climbs only the steps of its pacing', () => {
 		expect(timing.initialLead).toBe(8);

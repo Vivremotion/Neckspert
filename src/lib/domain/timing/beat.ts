@@ -5,8 +5,7 @@ import {
 	secondsToMs,
 	timingVerdict
 } from '$lib/domain/scoring/timing';
-import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
-import type { ExercisePacing } from '$lib/domain/exercise/types';
+import { DEFAULT_BEAT_PACING, type BeatPacing } from '$lib/domain/exercise/pacing';
 import { RECALL_THRESHOLD_MS, type LeadBeats, type ResponseVerdict } from '$lib/domain/types';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
@@ -171,7 +170,7 @@ export class BeatRound implements Round {
 }
 
 /** Mode 1 on the beat, at the rhythm of an exercise: its lead ladder and its breathing bars. */
-export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
+export function createBeatTiming(pacing: BeatPacing): TimingRelation {
 	const steps = pacing.leadSteps;
 	return {
 		id: 'beat',
@@ -201,4 +200,4 @@ export function createBeatTiming(pacing: ExercisePacing): TimingRelation {
 }
 
 /** Mode 1: play the note on a target beat, a lead of beats after the prompt. */
-export const beatTiming: TimingRelation = createBeatTiming(DEFAULT_PACING);
+export const beatTiming: TimingRelation = createBeatTiming(DEFAULT_BEAT_PACING);

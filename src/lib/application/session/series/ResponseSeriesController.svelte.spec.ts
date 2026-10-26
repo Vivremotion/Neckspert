@@ -1,10 +1,11 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
-import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
-import { GESTURE_EXERCISES, gesturePlan } from '$lib/domain/gesture';
+import { RESPIRATION_BARS, STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
+import { GESTURE_EXERCISES, GESTURE_LINK, gesturePlan } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
@@ -105,7 +106,7 @@ describe('ResponseSeriesController', () => {
 			// Listening ends at 3.5 beats; nothing hands over.
 			const plans = (item: PlannedItem): RoundPlan => {
 				const plan: RoundPlan = {
-					...gesturePlan(item.item as ChordGridItem, METER_4_4),
+					...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
 					listenUntil: Fraction.of(7, 8)
 				};
 				delete plan.handover;
@@ -125,6 +126,25 @@ describe('ResponseSeriesController', () => {
 			ctx.runTo(ctx.bar(2.75));
 			expect(ctx.controller.view.status).toBe('awaiting');
 			expect(model(ctx).anchorBeat).toBe(12);
+		});
+
+		it('moves a round counted to its target to the next bar when its prompt would come before now', async () => {
+			// A lead of two bars, the count ending on the target: on the bar after the count, its
+			// prompt would be a bar before the count began.
+			const plans = (item: PlannedItem): RoundPlan => ({
+				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
+				prompt: Fraction.of(-2)
+			});
+			const ctx = setup(passage(), { plans });
+			await ctx.controller.start();
+			expect(clicksBetween(ctx, 0, ctx.bar(1))).toEqual([0.1, 0.6, 1.1, 1.6]);
+			ctx.runTo(ctx.bar(0) + 0.01);
+			// Its prompt on the counted bar, its target on bar 2.
+			expect(expectationsAsked(ctx)).toHaveLength(1);
+			expect(model(ctx).anchorBeat).toBe(8);
+			ctx.play(ctx.bar(2) + 0.02, rightShape(change(0)));
+			const [attempt] = await ctx.stored();
+			expect(attempt.success).toBe(true);
 		});
 	});
 
@@ -256,6 +276,20 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.source.asked.at(-1)?.elapsedMs).toBeGreaterThanOrEqual(SESSION_MS);
 		});
 
+		it('ends after the duration its preparation gives', async () => {
+			const durationMs = 60_000;
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })], { durationMs });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1));
+			// Wall time runs on: the series has lasted the time it was given, well before SESSION_MS.
+			expect(durationMs).toBeLessThan(SESSION_MS);
+			ctx.clock.epochAtZero += durationMs;
+			ctx.runTo(ctx.bar(3) - 0.2);
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			expect(await ctx.stored()).toHaveLength(2);
+		});
+
 		it('writes the session and finishes on quit, the round under way settled', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.start();
@@ -372,7 +406,7 @@ describe('ResponseSeriesController', () => {
 		// Listening ends at 3.5 beats; nothing hands over.
 		const plans = (item: PlannedItem): RoundPlan => {
 			const plan: RoundPlan = {
-				...gesturePlan(item.item as ChordGridItem, METER_4_4),
+				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
 				listenUntil: Fraction.of(7, 8)
 			};
 			delete plan.handover;
@@ -672,7 +706,9 @@ describe('ResponseSeriesController', () => {
 						content: { kind: NOTE_CONTENT, value: NOTE_C },
 						leadBeats: item.leadBeats ?? 8,
 						meter,
-						respirationBars: RESPIRATION_BARS
+						respirationBars: RESPIRATION_BARS,
+						windows: DEFAULT_RESPONSE_WINDOWS,
+						previewBeats: STRING_PREVIEW_BEATS
 					});
 		/** Item `index` of `mechanic`, at `lead`; the first one counted in. */
 		const beat = (
@@ -706,9 +742,9 @@ describe('ResponseSeriesController', () => {
 					listeners.note?.({ time, payload: { midi }, readable: true })
 			};
 		};
-		const series = (items: PlannedItem[]) => {
+		const series = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
 			const fake = fakeSensors();
-			const ctx = setup(items, { mechanics, plans, sensors: fake.sensors });
+			const ctx = setup(items, { mechanics, plans, sensors: fake.sensors, ...options });
 			return { ...ctx, hear: fake.hear };
 		};
 		const shown = (ctx: Ctx) => ctx.controller.view.stage?.model as Shown;
@@ -755,6 +791,66 @@ describe('ResponseSeriesController', () => {
 			expect(shown(ctx).place).toMatchObject({ promptBeat: 14, anchorBeat: 16 });
 		});
 
+		describe('the bar after a count', () => {
+			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
+				...plans(item, meter),
+				barOffset: Fraction.of(1, 2)
+			});
+			/** Bar 1's clicks laid by the time the count is placed, before any of them is due. */
+			const laidAfterCount = async (items: PlannedItem[], withPlans = plans) => {
+				const ctx = setup(items, {
+					mechanics,
+					plans: withPlans,
+					sensors: fakeSensors().sensors
+				});
+				await ctx.controller.start();
+				expect(ctx.clock.now()).toBeLessThan(ctx.bar(1));
+				return { downbeat: ctx.bar(1), clicks: clicksBetween(ctx, ctx.bar(1), ctx.bar(2)) };
+			};
+
+			it('clicks its downbeat at lead 8', async () => {
+				const { downbeat, clicks } = await laidAfterCount([beat(0, 8)]);
+				expect(clicks).toHaveLength(4);
+				expect(clicks[0]).toBeCloseTo(downbeat, 3);
+			});
+
+			it('clicks its beats 1 and 2 before a prompt on beat 3 at lead 2', async () => {
+				expect((await laidAfterCount([beat(0, 2)])).clicks).toHaveLength(4);
+			});
+
+			it('clicks its beats before a prompt the plan puts on beat 3', async () => {
+				expect((await laidAfterCount([beat(0, 4)], onBeat3)).clicks).toHaveLength(4);
+			});
+		});
+
+		it('places a target on beat 3 when its plan says so, clicking on through bars it splits', async () => {
+			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
+				...plans(item, meter),
+				barOffset: Fraction.of(1, 2)
+			});
+			const fake = fakeSensors();
+			const ctx = setup([beat(0, 4), beat(1, 4)], {
+				mechanics,
+				plans: onBeat3,
+				sensors: fake.sensors
+			});
+			await ctx.controller.start();
+			// Counted on bar 0: the prompt on beat 3 of bar 1, the target on beat 3 of bar 2.
+			ctx.runTo(ctx.bar(1.5));
+			expect(ctx.controller.view.status).toBe('awaiting');
+			expect(shown(ctx).place).toMatchObject({ promptBeat: 6, anchorBeat: 10 });
+			ctx.runTo(ctx.bar(2.5) + 0.03);
+			fake.hear(ctx.bar(2.5) + 0.02, C);
+			expect(ctx.controller.view.status).toBe('verdict');
+			// Its round ends on beat 3 of bar 3: the next prompt there, its target on beat 3 of bar 4.
+			ctx.runTo(ctx.bar(3.5));
+			expect(ctx.controller.view.status).toBe('awaiting');
+			expect(shown(ctx).place).toMatchObject({ promptBeat: 14, anchorBeat: 18 });
+			// The click goes on through the bars the rounds split: every beat of bars 2 to 4 heard.
+			expect(clicksBetween(ctx, ctx.bar(2), ctx.bar(5))).toHaveLength(12);
+			expect(ctx.controller.view.countdown).toBeNull();
+		});
+
 		it('counts a bar after the round before an item that asks for one, then applies the same placement', async () => {
 			const ctx = series([beat(0, 8), beat(1, 8, { countIn: true })]);
 			await ctx.controller.start();
@@ -784,6 +880,31 @@ describe('ResponseSeriesController', () => {
 				aids: { aid: 'none', stringAid: true }
 			});
 			expect(ctx.controller.view.status).toBe('verdict');
+		});
+
+		it('announces the next prompt as many beats early as its exercise says', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), flow: { previewBeats: 2 } });
+			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5) - 0.01);
+			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx)).toMatchObject({ index: 1, settled: null });
+		});
+
+		it('takes the mechanic’s defaults when the exercise says nothing', async () => {
+			const exercise = (id: string) => ({ ...exerciseById(id), flow: {} });
+			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
+			ctx.runTo(ctx.bar(3.75));
+			expect(shown(ctx)).toMatchObject({ index: 1 });
+			expect(ctx.controller.view.scene).toBe('guitar');
 		});
 
 		it('without preview beats, shows the next item at its prompt', async () => {
@@ -822,6 +943,117 @@ describe('ResponseSeriesController', () => {
 			expect(attempts[1].reactionMs).toBeCloseTo(1000, 6);
 			// Nothing clicks on the screen.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
+		});
+
+		describe('a change of meter', () => {
+			const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
+			/** `inWaltz`'s exercise in 3/4, the others in their own meter; no instruction stops. */
+			const inWaltz = (waltz: string) => (id: string) => ({
+				...exerciseById(id),
+				howTo: undefined,
+				...(id === waltz && { meter: METER_3_4 })
+			});
+			/** One tempo, ♩ = 120, for both exercises: only the meter changes. */
+			const executions = [
+				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 },
+				{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 120 }
+			];
+			/**
+			 * Runs by 10 ms to the second item's target (at most `until`); what the screen showed: the counts with their times, and the
+			 * second item's target, in audio seconds, once its round opened.
+			 */
+			const watch = (ctx: Ctx, until: number, answer?: { at: number; tap: string }) => {
+				const counts: { time: number; count: number }[] = [];
+				let target: number | null = null;
+				let answered = false;
+				// Up to the target: the series ends after it, its sounds cancelled.
+				for (
+					let time = ctx.clock.now();
+					time < until && (target === null || time < target);
+					time += 0.01
+				) {
+					ctx.runTo(time);
+					if (answer && !answered && time >= answer.at) {
+						ctx.controller.answer(answer.tap);
+						answered = true;
+					}
+					const count = ctx.controller.view.countdown;
+					if (count !== null && counts[counts.length - 1]?.count !== count) {
+						counts.push({ time: ctx.clock.now(), count });
+					}
+					if (
+						target === null &&
+						ctx.controller.view.status === 'awaiting' &&
+						shown(ctx).index === 1
+					) {
+						const beats = (shown(ctx).place.anchorBeat ?? 0) - ctx.controller.timeline.nowBeat();
+						target = ctx.clock.now() + beats * 0.5;
+					}
+				}
+				return { counts, target };
+			};
+			/** The clicks heard from `from` on, accents marked. */
+			const heard = (ctx: Ctx, from: number) =>
+				ctx.sounds
+					.emitted()
+					.filter((s) => s.time >= from - 1e-9)
+					.map((s) => ({ time: s.time, accent: s.sound === 'click-accent' }));
+
+			it('counts a bar in the new meter between a timed item and one of another meter, then plays in it', async () => {
+				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'gesture-zone' })], {
+					exercise: inWaltz('gesture-zone'),
+					executions
+				});
+				await ctx.controller.start();
+				ctx.runTo(ctx.bar(3) + 0.03);
+				ctx.hear(ctx.bar(3) + 0.02, C);
+				const { counts, target } = watch(ctx, 20);
+				// After the round in 4/4, a count of 3 in 3/4.
+				expect(counts.map((c) => c.count)).toEqual([3, 2, 1]);
+				const countAt = counts[0].time;
+				// Not before the first round's breath ends.
+				expect(countAt).toBeGreaterThanOrEqual(ctx.bar(4) - 0.01);
+				const clicks = heard(ctx, countAt - 0.01);
+				// Three clicks a bar, the accent on each 1, half a second apart.
+				expect(clicks.slice(0, 7).map((c) => c.accent)).toEqual([
+					true,
+					false,
+					false,
+					true,
+					false,
+					false,
+					true
+				]);
+				for (let i = 1; i < 7; i++) {
+					expect(clicks[i].time - clicks[i - 1].time).toBeCloseTo(0.5, 6);
+				}
+				// Its target on the 1 of a 3/4 bar, clicked.
+				expect(target).not.toBeNull();
+				expect(clicks.some((c) => c.accent && Math.abs(c.time - (target as number)) < 0.02)).toBe(
+					true
+				);
+				ctx.controller.quit();
+			});
+
+			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
+				const ctx = series(
+					[beat(0, 8, { exerciseId: 'gesture-zone' }, 'tap'), beat(1, 3, { countIn: true })],
+					{ exercise: inWaltz('gesture-jam'), executions }
+				);
+				await ctx.controller.start();
+				// The tapped one opens after its (silent) 4/4 count and is answered.
+				const { counts, target } = watch(ctx, 20, { at: ctx.bar(1) + 0.5, tap: 'C' });
+				expect(counts.map((c) => c.count)).toEqual([4, 3, 2, 1, 3, 2, 1]);
+				const countAt = counts[4].time;
+				const clicks = heard(ctx, countAt - 0.01);
+				expect(clicks.slice(0, 4).map((c) => c.accent)).toEqual([true, false, false, true]);
+				expect(clicks[0].time).toBeCloseTo(countAt, 1);
+				expect(target).not.toBeNull();
+				expect(clicks.some((c) => c.accent && Math.abs(c.time - (target as number)) < 0.02)).toBe(
+					true
+				);
+				ctx.controller.quit();
+			});
 		});
 
 		it('past SESSION_MS: ends after a round without a handover, and begins nothing else', async () => {
@@ -902,6 +1134,18 @@ describe('ResponseSeriesController', () => {
 			expect(clicksBetween(ctx, ctx.bar(4), ctx.bar(5))).toEqual([8.1, 8.6, 9.1, 9.6]);
 		});
 
+		it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click', async () => {
+			const exercise = (id: string) => ({
+				...exerciseById(id),
+				flow: { scene: 'screen' as const }
+			});
+			const ctx = setup(passage(), { exercise });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(2));
+			expect(ctx.controller.view.scene).toBe('screen');
+			expect(clicksBetween(ctx, 0, ctx.bar(2))).toEqual([]);
+		});
+
 		it('shows a counted bar before a scene that does not click, without a sound', async () => {
 			const ctx = screenSeries([...passage(), ...onScreen(passage({ passage: 's:1' }))]);
 			await ctx.controller.start();
@@ -938,7 +1182,7 @@ describe('ResponseSeriesController', () => {
 				exercise: (id) => ({ ...exerciseById(id), meter: METER_3_4 }),
 				plans: (item, meter) => {
 					meters.push(meter);
-					return gesturePlan(item.item as ChordGridItem, meter);
+					return gesturePlan(item.item as ChordGridItem, meter, GESTURE_LINK);
 				}
 			});
 			await ctx.controller.start();
@@ -950,20 +1194,6 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.status).toBe('awaiting');
 			expect(meters.length).toBeGreaterThan(0);
 			expect(meters.every((m) => m === METER_3_4)).toBe(true);
-		});
-
-		it('refuses an item of another meter than the series’', async () => {
-			const ctx = setup(
-				[...passage(), ...passage({ passage: 's:1', exerciseId: 'gesture-zone' })],
-				{
-					exercise: (id) => ({
-						...exerciseById(id),
-						...(id === 'gesture-zone' && { meter: METER_3_4 })
-					})
-				}
-			);
-			await ctx.controller.start();
-			expect(() => ctx.runTo(ctx.bar(3))).toThrow(new RangeError('a series keeps one meter'));
 		});
 	});
 });

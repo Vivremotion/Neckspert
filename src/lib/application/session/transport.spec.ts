@@ -329,6 +329,66 @@ describe('Transport.changeTempo', () => {
 	});
 });
 
+describe('Transport.changeMeter', () => {
+	const WALTZ = { count: 3, unit: f(1, 4), grouping: [1, 1, 1] };
+	const waltzClicks = clickAccompaniment({
+		meter: WALTZ,
+		beats: [1, 2, 3],
+		accent: [1],
+		bars: ['on']
+	});
+
+	it('counts the first whole bar of the new meter from the bar, its positions going on', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const at4 = transport.map.toSeconds(f(4));
+		const before = sounds.emitted().length;
+		const { playFrom } = transport.changeMeter(4, WALTZ, tempo(100), waltzClicks, {
+			listenInBars: 0
+		});
+		// Bar 4 of 4/4 is position 4; the first 3/4 bar at or after it is bar 6 (position 9/2).
+		expect(transport.barLength.toString()).toBe('3/4');
+		expect(playFrom).toBe(7);
+		expect(transport.countdownAt(6)).toBe(3);
+		expect(transport.countdownAt(7)).toBeNull();
+		// The same tempo: the same map, no new segment; the time of a position unchanged.
+		expect(transport.map.segments).toHaveLength(1);
+		expect(transport.map.toSeconds(f(4))).toBeCloseTo(at4, 9);
+		const added = sounds.emitted().slice(before);
+		expect(added.map((s) => s.sound)).toEqual(['click-accent', 'click', 'click']);
+		expect(added[0].time).toBeCloseTo(transport.map.toSeconds(f(9, 2)), 9);
+		expect(added[1].time - added[0].time).toBeCloseTo(0.6, 9);
+	});
+
+	it('takes the new tempo from its counted bar', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const before = sounds.emitted().length;
+		transport.changeMeter(4, WALTZ, tempo(120), waltzClicks, { listenInBars: 0 });
+		expect(transport.map.segments).toHaveLength(2);
+		expect(transport.map.segments[1]).toMatchObject({ bpm: 120, at: f(9, 2) });
+		const added = sounds.emitted().slice(before);
+		expect(added[1].time - added[0].time).toBeCloseTo(0.5, 9);
+	});
+
+	it('counts silently when the count is not to be heard', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		const before = sounds.emitted().length;
+		transport.changeMeter(3, WALTZ, tempo(100), waltzClicks, { listenInBars: 0, audible: false });
+		expect(sounds.emitted()).toHaveLength(before);
+		expect(transport.countdownAt(4)).toBe(3);
+	});
+
+	it('refuses a change over bars already scheduled, or an accompaniment of another meter', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
+		transport.accompany(3, 6, clicks);
+		expect(() => transport.changeMeter(4, WALTZ, tempo(100), waltzClicks)).toThrow(RangeError);
+		expect(() => transport.changeMeter(6, WALTZ, tempo(100), clicks)).toThrow(RangeError);
+	});
+});
+
 describe('Transport.stop', () => {
 	it('cancels the sounds and the wake-ups', async () => {
 		const { clock, sounds, transport } = setup();

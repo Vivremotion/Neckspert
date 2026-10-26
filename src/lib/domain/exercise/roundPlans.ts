@@ -1,23 +1,13 @@
 import { Fraction } from '../time/fraction';
-import { barLength, type Meter } from '../time/meter';
+import { barLength, beatsOf, type Meter } from '../time/meter';
 import type { Expectation, ExpectedContent, RoundPlan, RoundPolicy } from '../time/plan';
-import {
-	LATE_CAPTURE_MS,
-	LATE_LIMIT_MS,
-	MIN_RESPONSE_MS,
-	PERFECT_WINDOW_MS
-} from '../scoring/timing';
-import { STRING_PREVIEW_BEATS } from '../timing/grid';
-import { ANCHOR_CHORD_FROM_BEATS } from '../timing/anchor';
-import { GRID_EARLY_MAX_BEATS, GRID_EARLY_MS } from '../timing/gridChange';
 import type { LeadBeats } from '../types';
+import type { ResponseWindows } from './windows';
 
 /**
  * The four one-answer relations written as round plans. A round starts at its target
  * (position 0); a « beat » is the meter's unit.
  */
-
-const beats = (meter: Meter, count: number): Fraction => meter.unit.mul(Fraction.of(count));
 
 function pointTarget(sensor: string, content: ExpectedContent, windowMs: number): Expectation {
 	return {
@@ -32,16 +22,16 @@ function pointTarget(sensor: string, content: ExpectedContent, windowMs: number)
 }
 
 /** Locate on the beat: the prompt `leadBeats` before the target, then the breathing bars. */
-function onTheBeatPolicy(correction: boolean): RoundPolicy {
+function onTheBeatPolicy(correction: boolean, windows: ResponseWindows): RoundPolicy {
 	return {
 		unit: 'response',
 		verdict: 'response',
 		correction,
 		pairing: {
 			mode: 'first-answer',
-			opens: { afterPromptMs: MIN_RESPONSE_MS },
-			lateMs: LATE_LIMIT_MS,
-			lateCapture: { ms: LATE_CAPTURE_MS }
+			opens: { afterPromptMs: windows.minResponseMs },
+			lateMs: windows.lateMs,
+			lateCapture: { ms: windows.lateCaptureMs }
 		}
 	};
 }
@@ -51,16 +41,27 @@ export function beatPlan(input: {
 	leadBeats: LeadBeats;
 	meter: Meter;
 	respirationBars: number;
+	/** The exercise's windows (`windowsOf`). */
+	windows: ResponseWindows;
+	/** Beats before the end that the next prompt is shown, where the round stops listening. */
+	previewBeats: number;
+	/** Where the target falls in its bar; absent: the downbeat. */
+	barOffset?: Fraction;
+	/** Where the counted bar ends; absent: on the prompt. */
+	countEndsOn?: 'prompt' | 'target';
 }): RoundPlan {
-	const { content, leadBeats, meter, respirationBars } = input;
+	const { content, leadBeats, meter, respirationBars, windows, previewBeats, barOffset } = input;
+	const { countEndsOn } = input;
 	const length = barLength(meter).mul(Fraction.of(respirationBars));
 	return {
-		prompt: beats(meter, -leadBeats),
-		expectations: [pointTarget('note', content, PERFECT_WINDOW_MS)],
+		prompt: beatsOf(meter, -leadBeats),
+		expectations: [pointTarget('note', content, windows.perfectMs)],
 		length,
-		listenUntil: length.sub(beats(meter, STRING_PREVIEW_BEATS)),
+		listenUntil: length.sub(beatsOf(meter, previewBeats)),
 		mutedBars: [],
-		policy: onTheBeatPolicy(false)
+		policy: onTheBeatPolicy(false, windows),
+		...(barOffset && { barOffset }),
+		...(countEndsOn && { countEndsOn })
 	};
 }
 
@@ -70,28 +71,31 @@ export function anchorPlan(input: {
 	leadBeats: LeadBeats;
 	meter: Meter;
 	respirationBars: number;
+	windows: ResponseWindows;
+	/** As `beatPlan`'s. */
+	previewBeats: number;
 }): RoundPlan {
-	const { root, chord, leadBeats, meter, respirationBars } = input;
+	const { root, chord, leadBeats, meter, respirationBars, windows, previewBeats } = input;
 	const bar = barLength(meter);
 	const length = bar.mul(Fraction.of(1 + respirationBars));
 	return {
-		prompt: beats(meter, -leadBeats),
+		prompt: beatsOf(meter, -leadBeats),
 		expectations: [
-			pointTarget('note', root, PERFECT_WINDOW_MS),
+			pointTarget('note', root, windows.perfectMs),
 			{
-				at: beats(meter, ANCHOR_CHORD_FROM_BEATS),
+				at: beatsOf(meter, windows.anchorChordFromBeats),
 				span: { until: bar },
 				role: 'target',
 				sensor: 'chord',
 				content: chord,
-				window: { ms: PERFECT_WINDOW_MS },
+				window: { ms: windows.perfectMs },
 				bar: 0
 			}
 		],
 		length,
-		listenUntil: length.sub(beats(meter, STRING_PREVIEW_BEATS)),
+		listenUntil: length.sub(beatsOf(meter, previewBeats)),
 		mutedBars: [],
-		policy: onTheBeatPolicy(true)
+		policy: onTheBeatPolicy(true, windows)
 	};
 }
 
@@ -100,30 +104,35 @@ export function gridChangePlan(input: {
 	content: ExpectedContent;
 	lengthBeats: number;
 	meter: Meter;
+	windows: ResponseWindows;
 }): RoundPlan {
-	const { content, lengthBeats, meter } = input;
-	const length = beats(meter, lengthBeats);
+	const { content, lengthBeats, meter, windows } = input;
+	const length = beatsOf(meter, lengthBeats);
 	return {
-		prompt: beats(meter, -1),
-		expectations: [pointTarget('chord', content, PERFECT_WINDOW_MS)],
+		prompt: beatsOf(meter, -1),
+		expectations: [pointTarget('chord', content, windows.perfectMs)],
 		length,
 		handover: length,
 		mutedBars: [],
+		countEndsOn: 'target',
 		policy: {
 			unit: 'response',
 			verdict: 'response',
 			correction: false,
 			pairing: {
 				mode: 'first-answer',
-				opens: { beforeMs: GRID_EARLY_MS, maxBeats: GRID_EARLY_MAX_BEATS },
-				lateMs: LATE_LIMIT_MS,
+				opens: { beforeMs: windows.gridEarlyMs, maxBeats: windows.gridEarlyMaxBeats },
+				lateMs: windows.lateMs,
 				lateCapture: 'to-end'
 			}
 		}
 	};
 }
 
-/** A note named in free time (identify): answered any time after the prompt, no tempo. */
+/**
+ * A note named in free time (identify): answered any time after the prompt, no tempo. It takes no
+ * `windows`: it opens at the prompt and has no late zone; its window is the recall threshold.
+ */
 export function freePlan(input: {
 	content: ExpectedContent;
 	recallThresholdMs: number;

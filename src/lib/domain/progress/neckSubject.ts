@@ -1,10 +1,9 @@
-import { pacingOf } from '$lib/domain/exercise/pacing';
+import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import {
-	aidLadder,
 	directRecallOf,
-	leadLadder,
+	itemLearningOf,
 	type CardRef,
 	type DirectRecall,
 	type LearningSubject
@@ -41,8 +40,8 @@ function itemKeyOf(card: NeckCard): string {
 /**
  * The neck's notes as a subject of the learning procedure: locate and identify, introduced in the
  * neck's order (`priority`, the triads' notes, first), a note never right after itself nor its
- * mirror, another string preferred. Locate climbs its leads, identify drops the name shown; each
- * judges direct recall by the threshold its exercise declares.
+ * mirror, another string preferred. Each climbs the ladder its exercise writes (locate its leads,
+ * identify the name shown) and judges direct recall by the threshold its exercise declares.
  */
 export function neckSubject(input: {
 	definitions: { locate: ExerciseDefinition; identify: ExerciseDefinition };
@@ -50,13 +49,14 @@ export function neckSubject(input: {
 }): LearningSubject {
 	const { definitions } = input;
 	const priority = input.priority ?? [];
-	const locateThresholdMs = thresholdOf(definitions.locate, 'locate');
 	const recalls: Record<NeckCard['mechanic'], DirectRecall> = {
-		locate: directRecallOf(locateThresholdMs),
+		locate: directRecallOf(thresholdOf(definitions.locate, 'locate')),
 		identify: directRecallOf(thresholdOf(definitions.identify, 'identify'))
 	};
-	const locatePacing = pacingOf(definitions.locate);
-	const identifyPacing = pacingOf(definitions.identify);
+	const ladders = {
+		locate: ladderOf(definitions.locate, 'locate'),
+		identify: ladderOf(definitions.identify, 'identify')
+	};
 
 	return {
 		owns: isNeck,
@@ -75,15 +75,8 @@ export function neckSubject(input: {
 		},
 		prefers: (candidate, previous) =>
 			asNeckCard(candidate).item.string !== asNeckCard(previous).item.string,
-		ladder: (mechanic, tempoBpm) =>
-			neckMechanic(mechanic) === 'locate'
-				? leadLadder({
-						steps: locatePacing.leadSteps,
-						tempoBpm,
-						recallThresholdMs: locateThresholdMs,
-						learnedAfter: locatePacing.learnedAfter
-					})
-				: aidLadder(identifyPacing.learnedAfter),
+		ladder: (mechanic) => ladders[neckMechanic(mechanic)],
+		itemLearning: (mechanic) => itemLearningOf(definitions[neckMechanic(mechanic)]),
 		recall: (mechanic) => recalls[neckMechanic(mechanic)],
 		confused: (attempt) => {
 			const data = attempt.data as LocateData | IdentifyData | null;

@@ -1,5 +1,7 @@
+import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import { anchorPlan, beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import {
 	beatTiming,
@@ -91,7 +93,7 @@ const judges: ContentJudges = (kind) => {
 
 const LATENCY = { ms: 0, provenance: 'system' as const };
 
-const anchorTiming = createAnchorTiming(DEFAULT_PACING);
+const anchorTiming = createAnchorTiming(DEFAULT_BEAT_PACING);
 const gridTiming = createGridTiming((item) => item as GridChangeTiming);
 
 const secondsPerBeat = (setup: Setup) => 60 / setup.bpm;
@@ -138,7 +140,9 @@ function planOf(setup: Setup): RoundPlan {
 				content: SCRIPTED,
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
-				respirationBars: RESPIRATION_BARS
+				respirationBars: RESPIRATION_BARS,
+				windows: DEFAULT_RESPONSE_WINDOWS,
+				previewBeats: STRING_PREVIEW_BEATS
 			});
 		case 'anchor':
 			return anchorPlan({
@@ -146,10 +150,17 @@ function planOf(setup: Setup): RoundPlan {
 				chord: SCRIPTED,
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
-				respirationBars: RESPIRATION_BARS
+				respirationBars: RESPIRATION_BARS,
+				windows: DEFAULT_RESPONSE_WINDOWS,
+				previewBeats: STRING_PREVIEW_BEATS
 			});
 		case 'grid':
-			return gridChangePlan({ content: SCRIPTED, lengthBeats: setup.lengthBeats as number, meter });
+			return gridChangePlan({
+				content: SCRIPTED,
+				lengthBeats: setup.lengthBeats as number,
+				meter,
+				windows: DEFAULT_RESPONSE_WINDOWS
+			});
 		case 'free':
 			return freePlan({ content: SCRIPTED, recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS });
 	}

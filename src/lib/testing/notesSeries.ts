@@ -8,7 +8,7 @@ import { createAppServices } from '$lib/application/services/createAppServices';
 import type { PlaySessionController, PromptView } from '$lib/application/session/contract';
 import { noteSensor, tapSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import type { Progression } from '$lib/domain/exercise';
+import { exerciseById, type ExerciseDefinition, type Progression } from '$lib/domain/exercise';
 import {
 	acceptableMidis,
 	formatNote,
@@ -108,6 +108,8 @@ export interface NotesSetup {
 	progressions?: Progression[];
 	development?: boolean;
 	random?: () => number;
+	/** Exercises that replace the catalog's of the same id (a test catalog). */
+	exercises?: readonly ExerciseDefinition[];
 }
 
 /** The app's services on fakes, its stores filled from `setup`, ready to start a session of the notes. */
@@ -134,7 +136,9 @@ export async function notesApp(setup: NotesSetup = {}) {
 		sounds,
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),
-		levels: new InMemoryLevelStateRepository()
+		levels: new InMemoryLevelStateRepository(),
+		exercise: (id: string) =>
+			setup.exercises?.find((exercise) => exercise.id === id) ?? exerciseById(id)
 	};
 	await deps.cards.putMany(setup.cards ?? []);
 	for (const level of setup.levels ?? []) await deps.levels.put(level);

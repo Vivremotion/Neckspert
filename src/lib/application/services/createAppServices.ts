@@ -6,7 +6,7 @@ import { ResponseSeriesController } from '$lib/application/session/series/Respon
 import { summarizeExercise } from '$lib/application/session/plan/exerciseSummary';
 import { levelAided } from '$lib/application/session/plan/recordCycle';
 import { levelParamsOf } from '$lib/application/session/plan/rhythmExercise';
-import { summarizeSeries } from '$lib/domain/session';
+import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import { GESTURE_EXERCISES, gestureOpen, gesturePlan, openElements } from '$lib/domain/gesture';
@@ -39,7 +39,11 @@ import {
 } from '$lib/domain/progress';
 import { neckPlan } from '$lib/domain/progress/neckPlans';
 import { neckSubject } from '$lib/domain/progress/neckSubject';
-import { createLearningProcedure, type DirectRecall } from '$lib/domain/learning';
+import {
+	createLearningProcedure,
+	DEFAULT_SET_LEARNING,
+	type DirectRecall
+} from '$lib/domain/learning';
 import type { PlanSource } from '$lib/application/session/series/planSource';
 import { triadNotesToLearn } from '$lib/domain/triads';
 import {
@@ -63,10 +67,11 @@ export function createAppServices(
 		development?: boolean;
 	}
 ): AppServices {
-	/** What a series prepares: its source, its executions, and its mechanics' direct recall. */
+	/** What a series prepares: its source, its executions, its length, and its mechanics' direct recall. */
 	type PreparedSeries = {
 		source: ItemSource;
 		executions: Execution[];
+		durationMs: number;
 		recall?: (mechanic: MechanicId) => DirectRecall;
 	};
 
@@ -86,7 +91,11 @@ export function createAppServices(
 		const prepare = async (sessionId: string) => {
 			const series = await prepareSeries(sessionId);
 			prepared.set(sessionId, series);
-			return { source: series.source, executions: series.executions };
+			return {
+				source: series.source,
+				executions: series.executions,
+				durationMs: series.durationMs
+			};
 		};
 		return new ResponseSeriesController({ id: deps.newId(), kind }, prepare, {
 			clock: deps.clock,
@@ -157,9 +166,9 @@ export function createAppServices(
 					attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
 					sessionId
 				});
-				return { source, executions };
+				return { source, executions, durationMs: SESSION_MS };
 			},
-			(item, meter) => gesturePlan(item.item as ChordGridItem, meter)
+			(item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)
 		);
 
 	/**
@@ -176,24 +185,27 @@ export function createAppServices(
 					deps.progressions.all(),
 					deps.levels.all()
 				]);
+				// The neck's exercises as the catalog writes them.
+				const exercise = deps.exercise ?? exerciseById;
+				const locate = exercise(LOCATE_NECK.id);
+				const identify = exercise(IDENTIFY_NECK.id);
 				// Locate plays on the click at its own tempo; identify is answered in free time.
-				const locateTempo = startTempo(LOCATE_NECK, progressions);
 				const executions: Execution[] = [
-					{ exerciseId: LOCATE_NECK.id, tempoBpm: locateTempo },
-					{ exerciseId: IDENTIFY_NECK.id, tempoBpm: null }
+					{ exerciseId: locate.id, tempoBpm: startTempo(locate, progressions) },
+					{ exerciseId: identify.id, tempoBpm: null }
 				];
 				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
 				const subject = neckSubject({
-					definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK },
+					definitions: { locate, identify },
 					priority: triadNotesToLearn(cards)
 				});
 				const neckCards = cards.filter(isNeck);
 				const source =
 					kind === 'free'
 						? createListSource(
-								// A note is free-played at the lead its level gives at the locate tempo.
+								// A note is free-played at the lead its level gives on the locate ladder.
 								buildFreePlan({
-									leadOf: freeLeadOf({ subject, levels, tempoBpm: locateTempo }),
+									leadOf: freeLeadOf({ subject, levels }),
 									random: deps.random
 								})
 							)
@@ -203,15 +215,16 @@ export function createAppServices(
 								attempts: attempts.filter(isNeck),
 								levels,
 								sessionId,
-								// The ladders fit the leads to a tempo: identify plays without one.
-								tempos: Object.fromEntries(
-									executions.flatMap(({ exerciseId, tempoBpm }) =>
-										tempoBpm === null ? [] : [[exerciseId, tempoBpm]]
-									)
-								),
-								random: deps.random
+								random: deps.random,
+								// The session's settings for the whole set: today's, until written as data.
+								set: DEFAULT_SET_LEARNING
 							});
-				return { source, executions, recall: (mechanic) => subject.recall(mechanic) };
+				return {
+					source,
+					executions,
+					durationMs: SESSION_MS,
+					recall: (mechanic) => subject.recall(mechanic)
+				};
 			},
 			neckPlan
 		);

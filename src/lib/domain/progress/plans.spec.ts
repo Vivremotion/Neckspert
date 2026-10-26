@@ -49,15 +49,15 @@ describe('freeLeadOf', () => {
 	});
 	const levels = [level('6:G', 2), level('6:A', 1)];
 
-	it('plays a note at the lead of its level, on the ladder of the locate tempo', () => {
-		expect(freeLeadOf({ subject, levels, tempoBpm: 80 })(L1.item)).toBe(2);
-		expect(freeLeadOf({ subject, levels, tempoBpm: 80 })(L2.item)).toBe(4);
-		// At ♩ = 160 the ladder stops at 4: a level above it is brought to its top.
-		expect(freeLeadOf({ subject, levels, tempoBpm: 160 })(L1.item)).toBe(4);
+	it('plays a note at the lead of its level, on the ladder locate writes', () => {
+		expect(freeLeadOf({ subject, levels })(L1.item)).toBe(2);
+		expect(freeLeadOf({ subject, levels })(L2.item)).toBe(4);
+		// A level above the ladder is brought to its top.
+		expect(freeLeadOf({ subject, levels: [level('6:G', 5)] })(L1.item)).toBe(2);
 	});
 
 	it('plays a note with no level at the first lead, as the procedure would', () => {
-		expect(freeLeadOf({ subject, levels: [], tempoBpm: 80 })(L1.item)).toBe(8);
+		expect(freeLeadOf({ subject, levels: [] })(L1.item)).toBe(8);
 		// Another exercise's or another scope's level is not the note's.
 		expect(
 			freeLeadOf({
@@ -65,20 +65,19 @@ describe('freeLeadOf', () => {
 				levels: [
 					{ ...level('6:G', 2), scope: 'other' },
 					{ ...level('6:G', 2), exerciseId: 'x' }
-				],
-				tempoBpm: 80
+				]
 			})(L1.item)
 		).toBe(8);
 	});
 
 	it('serves a free plan at those leads', () => {
 		const plan = buildFreePlan({
-			leadOf: freeLeadOf({ subject, levels, tempoBpm: 160 }),
+			leadOf: freeLeadOf({ subject, levels }),
 			count: 1000,
 			random: () => 0
 		});
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
-		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(4);
+		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(2);
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(4);
 		expect(plan.find((item) => keyOf(item) === 'locate:5:C')?.leadBeats).toBe(8);
 	});

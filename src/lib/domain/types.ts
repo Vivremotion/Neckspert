@@ -121,7 +121,8 @@ export type AidLevel = 'show-position' | 'none';
  * Never below 2: at 1 beat no cold answer ever came in time (export of 2026-10-04).
  */
 export const LEAD_STEPS = [8, 4, 2] as const;
-export type LeadBeats = (typeof LEAD_STEPS)[number];
+/** A lead in beats of the meter: any positive number. */
+export type LeadBeats = number;
 
 /** Shortest lead step. Identify cards carry it; the field means nothing in mode 2. */
 export const SHORTEST_LEAD: LeadBeats = LEAD_STEPS[LEAD_STEPS.length - 1];

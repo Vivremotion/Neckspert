@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { freePlan } from '$lib/domain/exercise/roundPlans';
 import { NAME_CONTENT } from '$lib/domain/judges';
+import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
 import { gesturePlan } from '$lib/domain/gesture/plans';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
@@ -109,7 +110,7 @@ async function setup(
 	};
 	const events: { at: number; event: RunnerEvent }[] = [];
 	const runner = new RoundRunner({
-		plan: options.plan ?? gesturePlan(item, METER_4_4),
+		plan: options.plan ?? gesturePlan(item, METER_4_4, GESTURE_LINK),
 		item: planned,
 		at: Fraction.of(playFrom),
 		chained: options.chained ?? false,
@@ -241,7 +242,10 @@ describe('RoundRunner', () => {
 
 	it('settles a round without a handover at its end of listening, between beats', async () => {
 		// Listening ends at 3.5 beats.
-		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4), listenUntil: Fraction.of(7, 8) };
+		const plan: RoundPlan = {
+			...gesturePlan(item, METER_4_4, GESTURE_LINK),
+			listenUntil: Fraction.of(7, 8)
+		};
 		delete plan.handover;
 		const ctx = await setup({ plan });
 		expect(ctx.runner.handoverTime).toBeNull();
@@ -324,7 +328,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('opens a chained round without a handover at its first opening, and wakes it to its end of listening', async () => {
-		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4) };
+		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4, GESTURE_LINK) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		expect(ctx.runner.handoverTime).toBeNull();
@@ -335,7 +339,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('wakes a chained round without a handover to the end of its bar', async () => {
-		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4) };
+		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4, GESTURE_LINK) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		ctx.runTo(ctx.t0 + 1.99);

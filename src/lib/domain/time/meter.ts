@@ -38,6 +38,25 @@ export function validateMeter(meter: Meter): string | null {
 	return null;
 }
 
+/** The finest division of a beat a count of beats may write (a lead of 1.5, a window of 1/3 beat). */
+export const BEAT_RESOLUTION = 960;
+
+/** `count` beats of `meter`, as a fraction of a whole note; throws `RangeError` when `count` is no exact fraction of a beat. */
+export function beatsOf(meter: Meter, count: number): Fraction {
+	return meter.unit.mul(Fraction.fromNumber(count, BEAT_RESOLUTION));
+}
+
+/** Whether `value` is a count of beats `beatsOf` can place: a finite number, an exact fraction of a beat. */
+export function isBeatCount(value: unknown): value is number {
+	if (typeof value !== 'number') return false;
+	try {
+		Fraction.fromNumber(value, BEAT_RESOLUTION);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 /** The length of one bar, as a fraction of a whole note. */
 export function barLength(meter: Meter): Fraction {
 	return meter.unit.mul(Fraction.of(meter.count));

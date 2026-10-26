@@ -34,7 +34,7 @@ describe('fakeSubject', () => {
 		expect(subject.recall(mechanic)(hit)).toBe(true);
 		expect(subject.recall(mechanic)(attemptOf(planned, { success: false }))).toBe(false);
 		expect(subject.confused(attemptOf(planned, { confused: true }))).toBe(true);
-		expect(subject.ladder(mechanic, 80).length).toBe(3);
+		expect(subject.ladder(mechanic).length).toBe(3);
 	});
 
 	it('skips an item whose prerequisite is not ready and honours prefers', () => {
