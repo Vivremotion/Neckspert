@@ -398,7 +398,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		count: { countBar: number; restFrom: number | null }
 	): void {
 		this.pending = item;
-		const plan = this.deps.plans(item, this.seriesMeter);
+		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
 		const start = this.startOf(plan, Fraction.of(earliest));
 		const promptBeat = this.promptBeatOf(start, plan);
 		this.enterScene(this.items.presenterOf(item));
@@ -435,7 +435,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	 */
 	private placeFollowing(item: PlannedItem, earliest: Fraction): void {
 		this.pending = item;
-		const plan = this.deps.plans(item, this.seriesMeter);
+		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
 		const now = barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
 		let start = this.startOf(plan, earliest.compare(now) >= 0 ? earliest : now);
 		while (this.promptOf(start, plan).compare(now) < 0) start = start.add(Fraction.of(1));
@@ -579,7 +579,13 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 		if (this.chainable(item)) {
 			if (handover) {
-				this.openRound(item, this.deps.plans(item, this.seriesMeter), round.end, time, time);
+				this.openRound(
+					item,
+					this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item)),
+					round.end,
+					time,
+					time
+				);
 			} else {
 				this.placeFollowing(item, earliest);
 			}

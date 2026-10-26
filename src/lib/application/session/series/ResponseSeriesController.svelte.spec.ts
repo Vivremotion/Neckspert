@@ -4,7 +4,7 @@ import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
 import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
-import { GESTURE_EXERCISES, gesturePlan } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES, GESTURE_LINK, gesturePlan } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
@@ -105,7 +105,7 @@ describe('ResponseSeriesController', () => {
 			// Listening ends at 3.5 beats; nothing hands over.
 			const plans = (item: PlannedItem): RoundPlan => {
 				const plan: RoundPlan = {
-					...gesturePlan(item.item as ChordGridItem, METER_4_4),
+					...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
 					listenUntil: Fraction.of(7, 8)
 				};
 				delete plan.handover;
@@ -372,7 +372,7 @@ describe('ResponseSeriesController', () => {
 		// Listening ends at 3.5 beats; nothing hands over.
 		const plans = (item: PlannedItem): RoundPlan => {
 			const plan: RoundPlan = {
-				...gesturePlan(item.item as ChordGridItem, METER_4_4),
+				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
 				listenUntil: Fraction.of(7, 8)
 			};
 			delete plan.handover;
@@ -938,7 +938,7 @@ describe('ResponseSeriesController', () => {
 				exercise: (id) => ({ ...exerciseById(id), meter: METER_3_4 }),
 				plans: (item, meter) => {
 					meters.push(meter);
-					return gesturePlan(item.item as ChordGridItem, meter);
+					return gesturePlan(item.item as ChordGridItem, meter, GESTURE_LINK);
 				}
 			});
 			await ctx.controller.start();

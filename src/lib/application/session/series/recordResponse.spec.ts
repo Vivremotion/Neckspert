@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gesturePlan, summarizeGesture } from '$lib/domain/gesture';
+import { GESTURE_LINK, gesturePlan, summarizeGesture } from '$lib/domain/gesture';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { contentJudges } from '$lib/domain/judges';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
@@ -88,7 +88,7 @@ function makeRecorder() {
 
 /** A change played on the new path: its plan judged by a PlanRound, an attack `ms` after the change. */
 function newOutcome(item: ChordGridItem, decided: string | null, ms: number): RoundOutcome {
-	const plan = gesturePlan(item, METER_4_4);
+	const plan = gesturePlan(item, METER_4_4, GESTURE_LINK);
 	const map = createTempoMap(ORIGIN_S, [{ at: Fraction.ZERO, bpm: 120, unit: Fraction.of(1, 4) }]);
 	const round = new PlanRound({
 		plan,
@@ -140,7 +140,7 @@ function oldAttempt(item: ChordGridItem, decided: string | null, ms: number): At
 function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
 	const { clock } = makeRecorder();
 	const outcome = newOutcome(item, decided, ms);
-	const plan = gesturePlan(item, METER_4_4);
+	const plan = gesturePlan(item, METER_4_4, GESTURE_LINK);
 	return responseAttempt({
 		outcome,
 		item: plannedOf(item),
@@ -201,7 +201,7 @@ describe('responseAttempt', () => {
 		});
 
 		const plan = JSON.parse(JSON.stringify(attempt.plan));
-		expect(plan).toEqual(roundPlanRecord(gesturePlan(item, METER_4_4)));
+		expect(plan).toEqual(roundPlanRecord(gesturePlan(item, METER_4_4, GESTURE_LINK)));
 		expect(plan).toMatchObject({
 			prompt: '-1/4',
 			length: '1',
@@ -259,7 +259,7 @@ describe('responseAttempt', () => {
 		const attempt = responseAttempt({
 			outcome,
 			item: { ...plannedOf(item), leadBeats: 4 },
-			plan: gesturePlan(item, METER_4_4),
+			plan: gesturePlan(item, METER_4_4, GESTURE_LINK),
 			data: null,
 			sessionId: 'sess-1',
 			execution: RUN,
@@ -275,7 +275,7 @@ describe('responseAttempt', () => {
 		const attempt = responseAttempt({
 			outcome: newOutcome(item, RIGHT, 0),
 			item: plannedOf(item),
-			plan: gesturePlan(item, METER_4_4),
+			plan: gesturePlan(item, METER_4_4, GESTURE_LINK),
 			data: null,
 			sessionId: 'sess-1',
 			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },

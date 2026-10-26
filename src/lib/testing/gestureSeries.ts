@@ -172,7 +172,9 @@ export function gestureSeries(
 			recorders.push(recorder);
 			return recorder;
 		},
-		plans: options.plans ?? ((item, meter) => gesturePlan(item.item as ChordGridItem, meter)),
+		plans:
+			options.plans ??
+			((item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)),
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,

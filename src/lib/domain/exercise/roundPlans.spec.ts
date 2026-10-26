@@ -15,6 +15,7 @@ import {
 	map
 } from '../time/modes/testing/plans';
 import { anchorPlan, beatPlan, freePlan, gridChangePlan } from './roundPlans';
+import { DEFAULT_RESPONSE_WINDOWS } from './windows';
 
 const content = { kind: 'note', value: 'F' };
 const meter = METER_4_4;
@@ -79,5 +80,34 @@ describe('round plans of the four relations', () => {
 			)
 		).toEqual(fixtureAnchor());
 		expect(noContent(gridChangePlan({ content, lengthBeats: 4, meter }))).toEqual(fixtureGrid());
+	});
+
+	it('builds a plan with the windows its exercise writes', () => {
+		const windows = { ...DEFAULT_RESPONSE_WINDOWS, perfectMs: 120, lateCaptureMs: 1000 };
+		const plan = beatPlan({ content, leadBeats: 4, meter, respirationBars: 1, windows });
+		expect(plan.expectations[0].window).toEqual({ ms: 120 });
+		expect(plan.policy.pairing).toMatchObject({ lateCapture: { ms: 1000 } });
+		const anchor = anchorPlan({
+			root: content,
+			chord: content,
+			leadBeats: 4,
+			meter,
+			respirationBars: 1,
+			windows: { ...windows, anchorChordFromBeats: 2 }
+		});
+		expect(anchor.expectations[1].at?.toString()).toBe('1/2');
+		const change = gridChangePlan({ content, lengthBeats: 4, meter, windows });
+		expect(change.policy.pairing).toMatchObject({ opens: { beforeMs: 200 } });
+		expect(change.expectations[0].window).toEqual({ ms: 120 });
+	});
+
+	it('builds today’s plans when the exercise writes none', () => {
+		const windows = DEFAULT_RESPONSE_WINDOWS;
+		expect(beatPlan({ content, leadBeats: 4, meter, respirationBars: 1, windows })).toEqual(
+			beatPlan({ content, leadBeats: 4, meter, respirationBars: 1 })
+		);
+		expect(gridChangePlan({ content, lengthBeats: 4, meter, windows })).toEqual(
+			gridChangePlan({ content, lengthBeats: 4, meter })
+		);
 	});
 });

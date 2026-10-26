@@ -159,7 +159,7 @@ export function createAppServices(
 				});
 				return { source, executions };
 			},
-			(item, meter) => gesturePlan(item.item as ChordGridItem, meter)
+			(item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)
 		);
 
 	/**

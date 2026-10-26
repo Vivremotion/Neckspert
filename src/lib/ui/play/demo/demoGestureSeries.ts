@@ -157,7 +157,8 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					sessionId,
 					rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
 				}),
-			plans: (item, meter) => gesturePlan(item.item as ChordGridItem, meter),
+			plans: (item, meter, definition) =>
+				gesturePlan(item.item as ChordGridItem, meter, definition),
 			exercise: exerciseById,
 			locale,
 			newId: () => `demo-gesture-${++ids}`,
