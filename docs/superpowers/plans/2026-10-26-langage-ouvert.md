@@ -31,7 +31,7 @@
 - **L5 — La présentation d’un exercice surcharge celle de sa mécanique** : `ExerciseDefinition.presentation?: { scene?, previewBeats?, contestable? }` ; le présentateur donne les défauts.
 - **L6 — Les réglages de la procédure d’apprentissage sont des données** : `LearningParams` (les constantes de `progress/constants.ts` qu’elle lit, et l’ordre des catégories) ; défauts `DEFAULT_LEARNING_PARAMS` ; le sujet les tient de la définition de son exercice principal (`neckSubject` : localiser).
 - **L7 — La durée d’une séance est rendue par sa préparation** (`prepare` rend `durationMs`, défaut `SESSION_MS`).
-- **L8 — Hors de ce plan** (inventaire de l’amendement, à faire quand le code est touché ou par un plan suivant) : les réglages de la mémoire (`MIN_COLD_DELAY_MS`, FSRS, maîtrise), la fatigue, l’anti-blocage et les constantes du rythme non surchargeables (`BREATH_MIN_MS`, `SETTLE_AFTER_BARS`, `PLAIN_WORDS_SESSIONS`), le générateur du geste, le temps libre comme cas des fenêtres, le guide d’écriture.
+- **L8 — Hors de ce plan** (inventaire de l’amendement, à faire quand le code est touché ou par un plan suivant) : les réglages de la mémoire (`MIN_COLD_DELAY_MS`, FSRS, maîtrise), la fatigue, l’anti-blocage et les constantes du rythme non surchargeables (`BREATH_MIN_MS`, `SETTLE_AFTER_BARS`, `PLAIN_WORDS_SESSIONS`), le générateur du geste, le temps libre comme cas des fenêtres, le guide d’écriture. **Ce sont des données d’exercice** : la liste complète, constante par constante, est tenue dans la spec, « Reprise », section « Données d’exercice encore écrites dans le code après le plan L » ; la Task 8 la met à jour.
 
 ## Review Focus
 
@@ -326,7 +326,7 @@ Les constantes de `progress/constants.ts` lues par la procédure sont retirées 
 
 - Modify: `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` (« Réalisation du plan L » ; dans l’inventaire de l’amendement, ce qui est fait ; « Reprise » : H5 porte les triades sur ce modèle, ce que L laisse), `CLAUDE.md` (puces « Sessions », « Bar grid », « Musical time », « Mechanics and exercises » : le tempo, l’échelle, les fenêtres, la présentation et la procédure en données ; la règle de placement L4)
 
-- [ ] **Step 1: Update the spec** : décisions L1–L8, écarts acceptés, points mineurs.
+- [ ] **Step 1: Update the spec** : décisions L1–L8, écarts acceptés, points mineurs ; la liste « Données d’exercice encore écrites dans le code après le plan L » retire ce que L a fait et ajoute ce que la réalisation a trouvé.
 - [ ] **Step 2: Update `CLAUDE.md`** : une à trois phrases par puce, au style des puces ; retirer C2, `leadLadder`, `PROMPT_BEFORE_EARLIEST_BEATS`, `LEAD_STEPS = [8, 4, 2] (never 1)`.
 - [ ] **Step 3: Verify** : `npx prettier --check` sur les fichiers touchés, `npm test && npm run check` → PASS.
 - [ ] **Step 4: Commit** `git commit -m "docs: describe exercises written in data, and what the engine no longer decides"`
