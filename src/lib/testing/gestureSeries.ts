@@ -132,6 +132,8 @@ export function gestureSeries(
 		/** Sensors beside the chord sensor. */
 		sensors?: ResponseSeriesDeps['sensors'];
 		random?: () => number;
+		/** The series' length its preparation gives; absent: none given. */
+		durationMs?: number;
 	} = {}
 ) {
 	const clock = new FakeClock();
@@ -189,7 +191,11 @@ export function gestureSeries(
 			const next = sources.shift();
 			if (!next) throw new Error('no source left');
 			sourceOf.set(sessionId, next);
-			return { source: next, executions };
+			return {
+				source: next,
+				executions,
+				...(options.durationMs !== undefined && { durationMs: options.durationMs })
+			};
 		},
 		deps
 	);

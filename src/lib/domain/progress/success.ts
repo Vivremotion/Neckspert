@@ -18,8 +18,12 @@ export function sessionSuccessRate(attempts: readonly Attempt[]): number | null 
 	return successRate(locate.slice(-SUCCESS_WINDOW));
 }
 
-/** Success of one card over its last NEW_NOTE_CARD_WINDOW attempts of the session, probe left out. */
-export function cardSuccessRate(attempts: readonly Attempt[], key: CardKey): number | null {
+/** Success of one card over its last `window` attempts of the session, probe left out. */
+export function cardSuccessRate(
+	attempts: readonly Attempt[],
+	key: CardKey,
+	window: number = NEW_NOTE_CARD_WINDOW
+): number | null {
 	const own = attempts.filter((attempt) => attempt.cardKey === key && attempt.phase !== 'probe');
-	return successRate(own.slice(-NEW_NOTE_CARD_WINDOW));
+	return successRate(own.slice(-window));
 }

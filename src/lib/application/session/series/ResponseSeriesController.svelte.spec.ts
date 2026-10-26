@@ -257,6 +257,20 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.source.asked.at(-1)?.elapsedMs).toBeGreaterThanOrEqual(SESSION_MS);
 		});
 
+		it('ends after the duration its preparation gives', async () => {
+			const durationMs = 60_000;
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })], { durationMs });
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1));
+			// Wall time runs on: the series has lasted the time it was given, well before SESSION_MS.
+			expect(durationMs).toBeLessThan(SESSION_MS);
+			ctx.clock.epochAtZero += durationMs;
+			ctx.runTo(ctx.bar(3) - 0.2);
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			expect(await ctx.stored()).toHaveLength(2);
+		});
+
 		it('writes the session and finishes on quit, the round under way settled', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.start();
@@ -990,7 +1004,10 @@ describe('ResponseSeriesController', () => {
 		});
 
 		it('plays an exercise of a guitar mechanic on the screen when the exercise says so: no click', async () => {
-			const exercise = (id: string) => ({ ...exerciseById(id), flow: { scene: 'screen' as const } });
+			const exercise = (id: string) => ({
+				...exerciseById(id),
+				flow: { scene: 'screen' as const }
+			});
 			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(2));

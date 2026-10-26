@@ -46,10 +46,13 @@ import { SeriesSensors } from './seriesSensors';
 import { SeriesTrace } from './seriesTrace';
 import { idlePlayView } from './seriesView';
 
-/** What a series runs: its item source and the executions of its exercises, tempos frozen. */
+/**
+ * What a series runs: its item source, the executions of its exercises, tempos frozen, and its
+ * length (`SESSION_MS` when it gives none).
+ */
 export type PrepareResponseSeries = (
 	sessionId: string
-) => Promise<{ source: ItemSource; executions: Execution[] }>;
+) => Promise<{ source: ItemSource; executions: Execution[]; durationMs?: number }>;
 
 /** A round on the transport, from its opening to the opening of the next one (or a pause, or the end). */
 interface OpenRound {
@@ -115,6 +118,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	/** The preparation of this series, shared by `ready` and `start`; null until asked. */
 	private preparing: Promise<void> | null = null;
 	private startedAt = 0;
+	/** The series' length, as its preparation gives it. */
+	private durationMs = SESSION_MS;
 	private tempoBpm: number | null = null;
 	/** The transport has begun at least once: its map gives the time. */
 	private begun = false;
@@ -293,7 +298,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		const generation = ++this.generation;
 		this.log?.closeStop(this.deps.clock.now());
 		this.view.briefing = null;
-		// An item held through the pause starts no round once SESSION_MS is spent: no handover here.
+		// An item held through the pause starts no round once the series' length is spent: no handover here.
 		const item = this.pending && this.spent() ? null : (this.pending ?? this.choose(false));
 		if (!item) {
 			void this.finish();
@@ -355,6 +360,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (this.sessionId !== sessionId) return;
 		this.source = series.source;
 		this.executions = series.executions;
+		this.durationMs = series.durationMs ?? SESSION_MS;
 		this.settings = settings;
 		this.startedAt = this.epochNow();
 	}
@@ -630,7 +636,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
-	 * The next item, or null when the series ends: the source has nothing more, or `SESSION_MS`
+	 * The next item, or null when the series ends: the source has nothing more, or its length
 	 * is spent and the item would not open at a handover (`handover`: the round before has one).
 	 */
 	private choose(handover: boolean): PlannedItem | null {
@@ -640,9 +646,9 @@ export class ResponseSeriesController implements PlaySessionController {
 		return item;
 	}
 
-	/** `SESSION_MS` has passed since the series started. */
+	/** The series' length has passed since it started. */
 	private spent(): boolean {
-		return this.epochNow() - this.startedAt >= SESSION_MS;
+		return this.epochNow() - this.startedAt >= this.durationMs;
 	}
 
 	private takeNext(): PlannedItem | null {

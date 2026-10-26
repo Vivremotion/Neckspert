@@ -16,6 +16,7 @@ import {
 } from '../../time/modes/responseVerdict';
 import { directRecallOf } from '../recall';
 import type { Level } from '../../time/levels';
+import { DEFAULT_ITEM_LEARNING, type ItemLearning } from '../params';
 import type { CardRef, Ladder, LadderParams, LearningSubject } from '../subject';
 
 const FAKE_MECHANIC = 'fake' as MechanicId;
@@ -57,6 +58,8 @@ export function fakeSubject(
 		prefers?: (candidate: number, previous: number) => boolean;
 		/** Default true: the aided presentation follows its missed probe at once. */
 		presentsAtOnce?: boolean;
+		/** What each mechanic's exercise writes of its items' settings; the defaults otherwise. */
+		learning?: Readonly<Record<string, Partial<ItemLearning>>>;
 	} = {}
 ): LearningSubject {
 	const items = input.items ?? 12;
@@ -83,6 +86,7 @@ export function fakeSubject(
 		presentsAtOnce: input.presentsAtOnce ?? true,
 		neighbours: (a, b) => neighbours(a.item as number, b.item as number),
 		ladder: () => ladder,
+		itemLearning: (mechanic) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[mechanic] }),
 		recall: () => recall,
 		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true,
 		fadingAid: (mechanic) => mechanic === FAKE_MECHANIC,

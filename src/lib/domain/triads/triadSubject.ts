@@ -3,6 +3,7 @@ import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import {
 	directRecallOf,
+	itemLearningOf,
 	type CardRef,
 	type DirectRecall,
 	type LearningSubject
@@ -129,6 +130,7 @@ export function triadSubject(input: {
 		presentsAtOnce: false,
 		neighbours: (a, b) => voicingOf(a) === voicingOf(b),
 		ladder: (of) => ladders[triadMechanic(of)],
+		itemLearning: (of) => itemLearningOf(definitionOf[triadMechanic(of)]),
 		recall: (of) => recalls[triadMechanic(of)],
 		confused: (attempt) => {
 			const data = attempt.data as { confusion?: unknown } | null;

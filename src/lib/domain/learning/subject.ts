@@ -1,5 +1,6 @@
 import type { Attempt, CardKey, CardState } from '../types';
 import type { ExerciseId, Ladder, MechanicId } from '../exercise/types';
+import type { ItemLearning } from './params';
 import type { DirectRecall } from './recall';
 
 export type { Ladder, LadderParams } from '../exercise/types';
@@ -34,6 +35,8 @@ export interface LearningSubject {
 	prefers?(candidate: CardRef, previous: CardRef): boolean;
 	/** The ladder of a mechanic, as its exercise writes it. */
 	ladder(mechanic: MechanicId): Ladder;
+	/** What the exercise of a mechanic sets for its items (`itemLearningOf`). */
+	itemLearning(mechanic: MechanicId): ItemLearning;
 	/** The direct-recall rule of a mechanic. */
 	recall(mechanic: MechanicId): DirectRecall;
 	/** A confusion recorded in the attempt (consolidation favours the confused). */

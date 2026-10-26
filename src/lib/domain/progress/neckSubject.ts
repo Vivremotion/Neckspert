@@ -3,6 +3,7 @@ import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import {
 	directRecallOf,
+	itemLearningOf,
 	type CardRef,
 	type DirectRecall,
 	type LearningSubject
@@ -75,6 +76,7 @@ export function neckSubject(input: {
 		prefers: (candidate, previous) =>
 			asNeckCard(candidate).item.string !== asNeckCard(previous).item.string,
 		ladder: (mechanic) => ladders[neckMechanic(mechanic)],
+		itemLearning: (mechanic) => itemLearningOf(definitions[neckMechanic(mechanic)]),
 		recall: (mechanic) => recalls[neckMechanic(mechanic)],
 		confused: (attempt) => {
 			const data = attempt.data as LocateData | IdentifyData | null;

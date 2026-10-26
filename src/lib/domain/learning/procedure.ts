@@ -1,20 +1,5 @@
 import type { MechanicId } from '../exercise/types';
 import { introduceCard, markLearned, probeCard } from '../progress/cards';
-import {
-	CONFUSION_LOOKBACK,
-	CONSOLIDATION_POOL,
-	CONSOLIDATION_SKIP_RECENT,
-	LEARN_COLD_CAP,
-	LEARN_RETEST_GAPS,
-	LEARNING_SLOTS,
-	MAX_UNCONSOLIDATED,
-	MAX_WORKING_SET,
-	NEW_NOTE_MIN_CARD_SUCCESS,
-	NEW_NOTE_MIN_SESSION_SUCCESS,
-	RECOVERY_AFTER_MISSES,
-	STRING_AID_FADE_SUCCESSES,
-	SUCCESS_WINDOW
-} from '../progress/constants';
 import { lastAttemptByCard, reviewableCards } from '../progress/review';
 import type { RecordOutcome, SelectorContext, ItemSource } from '../progress/selector';
 import { cardSuccessRate, successRate } from '../progress/success';
@@ -29,6 +14,12 @@ import {
 	type Temperature
 } from '../types';
 import { ladderLevel, passesTop } from './ladder';
+import {
+	DEFAULT_SET_LEARNING,
+	type ItemLearning,
+	type LearningCategory,
+	type SetLearning
+} from './params';
 import type { CardRef, Ladder, LadderParams, LearningSubject } from './subject';
 
 /** The source of items of a learning session, whatever the exercise. */
@@ -92,7 +83,8 @@ class Procedure implements LearningProcedure {
 		attempts: readonly Attempt[],
 		levels: readonly LevelState[],
 		private readonly sessionId: string,
-		private readonly random: () => number
+		private readonly random: () => number,
+		private readonly set: SetLearning
 	) {
 		this.cards = new Map(cards.map((card) => [card.key, card]));
 		this.last = lastAttemptByCard(attempts);
@@ -121,7 +113,7 @@ class Procedure implements LearningProcedure {
 		this.servedAt.set(key, this.served);
 		this.servedCount.set(key, (this.servedCount.get(key) ?? 0) + 1);
 		this.recent.push(key);
-		if (this.recent.length > CONSOLIDATION_SKIP_RECENT) this.recent.shift();
+		if (this.recent.length > this.set.consolidationSkipRecent) this.recent.shift();
 		this.served++;
 		this.previous = ref;
 		return planned;
@@ -171,7 +163,7 @@ class Procedure implements LearningProcedure {
 		}
 		const servedAt = this.servedAt.get(attempt.cardKey);
 		if (entry && servedAt !== undefined) {
-			const [shortGap, longGap] = LEARN_RETEST_GAPS;
+			const [shortGap, longGap] = this.itemLearning(ref).retestGaps;
 			entry.dueAt = retestDueAt(servedAt, servedAided || !success ? shortGap : longGap);
 		}
 		return { level };
@@ -239,7 +231,7 @@ class Procedure implements LearningProcedure {
 		}
 		if (this.servedRecovery) return;
 		this.missStreak++;
-		if (this.missStreak < RECOVERY_AFTER_MISSES) return;
+		if (this.missStreak < this.subject.itemLearning(attempt.mechanic).recoveryAfterMisses) return;
 		this.missStreak = 0;
 		this.pendingRecovery = attempt.mechanic;
 	}
@@ -254,7 +246,8 @@ class Procedure implements LearningProcedure {
 		}
 		const successes = this.fadingAid.get(key);
 		if (successes === undefined) return;
-		if (successes + 1 >= STRING_AID_FADE_SUCCESSES) this.fadingAid.delete(key);
+		const { aidFadeSuccesses } = this.subject.itemLearning(attempt.mechanic);
+		if (successes + 1 >= aidFadeSuccesses) this.fadingAid.delete(key);
 		else this.fadingAid.set(key, successes + 1);
 	}
 
@@ -276,7 +269,7 @@ class Procedure implements LearningProcedure {
 				card.acquiredAt !== null &&
 				!waiting.has(card.key) &&
 				(this.history.get(card.key) ?? [])
-					.slice(-CONFUSION_LOOKBACK)
+					.slice(-this.set.confusionLookback)
 					.every((attempt) => attempt.success) &&
 				this.fitsWorkingSet(card.key)
 		);
@@ -329,25 +322,41 @@ class Procedure implements LearningProcedure {
 	}
 
 	/**
-	 * Categories in their order: a due retest, a cold review, a resumed item, a new one, a
-	 * consolidation; tired, retests only. Then the last resort: a retest early, a consolidation of
-	 * a recent item, a new item past the thresholds (rested), and nothing rather than the previous.
+	 * Categories in the order the session sets (today: a due retest, a cold review, a resumed item,
+	 * a new one, a consolidation); tired, retests only. Then the last resort: a retest early, a
+	 * consolidation of a recent item, a new item past the thresholds (rested), and nothing rather
+	 * than the previous.
 	 */
 	private pick(context: SelectorContext): { planned: PlannedItem; ref: CardRef } | null {
-		const due = this.dueRetest();
-		if (due) return this.retest(due);
-		if (!context.fatigued) {
-			const item =
-				this.review(context.now) ??
-				this.resume() ??
-				this.introduce(context.now, true) ??
-				this.consolidate(true);
+		for (const category of this.set.order) {
+			if (context.fatigued && category !== 'retest') continue;
+			const item = this.serveCategory(category, context.now);
 			if (item) return item;
 		}
 		const early = this.earliestRetest();
 		if (early) return this.retest(early);
 		if (context.fatigued) return null;
 		return this.consolidate(false) ?? this.introduce(context.now, false);
+	}
+
+	private serveCategory(
+		category: LearningCategory,
+		now: number
+	): { planned: PlannedItem; ref: CardRef } | null {
+		switch (category) {
+			case 'retest': {
+				const due = this.dueRetest();
+				return due ? this.retest(due) : null;
+			}
+			case 'cold-review':
+				return this.review(now);
+			case 'resumed':
+				return this.resume();
+			case 'new':
+				return this.introduce(now, true);
+			case 'consolidation':
+				return this.consolidate(true);
+		}
 	}
 
 	/** A due retest; the aided presentation after a missed probe comes first (see `presentsAtOnce`). */
@@ -379,7 +388,10 @@ class Procedure implements LearningProcedure {
 
 	/** Starts learning an item in this session; its first retest comes after the short gap. */
 	private present(ref: CardRef): LearningEntry {
-		const entry: LearningEntry = { ref, dueAt: retestDueAt(this.served, LEARN_RETEST_GAPS[0]) };
+		const entry: LearningEntry = {
+			ref,
+			dueAt: retestDueAt(this.served, this.itemLearning(ref).retestGaps[0])
+		};
 		const key = this.keyOf(ref);
 		this.learning.set(key, entry);
 		// The aided presentation draws the fading aid, until the item is played right.
@@ -390,7 +402,7 @@ class Procedure implements LearningProcedure {
 	}
 
 	private review(now: number): { planned: PlannedItem; ref: CardRef } | null {
-		if (this.reviews >= LEARN_COLD_CAP) return null;
+		if (this.reviews >= this.set.coldCap) return null;
 		const candidates = reviewableCards(this.owned(), this.last, now).filter(
 			(card) => !this.servedAt.has(card.key)
 		);
@@ -421,8 +433,13 @@ class Procedure implements LearningProcedure {
 		const unconsolidated = owned.filter(
 			(card) => card.learnedAt !== null && card.acquiredAt === null
 		).length;
-		if (beingLearned.length >= LEARNING_SLOTS || unconsolidated >= MAX_UNCONSOLIDATED) return null;
-		if (this.workingSet.size >= MAX_WORKING_SET) return null;
+		if (
+			beingLearned.length >= this.set.learningSlots ||
+			unconsolidated >= this.set.maxUnconsolidated
+		) {
+			return null;
+		}
+		if (this.workingSet.size >= this.set.maxWorkingSet) return null;
 		if (gated && !this.readyForNew(beingLearned)) return null;
 		const ref = this.subject.nextNew(
 			[...this.cards.values()],
@@ -447,10 +464,13 @@ class Procedure implements LearningProcedure {
 	 */
 	private readyForNew(beingLearned: readonly CardState[]): boolean {
 		const recent = this.played.filter((attempt) => attempt.phase !== 'probe');
-		const session = successRate(recent.slice(-SUCCESS_WINDOW));
-		if (session !== null && session < NEW_NOTE_MIN_SESSION_SUCCESS) return false;
+		const { successWindow, newItemMinSessionSuccess, newItemCardWindow, newItemMinCardSuccess } =
+			this.set;
+		const session = successRate(recent.slice(-successWindow));
+		if (session !== null && session < newItemMinSessionSuccess) return false;
 		return beingLearned.every(
-			(card) => (cardSuccessRate(this.played, card.key) ?? 0) >= NEW_NOTE_MIN_CARD_SUCCESS
+			(card) =>
+				(cardSuccessRate(this.played, card.key, newItemCardWindow) ?? 0) >= newItemMinCardSuccess
 		);
 	}
 
@@ -458,7 +478,7 @@ class Procedure implements LearningProcedure {
 	private consolidate(skipRecent: boolean): { planned: PlannedItem; ref: CardRef } | null {
 		const confused = (key: CardKey) =>
 			(this.history.get(key) ?? [])
-				.slice(-CONFUSION_LOOKBACK)
+				.slice(-this.set.confusionLookback)
 				.some((attempt) => this.subject.confused(attempt));
 		const weakest = this.owned()
 			.filter(
@@ -478,14 +498,19 @@ class Procedure implements LearningProcedure {
 				}
 				return a.key.localeCompare(b.key);
 			})
-			.slice(0, CONSOLIDATION_POOL);
+			.slice(0, this.set.consolidationPool);
 		const card = this.draw(weakest, refOf);
 		return card ? this.serve(refOf(card), 'consolidation', 'hot') : null;
 	}
 
 	/** An item may be served hot: already in the working set, or the set has room. */
 	private fitsWorkingSet(key: CardKey): boolean {
-		return this.workingSet.has(key) || this.workingSet.size < MAX_WORKING_SET;
+		return this.workingSet.has(key) || this.workingSet.size < this.set.maxWorkingSet;
+	}
+
+	/** What the item's exercise sets for it. */
+	private itemLearning(ref: CardRef): ItemLearning {
+		return this.subject.itemLearning(ref.mechanic);
 	}
 
 	private ladderOf(ref: CardRef): Ladder {
@@ -546,6 +571,8 @@ export function createLearningProcedure(input: {
 	levels: readonly LevelState[];
 	sessionId: string;
 	random?: () => number;
+	/** What the session sets for the whole set, over `DEFAULT_SET_LEARNING`. */
+	set?: Partial<SetLearning>;
 }): LearningProcedure {
 	return new Procedure(
 		input.subject,
@@ -553,6 +580,7 @@ export function createLearningProcedure(input: {
 		input.attempts,
 		input.levels,
 		input.sessionId,
-		input.random ?? Math.random
+		input.random ?? Math.random,
+		{ ...DEFAULT_SET_LEARNING, ...input.set }
 	);
 }
