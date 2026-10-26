@@ -82,8 +82,7 @@ describe('triadAnchorRules', () => {
 	it('plays on the anchor time relation, at the rhythm of its exercise', () => {
 		expect(triadAnchorRules.timing.id).toBe('anchor');
 		expect(
-			triadAnchorRules.timingFor?.({ leadSteps: [8, 4], respirationBars: 2, learnedAfter: 2 })
-				.initialLead
+			triadAnchorRules.timingFor?.({ leadSteps: [8, 4], respirationBars: 2 }).initialLead
 		).toBe(8);
 	});
 });

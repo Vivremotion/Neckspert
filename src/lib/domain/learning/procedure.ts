@@ -1,5 +1,4 @@
-import type { ExerciseId, MechanicId } from '../exercise/types';
-import { DEFAULT_TEMPO_BPM } from '../exercise/tempo';
+import type { MechanicId } from '../exercise/types';
 import { introduceCard, markLearned, probeCard } from '../progress/cards';
 import {
 	CONFUSION_LOOKBACK,
@@ -93,7 +92,6 @@ class Procedure implements LearningProcedure {
 		attempts: readonly Attempt[],
 		levels: readonly LevelState[],
 		private readonly sessionId: string,
-		private readonly tempos: Readonly<Record<ExerciseId, number>>,
 		private readonly random: () => number
 	) {
 		this.cards = new Map(cards.map((card) => [card.key, card]));
@@ -154,9 +152,9 @@ class Procedure implements LearningProcedure {
 		const ladder = this.ladderOf(ref);
 		const state = ladderLevel(this.levelOf(ref), ladder);
 		const servedAided = this.levelParams(ref).aided;
-		// At the top, only a direct recall is a success; the level's own aid is not « aided ».
+		// A level that asks it counts only a direct recall; the level's own aid is not « aided ».
 		const success =
-			state.level === levelRange(ladder).highest
+			ladder[state.level - levelRange(ladder).lowest].success === 'direct-recall'
 				? this.subject.recall(ref.mechanic)(attempt)
 				: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
@@ -490,12 +488,8 @@ class Procedure implements LearningProcedure {
 		return this.workingSet.has(key) || this.workingSet.size < MAX_WORKING_SET;
 	}
 
-	private tempoOf(ref: CardRef): number {
-		return this.tempos[this.subject.exerciseOf(ref.mechanic)] ?? DEFAULT_TEMPO_BPM;
-	}
-
 	private ladderOf(ref: CardRef): Ladder {
-		return this.subject.ladder(ref.mechanic, this.tempoOf(ref));
+		return this.subject.ladder(ref.mechanic);
 	}
 
 	/** The params of the item's level, brought into today's ladder. */
@@ -551,8 +545,6 @@ export function createLearningProcedure(input: {
 	attempts: readonly Attempt[];
 	levels: readonly LevelState[];
 	sessionId: string;
-	/** Tempo of each exercise's execution in this session. */
-	tempos: Readonly<Record<ExerciseId, number>>;
 	random?: () => number;
 }): LearningProcedure {
 	return new Procedure(
@@ -561,7 +553,6 @@ export function createLearningProcedure(input: {
 		input.attempts,
 		input.levels,
 		input.sessionId,
-		input.tempos,
 		input.random ?? Math.random
 	);
 }

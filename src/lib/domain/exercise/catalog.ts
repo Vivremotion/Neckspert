@@ -1,7 +1,38 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
+import { LEARN_SUCCESSES } from '$lib/domain/progress/constants';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
-import type { ExerciseDefinition, ExerciseId } from './types';
+import type { ExerciseDefinition, ExerciseId, Ladder } from './types';
+
+/**
+ * Leads on the beat, at 80 bpm: 8 beats with the answer shown, then 4, then 2 (1 500 ms, the
+ * recall threshold), where only a direct recall counts and `LEARN_SUCCESSES` learn the item.
+ */
+function leadsLadder(): Ladder {
+	return [
+		{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
+		{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },
+		{
+			params: { leadBeats: 2, aided: false },
+			pass: { successes: LEARN_SUCCESSES },
+			drop: { failures: 1 },
+			success: 'direct-recall'
+		}
+	];
+}
+
+/** In free time: the answer shown, then unaided, where only a direct recall counts. */
+function aidLadder(): Ladder {
+	return [
+		{ params: { leadBeats: null, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
+		{
+			params: { leadBeats: null, aided: false },
+			pass: { successes: LEARN_SUCCESSES },
+			drop: { failures: 1 },
+			success: 'direct-recall'
+		}
+	];
+}
 
 export const LOCATE_NECK: ExerciseDefinition = {
 	id: 'locate-neck',
@@ -9,7 +40,7 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	mechanic: 'locate',
 	view: 'note-lane',
 	tempo: { fixed: 80 },
-	params: { recallThresholdMs: RECALL_THRESHOLD_MS }
+	params: { recallThresholdMs: RECALL_THRESHOLD_MS, ladder: leadsLadder() }
 };
 
 export const IDENTIFY_NECK: ExerciseDefinition = {
@@ -17,7 +48,7 @@ export const IDENTIFY_NECK: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'identify',
 	view: 'answer-keys',
-	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS }
+	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS, ladder: aidLadder() }
 };
 
 /** The triads of the memory track: close major and minor triads on G-B-E, then D-G-B. */
@@ -28,8 +59,9 @@ function triadsParams() {
 			[4, 3, 2]
 		],
 		qualities: ['maj', 'min'],
-		pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 },
-		recallThresholdMs: RECALL_THRESHOLD_MS
+		pacing: { respirationBars: 1 },
+		recallThresholdMs: RECALL_THRESHOLD_MS,
+		ladder: leadsLadder()
 	};
 }
 

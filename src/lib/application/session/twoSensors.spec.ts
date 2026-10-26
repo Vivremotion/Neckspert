@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming, createAnchorTiming } from '$lib/domain/timing';
-import { DEFAULT_PACING } from '$lib/domain/exercise';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise';
 import { createListSource } from '$lib/domain/progress';
 import { responseVerdictOf, type Execution, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
@@ -63,7 +63,7 @@ const otherPresenter: MechanicPresenter<FakeItem, { value: number; by: string }>
 /** The same, with a second gesture in the rest of the target bar. */
 const anchoredPresenter: MechanicPresenter<FakeItem, { value: number; by: string }> = {
 	...twoPresenter,
-	rules: { ...twoRules, id: 'anchored', timing: createAnchorTiming(DEFAULT_PACING) }
+	rules: { ...twoRules, id: 'anchored', timing: createAnchorTiming(DEFAULT_BEAT_PACING) }
 };
 
 /** The anchor's two sensors: the root by the note sensor, then the chord by the chord sensor. */

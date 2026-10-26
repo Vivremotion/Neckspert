@@ -5,14 +5,13 @@ import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { createLearningProcedure, type LearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
-import { attemptOf, fakeCard, fakeSubject } from './testing/fakeSubject';
+import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
 
 const FAKE = 'fake' as MechanicId;
 const OTHER = 'other' as MechanicId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
 const SESSION = 'session';
-/** 80 bpm: leads 8, 4, 2 beats (6 000, 3 000, 1 500 ms); 2 beats fits the 1 500 ms threshold, the top. */
-const TEMPO = 80;
+/** The fake subject's ladder: leads 8 (aided), 4, 2 beats; at 80 bpm 2 beats is 1 500 ms, the threshold. */
 const TOP = 2;
 const at = (now: number, fatigued = false) => ({ now, elapsedMs: 0, fatigued });
 
@@ -40,7 +39,6 @@ function procedure(
 		attempts: input.attempts ?? [],
 		levels: input.levels ?? [],
 		sessionId: SESSION,
-		tempos: { [EXERCISE]: TEMPO, ['exercise-other' as ExerciseId]: TEMPO },
 		random: input.random ?? (() => 0)
 	});
 }
@@ -213,6 +211,50 @@ describe('createLearningProcedure record', () => {
 		});
 	});
 
+	it('counts only a direct recall as a success on a level that asks for it, wherever it stands', () => {
+		// The middle level asks a direct recall; the top takes any success.
+		const ladder = [
+			rung(8, { aided: true }),
+			rung(4, { success: 'direct-recall' }),
+			rung(2, { pass: 2 })
+		];
+		const middle = () =>
+			procedure({
+				subject: fakeSubject({ ladder }),
+				cards: [learned(0)],
+				levels: [levelAt(0, 1)]
+			});
+		// Right, but from a lead past the threshold: a miss on the middle level.
+		expect(middle().record(played(0, 'consolidation', { leadMs: 3000 }), 0)?.level).toMatchObject({
+			level: 0
+		});
+		expect(middle().record(played(0, 'consolidation', { leadMs: 1500 }), 0)?.level).toMatchObject({
+			level: 2
+		});
+		// At the top, a slow success counts.
+		const top = procedure({
+			subject: fakeSubject({ ladder }),
+			cards: [learned(0)],
+			levels: [levelAt(0, 2)]
+		});
+		expect(top.record(played(0, 'consolidation', { leadMs: 6000 }), 0)?.level).toMatchObject({
+			level: 2,
+			successes: 1
+		});
+	});
+
+	it('learns an item at the top of a ladder whose top asks any success', () => {
+		const source = procedure({
+			subject: fakeSubject({ ladder: [rung(8, { aided: true }), rung(4, { pass: 2 })] }),
+			cards: [learning(0)],
+			levels: [levelAt(0, 1)]
+		});
+		// 4 beats at 80 bpm: 3 000 ms, past the threshold, still a success here.
+		const slow = () => played(0, 'learning', { success: true, leadMs: 3000 });
+		expect(source.record(slow(), 100)?.card).toBeUndefined();
+		expect(source.record(slow(), 200)?.card).toMatchObject({ item: 0, learnedAt: 200 });
+	});
+
 	it('learns an item when the top level’s pass completes, retesting it at the short gap after the presentation or a miss and the long one otherwise', () => {
 		const [shortGap, longGap] = LEARN_RETEST_GAPS;
 		const source = procedure({
@@ -266,9 +308,12 @@ describe('createLearningProcedure record', () => {
 	});
 
 	it('never learns an item while its answer is shown, even on a ladder of one step', () => {
-		// One step (2 beats fits the threshold at 80 bpm): the aided level and the top are apart.
+		// One lead written twice: aided, then the top, apart.
 		const source = procedure({
-			subject: fakeSubject({ items: 8, ladderSteps: [2] }),
+			subject: fakeSubject({
+				items: 8,
+				ladder: [rung(2, { aided: true }), rung(2, { pass: 2, success: 'direct-recall' })]
+			}),
 			cards: [1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
 		});
 		source.record(answer(source.next(at(0))!, false), 0);
@@ -443,10 +488,11 @@ describe('createLearningProcedure record', () => {
 });
 
 describe('createLearningProcedure level above the ladder', () => {
-	// Leads 8 and 4 beats at 80 bpm: neither fits the threshold, so the ladder has levels 0 and 1.
+	// A ladder of two levels, 0 and 1, whose top asks a direct recall.
+	const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' })];
 	const shortLadder = () =>
 		procedure({
-			subject: fakeSubject({ ladderSteps: [8, 4] }),
+			subject: fakeSubject({ ladder: SHORT }),
 			cards: [solid(0)],
 			levels: [levelAt(0, 2)]
 		});
@@ -467,7 +513,7 @@ describe('createLearningProcedure level above the ladder', () => {
 
 	it('learns a learning item held above the ladder after its successes in a row', () => {
 		const source = procedure({
-			subject: fakeSubject({ ladderSteps: [8, 4], learnedAfter: 2 }),
+			subject: fakeSubject({ ladder: SHORT }),
 			cards: [learning(0)],
 			levels: [levelAt(0, 2)]
 		});

@@ -1,4 +1,4 @@
-import { DEFAULT_TEMPO_BPM, pacingOf } from '$lib/domain/exercise';
+import { beatPacingOf, DEFAULT_TEMPO_BPM, learnedAfterOf, leadStepsOf } from '$lib/domain/exercise';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import { triadAnchorRules, triadZoneRules, type TriadZoneItem } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
@@ -550,13 +550,13 @@ class TriadSelector implements ItemSource {
 	}
 }
 
+/** The leads and the successes that learn, read from the exercise's written ladder until H5. */
 function track(definition: ExerciseDefinition, timing: TimingRelation, tempoBpm: number): Track {
-	const pacing = pacingOf(definition);
 	return {
 		definition,
 		timing,
-		steps: pacing.leadSteps,
-		learnedAfter: pacing.learnedAfter,
+		steps: leadStepsOf(definition),
+		learnedAfter: learnedAfterOf(definition),
 		tempoBpm
 	};
 }
@@ -578,8 +578,9 @@ export function createTriadSelector(input: {
 	const { anchor, zone } = input.definitions;
 	const tempoOf = (definition: ExerciseDefinition) =>
 		input.tempos[definition.id] ?? DEFAULT_TEMPO_BPM;
-	const anchorTiming = triadAnchorRules.timingFor?.(pacingOf(anchor)) ?? triadAnchorRules.timing;
-	const zoneTiming = triadZoneRules.timingFor?.(pacingOf(zone)) ?? triadZoneRules.timing;
+	const anchorTiming =
+		triadAnchorRules.timingFor?.(beatPacingOf(anchor)) ?? triadAnchorRules.timing;
+	const zoneTiming = triadZoneRules.timingFor?.(beatPacingOf(zone)) ?? triadZoneRules.timing;
 	return new TriadSelector(
 		input.cards,
 		input.attempts,

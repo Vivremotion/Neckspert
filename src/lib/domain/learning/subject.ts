@@ -1,17 +1,8 @@
-import type { Attempt, CardKey, CardState, LeadBeats } from '../types';
-import type { ExerciseId, MechanicId } from '../exercise/types';
-import type { Level } from '../time/levels';
+import type { Attempt, CardKey, CardState } from '../types';
+import type { ExerciseId, Ladder, MechanicId } from '../exercise/types';
 import type { DirectRecall } from './recall';
 
-/** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
-export interface LadderParams {
-	/** Beats of lead; null when the item has no lead (the answer is not played on a beat). */
-	leadBeats: LeadBeats | null;
-	aided: boolean;
-}
-
-/** An item's levels, level 0 first: the longest lead (aided), then shorter ones. */
-export type Ladder = readonly Level<LadderParams>[];
+export type { Ladder, LadderParams } from '../exercise/types';
 
 /** A card as the procedure sees it: its mechanic and its item (the card key is `cardKey(mechanic, itemKey(item))`). */
 export interface CardRef {
@@ -41,8 +32,8 @@ export interface LearningSubject {
 	neighbours(a: CardRef, b: CardRef): boolean;
 	/** Preferred after `previous` when such a candidate exists (another string). Absent: none. */
 	prefers?(candidate: CardRef, previous: CardRef): boolean;
-	/** The ladder of a mechanic at the execution's tempo. */
-	ladder(mechanic: MechanicId, tempoBpm: number): Ladder;
+	/** The ladder of a mechanic, as its exercise writes it. */
+	ladder(mechanic: MechanicId): Ladder;
 	/** The direct-recall rule of a mechanic. */
 	recall(mechanic: MechanicId): DirectRecall;
 	/** A confusion recorded in the attempt (consolidation favours the confused). */

@@ -1,5 +1,5 @@
 import { parseVoicingKey } from '$lib/domain/music';
-import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import { createBeatTiming } from '$lib/domain/timing';
 import { CHORD_VOICING_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
 import type { ChordConfusion, ChordReading } from './triadChord';
@@ -32,7 +32,7 @@ export const triadZoneRules: MechanicRules<
 	ChordConfusion
 > = {
 	id: 'triad-zone',
-	timing: createBeatTiming(DEFAULT_PACING),
+	timing: createBeatTiming(DEFAULT_BEAT_PACING),
 	timingFor: createBeatTiming,
 	learner: 'memory',
 	itemKey: (item) => item.voicingKey,

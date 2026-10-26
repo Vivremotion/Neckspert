@@ -1,9 +1,8 @@
-import { pacingOf } from '$lib/domain/exercise';
+import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import {
 	directRecallOf,
-	leadLadder,
 	type CardRef,
 	type DirectRecall,
 	type LearningSubject
@@ -51,7 +50,7 @@ function thresholdOf(definition: ExerciseDefinition): number {
  * The triads as a subject of the learning procedure, for one session's exercise: the anchor
  * introduces its queue's head (the acquired notes' triads first), the zone a triad acquired in
  * anchor (read from the whole store's anchor cards and history). The chord just asked still rings:
- * the same voicing is never asked next. Both climb their exercise's leads; a zone prompt asks a
+ * the same voicing is never asked next. Both climb the ladder their exercise writes; a zone prompt asks a
  * shape other than the last one asked of its card, and a fret it covers. One instance per session:
  * it keeps each zone card's last position, read from `attempts` and updated as prompts are drawn.
  */
@@ -68,13 +67,13 @@ export function triadSubject(input: {
 		[ANCHOR]: definitions.anchor,
 		[ZONE]: definitions.zone
 	};
-	const thresholds: Record<TriadMechanic, number> = {
-		[ANCHOR]: thresholdOf(definitions.anchor),
-		[ZONE]: thresholdOf(definitions.zone)
-	};
 	const recalls: Record<TriadMechanic, DirectRecall> = {
-		[ANCHOR]: directRecallOf(thresholds[ANCHOR]),
-		[ZONE]: directRecallOf(thresholds[ZONE])
+		[ANCHOR]: directRecallOf(thresholdOf(definitions.anchor)),
+		[ZONE]: directRecallOf(thresholdOf(definitions.zone))
+	};
+	const ladders = {
+		[ANCHOR]: ladderOf(definitions.anchor, ANCHOR),
+		[ZONE]: ladderOf(definitions.zone, ZONE)
 	};
 	const order = triadIntroductionOrder(
 		triadParams(definitions.anchor),
@@ -129,16 +128,7 @@ export function triadSubject(input: {
 		// The chord just asked still rings: its presentation waits a prompt.
 		presentsAtOnce: false,
 		neighbours: (a, b) => voicingOf(a) === voicingOf(b),
-		ladder(of, tempoBpm) {
-			const triad = triadMechanic(of);
-			const pacing = pacingOf(definitionOf[triad]);
-			return leadLadder({
-				steps: pacing.leadSteps,
-				tempoBpm,
-				recallThresholdMs: thresholds[triad],
-				learnedAfter: pacing.learnedAfter
-			});
-		},
+		ladder: (of) => ladders[triadMechanic(of)],
 		recall: (of) => recalls[triadMechanic(of)],
 		confused: (attempt) => {
 			const data = attempt.data as { confusion?: unknown } | null;

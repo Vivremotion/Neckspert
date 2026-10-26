@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PACING } from '$lib/domain/exercise/pacing';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import { anchorPlan, beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import {
 	beatTiming,
@@ -91,7 +91,7 @@ const judges: ContentJudges = (kind) => {
 
 const LATENCY = { ms: 0, provenance: 'system' as const };
 
-const anchorTiming = createAnchorTiming(DEFAULT_PACING);
+const anchorTiming = createAnchorTiming(DEFAULT_BEAT_PACING);
 const gridTiming = createGridTiming((item) => item as GridChangeTiming);
 
 const secondsPerBeat = (setup: Setup) => 60 / setup.bpm;

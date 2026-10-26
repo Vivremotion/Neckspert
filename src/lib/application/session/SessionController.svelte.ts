@@ -4,7 +4,7 @@ import {
 	exerciseById,
 	nextTempo,
 	chordDiagramFor,
-	pacingOf,
+	beatPacingOf,
 	type ExerciseDefinition,
 	type ExerciseId
 } from '$lib/domain/exercise';
@@ -400,7 +400,8 @@ export class SessionController implements PlaySessionController {
 	/** The time relation of a prompt, at the rhythm of its exercise when its mechanic has one. */
 	private timingOf(item: PlannedItem): TimingRelation {
 		const { rules } = this.presenterFor(item);
-		return rules.timingFor?.(pacingOf(this.exerciseOf(item.exerciseId))) ?? rules.timing;
+		// The old relations read the leads of the exercise's written ladder until H5.
+		return rules.timingFor?.(beatPacingOf(this.exerciseOf(item.exerciseId))) ?? rules.timing;
 	}
 
 	private exerciseOf(id: ExerciseId): ExerciseDefinition {

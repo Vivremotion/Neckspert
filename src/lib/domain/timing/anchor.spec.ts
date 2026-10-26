@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PACING } from '$lib/domain/exercise';
+import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise';
 import { createAnchorTiming, NO_CHORD } from './anchor';
 
 // 80 bpm: prompt on beat 4 (3.1 s), lead 4, target on beat 8 (6.1 s); the chord window runs from
 // beat 9 (6.85 s) to beat 12 (9.1 s).
 const beatTime = (i: number) => 0.1 + i * 0.75;
-const timing = createAnchorTiming(DEFAULT_PACING);
+const timing = createAnchorTiming(DEFAULT_BEAT_PACING);
 const open = () =>
 	timing.open({
 		planned: { leadBeats: 4 },

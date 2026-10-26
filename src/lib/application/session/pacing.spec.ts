@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { MechanicRules } from '$lib/domain/mechanics';
 import { beatTiming, createBeatTiming } from '$lib/domain/timing';
 import { createListSource } from '$lib/domain/progress';
-import type { ExerciseDefinition } from '$lib/domain/exercise';
+import type { ExerciseDefinition, Ladder } from '$lib/domain/exercise';
 import type { Execution, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
@@ -48,14 +48,22 @@ const pacedPresenter: MechanicPresenter<FakeItem, { value: number }> = {
 	reveal: () => null
 };
 
+/** Leads 8, 4, 2: the old relation reads the leads of the written ladder. */
+const LADDER: Ladder = [8, 4, 2].map((leadBeats) => ({ params: { leadBeats, aided: false } }));
+
 const SLOW: ExerciseDefinition = {
 	id: 'slow-breath',
 	version: 1,
 	mechanic: 'paced',
-	params: { pacing: { leadSteps: [8, 4, 2], respirationBars: 2, learnedAfter: 2 } }
+	params: { pacing: { respirationBars: 2 }, ladder: LADDER }
 };
 
-const PLAIN: ExerciseDefinition = { id: 'plain', version: 1, mechanic: 'paced', params: {} };
+const PLAIN: ExerciseDefinition = {
+	id: 'plain',
+	version: 1,
+	mechanic: 'paced',
+	params: { ladder: LADDER }
+};
 
 function item(exerciseId: string, n: number): PlannedItem {
 	return {

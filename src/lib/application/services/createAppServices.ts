@@ -191,9 +191,9 @@ export function createAppServices(
 				const source =
 					kind === 'free'
 						? createListSource(
-								// A note is free-played at the lead its level gives at the locate tempo.
+								// A note is free-played at the lead its level gives on the locate ladder.
 								buildFreePlan({
-									leadOf: freeLeadOf({ subject, levels, tempoBpm: locateTempo }),
+									leadOf: freeLeadOf({ subject, levels }),
 									random: deps.random
 								})
 							)
@@ -203,12 +203,6 @@ export function createAppServices(
 								attempts: attempts.filter(isNeck),
 								levels,
 								sessionId,
-								// The ladders fit the leads to a tempo: identify plays without one.
-								tempos: Object.fromEntries(
-									executions.flatMap(({ exerciseId, tempoBpm }) =>
-										tempoBpm === null ? [] : [[exerciseId, tempoBpm]]
-									)
-								),
 								random: deps.random
 							});
 				return { source, executions, recall: (mechanic) => subject.recall(mechanic) };

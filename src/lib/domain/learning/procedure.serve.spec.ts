@@ -11,7 +11,10 @@ import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { createLearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
-import { attemptOf, fakeCard, fakeSubject } from './testing/fakeSubject';
+import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
+
+/** A ladder of two levels: 8 beats aided, then 4 beats, the top. */
+const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' as const })];
 
 const FAKE = 'fake' as MechanicId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
@@ -33,7 +36,6 @@ function procedure(
 		cards?: readonly CardState[];
 		attempts?: readonly Attempt[];
 		levels?: readonly LevelState[];
-		tempo?: number;
 		random?: () => number;
 	} = {}
 ) {
@@ -43,7 +45,6 @@ function procedure(
 		attempts: input.attempts ?? [],
 		levels: input.levels ?? [],
 		sessionId: SESSION,
-		tempos: input.tempo === undefined ? {} : { [EXERCISE]: input.tempo },
 		random: input.random ?? (() => 0)
 	});
 }
@@ -69,7 +70,7 @@ function played(item: number, successes: readonly boolean[], from = 0): Attempt[
 
 describe('createLearningProcedure next', () => {
 	it('probes a new item first, unaided and cold, at the top of its ladder', () => {
-		const item = procedure({ tempo: 160 }).next(at(0));
+		const item = procedure({ subject: fakeSubject({ ladder: SHORT }) }).next(at(0));
 		expect(item).toMatchObject({
 			exerciseId: EXERCISE,
 			mechanic: FAKE,
@@ -77,7 +78,7 @@ describe('createLearningProcedure next', () => {
 			phase: 'probe',
 			temperature: 'cold',
 			aid: 'none',
-			// 160 bpm: 8 then 4 beats, 4 beats = 1 500 ms fits the threshold, the top.
+			// The top of its written ladder: 4 beats.
 			leadBeats: 4
 		});
 		expect(item?.stringAid ?? false).toBe(false);
@@ -248,7 +249,11 @@ describe('createLearningProcedure next', () => {
 			failures: 0,
 			resumeAfter: null
 		};
-		const source = procedure({ cards: [reviewable(0)], levels: [level], tempo: 160 });
+		const source = procedure({
+			subject: fakeSubject({ ladder: SHORT }),
+			cards: [reviewable(0)],
+			levels: [level]
+		});
 		const card = { mechanic: FAKE, item: 0 };
 		expect(source.levelOf(card)).toEqual(level);
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'review', leadBeats: 4 });

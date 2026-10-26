@@ -16,18 +16,17 @@ function shuffle<T>(items: readonly T[], random: () => number): T[] {
 }
 
 /**
- * The lead a located note is free-played at: the lead of its level, brought into the subject's
- * ladder at the locate tempo, as the learning procedure serves it; a note without a level is at
+ * The lead a located note is free-played at: the lead of its level, brought into the ladder the
+ * locate exercise writes, as the learning procedure serves it; a note without a level is at
  * level 0, the procedure's default.
  */
 export function freeLeadOf(input: {
 	subject: LearningSubject;
 	levels: readonly LevelState[];
-	tempoBpm: number;
 }): (item: LocateItem) => LeadBeats {
-	const { subject, levels, tempoBpm } = input;
+	const { subject, levels } = input;
 	const exerciseId = subject.exerciseOf('locate');
-	const ladder = subject.ladder('locate', tempoBpm);
+	const ladder = subject.ladder('locate');
 	const { lowest } = levelRange(ladder);
 	return (item) => {
 		const key = subject.itemKey({ mechanic: 'locate', item });

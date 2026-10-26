@@ -8,6 +8,7 @@ import {
 	exerciseById
 } from './catalog';
 import { Fraction } from '$lib/domain/time';
+import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
 
 describe('exercise catalog', () => {
@@ -18,14 +19,14 @@ describe('exercise catalog', () => {
 			mechanic: 'locate',
 			view: 'note-lane',
 			tempo: { fixed: 80 },
-			params: { recallThresholdMs: 1500 }
+			params: { recallThresholdMs: 1500, ladder: ladderOf(LOCATE_NECK) }
 		});
 		expect(IDENTIFY_NECK).toEqual({
 			id: 'identify-neck',
 			version: 1,
 			mechanic: 'identify',
 			view: 'answer-keys',
-			params: { recallThresholdMs: 3000 }
+			params: { recallThresholdMs: 3000, ladder: ladderOf(IDENTIFY_NECK) }
 		});
 	});
 
@@ -41,8 +42,18 @@ describe('exercise catalog', () => {
 				[4, 3, 2]
 			],
 			qualities: ['maj', 'min'],
-			pacing: { leadSteps: [8, 4, 2], respirationBars: 1, learnedAfter: 2 },
-			recallThresholdMs: 1500
+			pacing: { respirationBars: 1 },
+			recallThresholdMs: 1500,
+			ladder: [
+				{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
+				{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },
+				{
+					params: { leadBeats: 2, aided: false },
+					pass: { successes: 2 },
+					drop: { failures: 1 },
+					success: 'direct-recall'
+				}
+			]
 		};
 		expect(TRIADS_ANCHOR).toEqual({
 			id: 'triads-anchor',

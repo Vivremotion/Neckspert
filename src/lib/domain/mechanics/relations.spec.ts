@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES } from '$lib/domain/exercise/catalog';
-import { DEFAULT_PACING, pacingOf } from '$lib/domain/exercise/pacing';
+import { beatPacingOf, DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import { RESPONSE_RELATIONS } from '$lib/domain/types';
 import { isTimed, MECHANIC_RULES, mechanicRules } from './index';
 
@@ -11,7 +11,7 @@ describe('the time relations of the mechanics', () => {
 		for (const rules of MECHANIC_RULES) {
 			if (!isTimed(rules)) continue; // rhythm-figure: judged by a plan, not a relation
 			expect(RESPONSE_RELATIONS).toContain(rules.timing.id);
-			const paced = rules.timingFor?.(DEFAULT_PACING);
+			const paced = rules.timingFor?.(DEFAULT_BEAT_PACING);
 			if (paced) expect(RESPONSE_RELATIONS).toContain(paced.id);
 		}
 	});
@@ -20,7 +20,7 @@ describe('the time relations of the mechanics', () => {
 		for (const exercise of EXERCISES) {
 			const rules = mechanicRules(exercise.mechanic);
 			if (!isTimed(rules)) continue;
-			const paced = rules.timingFor?.(pacingOf(exercise));
+			const paced = rules.timingFor?.(beatPacingOf(exercise));
 			if (paced) expect(paced.id).toBe(rules.timing.id);
 		}
 		expect.assertions(

@@ -58,13 +58,20 @@ export interface Execution {
 	tempoBpm: number | null;
 }
 
-/**
- * The rhythm of an exercise on the beat: the lead ladder of its prompts, the bars of breathing
- * after a target, and the successes at the shortest lead that make an item learned.
- */
+/** The rhythm of an exercise on the beat: the bars of breathing after a target. */
 export interface ExercisePacing {
-	/** Longest first; each step one of LEAD_STEPS. */
-	leadSteps: readonly LeadBeats[];
 	respirationBars: number;
-	learnedAfter: number;
 }
+
+/** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
+export interface LadderParams {
+	/** Beats of lead; null when the item has no lead (the answer is not played on a beat). */
+	leadBeats: LeadBeats | null;
+	aided: boolean;
+}
+
+/**
+ * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
+ * lead and aid, its pass and drop, and what counts as a success there.
+ */
+export type Ladder = readonly Level<LadderParams>[];

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
-import { aidLadder } from '$lib/domain/learning/ladder';
+import { DEFAULT_TEMPO } from '$lib/domain/exercise/tempo';
+import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
@@ -104,21 +105,33 @@ describe('neckSubject', () => {
 		);
 	});
 
-	it('reads its ladders from the exercises’ pacing', () => {
-		const pacing = { leadSteps: [8, 4], respirationBars: 1, learnedAfter: 3 };
+	it('reads its ladders from the exercises', () => {
+		const ladder = [
+			{ params: { leadBeats: 6, aided: true }, pass: { successes: 1 } },
+			{ params: { leadBeats: 3, aided: false }, pass: { successes: 3 } }
+		];
+		const named = [{ params: { leadBeats: null, aided: false }, pass: { successes: 4 } }];
 		const subject = neckSubject({
 			definitions: {
-				locate: { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, pacing } },
-				identify: { ...IDENTIFY_NECK, params: { ...IDENTIFY_NECK.params, pacing } }
+				locate: { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder } },
+				identify: { ...IDENTIFY_NECK, params: { ...IDENTIFY_NECK.params, ladder: named } }
 			}
 		});
-		const ladder = subject.ladder(LOCATE, TEMPO);
-		expect(ladder.map((level) => level.params)).toEqual([
-			{ leadBeats: 8, aided: true },
-			{ leadBeats: 4, aided: false }
-		]);
-		expect(ladder.map((level) => level.pass?.successes)).toEqual([1, 3]);
-		expect(subject.ladder(IDENTIFY, TEMPO)).toEqual(aidLadder(3));
+		expect(subject.ladder(LOCATE)).toEqual(ladder);
+		expect(subject.ladder(IDENTIFY)).toEqual(named);
+	});
+
+	it('serves the ladder the catalog writes, the same at every tempo', () => {
+		const subject = neckSubject({ definitions: DEFINITIONS });
+		expect(subject.ladder(LOCATE)).toEqual(ladderOf(LOCATE_NECK));
+		// A locate exercise whose tempo moves serves the same ladder: the tempo fits nothing.
+		const moving = neckSubject({
+			definitions: {
+				locate: { ...LOCATE_NECK, tempo: { ...DEFAULT_TEMPO, start: 160 } },
+				identify: IDENTIFY_NECK
+			}
+		});
+		expect(moving.ladder(LOCATE)).toEqual(ladderOf(LOCATE_NECK));
 	});
 
 	it('introduces the notes in the order of the neck, the triads’ notes first', () => {
@@ -160,14 +173,24 @@ describe('neckSubject', () => {
 
 	it('learns locate over its leads and identify over the name shown', () => {
 		const subject = neckSubject({ definitions: DEFINITIONS });
-		const leads = subject.ladder(LOCATE, TEMPO);
+		const leads = subject.ladder(LOCATE);
 		expect(leads.map((level) => level.params)).toEqual([
 			{ leadBeats: 8, aided: true },
 			{ leadBeats: 4, aided: false },
 			{ leadBeats: 2, aided: false }
 		]);
-		expect(leads[leads.length - 1].pass).toEqual({ successes: LEARN_SUCCESSES });
-		expect(subject.ladder(IDENTIFY, TEMPO)).toEqual(aidLadder(LEARN_SUCCESSES));
+		expect(leads[leads.length - 1]).toMatchObject({
+			pass: { successes: LEARN_SUCCESSES },
+			success: 'direct-recall'
+		});
+		expect(subject.ladder(IDENTIFY).map((level) => level.params)).toEqual([
+			{ leadBeats: null, aided: true },
+			{ leadBeats: null, aided: false }
+		]);
+		expect(subject.ladder(IDENTIFY)[1]).toMatchObject({
+			pass: { successes: LEARN_SUCCESSES },
+			success: 'direct-recall'
+		});
 
 		// The drawn string fades on locate only.
 		expect(subject.fadingAid(LOCATE)).toBe(true);
@@ -199,12 +222,12 @@ describe('neckSubject', () => {
 		const declared = neckSubject({
 			definitions: { locate: withThreshold(LOCATE_NECK, 3000), identify: IDENTIFY_NECK }
 		});
-		const ladder = declared.ladder(LOCATE, TEMPO);
-		expect(ladder[ladder.length - 1].params.leadBeats).toBe(4);
+		// The threshold judges recall; the ladder stays as written.
+		expect(declared.ladder(LOCATE)).toEqual(ladderOf(LOCATE_NECK));
 		expect(declared.recall(LOCATE)(answerOf(planned(4), true))).toBe(true);
 
 		const catalog = neckSubject({ definitions: DEFINITIONS });
-		const top = catalog.ladder(LOCATE, TEMPO);
+		const top = catalog.ladder(LOCATE);
 		expect(top[top.length - 1].params.leadBeats).toBe(2);
 		expect(catalog.recall(LOCATE)(answerOf(planned(4), true))).toBe(false);
 		expect(catalog.recall(LOCATE)(answerOf(planned(2), true))).toBe(true);
@@ -241,7 +264,7 @@ describe('neckSubject', () => {
 			exerciseId: LOCATE_NECK.id,
 			scope: '',
 			item: subject.itemKey(card),
-			level: subject.ladder(LOCATE, TEMPO).length - 1,
+			level: subject.ladder(LOCATE).length - 1,
 			successes: 0,
 			failures: 0,
 			resumeAfter: null
@@ -257,7 +280,6 @@ describe('neckSubject', () => {
 			attempts: [],
 			levels,
 			sessionId: 'session',
-			tempos: { [LOCATE_NECK.id]: TEMPO, [IDENTIFY_NECK.id]: TEMPO },
 			random
 		});
 
