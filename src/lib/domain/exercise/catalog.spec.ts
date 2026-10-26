@@ -17,6 +17,7 @@ describe('exercise catalog', () => {
 			version: 1,
 			mechanic: 'locate',
 			view: 'note-lane',
+			tempo: { fixed: 80 },
 			params: { recallThresholdMs: 1500 }
 		});
 		expect(IDENTIFY_NECK).toEqual({
@@ -47,9 +48,16 @@ describe('exercise catalog', () => {
 			id: 'triads-anchor',
 			version: 1,
 			mechanic: 'triad-anchor',
+			tempo: { fixed: 80 },
 			params
 		});
-		expect(TRIADS_ZONE).toEqual({ id: 'triads-zone', version: 1, mechanic: 'triad-zone', params });
+		expect(TRIADS_ZONE).toEqual({
+			id: 'triads-zone',
+			version: 1,
+			mechanic: 'triad-zone',
+			tempo: { fixed: 80 },
+			params
+		});
 		expect(exerciseById('triads-zone')).toBe(TRIADS_ZONE);
 		expect(pacingOf(TRIADS_ANCHOR)).toEqual(params.pacing);
 		expect(TRIADS_ANCHOR.params).not.toBe(TRIADS_ZONE.params);
@@ -61,5 +69,11 @@ describe('exercise catalog', () => {
 		const fractionsBack = (_key: string, value: unknown) =>
 			typeof value === 'string' && /^-?\d+(\/\d+)?$/.test(value) ? Fraction.parse(value) : value;
 		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
+	});
+
+	it('plays locate and the triads at 80 bpm, fixed', () => {
+		for (const exercise of [LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE]) {
+			expect(exercise.tempo).toEqual({ fixed: 80 });
+		}
 	});
 });

@@ -1,4 +1,5 @@
 import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
+import type { ExerciseTempo } from './tempo';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
 export type MechanicId = string;
@@ -10,7 +11,9 @@ export interface ExerciseDefinition {
 	version: number;
 	mechanic: MechanicId;
 	params: Readonly<Record<string, unknown>>;
-	/** Tempo of a first execution, when the exercise wants its own. */
+	/** Its tempo: fixed, or a range it moves within; absent: `DEFAULT_TEMPO`. */
+	tempo?: ExerciseTempo;
+	/** Tempo of a first execution, when the exercise wants its own (the start of its range). */
 	startTempoBpm?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;

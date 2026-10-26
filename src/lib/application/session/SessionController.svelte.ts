@@ -1128,7 +1128,7 @@ export class SessionController implements PlaySessionController {
 					(attempt) =>
 						attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
 				);
-				const next = nextTempo(tempoBpm, own);
+				const next = nextTempo(this.exerciseOf(exerciseId), tempoBpm, own);
 				if (next === tempoBpm) continue;
 				// A tempo moves only after enough attempts, so `own` names the exercise's mechanic.
 				await this.deps.progressions.put({

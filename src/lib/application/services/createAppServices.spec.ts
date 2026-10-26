@@ -228,8 +228,8 @@ describe('createAppServices', () => {
 			0
 		);
 		await deps.cards.put({ ...learned, scheduling: { ...learned.scheduling, due: 0 } });
-		// Above the ladder at ♩ = 160 (8, 4): brought to its top, a lead of 4; at the default
-		// tempo the ladder would reach 2, so the lead shows the locate tempo reached the procedure.
+		// Locate is fixed at ♩ = 80 (ladder 8, 4, 2): level 2 is served at a lead of 2, whatever
+		// tempo a stored progression holds.
 		await deps.levels.put({
 			exerciseId: 'locate-neck',
 			scope: '',
@@ -250,7 +250,7 @@ describe('createAppServices', () => {
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
 		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave' });
-		expect(lead(lane)).toBe(4);
+		expect(lead(lane)).toBe(2);
 		controller.quit();
 	});
 
@@ -288,9 +288,9 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('runs locate at its progression tempo, within range, and identify without one', async () => {
+	it('runs locate at 80 bpm whatever its stored progression, and identify without a tempo', async () => {
 		for (const [stored, expected] of [
-			[100, 100],
+			[100, 80],
 			[60, 80]
 		]) {
 			const { services, deps } = harness();
@@ -311,9 +311,9 @@ describe('createAppServices', () => {
 		}
 	});
 
-	it('free-plays a note at the lead of its stored level, on the ladder of the locate tempo', async () => {
+	it('free-plays a note at the lead of its stored level, on the ladder at 80 bpm', async () => {
 		const { services, deps } = harness();
-		// Every note at level 2: lead 2 at ♩ = 80, brought to the top of [8, 4] at ♩ = 160.
+		// Every note at level 2: lead 2 at ♩ = 80; the stored 160 is ignored.
 		for (const card of practiceCards().filter((c) => c.mechanic === 'locate')) {
 			await deps.levels.put({
 				exerciseId: 'locate-neck',
@@ -343,7 +343,7 @@ describe('createAppServices', () => {
 			0.05,
 			2000
 		);
-		expect(lead(noteLane(controller))).toBe(4);
+		expect(lead(noteLane(controller))).toBe(2);
 		controller.quit();
 	});
 

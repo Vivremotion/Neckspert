@@ -8,6 +8,7 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'locate',
 	view: 'note-lane',
+	tempo: { fixed: 80 },
 	params: { recallThresholdMs: RECALL_THRESHOLD_MS }
 };
 
@@ -37,6 +38,7 @@ export const TRIADS_ANCHOR: ExerciseDefinition = {
 	id: 'triads-anchor',
 	version: 1,
 	mechanic: 'triad-anchor',
+	tempo: { fixed: 80 },
 	params: triadsParams()
 };
 
@@ -45,6 +47,7 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	id: 'triads-zone',
 	version: 1,
 	mechanic: 'triad-zone',
+	tempo: { fixed: 80 },
 	params: triadsParams()
 };
 

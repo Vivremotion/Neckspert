@@ -1,4 +1,3 @@
-import { DEFAULT_TEMPO_BPM, clampTempo } from '$lib/domain/exercise';
 import type {
 	Attempt,
 	CardState,
@@ -70,11 +69,20 @@ function withoutKind(answer: unknown): Row | null {
 	return rest;
 }
 
+/** Version 1 bounds the stored tempo to 80–160 bpm, rounded; frozen with the format. */
+const LEGACY_TEMPO_MIN_BPM = 80;
+const LEGACY_TEMPO_MAX_BPM = 160;
+const LEGACY_DEFAULT_TEMPO_BPM = 80;
+
+function clampLegacyTempo(bpm: number): number {
+	return Math.min(LEGACY_TEMPO_MAX_BPM, Math.max(LEGACY_TEMPO_MIN_BPM, Math.round(bpm)));
+}
+
 /** One conversion for the Dexie upgrade and the v1 import. */
 export function convertV1(data: V1Data, now: number): V1Conversion {
 	const { tempoBpm: settingsTempo, ...settings } = data.settings;
-	const storedTempo = isPositiveNumber(settingsTempo) ? clampTempo(settingsTempo) : null;
-	const fallbackTempo = storedTempo ?? DEFAULT_TEMPO_BPM;
+	const storedTempo = isPositiveNumber(settingsTempo) ? clampLegacyTempo(settingsTempo) : null;
+	const fallbackTempo = storedTempo ?? LEGACY_DEFAULT_TEMPO_BPM;
 
 	const sessionTempos = new Map<unknown, number>();
 	for (const session of data.sessions) {

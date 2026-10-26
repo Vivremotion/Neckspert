@@ -931,7 +931,12 @@ export class ResponseSeriesController implements PlaySessionController {
 		const { repositories } = this.deps;
 		if (recorder && this.kind !== 'free') {
 			// Each exercise on the beat runs next at a tempo fitted to its own success here.
-			const moved = nextProgressions(record.executions, recorder.sessionAttempts, this.epochNow());
+			const moved = nextProgressions(
+				record.executions,
+				recorder.sessionAttempts,
+				this.epochNow(),
+				(id) => this.items.definitionOf({ exerciseId: id } as PlannedItem)
+			);
 			for (const progression of moved) await repositories.progressions.put(progression);
 		}
 		// The ended session implies its attempts are written with their complete observations.

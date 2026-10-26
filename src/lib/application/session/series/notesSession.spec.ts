@@ -390,9 +390,9 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
-	it('serves a short lead at the top of the ladder at a fast tempo, and writes that level', async () => {
+	it('ignores a stored locate tempo: locate plays at 80 bpm, fixed, and writes its level', async () => {
 		const card = locate(6, 'G');
-		// Learned at lead 2 (level 2 at ♩ = 80); ♩ = 160 brings the ladder to 8, 4.
+		// Learned at lead 2 (level 2 at ♩ = 80); the stored 160 is ignored, locate is fixed at 80.
 		const app = await notesApp({
 			cards: [learnedCard(card)],
 			levels: [levelOf(card, 2)],
@@ -404,15 +404,15 @@ describe('a learn session of the notes', () => {
 		const [played] = await playRounds(app, controller, allRight, { rounds: 1 });
 		await runUntil(app, () => controller.view.status === 'verdict');
 		const attempts = await quitAndRead(app, controller);
-		expect(controller.view.tempoBpm).toBe(160);
+		expect(controller.view.tempoBpm).toBe(80);
 		expect(keyOf(played.card)).toBe(keyOf(card));
-		// Served at lead 4, played right: its level is written as played, at the top of this ladder.
-		expect((played.anchorBeat as number) - (played.promptBeat as number)).toBe(4);
-		expect(attempts[0]).toMatchObject({ leadBeats: 4, temperature: 'cold', success: true });
-		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 1, successes: 1 });
+		// Served at lead 2, the top of the ladder at 80 bpm, played right: its level is written.
+		expect((played.anchorBeat as number) - (played.promptBeat as number)).toBe(2);
+		expect(attempts[0]).toMatchObject({ leadBeats: 2, temperature: 'cold', success: true });
+		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 2, successes: 1 });
 	});
 
-	it('ends after SESSION_MS once the round under way settles, and moves the locate tempo', async () => {
+	it('ends after SESSION_MS once the round under way settles, and writes no locate tempo', async () => {
 		const app = await notesApp({ cards: ALL_LOCATE, random: seeded(11) });
 		const controller = await startNotes(app, 'learn');
 		const record = await app.deps.sessions.get(controller.sessionId);
@@ -435,11 +435,8 @@ describe('a learn session of the notes', () => {
 		expect(ended).toBeGreaterThanOrEqual(startedAt + SESSION_MS);
 		const lastPrompt = Math.max(...attempts.map((a) => a.promptedAt));
 		expect(ended).toBeGreaterThan(lastPrompt);
-		// All right at ♩ = 80: the locate tempo moves up; identify has none.
-		const progressions = await app.deps.progressions.all();
-		expect(progressions).toEqual([
-			expect.objectContaining({ exerciseId: LOCATE_NECK.id, tempoBpm: 85 })
-		]);
+		// All right, but locate is fixed at ♩ = 80: no progression is written.
+		expect(await app.deps.progressions.all()).toEqual([]);
 	}, 30_000);
 
 	it('writes attempts the summary and the neck map read as before', async () => {

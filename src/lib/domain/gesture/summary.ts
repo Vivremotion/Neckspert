@@ -1,10 +1,24 @@
 import { nextTempo } from '$lib/domain/exercise/tempo';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
 import { expectedShape } from '$lib/domain/mechanics/chordGrid';
 import type { VoicingOccurrence } from '$lib/domain/music';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
+import { GESTURE_EXERCISES } from './exercises';
 import { passageSucceeded } from './passages';
+
+/** The gesture exercise of an id; one the track does not list moves its tempo by the default range. */
+function gestureDefinition(exerciseId: string): ExerciseDefinition {
+	return (
+		GESTURE_EXERCISES.find((exercise) => exercise.id === exerciseId) ?? {
+			id: exerciseId,
+			version: 1,
+			mechanic: 'chord-grid',
+			params: {}
+		}
+	);
+}
 
 function fretsOf(occurrence: VoicingOccurrence | null): string | null {
 	return occurrence && occurrence.notes.map((note) => note.fret).join('-');
@@ -47,7 +61,7 @@ export function summarizeGesture(
 				passagesSucceeded: [...passages.values()].filter(passageSucceeded).length,
 				changeSuccessRate: own.filter((attempt) => attempt.success).length / own.length,
 				tempoBpm,
-				nextTempoBpm: nextTempo(tempoBpm, own)
+				nextTempoBpm: nextTempo(gestureDefinition(exerciseId), tempoBpm, own)
 			}
 		];
 	});
