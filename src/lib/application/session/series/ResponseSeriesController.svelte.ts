@@ -395,8 +395,9 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/**
 	 * `item`'s round after the counted bar `countBar` (and silent bars from `restFrom`), on the
-	 * first place `earliest` (the bar after the count) allows: the bars traced as they begin, the
-	 * countdown on each beat of the count, the round opened at its prompt.
+	 * first place `earliest` (the bar after the count) allows with its prompt still to come: the
+	 * bars traced as they begin, the countdown on each beat of the count, the round opened at its
+	 * prompt.
 	 */
 	private place(
 		item: PlannedItem,
@@ -405,7 +406,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	): void {
 		this.pending = item;
 		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
-		const start = this.startOf(plan, Fraction.of(earliest));
+		const start = this.comingStart(plan, Fraction.of(earliest));
 		const promptBeat = this.promptBeatOf(start, plan);
 		// The bars between the count and the round clicked now: laid at the prompt, their beats
 		// before it would already be past.
@@ -445,9 +446,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	private placeFollowing(item: PlannedItem, earliest: Fraction): void {
 		this.pending = item;
 		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
-		const now = barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
-		let start = this.startOf(plan, earliest.compare(now) >= 0 ? earliest : now);
-		while (this.promptOf(start, plan).compare(now) < 0) start = start.add(Fraction.of(1));
+		const start = this.comingStart(plan, earliest);
 		if (this.clicksOn(item)) this.accompanyTo(start);
 		const { previewBeats } = this.items.flowOf(item);
 		if (previewBeats !== null) {
@@ -469,6 +468,17 @@ export class ResponseSeriesController implements PlaySessionController {
 			// In free time the round counts from the instant it opens, not from the beat it was due.
 			this.openRound(item, plan, start, null, inFreeTime(plan) ? this.deps.clock.now() : time)
 		);
+	}
+
+	/**
+	 * Where a round starts from `earliest`, never with its prompt already past: a bar later while
+	 * it would be (a count that ends on a target far after its prompt).
+	 */
+	private comingStart(plan: RoundPlan, earliest: Fraction): Fraction {
+		const now = barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
+		let start = this.startOf(plan, earliest.compare(now) >= 0 ? earliest : now);
+		while (this.promptOf(start, plan).compare(now) < 0) start = start.add(Fraction.of(1));
+		return start;
 	}
 
 	/** Where a round starts from `earliest`, in bars: its plan's place (L4), or the next beat in free time (D3). */

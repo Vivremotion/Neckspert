@@ -127,6 +127,25 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.status).toBe('awaiting');
 			expect(model(ctx).anchorBeat).toBe(12);
 		});
+
+		it('moves a round counted to its target to the next bar when its prompt would come before now', async () => {
+			// A lead of two bars, the count ending on the target: on the bar after the count, its
+			// prompt would be a bar before the count began.
+			const plans = (item: PlannedItem): RoundPlan => ({
+				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
+				prompt: Fraction.of(-2)
+			});
+			const ctx = setup(passage(), { plans });
+			await ctx.controller.start();
+			expect(clicksBetween(ctx, 0, ctx.bar(1))).toEqual([0.1, 0.6, 1.1, 1.6]);
+			ctx.runTo(ctx.bar(0) + 0.01);
+			// Its prompt on the counted bar, its target on bar 2.
+			expect(expectationsAsked(ctx)).toHaveLength(1);
+			expect(model(ctx).anchorBeat).toBe(8);
+			ctx.play(ctx.bar(2) + 0.02, rightShape(change(0)));
+			const [attempt] = await ctx.stored();
+			expect(attempt.success).toBe(true);
+		});
 	});
 
 	describe('tempo scopes', () => {
