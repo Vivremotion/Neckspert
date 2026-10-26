@@ -78,6 +78,10 @@ export interface RoundPlan {
 	listenUntil?: Fraction;
 	/** Bars of the cycle (from 0) where the accompaniment is silent. */
 	mutedBars: number[];
+	/** Where a counted bar or a breath ends: on the prompt (default) or on the target (a grid opens a beat before its change). */
+	countEndsOn?: 'prompt' | 'target';
+	/** Where the round's start (its target) falls in its bar, as a fraction of a whole note; default 0, the downbeat. */
+	barOffset?: Fraction;
 }
 
 function validateWindow(window: ExpectationWindow): boolean {

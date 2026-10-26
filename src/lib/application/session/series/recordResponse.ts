@@ -18,6 +18,8 @@ export interface RoundPlanRecord {
 	handover?: string;
 	listenUntil?: string;
 	mutedBars: number[];
+	countEndsOn?: 'prompt' | 'target';
+	barOffset?: string;
 }
 
 function windowRecord(
@@ -48,7 +50,9 @@ export function roundPlanRecord(plan: RoundPlan): RoundPlanRecord {
 		policy: asJson(plan.policy),
 		...(plan.handover && { handover: plan.handover.toString() }),
 		...(plan.listenUntil && { listenUntil: plan.listenUntil.toString() }),
-		mutedBars: [...plan.mutedBars]
+		mutedBars: [...plan.mutedBars],
+		...(plan.countEndsOn && { countEndsOn: plan.countEndsOn }),
+		...(plan.barOffset && { barOffset: plan.barOffset.toString() })
 	};
 }
 

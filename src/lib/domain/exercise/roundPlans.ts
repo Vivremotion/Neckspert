@@ -106,6 +106,7 @@ export function gridChangePlan(input: {
 		length,
 		handover: length,
 		mutedBars: [],
+		countEndsOn: 'target',
 		policy: {
 			unit: 'response',
 			verdict: 'response',

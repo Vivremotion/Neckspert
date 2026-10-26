@@ -11,7 +11,8 @@ import {
 	PlanRound,
 	createTempoMap,
 	type ResponseValue,
-	type RoundOutcome
+	type RoundOutcome,
+	type RoundPlan
 } from '$lib/domain/time';
 import type { RoundOutcome as OldRoundOutcome } from '$lib/domain/timing';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
@@ -206,6 +207,7 @@ describe('responseAttempt', () => {
 			prompt: '-1/4',
 			length: '1',
 			handover: '1',
+			countEndsOn: 'target',
 			mutedBars: [],
 			policy: { unit: 'response', verdict: 'response', pairing: { mode: 'first-answer' } },
 			expectations: [
@@ -220,6 +222,19 @@ describe('responseAttempt', () => {
 				}
 			]
 		});
+	});
+
+	it('keeps where a plan places its target in its bar', () => {
+		const plan = {
+			...gesturePlan(change(1), METER_4_4, GESTURE_LINK),
+			barOffset: Fraction.of(1, 2)
+		};
+		expect(roundPlanRecord(plan)).toMatchObject({ countEndsOn: 'target', barOffset: '1/2' });
+		const bare: RoundPlan = { ...plan };
+		delete bare.barOffset;
+		delete bare.countEndsOn;
+		const record = roundPlanRecord(bare);
+		expect('barOffset' in record || 'countEndsOn' in record).toBe(false);
 	});
 
 	it('keeps an offbeat change correct but not a success', () => {

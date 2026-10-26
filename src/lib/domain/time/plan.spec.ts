@@ -222,6 +222,12 @@ describe('validateRoundPlan', () => {
 		expect(validateRoundPlan(valid())).toBeNull();
 	});
 
+	it('accepts a plan that says where its count ends and where its target falls in its bar', () => {
+		const plan: RoundPlan = { ...valid(), countEndsOn: 'target', barOffset: of(1, 2) };
+		expect(validateRoundPlan(plan)).toBeNull();
+		expect(plan).toMatchObject({ countEndsOn: 'target', barOffset: of(1, 2) });
+	});
+
 	it('refuses an expectation outside the length', () => {
 		const plan = valid();
 		plan.expectations[1].at = of(1);

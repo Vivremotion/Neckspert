@@ -757,6 +757,34 @@ describe('ResponseSeriesController', () => {
 			expect(shown(ctx).place).toMatchObject({ promptBeat: 14, anchorBeat: 16 });
 		});
 
+		it('places a target on beat 3 when its plan says so, clicking on through bars it splits', async () => {
+			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
+				...plans(item, meter),
+				barOffset: Fraction.of(1, 2)
+			});
+			const fake = fakeSensors();
+			const ctx = setup([beat(0, 4), beat(1, 4)], {
+				mechanics,
+				plans: onBeat3,
+				sensors: fake.sensors
+			});
+			await ctx.controller.start();
+			// Counted on bar 0: the prompt on beat 3 of bar 1, the target on beat 3 of bar 2.
+			ctx.runTo(ctx.bar(1.5));
+			expect(ctx.controller.view.status).toBe('awaiting');
+			expect(shown(ctx).place).toMatchObject({ promptBeat: 6, anchorBeat: 10 });
+			ctx.runTo(ctx.bar(2.5) + 0.03);
+			fake.hear(ctx.bar(2.5) + 0.02, C);
+			expect(ctx.controller.view.status).toBe('verdict');
+			// Its round ends on beat 3 of bar 3: the next prompt there, its target on beat 3 of bar 4.
+			ctx.runTo(ctx.bar(3.5));
+			expect(ctx.controller.view.status).toBe('awaiting');
+			expect(shown(ctx).place).toMatchObject({ promptBeat: 14, anchorBeat: 18 });
+			// The click goes on through the bars the rounds split: every beat of bars 2 to 4 heard.
+			expect(clicksBetween(ctx, ctx.bar(2), ctx.bar(5))).toHaveLength(12);
+			expect(ctx.controller.view.countdown).toBeNull();
+		});
+
 		it('counts a bar after the round before an item that asks for one, then applies the same placement', async () => {
 			const ctx = series([beat(0, 8), beat(1, 8, { countIn: true })]);
 			await ctx.controller.start();

@@ -79,7 +79,7 @@ interface OpenRound {
  * item from its source, has its plan made (`PlanSource`), opens a `RoundRunner` on it, and places
  * the rounds on the transport: the next round at the handover of the one before when it goes on
  * without a counted bar at the same tempo and on the same scene (chained); after a round without
- * a handover, once it settles, on the first bar its prompt allows (`timedStart`, D2) or on the
+ * a handover, once it settles, on the first place its plan allows (`timedStart`, L4) or on the
  * beat after the answer in free time (D3), shown `previewBeats` before its prompt (D5); else after
  * a counted bar (silent bars first when the item asks), the tempo changed first for an item of
  * another execution. An exercise met for the first time in the series stops on its instruction. Each
@@ -463,14 +463,14 @@ export class ResponseSeriesController implements PlaySessionController {
 		);
 	}
 
-	/** The bar a round starts on from `earliest`: its prompt's place (D2), or the next beat in free time (D3). */
+	/** Where a round starts from `earliest`, in bars: its plan's place (L4), or the next beat in free time (D3). */
 	private startOf(plan: RoundPlan, earliest: Fraction): Fraction {
 		return inFreeTime(plan)
 			? nextBeat(earliest, this.seriesMeter)
 			: timedStart(earliest, plan, this.seriesMeter);
 	}
 
-	/** The bar of the prompt of a round starting on bar `start`. */
+	/** The bar of the prompt of a round starting at `start`, in bars. */
 	private promptOf(start: Fraction, plan: RoundPlan): Fraction {
 		return start.add((plan.prompt ?? Fraction.ZERO).div(this.transport.barLength));
 	}
