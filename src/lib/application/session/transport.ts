@@ -196,6 +196,58 @@ export class Transport {
 		};
 	}
 
+	/**
+	 * Another meter from `atBar` (a bar of the current meter): the positions go on on the same map,
+	 * and bars are now counted in `meter` from the first whole bar of it at or after `atBar`
+	 * (a part of a bar between them stays silent), where `tempo` starts when it differs and the
+	 * listen-in and the counted bar are placed. Throws a `RangeError` when something is already
+	 * scheduled at or past `atBar`, or the accompaniment is not in `meter`. Play resumes at the
+	 * returned bar, counted in `meter`.
+	 */
+	changeMeter(
+		atBar: number,
+		meter: Meter,
+		tempo: TempoSegment,
+		accompaniment: Accompaniment,
+		options: { listenInBars?: number; countIn?: boolean; audible?: boolean } = {}
+	): { playFrom: number } {
+		this.checkMeter(accompaniment, meter);
+		if (this.scheduledUntilBar > atBar) {
+			throw new RangeError(
+				`bars up to ${this.scheduledUntilBar} are already scheduled, a meter change at bar ${atBar} would split them`
+			);
+		}
+		const position = Fraction.of(atBar).mul(barLength(this.meterOf()));
+		const bar = barLength(meter);
+		let first = Math.ceil(position.div(bar).toNumber());
+		// The float quotient may round across an integer: settle it exactly.
+		while (Fraction.of(first).mul(bar).compare(position) < 0) first++;
+		while (
+			first > 0 &&
+			Fraction.of(first - 1)
+				.mul(bar)
+				.compare(position) >= 0
+		)
+			first--;
+		const at = Fraction.of(first).mul(bar);
+		const last = this.map.segments[this.map.segments.length - 1];
+		const sameTempo = last.bpm === tempo.bpm && last.unit.compare(tempo.unit) === 0;
+		if (!sameTempo) this.tempoMap = this.map.withSegment({ ...tempo, at });
+		this.meter = meter;
+		// Counted bars were numbered in the old meter.
+		this.counted = new Set();
+		this.scheduledUntilBar = first;
+		return {
+			playFrom: this.listenInAndCount(
+				first,
+				accompaniment,
+				options.listenInBars ?? LISTEN_IN_BARS,
+				options.countIn ?? true,
+				options.audible ?? true
+			)
+		};
+	}
+
 	/** Plays `figure` as `sound` from `fromBar`. */
 	playFigure(figure: Figure, sound: 'demo' | 'play-along', fromBar: number): void {
 		this.schedule(renderFigure(figure, sound, this.map, fromBar));

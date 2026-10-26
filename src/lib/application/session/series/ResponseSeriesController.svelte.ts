@@ -105,7 +105,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	private readonly prepare: PrepareResponseSeries;
 	private readonly deps: ResponseSeriesDeps;
 	private readonly transport: Transport;
-	/** The meter of the series, from its first item's exercise; null until the transport begins. */
+	/** The meter the series plays in, its current item's exercise's; null until the transport begins. */
 	private meter: Meter | null = null;
 	/** Every beat clicked, accent on 1, in the series' meter. */
 	private click: Accompaniment | null = null;
@@ -367,7 +367,7 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** Begins the transport at `item`'s tempo: a counted bar, then its round. */
 	private async beginWith(item: PlannedItem, generation: number): Promise<void> {
-		this.keepMeter(item);
+		this.setMeter(this.meterOf(item));
 		const tempo = this.tempoOf(item);
 		this.setTempo(tempo);
 		this.pending = item;
@@ -580,7 +580,6 @@ export class ResponseSeriesController implements PlaySessionController {
 			void this.finish();
 			return;
 		}
-		this.keepMeter(item);
 		if (this.needsBriefing(item)) {
 			this.brief(item);
 			return;
@@ -618,6 +617,29 @@ export class ResponseSeriesController implements PlaySessionController {
 	private placeAfter(item: PlannedItem, bar: number): void {
 		const tempo = this.tempoOf(item);
 		const audible = this.clicksOn(item);
+		const meter = this.meterOf(item);
+		if (!sameMeter(meter, this.seriesMeter)) {
+			// Another meter: its counted bar on the first whole bar of it, at its tempo.
+			const unit = this.seriesMeter.unit;
+			this.setMeter(meter);
+			this.setTempo(tempo);
+			const { playFrom } = this.transport.changeMeter(
+				bar,
+				meter,
+				this.segment(tempo),
+				this.seriesClick,
+				{ listenInBars: 0, countIn: true, audible }
+			);
+			// The targets before stay where they were: their beats counted in the new unit.
+			const ratio = unit.div(meter.unit).toNumber();
+			this.history = this.history.map((entry) => ({
+				...entry,
+				beatIndex: entry.beatIndex * ratio
+			}));
+			this.accompaniedUntil = playFrom;
+			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
+			return;
+		}
 		if (tempo !== this.tempoBpm) {
 			this.setTempo(tempo);
 			const { playFrom } = this.transport.changeTempo(bar, this.segment(tempo), this.seriesClick, {
@@ -663,11 +685,12 @@ export class ResponseSeriesController implements PlaySessionController {
 		return item;
 	}
 
-	/** Goes on without a gap: no counted bar asked, the same tempo, the same scene. */
+	/** Goes on without a gap: no counted bar asked, the same tempo, meter and scene. */
 	private chainable(item: PlannedItem): boolean {
 		return (
 			!item.countIn &&
 			this.tempoOf(item) === this.tempoBpm &&
+			sameMeter(this.meterOf(item), this.seriesMeter) &&
 			this.items.flowOf(item).scene === this.lastScene
 		);
 	}
@@ -882,19 +905,13 @@ export class ResponseSeriesController implements PlaySessionController {
 		return { at: Fraction.ZERO, bpm, unit: this.seriesMeter.unit };
 	}
 
-	/**
-	 * Takes the meter of `item`'s exercise as the series' when it has none yet; a timed item of
-	 * another meter throws: the transport keeps one. An item in free time has no use for a meter:
-	 * it never checks the series', and sets its own only when the transport needs one to begin.
-	 */
-	private keepMeter(item: PlannedItem): void {
-		const definition = this.items.definitionOf(item);
-		const meter = definition.meter ?? METER_4_4;
-		if (this.meter) {
-			if (sameMeter(this.meter, meter)) return;
-			if (inFreeTime(this.deps.plans(item, meter, definition))) return;
-			throw new RangeError('a series keeps one meter');
-		}
+	/** The meter of `item`'s exercise. */
+	private meterOf(item: PlannedItem): Meter {
+		return this.items.definitionOf(item).meter ?? METER_4_4;
+	}
+
+	/** The series plays in `meter` from now on: its click with it. */
+	private setMeter(meter: Meter): void {
 		this.meter = meter;
 		const beats = beatPositions(meter).map((_, i) => i + 1);
 		this.click = clickAccompaniment({ meter, beats, accent: [1], bars: ['on'] });

@@ -9,6 +9,7 @@ import type { Attempt } from '$lib/domain/types';
 import {
 	allRight,
 	drain,
+	identify,
 	learnedCard,
 	levelOf,
 	locate,
@@ -158,5 +159,37 @@ describe('an exercise written only in data', () => {
 		]);
 		expect(await app.deps.levels.get(levelOf(FIRST, 0))).toMatchObject({ level: 0 });
 		expect(await app.deps.levels.get(levelOf(SECOND, 0))).toMatchObject({ level: 0 });
+	});
+
+	it('starts a session on a name tapped in free time, then counts the waltz in', async () => {
+		const name = identify(4, 5);
+		const app = await notesApp({
+			exercises: [WALTZ_LOCATE],
+			cards: [learnedCard(name), learnedCard(FIRST)],
+			levels: [levelOf(FIRST, 0)],
+			// The draw among the reviews falls on the name first.
+			random: () => 0.99
+		});
+		const controller = await startNotes(app, 'learn');
+		const rounds = await playRounds(app, controller, allRight, { rounds: 2 });
+		await runUntil(app, () => controller.view.status === 'verdict');
+		const sounds = app.sounds.emitted();
+		const attempts = await quitAndRead(app, controller);
+		expect(rounds.map((round) => keyOf(round.card))).toEqual([keyOf(name), keyOf(FIRST)]);
+		// The name in 4/4, silent; then a counted bar of 3 at ♩ = 90 and the note on beat 2.
+		const [, note] = rounds;
+		expect(controller.view.tempoBpm).toBe(90);
+		expect((note.anchorBeat as number) - (note.promptBeat as number)).toBe(6);
+		const clicks = sounds.filter((s) => s.sound === 'click' || s.sound === 'click-accent');
+		const accents = clicks.filter((s) => s.sound === 'click-accent').map((s) => s.time);
+		expect(accents.length).toBeGreaterThanOrEqual(3);
+		for (let i = 1; i < accents.length; i++) {
+			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
+		}
+		expect(accents.some((time) => Math.abs(note.dueAt - BEAT_S - time) < 0.005)).toBe(true);
+		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([
+			['identify', true],
+			['locate', true]
+		]);
 	});
 });
