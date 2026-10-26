@@ -10,16 +10,28 @@ import {
 	type RoundPlan,
 	type TempoMap
 } from '$lib/domain/time';
-import type { PlannedItem } from '$lib/domain/types';
+import type { ObservationFate, PlannedItem } from '$lib/domain/types';
+import { logDetection } from '$lib/debug/detectionLog';
 import type { SensorKind } from '$lib/application/mechanics/types';
 import { aidsOf } from '../aids';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation, ObservationSource } from '../sensors';
 import type { Transport } from '../transport';
+import { inFreeTime } from './placement';
 
 /** What a round tells its controller: a miss shown while it listens on, or its settlement (once). */
 export type RunnerEvent =
 	{ kind: 'provisional'; outcome: RoundOutcome } | { kind: 'settled'; outcome: RoundOutcome };
+
+/** Why an observation did not answer, as the detection log says it. */
+const FATE_LOG: Partial<Record<ObservationFate, string>> = {
+	settled: 'une réponse a déjà été prise pour cette demande — celle-ci est ignorée',
+	'before-window':
+		'arrivée avant la consigne ou juste après son apparition, elle appartient à la précédente',
+	'after-capture': 'arrivée après la fin de l’écoute hors temps',
+	'other-sensor': 'ce capteur n’est pas celui que le tour écoute',
+	unreadable: 'lecture illisible'
+};
 
 /** Absorbs the float error of a beat falling exactly on an instant of the round. */
 const TIME_EPSILON_S = 1e-9;
@@ -30,6 +42,8 @@ const TIME_EPSILON_S = 1e-9;
  *
  * It wakes the round (`advance`) on every beat of the map from the prompt to the end of
  * listening (`listenUntilTime`), and at the end of listening itself when no beat falls there.
+ * A round in free time (every expectation `at: null`) has no beat to wake on: it settles on its
+ * answer, or when the controller closes it.
  * It does not wake at the handover, nor at any beat from it on: the controller closes the round
  * there (`close`), after the expectations are withdrawn, so that what a sensor reports at once (a
  * window cut short) lands in the round that ends; a wake-up there would settle it first.
@@ -52,6 +66,9 @@ export class RoundRunner {
 	#closing = false;
 	#closedWith: RoundOutcome | null = null;
 	#withdrawn = false;
+	/** Every expectation is in free time: no beat, no wake-up. */
+	readonly #isFree: boolean;
+	readonly #debug: { lines(payload: unknown): string[] } | null;
 
 	constructor(input: {
 		plan: RoundPlan;
@@ -59,26 +76,37 @@ export class RoundRunner {
 		/** Bar position of the round's start on the transport (fractions allowed). */
 		at: Fraction;
 		chained: boolean;
+		/**
+		 * Audio seconds the controller opened the round at: a round in free time counts its
+		 * prompt from there; a timed round's prompt is on the map.
+		 */
+		openedAt: number;
 		transport: Transport;
 		map: TempoMap;
-		latency: CycleReport['latency'];
+		/** The calibrated latency of a sensor; the round takes that of its first expectation's. */
+		latencyOf: (sensor: SensorKind) => CycleReport['latency'];
 		sources: ReadonlyMap<SensorKind, ObservationSource>;
 		expectation: Partial<Record<SensorKind, unknown>>;
+		/** The presenter's lines for an observation's payload, written to the detection log. */
+		debug?: { lines(payload: unknown): string[] };
 		onEvent: (event: RunnerEvent) => void;
 	}) {
 		const { plan, transport, map } = input;
 		this.#plan = plan;
+		this.#isFree = inFreeTime(plan);
 		this.#sources = input.sources;
 		this.#onEvent = input.onEvent;
+		this.#debug = input.debug ?? null;
 		// Transport bars are bar numbers; the map's positions are whole notes.
 		const barLength = transport.barLength;
 		const start = input.at.mul(barLength);
+		const first = plan.expectations[0];
 		this.#round = new PlanRound({
 			plan,
-			clock: { map, start },
+			clock: this.#isFree ? { promptS: input.openedAt } : { map, start },
 			chained: input.chained,
 			judges: contentJudges,
-			latency: input.latency,
+			latency: first ? input.latencyOf(first.sensor) : null,
 			thresholds: null,
 			aids: aidsOf(input.item)
 		});
@@ -96,6 +124,7 @@ export class RoundRunner {
 	observe(sensor: SensorKind, observation: Observation): void {
 		if (!observation.readable) {
 			this.span.add(sensor, observation, 'unreadable', null);
+			this.#log(sensor, observation, 'unreadable', null);
 			return;
 		}
 		const observed = this.#round.observe({
@@ -111,6 +140,7 @@ export class RoundRunner {
 				: (observed.judged?.correct ?? this.#judge(sensor, observation.payload));
 		// Kept before the event is told: an attempt written on it includes its answer.
 		this.span.add(sensor, observation, observed.fate, correct);
+		this.#log(sensor, observation, observed.fate, correct);
 		this.#tell(observed.event);
 	}
 
@@ -144,6 +174,23 @@ export class RoundRunner {
 		this.#wakeUps = [];
 	}
 
+	#log(
+		sensor: SensorKind,
+		observation: Observation,
+		fate: ObservationFate,
+		correct: boolean | null
+	): void {
+		const reason = FATE_LOG[fate];
+		const lines = [
+			...(reason ? [`raison : ${reason}`] : [`juste : ${correct ? 'oui' : 'non'}`]),
+			`capteur : ${sensor}, t = ${observation.time.toFixed(3)} s`
+		];
+		if (fate !== 'other-sensor' && fate !== 'unreadable') {
+			lines.push(...(this.#debug?.lines(observation.payload) ?? []));
+		}
+		logDetection(fate === 'answer' ? 'observation prise' : 'observation ignorée', lines);
+	}
+
 	#wake(time: number): void {
 		this.#tell(this.#round.advance(time));
 	}
@@ -174,6 +221,7 @@ export class RoundRunner {
 	 * handover, the end of listening too when it falls between beats.
 	 */
 	#wakePositions(map: TempoMap, start: Fraction): Fraction[] {
+		if (this.#isFree) return [];
 		const { promptTime, listenUntilTime, handoverTime } = this.#round;
 		const inRound = (time: number) =>
 			time <= listenUntilTime + TIME_EPSILON_S &&

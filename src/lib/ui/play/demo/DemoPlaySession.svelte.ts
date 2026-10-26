@@ -1,13 +1,16 @@
-import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
+import { locatePresenter, type NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { NoteVerdictView } from '$lib/application/mechanics/noteVerdict';
 import type {
 	LaneEntry,
 	PlaySessionController,
 	PlayTimeline,
-	PlayView,
-	VerdictView
+	PlayView
 } from '$lib/application/session/contract';
+import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
+import { formatNote, openPitch, spellPitch, type LocateItem } from '$lib/domain/music';
+import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
 import type { ResponseVerdict } from '$lib/domain/types';
-import { playMessages } from '../messages';
+import { i18n } from '$lib/i18n/index.svelte';
 
 export interface DemoClock {
 	nowBeat(): number;
@@ -31,23 +34,28 @@ export class ManualDemoClock implements DemoClock {
 	}
 }
 
-const SCRIPT: {
-	primary: string;
-	stringName: string;
-	verdict: ResponseVerdict;
-	offsetMs: number;
-	reactionMs: number;
-}[] = [
-	{ primary: 'F', stringName: 'B', verdict: 'perfect', offsetMs: 12, reactionMs: 980 },
-	{ primary: 'C', stringName: 'G', verdict: 'perfect', offsetMs: -8, reactionMs: 1100 },
-	{ primary: 'A', stringName: 'D', verdict: 'early', offsetMs: -120, reactionMs: 900 },
-	{ primary: 'E', stringName: 'A', verdict: 'wrong', offsetMs: 40, reactionMs: 1300 },
-	{ primary: 'F', stringName: 'B', verdict: 'late', offsetMs: 95, reactionMs: 1210 }
+/** The notes played, and how each went: the wrong one is answered with its string's open note. */
+const SCRIPT: { item: LocateItem; verdict: ResponseVerdict; offsetMs: number }[] = [
+	{ item: { string: 2, pitch: 'F' }, verdict: 'perfect', offsetMs: 12 },
+	{ item: { string: 3, pitch: 'C' }, verdict: 'perfect', offsetMs: -8 },
+	{ item: { string: 4, pitch: 'A' }, verdict: 'early', offsetMs: -120 },
+	{ item: { string: 5, pitch: 'E' }, verdict: 'wrong', offsetMs: 40 },
+	{ item: { string: 2, pitch: 'F' }, verdict: 'late', offsetMs: 95 }
 ];
 
-const COUNT_IN = 4;
+const BEATS_PER_BAR = 4;
+const COUNT_IN = BEATS_PER_BAR;
 const LEAD = 8;
+/** The breathing bar after a target: its verdict stays, then the next note comes. */
+const BREATH_BEATS = RESPIRATION_BARS * BEATS_PER_BAR;
 
+/** Spells the demo's notes always alike. */
+const noRandom = () => 0;
+
+/**
+ * Scripted mode 1 session without audio, for the demo page and tests: it fills the stage with
+ * the note lane's model, as the locate presenter draws it, from the injectable clock.
+ */
 export class DemoPlaySession implements PlaySessionController {
 	readonly sessionId = 'demo-play';
 	readonly view: PlayView;
@@ -55,9 +63,11 @@ export class DemoPlaySession implements PlaySessionController {
 
 	#clock: DemoClock;
 	#step = 0;
+	#history: LaneEntry[] = [];
 	#promptBeat: number | null = null;
 	#targetBeat: number | null = null;
-	#pausedBeat: number | null = null;
+	/** The beat the next note comes on, while a verdict stays through the breath. */
+	#nextPromptBeat: number | null = null;
 
 	constructor(options: { clock?: DemoClock; tempoBpm?: number } = {}) {
 		this.#clock = options.clock ?? new ManualDemoClock();
@@ -66,7 +76,7 @@ export class DemoPlaySession implements PlaySessionController {
 			prompt: null,
 			lastVerdict: null,
 			tempoBpm: options.tempoBpm ?? DEFAULT_TEMPO_BPM,
-			beatsPerBar: 4,
+			beatsPerBar: BEATS_PER_BAR,
 			promptBeatIndex: null,
 			targetBeatIndex: null,
 			followUp: null,
@@ -87,60 +97,61 @@ export class DemoPlaySession implements PlaySessionController {
 		};
 	}
 
+	/** The note lane on stage, when the demo shows it. */
+	get lane(): NoteLaneModel | null {
+		return this.view.stage ? (this.view.stage.model as NoteLaneModel) : null;
+	}
+
 	async start(): Promise<void> {
 		this.#step = 0;
-		this.view.history = [];
-		this.view.lastVerdict = null;
-		this.view.prompt = null;
-		this.view.promptBeatIndex = null;
-		this.view.targetBeatIndex = null;
-		this.view.leadBeats = null;
+		this.#history = [];
 		this.#clock.setBeat(0);
 		this.#promptBeat = null;
 		this.#targetBeat = null;
+		this.#nextPromptBeat = null;
+		// The first string shows under the counted bar.
+		this.#show({ anchorBeat: null, promptBeat: null, verdict: null });
 		this.view.status = 'count-in';
+		this.view.countdown = COUNT_IN;
 	}
 
 	/** Drive the script from the injectable clock. Call after advancing the clock. */
 	tick(): void {
-		if (
-			this.view.status === 'idle' ||
-			this.view.status === 'finished' ||
-			this.view.status === 'paused'
-		) {
-			return;
-		}
+		const status = this.view.status;
+		if (status === 'idle' || status === 'finished' || status === 'paused') return;
 		const now = this.#clock.nowBeat();
-		if (this.view.status === 'count-in' && now >= COUNT_IN) {
-			this.#openStep(COUNT_IN);
+		if (status === 'count-in') {
+			if (now >= COUNT_IN) {
+				this.view.countdown = null;
+				this.#openStep(COUNT_IN);
+			} else {
+				this.view.countdown = COUNT_IN - Math.floor(now);
+			}
 			return;
 		}
-		if (
-			(this.view.status === 'awaiting' || this.view.status === 'verdict') &&
-			this.#targetBeat !== null &&
-			now >= this.#targetBeat &&
-			this.view.history.every((h) => h.beatIndex !== this.#targetBeat)
-		) {
+		if (status === 'awaiting' && this.#targetBeat !== null && now >= this.#targetBeat) {
 			this.#judge();
+			return;
+		}
+		if (status === 'verdict' && this.#nextPromptBeat !== null && now >= this.#nextPromptBeat) {
+			this.#openStep(this.#nextPromptBeat);
 		}
 	}
 
 	pause(): void {
-		if (
-			this.view.status !== 'awaiting' &&
-			this.view.status !== 'count-in' &&
-			this.view.status !== 'verdict'
-		) {
-			return;
-		}
-		this.#pausedBeat = this.#clock.nowBeat();
+		const status = this.view.status;
+		if (status !== 'awaiting' && status !== 'count-in' && status !== 'verdict') return;
 		this.view.status = 'paused';
 	}
 
 	resume(): void {
 		if (this.view.status !== 'paused') return;
-		this.#pausedBeat = null;
-		this.view.status = this.#promptBeat === null ? 'count-in' : 'awaiting';
+		this.view.status =
+			this.#promptBeat === null
+				? 'count-in'
+				: this.#nextPromptBeat !== null
+					? 'verdict'
+					: 'awaiting';
 	}
 
 	answer(_value: string): void {
@@ -152,55 +163,57 @@ export class DemoPlaySession implements PlaySessionController {
 
 	quit(): void {
 		this.view.status = 'finished';
-		this.view.prompt = null;
+		this.view.stage = null;
+		this.view.countdown = null;
+	}
+
+	#show(place: Pick<NoteLaneModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
+		const { item } = SCRIPT[this.#step];
+		this.view.stage = {
+			view: 'note-lane',
+			model: {
+				prompt: locatePresenter.prompt(
+					item,
+					{ aid: 'none', stringAid: false },
+					i18n.locale,
+					noRandom
+				),
+				history: this.#history,
+				...place
+			} satisfies NoteLaneModel
+		};
 	}
 
 	#openStep(promptBeat: number): void {
+		this.#nextPromptBeat = null;
 		if (this.#step >= SCRIPT.length) {
-			this.view.status = 'finished';
-			this.view.prompt = null;
-			this.view.promptBeatIndex = null;
-			this.view.targetBeatIndex = null;
-			this.view.leadBeats = null;
+			this.quit();
 			return;
 		}
-		const t = playMessages();
-		const item = SCRIPT[this.#step];
 		this.#promptBeat = promptBeat;
 		this.#targetBeat = promptBeat + LEAD;
-		this.view.promptBeatIndex = this.#promptBeat;
-		this.view.targetBeatIndex = this.#targetBeat;
-		this.view.leadBeats = 8;
-		this.view.prompt = {
-			primary: item.primary,
-			secondary: t.stringOf(item.stringName),
-			aid: null,
-			diagram: null
-		};
-		this.view.lastVerdict = null;
+		this.#show({ anchorBeat: this.#targetBeat, promptBeat, verdict: null });
 		this.view.status = 'awaiting';
 	}
 
 	#judge(): void {
-		const item = SCRIPT[this.#step];
+		const { item, verdict, offsetMs } = SCRIPT[this.#step];
 		const target = this.#targetBeat!;
-		const entry: LaneEntry = { beatIndex: target, verdict: item.verdict };
-		this.view.history = [...this.view.history, entry];
-		const verdictView: VerdictView = {
-			verdict: item.verdict,
-			offsetMs: item.offsetMs,
-			reactionMs: item.reactionMs,
-			answerLabel: item.primary,
-			correction:
-				item.verdict === 'wrong' ? `${playMessages().stringOf(item.stringName)}, case 7` : null
+		this.#history = [...this.#history, { beatIndex: target, verdict }];
+		const told: NoteVerdictView = {
+			verdict,
+			offsetMs,
+			answerLabel:
+				verdict === 'wrong' ? openPitch(item.string) : formatNote(spellPitch(item.pitch, noRandom)),
+			correction: locatePresenter.reveal(
+				item,
+				{ correct: verdict !== 'wrong', verdict },
+				i18n.locale
+			)
 		};
-		this.view.lastVerdict = verdictView;
+		this.#show({ anchorBeat: target, promptBeat: this.#promptBeat, verdict: told });
 		this.view.status = 'verdict';
 		this.#step += 1;
-		const nextPrompt = target;
-		queueMicrotask(() => {
-			if (this.view.status !== 'verdict') return;
-			this.#openStep(nextPrompt);
-		});
+		this.#nextPromptBeat = target + BREATH_BEATS;
 	}
 }

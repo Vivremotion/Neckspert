@@ -1,4 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { freePlan } from '$lib/domain/exercise/roundPlans';
+import { NAME_CONTENT } from '$lib/domain/judges';
 import { gesturePlan } from '$lib/domain/gesture/plans';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
@@ -7,6 +9,7 @@ import {
 	Fraction,
 	METER_4_4,
 	clickAccompaniment,
+	type CycleReport,
 	type ResponseValue,
 	type RoundPlan
 } from '$lib/domain/time';
@@ -15,9 +18,12 @@ import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { gridExpectation } from '$lib/application/mechanics/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
 import { shapeId } from '$lib/testing/shapes';
+import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
 import { Transport } from '../transport';
 import { RoundRunner, type RunnerEvent } from './roundRunner';
+
+vi.mock('$lib/debug/detectionLog', () => ({ logDetection: vi.fn() }));
 
 const G_B_E: StringNumber[] = [3, 2, 1];
 const IOHEFY = gridChanges(gridById('iohefy-a'));
@@ -66,7 +72,16 @@ class CutShortVerifier extends FakeChordVerifier {
  * first bar after the listen-in and the counted bar; its prompt shows a beat before, its change
  * opens 200 ms early, it hands over 200 ms before its end.
  */
-async function setup(options: { plan?: RoundPlan } = {}) {
+async function setup(
+	options: {
+		plan?: RoundPlan;
+		chained?: boolean;
+		/** Seconds after the first change's target the controller opens the round at. */
+		openedAfter?: number;
+		latencyOf?: (sensor: string) => CycleReport['latency'];
+		debug?: { lines(payload: unknown): string[] };
+	} = {}
+) {
 	const clock = new FakeClock();
 	const sounds = new FakeSoundScheduler(clock);
 	const transport = new Transport({ clock, sounds });
@@ -97,15 +112,17 @@ async function setup(options: { plan?: RoundPlan } = {}) {
 		plan: options.plan ?? gesturePlan(item, METER_4_4),
 		item: planned,
 		at: Fraction.of(playFrom),
-		chained: false,
+		chained: options.chained ?? false,
+		openedAt: t0 + (options.openedAfter ?? -0.5),
 		transport,
 		map,
-		latency: { ms: 0, provenance: 'system' },
+		latencyOf: options.latencyOf ?? (() => ({ ms: 0, provenance: 'system' })),
 		sources: new Map([
 			['chord', chord],
 			['note', note]
 		]),
 		expectation: { chord: gridExpectation(item, t0 - 0.5) },
+		debug: options.debug,
 		onEvent: (event) => events.push({ at: clock.now(), event })
 	});
 	// The controller routes each source's observations to the open round.
@@ -133,6 +150,8 @@ async function setup(options: { plan?: RoundPlan } = {}) {
 const valueOf = (event: RunnerEvent) => event.outcome.verdict.value as ResponseValue;
 
 describe('RoundRunner', () => {
+	beforeEach(() => vi.mocked(logDetection).mockClear());
+
 	it('tells each sensor what to listen for, and the others nothing', async () => {
 		const ctx = await setup();
 		expect(ctx.verifier.expectations).toEqual([gridExpectation(item, ctx.t0 - 0.5)]);
@@ -249,5 +268,94 @@ describe('RoundRunner', () => {
 		ctx.runTo(ctx.t0 + 1.79);
 		expect(ctx.events).toEqual([]);
 		expect(ctx.verifier.expectations).toHaveLength(1);
+	});
+
+	it('wakes a round in free time never, and settles it on its answer', async () => {
+		const plan = freePlan({
+			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
+			recallThresholdMs: 3000
+		});
+		const ctx = await setup({ plan });
+		expect(ctx.runner.handoverTime).toBeNull();
+		// Seconds of silence pass: no beat, no end of listening wakes the round.
+		ctx.runTo(ctx.t0 + 30);
+		expect(ctx.events).toEqual([]);
+		ctx.runner.observe('tap', { time: ctx.t0 + 30.5, payload: 'C', readable: true });
+		expect(ctx.events.map((e) => e.event.kind)).toEqual(['settled']);
+		expect(ctx.events[0].event.outcome).toMatchObject({ success: true, correct: true });
+		expect(ctx.runner.span.snapshot()).toMatchObject([
+			{ sensor: 'tap', fate: 'answer', correct: true }
+		]);
+	});
+
+	it('counts a round in free time from the instant the controller opens it', async () => {
+		const plan = freePlan({
+			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
+			recallThresholdMs: 3000
+		});
+		// Opened a little after the downbeat its bar starts on, at the wake-up.
+		const ctx = await setup({ plan, openedAfter: 0.3 });
+		ctx.runTo(ctx.t0 + 1.4);
+		ctx.runner.observe('tap', { time: ctx.t0 + 1.3, payload: 'C', readable: true });
+		expect(ctx.runner.span.snapshot()[0].atMs).toBeCloseTo(1000, 6);
+		expect(ctx.events[0].event.outcome.verdict.value).toMatchObject({ reactionMs: 1000 });
+	});
+
+	it('gives the round the latency of its own sensor', async () => {
+		const latencyOf = vi.fn(() => ({ ms: 12, provenance: 'player' as const }));
+		await setup({ latencyOf });
+		// The plan listens to the chord sensor only: the note sensor's latency is not asked.
+		expect(latencyOf.mock.calls).toEqual([['chord']]);
+	});
+
+	it('files an observation after the settlement as settled, with the judge’s word', async () => {
+		const ctx = await setup();
+		ctx.runTo(ctx.t0 + 0.03);
+		ctx.verifier.emit(ctx.report(ctx.t0 + 0.02, RIGHT));
+		ctx.runTo(ctx.t0 + 0.6);
+		ctx.verifier.emit(ctx.report(ctx.t0 + 0.5, WRONG));
+		expect(ctx.events).toHaveLength(1);
+		expect(
+			ctx.runner.span.snapshot().map(({ sensor, fate, correct }) => [sensor, fate, correct])
+		).toEqual([
+			['chord', 'answer', true],
+			['chord', 'settled', false]
+		]);
+	});
+
+	it('opens a chained round without a handover at its first opening, and wakes it to its end of listening', async () => {
+		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4) };
+		delete plan.handover;
+		const ctx = await setup({ plan, chained: true });
+		expect(ctx.runner.handoverTime).toBeNull();
+		// The prompt shows when the change opens, 200 ms before it, not a beat before.
+		ctx.verifier.emit(ctx.report(ctx.t0 - 0.1, RIGHT));
+		expect(ctx.runner.span.snapshot()[0].atMs).toBeCloseTo(100, 6);
+		expect(ctx.events.map((e) => e.event.kind)).toEqual(['settled']);
+	});
+
+	it('wakes a chained round without a handover to the end of its bar', async () => {
+		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4) };
+		delete plan.handover;
+		const ctx = await setup({ plan, chained: true });
+		ctx.runTo(ctx.t0 + 1.99);
+		expect(ctx.events.map((e) => e.event.kind)).toEqual(['provisional']);
+		ctx.runTo(ctx.t0 + 2);
+		expect(ctx.events.map((e) => e.event.kind)).toEqual(['provisional', 'settled']);
+	});
+
+	it('writes each observation and its fate to the detection log, with the presenter’s lines', async () => {
+		const lines = vi.fn(() => ['position : 7-6-5']);
+		const ctx = await setup({ debug: { lines } });
+		ctx.runTo(ctx.t0 - 0.4);
+		ctx.verifier.emit(ctx.report(ctx.t0 - 0.43, RIGHT));
+		ctx.runTo(ctx.t0 + 0.03);
+		ctx.verifier.emit(ctx.report(ctx.t0 + 0.02, RIGHT));
+		const logged = vi.mocked(logDetection).mock.calls;
+		expect(logged.map(([title]) => title)).toEqual(['observation ignorée', 'observation prise']);
+		expect(logged[0][1][0]).toContain('raison : arrivée avant la consigne');
+		expect(logged[0][1]).toContain('position : 7-6-5');
+		expect(logged[1][1][0]).toBe('juste : oui');
+		expect(lines).toHaveBeenCalledTimes(2);
 	});
 });

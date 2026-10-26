@@ -214,8 +214,13 @@ describe('a version 3 export of the application before this model', () => {
 		expect(file.attempts.every((attempt) => typeof attempt.verdict === 'string')).toBe(true);
 
 		const v4 = validateBackup(file);
-		expect(v4.version).toBe(4);
-		expect(v4.levelStates).toEqual([]);
+		expect(v4.version).toBe(5);
+		// Version 5 adds the level of each neck card; the exercises' own states start empty.
+		expect(v4.levelStates.map((state) => state.exerciseId)).toEqual(
+			v4.cards
+				.filter((card) => ['locate', 'identify'].includes(card.mechanic))
+				.map((card) => `${card.mechanic}-neck`)
+		);
 		expect(v4.attempts).toHaveLength(file.attempts.length);
 		for (const [index, attempt] of v4.attempts.entries()) {
 			const old = file.attempts[index];
@@ -297,7 +302,7 @@ describe('a version 7 database opened at version 8', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		const attempts = await db.attempts.orderBy('id').toArray();
 		expect(attempts).toHaveLength(file.attempts.length + 1);
 		expect(attempts.slice(0, -1)).toEqual(
@@ -320,7 +325,14 @@ describe('a version 7 database opened at version 8', () => {
 		expect((await db.progressions.count()) + (await db.scopedProgressions.count())).toBe(
 			progressions.length
 		);
-		expect(await db.levelStates.count()).toBe(0);
+		// Version 9 then gave each neck card its level, and only those.
+		expect((await db.levelStates.toArray()).map((state) => state.exerciseId).sort()).toEqual(
+			(file.cards as Row[])
+				.map((card) => String(card.mechanic))
+				.filter((mechanic) => ['locate', 'identify'].includes(mechanic))
+				.map((mechanic) => `${mechanic}-neck`)
+				.sort()
+		);
 		// The indexes still answer.
 		const first = attempts[0];
 		expect((await db.attempts.where('cardKey').equals(first.cardKey).toArray()).length).toBe(

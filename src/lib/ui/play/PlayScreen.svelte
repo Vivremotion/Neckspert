@@ -1,21 +1,20 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import type { PlaySessionController, VerdictView } from '$lib/application/session/contract';
-	import type { ResponseVerdict, SessionKind } from '$lib/domain/types';
+	import type { PlaySessionController } from '$lib/application/session/contract';
+	import type { SessionKind } from '$lib/domain/types';
 	import { laneTiles, laneWindow } from './lane';
 	import { playMessages } from './messages';
+	import { captionOf, formatOffset, HITS } from './verdictLine';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
-	import InfoLine from '$lib/ui/primitives/InfoLine.svelte';
 	import Lane from '$lib/ui/primitives/Lane.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import { i18n } from '$lib/i18n/index.svelte';
+	import QuietField from './QuietField.svelte';
+	import QuietOverlay from './QuietOverlay.svelte';
+	import QuietTop from './QuietTop.svelte';
 	import StringDiagram from './StringDiagram.svelte';
 	import AnswerPanel from './answer/AnswerPanel.svelte';
 	import { showsAnswerPad } from './answer/showsAnswerPad';
-
-	/** The verdicts of a success, said in the centre in the prompt's place. */
-	const HITS: ReadonlySet<ResponseVerdict> = new Set(['perfect', 'early', 'late', 'offbeat']);
 
 	let {
 		controller,
@@ -75,27 +74,9 @@
 	 * string itself; on the answer keyboard the correction is a note name, so the whole prompt.
 	 */
 	const correctionRecall = $derived(answering ? recall : (view.prompt?.primary ?? null));
-	const caption = $derived(verdict ? captionOf(verdict) : null);
+	const caption = $derived(verdict ? captionOf(verdict, t) : null);
 	/** A hit: its verdict, and its offset when timed, take the prompt's place. */
 	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
-
-	/** Signed, with a true minus: « +42 ms », « −8 ms », « 0 ms ». */
-	function formatOffset(ms: number): string {
-		const rounded = Math.round(ms);
-		const sign = rounded > 0 ? '+' : rounded < 0 ? '\u2212' : '';
-		return `${sign}${Math.abs(rounded)} ms`;
-	}
-
-	/** One line over the played cell: the verdict or what was played, then its offset when timed. */
-	function captionOf(v: VerdictView): string {
-		const said =
-			v.verdict === 'wrong'
-				? v.answerLabel
-					? t.playedAs(v.answerLabel)
-					: t.nothingHeard
-				: t.verdict[v.verdict].toLowerCase();
-		return v.offsetMs === null ? said : `${said} · ${formatOffset(v.offsetMs)}`;
-	}
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -139,23 +120,15 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} />
-<section
-	class="play"
-	class:light
-	data-status={view.status}
-	data-plates-only={platesOnly ? '1' : '0'}
->
+<QuietField {light} data-status={view.status} data-plates-only={platesOnly ? '1' : '0'}>
 	{#if !platesOnly}
-		<div class="top">
-			<InfoLine parts={[t.kindName[kind], t.tempo(view.tempoBpm)]}>
-				{#snippet end()}
-					{#if playing}
-						<Button variant="quiet" onclick={() => controller.pause()}>{t.pause}</Button>
-					{/if}
-					<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
-				{/snippet}
-			</InfoLine>
-		</div>
+		<QuietTop
+			parts={[t.kindName[kind], t.tempo(view.tempoBpm)]}
+			{playing}
+			{light}
+			onpause={() => controller.pause()}
+			onleave={leave}
+		/>
 
 		<div class="centre" class:answering>
 			{#if view.status === 'count-in' && view.countdown !== null}
@@ -259,26 +232,17 @@
 			</div>
 		{/if}
 
-		{#if showStart}
-			<div class="overlay">
-				{#if view.status === 'finished'}
-					<p class="how">{t.finished}</p>
-				{:else if view.audioError === 'input'}
-					<p class="how no-input" role="alert">{t.noInput}</p>
-				{:else}
-					<p class="how">{t.howTo[kind]}</p>
-				{/if}
-				<Button onclick={() => controller.start()}
-					>{view.status === 'finished' ? t.again : t.start}</Button
-				>
-			</div>
-		{:else if view.status === 'paused'}
-			<div class="overlay">
-				<Button onclick={() => controller.resume()}>{t.resume}</Button>
-			</div>
-		{/if}
+		<!-- The old controller's briefing is not told here: the pause offers to resume. -->
+		<QuietOverlay
+			status={view.status}
+			audioError={view.audioError}
+			how={t.howTo[kind]}
+			briefing={null}
+			onstart={() => controller.start()}
+			onresume={() => controller.resume()}
+		/>
 	{/if}
-</section>
+</QuietField>
 
 {#snippet contest()}
 	{#if view.contest === 'available'}
@@ -291,76 +255,6 @@
 {/snippet}
 
 <style>
-	.play {
-		/* The info line's ink: the field's tone, or ink on the light page. */
-		--top-ink: var(--np-on-field);
-		/* Chord shapes take the colours of the field. */
-		--shape-ink: var(--np-on-field);
-		--shape-ground: var(--np-text);
-		--shape-accent: var(--np-cell-downbeat);
-		position: relative;
-		display: grid;
-		grid-template-rows: auto 1fr auto;
-		box-sizing: border-box;
-		width: 100%;
-		min-width: 0;
-		min-height: 100dvh;
-		padding: var(--np-step-4) clamp(var(--np-step-2), 3vw, var(--np-step-5)) var(--np-step-6);
-		gap: var(--np-step-4);
-		/* A veil over the lightest stop of the field, under the info line. */
-		background: linear-gradient(rgba(35, 33, 31, 0.4), transparent 160px), var(--np-field);
-		color: var(--np-on-field);
-		font-family: var(--np-font-text);
-		/* Not the pixel world's bold, unsmoothed body. */
-		font-weight: 400;
-		image-rendering: auto;
-		-webkit-font-smoothing: antialiased;
-	}
-
-	.play.light {
-		--top-ink: var(--np-text);
-	}
-
-	.top {
-		--np-text: var(--top-ink);
-	}
-
-	.top :global(.info-parts) {
-		opacity: 0.9;
-	}
-
-	.top :global(.info-end button) {
-		font-size: var(--np-size-meta);
-		text-transform: inherit;
-		letter-spacing: inherit;
-	}
-
-	.top :global(.info-end) {
-		display: flex;
-		align-items: baseline;
-		gap: var(--np-step-3);
-		text-transform: lowercase;
-		letter-spacing: 0.06em;
-	}
-
-	.leave {
-		color: inherit;
-		font-size: var(--np-size-meta);
-		text-decoration: none;
-		padding: var(--np-step-1) 0;
-	}
-
-	.leave:hover,
-	.leave:focus-visible {
-		text-decoration: underline;
-		text-underline-offset: 4px;
-	}
-
-	.leave:focus-visible {
-		outline: 2px solid currentColor;
-		outline-offset: 4px;
-	}
-
 	.centre {
 		/* The prompt's hero word scales to this width (cqi). */
 		container-type: inline-size;
@@ -495,33 +389,5 @@
 		.scene-in {
 			animation: none;
 		}
-	}
-
-	/* Start, end and pause: a light page, the how-to, one amber button. */
-	.overlay {
-		position: absolute;
-		inset: 0;
-		z-index: 1;
-		display: grid;
-		place-items: center;
-		align-content: center;
-		gap: var(--np-step-5);
-		padding: var(--np-step-5);
-		background: var(--np-ground);
-		color: var(--np-text);
-	}
-
-	/* The info line and « quitter » stay above the light page, in ink. */
-	.light .top {
-		position: relative;
-		z-index: 2;
-	}
-
-	.how {
-		margin: 0;
-		max-width: 36rem;
-		font-size: var(--np-size-body);
-		line-height: 1.5;
-		text-align: center;
 	}
 </style>

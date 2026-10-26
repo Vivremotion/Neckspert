@@ -8,10 +8,11 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
-import type { LaneEntry } from '$lib/application/session/contract';
+import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/contract';
+import type { NoteLaneModel } from '$lib/application/mechanics/locate';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
-import { acceptableMidis } from '$lib/domain/music';
+import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeChordVerifier,
@@ -114,13 +115,31 @@ function learnedTriad(mechanic: 'triad-anchor' | 'triad-zone', key: string): Car
 	return { ...card, scheduling: { ...card.scheduling, due: 0 } };
 }
 
-/** Moves the clock by 10 ms steps, the transport's wake-ups run, until `done` or 10 s pass. */
-async function runOnTransport(deps: { clock: FakeClock; sounds: unknown }, done: () => boolean) {
-	for (let step = 0; step < 1000 && !done(); step++) {
-		deps.clock.advance(0.01);
+/** Moves the clock by steps (10 ms), the transport's wake-ups run, until `done` or the steps run out. */
+async function runOnTransport(
+	deps: { clock: FakeClock; sounds: unknown },
+	done: () => boolean,
+	stepS = 0.01,
+	steps = 1000
+) {
+	for (let step = 0; step < steps && !done(); step++) {
+		deps.clock.advance(stepS);
 		(deps.sounds as FakeSoundScheduler).flush();
 		await Promise.resolve();
 	}
+}
+
+/** The note lane on stage, if a note to play is there. */
+function noteLane(controller: { view: PlayView }): NoteLaneModel | null {
+	const stage = controller.view.stage;
+	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+}
+
+/** The lead of a note's round, in beats. */
+function lead(lane: NoteLaneModel | null): number | null {
+	return lane?.anchorBeat != null && lane.promptBeat != null
+		? lane.anchorBeat - lane.promptBeat
+		: null;
 }
 
 function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
@@ -166,22 +185,73 @@ describe('createAppServices', () => {
 		expect(map[0]).toHaveProperty('pitch');
 	});
 
+	it('startSession refuses an exercise session, which starts only through startExercise', async () => {
+		const { services } = harness();
+		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
+	});
+
+	it('plays learn and free sessions on the response series', async () => {
+		for (const kind of ['learn', 'free'] as const) {
+			const { services, deps } = harness();
+			const controller = await services.startSession(kind);
+			expect(controller).toBeInstanceOf(ResponseSeriesController);
+			await controller.ready?.();
+			await controller.start();
+			expect((await deps.sessions.get(controller.sessionId))?.kind).toBe(kind);
+			await runOnTransport(deps, () => controller.view.status === 'awaiting');
+			expect(controller.view.status).toBe('awaiting');
+			expect(['note-lane', 'answer-keys']).toContain(controller.view.stage?.view);
+			// The transport clicks; the old metronome stays still.
+			expect(deps.metronome.isRunning()).toBe(false);
+			controller.quit();
+		}
+	});
+
 	it('startSession(learn) probes the first note of the queue without aid', async () => {
 		const { services, deps } = harness();
 		const controller = await services.startSession('learn');
 		await controller.start();
-		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
-		expect(controller.view.prompt).toMatchObject({
-			primary: 'G',
-			secondary: 'corde de E grave',
-			aid: null
-		});
-		expect(controller.view.leadBeats).toBe(2);
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		const lane = noteLane(controller);
+		expect(controller.view.stage?.view).toBe('note-lane');
+		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave', aid: null });
+		expect(lead(lane)).toBe(2);
+		controller.quit();
 	});
 
-	it('startSession refuses an exercise session, which starts only through startExercise', async () => {
-		const { services } = harness();
-		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
+	it('serves the learning procedure with the stored levels, without null tempos', async () => {
+		const { services, deps } = harness();
+		// A note learned long ago, due: a cold review, served at its stored level.
+		const item = { string: 6 as StringNumber, pitch: 'G' as PitchName };
+		const learned = markLearned(
+			introduceCard({ key: 'locate:6:G', mechanic: 'locate', item }, 0, 's-old'),
+			0
+		);
+		await deps.cards.put({ ...learned, scheduling: { ...learned.scheduling, due: 0 } });
+		// Above the ladder at ♩ = 160 (8, 4): brought to its top, a lead of 4; at the default
+		// tempo the ladder would reach 2, so the lead shows the locate tempo reached the procedure.
+		await deps.levels.put({
+			exerciseId: 'locate-neck',
+			scope: '',
+			item: '6:G',
+			level: 2,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		await deps.progressions.put({
+			exerciseId: 'locate-neck',
+			mechanic: 'locate',
+			tempoBpm: 160,
+			updatedAt: 0
+		});
+		const controller = await services.startSession('learn');
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		const lane = noteLane(controller);
+		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave' });
+		expect(lead(lane)).toBe(4);
+		controller.quit();
 	});
 
 	it('startSession(learn) probes first the notes of a triad being anchored', async () => {
@@ -212,9 +282,10 @@ describe('createAppServices', () => {
 		});
 		const controller = await services.startSession('learn');
 		await controller.start();
-		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		// A on the G string: the first note of D 2-3-2 that locate does not know.
-		expect(controller.view.prompt).toMatchObject({ primary: 'A', secondary: 'corde de G' });
+		expect(noteLane(controller)?.prompt).toMatchObject({ primary: 'A', secondary: 'corde de G' });
+		controller.quit();
 	});
 
 	it('runs locate at its progression tempo, within range, and identify without one', async () => {
@@ -231,12 +302,49 @@ describe('createAppServices', () => {
 			});
 			const controller = await services.startSession('learn');
 			await controller.start();
-			expect(deps.metronome.getTempo()).toBe(expected);
+			expect(controller.view.tempoBpm).toBe(expected);
 			expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
 				{ exerciseId: 'locate-neck', tempoBpm: expected },
 				{ exerciseId: 'identify-neck', tempoBpm: null }
 			]);
+			controller.quit();
 		}
+	});
+
+	it('free-plays a note at the lead of its stored level, on the ladder of the locate tempo', async () => {
+		const { services, deps } = harness();
+		// Every note at level 2: lead 2 at ♩ = 80, brought to the top of [8, 4] at ♩ = 160.
+		for (const card of practiceCards().filter((c) => c.mechanic === 'locate')) {
+			await deps.levels.put({
+				exerciseId: 'locate-neck',
+				scope: '',
+				item: neckCardKey(card).slice('locate:'.length),
+				level: 2,
+				successes: 0,
+				failures: 0,
+				resumeAfter: null
+			});
+		}
+		await deps.progressions.put({
+			exerciseId: 'locate-neck',
+			mechanic: 'locate',
+			tempoBpm: 160,
+			updatedAt: 0
+		});
+		const controller = await services.startSession('free');
+		await controller.start();
+		await runOnTransport(
+			deps,
+			() => {
+				if (controller.view.stage?.view === 'answer-keys' && controller.view.status === 'awaiting')
+					controller.answer('C');
+				return controller.view.status === 'awaiting' && noteLane(controller) !== null;
+			},
+			0.05,
+			2000
+		);
+		expect(lead(noteLane(controller))).toBe(4);
+		controller.quit();
 	});
 
 	it('startSession(free) never prompts an open string', async () => {
@@ -244,61 +352,70 @@ describe('createAppServices', () => {
 		const controller = await services.startSession('free');
 		await controller.start();
 		const prompts: string[] = [];
-		let guard = 0;
-		while (controller.view.status !== 'finished' && guard++ < 2000) {
-			if (controller.view.status === 'awaiting' && controller.view.prompt) {
-				const prompt = controller.view.prompt;
-				const key = `${prompt.primary}|${prompt.secondary}`;
-				if (prompts.at(-1) !== key) prompts.push(key);
-				if (controller.view.scene === 'screen') controller.answer('C');
-			}
-			tick(deps, deps.metronome.secondsPerBeat());
-			await Promise.resolve();
-		}
+		await runOnTransport(
+			deps,
+			() => {
+				if (controller.view.status === 'awaiting' && controller.view.stage) {
+					const { prompt } = controller.view.stage.model as { prompt: PromptView };
+					const key = `${prompt.primary}|${prompt.secondary}`;
+					if (prompts.at(-1) !== key) prompts.push(key);
+					if (controller.view.stage.view === 'answer-keys') controller.answer('C');
+				}
+				return controller.view.status === 'finished';
+			},
+			0.05,
+			8000
+		);
+		expect(controller.view.status).toBe('finished');
 		expect(prompts.length).toBeGreaterThan(0);
 		expect(prompts.some((key) => key.startsWith('case 0|'))).toBe(false);
 		expect(prompts).not.toContain('E|corde de E grave');
 		expect(prompts).not.toContain('A|corde de A');
 	});
 
-	it('startSession(learn) runs the plan from C and exposes a summary', async () => {
+	it('startSession(learn) runs the procedure and exposes a summary', async () => {
 		const { services, deps } = harness();
 		const controller = await services.startSession('learn');
 		await controller.start();
-
-		let guard = 0;
-		while (controller.view.status !== 'finished' && guard++ < 1000) {
-			if (controller.view.status === 'awaiting') {
-				if (
-					controller.view.prompt &&
-					controller.view.scene === 'guitar' &&
-					controller.view.targetBeatIndex !== null
-				) {
-					const due = deps.metronome.beatTime(controller.view.targetBeatIndex);
-					const midi = locateMidiFromPrompt(
-						controller.view.prompt.primary,
-						controller.view.prompt.secondary
-					);
-					deps.detector.emitNote({
-						time: due,
-						midi,
-						frequencyHz: 82.41,
-						clarity: 0.9
-					});
-					await Promise.resolve();
-				} else if (controller.view.prompt && controller.view.scene === 'screen') {
+		let answered: number | null = null;
+		await runOnTransport(
+			deps,
+			() => {
+				const stage = controller.view.stage;
+				if (controller.view.status === 'awaiting' && stage?.view === 'note-lane') {
+					const lane = stage.model as NoteLaneModel;
+					if (
+						lane.anchorBeat !== null &&
+						lane.anchorBeat !== answered &&
+						controller.timeline.nowBeat() >= lane.anchorBeat
+					) {
+						answered = lane.anchorBeat;
+						deps.detector.emitNote({
+							time: deps.clock.now(),
+							midi: locateMidiFromPrompt(lane.prompt.primary, lane.prompt.secondary),
+							frequencyHz: 82.41,
+							clarity: 0.9
+						});
+					}
+				} else if (controller.view.status === 'awaiting' && stage?.view === 'answer-keys') {
 					controller.answer('C');
-					await Promise.resolve();
 				}
-			}
-			tick(deps, deps.metronome.secondsPerBeat());
-		}
+				return controller.view.status === 'finished';
+			},
+			0.05,
+			8000
+		);
 		for (let i = 0; i < 10; i++) await Promise.resolve();
 		expect(controller.view.status).toBe('finished');
 		expect(await deps.sessions.get(controller.sessionId)).toMatchObject({
 			id: controller.sessionId,
 			endedAt: expect.any(Number)
 		});
+		const attempts = await deps.attempts.listBySession(controller.sessionId);
+		expect(attempts.length).toBeGreaterThan(0);
+		// The first note was probed and played right: it is a card now, its level stored.
+		expect(attempts[0]).toMatchObject({ phase: 'probe', success: true });
+		expect(await deps.levels.all()).not.toHaveLength(0);
 		const summary = await services.sessionSummary(controller.sessionId);
 		expect(summary.sessionId).toBe(controller.sessionId);
 	});

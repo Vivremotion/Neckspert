@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 	import { DemoPlaySession, ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
 
@@ -14,6 +16,24 @@
 	/** Beats since the target: the played cell slides back through the breathing bar. */
 	const late = $derived(Number(page.url.searchParams.get('late') ?? 0) || 0);
 	const beat = $derived(page.url.searchParams.get('beat'));
+	/** The triads still play on their own screen: their shot is drawn there. */
+	const triad = $derived(shot === 'triad');
+
+	/** A still note lane: F on the B string, aided or not, at the given place. */
+	function lane(place: Omit<NoteLaneModel, 'prompt'>): { view: string; model: NoteLaneModel } {
+		return {
+			view: 'note-lane',
+			model: {
+				prompt: {
+					primary: 'F',
+					secondary: 'corde de B',
+					aid: withAid ? 'case 6' : null,
+					diagram: withAid ? { string: 2, label: 'B' } : null
+				},
+				...place
+			}
+		};
+	}
 
 	onMount(() => {
 		let raf = 0;
@@ -22,18 +42,13 @@
 			if (shot === 'prompt') {
 				clock.setBeat(13);
 				controller.view.status = 'awaiting';
-				controller.view.prompt = {
-					primary: 'F',
-					secondary: 'corde de B',
-					aid: withAid ? 'case 6' : null,
-					diagram: withAid ? { string: 2, label: 'B' } : null
-				};
-				controller.view.promptBeatIndex = 12;
-				controller.view.targetBeatIndex = 16;
-				controller.view.leadBeats = 4;
-				controller.view.lastVerdict = null;
-				controller.view.preview = null;
-				controller.view.history = [{ beatIndex: 6, verdict: 'late' }];
+				controller.view.countdown = null;
+				controller.view.stage = lane({
+					promptBeat: 12,
+					anchorBeat: 16,
+					history: [{ beatIndex: 6, verdict: 'late' }],
+					verdict: null
+				});
 				ready = true;
 				return;
 			}
@@ -41,6 +56,8 @@
 				// A triad anchor with a long chord name: the root on its target, the chord on the band.
 				clock.setBeat(beat === null ? 12 : Number(beat));
 				controller.view.status = 'awaiting';
+				controller.view.countdown = null;
+				controller.view.stage = null;
 				controller.view.prompt = {
 					primary: 'F#dim',
 					secondary: 'fondamentale sur sol',
@@ -61,37 +78,26 @@
 				return;
 			}
 			if (shot === '1') {
+				// Through the breathing bar after the target, the verdict stays.
 				clock.setBeat(14 + late);
 				controller.view.status = 'verdict';
-				controller.view.prompt = {
-					primary: 'F',
-					secondary: 'corde de B',
-					aid: withAid ? 'case 6' : null,
-					diagram: withAid ? { string: 2, label: 'B' } : null
-				};
-				controller.view.promptBeatIndex = 8;
-				// Through the breathing bar, the next target is not announced yet.
-				controller.view.targetBeatIndex = late > 0 ? null : 16;
-				controller.view.leadBeats = 8;
-				controller.view.history = [
-					{ beatIndex: 6, verdict: 'perfect' },
-					{ beatIndex: 14, verdict: missed ? 'wrong' : 'late' }
-				];
-				controller.view.lastVerdict = missed
-					? {
-							verdict: 'wrong',
-							offsetMs: 30,
-							reactionMs: null,
-							answerLabel: 'F#',
-							correction: 'corde de B, case 6'
-						}
-					: {
-							verdict: 'late',
-							offsetMs: 95,
-							reactionMs: 1210,
-							answerLabel: 'F',
-							correction: null
-						};
+				controller.view.countdown = null;
+				controller.view.stage = lane({
+					promptBeat: 6,
+					anchorBeat: 14,
+					history: [
+						{ beatIndex: 6, verdict: 'perfect' },
+						{ beatIndex: 14, verdict: missed ? 'wrong' : 'late' }
+					],
+					verdict: missed
+						? {
+								verdict: 'wrong',
+								offsetMs: 30,
+								answerLabel: 'F#',
+								correction: 'corde de B, case 6'
+							}
+						: { verdict: 'late', offsetMs: 95, answerLabel: 'F', correction: null }
+				});
 				ready = true;
 				return;
 			}
@@ -113,6 +119,9 @@
 	});
 </script>
 
-{#if ready}
+{#if ready && triad}
 	<PlayScreen {controller} {platesOnly} />
+{:else if ready}
+	<!-- The notes play in the frame, on their own view. -->
+	<PlayFrame {controller} kind="learn" />
 {/if}

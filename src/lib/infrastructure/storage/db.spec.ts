@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import Dexie from 'dexie';
 import { NeckspertDb, createDatabase } from './db';
+import { neckLevelOfCard } from './migrations/v9';
 
 describe('createDatabase', () => {
 	it('uses the app name by default', () => {
@@ -55,7 +56,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -147,7 +148,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		expect(
 			(await db.cards.orderBy('key').toArray()).map((card) => [card.key, card.leadBeats])
 		).toEqual([
@@ -183,7 +184,7 @@ describe('createDatabase', () => {
 		const before = Date.now();
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 
 		const { target: _target, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
@@ -291,7 +292,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		const { aid: _aid, ...kept } = attempt;
 		expect(await db.attempts.toArray()).toEqual([
 			{
@@ -309,10 +310,10 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 8 and stores rows', async () => {
+	it('opens at version 9 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		const progression = {
@@ -455,9 +456,82 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(8);
+		expect(db.verno).toBe(9);
 		expect(await db.progressions.toArray()).toEqual([progression]);
 		expect(db.scopedProgressions.schema.primKey.keyPath).toEqual(['exerciseId', 'scope']);
+		db.close();
+	});
+});
+
+describe('version 9', () => {
+	it('upgrades a version 8 database: each neck card gets its level, nothing else changes', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(8).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			progressions: 'exerciseId',
+			scopedProgressions: '[exerciseId+scope]',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const card = (key: string, leadBeats: number, learnedAt: number | null) => ({
+			key,
+			mechanic: key.split(':')[0],
+			item: {},
+			introducedAt: 1,
+			introducedInSession: 's1',
+			leadBeats,
+			learnedAt,
+			acquiredAt: null,
+			masteredAt: null
+		});
+		const cards = [
+			card('locate:6:F', 4, 5),
+			card('locate:5:A', 2, null),
+			card('identify:6:3', 2, 5),
+			card('triad-anchor:3-2-1:C:maj:root', 2, 5)
+		];
+		const attempts = [
+			{ sessionId: 's1', cardKey: 'locate:6:F', promptedAt: 10, verdict: { v: 1 } }
+		];
+		const progressions = [
+			{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 160, updatedAt: 1 }
+		];
+		const rhythm = {
+			exerciseId: 'rhythm-silent-bars',
+			scope: '',
+			item: '',
+			level: 2,
+			successes: 1,
+			failures: 0,
+			resumeAfter: null
+		};
+		await old.table('cards').bulkAdd(cards);
+		await old.table('attempts').bulkAdd(attempts);
+		await old.table('progressions').bulkAdd(progressions);
+		await old.table('levelStates').add(rhythm);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(9);
+		expect(await db.cards.orderBy('key').toArray()).toEqual(
+			[...cards].sort((a, b) => a.key.localeCompare(b.key))
+		);
+		expect(await db.attempts.toArray()).toEqual([{ ...attempts[0], id: 1 }]);
+		expect(await db.progressions.toArray()).toEqual(progressions);
+		const states = await db.levelStates.toArray();
+		expect(states).toHaveLength(4);
+		expect(states).toContainEqual(rhythm);
+		// Seeded at 80 bpm, the progression's 160 aside: a lead of 4 is level 1.
+		expect(states).toContainEqual(neckLevelOfCard(cards[0]));
+		expect(states).toContainEqual(neckLevelOfCard(cards[1]));
+		expect(states).toContainEqual(neckLevelOfCard(cards[2]));
+		expect(states.find((state) => state.item === '6:F')?.level).toBe(1);
+		expect(states.find((state) => state.item === '5:A')?.level).toBe(0);
+		expect(states.find((state) => state.item === '6:3')?.level).toBe(1);
 		db.close();
 	});
 });

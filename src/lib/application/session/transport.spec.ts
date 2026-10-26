@@ -262,6 +262,30 @@ describe('Transport.countIn', () => {
 		expect(transport.countdownAt(6)).toBe(4);
 	});
 
+	it('shows a silent count without a sound', async () => {
+		const { sounds, transport } = await started();
+		const before = sounds.emitted().length;
+		expect(transport.countIn(4, { audible: false })).toBe(5);
+		expect(sounds.emitted()).toHaveLength(before);
+		expect([0, 1, 2, 3].map((beat) => transport.countdownAt(4, beat))).toEqual([4, 3, 2, 1]);
+		// What follows still goes after the count.
+		expect(() => transport.countIn(4)).toThrow(RangeError);
+	});
+
+	it('begins on a silent count, shown all the same', async () => {
+		const { sounds, transport } = setup();
+		const { playFrom } = await transport.begin({
+			meter: METER_4_4,
+			tempo: tempo(120),
+			accompaniment: clicks,
+			listenInBars: 0,
+			audible: false
+		});
+		expect(playFrom).toBe(1);
+		expect(sounds.emitted()).toEqual([]);
+		expect(transport.countdownAt(0, 0)).toBe(4);
+	});
+
 	it('refuses a count over bars already scheduled', async () => {
 		const { transport } = await started();
 		expect(() => transport.countIn(3)).toThrow(RangeError);
@@ -289,6 +313,19 @@ describe('Transport.changeTempo', () => {
 		expect(added[4].time).toBeCloseTo(start + 2 * 2, 9);
 		expect(transport.countdownAt(12)).toBe(4);
 		expect(transport.countdownAt(13)).toBeNull();
+	});
+
+	it('counts silently at the new tempo when the count is not to be heard', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: offbeats });
+		const before = sounds.emitted().length;
+		const { playFrom } = transport.changeTempo(10, tempo(120), offbeats, {
+			listenInBars: 0,
+			audible: false
+		});
+		expect(playFrom).toBe(11);
+		expect(sounds.emitted()).toHaveLength(before);
+		expect(transport.countdownAt(10)).toBe(4);
 	});
 });
 

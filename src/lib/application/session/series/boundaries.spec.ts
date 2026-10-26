@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES } from '$lib/domain/exercise/catalog';
 import { MECHANIC_RULES } from '$lib/domain/mechanics';
+import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 
 // The response series as raw text, keyed by its path from the project root.
 const sources = import.meta.glob('/src/lib/application/session/series/**/*.ts', {
@@ -22,6 +23,15 @@ const NAMES = [
 		...MECHANIC_RULES.map((rules) => rules.id),
 		...EXERCISES.map((exercise) => exercise.id)
 	])
+];
+
+/** The sensors the presenters name: the series never writes them either. */
+const SENSORS = [
+	...new Set(
+		[NECK_PRESENTERS, TRIAD_PRESENTERS, GESTURE_PRESENTERS].flatMap((presenters) =>
+			Object.values(presenters).flatMap((presenter) => presenter.sensors)
+		)
+	)
 ];
 
 /** What the series never imports, from `src/lib/`: the old timing and the metronome port. */
@@ -53,7 +63,7 @@ function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
 		if (!path.startsWith(MODULE) || /\.spec\.ts$/.test(path)) continue;
-		for (const name of NAMES) {
+		for (const name of [...NAMES, ...SENSORS]) {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
@@ -70,6 +80,15 @@ function offendersIn(files: Record<string, string>): string[] {
 
 describe('the response series', () => {
 	it('names no mechanic nor exercise, and imports no old timing', () => {
+		expect(offendersIn(sources)).toEqual([]);
+	});
+
+	it('names no sensor', () => {
+		expect(SENSORS).toEqual(expect.arrayContaining(['note', 'tap', 'chord']));
+		const file = `${MODULE}x.ts`;
+		for (const sensor of SENSORS) {
+			expect(offendersIn({ [file]: `const s = '${sensor}';` })).toEqual([`${file}: ${sensor}`]);
+		}
 		expect(offendersIn(sources)).toEqual([]);
 	});
 

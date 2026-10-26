@@ -78,4 +78,6 @@ export interface ResponseSeriesDeps {
 	/** The id of a new series started after the end. */
 	newId: () => string;
 	development: boolean;
+	/** Spells the notes: one value is drawn per item taken from the source. */
+	random: () => number;
 }

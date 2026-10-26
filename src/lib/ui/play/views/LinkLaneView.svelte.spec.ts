@@ -31,8 +31,10 @@ function model(
 		item,
 		null,
 		'fr',
-		{ aid: aided ? 'show-position' : 'none' },
-		{ anchorBeat, history: [] }
+		{ aid: aided ? 'show-position' : 'none', stringAid: false },
+		{ anchorBeat, promptBeat: anchorBeat === null ? null : anchorBeat - 1, history: [] },
+		undefined,
+		() => 0
 	).model as LinkLaneModel;
 }
 

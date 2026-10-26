@@ -44,7 +44,9 @@ export class StageController implements PlaySessionController {
 		this.view.status = 'count-in';
 	}
 
-	answer(): void {}
+	answer(value: string): void {
+		this.calls.push(`answer ${value}`);
+	}
 
 	contest(): void {
 		this.calls.push('contest');

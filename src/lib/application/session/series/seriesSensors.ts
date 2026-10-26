@@ -15,9 +15,9 @@ export class SeriesSensors {
 		}
 	) {}
 
-	/** Opens them with the calibrated latency; each observation goes to `onObservation` as it arrives. */
+	/** Opens each with the calibrated latency of its sensor; each observation goes to `onObservation` as it arrives. */
 	open(
-		latencyMs: number,
+		latencyOf: (kind: SensorKind) => number,
 		onObservation: (kind: SensorKind, observation: Observation) => void
 	): void {
 		this.close();
@@ -25,7 +25,7 @@ export class SeriesSensors {
 		for (const kind of kinds) {
 			const factory = this.deps.sensors[kind];
 			if (!factory) throw new Error(`No factory for sensor: ${kind}`);
-			const source = factory({ latencyMs, clock: this.deps.clock });
+			const source = factory({ latencyMs: latencyOf(kind), clock: this.deps.clock });
 			this.sources.set(kind, source);
 			this.unsubscribe.push(
 				source.onObservation((observation) => onObservation(kind, observation))

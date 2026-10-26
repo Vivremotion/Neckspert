@@ -79,7 +79,8 @@
 				key: 'learn',
 				title: t.session,
 				why: reviews ?? undefined,
-				duration: formatMinutes(LEARN_SESSION_MS, words),
+				// The notes play on the response series: one session length, as every exercise.
+				duration: formatMinutes(SESSION_MS, words),
 				onselect: onstart
 			}
 		];

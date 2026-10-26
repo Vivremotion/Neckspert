@@ -9,7 +9,6 @@ import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
 import type { ItemSource } from '$lib/domain/progress';
-import { METER_4_4 } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Execution, PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
@@ -158,11 +157,12 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					sessionId,
 					rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
 				}),
-			plans: (item) => gesturePlan(item.item as ChordGridItem, METER_4_4),
+			plans: (item, meter) => gesturePlan(item.item as ChordGridItem, meter),
 			exercise: exerciseById,
 			locale,
 			newId: () => `demo-gesture-${++ids}`,
-			development: true
+			development: true,
+			random: Math.random
 		}
 	);
 

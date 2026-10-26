@@ -17,13 +17,18 @@ import type {
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
+/** Whether the click is heard on a scene: on the guitar, not while the player taps the screen. */
+export const SCENE_CLICKS: Readonly<Record<Scene, boolean>> = { guitar: true, screen: false };
+
 /** Names an observation source of the session: 'note' and 'chord' (played), 'tap' (on screen). */
 export type SensorKind = string;
 
-/** Where a prompt's view places it: the beat of its target, and the rounds played before it. */
+/** Where a prompt's view places it: the beats of its prompt and target, and the rounds played before it. */
 export interface StagePlace {
 	/** The beat of the target, in the tempo map's beats from the series' start; null before. */
 	anchorBeat: number | null;
+	/** The beat of the prompt, in the same beats; null while the item is not placed yet. */
+	promptBeat: number | null;
 	history: readonly LaneEntry[];
 }
 
@@ -33,6 +38,11 @@ export interface MechanicPresenter<I = any, A = any> {
 	scene: Scene;
 	/** Every sensor whose observations answer it; the others are filed as another sensor's. */
 	sensors: SensorKind[];
+	/**
+	 * Beats before its prompt that an item following without a counted bar is shown (D5), the
+	 * settled round staying until then; absent: shown at its prompt.
+	 */
+	previewBeats?: number;
 	prompt(
 		item: I,
 		aids: { aid: AidLevel; stringAid: boolean },
@@ -86,16 +96,19 @@ export interface MechanicPresenter<I = any, A = any> {
 	 * The screen model of a prompt on the target model: before its round (`settled` null) and
 	 * once settled, from the round's response value; `place` tells the view where it stands, and
 	 * `drawing` how its chord shapes are drawn (the settings' style, default
-	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one).
+	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one). `random` spells a note:
+	 * the series gives every call for one item the same value, so a note is written alike from
+	 * its preview to its settlement.
 	 * Beside `stage`, which the one-answer controller keeps until the migration.
 	 */
 	stageOf?(
 		item: I,
 		settled: { value: ResponseValue; success: boolean } | null,
 		locale: Locale,
-		aids: { aid: AidLevel },
+		aids: { aid: AidLevel; stringAid: boolean },
 		place: StagePlace,
-		drawing?: { chordDiagram: ChordDiagramStyle }
+		drawing: { chordDiagram: ChordDiagramStyle } | undefined,
+		random: () => number
 	): { model: unknown };
 	/** The mechanic's `Attempt.data` for a round answered with `value`. */
 	attemptData?(item: I, value: ResponseValue): unknown;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { identifyRules } from '$lib/domain/mechanics';
-import { identifyPresenter } from './identify';
+import type { ResponseValue } from '$lib/domain/time';
+import { identifyPresenter, type AnswerKeysModel } from './identify';
 import { NECK_PRESENTERS } from './index';
 
 const item = { string: 5, fret: 8 } as const;
@@ -66,5 +67,60 @@ describe('identifyPresenter', () => {
 	it('reveals nothing on a right name', () => {
 		expect(identifyPresenter.reveal(item, { correct: true, verdict: 'perfect' }, 'fr')).toBeNull();
 		expect(identifyPresenter.reveal(item, { correct: true, verdict: 'late' }, 'fr')).toBeNull();
+	});
+
+	const place = { anchorBeat: null, promptBeat: null, history: [] };
+	const valueOf = (pitch: string | null): ResponseValue => ({
+		verdict: pitch === 'F' ? 'perfect' : 'wrong',
+		timingOffsetMs: null,
+		reactionMs: 900,
+		leadMs: null,
+		expectations: [
+			{
+				index: 0,
+				answer: pitch === null ? null : { pitch },
+				correct: pitch === null ? null : pitch === 'F',
+				confusion: pitch === 'F' || pitch === null ? null : { kind: 'semitone' },
+				correction: null,
+				late: false
+			}
+		]
+	});
+
+	it('offers the twelve names and says the name after a miss', () => {
+		const stageOf = identifyPresenter.stageOf!;
+		const before = stageOf(item, null, 'fr', unaided, place, undefined, () => 0)
+			.model as AnswerKeysModel;
+		expect(before.choices).toHaveLength(12);
+		expect(before.verdict).toBeNull();
+		expect(before.prompt.primary).toBe('case 8');
+		const miss = stageOf(
+			item,
+			{ value: valueOf('G'), success: false },
+			'fr',
+			unaided,
+			place,
+			undefined,
+			() => 0
+		).model as AnswerKeysModel;
+		expect(miss.verdict).toEqual({
+			verdict: 'wrong',
+			offsetMs: null,
+			answerLabel: 'G',
+			correction: 'F'
+		});
+	});
+
+	it('keeps the data an identify attempt has today', () => {
+		expect(identifyPresenter.attemptData!(item, valueOf('G'))).toEqual({
+			item,
+			answer: { pitch: 'G' },
+			confusion: { kind: 'semitone' }
+		});
+		expect(identifyPresenter.attemptData!(item, valueOf(null))).toEqual({
+			item,
+			answer: null,
+			confusion: null
+		});
 	});
 });

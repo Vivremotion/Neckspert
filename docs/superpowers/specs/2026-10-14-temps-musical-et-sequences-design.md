@@ -959,33 +959,148 @@ Branche `plan/temps-musical-h3`, plan `docs/superpowers/plans/2026-10-24-h3-cont
 - Quitter pendant la demande d’autorisation du micro peut laisser l’entrée ouverte (même course que l’ancien contrôleur).
 - À H5, fusionner `ResponseSeriesController` et `PlanSessionController`.
 
-## Reprise (état au 2026-10-25)
+### Réalisation du plan H4 (2026-10-25)
 
-Ce qu’il faut lire pour reprendre H après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23 et les sections « Réalisation » de H1, H2 et H3 ci-dessus.
+Branche `plan/temps-musical-h4`, plan `docs/superpowers/plans/2026-10-25-h4-les-notes.md`. Les notes (Apprentissage : localiser et identifier ; Jeu libre) jouent sur `ResponseSeriesController`, avec la procédure d’apprentissage de H2 branchée, dans `PlayFrame` avec leurs vues `note-lane` et `answer-keys`. Ce que la réalisation a décidé contre l’amendement ou le plan :
+
+- **D1 — Dexie 9 et la sauvegarde 5 ne sèment que les niveaux des notes** (`storage/migrations/v9.ts`) : chaque carte `locate` et `identify` reçoit le `LevelState` de son avance sur l’échelle de localiser à 80 bpm, quel que soit le tempo de sa progression, puisque localiser passe à 80 bpm fixes (amendement du 2026-10-26 ; changé avant la fusion de H4) (échelle figée `NECK_LADDER_V9`, test fil-piège contre le catalogue) ; les cartes des triades n’en reçoivent pas. Le chemin des notes ne lit ni n’écrit plus `CardState.leadBeats` (une carte nouvelle garde le `PLACEHOLDER_LEAD`) ; le champ reste pour les triades. H5 fait la même étape pour les triades et retire le champ (Dexie 10, sauvegarde 6) ; **le chantier 2 prend la version 11**.
+- **D2 — Une seule règle de placement pour tout tour minuté** (`series/placement.ts`, `timedStart`) : un tour commence au premier début de mesure `≥ earliest` dont la consigne tombe au plus `PROMPT_BEFORE_EARLIEST_BEATS` (1) temps avant `earliest` ; `earliest` est la fin de la mesure comptée, ou la fin du tour précédent quand il n’a pas de passage de main (la respiration). Elle redonne l’ancienne grille (avance 8 et 4 : consigne sur le temps 1 ; avance 2 : sur le temps 3) et l’ancien `targetOffset` du geste. **Pour l’auteur** : en 3/4, cette tolérance raccourcit la respiration à deux temps à l’avance 4 (aucun localiser en 3/4 aujourd’hui).
+- **D3 — Le temps libre garde la carte de tempo** : un tour dont toutes les attentes sont `at: null` (identifier) s’ouvre au premier temps qui suit `earliest` (`nextBeat`), n’est réveillé par rien, se règle à sa réponse ; le suivant part du temps qui suit ce règlement. Sa consigne est l’instant réel d’ouverture par le contrôleur (passé au lanceur comme `{ promptS }`), pour que le temps de réaction et `promptedAt` aient la même origine.
+- **D4 — La scène tait le clic** (`SCENE_CLICKS`, `mechanics/types.ts` : `guitar` clique, `screen` non) : la série ne programme des mesures cliquées que sur une scène qui clique, et une mesure comptée avant une scène muette se montre sans sonner. `audible` existe aussi sur `Transport.begin` et `changeTempo` (au-delà du plan, nécessaire à D4). Une séance qui commence par identifier part au tempo de localiser (ou `DEFAULT_TEMPO_BPM`), sans clic, et la première consigne de localiser vient après une mesure comptée qui sonne.
+- **D5 — L’aperçu de la consigne est une donnée du présentateur** (`MechanicPresenter.previewBeats?`, `STRING_PREVIEW_BEATS` pour localiser) : l’item qui suit sans mesure comptée se montre ce nombre de temps avant sa consigne, la corde seule (`anchorBeat === null`) ; jusque-là le tour réglé reste avec sa correction.
+- **D6 — Le mètre vient de l’exercice** (`ExerciseDefinition.meter?`, absent : `METER_4_4`), reçu par `PlanSource(item, meter)` ; un item d’un autre mètre que celui du transport lève une erreur.
+- **D7 — écartée par l’auteur après la réalisation (2026-10-25)** : la règle « le niveau ramené n’est pas réécrit » et son exception pour la phase d’apprentissage sont retirées. Elle n’évitait qu’une révision notée Difficile, une fois, pour une note jouée à 160 bpm (seul tempo où le haut de l’échelle est l’avance 4) puis à un tempo plus lent ; elle coûtait une règle et une exception dans la procédure. Chaque essai écrit le niveau auquel la note a été annoncée : une note dont le niveau enregistré est celui de l’avance 2 est annoncée avec 4 temps d’avance dans une séance à 160 bpm (le haut de l’échelle à ce tempo) ; réussie, son niveau enregistré devient celui de l’avance 4, et dans une séance plus lente elle regagne l’avance 2 en une réussite.
+- **D8 — Le journal de détection suit les présentateurs** : `RoundRunner` écrit par `logDetection` le sort de chaque observation et les `debugLines` du présentateur ; le geste y gagne aussi. Les lignes de décision de l’ancien contrôleur (réponse en attente, fenêtre close sans réponse) ne sont pas reprises.
+- **L’enregistreur apprend, génériquement** : `AttemptRecorder.recordResponse(attempt, span, item)` prend la température (`probeTemperature` sur le `recall` du sujet, rendu par `prepare`), applique FSRS (`applyColdAttempt`), écrit la carte rendue par `ItemSource.record` et le niveau de l’item ; sans `recall` pour un sondage ou un apprenant `memory`, il lève une erreur de câblage.
+- **La latence par capteur** vit dans `SeriesSensors.open` et `RoundRunner` (lue de `settings.latency`), et non plus `latency.note` pour tous.
+- **La réponse tapée entre comme une observation** : `answer(value)` pousse la touche à chaque source nourrie par l’écran pendant qu’un tour attend ou montre son verdict ; une touche avant la consigne n’est pas une réponse, la seconde après le règlement est `settled` et rangée dans l’étendue.
+- **Le Jeu libre prend l’avance de localiser dans `levelStates`** (`freeLeadOf`) : le niveau de la carte sur l’échelle du sujet au tempo de localiser, niveau 0 sans état ; plus `CardState.leadBeats`.
+- **`learnSelector`, `progress/sequence.ts` et `SEQUENCES_ENABLED` sont supprimés** ; les notes ne lisent plus `LEARN_SESSION_MS` (seules les triades le gardent, à l’accueil comme en séance, jusqu’à H5 ; l’accueil affiche `SESSION_MS` pour les notes) : une séance dure `SESSION_MS`, aucun tour qui ne continue pas un passage de main ne commence après.
+- **Un tour en temps libre ne prend pas de case sur la piste** : son verdict n’entre pas dans `history`, la piste de localiser qui suit ne montre que les tours sur le temps.
+- **Une mesure comptée après un tour en temps libre ne commence jamais avant `START_DELAY_S`** (le délai de départ du transport) : si la mesure visée commence plus tôt, la suivante est prise (`audibleBar`).
+- **`resume` termine la séance quand `SESSION_MS` a passé** pendant la pause, l’item tenu pendant la respiration compris : une reprise n’est jamais un passage de main.
+- **`noteVerdict` est partagé** (`application/mechanics/noteVerdict.ts`) : identifier n’importe plus localiser ; deux vues indépendantes depuis un bloc commun.
+- **`PlayFrame` prend le monde de sa vue** (tâche 8b, ajoutée en cours de plan) : chaque vue déclare son monde dans le registre (`VIEW_WORLDS` : `note-lane` et `answer-keys` en `quiet`, les autres en `pixel`), et le cadre se dessine dans ce monde, l’habillage calme partagé avec `PlayScreen` ; un écran ne mêle jamais les deux mondes. Sans vue en scène (accueil de séance, fin), le monde vient du genre de séance (`learn`/`free` → calme). La pause calme n’a ni « Réécouter » ni « Quitter l’exercice » (aucune vue calme ne joue de figure). Le joueur des notes voit donc ce qu’il voyait avant H4.
+- **Les vues des notes dessinent le décompte au centre de leur champ** ; le cadre ne le dessine que sans vue en scène.
+- **`/session` encadre** `learn`, `free`, `gesture` et `exercise` dans `PlayFrame` ; seules les triades gardent `PlayScreen`.
+- **Le test de frontière de la série** est étendu aux capteurs : `series/` ne nomme ni `'tap'` ni `'note'`.
+
+**Ce qui reste à H5**
+
+- Les triades sur la série, et tout ce que la contrainte « les triades ne changent pas » a gardé : `SessionController`, `PlayScreen`, `triadSelector`, `AttemptRecorder.record`, `cardLeadAfter`, `CardState.leadBeats`, `domain/timing/` (avec `RESPIRATION_BARS` et `STRING_PREVIEW_BEATS`, que `neckPlans.ts` y importe encore), `LEARN_SESSION_MS`.
+- Les deux mondes de `PlayFrame` jusqu’au plan visuel 3 ; le repli du monde sur le genre de séance disparaît quand chaque séance a une vue en scène dès l’accueil.
+
+## Amendement (2026-10-26) : un langage d’exercices ouvert
+
+Décidé dans la conversation du 2026-10-26, en relisant D7 (H4) et C2 (H2) : deux règles du moteur nées d’un exercice mal construit (localiser mêle le tempo et une avance comptée en temps pour mesurer une seule compétence, répondre en 1500 ms au plus). Il précède H5 et en change le périmètre.
+
+### Le principe
+
+Le langage des exercices est ouvert, comme une langue : il permet d’écrire des exercices sans valeur, sans sens, ou qui mesurent mal une compétence. Ce n’est pas un défaut du langage mais de ce qui écrit l’exercice (une personne, une IA, un générateur). **L’application doit pouvoir faire n’importe quel exercice** ; aucune « règle de conformité » utile à certains exercices ne doit en empêcher d’autres, cohérents.
+
+Conséquences :
+
+- **Un exercice mal construit se corrige dans ses données**, jamais par une règle du moteur qui le compense (D7 retirée le 2026-10-25 ; C2 ensuite).
+- **Le moteur ne refuse que ce qu’il ne sait pas exécuter sans ambiguïté** (validité) : un tempo non positif, une vue ou un mode inconnus, un plan dont les attentes se contredisent dans le temps. Jamais ce qui manque de valeur pédagogique.
+- **Les seules contraintes du moteur sont physiques** : une horloge, une transition (une mesure comptée) pour changer de tempo, un capteur qui entend ce qu’il entend.
+- **Les conseils d’écriture vont dans un guide**, pas dans le code. Exemple : « un niveau d’item garde son sens à tous les niveaux d’exercice » (une avance comptée en temps change de durée avec le tempo) est un bon conseil, pas une règle.
+
+### Les paramètres appartiennent aux pièces qui les lisent
+
+Pas aux familles d’exercices : on ne peut pas savoir qu’un paramètre ne servira qu’à une famille (le curseur du rythme sert une lecture de tablature, qui est localiser présenté autrement). Un exercice choisit ses pièces et règle leurs paramètres ; **un niveau, d’exercice ou d’item, peut surcharger n’importe lequel**, y compris plusieurs axes à la fois (monter le tempo et raccourcir l’avance), sans que le moteur en juge.
+
+| Pièce               | Paramètres (aujourd’hui ou à venir)                                                                                                               |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| transport           | tempo (et sa portée), mètre, accompagnement et mesures muettes, écoute avant de jouer, mesure comptée, silence avant le compte, respiration       |
+| compilateur de plan | longueur d’un tour, place de la cible dans la mesure, avance de la consigne, attentes et leur contenu                                             |
+| mode d’appariement  | ouverture et fermeture des zones (`MIN_RESPONSE_MS`, `LATE_LIMIT_MS`, `LATE_CAPTURE_MS`, `GRID_EARLY_MS`), tolérance d’alignement (`MATCH_LIMIT`) |
+| mode de verdict     | fenêtre de `perfect`, seuils de précision, régularité, tenue, rappel direct                                                                       |
+| vue                 | ce qu’elle montre (curseur, aperçu de la consigne, mots ou termes, retour après un raté), son monde visuel                                        |
+| scène               | le clic entendu ou non, l’écran ou l’instrument                                                                                                   |
+| source d’items      | ordre d’introduction, voisins, condition « prêt », échelle d’un item (avance, aide), espacements, ensemble de travail, seuils d’introduction      |
+| séance              | durée, fatigue, anti-blocage, « Joué juste »                                                                                                      |
+
+Le découpage actuel de `LevelParams` (pensé pour le rythme) est remplacé par ce découpage : un socle lu par les pièces communes, et les paramètres déclarés par chaque pièce. Un paramètre qu’aucune pièce de l’exercice ne lit est sans effet ; le moteur peut le signaler à l’écriture, pas le refuser.
+
+### Inventaire : ce que le moteur décide encore à la place de l’exercice
+
+Relevé dans le code au 2026-10-26 (branche H4). Une constante n’est pas fautive en soi : elle l’est quand l’exercice ne peut pas la remplacer par ses données. Pour chaque ligne, la cible.
+
+**Règles pédagogiques écrites dans le moteur (à retirer)**
+
+- **C2, l’échelle ajustée au tempo** (`leadLadder` : garder les crans jusqu’au plus long qui tient dans le seuil de rappel). Elle compense un exercice dont le tempo bouge ; elle fait varier la durée exigée entre la moitié du seuil et le seuil (de 755 à 1500 ms pour localiser). Cible : l’échelle est celle que l’exercice écrit.
+- **La cible sur le premier temps d’une mesure** (règle de placement D2 : un tour commence sur un début de mesure). Cible : la place de la cible dans la mesure est une donnée du plan ; « temps 1 » reste la valeur par défaut.
+- **La tolérance d’un temps de D2** (`PROMPT_BEFORE_EARLIEST_BEATS`), réglée sur les exercices connus (le geste ouvre un temps avant son changement). Cible : le plan dit où le compte finit (sur la consigne ou sur la cible), plus de tolérance.
+- **Le haut d’une échelle d’avance n’est jamais aidé et un seul cran est doublé** (`leadLadder`, H2). Cible : les niveaux d’aide sont ceux que l’exercice écrit (`aid: true`), comme pour le rythme.
+
+**Constantes globales qui doivent devenir des données (d’exercice ou de niveau)**
+
+- **Tempo** : `TEMPO_MIN_BPM`, `TEMPO_MAX_BPM`, `TEMPO_STEP_BPM`, `TEMPO_RAISE_AT`, `TEMPO_LOWER_AT`, `TEMPO_MIN_PROMPTS`, l’arrondi à l’entier, `DEFAULT_TEMPO_BPM`. Cible : le tempo est un paramètre du transport, réglé par l’exercice et ses niveaux (le mécanisme du rythme, `Level`, pour tous les exercices) ; la progression de tempo séparée (`Progression`, `nextTempo`) disparaît quand tous les exercices sont passés aux niveaux. Le moteur accepte déjà des tempos décimaux.
+- **Avance** : le type `LeadBeats` = 8, 4 ou 2 et `LEAD_STEPS`. Cible : un nombre de temps (ou une fraction) quelconque ; en 3/4, 6 et 3 s’écrivent.
+- **Séance** : `SESSION_MS`, `LEARN_SESSION_MS`. Cible : la durée est une donnée de la séance ou de l’exercice, `SESSION_MS` sa valeur par défaut.
+- **Respiration et aperçu** : `RESPIRATION_BARS` (que `neckPlans.ts` lit en dur au lieu de `pacing.respirationBars`), `STRING_PREVIEW_BEATS` (`previewBeats`, propriété du présentateur, donc de la mécanique). Cible : paramètres du transport et de la vue, réglés par l’exercice.
+- **Fenêtres de réponse** : `PERFECT_WINDOW_MS`, `LATE_LIMIT_MS`, `LATE_CAPTURE_MS`, `MIN_RESPONSE_MS`, `GRID_EARLY_MS`, `GRID_EARLY_MAX_BEATS`, `ANCHOR_CHORD_FROM_BEATS`. Ce sont déjà des réglages du plan, mais les plans sont construits par du code (`beatPlan`, `anchorPlan`, `gridChangePlan`, `freePlan`) qui lit ces constantes : l’exercice ne peut pas les changer. Cible : les constructeurs de plan prennent ces valeurs des paramètres de l’exercice, les constantes devenant des valeurs par défaut.
+- **Procédure d’apprentissage** : `LEARNING_SLOTS`, `MAX_WORKING_SET`, `MAX_UNCONSOLIDATED`, `LEARN_COLD_CAP`, `LEARN_RETEST_GAPS`, `NEW_NOTE_MIN_CARD_SUCCESS`, `NEW_NOTE_CARD_WINDOW`, `NEW_NOTE_MIN_SESSION_SUCCESS`, `SUCCESS_WINDOW`, `RECOVERY_AFTER_MISSES`, `STRING_AID_FADE_SUCCESSES`, `CONSOLIDATION_POOL`, `CONSOLIDATION_SKIP_RECENT`, `CONFUSION_LOOKBACK` ; l’ordre des catégories (retests, révisions à froid, repris, nouveaux, consolidation). Cible : paramètres de la source d’items, donnés par l’exercice ; les valeurs actuelles par défaut.
+- **Mémoire** : `MIN_COLD_DELAY_MS`, les réglages de FSRS (sans étapes d’apprentissage), `MASTERY_ACCURACY`, `MASTERY_SESSIONS`, `MASTERY_MIN_GAP_MS`. Cible : paramètres de l’apprenant « mémoire », par exercice.
+- **Rythme** : `PASS_AFTER_CYCLES`, `DROP_AFTER_FAILS`, `CYCLES_PER_BREATH`, `LISTEN_IN_BARS` sont déjà surchargeables par niveau (bien) ; `BLOCK_AFTER_FAILS`, `BLOCK_SAME_SPOT_CYCLES`, `BLOCK_REST_MS`, `BREATH_MIN_MS`, `SETTLE_AFTER_BARS`, `PLAIN_WORDS_SESSIONS` ne le sont pas. Cible : paramètres de la séance et de la vue.
+- **Fatigue** : `FATIGUE_*`. Cible : paramètres de la séance.
+- **Geste** : `LINK_SHAPES`, `ZONE_FRETS`, `ZONE_STEP_FRETS`, `PASSAGE_SUCCESS`, `LINK_AID_AFTER_MISSES`, `LINK_REST_BARS`, `NEIGHBOUR_FRETS`. Cible : paramètres du générateur du geste, donnés par ses exercices.
+
+**Propriétés de la mécanique qui doivent être de l’exercice**
+
+- `scene` (et donc le clic), `previewBeats`, `contestable`, et la forme du modèle d’écran sont portés par le présentateur, c’est-à-dire par la mécanique : deux exercices d’une même mécanique ne peuvent pas les régler autrement (une lecture de tablature est localiser avec une autre vue et un autre aperçu). Cible : le présentateur donne des valeurs par défaut, l’exercice les remplace.
+
+**Code par famille (la limite connue, pas des règles de conformité)**
+
+Une famille entièrement nouvelle demande encore du code : un sujet d’apprentissage (`neckSubject`, `triadSubject` : ordre d’introduction, voisins et miroirs, condition « prêt », échelle), un constructeur de plan, un générateur (le geste), un juge de contenu, un présentateur et souvent une vue. La règle de `docs/vision.md` (généraliser quand un deuxième exercice réel le demande) s’applique ; le corpus des cours de l’auteur est le banc qui dira quelles de ces pièces doivent devenir des données du langage.
+
+**Simplifications du modèle à examiner**
+
+- **Le temps libre comme cas des fenêtres.** Une attente en temps libre (`at: null`, identifier) n’est pas un mode à part : c’est une attente datée à la consigne, dont la zone de réponse n’a pas de fin et dont le verdict lit le temps de réaction au lieu de l’écart à la cible. À vérifier : si cette écriture remplace `at: null` sans perte, une notion du moteur disparaît.
+- **Appariement et verdict restent deux pièces.** Ils répondent à deux questions : quelle observation répond à quelle attente (la zone de capture : une note jouée 300 ms en retard peut encore être la réponse), et ce que vaut la réponse (sa fenêtre de `perfect`, ses seuils). Les deux parlent de tolérance, mais pas de la même : une capture large et un verdict strict se combinent.
+
+### Le cas de localiser
+
+Corrigé dans ses données : tempo fixe à 80 bpm (2 temps y font exactement le seuil de 1500 ms), échelle 8 → 4 → 2 telle qu’écrite, sans niveaux de tempo. Un niveau d’item garde alors le même sens d’une séance à l’autre. Travailler la vitesse au-delà de 1500 ms serait un autre exercice, avec son propre seuil. Les triades (même échelle, même seuil) suivent le même choix, sauf décision contraire de l’auteur.
+
+### Ce qui reste à décider
+
+- **L’ordre** : un plan « langage ouvert » avant H5 (les triades basculeraient directement sur le modèle cible), ou ses morceaux répartis dans H5 et après. Le retrait de la progression de tempo touche aussi le geste et les données en base (progressions enregistrées au-dessus de 80 pour localiser).
+- **Le guide d’écriture** : où il vit (un document, un analyseur qui conseille sans refuser) et ce qu’il contient d’abord.
+
+## Reprise (état au 2026-10-25, après H4)
+
+Ce qu’il faut lire pour reprendre H après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23, les sections « Réalisation » de H1, H2, H3 et H4, et l’amendement du 2026-10-26 (un langage d’exercices ouvert), qui change le périmètre de H5, ci-dessus.
 
 ### Où en est H
 
-- **Cinq plans** (amendement, « 1. Les pièces et les plans ») : une famille d’exercices bascule avec sa vue. H1 (moteur de tour), H2 (procédure d’apprentissage), H3 (contrôleur des séries de réponses et le geste) sont **fusionnés dans `main`** ; H4 (les notes) et H5 (les triades, les suppressions, la fusion avec le rythme) restent.
-- **Ce qui joue sur quoi** : le geste sur `ResponseSeriesController` (`application/session/series/`) ; les notes et les triades encore sur l’ancien `SessionController` et `PlayScreen` ; le rythme sur `PlanSessionController`.
-- Les plans écrits sont dans `docs/superpowers/plans/` (`2026-10-23-h1-…`, `2026-10-24-h2-…`, `2026-10-24-h3-…`) ; H4 et H5 sont à écrire.
-
-### Ce que H4 doit faire en plus du changement des notes
-
-Relevé par la relecture finale de H3 : des primitives du moteur, pas des fonctions des notes.
-
-- **L’enregistreur apprend** : `recordResponse` écrit aujourd’hui `temperature: 'hot'`, `leadBeats: null` et ne touche aucune carte. Il faut un crochet d’apprenant générique : froid ou chaud (`probeTemperature` avec `subject.recall`), FSRS (`applyColdAttempt`), le niveau de l’item (procédure de H2), la carte rendue par `ItemSource.record`.
-- **La scène** : le clic sonne quelle que soit la scène ; l’ancien contrôleur le taisait pour l’écran. `answer()` ne fait rien : le capteur `tap` (identifier) n’a pas de route. Les deux sont génériques (une scène déclarée par la mécanique, une réponse tapée qui entre comme une observation).
-- **Le mètre et la latence** : `METER_4_4` et `beatsPerBar: 4` sont figés dans la série ; `settings.latency.note` sert pour tous les capteurs. Le mètre vient du plan ou de l’exercice ; la latence par capteur vit dans `SeriesSensors` et le `RoundRunner`.
-- **Dexie 9** (« Réalisation du plan H2 », « Ce qui reste à H3 ») : `levelStates` chargé et écrit ; la migration donne un niveau à **chaque** carte depuis son avance et le tempo de son exercice (sans niveau, une révision à froid se joue à 8 temps et ne peut jamais être un rappel direct) ; un niveau ramené sous le haut près de `TEMPO_MAX_BPM` ne s’enregistre pas sans autre effet ; les tempos `null` des exécutions sont filtrés ; la séance fait respecter `SESSION_MS` (la procédure ne finit jamais par le temps).
-- **Le plan de tour d’un item** : la procédure rend un `PlannedItem` ; un `PlanSource` des notes construit `beatPlan` / `freePlan` (H1) depuis le niveau de l’item.
-- **Tests à écrire avec les notes** (chemins sans passage de main ni portée) : une observation après règlement, `chained: true` sans passage de main, une étendue déjà close, une tentative sans portée.
+- **Cinq plans** (amendement, « 1. Les pièces et les plans ») : une famille d’exercices bascule avec sa vue. H1 (moteur de tour), H2 (procédure d’apprentissage), H3 (contrôleur des séries de réponses et le geste) sont **fusionnés dans `main`**. H4 (les notes) est **fait** sur la branche `plan/temps-musical-h4` (worktree `.worktrees/temps-musical-h4`), pas encore fusionné à l’écriture de cette section. H5 (les triades, les suppressions, la fusion avec le rythme) reste, à écrire.
+- **Ce qui joue sur quoi** : le geste et les notes sur `ResponseSeriesController` (`application/session/series/`), dans `PlayFrame` ; les triades encore sur l’ancien `SessionController` et `PlayScreen` ; le rythme sur `PlanSessionController`.
+- **Stockage** : Dexie 9, sauvegarde 5 ; `levelStates` porte les niveaux des notes, `CardState.leadBeats` reste pour les triades.
+- Les plans écrits sont dans `docs/superpowers/plans/` (`2026-10-23-h1-…`, `2026-10-24-h2-…`, `2026-10-24-h3-…`, `2026-10-25-h4-les-notes.md`).
 
 ### Ce que H5 doit faire
 
-- Les triades (ancrage, zone) et `triad-lane` ; `triadSubject` reçoit `attempts` obligatoire.
-- **Les suppressions du critère de fin** (amendement, section 6) ; en plus : les specs qui ne testent plus que le geste sur l’ancien contrôleur (`chainedRounds`, `countdown`, `briefing`, `tempoScope`), l’ancien `stage` et `NO_PLACE` du geste, la copie du raté dessiné dans `PlayFrame` (garder `DrawnMiss`), `cardLeadAfter` et `CardState.leadBeats`, `legacyParity.spec.ts`, `nextProgressions` en double de l’ancien bloc de fin.
-- **La fusion** de `ResponseSeriesController` et `PlanSessionController` sous le nom `SessionController` ; le code de placement (`place`, `placeAfter`, `advance`) en unité propre.
+- **Les triades sur la série** (ancrage, zone) avec leur vue `triad-lane` dans `PlayFrame` ; leur `PlanSource` depuis le niveau de l’item, la procédure de H2 branchée avec `triadSubject` (entrée `attempts` obligatoire) ; ce qui reste de leurs règles propres (bande d’ancrage et `corrected`, raté dessiné, « Joué juste » en développement) entre par des données et les présentateurs, comme les notes.
+- **Dexie 10 et sauvegarde 6** : la même étape que `v9.ts` pour les cartes des triades (un niveau depuis leur avance et le tempo de leur exercice, échelle figée dans la migration), puis le retrait de `CardState.leadBeats` partout (D1 de H4). **Le chantier 2 prend la version 11.**
+- **Les suppressions du critère de fin** (amendement, section 6) : `SessionController` et `PlayScreen`, `triadSelector`, `AttemptRecorder.record`, `cardLeadAfter`, `domain/timing/` (déplacer d’abord `RESPIRATION_BARS` et `STRING_PREVIEW_BEATS`, que `neckPlans.ts` y importe), `MetronomePort` et `isResponseSuccess`, `LEARN_SESSION_MS` (l’accueil affiche alors `SESSION_MS` partout), `legacyParity.spec.ts`, `nextProgressions` en double de l’ancien bloc de fin ; les specs qui ne testent plus que le geste sur l’ancien contrôleur (`chainedRounds`, `countdown`, `briefing`, `tempoScope`), l’ancien `stage` et `NO_PLACE` du geste, la copie du raté dessiné dans `PlayFrame` (garder `DrawnMiss`).
+- **La fusion** de `ResponseSeriesController` et `PlanSessionController` sous le nom `SessionController` ; le code de placement (`place`, `placeAfter`, `advance`) en unité propre, à côté de `series/placement.ts`.
+- **Ce que H4 laisse** : `PlayFrame` garde deux mondes (`VIEW_WORLDS`, calme et Game Boy) jusqu’au plan visuel 3, qui les ramène à un ; le monde du cadre sans vue en scène se replie sur le genre de séance (`learn`/`free` → calme), à remplacer quand chaque séance donne sa vue dès l’accueil ; les vues des notes dessinent leur décompte dans leur champ.
 - Quitter pendant la demande d’accès au micro peut laisser l’entrée ouverte (même course que l’ancien contrôleur).
+
+### Données d’exercice encore écrites dans le code après le plan L
+
+Le plan L (`docs/superpowers/plans/2026-10-26-langage-ouvert.md`) fait passer en données le tempo, les échelles, les fenêtres de réponse, la respiration, la place de la cible et la fin du compte, la présentation et les réglages de la procédure (décision L8). Restent, tous des **données d’exercice** que l’exercice ne peut pas encore régler ; chacune devient un paramètre de la pièce qui la lit, sa valeur actuelle en défaut, quand ce code est touché ou par un plan dédié :
+
+- **Mémoire** (apprenant « mémoire ») : `MIN_COLD_DELAY_MS` (délai d’un essai froid), les réglages de FSRS (sans étapes d’apprentissage, `learning_steps: []`), la maîtrise (`MASTERY_ACCURACY`, `MASTERY_SESSIONS`, `MASTERY_MIN_GAP_MS`), les tendances (`TREND_WINDOW_MS`, `TREND_RATIO`), la règle de température d’un sondage (`probeTemperature`).
+- **Fatigue** (séance) : `FATIGUE_MIN_ANSWERS`, `FATIGUE_WINDOW`, `FATIGUE_ACCURACY_DROP`, `FATIGUE_REACTION_INCREASE`.
+- **Anti-blocage** (séance) : `BLOCK_AFTER_FAILS`, `BLOCK_SAME_SPOT_CYCLES`, `BLOCK_REST_MS`, et l’ordre des remèdes (écoute, joué avec, niveau d’aide, « On change d’air »).
+- **Rythme, ce que les niveaux ne surchargent pas** : `BREATH_MIN_MS` (transport), `SETTLE_AFTER_BARS` (verdict de cycle), `PLAIN_WORDS_SESSIONS` (vue), `MATCH_LIMIT` et `SHIFT_MIN_MATCHES` (alignement).
+- **Geste** (générateur de passages) : `LINK_SHAPES`, `ZONE_FRETS`, `ZONE_STEP_FRETS`, `PASSAGE_SUCCESS`, `LINK_AID_AFTER_MISSES`, `LINK_REST_BARS`, `NEIGHBOUR_FRETS`, `ZONE_MIN_ACQUIRED_TRIADS`.
+- **Jeu libre** : `FREE_PLAY_COUNT` (longueur de la liste).
+- **Contenu de la touche** : `MAX_PROMPT_FRET`, `LEARNABLE_FRETS`, `CURRICULUM_STRINGS` (l’univers des items et l’ordre d’introduction des notes), `MAX_VOICING_FRET`, `MAX_SPAN_FRETS` (les formes d’accord admises).
+- **Le temps libre comme cas des fenêtres** (simplification à vérifier, amendement du 2026-10-26).
+- **Le guide d’écriture** : son lieu et son premier contenu.
 
 ### Points mineurs reportés
 
@@ -995,11 +1110,12 @@ Relevés en relecture, jugés sans effet sur le comportement ; à reprendre quan
 - **Juges (H1)** : le juge `chord-grid` n’est testé que sur le relier ; `chord-voicing` en position `'open'` non testé ; les mécaniques délèguent avec des conversions de type.
 - **Procédure (H2)** : une échelle d’un seul cran est doublée (aidé puis sans aide) — non testée au catalogue ; `directRecallOf` diffère de l’ancien juge sur deux combinaisons de champs qu’aucun essai ne produit ; un essai possédé sans carte tenue ne bouge pas le niveau ; trois fonctions de tirage au hasard (procédure, ancien sélecteur, sujet des triades).
 - **Série (H3)** : la locale lue une fois au départ ; la carte des sources grandit à chaque « Rejouer » ; `recordResponse` modifie l’objet reçu ; `stageOf` reçoit `success` sans le lire ; la page `/dev/gesture` retombe sur un sélecteur neuf au lieu d’échouer ; la vérification de frontière est textuelle (sous-chaînes, pas les `.svelte`).
-- **Prettier** signale trois fichiers non touchés par H (`SessionController.spec.ts`, `learnSelector.spec.ts`, `routes/diagnostic/oracle/+page.svelte`).
+- **Notes (H4)** : une erreur de câblage levée par `recordResponse` arrive après que la source a été informée et laisse le tour non réglé ; `ItemSource.record` reçoit `deps.now()` et non l’époque de l’horloge audio (comme l’ancien enregistreur) ; un `IgnoreReason` absent de `FATE_LOG` ne s’écrit pas au journal ; un mètre différent lève une erreur dans un réveil du transport (non rattrapée en jeu) ; le `earliest` du temps libre part du règlement, pas de l’attaque de la réponse ; un item qui attend peut encore commencer après `SESSION_MS` à la reprise d’une pause ; `deps.random` est tiré pour chaque item (le geste aussi), ce qui décale la suite partagée des sélecteurs ; les temps forts des vues des notes lisent `beatsPerBar` (toujours 4), pas le mètre de l’exercice ; `AnswerKeysView` répète le mot du verdict dans sa légende sur une réussite (comme `PlayScreen`) ; le CSS du champ et les marques de réussite sont copiés entre `NoteLaneView`, `AnswerKeysView` et `PlayScreen` ; `Transport.listenInAndCount` a cinq paramètres positionnels ; pas de test de série d’un changement de tempo muet ; le banc de `notesSession.spec.ts` relit les items dans le texte français de la consigne.
+- **Prettier** signale deux fichiers non touchés par H (`SessionController.spec.ts`, `routes/diagnostic/oracle/+page.svelte`).
 
 ### Façon de travailler
 
 - **Un plan à la fois**, écrit (skill `writing-plans`) depuis cette spec, relu par l’auteur, puis exécuté en **subagent-driven** dans un worktree `.worktrees/temps-musical-hN` sur la branche `plan/temps-musical-hN` ; un registre (`.superpowers/sdd/…/progress.md`, ignoré par git) garde chaque tâche, chaque décision et les points mineurs ; une relecture par tâche, une relecture finale de la branche, une seule vague de corrections.
 - **Ce qui revient à l’auteur** : une différence de comportement voulue (pédagogie, ce que le joueur voit) ; le reste se tranche et s’écrit dans « Réalisation ».
 - **Règles de l’auteur** qui guident chaque choix : construire des primitives du moteur, pas des fonctions d’un exercice ; un exercice nouveau doit tenir dans des données ; aucun héritage laissé après une migration ; tester les règles pédagogiques, pas la parité avec l’ancien comportement ; « le juge doit avoir raison » (« Joué juste » seulement en développement).
-- **Avant de fusionner** : `main` porte des modifications non validées de l’auteur (`CLAUDE.md`, `docs/todo.md`). Les mettre de côté sous une étiquette, fusionner (`--no-ff`), les réappliquer, résoudre un conflit en faveur de la version allégée de l’auteur dans `CLAUDE.md`, vérifier `npm test && npm run check`, puis supprimer le worktree et la branche. Ne jamais pousser sans demande.
+- **Avant de fusionner** (H4 d’abord, s’il ne l’est pas encore) : `main` porte des modifications non validées de l’auteur (`CLAUDE.md`, `docs/todo.md`). Les mettre de côté sous une étiquette, fusionner (`--no-ff`), les réappliquer, résoudre un conflit en faveur de la version allégée de l’auteur dans `CLAUDE.md`, vérifier `npm test && npm run check`, puis supprimer le worktree et la branche. Ne jamais pousser sans demande.

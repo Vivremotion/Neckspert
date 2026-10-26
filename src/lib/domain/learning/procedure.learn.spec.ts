@@ -441,3 +441,39 @@ describe('createLearningProcedure record', () => {
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
 	});
 });
+
+describe('createLearningProcedure level above the ladder', () => {
+	// Leads 8 and 4 beats at 80 bpm: neither fits the threshold, so the ladder has levels 0 and 1.
+	const shortLadder = () =>
+		procedure({
+			subject: fakeSubject({ ladderSteps: [8, 4] }),
+			cards: [solid(0)],
+			levels: [levelAt(0, 2)]
+		});
+
+	it('writes a level above the ladder at the top it was played at', () => {
+		const source = shortLadder();
+		const outcome = source.record(played(0, 'review', { success: true, leadMs: 500 }), 100);
+		expect(outcome?.level).toMatchObject({ level: 1, successes: 1 });
+		expect(source.levelOf(ref(0))).toMatchObject({ level: 1, successes: 1 });
+	});
+
+	it('drops a level above the ladder from the top it is brought to', () => {
+		const source = shortLadder();
+		const outcome = source.record(played(0, 'review', { success: false }), 100);
+		expect(outcome?.level?.level).toBe(0);
+		expect(source.levelOf(ref(0)).level).toBe(0);
+	});
+
+	it('learns a learning item held above the ladder after its successes in a row', () => {
+		const source = procedure({
+			subject: fakeSubject({ ladderSteps: [8, 4], learnedAfter: 2 }),
+			cards: [learning(0)],
+			levels: [levelAt(0, 2)]
+		});
+		const direct = () => played(0, 'learning', { success: true, leadMs: 500 });
+		expect(source.record(direct(), 100)?.card).toBeUndefined();
+		expect(source.levelOf(ref(0))).toMatchObject({ level: 1, successes: 1 });
+		expect(source.record(direct(), 200)?.card).toMatchObject({ item: 0, learnedAt: 200 });
+	});
+});

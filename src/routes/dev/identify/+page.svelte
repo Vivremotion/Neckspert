@@ -1,5 +1,5 @@
 <script lang="ts">
-	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
+	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import {
 		DEMO_IDENTIFY_SCRIPT,
 		DemoIdentifySession
@@ -13,4 +13,5 @@
 	});
 </script>
 
-<PlayScreen {controller} />
+<!-- The answer keys, in the frame the notes play in. -->
+<PlayFrame {controller} kind="learn" />

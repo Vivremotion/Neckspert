@@ -357,7 +357,7 @@ function linkLaneModel(
 }
 
 /** No place: the old controller gives its views their placement apart. */
-const NO_PLACE: StagePlace = { anchorBeat: null, history: [] };
+const NO_PLACE: StagePlace = { anchorBeat: null, promptBeat: null, history: [] };
 
 /** The screen model of a change, the shape `heard` (occurrenceId) once settled. */
 function stageModel(
