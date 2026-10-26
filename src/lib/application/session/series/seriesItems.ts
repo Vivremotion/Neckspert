@@ -48,7 +48,7 @@ export class SeriesItems {
 		contestable: boolean;
 	} {
 		const presenter = this.presenterOf(item);
-		const flow = this.definitionOf(item)?.flow;
+		const flow = this.definitionOf(item).flow;
 		return {
 			scene: flow?.scene ?? presenter.scene,
 			previewBeats: flow?.previewBeats ?? presenter.previewBeats ?? null,

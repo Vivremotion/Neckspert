@@ -5,7 +5,6 @@ import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 export type MechanicId = string;
 export type ExerciseId = string;
 
-/** An exercise is data only: a mechanic plus its parameters. */
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
@@ -19,6 +18,7 @@ export interface ExerciseFlow {
 	contestable?: boolean;
 }
 
+/** An exercise is data only: a mechanic plus its parameters. */
 export interface ExerciseDefinition {
 	id: ExerciseId;
 	version: number;
