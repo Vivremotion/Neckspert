@@ -1,3 +1,4 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
@@ -9,8 +10,15 @@ const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1
 const NOTE = { kind: NOTE_CONTENT, value: { string: 3, pitch: 'C' } };
 
 const locate = (leadBeats: LeadBeats, meter: Meter) =>
-	beatPlan({ content: NOTE, leadBeats, meter, respirationBars: 1 });
-const change = (meter: Meter) => gridChangePlan({ content: NOTE, lengthBeats: 4, meter });
+	beatPlan({
+		content: NOTE,
+		leadBeats,
+		meter,
+		respirationBars: 1,
+		windows: DEFAULT_RESPONSE_WINDOWS
+	});
+const change = (meter: Meter) =>
+	gridChangePlan({ content: NOTE, lengthBeats: 4, meter, windows: DEFAULT_RESPONSE_WINDOWS });
 const free = freePlan({
 	content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
 	recallThresholdMs: 3000

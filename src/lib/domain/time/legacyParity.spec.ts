@@ -1,3 +1,4 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import { anchorPlan, beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
@@ -138,7 +139,8 @@ function planOf(setup: Setup): RoundPlan {
 				content: SCRIPTED,
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
-				respirationBars: RESPIRATION_BARS
+				respirationBars: RESPIRATION_BARS,
+				windows: DEFAULT_RESPONSE_WINDOWS
 			});
 		case 'anchor':
 			return anchorPlan({
@@ -146,10 +148,16 @@ function planOf(setup: Setup): RoundPlan {
 				chord: SCRIPTED,
 				leadBeats: setup.leadBeats as LeadBeats,
 				meter,
-				respirationBars: RESPIRATION_BARS
+				respirationBars: RESPIRATION_BARS,
+				windows: DEFAULT_RESPONSE_WINDOWS
 			});
 		case 'grid':
-			return gridChangePlan({ content: SCRIPTED, lengthBeats: setup.lengthBeats as number, meter });
+			return gridChangePlan({
+				content: SCRIPTED,
+				lengthBeats: setup.lengthBeats as number,
+				meter,
+				windows: DEFAULT_RESPONSE_WINDOWS
+			});
 		case 'free':
 			return freePlan({ content: SCRIPTED, recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS });
 	}

@@ -1,3 +1,4 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
@@ -672,7 +673,8 @@ describe('ResponseSeriesController', () => {
 						content: { kind: NOTE_CONTENT, value: NOTE_C },
 						leadBeats: item.leadBeats ?? 8,
 						meter,
-						respirationBars: RESPIRATION_BARS
+						respirationBars: RESPIRATION_BARS,
+						windows: DEFAULT_RESPONSE_WINDOWS
 					});
 		/** Item `index` of `mechanic`, at `lead`; the first one counted in. */
 		const beat = (

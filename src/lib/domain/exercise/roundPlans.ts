@@ -3,7 +3,7 @@ import { barLength, type Meter } from '../time/meter';
 import type { Expectation, ExpectedContent, RoundPlan, RoundPolicy } from '../time/plan';
 import { STRING_PREVIEW_BEATS } from '../timing/grid';
 import type { LeadBeats } from '../types';
-import { DEFAULT_RESPONSE_WINDOWS, type ResponseWindows } from './windows';
+import type { ResponseWindows } from './windows';
 
 /**
  * The four one-answer relations written as round plans. A round starts at its target
@@ -44,10 +44,10 @@ export function beatPlan(input: {
 	leadBeats: LeadBeats;
 	meter: Meter;
 	respirationBars: number;
-	/** The exercise's windows; absent: today's. */
-	windows?: ResponseWindows;
+	/** The exercise's windows (`windowsOf`). */
+	windows: ResponseWindows;
 }): RoundPlan {
-	const { content, leadBeats, meter, respirationBars, windows = DEFAULT_RESPONSE_WINDOWS } = input;
+	const { content, leadBeats, meter, respirationBars, windows } = input;
 	const length = barLength(meter).mul(Fraction.of(respirationBars));
 	return {
 		prompt: beats(meter, -leadBeats),
@@ -65,16 +65,9 @@ export function anchorPlan(input: {
 	leadBeats: LeadBeats;
 	meter: Meter;
 	respirationBars: number;
-	windows?: ResponseWindows;
+	windows: ResponseWindows;
 }): RoundPlan {
-	const {
-		root,
-		chord,
-		leadBeats,
-		meter,
-		respirationBars,
-		windows = DEFAULT_RESPONSE_WINDOWS
-	} = input;
+	const { root, chord, leadBeats, meter, respirationBars, windows } = input;
 	const bar = barLength(meter);
 	const length = bar.mul(Fraction.of(1 + respirationBars));
 	return {
@@ -103,9 +96,9 @@ export function gridChangePlan(input: {
 	content: ExpectedContent;
 	lengthBeats: number;
 	meter: Meter;
-	windows?: ResponseWindows;
+	windows: ResponseWindows;
 }): RoundPlan {
-	const { content, lengthBeats, meter, windows = DEFAULT_RESPONSE_WINDOWS } = input;
+	const { content, lengthBeats, meter, windows } = input;
 	const length = beats(meter, lengthBeats);
 	return {
 		prompt: beats(meter, -1),
@@ -127,7 +120,10 @@ export function gridChangePlan(input: {
 	};
 }
 
-/** A note named in free time (identify): answered any time after the prompt, no tempo. */
+/**
+ * A note named in free time (identify): answered any time after the prompt, no tempo. It takes no
+ * `windows`: it opens at the prompt and has no late zone; its window is the recall threshold.
+ */
 export function freePlan(input: {
 	content: ExpectedContent;
 	recallThresholdMs: number;

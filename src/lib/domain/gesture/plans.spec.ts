@@ -1,3 +1,4 @@
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
 import { gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import { gridById, gridChanges } from '$lib/domain/grid';
@@ -30,7 +31,8 @@ describe('gesturePlan', () => {
 			gridChangePlan({
 				content: { kind: CHORD_GRID_CONTENT, value: item },
 				lengthBeats: 4,
-				meter: METER_4_4
+				meter: METER_4_4,
+				windows: DEFAULT_RESPONSE_WINDOWS
 			})
 		);
 		expect(plan.prompt?.toString()).toBe('-1/4');
