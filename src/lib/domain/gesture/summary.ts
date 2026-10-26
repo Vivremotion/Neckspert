@@ -8,16 +8,11 @@ import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
 import { GESTURE_EXERCISES } from './exercises';
 import { passageSucceeded } from './passages';
 
-/** The gesture exercise of an id; one the track does not list moves its tempo by the default range. */
+/** The gesture exercise of an id; throws on one the track does not list, rather than invent it. */
 function gestureDefinition(exerciseId: string): ExerciseDefinition {
-	return (
-		GESTURE_EXERCISES.find((exercise) => exercise.id === exerciseId) ?? {
-			id: exerciseId,
-			version: 1,
-			mechanic: 'chord-grid',
-			params: {}
-		}
-	);
+	const definition = GESTURE_EXERCISES.find((exercise) => exercise.id === exerciseId);
+	if (!definition) throw new Error(`${exerciseId}: not an exercise of the gesture track`);
+	return definition;
 }
 
 function fretsOf(occurrence: VoicingOccurrence | null): string | null {
