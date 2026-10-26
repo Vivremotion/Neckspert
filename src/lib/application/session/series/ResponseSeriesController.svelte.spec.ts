@@ -757,6 +757,38 @@ describe('ResponseSeriesController', () => {
 			expect(shown(ctx).place).toMatchObject({ promptBeat: 14, anchorBeat: 16 });
 		});
 
+		describe('the bar after a count', () => {
+			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
+				...plans(item, meter),
+				barOffset: Fraction.of(1, 2)
+			});
+			/** Bar 1's clicks laid by the time the count is placed, before any of them is due. */
+			const laidAfterCount = async (items: PlannedItem[], withPlans = plans) => {
+				const ctx = setup(items, {
+					mechanics,
+					plans: withPlans,
+					sensors: fakeSensors().sensors
+				});
+				await ctx.controller.start();
+				expect(ctx.clock.now()).toBeLessThan(ctx.bar(1));
+				return { downbeat: ctx.bar(1), clicks: clicksBetween(ctx, ctx.bar(1), ctx.bar(2)) };
+			};
+
+			it('clicks its downbeat at lead 8', async () => {
+				const { downbeat, clicks } = await laidAfterCount([beat(0, 8)]);
+				expect(clicks).toHaveLength(4);
+				expect(clicks[0]).toBeCloseTo(downbeat, 3);
+			});
+
+			it('clicks its beats 1 and 2 before a prompt on beat 3 at lead 2', async () => {
+				expect((await laidAfterCount([beat(0, 2)])).clicks).toHaveLength(4);
+			});
+
+			it('clicks its beats before a prompt the plan puts on beat 3', async () => {
+				expect((await laidAfterCount([beat(0, 4)], onBeat3)).clicks).toHaveLength(4);
+			});
+		});
+
 		it('places a target on beat 3 when its plan says so, clicking on through bars it splits', async () => {
 			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
 				...plans(item, meter),

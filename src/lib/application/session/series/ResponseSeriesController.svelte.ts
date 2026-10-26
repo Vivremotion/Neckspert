@@ -401,6 +401,9 @@ export class ResponseSeriesController implements PlaySessionController {
 		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
 		const start = this.startOf(plan, Fraction.of(earliest));
 		const promptBeat = this.promptBeatOf(start, plan);
+		// The bars between the count and the round clicked now: laid at the prompt, their beats
+		// before it would already be past.
+		if (this.clicksOn(item)) this.accompanyTo(start);
 		this.enterScene(this.items.presenterOf(item));
 		this.view.status = 'count-in';
 		// Not placed before its round opens: the view places it where the count ends. A round
