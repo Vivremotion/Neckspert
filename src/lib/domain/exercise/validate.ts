@@ -80,11 +80,9 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 		) {
 			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
 		}
-		for (const field of ['aidFadeSuccesses', 'recoveryAfterMisses']) {
-			const value = learning[field];
-			if (value !== undefined && !naturalNumber(value)) {
-				return `params.learning.${field} must be a non-negative integer, got ${value}`;
-			}
+		const fade = learning.aidFadeSuccesses;
+		if (fade !== undefined && !naturalNumber(fade)) {
+			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
 	const pacing = params.pacing as { respirationBars?: unknown } | undefined;

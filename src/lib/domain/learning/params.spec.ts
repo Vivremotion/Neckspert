@@ -22,8 +22,7 @@ describe('the learning procedure’s settings', () => {
 	it('default to today’s constants and today’s order', () => {
 		expect(DEFAULT_ITEM_LEARNING).toEqual({
 			retestGaps: LEARN_RETEST_GAPS,
-			aidFadeSuccesses: STRING_AID_FADE_SUCCESSES,
-			recoveryAfterMisses: RECOVERY_AFTER_MISSES
+			aidFadeSuccesses: STRING_AID_FADE_SUCCESSES
 		});
 		expect(DEFAULT_SET_LEARNING).toEqual({
 			learningSlots: LEARNING_SLOTS,
@@ -37,7 +36,8 @@ describe('the learning procedure’s settings', () => {
 			consolidationPool: CONSOLIDATION_POOL,
 			consolidationSkipRecent: CONSOLIDATION_SKIP_RECENT,
 			confusionLookback: CONFUSION_LOOKBACK,
-			order: ['retest', 'cold-review', 'resumed', 'new', 'consolidation']
+			order: ['retest', 'cold-review', 'resumed', 'new', 'consolidation'],
+			recoveryAfterMisses: RECOVERY_AFTER_MISSES
 		});
 	});
 

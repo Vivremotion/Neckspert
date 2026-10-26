@@ -22,8 +22,6 @@ export interface ItemLearning {
 	retestGaps: readonly [number, number];
 	/** Successes since its last miss that take its fading aid away. */
 	aidFadeSuccesses: number;
-	/** Misses in a row (probes left out) after which a solid item comes next. */
-	recoveryAfterMisses: number;
 }
 
 /** A category of items the procedure serves. */
@@ -55,13 +53,14 @@ export interface SetLearning {
 	confusionLookback: number;
 	/** The order categories are served in. */
 	order: readonly LearningCategory[];
+	/** Misses in a row over the whole set (probes left out) after which a solid item comes next. */
+	recoveryAfterMisses: number;
 }
 
 /** Today's constants of `progress/constants.ts`: the settings of an item whose exercise writes none. */
 export const DEFAULT_ITEM_LEARNING: ItemLearning = {
 	retestGaps: LEARN_RETEST_GAPS,
-	aidFadeSuccesses: STRING_AID_FADE_SUCCESSES,
-	recoveryAfterMisses: RECOVERY_AFTER_MISSES
+	aidFadeSuccesses: STRING_AID_FADE_SUCCESSES
 };
 
 /** Today's constants of `progress/constants.ts`, and today's order: the set's settings when the session writes none. */
@@ -77,7 +76,8 @@ export const DEFAULT_SET_LEARNING: SetLearning = {
 	consolidationPool: CONSOLIDATION_POOL,
 	consolidationSkipRecent: CONSOLIDATION_SKIP_RECENT,
 	confusionLookback: CONFUSION_LOOKBACK,
-	order: ['retest', 'cold-review', 'resumed', 'new', 'consolidation']
+	order: ['retest', 'cold-review', 'resumed', 'new', 'consolidation'],
+	recoveryAfterMisses: RECOVERY_AFTER_MISSES
 };
 
 /** `params.learning` of an exercise over the item defaults, field by field. */

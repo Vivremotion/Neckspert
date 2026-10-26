@@ -31,6 +31,7 @@ function procedure(
 		attempts?: readonly Attempt[];
 		levels?: readonly LevelState[];
 		random?: () => number;
+		set?: Parameters<typeof createLearningProcedure>[0]['set'];
 	} = {}
 ): LearningProcedure {
 	return createLearningProcedure({
@@ -39,7 +40,8 @@ function procedure(
 		attempts: input.attempts ?? [],
 		levels: input.levels ?? [],
 		sessionId: SESSION,
-		random: input.random ?? (() => 0)
+		random: input.random ?? (() => 0),
+		set: input.set
 	});
 }
 
@@ -371,6 +373,28 @@ describe('createLearningProcedure record', () => {
 		const tired = procedure({ subject, cards, attempts: history });
 		tired.record(played(4, 'consolidation', { success: false }), 0);
 		expect(tired.next(at(0, true))).toBeNull();
+	});
+
+	it('calls a solid item after as many misses in a row as the session sets', () => {
+		const subject = fakeSubject({ items: 10 });
+		const cards = [solid(0), solid(1), learned(4), learned(5), learned(6), learned(7)];
+		const isRecovery = (item: PlannedItem | null) =>
+			item !== null && item.phase === 'consolidation' && [0, 1].includes(item.item as number);
+		for (let seed = 1; seed <= 20; seed++) {
+			const source = procedure({
+				subject,
+				cards,
+				random: seeded(seed),
+				set: { recoveryAfterMisses: 2 }
+			});
+			source.record(played(4, 'consolidation', { success: false }), 0);
+			// One miss: not yet.
+			const first = source.next(at(0));
+			expect(isRecovery(first)).toBe(false);
+			source.record(answer(first!, false), 0);
+			// The second in a row: a solid item.
+			expect(isRecovery(source.next(at(0)))).toBe(true);
+		}
 	});
 
 	it('draws the fading aid after the presentation and a miss, and drops it after its successes', () => {

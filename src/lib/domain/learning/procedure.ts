@@ -231,7 +231,7 @@ class Procedure implements LearningProcedure {
 		}
 		if (this.servedRecovery) return;
 		this.missStreak++;
-		if (this.missStreak < this.subject.itemLearning(attempt.mechanic).recoveryAfterMisses) return;
+		if (this.missStreak < this.set.recoveryAfterMisses) return;
 		this.missStreak = 0;
 		this.pendingRecovery = attempt.mechanic;
 	}
