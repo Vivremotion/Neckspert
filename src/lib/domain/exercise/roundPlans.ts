@@ -46,8 +46,10 @@ export function beatPlan(input: {
 	respirationBars: number;
 	/** The exercise's windows (`windowsOf`). */
 	windows: ResponseWindows;
+	/** Where the target falls in its bar; absent: the downbeat. */
+	barOffset?: Fraction;
 }): RoundPlan {
-	const { content, leadBeats, meter, respirationBars, windows } = input;
+	const { content, leadBeats, meter, respirationBars, windows, barOffset } = input;
 	const length = barLength(meter).mul(Fraction.of(respirationBars));
 	return {
 		prompt: beats(meter, -leadBeats),
@@ -55,7 +57,8 @@ export function beatPlan(input: {
 		length,
 		listenUntil: length.sub(beats(meter, STRING_PREVIEW_BEATS)),
 		mutedBars: [],
-		policy: onTheBeatPolicy(false, windows)
+		policy: onTheBeatPolicy(false, windows),
+		...(barOffset && { barOffset })
 	};
 }
 

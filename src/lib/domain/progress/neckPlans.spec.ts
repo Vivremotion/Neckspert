@@ -67,4 +67,13 @@ describe('neckPlan', () => {
 		const plan = neckPlan(planned({}), METER_4_4, definition);
 		expect(plan.length.toString()).toBe('2');
 	});
+
+	it('places its target where its exercise writes it in the bar, on the downbeat by default', () => {
+		expect(neckPlan(planned({}), METER_4_4, LOCATE_NECK).barOffset).toBeUndefined();
+		const definition = {
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, targetBarOffset: '1/4' }
+		};
+		expect(neckPlan(planned({}), METER_4_4, definition).barOffset?.toString()).toBe('1/4');
+	});
 });

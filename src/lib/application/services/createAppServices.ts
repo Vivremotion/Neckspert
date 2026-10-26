@@ -185,15 +185,18 @@ export function createAppServices(
 					deps.progressions.all(),
 					deps.levels.all()
 				]);
+				// The neck's exercises as the catalog writes them.
+				const exercise = deps.exercise ?? exerciseById;
+				const locate = exercise(LOCATE_NECK.id);
+				const identify = exercise(IDENTIFY_NECK.id);
 				// Locate plays on the click at its own tempo; identify is answered in free time.
-				const locateTempo = startTempo(LOCATE_NECK, progressions);
 				const executions: Execution[] = [
-					{ exerciseId: LOCATE_NECK.id, tempoBpm: locateTempo },
-					{ exerciseId: IDENTIFY_NECK.id, tempoBpm: null }
+					{ exerciseId: locate.id, tempoBpm: startTempo(locate, progressions) },
+					{ exerciseId: identify.id, tempoBpm: null }
 				];
 				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
 				const subject = neckSubject({
-					definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK },
+					definitions: { locate, identify },
 					priority: triadNotesToLearn(cards)
 				});
 				const neckCards = cards.filter(isNeck);

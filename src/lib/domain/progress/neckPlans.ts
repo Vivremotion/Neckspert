@@ -1,4 +1,4 @@
-import { pacingOf } from '$lib/domain/exercise/pacing';
+import { pacingOf, targetBarOffsetOf } from '$lib/domain/exercise/pacing';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
@@ -11,7 +11,8 @@ import type { PlannedItem } from '$lib/domain/types';
 /**
  * The round plan of a prompt of the neck: a note located on the beat at its lead, then a
  * breathing bar; a note named in free time, judged against the exercise's recall threshold.
- * The windows, the breath and the threshold are those of the item's exercise.
+ * The windows, the breath, the target's place in its bar and the threshold are those of the
+ * item's exercise.
  */
 export function neckPlan(
 	item: PlannedItem,
@@ -25,7 +26,8 @@ export function neckPlan(
 			leadBeats: item.leadBeats,
 			meter,
 			respirationBars: pacingOf(definition).respirationBars,
-			windows: windowsOf(definition)
+			windows: windowsOf(definition),
+			barOffset: targetBarOffsetOf(definition)
 		});
 	}
 	const recallThresholdMs = recallThresholdOf(definition);

@@ -1,3 +1,4 @@
+import { Fraction } from '$lib/domain/time/fraction';
 import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
 import { LEAD_STEPS, type LeadBeats } from '$lib/domain/types';
 import { leadStepsOf } from './ladder';
@@ -12,6 +13,15 @@ export const DEFAULT_PACING: ExercisePacing = {
 export function pacingOf(definition: ExerciseDefinition): ExercisePacing {
 	const pacing = definition.params.pacing as ExercisePacing | undefined;
 	return pacing ?? DEFAULT_PACING;
+}
+
+/**
+ * Where an exercise's target falls in its bar (`params.targetBarOffset`, a fraction of a whole
+ * note written as text, "1/4" for beat 2 in quarters); undefined when it writes none: the downbeat.
+ */
+export function targetBarOffsetOf(definition: ExerciseDefinition): Fraction | undefined {
+	const written = definition.params.targetBarOffset;
+	return written === undefined ? undefined : Fraction.parse(String(written));
 }
 
 /** The pacing the old one-answer relations read: the breath, and the leads of a ladder. Until H5. */

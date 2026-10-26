@@ -6,3 +6,4 @@ export * from './pacing';
 export * from './chordDiagram';
 export * from './recall';
 export * from './ladder';
+export * from './validate';
