@@ -60,13 +60,20 @@ export function ladderOf(definition: ExerciseDefinition, mechanic?: MechanicId):
 	return written;
 }
 
-/** The leads of the exercise's ladder, in order, for the old triad path. Until H5. */
+/**
+ * The leads of the exercise's ladder, in order, for the old triad path, which knows a level by its
+ * lead: throws, naming the exercise, on a ladder without leads or with a lead twice. Until H5.
+ */
 export function leadStepsOf(definition: ExerciseDefinition, mechanic?: MechanicId): LeadBeats[] {
+	const field = `${definition.id}: ${ladderFieldOf(definition, mechanic)}`;
 	const leads: LeadBeats[] = [];
 	for (const { params } of ladderOf(definition, mechanic)) {
 		const lead = params.leadBeats;
-		if (lead !== null && lead !== undefined && leads[leads.length - 1] !== lead) leads.push(lead);
+		if (lead === null || lead === undefined) continue;
+		if (leads.includes(lead)) throw new Error(`${field} gives the lead ${lead} twice`);
+		leads.push(lead);
 	}
+	if (leads.length === 0) throw new Error(`${field} has no lead, the old triad path needs one`);
 	return leads;
 }
 

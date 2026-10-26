@@ -89,4 +89,15 @@ describe('ladderOf', () => {
 		expect(leadStepsOf(TRIADS_ANCHOR)).toEqual([8, 4, 2]);
 		expect(learnedAfterOf(TRIADS_ZONE)).toBe(2);
 	});
+
+	it('refuses the old triad path a ladder without leads, or with a lead twice (until H5)', () => {
+		const level = (leadBeats: number | null, aided = false) => ({ params: { leadBeats, aided } });
+		expect(() => leadStepsOf(withLadder([level(null, true), level(null)]))).toThrow(
+			/^locate-neck: params\.ladder .*no lead/
+		);
+		expect(() => leadStepsOf(withLadder([level(8, true), level(8), level(2)]))).toThrow(
+			/^locate-neck: params\.ladder .*8.*twice/
+		);
+		expect(() => leadStepsOf(withLadder([level(8), level(4), level(8)]))).toThrow(/twice/);
+	});
 });
