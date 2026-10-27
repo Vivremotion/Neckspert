@@ -160,6 +160,21 @@ describe('responseVerdict', () => {
 		expect(slow.success).toBe(true);
 	});
 
+	it('needs a point expectation, timed by a window in ms', () => {
+		expect(responseVerdict.validate?.(locatePlan())).toBeNull();
+		expect(responseVerdict.validate?.(anchorPlan())).toBeNull();
+		const spans: RoundPlan = {
+			...anchorPlan(),
+			expectations: anchorPlan().expectations.slice(1)
+		};
+		expect(responseVerdict.validate?.(spans)).toBe('a response verdict needs a point expectation');
+		const ofGap: RoundPlan = {
+			...locatePlan(),
+			expectations: locatePlan().expectations.map((e) => ({ ...e, window: { ofGap: F(1, 2) } }))
+		};
+		expect(responseVerdict.validate?.(ofGap)).toBe('a response verdict needs a window in ms');
+	});
+
 	it('wraps its value in a response envelope', () => {
 		const outcome = responseVerdict.outcome(result([pair(0, 6.1)]), context(locatePlan()));
 		expect(responseVerdict.id).toBe('response');

@@ -97,6 +97,8 @@ export interface VerdictContext {
 /** Turns what a round paired into its outcome. */
 export interface VerdictMode {
 	id: string;
+	/** Null when the plan gives this mode what it reads to judge, else what it lacks. */
+	validate?(plan: RoundPlan): string | null;
 	outcome(result: PairingResult, context: VerdictContext): RoundOutcome;
 }
 

@@ -134,6 +134,10 @@ export class PlanRound {
 
 		const problem = pairingMode.validate?.(plan) ?? null;
 		if (problem) throw new RangeError(`plan unfit for pairing mode ${pairingId}: ${problem}`);
+		const verdictProblem = verdict.validate?.(plan) ?? null;
+		if (verdictProblem) {
+			throw new RangeError(`plan unfit for verdict mode ${verdictId}: ${verdictProblem}`);
+		}
 		const base = roundTimes(plan, clock);
 		const times = pairingMode.times
 			? pairingMode.times(plan, clock, input.chained ?? false, base)

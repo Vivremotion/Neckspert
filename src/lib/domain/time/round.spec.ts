@@ -465,6 +465,17 @@ describe('PlanRound routing', () => {
 		);
 	});
 
+	it('refuses a plan its verdict mode cannot judge, before anything is heard', () => {
+		const base = locatePlan();
+		const stretched: RoundPlan = {
+			...base,
+			expectations: base.expectations.map((e) => ({ ...e, span: { until: Fraction.of(1, 2) } }))
+		};
+		expect(() => responseRound(stretched)).toThrow(
+			'plan unfit for verdict mode response: a response verdict needs a point expectation'
+		);
+	});
+
 	it('refuses a plan whose mode is not registered', () => {
 		const base = locatePlan();
 		const kazoo: RoundPlan = {
