@@ -32,7 +32,7 @@ export class DexieBackup implements BackupPort {
 	}
 
 	async importAll(file: unknown): Promise<void> {
-		const backup = validateBackup(file, this.now());
+		const backup = validateBackup(file);
 		const { db } = this;
 		const tables = [db.attempts, db.cards, db.sessions, db.settings, db.levelStates];
 		await db.transaction('rw', tables, async () => {

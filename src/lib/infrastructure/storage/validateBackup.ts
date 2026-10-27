@@ -509,8 +509,12 @@ export function validateBackupV2(file: unknown): Fields {
 	return backup;
 }
 
-function fromV1(backup: V1Backup, now: number): Fields {
-	const { settings, progressions, cards, attempts, sessions } = convertV1(backup, now);
+/**
+ * A version 1 file as version 2. The progression made from its tempo is stamped 0: version 7
+ * drops every locate progression, so the stamp is never kept.
+ */
+function fromV1(backup: V1Backup): Fields {
+	const { settings, progressions, cards, attempts, sessions } = convertV1(backup, 0);
 	return {
 		app: backup.app,
 		version: 2,
@@ -684,10 +688,9 @@ export function validateBackupV7(file: unknown): BackupFile {
 
 /**
  * Accepts version 7, and versions 1 to 6 brought to it by the migration chain, the one the
- * database upgrade runs (`now` stamps the progression made from a version 1 tempo, which version
- * 7 then drops). Throws a readable error on anything else.
+ * database upgrade runs. Throws a readable error on anything else.
  */
-export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
+export function validateBackup(file: unknown): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
 	const toV7 = (v6: Fields) => validateBackupV7(backupV6ToV7(validateBackupV6(v6)));
@@ -695,7 +698,7 @@ export function validateBackup(file: unknown, now: number = Date.now()): BackupF
 	const toV5 = (v4: Fields) => toV6(backupV4ToV5(validateBackupV4(v4)));
 	const toV4 = (v3: Fields) => toV5(backupV3ToV4(v3, relationOfMechanic));
 	if (file.version === 1) {
-		return toV4(validateBackupV3(fromV2(fromV1(validateBackupV1(file), now))));
+		return toV4(validateBackupV3(fromV2(fromV1(validateBackupV1(file)))));
 	}
 	if (file.version === 2) return toV4(validateBackupV3(fromV2(validateBackupV2(file))));
 	if (file.version === 3) return toV4(validateBackupV3(file));

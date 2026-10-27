@@ -24,8 +24,6 @@ import {
 	validateBackupV7
 } from './validateBackup';
 
-const NOW = 9000;
-
 /** The level states of a converted file: one per neck card, none of the exercises. */
 function expectNeckLevelStates(file: BackupFile): void {
 	const neck = file.cards.filter((card) => ['locate', 'identify'].includes(card.mechanic));
@@ -451,7 +449,7 @@ describe('validateBackup', () => {
 
 	describe('with a version 1 file', () => {
 		it('converts it, then checks it as version 7', () => {
-			const file = validateBackup(makeV1Backup(), NOW);
+			const file = validateBackup(makeV1Backup());
 			expect(file.version).toBe(7);
 			expect(file.app).toBe('neckspert-play');
 			expect(file.exportedAt).toBe(5000);
