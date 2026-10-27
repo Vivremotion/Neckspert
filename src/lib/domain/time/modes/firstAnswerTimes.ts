@@ -1,7 +1,7 @@
 import type { Fraction } from '../fraction';
 import type { Expectation, RoundPlan } from '../plan';
 import { beatSecondsAt } from '../tempoMap';
-import type { RoundTimes } from './times';
+import { EDGE_TOLERANCE_S, type RoundTimes } from './times';
 import type { RoundClock } from './types';
 
 /** Where an answer may start: a delay after the prompt, or a tolerance before the expectation (capped in beats). */
@@ -135,6 +135,11 @@ export function responseZones(
 			? promptS + settings.opens.afterPromptMs / 1000
 			: at(e.at) - earlyOf(settings, clock, e);
 	});
+	// Where each expectation is due: a span at its start, a point at its place less its tolerance.
+	// A window that opens after the prompt opens every point at once, long before it is due.
+	const dueList = plan.expectations.map((e) =>
+		e.span !== 'point' ? at(e.at as Fraction) : at(e.at as Fraction) - earlyOf(settings, clock, e)
+	);
 	return plan.expectations.map((e, index): ResponseZone => {
 		const atS = at(e.at as Fraction);
 		const opensS = opensList[index];
@@ -154,14 +159,17 @@ export function responseZones(
 			atS + settings.lateMs / 1000,
 			beforeMs ? (handoverS ?? Infinity) : Infinity
 		);
-		const nextOpens = opensList[index + 1] ?? Infinity;
+		// The late capture ends where the next expectation is due. One due at or before this one's
+		// own place bounds nothing: their zones overlap, and the first unanswered takes an attack.
+		const next = dueList[index + 1] ?? Infinity;
+		const nextDue = next <= atS + EDGE_TOLERANCE_S ? Infinity : next;
 		const capture = settings.lateCapture;
 		const captureEndS =
 			capture === null
 				? inTimeEndS
 				: capture === 'to-end'
-					? Math.min(listenUntilS, nextOpens)
-					: Math.min(inTimeEndS + capture.ms / 1000, nextOpens, listenUntilS);
+					? Math.min(listenUntilS, nextDue)
+					: Math.min(inTimeEndS + capture.ms / 1000, nextDue, listenUntilS);
 		return { index, sensor: e.sensor, span: 'point', atS, opensS, inTimeEndS, captureEndS };
 	});
 }

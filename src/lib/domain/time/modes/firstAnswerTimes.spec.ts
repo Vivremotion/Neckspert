@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { RoundPlan } from '../plan';
-import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map, mapAt } from './testing/plans';
+import type { Expectation, RoundPlan } from '../plan';
+import { Fraction } from '../fraction';
+import {
+	anchorPlan,
+	expectation,
+	F,
+	freeTimePlan,
+	gridPlan,
+	locatePlan,
+	map,
+	mapAt,
+	quarter
+} from './testing/plans';
 import { firstAnswerTimes, responseZones, validateFirstAnswer } from './firstAnswerTimes';
 import { EDGE_TOLERANCE_S, roundTimes } from './times';
 import type { RoundClock } from './types';
@@ -34,6 +45,46 @@ describe('firstAnswerTimes', () => {
 		expect(chord.captureEndS).toBeCloseTo(9.1, 9);
 		expect(chord.span).toBe('span');
 		expect(t.listenUntilS).toBeCloseTo(11.35, 9);
+	});
+
+	it('captures a point late until the next point is due, not until its window opens after the prompt', () => {
+		// Two notes a beat apart, both heard from 300 ms after the prompt (seed 4 of openness.spec).
+		const plan: RoundPlan = {
+			...locatePlan(),
+			expectations: [
+				expectation(Fraction.ZERO, 'point', 'note'),
+				expectation(quarter, 'point', 'note')
+			]
+		};
+		const t = timesOf(plan, { map, start: F(2) }, false);
+		const [first, second] = t.zones;
+		expect(first.opensS).toBeCloseTo(3.4, 9);
+		expect(second.opensS).toBeCloseTo(3.4, 9);
+		expect(first.inTimeEndS).toBeCloseTo(6.5, 9);
+		// Its capture past the late limit ends where the second note is due, on the next beat.
+		expect(first.captureEndS).toBeCloseTo(6.85, 9);
+		expect(second.captureEndS).toBeCloseTo(8.35, 9);
+	});
+
+	it('lets a point capture late as if alone when the next one is due at or before its place', () => {
+		// Two notes on one beat (seed 30 of openness.spec), two a sixth of a beat apart, each
+		// opened 200 ms early (seed 144), a note and a stretch from the same place (seed 1540): the
+		// first is no longer cut before its own place; their zones overlap.
+		const early = gridPlan().policy;
+		const twice = (second: Expectation): RoundPlan => ({
+			...locatePlan(),
+			policy: { ...early, pairing: { ...early.pairing, lateMs: 0, lateCapture: 'to-end' } },
+			expectations: [expectation(F(1, 12), 'point', 'note'), second]
+		});
+		const clock = { map, start: F(2) };
+		for (const second of [
+			expectation(F(1, 12), 'point', 'note'),
+			expectation(F(1, 8), 'point', 'note'),
+			expectation(F(1, 12), { until: F(1, 4) }, 'chord')
+		]) {
+			const t = timesOf(twice(second), clock, false);
+			expect(t.zones[0].captureEndS).toBeCloseTo(t.listenUntilS, 9);
+		}
 	});
 
 	it('opens a grid change early by its tolerance, capped in beats', () => {
