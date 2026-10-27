@@ -1,128 +1,211 @@
-import { describe, expect, it } from 'vitest';
-import type { MechanicRules } from '$lib/domain/mechanics';
-import { beatTiming } from '$lib/domain/timing';
-import { createListSource } from '$lib/domain/progress';
-import type { Execution, PlannedItem } from '$lib/domain/types';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { CONTENT_DERIVATIONS, type ContentDerivation } from '$lib/domain/derivations';
+import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
+import { CONTENT_JUDGES } from '$lib/domain/judges';
+import type { MechanicIdentity } from '$lib/domain/mechanics';
+import type { ContentJudge, ResponseValue } from '$lib/domain/time';
+import type { ItemPhase, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import {
-	FakeClock,
-	FakeMetronome,
-	FakeNoteDetector,
-	FakeSoundCues,
-	InMemoryAttemptRepository,
-	InMemoryCardStateRepository,
-	InMemoryProgressionRepository,
-	InMemorySessionRepository,
-	InMemorySettingsRepository
-} from '$lib/testing/fakes';
+	presentationProblem,
+	screenProblem,
+	type PromptStageModel
+} from '$lib/application/presentation';
+import { CONTENT_VIEWS, type ContentView } from '$lib/application/presentation/contentViews';
+import { ITEM_FIELDS, type ItemFields } from '$lib/application/presentation/itemFields';
+import { drain, gestureSeries } from '$lib/testing/gestureSeries';
 import type { Observation, SensorFactory } from './sensors';
-import type { SessionDeps } from './SessionDeps';
-import { SessionController } from './SessionController.svelte';
+
+/**
+ * The promise of « Mechanics and exercises »: a mechanic the core has never heard of plays end to
+ * end on the series once its vocabulary is registered (its fields, a derivation, a content judge
+ * and its view) and an exercise written in data names it. Nothing in the core names it.
+ */
 
 interface FakeItem {
 	n: number;
 }
+interface FakeAnswer {
+	value: number;
+}
 
-/** A mechanic the core has never heard of: right when the value equals n. */
-const fakeRules: MechanicRules<FakeItem, { value: number }, { value: number }, never> = {
-	id: 'fake',
-	timing: beatTiming,
-	learner: 'memory',
+const MECHANIC = 'fake';
+const KIND = 'fake-number';
+
+/** Its identity alone: the series reads no time relation and no judge of a mechanic. */
+const identity: MechanicIdentity<FakeItem> = {
+	id: MECHANIC,
+	learner: 'skill',
 	itemKey: ({ n }) => String(n),
-	parseItem: (key) => ({ n: Number(key) }),
-	judge: (item, payload) => ({
-		correct: payload.value === item.n,
-		answer: payload,
-		confusion: null
+	parseItem: (key) => ({ n: Number(key) })
+};
+
+/** Right when the value read equals n. */
+const judge: ContentJudge = {
+	judge: (value, payload) => {
+		const answer = payload as FakeAnswer;
+		return {
+			correct: answer.value === (value as FakeItem).n,
+			answer,
+			confusion: answer.value === (value as FakeItem).n ? null : { got: answer.value }
+		};
+	}
+};
+
+/** The value answered, and after a miss the right one. */
+const view: ContentView = {
+	answerLabel: (_value, answer) => String((answer as FakeAnswer).value),
+	miss: (value) => ({
+		correction: `n = ${(value as FakeItem).n}`,
+		heard: null,
+		expected: null,
+		gap: null
 	})
 };
 
-const fakePresenter: MechanicPresenter<FakeItem, { value: number }> = {
-	rules: fakeRules,
+const fields: ItemFields = {
+	names: ['n'],
+	fields: (item) => ({ n: String((item as FakeItem).n) })
+};
+
+const derivation: ContentDerivation = { kind: KIND, reads: [MECHANIC], derive: (item) => item };
+
+const presenter: MechanicPresenter = {
+	rules: identity as MechanicPresenter['rules'],
 	scene: 'guitar',
-	sensors: ['fake'],
-	prompt: ({ n }) => ({ primary: String(n), secondary: '', aid: null, diagram: null }),
-	answerLabel: ({ value }) => String(value),
-	reveal: ({ n }, { verdict }) => (verdict === 'wrong' ? `n = ${n}` : null)
+	sensors: [MECHANIC],
+	attemptData: (item, value: ResponseValue) => {
+		const [result] = value.expectations;
+		return { item, answer: result?.answer ?? null, confusion: result?.confusion ?? null };
+	}
 };
 
-const EXECUTIONS: Execution[] = [{ exerciseId: 'fake-ex', tempoBpm: 100 }];
-
-const ITEM: PlannedItem = {
-	exerciseId: 'fake-ex',
-	mechanic: 'fake',
-	item: { n: 3 },
-	phase: 'review',
-	temperature: 'cold',
-	aid: 'none',
-	leadBeats: 4
-};
-
-function setup() {
-	const clock = new FakeClock();
-	const metronome = new FakeMetronome(clock);
-	let listener: ((observation: Observation) => void) | null = null;
-	const fakeSensor: SensorFactory = () => ({
-		onObservation: (callback) => {
-			listener = callback;
-			return () => {
-				listener = null;
-			};
+/**
+ * Its exercise, data only: the number on the lane, answered on the beat four beats later; its
+ * round, the target's bar and a breathing bar, listens until the middle of the breath.
+ */
+const EXERCISE: ExerciseDefinition = {
+	id: 'fake-ex',
+	version: 1,
+	mechanic: MECHANIC,
+	view: 'lane',
+	tempo: { fixed: 120 },
+	presentation: { primary: '{n}', secondary: { fr: 'le nombre', en: 'the number' } },
+	round: {
+		prompt: { lead: { param: 'leadBeats' } },
+		expectations: [
+			{ at: { beats: 0 }, sensor: MECHANIC, content: { from: 'fake-of-item' }, window: { ms: 80 } }
+		],
+		length: { bars: 1, breath: true },
+		// Listening ends half a bar before the next prompt.
+		listenBeforeEnd: { beats: 2 },
+		policy: {
+			unit: 'response',
+			verdict: 'response',
+			correction: false,
+			pairing: {
+				mode: 'first-answer',
+				opens: { afterPromptMs: 300 },
+				lateMs: 150,
+				lateCapture: { ms: 400 }
+			}
 		}
-	});
-	const deps: SessionDeps = {
-		clock,
-		metronome,
-		detector: new FakeNoteDetector(),
-		cues: new FakeSoundCues(),
-		attempts: new InMemoryAttemptRepository(),
-		cards: new InMemoryCardStateRepository(),
-		sessions: new InMemorySessionRepository(),
-		progressions: new InMemoryProgressionRepository(),
-		settings: new InMemorySettingsRepository(),
-		now: () => clock.toEpochMs(clock.now()),
-		random: () => 0,
-		newId: () => 'id-1',
-		mechanics: { fake: fakePresenter },
-		sensors: { fake: fakeSensor }
+	},
+	params: { ladder: [{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 } }] }
+};
+
+const registries = {
+	fields: ITEM_FIELDS as Record<string, ItemFields>,
+	derivations: CONTENT_DERIVATIONS as Record<string, ContentDerivation>,
+	judges: CONTENT_JUDGES as Record<string, ContentJudge>,
+	views: CONTENT_VIEWS as Record<string, ContentView>
+};
+
+beforeAll(() => {
+	registries.fields[MECHANIC] = fields;
+	registries.derivations['fake-of-item'] = derivation;
+	registries.judges[KIND] = judge;
+	registries.views[KIND] = view;
+});
+
+afterAll(() => {
+	delete registries.fields[MECHANIC];
+	delete registries.derivations['fake-of-item'];
+	delete registries.judges[KIND];
+	delete registries.views[KIND];
+});
+
+function item(n: number, phase: ItemPhase = 'free'): PlannedItem {
+	return {
+		exerciseId: EXERCISE.id,
+		mechanic: MECHANIC,
+		item: { n },
+		phase,
+		temperature: 'hot',
+		aid: 'none',
+		leadBeats: 4
 	};
-	const controller = new SessionController(
-		{ id: 'sess-1', kind: 'free' },
-		async () => ({ selector: createListSource([ITEM]), executions: EXECUTIONS }),
-		deps
-	);
-	const push = (payload: unknown) =>
-		listener?.({ time: metronome.beatTime(8), payload, readable: true });
-	return { deps, controller, metronome, clock, push };
 }
 
+/**
+ * The series on fakes at ♩ = 120 from 0.1 s (a bar lasts 2 s): the counted bar is bar 0, the
+ * prompt on bar 1, its target on bar 2, listening until bar 3.5; the next prompt on bar 4. `read`
+ * sends what the fake sensor read of an attack.
+ */
+function setup(items: PlannedItem[] = [item(3), item(5)]) {
+	let listener: ((observation: Observation) => void) | null = null;
+	const sensor: SensorFactory = () => ({
+		onObservation: (callback) => {
+			listener = callback;
+			return () => (listener = null);
+		}
+	});
+	const ctx = gestureSeries(items, {
+		mechanics: { [MECHANIC]: presenter },
+		exercise: () => EXERCISE,
+		sensors: { [MECHANIC]: sensor },
+		executions: [{ exerciseId: EXERCISE.id, tempoBpm: 120 }]
+	});
+	const target = ctx.bar(2);
+	const read = (time: number, value: number, final = true) =>
+		listener?.({ time, payload: { value }, readable: true, final });
+	const lane = () => ctx.controller.view.stage?.model as PromptStageModel | undefined;
+	return { ...ctx, target, read, lane };
+}
+
+/** To the prompt: the round opens. */
 async function reachPrompt(ctx: ReturnType<typeof setup>) {
 	await ctx.controller.start();
-	// Beat 4 carries the prompt (count-in bar first); announced 100 ms ahead.
-	ctx.clock.advance(ctx.metronome.beatTime(4) - 0.1 - ctx.clock.now() + 0.2);
-	ctx.metronome.flush();
+	ctx.runTo(ctx.bar(1));
 	expect(ctx.controller.view.status).toBe('awaiting');
 }
 
-async function drain() {
-	for (let i = 0; i < 8; i++) await Promise.resolve();
-}
-
 describe('a third mechanic, unknown to the core', () => {
+	it('is an exercise the validator and the screen accept', () => {
+		expect(validateExercise(EXERCISE, { sensors: [MECHANIC] })).toBeNull();
+		expect(presentationProblem(EXERCISE)).toBeNull();
+		expect(screenProblem(EXERCISE, { [MECHANIC]: presenter })).toBeNull();
+	});
+
 	it('plays a mechanic the core has never seen, on the beat', async () => {
 		const ctx = setup();
 		await reachPrompt(ctx);
-		expect(ctx.controller.view.prompt?.primary).toBe('3');
+		expect(ctx.lane()?.prompt).toMatchObject({ primary: '3', secondary: 'le nombre' });
+		expect(ctx.lane()?.anchorBeat).toBe(8);
 
-		ctx.push({ value: 3 });
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 3);
 		await drain();
 
-		expect(ctx.controller.view.lastVerdict?.verdict).toBe('perfect');
-		const [attempt] = await ctx.deps.attempts.all();
+		expect(ctx.controller.view.status).toBe('verdict');
+		expect(ctx.lane()?.verdict).toMatchObject({ verdict: 'perfect', answerLabel: '3', misses: [] });
+		const [attempt] = await ctx.stored();
 		expect(attempt).toMatchObject({
-			mechanic: 'fake',
-			exerciseId: 'fake-ex',
-			tempoBpm: 100,
+			mechanic: MECHANIC,
+			exerciseId: EXERCISE.id,
+			cardKey: 'fake:3',
+			tempoBpm: 120,
+			success: true,
 			data: { item: { n: 3 }, answer: { value: 3 }, confusion: null }
 		});
 	});
@@ -130,16 +213,17 @@ describe('a third mechanic, unknown to the core', () => {
 	it('keeps the answer among the observations of the attempt, as its sensor read it', async () => {
 		const ctx = setup();
 		await reachPrompt(ctx);
-
-		ctx.push({ value: 3 });
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 3);
+		ctx.controller.quit();
 		await drain();
 
-		const [attempt] = await ctx.deps.attempts.all();
-		const promptToTargetMs = (ctx.metronome.beatTime(8) - ctx.metronome.beatTime(4)) * 1000;
+		const [attempt] = await ctx.stored();
+		const promptToTargetMs = (ctx.target - ctx.bar(1)) * 1000;
 		expect(attempt.observations).toEqual([
 			{
 				atMs: expect.closeTo(promptToTargetMs, 6),
-				sensor: 'fake',
+				sensor: MECHANIC,
 				fate: 'answer',
 				correct: true,
 				payload: { value: 3 }
@@ -147,14 +231,95 @@ describe('a third mechanic, unknown to the core', () => {
 		]);
 	});
 
-	it('shows what the mechanic reveals after a miss', async () => {
+	it('shows what the mechanic tells after a miss', async () => {
 		const ctx = setup();
 		await reachPrompt(ctx);
-
-		ctx.push({ value: 4 });
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 4);
 		await drain();
 
-		expect(ctx.controller.view.lastVerdict?.verdict).toBe('wrong');
-		expect(ctx.controller.view.lastVerdict?.correction).toBe('n = 3');
+		expect(ctx.lane()?.verdict).toMatchObject({
+			verdict: 'wrong',
+			answerLabel: '4',
+			misses: [{ correction: 'n = 3' }]
+		});
+		const [attempt] = await ctx.stored();
+		expect(attempt.data).toEqual({ item: { n: 3 }, answer: { value: 4 }, confusion: { got: 4 } });
+	});
+
+	it.each<ItemPhase>(['learning', 'review', 'free'])(
+		'stores its %s attempts with their observations, and no card, as a skill learner',
+		async (phase) => {
+			const ctx = setup([item(3, phase), item(5)]);
+			await reachPrompt(ctx);
+			ctx.runTo(ctx.target);
+			ctx.read(ctx.target, 3);
+			ctx.controller.quit();
+			await drain();
+
+			const [attempt] = await ctx.stored();
+			expect(attempt).toMatchObject({ mechanic: MECHANIC, phase, correct: true });
+			expect(attempt.observations).toHaveLength(1);
+		}
+	);
+});
+
+describe('an answer that refines itself', () => {
+	it('waits for the final reading of the attack and judges on it', async () => {
+		const ctx = setup();
+		await reachPrompt(ctx);
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 7, false);
+		await drain();
+		expect(ctx.controller.view.status).toBe('awaiting');
+		expect(ctx.lane()?.verdict).toBeNull();
+		ctx.read(ctx.target, 3);
+		await drain();
+		expect(ctx.lane()?.verdict).toMatchObject({ verdict: 'perfect', offsetMs: 0 });
+		ctx.controller.quit();
+		await drain();
+		const [attempt] = await ctx.stored();
+		expect(attempt.data).toEqual({ item: { n: 3 }, answer: { value: 3 }, confusion: null });
+		expect(attempt.observations?.map((o) => [o.fate, o.correct])).toEqual([
+			['answer', false],
+			['answer', true]
+		]);
+	});
+
+	it('judges on the last reading when no final one comes before listening ends', async () => {
+		const ctx = setup();
+		await reachPrompt(ctx);
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 7, false);
+		ctx.read(ctx.target, 6, false);
+		// Past the in-time zone: no provisional miss while a reading waits.
+		ctx.runTo(ctx.target + 1);
+		expect(ctx.lane()?.verdict).toBeNull();
+		ctx.read(ctx.target, 5, false);
+		ctx.runTo(ctx.bar(3.5));
+		await drain();
+		expect(ctx.lane()?.verdict).toMatchObject({
+			verdict: 'wrong',
+			misses: [{ correction: 'n = 3' }]
+		});
+		const [attempt] = await ctx.stored();
+		expect(attempt.data).toEqual({ item: { n: 3 }, answer: { value: 5 }, confusion: { got: 5 } });
+		expect(attempt.timingOffsetMs).toBe(0);
+	});
+
+	it('files another attack heard while a reading waits as settled', async () => {
+		const ctx = setup();
+		await reachPrompt(ctx);
+		ctx.runTo(ctx.target);
+		ctx.read(ctx.target, 7, false);
+		ctx.read(ctx.target + 0.1, 3);
+		ctx.runTo(ctx.bar(3.5));
+		await drain();
+		ctx.controller.quit();
+		await drain();
+		const [attempt] = await ctx.stored();
+		expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
+		expect(attempt.success).toBe(false);
+		expect(attempt.data).toMatchObject({ answer: { value: 7 } });
 	});
 });

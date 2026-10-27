@@ -3,7 +3,9 @@ import { gridById, gridChanges, type GridChange } from '$lib/domain/grid';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
 import type { ResponseValue } from '$lib/domain/time';
+import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import type { LaneEntry } from '$lib/application/session/contract';
+import type { StagePlace } from './types';
 import { shapeAt, shapeId } from '$lib/testing/shapes';
 import {
 	chordGridPresenter,
@@ -159,25 +161,53 @@ describe('chordGridPresenter', () => {
 	});
 
 	describe('the screen model', () => {
-		const stage = (
+		/** Not placed yet: waiting for its round. */
+		const UNPLACED = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
+		/** The model of `it`, settled on the shape `answer` when given, `aid` its aid. */
+		const modelOf = (
 			it: ChordGridItem,
 			answer: string | null = null,
-			aid = 'show-position' as const
+			aid: 'none' | 'show-position' = 'show-position',
+			locale: 'fr' | 'en' = 'fr'
 		) =>
-			chordGridPresenter.stage!(
+			chordGridPresenter.stageOf(
 				it,
-				answer === null ? null : { answer: { decided: answer }, verdict: 'perfect' },
-				'fr',
-				{ aid }
-			).model as GridStageModel;
+				answer === null
+					? null
+					: {
+							value: {
+								verdict: 'perfect',
+								timingOffsetMs: 0,
+								reactionMs: 400,
+								leadMs: 500,
+								expectations: [
+									{
+										index: 0,
+										answer: { decided: answer },
+										correct: true,
+										confusion: null,
+										correction: null,
+										late: false
+									}
+								]
+							},
+							success: true
+						},
+				locale,
+				{ aid, stringAid: false },
+				UNPLACED,
+				undefined,
+				() => 0
+			).model;
+		const stage = (it: ChordGridItem, answer: string | null = null) =>
+			modelOf(it, answer) as GridStageModel;
 
 		it('link: the lane, the root then the way of each shape, the chord and its strings', () => {
-			const model = chordGridPresenter.stage!(
+			const model = modelOf(
 				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
 				null,
-				'fr',
-				{ aid: 'none' }
-			).model as LinkLaneModel;
+				'none'
+			) as LinkLaneModel;
 			expect(model).toEqual({
 				kind: 'link-lane',
 				root: 'D',
@@ -198,30 +228,19 @@ describe('chordGridPresenter', () => {
 				history: [],
 				miss: null
 			});
-			const english = chordGridPresenter.stage!(link(1, ''), null, 'en', { aid: 'none' })
-				.model as LinkLaneModel;
+			const english = modelOf(link(1, ''), null, 'none', 'en') as LinkLaneModel;
 			expect(english).toMatchObject({ quality: 'major', set: 'G · B · E' });
 		});
 
 		it('link: a chained tour starts on an arrow, from the second shape', () => {
 			const chained = { ...link(0, shapeId('D', 'maj', G_B_E, '7-7-5')), continued: true as const };
-			const model = chordGridPresenter.stage!(
-				{ ...chained, changes: LINK_D.slice(1) },
-				null,
-				'fr',
-				{ aid: 'show-position' }
-			).model as LinkLaneModel;
+			const model = modelOf({ ...chained, changes: LINK_D.slice(1) }) as LinkLaneModel;
 			expect(model.tiles).toEqual(['up', 'up', 'up', 'down', 'down', 'down']);
 			expect(model.aid?.now.map((n) => n.fret)).toEqual([7, 7, 5]);
 		});
 
 		it('link: aided, the notes of the shape now and of the next one', () => {
-			const model = chordGridPresenter.stage!(
-				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
-				null,
-				'fr',
-				{ aid: 'show-position' }
-			).model as LinkLaneModel;
+			const model = modelOf(link(1, shapeId('D', 'maj', G_B_E, '7-7-5'))) as LinkLaneModel;
 			expect(model.aid).toEqual({
 				now: [
 					{ string: 3, fret: 7, name: 'D' },
@@ -234,12 +253,7 @@ describe('chordGridPresenter', () => {
 					{ string: 1, fret: 10, name: 'D' }
 				]
 			});
-			const last = chordGridPresenter.stage!(
-				link(6, shapeId('D', 'maj', G_B_E, '2-3-2')),
-				null,
-				'fr',
-				{ aid: 'show-position' }
-			).model as LinkLaneModel;
+			const last = modelOf(link(6, shapeId('D', 'maj', G_B_E, '2-3-2'))) as LinkLaneModel;
 			expect(last.aid?.next).toBeNull();
 		});
 
@@ -248,7 +262,9 @@ describe('chordGridPresenter', () => {
 			expect(stage(first)).toMatchObject({
 				title: 'I Only Have Eyes for You',
 				index: 0,
-				cue: { kind: 'climb', set: 'sol‑si‑mi', direction: 'up' }
+				cue: { kind: 'climb', set: 'sol‑si‑mi', direction: 'up' },
+				// The player's style when the exercise and the settings say none.
+				chordDiagram: DEFAULT_SETTINGS.chordDiagram
 			});
 			// Before an answer, G from the bottom; once Dm 7-6-5 is heard, the G just above it.
 			expect(stage(first).aid).toEqual(view('4-3-3'));
@@ -324,46 +340,29 @@ describe('chordGridPresenter', () => {
 		/** What the model keeps of its place: the target and the history. */
 		const placed = { anchorBeat: place.anchorBeat, history: place.history };
 
-		it('draws the change and its verdict from a response value', () => {
+		it('places the change where the series says, and draws a miss after a wrong chord or none only', () => {
 			expect(lower.confusion).not.toBeNull();
 			const items = [climbing, link(1, shapeId('D', 'maj', G_B_E, '7-7-5'))];
+			const unplaced: StagePlace = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
 			for (const it of items) {
 				for (const aid of ['none', 'show-position'] as const) {
-					const before = chordGridPresenter.stageOf!(
-						it,
-						null,
-						'fr',
-						{ aid, stringAid: false },
-						place,
-						undefined,
-						() => 0
-					);
-					expect(before.model).toEqual({
-						...(chordGridPresenter.stage!(it, null, 'fr', { aid }).model as object),
-						...placed,
-						miss: null
-					});
-					for (const settled of cases) {
-						const { answer } = settled.value.expectations[0];
-						const old = chordGridPresenter.stage!(
-							it,
-							{ answer, verdict: settled.value.verdict },
-							'fr',
-							{ aid }
-						).model;
-						// The drawn miss is the target model's own (the old frame drew it apart).
-						const model = chordGridPresenter.stageOf!(
+					const modelOf = (settled: (typeof cases)[number] | null, at: StagePlace = place) =>
+						chordGridPresenter.stageOf(
 							it,
 							settled,
 							'fr',
 							{ aid, stringAid: false },
-							place,
+							at,
 							undefined,
 							() => 0
 						).model as GridStageModel;
-						// Drawn after a wrong chord or none, as the old verdict: an offbeat played the right one.
+					expect(modelOf(null)).toEqual({ ...modelOf(null, unplaced), ...placed });
+					expect(modelOf(null, unplaced)).toMatchObject({ anchorBeat: null, history: [] });
+					for (const settled of cases) {
+						const model = modelOf(settled);
+						// Drawn after a wrong chord or none: an offbeat played the right one.
 						expect(model.miss !== null).toBe(settled.value.verdict === 'wrong');
-						expect(model).toEqual({ ...(old as object), ...placed, miss: model.miss });
+						expect(model).toMatchObject(placed);
 					}
 				}
 			}
@@ -419,16 +418,6 @@ describe('chordGridPresenter', () => {
 			expect(chordGridPresenter.attemptData!(climbing, cases[0].value)).toEqual(today(higher));
 			expect(chordGridPresenter.attemptData!(climbing, cases[1].value)).toEqual(today(lower));
 			expect(chordGridPresenter.attemptData!(climbing, cases[3].value)).toEqual(today(null));
-		});
-
-		it('leaves the place empty on the old path', () => {
-			expect(chordGridPresenter.stage!(climbing, null, 'fr', { aid: 'none' }).model).toMatchObject({
-				anchorBeat: null,
-				history: []
-			});
-			expect(
-				chordGridPresenter.stage!(link(0, ringing), null, 'fr', { aid: 'none' }).model
-			).toMatchObject({ anchorBeat: null, history: [] });
 		});
 	});
 

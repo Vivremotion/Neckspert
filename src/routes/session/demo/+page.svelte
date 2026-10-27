@@ -126,7 +126,6 @@
 						choices: []
 					} satisfies PromptStageModel
 				};
-				controller.view.leadBeats = 8;
 				ready = true;
 				return;
 			}

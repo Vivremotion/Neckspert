@@ -11,13 +11,13 @@ describe('DemoPlaySession', () => {
 		await demo.start();
 		expect(demo.view.status).toBe('count-in');
 		expect(demo.view.tempoBpm).toBe(80);
-		expect(demo.view.beatsPerBar).toBe(4);
 		expect(demo.view.countdown).toBe(4);
 		expect(demo.view.stage?.view).toBe('lane');
 		expect(demo.lane).toMatchObject({
 			prompt: { secondary: 'corde de B' },
 			anchorBeat: null,
-			promptBeat: null
+			promptBeat: null,
+			beatsPerBar: 4
 		});
 	});
 

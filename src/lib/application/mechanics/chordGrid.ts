@@ -35,8 +35,8 @@ import {
 	type ResponseVerdict
 } from '$lib/domain/types';
 import { CHORD_GRID_MESSAGES } from './chordGridMessages';
-import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
-import type { MechanicPresenter, OneAnswerPresenter, StagePlace } from './types';
+import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from '$lib/application/presentation/triadMessages';
+import type { MechanicPresenter, StagePlace } from './types';
 
 /** How far around the shapes expected a look-alike stays a candidate, in frets. To calibrate. */
 export const NEIGHBOUR_FRETS = 2;
@@ -109,6 +109,8 @@ export interface GridStageModel {
 	cue: GridCue;
 	/** The shape to play at the next change, when the passage is aided. */
 	aid: ShapeView | null;
+	/** How its chord shapes are drawn: the exercise's style, else the player's. */
+	chordDiagram: ChordDiagramStyle;
 	/** The beat of the change's target, in the map's beats from the series' start; null before. */
 	anchorBeat: number | null;
 	/** The changes played so far, with their verdicts. */
@@ -356,17 +358,15 @@ function linkLaneModel(
 	};
 }
 
-/** No place: the old controller gives its views their placement apart. */
-const NO_PLACE: StagePlace = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
-
-/** The screen model of a change, the shape `heard` (occurrenceId) once settled. */
+/** The screen model of a change, the shape `heard` (occurrenceId) once settled, drawn in `style`. */
 function stageModel(
 	item: ChordGridItem,
 	heard: string | null,
 	locale: Locale,
 	aid: AidLevel,
 	place: StagePlace,
-	miss: DrawnMiss | null = null
+	style: ChordDiagramStyle,
+	miss: DrawnMiss | null
 ): LinkLaneModel | GridStageModel {
 	if (item.rule === 'link') {
 		return linkLaneModel(item, locale, aid === 'show-position', place, miss);
@@ -379,6 +379,7 @@ function stageModel(
 		index: item.index,
 		cue: cueOf(item, locale),
 		aid: shown && shapeView(shown),
+		chordDiagram: style,
 		anchorBeat: place.anchorBeat,
 		history: place.history,
 		miss
@@ -406,8 +407,20 @@ function drawnMiss(
 	return feedback ? { ...feedback, style } : null;
 }
 
-/** A change of a chord grid: its symbol, the cue of its exercise, heard by the chord sensor. */
-export const chordGridPresenter: OneAnswerPresenter<ChordGridItem, ChordReading> = {
+/** The gesture's presenter: its words, its miss and its screen models are its own (D9). */
+type GesturePresenter = MechanicPresenter<ChordGridItem, ChordReading> &
+	Required<
+		Pick<
+			MechanicPresenter<ChordGridItem, ChordReading>,
+			'prompt' | 'answerLabel' | 'reveal' | 'feedback' | 'stageOf' | 'attemptData'
+		>
+	>;
+
+/**
+ * A change of a chord grid: its symbol, the cue of its exercise, heard by the chord sensor. Its
+ * screen models are its own until the gesture is data (D9).
+ */
+export const chordGridPresenter: GesturePresenter = {
 	rules: chordGridRules,
 	scene: 'guitar',
 	sensors: ['chord'],
@@ -440,15 +453,11 @@ export const chordGridPresenter: OneAnswerPresenter<ChordGridItem, ChordReading>
 		};
 	},
 	expectation: (item, round) => ({ chord: gridExpectation(item, round.opensAt) }),
-	stage: (item, settled, locale, { aid }) => {
-		const heard = (settled?.answer as ChordReading | null | undefined)?.decided ?? null;
-		return { model: stageModel(item, heard, locale, aid, NO_PLACE) };
-	},
 	stageOf: (item, settled, locale, { aid }, place, drawing) => {
 		const heard = settled === null ? null : (readingOf(settled.value)?.decided ?? null);
 		const style = drawing?.chordDiagram ?? DEFAULT_SETTINGS.chordDiagram;
 		const miss = settled && drawnMiss(item, settled.value, locale, style);
-		return { model: stageModel(item, heard, locale, aid, place, miss) };
+		return { model: stageModel(item, heard, locale, aid, place, style, miss) };
 	},
 	attemptData: (item, value): ChordGridData => {
 		const [asked] = value.expectations;

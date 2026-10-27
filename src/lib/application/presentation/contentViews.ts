@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
 import type { Locale } from '$lib/domain/types';
-import { TRIAD_MESSAGES } from '$lib/application/mechanics/triadMessages';
+import { TRIAD_MESSAGES } from './triadMessages';
 import { nameChoice, noteName, positionLabel } from './noteWords';
 import type { Picture } from './pictures';
 import {

@@ -6,24 +6,13 @@ export class StageController implements PlaySessionController {
 	readonly sessionId = 'stage-test';
 	readonly view: PlayView = $state({
 		status: 'idle',
-		prompt: null,
-		lastVerdict: null,
 		tempoBpm: DEFAULT_TEMPO_BPM,
-		beatsPerBar: 4,
-		promptBeatIndex: null,
-		targetBeatIndex: null,
-		followUp: null,
-		chordDiagram: 'strings',
-		leadBeats: null,
-		history: [],
-		answerChoices: null,
 		fatigueDetected: false,
-		scene: 'guitar',
 		countdown: null,
-		preview: null,
 		contest: null,
 		audioError: null,
-		stage: null
+		stage: null,
+		briefing: null
 	});
 	nowBeat = 0;
 	readonly timeline = { nowBeat: () => this.nowBeat };

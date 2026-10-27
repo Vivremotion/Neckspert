@@ -584,6 +584,20 @@ describe('stops and misses on the notes', () => {
 		expect((await app.deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull();
 	});
 
+	it('stores nothing when paused or quit before a name is tapped', async () => {
+		for (const stop of ['pause', 'quit'] as const) {
+			const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
+			const controller = await startNotes(app, 'learn');
+			await runUntil(app, () => controller.view.status === 'awaiting');
+			expect(onStage(controller)?.card.mechanic).toBe('identify');
+			for (let i = 0; i < 100; i++) await step(app);
+			controller[stop]();
+			await drain();
+			expect(await app.deps.attempts.listBySession(controller.sessionId)).toEqual([]);
+			expect(await app.deps.cards.get(keyOf(identify(5, 3)))).toEqual(learnedCard(identify(5, 3)));
+		}
+	});
+
 	it('offers no « Joué juste » on a note, even in development', async () => {
 		const app = await notesApp({ cards: ALL_LOCATE, development: true, random: seeded(19) });
 		const controller = await startNotes(app, 'learn');

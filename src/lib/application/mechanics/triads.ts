@@ -1,6 +1,5 @@
 import type { ChordCandidate, ChordExpectation } from '$lib/application/ports';
 import {
-	rootPosition,
 	triadAnchorRules,
 	triadZoneRules,
 	type ChordConfusion,
@@ -13,10 +12,8 @@ import {
 } from '$lib/domain/mechanics';
 import {
 	closeTriadVoicings,
-	formatSpelledNote,
 	type Confusion,
 	parseVoicingKey,
-	pitchOfMidi,
 	voicingCandidates,
 	voicingKey,
 	type Voicing,
@@ -24,26 +21,9 @@ import {
 } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
-import type { Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import type { PromptView } from '$lib/application/session/contract';
-import {
-	chartRoot,
-	chordGap,
-	chordName,
-	closestShape,
-	fretsOf,
-	heardFrets,
-	heardOf,
-	lowestShape,
-	notesOf,
-	aroundLabel,
-	rootOnLabel,
-	shapeAt,
-	shapeOf,
-	stringSetLabel
-} from '$lib/application/presentation/triadWords';
-import { TRIAD_MESSAGES } from './triadMessages';
-import type { MechanicPresenter, OneAnswerPresenter } from './types';
+import type { PlannedItem } from '$lib/domain/types';
+import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
+import type { MechanicPresenter } from './types';
 
 function toCandidate(kind: string, occurrence: VoicingOccurrence): ChordCandidate {
 	return {
@@ -137,68 +117,15 @@ function anchorData(item: TriadAnchorItem, value: ResponseValue): TriadAnchorDat
 	};
 }
 
-/** Nothing to draw on a right answer: the miss and the correction only. */
-function isMiss(verdict: ResponseVerdict): boolean {
-	return verdict === 'wrong' || verdict === 'corrected';
-}
-
-function triadPrompt(
-	voicing: Voicing,
-	secondary: string,
-	aid: string | null,
-	locale: Locale
-): PromptView {
-	return {
-		primary: chordName(voicing),
-		secondary,
-		detail: stringSetLabel(voicing, locale),
-		aid,
-		diagram: null
-	};
-}
-
-/** Find a triad from its root on a named string: "D · fondamentale sur si". */
-// The judge answers one part at a time; the round answers with both (`{ root, chord }`).
-export const triadAnchorPresenter: OneAnswerPresenter<TriadAnchorItem> = {
+/**
+ * Find a triad from its root on a named string: "D · fondamentale sur si"; its words and what it
+ * draws are its exercise's presentation. The round answers with both parts (`{ root, chord }`).
+ */
+export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	rules: triadAnchorRules,
 	scene: 'guitar',
 	sensors: ['note', 'chord'],
 	contestable: true,
-	prompt: (item, { aid }, locale) => {
-		const voicing = parseVoicingKey(item.voicingKey);
-		const prompt = triadPrompt(voicing, rootOnLabel(voicing, locale), null, locale);
-		// The lane: the root alone on the target tile, then the chord on the band after it.
-		return {
-			...prompt,
-			target: formatSpelledNote(chartRoot(voicing)),
-			band: prompt.primary,
-			...(aid === 'show-position' && { shape: shapeOf(lowestShape(voicing)) })
-		};
-	},
-	answerLabel: (answer) => heardFrets((answer as { chord?: ChordReading | null }).chord),
-	feedback: (item, { answer, confusion, verdict }, locale) => {
-		if (!isMiss(verdict)) return null;
-		const voicing = parseVoicingKey(item.voicingKey);
-		const parts = answer as { root: { midi: number } | null; chord: ChordReading | null } | null;
-		const heard = heardOf(parts?.chord);
-		const part = (confusion as { part?: string } | null)?.part;
-		const gap = TRIAD_MESSAGES[locale].gap;
-		const text = !parts?.root
-			? gap.noRoot
-			: part === 'root'
-				? gap.rootHeard(pitchOfMidi(parts.root.midi))
-				: chordGap(confusion, locale);
-		return {
-			heard: heard && shapeOf(heard),
-			expected: shapeOf(closestShape(voicing, heard)),
-			gap: text
-		};
-	},
-	reveal: (item, { verdict }) => {
-		if (verdict !== 'wrong') return null;
-		const shape = lowestShape(parseVoicingKey(item.voicingKey));
-		return `${fretsOf(shape)} · ${notesOf(shape)}`;
-	},
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, lowestShape(voicing), true, round) };
@@ -206,36 +133,12 @@ export const triadAnchorPresenter: OneAnswerPresenter<TriadAnchorItem> = {
 	attemptData: anchorData
 };
 
-/** Find a triad around a fret: "D · vers la case 3". */
-export const triadZonePresenter: OneAnswerPresenter<TriadZoneItem, ChordReading> = {
+/** Find a triad around a fret: "D · vers la case 3"; its words are its exercise's presentation. */
+export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> = {
 	rules: triadZoneRules,
 	scene: 'guitar',
 	sensors: ['chord'],
 	contestable: true,
-	prompt: (item, { aid }, locale) => {
-		const voicing = parseVoicingKey(item.voicingKey);
-		return triadPrompt(
-			voicing,
-			aroundLabel(item, locale),
-			aid === 'show-position' ? rootOnLabel(voicing, locale) : null,
-			locale
-		);
-	},
-	answerLabel: (answer) => heardFrets(answer),
-	feedback: (item, { answer, confusion, verdict }, locale) => {
-		if (!isMiss(verdict)) return null;
-		const heard = heardOf(answer as ChordReading | null);
-		return {
-			heard: heard && shapeOf(heard),
-			expected: shapeOf(shapeAt(parseVoicingKey(item.voicingKey), item.position)),
-			gap: answer === null ? TRIAD_MESSAGES[locale].gap.noChordHeard : chordGap(confusion, locale)
-		};
-	},
-	reveal: (item, { verdict }) => {
-		if (verdict !== 'wrong') return null;
-		const shape = shapeAt(parseVoicingKey(item.voicingKey), item.position);
-		return `${fretsOf(shape)} · ${notesOf(shape)}`;
-	},
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, shapeAt(voicing, item.position), false, round) };

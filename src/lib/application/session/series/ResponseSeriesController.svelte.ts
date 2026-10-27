@@ -572,10 +572,6 @@ export class ResponseSeriesController implements PlaySessionController {
 			}) ?? null;
 		this.enterScene(item);
 		this.view.countdown = chainedAt === null ? this.view.countdown : null;
-		const definition = this.items.definitionOf(item);
-		this.view.chordDiagram = presenter.feedback
-			? chordDiagramFor(definition, this.settings)
-			: this.settings.chordDiagram;
 		this.showStage(item, null, round);
 		this.view.status = 'awaiting';
 	}
@@ -906,9 +902,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	private enterScene(item: PlannedItem): void {
-		const { scene } = this.items.flowOf(item);
-		this.lastScene = scene;
-		this.view.scene = scene;
+		this.lastScene = this.items.flowOf(item).scene;
 	}
 
 	/** The beat of the round's first expectation (its target) on the map. */

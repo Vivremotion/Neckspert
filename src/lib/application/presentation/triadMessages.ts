@@ -15,8 +15,6 @@ export interface TriadGapMessages {
 	none: string;
 	'no-chord': string;
 	noChordHeard: string;
-	rootHeard: (note: string) => string;
-	noRoot: string;
 }
 
 export const TRIAD_MESSAGES: Record<
@@ -38,9 +36,7 @@ export const TRIAD_MESSAGES: Record<
 			'other-octave': 'autre octave',
 			none: 'rien de reconnu',
 			'no-chord': 'pas d’accord dans la bande',
-			noChordHeard: 'pas d’accord entendu',
-			rootHeard: (note) => `fondamentale entendue : ${note}`,
-			noRoot: 'fondamentale non entendue'
+			noChordHeard: 'pas d’accord entendu'
 		}
 	},
 	en: {
@@ -53,9 +49,7 @@ export const TRIAD_MESSAGES: Record<
 			'other-octave': 'other octave',
 			none: 'nothing recognized',
 			'no-chord': 'no chord in the band',
-			noChordHeard: 'no chord heard',
-			rootHeard: (note) => `root heard: ${note}`,
-			noRoot: 'no root heard'
+			noChordHeard: 'no chord heard'
 		}
 	}
 };

@@ -54,3 +54,10 @@ describe('SeriesItems.flowOf', () => {
 		expect(items.flowOf(item)).toMatchObject({ previewBeats: null, contestable: false });
 	});
 });
+
+describe('SeriesItems.presenterOf', () => {
+	it('names a mechanic without a presenter', () => {
+		const items = new SeriesItems({}, () => [], exerciseById);
+		expect(() => items.presenterOf(item)).toThrow('No presenter for mechanic: chord-grid');
+	});
+});

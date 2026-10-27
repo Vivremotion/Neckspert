@@ -6,7 +6,7 @@ import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Attempt, Execution, PlannedItem } from '$lib/domain/types';
+import type { Attempt, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { GESTURE_PRESENTERS, type GridStageModel } from '$lib/application/mechanics/chordGrid';
 import {
@@ -132,6 +132,8 @@ export function gestureSeries(
 		random?: () => number;
 		/** The series' length its preparation gives; absent: none given. */
 		durationMs?: number;
+		/** The kind of session the series is; the gesture's by default. */
+		kind?: SessionKind;
 	} = {}
 ) {
 	const clock = new FakeClock();
@@ -180,7 +182,7 @@ export function gestureSeries(
 	};
 	const prepared: string[] = [];
 	const controller = new ResponseSeriesController(
-		{ id: 'series-1', kind: 'gesture' },
+		{ id: 'series-1', kind: options.kind ?? 'gesture' },
 		async (sessionId) => {
 			prepared.push(sessionId);
 			const next = sources.shift();

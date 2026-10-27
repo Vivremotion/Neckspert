@@ -28,7 +28,6 @@ function show(
 	const controller = new StageController();
 	controller.view.status = status;
 	controller.view.countdown = countdown;
-	controller.view.scene = 'screen';
 	const rendered = render(AnswerKeysView, { props: { controller, model: model(overrides) } });
 	return { controller, ...rendered };
 }

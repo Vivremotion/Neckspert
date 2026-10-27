@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { voicingOccurrences, parseVoicingKey } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import { CONTENT_JUDGES } from '$lib/domain/judges';
-import { TRIAD_MESSAGES } from '$lib/application/mechanics/triadMessages';
+import { TRIAD_MESSAGES } from './triadMessages';
 import { CONTENT_VIEWS } from './contentViews';
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
@@ -125,6 +125,20 @@ describe('CONTENT_VIEWS', () => {
 		expect(miss.heard).toBeNull();
 		expect(miss.gap).toBe(TRIAD_MESSAGES.fr.gap.noChordHeard);
 		expect(miss.expected).toEqual(shape([2, 3, 2]));
+	});
+
+	it('names the gap of a missed chord in English', () => {
+		const gap = (confusion: unknown, answer: unknown = { decided: null }) =>
+			CONTENT_VIEWS['chord-voicing'].miss(
+				{ voicingKey: D_ON_B, position: null },
+				{ answer, confusion },
+				'en',
+				() => 0
+			).gap;
+		expect(gap({ kind: 'other-inversion', part: 'chord' })).toBe('other inversion');
+		expect(gap({ kind: 'other-quality', part: 'chord' })).toBe('other quality');
+		expect(gap({ kind: 'none', part: 'chord' })).toBe('nothing recognized');
+		expect(gap(null, null)).toBe('no chord heard');
 	});
 
 	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {

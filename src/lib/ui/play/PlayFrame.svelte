@@ -3,9 +3,7 @@
 	import { resolve } from '$app/paths';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
-	import { i18n } from '$lib/i18n/index.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
-	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import { playMessages } from './messages';
@@ -57,12 +55,6 @@
 	 */
 	const figures = $derived(Boolean(controller.listen || controller.replay));
 	const replay = $derived(replayOf(controller));
-	/** A miss drawn by its mechanic: what was played and what was due. */
-	const drawn = $derived(
-		view.lastVerdict && (view.lastVerdict.heard || view.lastVerdict.expected)
-			? view.lastVerdict
-			: null
-	);
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -222,42 +214,8 @@
 						{t.startsIn(view.countdown)}
 					</p>
 				</div>
-			{:else if view.lastVerdict}
-				<div class="verdict">
-					<p class="banner">{t.verdict[view.lastVerdict.verdict]}</p>
-					{#if drawn}
-						<div class="drawn">
-							{#if drawn.heard}
-								<div class="drawn-part">
-									<p class="label">{t.played}</p>
-									<ChordShape
-										shape={drawn.heard}
-										style={view.chordDiagram}
-										locale={i18n.locale}
-										size="small"
-									/>
-								</div>
-							{/if}
-							{#if drawn.expected}
-								<div class="drawn-part">
-									<p class="label">{t.expected}</p>
-									<ChordShape
-										shape={drawn.expected}
-										style={view.chordDiagram}
-										locale={i18n.locale}
-										size="small"
-									/>
-								</div>
-							{/if}
-						</div>
-						{#if drawn.gap}
-							<p class="label">{drawn.gap}</p>
-						{/if}
-					{/if}
-					{@render contestOffer()}
-				</div>
 			{:else if view.contest !== null}
-				<!-- A view that draws its own verdicts: the frame still offers « Joué juste ». -->
+				<!-- The view draws the verdict: the frame offers « Joué juste ». -->
 				<div class="verdict">
 					{@render contestOffer()}
 				</div>
@@ -433,28 +391,6 @@
 		gap: var(--np-space-2, 16px);
 	}
 
-	.banner {
-		margin: 0;
-		padding: var(--np-space-1, 8px) 12px;
-		background: var(--np-ink);
-		color: var(--np-bg);
-		font-size: var(--np-type-body);
-		line-height: 1;
-		text-transform: uppercase;
-		animation: imprint 120ms ease-out both;
-	}
-
-	.drawn {
-		display: flex;
-		gap: var(--np-space-3, 24px);
-	}
-
-	.drawn-part {
-		display: grid;
-		justify-items: center;
-		gap: 4px;
-	}
-
 	.label,
 	.fatigue {
 		margin: 0;
@@ -489,22 +425,5 @@
 		text-align: center;
 		font-size: var(--np-type-body);
 		text-transform: uppercase;
-	}
-
-	@keyframes imprint {
-		from {
-			transform: scale(0.96);
-			opacity: 0.85;
-		}
-		to {
-			transform: scale(1);
-			opacity: 1;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.banner {
-			animation: none;
-		}
 	}
 </style>

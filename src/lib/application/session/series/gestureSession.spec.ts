@@ -335,10 +335,17 @@ function countsOn(ctx: Ctx, from: number, to: number) {
  * Plays every change right, 20 ms after its target, until the series ends; an instruction is
  * resumed at once. Returns the tempo each change was played at.
  */
-async function playAllRight(ctx: Ctx): Promise<number[]> {
+/**
+ * Plays every change as it opens, on its target, with the shape `shapeOf` gives (by default the
+ * first one expected; null: nothing recognized); returns the tempo of each change.
+ */
+async function playAllRight(
+	ctx: Ctx,
+	shapeOf: (n: number, expected: string) => string | null = (_n, expected) => expected
+): Promise<number[]> {
 	const tempos: number[] = [];
 	let told = ctx.verifier.expectations.length;
-	let due: { time: number; shape: string } | null = null;
+	let due: { time: number; shape: string | null } | null = null;
 	for (let step = 0; step < 50_000 && ctx.controller.view.status !== 'finished'; step++) {
 		ctx.runTo(ctx.clock.now() + 0.01);
 		if (ctx.controller.view.status === 'paused') ctx.controller.resume();
@@ -349,7 +356,7 @@ async function playAllRight(ctx: Ctx): Promise<number[]> {
 			if (expectation && anchorBeat !== null) {
 				const beatS = 60 / ctx.controller.view.tempoBpm;
 				const target = ctx.clock.now() + (anchorBeat - ctx.controller.timeline.nowBeat()) * beatS;
-				due = { time: target + 0.02, shape: expectation.expected[0] };
+				due = { time: target + 0.02, shape: shapeOf(tempos.length, expectation.expected[0]) };
 				tempos.push(ctx.controller.view.tempoBpm);
 			}
 		}
@@ -706,6 +713,36 @@ describe('a tempo per exercise and scope (tempoScope)', () => {
 		expect(await ctx.repositories.progressions.get('gesture-jam', 'blues-f')).toBeUndefined();
 		expect(await ctx.repositories.progressions.get('gesture-jam')).toBeUndefined();
 	});
+
+	it('leaves every tempo alone after free play', async () => {
+		const ballad = [0, 1, 2, 3, 4].flatMap((n) => passage({ passage: `s:${n}` }));
+		const ctx = gestureSeries(ballad, { kind: 'free' });
+		await ctx.controller.start();
+		await playAllRight(ctx);
+		expect(ctx.controller.view.status).toBe('finished');
+		expect((await ctx.stored()).every((a) => a.success)).toBe(true);
+		expect(await ctx.repositories.progressions.all()).toEqual([]);
+	});
+});
+
+describe('fatigue', () => {
+	it('marks fatigue once the last answers fall behind the first, and tells the source', async () => {
+		const passages = [0, 1, 2, 3, 4, 5, 6].flatMap((n) => passage({ passage: `s:${n}` }));
+		const ctx = gestureSeries(passages);
+		await ctx.controller.start();
+		// Six changes right, then nothing recognized.
+		await playAllRight(ctx, (n, expected) => (n < 6 ? expected : null));
+		const attempts = await ctx.stored();
+		expect(attempts.map((a) => a.success)).toEqual([
+			...Array<boolean>(6).fill(true),
+			...Array<boolean>(8).fill(false)
+		]);
+		expect(ctx.controller.view.fatigueDetected).toBe(true);
+		// Before the twelfth answer, the source was told nothing; after it, fatigue.
+		expect(ctx.source.asked.slice(0, 12).every((context) => !context.fatigued)).toBe(true);
+		expect(ctx.source.asked.at(-1)?.fatigued).toBe(true);
+		expect((await ctx.repositories.sessions.get('series-1'))?.fatigueDetected).toBe(true);
+	});
 });
 
 describe('the chord sensor of a change (twoSensors)', () => {
@@ -847,14 +884,14 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		await chosen.repositories.settings.update({ chordDiagram: 'grid' });
 		await chosen.controller.start();
 		chosen.runTo(chosen.bar(1));
-		expect(chosen.controller.view.chordDiagram).toBe('grid');
+		expect(model(chosen).chordDiagram).toBe('grid');
 
 		const exercise = (id: string) => ({ ...exerciseById(id), chordDiagram: 'strings' as const });
 		const imposed = gestureSeries(passage(), { exercise });
 		await imposed.repositories.settings.update({ chordDiagram: 'grid' });
 		await imposed.controller.start();
 		imposed.runTo(imposed.bar(1));
-		expect(imposed.controller.view.chordDiagram).toBe('strings');
+		expect(model(imposed).chordDiagram).toBe('strings');
 	});
 });
 

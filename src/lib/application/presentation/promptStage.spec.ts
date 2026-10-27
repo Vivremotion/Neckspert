@@ -8,7 +8,7 @@ import type { ExpectationResult } from '$lib/domain/time/modes/responseVerdict';
 import { occurrenceId } from '$lib/domain/triads';
 import type { PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import { identifyPresenter } from '$lib/application/mechanics/identify';
-import { TRIAD_MESSAGES } from '$lib/application/mechanics/triadMessages';
+import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
 

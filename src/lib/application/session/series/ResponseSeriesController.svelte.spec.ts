@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	CONTENT_DERIVATIONS,
 	ITEM_NUMBERS,
@@ -15,7 +15,7 @@ import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
 import { Fraction, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
-import type { LeadBeats, PlannedItem } from '$lib/domain/types';
+import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
 import { triadCards } from '$lib/testing/shapes';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
@@ -248,6 +248,21 @@ describe('ResponseSeriesController', () => {
 			expect(attempt.correct).toBe(false);
 			expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer']);
 		});
+
+		it('forgets the lane on resume: its beats are numbered from 0 again', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			expect(model(ctx).history).toEqual([{ beatIndex: 4, verdict: 'perfect' }]);
+			ctx.controller.pause();
+			ctx.controller.resume();
+			await drain();
+			// An old verdict would sit on the new change's beat 4 and hide it.
+			expect(model(ctx).history).toEqual([]);
+			ctx.runTo(ctx.clock.now() + 2.1);
+			expect(model(ctx)).toMatchObject({ index: 1, anchorBeat: 4, history: [] });
+		});
 	});
 
 	describe('the end', () => {
@@ -363,6 +378,20 @@ describe('ResponseSeriesController', () => {
 	});
 
 	describe('recording', () => {
+		it('keeps what is heard before the first round opens out of every attempt', async () => {
+			const ctx = setup(passage());
+			await ctx.controller.start();
+			// In the counted bar, before the first change opens.
+			ctx.runTo(ctx.bar(0.25));
+			ctx.play(ctx.bar(0.25), rightShape(change(0)));
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.controller.quit();
+			await drain();
+			const [first] = await ctx.stored();
+			expect(first.observations?.map((o) => o.fate)).toEqual(['answer']);
+		});
+
 		it('writes each settled change, tells the source, and completes its observations when the next change opens', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.start();
@@ -521,6 +550,62 @@ describe('ResponseSeriesController', () => {
 			const plain = setup(passage());
 			await plain.controller.start();
 			expect((await plain.repositories.sessions.get('series-1'))?.latencyMs).toBe(0);
+		});
+
+		it('keeps its own latency when a new series starts before its record is final', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			await ctx.repositories.settings.update({
+				latency: { note: { ms: 42, provenance: 'player' } }
+			});
+			await ctx.controller.start();
+			// The final record is written late: the new series is up before it is.
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const put = ctx.repositories.sessions.put.bind(ctx.repositories.sessions);
+			ctx.repositories.sessions.put = async (record) => {
+				if (record.endedAt !== null) await gate;
+				return put(record);
+			};
+			ctx.controller.quit();
+			await ctx.repositories.settings.update({
+				latency: { note: { ms: 99, provenance: 'player' } }
+			});
+			await ctx.controller.start();
+			release();
+			await drain();
+			expect(await ctx.repositories.sessions.get('series-1')).toMatchObject({
+				latencyMs: 42,
+				endedAt: expect.any(Number)
+			});
+			expect((await ctx.repositories.sessions.get('series-2'))?.latencyMs).toBe(99);
+		});
+
+		it('writes the completed observations of its attempts before the end of the session', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			const write = ctx.repositories.attempts.setObservations.bind(ctx.repositories.attempts);
+			ctx.repositories.attempts.setObservations = async (id, observations) => {
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				return write(id, observations);
+			};
+			let atEnd: Promise<Attempt[]> | null = null;
+			const put = ctx.repositories.sessions.put.bind(ctx.repositories.sessions);
+			ctx.repositories.sessions.put = (record) => {
+				if (record.endedAt !== null) atEnd = ctx.repositories.attempts.all();
+				return put(record);
+			};
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			// After its settlement, still in its span.
+			ctx.play(ctx.bar(1) + 1, null);
+			ctx.controller.quit();
+			await vi.waitFor(async () =>
+				expect((await ctx.repositories.sessions.get('series-1'))?.endedAt).not.toBeNull()
+			);
+			const [whenEnded] = await (atEnd as unknown as Promise<Attempt[]>);
+			expect(whenEnded.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
 		});
 	});
 
@@ -995,7 +1080,6 @@ describe('ResponseSeriesController', () => {
 			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
 			ctx.runTo(ctx.bar(3.75));
 			expect(shown(ctx)).toMatchObject({ index: 1 });
-			expect(ctx.controller.view.scene).toBe('guitar');
 		});
 
 		it('without preview beats, shows the next item at its prompt', async () => {
@@ -1228,7 +1312,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = screenSeries([...onScreen(passage()), ...passage({ passage: 's:1' })]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) - 0.19);
-			expect(ctx.controller.view.scene).toBe('guitar');
 			// The screen's passage, its count included, in silence.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
 			// Bar 3 counted and heard, the guitar's first change on bar 4, clicked.
@@ -1245,7 +1328,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(2));
-			expect(ctx.controller.view.scene).toBe('screen');
 			expect(clicksBetween(ctx, 0, ctx.bar(2))).toEqual([]);
 		});
 
@@ -1258,7 +1340,6 @@ describe('ResponseSeriesController', () => {
 				counts.push(ctx.controller.view.countdown);
 			}
 			expect(counts).toEqual([4, 3, 2, 1, null]);
-			expect(ctx.controller.view.scene).toBe('screen');
 			expect(clicksBetween(ctx, ctx.bar(3) - 0.1, ctx.bar(6))).toEqual([]);
 		});
 

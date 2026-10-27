@@ -38,24 +38,13 @@ export class DemoIdentifySession implements PlaySessionController {
 	readonly sessionId = 'demo-identify';
 	view = $state<PlayView>({
 		status: 'idle',
-		prompt: null,
-		lastVerdict: null,
 		tempoBpm: DEFAULT_TEMPO_BPM,
-		beatsPerBar: 4,
-		promptBeatIndex: null,
-		targetBeatIndex: null,
-		followUp: null,
-		chordDiagram: 'strings',
 		contest: null,
-		leadBeats: null,
-		history: [],
-		answerChoices: null,
 		fatigueDetected: false,
-		scene: 'screen',
 		countdown: null,
-		preview: null,
 		audioError: null,
-		stage: null
+		stage: null,
+		briefing: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 

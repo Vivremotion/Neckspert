@@ -32,6 +32,30 @@ describe('PlayFrame', () => {
 		expect(screen.getByText(/la note défile/i)).toBeTruthy();
 	});
 
+	it('explains the triads before they start: the root alone, then the chord; the zone, the whole chord around a fret', () => {
+		const controller = new StageController();
+		const { container } = render(PlayFrame, { props: { controller, kind: 'triads' } });
+		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
+		expect(screen.getByText(/fondamentale seule/i)).toBeTruthy();
+		cleanup();
+		render(PlayFrame, { props: { controller, kind: 'triads-zone' } });
+		expect(screen.getByText(/vers la case 5/i)).toBeTruthy();
+		expect(screen.queryByText(/joue la fondamentale seule/i)).toBeNull();
+	});
+
+	it('quits to the summary when asked, and goes home otherwise', async () => {
+		for (const quitToSummary of [true, false]) {
+			const controller = new StageController();
+			controller.view.status = 'awaiting';
+			render(PlayFrame, { props: { controller, kind: 'learn', quitToSummary } });
+			const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+			screen.getByRole('link', { name: 'Quitter' }).dispatchEvent(event);
+			expect(controller.calls).toEqual(['quit']);
+			expect(event.defaultPrevented).toBe(quitToSummary);
+			cleanup();
+		}
+	});
+
 	it('shows the view its exercise names, from the registry', () => {
 		const controller = new StageController();
 		controller.view.status = 'awaiting';
@@ -53,7 +77,7 @@ describe('PlayFrame', () => {
 		expect(controller.calls).toEqual(['pause', 'resume', 'pause', 'resume']);
 	});
 
-	it('counts the bar down, then shows the verdict and offers « Joué juste » on Enter', async () => {
+	it('counts the bar down, then offers « Joué juste » on Enter', async () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		controller.view.countdown = 3;
@@ -61,34 +85,16 @@ describe('PlayFrame', () => {
 		expect(document.querySelector('.countdown')).toBeTruthy();
 		controller.view.status = 'verdict';
 		controller.view.countdown = null;
-		controller.view.lastVerdict = {
-			verdict: 'wrong',
-			offsetMs: null,
-			reactionMs: null,
-			answerLabel: null,
-			correction: null,
-			heard: null,
-			expected: {
-				notes: [
-					{ string: 3, fret: 7 },
-					{ string: 2, fret: 7 },
-					{ string: 1, fret: 5 }
-				]
-			},
-			gap: 'pas plus haut'
-		};
 		controller.view.contest = 'available';
 		await fireEvent.keyDown(window, { key: 'Enter' });
 		expect(controller.calls).toEqual(['contest']);
-		expect(screen.getByText('Mauvaise note')).toBeTruthy();
-		expect(screen.getByText('pas plus haut')).toBeTruthy();
+		expect(document.querySelector('.countdown')).toBeNull();
 		expect(screen.getByText('Contesté')).toBeTruthy();
 	});
 
-	it('offers « Joué juste » with its button when the view draws the miss itself', async () => {
+	it('offers « Joué juste » with its button, the view drawing the miss itself', async () => {
 		const controller = new StageController();
 		controller.view.status = 'verdict';
-		controller.view.lastVerdict = null;
 		controller.view.contest = 'available';
 		render(PlayFrame, { props: { controller } });
 		await fireEvent.click(screen.getByRole('button', { name: /joué juste/i }));

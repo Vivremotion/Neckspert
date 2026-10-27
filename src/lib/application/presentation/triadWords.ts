@@ -13,7 +13,7 @@ import type { PitchName } from '$lib/domain/music/types';
 import { occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
 import type { Locale } from '$lib/domain/types';
 import type { ShapeView } from '$lib/application/session/contract';
-import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from '$lib/application/mechanics/triadMessages';
+import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
 
 /** Between the frets of a shape: a hyphen that never breaks the line. */
 const FRET_SEPARATOR = '‑';

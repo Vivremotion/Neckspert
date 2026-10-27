@@ -138,7 +138,7 @@
 {/snippet}
 
 <style>
-	/* The prompt over the lane, as `PlayScreen` draws the notes; the frame paints the field. */
+	/* The prompt over the lane; the frame paints the field. */
 	.lane-view {
 		display: grid;
 		grid-template-rows: 1fr auto;

@@ -77,24 +77,13 @@ export class DemoPlaySession implements PlaySessionController {
 		this.#clock = options.clock ?? new ManualDemoClock();
 		this.view = $state({
 			status: 'idle',
-			prompt: null,
-			lastVerdict: null,
 			tempoBpm: options.tempoBpm ?? DEFAULT_TEMPO_BPM,
-			beatsPerBar: BEATS_PER_BAR,
-			promptBeatIndex: null,
-			targetBeatIndex: null,
-			followUp: null,
-			chordDiagram: 'strings',
 			contest: null,
-			leadBeats: null,
-			history: [],
-			answerChoices: null,
 			fatigueDetected: false,
-			scene: 'guitar',
 			countdown: null,
-			preview: null,
 			audioError: null,
-			stage: null
+			stage: null,
+			briefing: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()

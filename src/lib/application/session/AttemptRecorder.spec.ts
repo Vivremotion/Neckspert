@@ -630,6 +630,98 @@ describe('AttemptRecorder.recordResponse', () => {
 		expect(await still.levels.all()).toEqual([]);
 	});
 
+	/** F on B learned long ago, untouched since. */
+	const learnedLongAgo = () =>
+		markLearned(
+			introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, -10_000_000, 'old'),
+			-9_000_000
+		);
+
+	it('counts a free-play attempt on a learned card cold, through FSRS, and tells the source the card', async () => {
+		const changed: number[] = [];
+		const { recorder, cards } = setupResponse({
+			cardChanged: (card) => changed.push(card.scheduling.reps)
+		});
+		const card = learnedLongAgo();
+		await cards.put(card);
+		const free = item({ phase: 'free', temperature: 'hot' });
+		const attempt = noteAttempt(free);
+		await recorder.recordResponse(attempt, span(free), free);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('cold');
+		expect(changed).toEqual([card.scheduling.reps + 1]);
+		expect((await cards.get(LOCATE_KEY))?.scheduling.reps).toBe(card.scheduling.reps + 1);
+	});
+
+	it('keeps free play hot on a note without a learned card, its card untouched', async () => {
+		const { recorder, cards } = setupResponse();
+		const being = introduceCard(
+			{ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B },
+			-10_000_000,
+			'old'
+		);
+		await cards.put(being);
+		const free = item({ phase: 'free', temperature: 'hot' });
+		const attempt = noteAttempt(free);
+		await recorder.recordResponse(attempt, span(free), free);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('hot');
+		expect(await cards.get(LOCATE_KEY)).toEqual(being);
+
+		const none = setupResponse();
+		const unknown = noteAttempt(free, { success: false });
+		await none.recorder.recordResponse(unknown, span(free), free);
+		await none.recorder.settled();
+		expect(unknown.temperature).toBe('hot');
+		expect(await none.cards.all()).toEqual([]);
+	});
+
+	it('keeps consolidation hot and leaves the card alone', async () => {
+		const { recorder, cards } = setupResponse();
+		const card = learnedLongAgo();
+		await cards.put(card);
+		const consolidation = item({ phase: 'consolidation', temperature: 'hot' });
+		const attempt = noteAttempt(consolidation);
+		await recorder.recordResponse(attempt, span(consolidation), consolidation);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('hot');
+		expect(await cards.get(LOCATE_KEY)).toEqual(card);
+	});
+
+	it('stores the card the source reports for a probe and for a learning prompt', async () => {
+		const known = {
+			...introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, 0, 'sess-1'),
+			acquiredAt: 456
+		};
+		const probed = setupResponse({ record: () => ({ card: known }) });
+		const probe = item({ phase: 'probe', temperature: 'cold' });
+		await probed.recorder.recordResponse(noteAttempt(probe), span(probe), probe);
+		await probed.recorder.settled();
+		expect((await probed.cards.get(LOCATE_KEY))?.acquiredAt).toBe(456);
+
+		const learned = markLearned(known, 123);
+		const taught = setupResponse({ record: () => ({ card: learned }) });
+		const learning = item({ phase: 'learning', temperature: 'hot' });
+		await taught.recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await taught.recorder.settled();
+		expect((await taught.cards.get(LOCATE_KEY))?.learnedAt).toBe(123);
+	});
+
+	it('introduces the card of a first learning prompt even after a wrong note', async () => {
+		const { recorder, cards } = setupResponse();
+		const learning = item({ phase: 'learning', temperature: 'hot', aid: 'show-position' });
+		await recorder.recordResponse(
+			noteAttempt(learning, { success: false }),
+			span(learning),
+			learning
+		);
+		await recorder.settled();
+		expect(await cards.get(LOCATE_KEY)).toMatchObject({
+			introducedInSession: 'sess-1',
+			learnedAt: null
+		});
+	});
+
 	it('touches no card for a skill learner', async () => {
 		const { recorder, cards, attempts } = setupResponse(undefined, 'skill');
 		const learning = item({ phase: 'learning', temperature: 'hot' });

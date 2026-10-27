@@ -126,6 +126,16 @@ describe('LaneView', () => {
 		expect(playedCell(container)).toBe('rien entendu');
 	});
 
+	it('names a corrected attempt under its cell', () => {
+		const { container } = settled({ verdict: 'corrected', answerLabel: null });
+		expect(playedCell(container)).toBe('corrigé');
+	});
+
+	it('shows the verdict alone in the centre when the hit has no offset', () => {
+		const { container } = settled({ verdict: 'perfect', offsetMs: null });
+		expect(container.querySelector('.centre .hit')?.textContent?.trim()).toBe('Parfait');
+	});
+
 	it('puts the correction in place of the prompt, the note recalled alone above', () => {
 		const { container } = settled({ verdict: 'wrong', correction: 'corde de B, case 6' });
 		const centre = container.querySelector('.centre')!;

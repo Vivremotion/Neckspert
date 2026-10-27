@@ -61,7 +61,7 @@
 </div>
 
 <style>
-	/* The prompt over the keys, as `PlayScreen` draws them; the frame paints the field. */
+	/* The prompt over the keys; the frame paints the field. */
 	.answer-keys {
 		display: grid;
 		grid-template-rows: 1fr auto;
