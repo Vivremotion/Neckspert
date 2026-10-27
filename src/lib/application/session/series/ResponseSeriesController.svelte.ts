@@ -702,7 +702,11 @@ export class ResponseSeriesController implements PlaySessionController {
 		// A new map: its beats start again from 0, the targets before it are not on it.
 		this.history = [];
 		this.accompaniedUntil = playFrom;
-		this.forgetPlaces();
+		// The places of the map before are not on this one; what the policy decided for this
+		// item (`placed`: a remedy, a listen) is, and opens after the count.
+		this.heard = null;
+		this.demo = null;
+		this.breath = null;
 		this.listenIn = { from: 0, to: setup.listenInBars };
 		if (setup.listenInBars > 0)
 			this.wakeAt(Fraction.ZERO, (time) => this.log?.open('listen-in', time));

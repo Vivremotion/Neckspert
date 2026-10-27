@@ -796,6 +796,32 @@ describe('the rhythm on the series, the anti-blocking', () => {
 		).toBe(true);
 	});
 
+	it('keeps the remedies of a reading block through a pause, and plays them on resume', async () => {
+		const { controller, memory, stored, player, clock, advance } = await rhythmSeries(
+			RHYTHM_OFFBEATS,
+			{ met: true }
+		);
+		player.skip = 3;
+		await controller.start();
+		// cycles 3, 4, 5 fail: the third settles a quarter into bar 6, the remedies queued; pause
+		// in the cycle of bar 6.
+		await advance(ORIGIN + 6.5 * OFFBEATS_BAR_S);
+		controller.pause();
+		controller.resume();
+		await settled();
+		const resumedAt = clock.now();
+		// listen-in 0-1, count 2, the listen on bar 3, the cycle played along on bar 4
+		const seen = await watch(controller, advance, clock, resumedAt + ORIGIN + 5.5 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect(seen.has('listen-remedy')).toBe(true);
+		expect(seen.has('play-along')).toBe(true);
+		const resumed = runsOf(memory).at(-1) as Segment;
+		expect(roles(resumed).slice(0, 2)).toEqual(['listen', 'round']);
+		const along = (await stored()).find((a) => a.id === resumed.children[1].attemptId);
+		expect(along?.aids).toContain('play-along');
+	});
+
 	it('an execution block takes the aid level at the breath', async () => {
 		const { controller, memory, stored, player, clock, advance } = await rhythmSeries(
 			RHYTHM_OFFBEATS,
@@ -885,6 +911,12 @@ describe('the rhythm on the series, the anti-blocking', () => {
 		const state = await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' });
 		expect(state?.resumeAfter).toBeGreaterThan(clock.toEpochMs(0));
 		expect(state?.failures).toBe(0);
+		expect(controller.view.announcement?.kind).toBe('change-of-air');
+		// Played again: the new series does not say it.
+		await controller.start();
+		expect(controller.view.status).toBe('count-in');
+		expect(controller.view.announcement).toBeNull();
+		controller.quit();
 	});
 });
 
@@ -982,6 +1014,7 @@ describe('the rhythm on the series, another series', () => {
 		await controller.start();
 		expect(controller.sessionId).toBe('s1');
 		expect(controller.view.status).toBe('count-in');
+		expect(controller.view.announcement).toBeNull();
 		expect(await sessions.get('s1')).toMatchObject({
 			kind: 'exercise',
 			exerciseId: 'rhythm-offbeats',
