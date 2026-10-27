@@ -4,6 +4,7 @@ import { triadAnchorPlan, F, freeTimePlan, locatePlan, map, mapAt } from './test
 import { isDirectRecall, responseVerdict, type ResponseValue } from './responseVerdict';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
 import { firstAnswerTimes } from './firstAnswerTimes';
+import { firstAnswerPairing } from './firstAnswer';
 import { roundTimes } from './times';
 
 const RIGHT: Judged = { correct: true, answer: 'F', confusion: null };
@@ -67,6 +68,63 @@ describe('responseVerdict', () => {
 		expect(at(6.18)).toMatchObject({ verdict: 'perfect', timingOffsetMs: 80 });
 		expect(at(6.25)).toMatchObject({ verdict: 'late', timingOffsetMs: 150 });
 		expect(at(6.13).leadMs).toBe(3000);
+	});
+
+	it('rounds the offset to the ms before it compares it with the window', () => {
+		// The target falls at 6.1 s; the window is 80 ms.
+		const plan = locatePlan();
+		const at = (time: number) =>
+			valueOf(responseVerdict.outcome(result([pair(0, time)]), context(plan)));
+		expect(at(6.1804)).toMatchObject({ verdict: 'perfect', timingOffsetMs: 80 });
+		expect(at(6.1806)).toMatchObject({ verdict: 'late', timingOffsetMs: 81 });
+		expect(at(6.0196)).toMatchObject({ verdict: 'perfect', timingOffsetMs: -80 });
+		expect(at(6.0194)).toMatchObject({ verdict: 'early', timingOffsetMs: -81 });
+	});
+
+	it('rounds the reaction to the ms before it compares it with the window, in free time', () => {
+		const base = freeTimePlan();
+		const plan: RoundPlan = {
+			...base,
+			expectations: [{ ...base.expectations[0], window: { ms: 3000 } }]
+		};
+		const clock: RoundClock = { promptS: 10 };
+		const at = (time: number) =>
+			valueOf(responseVerdict.outcome(result([pair(0, time)]), context(plan, clock)));
+		expect(at(13.0004)).toMatchObject({ verdict: 'perfect', reactionMs: 3000 });
+		expect(at(13.0006)).toMatchObject({ verdict: 'late', reactionMs: 3001 });
+	});
+
+	it('keeps a wrong note heard in the late capture wrong, never off the beat', () => {
+		const outcome = responseVerdict.outcome(
+			result([pair(0, 6.6, WRONG, { late: true })]),
+			context(locatePlan())
+		);
+		expect(valueOf(outcome).verdict).toBe('wrong');
+		expect(valueOf(outcome).expectations[0]).toMatchObject({ correct: false, late: true });
+		expect([outcome.correct, outcome.success]).toEqual([false, false]);
+
+		// As the first-answer pairing gives it: the window closes at 6.5 s, the capture runs on.
+		const plan = locatePlan();
+		const clock = beatClock();
+		const pairing = firstAnswerPairing.create({
+			plan,
+			times: context(plan, clock).times,
+			clock,
+			judge: (_, payload) => payload as Judged
+		});
+		pairing.offer({ time: 6.6, sensor: 'note', final: true, payload: WRONG });
+		const paired = pairing.result();
+		expect(paired.pairs[0]).toMatchObject({ late: true, judged: WRONG });
+		const judged = responseVerdict.outcome(paired, context(plan, clock));
+		expect([valueOf(judged).verdict, judged.success]).toEqual(['wrong', false]);
+	});
+
+	it('refuses a judged rest: it judges answers, not silences', () => {
+		const plan = locatePlan();
+		plan.expectations = [{ ...plan.expectations[0], role: 'judged-rest' }];
+		expect(responseVerdict.validate?.(plan)).toBe(
+			'expectation 0 is a judged rest: a response verdict judges answers, not silences'
+		);
 	});
 
 	it('records each expectation with its answer, and none for an expectation unanswered', () => {

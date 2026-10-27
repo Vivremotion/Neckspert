@@ -91,6 +91,66 @@ describe('alignmentPairing', () => {
 		expect(pairing.done(endS)).toBe(true);
 	});
 
+	it('accepts the plans of a cycle, and refuses what it cannot time or would not judge', () => {
+		const plan = planOf('01010101', 2);
+		const validate = (expectations: RoundPlan['expectations']) =>
+			alignmentPairing.validate?.({ ...plan, expectations });
+		const [first, second] = plan.expectations;
+		expect(alignmentPairing.validate?.(plan)).toBeNull();
+		// A judged rest is left out of the alignment: an attack there is an extra, judged so.
+		expect(validate([first, { ...second, role: 'judged-rest' }])).toBeNull();
+		expect(validate([{ ...first, at: null }])).toBe(
+			'expectation 0 is in free time: an alignment times attacks on the tempo map'
+		);
+		expect(validate([first, { ...second, span: { until: of(1) } }])).toBe(
+			'expectation 1 is a stretch: an alignment times each attack against a point'
+		);
+		expect(validate([{ ...first, content: { kind: 'note', value: 'F' } }])).toBe(
+			'expectation 0 asks for content (note): an alignment times attacks and judges no content'
+		);
+		expect(validate([first, { ...second, at: first.at }])).toBe(
+			'expectations 0 and 1 fall at the same place: an alignment pairs one attack with one place'
+		);
+		expect(validate([first, { ...second, sensor: 'note' }])).toBe(
+			'its expectations are heard by attack, note: an alignment pairs the attacks of one sensor, by time alone'
+		);
+	});
+
+	it('takes another reading of an attack it kept as the same attack', () => {
+		const pairing = pairingOf(planOf('01010101', 2));
+		const startS = map.toSeconds(start);
+		expect(pairing.offer(attack(startS + 0.3)).fate).toBe('answer');
+		expect(pairing.offer({ ...attack(startS + 0.3), payload: 'better' }).fate).toBe('answer');
+		expect(pairing.result().attacks).toEqual([startS + 0.3]);
+		expect(pairing.result().extra).toEqual([]);
+	});
+
+	it('hears a first attack a little early in a round that does not loop', () => {
+		const loop = planOf('10000000', 1);
+		const plan: RoundPlan = { ...loop, handover: undefined };
+		const startS = map.toSeconds(start);
+		// ♩ = 100: a sixteenth, the zone of a lone target, lasts 0.15 s.
+		const pairing = pairingOf(plan);
+		expect(pairing.offer(attack(startS - 0.2)).fate).toBe('after-capture');
+		expect(pairing.offer(attack(startS - 0.02)).fate).toBe('answer');
+		expect(pairing.result().pairs[0]).toMatchObject({ expectation: 0, timing: 'on-time' });
+		const endS = map.toSeconds(start.add(plan.length));
+		expect(pairing.offer(attack(endS - 0.01)).fate).toBe('answer');
+		expect(pairing.offer(attack(endS)).fate).toBe('after-capture');
+	});
+
+	it('stops taking attacks where its plan stops listening, and is done there', () => {
+		const loop = planOf('01010101', 2);
+		// A round that does not loop, listening up to its last beat.
+		const plan: RoundPlan = { ...loop, handover: undefined, listenUntil: of(7, 4) };
+		const pairing = pairingOf(plan);
+		const listenUntilS = map.toSeconds(start.add(of(7, 4)));
+		expect(pairing.offer(attack(listenUntilS - 0.01)).fate).toBe('answer');
+		expect(pairing.offer(attack(listenUntilS + 0.01)).fate).toBe('after-capture');
+		expect(pairing.done(listenUntilS - 0.02)).toBe(false);
+		expect(pairing.done(listenUntilS)).toBe(true);
+	});
+
 	it('aligns what it kept as the cycle judge does', () => {
 		const plan = planOf('11100100', 4);
 		const timed = timeExpectations(plan, map, start);

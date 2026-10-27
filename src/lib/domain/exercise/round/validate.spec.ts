@@ -217,6 +217,39 @@ describe('roundProblem', () => {
 		);
 	});
 
+	it('refuses a judged rest, a cycle verdict or an alignment where its mode cannot run it', () => {
+		const rest = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			expectations: [{ ...t.expectations[0], role: 'judged-rest' }]
+		}));
+		expect(roundProblem(rest)).toBe(
+			'round.policy.pairing cannot be run by mode "first-answer": expectation 0 is a judged rest: a first answer pairs attacks with targets and cannot judge a silence'
+		);
+		const alignment = { mode: 'alignment' };
+		const cycle = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			policy: { ...t.policy, verdict: 'cycle', pairing: alignment }
+		}));
+		// The alignment, before the verdict, refuses the note it would not judge.
+		expect(roundProblem(cycle)).toBe(
+			'round.policy.pairing cannot be run by mode "alignment": expectation 0 asks for content (note): an alignment times attacks and judges no content'
+		);
+		const rhythm = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			expectations: [{ ...t.expectations[0], content: null }],
+			policy: { ...t.policy, verdict: 'cycle', pairing: alignment }
+		}));
+		expect(roundProblem(rhythm)).toBe(
+			'round.policy.verdict "cycle" cannot judge the round: a cycle verdict judges a whole cycle (unit "cycle"), got unit "response"'
+		);
+		const cycled = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			expectations: [{ ...t.expectations[0], content: null }],
+			policy: { ...t.policy, unit: 'cycle', verdict: 'cycle', pairing: alignment }
+		}));
+		expect(roundProblem(cycled)).toBeNull();
+	});
+
 	it('refuses a bar offset or a gap that is not written as text', () => {
 		// A number would read as the text of itself: « 0 » is a fraction, but not as written.
 		const offset = withRound(LOCATE_NECK, (t) => ({ ...t, barOffset: 0 }));

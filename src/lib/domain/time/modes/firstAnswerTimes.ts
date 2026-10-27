@@ -53,6 +53,11 @@ export function validateFirstAnswer(plan: RoundPlan): string | null {
 	const problem = settingsProblem(plan.policy.pairing);
 	if (problem) return problem;
 	const settings = plan.policy.pairing as FirstAnswerSettings;
+	// A first answer pairs an attack with what it answers: a silence asked for is never answered.
+	const rest = plan.expectations.findIndex((e) => e.role === 'judged-rest');
+	if (rest >= 0) {
+		return `expectation ${rest} is a judged rest: a first answer pairs attacks with targets and cannot judge a silence`;
+	}
 	const free = plan.expectations.some((e) => e.at === null);
 	if (free && !('afterPromptMs' in settings.opens)) {
 		return 'a free-time plan must open with afterPromptMs';

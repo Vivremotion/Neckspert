@@ -117,6 +117,32 @@ describe('cycleVerdictMode', () => {
 		);
 	});
 
+	it('judges against thresholds, so a caller without them cannot run it', () => {
+		expect(cycleVerdictMode.readsThresholds).toBe(true);
+		expect(() => cycleVerdictMode.outcome(result, context(null))).toThrow(
+			'a cycle verdict needs thresholds'
+		);
+	});
+
+	it('accepts a cycle timed by the alignment, and refuses any other plan', () => {
+		expect(cycleVerdictMode.validate?.(plan)).toBeNull();
+		expect(
+			cycleVerdictMode.validate?.({ ...plan, policy: { ...plan.policy, unit: 'response' } })
+		).toBe('a cycle verdict judges a whole cycle (unit "cycle"), got unit "response"');
+		expect(
+			cycleVerdictMode.validate?.({
+				...plan,
+				policy: { ...plan.policy, pairing: { mode: 'first-answer' } }
+			})
+		).toBe(
+			'a cycle verdict needs pairs timed by the alignment (pairing "alignment"), got "first-answer"'
+		);
+		const free = { ...plan, expectations: [{ ...plan.expectations[0], at: null }] };
+		expect(cycleVerdictMode.validate?.(free)).toBe(
+			'a cycle verdict needs a tempo map: expectation 0 is in free time'
+		);
+	});
+
 	it('keeps its version in the public API of the time domain', () => {
 		expect(CYCLE_VERDICT_VERSION).toBe(1);
 		expect(PUBLIC).toBe(CYCLE_VERDICT_VERSION);

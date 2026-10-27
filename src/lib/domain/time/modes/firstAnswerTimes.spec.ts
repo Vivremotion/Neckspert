@@ -211,6 +211,14 @@ describe('validateFirstAnswer', () => {
 		expect(validateFirstAnswer(late)).toBeNull();
 	});
 
+	it('refuses a judged rest: a first answer cannot judge a silence', () => {
+		const plan = locatePlan();
+		plan.expectations = [{ ...plan.expectations[0], role: 'judged-rest' }];
+		expect(validateFirstAnswer(plan)).toBe(
+			'expectation 0 is a judged rest: a first answer pairs attacks with targets and cannot judge a silence'
+		);
+	});
+
 	it('refuses settings it cannot read', () => {
 		const plan = locatePlan();
 		plan.policy.pairing = { mode: 'first-answer', opens: {}, lateMs: 400, lateCapture: null };

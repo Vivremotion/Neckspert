@@ -170,7 +170,7 @@ function positionOf(check: Check, field: string, position: unknown): Placed | st
 			where:
 				unit === 'beats'
 					? beatsOf(meter, count)
-					: barLength(meter).mul(Fraction.fromNumber(count, 960))
+					: barLength(meter).mul(Fraction.fromNumber(count, BEAT_RESOLUTION))
 		};
 	} catch {
 		return at(`${field}.${unit}`, `is no exact place in the meter, got ${count}`);
@@ -401,7 +401,10 @@ function knownPlan(
 				: { until: whereOf(check, '', e.until) ?? length ?? UNKNOWN_LENGTH },
 		role: (e.role as Expectation['role'] | undefined) ?? 'target',
 		sensor: e.sensor as string,
-		content: null,
+		// What its content is does not matter to a mode, only that it asks for some, and its kind.
+		content: isRecord(e.content)
+			? { kind: CONTENT_DERIVATIONS[e.content.from as string].kind, value: null }
+			: null,
 		window:
 			isRecord(e.window) && 'ofGap' in e.window
 				? { ofGap: Fraction.parse(e.window.ofGap as string) }
@@ -413,7 +416,8 @@ function knownPlan(
 		expectations,
 		length: length ?? UNKNOWN_LENGTH,
 		...(listenUntil !== undefined && { listenUntil }),
-		mutedBars: [],
+		...(template.handover === 'end' && { handover: length ?? UNKNOWN_LENGTH }),
+		mutedBars: [...((template.mutedBars as number[] | undefined) ?? [])],
 		policy: {
 			unit: policy.unit as RoundPlan['policy']['unit'],
 			verdict: policy.verdict as string,
