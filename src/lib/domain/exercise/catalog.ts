@@ -122,7 +122,7 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	id: 'locate-neck',
 	version: 1,
 	mechanic: 'locate',
-	view: 'note-lane',
+	view: 'lane',
 	tempo: { fixed: 80 },
 	presentation: {
 		primary: '{note}',

@@ -60,7 +60,7 @@ const cardOf = (attempt: Attempt): NeckCard =>
 /** The note lane on stage, if any. */
 function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
+	return stage?.view === 'lane' ? (stage.model as PromptStageModel) : null;
 }
 
 /** Every locate note learned, acquired and due: a learn session full of cold reviews on the beat. */

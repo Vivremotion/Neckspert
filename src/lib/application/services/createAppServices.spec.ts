@@ -132,7 +132,7 @@ async function runOnTransport(
 /** The note lane on stage, if a note to play is there. */
 function noteLane(controller: { view: PlayView }): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
+	return stage?.view === 'lane' ? (stage.model as PromptStageModel) : null;
 }
 
 /** The lead of a note's round, in beats. */
@@ -200,7 +200,7 @@ describe('createAppServices', () => {
 			expect((await deps.sessions.get(controller.sessionId))?.kind).toBe(kind);
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			expect(controller.view.status).toBe('awaiting');
-			expect(['note-lane', 'answer-keys']).toContain(controller.view.stage?.view);
+			expect(['lane', 'answer-keys']).toContain(controller.view.stage?.view);
 			// The transport clicks; the old metronome stays still.
 			expect(deps.metronome.isRunning()).toBe(false);
 			controller.quit();
@@ -213,7 +213,7 @@ describe('createAppServices', () => {
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
-		expect(controller.view.stage?.view).toBe('note-lane');
+		expect(controller.view.stage?.view).toBe('lane');
 		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave', aid: null });
 		expect(lead(lane)).toBe(2);
 		controller.quit();
@@ -382,7 +382,7 @@ describe('createAppServices', () => {
 			deps,
 			() => {
 				const stage = controller.view.stage;
-				if (controller.view.status === 'awaiting' && stage?.view === 'note-lane') {
+				if (controller.view.status === 'awaiting' && stage?.view === 'lane') {
 					const lane = stage.model as PromptStageModel;
 					if (
 						lane.anchorBeat !== null &&

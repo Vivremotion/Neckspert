@@ -31,7 +31,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	id: LOCATE_NECK.id,
 	version: 1,
 	mechanic: 'locate',
-	view: 'note-lane',
+	view: 'lane',
 	meter: WALTZ,
 	tempo: { fixed: 90 },
 	flow: { previewBeats: 2 },
@@ -65,7 +65,7 @@ const keyOf = (card: NeckCard) => neckCardKey(card);
 
 function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
+	return stage?.view === 'lane' ? (stage.model as PromptStageModel) : null;
 }
 
 async function quitAndRead(app: NotesApp, controller: PlaySessionController): Promise<Attempt[]> {

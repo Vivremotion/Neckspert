@@ -207,7 +207,7 @@ export interface Staged {
 export function onStage(controller: PlaySessionController): Staged | null {
 	const stage = controller.view.stage;
 	if (!stage) return null;
-	if (stage.view === 'note-lane') {
+	if (stage.view === 'lane') {
 		const model = stage.model as PromptStageModel;
 		const string = STRING_OF.get(model.prompt.secondary ?? '');
 		const pitch = PITCH_OF.get(model.prompt.primary);

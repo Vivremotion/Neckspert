@@ -1,9 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
+import type { Picture } from '$lib/application/presentation/pictures';
 import type { PlayView } from '$lib/application/session/contract';
 import { PLAY_VIEWS } from './index';
-import NoteLaneView from './NoteLaneView.svelte';
+import LaneView from './LaneView.svelte';
 import { presented, stageModel, stageVerdict } from './testing/promptStage';
 import { StageController } from './testing/StageController.svelte';
 
@@ -11,6 +12,31 @@ afterEach(() => cleanup());
 
 const F_ON_B = presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' });
 /** The string drawn while it carries the aid. */
+/** F# diminished: its root string and the strings it takes, the chord on its band. */
+const CHORD = presented({
+	primary: 'F#dim',
+	secondary: 'fondamentale sur sol',
+	detail: 'sol‑si‑mi',
+	target: 'F#',
+	band: 'F#dim',
+	preview: 'fondamentale sur sol'
+});
+const SHAPE_A: Picture = {
+	kind: 'shape',
+	notes: [
+		{ string: 3, fret: 11 },
+		{ string: 2, fret: 10 },
+		{ string: 1, fret: 10 }
+	]
+};
+const SHAPE_B: Picture = {
+	kind: 'shape',
+	notes: [
+		{ string: 3, fret: 4 },
+		{ string: 2, fret: 3 },
+		{ string: 1, fret: 2 }
+	]
+};
 const B_DRAWN = [{ kind: 'string' as const, string: 2 as const, label: 'B' }];
 
 /** F on B, prompted on beat 0 for beat 8; `nowBeat` 1 unless said. */
@@ -32,7 +58,7 @@ function show(
 		promptBeat: 0,
 		...overrides
 	});
-	return render(NoteLaneView, { props: { controller, model } });
+	return render(LaneView, { props: { controller, model } });
 }
 
 /** F on B settled on beat 8, read half a beat later. */
@@ -50,9 +76,9 @@ function playedCell(container: HTMLElement): string {
 	return container.querySelector('.lane .caption')?.textContent?.trim() ?? '';
 }
 
-describe('NoteLaneView', () => {
+describe('LaneView', () => {
 	it('is the view the frame shows for a note to play', () => {
-		expect(PLAY_VIEWS['note-lane']).toBe(NoteLaneView);
+		expect(PLAY_VIEWS.lane).toBe(LaneView);
 	});
 
 	it('renders the prompt, the note on its target tile and the string under it', () => {
@@ -181,5 +207,87 @@ describe('NoteLaneView', () => {
 		expect(count?.textContent).toContain('corde de B');
 		expect(count?.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
 		expect(screen.queryByText('F')).toBeNull();
+	});
+
+	it('shows the note and its string, and the string alone while it waits', () => {
+		const prompting = show();
+		expect(prompting.container.querySelector('.centre [data-size="hero"] .main')?.textContent).toBe(
+			'F'
+		);
+		expect(screen.getByText('corde de B')).toBeTruthy();
+		cleanup();
+		const waiting = show({ anchorBeat: null, promptBeat: null }, { status: 'count-in' });
+		expect(screen.getByText('corde de B')).toBeTruthy();
+		expect(screen.queryByText('F')).toBeNull();
+		expect(waiting.container.querySelector('.lane [data-kind="target"]')).toBeNull();
+	});
+
+	it('shows the chord, its root string and its strings, the root on the target and the chord on the band', () => {
+		const { container } = show({
+			prompt: { ...CHORD, pictures: [SHAPE_A] },
+			bands: [{ fromBeat: 9, untilBeat: 12 }]
+		});
+		const centre = container.querySelector('.centre')!;
+		expect(centre.querySelector('[data-size="hero"] .main')?.textContent).toBe('F#dim');
+		expect(centre.textContent).toContain('fondamentale sur sol');
+		expect(centre.querySelector('.detail')?.textContent).toBe('sol‑si‑mi');
+		expect(container.querySelector('.lane [data-kind="target"]')?.textContent?.trim()).toBe('F#');
+		expect(container.querySelector('.lane .band-name')?.textContent).toBe('F#dim');
+		expect(centre.querySelectorAll('.chord-shape')).toHaveLength(1);
+	});
+
+	it('says no detail when the prompt has none', () => {
+		expect(show().container.querySelector('.detail')).toBeNull();
+	});
+
+	it('draws the pictures of the prompt only when given', () => {
+		const plain = show({ prompt: { ...CHORD, pictures: [] } });
+		expect(plain.container.querySelector('.chord-shape, .diagram')).toBeNull();
+		cleanup();
+		const drawn = show({ prompt: { ...CHORD, pictures: [B_DRAWN[0], SHAPE_A] } });
+		expect(drawn.container.querySelectorAll('.diagram')).toHaveLength(1);
+		expect(drawn.container.querySelectorAll('.chord-shape')).toHaveLength(1);
+	});
+
+	it('draws one miss per missed expectation, and nothing after a success', () => {
+		const miss = { correction: null, heard: SHAPE_A, expected: SHAPE_B, gap: 'une case plus haut' };
+		const twice = show(
+			{
+				prompt: CHORD,
+				history: [{ beatIndex: 8, verdict: 'wrong' }],
+				verdict: { ...stageVerdict(), misses: [miss, { ...miss, gap: 'la corde de si' }] }
+			},
+			{ status: 'verdict', nowBeat: 8.5 }
+		);
+		const drawn = twice.container.querySelectorAll('[data-testid="miss"]');
+		expect(drawn).toHaveLength(2);
+		expect(drawn[0].querySelectorAll('.chord-shape')).toHaveLength(2);
+		expect(drawn[0].textContent).toContain('une case plus haut');
+		expect(drawn[1].textContent).toContain('la corde de si');
+		cleanup();
+		const success = settled({ verdict: 'perfect', offsetMs: 3 });
+		expect(success.container.querySelector('[data-testid="miss"]')).toBeNull();
+	});
+
+	it('says what was missed when nothing was heard', () => {
+		const { container } = show(
+			{
+				prompt: CHORD,
+				history: [{ beatIndex: 8, verdict: 'wrong' }],
+				verdict: {
+					...stageVerdict(),
+					misses: [{ correction: null, heard: null, expected: SHAPE_B, gap: 'rien entendu' }]
+				}
+			},
+			{ status: 'verdict', nowBeat: 8.5 }
+		);
+		const miss = container.querySelector('[data-testid="miss"]')!;
+		expect(miss.querySelectorAll('.chord-shape')).toHaveLength(1);
+		expect(miss.textContent).toContain('rien entendu');
+	});
+
+	it('shows the countdown in its field', () => {
+		const { container } = show({ prompt: CHORD }, { status: 'count-in', countdown: 2 });
+		expect(container.querySelector('.lane-view .centre .countdown .main')?.textContent).toBe('2');
 	});
 });

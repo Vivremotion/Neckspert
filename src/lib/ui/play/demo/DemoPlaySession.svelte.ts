@@ -183,7 +183,7 @@ export class DemoPlaySession implements PlaySessionController {
 			leadBeats: LEAD
 		} as const;
 		this.view.stage = {
-			view: 'note-lane',
+			view: 'lane',
 			model: {
 				prompt: presentPrompt(LOCATE_NECK, planned, i18n.locale, noRandom),
 				history: this.#history,

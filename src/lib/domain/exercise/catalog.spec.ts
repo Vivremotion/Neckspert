@@ -24,7 +24,7 @@ describe('exercise catalog', () => {
 			id: 'locate-neck',
 			version: 1,
 			mechanic: 'locate',
-			view: 'note-lane',
+			view: 'lane',
 			tempo: { fixed: 80 },
 			round: LOCATE_NECK.round,
 			presentation: LOCATE_NECK.presentation,

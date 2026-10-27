@@ -4,9 +4,9 @@
 	import Lane from '$lib/ui/primitives/Lane.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import { playMessages } from '../messages';
-	import StringDiagram from '../StringDiagram.svelte';
 	import { captionOf, formatOffset, HITS } from '../verdictLine';
-	import { noteLaneTiles } from './noteLane';
+	import { laneViewTiles } from './laneView';
+	import { PICTURE_VIEWS } from './pictures';
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
@@ -27,42 +27,75 @@
 		return () => cancelAnimationFrame(raf);
 	});
 
-	const tiles = $derived(noteLaneTiles(lane, { nowBeat }));
-	/** The string drawn under the prompt, while it carries the aid. */
-	const diagram = $derived(
-		lane.prompt.pictures.find((picture) => picture.kind === 'string') ?? null
-	);
-	/** What shows of the note while it waits: its string. */
+	const tiles = $derived(laneViewTiles(lane, { nowBeat }));
+	/** What shows of the item while it waits: the part of the prompt that comes first. */
 	const preview = $derived(lane.prompt.preview ?? lane.prompt.secondary);
 	/** Before its round opens, the note waits: its string alone shows (D5). */
 	const waiting = $derived(lane.anchorBeat === null);
 	/** The verdict stays through the breathing bar, until the next note shows. */
 	const verdict = $derived(lane.verdict);
-	/** After a miss: where the note was. */
-	const correction = $derived(verdict?.misses[0]?.correction ?? null);
+	/** After a miss that draws what was heard and expected: one drawing per missed expectation. */
+	const drawn = $derived((verdict?.misses ?? []).filter((miss) => miss.heard || miss.expected));
+	/** After a miss that tells the right answer: it takes the place of the prompt. */
+	const correction = $derived(drawn.length > 0 ? null : (verdict?.misses[0]?.correction ?? null));
+	/** Above the drawings: the whole prompt recalled. */
+	const recall = $derived(
+		[lane.prompt.primary, lane.prompt.secondary].filter((part) => part).join(' · ')
+	);
 	const caption = $derived(verdict ? captionOf(verdict, t) : null);
 	/** A hit: its verdict, and its offset when timed, take the prompt's place. */
 	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
 </script>
 
-<div class="note-lane">
+<div class="lane-view">
 	<div class="centre">
 		{#if view.countdown !== null}
 			<!-- The counted bar in the prompt's place, the string coming under it. -->
 			<div class="countdown" aria-live="polite">
 				<Prompt main={String(view.countdown)} line={waiting ? preview : null} size="prompt">
-					{#if waiting && diagram}
-						<StringDiagram {diagram} />
-					{/if}
+					{#if waiting}{@render pictures()}{/if}
 				</Prompt>
 			</div>
 		{:else if waiting}
 			<!-- The string comes first; the note, the only big letter, follows on the prompt beat. -->
 			<Prompt main={preview ?? ''} size="prompt">
-				{#if diagram}
-					<StringDiagram {diagram} />
-				{/if}
+				{@render pictures()}
 			</Prompt>
+		{:else if drawn.length > 0}
+			<div class="missed">
+				{#if recall}<p class="recall">{recall}</p>{/if}
+				<div class="misses">
+					{#each drawn as miss, index (index)}
+						<div class="miss" data-testid="miss">
+							<div class="drawn">
+								<div class="drawn-part">
+									<p class="drawn-label">{t.played}</p>
+									{#if miss.heard}
+										{@const Heard = PICTURE_VIEWS[miss.heard.kind]}
+										<Heard picture={miss.heard} chordDiagram={lane.chordDiagram} size="small" />
+									{:else if miss.gap}
+										<p class="heard-none">{miss.gap}</p>
+									{/if}
+								</div>
+								<div class="drawn-part">
+									<p class="drawn-label">{t.expected}</p>
+									{#if miss.expected}
+										{@const Expected = PICTURE_VIEWS[miss.expected.kind]}
+										<Expected
+											picture={miss.expected}
+											chordDiagram={lane.chordDiagram}
+											size="small"
+										/>
+									{/if}
+								</div>
+							</div>
+							{#if miss.heard && miss.gap}
+								<p class="gap">{miss.gap}</p>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
 		{:else if correction}
 			<!-- The correction names the string itself: the note asked is recalled alone. -->
 			<Prompt main={correction} recall={lane.prompt.primary} size="correction" />
@@ -74,7 +107,10 @@
 			</p>
 		{:else if !verdict}
 			<Prompt main={lane.prompt.primary} line={lane.prompt.secondary} size="hero">
-				<StringDiagram {diagram} />
+				{#if lane.prompt.detail}
+					<p class="detail">{lane.prompt.detail}</p>
+				{/if}
+				{@render pictures()}
 				{#if lane.prompt.aid}
 					<p class="aid">{lane.prompt.aid}</p>
 				{/if}
@@ -87,16 +123,23 @@
 			{tiles}
 			beatsPerBar={lane.beatsPerBar}
 			targetLabel={waiting ? null : (lane.prompt.target ?? lane.prompt.primary)}
-			bandLabel={null}
+			bandLabel={waiting ? null : lane.prompt.band}
 			{caption}
 			imprint={view.status === 'verdict'}
 		/>
 	</div>
 </div>
 
+{#snippet pictures()}
+	{#each lane.prompt.pictures as picture, index (index)}
+		{@const Picture = PICTURE_VIEWS[picture.kind]}
+		<Picture {picture} chordDiagram={lane.chordDiagram} />
+	{/each}
+{/snippet}
+
 <style>
 	/* The prompt over the lane, as `PlayScreen` draws the notes; the frame paints the field. */
-	.note-lane {
+	.lane-view {
 		display: grid;
 		grid-template-rows: 1fr auto;
 		flex: 1;
@@ -119,6 +162,12 @@
 
 	.centre p {
 		margin: 0;
+	}
+
+	/* Under the prompt: the chord's strings, read last. */
+	.detail {
+		font-size: var(--np-size-meta);
+		opacity: 0.85;
 	}
 
 	/* Learning aid: the fret, on a light tile. */
@@ -148,6 +197,56 @@
 		font-weight: 400;
 		font-variant-numeric: tabular-nums;
 		white-space: nowrap;
+	}
+
+	.missed {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-step-3);
+	}
+
+	.recall {
+		font-size: var(--np-size-body);
+		opacity: 0.8;
+	}
+
+	.misses {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: var(--np-step-6);
+	}
+
+	.miss {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--np-step-3);
+	}
+
+	.drawn {
+		display: flex;
+		justify-content: center;
+		gap: var(--np-step-6);
+	}
+
+	.drawn-part {
+		display: grid;
+		justify-items: center;
+		align-content: start;
+		gap: var(--np-step-1);
+	}
+
+	.drawn-label,
+	.heard-none,
+	.gap {
+		font-size: var(--np-size-meta);
+	}
+
+	.heard-none {
+		max-inline-size: 10ch;
+		padding-block-start: var(--np-step-2);
 	}
 
 	.bottom {

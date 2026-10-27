@@ -15,13 +15,28 @@ const sources = {
 		query: '?raw',
 		import: 'default',
 		eager: true
-	})
+	}),
+	// The generic lane that draws them (H5): a view of the screen, naming no mechanic either.
+	...import.meta.glob(
+		[
+			'/src/lib/ui/play/views/LaneView.svelte',
+			'/src/lib/ui/play/views/laneView.ts',
+			'/src/lib/ui/play/views/pictures.ts'
+		],
+		{ query: '?raw', import: 'default', eager: true }
+	)
 } as Record<string, string>;
 
 const MODULE = '/src/lib/application/session/series/';
 const PROMPT_STAGE = '/src/lib/application/presentation/promptStage.ts';
+const LANE_VIEW = [
+	'/src/lib/ui/play/views/LaneView.svelte',
+	'/src/lib/ui/play/views/laneView.ts',
+	'/src/lib/ui/play/views/pictures.ts'
+];
 /** The files held to the series' rules. */
-const SCANNED = (path: string) => path.startsWith(MODULE) || path === PROMPT_STAGE;
+const SCANNED = (path: string) =>
+	path.startsWith(MODULE) || path === PROMPT_STAGE || LANE_VIEW.includes(path);
 
 /** The ids of mechanics and exercises the series never names: every one of the registry and the catalog. */
 const NAMES = [
@@ -90,7 +105,7 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the response series', () => {
-	it('names no mechanic nor exercise, and imports no old timing, nor does the prompt stage', () => {
+	it('names no mechanic nor exercise, and imports no old timing, nor do the prompt stage and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
@@ -108,6 +123,10 @@ describe('the response series', () => {
 		expect(paths).toContain(`${MODULE}roundRunner.ts`);
 		expect(paths).toContain(`${MODULE}ResponseSeriesController.svelte.ts`);
 		expect(paths).toContain(PROMPT_STAGE);
+		for (const path of LANE_VIEW) {
+			expect(paths).toContain(path);
+			expect(offendersIn({ [path]: `const m = 'chord-grid';` })).toEqual([`${path}: chord-grid`]);
+		}
 		for (const name of ['locate', 'chord-grid', 'note', 'tap', 'chord']) {
 			expect(offendersIn({ [PROMPT_STAGE]: `const m = '${name}';` })).toEqual([
 				`${PROMPT_STAGE}: ${name}`
