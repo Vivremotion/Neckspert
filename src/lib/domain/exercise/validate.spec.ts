@@ -22,31 +22,13 @@ describe('validateExercise', () => {
 	});
 
 	it('names the exercise and the field it cannot run', () => {
-		expect(validateExercise({ ...LOCATE_NECK, tempo: { fixed: 0 } })).toMatch(
-			/^locate-neck: tempo\.fixed .*0/
-		);
+		expect(validateExercise({ ...LOCATE_NECK, tempo: 0 })).toMatch(/^locate-neck: tempo .*0/);
 		expect(validateExercise(withParams({ ladder: [] }))).toBe(
 			'locate-neck: params.ladder is empty'
 		);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: -2, aided: false } }] }))
 		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*-2/);
-		// A range that cannot hold its start, a step that never moves it.
-		const range = {
-			start: 80,
-			min: 90,
-			max: 160,
-			step: 5,
-			raiseAt: 0.9,
-			lowerAt: 0.7,
-			minPrompts: 10
-		};
-		expect(validateExercise({ ...LOCATE_NECK, tempo: range })).toMatch(
-			/^locate-neck: tempo\.start /
-		);
-		expect(validateExercise({ ...LOCATE_NECK, tempo: { ...range, min: 80, step: 0 } })).toMatch(
-			/^locate-neck: tempo\.step /
-		);
 		expect(validateExercise(withParams({ windows: { perfectMs: -1 } }))).toMatch(
 			/^locate-neck: params\.windows\.perfectMs /
 		);
@@ -129,7 +111,7 @@ describe('validateExercise', () => {
 		expect(
 			validateExercise({
 				...withParams({ ladder: RISING, windows: { perfectMs: 5000 } }),
-				tempo: { fixed: 300 }
+				tempo: 300
 			})
 		).toBeNull();
 	});

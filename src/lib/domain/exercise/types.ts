@@ -1,6 +1,5 @@
 import type { Figure, Level, Meter } from '$lib/domain/time';
 import type { LevelOverrides } from './levels';
-import type { ExerciseTempo } from './tempo';
 import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
@@ -18,6 +17,11 @@ export interface ExerciseFlow {
 	previewBeats?: number;
 	/** Whether a miss can be contested in play (development builds). */
 	contestable?: boolean;
+	/**
+	 * Whether failures in a row at its first level bring the anti-blocking (a remedy, an aid
+	 * level, « On change d’air »); absent: no.
+	 */
+	antiBlocking?: boolean;
 }
 
 /** Text with `{field}` placeholders: one for every language, or one per language. */
@@ -51,10 +55,11 @@ export interface ExerciseDefinition {
 	version: number;
 	mechanic: MechanicId;
 	params: Readonly<Record<string, unknown>>;
-	/** Its tempo: fixed, or a range it moves within; absent: `DEFAULT_TEMPO`. */
-	tempo?: ExerciseTempo;
-	/** Tempo of a first execution, when the exercise wants its own (the start of its range). */
-	startTempoBpm?: number;
+	/**
+	 * Its tempo, in beats of its meter per minute, before any level; absent: `DEFAULT_TEMPO_BPM`.
+	 * A level may override it (`tempo`), as any other param.
+	 */
+	tempo?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */

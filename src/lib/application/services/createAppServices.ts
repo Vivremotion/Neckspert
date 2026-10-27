@@ -8,15 +8,14 @@ import { rhythmParamsOf } from '$lib/application/session/plan/rhythmExercise';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
-import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES, gestureOpen } from '$lib/domain/gesture';
 import {
 	exerciseById,
 	type ExerciseDefinition,
 	IDENTIFY_NECK,
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
-	TRIADS_ZONE,
-	startTempo
+	TRIADS_ZONE
 } from '$lib/domain/exercise';
 import { locateRules } from '$lib/domain/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
@@ -47,7 +46,6 @@ import {
 	type Attempt,
 	type ExerciseSummary,
 	type MechanicId,
-	type Execution,
 	type SessionKind,
 	type SessionRecord
 } from '$lib/domain/types';
@@ -61,18 +59,17 @@ export function createAppServices(
 		development?: boolean;
 	}
 ): AppServices {
-	/** What a series prepares: its source, its executions, its length, and its mechanics' direct recall. */
+	/** What a series prepares: its source, its length, and its mechanics' direct recall. */
 	type PreparedSeries = {
 		source: ItemSource;
-		executions: Execution[];
 		durationMs: number;
 		recall?: (mechanic: MechanicId) => DirectRecall;
 	};
 
 	/**
 	 * A session on the response series: `prepare` reads the stores again for each series, so a
-	 * new one starts at the tempo and the levels the last one reached; each change or note is a
-	 * round compiled from its exercise's template.
+	 * new one starts at the levels the last one reached (the series reads its exercise levels
+	 * itself); each change or note is a round compiled from its exercise's template.
 	 */
 	const responseSeries = async (
 		kind: SessionKind,
@@ -84,11 +81,7 @@ export function createAppServices(
 		const prepare = async (sessionId: string) => {
 			const series = await prepareSeries(sessionId);
 			prepared.set(sessionId, series);
-			return {
-				source: series.source,
-				executions: series.executions,
-				durationMs: series.durationMs
-			};
+			return { source: series.source, durationMs: series.durationMs };
 		};
 		return new ResponseSeriesController({ id: deps.newId(), kind }, prepare, {
 			clock: deps.clock,
@@ -99,9 +92,9 @@ export function createAppServices(
 			repositories: {
 				attempts: deps.attempts,
 				sessions: deps.sessions,
-				settings: deps.settings,
-				progressions: deps.progressions
+				settings: deps.settings
 			},
+			levels: deps.levels,
 			recorderFor: (sessionId) => {
 				const series = prepared.get(sessionId);
 				if (!series) throw new Error(`No series prepared for session ${sessionId}`);
@@ -130,31 +123,17 @@ export function createAppServices(
 	 */
 	const startGesture = () =>
 		responseSeries('gesture', async (sessionId) => {
-			const [cards, attempts, progressions] = await Promise.all([
-				deps.cards.all(),
-				deps.attempts.all(),
-				deps.progressions.all()
-			]);
-			// The open exercises in the order of the ladder: one tempo per grid open in each,
-			// one for the link, which plays no grid.
+			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
+			// The open exercises in the order of the ladder; each grid of each (and the link, which
+			// plays no grid) at its own exercise level, which the series holds.
 			const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
-			const executions: Execution[] = definitions.flatMap((definition) => {
-				const grids = [
-					...new Set(openElements(definition, cards).map((element) => element.gridId))
-				];
-				return grids.map((scope) => ({
-					exerciseId: definition.id,
-					...(scope !== undefined && { scope }),
-					tempoBpm: startTempo(definition, progressions, scope)
-				}));
-			});
 			const source = createGestureSelector({
 				definitions,
 				cards,
 				attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
 				sessionId
 			});
-			return { source, executions, durationMs: SESSION_MS };
+			return { source, durationMs: SESSION_MS };
 		});
 
 	/**
@@ -163,21 +142,16 @@ export function createAppServices(
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
 		responseSeries(kind, async (sessionId) => {
-			const [cards, attempts, progressions, levels] = await Promise.all([
+			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
-				deps.progressions.all(),
 				deps.levels.all()
 			]);
-			// The neck's exercises as the catalog writes them.
+			// The neck's exercises as the catalog writes them: locate on the click at its tempo,
+			// identify answered in free time.
 			const exercise = deps.exercise ?? exerciseById;
 			const locate = exercise(LOCATE_NECK.id);
 			const identify = exercise(IDENTIFY_NECK.id);
-			// Locate plays on the click at its own tempo; identify is answered in free time.
-			const executions: Execution[] = [
-				{ exerciseId: locate.id, tempoBpm: startTempo(locate, progressions) },
-				{ exerciseId: identify.id, tempoBpm: null }
-			];
 			// The neck's sessions see the neck's cards only; the triads lead its notes queue.
 			const subject = neckSubject({
 				definitions: { locate, identify },
@@ -206,7 +180,6 @@ export function createAppServices(
 						});
 			return {
 				source,
-				executions,
 				durationMs: SESSION_MS,
 				recall: (mechanic) => subject.recall(mechanic)
 			};
@@ -218,18 +191,13 @@ export function createAppServices(
 	 */
 	const startTriads = (mechanic: TriadMechanic) =>
 		responseSeries(mechanic === 'triad-zone' ? 'triads-zone' : 'triads', async (sessionId) => {
-			const [cards, attempts, progressions, levels] = await Promise.all([
+			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
-				deps.progressions.all(),
 				deps.levels.all()
 			]);
 			const exercise = deps.exercise ?? exerciseById;
 			const definitions = { anchor: exercise(TRIADS_ANCHOR.id), zone: exercise(TRIADS_ZONE.id) };
-			const definition = mechanic === 'triad-zone' ? definitions.zone : definitions.anchor;
-			const executions: Execution[] = [
-				{ exerciseId: definition.id, tempoBpm: startTempo(definition, progressions) }
-			];
 			// The anchor's queue puts first the triads of the notes already acquired in locate.
 			const acquiredPositions = new Set(
 				cards
@@ -258,7 +226,6 @@ export function createAppServices(
 			});
 			return {
 				source,
-				executions,
 				durationMs: SESSION_MS,
 				recall: (of) => subject.recall(of)
 			};

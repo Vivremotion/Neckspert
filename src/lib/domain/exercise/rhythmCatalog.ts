@@ -14,9 +14,11 @@ import type { ExerciseDefinition } from './types';
  * after cycle, the accompaniment taken away or the tempo raised as the player gets it. Figures
  * are written in LilyPond once, here, and are plain data afterwards; the how-to texts are ours.
  *
- * Their params are the `LevelParams` of the rhythm, the tempo in quarter notes per minute. A level
- * overrides dotted paths of the exercise's params alone (`resolvedParamsOf`), so each level below
- * states everything that differs from the params, the changes of the levels before it included.
+ * Their params are the `LevelParams` of the rhythm but the tempo, which each writes as its own
+ * `tempo`, in quarter notes per minute. A level overrides dotted paths of the exercise's params
+ * alone (`resolvedParamsOf`), the tempo included, so each level below states everything that
+ * differs from the params, the changes of the levels before it included. Each asks the
+ * anti-blocking (`flow.antiBlocking`).
  */
 
 /** One 4/4 bar of clicks on `beats` (accent on `accent`), the bars switched on or off in turn. */
@@ -45,10 +47,9 @@ function figureOf(text: string): Figure {
 
 // Mesures silencieuses ---------------------------------------------------------------------
 
-const SILENT_BARS_PARAMS: LevelParams = {
+const SILENT_BARS_PARAMS: Omit<LevelParams, 'tempo'> = {
 	accompaniment: clicks(EVERY_BEAT, playedThenSilent(3, 1), [1]),
 	cycleBars: 4,
-	tempo: 80,
 	window: { ms: 80 },
 	feedback: 'every-cycle',
 	listen: 'free',
@@ -71,6 +72,8 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	title: { fr: 'Mesures silencieuses', en: 'Silent bars' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...SILENT_BARS_PARAMS },
+	tempo: 80,
+	flow: { antiBlocking: true },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.',
@@ -111,10 +114,9 @@ const TWO_FOUR_LINES = [
 	'c4 r4 c4 c4 | c8 c8 c8 c8 c2 | c4 c4 c8 c8 c4 | c2 c4 r4'
 ];
 
-const TWO_FOUR_PARAMS: LevelParams = {
+const TWO_FOUR_PARAMS: Omit<LevelParams, 'tempo'> = {
 	accompaniment: clicks([2, 4], ['on']),
 	cycleBars: 4,
-	tempo: 100,
 	window: { ms: 80 },
 	feedback: 'every-cycle',
 	listen: 'aid',
@@ -131,6 +133,8 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	title: { fr: 'Métronome sur 2 et 4', en: 'Click on 2 and 4' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...TWO_FOUR_PARAMS },
+	tempo: 100,
+	flow: { antiBlocking: true },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.',
@@ -150,10 +154,9 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 
 const OFFBEAT_BAR = 'c8 c r c r c r c';
 
-const OFFBEATS_PARAMS: LevelParams = {
+const OFFBEATS_PARAMS: Omit<LevelParams, 'tempo'> = {
 	accompaniment: clicks(EVERY_BEAT, ['on'], [1]),
 	cycleBars: 1,
-	tempo: 80,
 	window: { ms: 80 },
 	feedback: 'every-cycle',
 	listen: 'free',
@@ -168,6 +171,8 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	title: { fr: 'Contretemps', en: 'Offbeats' },
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...OFFBEATS_PARAMS },
+	tempo: 80,
+	flow: { antiBlocking: true },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',

@@ -33,7 +33,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	mechanic: 'locate',
 	view: 'lane',
 	meter: WALTZ,
-	tempo: { fixed: 90 },
+	tempo: 90,
 	flow: { previewBeats: 2 },
 	presentation: LOCATE_NECK.presentation,
 	// Its round is locate's, the target on beat 2 of the bar.

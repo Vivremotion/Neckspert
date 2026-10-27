@@ -117,6 +117,31 @@ describe('PlayFrame', () => {
 		expect(screen.getByRole('status').textContent).toMatch(/fatigue/i);
 	});
 
+	it('shows the announcement with level and tempo', () => {
+		// The pixel world (the gesture) and the quiet one (the notes), in French and in English.
+		for (const kind of ['gesture', 'learn'] as const) {
+			const controller = new StageController();
+			controller.view.status = 'count-in';
+			controller.view.countdown = 4;
+			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+			render(PlayFrame, { props: { controller, kind } });
+			expect(screen.getByText('Niveau 2 sur 9 · ♩ = 85')).toBeTruthy();
+			cleanup();
+			i18n.locale = 'en';
+			try {
+				render(PlayFrame, { props: { controller, kind } });
+				expect(screen.getByText('Level 2 of 9 · ♩ = 85')).toBeTruthy();
+			} finally {
+				i18n.locale = 'fr';
+				cleanup();
+			}
+		}
+		const quiet = new StageController();
+		quiet.view.status = 'count-in';
+		render(PlayFrame, { props: { controller: quiet } });
+		expect(screen.queryByText(/niveau/i)).toBeNull();
+	});
+
 	it('writes the count as a sentence', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';

@@ -10,6 +10,7 @@ export function idlePlayView(): PlayView {
 		contest: null,
 		audioError: null,
 		stage: null,
-		briefing: null
+		briefing: null,
+		announcement: null
 	};
 }

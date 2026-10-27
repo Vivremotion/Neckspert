@@ -24,6 +24,7 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		{
 			exerciseId: LOCATE_NECK.id,
 			mechanic: 'locate',
+			exerciseLevel: 0,
 			item: { string: 3, pitch: 'C' },
 			phase: 'learning',
 			temperature: 'hot',
@@ -40,6 +41,7 @@ const free = compileRound(
 	{
 		exerciseId: IDENTIFY_NECK.id,
 		mechanic: 'identify',
+		exerciseLevel: 0,
 		item: { string: 3, fret: 5 },
 		phase: 'learning',
 		temperature: 'hot',

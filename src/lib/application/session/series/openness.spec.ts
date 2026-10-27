@@ -33,7 +33,7 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 	mechanic: 'triad-zone',
 	view: 'lane',
 	meter: METER_3_4,
-	tempo: { fixed: 72 },
+	tempo: 72,
 	presentation: {
 		primary: { fr: 'racine de {chord}', en: 'root of {chord}' },
 		secondary: '{around}',

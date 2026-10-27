@@ -41,7 +41,7 @@ describe('resolvedParamsOf', () => {
 	it('resolves exercise, then exercise level, then item level', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
-			tempo: { fixed: 80 },
+			tempo: 80,
 			levels: [{ params: { tempo: 90, 'windows.perfectMs': 60 } }],
 			params: {
 				...LOCATE_NECK.params,
@@ -74,6 +74,16 @@ describe('resolvedParamsOf', () => {
 		expect([-2, -1, 0, 1].map(bars)).toEqual([1, 2, 4, 8]);
 		expect(() => bars(2)).toThrow(RangeError);
 		expect(() => bars(-3)).toThrow(RangeError);
+	});
+
+	it('takes the tempo the definition writes, never a tempo of its params', () => {
+		const definition: ExerciseDefinition = {
+			...LOCATE_NECK,
+			tempo: 95,
+			params: { ...LOCATE_NECK.params, tempo: 140 }
+		};
+		expect(tempoOf(definition, 0)).toBe(95);
+		expect(tempoOf({ ...definition, tempo: undefined }, 0)).toBe(80);
 	});
 
 	it('gives one implicit level to an exercise without levels', () => {

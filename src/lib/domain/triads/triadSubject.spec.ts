@@ -141,6 +141,7 @@ describe('triadSubject', () => {
 		const planned: PlannedItem = {
 			exerciseId: TRIADS_ANCHOR.id,
 			mechanic: ANCHOR,
+			exerciseLevel: 0,
 			item: { voicingKey: ORDER[0] },
 			phase: 'consolidation',
 			temperature: 'hot',
@@ -207,6 +208,7 @@ describe('triadSubject', () => {
 		const review: PlannedItem = {
 			exerciseId: TRIADS_ANCHOR.id,
 			mechanic: ANCHOR,
+			exerciseLevel: 0,
 			item: { voicingKey: ORDER[0] },
 			phase: 'review',
 			temperature: 'cold',
@@ -287,6 +289,7 @@ describe('triadSubject', () => {
 				{
 					exerciseId: TRIADS_ZONE.id,
 					mechanic: ZONE,
+					exerciseLevel: 0,
 					item: { voicingKey: voicing, position },
 					phase: 'review',
 					temperature: 'cold',

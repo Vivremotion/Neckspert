@@ -10,7 +10,7 @@ import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
 import type { ItemSource } from '$lib/domain/progress';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Execution, ResponseVerdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
@@ -19,7 +19,7 @@ import {
 	FakeSoundScheduler,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
-	InMemoryProgressionRepository,
+	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -94,6 +94,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 			return {
 				exerciseId: exercise.id,
 				mechanic: 'chord-grid',
+				exerciseLevel: 0,
 				item: changeOf(mode, passage, index),
 				phase: 'free',
 				temperature: 'hot',
@@ -119,18 +120,9 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	const repositories = {
 		attempts: new InMemoryAttemptRepository(),
 		sessions: new InMemorySessionRepository(),
-		settings: new InMemorySettingsRepository(),
-		progressions: new InMemoryProgressionRepository()
+		settings: new InMemorySettingsRepository()
 	};
 	const cards = new InMemoryCardStateRepository();
-	const exercise = mode === 'link' ? GESTURE_LINK : GESTURE_CLIMB;
-	const executions: Execution[] = [
-		{
-			exerciseId: exercise.id,
-			...(mode === 'climb' && { scope: GRID_ID }),
-			tempoBpm: exercise.startTempoBpm ?? 80
-		}
-	];
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
 	const controller = new ResponseSeriesController(
@@ -138,7 +130,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 		async (sessionId) => {
 			const source = passageLoop(mode);
 			sources.set(sessionId, source);
-			return { source, executions };
+			return { source };
 		},
 		{
 			clock,
@@ -147,6 +139,8 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			sensors: { chord: chordSensor(chords) },
 			mechanics: GESTURE_PRESENTERS,
 			repositories,
+			// Where its levels stand, in memory: the scripted player moves them up as it plays.
+			levels: new InMemoryLevelStateRepository(),
 			recorderFor: (sessionId) =>
 				new AttemptRecorder({
 					attempts: repositories.attempts,

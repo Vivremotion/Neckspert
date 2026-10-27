@@ -2,7 +2,7 @@ import { levelRange, type Level } from '../time/levels';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
 import { recallThresholdOf } from './recall';
-import { exerciseTempoOf } from './tempo';
+import { DEFAULT_TEMPO_BPM } from './tempo';
 import type { ExerciseDefinition, MechanicId } from './types';
 import { windowsOf } from './windows';
 
@@ -62,22 +62,17 @@ function levelAt<P>(levels: readonly Level<P>[], index: number, what: string): L
 	return levels[index - lowest];
 }
 
-/** The tempo the exercise writes, before any level: its fixed tempo, or its range's start. */
-function writtenTempo(definition: ExerciseDefinition): number {
-	const tempo = exerciseTempoOf(definition);
-	return 'fixed' in tempo ? tempo.fixed : tempo.start;
-}
-
 /**
  * The params the exercise alone gives: its own, its windows, pacing and recall threshold over
- * their defaults, and its `tempo` (its params' own, else the tempo it writes).
+ * their defaults, and its `tempo` (the one it writes, else `DEFAULT_TEMPO_BPM`).
  */
 export function exerciseParamsOf(
 	definition: ExerciseDefinition
 ): Readonly<Record<string, unknown>> {
 	return {
-		tempo: writtenTempo(definition),
 		...definition.params,
+		// One source of the tempo: the definition's, never a `tempo` of its params.
+		tempo: definition.tempo ?? DEFAULT_TEMPO_BPM,
 		windows: windowsOf(definition),
 		pacing: pacingOf(definition),
 		recallThresholdMs: recallThresholdOf(definition)

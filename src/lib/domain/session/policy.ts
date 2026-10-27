@@ -29,6 +29,8 @@ export interface SeriesRules {
 	/** The exercise can make its content sound (a figure): listening and playing along are remedies. */
 	canSound: boolean;
 	budgetMs: number;
+	/** The exercise asks the anti-blocking (`flow.antiBlocking`); without it a level only moves. */
+	antiBlocking: boolean;
 }
 
 export interface SeriesState {
@@ -116,10 +118,10 @@ export function askListen(state: SeriesState, rules: SeriesRules): SeriesState {
 }
 
 /**
- * A round settled: the level moves as `nextLevelState` says; at the floor, `BLOCK_AFTER_FAILS`
- * failures in a row bring the anti-blocking (spec amendment 2026-10-17): at level 1 a remedy
- * once (by `diagnoseBlock`), then the aid level, one deeper at each block, and below the lowest
- * « On change d’air ». A level it changes holds from the next run.
+ * A round settled: the level moves as `nextLevelState` says; at the floor, when the rules ask
+ * it, `BLOCK_AFTER_FAILS` failures in a row bring the anti-blocking (spec amendment 2026-10-17):
+ * at level 1 a remedy once (by `diagnoseBlock`), then the aid level, one deeper at each block,
+ * and below the lowest « On change d’air ». A level it changes holds from the next run.
  */
 export function settle(
 	state: SeriesState,
@@ -145,6 +147,7 @@ export function settle(
 	const recent =
 		round.success && !round.aided ? [] : [...state.recent, round].slice(-BLOCK_AFTER_FAILS);
 	const held: SeriesState = { ...state, levelState: moved.state, recent };
+	if (!rules.antiBlocking) return { state: held, changed: null, acted: null };
 	const { level, failures } = held.levelState;
 	// The run of failures must be this series' own: failures stored from earlier sessions count
 	// for the level, never alone for the anti-blocking.

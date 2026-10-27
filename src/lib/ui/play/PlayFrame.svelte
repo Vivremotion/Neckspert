@@ -55,6 +55,16 @@
 	 */
 	const figures = $derived(Boolean(controller.listen || controller.replay));
 	const replay = $derived(replayOf(controller));
+	/** What the series announces (a level reached, with its tempo), in words; null when nothing. */
+	const announced = $derived(
+		view.announcement
+			? t.announcement[view.announcement.kind](
+					view.announcement.level + 1,
+					view.announcement.of,
+					view.announcement.tempoBpm
+				)
+			: null
+	);
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -159,8 +169,11 @@
 					<Prompt main={String(view.countdown)} size="prompt" />
 				</div>
 			{/if}
-			{#if view.contest !== null || view.fatigueDetected}
+			{#if view.contest !== null || view.fatigueDetected || announced !== null}
 				<div class="quiet-status">
+					{#if announced !== null}
+						<p class="announcement" role="status">{announced}</p>
+					{/if}
 					{#if view.contest === 'available'}
 						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
 					{:else if view.contest === 'done'}
@@ -206,6 +219,10 @@
 		{/snippet}
 
 		<div class="status">
+			{#if announced !== null}
+				<!-- Before the round it applies to: the level reached and its tempo. -->
+				<p class="announcement" role="status">{announced}</p>
+			{/if}
 			{#if view.countdown !== null}
 				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
 				<!-- In text: PixelWord draws the note letters only, no digit. -->
@@ -389,6 +406,19 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--np-space-2, 16px);
+	}
+
+	.announcement {
+		margin: 0;
+		font-size: var(--np-type-body);
+		line-height: 1.2;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.quiet-status .announcement {
+		font-size: var(--np-size-body);
+		text-transform: none;
 	}
 
 	.label,

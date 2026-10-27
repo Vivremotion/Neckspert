@@ -25,7 +25,7 @@ describe('exercise catalog', () => {
 			version: 1,
 			mechanic: 'locate',
 			view: 'lane',
-			tempo: { fixed: 80 },
+			tempo: 80,
 			round: LOCATE_NECK.round,
 			presentation: LOCATE_NECK.presentation,
 			params: { recallThresholdMs: 1500, ladder: ladderOf(LOCATE_NECK) }
@@ -71,7 +71,7 @@ describe('exercise catalog', () => {
 			version: 1,
 			mechanic: 'triad-anchor',
 			view: 'lane',
-			tempo: { fixed: 80 },
+			tempo: 80,
 			round: TRIADS_ANCHOR.round,
 			presentation: TRIADS_ANCHOR.presentation,
 			params
@@ -81,7 +81,7 @@ describe('exercise catalog', () => {
 			version: 1,
 			mechanic: 'triad-zone',
 			view: 'lane',
-			tempo: { fixed: 80 },
+			tempo: 80,
 			round: TRIADS_ZONE.round,
 			presentation: TRIADS_ZONE.presentation,
 			params
@@ -113,6 +113,7 @@ describe('exercise catalog', () => {
 		): PlannedItem => ({
 			exerciseId: definition.id,
 			mechanic: definition.mechanic,
+			exerciseLevel: 0,
 			item,
 			phase: 'learning',
 			temperature: 'hot',
@@ -209,7 +210,7 @@ describe('exercise catalog', () => {
 
 	it('plays locate and the triads at 80 bpm, fixed', () => {
 		for (const exercise of [LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE]) {
-			expect(exercise.tempo).toEqual({ fixed: 80 });
+			expect(exercise.tempo).toBe(80);
 		}
 	});
 });

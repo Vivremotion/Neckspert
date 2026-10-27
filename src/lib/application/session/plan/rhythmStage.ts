@@ -11,6 +11,7 @@ import {
 	type LevelParams,
 	type TempoSegment
 } from '$lib/domain/time';
+import type { Announcement } from '../contract';
 
 /**
  * What the rhythm view shows at a moment of the series: the accompaniment alone before playing
@@ -19,8 +20,7 @@ import {
  */
 export type RhythmPhase = 'listen-in' | 'count-in' | 'play' | 'listening' | 'breath';
 
-export type Announcement =
-	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
+export type { Announcement } from '../contract';
 
 /** One settled cycle of the run, as the breath shows it. */
 export interface SettledCycle {

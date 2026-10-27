@@ -273,7 +273,7 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('runs locate at 80 bpm whatever its stored progression, and identify without a tempo', async () => {
+	it('runs locate at 80 bpm whatever its stored progression', async () => {
 		for (const [stored, expected] of [
 			[100, 80],
 			[60, 80]
@@ -288,11 +288,13 @@ describe('createAppServices', () => {
 			const controller = await services.startSession('learn');
 			await controller.start();
 			expect(controller.view.tempoBpm).toBe(expected);
-			expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
-				{ exerciseId: 'locate-neck', tempoBpm: expected },
-				{ exerciseId: 'identify-neck', tempoBpm: null }
-			]);
+			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			controller.quit();
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			// The session keeps the exercise it met, at the tempo of its first round.
+			expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
+				{ exerciseId: 'locate-neck', tempoBpm: expected }
+			]);
 		}
 	});
 
@@ -448,11 +450,7 @@ describe('the gesture track', () => {
 		// The first exercise's instruction, on the start screen.
 		expect(controller.view.briefing?.text).toBeTruthy();
 		await controller.start();
-		const record = await deps.sessions.get(controller.sessionId);
-		expect(record).toMatchObject({
-			kind: 'gesture',
-			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }]
-		});
+		expect(await deps.sessions.get(controller.sessionId)).toMatchObject({ kind: 'gesture' });
 		expect(controller.view.stage?.view).toBe('link-lane');
 		expect(deps.detector.running).toBe(true);
 		// The transport counts a bar, then opens the first change.
@@ -461,6 +459,10 @@ describe('the gesture track', () => {
 		expect(controller.view.stage?.model).toMatchObject({ root: 'D', anchorBeat: 4, history: [] });
 		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
 		controller.quit();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
+			{ exerciseId: 'gesture-link', tempoBpm: 80 }
+		]);
 	});
 
 	it('shows « Joué juste » on a gesture session only in development', async () => {
@@ -533,41 +535,23 @@ describe('the gesture track', () => {
 		expect(summary).toMatchObject({ kind: 'gesture', gesture: { exercises: [], misses: [] } });
 	});
 
-	it('runs each open grid of an exercise at its own tempo, the climb of each grid apart', async () => {
+	it('starts the gesture at the level it reached, read from the levels stored', async () => {
 		const { services, deps } = harness();
-		const triads = [
-			['D', 'min'],
-			['G', 'maj'],
-			['C', 'maj'],
-			['F', 'maj'],
-			['E', 'min'],
-			['Eb', 'min'],
-			['Ab', 'maj'],
-			['Bb', 'maj']
-		] as const;
-		await deps.cards.putMany(
-			triads.flatMap(([root, quality]) => triadCards('triad-anchor', root, quality, [3, 2, 1]))
-		);
-		await deps.progressions.put({
-			exerciseId: 'gesture-climb',
-			mechanic: 'chord-grid',
-			scope: 'iohefy-a',
-			tempoBpm: 95,
-			updatedAt: 1
+		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		await deps.levels.put({
+			exerciseId: 'gesture-link',
+			scope: '',
+			item: '',
+			level: 2,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
 		});
 		const controller = await services.startSession('gesture');
 		await controller.start();
-		const record = await deps.sessions.get(controller.sessionId);
-		const executions = record?.executions ?? [];
-		expect(executions.filter((e) => e.exerciseId === 'gesture-link')).toEqual([
-			{ exerciseId: 'gesture-link', tempoBpm: 80 }
-		]);
-		expect(executions.filter((e) => e.exerciseId !== 'gesture-link')).toEqual([
-			{ exerciseId: 'gesture-climb', scope: 'iohefy-a', tempoBpm: 95 },
-			{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 80 },
-			{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
-			{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 80 }
-		]);
+		// Level 3 of the link: ♩ = 90.
+		expect(controller.view.tempoBpm).toBe(90);
+		controller.quit();
 	});
 });
 

@@ -25,7 +25,7 @@ export function roundParamsOf(
 ): Readonly<Record<string, unknown>> {
 	return {
 		...resolvedParamsOf(definition, {
-			exerciseLevel: item.exerciseLevel ?? 0,
+			exerciseLevel: item.exerciseLevel,
 			itemLevel: item.level ?? null,
 			mechanic: item.mechanic
 		}),

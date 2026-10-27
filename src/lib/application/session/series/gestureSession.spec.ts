@@ -37,7 +37,6 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import {
-	EXECUTIONS,
 	change,
 	clicksBetween,
 	drain,
@@ -46,6 +45,7 @@ import {
 	model,
 	passage,
 	rightShape,
+	ScriptedSource,
 	type Ctx
 } from '$lib/testing/gestureSeries';
 import { shapeId, triadCards } from '$lib/testing/shapes';
@@ -210,14 +210,17 @@ describe('a gesture session on the response series, end to end', () => {
 		expect(passages.size).toBeGreaterThanOrEqual(2);
 		expect(attempts.slice(0, 14).every((a) => a.aids.length === 0)).toBe(true);
 		expect(await app.deps.cards.all()).toEqual(cards);
-		expect(await app.deps.progressions.get('gesture-link')).toMatchObject({ tempoBpm: 85 });
+		// Ten right changes in a row moved the link up a level: its next tour would play at 85.
+		expect(
+			await app.deps.levels.get({ exerciseId: 'gesture-link', scope: '', item: '' })
+		).toMatchObject({ level: 1 });
 
 		const summary = await app.services.sessionSummary(app.controller.sessionId);
 		expect(summary.gesture?.exercises[0]).toMatchObject({
 			exerciseId: 'gesture-link',
 			passagesSucceeded: 2,
 			tempoBpm: 80,
-			nextTempoBpm: 85
+			nextTempoBpm: 80
 		});
 	});
 
@@ -337,14 +340,21 @@ function countsOn(ctx: Ctx, from: number, to: number) {
  */
 async function playAllRight(
 	ctx: Ctx,
-	shapeOf: (n: number, expected: string) => string | null = (_n, expected) => expected
+	shapeOf: (n: number, expected: string) => string | null = (_n, expected) => expected,
+	/** Called at each step, after the clock moved: it may read the view, or pause. */
+	watch: () => void = () => undefined
 ): Promise<number[]> {
 	const tempos: number[] = [];
 	let told = ctx.verifier.expectations.length;
 	let due: { time: number; shape: string | null } | null = null;
 	for (let step = 0; step < 50_000 && ctx.controller.view.status !== 'finished'; step++) {
-		ctx.runTo(ctx.clock.now() + 0.01);
 		if (ctx.controller.view.status === 'paused') ctx.controller.resume();
+		ctx.runTo(ctx.clock.now() + 0.01);
+		watch();
+		if (ctx.controller.view.status === 'paused') {
+			await drain();
+			continue;
+		}
 		if (ctx.verifier.expectations.length > told) {
 			told = ctx.verifier.expectations.length;
 			const expectation = ctx.verifier.expectations.at(-1);
@@ -695,29 +705,17 @@ describe('a tempo per exercise and scope (tempoScope)', () => {
 		]);
 	});
 
-	it('moves the tempo of a scope on its own attempts only', async () => {
+	it('moves the level of a scope on its own attempts only', async () => {
 		const ballad = [0, 1, 2, 3, 4].flatMap((n) => passage({ passage: `s:${n}` }));
-		const ctx = gestureSeries([...ballad, change(0, { passage: 'b:0', scope: 'blues-f' })]);
-		await ctx.controller.start();
-		await playAllRight(ctx);
-		expect(await ctx.repositories.progressions.get('gesture-jam', 'iohefy-a')).toMatchObject({
-			exerciseId: 'gesture-jam',
-			scope: 'iohefy-a',
-			mechanic: 'chord-grid',
-			tempoBpm: 125
+		const ctx = gestureSeries([...ballad, change(0, { passage: 'b:0', scope: 'blues-f' })], {
+			catalogLevels: true
 		});
-		expect(await ctx.repositories.progressions.get('gesture-jam', 'blues-f')).toBeUndefined();
-		expect(await ctx.repositories.progressions.get('gesture-jam')).toBeUndefined();
-	});
-
-	it('leaves every tempo alone after free play', async () => {
-		const ballad = [0, 1, 2, 3, 4].flatMap((n) => passage({ passage: `s:${n}` }));
-		const ctx = gestureSeries(ballad, { kind: 'free' });
 		await ctx.controller.start();
 		await playAllRight(ctx);
-		expect(ctx.controller.view.status).toBe('finished');
-		expect((await ctx.stored()).every((a) => a.success)).toBe(true);
-		expect(await ctx.repositories.progressions.all()).toEqual([]);
+		const level = (scope: string) => ctx.levels.get({ exerciseId: 'gesture-jam', scope, item: '' });
+		expect(await level('iohefy-a')).toMatchObject({ level: 1, successes: 0 });
+		expect(await level('blues-f')).toMatchObject({ level: 0, successes: 1 });
+		expect(await level('')).toBeUndefined();
 	});
 });
 
@@ -917,8 +915,6 @@ describe('the miss of a passage’s last change (shown until the count starts)',
 		});
 	}
 
-	const LINK_EXECUTIONS = [...EXECUTIONS, { exerciseId: 'gesture-link', tempoBpm: 120 }];
-
 	/** The drawn miss, the contest offer and the change shown, read at `time`. */
 	function at(ctx: Ctx, time: number) {
 		ctx.runTo(time);
@@ -960,9 +956,7 @@ describe('the miss of a passage’s last change (shown until the count starts)',
 	});
 
 	it('draws a link tour’s last shape missed until the count starts', async () => {
-		const ctx = gestureSeries([...linkTour('s:0'), ...linkTour('s:1', 1)], {
-			executions: LINK_EXECUTIONS
-		});
+		const ctx = gestureSeries([...linkTour('s:0'), ...linkTour('s:1', 1)]);
 		await ctx.controller.start();
 		ctx.runTo(ctx.bar(1) + 0.02);
 		ctx.play(ctx.bar(1) + 0.02, LINK_SHAPES[0]);
@@ -1027,5 +1021,165 @@ describe('« Joué juste » on a change', () => {
 		const paused = await missed(true);
 		paused.controller.pause();
 		expect(paused.controller.view.contest).toBeNull();
+	});
+});
+
+describe('the exercise level moving in session (levels)', () => {
+	const RIGHT = (_n: number, expected: string) => expected;
+	const LEVEL_UP = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+	const passages = (count: number, options: Parameters<typeof passage>[0] = {}) =>
+		Array.from({ length: count }, (_, n) => passage({ ...options, passage: `s:${n}` })).flat();
+	/** Where (exercise, scope) stands, `successes` right changes in a row at level 0. */
+	const standing = (successes: number, exerciseId = 'gesture-jam', scope = 'iohefy-a') => ({
+		exerciseId,
+		scope,
+		item: '',
+		level: 0,
+		successes,
+		failures: 0,
+		resumeAfter: null
+	});
+	/** What the frame showed on each beat counted, and once the rounds were open. */
+	function frames(ctx: Ctx) {
+		const counting: { countdown: number; tempoBpm: number; announcement: unknown }[] = [];
+		const open: unknown[] = [];
+		let last: number | null = null;
+		const watch = () => {
+			const { status, countdown, tempoBpm, announcement } = ctx.controller.view;
+			if (status === 'count-in' && countdown !== null && countdown !== last) {
+				counting.push({ countdown, tempoBpm, announcement });
+			}
+			last = status === 'count-in' ? countdown : null;
+			if (status === 'awaiting') open.push(announcement);
+		};
+		return { counting, open, watch };
+	}
+	const levelOf = (ctx: Ctx, exerciseId = 'gesture-jam', scope = 'iohefy-a') =>
+		ctx.levels.get({ exerciseId, scope, item: '' });
+
+	it('raises the tempo at the next passage after ten right changes', async () => {
+		const ctx = gestureSeries(passages(6), { catalogLevels: true });
+		const seen = frames(ctx);
+		await ctx.controller.start();
+		const tempos = await playAllRight(ctx, RIGHT, seen.watch);
+
+		// The tenth right change ends the fifth passage, still at 80; the sixth plays at 85.
+		expect(tempos).toEqual([...Array(10).fill(80), 85, 85]);
+		expect((await ctx.stored()).map((a) => a.tempoBpm)).toEqual(tempos);
+		// Its counted bar, at 85, announces the level and the tempo; the earlier counts nothing.
+		// On the count's last beat the change is asked already (its prompt): told no more.
+		const announced = seen.counting.filter((frame) => frame.announcement !== null);
+		expect(announced.map((frame) => frame.countdown)).toEqual([4, 3, 2]);
+		expect(announced.every((frame) => frame.tempoBpm === 85)).toBe(true);
+		expect(announced.every((frame) => frame.announcement !== null)).toBe(true);
+		expect(announced[0].announcement).toEqual(LEVEL_UP);
+		// Gone once the change is asked.
+		expect(seen.open.length).toBeGreaterThan(0);
+		expect(seen.open.every((announcement) => announcement === null)).toBe(true);
+		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 2, failures: 0 });
+	});
+
+	it('keeps the tempo through a link tour played again', async () => {
+		/** A link tour of two changes, D on G-B-E; `again`: played again at once, chained. */
+		const tour = (id: string, again = false): PlannedItem[] =>
+			[0, 1].map((index) => {
+				const {
+					tempoScope: _scope,
+					countIn: _count,
+					...base
+				} = change(index, {
+					passage: id,
+					exerciseId: 'gesture-link'
+				});
+				const item: ChordGridItem = {
+					...(base.item as ChordGridItem),
+					rule: 'link',
+					element: 'link:D|maj:3,2,1',
+					chord: 'D|maj',
+					symbol: 'D',
+					changes: [
+						{ at: 0, length: 4, symbol: 'D' },
+						{ at: 4, length: 4, symbol: 'D' }
+					],
+					shape: shapeId('D', 'maj', G_B_E, ['2-3-2', '7-7-5'][index]),
+					...(again && { continued: true })
+				};
+				return { ...base, item, ...(index === 0 && !again && { countIn: true }) };
+			});
+		// Eight right changes stored: the tour's last change is the tenth and moves the level up.
+		const ctx = gestureSeries([...tour('s:0'), ...tour('s:0', true), ...tour('s:1')], {
+			catalogLevels: true,
+			levelStates: [standing(8, 'gesture-link', '')]
+		});
+		const seen = frames(ctx);
+		await ctx.controller.start();
+		const tempos = await playAllRight(ctx, RIGHT, seen.watch);
+
+		// The tour played again chains at its tempo; the next one, counted, starts at 85.
+		expect(tempos).toEqual([80, 80, 80, 80, 85, 85]);
+		expect(
+			seen.counting.filter((frame) => frame.announcement !== null).map((f) => f.tempoBpm)
+		).toEqual([85, 85, 85]);
+		expect(await levelOf(ctx, 'gesture-link', '')).toMatchObject({ level: 1 });
+	});
+
+	it('counts again at the new tempo after a pause in the counted bar', async () => {
+		const ctx = gestureSeries(passages(2), {
+			catalogLevels: true,
+			levelStates: [standing(9)]
+		});
+		const seen = frames(ctx);
+		let paused: { status: string; announcement: unknown } | null = null;
+		await ctx.controller.start();
+		const tempos = await playAllRight(ctx, RIGHT, () => {
+			seen.watch();
+			const { view } = ctx.controller;
+			if (paused === null && view.status === 'count-in' && view.announcement !== null) {
+				ctx.controller.pause();
+				paused = { status: view.status, announcement: view.announcement };
+			}
+		});
+
+		// The first change moved the level up; the passage ends at 80.
+		expect(tempos).toEqual([80, 80, 85, 85]);
+		// The announcement stays through the pause, and is told again as the count starts over.
+		expect(paused).toEqual({ status: 'paused', announcement: LEVEL_UP });
+		const announced = seen.counting.filter((frame) => frame.announcement !== null);
+		// Paused on the count's first beat, then counted again whole, at 85.
+		expect(announced.map((frame) => frame.countdown)).toEqual([4, 4, 3, 2]);
+		expect(announced.every((frame) => frame.tempoBpm === 85)).toBe(true);
+		// Moved once: two right changes since at level 1, nothing counted twice.
+		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 2 });
+	});
+
+	it('stores the level reached when time runs out before it is played', async () => {
+		const ctx = gestureSeries(passages(2), {
+			catalogLevels: true,
+			levelStates: [standing(9)],
+			durationMs: 1
+		});
+		await ctx.controller.start();
+		const tempos = await playAllRight(ctx);
+
+		// The passage begun is played to its end at 80; no other begins.
+		expect(tempos).toEqual([80, 80]);
+		expect((await ctx.stored()).map((a) => a.tempoBpm)).toEqual([80, 80]);
+		expect(await levelOf(ctx)).toMatchObject({ level: 1 });
+	});
+
+	it('starts the next session at the stored level', async () => {
+		const ctx = gestureSeries([], {
+			catalogLevels: true,
+			levelStates: [standing(9)],
+			durationMs: 1,
+			sources: [new ScriptedSource(passage()), new ScriptedSource(passage({ passage: 's:1' }))]
+		});
+		await ctx.controller.start();
+		expect(await playAllRight(ctx)).toEqual([80, 80]);
+		await ctx.controller.start();
+		await drain();
+		expect(ctx.controller.view.tempoBpm).toBe(85);
+		expect(await playAllRight(ctx)).toEqual([85, 85]);
+		expect((await ctx.stored(ctx.controller.sessionId)).map((a) => a.tempoBpm)).toEqual([85, 85]);
 	});
 });

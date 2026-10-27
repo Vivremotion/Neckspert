@@ -51,6 +51,7 @@ function plannedOf(item: ChordGridItem): PlannedItem {
 	return {
 		exerciseId: 'gesture-jam',
 		mechanic: 'chord-grid',
+		exerciseLevel: 0,
 		item,
 		phase: 'free',
 		temperature: 'hot',

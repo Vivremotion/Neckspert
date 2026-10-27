@@ -15,6 +15,7 @@ function previous(voicingKey: string): PlannedItem {
 	return {
 		exerciseId: 'triads-anchor',
 		mechanic: 'triad-anchor',
+		exerciseLevel: 0,
 		item: { voicingKey },
 		phase: 'review',
 		temperature: 'cold',

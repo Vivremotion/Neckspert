@@ -211,17 +211,17 @@ export interface PlannedItem<I = unknown> {
 	/** Its level on its exercise's ladder, when a source served it from one (`ladderOf`). */
 	level?: number;
 	/**
-	 * Its exercise's level (`exerciseLevelsOf`); absent reads as 0, the level of an exercise that
-	 * writes none. The series fills it.
+	 * Its exercise's level (`exerciseLevelsOf`): a source writes 0, the series the level its
+	 * exercise plays at when the round is placed (`ExerciseLevels.played`).
 	 */
-	exerciseLevel?: number;
+	exerciseLevel: number;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
 	/** With `countIn`: bars of silence before the counted bar, a break heard without looking. */
 	restBars?: number;
 	/**
-	 * The scope of its exercise's tempo (`Execution.scope`): the prompt runs at, and moves, the
-	 * tempo of its exercise in that scope. Absent: the exercise's own tempo.
+	 * The scope of its exercise's level (`Execution.scope`): the prompt plays at, and moves, the
+	 * level of its exercise in that scope, and so its tempo. Absent: the exercise's own level.
 	 */
 	tempoScope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
@@ -408,7 +408,9 @@ export interface GestureSummary {
 		passagesSucceeded: number;
 		/** Share of its changes right and in time (`Attempt.success`). */
 		changeSuccessRate: number;
+		/** The tempo of its first round. */
 		tempoBpm: number;
+		/** The tempo of its last round: a level reached and not played yet does not show. */
 		nextTempoBpm: number;
 	}[];
 	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */

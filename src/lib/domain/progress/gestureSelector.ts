@@ -138,6 +138,8 @@ class GestureSelector implements ItemSource {
 		return {
 			exerciseId: element.exerciseId,
 			mechanic: MECHANIC,
+			// The series sets the level its exercise plays at.
+			exerciseLevel: 0,
 			item,
 			phase: 'free',
 			temperature: 'hot',
@@ -146,7 +148,7 @@ class GestureSelector implements ItemSource {
 			// A chained tour carries on without a counted bar.
 			...(index === 0 && !passage.continued && { countIn: true }),
 			...(index === 0 && passage.rests && { restBars: LINK_REST_BARS }),
-			// A grid progresses at its own tempo: a ballad and a blues apart.
+			// A grid moves through its levels on its own: a ballad and a blues apart.
 			...(element.gridId !== undefined && { tempoScope: element.gridId })
 		};
 	}

@@ -22,6 +22,7 @@ function rules(overrides: Partial<SeriesRules> = {}): SeriesRules {
 		params: () => ({ cyclesPerBreath: 4, listen: 'free' }),
 		canSound: true,
 		budgetMs: SESSION_MS,
+		antiBlocking: true,
 		...overrides
 	};
 }
@@ -249,6 +250,17 @@ describe('settle', () => {
 		]);
 		expect(acted).toEqual({ diagnosis: 'execution', act: 'change-of-air' });
 		expect(state.ending).toBe('change-of-air');
+	});
+
+	it('acts the anti-blocking only when the rules ask it', () => {
+		const rounds = [round(0, ['regularity']), round(0, ['regularity']), round(0, ['regularity'])];
+		const asked = settleAll(playing(0), rules(), rounds);
+		expect(asked.acted).toEqual({ diagnosis: 'execution', act: 'aid-level' });
+		const never = settleAll(playing(0), rules({ antiBlocking: false }), [...rounds, ...rounds]);
+		expect(never.acted).toBeNull();
+		expect(never.state.levelState).toMatchObject({ level: 0, failures: 6, resumeAfter: null });
+		expect(never.state.ending).toBeNull();
+		expect(never.state.remedies).toEqual([]);
 	});
 
 	it('a level change starts the anti-blocking again', () => {

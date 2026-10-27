@@ -14,32 +14,9 @@ const naturalNumber = (value: unknown) =>
 const SCENES = ['guitar', 'screen'];
 
 function tempoProblem(definition: ExerciseDefinition): string | null {
-	if (definition.startTempoBpm !== undefined && !positive(definition.startTempoBpm)) {
-		return `startTempoBpm must be a positive number, got ${definition.startTempoBpm}`;
-	}
-	const tempo = definition.tempo;
-	if (tempo === undefined) return null;
-	if ('fixed' in tempo) {
-		return positive(tempo.fixed)
-			? null
-			: `tempo.fixed must be a positive number, got ${tempo.fixed}`;
-	}
-	for (const field of ['start', 'min', 'max', 'step'] as const) {
-		if (!positive(tempo[field])) {
-			return `tempo.${field} must be a positive number, got ${tempo[field]}`;
-		}
-	}
-	if (tempo.min > tempo.max) return `tempo.min ${tempo.min} is above tempo.max ${tempo.max}`;
-	if (tempo.start < tempo.min || tempo.start > tempo.max) {
-		return `tempo.start must lie within ${tempo.min}–${tempo.max}, got ${tempo.start}`;
-	}
-	for (const field of ['raiseAt', 'lowerAt'] as const) {
-		if (!finite(tempo[field])) return `tempo.${field} must be a number, got ${tempo[field]}`;
-	}
-	if (!naturalNumber(tempo.minPrompts)) {
-		return `tempo.minPrompts must be a non-negative integer, got ${tempo.minPrompts}`;
-	}
-	return null;
+	const { tempo } = definition;
+	if (tempo === undefined || positive(tempo)) return null;
+	return `tempo must be a positive number, got ${tempo}`;
 }
 
 function ladderProblem(params: ExerciseDefinition['params']): string | null {
@@ -167,7 +144,7 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive or a range that cannot hold its start, a ladder it cannot climb,
+ * field: a tempo not positive, a ladder it cannot climb,
  * levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has). It never

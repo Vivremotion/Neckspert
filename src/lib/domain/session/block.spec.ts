@@ -35,6 +35,17 @@ function round(
 }
 
 describe('diagnoseBlock', () => {
+	it('unclear for rounds judged without a report', () => {
+		const bare = ({ report: _report, verdict: _verdict, ...rest }: SettledRound) => rest;
+		expect(
+			diagnoseBlock([
+				bare(round(['missed'], { missed: [3] })),
+				bare(round(['missed'], { missed: [3] }))
+			])
+		).toBe('unclear');
+		expect(breakingMeasure([bare(round(['hold']))])).toBeNull();
+	});
+
 	it('execution when the figure is played and the measures fail', () => {
 		expect(diagnoseBlock([round(['regularity']), round(['hold']), round(['shift', 'hold'])])).toBe(
 			'execution'

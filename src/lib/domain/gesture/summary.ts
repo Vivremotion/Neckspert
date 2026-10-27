@@ -1,4 +1,3 @@
-import { nextTempo } from '$lib/domain/exercise/tempo';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
 import { expectedShape } from '$lib/domain/mechanics/chordGrid';
@@ -29,8 +28,9 @@ function decidedOf(attempt: Attempt): string | null {
 
 /**
  * A gesture session by exercise and grid played (spec 2026-10-10, section 7): passages succeeded of those
- * played, the share of changes right and in time, the tempo played and the next one; then the
- * missed changes, with the shape heard and the shape due.
+ * played, the share of changes right and in time, the tempo of its first round and of its last
+ * one (its level may move it in session, plan H6 D4); then the missed changes, with the shape
+ * heard and the shape due.
  */
 export function summarizeGesture(
 	executions: readonly Execution[],
@@ -43,6 +43,8 @@ export function summarizeGesture(
 				attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
 		);
 		if (own.length === 0 || tempoBpm === null) return [];
+		// Only an exercise of the gesture track is summed up here.
+		gestureDefinition(exerciseId);
 		const passages = new Map<string, Attempt[]>();
 		for (const attempt of own) {
 			const id = itemOf(attempt).passageId;
@@ -56,7 +58,7 @@ export function summarizeGesture(
 				passagesSucceeded: [...passages.values()].filter(passageSucceeded).length,
 				changeSuccessRate: own.filter((attempt) => attempt.success).length / own.length,
 				tempoBpm,
-				nextTempoBpm: nextTempo(gestureDefinition(exerciseId), tempoBpm, own)
+				nextTempoBpm: own[own.length - 1].tempoBpm ?? tempoBpm
 			}
 		];
 	});

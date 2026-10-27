@@ -13,7 +13,7 @@ import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
-import { Fraction, type Meter } from '$lib/domain/time';
+import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
 import { triadCards } from '$lib/testing/shapes';
@@ -21,7 +21,6 @@ import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
 import type { Observation, SensorFactory } from '../sensors';
 import {
-	EXECUTIONS,
 	G_B_E,
 	type Ctx,
 	ScriptedSource,
@@ -275,7 +274,10 @@ describe('ResponseSeriesController', () => {
 			expect(await ctx.stored()).toHaveLength(2);
 			const [session] = await ctx.repositories.sessions.list();
 			expect(session.endedAt).not.toBeNull();
-			expect(session.executions).toEqual(EXECUTIONS);
+			// One execution per exercise and scope met, at the tempo of its first round.
+			expect(session.executions).toEqual([
+				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 }
+			]);
 		});
 
 		it('finishes the passage begun once SESSION_MS is spent, and begins no other', async () => {
@@ -705,9 +707,7 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(passage(), { exercise });
 			await ctx.controller.ready();
 			expect(ctx.controller.view.stage?.view).toBe('own-view');
-			const unknown = setup([change(0, { exerciseId: 'nowhere' })], {
-				executions: [{ exerciseId: 'nowhere', scope: 'iohefy-a', tempoBpm: 120 }]
-			});
+			const unknown = setup([change(0, { exerciseId: 'nowhere' })]);
 			await expect(unknown.controller.ready()).rejects.toThrow(/nowhere/);
 		});
 	});
@@ -721,10 +721,7 @@ describe('ResponseSeriesController', () => {
 				attempts: [],
 				sessionId: 'series-1'
 			});
-			const ctx = setup([], {
-				sources: [selector],
-				executions: [{ exerciseId: 'gesture-link', tempoBpm: 120 }]
-			});
+			const ctx = setup([], { sources: [selector] });
 			await ctx.controller.start();
 			// Nothing is played: the first tour fails and is replayed at once, chained.
 			const indexes: number[] = [];
@@ -883,7 +880,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(items, {
 				mechanics,
 				exercise: fakeExercise,
-				executions: [...EXECUTIONS, { exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }],
 				sensors: fake.sensors,
 				...options
 			});
@@ -1116,6 +1112,14 @@ describe('ResponseSeriesController', () => {
 			// Its prompt is the instant it opened: the reaction is counted from there.
 			expect(attempts[1].promptedAt).toBeCloseTo(ctx.clock.toEpochMs(opened), 6);
 			expect(attempts[1].reactionMs).toBeCloseTo(1000, 6);
+			// In free time no tempo is played: the attempts and the execution have none.
+			expect(attempts.map((a) => a.tempoBpm)).toEqual([null, null]);
+			ctx.controller.quit();
+			await drain();
+			const [session] = await ctx.repositories.sessions.list();
+			expect(session.executions).toEqual([
+				{ exerciseId: 'fake-tap', scope: 'iohefy-a', tempoBpm: null }
+			]);
 			// Nothing clicks on the screen.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
 		});
@@ -1128,12 +1132,8 @@ describe('ResponseSeriesController', () => {
 				howTo: undefined,
 				...(id === waltz && { meter: METER_3_4 })
 			});
-			/** One tempo, ♩ = 120, for both exercises: only the meter changes. */
-			const executions = [
-				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 },
-				{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 120 },
-				{ exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }
-			];
+			/** One tempo, ♩ = 120, for every exercise (all at level 0): only the meter changes. */
+			const levelStates: LevelState[] = [];
 			/**
 			 * Runs by 10 ms to the second item's target (at most `until`); what the screen showed: the counts with their times, and the
 			 * second item's target, in audio seconds, once its round opened.
@@ -1178,7 +1178,7 @@ describe('ResponseSeriesController', () => {
 			it('counts a bar in the new meter between a timed item and one of another meter, then plays in it', async () => {
 				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'gesture-zone' })], {
 					exercise: inWaltz('gesture-zone'),
-					executions
+					levelStates
 				});
 				await ctx.controller.start();
 				ctx.runTo(ctx.bar(3) + 0.03);
@@ -1214,7 +1214,7 @@ describe('ResponseSeriesController', () => {
 			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
 				const ctx = series([beat(0, 8, {}, 'tap'), beat(1, 3, { countIn: true })], {
 					exercise: inWaltz('gesture-jam'),
-					executions
+					levelStates
 				});
 				await ctx.controller.start();
 				// The tapped one opens after its (silent) 4/4 count and is answered.

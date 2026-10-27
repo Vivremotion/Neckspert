@@ -1,19 +1,12 @@
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, ExerciseId, Scene } from '$lib/domain/exercise/types';
-import {
-	cardKey,
-	type CardKey,
-	type Execution,
-	type Locale,
-	type PlannedItem
-} from '$lib/domain/types';
+import { cardKey, type CardKey, type Locale, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 
-/** What a series reads of its items' data: their presenter, card key, execution and exercise. */
+/** What a series reads of its items' data: their presenter, card key and exercise. */
 export class SeriesItems {
 	constructor(
 		private readonly mechanics: Record<string, MechanicPresenter>,
-		private readonly executions: () => readonly Execution[],
 		private readonly exercise: (id: ExerciseId) => ExerciseDefinition
 	) {}
 
@@ -26,15 +19,6 @@ export class SeriesItems {
 	cardKeyOf(item: PlannedItem): CardKey {
 		const { rules } = this.presenterOf(item);
 		return cardKey(rules.id, rules.itemKey(item.item));
-	}
-
-	/** The execution an item belongs to, by its exercise and its tempo scope. */
-	executionOf(item: PlannedItem): Execution {
-		const execution = this.executions().find(
-			(e) => e.exerciseId === item.exerciseId && (e.scope ?? null) === (item.tempoScope ?? null)
-		);
-		if (!execution) throw new Error(`No execution for exercise: ${item.exerciseId}`);
-		return execution;
 	}
 
 	/** The definition of an item's exercise; an exercise the catalog does not know throws. */

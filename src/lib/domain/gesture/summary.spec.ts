@@ -73,10 +73,22 @@ describe('summarizeGesture', () => {
 				passagesSucceeded: 1,
 				changeSuccessRate: 11 / 12,
 				tempoBpm: 80,
-				nextTempoBpm: 85
+				nextTempoBpm: 80
 			}
 		]);
 		expect(summary.misses).toEqual([]);
+	});
+
+	it('tells the tempo of the first round and of the last, a level moved in session', () => {
+		const at80 = [0, 1].map((i) => change('gesture-jam', 'p1', i, 'perfect'));
+		const at85 = [0, 1].map((i) =>
+			change('gesture-jam', 'p2', i, 'perfect', null, { tempoBpm: 85 })
+		);
+		const summary = summarizeGesture(
+			[{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+			[...at80, ...at85]
+		);
+		expect(summary.exercises[0]).toMatchObject({ tempoBpm: 80, nextTempoBpm: 85 });
 	});
 
 	it('refuses an exercise the gesture track does not list, naming it', () => {
@@ -139,7 +151,7 @@ describe('summarizeGesture', () => {
 				passagesSucceeded: 1,
 				changeSuccessRate: 1,
 				tempoBpm: 80,
-				nextTempoBpm: 85
+				nextTempoBpm: 80
 			},
 			{
 				exerciseId: 'gesture-jam',

@@ -128,6 +128,7 @@ function planned<I>(mechanic: string, item: I, leadBeats: number | null = 4): Pl
 	return {
 		exerciseId: `test-${mechanic}`,
 		mechanic,
+		exerciseLevel: 0,
 		item,
 		phase: 'learning',
 		temperature: 'hot',

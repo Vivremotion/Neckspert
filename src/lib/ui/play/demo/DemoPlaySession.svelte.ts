@@ -83,7 +83,8 @@ export class DemoPlaySession implements PlaySessionController {
 			countdown: null,
 			audioError: null,
 			stage: null,
-			briefing: null
+			briefing: null,
+			announcement: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
@@ -165,6 +166,7 @@ export class DemoPlaySession implements PlaySessionController {
 		const planned = {
 			exerciseId: LOCATE_NECK.id,
 			mechanic: LOCATE_NECK.mechanic,
+			exerciseLevel: 0,
 			item,
 			phase: 'review',
 			temperature: 'cold',

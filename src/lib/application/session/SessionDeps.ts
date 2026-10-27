@@ -53,8 +53,8 @@ export interface PlanSessionDeps extends SessionDeps {
 
 /**
  * What a series of response rounds on the transport needs: the one path every sound takes, the
- * sensors and presenters of its mechanics, where it writes, and whether
- * the development tools (« Joué juste ») show.
+ * sensors and presenters of its mechanics, where it writes (its attempts, its sessions, and where
+ * each exercise stands in its levels), and whether the development tools (« Joué juste ») show.
  */
 export interface ResponseSeriesDeps {
 	clock: AudioClockPort;
@@ -63,7 +63,9 @@ export interface ResponseSeriesDeps {
 	detector: NoteDetectorPort;
 	sensors: SessionDeps['sensors'];
 	mechanics: SessionDeps['mechanics'];
-	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings' | 'progressions'>;
+	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings'>;
+	/** Each exercise's level, by scope: read at the start of a series, written at each round. */
+	levels: LevelStateRepositoryPort;
 	/** The recorder of one series: a new series (a start after the end) gets its own. */
 	recorderFor: (sessionId: string) => AttemptRecorder;
 	/** The definition of an exercise (its view, its instruction); throws on an unknown one. */

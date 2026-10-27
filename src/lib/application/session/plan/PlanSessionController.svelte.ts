@@ -237,7 +237,8 @@ export class PlanSessionController implements PlaySessionController {
 			contest: null,
 			audioError: null,
 			stage: null,
-			briefing: null
+			briefing: null,
+			announcement: null
 		});
 	}
 
@@ -1149,7 +1150,8 @@ export class PlanSessionController implements PlaySessionController {
 			params: (level) => this.paramsOf(level),
 			// An exercise of figures can always make its figure sound.
 			canSound: true,
-			budgetMs: SESSION_MS
+			budgetMs: SESSION_MS,
+			antiBlocking: this.exercise.flow?.antiBlocking ?? false
 		};
 	}
 
@@ -1190,6 +1192,7 @@ export class PlanSessionController implements PlaySessionController {
 		return {
 			exerciseId: this.exercise.id,
 			mechanic: rhythmFigureRules.id,
+			exerciseLevel: setup.level,
 			item: { figureId: setup.figureId, level: setup.level },
 			phase: 'free',
 			temperature: 'hot',
