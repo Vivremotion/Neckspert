@@ -1,5 +1,7 @@
+import { levelRange } from '../time/levels';
 import { isBeatCount, validateMeter } from '../time/meter';
-import { validateLadder } from './ladder';
+import { levelConditionsProblem, validateLadder } from './ladder';
+import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import type { ExerciseDefinition, Ladder } from './types';
 
@@ -102,9 +104,71 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	return null;
 }
 
+/** The ladders an exercise writes, by the field that holds them. */
+function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
+	const ladders: [string, Ladder][] = [];
+	if (params.ladder !== undefined) ladders.push(['params.ladder', params.ladder as Ladder]);
+	if (typeof params.ladders === 'object' && params.ladders !== null) {
+		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
+			ladders.push([`params.ladders.${mechanic}`, ladder as Ladder]);
+		}
+	}
+	return ladders;
+}
+
+/**
+ * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
+ * path of an exercise or item level through a value that is not an object (named by its level in
+ * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive.
+ * A path no piece reads passes: it is without effect.
+ */
+function levelsProblem(definition: ExerciseDefinition): string | null {
+	const { levels } = definition;
+	if (levels !== undefined) {
+		if (!Array.isArray(levels)) return 'levels is not a list of levels';
+		try {
+			levelRange(levels);
+		} catch (error) {
+			return `levels ${(error as Error).message}`;
+		}
+		for (const [index, level] of levels.entries()) {
+			const conditions = levelConditionsProblem(level);
+			if (conditions !== null) return `levels[${index}]: ${conditions}`;
+		}
+	}
+	const params = exerciseParamsOf(definition);
+	const resolved: Readonly<Record<string, unknown>>[] = [];
+	for (const [index, level] of exerciseLevelsOf(definition).entries()) {
+		const field = levels === undefined ? 'params' : `levels[${index}]`;
+		let atLevel: Readonly<Record<string, unknown>>;
+		try {
+			atLevel = overrideParams(params, level.params);
+		} catch (error) {
+			return `${field} ${(error as Error).message}`;
+		}
+		if (!positive(atLevel.tempo)) {
+			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
+		}
+		resolved.push(atLevel);
+	}
+	for (const [field, ladder] of laddersOf(definition.params)) {
+		for (const [index, level] of ladder.entries()) {
+			for (const atLevel of resolved) {
+				try {
+					overrideParams(atLevel, level.params as LevelOverrides);
+				} catch (error) {
+					return `${field} level ${index}: ${(error as Error).message}`;
+				}
+			}
+		}
+	}
+	return null;
+}
+
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
  * field: a tempo not positive or a range that cannot hold its start, a ladder it cannot climb,
+ * levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
  * judges what an exercise is worth: anything runnable passes.
@@ -130,6 +194,8 @@ export function validateExercise(
 		}
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
+		const levels = levelsProblem(definition);
+		if (levels !== null) return levels;
 		return roundProblem(definition, options);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

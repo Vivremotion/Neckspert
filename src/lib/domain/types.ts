@@ -208,6 +208,13 @@ export interface PlannedItem<I = unknown> {
 	aid: AidLevel;
 	/** Time relation "beat" only. */
 	leadBeats: LeadBeats | null;
+	/** Its level on its exercise's ladder, when a source served it from one (`ladderOf`). */
+	level?: number;
+	/**
+	 * Its exercise's level (`exerciseLevelsOf`); absent reads as 0, the level of an exercise that
+	 * writes none. The series fills it.
+	 */
+	exerciseLevel?: number;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
 	/** With `countIn`: bars of silence before the counted bar, a break heard without looking. */

@@ -8,6 +8,7 @@ import {
 	type RoundOutcome
 } from '$lib/domain/time';
 import { cardKey, type Attempt, type RecordedObservation } from '$lib/domain/types';
+import { tempoSegmentOf } from './rhythmExercise';
 
 /** `Attempt.data` of a rhythm cycle: the figure and level played, and the judge's report. */
 export interface RhythmAttemptData {
@@ -49,7 +50,8 @@ export interface CyclePlanRecord {
 
 export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
 	const { params } = setup;
-	const { window, tempo, accompaniment } = params;
+	const { window, accompaniment } = params;
+	const tempo = tempoSegmentOf(params);
 	return {
 		figureId: setup.figureId,
 		figure: figureToJson(setup.figure),
@@ -121,7 +123,7 @@ export function recordCycle(input: {
 		temperature: 'hot',
 		aids: [...outcome.aids],
 		promptedAt: input.promptedAt,
-		tempoBpm: setup.params.tempo.bpm,
+		tempoBpm: setup.params.tempo,
 		leadBeats: null,
 		timingOffsetMs: outcome.measures.placement?.value ?? null,
 		reactionMs: null,

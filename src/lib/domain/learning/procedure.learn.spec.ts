@@ -101,6 +101,16 @@ function answer(
 const ref = (item: number, mechanic: MechanicId = FAKE) => ({ mechanic, item });
 
 describe('createLearningProcedure record', () => {
+	it('writes the ladder level it serves an item at, its exercise level at 0', () => {
+		const source = procedure();
+		const probe = source.next(at(0))!;
+		expect(probe).toMatchObject({ phase: 'probe', level: TOP, leadBeats: 2, exerciseLevel: 0 });
+		source.record(answer(probe, false), 0);
+		const presentation = source.next(at(0))!;
+		expect(presentation).toMatchObject({ phase: 'learning', level: 0, leadBeats: 8 });
+		expect(presentation.exerciseLevel).toBe(0);
+	});
+
 	it('sends a probe recalled directly to review, and presents a missed one aided next, before any other retest', () => {
 		const passing = procedure();
 		const probe = passing.next(at(0))!;

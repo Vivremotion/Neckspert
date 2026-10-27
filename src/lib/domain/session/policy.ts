@@ -24,7 +24,7 @@ export type Remedy = 'listen' | 'play-along';
 
 /** What the policy reads of an exercise. */
 export interface SeriesRules {
-	levels: readonly Level[];
+	levels: readonly Level<unknown>[];
 	params(level: number): Pick<LevelParams, 'cyclesPerBreath' | 'listen'>;
 	/** The exercise can make its content sound (a figure): listening and playing along are remedies. */
 	canSound: boolean;

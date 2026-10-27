@@ -39,7 +39,7 @@ export const DEFAULT_TEMPO: Extract<ExerciseTempo, { start: number }> = {
 export const DEFAULT_TEMPO_BPM = DEFAULT_TEMPO.start;
 
 /** The exercise's tempo data, `DEFAULT_TEMPO` when absent (`startTempoBpm` then sets its start). */
-export function tempoOf(definition: ExerciseDefinition): ExerciseTempo {
+export function exerciseTempoOf(definition: ExerciseDefinition): ExerciseTempo {
 	if (definition.tempo) return definition.tempo;
 	return definition.startTempoBpm === undefined
 		? DEFAULT_TEMPO
@@ -48,7 +48,7 @@ export function tempoOf(definition: ExerciseDefinition): ExerciseTempo {
 
 /** Bounds a tempo by the exercise's range (its fixed tempo, when it has one); no rounding. */
 export function clampTempo(definition: ExerciseDefinition, bpm: number): number {
-	const tempo = tempoOf(definition);
+	const tempo = exerciseTempoOf(definition);
 	if ('fixed' in tempo) return tempo.fixed;
 	return Math.min(tempo.max, Math.max(tempo.min, bpm));
 }
@@ -73,7 +73,7 @@ export function startTempo(
 	progressions: readonly Progression[],
 	scope?: string
 ): number {
-	const tempo = tempoOf(definition);
+	const tempo = exerciseTempoOf(definition);
 	// A fixed tempo ignores what was stored.
 	if ('fixed' in tempo) return tempo.fixed;
 	const own = progressions.find((p) => isProgressionOf(p, definition.id, scope));
@@ -106,7 +106,7 @@ export function nextTempo(
 	tempoBpm: number,
 	attempts: readonly Pick<Attempt, 'phase' | 'success'>[]
 ): number {
-	const tempo = tempoOf(definition);
+	const tempo = exerciseTempoOf(definition);
 	if ('fixed' in tempo) return tempoBpm;
 	const counted = attempts.filter((attempt) => attempt.phase !== 'probe');
 	if (counted.length < tempo.minPrompts) return tempoBpm;

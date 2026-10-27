@@ -1,37 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { clickAccompaniment } from './accompaniment';
-import { Fraction } from './fraction';
 import {
 	CYCLES_PER_BREATH,
 	DROP_AFTER_FAILS,
 	PASS_AFTER_CYCLES,
 	levelRange,
 	nextLevelState,
-	resolveLevel,
+	checkStart,
 	type Level,
 	type LevelParams,
 	type LevelState
 } from './levels';
-import { METER_4_4 } from './meter';
-
-const accompaniment = clickAccompaniment({
-	meter: METER_4_4,
-	beats: [1, 2, 3, 4],
-	accent: [1],
-	bars: ['on']
-});
-
-const base: LevelParams = {
-	accompaniment,
-	cycleBars: 2,
-	tempo: { at: Fraction.ZERO, bpm: 80, unit: Fraction.of(1, 4) },
-	window: { ms: 120 },
-	feedback: 'every-cycle',
-	listen: 'free',
-	cursor: true,
-	cyclesPerBreath: CYCLES_PER_BREATH,
-	thresholds: { precision: 40, regularity: 30 }
-};
 
 const plain: Level[] = [{ params: {} }, { params: {} }, { params: {} }];
 
@@ -69,62 +47,15 @@ describe('level constants', () => {
 	});
 });
 
-describe('resolveLevel', () => {
-	it('lays the level params over the base', () => {
-		const levels: Level[] = [{ params: { cycleBars: 4, cursor: false, window: { ms: 80 } } }];
-		const resolved = resolveLevel(base, levels, 0);
-		expect(resolved.cycleBars).toBe(4);
-		expect(resolved.cursor).toBe(false);
-		expect(resolved.window).toEqual({ ms: 80 });
-		expect(resolved.feedback).toBe('every-cycle');
-		expect(resolved.accompaniment).toBe(accompaniment);
-	});
-
+describe('checkStart', () => {
 	it('refuses a start with no listen-in and no counted bar, or a listen-in that is not whole', () => {
-		const at = (params: Partial<LevelParams>) => () => resolveLevel(base, [{ params }], 0);
+		const at = (params: Pick<LevelParams, 'listenInBars' | 'countIn'>) => () => checkStart(params);
 		expect(at({ listenInBars: 0, countIn: false })).toThrow(RangeError);
 		expect(at({ listenInBars: -1 })).toThrow(RangeError);
 		expect(at({ listenInBars: 1.5 })).toThrow(RangeError);
-		expect(at({ listenInBars: 0 })()).toMatchObject({ listenInBars: 0 });
-		expect(at({ countIn: false })()).toMatchObject({ countIn: false });
-	});
-
-	it('merges thresholds field by field', () => {
-		const levels: Level[] = [{ params: { thresholds: { precision: 25, holdDrift: 10 } } }];
-		expect(resolveLevel(base, levels, 0).thresholds).toEqual({
-			precision: 25,
-			regularity: 30,
-			holdDrift: 10
-		});
-	});
-
-	it('does not change the base', () => {
-		const levels: Level[] = [{ params: { thresholds: { precision: 25 }, cycleBars: 8 } }];
-		resolveLevel(base, levels, 0);
-		expect(base.thresholds).toEqual({ precision: 40, regularity: 30 });
-		expect(base.cycleBars).toBe(2);
-	});
-
-	it('returns the base values for a level with no params', () => {
-		expect(resolveLevel(base, plain, 1)).toEqual(base);
-	});
-
-	it('reads aid levels at negative indexes, -1 closest to level 1', () => {
-		const levels: Level[] = [
-			{ params: { cycleBars: 1 }, aid: true },
-			{ params: { cycleBars: 2 }, aid: true },
-			{ params: { cycleBars: 4 } },
-			{ params: { cycleBars: 8 } }
-		];
-		expect(resolveLevel(base, levels, -2).cycleBars).toBe(1);
-		expect(resolveLevel(base, levels, -1).cycleBars).toBe(2);
-		expect(resolveLevel(base, levels, 0).cycleBars).toBe(4);
-		expect(resolveLevel(base, levels, 1).cycleBars).toBe(8);
-	});
-
-	it('rejects an index outside the levels', () => {
-		expect(() => resolveLevel(base, plain, 3)).toThrow(RangeError);
-		expect(() => resolveLevel(base, plain, -1)).toThrow(RangeError);
+		expect(at({ listenInBars: 0 })).not.toThrow();
+		expect(at({ countIn: false })).not.toThrow();
+		expect(at({})).not.toThrow();
 	});
 });
 

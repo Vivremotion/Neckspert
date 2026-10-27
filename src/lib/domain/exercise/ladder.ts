@@ -1,3 +1,4 @@
+import type { Level } from '$lib/domain/time/levels';
 import { isBeatCount } from '$lib/domain/time/meter';
 import type { ExerciseDefinition, Ladder, MechanicId } from './types';
 
@@ -5,6 +6,20 @@ const positiveInteger = (value: unknown) =>
 	typeof value === 'number' && Number.isInteger(value) && value > 0;
 
 const SUCCESSES = ['any', 'direct-recall'];
+
+/** Null when a level's conditions can be run, else why not: its success, pass or drop. */
+export function levelConditionsProblem(level: Level<unknown>): string | null {
+	if (level.success !== undefined && !SUCCESSES.includes(level.success)) {
+		return `the success must be one of ${SUCCESSES.join(', ')}, got ${level.success}`;
+	}
+	if (level.pass !== undefined && !positiveInteger(level.pass.successes)) {
+		return `the pass must be a positive integer, got ${level.pass.successes}`;
+	}
+	if (level.drop !== undefined && !positiveInteger(level.drop.failures)) {
+		return `the drop must be a positive integer, got ${level.drop.failures}`;
+	}
+	return null;
+}
 
 /**
  * Null when the ladder can be run, else why not: empty, a lead neither null (no lead) nor a
@@ -23,15 +38,8 @@ export function validateLadder(ladder: Ladder): string | null {
 		if (aided !== undefined && typeof aided !== 'boolean') {
 			return `level ${index}: aided must be true or false, got ${aided}`;
 		}
-		if (level.success !== undefined && !SUCCESSES.includes(level.success)) {
-			return `level ${index}: the success must be one of ${SUCCESSES.join(', ')}, got ${level.success}`;
-		}
-		if (level.pass !== undefined && !positiveInteger(level.pass.successes)) {
-			return `level ${index}: the pass must be a positive integer, got ${level.pass.successes}`;
-		}
-		if (level.drop !== undefined && !positiveInteger(level.drop.failures)) {
-			return `level ${index}: the drop must be a positive integer, got ${level.drop.failures}`;
-		}
+		const conditions = levelConditionsProblem(level);
+		if (conditions !== null) return `level ${index}: ${conditions}`;
 	}
 	return null;
 }

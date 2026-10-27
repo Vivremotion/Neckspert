@@ -44,8 +44,9 @@ import {
 	accompanimentFrom,
 	figureFor,
 	landingBar,
-	levelParamsOf,
 	rhythmLevels,
+	rhythmParamsOf,
+	tempoSegmentOf,
 	unmuted
 } from './rhythmExercise';
 import {
@@ -215,8 +216,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.deps = deps;
 		this.sessionId = session.id;
 		this.exercise = (deps.exercise ?? exerciseById)(session.exerciseId);
-		const { base } = rhythmLevels(this.exercise);
-		this.meter = base.accompaniment.figure.meter;
+		this.meter = rhythmParamsOf(this.exercise, 0).accompaniment.figure.meter;
 		const sensor = this.exercise.params.sensor;
 		this.sensor = typeof sensor === 'string' ? sensor : RHYTHM_SENSOR;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
@@ -231,7 +231,7 @@ export class PlanSessionController implements PlaySessionController {
 		const first = this.paramsOf(0);
 		this.view = $state<PlayView>({
 			status: 'idle',
-			tempoBpm: first.tempo.bpm,
+			tempoBpm: first.tempo,
 			fatigueDetected: false,
 			countdown: null,
 			contest: null,
@@ -379,7 +379,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.plainWords = ended.length < PLAIN_WORDS_SESSIONS;
 		this.settings = settings;
 		if (stored) {
-			const { lowest, highest } = levelRange(rhythmLevels(this.exercise).levels);
+			const { lowest, highest } = levelRange(rhythmLevels(this.exercise));
 			this.series = startSeries({
 				...stored,
 				level: Math.min(highest, Math.max(lowest, stored.level))
@@ -390,7 +390,7 @@ export class PlanSessionController implements PlaySessionController {
 		const howTo = this.exercise.howTo?.[settings.locale];
 		this.view.briefing = this.firstEncounter && howTo ? { text: howTo } : null;
 		this.view.audioError = settings.clickBleed ? 'bleed' : null;
-		this.view.tempoBpm = this.paramsOf(this.levelState.level).tempo.bpm;
+		this.view.tempoBpm = this.paramsOf(this.levelState.level).tempo;
 		this.view.stage = { view: this.viewName(), model: this.waitingModel() };
 	}
 
@@ -423,12 +423,12 @@ export class PlanSessionController implements PlaySessionController {
 		const listenIn = run.params.listenInBars ?? LISTEN_IN_BARS;
 		const countIn = run.params.countIn ?? true;
 		this.view.status = 'count-in';
-		this.view.tempoBpm = run.params.tempo.bpm;
+		this.view.tempoBpm = run.params.tempo;
 		let playFrom: number;
 		try {
 			({ playFrom } = await this.transport.begin({
 				meter: this.meter,
-				tempo: run.params.tempo,
+				tempo: tempoSegmentOf(run.params),
 				accompaniment: unmuted(run.params.accompaniment),
 				listenInBars: listenIn + demoBars,
 				countIn
@@ -618,7 +618,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.run = run;
 		const segments = this.transport.map.segments;
 		const tempo = segments[segments.length - 1];
-		const next = run.params.tempo;
+		const next = tempoSegmentOf(run.params);
 		if (next.bpm === tempo.bpm && next.unit.equals(tempo.unit)) {
 			this.keepInputOf(run);
 			return true;
@@ -760,7 +760,7 @@ export class PlanSessionController implements PlaySessionController {
 		});
 		if (cycle.setup.level === this.levelState.level) {
 			const { setup } = cycle;
-			const { tempo } = setup.params;
+			const tempo = tempoSegmentOf(setup.params);
 			const wholeS = 60 / tempo.bpm / tempo.unit.toNumber();
 			const { state, acted } = settle(
 				this.series,
@@ -1079,8 +1079,8 @@ export class PlanSessionController implements PlaySessionController {
 		const model: RhythmStageModel = {
 			phase: laid.phase,
 			exerciseLabel: this.exercise.title?.[this.settings.locale] ?? this.exercise.id,
-			level: levelView(rhythmLevels(this.exercise).levels, level),
-			tempo: tempoView(params.tempo),
+			level: levelView(rhythmLevels(this.exercise), level),
+			tempo: tempoView(tempoSegmentOf(params)),
 			figure: breath ? run.lastFigure : laid.figure,
 			next: breath ? figureFor(this.exercise, params, this.playedInSeries).figure : null,
 			barInCycle: laid.barInCycle,
@@ -1104,7 +1104,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.view.stage = { view: this.viewName(), model };
 		this.view.status =
 			laid.phase === 'listen-in' || laid.phase === 'count-in' ? 'count-in' : 'awaiting';
-		this.view.tempoBpm = laid.phase === 'breath' ? run.params.tempo.bpm : params.tempo.bpm;
+		this.view.tempoBpm = laid.phase === 'breath' ? run.params.tempo : params.tempo;
 		// A breath followed by a new tempo does not count down: the listen-in comes first.
 		const recounted = breath && this.bars.get(bar + 1)?.phase === 'listen-in';
 		this.view.countdown = recounted ? null : this.transport.countdownAt(bar, beat);
@@ -1117,8 +1117,8 @@ export class PlanSessionController implements PlaySessionController {
 		return {
 			phase: 'listen-in',
 			exerciseLabel: this.exercise.title?.[this.settings.locale] ?? this.exercise.id,
-			level: levelView(rhythmLevels(this.exercise).levels, level),
-			tempo: tempoView(params.tempo),
+			level: levelView(rhythmLevels(this.exercise), level),
+			tempo: tempoView(tempoSegmentOf(params)),
 			figure: figureFor(this.exercise, params, this.playedInSeries).figure,
 			next: null,
 			barInCycle: 0,
@@ -1145,7 +1145,7 @@ export class PlanSessionController implements PlaySessionController {
 
 	private rules(): SeriesRules {
 		return {
-			levels: rhythmLevels(this.exercise).levels,
+			levels: rhythmLevels(this.exercise),
 			params: (level) => this.paramsOf(level),
 			// An exercise of figures can always make its figure sound.
 			canSound: true,
@@ -1154,7 +1154,7 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	private paramsOf(level: number): LevelParams {
-		return levelParamsOf(this.exercise, level);
+		return rhythmParamsOf(this.exercise, level);
 	}
 
 	private viewName(): string {
@@ -1209,7 +1209,7 @@ export class PlanSessionController implements PlaySessionController {
 			executions: [
 				{
 					exerciseId: this.exercise.id,
-					tempoBpm: this.paramsOf(this.levelState.level).tempo.bpm
+					tempoBpm: this.paramsOf(this.levelState.level).tempo
 				}
 			],
 			// The level held now: a summary read later shows this session's, not the latest.

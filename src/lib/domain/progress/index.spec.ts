@@ -23,6 +23,7 @@ describe('progress index', () => {
 			'createListSource',
 			'buildFreePlan',
 			'freeLeadOf',
+			'freeLevelOf',
 			'nextReviewAt',
 			'computeHomeStats',
 			'summarizeSession',

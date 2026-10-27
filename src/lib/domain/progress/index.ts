@@ -22,6 +22,6 @@ export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
 export { createGestureSelector } from './gestureSelector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
-export { buildFreePlan, freeLeadOf } from './plans';
+export { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
 export { isNeck } from './neck';
 export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';

@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/time';
 import type { Attempt, ExerciseSummary } from '$lib/domain/types';
 import { levelAided, type CyclePlanRecord, type RhythmAttemptData } from './recordCycle';
-import { levelParamsOf, rhythmLevels } from './rhythmExercise';
+import { rhythmLevels, rhythmParamsOf } from './rhythmExercise';
 import { levelView } from './rhythmStage';
 
 /** The figure and bars of a cycle as its attempt's plan keeps them; none when the plan is not readable. */
@@ -45,7 +45,7 @@ export function summarizeExercise(input: {
 	state: LevelState | undefined;
 }): ExerciseSummary {
 	const { exercise } = input;
-	const { levels } = rhythmLevels(exercise);
+	const levels = rhythmLevels(exercise);
 	const cycles = input.attempts.filter(
 		(attempt): attempt is Attempt<RhythmAttemptData> => attempt.exerciseId === exercise.id
 	);
@@ -65,7 +65,7 @@ export function summarizeExercise(input: {
 		successes: cycles.filter((attempt) => attempt.success).length,
 		aided: cycles.filter(
 			(attempt) =>
-				attempt.success && levelAided(attempt.aids, levelParamsOf(exercise, attempt.data.level))
+				attempt.success && levelAided(attempt.aids, rhythmParamsOf(exercise, attempt.data.level))
 		).length,
 		...(last?.data.report &&
 			verdict &&
@@ -73,7 +73,7 @@ export function summarizeExercise(input: {
 				lastCycle: {
 					report: last.data.report,
 					verdict,
-					thresholds: levelParamsOf(exercise, last.data.level).thresholds,
+					thresholds: rhythmParamsOf(exercise, last.data.level).thresholds,
 					...(played && { played })
 				}
 			})

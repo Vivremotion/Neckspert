@@ -10,15 +10,13 @@ import {
 	type RoundPlan
 } from '../../time/plan';
 import type { PlannedItem } from '../../types';
-import { pacingOf } from '../pacing';
-import { recallThresholdOf } from '../recall';
+import { resolvedParamsOf } from '../levels';
 import type { ExerciseDefinition } from '../types';
-import { windowsOf } from '../windows';
 import type { ExpectationTemplate, Num, Position, RoundTemplate, WindowTemplate } from './types';
 
 /**
- * The params a template reads: the exercise's params, with its windows, pacing and recall
- * threshold resolved over their defaults, the item's lead and the preview.
+ * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
+ * exercise level's, its item level's), the item's lead and the preview.
  */
 export function roundParamsOf(
 	definition: ExerciseDefinition,
@@ -26,21 +24,13 @@ export function roundParamsOf(
 	resolved: { previewBeats: number }
 ): Readonly<Record<string, unknown>> {
 	return {
-		...exerciseParamsOf(definition),
+		...resolvedParamsOf(definition, {
+			exerciseLevel: item.exerciseLevel ?? 0,
+			itemLevel: item.level ?? null,
+			mechanic: item.mechanic
+		}),
 		leadBeats: item.leadBeats,
 		previewBeats: resolved.previewBeats
-	};
-}
-
-/** The params a template reads that the exercise alone gives: its own, its windows, pacing and recall threshold resolved over their defaults. */
-export function exerciseParamsOf(
-	definition: ExerciseDefinition
-): Readonly<Record<string, unknown>> {
-	return {
-		...definition.params,
-		windows: windowsOf(definition),
-		pacing: pacingOf(definition),
-		recallThresholdMs: recallThresholdOf(definition)
 	};
 }
 
@@ -200,7 +190,8 @@ function lengthOf(context: Context, template: RoundTemplate['length']): Fraction
 		}
 	}
 	if (template.breath) {
-		length = length.add(bar.mul(Fraction.of(pacingOf(context.definition).respirationBars)));
+		const bars = num(context, 'length.breath', { param: 'pacing.respirationBars' });
+		length = length.add(bar.mul(exact(context, 'length.breath', bars)));
 	}
 	return length;
 }

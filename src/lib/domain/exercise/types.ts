@@ -1,4 +1,5 @@
-import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
+import type { Figure, Level, Meter } from '$lib/domain/time';
+import type { LevelOverrides } from './levels';
 import type { ExerciseTempo } from './tempo';
 import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
@@ -73,9 +74,11 @@ export interface ExerciseDefinition {
 	howTo?: { fr: string; en: string };
 	/** Its name on screen, in each language, when it is shown by name (the rhythm exercises). */
 	title?: { fr: string; en: string };
-	/** Rhythm exercises: the levels (aid levels first) and the params they override. */
-	levels?: readonly Level[];
-	base?: LevelParams;
+	/**
+	 * Its levels (aid levels first): each overrides dotted paths of its resolved params
+	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
+	 */
+	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the catalog. */
 	figures?: readonly { id: string; figure: Figure }[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
@@ -117,6 +120,7 @@ export interface LadderParams {
 
 /**
  * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
- * lead and aid, its pass and drop, and what counts as a success there.
+ * lead and aid, its pass and drop, and what counts as a success there. A level may override any
+ * other dotted path of the resolved params too (`resolvedParamsOf`).
  */
-export type Ladder = readonly Level<LadderParams>[];
+export type Ladder = readonly Level<LadderParams & LevelOverrides>[];

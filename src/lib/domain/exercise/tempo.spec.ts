@@ -7,7 +7,7 @@ import {
 	clampTempo,
 	nextTempo,
 	startTempo,
-	tempoOf
+	exerciseTempoOf
 } from './tempo';
 
 // Locate plays a fixed tempo; these cases are about an exercise that gives none.
@@ -37,7 +37,7 @@ describe('startTempo', () => {
 		expect(startTempo({ ...both, tempo: { fixed: 90 } }, [])).toBe(90);
 		const range = { ...DEFAULT_TEMPO, start: 100 };
 		expect(startTempo({ ...both, tempo: range }, [])).toBe(100);
-		expect(tempoOf({ ...both, tempo: range })).toEqual(range);
+		expect(exerciseTempoOf({ ...both, tempo: range })).toEqual(range);
 	});
 
 	it('then the latest progression of the same mechanic', () => {
@@ -115,8 +115,8 @@ describe('tempo range', () => {
 			lowerAt: 0.7,
 			minPrompts: 10
 		});
-		expect(tempoOf(LOCATE_NECK)).toEqual(DEFAULT_TEMPO);
-		expect(tempoOf({ ...LOCATE_NECK, startTempoBpm: 120 })).toEqual({
+		expect(exerciseTempoOf(LOCATE_NECK)).toEqual(DEFAULT_TEMPO);
+		expect(exerciseTempoOf({ ...LOCATE_NECK, startTempoBpm: 120 })).toEqual({
 			...DEFAULT_TEMPO,
 			start: 120
 		});

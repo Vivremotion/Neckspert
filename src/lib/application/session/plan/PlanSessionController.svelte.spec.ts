@@ -71,7 +71,7 @@ function earlier(exerciseId: string): Attempt {
 
 /** The exercise with a counted bar after its listen-in, whatever its catalog start. */
 function counted(exercise: ExerciseDefinition): ExerciseDefinition {
-	return { ...exercise, base: exercise.base && { ...exercise.base, countIn: true } };
+	return { ...exercise, params: { ...exercise.params, countIn: true } };
 }
 
 async function setup(
@@ -687,7 +687,7 @@ describe('PlanSessionController, unblocking', () => {
 		// Eight cycles a run: when the third settles, the fifth is already laid out.
 		const long = {
 			...RHYTHM_OFFBEATS,
-			base: RHYTHM_OFFBEATS.base && { ...RHYTHM_OFFBEATS.base, cyclesPerBreath: 8 }
+			params: { ...RHYTHM_OFFBEATS.params, cyclesPerBreath: 8 }
 		};
 		const { controller, memory, attempts, levels, player, advance } = await setup(long, {
 			met: true
@@ -778,7 +778,7 @@ describe('PlanSessionController, plain words', () => {
 describe('PlanSessionController, a series with no counted bar', () => {
 	it('plays right after the listen-in, at the start and after a pause, with no countdown', async () => {
 		const { controller, sounds, clock, advance } = await setup(RHYTHM_TWO_FOUR, { met: true });
-		expect(RHYTHM_TWO_FOUR.base?.countIn).toBe(false);
+		expect(RHYTHM_TWO_FOUR.params.countIn).toBe(false);
 		await controller.start();
 		// listen-in 0-1, the first cycle on bar 2: bar 2 is already the line, not a count
 		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);

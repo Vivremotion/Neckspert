@@ -284,6 +284,37 @@ describe('compileRound', () => {
 		});
 	});
 
+	it('reads a window an exercise level overrides', () => {
+		const item = { string: 3, pitch: 'F' };
+		const leveled: ExerciseDefinition = {
+			...definition('locate', LOCATE_ROUND, { windows: { perfectMs: 55 } }),
+			levels: [{ params: {} }, { params: { 'windows.perfectMs': 40 } }]
+		};
+		const at = (exerciseLevel: number) =>
+			compileRound(leveled, { ...planned('locate', item, 2), exerciseLevel }, meter, {
+				previewBeats: PREVIEW
+			}).expectations[0].window;
+		expect(at(0)).toEqual({ ms: 55 });
+		expect(at(1)).toEqual({ ms: 40 });
+	});
+
+	it('reads a window an item level overrides', () => {
+		const item = { string: 3, pitch: 'F' };
+		const laddered = definition('locate', LOCATE_ROUND, {
+			ladder: [
+				{ params: { leadBeats: 4, aided: false } },
+				{ params: { leadBeats: 2, aided: false, 'windows.perfectMs': 120 } }
+			]
+		});
+		const at = (level: number | undefined) =>
+			compileRound(laddered, { ...planned('locate', item, 2), level }, meter, {
+				previewBeats: PREVIEW
+			}).expectations[0].window;
+		expect(at(1)).toEqual({ ms: 120 });
+		expect(at(0)).toEqual({ ms: DEFAULT_RESPONSE_WINDOWS.perfectMs });
+		expect(at(undefined)).toEqual({ ms: DEFAULT_RESPONSE_WINDOWS.perfectMs });
+	});
+
 	it('places a target and ends the count where the template says', () => {
 		const item = { string: 3, pitch: 'F' };
 		const placed = definition('locate', {

@@ -7,7 +7,7 @@ import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
 import { pacingOf } from '../pacing';
 import { ladderFieldOf, ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
-import { exerciseParamsOf } from './compile';
+import { exerciseParamsOf } from '../levels';
 
 /** What a check may be told about the session that will play the exercise. */
 export interface RoundCheckOptions {

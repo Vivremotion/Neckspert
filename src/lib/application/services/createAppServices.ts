@@ -4,7 +4,7 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
 import { summarizeExercise } from '$lib/application/session/plan/exerciseSummary';
 import { levelAided } from '$lib/application/session/plan/recordCycle';
-import { levelParamsOf } from '$lib/application/session/plan/rhythmExercise';
+import { rhythmParamsOf } from '$lib/application/session/plan/rhythmExercise';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
@@ -24,6 +24,7 @@ import {
 	buildFreePlan,
 	buildNeckMap,
 	freeLeadOf,
+	freeLevelOf,
 	computeHomeStats,
 	createGestureSelector,
 	createListSource,
@@ -189,6 +190,7 @@ export function createAppServices(
 							// A note is free-played at the lead its level gives on the locate ladder.
 							buildFreePlan({
 								leadOf: freeLeadOf({ subject, levels }),
+								levelOf: freeLevelOf({ subject, levels }),
 								random: deps.random
 							})
 						)
@@ -277,7 +279,7 @@ export function createAppServices(
 			aided: (attempt) =>
 				levelAided(
 					attempt.aids,
-					levelParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0)
+					rhythmParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0)
 				)
 		});
 		const replayable = summary.runs
@@ -294,7 +296,9 @@ export function createAppServices(
 		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
 		try {
 			const exercise = (deps.exercise ?? exerciseById)(record.exerciseId);
-			return exercise.levels && exercise.levels.length > 0 && exercise.base ? exercise : undefined;
+			return exercise.levels && exercise.levels.length > 0 && exercise.figures
+				? exercise
+				: undefined;
 		} catch {
 			return undefined;
 		}

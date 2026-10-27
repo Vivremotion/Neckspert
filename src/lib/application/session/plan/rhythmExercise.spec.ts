@@ -13,8 +13,9 @@ import {
 	accompanimentFrom,
 	figureFor,
 	landingBar,
-	levelParamsOf,
 	rhythmLevels,
+	rhythmParamsOf,
+	tempoSegmentOf,
 	unmuted
 } from './rhythmExercise';
 
@@ -48,11 +49,11 @@ describe('accompanimentFrom', () => {
 
 describe('figureFor', () => {
 	it('plays the same figure in a loop and the next line in turn otherwise', () => {
-		const offbeats1 = levelParamsOf(RHYTHM_OFFBEATS, 0);
-		const offbeats2 = levelParamsOf(RHYTHM_OFFBEATS, 1);
+		const offbeats1 = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
+		const offbeats2 = rhythmParamsOf(RHYTHM_OFFBEATS, 1);
 		expect(figureFor(RHYTHM_OFFBEATS, offbeats1, 5).id).toBe('offbeats-1');
 		expect(figureFor(RHYTHM_OFFBEATS, offbeats2, 0).id).toBe('offbeats-2');
-		const twoFour = levelParamsOf(RHYTHM_TWO_FOUR, 0);
+		const twoFour = rhythmParamsOf(RHYTHM_TWO_FOUR, 0);
 		expect([0, 1, 5, 6].map((n) => figureFor(RHYTHM_TWO_FOUR, twoFour, n).id)).toEqual([
 			'line-1',
 			'line-2',
@@ -66,13 +67,35 @@ describe('figureFor', () => {
 	});
 });
 
+describe('rhythmParamsOf', () => {
+	it('reads the level params out of the resolved params, the tempo on the beat of the accompaniment', () => {
+		const params = rhythmParamsOf(RHYTHM_TWO_FOUR, 1);
+		expect(Object.keys(params)).not.toContain('sensor');
+		expect(params).toMatchObject({ tempo: 120, countIn: false, cycleBars: 4 });
+		expect(tempoSegmentOf(params)).toEqual({
+			at: Fraction.ZERO,
+			bpm: 120,
+			unit: Fraction.of(1, 4)
+		});
+	});
+
+	it('refuses a level the exercise does not have, or a start the player could not use', () => {
+		expect(() => rhythmParamsOf(RHYTHM_TWO_FOUR, 3)).toThrow(RangeError);
+		const silent = {
+			...RHYTHM_TWO_FOUR,
+			levels: [{ params: { listenInBars: 0 } }]
+		};
+		expect(() => rhythmParamsOf(silent, 0)).toThrow(/listen-in/);
+	});
+});
+
 describe('the stage helpers', () => {
 	it('write the tempo with its unit and number the levels from 1', () => {
 		expect(tempoView({ at: Fraction.ZERO, bpm: 100, unit: Fraction.of(1, 4) })).toEqual({
 			bpm: 100,
 			unit: '♩'
 		});
-		const { levels } = rhythmLevels(RHYTHM_SILENT_BARS);
+		const levels = rhythmLevels(RHYTHM_SILENT_BARS);
 		expect(levelView(levels, 0)).toEqual({ shown: 1, of: 6, aid: false });
 		expect(levelView(levels, -1)).toEqual({ shown: 0, of: 6, aid: true });
 	});
@@ -93,15 +116,15 @@ describe('the breath between two runs', () => {
 		// The controller reads the next run's level at the bar before the breath ends, once the
 		// last cycle has settled a quarter bar into the breath: that holds from 2 bars on.
 		for (const exercise of RHYTHM_EXERCISES) {
-			const { levels } = rhythmLevels(exercise);
+			const levels = rhythmLevels(exercise);
 			const { lowest, highest } = levelRange(levels);
 			for (let level = lowest; level <= highest; level++) {
-				const params = levelParamsOf(exercise, level);
+				const params = rhythmParamsOf(exercise, level);
 				const clock = new FakeClock();
 				const transport = new Transport({ clock, sounds: new FakeSoundScheduler(clock) });
 				await transport.begin({
 					meter: params.accompaniment.figure.meter,
-					tempo: params.tempo,
+					tempo: tempoSegmentOf(params),
 					accompaniment: params.accompaniment
 				});
 				const { from, to } = transport.breath(0);

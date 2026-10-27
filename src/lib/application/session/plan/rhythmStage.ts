@@ -86,7 +86,10 @@ export function tempoView(tempo: TempoSegment): RhythmStageModel['tempo'] {
 }
 
 /** Level `index` (0 = level 1, aid levels negative) as the screen numbers it. */
-export function levelView(levels: readonly Level[], index: number): RhythmStageModel['level'] {
+export function levelView(
+	levels: readonly Level<unknown>[],
+	index: number
+): RhythmStageModel['level'] {
 	const { highest } = levelRange(levels);
 	return { shown: index + 1, of: highest + 1, aid: index < 0 };
 }
