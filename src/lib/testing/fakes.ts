@@ -67,8 +67,38 @@ export class FakeClock implements AudioClockPort {
 		return this.epochAtZero + audioTime * 1000;
 	}
 
+	epochNow(): number {
+		return this.toEpochMs(this.now());
+	}
+
 	advance(seconds: number): void {
 		this.time += seconds;
+	}
+}
+
+/**
+ * A clock whose audio context does not exist until `resume()`, as the browser's before a gesture:
+ * `now()` and `toEpochMs()` throw until then; `epochNow()` reads the wall time all along.
+ */
+export class UnresumedClock extends FakeClock {
+	resumed = false;
+
+	override async resume(): Promise<void> {
+		this.resumed = true;
+	}
+
+	override now(): number {
+		if (!this.resumed) throw new Error('AudioContext not created yet');
+		return super.now();
+	}
+
+	override toEpochMs(audioTime: number): number {
+		if (!this.resumed) throw new Error('AudioContext not created yet');
+		return super.toEpochMs(audioTime);
+	}
+
+	override epochNow(): number {
+		return this.epochAtZero + this.time * 1000;
 	}
 }
 

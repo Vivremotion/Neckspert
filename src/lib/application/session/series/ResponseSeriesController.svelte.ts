@@ -1071,7 +1071,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		);
 	}
 
+	/** The wall time, readable before the audio clock exists (the start screen, before any gesture). */
 	private epochNow(): number {
-		return this.deps.clock.toEpochMs(this.deps.clock.now());
+		return this.deps.clock.epochNow();
 	}
 }

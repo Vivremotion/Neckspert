@@ -115,11 +115,13 @@ export interface NotesSetup {
 	presenters?: Record<string, MechanicPresenter>;
 	/** Sensors beside the note and the tap. */
 	sensors?: Record<string, SensorFactory>;
+	/** The audio clock; a `FakeClock` by default. */
+	clock?: FakeClock;
 }
 
 /** The app's services on fakes, its stores filled from `setup`, ready to start a session of the notes. */
 export async function notesApp(setup: NotesSetup = {}) {
-	const clock = new FakeClock();
+	const clock = setup.clock ?? new FakeClock();
 	const detector = new FakeNoteDetector();
 	const sounds = new FakeSoundScheduler(clock);
 	let ids = 0;

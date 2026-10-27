@@ -44,6 +44,11 @@ export class WebAudioClock implements AudioClockPort {
 		return this.context().currentTime;
 	}
 
+	/** The audio clock's wall time once the context exists; the system's before (no gesture yet). */
+	epochNow(): number {
+		return this.audioContext ? this.toEpochMs(this.audioContext.currentTime) : Date.now();
+	}
+
 	/** Storage conversion only: musical timing never leaves the audio clock. */
 	toEpochMs(audioTime: number): number {
 		const context = this.context();

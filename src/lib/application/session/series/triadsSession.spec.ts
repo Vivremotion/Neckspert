@@ -12,6 +12,7 @@ import {
 import { SESSION_MS } from '$lib/domain/session';
 import { cueFrets, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
 import type { Attempt } from '$lib/domain/types';
+import { UnresumedClock } from '$lib/testing/fakes';
 import { drain, runUntil } from '$lib/testing/notesSeries';
 import {
 	ANCHOR_CHORD_BEATS,
@@ -487,4 +488,30 @@ describe('the length and the tempo of a triads session', () => {
 		};
 		expect(zoned.data).toEqual(zoneData);
 	});
+});
+
+describe('the play screen before the audio clock exists', () => {
+	it.each([['triads'], ['triads-zone'], ['learn'], ['free']] as const)(
+		'shows the start screen of a %s session before any gesture, then starts on the clock resumed',
+		async (kind) => {
+			const clock = new UnresumedClock();
+			const app = await triadsApp({
+				clock,
+				cards: [learnedTriad('triad-anchor', C), learnedTriad('triad-zone', C)]
+			});
+			const controller = await app.services.startSession(kind);
+			// The page asks it ready on mount, before any gesture: no audio clock to read yet.
+			await controller.ready?.();
+			expect(clock.resumed).toBe(false);
+			expect(controller.view.status).toBe('idle');
+			expect(controller.view.stage).not.toBeNull();
+			// Start, from the player's gesture, resumes it.
+			await controller.start();
+			expect(clock.resumed).toBe(true);
+			expect(controller.view.status).toBe('count-in');
+			const record = await app.deps.sessions.get(controller.sessionId);
+			expect(record?.startedAt).toBe(clock.toEpochMs(clock.now()));
+			await quitAndRead(app, controller);
+		}
+	);
 });
