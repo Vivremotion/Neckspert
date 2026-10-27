@@ -7,3 +7,4 @@ export * from './chordDiagram';
 export * from './recall';
 export * from './ladder';
 export * from './validate';
+export * from './round/types';

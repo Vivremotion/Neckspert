@@ -1,5 +1,6 @@
 import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
 import type { ExerciseTempo } from './tempo';
+import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
 export type MechanicId = string;
@@ -34,6 +35,8 @@ export interface ExerciseDefinition {
 	meter?: Meter;
 	/** Its scene, preview and contest, over its mechanic presenter's defaults. */
 	flow?: ExerciseFlow;
+	/** What a round of this exercise expects, as data; compiled to a plan per item (`compileRound`). */
+	round?: RoundTemplate;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
 	/**
