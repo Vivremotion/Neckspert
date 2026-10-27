@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Announcement } from '$lib/application/session/contract';
 import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
@@ -58,12 +59,28 @@ describe('PlayFrame', () => {
 		}
 	});
 
-	it('is neutral, in the pixel world, before any view is on stage, whatever the kind', () => {
+	it('is neutral, in the pixel world, only before any view has ever been shown, whatever the kind', () => {
 		for (const kind of ['learn', 'gesture', 'exercise'] as const) {
 			const { container } = render(PlayFrame, {
 				props: { controller: new StageController(), kind }
 			});
 			expect(container.querySelector('[data-world="pixel"]')).toBeTruthy();
+			cleanup();
+		}
+	});
+
+	it('keeps the world of the last view shown when the stage empties at the end', async () => {
+		for (const [name, world] of Object.entries(VIEW_WORLDS)) {
+			const controller = new StageController();
+			controller.view.stage = { view: name, model: null };
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'learn', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
+			controller.view.stage = null;
+			controller.view.status = 'finished';
+			await tick();
+			expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
 			cleanup();
 		}
 	});

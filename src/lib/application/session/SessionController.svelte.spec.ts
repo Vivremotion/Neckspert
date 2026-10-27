@@ -125,6 +125,34 @@ describe('SessionController', () => {
 			expect(ctx.detector.running).toBe(true);
 		});
 
+		it('leaves open the input of a newer start that completed before the stale opening resolved', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			const allows: (() => void)[] = [];
+			ctx.detector.start = vi.fn(async () => {
+				await new Promise<void>((resolve) => allows.push(resolve));
+				ctx.detector.running = true;
+			});
+			const first = ctx.controller.start();
+			await drain();
+			ctx.controller.quit();
+			await drain();
+			const second = ctx.controller.start();
+			await drain();
+			// The newer start's prompt is answered first and its run begins.
+			allows[1]();
+			await second;
+			expect(ctx.controller.view.status).toBe('count-in');
+			expect(ctx.detector.running).toBe(true);
+			// Then the stale opening resolves: it must not stop the live run's input.
+			allows[0]();
+			await first;
+			await drain();
+			expect(ctx.detector.running).toBe(true);
+			expect(ctx.controller.view.status).toBe('count-in');
+		});
+
 		it('counts a bar at the first tempo, then opens the first change a beat before its target on the next 1', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.ready();

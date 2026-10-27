@@ -232,6 +232,8 @@ export class SessionController implements PlaySessionController {
 	private generation = 0;
 	private starting = false;
 	private quitting = false;
+	/** Count of input openings begun; the latest owns the detector (`closeStale`). */
+	private openings = 0;
 	private finishing: Promise<void> | null = null;
 	/** The first bar the click is not scheduled for. */
 	private accompaniedUntil = 0;
@@ -416,6 +418,8 @@ export class SessionController implements PlaySessionController {
 	 */
 	private async openInput(generation: number): Promise<boolean> {
 		const { clock, detector, repositories } = this.deps;
+		// This opening owns the detector until another begins.
+		const opening = ++this.openings;
 		this.settings = await repositories.settings.get();
 		if (this.generation !== generation) return false;
 		await clock.resume();
@@ -430,17 +434,17 @@ export class SessionController implements PlaySessionController {
 			return false;
 		}
 		// A quit during the permission prompt: the input opens after the end, which closed nothing.
-		if (this.generation !== generation) return this.closeStale(detector);
+		if (this.generation !== generation) return this.closeStale(detector, opening);
 		await clock.resume();
-		return this.generation === generation || this.closeStale(detector);
+		return this.generation === generation || this.closeStale(detector, opening);
 	}
 
 	/**
-	 * Closes an input that finished opening for a run that has ended (always false), unless
-	 * another start is under way: it opens the input itself and owns it.
+	 * Closes an input that finished opening for a run that has ended (always false), unless a
+	 * later opening has begun: that one owns the detector now, and a stop would be its own.
 	 */
-	private closeStale(detector: { stop(): void }): false {
-		if (!this.starting) detector.stop();
+	private closeStale(detector: { stop(): void }, opening: number): false {
+		if (this.openings === opening) detector.stop();
 		return false;
 	}
 

@@ -111,4 +111,28 @@ describe('/session page, the notes and the triads', () => {
 			expect(ready).toHaveBeenCalled();
 		}
 	);
+
+	it('renders no frame, no pixel chrome, until ready() has put the first view on stage', async () => {
+		nav.search = '?kind=learn';
+		let finish: () => void = () => {};
+		const idle = idleController();
+		const view = $state(idle.view);
+		const ready = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = () => {
+						view.stage = { view: 'lane', model: stageModel() };
+						resolve();
+					};
+				})
+		);
+		const startSession = vi.fn(async () => ({ ...idle, view, ready }));
+		const services = createFakeAppServices({ startSession });
+		const { container } = render(SessionHarness, { props: { services } });
+		await waitFor(() => expect(ready).toHaveBeenCalled());
+		expect(container.querySelector('[data-world]')).toBeNull();
+		finish();
+		await waitFor(() => expect(container.querySelector('[data-world="quiet"]')).toBeTruthy());
+		expect(container.querySelector('[data-world="pixel"]')).toBeNull();
+	});
 });

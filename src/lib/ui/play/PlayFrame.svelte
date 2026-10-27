@@ -32,16 +32,18 @@
 	const t = $derived(playMessages());
 	const view = $derived(controller.view);
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
+	/** The world of the last view shown: the frame keeps it when the stage empties (the end). */
+	let shownWorld: PlayWorld | null = null;
 	/**
 	 * The frame is drawn in the world of the view on stage, from the start screen on (the
-	 * controller places its first exercise's view at `ready()`). Before it is ready, and at the
-	 * end, no view is on stage: the frame is neutral, in the pixel world (the fuller chrome, until
-	 * plan 3 migrates the last views).
-	 * The kind of session is not read.
+	 * controller places its first exercise's view at `ready()`, and the page shows the frame
+	 * only then). When the stage empties (the end) it keeps the world it showed; with none ever
+	 * shown it is neutral, in the pixel world. The kind of session is not read.
 	 */
-	const world: PlayWorld = $derived(
-		view.stage ? (VIEW_WORLDS[view.stage.view] ?? 'pixel') : 'pixel'
-	);
+	const world: PlayWorld = $derived.by(() => {
+		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';
+		return shownWorld ?? 'pixel';
+	});
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
 	/** In the quiet world, start, end and pause are a light page over the field. */
 	const light = $derived(showStart || view.status === 'paused');

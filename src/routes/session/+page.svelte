@@ -12,6 +12,8 @@
 	import { sessionPageMessages } from './messages';
 
 	let controller = $state<PlaySessionController | null>(null);
+	/** The frame is shown once the controller has put its first view on stage (`ready`). */
+	let ready = $state(false);
 	let error = $state<string | null>(null);
 
 	const t = $derived(sessionPageMessages());
@@ -33,6 +35,7 @@
 			}
 			// The frame tells the first exercise's instruction on its start screen.
 			await controller.ready?.();
+			ready = true;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unavailable';
 		}
@@ -60,7 +63,7 @@
 		<p>{error}</p>
 		<a href={resolve('/')}>{t.home}</a>
 	</div>
-{:else if controller}
+{:else if controller && ready}
 	<!-- Every session shows its exercise's view in the common frame. -->
 	<PlayFrame {controller} {kind} quitToSummary />
 {/if}
