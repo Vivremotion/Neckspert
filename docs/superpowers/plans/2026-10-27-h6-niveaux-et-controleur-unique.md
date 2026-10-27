@@ -57,7 +57,7 @@
   - Ce que vit l’auteur d’un exercice : un niveau peut monter le tempo et resserrer la fenêtre de `perfect` à la fois ; un niveau d’item peut élargir la fenêtre d’un item difficile.
 
 - **D3 — Le tempo du geste monte en séance, à une respiration** (réponse de l’auteur).
-  - Données : chaque exercice du geste écrit 17 niveaux, de 80 à 160 bpm par pas de 5 (la plage de `DEFAULT_TEMPO` d’aujourd’hui). Chaque niveau monte après `pass: { successes: 10 }` changements réussis de suite, sans aide, et descend après `drop: { failures: 3 }` changements ratés de suite. **Valeurs à confirmer par l’auteur** : elles remplacent « plus de 90 % de la séance, au moins 10 changements » et « moins de 70 % ».
+  - Données : chaque exercice du geste écrit 9 niveaux, de 80 à 120 bpm par pas de 5 (décision de l’auteur : le geste s’arrête à 120). Chaque niveau monte après `pass: { successes: 10 }` changements réussis de suite, sans aide, et descend après `drop: { failures: 3 }` changements ratés de suite. Valeurs confirmées par l’auteur ; elles remplacent « plus de 90 % de la séance, au moins 10 changements » et « moins de 70 % ».
   - Portée : un niveau par exercice et par grille, comme la progression d’aujourd’hui. Une ballade et un blues montent chacun de leur côté ; le relier a un seul niveau.
   - Moment : le niveau bouge à chaque changement réglé, mais le tempo joué ne change qu’au prochain tour qui ne s’enchaîne pas. Pour le geste, c’est le prochain passage, après sa mesure comptée. Un tour de relier rejoué à la suite (`continued`) garde le tempo.
   - Ce que le joueur vit : il finit son passage au tempo où il l’a commencé ; le cadre annonce « Niveau 4 · ♩ = 95 » pendant la mesure comptée, puis le passage suivant se joue à 95.
@@ -66,7 +66,7 @@
 - **D4 — Le bilan du geste dit le tempo du premier et du dernier passage** (« ♩ = 80 → 90 »), lus sur les essais. Il ne prédit plus un « tempo suivant » : le niveau enregistré est celui que la séance a atteint, et la séance suivante le reprend.
 
 - **D5 — Dexie 11 et sauvegarde 7** (`migrations/v11.ts`, appliquée par la mise à niveau et par l’import) :
-  - Une progression du geste devient le niveau d’exercice de sa portée : le plus haut niveau dont le tempo ne dépasse pas celui de la progression. Exemples : 112,5 bpm → 110 bpm, niveau 7 ; 200 bpm → 160 bpm, niveau 16 ; 70 bpm → 80 bpm, niveau 0. Les tempos sont figés dans `GESTURE_TEMPOS_V11`, avec un test fil-piège contre le catalogue.
+  - Une progression du geste devient le niveau d’exercice de sa portée : le plus haut niveau dont le tempo ne dépasse pas celui de la progression. Exemples : 112,5 bpm → 110 bpm, niveau 6 ; 160 bpm → 120 bpm, niveau 8 ; 70 bpm → 80 bpm, niveau 0. Les tempos sont figés dans `GESTURE_TEMPOS_V11`, avec un test fil-piège contre le catalogue.
   - Les autres progressions sont abandonnées : celles de localiser, d’identifier et des triades, que le jeu ignore depuis le plan L, et celles d’une grille sans portée, que le jeu ignore depuis la version 7.
   - Un `LevelState` déjà là est gardé.
   - Les tables `progressions` et `scopedProgressions` sont supprimées.
@@ -106,7 +106,7 @@
 | `flow.antiBlocking`                                                                 | donnée    | l’anti-blocage choisi par l’exercice                                                                          |
 | `PlayView.announcement`                                                             | primitive | une annonce de niveau pour toute vue                                                                          |
 | trace, prises, réécoute dans la série                                               | primitive | réécouter la dernière suite de tout exercice                                                                  |
-| niveaux du geste (17 tempos, `pass`, `drop`)                                        | donnée    | le tempo du geste en séance                                                                                   |
+| niveaux du geste (9 tempos, 80 à 120, `pass`, `drop`)                                        | donnée    | le tempo du geste en séance                                                                                   |
 | `GESTURE_TEMPOS_V11`, `v11.ts`                                                      | migration | figée, jamais lue par le jeu                                                                                  |
 | `cycle/` : `createFigureSource`, compilation du cycle, `recordCycle`, `rhythmStage` | exception | le rythme sur la série, en attendant `round.figure` (S) ; à absorber par la séquence                          |
 
@@ -130,7 +130,7 @@
 - `domain/exercise/round/compile.ts` : `roundParamsOf` lit `resolvedParamsOf`.
 - `domain/exercise/validate.ts` : chemins de niveau.
 - `domain/exercise/rhythmCatalog.ts` : `base` passe dans `params`, niveaux en chemins.
-- `domain/gesture/exercises.ts` : 17 niveaux de tempo.
+- `domain/gesture/exercises.ts` : 9 niveaux de tempo (80 à 120).
 - `domain/gesture/summary.ts` : `tempoBpm`, `lastTempoBpm`.
 - `domain/time/levels.ts` : `LevelParams.tempo` devient un nombre ; `resolveLevel` supprimé (remplacé par `resolvedParamsOf`) ; `checkStart` gardé.
 - `domain/session/policy.ts` : `SeriesRules` généralisé, `next(state, rules, elapsedMs, coming)`.
@@ -323,17 +323,17 @@
   - `keeps scopes apart`: une réussite sur `blues-f` ne touche pas `iohefy-a`.
   - `never acts the anti-blocking without antiBlocking`: cinq ratés au niveau 0 → niveau 0, pas de `ending`.
 - [ ] **Step 2: Add to `policy.spec.ts`:** `acts the anti-blocking only when the rules ask it`.
-- [ ] **Step 3: Add to `gestureSession.spec.ts`** (banc `testing/gestureSeries.ts`, horloge factice ; un exercice de geste avec ses 17 niveaux) :
-  - `raises the tempo at the next passage after ten right changes`: le passage en cours finit à 80 ; le passage suivant est précédé d’une mesure comptée à 85 ; `view.announcement` vaut `{ kind: 'level-up', level: 1, of: 17, tempoBpm: 85 }` pendant ce compte, puis `null` au premier changement ; l’essai suivant a `tempoBpm: 85`.
+- [ ] **Step 3: Add to `gestureSession.spec.ts`** (banc `testing/gestureSeries.ts`, horloge factice ; un exercice de geste avec ses 9 niveaux) :
+  - `raises the tempo at the next passage after ten right changes`: le passage en cours finit à 80 ; le passage suivant est précédé d’une mesure comptée à 85 ; `view.announcement` vaut `{ kind: 'level-up', level: 1, of: 9, tempoBpm: 85 }` pendant ce compte, puis `null` au premier changement ; l’essai suivant a `tempoBpm: 85`.
   - `keeps the tempo through a link tour played again` (Review Focus) : montée au dernier changement d’un tour raté → le tour `continued` reste à 80 ; le tour suivant compté part à 85.
   - `counts again at the new tempo after a pause in the counted bar` (Review Focus) : pause pendant le compte annoncé, reprise → compte à 85, annonce remontrée, `levelStates` au niveau 1 (pas 2).
   - `stores the level reached when time runs out before it is played` (Review Focus) : niveau 1 enregistré, aucun essai à 85.
   - `starts the next session at the stored level`.
-- [ ] **Step 4: Add to `PlayFrame.svelte.spec.ts`:** `shows the announcement with level and tempo` (« Niveau 2 sur 17 · ♩ = 85 », fr et en, ≥ 16 px).
+- [ ] **Step 4: Add to `PlayFrame.svelte.spec.ts`:** `shows the announcement with level and tempo` (« Niveau 2 sur 9 · ♩ = 85 », fr et en, ≥ 16 px).
 - [ ] **Step 5: Run** the four specs — FAIL.
 - [ ] **Step 6: Implement.**
   - The tempo becomes a number: `ExerciseDefinition.tempo?: number` (locate and the triads write `tempo: 80`, the gesture `tempo: 80` instead of `startTempoBpm`). `ExerciseTempo`, `DEFAULT_TEMPO`, `clampTempo` and `startTempoBpm` are deleted ; `tempo.ts` keeps `DEFAULT_TEMPO_BPM` and, until Task 4, `startTempo` for the stored progressions read as a start (a gesture scope without a level state yet).
-  - Gesture data: `levels` of 17 tempos, `pass: { successes: 10 }`, `drop: { failures: 3 }`, written by a helper of `exercises.ts` that returns plain data.
+  - Gesture data: `levels` of 9 tempos (80 to 120), `pass: { successes: 10 }`, `drop: { failures: 3 }`, written by a helper of `exercises.ts` that returns plain data.
   - The series: it loads the exercise levels of an item’s (exercise, scope) before its first round. It fills `PlannedItem.exerciseLevel` with `played` and takes the tempo from `tempoOf(definition, played)` instead of `sessionTempo`. Each settled round goes to `ExerciseLevels.settle`. At each placement that is not `chain`, it calls `apply` before taking the tempo; an announcement shows from the counted bar until the first prompt, and stays across a pause.
   - The rhythm does not change yet (Task 8 moves it).
   - `nextProgressions` is no longer called for an exercise with levels.
@@ -355,7 +355,7 @@
 
   ```ts
   /** The gesture's tempo levels at version 11, frozen. */
-  export const GESTURE_TEMPOS_V11: readonly number[]; // 80, 85, …, 160
+  export const GESTURE_TEMPOS_V11: readonly number[]; // 80, 85, …, 120
   export const GESTURE_EXERCISES_V11: readonly string[]; // 'gesture-link', 'gesture-climb', 'gesture-zone', 'gesture-jam'
   export function gestureLevelOfTempo(tempoBpm: number): number;
   export function levelStatesV11(
@@ -372,7 +372,7 @@
   - `GestureSummary.exercises[]` : `tempoBpm` (premier tour joué) et `lastTempoBpm` (dernier), `nextTempoBpm` supprimé.
 
 - [ ] **Step 1: Write the failing tests** in `v11.spec.ts`:
-  - `maps a tempo to the highest level not above it`: 112,5 → 6 ; 200 → 16 ; 70 → 0 ; 80 → 0 ; 160 → 16.
+  - `maps a tempo to the highest level not above it`: 112,5 → 6 ; 160 → 8 ; 70 → 0 ; 80 → 0 ; 120 → 8.
   - `turns each gesture progression into its scope's exercise level`: `{ gesture-climb, scope blues-f, 112.5 }` → `{ exerciseId: 'gesture-climb', scope: 'blues-f', item: '', level: 6, successes: 0, failures: 0, resumeAfter: null }` ; `{ gesture-link, sans portée, 95 }` → `scope: ''`, niveau 3.
   - `drops the progressions the game ignores`: `locate`, `triads`, `gesture-zone` sans portée → rien.
   - `keeps a level state already there`.
