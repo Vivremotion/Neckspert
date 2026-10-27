@@ -8,7 +8,6 @@ import {
 	METER_4_4,
 	beatPositions,
 	clickAccompaniment,
-	sameMeter,
 	type Accompaniment,
 	type Meter,
 	type ResponseValue,
@@ -36,7 +35,15 @@ import { START_DELAY_S, Transport, TransportStopped } from '../transport';
 import { responseAttempt } from './recordResponse';
 import { RoundRunner, type RunnerEvent } from './roundRunner';
 import { ceilBar, barAtOrAfter } from './seriesBars';
-import { inFreeTime, nextBeat, timedStart } from './placement';
+import {
+	chainable,
+	comingStart,
+	inFreeTime,
+	nextBeat,
+	placeNext,
+	type Placement,
+	type PlacementContext
+} from './placement';
 import { nextProgressions } from './seriesEnd';
 import { SeriesItems } from './seriesItems';
 import { SeriesSensors } from './seriesSensors';
@@ -408,7 +415,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	): void {
 		this.pending = item;
 		const plan = this.planOf(item);
-		const start = this.comingStart(plan, Fraction.of(earliest));
+		const start = comingStart(plan, this.seriesMeter, Fraction.of(earliest), this.nowBar());
 		const promptBeat = this.promptBeatOf(start, plan);
 		// The bars between the count and the round clicked now: laid at the prompt, their beats
 		// before it would already be past.
@@ -440,15 +447,13 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
-	 * `item` after a round without a handover, with no counted bar, from `earliest` (the end of
-	 * that round, or the beat after its answer in free time), never with its prompt already past:
-	 * the settled round stays on screen until the item shows, `previewBeats` before its prompt
+	 * `item` after a round without a handover, with no counted bar, on `start` (placed from the end
+	 * of that round, or the beat after its answer in free time, never with its prompt already
+	 * past): the settled round stays on screen until the item shows, `previewBeats` before its prompt
 	 * (D5), or at its prompt.
 	 */
-	private placeFollowing(item: PlannedItem, earliest: Fraction): void {
+	private placeFollowing(item: PlannedItem, plan: RoundPlan, start: Fraction): void {
 		this.pending = item;
-		const plan = this.planOf(item);
-		const start = this.comingStart(plan, earliest);
 		if (this.clicksOn(item)) this.accompanyTo(start);
 		const { previewBeats } = this.items.flowOf(item);
 		if (previewBeats !== null) {
@@ -477,24 +482,6 @@ export class ResponseSeriesController implements PlaySessionController {
 			// In free time the round counts from the instant it opens, not from the beat it was due.
 			this.openRound(item, plan, start, null, inFreeTime(plan) ? this.deps.clock.now() : time)
 		);
-	}
-
-	/**
-	 * Where a round starts from `earliest`, never with its prompt already past: a bar later while
-	 * it would be (a count that ends on a target far after its prompt).
-	 */
-	private comingStart(plan: RoundPlan, earliest: Fraction): Fraction {
-		const now = barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
-		let start = this.startOf(plan, earliest.compare(now) >= 0 ? earliest : now);
-		while (this.promptOf(start, plan).compare(now) < 0) start = start.add(Fraction.of(1));
-		return start;
-	}
-
-	/** Where a round starts from `earliest`, in bars: its plan's place (L4), or the next beat in free time (D3). */
-	private startOf(plan: RoundPlan, earliest: Fraction): Fraction {
-		return inFreeTime(plan)
-			? nextBeat(earliest, this.seriesMeter)
-			: timedStart(earliest, plan, this.seriesMeter);
 	}
 
 	/** The bar of the prompt of a round starting at `start`, in bars. */
@@ -606,15 +593,53 @@ export class ResponseSeriesController implements PlaySessionController {
 			this.brief(item);
 			return;
 		}
-		if (this.chainable(item)) {
-			if (handover) {
-				this.openRound(item, this.planOf(item), round.end, time, time);
-			} else {
-				this.placeFollowing(item, earliest);
-			}
-			return;
+		const plan = this.planOf(item, this.meterOf(item));
+		const placement = placeNext(this.placementContext(item, plan, earliest, handover));
+		switch (placement.kind) {
+			case 'chain':
+				this.openRound(item, plan, round.end, time, time);
+				return;
+			case 'after-breath':
+			case 'next-beat':
+				this.placeFollowing(item, plan, placement.start);
+				return;
+			case 'count-in':
+				this.placeAfter(item, placement);
 		}
-		this.placeAfter(item, this.audibleBar(Math.max(ceilBar(earliest), this.accompaniedUntil)));
+	}
+
+	/** What `placeNext` decides `item`'s place from, the series as it stands. */
+	private placementContext(
+		item: PlannedItem,
+		plan: RoundPlan,
+		earliest: Fraction,
+		handover: boolean
+	): PlacementContext {
+		return {
+			earliest,
+			handover,
+			nowBar: this.nowBar(),
+			current: { tempo: this.tempoBpm, meter: this.seriesMeter, scene: this.lastScene },
+			coming: this.comingOf(item),
+			plan,
+			firstAudibleBar: this.audibleBar(Math.max(ceilBar(earliest), this.accompaniedUntil))
+		};
+	}
+
+	/** What `item`'s round plays at, and what it asks of the count before it. */
+	private comingOf(item: PlannedItem): PlacementContext['coming'] {
+		return {
+			tempo: this.tempoOf(item),
+			meter: this.meterOf(item),
+			scene: this.items.flowOf(item).scene,
+			countIn: !!item.countIn,
+			restBars: item.restBars ?? 0
+		};
+	}
+
+	/** The bar at or after the audio clock now. */
+	private nowBar(): Fraction {
+		return barAtOrAfter(this.transport.map, this.transport.barLength, this.deps.clock.now());
 	}
 
 	/**
@@ -627,14 +652,13 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
-	 * `item` after a counted bar from `bar`: at its tempo, changed first when it differs; heard
-	 * only before a scene that clicks.
+	 * `item` after a counted bar from `count.fromBar`, as `placeNext` decided: the tempo or the
+	 * meter changed first when it asks, heard only before a scene that clicks.
 	 */
-	private placeAfter(item: PlannedItem, bar: number): void {
-		const tempo = this.tempoOf(item);
+	private placeAfter(item: PlannedItem, count: Extract<Placement, { kind: 'count-in' }>): void {
+		const { fromBar: bar, tempo, meter, restBars } = count;
 		const audible = this.clicksOn(item);
-		const meter = this.meterOf(item);
-		if (!sameMeter(meter, this.seriesMeter)) {
+		if (meter !== null && tempo !== null) {
 			// Another meter: its counted bar on the first whole bar of it, at its tempo.
 			const unit = this.seriesMeter.unit;
 			this.setMeter(meter);
@@ -656,7 +680,7 @@ export class ResponseSeriesController implements PlaySessionController {
 			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
 			return;
 		}
-		if (tempo !== this.tempoBpm) {
+		if (tempo !== null) {
 			this.setTempo(tempo);
 			const { playFrom } = this.transport.changeTempo(bar, this.segment(tempo), this.seriesClick, {
 				listenInBars: 0,
@@ -667,7 +691,6 @@ export class ResponseSeriesController implements PlaySessionController {
 			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
 			return;
 		}
-		const restBars = item.countIn ? (item.restBars ?? 0) : 0;
 		const playFrom = this.transport.countIn(bar, { restBars, audible });
 		this.accompaniedUntil = playFrom;
 		this.place(item, playFrom, { countBar: playFrom - 1, restFrom: restBars > 0 ? bar : null });
@@ -703,11 +726,9 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** Goes on without a gap: no counted bar asked, the same tempo, meter and scene. */
 	private chainable(item: PlannedItem): boolean {
-		return (
-			!item.countIn &&
-			this.tempoOf(item) === this.tempoBpm &&
-			sameMeter(this.meterOf(item), this.seriesMeter) &&
-			this.items.flowOf(item).scene === this.lastScene
+		return chainable(
+			{ tempo: this.tempoBpm, meter: this.seriesMeter, scene: this.lastScene },
+			this.comingOf(item)
 		);
 	}
 
@@ -757,10 +778,7 @@ export class ResponseSeriesController implements PlaySessionController {
 			round.runner.cancel();
 			this.log?.end(now);
 			const earliest = inFreeTime(round.plan)
-				? nextBeat(
-						barAtOrAfter(this.transport.map, this.transport.barLength, now),
-						this.seriesMeter
-					)
+				? nextBeat(this.nowBar(), this.seriesMeter)
 				: round.end;
 			this.advance(round, now, earliest);
 		}
