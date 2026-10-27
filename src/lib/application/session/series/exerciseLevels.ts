@@ -1,6 +1,7 @@
 import { exerciseLevelsOf, pacingAt } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import {
+	askListen,
 	next,
 	settle,
 	startRun,
@@ -8,11 +9,13 @@ import {
 	type Coming,
 	type Next,
 	type SeriesRules,
-	type SeriesState
+	type SeriesState,
+	type SettledRound
 } from '$lib/domain/session';
-import { levelRange, type LevelState } from '$lib/domain/time';
+import { levelRange, type CycleFailure, type LevelState } from '$lib/domain/time';
 import type { LevelStateRepositoryPort } from '$lib/application/ports';
 import type { Announcement } from '../contract';
+import { canSound, listenOf } from './compilePlan';
 
 /** The key of an exercise level: its exercise and its scope (empty for none). */
 function keyOf(exerciseId: ExerciseId, scope: string | undefined): string {
@@ -73,21 +76,37 @@ export class ExerciseLevels {
 		return this.heldOf(exerciseId, scope).played;
 	}
 
-	/** A settled round moves the state (`settle` of the policy) and stores it; a change waits for `apply`. */
-	async settle(round: {
-		exerciseId: ExerciseId;
-		scope?: string;
-		level: number;
-		success: boolean;
-		aided: boolean;
-	}): Promise<'up' | 'down' | null> {
+	/** The level (exercise, scope) has reached, applied or not: the one a session ends on. */
+	reached(exerciseId: ExerciseId, scope?: string): number {
+		return this.heldOf(exerciseId, scope).series.levelState.level;
+	}
+
+	/**
+	 * A settled round moves the state (`settle` of the policy, with what the anti-blocking reads of
+	 * it: its item, and a cycle's report, verdict and spot) and stores it; a change waits for `apply`.
+	 */
+	async settle(
+		round: {
+			exerciseId: ExerciseId;
+			scope?: string;
+		} & Pick<SettledRound, 'level' | 'success' | 'aided'> &
+			Partial<Pick<SettledRound, 'item' | 'report' | 'verdict' | 'spotMs'>>
+	): Promise<'up' | 'down' | null> {
 		const definition = this.deps.exercise(round.exerciseId);
 		const held = this.heldOf(round.exerciseId, round.scope);
 		const { state, changed } = settle(
 			held.series,
 			rulesOf(definition, Number.POSITIVE_INFINITY),
-			// A response round has no cycle report: rounds are never compared spot by spot.
-			{ level: round.level, item: '', success: round.success, aided: round.aided, spotMs: 0 },
+			{
+				level: round.level,
+				item: round.item ?? '',
+				success: round.success,
+				aided: round.aided,
+				...(round.report && { report: round.report }),
+				...(round.verdict && { verdict: round.verdict }),
+				// Without a spot, rounds are never compared spot by spot.
+				spotMs: round.spotMs ?? 0
+			},
 			this.deps.now()
 		);
 		held.series = state;
@@ -103,13 +122,15 @@ export class ExerciseLevels {
 	 * At the boundary before a round of (exercise, scope) — `coming`, how it would come; null when
 	 * the source has nothing more — what the policy decides (`next`), over the run under way, or
 	 * one started there. After a breath, a new run starts with the coming round, which comes after
-	 * a counted bar: `next` is that round's place in it.
+	 * a counted bar: `next` is that round's place in it. `look`: what it would decide, the state
+	 * left as it is (decided ahead of a breath, or of an instruction that stops play first).
 	 */
 	boundary(
 		at: { exerciseId: ExerciseId; scope?: string },
 		elapsedMs: number,
 		budgetMs: number,
-		coming: Coming | null
+		coming: Coming | null,
+		options: { look?: boolean } = {}
 	): { breath: boolean; next: Next } {
 		const held = this.heldOf(at.exerciseId, at.scope);
 		const rules = rulesOf(this.deps.exercise(at.exerciseId), budgetMs);
@@ -119,8 +140,30 @@ export class ExerciseLevels {
 		if (breath) {
 			step = next(startRun(step.state), rules, elapsedMs, { chains: false, countIn: true });
 		}
-		held.series = step.state;
+		if (!options.look) held.series = step.state;
 		return { breath, next: step.next };
+	}
+
+	/** The player asked to hear the content of (exercise, scope): its next round is heard, if its level allows. */
+	askListen(exerciseId: ExerciseId, scope?: string): void {
+		const held = this.heldOf(exerciseId, scope);
+		held.series = askListen(held.series, rulesOf(this.deps.exercise(exerciseId), 0));
+	}
+
+	/**
+	 * Play stops (a pause): every run under way ends, and a listen asked is forgotten; the remedies
+	 * queued stay. Play goes on with a new run, after a counted bar.
+	 */
+	interrupt(): void {
+		for (const held of this.held.values()) {
+			held.series = { ...held.series, run: null, listenAsked: false };
+		}
+	}
+
+	/** The measure that breaks, once the anti-blocking changed the air of an exercise; null otherwise. */
+	breaking(): CycleFailure | null {
+		for (const held of this.held.values()) if (held.series.breaking) return held.series.breaking;
+		return null;
 	}
 
 	/**
@@ -139,7 +182,8 @@ export class ExerciseLevels {
 		const reached = held.series.levelState.level;
 		if (reached === played) return null;
 		held.played = reached;
-		if (reached < 0 && played >= 0) return 'aid-level';
+		// An aid level is announced as one, never by a number below 1.
+		if (reached < 0) return 'aid-level';
 		return reached > played ? 'level-up' : 'level-down';
 	}
 
@@ -186,15 +230,16 @@ function writesLevels(definition: ExerciseDefinition): boolean {
 
 /**
  * What the policy reads of an exercise: its levels, the runs of each (`pacing.roundsPerBreath`,
- * none when absent) and whether it asks the anti-blocking, with the series' length. A response
- * series has no figure to sound: no listening, no remedy that sounds.
+ * none when absent), what listening its levels give, whether it can make its content sound (then
+ * listening and playing along are remedies) and whether it asks the anti-blocking, with the
+ * series' length.
  */
 function rulesOf(definition: ExerciseDefinition, budgetMs: number): SeriesRules {
 	return {
 		levels: exerciseLevelsOf(definition),
 		roundsPerBreath: (level) => pacingAt(definition, level).roundsPerBreath ?? null,
-		listen: () => 'none',
-		canSound: false,
+		listen: (level) => listenOf(definition, level),
+		canSound: canSound(definition),
 		budgetMs,
 		antiBlocking: definition.flow?.antiBlocking ?? false
 	};

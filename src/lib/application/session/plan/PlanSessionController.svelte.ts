@@ -38,7 +38,12 @@ import {
 } from '$lib/domain/session';
 import { DEFAULT_SETTINGS, type PlannedItem, type Settings } from '$lib/domain/types';
 import { openAudioInput } from '../audioInput';
-import { playViewOf, type PlaySessionController, type PlayView } from '../contract';
+import {
+	playViewOf,
+	type Announcement,
+	type PlaySessionController,
+	type PlayView
+} from '../contract';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
@@ -66,6 +71,12 @@ import {
 	type RhythmStageModel,
 	type SettledCycle
 } from '../cycle/rhythmStage';
+
+/**
+ * The rhythm view's model with what this controller announces in it; the frame shows the
+ * announcement (`PlayView.announcement`), the view no longer does (plan H6, D9).
+ */
+export type PlanStageModel = RhythmStageModel & { announcement: Announcement | null };
 
 /** A run of cycles between two breaths, at one level. */
 interface Run {
@@ -1032,7 +1043,7 @@ export class PlanSessionController implements PlaySessionController {
 		const params = breath ? this.paramsOf(level) : run.params;
 		const cursorShown =
 			laid.phase === 'listening' || (laid.phase === 'play' && run.params.cursor && !laid.muted);
-		const model: RhythmStageModel = {
+		const model: PlanStageModel = {
 			phase: laid.phase,
 			exerciseLabel: this.exercise.title?.[this.settings.locale] ?? this.exercise.id,
 			level: levelView(rhythmLevels(this.exercise), level),
@@ -1058,6 +1069,15 @@ export class PlanSessionController implements PlaySessionController {
 			plainWords: this.plainWords
 		};
 		this.view.stage = { view: this.viewName(), model };
+		// The frame tells it.
+		this.view.announcement = model.announcement
+			? {
+					kind: model.announcement,
+					level,
+					of: levelRange(rhythmLevels(this.exercise)).highest + 1,
+					tempoBpm: params.tempo
+				}
+			: null;
 		this.view.status =
 			laid.phase === 'listen-in' || laid.phase === 'count-in' ? 'count-in' : 'awaiting';
 		this.view.tempoBpm = laid.phase === 'breath' ? run.params.tempo : params.tempo;
@@ -1067,7 +1087,7 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	/** Before the start: the run to come, waiting. */
-	private waitingModel(): RhythmStageModel {
+	private waitingModel(): PlanStageModel {
 		const level = this.levelState.level;
 		const params = this.paramsOf(level);
 		return {
@@ -1089,7 +1109,7 @@ export class PlanSessionController implements PlaySessionController {
 		};
 	}
 
-	private announcement(played: number, reached: number): RhythmStageModel['announcement'] {
+	private announcement(played: number, reached: number): PlanStageModel['announcement'] {
 		if (this.end?.reason === 'change-of-air') return 'change-of-air';
 		if (reached < 0 && played >= 0) return 'aid-level';
 		if (reached > played) return 'level-up';

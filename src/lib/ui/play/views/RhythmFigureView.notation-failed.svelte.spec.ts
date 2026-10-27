@@ -30,7 +30,6 @@ function model(): RhythmStageModel {
 		cursor: null,
 		feedback: 'every-cycle',
 		settled: [],
-		announcement: null,
 		listen: 'free',
 		plainWords: true
 	};

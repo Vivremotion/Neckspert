@@ -31,7 +31,7 @@ import { attackSensor } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { SessionMemory } from '../sessionMemory';
-import { PlanSessionController } from './PlanSessionController.svelte';
+import { PlanSessionController, type PlanStageModel } from './PlanSessionController.svelte';
 import type { CyclePlanRecord, RhythmAttemptData } from '../cycle/recordCycle';
 import { PLAIN_WORDS_SESSIONS, type RhythmStageModel } from '../cycle/rhythmStage';
 
@@ -156,10 +156,10 @@ async function settled(): Promise<void> {
 	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 }
 
-function stageOf(controller: PlanSessionController): RhythmStageModel {
+function stageOf(controller: PlanSessionController): PlanStageModel {
 	const stage = controller.view.stage;
 	if (!stage) throw new Error('no stage on show');
-	return stage.model as RhythmStageModel;
+	return stage.model as PlanStageModel;
 }
 
 /**

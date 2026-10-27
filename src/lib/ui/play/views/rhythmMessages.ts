@@ -36,14 +36,6 @@ const FR = {
 	cycle: (n: number) => `cycle ${n}`,
 	passed: 'réussi',
 	failed: 'raté',
-	announcement: {
-		'level-up': (level: string) => `On monte : ${level}`,
-		'level-down': (level: string) => `On redescend : ${level}`,
-		'aid-level': (level: string) => `Niveau d’aide : ${level}`,
-		'listen-remedy': () => 'On réécoute la figure',
-		'play-along': () => 'On la joue ensemble',
-		'change-of-air': () => 'On change d’air'
-	},
 	mark: {
 		'on-time': 'à temps',
 		early: 'devant',
@@ -110,14 +102,6 @@ const EN: typeof FR = {
 	cycle: (n) => `cycle ${n}`,
 	passed: 'passed',
 	failed: 'failed',
-	announcement: {
-		'level-up': (level) => `Up: ${level}`,
-		'level-down': (level) => `Down: ${level}`,
-		'aid-level': (level) => `Aid level: ${level}`,
-		'listen-remedy': () => 'Let’s hear the figure again',
-		'play-along': () => 'Let’s play it together',
-		'change-of-air': () => 'Time for a change of air'
-	},
 	mark: {
 		'on-time': 'on time',
 		early: 'ahead',

@@ -3,7 +3,9 @@
 	// (scripts/functional-ui.mjs checks the Bravura font, the cursor and the text sizes here).
 	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
 	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, the breath otherwise.
+	// The frame tells what the series announces (a remedy, the level reached at the breath).
 	import { page } from '$app/state';
+	import type { PlayView } from '$lib/application/session/contract';
 	import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
 	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 	import { Fraction, type CycleReport } from '$lib/domain/time';
@@ -63,7 +65,6 @@
 		cursor: Fraction.of(3, 8),
 		feedback: 'every-cycle',
 		settled: [],
-		announcement: null,
 		listen: 'free',
 		plainWords: true
 	};
@@ -82,31 +83,27 @@
 		cursor: null,
 		next: figure,
 		settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
-		announcement: 'level-up',
 		level: { shown: 4, of: 6, aid: false }
 	};
 	const model: RhythmStageModel =
-		phase === 'play'
+		phase === 'play' || phase === 'along'
 			? base
 			: phase === 'muted'
 				? { ...base, barInCycle: 0, muted: true }
-				: phase === 'along'
-					? { ...base, announcement: 'play-along' }
-					: phase === 'shift'
-						? { ...breath, settled: [lostBeat()], announcement: null }
-						: {
-								...base,
-								phase: 'breath',
-								cursor: null,
-								next: figure,
-								settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
-								announcement: 'level-up',
-								level: { shown: 4, of: 6, aid: false }
-							};
+				: phase === 'shift'
+					? { ...breath, settled: [lostBeat()] }
+					: breath;
+	const announcement: PlayView['announcement'] =
+		phase === 'along'
+			? { kind: 'play-along', level: 2, of: 6, tempoBpm: 80 }
+			: phase === null
+				? { kind: 'level-up', level: 3, of: 6, tempoBpm: 80 }
+				: null;
 
 	const controller = new DevRhythmController();
 	controller.view.status = 'awaiting';
 	controller.view.stage = { view: 'rhythm-figure', model };
+	controller.view.announcement = announcement;
 </script>
 
 <PlayFrame {controller} kind="exercise" />

@@ -147,9 +147,6 @@
 	{/if}
 
 	{#if breathing}
-		{#if m.announcement}
-			<p class="announcement" role="status">{t.announcement[m.announcement](levelText)}</p>
-		{/if}
 		<div class="breath" class:stacked={!sideBySide}>
 			<section class="panel faded" data-testid="rhythm-played" aria-label={t.played}>
 				<h2 class="panel-title">{t.played}</h2>
@@ -195,9 +192,6 @@
 			</p>
 		{/if}
 	{:else}
-		{#if m.announcement}
-			<p class="announcement" role="status">{t.announcement[m.announcement](levelText)}</p>
-		{/if}
 		<div class="score">
 			<div class="engraving large" bind:this={figureHost}></div>
 			{#if cursor && figureLayout}
@@ -267,7 +261,6 @@
 	.title,
 	.where,
 	.phase,
-	.announcement,
 	.feedback,
 	.panel-title {
 		margin: 0;
@@ -365,11 +358,6 @@
 	.cycle.failed {
 		font-weight: 600;
 		text-decoration: underline;
-	}
-
-	.announcement {
-		font-size: var(--np-type-body);
-		font-weight: 600;
 	}
 
 	.feedback {

@@ -93,6 +93,9 @@ export class Player {
 	offsetS = 0;
 	/** Attack `skip` of each bar is not played (the player misreads the same note). */
 	skip: number | null = null;
+	/** Each attack alternately this early and this late (the player plays unevenly). */
+	jitterS = 0;
+	private played = 0;
 	private bar = -1;
 	private playFrom: number | null = null;
 	private queue: number[] = [];
@@ -124,7 +127,10 @@ export class Player {
 		}
 		const due = this.queue.filter((t) => t <= this.clock.now());
 		this.queue = this.queue.filter((t) => t > this.clock.now());
-		for (const time of due) this.attacks.emit({ time: time + this.offsetS, strength: 1 });
+		for (const time of due) {
+			const jitter = this.jitterS * (this.played++ % 2 === 0 ? -1 : 1);
+			this.attacks.emit({ time: time + this.offsetS + jitter, strength: 1 });
+		}
 	}
 }
 

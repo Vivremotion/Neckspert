@@ -4,8 +4,12 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import {
 	LISTEN_IN_BARS,
+	MATCH_LIMIT,
 	type Accompaniment,
 	type Aid,
+	type CycleReport,
+	type CycleVerdict,
+	type Figure,
 	type Fraction,
 	type LevelParams,
 	type Meter,
@@ -63,7 +67,21 @@ export interface RoundGiven {
 	settleAfter: Fraction | null;
 }
 
-export function roundGiven(definition: ExerciseDefinition, item: PlannedItem): RoundGiven {
+/** How the series helped a round beyond its item: its content heard before it, or played along. */
+export interface RoundHelp {
+	/** The content was just heard (a listen, a demonstration). */
+	listened: boolean;
+	/** The content sounds with the player (the anti-blocking's play-along). */
+	playAlong: boolean;
+}
+
+const UNHELPED: RoundHelp = { listened: false, playAlong: false };
+
+export function roundGiven(
+	definition: ExerciseDefinition,
+	item: PlannedItem,
+	help: RoundHelp = UNHELPED
+): RoundGiven {
 	if (playsCycles(definition)) {
 		const params = rhythmParamsOf(definition, item.exerciseLevel);
 		return {
@@ -71,8 +89,8 @@ export function roundGiven(definition: ExerciseDefinition, item: PlannedItem): R
 			aids: cycleAids({
 				params,
 				aidLevel: item.exerciseLevel < 0,
-				listened: false,
-				playAlong: false
+				listened: help.listened,
+				playAlong: help.playAlong
 			}),
 			settleAfter: SETTLE_AFTER_BARS
 		};
@@ -105,6 +123,43 @@ export function aidedBeyondLevel(
 		return levelAided(aids, rhythmParamsOf(definition, item.exerciseLevel));
 	}
 	return aids.length > 0;
+}
+
+/** The exercise can make its content sound (a figure): it can be listened to, and played along. */
+export function canSound(definition: ExerciseDefinition): boolean {
+	return playsCycles(definition);
+}
+
+/**
+ * The figure `item`'s round plays, which the series can make sound (a demonstration, a listen, a
+ * play-along); null when the exercise cannot make its content sound (a template).
+ */
+export function contentFigure(definition: ExerciseDefinition, item: PlannedItem): Figure | null {
+	if (!playsCycles(definition)) return null;
+	return figureOf(definition, (item as PlannedItem<RhythmItem>).item.figureId);
+}
+
+/** What listening to the content is worth at exercise level `level`: free, an aid, or none. */
+export function listenOf(definition: ExerciseDefinition, level: number): LevelParams['listen'] {
+	return playsCycles(definition) ? rhythmParamsOf(definition, level).listen : 'none';
+}
+
+/**
+ * What the anti-blocking reads of a settled round (`SettledRound`): a cycle's report and verdict,
+ * and the spot (`MATCH_LIMIT` at a whole note of `wholeS` seconds) within which extras fall on the
+ * same place; a round judged otherwise gives nothing to compare.
+ */
+export function blockReadingOf(
+	definition: ExerciseDefinition,
+	outcome: RoundOutcome,
+	wholeS: number
+): { report?: CycleReport; verdict?: CycleVerdict; spotMs: number } {
+	if (!playsCycles(definition)) return { spotMs: 0 };
+	return {
+		report: outcome.detail as CycleReport,
+		verdict: outcome.verdict.value as CycleVerdict,
+		spotMs: MATCH_LIMIT.toNumber() * wholeS * 1000
+	};
 }
 
 /** How a run of an exercise opens and what plays under it. */

@@ -430,7 +430,6 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		cursor: Fraction.of(1, 4),
 		feedback: 'every-cycle',
 		settled: [],
-		announcement: null,
 		listen: 'free',
 		plainWords: true,
 		...overrides

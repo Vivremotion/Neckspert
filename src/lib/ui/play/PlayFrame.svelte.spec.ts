@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Announcement } from '$lib/application/session/contract';
 import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
@@ -140,6 +141,31 @@ describe('PlayFrame', () => {
 		quiet.view.status = 'count-in';
 		render(PlayFrame, { props: { controller: quiet } });
 		expect(screen.queryByText(/niveau/i)).toBeNull();
+	});
+
+	it('tells the remedies, the aid level and the change of air, never a level below 1', () => {
+		const told = (kind: Announcement, level = 0) => {
+			const controller = new StageController();
+			controller.view.status = 'awaiting';
+			controller.view.announcement = { kind, level, of: 4, tempoBpm: 70 };
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			const text = screen.getByRole('status').textContent;
+			cleanup();
+			return text;
+		};
+		expect(told('listen-remedy')).toBe('On réécoute la figure');
+		expect(told('play-along')).toBe('On la joue ensemble');
+		expect(told('change-of-air')).toBe('On change d’air');
+		// A deeper aid level too: never « Niveau -1 ».
+		expect(told('aid-level', -1)).toBe('Niveau d’aide · ♩ = 70');
+		expect(told('aid-level', -2)).toBe('Niveau d’aide · ♩ = 70');
+		i18n.locale = 'en';
+		try {
+			expect(told('listen-remedy')).toBe('Let’s hear the figure again');
+			expect(told('aid-level', -2)).toBe('Aid level · ♩ = 70');
+		} finally {
+			i18n.locale = 'fr';
+		}
 	});
 
 	it('writes the count as a sentence', () => {
@@ -361,7 +387,6 @@ describe('PlayFrame', () => {
 					cursor: null,
 					feedback: 'every-cycle',
 					settled: [],
-					announcement: null,
 					listen: 'free',
 					plainWords: true
 				};

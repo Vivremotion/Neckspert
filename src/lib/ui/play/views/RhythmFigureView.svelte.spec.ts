@@ -72,7 +72,6 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		cursor: Fraction.of(1, 4),
 		feedback: 'every-cycle',
 		settled: [],
-		announcement: null,
 		listen: 'free',
 		plainWords: true,
 		...overrides
@@ -292,29 +291,16 @@ describe('RhythmFigureView', () => {
 		);
 	});
 
-	it('announces the remedies of the anti-blocking while they play', () => {
+	it('leaves the announcements to the frame: no line of its own, playing or breathing', () => {
 		render(RhythmFigureView, {
-			props: {
-				controller: running(),
-				model: model({ phase: 'listening', announcement: 'listen-remedy' })
-			}
+			props: { controller: running(), model: model({ phase: 'listening' }) }
 		});
-		expect(screen.getByRole('status').textContent).toBe('On réécoute la figure');
+		expect(screen.queryByRole('status')).toBeNull();
 		cleanup();
 		render(RhythmFigureView, {
-			props: { controller: running(), model: model({ announcement: 'play-along' }) }
+			props: { controller: running(), model: breath({ level: { shown: 0, of: 4, aid: true } }) }
 		});
-		expect(screen.getByRole('status').textContent).toBe('On la joue ensemble');
-	});
-
-	it('announces the aid level at the breath', () => {
-		render(RhythmFigureView, {
-			props: {
-				controller: running(),
-				model: breath({ announcement: 'aid-level', level: { shown: 0, of: 4, aid: true } })
-			}
-		});
-		expect(screen.getByRole('status').textContent).toContain('Niveau d’aide');
+		expect(screen.queryByRole('status')).toBeNull();
 	});
 
 	it('gives the term of the feedback its definition, and drops the plain words later', async () => {
@@ -326,16 +312,6 @@ describe('RhythmFigureView', () => {
 			props: { controller: running(), model: breath({ plainWords: false }) }
 		});
 		expect(screen.getByTestId('rhythm-feedback').textContent).toContain('fidélité à la figure 4/5');
-	});
-
-	it('announces a level change at the breath', () => {
-		render(RhythmFigureView, {
-			props: {
-				controller: running(),
-				model: breath({ announcement: 'level-up', level: { shown: 4, of: 6, aid: false } })
-			}
-		});
-		expect(screen.getByRole('status').textContent).toContain('niveau 4 sur 6');
 	});
 
 	it('offers « Écouter la figure » with its key when the level lets the figure be heard', async () => {

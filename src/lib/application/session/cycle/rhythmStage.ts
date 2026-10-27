@@ -15,7 +15,6 @@ import {
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import type { Locale, PlannedItem } from '$lib/domain/types';
-import type { Announcement } from '../contract';
 import { figureOf } from './compileCycle';
 import { rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
 
@@ -25,8 +24,6 @@ import { rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
  * included), a figure heard rather than played (`listening`), and the breath between runs.
  */
 export type RhythmPhase = 'listen-in' | 'count-in' | 'play' | 'listening' | 'breath';
-
-export type { Announcement } from '../contract';
 
 /** One settled cycle of the run, as the breath shows it. */
 export interface SettledCycle {
@@ -62,12 +59,6 @@ export interface RhythmStageModel {
 	feedback: Feedback;
 	/** The cycles of the run settled so far, oldest first; shown at the breath. */
 	settled: SettledCycle[];
-	/**
-	 * What is said now: at the breath, the level the run moved to (an aid level is announced as
-	 * such); during a cycle, the anti-blocking's remedy under way; once the series changes the
-	 * air, that.
-	 */
-	announcement: Announcement | null;
 	/** What listening to the figure is worth at this level (`listen()`); `none` hides the button. */
 	listen: LevelParams['listen'];
 	/** The feedback is told in plain words; once the exercise is familiar, by its term alone. */
@@ -122,13 +113,19 @@ export type CycleMoment =
 	| 'count-in'
 	/** The run's clicked bars before its first cycle: played, not judged. */
 	| 'entry'
-	| 'round';
+	| 'round'
+	/** A cycle heard rather than played: a listen, or the demonstration of a first encounter. */
+	| 'listening'
+	/** Between two runs: the run played, with its marks, and what comes next. */
+	| 'breath';
 
 /**
  * The rhythm view's model of `item`'s cycle at a moment of the series, built from the series'
  * events: what it plays now (`moment`), the bar of the cycle (`barInRound`, negative in the entry)
- * and the beat, where the cycle starts in the loops of its figure (`startBar`), the bars it mutes,
- * the cycles of the run settled so far, and how familiar the exercise is (`endedSessions`).
+ * and the beat, where the cycle starts in the loops of its figure (`startBar`), whether the click
+ * is silent in this bar, the cycles of the run settled so far, and how familiar the exercise is
+ * (`endedSessions`). At the breath, `item` is the cycle to come, at the level it will play, and
+ * `played` the run's last one: its figure and its bars carry the run's marks.
  */
 export function cycleStage(input: {
 	definition: ExerciseDefinition;
@@ -137,8 +134,10 @@ export function cycleStage(input: {
 	barInRound: number;
 	beat: number;
 	startBar: number;
-	mutedBars: readonly number[];
+	muted: boolean;
 	settled: readonly RoundOutcome[];
+	/** The run's last cycle, shown at the breath; null when none was played. */
+	played: PlannedItem<RhythmItem> | null;
 	locale: Locale;
 	endedSessions: number;
 }): RhythmStageModel {
@@ -146,35 +145,51 @@ export function cycleStage(input: {
 	const level = item.exerciseLevel;
 	const params = rhythmParamsOf(definition, level);
 	const figure = figureOf(definition, item.item.figureId);
+	const breath = moment === 'breath';
+	const played = breath && input.played ? input.played : null;
+	const playedParams = played ? rhythmParamsOf(definition, played.exerciseLevel) : params;
 	const playing = moment === 'entry' || moment === 'round';
+	const listening = moment === 'listening';
 	const barInCycle =
-		moment === 'round' ? barInRound : moment === 'entry' ? params.cycleBars + barInRound : 0;
-	const muted = moment === 'round' && input.mutedBars.includes(barInRound);
+		moment === 'round' || listening
+			? barInRound
+			: moment === 'entry'
+				? params.cycleBars + barInRound
+				: 0;
+	const muted = (moment === 'round' || listening) && input.muted;
+	// A heard cycle shows where the figure stands, whatever the level gives.
+	const cursorShown = listening || (playing && params.cursor && !muted);
 	return {
-		phase: playing ? 'play' : moment === 'count-in' ? 'count-in' : 'listen-in',
+		phase: playing
+			? 'play'
+			: listening
+				? 'listening'
+				: breath
+					? 'breath'
+					: moment === 'count-in'
+						? 'count-in'
+						: 'listen-in',
 		exerciseLabel: definition.title?.[input.locale] ?? definition.id,
 		level: levelView(rhythmLevels(definition), level),
 		tempo: tempoView(tempoSegmentOf(params)),
-		figure,
-		next: null,
+		figure: played ? figureOf(definition, played.item.figureId) : figure,
+		next: breath ? figure : null,
 		barInCycle,
-		cycleBars: params.cycleBars,
+		cycleBars: playedParams.cycleBars,
 		muted,
-		cursor:
-			playing && params.cursor && !muted
-				? figurePosition({
-						figure,
-						startBar: input.startBar + barInRound,
-						barInCycle: 0,
-						beat: input.beat
-					})
-				: null,
-		feedback: params.feedback,
+		cursor: cursorShown
+			? figurePosition({
+					figure,
+					startBar: input.startBar + barInRound,
+					barInCycle: 0,
+					beat: input.beat
+				})
+			: null,
+		feedback: playedParams.feedback,
 		settled: input.settled.map((outcome) => ({
 			report: outcome.detail as CycleReport,
 			verdict: outcome.verdict.value as CycleVerdict
 		})),
-		announcement: null,
 		listen: params.listen,
 		plainWords: input.endedSessions < PLAIN_WORDS_SESSIONS
 	};

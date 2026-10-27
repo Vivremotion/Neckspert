@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
+import type { CycleReport } from '$lib/domain/time';
 import type { LevelState } from '$lib/domain/time';
 import { InMemoryLevelStateRepository } from '$lib/testing/fakes';
 import { ExerciseLevels } from './exerciseLevels';
@@ -32,6 +34,17 @@ const RUNS: ExerciseDefinition = {
 	levels: [{ params: {}, pass: { successes: 1 } }, { params: { 'pacing.roundsPerBreath': 3 } }]
 };
 
+/** Two aid levels below level 1, the anti-blocking asked. */
+const AIDS: ExerciseDefinition = {
+	...BLOCKING,
+	id: 'aids',
+	levels: [
+		{ aid: true, params: { tempo: 60 } },
+		{ aid: true, params: { tempo: 70 } },
+		...(CLIMB.levels ?? [])
+	]
+};
+
 /** The next round goes on without a gap. */
 const CHAINS = { chains: true, countIn: false };
 /** The next round comes after the breath of its plan, no count. */
@@ -44,7 +57,7 @@ function stored(exerciseId: string, scope: string, level: number): LevelState {
 async function setup(states: LevelState[] = []) {
 	const repository = new InMemoryLevelStateRepository();
 	for (const state of states) await repository.put(state);
-	const definitions = [CLIMB, BLOCKING, PLAIN, RUNS];
+	const definitions = [CLIMB, BLOCKING, PLAIN, RUNS, AIDS, RHYTHM_OFFBEATS];
 	const levels = new ExerciseLevels({
 		levels: repository,
 		exercise: (id) => {
@@ -228,5 +241,102 @@ describe('ExerciseLevels', () => {
 			role: 'end',
 			reason: 'change-of-air'
 		});
+	});
+
+	it('announces any aid level as one, a deeper one too', async () => {
+		const { levels } = await setup([stored('aids', '', -1)]);
+		for (let i = 0; i < 3; i++) {
+			await levels.settle({ exerciseId: 'aids', level: -1, success: false, aided: false });
+		}
+		expect(levels.reached('aids')).toBe(-2);
+		expect(levels.apply('aids')).toBe('aid-level');
+		expect(levels.played('aids')).toBe(-2);
+	});
+
+	it('decides without counting when asked to look only', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'runs' };
+		levels.boundary(at, 0, 1000, CHAINS);
+		// Looked at, not taken: the run still has its second round to play.
+		expect(levels.boundary(at, 0, 1000, CHAINS, { look: true }).next.role).toBe('round');
+		expect(levels.boundary(at, 0, 1000, CHAINS).breath).toBe(false);
+		expect(levels.boundary(at, 0, 1000, CHAINS).breath).toBe(true);
+	});
+
+	it('hears the content asked for, where the level gives listening', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: RHYTHM_OFFBEATS.id };
+		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
+		levels.askListen(RHYTHM_OFFBEATS.id);
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'listen', remedy: false });
+		expect(levels.boundary(at, 0, 1000, CHAINS).next.role).toBe('round');
+		// A template has nothing to hear.
+		levels.boundary({ exerciseId: 'climb' }, 0, 1000, { chains: false, countIn: true });
+		levels.askListen('climb');
+		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next.role).toBe('round');
+	});
+
+	it('forgets the run and the listen asked when play stops', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: RHYTHM_OFFBEATS.id };
+		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
+		levels.askListen(RHYTHM_OFFBEATS.id);
+		levels.interrupt();
+		// A new run, no breath before it, and the listen forgotten.
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
+			breath: false,
+			next: { role: 'round', aid: null, remedy: false }
+		});
+	});
+
+	it('reads a reading block of cycles and gives their remedies', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: RHYTHM_OFFBEATS.id };
+		levels.boundary(at, 0, 1000, { chains: false, countIn: true });
+		// The same note missed three times.
+		const report = {
+			expectations: [{ index: 3, verdict: 'missed', offsetMs: null }],
+			dropped: [],
+			extra: 0,
+			shift: null,
+			measures: {},
+			latency: null
+		} as unknown as CycleReport;
+		for (let i = 0; i < 3; i++) {
+			await levels.settle({
+				exerciseId: RHYTHM_OFFBEATS.id,
+				item: 'offbeats-1@0',
+				level: 0,
+				success: false,
+				aided: false,
+				report,
+				verdict: { passed: false, reasons: ['missed'] },
+				spotMs: 187.5
+			});
+		}
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({ role: 'listen', remedy: true });
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+			role: 'round',
+			aid: 'play-along',
+			remedy: true
+		});
+	});
+
+	it('names the measure that breaks once the air changes, and the level reached', async () => {
+		const { levels } = await setup();
+		expect(levels.breaking()).toBeNull();
+		for (let i = 0; i < 3; i++) {
+			await levels.settle({
+				exerciseId: 'blocking',
+				scope: 'blues-f',
+				level: 0,
+				success: false,
+				aided: false,
+				verdict: { passed: false, reasons: ['regularity'] },
+				spotMs: 0
+			});
+		}
+		expect(levels.breaking()).toBe('regularity');
+		expect(levels.reached('blocking', 'blues-f')).toBe(0);
 	});
 });

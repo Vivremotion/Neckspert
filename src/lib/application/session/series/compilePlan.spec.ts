@@ -1,9 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { LOCATE_NECK, RHYTHM_SILENT_BARS, type ExerciseDefinition } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
-import { Fraction, LISTEN_IN_BARS, METER_4_4, clickAccompaniment } from '$lib/domain/time';
+import {
+	Fraction,
+	LISTEN_IN_BARS,
+	METER_4_4,
+	clickAccompaniment,
+	type CycleReport,
+	type RoundOutcome
+} from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import { aidedBeyondLevel, compilePlan, playsCycles, roundGiven, runSetup } from './compilePlan';
+import {
+	aidedBeyondLevel,
+	blockReadingOf,
+	compilePlan,
+	contentFigure,
+	listenOf,
+	playsCycles,
+	roundGiven,
+	runSetup
+} from './compilePlan';
 
 const note: PlannedItem = {
 	exerciseId: LOCATE_NECK.id,
@@ -106,5 +122,41 @@ describe('compilePlan', () => {
 		);
 		expect(accompanied.listenIn?.bars).toEqual(['on']);
 		expect(accompanied.accompaniment(1)?.bars).toEqual(['off', 'on', 'on', 'on']);
+	});
+
+	it('gives a cycle the listening and the playing along it was helped with', () => {
+		const helped = roundGiven(RHYTHM_SILENT_BARS, eighths(0), { listened: true, playAlong: true });
+		// Listening is free at this level: no aid; playing along is one.
+		expect(helped.aids).toEqual(['cursor', 'play-along']);
+		const heard = roundGiven(RHYTHM_SILENT_BARS, eighths(0), { listened: true, playAlong: false });
+		expect(heard.aids).toEqual(['cursor']);
+		// A template is helped only by its item.
+		expect(roundGiven(LOCATE_NECK, note, { listened: true, playAlong: true }).aids).toEqual([
+			'show-position'
+		]);
+	});
+
+	it('makes a cycle’s figure sound, and lets its level say what listening is worth', () => {
+		const figure = contentFigure(RHYTHM_SILENT_BARS, eighths(0));
+		expect(figure).toBe(RHYTHM_SILENT_BARS.figures?.find((f) => f.id === 'eighths')?.figure);
+		expect(listenOf(RHYTHM_SILENT_BARS, 0)).toBe('free');
+		// A template has no content to sound, nor to listen to.
+		expect(contentFigure(LOCATE_NECK, note)).toBeNull();
+		expect(listenOf(LOCATE_NECK, 0)).toBe('none');
+	});
+
+	it('hands the anti-blocking a cycle’s report and its spot, a response round nothing to compare', () => {
+		const report = { expectations: [], extra: 0 } as unknown as CycleReport;
+		const outcome = {
+			detail: report,
+			verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: ['missed'] } }
+		} as unknown as RoundOutcome;
+		expect(blockReadingOf(RHYTHM_SILENT_BARS, outcome, 2)).toEqual({
+			report,
+			verdict: { passed: false, reasons: ['missed'] },
+			// A sixteenth of a whole note of two seconds.
+			spotMs: 125
+		});
+		expect(blockReadingOf(LOCATE_NECK, outcome, 2)).toEqual({ spotMs: 0 });
 	});
 });

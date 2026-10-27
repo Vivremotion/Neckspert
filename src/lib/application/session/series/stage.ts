@@ -15,6 +15,8 @@ export interface SeriesMoment {
 	beat: number;
 	/** Whole bars from the run's first bar to the round's start; null when not known. */
 	fromRunStart: number | null;
+	/** The click is silent in this bar: one of the round's muted bars. */
+	muted: boolean;
 }
 
 /**
@@ -46,6 +48,8 @@ export function stageModel(input: {
 	runOutcomes: readonly RoundOutcome[];
 	/** Sessions of the exercise ended before this series. */
 	endedSessions: number;
+	/** The run's last round, shown at the breath with its marks; null when none was played. */
+	played: PlannedItem | null;
 }): unknown {
 	const { definition, item, presenter, plan, settled, place, locale, random, moment } = input;
 	if (playsCycles(definition)) {
@@ -56,8 +60,9 @@ export function stageModel(input: {
 			barInRound: moment.barInRound,
 			beat: moment.beat,
 			startBar: moment.fromRunStart ?? 0,
-			mutedBars: plan.mutedBars,
+			muted: moment.muted,
 			settled: input.runOutcomes,
+			played: input.played as PlannedItem<RhythmItem> | null,
 			locale,
 			endedSessions: input.endedSessions
 		});
