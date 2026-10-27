@@ -47,8 +47,12 @@ import {
 	BEAT_RESOLUTION,
 	createTempoMap,
 	Fraction,
+	firstAnswerTimes,
 	METER_4_4,
+	responseZones,
+	roundTimes,
 	type Meter,
+	type ResponseZone,
 	type RoundPlan
 } from '$lib/domain/time';
 import type { ExpectedContent } from '$lib/domain/time/plan';
@@ -286,11 +290,10 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		}
 	};
 	if (chance(random, 0.3)) {
-		// Its preview read as a param only when the exercise writes it.
-		round.listenBeforeEnd =
-			preview !== undefined && chance(random, 0.5)
-				? { beats: { param: 'previewBeats' } }
-				: { beats: pick(random, [0.5, 1, 2]) };
+		// Its preview read as a param, the exercise's or its presenter's.
+		round.listenBeforeEnd = chance(random, 0.5)
+			? { beats: { param: 'previewBeats' } }
+			: { beats: pick(random, [0.5, 1, 2]) };
 	}
 	if (chance(random, 0.4)) {
 		// Now and then a whole bar or more: no place within its bar.
@@ -417,6 +420,12 @@ export interface BenchRound {
 	answeredAt: (number | null)[];
 	/** The stage as the round opened, a plain copy. */
 	stage: { view: string; model: unknown } | null;
+	/**
+	 * Every expectation has a moment its zone holds in time, as the engine's pairing computes
+	 * it: false when one opens only once the round has stopped listening (a window that opens a
+	 * few ms before a place past the end of listening), which no answer can then pass.
+	 */
+	answerable: boolean;
 }
 
 /** A step of the clock: the scheduler wakes at least this often. */
@@ -544,7 +553,9 @@ function anchorBeatOf(controller: PlaySessionController): number | null {
 /**
  * Plays the bench's series to its end: each round, as it opens, answered as `answer` says,
  * each expectation at its place (on the beat; in free time, a moment after the window opens),
- * the clock stopping exactly there. A round in free time waits for its answer: unanswered, it
+ * the clock stopping exactly there. A place the engine's zone does not hold in time (past the
+ * end of listening) is answered as late in its zone as still in time; an expectation no moment
+ * answers in time is not played (`BenchRound.answerable`). A round in free time waits for its answer: unanswered, it
  * would never end, so `'none'` answers it wrong there. Returns the rounds met.
  */
 export async function playExercise(
@@ -565,6 +576,19 @@ export async function playExercise(
 	await controller.ready?.();
 	await controller.start();
 
+	/** The zone the engine gives each expectation of a timed round, as its pairing computes it. */
+	const timedZones = (plan: RoundPlan, anchorBeat: number | null): ResponseZone[] | null => {
+		if (anchorBeat === null || plan.expectations.some((e) => e.at === null)) return null;
+		// The round starts its first expectation before the target the stage places.
+		const target = meter.unit.mul(Fraction.fromNumber(anchorBeat, BEAT_RESOLUTION));
+		const clock = { map, start: target.sub(plan.expectations[0].at as Fraction) };
+		const times = firstAnswerTimes(plan, clock, false, roundTimes(plan, clock));
+		return responseZones(plan, clock, times).map((zone) => ({
+			...zone,
+			captureEndS: Math.min(zone.captureEndS, times.listenUntilS)
+		}));
+	};
+
 	const onOpened = () => {
 		const item = items[rounds.length];
 		if (!item) throw new Error(`Round ${rounds.length} opened, but the list has no such item`);
@@ -574,13 +598,19 @@ export async function playExercise(
 			item,
 			plan,
 			answeredAt: plan.expectations.map(() => null),
-			stage: stage && JSON.parse(JSON.stringify(stage))
+			stage: stage && JSON.parse(JSON.stringify(stage)),
+			answerable: true
 		};
 		rounds.push(round);
 		const free = plan.expectations.every((e) => e.at === null);
 		const now = clock.now();
 		const anchorBeat = anchorBeatOf(controller);
 		const pairing = plan.policy.pairing as unknown as { opens: { afterPromptMs?: number } };
+		const zones = timedZones(plan, anchorBeat);
+		const times = plan.expectations.map((_, index) =>
+			free || anchorBeat === null ? null : answerTime(zones?.[index])
+		);
+		round.answerable = free || times.every((time) => time !== null);
 		plan.expectations.forEach((expectation, index) => {
 			if (answer === 'none' && !free) return;
 			const content = expectation.content;
@@ -589,10 +619,9 @@ export async function playExercise(
 			if (free || expectation.at === null || anchorBeat === null) {
 				time = now + (pairing.opens.afterPromptMs ?? 0) / 1000 + FREE_REACTION_S;
 			} else {
-				// The round starts its first expectation before the target the stage places.
-				const target = meter.unit.mul(Fraction.fromNumber(anchorBeat, BEAT_RESOLUTION));
-				const start = target.sub(plan.expectations[0].at as Fraction);
-				time = map.toSeconds(start.add(expectation.at));
+				const at = times[index];
+				if (at === null) return;
+				time = at;
 			}
 			const payload = answer === 'right' ? rightPayload(content) : wrongPayload(content);
 			sends.push({
@@ -635,4 +664,21 @@ export async function playExercise(
 	}
 	for (let i = 0; i < 20; i++) await Promise.resolve();
 	return rounds;
+}
+
+/** How long before the end of its zone an answer comes when its place lies past it. */
+const BEFORE_ZONE_END_S = 0.005;
+
+/**
+ * When a right answer to an expectation comes: on its place when its zone holds it in time,
+ * else as late in the zone as it is still in time (an early answer, as the engine pairs it);
+ * null when no moment of its zone is in time.
+ */
+function answerTime(zone: ResponseZone | undefined): number | null {
+	if (!zone || zone.atS === null) return null;
+	const lo = zone.opensS;
+	const hi = Math.min(zone.inTimeEndS, zone.captureEndS);
+	if (hi <= lo) return null;
+	if (zone.atS >= lo && zone.atS < hi - BEFORE_ZONE_END_S) return zone.atS;
+	return Math.max(lo, hi - Math.min(BEFORE_ZONE_END_S, (hi - lo) / 2));
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	presentationProblem,
+	previewProblem,
 	screenProblem,
 	type PromptStageModel
 } from '$lib/application/presentation';
@@ -79,7 +80,8 @@ function refusal(definition: ExerciseDefinition): string | null {
 	return (
 		validateExercise(definition, { sensors: BENCH_SENSORS }) ??
 		presentationProblem(definition) ??
-		screenProblem(definition, BENCH_PRESENTERS)
+		screenProblem(definition, BENCH_PRESENTERS) ??
+		previewProblem(definition, BENCH_PRESENTERS)
 	);
 }
 
@@ -139,7 +141,9 @@ describe('every valid exercise plays', () => {
 					const rounds = await playExercise(bench, answer);
 					const attempts = await bench.stored();
 					const successes = attempts.map((attempt) => attempt.success);
-					const expected = items.map(() => answer === 'right');
+					// A right answer passes every round the engine can hear in time; a round whose
+					// window opens only once listening has ended is a miss whatever is played.
+					const expected = rounds.map((round) => answer === 'right' && round.answerable);
 					if (
 						rounds.length !== items.length ||
 						JSON.stringify(successes) !== JSON.stringify(expected)
