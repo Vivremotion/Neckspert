@@ -35,13 +35,37 @@ describe('PlayFrame', () => {
 
 	it('explains the triads before they start: the root alone, then the chord; the zone, the whole chord around a fret', () => {
 		const controller = new StageController();
-		const { container } = render(PlayFrame, { props: { controller, kind: 'triads' } });
-		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
+		render(PlayFrame, { props: { controller, kind: 'triads' } });
 		expect(screen.getByText(/fondamentale seule/i)).toBeTruthy();
 		cleanup();
 		render(PlayFrame, { props: { controller, kind: 'triads-zone' } });
 		expect(screen.getByText(/vers la case 5/i)).toBeTruthy();
 		expect(screen.queryByText(/joue la fondamentale seule/i)).toBeNull();
+	});
+
+	it('takes its world from the view on stage, from the start screen, whatever the kind', () => {
+		for (const kind of ['learn', 'gesture', 'exercise', 'triads'] as const) {
+			for (const [name, world] of Object.entries(VIEW_WORLDS)) {
+				const controller = new StageController();
+				controller.view.stage = { view: name, model: null };
+				const { container } = render(PlayFrame, {
+					props: { controller, kind, views: { ...PLAY_VIEWS, [name]: FakeView } }
+				});
+				expect(controller.view.status).toBe('idle');
+				expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
+				cleanup();
+			}
+		}
+	});
+
+	it('is neutral, in the pixel world, before any view is on stage, whatever the kind', () => {
+		for (const kind of ['learn', 'gesture', 'exercise'] as const) {
+			const { container } = render(PlayFrame, {
+				props: { controller: new StageController(), kind }
+			});
+			expect(container.querySelector('[data-world="pixel"]')).toBeTruthy();
+			cleanup();
+		}
 	});
 
 	it('quits to the summary when asked, and goes home otherwise', async () => {

@@ -66,6 +66,16 @@ function lane(controller: PlaySessionController): PromptStageModel | null {
 const ALL_LOCATE = locateItems().map((item) => learnedCard({ mechanic: 'locate', item }));
 
 describe('a learn session of the notes', () => {
+	it('shows the lane of locate from the start screen, before any sound', async () => {
+		const app = await notesApp();
+		const controller = await app.services.startSession('learn');
+		expect(controller.view.stage).toBeNull();
+		await controller.ready?.();
+		expect(controller.view.status).toBe('idle');
+		expect(controller.view.stage?.view).toBe('lane');
+		expect(app.sounds.emitted()).toEqual([]);
+	});
+
 	it('probes a new note unaided, then presents it aided at once after a miss, with the string drawn', async () => {
 		const app = await notesApp();
 		const controller = await startNotes(app, 'learn');

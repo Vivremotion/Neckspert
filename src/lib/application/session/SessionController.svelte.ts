@@ -429,9 +429,19 @@ export class SessionController implements PlaySessionController {
 			this.view.status = 'idle';
 			return false;
 		}
-		if (this.generation !== generation) return false;
+		// A quit during the permission prompt: the input opens after the end, which closed nothing.
+		if (this.generation !== generation) return this.closeStale(detector);
 		await clock.resume();
-		return this.generation === generation;
+		return this.generation === generation || this.closeStale(detector);
+	}
+
+	/**
+	 * Closes an input that finished opening for a run that has ended (always false), unless
+	 * another start is under way: it opens the input itself and owns it.
+	 */
+	private closeStale(detector: { stop(): void }): false {
+		if (!this.starting) detector.stop();
+		return false;
 	}
 
 	/** After the end: another series, with its own id and nothing of the one before. */

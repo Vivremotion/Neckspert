@@ -67,6 +67,64 @@ describe('SessionController', () => {
 			expect(ctx.prepared).toEqual(['series-1']);
 		});
 
+		it('shows the first exercise’s view from the start screen, before any sound', async () => {
+			const ctx = setup(passage());
+			expect(ctx.controller.view.stage).toBeNull();
+			await ctx.controller.ready();
+			expect(ctx.controller.view.status).toBe('idle');
+			// The exercise of the first item (a jam) names its view.
+			expect(ctx.controller.view.stage?.view).toBe('grid-scroll');
+			expect(ctx.sounds.emitted()).toEqual([]);
+		});
+
+		it('closes the input that opens after a quit during the permission prompt', async () => {
+			const ctx = setup(passage());
+			let allow: () => void = () => {};
+			ctx.detector.start = vi.fn(async (deviceId: string | null) => {
+				await new Promise<void>((resolve) => (allow = resolve));
+				ctx.detector.running = true;
+				ctx.detector.deviceId = deviceId;
+			});
+			const starting = ctx.controller.start();
+			await drain();
+			expect(ctx.detector.start).toHaveBeenCalledTimes(1);
+			ctx.controller.quit();
+			await drain();
+			// The prompt is answered after the quit: the input opens, then is closed at once.
+			allow();
+			await starting;
+			await drain();
+			expect(ctx.detector.running).toBe(false);
+			expect(await ctx.repositories.sessions.list()).toEqual([]);
+			expect(ctx.controller.view.status).toBe('finished');
+		});
+
+		it('leaves open the input of a new start made after that quit', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			const allows: (() => void)[] = [];
+			ctx.detector.start = vi.fn(async () => {
+				await new Promise<void>((resolve) => allows.push(resolve));
+				ctx.detector.running = true;
+			});
+			const first = ctx.controller.start();
+			await drain();
+			ctx.controller.quit();
+			await drain();
+			const second = ctx.controller.start();
+			await drain();
+			expect(allows).toHaveLength(2);
+			// The first prompt is answered late, while the second start still waits on its own.
+			allows[0]();
+			await first;
+			await drain();
+			expect(ctx.detector.running).toBe(true);
+			allows[1]();
+			await second;
+			expect(ctx.detector.running).toBe(true);
+		});
+
 		it('counts a bar at the first tempo, then opens the first change a beat before its target on the next 1', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.ready();

@@ -33,15 +33,14 @@
 	const view = $derived(controller.view);
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
 	/**
-	 * The frame is drawn in the world of the view on stage; with none yet (the start screen, the
-	 * end), in the world of what the session plays: the notes' and the triads' views are quiet.
+	 * The frame is drawn in the world of the view on stage, from the start screen on (the
+	 * controller places its first exercise's view at `ready()`). Before it is ready, and at the
+	 * end, no view is on stage: the frame is neutral, in the pixel world (the fuller chrome, until
+	 * plan 3 migrates the last views).
+	 * The kind of session is not read.
 	 */
 	const world: PlayWorld = $derived(
-		view.stage
-			? (VIEW_WORLDS[view.stage.view] ?? 'pixel')
-			: kind === 'learn' || kind === 'free' || kind === 'triads' || kind === 'triads-zone'
-				? 'quiet'
-				: 'pixel'
+		view.stage ? (VIEW_WORLDS[view.stage.view] ?? 'pixel') : 'pixel'
 	);
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
 	/** In the quiet world, start, end and pause are a light page over the field. */
