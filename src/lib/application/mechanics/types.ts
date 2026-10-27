@@ -55,7 +55,7 @@ export interface MechanicPresenter<I = any, A = any> {
 	contestable?: boolean;
 	/** The answer buttons of a screen mechanic. */
 	answerChoices?(): AnswerChoice[];
-	/** Detection log lines of this mechanic for one observation payload. */
+	/** Detection log lines of this mechanic for one payload of its own sensors (`sensors`). */
 	debugLines?(item: I, payload: unknown): string[];
 	/**
 	 * What each of its sensors should listen for in a round that opens at `opensAt` (audio s),

@@ -7,6 +7,7 @@ import {
 } from '$lib/application/presentation';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
+import { ROUND_MODES } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import {
 	BENCH_PRESENTERS,
@@ -18,6 +19,7 @@ import {
 	playExercise,
 	randomExercise
 } from '$lib/testing/randomExercise';
+import { seriesProblem } from './seriesProblem';
 
 /**
  * The promise of the exercise language: an exercise that combines registered pieces plays on the
@@ -81,7 +83,8 @@ function refusal(definition: ExerciseDefinition): string | null {
 		validateExercise(definition, { sensors: BENCH_SENSORS }) ??
 		presentationProblem(definition) ??
 		screenProblem(definition, BENCH_PRESENTERS) ??
-		previewProblem(definition, BENCH_PRESENTERS)
+		previewProblem(definition, BENCH_PRESENTERS) ??
+		seriesProblem(definition)
 	);
 }
 
@@ -134,7 +137,7 @@ describe('every valid exercise plays', () => {
 			const definition = drawn(seed);
 			if (refusal(definition) !== null) continue;
 			accepted++;
-			for (const answer of ['right', 'none'] as const) {
+			for (const answer of ['right', 'wrong', 'none'] as const) {
 				const items = listItems(definition, mulberry32(seed + 10_000));
 				try {
 					const bench = exerciseSeries(definition, items);
@@ -142,8 +145,15 @@ describe('every valid exercise plays', () => {
 					const attempts = await bench.stored();
 					const successes = attempts.map((attempt) => attempt.success);
 					// A right answer passes every round the engine can hear in time; a round whose
-					// window opens only once listening has ended is a miss whatever is played.
-					const expected = rounds.map((round) => answer === 'right' && round.answerable);
+					// window opens only once listening has ended is a miss whatever is played. A
+					// wrong answer fails every round, but one that asks for no content: any attack
+					// answers it.
+					const expected = rounds.map(
+						(round) =>
+							round.answerable &&
+							(answer === 'right' ||
+								(answer === 'wrong' && round.plan.expectations.every((e) => !e.content)))
+					);
 					if (
 						rounds.length !== items.length ||
 						JSON.stringify(successes) !== JSON.stringify(expected)
@@ -162,6 +172,39 @@ describe('every valid exercise plays', () => {
 		expect(accepted).toBeGreaterThanOrEqual(50);
 	});
 
+	it('draws every value the round template allows', () => {
+		const rounds = SEEDS.map((seed) => drawn(seed).round!);
+		const drawnValues = (read: (round: (typeof rounds)[number]) => unknown[]) =>
+			new Set(rounds.flatMap(read));
+		expect(drawnValues((r) => [r.policy.pairing.mode])).toEqual(
+			new Set(Object.keys(ROUND_MODES.pairings))
+		);
+		expect(drawnValues((r) => [r.policy.verdict])).toEqual(
+			new Set(Object.keys(ROUND_MODES.verdicts))
+		);
+		expect(drawnValues((r) => [r.policy.unit])).toEqual(new Set(['response', 'cycle']));
+		expect(drawnValues((r) => r.expectations.map((e) => e.role ?? 'target'))).toEqual(
+			new Set(['target', 'judged-rest'])
+		);
+		expect(drawnValues((r) => r.expectations.map((e) => e.content === null))).toEqual(
+			new Set([true, false])
+		);
+		expect(rounds.some((r) => (r.mutedBars ?? []).length > 0)).toBe(true);
+		// The alignment is played, not only refused.
+		const aligned = SEEDS.map(drawn).filter(
+			(d) => d.round!.policy.pairing.mode === 'alignment' && refusal(d) === null
+		);
+		expect(aligned.length).toBeGreaterThan(0);
+	});
+
+	it('draws an exercise that writes a presentation and no view on the lane', async () => {
+		const unnamed: ExerciseDefinition = { ...ROOT_THEN_CHORD, view: undefined };
+		expect(refusal(unnamed)).toBeNull();
+		const bench = exerciseSeries(unnamed, listItems(unnamed, mulberry32(7)));
+		const rounds = await playExercise(bench, 'right');
+		expect(rounds.map((round) => round.stage?.view)).toEqual(['lane', 'lane', 'lane']);
+	});
+
 	it('names the exercise and the field of every definition it refuses', () => {
 		const refusals = SEEDS.flatMap((seed) => {
 			const problem = refusal(drawn(seed));
@@ -172,7 +215,7 @@ describe('every valid exercise plays', () => {
 			expect(problem.startsWith(`random-${seed}: `), problem).toBe(true);
 			// A field follows the name: a path of the definition.
 			expect(problem.slice(`random-${seed}: `.length), problem).toMatch(
-				/^(round|params|presentation|meter|tempo|flow|writes a round)/
+				/^(round|params|presentation|meter|tempo|flow|view|writes a round)/
 			);
 		}
 	});

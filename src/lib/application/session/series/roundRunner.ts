@@ -68,7 +68,7 @@ export class RoundRunner {
 	#withdrawn = false;
 	/** Every expectation is in free time: no beat, no wake-up. */
 	readonly #isFree: boolean;
-	readonly #debug: { lines(payload: unknown): string[] } | null;
+	readonly #debug: { lines(payload: unknown, sensor: SensorKind): string[] } | null;
 
 	constructor(input: {
 		plan: RoundPlan;
@@ -88,7 +88,8 @@ export class RoundRunner {
 		sources: ReadonlyMap<SensorKind, ObservationSource>;
 		expectation: Partial<Record<SensorKind, unknown>>;
 		/** The presenter's lines for an observation's payload, written to the detection log. */
-		debug?: { lines(payload: unknown): string[] };
+		/** Its sensor tells which payload it is: a presenter describes its own sensors' only. */
+		debug?: { lines(payload: unknown, sensor: SensorKind): string[] };
 		onEvent: (event: RunnerEvent) => void;
 	}) {
 		const { plan, transport, map } = input;
@@ -186,7 +187,7 @@ export class RoundRunner {
 			`capteur : ${sensor}, t = ${observation.time.toFixed(3)} s`
 		];
 		if (fate !== 'other-sensor' && fate !== 'unreadable') {
-			lines.push(...(this.#debug?.lines(observation.payload) ?? []));
+			lines.push(...(this.#debug?.lines(observation.payload, sensor) ?? []));
 		}
 		logDetection(fate === 'answer' ? 'observation prise' : 'observation ignorée', lines);
 	}

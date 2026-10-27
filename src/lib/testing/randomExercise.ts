@@ -45,15 +45,19 @@ import { CHROMATIC_NOTES, type PitchName } from '$lib/domain/music/types';
 import { createListSource } from '$lib/domain/progress';
 import {
 	BEAT_RESOLUTION,
+	alignmentCapture,
+	alignmentPairing,
 	createTempoMap,
 	Fraction,
 	firstAnswerTimes,
 	METER_4_4,
+	ROUND_MODES,
 	responseZones,
 	roundTimes,
 	type Meter,
 	type ResponseZone,
-	type RoundPlan
+	type RoundPlan,
+	type TempoMap
 } from '$lib/domain/time';
 import type { ExpectedContent } from '$lib/domain/time/plan';
 import { occurrenceId, occurrencePosition, triadParams, triadVoicings } from '$lib/domain/triads';
@@ -88,6 +92,17 @@ const pick = <T>(random: () => number, values: readonly T[]): T =>
 const chance = (random: () => number, p: number) => random() < p;
 const between = (random: () => number, min: number, max: number) =>
 	min + Math.floor(random() * (max - min + 1));
+
+/** One of `modes`, `usual` but with chance `p` of another (each of the others alike). */
+function drawMode(
+	random: () => number,
+	modes: readonly string[],
+	usual: string,
+	p: number
+): string {
+	const others = modes.filter((mode) => mode !== usual);
+	return others.length > 0 && chance(random, p) ? pick(random, others) : usual;
+}
 
 /** The mechanics drawn: those a response exercise is written for today. */
 export const RANDOM_MECHANICS: readonly MechanicId[] = [
@@ -181,16 +196,23 @@ function randomPosition(random: () => number, beats: number): Position {
 
 /**
  * One or two expectations, each derived from the item by a derivation that reads the mechanic
- * (now and then one that does not) and heard by the sensor of its kind; in free time, or placed
- * on the beat (now and then the two mixed).
+ * (now and then one that does not) and heard by the sensor of its kind, or asking for no content
+ * (a bare attack, heard by any sensor: mostly so under an alignment, which judges none); now and
+ * then a judged rest; in free time, or placed on the beat (now and then the two mixed).
  */
-function randomExpectations(random: () => number, mechanic: MechanicId): ExpectationTemplate[] {
+function randomExpectations(
+	random: () => number,
+	mechanic: MechanicId,
+	aligned: boolean
+): ExpectationTemplate[] {
 	const all = Object.keys(CONTENT_DERIVATIONS).filter(
 		(name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND
 	);
 	const reading = all.filter((name) => CONTENT_DERIVATIONS[name].reads.includes(mechanic));
 	const count = between(random, 1, 2);
-	const free = chance(random, mechanic === 'identify' ? 0.6 : 0.15);
+	const free = chance(random, aligned ? 0.05 : mechanic === 'identify' ? 0.6 : 0.15);
+	// A bare attack's sensor: one for the whole round, now and then not.
+	const bareSensor = pick(random, BENCH_SENSORS);
 	const mixed = count === 2 && chance(random, 0.05);
 	// In the order they come, now and then not.
 	const places = Array.from({ length: count }, () => pick(random, POSITIONS));
@@ -201,13 +223,19 @@ function randomExpectations(random: () => number, mechanic: MechanicId): Expecta
 		const window = chance(random, 0.3)
 			? { ms: { param: 'windows.perfectMs' } }
 			: { ms: pick(random, WINDOWS_MS) };
+		const bare = chance(random, aligned ? 0.9 : 0.05);
 		const template: ExpectationTemplate = {
 			at: inFreeTime ? null : randomPosition(random, beats),
-			sensor: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind],
-			content: { from },
+			sensor: bare
+				? chance(random, 0.9)
+					? bareSensor
+					: pick(random, BENCH_SENSORS)
+				: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind],
+			content: bare ? null : { from },
 			window
 		};
-		if (!inFreeTime && chance(random, 0.25)) {
+		if (chance(random, 0.05)) template.role = 'judged-rest';
+		if (!inFreeTime && chance(random, aligned ? 0.05 : 0.25)) {
 			// Ending after it starts, now and then not.
 			const after = ENDS.filter((end) => end > beats);
 			const ends = chance(random, 0.9) && after.length > 0 ? after : ENDS;
@@ -250,7 +278,9 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	const meter = pick(random, METERS);
 	const tempo = between(random, 50, 160);
 	const ladder = randomLadder(random);
-	const expectations = randomExpectations(random, mechanic);
+	const pairingMode = drawMode(random, Object.keys(ROUND_MODES.pairings), 'first-answer', 0.25);
+	const aligned = pairingMode !== 'first-answer';
+	const expectations = randomExpectations(random, mechanic, aligned);
 	const free = expectations.every((e) => e.at === null);
 
 	const writtenLead = chance(random, 0.3) ? pick(random, LEADS) : null;
@@ -283,12 +313,13 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		expectations,
 		length,
 		policy: {
-			unit: 'response',
-			verdict: 'response',
+			unit: chance(random, 0.05) ? 'cycle' : 'response',
+			verdict: drawMode(random, Object.keys(ROUND_MODES.verdicts), 'response', 0.05),
 			correction: chance(random, 0.3),
-			pairing: { mode: 'first-answer', opens, lateMs, lateCapture }
+			pairing: aligned ? { mode: pairingMode } : { mode: pairingMode, opens, lateMs, lateCapture }
 		}
 	};
+	if (chance(random, 0.05)) round.mutedBars = [between(random, 0, 1)];
 	if (chance(random, 0.3)) {
 		// Its preview read as a param, the exercise's or its presenter's.
 		round.listenBeforeEnd = chance(random, 0.5)
@@ -303,11 +334,20 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	if (chance(random, 0.5)) round.countEndsOn = pick(random, ['prompt', 'target'] as const);
 
 	const presentation = randomPresentation(random, mechanic);
+	// Its view: the one that draws it, or none (the lane for a presentation); now and then one
+	// that reads another model, or none the screen has.
+	const view = chance(random, 0.05)
+		? pick(random, ['grid-scroll', 'link-lane', 'rhythm-figure', 'score'])
+		: chance(random, 0.2)
+			? undefined
+			: mechanic === 'identify' && free
+				? 'answer-keys'
+				: 'lane';
 	return {
 		id,
 		version: 1,
 		mechanic,
-		view: mechanic === 'identify' && free ? 'answer-keys' : 'lane',
+		...(view !== undefined && { view }),
 		meter,
 		tempo: { fixed: tempo },
 		...(preview !== undefined && { flow: { previewBeats: preview } }),
@@ -582,6 +622,7 @@ export async function playExercise(
 		// The round starts its first expectation before the target the stage places.
 		const target = meter.unit.mul(Fraction.fromNumber(anchorBeat, BEAT_RESOLUTION));
 		const clock = { map, start: target.sub(plan.expectations[0].at as Fraction) };
+		if (plan.policy.pairing.mode === alignmentPairing.id) return alignedZones(plan, clock);
 		const times = firstAnswerTimes(plan, clock, false, roundTimes(plan, clock));
 		return responseZones(plan, clock, times).map((zone) => ({
 			...zone,
@@ -614,7 +655,6 @@ export async function playExercise(
 		plan.expectations.forEach((expectation, index) => {
 			if (answer === 'none' && !free) return;
 			const content = expectation.content;
-			if (!content) return;
 			let time: number;
 			if (free || expectation.at === null || anchorBeat === null) {
 				time = now + (pairing.opens.afterPromptMs ?? 0) / 1000 + FREE_REACTION_S;
@@ -623,7 +663,13 @@ export async function playExercise(
 				if (at === null) return;
 				time = at;
 			}
-			const payload = answer === 'right' ? rightPayload(content) : wrongPayload(content);
+			// A bare attack asks for no content: any is right, none wrong.
+			const payload =
+				content === null
+					? BARE_PAYLOAD[expectation.sensor]
+					: answer === 'right'
+						? rightPayload(content)
+						: wrongPayload(content);
 			sends.push({
 				time,
 				send: () => {
@@ -664,6 +710,36 @@ export async function playExercise(
 	}
 	for (let i = 0; i < 20; i++) await Promise.resolve();
 	return rounds;
+}
+
+/** What a sensor sends for a bare attack, an expectation that asks for no content. */
+const BARE_PAYLOAD: Readonly<Record<string, unknown>> = {
+	note: { midi: 60 },
+	chord: { windowMs: 300, decided: null, final: true, variants: [] },
+	tap: 'C'
+};
+
+/**
+ * The zones of a round paired by the alignment: each point on its place, in time while it lies
+ * in the capture window the alignment keeps attacks in (`alignmentCapture`).
+ */
+function alignedZones(plan: RoundPlan, clock: { map: TempoMap; start: Fraction }): ResponseZone[] {
+	const { map, start } = clock;
+	const { opensS, closesS } = alignmentCapture(plan, map, start, roundTimes(plan, clock));
+	return plan.expectations.map((e, index) => {
+		const atS = map.toSeconds(start.add(e.at as Fraction));
+		const inside = atS >= opensS && atS < closesS - BEFORE_ZONE_END_S;
+		return {
+			index,
+			sensor: e.sensor,
+			span: 'point',
+			atS,
+			// Only its place: no moment of it when the capture window leaves it out.
+			opensS: inside ? atS : closesS,
+			inTimeEndS: closesS,
+			captureEndS: closesS
+		};
+	});
 }
 
 /** How long before the end of its zone an answer comes when its place lies past it. */

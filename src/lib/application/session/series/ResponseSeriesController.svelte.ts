@@ -549,7 +549,13 @@ export class ResponseSeriesController implements PlaySessionController {
 			sources: this.sensors.sources,
 			expectation:
 				presenter.expectation?.(item.item, { opensAt: promptTime, previous: this.previous }) ?? {},
-			debug: { lines: (payload) => presenter.debugLines?.(item.item, payload) ?? [] },
+			// A presenter reads the payloads of its own sensors, not a bare attack heard by another.
+			debug: {
+				lines: (payload, sensor) =>
+					presenter.sensors.includes(sensor)
+						? (presenter.debugLines?.(item.item, payload) ?? [])
+						: []
+			},
 			onEvent: (event) => this.onRunnerEvent(round, event)
 		});
 		this.round = round;
