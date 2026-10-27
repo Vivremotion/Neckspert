@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
+import { EXERCISES, exerciseById, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
 import type { ExerciseDefinition, Ladder } from '../types';
 import type { RoundTemplate } from './types';
 import { roundProblem } from './validate';
@@ -147,6 +147,71 @@ describe('roundProblem', () => {
 			return t;
 		});
 		expect(roundProblem(gap)).toMatch(/round\.expectations\[0\]\.window\.ofGap .*fraction/);
+	});
+
+	it('refuses what the compiled round could not hold, as far as the exercise knows its places', () => {
+		// Each refused here was drawn by openness.spec, accepted, and failed in play.
+		const nothing = withRound(IDENTIFY_NECK, (t) => ({ ...t, length: { bars: 0 } }));
+		expect(roundProblem(nothing)).toMatch(/round\.length must last more than nothing/);
+		const backwards = withRound(TRIADS_ANCHOR, (t) => {
+			t.expectations[1].at = { beats: 0 };
+			t.expectations[0].at = { beats: 1 };
+			t.expectations[0].window = { ms: 80 };
+			return t;
+		});
+		expect(roundProblem(backwards)).toMatch(
+			/round\.expectations\[1\]\.at comes before expectations\[0\] \(0 before 1\/4\)/
+		);
+		// Locate lasts its breath, one bar: a place on the next bar is past its end.
+		const past = withRound(LOCATE_NECK, (t) => {
+			t.expectations[0].at = { bars: 1 };
+			return t;
+		});
+		expect(roundProblem(past)).toMatch(
+			/round\.expectations\[0\]\.at must fall within the round, which lasts 1, got 1/
+		);
+		const overlong = withRound(TRIADS_ANCHOR, (t) => {
+			t.expectations[1].until = { bars: 3 };
+			return t;
+		});
+		expect(roundProblem(overlong)).toMatch(
+			/round\.expectations\[1\]\.until must end within the round, which lasts 2, got 3/
+		);
+		// Listening ends a beat before the end: a place on the last beat is never heard.
+		const unheard = withRound(TRIADS_ANCHOR, (t) => ({
+			...t,
+			listenBeforeEnd: { beats: 1 },
+			expectations: [{ ...t.expectations[0], at: { beats: 7 } }]
+		}));
+		expect(roundProblem(unheard)).toMatch(
+			/round\.expectations\[0\]\.at must come before the round stops listening, at 7\/4, got 7\/4/
+		);
+		const deaf = withRound(LOCATE_NECK, (t) => ({ ...t, listenBeforeEnd: { bars: 1 } }));
+		expect(roundProblem(deaf)).toMatch(
+			/round\.listenBeforeEnd must leave the round some listening/
+		);
+		// A length an item measures is not known here: nothing is refused on it.
+		expect(roundProblem(exerciseById('gesture-jam'))).toBeNull();
+	});
+
+	it('refuses a plan its pairing or verdict mode cannot run, naming the mode', () => {
+		const stretched = withRound(TRIADS_ANCHOR, (t) => ({
+			...t,
+			expectations: t.expectations.slice(1)
+		}));
+		expect(roundProblem(stretched)).toBe(
+			'round.policy.verdict "response" cannot judge the round: a response verdict needs a point expectation'
+		);
+		const early = withRound(IDENTIFY_NECK, (t) => ({
+			...t,
+			policy: {
+				...t.policy,
+				pairing: { ...t.policy.pairing, opens: { beforeMs: 100, maxBeats: 1 } }
+			}
+		}));
+		expect(roundProblem(early)).toBe(
+			'round.policy.pairing cannot be run by mode "first-answer": a free-time plan must open with afterPromptMs'
+		);
 	});
 
 	it('refuses a bar offset or a gap that is not written as text', () => {

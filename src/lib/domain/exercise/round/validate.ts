@@ -1,8 +1,10 @@
 import { CONTENT_DERIVATIONS, ITEM_NUMBERS } from '../../derivations';
 import { CONTENT_JUDGES } from '../../judges';
 import { Fraction } from '../../time/fraction';
-import { barLength, beatsOf, isBeatCount, METER_4_4 } from '../../time/meter';
+import { barLength, BEAT_RESOLUTION, beatsOf, isBeatCount, METER_4_4 } from '../../time/meter';
 import { ROUND_MODES } from '../../time/modes';
+import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
+import { pacingOf } from '../pacing';
 import { ladderFieldOf, ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseParamsOf } from './compile';
@@ -333,6 +335,155 @@ function lengthProblem(check: Check, length: unknown): string | null {
 	return null;
 }
 
+/** Where a place falls, undefined when an item or a level decides it; its problems were named before. */
+function whereOf(check: Check, field: string, position: unknown): Fraction | undefined {
+	const placed = positionOf(check, field, position);
+	return typeof placed === 'string' ? undefined : placed.where;
+}
+
+/** The round's length, undefined when an item or a level decides a part of it; or the problem. */
+function lengthOf(check: Check, length: Record_): Fraction | undefined | string {
+	const meter = check.definition.meter ?? METER_4_4;
+	const bar = barLength(meter);
+	let total = Fraction.ZERO;
+	if (length.bars !== undefined) {
+		const bars = numberOf(check, 'length.bars', length.bars);
+		if (typeof bars !== 'number') return undefined;
+		try {
+			total = total.add(bar.mul(Fraction.fromNumber(bars, BEAT_RESOLUTION)));
+		} catch {
+			return at('length.bars', `must be an exact fraction of a bar, got ${bars}`);
+		}
+	}
+	if (length.beats !== undefined) {
+		const beats = numberOf(check, 'length.beats', length.beats);
+		if (typeof beats !== 'number') return undefined;
+		total = total.add(beatsOf(meter, beats));
+	}
+	if (length.breath === true) {
+		total = total.add(bar.mul(Fraction.of(pacingOf(check.definition).respirationBars)));
+	}
+	return total;
+}
+
+/** A number of the template as far as the exercise knows it, 0 where an item or a level decides. */
+function knownNumber(check: Check, value: unknown): unknown {
+	if (isNum(value)) {
+		const found = numberOf(check, '', value);
+		return typeof found === 'number' ? found : 0;
+	}
+	if (Array.isArray(value)) return value.map((v) => knownNumber(check, v));
+	if (isRecord(value)) {
+		return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, knownNumber(check, v)]));
+	}
+	return value;
+}
+
+/**
+ * The plan of the round as far as the exercise knows it, places an item or a level decides
+ * standing at the start: what the round's modes read to say whether they can run it.
+ */
+function knownPlan(check: Check, template: Record_, length: Fraction | undefined): RoundPlan {
+	const policy = template.policy as Record_;
+	const expectations = (template.expectations as Record_[]).map((e): Expectation => ({
+		at: e.at === null ? null : (whereOf(check, '', e.at) ?? Fraction.ZERO),
+		span:
+			e.until === undefined
+				? 'point'
+				: { until: whereOf(check, '', e.until) ?? length ?? Fraction.of(1) },
+		role: (e.role as Expectation['role'] | undefined) ?? 'target',
+		sensor: e.sensor as string,
+		content: null,
+		window:
+			isRecord(e.window) && 'ofGap' in e.window
+				? { ofGap: Fraction.parse(e.window.ofGap as string) }
+				: { ms: knownNumber(check, (e.window as Record_).ms) as number },
+		bar: (e.bar as number | undefined) ?? 0
+	}));
+	return {
+		prompt: Fraction.ZERO,
+		expectations,
+		length: length ?? Fraction.of(1),
+		mutedBars: [],
+		policy: {
+			unit: policy.unit as RoundPlan['policy']['unit'],
+			verdict: policy.verdict as string,
+			correction: policy.correction as boolean,
+			pairing: knownNumber(check, policy.pairing) as PairingPolicy
+		}
+	};
+}
+
+/**
+ * What the compiled round could not hold, as far as the exercise knows its places: a length of
+ * nothing, expectations out of order or outside the round, listening that ends before it starts,
+ * an expectation placed where the round no longer listens, a plan its pairing or verdict mode
+ * cannot run.
+ */
+function shapeProblem(check: Check, template: Record_): string | null {
+	const length = lengthOf(check, template.length as Record_);
+	if (typeof length === 'string') return length;
+	if (length !== undefined && length.compare(Fraction.ZERO) <= 0) {
+		return at('length', 'must last more than nothing, got 0');
+	}
+	// Where the round stops listening, when the exercise knows it.
+	const before =
+		template.listenBeforeEnd === undefined
+			? Fraction.ZERO
+			: whereOf(check, 'listenBeforeEnd', template.listenBeforeEnd);
+	if (length !== undefined && before !== undefined && before.compare(length) >= 0) {
+		return at(
+			'listenBeforeEnd',
+			`must leave the round some listening: it lasts ${length}, got ${before}`
+		);
+	}
+	const listenUntil = length !== undefined && before !== undefined ? length.sub(before) : undefined;
+	let previous: { i: number; where: Fraction } | null = null;
+	for (const [i, e] of (template.expectations as Record_[]).entries()) {
+		if (e.at === null) continue;
+		const start = whereOf(check, `expectations[${i}].at`, e.at);
+		if (start === undefined) continue;
+		if (previous && start.compare(previous.where) < 0) {
+			return at(
+				`expectations[${i}].at`,
+				`comes before expectations[${previous.i}] (${start} before ${previous.where}): expectations are written in the order they come`
+			);
+		}
+		previous = { i, where: start };
+		if (length === undefined) continue;
+		if (start.compare(length) >= 0) {
+			return at(
+				`expectations[${i}].at`,
+				`must fall within the round, which lasts ${length}, got ${start}`
+			);
+		}
+		if (listenUntil !== undefined && start.compare(listenUntil) >= 0) {
+			return at(
+				`expectations[${i}].at`,
+				`must come before the round stops listening, at ${listenUntil}, got ${start}`
+			);
+		}
+		const end =
+			e.until === undefined ? undefined : whereOf(check, `expectations[${i}].until`, e.until);
+		if (end !== undefined && end.compare(length) > 0) {
+			return at(
+				`expectations[${i}].until`,
+				`must end within the round, which lasts ${length}, got ${end}`
+			);
+		}
+	}
+	const plan = knownPlan(check, template, length);
+	const policy = template.policy as Record_;
+	const mode = (policy.pairing as Record_).mode as string;
+	const pairing = ROUND_MODES.pairings[mode].validate?.(plan) ?? null;
+	if (pairing !== null) return at('policy.pairing', `cannot be run by mode "${mode}": ${pairing}`);
+	const verdict = ROUND_MODES.verdicts[policy.verdict as string].validate?.(plan) ?? null;
+	if (verdict !== null) {
+		return at('policy.verdict', `"${String(policy.verdict)}" cannot judge the round: ${verdict}`);
+	}
+	return null;
+}
+
 function templateProblem(check: Check): string | null {
 	const template: unknown = check.definition.round;
 	if (!isRecord(template)) return at('', 'must be an object');
@@ -399,7 +550,7 @@ function templateProblem(check: Check): string | null {
 			`must be one of ${COUNT_ENDS.join(', ')}, got "${String(template.countEndsOn)}"`
 		);
 	}
-	return null;
+	return shapeProblem(check, template);
 }
 
 /**
@@ -408,7 +559,10 @@ function templateProblem(check: Check): string | null {
  * derivation or number of an item that does not read the exercise's mechanic, content without a
  * judge, a mode it does not have, a sensor the session lacks (when told the `sensors`), a param
  * no level resolves, a negative place, a stretch that does not end after it starts, expectations
- * in free time mixed with placed ones, a bar offset outside its bar. The caller names the exercise.
+ * in free time mixed with placed ones, a bar offset outside its bar; and, as far as the exercise
+ * knows its places, a round of no length, expectations out of order, outside the round or where
+ * it no longer listens, no listening left, a plan its pairing or verdict mode cannot run. The
+ * caller names the exercise.
  */
 export function roundProblem(
 	definition: ExerciseDefinition,
