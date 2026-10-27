@@ -1,28 +1,21 @@
-import { cardKeyOf, type MechanicRules } from '$lib/domain/mechanics';
+import type { MechanicIdentity } from '$lib/domain/mechanics';
 import {
 	applyColdAttempt,
-	cardLeadAfter,
 	classifyTemperature,
 	introduceCard,
 	probeTemperature,
-	type CardLeadEvent,
 	type ItemSource,
 	type RecordOutcome
 } from '$lib/domain/progress';
 import type { DirectRecall } from '$lib/domain/learning';
-import {
-	isResponseSuccess,
-	type Attempt,
-	type CardState,
-	type Execution,
-	type LeadBeats,
-	type MechanicId,
-	type PlannedItem,
-	type RecordedObservation,
-	type Temperature
+import type {
+	Attempt,
+	CardState,
+	MechanicId,
+	PlannedItem,
+	RecordedObservation,
+	Temperature
 } from '$lib/domain/types';
-import type { RoundOutcome, TimingRelation } from '$lib/domain/timing';
-import { aidsOf } from './aids';
 import type { ObservationSpan } from './observationSpan';
 import type { AudioClockPort } from '$lib/application/ports';
 import type {
@@ -30,9 +23,6 @@ import type {
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort
 } from '$lib/application/ports/repositories';
-
-/** What the mechanic's judge said of the answer, stored as is; null without an answer. */
-export type JudgedAnswer = { answer: unknown; confusion: unknown } | null;
 
 /** `Attempt.data` as the recorder writes it: the mechanic's item, answer and confusion. */
 export interface AttemptData {
@@ -48,21 +38,17 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: ItemSource;
 	sessionId: string;
-	/** Rules of a prompt's mechanic: its card key, its time relation and its learner model. */
-	rules: (mechanic: MechanicId) => MechanicRules;
-	/** Time relation of a prompt at its exercise's rhythm; the mechanic's own when omitted. */
-	timing?: (planned: PlannedItem) => TimingRelation;
+	/** Rules of a prompt's mechanic: its learner model and its items. */
+	rules: (mechanic: MechanicId) => MechanicIdentity;
 	/** The direct-recall rule of a mechanic (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
 	recall?: (mechanic: MechanicId) => DirectRecall;
 	levels?: LevelStateRepositoryPort;
 }
 
-/** How `store` learns from an attempt: the old path and the target model differ only here. */
+/** How `store` learns from an attempt. */
 interface Learning {
 	recall: DirectRecall;
-	/** The old path's stored lead (`cardLeadAfter`); the target model keeps none. */
-	leadAfter?: (card: CardState, event: CardLeadEvent) => LeadBeats;
-	/** Where the level the source moved is written; the old path writes none. */
+	/** Where the level the source moved is written. */
 	levels?: LevelStateRepositoryPort;
 }
 
@@ -100,89 +86,7 @@ export class AttemptRecorder {
 	}
 
 	/**
-	 * Synchronous part done on return (attempt pushed, selector told), so fatigue and the next
-	 * beat see it; `stored` settles once card and attempt are written. The attempt carries the
-	 * exercise and tempo of `execution`, the run the prompt belongs to. `observations` is the
-	 * snapshot stored with the attempt; `completeObservations` replaces it once the rest is in.
-	 */
-	record(
-		planned: PlannedItem,
-		outcome: RoundOutcome,
-		promptTime: number,
-		judged: JudgedAnswer,
-		execution: Execution,
-		observations: RecordedObservation[]
-	): { attempt: Attempt<AttemptData>; stored: Promise<void> } {
-		const { selector, sessionId, clock } = this.deps;
-		const rules = this.deps.rules(planned.mechanic);
-		const timing = this.deps.timing?.(planned) ?? rules.timing;
-		const key = cardKeyOf(rules, planned.item);
-		const promptedAt = clock.toEpochMs(promptTime);
-		const attemptedInSession = this.attempts.some((a) => a.cardKey === key);
-
-		const attempt: Attempt<AttemptData> = {
-			sessionId,
-			exerciseId: execution.exerciseId,
-			mechanic: planned.mechanic,
-			cardKey: key,
-			phase: planned.phase,
-			// Provisional, for sync fatigue/session tracking; refined after history load.
-			temperature: provisionalTemperature(planned, attemptedInSession),
-			aids: aidsOf(planned),
-			promptedAt,
-			tempoBpm: execution.tempoBpm,
-			...(planned.tempoScope !== undefined && { tempoScope: planned.tempoScope }),
-			leadBeats: planned.leadBeats,
-			timingOffsetMs: outcome.timingOffsetMs,
-			reactionMs: outcome.reactionMs,
-			correct: outcome.correct,
-			// An old one-answer round, until its relation moves to the target contract (plan H).
-			success: isResponseSuccess(outcome),
-			verdict: { relation: timing.id, version: 1, value: outcome.verdict },
-			measures: {},
-			plan: null,
-			data: {
-				item: planned.item,
-				answer: judged?.answer ?? null,
-				confusion: judged?.confusion ?? null
-			},
-			observations
-		};
-
-		// Fatigue and the selector must see the attempt before any await, so the next onBeat
-		// cannot pick a prompt from stale state.
-		this.attempts.push(attempt);
-		const recorded = selector.record(attempt, this.deps.now());
-
-		let resolveId!: (id: number) => void;
-		let rejectId!: (reason: unknown) => void;
-		const id = new Promise<number>((resolve, reject) => {
-			resolveId = resolve;
-			rejectId = reject;
-		});
-		// Awaited by completions only; a failed write is reported through `stored`.
-		id.catch(() => {});
-		this.ids.set(attempt, id);
-		const learning: Learning = {
-			recall: (a) => timing.isDirectRecall(a),
-			leadAfter: (card, event) => cardLeadAfter(card, timing, event)
-		};
-		const stored = this.store(
-			planned,
-			rules,
-			learning,
-			attempt,
-			recorded,
-			attemptedInSession,
-			resolveId
-		);
-		stored.catch(rejectId);
-		this.track(stored);
-		return { attempt, stored };
-	}
-
-	/**
-	 * Writes an attempt of the target model (`responseAttempt`) with what its span heard so far
+	 * Writes an attempt (`responseAttempt`) with what its span heard so far
 	 * and learns from it: synchronously, the source is told (`selector.record`) with the item's
 	 * provisional temperature; then the temperature is settled from the card's history (a probe
 	 * by `probeTemperature` and `recall`), the attempt written, and for a memory learner the card
@@ -284,7 +188,7 @@ export class AttemptRecorder {
 
 	private async store(
 		item: PlannedItem,
-		rules: MechanicRules,
+		rules: MechanicIdentity,
 		learning: Learning,
 		attempt: Attempt,
 		outcome: RecordOutcome,
@@ -316,7 +220,7 @@ export class AttemptRecorder {
 	/** Only a memory learner keeps FSRS cards; a skill learner is measured by its attempts alone. */
 	private async learnCard(
 		item: PlannedItem,
-		rules: MechanicRules,
+		rules: MechanicIdentity,
 		learning: Learning,
 		attempt: Attempt,
 		outcome: RecordOutcome,
@@ -325,15 +229,12 @@ export class AttemptRecorder {
 	): Promise<void> {
 		if (rules.learner !== 'memory') return;
 		const key = attempt.cardKey;
-		const { leadAfter } = learning;
 		const now = this.deps.now();
 		if ((item.phase === 'review' || item.phase === 'free') && attempt.temperature === 'cold') {
 			if (existing) {
 				const fullHistory = [...history, attempt];
 				const applied = applyColdAttempt(existing, attempt, fullHistory, now, learning.recall);
-				await this.storeCard(
-					leadAfter ? { ...applied, leadBeats: leadAfter(existing, { cold: attempt }) } : applied
-				);
+				await this.storeCard(applied);
 			}
 		} else if (item.phase === 'probe') {
 			if (outcome?.card) await this.storeCard(outcome.card);
@@ -344,9 +245,7 @@ export class AttemptRecorder {
 				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
 				const card = { key, mechanic: item.mechanic, item: kept };
 				const introduced = introduceCard(card, now, this.deps.sessionId);
-				await this.storeCard(
-					leadAfter ? { ...introduced, leadBeats: leadAfter(introduced, 'introduced') } : introduced
-				);
+				await this.storeCard(introduced);
 			}
 		}
 	}

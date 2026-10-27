@@ -8,8 +8,6 @@ import {
 	type Midi,
 	type Voicing
 } from '$lib/domain/music';
-import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
-import { createAnchorTiming } from '$lib/domain/timing';
 import type { ChordConfusion, ChordReading } from './triadChord';
 import type { MechanicRules } from './types';
 
@@ -62,8 +60,6 @@ export const triadAnchorRules: MechanicRules<
 	TriadAnchorConfusion
 > = {
 	id: 'triad-anchor',
-	timing: createAnchorTiming(DEFAULT_BEAT_PACING),
-	timingFor: createAnchorTiming,
 	learner: 'memory',
 	itemKey: (item) => item.voicingKey,
 	parseItem: parseAnchorItem,

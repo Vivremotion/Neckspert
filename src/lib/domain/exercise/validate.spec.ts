@@ -78,12 +78,15 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
 			/^locate-neck: params\.windows\.anchorChordFromBeats /
 		);
-		expect(validateExercise(withParams({ countEndsOn: 'downbeat' }))).toMatch(
-			/^locate-neck: params\.countEndsOn .*downbeat/
+	});
+
+	it('checks the round the exercise writes, against the sensors it is given', () => {
+		const wrong = { ...LOCATE_NECK, round: { ...LOCATE_NECK.round!, extra: 1 } };
+		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(/^locate-neck: round\.extra /);
+		expect(validateExercise(LOCATE_NECK, { sensors: ['chord'] })).toMatch(
+			/^locate-neck: round\.expectations\[0\]\.sensor /
 		);
-		expect(validateExercise(withParams({ targetBarOffset: '4/4' }))).toMatch(
-			/^locate-neck: params\.targetBarOffset /
-		);
+		expect(validateExercise(LOCATE_NECK, { sensors: ['note'] })).toBeNull();
 	});
 
 	it('accepts an exercise without pedagogical value', () => {

@@ -1,17 +1,21 @@
-import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
-import { describe, expect, it } from 'vitest';
-import { exerciseById } from '$lib/domain/exercise';
-import { beatPlan, freePlan } from '$lib/domain/exercise/roundPlans';
+import { describe, expect, it, vi } from 'vitest';
+import {
+	CONTENT_DERIVATIONS,
+	ITEM_NUMBERS,
+	type ContentDerivation,
+	type ItemNumber
+} from '$lib/domain/derivations';
+import { exerciseById, LOCATE_NECK } from '$lib/domain/exercise';
+import type { RoundTemplate } from '$lib/domain/exercise/round';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
-import { RESPIRATION_BARS, STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
-import { GESTURE_EXERCISES, GESTURE_LINK, gesturePlan } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS } from '$lib/domain/session';
-import { Fraction, METER_4_4, type Meter, type RoundPlan } from '$lib/domain/time';
+import { Fraction, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
-import type { LeadBeats, PlannedItem } from '$lib/domain/types';
+import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
 import { triadCards } from '$lib/testing/shapes';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
@@ -31,6 +35,18 @@ import {
 	rightShape,
 	roles
 } from '$lib/testing/gestureSeries';
+
+/** The gesture's exercises as the catalog writes them, their round edited. */
+const withRound = (edit: (round: RoundTemplate) => RoundTemplate) => (id: string) => {
+	const definition = exerciseById(id);
+	return { ...definition, round: edit(definition.round as RoundTemplate) };
+};
+/** Listening ends at 3.5 beats; nothing hands over. */
+const withoutHandover = withRound((round) => {
+	const edited: RoundTemplate = { ...round, listenBeforeEnd: { beats: 0.5 } };
+	delete edited.handover;
+	return edited;
+});
 
 describe('ResponseSeriesController', () => {
 	describe('start', () => {
@@ -103,16 +119,7 @@ describe('ResponseSeriesController', () => {
 		});
 
 		it('places the next round after its breath when a round has no handover, without a counted bar, on the first bar whose prompt is still to come', async () => {
-			// Listening ends at 3.5 beats; nothing hands over.
-			const plans = (item: PlannedItem): RoundPlan => {
-				const plan: RoundPlan = {
-					...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
-					listenUntil: Fraction.of(7, 8)
-				};
-				delete plan.handover;
-				return plan;
-			};
-			const ctx = setup(passage(), { plans });
+			const ctx = setup(passage(), { exercise: withoutHandover });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(1.875));
 			// Settled at its end of listening: its verdict stays, nothing is counted.
@@ -131,11 +138,8 @@ describe('ResponseSeriesController', () => {
 		it('moves a round counted to its target to the next bar when its prompt would come before now', async () => {
 			// A lead of two bars, the count ending on the target: on the bar after the count, its
 			// prompt would be a bar before the count began.
-			const plans = (item: PlannedItem): RoundPlan => ({
-				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
-				prompt: Fraction.of(-2)
-			});
-			const ctx = setup(passage(), { plans });
+			const exercise = withRound((round) => ({ ...round, prompt: { lead: 8 } }));
+			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			expect(clicksBetween(ctx, 0, ctx.bar(1))).toEqual([0.1, 0.6, 1.1, 1.6]);
 			ctx.runTo(ctx.bar(0) + 0.01);
@@ -243,6 +247,21 @@ describe('ResponseSeriesController', () => {
 			expect(attempt.success).toBe(false);
 			expect(attempt.correct).toBe(false);
 			expect(attempt.observations?.map((o) => o.fate)).toEqual(['answer']);
+		});
+
+		it('forgets the lane on resume: its beats are numbered from 0 again', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			expect(model(ctx).history).toEqual([{ beatIndex: 4, verdict: 'perfect' }]);
+			ctx.controller.pause();
+			ctx.controller.resume();
+			await drain();
+			// An old verdict would sit on the new change's beat 4 and hide it.
+			expect(model(ctx).history).toEqual([]);
+			ctx.runTo(ctx.clock.now() + 2.1);
+			expect(model(ctx)).toMatchObject({ index: 1, anchorBeat: 4, history: [] });
 		});
 	});
 
@@ -359,6 +378,20 @@ describe('ResponseSeriesController', () => {
 	});
 
 	describe('recording', () => {
+		it('keeps what is heard before the first round opens out of every attempt', async () => {
+			const ctx = setup(passage());
+			await ctx.controller.start();
+			// In the counted bar, before the first change opens.
+			ctx.runTo(ctx.bar(0.25));
+			ctx.play(ctx.bar(0.25), rightShape(change(0)));
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.controller.quit();
+			await drain();
+			const [first] = await ctx.stored();
+			expect(first.observations?.map((o) => o.fate)).toEqual(['answer']);
+		});
+
 		it('writes each settled change, tells the source, and completes its observations when the next change opens', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.start();
@@ -403,18 +436,10 @@ describe('ResponseSeriesController', () => {
 	});
 
 	describe('a round without a handover', () => {
-		// Listening ends at 3.5 beats; nothing hands over.
-		const plans = (item: PlannedItem): RoundPlan => {
-			const plan: RoundPlan = {
-				...gesturePlan(item.item as ChordGridItem, METER_4_4, GESTURE_LINK),
-				listenUntil: Fraction.of(7, 8)
-			};
-			delete plan.handover;
-			return plan;
-		};
+		const exercise = withoutHandover;
 
 		it('withdraws its expectation before the next round opens: a report then lands in the round that ends', async () => {
-			const ctx = setup(passage(), { plans });
+			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			// Settled (nothing heard) at its end of listening, the next change counted in.
 			ctx.runTo(ctx.bar(2.75) - 0.01);
@@ -433,7 +458,7 @@ describe('ResponseSeriesController', () => {
 		});
 
 		it('withdraws its expectation before the end: a report then lands in the round that ends', async () => {
-			const ctx = setup(passage(), { plans });
+			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(1.875) + 0.01);
 			expect(await ctx.stored()).toHaveLength(1);
@@ -505,6 +530,82 @@ describe('ResponseSeriesController', () => {
 			const series = ctx.controller.trace?.children[0];
 			expect(series?.role).toBe('series');
 			expect(series?.reason).toBe('quit');
+		});
+	});
+
+	describe('the session record', () => {
+		it('stores the latency of the note sensor with the session, zero when it is not calibrated', async () => {
+			const calibrated = setup(passage());
+			await calibrated.repositories.settings.update({
+				latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
+			});
+			await calibrated.controller.start();
+			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(42);
+			calibrated.controller.quit();
+			await drain();
+			const ended = await calibrated.repositories.sessions.get('series-1');
+			expect(ended).toMatchObject({ latencyMs: 42, endedAt: expect.any(Number) });
+
+			// Uncalibrated, the onsets were taken as heard: the latency applied was zero.
+			const plain = setup(passage());
+			await plain.controller.start();
+			expect((await plain.repositories.sessions.get('series-1'))?.latencyMs).toBe(0);
+		});
+
+		it('keeps its own latency when a new series starts before its record is final', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			await ctx.repositories.settings.update({
+				latency: { note: { ms: 42, provenance: 'player' } }
+			});
+			await ctx.controller.start();
+			// The final record is written late: the new series is up before it is.
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const put = ctx.repositories.sessions.put.bind(ctx.repositories.sessions);
+			ctx.repositories.sessions.put = async (record) => {
+				if (record.endedAt !== null) await gate;
+				return put(record);
+			};
+			ctx.controller.quit();
+			await ctx.repositories.settings.update({
+				latency: { note: { ms: 99, provenance: 'player' } }
+			});
+			await ctx.controller.start();
+			release();
+			await drain();
+			expect(await ctx.repositories.sessions.get('series-1')).toMatchObject({
+				latencyMs: 42,
+				endedAt: expect.any(Number)
+			});
+			expect((await ctx.repositories.sessions.get('series-2'))?.latencyMs).toBe(99);
+		});
+
+		it('writes the completed observations of its attempts before the end of the session', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			const write = ctx.repositories.attempts.setObservations.bind(ctx.repositories.attempts);
+			ctx.repositories.attempts.setObservations = async (id, observations) => {
+				await new Promise((resolve) => setTimeout(resolve, 0));
+				return write(id, observations);
+			};
+			let atEnd: Promise<Attempt[]> | null = null;
+			const put = ctx.repositories.sessions.put.bind(ctx.repositories.sessions);
+			ctx.repositories.sessions.put = (record) => {
+				if (record.endedAt !== null) atEnd = ctx.repositories.attempts.all();
+				return put(record);
+			};
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			// After its settlement, still in its span.
+			ctx.play(ctx.bar(1) + 1, null);
+			ctx.controller.quit();
+			await vi.waitFor(async () =>
+				expect((await ctx.repositories.sessions.get('series-1'))?.endedAt).not.toBeNull()
+			);
+			const [whenEnded] = await (atEnd as unknown as Promise<Attempt[]>);
+			expect(whenEnded.observations?.map((o) => o.fate)).toEqual(['answer', 'settled']);
 		});
 	});
 
@@ -696,20 +797,54 @@ describe('ResponseSeriesController', () => {
 			'beat-unannounced': presenter({ previewBeats: undefined }),
 			tap: TAP
 		};
-		const plans = (item: PlannedItem, meter: Meter): RoundPlan =>
-			item.mechanic === 'tap'
-				? freePlan({
-						content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-						recallThresholdMs: 3000
-					})
-				: beatPlan({
-						content: { kind: NOTE_CONTENT, value: NOTE_C },
-						leadBeats: item.leadBeats ?? 8,
-						meter,
-						respirationBars: RESPIRATION_BARS,
-						windows: DEFAULT_RESPONSE_WINDOWS,
-						previewBeats: STRING_PREVIEW_BEATS
-					});
+		// The rounds of these mechanics are templates like any exercise's; the notes they derive
+		// are the vocabulary this file adds to the registry.
+		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
+		derivations['test-note-c'] = {
+			kind: NOTE_CONTENT,
+			reads: ['beat', 'beat-unannounced'],
+			derive: () => NOTE_C
+		};
+		derivations['test-name'] = {
+			kind: NAME_CONTENT,
+			reads: ['tap'],
+			derive: () => ({ string: 3, fret: 5 })
+		};
+		const BEAT_ROUND: RoundTemplate = {
+			...(LOCATE_NECK.round as RoundTemplate),
+			expectations: [
+				{
+					at: { beats: 0 },
+					sensor: 'note',
+					content: { from: 'test-note-c' },
+					window: { ms: { param: 'windows.perfectMs' } }
+				}
+			]
+		};
+		const TAP_ROUND: RoundTemplate = {
+			prompt: { lead: 0 },
+			expectations: [
+				{ at: null, sensor: 'tap', content: { from: 'test-name' }, window: { ms: 3000 } }
+			],
+			length: { bars: 1 },
+			policy: {
+				unit: 'response',
+				verdict: 'response',
+				correction: false,
+				pairing: { mode: 'first-answer', opens: { afterPromptMs: 0 }, lateMs: 0, lateCapture: null }
+			}
+		};
+		/** The id of the exercise of the tapped items: the gesture's, its round the tap's. */
+		const TAP_EXERCISE = 'fake-tap';
+		/** The gesture's exercises, their round the beat's; the tap's under its own id. */
+		const fakeExercise = (id: string) => {
+			const tap = id === TAP_EXERCISE;
+			return {
+				...exerciseById(tap ? 'gesture-zone' : id),
+				id,
+				round: tap ? TAP_ROUND : BEAT_ROUND
+			};
+		};
 		/** Item `index` of `mechanic`, at `lead`; the first one counted in. */
 		const beat = (
 			index: number,
@@ -720,6 +855,7 @@ describe('ResponseSeriesController', () => {
 			...change(index % 2),
 			item: { ...(change(index % 2).item as ChordGridItem), index },
 			mechanic,
+			...(mechanic === 'tap' && { exerciseId: TAP_EXERCISE }),
 			leadBeats: lead,
 			countIn: index === 0,
 			...extra
@@ -744,7 +880,13 @@ describe('ResponseSeriesController', () => {
 		};
 		const series = (items: PlannedItem[], options: Parameters<typeof setup>[1] = {}) => {
 			const fake = fakeSensors();
-			const ctx = setup(items, { mechanics, plans, sensors: fake.sensors, ...options });
+			const ctx = setup(items, {
+				mechanics,
+				exercise: fakeExercise,
+				executions: [...EXECUTIONS, { exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }],
+				sensors: fake.sensors,
+				...options
+			});
 			return { ...ctx, hear: fake.hear };
 		};
 		const shown = (ctx: Ctx) => ctx.controller.view.stage?.model as Shown;
@@ -792,15 +934,15 @@ describe('ResponseSeriesController', () => {
 		});
 
 		describe('the bar after a count', () => {
-			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
-				...plans(item, meter),
-				barOffset: Fraction.of(1, 2)
-			});
+			const onBeat3 = (id: string) => {
+				const definition = fakeExercise(id);
+				return { ...definition, round: { ...definition.round, barOffset: '1/2' } };
+			};
 			/** Bar 1's clicks laid by the time the count is placed, before any of them is due. */
-			const laidAfterCount = async (items: PlannedItem[], withPlans = plans) => {
+			const laidAfterCount = async (items: PlannedItem[], exercise = fakeExercise) => {
 				const ctx = setup(items, {
 					mechanics,
-					plans: withPlans,
+					exercise,
 					sensors: fakeSensors().sensors
 				});
 				await ctx.controller.start();
@@ -824,14 +966,14 @@ describe('ResponseSeriesController', () => {
 		});
 
 		it('places a target on beat 3 when its plan says so, clicking on through bars it splits', async () => {
-			const onBeat3 = (item: PlannedItem, meter: Meter): RoundPlan => ({
-				...plans(item, meter),
-				barOffset: Fraction.of(1, 2)
-			});
+			const onBeat3 = (id: string) => {
+				const definition = fakeExercise(id);
+				return { ...definition, round: { ...definition.round, barOffset: '1/2' } };
+			};
 			const fake = fakeSensors();
 			const ctx = setup([beat(0, 4), beat(1, 4)], {
 				mechanics,
-				plans: onBeat3,
+				exercise: onBeat3,
 				sensors: fake.sensors
 			});
 			await ctx.controller.start();
@@ -882,8 +1024,42 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.status).toBe('verdict');
 		});
 
+		it('gives the view the band of an extended expectation, in lane beats', async () => {
+			const extended = (id: string) => {
+				const definition = fakeExercise(id);
+				const round = definition.round as RoundTemplate;
+				return {
+					...definition,
+					round: {
+						...round,
+						expectations: [
+							...round.expectations,
+							{ ...round.expectations[0], at: { beats: 1 }, until: { bars: 1 } }
+						],
+						length: { bars: 1, breath: true }
+					}
+				};
+			};
+			const ctx = series([beat(0, 8)], { exercise: extended });
+			await ctx.controller.start();
+			// Waiting for its round: not placed, no band.
+			expect(shown(ctx).place).toMatchObject({ anchorBeat: null, bands: [] });
+			// Counted on bar 0, the prompt on bar 1, the target on bar 3: the band from its beat 2
+			// to the end of the bar.
+			ctx.runTo(ctx.bar(1));
+			expect(shown(ctx).place).toMatchObject({
+				promptBeat: 4,
+				anchorBeat: 12,
+				bands: [{ fromBeat: 13, untilBeat: 16 }]
+			});
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx).place.bands).toEqual([{ fromBeat: 13, untilBeat: 16 }]);
+		});
+
 		it('announces the next prompt as many beats early as its exercise says', async () => {
-			const exercise = (id: string) => ({ ...exerciseById(id), flow: { previewBeats: 2 } });
+			const exercise = (id: string) => ({ ...fakeExercise(id), flow: { previewBeats: 2 } });
 			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) + 0.03);
@@ -895,7 +1071,7 @@ describe('ResponseSeriesController', () => {
 		});
 
 		it('takes the mechanic’s defaults when the exercise says nothing', async () => {
-			const exercise = (id: string) => ({ ...exerciseById(id), flow: {} });
+			const exercise = (id: string) => ({ ...fakeExercise(id), flow: {} });
 			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) + 0.03);
@@ -904,7 +1080,6 @@ describe('ResponseSeriesController', () => {
 			expect(shown(ctx)).toMatchObject({ index: 0, settled: 'perfect' });
 			ctx.runTo(ctx.bar(3.75));
 			expect(shown(ctx)).toMatchObject({ index: 1 });
-			expect(ctx.controller.view.scene).toBe('guitar');
 		});
 
 		it('without preview beats, shows the next item at its prompt', async () => {
@@ -949,14 +1124,15 @@ describe('ResponseSeriesController', () => {
 			const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 			/** `inWaltz`'s exercise in 3/4, the others in their own meter; no instruction stops. */
 			const inWaltz = (waltz: string) => (id: string) => ({
-				...exerciseById(id),
+				...fakeExercise(id),
 				howTo: undefined,
 				...(id === waltz && { meter: METER_3_4 })
 			});
 			/** One tempo, ♩ = 120, for both exercises: only the meter changes. */
 			const executions = [
 				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 },
-				{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 120 }
+				{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 120 },
+				{ exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }
 			];
 			/**
 			 * Runs by 10 ms to the second item's target (at most `until`); what the screen showed: the counts with their times, and the
@@ -1036,10 +1212,10 @@ describe('ResponseSeriesController', () => {
 			});
 
 			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
-				const ctx = series(
-					[beat(0, 8, { exerciseId: 'gesture-zone' }, 'tap'), beat(1, 3, { countIn: true })],
-					{ exercise: inWaltz('gesture-jam'), executions }
-				);
+				const ctx = series([beat(0, 8, {}, 'tap'), beat(1, 3, { countIn: true })], {
+					exercise: inWaltz('gesture-jam'),
+					executions
+				});
 				await ctx.controller.start();
 				// The tapped one opens after its (silent) 4/4 count and is answered.
 				const { counts, target } = watch(ctx, 20, { at: ctx.bar(1) + 0.5, tap: 'C' });
@@ -1103,6 +1279,17 @@ describe('ResponseSeriesController', () => {
 			sensors: ['chord', 'tap']
 		};
 		const mechanics = { ...GESTURE_PRESENTERS, 'screen-grid': SCREEN_GRID };
+		// The chord grid's items, read under another mechanic's name.
+		const grids = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
+		grids['grid-change'] = {
+			...grids['grid-change'],
+			reads: [...grids['grid-change'].reads, 'screen-grid']
+		};
+		const numbers = ITEM_NUMBERS as Record<string, ItemNumber>;
+		numbers['change-beats'] = {
+			...numbers['change-beats'],
+			reads: [...numbers['change-beats'].reads, 'screen-grid']
+		};
 		const onScreen = (items: PlannedItem[]) =>
 			items.map((item) => ({ ...item, mechanic: 'screen-grid' }));
 		/** A sensor fed by the screen, keeping what it was pushed. */
@@ -1125,7 +1312,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = screenSeries([...onScreen(passage()), ...passage({ passage: 's:1' })]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) - 0.19);
-			expect(ctx.controller.view.scene).toBe('guitar');
 			// The screen's passage, its count included, in silence.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
 			// Bar 3 counted and heard, the guitar's first change on bar 4, clicked.
@@ -1142,7 +1328,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(passage(), { exercise });
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(2));
-			expect(ctx.controller.view.scene).toBe('screen');
 			expect(clicksBetween(ctx, 0, ctx.bar(2))).toEqual([]);
 		});
 
@@ -1155,7 +1340,6 @@ describe('ResponseSeriesController', () => {
 				counts.push(ctx.controller.view.countdown);
 			}
 			expect(counts).toEqual([4, 3, 2, 1, null]);
-			expect(ctx.controller.view.scene).toBe('screen');
 			expect(clicksBetween(ctx, ctx.bar(3) - 0.1, ctx.bar(6))).toEqual([]);
 		});
 
@@ -1176,14 +1360,9 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.pushed).toEqual(['E', 'F']);
 		});
 
-		it('begins the transport in the meter of the first item’s exercise, and hands it to the plans', async () => {
-			const meters: Meter[] = [];
+		it('begins the transport in the meter of the first item’s exercise, and compiles its rounds in it', async () => {
 			const ctx = setup(passage(), {
-				exercise: (id) => ({ ...exerciseById(id), meter: METER_3_4 }),
-				plans: (item, meter) => {
-					meters.push(meter);
-					return gesturePlan(item.item as ChordGridItem, meter, GESTURE_LINK);
-				}
+				exercise: (id) => ({ ...exerciseById(id), meter: METER_3_4 })
 			});
 			await ctx.controller.start();
 			// ♩ = 120: the counted bar is three clicks, a bar lasts 1.5 s.
@@ -1192,8 +1371,6 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.countdown).toBe(1);
 			ctx.runTo(1.6);
 			expect(ctx.controller.view.status).toBe('awaiting');
-			expect(meters.length).toBeGreaterThan(0);
-			expect(meters.every((m) => m === METER_3_4)).toBe(true);
 		});
 	});
 });

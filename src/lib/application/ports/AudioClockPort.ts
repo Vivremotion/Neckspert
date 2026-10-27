@@ -8,4 +8,9 @@ export interface AudioClockPort {
 	now(): number;
 	/** Converts an audio time to epoch ms, for storage only. */
 	toEpochMs(audioTime: number): number;
+	/**
+	 * The wall time now, in epoch ms: the audio clock's when it exists, else the system's. Readable
+	 * before `resume()`, unlike `now()` and `toEpochMs()`.
+	 */
+	epochNow(): number;
 }

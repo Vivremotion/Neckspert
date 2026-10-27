@@ -298,7 +298,7 @@ try {
 				return {
 					status: document.querySelector('[data-status]')?.getAttribute('data-status') ?? 'absent',
 					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
-					lane: Boolean(document.querySelector('.note-lane .lane')),
+					lane: Boolean(document.querySelector('.lane-view .lane')),
 					prompt: document.body.innerText.includes('corde de B'),
 					pad: [...document.querySelectorAll('button')].filter((b) => b.textContent.trim() === 'C').length,
 					texts: [...document.querySelectorAll('body *')]
@@ -322,6 +322,51 @@ try {
 		check(assert(page.prompt, 'la première note est donnée sur sa corde (corde de B)'));
 		check(assert(page.pad === 0, 'le pavé du mode 2 n’est pas affiché'));
 		noteTiny('session-demo', page.texts);
+	}
+
+	console.log('\nTriade /session/demo?shot=triad');
+	for (const [name, query, miss] of [
+		['consigne', 'shot=triad', false],
+		['raté dessiné', 'shot=triad&miss=1', true]
+	]) {
+		const call = await open(`http://127.0.0.1:5180/session/demo?${query}`);
+		const page = await evaluate(
+			call,
+			`async () => {
+				for (let i = 0; i < 80 && !document.querySelector('[data-status="awaiting"], [data-status="verdict"]'); i++) {
+					await new Promise((resolve) => setTimeout(resolve, 50));
+				}
+				return {
+					world: document.querySelector('[data-world]')?.getAttribute('data-world'),
+					lane: Boolean(document.querySelector('.lane-view .lane')),
+					shapes: document.querySelectorAll('.lane-view .centre .chord-shape').length,
+					misses: document.querySelectorAll('[data-testid="miss"]').length,
+					band: document.querySelector('.lane .band-name')?.textContent ?? null,
+					text: document.body.innerText,
+					texts: [...document.querySelectorAll('body *')]
+						.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
+						.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))
+				};
+			}`
+		);
+		check(
+			assert(
+				page.world === 'quiet' && page.lane,
+				`la piste de la triade est dans le cadre de jeu, au calme (${name}, ${page.world})`
+			)
+		);
+		check(assert(page.band === 'F#dim', `l’accord est sur la bande (${name}: ${page.band})`));
+		check(
+			assert(
+				miss
+					? page.misses === 1 && page.shapes === 2
+					: page.shapes === 1 && page.text.includes('sol‑si‑mi'),
+				miss
+					? `le raté dessine ce qui a été joué et ce qui était attendu (${page.shapes} formes)`
+					: `la consigne montre la forme et les cordes (${page.shapes} forme)`
+			)
+		);
+		noteTiny(`triad-${name}`, page.texts);
 	}
 
 	console.log('\nCalibration /dev/calibration');

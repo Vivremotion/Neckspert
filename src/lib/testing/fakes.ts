@@ -18,7 +18,6 @@ import type {
 	AttemptRepositoryPort,
 	AudioClockPort,
 	AudioInputDevice,
-	BeatEvent,
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort,
 	ChordExpectation,
@@ -29,27 +28,17 @@ import type {
 	DiagnosticTakeOpening,
 	DiagnosticTakeNotices,
 	DiagnosticTakes,
-	MetronomePort,
 	NoteDetectorPort,
 	NoteOnset,
 	NoteRejection,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort,
 	SoundSchedulerPort,
 	TakeBufferPort
 } from '$lib/application/ports';
 import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
-
-export class FakeSoundCues implements SoundCuePort {
-	readonly played: { verdict: ResponseVerdict; time: number | undefined }[] = [];
-
-	play(verdict: ResponseVerdict, time?: number): void {
-		this.played.push({ verdict, time });
-	}
-}
 
 export class FakeClock implements AudioClockPort {
 	time = 0;
@@ -67,8 +56,38 @@ export class FakeClock implements AudioClockPort {
 		return this.epochAtZero + audioTime * 1000;
 	}
 
+	epochNow(): number {
+		return this.toEpochMs(this.now());
+	}
+
 	advance(seconds: number): void {
 		this.time += seconds;
+	}
+}
+
+/**
+ * A clock whose audio context does not exist until `resume()`, as the browser's before a gesture:
+ * `now()` and `toEpochMs()` throw until then; `epochNow()` reads the wall time all along.
+ */
+export class UnresumedClock extends FakeClock {
+	resumed = false;
+
+	override async resume(): Promise<void> {
+		this.resumed = true;
+	}
+
+	override now(): number {
+		if (!this.resumed) throw new Error('AudioContext not created yet');
+		return super.now();
+	}
+
+	override toEpochMs(audioTime: number): number {
+		if (!this.resumed) throw new Error('AudioContext not created yet');
+		return super.toEpochMs(audioTime);
+	}
+
+	override epochNow(): number {
+		return this.epochAtZero + this.time * 1000;
 	}
 }
 
@@ -211,105 +230,6 @@ export class FakeTakeBuffer implements TakeBufferPort {
 	stop(): void {
 		this.stops++;
 		this.release();
-	}
-}
-
-export class FakeMetronome implements MetronomePort {
-	audible = true;
-	private bpm = 80;
-	private firstBeatTime: number | null = null;
-	private lastEmitted = -1;
-	private readonly listeners = new Set<(beat: BeatEvent) => void>();
-	private wakeUps: { time: number; callback: () => void }[] = [];
-
-	/** `lookaheadS` mirrors the real scheduler: beats are announced up to that far before their time. */
-	constructor(
-		private readonly clock: FakeClock,
-		private readonly beatsPerBar = 4,
-		private readonly lookaheadS = 0.1
-	) {}
-
-	setTempo(bpm: number): void {
-		if (this.isRunning()) throw new Error('Cannot change tempo while running');
-		this.bpm = bpm;
-	}
-
-	getTempo(): number {
-		return this.bpm;
-	}
-
-	secondsPerBeat(): number {
-		return 60 / this.bpm;
-	}
-
-	start(firstBeatTime: number): void {
-		this.firstBeatTime = firstBeatTime;
-		this.lastEmitted = -1;
-	}
-
-	setAudible(audible: boolean): void {
-		this.audible = audible;
-	}
-
-	stop(): void {
-		this.firstBeatTime = null;
-		this.wakeUps = [];
-	}
-
-	isRunning(): boolean {
-		return this.firstBeatTime !== null;
-	}
-
-	at(time: number, callback: () => void): () => void {
-		if (this.firstBeatTime === null) throw new Error('Metronome not running');
-		const wakeUp = { time, callback };
-		this.wakeUps.push(wakeUp);
-		return () => {
-			this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
-		};
-	}
-
-	beatTime(index: number): number {
-		if (this.firstBeatTime === null) throw new Error('Metronome not running');
-		return this.firstBeatTime + index * this.secondsPerBeat();
-	}
-
-	onBeat(callback: (beat: BeatEvent) => void): () => void {
-		this.listeners.add(callback);
-		return () => this.listeners.delete(callback);
-	}
-
-	/**
-	 * Emits every beat whose audio time is within the lookahead of the clock, and calls every
-	 * wake-up whose time the clock reached, in the order they come due: a beat at its time minus
-	 * the lookahead, a wake-up at its time (a beat first on a tie). Either may stop or restart it.
-	 */
-	flush(): void {
-		const now = this.clock.now();
-		for (;;) {
-			if (this.firstBeatTime === null) return;
-			const nextBeat = this.beatTime(this.lastEmitted + 1);
-			const wakeUp = this.wakeUps
-				.filter((w) => w.time <= now)
-				.reduce<{ time: number; callback: () => void } | null>(
-					(earliest, w) => (!earliest || w.time < earliest.time ? w : earliest),
-					null
-				);
-			const beatFirst =
-				nextBeat <= now + this.lookaheadS && (!wakeUp || nextBeat - this.lookaheadS <= wakeUp.time);
-			if (beatFirst) {
-				this.lastEmitted++;
-				const beat: BeatEvent = {
-					index: this.lastEmitted,
-					time: this.beatTime(this.lastEmitted),
-					isDownbeat: this.lastEmitted % this.beatsPerBar === 0
-				};
-				this.listeners.forEach((listener) => listener(beat));
-			} else if (wakeUp) {
-				this.wakeUps = this.wakeUps.filter((w) => w !== wakeUp);
-				wakeUp.callback();
-			} else return;
-		}
 	}
 }
 

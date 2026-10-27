@@ -8,9 +8,7 @@
 	import { exerciseFromQuery } from '$lib/application/session/exerciseFromQuery';
 	import { finishDestination } from '$lib/application/session/finishDestination';
 	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
-	import { isTriadsKind } from '$lib/domain/types';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
-	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 	import { sessionPageMessages } from './messages';
 
 	let controller = $state<PlaySessionController | null>(null);
@@ -18,9 +16,6 @@
 
 	const t = $derived(sessionPageMessages());
 	const kind = $derived(sessionKindFromQuery(page.url.searchParams.get('kind')));
-
-	/** The common frame shows the exercise's own view: every session but the triads'. */
-	const framed = $derived(!isTriadsKind(kind));
 
 	onMount(async () => {
 		try {
@@ -37,7 +32,7 @@
 				controller = await services.startSession(kind);
 			}
 			// The frame tells the first exercise's instruction on its start screen.
-			if (framed) await controller.ready?.();
+			await controller.ready?.();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Unavailable';
 		}
@@ -65,11 +60,9 @@
 		<p>{error}</p>
 		<a href={resolve('/')}>{t.home}</a>
 	</div>
-{:else if controller && framed}
-	<!-- The notes, the gesture track and the rhythm exercises show their view in the common frame; the triads keep their screen. -->
-	<PlayFrame {controller} {kind} quitToSummary />
 {:else if controller}
-	<PlayScreen {controller} {kind} quitToSummary />
+	<!-- Every session shows its exercise's view in the common frame. -->
+	<PlayFrame {controller} {kind} quitToSummary />
 {/if}
 
 <style>

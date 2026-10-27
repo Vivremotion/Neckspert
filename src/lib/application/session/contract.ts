@@ -1,11 +1,20 @@
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { StringNumber } from '$lib/domain/music/types';
-import type { ChordDiagramStyle, LeadBeats, ResponseVerdict } from '$lib/domain/types';
-import type { Scene } from '$lib/application/mechanics/types';
-
-export type { Scene };
+import type { ResponseVerdict } from '$lib/domain/types';
 
 /** The view that shows a mechanic's screen model when its exercise names none. */
 export const DEFAULT_PLAY_VIEW = 'grid-scroll';
+
+/** The view of an exercise that writes its presentation and names none: the generic lane. */
+export const DEFAULT_PROMPT_VIEW = 'lane';
+
+/** The view that draws an exercise: its own, else the lane for a presentation, else the default. */
+export function playViewOf(definition: Pick<ExerciseDefinition, 'view' | 'presentation'>): string {
+	return (
+		definition.view ??
+		(definition.presentation !== undefined ? DEFAULT_PROMPT_VIEW : DEFAULT_PLAY_VIEW)
+	);
+}
 
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
@@ -65,30 +74,11 @@ export interface AnswerChoice {
 
 export interface PlayView {
 	status: PlayStatus;
-	prompt: PromptView | null;
-	lastVerdict: VerdictView | null;
+	/** The tempo played; 0 while the series has not set it (before its first item), and not shown. */
 	tempoBpm: number;
-	beatsPerBar: 4;
-	/** Mode 1: beat on which the prompt appeared. */
-	promptBeatIndex: number | null;
-	/** Mode 1: beat on which the note is due. */
-	targetBeatIndex: number | null;
-	/** A second gesture expected anywhere in these beats after the target (`untilBeat` excluded). */
-	followUp: { fromBeat: number; untilBeat: number } | null;
-	leadBeats: LeadBeats | null;
-	/** Targets already played in this series, oldest first. */
-	history: LaneEntry[];
-	/** Mode 2: the twelve answer buttons. */
-	answerChoices: AnswerChoice[] | null;
 	fatigueDetected: boolean;
-	/** What the stage shows: the lane for the guitar, the answer pad for the screen. */
-	scene: Scene;
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
 	countdown: number | null;
-	/** Mode 1: the next prompt, shown string first before its note appears. Only its string shows. */
-	preview: PromptView | null;
-	/** How chord shapes are drawn for the current prompt: its exercise's style, else the player's. */
-	chordDiagram: ChordDiagramStyle;
 	/**
 	 * After a miss of a contestable mechanic, until the next prompt: 'available' offers « Joué
 	 * juste », 'done' once pressed; null otherwise.
@@ -102,14 +92,14 @@ export interface PlayView {
 	audioError: 'input' | 'bleed' | null;
 	/**
 	 * The screen model of the prompt waiting or on show, and the view its exercise names to show
-	 * it; null (or absent) for a mechanic without one, whose prompt the play screen shows.
+	 * it; null before a prompt, and at the end.
 	 */
-	stage?: { view: string; model: unknown } | null;
+	stage: { view: string; model: unknown } | null;
 	/**
 	 * The instruction of the exercise about to start for the first time in the series: on the
 	 * start screen (idle), or at a stop of its own (paused, `resume` goes on); null otherwise.
 	 */
-	briefing?: { text: string } | null;
+	briefing: { text: string } | null;
 }
 
 export interface PlayTimeline {

@@ -1,35 +1,61 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+	import type { PromptStageModel } from '$lib/application/presentation';
+	import type { Picture } from '$lib/application/presentation/pictures';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
-	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 	import { DemoPlaySession, ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
 
 	const clock = new ManualDemoClock();
 	const controller = new DemoPlaySession({ clock });
 	let ready = $state(false);
-	const platesOnly = $derived(page.url.searchParams.get('platesOnly') === '1');
 	const shot = $derived(page.url.searchParams.get('shot'));
 	const withAid = $derived(page.url.searchParams.get('aid') === '1');
 	const missed = $derived(page.url.searchParams.get('miss') === '1');
 	/** Beats since the target: the played cell slides back through the breathing bar. */
 	const late = $derived(Number(page.url.searchParams.get('late') ?? 0) || 0);
 	const beat = $derived(page.url.searchParams.get('beat'));
-	/** The triads still play on their own screen: their shot is drawn there. */
-	const triad = $derived(shot === 'triad');
+
+	/** F# diminished on the G, B and E strings, the shape the aid draws. */
+	const F_SHARP_DIM: Picture = {
+		kind: 'shape',
+		notes: [
+			{ string: 3, fret: 11 },
+			{ string: 2, fret: 10 },
+			{ string: 1, fret: 8 }
+		]
+	};
+	/** The same shape a fret too high: what a miss draws as heard. */
+	const HEARD_DIM: Picture = {
+		kind: 'shape',
+		notes: [
+			{ string: 3, fret: 12 },
+			{ string: 2, fret: 11 },
+			{ string: 1, fret: 9 }
+		]
+	};
 
 	/** A still note lane: F on the B string, aided or not, at the given place. */
-	function lane(place: Omit<NoteLaneModel, 'prompt'>): { view: string; model: NoteLaneModel } {
+	function lane(
+		place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'history' | 'verdict'>
+	): { view: string; model: PromptStageModel } {
 		return {
-			view: 'note-lane',
+			view: 'lane',
 			model: {
 				prompt: {
 					primary: 'F',
 					secondary: 'corde de B',
+					detail: null,
+					target: null,
+					band: null,
+					preview: 'corde de B',
 					aid: withAid ? 'case 6' : null,
-					diagram: withAid ? { string: 2, label: 'B' } : null
+					pictures: withAid ? [{ kind: 'string', string: 2, label: 'B' }] : []
 				},
+				bands: [],
+				beatsPerBar: 4,
+				chordDiagram: 'strings',
+				choices: [],
 				...place
 			}
 		};
@@ -54,26 +80,52 @@
 			}
 			if (shot === 'triad') {
 				// A triad anchor with a long chord name: the root on its target, the chord on the band.
-				clock.setBeat(beat === null ? 12 : Number(beat));
-				controller.view.status = 'awaiting';
+				const settled = missed || late > 0;
+				clock.setBeat(beat === null ? (settled ? 17 + late : 12) : Number(beat));
+				controller.view.status = settled ? 'verdict' : 'awaiting';
 				controller.view.countdown = null;
-				controller.view.stage = null;
-				controller.view.prompt = {
-					primary: 'F#dim',
-					secondary: 'fondamentale sur sol',
-					detail: 'sol‑si‑mi',
-					target: 'F#',
-					band: 'F#dim',
-					aid: null,
-					diagram: null
+				controller.view.stage = {
+					view: 'lane',
+					model: {
+						prompt: {
+							primary: 'F#dim',
+							secondary: 'fondamentale sur sol',
+							detail: 'sol‑si‑mi',
+							target: 'F#',
+							band: 'F#dim',
+							preview: 'fondamentale sur sol',
+							aid: null,
+							pictures: [F_SHARP_DIM]
+						},
+						anchorBeat: 16,
+						promptBeat: 8,
+						history: settled
+							? [
+									{ beatIndex: 4, verdict: 'perfect' },
+									{ beatIndex: 16, verdict: 'wrong' }
+								]
+							: [{ beatIndex: 4, verdict: 'perfect' }],
+						bands: [{ fromBeat: 17, untilBeat: 20 }],
+						beatsPerBar: 4,
+						verdict: settled
+							? {
+									verdict: 'wrong',
+									offsetMs: null,
+									answerLabel: '12 · 11 · 9',
+									misses: [
+										{
+											correction: null,
+											heard: HEARD_DIM,
+											expected: F_SHARP_DIM,
+											gap: 'une case plus bas'
+										}
+									]
+								}
+							: null,
+						chordDiagram: 'strings',
+						choices: []
+					} satisfies PromptStageModel
 				};
-				controller.view.promptBeatIndex = 8;
-				controller.view.targetBeatIndex = 16;
-				controller.view.followUp = { fromBeat: 17, untilBeat: 20 };
-				controller.view.leadBeats = 8;
-				controller.view.lastVerdict = null;
-				controller.view.preview = null;
-				controller.view.history = [{ beatIndex: 4, verdict: 'perfect' }];
 				ready = true;
 				return;
 			}
@@ -94,9 +146,16 @@
 								verdict: 'wrong',
 								offsetMs: 30,
 								answerLabel: 'F#',
-								correction: 'corde de B, case 6'
+								misses: [
+									{
+										correction: 'corde de B, case 6',
+										heard: null,
+										expected: null,
+										gap: null
+									}
+								]
 							}
-						: { verdict: 'late', offsetMs: 95, answerLabel: 'F', correction: null }
+						: { verdict: 'late', offsetMs: 95, answerLabel: 'F', misses: [] }
 				});
 				ready = true;
 				return;
@@ -119,9 +178,7 @@
 	});
 </script>
 
-{#if ready && triad}
-	<PlayScreen {controller} {platesOnly} />
-{:else if ready}
-	<!-- The notes play in the frame, on their own view. -->
+{#if ready}
+	<!-- The notes and the triads play in the frame, on the same lane view. -->
 	<PlayFrame {controller} kind="learn" />
 {/if}

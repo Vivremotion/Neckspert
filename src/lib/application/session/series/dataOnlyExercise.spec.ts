@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
@@ -31,15 +31,17 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	id: LOCATE_NECK.id,
 	version: 1,
 	mechanic: 'locate',
-	view: 'note-lane',
+	view: 'lane',
 	meter: WALTZ,
 	tempo: { fixed: 90 },
 	flow: { previewBeats: 2 },
+	presentation: LOCATE_NECK.presentation,
+	// Its round is locate's, the target on beat 2 of the bar.
+	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {
 		recallThresholdMs: 1500,
 		pacing: { respirationBars: 2 },
 		windows: { perfectMs: 120 },
-		targetBarOffset: '1/4',
 		ladder: [
 			{ params: { leadBeats: 6, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 			{
@@ -52,7 +54,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	}
 };
 
-const BEATS_PER_BAR = 3;
+const BAR_BEATS = 3;
 const BEAT_S = 60 / 90;
 
 /** Two notes on other strings, neither the other's mirror, learned and due, at level 0. */
@@ -61,9 +63,9 @@ const SECOND = locate(2, 'G');
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
 
-function lane(controller: PlaySessionController): NoteLaneModel | null {
+function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+	return stage?.view === 'lane' ? (stage.model as PromptStageModel) : null;
 }
 
 async function quitAndRead(app: NotesApp, controller: PlaySessionController): Promise<Attempt[]> {
@@ -107,11 +109,11 @@ describe('an exercise written only in data', () => {
 		for (const round of [one, two]) {
 			const target = round.anchorBeat as number;
 			// Its target on beat 2 of a bar of 3, 6 beats after its prompt.
-			expect(target % BEATS_PER_BAR).toBe(1);
+			expect(target % BAR_BEATS).toBe(1);
 			expect(target - (round.promptBeat as number)).toBe(6);
 		}
 		// After the first target, its breath of 2 bars, then the second prompt.
-		expect((two.promptBeat as number) - (one.anchorBeat as number)).toBe(2 * BEATS_PER_BAR);
+		expect((two.promptBeat as number) - (one.anchorBeat as number)).toBe(2 * BAR_BEATS);
 		expect(previewPrompt).toBe(two.promptBeat);
 		expect(shownAt).toBeCloseTo(previewPrompt - 2, 1);
 		// The click at ♩ = 90, its accent on beat 1 of each bar of 3; the target on the click after it.
@@ -121,7 +123,7 @@ describe('an exercise written only in data', () => {
 			expect(clicks[i].time - clicks[i - 1].time).toBeCloseTo(BEAT_S, 6);
 		}
 		for (let i = 1; i < accents.length; i++) {
-			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
+			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		for (const [round, lateS] of [
 			[one, 0.1],
@@ -184,7 +186,7 @@ describe('an exercise written only in data', () => {
 		const accents = clicks.filter((s) => s.sound === 'click-accent').map((s) => s.time);
 		expect(accents.length).toBeGreaterThanOrEqual(3);
 		for (let i = 1; i < accents.length; i++) {
-			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
+			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		expect(accents.some((time) => Math.abs(note.dueAt - BEAT_S - time) < 0.005)).toBe(true);
 		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([

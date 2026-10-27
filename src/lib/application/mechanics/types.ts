@@ -8,12 +8,7 @@ import type {
 } from '$lib/domain/types';
 import type { ResponseValue } from '$lib/domain/time';
 import type { Scene } from '$lib/domain/exercise/types';
-import type {
-	AnswerChoice,
-	LaneEntry,
-	PromptView,
-	ShapeView
-} from '$lib/application/session/contract';
+import type { AnswerChoice, LaneEntry, ShapeView } from '$lib/application/session/contract';
 
 // The scene lives in the domain (an exercise names it); re-exported for the screens.
 export type { Scene };
@@ -31,6 +26,8 @@ export interface StagePlace {
 	/** The beat of the prompt, in the same beats; null while the item is not placed yet. */
 	promptBeat: number | null;
 	history: readonly LaneEntry[];
+	/** The round's extended expectations, in the same beats; empty before it is placed. */
+	bands: readonly { fromBeat: number; untilBeat: number }[];
 }
 
 /** How a mechanic shows on the play screen and which sensors answer it. */
@@ -44,23 +41,10 @@ export interface MechanicPresenter<I = any, A = any> {
 	 * settled round staying until then; absent: shown at its prompt.
 	 */
 	previewBeats?: number;
-	prompt(
-		item: I,
-		aids: { aid: AidLevel; stringAid: boolean },
-		locale: Locale,
-		random: () => number
-	): PromptView;
-	/** What was answered, localized, or null when the mechanic does not say. */
-	answerLabel(answer: A, item: I, locale: Locale, random: () => number): string | null;
-	/** Shown once the round is settled. Today: the right answer after a miss. */
-	reveal(
-		item: I,
-		outcome: { correct: boolean; verdict: ResponseVerdict },
-		locale: Locale
-	): string | null;
 	/**
-	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn in the
-	 * verdict. Null on a right answer; leave it out for a mechanic that draws no shape.
+	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn by its own
+	 * screen model (the gesture's, D9). Null on a right answer; leave it out for a mechanic that
+	 * draws no shape.
 	 */
 	feedback?(
 		item: I,
@@ -71,7 +55,7 @@ export interface MechanicPresenter<I = any, A = any> {
 	contestable?: boolean;
 	/** The answer buttons of a screen mechanic. */
 	answerChoices?(): AnswerChoice[];
-	/** Detection log lines of this mechanic for one observation payload. */
+	/** Detection log lines of this mechanic for one payload of its own sensors (`sensors`). */
 	debugLines?(item: I, payload: unknown): string[];
 	/**
 	 * What each of its sensors should listen for in a round that opens at `opensAt` (audio s),
@@ -83,24 +67,13 @@ export interface MechanicPresenter<I = any, A = any> {
 		round: { opensAt: number; previous: PlannedItem | null }
 	): Partial<Record<SensorKind, unknown>>;
 	/**
-	 * The screen model of a prompt, opaque to the core, shown by the view its exercise names:
-	 * before its round (`settled` null) and once settled, with the round's answer and verdict;
-	 * `aids`, the prompt's aid. Leave it out for a mechanic shown by the play screen's own lane.
-	 */
-	stage?(
-		item: I,
-		settled: { answer: unknown; verdict: ResponseVerdict } | null,
-		locale: Locale,
-		aids: { aid: AidLevel }
-	): { model: unknown };
-	/**
-	 * The screen model of a prompt on the target model: before its round (`settled` null) and
-	 * once settled, from the round's response value; `place` tells the view where it stands, and
-	 * `drawing` how its chord shapes are drawn (the settings' style, default
+	 * The screen model of a prompt on the target model, for an exercise that writes no
+	 * presentation (the series builds the others' with `promptStage`): before its round
+	 * (`settled` null) and once settled, from the round's response value; `place` tells the view
+	 * where it stands, and `drawing` how its chord shapes are drawn (the settings' style, default
 	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one). `random` spells a note:
 	 * the series gives every call for one item the same value, so a note is written alike from
 	 * its preview to its settlement.
-	 * Beside `stage`, which the one-answer controller keeps until the migration.
 	 */
 	stageOf?(
 		item: I,

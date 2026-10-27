@@ -6,22 +6,16 @@ export type ChordGridGapMessages = Record<ChordGridConfusion['kind'], string> & 
 	noChordHeard: string;
 };
 
-/** The cue of a gesture exercise and its gaps, in each language. */
+/** The quality names and the gaps of a gesture exercise, in each language. */
 export const CHORD_GRID_MESSAGES: Record<
 	Locale,
 	{
-		up: string;
-		down: string;
-		zone: (from: number, to: number) => string;
 		/** A chord's quality, by id: « majeur ». */
 		quality: (id: string) => string;
 		gap: ChordGridGapMessages;
 	}
 > = {
 	fr: {
-		up: '↑ en montant',
-		down: '↓ en descendant',
-		zone: (from, to) => `cases ${from} à ${to}`,
 		quality: (id) => ({ maj: 'majeur', min: 'mineur' })[id] ?? id,
 		gap: {
 			none: 'rien de reconnu',
@@ -36,9 +30,6 @@ export const CHORD_GRID_MESSAGES: Record<
 		}
 	},
 	en: {
-		up: '↑ going up',
-		down: '↓ going down',
-		zone: (from, to) => `frets ${from} to ${to}`,
 		quality: (id) => ({ maj: 'major', min: 'minor' })[id] ?? id,
 		gap: {
 			none: 'nothing recognized',

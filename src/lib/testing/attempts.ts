@@ -1,6 +1,5 @@
-import { isTimed, MECHANIC_RULES } from '$lib/domain/mechanics';
+import { V7_RELATIONS } from '$lib/infrastructure/storage/migrations/v8';
 import {
-	isResponseSuccess,
 	type AidLevel,
 	type Attempt,
 	type ResponseVerdict,
@@ -26,10 +25,9 @@ export type ResponseAttemptFields<D = unknown> = Omit<
 /** Overrides of a spec's attempt builder, in either shape. */
 export type AttemptOverrides<D = unknown> = Partial<ResponseAttemptFields<D>>;
 
-/** The relation an old mechanic's attempts were judged by; `beat` for a mechanic unknown here. */
+/** The relation an old mechanic's attempts were judged by (frozen at version 7); `beat` otherwise. */
 function relationOf(mechanic: string): string {
-	const rules = MECHANIC_RULES.find((candidate) => candidate.id === mechanic);
-	return rules && isTimed(rules) ? rules.timing.id : 'beat';
+	return V7_RELATIONS[mechanic] ?? 'beat';
 }
 
 /**
@@ -45,7 +43,7 @@ export function responseAttempt<D>(fields: ResponseAttemptFields<D>): Attempt<D>
 			: verdict;
 	const decided =
 		typeof verdict === 'string'
-			? isResponseSuccess({ correct: fields.correct === true, verdict })
+			? fields.correct === true && verdict !== 'offbeat'
 			: (success ?? false);
 	return {
 		...rest,

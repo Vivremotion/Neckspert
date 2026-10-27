@@ -1,20 +1,4 @@
 import type { ExerciseDefinition } from '../exercise/types';
-import {
-	CONFUSION_LOOKBACK,
-	CONSOLIDATION_POOL,
-	CONSOLIDATION_SKIP_RECENT,
-	LEARN_COLD_CAP,
-	LEARN_RETEST_GAPS,
-	LEARNING_SLOTS,
-	MAX_UNCONSOLIDATED,
-	MAX_WORKING_SET,
-	NEW_NOTE_CARD_WINDOW,
-	NEW_NOTE_MIN_CARD_SUCCESS,
-	NEW_NOTE_MIN_SESSION_SUCCESS,
-	RECOVERY_AFTER_MISSES,
-	STRING_AID_FADE_SUCCESSES,
-	SUCCESS_WINDOW
-} from '../progress/constants';
 
 /** What an item's exercise sets for it (`params.learning`). */
 export interface ItemLearning {
@@ -57,27 +41,27 @@ export interface SetLearning {
 	recoveryAfterMisses: number;
 }
 
-/** Today's constants of `progress/constants.ts`: the settings of an item whose exercise writes none. */
+/** The settings of an item whose exercise writes none. To calibrate. */
 export const DEFAULT_ITEM_LEARNING: ItemLearning = {
-	retestGaps: LEARN_RETEST_GAPS,
-	aidFadeSuccesses: STRING_AID_FADE_SUCCESSES
+	retestGaps: [2, 4],
+	aidFadeSuccesses: 1
 };
 
-/** Today's constants of `progress/constants.ts`, and today's order: the set's settings when the session writes none. */
+/** The set's settings when the session writes none. To calibrate. */
 export const DEFAULT_SET_LEARNING: SetLearning = {
-	learningSlots: LEARNING_SLOTS,
-	maxWorkingSet: MAX_WORKING_SET,
-	maxUnconsolidated: MAX_UNCONSOLIDATED,
-	coldCap: LEARN_COLD_CAP,
-	newItemMinCardSuccess: NEW_NOTE_MIN_CARD_SUCCESS,
-	newItemCardWindow: NEW_NOTE_CARD_WINDOW,
-	newItemMinSessionSuccess: NEW_NOTE_MIN_SESSION_SUCCESS,
-	successWindow: SUCCESS_WINDOW,
-	consolidationPool: CONSOLIDATION_POOL,
-	consolidationSkipRecent: CONSOLIDATION_SKIP_RECENT,
-	confusionLookback: CONFUSION_LOOKBACK,
+	learningSlots: 3,
+	maxWorkingSet: 6,
+	maxUnconsolidated: 10,
+	coldCap: 20,
+	newItemMinCardSuccess: 0.8,
+	newItemCardWindow: 5,
+	newItemMinSessionSuccess: 0.7,
+	successWindow: 10,
+	consolidationPool: 3,
+	consolidationSkipRecent: 2,
+	confusionLookback: 3,
 	order: ['retest', 'cold-review', 'resumed', 'new', 'consolidation'],
-	recoveryAfterMisses: RECOVERY_AFTER_MISSES
+	recoveryAfterMisses: 1
 };
 
 /** `params.learning` of an exercise over the item defaults, field by field. */

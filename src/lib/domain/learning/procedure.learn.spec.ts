@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { ExerciseId, MechanicId } from '../exercise/types';
-import { LEARN_RETEST_GAPS, SUCCESS_WINDOW } from '../progress/constants';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
+import { DEFAULT_ITEM_LEARNING, DEFAULT_SET_LEARNING } from './params';
 import { createLearningProcedure, type LearningProcedure } from './procedure';
 import type { LearningSubject } from './subject';
 import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
@@ -258,7 +258,7 @@ describe('createLearningProcedure record', () => {
 	});
 
 	it('learns an item when the top level’s pass completes, retesting it at the short gap after the presentation or a miss and the long one otherwise', () => {
-		const [shortGap, longGap] = LEARN_RETEST_GAPS;
+		const [shortGap, longGap] = DEFAULT_ITEM_LEARNING.retestGaps;
 		const source = procedure({
 			subject: fakeSubject({ items: 8 }),
 			cards: [1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
@@ -447,7 +447,7 @@ describe('createLearningProcedure record', () => {
 	it('ignores an attempt of another exercise', () => {
 		const source = procedure({ cards: [learned(0)] });
 		const before = source.levelOf(ref(0));
-		const misses = Array.from({ length: SUCCESS_WINDOW }, () => [
+		const misses = Array.from({ length: DEFAULT_SET_LEARNING.successWindow }, () => [
 			played(0, 'consolidation', { success: false }, OTHER),
 			played(0, 'consolidation', {
 				success: false,
@@ -462,7 +462,7 @@ describe('createLearningProcedure record', () => {
 
 	it('ignores a stored attempt of another exercise in the session’s success', () => {
 		// Misses of this session stored before the procedure was built, in another exercise.
-		const misses = Array.from({ length: SUCCESS_WINDOW }, () =>
+		const misses = Array.from({ length: DEFAULT_SET_LEARNING.successWindow }, () =>
 			played(0, 'consolidation', {
 				success: false,
 				exerciseId: 'another-exercise' as ExerciseId

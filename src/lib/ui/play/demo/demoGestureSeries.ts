@@ -4,13 +4,13 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
 import { exerciseById } from '$lib/domain/exercise';
-import { GESTURE_CLIMB, GESTURE_LINK, gesturePlan } from '$lib/domain/gesture';
+import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
 import type { ItemSource } from '$lib/domain/progress';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Execution, PlannedItem, ResponseVerdict } from '$lib/domain/types';
+import type { Execution, ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
@@ -157,8 +157,6 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					sessionId,
 					rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
 				}),
-			plans: (item, meter, definition) =>
-				gesturePlan(item.item as ChordGridItem, meter, definition),
 			exercise: exerciseById,
 			locale,
 			newId: () => `demo-gesture-${++ids}`,

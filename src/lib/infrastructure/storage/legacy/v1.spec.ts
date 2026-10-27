@@ -279,7 +279,7 @@ describe('convertV1', () => {
 			data({ cards: [v1Card({ leadBeats: 1 })], attempts: [v1Attempt({ leadBeats: 1 })] }),
 			NOW
 		);
-		expect(cards[0].leadBeats).toBe(2);
+		expect((cards[0] as unknown as Record<string, unknown>).leadBeats).toBe(2);
 		expect(attempts[0].leadBeats).toBe(1);
 	});
 

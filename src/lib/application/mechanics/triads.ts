@@ -1,94 +1,29 @@
 import type { ChordCandidate, ChordExpectation } from '$lib/application/ports';
 import {
-	rootPosition,
 	triadAnchorRules,
 	triadZoneRules,
+	type ChordConfusion,
 	type ChordReading,
+	type TriadAnchorConfusion,
+	type TriadAnchorData,
 	type TriadAnchorItem,
+	type TriadZoneData,
 	type TriadZoneItem
 } from '$lib/domain/mechanics';
 import {
 	closeTriadVoicings,
-	formatSpelledNote,
+	type Confusion,
 	parseVoicingKey,
-	pitchOfMidi,
-	spellInterval,
-	spelledFromPitch,
-	pitchOfSpelled,
 	voicingCandidates,
 	voicingKey,
-	voicingOccurrences,
-	type SpelledNote,
 	type Voicing,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import type { PitchName } from '$lib/domain/music/types';
-import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
-import type { Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import type { PromptView, ShapeView } from '$lib/application/session/contract';
-import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
+import { occurrenceId } from '$lib/domain/triads';
+import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
+import type { PlannedItem } from '$lib/domain/types';
+import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
 import type { MechanicPresenter } from './types';
-
-/** Between the frets of a shape: a hyphen that never breaks the line. */
-const FRET_SEPARATOR = '‑';
-
-/** Roots usually written flat in a key signature; the others keep their sharp. */
-const FLAT_ROOTS: Partial<Record<PitchName, string>> = { 'D#': 'Eb', 'G#': 'Ab', 'A#': 'Bb' };
-
-/** The root as a chord chart writes it: Eb, Ab and Bb flat, every other root as keyed. */
-function chartRoot(voicing: Voicing): SpelledNote {
-	const pitch = pitchOfSpelled(voicing.chord.root);
-	const flat = FLAT_ROOTS[pitch];
-	return flat
-		? { letter: flat[0] as SpelledNote['letter'], accidental: -1 }
-		: spelledFromPitch(pitch);
-}
-
-function chordName(voicing: Voicing): string {
-	return formatSpelledNote(chartRoot(voicing)) + voicing.chord.quality.suffix;
-}
-
-function fretsOf(occurrence: VoicingOccurrence): string {
-	return occurrence.notes.map((note) => note.fret).join(FRET_SEPARATOR);
-}
-
-/** The notes of a shape, low string first, spelled from the chart's root: "A D F#". */
-function notesOf(occurrence: VoicingOccurrence): string {
-	const root = chartRoot(occurrence.voicing);
-	return occurrence.notes
-		.map((note) => formatSpelledNote(spellInterval(root, note.degree)))
-		.join(' ');
-}
-
-/** "sol‑si‑mi", "G‑B‑E": the strings of a voicing, low first. */
-function stringSetLabel(voicing: Voicing, locale: Locale): string {
-	return voicing.strings
-		.map(({ string }) => TRIAD_STRING_NAMES[locale][string])
-		.join(FRET_SEPARATOR);
-}
-
-function rootOnLabel(voicing: Voicing, locale: Locale): string {
-	return TRIAD_MESSAGES[locale].rootOn(TRIAD_STRING_NAMES[locale][rootPosition(voicing).string]);
-}
-
-/** "vers la case 3": the fret drawn for the prompt, else (older attempts) the shape's lowest. */
-function aroundLabel(item: TriadZoneItem, locale: Locale): string {
-	if (item.position === 'open') return TRIAD_MESSAGES[locale].open;
-	return TRIAD_MESSAGES[locale].around(item.fret ?? item.position);
-}
-
-/** The lowest fretted shape of a voicing; a shape on open strings only when it has no other. */
-function lowestShape(voicing: Voicing): VoicingOccurrence {
-	const shapes = voicingOccurrences(voicing);
-	return shapes.find((shape) => occurrencePosition(shape) !== 'open') ?? shapes[0];
-}
-
-function shapeAt(voicing: Voicing, position: number | 'open'): VoicingOccurrence {
-	return (
-		voicingOccurrences(voicing).find((shape) => occurrencePosition(shape) === position) ??
-		lowestShape(voicing)
-	);
-}
 
 function toCandidate(kind: string, occurrence: VoicingOccurrence): ChordCandidate {
 	return {
@@ -132,150 +67,89 @@ function chordExpectation(
 	};
 }
 
-function shapeOf(occurrence: VoicingOccurrence): ShapeView {
-	return { notes: occurrence.notes.map(({ string, fret }) => ({ string, fret })) };
-}
+/** The confusion of an anchor whose root was right and whose chord never came in its band. */
+const NO_CHORD: TriadAnchorConfusion = { kind: 'no-chord', part: 'chord' };
 
-/** The shape of a reading, null when it recognized nothing. */
-function heardOf(reading: ChordReading | null | undefined): VoicingOccurrence | null {
-	return reading?.decided ? occurrenceOfId(reading.decided) : null;
-}
-
-/** The voicing's shape closest to the one played (by their position), else its lowest. */
-function closestShape(voicing: Voicing, played: VoicingOccurrence | null): VoicingOccurrence {
-	if (!played) return lowestShape(voicing);
-	const at = (shape: VoicingOccurrence) => {
-		const position = occurrencePosition(shape);
-		return position === 'open' ? 0 : position;
-	};
-	const target = at(played);
-	return voicingOccurrences(voicing).reduce((best, shape) =>
-		Math.abs(at(shape) - target) < Math.abs(at(best) - target) ? shape : best
+/** What the round's expectation `index` received; unanswered when the value has none. */
+function resultAt(value: ResponseValue, index: number): ExpectationResult {
+	return (
+		value.expectations.find((result) => result.index === index) ?? {
+			index,
+			answer: null,
+			correct: null,
+			confusion: null,
+			correction: null,
+			late: false
+		}
 	);
 }
 
-/** Nothing to draw on a right answer: the miss and the correction only. */
-function isMiss(verdict: ResponseVerdict): boolean {
-	return verdict === 'wrong' || verdict === 'corrected';
-}
-
-/** What a chord confusion says, or null when it says nothing (a right chord). */
-function chordGap(confusion: unknown, locale: Locale): string | null {
-	const kind = (confusion as { kind?: string } | null)?.kind;
-	const gap = TRIAD_MESSAGES[locale].gap;
-	switch (kind) {
-		case 'other-inversion':
-		case 'other-quality':
-		case 'other-octave':
-		case 'none':
-		case 'no-chord':
-			return gap[kind];
-		default:
-			return null;
-	}
-}
-
-function chordHeard(reading: ChordReading | null | undefined): string | null {
-	const heard = reading?.decided ? occurrenceOfId(reading.decided) : null;
-	return heard ? fretsOf(heard) : null;
-}
-
-function triadPrompt(
-	voicing: Voicing,
-	secondary: string,
-	aid: string | null,
-	locale: Locale
-): PromptView {
+/**
+ * An anchor's `Attempt.data` as the anchor relation stored it: what was heard of each part (null
+ * when nothing was), and where it went wrong, the root first (named as locate names it), then the
+ * chord (none heard: `no-chord`).
+ */
+function anchorData(item: TriadAnchorItem, value: ResponseValue): TriadAnchorData {
+	const root = resultAt(value, 0);
+	const chord = resultAt(value, 1);
+	const answered = root.answer !== null || chord.answer !== null;
+	const rootConfusion = root.confusion as Confusion | null;
+	const confusion: TriadAnchorConfusion | null =
+		root.correct !== true
+			? root.answer === null || rootConfusion === null
+				? null
+				: { ...rootConfusion, part: 'root' }
+			: chord.answer === null
+				? NO_CHORD
+				: chord.correct === true
+					? null
+					: (chord.confusion as ChordConfusion | null);
 	return {
-		primary: chordName(voicing),
-		secondary,
-		detail: stringSetLabel(voicing, locale),
-		aid,
-		diagram: null
+		item,
+		answer: answered
+			? {
+					root: root.answer as { midi: number } | null,
+					chord: chord.answer as ChordReading | null,
+					correction: chord.correction as ChordReading | null
+				}
+			: null,
+		confusion
 	};
 }
 
-/** Find a triad from its root on a named string: "D · fondamentale sur si". */
-// The judge answers one part at a time; the round answers with both (`{ root, chord }`).
+/**
+ * Find a triad from its root on a named string: "D · fondamentale sur si"; its words and what it
+ * draws are its exercise's presentation. The round answers with both parts (`{ root, chord }`).
+ */
 export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 	rules: triadAnchorRules,
 	scene: 'guitar',
 	sensors: ['note', 'chord'],
 	contestable: true,
-	prompt: (item, { aid }, locale) => {
-		const voicing = parseVoicingKey(item.voicingKey);
-		const prompt = triadPrompt(voicing, rootOnLabel(voicing, locale), null, locale);
-		// The lane: the root alone on the target tile, then the chord on the band after it.
-		return {
-			...prompt,
-			target: formatSpelledNote(chartRoot(voicing)),
-			band: prompt.primary,
-			...(aid === 'show-position' && { shape: shapeOf(lowestShape(voicing)) })
-		};
-	},
-	answerLabel: (answer) => chordHeard((answer as { chord?: ChordReading | null }).chord),
-	feedback: (item, { answer, confusion, verdict }, locale) => {
-		if (!isMiss(verdict)) return null;
-		const voicing = parseVoicingKey(item.voicingKey);
-		const parts = answer as { root: { midi: number } | null; chord: ChordReading | null } | null;
-		const heard = heardOf(parts?.chord);
-		const part = (confusion as { part?: string } | null)?.part;
-		const gap = TRIAD_MESSAGES[locale].gap;
-		const text = !parts?.root
-			? gap.noRoot
-			: part === 'root'
-				? gap.rootHeard(pitchOfMidi(parts.root.midi))
-				: chordGap(confusion, locale);
-		return {
-			heard: heard && shapeOf(heard),
-			expected: shapeOf(closestShape(voicing, heard)),
-			gap: text
-		};
-	},
-	reveal: (item, { verdict }) => {
-		if (verdict !== 'wrong') return null;
-		const shape = lowestShape(parseVoicingKey(item.voicingKey));
-		return `${fretsOf(shape)} · ${notesOf(shape)}`;
-	},
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, lowestShape(voicing), true, round) };
-	}
+	},
+	attemptData: anchorData
 };
 
-/** Find a triad around a fret: "D · vers la case 3". */
+/** Find a triad around a fret: "D · vers la case 3"; its words are its exercise's presentation. */
 export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> = {
 	rules: triadZoneRules,
 	scene: 'guitar',
 	sensors: ['chord'],
 	contestable: true,
-	prompt: (item, { aid }, locale) => {
-		const voicing = parseVoicingKey(item.voicingKey);
-		return triadPrompt(
-			voicing,
-			aroundLabel(item, locale),
-			aid === 'show-position' ? rootOnLabel(voicing, locale) : null,
-			locale
-		);
-	},
-	answerLabel: (answer) => chordHeard(answer),
-	feedback: (item, { answer, confusion, verdict }, locale) => {
-		if (!isMiss(verdict)) return null;
-		const heard = heardOf(answer as ChordReading | null);
-		return {
-			heard: heard && shapeOf(heard),
-			expected: shapeOf(shapeAt(parseVoicingKey(item.voicingKey), item.position)),
-			gap: answer === null ? TRIAD_MESSAGES[locale].gap.noChordHeard : chordGap(confusion, locale)
-		};
-	},
-	reveal: (item, { verdict }) => {
-		if (verdict !== 'wrong') return null;
-		const shape = shapeAt(parseVoicingKey(item.voicingKey), item.position);
-		return `${fretsOf(shape)} · ${notesOf(shape)}`;
-	},
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, shapeAt(voicing, item.position), false, round) };
+	},
+	attemptData: (item, value): TriadZoneData => {
+		const chord = resultAt(value, 0);
+		return {
+			item,
+			answer: chord.answer as ChordReading | null,
+			confusion: chord.confusion as ChordConfusion | null
+		};
 	}
 };
 

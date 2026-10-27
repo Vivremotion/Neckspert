@@ -97,6 +97,13 @@ export interface VerdictContext {
 /** Turns what a round paired into its outcome. */
 export interface VerdictMode {
 	id: string;
+	/**
+	 * It judges against a level's thresholds (`VerdictContext.thresholds`): a caller that gives
+	 * none cannot run it.
+	 */
+	readsThresholds?: boolean;
+	/** Null when the plan gives this mode what it reads to judge, else what it lacks. */
+	validate?(plan: RoundPlan): string | null;
 	outcome(result: PairingResult, context: VerdictContext): RoundOutcome;
 }
 

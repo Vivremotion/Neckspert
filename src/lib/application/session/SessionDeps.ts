@@ -1,17 +1,14 @@
 import type { AttemptRecorder } from './AttemptRecorder';
-import type { PlanSource } from './series/planSource';
 import type { SessionMemory } from './sessionMemory';
 import type {
 	AttemptRepositoryPort,
 	AudioClockPort,
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort,
-	MetronomePort,
 	NoteDetectorPort,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort,
 	SoundSchedulerPort,
 	TakeBufferPort
 } from '$lib/application/ports';
@@ -22,9 +19,7 @@ import type { SensorFactory } from './sensors';
 
 export interface SessionDeps {
 	clock: AudioClockPort;
-	metronome: MetronomePort;
 	detector: NoteDetectorPort;
-	cues: SoundCuePort;
 	attempts: AttemptRepositoryPort;
 	cards: CardStateRepositoryPort;
 	sessions: SessionRepositoryPort;
@@ -58,7 +53,7 @@ export interface PlanSessionDeps extends SessionDeps {
 
 /**
  * What a series of response rounds on the transport needs: the one path every sound takes, the
- * sensors and presenters of its mechanics, where it writes, the plan of each item, and whether
+ * sensors and presenters of its mechanics, where it writes, and whether
  * the development tools (« Joué juste ») show.
  */
 export interface ResponseSeriesDeps {
@@ -71,7 +66,6 @@ export interface ResponseSeriesDeps {
 	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings' | 'progressions'>;
 	/** The recorder of one series: a new series (a start after the end) gets its own. */
 	recorderFor: (sessionId: string) => AttemptRecorder;
-	plans: PlanSource;
 	/** The definition of an exercise (its view, its instruction); throws on an unknown one. */
 	exercise: (id: ExerciseId) => ExerciseDefinition;
 	locale: () => Locale;

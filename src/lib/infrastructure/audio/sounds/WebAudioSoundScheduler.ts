@@ -1,7 +1,9 @@
 import type { SoundSchedulerPort } from '$lib/application/ports';
 import type { ScheduledSound, SoundId } from '$lib/domain/time';
-import { DEFAULT_LOOKAHEAD_MS } from '../clock/WebAudioMetronome';
 import { NoiseBuffers, TIMBRES, playBurst } from './clickSound';
+
+/** How late a wake-up may run: the timer polls this often. */
+export const DEFAULT_LOOKAHEAD_MS = 25;
 
 export interface SoundSchedulerOptions {
 	lookaheadMs?: number;
@@ -16,8 +18,8 @@ interface Pending {
 /**
  * Plays any pitchless sound at an exact audio time and keeps a log of what it scheduled.
  * A sound is handed to the audio thread as soon as `play` is called, so its timing never
- * depends on a timer; a time already past is dropped, not played late. Wake-ups share the
- * metronome's rule: never early, at most `lookaheadMs` late, earliest first.
+ * depends on a timer; a time already past is dropped, not played late. Wake-ups are
+ * never early, at most `lookaheadMs` late, earliest first.
  */
 export class WebAudioSoundScheduler implements SoundSchedulerPort {
 	private readonly noise = new NoiseBuffers();

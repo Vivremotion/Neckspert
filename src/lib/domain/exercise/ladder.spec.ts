@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from './catalog';
-import { ladderOf, leadStepsOf, learnedAfterOf, validateLadder } from './ladder';
+import { ladderOf, validateLadder } from './ladder';
 import type { ExerciseDefinition, Ladder } from './types';
 
 /** Today's lead ladder at 80 bpm: 8 beats aided, 4, then 2 where only a direct recall counts. */
@@ -81,23 +81,5 @@ describe('ladderOf', () => {
 		};
 		expect(validateLadder(waltz)).toBeNull();
 		expect(ladderOf(definition)).toEqual(waltz);
-		expect(leadStepsOf(definition)).toEqual([6, 3]);
-		expect(learnedAfterOf(definition)).toBe(3);
-	});
-
-	it('gives the old triad path its leads and the successes that learn (until H5)', () => {
-		expect(leadStepsOf(TRIADS_ANCHOR)).toEqual([8, 4, 2]);
-		expect(learnedAfterOf(TRIADS_ZONE)).toBe(2);
-	});
-
-	it('refuses the old triad path a ladder without leads, or with a lead twice (until H5)', () => {
-		const level = (leadBeats: number | null, aided = false) => ({ params: { leadBeats, aided } });
-		expect(() => leadStepsOf(withLadder([level(null, true), level(null)]))).toThrow(
-			/^locate-neck: params\.ladder .*no lead/
-		);
-		expect(() => leadStepsOf(withLadder([level(8, true), level(8), level(2)]))).toThrow(
-			/^locate-neck: params\.ladder .*8.*twice/
-		);
-		expect(() => leadStepsOf(withLadder([level(8), level(4), level(8)]))).toThrow(/twice/);
 	});
 });

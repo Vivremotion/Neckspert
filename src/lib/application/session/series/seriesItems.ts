@@ -1,3 +1,4 @@
+import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, ExerciseId, Scene } from '$lib/domain/exercise/types';
 import {
 	cardKey,
@@ -51,7 +52,7 @@ export class SeriesItems {
 		const flow = this.definitionOf(item).flow;
 		return {
 			scene: flow?.scene ?? presenter.scene,
-			previewBeats: flow?.previewBeats ?? presenter.previewBeats ?? null,
+			previewBeats: previewBeatsOf(this.definitionOf(item), presenter.previewBeats),
 			contestable: flow?.contestable ?? presenter.contestable ?? false
 		};
 	}

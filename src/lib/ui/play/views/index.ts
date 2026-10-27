@@ -2,8 +2,8 @@ import type { Component } from 'svelte';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import AnswerKeysView from './AnswerKeysView.svelte';
 import GridScrollView from './GridScrollView.svelte';
+import LaneView from './LaneView.svelte';
 import LinkLaneView from './LinkLaneView.svelte';
-import NoteLaneView from './NoteLaneView.svelte';
 import RhythmFigureView from './RhythmFigureView.svelte';
 
 /** What a play view is given: the session, and the screen model of its mechanic. */
@@ -16,8 +16,8 @@ export type PlayViewProps = { controller: PlaySessionController; model: unknown 
 export const PLAY_VIEWS: Record<string, Component<PlayViewProps>> = {
 	'answer-keys': AnswerKeysView,
 	'grid-scroll': GridScrollView,
+	lane: LaneView,
 	'link-lane': LinkLaneView,
-	'note-lane': NoteLaneView,
 	'rhythm-figure': RhythmFigureView
 };
 
@@ -31,7 +31,7 @@ export type PlayWorld = 'quiet' | 'pixel';
 export const VIEW_WORLDS: Record<string, PlayWorld> = {
 	'answer-keys': 'quiet',
 	'grid-scroll': 'pixel',
+	lane: 'quiet',
 	'link-lane': 'pixel',
-	'note-lane': 'quiet',
 	'rhythm-figure': 'pixel'
 };

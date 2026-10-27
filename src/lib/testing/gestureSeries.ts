@@ -1,13 +1,12 @@
-/** A response series on the gesture's real presenter and plans, with scripted items and the fakes. */
+/** A response series on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById } from '$lib/domain/exercise';
-import { gesturePlan } from '$lib/domain/gesture';
 import type { GridChange } from '$lib/domain/grid';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Attempt, Execution, PlannedItem } from '$lib/domain/types';
+import type { Attempt, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { GESTURE_PRESENTERS, type GridStageModel } from '$lib/application/mechanics/chordGrid';
 import {
@@ -122,7 +121,6 @@ export function gestureSeries(
 	items: PlannedItem[],
 	options: {
 		development?: boolean;
-		plans?: ResponseSeriesDeps['plans'];
 		exercise?: ResponseSeriesDeps['exercise'];
 		/** The source of each series in turn; the first defaults to `items`. */
 		sources?: ItemSource[];
@@ -134,6 +132,8 @@ export function gestureSeries(
 		random?: () => number;
 		/** The series' length its preparation gives; absent: none given. */
 		durationMs?: number;
+		/** The kind of session the series is; the gesture's by default. */
+		kind?: SessionKind;
 	} = {}
 ) {
 	const clock = new FakeClock();
@@ -149,6 +149,8 @@ export function gestureSeries(
 		settings: new InMemorySettingsRepository(),
 		progressions: new InMemoryProgressionRepository()
 	};
+	/** The cards the recorders write, shared by every series of this bench. */
+	const cards = new InMemoryCardStateRepository();
 	let ids = 1;
 	/** The source prepared for each session: its recorder tells it each attempt. */
 	const sourceOf = new Map<string, ItemSource>();
@@ -164,7 +166,7 @@ export function gestureSeries(
 		recorderFor: (sessionId) => {
 			const recorder = new AttemptRecorder({
 				attempts: repositories.attempts,
-				cards: new InMemoryCardStateRepository(),
+				cards,
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: sourceOf.get(sessionId) ?? source,
@@ -174,9 +176,6 @@ export function gestureSeries(
 			recorders.push(recorder);
 			return recorder;
 		},
-		plans:
-			options.plans ??
-			((item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)),
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,
@@ -185,7 +184,7 @@ export function gestureSeries(
 	};
 	const prepared: string[] = [];
 	const controller = new ResponseSeriesController(
-		{ id: 'series-1', kind: 'gesture' },
+		{ id: 'series-1', kind: options.kind ?? 'gesture' },
 		async (sessionId) => {
 			prepared.push(sessionId);
 			const next = sources.shift();
@@ -231,6 +230,7 @@ export function gestureSeries(
 		verifier,
 		source,
 		repositories,
+		cards,
 		controller,
 		prepared,
 		runTo,

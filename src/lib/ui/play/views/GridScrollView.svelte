@@ -15,7 +15,6 @@
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
 	const stage = $derived(model as GridStageModel);
-	const view = $derived(controller.view);
 	const t = $derived(viewMessages());
 
 	let nowBeat = $state(0);
@@ -76,7 +75,12 @@
 		{#if stage.aid}
 			<div class="aid">
 				<p class="label">{t.aid}</p>
-				<ChordShape shape={stage.aid} style={view.chordDiagram} locale={i18n.locale} size="small" />
+				<ChordShape
+					shape={stage.aid}
+					style={stage.chordDiagram}
+					locale={i18n.locale}
+					size="small"
+				/>
 			</div>
 		{/if}
 	</div>

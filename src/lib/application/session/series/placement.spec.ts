@@ -1,30 +1,46 @@
-import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
-import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { describe, expect, it } from 'vitest';
-import { beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
-import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
+import { exerciseById, IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise';
+import { DEFAULT_PREVIEW_BEATS } from '$lib/domain/exercise/pacing';
+import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, type Meter } from '$lib/domain/time';
-import type { LeadBeats } from '$lib/domain/types';
+import type { LeadBeats, PlannedItem } from '$lib/domain/types';
+import { change as gridChange } from '$lib/testing/gestureSeries';
 import { inFreeTime, nextBeat, timedStart } from './placement';
 
 const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
-const NOTE = { kind: NOTE_CONTENT, value: { string: 3, pitch: 'C' } };
+const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS };
 
 const locate = (leadBeats: LeadBeats, meter: Meter) =>
-	beatPlan({
-		content: NOTE,
-		leadBeats,
+	compileRound(
+		LOCATE_NECK,
+		{
+			exerciseId: LOCATE_NECK.id,
+			mechanic: 'locate',
+			item: { string: 3, pitch: 'C' },
+			phase: 'learning',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats
+		},
 		meter,
-		respirationBars: 1,
-		windows: DEFAULT_RESPONSE_WINDOWS,
-		previewBeats: STRING_PREVIEW_BEATS
-	});
+		resolved
+	);
 const change = (meter: Meter) =>
-	gridChangePlan({ content: NOTE, lengthBeats: 4, meter, windows: DEFAULT_RESPONSE_WINDOWS });
-const free = freePlan({
-	content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-	recallThresholdMs: 3000
-});
+	compileRound(exerciseById('gesture-jam'), gridChange(0), meter, resolved);
+const free = compileRound(
+	IDENTIFY_NECK,
+	{
+		exerciseId: IDENTIFY_NECK.id,
+		mechanic: 'identify',
+		item: { string: 3, fret: 5 },
+		phase: 'learning',
+		temperature: 'hot',
+		aid: 'none',
+		leadBeats: null
+	} satisfies PlannedItem,
+	METER_4_4,
+	resolved
+);
 
 /** The bar of the prompt of a round starting on bar `start`, in bars. */
 const promptBar = (start: Fraction, plan: ReturnType<typeof locate>, meter: Meter) =>

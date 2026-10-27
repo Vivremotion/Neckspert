@@ -31,7 +31,6 @@ const FORBIDDEN = [
 	'domain/triads',
 	'domain/gesture',
 	'domain/mechanics',
-	'domain/timing',
 	'application'
 ];
 
@@ -125,8 +124,8 @@ describe('the learning procedure', () => {
 			`${file}: application/app`
 		]);
 		// Only the allowed modules of the domain.
-		expect(offendersIn({ [file]: `import { x } from '../progress/triadSelector';` })).toEqual([
-			`${file}: domain/progress/triadSelector`
+		expect(offendersIn({ [file]: `import { x } from '../progress/stats';` })).toEqual([
+			`${file}: domain/progress/stats`
 		]);
 		expect(
 			offendersIn({

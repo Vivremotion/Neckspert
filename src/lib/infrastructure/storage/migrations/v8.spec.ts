@@ -1,14 +1,16 @@
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { describe, expect, it } from 'vitest';
-import { mechanicRules, timedRules } from '$lib/domain/mechanics';
 import v3Export from '../fixtures/backup-v3.json';
 import { createDatabase } from '../db';
 import { makeAttempt } from '../testing/fixtures';
 import { validateBackup } from '../validateBackup';
 import { V7_RELATIONS, attemptToV8, backupV3ToV4, relationOfMechanic, settingsToV8 } from './v8';
+import { TRIAD_LADDER_V10 } from './v10';
 
 type Row = Record<string, unknown>;
+
+const TRIAD_EXERCISES: Record<string, string> = TRIAD_LADDER_V10.exercises;
 
 /** A fresh copy of the version 3 export made by the application before this model. */
 function exportV3(): Row & { attempts: Row[]; settings: Row } {
@@ -50,14 +52,6 @@ describe('relationOfMechanic', () => {
 		});
 		for (const [mechanic, relation] of Object.entries(V7_RELATIONS)) {
 			expect(relationOfMechanic(mechanic)).toBe(relation);
-		}
-	});
-
-	// Tripwire: the migration never reads the registry, but a divergence must be noticed, then
-	// decided (the frozen table is the truth of version 7 and stays as it is).
-	it('agrees with the relations of today’s registry', () => {
-		for (const [mechanic, relation] of Object.entries(V7_RELATIONS)) {
-			expect(timedRules(mechanicRules(mechanic)).timing.id).toBe(relation);
 		}
 	});
 
@@ -214,13 +208,17 @@ describe('a version 3 export of the application before this model', () => {
 		expect(file.attempts.every((attempt) => typeof attempt.verdict === 'string')).toBe(true);
 
 		const v4 = validateBackup(file);
-		expect(v4.version).toBe(5);
-		// Version 5 adds the level of each neck card; the exercises' own states start empty.
-		expect(v4.levelStates.map((state) => state.exerciseId)).toEqual(
-			v4.cards
+		expect(v4.version).toBe(6);
+		// Version 5 adds the level of each neck card, version 6 of each triad card; the exercises'
+		// own states start empty.
+		expect(v4.levelStates.map((state) => state.exerciseId)).toEqual([
+			...v4.cards
 				.filter((card) => ['locate', 'identify'].includes(card.mechanic))
-				.map((card) => `${card.mechanic}-neck`)
-		);
+				.map((card) => `${card.mechanic}-neck`),
+			...v4.cards
+				.filter((card) => ['triad-anchor', 'triad-zone'].includes(card.mechanic))
+				.map((card) => TRIAD_EXERCISES[card.mechanic])
+		]);
 		expect(v4.attempts).toHaveLength(file.attempts.length);
 		for (const [index, attempt] of v4.attempts.entries()) {
 			const old = file.attempts[index];
@@ -302,7 +300,7 @@ describe('a version 7 database opened at version 8', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(9);
+		expect(db.verno).toBe(10);
 		const attempts = await db.attempts.orderBy('id').toArray();
 		expect(attempts).toHaveLength(file.attempts.length + 1);
 		expect(attempts.slice(0, -1)).toEqual(
@@ -318,19 +316,26 @@ describe('a version 7 database opened at version 8', () => {
 			},
 			clickBleed: false
 		});
+		// Version 10 then took the lead off every card.
 		expect(await db.cards.toArray()).toEqual(
-			[...(file.cards as Row[])].sort((a, b) => String(a.key).localeCompare(String(b.key)))
+			[...(file.cards as Row[])]
+				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
+				.map(({ leadBeats: _lead, ...card }) => card)
 		);
 		expect(await db.sessions.count()).toBe((file.sessions as Row[]).length);
 		expect((await db.progressions.count()) + (await db.scopedProgressions.count())).toBe(
 			progressions.length
 		);
-		// Version 9 then gave each neck card its level, and only those.
+		// Version 9 then gave each neck card its level, version 10 each triad card, and only those.
+		const exerciseOf: Record<string, string> = {
+			locate: 'locate-neck',
+			identify: 'identify-neck',
+			...TRIAD_EXERCISES
+		};
 		expect((await db.levelStates.toArray()).map((state) => state.exerciseId).sort()).toEqual(
 			(file.cards as Row[])
-				.map((card) => String(card.mechanic))
-				.filter((mechanic) => ['locate', 'identify'].includes(mechanic))
-				.map((mechanic) => `${mechanic}-neck`)
+				.map((card) => exerciseOf[String(card.mechanic)])
+				.filter((exerciseId) => exerciseId !== undefined)
 				.sort()
 		);
 		// The indexes still answer.

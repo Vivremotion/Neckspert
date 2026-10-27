@@ -7,7 +7,7 @@ import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
 import type { TriadZoneItem } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
-import { LEARN_COLD_CAP, MAX_WORKING_SET } from '$lib/domain/progress/constants';
+import { DEFAULT_SET_LEARNING } from '$lib/domain/learning/params';
 import { graduateToReview, introScheduling } from '$lib/domain/progress/scheduling';
 import type { LevelState } from '$lib/domain/time/levels';
 import {
@@ -63,7 +63,6 @@ function triadCard(
 		item: { voicingKey: voicing },
 		introducedAt: 0,
 		introducedInSession: 'past',
-		leadBeats: 2,
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
 		masteredAt: null,
@@ -160,7 +159,8 @@ describe('triadSubject', () => {
 			triadSubject({
 				mechanic: 'triad-anchor',
 				definitions: { anchor: withoutThreshold(TRIADS_ANCHOR), zone: TRIADS_ZONE },
-				acquiredPositions: new Set()
+				acquiredPositions: new Set(),
+				attempts: []
 			})
 		).toThrow(/recall threshold/);
 	});
@@ -188,7 +188,8 @@ describe('triadSubject', () => {
 		const prioritized = triadSubject({
 			mechanic: 'triad-anchor',
 			definitions: DEFINITIONS,
-			acquiredPositions: acquired
+			acquiredPositions: acquired,
+			attempts: []
 		});
 		const head = prioritized.nextNew([], NO_HISTORY, NOTHING_BLOCKED);
 		expect(head).not.toEqual(ref(ANCHOR, ORDER[0]));
@@ -415,8 +416,8 @@ describe('triadSubject', () => {
 			expect(planned.stringAid ?? false).toBe(false);
 			if (planned.temperature === 'hot') hot.add(key);
 			if (planned.phase === 'review') reviews += 1;
-			expect(reviews).toBeLessThanOrEqual(LEARN_COLD_CAP);
-			expect(hot.size).toBeLessThanOrEqual(MAX_WORKING_SET);
+			expect(reviews).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.coldCap);
+			expect(hot.size).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.maxWorkingSet);
 
 			const success = succeeds(planned, key);
 			const outcome = procedure.record(answerOf(planned, success, { at: now }), now);

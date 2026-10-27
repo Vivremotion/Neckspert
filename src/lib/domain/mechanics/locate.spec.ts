@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { beatTiming } from '$lib/domain/timing';
 import { cardKeyOf, locateRules, mechanicRules, MECHANIC_RULES } from './index';
 
 describe('locateRules', () => {
@@ -23,8 +22,7 @@ describe('locateRules', () => {
 		});
 	});
 
-	it('plays on the beat and learns by memory', () => {
-		expect(locateRules.timing).toBe(beatTiming);
+	it('learns by memory', () => {
 		expect(locateRules.learner).toBe('memory');
 	});
 

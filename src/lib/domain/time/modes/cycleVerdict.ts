@@ -1,7 +1,12 @@
 import { timeExpectations, type Alignment } from '../judge/align';
 import { cycleReport, cycleVerdict, type CycleVerdict } from '../judge/measures';
+import type { RoundPlan } from '../plan';
 import type { RoundOutcome } from '../round';
+import { alignmentPairing } from './alignment';
 import type { PairingResult, VerdictContext, VerdictMode } from './types';
+
+/** The pairing whose timed pairs the cycle verdict reads. */
+const ALIGNMENT = alignmentPairing.id;
 
 /** The version of the shape of a cycle verdict (`CycleVerdict`). */
 export const CYCLE_VERDICT_VERSION = 1;
@@ -39,6 +44,18 @@ function alignmentOf(result: PairingResult): Alignment {
  */
 export const cycleVerdictMode: VerdictMode = {
 	id: 'cycle',
+	readsThresholds: true,
+	validate(plan: RoundPlan): string | null {
+		if (plan.policy.unit !== 'cycle') {
+			return `a cycle verdict judges a whole cycle (unit "cycle"), got unit "${plan.policy.unit}"`;
+		}
+		if (plan.policy.pairing.mode !== ALIGNMENT) {
+			return `a cycle verdict needs pairs timed by the alignment (pairing "${ALIGNMENT}"), got "${plan.policy.pairing.mode}"`;
+		}
+		const free = plan.expectations.findIndex((e) => e.at === null);
+		if (free >= 0) return `a cycle verdict needs a tempo map: expectation ${free} is in free time`;
+		return null;
+	},
 	outcome(result: PairingResult, context: VerdictContext): RoundOutcome {
 		const { plan, clock, thresholds } = context;
 		if (thresholds === null) throw new RangeError('a cycle verdict needs thresholds');

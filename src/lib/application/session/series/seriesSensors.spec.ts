@@ -36,4 +36,18 @@ describe('SeriesSensors', () => {
 			['tap', 0]
 		]);
 	});
+
+	it('names a sensor without a factory', () => {
+		const sensors = new SeriesSensors({
+			clock: new FakeClock(),
+			mechanics: { a: { sensors: ['note'] } as unknown as MechanicPresenter },
+			sensors: {}
+		});
+		expect(() =>
+			sensors.open(
+				() => 0,
+				() => {}
+			)
+		).toThrow('No factory for sensor: note');
+	});
 });

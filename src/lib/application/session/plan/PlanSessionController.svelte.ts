@@ -33,7 +33,7 @@ import {
 } from '$lib/domain/session';
 import { DEFAULT_SETTINGS, type PlannedItem, type Settings } from '$lib/domain/types';
 import { openAudioInput } from '../audioInput';
-import { DEFAULT_PLAY_VIEW, type PlaySessionController, type PlayView } from '../contract';
+import { playViewOf, type PlaySessionController, type PlayView } from '../contract';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
@@ -231,21 +231,9 @@ export class PlanSessionController implements PlaySessionController {
 		const first = this.paramsOf(0);
 		this.view = $state<PlayView>({
 			status: 'idle',
-			prompt: null,
-			lastVerdict: null,
 			tempoBpm: first.tempo.bpm,
-			beatsPerBar: 4,
-			promptBeatIndex: null,
-			targetBeatIndex: null,
-			followUp: null,
-			leadBeats: null,
-			history: [],
-			answerChoices: null,
 			fatigueDetected: false,
-			scene: 'guitar',
 			countdown: null,
-			preview: null,
-			chordDiagram: DEFAULT_SETTINGS.chordDiagram,
 			contest: null,
 			audioError: null,
 			stage: null,
@@ -1170,7 +1158,7 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	private viewName(): string {
-		return this.exercise.view ?? DEFAULT_PLAY_VIEW;
+		return playViewOf(this.exercise);
 	}
 
 	/**
@@ -1226,7 +1214,8 @@ export class PlanSessionController implements PlaySessionController {
 			],
 			// The level held now: a summary read later shows this session's, not the latest.
 			levelReached: this.levelState.level,
-			latencyMs: this.latency()?.ms ?? null
+			// The latency applied to the onsets: none calibrated, none removed.
+			latencyMs: this.latency()?.ms ?? 0
 		};
 	}
 

@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { freePlan } from '$lib/domain/exercise/roundPlans';
-import { NAME_CONTENT } from '$lib/domain/judges';
 import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
-import { gesturePlan } from '$lib/domain/gesture/plans';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
@@ -18,6 +15,7 @@ import type { PlannedItem } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { gridExpectation } from '$lib/application/mechanics/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
+import { identifyPlan, changePlan } from '$lib/testing/plans';
 import { shapeId } from '$lib/testing/shapes';
 import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
@@ -110,7 +108,7 @@ async function setup(
 	};
 	const events: { at: number; event: RunnerEvent }[] = [];
 	const runner = new RoundRunner({
-		plan: options.plan ?? gesturePlan(item, METER_4_4, GESTURE_LINK),
+		plan: options.plan ?? changePlan(item, METER_4_4, GESTURE_LINK),
 		item: planned,
 		at: Fraction.of(playFrom),
 		chained: options.chained ?? false,
@@ -243,7 +241,7 @@ describe('RoundRunner', () => {
 	it('settles a round without a handover at its end of listening, between beats', async () => {
 		// Listening ends at 3.5 beats.
 		const plan: RoundPlan = {
-			...gesturePlan(item, METER_4_4, GESTURE_LINK),
+			...changePlan(item, METER_4_4, GESTURE_LINK),
 			listenUntil: Fraction.of(7, 8)
 		};
 		delete plan.handover;
@@ -275,10 +273,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('wakes a round in free time never, and settles it on its answer', async () => {
-		const plan = freePlan({
-			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-			recallThresholdMs: 3000
-		});
+		const plan = identifyPlan({ string: 3, fret: 5 });
 		const ctx = await setup({ plan });
 		expect(ctx.runner.handoverTime).toBeNull();
 		// Seconds of silence pass: no beat, no end of listening wakes the round.
@@ -293,10 +288,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('counts a round in free time from the instant the controller opens it', async () => {
-		const plan = freePlan({
-			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-			recallThresholdMs: 3000
-		});
+		const plan = identifyPlan({ string: 3, fret: 5 });
 		// Opened a little after the downbeat its bar starts on, at the wake-up.
 		const ctx = await setup({ plan, openedAfter: 0.3 });
 		ctx.runTo(ctx.t0 + 1.4);
@@ -328,7 +320,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('opens a chained round without a handover at its first opening, and wakes it to its end of listening', async () => {
-		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4, GESTURE_LINK) };
+		const plan: RoundPlan = { ...changePlan(item, METER_4_4, GESTURE_LINK) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		expect(ctx.runner.handoverTime).toBeNull();
@@ -339,7 +331,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('wakes a chained round without a handover to the end of its bar', async () => {
-		const plan: RoundPlan = { ...gesturePlan(item, METER_4_4, GESTURE_LINK) };
+		const plan: RoundPlan = { ...changePlan(item, METER_4_4, GESTURE_LINK) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		ctx.runTo(ctx.t0 + 1.99);

@@ -6,7 +6,6 @@ import {
 	type IdentifyItem
 } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
-import { identifyTiming } from '$lib/domain/timing';
 import type { MechanicRules } from './types';
 
 /** `Attempt.data` of an identify attempt. */
@@ -25,7 +24,6 @@ export const identifyRules: MechanicRules<
 	Confusion
 > = {
 	id: 'identify',
-	timing: identifyTiming,
 	learner: 'memory',
 	itemKey: identifyItemKey,
 	parseItem: parseIdentifyItem,

@@ -1,3 +1,4 @@
+import type { RoundPlan } from '../plan';
 import type { RoundOutcome } from '../round';
 import type { PairedAnswer, PairingResult, VerdictContext, VerdictMode } from './types';
 
@@ -41,7 +42,7 @@ export interface ResponseValue {
 	expectations: ExpectationResult[];
 }
 
-/** Seconds to whole ms, rounded half away from zero (as `domain/scoring/timing.ts` does). */
+/** Seconds to whole ms, rounded half away from zero. */
 function secondsToMs(seconds: number): number {
 	const ms = Math.round(Math.abs(seconds) * 1000);
 	return seconds < 0 && ms !== 0 ? -ms : ms;
@@ -69,13 +70,24 @@ function expectationResult(index: number, pair: PairedAnswer | undefined): Expec
  */
 export const responseVerdict: VerdictMode = {
 	id: 'response',
+	validate(plan: RoundPlan): string | null {
+		// It judges answers: a rest, never answered, would always be a miss.
+		const rest = plan.expectations.findIndex((e) => e.role === 'judged-rest');
+		if (rest >= 0) {
+			return `expectation ${rest} is a judged rest: a response verdict judges answers, not silences`;
+		}
+		const timed = plan.expectations.find((e) => e.span === 'point');
+		if (!timed) return 'a response verdict needs a point expectation';
+		if (!('ms' in timed.window)) return 'a response verdict needs a window in ms';
+		return null;
+	},
 	outcome(result: PairingResult, context: VerdictContext): RoundOutcome {
 		const { plan, times, clock } = context;
+		const problem = responseVerdict.validate?.(plan) ?? null;
+		if (problem) throw new RangeError(problem);
 		const timedIndex = plan.expectations.findIndex((e) => e.span === 'point');
-		if (timedIndex < 0) throw new RangeError('a response verdict needs a point expectation');
 		const timed = plan.expectations[timedIndex];
-		if (!('ms' in timed.window)) throw new RangeError('a response verdict needs a window in ms');
-		const windowMs = timed.window.ms;
+		const windowMs = (timed.window as { ms: number }).ms;
 
 		const byIndex = new Map(result.pairs.map((p) => [p.expectation, p]));
 		const timedPair = byIndex.get(timedIndex);

@@ -1,14 +1,18 @@
-import { locatePresenter, type NoteLaneModel } from '$lib/application/mechanics/locate';
-import type { NoteVerdictView } from '$lib/application/mechanics/noteVerdict';
+import { DEFAULT_RESPIRATION_BARS } from '$lib/domain/exercise/pacing';
+import {
+	CONTENT_VIEWS,
+	presentPrompt,
+	type PromptStageModel,
+	type StageVerdict
+} from '$lib/application/presentation';
 import type {
 	LaneEntry,
 	PlaySessionController,
 	PlayTimeline,
 	PlayView
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
-import { formatNote, openPitch, spellPitch, type LocateItem } from '$lib/domain/music';
-import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
+import { DEFAULT_TEMPO_BPM, LOCATE_NECK } from '$lib/domain/exercise';
+import { acceptableMidis, midiOnString, type LocateItem } from '$lib/domain/music';
 import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 
@@ -43,18 +47,18 @@ const SCRIPT: { item: LocateItem; verdict: ResponseVerdict; offsetMs: number }[]
 	{ item: { string: 2, pitch: 'F' }, verdict: 'late', offsetMs: 95 }
 ];
 
-const BEATS_PER_BAR = 4;
-const COUNT_IN = BEATS_PER_BAR;
+const BAR_BEATS = 4;
+const COUNT_IN = BAR_BEATS;
 const LEAD = 8;
 /** The breathing bar after a target: its verdict stays, then the next note comes. */
-const BREATH_BEATS = RESPIRATION_BARS * BEATS_PER_BAR;
+const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BAR_BEATS;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
 
 /**
  * Scripted mode 1 session without audio, for the demo page and tests: it fills the stage with
- * the note lane's model, as the locate presenter draws it, from the injectable clock.
+ * the prompt's screen model, as the series writes it for locate, from the injectable clock.
  */
 export class DemoPlaySession implements PlaySessionController {
 	readonly sessionId = 'demo-play';
@@ -73,24 +77,13 @@ export class DemoPlaySession implements PlaySessionController {
 		this.#clock = options.clock ?? new ManualDemoClock();
 		this.view = $state({
 			status: 'idle',
-			prompt: null,
-			lastVerdict: null,
 			tempoBpm: options.tempoBpm ?? DEFAULT_TEMPO_BPM,
-			beatsPerBar: BEATS_PER_BAR,
-			promptBeatIndex: null,
-			targetBeatIndex: null,
-			followUp: null,
-			chordDiagram: 'strings',
 			contest: null,
-			leadBeats: null,
-			history: [],
-			answerChoices: null,
 			fatigueDetected: false,
-			scene: 'guitar',
 			countdown: null,
-			preview: null,
 			audioError: null,
-			stage: null
+			stage: null,
+			briefing: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
@@ -98,8 +91,8 @@ export class DemoPlaySession implements PlaySessionController {
 	}
 
 	/** The note lane on stage, when the demo shows it. */
-	get lane(): NoteLaneModel | null {
-		return this.view.stage ? (this.view.stage.model as NoteLaneModel) : null;
+	get lane(): PromptStageModel | null {
+		return this.view.stage ? (this.view.stage.model as PromptStageModel) : null;
 	}
 
 	async start(): Promise<void> {
@@ -167,20 +160,28 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.countdown = null;
 	}
 
-	#show(place: Pick<NoteLaneModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
+	#show(place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
 		const { item } = SCRIPT[this.#step];
+		const planned = {
+			exerciseId: LOCATE_NECK.id,
+			mechanic: LOCATE_NECK.mechanic,
+			item,
+			phase: 'review',
+			temperature: 'cold',
+			aid: 'none',
+			leadBeats: LEAD
+		} as const;
 		this.view.stage = {
-			view: 'note-lane',
+			view: 'lane',
 			model: {
-				prompt: locatePresenter.prompt(
-					item,
-					{ aid: 'none', stringAid: false },
-					i18n.locale,
-					noRandom
-				),
+				prompt: presentPrompt(LOCATE_NECK, planned, i18n.locale, noRandom),
 				history: this.#history,
+				bands: [],
+				beatsPerBar: BAR_BEATS,
+				chordDiagram: 'strings',
+				choices: [],
 				...place
-			} satisfies NoteLaneModel
+			} satisfies PromptStageModel
 		};
 	}
 
@@ -200,16 +201,15 @@ export class DemoPlaySession implements PlaySessionController {
 		const { item, verdict, offsetMs } = SCRIPT[this.#step];
 		const target = this.#targetBeat!;
 		this.#history = [...this.#history, { beatIndex: target, verdict }];
-		const told: NoteVerdictView = {
+		const missed = verdict === 'wrong';
+		// The wrong note is the string's open note, played; a right one, the target.
+		const answer = { midi: missed ? midiOnString(item.string, 0) : acceptableMidis(item)[0] };
+		const note = CONTENT_VIEWS.note;
+		const told: StageVerdict = {
 			verdict,
 			offsetMs,
-			answerLabel:
-				verdict === 'wrong' ? openPitch(item.string) : formatNote(spellPitch(item.pitch, noRandom)),
-			correction: locatePresenter.reveal(
-				item,
-				{ correct: verdict !== 'wrong', verdict },
-				i18n.locale
-			)
+			answerLabel: note.answerLabel(item, answer, i18n.locale, noRandom),
+			misses: missed ? [note.miss(item, { answer, confusion: null }, i18n.locale, noRandom)] : []
 		};
 		this.#show({ anchorBeat: target, promptBeat: this.#promptBeat, verdict: told });
 		this.view.status = 'verdict';

@@ -1,6 +1,6 @@
-import { Fraction } from '../time/fraction';
-import { barLength, isBeatCount, METER_4_4, validateMeter } from '../time/meter';
+import { isBeatCount, validateMeter } from '../time/meter';
 import { validateLadder } from './ladder';
+import { roundProblem, type RoundCheckOptions } from './round/validate';
 import type { ExerciseDefinition, Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
@@ -10,7 +10,6 @@ const naturalNumber = (value: unknown) =>
 	typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
 const SCENES = ['guitar', 'screen'];
-const COUNT_ENDS = ['prompt', 'target'];
 
 function tempoProblem(definition: ExerciseDefinition): string | null {
 	if (definition.startTempoBpm !== undefined && !positive(definition.startTempoBpm)) {
@@ -100,32 +99,20 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
 	}
-	if (params.countEndsOn !== undefined && !COUNT_ENDS.includes(params.countEndsOn as string)) {
-		return `params.countEndsOn must be one of ${COUNT_ENDS.join(', ')}, got ${params.countEndsOn}`;
-	}
-	if (params.targetBarOffset !== undefined) {
-		const text = params.targetBarOffset;
-		let offset: Fraction;
-		try {
-			offset = Fraction.parse(String(text));
-		} catch {
-			return `params.targetBarOffset must be a fraction such as "1/4", got ${text}`;
-		}
-		const bar = barLength(definition.meter ?? METER_4_4);
-		if (offset.compare(Fraction.ZERO) < 0 || offset.compare(bar) >= 0) {
-			return `params.targetBarOffset must lie within its bar (0 to ${bar}, excluded), got ${text}`;
-		}
-	}
 	return null;
 }
 
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
  * field: a tempo not positive or a range that cannot hold its start, a ladder it cannot climb,
- * windows or settings that are no counts, a malformed meter, a preview before nothing. It never
+ * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
+ * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
  * judges what an exercise is worth: anything runnable passes.
  */
-export function validateExercise(definition: ExerciseDefinition): string | null {
+export function validateExercise(
+	definition: ExerciseDefinition,
+	options: RoundCheckOptions = {}
+): string | null {
 	const problem = ((): string | null => {
 		if (definition.meter !== undefined) {
 			const meter = validateMeter(definition.meter);
@@ -141,7 +128,9 @@ export function validateExercise(definition: ExerciseDefinition): string | null 
 		if (flow?.scene !== undefined && !SCENES.includes(flow.scene)) {
 			return `flow.scene must be one of ${SCENES.join(', ')}, got ${flow.scene}`;
 		}
-		return paramsProblem(definition);
+		const params = paramsProblem(definition);
+		if (params !== null) return params;
+		return roundProblem(definition, options);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

@@ -9,7 +9,7 @@ import type {
 	CalibrationProgress
 } from '$lib/application/ports';
 import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/contract';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
@@ -18,9 +18,7 @@ import {
 	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -63,24 +61,19 @@ function harness(options: { development?: boolean } = {}): {
 	services: AppServices;
 	deps: PlanSessionDeps & {
 		clock: FakeClock;
-		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
 	};
 	chords: FakeChordVerifier;
 } {
 	const clock = new FakeClock();
-	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
 	const deps: PlanSessionDeps & {
 		clock: FakeClock;
-		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
 	} = {
 		clock,
-		metronome,
 		detector,
-		cues: new FakeSoundCues(),
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
@@ -130,21 +123,16 @@ async function runOnTransport(
 }
 
 /** The note lane on stage, if a note to play is there. */
-function noteLane(controller: { view: PlayView }): NoteLaneModel | null {
+function noteLane(controller: { view: PlayView }): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+	return stage?.view === 'lane' ? (stage.model as PromptStageModel) : null;
 }
 
 /** The lead of a note's round, in beats. */
-function lead(lane: NoteLaneModel | null): number | null {
+function lead(lane: PromptStageModel | null): number | null {
 	return lane?.anchorBeat != null && lane.promptBeat != null
 		? lane.anchorBeat - lane.promptBeat
 		: null;
-}
-
-function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
-	deps.clock.advance(seconds);
-	deps.metronome.flush();
 }
 
 const FR_STRING: Record<string, StringNumber> = {
@@ -200,9 +188,7 @@ describe('createAppServices', () => {
 			expect((await deps.sessions.get(controller.sessionId))?.kind).toBe(kind);
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			expect(controller.view.status).toBe('awaiting');
-			expect(['note-lane', 'answer-keys']).toContain(controller.view.stage?.view);
-			// The transport clicks; the old metronome stays still.
-			expect(deps.metronome.isRunning()).toBe(false);
+			expect(['lane', 'answer-keys']).toContain(controller.view.stage?.view);
 			controller.quit();
 		}
 	});
@@ -213,7 +199,7 @@ describe('createAppServices', () => {
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
-		expect(controller.view.stage?.view).toBe('note-lane');
+		expect(controller.view.stage?.view).toBe('lane');
 		expect(lane?.prompt).toMatchObject({ primary: 'G', secondary: 'corde de E grave', aid: null });
 		expect(lead(lane)).toBe(2);
 		controller.quit();
@@ -263,7 +249,6 @@ describe('createAppServices', () => {
 			item: { voicingKey: key },
 			introducedAt: 0,
 			introducedInSession: 's-old',
-			leadBeats: 8,
 			scheduling: {
 				due: 0,
 				stability: 0,
@@ -382,8 +367,8 @@ describe('createAppServices', () => {
 			deps,
 			() => {
 				const stage = controller.view.stage;
-				if (controller.view.status === 'awaiting' && stage?.view === 'note-lane') {
-					const lane = stage.model as NoteLaneModel;
+				if (controller.view.status === 'awaiting' && stage?.view === 'lane') {
+					const lane = stage.model as PromptStageModel;
 					if (
 						lane.anchorBeat !== null &&
 						lane.anchorBeat !== answered &&
@@ -392,7 +377,7 @@ describe('createAppServices', () => {
 						answered = lane.anchorBeat;
 						deps.detector.emitNote({
 							time: deps.clock.now(),
-							midi: locateMidiFromPrompt(lane.prompt.primary, lane.prompt.secondary),
+							midi: locateMidiFromPrompt(lane.prompt.primary, lane.prompt.secondary ?? ''),
 							frequencyHz: 82.41,
 							clarity: 0.9
 						});
@@ -444,36 +429,6 @@ describe('createAppServices', () => {
 		await deps.cards.put(learnedTriad('triad-zone', keys[0]));
 		expect((await services.triads()).zoneDue).toBe(1);
 	});
-
-	it('startSession(triads-zone) asks a triad acquired in anchor around a fret', async () => {
-		const { services, deps } = harness();
-		await deps.cards.put({ ...learnedTriad('triad-anchor', 'C|maj|3:5,2:1,1:3'), acquiredAt: 0 });
-		const controller = await services.startSession('triads-zone');
-		await controller.start();
-		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
-			tick(deps, deps.metronome.secondsPerBeat());
-		}
-		expect(controller.view.prompt).toMatchObject({ primary: 'C', detail: 'sol‑si‑mi' });
-		expect(controller.view.prompt?.secondary).toMatch(/^vers la case \d+$/);
-	});
-
-	it('startSession(triads) probes the first triad of the queue on its root and chord', async () => {
-		const { services, deps, chords } = harness();
-		const controller = await services.startSession('triads');
-		await controller.start();
-		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
-		expect(controller.view.prompt).toMatchObject({
-			primary: 'C',
-			secondary: 'fondamentale sur si',
-			detail: 'sol‑si‑mi',
-			aid: null
-		});
-		expect(controller.view.leadBeats).toBe(2);
-		expect(chords.expectations.at(-1)?.expected).toEqual([
-			'C|maj|3:5,2:1,1:3@0-1-0',
-			'C|maj|3:5,2:1,1:3@12-13-12'
-		]);
-	});
 });
 
 describe('the gesture track', () => {
@@ -500,10 +455,9 @@ describe('the gesture track', () => {
 		});
 		expect(controller.view.stage?.view).toBe('link-lane');
 		expect(deps.detector.running).toBe(true);
-		// The transport counts a bar, then opens the first change: the metronome stays still.
+		// The transport counts a bar, then opens the first change.
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
-		expect(deps.metronome.isRunning()).toBe(false);
 		expect(controller.view.stage?.model).toMatchObject({ root: 'D', anchorBeat: 4, history: [] });
 		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
 		controller.quit();

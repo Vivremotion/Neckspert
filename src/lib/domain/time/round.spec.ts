@@ -8,7 +8,7 @@ import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
-import { anchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
+import { triadAnchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
 
 const of = Fraction.of;
 
@@ -465,6 +465,17 @@ describe('PlanRound routing', () => {
 		);
 	});
 
+	it('refuses a plan its verdict mode cannot judge, before anything is heard', () => {
+		const base = locatePlan();
+		const stretched: RoundPlan = {
+			...base,
+			expectations: base.expectations.map((e) => ({ ...e, span: { until: Fraction.of(1, 2) } }))
+		};
+		expect(() => responseRound(stretched)).toThrow(
+			'plan unfit for verdict mode response: a response verdict needs a point expectation'
+		);
+	});
+
 	it('refuses a plan whose mode is not registered', () => {
 		const base = locatePlan();
 		const kazoo: RoundPlan = {
@@ -503,7 +514,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('waits on an attack taken but not deciding the round', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		const root = r.observe(played(6.1, RIGHT));
 		expect(root.fate).toBe('answer');
 		expect(root.event).toEqual({ kind: 'pending' });
@@ -514,7 +525,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('settles a lost anchor once its zones are over, without waiting for readings', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		const root = r.observe(played(6.1, WRONG));
 		expect(root.fate).toBe('answer');
 		expect(root.event.kind).toBe('pending');
@@ -538,7 +549,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('closes a round heard as it stands', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		r.observe(played(6.1, RIGHT));
 		const outcome = r.close(7.0);
 		expect(outcome?.success).toBe(false);

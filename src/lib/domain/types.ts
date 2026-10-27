@@ -1,6 +1,6 @@
 import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
-import type { IgnoreReason } from './timing/types';
+import type { IgnoreReason } from './time/modes/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
@@ -71,18 +71,6 @@ export function responseVerdictOf(attempt: Pick<Attempt, 'verdict'>): ResponseVe
 		: null;
 }
 
-/**
- * For the recorder until the migration: success of a response round. The right answer, in time;
- * off beat, wrong and unanswered prompts are misses. A right but slow name in mode 2 (`late`) is
- * a success. Readers of stored attempts read `Attempt.success`.
- */
-export function isResponseSuccess(outcome: {
-	correct: boolean;
-	verdict: ResponseVerdict;
-}): boolean {
-	return outcome.correct && outcome.verdict !== 'offbeat';
-}
-
 /** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */
 export const RECALL_THRESHOLD_MS = 1500;
 
@@ -116,16 +104,8 @@ export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'fre
 /** Help shown with a mode 1 prompt: the fret, or nothing. */
 export type AidLevel = 'show-position' | 'none';
 
-/**
- * Lead time steps, in beats, between the prompt and the target beat (mode 1).
- * Never below 2: at 1 beat no cold answer ever came in time (export of 2026-10-04).
- */
-export const LEAD_STEPS = [8, 4, 2] as const;
 /** A lead in beats of the meter: any positive number. */
 export type LeadBeats = number;
-
-/** Shortest lead step. Identify cards carry it; the field means nothing in mode 2. */
-export const SHORTEST_LEAD: LeadBeats = LEAD_STEPS[LEAD_STEPS.length - 1];
 
 /** Lead stored on an attempt: attempts recorded before 2026-10-04 can hold the old 1-beat step. */
 export type RecordedLeadBeats = LeadBeats | 1;
@@ -212,8 +192,6 @@ export interface CardState<I = unknown> {
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
 	introducedInSession: string;
-	/** Current lead step of the "beat" relation; other cards keep SHORTEST_LEAD. */
-	leadBeats: LeadBeats;
 	scheduling: SchedulingState;
 	/** Epoch ms when in-session learning completed. Null while the card is being learned. */
 	learnedAt: number | null;
@@ -458,7 +436,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 5;
+	version: 6;
 	exportedAt: number;
 	settings: Settings;
 	progressions: Progression[];

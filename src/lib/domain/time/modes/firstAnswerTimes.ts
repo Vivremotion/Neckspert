@@ -1,7 +1,7 @@
 import type { Fraction } from '../fraction';
 import type { Expectation, RoundPlan } from '../plan';
 import { beatSecondsAt } from '../tempoMap';
-import type { RoundTimes } from './times';
+import { EDGE_TOLERANCE_S, type RoundTimes } from './times';
 import type { RoundClock } from './types';
 
 /** Where an answer may start: a delay after the prompt, or a tolerance before the expectation (capped in beats). */
@@ -53,9 +53,23 @@ export function validateFirstAnswer(plan: RoundPlan): string | null {
 	const problem = settingsProblem(plan.policy.pairing);
 	if (problem) return problem;
 	const settings = plan.policy.pairing as FirstAnswerSettings;
+	// A first answer pairs an attack with what it answers: a silence asked for is never answered.
+	const rest = plan.expectations.findIndex((e) => e.role === 'judged-rest');
+	if (rest >= 0) {
+		return `expectation ${rest} is a judged rest: a first answer pairs attacks with targets and cannot judge a silence`;
+	}
 	const free = plan.expectations.some((e) => e.at === null);
 	if (free && !('afterPromptMs' in settings.opens)) {
 		return 'a free-time plan must open with afterPromptMs';
+	}
+	// A stretch is answered from its start, never earlier: one starting where listening has
+	// ended is never heard. (A point may still be answered early, before its place.)
+	const listenUntil = plan.listenUntil ?? plan.handover ?? plan.length;
+	const unheard = plan.expectations.findIndex(
+		(e) => e.at !== null && e.span !== 'point' && e.at.compare(listenUntil) >= 0
+	);
+	if (unheard >= 0) {
+		return `expectation ${unheard} is a stretch starting at ${plan.expectations[unheard].at}, where the round has stopped listening (${listenUntil}): it is never answered`;
 	}
 	return null;
 }
@@ -135,6 +149,16 @@ export function responseZones(
 			? promptS + settings.opens.afterPromptMs / 1000
 			: at(e.at) - earlyOf(settings, clock, e);
 	});
+	// Where each expectation starts to be answered on its own: a span at its start, a point where
+	// its window or its tolerance opens before its place, the earlier. A zone that opens after the
+	// prompt opens every point at once, so before that a later point's zone always covers an
+	// earlier one's: the bound below keeps the earlier one's attacks its own.
+	const ownList = plan.expectations.map((e) => {
+		const atS = at(e.at as Fraction);
+		if (e.span !== 'point') return atS;
+		const windowS = 'ms' in e.window ? e.window.ms / 1000 : 0;
+		return atS - Math.max(earlyOf(settings, clock, e), windowS);
+	});
 	return plan.expectations.map((e, index): ResponseZone => {
 		const atS = at(e.at as Fraction);
 		const opensS = opensList[index];
@@ -154,14 +178,19 @@ export function responseZones(
 			atS + settings.lateMs / 1000,
 			beforeMs ? (handoverS ?? Infinity) : Infinity
 		);
-		const nextOpens = opensList[index + 1] ?? Infinity;
+		// Its zone ends where the next expectation starts to be answered on its own, so an attack
+		// there is the next one's. One that starts at or before this one's own place (places
+		// closer than the next one's window or tolerance) bounds nothing: the zones overlap past
+		// this place, and the earliest unanswered expectation takes an attack.
+		const next = ownList[index + 1] ?? Infinity;
+		const bound = next <= atS + EDGE_TOLERANCE_S ? Infinity : next;
 		const capture = settings.lateCapture;
 		const captureEndS =
 			capture === null
-				? inTimeEndS
+				? Math.min(inTimeEndS, bound)
 				: capture === 'to-end'
-					? Math.min(listenUntilS, nextOpens)
-					: Math.min(inTimeEndS + capture.ms / 1000, nextOpens, listenUntilS);
+					? Math.min(listenUntilS, bound)
+					: Math.min(inTimeEndS + capture.ms / 1000, bound, listenUntilS);
 		return { index, sensor: e.sensor, span: 'point', atS, opensS, inTimeEndS, captureEndS };
 	});
 }

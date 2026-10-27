@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import type { RoundPlan } from '../plan';
-import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map, mapAt } from './testing/plans';
+import type { Expectation, RoundPlan } from '../plan';
+import { Fraction } from '../fraction';
+import {
+	triadAnchorPlan,
+	expectation,
+	F,
+	freeTimePlan,
+	gridPlan,
+	locatePlan,
+	map,
+	mapAt,
+	quarter
+} from './testing/plans';
 import { firstAnswerTimes, responseZones, validateFirstAnswer } from './firstAnswerTimes';
 import { EDGE_TOLERANCE_S, roundTimes } from './times';
 import type { RoundClock } from './types';
@@ -26,7 +37,7 @@ describe('firstAnswerTimes', () => {
 	});
 
 	it('ends the root’s late capture where the chord’s span opens', () => {
-		const t = timesOf(anchorPlan(), { map, start: F(2) }, false);
+		const t = timesOf(triadAnchorPlan(), { map, start: F(2) }, false);
 		const [root, chord] = t.zones;
 		expect(root.captureEndS).toBeCloseTo(6.85, 9);
 		expect(chord.opensS).toBeCloseTo(6.85, 9);
@@ -34,6 +45,55 @@ describe('firstAnswerTimes', () => {
 		expect(chord.captureEndS).toBeCloseTo(9.1, 9);
 		expect(chord.span).toBe('span');
 		expect(t.listenUntilS).toBeCloseTo(11.35, 9);
+	});
+
+	it('ends a point’s zone where the next point’s window opens, not where its own opens after the prompt', () => {
+		// Two notes a beat apart, both heard from 300 ms after the prompt (seed 4 of openness.spec).
+		const plan: RoundPlan = {
+			...locatePlan(),
+			expectations: [
+				expectation(Fraction.ZERO, 'point', 'note'),
+				expectation(quarter, 'point', 'note')
+			]
+		};
+		const t = timesOf(plan, { map, start: F(2) }, false);
+		const [first, second] = t.zones;
+		expect(first.opensS).toBeCloseTo(3.4, 9);
+		expect(second.opensS).toBeCloseTo(3.4, 9);
+		expect(first.inTimeEndS).toBeCloseTo(6.5, 9);
+		// Its capture past the late limit ends where the second note's 80 ms window opens.
+		expect(first.captureEndS).toBeCloseTo(6.77, 9);
+		expect(second.captureEndS).toBeCloseTo(8.35, 9);
+		// Without a late capture, a late limit past the next window is cut there too.
+		const late: RoundPlan = {
+			...plan,
+			policy: {
+				...plan.policy,
+				pairing: { ...plan.policy.pairing, lateMs: 1000, lateCapture: null }
+			}
+		};
+		expect(timesOf(late, { map, start: F(2) }, false).zones[0].captureEndS).toBeCloseTo(6.77, 9);
+	});
+
+	it('lets a point capture late as if alone when the next one is due at or before its place', () => {
+		// Two notes on one beat (seed 30 of openness.spec), two a sixth of a beat apart, each
+		// opened 200 ms early (seed 144), a note and a stretch from the same place (seed 1540): the
+		// first is no longer cut before its own place; their zones overlap.
+		const early = gridPlan().policy;
+		const twice = (second: Expectation): RoundPlan => ({
+			...locatePlan(),
+			policy: { ...early, pairing: { ...early.pairing, lateMs: 0, lateCapture: 'to-end' } },
+			expectations: [expectation(F(1, 12), 'point', 'note'), second]
+		});
+		const clock = { map, start: F(2) };
+		for (const second of [
+			expectation(F(1, 12), 'point', 'note'),
+			expectation(F(1, 8), 'point', 'note'),
+			expectation(F(1, 12), { until: F(1, 4) }, 'chord')
+		]) {
+			const t = timesOf(twice(second), clock, false);
+			expect(t.zones[0].captureEndS).toBeCloseTo(t.listenUntilS, 9);
+		}
 	});
 
 	it('opens a grid change early by its tolerance, capped in beats', () => {
@@ -119,7 +179,7 @@ describe('roundTimes', () => {
 
 describe('validateFirstAnswer', () => {
 	it('accepts the plans it is written for', () => {
-		for (const plan of [locatePlan(), anchorPlan(), gridPlan(), freeTimePlan()]) {
+		for (const plan of [locatePlan(), triadAnchorPlan(), gridPlan(), freeTimePlan()]) {
 			expect(validateFirstAnswer(plan)).toBeNull();
 		}
 	});
@@ -133,6 +193,30 @@ describe('validateFirstAnswer', () => {
 			lateCapture: null
 		};
 		expect(validateFirstAnswer(plan)).toContain('afterPromptMs');
+	});
+
+	it('refuses a stretch starting where the round has stopped listening, not a point placed there', () => {
+		// The anchor stops listening at 7/4; its chord starts at 1/4.
+		const anchor = triadAnchorPlan();
+		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 2) })).toBeNull();
+		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 4) })).toBe(
+			'expectation 1 is a stretch starting at 1/4, where the round has stopped listening (1/4): it is never answered'
+		);
+		// A point there is still answered early, from its window's opening (seed 501 of openness.spec).
+		const late: RoundPlan = {
+			...locatePlan(),
+			expectations: [expectation(F(1, 2), 'point', 'note')],
+			listenUntil: F(1, 4)
+		};
+		expect(validateFirstAnswer(late)).toBeNull();
+	});
+
+	it('refuses a judged rest: a first answer cannot judge a silence', () => {
+		const plan = locatePlan();
+		plan.expectations = [{ ...plan.expectations[0], role: 'judged-rest' }];
+		expect(validateFirstAnswer(plan)).toBe(
+			'expectation 0 is a judged rest: a first answer pairs attacks with targets and cannot judge a silence'
+		);
 	});
 
 	it('refuses settings it cannot read', () => {

@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Judged, RoundPlan } from '../plan';
 import { firstAnswerPairing } from './firstAnswer';
-import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map } from './testing/plans';
+import { Fraction } from '../fraction';
+import {
+	triadAnchorPlan,
+	expectation,
+	F,
+	freeTimePlan,
+	gridPlan,
+	locatePlan,
+	map,
+	quarter
+} from './testing/plans';
 import type { Attack, Pairing, RoundClock } from './types';
 import { firstAnswerTimes } from './firstAnswerTimes';
 import { roundTimes } from './times';
@@ -110,7 +120,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('misses a root nobody played once its zone is over, and stops listening at the chord’s end', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		expect(pairing.done(9.0)).toBe(false);
 		expect(pairing.done(9.1)).toBe(true);
 		expect(pairing.done(11.35)).toBe(true);
@@ -120,7 +130,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('takes a root reading still waiting as it stands once the chord’s span opens', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		pairing.offer(attack(6.13, wrong, 'note', false));
 		pairing.advance(6.8);
 		expect(pairing.result().pairs[0].pending).toBe(true);
@@ -129,7 +139,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('puts a wrong first chord right with a later right one in the span', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		expect(pairing.offer(attack(6.1)).fate).toBe('answer');
 		expect(pairing.offer(attack(7.0, wrong, 'chord')).fate).toBe('answer');
 		expect(pairing.shownMisses(7.0)).toContain(1);
@@ -146,7 +156,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('stops correcting a span that is not the last once its zone has passed', () => {
-		const plan = anchorPlan();
+		const plan = triadAnchorPlan();
 		const pairing = pairingOf({
 			...plan,
 			expectations: [...plan.expectations, { ...plan.expectations[0], at: F(3, 2), sensor: 'tap' }]
@@ -158,7 +168,7 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('closes a correction still awaited once listening ends', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		pairing.offer(attack(6.1));
 		pairing.offer(attack(7.0, wrong, 'chord'));
 		expect(pairing.done(11.3)).toBe(false);
@@ -167,14 +177,14 @@ describe('firstAnswerPairing', () => {
 	});
 
 	it('waits for the last expectation until listenUntil while the chain before it holds', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		pairing.offer(attack(6.1));
 		expect(pairing.done(9.1)).toBe(false);
 		expect(pairing.done(11.35)).toBe(true);
 	});
 
 	it('takes a chord reading still waiting as it stands at the bar’s end after a wrong root', () => {
-		const pairing = pairingOf(anchorPlan());
+		const pairing = pairingOf(triadAnchorPlan());
 		pairing.offer(attack(6.1, wrong));
 		pairing.offer(attack(7.0, wrong, 'chord', false));
 		expect(pairing.result().pairs[1].pending).toBe(true);
@@ -190,16 +200,16 @@ describe('firstAnswerPairing', () => {
 		expect(located.offer(attack(8.36)).fate).toBe('settled');
 		expect(located.offer(attack(3.0)).fate).toBe('settled');
 
-		const answeredRoot = pairingOf(anchorPlan());
+		const answeredRoot = pairingOf(triadAnchorPlan());
 		answeredRoot.offer(attack(6.1));
 		expect(answeredRoot.offer(attack(7.0)).fate).toBe('settled');
 
-		const silentRoot = pairingOf(anchorPlan());
+		const silentRoot = pairingOf(triadAnchorPlan());
 		expect(silentRoot.offer(attack(7.0)).fate).toBe('after-capture');
 		silentRoot.advance(6.85);
 		expect(silentRoot.offer(attack(7.0)).fate).toBe('settled');
 
-		const anchor = pairingOf(anchorPlan());
+		const anchor = pairingOf(triadAnchorPlan());
 		anchor.offer(attack(6.1));
 		anchor.offer(attack(7.0, wrong, 'chord'));
 		expect(anchor.offer(attack(9.1, right, 'chord')).fate).toBe('after-capture');
@@ -215,7 +225,7 @@ describe('firstAnswerPairing', () => {
 		expect(point.offer(attack(6.2)).fate).toBe('settled');
 		expect(point.result().pairs[0].correction).toBeNull();
 
-		const anchor = pairingOf(anchorPlan());
+		const anchor = pairingOf(triadAnchorPlan());
 		anchor.offer(attack(6.1, wrong));
 		anchor.offer(attack(7.0, wrong, 'chord'));
 		expect(anchor.shownMisses(7.0)).not.toContain(1);
@@ -239,6 +249,53 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.offer(attack(5.89, right, 'chord')).fate).toBe('before-window');
 		expect(pairing.offer(attack(5.9, right, 'chord')).fate).toBe('answer');
 		expect(pairing.result().pairs[0].late).toBe(false);
+	});
+
+	it('gives a second note played on its beat, or early in its window, to the second note when the first was never played', () => {
+		// Two notes a beat apart (80 ms windows), both heard from 300 ms after the prompt.
+		const two = (lateMs: number, lateCapture: unknown): RoundPlan => {
+			const plan = locatePlan();
+			return {
+				...plan,
+				expectations: [
+					expectation(Fraction.ZERO, 'point', 'note'),
+					expectation(quarter, 'point', 'note')
+				],
+				policy: { ...plan.policy, pairing: { ...plan.policy.pairing, lateMs, lateCapture } }
+			};
+		};
+		for (const plan of [two(400, { ms: 2000 }), two(400, 'to-end'), two(1000, null)]) {
+			for (const time of [6.85, 6.8]) {
+				const pairing = pairingOf(plan);
+				expect(pairing.offer(attack(time)).fate).toBe('answer');
+				expect(pairing.result()).toMatchObject({
+					pairs: [{ expectation: 1, time, late: false }],
+					missed: [0]
+				});
+			}
+		}
+	});
+
+	it('takes a first note played late but in time for the first, and the second on its beat for the second', () => {
+		// Both zones open 300 ms after the prompt: the second's covers the first's late window.
+		const plan = locatePlan();
+		const two: RoundPlan = {
+			...plan,
+			expectations: [
+				expectation(Fraction.ZERO, 'point', 'note'),
+				expectation(quarter, 'point', 'note')
+			]
+		};
+		const pairing = pairingOf(two);
+		expect(pairing.offer(attack(6.48)).fate).toBe('answer');
+		expect(pairing.offer(attack(6.85)).fate).toBe('answer');
+		expect(pairing.result()).toMatchObject({
+			pairs: [
+				{ expectation: 0, time: 6.48, late: false, judged: right },
+				{ expectation: 1, time: 6.85, late: false, judged: right }
+			],
+			missed: []
+		});
 	});
 
 	it('answers in free time at any moment after the prompt', () => {

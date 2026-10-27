@@ -26,7 +26,7 @@ describe('the session core', () => {
 
 	it('actually scans the core and the plan folder', () => {
 		const paths = Object.keys(sources);
-		expect(paths).toContain(`${CORE}SessionController.svelte.ts`);
+		expect(paths).toContain(`${CORE}series/ResponseSeriesController.svelte.ts`);
 		expect(paths).toContain(`${PLAN}PlanSessionController.svelte.ts`);
 		expect(offendersIn({ [`${CORE}x.ts`]: `const id = 'rhythm-figure';` })).toEqual([
 			`${CORE}x.ts`

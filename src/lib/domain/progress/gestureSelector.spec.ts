@@ -11,7 +11,6 @@ import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { SESSION_MS } from '$lib/domain/session/policy';
-import * as progress from './index';
 import { createGestureSelector } from './gestureSelector';
 import { LINK_AID_AFTER_MISSES, LINK_REST_BARS } from '$lib/domain/gesture';
 import type { ItemSource } from './selector';
@@ -255,8 +254,6 @@ describe('createGestureSelector', () => {
 	});
 
 	it('starts no passage after SESSION_MS or once fatigued, but finishes the one begun', () => {
-		// One session length for every session: the gesture has none of its own.
-		expect('GESTURE_SESSION_MS' in progress).toBe(false);
 		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
 		const late = { now: NOW, elapsedMs: SESSION_MS - 1, fatigued: false };
 		const first = s.next(late)!;

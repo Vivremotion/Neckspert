@@ -98,6 +98,25 @@ describe('WebAudioClock.toEpochMs', () => {
 	});
 });
 
+describe('WebAudioClock.epochNow', () => {
+	it('reads the wall time before resume(), no context created', () => {
+		vi.spyOn(Date, 'now').mockReturnValue(1_790_000_000_000);
+		const { clock, factory } = clockWith(new FakeContext());
+		expect(clock.epochNow()).toBe(1_790_000_000_000);
+		expect(factory).not.toHaveBeenCalled();
+	});
+
+	it('reads the audio clock once the context exists', async () => {
+		const fake = new FakeContextWithTimestamp('running');
+		fake.currentTime = 10.2;
+		fake.timestamp = { contextTime: 10, performanceTime: 5000 };
+		const { clock } = clockWith(fake);
+		await clock.resume();
+		const expected = performance.timeOrigin + 5000 + (10.2 - 10) * 1000;
+		expect(clock.epochNow()).toBeCloseTo(expected, 2);
+	});
+});
+
 describe('WebAudioClock.settle', () => {
 	afterEach(() => {
 		vi.useRealTimers();

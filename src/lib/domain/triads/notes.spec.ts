@@ -13,7 +13,6 @@ function card(mechanic: string, item: unknown, key: string, acquiredAt: number |
 		item,
 		introducedAt: NOW,
 		introducedInSession: 's',
-		leadBeats: 8,
 		scheduling: {
 			due: NOW,
 			stability: 0,

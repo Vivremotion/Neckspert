@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { ExerciseId, MechanicId } from '../exercise/types';
-import {
-	CONSOLIDATION_SKIP_RECENT,
-	LEARN_COLD_CAP,
-	LEARNING_SLOTS,
-	MAX_UNCONSOLIDATED,
-	MAX_WORKING_SET
-} from '../progress/constants';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { DEFAULT_SET_LEARNING, type SetLearning } from './params';
@@ -132,12 +125,14 @@ describe('createLearningProcedure next', () => {
 	});
 
 	it('caps the cold reviews of a session', () => {
-		const count = LEARN_COLD_CAP + 5;
+		const count = DEFAULT_SET_LEARNING.coldCap + 5;
 		const cards = Array.from({ length: count }, (_, item) => reviewable(item));
 		const source = procedure({ subject: fakeSubject({ items: count }), cards });
 		const phases = Array.from({ length: count }, () => source.next(at(0))?.phase);
-		expect(phases.filter((phase) => phase === 'review')).toHaveLength(LEARN_COLD_CAP);
-		expect(phases.slice(0, LEARN_COLD_CAP).every((phase) => phase === 'review')).toBe(true);
+		expect(phases.filter((phase) => phase === 'review')).toHaveLength(DEFAULT_SET_LEARNING.coldCap);
+		expect(phases.slice(0, DEFAULT_SET_LEARNING.coldCap).every((phase) => phase === 'review')).toBe(
+			true
+		);
 	});
 
 	it('never serves the previous item nor its neighbour, and prefers what the subject prefers', () => {
@@ -203,7 +198,7 @@ describe('createLearningProcedure next', () => {
 		).toBe(true);
 	});
 
-	it('never holds more than MAX_WORKING_SET items hot in a session', () => {
+	it('never holds more than the working set of items hot in a session', () => {
 		const cards = Array.from({ length: 10 }, (_, item) => learned(item));
 		const source = procedure({ subject: fakeSubject({ items: 10 }), cards, random: seeded(3) });
 		const hot = new Set<number>();
@@ -214,8 +209,8 @@ describe('createLearningProcedure next', () => {
 			served++;
 			if (item.temperature === 'hot') hot.add(item.item as number);
 		}
-		expect(served).toBeGreaterThan(MAX_WORKING_SET);
-		expect(hot.size).toBe(MAX_WORKING_SET);
+		expect(served).toBeGreaterThan(DEFAULT_SET_LEARNING.maxWorkingSet);
+		expect(hot.size).toBe(DEFAULT_SET_LEARNING.maxWorkingSet);
 	});
 
 	it('serves only retests when the player is tired', () => {
@@ -278,7 +273,7 @@ describe('createLearningProcedure next', () => {
 		});
 	});
 
-	it('keeps new items out once LEARNING_SLOTS items are being learned', () => {
+	it('keeps new items out while all the learning slots are taken', () => {
 		// The items being learned are all neighbours: once one is served, the others wait.
 		const subject = fakeSubject({ neighbours: (a, b) => a === b || (a < 3 && b < 3) });
 		const secondAfter = (being: number[]) => {
@@ -290,25 +285,27 @@ describe('createLearningProcedure next', () => {
 			expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
 			return source.next(at(0));
 		};
-		expect(LEARNING_SLOTS).toBe(3);
+		expect(DEFAULT_SET_LEARNING.learningSlots).toBe(3);
 		expect(secondAfter([0, 1, 2])).toMatchObject({ item: 5, phase: 'consolidation' });
 		expect(secondAfter([0, 1])).toMatchObject({ item: 3, phase: 'probe' });
 	});
 
-	it('keeps new items out once MAX_UNCONSOLIDATED learned items are not acquired', () => {
+	it('keeps new items out once too many learned items are not yet acquired', () => {
 		const firstAfter = (count: number) =>
 			procedure({ cards: Array.from({ length: count }, (_, item) => learned(item)) }).next(at(0));
-		expect(firstAfter(MAX_UNCONSOLIDATED)?.phase).toBe('consolidation');
-		expect(firstAfter(MAX_UNCONSOLIDATED - 1)).toMatchObject({
-			item: MAX_UNCONSOLIDATED - 1,
+		expect(firstAfter(DEFAULT_SET_LEARNING.maxUnconsolidated)?.phase).toBe('consolidation');
+		expect(firstAfter(DEFAULT_SET_LEARNING.maxUnconsolidated - 1)).toMatchObject({
+			item: DEFAULT_SET_LEARNING.maxUnconsolidated - 1,
 			phase: 'probe'
 		});
 	});
 
 	it('falls back on a recent item when every learned one was just served', () => {
 		const source = procedure({
-			subject: fakeSubject({ items: CONSOLIDATION_SKIP_RECENT }),
-			cards: Array.from({ length: CONSOLIDATION_SKIP_RECENT }, (_, item) => learned(item))
+			subject: fakeSubject({ items: DEFAULT_SET_LEARNING.consolidationSkipRecent }),
+			cards: Array.from({ length: DEFAULT_SET_LEARNING.consolidationSkipRecent }, (_, item) =>
+				learned(item)
+			)
 		});
 		const items = Array.from({ length: 6 }, () => source.next(at(0)));
 		expect(items.every((item) => item?.phase === 'consolidation')).toBe(true);

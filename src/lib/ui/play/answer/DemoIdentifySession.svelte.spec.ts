@@ -31,11 +31,11 @@ describe('DemoIdentifySession', () => {
 		expect(demo.view.stage?.view).toBe('answer-keys');
 		expect(demo.keys?.choices).toHaveLength(12);
 		expect(demo.keys?.verdict).toBeNull();
-		expect(demo.keys?.prompt).toEqual({
+		expect(demo.keys?.prompt).toMatchObject({
 			primary: 'case 8',
 			secondary: 'corde de A',
 			aid: null,
-			diagram: null
+			pictures: []
 		});
 	});
 
@@ -57,7 +57,7 @@ describe('DemoIdentifySession', () => {
 			verdict: 'perfect',
 			offsetMs: null,
 			answerLabel: 'F',
-			correction: null
+			misses: []
 		});
 	});
 
@@ -77,7 +77,7 @@ describe('DemoIdentifySession', () => {
 		expect(demo.keys?.verdict).toMatchObject({
 			verdict: 'wrong',
 			answerLabel: 'F# / Gb',
-			correction: 'F'
+			misses: [{ correction: 'F' }]
 		});
 	});
 

@@ -1,6 +1,5 @@
 import Dexie, { type EntityTable, type Table } from 'dexie';
 import {
-	SHORTEST_LEAD,
 	type Attempt,
 	type CardState,
 	type LevelState,
@@ -11,10 +10,14 @@ import {
 import { convertV1 } from './legacy/v1';
 import { attemptToV8, relationOfMechanic, settingsToV8 } from './migrations/v8';
 import { levelStatesV9 } from './migrations/v9';
+import { cardToV10, levelStatesV10 } from './migrations/v10';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
 export const SETTINGS_ROW_ID = 'settings';
+
+/** The shortest lead step left by version 4: frozen, cards lose their lead at version 10. */
+const SHORTEST_LEAD_V4 = 2;
 
 /** The single settings row: only the fields changed from DEFAULT_SETTINGS. */
 export interface SettingsRow extends Partial<Settings> {
@@ -79,7 +82,7 @@ export class NeckspertDb extends Dexie {
 					.table('cards')
 					.filter((row) => row.leadBeats === 1)
 					.modify((row) => {
-						row.leadBeats = SHORTEST_LEAD;
+						row.leadBeats = SHORTEST_LEAD_V4;
 					})
 			);
 		// Version 5 keys cards and attempts by mechanic and item, gives attempts their tempo and
@@ -179,6 +182,31 @@ export class NeckspertDb extends Dexie {
 					tx.table('levelStates').toArray()
 				]);
 				await tx.table('levelStates').bulkAdd(levelStatesV9(cards, levelStates));
+			});
+		// Version 10 gives every triad card the level its lead stands for, then takes the lead off
+		// every card (plan H5): the level of an item is its level state. Same conversion as the
+		// import of a version 5 backup (`migrations/v10.ts`); a level state already stored is kept.
+		this.version(10)
+			.stores({
+				...stores,
+				progressions: 'exerciseId',
+				scopedProgressions: '[exerciseId+scope]',
+				levelStates: '[exerciseId+scope+item]'
+			})
+			.upgrade(async (tx) => {
+				const [cards, levelStates] = await Promise.all([
+					tx.table('cards').toArray(),
+					tx.table('levelStates').toArray()
+				]);
+				await tx.table('levelStates').bulkAdd(levelStatesV10(cards, levelStates));
+				await tx
+					.table('cards')
+					.toCollection()
+					.modify((row, ref) => {
+						// A card without a lead is not written again.
+						if (!Object.hasOwn(row, 'leadBeats')) return false;
+						ref.value = cardToV10(row);
+					});
 			});
 	}
 }

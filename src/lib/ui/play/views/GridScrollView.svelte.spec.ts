@@ -17,6 +17,7 @@ function model(overrides: Partial<GridStageModel>): GridStageModel {
 		index: 1,
 		cue: { kind: 'climb', set: 'sol‑si‑mi', direction: 'up' },
 		aid: null,
+		chordDiagram: 'strings',
 		anchorBeat: null,
 		history: [],
 		miss: null,
@@ -72,7 +73,7 @@ describe('GridScrollView', () => {
 		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();
 	});
 
-	it('names the zone, and draws the aid of the next change', () => {
+	it('names the zone, and draws the aid of the next change in its style', () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.2;
 		const aid = {
@@ -85,12 +86,17 @@ describe('GridScrollView', () => {
 		render(GridScrollView, {
 			props: {
 				controller,
-				model: model({ cue: { kind: 'zone', from: 5, to: 8 }, aid, anchorBeat: 12 })
+				model: model({
+					cue: { kind: 'zone', from: 5, to: 8 },
+					aid,
+					anchorBeat: 12,
+					chordDiagram: 'grid'
+				})
 			}
 		});
 		expect(screen.getByText('cases 5 à 8')).toBeTruthy();
 		expect(screen.getByText('Forme suivante')).toBeTruthy();
-		expect(document.querySelector('.chord-shape')).toBeTruthy();
+		expect(document.querySelector('.chord-shape[data-style="grid"]')).toBeTruthy();
 	});
 
 	it('puts the verdicts of its history on the changes played', () => {

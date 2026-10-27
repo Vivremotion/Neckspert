@@ -1,3 +1,4 @@
+import type { RoundTemplate } from '$lib/domain/exercise/round/types';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import type { GestureRule } from '$lib/domain/mechanics/chordGrid';
 import type { StringNumber } from '$lib/domain/music/types';
@@ -27,6 +28,41 @@ function gestureParams(rule: GestureRule, grids: boolean): GestureParams {
 }
 
 /**
+ * One change of a grid: the prompt a beat before, the chord on the beat, opened a little early,
+ * handed over at the change's length with the count ending on the change.
+ */
+function gridRound(): RoundTemplate {
+	return {
+		prompt: { lead: 1 },
+		expectations: [
+			{
+				at: { beats: 0 },
+				sensor: 'chord',
+				content: { from: 'grid-change' },
+				window: { ms: { param: 'windows.perfectMs' } }
+			}
+		],
+		length: { beats: { item: 'change-beats' } },
+		handover: 'end',
+		countEndsOn: 'target',
+		policy: {
+			unit: 'response',
+			verdict: 'response',
+			correction: false,
+			pairing: {
+				mode: 'first-answer',
+				opens: {
+					beforeMs: { param: 'windows.gridEarlyMs' },
+					maxBeats: { param: 'windows.gridEarlyMaxBeats' }
+				},
+				lateMs: { param: 'windows.lateMs' },
+				lateCapture: 'to-end'
+			}
+		}
+	};
+}
+
+/**
  * A gesture exercise. They share the chord-grid mechanic, so each starts at its own tempo rather
  * than the last tempo of another (`startTempo`).
  */
@@ -41,6 +77,7 @@ function gestureExercise(
 		id,
 		version: 1,
 		mechanic: 'chord-grid',
+		round: gridRound(),
 		params: { ...gestureParams(rule, grids) },
 		startTempoBpm: 80,
 		view,

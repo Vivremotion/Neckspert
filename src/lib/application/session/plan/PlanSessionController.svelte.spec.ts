@@ -18,9 +18,7 @@ import type { Attempt, SensorLatency, Settings } from '$lib/domain/types';
 import {
 	FakeAttackDetector,
 	FakeClock,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -107,9 +105,7 @@ async function setup(
 	const wall = { extraMs: 0 };
 	const deps: PlanSessionDeps = {
 		clock,
-		metronome: new FakeMetronome(clock),
 		detector,
-		cues: new FakeSoundCues(),
 		attempts,
 		cards: new InMemoryCardStateRepository(),
 		sessions,
@@ -988,6 +984,23 @@ describe('PlanSessionController, latency', () => {
 		expect(first.measures.precision?.value).toBeCloseTo(70, 0);
 		expect(first.success).toBe(true);
 		controller.quit();
+	});
+
+	it('stores the latency applied to the onsets with the session, zero when none is calibrated', async () => {
+		const plain = await setup(RHYTHM_OFFBEATS, { met: true });
+		await plain.controller.start();
+		plain.controller.quit();
+		await settled();
+		expect((await plain.sessions.get('series'))?.latencyMs).toBe(0);
+
+		const calibrated = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			latency: { ms: 42, provenance: 'system' }
+		});
+		await calibrated.controller.start();
+		calibrated.controller.quit();
+		await settled();
+		expect((await calibrated.sessions.get('series'))?.latencyMs).toBe(42);
 	});
 
 	it('lets precision judge with a latency measured without the player', async () => {

@@ -74,7 +74,7 @@ export class FakeCalibration implements CalibrationPort {
 export class FakeBackup implements BackupPort {
 	private file: BackupFile = {
 		app: 'neckspert-play',
-		version: 5,
+		version: 6,
 		exportedAt: 1,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [],

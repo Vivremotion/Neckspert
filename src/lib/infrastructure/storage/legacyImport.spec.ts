@@ -2,12 +2,12 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import { applyColdAttempt } from '$lib/domain/progress';
-import { beatTiming } from '$lib/domain/timing';
 import type { Attempt } from '$lib/domain/types';
 import { createDatabase } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
+import { DexieLevelStateRepository } from './DexieLevelStateRepository';
 import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
@@ -164,22 +164,34 @@ describe('importing an export of 2026-10-04', () => {
 		expect(cards.get('locate:6:A')).toMatchObject({
 			mechanic: 'locate',
 			item: { string: 6, pitch: 'A' },
-			leadBeats: 2,
 			learnedAt: T0 - 2 * DAY
 		});
 		expect(cards.get('locate:6:A')?.scheduling).toEqual(scheduling(1));
 		expect(cards.get('locate:5:D')).toMatchObject({
 			mechanic: 'locate',
-			item: { string: 5, pitch: 'D' },
-			leadBeats: 4
+			item: { string: 5, pitch: 'D' }
 		});
 		expect(cards.get('locate:5:D')?.scheduling.state).toBe(1);
 		expect(cards.get('identify:6:3')).toMatchObject({
 			mechanic: 'identify',
-			item: { string: 6, fret: 3 },
-			leadBeats: 2
+			item: { string: 6, fret: 3 }
 		});
 		expect([...cards.values()].some((card) => 'target' in card)).toBe(false);
+		// The leads became levels: the one-beat step at the top of the ladder.
+		expect([...cards.values()].some((card) => 'leadBeats' in card)).toBe(false);
+		const levels = new Map(
+			(await new DexieLevelStateRepository(db).all()).map((s) => [
+				`${s.exerciseId}/${s.item}`,
+				s.level
+			])
+		);
+		expect(levels).toEqual(
+			new Map([
+				['locate-neck/6:A', 2],
+				['locate-neck/5:D', 1],
+				['identify-neck/6:3', 1]
+			])
+		);
 
 		const attempts = await new DexieAttemptRepository(db).all();
 		expect(attempts.map((a) => a.leadBeats)).toEqual([1, 4, null]);
@@ -233,7 +245,7 @@ describe('importing an export of 2026-10-04', () => {
 			id: undefined,
 			sessionId: 's3',
 			tempoBpm: 80,
-			leadBeats: card.leadBeats,
+			leadBeats: 2,
 			promptedAt: now,
 			correct: true,
 			verdict: 'perfect',
@@ -241,9 +253,7 @@ describe('importing an export of 2026-10-04', () => {
 			reactionMs: 1510,
 			data: { item: card.item, answer: { midi: 45 }, confusion: null }
 		});
-		const after = applyColdAttempt(card, success, [success], now, (a) =>
-			beatTiming.isDirectRecall(a)
-		);
+		const after = applyColdAttempt(card, success, [success], now, (a) => a.success);
 		expect(after.scheduling.state).toBe(2);
 		expect(after.acquiredAt).toBe(now);
 		db.close();

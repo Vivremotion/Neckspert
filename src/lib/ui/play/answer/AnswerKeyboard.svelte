@@ -8,7 +8,7 @@
 		disabled,
 		onanswer
 	}: {
-		choices: AnswerChoice[];
+		choices: readonly AnswerChoice[];
 		disabled: boolean;
 		onanswer: (value: string) => void;
 	} = $props();

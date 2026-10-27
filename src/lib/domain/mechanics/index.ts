@@ -41,8 +41,7 @@ export {
 
 /**
  * Every known mechanic, by its identity. For validation and migration only: no other logic goes
- * through it. A mechanic with a one-answer time relation also has `timing` (narrow with
- * `'timing' in rules`); the rhythm figure has none.
+ * through it.
  */
 export const MECHANIC_RULES: readonly MechanicIdentity[] = [
 	locateRules,

@@ -13,14 +13,8 @@ import {
 	type LocateItem,
 	type NeckCard
 } from '$lib/domain/music';
-import {
-	LEAD_STEPS,
-	type Attempt,
-	type CardKey,
-	type CardState,
-	type PlannedItem
-} from '$lib/domain/types';
-import { LEARN_COLD_CAP, LEARN_SUCCESSES, MAX_WORKING_SET } from './constants';
+import { type Attempt, type CardKey, type CardState, type PlannedItem } from '$lib/domain/types';
+import { DEFAULT_SET_LEARNING } from '$lib/domain/learning/params';
 import { introductionOrder } from './introduction';
 import { neckSubject } from './neckSubject';
 import { graduateToReview } from './scheduling';
@@ -53,8 +47,6 @@ function neckCard(
 		item: card.item,
 		introducedAt: 0,
 		introducedInSession: 'past',
-		// The card's stored lead, unread by the procedure (its level gives the lead).
-		leadBeats: 2,
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
 		masteredAt: null,
@@ -180,7 +172,7 @@ describe('neckSubject', () => {
 			{ leadBeats: 2, aided: false }
 		]);
 		expect(leads[leads.length - 1]).toMatchObject({
-			pass: { successes: LEARN_SUCCESSES },
+			pass: { successes: 2 },
 			success: 'direct-recall'
 		});
 		expect(subject.ladder(IDENTIFY).map((level) => level.params)).toEqual([
@@ -188,7 +180,7 @@ describe('neckSubject', () => {
 			{ leadBeats: null, aided: false }
 		]);
 		expect(subject.ladder(IDENTIFY)[1]).toMatchObject({
-			pass: { successes: LEARN_SUCCESSES },
+			pass: { successes: 2 },
 			success: 'direct-recall'
 		});
 
@@ -309,7 +301,7 @@ describe('neckSubject', () => {
 
 			// Each mechanic in its exercise, at a lead of its own.
 			expect(planned.exerciseId).toBe(subject.exerciseOf(planned.mechanic));
-			if (planned.mechanic === LOCATE) expect(LEAD_STEPS).toContain(planned.leadBeats);
+			if (planned.mechanic === LOCATE) expect([8, 4, 2]).toContain(planned.leadBeats);
 			else expect(planned.leadBeats).toBeNull();
 			// Categories: probes and reviews cold and unaided, learning and consolidation hot.
 			const cold = planned.phase === 'probe' || planned.phase === 'review';
@@ -335,8 +327,8 @@ describe('neckSubject', () => {
 			}
 			if (planned.temperature === 'hot') hot.add(key);
 			if (planned.phase === 'review') reviews += 1;
-			expect(reviews).toBeLessThanOrEqual(LEARN_COLD_CAP);
-			expect(hot.size).toBeLessThanOrEqual(MAX_WORKING_SET);
+			expect(reviews).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.coldCap);
+			expect(hot.size).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.maxWorkingSet);
 
 			const success = succeeds(planned, key);
 			const outcome = procedure.record(answerOf(planned, success, { at: now }), now);

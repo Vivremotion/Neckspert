@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { identifyTiming } from '$lib/domain/timing';
 import { cardKeyOf, identifyRules, mechanicRules } from './index';
 
 describe('identifyRules', () => {
@@ -19,9 +18,7 @@ describe('identifyRules', () => {
 		});
 	});
 
-	it('answers at its own pace', () => {
-		expect(identifyRules.timing.id).toBe('free');
-		expect(identifyRules.timing).toBe(identifyTiming);
+	it('learns by memory', () => {
 		expect(identifyRules.learner).toBe('memory');
 	});
 

@@ -1,21 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import type {
-	Attempt,
-	Execution,
-	LevelState,
-	PlannedItem,
-	RecordedObservation
-} from '$lib/domain/types';
+import type { Attempt, LevelState, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import { introduceCard, markLearned, type ItemSource } from '$lib/domain/progress';
 import { directRecallOf } from '$lib/domain/learning';
-import type { RoundOutcome } from '$lib/domain/timing';
-import {
-	cardKeyOf,
-	identifyRules,
-	locateRules,
-	mechanicRules,
-	timedRules
-} from '$lib/domain/mechanics';
+import { cardKeyOf, locateRules, mechanicRules } from '$lib/domain/mechanics';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
@@ -26,8 +13,6 @@ import { AttemptRecorder } from './AttemptRecorder';
 import { ObservationSpan } from './observationSpan';
 
 const F_ON_B = { string: 2, pitch: 'F' } as const;
-const LOCATE_RUN: Execution = { exerciseId: 'locate-neck', tempoBpm: 80 };
-const IDENTIFY_RUN: Execution = { exerciseId: 'identify-neck', tempoBpm: null };
 
 function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
@@ -42,424 +27,7 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	};
 }
 
-function identifyItem(): PlannedItem {
-	return item({
-		exerciseId: 'identify-neck',
-		mechanic: 'identify',
-		item: { string: 6, fret: 3 },
-		leadBeats: null
-	});
-}
-
-function outcome(overrides: Partial<RoundOutcome> = {}): RoundOutcome {
-	return {
-		verdict: 'perfect',
-		correct: true,
-		answer: { midi: 65 },
-		timingOffsetMs: 0,
-		reactionMs: null,
-		laneBeat: 8,
-		...overrides
-	};
-}
-
-function setup(selector?: Partial<ItemSource>) {
-	const clock = new FakeClock();
-	const attempts = new InMemoryAttemptRepository();
-	const cards = new InMemoryCardStateRepository();
-	const recorded: unknown[] = [];
-	const spy: ItemSource = {
-		next: () => null,
-		record: (attempt) => {
-			recorded.push(attempt);
-			return null;
-		},
-		cardChanged: () => {},
-		...selector
-	};
-	const recorder = new AttemptRecorder({
-		attempts,
-		cards,
-		clock,
-		now: () => clock.toEpochMs(clock.now()),
-		selector: spy,
-		sessionId: 'sess-1',
-		rules: (mechanic) => timedRules(mechanicRules(mechanic))
-	});
-	return { recorder, attempts, cards, recorded };
-}
-
 describe('AttemptRecorder', () => {
-	it('tells the selector before the attempt is stored', async () => {
-		const { recorder, attempts, recorded } = setup();
-		const { attempt, stored } = recorder.record(
-			item(),
-			outcome(),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		);
-		expect(recorder.sessionAttempts).toEqual([attempt]);
-		expect(recorded).toEqual([attempt]);
-		expect(await attempts.all()).toEqual([]);
-		await stored;
-		expect(await attempts.all()).toHaveLength(1);
-	});
-
-	it('stores a missed probe hot and a passed probe cold', async () => {
-		const probe = item({ phase: 'probe', temperature: 'cold' });
-		const passed = setup();
-		const a = passed.recorder.record(
-			probe,
-			outcome(),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		);
-		await a.stored;
-		expect(a.attempt.temperature).toBe('cold');
-		const missed = setup();
-		const b = missed.recorder.record(
-			probe,
-			outcome({ verdict: 'wrong', correct: false, answer: { midi: 60 } }),
-			1,
-			locateRules.judge(F_ON_B, { midi: 60 }),
-			LOCATE_RUN,
-			[]
-		);
-		await b.stored;
-		expect(b.attempt.temperature).toBe('hot');
-	});
-
-	it('stores the target attempt: success, a verdict of its relation, its aids', () => {
-		const { recorder } = setup();
-		const { attempt } = recorder.record(
-			item({ aid: 'show-position', stringAid: true }),
-			outcome({ verdict: 'late' }),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		);
-		expect(attempt).toMatchObject({
-			correct: true,
-			success: true,
-			verdict: { relation: locateRules.timing.id, version: 1, value: 'late' },
-			aids: ['show-position', 'string-aid'],
-			measures: {},
-			plan: null
-		});
-		expect(attempt).not.toHaveProperty('aid');
-	});
-
-	it('stores a right answer off the beat as a miss, and no aid as none', () => {
-		const { recorder } = setup();
-		const { attempt } = recorder.record(
-			item(),
-			outcome({ verdict: 'offbeat' }),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		);
-		expect(attempt).toMatchObject({ correct: true, success: false, aids: [] });
-	});
-
-	it('names the relation the exercise plays the prompt at', () => {
-		const clock = new FakeClock();
-		const recorder = new AttemptRecorder({
-			attempts: new InMemoryAttemptRepository(),
-			cards: new InMemoryCardStateRepository(),
-			clock,
-			now: () => 0,
-			selector: { next: () => null, record: () => null, cardChanged: () => {} },
-			sessionId: 'sess-1',
-			rules: (mechanic) => timedRules(mechanicRules(mechanic)),
-			timing: () => identifyRules.timing
-		});
-		const { attempt } = recorder.record(
-			item(),
-			outcome(),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		);
-		expect(attempt.verdict.relation).toBe(identifyRules.timing.id);
-	});
-
-	it('creates the card of a learning prompt the selector does not report', async () => {
-		const { recorder, cards } = setup();
-		const planned = item({ phase: 'learning', temperature: 'hot' });
-		await recorder.record(
-			planned,
-			outcome(),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			LOCATE_RUN,
-			[]
-		).stored;
-		const card = await cards.get('locate:2:F');
-		expect(card).toMatchObject({ mechanic: 'locate', item: F_ON_B, learnedAt: null });
-	});
-
-	it('records the confusion of a wrong note', () => {
-		const { recorder } = setup();
-		const { attempt } = recorder.record(
-			item(),
-			outcome({ verdict: 'wrong', correct: false, answer: { midi: 66 } }),
-			1,
-			locateRules.judge(F_ON_B, { midi: 66 }),
-			LOCATE_RUN,
-			[]
-		);
-		expect(attempt.data).toEqual({
-			item: F_ON_B,
-			answer: { midi: 66 },
-			confusion: { kind: 'semitone', delta: 1 }
-		});
-	});
-
-	it('stores a tapped name and its confusion', () => {
-		const { recorder } = setup();
-		const { attempt } = recorder.record(
-			identifyItem(),
-			outcome({ verdict: 'wrong', correct: false, answer: { pitch: 'G#' }, laneBeat: null }),
-			1,
-			identifyRules.judge({ string: 6, fret: 3 }, 'G#'),
-			IDENTIFY_RUN,
-			[]
-		);
-		expect(attempt.data).toEqual({
-			item: { string: 6, fret: 3 },
-			answer: { pitch: 'G#' },
-			confusion: { kind: 'semitone', delta: 1 }
-		});
-	});
-
-	it('stores no answer and no confusion when nothing was answered', () => {
-		const { recorder } = setup();
-		const { attempt } = recorder.record(
-			item(),
-			outcome({ verdict: 'wrong', correct: false, answer: null, timingOffsetMs: null }),
-			1,
-			null,
-			LOCATE_RUN,
-			[]
-		);
-		expect(attempt.data).toEqual({ item: F_ON_B, answer: null, confusion: null });
-	});
-
-	it('stamps each attempt with its exercise, mechanic and execution tempo', () => {
-		const { recorder } = setup();
-		const locate = recorder.record(
-			item(),
-			outcome(),
-			1,
-			locateRules.judge(F_ON_B, { midi: 65 }),
-			{
-				exerciseId: 'locate-neck',
-				tempoBpm: 120
-			},
-			[]
-		).attempt;
-		const identify = recorder.record(
-			identifyItem(),
-			outcome({ answer: { pitch: 'G' }, laneBeat: null }),
-			1,
-			identifyRules.judge({ string: 6, fret: 3 }, 'G'),
-			IDENTIFY_RUN,
-			[]
-		).attempt;
-		expect(locate).toMatchObject({
-			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			cardKey: 'locate:2:F',
-			tempoBpm: 120
-		});
-		expect(identify).toMatchObject({
-			exerciseId: 'identify-neck',
-			mechanic: 'identify',
-			cardKey: 'identify:6:3',
-			tempoBpm: null
-		});
-	});
-
-	it('judges direct recall at the execution tempo', async () => {
-		// A 2-beat lead at 80 bpm (1 500 ms) is direct recall; at 60 bpm (2 000 ms) it is not.
-		const probe = item({ phase: 'probe', temperature: 'cold', leadBeats: 2 });
-		const judged = locateRules.judge(F_ON_B, { midi: 65 });
-		const atEighty = setup();
-		const fast = atEighty.recorder.record(probe, outcome(), 1, judged, LOCATE_RUN, []);
-		await fast.stored;
-		const atSixty = setup();
-		const slow = atSixty.recorder.record(
-			probe,
-			outcome(),
-			1,
-			judged,
-			{
-				exerciseId: 'locate-neck',
-				tempoBpm: 60
-			},
-			[]
-		);
-		await slow.stored;
-		expect([fast.attempt.temperature, slow.attempt.temperature]).toEqual(['cold', 'hot']);
-	});
-
-	describe('observations', () => {
-		const snapshot: RecordedObservation[] = [
-			{ atMs: 1, sensor: 'note', fate: 'answer', correct: null, payload: { midi: 65 } }
-		];
-		const full: RecordedObservation[] = [
-			...snapshot,
-			{ atMs: 2, sensor: 'note', fate: 'answer', correct: null, payload: { midi: 60 } }
-		];
-		const judged = locateRules.judge(F_ON_B, { midi: 65 });
-
-		it('stores the snapshot given to record, then the full list after completion', async () => {
-			const { recorder, attempts } = setup();
-			const { attempt, stored } = recorder.record(
-				item(),
-				outcome(),
-				1,
-				judged,
-				LOCATE_RUN,
-				snapshot
-			);
-			await stored;
-			expect((await attempts.all())[0].observations).toEqual(snapshot);
-			await recorder.completeObservations(attempt, full);
-			expect(attempt.observations).toEqual(full);
-			expect((await attempts.all())[0].observations).toEqual(full);
-		});
-
-		it('completes after the write when called before it resolves', async () => {
-			const { recorder, attempts } = setup();
-			let release!: () => void;
-			const gate = new Promise<void>((resolve) => (release = resolve));
-			let copied!: () => void;
-			const added = new Promise<void>((resolve) => (copied = resolve));
-			const add = attempts.add.bind(attempts);
-			// The row is copied first, then the write stays pending until released.
-			attempts.add = async (a: Attempt) => {
-				const id = await add(a);
-				copied();
-				await gate;
-				return id;
-			};
-			const { attempt, stored } = recorder.record(
-				item(),
-				outcome(),
-				1,
-				judged,
-				LOCATE_RUN,
-				snapshot
-			);
-			await added;
-			const completed = recorder.completeObservations(attempt, full);
-			expect(attempt.observations).toEqual(full);
-			expect((await attempts.all())[0].observations).toEqual(snapshot);
-			release();
-			await Promise.all([stored, completed]);
-			expect((await attempts.all())[0].observations).toEqual(full);
-		});
-
-		it('settled waits for completions', async () => {
-			const { recorder, attempts } = setup();
-			const { attempt, stored } = recorder.record(
-				item(),
-				outcome(),
-				1,
-				judged,
-				LOCATE_RUN,
-				snapshot
-			);
-			await stored;
-			let release!: () => void;
-			const gate = new Promise<void>((resolve) => (release = resolve));
-			const set = attempts.setObservations.bind(attempts);
-			attempts.setObservations = async (id, observations) => {
-				await gate;
-				return set(id, observations);
-			};
-			void recorder.completeObservations(attempt, full);
-			let settled = false;
-			const waiting = recorder.settled().then(() => (settled = true));
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			expect(settled).toBe(false);
-			release();
-			await waiting;
-			expect((await attempts.all())[0].observations).toEqual(full);
-		});
-
-		it('does not write for an attempt it did not record', async () => {
-			const { recorder, attempts } = setup();
-			const { attempt, stored } = recorder.record(
-				item(),
-				outcome(),
-				1,
-				judged,
-				LOCATE_RUN,
-				snapshot
-			);
-			await stored;
-			await recorder.completeObservations({ ...attempt }, full);
-			expect((await attempts.all())[0].observations).toEqual(snapshot);
-		});
-
-		it('reports a failed write and still settles', async () => {
-			const { recorder, attempts } = setup();
-			const failure = new Error('quota');
-			attempts.add = async () => {
-				throw failure;
-			};
-			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
-			const { attempt, stored } = recorder.record(
-				item(),
-				outcome(),
-				1,
-				judged,
-				LOCATE_RUN,
-				snapshot
-			);
-			await expect(stored).rejects.toBe(failure);
-			await recorder.completeObservations(attempt, full).catch(() => {});
-			await recorder.settled();
-			expect(log).toHaveBeenCalledWith(expect.stringContaining('[neckspert]'), failure);
-			log.mockRestore();
-		});
-	});
-});
-
-describe('AttemptRecorder with a prompt that adds to its card', () => {
-	it('keeps on a new card only the part of the item its mechanic keeps', async () => {
-		const { recorder, cards } = setup();
-		const key = 'D|maj|3:5,2:1,1:3';
-		const { stored } = recorder.record(
-			item({
-				exerciseId: 'triads-zone',
-				mechanic: 'triad-zone',
-				item: { voicingKey: key, position: 2 },
-				phase: 'learning',
-				temperature: 'hot',
-				leadBeats: 8
-			}),
-			outcome({ answer: { decided: null } }),
-			1,
-			null,
-			{ exerciseId: 'triads-zone', tempoBpm: 80 },
-			[]
-		);
-		await stored;
-		expect((await cards.get(`triad-zone:${key}`))?.item).toEqual({ voicingKey: key });
-	});
-});
-
-describe('AttemptRecorder.recordResponse', () => {
 	const THRESHOLD_MS = 1500;
 	const LOCATE_KEY = cardKeyOf(locateRules, F_ON_B);
 
@@ -501,7 +69,11 @@ describe('AttemptRecorder.recordResponse', () => {
 		};
 	}
 
-	function setupResponse(selector?: Partial<ItemSource>, learner: 'memory' | 'skill' = 'memory') {
+	function setupResponse(
+		selector?: Partial<ItemSource>,
+		learner: 'memory' | 'skill' = 'memory',
+		withRecall = true
+	) {
 		const clock = new FakeClock();
 		const attempts = new InMemoryAttemptRepository();
 		const cards = new InMemoryCardStateRepository();
@@ -529,8 +101,8 @@ describe('AttemptRecorder.recordResponse', () => {
 			now: () => 5_000,
 			selector: source,
 			sessionId: 'sess-1',
-			rules: (mechanic) => ({ ...timedRules(mechanicRules(mechanic)), learner }),
-			recall: () => directRecallOf(THRESHOLD_MS),
+			rules: (mechanic) => ({ ...mechanicRules(mechanic), learner }),
+			recall: withRecall ? () => directRecallOf(THRESHOLD_MS) : undefined,
 			levels
 		});
 		return { recorder, attempts, cards, levels, told };
@@ -573,7 +145,7 @@ describe('AttemptRecorder.recordResponse', () => {
 	});
 
 	it('refuses a probe without a recall rule', () => {
-		const { recorder } = setup();
+		const { recorder } = setupResponse(undefined, 'memory', false);
 		const probe = item({ phase: 'probe', temperature: 'cold' });
 		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
 	});
@@ -591,7 +163,6 @@ describe('AttemptRecorder.recordResponse', () => {
 		const stored = await cards.get(LOCATE_KEY);
 		expect(stored?.scheduling.reps).toBeGreaterThan(card.scheduling.reps);
 		expect(stored?.acquiredAt).toBe(5_000);
-		expect(stored?.leadBeats).toBe(card.leadBeats);
 	});
 
 	it('introduces the card of a first learning prompt', async () => {
@@ -630,6 +201,98 @@ describe('AttemptRecorder.recordResponse', () => {
 		expect(await still.levels.all()).toEqual([]);
 	});
 
+	/** F on B learned long ago, untouched since. */
+	const learnedLongAgo = () =>
+		markLearned(
+			introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, -10_000_000, 'old'),
+			-9_000_000
+		);
+
+	it('counts a free-play attempt on a learned card cold, through FSRS, and tells the source the card', async () => {
+		const changed: number[] = [];
+		const { recorder, cards } = setupResponse({
+			cardChanged: (card) => changed.push(card.scheduling.reps)
+		});
+		const card = learnedLongAgo();
+		await cards.put(card);
+		const free = item({ phase: 'free', temperature: 'hot' });
+		const attempt = noteAttempt(free);
+		await recorder.recordResponse(attempt, span(free), free);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('cold');
+		expect(changed).toEqual([card.scheduling.reps + 1]);
+		expect((await cards.get(LOCATE_KEY))?.scheduling.reps).toBe(card.scheduling.reps + 1);
+	});
+
+	it('keeps free play hot on a note without a learned card, its card untouched', async () => {
+		const { recorder, cards } = setupResponse();
+		const being = introduceCard(
+			{ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B },
+			-10_000_000,
+			'old'
+		);
+		await cards.put(being);
+		const free = item({ phase: 'free', temperature: 'hot' });
+		const attempt = noteAttempt(free);
+		await recorder.recordResponse(attempt, span(free), free);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('hot');
+		expect(await cards.get(LOCATE_KEY)).toEqual(being);
+
+		const none = setupResponse();
+		const unknown = noteAttempt(free, { success: false });
+		await none.recorder.recordResponse(unknown, span(free), free);
+		await none.recorder.settled();
+		expect(unknown.temperature).toBe('hot');
+		expect(await none.cards.all()).toEqual([]);
+	});
+
+	it('keeps consolidation hot and leaves the card alone', async () => {
+		const { recorder, cards } = setupResponse();
+		const card = learnedLongAgo();
+		await cards.put(card);
+		const consolidation = item({ phase: 'consolidation', temperature: 'hot' });
+		const attempt = noteAttempt(consolidation);
+		await recorder.recordResponse(attempt, span(consolidation), consolidation);
+		await recorder.settled();
+		expect(attempt.temperature).toBe('hot');
+		expect(await cards.get(LOCATE_KEY)).toEqual(card);
+	});
+
+	it('stores the card the source reports for a probe and for a learning prompt', async () => {
+		const known = {
+			...introduceCard({ key: LOCATE_KEY, mechanic: 'locate', item: F_ON_B }, 0, 'sess-1'),
+			acquiredAt: 456
+		};
+		const probed = setupResponse({ record: () => ({ card: known }) });
+		const probe = item({ phase: 'probe', temperature: 'cold' });
+		await probed.recorder.recordResponse(noteAttempt(probe), span(probe), probe);
+		await probed.recorder.settled();
+		expect((await probed.cards.get(LOCATE_KEY))?.acquiredAt).toBe(456);
+
+		const learned = markLearned(known, 123);
+		const taught = setupResponse({ record: () => ({ card: learned }) });
+		const learning = item({ phase: 'learning', temperature: 'hot' });
+		await taught.recorder.recordResponse(noteAttempt(learning), span(learning), learning);
+		await taught.recorder.settled();
+		expect((await taught.cards.get(LOCATE_KEY))?.learnedAt).toBe(123);
+	});
+
+	it('introduces the card of a first learning prompt even after a wrong note', async () => {
+		const { recorder, cards } = setupResponse();
+		const learning = item({ phase: 'learning', temperature: 'hot', aid: 'show-position' });
+		await recorder.recordResponse(
+			noteAttempt(learning, { success: false }),
+			span(learning),
+			learning
+		);
+		await recorder.settled();
+		expect(await cards.get(LOCATE_KEY)).toMatchObject({
+			introducedInSession: 'sess-1',
+			learnedAt: null
+		});
+	});
+
 	it('touches no card for a skill learner', async () => {
 		const { recorder, cards, attempts } = setupResponse(undefined, 'skill');
 		const learning = item({ phase: 'learning', temperature: 'hot' });
@@ -637,5 +300,138 @@ describe('AttemptRecorder.recordResponse', () => {
 		await recorder.settled();
 		expect(await cards.all()).toEqual([]);
 		expect(await attempts.all()).toHaveLength(1);
+	});
+	it('keeps on a new card only the part of the item its mechanic keeps', async () => {
+		const { recorder, cards } = setupResponse();
+		const key = 'D|maj|3:5,2:1,1:3';
+		const planned = item({
+			exerciseId: 'triads-zone',
+			mechanic: 'triad-zone',
+			item: { voicingKey: key, position: 2 },
+			phase: 'learning',
+			temperature: 'hot',
+			leadBeats: 8
+		});
+		const attempt = {
+			...noteAttempt(planned),
+			cardKey: `triad-zone:${key}`,
+			data: { item: planned.item, answer: null, confusion: null }
+		};
+		await recorder.recordResponse(attempt, span(planned), planned);
+		await recorder.settled();
+		expect((await cards.get(`triad-zone:${key}`))?.item).toEqual({ voicingKey: key });
+	});
+
+	describe('observations', () => {
+		const snapshot: RecordedObservation[] = [
+			{ atMs: 500, sensor: 'note', fate: 'answer', correct: null, payload: { midi: 65 } }
+		];
+		const full: RecordedObservation[] = [
+			...snapshot,
+			{ atMs: 1000, sensor: 'note', fate: 'answer', correct: null, payload: { midi: 60 } }
+		];
+
+		/** A span that has already heard the first observation. */
+		const heard = (planned: PlannedItem) => {
+			const heardSpan = span(planned);
+			heardSpan.add('note', { time: 1.5, readable: true, payload: { midi: 65 } }, 'answer', null);
+			return heardSpan;
+		};
+
+		it('stores the snapshot given to record, then the full list after completion', async () => {
+			const { recorder, attempts } = setupResponse();
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			await recorder.recordResponse(attempt, heard(planned), planned);
+			expect((await attempts.all())[0].observations).toEqual(snapshot);
+			await recorder.completeObservations(attempt, full);
+			expect(attempt.observations).toEqual(full);
+			expect((await attempts.all())[0].observations).toEqual(full);
+		});
+
+		it('completes after the write when called before it resolves', async () => {
+			const { recorder, attempts } = setupResponse();
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			let copied!: () => void;
+			const added = new Promise<void>((resolve) => (copied = resolve));
+			const add = attempts.add.bind(attempts);
+			// The row is copied first, then the write stays pending until released.
+			attempts.add = async (a: Attempt) => {
+				const id = await add(a);
+				copied();
+				await gate;
+				return id;
+			};
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			const written = recorder.recordResponse(attempt, heard(planned), planned);
+			await added;
+			const completed = recorder.completeObservations(attempt, full);
+			expect(attempt.observations).toEqual(full);
+			expect((await attempts.all())[0].observations).toEqual(snapshot);
+			release();
+			await Promise.all([written, completed]);
+			expect((await attempts.all())[0].observations).toEqual(full);
+		});
+
+		it('completes by itself when the span closes', async () => {
+			const { recorder, attempts } = setupResponse();
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			const open = heard(planned);
+			await recorder.recordResponse(attempt, open, planned);
+			open.add('note', { time: 2, readable: true, payload: { midi: 60 } }, 'answer', null);
+			open.close();
+			await recorder.settled();
+			expect((await attempts.all())[0].observations).toEqual(full);
+		});
+
+		it('settled waits for completions', async () => {
+			const { recorder, attempts } = setupResponse();
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			await recorder.recordResponse(attempt, heard(planned), planned);
+			let release!: () => void;
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const set = attempts.setObservations.bind(attempts);
+			attempts.setObservations = async (id, observations) => {
+				await gate;
+				return set(id, observations);
+			};
+			void recorder.completeObservations(attempt, full);
+			let settled = false;
+			const waiting = recorder.settled().then(() => (settled = true));
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			expect(settled).toBe(false);
+			release();
+			await waiting;
+			expect((await attempts.all())[0].observations).toEqual(full);
+		});
+
+		it('does not write for an attempt it did not record', async () => {
+			const { recorder, attempts } = setupResponse();
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			await recorder.recordResponse(attempt, heard(planned), planned);
+			await recorder.completeObservations({ ...attempt }, full);
+			expect((await attempts.all())[0].observations).toEqual(snapshot);
+		});
+
+		it('reports a failed write and still settles', async () => {
+			const { recorder, attempts } = setupResponse();
+			const failure = new Error('quota');
+			attempts.add = async () => {
+				throw failure;
+			};
+			const log = vi.spyOn(console, 'error').mockImplementation(() => {});
+			const planned = item();
+			const attempt = noteAttempt(planned);
+			await expect(recorder.recordResponse(attempt, heard(planned), planned)).rejects.toBe(failure);
+			await recorder.completeObservations(attempt, full).catch(() => {});
+			await recorder.settled();
+			expect(log).toHaveBeenCalledWith(expect.stringContaining('[neckspert]'), failure);
+			log.mockRestore();
+		});
 	});
 });

@@ -6,7 +6,6 @@ import type {
 	SessionRecord,
 	Settings
 } from '$lib/domain/types';
-import { withoutLegacyLead } from '../legacyLead';
 
 /**
  * The exercises version 1 data was played in, by its target direction. Frozen here on purpose:
@@ -17,6 +16,14 @@ export const V1_EXERCISE_IDS = { locate: 'locate-neck', identify: 'identify-neck
 type V1Direction = keyof typeof V1_EXERCISE_IDS;
 
 type Row = Record<string, unknown>;
+
+/**
+ * Cards stored before 2026-10-04 could hold the dropped 1-beat lead step. They move to the
+ * shortest step left, 2. Attempts keep their recorded lead: history is not rewritten.
+ */
+function withoutLegacyLead(card: Row): Row {
+	return card.leadBeats === 1 ? { ...card, leadBeats: 2 } : card;
+}
 
 /** The four tables as Dexie versions 2 to 4 stored them, and as backup version 1 holds them. */
 export interface V1Data {
@@ -105,7 +112,7 @@ export function convertV1(data: V1Data, now: number): V1Conversion {
 	const cards = data.cards.map((row): CardState => {
 		const { target, ...rest } = row;
 		const { mechanic, item } = splitTarget(target, `card ${String(row.key)}`);
-		return withoutLegacyLead({ ...rest, mechanic, item } as unknown as CardState);
+		return withoutLegacyLead({ ...rest, mechanic, item }) as unknown as CardState;
 	});
 
 	const attempts = data.attempts.map((row): Attempt => {

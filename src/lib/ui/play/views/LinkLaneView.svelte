@@ -206,7 +206,7 @@
 		min-width: 0;
 	}
 
-	/* The notes' lane frame (PlayScreen): a shade border, its corners cut. */
+	/* The notes' lane frame: a shade border, its corners cut. */
 	.pixel-frame {
 		box-sizing: border-box;
 		background: var(--np-shade);
