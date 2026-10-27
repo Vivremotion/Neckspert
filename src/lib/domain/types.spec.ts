@@ -3,7 +3,6 @@ import {
 	cardKey,
 	DEFAULT_SETTINGS,
 	DIAGNOSTIC_BUDGETS_MB,
-	isResponseSuccess,
 	parseCardKey,
 	RESPONSE_RELATIONS,
 	RESPONSE_VERDICTS,
@@ -56,16 +55,6 @@ describe('verdicts', () => {
 			'corrected',
 			'wrong'
 		]);
-	});
-
-	it('never counts a corrected attempt as a success', () => {
-		expect(isResponseSuccess({ correct: false, verdict: 'corrected' })).toBe(false);
-	});
-
-	it('counts a right answer in time as a success, never one off the beat', () => {
-		expect(isResponseSuccess({ correct: true, verdict: 'late' })).toBe(true);
-		expect(isResponseSuccess({ correct: true, verdict: 'offbeat' })).toBe(false);
-		expect(isResponseSuccess({ correct: false, verdict: 'wrong' })).toBe(false);
 	});
 });
 

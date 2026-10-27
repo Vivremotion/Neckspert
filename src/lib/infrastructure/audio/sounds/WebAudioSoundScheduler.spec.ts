@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_LOOKAHEAD_MS } from '../clock/WebAudioMetronome';
 import {
 	BEAT_CLICK,
 	CLICK_DURATION_S,
@@ -7,7 +6,7 @@ import {
 	DOWNBEAT_CLICK,
 	PLAY_ALONG_SOUND
 } from './clickSound';
-import { WebAudioSoundScheduler } from './WebAudioSoundScheduler';
+import { DEFAULT_LOOKAHEAD_MS, WebAudioSoundScheduler } from './WebAudioSoundScheduler';
 
 class FakeParam {
 	readonly calls: { method: string; value: number; time: number }[] = [];

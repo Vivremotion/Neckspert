@@ -6,7 +6,6 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { CHORD_GRID_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
-import { createGridTiming } from '$lib/domain/timing';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { ChordReading } from './triadChord';
 import {
@@ -143,10 +142,6 @@ export const chordGridRules: MechanicRules<
 	ChordGridConfusion
 > = {
 	id: 'chord-grid',
-	timing: createGridTiming((item) => {
-		const { changes, index } = item as ChordGridItem;
-		return { lengthBeats: changes[index].length };
-	}),
 	learner: 'skill',
 	itemKey: (item) => `${item.element}${INDEX_SEPARATOR}${item.index}`,
 	// An attempt keeps the whole change; its key, the element and the place in the passage.

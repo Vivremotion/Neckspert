@@ -31,7 +31,6 @@ const FORBIDDEN = [
 	'domain/triads',
 	'domain/gesture',
 	'domain/mechanics',
-	'domain/timing',
 	'application'
 ];
 

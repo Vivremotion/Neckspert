@@ -25,9 +25,7 @@ import type { Attempt, CardState } from '$lib/domain/types';
 import {
 	FakeClock,
 	FakeDiagnostics,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -127,9 +125,7 @@ export async function notesApp(setup: NotesSetup = {}) {
 	let ids = 0;
 	const deps = {
 		clock,
-		metronome: new FakeMetronome(clock),
 		detector,
-		cues: new FakeSoundCues(),
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),

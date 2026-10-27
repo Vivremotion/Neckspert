@@ -8,7 +8,6 @@ import {
 	type Midi,
 	type Voicing
 } from '$lib/domain/music';
-import { anchorTiming } from '$lib/domain/timing';
 import type { ChordConfusion, ChordReading } from './triadChord';
 import type { MechanicRules } from './types';
 
@@ -61,7 +60,6 @@ export const triadAnchorRules: MechanicRules<
 	TriadAnchorConfusion
 > = {
 	id: 'triad-anchor',
-	timing: anchorTiming,
 	learner: 'memory',
 	itemKey: (item) => item.voicingKey,
 	parseItem: parseAnchorItem,

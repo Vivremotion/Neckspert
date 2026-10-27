@@ -18,9 +18,7 @@ import type { Attempt, SensorLatency, Settings } from '$lib/domain/types';
 import {
 	FakeAttackDetector,
 	FakeClock,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -107,9 +105,7 @@ async function setup(
 	const wall = { extraMs: 0 };
 	const deps: PlanSessionDeps = {
 		clock,
-		metronome: new FakeMetronome(clock),
 		detector,
-		cues: new FakeSoundCues(),
 		attempts,
 		cards: new InMemoryCardStateRepository(),
 		sessions,

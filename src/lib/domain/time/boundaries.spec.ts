@@ -9,14 +9,13 @@ const sources = import.meta.glob('/src/lib/domain/time/**/*.ts', {
 
 const CORE = '/src/lib/domain/time/';
 
-/** What the time core never imports: the music, the judges, the old timing, the application. */
+/** What the time core never imports: the music, the judges, the application. */
 const FORBIDDEN = [
 	'$lib/domain/music',
 	'$lib/domain/mechanics',
 	'$lib/domain/judges',
 	'$lib/domain/triads',
 	'$lib/domain/gesture',
-	'$lib/domain/timing',
 	'$lib/domain/scoring',
 	'$lib/application'
 ];
@@ -30,7 +29,7 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the time core', () => {
-	it('imports nothing of the music, the judges, the old timing nor the application', () => {
+	it('imports nothing of the music, the judges nor the application', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 

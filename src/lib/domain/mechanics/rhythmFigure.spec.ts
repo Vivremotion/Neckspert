@@ -3,11 +3,10 @@ import { cardKeyOf, mechanicRules, MECHANIC_RULES } from './index';
 import { rhythmFigureRules, type RhythmItem } from './rhythmFigure';
 
 describe('rhythmFigureRules', () => {
-	it('is a skill, registered among the mechanics, with no time relation of its own', () => {
+	it('is a skill, registered among the mechanics', () => {
 		expect(rhythmFigureRules).toMatchObject({ id: 'rhythm-figure', learner: 'skill' });
 		expect(mechanicRules('rhythm-figure')).toBe(rhythmFigureRules);
 		expect(MECHANIC_RULES).toContain(rhythmFigureRules);
-		expect('timing' in rhythmFigureRules).toBe(false);
 	});
 
 	it('keys an item by its figure and its level', () => {

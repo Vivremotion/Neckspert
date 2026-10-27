@@ -1,11 +1,3 @@
-import {
-	LATE_CAPTURE_MS,
-	LATE_LIMIT_MS,
-	MIN_RESPONSE_MS,
-	PERFECT_WINDOW_MS
-} from '../scoring/timing';
-import { ANCHOR_CHORD_FROM_BEATS } from '../timing/anchor';
-import { GRID_EARLY_MAX_BEATS, GRID_EARLY_MS } from '../timing/gridChange';
 import type { ExerciseDefinition } from './types';
 
 /** The windows in which a response is heard and judged; an exercise writes them in `params.windows`. */
@@ -26,15 +18,21 @@ export interface ResponseWindows {
 	anchorChordFromBeats: number;
 }
 
-/** Today's values: the windows of an exercise that writes none. */
+/**
+ * Today's values: the windows of an exercise that writes none. To calibrate. `perfectMs` 80:
+ * largest |offset| from the target still « on the beat ». `lateMs` 400 and `lateCaptureMs` 2000:
+ * a right note past the first is `offbeat`, up to the next prompt. `minResponseMs` 300: earlier
+ * notes belong to the previous prompt. A grid change opens `gridEarlyMs` 200 early, at most
+ * `gridEarlyMaxBeats` 0.4 beat; the anchor's chord is taken from 1 beat after its root.
+ */
 export const DEFAULT_RESPONSE_WINDOWS: ResponseWindows = {
-	perfectMs: PERFECT_WINDOW_MS,
-	lateMs: LATE_LIMIT_MS,
-	lateCaptureMs: LATE_CAPTURE_MS,
-	minResponseMs: MIN_RESPONSE_MS,
-	gridEarlyMs: GRID_EARLY_MS,
-	gridEarlyMaxBeats: GRID_EARLY_MAX_BEATS,
-	anchorChordFromBeats: ANCHOR_CHORD_FROM_BEATS
+	perfectMs: 80,
+	lateMs: 400,
+	lateCaptureMs: 2000,
+	minResponseMs: 300,
+	gridEarlyMs: 200,
+	gridEarlyMaxBeats: 0.4,
+	anchorChordFromBeats: 1
 };
 
 /** `params.windows` over the defaults, field by field. */

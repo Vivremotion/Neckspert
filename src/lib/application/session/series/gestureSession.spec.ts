@@ -26,9 +26,7 @@ import {
 	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -90,9 +88,7 @@ async function appSession(cards: CardState[]) {
 	const sounds = new FakeSoundScheduler(clock);
 	const deps = {
 		clock,
-		metronome: new FakeMetronome(clock),
 		detector,
-		cues: new FakeSoundCues(),
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),

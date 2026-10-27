@@ -18,9 +18,7 @@ import {
 	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
-	FakeMetronome,
 	FakeNoteDetector,
-	FakeSoundCues,
 	FakeSoundScheduler,
 	FakeTakeBuffer,
 	InMemoryAttemptRepository,
@@ -63,24 +61,19 @@ function harness(options: { development?: boolean } = {}): {
 	services: AppServices;
 	deps: PlanSessionDeps & {
 		clock: FakeClock;
-		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
 	};
 	chords: FakeChordVerifier;
 } {
 	const clock = new FakeClock();
-	const metronome = new FakeMetronome(clock);
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
 	const deps: PlanSessionDeps & {
 		clock: FakeClock;
-		metronome: FakeMetronome;
 		detector: FakeNoteDetector;
 	} = {
 		clock,
-		metronome,
 		detector,
-		cues: new FakeSoundCues(),
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
@@ -142,11 +135,6 @@ function lead(lane: PromptStageModel | null): number | null {
 		: null;
 }
 
-function tick(deps: { clock: FakeClock; metronome: FakeMetronome }, seconds: number) {
-	deps.clock.advance(seconds);
-	deps.metronome.flush();
-}
-
 const FR_STRING: Record<string, StringNumber> = {
 	'corde de E aiguë': 1,
 	'corde de B': 2,
@@ -201,8 +189,6 @@ describe('createAppServices', () => {
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			expect(controller.view.status).toBe('awaiting');
 			expect(['lane', 'answer-keys']).toContain(controller.view.stage?.view);
-			// The transport clicks; the old metronome stays still.
-			expect(deps.metronome.isRunning()).toBe(false);
 			controller.quit();
 		}
 	});
@@ -469,10 +455,9 @@ describe('the gesture track', () => {
 		});
 		expect(controller.view.stage?.view).toBe('link-lane');
 		expect(deps.detector.running).toBe(true);
-		// The transport counts a bar, then opens the first change: the metronome stays still.
+		// The transport counts a bar, then opens the first change.
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
-		expect(deps.metronome.isRunning()).toBe(false);
 		expect(controller.view.stage?.model).toMatchObject({ root: 'D', anchorBeat: 4, history: [] });
 		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
 		controller.quit();

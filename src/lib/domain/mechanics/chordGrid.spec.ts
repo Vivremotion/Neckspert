@@ -33,9 +33,8 @@ function item(overrides: Partial<ChordGridItem>): ChordGridItem {
 const judge = (it: ChordGridItem, decided: string | null) => chordGridRules.judge(it, { decided });
 
 describe('chordGridRules', () => {
-	it('is a skill on the grid timing, registered among the mechanics', () => {
+	it('is a skill, registered among the mechanics', () => {
 		expect(chordGridRules).toMatchObject({ id: 'chord-grid', learner: 'skill' });
-		expect(chordGridRules.timing.id).toBe('grid-change');
 		expect(mechanicRules('chord-grid')).toBe(chordGridRules);
 	});
 

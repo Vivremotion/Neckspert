@@ -78,10 +78,6 @@ describe('triadAnchorRules', () => {
 			confusion: { kind: 'none', part: 'chord' }
 		});
 	});
-
-	it('plays on the anchor time relation', () => {
-		expect(triadAnchorRules.timing.id).toBe('anchor');
-	});
 });
 
 describe('triadZoneRules', () => {
@@ -115,7 +111,6 @@ describe('triadZoneRules', () => {
 	it('keeps one card per voicing, whatever the position asked', () => {
 		expect(cardKeyOf(triadZoneRules, item)).toBe(`triad-zone:${KEY}`);
 		expect(triadZoneRules.cardItem?.(item)).toEqual({ voicingKey: KEY });
-		expect(triadZoneRules.timing.id).toBe('beat');
 	});
 });
 

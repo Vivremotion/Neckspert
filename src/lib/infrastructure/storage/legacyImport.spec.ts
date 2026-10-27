@@ -2,7 +2,6 @@ import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
 import { applyColdAttempt } from '$lib/domain/progress';
-import { beatTiming } from '$lib/domain/timing';
 import type { Attempt } from '$lib/domain/types';
 import { createDatabase } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
@@ -254,9 +253,7 @@ describe('importing an export of 2026-10-04', () => {
 			reactionMs: 1510,
 			data: { item: card.item, answer: { midi: 45 }, confusion: null }
 		});
-		const after = applyColdAttempt(card, success, [success], now, (a) =>
-			beatTiming.isDirectRecall(a)
-		);
+		const after = applyColdAttempt(card, success, [success], now, (a) => a.success);
 		expect(after.scheduling.state).toBe(2);
 		expect(after.acquiredAt).toBe(now);
 		db.close();

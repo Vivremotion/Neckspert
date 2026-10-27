@@ -1,6 +1,6 @@
 import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
-import type { IgnoreReason } from './timing/types';
+import type { IgnoreReason } from './time/modes/types';
 import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
@@ -69,18 +69,6 @@ export function responseVerdictOf(attempt: Pick<Attempt, 'verdict'>): ResponseVe
 	return (RESPONSE_VERDICTS as readonly unknown[]).includes(verdict)
 		? (verdict as ResponseVerdict)
 		: null;
-}
-
-/**
- * For the recorder until the migration: success of a response round. The right answer, in time;
- * off beat, wrong and unanswered prompts are misses. A right but slow name in mode 2 (`late`) is
- * a success. Readers of stored attempts read `Attempt.success`.
- */
-export function isResponseSuccess(outcome: {
-	correct: boolean;
-	verdict: ResponseVerdict;
-}): boolean {
-	return outcome.correct && outcome.verdict !== 'offbeat';
 }
 
 /** Locate: a correct answer whose lead fits in this duration is direct recall. To calibrate. */

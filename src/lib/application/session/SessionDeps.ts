@@ -5,12 +5,10 @@ import type {
 	AudioClockPort,
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort,
-	MetronomePort,
 	NoteDetectorPort,
 	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
-	SoundCuePort,
 	SoundSchedulerPort,
 	TakeBufferPort
 } from '$lib/application/ports';
@@ -21,9 +19,7 @@ import type { SensorFactory } from './sensors';
 
 export interface SessionDeps {
 	clock: AudioClockPort;
-	metronome: MetronomePort;
 	detector: NoteDetectorPort;
-	cues: SoundCuePort;
 	attempts: AttemptRepositoryPort;
 	cards: CardStateRepositoryPort;
 	sessions: SessionRepositoryPort;

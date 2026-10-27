@@ -1,10 +1,9 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TimingRelation } from '$lib/domain/timing';
 import type { CardKey } from '$lib/domain/types';
 
 /**
  * What every mechanic is: its id, its learner model and its items. The registry holds these; a
- * mechanic judged by a one-answer time relation adds the rest (`MechanicRules`).
+ * mechanic whose answer is judged for content adds its judge (`MechanicRules`).
  */
 export interface MechanicIdentity<I = unknown> {
 	id: MechanicId;
@@ -23,16 +22,15 @@ export interface MechanicIdentity<I = unknown> {
 	cardItem?(item: I): unknown;
 }
 
-/** What a mechanic is, apart from how it shows: its time relation, its items and its judge. */
+/** What a mechanic is, apart from how it shows: its items and its judge of content. */
 export interface MechanicRules<
 	I = unknown,
 	O = unknown,
 	A = unknown,
 	C = unknown
 > extends MechanicIdentity<I> {
-	timing: TimingRelation;
 	/**
-	 * Rightness only; placing the answer in time belongs to the time relation. `sensor`: the
+	 * Rightness only; placing the answer in time belongs to the round's plan. `sensor`: the
 	 * sensor that read the observation, for a mechanic heard by several (the session always
 	 * passes it; a mechanic heard by one sensor ignores it).
 	 */
@@ -41,17 +39,6 @@ export interface MechanicRules<
 		observation: O,
 		sensor?: string
 	): { correct: boolean; answer: A; confusion: C | null };
-}
-
-/** True for a mechanic judged by a one-answer time relation (the rhythm figure is not). */
-export function isTimed(rules: MechanicIdentity): rules is MechanicRules {
-	return 'timing' in rules;
-}
-
-/** The rules of a timed mechanic; throws when the mechanic has no time relation. */
-export function timedRules(rules: MechanicIdentity): MechanicRules {
-	if (!isTimed(rules)) throw new Error(`Mechanic ${rules.id} has no time relation`);
-	return rules;
 }
 
 export function cardKeyOf<I>(rules: MechanicIdentity<I>, item: I): CardKey {

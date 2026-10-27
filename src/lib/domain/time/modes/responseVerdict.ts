@@ -42,7 +42,7 @@ export interface ResponseValue {
 	expectations: ExpectationResult[];
 }
 
-/** Seconds to whole ms, rounded half away from zero (as `domain/scoring/timing.ts` does). */
+/** Seconds to whole ms, rounded half away from zero. */
 function secondsToMs(seconds: number): number {
 	const ms = Math.round(Math.abs(seconds) * 1000);
 	return seconds < 0 && ms !== 0 ? -ms : ms;

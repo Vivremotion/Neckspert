@@ -4,7 +4,7 @@ import { gridById, gridChanges } from '$lib/domain/grid';
 import { contentJudges } from '$lib/domain/judges';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
-import { LATE_LIMIT_MS } from '$lib/domain/scoring/timing';
+import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import {
 	Fraction,
 	METER_4_4,
@@ -189,7 +189,7 @@ describe('responseAttempt', () => {
 
 	it('keeps an offbeat change correct but not a success', () => {
 		const item = change(1);
-		const ms = LATE_LIMIT_MS + 100;
+		const ms = DEFAULT_RESPONSE_WINDOWS.lateMs + 100;
 		const attempt = newAttempt(item, RIGHT, ms);
 		expect(attempt).toMatchObject({ correct: true, success: false, timingOffsetMs: ms });
 		expect((attempt.verdict.value as ResponseValue).verdict).toBe('offbeat');
@@ -199,7 +199,7 @@ describe('responseAttempt', () => {
 		const played: [number, string | null, number][] = [
 			[0, RIGHT, 0],
 			[1, WRONG, 10],
-			[2, RIGHT, LATE_LIMIT_MS + 100],
+			[2, RIGHT, DEFAULT_RESPONSE_WINDOWS.lateMs + 100],
 			[3, RIGHT, -40]
 		];
 		const withIds = (attempts: Omit<Attempt, 'id'>[]) =>

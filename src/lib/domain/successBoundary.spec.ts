@@ -8,17 +8,14 @@ const sources = import.meta.glob('/src/lib/domain/**/*.ts', {
 	eager: true
 }) as Record<string, string>;
 
-/** The one place that may spell the success of a response round, until the migration. */
-const SUCCESS_RULE_HOME = '/src/lib/domain/types.ts';
-
-/** Deciding a success from the judge's word: reaching for the recorder's rule... */
+/** Deciding a success from the judge's word: reaching for the old recorder's rule... */
 const CALLS_RESPONSE_SUCCESS = /\bisResponseSuccess\b/;
 /** ...or spelling it again: `correct` and the off-beat exception in one expression. */
 const SPELLS_RESPONSE_SUCCESS = /\.correct\b[^;\n]*'offbeat'|'offbeat'[^;\n]*\.correct\b/;
 
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
-		.filter(([path]) => path !== SUCCESS_RULE_HOME && !path.endsWith('.spec.ts'))
+		.filter(([path]) => !path.endsWith('.spec.ts'))
 		.filter(([, text]) => CALLS_RESPONSE_SUCCESS.test(text) || SPELLS_RESPONSE_SUCCESS.test(text))
 		.map(([path]) => path);
 }
@@ -32,7 +29,7 @@ describe('success boundary', () => {
 		const paths = Object.keys(sources);
 		expect(paths.length).toBeGreaterThan(50);
 		expect(paths).toContain('/src/lib/domain/progress/stats.ts');
-		expect(paths).toContain(SUCCESS_RULE_HOME);
+		expect(paths).toContain('/src/lib/domain/types.ts');
 	});
 
 	it('flags a success decided from correct', () => {
@@ -50,9 +47,8 @@ describe('success boundary', () => {
 		}
 	});
 
-	it('allows reading success, reading correct alone, the rule home and specs', () => {
+	it('allows reading success, reading correct alone and specs', () => {
 		const rule = `return outcome.correct && outcome.verdict !== 'offbeat';`;
-		expect(offendersIn({ [SUCCESS_RULE_HOME]: rule })).toEqual([]);
 		expect(offendersIn({ '/src/lib/domain/x.spec.ts': rule })).toEqual([]);
 		expect(
 			offendersIn({

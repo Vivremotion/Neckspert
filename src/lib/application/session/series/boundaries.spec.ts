@@ -60,31 +60,6 @@ const SENSORS = [
 	)
 ];
 
-/** What the series never imports, from `src/lib/`: the old timing and the metronome port. */
-const FORBIDDEN = ['domain/timing', 'application/ports/MetronomePort'];
-
-/** Words of the old one-answer timing the series never writes (a direct import is forbidden). */
-const FORBIDDEN_WORDS = ['MetronomePort', 'TimingRelation'];
-
-// Rule R6: only the text of the series' own files is checked. Type-only transitive
-// imports through `../SessionDeps` stay allowed until H5.
-
-function specifiersOf(path: string, text: string): string[] {
-	const specifiers = [...text.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)].map(
-		(match) => match[1]
-	);
-	return specifiers.map((specifier) => {
-		if (specifier.startsWith('$lib/')) return specifier.slice('$lib/'.length);
-		if (!specifier.startsWith('.')) return specifier;
-		const parts = path.split('/').slice(0, -1);
-		for (const part of specifier.split('/')) {
-			if (part === '..') parts.pop();
-			else if (part !== '.') parts.push(part);
-		}
-		return parts.join('/').replace(/^\/src\/lib\//, '');
-	});
-}
-
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
@@ -93,19 +68,12 @@ function offendersIn(files: Record<string, string>): string[] {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
-		for (const word of FORBIDDEN_WORDS) {
-			if (new RegExp(`\\b${word}\\b`).test(text)) offenders.push(`${path}: ${word}`);
-		}
-		for (const module of specifiersOf(path, text)) {
-			if (FORBIDDEN.some((entry) => module === entry || module.startsWith(`${entry}/`)))
-				offenders.push(`${path}: ${module}`);
-		}
 	}
 	return offenders;
 }
 
 describe('the response series', () => {
-	it('names no mechanic nor exercise, and imports no old timing, nor do the prompt stage and the lane view', () => {
+	it('names no mechanic nor exercise, nor do the prompt stage and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
@@ -133,19 +101,6 @@ describe('the response series', () => {
 			]);
 		}
 		const file = `${MODULE}x.ts`;
-		for (const module of FORBIDDEN) {
-			expect(offendersIn({ [file]: `import { x } from '$lib/${module}/y';` })).toContain(
-				`${file}: ${module}/y`
-			);
-		}
-		expect(offendersIn({ [file]: `import { x } from '../../../domain/timing/grid';` })).toEqual([
-			`${file}: domain/timing/grid`
-		]);
-		expect(
-			offendersIn({ [file]: `import type { M } from '../../ports/MetronomePort';` })
-		).toContain(`${file}: application/ports/MetronomePort`);
-		expect(offendersIn({ [file]: `let r: TimingRelation;` })).toEqual([`${file}: TimingRelation`]);
-		expect(offendersIn({ [file]: `let m: MetronomePort;` })).toEqual([`${file}: MetronomePort`]);
 		for (const name of NAMES) {
 			expect(offendersIn({ [file]: `const m = '${name}';` })).toEqual([`${file}: ${name}`]);
 			expect(offendersIn({ [file]: `const m = "${name}";` })).toEqual([`${file}: ${name}`]);

@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt, CardState } from '$lib/domain/types';
-import type { BeatEvent } from '$lib/application/ports';
 import {
 	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnosticSink,
-	FakeMetronome,
 	FakeNoteDetector,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
@@ -34,92 +32,6 @@ function attempt(overrides: AttemptOverrides): Attempt {
 		...overrides
 	});
 }
-
-describe('FakeMetronome', () => {
-	it('emits beats as the clock advances', () => {
-		const clock = new FakeClock();
-		const metronome = new FakeMetronome(clock);
-		const beats: BeatEvent[] = [];
-		metronome.onBeat((beat) => beats.push(beat));
-		metronome.setTempo(120);
-		metronome.start(1);
-
-		clock.advance(1.45);
-		metronome.flush();
-
-		expect(beats.map((b) => b.index)).toEqual([0, 1]);
-		expect(beats[1].time).toBeCloseTo(1.5);
-		expect(beats[0].isDownbeat).toBe(true);
-		expect(metronome.beatTime(4)).toBeCloseTo(3);
-	});
-
-	it('refuses a tempo change while running', () => {
-		const metronome = new FakeMetronome(new FakeClock());
-		metronome.start(0);
-		expect(() => metronome.setTempo(100)).toThrow();
-	});
-
-	it('calls a wake-up once the clock reaches its time, never before', () => {
-		const clock = new FakeClock();
-		const metronome = new FakeMetronome(clock);
-		const calledAt: number[] = [];
-		metronome.start(1);
-		metronome.at(1.3, () => calledAt.push(clock.now()));
-		clock.advance(1.29);
-		metronome.flush();
-		expect(calledAt).toEqual([]);
-		clock.advance(0.02);
-		metronome.flush();
-		metronome.flush();
-		expect(calledAt).toHaveLength(1);
-	});
-
-	it('interleaves beats and wake-ups in the order they are due', () => {
-		const clock = new FakeClock();
-		// A beat at 1.0 s is announced at 0.9 s (lookahead 0.1).
-		const metronome = new FakeMetronome(clock, 4, 0.1);
-		metronome.setTempo(60);
-		const order: string[] = [];
-		metronome.onBeat((beat) => order.push(`beat ${beat.index}`));
-		metronome.start(1);
-		metronome.at(0.95, () => order.push('0.95'));
-		metronome.at(0.85, () => order.push('0.85'));
-		clock.advance(1);
-		metronome.flush();
-		expect(order).toEqual(['0.85', 'beat 0', '0.95']);
-	});
-
-	it('forgets a cancelled wake-up and every wake-up on stop', () => {
-		const clock = new FakeClock();
-		const metronome = new FakeMetronome(clock);
-		const called: string[] = [];
-		metronome.start(1);
-		const cancel = metronome.at(0.5, () => called.push('cancelled'));
-		cancel();
-		metronome.at(0.6, () => called.push('stopped'));
-		metronome.stop();
-		metronome.start(1);
-		clock.advance(1);
-		metronome.flush();
-		expect(called).toEqual([]);
-	});
-
-	it('lets a wake-up restart the metronome', () => {
-		const clock = new FakeClock();
-		const metronome = new FakeMetronome(clock, 4, 0.1);
-		metronome.setTempo(60);
-		const beats: number[] = [];
-		metronome.onBeat((beat) => beats.push(beat.time));
-		metronome.start(1);
-		metronome.at(1.5, () => {
-			metronome.stop();
-			metronome.start(3);
-		});
-		clock.advance(3);
-		metronome.flush();
-		expect(beats).toEqual([1, 3]);
-	});
-});
 
 describe('FakeNoteDetector', () => {
 	it('only emits while running', async () => {

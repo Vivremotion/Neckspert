@@ -4,8 +4,7 @@ import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
-import { WebAudioClock, WebAudioMetronome } from '$lib/infrastructure/audio/clock';
-import { WebAudioCues } from '$lib/infrastructure/audio/cues';
+import { WebAudioClock } from '$lib/infrastructure/audio/clock';
 import { CalibrationService, REFERENCE_ATTACK_CONFIG } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
 import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
@@ -40,7 +39,7 @@ export interface CreateAppOptions {
 
 /**
  * Composition root. One WebAudioClock owns the single AudioContext (lazy on resume).
- * Metronome, cues and detector share () => clock.context(). One audio input feeds both the note
+ * The sounds and the detector share () => clock.context(). One audio input feeds both the note
  * detector and the chord verifier; the detector opens and closes it. One Dexie database feeds
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
@@ -50,10 +49,8 @@ export interface CreateAppOptions {
 export function createApp(options: CreateAppOptions = {}): AppServices {
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
-	const metronome = new WebAudioMetronome(context);
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).
 	const sounds = new WebAudioSoundScheduler(context);
-	const cues = new WebAudioCues(context);
 
 	const db = createDatabase(options.databaseName);
 	const attempts = new DexieAttemptRepository(db);
@@ -103,9 +100,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 
 	return createAppServices({
 		clock,
-		metronome,
 		detector,
-		cues,
 		attempts,
 		cards,
 		sessions,
