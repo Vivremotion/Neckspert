@@ -14,6 +14,7 @@ import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sen
 import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import {
 	exerciseById,
@@ -68,6 +69,7 @@ import {
 	FakeClock,
 	FakeNoteDetector,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
@@ -520,7 +522,9 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		locale: () => 'fr',
 		newId: () => 'series-next',
 		development: false,
-		random: () => 0
+		random: () => 0,
+		takes: new FakeTakeBuffer(),
+		memory: new SessionMemory()
 	};
 	const controller = new ResponseSeriesController(
 		{ id: 'series-1', kind: 'free' },

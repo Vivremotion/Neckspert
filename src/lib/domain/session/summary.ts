@@ -5,6 +5,8 @@ import type { Segment, SeriesEnd } from './trace';
 export interface RunSummary {
 	/** The run's segment id: its take is kept under it. */
 	id: number;
+	/** The exercise the run played: its own, else its series'. */
+	exerciseId: string;
 	level: number;
 	ended: 'done' | 'interrupted';
 	/** Rounds judged (a round cut short is not). */
@@ -12,10 +14,12 @@ export interface RunSummary {
 	successes: number;
 	/** Mean of each measure over the run's rounds that have it. */
 	measures: Measures;
+	/** Its failed rounds, with the reasons a cycle gives (none for a response round). */
 	failed: { attemptId: number; reasons: CycleFailure[] }[];
 }
 
 export interface SeriesSummary {
+	/** The series' exercise; for a series of several, which names none, its first run's. */
 	exerciseId: string;
 	ended: SeriesEnd | 'quit';
 	breaking: CycleFailure | null;
@@ -58,7 +62,10 @@ function meanMeasures(attempts: readonly Attempt[]): Measures {
 	) as Measures;
 }
 
-/** A series as its trace and its attempts tell it: by run, with what changed and what broke. */
+/**
+ * A series as its trace and its attempts tell it: by run, with what changed and what broke. Any
+ * series: a round is a cycle or a response round alike, its measures and reasons as it has them.
+ */
 export function summarizeSeries(input: {
 	series: Segment;
 	attempts: readonly Attempt[];
@@ -79,6 +86,7 @@ export function summarizeSeries(input: {
 			const attempts = own.map(attemptOf).filter((a): a is Attempt => a !== undefined);
 			return {
 				id: run.id,
+				exerciseId: run.exerciseId ?? series.exerciseId ?? '',
 				level: run.level ?? 0,
 				ended: run.ended,
 				// Judged rounds only: a round cut by a pause or a quit has no attempt.
@@ -97,7 +105,7 @@ export function summarizeSeries(input: {
 	const inRounds = rounds.reduce((sum, round) => sum + (round.endS - round.startS), 0);
 
 	return {
-		exerciseId: series.exerciseId ?? '',
+		exerciseId: series.exerciseId ?? runs[0]?.exerciseId ?? '',
 		ended: series.reason ?? 'quit',
 		breaking: series.breaking ?? null,
 		levels,

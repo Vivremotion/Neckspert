@@ -26,7 +26,6 @@ import {
 } from '$lib/domain/time';
 import {
 	SESSION_MS,
-	TraceBuilder,
 	askListen,
 	next,
 	settle,
@@ -43,7 +42,8 @@ import { playViewOf, type PlaySessionController, type PlayView } from '../contra
 import { ObservationSpan } from '../observationSpan';
 import type { Observation } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
-import type { RunTake } from '../sessionMemory';
+import { SeriesTakes } from '../series/seriesTakes';
+import { SeriesTrace } from '../series/seriesTrace';
 import { LISTEN_IN_BARS, Transport, TransportStopped } from '../transport';
 import { cycleAids, levelAided, recordCycle, type CycleSetup } from './recordCycle';
 import {
@@ -88,17 +88,6 @@ interface Run {
 	settled: SettledCycle[];
 	/** The figure of the last cycle laid out: the one the breath shows as played. */
 	lastFigure: Figure;
-}
-
-/** The input of the last run kept by the take buffer, and the sounds to put back over it. */
-interface Take {
-	run: Run;
-	/** Audio time of the run's first bar. */
-	from: number;
-	/** Audio time the run ended (its breath, or a pause); null while it goes on. */
-	to: number | null;
-	/** What the run made sound, and the click of its muted bars, in time order. */
-	sounds: ScheduledSound[];
 }
 
 /** A cycle on the transport: played (judged by its round) or heard (no round, no attempt). */
@@ -199,20 +188,14 @@ export class PlanSessionController implements PlaySessionController {
 	private ending = false;
 	private shown: { bar: number; beat: number } | null = null;
 	private stopObservations: (() => void) | null = null;
-	/** The last run, to be heard again from its breath or a pause (`replay`). */
-	private take: Take | null = null;
-	/** The take of each run of the series, by its segment, for the summary. */
-	private runTakes = new Map<number, RunTake>();
+	/** The take of each run, the last one to be heard again from its breath or a pause (`replay`). */
+	private readonly takes: SeriesTakes;
+	/** The run whose take is the last one. */
+	private takeRun: Run | null = null;
 	/** What happened, segment by segment; null before the series opens. */
-	private trace: TraceBuilder | null = null;
-	/** The segments open in the trace: the series, the run, the leaf under way, a pause. */
-	private traced: {
-		series: number | null;
-		run: Run | null;
-		part: number | null;
-		partKey: string | null;
-		pause: number | null;
-	} = { series: null, run: null, part: null, partKey: null, pause: null };
+	private log: SeriesTrace | null = null;
+	/** What the trace has open: the run, and the key of the segment under way in it. */
+	private traced: { run: Run | null; partKey: string | null } = { run: null, partKey: null };
 	/** Why the series ends, once the policy says it does, and the bar it ends on. */
 	private end: { reason: SeriesEnd; bar: number } | null = null;
 	private readonly writes = new Set<Promise<unknown>>();
@@ -226,6 +209,7 @@ export class PlanSessionController implements PlaySessionController {
 		const sensor = this.exercise.params.sensor;
 		this.sensor = typeof sensor === 'string' ? sensor : RHYTHM_SENSOR;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
+		this.takes = new SeriesTakes({ takes: deps.takes, sounds: deps.sounds });
 		this.levelKey = { exerciseId: this.exercise.id, scope: '', item: '' };
 		this.series = startSeries({
 			...this.levelKey,
@@ -285,7 +269,8 @@ export class PlanSessionController implements PlaySessionController {
 			if (this.generation !== generation) return;
 			this.startedAt = deps.now();
 			// A new series: the takes of the one before are not this one's.
-			deps.takes.clear();
+			this.takes.clear();
+			this.takeRun = null;
 			this.openTrace();
 			// Tracked: a quit meanwhile writes the ended record only after this one.
 			const opened = deps.sessions.put(this.sessionRecord(null));
@@ -310,9 +295,7 @@ export class PlanSessionController implements PlaySessionController {
 		}
 		this.stopPlaying();
 		this.view.status = 'paused';
-		if (this.trace && this.traced.pause === null) {
-			this.traced.pause = this.trace.open('pause', this.deps.clock.now());
-		}
+		this.log?.openStop('pause', this.deps.clock.now());
 	}
 
 	resume(): void {
@@ -326,19 +309,17 @@ export class PlanSessionController implements PlaySessionController {
 	 * or before a run was played.
 	 */
 	async replay(): Promise<void> {
-		const take = this.take;
-		const to = take?.to ?? null;
 		// A run cut before its first bar sounded has nothing to replay.
-		if (!take || to === null || to <= take.from) return;
+		const take = this.takes.last();
+		if (!take) return;
 		if (this.view.status !== 'paused') {
 			if (!this.inBreath()) return;
 			this.pause();
 		}
-		const { from, sounds } = take;
 		const generation = ++this.generation;
 		const latencyS = (this.latency()?.ms ?? 0) / 1000;
 		try {
-			await this.deps.takes.play(from, to, sounds, latencyS);
+			await this.takes.play(take, latencyS);
 		} catch (error) {
 			// Not heard again, but play goes on as after a pause.
 			console.warn('The last run could not be played again', error);
@@ -363,7 +344,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.quitting = true;
 		this.generation++;
 		this.starting = false;
-		this.deps.takes.stop();
+		this.takes.stop();
 		this.stopPlaying();
 		void this.finish();
 	}
@@ -409,9 +390,8 @@ export class PlanSessionController implements PlaySessionController {
 		this.prepared = false;
 		this.playedInSeries = 0;
 		this.listened = false;
-		this.take = null;
-		this.runTakes = new Map();
-		this.trace = null;
+		this.takeRun = null;
+		this.log = null;
 		this.end = null;
 		this.quitting = false;
 		this.series = startSeries(this.series.levelState);
@@ -470,7 +450,7 @@ export class PlanSessionController implements PlaySessionController {
 	/** On again after a pause or a replay: the listen-in and a counted bar. */
 	private resumeRun(): Promise<void> {
 		const generation = ++this.generation;
-		this.deps.takes.stop();
+		this.takes.stop();
 		return this.beginRun(generation, false);
 	}
 
@@ -816,10 +796,10 @@ export class PlanSessionController implements PlaySessionController {
 		cycle.written = this.deps.attempts.add(attempt);
 		this.track(cycle.written);
 		const segment = cycle.segment;
-		const trace = this.trace;
-		if (segment !== null && trace) {
+		const log = this.log;
+		if (segment !== null && log) {
 			void cycle.written.then(
-				(attemptId) => trace.set(segment, { attemptId }),
+				(attemptId) => log.set(segment, { attemptId }),
 				() => undefined
 			);
 		}
@@ -871,7 +851,7 @@ export class PlanSessionController implements PlaySessionController {
 		this.cutTrace();
 		// Even with no take, or one already closed: a start asked ahead must not wipe it, and no
 		// input is kept while nothing plays.
-		this.deps.takes.stopKeeping();
+		this.takes.stopKeeping();
 		this.transport.stop();
 		this.ending = false;
 		const now = this.deps.clock.now();
@@ -918,14 +898,15 @@ export class PlanSessionController implements PlaySessionController {
 
 	/** The input is kept from the run's first bar on, a bar or more ahead of it. */
 	private keepInputOf(run: Run): void {
-		this.deps.takes.keepFrom(this.timeOfBar(run.playFrom));
+		this.takes.keepFrom(this.timeOfBar(run.playFrom));
 	}
 
 	/** The run whose first bar `bar` is becomes the take, the last one forgotten. */
 	private openTake(bar: number): void {
 		const run = this.bars.get(bar)?.run;
-		if (!run || run.playFrom !== bar || this.take?.run === run) return;
-		this.take = { run, from: this.timeOfBar(bar), to: null, sounds: [] };
+		if (!run || run.playFrom !== bar || this.takeRun === run) return;
+		this.takeRun = run;
+		this.takes.open(this.timeOfBar(bar));
 	}
 
 	/**
@@ -933,18 +914,13 @@ export class PlanSessionController implements PlaySessionController {
 	 * of its muted bars; a pause before its breath cuts a take already ended short.
 	 */
 	private closeTake(to: number): void {
-		const take = this.take;
-		if (!take) return;
-		if (take.to !== null) {
-			if (to >= take.to) return;
-			take.to = to;
-			take.sounds = take.sounds.filter((sound) => sound.time < to);
-			this.deps.takes.keepUntil(to);
-			this.keepRunTake(take);
-			return;
-		}
-		const { run, from } = take;
-		const heard = this.deps.sounds.emitted().filter((s) => s.time >= from && s.time < to);
+		const run = this.takeRun;
+		if (!run) return;
+		this.takes.close(to, run.segment, () => this.mutedClicks(run, to));
+	}
+
+	/** The click of the run's muted bars before `to`, to be heard over them again. */
+	private mutedClicks(run: Run, to: number): ScheduledSound[] {
 		const { accompaniment } = run.params;
 		const n = accompaniment.bars.length;
 		const muted: ScheduledSound[] = [];
@@ -953,26 +929,14 @@ export class PlanSessionController implements PlaySessionController {
 			const clicks = renderSounds(unmuted(accompaniment), this.transport.map, bar, bar + 1);
 			muted.push(...clicks.filter((sound) => sound.time < to));
 		}
-		take.to = to;
-		take.sounds = [...heard, ...muted].sort((a, b) => a.time - b.time);
-		this.deps.takes.keepUntil(to);
-		this.keepRunTake(take);
-	}
-
-	/** The take of a run, kept for the summary under the run's segment. */
-	private keepRunTake(take: Take): void {
-		const segment = take.run.segment;
-		if (segment === null || take.to === null) return;
-		this.runTakes.set(segment, { from: take.from, to: take.to, sounds: [...take.sounds] });
+		return muted;
 	}
 
 	// Trace --------------------------------------------------------------------------------
 
 	private openTrace(): void {
-		const now = this.deps.clock.now();
-		this.trace = new TraceBuilder(now);
-		const series = this.trace.open('series', now, { exerciseId: this.exercise.id });
-		this.traced = { series, run: null, part: null, partKey: null, pause: null };
+		this.log = new SeriesTrace(this.deps.clock.now(), { exerciseId: this.exercise.id });
+		this.traced = { run: null, partKey: null };
 	}
 
 	/**
@@ -980,29 +944,25 @@ export class PlanSessionController implements PlaySessionController {
 	 * opens on its first bar and closes when the next one begins.
 	 */
 	private traceBar(bar: number, laid: Bar): void {
-		const trace = this.trace;
-		if (!trace) return;
+		const log = this.log;
+		if (!log) return;
 		const at = this.timeOfBar(bar);
 		const t = this.traced;
-		if (t.pause !== null) {
-			trace.close(t.pause, Math.max(at, trace.startOf(t.pause)));
-			t.pause = null;
-		}
+		log.closeStop(at);
 		const inRun = (laid.phase === 'play' || laid.phase === 'listening') && bar >= laid.run.playFrom;
 		const partKey = inRun ? (laid.cycle ? `cycle:${laid.cycle.fromBar}` : null) : laid.phase;
 		const changesRun = t.run !== (inRun ? laid.run : null);
 		const changesPart = changesRun || partKey !== t.partKey;
-		if (changesPart && t.part !== null) {
-			trace.close(t.part, at);
-			t.part = null;
+		if (changesPart) {
+			log.end(at);
 			t.partKey = null;
 		}
-		if (changesRun && t.run?.segment != null) {
-			trace.close(t.run.segment, at);
+		if (changesRun && t.run !== null) {
+			log.endRun(at);
 			t.run = null;
 		}
 		if (changesRun && inRun) {
-			laid.run.segment = trace.open('run', at, { level: laid.run.level });
+			laid.run.segment = log.openRun(at, { level: laid.run.level });
 			t.run = laid.run;
 		}
 		if (changesPart && partKey !== null) {
@@ -1015,13 +975,13 @@ export class PlanSessionController implements PlaySessionController {
 					? 'listen'
 					: (laid.phase as SegmentRole);
 			const setup = cycle?.setup;
-			t.part = trace.open(
+			const part = log.open(
 				role,
 				at,
 				setup ? { level: setup.level, item: `${setup.figureId}@${setup.level}` } : {}
 			);
 			t.partKey = partKey;
-			if (cycle) cycle.segment = t.part;
+			if (cycle) cycle.segment = part;
 		}
 	}
 
@@ -1030,40 +990,30 @@ export class PlanSessionController implements PlaySessionController {
 	 * pause, a quit) cut now.
 	 */
 	private cutTrace(): void {
-		const trace = this.trace;
-		if (!trace) return;
-		const t = this.traced;
+		const log = this.log;
+		if (!log) return;
 		const now = this.deps.clock.now();
 		// Ended on its own once its last bar is reached; before (a pause, a quit), cut now.
 		const natural =
 			this.end !== null && !this.quitting && this.begun && now >= this.timeOfBar(this.end.bar);
 		const at = natural ? this.timeOfBar((this.end as { bar: number }).bar) : now;
-		const ended = natural ? 'done' : 'interrupted';
-		for (const id of [t.part, t.run?.segment ?? null]) {
-			if (id !== null) trace.close(id, Math.max(at, trace.startOf(id)), ended);
-		}
-		t.part = null;
-		t.partKey = null;
-		t.run = null;
+		log.endRun(at, natural ? 'done' : 'interrupted');
+		this.traced = { run: null, partKey: null };
 	}
 
 	/** Closes the series with why it ended; returns how to hand it to the session memory. */
 	private closeTrace(): () => void {
-		const trace = this.trace;
-		const t = this.traced;
-		if (!trace || t.series === null) return () => undefined;
+		const log = this.log;
+		if (!log) return () => undefined;
 		const now = this.deps.clock.now();
-		if (t.pause !== null) trace.close(t.pause, Math.max(now, trace.startOf(t.pause)));
-		t.pause = null;
+		log.closeStop(now);
 		const reason = this.quitting ? 'quit' : (this.end?.reason ?? 'quit');
 		const breaking = reason === 'change-of-air' ? this.series.breaking : null;
-		trace.set(t.series, { reason, ...(breaking && { breaking }) });
-		const end = Math.max(now, trace.tree().endS);
-		trace.closeAll(end, 'done');
+		log.close(now, reason, breaking);
 		const sessionId = this.sessionId;
-		const takes = this.runTakes;
+		const takes = this.takes.byRun;
 		const latencyS = (this.latency()?.ms ?? 0) / 1000;
-		return () => this.deps.memory.remember({ sessionId, trace: trace.tree(), takes, latencyS });
+		return () => this.deps.memory.remember({ sessionId, trace: log.tree(), takes, latencyS });
 	}
 
 	private inBreath(): boolean {

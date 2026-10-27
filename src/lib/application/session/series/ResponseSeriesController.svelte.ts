@@ -47,6 +47,7 @@ import {
 } from './placement';
 import { SeriesItems } from './seriesItems';
 import { SeriesSensors } from './seriesSensors';
+import { SeriesTakes } from './seriesTakes';
 import { SeriesTrace } from './seriesTrace';
 import { idlePlayView } from './seriesView';
 
@@ -98,8 +99,11 @@ interface OpenRound {
  * met for the first time in the series stops on its instruction. Each
  * settled round is written (`recordResponse`), which tells the source first, and moves its
  * exercise's level (`ExerciseLevels`); a level reached applies at the next round that does not
- * chain, announced, its tempo the new level's. It judges nothing and knows no exercise: what it
- * plays comes from its data.
+ * chain, announced, its tempo the new level's. It keeps the trace of the series (count-in, run ›
+ * round, pause, instruction; a run is the rounds between two counted bars) and the take of each
+ * run (`SeriesTakes`), hands both to the session memory at the end, and plays the last run again
+ * from the pause (`replay`). It judges nothing and knows no exercise: what it plays comes from its
+ * data.
  */
 export class ResponseSeriesController implements PlaySessionController {
 	/** A new one for each series: a start after the end begins another (`deps.newId`). */
@@ -172,6 +176,15 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/** What happened, segment by segment; null before the series starts. */
 	private log: SeriesTrace | null = null;
+	/** The run under way in the trace: its segment, under which its take is kept; null between runs. */
+	private runSegment: number | null = null;
+	/**
+	 * A counted bar is placed: the run under way ends where it begins (or where the next round
+	 * opens, if sooner), and the input is kept from the next run's first prompt.
+	 */
+	private runEnding: { keepFrom: number } | null = null;
+	/** The input of each run, the last one to be heard again from the pause (`replay`). */
+	private readonly takes: SeriesTakes;
 	private readonly items: SeriesItems;
 
 	constructor(
@@ -184,6 +197,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.prepare = prepare;
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
+		this.takes = new SeriesTakes({ takes: deps.takes, sounds: deps.sounds });
 		this.items = new SeriesItems(deps.mechanics, deps.exercise);
 		this.levels = new ExerciseLevels({
 			levels: deps.levels,
@@ -236,6 +250,8 @@ export class ResponseSeriesController implements PlaySessionController {
 					if (runner && !runner.span.isClosed) runner.observe(kind, observation);
 				}
 			);
+			// A new series: the takes of the one before are not this one's.
+			this.takes.clear();
 			this.log = new SeriesTrace(this.deps.clock.now());
 			const opened = this.deps.repositories.sessions.put(this.sessionRecord(null));
 			await opened;
@@ -306,6 +322,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.history = [];
 		this.withdrawContest();
 		this.log = null;
+		this.runSegment = null;
+		this.runEnding = null;
 		Object.assign(this.view, idlePlayView());
 	}
 
@@ -315,6 +333,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.generation++;
 		this.starting = false;
 		const now = this.deps.clock.now();
+		// Before the sounds stop: stopping empties the journal the take reads its sounds from.
+		this.cutRun(now, 'interrupted');
 		this.stopSounds();
 		this.closeRound(now);
 		this.closeSpan();
@@ -329,6 +349,8 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	resume(): void {
 		if (this.view.status !== 'paused') return;
+		// A replay under way stops: play goes on.
+		this.takes.stop();
 		const generation = ++this.generation;
 		this.log?.closeStop(this.deps.clock.now());
 		this.view.briefing = null;
@@ -367,11 +389,34 @@ export class ResponseSeriesController implements PlaySessionController {
 		else this.contestWanted = true;
 	}
 
+	/**
+	 * « Réécouter », from the pause: the last run as the input heard it, its clicks put back; then
+	 * on as after a pause. Writes nothing and opens no round; does nothing elsewhere, before a run
+	 * was played, or on an instruction.
+	 */
+	async replay(): Promise<void> {
+		if (this.view.status !== 'paused' || this.view.briefing) return;
+		const take = this.takes.last();
+		if (!take) return;
+		const generation = ++this.generation;
+		try {
+			await this.takes.play(take, this.latencyMs() / 1000);
+		} catch (error) {
+			// Not heard again, but play goes on as after a pause.
+			console.warn('The last run could not be played again', error);
+		}
+		if (this.generation !== generation || this.view.status !== 'paused') return;
+		this.resume();
+	}
+
 	quit(): void {
 		if (this.view.status === 'finished') return;
 		this.generation++;
 		this.quitting = true;
-		this.closeRound(this.deps.clock.now());
+		const now = this.deps.clock.now();
+		this.takes.stop();
+		this.cutRun(now, 'interrupted');
+		this.closeRound(now);
 		this.stopSounds();
 		void this.finish();
 	}
@@ -468,11 +513,22 @@ export class ResponseSeriesController implements PlaySessionController {
 			this.showStage(item, null, { ...NOT_PLACED, promptBeat });
 		};
 		if (!settledOnScreen) showWaiting();
+		// The run under way ends with the count (or its rest); the next one is kept from its prompt.
+		const promptS = this.transport.map.toSeconds(
+			this.promptOf(start, plan).mul(this.transport.barLength)
+		);
+		this.runEnding = { keepFrom: promptS };
 		if (count.restFrom !== null) {
-			this.wakeAt(Fraction.of(count.restFrom), (time) => this.log?.open('rest', time));
+			this.wakeAt(Fraction.of(count.restFrom), (time) => {
+				this.endRunIfEnding(time);
+				this.log?.open('rest', time);
+			});
 		}
 		const { countBar } = count;
-		this.wakeAt(Fraction.of(countBar), (time) => this.log?.open('count-in', time));
+		this.wakeAt(Fraction.of(countBar), (time) => {
+			this.endRunIfEnding(time);
+			this.log?.open('count-in', time);
+		});
 		const beats = beatPositions(this.seriesMeter).length;
 		for (let beat = 0; beat < beats; beat++) {
 			this.wakeAt(Fraction.of(countBar).add(Fraction.of(beat, beats)), () => {
@@ -596,6 +652,7 @@ export class ResponseSeriesController implements PlaySessionController {
 				this.handOver(round)
 			);
 		}
+		this.openRun(item, promptTime);
 		round.segment =
 			this.log?.open('round', promptTime, {
 				exerciseId: item.exerciseId,
@@ -806,6 +863,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		const now = this.deps.clock.now();
 		this.introduced.add(item.exerciseId);
 		this.generation++;
+		this.cutRun(now, 'done');
 		this.stopSounds();
 		this.closeSpan();
 		this.round = null;
@@ -818,6 +876,57 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.log?.end(now);
 		this.log?.openStop('briefing', now);
 		this.view.status = 'paused';
+	}
+
+	// ── runs: the trace and the takes ───────────────────────────────────────
+
+	/**
+	 * `item`'s round opens at `time`: the run ends first if a count was placed and has not begun
+	 * yet, and a run opens with it when none is under way (its take with it).
+	 */
+	private openRun(item: PlannedItem, time: number): void {
+		this.endRunIfEnding(time);
+		const log = this.log;
+		if (!log || log.running) return;
+		this.runSegment = log.openRun(time, {
+			exerciseId: item.exerciseId,
+			level: item.exerciseLevel
+		});
+		this.takes.open(time);
+	}
+
+	/** Where a placed count begins: the run under way ends, and the next one's input is kept. */
+	private endRunIfEnding(time: number): void {
+		const ending = this.runEnding;
+		if (!ending) return;
+		this.runEnding = null;
+		this.endRun(time, 'done');
+		this.takes.keepFrom(ending.keepFrom);
+	}
+
+	/** Ends the run under way at `time` in the trace, its take with it. */
+	private endRun(time: number, ended: 'done' | 'interrupted'): void {
+		if (this.runSegment === null) return;
+		this.takes.close(time, this.runSegment);
+		this.log?.endRun(time, ended);
+		this.runSegment = null;
+	}
+
+	/** Play stops (a pause, an instruction, the end): the run under way ends, nothing more is kept. */
+	private cutRun(time: number, ended: 'done' | 'interrupted'): void {
+		this.runEnding = null;
+		this.endRun(time, ended);
+		this.takes.stopKeeping();
+	}
+
+	/** Hands the trace and the takes of the series to the session memory, read when called. */
+	private remembering(): () => void {
+		const log = this.log;
+		if (!log) return () => undefined;
+		const sessionId = this.sessionId;
+		const takes = this.takes.byRun;
+		const latencyS = this.latencyMs() / 1000;
+		return () => this.deps.memory.remember({ sessionId, trace: log.tree(), takes, latencyS });
 	}
 
 	// ── rounds and their attempts ───────────────────────────────────────────
@@ -1099,6 +1208,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		// A start cut short by the end gives up: a later start begins another series.
 		this.starting = false;
 		const now = this.deps.clock.now();
+		// Ended on its own, the run is done; a quit has cut it already.
+		this.cutRun(now, 'done');
 		this.stopSounds();
 		this.closeRound(now);
 		this.closeSpan();
@@ -1109,6 +1220,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.view.stage = null;
 		this.view.status = 'finished';
 		this.log?.close(now, this.quitting ? 'quit' : (this.ended ?? 'time'));
+		const remember = this.remembering();
+		remember();
 		this.deps.detector.stop();
 		// Taken now: a new series started meanwhile has its own.
 		const record = this.sessionRecord(null);
@@ -1118,6 +1231,8 @@ export class ResponseSeriesController implements PlaySessionController {
 		await this.levels.settled();
 		// The ended session implies its attempts are written with their complete observations.
 		await recorder?.settled();
+		// Again, with the ids of the attempts written meanwhile.
+		remember();
 		await repositories.sessions.put({ ...record, endedAt: this.epochNow() });
 	}
 
@@ -1129,9 +1244,16 @@ export class ResponseSeriesController implements PlaySessionController {
 			endedAt,
 			fatigueDetected: this.view.fatigueDetected,
 			executions: [...this.executions],
-			// The latency applied to the note sensor's onsets: none calibrated, none removed.
-			latencyMs: this.settings.latency.note?.ms ?? 0
+			latencyMs: this.latencyMs()
 		};
+	}
+
+	/**
+	 * The latency applied to the note sensor's onsets (none calibrated, none removed): the
+	 * session's, and the one a take is heard again with.
+	 */
+	private latencyMs(): number {
+		return this.settings.latency.note?.ms ?? 0;
 	}
 
 	// ── data of the items ────────────────────────────────────────────────────

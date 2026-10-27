@@ -3,6 +3,7 @@ import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById } from '$lib/domain/exercise';
 import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
 import { linkShapes } from '$lib/domain/gesture/passages';
@@ -17,6 +18,7 @@ import {
 	FakeClock,
 	FakeNoteDetector,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
@@ -155,7 +157,10 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			locale,
 			newId: () => `demo-gesture-${++ids}`,
 			development: true,
-			random: Math.random
+			random: Math.random,
+			// A demonstration hears nothing: no input to keep, no session to remember.
+			takes: new FakeTakeBuffer(),
+			memory: new SessionMemory()
 		}
 	);
 

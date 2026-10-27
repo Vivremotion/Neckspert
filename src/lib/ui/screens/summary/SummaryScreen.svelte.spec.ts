@@ -356,6 +356,7 @@ describe('SummaryScreen of a series in memory', () => {
 				runs: [
 					{
 						id: 2,
+						exerciseId: 'rhythm-offbeats',
 						level: 0,
 						ended: 'done',
 						rounds: 4,
@@ -365,6 +366,7 @@ describe('SummaryScreen of a series in memory', () => {
 					},
 					{
 						id: 7,
+						exerciseId: 'rhythm-offbeats',
 						level: -1,
 						ended: 'interrupted',
 						rounds: 4,

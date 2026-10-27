@@ -12,7 +12,7 @@ import { acceptableMidis } from '$lib/domain/music';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
-import { SESSION_MS } from '$lib/domain/session';
+import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
@@ -532,6 +532,101 @@ describe('ResponseSeriesController', () => {
 			const series = ctx.controller.trace?.children[0];
 			expect(series?.role).toBe('series');
 			expect(series?.reason).toBe('quit');
+		});
+	});
+
+	describe('trace, takes and replay', () => {
+		/** The segment of `role` among `segment`'s children, the `n`th. */
+		const childOf = (segment: Segment | undefined, role: string, n = 0) =>
+			segment?.children.filter((child) => child.role === role)[n];
+
+		it('traces a gesture session as session › series › count-in, run › rounds', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			// The second passage begun: its first change open, then cut by a pause.
+			ctx.runTo(ctx.bar(4.5));
+			ctx.controller.pause();
+			ctx.controller.quit();
+			await drain();
+			const trace = ctx.controller.trace;
+			expect(trace?.role).toBe('session');
+			const series = childOf(trace ?? undefined, 'series');
+			expect(series?.children.map((child) => child.role)).toEqual([
+				'count-in',
+				'run',
+				'count-in',
+				'run',
+				'pause'
+			]);
+			// A passage is a run: from its first change's prompt to the next counted bar.
+			const first = childOf(series, 'run');
+			expect(first).toMatchObject({ level: 0, exerciseId: 'gesture-jam', ended: 'done' });
+			expect(first?.startS).toBeCloseTo(ctx.bar(0.75), 6);
+			expect(first?.endS).toBeCloseTo(ctx.bar(3), 6);
+			expect(first?.children.map((child) => [child.role, child.ended])).toEqual([
+				['round', 'done'],
+				['round', 'done']
+			]);
+			// Cut by the pause: the run and its change under way, interrupted.
+			const second = childOf(series, 'run', 1);
+			expect(second?.ended).toBe('interrupted');
+			expect(second?.startS).toBeCloseTo(ctx.bar(3.75), 6);
+			expect(second?.endS).toBeCloseTo(ctx.bar(4.5), 5);
+			expect(second?.children.map((child) => [child.role, child.ended])).toEqual([
+				['round', 'interrupted']
+			]);
+		});
+
+		it('replays the last passage at pause', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.runTo(ctx.bar(4.5));
+			// Not while playing: only from the pause.
+			await ctx.controller.replay?.();
+			expect(ctx.takes.plays).toEqual([]);
+			ctx.controller.pause();
+			await drain();
+			const written = (await ctx.stored()).length;
+			await ctx.controller.replay?.();
+			await drain();
+			expect(ctx.takes.plays).toHaveLength(1);
+			const [take] = ctx.takes.plays;
+			// The second passage, from its first prompt to the pause, kept whole.
+			expect(take.from).toBeCloseTo(ctx.bar(3.75), 6);
+			expect(take.to).toBeCloseTo(ctx.bar(4.5), 5);
+			expect(take.whole).toBe(true);
+			expect(ctx.takes.holds(take.from, take.to)).toBe(true);
+			expect(take.latencyS).toBe(0);
+			// Its clicks put back over it, the one heard just before the pause included.
+			expect(take.sounds.map((sound) => Math.round(sound.time * 1000) / 1000)).toEqual([
+				7.6, 8.1, 8.6, 9.1
+			]);
+			// A replay writes nothing, then the series goes on as after a pause.
+			expect(await ctx.stored()).toHaveLength(written);
+			expect(ctx.controller.view.status).toBe('count-in');
+		});
+
+		it('keeps the latest session in memory', async () => {
+			const ctx = setup(passage());
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.runTo(ctx.bar(3) - 0.2);
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			const playback = ctx.memory.get('series-1');
+			const series = childOf(playback?.trace, 'series');
+			expect(series?.reason).toBe('complete');
+			const run = childOf(series, 'run');
+			const attempts = await ctx.stored();
+			expect(run?.children.map((round) => round.attemptId)).toEqual(attempts.map((a) => a.id));
+			const take = run && playback?.takes.get(run.id);
+			expect(take?.from).toBeCloseTo(ctx.bar(0.75), 6);
+			expect(take?.to).toBeCloseTo(ctx.bar(3) - 0.2, 2);
+			expect(take && ctx.takes.holds(take.from, take.to)).toBe(true);
+			expect(playback?.latencyS).toBe(0);
 		});
 	});
 

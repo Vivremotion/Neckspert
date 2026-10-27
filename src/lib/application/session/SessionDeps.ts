@@ -51,7 +51,8 @@ export interface PlanSessionDeps extends SessionDeps {
 /**
  * What a series of response rounds on the transport needs: the one path every sound takes, the
  * sensors and presenters of its mechanics, where it writes (its attempts, its sessions, and where
- * each exercise stands in its levels), and whether the development tools (« Joué juste ») show.
+ * each exercise stands in its levels), the input of its runs kept to be heard again and where it
+ * leaves its trace, and whether the development tools (« Joué juste ») show.
  */
 export interface ResponseSeriesDeps {
 	clock: AudioClockPort;
@@ -73,4 +74,8 @@ export interface ResponseSeriesDeps {
 	development: boolean;
 	/** Spells the notes: one value is drawn per item taken from the source. */
 	random: () => number;
+	/** The input of the runs of the series, kept to be heard again. */
+	takes: TakeBufferPort;
+	/** Where a series leaves its trace and its takes for the summary. */
+	memory: SessionMemory;
 }

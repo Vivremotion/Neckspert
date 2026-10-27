@@ -178,3 +178,73 @@ describe('summarizeSeries, a round cut short', () => {
 		expect(summary.runs[0]).toMatchObject({ rounds: 1, successes: 1, ended: 'interrupted' });
 	});
 });
+
+describe('summarizeSeries, response rounds', () => {
+	/** A response round's attempt: its verdict a response value, no cycle measures. */
+	function response(id: number, success: boolean): Attempt {
+		return {
+			...attempt(id, null),
+			correct: success,
+			success,
+			verdict: {
+				relation: 'response',
+				version: 1,
+				value: {
+					verdict: success ? 'perfect' : 'wrong',
+					timingOffsetMs: success ? 0 : null,
+					reactionMs: null
+				}
+			},
+			measures: {}
+		};
+	}
+
+	it('sums a run of response rounds up', () => {
+		// A series of several exercises: it names none, its runs do. Counted bars, then rounds
+		// with gaps between them inside the run.
+		const trace = new TraceBuilder(0);
+		const series = trace.open('series', 0);
+		trace.close(trace.open('count-in', 0), 2);
+		const run = trace.open('run', 2, { level: 1, exerciseId: 'x' });
+		for (const [id, from] of [
+			[1, 2],
+			[2, 6],
+			[3, 10]
+		]) {
+			trace.close(trace.open('round', from, { exerciseId: 'x', attemptId: id }), from + 3);
+		}
+		trace.close(run, 14);
+		trace.close(trace.open('count-in', 14), 16);
+		trace.set(series, { reason: 'complete' });
+		trace.closeAll(16, 'done');
+		const summary = summarizeSeries({
+			series: trace.tree().children[0],
+			attempts: [response(1, true), response(2, false), response(3, true)],
+			aided: (a) => a.aids.length > 0
+		});
+		expect(summary).toMatchObject({
+			exerciseId: 'x',
+			ended: 'complete',
+			breaking: null,
+			levels: [1],
+			rounds: 3,
+			successes: 2,
+			aided: 0,
+			listens: 0
+		});
+		// 9 s in rounds over 16 s.
+		expect(summary.playedShare).toBeCloseTo(9 / 16);
+		expect(summary.runs).toEqual([
+			{
+				id: run,
+				exerciseId: 'x',
+				level: 1,
+				ended: 'done',
+				rounds: 3,
+				successes: 2,
+				measures: {},
+				failed: [{ attemptId: 2, reasons: [] }]
+			}
+		]);
+	});
+});

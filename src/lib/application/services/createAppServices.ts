@@ -113,7 +113,9 @@ export function createAppServices(
 			locale: () => locale,
 			newId: deps.newId,
 			development: deps.development ?? false,
-			random: deps.random
+			random: deps.random,
+			takes: deps.takes,
+			memory: deps.memory
 		});
 	};
 

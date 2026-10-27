@@ -15,6 +15,7 @@ import {
 	FakeClock,
 	FakeNoteDetector,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
@@ -23,6 +24,7 @@ import {
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
 import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
 
@@ -168,6 +170,8 @@ export function gestureSeries(
 	const verifier = new CutShortVerifier();
 	const detector = new FakeNoteDetector();
 	const source = new ScriptedSource([...items]);
+	const takes = new FakeTakeBuffer();
+	const memory = new SessionMemory();
 	const sources: ItemSource[] = options.sources ?? [source];
 	const repositories = {
 		attempts: new InMemoryAttemptRepository(),
@@ -194,6 +198,8 @@ export function gestureSeries(
 		mechanics: options.mechanics ?? GESTURE_PRESENTERS,
 		repositories,
 		levels,
+		takes,
+		memory,
 		recorderFor: (sessionId) => {
 			const recorder = new AttemptRecorder({
 				attempts: repositories.attempts,
@@ -236,6 +242,8 @@ export function gestureSeries(
 		const until = time + 1e-6;
 		while (clock.now() < until - 1e-12) {
 			clock.time = Math.min(clock.now() + 0.01, until);
+			// The input arrives as the clock runs: the take buffer keeps what it is asked to.
+			takes.hear(clock.now());
 			sounds.flush();
 		}
 	};
@@ -261,6 +269,8 @@ export function gestureSeries(
 		source,
 		repositories,
 		levels,
+		takes,
+		memory,
 		cards,
 		controller,
 		prepared,
@@ -295,8 +305,12 @@ export function model(ctx: Ctx): GridStageModel {
 	return ctx.controller.view.stage?.model as GridStageModel;
 }
 
-/** Roles of the trace's segments inside the series, in order. */
+/** Roles of the trace's segments inside the series, in order, a run's own in its place. */
 export function roles(trace: Segment | null): string[] {
 	const series = trace?.children.find((s) => s.role === 'series');
-	return series?.children.map((s) => s.role) ?? [];
+	return (
+		series?.children.flatMap((s) =>
+			s.role === 'run' ? s.children.map((c) => c.role) : [s.role]
+		) ?? []
+	);
 }
