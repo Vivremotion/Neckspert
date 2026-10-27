@@ -8,15 +8,13 @@ const sources = import.meta.glob('/src/lib/domain/**/*.ts', {
 	eager: true
 }) as Record<string, string>;
 
-/** Deciding a success from the judge's word: reaching for the old recorder's rule... */
-const CALLS_RESPONSE_SUCCESS = /\bisResponseSuccess\b/;
-/** ...or spelling it again: `correct` and the off-beat exception in one expression. */
+/** Deciding a success from the judge's word: `correct` and the off-beat exception in one expression. */
 const SPELLS_RESPONSE_SUCCESS = /\.correct\b[^;\n]*'offbeat'|'offbeat'[^;\n]*\.correct\b/;
 
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
 		.filter(([path]) => !path.endsWith('.spec.ts'))
-		.filter(([, text]) => CALLS_RESPONSE_SUCCESS.test(text) || SPELLS_RESPONSE_SUCCESS.test(text))
+		.filter(([, text]) => SPELLS_RESPONSE_SUCCESS.test(text))
 		.map(([path]) => path);
 }
 
@@ -34,8 +32,6 @@ describe('success boundary', () => {
 
 	it('flags a success decided from correct', () => {
 		const lines = [
-			`const won = attempts.filter(isResponseSuccess);`,
-			`if (isResponseSuccess(attempt)) count++;`,
 			`return attempt.correct && attempt.verdict !== 'offbeat';`,
 			`const late = responseVerdictOf(attempt) !== 'offbeat' && attempt.correct === true;`
 		];

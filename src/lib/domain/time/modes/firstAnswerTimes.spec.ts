@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Expectation, RoundPlan } from '../plan';
 import { Fraction } from '../fraction';
 import {
-	anchorPlan,
+	triadAnchorPlan,
 	expectation,
 	F,
 	freeTimePlan,
@@ -37,7 +37,7 @@ describe('firstAnswerTimes', () => {
 	});
 
 	it('ends the root’s late capture where the chord’s span opens', () => {
-		const t = timesOf(anchorPlan(), { map, start: F(2) }, false);
+		const t = timesOf(triadAnchorPlan(), { map, start: F(2) }, false);
 		const [root, chord] = t.zones;
 		expect(root.captureEndS).toBeCloseTo(6.85, 9);
 		expect(chord.opensS).toBeCloseTo(6.85, 9);
@@ -179,7 +179,7 @@ describe('roundTimes', () => {
 
 describe('validateFirstAnswer', () => {
 	it('accepts the plans it is written for', () => {
-		for (const plan of [locatePlan(), anchorPlan(), gridPlan(), freeTimePlan()]) {
+		for (const plan of [locatePlan(), triadAnchorPlan(), gridPlan(), freeTimePlan()]) {
 			expect(validateFirstAnswer(plan)).toBeNull();
 		}
 	});
@@ -197,7 +197,7 @@ describe('validateFirstAnswer', () => {
 
 	it('refuses a stretch starting where the round has stopped listening, not a point placed there', () => {
 		// The anchor stops listening at 7/4; its chord starts at 1/4.
-		const anchor = anchorPlan();
+		const anchor = triadAnchorPlan();
 		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 2) })).toBeNull();
 		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 4) })).toBe(
 			'expectation 1 is a stretch starting at 1/4, where the round has stopped listening (1/4): it is never answered'

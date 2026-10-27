@@ -8,7 +8,7 @@ import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
-import { anchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
+import { triadAnchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
 
 const of = Fraction.of;
 
@@ -514,7 +514,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('waits on an attack taken but not deciding the round', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		const root = r.observe(played(6.1, RIGHT));
 		expect(root.fate).toBe('answer');
 		expect(root.event).toEqual({ kind: 'pending' });
@@ -525,7 +525,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('settles a lost anchor once its zones are over, without waiting for readings', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		const root = r.observe(played(6.1, WRONG));
 		expect(root.fate).toBe('answer');
 		expect(root.event.kind).toBe('pending');
@@ -549,7 +549,7 @@ describe('PlanRound routing', () => {
 	});
 
 	it('closes a round heard as it stands', () => {
-		const r = responseRound(withContent(anchorPlan()));
+		const r = responseRound(withContent(triadAnchorPlan()));
 		r.observe(played(6.1, RIGHT));
 		const outcome = r.close(7.0);
 		expect(outcome?.success).toBe(false);

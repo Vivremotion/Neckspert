@@ -15,7 +15,7 @@ import {
 	type RoundPlan
 } from '$lib/domain/time';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
-import { gesturePlan } from '$lib/testing/plans';
+import { changePlan } from '$lib/testing/plans';
 import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
 import {
 	FakeClock,
@@ -89,7 +89,7 @@ function makeRecorder() {
 
 /** A change played on the new path: its plan judged by a PlanRound, an attack `ms` after the change. */
 function newOutcome(item: ChordGridItem, decided: string | null, ms: number): RoundOutcome {
-	const plan = gesturePlan(item, METER_4_4, GESTURE_LINK);
+	const plan = changePlan(item, METER_4_4, GESTURE_LINK);
 	const map = createTempoMap(ORIGIN_S, [{ at: Fraction.ZERO, bpm: 120, unit: Fraction.of(1, 4) }]);
 	const round = new PlanRound({
 		plan,
@@ -115,7 +115,7 @@ function newOutcome(item: ChordGridItem, decided: string | null, ms: number): Ro
 function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
 	const { clock } = makeRecorder();
 	const outcome = newOutcome(item, decided, ms);
-	const plan = gesturePlan(item, METER_4_4, GESTURE_LINK);
+	const plan = changePlan(item, METER_4_4, GESTURE_LINK);
 	return responseAttempt({
 		outcome,
 		item: plannedOf(item),
@@ -152,7 +152,7 @@ describe('responseAttempt', () => {
 		});
 
 		const plan = JSON.parse(JSON.stringify(attempt.plan));
-		expect(plan).toEqual(roundPlanRecord(gesturePlan(item, METER_4_4, GESTURE_LINK)));
+		expect(plan).toEqual(roundPlanRecord(changePlan(item, METER_4_4, GESTURE_LINK)));
 		expect(plan).toMatchObject({
 			prompt: '-1/4',
 			length: '1',
@@ -176,7 +176,7 @@ describe('responseAttempt', () => {
 
 	it('keeps where a plan places its target in its bar', () => {
 		const plan = {
-			...gesturePlan(change(1), METER_4_4, GESTURE_LINK),
+			...changePlan(change(1), METER_4_4, GESTURE_LINK),
 			barOffset: Fraction.of(1, 2)
 		};
 		expect(roundPlanRecord(plan)).toMatchObject({ countEndsOn: 'target', barOffset: '1/2' });
@@ -222,7 +222,7 @@ describe('responseAttempt', () => {
 		const attempt = responseAttempt({
 			outcome,
 			item: { ...plannedOf(item), leadBeats: 4 },
-			plan: gesturePlan(item, METER_4_4, GESTURE_LINK),
+			plan: changePlan(item, METER_4_4, GESTURE_LINK),
 			data: null,
 			sessionId: 'sess-1',
 			execution: RUN,
@@ -238,7 +238,7 @@ describe('responseAttempt', () => {
 		const attempt = responseAttempt({
 			outcome: newOutcome(item, RIGHT, 0),
 			item: plannedOf(item),
-			plan: gesturePlan(item, METER_4_4, GESTURE_LINK),
+			plan: changePlan(item, METER_4_4, GESTURE_LINK),
 			data: null,
 			sessionId: 'sess-1',
 			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },

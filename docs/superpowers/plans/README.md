@@ -51,7 +51,7 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 
 ## Décisions de produit fixées pour les plans
 
-- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible, qui tombe toujours sur le temps 1 d'une mesure. Paliers `LEAD_STEPS = [8, 4, 2]` (le palier 1 a disparu le 2026-10-04). Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid ou un hors temps. Une mesure de respiration suit chaque cible ; la corde s'affiche un temps avant la note. Voir `docs/superpowers/specs/2026-10-04-rythme-et-consigne-design.md`.
+- **Annonce en mode 1** : la consigne apparaît `leadBeats` temps avant le temps cible, qui tombe toujours sur le temps 1 d'une mesure. Paliers `LEAD_STEPS = [8, 4, 2]` (le palier 1 a disparu le 2026-10-04). Depuis le plan L, l'échelle et la place de la cible sont des données de l'exercice ; depuis H5, l'avance est le niveau de l'item (`levelStates`), plus un champ de la carte. Une carte commence à 8 temps (deux mesures) pendant l'apprentissage, raccourcit d'un palier après chaque réussite à froid, et rallonge d'un palier après un échec à froid ou un hors temps. Une mesure de respiration suit chaque cible ; la corde s'affiche un temps avant la note. Voir `docs/superpowers/specs/2026-10-04-rythme-et-consigne-design.md`.
 - **Rappel direct** : jamais pour un verdict `offbeat`. En mode 1, une réponse juste dont la durée d'annonce (`leadBeats × 60 000 / tempo`) est au plus `RECALL_THRESHOLD_MS`. Le temps de réaction du mode 1 inclut l'annonce, il ne mesure donc pas le rappel : à 80 bpm, une annonce de 2 temps (1 500 ms) est un rappel direct même si la note tombe 10 ms après le temps, une annonce de 4 temps n'en est pas un. En mode 2 (`leadBeats` null), une réponse juste dont `reactionMs` est au plus `RECALL_THRESHOLD_MS`.
 - **Temps de réaction** : de l'affichage de la consigne à la réponse (attaque corrigée de la latence en mode 1, toucher en mode 2).
 - **Verdict du mode 1** : mauvaise hauteur ou pas de réponse dans la fenêtre → `wrong`. Hauteur juste : `|écart| ≤ PERFECT_WINDOW_MS` (80 ms) → `perfect`, en avance au-delà → `early`, en retard au-delà → `late`. 80 ms est le plancher technique (détection et gigue d'ordonnancement) : la fenêtre ne descend pas en dessous, et jouer sur le temps veut dire dans cette fenêtre. Après la fenêtre, l'écoute continue `LATE_CAPTURE_MS` (2 s, bornée par l'apparition de la consigne suivante) : une bonne note y donne `offbeat` (juste, FSRS Hard, jamais rappel direct), une fausse reste `wrong`.
@@ -63,11 +63,13 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 - **Acquis** : au moins une réussite en rappel direct, à froid, dans une session postérieure à la session d'introduction (ou au sondage).
 - **Maîtrisé** : sur les tentatives à froid, au moins 90 % en rappel direct ; au moins trois sessions distinctes avec une réussite en rappel direct ; au moins 72 h entre les deux dernières sessions réussies.
 - **Fatigue** : sur les tentatives de la session, au moins 12 réponses, et, entre les 6 premières et les 6 dernières, une baisse de précision d'au moins 20 points ou une hausse de 25 % du temps de réaction médian. Cette hausse ne regarde que les tentatives du mode 2 : en mode 1, le temps de réaction mesure surtout la durée d'annonce.
-- **Sons** : chaque verdict a un son réservé (`SoundCuePort`).
+- **Sons** : aucun son de verdict depuis H5 (`SoundCuePort` et `WebAudioCues` supprimés) ; seul le clic sonne.
 - **Univers visuel** : Game Boy aux couleurs de la guitare (contrat : `.impeccable/surfaces/src-routes-session-page-svelte.md`, maquette approuvée : `.impeccable/mocks/comp-4-full-bleed-lane.png`). Quatre tons stricts, verdicts en sprites (rond, flèche gauche, flèche droite, croix).
 - Tous les nombres ci-dessus sont des valeurs de départ, déclarées comme constantes nommées, à calibrer.
 
 ## Règles audio partagées
+
+Écrites pour le métronome du prototype, supprimé en H5 (`MetronomePort`, `WebAudioMetronome`) : tous les sons passent par le transport (`Transport`, `SoundSchedulerPort`), et les règles valides sont celles de `CLAUDE.md` (« Metronome »).
 
 - **Démarrage du métronome** : toujours `metronome.start(clock.now() + 0.1)` au plus tôt. Un temps déjà passé au moment de l'ordonnancement est abandonné (ni clic ni événement).
 - **Événements de temps** : `onBeat` arrive jusqu'à 100 ms avant l'heure du temps. Ne jamais supposer `clock.now() >= beat.time`, et comparer les index avec `>=`, jamais `===`.
@@ -76,6 +78,8 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 - **Entrée audio brute** : le détecteur ouvre l'entrée avec `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`. Avec le micro de l'appareil, l'écran de calibration recommande un casque.
 
 ## Signatures produites par chaque plan
+
+Historique : le contrat des vagues du prototype. Beaucoup de ces pièces ont disparu depuis (en H5 : `domain/timing/`, `SessionController`, `PlayScreen`, `MetronomePort`, `SoundCuePort`) ; le code et `CLAUDE.md` font foi.
 
 Ces signatures sont le contrat entre plans. Un plan peut ajouter des fonctions privées, mais doit produire exactement celles-ci.
 

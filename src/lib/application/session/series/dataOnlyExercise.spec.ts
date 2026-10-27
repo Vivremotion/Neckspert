@@ -54,7 +54,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	}
 };
 
-const BEATS_PER_BAR = 3;
+const BAR_BEATS = 3;
 const BEAT_S = 60 / 90;
 
 /** Two notes on other strings, neither the other's mirror, learned and due, at level 0. */
@@ -109,11 +109,11 @@ describe('an exercise written only in data', () => {
 		for (const round of [one, two]) {
 			const target = round.anchorBeat as number;
 			// Its target on beat 2 of a bar of 3, 6 beats after its prompt.
-			expect(target % BEATS_PER_BAR).toBe(1);
+			expect(target % BAR_BEATS).toBe(1);
 			expect(target - (round.promptBeat as number)).toBe(6);
 		}
 		// After the first target, its breath of 2 bars, then the second prompt.
-		expect((two.promptBeat as number) - (one.anchorBeat as number)).toBe(2 * BEATS_PER_BAR);
+		expect((two.promptBeat as number) - (one.anchorBeat as number)).toBe(2 * BAR_BEATS);
 		expect(previewPrompt).toBe(two.promptBeat);
 		expect(shownAt).toBeCloseTo(previewPrompt - 2, 1);
 		// The click at ♩ = 90, its accent on beat 1 of each bar of 3; the target on the click after it.
@@ -123,7 +123,7 @@ describe('an exercise written only in data', () => {
 			expect(clicks[i].time - clicks[i - 1].time).toBeCloseTo(BEAT_S, 6);
 		}
 		for (let i = 1; i < accents.length; i++) {
-			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
+			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		for (const [round, lateS] of [
 			[one, 0.1],
@@ -186,7 +186,7 @@ describe('an exercise written only in data', () => {
 		const accents = clicks.filter((s) => s.sound === 'click-accent').map((s) => s.time);
 		expect(accents.length).toBeGreaterThanOrEqual(3);
 		for (let i = 1; i < accents.length; i++) {
-			expect(accents[i] - accents[i - 1]).toBeCloseTo(BEATS_PER_BAR * BEAT_S, 6);
+			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		expect(accents.some((time) => Math.abs(note.dueAt - BEAT_S - time) < 0.005)).toBe(true);
 		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([

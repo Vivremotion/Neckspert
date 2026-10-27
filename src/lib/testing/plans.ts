@@ -21,7 +21,7 @@ function plannedFor(definition: ExerciseDefinition, item: unknown): PlannedItem 
 }
 
 /** The round of a change of a grid, as `definition` (the link by default) writes it. */
-export function gesturePlan(
+export function changePlan(
 	item: ChordGridItem,
 	meter: Meter = METER_4_4,
 	definition: ExerciseDefinition = GESTURE_LINK
@@ -30,7 +30,7 @@ export function gesturePlan(
 }
 
 /** The round of a note named in free time, within the identify exercise's recall threshold. */
-export function freePlan(item: { string: number; fret: number }): RoundPlan {
+export function identifyPlan(item: { string: number; fret: number }): RoundPlan {
 	return compileRound(IDENTIFY_NECK, plannedFor(IDENTIFY_NECK, item), METER_4_4, {
 		previewBeats: 0
 	});

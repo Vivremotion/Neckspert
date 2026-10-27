@@ -37,12 +37,12 @@ import {
 
 /**
  * The notes' sessions on the response series (plan H4, Task 10): the real wiring of
- * `createAppServices` (neck subject, learning procedure, presenters, `neckPlan`), the stores in
+ * `createAppServices` (neck subject, learning procedure, presenters, the round templates), the stores in
  * memory, the transport on a fake clock. Each pedagogical rule kept by the migration is played
  * here as the player meets it: through the screen's model, the sounds and the stored attempts.
  */
 
-const BEATS_PER_BAR = 4;
+const BAR_BEATS = 4;
 
 /** Quits and lets every write end; the session's attempts, in order. */
 async function quitAndRead(app: NotesApp, controller: PlaySessionController): Promise<Attempt[]> {
@@ -237,15 +237,15 @@ describe('a learn session of the notes', () => {
 			const anchor = note.anchorBeat as number;
 			const prompt = note.promptBeat as number;
 			// On beat 1 of a bar, its accented click sounding there.
-			expect(anchor % BEATS_PER_BAR).toBe(0);
+			expect(anchor % BAR_BEATS).toBe(0);
 			expect(accents).toContain(Math.round(note.dueAt * 1000));
 			// Its lead is one of the ladder's: the prompt on beat 1 or 3.
 			expect([2, 4, 8]).toContain(anchor - prompt);
 			if (i === 0 || rounds[note.n - 1]?.card.mechanic !== 'locate') continue;
 			// After the target before: its breathing bar, then the first bar the lead allows.
 			const previous = notes[i - 1].anchorBeat as number;
-			expect(prompt - previous).toBeGreaterThanOrEqual(DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR);
-			expect(prompt - previous).toBeLessThan((DEFAULT_RESPIRATION_BARS + 1) * BEATS_PER_BAR);
+			expect(prompt - previous).toBeGreaterThanOrEqual(DEFAULT_RESPIRATION_BARS * BAR_BEATS);
+			expect(prompt - previous).toBeLessThan((DEFAULT_RESPIRATION_BARS + 1) * BAR_BEATS);
 			pairs++;
 		}
 		expect(pairs).toBeGreaterThan(0);
@@ -280,7 +280,7 @@ describe('a learn session of the notes', () => {
 		// The next prompt a breathing bar at least after the missed target; its string a beat
 		// before it (to the step).
 		expect(promptBeat - (missed.anchorBeat as number)).toBeGreaterThanOrEqual(
-			DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR
+			DEFAULT_RESPIRATION_BARS * BAR_BEATS
 		);
 		expect(shownAt).toBeCloseTo(promptBeat - DEFAULT_PREVIEW_BEATS, 1);
 		expect(shownAt as unknown as number).toBeGreaterThan(settledAt);
@@ -347,11 +347,11 @@ describe('a learn session of the notes', () => {
 		expect(note?.card.mechanic).toBe('locate');
 		const promptTime = app.clock.now();
 		const clicks = app.sounds.emitted().filter((s) => s.time > answeredAt && s.time < promptTime);
-		expect(clicks.length).toBeGreaterThanOrEqual(BEATS_PER_BAR);
-		expect(countdowns.length).toBe(BEATS_PER_BAR);
+		expect(clicks.length).toBeGreaterThanOrEqual(BAR_BEATS);
+		expect(countdowns.length).toBe(BAR_BEATS);
 		const beatS = 60 / controller.view.tempoBpm;
 		// The count's first click at least a bar before the prompt.
-		expect(promptTime - clicks[0].time).toBeGreaterThanOrEqual(BEATS_PER_BAR * beatS - 0.02);
+		expect(promptTime - clicks[0].time).toBeGreaterThanOrEqual(BAR_BEATS * beatS - 0.02);
 		await quitAndRead(app, controller);
 	});
 
@@ -375,7 +375,7 @@ describe('a learn session of the notes', () => {
 		const named = onStage(controller);
 		expect(named?.card.mechanic).toBe('identify');
 		const beatS = 60 / controller.view.tempoBpm;
-		const nextBar = (Math.floor(controller.timeline.nowBeat() / BEATS_PER_BAR) + 1) * BEATS_PER_BAR;
+		const nextBar = (Math.floor(controller.timeline.nowBeat() / BAR_BEATS) + 1) * BAR_BEATS;
 		// Tapped a few ms before the next bar line.
 		await runUntil(app, () => (nextBar - controller.timeline.nowBeat()) * beatS <= 0.05);
 		const tappedAt = app.clock.now();
@@ -558,8 +558,8 @@ describe('stops and misses on the notes', () => {
 			if (countdown !== null && countdowns.at(-1) !== countdown) countdowns.push(countdown);
 			return controller.view.status === 'awaiting';
 		});
-		expect(countdowns).toHaveLength(BEATS_PER_BAR);
-		expect(app.sounds.emitted().length).toBeGreaterThanOrEqual(BEATS_PER_BAR);
+		expect(countdowns).toHaveLength(BAR_BEATS);
+		expect(app.sounds.emitted().length).toBeGreaterThanOrEqual(BAR_BEATS);
 		expect(onStage(controller)?.card.mechanic).toBe('locate');
 		const attempts = await quitAndRead(app, controller);
 		expect(attempts.filter((a) => a.cardKey === key)).toHaveLength(1);

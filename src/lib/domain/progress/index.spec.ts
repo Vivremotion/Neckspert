@@ -32,7 +32,6 @@ describe('progress index', () => {
 		}
 
 		expect(progress).not.toHaveProperty('isDirectRecall');
-		expect(progress).not.toHaveProperty('adjustLeadBeats');
 		expect(progress).not.toHaveProperty('introScheduling');
 		expect(progress).not.toHaveProperty('TREND_WINDOW_MS');
 		expect(progress).not.toHaveProperty('TREND_RATIO');

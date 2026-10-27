@@ -47,11 +47,11 @@ const SCRIPT: { item: LocateItem; verdict: ResponseVerdict; offsetMs: number }[]
 	{ item: { string: 2, pitch: 'F' }, verdict: 'late', offsetMs: 95 }
 ];
 
-const BEATS_PER_BAR = 4;
-const COUNT_IN = BEATS_PER_BAR;
+const BAR_BEATS = 4;
+const COUNT_IN = BAR_BEATS;
 const LEAD = 8;
 /** The breathing bar after a target: its verdict stays, then the next note comes. */
-const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR;
+const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BAR_BEATS;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
@@ -177,7 +177,7 @@ export class DemoPlaySession implements PlaySessionController {
 				prompt: presentPrompt(LOCATE_NECK, planned, i18n.locale, noRandom),
 				history: this.#history,
 				bands: [],
-				beatsPerBar: BEATS_PER_BAR,
+				beatsPerBar: BAR_BEATS,
 				chordDiagram: 'strings',
 				choices: [],
 				...place

@@ -47,7 +47,7 @@ export function locatePlan(): RoundPlan {
 }
 
 /** The anchor of a triad: the root on the target, the chord over the rest of the bar, a wrong chord correctable. */
-export function anchorPlan(): RoundPlan {
+export function triadAnchorPlan(): RoundPlan {
 	const plan = locatePlan();
 	return {
 		...plan,

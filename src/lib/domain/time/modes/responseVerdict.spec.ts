@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Judged, RoundPlan } from '../plan';
-import { anchorPlan, F, freeTimePlan, locatePlan, map, mapAt } from './testing/plans';
+import { triadAnchorPlan, F, freeTimePlan, locatePlan, map, mapAt } from './testing/plans';
 import { isDirectRecall, responseVerdict, type ResponseValue } from './responseVerdict';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
 import { firstAnswerTimes } from './firstAnswerTimes';
@@ -106,7 +106,7 @@ describe('responseVerdict', () => {
 	});
 
 	it('takes the root’s verdict for a right anchor, corrected for a chord put right, wrong otherwise', () => {
-		const plan = anchorPlan();
+		const plan = triadAnchorPlan();
 		const judge = (pairs: PairedAnswer[], missed: number[] = []) =>
 			responseVerdict.outcome(result(pairs, missed), context(plan));
 		const putRight = { correction: { time: 7.2, judged: { ...RIGHT, answer: 'F major' } } };
@@ -132,7 +132,7 @@ describe('responseVerdict', () => {
 	it('counts a reading still pending as it stands', () => {
 		const outcome = responseVerdict.outcome(
 			result([pair(0, 6.13), pair(1, 7.0, WRONG, { pending: true })]),
-			context(anchorPlan())
+			context(triadAnchorPlan())
 		);
 		expect([valueOf(outcome).verdict, outcome.correct]).toEqual(['wrong', false]);
 	});
@@ -162,10 +162,10 @@ describe('responseVerdict', () => {
 
 	it('needs a point expectation, timed by a window in ms', () => {
 		expect(responseVerdict.validate?.(locatePlan())).toBeNull();
-		expect(responseVerdict.validate?.(anchorPlan())).toBeNull();
+		expect(responseVerdict.validate?.(triadAnchorPlan())).toBeNull();
 		const spans: RoundPlan = {
-			...anchorPlan(),
-			expectations: anchorPlan().expectations.slice(1)
+			...triadAnchorPlan(),
+			expectations: triadAnchorPlan().expectations.slice(1)
 		};
 		expect(responseVerdict.validate?.(spans)).toBe('a response verdict needs a point expectation');
 		const ofGap: RoundPlan = {
