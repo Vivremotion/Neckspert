@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
-import { presentationProblem } from './validate';
+import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
+import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { presentationProblem, screenProblem } from './validate';
 
 const withPresentation = (
 	base: ExerciseDefinition,
@@ -51,5 +53,27 @@ describe('presentationProblem', () => {
 
 	it('is silent about an exercise that says nothing', () => {
 		expect(presentationProblem({ ...LOCATE_NECK, presentation: undefined })).toBeNull();
+	});
+});
+
+describe('screenProblem', () => {
+	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
+
+	it('refuses a response exercise with neither a presentation nor a screen of its mechanic, naming the exercise', () => {
+		expect(screenProblem({ ...LOCATE_NECK, presentation: undefined }, presenters)).toBe(
+			'locate-neck: writes a round but no presentation, and locate draws no screen of its own'
+		);
+		expect(screenProblem({ ...TRIADS_ANCHOR, presentation: undefined }, {})).toBe(
+			'triads-anchor: writes a round but no presentation, and triad-anchor draws no screen of its own'
+		);
+	});
+
+	it('accepts the catalog: a presentation, a screen of its mechanic, or no round', () => {
+		for (const exercise of EXERCISES) {
+			expect(screenProblem(exercise, presenters)).toBeNull();
+		}
+		expect(
+			screenProblem({ ...LOCATE_NECK, round: undefined, presentation: undefined }, {})
+		).toBeNull();
 	});
 });

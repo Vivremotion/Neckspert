@@ -1,4 +1,5 @@
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
+import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES } from './pictures';
 
@@ -50,4 +51,21 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		}
 	}
 	return null;
+}
+
+/**
+ * Null when a response exercise (one that writes its `round`) has a screen: the model every
+ * presentation shares, else its mechanic presenter's own (`stageOf`); else that it has none,
+ * naming the exercise. An exercise without a round is played another way and passes.
+ */
+export function screenProblem(
+	definition: ExerciseDefinition,
+	presenters: Readonly<Record<string, Pick<MechanicPresenter, 'stageOf'>>>
+): string | null {
+	if (definition.round === undefined || definition.presentation !== undefined) return null;
+	const presenter = Object.hasOwn(presenters, definition.mechanic)
+		? presenters[definition.mechanic]
+		: undefined;
+	if (presenter?.stageOf) return null;
+	return `${definition.id}: writes a round but no presentation, and ${definition.mechanic} draws no screen of its own`;
 }
