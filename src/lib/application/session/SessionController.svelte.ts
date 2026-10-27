@@ -41,13 +41,13 @@ import {
 	type LaneEntry,
 	type PlaySessionController,
 	type PlayView
-} from '../contract';
-import { openAudioInput } from '../audioInput';
-import { asksForHeadphones } from '../clickBleed';
-import type { AttemptRecorder } from '../AttemptRecorder';
-import { sensorLatency } from '../latency';
-import type { ResponseSeriesDeps } from '../SessionDeps';
-import { START_DELAY_S, Transport, TransportStopped } from '../transport';
+} from './contract';
+import { openAudioInput } from './audioInput';
+import { asksForHeadphones } from './clickBleed';
+import type { AttemptRecorder } from './AttemptRecorder';
+import { sensorLatency } from './latency';
+import type { SessionControllerDeps } from './SessionDeps';
+import { START_DELAY_S, Transport, TransportStopped } from './transport';
 import {
 	aidedBeyondLevel,
 	blockReadingOf,
@@ -58,10 +58,10 @@ import {
 	runSetup,
 	type RoundGiven,
 	type RunSetup
-} from './compilePlan';
-import { ExerciseLevels } from './exerciseLevels';
-import { RoundRunner, type RunnerEvent } from './roundRunner';
-import { ceilBar, barAtOrAfter } from './seriesBars';
+} from './series/compilePlan';
+import { ExerciseLevels } from './series/exerciseLevels';
+import { RoundRunner, type RunnerEvent } from './series/roundRunner';
+import { ceilBar, barAtOrAfter } from './series/seriesBars';
 import {
 	comingStart,
 	inFreeTime,
@@ -69,16 +69,16 @@ import {
 	placeNext,
 	type Placement,
 	type PlacementContext
-} from './placement';
-import { SeriesItems } from './seriesItems';
-import { SeriesSensors } from './seriesSensors';
-import { SeriesTakes } from './seriesTakes';
-import { SeriesTrace } from './seriesTrace';
-import { idlePlayView } from './seriesView';
-import { followsBeats, stageModel, type SeriesMoment } from './stage';
+} from './series/placement';
+import { SeriesItems } from './series/seriesItems';
+import { SeriesSensors } from './series/seriesSensors';
+import { SeriesTakes } from './series/seriesTakes';
+import { SeriesTrace } from './series/seriesTrace';
+import { idlePlayView } from './series/seriesView';
+import { followsBeats, stageModel, type SeriesMoment } from './series/stage';
 
 /** What a series runs: its item source, and its length (`SESSION_MS` when it gives none). */
-export type PrepareResponseSeries = (
+export type PrepareSession = (
 	sessionId: string
 ) => Promise<{ source: ItemSource; durationMs?: number }>;
 
@@ -187,7 +187,7 @@ const DECIDE_AHEAD_BEATS = 1;
  * first; the last run is heard again from the pause or the breath, its muted bars clicked. It
  * judges nothing and knows no exercise: what it plays comes from its data.
  */
-export class ResponseSeriesController implements PlaySessionController {
+export class SessionController implements PlaySessionController {
 	/** A new one for each series: a start after the end begins another (`deps.newId`). */
 	sessionId: string;
 	readonly view: PlayView;
@@ -200,8 +200,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	};
 
 	private readonly kind: SessionKind;
-	private readonly prepare: PrepareResponseSeries;
-	private readonly deps: ResponseSeriesDeps;
+	private readonly prepare: PrepareSession;
+	private readonly deps: SessionControllerDeps;
 	private readonly transport: Transport;
 	/** The meter the series plays in, its current item's exercise's; null until the transport begins. */
 	private meter: Meter | null = null;
@@ -316,8 +316,8 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	constructor(
 		session: { id: string; kind: SessionKind },
-		prepare: PrepareResponseSeries,
-		deps: ResponseSeriesDeps
+		prepare: PrepareSession,
+		deps: SessionControllerDeps
 	) {
 		this.sessionId = session.id;
 		this.kind = session.kind;

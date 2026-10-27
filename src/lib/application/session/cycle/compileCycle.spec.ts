@@ -34,9 +34,9 @@ function fraction(n: number, d: number): string {
 }
 
 /**
- * What `PlanSessionController` compiled for the first cycle of a run of each rhythm exercise, at
- * its first level and its highest (frozen): its figure, length, muted bars, window, and the place
- * and bar of each expectation.
+ * What the former rhythm controller (before plan H6) compiled for the first cycle of a run of
+ * each rhythm exercise, at its first level and its highest (frozen): its figure, length, muted
+ * bars, window, and the place and bar of each expectation.
  */
 const FROZEN: {
 	exercise: ExerciseDefinition;
@@ -112,7 +112,7 @@ const FROZEN: {
 
 describe('compileCycle', () => {
 	it.each(FROZEN.map((row) => [row.exercise.id, row.level, row] as const))(
-		'compiles the first cycle of %s at level %i as the plan controller did',
+		'compiles the first cycle of %s at level %i as the former rhythm controller did',
 		(_, level, row) => {
 			const plan = compileCycle(row.exercise, item(row.figure, level), METER_4_4);
 			expect({

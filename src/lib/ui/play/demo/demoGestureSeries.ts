@@ -2,7 +2,7 @@ import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById } from '$lib/domain/exercise';
 import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
@@ -112,7 +112,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 }
 
 /**
- * A gesture session for /dev/gesture: the real response series, on a clock moved by the page,
+ * A gesture session for /dev/gesture: the real session controller, on a clock moved by the page,
  * with fakes for sound, input and storage, and a scripted player who strums each change.
  */
 export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
@@ -127,7 +127,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	const cards = new InMemoryCardStateRepository();
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'demo-gesture', kind: 'gesture' },
 		async (sessionId) => {
 			const source = passageLoop(mode);

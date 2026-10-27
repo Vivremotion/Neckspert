@@ -13,7 +13,7 @@ const historyOf = (demo: ReturnType<typeof demoGestureSeries>) =>
 	(demo.controller.view.stage?.model as { history?: LaneEntry[] } | undefined)?.history ?? [];
 
 describe('demoGestureSeries', () => {
-	it('plays the link on the response series, the scripted player strumming each change', async () => {
+	it('plays the link on the session controller, the scripted player strumming each change', async () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();
 		expect(demo.controller.view.stage?.view).toBe('link-lane');

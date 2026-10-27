@@ -10,11 +10,12 @@ import type {
 } from '$lib/application/ports';
 import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/contract';
 import type { PromptStageModel } from '$lib/application/presentation';
-import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
+import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
+	FakeAttackDetector,
 	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
@@ -27,10 +28,15 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { createAppServices } from './createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
+import {
+	PLAIN_WORDS_SESSIONS,
+	type RhythmStageModel
+} from '$lib/application/session/cycle/rhythmStage';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
@@ -58,16 +64,18 @@ class FakeCalibration implements CalibrationPort {
 
 function harness(options: { development?: boolean } = {}): {
 	services: AppServices;
-	deps: PlanSessionDeps & {
+	deps: SessionDeps & {
 		clock: FakeClock;
 		detector: FakeNoteDetector;
 	};
 	chords: FakeChordVerifier;
+	attacks: FakeAttackDetector;
 } {
 	const clock = new FakeClock();
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
-	const deps: PlanSessionDeps & {
+	const attacks = new FakeAttackDetector();
+	const deps: SessionDeps & {
 		clock: FakeClock;
 		detector: FakeNoteDetector;
 	} = {
@@ -80,8 +88,18 @@ function harness(options: { development?: boolean } = {}): {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
-		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
+		mechanics: {
+			...NECK_PRESENTERS,
+			...TRIAD_PRESENTERS,
+			...GESTURE_PRESENTERS,
+			...RHYTHM_PRESENTERS
+		},
+		sensors: {
+			note: noteSensor(detector),
+			tap: tapSensor(),
+			chord: chordSensor(chords),
+			attack: attackSensor(attacks)
+		},
 		sounds: new FakeSoundScheduler(clock),
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),
@@ -94,7 +112,7 @@ function harness(options: { development?: boolean } = {}): {
 		diagnostics: new FakeDiagnostics(),
 		development: options.development ?? false
 	});
-	return { services, deps, chords };
+	return { services, deps, chords, attacks };
 }
 
 /** A learned triad card, due at once. */
@@ -176,11 +194,11 @@ describe('createAppServices', () => {
 		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
 	});
 
-	it('plays learn and free sessions on the response series', async () => {
+	it('plays learn and free sessions on the session controller', async () => {
 		for (const kind of ['learn', 'free'] as const) {
 			const { services, deps } = harness();
 			const controller = await services.startSession(kind);
-			expect(controller).toBeInstanceOf(ResponseSeriesController);
+			expect(controller).toBeInstanceOf(SessionController);
 			await controller.ready?.();
 			await controller.start();
 			expect((await deps.sessions.get(controller.sessionId))?.kind).toBe(kind);
@@ -415,11 +433,11 @@ describe('the gesture track', () => {
 		expect(await services.gesture()).toEqual({ open: true });
 	});
 
-	it('plays a gesture session on the response series', async () => {
+	it('plays a gesture session on the session controller', async () => {
 		const { services, deps, chords } = harness();
 		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
 		const controller = await services.startSession('gesture');
-		expect(controller).toBeInstanceOf(ResponseSeriesController);
+		expect(controller).toBeInstanceOf(SessionController);
 		await controller.ready?.();
 		// The first exercise's instruction, on the start screen.
 		expect(controller.view.briefing?.text).toBeTruthy();
@@ -530,6 +548,81 @@ describe('the gesture track', () => {
 });
 
 describe('the rhythm exercises', () => {
+	it('starts a rhythm exercise on the session controller', async () => {
+		const { services, attacks } = harness();
+		const controller = await services.startExercise('rhythm-two-four');
+		expect(controller).toBeInstanceOf(SessionController);
+		await controller.ready?.();
+		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		await controller.start();
+		// It listens to its own sensor, the attacks.
+		expect(attacks.listeners).toBe(1);
+		controller.quit();
+	});
+
+	it('opens no attack sensor for a session of the notes, the triads or the gesture', async () => {
+		for (const kind of ['learn', 'free', 'triads', 'gesture'] as const) {
+			const { services, attacks } = harness();
+			const controller = await services.startSession(kind);
+			await controller.start();
+			expect([kind, attacks.listeners]).toEqual([kind, 0]);
+			controller.quit();
+		}
+	});
+
+	it('records an exercise session with its exercise and the level it reached', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startExercise(RHYTHM_TWO_FOUR.id);
+		await controller.start();
+		controller.quit();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
+		);
+		expect(await deps.sessions.get(controller.sessionId)).toMatchObject({
+			kind: 'exercise',
+			exerciseId: RHYTHM_TWO_FOUR.id,
+			levelReached: 0
+		});
+	});
+
+	it('leaves the series of a rhythm session in memory for its summary', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startExercise(RHYTHM_TWO_FOUR.id);
+		await controller.start();
+		await runOnTransport(
+			deps,
+			() => (controller.view.stage?.model as RhythmStageModel | undefined)?.phase === 'play',
+			0.01,
+			2000
+		);
+		expect((controller.view.stage?.model as RhythmStageModel).phase).toBe('play');
+		controller.quit();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
+		);
+		const summary = (await services.sessionSummary(controller.sessionId)).exercise;
+		expect(summary?.exerciseId).toBe(RHYTHM_TWO_FOUR.id);
+		expect(summary?.series?.runs.length).toBe(1);
+	});
+
+	it('tells the feedback by its terms once the exercise has PLAIN_WORDS_SESSIONS ended sessions', async () => {
+		const { services, deps } = harness();
+		const plainWords = async () => {
+			const controller = await services.startExercise(RHYTHM_TWO_FOUR.id);
+			await controller.ready?.();
+			const plain = (controller.view.stage?.model as RhythmStageModel).plainWords;
+			await controller.start();
+			controller.quit();
+			await vi.waitFor(async () =>
+				expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
+			);
+			return plain;
+		};
+		const told: boolean[] = [];
+		for (let i = 0; i <= PLAIN_WORDS_SESSIONS; i++) told.push(await plainWords());
+		expect(told).toEqual([...Array(PLAIN_WORDS_SESSIONS).fill(true), false]);
+	});
+
 	it('startExercise plays the asked exercise, its how-to told the first time', async () => {
 		const { services } = harness();
 		const controller = await services.startExercise('rhythm-offbeats');
@@ -601,7 +694,7 @@ describe('the rhythm exercises', () => {
 	});
 
 	/** A trace of session r1: two runs, the first with attempt `a`, the second with `b`. */
-	function rememberTwoRuns(deps: PlanSessionDeps, a: number, b: number) {
+	function rememberTwoRuns(deps: SessionDeps, a: number, b: number) {
 		const trace = new TraceBuilder(0);
 		const series = trace.open('series', 0, { exerciseId: RHYTHM_OFFBEATS.id });
 		const first = trace.open('run', 1, { level: 0 });

@@ -20,7 +20,7 @@ import { earlier } from '$lib/testing/rhythmSeries';
 import { triadCards } from '$lib/testing/shapes';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
-import type { Observation, SensorFactory } from '../sensors';
+import type { Observation, SensorFactory } from './sensors';
 import {
 	G_B_E,
 	type Ctx,
@@ -48,7 +48,7 @@ const withoutHandover = withRound((round) => {
 	return edited;
 });
 
-describe('ResponseSeriesController', () => {
+describe('SessionController', () => {
 	describe('start', () => {
 		it('tells an exercise’s instruction in every series, played before or not', async () => {
 			const ctx = setup(passage());

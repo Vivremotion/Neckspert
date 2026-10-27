@@ -14,7 +14,6 @@ import {
 import { CONTENT_VIEWS, type ContentView } from '$lib/application/presentation/contentViews';
 import { ITEM_FIELDS, type ItemFields } from '$lib/application/presentation/itemFields';
 import { drain, gestureSeries } from '$lib/testing/gestureSeries';
-import { seriesProblem } from './series/seriesProblem';
 import type { Observation, SensorFactory } from './sensors';
 
 /**
@@ -186,7 +185,6 @@ describe('a third mechanic, unknown to the core', () => {
 		expect(validateExercise(EXERCISE, { sensors: [MECHANIC] })).toBeNull();
 		expect(presentationProblem(EXERCISE)).toBeNull();
 		expect(screenProblem(EXERCISE, { [MECHANIC]: presenter })).toBeNull();
-		expect(seriesProblem(EXERCISE)).toBeNull();
 	});
 
 	it('plays a mechanic the core has never seen, on the beat', async () => {

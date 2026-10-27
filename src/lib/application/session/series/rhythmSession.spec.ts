@@ -12,7 +12,7 @@ import { SETTLE_AFTER_BARS } from '../cycle/compileCycle';
 import { PLAIN_WORDS_SESSIONS } from '../cycle/rhythmStage';
 import { summarizeExercise } from '../cycle/exerciseSummary';
 import type { SessionMemory } from '../sessionMemory';
-import type { ResponseSeriesController } from './ResponseSeriesController.svelte';
+import type { SessionController } from '../SessionController.svelte';
 import {
 	ORIGIN,
 	barAttacks,
@@ -23,8 +23,8 @@ import {
 } from '$lib/testing/rhythmSeries';
 
 /**
- * The rhythm's cycles on the response series (plan H6, Tasks 7 and 8): every behaviour of
- * `PlanSessionController.svelte.spec.ts`, played again with the same expected values: cycles,
+ * The rhythm's cycles on the session controller (plan H6, Tasks 7 and 8): every behaviour the
+ * rhythm's own controller was specified by, played again with the same expected values: cycles,
  * their accompaniment and their attempts, the listen-in and its demonstration, listening, the
  * breath and its marks, the levels and their announcements, the anti-blocking, the replay, pause
  * and quit at every phase, the summary.
@@ -500,7 +500,7 @@ const runsOf = (memory: SessionMemory) =>
 
 /** The announcements the frame shows while the clock moves to `to`. */
 async function watch(
-	controller: ResponseSeriesController,
+	controller: SessionController,
 	advance: (to: number) => Promise<void>,
 	clock: { time: number },
 	to: number
@@ -928,7 +928,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 
 	/** Resumes, then lets two cycles be played (unanswered) from the run that follows. */
 	async function resumeForTwoCycles(
-		controller: ResponseSeriesController,
+		controller: SessionController,
 		clock: { now(): number },
 		advance: (to: number, playing?: boolean) => Promise<void>
 	): Promise<void> {

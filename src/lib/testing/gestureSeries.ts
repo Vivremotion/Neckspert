@@ -1,4 +1,4 @@
-/** A response series on the gesture's real presenter and exercises, with scripted items and the fakes. */
+/** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
 import type { GridChange } from '$lib/domain/grid';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
@@ -25,8 +25,8 @@ import {
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 
 export const G_B_E: StringNumber[] = [3, 2, 1];
 /** Two changes of one bar each: a passage lasts two bars. */
@@ -145,7 +145,7 @@ export function gestureSeries(
 	items: PlannedItem[],
 	options: {
 		development?: boolean;
-		exercise?: ResponseSeriesDeps['exercise'];
+		exercise?: SessionControllerDeps['exercise'];
 		/** The source of each series in turn; the first defaults to `items`. */
 		sources?: ItemSource[];
 		/**
@@ -155,9 +155,9 @@ export function gestureSeries(
 		levelStates?: LevelState[];
 		catalogLevels?: boolean;
 		/** The presenters, by mechanic: the gesture's by default. */
-		mechanics?: ResponseSeriesDeps['mechanics'];
+		mechanics?: SessionControllerDeps['mechanics'];
 		/** Sensors beside the chord sensor. */
-		sensors?: ResponseSeriesDeps['sensors'];
+		sensors?: SessionControllerDeps['sensors'];
 		random?: () => number;
 		/** The series' length its preparation gives; absent: none given. */
 		durationMs?: number;
@@ -190,7 +190,7 @@ export function gestureSeries(
 	const sourceOf = new Map<string, ItemSource>();
 	/** Every recorder handed out, so `stored` reads once their writes have settled. */
 	const recorders: AttemptRecorder[] = [];
-	const deps: ResponseSeriesDeps = {
+	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
@@ -220,7 +220,7 @@ export function gestureSeries(
 		random: options.random ?? (() => 0)
 	};
 	const prepared: string[] = [];
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'series-1', kind: options.kind ?? 'gesture' },
 		async (sessionId) => {
 			prepared.push(sessionId);

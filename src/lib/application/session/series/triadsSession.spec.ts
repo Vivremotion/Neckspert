@@ -34,7 +34,7 @@ import {
 } from '$lib/testing/triadsSeries';
 
 /**
- * The triads' sessions on the response series (plan H5, Task 7): the real wiring of
+ * The triads' sessions on the session controller (plan H5, Task 7): the real wiring of
  * `createAppServices` (triad subject, learning procedure, presenters, the catalog's round
  * templates and presentations, the lane), the stores in memory, the transport on a fake clock.
  * Each pedagogical rule of the triads (specs 2026-10-08 and 2026-10-09) is played here as the

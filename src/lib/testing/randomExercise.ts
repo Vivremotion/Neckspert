@@ -11,9 +11,9 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import type { PromptStageModel } from '$lib/application/presentation/promptStage';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
-import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
+import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
 import { START_DELAY_S } from '$lib/application/session/transport';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import {
@@ -477,7 +477,7 @@ const STEP_S = 0.05;
 const FREE_REACTION_S = 0.3;
 
 /**
- * A response series on fakes playing `definition` over a fixed list of `items`
+ * A session controller on fakes playing `definition` over a fixed list of `items`
  * (`createListSource`), on the real presenters of the response mechanics and a note, a chord and
  * a tap sensor.
  */
@@ -490,7 +490,7 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 	const attempts = new InMemoryAttemptRepository();
 	const recorders: AttemptRecorder[] = [];
 	const exercise = (id: string) => (id === definition.id ? definition : exerciseById(id));
-	const deps: ResponseSeriesDeps = {
+	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
@@ -526,7 +526,7 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory()
 	};
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'series-1', kind: 'free' },
 		async () => ({ source }),
 		deps

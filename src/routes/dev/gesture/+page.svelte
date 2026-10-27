@@ -6,7 +6,7 @@
 	import { demoGestureSeries } from '$lib/ui/play/demo/demoGestureSeries';
 
 	// `?view=grid`: a climb on the scrolling grid; the link on its lane otherwise. The real
-	// response series plays it, a scripted player strumming each change; « Rejouer » starts again.
+	// session controller plays it, a scripted player strumming each change; « Rejouer » starts again.
 	const demo = demoGestureSeries(
 		page.url.searchParams.get('view') === 'grid' ? 'climb' : 'link',
 		() => i18n.locale

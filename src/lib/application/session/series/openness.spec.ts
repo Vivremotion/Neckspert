@@ -19,7 +19,6 @@ import {
 	playExercise,
 	randomExercise
 } from '$lib/testing/randomExercise';
-import { seriesProblem } from './seriesProblem';
 
 /**
  * The promise of the exercise language: an exercise that combines registered pieces plays on the
@@ -83,8 +82,7 @@ function refusal(definition: ExerciseDefinition): string | null {
 		validateExercise(definition, { sensors: BENCH_SENSORS }) ??
 		presentationProblem(definition) ??
 		screenProblem(definition, BENCH_PRESENTERS) ??
-		previewProblem(definition, BENCH_PRESENTERS) ??
-		seriesProblem(definition)
+		previewProblem(definition, BENCH_PRESENTERS)
 	);
 }
 

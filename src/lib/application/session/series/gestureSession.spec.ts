@@ -48,11 +48,11 @@ import {
 	type Ctx
 } from '$lib/testing/gestureSeries';
 import { shapeId, triadCards } from '$lib/testing/shapes';
-import { ResponseSeriesController } from './ResponseSeriesController.svelte';
+import { SessionController } from '../SessionController.svelte';
 
 /**
  * The gesture's scenarios of the old controller (`gestureEndToEnd`, `chainedRounds`, `countdown`,
- * `briefing`, `scope`, `twoSensors`), played on the response series: the acceptance test of
+ * `briefing`, `scope`, `twoSensors`), played on the session controller: the acceptance test of
  * the switch (plan H3, Task 8). The first part runs the real wiring (`createAppServices`, the
  * gesture selector); the others serve scripted changes to the real presenter and plans (♩ = 120
  * from 0.1 s: a bar lasts 2 s, a change one bar, the first one on bar 1).
@@ -110,7 +110,7 @@ async function appSession(cards: CardState[]) {
 		diagnostics: new FakeDiagnostics()
 	});
 	const controller = await services.startSession('gesture');
-	expect(controller).toBeInstanceOf(ResponseSeriesController);
+	expect(controller).toBeInstanceOf(SessionController);
 	await controller.ready?.();
 	await controller.start();
 	return { services, deps, clock, sounds, chords, controller, briefings: [] as string[] };
@@ -189,7 +189,7 @@ async function finish(app: App) {
 const right = (expectation: ChordExpectation) => expectation.expected[0];
 const dataOf = (attempt: Attempt) => attempt.data as ChordGridData;
 
-describe('a gesture session on the response series, end to end', () => {
+describe('a gesture session on the session controller, end to end', () => {
 	it('links D on G-B-E right: seven changes, no card, the passage won, never aided', async () => {
 		const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
 		const app = await appSession(cards);

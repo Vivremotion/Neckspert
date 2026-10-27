@@ -33,28 +33,23 @@ export interface SessionDeps {
 	sensors: Record<SensorKind, SensorFactory>;
 	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
 	exercise?: (id: ExerciseId) => ExerciseDefinition;
-}
-
-/**
- * What a session that plays figures cycle after cycle needs beyond the core's: the one path every
- * sound takes, where each exercise stands in its levels, and the input of the last run kept to be
- * heard again.
- */
-export interface PlanSessionDeps extends SessionDeps {
+	/** The one path every sound takes. */
 	sounds: SoundSchedulerPort;
+	/** Where each exercise stands in its levels. */
 	levels: LevelStateRepositoryPort;
+	/** The input of the session's runs, kept to be heard again. */
 	takes: TakeBufferPort;
 	/** Where a series leaves its trace and its takes for the summary. */
 	memory: SessionMemory;
 }
 
 /**
- * What a series of response rounds on the transport needs: the one path every sound takes, the
+ * What the session controller needs: the one path every sound takes, the
  * sensors and presenters of its mechanics, where it writes (its attempts, its sessions, and where
  * each exercise stands in its levels), the input of its runs kept to be heard again and where it
  * leaves its trace, and whether the development tools (« Joué juste ») show.
  */
-export interface ResponseSeriesDeps {
+export interface SessionControllerDeps {
 	clock: AudioClockPort;
 	sounds: SoundSchedulerPort;
 	/** The guitar input, opened at start with the device and the built-in gain of the settings. */

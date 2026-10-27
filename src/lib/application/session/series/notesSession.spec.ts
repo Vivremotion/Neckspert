@@ -35,7 +35,7 @@ import {
 } from '$lib/testing/notesSeries';
 
 /**
- * The notes' sessions on the response series (plan H4, Task 10): the real wiring of
+ * The notes' sessions on the session controller (plan H4, Task 10): the real wiring of
  * `createAppServices` (neck subject, learning procedure, presenters, the round templates), the stores in
  * memory, the transport on a fake clock. Each pedagogical rule kept by the migration is played
  * here as the player meets it: through the screen's model, the sounds and the stored attempts.

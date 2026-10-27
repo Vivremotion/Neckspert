@@ -1,4 +1,4 @@
-/** A rhythm exercise played on the response series, with the fakes and a player who reads the screen. */
+/** A rhythm exercise played on the session controller, with the fakes and a player who reads the screen. */
 import { SESSION_MS } from '$lib/domain/session';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { Fraction, attackPositions, barLength, type Figure } from '$lib/domain/time';
@@ -21,8 +21,8 @@ import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
 import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 import { attackSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 
 /** The transport starts its map this long after `now`; the series start at clock time 0. */
 export const ORIGIN = 0.1;
@@ -68,7 +68,7 @@ export async function settled(): Promise<void> {
 }
 
 /** The rhythm's screen model on show; throws when there is none. */
-export function stageOf(controller: ResponseSeriesController): RhythmStageModel {
+export function stageOf(controller: SessionController): RhythmStageModel {
 	const stage = controller.view.stage;
 	if (!stage) throw new Error('no stage on show');
 	return stage.model as RhythmStageModel;
@@ -101,7 +101,7 @@ export class Player {
 	private queue: number[] = [];
 
 	constructor(
-		private readonly controller: ResponseSeriesController,
+		private readonly controller: SessionController,
 		private readonly attacks: FakeAttackDetector,
 		private readonly clock: FakeClock
 	) {}
@@ -135,7 +135,7 @@ export class Player {
 }
 
 /**
- * `exercise` on the response series, its items from `createFigureSource`, the rhythm's presenter
+ * `exercise` on the session controller, its items from `createFigureSource`, the rhythm's presenter
  * and the attack sensor: as `startExercise` will build it (plan H6, Task 9).
  */
 export async function rhythmSeries(
@@ -168,7 +168,7 @@ export async function rhythmSeries(
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createFigureSource>>();
 	let ids = 0;
-	const deps: ResponseSeriesDeps = {
+	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
@@ -199,7 +199,7 @@ export async function rhythmSeries(
 		takes,
 		memory
 	};
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'series', kind: 'exercise' },
 		async (sessionId) => {
 			const source = createFigureSource(exercise);
