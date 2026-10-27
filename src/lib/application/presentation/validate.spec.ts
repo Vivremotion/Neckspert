@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
+import { validateExercise } from '$lib/domain/exercise/validate';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { presentationProblem, screenProblem } from './validate';
+import { presentationProblem, previewProblem, screenProblem } from './validate';
 
 const withPresentation = (
 	base: ExerciseDefinition,
@@ -75,5 +76,34 @@ describe('screenProblem', () => {
 		expect(
 			screenProblem({ ...LOCATE_NECK, round: undefined, presentation: undefined }, {})
 		).toBeNull();
+	});
+});
+
+describe('previewProblem', () => {
+	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
+	/** Locate on a round of one beat that stops listening its preview before its end. */
+	const short = (flow?: ExerciseDefinition['flow']): ExerciseDefinition => ({
+		...LOCATE_NECK,
+		...(flow && { flow }),
+		round: {
+			...LOCATE_NECK.round!,
+			length: { beats: 1 },
+			listenBeforeEnd: { beats: { param: 'previewBeats' } }
+		}
+	});
+
+	it('refuses a round its presenter’s preview leaves without listening, naming the exercise and the field', () => {
+		// The domain cannot know the presenter's preview: it accepts the exercise.
+		expect(validateExercise(short())).toBeNull();
+		expect(previewProblem(short(), presenters)).toBe(
+			"locate-neck: round.listenBeforeEnd must leave the round some listening: it lasts 1/4, got 1/4 (its preview is locate's, 1 beats)"
+		);
+	});
+
+	it('leaves to validateExercise an exercise that writes its preview, and accepts the catalog', () => {
+		expect(previewProblem(short({ previewBeats: 0 }), presenters)).toBeNull();
+		for (const exercise of EXERCISES) {
+			expect([exercise.id, previewProblem(exercise, presenters)]).toEqual([exercise.id, null]);
+		}
 	});
 });

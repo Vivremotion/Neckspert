@@ -1,4 +1,6 @@
+import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
+import { validateExercise } from '$lib/domain/exercise/validate';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES } from './pictures';
@@ -68,4 +70,28 @@ export function screenProblem(
 		: undefined;
 	if (presenter?.stageOf) return null;
 	return `${definition.id}: writes a round but no presentation, and ${definition.mechanic} draws no screen of its own`;
+}
+
+/**
+ * Null when the exercise's round can run with the preview the series gives it: its own
+ * (`flow.previewBeats`, which `validateExercise` checks), else its mechanic presenter's, else
+ * none. With the presenter's, what the round cannot run once that preview is read (a
+ * `{ param: 'previewBeats' }` that leaves no listening), naming the exercise and the field.
+ */
+export function previewProblem(
+	definition: ExerciseDefinition,
+	presenters: Readonly<Record<string, Pick<MechanicPresenter, 'previewBeats'>>>
+): string | null {
+	if (definition.round === undefined || definition.flow?.previewBeats !== undefined) return null;
+	const presenter = Object.hasOwn(presenters, definition.mechanic)
+		? presenters[definition.mechanic]
+		: undefined;
+	const previewBeats = previewBeatsOf(definition, presenter?.previewBeats) ?? 0;
+	const problem = validateExercise({
+		...definition,
+		flow: { ...definition.flow, previewBeats }
+	});
+	return problem === null
+		? null
+		: `${problem} (its preview is ${definition.mechanic}'s, ${previewBeats} beats)`;
 }
