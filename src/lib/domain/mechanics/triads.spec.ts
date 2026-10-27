@@ -79,11 +79,8 @@ describe('triadAnchorRules', () => {
 		});
 	});
 
-	it('plays on the anchor time relation, at the rhythm of its exercise', () => {
+	it('plays on the anchor time relation', () => {
 		expect(triadAnchorRules.timing.id).toBe('anchor');
-		expect(
-			triadAnchorRules.timingFor?.({ leadSteps: [8, 4], respirationBars: 2 }).initialLead
-		).toBe(8);
 	});
 });
 

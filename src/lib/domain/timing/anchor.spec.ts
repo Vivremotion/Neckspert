@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise';
-import { createAnchorTiming, NO_CHORD } from './anchor';
+import { anchorTiming, NO_CHORD } from './anchor';
 
 // 80 bpm: prompt on beat 4 (3.1 s), lead 4, target on beat 8 (6.1 s); the chord window runs from
 // beat 9 (6.85 s) to beat 12 (9.1 s).
 const beatTime = (i: number) => 0.1 + i * 0.75;
-const timing = createAnchorTiming(DEFAULT_BEAT_PACING);
+const timing = anchorTiming;
 const open = () =>
 	timing.open({
 		planned: { leadBeats: 4 },
@@ -245,11 +244,9 @@ describe('anchorTiming', () => {
 		expect(r.abandon()).toMatchObject({ verdict: 'wrong', confusion: NO_CHORD });
 	});
 
-	it('learns and adjusts its lead like the beat', () => {
+	it('prompts, aligns and recalls like the beat', () => {
 		expect(timing.id).toBe('anchor');
 		expect(timing.usesTempo).toBe(true);
-		expect(timing.initialLead).toBe(8);
-		expect(timing.adjustLead(8, true)).toBe(4);
 		expect(timing.promptBeat(5, { leadBeats: 4 })).toBe(8);
 		const base = { reactionMs: 1, leadBeats: 2 as const, tempoBpm: 80 };
 		expect(timing.isDirectRecall({ ...base, success: true })).toBe(true);

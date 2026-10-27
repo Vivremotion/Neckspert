@@ -14,7 +14,6 @@ import {
 	type RoundOutcome,
 	type RoundPlan
 } from '$lib/domain/time';
-import type { RoundOutcome as OldRoundOutcome } from '$lib/domain/timing';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
 import { gesturePlan } from '$lib/testing/plans';
 import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
@@ -113,32 +112,6 @@ function newOutcome(item: ChordGridItem, decided: string | null, ms: number): Ro
 	return outcome;
 }
 
-/** The same change on the old path: the grid relation's round, the old recorder's entry. */
-function oldAttempt(item: ChordGridItem, decided: string | null, ms: number): Attempt {
-	const { recorder } = makeRecorder();
-	const round = chordGridRules.timing.open({
-		planned: plannedOf(item),
-		promptBeat: CHANGE_BEAT - 1,
-		now: 0,
-		beatTime,
-		secondsPerBeat: SECONDS_PER_BEAT,
-		chained: false
-	});
-	const judged = chordGridRules.judge(item, reading(decided));
-	const event = round.observe({
-		time: CHANGE_S + ms / 1000,
-		correct: judged.correct,
-		answer: judged.answer,
-		confusion: judged.confusion,
-		sensor: 'chord',
-		final: true
-	});
-	const outcome: OldRoundOutcome | null =
-		event.kind === 'settled' ? event.outcome : round.abandon(CHANGE_S + 2);
-	if (!outcome) throw new Error('the old round settled nothing');
-	return recorder.record(plannedOf(item), outcome, PROMPT_S, judged, RUN, []).attempt;
-}
-
 function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
 	const { clock } = makeRecorder();
 	const outcome = newOutcome(item, decided, ms);
@@ -155,34 +128,10 @@ function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
 	});
 }
 
-/** What the target model keeps of a gesture attempt as it is today. */
-const KEPT = [
-	'sessionId',
-	'exerciseId',
-	'mechanic',
-	'cardKey',
-	'phase',
-	'temperature',
-	'aids',
-	'promptedAt',
-	'tempoBpm',
-	'tempoScope',
-	'leadBeats',
-	'timingOffsetMs',
-	'reactionMs',
-	'correct',
-	'success',
-	'data'
-] as const;
-
-const kept = (attempt: Omit<Attempt, 'id'>) =>
-	Object.fromEntries(KEPT.map((key) => [key, attempt[key]]));
-
 describe('responseAttempt', () => {
 	it('writes a gesture change as the target model asks', () => {
 		const item = change(1);
 		const attempt = newAttempt(item, RIGHT, 30);
-		expect(kept(attempt)).toEqual(kept(oldAttempt(item, RIGHT, 30)));
 		expect(attempt).toMatchObject({
 			success: true,
 			correct: true,
@@ -242,7 +191,6 @@ describe('responseAttempt', () => {
 		const item = change(1);
 		const ms = LATE_LIMIT_MS + 100;
 		const attempt = newAttempt(item, RIGHT, ms);
-		expect(kept(attempt)).toEqual(kept(oldAttempt(item, RIGHT, ms)));
 		expect(attempt).toMatchObject({ correct: true, success: false, timingOffsetMs: ms });
 		expect((attempt.verdict.value as ResponseValue).verdict).toBe('offbeat');
 	});
@@ -257,16 +205,15 @@ describe('responseAttempt', () => {
 		const withIds = (attempts: Omit<Attempt, 'id'>[]) =>
 			attempts.map((attempt, id) => ({ ...attempt, id }));
 		const passages = ['s:0', 's:1'];
-		const make = (build: typeof newAttempt) =>
+		const make = () =>
 			withIds(
 				passages.flatMap((passage) =>
-					played.map(([index, decided, ms]) => build(change(index, passage), decided, ms))
+					played.map(([index, decided, ms]) => newAttempt(change(index, passage), decided, ms))
 				)
 			);
-		const fresh = summarizeGesture([RUN], make(newAttempt));
+		const fresh = summarizeGesture([RUN], make());
 		expect(fresh.exercises[0]).toMatchObject({ passagesPlayed: 2, changeSuccessRate: 0.5 });
 		expect(fresh.misses).toHaveLength(2);
-		expect(fresh).toEqual(summarizeGesture([RUN], make(oldAttempt)));
 	});
 	it('keeps the lead the item was played at', () => {
 		const item = change(1);

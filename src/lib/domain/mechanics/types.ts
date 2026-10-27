@@ -1,4 +1,3 @@
-import type { BeatPacing } from '$lib/domain/exercise/pacing';
 import type { MechanicId } from '$lib/domain/exercise/types';
 import type { TimingRelation } from '$lib/domain/timing';
 import type { CardKey } from '$lib/domain/types';
@@ -32,8 +31,6 @@ export interface MechanicRules<
 	C = unknown
 > extends MechanicIdentity<I> {
 	timing: TimingRelation;
-	/** The time relation at the rhythm of an exercise; without it, `timing` serves every exercise. */
-	timingFor?(pacing: BeatPacing): TimingRelation;
 	/**
 	 * Rightness only; placing the answer in time belongs to the time relation. `sensor`: the
 	 * sensor that read the observation, for a mechanic heard by several (the session always

@@ -67,7 +67,7 @@ const FORBIDDEN = ['domain/timing', 'application/ports/MetronomePort'];
 const FORBIDDEN_WORDS = ['MetronomePort', 'TimingRelation'];
 
 // Rule R6: only the text of the series' own files is checked. Type-only transitive
-// imports through `../SessionDeps` or `../AttemptRecorder` stay allowed until H5.
+// imports through `../SessionDeps` stay allowed until H5.
 
 function specifiersOf(path: string, text: string): string[] {
 	const specifiers = [...text.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)].map(

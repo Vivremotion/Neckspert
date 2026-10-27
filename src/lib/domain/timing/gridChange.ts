@@ -1,5 +1,5 @@
 import { LATE_LIMIT_MS, secondsToMs, timingVerdict } from '$lib/domain/scoring/timing';
-import { SHORTEST_LEAD, type ResponseVerdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import { alignedPromptBeat } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
@@ -151,7 +151,6 @@ export function createGridTiming(timingOf: (item: unknown) => GridChangeTiming):
 		previewBeats: 0,
 		// Opened a beat before its change, so an early attack counts; the count ends on the change.
 		targetOffset: 1,
-		initialLead: SHORTEST_LEAD,
 		promptBeat: (earliest) => alignedPromptBeat(earliest, 1),
 		open: ({ planned, promptBeat, beatTime, secondsPerBeat, chained = false }) =>
 			new GridRound(
@@ -163,8 +162,6 @@ export function createGridTiming(timingOf: (item: unknown) => GridChangeTiming):
 				chained
 			),
 		// A gesture is a skill, measured by its tempo: nothing here is recall.
-		isDirectRecall: () => false,
-		learnedLead: () => SHORTEST_LEAD,
-		adjustLead: () => SHORTEST_LEAD
+		isDirectRecall: () => false
 	};
 }

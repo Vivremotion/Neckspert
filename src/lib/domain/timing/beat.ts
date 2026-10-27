@@ -1,4 +1,4 @@
-import { DEFAULT_PREVIEW_BEATS } from '../exercise/pacing';
+import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '../exercise/pacing';
 import {
 	answerWindow,
 	isInWindow,
@@ -6,8 +6,7 @@ import {
 	secondsToMs,
 	timingVerdict
 } from '$lib/domain/scoring/timing';
-import { DEFAULT_BEAT_PACING, type BeatPacing } from '$lib/domain/exercise/pacing';
-import { RECALL_THRESHOLD_MS, type LeadBeats, type ResponseVerdict } from '$lib/domain/types';
+import { RECALL_THRESHOLD_MS, type ResponseVerdict } from '$lib/domain/types';
 import { alignedPromptBeat, BEATS_PER_BAR, respirationStart } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
@@ -18,33 +17,6 @@ const FALLBACK_LEAD = BEATS_PER_BAR;
 const EDGE_TOLERANCE_S = 1e-6;
 
 type State = 'listening' | 'capturing' | 'settled';
-
-/**
- * Longest of `steps` (longest first) whose duration at `tempoBpm` fits in RECALL_THRESHOLD_MS;
- * at least the shortest step.
- */
-function leadForThreshold(steps: readonly LeadBeats[], tempoBpm: number): LeadBeats {
-	for (const step of steps) {
-		if ((step * 60_000) / tempoBpm <= RECALL_THRESHOLD_MS) return step;
-	}
-	return steps[steps.length - 1];
-}
-
-/**
- * One step shorter on success, one longer on failure. A lead outside `steps` (a card met in
- * another exercise) starts from the shortest step at least as long.
- */
-function adjustLeadBeats(
-	steps: readonly LeadBeats[],
-	current: LeadBeats,
-	success: boolean
-): LeadBeats {
-	const found = steps.indexOf(current);
-	const longer = steps.filter((step) => step >= current).length - 1;
-	const index = found >= 0 ? found : Math.max(longer, 0);
-	const nextIndex = success ? Math.min(index + 1, steps.length - 1) : Math.max(index - 1, 0);
-	return steps[nextIndex];
-}
 
 /** Beats that bound a round on the beat, set by its time relation. */
 export interface BeatRoundBounds {
@@ -170,35 +142,25 @@ export class BeatRound implements Round {
 	}
 }
 
-/** Mode 1 on the beat, at the rhythm of an exercise: its lead ladder and its breathing bars. */
-export function createBeatTiming(pacing: BeatPacing): TimingRelation {
-	const steps = pacing.leadSteps;
-	return {
-		id: 'beat',
-		usesTempo: true,
-		previewBeats: DEFAULT_PREVIEW_BEATS,
-		initialLead: steps[0],
-		promptBeat: (earliest, planned) =>
-			alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
-		open: ({ planned, promptBeat, beatTime }) => {
-			const lead = planned.leadBeats ?? FALLBACK_LEAD;
-			const nextPrompt = respirationStart(promptBeat + lead, pacing.respirationBars);
-			return new BeatRound(promptBeat, lead, beatTime, {
-				captureLimitBeat: nextPrompt - DEFAULT_PREVIEW_BEATS,
-				earliestPromptBeat: nextPrompt
-			});
-		},
-		isDirectRecall: (attempt) => {
-			// Found after the window means found by calculation: never direct recall.
-			if (!attempt.success) return false;
-			if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
-			return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
-		},
-		learnedLead: (tempoBpm) =>
-			tempoBpm === null ? steps[steps.length - 1] : leadForThreshold(steps, tempoBpm),
-		adjustLead: (current, success) => adjustLeadBeats(steps, current, success)
-	};
-}
-
 /** Mode 1: play the note on a target beat, a lead of beats after the prompt. */
-export const beatTiming: TimingRelation = createBeatTiming(DEFAULT_BEAT_PACING);
+export const beatTiming: TimingRelation = {
+	id: 'beat',
+	usesTempo: true,
+	previewBeats: DEFAULT_PREVIEW_BEATS,
+	promptBeat: (earliest, planned) =>
+		alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
+	open: ({ planned, promptBeat, beatTime }) => {
+		const lead = planned.leadBeats ?? FALLBACK_LEAD;
+		const nextPrompt = respirationStart(promptBeat + lead, DEFAULT_RESPIRATION_BARS);
+		return new BeatRound(promptBeat, lead, beatTime, {
+			captureLimitBeat: nextPrompt - DEFAULT_PREVIEW_BEATS,
+			earliestPromptBeat: nextPrompt
+		});
+	},
+	isDirectRecall: (attempt) => {
+		// Found after the window means found by calculation: never direct recall.
+		if (!attempt.success) return false;
+		if (attempt.leadBeats === null || attempt.tempoBpm === null) return false;
+		return (attempt.leadBeats * 60_000) / attempt.tempoBpm <= RECALL_THRESHOLD_MS;
+	}
+};

@@ -1,4 +1,3 @@
-import type { TimingRelation } from '$lib/domain/timing';
 import type { DirectRecall } from '$lib/domain/learning/recall';
 import {
 	SHORTEST_LEAD,
@@ -24,10 +23,7 @@ interface NewCard<I> {
 /** Fields of an attempt the direct-recall rule reads, at the attempt's tempo. */
 type RecallFields = Parameters<DirectRecall>[0];
 
-/**
- * The stored lead of a card a new card or a probe starts with: a placeholder, the old path sets
- * the real one with `cardLeadAfter` (H3 removes it with `CardState.leadBeats`).
- */
+/** The stored lead of a new card or a probe: a placeholder nothing reads (Dexie 10 drops `CardState.leadBeats`). */
 const PLACEHOLDER_LEAD: LeadBeats = SHORTEST_LEAD;
 
 function gradeFor(attempt: Attempt, recall: DirectRecall): Grade {
@@ -41,31 +37,6 @@ function qualifiesAsAcquired(state: CardState, attempt: Attempt, recall: DirectR
 	if (attempt.temperature !== 'cold') return false;
 	if (!recall(attempt)) return false;
 	return attempt.sessionId !== state.introducedInSession;
-}
-
-/** What moved a card's stored lead, for `cardLeadAfter`. */
-export type CardLeadEvent =
-	'introduced' | { learned: number | null } | { probe: Attempt } | { cold: Attempt };
-
-/**
- * The stored lead of `state` after `event`, as the old path set it: the relation's first lead
- * at introduction, its direct-recall lead at `learned`'s tempo, the probe's own lead (1 read as
- * the shortest), one step shorter or longer after a cold attempt (an off-beat answer lengthens it
- * like a miss). Only the old path calls it; H3 removes it with `CardState.leadBeats`.
- */
-export function cardLeadAfter(
-	state: CardState,
-	timing: TimingRelation,
-	event: CardLeadEvent
-): LeadBeats {
-	if (event === 'introduced') return timing.initialLead;
-	if ('learned' in event) return timing.learnedLead(event.learned);
-	if ('probe' in event) {
-		const lead = event.probe.leadBeats;
-		return lead === null || lead === 1 ? SHORTEST_LEAD : lead;
-	}
-	if (event.cold.temperature !== 'cold') return state.leadBeats;
-	return timing.adjustLead(state.leadBeats, event.cold.success);
 }
 
 /** New card after warm learning; first cold check is due after MIN_COLD_DELAY_MS. */

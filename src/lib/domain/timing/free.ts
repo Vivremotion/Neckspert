@@ -1,5 +1,5 @@
 import { secondsToMs } from '$lib/domain/scoring/timing';
-import { IDENTIFY_RECALL_THRESHOLD_MS, SHORTEST_LEAD } from '$lib/domain/types';
+import { IDENTIFY_RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 class FreeRound implements Round {
@@ -57,16 +57,13 @@ export function createFreeTiming(options: { recallThresholdMs: number }): Timing
 		id: 'free',
 		usesTempo: false,
 		previewBeats: 0,
-		initialLead: SHORTEST_LEAD,
 		promptBeat: (earliest) => earliest,
 		open: ({ promptBeat, now, beatTime, secondsPerBeat }) =>
 			new FreeRound(promptBeat, now, options.recallThresholdMs, beatTime(0), secondsPerBeat),
 		isDirectRecall: (attempt) =>
 			attempt.success &&
 			attempt.reactionMs !== null &&
-			attempt.reactionMs <= options.recallThresholdMs,
-		learnedLead: () => SHORTEST_LEAD,
-		adjustLead: () => SHORTEST_LEAD
+			attempt.reactionMs <= options.recallThresholdMs
 	};
 }
 

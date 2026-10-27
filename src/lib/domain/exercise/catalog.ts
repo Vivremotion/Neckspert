@@ -1,13 +1,12 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
-import { LEARN_SUCCESSES } from '$lib/domain/progress/constants';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, ExerciseId, Ladder } from './types';
 
 /**
  * Leads on the beat, at 80 bpm: 8 beats with the answer shown, then 4, then 2 (1 500 ms, the
- * recall threshold), where only a direct recall counts and `LEARN_SUCCESSES` learn the item.
+ * recall threshold), where only a direct recall counts and 2 successes learn the item.
  */
 function leadsLadder(): Ladder {
 	return [
@@ -15,7 +14,7 @@ function leadsLadder(): Ladder {
 		{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },
 		{
 			params: { leadBeats: 2, aided: false },
-			pass: { successes: LEARN_SUCCESSES },
+			pass: { successes: 2 },
 			drop: { failures: 1 },
 			success: 'direct-recall'
 		}
@@ -28,7 +27,7 @@ function freeTimeLadder(): Ladder {
 		{ params: { leadBeats: null, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 		{
 			params: { leadBeats: null, aided: false },
-			pass: { successes: LEARN_SUCCESSES },
+			pass: { successes: 2 },
 			drop: { failures: 1 },
 			success: 'direct-recall'
 		}

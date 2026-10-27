@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt } from '$lib/domain/types';
-import { cardSuccessRate, sessionSuccessRate, successRate } from './success';
+import { cardSuccessRate, successRate } from './success';
 
 function attempt(overrides: AttemptOverrides = {}): Attempt {
 	return responseAttempt({
@@ -35,34 +35,13 @@ describe('successRate', () => {
 	});
 });
 
-describe('sessionSuccessRate', () => {
-	it('looks at the last ten mode 1 prompts, probes and mode 2 left out', () => {
-		const old = Array.from({ length: 5 }, () => miss);
-		const recent = Array.from({ length: 10 }, () => attempt());
-		const ignored = [
-			attempt({ phase: 'probe', correct: false, verdict: 'wrong' }),
-			attempt({
-				exerciseId: 'identify-neck',
-				mechanic: 'identify',
-				cardKey: 'identify:6:3',
-				tempoBpm: null,
-				leadBeats: null,
-				data: { item: { string: 6, fret: 3 }, answer: null, confusion: null },
-				correct: false,
-				verdict: 'wrong'
-			})
-		];
-		expect(sessionSuccessRate([...old, ...recent, ...ignored])).toBe(1);
-		expect(sessionSuccessRate([...recent.slice(0, 7), miss, miss, miss])).toBe(0.7);
-		expect(sessionSuccessRate(ignored)).toBeNull();
-	});
-});
-
 describe('cardSuccessRate', () => {
 	it('looks at the card’s last five attempts of the session, probe left out', () => {
 		const other = attempt({ cardKey: 'locate:5:C' });
 		const own = [miss, attempt(), attempt(), attempt(), attempt(), miss];
-		expect(cardSuccessRate([attempt({ phase: 'probe' }), ...own, other], 'locate:6:G')).toBe(0.8);
-		expect(cardSuccessRate([other], 'locate:6:G')).toBeNull();
+		expect(cardSuccessRate([attempt({ phase: 'probe' }), ...own, other], 'locate:6:G', 5)).toBe(
+			0.8
+		);
+		expect(cardSuccessRate([other], 'locate:6:G', 5)).toBeNull();
 	});
 });

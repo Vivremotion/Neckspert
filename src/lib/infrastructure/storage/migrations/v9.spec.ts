@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
-import { leadStepsOf, learnedAfterOf } from '$lib/domain/exercise/ladder';
+import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, neckLevelOfCard } from './v9';
 
@@ -74,11 +74,17 @@ describe('NECK_LADDER_V9', () => {
 	// be noticed, then decided (the frozen ladders stay as they are).
 	it('keeps the frozen ladders equal to the catalog', () => {
 		expect(NECK_LADDER_V9.locate.exerciseId).toBe(LOCATE_NECK.id);
-		expect([...NECK_LADDER_V9.locate.leadSteps]).toEqual(leadStepsOf(LOCATE_NECK));
-		expect(NECK_LADDER_V9.locate.learnedAfter).toBe(learnedAfterOf(LOCATE_NECK));
+		const locate = ladderOf(LOCATE_NECK);
+		expect([...NECK_LADDER_V9.locate.leadSteps]).toEqual(
+			locate.map((level) => level.params.leadBeats)
+		);
+		expect(NECK_LADDER_V9.locate.learnedAfter).toBe(locate[locate.length - 1].pass?.successes);
 		expect(NECK_LADDER_V9.locate.recallThresholdMs).toBe(recallThresholdOf(LOCATE_NECK));
 		expect(NECK_LADDER_V9.identify.exerciseId).toBe(IDENTIFY_NECK.id);
-		expect(NECK_LADDER_V9.identify.learnedAfter).toBe(learnedAfterOf(IDENTIFY_NECK));
+		const identify = ladderOf(IDENTIFY_NECK);
+		expect(NECK_LADDER_V9.identify.learnedAfter).toBe(
+			identify[identify.length - 1].pass?.successes
+		);
 	});
 });
 

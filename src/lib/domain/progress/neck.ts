@@ -1,18 +1,12 @@
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import type { ExerciseId, MechanicId } from '$lib/domain/exercise/types';
-import { identifyRules, locateRules } from '$lib/domain/mechanics';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
-import type { TimingRelation } from '$lib/domain/timing';
 import type { CardKey, PlannedItem } from '$lib/domain/types';
 
 /**
  * The neck domain (learn selector, introduction queue, free plan, stats) knows both of its
- * mechanics; the core does not. This is where it reads their rules and exercises.
+ * mechanics; the core does not. This is where it reads their exercises.
  */
-export function neckTiming(mechanic: MechanicId): TimingRelation {
-	return asNeckMechanic(mechanic) === 'locate' ? locateRules.timing : identifyRules.timing;
-}
-
 export function neckExerciseId(mechanic: MechanicId): ExerciseId {
 	return asNeckMechanic(mechanic) === 'locate' ? LOCATE_NECK.id : IDENTIFY_NECK.id;
 }

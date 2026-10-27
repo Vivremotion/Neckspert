@@ -3,7 +3,6 @@ import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
 	LATENCY_PROVENANCES,
-	LEAD_STEPS,
 	MAX_BUILT_IN_INPUT_GAIN,
 	MIN_BUILT_IN_INPUT_GAIN,
 	RESPONSE_RELATIONS,
@@ -39,7 +38,7 @@ const SESSION_KINDS: readonly SessionKind[] = [
 ];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
 /** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
-const CARD_LEADS: readonly number[] = [...LEAD_STEPS, 1];
+const CARD_LEADS: readonly number[] = [8, 4, 2, 1];
 /** Notes (locate, identify, a triad's root), chords (a triad's chord, a grid's change). */
 const CONFUSION_KINDS: readonly string[] = [
 	'semitone',

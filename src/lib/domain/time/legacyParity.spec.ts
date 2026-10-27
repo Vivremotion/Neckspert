@@ -4,10 +4,9 @@ import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
 import {
 	beatTiming,
-	createAnchorTiming,
+	anchorTiming,
 	createGridTiming,
 	identifyTiming,
 	type GridChangeTiming,
@@ -94,7 +93,6 @@ const judges: ContentJudges = (kind) => {
 
 const LATENCY = { ms: 0, provenance: 'system' as const };
 
-const anchorTiming = createAnchorTiming(DEFAULT_BEAT_PACING);
 const gridTiming = createGridTiming((item) => item as GridChangeTiming);
 
 const secondsPerBeat = (setup: Setup) => 60 / setup.bpm;

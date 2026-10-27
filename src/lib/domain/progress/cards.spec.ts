@@ -3,12 +3,10 @@ import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
-import { beatTiming, identifyTiming } from '$lib/domain/timing';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import { directRecallOf } from '$lib/domain/learning/recall';
 import {
 	applyColdAttempt,
-	cardLeadAfter,
 	cardStatus,
 	introduceCard,
 	isAcquired,
@@ -272,35 +270,5 @@ describe('isAcquired / isMastered / cardStatus', () => {
 			);
 		expect(isMastered(history(160), recall)).toBe(true);
 		expect(isMastered(history(80), recall)).toBe(false);
-	});
-});
-
-describe('cardLeadAfter', () => {
-	it('moves the stored lead apart, as before', () => {
-		const locate = introduceCard(LOCATE, NOW, 's-learn');
-		const identify = introduceCard(IDENTIFY, NOW, 's-learn');
-		expect(cardLeadAfter(locate, beatTiming, 'introduced')).toBe(8);
-		expect(cardLeadAfter(identify, identifyTiming, 'introduced')).toBe(2);
-
-		expect(cardLeadAfter(locate, beatTiming, { learned: 80 })).toBe(2);
-		expect(cardLeadAfter(locate, beatTiming, { learned: 160 })).toBe(4);
-		expect(cardLeadAfter(identify, identifyTiming, { learned: null })).toBe(2);
-
-		expect(cardLeadAfter(locate, beatTiming, { probe: attempt({ leadBeats: 4 }) })).toBe(4);
-		expect(cardLeadAfter(locate, beatTiming, { probe: attempt({ leadBeats: 1 }) })).toBe(2);
-		expect(cardLeadAfter(identify, identifyTiming, { probe: attempt({ leadBeats: null }) })).toBe(
-			2
-		);
-
-		const at = (leadBeats: 8 | 4 | 2): CardState => ({ ...locate, leadBeats });
-		const success = attempt({ correct: true, leadBeats: 8 });
-		const miss = attempt({ correct: false, verdict: 'wrong' });
-		const offbeat = attempt({ correct: true, verdict: 'offbeat' });
-		const hot = attempt({ temperature: 'hot', correct: false, verdict: 'wrong' });
-		expect(cardLeadAfter(at(8), beatTiming, { cold: success })).toBe(4);
-		expect(cardLeadAfter(at(4), beatTiming, { cold: success })).toBe(2);
-		expect(cardLeadAfter(at(2), beatTiming, { cold: miss })).toBe(4);
-		expect(cardLeadAfter(at(2), beatTiming, { cold: offbeat })).toBe(4);
-		expect(cardLeadAfter(at(2), beatTiming, { cold: hot })).toBe(2);
 	});
 });

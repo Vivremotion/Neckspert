@@ -1,6 +1,5 @@
-import { DEFAULT_PREVIEW_BEATS } from '../exercise/pacing';
-import type { BeatPacing } from '$lib/domain/exercise/pacing';
-import { BeatRound, createBeatTiming } from './beat';
+import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '../exercise/pacing';
+import { BeatRound, beatTiming } from './beat';
 import { BEATS_PER_BAR, respirationStart } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
@@ -225,20 +224,17 @@ class AnchorRound implements Round {
 }
 
 /**
- * The anchor of a triad: its root on the target beat, its chord in the rest of the bar, at the
- * rhythm of an exercise. Prompts, leads and direct recall are those of the beat.
+ * The anchor of a triad: its root on the target beat, its chord in the rest of the bar. Prompts,
+ * leads and direct recall are those of the beat.
  */
-export function createAnchorTiming(pacing: BeatPacing): TimingRelation {
-	const beat = createBeatTiming(pacing);
-	return {
-		...beat,
-		id: 'anchor',
-		open: ({ planned, promptBeat, beatTime }) =>
-			new AnchorRound(
-				promptBeat,
-				planned.leadBeats ?? FALLBACK_LEAD,
-				beatTime,
-				pacing.respirationBars
-			)
-	};
-}
+export const anchorTiming: TimingRelation = {
+	...beatTiming,
+	id: 'anchor',
+	open: ({ planned, promptBeat, beatTime }) =>
+		new AnchorRound(
+			promptBeat,
+			planned.leadBeats ?? FALLBACK_LEAD,
+			beatTime,
+			DEFAULT_RESPIRATION_BARS
+		)
+};

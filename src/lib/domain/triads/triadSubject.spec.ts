@@ -7,7 +7,7 @@ import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
 import type { TriadZoneItem } from '$lib/domain/mechanics';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
-import { LEARN_COLD_CAP, MAX_WORKING_SET } from '$lib/domain/progress/constants';
+import { DEFAULT_SET_LEARNING } from '$lib/domain/learning/params';
 import { graduateToReview, introScheduling } from '$lib/domain/progress/scheduling';
 import type { LevelState } from '$lib/domain/time/levels';
 import {
@@ -417,8 +417,8 @@ describe('triadSubject', () => {
 			expect(planned.stringAid ?? false).toBe(false);
 			if (planned.temperature === 'hot') hot.add(key);
 			if (planned.phase === 'review') reviews += 1;
-			expect(reviews).toBeLessThanOrEqual(LEARN_COLD_CAP);
-			expect(hot.size).toBeLessThanOrEqual(MAX_WORKING_SET);
+			expect(reviews).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.coldCap);
+			expect(hot.size).toBeLessThanOrEqual(DEFAULT_SET_LEARNING.maxWorkingSet);
 
 			const success = succeeds(planned, key);
 			const outcome = procedure.record(answerOf(planned, success, { at: now }), now);

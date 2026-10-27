@@ -1,5 +1,4 @@
 import type { Attempt, CardKey } from '$lib/domain/types';
-import { NEW_NOTE_CARD_WINDOW, SUCCESS_WINDOW } from './constants';
 
 /** Share of successes (`Attempt.success`); null without attempts. */
 export function successRate(attempts: readonly Attempt[]): number | null {
@@ -7,22 +6,11 @@ export function successRate(attempts: readonly Attempt[]): number | null {
 	return attempts.filter((attempt) => attempt.success).length / attempts.length;
 }
 
-/**
- * Rolling success of a session: its last SUCCESS_WINDOW locate prompts, probes left out
- * (a missed probe measures what was never learned). `attempts`: this session's, oldest first.
- */
-export function sessionSuccessRate(attempts: readonly Attempt[]): number | null {
-	const locate = attempts.filter(
-		(attempt) => attempt.mechanic === 'locate' && attempt.phase !== 'probe'
-	);
-	return successRate(locate.slice(-SUCCESS_WINDOW));
-}
-
 /** Success of one card over its last `window` attempts of the session, probe left out. */
 export function cardSuccessRate(
 	attempts: readonly Attempt[],
 	key: CardKey,
-	window: number = NEW_NOTE_CARD_WINDOW
+	window: number
 ): number | null {
 	const own = attempts.filter((attempt) => attempt.cardKey === key && attempt.phase !== 'probe');
 	return successRate(own.slice(-window));

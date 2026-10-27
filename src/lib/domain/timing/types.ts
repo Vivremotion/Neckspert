@@ -97,7 +97,4 @@ export interface TimingRelation {
 		leadBeats: RecordedLeadBeats | null;
 		tempoBpm: number | null;
 	}): boolean;
-	initialLead: LeadBeats;
-	learnedLead(tempoBpm: number | null): LeadBeats;
-	adjustLead(current: LeadBeats, success: boolean): LeadBeats;
 }

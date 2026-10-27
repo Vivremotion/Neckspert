@@ -1,61 +1,6 @@
 /** Minimum gap after the previous attempt before the next one counts as cold. To calibrate. */
 export const MIN_COLD_DELAY_MS = 60 * 60 * 1000;
 
-/** Length of a learn session; no prompt starts after it. To calibrate. */
-export const LEARN_SESSION_MS = 5 * 60 * 1000;
-
-/** Max cold review prompts in one learn session. To calibrate. */
-export const LEARN_COLD_CAP = 20;
-
-/** Max cards being learned at once (learnedAt null). To calibrate. */
-export const LEARNING_SLOTS = 3;
-
-/** Max learned cards not yet acquired; above it no new note enters. To calibrate. */
-export const MAX_UNCONSOLIDATED = 10;
-
-/** Lead of the aided presentation of a new note (mode 1), and the ladder's top step. To calibrate. */
-export const LEARN_PRESENT_LEAD_BEATS = 8 as const;
-
-/** Prompts between a learning attempt and its unaided retest, by successes so far. To calibrate. */
-export const LEARN_RETEST_GAPS = [2, 4] as const;
-
-/** Successes in a row at the final step (direct-recall lead, or unaided in mode 2) that make a note learned. To calibrate. */
-export const LEARN_SUCCESSES = 2;
-
-/** Rolling success window: the session's last N mode 1 prompts, probes left out. To calibrate. */
-export const SUCCESS_WINDOW = 10;
-
-/** A new note enters only when every note being learned has at least this success. To calibrate. */
-export const NEW_NOTE_MIN_CARD_SUCCESS = 0.8;
-
-/** Attempts of the session over which a note being learned is judged. To calibrate. */
-export const NEW_NOTE_CARD_WINDOW = 5;
-
-/** A new note enters only when the rolling success is at least this. To calibrate. */
-export const NEW_NOTE_MIN_SESSION_SUCCESS = 0.7;
-
-/** Misses in a row (probes left out) after which the next prompt is a solid card. To calibrate. */
-export const RECOVERY_AFTER_MISSES = 1;
-
-/** Distinct cards served hot in a session (learning, consolidation, recovery). To calibrate. */
-export const MAX_WORKING_SET = 6;
-
-/**
- * The drawn string (mode 1 aid) shows on the aided presentation and on the next prompt after a
- * miss of that card in the session, and goes once the card has this many successes since its
- * last miss. To calibrate.
- */
-export const STRING_AID_FADE_SUCCESSES = 1;
-
-/** Consolidation draws at random among the N weakest cards. To calibrate. */
-export const CONSOLIDATION_POOL = 3;
-
-/** Consolidation skips cards served in the last N prompts. To calibrate. */
-export const CONSOLIDATION_SKIP_RECENT = 2;
-
-/** Consolidation favors cards confused in their last N attempts. To calibrate. */
-export const CONFUSION_LOOKBACK = 3;
-
 /** Prompts in one free-play run. To calibrate. */
 export const FREE_PLAY_COUNT = 20;
 

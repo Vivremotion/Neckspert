@@ -1,5 +1,3 @@
-import { LEAD_STEPS, type LeadBeats } from '$lib/domain/types';
-import { leadStepsOf } from './ladder';
 import type { ExerciseDefinition, ExercisePacing } from './types';
 
 /** Bars after the target bar before the next prompt may appear. To calibrate. */
@@ -28,18 +26,4 @@ export function previewBeatsOf(
 	presenterDefault: number | undefined
 ): number | null {
 	return definition.flow?.previewBeats ?? presenterDefault ?? null;
-}
-
-/** The pacing the old one-answer relations read: the breath, and the leads of a ladder. Until H5. */
-export interface BeatPacing extends ExercisePacing {
-	/** Longest first. */
-	leadSteps: readonly LeadBeats[];
-}
-
-/** The old relations' default pacing: `LEAD_STEPS` and the default breath. Until H5. */
-export const DEFAULT_BEAT_PACING: BeatPacing = { ...DEFAULT_PACING, leadSteps: LEAD_STEPS };
-
-/** An exercise's pacing for the old triad path, its leads read from its written ladder. Until H5. */
-export function beatPacingOf(definition: ExerciseDefinition): BeatPacing {
-	return { ...pacingOf(definition), leadSteps: leadStepsOf(definition) };
 }

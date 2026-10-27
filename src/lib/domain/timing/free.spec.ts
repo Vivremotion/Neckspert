@@ -99,14 +99,10 @@ describe('identifyTiming', () => {
 		expect(r.abandon()).toBeNull();
 	});
 
-	it('calls direct recall up to the threshold and keeps the lead at the shortest', () => {
+	it('calls direct recall up to the threshold', () => {
 		const base = { success: true, leadBeats: null, tempoBpm: null };
 		expect(identifyTiming.isDirectRecall({ ...base, reactionMs: 3000 })).toBe(true);
 		expect(identifyTiming.isDirectRecall({ ...base, reactionMs: 3001 })).toBe(false);
-		expect(identifyTiming.learnedLead(80)).toBe(2);
-		expect(identifyTiming.adjustLead(8, false)).toBe(2);
-		expect(identifyTiming.adjustLead(2, true)).toBe(2);
-		expect(identifyTiming.adjustLead(2, false)).toBe(2);
 	});
 
 	it('calls direct recall only on a right answer with a reaction time', () => {

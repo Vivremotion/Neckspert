@@ -13,7 +13,7 @@ import {
 	pitchOnString,
 	type NeckCard
 } from '$lib/domain/music';
-import { STRING_AID_FADE_SUCCESSES } from '$lib/domain/progress/constants';
+import { DEFAULT_ITEM_LEARNING } from '$lib/domain/learning/params';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
 import type { Attempt } from '$lib/domain/types';
@@ -88,10 +88,10 @@ describe('a learn session of the notes', () => {
 		expect(aided.card).toEqual(probe.card);
 		expect(aided.prompt.aid).not.toBeNull();
 		expect(aided.prompt.pictures).not.toEqual([]);
-		// Played right STRING_AID_FADE_SUCCESSES times (the aided one first): when it comes back,
+		// Played right DEFAULT_ITEM_LEARNING.aidFadeSuccesses times (the aided one first): when it comes back,
 		// the string drawn has faded (and the position too).
 		const met = rounds.filter((round) => keyOf(round.card) === keyOf(probe.card));
-		const back = met[1 + STRING_AID_FADE_SUCCESSES];
+		const back = met[1 + DEFAULT_ITEM_LEARNING.aidFadeSuccesses];
 		expect(back).toBeDefined();
 		expect(back?.prompt.pictures).toEqual([]);
 		expect(back?.prompt.aid).toBeNull();
