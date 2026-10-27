@@ -990,6 +990,23 @@ describe('PlanSessionController, latency', () => {
 		controller.quit();
 	});
 
+	it('stores the latency applied to the onsets with the session, zero when none is calibrated', async () => {
+		const plain = await setup(RHYTHM_OFFBEATS, { met: true });
+		await plain.controller.start();
+		plain.controller.quit();
+		await settled();
+		expect((await plain.sessions.get('series'))?.latencyMs).toBe(0);
+
+		const calibrated = await setup(RHYTHM_OFFBEATS, {
+			met: true,
+			latency: { ms: 42, provenance: 'system' }
+		});
+		await calibrated.controller.start();
+		calibrated.controller.quit();
+		await settled();
+		expect((await calibrated.sessions.get('series'))?.latencyMs).toBe(42);
+	});
+
 	it('lets precision judge with a latency measured without the player', async () => {
 		const { controller, attempts, player, advance } = await setup(RHYTHM_OFFBEATS, {
 			met: true,

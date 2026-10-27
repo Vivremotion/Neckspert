@@ -1214,7 +1214,8 @@ export class PlanSessionController implements PlaySessionController {
 			],
 			// The level held now: a summary read later shows this session's, not the latest.
 			levelReached: this.levelState.level,
-			latencyMs: this.latency()?.ms ?? null
+			// The latency applied to the onsets: none calibrated, none removed.
+			latencyMs: this.latency()?.ms ?? 0
 		};
 	}
 
