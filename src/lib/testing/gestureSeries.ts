@@ -149,6 +149,8 @@ export function gestureSeries(
 		settings: new InMemorySettingsRepository(),
 		progressions: new InMemoryProgressionRepository()
 	};
+	/** The cards the recorders write, shared by every series of this bench. */
+	const cards = new InMemoryCardStateRepository();
 	let ids = 1;
 	/** The source prepared for each session: its recorder tells it each attempt. */
 	const sourceOf = new Map<string, ItemSource>();
@@ -164,7 +166,7 @@ export function gestureSeries(
 		recorderFor: (sessionId) => {
 			const recorder = new AttemptRecorder({
 				attempts: repositories.attempts,
-				cards: new InMemoryCardStateRepository(),
+				cards,
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: sourceOf.get(sessionId) ?? source,
@@ -228,6 +230,7 @@ export function gestureSeries(
 		verifier,
 		source,
 		repositories,
+		cards,
 		controller,
 		prepared,
 		runTo,

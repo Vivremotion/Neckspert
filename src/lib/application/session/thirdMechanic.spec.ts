@@ -260,6 +260,7 @@ describe('a third mechanic, unknown to the core', () => {
 			const [attempt] = await ctx.stored();
 			expect(attempt).toMatchObject({ mechanic: MECHANIC, phase, correct: true });
 			expect(attempt.observations).toHaveLength(1);
+			expect(await ctx.cards.all()).toEqual([]);
 		}
 	);
 });
