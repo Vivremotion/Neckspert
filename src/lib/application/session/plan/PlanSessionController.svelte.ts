@@ -33,7 +33,7 @@ import {
 } from '$lib/domain/session';
 import { DEFAULT_SETTINGS, type PlannedItem, type Settings } from '$lib/domain/types';
 import { openAudioInput } from '../audioInput';
-import { DEFAULT_PLAY_VIEW, type PlaySessionController, type PlayView } from '../contract';
+import { playViewOf, type PlaySessionController, type PlayView } from '../contract';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation } from '../sensors';
 import type { PlanSessionDeps } from '../SessionDeps';
@@ -1158,7 +1158,7 @@ export class PlanSessionController implements PlaySessionController {
 	}
 
 	private viewName(): string {
-		return this.exercise.view ?? DEFAULT_PLAY_VIEW;
+		return playViewOf(this.exercise);
 	}
 
 	/**

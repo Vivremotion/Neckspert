@@ -27,12 +27,7 @@ import {
 } from '$lib/domain/types';
 import { SCENE_CLICKS, type Scene, type StagePlace } from '$lib/application/mechanics/types';
 import { promptStage } from '$lib/application/presentation/promptStage';
-import {
-	DEFAULT_PLAY_VIEW,
-	type LaneEntry,
-	type PlaySessionController,
-	type PlayView
-} from '../contract';
+import { playViewOf, type LaneEntry, type PlaySessionController, type PlayView } from '../contract';
 import { openAudioInput } from '../audioInput';
 import type { AttemptRecorder } from '../AttemptRecorder';
 import { sessionTempo } from '../executions';
@@ -897,8 +892,7 @@ export class ResponseSeriesController implements PlaySessionController {
 					{ chordDiagram },
 					random
 				)?.model;
-		this.view.stage =
-			model === undefined ? null : { view: definition.view ?? DEFAULT_PLAY_VIEW, model };
+		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
 	}
 
 	private enterScene(item: PlannedItem): void {

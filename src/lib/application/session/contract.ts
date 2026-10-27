@@ -1,8 +1,20 @@
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { StringNumber } from '$lib/domain/music/types';
 import type { ResponseVerdict } from '$lib/domain/types';
 
 /** The view that shows a mechanic's screen model when its exercise names none. */
 export const DEFAULT_PLAY_VIEW = 'grid-scroll';
+
+/** The view of an exercise that writes its presentation and names none: the generic lane. */
+export const DEFAULT_PROMPT_VIEW = 'lane';
+
+/** The view that draws an exercise: its own, else the lane for a presentation, else the default. */
+export function playViewOf(definition: Pick<ExerciseDefinition, 'view' | 'presentation'>): string {
+	return (
+		definition.view ??
+		(definition.presentation !== undefined ? DEFAULT_PROMPT_VIEW : DEFAULT_PLAY_VIEW)
+	);
+}
 
 export type PlayStatus = 'idle' | 'count-in' | 'awaiting' | 'verdict' | 'paused' | 'finished';
 
