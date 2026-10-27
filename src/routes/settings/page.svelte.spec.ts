@@ -90,9 +90,10 @@ describe('/settings page', () => {
 		await waitFor(() => expect(screen.getByText(/remplac/i)).toBeTruthy());
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		await waitFor(async () => {
-			expect((await services.backup.exportAll()).progressions).toMatchObject([
-				{ exerciseId: 'locate-neck', tempoBpm: 100 }
-			]);
+			// The version 1 tempo went to a locate progression, which version 7 no longer keeps.
+			const file = await services.backup.exportAll();
+			expect(file.version).toBe(7);
+			expect(file.settings.locale).toBe('en');
 			expect(i18n.locale).toBe('en');
 		});
 	});

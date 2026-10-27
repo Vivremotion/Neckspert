@@ -529,16 +529,9 @@ describe('the length and the tempo of a triads session', () => {
 		expect(ended).toBeGreaterThan(Math.max(...attempts.map((a) => a.promptedAt)));
 	}, 60_000);
 
-	it('plays at 80 bpm whatever progression is stored, and writes none', async () => {
-		const stored = {
-			exerciseId: TRIADS_ANCHOR.id,
-			mechanic: 'triad-anchor',
-			tempoBpm: 160,
-			updatedAt: 0
-		};
+	it('plays at 80 bpm', async () => {
 		const app = await triadsApp({
-			cards: ORDER.slice(0, 2).map((voicing) => learnedTriad('triad-anchor', voicing)),
-			progressions: [stored]
+			cards: ORDER.slice(0, 2).map((voicing) => learnedTriad('triad-anchor', voicing))
 		});
 		const controller = await startTriads(app, 'triads');
 		await playTriads(app, controller, allRight, { rounds: 2 });
@@ -548,7 +541,6 @@ describe('the length and the tempo of a triads session', () => {
 		expect(attempts.map((a) => a.tempoBpm)).toEqual([80, 80]);
 		const record = await app.deps.sessions.get(controller.sessionId);
 		expect(record?.executions).toEqual([{ exerciseId: TRIADS_ANCHOR.id, tempoBpm: 80 }]);
-		expect(await app.deps.progressions.all()).toEqual([stored]);
 	});
 
 	it('stores the attempt data as before', async () => {

@@ -39,8 +39,7 @@ export function summarizeGesture(
 	const changes = attempts.filter((attempt) => attempt.mechanic === 'chord-grid');
 	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
 		const own = changes.filter(
-			(attempt) =>
-				attempt.exerciseId === exerciseId && (attempt.tempoScope ?? null) === (scope ?? null)
+			(attempt) => attempt.exerciseId === exerciseId && (attempt.scope ?? null) === (scope ?? null)
 		);
 		if (own.length === 0 || tempoBpm === null) return [];
 		// Only an exercise of the gesture track is summed up here.
@@ -58,7 +57,7 @@ export function summarizeGesture(
 				passagesSucceeded: [...passages.values()].filter(passageSucceeded).length,
 				changeSuccessRate: own.filter((attempt) => attempt.success).length / own.length,
 				tempoBpm,
-				nextTempoBpm: own[own.length - 1].tempoBpm ?? tempoBpm
+				lastTempoBpm: own[own.length - 1].tempoBpm ?? tempoBpm
 			}
 		];
 	});

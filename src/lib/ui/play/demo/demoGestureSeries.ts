@@ -101,7 +101,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 				aid: 'show-position',
 				leadBeats: null,
 				...(index === 0 && { countIn: true }),
-				...(mode === 'climb' && { tempoScope: GRID_ID })
+				...(mode === 'climb' && { scope: GRID_ID })
 			};
 		},
 		record: () => null,

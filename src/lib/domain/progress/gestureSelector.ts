@@ -149,7 +149,7 @@ class GestureSelector implements ItemSource {
 			...(index === 0 && !passage.continued && { countIn: true }),
 			...(index === 0 && passage.rests && { restBars: LINK_REST_BARS }),
 			// A grid moves through its levels on its own: a ballad and a blues apart.
-			...(element.gridId !== undefined && { tempoScope: element.gridId })
+			...(element.gridId !== undefined && { scope: element.gridId })
 		};
 	}
 

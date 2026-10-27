@@ -73,13 +73,13 @@ describe('summarizeGesture', () => {
 				passagesSucceeded: 1,
 				changeSuccessRate: 11 / 12,
 				tempoBpm: 80,
-				nextTempoBpm: 80
+				lastTempoBpm: 80
 			}
 		]);
 		expect(summary.misses).toEqual([]);
 	});
 
-	it('tells the tempo of the first round and of the last, a level moved in session', () => {
+	it('tells the first and the last tempo played', () => {
 		const at80 = [0, 1].map((i) => change('gesture-jam', 'p1', i, 'perfect'));
 		const at85 = [0, 1].map((i) =>
 			change('gesture-jam', 'p2', i, 'perfect', null, { tempoBpm: 85 })
@@ -88,7 +88,7 @@ describe('summarizeGesture', () => {
 			[{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
 			[...at80, ...at85]
 		);
-		expect(summary.exercises[0]).toMatchObject({ tempoBpm: 80, nextTempoBpm: 85 });
+		expect(summary.exercises[0]).toMatchObject({ tempoBpm: 80, lastTempoBpm: 85 });
 	});
 
 	it('refuses an exercise the gesture track does not list, naming it', () => {
@@ -131,10 +131,10 @@ describe('summarizeGesture', () => {
 
 	it('sums each grid of an exercise apart, at its own tempo', () => {
 		const ballad = Array.from({ length: 10 }, (_, i) =>
-			change('gesture-jam', 'p1', i % 9, 'perfect', null, { tempoScope: 'iohefy-a' })
+			change('gesture-jam', 'p1', i % 9, 'perfect', null, { scope: 'iohefy-a' })
 		);
 		const blues = [
-			change('gesture-jam', 'p2', 0, 'wrong', null, { tempoScope: 'blues-f', tempoBpm: 100 })
+			change('gesture-jam', 'p2', 0, 'wrong', null, { scope: 'blues-f', tempoBpm: 100 })
 		];
 		const summary = summarizeGesture(
 			[
@@ -151,7 +151,7 @@ describe('summarizeGesture', () => {
 				passagesSucceeded: 1,
 				changeSuccessRate: 1,
 				tempoBpm: 80,
-				nextTempoBpm: 80
+				lastTempoBpm: 80
 			},
 			{
 				exerciseId: 'gesture-jam',
@@ -160,7 +160,7 @@ describe('summarizeGesture', () => {
 				passagesSucceeded: 0,
 				changeSuccessRate: 0,
 				tempoBpm: 100,
-				nextTempoBpm: 100
+				lastTempoBpm: 100
 			}
 		]);
 	});

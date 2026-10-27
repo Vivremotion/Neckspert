@@ -175,7 +175,7 @@ describe('ResponseSeriesController', () => {
 			ctx.runTo(20.1 + 0.03);
 			ctx.play(20.12, rightShape(change(0)));
 			const attempts = await ctx.stored();
-			expect(attempts.map((a) => [a.tempoBpm, a.tempoScope, a.success])).toEqual([
+			expect(attempts.map((a) => [a.tempoBpm, a.scope, a.success])).toEqual([
 				[120, 'iohefy-a', false],
 				[120, 'iohefy-a', false],
 				[60, 'blues-f', true],
@@ -406,7 +406,7 @@ describe('ResponseSeriesController', () => {
 				success: true,
 				correct: true,
 				exerciseId: 'gesture-jam',
-				tempoScope: 'iohefy-a'
+				scope: 'iohefy-a'
 			});
 			await drain();
 			expect((await ctx.stored())[0].observations).toHaveLength(1);

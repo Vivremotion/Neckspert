@@ -23,7 +23,6 @@ export type {
 	BackupPort,
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort,
-	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort
 } from './repositories';

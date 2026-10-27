@@ -6,7 +6,6 @@ import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
 import { DexieLevelStateRepository } from './DexieLevelStateRepository';
-import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
 import {
@@ -14,10 +13,11 @@ import {
 	makeBackup,
 	makeBackupV2,
 	makeBackupV5,
+	makeBackupV6,
 	makeCard,
 	makeCardV5,
 	makeLevelState,
-	makeProgression,
+	makeProgressionV6,
 	makeSession
 } from './testing/fixtures';
 import v3Export from './fixtures/backup-v3.json';
@@ -26,7 +26,7 @@ import { validateBackup } from './validateBackup';
 const LATENCY = { note: { ms: 42, provenance: 'player' as const } };
 
 /**
- * Two progressions, two cards, three attempts, two sessions, two changed settings, two level
+ * Two cards, three attempts (one in a scope), two sessions, two changed settings, two level
  * states.
  */
 async function seed(db: NeckspertDb): Promise<void> {
@@ -34,11 +34,6 @@ async function seed(db: NeckspertDb): Promise<void> {
 	const levels = new DexieLevelStateRepository(db);
 	await levels.put(makeLevelState());
 	await levels.put(makeLevelState({ exerciseId: 'gesture-climb', scope: 'iohefy-a', level: 2 }));
-	const progressions = new DexieProgressionRepository(db);
-	await progressions.put(makeProgression());
-	await progressions.put(
-		makeProgression({ exerciseId: 'identify-neck', mechanic: 'identify', tempoBpm: 80 })
-	);
 	await new DexieCardStateRepository(db).putMany([makeCard(), makeCard({ mechanic: 'identify' })]);
 	const attempts = new DexieAttemptRepository(db);
 	await attempts.add(
@@ -48,7 +43,7 @@ async function seed(db: NeckspertDb): Promise<void> {
 			reactionMs: 1800
 		})
 	);
-	await attempts.add(makeAttempt({ promptedAt: 1000 }));
+	await attempts.add(makeAttempt({ promptedAt: 1000, scope: 'iohefy-a' }));
 	await attempts.add(
 		makeAttempt({
 			mechanic: 'identify',
@@ -83,7 +78,7 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(6);
+			expect(file.version).toBe(7);
 			expect(file.exportedAt).toBe(123);
 			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', latency: LATENCY });
 			expect(file.levelStates).toHaveLength(2);
@@ -96,10 +91,9 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 6,
+				version: 7,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
-				progressions: [],
 				cards: [],
 				attempts: [],
 				sessions: [],
@@ -107,15 +101,15 @@ describe('DexieBackup', () => {
 			});
 		});
 
-		it('exports version 6 with progressions', async () => {
+		it('exports version 7 without progressions, attempts with their scope', async () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
-			expect(file.version).toBe(6);
-			expect(
-				[...file.progressions].sort((a, b) => a.exerciseId.localeCompare(b.exerciseId))
-			).toEqual([
-				makeProgression({ exerciseId: 'identify-neck', mechanic: 'identify', tempoBpm: 80 }),
-				makeProgression()
+			expect(file.version).toBe(7);
+			expect(file).not.toHaveProperty('progressions');
+			expect(file.attempts.map((attempt) => attempt.scope)).toEqual([
+				'iohefy-a',
+				undefined,
+				undefined
 			]);
 			expect(file.sessions.map((session) => session.executions)).toEqual([
 				makeSession().executions,
@@ -149,7 +143,6 @@ describe('DexieBackup', () => {
 			await new DexieBackup(db).importAll(file);
 
 			expect(await new DexieSettingsRepository(db).get()).toEqual(file.settings);
-			expect(await new DexieProgressionRepository(db).all()).toEqual(file.progressions);
 			expect(await new DexieCardStateRepository(db).all()).toEqual(file.cards);
 			expect(await new DexieAttemptRepository(db).all()).toEqual(file.attempts);
 			expect(await new DexieSessionRepository(db).list()).toEqual(file.sessions);
@@ -211,7 +204,6 @@ describe('DexieBackup', () => {
 			expect(await db.attempts.count()).toBe(3);
 			expect(await db.cards.count()).toBe(2);
 			expect(await db.sessions.count()).toBe(2);
-			expect(await db.progressions.count()).toBe(2);
 			expect(await db.levelStates.count()).toBe(2);
 		});
 
@@ -227,7 +219,6 @@ describe('DexieBackup', () => {
 			expect(await db.cards.count()).toBe(2);
 			expect((await new DexieSessionRepository(db).list()).map((s) => s.id)).toEqual(['s1', 's2']);
 			expect((await new DexieSettingsRepository(db).get()).locale).toBe('en');
-			expect(await db.progressions.count()).toBe(2);
 			expect(await db.levelStates.count()).toBe(2);
 		});
 	});
@@ -258,25 +249,19 @@ describe('DexieBackup', () => {
 		});
 	});
 
-	it('restores progressions and executions after an export and an import', async () => {
+	it('restores executions after an export and an import', async () => {
 		await seed(db);
 		const file = await new DexieBackup(db, () => 1000).exportAll();
 
 		const fresh = createDatabase(crypto.randomUUID());
 		await new DexieBackup(fresh).importAll(JSON.parse(JSON.stringify(file)));
 
-		const byExercise = (a: { exerciseId: string }, b: { exerciseId: string }) =>
-			a.exerciseId.localeCompare(b.exerciseId);
-		expect((await new DexieProgressionRepository(fresh).all()).sort(byExercise)).toEqual(
-			(await new DexieProgressionRepository(db).all()).sort(byExercise)
-		);
 		expect(await new DexieSessionRepository(fresh).list()).toEqual(
 			await new DexieSessionRepository(db).list()
 		);
 		expect(
 			(await new DexieSessionRepository(fresh).list()).map((session) => session.executions)
 		).toEqual([makeSession().executions, [{ exerciseId: 'locate-neck', tempoBpm: 96 }]]);
-		expect(await fresh.progressions.count()).toBe(2);
 	});
 
 	it('round-trips observations and latency, null, empty or listed', async () => {
@@ -373,9 +358,9 @@ describe('DexieBackup', () => {
 
 		await new DexieBackup(db, () => 777).importAll(v1);
 
-		expect(await new DexieProgressionRepository(db).all()).toEqual([
-			{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 104, updatedAt: 777 }
-		]);
+		// Its tempo became a locate progression, which version 7 drops: locate plays at 80 bpm.
+		expect(await db.levelStates.count()).toBe(0);
+		expect(await new DexieBackup(db).exportAll()).not.toHaveProperty('progressions');
 		expect(await db.settings.get('settings')).toEqual({
 			id: 'settings',
 			locale: 'fr',
@@ -386,25 +371,28 @@ describe('DexieBackup', () => {
 		expect(await db.cards.count()).toBe(0);
 	});
 
-	it('exports the progressions of every scope and imports them back apart', async () => {
-		const scoped = makeProgression({
-			exerciseId: 'gesture-climb',
-			mechanic: 'chord-grid',
-			scope: 'blues-f',
-			tempoBpm: 110
+	it("imports a version 6 file: a gesture progression becomes its scope's level", async () => {
+		const file = makeBackupV6({
+			progressions: [
+				makeProgressionV6(),
+				makeProgressionV6({
+					exerciseId: 'gesture-climb',
+					mechanic: 'chord-grid',
+					scope: 'blues-f',
+					tempoBpm: 110
+				})
+			],
+			attempts: [{ ...makeAttempt({ id: 1 }), tempoScope: 'blues-f' }]
 		});
-		const progressions = new DexieProgressionRepository(db);
-		await progressions.put(makeProgression());
-		await progressions.put(scoped);
-		const file = await new DexieBackup(db).exportAll();
-		expect(file.progressions).toHaveLength(2);
-		await progressions.put({ ...scoped, scope: 'iohefy-a' });
 
 		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(file)));
 
-		expect(await progressions.get('gesture-climb', 'blues-f')).toEqual(scoped);
-		expect(await progressions.get('gesture-climb', 'iohefy-a')).toBeUndefined();
-		expect(await progressions.get('locate-neck')).toEqual(makeProgression());
+		expect(await new DexieLevelStateRepository(db).all()).toEqual([
+			makeLevelState({ exerciseId: 'gesture-climb', scope: 'blues-f', level: 6, successes: 0 })
+		]);
+		expect(await new DexieAttemptRepository(db).all()).toEqual([
+			makeAttempt({ id: 1, scope: 'blues-f' })
+		]);
 	});
 
 	it('gives back the same level states after an export and an import', async () => {
@@ -421,13 +409,13 @@ describe('DexieBackup', () => {
 		);
 	});
 
-	it('imports the version 3 export of the application before version 4 and exports it as 6', async () => {
+	it('imports the version 3 export of the application before version 4 and exports it as 7', async () => {
 		const v3 = structuredClone(v3Export);
 		await new DexieBackup(db, () => 0).importAll(v3);
 
 		const exported = await new DexieBackup(db, () => 1000).exportAll();
 		const expected = validateBackup(structuredClone(v3Export));
-		expect(exported.version).toBe(6);
+		expect(exported.version).toBe(7);
 		expect(exported.cards).toEqual(expected.cards);
 		expect(exported.attempts).toEqual(expected.attempts);
 		expect(exported.settings).toEqual({ ...expected.settings, inputDeviceId: null });

@@ -2,7 +2,6 @@ import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exe
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { LOCATE_NECK } from '$lib/domain/exercise';
 import type { IdentifyData } from '$lib/domain/mechanics';
 import {
 	asNeckCard,
@@ -390,15 +389,12 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
-	it('ignores a stored locate tempo: locate plays at 80 bpm, fixed, and writes its level', async () => {
+	it('plays locate at 80 bpm, fixed, and writes its level', async () => {
 		const card = locate(6, 'G');
-		// Learned at lead 2 (level 2 at ♩ = 80); the stored 160 is ignored, locate is fixed at 80.
+		// Learned at lead 2 (level 2 at ♩ = 80); locate is fixed at 80.
 		const app = await notesApp({
 			cards: [learnedCard(card)],
-			levels: [levelOf(card, 2)],
-			progressions: [
-				{ exerciseId: LOCATE_NECK.id, mechanic: 'locate', tempoBpm: 160, updatedAt: 0 }
-			]
+			levels: [levelOf(card, 2)]
 		});
 		const controller = await startNotes(app, 'learn');
 		const [played] = await playRounds(app, controller, allRight, { rounds: 1 });
@@ -412,7 +408,7 @@ describe('a learn session of the notes', () => {
 		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 2, successes: 1 });
 	});
 
-	it('ends after SESSION_MS once the round under way settles, and writes no locate tempo', async () => {
+	it('ends after SESSION_MS once the round under way settles', async () => {
 		const app = await notesApp({ cards: ALL_LOCATE, random: seeded(11) });
 		const controller = await startNotes(app, 'learn');
 		const record = await app.deps.sessions.get(controller.sessionId);
@@ -435,8 +431,6 @@ describe('a learn session of the notes', () => {
 		expect(ended).toBeGreaterThanOrEqual(startedAt + SESSION_MS);
 		const lastPrompt = Math.max(...attempts.map((a) => a.promptedAt));
 		expect(ended).toBeGreaterThan(lastPrompt);
-		// All right, but locate is fixed at ♩ = 80: no progression is written.
-		expect(await app.deps.progressions.all()).toEqual([]);
 	}, 30_000);
 
 	it('writes attempts the summary and the neck map read as before', async () => {

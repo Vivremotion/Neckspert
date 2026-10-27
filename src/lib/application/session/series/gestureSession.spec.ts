@@ -32,7 +32,6 @@ import {
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
-	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -53,7 +52,7 @@ import { ResponseSeriesController } from './ResponseSeriesController.svelte';
 
 /**
  * The gesture's scenarios of the old controller (`gestureEndToEnd`, `chainedRounds`, `countdown`,
- * `briefing`, `tempoScope`, `twoSensors`), played on the response series: the acceptance test of
+ * `briefing`, `scope`, `twoSensors`), played on the response series: the acceptance test of
  * the switch (plan H3, Task 8). The first part runs the real wiring (`createAppServices`, the
  * gesture selector); the others serve scripted changes to the real presenter and plans (♩ = 120
  * from 0.1 s: a bar lasts 2 s, a change one bar, the first one on bar 1).
@@ -92,7 +91,6 @@ async function appSession(cards: CardState[]) {
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
-		progressions: new InMemoryProgressionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
@@ -220,7 +218,7 @@ describe('a gesture session on the response series, end to end', () => {
 			exerciseId: 'gesture-link',
 			passagesSucceeded: 2,
 			tempoBpm: 80,
-			nextTempoBpm: 80
+			lastTempoBpm: 80
 		});
 	});
 
@@ -254,7 +252,7 @@ describe('a gesture session on the response series, end to end', () => {
 		expect(exercises.slice(0, 7).every((id) => id === 'gesture-link')).toBe(true);
 		expect(exercises.slice(7, 16).every((id) => id === 'gesture-climb')).toBe(true);
 		expect(exercises.slice(16, 25).every((id) => id === 'gesture-jam')).toBe(true);
-		expect(attempts.slice(7, 25).map((a) => a.tempoScope)).toEqual(Array(18).fill('iohefy-a'));
+		expect(attempts.slice(7, 25).map((a) => a.scope)).toEqual(Array(18).fill('iohefy-a'));
 
 		const missed = attempts[9];
 		expect(dataOf(missed).item).toMatchObject({ rule: 'climb', symbol: 'Dm7', direction: 'up' });
@@ -685,7 +683,7 @@ describe('the instruction of an exercise met for the first time (briefing)', () 
 	});
 });
 
-describe('a tempo per exercise and scope (tempoScope)', () => {
+describe('a level per exercise and scope', () => {
 	it('plays each change at the tempo of its scope, the transport changing tempo between scopes', async () => {
 		const ctx = gestureSeries([
 			...passage(),
@@ -695,7 +693,7 @@ describe('a tempo per exercise and scope (tempoScope)', () => {
 		await ctx.controller.start();
 		expect(await playAllRight(ctx)).toEqual([120, 120, 60, 60, 120, 120]);
 		const attempts = await ctx.stored();
-		expect(attempts.map((a) => [a.tempoBpm, a.tempoScope, a.success])).toEqual([
+		expect(attempts.map((a) => [a.tempoBpm, a.scope, a.success])).toEqual([
 			[120, 'iohefy-a', true],
 			[120, 'iohefy-a', true],
 			[60, 'blues-f', true],
@@ -895,7 +893,7 @@ describe('the miss of a passage’s last change (shown until the count starts)',
 	/** A link tour of two changes, D on G-B-E, at ♩ = 120 like the jam. */
 	function linkTour(id: string, restBars?: number): PlannedItem[] {
 		return [0, 1].map((index) => {
-			const { tempoScope: _scope, ...base } = change(index, {
+			const { scope: _scope, ...base } = change(index, {
 				passage: id,
 				exerciseId: 'gesture-link'
 			});
@@ -1084,7 +1082,7 @@ describe('the exercise level moving in session (levels)', () => {
 		const tour = (id: string, again = false): PlannedItem[] =>
 			[0, 1].map((index) => {
 				const {
-					tempoScope: _scope,
+					scope: _scope,
 					countIn: _count,
 					...base
 				} = change(index, {

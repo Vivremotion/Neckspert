@@ -22,7 +22,6 @@ import {
 	DexieBackup,
 	DexieCardStateRepository,
 	DexieLevelStateRepository,
-	DexieProgressionRepository,
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
@@ -56,7 +55,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const attempts = new DexieAttemptRepository(db);
 	const cards = new DexieCardStateRepository(db);
 	const sessions = new DexieSessionRepository(db);
-	const progressions = new DexieProgressionRepository(db);
 	const levels = new DexieLevelStateRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
@@ -104,7 +102,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		attempts,
 		cards,
 		sessions,
-		progressions,
 		levels,
 		sounds,
 		takes,

@@ -259,7 +259,7 @@
 						<strong>{exerciseLabel(exercise.exerciseId, exercise.scope)}</strong>
 						<span>{t.passages(exercise.passagesSucceeded, exercise.passagesPlayed)}</span>
 						<span>{t.changes(Math.round(exercise.changeSuccessRate * 100))}</span>
-						<span>{t.tempos(exercise.tempoBpm, exercise.nextTempoBpm)}</span>
+						<span>{t.tempos(exercise.tempoBpm, exercise.lastTempoBpm)}</span>
 					</li>
 				{/each}
 			</ul>

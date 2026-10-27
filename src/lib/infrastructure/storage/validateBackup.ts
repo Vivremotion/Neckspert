@@ -21,6 +21,7 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
+import { backupV6ToV7, type BackupV6 } from './migrations/v11';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -459,7 +460,7 @@ function checkAttempt(attempt: Fields): string | null {
 	);
 }
 
-/** Optional: a tempo scope is absent, or a non-empty string. */
+/** Optional: a scope is absent, or a non-empty string. */
 function isScope(value: unknown): boolean {
 	return value === undefined || isNonEmptyString(value);
 }
@@ -623,15 +624,28 @@ function checkLevelState(state: Fields): string | null {
 	return null;
 }
 
-/** The checks of versions 4 to 6, which hold the same tables; cards lose their lead at 6. */
-function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
+/** The tables of versions 4 to 7; cards lose their lead at 6. */
+function checkBackupTables(backup: Fields, cardCheck: Check, attemptCheck: Check): void {
 	const settingsProblem = checkSettingsV4(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
-	checkEntries(backup.progressions, 'progressions', checkProgression);
 	checkEntries(backup.cards, 'cards', cardCheck);
-	checkEntries(backup.attempts, 'attempts', checkAttemptV4);
+	checkEntries(backup.attempts, 'attempts', attemptCheck);
 	checkEntries(backup.sessions, 'sessions', checkSessionV3);
 	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
+}
+
+/** The checks of versions 4 to 6, which hold the same tables, progressions included. */
+function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
+	checkEntries(backup.progressions, 'progressions', checkProgression);
+	checkBackupTables(backup, cardCheck, checkAttemptV4);
+}
+
+/** Version 7: the scope of an attempt is its exercise level's, no longer its tempo's. */
+function checkAttemptV7(attempt: Fields): string | null {
+	if (Object.hasOwn(attempt, 'tempoScope')) return 'tempoScope is renamed scope';
+	return (
+		checkAttemptV4(attempt) ?? (isScope(attempt.scope) ? null : 'scope must be a non-empty string')
+	);
 }
 
 /** Checks a version 4 file and returns it unchanged: its level states are those of the exercises. */
@@ -649,21 +663,35 @@ export function validateBackupV5(file: unknown): Fields {
 }
 
 /** Checks a version 6 file and returns it unchanged: no card holds a lead. */
-export function validateBackupV6(file: unknown): BackupFile {
+export function validateBackupV6(file: unknown): BackupV6 {
 	const backup = checkHeader(file, 6);
 	checkBackupBody(backup, checkCardV6);
+	return backup as unknown as BackupV6;
+}
+
+/**
+ * Checks a version 7 file and returns it unchanged: no progressions (a tempo is an exercise
+ * level), attempts carry `scope`.
+ */
+export function validateBackupV7(file: unknown): BackupFile {
+	const backup = checkHeader(file, 7);
+	if (Object.hasOwn(backup, 'progressions')) {
+		throw new Error('Backup field "progressions" is gone: a tempo is an exercise level');
+	}
+	checkBackupTables(backup, checkCardV6, checkAttemptV7);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 6, and versions 1 to 5 brought to it by the migration chain, the one the
- * database upgrade runs (`now` stamps the progression made from a version 1 tempo). Throws a
- * readable error on anything else.
+ * Accepts version 7, and versions 1 to 6 brought to it by the migration chain, the one the
+ * database upgrade runs (`now` stamps the progression made from a version 1 tempo, which version
+ * 7 then drops). Throws a readable error on anything else.
  */
 export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV6 = (v5: Fields) => validateBackupV6(backupV5ToV6(validateBackupV5(v5)));
+	const toV7 = (v6: Fields) => validateBackupV7(backupV6ToV7(validateBackupV6(v6)));
+	const toV6 = (v5: Fields) => toV7(backupV5ToV6(validateBackupV5(v5)));
 	const toV5 = (v4: Fields) => toV6(backupV4ToV5(validateBackupV4(v4)));
 	const toV4 = (v3: Fields) => toV5(backupV3ToV4(v3, relationOfMechanic));
 	if (file.version === 1) {
@@ -673,6 +701,7 @@ export function validateBackup(file: unknown, now: number = Date.now()): BackupF
 	if (file.version === 3) return toV4(validateBackupV3(file));
 	if (file.version === 4) return toV5(file);
 	if (file.version === 5) return toV6(file);
-	if (file.version === 6) return validateBackupV6(file);
+	if (file.version === 6) return toV7(file);
+	if (file.version === 7) return validateBackupV7(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

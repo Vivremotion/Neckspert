@@ -1,11 +1,5 @@
-import type {
-	Attempt,
-	CardState,
-	Execution,
-	Progression,
-	SessionRecord,
-	Settings
-} from '$lib/domain/types';
+import type { Attempt, CardState, Execution, SessionRecord, Settings } from '$lib/domain/types';
+import type { ProgressionV10 } from '../migrations/v11';
 
 /**
  * The exercises version 1 data was played in, by its target direction. Frozen here on purpose:
@@ -41,7 +35,7 @@ export interface V1Backup extends V1Data {
 
 export interface V1Conversion {
 	settings: Partial<Settings>;
-	progressions: Progression[];
+	progressions: ProgressionV10[];
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];
@@ -97,7 +91,7 @@ export function convertV1(data: V1Data, now: number): V1Conversion {
 	}
 	const locateTempo = (sessionId: unknown): number => sessionTempos.get(sessionId) ?? fallbackTempo;
 
-	const progressions: Progression[] =
+	const progressions: ProgressionV10[] =
 		storedTempo === null
 			? []
 			: [

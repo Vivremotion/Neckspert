@@ -843,7 +843,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		void this.levels
 			.settle({
 				exerciseId: item.exerciseId,
-				...(item.tempoScope !== undefined && { scope: item.tempoScope }),
+				...(item.scope !== undefined && { scope: item.scope }),
 				level: item.exerciseLevel,
 				success: outcome.success,
 				aided: outcome.aids.length > 0
@@ -1113,12 +1113,12 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (this.tempoBpm !== null && inFreeTime(this.planOf(item, this.meterOf(item)))) {
 			return this.tempoBpm;
 		}
-		return tempoOf(definition, this.levels.played(item.exerciseId, item.tempoScope));
+		return tempoOf(definition, this.levels.played(item.exerciseId, item.scope));
 	}
 
 	/** `item` at the level its exercise plays now; the value spelling it carried over. */
 	private leveled(item: PlannedItem): PlannedItem {
-		const exerciseLevel = this.levels.played(item.exerciseId, item.tempoScope);
+		const exerciseLevel = this.levels.played(item.exerciseId, item.scope);
 		if (item.exerciseLevel === exerciseLevel) return item;
 		const leveled = { ...item, exerciseLevel };
 		const spelled = this.spelling.get(item);
@@ -1131,10 +1131,10 @@ export class ResponseSeriesController implements PlaySessionController {
 	 * announced with its tempo until the round opens. True when it changed.
 	 */
 	private applyLevel(item: PlannedItem): boolean {
-		const kind = this.levels.apply(item.exerciseId, item.tempoScope);
+		const kind = this.levels.apply(item.exerciseId, item.scope);
 		if (kind === null) return false;
 		const definition = this.items.definitionOf(item);
-		const level = this.levels.played(item.exerciseId, item.tempoScope);
+		const level = this.levels.played(item.exerciseId, item.scope);
 		this.announcing = {
 			kind,
 			level,
@@ -1149,7 +1149,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	 * in free time). The first of each (exercise, scope) is the one the session keeps.
 	 */
 	private executionOf(item: PlannedItem, plan: RoundPlan): Execution {
-		const scope = item.tempoScope;
+		const scope = item.scope;
 		const execution: Execution = {
 			exerciseId: item.exerciseId,
 			...(scope !== undefined && { scope }),

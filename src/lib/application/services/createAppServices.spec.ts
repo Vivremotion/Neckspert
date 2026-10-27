@@ -24,7 +24,6 @@ import {
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
-	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -77,7 +76,6 @@ function harness(options: { development?: boolean } = {}): {
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
-		progressions: new InMemoryProgressionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
@@ -214,8 +212,7 @@ describe('createAppServices', () => {
 			0
 		);
 		await deps.cards.put({ ...learned, scheduling: { ...learned.scheduling, due: 0 } });
-		// Locate is fixed at ♩ = 80 (ladder 8, 4, 2): level 2 is served at a lead of 2, whatever
-		// tempo a stored progression holds.
+		// Locate is fixed at ♩ = 80 (ladder 8, 4, 2): level 2 is served at a lead of 2.
 		await deps.levels.put({
 			exerciseId: 'locate-neck',
 			scope: '',
@@ -224,12 +221,6 @@ describe('createAppServices', () => {
 			successes: 0,
 			failures: 0,
 			resumeAfter: null
-		});
-		await deps.progressions.put({
-			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			tempoBpm: 160,
-			updatedAt: 0
 		});
 		const controller = await services.startSession('learn');
 		await controller.start();
@@ -273,34 +264,23 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('runs locate at 80 bpm whatever its stored progression', async () => {
-		for (const [stored, expected] of [
-			[100, 80],
-			[60, 80]
-		]) {
-			const { services, deps } = harness();
-			await deps.progressions.put({
-				exerciseId: 'locate-neck',
-				mechanic: 'locate',
-				tempoBpm: stored,
-				updatedAt: 0
-			});
-			const controller = await services.startSession('learn');
-			await controller.start();
-			expect(controller.view.tempoBpm).toBe(expected);
-			await runOnTransport(deps, () => controller.view.status === 'awaiting');
-			controller.quit();
-			await new Promise((resolve) => setTimeout(resolve, 0));
-			// The session keeps the exercise it met, at the tempo of its first round.
-			expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
-				{ exerciseId: 'locate-neck', tempoBpm: expected }
-			]);
-		}
+	it('runs locate at its level 0 tempo, 80 bpm', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startSession('learn');
+		await controller.start();
+		expect(controller.view.tempoBpm).toBe(80);
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		controller.quit();
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		// The session keeps the exercise it met, at the tempo of its first round.
+		expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
+			{ exerciseId: 'locate-neck', tempoBpm: 80 }
+		]);
 	});
 
 	it('free-plays a note at the lead of its stored level, on the ladder at 80 bpm', async () => {
 		const { services, deps } = harness();
-		// Every note at level 2: lead 2 at ♩ = 80; the stored 160 is ignored.
+		// Every note at level 2: lead 2 at ♩ = 80.
 		for (const card of practiceCards().filter((c) => c.mechanic === 'locate')) {
 			await deps.levels.put({
 				exerciseId: 'locate-neck',
@@ -312,12 +292,6 @@ describe('createAppServices', () => {
 				resumeAfter: null
 			});
 		}
-		await deps.progressions.put({
-			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			tempoBpm: 160,
-			updatedAt: 0
-		});
 		const controller = await services.startSession('free');
 		await controller.start();
 		await runOnTransport(

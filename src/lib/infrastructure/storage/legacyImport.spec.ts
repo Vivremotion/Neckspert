@@ -8,7 +8,6 @@ import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
 import { DexieLevelStateRepository } from './DexieLevelStateRepository';
-import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
 
@@ -215,10 +214,10 @@ describe('importing an export of 2026-10-04', () => {
 			{ item: { string: 6, fret: 3 }, answer: { pitch: 'G' }, confusion: null }
 		]);
 
-		expect(await new DexieProgressionRepository(db).get('locate-neck')).toMatchObject({
-			mechanic: 'locate',
-			tempoBpm: 80
-		});
+		// The settings tempo went to a locate progression, which version 7 no longer keeps.
+		const exported = await new DexieBackup(db).exportAll();
+		expect(exported.version).toBe(7);
+		expect(Object.hasOwn(exported, 'progressions')).toBe(false);
 
 		const settings = await new DexieSettingsRepository(db).get();
 		expect(settings).toMatchObject({

@@ -4,9 +4,7 @@ import {
 	type Attempt,
 	type CardKey,
 	type CardState,
-	type ExerciseId,
 	type LevelState,
-	type Progression,
 	type RecordedObservation,
 	type SessionRecord,
 	type Settings,
@@ -31,7 +29,6 @@ import type {
 	NoteDetectorPort,
 	NoteOnset,
 	NoteRejection,
-	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
 	SoundSchedulerPort,
@@ -476,25 +473,6 @@ export class InMemorySessionRepository implements SessionRepositoryPort {
 
 	async list(): Promise<SessionRecord[]> {
 		return [...this.records.values()].sort((a, b) => a.startedAt - b.startedAt);
-	}
-}
-
-export class InMemoryProgressionRepository implements ProgressionRepositoryPort {
-	/** By exercise and scope: `JSON.stringify([exerciseId, scope ?? null])`. */
-	private readonly progressions = new Map<string, Progression>();
-
-	async get(exerciseId: ExerciseId, scope?: string): Promise<Progression | undefined> {
-		const stored = this.progressions.get(JSON.stringify([exerciseId, scope ?? null]));
-		return stored && { ...stored };
-	}
-
-	async put(progression: Progression): Promise<void> {
-		const key = JSON.stringify([progression.exerciseId, progression.scope ?? null]);
-		this.progressions.set(key, { ...progression });
-	}
-
-	async all(): Promise<Progression[]> {
-		return [...this.progressions.values()].map((progression) => ({ ...progression }));
 	}
 }
 

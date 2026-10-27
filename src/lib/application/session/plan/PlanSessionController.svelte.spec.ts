@@ -24,7 +24,6 @@ import {
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
-	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -109,7 +108,6 @@ async function setup(
 		attempts,
 		cards: new InMemoryCardStateRepository(),
 		sessions,
-		progressions: new InMemoryProgressionRepository(),
 		settings,
 		now: () => clock.toEpochMs(clock.now()) + wall.extraMs,
 		random: () => 0,

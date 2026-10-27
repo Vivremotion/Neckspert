@@ -63,7 +63,7 @@ export function change(index: number, options: ChangeOptions = {}): PlannedItem<
 		aid: 'none',
 		leadBeats: null,
 		...(index === 0 && { countIn: true }),
-		tempoScope: scope
+		scope
 	};
 }
 

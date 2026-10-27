@@ -5,7 +5,7 @@ import { NeckspertDb, createDatabase } from './db';
 import { neckLevelOfCard } from './migrations/v9';
 import { triadLevelOfCard } from './migrations/v10';
 import { DexieBackup } from './DexieBackup';
-import { makeAttempt, makeBackupV5, makeCard } from './testing/fixtures';
+import { makeAttempt, makeBackupV5, makeBackupV6, makeCard } from './testing/fixtures';
 import type { LevelState } from '$lib/domain/time';
 
 describe('createDatabase', () => {
@@ -15,14 +15,12 @@ describe('createDatabase', () => {
 		expect(db.name).toBe('neckspert-play');
 	});
 
-	it('declares the seven tables with their keys and indexes', () => {
+	it('declares the five tables with their keys and indexes', () => {
 		const db = createDatabase(crypto.randomUUID());
 		expect(db.tables.map((table) => table.name).sort()).toEqual([
 			'attempts',
 			'cards',
 			'levelStates',
-			'progressions',
-			'scopedProgressions',
 			'sessions',
 			'settings'
 		]);
@@ -37,8 +35,6 @@ describe('createDatabase', () => {
 		expect(db.sessions.schema.primKey.keyPath).toBe('id');
 		expect(db.sessions.schema.indexes.map((index) => index.name)).toEqual(['startedAt']);
 		expect(db.settings.schema.primKey.keyPath).toBe('id');
-		expect(db.progressions.schema.primKey.keyPath).toBe('exerciseId');
-		expect(db.progressions.schema.indexes).toEqual([]);
 		expect(db.levelStates.schema.primKey.keyPath).toEqual(['exerciseId', 'scope', 'item']);
 	});
 
@@ -60,12 +56,11 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
 		expect(await db.settings.count()).toBe(0);
-		expect(await db.progressions.count()).toBe(0);
 		db.close();
 	});
 
@@ -104,9 +99,6 @@ describe('createDatabase', () => {
 			latency: {},
 			clickBleed: false
 		});
-		expect(await db.progressions.toArray()).toEqual([
-			expect.objectContaining({ exerciseId: 'locate-neck', tempoBpm: 96 })
-		]);
 		expect((await db.cards.toArray()).map((card) => card.mechanic)).toEqual(['locate']);
 		db.close();
 	});
@@ -126,7 +118,6 @@ describe('createDatabase', () => {
 			expect.objectContaining({ id: 1, phase: 'learning', temperature: 'hot', correct: false })
 		]);
 		expect(await db.settings.count()).toBe(0);
-		expect(await db.progressions.count()).toBe(0);
 		db.close();
 	});
 
@@ -152,7 +143,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		const cards = await db.cards.orderBy('key').toArray();
 		expect(cards.map((card) => card.key)).toEqual(['identify:5:8', 'locate:3:C', 'locate:6:A']);
 		expect(cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
@@ -189,10 +180,9 @@ describe('createDatabase', () => {
 		await old.table('settings').put({ id: 'settings', tempoBpm: 96, locale: 'en' });
 		old.close();
 
-		const before = Date.now();
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 
 		const { target: _target, leadBeats: _lead, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
@@ -252,13 +242,9 @@ describe('createDatabase', () => {
 			latency: {},
 			clickBleed: false
 		});
-
-		const progressions = await db.progressions.toArray();
-		expect(progressions).toEqual([
-			{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 96, updatedAt: expect.any(Number) }
-		]);
-		expect(progressions[0].updatedAt).toBeGreaterThanOrEqual(before);
-		expect(progressions[0].updatedAt).toBeLessThanOrEqual(Date.now());
+		// The settings tempo became a locate progression at version 5, dropped at version 11: locate
+		// plays at a fixed tempo.
+		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 
 		const id = await db.attempts.add({ ...locate, id: undefined, promptedAt: 3 });
 		expect(id).toBe(3);
@@ -300,7 +286,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		const { aid: _aid, ...kept } = attempt;
 		expect(await db.attempts.toArray()).toEqual([
 			{
@@ -318,20 +304,12 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 10 and stores rows', async () => {
+	it('opens at version 11 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
-		const progression = {
-			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			tempoBpm: 104,
-			updatedAt: 1
-		};
-		await db.progressions.put(progression);
-		expect(await db.progressions.get('locate-neck')).toEqual(progression);
 		db.close();
 	});
 });
@@ -443,7 +421,7 @@ function versionFive(name: string): Dexie {
 }
 
 describe('version 7', () => {
-	it('keeps the progressions of a version 6 database, and stores scoped ones apart', async () => {
+	it('drops the locate progression of a version 6 database at version 11', async () => {
 		const name = crypto.randomUUID();
 		const old = new Dexie(name);
 		old.version(6).stores({
@@ -464,9 +442,9 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
-		expect(await db.progressions.toArray()).toEqual([progression]);
-		expect(db.scopedProgressions.schema.primKey.keyPath).toEqual(['exerciseId', 'scope']);
+		expect(db.verno).toBe(11);
+		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
+		expect(await db.levelStates.count()).toBe(0);
 		db.close();
 	});
 });
@@ -524,7 +502,7 @@ describe('version 9', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		// Version 10 then took the lead off every card, and gave the triad card its level.
 		expect(await db.cards.orderBy('key').toArray()).toEqual(
 			[...cards]
@@ -532,7 +510,8 @@ describe('version 9', () => {
 				.map(({ leadBeats: _lead, ...card }) => card)
 		);
 		expect(await db.attempts.toArray()).toEqual([{ ...attempts[0], id: 1 }]);
-		expect(await db.progressions.toArray()).toEqual(progressions);
+		// Version 11 dropped the locate progression: locate plays at a fixed tempo.
+		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		const states = await db.levelStates.toArray();
 		expect(states).toHaveLength(5);
 		expect(states).toContainEqual(triadLevelOfCard(cards[3]));
@@ -596,7 +575,7 @@ describe('version 10', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(10);
+		expect(db.verno).toBe(11);
 		const stored = await db.cards.orderBy('key').toArray();
 		expect(stored.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		expect(stored).toEqual(
@@ -628,6 +607,108 @@ describe('version 10', () => {
 			`${a.exerciseId}/${a.item}`.localeCompare(`${b.exerciseId}/${b.item}`);
 		expect((await imported.levelStates.toArray()).sort(byKey)).toEqual([...states].sort(byKey));
 		expect(await imported.cards.orderBy('key').toArray()).toEqual(stored);
+		imported.close();
+		db.close();
+	});
+});
+
+describe('version 11', () => {
+	it('upgrades a version 10 database to 11', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(10).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			progressions: 'exerciseId',
+			scopedProgressions: '[exerciseId+scope]',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const progressions = [
+			{ exerciseId: 'gesture-link', mechanic: 'chord-grid', tempoBpm: 95, updatedAt: 1 },
+			{ exerciseId: 'locate-neck', mechanic: 'locate', tempoBpm: 120, updatedAt: 1 },
+			{ exerciseId: 'gesture-zone', mechanic: 'chord-grid', tempoBpm: 100, updatedAt: 1 }
+		];
+		const scopedProgressions = [
+			{
+				exerciseId: 'gesture-climb',
+				scope: 'blues-f',
+				mechanic: 'chord-grid',
+				tempoBpm: 112.5,
+				updatedAt: 1
+			},
+			{
+				exerciseId: 'gesture-jam',
+				scope: 'iohefy-a',
+				mechanic: 'chord-grid',
+				tempoBpm: 120,
+				updatedAt: 1
+			}
+		];
+		const jam = {
+			exerciseId: 'gesture-jam',
+			scope: 'iohefy-a',
+			item: '',
+			level: 2,
+			successes: 3,
+			failures: 0,
+			resumeAfter: null
+		};
+		const attempts = [
+			{ ...makeAttempt({ id: 1 }), tempoScope: 'blues-f' },
+			{ ...makeAttempt({ id: 2 }) }
+		];
+		await old.table('progressions').bulkAdd(progressions);
+		await old.table('scopedProgressions').bulkAdd(scopedProgressions);
+		await old.table('levelStates').add(jam);
+		await old.table('attempts').bulkAdd(attempts);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(11);
+		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
+		expect(db.tables.map((table) => table.name)).not.toContain('scopedProgressions');
+		expect([...db.backendDB().objectStoreNames]).not.toContain('progressions');
+		expect([...db.backendDB().objectStoreNames]).not.toContain('scopedProgressions');
+		const level = (exerciseId: string, scope: string, value: number) => ({
+			exerciseId,
+			scope,
+			item: '',
+			level: value,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		const byKey = (a: LevelState, b: LevelState) =>
+			`${a.exerciseId}/${a.scope}`.localeCompare(`${b.exerciseId}/${b.scope}`);
+		const states = (await db.levelStates.toArray()).sort(byKey);
+		expect(states).toEqual(
+			[level('gesture-climb', 'blues-f', 6), level('gesture-link', '', 3), jam].sort(byKey)
+		);
+		const stored = await db.attempts.orderBy('id').toArray();
+		expect(stored.some((attempt) => Object.hasOwn(attempt, 'tempoScope'))).toBe(false);
+		const { tempoScope: _scope, ...first } = attempts[0] as (typeof attempts)[0] & {
+			tempoScope: string;
+		};
+		expect(stored).toEqual([{ ...first, scope: 'blues-f' }, attempts[1]]);
+
+		// The equivalent backup 6 lands on the same rows.
+		const imported = createDatabase(crypto.randomUUID());
+		await new DexieBackup(imported).importAll(
+			JSON.parse(
+				JSON.stringify(
+					makeBackupV6({
+						progressions: [...progressions, ...scopedProgressions],
+						attempts,
+						levelStates: [jam]
+					})
+				)
+			)
+		);
+		expect((await imported.levelStates.toArray()).sort(byKey)).toEqual(states);
+		expect(await imported.attempts.orderBy('id').toArray()).toEqual(stored);
 		imported.close();
 		db.close();
 	});

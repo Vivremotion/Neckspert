@@ -90,23 +90,10 @@ export interface ExerciseDefinition {
 	pick?: 'loop' | 'next';
 }
 
-/**
- * Tempo reached by the player on an exercise, or on one scope of it (a grid: a ballad and a blues
- * progress apart). Without a scope, the exercise's own.
- */
-export interface Progression {
-	exerciseId: ExerciseId;
-	/** The part of the exercise the tempo belongs to; absent for the exercise as a whole. */
-	scope?: string;
-	mechanic: MechanicId;
-	tempoBpm: number;
-	updatedAt: number;
-}
-
 /** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
 export interface Execution {
 	exerciseId: ExerciseId;
-	/** As `Progression.scope`; its prompts carry it as `PlannedItem.tempoScope`. */
+	/** The scope of its exercise level (a grid); its prompts carry it as `PlannedItem.scope`. */
 	scope?: string;
 	tempoBpm: number | null;
 }
