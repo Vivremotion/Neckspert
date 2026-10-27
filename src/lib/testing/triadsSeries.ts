@@ -8,12 +8,15 @@ import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import { rootPosition } from '$lib/domain/mechanics';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress';
-import { occurrenceOfId, triadIntroductionOrder, triadParams } from '$lib/domain/triads';
+import {
+	occurrenceOfId,
+	triadIntroductionOrder,
+	triadParams,
+	type TriadMechanic
+} from '$lib/domain/triads';
 import type { CardState } from '$lib/domain/types';
 import { CutShortVerifier } from './gestureSeries';
 import { notesApp, step, type NotesSetup } from './notesSeries';
-
-export type TriadMechanic = 'triad-anchor' | 'triad-zone';
 
 /** The anchor's introduction queue, with no locate position acquired: C's three inversions first. */
 export const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
@@ -96,10 +99,14 @@ export interface TriadSeen {
 	targetAt: number;
 }
 
-/** How a round is answered: each part right, wrong or not played. */
+/** How a round is answered: each part right, wrong or not played, and when. */
 export interface TriadAnswer {
 	root?: 'right' | 'wrong' | 'none';
 	chord?: 'right' | 'wrong' | 'none';
+	/** The root this long off its target (negative: early); on it by default. */
+	rootOffsetMs?: number;
+	/** An anchor's chord this many beats after its target; `ANCHOR_CHORD_BEATS` by default. */
+	chordBeats?: number;
 }
 
 export const allRight = (): TriadAnswer => ({ root: 'right', chord: 'right' });
@@ -181,12 +188,13 @@ export async function playTriads(
 				rounds.push(round);
 				const answer = { ...allRight(), ...choose(round) };
 				const { right, wrong } = shapes(round);
+				const beatS = 60 / controller.view.tempoBpm;
 				const chordAt =
 					round.mechanic === 'triad-anchor'
-						? round.targetAt + (ANCHOR_CHORD_BEATS * 60) / controller.view.tempoBpm
+						? round.targetAt + (answer.chordBeats ?? ANCHOR_CHORD_BEATS) * beatS
 						: round.targetAt;
 				if (round.mechanic === 'triad-anchor' && answer.root !== 'none') {
-					const time = round.targetAt;
+					const time = round.targetAt + (answer.rootOffsetMs ?? 0) / 1000;
 					sounds.push({ time, play: () => playRoot(app, round, answer.root === 'right', time) });
 				}
 				if (answer.chord !== 'none') {

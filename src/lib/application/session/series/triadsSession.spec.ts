@@ -11,9 +11,10 @@ import {
 } from '$lib/domain/music';
 import { SESSION_MS } from '$lib/domain/session';
 import { cueFrets, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
+import type { ResponseValue } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import { UnresumedClock } from '$lib/testing/fakes';
-import { drain, runUntil } from '$lib/testing/notesSeries';
+import { drain, runUntil, step } from '$lib/testing/notesSeries';
 import {
 	ANCHOR_CHORD_BEATS,
 	ORDER,
@@ -199,14 +200,20 @@ describe('the triads exercises, from the probe to the zone', () => {
 	});
 
 	it('never asks the same voicing twice in a row', async () => {
-		const app = await triadsApp({
-			cards: ORDER.slice(0, 4).map((voicing) => learnedTriad('triad-anchor', voicing))
-		});
+		// Every chord new and every probe missed: the procedure would present each missed probe
+		// aided at once (`presentsAtOnce`), the same voicing right after itself; and every miss puts
+		// its retest due soon. The chord still rings: another one must come between.
+		const app = await triadsApp();
 		const controller = await startTriads(app, 'triads');
+		const met = new Set<string>();
 		const rounds = await playTriads(
 			app,
 			controller,
-			(round) => (round.n % 3 === 2 ? { root: 'right', chord: 'wrong' } : allRight()),
+			(round) => {
+				const probe = !met.has(round.voicing);
+				met.add(round.voicing);
+				return probe ? { root: 'right', chord: 'wrong' } : allRight();
+			},
 			{ rounds: 16, maxSteps: 60_000 }
 		);
 		await runUntil(app, () => controller.view.status !== 'awaiting');
@@ -215,8 +222,16 @@ describe('the triads exercises, from the probe to the zone', () => {
 		const voicings = attempts.map((a) => (a.data as TriadAnchorData).item.voicingKey);
 		expect(voicings).toEqual(rounds.map((round) => round.voicing));
 		for (let i = 1; i < voicings.length; i++) expect(voicings[i]).not.toBe(voicings[i - 1]);
-		// The misses among them were followed too, by another chord.
-		expect(attempts.filter((a) => !a.success).length).toBeGreaterThan(2);
+		// Missed probes were followed, each by another chord, and came back aided later.
+		const missedProbes = attempts.filter((a) => a.phase === 'probe' && !a.success);
+		expect(missedProbes.length).toBeGreaterThanOrEqual(3);
+		for (const probe of missedProbes) {
+			const at = attempts.indexOf(probe);
+			const back = attempts.findIndex((a, i) => i > at && a.cardKey === probe.cardKey);
+			if (back < 0) continue;
+			expect(back).toBeGreaterThan(at + 1);
+			expect(attempts[back].aids).toEqual(expect.arrayContaining(['show-position']));
+		}
 	}, 30_000);
 
 	it('asks in the zone a shape other than the last one stored, from attempts stored before H5', async () => {
@@ -261,6 +276,83 @@ describe('the triads exercises, from the probe to the zone', () => {
 	});
 });
 
+describe('the anchor in time', () => {
+	it('judges the root on the beat, early or late as any timed note', async () => {
+		const app = await triadsApp({
+			cards: ORDER.slice(0, 3).map((voicing) => learnedTriad('triad-anchor', voicing))
+		});
+		const controller = await startTriads(app, 'triads');
+		const offsets = [-200, 200, 0];
+		await playTriads(app, controller, (round) => ({ rootOffsetMs: offsets[round.n] }), {
+			rounds: 3
+		});
+		await runUntil(app, () => controller.view.status !== 'awaiting');
+		const attempts = await quitAndRead(app, controller);
+		expect(attempts.map((a) => (a.verdict.value as ResponseValue).verdict)).toEqual([
+			'early',
+			'late',
+			'perfect'
+		]);
+		attempts.forEach((attempt, i) => expect(attempt.timingOffsetMs).toBeCloseTo(offsets[i], -1));
+		// Early and late are right: the chord was, and so was the root.
+		expect(attempts.map((a) => a.success)).toEqual([true, true, true]);
+	});
+
+	it('takes the chord in the band only: one strummed before it is no answer', async () => {
+		const app = await triadsApp({ cards: [learnedTriad('triad-anchor', C)] });
+		const controller = await startTriads(app, 'triads');
+		// The right chord, half a beat after the root: the band opens a beat after it.
+		await playTriads(app, controller, () => ({ chordBeats: 0.5 }), { rounds: 1 });
+		await runUntil(app, () => controller.view.status === 'verdict');
+		const [attempt] = await quitAndRead(app, controller);
+		expect(attempt).toMatchObject({ success: false, correct: false });
+		expect(attempt.data).toMatchObject({
+			answer: { chord: null },
+			confusion: { kind: 'no-chord', part: 'chord' }
+		});
+		expect(attempt.observations?.map((o) => [o.sensor, o.fate])).toEqual([
+			['note', 'answer'],
+			['chord', 'before-window']
+		]);
+	});
+});
+
+describe('what feeds FSRS', () => {
+	it('leaves a card’s scheduling as it was on a hot attempt, moving its level only', async () => {
+		const app = await triadsApp();
+		const controller = await startTriads(app, 'triads');
+		const key = `triad-anchor:${C}`;
+		/** Steps until the session has stored `count` attempts. */
+		const stored = async (count: number) => {
+			for (let i = 0; i < 5000; i++) {
+				await drain();
+				if ((await app.deps.attempts.listBySession(controller.sessionId)).length >= count) return;
+				await step(app);
+			}
+		};
+		// C probed and missed: stored hot, its card made.
+		await playTriads(app, controller, () => ({ chord: 'wrong' }), { rounds: 1 });
+		await stored(1);
+		const afterProbe = await app.deps.cards.get(key);
+		expect(afterProbe).toBeDefined();
+		// Another chord, then C aided, played right: a hot learning attempt.
+		await playTriads(app, controller, allRight, { rounds: 2 });
+		await stored(3);
+		const attempts = await quitAndRead(app, controller);
+		expect(attempts.map((a) => [a.cardKey === key, a.phase, a.temperature])).toEqual([
+			[true, 'probe', 'hot'],
+			[false, 'probe', expect.any(String)],
+			[true, 'learning', 'hot']
+		]);
+		expect(attempts[2].success).toBe(true);
+		const after = await app.deps.cards.get(key);
+		expect(after?.scheduling).toEqual(afterProbe?.scheduling);
+		expect(
+			await app.deps.levels.get({ exerciseId: TRIADS_ANCHOR.id, scope: '', item: C })
+		).toMatchObject({ level: 1 });
+	});
+});
+
 describe('a triad put right in the band', () => {
 	it('shows a wrong first chord at once, settles it corrected when put right in the band, stores one miss', async () => {
 		const app = await triadsApp();
@@ -281,6 +373,8 @@ describe('a triad put right in the band', () => {
 		expect(shown?.verdict).toBe('wrong');
 		expect(shown?.misses[0]?.heard).not.toBeNull();
 		expect(shown?.misses[0]?.expected).not.toBeNull();
+		// What tells them apart, in words.
+		expect(shown?.misses[0]?.gap).toBeTruthy();
 		expect(await app.deps.attempts.listBySession(controller.sessionId)).toEqual([]);
 
 		const rightAt = round.targetAt + (ANCHOR_CHORD_BEATS + 0.5) * beatS;
@@ -288,6 +382,7 @@ describe('a triad put right in the band', () => {
 		playChord(app, right, rightAt);
 		await drain();
 		expect(laneModel(controller)?.verdict?.verdict).toBe('corrected');
+		expect(laneModel(controller)?.verdict?.misses[0]?.gap).toBeTruthy();
 		const attempts = await quitAndRead(app, controller);
 		expect(attempts).toHaveLength(1);
 		expect(attempts[0]).toMatchObject({
@@ -386,7 +481,7 @@ describe('what the chord sensor is told', () => {
 		expect(inversionsOf(after.voicing)).toContain(before.voicing);
 		expect(told(after)).not.toContain(before.voicing);
 
-		// Paused in the next round: after it, nothing rings any more.
+		// Paused once the second chord is played: after the pause, nothing rings any more.
 		controller.pause();
 		controller.resume();
 		const [resumed] = await playTriads(app, controller, allRight, { rounds: 1 });
