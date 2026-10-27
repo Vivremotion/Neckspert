@@ -38,7 +38,8 @@
 	 * The frame is drawn in the world of the view on stage, from the start screen on (the
 	 * controller places its first exercise's view at `ready()`, and the page shows the frame
 	 * only then). When the stage empties (the end) it keeps the world it showed; with none ever
-	 * shown it is neutral, in the pixel world. The kind of session is not read.
+	 * shown it is neutral, in the pixel world. The world never reads the kind of session (which
+	 * still names the header and gives the how-to when the exercise tells none).
 	 */
 	const world: PlayWorld = $derived.by(() => {
 		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import type { CycleReport } from '$lib/domain/time';
@@ -338,5 +338,29 @@ describe('ExerciseLevels', () => {
 		}
 		expect(levels.breaking()).toBe('regularity');
 		expect(levels.reached('blocking', 'blues-f')).toBe(0);
+	});
+});
+
+describe('a level write that fails', () => {
+	it('is reported, settles the round all the same, and the next write goes on', async () => {
+		const { repository, levels } = await setup();
+		const put = repository.put.bind(repository);
+		const failure = new Error('disk full');
+		let calls = 0;
+		repository.put = async (state) => {
+			if (++calls === 1) throw failure;
+			return put(state);
+		};
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			await expect(levels.settle(round(true))).resolves.toBeNull();
+			expect(errors).toHaveBeenCalledWith('[neckspert] level write failed', failure);
+			await expect(levels.settle(round(true))).resolves.toBe('up');
+			await levels.settled();
+			const state = await repository.get({ exerciseId: 'climb', scope: 'blues-f', item: '' });
+			expect(state?.level).toBe(1);
+		} finally {
+			errors.mockRestore();
+		}
 	});
 });

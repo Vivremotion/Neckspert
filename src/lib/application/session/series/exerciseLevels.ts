@@ -44,7 +44,10 @@ export class ExerciseLevels {
 	/** The exercise levels stored when the series was prepared, by key; raw, clamped when met. */
 	private stored = new Map<string, LevelState>();
 	private readonly held = new Map<string, Held>();
-	/** The writes, one after the other: a failed one does not stop the later ones. */
+	/**
+	 * The writes, one after the other: a failed one is reported (`console.error`) and does not stop
+	 * the later ones; never rejected.
+	 */
 	private writes: Promise<void> = Promise.resolve();
 
 	constructor(
@@ -112,7 +115,10 @@ export class ExerciseLevels {
 		held.series = state;
 		if (writesLevels(definition)) {
 			const written = state.levelState;
-			this.writes = this.writes.catch(() => undefined).then(() => this.deps.levels.put(written));
+			// Reported, not swallowed: nothing else tells anyone a level was not written.
+			this.writes = this.writes
+				.then(() => this.deps.levels.put(written))
+				.catch((error) => console.error('[neckspert] level write failed', error));
 			await this.writes;
 		}
 		return changed;
@@ -189,7 +195,7 @@ export class ExerciseLevels {
 
 	/** Once every level settled so far is written. */
 	settled(): Promise<void> {
-		return this.writes.catch(() => undefined);
+		return this.writes;
 	}
 
 	private heldOf(exerciseId: ExerciseId, scope: string | undefined): Held {

@@ -364,6 +364,17 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
+	it('stores the latency of the first calibrated sensor its rounds listened to, a tap having none', async () => {
+		// A name to tap first (no latency for a tap), then a note to play, heard by the note sensor.
+		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
+		await app.deps.settings.update({ latency: { note: { ms: 30, provenance: 'system' } } });
+		const controller = await startNotes(app, 'learn');
+		const [named, played] = await playRounds(app, controller, allRight, { rounds: 2 });
+		expect([named.card.mechanic, played.card.mechanic]).toEqual(['identify', 'locate']);
+		await quitAndRead(app, controller);
+		expect((await app.deps.sessions.get(controller.sessionId))?.latencyMs).toBe(30);
+	});
+
 	it('keeps a named note off the note lane that follows', async () => {
 		// A name to tap due, then a new note to play: identify, a counted bar, locate.
 		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });

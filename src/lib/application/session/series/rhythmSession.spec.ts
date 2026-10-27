@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
 	RHYTHM_OFFBEATS,
 	RHYTHM_SILENT_BARS,
@@ -557,21 +557,35 @@ describe('the rhythm on the series, the breath and the levels', () => {
 		controller.quit();
 	});
 
-	it('goes on writing the level after a write that failed', async () => {
-		const { controller, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+	it('reports a level write that failed, plays on and goes on writing the level', async () => {
+		const { controller, levels, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			met: true
+		});
 		const put = levels.put.bind(levels);
 		let calls = 0;
+		const failure = new Error('disk full');
 		levels.put = async (state) => {
 			calls++;
-			if (calls === 1) throw new Error('disk full');
+			if (calls === 1) throw failure;
 			return put(state);
 		};
-		await controller.start();
-		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
-		expect(calls).toBeGreaterThan(1);
-		const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
-		expect(state?.level).toBe(1);
-		controller.quit();
+		const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+		try {
+			await controller.start();
+			await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+			// Told, not swallowed.
+			expect(errors).toHaveBeenCalledWith('[neckspert] level write failed', failure);
+			expect(calls).toBeGreaterThan(1);
+			const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
+			expect(state?.level).toBe(1);
+			// The series goes on: the breath reached, the run's four cycles stored.
+			await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
+			expect(stageOf(controller).phase).toBe('breath');
+			expect(await stored()).toHaveLength(4);
+		} finally {
+			errors.mockRestore();
+			controller.quit();
+		}
 	});
 
 	it('shows the breath with its last bar counted, then the next run', async () => {

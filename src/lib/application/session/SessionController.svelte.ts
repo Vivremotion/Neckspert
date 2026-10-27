@@ -286,8 +286,11 @@ export class SessionController implements PlaySessionController {
 	private runLatencyS = 0;
 	/** The run whose take is kept: its muted bars are heard again with their click. */
 	private keptRun: RunPlay | null = null;
-	/** The sensor the series' first rounds listen to: its latency is the session's. */
-	private sessionSensor: string | null = null;
+	/**
+	 * The latency of the first sensor met in the series that has one calibrated, in ms: the
+	 * session's; null while none was met.
+	 */
+	private sessionLatencyMs: number | null = null;
 	/** The item before the round to open, for its expectation; null after a stop. */
 	private previous: PlannedItem | null = null;
 	private lastScene: Scene | null = null;
@@ -374,7 +377,7 @@ export class SessionController implements PlaySessionController {
 			this.startedAt = this.epochNow();
 			const first = this.pending ?? this.takeNext();
 			this.sessionItem = first;
-			this.sessionSensor = first && sensorOf(this.planOf(first, this.meterOf(first)));
+			if (first) this.meetSensor(this.planOf(first, this.meterOf(first)));
 			// Its instruction, if any, was on the start screen: no stop of its own.
 			this.view.briefing = null;
 			this.sensors.open(
@@ -481,7 +484,7 @@ export class SessionController implements PlaySessionController {
 		this.keptRun = null;
 		this.runOutcomes = [];
 		this.runLatencyS = 0;
-		this.sessionSensor = null;
+		this.sessionLatencyMs = null;
 		this.listenIn = null;
 		this.countBar = null;
 		this.placedStart = null;
@@ -1036,6 +1039,7 @@ export class SessionController implements PlaySessionController {
 		const fromRunStart = this.fromRunStart(at);
 		// Compiled where it falls in its run: a cycle's place in the loops of its figure.
 		const plan = fromRunStart === null ? placed : this.planOf(item, this.seriesMeter, fromRunStart);
+		this.meetSensor(plan);
 		const given = roundGiven(this.items.definitionOf(item), item, help);
 		const end = at.add(plan.length.div(this.transport.barLength));
 		if (this.clicksOn(item)) this.accompanyRound(at, plan);
@@ -1651,8 +1655,9 @@ export class SessionController implements PlaySessionController {
 				// What the anti-blocking reads of it: a cycle's report, and its spot.
 				...blockReadingOf(definition, outcome, wholeS)
 			})
-			// A failed write is the store's to report; the series goes on (`settled` waits for it).
-			.catch(() => undefined);
+			// A failed write is reported by the levels (`settled` waits for it); anything else here,
+			// reported too: the series goes on.
+			.catch((error) => console.error('[neckspert] level settle failed', error));
 		const { segment } = round;
 		const log = this.log;
 		if (segment !== null && log) {
@@ -2049,11 +2054,19 @@ export class SessionController implements PlaySessionController {
 	}
 
 	/**
-	 * The latency the session applied to its onsets: that of the sensor its first rounds listen
-	 * to (`sensorLatency`, the fallback's when it has none), 0 when none is calibrated.
+	 * The latency the session applied to its onsets: that of the first sensor met in the series
+	 * with one calibrated (`sensorLatency`, the fallback's when it has none), 0 when none is.
 	 */
 	private latencyMs(): number {
-		return this.latencyMsOf(this.sessionSensor);
+		return this.sessionLatencyMs ?? 0;
+	}
+
+	/** `plan`'s sensor is met: its latency becomes the session's if none was met before. */
+	private meetSensor(plan: RoundPlan): void {
+		if (this.sessionLatencyMs !== null) return;
+		const sensor = sensorOf(plan);
+		const latency = sensor === null ? null : sensorLatency(this.settings.latency, sensor);
+		if (latency) this.sessionLatencyMs = latency.ms;
 	}
 
 	/** The calibrated latency of `sensor` in ms, 0 when uncalibrated or for no sensor. */
