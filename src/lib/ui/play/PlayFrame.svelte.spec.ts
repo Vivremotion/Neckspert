@@ -166,6 +166,16 @@ describe('PlayFrame', () => {
 			expect(VIEW_WORLDS['rhythm-figure']).toBe('pixel');
 		});
 
+		it('shows no tempo while the series has not set one', () => {
+			const controller = new StageController();
+			controller.view.tempoBpm = 0;
+			controller.view.stage = { view: 'lane', model: waiting };
+			const { container } = render(PlayFrame, { props: { controller, kind: 'learn' } });
+			const info = container.querySelector('.info-line');
+			expect(info?.textContent).toContain('Apprentissage');
+			expect(info?.textContent).not.toContain('♩');
+		});
+
 		it('frames a quiet view in the quiet world: info line, start button, countdown in the field', async () => {
 			const controller = new StageController();
 			controller.view.tempoBpm = 100;

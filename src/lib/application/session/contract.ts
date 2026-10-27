@@ -74,6 +74,7 @@ export interface AnswerChoice {
 
 export interface PlayView {
 	status: PlayStatus;
+	/** The tempo played; 0 while the series has not set it (before its first item), and not shown. */
 	tempoBpm: number;
 	fatigueDetected: boolean;
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */

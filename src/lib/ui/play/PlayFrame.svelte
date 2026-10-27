@@ -143,7 +143,7 @@
 {#if world === 'quiet'}
 	<QuietField {light} data-world="quiet" data-status={view.status}>
 		<QuietTop
-			parts={[t.kindName[kind], t.tempo(view.tempoBpm)]}
+			parts={view.tempoBpm > 0 ? [t.kindName[kind], t.tempo(view.tempoBpm)] : [t.kindName[kind]]}
 			playing={running}
 			{light}
 			onpause={() => controller.pause()}
