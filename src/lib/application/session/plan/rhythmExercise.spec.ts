@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-	RHYTHM_EXERCISES,
-	RHYTHM_OFFBEATS,
-	RHYTHM_SILENT_BARS,
-	RHYTHM_TWO_FOUR
-} from '$lib/domain/exercise';
-import { Fraction, METER_4_4, clickAccompaniment, levelRange } from '$lib/domain/time';
-import { FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
-import { Transport } from '../transport';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
+import { Fraction, METER_4_4, clickAccompaniment } from '$lib/domain/time';
 import { levelView, figurePosition, tempoView } from './rhythmStage';
 import {
 	accompanimentFrom,
@@ -108,28 +101,5 @@ describe('the stage helpers', () => {
 		expect(figurePosition({ figure: two.figure, startBar: 1, barInCycle: 1, beat: 0 })).toEqual(
 			Fraction.ZERO
 		);
-	});
-});
-
-describe('the breath between two runs', () => {
-	it('lasts at least 2 bars for every exercise at every level tempo', async () => {
-		// The controller reads the next run's level at the bar before the breath ends, once the
-		// last cycle has settled a quarter bar into the breath: that holds from 2 bars on.
-		for (const exercise of RHYTHM_EXERCISES) {
-			const levels = rhythmLevels(exercise);
-			const { lowest, highest } = levelRange(levels);
-			for (let level = lowest; level <= highest; level++) {
-				const params = rhythmParamsOf(exercise, level);
-				const clock = new FakeClock();
-				const transport = new Transport({ clock, sounds: new FakeSoundScheduler(clock) });
-				await transport.begin({
-					meter: params.accompaniment.figure.meter,
-					tempo: tempoSegmentOf(params),
-					accompaniment: params.accompaniment
-				});
-				const { from, to } = transport.breath(0);
-				expect(to - from, `${exercise.id} level ${level}`).toBeGreaterThanOrEqual(2);
-			}
-		}
 	});
 });

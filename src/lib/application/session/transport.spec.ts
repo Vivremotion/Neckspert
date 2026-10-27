@@ -7,7 +7,10 @@ import {
 	type Figure,
 	type TempoSegment
 } from '$lib/domain/time';
-import { BREATH_MIN_MS, LISTEN_IN_BARS, Transport, TransportStopped } from './transport';
+import { LISTEN_IN_BARS, Transport, TransportStopped } from './transport';
+
+/** The shortest breath the rhythm writes (`pacing.breathMinMs`). */
+const SHORTEST_BREATH_MS = 4000;
 
 const f = Fraction.of;
 const tempo = (bpm: number): TempoSegment => ({ at: Fraction.ZERO, bpm, unit: f(1, 4) });
@@ -207,15 +210,14 @@ describe('Transport.accompany and playFigure', () => {
 });
 
 describe('Transport.breath', () => {
-	it('lasts whole bars of at least BREATH_MIN_MS, clicks every beat and counts the last bar', async () => {
+	it('lasts whole bars of at least its shortest length, clicks every beat and counts the last bar', async () => {
 		const { sounds, transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
 		const before = sounds.emitted().length;
-		const range = transport.breath(10);
-		expect(BREATH_MIN_MS).toBe(4000);
+		const range = transport.breath(10, SHORTEST_BREATH_MS);
 		expect(range).toEqual({ from: 10, to: 12 });
 		const seconds = transport.map.toSeconds(f(12)) - transport.map.toSeconds(f(10));
-		expect(seconds * 1000).toBeGreaterThanOrEqual(BREATH_MIN_MS);
+		expect(seconds * 1000).toBeGreaterThanOrEqual(SHORTEST_BREATH_MS);
 		expect(sounds.emitted().slice(before)).toHaveLength(8);
 		expect(transport.countdownAt(10)).toBeNull();
 		expect(transport.countdownAt(11)).toBe(4);
@@ -225,10 +227,16 @@ describe('Transport.breath', () => {
 		const { transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
 		// a bar lasts 2.4 s: two bars are 4.8 s
-		expect(transport.breath(5)).toEqual({ from: 5, to: 7 });
+		expect(transport.breath(5, SHORTEST_BREATH_MS)).toEqual({ from: 5, to: 7 });
 		await transport.begin({ meter: METER_4_4, tempo: tempo(60), accompaniment: clicks });
 		// a bar lasts 4 s: one bar is enough
-		expect(transport.breath(5)).toEqual({ from: 5, to: 6 });
+		expect(transport.breath(5, SHORTEST_BREATH_MS)).toEqual({ from: 5, to: 6 });
+	});
+
+	it('lasts one bar when it asks no length', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		expect(transport.breath(5, 0)).toEqual({ from: 5, to: 6 });
 	});
 });
 
@@ -408,7 +416,7 @@ describe('Transport.changeTempo after a breath', () => {
 		const { sounds, transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
 		transport.accompany(3, 10, clicks);
-		const breath = transport.breath(10);
+		const breath = transport.breath(10, SHORTEST_BREATH_MS);
 		const before = sounds.emitted().length;
 		const { playFrom } = transport.changeTempo(breath.to, tempo(60), offbeats);
 		expect(playFrom).toBe(breath.to + 3);

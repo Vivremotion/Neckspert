@@ -3,7 +3,7 @@ import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
 import { recallThresholdOf } from './recall';
 import { DEFAULT_TEMPO_BPM } from './tempo';
-import type { ExerciseDefinition, MechanicId } from './types';
+import type { ExerciseDefinition, ExercisePacing, MechanicId } from './types';
 import { windowsOf } from './windows';
 
 /** Dotted paths of the resolved params and the values that replace them. */
@@ -102,4 +102,9 @@ export function tempoOf(definition: ExerciseDefinition, exerciseLevel: number): 
 		throw new Error(`${definition.id}: level ${exerciseLevel} resolves no tempo, got ${tempo}`);
 	}
 	return tempo;
+}
+
+/** The pacing an exercise level plays at: its runs and breaths (`pacing`, over its default). */
+export function pacingAt(definition: ExerciseDefinition, exerciseLevel: number): ExercisePacing {
+	return resolvedParamsOf(definition, { exerciseLevel, itemLevel: null }).pacing as ExercisePacing;
 }

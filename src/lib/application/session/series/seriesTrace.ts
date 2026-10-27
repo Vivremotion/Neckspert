@@ -2,7 +2,8 @@ import {
 	TraceBuilder,
 	type Segment,
 	type SegmentFields,
-	type SegmentRole
+	type SegmentRole,
+	type SeriesEnd
 } from '$lib/domain/session';
 
 /**
@@ -57,7 +58,7 @@ export class SeriesTrace {
 	}
 
 	/** Ends the series, with why. */
-	close(time: number, reason: 'time' | 'quit'): void {
+	close(time: number, reason: SeriesEnd | 'quit'): void {
 		this.builder.set(this.series, { reason });
 		this.builder.closeAll(Math.max(time, this.builder.tree().endS), 'done');
 	}

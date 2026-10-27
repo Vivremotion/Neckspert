@@ -1,6 +1,15 @@
-import { exerciseLevelsOf } from '$lib/domain/exercise/levels';
+import { exerciseLevelsOf, pacingAt } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
-import { settle, startSeries, type SeriesRules, type SeriesState } from '$lib/domain/session';
+import {
+	next,
+	settle,
+	startRun,
+	startSeries,
+	type Coming,
+	type Next,
+	type SeriesRules,
+	type SeriesState
+} from '$lib/domain/session';
 import { levelRange, type LevelState } from '$lib/domain/time';
 import type { LevelStateRepositoryPort } from '$lib/application/ports';
 import type { Announcement } from '../contract';
@@ -12,7 +21,7 @@ function keyOf(exerciseId: ExerciseId, scope: string | undefined): string {
 
 /** Where one (exercise, scope) stands in a series. */
 interface Held {
-	/** The state the policy moves, stored at each settle. */
+	/** The state the policy moves: its level, stored at each settle, and its run. */
 	series: SeriesState;
 	/** The level its rounds play at: the state's, once applied. */
 	played: number;
@@ -24,7 +33,9 @@ interface Held {
  * with the anti-blocking when the exercise asks it) and stored at once, so a change reached as
  * time runs out is kept; a change waits for `apply`, which the series calls at a round that does
  * not chain (a breath), never in the middle of a run. An exercise that writes no levels has one,
- * implicit, that never moves: nothing is stored for it.
+ * implicit, that never moves: nothing is stored for it. At each boundary between rounds, the
+ * policy's `next` decides on the state of the coming round's (exercise, scope): another round of
+ * its run, a breath, or the end (plan H6, D7).
  */
 export class ExerciseLevels {
 	/** The exercise levels stored when the series was prepared, by key; raw, clamped when met. */
@@ -74,7 +85,7 @@ export class ExerciseLevels {
 		const held = this.heldOf(round.exerciseId, round.scope);
 		const { state, changed } = settle(
 			held.series,
-			rulesOf(definition),
+			rulesOf(definition, Number.POSITIVE_INFINITY),
 			// A response round has no cycle report: rounds are never compared spot by spot.
 			{ level: round.level, item: '', success: round.success, aided: round.aided, spotMs: 0 },
 			this.deps.now()
@@ -86,6 +97,30 @@ export class ExerciseLevels {
 			await this.writes;
 		}
 		return changed;
+	}
+
+	/**
+	 * At the boundary before a round of (exercise, scope) — `coming`, how it would come; null when
+	 * the source has nothing more — what the policy decides (`next`), over the run under way, or
+	 * one started there. After a breath, a new run starts with the coming round, which comes after
+	 * a counted bar: `next` is that round's place in it.
+	 */
+	boundary(
+		at: { exerciseId: ExerciseId; scope?: string },
+		elapsedMs: number,
+		budgetMs: number,
+		coming: Coming | null
+	): { breath: boolean; next: Next } {
+		const held = this.heldOf(at.exerciseId, at.scope);
+		const rules = rulesOf(this.deps.exercise(at.exerciseId), budgetMs);
+		const running = (state: SeriesState) => (state.run ? state : startRun(state));
+		let step = next(running(held.series), rules, elapsedMs, coming);
+		const breath = step.next.role === 'breath';
+		if (breath) {
+			step = next(startRun(step.state), rules, elapsedMs, { chains: false, countIn: true });
+		}
+		held.series = step.state;
+		return { breath, next: step.next };
 	}
 
 	/** At a round that does not chain: the change waiting for (exercise, scope) becomes the level played. */
@@ -141,16 +176,17 @@ function writesLevels(definition: ExerciseDefinition): boolean {
 }
 
 /**
- * What the policy's `settle` reads of an exercise: its levels and whether it asks the
- * anti-blocking. A response series has no figure to sound, and its runs and length are not the
- * policy's yet (Task 5 of plan H6): `params` and `budgetMs` are never read by `settle`.
+ * What the policy reads of an exercise: its levels, the runs of each (`pacing.roundsPerBreath`,
+ * none when absent) and whether it asks the anti-blocking, with the series' length. A response
+ * series has no figure to sound: no listening, no remedy that sounds.
  */
-function rulesOf(definition: ExerciseDefinition): SeriesRules {
+function rulesOf(definition: ExerciseDefinition, budgetMs: number): SeriesRules {
 	return {
 		levels: exerciseLevelsOf(definition),
-		params: () => ({ cyclesPerBreath: Number.POSITIVE_INFINITY, listen: 'none' }),
+		roundsPerBreath: (level) => pacingAt(definition, level).roundsPerBreath ?? null,
+		listen: () => 'none',
 		canSound: false,
-		budgetMs: Number.POSITIVE_INFINITY,
+		budgetMs,
 		antiBlocking: definition.flow?.antiBlocking ?? false
 	};
 }

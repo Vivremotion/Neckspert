@@ -98,9 +98,17 @@ export interface Execution {
 	tempoBpm: number | null;
 }
 
-/** The rhythm of an exercise on the beat: the bars of breathing after a target. */
+/**
+ * The pace of an exercise: the bars of breathing after a target, and the runs of a series (decision
+ * D7 of plan H6): how many rounds a run plays before its breath, and how long that breath lasts at
+ * least.
+ */
 export interface ExercisePacing {
 	respirationBars: number;
+	/** Rounds a run plays before its breath; absent: a run ends only before a counted bar. */
+	roundsPerBreath?: number;
+	/** The shortest breath between two runs, in ms, rounded up to whole bars; absent: 0. */
+	breathMinMs?: number;
 }
 
 /** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */

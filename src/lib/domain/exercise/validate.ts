@@ -69,11 +69,22 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
-	const pacing = params.pacing as { respirationBars?: unknown } | undefined;
+	const pacing = params.pacing as Record<string, unknown> | undefined;
 	// A round on the beat lasts its breath: 0 bars would make it last nothing.
 	const bars = pacing?.respirationBars;
-	if (pacing !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
+	if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
 		return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
+	}
+	const rounds = pacing?.roundsPerBreath;
+	if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
+		return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
+	}
+	const breathMs = pacing?.breathMinMs;
+	if (
+		breathMs !== undefined &&
+		!(typeof breathMs === 'number' && Number.isFinite(breathMs) && breathMs >= 0)
+	) {
+		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
 	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;

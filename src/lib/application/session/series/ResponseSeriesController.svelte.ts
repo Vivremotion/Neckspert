@@ -3,7 +3,7 @@ import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ItemSource } from '$lib/domain/progress';
 import { detectFatigue } from '$lib/domain/scoring/fatigue';
-import { SESSION_MS, type Segment } from '$lib/domain/session';
+import { SESSION_MS, type Coming, type Segment, type SeriesEnd } from '$lib/domain/session';
 import {
 	Fraction,
 	METER_4_4,
@@ -38,7 +38,6 @@ import { ExerciseLevels } from './exerciseLevels';
 import { RoundRunner, type RunnerEvent } from './roundRunner';
 import { ceilBar, barAtOrAfter } from './seriesBars';
 import {
-	chainable,
 	comingStart,
 	inFreeTime,
 	nextBeat,
@@ -93,7 +92,10 @@ interface OpenRound {
  * a handover, once it settles, on the first place its plan allows (`timedStart`, L4) or on the
  * beat after the answer in free time (D3), shown `previewBeats` before its prompt (D5); else after
  * a counted bar (silent bars first when the item asks), the tempo changed first for an item of
- * another tempo. An exercise met for the first time in the series stops on its instruction. Each
+ * another tempo. At each boundary the policy decides (`next`, through `ExerciseLevels`): another
+ * round, a breath (a run played out: the next round after a counted bar), or the end (past the
+ * series' length where the next round does not chain, or the source has nothing more). An exercise
+ * met for the first time in the series stops on its instruction. Each
  * settled round is written (`recordResponse`), which tells the source first, and moves its
  * exercise's level (`ExerciseLevels`); a level reached applies at the next round that does not
  * chain, announced, its tempo the new level's. It judges nothing and knows no exercise: what it
@@ -135,6 +137,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	private startedAt = 0;
 	/** The series' length, as its preparation gives it. */
 	private durationMs = SESSION_MS;
+	/** Why the series ended on its own, once the policy says so. */
+	private ended: SeriesEnd | null = null;
 	private tempoBpm: number | null = null;
 	/** The transport has begun at least once: its map gives the time. */
 	private begun = false;
@@ -237,7 +241,13 @@ export class ResponseSeriesController implements PlaySessionController {
 			await opened;
 			if (this.generation !== generation) return;
 			if (!first) {
-				void this.finish();
+				this.end('complete');
+				return;
+			}
+			// The first round opens the first run of its exercise.
+			const decided = this.decide(first, { chains: false, countIn: true });
+			if (decided.next.role === 'end') {
+				this.end(decided.next.reason);
 				return;
 			}
 			this.introduced.add(first.exerciseId);
@@ -285,6 +295,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.meter = null;
 		this.click = null;
 		this.quitting = false;
+		this.ended = null;
 		this.finishing = null;
 		this.accompaniedUntil = 0;
 		this.pending = null;
@@ -321,10 +332,15 @@ export class ResponseSeriesController implements PlaySessionController {
 		const generation = ++this.generation;
 		this.log?.closeStop(this.deps.clock.now());
 		this.view.briefing = null;
-		// An item held through the pause starts no round once the series' length is spent: no handover here.
-		const item = this.pending && this.spent() ? null : (this.pending ?? this.choose(false));
+		const item = this.pending ?? this.takeNext();
 		if (!item) {
-			void this.finish();
+			this.end('complete');
+			return;
+		}
+		// A stop is a boundary: the series goes on after a counted bar, unless its length is spent.
+		const decided = this.decide(item, { chains: false, countIn: true });
+		if (decided.next.role === 'end') {
+			this.end(decided.next.reason);
 			return;
 		}
 		if (this.needsBriefing(item)) {
@@ -607,27 +623,47 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	/**
 	 * After `round`: the next item chained at its handover, placed from `earliest` without a
-	 * count when `round` has no handover, placed after a count, or the end.
+	 * count when `round` has no handover, placed after a count, or the end, as the policy decides
+	 * from where the item would go.
 	 */
 	private advance(round: OpenRound, time: number, earliest: Fraction): void {
 		const handover = round.runner.handoverTime !== null;
-		const taken = this.choose(handover);
+		const taken = this.takeNext();
 		if (!taken) {
-			void this.finish();
+			const decided = this.decide(round.item, null);
+			this.end(decided.next.role === 'end' ? decided.next.reason : 'complete');
 			return;
 		}
-		if (this.needsBriefing(taken)) {
-			this.brief(taken);
-			return;
-		}
+		const briefing = this.needsBriefing(taken);
 		let item = this.leveled(taken);
 		let plan = this.planOf(item, this.meterOf(item));
 		let placement = placeNext(this.placementContext(item, plan, earliest, handover));
 		// A round that does not chain applies the level its exercise reached: placed again at it.
-		if (placement.kind !== 'chain' && this.applyLevel(item)) {
+		// An instruction comes first: the level applies when the series goes on after it.
+		if (!briefing && placement.kind !== 'chain' && this.applyLevel(item)) {
 			item = this.leveled(taken);
 			plan = this.planOf(item, this.meterOf(item));
 			placement = placeNext(this.placementContext(item, plan, earliest, handover));
+		}
+		const decided = this.decide(item, {
+			chains: placement.kind === 'chain',
+			countIn: placement.kind === 'count-in'
+		});
+		if (decided.next.role === 'end') {
+			this.end(decided.next.reason);
+			return;
+		}
+		if (briefing) {
+			this.brief(taken);
+			return;
+		}
+		if (decided.breath && placement.kind !== 'count-in') {
+			// A run played out: the next one starts after a counted bar, at the level reached.
+			if (placement.kind === 'chain' && this.applyLevel(item)) {
+				item = this.leveled(taken);
+				plan = this.planOf(item, this.meterOf(item));
+			}
+			placement = placeNext(this.placementContext(item, plan, earliest, handover, true));
 		}
 		switch (placement.kind) {
 			case 'chain':
@@ -642,19 +678,24 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 	}
 
-	/** What `placeNext` decides `item`'s place from, the series as it stands. */
+	/**
+	 * What `placeNext` decides `item`'s place from, the series as it stands; `countIn`: a counted
+	 * bar asked before it whatever the item says (a breath).
+	 */
 	private placementContext(
 		item: PlannedItem,
 		plan: RoundPlan,
 		earliest: Fraction,
-		handover: boolean
+		handover: boolean,
+		countIn = false
 	): PlacementContext {
+		const coming = this.comingOf(item);
 		return {
 			earliest,
 			handover,
 			nowBar: this.nowBar(),
 			current: { tempo: this.tempoBpm, meter: this.seriesMeter, scene: this.lastScene },
-			coming: this.comingOf(item),
+			coming: countIn ? { ...coming, countIn: true } : coming,
 			plan,
 			firstAudibleBar: this.audibleBar(Math.max(ceilBar(earliest), this.accompaniedUntil))
 		};
@@ -731,19 +772,18 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
-	 * The next item, or null when the series ends: the source has nothing more, or its length
-	 * is spent and the item would not open at a handover (`handover`: the round before has one).
+	 * What the policy decides at the boundary before `item`'s round (`coming`: how it would come;
+	 * null, the source has nothing more), over the run of its (exercise, scope).
 	 */
-	private choose(handover: boolean): PlannedItem | null {
-		const item = this.takeNext();
-		if (!item) return null;
-		if (this.spent() && !(handover && this.chainable(item))) return null;
-		return item;
+	private decide(item: PlannedItem, coming: Coming | null): ReturnType<ExerciseLevels['boundary']> {
+		const elapsedMs = this.epochNow() - this.startedAt;
+		return this.levels.boundary(item, elapsedMs, this.durationMs, coming);
 	}
 
-	/** The series' length has passed since it started. */
-	private spent(): boolean {
-		return this.epochNow() - this.startedAt >= this.durationMs;
+	/** The series ends on its own, for `reason`. */
+	private end(reason: SeriesEnd): void {
+		this.ended = reason;
+		void this.finish();
 	}
 
 	private takeNext(): PlannedItem | null {
@@ -756,14 +796,6 @@ export class ResponseSeriesController implements PlaySessionController {
 			}) ?? null;
 		if (item) this.spelling.set(item, this.deps.random());
 		return item;
-	}
-
-	/** Goes on without a gap: no counted bar asked, the same tempo, meter and scene. */
-	private chainable(item: PlannedItem): boolean {
-		return chainable(
-			{ tempo: this.tempoBpm, meter: this.seriesMeter, scene: this.lastScene },
-			this.comingOf(item)
-		);
 	}
 
 	/**
@@ -1076,7 +1108,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.view.briefing = null;
 		this.view.stage = null;
 		this.view.status = 'finished';
-		this.log?.close(now, this.quitting ? 'quit' : 'time');
+		this.log?.close(now, this.quitting ? 'quit' : (this.ended ?? 'time'));
 		this.deps.detector.stop();
 		// Taken now: a new series started meanwhile has its own.
 		const record = this.sessionRecord(null);

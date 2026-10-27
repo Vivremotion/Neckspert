@@ -685,7 +685,10 @@ describe('PlanSessionController, unblocking', () => {
 		// Eight cycles a run: when the third settles, the fifth is already laid out.
 		const long = {
 			...RHYTHM_OFFBEATS,
-			params: { ...RHYTHM_OFFBEATS.params, cyclesPerBreath: 8 }
+			params: {
+				...RHYTHM_OFFBEATS.params,
+				pacing: { ...(RHYTHM_OFFBEATS.params.pacing as object), roundsPerBreath: 8 }
+			}
 		};
 		const { controller, memory, attempts, levels, player, advance } = await setup(long, {
 			met: true

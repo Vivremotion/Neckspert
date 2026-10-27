@@ -5,8 +5,6 @@ import type { ExpectationWindow } from './plan';
 export const PASS_AFTER_CYCLES = 3;
 /** Failures in a row that move an exercise down a level (a level's `drop` overrides it). */
 export const DROP_AFTER_FAILS = 2;
-/** Cycles played before a breath, unless a level says otherwise. */
-export const CYCLES_PER_BREATH = 4;
 
 /** Bars of accompaniment alone (listen, do not play) before play, unless an exercise says otherwise. */
 export const LISTEN_IN_BARS = 2;
@@ -23,7 +21,6 @@ export interface LevelParams {
 	feedback: Feedback;
 	listen: 'free' | 'aid' | 'none';
 	cursor: boolean;
-	cyclesPerBreath: number;
 	/** Bars of accompaniment alone before play; absent: `LISTEN_IN_BARS`. */
 	listenInBars?: number;
 	/** A counted bar (every beat clicked, countdown shown) after the listen-in; absent: true. */

@@ -32,7 +32,6 @@ const LEVEL_PARAM_KEYS: Record<keyof LevelParams, true> = {
 	feedback: true,
 	listen: true,
 	cursor: true,
-	cyclesPerBreath: true,
 	listenInBars: true,
 	countIn: true,
 	thresholds: true

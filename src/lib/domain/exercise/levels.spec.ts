@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { LOCATE_NECK } from './catalog';
-import { exerciseLevelsOf, overrideParams, resolvedParamsOf, tempoOf } from './levels';
+import { exerciseLevelsOf, overrideParams, pacingAt, resolvedParamsOf, tempoOf } from './levels';
 import type { ExerciseDefinition } from './types';
 
 describe('overrideParams', () => {
@@ -90,5 +90,22 @@ describe('resolvedParamsOf', () => {
 		expect(exerciseLevelsOf(LOCATE_NECK)).toEqual([{ params: {} }]);
 		expect(tempoOf(LOCATE_NECK, 0)).toBe(80);
 		expect(() => tempoOf(LOCATE_NECK, 1)).toThrow(/level 1/);
+	});
+});
+
+describe('pacingAt', () => {
+	it('reads the pacing an exercise level resolves to', () => {
+		const paced: ExerciseDefinition = {
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, pacing: { roundsPerBreath: 4, breathMinMs: 4000 } },
+			levels: [{ params: {} }, { params: { 'pacing.roundsPerBreath': 8 } }]
+		};
+		expect(pacingAt(paced, 0)).toEqual({
+			respirationBars: 1,
+			roundsPerBreath: 4,
+			breathMinMs: 4000
+		});
+		expect(pacingAt(paced, 1)).toMatchObject({ roundsPerBreath: 8, breathMinMs: 4000 });
+		expect(pacingAt(LOCATE_NECK, 0)).toEqual({ respirationBars: 1 });
 	});
 });

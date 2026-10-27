@@ -7,7 +7,7 @@ import {
 } from '$lib/domain/time';
 import { parseLilyPondRhythm } from '$lib/domain/time/notation/lilypond';
 import type { LevelOverrides } from './levels';
-import type { ExerciseDefinition } from './types';
+import type { ExerciseDefinition, ExercisePacing } from './types';
 
 /**
  * The pure rhythm exercises (spec 2026-10-14, section 9): a figure played over and over, cycle
@@ -15,7 +15,8 @@ import type { ExerciseDefinition } from './types';
  * are written in LilyPond once, here, and are plain data afterwards; the how-to texts are ours.
  *
  * Their params are the `LevelParams` of the rhythm but the tempo, which each writes as its own
- * `tempo`, in quarter notes per minute. A level overrides dotted paths of the exercise's params
+ * `tempo`, in quarter notes per minute, plus their `pacing`: runs of cycles and a breath of at
+ * least `SHORTEST_BREATH_MS` between them. A level overrides dotted paths of the exercise's params
  * alone (`resolvedParamsOf`), the tempo included, so each level below states everything that
  * differs from the params, the changes of the levels before it included. Each asks the
  * anti-blocking (`flow.antiBlocking`).
@@ -41,20 +42,33 @@ const BASE_THRESHOLDS: LevelParams['thresholds'] = {
 	precision: 60
 };
 
+/** The shortest breath between two runs of cycles, rounded up to whole bars. */
+const SHORTEST_BREATH_MS = 4000;
+
+/** The params of a rhythm exercise: its level params but the tempo, and its pacing. */
+type RhythmParams = Omit<LevelParams, 'tempo'> & {
+	pacing: Pick<ExercisePacing, 'roundsPerBreath' | 'breathMinMs'>;
+};
+
+/** Runs of `rounds` cycles chained without a gap, a breath of at least `SHORTEST_BREATH_MS` after each. */
+function runsOf(rounds: number): RhythmParams['pacing'] {
+	return { roundsPerBreath: rounds, breathMinMs: SHORTEST_BREATH_MS };
+}
+
 function figureOf(text: string): Figure {
 	return parseLilyPondRhythm(text, { meter: METER_4_4 });
 }
 
 // Mesures silencieuses ---------------------------------------------------------------------
 
-const SILENT_BARS_PARAMS: Omit<LevelParams, 'tempo'> = {
+const SILENT_BARS_PARAMS: RhythmParams = {
 	accompaniment: clicks(EVERY_BEAT, playedThenSilent(3, 1), [1]),
 	cycleBars: 4,
 	window: { ms: 80 },
 	feedback: 'every-cycle',
 	listen: 'free',
 	cursor: true,
-	cyclesPerBreath: 4,
+	pacing: runsOf(4),
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -114,7 +128,7 @@ const TWO_FOUR_LINES = [
 	'c4 r4 c4 c4 | c8 c8 c8 c8 c2 | c4 c4 c8 c8 c4 | c2 c4 r4'
 ];
 
-const TWO_FOUR_PARAMS: Omit<LevelParams, 'tempo'> = {
+const TWO_FOUR_PARAMS: RhythmParams = {
 	accompaniment: clicks([2, 4], ['on']),
 	cycleBars: 4,
 	window: { ms: 80 },
@@ -123,7 +137,8 @@ const TWO_FOUR_PARAMS: Omit<LevelParams, 'tempo'> = {
 	cursor: true,
 	// The click on 2 and 4 is the count: the line starts right after two bars of it.
 	countIn: false,
-	cyclesPerBreath: 1,
+	// A new line at each cycle: one cycle, then a breath.
+	pacing: runsOf(1),
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -154,14 +169,14 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 
 const OFFBEAT_BAR = 'c8 c r c r c r c';
 
-const OFFBEATS_PARAMS: Omit<LevelParams, 'tempo'> = {
+const OFFBEATS_PARAMS: RhythmParams = {
 	accompaniment: clicks(EVERY_BEAT, ['on'], [1]),
 	cycleBars: 1,
 	window: { ms: 80 },
 	feedback: 'every-cycle',
 	listen: 'free',
 	cursor: true,
-	cyclesPerBreath: 4,
+	pacing: runsOf(4),
 	thresholds: BASE_THRESHOLDS
 };
 

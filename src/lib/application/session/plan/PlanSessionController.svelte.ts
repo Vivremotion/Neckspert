@@ -1,4 +1,9 @@
-import { exerciseById, type ExerciseDefinition, type ExerciseId } from '$lib/domain/exercise';
+import {
+	exerciseById,
+	pacingAt,
+	type ExerciseDefinition,
+	type ExerciseId
+} from '$lib/domain/exercise';
 import { contentJudges } from '$lib/domain/judges';
 import { rhythmFigureRules, type RhythmItem } from '$lib/domain/mechanics';
 import {
@@ -27,6 +32,7 @@ import {
 	settle,
 	startRun,
 	startSeries,
+	type SeriesEnd,
 	type SeriesRules,
 	type SeriesState,
 	type SegmentRole
@@ -133,7 +139,7 @@ interface Bar {
 
 /**
  * Plays an exercise of figures cycle after cycle (spec 2026-10-14, sections 6 and 7): the
- * listen-in and a counted bar, then runs of `cyclesPerBreath` cycles chained without a gap
+ * listen-in and a counted bar, then runs of `pacing.roundsPerBreath` cycles chained without a gap
  * (the entry first when the click stops on some bars: a cycle lands on the first muted bar),
  * a breath between runs, the level moved by each settled cycle and taken at the next run (its
  * tempo changed at the breath, with a listen-in and a counted bar), a cycle heard rather than
@@ -208,7 +214,7 @@ export class PlanSessionController implements PlaySessionController {
 		pause: number | null;
 	} = { series: null, run: null, part: null, partKey: null, pause: null };
 	/** Why the series ends, once the policy says it does, and the bar it ends on. */
-	private end: { reason: 'time' | 'change-of-air'; bar: number } | null = null;
+	private end: { reason: SeriesEnd; bar: number } | null = null;
 	private readonly writes = new Set<Promise<unknown>>();
 	private levelWrite: Promise<void> = Promise.resolve();
 
@@ -584,7 +590,11 @@ export class PlanSessionController implements PlaySessionController {
 				return this.bars.get(bar) ?? null;
 			}
 		}
-		const step = next(this.series, this.rules(), this.deps.now() - this.startedAt);
+		// Within a run, the next cycle chains: the policy ends the run at its length.
+		const step = next(this.series, this.rules(), this.deps.now() - this.startedAt, {
+			chains: true,
+			countIn: false
+		});
 		this.series = step.state;
 		const decided = step.next;
 		if (decided.role === 'end') {
@@ -597,7 +607,8 @@ export class PlanSessionController implements PlaySessionController {
 			// The next run reads its level when bar `to` is laid out, on beat 0 of bar `to − 1`,
 			// and the last cycle settles at `from + SETTLE_AFTER_BARS`: this needs a breath of at
 			// least 2 bars, which every catalog exercise gives (pinned by a catalog test).
-			const { from, to } = this.transport.breath(bar);
+			const { breathMinMs } = pacingAt(this.exercise, run.level);
+			const { from, to } = this.transport.breath(bar, breathMinMs ?? 0);
 			this.closeTake(this.timeOfBar(from));
 			for (let b = from; b < to; b++) this.bars.set(b, this.idleBar(run, run.lastFigure, 'breath'));
 			this.run = null;
@@ -1147,7 +1158,8 @@ export class PlanSessionController implements PlaySessionController {
 	private rules(): SeriesRules {
 		return {
 			levels: rhythmLevels(this.exercise),
-			params: (level) => this.paramsOf(level),
+			roundsPerBreath: (level) => pacingAt(this.exercise, level).roundsPerBreath ?? null,
+			listen: (level) => this.paramsOf(level).listen,
 			// An exercise of figures can always make its figure sound.
 			canSound: true,
 			budgetMs: SESSION_MS,

@@ -24,6 +24,19 @@ const BLOCKING: ExerciseDefinition = { ...CLIMB, id: 'blocking', flow: { antiBlo
 /** An exercise that writes no levels: one implicit level, nothing to remember. */
 const PLAIN: ExerciseDefinition = { ...CLIMB, id: 'plain', levels: undefined };
 
+/** Runs of two rounds at level 1, of three at level 2. */
+const RUNS: ExerciseDefinition = {
+	...CLIMB,
+	id: 'runs',
+	params: { pacing: { roundsPerBreath: 2 } },
+	levels: [{ params: {}, pass: { successes: 1 } }, { params: { 'pacing.roundsPerBreath': 3 } }]
+};
+
+/** The next round goes on without a gap. */
+const CHAINS = { chains: true, countIn: false };
+/** The next round comes after the breath of its plan, no count. */
+const FOLLOWS = { chains: false, countIn: false };
+
 function stored(exerciseId: string, scope: string, level: number): LevelState {
 	return { exerciseId, scope, item: '', level, successes: 0, failures: 0, resumeAfter: null };
 }
@@ -31,7 +44,7 @@ function stored(exerciseId: string, scope: string, level: number): LevelState {
 async function setup(states: LevelState[] = []) {
 	const repository = new InMemoryLevelStateRepository();
 	for (const state of states) await repository.put(state);
-	const definitions = [CLIMB, BLOCKING, PLAIN];
+	const definitions = [CLIMB, BLOCKING, PLAIN, RUNS];
 	const levels = new ExerciseLevels({
 		levels: repository,
 		exercise: (id) => {
@@ -152,5 +165,51 @@ describe('ExerciseLevels', () => {
 		void levels.settle(round(true));
 		await levels.settled();
 		expect(await repository.all()).toHaveLength(1);
+	});
+
+	it('plays runs of the rounds its exercise level writes, a breath between them', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'runs' };
+		const roles = (count: number) =>
+			Array.from({ length: count }, () => {
+				const { breath, next } = levels.boundary(at, 0, 1000, CHAINS);
+				return breath ? `breath+${next.role}` : next.role;
+			});
+		expect(roles(5)).toEqual(['round', 'round', 'breath+round', 'round', 'breath+round']);
+		// The level reached applies at a breath: the runs after it are of three rounds.
+		await levels.settle({ exerciseId: 'runs', level: 0, success: true, aided: false });
+		levels.apply('runs');
+		expect(roles(5)).toEqual(['round', 'breath+round', 'round', 'round', 'breath+round']);
+	});
+
+	it('breathes before a counted bar once its run has played', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'climb', scope: 'blues-f' };
+		// The count that opens the series is not a breath.
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true })).toEqual({
+			breath: false,
+			next: { role: 'round', aid: null, remedy: false }
+		});
+		expect(levels.boundary(at, 0, 1000, FOLLOWS).breath).toBe(false);
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).breath).toBe(true);
+	});
+
+	it('ends past the budget at the first round that does not chain, or with the source', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'climb', scope: 'blues-f' };
+		expect(levels.boundary(at, 1000, 1000, CHAINS).next.role).toBe('round');
+		expect(levels.boundary(at, 999, 1000, FOLLOWS).next.role).toBe('round');
+		expect(levels.boundary(at, 1000, 1000, FOLLOWS).next).toEqual({ role: 'end', reason: 'time' });
+		expect(levels.boundary(at, 0, 1000, null).next).toEqual({ role: 'end', reason: 'complete' });
+	});
+
+	it('ends with « On change d’air » once the anti-blocking says so', async () => {
+		const { levels } = await setup();
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
+		const at = { exerciseId: 'blocking', scope: 'blues-f' };
+		expect(levels.boundary(at, 0, 1000, CHAINS).next).toEqual({
+			role: 'end',
+			reason: 'change-of-air'
+		});
 	});
 });

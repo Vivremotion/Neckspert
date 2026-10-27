@@ -48,6 +48,19 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ pacing: { respirationBars: 0 } }))).toMatch(
 			/^locate-neck: params\.pacing\.respirationBars .*0/
 		);
+		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 0 } }))).toMatch(
+			/^locate-neck: params\.pacing\.roundsPerBreath .*0/
+		);
+		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 1.5 } }))).toMatch(
+			/^locate-neck: params\.pacing\.roundsPerBreath /
+		);
+		expect(validateExercise(withParams({ pacing: { breathMinMs: -1 } }))).toMatch(
+			/^locate-neck: params\.pacing\.breathMinMs .*-1/
+		);
+		// The breath between rounds keeps its default when only the runs are written.
+		expect(
+			validateExercise(withParams({ pacing: { roundsPerBreath: 2, breathMinMs: 0 } }))
+		).toBeNull();
 		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
 			/^locate-neck: params\.learning\.retestGaps /
 		);

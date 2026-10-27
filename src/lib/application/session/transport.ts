@@ -17,8 +17,6 @@ import {
 } from '$lib/domain/time';
 
 export { LISTEN_IN_BARS };
-/** The shortest breath, rounded up to whole bars. */
-export const BREATH_MIN_MS = 4000;
 /** The map starts this long after `now`, so the first sound is never already past. */
 export const START_DELAY_S = 0.1;
 /** Absorbs the float error of a bar lasting exactly the minimum. */
@@ -111,10 +109,10 @@ export class Transport {
 	}
 
 	/**
-	 * A breath of at least `BREATH_MIN_MS`, in whole bars, clicking every beat with the last
-	 * bar counted. Returns its bars; play resumes at `to`.
+	 * A breath of at least `minMs` (its exercise's `pacing.breathMinMs`), in whole bars and one
+	 * at least, clicking every beat with the last bar counted. Returns its bars; play resumes at `to`.
 	 */
-	breath(atBar: number): { from: number; to: number } {
+	breath(atBar: number, minMs: number): { from: number; to: number } {
 		const map = this.map;
 		const length = barLength(this.meterOf());
 		const barMs = (bar: number) =>
@@ -126,7 +124,7 @@ export class Transport {
 		do {
 			ms += barMs(to);
 			to++;
-		} while (ms < BREATH_MIN_MS - BAR_ROUNDING_EPSILON);
+		} while (ms < minMs - BAR_ROUNDING_EPSILON);
 		this.schedule(renderSounds(this.countClicks(), map, atBar, to));
 		this.counted.add(to - 1);
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, to);

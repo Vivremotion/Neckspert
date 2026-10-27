@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	CYCLES_PER_BREATH,
 	DROP_AFTER_FAILS,
 	PASS_AFTER_CYCLES,
 	levelRange,
@@ -43,7 +42,7 @@ function play(start: LevelState, levels: readonly Level[], results: (typeof ok)[
 
 describe('level constants', () => {
 	it('names the defaults', () => {
-		expect([PASS_AFTER_CYCLES, DROP_AFTER_FAILS, CYCLES_PER_BREATH]).toEqual([3, 2, 4]);
+		expect([PASS_AFTER_CYCLES, DROP_AFTER_FAILS]).toEqual([3, 2]);
 	});
 });
 
