@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { AnswerKeysModel } from '$lib/application/mechanics/identify';
+	import type { PromptStageModel } from '$lib/application/presentation';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
 	import AnswerKeyboard from '../answer/AnswerKeyboard.svelte';
@@ -8,16 +8,20 @@
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
-	const keys = $derived(model as AnswerKeysModel);
+	const keys = $derived(model as PromptStageModel);
 	const view = $derived(controller.view);
 	const t = $derived(playMessages());
 	/** The counted bar: the keyboard is on stage already, the prompt comes on its beat. */
 	const counting = $derived(view.status === 'count-in' || view.countdown !== null);
 	const verdict = $derived(keys.verdict);
+	/** After a miss: the right name. */
+	const correction = $derived(verdict?.misses[0]?.correction ?? null);
 	const caption = $derived(verdict ? captionOf(verdict, t) : null);
 	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
 	/** Above the note name of a correction: the fret and the string, which the name alone loses. */
-	const recall = $derived(`${keys.prompt.primary} · ${keys.prompt.secondary}`);
+	const recall = $derived(
+		[keys.prompt.primary, keys.prompt.secondary].filter((part) => part).join(' · ')
+	);
 </script>
 
 <div class="answer-keys">
@@ -29,8 +33,8 @@
 					<Prompt main={String(view.countdown)} size="prompt" />
 				</div>
 			{/if}
-		{:else if verdict?.correction}
-			<Prompt main={verdict.correction} {recall} size="correction" />
+		{:else if correction}
+			<Prompt main={correction} {recall} size="correction" />
 		{:else if hit}
 			<p class="hit" aria-live="polite">
 				<span class="hit-name">{t.verdict[hit.verdict]}</span>

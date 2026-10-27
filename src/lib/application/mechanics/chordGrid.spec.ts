@@ -318,7 +318,8 @@ describe('chordGridPresenter', () => {
 		const place = {
 			anchorBeat: 12,
 			promptBeat: 11,
-			history: [{ beatIndex: 8, verdict: 'perfect' }] as readonly LaneEntry[]
+			history: [{ beatIndex: 8, verdict: 'perfect' }] as readonly LaneEntry[],
+			bands: []
 		};
 		/** What the model keeps of its place: the target and the history. */
 		const placed = { anchorBeat: place.anchorBeat, history: place.history };

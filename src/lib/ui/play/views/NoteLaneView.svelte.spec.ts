@@ -1,19 +1,21 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
-import type { NoteVerdictView } from '$lib/application/mechanics/noteVerdict';
-import type { PlayView, PromptView } from '$lib/application/session/contract';
+import type { PromptStageModel } from '$lib/application/presentation';
+import type { PlayView } from '$lib/application/session/contract';
 import { PLAY_VIEWS } from './index';
 import NoteLaneView from './NoteLaneView.svelte';
+import { presented, stageModel, stageVerdict } from './testing/promptStage';
 import { StageController } from './testing/StageController.svelte';
 
 afterEach(() => cleanup());
 
-const F_ON_B: PromptView = { primary: 'F', secondary: 'corde de B', aid: null, diagram: null };
+const F_ON_B = presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' });
+/** The string drawn while it carries the aid. */
+const B_DRAWN = [{ kind: 'string' as const, string: 2 as const, label: 'B' }];
 
 /** F on B, prompted on beat 0 for beat 8; `nowBeat` 1 unless said. */
 function show(
-	overrides: Partial<NoteLaneModel> = {},
+	overrides: Partial<PromptStageModel> = {},
 	{
 		status = 'awaiting',
 		nowBeat = 1,
@@ -24,29 +26,21 @@ function show(
 	controller.view.status = status;
 	controller.view.countdown = countdown;
 	controller.nowBeat = nowBeat;
-	const model: NoteLaneModel = {
+	const model = stageModel({
 		prompt: F_ON_B,
 		anchorBeat: 8,
 		promptBeat: 0,
-		history: [],
-		verdict: null,
 		...overrides
-	};
+	});
 	return render(NoteLaneView, { props: { controller, model } });
 }
 
 /** F on B settled on beat 8, read half a beat later. */
-function settled(verdict: Partial<NoteVerdictView>) {
+function settled(verdict: Parameters<typeof stageVerdict>[0]) {
 	return show(
 		{
-			history: [{ beatIndex: 8, verdict: verdict.verdict ?? 'wrong' }],
-			verdict: {
-				verdict: 'wrong',
-				offsetMs: null,
-				answerLabel: null,
-				correction: null,
-				...verdict
-			}
+			history: [{ beatIndex: 8, verdict: verdict?.verdict ?? 'wrong' }],
+			verdict: stageVerdict(verdict)
 		},
 		{ status: 'verdict', nowBeat: 8.5 }
 	);
@@ -150,7 +144,7 @@ describe('NoteLaneView', () => {
 	});
 
 	it('draws the string under the prompt only when it carries the aid', () => {
-		const drawn = show({ prompt: { ...F_ON_B, diagram: { string: 2, label: 'B' } } });
+		const drawn = show({ prompt: { ...F_ON_B, pictures: B_DRAWN } });
 		expect(drawn.container.querySelector('.diagram')?.getAttribute('data-string')).toBe('2');
 		cleanup();
 		expect(show().container.querySelector('.diagram')).toBeNull();
@@ -161,7 +155,7 @@ describe('NoteLaneView', () => {
 			{
 				anchorBeat: null,
 				promptBeat: null,
-				prompt: { ...F_ON_B, diagram: { string: 2, label: 'B' } }
+				prompt: { ...F_ON_B, pictures: B_DRAWN }
 			},
 			{ status: 'count-in' }
 		);
@@ -177,7 +171,7 @@ describe('NoteLaneView', () => {
 			{
 				anchorBeat: null,
 				promptBeat: null,
-				prompt: { ...F_ON_B, diagram: { string: 2, label: 'B' } }
+				prompt: { ...F_ON_B, pictures: B_DRAWN }
 			},
 			{ status: 'count-in', countdown: 3 }
 		);

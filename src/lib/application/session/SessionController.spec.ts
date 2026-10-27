@@ -7,7 +7,14 @@ import {
 	type PlannedItem,
 	type SessionKind
 } from '$lib/domain/types';
-import { classifyNoteConfusion } from '$lib/domain/music';
+import {
+	classifyNoteConfusion,
+	fretLabel,
+	openPitch,
+	stringLabel,
+	type IdentifyItem,
+	type LocateItem
+} from '$lib/domain/music';
 import { exerciseById } from '$lib/domain/exercise';
 import {
 	createListSource,
@@ -29,8 +36,47 @@ import {
 } from '$lib/testing/fakes';
 import type { SessionDeps } from './SessionDeps';
 import { NECK_PRESENTERS } from '$lib/application/mechanics';
+import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import {
+	nameAtFret,
+	nameChoice,
+	noteName,
+	positionLabel,
+	promptFretLabel
+} from '$lib/application/presentation/noteWords';
 import { noteSensor, tapSensor } from './sensors';
 import { SessionController } from './SessionController.svelte';
+
+/**
+ * The notes as this controller plays them: their presenters with the prompt, answer and
+ * correction they wrote before their screen became their exercise's presentation (H5). This
+ * controller goes with the triads' move to the series (Task 9), and these with it.
+ */
+const ONE_ANSWER_NECK: Record<string, MechanicPresenter> = {
+	locate: {
+		...NECK_PRESENTERS.locate,
+		prompt: (item: LocateItem, { aid, stringAid }, locale, random) => ({
+			primary: noteName(item.pitch, random),
+			secondary: stringLabel(item.string, locale),
+			aid: aid === 'show-position' ? promptFretLabel(item, locale) : null,
+			diagram: stringAid ? { string: item.string, label: openPitch(item.string) } : null
+		}),
+		answerLabel: (_answer, item: LocateItem, _locale, random) => noteName(item.pitch, random),
+		reveal: (item: LocateItem, { verdict }, locale) =>
+			verdict === 'wrong' ? positionLabel(item, locale) : null
+	},
+	identify: {
+		...NECK_PRESENTERS.identify,
+		prompt: (item: IdentifyItem, { aid }, locale, random) => ({
+			primary: fretLabel(item.fret, locale),
+			secondary: stringLabel(item.string, locale),
+			aid: aid === 'show-position' ? nameAtFret(item, random) : null,
+			diagram: null
+		}),
+		answerLabel: ({ pitch }, _item, _locale, random) => noteName(pitch, random),
+		reveal: (item: IdentifyItem, { verdict }) => (verdict === 'wrong' ? nameChoice(item) : null)
+	}
+};
 
 function locateItem(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
@@ -125,7 +171,7 @@ function createDeps(clock = new FakeClock()): SessionDeps & {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => 'id-1',
-		mechanics: NECK_PRESENTERS,
+		mechanics: ONE_ANSWER_NECK,
 		sensors: { note: noteSensor(detector), tap: tapSensor() }
 	};
 }

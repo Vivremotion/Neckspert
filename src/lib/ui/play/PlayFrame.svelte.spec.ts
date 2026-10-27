@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import { presented, stageModel } from './views/testing/promptStage';
 import { PLAY_VIEWS, VIEW_WORLDS } from './views';
 import { i18n } from '$lib/i18n/index.svelte';
 import FakeView from './views/testing/FakeView.svelte';
@@ -147,13 +147,9 @@ describe('PlayFrame', () => {
 	});
 
 	describe('in the world of its view', () => {
-		const waiting: NoteLaneModel = {
-			prompt: { primary: 'F', secondary: 'corde de B', aid: null, diagram: null },
-			anchorBeat: null,
-			promptBeat: null,
-			history: [],
-			verdict: null
-		};
+		const waiting = stageModel({
+			prompt: presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' })
+		});
 
 		it('names a world for every view of the registry, quiet for the notes', () => {
 			expect(Object.keys(VIEW_WORLDS).sort()).toEqual(Object.keys(PLAY_VIEWS).sort());

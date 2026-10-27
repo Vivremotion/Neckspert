@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+	import type { PromptStageModel } from '$lib/application/presentation';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import Lane from '$lib/ui/primitives/Lane.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
@@ -10,7 +10,7 @@
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
-	const lane = $derived(model as NoteLaneModel);
+	const lane = $derived(model as PromptStageModel);
 	const view = $derived(controller.view);
 	const t = $derived(playMessages());
 
@@ -27,11 +27,19 @@
 		return () => cancelAnimationFrame(raf);
 	});
 
-	const tiles = $derived(noteLaneTiles(lane, { nowBeat }, view.beatsPerBar));
+	const tiles = $derived(noteLaneTiles(lane, { nowBeat }));
+	/** The string drawn under the prompt, while it carries the aid. */
+	const diagram = $derived(
+		lane.prompt.pictures.find((picture) => picture.kind === 'string') ?? null
+	);
+	/** What shows of the note while it waits: its string. */
+	const preview = $derived(lane.prompt.preview ?? lane.prompt.secondary);
 	/** Before its round opens, the note waits: its string alone shows (D5). */
 	const waiting = $derived(lane.anchorBeat === null);
 	/** The verdict stays through the breathing bar, until the next note shows. */
 	const verdict = $derived(lane.verdict);
+	/** After a miss: where the note was. */
+	const correction = $derived(verdict?.misses[0]?.correction ?? null);
 	const caption = $derived(verdict ? captionOf(verdict, t) : null);
 	/** A hit: its verdict, and its offset when timed, take the prompt's place. */
 	const hit = $derived(verdict && HITS.has(verdict.verdict) ? verdict : null);
@@ -42,26 +50,22 @@
 		{#if view.countdown !== null}
 			<!-- The counted bar in the prompt's place, the string coming under it. -->
 			<div class="countdown" aria-live="polite">
-				<Prompt
-					main={String(view.countdown)}
-					line={waiting ? lane.prompt.secondary : null}
-					size="prompt"
-				>
-					{#if waiting && lane.prompt.diagram}
-						<StringDiagram diagram={lane.prompt.diagram} />
+				<Prompt main={String(view.countdown)} line={waiting ? preview : null} size="prompt">
+					{#if waiting && diagram}
+						<StringDiagram {diagram} />
 					{/if}
 				</Prompt>
 			</div>
 		{:else if waiting}
 			<!-- The string comes first; the note, the only big letter, follows on the prompt beat. -->
-			<Prompt main={lane.prompt.secondary} size="prompt">
-				{#if lane.prompt.diagram}
-					<StringDiagram diagram={lane.prompt.diagram} />
+			<Prompt main={preview ?? ''} size="prompt">
+				{#if diagram}
+					<StringDiagram {diagram} />
 				{/if}
 			</Prompt>
-		{:else if verdict?.correction}
+		{:else if correction}
 			<!-- The correction names the string itself: the note asked is recalled alone. -->
-			<Prompt main={verdict.correction} recall={lane.prompt.primary} size="correction" />
+			<Prompt main={correction} recall={lane.prompt.primary} size="correction" />
 		{:else if hit}
 			<p class="hit" aria-live="polite">
 				<span class="hit-name">{t.verdict[hit.verdict]}</span>
@@ -70,7 +74,7 @@
 			</p>
 		{:else if !verdict}
 			<Prompt main={lane.prompt.primary} line={lane.prompt.secondary} size="hero">
-				<StringDiagram diagram={lane.prompt.diagram} />
+				<StringDiagram {diagram} />
 				{#if lane.prompt.aid}
 					<p class="aid">{lane.prompt.aid}</p>
 				{/if}
@@ -81,7 +85,7 @@
 	<div class="bottom">
 		<Lane
 			{tiles}
-			beatsPerBar={view.beatsPerBar}
+			beatsPerBar={lane.beatsPerBar}
 			targetLabel={waiting ? null : (lane.prompt.target ?? lane.prompt.primary)}
 			bandLabel={null}
 			{caption}

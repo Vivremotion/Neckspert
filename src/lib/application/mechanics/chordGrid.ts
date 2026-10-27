@@ -36,7 +36,7 @@ import {
 } from '$lib/domain/types';
 import { CHORD_GRID_MESSAGES } from './chordGridMessages';
 import { TRIAD_MESSAGES, TRIAD_STRING_NAMES } from './triadMessages';
-import type { MechanicPresenter, StagePlace } from './types';
+import type { MechanicPresenter, OneAnswerPresenter, StagePlace } from './types';
 
 /** How far around the shapes expected a look-alike stays a candidate, in frets. To calibrate. */
 export const NEIGHBOUR_FRETS = 2;
@@ -357,7 +357,7 @@ function linkLaneModel(
 }
 
 /** No place: the old controller gives its views their placement apart. */
-const NO_PLACE: StagePlace = { anchorBeat: null, promptBeat: null, history: [] };
+const NO_PLACE: StagePlace = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
 
 /** The screen model of a change, the shape `heard` (occurrenceId) once settled. */
 function stageModel(
@@ -407,7 +407,7 @@ function drawnMiss(
 }
 
 /** A change of a chord grid: its symbol, the cue of its exercise, heard by the chord sensor. */
-export const chordGridPresenter: MechanicPresenter<ChordGridItem, ChordReading> = {
+export const chordGridPresenter: OneAnswerPresenter<ChordGridItem, ChordReading> = {
 	rules: chordGridRules,
 	scene: 'guitar',
 	sensors: ['chord'],

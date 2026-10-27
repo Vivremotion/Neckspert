@@ -31,6 +31,8 @@ export interface StagePlace {
 	/** The beat of the prompt, in the same beats; null while the item is not placed yet. */
 	promptBeat: number | null;
 	history: readonly LaneEntry[];
+	/** The round's extended expectations, in the same beats; empty before it is placed. */
+	bands: readonly { fromBeat: number; untilBeat: number }[];
 }
 
 /** How a mechanic shows on the play screen and which sensors answer it. */
@@ -44,16 +46,17 @@ export interface MechanicPresenter<I = any, A = any> {
 	 * settled round staying until then; absent: shown at its prompt.
 	 */
 	previewBeats?: number;
-	prompt(
+	/** The prompt of the old one-answer controller (the triads until H5). */
+	prompt?(
 		item: I,
 		aids: { aid: AidLevel; stringAid: boolean },
 		locale: Locale,
 		random: () => number
 	): PromptView;
 	/** What was answered, localized, or null when the mechanic does not say. */
-	answerLabel(answer: A, item: I, locale: Locale, random: () => number): string | null;
+	answerLabel?(answer: A, item: I, locale: Locale, random: () => number): string | null;
 	/** Shown once the round is settled. Today: the right answer after a miss. */
-	reveal(
+	reveal?(
 		item: I,
 		outcome: { correct: boolean; verdict: ResponseVerdict },
 		locale: Locale
@@ -94,9 +97,10 @@ export interface MechanicPresenter<I = any, A = any> {
 		aids: { aid: AidLevel }
 	): { model: unknown };
 	/**
-	 * The screen model of a prompt on the target model: before its round (`settled` null) and
-	 * once settled, from the round's response value; `place` tells the view where it stands, and
-	 * `drawing` how its chord shapes are drawn (the settings' style, default
+	 * The screen model of a prompt on the target model, for an exercise that writes no
+	 * presentation (the series builds the others' with `promptStage`): before its round
+	 * (`settled` null) and once settled, from the round's response value; `place` tells the view
+	 * where it stands, and `drawing` how its chord shapes are drawn (the settings' style, default
 	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one). `random` spells a note:
 	 * the series gives every call for one item the same value, so a note is written alike from
 	 * its preview to its settlement.
@@ -114,3 +118,10 @@ export interface MechanicPresenter<I = any, A = any> {
 	/** The mechanic's `Attempt.data` for a round answered with `value`. */
 	attemptData?(item: I, value: ResponseValue): unknown;
 }
+
+/**
+ * A presenter the old one-answer controller plays (the triads until H5; the gesture's own model):
+ * it writes its prompt, its answer and its correction itself.
+ */
+export type OneAnswerPresenter<I = any, A = any> = MechanicPresenter<I, A> &
+	Required<Pick<MechanicPresenter<I, A>, 'prompt' | 'answerLabel' | 'reveal'>>;

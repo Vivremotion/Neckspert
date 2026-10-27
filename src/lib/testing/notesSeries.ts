@@ -2,10 +2,9 @@
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
 import { NECK_PRESENTERS } from '$lib/application/mechanics';
-import type { AnswerKeysModel } from '$lib/application/mechanics/identify';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import { createAppServices } from '$lib/application/services/createAppServices';
-import type { PlaySessionController, PromptView } from '$lib/application/session/contract';
+import type { PlaySessionController } from '$lib/application/session/contract';
 import { noteSensor, tapSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById, type ExerciseDefinition, type Progression } from '$lib/domain/exercise';
@@ -197,11 +196,11 @@ const PITCH_OF = new Map<string, PitchName>(
 /** What the screen shows of a note: the prompt read back as its item, where it is placed. */
 export interface Staged {
 	card: NeckCard;
-	prompt: PromptView;
+	prompt: PresentedPrompt;
 	/** The note lane's places; null on the answer pad. */
 	anchorBeat: number | null;
 	promptBeat: number | null;
-	verdict: NoteLaneModel['verdict'];
+	verdict: PromptStageModel['verdict'];
 }
 
 /** The note on stage, read from the prompt as the player reads it (in French). */
@@ -209,7 +208,7 @@ export function onStage(controller: PlaySessionController): Staged | null {
 	const stage = controller.view.stage;
 	if (!stage) return null;
 	if (stage.view === 'note-lane') {
-		const model = stage.model as NoteLaneModel;
+		const model = stage.model as PromptStageModel;
 		const string = STRING_OF.get(model.prompt.secondary ?? '');
 		const pitch = PITCH_OF.get(model.prompt.primary);
 		if (!string || !pitch) throw new Error(`Unreadable prompt: ${JSON.stringify(model.prompt)}`);
@@ -222,7 +221,7 @@ export function onStage(controller: PlaySessionController): Staged | null {
 		};
 	}
 	if (stage.view === 'answer-keys') {
-		const model = stage.model as AnswerKeysModel;
+		const model = stage.model as PromptStageModel;
 		const string = STRING_OF.get(model.prompt.secondary ?? '');
 		const fret = Number(model.prompt.primary.replace(/^\D+/, ''));
 		if (!string || !Number.isInteger(fret)) {

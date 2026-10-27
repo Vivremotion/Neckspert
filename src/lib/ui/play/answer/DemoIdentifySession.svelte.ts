@@ -1,4 +1,5 @@
-import { identifyPresenter, type AnswerKeysModel } from '$lib/application/mechanics/identify';
+import { identifyPresenter } from '$lib/application/mechanics/identify';
+import { CONTENT_VIEWS, presentPrompt, type PromptStageModel } from '$lib/application/presentation';
 import type {
 	PlaySessionController,
 	PlayTimeline,
@@ -31,7 +32,7 @@ const noRandom = () => 0;
 
 /**
  * Scripted mode 2 session without audio, for the demo page and tests: it fills the stage with
- * the answer keys' model, as the identify presenter draws it.
+ * the prompt's screen model, as the series writes it for identify.
  */
 export class DemoIdentifySession implements PlaySessionController {
 	readonly sessionId = 'demo-identify';
@@ -71,8 +72,8 @@ export class DemoIdentifySession implements PlaySessionController {
 	}
 
 	/** The answer keys on stage, when the demo shows them. */
-	get keys(): AnswerKeysModel | null {
-		return this.view.stage ? (this.view.stage.model as AnswerKeysModel) : null;
+	get keys(): PromptStageModel | null {
+		return this.view.stage ? (this.view.stage.model as PromptStageModel) : null;
 	}
 
 	async start(): Promise<void> {
@@ -108,13 +109,19 @@ export class DemoIdentifySession implements PlaySessionController {
 					verdict,
 					offsetMs: null,
 					answerLabel: answerChoiceLabel(pitch),
-					correction: identifyPresenter.reveal(
-						target,
-						{ correct: pitch === right, verdict },
-						i18n.locale
-					)
+					misses:
+						pitch === right
+							? []
+							: [
+									CONTENT_VIEWS.name.miss(
+										target,
+										{ answer: { pitch }, confusion: null },
+										i18n.locale,
+										noRandom
+									)
+								]
 				}
-			} satisfies AnswerKeysModel
+			} satisfies PromptStageModel
 		};
 		this.view.status = 'verdict';
 		this.timer = setTimeout(() => {
@@ -142,15 +149,29 @@ export class DemoIdentifySession implements PlaySessionController {
 		this.view.stage = {
 			view: 'answer-keys',
 			model: {
-				prompt: identifyPresenter.prompt(
-					target,
-					{ aid: 'none', stringAid: false },
+				prompt: presentPrompt(
+					IDENTIFY_NECK,
+					{
+						exerciseId: IDENTIFY_NECK.id,
+						mechanic: IDENTIFY_NECK.mechanic,
+						item: target,
+						phase: 'review',
+						temperature: 'cold',
+						aid: 'none',
+						leadBeats: null
+					},
 					i18n.locale,
 					noRandom
 				),
-				choices: identifyPresenter.answerChoices!(),
-				verdict: null
-			} satisfies AnswerKeysModel
+				anchorBeat: null,
+				promptBeat: null,
+				history: [],
+				bands: [],
+				beatsPerBar: 4,
+				verdict: null,
+				chordDiagram: 'strings',
+				choices: identifyPresenter.answerChoices!()
+			} satisfies PromptStageModel
 		};
 		this.promptedAt = Date.now();
 		this.view.status = 'awaiting';

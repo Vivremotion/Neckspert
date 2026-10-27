@@ -1,29 +1,28 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { AnswerKeysModel } from '$lib/application/mechanics/identify';
-import type { NoteVerdictView } from '$lib/application/mechanics/noteVerdict';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlayView } from '$lib/application/session/contract';
 import PlayFrame from '../PlayFrame.svelte';
 import { identifyChoices } from '../answer/choices';
 import AnswerKeysView from './AnswerKeysView.svelte';
 import { PLAY_VIEWS } from './index';
+import { presented, stageModel, stageVerdict } from './testing/promptStage';
 import { StageController } from './testing/StageController.svelte';
 
 afterEach(() => cleanup());
 
 const PAD = { name: 'Nom de la note' };
 
-function model(overrides: Partial<AnswerKeysModel> = {}): AnswerKeysModel {
-	return {
-		prompt: { primary: 'case 8', secondary: 'corde de A', aid: null, diagram: null },
+function model(overrides: Partial<PromptStageModel> = {}): PromptStageModel {
+	return stageModel({
+		prompt: presented({ primary: 'case 8', secondary: 'corde de A' }),
 		choices: identifyChoices(),
-		verdict: null,
 		...overrides
-	};
+	});
 }
 
 function show(
-	overrides: Partial<AnswerKeysModel> = {},
+	overrides: Partial<PromptStageModel> = {},
 	{ status = 'awaiting', countdown = null }: Partial<Pick<PlayView, 'status' | 'countdown'>> = {}
 ) {
 	const controller = new StageController();
@@ -34,16 +33,10 @@ function show(
 	return { controller, ...rendered };
 }
 
-function settled(verdict: Partial<NoteVerdictView>) {
+function settled(verdict: Parameters<typeof stageVerdict>[0]) {
 	return show(
 		{
-			verdict: {
-				verdict: 'wrong',
-				offsetMs: null,
-				answerLabel: null,
-				correction: null,
-				...verdict
-			}
+			verdict: stageVerdict(verdict)
 		},
 		{ status: 'verdict' }
 	);
@@ -87,7 +80,7 @@ describe('AnswerKeysView', () => {
 
 	it('shows the note name of an aided prompt', () => {
 		const { container } = show({
-			prompt: { primary: 'case 8', secondary: 'corde de A', aid: 'F', diagram: null }
+			prompt: presented({ primary: 'case 8', secondary: 'corde de A', aid: 'F' })
 		});
 		expect(container.querySelector('.aid')?.textContent).toBe('F');
 	});

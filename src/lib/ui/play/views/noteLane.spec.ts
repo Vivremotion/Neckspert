@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { LaneTile } from '../lane';
 import { noteLaneTiles } from './noteLane';
+import { presented, stageModel } from './testing/promptStage';
 
-const PROMPT = { primary: 'F', secondary: 'corde de B', aid: null, diagram: null };
+const PROMPT = presented({ primary: 'F', secondary: 'corde de B', preview: 'corde de B' });
 
 /** A note prompted on beat 8 for beat 16, after a few rounds played. */
-function model(overrides: Partial<NoteLaneModel> = {}): NoteLaneModel {
-	return {
+function model(overrides: Partial<PromptStageModel> = {}): PromptStageModel {
+	return stageModel({
 		prompt: PROMPT,
 		anchorBeat: 16,
 		promptBeat: 8,
@@ -16,9 +17,8 @@ function model(overrides: Partial<NoteLaneModel> = {}): NoteLaneModel {
 			{ beatIndex: 6, verdict: 'early' },
 			{ beatIndex: 10, verdict: 'late' }
 		],
-		verdict: null,
 		...overrides
-	};
+	});
 }
 
 function byIndex(tiles: LaneTile[]): Map<number, LaneTile> {
@@ -56,6 +56,12 @@ describe('noteLaneTiles', () => {
 		const map = byIndex(noteLaneTiles(model(), { nowBeat: 10.25 }));
 		expect([8, 12, 16].map((i) => map.get(i)?.downbeat)).toEqual([true, true, true]);
 		expect([9, 10, 11].map((i) => map.get(i)?.downbeat)).toEqual([false, false, false]);
+	});
+
+	it('marks the downbeats of bars of the model’s meter', () => {
+		const map = byIndex(noteLaneTiles(model({ beatsPerBar: 3 }), { nowBeat: 10.25 }));
+		expect([9, 12, 15].map((i) => map.get(i)?.downbeat)).toEqual([true, true, true]);
+		expect([8, 10, 11].map((i) => map.get(i)?.downbeat)).toEqual([false, false, false]);
 	});
 
 	it('holds a far target as soon as it is announced', () => {

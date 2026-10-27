@@ -9,7 +9,7 @@ import type {
 	CalibrationProgress
 } from '$lib/application/ports';
 import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/contract';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
 import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
 import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
@@ -130,13 +130,13 @@ async function runOnTransport(
 }
 
 /** The note lane on stage, if a note to play is there. */
-function noteLane(controller: { view: PlayView }): NoteLaneModel | null {
+function noteLane(controller: { view: PlayView }): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
 }
 
 /** The lead of a note's round, in beats. */
-function lead(lane: NoteLaneModel | null): number | null {
+function lead(lane: PromptStageModel | null): number | null {
 	return lane?.anchorBeat != null && lane.promptBeat != null
 		? lane.anchorBeat - lane.promptBeat
 		: null;
@@ -383,7 +383,7 @@ describe('createAppServices', () => {
 			() => {
 				const stage = controller.view.stage;
 				if (controller.view.status === 'awaiting' && stage?.view === 'note-lane') {
-					const lane = stage.model as NoteLaneModel;
+					const lane = stage.model as PromptStageModel;
 					if (
 						lane.anchorBeat !== null &&
 						lane.anchorBeat !== answered &&
@@ -392,7 +392,7 @@ describe('createAppServices', () => {
 						answered = lane.anchorBeat;
 						deps.detector.emitNote({
 							time: deps.clock.now(),
-							midi: locateMidiFromPrompt(lane.prompt.primary, lane.prompt.secondary),
+							midi: locateMidiFromPrompt(lane.prompt.primary, lane.prompt.secondary ?? ''),
 							frequencyHz: 82.41,
 							clarity: 0.9
 						});

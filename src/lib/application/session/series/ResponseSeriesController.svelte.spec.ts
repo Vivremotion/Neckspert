@@ -919,6 +919,40 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.status).toBe('verdict');
 		});
 
+		it('gives the view the band of an extended expectation, in lane beats', async () => {
+			const extended = (id: string) => {
+				const definition = fakeExercise(id);
+				const round = definition.round as RoundTemplate;
+				return {
+					...definition,
+					round: {
+						...round,
+						expectations: [
+							...round.expectations,
+							{ ...round.expectations[0], at: { beats: 1 }, until: { bars: 1 } }
+						],
+						length: { bars: 1, breath: true }
+					}
+				};
+			};
+			const ctx = series([beat(0, 8)], { exercise: extended });
+			await ctx.controller.start();
+			// Waiting for its round: not placed, no band.
+			expect(shown(ctx).place).toMatchObject({ anchorBeat: null, bands: [] });
+			// Counted on bar 0, the prompt on bar 1, the target on bar 3: the band from its beat 2
+			// to the end of the bar.
+			ctx.runTo(ctx.bar(1));
+			expect(shown(ctx).place).toMatchObject({
+				promptBeat: 4,
+				anchorBeat: 12,
+				bands: [{ fromBeat: 13, untilBeat: 16 }]
+			});
+			ctx.runTo(ctx.bar(3) + 0.03);
+			ctx.hear(ctx.bar(3) + 0.02, C);
+			ctx.runTo(ctx.bar(3.5));
+			expect(shown(ctx).place.bands).toEqual([{ fromBeat: 13, untilBeat: 16 }]);
+		});
+
 		it('announces the next prompt as many beats early as its exercise says', async () => {
 			const exercise = (id: string) => ({ ...fakeExercise(id), flow: { previewBeats: 2 } });
 			const ctx = series([beat(0, 8), beat(1, 8)], { exercise });

@@ -1,6 +1,6 @@
 import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exercise/pacing';
 import { describe, expect, it } from 'vitest';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { LOCATE_NECK } from '$lib/domain/exercise';
 import type { IdentifyData } from '$lib/domain/mechanics';
@@ -58,9 +58,9 @@ const cardOf = (attempt: Attempt): NeckCard =>
 	asNeckCard({ mechanic: attempt.mechanic, item: (attempt.data as { item: unknown }).item });
 
 /** The note lane on stage, if any. */
-function lane(controller: PlaySessionController): NoteLaneModel | null {
+function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
 }
 
 /** Every locate note learned, acquired and due: a learn session full of cold reviews on the beat. */
@@ -82,18 +82,18 @@ describe('a learn session of the notes', () => {
 			primary: 'G',
 			secondary: 'corde de E grave',
 			aid: null,
-			diagram: null
+			pictures: []
 		});
 		// Missed: the very next prompt is the same note, its position shown and its string drawn.
 		expect(aided.card).toEqual(probe.card);
 		expect(aided.prompt.aid).not.toBeNull();
-		expect(aided.prompt.diagram).not.toBeNull();
+		expect(aided.prompt.pictures).not.toEqual([]);
 		// Played right STRING_AID_FADE_SUCCESSES times (the aided one first): when it comes back,
 		// the string drawn has faded (and the position too).
 		const met = rounds.filter((round) => keyOf(round.card) === keyOf(probe.card));
 		const back = met[1 + STRING_AID_FADE_SUCCESSES];
 		expect(back).toBeDefined();
-		expect(back?.prompt.diagram).toBeNull();
+		expect(back?.prompt.pictures).toEqual([]);
 		expect(back?.prompt.aid).toBeNull();
 
 		const attempts = await quitAndRead(app, controller);
@@ -259,7 +259,7 @@ describe('a learn session of the notes', () => {
 		await runUntil(app, () => controller.view.status === 'verdict');
 		const settledAt = controller.timeline.nowBeat();
 		expect(lane(controller)?.verdict).toMatchObject({ verdict: 'wrong' });
-		expect(lane(controller)?.verdict?.correction).toMatch(/^corde de .+, case \d+$/);
+		expect(lane(controller)?.verdict?.misses[0]?.correction).toMatch(/^corde de .+, case \d+$/);
 		// Through the breath it stays, at every step, until the next note's string shows.
 		let shownAt: number | null = null;
 		let kept = true;
@@ -269,7 +269,7 @@ describe('a learn session of the notes', () => {
 				shownAt = controller.timeline.nowBeat();
 				return true;
 			}
-			if (!model?.verdict?.correction) kept = false;
+			if (!model?.verdict?.misses[0]?.correction) kept = false;
 			return false;
 		});
 		expect(kept).toBe(true);

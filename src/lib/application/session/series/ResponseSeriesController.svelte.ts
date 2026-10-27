@@ -25,7 +25,8 @@ import {
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
-import { SCENE_CLICKS, type Scene } from '$lib/application/mechanics/types';
+import { SCENE_CLICKS, type Scene, type StagePlace } from '$lib/application/mechanics/types';
+import { promptStage } from '$lib/application/presentation/promptStage';
 import {
 	DEFAULT_PLAY_VIEW,
 	type LaneEntry,
@@ -55,6 +56,9 @@ export type PrepareResponseSeries = (
 	sessionId: string
 ) => Promise<{ source: ItemSource; executions: Execution[]; durationMs?: number }>;
 
+/** A prompt not placed on the lane yet: waiting for its round. */
+const NOT_PLACED = { anchorBeat: null, promptBeat: null, bands: [] } as const;
+
 /** A round on the transport, from its opening to the opening of the next one (or a pause, or the end). */
 interface OpenRound {
 	item: PlannedItem;
@@ -70,6 +74,8 @@ interface OpenRound {
 	promptBeat: number;
 	/** Its target, in beats of the map from the series' start. */
 	anchorBeat: number;
+	/** Its extended expectations, in the same beats. */
+	bands: StagePlace['bands'];
 	/** Closed (handover, pause, quit): its span may still listen, the runner no longer. */
 	closed: boolean;
 	settled: boolean;
@@ -184,7 +190,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.pending ??= this.takeNext();
 		const text = this.pending ? this.items.howToOf(this.pending, this.deps.locale()) : null;
 		this.view.briefing = text === null ? null : { text };
-		if (this.pending) this.showStage(this.pending, null, null, null);
+		if (this.pending) this.showStage(this.pending, null, NOT_PLACED);
 	}
 
 	async start(): Promise<void> {
@@ -419,7 +425,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		const settledOnScreen = this.round?.settled === true;
 		const showWaiting = () => {
 			this.withdrawContest();
-			this.showStage(item, null, null, promptBeat);
+			this.showStage(item, null, { ...NOT_PLACED, promptBeat });
 		};
 		if (!settledOnScreen) showWaiting();
 		if (count.restFrom !== null) {
@@ -457,15 +463,15 @@ export class ResponseSeriesController implements PlaySessionController {
 			const promptBeat = this.promptBeatOf(start, plan);
 			this.wakeAt(this.promptOf(start, plan).sub(preview), () => {
 				this.withdrawContest();
-				this.showStage(item, null, null, promptBeat);
+				this.showStage(item, null, { ...NOT_PLACED, promptBeat });
 			});
 		}
 		this.openAtPrompt(item, plan, start);
 	}
 
 	/** The plan of `item`'s round, compiled from its exercise's template in the series' meter. */
-	private planOf(item: PlannedItem): RoundPlan {
-		return compileRound(this.items.definitionOf(item), item, this.seriesMeter, {
+	private planOf(item: PlannedItem, meter: Meter = this.seriesMeter): RoundPlan {
+		return compileRound(this.items.definitionOf(item), item, meter, {
 			previewBeats: this.items.flowOf(item).previewBeats ?? 0
 		});
 	}
@@ -527,6 +533,7 @@ export class ResponseSeriesController implements PlaySessionController {
 			promptTime,
 			promptBeat: this.promptBeatOf(at, plan),
 			anchorBeat: this.anchorBeatOf(at, plan),
+			bands: this.bandsOf(at, plan),
 			closed: false,
 			settled: false,
 			attempt: null,
@@ -569,7 +576,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.view.chordDiagram = presenter.feedback
 			? chordDiagramFor(definition, this.settings)
 			: this.settings.chordDiagram;
-		this.showStage(item, null, round.anchorBeat, round.promptBeat);
+		this.showStage(item, null, round);
 		this.view.status = 'awaiting';
 	}
 
@@ -723,7 +730,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.withdrawContest();
 		this.view.countdown = null;
 		this.view.briefing = { text: this.items.howToOf(item, this.deps.locale()) ?? '' };
-		this.showStage(item, null, null, null);
+		this.showStage(item, null, NOT_PLACED);
 		this.log?.end(now);
 		this.log?.openStop('briefing', now);
 		this.view.status = 'paused';
@@ -798,7 +805,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 		if (this.round === round && !round.closed) this.view.status = 'verdict';
 		if (this.round === round) {
-			this.showStage(item, { value, success: outcome.success }, round.anchorBeat, round.promptBeat);
+			this.showStage(item, { value, success: outcome.success }, round);
 		}
 	}
 
@@ -842,28 +849,54 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	// ── the screen ───────────────────────────────────────────────────────────
 
-	/** The screen model of `item` in the view its exercise names, placed on its prompt and target. */
+	/**
+	 * The screen model of `item` in the view its exercise names, placed on its prompt, target and
+	 * bands: the model every exercise that writes its presentation shares (`promptStage`), else
+	 * its presenter's own; `round`, the round placed, null-placed before it opens.
+	 */
 	private showStage(
 		item: PlannedItem,
 		settled: { value: ResponseValue; success: boolean } | null,
-		anchorBeat: number | null,
-		promptBeat: number | null
+		round: Omit<StagePlace, 'history'> & { plan?: RoundPlan }
 	): void {
 		const spelled = this.spelling.get(item) ?? 0;
-		const staged = this.items
-			.presenterOf(item)
-			.stageOf?.(
-				item.item,
-				settled,
-				this.deps.locale(),
-				{ aid: item.aid, stringAid: item.stringAid ?? false },
-				{ anchorBeat, promptBeat, history: [...this.history] },
-				{ chordDiagram: chordDiagramFor(this.items.definitionOf(item), this.settings) },
-				() => spelled
-			);
-		this.view.stage = staged
-			? { view: this.items.definitionOf(item).view ?? DEFAULT_PLAY_VIEW, model: staged.model }
-			: null;
+		const random = () => spelled;
+		const definition = this.items.definitionOf(item);
+		const presenter = this.items.presenterOf(item);
+		const place: StagePlace = {
+			anchorBeat: round.anchorBeat,
+			promptBeat: round.promptBeat,
+			history: [...this.history],
+			bands: round.bands
+		};
+		const chordDiagram = chordDiagramFor(definition, this.settings);
+		const locale = this.deps.locale();
+		// Before the transport begins (the start screen), in the meter the item will play in.
+		const meter = this.meter ?? this.meterOf(item);
+		const model = definition.presentation
+			? promptStage({
+					definition,
+					item,
+					plan: round.plan ?? this.planOf(item, meter),
+					settled,
+					place,
+					beatsPerBar: meter.count,
+					chordDiagram,
+					choices: presenter.answerChoices?.() ?? [],
+					locale,
+					random
+				})
+			: presenter.stageOf?.(
+					item.item,
+					settled,
+					locale,
+					{ aid: item.aid, stringAid: item.stringAid ?? false },
+					place,
+					{ chordDiagram },
+					random
+				)?.model;
+		this.view.stage =
+			model === undefined ? null : { view: definition.view ?? DEFAULT_PLAY_VIEW, model };
 	}
 
 	private enterScene(item: PlannedItem): void {
@@ -876,6 +909,17 @@ export class ResponseSeriesController implements PlaySessionController {
 	private anchorBeatOf(at: Fraction, plan: RoundPlan): number {
 		const target = plan.expectations[0]?.at ?? Fraction.ZERO;
 		return at.mul(this.transport.barLength).add(target).div(this.seriesMeter.unit).toNumber();
+	}
+
+	/** The round's extended expectations on the map, from their start to their end, in beats. */
+	private bandsOf(at: Fraction, plan: RoundPlan): StagePlace['bands'] {
+		const origin = at.mul(this.transport.barLength);
+		const beat = (position: Fraction) => origin.add(position).div(this.seriesMeter.unit).toNumber();
+		return plan.expectations.flatMap(({ at: from, span }) =>
+			from === null || span === 'point'
+				? []
+				: [{ fromBeat: beat(from), untilBeat: beat(span.until) }]
+		);
 	}
 
 	/** The beat of the round's prompt on the map. */

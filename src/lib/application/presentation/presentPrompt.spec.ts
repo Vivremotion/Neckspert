@@ -6,10 +6,40 @@ import {
 	TRIADS_ZONE
 } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { PlannedItem } from '$lib/domain/types';
-import { identifyPresenter } from '$lib/application/mechanics/identify';
-import { locatePresenter } from '$lib/application/mechanics/locate';
+import {
+	fretLabel,
+	openPitch,
+	stringLabel,
+	type IdentifyItem,
+	type LocateItem
+} from '$lib/domain/music';
+import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
+import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
+
+/** The locate prompt as its presenter wrote it before its presentation became data (H5). */
+function locateToday(
+	item: LocateItem,
+	{ aid, stringAid }: { aid: AidLevel; stringAid: boolean },
+	locale: Locale,
+	random: () => number
+) {
+	return {
+		primary: noteName(item.pitch, random),
+		secondary: stringLabel(item.string, locale),
+		aid: aid === 'show-position' ? promptFretLabel(item, locale) : null,
+		diagram: stringAid ? { string: item.string, label: openPitch(item.string) } : null
+	};
+}
+
+/** The identify prompt as its presenter wrote it before its presentation became data (H5). */
+function identifyToday(item: IdentifyItem, aid: AidLevel, locale: Locale, random: () => number) {
+	return {
+		primary: fretLabel(item.fret, locale),
+		secondary: stringLabel(item.string, locale),
+		aid: aid === 'show-position' ? nameAtFret(item, random) : null
+	};
+}
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const EBM_ON_B = 'D#|min|3:5,2:1,1:b3';
@@ -44,7 +74,7 @@ describe('presentPrompt', () => {
 					for (const locale of ['fr', 'en'] as const) {
 						for (const value of [0, 0.9]) {
 							const random = () => value;
-							const today = locatePresenter.prompt(item, { aid, stringAid }, locale, random);
+							const today = locateToday(item, { aid, stringAid }, locale, random);
 							const shown = presentPrompt(
 								LOCATE_NECK,
 								planned(LOCATE_NECK, item, { aid, stringAid }),
@@ -80,7 +110,7 @@ describe('presentPrompt', () => {
 	it('writes the identify prompt as today: the fret, the string, the name when aided', () => {
 		const item = { string: 3, fret: 8 } as const;
 		for (const aid of ['none', 'show-position'] as const) {
-			const today = identifyPresenter.prompt(item, { aid, stringAid: false }, 'en', () => 0.1);
+			const today = identifyToday(item, aid, 'en', () => 0.1);
 			const shown = presentPrompt(
 				IDENTIFY_NECK,
 				planned(IDENTIFY_NECK, item, { aid }),

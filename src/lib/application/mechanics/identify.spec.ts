@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { identifyRules } from '$lib/domain/mechanics';
 import type { ResponseValue } from '$lib/domain/time';
-import { identifyPresenter, type AnswerKeysModel } from './identify';
+import { identifyPresenter } from './identify';
 import { NECK_PRESENTERS } from './index';
 
 const item = { string: 5, fret: 8 } as const;
-const unaided = { aid: 'none', stringAid: false } as const;
 
 describe('identifyPresenter', () => {
 	it('is answered on the screen, by a tap', () => {
@@ -13,36 +12,8 @@ describe('identifyPresenter', () => {
 		expect(identifyPresenter.scene).toBe('screen');
 		expect(identifyPresenter.sensors).toEqual(['tap']);
 		expect(NECK_PRESENTERS.identify).toBe(identifyPresenter);
-	});
-
-	it('builds an identify prompt (fret primary, no aid)', () => {
-		const view = identifyPresenter.prompt(item, unaided, 'fr', () => 0);
-		expect(view.primary).toBe('case 8');
-		expect(view.secondary).toBe('corde de A');
-		expect(view.aid).toBeNull();
-		expect(view.diagram).toBeNull();
-	});
-
-	it('never draws the string', () => {
-		expect(
-			identifyPresenter.prompt(item, { aid: 'none', stringAid: true }, 'fr', () => 0).diagram
-		).toBeNull();
-	});
-
-	it('names the note as the aid of an identify presentation', () => {
-		const view = identifyPresenter.prompt(
-			item,
-			{ aid: 'show-position', stringAid: false },
-			'fr',
-			() => 0
-		);
-		expect(view.aid).toBe('F');
-	});
-
-	it('uses English labels', () => {
-		const view = identifyPresenter.prompt(item, unaided, 'en', () => 0);
-		expect(view.primary).toBe('fret 8');
-		expect(view.secondary).toBe('A string');
+		// Its screen is its exercise's presentation.
+		expect(identifyPresenter.stageOf).toBeUndefined();
 	});
 
 	it('returns twelve chromatic choices, valued by pitch', () => {
@@ -53,23 +24,6 @@ describe('identifyPresenter', () => {
 		expect(choices[6]).toEqual({ value: 'F#', label: 'F# / Gb' });
 	});
 
-	it('spells the tapped name as the answer', () => {
-		expect(identifyPresenter.answerLabel({ pitch: 'A#' }, item, 'fr', () => 0)).toBe('A#');
-		expect(identifyPresenter.answerLabel({ pitch: 'A#' }, item, 'fr', () => 0.5)).toBe('Bb');
-	});
-
-	it('reveals the name, both spellings for an altered one, after a miss', () => {
-		const miss = { correct: false, verdict: 'wrong' } as const;
-		expect(identifyPresenter.reveal(item, miss, 'fr')).toBe('F');
-		expect(identifyPresenter.reveal({ string: 5, fret: 1 } as const, miss, 'fr')).toBe('A# / Bb');
-	});
-
-	it('reveals nothing on a right name', () => {
-		expect(identifyPresenter.reveal(item, { correct: true, verdict: 'perfect' }, 'fr')).toBeNull();
-		expect(identifyPresenter.reveal(item, { correct: true, verdict: 'late' }, 'fr')).toBeNull();
-	});
-
-	const place = { anchorBeat: null, promptBeat: null, history: [] };
 	const valueOf = (pitch: string | null): ResponseValue => ({
 		verdict: pitch === 'F' ? 'perfect' : 'wrong',
 		timingOffsetMs: null,
@@ -85,30 +39,6 @@ describe('identifyPresenter', () => {
 				late: false
 			}
 		]
-	});
-
-	it('offers the twelve names and says the name after a miss', () => {
-		const stageOf = identifyPresenter.stageOf!;
-		const before = stageOf(item, null, 'fr', unaided, place, undefined, () => 0)
-			.model as AnswerKeysModel;
-		expect(before.choices).toHaveLength(12);
-		expect(before.verdict).toBeNull();
-		expect(before.prompt.primary).toBe('case 8');
-		const miss = stageOf(
-			item,
-			{ value: valueOf('G'), success: false },
-			'fr',
-			unaided,
-			place,
-			undefined,
-			() => 0
-		).model as AnswerKeysModel;
-		expect(miss.verdict).toEqual({
-			verdict: 'wrong',
-			offsetMs: null,
-			answerLabel: 'G',
-			correction: 'F'
-		});
 	});
 
 	it('keeps the data an identify attempt has today', () => {

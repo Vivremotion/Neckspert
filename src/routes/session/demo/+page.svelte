@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+	import type { PromptStageModel } from '$lib/application/presentation';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import PlayScreen from '$lib/ui/play/PlayScreen.svelte';
 	import { DemoPlaySession, ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
@@ -20,16 +20,26 @@
 	const triad = $derived(shot === 'triad');
 
 	/** A still note lane: F on the B string, aided or not, at the given place. */
-	function lane(place: Omit<NoteLaneModel, 'prompt'>): { view: string; model: NoteLaneModel } {
+	function lane(
+		place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'history' | 'verdict'>
+	): { view: string; model: PromptStageModel } {
 		return {
 			view: 'note-lane',
 			model: {
 				prompt: {
 					primary: 'F',
 					secondary: 'corde de B',
+					detail: null,
+					target: null,
+					band: null,
+					preview: 'corde de B',
 					aid: withAid ? 'case 6' : null,
-					diagram: withAid ? { string: 2, label: 'B' } : null
+					pictures: withAid ? [{ kind: 'string', string: 2, label: 'B' }] : []
 				},
+				bands: [],
+				beatsPerBar: 4,
+				chordDiagram: 'strings',
+				choices: [],
 				...place
 			}
 		};
@@ -94,9 +104,16 @@
 								verdict: 'wrong',
 								offsetMs: 30,
 								answerLabel: 'F#',
-								correction: 'corde de B, case 6'
+								misses: [
+									{
+										correction: 'corde de B, case 6',
+										heard: null,
+										expected: null,
+										gap: null
+									}
+								]
 							}
-						: { verdict: 'late', offsetMs: 95, answerLabel: 'F', correction: null }
+						: { verdict: 'late', offsetMs: 95, answerLabel: 'F', misses: [] }
 				});
 				ready = true;
 				return;

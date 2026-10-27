@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { NoteLaneModel } from '$lib/application/mechanics/locate';
+import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
@@ -35,6 +35,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	meter: WALTZ,
 	tempo: { fixed: 90 },
 	flow: { previewBeats: 2 },
+	presentation: LOCATE_NECK.presentation,
 	// Its round is locate's, the target on beat 2 of the bar.
 	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {
@@ -62,9 +63,9 @@ const SECOND = locate(2, 'G');
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
 
-function lane(controller: PlaySessionController): NoteLaneModel | null {
+function lane(controller: PlaySessionController): PromptStageModel | null {
 	const stage = controller.view.stage;
-	return stage?.view === 'note-lane' ? (stage.model as NoteLaneModel) : null;
+	return stage?.view === 'note-lane' ? (stage.model as PromptStageModel) : null;
 }
 
 async function quitAndRead(app: NotesApp, controller: PlaySessionController): Promise<Attempt[]> {

@@ -39,7 +39,7 @@ describe('DemoPlaySession', () => {
 		expect(demo.view.status).toBe('awaiting');
 		expect(demo.view.countdown).toBeNull();
 		expect(demo.lane).toMatchObject({
-			prompt: { primary: 'F', secondary: 'corde de B', aid: null, diagram: null },
+			prompt: { primary: 'F', secondary: 'corde de B', aid: null, pictures: [] },
 			promptBeat: 4,
 			anchorBeat: 12,
 			history: [],
@@ -61,7 +61,7 @@ describe('DemoPlaySession', () => {
 			verdict: 'perfect',
 			offsetMs: 12,
 			answerLabel: 'F',
-			correction: null
+			misses: []
 		});
 		expect(demo.lane?.history).toEqual([{ beatIndex: 12, verdict: 'perfect' }]);
 		clock.setBeat(15);
@@ -98,7 +98,7 @@ describe('DemoPlaySession', () => {
 			verdict: 'wrong',
 			offsetMs: 40,
 			answerLabel: 'A',
-			correction: 'corde de A, case 7'
+			misses: [{ correction: 'corde de A, case 7', heard: null, expected: null, gap: null }]
 		});
 	});
 

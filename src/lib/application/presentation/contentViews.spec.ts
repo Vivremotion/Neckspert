@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { voicingOccurrences, parseVoicingKey } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
+import { CONTENT_JUDGES } from '$lib/domain/judges';
 import { TRIAD_MESSAGES } from '$lib/application/mechanics/triadMessages';
 import { CONTENT_VIEWS } from './contentViews';
 
@@ -47,6 +48,13 @@ describe('CONTENT_VIEWS', () => {
 			expected: null,
 			gap: null
 		});
+	});
+
+	it('never tells the open string as a position, fret 12 instead, in either language', () => {
+		const told = (item: { string: number; pitch: string }, locale: 'fr' | 'en') =>
+			CONTENT_VIEWS.note.miss(item, { answer: null, confusion: null }, locale, () => 0).correction;
+		expect(told({ string: 5, pitch: 'A' }, 'fr')).toBe('corde de A, case 12');
+		expect(told({ string: 2, pitch: 'F' }, 'en')).toBe('B string, fret 6');
 	});
 
 	it('tells a missed name both spellings', () => {
@@ -117,5 +125,15 @@ describe('CONTENT_VIEWS', () => {
 		expect(miss.heard).toBeNull();
 		expect(miss.gap).toBe(TRIAD_MESSAGES.fr.gap.noChordHeard);
 		expect(miss.expected).toEqual(shape([2, 3, 2]));
+	});
+
+	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {
+		/** Kinds judged but drawn by their presenter's own model until the gesture is data. */
+		const NOT_VIEWED_YET = ['chord-grid'];
+		const judged = Object.keys(CONTENT_JUDGES);
+		expect(NOT_VIEWED_YET.every((kind) => judged.includes(kind))).toBe(true);
+		expect(Object.keys(CONTENT_VIEWS).sort()).toEqual(
+			judged.filter((kind) => !NOT_VIEWED_YET.includes(kind)).sort()
+		);
 	});
 });

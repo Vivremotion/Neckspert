@@ -758,7 +758,9 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private promptViewOf(item: PlannedItem): PromptView {
-		return this.presenterFor(item).prompt(
+		const { prompt } = this.presenterFor(item);
+		if (!prompt) throw new Error(`${item.mechanic}: its presenter writes no prompt`);
+		return prompt(
 			item.item,
 			{ aid: item.aid, stringAid: item.stringAid ?? false },
 			this.locale,
@@ -938,7 +940,8 @@ export class SessionController implements PlaySessionController {
 		const answerLabel =
 			outcome.answer === null || !item || !presenter
 				? null
-				: presenter.answerLabel(outcome.answer, item.item, this.locale, this.deps.random);
+				: (presenter.answerLabel?.(outcome.answer, item.item, this.locale, this.deps.random) ??
+					null);
 		const drawn =
 			item && presenter?.feedback
 				? presenter.feedback(
@@ -959,7 +962,7 @@ export class SessionController implements PlaySessionController {
 			answerLabel,
 			correction:
 				withCorrection && item && presenter
-					? presenter.reveal(item.item, outcome, this.locale)
+					? (presenter.reveal?.(item.item, outcome, this.locale) ?? null)
 					: null
 		};
 	}

@@ -37,7 +37,7 @@ import {
 	stringSetLabel
 } from '$lib/application/presentation/triadWords';
 import { TRIAD_MESSAGES } from './triadMessages';
-import type { MechanicPresenter } from './types';
+import type { MechanicPresenter, OneAnswerPresenter } from './types';
 
 function toCandidate(kind: string, occurrence: VoicingOccurrence): ChordCandidate {
 	return {
@@ -103,7 +103,7 @@ function triadPrompt(
 
 /** Find a triad from its root on a named string: "D · fondamentale sur si". */
 // The judge answers one part at a time; the round answers with both (`{ root, chord }`).
-export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
+export const triadAnchorPresenter: OneAnswerPresenter<TriadAnchorItem> = {
 	rules: triadAnchorRules,
 	scene: 'guitar',
 	sensors: ['note', 'chord'],
@@ -150,7 +150,7 @@ export const triadAnchorPresenter: MechanicPresenter<TriadAnchorItem> = {
 };
 
 /** Find a triad around a fret: "D · vers la case 3". */
-export const triadZonePresenter: MechanicPresenter<TriadZoneItem, ChordReading> = {
+export const triadZonePresenter: OneAnswerPresenter<TriadZoneItem, ChordReading> = {
 	rules: triadZoneRules,
 	scene: 'guitar',
 	sensors: ['chord'],
