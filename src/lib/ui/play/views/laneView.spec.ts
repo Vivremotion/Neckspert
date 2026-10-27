@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
-import type { LaneTile } from '../lane';
+import { bandSpan, type LaneTile } from '../lane';
 import { laneViewTiles } from './laneView';
 import { presented, stageModel } from './testing/promptStage';
 
@@ -93,6 +93,33 @@ describe('laneViewTiles', () => {
 		expect(map.get(17)?.bandEdge).toBe('start');
 		expect(map.get(19)?.bandEdge).toBe('end');
 		expect(map.get(20)?.kind).toBe('empty');
+	});
+
+	it('draws every stretch as its own band, and holds the last on the lane', () => {
+		const tiles = laneViewTiles(
+			model({
+				bands: [
+					{ fromBeat: 17, untilBeat: 19 },
+					{ fromBeat: 19, untilBeat: 21 },
+					{ fromBeat: 30, untilBeat: 32 }
+				]
+			}),
+			{ nowBeat: 10.25 }
+		);
+		const map = byIndex(tiles);
+		expect([17, 18, 19, 20].map((i) => map.get(i)?.bandEdge)).toEqual([
+			'start',
+			'end',
+			'start',
+			'end'
+		]);
+		expect([30, 31].map((i) => map.get(i)?.kind)).toEqual(['band', 'band']);
+		expect(map.get(21)?.kind).toBe('empty');
+		// The band's name runs across the first stretch only.
+		expect(bandSpan(tiles)).toEqual({
+			start: tiles.findIndex((t) => t.beatIndex === 17),
+			cells: 2
+		});
 	});
 
 	it('holds the whole band on the lane, however far it ends', () => {

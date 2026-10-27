@@ -75,7 +75,7 @@ describe('laneTiles', () => {
 			laneTiles({
 				...base,
 				nowBeat: 10.25,
-				followUp: { fromBeat: 17, untilBeat: 20 },
+				bands: [{ fromBeat: 17, untilBeat: 20 }],
 				beatsAfter: 12
 			})
 		);
@@ -91,7 +91,7 @@ describe('laneTiles', () => {
 			laneTiles({
 				...base,
 				nowBeat: 10.25,
-				followUp: { fromBeat: 17, untilBeat: 18 },
+				bands: [{ fromBeat: 17, untilBeat: 18 }],
 				beatsAfter: 12
 			})
 		);
@@ -105,7 +105,7 @@ describe('laneTiles', () => {
 			laneTiles({
 				...base,
 				nowBeat: 10.25,
-				followUp: { fromBeat: 9, untilBeat: 12 },
+				bands: [{ fromBeat: 9, untilBeat: 12 }],
 				history: [{ beatIndex: 10, verdict: 'late' }]
 			})
 		);
@@ -115,7 +115,7 @@ describe('laneTiles', () => {
 });
 
 describe('laneWindow', () => {
-	const none = { beatsPerBar: 4, targetBeatIndex: null, followUp: null };
+	const none = { beatsPerBar: 4, targetBeatIndex: null, bands: [] };
 
 	it('shows one bar behind and two ahead without a target', () => {
 		expect(laneWindow({ ...none, nowBeat: 10.25 })).toEqual({ beatsBefore: 4, beatsAfter: 8 });
@@ -144,13 +144,13 @@ describe('laneWindow', () => {
 			...none,
 			nowBeat: 20,
 			targetBeatIndex: 24,
-			followUp: { fromBeat: 25, untilBeat: 36 }
+			bands: [{ fromBeat: 25, untilBeat: 36 }]
 		});
 		const tiles = laneTiles({
 			...base,
 			nowBeat: 20,
 			targetBeatIndex: 24,
-			followUp: { fromBeat: 25, untilBeat: 36 },
+			bands: [{ fromBeat: 25, untilBeat: 36 }],
 			history: [],
 			...w
 		});
@@ -186,7 +186,7 @@ describe('bandSpan', () => {
 			...base,
 			nowBeat,
 			history: [],
-			followUp: { fromBeat: 17, untilBeat: 20 },
+			bands: [{ fromBeat: 17, untilBeat: 20 }],
 			beatsAfter: 12
 		});
 
