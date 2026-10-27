@@ -160,7 +160,8 @@ describe('triadSubject', () => {
 			triadSubject({
 				mechanic: 'triad-anchor',
 				definitions: { anchor: withoutThreshold(TRIADS_ANCHOR), zone: TRIADS_ZONE },
-				acquiredPositions: new Set()
+				acquiredPositions: new Set(),
+				attempts: []
 			})
 		).toThrow(/recall threshold/);
 	});
@@ -188,7 +189,8 @@ describe('triadSubject', () => {
 		const prioritized = triadSubject({
 			mechanic: 'triad-anchor',
 			definitions: DEFINITIONS,
-			acquiredPositions: acquired
+			acquiredPositions: acquired,
+			attempts: []
 		});
 		const head = prioritized.nextNew([], NO_HISTORY, NOTHING_BLOCKED);
 		expect(head).not.toEqual(ref(ANCHOR, ORDER[0]));

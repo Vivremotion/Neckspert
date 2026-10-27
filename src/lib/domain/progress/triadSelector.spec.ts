@@ -11,7 +11,7 @@ import {
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import type { ItemSource } from './selector';
-import { createTriadSelector, triadZoneOpen } from './triadSelector';
+import { createTriadSelector } from './triadSelector';
 
 const NOW = Date.parse('2026-10-08T10:00:00.000Z');
 const HOUR = 60 * 60 * 1000;
@@ -270,18 +270,5 @@ describe('createTriadSelector', () => {
 
 	it('ends with the session time', () => {
 		expect(select().next({ now: NOW, elapsedMs: 5 * 60 * 1000, fatigued: false })).toBeNull();
-	});
-});
-
-describe('triadZoneOpen', () => {
-	it('opens the zone once six triads are acquired in anchor', () => {
-		const acquired = ORDER.slice(0, 6).map((key) => acquiredAnchor(key));
-		expect(triadZoneOpen(acquired.slice(0, 5))).toBe(false);
-		expect(triadZoneOpen([...acquired.slice(0, 5), anchorCard(ORDER[5])])).toBe(false);
-		expect(triadZoneOpen(acquired)).toBe(true);
-	});
-
-	it('keeps the zone open once it has a card', () => {
-		expect(triadZoneOpen([acquiredAnchor(ORDER[0]), zoneCard(ORDER[0])])).toBe(true);
 	});
 });

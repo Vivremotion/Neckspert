@@ -3,13 +3,18 @@ import {
 	rootPosition,
 	triadAnchorRules,
 	triadZoneRules,
+	type ChordConfusion,
 	type ChordReading,
+	type TriadAnchorConfusion,
+	type TriadAnchorData,
 	type TriadAnchorItem,
+	type TriadZoneData,
 	type TriadZoneItem
 } from '$lib/domain/mechanics';
 import {
 	closeTriadVoicings,
 	formatSpelledNote,
+	type Confusion,
 	parseVoicingKey,
 	pitchOfMidi,
 	voicingCandidates,
@@ -18,6 +23,7 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
+import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
 import type { Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
 import type { PromptView } from '$lib/application/session/contract';
 import {
@@ -78,6 +84,56 @@ function chordExpectation(
 		expected: candidates.filter((c) => c.kind === 'expected').map((c) => c.id),
 		candidates,
 		style: 'unknown'
+	};
+}
+
+/** The confusion of an anchor whose root was right and whose chord never came in its band. */
+const NO_CHORD: TriadAnchorConfusion = { kind: 'no-chord', part: 'chord' };
+
+/** What the round's expectation `index` received; unanswered when the value has none. */
+function resultAt(value: ResponseValue, index: number): ExpectationResult {
+	return (
+		value.expectations.find((result) => result.index === index) ?? {
+			index,
+			answer: null,
+			correct: null,
+			confusion: null,
+			correction: null,
+			late: false
+		}
+	);
+}
+
+/**
+ * An anchor's `Attempt.data` as the anchor relation stored it: what was heard of each part (null
+ * when nothing was), and where it went wrong, the root first (named as locate names it), then the
+ * chord (none heard: `no-chord`).
+ */
+function anchorData(item: TriadAnchorItem, value: ResponseValue): TriadAnchorData {
+	const root = resultAt(value, 0);
+	const chord = resultAt(value, 1);
+	const answered = root.answer !== null || chord.answer !== null;
+	const rootConfusion = root.confusion as Confusion | null;
+	const confusion: TriadAnchorConfusion | null =
+		root.correct !== true
+			? root.answer === null || rootConfusion === null
+				? null
+				: { ...rootConfusion, part: 'root' }
+			: chord.answer === null
+				? NO_CHORD
+				: chord.correct === true
+					? null
+					: (chord.confusion as ChordConfusion | null);
+	return {
+		item,
+		answer: answered
+			? {
+					root: root.answer as { midi: number } | null,
+					chord: chord.answer as ChordReading | null,
+					correction: chord.correction as ChordReading | null
+				}
+			: null,
+		confusion
 	};
 }
 
@@ -146,7 +202,8 @@ export const triadAnchorPresenter: OneAnswerPresenter<TriadAnchorItem> = {
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, lowestShape(voicing), true, round) };
-	}
+	},
+	attemptData: anchorData
 };
 
 /** Find a triad around a fret: "D · vers la case 3". */
@@ -182,6 +239,14 @@ export const triadZonePresenter: OneAnswerPresenter<TriadZoneItem, ChordReading>
 	expectation: (item, round) => {
 		const voicing = parseVoicingKey(item.voicingKey);
 		return { chord: chordExpectation(voicing, shapeAt(voicing, item.position), false, round) };
+	},
+	attemptData: (item, value): TriadZoneData => {
+		const chord = resultAt(value, 0);
+		return {
+			item,
+			answer: chord.answer as ChordReading | null,
+			confusion: chord.confusion as ChordConfusion | null
+		};
 	}
 };
 

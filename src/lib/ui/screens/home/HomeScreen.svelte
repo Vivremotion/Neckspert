@@ -1,6 +1,5 @@
 <script lang="ts">
 	import type { TriadsHome } from '$lib/application/app';
-	import { LEARN_SESSION_MS } from '$lib/domain/progress';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -89,7 +88,7 @@
 				key: 'triads',
 				title: t.triads,
 				why: triads.anchorDue > 0 ? t.triadsDue(triads.anchorDue) : undefined,
-				duration: formatMinutes(LEARN_SESSION_MS, words),
+				duration: formatMinutes(SESSION_MS, words),
 				onselect: () => ontriads('triads')
 			});
 			if (triads.zoneDue !== null) {
@@ -97,7 +96,7 @@
 					key: 'triads-zone',
 					title: t.triadsZone,
 					why: triads.zoneDue > 0 ? t.due(triads.zoneDue) : undefined,
-					duration: formatMinutes(LEARN_SESSION_MS, words),
+					duration: formatMinutes(SESSION_MS, words),
 					onselect: () => ontriads('triads-zone')
 				});
 			}

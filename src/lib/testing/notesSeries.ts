@@ -1,11 +1,11 @@
 /** The notes' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
-import { NECK_PRESENTERS } from '$lib/application/mechanics';
+import { NECK_PRESENTERS, type MechanicPresenter } from '$lib/application/mechanics';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { noteSensor, tapSensor, type SensorFactory } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById, type ExerciseDefinition, type Progression } from '$lib/domain/exercise';
 import {
@@ -21,7 +21,7 @@ import {
 import { CHROMATIC_NOTES, STRING_NUMBERS, type PitchName } from '$lib/domain/music/types';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { LevelState } from '$lib/domain/time';
-import type { CardState } from '$lib/domain/types';
+import type { Attempt, CardState } from '$lib/domain/types';
 import {
 	FakeClock,
 	FakeDiagnostics,
@@ -109,6 +109,12 @@ export interface NotesSetup {
 	random?: () => number;
 	/** Exercises that replace the catalog's of the same id (a test catalog). */
 	exercises?: readonly ExerciseDefinition[];
+	/** Attempts already stored. */
+	attempts?: Attempt[];
+	/** Presenters beside the neck's, by mechanic. */
+	presenters?: Record<string, MechanicPresenter>;
+	/** Sensors beside the note and the tap. */
+	sensors?: Record<string, SensorFactory>;
 }
 
 /** The app's services on fakes, its stores filled from `setup`, ready to start a session of the notes. */
@@ -130,8 +136,8 @@ export async function notesApp(setup: NotesSetup = {}) {
 		now: () => clock.toEpochMs(clock.now()),
 		random: setup.random ?? (() => 0),
 		newId: () => `notes-${++ids}`,
-		mechanics: { ...NECK_PRESENTERS },
-		sensors: { note: noteSensor(detector), tap: tapSensor() },
+		mechanics: { ...NECK_PRESENTERS, ...setup.presenters },
+		sensors: { note: noteSensor(detector), tap: tapSensor(), ...setup.sensors },
 		sounds,
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),
@@ -140,6 +146,7 @@ export async function notesApp(setup: NotesSetup = {}) {
 			setup.exercises?.find((exercise) => exercise.id === id) ?? exerciseById(id)
 	};
 	await deps.cards.putMany(setup.cards ?? []);
+	for (const attempt of setup.attempts ?? []) await deps.attempts.add(attempt);
 	for (const level of setup.levels ?? []) await deps.levels.put(level);
 	for (const progression of setup.progressions ?? []) await deps.progressions.put(progression);
 	const services: AppServices = createAppServices({

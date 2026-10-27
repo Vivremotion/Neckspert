@@ -743,6 +743,12 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (event.kind === 'provisional') {
 			this.view.status = 'verdict';
 			this.offerContest(round, event.outcome);
+			// Under a policy that corrects, the miss shows at once while a later answer may still
+			// put it right; the settlement replaces it.
+			if (round.plan.policy.correction) {
+				const value = event.outcome.verdict.value as ResponseValue;
+				this.showStage(round.item, { value, success: false }, round);
+			}
 			return;
 		}
 		this.settle(round, event.outcome);

@@ -61,7 +61,7 @@ export function triadSubject(input: {
 	/** Locate positions (`string:pitch`) already acquired: their triads come first. */
 	acquiredPositions: ReadonlySet<string>;
 	/** Stored attempts: the last position asked of each zone card. */
-	attempts?: readonly Attempt[];
+	attempts: readonly Attempt[];
 }): LearningSubject {
 	const { mechanic, definitions } = input;
 	const definitionOf: Record<TriadMechanic, ExerciseDefinition> = {
@@ -82,7 +82,7 @@ export function triadSubject(input: {
 	).map(voicingKey);
 
 	const lastPosition = new Map<string, Position>();
-	const zoneAttempts = (input.attempts ?? [])
+	const zoneAttempts = input.attempts
 		.filter((attempt) => attempt.mechanic === ZONE)
 		.sort((a, b) => a.promptedAt - b.promptedAt);
 	for (const attempt of zoneAttempts) {

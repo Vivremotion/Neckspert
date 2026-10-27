@@ -46,7 +46,7 @@ describe('exercise catalog', () => {
 		expect(() => exerciseById('nope')).toThrow(/nope/);
 	});
 
-	it('describes the two triads exercises of the memory track, each with its rhythm', () => {
+	it('describes the two triads exercises of the memory track, each with its rhythm, on the lane', () => {
 		const params = {
 			stringSets: [
 				[3, 2, 1],
@@ -70,6 +70,7 @@ describe('exercise catalog', () => {
 			id: 'triads-anchor',
 			version: 1,
 			mechanic: 'triad-anchor',
+			view: 'lane',
 			tempo: { fixed: 80 },
 			round: TRIADS_ANCHOR.round,
 			presentation: TRIADS_ANCHOR.presentation,
@@ -79,6 +80,7 @@ describe('exercise catalog', () => {
 			id: 'triads-zone',
 			version: 1,
 			mechanic: 'triad-zone',
+			view: 'lane',
 			tempo: { fixed: 80 },
 			round: TRIADS_ZONE.round,
 			presentation: TRIADS_ZONE.presentation,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ChordExpectation } from '$lib/application/ports';
 import { triadAnchorRules, triadZoneRules } from '$lib/domain/mechanics';
+import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { TRIAD_PRESENTERS, triadAnchorPresenter, triadZonePresenter } from './triads';
 
@@ -341,5 +342,100 @@ describe('triadZonePresenter', () => {
 			{ string: 2, fret: 15, midi: 74 },
 			{ string: 1, fret: 14, midi: 78 }
 		]);
+	});
+});
+
+describe('the triads’ attempt data', () => {
+	type Result = Partial<ExpectationResult> & { index: number };
+	const result = (over: Result): ExpectationResult => ({
+		answer: null,
+		correct: null,
+		confusion: null,
+		correction: null,
+		late: false,
+		...over
+	});
+	const valueOf = (...results: Result[]): ResponseValue => ({
+		verdict: 'wrong',
+		timingOffsetMs: null,
+		reactionMs: null,
+		leadMs: 1500,
+		expectations: results.map(result)
+	});
+	const item = { voicingKey: D_ON_B };
+
+	it('stores an anchor answered right as the anchor relation did', () => {
+		const value = valueOf(
+			{ index: 0, answer: ROOT_D, correct: true },
+			{ index: 1, answer: { decided: 'd' }, correct: true }
+		);
+		expect(triadAnchorPresenter.attemptData!(item, value)).toEqual({
+			item,
+			answer: { root: ROOT_D, chord: { decided: 'd' }, correction: null },
+			confusion: null
+		});
+	});
+
+	it('names a wrong root first, as locate names it, whatever the chord', () => {
+		const value = valueOf(
+			{ index: 0, answer: { midi: 63 }, correct: false, confusion: { kind: 'semitone', delta: 1 } },
+			{ index: 1, answer: { decided: 'x' }, correct: false, confusion: chordConfusion('none') }
+		);
+		expect(triadAnchorPresenter.attemptData!(item, value)).toEqual({
+			item,
+			answer: { root: { midi: 63 }, chord: { decided: 'x' }, correction: null },
+			confusion: { kind: 'semitone', delta: 1, part: 'root' }
+		});
+	});
+
+	it('says no chord after a right root, the chord’s gap after a wrong one, and keeps its correction', () => {
+		const noChord = valueOf({ index: 0, answer: ROOT_D, correct: true }, { index: 1 });
+		expect(triadAnchorPresenter.attemptData!(item, noChord)).toMatchObject({
+			confusion: { kind: 'no-chord', part: 'chord' }
+		});
+		const corrected = valueOf(
+			{ index: 0, answer: ROOT_D, correct: true },
+			{
+				index: 1,
+				answer: { decided: 'x' },
+				correct: false,
+				confusion: chordConfusion('other-inversion'),
+				correction: { decided: 'd' }
+			}
+		);
+		expect(triadAnchorPresenter.attemptData!(item, corrected)).toEqual({
+			item,
+			answer: { root: ROOT_D, chord: { decided: 'x' }, correction: { decided: 'd' } },
+			confusion: chordConfusion('other-inversion')
+		});
+	});
+
+	it('stores nothing heard as no answer and no confusion', () => {
+		expect(triadAnchorPresenter.attemptData!(item, valueOf({ index: 0 }, { index: 1 }))).toEqual({
+			item,
+			answer: null,
+			confusion: null
+		});
+		const zone = { voicingKey: D_ON_B, position: 2, fret: 3 };
+		expect(triadZonePresenter.attemptData!(zone, valueOf({ index: 0 }))).toEqual({
+			item: zone,
+			answer: null,
+			confusion: null
+		});
+	});
+
+	it('stores a zone answer with its item, its fret included', () => {
+		const zone = { voicingKey: D_ON_B, position: 2, fret: 3 };
+		const value = valueOf({
+			index: 0,
+			answer: { decided: 'x' },
+			correct: false,
+			confusion: chordConfusion('other-octave')
+		});
+		expect(triadZonePresenter.attemptData!(zone, value)).toEqual({
+			item: zone,
+			answer: { decided: 'x' },
+			confusion: chordConfusion('other-octave')
+		});
 	});
 });

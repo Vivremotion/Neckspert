@@ -444,36 +444,6 @@ describe('createAppServices', () => {
 		await deps.cards.put(learnedTriad('triad-zone', keys[0]));
 		expect((await services.triads()).zoneDue).toBe(1);
 	});
-
-	it('startSession(triads-zone) asks a triad acquired in anchor around a fret', async () => {
-		const { services, deps } = harness();
-		await deps.cards.put({ ...learnedTriad('triad-anchor', 'C|maj|3:5,2:1,1:3'), acquiredAt: 0 });
-		const controller = await services.startSession('triads-zone');
-		await controller.start();
-		for (let guard = 0; guard < 50 && controller.view.status !== 'awaiting'; guard++) {
-			tick(deps, deps.metronome.secondsPerBeat());
-		}
-		expect(controller.view.prompt).toMatchObject({ primary: 'C', detail: 'sol‑si‑mi' });
-		expect(controller.view.prompt?.secondary).toMatch(/^vers la case \d+$/);
-	});
-
-	it('startSession(triads) probes the first triad of the queue on its root and chord', async () => {
-		const { services, deps, chords } = harness();
-		const controller = await services.startSession('triads');
-		await controller.start();
-		while (controller.view.status !== 'awaiting') tick(deps, deps.metronome.secondsPerBeat());
-		expect(controller.view.prompt).toMatchObject({
-			primary: 'C',
-			secondary: 'fondamentale sur si',
-			detail: 'sol‑si‑mi',
-			aid: null
-		});
-		expect(controller.view.leadBeats).toBe(2);
-		expect(chords.expectations.at(-1)?.expected).toEqual([
-			'C|maj|3:5,2:1,1:3@0-1-0',
-			'C|maj|3:5,2:1,1:3@12-13-12'
-		]);
-	});
 });
 
 describe('the gesture track', () => {

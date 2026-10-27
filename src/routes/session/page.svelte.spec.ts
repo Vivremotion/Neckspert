@@ -91,7 +91,7 @@ describe('/session page, the notes and the triads', () => {
 		cleanup();
 	});
 
-	it.each([['learn'], ['free']])(
+	it.each([['learn'], ['free'], ['triads'], ['triads-zone']])(
 		'shows a %s session in the play frame, its instruction made ready',
 		async (kind) => {
 			nav.search = `?kind=${kind}`;
@@ -104,13 +104,4 @@ describe('/session page, the notes and the triads', () => {
 			expect(ready).toHaveBeenCalled();
 		}
 	);
-
-	it('keeps the triads on their play screen', async () => {
-		nav.search = '?kind=triads';
-		const startSession = vi.fn(async () => idleController());
-		const services = createFakeAppServices({ startSession });
-		const { container } = render(SessionHarness, { props: { services } });
-		await waitFor(() => expect(container.querySelector('[data-status]')).toBeTruthy());
-		expect(container.querySelector('[data-world]')).toBeNull();
-	});
 });

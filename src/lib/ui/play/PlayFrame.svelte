@@ -36,12 +36,12 @@
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
 	/**
 	 * The frame is drawn in the world of the view on stage; with none yet (the start screen, the
-	 * end), in the world of what the session plays: the notes' views are quiet.
+	 * end), in the world of what the session plays: the notes' and the triads' views are quiet.
 	 */
 	const world: PlayWorld = $derived(
 		view.stage
 			? (VIEW_WORLDS[view.stage.view] ?? 'pixel')
-			: kind === 'learn' || kind === 'free'
+			: kind === 'learn' || kind === 'free' || kind === 'triads' || kind === 'triads-zone'
 				? 'quiet'
 				: 'pixel'
 	);

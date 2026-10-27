@@ -31,8 +31,7 @@ import {
 	NEW_NOTE_MIN_CARD_SUCCESS,
 	NEW_NOTE_MIN_SESSION_SUCCESS,
 	RECOVERY_AFTER_MISSES,
-	SUCCESS_WINDOW,
-	ZONE_MIN_ACQUIRED_TRIADS
+	SUCCESS_WINDOW
 } from './constants';
 import { lastAttemptByCard, reviewableCards } from './review';
 import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
@@ -593,14 +592,4 @@ export function createTriadSelector(input: {
 		input.acquiredPositions,
 		input.random ?? Math.random
 	);
-}
-
-/**
- * Whether the zone exercise is open: `ZONE_MIN_ACQUIRED_TRIADS` triads acquired in anchor give it
- * enough to ask; once it has a card, it stays open.
- */
-export function triadZoneOpen(cards: readonly CardState[]): boolean {
-	if (cards.some((card) => card.mechanic === ZONE)) return true;
-	const acquired = cards.filter((card) => card.mechanic === ANCHOR && card.acquiredAt !== null);
-	return acquired.length >= ZONE_MIN_ACQUIRED_TRIADS;
 }

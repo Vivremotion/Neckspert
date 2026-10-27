@@ -164,6 +164,7 @@ export const TRIADS_ANCHOR: ExerciseDefinition = {
 	id: 'triads-anchor',
 	version: 1,
 	mechanic: 'triad-anchor',
+	view: 'lane',
 	tempo: { fixed: 80 },
 	presentation: {
 		primary: '{chord}',
@@ -182,6 +183,7 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	id: 'triads-zone',
 	version: 1,
 	mechanic: 'triad-zone',
+	view: 'lane',
 	tempo: { fixed: 80 },
 	presentation: {
 		primary: '{chord}',
