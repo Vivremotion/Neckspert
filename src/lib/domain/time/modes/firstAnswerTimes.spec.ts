@@ -47,7 +47,7 @@ describe('firstAnswerTimes', () => {
 		expect(t.listenUntilS).toBeCloseTo(11.35, 9);
 	});
 
-	it('captures a point late until the next point is due, not until its window opens after the prompt', () => {
+	it('ends a point’s zone where the next point’s window opens, not where its own opens after the prompt', () => {
 		// Two notes a beat apart, both heard from 300 ms after the prompt (seed 4 of openness.spec).
 		const plan: RoundPlan = {
 			...locatePlan(),
@@ -61,9 +61,18 @@ describe('firstAnswerTimes', () => {
 		expect(first.opensS).toBeCloseTo(3.4, 9);
 		expect(second.opensS).toBeCloseTo(3.4, 9);
 		expect(first.inTimeEndS).toBeCloseTo(6.5, 9);
-		// Its capture past the late limit ends where the second note is due, on the next beat.
-		expect(first.captureEndS).toBeCloseTo(6.85, 9);
+		// Its capture past the late limit ends where the second note's 80 ms window opens.
+		expect(first.captureEndS).toBeCloseTo(6.77, 9);
 		expect(second.captureEndS).toBeCloseTo(8.35, 9);
+		// Without a late capture, a late limit past the next window is cut there too.
+		const late: RoundPlan = {
+			...plan,
+			policy: {
+				...plan.policy,
+				pairing: { ...plan.policy.pairing, lateMs: 1000, lateCapture: null }
+			}
+		};
+		expect(timesOf(late, { map, start: F(2) }, false).zones[0].captureEndS).toBeCloseTo(6.77, 9);
 	});
 
 	it('lets a point capture late as if alone when the next one is due at or before its place', () => {

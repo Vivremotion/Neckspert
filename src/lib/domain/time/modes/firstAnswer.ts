@@ -33,6 +33,21 @@ interface ExpectationState {
 	zoneClosed: boolean;
 }
 
+/**
+ * Of the zones holding an attack, the one whose place is nearest (the first on a tie, and the
+ * first in free time): zones overlap only when places lie closer than their windows.
+ */
+function nearest(zones: readonly ResponseZone[], time: number): ResponseZone | undefined {
+	let best: ResponseZone | undefined;
+	for (const zone of zones) {
+		if (!best) best = zone;
+		else if (zone.atS !== null && best.atS !== null) {
+			if (Math.abs(time - zone.atS) < Math.abs(time - best.atS) - EDGE_TOLERANCE_S) best = zone;
+		}
+	}
+	return best;
+}
+
 /** An expectation without content is answered right by any attack. */
 const isRight = (judged: Judged | null): boolean => judged === null || judged.correct;
 
@@ -64,7 +79,10 @@ class FirstAnswerPairing implements Pairing {
 			throw new Error(`No expectation of this round listens to: ${attack.sensor}`);
 		}
 		const unanswered = candidates.filter((z) => !this.isAnswered(z.index));
-		const chosen = unanswered.find((z) => this.contains(z, time));
+		const chosen = nearest(
+			unanswered.filter((z) => this.contains(z, time)),
+			time
+		);
 		if (chosen) {
 			const judged = this.context.judge(chosen.index, attack.payload);
 			const state = this.states[chosen.index];

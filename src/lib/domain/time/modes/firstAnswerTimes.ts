@@ -135,11 +135,15 @@ export function responseZones(
 			? promptS + settings.opens.afterPromptMs / 1000
 			: at(e.at) - earlyOf(settings, clock, e);
 	});
-	// Where each expectation is due: a span at its start, a point at its place less its tolerance.
-	// A window that opens after the prompt opens every point at once, long before it is due.
-	const dueList = plan.expectations.map((e) =>
-		e.span !== 'point' ? at(e.at as Fraction) : at(e.at as Fraction) - earlyOf(settings, clock, e)
-	);
+	// Where each expectation starts to be answered on its own: a span at its start, a point where
+	// its window or its tolerance opens before its place, the earlier. A window that opens after
+	// the prompt opens every point at once, long before it is answered on its own.
+	const ownList = plan.expectations.map((e) => {
+		const atS = at(e.at as Fraction);
+		if (e.span !== 'point') return atS;
+		const windowS = 'ms' in e.window ? e.window.ms / 1000 : 0;
+		return atS - Math.max(earlyOf(settings, clock, e), windowS);
+	});
 	return plan.expectations.map((e, index): ResponseZone => {
 		const atS = at(e.at as Fraction);
 		const opensS = opensList[index];
@@ -159,17 +163,18 @@ export function responseZones(
 			atS + settings.lateMs / 1000,
 			beforeMs ? (handoverS ?? Infinity) : Infinity
 		);
-		// The late capture ends where the next expectation is due. One due at or before this one's
-		// own place bounds nothing: their zones overlap, and the first unanswered takes an attack.
-		const next = dueList[index + 1] ?? Infinity;
-		const nextDue = next <= atS + EDGE_TOLERANCE_S ? Infinity : next;
+		// Its zone ends where the next expectation starts to be answered on its own, so an attack
+		// there is the next one's. One that starts at or before this one's own place bounds
+		// nothing: their zones overlap, and the pairing gives an attack to the nearest.
+		const next = ownList[index + 1] ?? Infinity;
+		const bound = next <= atS + EDGE_TOLERANCE_S ? Infinity : next;
 		const capture = settings.lateCapture;
 		const captureEndS =
 			capture === null
-				? inTimeEndS
+				? Math.min(inTimeEndS, bound)
 				: capture === 'to-end'
-					? Math.min(listenUntilS, nextDue)
-					: Math.min(inTimeEndS + capture.ms / 1000, nextDue, listenUntilS);
+					? Math.min(listenUntilS, bound)
+					: Math.min(inTimeEndS + capture.ms / 1000, bound, listenUntilS);
 		return { index, sensor: e.sensor, span: 'point', atS, opensS, inTimeEndS, captureEndS };
 	});
 }

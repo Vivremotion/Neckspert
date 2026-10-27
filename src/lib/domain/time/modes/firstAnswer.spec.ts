@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { Judged, RoundPlan } from '../plan';
 import { firstAnswerPairing } from './firstAnswer';
-import { anchorPlan, F, freeTimePlan, gridPlan, locatePlan, map } from './testing/plans';
+import { Fraction } from '../fraction';
+import {
+	anchorPlan,
+	expectation,
+	F,
+	freeTimePlan,
+	gridPlan,
+	locatePlan,
+	map,
+	quarter
+} from './testing/plans';
 import type { Attack, Pairing, RoundClock } from './types';
 import { firstAnswerTimes } from './firstAnswerTimes';
 import { roundTimes } from './times';
@@ -239,6 +249,41 @@ describe('firstAnswerPairing', () => {
 		expect(pairing.offer(attack(5.89, right, 'chord')).fate).toBe('before-window');
 		expect(pairing.offer(attack(5.9, right, 'chord')).fate).toBe('answer');
 		expect(pairing.result().pairs[0].late).toBe(false);
+	});
+
+	it('gives a second note played on its beat, or early in its window, to the second note when the first was never played', () => {
+		// Two notes a beat apart (80 ms windows), both heard from 300 ms after the prompt.
+		const two = (
+			lateMs: number,
+			lateCapture: unknown,
+			second = expectation(quarter, 'point', 'note')
+		): RoundPlan => {
+			const plan = locatePlan();
+			return {
+				...plan,
+				expectations: [expectation(Fraction.ZERO, 'point', 'note'), second],
+				policy: { ...plan.policy, pairing: { ...plan.policy.pairing, lateMs, lateCapture } }
+			};
+		};
+		for (const plan of [two(400, { ms: 2000 }), two(400, 'to-end'), two(1000, null)]) {
+			for (const time of [6.85, 6.8]) {
+				const pairing = pairingOf(plan);
+				expect(pairing.offer(attack(time)).fate).toBe('answer');
+				expect(pairing.result()).toMatchObject({
+					pairs: [{ expectation: 1, time, late: false }],
+					missed: [0]
+				});
+			}
+		}
+		// Places closer than their windows: an attack goes to the nearest.
+		const close = two(
+			400,
+			{ ms: 2000 },
+			{ ...expectation(F(1, 32), 'point', 'note'), window: { ms: 200 } }
+		);
+		const pairing = pairingOf(close);
+		expect(pairing.offer(attack(6.19)).fate).toBe('answer');
+		expect(pairing.result()).toMatchObject({ pairs: [{ expectation: 1 }], missed: [0] });
 	});
 
 	it('answers in free time at any moment after the prompt', () => {
