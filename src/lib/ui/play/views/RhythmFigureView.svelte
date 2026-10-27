@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
+	import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 	import { beatPositions, type Figure } from '$lib/domain/time';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import type { FigureLayout } from '$lib/ui/notation';

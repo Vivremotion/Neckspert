@@ -45,7 +45,9 @@ import type { PlanSessionDeps } from '../SessionDeps';
 import { SeriesTakes } from '../series/seriesTakes';
 import { SeriesTrace } from '../series/seriesTrace';
 import { LISTEN_IN_BARS, Transport, TransportStopped } from '../transport';
-import { cycleAids, levelAided, recordCycle, type CycleSetup } from './recordCycle';
+import { SETTLE_AFTER_BARS } from '../cycle/compileCycle';
+import { sensorLatency } from '../latency';
+import { cycleAids, levelAided, recordCycle, type CycleSetup } from '../cycle/recordCycle';
 import {
 	accompanimentFrom,
 	figureFor,
@@ -54,7 +56,7 @@ import {
 	rhythmParamsOf,
 	tempoSegmentOf,
 	unmuted
-} from './rhythmExercise';
+} from '../cycle/rhythmExercise';
 import {
 	figurePosition,
 	PLAIN_WORDS_SESSIONS,
@@ -63,15 +65,7 @@ import {
 	type RhythmPhase,
 	type RhythmStageModel,
 	type SettledCycle
-} from './rhythmStage';
-
-/**
- * A cycle is settled this far (in bars) after its last bar ends, so an attack reported a little
- * late (detection, the scheduler's wake-up) still reaches it.
- */
-export const SETTLE_AFTER_BARS = Fraction.of(1, 4);
-/** The sensor whose latency the attack sensor takes while it has none of its own. */
-export const ATTACK_LATENCY_FALLBACK = 'note';
+} from '../cycle/rhythmStage';
 
 /** A run of cycles between two breaths, at one level. */
 interface Run {
@@ -1131,11 +1125,7 @@ export class PlanSessionController implements PlaySessionController {
 	 * on the click): provenance `player`, shown, not judged.
 	 */
 	private latency(): CycleReport['latency'] {
-		const own = this.settings.latency[this.sensor];
-		if (own) return { ms: own.ms, provenance: own.provenance };
-		const fallback =
-			this.sensor === RHYTHM_SENSOR ? this.settings.latency[ATTACK_LATENCY_FALLBACK] : undefined;
-		return fallback ? { ms: fallback.ms, provenance: 'player' } : null;
+		return sensorLatency(this.settings.latency, this.sensor);
 	}
 
 	private openObservations(): void {

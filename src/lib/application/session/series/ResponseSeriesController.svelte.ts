@@ -1,6 +1,5 @@
 import { chordDiagramFor } from '$lib/domain/exercise/chordDiagram';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import { compileRound } from '$lib/domain/exercise/round';
 import type { ItemSource } from '$lib/domain/progress';
 import { detectFatigue } from '$lib/domain/scoring/fatigue';
 import { SESSION_MS, type Coming, type Segment, type SeriesEnd } from '$lib/domain/session';
@@ -19,6 +18,7 @@ import {
 } from '$lib/domain/time';
 import {
 	DEFAULT_SETTINGS,
+	responseVerdictOf,
 	type Attempt,
 	type Execution,
 	type PlannedItem,
@@ -27,13 +27,21 @@ import {
 	type Settings
 } from '$lib/domain/types';
 import { SCENE_CLICKS, type Scene, type StagePlace } from '$lib/application/mechanics/types';
-import { promptStage } from '$lib/application/presentation/promptStage';
 import { playViewOf, type LaneEntry, type PlaySessionController, type PlayView } from '../contract';
 import { openAudioInput } from '../audioInput';
 import type { AttemptRecorder } from '../AttemptRecorder';
+import { sensorLatency } from '../latency';
 import type { ResponseSeriesDeps } from '../SessionDeps';
 import { START_DELAY_S, Transport, TransportStopped } from '../transport';
-import { responseAttempt } from './recordResponse';
+import {
+	aidedBeyondLevel,
+	compilePlan,
+	roundAttempt,
+	roundGiven,
+	runSetup,
+	type RoundGiven,
+	type RunSetup
+} from './compilePlan';
 import { ExerciseLevels } from './exerciseLevels';
 import { RoundRunner, type RunnerEvent } from './roundRunner';
 import { ceilBar, barAtOrAfter } from './seriesBars';
@@ -50,6 +58,7 @@ import { SeriesSensors } from './seriesSensors';
 import { SeriesTakes } from './seriesTakes';
 import { SeriesTrace } from './seriesTrace';
 import { idlePlayView } from './seriesView';
+import { followsBeats, stageModel, type SeriesMoment } from './stage';
 
 /** What a series runs: its item source, and its length (`SESSION_MS` when it gives none). */
 export type PrepareResponseSeries = (
@@ -83,7 +92,22 @@ interface OpenRound {
 	/** Its attempt once written. */
 	attempt: Omit<Attempt, 'id'> | null;
 	segment: number | null;
+	/** What its level gives its judge, and how long it listens past its handover. */
+	given: RoundGiven;
+	/** Whole bars from its run's first bar to its start; null when it does not start on a bar. */
+	fromRunStart: number | null;
 }
+
+/** The run being played: where its accompaniment starts, and what plays under it. */
+interface RunPlay {
+	/** Transport bar of its first bar after the count: bar 0 of its accompaniment. */
+	origin: number;
+	/** What plays under it: its exercise's accompaniment from `origin`, else the series' click. */
+	accompaniment: Accompaniment;
+}
+
+/** A cycle's successor is decided this many beats before its handover, its first bar scheduled in time. */
+const DECIDE_AHEAD_BEATS = 1;
 
 /**
  * Plays a series of response rounds on the transport (spec amendment 2026-10-23): it takes each
@@ -102,8 +126,15 @@ interface OpenRound {
  * chain, announced, its tempo the new level's. It keeps the trace of the series (count-in, run ›
  * round, pause, instruction; a run is the rounds between two counted bars) and the take of each
  * run (`SeriesTakes`), hands both to the session memory at the end, and plays the last run again
- * from the pause (`replay`). It judges nothing and knows no exercise: what it plays comes from its
- * data.
+ * from the pause (`replay`), with the latency of the sensor that run listened to.
+ *
+ * A round may be a cycle of a figure (plan H6, D8): `compilePlan` compiles it and writes its
+ * attempt, `stage` builds its screen model, shown again on every beat. A run then opens with its
+ * exercise's listen-in (and its counted bar, unless it has none), plays its accompaniment, muted
+ * bars silent, and its entry bars before its first cycle; cycles chain at their end, what follows
+ * each decided a beat before so its first bar is scheduled in time, and each keeps taking what it
+ * captured but was heard late until it settles, `settleAfter` past its end. It judges nothing and
+ * knows no exercise: what it plays comes from its data.
  */
 export class ResponseSeriesController implements PlaySessionController {
 	/** A new one for each series: a start after the end begins another (`deps.newId`). */
@@ -159,6 +190,25 @@ export class ResponseSeriesController implements PlaySessionController {
 	private pending: PlannedItem | null = null;
 	/** The last round opened; its span listens until the next one opens. */
 	private round: OpenRound | null = null;
+	/**
+	 * Rounds past their handover still taking what they captured but was heard late, oldest
+	 * first; each settles `given.settleAfter` after its end.
+	 */
+	private lingering: OpenRound[] = [];
+	/** The run under way, from its counted bar (or listen-in) on; null before the first. */
+	private run: RunPlay | null = null;
+	/** The rounds of the run settled so far, oldest first. */
+	private runOutcomes: RoundOutcome[] = [];
+	/** The listen-in placed last, in transport bars `[from, to)`. */
+	private listenIn: { from: number; to: number } | null = null;
+	/** The counted bar placed last; null when the run starts without one. */
+	private countBar: number | null = null;
+	/** The start of the round placed and not opened yet, in transport bars. */
+	private placedStart: Fraction | null = null;
+	/** Sessions of each exercise ended before this series, by exercise id. */
+	private endedSessions = new Map<string, number>();
+	/** The latency of the sensor the last run listened to, in seconds: its take is heard with it. */
+	private runLatencyS = 0;
 	/** The item before the round to open, for its expectation; null after a stop. */
 	private previous: PlannedItem | null = null;
 	private lastScene: Scene | null = null;
@@ -243,8 +293,10 @@ export class ResponseSeriesController implements PlaySessionController {
 			// Its instruction, if any, was on the start screen: no stop of its own.
 			this.view.briefing = null;
 			this.sensors.open(
-				(kind) => this.settings.latency[kind]?.ms ?? 0,
+				(kind) => sensorLatency(this.settings.latency, kind)?.ms ?? 0,
 				(kind, observation) => {
+					// A round past its handover takes first what it captured but was heard late.
+					for (const late of this.lingering) if (late.runner.offerLate(kind, observation)) return;
 					// An observation belongs to the span open on its arrival.
 					const runner = this.round?.runner;
 					if (runner && !runner.span.isClosed) runner.observe(kind, observation);
@@ -316,6 +368,12 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.accompaniedUntil = 0;
 		this.pending = null;
 		this.round = null;
+		this.lingering = [];
+		this.run = null;
+		this.runOutcomes = [];
+		this.listenIn = null;
+		this.countBar = null;
+		this.placedStart = null;
 		this.previous = null;
 		this.lastScene = null;
 		this.introduced.clear();
@@ -337,6 +395,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.cutRun(now, 'interrupted');
 		this.stopSounds();
 		this.closeRound(now);
+		this.closeLingering(now);
 		this.closeSpan();
 		this.round = null;
 		this.previous = null;
@@ -400,7 +459,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (!take) return;
 		const generation = ++this.generation;
 		try {
-			await this.takes.play(take, this.latencyMs() / 1000);
+			await this.takes.play(take, this.runLatencyS);
 		} catch (error) {
 			// Not heard again, but play goes on as after a pause.
 			console.warn('The last run could not be played again', error);
@@ -417,6 +476,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.takes.stop();
 		this.cutRun(now, 'interrupted');
 		this.closeRound(now);
+		this.closeLingering(now);
 		this.stopSounds();
 		void this.finish();
 	}
@@ -436,9 +496,10 @@ export class ResponseSeriesController implements PlaySessionController {
 
 	private async loadSeries(): Promise<void> {
 		const sessionId = this.sessionId;
-		const [series, settings] = await Promise.all([
+		const [series, settings, sessions] = await Promise.all([
 			this.prepare(sessionId),
 			this.deps.repositories.settings.get(),
+			this.deps.repositories.sessions.list(),
 			// Read again for each series: it starts where the last one left each level.
 			this.levels.load()
 		]);
@@ -446,13 +507,20 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (this.sessionId !== sessionId) return;
 		this.source = series.source;
 		this.durationMs = series.durationMs ?? SESSION_MS;
+		this.endedSessions = new Map();
+		for (const session of sessions) {
+			if (session.endedAt === null || session.exerciseId === undefined) continue;
+			const ended = this.endedSessions.get(session.exerciseId) ?? 0;
+			this.endedSessions.set(session.exerciseId, ended + 1);
+		}
 		this.settings = settings;
 		this.startedAt = this.epochNow();
 	}
 
 	/**
-	 * Begins the transport at `item`'s tempo: a counted bar, then its round. A level its exercise
-	 * reached applies here: the transport begins at its tempo.
+	 * Begins the transport at `item`'s tempo: its exercise's listen-in (none for most), a counted
+	 * bar unless its run starts without one, then its round. A level its exercise reached applies
+	 * here: the transport begins at its tempo.
 	 */
 	private async beginWith(waiting: PlannedItem, generation: number): Promise<void> {
 		this.applyLevel(waiting);
@@ -461,14 +529,15 @@ export class ResponseSeriesController implements PlaySessionController {
 		const tempo = this.tempoFor(item);
 		this.setTempo(tempo);
 		this.pending = item;
+		const setup = this.runSetupOf(item);
 		let playFrom: number;
 		try {
 			({ playFrom } = await this.transport.begin({
 				meter: this.seriesMeter,
 				tempo: this.segment(tempo),
-				accompaniment: this.seriesClick,
-				listenInBars: 0,
-				countIn: true,
+				accompaniment: setup.listenIn ?? this.seriesClick,
+				listenInBars: setup.listenInBars,
+				countIn: setup.countIn,
 				audible: this.clicksOn(item)
 			}));
 		} catch (error) {
@@ -480,7 +549,17 @@ export class ResponseSeriesController implements PlaySessionController {
 		// A new map: its beats start again from 0, the targets before it are not on it.
 		this.history = [];
 		this.accompaniedUntil = playFrom;
-		this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
+		this.listenIn = { from: 0, to: setup.listenInBars };
+		if (followsBeats(this.items.definitionOf(item))) this.tick(0, 0);
+		this.place(item, playFrom, {
+			countBar: setup.countIn ? playFrom - 1 : null,
+			restFrom: null
+		});
+	}
+
+	/** How `item`'s run opens and what plays under it, at the level it plays. */
+	private runSetupOf(item: PlannedItem): RunSetup {
+		return runSetup(this.items.definitionOf(item), item.exerciseLevel);
 	}
 
 	/**
@@ -492,11 +571,24 @@ export class ResponseSeriesController implements PlaySessionController {
 	private place(
 		item: PlannedItem,
 		earliest: number,
-		count: { countBar: number; restFrom: number | null }
+		count: { countBar: number | null; restFrom: number | null }
 	): void {
 		this.pending = item;
-		const plan = this.planOf(item);
-		const start = comingStart(plan, this.seriesMeter, Fraction.of(earliest), this.nowBar());
+		// A new run from `earliest`: its accompaniment starts there, its entry bars first.
+		const setup = this.runSetupOf(item);
+		this.run = {
+			origin: earliest,
+			accompaniment: setup.accompaniment(earliest) ?? this.seriesClick
+		};
+		this.countBar = count.countBar;
+		const plan = this.planOf(item, this.seriesMeter, setup.entryBars);
+		const start = comingStart(
+			plan,
+			this.seriesMeter,
+			Fraction.of(earliest + setup.entryBars),
+			this.nowBar()
+		);
+		this.placedStart = start;
 		// The level change, if any, is told with the count.
 		const announce = () => (this.view.announcement = this.announcing);
 		const promptBeat = this.promptBeatOf(start, plan);
@@ -525,6 +617,16 @@ export class ResponseSeriesController implements PlaySessionController {
 			});
 		}
 		const { countBar } = count;
+		if (countBar === null) {
+			// No counted bar: the run before ends where this one begins.
+			this.wakeAt(Fraction.of(earliest), (time) => {
+				this.endRunIfEnding(time);
+				announce();
+				if (settledOnScreen) showWaiting();
+			});
+			this.openAtPrompt(item, plan, start);
+			return;
+		}
 		this.wakeAt(Fraction.of(countBar), (time) => {
 			this.endRunIfEnding(time);
 			this.log?.open('count-in', time);
@@ -566,11 +668,28 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.openAtPrompt(item, plan, start);
 	}
 
-	/** The plan of `item`'s round, compiled from its exercise's template in the series' meter. */
-	private planOf(item: PlannedItem, meter: Meter = this.seriesMeter): RoundPlan {
-		return compileRound(this.items.definitionOf(item), item, meter, {
-			previewBeats: this.items.flowOf(item).previewBeats ?? 0
+	/**
+	 * The plan of `item`'s round in the series' meter (`compilePlan`); `fromRunStart`, where it
+	 * starts in whole bars from its run's first bar, when known.
+	 */
+	private planOf(
+		item: PlannedItem,
+		meter: Meter = this.seriesMeter,
+		fromRunStart: number | null = null
+	): RoundPlan {
+		return compilePlan(this.items.definitionOf(item), item, meter, {
+			previewBeats: this.items.flowOf(item).previewBeats ?? 0,
+			fromRunStart
 		});
+	}
+
+	/** Whole bars from the run's first bar to `at`; null when `at` is not on a bar or no run is under way. */
+	private fromRunStart(at: Fraction): number | null {
+		if (!this.run) return null;
+		const bars = at.sub(Fraction.of(this.run.origin));
+		return bars.compare(Fraction.ZERO) >= 0 && Number.isInteger(bars.toNumber())
+			? bars.toNumber()
+			: null;
 	}
 
 	/** Opens `item`'s round at its prompt, the round starting on bar `start`. */
@@ -592,7 +711,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	 */
 	private openRound(
 		item: PlannedItem,
-		plan: RoundPlan,
+		placed: RoundPlan,
 		at: Fraction,
 		chainedAt: number | null,
 		promptTime: number
@@ -600,11 +719,16 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.closeSpan();
 		this.withdrawContest();
 		this.pending = null;
+		this.placedStart = null;
 		this.announcing = null;
 		this.view.announcement = null;
 		const presenter = this.items.presenterOf(item);
+		const fromRunStart = this.fromRunStart(at);
+		// Compiled where it falls in its run: a cycle's place in the loops of its figure.
+		const plan = fromRunStart === null ? placed : this.planOf(item, this.seriesMeter, fromRunStart);
+		const given = roundGiven(this.items.definitionOf(item), item);
 		const end = at.add(plan.length.div(this.transport.barLength));
-		if (this.clicksOn(item)) this.accompanyTo(end);
+		if (this.clicksOn(item)) this.accompanyRound(at, plan);
 		const round = {
 			item,
 			plan,
@@ -618,7 +742,9 @@ export class ResponseSeriesController implements PlaySessionController {
 			closed: false,
 			settled: false,
 			attempt: null,
-			segment: null
+			segment: null,
+			given,
+			fromRunStart
 		} as Omit<OpenRound, 'runner'> as OpenRound;
 		round.runner = new RoundRunner({
 			plan,
@@ -628,10 +754,9 @@ export class ResponseSeriesController implements PlaySessionController {
 			openedAt: promptTime,
 			transport: this.transport,
 			map: this.transport.map,
-			latencyOf: (kind) => {
-				const latency = this.settings.latency[kind];
-				return latency ? { ms: latency.ms, provenance: latency.provenance } : null;
-			},
+			latencyOf: (kind) => sensorLatency(this.settings.latency, kind),
+			thresholds: given.thresholds,
+			aids: given.aids,
 			sources: this.sensors.sources,
 			expectation:
 				presenter.expectation?.(item.item, { opensAt: promptTime, previous: this.previous }) ?? {},
@@ -648,11 +773,20 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.previous = item;
 		const handover = round.runner.handoverTime;
 		if (handover !== null) {
-			this.wakeAt(barAtOrAfter(this.transport.map, this.transport.barLength, handover), () =>
-				this.handOver(round)
-			);
+			const bar = barAtOrAfter(this.transport.map, this.transport.barLength, handover);
+			if (given.settleAfter === null) {
+				this.wakeAt(bar, () => this.handOver(round));
+			} else {
+				// It listens on past its handover: what follows is decided a beat before, so the
+				// next round's first bar is scheduled before it begins.
+				const ahead = this.seriesMeter.unit
+					.mul(Fraction.of(DECIDE_AHEAD_BEATS))
+					.div(this.transport.barLength);
+				const decideAt = bar.sub(ahead).compare(at) > 0 ? bar.sub(ahead) : at;
+				this.wakeAt(decideAt, () => this.decideAhead(round));
+			}
 		}
-		this.openRun(item, promptTime);
+		this.openRun(item, plan, promptTime);
 		round.segment =
 			this.log?.open('round', promptTime, {
 				exerciseId: item.exerciseId,
@@ -679,16 +813,60 @@ export class ResponseSeriesController implements PlaySessionController {
 	}
 
 	/**
+	 * A beat before the handover of a round that listens on past it: what follows is decided now
+	 * and placed; the round itself goes on to its handover (`lingerOn`).
+	 */
+	private decideAhead(round: OpenRound): void {
+		if (this.round !== round || round.closed) return;
+		const time = round.runner.handoverTime as number;
+		this.advance(round, time, round.end, true);
+	}
+
+	/**
+	 * `round` at its handover, listening on: its expectations withdrawn, still taking what it
+	 * captured but was heard late, settled `given.settleAfter` after its end (`settleLingering`).
+	 */
+	private lingerOn(round: OpenRound): void {
+		if (round.closed) return;
+		const time = round.runner.handoverTime as number;
+		round.closed = true;
+		round.runner.withdraw();
+		this.lingering.push(round);
+		this.log?.end(time);
+		const after = round.given.settleAfter ?? Fraction.ZERO;
+		this.wakeAt(round.end.add(after), (at) => this.settleLingering(round, at));
+	}
+
+	/** Settles a round that listened on past its handover; its span closes once the next round opened. */
+	private settleLingering(round: OpenRound, now: number): void {
+		const index = this.lingering.indexOf(round);
+		if (index < 0) return;
+		this.lingering.splice(index, 1);
+		const outcome = round.runner.close(now);
+		if (outcome) this.settle(round, outcome);
+		// The round on show keeps its span open until the next one opens (`closeSpan`).
+		if (this.round !== round && !round.runner.span.isClosed) round.runner.span.close();
+	}
+
+	/** Settles every round still listening past its handover, now (a pause, an instruction, the end). */
+	private closeLingering(now: number): void {
+		for (const round of [...this.lingering]) this.settleLingering(round, now);
+	}
+
+	/**
 	 * After `round`: the next item chained at its handover, placed from `earliest` without a
 	 * count when `round` has no handover, placed after a count, or the end, as the policy decides
-	 * from where the item would go.
+	 * from where the item would go. `ahead`: decided before the handover of a round that listens
+	 * on past it, which goes on until then (`lingerOn`); a chained round opens at the handover, an
+	 * instruction stops there, and the end comes once the round is settled.
 	 */
-	private advance(round: OpenRound, time: number, earliest: Fraction): void {
+	private advance(round: OpenRound, time: number, earliest: Fraction, ahead = false): void {
 		const handover = round.runner.handoverTime !== null;
+		if (ahead) this.wakeAt(round.end, () => this.lingerOn(round));
 		const taken = this.takeNext();
 		if (!taken) {
 			const decided = this.decide(round.item, null);
-			this.end(decided.next.role === 'end' ? decided.next.reason : 'complete');
+			this.endAfter(round, ahead, decided.next.role === 'end' ? decided.next.reason : 'complete');
 			return;
 		}
 		const briefing = this.needsBriefing(taken);
@@ -707,11 +885,12 @@ export class ResponseSeriesController implements PlaySessionController {
 			countIn: placement.kind === 'count-in'
 		});
 		if (decided.next.role === 'end') {
-			this.end(decided.next.reason);
+			this.endAfter(round, ahead, decided.next.reason);
 			return;
 		}
 		if (briefing) {
-			this.brief(taken);
+			if (ahead) this.wakeAt(round.end, () => this.brief(taken));
+			else this.brief(taken);
 			return;
 		}
 		if (decided.breath && placement.kind !== 'count-in') {
@@ -724,7 +903,19 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 		switch (placement.kind) {
 			case 'chain':
-				this.openRound(item, plan, round.end, time, time);
+				if (!ahead) {
+					this.openRound(item, plan, round.end, time, time);
+					return;
+				}
+				// Its bars scheduled now, before they begin; it opens at the handover.
+				this.pending = item;
+				if (this.clicksOn(item)) {
+					const fromRunStart = this.fromRunStart(round.end);
+					const chained =
+						fromRunStart === null ? plan : this.planOf(item, this.seriesMeter, fromRunStart);
+					this.accompanyRound(round.end, chained);
+				}
+				this.wakeAt(round.end, () => this.openRound(item, plan, round.end, time, time));
 				return;
 			case 'after-breath':
 			case 'next-beat':
@@ -790,6 +981,16 @@ export class ResponseSeriesController implements PlaySessionController {
 	private placeAfter(item: PlannedItem, count: Extract<Placement, { kind: 'count-in' }>): void {
 		const { fromBar: bar, tempo, meter, restBars } = count;
 		const audible = this.clicksOn(item);
+		const setup = this.runSetupOf(item);
+		// At another tempo or meter, the run opens as at the start: its listen-in, its count.
+		const opening = { listenInBars: setup.listenInBars, countIn: setup.countIn, audible };
+		const opened = (playFrom: number) => {
+			const counted = setup.countIn ? 1 : 0;
+			const to = playFrom - counted;
+			this.listenIn = { from: to - setup.listenInBars, to };
+			this.accompaniedUntil = playFrom;
+			this.place(item, playFrom, { countBar: setup.countIn ? playFrom - 1 : null, restFrom: null });
+		};
 		if (meter !== null && tempo !== null) {
 			// Another meter: its counted bar on the first whole bar of it, at its tempo.
 			const unit = this.seriesMeter.unit;
@@ -799,8 +1000,8 @@ export class ResponseSeriesController implements PlaySessionController {
 				bar,
 				meter,
 				this.segment(tempo),
-				this.seriesClick,
-				{ listenInBars: 0, countIn: true, audible }
+				setup.listenIn ?? this.seriesClick,
+				opening
 			);
 			// The targets before stay where they were: their beats counted in the new unit.
 			const ratio = unit.div(meter.unit).toNumber();
@@ -808,19 +1009,18 @@ export class ResponseSeriesController implements PlaySessionController {
 				...entry,
 				beatIndex: entry.beatIndex * ratio
 			}));
-			this.accompaniedUntil = playFrom;
-			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
+			opened(playFrom);
 			return;
 		}
 		if (tempo !== null) {
 			this.setTempo(tempo);
-			const { playFrom } = this.transport.changeTempo(bar, this.segment(tempo), this.seriesClick, {
-				listenInBars: 0,
-				countIn: true,
-				audible
-			});
-			this.accompaniedUntil = playFrom;
-			this.place(item, playFrom, { countBar: playFrom - 1, restFrom: null });
+			const { playFrom } = this.transport.changeTempo(
+				bar,
+				this.segment(tempo),
+				setup.listenIn ?? this.seriesClick,
+				opening
+			);
+			opened(playFrom);
 			return;
 		}
 		const playFrom = this.transport.countIn(bar, { restBars, audible });
@@ -835,6 +1035,19 @@ export class ResponseSeriesController implements PlaySessionController {
 	private decide(item: PlannedItem, coming: Coming | null): ReturnType<ExerciseLevels['boundary']> {
 		const elapsedMs = this.epochNow() - this.startedAt;
 		return this.levels.boundary(item, elapsedMs, this.durationMs, coming);
+	}
+
+	/**
+	 * The series ends for `reason` after `round`: at once, or, decided ahead, once the round has
+	 * played to its end and settled.
+	 */
+	private endAfter(round: OpenRound, ahead: boolean, reason: SeriesEnd): void {
+		if (!ahead) {
+			this.end(reason);
+			return;
+		}
+		const after = round.given.settleAfter ?? Fraction.ZERO;
+		this.wakeAt(round.end.add(after), () => this.end(reason));
 	}
 
 	/** The series ends on its own, for `reason`. */
@@ -865,6 +1078,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.generation++;
 		this.cutRun(now, 'done');
 		this.stopSounds();
+		this.closeLingering(now);
 		this.closeSpan();
 		this.round = null;
 		this.previous = null;
@@ -884,10 +1098,15 @@ export class ResponseSeriesController implements PlaySessionController {
 	 * `item`'s round opens at `time`: the run ends first if a count was placed and has not begun
 	 * yet, and a run opens with it when none is under way (its take with it).
 	 */
-	private openRun(item: PlannedItem, time: number): void {
+	private openRun(item: PlannedItem, plan: RoundPlan, time: number): void {
 		this.endRunIfEnding(time);
 		const log = this.log;
 		if (!log || log.running) return;
+		this.runOutcomes = [];
+		// Its take is heard again with the latency of the sensor its rounds listen to.
+		const sensor = plan.expectations[0]?.sensor;
+		this.runLatencyS =
+			sensor === undefined ? 0 : (sensorLatency(this.settings.latency, sensor)?.ms ?? 0) / 1000;
 		this.runSegment = log.openRun(time, {
 			exerciseId: item.exerciseId,
 			level: item.exerciseLevel
@@ -925,7 +1144,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (!log) return () => undefined;
 		const sessionId = this.sessionId;
 		const takes = this.takes.byRun;
-		const latencyS = this.latencyMs() / 1000;
+		const latencyS = this.runLatencyS;
 		return () => this.deps.memory.remember({ sessionId, trace: log.tree(), takes, latencyS });
 	}
 
@@ -965,16 +1184,21 @@ export class ResponseSeriesController implements PlaySessionController {
 		round.settled = true;
 		const { item } = round;
 		const presenter = this.items.presenterOf(item);
+		const definition = this.items.definitionOf(item);
 		const value = outcome.verdict.value as ResponseValue;
-		const attempt = responseAttempt({
-			outcome,
+		const startAudioS = this.transport.map.toSeconds(round.at.mul(this.transport.barLength));
+		const attempt = roundAttempt({
+			definition,
 			item,
 			plan: round.plan,
-			data: presenter.attemptData?.(item.item, value) ?? null,
+			outcome,
+			data: (answered) => presenter.attemptData?.(item.item, answered) ?? null,
 			sessionId: this.sessionId,
 			execution: round.execution,
 			promptedAt: this.deps.clock.toEpochMs(round.promptTime),
-			cardKey: this.items.cardKeyOf(item)
+			startAudioS,
+			cardKey: this.items.cardKeyOf(item),
+			fromRunStart: round.fromRunStart
 		});
 		const recorder = this.recorder;
 		if (!recorder) return;
@@ -987,7 +1211,7 @@ export class ResponseSeriesController implements PlaySessionController {
 				...(item.scope !== undefined && { scope: item.scope }),
 				level: item.exerciseLevel,
 				success: outcome.success,
-				aided: outcome.aids.length > 0
+				aided: aidedBeyondLevel(definition, item, outcome.aids)
 			})
 			// A failed write is the store's to report; the series goes on (`settled` waits for it).
 			.catch(() => undefined);
@@ -1000,9 +1224,12 @@ export class ResponseSeriesController implements PlaySessionController {
 			);
 		}
 		if (detectFatigue(recorder.sessionAttempts)) this.view.fatigueDetected = true;
-		// A round in free time has no place on the beat: no tile on the lane.
-		if (!inFreeTime(round.plan)) {
-			this.history = [...this.history, { beatIndex: round.anchorBeat, verdict: value.verdict }];
+		this.runOutcomes = [...this.runOutcomes, outcome];
+		// A round in free time has no place on the beat: no tile on the lane; nor has a round
+		// with no one answer.
+		const verdict = responseVerdictOf(outcome);
+		if (!inFreeTime(round.plan) && verdict !== null) {
+			this.history = [...this.history, { beatIndex: round.anchorBeat, verdict }];
 		}
 		this.offerContest(round, outcome);
 		if (this.contestRound === round && this.contestWanted) {
@@ -1012,14 +1239,26 @@ export class ResponseSeriesController implements PlaySessionController {
 		if (this.round === round && !round.closed) this.view.status = 'verdict';
 		if (this.round === round) {
 			this.showStage(item, { value, success: outcome.success }, round);
+		} else if (followsBeats(definition)) {
+			// The run's marks are on show while the next round plays.
+			this.showNow();
 		}
 	}
 
-	/** Closes the round under way at `now` (pause, quit): settled if it heard enough, else dropped. */
+	/**
+	 * Closes the round under way at `now` (pause, quit): settled if it heard enough, else dropped;
+	 * one judged whole (it listens past its handover) is dropped before its end.
+	 */
 	private closeRound(now: number): void {
 		const round = this.round;
 		if (!round || round.closed) return;
 		round.closed = true;
+		const end = this.transport.map.toSeconds(round.end.mul(this.transport.barLength));
+		if (round.given.settleAfter !== null && now < end) {
+			// A round that listens past its handover is judged whole: cut short, it is dropped.
+			round.runner.cancel();
+			return;
+		}
 		const outcome = round.runner.close(now);
 		if (outcome) this.settle(round, outcome);
 	}
@@ -1029,10 +1268,11 @@ export class ResponseSeriesController implements PlaySessionController {
 	 * cuts short reports into it; then its attempt takes the final list (`recordResponse`).
 	 */
 	private closeSpan(): void {
-		const runner = this.round?.runner;
-		if (!runner || runner.span.isClosed) return;
-		runner.withdraw();
-		runner.span.close();
+		const round = this.round;
+		// One listening on past its handover closes its span once settled (`settleLingering`).
+		if (!round || round.runner.span.isClosed || this.lingering.includes(round)) return;
+		round.runner.withdraw();
+		round.runner.span.close();
 	}
 
 	/** A miss of a contestable mechanic may be contested until the next round, in development only. */
@@ -1068,40 +1308,104 @@ export class ResponseSeriesController implements PlaySessionController {
 		const spelled = this.spelling.get(item) ?? 0;
 		const random = () => spelled;
 		const definition = this.items.definitionOf(item);
-		const presenter = this.items.presenterOf(item);
 		const place: StagePlace = {
 			anchorBeat: round.anchorBeat,
 			promptBeat: round.promptBeat,
 			history: [...this.history],
 			bands: round.bands
 		};
-		const chordDiagram = chordDiagramFor(definition, this.settings);
-		const locale = this.deps.locale();
 		// Before the transport begins (the start screen), in the meter the item will play in.
 		const meter = this.meter ?? this.meterOf(item);
-		const model = definition.presentation
-			? promptStage({
-					definition,
-					item,
-					plan: round.plan ?? this.planOf(item, meter),
-					settled,
-					place,
-					beatsPerBar: meter.count,
-					chordDiagram,
-					choices: presenter.answerChoices?.() ?? [],
-					locale,
-					random
-				})
-			: presenter.stageOf?.(
-					item.item,
-					settled,
-					locale,
-					{ aid: item.aid, stringAid: item.stringAid ?? false },
-					place,
-					{ chordDiagram },
-					random
-				)?.model;
+		const moment = this.momentNow();
+		const model = stageModel({
+			definition,
+			item,
+			presenter: this.items.presenterOf(item),
+			plan:
+				round.plan ??
+				(this.round?.item === item ? this.round.plan : null) ??
+				this.planOf(item, meter, moment.fromRunStart),
+			settled,
+			place,
+			beatsPerBar: meter.count,
+			chordDiagram: chordDiagramFor(definition, this.settings),
+			locale: this.deps.locale(),
+			random,
+			moment,
+			runOutcomes: this.runOutcomes,
+			endedSessions: this.endedSessions.get(item.exerciseId) ?? 0
+		});
 		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
+	}
+
+	/**
+	 * The stage of what plays now, for a screen that follows the beat: the round under way, else
+	 * the item waiting for its round; the status with it (counting before a run, playing in it).
+	 */
+	private showNow(): void {
+		const moment = this.momentNow();
+		const round = this.round;
+		const item = moment.phase === 'round' && round ? round.item : (this.pending ?? round?.item);
+		if (!item) return;
+		this.showStage(item, null, {
+			...NOT_PLACED,
+			...(moment.phase === 'round' && round && { plan: round.plan })
+		});
+		const { status } = this.view;
+		if (status === 'count-in' || status === 'awaiting' || status === 'verdict') {
+			this.view.status =
+				moment.phase === 'entry' || moment.phase === 'round' ? 'awaiting' : 'count-in';
+		}
+	}
+
+	/** On every beat from `bar`, `beat`: the stage shown again (`followsBeats`), until play stops. */
+	private tick(bar: number, beat: number): void {
+		const beats = beatPositions(this.seriesMeter);
+		const position = Fraction.of(bar).add(beats[beat].div(this.transport.barLength));
+		this.wakeAt(position, () => {
+			this.showNow();
+			if (beat + 1 < beats.length) this.tick(bar, beat + 1);
+			else this.tick(bar + 1, 0);
+		});
+	}
+
+	/** Where the series stands on the beat now (`SeriesMoment`): waiting before the transport begins. */
+	private momentNow(): SeriesMoment {
+		const waiting: SeriesMoment = { phase: 'waiting', barInRound: 0, beat: 0, fromRunStart: null };
+		if (!this.begun || !this.meter) return waiting;
+		const length = this.transport.barLength;
+		// A wake-up comes at its beat or just after: a hair of time later is still that beat.
+		const position = this.transport.map.toPosition(this.deps.clock.now()).div(length).toNumber();
+		const bar = Math.floor(position + 1e-9);
+		const beats = beatPositions(this.meter).map((at) => at.div(length).toNumber());
+		const beat = Math.max(
+			0,
+			beats.findLastIndex((at) => at <= position - bar + 1e-9)
+		);
+		const round = this.round;
+		if (
+			round &&
+			!inFreeTime(round.plan) &&
+			Fraction.of(bar).compare(round.at) >= 0 &&
+			Fraction.of(bar).compare(round.end) < 0
+		) {
+			const barInRound = Math.floor(Fraction.of(bar).sub(round.at).toNumber());
+			return { phase: 'round', barInRound, beat, fromRunStart: round.fromRunStart };
+		}
+		if (this.listenIn && bar >= this.listenIn.from && bar < this.listenIn.to) {
+			return { ...waiting, phase: 'listen-in', beat };
+		}
+		if (bar === this.countBar) return { ...waiting, phase: 'count-in', beat };
+		const start = this.placedStart;
+		if (start && this.run && bar >= this.run.origin && Fraction.of(bar).compare(start) < 0) {
+			return {
+				phase: 'entry',
+				barInRound: Math.floor(Fraction.of(bar).sub(start).toNumber()),
+				beat,
+				fromRunStart: this.fromRunStart(start)
+			};
+		}
+		return { ...waiting, beat };
 	}
 
 	private enterScene(item: PlannedItem): void {
@@ -1146,12 +1450,26 @@ export class ResponseSeriesController implements PlaySessionController {
 		);
 	}
 
-	/** Clicks every bar up to the one `end` falls in. */
-	private accompanyTo(end: Fraction): void {
+	/**
+	 * Accompanies every bar up to the one `end` falls in: the run's accompaniment, else the
+	 * series' click; silent over `silences` (audio seconds).
+	 */
+	private accompanyTo(end: Fraction, silences: { fromS: number; toS: number }[] = []): void {
 		const to = ceilBar(end);
 		if (to <= this.accompaniedUntil) return;
-		this.transport.accompany(this.accompaniedUntil, to, this.seriesClick);
+		const accompaniment = this.run?.accompaniment ?? this.seriesClick;
+		this.transport.accompany(this.accompaniedUntil, to, accompaniment, silences);
 		this.accompaniedUntil = to;
+	}
+
+	/** Accompanies a round starting on bar `at` to its end, silent over its muted bars. */
+	private accompanyRound(at: Fraction, plan: RoundPlan): void {
+		const time = (bar: Fraction) => this.transport.map.toSeconds(bar.mul(this.transport.barLength));
+		const silences = plan.mutedBars.map((index) => ({
+			fromS: time(at.add(Fraction.of(index))),
+			toS: time(at.add(Fraction.of(index + 1)))
+		}));
+		this.accompanyTo(at.add(plan.length.div(this.transport.barLength)), silences);
 	}
 
 	private stopSounds(): void {
@@ -1212,6 +1530,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		this.cutRun(now, 'done');
 		this.stopSounds();
 		this.closeRound(now);
+		this.closeLingering(now);
 		this.closeSpan();
 		this.sensors.close();
 		this.withdrawContest();
@@ -1274,7 +1593,8 @@ export class ResponseSeriesController implements PlaySessionController {
 	private leveled(item: PlannedItem): PlannedItem {
 		const exerciseLevel = this.levels.played(item.exerciseId, item.scope);
 		if (item.exerciseLevel === exerciseLevel) return item;
-		const leveled = { ...item, exerciseLevel };
+		// A source whose items depend on the level serves it again at that level.
+		const leveled = this.source?.atLevel?.(item, exerciseLevel) ?? { ...item, exerciseLevel };
 		const spelled = this.spelling.get(item);
 		if (spelled !== undefined) this.spelling.set(leveled, spelled);
 		return leveled;

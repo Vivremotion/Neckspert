@@ -1,4 +1,4 @@
-import type { MechanicRules } from '$lib/domain/mechanics';
+import type { MechanicIdentity } from '$lib/domain/mechanics';
 import type {
 	AidLevel,
 	ChordDiagramStyle,
@@ -32,7 +32,8 @@ export interface StagePlace {
 
 /** How a mechanic shows on the play screen and which sensors answer it. */
 export interface MechanicPresenter<I = any, A = any> {
-	rules: MechanicRules<I, unknown, A, unknown>;
+	/** Its identity: its learner and its items (its judge, when it has one, is not read here). */
+	rules: MechanicIdentity<I>;
 	scene: Scene;
 	/** Every sensor whose observations answer it; the others are filed as another sensor's. */
 	sensors: SensorKind[];

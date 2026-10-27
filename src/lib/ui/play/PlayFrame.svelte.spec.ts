@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
+import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { presented, stageModel } from './views/testing/promptStage';

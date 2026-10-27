@@ -4,7 +4,7 @@
 	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
 	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, the breath otherwise.
 	import { page } from '$app/state';
-	import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
+	import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
 	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 	import { Fraction, type CycleReport } from '$lib/domain/time';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';

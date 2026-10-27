@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
+import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
 import {
 	attackPositions,
 	Fraction,

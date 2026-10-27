@@ -10,6 +10,9 @@ const withRound = (change: (template: RoundTemplate) => RoundTemplate): Exercise
 	round: change(structuredClone(LOCATE_NECK.round!))
 });
 
+/** The thresholds a cycle verdict judges against. */
+const thresholds = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
+
 /** Locate's round with its note heard as a bare attack: what a cycle verdict may judge. */
 const rhythmOnly = (template: RoundTemplate): RoundTemplate => ({
 	...template,
@@ -23,7 +26,7 @@ describe('seriesProblem', () => {
 		}
 	});
 
-	it('refuses a round judged as a whole cycle, naming the exercise and the field', () => {
+	it('accepts a round judged as a whole cycle: the series judges it over its capture', () => {
 		const cycle = withRound((t) =>
 			rhythmOnly({
 				...t,
@@ -35,24 +38,17 @@ describe('seriesProblem', () => {
 				}
 			})
 		);
-		// The domain can run it, given thresholds: the series cannot.
-		expect(validateExercise(cycle)).toBeNull();
-		expect(seriesProblem(cycle)).toBe(
-			'locate-neck: round.policy.unit "cycle" cannot be played by the response series, which closes a round on its answers (unit "response")'
-		);
+		expect(validateExercise({ ...cycle, params: { ...cycle.params, thresholds } })).toBeNull();
+		expect(seriesProblem(cycle)).toBeNull();
 	});
 
-	it('refuses a verdict that reads a level’s thresholds', () => {
-		const thresholds = withRound((t) => ({ ...t, policy: { ...t.policy, verdict: 'cycle' } }));
-		expect(seriesProblem(thresholds)).toBe(
-			'locate-neck: round.policy.verdict "cycle" judges against a level\'s thresholds, which the response series does not give'
-		);
+	it('accepts a verdict that reads a level’s thresholds: the series gives them', () => {
+		const judged = withRound((t) => ({ ...t, policy: { ...t.policy, verdict: 'cycle' } }));
+		expect(seriesProblem(judged)).toBeNull();
 	});
 
-	it('refuses muted bars, and accepts none written', () => {
-		expect(seriesProblem(withRound((t) => ({ ...t, mutedBars: [1] })))).toBe(
-			'locate-neck: round.mutedBars [1] cannot be played by the response series, which never mutes its click'
-		);
+	it('accepts muted bars: the series mutes its click there', () => {
+		expect(seriesProblem(withRound((t) => ({ ...t, mutedBars: [1] })))).toBeNull();
 		expect(seriesProblem(withRound((t) => ({ ...t, mutedBars: [] })))).toBeNull();
 	});
 

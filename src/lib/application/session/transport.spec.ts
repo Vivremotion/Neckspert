@@ -155,6 +155,26 @@ describe('Transport.accompany and playFigure', () => {
 		expect(added[0].time).toBeCloseTo(map.origin + 3 * 2.4 + 0.6, 9);
 	});
 
+	it('leaves the silences out, a sound on the edge of one heard after it only', async () => {
+		const { sounds, transport } = setup();
+		const { map, playFrom } = await transport.begin({
+			meter: METER_4_4,
+			tempo: tempo(100),
+			accompaniment: clicks
+		});
+		const bar = (n: number) => map.toSeconds(f(n).mul(f(1)));
+		const before = sounds.emitted().length;
+		// The second bar silent: its four clicks out, the next bar's downbeat in.
+		transport.accompany(playFrom, playFrom + 3, clicks, [
+			{ fromS: bar(playFrom + 1), toS: bar(playFrom + 2) }
+		]);
+		const added = sounds.emitted().slice(before);
+		expect(added).toHaveLength(8);
+		expect(added.map((s) => Math.floor((s.time - map.origin) / 2.4 + 1e-9))).toEqual([
+			3, 3, 3, 3, 5, 5, 5, 5
+		]);
+	});
+
 	it('plays a figure from a bar as the asked sound', async () => {
 		const { sounds, transport } = setup();
 		const { playFrom } = await transport.begin({

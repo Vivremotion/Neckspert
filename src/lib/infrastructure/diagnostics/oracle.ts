@@ -5,7 +5,7 @@ import type {
 	OracleSuite,
 	SensorComparison
 } from '$lib/application/ports';
-import type { CyclePlanRecord } from '$lib/application/session/plan/recordCycle';
+import type { CyclePlanRecord } from '$lib/application/session/cycle/recordCycle';
 
 export type { AttackMatch, OracleReport, OracleSuite, SensorComparison };
 import {

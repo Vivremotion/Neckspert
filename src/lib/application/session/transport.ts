@@ -19,6 +19,8 @@ import {
 export { LISTEN_IN_BARS };
 /** The map starts this long after `now`, so the first sound is never already past. */
 export const START_DELAY_S = 0.1;
+/** Absorbs the float error of a sound falling exactly on the edge of a silence. */
+const SILENCE_EPSILON_S = 1e-9;
 /** Absorbs the float error of a bar lasting exactly the minimum. */
 const BAR_ROUNDING_EPSILON = 1e-9;
 
@@ -101,10 +103,22 @@ export class Transport {
 		};
 	}
 
-	/** Schedules the accompaniment of bars [from, to) on the current map. */
-	accompany(from: number, to: number, accompaniment: Accompaniment): void {
+	/**
+	 * Schedules the accompaniment of bars [from, to) on the current map, silent over `silences`
+	 * (audio seconds, `[fromS, toS)`: a round's muted bars).
+	 */
+	accompany(
+		from: number,
+		to: number,
+		accompaniment: Accompaniment,
+		silences: readonly { fromS: number; toS: number }[] = []
+	): void {
 		this.checkMeter(accompaniment, this.meterOf());
-		this.schedule(renderSounds(accompaniment, this.map, from, to));
+		const silent = (time: number) =>
+			silences.some(
+				({ fromS, toS }) => time >= fromS - SILENCE_EPSILON_S && time < toS - SILENCE_EPSILON_S
+			);
+		this.schedule(renderSounds(accompaniment, this.map, from, to).filter((s) => !silent(s.time)));
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, to);
 	}
 

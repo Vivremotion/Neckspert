@@ -32,8 +32,8 @@ import type { PlanSessionDeps } from '../SessionDeps';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { SessionMemory } from '../sessionMemory';
 import { PlanSessionController } from './PlanSessionController.svelte';
-import type { CyclePlanRecord, RhythmAttemptData } from './recordCycle';
-import { PLAIN_WORDS_SESSIONS, type RhythmStageModel } from './rhythmStage';
+import type { CyclePlanRecord, RhythmAttemptData } from '../cycle/recordCycle';
+import { PLAIN_WORDS_SESSIONS, type RhythmStageModel } from '../cycle/rhythmStage';
 
 /** The transport starts its map this long after `now`; the tests start at clock time 0. */
 const ORIGIN = 0.1;

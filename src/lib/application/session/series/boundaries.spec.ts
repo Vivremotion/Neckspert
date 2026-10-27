@@ -72,7 +72,33 @@ function offendersIn(files: Record<string, string>): string[] {
 	return offenders;
 }
 
+/** The only files of the series that reach the rhythm's cycle (plan H6, D8): its compiler and its screen. */
+const CYCLE_GATES = [`${MODULE}compilePlan.ts`, `${MODULE}stage.ts`];
+
+/** The series' files (specs aside) that import from the cycle's folder, the gates aside. */
+function cycleReachedFrom(files: Record<string, string>): string[] {
+	return Object.entries(files)
+		.filter(([path]) => path.startsWith(MODULE) && !/\.spec\.ts$/.test(path))
+		.filter(([path]) => !CYCLE_GATES.includes(path))
+		.filter(([, text]) => /from '(\.\.\/cycle\/|\$lib\/application\/session\/cycle\/)/.test(text))
+		.map(([path]) => path);
+}
+
 describe('the response series', () => {
+	it('reaches the cycle only through its compiler and its stage dispatch', () => {
+		const paths = Object.keys(sources);
+		for (const gate of CYCLE_GATES) expect(paths).toContain(gate);
+		expect(cycleReachedFrom(sources)).toEqual([]);
+		const file = `${MODULE}x.ts`;
+		expect(cycleReachedFrom({ [file]: `import { a } from '../cycle/recordCycle';` })).toEqual([
+			file
+		]);
+		expect(
+			cycleReachedFrom({ [file]: `import { a } from '$lib/application/session/cycle/x';` })
+		).toEqual([file]);
+		expect(cycleReachedFrom({ [CYCLE_GATES[0]]: `import { a } from '../cycle/x';` })).toEqual([]);
+	});
+
 	it('names no mechanic nor exercise, nor do the prompt stage and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});

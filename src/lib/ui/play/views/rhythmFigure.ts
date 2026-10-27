@@ -1,6 +1,6 @@
 // What the `rhythm-figure` view computes, kept pure: where the marks of a cycle go over an
 // engraving, the plain-words line of a cycle, where the cursor stands, and when it may show.
-import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
+import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
 import {
 	attackPositions,
 	barLength,
