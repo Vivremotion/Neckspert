@@ -19,6 +19,31 @@ export interface ExerciseFlow {
 	contestable?: boolean;
 }
 
+/** Text with `{field}` placeholders: one for every language, or one per language. */
+export type Slot = string | { fr: string; en: string };
+
+/**
+ * What the screen says of a prompt, as data: each slot is text with `{field}` placeholders, the
+ * fields being those its mechanic's items offer (`ITEM_FIELDS`). Pictures are named
+ * (`PICTURES`). Read by `presentPrompt`.
+ */
+export interface PromptPresentation {
+	primary: Slot;
+	secondary?: Slot;
+	/** Small, under the prompt. */
+	detail?: Slot;
+	/** On the target tile; absent: `primary`. */
+	target?: Slot;
+	/** On the band of an extended expectation. */
+	band?: Slot;
+	/** While the item waits for its prompt; absent: nothing. */
+	preview?: Slot;
+	/** At an aided level: a line, a picture, or both. */
+	aided?: { line?: Slot; picture?: string };
+	/** The fading aid the learning procedure gives (`PlannedItem.stringAid`). */
+	fading?: { picture: string };
+}
+
 /** An exercise is data only: a mechanic plus its parameters. */
 export interface ExerciseDefinition {
 	id: ExerciseId;
@@ -37,6 +62,8 @@ export interface ExerciseDefinition {
 	flow?: ExerciseFlow;
 	/** What a round of this exercise expects, as data; compiled to a plan per item (`compileRound`). */
 	round?: RoundTemplate;
+	/** What the screen says of one of its prompts; see `presentPrompt`. */
+	presentation?: PromptPresentation;
 	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
 	view?: string;
 	/**

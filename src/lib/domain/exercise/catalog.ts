@@ -124,6 +124,13 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	mechanic: 'locate',
 	view: 'note-lane',
 	tempo: { fixed: 80 },
+	presentation: {
+		primary: '{note}',
+		secondary: '{string}',
+		preview: '{string}',
+		aided: { line: '{fret}' },
+		fading: { picture: 'string' }
+	},
 	round: beatRound('note-of-item', 'note', true),
 	params: { recallThresholdMs: RECALL_THRESHOLD_MS, ladder: leadsLadder() }
 };
@@ -133,6 +140,7 @@ export const IDENTIFY_NECK: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'identify',
 	view: 'answer-keys',
+	presentation: { primary: '{fret}', secondary: '{string}', aided: { line: '{name}' } },
 	round: freeNameRound(),
 	params: { recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS, ladder: freeTimeLadder() }
 };
@@ -157,6 +165,14 @@ export const TRIADS_ANCHOR: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'triad-anchor',
 	tempo: { fixed: 80 },
+	presentation: {
+		primary: '{chord}',
+		secondary: { fr: 'fondamentale sur {rootString}', en: 'root on {rootString}' },
+		detail: '{strings}',
+		target: '{root}',
+		band: '{chord}',
+		aided: { picture: 'lowest-shape' }
+	},
 	round: anchorRound(),
 	params: triadsParams()
 };
@@ -167,6 +183,12 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'triad-zone',
 	tempo: { fixed: 80 },
+	presentation: {
+		primary: '{chord}',
+		secondary: '{around}',
+		detail: '{strings}',
+		aided: { line: { fr: 'fondamentale sur {rootString}', en: 'root on {rootString}' } }
+	},
 	round: beatRound('voicing-at-position', 'chord', false),
 	params: triadsParams()
 };

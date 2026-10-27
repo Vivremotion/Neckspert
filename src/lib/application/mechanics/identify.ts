@@ -1,15 +1,8 @@
 import { identifyRules, type IdentifyData } from '$lib/domain/mechanics';
-import {
-	answerChoiceLabel,
-	formatNote,
-	fretLabel,
-	pitchOnString,
-	spellPitch,
-	stringLabel,
-	type IdentifyItem
-} from '$lib/domain/music';
+import { answerChoiceLabel, fretLabel, stringLabel, type IdentifyItem } from '$lib/domain/music';
 import { CHROMATIC_NOTES, type PitchName } from '$lib/domain/music/types';
 import type { PromptView, AnswerChoice } from '$lib/application/session/contract';
+import { nameAtFret, nameChoice, noteName } from '$lib/application/presentation/noteWords';
 import { noteVerdict, type NoteVerdictView } from './noteVerdict';
 import type { MechanicPresenter } from './types';
 
@@ -28,16 +21,12 @@ export const identifyPresenter: MechanicPresenter<IdentifyItem, { pitch: PitchNa
 	prompt: (item, { aid }, locale, random) => ({
 		primary: fretLabel(item.fret, locale),
 		secondary: stringLabel(item.string, locale),
-		aid:
-			aid === 'show-position'
-				? formatNote(spellPitch(pitchOnString(item.string, item.fret), random))
-				: null,
+		aid: aid === 'show-position' ? nameAtFret(item, random) : null,
 		diagram: null
 	}),
-	answerLabel: ({ pitch }, _item, _locale, random) => formatNote(spellPitch(pitch, random)),
+	answerLabel: ({ pitch }, _item, _locale, random) => noteName(pitch, random),
 	/** After a miss: the name, both spellings for an altered one ("F# / Gb"). */
-	reveal: (item, { verdict }) =>
-		verdict === 'wrong' ? answerChoiceLabel(pitchOnString(item.string, item.fret)) : null,
+	reveal: (item, { verdict }) => (verdict === 'wrong' ? nameChoice(item) : null),
 	answerChoices: () =>
 		CHROMATIC_NOTES.map((pitch) => ({ value: pitch, label: answerChoiceLabel(pitch) })),
 	stageOf: (item, settled, locale, aids, _place, _drawing, random): { model: AnswerKeysModel } => ({

@@ -27,6 +27,7 @@ describe('exercise catalog', () => {
 			view: 'note-lane',
 			tempo: { fixed: 80 },
 			round: LOCATE_NECK.round,
+			presentation: LOCATE_NECK.presentation,
 			params: { recallThresholdMs: 1500, ladder: ladderOf(LOCATE_NECK) }
 		});
 		expect(IDENTIFY_NECK).toEqual({
@@ -35,6 +36,7 @@ describe('exercise catalog', () => {
 			mechanic: 'identify',
 			view: 'answer-keys',
 			round: IDENTIFY_NECK.round,
+			presentation: IDENTIFY_NECK.presentation,
 			params: { recallThresholdMs: 3000, ladder: ladderOf(IDENTIFY_NECK) }
 		});
 	});
@@ -70,6 +72,7 @@ describe('exercise catalog', () => {
 			mechanic: 'triad-anchor',
 			tempo: { fixed: 80 },
 			round: TRIADS_ANCHOR.round,
+			presentation: TRIADS_ANCHOR.presentation,
 			params
 		});
 		expect(TRIADS_ZONE).toEqual({
@@ -78,6 +81,7 @@ describe('exercise catalog', () => {
 			mechanic: 'triad-zone',
 			tempo: { fixed: 80 },
 			round: TRIADS_ZONE.round,
+			presentation: TRIADS_ZONE.presentation,
 			params
 		});
 		expect(exerciseById('triads-zone')).toBe(TRIADS_ZONE);

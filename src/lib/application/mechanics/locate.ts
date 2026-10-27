@@ -8,25 +8,14 @@ import {
 	signedCents
 } from '$lib/debug/detectionLog';
 import { locateRules } from '$lib/domain/mechanics';
-import {
-	acceptableMidis,
-	formatNote,
-	fretLabel,
-	fretsForPitch,
-	openPitch,
-	spellPitch,
-	stringLabel,
-	type LocateItem
-} from '$lib/domain/music';
-import { MAX_PROMPT_FRET, type Midi } from '$lib/domain/music/types';
+import { acceptableMidis, openPitch, stringLabel, type LocateItem } from '$lib/domain/music';
+import type { Midi } from '$lib/domain/music/types';
 import type { LocateData } from '$lib/domain/mechanics';
 import type { LaneEntry, PromptView } from '$lib/application/session/contract';
 import type { NotePayload } from '$lib/application/session/sensors';
+import { noteName, positionLabel, promptFretLabel } from '$lib/application/presentation/noteWords';
 import { noteVerdict, type NoteVerdictView } from './noteVerdict';
 import type { MechanicPresenter } from './types';
-
-/** Highest fret shown in a correction: fret 12 stands for the open string, which is never prompted. */
-const CORRECTION_MAX_FRET = 12;
 
 /** Within this many cents of an accepted note, the detection log calls a note close. */
 const CLOSE_CENTS = 15;
@@ -49,22 +38,17 @@ export const locatePresenter: MechanicPresenter<LocateItem, { midi: Midi }> = {
 	sensors: ['note'],
 	previewBeats: DEFAULT_PREVIEW_BEATS,
 	prompt: (item, { aid, stringAid }, locale, random) => {
-		const frets = fretsForPitch(item.string, item.pitch, MAX_PROMPT_FRET);
 		return {
-			primary: formatNote(spellPitch(item.pitch, random)),
+			primary: noteName(item.pitch, random),
 			secondary: stringLabel(item.string, locale),
-			aid: aid === 'show-position' && frets.length > 0 ? fretLabel(frets[0], locale) : null,
+			aid: aid === 'show-position' ? promptFretLabel(item, locale) : null,
 			diagram: stringAid ? { string: item.string, label: openPitch(item.string) } : null
 		};
 	},
 	// A right note is the target; the label spells the target, as the prompt does.
-	answerLabel: (_answer, item, _locale, random) => formatNote(spellPitch(item.pitch, random)),
+	answerLabel: (_answer, item, _locale, random) => noteName(item.pitch, random),
 	/** After a miss: the position ("corde de E grave, case 5"). Off beat is a right note: nothing. */
-	reveal: (item, { verdict }, locale) => {
-		if (verdict !== 'wrong') return null;
-		const fret = fretsForPitch(item.string, item.pitch, CORRECTION_MAX_FRET).find((f) => f > 0);
-		return `${stringLabel(item.string, locale)}, ${fretLabel(fret ?? CORRECTION_MAX_FRET, locale)}`;
-	},
+	reveal: (item, { verdict }, locale) => (verdict === 'wrong' ? positionLabel(item, locale) : null),
 	stageOf: (item, settled, locale, aids, place, _drawing, random): { model: NoteLaneModel } => ({
 		model: {
 			prompt: locatePresenter.prompt(item, aids, locale, random),
