@@ -78,35 +78,6 @@ describe('chordGridPresenter', () => {
 		expect(GESTURE_PRESENTERS['chord-grid']).toBe(chordGridPresenter);
 	});
 
-	it('names the symbol, with the cue of its exercise', () => {
-		const prompt = (it: ChordGridItem, locale: 'fr' | 'en' = 'fr') =>
-			chordGridPresenter.prompt(it, { aid: 'none', stringAid: false }, locale, () => 0);
-		expect(prompt(link(1, shapeId('D', 'maj', G_B_E, '7-7-5')))).toEqual({
-			primary: 'D',
-			secondary: 'fondamentale sur sol',
-			detail: 'sol‑si‑mi',
-			aid: null,
-			diagram: null
-		});
-		expect(prompt(climb('down', null))).toMatchObject({
-			primary: 'Dm7',
-			secondary: '↓ en descendant',
-			detail: 'sol‑si‑mi'
-		});
-		expect(prompt(item({ rule: 'zone', zone: { from: 5, to: 8 } }), 'en')).toMatchObject({
-			secondary: 'frets 5 to 8'
-		});
-		expect(prompt(item({}))).toMatchObject({ primary: 'Dm7', secondary: '' });
-		expect(
-			chordGridPresenter.answerLabel(
-				{ decided: shapeId('D', 'maj', G_B_E, '7-7-5') },
-				link(0, ''),
-				'fr',
-				() => 0
-			)
-		).toBe('7‑7‑5');
-	});
-
 	describe('candidates', () => {
 		const ids = (it: ChordGridItem) => gridExpectation(it, 3);
 

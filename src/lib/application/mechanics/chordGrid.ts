@@ -123,10 +123,6 @@ function shapeView(occurrence: VoicingOccurrence): ShapeView {
 	return { notes: occurrence.notes.map(({ string, fret }) => ({ string, fret })) };
 }
 
-function fretsOf(occurrence: VoicingOccurrence): string {
-	return occurrence.notes.map((note) => note.fret).join(SEPARATOR);
-}
-
 /** "sol‑si‑mi", "G‑B‑E": the strings of a set, low first. */
 function setLabel(set: readonly StringNumber[], locale: Locale): string {
 	return set.map((string) => TRIAD_STRING_NAMES[locale][string]).join(SEPARATOR);
@@ -183,20 +179,6 @@ function cueOf(item: ChordGridItem, locale: Locale): GridCue {
 			return { kind: 'zone', from: item.zone?.from ?? 0, to: item.zone?.to ?? 0 };
 		case 'jam':
 			return { kind: 'jam' };
-	}
-}
-
-function cueText(cue: GridCue, locale: Locale): string {
-	const messages = CHORD_GRID_MESSAGES[locale];
-	switch (cue.kind) {
-		case 'link':
-			return cue.inversion;
-		case 'climb':
-			return cue.direction === 'up' ? messages.up : messages.down;
-		case 'zone':
-			return messages.zone(cue.from, cue.to);
-		case 'jam':
-			return '';
 	}
 }
 
@@ -410,10 +392,7 @@ function drawnMiss(
 /** The gesture's presenter: its words, its miss and its screen models are its own (D9). */
 type GesturePresenter = MechanicPresenter<ChordGridItem, ChordReading> &
 	Required<
-		Pick<
-			MechanicPresenter<ChordGridItem, ChordReading>,
-			'prompt' | 'answerLabel' | 'reveal' | 'feedback' | 'stageOf' | 'attemptData'
-		>
+		Pick<MechanicPresenter<ChordGridItem, ChordReading>, 'feedback' | 'stageOf' | 'attemptData'>
 	>;
 
 /**
@@ -425,21 +404,6 @@ export const chordGridPresenter: GesturePresenter = {
 	scene: 'guitar',
 	sensors: ['chord'],
 	contestable: true,
-	prompt: (item, _aids, locale) => {
-		const cue = cueOf(item, locale);
-		return {
-			primary: item.symbol,
-			secondary: cueText(cue, locale),
-			...((cue.kind === 'link' || cue.kind === 'climb') && { detail: cue.set }),
-			aid: null,
-			diagram: null
-		};
-	},
-	answerLabel: (answer) => {
-		const heard = heardOf(answer);
-		return heard ? fretsOf(heard) : null;
-	},
-	reveal: () => null,
 	feedback: (item, { answer, confusion, verdict }, locale) => {
 		if (!isMiss(verdict)) return null;
 		const heard = heardOf(answer);

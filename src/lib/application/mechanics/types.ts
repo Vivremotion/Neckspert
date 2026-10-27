@@ -8,12 +8,7 @@ import type {
 } from '$lib/domain/types';
 import type { ResponseValue } from '$lib/domain/time';
 import type { Scene } from '$lib/domain/exercise/types';
-import type {
-	AnswerChoice,
-	LaneEntry,
-	PromptView,
-	ShapeView
-} from '$lib/application/session/contract';
+import type { AnswerChoice, LaneEntry, ShapeView } from '$lib/application/session/contract';
 
 // The scene lives in the domain (an exercise names it); re-exported for the screens.
 export type { Scene };
@@ -46,21 +41,6 @@ export interface MechanicPresenter<I = any, A = any> {
 	 * settled round staying until then; absent: shown at its prompt.
 	 */
 	previewBeats?: number;
-	/** The prompt in words of a mechanic whose screen model is its own (the gesture's, D9). */
-	prompt?(
-		item: I,
-		aids: { aid: AidLevel; stringAid: boolean },
-		locale: Locale,
-		random: () => number
-	): PromptView;
-	/** What was answered, localized, or null when the mechanic does not say. */
-	answerLabel?(answer: A, item: I, locale: Locale, random: () => number): string | null;
-	/** Shown once the round is settled: the right answer after a miss (the gesture's, D9). */
-	reveal?(
-		item: I,
-		outcome: { correct: boolean; verdict: ResponseVerdict },
-		locale: Locale
-	): string | null;
 	/**
 	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn by its own
 	 * screen model (the gesture's, D9). Null on a right answer; leave it out for a mechanic that
