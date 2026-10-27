@@ -145,8 +145,9 @@ export function responseZones(
 			: at(e.at) - earlyOf(settings, clock, e);
 	});
 	// Where each expectation starts to be answered on its own: a span at its start, a point where
-	// its window or its tolerance opens before its place, the earlier. A window that opens after
-	// the prompt opens every point at once, long before it is answered on its own.
+	// its window or its tolerance opens before its place, the earlier. A zone that opens after the
+	// prompt opens every point at once, so before that a later point's zone always covers an
+	// earlier one's: the bound below keeps the earlier one's attacks its own.
 	const ownList = plan.expectations.map((e) => {
 		const atS = at(e.at as Fraction);
 		if (e.span !== 'point') return atS;
@@ -173,8 +174,9 @@ export function responseZones(
 			beforeMs ? (handoverS ?? Infinity) : Infinity
 		);
 		// Its zone ends where the next expectation starts to be answered on its own, so an attack
-		// there is the next one's. One that starts at or before this one's own place bounds
-		// nothing: their zones overlap, and the pairing gives an attack to the nearest.
+		// there is the next one's. One that starts at or before this one's own place (places
+		// closer than the next one's window or tolerance) bounds nothing: the zones overlap past
+		// this place, and the earliest unanswered expectation takes an attack.
 		const next = ownList[index + 1] ?? Infinity;
 		const bound = next <= atS + EDGE_TOLERANCE_S ? Infinity : next;
 		const capture = settings.lateCapture;

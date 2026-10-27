@@ -253,15 +253,14 @@ describe('firstAnswerPairing', () => {
 
 	it('gives a second note played on its beat, or early in its window, to the second note when the first was never played', () => {
 		// Two notes a beat apart (80 ms windows), both heard from 300 ms after the prompt.
-		const two = (
-			lateMs: number,
-			lateCapture: unknown,
-			second = expectation(quarter, 'point', 'note')
-		): RoundPlan => {
+		const two = (lateMs: number, lateCapture: unknown): RoundPlan => {
 			const plan = locatePlan();
 			return {
 				...plan,
-				expectations: [expectation(Fraction.ZERO, 'point', 'note'), second],
+				expectations: [
+					expectation(Fraction.ZERO, 'point', 'note'),
+					expectation(quarter, 'point', 'note')
+				],
 				policy: { ...plan.policy, pairing: { ...plan.policy.pairing, lateMs, lateCapture } }
 			};
 		};
@@ -275,15 +274,28 @@ describe('firstAnswerPairing', () => {
 				});
 			}
 		}
-		// Places closer than their windows: an attack goes to the nearest.
-		const close = two(
-			400,
-			{ ms: 2000 },
-			{ ...expectation(F(1, 32), 'point', 'note'), window: { ms: 200 } }
-		);
-		const pairing = pairingOf(close);
-		expect(pairing.offer(attack(6.19)).fate).toBe('answer');
-		expect(pairing.result()).toMatchObject({ pairs: [{ expectation: 1 }], missed: [0] });
+	});
+
+	it('takes a first note played late but in time for the first, and the second on its beat for the second', () => {
+		// Both zones open 300 ms after the prompt: the second's covers the first's late window.
+		const plan = locatePlan();
+		const two: RoundPlan = {
+			...plan,
+			expectations: [
+				expectation(Fraction.ZERO, 'point', 'note'),
+				expectation(quarter, 'point', 'note')
+			]
+		};
+		const pairing = pairingOf(two);
+		expect(pairing.offer(attack(6.48)).fate).toBe('answer');
+		expect(pairing.offer(attack(6.85)).fate).toBe('answer');
+		expect(pairing.result()).toMatchObject({
+			pairs: [
+				{ expectation: 0, time: 6.48, late: false, judged: right },
+				{ expectation: 1, time: 6.85, late: false, judged: right }
+			],
+			missed: []
+		});
 	});
 
 	it('answers in free time at any moment after the prompt', () => {
