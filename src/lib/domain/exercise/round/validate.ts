@@ -379,18 +379,26 @@ function knownNumber(check: Check, value: unknown): unknown {
 	return value;
 }
 
+/** A length an item or a level decides stands as longer than any place, so it refuses none. */
+const UNKNOWN_LENGTH = Fraction.of(10_000);
+
 /**
  * The plan of the round as far as the exercise knows it, places an item or a level decides
  * standing at the start: what the round's modes read to say whether they can run it.
  */
-function knownPlan(check: Check, template: Record_, length: Fraction | undefined): RoundPlan {
+function knownPlan(
+	check: Check,
+	template: Record_,
+	length: Fraction | undefined,
+	listenUntil: Fraction | undefined
+): RoundPlan {
 	const policy = template.policy as Record_;
 	const expectations = (template.expectations as Record_[]).map((e): Expectation => ({
 		at: e.at === null ? null : (whereOf(check, '', e.at) ?? Fraction.ZERO),
 		span:
 			e.until === undefined
 				? 'point'
-				: { until: whereOf(check, '', e.until) ?? length ?? Fraction.of(1) },
+				: { until: whereOf(check, '', e.until) ?? length ?? UNKNOWN_LENGTH },
 		role: (e.role as Expectation['role'] | undefined) ?? 'target',
 		sensor: e.sensor as string,
 		content: null,
@@ -403,7 +411,8 @@ function knownPlan(check: Check, template: Record_, length: Fraction | undefined
 	return {
 		prompt: Fraction.ZERO,
 		expectations,
-		length: length ?? Fraction.of(1),
+		length: length ?? UNKNOWN_LENGTH,
+		...(listenUntil !== undefined && { listenUntil }),
 		mutedBars: [],
 		policy: {
 			unit: policy.unit as RoundPlan['policy']['unit'],
@@ -417,8 +426,7 @@ function knownPlan(check: Check, template: Record_, length: Fraction | undefined
 /**
  * What the compiled round could not hold, as far as the exercise knows its places: a length of
  * nothing, expectations out of order or outside the round, listening that ends before it starts,
- * an expectation placed where the round no longer listens, a plan its pairing or verdict mode
- * cannot run.
+ * a plan its pairing or verdict mode cannot run.
  */
 function shapeProblem(check: Check, template: Record_): string | null {
 	const length = lengthOf(check, template.length as Record_);
@@ -426,7 +434,7 @@ function shapeProblem(check: Check, template: Record_): string | null {
 	if (length !== undefined && length.compare(Fraction.ZERO) <= 0) {
 		return at('length', 'must last more than nothing, got 0');
 	}
-	// Where the round stops listening, when the exercise knows it.
+	// How long before its end the round stops listening, when the exercise knows it.
 	const before =
 		template.listenBeforeEnd === undefined
 			? Fraction.ZERO
@@ -437,7 +445,6 @@ function shapeProblem(check: Check, template: Record_): string | null {
 			`must leave the round some listening: it lasts ${length}, got ${before}`
 		);
 	}
-	const listenUntil = length !== undefined && before !== undefined ? length.sub(before) : undefined;
 	let previous: { i: number; where: Fraction } | null = null;
 	for (const [i, e] of (template.expectations as Record_[]).entries()) {
 		if (e.at === null) continue;
@@ -457,12 +464,6 @@ function shapeProblem(check: Check, template: Record_): string | null {
 				`must fall within the round, which lasts ${length}, got ${start}`
 			);
 		}
-		if (listenUntil !== undefined && start.compare(listenUntil) >= 0) {
-			return at(
-				`expectations[${i}].at`,
-				`must come before the round stops listening, at ${listenUntil}, got ${start}`
-			);
-		}
 		const end =
 			e.until === undefined ? undefined : whereOf(check, `expectations[${i}].until`, e.until);
 		if (end !== undefined && end.compare(length) > 0) {
@@ -472,7 +473,12 @@ function shapeProblem(check: Check, template: Record_): string | null {
 			);
 		}
 	}
-	const plan = knownPlan(check, template, length);
+	// Where it stops listening, when the exercise knows it; else the modes see no end of listening.
+	const listening =
+		length !== undefined && before !== undefined && template.listenBeforeEnd !== undefined
+			? length.sub(before)
+			: undefined;
+	const plan = knownPlan(check, template, length, listening);
 	const policy = template.policy as Record_;
 	const mode = (policy.pairing as Record_).mode as string;
 	const pairing = ROUND_MODES.pairings[mode].validate?.(plan) ?? null;
@@ -560,9 +566,8 @@ function templateProblem(check: Check): string | null {
  * judge, a mode it does not have, a sensor the session lacks (when told the `sensors`), a param
  * no level resolves, a negative place, a stretch that does not end after it starts, expectations
  * in free time mixed with placed ones, a bar offset outside its bar; and, as far as the exercise
- * knows its places, a round of no length, expectations out of order, outside the round or where
- * it no longer listens, no listening left, a plan its pairing or verdict mode cannot run. The
- * caller names the exercise.
+ * knows its places, a round of no length, expectations out of order or outside the round, no
+ * listening left, a plan its pairing or verdict mode cannot run. The caller names the exercise.
  */
 export function roundProblem(
 	definition: ExerciseDefinition,

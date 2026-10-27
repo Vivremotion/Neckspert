@@ -177,14 +177,17 @@ describe('roundProblem', () => {
 		expect(roundProblem(overlong)).toMatch(
 			/round\.expectations\[1\]\.until must end within the round, which lasts 2, got 3/
 		);
-		// Listening ends a beat before the end: a place on the last beat is never heard.
-		const unheard = withRound(TRIADS_ANCHOR, (t) => ({
+		// Listening ends a beat before the end: a place on the last beat is still answered early.
+		const early = withRound(TRIADS_ANCHOR, (t) => ({
 			...t,
 			listenBeforeEnd: { beats: 1 },
 			expectations: [{ ...t.expectations[0], at: { beats: 7 } }]
 		}));
+		expect(roundProblem(early)).toBeNull();
+		// A stretch is answered from its start only: starting where listening ends, never.
+		const unheard = withRound(TRIADS_ANCHOR, (t) => ({ ...t, listenBeforeEnd: { beats: 7 } }));
 		expect(roundProblem(unheard)).toMatch(
-			/round\.expectations\[0\]\.at must come before the round stops listening, at 7\/4, got 7\/4/
+			/round\.policy\.pairing cannot be run by mode "first-answer": expectation 1 is a stretch starting at 1\/4, where the round has stopped listening/
 		);
 		const deaf = withRound(LOCATE_NECK, (t) => ({ ...t, listenBeforeEnd: { bars: 1 } }));
 		expect(roundProblem(deaf)).toMatch(

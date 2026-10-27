@@ -57,6 +57,15 @@ export function validateFirstAnswer(plan: RoundPlan): string | null {
 	if (free && !('afterPromptMs' in settings.opens)) {
 		return 'a free-time plan must open with afterPromptMs';
 	}
+	// A stretch is answered from its start, never earlier: one starting where listening has
+	// ended is never heard. (A point may still be answered early, before its place.)
+	const listenUntil = plan.listenUntil ?? plan.handover ?? plan.length;
+	const unheard = plan.expectations.findIndex(
+		(e) => e.at !== null && e.span !== 'point' && e.at.compare(listenUntil) >= 0
+	);
+	if (unheard >= 0) {
+		return `expectation ${unheard} is a stretch starting at ${plan.expectations[unheard].at}, where the round has stopped listening (${listenUntil}): it is never answered`;
+	}
 	return null;
 }
 

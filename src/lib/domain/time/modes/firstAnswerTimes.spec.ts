@@ -195,6 +195,22 @@ describe('validateFirstAnswer', () => {
 		expect(validateFirstAnswer(plan)).toContain('afterPromptMs');
 	});
 
+	it('refuses a stretch starting where the round has stopped listening, not a point placed there', () => {
+		// The anchor stops listening at 7/4; its chord starts at 1/4.
+		const anchor = anchorPlan();
+		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 2) })).toBeNull();
+		expect(validateFirstAnswer({ ...anchor, listenUntil: F(1, 4) })).toBe(
+			'expectation 1 is a stretch starting at 1/4, where the round has stopped listening (1/4): it is never answered'
+		);
+		// A point there is still answered early, from its window's opening (seed 501 of openness.spec).
+		const late: RoundPlan = {
+			...locatePlan(),
+			expectations: [expectation(F(1, 2), 'point', 'note')],
+			listenUntil: F(1, 4)
+		};
+		expect(validateFirstAnswer(late)).toBeNull();
+	});
+
 	it('refuses settings it cannot read', () => {
 		const plan = locatePlan();
 		plan.policy.pairing = { mode: 'first-answer', opens: {}, lateMs: 400, lateCapture: null };
