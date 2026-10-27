@@ -1049,7 +1049,8 @@ export class ResponseSeriesController implements PlaySessionController {
 			endedAt,
 			fatigueDetected: this.view.fatigueDetected,
 			executions: this.executions,
-			latencyMs: this.settings.latency.note?.ms ?? null
+			// The latency applied to the note sensor's onsets: none calibrated, none removed.
+			latencyMs: this.settings.latency.note?.ms ?? 0
 		};
 	}
 

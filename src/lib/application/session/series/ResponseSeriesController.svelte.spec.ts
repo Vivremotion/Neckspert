@@ -504,6 +504,26 @@ describe('ResponseSeriesController', () => {
 		});
 	});
 
+	describe('the session record', () => {
+		it('stores the latency of the note sensor with the session, zero when it is not calibrated', async () => {
+			const calibrated = setup(passage());
+			await calibrated.repositories.settings.update({
+				latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
+			});
+			await calibrated.controller.start();
+			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(42);
+			calibrated.controller.quit();
+			await drain();
+			const ended = await calibrated.repositories.sessions.get('series-1');
+			expect(ended).toMatchObject({ latencyMs: 42, endedAt: expect.any(Number) });
+
+			// Uncalibrated, the onsets were taken as heard: the latency applied was zero.
+			const plain = setup(passage());
+			await plain.controller.start();
+			expect((await plain.repositories.sessions.get('series-1'))?.latencyMs).toBe(0);
+		});
+	});
+
 	describe('audio input', () => {
 		it('opens the input of the settings with its built-in gain before anything sounds', async () => {
 			const ctx = setup(passage());
