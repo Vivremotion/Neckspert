@@ -1,6 +1,7 @@
+import { DEFAULT_PREVIEW_BEATS } from '../exercise/pacing';
 import type { BeatPacing } from '$lib/domain/exercise/pacing';
 import { BeatRound, createBeatTiming } from './beat';
-import { BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
+import { BEATS_PER_BAR, respirationStart } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 /** The sensor that hears the root, on the target beat. */
@@ -68,7 +69,7 @@ class AnchorRound implements Round {
 		this.promptTime = this.root.promptTime;
 		this.chordOpens = beatTime(target + ANCHOR_CHORD_FROM_BEATS);
 		this.chordCloses = beatTime(barEnd);
-		this.chordWaitEnd = beatTime(respirationStart(barEnd, respirationBars) - STRING_PREVIEW_BEATS);
+		this.chordWaitEnd = beatTime(respirationStart(barEnd, respirationBars) - DEFAULT_PREVIEW_BEATS);
 	}
 
 	observe(observation: RoundObservation): RoundEvent {

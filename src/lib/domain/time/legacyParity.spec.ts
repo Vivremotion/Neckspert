@@ -1,20 +1,21 @@
-import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
-import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise';
+import { DEFAULT_PREVIEW_BEATS } from '$lib/domain/exercise/pacing';
+import { compileRound } from '$lib/domain/exercise/round';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_BEAT_PACING } from '$lib/domain/exercise/pacing';
-import { anchorPlan, beatPlan, freePlan, gridChangePlan } from '$lib/domain/exercise/roundPlans';
 import {
 	beatTiming,
 	createAnchorTiming,
 	createGridTiming,
 	identifyTiming,
-	RESPIRATION_BARS,
 	type GridChangeTiming,
 	type Round,
 	type RoundEvent as LegacyEvent,
 	type RoundOutcome as LegacyOutcome
 } from '$lib/domain/timing';
-import { IDENTIFY_RECALL_THRESHOLD_MS, type LeadBeats } from '$lib/domain/types';
+import type { LeadBeats, PlannedItem } from '$lib/domain/types';
 import { Fraction } from './fraction';
 import { METER_4_4 } from './meter';
 import type { ResponseValue } from './modes/responseVerdict';
@@ -132,38 +133,56 @@ function openLegacy(setup: Setup): Round {
 	}
 }
 
+/** A planned item of `definition`'s mechanic: only what its template reads is true. */
+function plannedOf(
+	definition: ExerciseDefinition,
+	item: unknown,
+	leadBeats: LeadBeats | null
+): PlannedItem {
+	return {
+		exerciseId: definition.id,
+		mechanic: definition.mechanic,
+		item,
+		phase: 'learning',
+		temperature: 'hot',
+		aid: 'none',
+		leadBeats
+	};
+}
+
+/** The plan the catalog's template compiles to, the content its judge hears replaced by the script's. */
 function planOf(setup: Setup): RoundPlan {
-	const meter = METER_4_4;
+	const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS };
+	const compile = (definition: ExerciseDefinition, item: unknown, lead: LeadBeats | null) =>
+		compileRound(definition, plannedOf(definition, item, lead), METER_4_4, resolved);
+	let plan: RoundPlan;
 	switch (setup.kind) {
 		case 'beat':
-			return beatPlan({
-				content: SCRIPTED,
-				leadBeats: setup.leadBeats as LeadBeats,
-				meter,
-				respirationBars: RESPIRATION_BARS,
-				windows: DEFAULT_RESPONSE_WINDOWS,
-				previewBeats: STRING_PREVIEW_BEATS
-			});
+			plan = compile(LOCATE_NECK, { string: 3, pitch: 'C' }, setup.leadBeats as LeadBeats);
+			break;
 		case 'anchor':
-			return anchorPlan({
-				root: SCRIPTED,
-				chord: SCRIPTED,
-				leadBeats: setup.leadBeats as LeadBeats,
-				meter,
-				respirationBars: RESPIRATION_BARS,
-				windows: DEFAULT_RESPONSE_WINDOWS,
-				previewBeats: STRING_PREVIEW_BEATS
-			});
+			plan = compile(
+				TRIADS_ANCHOR,
+				{ voicingKey: 'D|maj|3:5,2:1,1:3' },
+				setup.leadBeats as LeadBeats
+			);
+			break;
 		case 'grid':
-			return gridChangePlan({
-				content: SCRIPTED,
-				lengthBeats: setup.lengthBeats as number,
-				meter,
-				windows: DEFAULT_RESPONSE_WINDOWS
-			});
+			plan = compile(GESTURE_LINK, { changes: [{ length: setup.lengthBeats }], index: 0 }, null);
+			break;
 		case 'free':
-			return freePlan({ content: SCRIPTED, recallThresholdMs: IDENTIFY_RECALL_THRESHOLD_MS });
+			plan = compile(IDENTIFY_NECK, { string: 3, fret: 5 }, null);
+			break;
 	}
+	return {
+		...plan,
+		// The anchor's template listens to the end of its round; the old relation stopped at the
+		// next prompt's preview, the one thing the parity bench still asks of it.
+		...(setup.kind === 'anchor' && {
+			listenUntil: plan.length.sub(Fraction.of(DEFAULT_PREVIEW_BEATS, 4))
+		}),
+		expectations: plan.expectations.map((e) => ({ ...e, content: SCRIPTED }))
+	};
 }
 
 function openEngine(setup: Setup): PlanRound {

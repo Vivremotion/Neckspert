@@ -3,12 +3,11 @@ import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import { Fraction } from '../../time/fraction';
 import { METER_4_4 } from '../../time/meter';
-import type { RoundPlan } from '../../time/plan';
 import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
-import { anchorPlan, beatPlan, freePlan, gridChangePlan } from '../roundPlans';
 import type { PlannedItem } from '../../types';
 import { compileRound, roundParamsOf } from './compile';
+import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { RoundTemplate } from './types';
 
 const meter = METER_4_4;
@@ -137,11 +136,6 @@ function planned<I>(mechanic: string, item: I, leadBeats: number | null = 4): Pl
 	};
 }
 
-const withoutListenUntil = (plan: RoundPlan): RoundPlan => {
-	const { listenUntil: _, ...rest } = plan;
-	return rest;
-};
-
 describe('compileRound', () => {
 	it('compiles a locate template to the beat plan', () => {
 		const item = { string: 3, pitch: 'F' };
@@ -151,16 +145,14 @@ describe('compileRound', () => {
 			meter,
 			{ previewBeats: PREVIEW }
 		);
-		expect(plan).toEqual(
-			beatPlan({
-				content: { kind: 'note', value: item },
-				leadBeats: 4,
-				meter,
-				respirationBars: 1,
-				windows: DEFAULT_RESPONSE_WINDOWS,
-				previewBeats: PREVIEW
-			})
-		);
+		expect(plan).toEqual({
+			prompt: Fraction.of(-1),
+			expectations: [pointAt('note', { kind: 'note', value: item })],
+			length: Fraction.of(1),
+			listenUntil: Fraction.of(1, 2),
+			mutedBars: [],
+			policy: onTheBeat(false)
+		});
 	});
 
 	it('compiles an identify template to the free plan', () => {
@@ -171,9 +163,18 @@ describe('compileRound', () => {
 			meter,
 			{ previewBeats: PREVIEW }
 		);
-		expect(plan).toEqual(
-			freePlan({ content: { kind: 'name', value: item }, recallThresholdMs: 1500 })
-		);
+		expect(plan).toEqual({
+			prompt: Fraction.ZERO,
+			expectations: [
+				{
+					...pointAt('tap', { kind: 'name', value: item }, null),
+					window: { ms: 1500 }
+				}
+			],
+			length: Fraction.of(1),
+			mutedBars: [],
+			policy: freeTime
+		});
 	});
 
 	it('compiles an anchor template to the anchor plan: root on the beat, chord from beat 2 to the bar end', () => {
@@ -184,19 +185,24 @@ describe('compileRound', () => {
 			meter,
 			{ previewBeats: PREVIEW }
 		);
-		const expected = anchorPlan({
-			root: { kind: 'note', value: { string: 2, pitch: 'D' } },
-			chord: { kind: 'chord-voicing', value: { voicingKey: KEY, position: null } },
-			leadBeats: 2,
-			meter,
-			respirationBars: 1,
-			windows: DEFAULT_RESPONSE_WINDOWS,
-			previewBeats: PREVIEW
-		});
 		// The template writes no listenBeforeEnd: absent means « listen to the end ».
-		expect(plan).toEqual(withoutListenUntil(expected));
-		expect(plan.expectations[1].at).toEqual(Fraction.of(1, 4));
-		expect(plan.expectations[1].span).toEqual({ until: Fraction.of(1) });
+		expect(plan).toEqual({
+			prompt: Fraction.of(-1, 2),
+			expectations: [
+				pointAt('note', { kind: 'note', value: { string: 2, pitch: 'D' } }),
+				{
+					...pointAt(
+						'chord',
+						{ kind: 'chord-voicing', value: { voicingKey: KEY, position: null } },
+						Fraction.of(1, 4)
+					),
+					span: { until: Fraction.of(1) }
+				}
+			],
+			length: Fraction.of(2),
+			mutedBars: [],
+			policy: onTheBeat(true)
+		});
 	});
 
 	it('compiles a zone template to a beat plan heard by the chord sensor', () => {
@@ -219,20 +225,15 @@ describe('compileRound', () => {
 			meter,
 			{ previewBeats: PREVIEW }
 		);
-		const expected = beatPlan({
-			content: { kind: 'chord-voicing', value: { voicingKey: KEY, position: 7 } },
-			leadBeats: 4,
-			meter,
-			respirationBars: 1,
-			windows: DEFAULT_RESPONSE_WINDOWS,
-			previewBeats: PREVIEW
+		expect(plan).toEqual({
+			prompt: Fraction.of(-1),
+			expectations: [
+				pointAt('chord', { kind: 'chord-voicing', value: { voicingKey: KEY, position: 7 } })
+			],
+			length: Fraction.of(1),
+			mutedBars: [],
+			policy: onTheBeat(false)
 		});
-		expect(plan).toEqual(
-			withoutListenUntil({
-				...expected,
-				expectations: expected.expectations.map((e) => ({ ...e, sensor: 'chord' }))
-			})
-		);
 	});
 
 	it('compiles a grid template to the grid change plan, its length measured on the item', () => {
@@ -255,14 +256,15 @@ describe('compileRound', () => {
 			meter,
 			{ previewBeats: PREVIEW }
 		);
-		expect(plan).toEqual(
-			gridChangePlan({
-				content: { kind: 'chord-grid', value: item },
-				lengthBeats: 4,
-				meter,
-				windows: DEFAULT_RESPONSE_WINDOWS
-			})
-		);
+		expect(plan).toEqual({
+			prompt: Fraction.of(-1, 4),
+			expectations: [pointAt('chord', { kind: 'chord-grid', value: item })],
+			length: Fraction.of(1),
+			handover: Fraction.of(1),
+			mutedBars: [],
+			countEndsOn: 'target',
+			policy: gridChange
+		});
 	});
 
 	it('reads a number a level gives (the lead) and one a definition writes (a window)', () => {

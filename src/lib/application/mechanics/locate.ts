@@ -1,3 +1,4 @@
+import { DEFAULT_PREVIEW_BEATS } from '$lib/domain/exercise/pacing';
 import {
 	describeAcceptable,
 	describeFrequency,
@@ -18,7 +19,6 @@ import {
 	type LocateItem
 } from '$lib/domain/music';
 import { MAX_PROMPT_FRET, type Midi } from '$lib/domain/music/types';
-import { STRING_PREVIEW_BEATS } from '$lib/domain/timing/grid';
 import type { LocateData } from '$lib/domain/mechanics';
 import type { LaneEntry, PromptView } from '$lib/application/session/contract';
 import type { NotePayload } from '$lib/application/session/sensors';
@@ -47,7 +47,7 @@ export const locatePresenter: MechanicPresenter<LocateItem, { midi: Midi }> = {
 	rules: locateRules,
 	scene: 'guitar',
 	sensors: ['note'],
-	previewBeats: STRING_PREVIEW_BEATS,
+	previewBeats: DEFAULT_PREVIEW_BEATS,
 	prompt: (item, { aid, stringAid }, locale, random) => {
 		const frets = fretsForPitch(item.string, item.pitch, MAX_PROMPT_FRET);
 		return {

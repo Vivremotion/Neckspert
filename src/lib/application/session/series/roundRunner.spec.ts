@@ -1,8 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { freePlan } from '$lib/domain/exercise/roundPlans';
-import { NAME_CONTENT } from '$lib/domain/judges';
 import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
-import { gesturePlan } from '$lib/domain/gesture/plans';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
@@ -18,6 +15,7 @@ import type { PlannedItem } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { gridExpectation } from '$lib/application/mechanics/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
+import { freePlan, gesturePlan } from '$lib/testing/plans';
 import { shapeId } from '$lib/testing/shapes';
 import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
@@ -275,10 +273,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('wakes a round in free time never, and settles it on its answer', async () => {
-		const plan = freePlan({
-			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-			recallThresholdMs: 3000
-		});
+		const plan = freePlan({ string: 3, fret: 5 });
 		const ctx = await setup({ plan });
 		expect(ctx.runner.handoverTime).toBeNull();
 		// Seconds of silence pass: no beat, no end of listening wakes the round.
@@ -293,10 +288,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('counts a round in free time from the instant the controller opens it', async () => {
-		const plan = freePlan({
-			content: { kind: NAME_CONTENT, value: { string: 3, fret: 5 } },
-			recallThresholdMs: 3000
-		});
+		const plan = freePlan({ string: 3, fret: 5 });
 		// Opened a little after the downbeat its bar starts on, at the wake-up.
 		const ctx = await setup({ plan, openedAfter: 0.3 });
 		ctx.runTo(ctx.t0 + 1.4);

@@ -30,9 +30,11 @@ describe('SeriesItems.flowOf', () => {
 	});
 
 	it('lets the exercise set each part over the mechanic’s', () => {
-		expect(
-			itemsOf({ scene: 'screen', previewBeats: 3, contestable: false }).flowOf(item)
-		).toEqual({ scene: 'screen', previewBeats: 3, contestable: false });
+		expect(itemsOf({ scene: 'screen', previewBeats: 3, contestable: false }).flowOf(item)).toEqual({
+			scene: 'screen',
+			previewBeats: 3,
+			contestable: false
+		});
 	});
 
 	it('keeps the mechanic’s defaults for what the exercise leaves out', () => {

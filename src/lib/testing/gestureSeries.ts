@@ -1,6 +1,5 @@
-/** A response series on the gesture's real presenter and plans, with scripted items and the fakes. */
+/** A response series on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById } from '$lib/domain/exercise';
-import { gesturePlan } from '$lib/domain/gesture';
 import type { GridChange } from '$lib/domain/grid';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
@@ -122,7 +121,6 @@ export function gestureSeries(
 	items: PlannedItem[],
 	options: {
 		development?: boolean;
-		plans?: ResponseSeriesDeps['plans'];
 		exercise?: ResponseSeriesDeps['exercise'];
 		/** The source of each series in turn; the first defaults to `items`. */
 		sources?: ItemSource[];
@@ -174,9 +172,6 @@ export function gestureSeries(
 			recorders.push(recorder);
 			return recorder;
 		},
-		plans:
-			options.plans ??
-			((item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)),
 		exercise: options.exercise ?? exerciseById,
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,

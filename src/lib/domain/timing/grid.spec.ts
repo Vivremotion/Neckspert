@@ -1,5 +1,6 @@
+import { DEFAULT_RESPIRATION_BARS } from '../exercise/pacing';
 import { describe, expect, it } from 'vitest';
-import { alignedPromptBeat, BEATS_PER_BAR, RESPIRATION_BARS, respirationStart } from './grid';
+import { alignedPromptBeat, BEATS_PER_BAR, respirationStart } from './grid';
 
 describe('alignedPromptBeat', () => {
 	it('puts the target on the first beat of a bar for every lead', () => {
@@ -24,7 +25,7 @@ describe('alignedPromptBeat', () => {
 
 describe('respirationStart', () => {
 	it('waits for the first beat of the bar after the target bar', () => {
-		expect(RESPIRATION_BARS).toBe(1);
+		expect(DEFAULT_RESPIRATION_BARS).toBe(1);
 		expect(respirationStart(8)).toBe(12);
 	});
 });

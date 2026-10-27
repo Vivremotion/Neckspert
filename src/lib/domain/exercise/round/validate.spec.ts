@@ -148,4 +148,23 @@ describe('roundProblem', () => {
 		});
 		expect(roundProblem(gap)).toMatch(/round\.expectations\[0\]\.window\.ofGap .*fraction/);
 	});
+
+	it('refuses a bar offset or a gap that is not written as text', () => {
+		// A number would read as the text of itself: « 0 » is a fraction, but not as written.
+		const offset = withRound(LOCATE_NECK, (t) => ({ ...t, barOffset: 0 }));
+		expect(roundProblem(offset)).toMatch(/round\.barOffset .*fraction.*0/);
+		const gap = withRound(LOCATE_NECK, (t) => {
+			t.expectations[0].window = { ofGap: 1 } as unknown as { ofGap: string };
+			return t;
+		});
+		expect(roundProblem(gap)).toMatch(/round\.expectations\[0\]\.window\.ofGap .*fraction/);
+	});
+
+	it('returns the problem of the exercise’s own params instead of checking raw ones', () => {
+		const noThreshold: ExerciseDefinition = {
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, recallThresholdMs: -5 }
+		};
+		expect(roundProblem(noThreshold)).toMatch(/recallThresholdMs must be a positive number/);
+	});
 });

@@ -78,12 +78,6 @@ describe('validateExercise', () => {
 		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
 			/^locate-neck: params\.windows\.anchorChordFromBeats /
 		);
-		expect(validateExercise(withParams({ countEndsOn: 'downbeat' }))).toMatch(
-			/^locate-neck: params\.countEndsOn .*downbeat/
-		);
-		expect(validateExercise(withParams({ targetBarOffset: '4/4' }))).toMatch(
-			/^locate-neck: params\.targetBarOffset /
-		);
 	});
 
 	it('checks the round the exercise writes, against the sensors it is given', () => {

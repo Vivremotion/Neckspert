@@ -1,4 +1,5 @@
 import { chordDiagramFor } from '$lib/domain/exercise/chordDiagram';
+import { compileRound } from '$lib/domain/exercise/round';
 import type { ItemSource } from '$lib/domain/progress';
 import { detectFatigue } from '$lib/domain/scoring/fatigue';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
@@ -79,7 +80,7 @@ interface OpenRound {
 
 /**
  * Plays a series of response rounds on the transport (spec amendment 2026-10-23): it takes each
- * item from its source, has its plan made (`PlanSource`), opens a `RoundRunner` on it, and places
+ * item from its source, has its plan compiled from its exercise's round template (`compileRound`), opens a `RoundRunner` on it, and places
  * the rounds on the transport: the next round at the handover of the one before when it goes on
  * without a counted bar at the same tempo and on the same scene (chained); after a round without
  * a handover, once it settles, on the first place its plan allows (`timedStart`, L4) or on the
@@ -405,7 +406,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		count: { countBar: number; restFrom: number | null }
 	): void {
 		this.pending = item;
-		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
+		const plan = this.planOf(item);
 		const start = this.comingStart(plan, Fraction.of(earliest));
 		const promptBeat = this.promptBeatOf(start, plan);
 		// The bars between the count and the round clicked now: laid at the prompt, their beats
@@ -445,7 +446,7 @@ export class ResponseSeriesController implements PlaySessionController {
 	 */
 	private placeFollowing(item: PlannedItem, earliest: Fraction): void {
 		this.pending = item;
-		const plan = this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item));
+		const plan = this.planOf(item);
 		const start = this.comingStart(plan, earliest);
 		if (this.clicksOn(item)) this.accompanyTo(start);
 		const { previewBeats } = this.items.flowOf(item);
@@ -460,6 +461,13 @@ export class ResponseSeriesController implements PlaySessionController {
 			});
 		}
 		this.openAtPrompt(item, plan, start);
+	}
+
+	/** The plan of `item`'s round, compiled from its exercise's template in the series' meter. */
+	private planOf(item: PlannedItem): RoundPlan {
+		return compileRound(this.items.definitionOf(item), item, this.seriesMeter, {
+			previewBeats: this.items.flowOf(item).previewBeats ?? 0
+		});
 	}
 
 	/** Opens `item`'s round at its prompt, the round starting on bar `start`. */
@@ -596,13 +604,7 @@ export class ResponseSeriesController implements PlaySessionController {
 		}
 		if (this.chainable(item)) {
 			if (handover) {
-				this.openRound(
-					item,
-					this.deps.plans(item, this.seriesMeter, this.items.definitionOf(item)),
-					round.end,
-					time,
-					time
-				);
+				this.openRound(item, this.planOf(item), round.end, time, time);
 			} else {
 				this.placeFollowing(item, earliest);
 			}

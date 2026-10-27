@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GESTURE_LINK, gesturePlan, summarizeGesture } from '$lib/domain/gesture';
+import { GESTURE_LINK, summarizeGesture } from '$lib/domain/gesture';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { contentJudges } from '$lib/domain/judges';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
@@ -16,6 +16,7 @@ import {
 } from '$lib/domain/time';
 import type { RoundOutcome as OldRoundOutcome } from '$lib/domain/timing';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
+import { gesturePlan } from '$lib/testing/plans';
 import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
 import {
 	FakeClock,

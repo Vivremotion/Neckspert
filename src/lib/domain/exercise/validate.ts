@@ -1,5 +1,4 @@
-import { Fraction } from '../time/fraction';
-import { barLength, isBeatCount, METER_4_4, validateMeter } from '../time/meter';
+import { isBeatCount, validateMeter } from '../time/meter';
 import { validateLadder } from './ladder';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import type { ExerciseDefinition, Ladder } from './types';
@@ -11,7 +10,6 @@ const naturalNumber = (value: unknown) =>
 	typeof value === 'number' && Number.isInteger(value) && value >= 0;
 
 const SCENES = ['guitar', 'screen'];
-const COUNT_ENDS = ['prompt', 'target'];
 
 function tempoProblem(definition: ExerciseDefinition): string | null {
 	if (definition.startTempoBpm !== undefined && !positive(definition.startTempoBpm)) {
@@ -100,22 +98,6 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
-	}
-	if (params.countEndsOn !== undefined && !COUNT_ENDS.includes(params.countEndsOn as string)) {
-		return `params.countEndsOn must be one of ${COUNT_ENDS.join(', ')}, got ${params.countEndsOn}`;
-	}
-	if (params.targetBarOffset !== undefined) {
-		const text = params.targetBarOffset;
-		let offset: Fraction;
-		try {
-			offset = Fraction.parse(String(text));
-		} catch {
-			return `params.targetBarOffset must be a fraction such as "1/4", got ${text}`;
-		}
-		const bar = barLength(definition.meter ?? METER_4_4);
-		if (offset.compare(Fraction.ZERO) < 0 || offset.compare(bar) >= 0) {
-			return `params.targetBarOffset must lie within its bar (0 to ${bar}, excluded), got ${text}`;
-		}
 	}
 	return null;
 }

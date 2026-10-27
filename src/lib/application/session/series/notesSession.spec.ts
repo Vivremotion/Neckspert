@@ -1,3 +1,4 @@
+import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exercise/pacing';
 import { describe, expect, it } from 'vitest';
 import type { NoteLaneModel } from '$lib/application/mechanics/locate';
 import type { PlaySessionController } from '$lib/application/session/contract';
@@ -12,7 +13,6 @@ import {
 	pitchOnString,
 	type NeckCard
 } from '$lib/domain/music';
-import { STRING_PREVIEW_BEATS, RESPIRATION_BARS } from '$lib/domain/timing/grid';
 import { STRING_AID_FADE_SUCCESSES } from '$lib/domain/progress/constants';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
@@ -244,8 +244,8 @@ describe('a learn session of the notes', () => {
 			if (i === 0 || rounds[note.n - 1]?.card.mechanic !== 'locate') continue;
 			// After the target before: its breathing bar, then the first bar the lead allows.
 			const previous = notes[i - 1].anchorBeat as number;
-			expect(prompt - previous).toBeGreaterThanOrEqual(RESPIRATION_BARS * BEATS_PER_BAR);
-			expect(prompt - previous).toBeLessThan((RESPIRATION_BARS + 1) * BEATS_PER_BAR);
+			expect(prompt - previous).toBeGreaterThanOrEqual(DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR);
+			expect(prompt - previous).toBeLessThan((DEFAULT_RESPIRATION_BARS + 1) * BEATS_PER_BAR);
 			pairs++;
 		}
 		expect(pairs).toBeGreaterThan(0);
@@ -280,9 +280,9 @@ describe('a learn session of the notes', () => {
 		// The next prompt a breathing bar at least after the missed target; its string a beat
 		// before it (to the step).
 		expect(promptBeat - (missed.anchorBeat as number)).toBeGreaterThanOrEqual(
-			RESPIRATION_BARS * BEATS_PER_BAR
+			DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR
 		);
-		expect(shownAt).toBeCloseTo(promptBeat - STRING_PREVIEW_BEATS, 1);
+		expect(shownAt).toBeCloseTo(promptBeat - DEFAULT_PREVIEW_BEATS, 1);
 		expect(shownAt as unknown as number).toBeGreaterThan(settledAt);
 		// The note itself at its prompt.
 		await runUntil(app, () => controller.view.status === 'awaiting');

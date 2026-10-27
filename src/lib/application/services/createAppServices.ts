@@ -9,7 +9,7 @@ import { levelParamsOf } from '$lib/application/session/plan/rhythmExercise';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import { PlanSessionController } from '$lib/application/session/plan/PlanSessionController.svelte';
 import type { PlanSessionDeps } from '$lib/application/session/SessionDeps';
-import { GESTURE_EXERCISES, gestureOpen, gesturePlan, openElements } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES, gestureOpen, openElements } from '$lib/domain/gesture';
 import {
 	exerciseById,
 	type ExerciseDefinition,
@@ -19,7 +19,7 @@ import {
 	TRIADS_ZONE,
 	startTempo
 } from '$lib/domain/exercise';
-import { locateRules, type ChordGridItem } from '$lib/domain/mechanics';
+import { locateRules } from '$lib/domain/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -37,14 +37,12 @@ import {
 	reviewableCards,
 	summarizeSession
 } from '$lib/domain/progress';
-import { neckPlan } from '$lib/domain/progress/neckPlans';
 import { neckSubject } from '$lib/domain/progress/neckSubject';
 import {
 	createLearningProcedure,
 	DEFAULT_SET_LEARNING,
 	type DirectRecall
 } from '$lib/domain/learning';
-import type { PlanSource } from '$lib/application/session/series/planSource';
 import { triadNotesToLearn } from '$lib/domain/triads';
 import {
 	isTriadsKind,
@@ -78,12 +76,11 @@ export function createAppServices(
 	/**
 	 * A session on the response series: `prepare` reads the stores again for each series, so a
 	 * new one starts at the tempo and the levels the last one reached; each change or note is a
-	 * round of `plans`.
+	 * round compiled from its exercise's template.
 	 */
 	const responseSeries = async (
 		kind: SessionKind,
-		prepareSeries: (sessionId: string) => Promise<PreparedSeries>,
-		plans: PlanSource
+		prepareSeries: (sessionId: string) => Promise<PreparedSeries>
 	): Promise<ResponseSeriesController> => {
 		const { locale } = await deps.settings.get();
 		/** What each series prepared, by session id: its recorder is told about it. */
@@ -123,7 +120,6 @@ export function createAppServices(
 					...(series.recall && { recall: series.recall, levels: deps.levels })
 				});
 			},
-			plans,
 			exercise: deps.exercise ?? exerciseById,
 			locale: () => locale,
 			newId: deps.newId,
@@ -134,100 +130,90 @@ export function createAppServices(
 
 	/**
 	 * A gesture session, played on the response series: the gesture selector serves the open
-	 * exercises in the order of the ladder, each change a round of `gesturePlan`.
+	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		responseSeries(
-			'gesture',
-			async (sessionId) => {
-				const [cards, attempts, progressions] = await Promise.all([
-					deps.cards.all(),
-					deps.attempts.all(),
-					deps.progressions.all()
-				]);
-				// The open exercises in the order of the ladder: one tempo per grid open in each,
-				// one for the link, which plays no grid.
-				const definitions = GESTURE_EXERCISES.filter((definition) =>
-					gestureOpen(definition, cards)
-				);
-				const executions: Execution[] = definitions.flatMap((definition) => {
-					const grids = [
-						...new Set(openElements(definition, cards).map((element) => element.gridId))
-					];
-					return grids.map((scope) => ({
-						exerciseId: definition.id,
-						...(scope !== undefined && { scope }),
-						tempoBpm: startTempo(definition, progressions, scope)
-					}));
-				});
-				const source = createGestureSelector({
-					definitions,
-					cards,
-					attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
-					sessionId
-				});
-				return { source, executions, durationMs: SESSION_MS };
-			},
-			(item, meter, definition) => gesturePlan(item.item as ChordGridItem, meter, definition)
-		);
+		responseSeries('gesture', async (sessionId) => {
+			const [cards, attempts, progressions] = await Promise.all([
+				deps.cards.all(),
+				deps.attempts.all(),
+				deps.progressions.all()
+			]);
+			// The open exercises in the order of the ladder: one tempo per grid open in each,
+			// one for the link, which plays no grid.
+			const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
+			const executions: Execution[] = definitions.flatMap((definition) => {
+				const grids = [
+					...new Set(openElements(definition, cards).map((element) => element.gridId))
+				];
+				return grids.map((scope) => ({
+					exerciseId: definition.id,
+					...(scope !== undefined && { scope }),
+					tempoBpm: startTempo(definition, progressions, scope)
+				}));
+			});
+			const source = createGestureSelector({
+				definitions,
+				cards,
+				attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+				sessionId
+			});
+			return { source, executions, durationMs: SESSION_MS };
+		});
 
 	/**
 	 * A session of the notes, played on the response series: learn on the learning procedure,
-	 * with the levels stored, free play on a fixed list; each note a round of `neckPlan`.
+	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		responseSeries(
-			kind,
-			async (sessionId) => {
-				const [cards, attempts, progressions, levels] = await Promise.all([
-					deps.cards.all(),
-					deps.attempts.all(),
-					deps.progressions.all(),
-					deps.levels.all()
-				]);
-				// The neck's exercises as the catalog writes them.
-				const exercise = deps.exercise ?? exerciseById;
-				const locate = exercise(LOCATE_NECK.id);
-				const identify = exercise(IDENTIFY_NECK.id);
-				// Locate plays on the click at its own tempo; identify is answered in free time.
-				const executions: Execution[] = [
-					{ exerciseId: locate.id, tempoBpm: startTempo(locate, progressions) },
-					{ exerciseId: identify.id, tempoBpm: null }
-				];
-				// The neck's sessions see the neck's cards only; the triads lead its notes queue.
-				const subject = neckSubject({
-					definitions: { locate, identify },
-					priority: triadNotesToLearn(cards)
-				});
-				const neckCards = cards.filter(isNeck);
-				const source =
-					kind === 'free'
-						? createListSource(
-								// A note is free-played at the lead its level gives on the locate ladder.
-								buildFreePlan({
-									leadOf: freeLeadOf({ subject, levels }),
-									random: deps.random
-								})
-							)
-						: createLearningProcedure({
-								subject,
-								cards: neckCards,
-								attempts: attempts.filter(isNeck),
-								levels,
-								sessionId,
-								random: deps.random,
-								// The session's settings for the whole set: today's, until written as data.
-								set: DEFAULT_SET_LEARNING
-							});
-				return {
-					source,
-					executions,
-					durationMs: SESSION_MS,
-					recall: (mechanic) => subject.recall(mechanic)
-				};
-			},
-			neckPlan
-		);
+		responseSeries(kind, async (sessionId) => {
+			const [cards, attempts, progressions, levels] = await Promise.all([
+				deps.cards.all(),
+				deps.attempts.all(),
+				deps.progressions.all(),
+				deps.levels.all()
+			]);
+			// The neck's exercises as the catalog writes them.
+			const exercise = deps.exercise ?? exerciseById;
+			const locate = exercise(LOCATE_NECK.id);
+			const identify = exercise(IDENTIFY_NECK.id);
+			// Locate plays on the click at its own tempo; identify is answered in free time.
+			const executions: Execution[] = [
+				{ exerciseId: locate.id, tempoBpm: startTempo(locate, progressions) },
+				{ exerciseId: identify.id, tempoBpm: null }
+			];
+			// The neck's sessions see the neck's cards only; the triads lead its notes queue.
+			const subject = neckSubject({
+				definitions: { locate, identify },
+				priority: triadNotesToLearn(cards)
+			});
+			const neckCards = cards.filter(isNeck);
+			const source =
+				kind === 'free'
+					? createListSource(
+							// A note is free-played at the lead its level gives on the locate ladder.
+							buildFreePlan({
+								leadOf: freeLeadOf({ subject, levels }),
+								random: deps.random
+							})
+						)
+					: createLearningProcedure({
+							subject,
+							cards: neckCards,
+							attempts: attempts.filter(isNeck),
+							levels,
+							sessionId,
+							random: deps.random,
+							// The session's settings for the whole set: today's, until written as data.
+							set: DEFAULT_SET_LEARNING
+						});
+			return {
+				source,
+				executions,
+				durationMs: SESSION_MS,
+				recall: (mechanic) => subject.recall(mechanic)
+			};
+		});
 
 	/** The series of a session still in memory, and the runs whose take is still held. */
 	const seriesInMemory = (

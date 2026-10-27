@@ -35,14 +35,12 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	meter: WALTZ,
 	tempo: { fixed: 90 },
 	flow: { previewBeats: 2 },
-	// Its round is locate's, the target on beat 2 of the bar. Until the series reads the template
-	// (task 3), `params.targetBarOffset` says it too.
+	// Its round is locate's, the target on beat 2 of the bar.
 	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {
 		recallThresholdMs: 1500,
 		pacing: { respirationBars: 2 },
 		windows: { perfectMs: 120 },
-		targetBarOffset: '1/4',
 		ladder: [
 			{ params: { leadBeats: 6, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 			{

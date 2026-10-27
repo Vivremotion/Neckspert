@@ -1,11 +1,7 @@
+import { DEFAULT_RESPIRATION_BARS } from '../exercise/pacing';
+
 /** The metronome runs in 4/4 and accents beat 1. */
 export const BEATS_PER_BAR = 4 as const;
-
-/** Bars after the target bar before the next prompt may appear. To calibrate. */
-export const RESPIRATION_BARS = 1;
-
-/** Mode 1: the string of a prompt shows this many beats before its note. To calibrate. */
-export const STRING_PREVIEW_BEATS = 1;
 
 /**
  * Smallest prompt beat ≥ `earliest` whose target (`prompt + lead`) lands on the first beat of
@@ -17,6 +13,9 @@ export function alignedPromptBeat(earliest: number, lead: number): number {
 }
 
 /** First beat on which the next prompt may appear after a target on `targetBeat`, `bars` later. */
-export function respirationStart(targetBeat: number, bars: number = RESPIRATION_BARS): number {
+export function respirationStart(
+	targetBeat: number,
+	bars: number = DEFAULT_RESPIRATION_BARS
+): number {
 	return targetBeat + BEATS_PER_BAR * bars;
 }

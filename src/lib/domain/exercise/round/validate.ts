@@ -259,7 +259,8 @@ function windowProblem(check: Check, field: string, window: unknown): string | n
 	}
 	if (keys[0] === 'ofGap') {
 		try {
-			Fraction.parse(window.ofGap as string);
+			if (typeof window.ofGap !== 'string') throw new TypeError('not text');
+			Fraction.parse(window.ofGap);
 		} catch {
 			return at(`${field}.ofGap`, `must be a fraction such as "1/2", got ${String(window.ofGap)}`);
 		}
@@ -379,7 +380,8 @@ function templateProblem(check: Check): string | null {
 	if (template.barOffset !== undefined) {
 		let offset: Fraction;
 		try {
-			offset = Fraction.parse(String(template.barOffset));
+			if (typeof template.barOffset !== 'string') throw new TypeError('not text');
+			offset = Fraction.parse(template.barOffset);
 		} catch {
 			return at('barOffset', `must be a fraction such as "1/4", got ${String(template.barOffset)}`);
 		}
@@ -416,8 +418,8 @@ export function roundProblem(
 	let params: Readonly<Record<string, unknown>>;
 	try {
 		params = exerciseParamsOf(definition);
-	} catch {
-		params = definition.params;
+	} catch (error) {
+		return (error as Error).message;
 	}
 	return templateProblem({ definition, params, options });
 }

@@ -1,3 +1,4 @@
+import { DEFAULT_RESPIRATION_BARS } from '$lib/domain/exercise/pacing';
 import { locatePresenter, type NoteLaneModel } from '$lib/application/mechanics/locate';
 import type { NoteVerdictView } from '$lib/application/mechanics/noteVerdict';
 import type {
@@ -8,7 +9,6 @@ import type {
 } from '$lib/application/session/contract';
 import { DEFAULT_TEMPO_BPM } from '$lib/domain/exercise';
 import { formatNote, openPitch, spellPitch, type LocateItem } from '$lib/domain/music';
-import { RESPIRATION_BARS } from '$lib/domain/timing/grid';
 import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 
@@ -47,7 +47,7 @@ const BEATS_PER_BAR = 4;
 const COUNT_IN = BEATS_PER_BAR;
 const LEAD = 8;
 /** The breathing bar after a target: its verdict stays, then the next note comes. */
-const BREATH_BEATS = RESPIRATION_BARS * BEATS_PER_BAR;
+const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BEATS_PER_BAR;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;

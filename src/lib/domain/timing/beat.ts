@@ -1,3 +1,4 @@
+import { DEFAULT_PREVIEW_BEATS } from '../exercise/pacing';
 import {
 	answerWindow,
 	isInWindow,
@@ -7,7 +8,7 @@ import {
 } from '$lib/domain/scoring/timing';
 import { DEFAULT_BEAT_PACING, type BeatPacing } from '$lib/domain/exercise/pacing';
 import { RECALL_THRESHOLD_MS, type LeadBeats, type ResponseVerdict } from '$lib/domain/types';
-import { alignedPromptBeat, BEATS_PER_BAR, respirationStart, STRING_PREVIEW_BEATS } from './grid';
+import { alignedPromptBeat, BEATS_PER_BAR, respirationStart } from './grid';
 import type { Round, RoundEvent, RoundObservation, RoundOutcome, TimingRelation } from './types';
 
 /** Lead of a prompt planned without one (none today: every mode 1 prompt has a lead). */
@@ -175,7 +176,7 @@ export function createBeatTiming(pacing: BeatPacing): TimingRelation {
 	return {
 		id: 'beat',
 		usesTempo: true,
-		previewBeats: STRING_PREVIEW_BEATS,
+		previewBeats: DEFAULT_PREVIEW_BEATS,
 		initialLead: steps[0],
 		promptBeat: (earliest, planned) =>
 			alignedPromptBeat(earliest, planned.leadBeats ?? FALLBACK_LEAD),
@@ -183,7 +184,7 @@ export function createBeatTiming(pacing: BeatPacing): TimingRelation {
 			const lead = planned.leadBeats ?? FALLBACK_LEAD;
 			const nextPrompt = respirationStart(promptBeat + lead, pacing.respirationBars);
 			return new BeatRound(promptBeat, lead, beatTime, {
-				captureLimitBeat: nextPrompt - STRING_PREVIEW_BEATS,
+				captureLimitBeat: nextPrompt - DEFAULT_PREVIEW_BEATS,
 				earliestPromptBeat: nextPrompt
 			});
 		},

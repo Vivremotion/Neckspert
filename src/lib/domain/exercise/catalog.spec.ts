@@ -8,18 +8,14 @@ import {
 	exerciseById
 } from './catalog';
 import { gridById, gridChanges } from '$lib/domain/grid';
-import { GESTURE_EXERCISES, gesturePlan } from '$lib/domain/gesture';
+import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import type { ChordGridItem } from '$lib/domain/mechanics';
-import { NAME_CONTENT, NOTE_CONTENT, CHORD_VOICING_CONTENT } from '$lib/domain/judges';
 import { Fraction, METER_4_4 } from '$lib/domain/time';
-import type { RoundPlan } from '$lib/domain/time/plan';
 import type { PlannedItem } from '$lib/domain/types';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
-import { recallThresholdOf } from './recall';
 import { compileRound } from './round';
-import { anchorPlan, beatPlan, freePlan } from './roundPlans';
-import { windowsOf } from './windows';
+import { freeTime, gridChange, onTheBeat, pointAt } from './round/testing/plans';
 import type { ExerciseDefinition } from './types';
 
 describe('exercise catalog', () => {
@@ -101,7 +97,7 @@ describe('exercise catalog', () => {
 		for (const { round } of rounds) expect(JSON.parse(JSON.stringify(round))).toEqual(round);
 	});
 
-	it('compiles every response exercise of the catalog to the plan its builder gives', () => {
+	it('compiles every response exercise of the catalog to the plan written here in full', () => {
 		const meter = METER_4_4;
 		const previewBeats = 2;
 		const planned = (
@@ -119,69 +115,65 @@ describe('exercise catalog', () => {
 		});
 		const compiled = (definition: ExerciseDefinition, item: unknown, leadBeats: number | null) =>
 			compileRound(definition, planned(definition, item, leadBeats), meter, { previewBeats });
-		const withoutListenUntil = (plan: RoundPlan): RoundPlan => {
-			const { listenUntil: _, ...rest } = plan;
-			return rest;
-		};
 		const key = 'D|maj|3:5,2:1,1:3';
 
-		// Locate: at the first and the top level of its ladder.
+		// Locate, at each level of its ladder: the prompt `lead` beats ahead, one bar of breath,
+		// listening stopped at the next prompt's preview.
 		const note = { string: 3, pitch: 'F' };
-		for (const lead of ladderOf(LOCATE_NECK).map((level) => level.params.leadBeats as number)) {
-			expect(compiled(LOCATE_NECK, note, lead)).toEqual(
-				beatPlan({
-					content: { kind: NOTE_CONTENT, value: note },
-					leadBeats: lead,
-					meter,
-					respirationBars: pacingOf(LOCATE_NECK).respirationBars,
-					windows: windowsOf(LOCATE_NECK),
-					previewBeats
-				})
-			);
+		expect(ladderOf(LOCATE_NECK).map((level) => level.params.leadBeats)).toEqual([8, 4, 2]);
+		for (const lead of [8, 4, 2]) {
+			expect(compiled(LOCATE_NECK, note, lead)).toEqual({
+				prompt: Fraction.of(-lead, 4),
+				expectations: [pointAt('note', { kind: 'note', value: note })],
+				length: Fraction.of(1),
+				listenUntil: Fraction.of(1, 2),
+				mutedBars: [],
+				policy: onTheBeat(false)
+			});
 		}
 
-		// Identify: in free time, one plan for every level.
+		// Identify: in free time, one plan for every level, within the recall threshold.
 		const name = { string: 3, fret: 5 };
-		expect(compiled(IDENTIFY_NECK, name, null)).toEqual(
-			freePlan({
-				content: { kind: NAME_CONTENT, value: name },
-				recallThresholdMs: recallThresholdOf(IDENTIFY_NECK) as number
-			})
-		);
+		expect(compiled(IDENTIFY_NECK, name, null)).toEqual({
+			prompt: Fraction.ZERO,
+			expectations: [
+				{ ...pointAt('tap', { kind: 'name', value: name }, null), window: { ms: 3000 } }
+			],
+			length: Fraction.of(1),
+			mutedBars: [],
+			policy: freeTime
+		});
 
 		// The anchor: the root on the beat, the chord from beat 2 to the end of the bar.
 		for (const lead of [8, 2]) {
-			expect(compiled(TRIADS_ANCHOR, { voicingKey: key }, lead)).toEqual(
-				withoutListenUntil(
-					anchorPlan({
-						root: { kind: NOTE_CONTENT, value: { string: 2, pitch: 'D' } },
-						chord: { kind: CHORD_VOICING_CONTENT, value: { voicingKey: key, position: null } },
-						leadBeats: lead,
-						meter,
-						respirationBars: pacingOf(TRIADS_ANCHOR).respirationBars,
-						windows: windowsOf(TRIADS_ANCHOR),
-						previewBeats
-					})
-				)
-			);
+			expect(compiled(TRIADS_ANCHOR, { voicingKey: key }, lead)).toEqual({
+				prompt: Fraction.of(-lead, 4),
+				expectations: [
+					pointAt('note', { kind: 'note', value: { string: 2, pitch: 'D' } }),
+					{
+						...pointAt(
+							'chord',
+							{ kind: 'chord-voicing', value: { voicingKey: key, position: null } },
+							Fraction.of(1, 4)
+						),
+						span: { until: Fraction.of(1) }
+					}
+				],
+				length: Fraction.of(2),
+				mutedBars: [],
+				policy: onTheBeat(true)
+			});
 		}
 
 		// The zone: a beat plan heard by the chord sensor.
 		const voicing = { voicingKey: key, position: 7 };
-		const zone = beatPlan({
-			content: { kind: CHORD_VOICING_CONTENT, value: voicing },
-			leadBeats: 4,
-			meter,
-			respirationBars: pacingOf(TRIADS_ZONE).respirationBars,
-			windows: windowsOf(TRIADS_ZONE),
-			previewBeats
+		expect(compiled(TRIADS_ZONE, voicing, 4)).toEqual({
+			prompt: Fraction.of(-1),
+			expectations: [pointAt('chord', { kind: 'chord-voicing', value: voicing })],
+			length: Fraction.of(1),
+			mutedBars: [],
+			policy: onTheBeat(false)
 		});
-		expect(compiled(TRIADS_ZONE, voicing, 4)).toEqual(
-			withoutListenUntil({
-				...zone,
-				expectations: zone.expectations.map((e) => ({ ...e, sensor: 'chord' }))
-			})
-		);
 
 		// The gesture: a change of a grid, whichever exercise plays it.
 		const changes = gridChanges(gridById('iohefy-a'));
@@ -197,7 +189,15 @@ describe('exercise catalog', () => {
 			previous: null
 		};
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(compiled(exercise, change, null)).toEqual(gesturePlan(change, meter, exercise));
+			expect(compiled(exercise, change, null)).toEqual({
+				prompt: Fraction.of(-1, 4),
+				expectations: [pointAt('chord', { kind: 'chord-grid', value: change })],
+				length: Fraction.of(1),
+				handover: Fraction.of(1),
+				mutedBars: [],
+				countEndsOn: 'target',
+				policy: gridChange
+			});
 		}
 	});
 
