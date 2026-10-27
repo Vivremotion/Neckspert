@@ -6,7 +6,9 @@ import {
 	makeBackupV2,
 	makeBackupV3,
 	makeBackupV4,
+	makeBackupV5,
 	makeCard,
+	makeCardV5,
 	makeLevelState,
 	makeProgression,
 	makeSession
@@ -16,7 +18,8 @@ import {
 	validateBackupV1,
 	validateBackupV2,
 	validateBackupV3,
-	validateBackupV5
+	validateBackupV5,
+	validateBackupV6
 } from './validateBackup';
 
 const NOW = 9000;
@@ -103,18 +106,21 @@ describe('validateBackup', () => {
 
 	it('accepts an identify card and attempt without tempo', () => {
 		const file = makeBackup({
-			cards: [makeCard({ mechanic: 'identify', leadBeats: 2 })],
+			cards: [makeCard({ mechanic: 'identify' })],
 			attempts: [makeAttempt({ mechanic: 'identify' })]
 		});
 		expect(validateBackup(file)).toBe(file);
 	});
 
 	it('accepts an export whose cards or attempts still hold the one-beat lead', () => {
-		const file = makeBackup({
-			cards: [makeCard({ leadBeats: 1 as never })],
+		const file = makeBackupV5({
+			cards: [makeCardV5({ leadBeats: 1 })],
 			attempts: [makeAttempt({ leadBeats: 1 })]
 		});
 		expect(() => validateBackup(file)).not.toThrow();
+		expect(() =>
+			validateBackup(makeBackup({ attempts: [makeAttempt({ leadBeats: 1 })] }))
+		).not.toThrow();
 	});
 
 	it('checks the confusion of an attempt, string-name included', () => {
@@ -172,8 +178,8 @@ describe('validateBackup', () => {
 	});
 
 	it('rejects unsupported versions', () => {
-		expect(() => validateBackup({ ...makeBackup(), version: 6 })).toThrow(
-			'Unsupported backup version: 6'
+		expect(() => validateBackup({ ...makeBackup(), version: 7 })).toThrow(
+			'Unsupported backup version: 7'
 		);
 		expect(() => validateBackup({ ...makeBackup(), version: undefined })).toThrow(
 			'Unsupported backup version: undefined'
@@ -273,8 +279,11 @@ describe('validateBackup', () => {
 
 	it('rejects an invalid card and names its index', () => {
 		expect(() =>
-			validateBackup({ ...makeBackup(), cards: [makeCard(), { ...makeCard(), leadBeats: 3 }] })
+			validateBackup(makeBackupV5({ cards: [makeCardV5(), makeCardV5({ leadBeats: 3 })] }))
 		).toThrow('Invalid cards entry at index 1: leadBeats must be 8, 4, 2 or 1');
+		expect(() =>
+			validateBackup({ ...makeBackup(), cards: [makeCard(), { ...makeCard(), learnedAt: 'x' }] })
+		).toThrow('Invalid cards entry at index 1: learnedAt must be a number or null');
 		expect(() => validateBackup({ ...makeBackup(), cards: ['card'] })).toThrow(
 			'Invalid cards entry at index 0: not an object'
 		);
@@ -439,9 +448,9 @@ describe('validateBackup', () => {
 	});
 
 	describe('with a version 1 file', () => {
-		it('converts it, then checks it as version 5', () => {
+		it('converts it, then checks it as version 6', () => {
 			const file = validateBackup(makeV1Backup(), NOW);
-			expect(file.version).toBe(5);
+			expect(file.version).toBe(6);
 			expect(file.app).toBe('neckspert-play');
 			expect(file.exportedAt).toBe(5000);
 			expect(file.settings).toEqual({
@@ -457,9 +466,9 @@ describe('validateBackup', () => {
 			expect(file.cards[0]).toMatchObject({
 				key: 'locate:2:F',
 				mechanic: 'locate',
-				item: { string: 2, pitch: 'F' },
-				leadBeats: 2
+				item: { string: 2, pitch: 'F' }
 			});
+			expect(Object.hasOwn(file.cards[0], 'leadBeats')).toBe(false);
 			expect(file.attempts[0]).toMatchObject({
 				exerciseId: 'locate-neck',
 				tempoBpm: 100,
@@ -469,7 +478,7 @@ describe('validateBackup', () => {
 				{ exerciseId: 'locate-neck', tempoBpm: 100 },
 				{ exerciseId: 'identify-neck', tempoBpm: null }
 			]);
-			expect(() => validateBackupV5(file)).not.toThrow();
+			expect(() => validateBackupV6(file)).not.toThrow();
 			expect(file.attempts[0]).toMatchObject({
 				success: true,
 				verdict: { relation: 'beat', version: 1, value: 'perfect' },
@@ -621,9 +630,9 @@ describe('target attempts', () => {
 });
 
 describe('with a version 2 file', () => {
-	it('lands on version 5 with no observations and no latency', () => {
+	it('lands on version 6 with no observations and no latency', () => {
 		const file = validateBackup(makeBackupV2());
-		expect(file.version).toBe(5);
+		expect(file.version).toBe(6);
 		expect(file.attempts.map((attempt) => attempt.observations)).toEqual([null]);
 		expect(file.sessions.map((session) => session.latencyMs)).toEqual([null]);
 	});
@@ -642,7 +651,7 @@ describe('with a version 2 file', () => {
 	});
 });
 
-describe('validateBackupV5', () => {
+describe('validateBackupV6', () => {
 	const observation = { atMs: 1200, sensor: 'note', fate: 'answer', correct: true, payload: {} };
 
 	it('accepts observations of every fate, and a latency', () => {
@@ -665,11 +674,11 @@ describe('validateBackupV5', () => {
 			],
 			sessions: [makeSession({ latencyMs: 12 }), makeSession({ id: 's2', latencyMs: null })]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('refuses a file of another version', () => {
-		expect(() => validateBackupV5({ ...makeBackup(), version: 2 })).toThrow(
+		expect(() => validateBackupV6({ ...makeBackup(), version: 2 })).toThrow(
 			'Unsupported backup version: 2'
 		);
 	});
@@ -707,28 +716,28 @@ describe('validateBackupV5', () => {
 			'observations[0].payload is required'
 		]
 	])('rejects %s', (_name, observations, message) => {
-		expect(() => validateBackupV5(withObservations(observations))).toThrow(
+		expect(() => validateBackupV6(withObservations(observations))).toThrow(
 			`Invalid attempts entry at index 0: ${message}`
 		);
 	});
 
 	it('rejects an attempt without the observations field', () => {
 		const { observations: _dropped, ...attempt } = makeAttempt({ id: 1 });
-		expect(() => validateBackupV5({ ...makeBackup(), attempts: [attempt] })).toThrow(
+		expect(() => validateBackupV6({ ...makeBackup(), attempts: [attempt] })).toThrow(
 			'observations must be null or an array'
 		);
 	});
 
 	it('rejects a latency that is not a number or null', () => {
 		const sessions = [{ ...makeSession(), latencyMs: 'x' }];
-		expect(() => validateBackupV5({ ...makeBackup(), sessions })).toThrow(
+		expect(() => validateBackupV6({ ...makeBackup(), sessions })).toThrow(
 			'Invalid sessions entry at index 0: latencyMs must be a number or null'
 		);
 	});
 
 	it('keeps the version 2 checks', () => {
 		expect(() =>
-			validateBackupV5({ ...makeBackup(), attempts: [{ ...makeAttempt({ id: 1 }), phase: 'x' }] })
+			validateBackupV6({ ...makeBackup(), attempts: [{ ...makeAttempt({ id: 1 }), phase: 'x' }] })
 		).toThrow('Invalid attempts entry at index 0: phase must be');
 	});
 });
@@ -764,7 +773,7 @@ describe('with triad cards and attempts', () => {
 				attempt(4, { kind: 'none', part: 'chord' })
 			]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('accepts a zone attempt whose item holds the position asked, its card the voicing only', () => {
@@ -784,7 +793,7 @@ describe('with triad cards and attempts', () => {
 				})
 			]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('still refuses a zone attempt whose item names another voicing than its card', () => {
@@ -802,7 +811,7 @@ describe('with triad cards and attempts', () => {
 				})
 			]
 		});
-		expect(() => validateBackupV5(file)).toThrow(/data.item does not match cardKey/);
+		expect(() => validateBackupV6(file)).toThrow(/data.item does not match cardKey/);
 	});
 });
 
@@ -815,23 +824,23 @@ describe('the triads session and the contest of an attempt', () => {
 				makeSession({ id: 's-zone', kind: 'triads-zone' })
 			]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('rejects a contest that is not a boolean', () => {
 		const file = makeBackup({ attempts: [makeAttempt({ id: 1, contested: 'yes' as never })] });
-		expect(() => validateBackupV5(file)).toThrow(/contested must be a boolean/);
+		expect(() => validateBackupV6(file)).toThrow(/contested must be a boolean/);
 	});
 
 	it('accepts the reason of a contest, a string, and refuses another type', () => {
 		const ok = makeBackup({
 			attempts: [makeAttempt({ id: 1, contested: true, contestReason: 'regularity' })]
 		});
-		expect(validateBackupV5(ok).attempts[0].contestReason).toBe('regularity');
+		expect(validateBackupV6(ok).attempts[0].contestReason).toBe('regularity');
 		const bad = makeBackup({
 			attempts: [makeAttempt({ id: 1, contested: true, contestReason: 3 as never })]
 		});
-		expect(() => validateBackupV5(bad)).toThrow(/contestReason must be a string/);
+		expect(() => validateBackupV6(bad)).toThrow(/contestReason must be a string/);
 	});
 });
 
@@ -840,22 +849,22 @@ describe('the exercise session', () => {
 		const file = makeBackup({
 			sessions: [makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats' })]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('rejects an exercise session without a usable exercise id', () => {
 		const withId = (exerciseId: unknown) =>
 			makeBackup({ sessions: [{ ...makeSession({ kind: 'exercise' }), exerciseId } as never] });
-		expect(() => validateBackupV5(withId(undefined))).toThrow(/exerciseId must be a non-empty/);
-		expect(() => validateBackupV5(withId(''))).toThrow(/exerciseId must be a non-empty/);
-		expect(() => validateBackupV5(withId(3))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV6(withId(undefined))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV6(withId(''))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV6(withId(3))).toThrow(/exerciseId must be a non-empty/);
 	});
 
 	it('rejects an exercise id that is not a string on any session', () => {
 		const file = makeBackup({
 			sessions: [{ ...makeSession({ kind: 'learn' }), exerciseId: 3 } as never]
 		});
-		expect(() => validateBackupV5(file)).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackupV6(file)).toThrow(/exerciseId must be a non-empty/);
 	});
 });
 
@@ -867,7 +876,7 @@ describe('the level held by an exercise session', () => {
 				makeSession({ id: 's2', kind: 'exercise', exerciseId: 'rhythm-offbeats', levelReached: -1 })
 			]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('rejects a level that is not a whole number', () => {
@@ -880,9 +889,9 @@ describe('the level held by an exercise session', () => {
 					} as never
 				]
 			});
-		expect(() => validateBackupV5(withLevel('3'))).toThrow(/levelReached must be a whole number/);
-		expect(() => validateBackupV5(withLevel(1.5))).toThrow(/levelReached must be a whole number/);
-		expect(() => validateBackupV5(withLevel(null))).toThrow(/levelReached must be a whole number/);
+		expect(() => validateBackupV6(withLevel('3'))).toThrow(/levelReached must be a whole number/);
+		expect(() => validateBackupV6(withLevel(1.5))).toThrow(/levelReached must be a whole number/);
+		expect(() => validateBackupV6(withLevel(null))).toThrow(/levelReached must be a whole number/);
 	});
 });
 
@@ -922,13 +931,13 @@ describe('with chord-grid attempts', () => {
 			}
 		});
 		const exported = JSON.parse(JSON.stringify(makeBackup({ attempts: [attempt] })));
-		expect(validateBackupV5(exported)).toEqual(exported);
+		expect(validateBackupV6(exported)).toEqual(exported);
 		expect(exported.attempts[0].data.item).toEqual(item);
 	});
 
 	it('accepts a gesture session', () => {
 		const file = makeBackup({ sessions: [makeSession({ kind: 'gesture' })] });
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('names every confusion of a chord change', () => {
@@ -954,7 +963,7 @@ describe('with chord-grid attempts', () => {
 			})
 		);
 		const file = makeBackup({ attempts });
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 });
 
@@ -973,22 +982,22 @@ describe('tempo scopes', () => {
 			],
 			attempts: [makeAttempt({ id: 1, tempoScope: 'blues-f' })]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('refuses an empty scope', () => {
 		expect(() =>
-			validateBackupV5(makeBackup({ progressions: [makeProgression({ scope: '' })] }))
+			validateBackupV6(makeBackup({ progressions: [makeProgression({ scope: '' })] }))
 		).toThrow(/scope/);
 		expect(() =>
-			validateBackupV5(
+			validateBackupV6(
 				makeBackup({
 					sessions: [makeSession({ executions: [{ exerciseId: 'x', scope: '', tempoBpm: 80 }] })]
 				})
 			)
 		).toThrow(/scope/);
 		expect(() =>
-			validateBackupV5(makeBackup({ attempts: [makeAttempt({ id: 1, tempoScope: '' })] }))
+			validateBackupV6(makeBackup({ attempts: [makeAttempt({ id: 1, tempoScope: '' })] }))
 		).toThrow(/tempoScope/);
 	});
 });
@@ -997,17 +1006,18 @@ describe('with a version 3 file', () => {
 	it('is checked on its own by validateBackupV3, and returned unchanged', () => {
 		const v3 = makeBackupV3();
 		expect(validateBackupV3(v3)).toBe(v3);
-		expect(() => validateBackupV3(makeBackup())).toThrow('Unsupported backup version: 5');
+		expect(() => validateBackupV3(makeBackup())).toThrow('Unsupported backup version: 6');
+		expect(() => validateBackupV6(v3)).toThrow('Unsupported backup version: 3');
 		expect(() => validateBackupV5(v3)).toThrow('Unsupported backup version: 3');
 	});
 
-	it('lands on version 5: the offset as the played latency of notes and chords, a level per neck card', () => {
+	it('lands on version 6: the offset as the played latency of notes and chords, a level per neck card', () => {
 		const v3 = makeBackupV3();
 		const file = validateBackup({
 			...v3,
 			settings: { ...(v3.settings as object), calibrationOffsetMs: 30 }
 		});
-		expect(file.version).toBe(5);
+		expect(file.version).toBe(6);
 		expect(file.settings).toEqual({
 			...DEFAULT_SETTINGS,
 			latency: {
@@ -1028,7 +1038,7 @@ describe('with a version 3 file', () => {
 
 describe('version 4 settings and level states', () => {
 	const withSettings = (fields: Record<string, unknown>) =>
-		validateBackupV5({ ...makeBackup(), settings: { ...DEFAULT_SETTINGS, ...fields } });
+		validateBackupV6({ ...makeBackup(), settings: { ...DEFAULT_SETTINGS, ...fields } });
 
 	it('accept a latency per sensor of either provenance, and the click bleed', () => {
 		expect(() =>
@@ -1067,16 +1077,16 @@ describe('version 4 settings and level states', () => {
 				makeLevelState({ scope: 'iohefy-a', item: 'locate:2:F', level: -1, resumeAfter: 5 })
 			]
 		});
-		expect(validateBackupV5(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
 	it('reject a missing table or a bad level state, and name its index', () => {
 		const { levelStates: _dropped, ...withoutTable } = makeBackup();
-		expect(() => validateBackupV5(withoutTable)).toThrow(
+		expect(() => validateBackupV6(withoutTable)).toThrow(
 			'Backup field "levelStates" must be an array'
 		);
 		const bad = (fields: Record<string, unknown>) => () =>
-			validateBackupV5({ ...makeBackup(), levelStates: [{ ...makeLevelState(), ...fields }] });
+			validateBackupV6({ ...makeBackup(), levelStates: [{ ...makeLevelState(), ...fields }] });
 		expect(bad({ exerciseId: '' })).toThrow(
 			'Invalid levelStates entry at index 0: exerciseId must be a non-empty string'
 		);
@@ -1089,40 +1099,85 @@ describe('version 4 settings and level states', () => {
 	});
 });
 
-describe('the chain of backups to version 5', () => {
-	const neck = (overrides = {}) => makeCard({ leadBeats: 4, ...overrides });
+describe('the chain of backups to version 6', () => {
+	const neck = (overrides = {}) => makeCardV5({ leadBeats: 4, ...overrides });
+	const KEY = 'D|maj|3:5,2:1,1:3';
+	const anchor = (leadBeats: number) =>
+		makeCardV5({
+			key: `triad-anchor:${KEY}`,
+			mechanic: 'triad-anchor',
+			item: { voicingKey: KEY },
+			leadBeats
+		});
+	const anchorLevel = (level: number) => ({
+		exerciseId: 'triads-anchor',
+		scope: '',
+		item: KEY,
+		level,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+	const locateLevel = {
+		exerciseId: 'locate-neck',
+		scope: '',
+		item: '2:F',
+		level: 1,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	};
+	const withoutLead = (card: Record<string, unknown>) => {
+		const { leadBeats: _lead, ...rest } = card;
+		return rest;
+	};
 
-	it('accepts a valid version 5 file as it is', () => {
-		const file = makeBackup({ cards: [neck()], levelStates: [makeLevelState()] });
+	it('accepts a valid version 6 file as it is', () => {
+		const file = makeBackup({ cards: [makeCard()], levelStates: [makeLevelState()] });
 		expect(validateBackup(file)).toBe(file);
+		expect(validateBackupV6(file)).toBe(file);
 	});
 
-	it('passes a version 4 file through backupV4ToV5', () => {
-		const file = validateBackup(makeBackupV4({ cards: [neck()], levelStates: [makeLevelState()] }));
-		expect(file.version).toBe(5);
-		expect(file.levelStates).toEqual([
-			makeLevelState(),
-			{
-				exerciseId: 'locate-neck',
-				scope: '',
-				item: '2:F',
-				level: 1,
-				successes: 0,
-				failures: 0,
-				resumeAfter: null
-			}
-		]);
+	it('refuses a version 6 card that still carries a lead', () => {
+		expect(() => validateBackup(makeBackup({ cards: [neck() as never] }))).toThrow(
+			'Invalid cards entry at index 0: leadBeats is gone, a card has no lead (its level is a level state)'
+		);
 	});
 
-	it('passes a version 3 file through backupV3ToV4 then backupV4ToV5', () => {
-		const file = validateBackup(makeBackupV3({ cards: [neck()] }));
-		expect(file.version).toBe(5);
-		expect(file.levelStates.map((state) => `${state.exerciseId}/${state.item}`)).toEqual([
-			'locate-neck/2:F'
-		]);
+	it('passes a version 5 file through backupV5ToV6: each triad card gets its level, no card keeps a lead', () => {
+		const v5 = makeBackupV5({
+			cards: [neck(), anchor(4)],
+			levelStates: [makeLevelState(), locateLevel]
+		});
+		const file = validateBackup(v5);
+		expect(file.version).toBe(6);
+		expect(file.cards).toEqual([withoutLead(neck()), withoutLead(anchor(4))]);
+		expect(file.levelStates).toEqual([makeLevelState(), locateLevel, anchorLevel(1)]);
+		expect(validateBackupV5(v5)).toBe(v5);
 	});
 
-	it('refuses a version 4 file that is not valid as one', () => {
+	it('passes a version 4 file through backupV4ToV5 then backupV5ToV6', () => {
+		const file = validateBackup(
+			makeBackupV4({ cards: [neck(), anchor(2)], levelStates: [makeLevelState()] })
+		);
+		expect(file.version).toBe(6);
+		expect(file.cards).toEqual([withoutLead(neck()), withoutLead(anchor(2))]);
+		expect(file.levelStates).toEqual([makeLevelState(), locateLevel, anchorLevel(2)]);
+	});
+
+	it('passes a version 3 file through backupV3ToV4, backupV4ToV5 then backupV5ToV6', () => {
+		const file = validateBackup(makeBackupV3({ cards: [neck(), anchor(1)] }));
+		expect(file.version).toBe(6);
+		expect(
+			file.levelStates.map((state) => `${state.exerciseId}/${state.item}/${state.level}`)
+		).toEqual(['locate-neck/2:F/1', `triads-anchor/${KEY}/2`]);
+		expect(file.cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
+	});
+
+	it('refuses a version 4 or 5 file that is not valid as one', () => {
 		expect(() => validateBackup(makeBackupV4({ cards: 'x' }))).toThrow(/cards/);
+		expect(() => validateBackup(makeBackupV5({ cards: [makeCard()] }))).toThrow(
+			'Invalid cards entry at index 0: leadBeats must be 8, 4, 2 or 1'
+		);
 	});
 });

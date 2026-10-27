@@ -263,7 +263,6 @@ describe('createAppServices', () => {
 			item: { voicingKey: key },
 			introducedAt: 0,
 			introducedInSession: 's-old',
-			leadBeats: 8,
 			scheduling: {
 				due: 0,
 				stability: 0,

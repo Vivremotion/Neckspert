@@ -35,14 +35,14 @@ export function cardStateRepositoryContract(
 
 		it('replaces the card stored under the same key', async () => {
 			await repo.put(makeCard());
-			const updated = makeCard({ leadBeats: 4, acquiredAt: 9000 });
+			const updated = makeCard({ learnedAt: 4000, acquiredAt: 9000 });
 			await repo.put(updated);
 			expect(await repo.get(updated.key)).toEqual(updated);
 			expect(await repo.all()).toHaveLength(1);
 		});
 
 		it('stores many cards at once', async () => {
-			const cards = [makeCard(), makeCard({ mechanic: 'identify', leadBeats: 2 })];
+			const cards = [makeCard(), makeCard({ mechanic: 'identify' })];
 			await repo.putMany(cards);
 			expect((await repo.all()).sort(byKey)).toEqual([...cards].sort(byKey));
 		});

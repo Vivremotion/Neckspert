@@ -174,7 +174,6 @@ export function fakeCard(
 		item,
 		introducedAt: 0,
 		introducedInSession: 'session',
-		leadBeats: 2,
 		learnedAt: null,
 		acquiredAt: null,
 		masteredAt: null,

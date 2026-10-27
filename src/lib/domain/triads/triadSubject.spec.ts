@@ -63,7 +63,6 @@ function triadCard(
 		item: { voicingKey: voicing },
 		introducedAt: 0,
 		introducedInSession: 'past',
-		leadBeats: 2,
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
 		masteredAt: null,

@@ -6,7 +6,6 @@ import { DexieLevelStateRepository } from './DexieLevelStateRepository';
 import { DexieProgressionRepository } from './DexieProgressionRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
-import { withoutLegacyLead } from './legacyLead';
 import { validateBackup } from './validateBackup';
 
 export class DexieBackup implements BackupPort {
@@ -30,7 +29,7 @@ export class DexieBackup implements BackupPort {
 			],
 			async (): Promise<BackupFile> => ({
 				app: 'neckspert-play',
-				version: 5,
+				version: 6,
 				exportedAt: this.now(),
 				settings: await new DexieSettingsRepository(db).get(),
 				progressions: await new DexieProgressionRepository(db).all(),
@@ -60,7 +59,7 @@ export class DexieBackup implements BackupPort {
 			await db.settings.put({ ...backup.settings, inputDeviceId: null, id: SETTINGS_ROW_ID });
 			const progressions = new DexieProgressionRepository(db);
 			for (const progression of backup.progressions) await progressions.put(progression);
-			await db.cards.bulkAdd(backup.cards.map(withoutLegacyLead));
+			await db.cards.bulkAdd(backup.cards);
 			await db.attempts.bulkAdd(backup.attempts);
 			await db.sessions.bulkAdd(backup.sessions);
 			await db.levelStates.bulkAdd(backup.levelStates);

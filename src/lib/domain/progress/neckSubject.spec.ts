@@ -47,8 +47,6 @@ function neckCard(
 		item: card.item,
 		introducedAt: 0,
 		introducedInSession: 'past',
-		// The card's stored lead, unread by the procedure (its level gives the lead).
-		leadBeats: 2,
 		learnedAt,
 		acquiredAt: fields.acquiredAt ?? null,
 		masteredAt: null,

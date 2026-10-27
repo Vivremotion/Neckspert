@@ -163,7 +163,6 @@ describe('AttemptRecorder', () => {
 		const stored = await cards.get(LOCATE_KEY);
 		expect(stored?.scheduling.reps).toBeGreaterThan(card.scheduling.reps);
 		expect(stored?.acquiredAt).toBe(5_000);
-		expect(stored?.leadBeats).toBe(card.leadBeats);
 	});
 
 	it('introduces the card of a first learning prompt', async () => {

@@ -20,6 +20,7 @@ import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
 import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
+import { backupV5ToV6 } from './migrations/v10';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -37,7 +38,10 @@ const SESSION_KINDS: readonly SessionKind[] = [
 	'exercise'
 ];
 const SCHEDULING_STATES: readonly number[] = [0, 1, 2, 3];
-/** Exports made before 2026-10-04 can hold the dropped 1-beat step; the import moves it to 2. */
+/**
+ * The leads a card of versions 1 to 5 may hold: frozen, cards have none from version 6. Exports
+ * made before 2026-10-04 can hold the dropped 1-beat step.
+ */
 const CARD_LEADS: readonly number[] = [8, 4, 2, 1];
 /** Notes (locate, identify, a triad's root), chords (a triad's chord, a grid's change). */
 const CONFUSION_KINDS: readonly string[] = [
@@ -189,10 +193,23 @@ function checkDiagnosticsSettings(diagnostics: unknown): string | null {
 	return null;
 }
 
-function checkSchedulingAndDates(card: Fields): string | null {
+/** Versions 1 to 5: a card holds its lead. */
+function checkLead(card: Fields): string | null {
+	return isOneOf(card.leadBeats, CARD_LEADS) ? null : 'leadBeats must be 8, 4, 2 or 1';
+}
+
+/** Version 6: a card has no lead, the level of its item is a level state. */
+function checkNoLead(card: Fields): string | null {
+	return Object.hasOwn(card, 'leadBeats')
+		? 'leadBeats is gone, a card has no lead (its level is a level state)'
+		: null;
+}
+
+function checkSchedulingAndDates(card: Fields, checkCardLead: Check = checkLead): string | null {
 	if (!isFiniteNumber(card.introducedAt)) return 'introducedAt must be a number';
 	if (typeof card.introducedInSession !== 'string') return 'introducedInSession must be a string';
-	if (!isOneOf(card.leadBeats, CARD_LEADS)) return 'leadBeats must be 8, 4, 2 or 1';
+	const leadProblem = checkCardLead(card);
+	if (leadProblem) return leadProblem;
 	const scheduling = card.scheduling;
 	if (!isFields(scheduling) || !isFiniteNumber(scheduling.due)) {
 		return 'scheduling.due must be a number';
@@ -416,6 +433,13 @@ function checkCard(card: Fields): string | null {
 	);
 }
 
+function checkCardV6(card: Fields): string | null {
+	return (
+		checkItem(card.mechanic, card.key, card.item, 'key', 'item') ??
+		checkSchedulingAndDates(card, checkNoLead)
+	);
+}
+
 function checkAttempt(attempt: Fields): string | null {
 	const header = checkAttemptHeader(attempt);
 	if (header) return header;
@@ -599,12 +623,12 @@ function checkLevelState(state: Fields): string | null {
 	return null;
 }
 
-/** The checks of versions 4 and 5, which hold the same tables. */
-function checkBackupBody(backup: Fields): void {
+/** The checks of versions 4 to 6, which hold the same tables; cards lose their lead at 6. */
+function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
 	const settingsProblem = checkSettingsV4(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
 	checkEntries(backup.progressions, 'progressions', checkProgression);
-	checkEntries(backup.cards, 'cards', checkCard);
+	checkEntries(backup.cards, 'cards', cardCheck);
 	checkEntries(backup.attempts, 'attempts', checkAttemptV4);
 	checkEntries(backup.sessions, 'sessions', checkSessionV3);
 	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
@@ -617,22 +641,30 @@ export function validateBackupV4(file: unknown): Fields {
 	return backup;
 }
 
-/** Checks a version 5 file and returns it unchanged. */
-export function validateBackupV5(file: unknown): BackupFile {
+/** Checks a version 5 file and returns it unchanged: its cards hold their lead. */
+export function validateBackupV5(file: unknown): Fields {
 	const backup = checkHeader(file, 5);
 	checkBackupBody(backup);
+	return backup;
+}
+
+/** Checks a version 6 file and returns it unchanged: no card holds a lead. */
+export function validateBackupV6(file: unknown): BackupFile {
+	const backup = checkHeader(file, 6);
+	checkBackupBody(backup, checkCardV6);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 5, and versions 1 to 4 brought to it by the migration chain, the one the
+ * Accepts version 6, and versions 1 to 5 brought to it by the migration chain, the one the
  * database upgrade runs (`now` stamps the progression made from a version 1 tempo). Throws a
  * readable error on anything else.
  */
 export function validateBackup(file: unknown, now: number = Date.now()): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV5 = (v4: Fields) => validateBackupV5(backupV4ToV5(validateBackupV4(v4)));
+	const toV6 = (v5: Fields) => validateBackupV6(backupV5ToV6(validateBackupV5(v5)));
+	const toV5 = (v4: Fields) => toV6(backupV4ToV5(validateBackupV4(v4)));
 	const toV4 = (v3: Fields) => toV5(backupV3ToV4(v3, relationOfMechanic));
 	if (file.version === 1) {
 		return toV4(validateBackupV3(fromV2(fromV1(validateBackupV1(file), now))));
@@ -640,6 +672,7 @@ export function validateBackup(file: unknown, now: number = Date.now()): BackupF
 	if (file.version === 2) return toV4(validateBackupV3(fromV2(validateBackupV2(file))));
 	if (file.version === 3) return toV4(validateBackupV3(file));
 	if (file.version === 4) return toV5(file);
-	if (file.version === 5) return validateBackupV5(file);
+	if (file.version === 5) return toV6(file);
+	if (file.version === 6) return validateBackupV6(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

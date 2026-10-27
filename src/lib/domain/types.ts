@@ -119,9 +119,6 @@ export type AidLevel = 'show-position' | 'none';
 /** A lead in beats of the meter: any positive number. */
 export type LeadBeats = number;
 
-/** Shortest lead step. Identify cards carry it; the field means nothing in mode 2. */
-export const SHORTEST_LEAD: LeadBeats = 2;
-
 /** Lead stored on an attempt: attempts recorded before 2026-10-04 can hold the old 1-beat step. */
 export type RecordedLeadBeats = LeadBeats | 1;
 
@@ -207,8 +204,6 @@ export interface CardState<I = unknown> {
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
 	introducedInSession: string;
-	/** Current lead step of the "beat" relation; other cards keep SHORTEST_LEAD. */
-	leadBeats: LeadBeats;
 	scheduling: SchedulingState;
 	/** Epoch ms when in-session learning completed. Null while the card is being learned. */
 	learnedAt: number | null;
@@ -453,7 +448,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 5;
+	version: 6;
 	exportedAt: number;
 	settings: Settings;
 	progressions: Progression[];

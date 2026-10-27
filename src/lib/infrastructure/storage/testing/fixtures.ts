@@ -66,7 +66,6 @@ export function makeCard(overrides: Partial<CardState> = {}): CardState {
 		item,
 		introducedAt: 1000,
 		introducedInSession: 's1',
-		leadBeats: 8,
 		scheduling: {
 			due: 3_601_000,
 			stability: 0,
@@ -115,7 +114,7 @@ export function makeProgression(overrides: Partial<Progression> = {}): Progressi
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 5,
+		version: 6,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
 		progressions: [makeProgression()],
@@ -127,9 +126,19 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	};
 }
 
+/** A card as versions 1 to 5 of the backup hold it: with its lead, 8 by default. */
+export function makeCardV5(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return { ...makeCard(overrides as Partial<CardState>), leadBeats: 8, ...overrides };
+}
+
+/** A version 5 export: its cards hold their lead, no triad card has a level state. */
+export function makeBackupV5(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return { ...makeBackup(), version: 5, cards: [makeCardV5()], ...overrides };
+}
+
 /** A version 4 export: the level states hold the exercises' own, no neck card has one. */
 export function makeBackupV4(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	return { ...makeBackup(), version: 4, ...overrides };
+	return { ...makeBackupV5(), version: 4, ...overrides };
 }
 
 /**
@@ -137,7 +146,7 @@ export function makeBackupV4(overrides: Record<string, unknown> = {}): Record<st
  * at the target model, as the recorder wrote them before version 4.
  */
 export function makeBackupV3(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	const { settings, levelStates: _levelStates, ...rest } = makeBackup();
+	const { settings, levelStates: _levelStates, ...rest } = makeBackupV5() as unknown as BackupFile;
 	const { latency: _latency, clickBleed: _clickBleed, ...kept } = settings;
 	return {
 		...rest,
