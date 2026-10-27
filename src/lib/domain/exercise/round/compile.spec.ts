@@ -328,6 +328,24 @@ describe('compileRound', () => {
 		);
 	});
 
+	it('names the exercise and the field when a fraction is malformed', () => {
+		const item = { string: 3, pitch: 'F' };
+		const compiling = (round: RoundTemplate) => () =>
+			compileRound(definition('locate', round), planned('locate', item, 4), meter, {
+				previewBeats: PREVIEW
+			});
+		expect(compiling({ ...LOCATE_ROUND, barOffset: 'a quarter' })).toThrow(
+			/test-locate: round\.barOffset not a fraction: "a quarter"/
+		);
+		const gap: RoundTemplate = {
+			...LOCATE_ROUND,
+			expectations: [{ ...LOCATE_ROUND.expectations[0], window: { ofGap: '1,5' } }]
+		};
+		expect(compiling(gap)).toThrow(
+			/test-locate: round\.expectations\[0\]\.window\.ofGap not a fraction: "1,5"/
+		);
+	});
+
 	it('names the exercise when the compiled plan is invalid', () => {
 		const item = { string: 3, pitch: 'F' };
 		const outside: RoundTemplate = {

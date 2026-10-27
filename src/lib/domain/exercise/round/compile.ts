@@ -26,12 +26,21 @@ export function roundParamsOf(
 	resolved: { previewBeats: number }
 ): Readonly<Record<string, unknown>> {
 	return {
+		...exerciseParamsOf(definition),
+		leadBeats: item.leadBeats,
+		previewBeats: resolved.previewBeats
+	};
+}
+
+/** The params a template reads that the exercise alone gives: its own, its windows, pacing and recall threshold resolved over their defaults. */
+export function exerciseParamsOf(
+	definition: ExerciseDefinition
+): Readonly<Record<string, unknown>> {
+	return {
 		...definition.params,
 		windows: windowsOf(definition),
 		pacing: pacingOf(definition),
-		recallThresholdMs: recallThresholdOf(definition),
-		leadBeats: item.leadBeats,
-		previewBeats: resolved.previewBeats
+		recallThresholdMs: recallThresholdOf(definition)
 	};
 }
 
@@ -138,9 +147,18 @@ function resolveDeep(context: Context, field: string, value: unknown): unknown {
 	return value;
 }
 
+/** A fraction of a whole note written as text, read or failing with the exercise and the field. */
+function fractionOf(context: Context, field: string, text: string): Fraction {
+	try {
+		return Fraction.parse(text);
+	} catch (error) {
+		return fail(context, field, (error as Error).message);
+	}
+}
+
 function windowOf(context: Context, field: string, window: WindowTemplate): Expectation['window'] {
 	if ('ms' in window) return { ms: num(context, `${field}.ms`, window.ms) };
-	return { ofGap: Fraction.parse(window.ofGap) };
+	return { ofGap: fractionOf(context, `${field}.ofGap`, window.ofGap) };
 }
 
 function contentOf(context: Context, field: string, from: string): ExpectedContent {
@@ -229,7 +247,8 @@ export function compileRound(
 		plan.listenUntil = length.sub(position(context, 'listenBeforeEnd', template.listenBeforeEnd));
 	}
 	if (template.handover === 'end') plan.handover = length;
-	if (template.barOffset !== undefined) plan.barOffset = Fraction.parse(template.barOffset);
+	if (template.barOffset !== undefined)
+		plan.barOffset = fractionOf(context, 'barOffset', template.barOffset);
 	if (template.countEndsOn) plan.countEndsOn = template.countEndsOn;
 	const problem = validateRoundPlan(plan);
 	if (problem) throw new Error(`${definition.id}: round plan is invalid: ${problem}`);

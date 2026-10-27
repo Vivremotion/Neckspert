@@ -86,6 +86,15 @@ describe('validateExercise', () => {
 		);
 	});
 
+	it('checks the round the exercise writes, against the sensors it is given', () => {
+		const wrong = { ...LOCATE_NECK, round: { ...LOCATE_NECK.round!, extra: 1 } };
+		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(/^locate-neck: round\.extra /);
+		expect(validateExercise(LOCATE_NECK, { sensors: ['chord'] })).toMatch(
+			/^locate-neck: round\.expectations\[0\]\.sensor /
+		);
+		expect(validateExercise(LOCATE_NECK, { sensors: ['note'] })).toBeNull();
+	});
+
 	it('accepts an exercise without pedagogical value', () => {
 		expect(
 			validateExercise({
