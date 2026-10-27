@@ -35,15 +35,3 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   3. **Familles de voicings** : un seul générateur aujourd’hui (`closeTriadVoicings`). Ajouter drop 2, drop 3, shells…, chacune comme générateur nommé dans les données de l’exercice.
   4. **Degrés étendus** : la table des degrés s’arrête à l’octave. Ajouter 9, 11, 13 et les altérations (b9, #9, #11, b13), puis les qualités de tétrades et d’accords enrichis ou altérés ; l’orthographe et les candidats « une case à côté » suivent.
 - **Limite physique, pas du code** : tous groupes confondus, deux formes de groupes différents peuvent sonner à l’identique. Le jam (qui ne juge que l’accord) le supporte ; une contrainte de position (monter, zone large) non, sauf capteur hexaphonique.
-
----
-
-# Actions directes
-
-À part des entrées de conception ci-dessus (qui deviendront des tickets) : ce que le guitariste fait lui-même, une ligne chacune avec son origine.
-
-- Vérifier la détection de fatigue sur des sessions « Geste » : les temps de réaction y sont mesurés depuis la consigne, environ 750 ms au premier changement d’un passage, 150 à 200 ms aux changements enchaînés. Origine : voie du geste, 2026-10-10.
-- Essayer le jam avec le son réel et le vrai vérificateur d’accords (beaucoup de candidats). Origine : voie du geste, 2026-10-10.
-- Jouer en session réelle une grille avec des changements entre deux temps (croches, triolets). Origine : voie du geste, 2026-10-10.
-- Réduire la taille des essais du geste : chacun garde toute la grille de son passage. Origine : voie du geste, 2026-10-10.
-- Le décompte de l’écran des notes et des triades est invisible : `PixelWord` n’a pas de chiffres. Origine : refonte de relier, 2026-10-11.
