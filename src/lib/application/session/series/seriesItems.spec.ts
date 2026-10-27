@@ -21,15 +21,24 @@ describe('SeriesItems.flowOf', () => {
 		expect(itemsOf().flowOf(item)).toEqual({
 			scene: 'guitar',
 			previewBeats: 1,
-			contestable: true
+			contestable: true,
+			briefing: 'each-series'
 		});
 	});
 
 	it('lets the exercise set each part over the mechanic’s', () => {
-		expect(itemsOf({ scene: 'screen', previewBeats: 3, contestable: false }).flowOf(item)).toEqual({
+		expect(
+			itemsOf({
+				scene: 'screen',
+				previewBeats: 3,
+				contestable: false,
+				briefing: 'first-encounter'
+			}).flowOf(item)
+		).toEqual({
 			scene: 'screen',
 			previewBeats: 3,
-			contestable: false
+			contestable: false,
+			briefing: 'first-encounter'
 		});
 	});
 
@@ -37,7 +46,8 @@ describe('SeriesItems.flowOf', () => {
 		expect(itemsOf({ previewBeats: 2 }).flowOf(item)).toEqual({
 			scene: 'guitar',
 			previewBeats: 2,
-			contestable: true
+			contestable: true,
+			briefing: 'each-series'
 		});
 	});
 

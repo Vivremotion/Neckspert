@@ -3,7 +3,7 @@ import { isBeatCount, validateMeter } from '../time/meter';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
-import type { ExerciseDefinition, Ladder } from './types';
+import { BRIEFINGS, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isFinite(value);
@@ -179,6 +179,9 @@ export function validateExercise(
 		}
 		if (flow?.scene !== undefined && !SCENES.includes(flow.scene)) {
 			return `flow.scene must be one of ${SCENES.join(', ')}, got ${flow.scene}`;
+		}
+		if (flow?.briefing !== undefined && !BRIEFINGS.includes(flow.briefing)) {
+			return `flow.briefing must be one of ${BRIEFINGS.join(', ')}, got ${String(flow.briefing)}`;
 		}
 		const params = paramsProblem(definition);
 		if (params !== null) return params;

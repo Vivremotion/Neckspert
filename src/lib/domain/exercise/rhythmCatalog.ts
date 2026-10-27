@@ -87,7 +87,8 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...SILENT_BARS_PARAMS },
 	tempo: 80,
-	flow: { antiBlocking: true },
+	// Its instruction is told until the player has played it once.
+	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.',
@@ -149,7 +150,8 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...TWO_FOUR_PARAMS },
 	tempo: 100,
-	flow: { antiBlocking: true },
+	// Its instruction is told until the player has played it once.
+	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.',
@@ -187,7 +189,8 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	mechanic: 'rhythm-figure',
 	params: { sensor: 'attack', ...OFFBEATS_PARAMS },
 	tempo: 80,
-	flow: { antiBlocking: true },
+	// Its instruction is told until the player has played it once.
+	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
 	howTo: {
 		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',

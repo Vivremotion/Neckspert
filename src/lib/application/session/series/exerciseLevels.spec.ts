@@ -182,6 +182,23 @@ describe('ExerciseLevels', () => {
 		expect(roles(5)).toEqual(['round', 'breath+round', 'round', 'round', 'breath+round']);
 	});
 
+	it('starts a run again at the level reached once its boundary was decided ahead', async () => {
+		const { levels } = await setup();
+		const at = { exerciseId: 'runs' };
+		const role = () => {
+			const { breath, next } = levels.boundary(at, 0, 1000, CHAINS);
+			return breath ? `breath+${next.role}` : next.role;
+		};
+		// A run of two at level 1; the breath is decided before its last round settles.
+		expect([role(), role(), role()]).toEqual(['round', 'round', 'breath+round']);
+		await levels.settle({ exerciseId: 'runs', level: 0, success: true, aided: false });
+		levels.restartRun('runs');
+		levels.apply('runs');
+		// Started again at level 2: its first round counted again, a run of three.
+		expect(levels.boundary(at, 0, 1000, { chains: false, countIn: true }).next.role).toBe('round');
+		expect([role(), role(), role()]).toEqual(['round', 'round', 'breath+round']);
+	});
+
 	it('breathes before a counted bar once its run has played', async () => {
 		const { levels } = await setup();
 		const at = { exerciseId: 'climb', scope: 'blues-f' };

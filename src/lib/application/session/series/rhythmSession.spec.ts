@@ -284,6 +284,18 @@ describe('the rhythm on the series, its screen', () => {
 		controller.quit();
 	});
 
+	it('tells nothing on the start screen once the exercise was played', async () => {
+		for (const exercise of [RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR]) {
+			expect(exercise.flow?.briefing).toBe('first-encounter');
+		}
+		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		await controller.ready();
+		expect(controller.view.briefing).toBeNull();
+		await controller.start();
+		expect(controller.view.status).toBe('count-in');
+		controller.quit();
+	});
+
 	it('tells the how-to on the start screen, and starts without it', async () => {
 		const { controller } = await rhythmSeries(RHYTHM_OFFBEATS);
 		await controller.ready();
@@ -291,6 +303,62 @@ describe('the rhythm on the series, its screen', () => {
 		await controller.start();
 		expect(controller.view.briefing).toBeNull();
 		expect(controller.view.status).toBe('count-in');
+		controller.quit();
+	});
+});
+
+describe('the rhythm on the series, a level reached on the run’s last cycle', () => {
+	it('plays the next run at the new level, after the breath', async () => {
+		const { controller, stored, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
+			met: true
+		});
+		await controller.start();
+		// The first cycle (bar 3) not played: the three after it pass, the last one of the run
+		// (bar 6, settled at 7.25) reaching level 2.
+		await advance(ORIGIN + 4 * OFFBEATS_BAR_S, false);
+		await advance(ORIGIN + 7.6 * OFFBEATS_BAR_S);
+		const state = await levels.get({ exerciseId: 'rhythm-offbeats', scope: '', item: '' });
+		expect(state?.level).toBe(1);
+		// The breath, bars 7 and 8; the next run from bar 9, its cycles of two bars.
+		await advance(ORIGIN + 11.6 * OFFBEATS_BAR_S);
+		const attempts = await stored();
+		expect(attempts.map((a) => [a.cardKey, a.success])).toEqual([
+			['rhythm-figure:offbeats-1@0', false],
+			['rhythm-figure:offbeats-1@0', true],
+			['rhythm-figure:offbeats-1@0', true],
+			['rhythm-figure:offbeats-1@0', true],
+			['rhythm-figure:offbeats-2@1', true]
+		]);
+		expect(attempts[4].promptedAt).toBe(epochOfBar(9, OFFBEATS_BAR_S));
+		controller.quit();
+	});
+
+	it('changes the tempo at the breath, with a listen-in and a counted bar at the new one', async () => {
+		const { controller, stored, sounds, advance } = await rhythmSeries(counted(RHYTHM_TWO_FOUR), {
+			met: true
+		});
+		await controller.start();
+		// One cycle per run: cycles on bars 3, 9 and 15, each followed by a two-bar breath; the
+		// third, the last of its run, reaches level 2.
+		await advance(ORIGIN + 20.3 * TWO_FOUR_BAR_S);
+		const changeAt = ORIGIN + 21 * TWO_FOUR_BAR_S;
+		await advance(changeAt + 0.6, false);
+		expect(stageOf(controller).phase).toBe('listen-in');
+		expect(controller.view.status).toBe('count-in');
+		const after = sounds
+			.emitted()
+			.filter((s) => s.time >= changeAt - 1e-9)
+			.map((s) => s.time - changeAt);
+		// The click on 2 and 4 at ♩ = 120 bpm for two bars, then four clicks counted.
+		const expected = [0.5, 1.5, 2.5, 3.5, 4, 4.5, 5, 5.5];
+		expect(after.slice(0, expected.length)).toHaveLength(expected.length);
+		after.slice(0, expected.length).forEach((t, i) => expect(t).toBeCloseTo(expected[i], 9));
+		// The next cycle, from bar 24, runs at the new tempo and on the new level.
+		await advance(changeAt + 6 + 8 + 0.6, false);
+		const attempts = await stored();
+		expect(attempts).toHaveLength(4);
+		expect(attempts.slice(0, 3).every((a) => a.tempoBpm === 100 && a.success)).toBe(true);
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'rhythm-figure:line-4@1' });
 		controller.quit();
 	});
 });
@@ -336,6 +404,24 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 });
 
 describe('the rhythm on the series, the latency of its sensor', () => {
+	it('stores the latency applied to the onsets with the session, zero when none is calibrated', async () => {
+		const plain = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		await plain.controller.start();
+		plain.controller.quit();
+		await settled();
+		expect((await plain.sessions.get('series'))?.latencyMs).toBe(0);
+
+		const calibrated = await rhythmSeries(RHYTHM_OFFBEATS, {
+			met: true,
+			latency: { ms: 42, provenance: 'system' },
+			latencies: { note: { ms: 30, provenance: 'system' } }
+		});
+		await calibrated.controller.start();
+		calibrated.controller.quit();
+		await settled();
+		expect((await calibrated.sessions.get('series'))?.latencyMs).toBe(42);
+	});
+
 	/** Plays the first cycle of offbeats, pauses in the next one and hears the run again. */
 	async function replayed(latencies: Parameters<typeof rhythmSeries>[1]) {
 		const bench = await rhythmSeries(RHYTHM_OFFBEATS, { met: true, ...latencies });

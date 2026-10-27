@@ -16,6 +16,7 @@ import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
+import { earlier } from '$lib/testing/rhythmSeries';
 import { triadCards } from '$lib/testing/shapes';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
@@ -49,6 +50,14 @@ const withoutHandover = withRound((round) => {
 
 describe('ResponseSeriesController', () => {
 	describe('start', () => {
+		it('tells an exercise’s instruction in every series, played before or not', async () => {
+			const ctx = setup(passage());
+			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), mechanic: 'chord-grid' });
+			expect(exerciseById('gesture-jam').flow?.briefing).toBeUndefined();
+			await ctx.controller.ready();
+			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
+		});
+
 		it('tells the first exercise’s instruction on the start screen, before any sound', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.ready();
@@ -631,17 +640,18 @@ describe('ResponseSeriesController', () => {
 	});
 
 	describe('the session record', () => {
-		it('stores the latency of the note sensor with the session, zero when it is not calibrated', async () => {
+		it('stores the latency of the sensor its rounds listen to with the session, zero when it is not calibrated', async () => {
 			const calibrated = setup(passage());
 			await calibrated.repositories.settings.update({
 				latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
 			});
 			await calibrated.controller.start();
-			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(42);
+			// A gesture's changes are heard by the chord sensor: its latency, not the note's.
+			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(7);
 			calibrated.controller.quit();
 			await drain();
 			const ended = await calibrated.repositories.sessions.get('series-1');
-			expect(ended).toMatchObject({ latencyMs: 42, endedAt: expect.any(Number) });
+			expect(ended).toMatchObject({ latencyMs: 7, endedAt: expect.any(Number) });
 
 			// Uncalibrated, the onsets were taken as heard: the latency applied was zero.
 			const plain = setup(passage());
@@ -654,7 +664,7 @@ describe('ResponseSeriesController', () => {
 				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
 			});
 			await ctx.repositories.settings.update({
-				latency: { note: { ms: 42, provenance: 'player' } }
+				latency: { chord: { ms: 42, provenance: 'player' } }
 			});
 			await ctx.controller.start();
 			// The final record is written late: the new series is up before it is.
@@ -667,7 +677,7 @@ describe('ResponseSeriesController', () => {
 			};
 			ctx.controller.quit();
 			await ctx.repositories.settings.update({
-				latency: { note: { ms: 99, provenance: 'player' } }
+				latency: { chord: { ms: 99, provenance: 'player' } }
 			});
 			await ctx.controller.start();
 			release();

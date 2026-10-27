@@ -35,6 +35,13 @@ describe('validateExercise', () => {
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: -1 } })).toMatch(
 			/^locate-neck: flow\.previewBeats /
 		);
+		expect(
+			validateExercise({
+				...LOCATE_NECK,
+				flow: { briefing: 'never' as unknown as 'each-series' }
+			})
+		).toBe('locate-neck: flow.briefing must be one of each-series, first-encounter, got never');
+		expect(validateExercise({ ...LOCATE_NECK, flow: { briefing: 'first-encounter' } })).toBeNull();
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: 1.5 } })).toMatch(
 			/^locate-neck: flow\.previewBeats /
 		);

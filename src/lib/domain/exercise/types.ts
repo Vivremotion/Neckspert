@@ -22,7 +22,19 @@ export interface ExerciseFlow {
 	 * level, « On change d’air »); absent: no.
 	 */
 	antiBlocking?: boolean;
+	/**
+	 * When its instruction (`howTo`) is told: before its first round in every series
+	 * (`'each-series'`, the default), or only while the player has no attempt of it
+	 * (`'first-encounter'`).
+	 */
+	briefing?: ExerciseBriefing;
 }
+
+/** When an exercise's instruction is told (`ExerciseFlow.briefing`). */
+export type ExerciseBriefing = 'each-series' | 'first-encounter';
+
+/** Every value of `ExerciseFlow.briefing`. */
+export const BRIEFINGS: readonly ExerciseBriefing[] = ['each-series', 'first-encounter'];
 
 /** Text with `{field}` placeholders: one for every language, or one per language. */
 export type Slot = string | { fr: string; en: string };

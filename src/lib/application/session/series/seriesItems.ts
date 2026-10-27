@@ -1,5 +1,10 @@
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
-import type { ExerciseDefinition, ExerciseId, Scene } from '$lib/domain/exercise/types';
+import type {
+	ExerciseBriefing,
+	ExerciseDefinition,
+	ExerciseId,
+	Scene
+} from '$lib/domain/exercise/types';
 import { cardKey, type CardKey, type Locale, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
 
@@ -26,18 +31,23 @@ export class SeriesItems {
 		return this.exercise(item.exerciseId);
 	}
 
-	/** The item's scene, preview and contest: its exercise's, else its mechanic's presenter's. */
+	/**
+	 * The item's scene, preview, contest and briefing: its exercise's, else its mechanic's
+	 * presenter's, else the default (an instruction told in each series).
+	 */
 	flowOf(item: PlannedItem): {
 		scene: Scene;
 		previewBeats: number | null;
 		contestable: boolean;
+		briefing: ExerciseBriefing;
 	} {
 		const presenter = this.presenterOf(item);
 		const flow = this.definitionOf(item).flow;
 		return {
 			scene: flow?.scene ?? presenter.scene,
 			previewBeats: previewBeatsOf(this.definitionOf(item), presenter.previewBeats),
-			contestable: flow?.contestable ?? presenter.contestable ?? false
+			contestable: flow?.contestable ?? presenter.contestable ?? false,
+			briefing: flow?.briefing ?? 'each-series'
 		};
 	}
 

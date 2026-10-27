@@ -123,6 +123,15 @@ export class ExerciseLevels {
 		return { breath, next: step.next };
 	}
 
+	/**
+	 * The run of (exercise, scope) started again, at the level now held: its boundary was decided
+	 * before the last round of the run before settled (a cycle), which may have moved the level.
+	 */
+	restartRun(exerciseId: ExerciseId, scope?: string): void {
+		const held = this.heldOf(exerciseId, scope);
+		held.series = startRun({ ...held.series, run: null });
+	}
+
 	/** At a round that does not chain: the change waiting for (exercise, scope) becomes the level played. */
 	apply(exerciseId: ExerciseId, scope?: string): Announcement | null {
 		const held = this.heldOf(exerciseId, scope);
