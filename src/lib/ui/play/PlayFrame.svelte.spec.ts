@@ -184,6 +184,43 @@ describe('PlayFrame', () => {
 		expect(screen.queryByText(/niveau/i)).toBeNull();
 	});
 
+	it('tells a level before play in the field, prominently, and a remedy in play in the status line', () => {
+		const shown = (
+			world: 'quiet' | 'pixel',
+			status: 'count-in' | 'awaiting',
+			kind: Announcement
+		): 'field' | 'status' | null => {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = status;
+			controller.view.announcement = { kind, level: 1, of: 4, tempoBpm: 90 };
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			const field = container.querySelector('.told');
+			const line = container.querySelector('.announcement');
+			cleanup();
+			if (field && line) throw new Error('told twice');
+			return field ? 'field' : line ? 'status' : null;
+		};
+		for (const world of ['quiet', 'pixel'] as const) {
+			// The listen-in and the count (count-in), the breath (awaiting, a level reached).
+			expect(shown(world, 'count-in', 'level-up')).toBe('field');
+			expect(shown(world, 'awaiting', 'level-up')).toBe('field');
+			expect(shown(world, 'awaiting', 'level-down')).toBe('field');
+			expect(shown(world, 'awaiting', 'aid-level')).toBe('field');
+			// In play: where it was.
+			expect(shown(world, 'awaiting', 'play-along')).toBe('status');
+			expect(shown(world, 'awaiting', 'listen-remedy')).toBe('status');
+		}
+		const controller = new StageController();
+		controller.view.status = 'count-in';
+		controller.view.announcement = { kind: 'level-up', level: 2, of: 4, tempoBpm: 90 };
+		render(PlayFrame, { props: { controller, kind: 'exercise' } });
+		expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 3 sur 4 · ♩ = 90');
+	});
+
 	it('tells the remedies, the aid level and the change of air, never a level below 1', () => {
 		const told = (kind: Announcement, level = 0) => {
 			const controller = new StageController();

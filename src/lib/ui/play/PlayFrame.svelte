@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { PlaySessionController } from '$lib/application/session/contract';
+	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -67,6 +67,20 @@
 				)
 			: null
 	);
+
+	/**
+	 * A level reached is told before play only (the breath, the listen-in, the count: cleared as
+	 * its run's first round opens), so it is told prominently, in the field; a remedy is told
+	 * while it plays, in the status line.
+	 */
+	const LEVEL_TOLD: ReadonlySet<Announcement> = new Set(['level-up', 'level-down', 'aid-level']);
+	const toldInField = $derived.by(() => {
+		const announcement = view.announcement;
+		if (!announcement) return false;
+		return view.status === 'count-in' || LEVEL_TOLD.has(announcement.kind);
+	});
+	/** The announcement in the status line, when it is not told in the field. */
+	const toldInLine = $derived(toldInField ? null : announced);
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -163,6 +177,12 @@
 		/>
 
 		<div class="quiet-stage">
+			{#if toldInField && announced !== null}
+				<!-- Before play: the level reached and its tempo, as large as a prompt line. -->
+				<div class="told" role="status">
+					<Prompt main={announced} size="prompt" />
+				</div>
+			{/if}
 			{#if Stage && view.stage}
 				<Stage {controller} model={view.stage.model} />
 			{:else if view.countdown !== null}
@@ -171,10 +191,10 @@
 					<Prompt main={String(view.countdown)} size="prompt" />
 				</div>
 			{/if}
-			{#if view.contest !== null || view.fatigueDetected || announced !== null}
+			{#if view.contest !== null || view.fatigueDetected || toldInLine !== null}
 				<div class="quiet-status">
-					{#if announced !== null}
-						<p class="announcement" role="status">{announced}</p>
+					{#if toldInLine !== null}
+						<p class="announcement" role="status">{toldInLine}</p>
 					{/if}
 					{#if view.contest === 'available'}
 						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
@@ -206,6 +226,11 @@
 			<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
 		</div>
 
+		{#if toldInField && announced !== null}
+			<!-- Before play: the level reached and its tempo, over the view, as large as a prompt. -->
+			<p class="told" role="status">{announced}</p>
+		{/if}
+
 		<div class="stage">
 			{#if Stage && view.stage}
 				<Stage {controller} model={view.stage.model} />
@@ -221,9 +246,9 @@
 		{/snippet}
 
 		<div class="status">
-			{#if announced !== null}
-				<!-- Before the round it applies to: the level reached and its tempo. -->
-				<p class="announcement" role="status">{announced}</p>
+			{#if toldInLine !== null}
+				<!-- A remedy under way, or the change of air. -->
+				<p class="announcement" role="status">{toldInLine}</p>
 			{/if}
 			{#if view.countdown !== null}
 				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
@@ -297,6 +322,11 @@
 		display: flex;
 		flex: 1;
 		align-items: center;
+		justify-content: center;
+	}
+
+	.told {
+		display: flex;
 		justify-content: center;
 	}
 
@@ -416,6 +446,18 @@
 		line-height: 1.2;
 		text-align: center;
 		text-transform: uppercase;
+	}
+
+	/* The pixel world: the level reached, centred over the view, at the size of a prompt. */
+	.frame .told {
+		margin: 0;
+		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
+		font-size: var(--np-type-prompt);
+		line-height: 1.1;
+		text-align: center;
+		text-transform: uppercase;
+		background: var(--np-bg);
+		border: calc(var(--np-tile) / 2) solid var(--np-ink);
 	}
 
 	.quiet-status .announcement {
