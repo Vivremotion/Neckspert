@@ -60,7 +60,7 @@ describe('Transport.begin', () => {
 		emitted.slice(4).forEach((s, b) => expect(s.time).toBeCloseTo(at(2, b), 9));
 	});
 
-	it('plays right after the listen-in, with no count clicks nor countdown, without a counted bar', async () => {
+	it('plays right after the listen-in, with no count clicks, its last bar counted down silently, without a counted bar', async () => {
 		const { sounds, transport } = setup();
 		const { playFrom } = await transport.begin({
 			meter: METER_4_4,
@@ -71,7 +71,10 @@ describe('Transport.begin', () => {
 		expect(playFrom).toBe(LISTEN_IN_BARS);
 		expect(sounds.emitted()).toHaveLength(LISTEN_IN_BARS * 2);
 		expect(sounds.emitted().every((s) => s.sound === 'click')).toBe(true);
-		[0, 1, 2].forEach((bar) => expect(transport.countdownAt(bar)).toBeNull());
+		// The bar before play shows when it starts, and sounds only the accompaniment.
+		expect(transport.countdownAt(0)).toBeNull();
+		expect([0, 1, 2, 3].map((beat) => transport.countdownAt(1, beat))).toEqual([4, 3, 2, 1]);
+		expect(transport.countdownAt(2)).toBeNull();
 	});
 
 	it('honours a custom listen-in, with or without a counted bar', async () => {
@@ -257,6 +260,65 @@ describe('Transport.breath', () => {
 		const { transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
 		expect(transport.breath(5, 0)).toEqual({ from: 5, to: 6 });
+	});
+
+	/** The sounds of bar `bar`, as [beat, sound] (beats from 0, ♩ = 120). */
+	function soundsOfBar(
+		transport: Transport,
+		sounds: FakeSoundScheduler,
+		bar: number
+	): [number, string][] {
+		const start = transport.map.toSeconds(f(bar));
+		const end = transport.map.toSeconds(f(bar + 1));
+		return sounds
+			.emitted()
+			.filter((s) => s.time >= start - 1e-9 && s.time < end - 1e-9)
+			.map((s) => [Math.round((s.time - start) / 0.5), s.sound]);
+	}
+
+	it('sounds the accompaniment it is given, its last bar counted', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		transport.breath(10, SHORTEST_BREATH_MS, { accompaniment: offbeats });
+		expect(soundsOfBar(transport, sounds, 10)).toEqual([
+			[1, 'click'],
+			[3, 'click']
+		]);
+		expect(soundsOfBar(transport, sounds, 11)).toEqual([
+			[0, 'click-accent'],
+			[1, 'click'],
+			[2, 'click'],
+			[3, 'click']
+		]);
+		expect(transport.countdownAt(11)).toBe(4);
+	});
+
+	it('keeps the accompaniment over its last bar without a counted bar, the count shown silently', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		transport.breath(10, SHORTEST_BREATH_MS, { accompaniment: offbeats, countIn: false });
+		for (const bar of [10, 11]) {
+			expect(soundsOfBar(transport, sounds, bar)).toEqual([
+				[1, 'click'],
+				[3, 'click']
+			]);
+		}
+		expect(transport.countdownAt(10)).toBeNull();
+		expect([0, 1, 2, 3].map((beat) => transport.countdownAt(11, beat))).toEqual([4, 3, 2, 1]);
+	});
+
+	it('refuses an accompaniment in another meter', async () => {
+		const { transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		const waltz = clickAccompaniment({
+			meter: { count: 3, unit: f(1, 4), grouping: [1, 1, 1] },
+			beats: [1, 2, 3],
+			accent: [1],
+			bars: ['on']
+		});
+		expect(() => transport.breath(10, SHORTEST_BREATH_MS, { accompaniment: waltz })).toThrow(
+			RangeError
+		);
 	});
 });
 
@@ -445,6 +507,23 @@ describe('Transport.changeTempo after a breath', () => {
 		expect(added[0].time).toBeCloseTo(start + 1, 9);
 		expect(added[4].time).toBeCloseTo(start + 2 * 4, 9);
 		expect(start).toBeCloseTo(transport.map.origin + breath.to * 2, 9);
+	});
+
+	it('counts down the last listen-in bar silently when the new tempo has no counted bar', async () => {
+		const { sounds, transport } = setup();
+		await transport.begin({ meter: METER_4_4, tempo: tempo(120), accompaniment: clicks });
+		const breath = transport.breath(10, SHORTEST_BREATH_MS);
+		const before = sounds.emitted().length;
+		const { playFrom } = transport.changeTempo(breath.to, tempo(60), offbeats, {
+			countIn: false
+		});
+		expect(playFrom).toBe(breath.to + LISTEN_IN_BARS);
+		// The listen-in alone: two clicks a bar, no count click.
+		expect(sounds.emitted().slice(before)).toHaveLength(LISTEN_IN_BARS * 2);
+		expect(transport.countdownAt(breath.to)).toBeNull();
+		expect([0, 1, 2, 3].map((beat) => transport.countdownAt(playFrom - 1, beat))).toEqual([
+			4, 3, 2, 1
+		]);
 	});
 
 	it('throws when accompaniment is already scheduled past the bar', async () => {

@@ -124,9 +124,18 @@ export class Transport {
 
 	/**
 	 * A breath of at least `minMs` (its exercise's `pacing.breathMinMs`), in whole bars and one
-	 * at least, clicking every beat with the last bar counted. Returns its bars; play resumes at `to`.
+	 * at least, sounding `accompaniment` (every beat clicked, accent on 1, by default); its last
+	 * bar is a counted bar (`countdownAt` 4..1), heard as one unless `countIn` is false: then the
+	 * accompaniment goes on over it and the count is only shown. Returns its bars; play resumes at
+	 * `to`. Throws a `RangeError` when the accompaniment is not in the transport's meter.
 	 */
-	breath(atBar: number, minMs: number): { from: number; to: number } {
+	breath(
+		atBar: number,
+		minMs: number,
+		options: { accompaniment?: Accompaniment; countIn?: boolean } = {}
+	): { from: number; to: number } {
+		const accompaniment = options.accompaniment ?? this.countClicks();
+		this.checkMeter(accompaniment, this.meterOf());
 		const map = this.map;
 		const length = barLength(this.meterOf());
 		const barMs = (bar: number) =>
@@ -139,7 +148,9 @@ export class Transport {
 			ms += barMs(to);
 			to++;
 		} while (ms < minMs - BAR_ROUNDING_EPSILON);
-		this.schedule(renderSounds(this.countClicks(), map, atBar, to));
+		const counted = options.countIn ?? true;
+		this.schedule(renderSounds(accompaniment, map, atBar, counted ? to - 1 : to));
+		if (counted) this.schedule(renderSounds(this.countClicks(), map, to - 1, to));
 		this.counted.add(to - 1);
 		this.scheduledUntilBar = Math.max(this.scheduledUntilBar, to);
 		return { from: atBar, to };
@@ -307,7 +318,8 @@ export class Transport {
 
 	/**
 	 * Listen-in bars from `fromBar`, then the counted bar if any, heard unless `audible` is false.
-	 * Returns the first bar to play.
+	 * Without a counted bar, the last listen-in bar shows the count (`countdownAt`) and sounds the
+	 * accompaniment alone. Returns the first bar to play.
 	 */
 	private listenInAndCount(
 		fromBar: number,
@@ -320,6 +332,8 @@ export class Transport {
 		const counted = fromBar + listenInBars;
 		this.schedule(renderSounds(accompaniment, map, fromBar, counted));
 		if (!countIn) {
+			// The bar before play shows when it starts, silently.
+			if (listenInBars > 0) this.counted.add(counted - 1);
 			this.scheduledUntilBar = Math.max(this.scheduledUntilBar, counted);
 			return counted;
 		}

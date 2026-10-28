@@ -171,14 +171,16 @@ const DECIDE_AHEAD_BEATS = 1;
  *
  * A round may be a cycle of a figure (plan H6, D8): `compilePlan` compiles it and writes its
  * attempt, `stage` builds its screen model, shown again on every beat. A run then opens with its
- * exercise's listen-in (and its counted bar, unless it has none), plays its accompaniment, muted
- * bars silent, and its entry bars before its first cycle; cycles chain at their end, what follows
- * each decided a beat before so its first bar is scheduled in time, and each keeps taking what it
- * captured but was heard late until it settles, `settleAfter` past its end. A run that ends there
- * has its breath scheduled ahead (`pacing.breathMinMs`, the last bar counted), shown with the
- * run's marks; the next run is decided once its last cycle has settled, at the level it reached,
- * announced at once (`PlayView.announcement`), its tempo changed after the breath with a listen-in
- * and a counted bar. An exercise that can make its content sound (`contentFigure`) has it
+ * exercise's listen-in (and its counted bar, unless it has none: then the last listen-in bar
+ * shows the count, silently), plays its accompaniment, muted bars silent, and its entry bars
+ * before its first cycle; cycles chain at their end, what follows each decided a beat before so
+ * its first bar is scheduled in time, and each keeps taking what it captured but was heard late
+ * until it settles, `settleAfter` past its end. A run that ends there has its breath scheduled
+ * ahead (`pacing.breathMinMs`, its accompaniment with no bar muted, the last bar counted, heard
+ * only where the level has a counted bar), shown with the run's marks; the next run is decided
+ * once its last cycle has settled, at the level it reached, announced at once and until its first
+ * round opens (`PlayView.announcement`), its tempo changed after the breath with a listen-in and
+ * its count. An exercise that can make its content sound (`contentFigure`) has it
  * demonstrated over a longer listen-in the first time the player meets it, heard on demand
  * (`listen`, a heard cycle the policy places) and, when the anti-blocking asks it, heard then
  * played along, each remedy announced; « On change d’air » ends the series and names the measure
@@ -690,7 +692,8 @@ export class SessionController implements PlaySessionController {
 	 * exercise reached applies here: the transport begins at its tempo.
 	 */
 	private async beginWith(waiting: PlannedItem, generation: number): Promise<void> {
-		this.applyLevel(waiting);
+		// A level reached is told from the listen-in on.
+		if (this.applyLevel(waiting)) this.view.announcement = this.announcing;
 		const item = this.leveled(waiting);
 		this.setMeter(this.meterOf(item));
 		const tempo = this.tempoFor(item);
@@ -737,9 +740,11 @@ export class SessionController implements PlaySessionController {
 			this.wakeAt(Fraction.of(from), (time) => this.log?.open('listen', time));
 		}
 		if (followsBeats(this.items.definitionOf(item))) this.tick(0, 0);
+		// Without a counted bar, the last bar before play shows the count, silently.
 		this.place(item, playFrom, {
-			countBar: setup.countIn ? playFrom - 1 : null,
-			restFrom: null
+			countBar: playFrom - 1,
+			restFrom: null,
+			...(!setup.countIn && { shownIn: 'listen-in' as const })
 		});
 	}
 
@@ -795,8 +800,11 @@ export class SessionController implements PlaySessionController {
 		count: {
 			countBar: number | null;
 			restFrom: number | null;
-			/** The counted bar is the last of a breath: traced and shown as the breath. */
-			inBreath?: boolean;
+			/**
+			 * The counted bar is the last of a breath, or of a listen-in with no counted bar after
+			 * it: traced and shown as that, the count shown over it.
+			 */
+			shownIn?: 'breath' | 'listen-in';
 		}
 	): void {
 		this.pending = item;
@@ -827,7 +835,7 @@ export class SessionController implements PlaySessionController {
 			this.layAhead(item, plan, start);
 		}
 		this.enterScene(item);
-		if (!count.inBreath) this.view.status = 'count-in';
+		if (count.shownIn !== 'breath') this.view.status = 'count-in';
 		// Not placed before its round opens: the view places it where the count ends. A round
 		// settled on screen (its verdict, its drawn miss, its offer) stays until the count starts.
 		const settledOnScreen = this.round?.settled === true;
@@ -863,7 +871,7 @@ export class SessionController implements PlaySessionController {
 		}
 		this.wakeAt(Fraction.of(countBar), (time) => {
 			this.endRunIfEnding(time);
-			if (!count.inBreath) this.log?.open('count-in', time);
+			if (!count.shownIn) this.log?.open('count-in', time);
 		});
 		const beats = beatPositions(this.seriesMeter).length;
 		for (let beat = 0; beat < beats; beat++) {
@@ -1257,14 +1265,22 @@ export class SessionController implements PlaySessionController {
 	/**
 	 * The run ends on bar `end`, with `round`, which listens on past its end (or with a heard
 	 * cycle: no round): its breath is scheduled now, from its end, at least its exercise's
-	 * `pacing.breathMinMs` in whole bars, the last one counted, shown with the run's marks; what
+	 * `pacing.breathMinMs` in whole bars, sounding the run's accompaniment with no bar muted (the
+	 * series' click without one), the last bar counted (heard as a count only where the run's
+	 * level has a counted bar, else shown), shown with the run's marks; what
 	 * follows is decided once `round` has settled, the level it reached applied then.
 	 */
 	private breatheAfter(round: OpenRound | null, end: Fraction, taken: PlannedItem): void {
 		const from = ceilBar(end);
 		const played = round?.item ?? taken;
 		const { breathMinMs } = pacingAt(this.items.definitionOf(played), played.exerciseLevel);
-		const { to } = this.transport.breath(from, breathMinMs ?? 0);
+		// It sounds as the run did, its muted bars heard: the pulse found again, not the silence
+		// practised; its last bar counted only where the run's level counts one.
+		const setup = this.runSetupOf(played);
+		const { to } = this.transport.breath(from, breathMinMs ?? 0, {
+			accompaniment: setup.listenIn ?? this.seriesClick,
+			countIn: setup.countIn
+		});
 		this.breath = { from, to };
 		this.accompaniedUntil = to;
 		this.pending = this.leveled(taken);
@@ -1303,7 +1319,7 @@ export class SessionController implements PlaySessionController {
 			return;
 		}
 		// The breath's last bar is the count.
-		this.place(item, to, { countBar: to - 1, restFrom: null, inBreath: true });
+		this.place(item, to, { countBar: to - 1, restFrom: null, shownIn: 'breath' });
 	}
 
 	/**
@@ -1378,9 +1394,16 @@ export class SessionController implements PlaySessionController {
 				this.wakeAt(Fraction.of(from), (time) => {
 					this.endRunIfEnding(time);
 					this.log?.open('listen-in', time);
+					// A level reached is told from the listen-in on, until the run plays.
+					this.view.announcement = this.announcing;
 				});
 			}
-			this.place(item, playFrom, { countBar: setup.countIn ? playFrom - 1 : null, restFrom: null });
+			// Without a counted bar, the last listen-in bar shows the count, silently.
+			this.place(item, playFrom, {
+				countBar: playFrom - 1,
+				restFrom: null,
+				...(!setup.countIn && { shownIn: 'listen-in' as const })
+			});
 		};
 		// After a breath the frame shows the new tempo from the bar it begins on.
 		const setTempo = (bpm: number) => {

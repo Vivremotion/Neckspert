@@ -416,6 +416,177 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 	});
 });
 
+describe('the rhythm on the series, the breath sounds as the exercise', () => {
+	/** The sounds whose time falls in bar `bar`, as [beat from 0, sound], bars of `barS` from `fromS`. */
+	function soundsOfBar(
+		sounds: { emitted(): readonly { time: number; sound: string }[] },
+		bar: number,
+		barS: number,
+		fromS = ORIGIN
+	): [number, string][] {
+		const start = fromS + bar * barS;
+		return sounds
+			.emitted()
+			.filter((s) => s.time >= start - 1e-9 && s.time < start + barS - 1e-9)
+			.map((s) => [Math.round(((s.time - start) / barS) * 4), s.sound]);
+	}
+
+	/** The countdown shown just after each beat of bar `bar` (bars of `barS` from `fromS`). */
+	async function countdownOver(
+		controller: SessionController,
+		advance: (to: number, playing?: boolean) => Promise<void>,
+		bar: number,
+		barS: number,
+		fromS = ORIGIN
+	): Promise<(number | null)[]> {
+		const shown: (number | null)[] = [];
+		for (let beat = 0; beat < 4; beat++) {
+			await advance(fromS + (bar + beat / 4 + 0.05) * barS, false);
+			shown.push(controller.view.countdown);
+		}
+		return shown;
+	}
+
+	it('clicks a two-four breath on 2 and 4', async () => {
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		// listen-in 0-1, the line on bars 2 to 5, the breath on bars 6 and 7, the next line from 8
+		await advance(ORIGIN + 6.3 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		// The run's own clicks: on 2 and 4, as during the line.
+		const run = soundsOfBar(sounds, 3, TWO_FOUR_BAR_S);
+		expect(run).toEqual([
+			[1, 'click'],
+			[3, 'click']
+		]);
+		expect(soundsOfBar(sounds, 6, TWO_FOUR_BAR_S)).toEqual(run);
+		// Its last bar: the same clicks, the count shown, not heard.
+		expect(await countdownOver(controller, advance, 7, TWO_FOUR_BAR_S)).toEqual([4, 3, 2, 1]);
+		expect(soundsOfBar(sounds, 7, TWO_FOUR_BAR_S)).toEqual(run);
+		await advance(ORIGIN + 8.3 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('play');
+		expect(controller.view.countdown).toBeNull();
+		controller.quit();
+	});
+
+	it('clicks a silent-bars breath with its muted bars switched on', async () => {
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		await controller.start();
+		// listen-in 0-1, count 2, entry 3-5, four cycles 6-21 (silent on 6, 10, 14, 18 and, in
+		// the run's accompaniment, 22), the breath on bars 22 and 23
+		await advance(ORIGIN + 22.3 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		const everyBeat: [number, string][] = [
+			[0, 'click-accent'],
+			[1, 'click'],
+			[2, 'click'],
+			[3, 'click']
+		];
+		expect(soundsOfBar(sounds, 22, OFFBEATS_BAR_S)).toEqual(everyBeat);
+		// The last bar counted.
+		expect(await countdownOver(controller, advance, 23, OFFBEATS_BAR_S)).toEqual([4, 3, 2, 1]);
+		expect(soundsOfBar(sounds, 23, OFFBEATS_BAR_S)).toEqual(everyBeat);
+		controller.quit();
+	});
+});
+
+describe('the rhythm on the series, a new tempo told until play', () => {
+	/** Bars of « Métronome sur 2 et 4 » at ♩ = 120, its level 2. */
+	const NEW_BAR_S = 2;
+	/** Its third line (bars 14-17) reaches level 2; the breath 18-19; ♩ = 120 from bar 20. */
+	const changeAt = ORIGIN + 20 * TWO_FOUR_BAR_S;
+
+	it('keeps the announcement of a new tempo until the new run plays', async () => {
+		const { controller, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		await advance(ORIGIN + 18.6 * TWO_FOUR_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		const announced = { kind: 'level-up', level: 1, tempoBpm: 120 };
+		expect(controller.view.announcement).toMatchObject(announced);
+		// Through the rest of the breath and every beat of the listen-in at the new tempo.
+		for (let at = 18.8 * TWO_FOUR_BAR_S; at < 20 * TWO_FOUR_BAR_S; at += 0.6) {
+			await advance(ORIGIN + at, false);
+			expect(controller.view.announcement).toMatchObject(announced);
+		}
+		for (let beat = 0; beat < 8; beat++) {
+			await advance(changeAt + beat * (NEW_BAR_S / 4) + 0.05, false);
+			expect(stageOf(controller).phase).toBe('listen-in');
+			expect(controller.view.announcement).toMatchObject(announced);
+		}
+		// The first line of the new run opens: told no more.
+		await advance(changeAt + 2 * NEW_BAR_S + 0.3, false);
+		expect(stageOf(controller).phase).toBe('play');
+		expect(controller.view.announcement).toBeNull();
+		controller.quit();
+	});
+
+	it('keeps it through a pause in the breath or the listen-in, until the run plays', async () => {
+		for (const [pausedAt, phase] of [
+			[ORIGIN + 18.6 * TWO_FOUR_BAR_S, 'breath'],
+			[changeAt + 0.3, 'listen-in']
+		] as const) {
+			const { controller, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+			await controller.start();
+			await advance(pausedAt);
+			expect(stageOf(controller).phase).toBe(phase);
+			controller.pause();
+			controller.resume();
+			await settled();
+			const resumedAt = clock.now() + ORIGIN;
+			const announced = { kind: 'level-up', level: 1, tempoBpm: 120 };
+			// listen-in 0-1 at ♩ = 120, the line from bar 2.
+			for (let beat = 0; beat < 8; beat++) {
+				await advance(resumedAt + beat * (NEW_BAR_S / 4) + 0.05, false);
+				expect(controller.view.announcement).toMatchObject(announced);
+			}
+			await advance(resumedAt + 2 * NEW_BAR_S + 0.3, false);
+			expect(stageOf(controller).phase).toBe('play');
+			expect(controller.view.announcement).toBeNull();
+			controller.quit();
+		}
+	});
+
+	it('shows the countdown silently over the bar before a run without a counted bar', async () => {
+		const { controller, sounds, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, { met: true });
+		await controller.start();
+		// At the start: the second listen-in bar counts down, unheard.
+		expect(await countdownOverBar(1, ORIGIN, TWO_FOUR_BAR_S)).toEqual([4, 3, 2, 1]);
+		// After the tempo change: the first listen-in bar does not, the second does.
+		await advance(changeAt - 0.3);
+		expect(await countdownOverBar(0, changeAt, NEW_BAR_S)).toEqual([null, null, null, null]);
+		expect(await countdownOverBar(1, changeAt, NEW_BAR_S)).toEqual([4, 3, 2, 1]);
+		const clicks = (bar: number) =>
+			sounds
+				.emitted()
+				.filter(
+					(s) =>
+						s.time >= changeAt + bar * NEW_BAR_S - 1e-9 &&
+						s.time < changeAt + (bar + 1) * NEW_BAR_S - 1e-9
+				)
+				.map((s) => [Math.round((s.time - changeAt - bar * NEW_BAR_S) / (NEW_BAR_S / 4)), s.sound]);
+		// Nothing beyond the accompaniment: the click on 2 and 4.
+		for (const bar of [0, 1]) {
+			expect(clicks(bar)).toEqual([
+				[1, 'click'],
+				[3, 'click']
+			]);
+		}
+		await advance(changeAt + 2 * NEW_BAR_S + 0.3, false);
+		expect(stageOf(controller).phase).toBe('play');
+		expect(controller.view.countdown).toBeNull();
+		controller.quit();
+
+		async function countdownOverBar(bar: number, fromS: number, barS: number) {
+			const shown: (number | null)[] = [];
+			for (let beat = 0; beat < 4; beat++) {
+				await advance(fromS + (bar + beat / 4 + 0.05) * barS);
+				shown.push(controller.view.countdown);
+			}
+			return shown;
+		}
+	});
+});
+
 describe('the rhythm on the series, the latency of its sensor', () => {
 	it('stores the latency applied to the onsets with the session, zero when none is calibrated', async () => {
 		const plain = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
