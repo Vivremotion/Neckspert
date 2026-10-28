@@ -108,9 +108,10 @@ export interface PlayView {
 	 */
 	briefing: { text: string } | null;
 	/**
-	 * What the series announces before the round it applies to, from its counted bar (or its
-	 * breath) to its first prompt, kept through a pause: the level reached (`level`: 0 for level
-	 * 1, of the `of` regular levels) and the tempo it plays at; null otherwise.
+	 * What the series announces before the run it applies to, from its breath (or its listen-in,
+	 * or its counted bar) until the player plays (its first bar, entry bars included), kept
+	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
+	 * the tempo it plays at; a remedy while it plays; null otherwise.
 	 */
 	announcement: { kind: Announcement; level: number; of: number; tempoBpm: number } | null;
 }

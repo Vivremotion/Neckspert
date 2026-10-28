@@ -149,6 +149,22 @@ function sensorOf(plan: RoundPlan): string | null {
 const DECIDE_AHEAD_BEATS = 1;
 
 /**
+ * The count before a run that starts on bar `playFrom` after `listenInBars` of listen-in: its
+ * counted bar; without one, the last listen-in bar, its count shown silently (the transport marks
+ * it); with neither (no listen-in, no counted bar: refused by `Transport.begin`, unreachable from
+ * the catalog) no count at all.
+ */
+function silentCountOr(
+	countIn: boolean,
+	listenInBars: number,
+	playFrom: number
+): { countBar: number | null; restFrom: null; shownIn?: 'listen-in' } {
+	if (countIn) return { countBar: playFrom - 1, restFrom: null };
+	if (listenInBars === 0) return { countBar: null, restFrom: null };
+	return { countBar: playFrom - 1, restFrom: null, shownIn: 'listen-in' };
+}
+
+/**
  * Plays a series of rounds on the transport (spec amendment 2026-10-23): it takes each item from
  * its source, has its plan compiled (`compilePlan`: from its exercise's round template, or a cycle
  * of its figure), opens a `RoundRunner` on it, and places the rounds on the transport: the next
@@ -740,12 +756,11 @@ export class SessionController implements PlaySessionController {
 			this.wakeAt(Fraction.of(from), (time) => this.log?.open('listen', time));
 		}
 		if (followsBeats(this.items.definitionOf(item))) this.tick(0, 0);
-		// Without a counted bar, the last bar before play shows the count, silently.
-		this.place(item, playFrom, {
-			countBar: playFrom - 1,
-			restFrom: null,
-			...(!setup.countIn && { shownIn: 'listen-in' as const })
-		});
+		this.place(
+			item,
+			playFrom,
+			silentCountOr(setup.countIn, setup.listenInBars + demoBars, playFrom)
+		);
 	}
 
 	/**
@@ -850,7 +865,12 @@ export class SessionController implements PlaySessionController {
 		const keepFrom = this.transport.map.toSeconds(keepAt.mul(this.transport.barLength));
 		this.runEnding = { keepFrom };
 		if (setup.entryBars > 0) {
-			this.wakeAt(Fraction.of(earliest), (time) => this.openRun(item, plan, time));
+			this.wakeAt(Fraction.of(earliest), (time) => {
+				this.openRun(item, plan, time);
+				// Played from its first bar: a level is told before play only.
+				this.announcing = null;
+				this.view.announcement = null;
+			});
 		}
 		if (count.restFrom !== null) {
 			this.wakeAt(Fraction.of(count.restFrom), (time) => {
@@ -1398,12 +1418,7 @@ export class SessionController implements PlaySessionController {
 					this.view.announcement = this.announcing;
 				});
 			}
-			// Without a counted bar, the last listen-in bar shows the count, silently.
-			this.place(item, playFrom, {
-				countBar: playFrom - 1,
-				restFrom: null,
-				...(!setup.countIn && { shownIn: 'listen-in' as const })
-			});
+			this.place(item, playFrom, silentCountOr(setup.countIn, setup.listenInBars, playFrom));
 		};
 		// After a breath the frame shows the new tempo from the bar it begins on.
 		const setTempo = (bpm: number) => {

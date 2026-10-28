@@ -1,3 +1,5 @@
+// @ts-expect-error -- the project carries no @types/node; only the layout check reads the source
+import { readFileSync } from 'node:fs';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -184,7 +186,7 @@ describe('PlayFrame', () => {
 		expect(screen.queryByText(/niveau/i)).toBeNull();
 	});
 
-	it('tells a level before play in the field, prominently, and a remedy in play in the status line', () => {
+	it('tells a level in the field, prominently, and a remedy or the change of air in the status line, whatever the status', () => {
 		const shown = (
 			world: 'quiet' | 'pixel',
 			status: 'count-in' | 'awaiting',
@@ -205,20 +207,59 @@ describe('PlayFrame', () => {
 			return field ? 'field' : line ? 'status' : null;
 		};
 		for (const world of ['quiet', 'pixel'] as const) {
-			// The listen-in and the count (count-in), the breath (awaiting, a level reached).
-			expect(shown(world, 'count-in', 'level-up')).toBe('field');
-			expect(shown(world, 'awaiting', 'level-up')).toBe('field');
-			expect(shown(world, 'awaiting', 'level-down')).toBe('field');
-			expect(shown(world, 'awaiting', 'aid-level')).toBe('field');
-			// In play: where it was.
-			expect(shown(world, 'awaiting', 'play-along')).toBe('status');
-			expect(shown(world, 'awaiting', 'listen-remedy')).toBe('status');
+			for (const status of ['count-in', 'awaiting'] as const) {
+				// A level: only ever told before play (the breath, the listen-in, the count).
+				expect(shown(world, status, 'level-up')).toBe('field');
+				expect(shown(world, status, 'level-down')).toBe('field');
+				expect(shown(world, status, 'aid-level')).toBe('field');
+				// A remedy, the change of air: where they were.
+				expect(shown(world, status, 'play-along')).toBe('status');
+				expect(shown(world, status, 'listen-remedy')).toBe('status');
+				expect(shown(world, status, 'change-of-air')).toBe('status');
+			}
 		}
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		controller.view.announcement = { kind: 'level-up', level: 2, of: 4, tempoBpm: 90 };
 		render(PlayFrame, { props: { controller, kind: 'exercise' } });
 		expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 3 sur 4 · ♩ = 90');
+	});
+
+	it('lays the level over the field: the view does not move when it comes or goes', () => {
+		/** The elements in the flow around the view: every element on its way up but the overlay. */
+		const flowOf = (world: 'quiet' | 'pixel', told: boolean): string[] => {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = 'count-in';
+			controller.view.announcement = told
+				? { kind: 'level-up', level: 1, of: 4, tempoBpm: 90 }
+				: null;
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			const overlay = container.querySelector('.told');
+			expect(overlay !== null).toBe(told);
+			const flow: string[] = [];
+			const fake = container.querySelector('[data-testid="fake-view"]');
+			for (let node = fake?.parentElement; node && node !== container; node = node.parentElement) {
+				for (const child of node.children) {
+					if (child === overlay) continue;
+					flow.push(`${node.className}>${child.tagName}.${child.className}`);
+				}
+			}
+			cleanup();
+			return flow;
+		};
+		for (const world of ['quiet', 'pixel'] as const) {
+			expect(flowOf(world, true)).toEqual(flowOf(world, false));
+		}
+		// The overlay is out of the flow: positioned over its field, never pushing the view.
+		// jsdom runs from the project's root, and applies no component style: the rule is read.
+		const source = readFileSync('src/lib/ui/play/PlayFrame.svelte', 'utf8') as string;
+		const rules = [...source.matchAll(/([^{}]*\.told[^{}]*)\{([^}]*)\}/g)];
+		expect(rules.length).toBeGreaterThan(0);
+		expect(rules.some(([, , body]) => /position:\s*absolute/.test(body))).toBe(true);
 	});
 
 	it('tells the remedies, the aid level and the change of air, never a level below 1', () => {

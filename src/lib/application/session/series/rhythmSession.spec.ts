@@ -490,7 +490,7 @@ describe('the rhythm on the series, the breath sounds as the exercise', () => {
 	});
 });
 
-describe('the rhythm on the series, a new tempo told until play', () => {
+describe('the rhythm on the series, a level told until play', () => {
 	/** Bars of « Métronome sur 2 et 4 » at ♩ = 120, its level 2. */
 	const NEW_BAR_S = 2;
 	/** Its third line (bars 14-17) reaches level 2; the breath 18-19; ♩ = 120 from bar 20. */
@@ -544,6 +544,25 @@ describe('the rhythm on the series, a new tempo told until play', () => {
 			expect(controller.view.announcement).toBeNull();
 			controller.quit();
 		}
+	});
+
+	it('tells a level no more once the run plays, its entry bars included', async () => {
+		const { controller, advance } = await rhythmSeries(RHYTHM_SILENT_BARS, { met: true });
+		await controller.start();
+		// listen-in 0-1, count 2, entry 3-5, four cycles 6-21, the third reaching level 2 (two
+		// bars clicked, two silent); the breath 22-23; the next run from bar 24, its entry 24-25.
+		await advance(ORIGIN + 22.6 * OFFBEATS_BAR_S);
+		expect(stageOf(controller).phase).toBe('breath');
+		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 1 });
+		await advance(ORIGIN + 23.8 * OFFBEATS_BAR_S);
+		expect(controller.view.announcement).toMatchObject({ kind: 'level-up', level: 1 });
+		// Played from its first bar: the entry, then the first cycle on bar 26.
+		for (const bar of [24.1, 24.6, 25.3, 26.3]) {
+			await advance(ORIGIN + bar * OFFBEATS_BAR_S);
+			expect(stageOf(controller).phase).toBe('play');
+			expect(controller.view.announcement).toBeNull();
+		}
+		controller.quit();
 	});
 
 	it('shows the countdown silently over the bar before a run without a counted bar', async () => {

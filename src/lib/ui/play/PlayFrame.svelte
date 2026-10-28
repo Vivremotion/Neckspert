@@ -69,16 +69,12 @@
 	);
 
 	/**
-	 * A level reached is told before play only (the breath, the listen-in, the count: cleared as
-	 * its run's first round opens), so it is told prominently, in the field; a remedy is told
-	 * while it plays, in the status line.
+	 * A level reached is told before play only (the breath, the listen-in, the count: cleared from
+	 * its run's first bar), so it is told prominently, laid over the field, the view never moved;
+	 * a remedy or the change of air stays in the status line, whatever the status.
 	 */
 	const LEVEL_TOLD: ReadonlySet<Announcement> = new Set(['level-up', 'level-down', 'aid-level']);
-	const toldInField = $derived.by(() => {
-		const announcement = view.announcement;
-		if (!announcement) return false;
-		return view.status === 'count-in' || LEVEL_TOLD.has(announcement.kind);
-	});
+	const toldInField = $derived(view.announcement ? LEVEL_TOLD.has(view.announcement.kind) : false);
 	/** The announcement in the status line, when it is not told in the field. */
 	const toldInLine = $derived(toldInField ? null : announced);
 
@@ -178,7 +174,7 @@
 
 		<div class="quiet-stage">
 			{#if toldInField && announced !== null}
-				<!-- Before play: the level reached and its tempo, as large as a prompt line. -->
+				<!-- Before play: the level reached and its tempo, laid over the field, as large as a prompt line. -->
 				<div class="told" role="status">
 					<Prompt main={announced} size="prompt" />
 				</div>
@@ -226,12 +222,11 @@
 			<a class="leave" href={resolve('/')} onclick={leave}>{t.quit}</a>
 		</div>
 
-		{#if toldInField && announced !== null}
-			<!-- Before play: the level reached and its tempo, over the view, as large as a prompt. -->
-			<p class="told" role="status">{announced}</p>
-		{/if}
-
 		<div class="stage">
+			{#if toldInField && announced !== null}
+				<!-- Before play: the level reached and its tempo, laid over the view, as large as a prompt. -->
+				<p class="told" role="status">{announced}</p>
+			{/if}
 			{#if Stage && view.stage}
 				<Stage {controller} model={view.stage.model} />
 			{/if}
@@ -311,6 +306,7 @@
 <style>
 	/* The quiet world: the view fills the field under the info line, its status line below it. */
 	.quiet-stage {
+		position: relative;
 		grid-row: 2 / -1;
 		display: flex;
 		flex-direction: column;
@@ -325,9 +321,20 @@
 		justify-content: center;
 	}
 
+	/* Laid over the top of the field, out of the flow: the view never moves when it comes or goes. */
 	.told {
+		position: absolute;
+		z-index: 2;
+		inset-block-start: 0;
+		inset-inline: 0;
 		display: flex;
 		justify-content: center;
+		pointer-events: none;
+	}
+
+	.quiet-stage .told {
+		padding-block: var(--np-step-2);
+		background: var(--np-field);
 	}
 
 	.quiet-status {
@@ -414,6 +421,7 @@
 	}
 
 	.stage {
+		position: relative;
 		display: flex;
 		flex: 0 1 auto;
 		min-width: 0;
@@ -450,6 +458,8 @@
 
 	/* The pixel world: the level reached, centred over the view, at the size of a prompt. */
 	.frame .told {
+		inset-inline: var(--np-space-1, 8px);
+		inset-block-start: var(--np-space-1, 8px);
 		margin: 0;
 		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
 		font-size: var(--np-type-prompt);
