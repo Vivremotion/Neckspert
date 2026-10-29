@@ -2,6 +2,7 @@ import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
@@ -22,7 +23,6 @@ import {
 	DexieBackup,
 	DexieCardStateRepository,
 	DexieLevelStateRepository,
-	DexieProgressionRepository,
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
@@ -56,7 +56,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const attempts = new DexieAttemptRepository(db);
 	const cards = new DexieCardStateRepository(db);
 	const sessions = new DexieSessionRepository(db);
-	const progressions = new DexieProgressionRepository(db);
 	const levels = new DexieLevelStateRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
@@ -104,7 +103,6 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		attempts,
 		cards,
 		sessions,
-		progressions,
 		levels,
 		sounds,
 		takes,
@@ -123,7 +121,12 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		development: dev,
 		newId: () => crypto.randomUUID(),
-		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
+		mechanics: {
+			...NECK_PRESENTERS,
+			...TRIAD_PRESENTERS,
+			...GESTURE_PRESENTERS,
+			...RHYTHM_PRESENTERS
+		},
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

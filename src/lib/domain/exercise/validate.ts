@@ -1,7 +1,9 @@
+import { levelRange } from '../time/levels';
 import { isBeatCount, validateMeter } from '../time/meter';
-import { validateLadder } from './ladder';
+import { levelConditionsProblem, validateLadder } from './ladder';
+import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
-import type { ExerciseDefinition, Ladder } from './types';
+import { BRIEFINGS, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isFinite(value);
@@ -12,32 +14,9 @@ const naturalNumber = (value: unknown) =>
 const SCENES = ['guitar', 'screen'];
 
 function tempoProblem(definition: ExerciseDefinition): string | null {
-	if (definition.startTempoBpm !== undefined && !positive(definition.startTempoBpm)) {
-		return `startTempoBpm must be a positive number, got ${definition.startTempoBpm}`;
-	}
-	const tempo = definition.tempo;
-	if (tempo === undefined) return null;
-	if ('fixed' in tempo) {
-		return positive(tempo.fixed)
-			? null
-			: `tempo.fixed must be a positive number, got ${tempo.fixed}`;
-	}
-	for (const field of ['start', 'min', 'max', 'step'] as const) {
-		if (!positive(tempo[field])) {
-			return `tempo.${field} must be a positive number, got ${tempo[field]}`;
-		}
-	}
-	if (tempo.min > tempo.max) return `tempo.min ${tempo.min} is above tempo.max ${tempo.max}`;
-	if (tempo.start < tempo.min || tempo.start > tempo.max) {
-		return `tempo.start must lie within ${tempo.min}–${tempo.max}, got ${tempo.start}`;
-	}
-	for (const field of ['raiseAt', 'lowerAt'] as const) {
-		if (!finite(tempo[field])) return `tempo.${field} must be a number, got ${tempo[field]}`;
-	}
-	if (!naturalNumber(tempo.minPrompts)) {
-		return `tempo.minPrompts must be a non-negative integer, got ${tempo.minPrompts}`;
-	}
-	return null;
+	const { tempo } = definition;
+	if (tempo === undefined || positive(tempo)) return null;
+	return `tempo must be a positive number, got ${tempo}`;
 }
 
 function ladderProblem(params: ExerciseDefinition['params']): string | null {
@@ -90,11 +69,22 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
-	const pacing = params.pacing as { respirationBars?: unknown } | undefined;
+	const pacing = params.pacing as Record<string, unknown> | undefined;
 	// A round on the beat lasts its breath: 0 bars would make it last nothing.
 	const bars = pacing?.respirationBars;
-	if (pacing !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
+	if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
 		return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
+	}
+	const rounds = pacing?.roundsPerBreath;
+	if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
+		return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
+	}
+	const breathMs = pacing?.breathMinMs;
+	if (
+		breathMs !== undefined &&
+		!(typeof breathMs === 'number' && Number.isFinite(breathMs) && breathMs >= 0)
+	) {
+		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
 	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
@@ -102,9 +92,71 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	return null;
 }
 
+/** The ladders an exercise writes, by the field that holds them. */
+function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
+	const ladders: [string, Ladder][] = [];
+	if (params.ladder !== undefined) ladders.push(['params.ladder', params.ladder as Ladder]);
+	if (typeof params.ladders === 'object' && params.ladders !== null) {
+		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
+			ladders.push([`params.ladders.${mechanic}`, ladder as Ladder]);
+		}
+	}
+	return ladders;
+}
+
+/**
+ * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
+ * path of an exercise or item level through a value that is not an object (named by its level in
+ * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive.
+ * A path no piece reads passes: it is without effect.
+ */
+function levelsProblem(definition: ExerciseDefinition): string | null {
+	const { levels } = definition;
+	if (levels !== undefined) {
+		if (!Array.isArray(levels)) return 'levels is not a list of levels';
+		try {
+			levelRange(levels);
+		} catch (error) {
+			return `levels ${(error as Error).message}`;
+		}
+		for (const [index, level] of levels.entries()) {
+			const conditions = levelConditionsProblem(level);
+			if (conditions !== null) return `levels[${index}]: ${conditions}`;
+		}
+	}
+	const params = exerciseParamsOf(definition);
+	const resolved: Readonly<Record<string, unknown>>[] = [];
+	for (const [index, level] of exerciseLevelsOf(definition).entries()) {
+		const field = levels === undefined ? 'params' : `levels[${index}]`;
+		let atLevel: Readonly<Record<string, unknown>>;
+		try {
+			atLevel = overrideParams(params, level.params);
+		} catch (error) {
+			return `${field} ${(error as Error).message}`;
+		}
+		if (!positive(atLevel.tempo)) {
+			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
+		}
+		resolved.push(atLevel);
+	}
+	for (const [field, ladder] of laddersOf(definition.params)) {
+		for (const [index, level] of ladder.entries()) {
+			for (const atLevel of resolved) {
+				try {
+					overrideParams(atLevel, level.params as LevelOverrides);
+				} catch (error) {
+					return `${field} level ${index}: ${(error as Error).message}`;
+				}
+			}
+		}
+	}
+	return null;
+}
+
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive or a range that cannot hold its start, a ladder it cannot climb,
+ * field: a tempo not positive, a ladder it cannot climb,
+ * levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
  * judges what an exercise is worth: anything runnable passes.
@@ -128,8 +180,13 @@ export function validateExercise(
 		if (flow?.scene !== undefined && !SCENES.includes(flow.scene)) {
 			return `flow.scene must be one of ${SCENES.join(', ')}, got ${flow.scene}`;
 		}
+		if (flow?.briefing !== undefined && !BRIEFINGS.includes(flow.briefing)) {
+			return `flow.briefing must be one of ${BRIEFINGS.join(', ')}, got ${String(flow.briefing)}`;
+		}
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
+		const levels = levelsProblem(definition);
+		if (levels !== null) return levels;
 		return roundProblem(definition, options);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

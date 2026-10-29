@@ -1,4 +1,4 @@
-import type { CyclePlanRecord } from '$lib/application/session/plan/recordCycle';
+import type { CyclePlanRecord } from '$lib/application/session/cycle/recordCycle';
 import type { CycleReport, CycleVerdict } from '$lib/domain/time';
 
 /**

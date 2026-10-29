@@ -1,5 +1,5 @@
-import type { Figure, Level, LevelParams, Meter } from '$lib/domain/time';
-import type { ExerciseTempo } from './tempo';
+import type { Figure, Level, Meter } from '$lib/domain/time';
+import type { LevelOverrides } from './levels';
 import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 
@@ -17,7 +17,24 @@ export interface ExerciseFlow {
 	previewBeats?: number;
 	/** Whether a miss can be contested in play (development builds). */
 	contestable?: boolean;
+	/**
+	 * Whether failures in a row at its first level bring the anti-blocking (a remedy, an aid
+	 * level, « On change d’air »); absent: no.
+	 */
+	antiBlocking?: boolean;
+	/**
+	 * When its instruction (`howTo`) is told: before its first round in every series
+	 * (`'each-series'`, the default), or only while the player has no attempt of it
+	 * (`'first-encounter'`).
+	 */
+	briefing?: ExerciseBriefing;
 }
+
+/** When an exercise's instruction is told (`ExerciseFlow.briefing`). */
+export type ExerciseBriefing = 'each-series' | 'first-encounter';
+
+/** Every value of `ExerciseFlow.briefing`. */
+export const BRIEFINGS: readonly ExerciseBriefing[] = ['each-series', 'first-encounter'];
 
 /** Text with `{field}` placeholders: one for every language, or one per language. */
 export type Slot = string | { fr: string; en: string };
@@ -50,10 +67,11 @@ export interface ExerciseDefinition {
 	version: number;
 	mechanic: MechanicId;
 	params: Readonly<Record<string, unknown>>;
-	/** Its tempo: fixed, or a range it moves within; absent: `DEFAULT_TEMPO`. */
-	tempo?: ExerciseTempo;
-	/** Tempo of a first execution, when the exercise wants its own (the start of its range). */
-	startTempoBpm?: number;
+	/**
+	 * Its tempo, in beats of its meter per minute, before any level; absent: `DEFAULT_TEMPO_BPM`.
+	 * A level may override it (`tempo`), as any other param.
+	 */
+	tempo?: number;
 	/** How its chord shapes are drawn, when the exercise imposes it over the player's setting. */
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */
@@ -73,39 +91,36 @@ export interface ExerciseDefinition {
 	howTo?: { fr: string; en: string };
 	/** Its name on screen, in each language, when it is shown by name (the rhythm exercises). */
 	title?: { fr: string; en: string };
-	/** Rhythm exercises: the levels (aid levels first) and the params they override. */
-	levels?: readonly Level[];
-	base?: LevelParams;
+	/**
+	 * Its levels (aid levels first): each overrides dotted paths of its resolved params
+	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
+	 */
+	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the catalog. */
 	figures?: readonly { id: string; figure: Figure }[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
 }
 
-/**
- * Tempo reached by the player on an exercise, or on one scope of it (a grid: a ballad and a blues
- * progress apart). Without a scope, the exercise's own.
- */
-export interface Progression {
-	exerciseId: ExerciseId;
-	/** The part of the exercise the tempo belongs to; absent for the exercise as a whole. */
-	scope?: string;
-	mechanic: MechanicId;
-	tempoBpm: number;
-	updatedAt: number;
-}
-
 /** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
 export interface Execution {
 	exerciseId: ExerciseId;
-	/** As `Progression.scope`; its prompts carry it as `PlannedItem.tempoScope`. */
+	/** The scope of its exercise level (a grid); its prompts carry it as `PlannedItem.scope`. */
 	scope?: string;
 	tempoBpm: number | null;
 }
 
-/** The rhythm of an exercise on the beat: the bars of breathing after a target. */
+/**
+ * The pace of an exercise: the bars of breathing after a target, and the runs of a series (decision
+ * D7 of plan H6): how many rounds a run plays before its breath, and how long that breath lasts at
+ * least.
+ */
 export interface ExercisePacing {
 	respirationBars: number;
+	/** Rounds a run plays before its breath; absent: a run ends only before a counted bar. */
+	roundsPerBreath?: number;
+	/** The shortest breath between two runs, in ms, rounded up to whole bars; absent: 0. */
+	breathMinMs?: number;
 }
 
 /** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */
@@ -117,6 +132,7 @@ export interface LadderParams {
 
 /**
  * An item's levels, level 0 first, as its exercise writes them (`params.ladder`): each level's
- * lead and aid, its pass and drop, and what counts as a success there.
+ * lead and aid, its pass and drop, and what counts as a success there. A level may override any
+ * other dotted path of the resolved params too (`resolvedParamsOf`).
  */
-export type Ladder = readonly Level<LadderParams>[];
+export type Ladder = readonly Level<LadderParams & LevelOverrides>[];

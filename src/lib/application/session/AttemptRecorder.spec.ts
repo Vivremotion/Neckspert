@@ -18,6 +18,7 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
+		exerciseLevel: 0,
 		item: F_ON_B,
 		phase: 'review',
 		temperature: 'cold',

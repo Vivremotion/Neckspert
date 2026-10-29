@@ -37,7 +37,8 @@ export const summaryMessages = defineMessages({
 		} as Record<string, string>,
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages réussis`,
 		changes: (percent: number) => `${percent} % justes et à temps`,
-		tempos: (played: number, next: number) => `♩ = ${played} → ♩ = ${next}`,
+		tempos: (first: number, last: number) =>
+			first === last ? `♩ = ${first}` : `♩ = ${first} → ${last}`,
 		misses: 'Changements ratés',
 		heard: (frets: string) => `Joué ${frets}`,
 		nothingHeard: 'Rien entendu',
@@ -139,7 +140,8 @@ export const summaryMessages = defineMessages({
 		} as Record<string, string>,
 		passages: (succeeded: number, played: number) => `${succeeded} / ${played} passages succeeded`,
 		changes: (percent: number) => `${percent} % right and in time`,
-		tempos: (played: number, next: number) => `♩ = ${played} → ♩ = ${next}`,
+		tempos: (first: number, last: number) =>
+			first === last ? `♩ = ${first}` : `♩ = ${first} → ${last}`,
 		misses: 'Missed changes',
 		heard: (frets: string) => `Played ${frets}`,
 		nothingHeard: 'Nothing heard',

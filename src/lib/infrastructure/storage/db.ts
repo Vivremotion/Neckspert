@@ -3,7 +3,6 @@ import {
 	type Attempt,
 	type CardState,
 	type LevelState,
-	type Progression,
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
@@ -11,6 +10,7 @@ import { convertV1 } from './legacy/v1';
 import { attemptToV8, relationOfMechanic, settingsToV8 } from './migrations/v8';
 import { levelStatesV9 } from './migrations/v9';
 import { cardToV10, levelStatesV10 } from './migrations/v10';
+import { attemptToV11, levelStatesV11 } from './migrations/v11';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -29,9 +29,6 @@ export class NeckspertDb extends Dexie {
 	cards!: EntityTable<CardState, 'key'>;
 	sessions!: EntityTable<SessionRecord, 'id'>;
 	settings!: EntityTable<SettingsRow, 'id'>;
-	progressions!: EntityTable<Progression, 'exerciseId'>;
-	/** Progressions in a scope of their exercise (a grid), by exercise and scope. */
-	scopedProgressions!: EntityTable<Progression & { scope: string }, 'exerciseId'>;
 	/** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */
 	levelStates!: Table<LevelState, [string, string, string]>;
 
@@ -206,6 +203,35 @@ export class NeckspertDb extends Dexie {
 						// A card without a lead is not written again.
 						if (!Object.hasOwn(row, 'leadBeats')) return false;
 						ref.value = cardToV10(row);
+					});
+			});
+		// Version 11 keeps the gesture's tempo as its exercise level (plan H6, D5): each gesture
+		// progression the game read becomes the level of its scope, the others are dropped with
+		// both progression tables, and an attempt's `tempoScope` becomes `scope`. Same conversion as
+		// the import of a version 6 backup (`migrations/v11.ts`); a level state already stored is kept.
+		this.version(11)
+			.stores({
+				...stores,
+				progressions: null,
+				scopedProgressions: null,
+				levelStates: '[exerciseId+scope+item]'
+			})
+			.upgrade(async (tx) => {
+				const [progressions, scopedProgressions, levelStates] = await Promise.all([
+					tx.table('progressions').toArray(),
+					tx.table('scopedProgressions').toArray(),
+					tx.table('levelStates').toArray()
+				]);
+				await tx
+					.table('levelStates')
+					.bulkAdd(levelStatesV11([...progressions, ...scopedProgressions], levelStates));
+				await tx
+					.table('attempts')
+					.toCollection()
+					.modify((row, ref) => {
+						// An attempt without a tempo scope is not written again.
+						if (!Object.hasOwn(row, 'tempoScope')) return false;
+						ref.value = attemptToV11(row);
 					});
 			});
 	}

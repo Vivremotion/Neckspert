@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
+	import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 	import { beatPositions, type Figure } from '$lib/domain/time';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import type { FigureLayout } from '$lib/ui/notation';
@@ -147,9 +147,6 @@
 	{/if}
 
 	{#if breathing}
-		{#if m.announcement}
-			<p class="announcement" role="status">{t.announcement[m.announcement](levelText)}</p>
-		{/if}
 		<div class="breath" class:stacked={!sideBySide}>
 			<section class="panel faded" data-testid="rhythm-played" aria-label={t.played}>
 				<h2 class="panel-title">{t.played}</h2>
@@ -195,9 +192,6 @@
 			</p>
 		{/if}
 	{:else}
-		{#if m.announcement}
-			<p class="announcement" role="status">{t.announcement[m.announcement](levelText)}</p>
-		{/if}
 		<div class="score">
 			<div class="engraving large" bind:this={figureHost}></div>
 			{#if cursor && figureLayout}
@@ -267,7 +261,6 @@
 	.title,
 	.where,
 	.phase,
-	.announcement,
 	.feedback,
 	.panel-title {
 		margin: 0;
@@ -365,11 +358,6 @@
 	.cycle.failed {
 		font-weight: 600;
 		text-decoration: underline;
-	}
-
-	.announcement {
-		font-size: var(--np-type-body);
-		font-weight: 600;
 	}
 
 	.feedback {

@@ -1,4 +1,5 @@
 import { defineMessages } from '$lib/i18n/index.svelte';
+import type { Announcement } from '$lib/application/session/contract';
 import type { SessionKind } from '$lib/domain/types';
 
 const HOW_TO_NOTES_FR =
@@ -59,6 +60,17 @@ export const playMessages = defineMessages({
 		playedAs: (label: string) => `${label} joué`,
 		nothingHeard: 'rien entendu',
 		tempo: (bpm: number) => `♩ = ${bpm}`,
+		/** What the series announces; `shown`, the level's number on screen (1 for the first). */
+		announcement: {
+			'level-up': (shown: number, of: number, bpm: number) =>
+				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
+			'level-down': (shown: number, of: number, bpm: number) =>
+				`Niveau ${shown} sur ${of} · ♩ = ${bpm}`,
+			'aid-level': (_shown: number, _of: number, bpm: number) => `Niveau d’aide · ♩ = ${bpm}`,
+			'listen-remedy': () => 'On réécoute la figure',
+			'play-along': () => 'On la joue ensemble',
+			'change-of-air': () => 'On change d’air'
+		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
 		replay: 'Réécouter',
 		replaying: 'Réécoute…',
 		/** The key of « Écouter la figure »: E, for écouter. */
@@ -117,6 +129,16 @@ export const playMessages = defineMessages({
 		playedAs: (label: string) => `${label} played`,
 		nothingHeard: 'nothing heard',
 		tempo: (bpm: number) => `♩ = ${bpm}`,
+		announcement: {
+			'level-up': (shown: number, of: number, bpm: number) =>
+				`Level ${shown} of ${of} · ♩ = ${bpm}`,
+			'level-down': (shown: number, of: number, bpm: number) =>
+				`Level ${shown} of ${of} · ♩ = ${bpm}`,
+			'aid-level': (_shown: number, _of: number, bpm: number) => `Aid level · ♩ = ${bpm}`,
+			'listen-remedy': () => 'Let’s hear the figure again',
+			'play-along': () => 'Let’s play it together',
+			'change-of-air': () => 'Time for a change of air'
+		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
 		replay: 'Replay',
 		replaying: 'Replaying…',
 		/** The key of “Listen to the figure”: L, for listen. */

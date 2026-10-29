@@ -73,13 +73,13 @@ I1, I2 et I3 ajoutent leurs propres briefs, maquettes et captures sous `.impecca
 
 - **Démarrage du métronome** : toujours `metronome.start(clock.now() + 0.1)` au plus tôt. Un temps déjà passé au moment de l'ordonnancement est abandonné (ni clic ni événement).
 - **Événements de temps** : `onBeat` arrive jusqu'à 100 ms avant l'heure du temps. Ne jamais supposer `clock.now() >= beat.time`, et comparer les index avec `>=`, jamais `===`.
-- **Tempo** : on ne change pas le tempo pendant la marche (`setTempo` lève une erreur). Réglage utilisateur entre 80 et 160 bpm, ajusté de ±5 bpm entre deux sessions d'Apprentissage selon la réussite ; bornes techniques du métronome 20 à 300.
+- **Tempo** : le tempo ne change que sur des mesures pas encore ordonnancées (`Transport.changeTempo` lève une erreur sinon). Ce n'est plus un réglage du joueur : c'est une donnée de l'exercice, que ses niveaux d'exercice peuvent surcharger ; un niveau atteint s'applique au prochain tour qui ne s'enchaîne pas, annoncé, après une mesure comptée au nouveau tempo (H6). La progression de fin de séance (±5 bpm) a disparu avec Dexie 11.
 - **Pas de fuite du clic dans la détection** : le clic du métronome est une courte rafale de bruit filtré, sans hauteur nette, pour que le détecteur ne la prenne pas pour une note.
 - **Entrée audio brute** : le détecteur ouvre l'entrée avec `echoCancellation: false`, `noiseSuppression: false`, `autoGainControl: false`. Avec le micro de l'appareil, l'écran de calibration recommande un casque.
 
 ## Signatures produites par chaque plan
 
-Historique : le contrat des vagues du prototype. Beaucoup de ces pièces ont disparu depuis (en H5 : `domain/timing/`, `SessionController`, `PlayScreen`, `MetronomePort`, `SoundCuePort`) ; le code et `CLAUDE.md` font foi.
+Historique : le contrat des vagues du prototype. Beaucoup de ces pièces ont disparu depuis (en H5 : `domain/timing/`, l'ancien `SessionController`, `PlayScreen`, `MetronomePort`, `SoundCuePort` ; en H6 : les deux contrôleurs remplacés par le nouveau `SessionController`, `Progression`) ; le code et `CLAUDE.md` font foi.
 
 Ces signatures sont le contrat entre plans. Un plan peut ajouter des fonctions privées, mais doit produire exactement celles-ci.
 

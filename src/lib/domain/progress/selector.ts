@@ -22,6 +22,12 @@ export interface ItemSource {
 	record(attempt: Attempt, now: number): RecordOutcome;
 	/** A card the session stored (cold review, learning), so the source's copy stays current. */
 	cardChanged(card: CardState): void;
+	/**
+	 * The item it served, at another level of its exercise (`PlannedItem.exerciseLevel`), for a
+	 * source whose items depend on that level (a figure that fits the level's cycle). Absent: the
+	 * series changes the level alone.
+	 */
+	atLevel?(item: PlannedItem, exerciseLevel: number): PlannedItem;
 }
 
 /** Serves a fixed list in order (free play). */

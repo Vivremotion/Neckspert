@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
+import type { Segment } from '$lib/domain/session';
 import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
@@ -33,7 +34,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	mechanic: 'locate',
 	view: 'lane',
 	meter: WALTZ,
-	tempo: { fixed: 90 },
+	tempo: 90,
 	flow: { previewBeats: 2 },
 	presentation: LOCATE_NECK.presentation,
 	// Its round is locate's, the target on beat 2 of the bar.
@@ -193,5 +194,40 @@ describe('an exercise written only in data', () => {
 			['identify', true],
 			['locate', true]
 		]);
+	});
+
+	it('breathes with a counted bar after the rounds of a run', async () => {
+		// Runs of two notes: the third comes after a counted bar, not after the breathing bars alone.
+		const paced: ExerciseDefinition = {
+			...WALTZ_LOCATE,
+			params: { ...WALTZ_LOCATE.params, pacing: { respirationBars: 2, roundsPerBreath: 2 } }
+		};
+		expect(validateExercise(paced)).toBeNull();
+		const third = locate(4, 'E');
+		const app = await notesApp({
+			exercises: [paced],
+			cards: [learnedCard(FIRST), learnedCard(SECOND), learnedCard(third)],
+			levels: [levelOf(FIRST, 0), levelOf(SECOND, 0), levelOf(third, 0)]
+		});
+		const controller = await startNotes(app, 'learn');
+		const rounds = await playRounds(app, controller, allRight, { rounds: 3 });
+		const trace = (controller as unknown as { trace: Segment | null }).trace;
+		await quitAndRead(app, controller);
+
+		expect(rounds).toHaveLength(3);
+		const [one, two, three] = rounds;
+		const gap = (from: typeof one, to: typeof one) =>
+			(to.promptBeat as number) - (from.anchorBeat as number);
+		// Within the run, the breathing bars alone; after it, a counted bar too.
+		expect(gap(one, two)).toBe(2 * BAR_BEATS);
+		expect(gap(two, three)).toBeGreaterThanOrEqual(3 * BAR_BEATS);
+		const counts: Segment[] = [];
+		const walk = (segment: Segment) => {
+			if (segment.role === 'count-in') counts.push(segment);
+			segment.children.forEach(walk);
+		};
+		if (trace) walk(trace);
+		// The count that opens the series, and the one after the run.
+		expect(counts).toHaveLength(2);
 	});
 });

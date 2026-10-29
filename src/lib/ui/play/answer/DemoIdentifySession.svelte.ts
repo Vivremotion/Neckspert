@@ -44,7 +44,8 @@ export class DemoIdentifySession implements PlaySessionController {
 		countdown: null,
 		audioError: null,
 		stage: null,
-		briefing: null
+		briefing: null,
+		announcement: null
 	});
 	readonly timeline: PlayTimeline = { nowBeat: () => 0 };
 
@@ -143,6 +144,7 @@ export class DemoIdentifySession implements PlaySessionController {
 					{
 						exerciseId: IDENTIFY_NECK.id,
 						mechanic: IDENTIFY_NECK.mechanic,
+						exerciseLevel: 0,
 						item: target,
 						phase: 'review',
 						temperature: 'cold',

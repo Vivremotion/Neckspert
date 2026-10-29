@@ -275,7 +275,7 @@ describe('createGestureSelector', () => {
 		const clock = { now: NOW };
 		const scopes = Array.from({ length: 4 }, () => {
 			const [first] = playPassage(s, clock);
-			return [first.exerciseId, first.tempoScope];
+			return [first.exerciseId, first.scope];
 		});
 		expect(scopes).toEqual([
 			['gesture-link', undefined],

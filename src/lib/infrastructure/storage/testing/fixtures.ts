@@ -7,10 +7,10 @@ import {
 	type BackupFile,
 	type CardState,
 	type MechanicId,
-	type Progression,
 	type SessionRecord
 } from '$lib/domain/types';
 import type { LevelState } from '$lib/domain/time';
+import type { ProgressionV10 } from '../migrations/v11';
 
 export const LOCATE_ITEM: LocateItem = { string: 2, pitch: 'F' };
 
@@ -101,7 +101,8 @@ export function makeSession(overrides: Partial<SessionRecord> = {}): SessionReco
 	};
 }
 
-export function makeProgression(overrides: Partial<Progression> = {}): Progression {
+/** A tempo progression as versions 2 to 6 of the backup hold it. */
+export function makeProgressionV6(overrides: Partial<ProgressionV10> = {}): ProgressionV10 {
 	return {
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
@@ -114,16 +115,20 @@ export function makeProgression(overrides: Partial<Progression> = {}): Progressi
 export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	return {
 		app: 'neckspert-play',
-		version: 6,
+		version: 7,
 		exportedAt: 5000,
 		settings: { ...DEFAULT_SETTINGS },
-		progressions: [makeProgression()],
 		cards: [makeCard()],
 		attempts: [makeAttempt({ id: 1 })],
 		sessions: [makeSession()],
 		levelStates: [],
 		...overrides
 	};
+}
+
+/** A version 6 export: its tempo progressions; attempts may hold a `tempoScope`. */
+export function makeBackupV6(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	return { ...makeBackup(), version: 6, progressions: [makeProgressionV6()], ...overrides };
 }
 
 /** A card as versions 1 to 5 of the backup hold it: with its lead, 8 by default. */
@@ -133,7 +138,7 @@ export function makeCardV5(overrides: Record<string, unknown> = {}): Record<stri
 
 /** A version 5 export: its cards hold their lead, no triad card has a level state. */
 export function makeBackupV5(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-	return { ...makeBackup(), version: 5, cards: [makeCardV5()], ...overrides };
+	return { ...makeBackupV6(), version: 5, cards: [makeCardV5()], ...overrides };
 }
 
 /** A version 4 export: the level states hold the exercises' own, no neck card has one. */

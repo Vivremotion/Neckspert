@@ -3,9 +3,7 @@ import type {
 	BackupFile,
 	CardKey,
 	CardState,
-	ExerciseId,
 	LevelState,
-	Progression,
 	RecordedObservation,
 	SessionRecord,
 	Settings
@@ -43,15 +41,6 @@ export interface SessionRepositoryPort {
 	get(id: string): Promise<SessionRecord | undefined>;
 	/** Oldest first. */
 	list(): Promise<SessionRecord[]>;
-}
-
-/** The tempo reached on each exercise, one row per exercise. */
-export interface ProgressionRepositoryPort {
-	/** The progression of the exercise in `scope`; without one, the exercise's own. */
-	get(exerciseId: ExerciseId, scope?: string): Promise<Progression | undefined>;
-	/** Replaces the progression stored for the same exercise. */
-	put(progression: Progression): Promise<void>;
-	all(): Promise<Progression[]>;
 }
 
 /** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */

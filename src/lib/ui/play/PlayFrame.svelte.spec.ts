@@ -1,6 +1,10 @@
+// @ts-expect-error -- the project carries no @types/node; only the layout check reads the source
+import { readFileSync } from 'node:fs';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel } from '$lib/application/session/plan/rhythmStage';
+import type { Announcement } from '$lib/application/session/contract';
+import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { presented, stageModel } from './views/testing/promptStage';
@@ -34,13 +38,53 @@ describe('PlayFrame', () => {
 
 	it('explains the triads before they start: the root alone, then the chord; the zone, the whole chord around a fret', () => {
 		const controller = new StageController();
-		const { container } = render(PlayFrame, { props: { controller, kind: 'triads' } });
-		expect(container.querySelector('[data-world="quiet"]')).toBeTruthy();
+		render(PlayFrame, { props: { controller, kind: 'triads' } });
 		expect(screen.getByText(/fondamentale seule/i)).toBeTruthy();
 		cleanup();
 		render(PlayFrame, { props: { controller, kind: 'triads-zone' } });
 		expect(screen.getByText(/vers la case 5/i)).toBeTruthy();
 		expect(screen.queryByText(/joue la fondamentale seule/i)).toBeNull();
+	});
+
+	it('takes its world from the view on stage, from the start screen, whatever the kind', () => {
+		for (const kind of ['learn', 'gesture', 'exercise', 'triads'] as const) {
+			for (const [name, world] of Object.entries(VIEW_WORLDS)) {
+				const controller = new StageController();
+				controller.view.stage = { view: name, model: null };
+				const { container } = render(PlayFrame, {
+					props: { controller, kind, views: { ...PLAY_VIEWS, [name]: FakeView } }
+				});
+				expect(controller.view.status).toBe('idle');
+				expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
+				cleanup();
+			}
+		}
+	});
+
+	it('is neutral, in the pixel world, only before any view has ever been shown, whatever the kind', () => {
+		for (const kind of ['learn', 'gesture', 'exercise'] as const) {
+			const { container } = render(PlayFrame, {
+				props: { controller: new StageController(), kind }
+			});
+			expect(container.querySelector('[data-world="pixel"]')).toBeTruthy();
+			cleanup();
+		}
+	});
+
+	it('keeps the world of the last view shown when the stage empties at the end', async () => {
+		for (const [name, world] of Object.entries(VIEW_WORLDS)) {
+			const controller = new StageController();
+			controller.view.stage = { view: name, model: null };
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'learn', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
+			controller.view.stage = null;
+			controller.view.status = 'finished';
+			await tick();
+			expect(container.querySelector(`[data-world="${world}"]`)).toBeTruthy();
+			cleanup();
+		}
 	});
 
 	it('quits to the summary when asked, and goes home otherwise', async () => {
@@ -115,6 +159,132 @@ describe('PlayFrame', () => {
 		tired.view.fatigueDetected = true;
 		render(PlayFrame, { props: { controller: tired } });
 		expect(screen.getByRole('status').textContent).toMatch(/fatigue/i);
+	});
+
+	it('shows the announcement with level and tempo', () => {
+		// The pixel world (the gesture) and the quiet one (the notes), in French and in English.
+		for (const kind of ['gesture', 'learn'] as const) {
+			const controller = new StageController();
+			controller.view.status = 'count-in';
+			controller.view.countdown = 4;
+			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+			render(PlayFrame, { props: { controller, kind } });
+			expect(screen.getByText('Niveau 2 sur 9 · ♩ = 85')).toBeTruthy();
+			cleanup();
+			i18n.locale = 'en';
+			try {
+				render(PlayFrame, { props: { controller, kind } });
+				expect(screen.getByText('Level 2 of 9 · ♩ = 85')).toBeTruthy();
+			} finally {
+				i18n.locale = 'fr';
+				cleanup();
+			}
+		}
+		const quiet = new StageController();
+		quiet.view.status = 'count-in';
+		render(PlayFrame, { props: { controller: quiet } });
+		expect(screen.queryByText(/niveau/i)).toBeNull();
+	});
+
+	it('tells a level in the field, prominently, and a remedy or the change of air in the status line, whatever the status', () => {
+		const shown = (
+			world: 'quiet' | 'pixel',
+			status: 'count-in' | 'awaiting',
+			kind: Announcement
+		): 'field' | 'status' | null => {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = status;
+			controller.view.announcement = { kind, level: 1, of: 4, tempoBpm: 90 };
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			const field = container.querySelector('.told');
+			const line = container.querySelector('.announcement');
+			cleanup();
+			if (field && line) throw new Error('told twice');
+			return field ? 'field' : line ? 'status' : null;
+		};
+		for (const world of ['quiet', 'pixel'] as const) {
+			for (const status of ['count-in', 'awaiting'] as const) {
+				// A level: only ever told before play (the breath, the listen-in, the count).
+				expect(shown(world, status, 'level-up')).toBe('field');
+				expect(shown(world, status, 'level-down')).toBe('field');
+				expect(shown(world, status, 'aid-level')).toBe('field');
+				// A remedy, the change of air: where they were.
+				expect(shown(world, status, 'play-along')).toBe('status');
+				expect(shown(world, status, 'listen-remedy')).toBe('status');
+				expect(shown(world, status, 'change-of-air')).toBe('status');
+			}
+		}
+		const controller = new StageController();
+		controller.view.status = 'count-in';
+		controller.view.announcement = { kind: 'level-up', level: 2, of: 4, tempoBpm: 90 };
+		render(PlayFrame, { props: { controller, kind: 'exercise' } });
+		expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 3 sur 4 · ♩ = 90');
+	});
+
+	it('lays the level over the field: the view does not move when it comes or goes', () => {
+		/** The elements in the flow around the view: every element on its way up but the overlay. */
+		const flowOf = (world: 'quiet' | 'pixel', told: boolean): string[] => {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = 'count-in';
+			controller.view.announcement = told
+				? { kind: 'level-up', level: 1, of: 4, tempoBpm: 90 }
+				: null;
+			const { container } = render(PlayFrame, {
+				props: { controller, kind: 'exercise', views: { ...PLAY_VIEWS, [name]: FakeView } }
+			});
+			const overlay = container.querySelector('.told');
+			expect(overlay !== null).toBe(told);
+			const flow: string[] = [];
+			const fake = container.querySelector('[data-testid="fake-view"]');
+			for (let node = fake?.parentElement; node && node !== container; node = node.parentElement) {
+				for (const child of node.children) {
+					if (child === overlay) continue;
+					flow.push(`${node.className}>${child.tagName}.${child.className}`);
+				}
+			}
+			cleanup();
+			return flow;
+		};
+		for (const world of ['quiet', 'pixel'] as const) {
+			expect(flowOf(world, true)).toEqual(flowOf(world, false));
+		}
+		// The overlay is out of the flow: positioned over its field, never pushing the view.
+		// jsdom runs from the project's root, and applies no component style: the rule is read.
+		const source = readFileSync('src/lib/ui/play/PlayFrame.svelte', 'utf8') as string;
+		const rules = [...source.matchAll(/([^{}]*\.told[^{}]*)\{([^}]*)\}/g)];
+		expect(rules.length).toBeGreaterThan(0);
+		expect(rules.some(([, , body]) => /position:\s*absolute/.test(body))).toBe(true);
+	});
+
+	it('tells the remedies, the aid level and the change of air, never a level below 1', () => {
+		const told = (kind: Announcement, level = 0) => {
+			const controller = new StageController();
+			controller.view.status = 'awaiting';
+			controller.view.announcement = { kind, level, of: 4, tempoBpm: 70 };
+			render(PlayFrame, { props: { controller, kind: 'exercise' } });
+			const text = screen.getByRole('status').textContent;
+			cleanup();
+			return text;
+		};
+		expect(told('listen-remedy')).toBe('On réécoute la figure');
+		expect(told('play-along')).toBe('On la joue ensemble');
+		expect(told('change-of-air')).toBe('On change d’air');
+		// A deeper aid level too: never « Niveau -1 ».
+		expect(told('aid-level', -1)).toBe('Niveau d’aide · ♩ = 70');
+		expect(told('aid-level', -2)).toBe('Niveau d’aide · ♩ = 70');
+		i18n.locale = 'en';
+		try {
+			expect(told('listen-remedy')).toBe('Let’s hear the figure again');
+			expect(told('aid-level', -2)).toBe('Aid level · ♩ = 70');
+		} finally {
+			i18n.locale = 'fr';
+		}
 	});
 
 	it('writes the count as a sentence', () => {
@@ -336,7 +506,6 @@ describe('PlayFrame', () => {
 					cursor: null,
 					feedback: 'every-cycle',
 					settled: [],
-					announcement: null,
 					listen: 'free',
 					plainWords: true
 				};

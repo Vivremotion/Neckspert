@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
-import { DEFAULT_TEMPO } from '$lib/domain/exercise/tempo';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
@@ -116,10 +115,10 @@ describe('neckSubject', () => {
 	it('serves the ladder the catalog writes, the same at every tempo', () => {
 		const subject = neckSubject({ definitions: DEFINITIONS });
 		expect(subject.ladder(LOCATE)).toEqual(ladderOf(LOCATE_NECK));
-		// A locate exercise whose tempo moves serves the same ladder: the tempo fits nothing.
+		// A locate exercise at another tempo serves the same ladder: the tempo fits nothing.
 		const moving = neckSubject({
 			definitions: {
-				locate: { ...LOCATE_NECK, tempo: { ...DEFAULT_TEMPO, start: 160 } },
+				locate: { ...LOCATE_NECK, tempo: 160 },
 				identify: IDENTIFY_NECK
 			}
 		});
@@ -191,6 +190,7 @@ describe('neckSubject', () => {
 		const planned: PlannedItem = {
 			exerciseId: LOCATE_NECK.id,
 			mechanic: LOCATE,
+			exerciseLevel: 0,
 			item: { string: 6, pitch: 'G' },
 			phase: 'consolidation',
 			temperature: 'hot',
@@ -205,6 +205,7 @@ describe('neckSubject', () => {
 		const planned = (leadBeats: 2 | 4): PlannedItem => ({
 			exerciseId: LOCATE_NECK.id,
 			mechanic: LOCATE,
+			exerciseLevel: 0,
 			item: { string: 6, pitch: 'G' },
 			phase: 'review',
 			temperature: 'cold',
@@ -228,6 +229,7 @@ describe('neckSubject', () => {
 		const named: PlannedItem = {
 			exerciseId: IDENTIFY_NECK.id,
 			mechanic: IDENTIFY,
+			exerciseLevel: 0,
 			item: { string: 6, fret: 3 },
 			phase: 'review',
 			temperature: 'cold',

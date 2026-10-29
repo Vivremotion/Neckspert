@@ -22,8 +22,9 @@ export interface SettledRound {
 	success: boolean;
 	/** Played with an aid the level does not give. */
 	aided: boolean;
-	report: CycleReport;
-	verdict: CycleVerdict;
+	/** The judge's report of a cycle; absent for a round judged otherwise (a response). */
+	report?: CycleReport;
+	verdict?: CycleVerdict;
 	/** `MATCH_LIMIT` in ms at the round's tempo: extras closer than this fall on the same spot. */
 	spotMs: number;
 }
@@ -39,13 +40,13 @@ const REASON_ORDER: readonly CycleFailure[] = [
 ];
 
 function reasonsOf(round: SettledRound): CycleFailure[] {
-	return round.verdict.passed ? [] : round.verdict.reasons;
+	return !round.verdict || round.verdict.passed ? [] : round.verdict.reasons;
 }
 
 function sameMissedSpot(rounds: readonly SettledRound[]): boolean {
 	const counts = new Map<number, number>();
 	for (const round of rounds) {
-		for (const expectation of round.report.expectations) {
+		for (const expectation of round.report?.expectations ?? []) {
 			if (expectation.verdict !== 'missed') continue;
 			counts.set(expectation.index, (counts.get(expectation.index) ?? 0) + 1);
 		}
@@ -58,8 +59,8 @@ function sameExtraSpot(rounds: readonly SettledRound[]): boolean {
 	rounds.forEach((a, i) => {
 		rounds.forEach((b, j) => {
 			if (j <= i) return;
-			const near = (a.report.extraAtMs ?? []).some((x) =>
-				(b.report.extraAtMs ?? []).some((y) => Math.abs(x - y) <= Math.min(a.spotMs, b.spotMs))
+			const near = (a.report?.extraAtMs ?? []).some((x) =>
+				(b.report?.extraAtMs ?? []).some((y) => Math.abs(x - y) <= Math.min(a.spotMs, b.spotMs))
 			);
 			if (near) {
 				paired.add(i);
@@ -70,8 +71,9 @@ function sameExtraSpot(rounds: readonly SettledRound[]): boolean {
 	return paired.size >= BLOCK_SAME_SPOT_CYCLES;
 }
 
-/** Reads the failed rounds that blocked a series. */
+/** Reads the failed rounds that blocked a series; rounds without a report tell nothing sure. */
 export function diagnoseBlock(rounds: readonly SettledRound[]): BlockDiagnosis {
+	if (rounds.some((round) => !round.report || !round.verdict)) return 'unclear';
 	const played = rounds.every(
 		(round) =>
 			!round.success &&

@@ -51,12 +51,13 @@ function plannedOf(item: ChordGridItem): PlannedItem {
 	return {
 		exerciseId: 'gesture-jam',
 		mechanic: 'chord-grid',
+		exerciseLevel: 0,
 		item,
 		phase: 'free',
 		temperature: 'hot',
 		aid: 'none',
 		leadBeats: null,
-		tempoScope: 'iohefy-a'
+		scope: 'iohefy-a'
 	};
 }
 
@@ -139,7 +140,7 @@ describe('responseAttempt', () => {
 			reactionMs: 530,
 			leadBeats: null,
 			tempoBpm: 120,
-			tempoScope: 'iohefy-a',
+			scope: 'iohefy-a',
 			temperature: 'hot',
 			phase: 'free',
 			measures: {},
@@ -245,7 +246,7 @@ describe('responseAttempt', () => {
 			promptedAt: clock.toEpochMs(PROMPT_S),
 			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item))
 		});
-		expect(attempt).not.toHaveProperty('tempoScope');
+		expect(attempt).not.toHaveProperty('scope');
 	});
 });
 

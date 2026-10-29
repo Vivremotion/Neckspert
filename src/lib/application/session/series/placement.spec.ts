@@ -5,7 +5,15 @@ import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, type Meter } from '$lib/domain/time';
 import type { LeadBeats, PlannedItem } from '$lib/domain/types';
 import { change as gridChange } from '$lib/testing/gestureSeries';
-import { inFreeTime, nextBeat, timedStart } from './placement';
+import type { Scene } from '$lib/domain/exercise/types';
+import {
+	chainable,
+	inFreeTime,
+	nextBeat,
+	placeNext,
+	timedStart,
+	type PlacementContext
+} from './placement';
 
 const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS };
@@ -16,6 +24,7 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		{
 			exerciseId: LOCATE_NECK.id,
 			mechanic: 'locate',
+			exerciseLevel: 0,
 			item: { string: 3, pitch: 'C' },
 			phase: 'learning',
 			temperature: 'hot',
@@ -32,6 +41,7 @@ const free = compileRound(
 	{
 		exerciseId: IDENTIFY_NECK.id,
 		mechanic: 'identify',
+		exerciseLevel: 0,
 		item: { string: 3, fret: 5 },
 		phase: 'learning',
 		temperature: 'hot',
@@ -156,6 +166,114 @@ describe('placement', () => {
 			expect(inFreeTime(free)).toBe(true);
 			expect(inFreeTime(locate(4, METER_4_4))).toBe(false);
 			expect(inFreeTime({ ...free, expectations: [] })).toBe(false);
+		});
+	});
+
+	describe('placeNext', () => {
+		const SCENE: Scene = 'guitar';
+		const tempo80 = { tempo: 80, meter: METER_4_4, scene: SCENE };
+		const earliest = Fraction.of(3);
+
+		/** Round after round at 80 bpm in 4/4 on the guitar, nothing past, nothing asked. */
+		const context = (over: Partial<PlacementContext> = {}): PlacementContext => ({
+			earliest,
+			handover: false,
+			nowBar: Fraction.ZERO,
+			current: tempo80,
+			coming: { ...tempo80, countIn: false, restBars: 0 },
+			plan: locate(4, METER_4_4),
+			firstAudibleBar: 3,
+			...over
+		});
+
+		it('chains at the handover when nothing changes', () => {
+			const plan = change(METER_4_4);
+			expect(placeNext(context({ handover: true, plan }))).toEqual({
+				kind: 'chain',
+				start: earliest
+			});
+		});
+
+		it('places after the breath on the first start its plan allows', () => {
+			const plan = locate(4, METER_4_4);
+			const placement = placeNext(context({ plan }));
+			expect(placement).toEqual({
+				kind: 'after-breath',
+				start: timedStart(earliest, plan, METER_4_4)
+			});
+		});
+
+		it('never starts a round with its prompt already past', () => {
+			const plan = locate(8, METER_4_4);
+			// Bar 9 is where the clock is: the prompt of a round starting on bar 5 (bar 3) is long gone.
+			const placement = placeNext(context({ plan, nowBar: Fraction.of(9) }));
+			expect(placement.kind).toBe('after-breath');
+			if (placement.kind === 'after-breath') {
+				expect(placement.start.compare(Fraction.of(9)) >= 0).toBe(true);
+				expect(promptBar(placement.start, plan, METER_4_4).compare(Fraction.of(9)) >= 0).toBe(true);
+			}
+		});
+
+		it('opens on the next beat in free time', () => {
+			const at = Fraction.of(13, 4);
+			expect(placeNext(context({ earliest: at, plan: free }))).toEqual({
+				kind: 'next-beat',
+				start: nextBeat(at, METER_4_4)
+			});
+		});
+
+		it('counts a bar at another tempo', () => {
+			expect(
+				placeNext(context({ coming: { ...tempo80, tempo: 85, countIn: false, restBars: 0 } }))
+			).toEqual({ kind: 'count-in', fromBar: 3, tempo: 85, meter: null, restBars: 0 });
+		});
+
+		it('counts a bar in another meter', () => {
+			expect(
+				placeNext(
+					context({ coming: { ...tempo80, meter: METER_3_4, countIn: false, restBars: 0 } })
+				)
+			).toEqual({ kind: 'count-in', fromBar: 3, tempo: 80, meter: METER_3_4, restBars: 0 });
+		});
+
+		it('counts a bar before another scene', () => {
+			expect(
+				placeNext(context({ coming: { ...tempo80, scene: 'screen', countIn: false, restBars: 0 } }))
+			).toEqual({ kind: 'count-in', fromBar: 3, tempo: null, meter: null, restBars: 0 });
+		});
+
+		it('asks its rest bars before a counted bar', () => {
+			// The earliest is past: the count goes to the first audible bar.
+			expect(
+				placeNext(
+					context({
+						earliest: Fraction.of(2),
+						firstAudibleBar: 5,
+						coming: { ...tempo80, countIn: true, restBars: 2 }
+					})
+				)
+			).toEqual({ kind: 'count-in', fromBar: 5, tempo: null, meter: null, restBars: 2 });
+		});
+
+		it('ignores its rest bars when it has no counted bar', () => {
+			// Another scene brings the count, but only an item that asks a count asks its rest.
+			expect(
+				placeNext(context({ coming: { ...tempo80, scene: 'screen', countIn: false, restBars: 2 } }))
+			).toMatchObject({ kind: 'count-in', restBars: 0 });
+		});
+
+		it('never counts rest bars at a change of tempo or meter', () => {
+			for (const coming of [
+				{ ...tempo80, tempo: 85, countIn: true, restBars: 2 },
+				{ ...tempo80, meter: METER_3_4, countIn: true, restBars: 2 }
+			]) {
+				expect(placeNext(context({ coming }))).toMatchObject({ kind: 'count-in', restBars: 0 });
+			}
+		});
+
+		it('goes on without a gap only when no counted bar is asked', () => {
+			expect(chainable(tempo80, { ...tempo80, countIn: true, restBars: 0 })).toBe(false);
+			expect(chainable(tempo80, { ...tempo80, countIn: false, restBars: 0 })).toBe(true);
 		});
 	});
 });

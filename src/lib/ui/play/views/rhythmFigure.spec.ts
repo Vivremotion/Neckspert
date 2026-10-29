@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel, SettledCycle } from '$lib/application/session/plan/rhythmStage';
+import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
 import {
 	attackPositions,
 	Fraction,
@@ -430,7 +430,6 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		cursor: Fraction.of(1, 4),
 		feedback: 'every-cycle',
 		settled: [],
-		announcement: null,
 		listen: 'free',
 		plainWords: true,
 		...overrides

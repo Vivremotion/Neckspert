@@ -14,7 +14,6 @@ import {
 import { CONTENT_VIEWS, type ContentView } from '$lib/application/presentation/contentViews';
 import { ITEM_FIELDS, type ItemFields } from '$lib/application/presentation/itemFields';
 import { drain, gestureSeries } from '$lib/testing/gestureSeries';
-import { seriesProblem } from './series/seriesProblem';
 import type { Observation, SensorFactory } from './sensors';
 
 /**
@@ -90,7 +89,7 @@ const EXERCISE: ExerciseDefinition = {
 	version: 1,
 	mechanic: MECHANIC,
 	view: 'lane',
-	tempo: { fixed: 120 },
+	tempo: 120,
 	presentation: { primary: '{n}', secondary: { fr: 'le nombre', en: 'the number' } },
 	round: {
 		prompt: { lead: { param: 'leadBeats' } },
@@ -140,6 +139,7 @@ function item(n: number, phase: ItemPhase = 'free'): PlannedItem {
 	return {
 		exerciseId: EXERCISE.id,
 		mechanic: MECHANIC,
+		exerciseLevel: 0,
 		item: { n },
 		phase,
 		temperature: 'hot',
@@ -164,8 +164,7 @@ function setup(items: PlannedItem[] = [item(3), item(5)]) {
 	const ctx = gestureSeries(items, {
 		mechanics: { [MECHANIC]: presenter },
 		exercise: () => EXERCISE,
-		sensors: { [MECHANIC]: sensor },
-		executions: [{ exerciseId: EXERCISE.id, tempoBpm: 120 }]
+		sensors: { [MECHANIC]: sensor }
 	});
 	const target = ctx.bar(2);
 	const read = (time: number, value: number, final = true) =>
@@ -186,7 +185,6 @@ describe('a third mechanic, unknown to the core', () => {
 		expect(validateExercise(EXERCISE, { sensors: [MECHANIC] })).toBeNull();
 		expect(presentationProblem(EXERCISE)).toBeNull();
 		expect(screenProblem(EXERCISE, { [MECHANIC]: presenter })).toBeNull();
-		expect(seriesProblem(EXERCISE)).toBeNull();
 	});
 
 	it('plays a mechanic the core has never seen, on the beat', async () => {

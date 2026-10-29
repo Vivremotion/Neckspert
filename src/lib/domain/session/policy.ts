@@ -3,7 +3,6 @@ import {
 	nextLevelState,
 	type CycleFailure,
 	type Level,
-	type LevelParams,
 	type LevelState
 } from '$lib/domain/time';
 import {
@@ -24,11 +23,17 @@ export type Remedy = 'listen' | 'play-along';
 
 /** What the policy reads of an exercise. */
 export interface SeriesRules {
-	levels: readonly Level[];
-	params(level: number): Pick<LevelParams, 'cyclesPerBreath' | 'listen'>;
+	levels: readonly Level<unknown>[];
+	/** Rounds a run plays before its breath at this level; null: the items decide (a counted bar). */
+	roundsPerBreath(level: number): number | null;
+	/** What listening the level offers: free, as an aid, or none. */
+	listen(level: number): 'free' | 'aid' | 'none';
 	/** The exercise can make its content sound (a figure): listening and playing along are remedies. */
 	canSound: boolean;
+	/** The series' length: past it, the first boundary where the next round does not chain ends it. */
 	budgetMs: number;
+	/** The exercise asks the anti-blocking (`flow.antiBlocking`); without it a level only moves. */
+	antiBlocking: boolean;
 }
 
 export interface SeriesState {
@@ -76,19 +81,37 @@ export function startRun(state: SeriesState): SeriesState {
 	return { ...state, run: { level: state.levelState.level, played: 0 } };
 }
 
-/** What the series plays next, at a boundary between rounds; `elapsedMs` since it began. */
+/** The round that comes, as the series would place it. */
+export interface Coming {
+	/** It goes on from the round before without a gap (a handover, nothing changed). */
+	chains: boolean;
+	/** A counted bar comes before it. */
+	countIn: boolean;
+}
+
+/**
+ * What the series plays next, at a boundary between rounds; `elapsedMs` since it began; `coming`,
+ * the next item taken from its source, null when the source has nothing more (decision D7 of plan
+ * H6). A run ends after `roundsPerBreath` rounds, or before an item that asks a counted bar once it
+ * has played a round: a breath. Past `budgetMs`, the series ends at the first boundary where the
+ * next round does not chain; a run's last round never chains to the round after its breath.
+ */
 export function next(
 	state: SeriesState,
 	rules: SeriesRules,
-	elapsedMs: number
+	elapsedMs: number,
+	coming: Coming | null
 ): { state: SeriesState; next: Next } {
 	if (state.ending) return { state, next: { role: 'end', reason: state.ending } };
+	if (!coming) return { state, next: { role: 'end', reason: 'complete' } };
 	const run = state.run;
 	if (!run) throw new Error('no run under way: start one first');
-	if (run.played >= rules.params(run.level).cyclesPerBreath) {
-		if (elapsedMs >= rules.budgetMs) return { state, next: { role: 'end', reason: 'time' } };
-		return { state: { ...state, run: null }, next: { role: 'breath' } };
+	const length = rules.roundsPerBreath(run.level);
+	const breathes = (length !== null && run.played >= length) || (coming.countIn && run.played > 0);
+	if (!(coming.chains && !breathes) && elapsedMs >= rules.budgetMs) {
+		return { state, next: { role: 'end', reason: 'time' } };
 	}
+	if (breathes) return { state: { ...state, run: null }, next: { role: 'breath' } };
 	const [remedy, ...rest] = state.remedies;
 	if (remedy === 'listen') {
 		return { state: { ...state, remedies: rest }, next: { role: 'listen', remedy: true } };
@@ -99,7 +122,7 @@ export function next(
 			next: { role: 'round', aid: 'play-along', remedy: true }
 		};
 	}
-	if (state.listenAsked && rules.params(run.level).listen !== 'none') {
+	if (state.listenAsked && rules.listen(run.level) !== 'none') {
 		return { state: { ...state, listenAsked: false }, next: { role: 'listen', remedy: false } };
 	}
 	return {
@@ -111,15 +134,15 @@ export function next(
 /** The player asked to hear the content: the next round is heard, unless the level offers no listening. */
 export function askListen(state: SeriesState, rules: SeriesRules): SeriesState {
 	const level = state.run?.level ?? state.levelState.level;
-	if (rules.params(level).listen === 'none') return state;
+	if (rules.listen(level) === 'none') return state;
 	return { ...state, listenAsked: true };
 }
 
 /**
- * A round settled: the level moves as `nextLevelState` says; at the floor, `BLOCK_AFTER_FAILS`
- * failures in a row bring the anti-blocking (spec amendment 2026-10-17): at level 1 a remedy
- * once (by `diagnoseBlock`), then the aid level, one deeper at each block, and below the lowest
- * « On change d’air ». A level it changes holds from the next run.
+ * A round settled: the level moves as `nextLevelState` says; at the floor, when the rules ask
+ * it, `BLOCK_AFTER_FAILS` failures in a row bring the anti-blocking (spec amendment 2026-10-17):
+ * at level 1 a remedy once (by `diagnoseBlock`), then the aid level, one deeper at each block,
+ * and below the lowest « On change d’air ». A level it changes holds from the next run.
  */
 export function settle(
 	state: SeriesState,
@@ -145,6 +168,7 @@ export function settle(
 	const recent =
 		round.success && !round.aided ? [] : [...state.recent, round].slice(-BLOCK_AFTER_FAILS);
 	const held: SeriesState = { ...state, levelState: moved.state, recent };
+	if (!rules.antiBlocking) return { state: held, changed: null, acted: null };
 	const { level, failures } = held.levelState;
 	// The run of failures must be this series' own: failures stored from earlier sessions count
 	// for the level, never alone for the anti-blocking.

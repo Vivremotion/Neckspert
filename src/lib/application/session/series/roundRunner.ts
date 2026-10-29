@@ -4,7 +4,9 @@ import {
 	PlanRound,
 	POSITION_RESOLUTION,
 	segmentAt,
+	type Aid,
 	type CycleReport,
+	type LevelParams,
 	type RoundEvent,
 	type RoundOutcome,
 	type RoundPlan,
@@ -85,6 +87,10 @@ export class RoundRunner {
 		map: TempoMap;
 		/** The calibrated latency of a sensor; the round takes that of its first expectation's. */
 		latencyOf: (sensor: SensorKind) => CycleReport['latency'];
+		/** The level's thresholds, for a verdict that reads them; none by default. */
+		thresholds?: LevelParams['thresholds'] | null;
+		/** The aids the round is played with; by default the item's own (`aidsOf`). */
+		aids?: Aid[];
 		sources: ReadonlyMap<SensorKind, ObservationSource>;
 		expectation: Partial<Record<SensorKind, unknown>>;
 		/** The presenter's lines for an observation's payload, written to the detection log. */
@@ -108,8 +114,8 @@ export class RoundRunner {
 			chained: input.chained,
 			judges: contentJudges,
 			latency: first ? input.latencyOf(first.sensor) : null,
-			thresholds: null,
-			aids: aidsOf(input.item)
+			thresholds: input.thresholds ?? null,
+			aids: input.aids ?? aidsOf(input.item)
 		});
 		this.handoverTime = this.#round.handoverTime;
 		this.span = new ObservationSpan(this.#round.promptTime, input.item);
@@ -143,6 +149,29 @@ export class RoundRunner {
 		this.span.add(sensor, observation, observed.fate, correct);
 		this.#log(sensor, observation, observed.fate, correct);
 		this.#tell(observed.event);
+	}
+
+	/**
+	 * Offers an observation to a round still listening after its handover, the next round open
+	 * meanwhile (a cycle settled a little after its end): taken only when the round answers it,
+	 * then filed and told as `observe` does; else left, unfiled, for the round open now. True
+	 * when taken.
+	 */
+	offerLate(sensor: SensorKind, observation: Observation): boolean {
+		if (this.#settled || !observation.readable) return false;
+		const observed = this.#round.observe({
+			time: observation.time,
+			sensor,
+			readable: true,
+			payload: observation.payload,
+			final: observation.final
+		});
+		if (observed.fate !== 'answer') return false;
+		const correct = observed.judged?.correct ?? this.#judge(sensor, observation.payload);
+		this.span.add(sensor, observation, observed.fate, correct);
+		this.#log(sensor, observation, observed.fate, correct);
+		this.#tell(observed.event);
+		return true;
 	}
 
 	/**

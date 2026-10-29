@@ -7,7 +7,8 @@ import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
 import { pacingOf } from '../pacing';
 import { ladderFieldOf, ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
-import { exerciseParamsOf } from './compile';
+import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
+import { levelRange } from '../../time/levels';
 
 /** What a check may be told about the session that will play the exercise. */
 export interface RoundCheckOptions {
@@ -487,9 +488,29 @@ function shapeProblem(check: Check, template: Record_): string | null {
 	const mode = (policy.pairing as Record_).mode as string;
 	const pairing = ROUND_MODES.pairings[mode].validate?.(plan) ?? null;
 	if (pairing !== null) return at('policy.pairing', `cannot be run by mode "${mode}": ${pairing}`);
-	const verdict = ROUND_MODES.verdicts[policy.verdict as string].validate?.(plan) ?? null;
+	const verdictMode = ROUND_MODES.verdicts[policy.verdict as string];
+	const verdict = verdictMode.validate?.(plan) ?? null;
 	if (verdict !== null) {
 		return at('policy.verdict', `"${String(policy.verdict)}" cannot judge the round: ${verdict}`);
+	}
+	if (verdictMode.readsThresholds) {
+		const level = levelWithoutThresholds(check.definition);
+		if (level !== null) {
+			return at(
+				'policy.verdict',
+				`"${String(policy.verdict)}" judges against params.thresholds, which exercise level ${level} does not give`
+			);
+		}
+	}
+	return null;
+}
+
+/** The first exercise level whose resolved params give no thresholds; null when every one does. */
+function levelWithoutThresholds(definition: ExerciseDefinition): number | null {
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	for (let level = lowest; level <= highest; level++) {
+		const { thresholds } = resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null });
+		if (typeof thresholds !== 'object' || thresholds === null) return level;
 	}
 	return null;
 }

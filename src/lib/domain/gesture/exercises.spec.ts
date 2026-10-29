@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES, exerciseById } from '$lib/domain/exercise';
+import { EXERCISES, exerciseById, exerciseLevelsOf, tempoOf } from '$lib/domain/exercise';
 import {
 	GESTURE_CLIMB,
 	GESTURE_EXERCISES,
@@ -27,7 +27,16 @@ describe('the gesture exercises', () => {
 			/^Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave/
 		);
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(exercise).toMatchObject({ mechanic: 'chord-grid', startTempoBpm: 80 });
+			expect(exercise).toMatchObject({ mechanic: 'chord-grid', tempo: 80 });
+			// Nine tempo levels, 80 to 120 by 5, up after ten right changes, down after three misses.
+			expect(exerciseLevelsOf(exercise).map((_, level) => tempoOf(exercise, level))).toEqual([
+				80, 85, 90, 95, 100, 105, 110, 115, 120
+			]);
+			expect(
+				exercise.levels?.every(
+					(level) => level.pass?.successes === 10 && level.drop?.failures === 3 && !level.aid
+				)
+			).toBe(true);
 			expect(exercise.howTo?.fr && exercise.howTo.en).toBeTruthy();
 			expect(EXERCISES).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);

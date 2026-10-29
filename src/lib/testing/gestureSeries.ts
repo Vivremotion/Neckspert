@@ -1,12 +1,13 @@
-/** A response series on the gesture's real presenter and exercises, with scripted items and the fakes. */
-import { exerciseById } from '$lib/domain/exercise';
+/** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
+import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
 import type { GridChange } from '$lib/domain/grid';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
+import type { Level, LevelState } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Attempt, Execution, PlannedItem, SessionKind } from '$lib/domain/types';
+import type { Attempt, PlannedItem, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { GESTURE_PRESENTERS, type GridStageModel } from '$lib/application/mechanics/chordGrid';
 import {
@@ -14,16 +15,18 @@ import {
 	FakeClock,
 	FakeNoteDetector,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
-	InMemoryProgressionRepository,
+	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
-import type { ResponseSeriesDeps } from '$lib/application/session/SessionDeps';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionMemory } from '$lib/application/session/sessionMemory';
+import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
 
 export const G_B_E: StringNumber[] = [3, 2, 1];
 /** Two changes of one bar each: a passage lasts two bars. */
@@ -45,6 +48,7 @@ export function change(index: number, options: ChangeOptions = {}): PlannedItem<
 	return {
 		exerciseId: options.exerciseId ?? 'gesture-jam',
 		mechanic: 'chord-grid',
+		exerciseLevel: 0,
 		item: {
 			rule: 'jam',
 			element: `jam:${scope}`,
@@ -61,7 +65,7 @@ export function change(index: number, options: ChangeOptions = {}): PlannedItem<
 		aid: 'none',
 		leadBeats: null,
 		...(index === 0 && { countIn: true }),
-		tempoScope: scope
+		scope
 	};
 }
 
@@ -106,11 +110,31 @@ export class ScriptedSource implements ItemSource {
 	cardChanged(): void {}
 }
 
-export const EXECUTIONS: Execution[] = [
-	{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 },
-	{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 60 },
-	{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 60 }
-];
+/** A count no session reaches: the bench's levels never move on their own. */
+const NEVER = 1_000_000;
+
+/**
+ * The bench's levels of every chord-grid exercise: level 0 at ♩ = 120, level 1 at ♩ = 60, held
+ * whatever is played. The tempo a scope plays at is its stored level's.
+ */
+export const BENCH_LEVELS: Level<LevelOverrides>[] = [120, 60].map((tempo) => ({
+	params: { tempo },
+	pass: { successes: NEVER },
+	drop: { failures: NEVER }
+}));
+
+/** Where the bench's scopes stand: the jam's iohefy-a (and the link) at 120, the rest at 60. */
+export const BENCH_LEVEL_STATES: LevelState[] = [
+	{ exerciseId: 'gesture-jam', scope: 'blues-f', level: 1 },
+	{ exerciseId: 'gesture-zone', scope: 'iohefy-a', level: 1 }
+].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
+
+/** A chord-grid exercise on the bench's levels; any other as it is. */
+function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
+	return definition.mechanic === 'chord-grid'
+		? { ...definition, levels: BENCH_LEVELS }
+		: definition;
+}
 
 /**
  * ♩ = 120 bpm from 0.1 s: a beat lasts 0.5 s, a bar 2 s. The counted bar is bar 0, the first
@@ -121,14 +145,19 @@ export function gestureSeries(
 	items: PlannedItem[],
 	options: {
 		development?: boolean;
-		exercise?: ResponseSeriesDeps['exercise'];
+		exercise?: SessionControllerDeps['exercise'];
 		/** The source of each series in turn; the first defaults to `items`. */
 		sources?: ItemSource[];
-		executions?: Execution[];
+		/**
+		 * The exercise levels stored before the series; `BENCH_LEVEL_STATES` by default, read on
+		 * the bench's levels. With `catalogLevels`, the catalog's own levels, none stored by default.
+		 */
+		levelStates?: LevelState[];
+		catalogLevels?: boolean;
 		/** The presenters, by mechanic: the gesture's by default. */
-		mechanics?: ResponseSeriesDeps['mechanics'];
+		mechanics?: SessionControllerDeps['mechanics'];
 		/** Sensors beside the chord sensor. */
-		sensors?: ResponseSeriesDeps['sensors'];
+		sensors?: SessionControllerDeps['sensors'];
 		random?: () => number;
 		/** The series' length its preparation gives; absent: none given. */
 		durationMs?: number;
@@ -141,14 +170,19 @@ export function gestureSeries(
 	const verifier = new CutShortVerifier();
 	const detector = new FakeNoteDetector();
 	const source = new ScriptedSource([...items]);
+	const takes = new FakeTakeBuffer();
+	const memory = new SessionMemory();
 	const sources: ItemSource[] = options.sources ?? [source];
-	const executions = options.executions ?? EXECUTIONS;
 	const repositories = {
 		attempts: new InMemoryAttemptRepository(),
 		sessions: new InMemorySessionRepository(),
-		settings: new InMemorySettingsRepository(),
-		progressions: new InMemoryProgressionRepository()
+		settings: new InMemorySettingsRepository()
 	};
+	const levels = new InMemoryLevelStateRepository();
+	for (const state of options.levelStates ?? (options.catalogLevels ? [] : BENCH_LEVEL_STATES)) {
+		void levels.put(state);
+	}
+	const lookUp = options.exercise ?? exerciseById;
 	/** The cards the recorders write, shared by every series of this bench. */
 	const cards = new InMemoryCardStateRepository();
 	let ids = 1;
@@ -156,13 +190,16 @@ export function gestureSeries(
 	const sourceOf = new Map<string, ItemSource>();
 	/** Every recorder handed out, so `stored` reads once their writes have settled. */
 	const recorders: AttemptRecorder[] = [];
-	const deps: ResponseSeriesDeps = {
+	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
 		sensors: { chord: chordSensor(verifier), ...options.sensors },
 		mechanics: options.mechanics ?? GESTURE_PRESENTERS,
 		repositories,
+		levels,
+		takes,
+		memory,
 		recorderFor: (sessionId) => {
 			const recorder = new AttemptRecorder({
 				attempts: repositories.attempts,
@@ -176,14 +213,14 @@ export function gestureSeries(
 			recorders.push(recorder);
 			return recorder;
 		},
-		exercise: options.exercise ?? exerciseById,
+		exercise: options.catalogLevels ? lookUp : (id) => onBenchLevels(lookUp(id)),
 		locale: () => 'fr',
 		newId: () => `series-${++ids}`,
 		development: options.development ?? false,
 		random: options.random ?? (() => 0)
 	};
 	const prepared: string[] = [];
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'series-1', kind: options.kind ?? 'gesture' },
 		async (sessionId) => {
 			prepared.push(sessionId);
@@ -192,7 +229,6 @@ export function gestureSeries(
 			sourceOf.set(sessionId, next);
 			return {
 				source: next,
-				executions,
 				...(options.durationMs !== undefined && { durationMs: options.durationMs })
 			};
 		},
@@ -206,6 +242,8 @@ export function gestureSeries(
 		const until = time + 1e-6;
 		while (clock.now() < until - 1e-12) {
 			clock.time = Math.min(clock.now() + 0.01, until);
+			// The input arrives as the clock runs: the take buffer keeps what it is asked to.
+			takes.hear(clock.now());
 			sounds.flush();
 		}
 	};
@@ -230,6 +268,9 @@ export function gestureSeries(
 		verifier,
 		source,
 		repositories,
+		levels,
+		takes,
+		memory,
 		cards,
 		controller,
 		prepared,
@@ -264,8 +305,12 @@ export function model(ctx: Ctx): GridStageModel {
 	return ctx.controller.view.stage?.model as GridStageModel;
 }
 
-/** Roles of the trace's segments inside the series, in order. */
+/** Roles of the trace's segments inside the series, in order, a run's own in its place. */
 export function roles(trace: Segment | null): string[] {
 	const series = trace?.children.find((s) => s.role === 'series');
-	return series?.children.map((s) => s.role) ?? [];
+	return (
+		series?.children.flatMap((s) =>
+			s.role === 'run' ? s.children.map((c) => c.role) : [s.role]
+		) ?? []
+	);
 }

@@ -455,7 +455,7 @@ class Procedure implements LearningProcedure {
 		);
 		this.cards.set(key, card);
 		this.unansweredProbe = key;
-		return { planned: this.plan(ref, 'probe', 'cold', this.topParams(ref), false), ref };
+		return { planned: this.plan(ref, 'probe', 'cold', this.topLevel(ref), false), ref };
 	}
 
 	/**
@@ -517,17 +517,25 @@ class Procedure implements LearningProcedure {
 		return this.subject.ladder(ref.mechanic);
 	}
 
-	/** The params of the item's level, brought into today's ladder. */
-	private levelParams(ref: CardRef): LadderParams {
-		const ladder = this.ladderOf(ref);
-		const { lowest } = levelRange(ladder);
-		const { level } = ladderLevel(this.levelOf(ref), ladder);
-		return ladder[level - lowest].params as LadderParams;
+	/** The item's level, brought into today's ladder. */
+	private ladderLevelOf(ref: CardRef): number {
+		return ladderLevel(this.levelOf(ref), this.ladderOf(ref)).level;
 	}
 
-	private topParams(ref: CardRef): LadderParams {
+	/** The params of level `level` of the item's ladder. */
+	private paramsAt(ref: CardRef, level: number): LadderParams {
 		const ladder = this.ladderOf(ref);
-		return ladder[ladder.length - 1].params as LadderParams;
+		return ladder[level - levelRange(ladder).lowest].params as LadderParams;
+	}
+
+	/** The params of the item's level, brought into today's ladder. */
+	private levelParams(ref: CardRef): LadderParams {
+		return this.paramsAt(ref, this.ladderLevelOf(ref));
+	}
+
+	/** The top of the item's ladder. */
+	private topLevel(ref: CardRef): number {
+		return levelRange(this.ladderOf(ref)).highest;
 	}
 
 	/** An item served at its level; aided only while learning, at the aided level. */
@@ -536,9 +544,10 @@ class Procedure implements LearningProcedure {
 		phase: ItemPhase,
 		temperature: Temperature
 	): { planned: PlannedItem; ref: CardRef } {
-		const params = this.levelParams(ref);
+		const level = this.ladderLevelOf(ref);
+		const params = this.paramsAt(ref, level);
 		const fading = temperature === 'hot' && this.fadingAid.has(this.keyOf(ref));
-		const planned = this.plan(ref, phase, temperature, params, fading);
+		const planned = this.plan(ref, phase, temperature, level, fading);
 		if (phase === 'learning' && params.aided) planned.aid = 'show-position';
 		return { planned, ref };
 	}
@@ -547,9 +556,10 @@ class Procedure implements LearningProcedure {
 		ref: CardRef,
 		phase: ItemPhase,
 		temperature: Temperature,
-		params: LadderParams,
+		level: number,
 		stringAid: boolean
 	): PlannedItem {
+		const params = this.paramsAt(ref, level);
 		return {
 			exerciseId: this.subject.exerciseOf(ref.mechanic),
 			mechanic: ref.mechanic,
@@ -558,6 +568,8 @@ class Procedure implements LearningProcedure {
 			temperature,
 			aid: 'none',
 			leadBeats: params.leadBeats,
+			level,
+			exerciseLevel: 0,
 			...(stringAid && { stringAid: true })
 		};
 	}

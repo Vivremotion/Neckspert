@@ -12,16 +12,16 @@ import { acceptableMidis } from '$lib/domain/music';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
-import { SESSION_MS } from '$lib/domain/session';
-import { Fraction, type Meter } from '$lib/domain/time';
+import { SESSION_MS, type Segment } from '$lib/domain/session';
+import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
+import { earlier } from '$lib/testing/rhythmSeries';
 import { triadCards } from '$lib/testing/shapes';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
-import type { Observation, SensorFactory } from '../sensors';
+import type { Observation, SensorFactory } from './sensors';
 import {
-	EXECUTIONS,
 	G_B_E,
 	type Ctx,
 	ScriptedSource,
@@ -48,8 +48,16 @@ const withoutHandover = withRound((round) => {
 	return edited;
 });
 
-describe('ResponseSeriesController', () => {
+describe('SessionController', () => {
 	describe('start', () => {
+		it('tells an exercise’s instruction in every series, played before or not', async () => {
+			const ctx = setup(passage());
+			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), mechanic: 'chord-grid' });
+			expect(exerciseById('gesture-jam').flow?.briefing).toBeUndefined();
+			await ctx.controller.ready();
+			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
+		});
+
 		it('tells the first exercise’s instruction on the start screen, before any sound', async () => {
 			const ctx = setup(passage());
 			await ctx.controller.ready();
@@ -57,6 +65,92 @@ describe('ResponseSeriesController', () => {
 			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
 			expect(ctx.sounds.emitted()).toEqual([]);
 			expect(ctx.prepared).toEqual(['series-1']);
+		});
+
+		it('shows the first exercise’s view from the start screen, before any sound', async () => {
+			const ctx = setup(passage());
+			expect(ctx.controller.view.stage).toBeNull();
+			await ctx.controller.ready();
+			expect(ctx.controller.view.status).toBe('idle');
+			// The exercise of the first item (a jam) names its view.
+			expect(ctx.controller.view.stage?.view).toBe('grid-scroll');
+			expect(ctx.sounds.emitted()).toEqual([]);
+		});
+
+		it('closes the input that opens after a quit during the permission prompt', async () => {
+			const ctx = setup(passage());
+			let allow: () => void = () => {};
+			ctx.detector.start = vi.fn(async (deviceId: string | null) => {
+				await new Promise<void>((resolve) => (allow = resolve));
+				ctx.detector.running = true;
+				ctx.detector.deviceId = deviceId;
+			});
+			const starting = ctx.controller.start();
+			await drain();
+			expect(ctx.detector.start).toHaveBeenCalledTimes(1);
+			ctx.controller.quit();
+			await drain();
+			// The prompt is answered after the quit: the input opens, then is closed at once.
+			allow();
+			await starting;
+			await drain();
+			expect(ctx.detector.running).toBe(false);
+			expect(await ctx.repositories.sessions.list()).toEqual([]);
+			expect(ctx.controller.view.status).toBe('finished');
+		});
+
+		it('leaves open the input of a new start made after that quit', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			const allows: (() => void)[] = [];
+			ctx.detector.start = vi.fn(async () => {
+				await new Promise<void>((resolve) => allows.push(resolve));
+				ctx.detector.running = true;
+			});
+			const first = ctx.controller.start();
+			await drain();
+			ctx.controller.quit();
+			await drain();
+			const second = ctx.controller.start();
+			await drain();
+			expect(allows).toHaveLength(2);
+			// The first prompt is answered late, while the second start still waits on its own.
+			allows[0]();
+			await first;
+			await drain();
+			expect(ctx.detector.running).toBe(true);
+			allows[1]();
+			await second;
+			expect(ctx.detector.running).toBe(true);
+		});
+
+		it('leaves open the input of a newer start that completed before the stale opening resolved', async () => {
+			const ctx = setup(passage(), {
+				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
+			});
+			const allows: (() => void)[] = [];
+			ctx.detector.start = vi.fn(async () => {
+				await new Promise<void>((resolve) => allows.push(resolve));
+				ctx.detector.running = true;
+			});
+			const first = ctx.controller.start();
+			await drain();
+			ctx.controller.quit();
+			await drain();
+			const second = ctx.controller.start();
+			await drain();
+			// The newer start's prompt is answered first and its run begins.
+			allows[1]();
+			await second;
+			expect(ctx.controller.view.status).toBe('count-in');
+			expect(ctx.detector.running).toBe(true);
+			// Then the stale opening resolves: it must not stop the live run's input.
+			allows[0]();
+			await first;
+			await drain();
+			expect(ctx.detector.running).toBe(true);
+			expect(ctx.controller.view.status).toBe('count-in');
 		});
 
 		it('counts a bar at the first tempo, then opens the first change a beat before its target on the next 1', async () => {
@@ -176,7 +270,7 @@ describe('ResponseSeriesController', () => {
 			ctx.runTo(20.1 + 0.03);
 			ctx.play(20.12, rightShape(change(0)));
 			const attempts = await ctx.stored();
-			expect(attempts.map((a) => [a.tempoBpm, a.tempoScope, a.success])).toEqual([
+			expect(attempts.map((a) => [a.tempoBpm, a.scope, a.success])).toEqual([
 				[120, 'iohefy-a', false],
 				[120, 'iohefy-a', false],
 				[60, 'blues-f', true],
@@ -275,7 +369,10 @@ describe('ResponseSeriesController', () => {
 			expect(await ctx.stored()).toHaveLength(2);
 			const [session] = await ctx.repositories.sessions.list();
 			expect(session.endedAt).not.toBeNull();
-			expect(session.executions).toEqual(EXECUTIONS);
+			// One execution per exercise and scope met, at the tempo of its first round.
+			expect(session.executions).toEqual([
+				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 }
+			]);
 		});
 
 		it('finishes the passage begun once SESSION_MS is spent, and begins no other', async () => {
@@ -404,7 +501,7 @@ describe('ResponseSeriesController', () => {
 				success: true,
 				correct: true,
 				exerciseId: 'gesture-jam',
-				tempoScope: 'iohefy-a'
+				scope: 'iohefy-a'
 			});
 			await drain();
 			expect((await ctx.stored())[0].observations).toHaveLength(1);
@@ -533,18 +630,114 @@ describe('ResponseSeriesController', () => {
 		});
 	});
 
+	describe('trace, takes and replay', () => {
+		/** The segment of `role` among `segment`'s children, the `n`th. */
+		const childOf = (segment: Segment | undefined, role: string, n = 0) =>
+			segment?.children.filter((child) => child.role === role)[n];
+
+		it('traces a gesture session as session › series › count-in, run › rounds', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			// The second passage begun: its first change open, then cut by a pause.
+			ctx.runTo(ctx.bar(4.5));
+			ctx.controller.pause();
+			ctx.controller.quit();
+			await drain();
+			const trace = ctx.controller.trace;
+			expect(trace?.role).toBe('session');
+			const series = childOf(trace ?? undefined, 'series');
+			expect(series?.children.map((child) => child.role)).toEqual([
+				'count-in',
+				'run',
+				'count-in',
+				'run',
+				'pause'
+			]);
+			// A passage is a run: from its first change's prompt to the next counted bar.
+			const first = childOf(series, 'run');
+			expect(first).toMatchObject({ level: 0, exerciseId: 'gesture-jam', ended: 'done' });
+			expect(first?.startS).toBeCloseTo(ctx.bar(0.75), 6);
+			expect(first?.endS).toBeCloseTo(ctx.bar(3), 6);
+			expect(first?.children.map((child) => [child.role, child.ended])).toEqual([
+				['round', 'done'],
+				['round', 'done']
+			]);
+			// Cut by the pause: the run and its change under way, interrupted.
+			const second = childOf(series, 'run', 1);
+			expect(second?.ended).toBe('interrupted');
+			expect(second?.startS).toBeCloseTo(ctx.bar(3.75), 6);
+			expect(second?.endS).toBeCloseTo(ctx.bar(4.5), 5);
+			expect(second?.children.map((child) => [child.role, child.ended])).toEqual([
+				['round', 'interrupted']
+			]);
+		});
+
+		it('replays the last passage at pause', async () => {
+			const ctx = setup([...passage(), ...passage({ passage: 's:1' })]);
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.runTo(ctx.bar(4.5));
+			// Not while playing: only from the pause.
+			await ctx.controller.replay?.();
+			expect(ctx.takes.plays).toEqual([]);
+			ctx.controller.pause();
+			await drain();
+			const written = (await ctx.stored()).length;
+			await ctx.controller.replay?.();
+			await drain();
+			expect(ctx.takes.plays).toHaveLength(1);
+			const [take] = ctx.takes.plays;
+			// The second passage, from its first prompt to the pause, kept whole.
+			expect(take.from).toBeCloseTo(ctx.bar(3.75), 6);
+			expect(take.to).toBeCloseTo(ctx.bar(4.5), 5);
+			expect(take.whole).toBe(true);
+			expect(ctx.takes.holds(take.from, take.to)).toBe(true);
+			expect(take.latencyS).toBe(0);
+			// Its clicks put back over it, the one heard just before the pause included.
+			expect(take.sounds.map((sound) => Math.round(sound.time * 1000) / 1000)).toEqual([
+				7.6, 8.1, 8.6, 9.1
+			]);
+			// A replay writes nothing, then the series goes on as after a pause.
+			expect(await ctx.stored()).toHaveLength(written);
+			expect(ctx.controller.view.status).toBe('count-in');
+		});
+
+		it('keeps the latest session in memory', async () => {
+			const ctx = setup(passage());
+			await ctx.controller.start();
+			ctx.runTo(ctx.bar(1) + 0.03);
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+			ctx.runTo(ctx.bar(3) - 0.2);
+			await drain();
+			expect(ctx.controller.view.status).toBe('finished');
+			const playback = ctx.memory.get('series-1');
+			const series = childOf(playback?.trace, 'series');
+			expect(series?.reason).toBe('complete');
+			const run = childOf(series, 'run');
+			const attempts = await ctx.stored();
+			expect(run?.children.map((round) => round.attemptId)).toEqual(attempts.map((a) => a.id));
+			const take = run && playback?.takes.get(run.id);
+			expect(take?.from).toBeCloseTo(ctx.bar(0.75), 6);
+			expect(take?.to).toBeCloseTo(ctx.bar(3) - 0.2, 2);
+			expect(take && ctx.takes.holds(take.from, take.to)).toBe(true);
+			expect(playback?.latencyS).toBe(0);
+		});
+	});
+
 	describe('the session record', () => {
-		it('stores the latency of the note sensor with the session, zero when it is not calibrated', async () => {
+		it('stores the latency of the sensor its rounds listen to with the session, zero when it is not calibrated', async () => {
 			const calibrated = setup(passage());
 			await calibrated.repositories.settings.update({
 				latency: { note: { ms: 42, provenance: 'player' }, chord: { ms: 7, provenance: 'system' } }
 			});
 			await calibrated.controller.start();
-			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(42);
+			// A gesture's changes are heard by the chord sensor: its latency, not the note's.
+			expect((await calibrated.repositories.sessions.get('series-1'))?.latencyMs).toBe(7);
 			calibrated.controller.quit();
 			await drain();
 			const ended = await calibrated.repositories.sessions.get('series-1');
-			expect(ended).toMatchObject({ latencyMs: 42, endedAt: expect.any(Number) });
+			expect(ended).toMatchObject({ latencyMs: 7, endedAt: expect.any(Number) });
 
 			// Uncalibrated, the onsets were taken as heard: the latency applied was zero.
 			const plain = setup(passage());
@@ -557,7 +750,7 @@ describe('ResponseSeriesController', () => {
 				sources: [new ScriptedSource(passage()), new ScriptedSource(passage())]
 			});
 			await ctx.repositories.settings.update({
-				latency: { note: { ms: 42, provenance: 'player' } }
+				latency: { chord: { ms: 42, provenance: 'player' } }
 			});
 			await ctx.controller.start();
 			// The final record is written late: the new series is up before it is.
@@ -570,7 +763,7 @@ describe('ResponseSeriesController', () => {
 			};
 			ctx.controller.quit();
 			await ctx.repositories.settings.update({
-				latency: { note: { ms: 99, provenance: 'player' } }
+				latency: { chord: { ms: 99, provenance: 'player' } }
 			});
 			await ctx.controller.start();
 			release();
@@ -705,9 +898,7 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(passage(), { exercise });
 			await ctx.controller.ready();
 			expect(ctx.controller.view.stage?.view).toBe('own-view');
-			const unknown = setup([change(0, { exerciseId: 'nowhere' })], {
-				executions: [{ exerciseId: 'nowhere', scope: 'iohefy-a', tempoBpm: 120 }]
-			});
+			const unknown = setup([change(0, { exerciseId: 'nowhere' })]);
 			await expect(unknown.controller.ready()).rejects.toThrow(/nowhere/);
 		});
 	});
@@ -721,10 +912,7 @@ describe('ResponseSeriesController', () => {
 				attempts: [],
 				sessionId: 'series-1'
 			});
-			const ctx = setup([], {
-				sources: [selector],
-				executions: [{ exerciseId: 'gesture-link', tempoBpm: 120 }]
-			});
+			const ctx = setup([], { sources: [selector] });
 			await ctx.controller.start();
 			// Nothing is played: the first tour fails and is replayed at once, chained.
 			const indexes: number[] = [];
@@ -883,7 +1071,6 @@ describe('ResponseSeriesController', () => {
 			const ctx = setup(items, {
 				mechanics,
 				exercise: fakeExercise,
-				executions: [...EXECUTIONS, { exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }],
 				sensors: fake.sensors,
 				...options
 			});
@@ -1116,6 +1303,14 @@ describe('ResponseSeriesController', () => {
 			// Its prompt is the instant it opened: the reaction is counted from there.
 			expect(attempts[1].promptedAt).toBeCloseTo(ctx.clock.toEpochMs(opened), 6);
 			expect(attempts[1].reactionMs).toBeCloseTo(1000, 6);
+			// In free time no tempo is played: the attempts and the execution have none.
+			expect(attempts.map((a) => a.tempoBpm)).toEqual([null, null]);
+			ctx.controller.quit();
+			await drain();
+			const [session] = await ctx.repositories.sessions.list();
+			expect(session.executions).toEqual([
+				{ exerciseId: 'fake-tap', scope: 'iohefy-a', tempoBpm: null }
+			]);
 			// Nothing clicks on the screen.
 			expect(clicksBetween(ctx, 0, ctx.bar(3))).toEqual([]);
 		});
@@ -1128,12 +1323,8 @@ describe('ResponseSeriesController', () => {
 				howTo: undefined,
 				...(id === waltz && { meter: METER_3_4 })
 			});
-			/** One tempo, ♩ = 120, for both exercises: only the meter changes. */
-			const executions = [
-				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 },
-				{ exerciseId: 'gesture-zone', scope: 'iohefy-a', tempoBpm: 120 },
-				{ exerciseId: TAP_EXERCISE, scope: 'iohefy-a', tempoBpm: 120 }
-			];
+			/** One tempo, ♩ = 120, for every exercise (all at level 0): only the meter changes. */
+			const levelStates: LevelState[] = [];
 			/**
 			 * Runs by 10 ms to the second item's target (at most `until`); what the screen showed: the counts with their times, and the
 			 * second item's target, in audio seconds, once its round opened.
@@ -1178,7 +1369,7 @@ describe('ResponseSeriesController', () => {
 			it('counts a bar in the new meter between a timed item and one of another meter, then plays in it', async () => {
 				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'gesture-zone' })], {
 					exercise: inWaltz('gesture-zone'),
-					executions
+					levelStates
 				});
 				await ctx.controller.start();
 				ctx.runTo(ctx.bar(3) + 0.03);
@@ -1214,7 +1405,7 @@ describe('ResponseSeriesController', () => {
 			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
 				const ctx = series([beat(0, 8, {}, 'tap'), beat(1, 3, { countIn: true })], {
 					exercise: inWaltz('gesture-jam'),
-					executions
+					levelStates
 				});
 				await ctx.controller.start();
 				// The tapped one opens after its (silent) 4/4 count and is answered.

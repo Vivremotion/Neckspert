@@ -52,6 +52,7 @@ function planned(
 	return {
 		exerciseId: definition.id,
 		mechanic: definition.mechanic,
+		exerciseLevel: 0,
 		item,
 		phase: 'review',
 		temperature: 'cold',

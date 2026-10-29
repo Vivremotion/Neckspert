@@ -8,6 +8,7 @@ function item(pitch: 'F' | 'G'): PlannedItem {
 	return {
 		exerciseId: 'locate-neck',
 		mechanic: 'locate',
+		exerciseLevel: 0,
 		item: { string: 6, pitch },
 		phase: 'free',
 		temperature: 'hot',

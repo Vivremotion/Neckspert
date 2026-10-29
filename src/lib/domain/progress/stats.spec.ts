@@ -722,7 +722,7 @@ describe('summarizeSession of a gesture session', () => {
 					passagesSucceeded: 1,
 					changeSuccessRate: 1,
 					tempoBpm: 80,
-					nextTempoBpm: 80
+					lastTempoBpm: 80
 				}
 			],
 			misses: []

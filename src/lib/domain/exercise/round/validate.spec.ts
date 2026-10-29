@@ -247,7 +247,28 @@ describe('roundProblem', () => {
 			expectations: [{ ...t.expectations[0], content: null }],
 			policy: { ...t.policy, unit: 'cycle', verdict: 'cycle', pairing: alignment }
 		}));
-		expect(roundProblem(cycled)).toBeNull();
+		const thresholds = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
+		expect(roundProblem({ ...cycled, params: { ...cycled.params, thresholds } })).toBeNull();
+	});
+
+	it('refuses a verdict that reads thresholds an exercise level does not give', () => {
+		const alignment = { mode: 'alignment' };
+		const cycled = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			expectations: [{ ...t.expectations[0], content: null }],
+			policy: { ...t.policy, unit: 'cycle', verdict: 'cycle', pairing: alignment }
+		}));
+		const unjudged = { ...cycled, params: { ...cycled.params, thresholds: undefined } };
+		expect(roundProblem(unjudged)).toBe(
+			'round.policy.verdict "cycle" judges against params.thresholds, which exercise level 0 does not give'
+		);
+		// Given by the exercise, or by every level that overrides them.
+		const thresholds = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
+		expect(roundProblem({ ...cycled, params: { ...cycled.params, thresholds } })).toBeNull();
+		const leveled = { ...unjudged, levels: [{ params: { thresholds } }, { params: {} }] };
+		expect(roundProblem(leveled)).toBe(
+			'round.policy.verdict "cycle" judges against params.thresholds, which exercise level 1 does not give'
+		);
 	});
 
 	it('refuses a bar offset or a gap that is not written as text', () => {

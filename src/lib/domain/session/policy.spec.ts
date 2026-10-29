@@ -19,12 +19,17 @@ const NO_AID: Level[] = [{ params: {} }, { params: {} }];
 function rules(overrides: Partial<SeriesRules> = {}): SeriesRules {
 	return {
 		levels: ONE_AID,
-		params: () => ({ cyclesPerBreath: 4, listen: 'free' }),
+		roundsPerBreath: () => 4,
+		listen: () => 'free',
 		canSound: true,
 		budgetMs: SESSION_MS,
+		antiBlocking: true,
 		...overrides
 	};
 }
+
+/** The next round goes on without a gap, no counted bar asked: a round within a run. */
+const CHAINS = { chains: true, countIn: false };
 
 function levelState(level = 0): LevelState {
 	return {
@@ -80,11 +85,11 @@ describe('next', () => {
 	it('plays rounds up to the breath', () => {
 		let state = playing();
 		for (let i = 0; i < 4; i++) {
-			const step = next(state, rules(), 0);
+			const step = next(state, rules(), 0, CHAINS);
 			expect(step.next).toEqual({ role: 'round', aid: null, remedy: false });
 			state = step.state;
 		}
-		const breath = next(state, rules(), 0);
+		const breath = next(state, rules(), 0, CHAINS);
 		expect(breath.next).toEqual({ role: 'breath' });
 		expect(breath.state.run).toBeNull();
 	});
@@ -92,44 +97,100 @@ describe('next', () => {
 	it('ends with the run once the budget is spent', () => {
 		let state = playing();
 		for (let i = 0; i < 4; i++) {
-			const step = next(state, rules(), SESSION_MS);
+			const step = next(state, rules(), SESSION_MS, CHAINS);
 			expect(step.next.role).toBe('round');
 			state = step.state;
 		}
-		expect(next(state, rules(), SESSION_MS).next).toEqual({ role: 'end', reason: 'time' });
-		expect(next(state, rules(), SESSION_MS - 1).next).toEqual({ role: 'breath' });
+		expect(next(state, rules(), SESSION_MS, CHAINS).next).toEqual({ role: 'end', reason: 'time' });
+		expect(next(state, rules(), SESSION_MS - 1, CHAINS).next).toEqual({ role: 'breath' });
 	});
 
 	it('a listen asked comes before the next round and is not counted', () => {
 		const asked = askListen(playing(), rules());
-		const step = next(asked, rules(), 0);
+		const step = next(asked, rules(), 0, CHAINS);
 		expect(step.next).toEqual({ role: 'listen', remedy: false });
 		expect(step.state.run?.played).toBe(0);
-		expect(next(step.state, rules(), 0).next.role).toBe('round');
+		expect(next(step.state, rules(), 0, CHAINS).next.role).toBe('round');
 	});
 
 	it('a listen asked at a level that offers none is ignored', () => {
-		const r = rules({ params: () => ({ cyclesPerBreath: 4, listen: 'none' }) });
-		expect(next(askListen(playing(), r), r, 0).next.role).toBe('round');
+		const r = rules({ listen: () => 'none' });
+		expect(next(askListen(playing(), r), r, 0, CHAINS).next.role).toBe('round');
 	});
 
 	it('remedies come first, one per round', () => {
 		const state = playing(0, { remedies: ['listen', 'play-along'] });
-		const first = next(state, rules(), 0);
+		const first = next(state, rules(), 0, CHAINS);
 		expect(first.next).toEqual({ role: 'listen', remedy: true });
-		const second = next(first.state, rules(), 0);
+		const second = next(first.state, rules(), 0, CHAINS);
 		expect(second.next).toEqual({ role: 'round', aid: 'play-along', remedy: true });
 		expect(second.state.run?.played).toBe(1);
-		expect(next(second.state, rules(), 0).next).toEqual({
+		expect(next(second.state, rules(), 0, CHAINS).next).toEqual({
 			role: 'round',
 			aid: null,
 			remedy: false
 		});
 	});
 
+	it('ends a run after roundsPerBreath rounds', () => {
+		const r = rules({ roundsPerBreath: (level) => (level === 0 ? 2 : 5) });
+		let state = playing();
+		for (let i = 0; i < 2; i++) {
+			const step = next(state, r, 0, CHAINS);
+			expect(step.next.role).toBe('round');
+			state = step.state;
+		}
+		const breath = next(state, r, 0, CHAINS);
+		expect(breath.next).toEqual({ role: 'breath' });
+		expect(breath.state.run).toBeNull();
+	});
+
+	it('ends a run when the coming item asks a counted bar', () => {
+		const r = rules({ roundsPerBreath: () => null });
+		const first = next(playing(), r, 0, CHAINS);
+		expect(first.next.role).toBe('round');
+		const breath = next(first.state, r, 0, { chains: false, countIn: true });
+		expect(breath.next).toEqual({ role: 'breath' });
+		expect(breath.state.run).toBeNull();
+		// A run that has played nothing yet is not ended by the count that opens it.
+		const opening = next(startRun(breath.state), r, 0, { chains: false, countIn: true });
+		expect(opening.next).toEqual({ role: 'round', aid: null, remedy: false });
+	});
+
+	it('never ends a run on roundsPerBreath null while rounds chain', () => {
+		const r = rules({ roundsPerBreath: () => null });
+		let state = playing();
+		for (let i = 0; i < 100; i++) {
+			const step = next(state, r, 0, CHAINS);
+			expect(step.next.role).toBe('round');
+			state = step.state;
+		}
+		// Placed after the breath of its plan, without a count: still the same run.
+		const after = next(state, r, 0, { chains: false, countIn: false });
+		expect(after.next.role).toBe('round');
+		expect(after.state.run?.played).toBe(101);
+	});
+
+	it('ends the series at the first boundary after its length where the next round does not chain', () => {
+		const r = rules({ roundsPerBreath: () => null, budgetMs: 1000 });
+		const chained = next(playing(), r, 1000, CHAINS);
+		expect(chained.next.role).toBe('round');
+		expect(next(chained.state, r, 1000, { chains: false, countIn: false }).next).toEqual({
+			role: 'end',
+			reason: 'time'
+		});
+		expect(next(chained.state, r, 999, { chains: false, countIn: false }).next.role).toBe('round');
+	});
+
+	it('ends the series when the source has nothing more', () => {
+		expect(next(playing(), rules(), 0, null).next).toEqual({ role: 'end', reason: 'complete' });
+		const ending = playing(0, { ending: 'change-of-air' });
+		expect(next(ending, rules(), 0, null).next).toEqual({ role: 'end', reason: 'change-of-air' });
+	});
+
 	it('change of air ends at the next boundary', () => {
 		const state = playing(0, { ending: 'change-of-air' });
-		expect(next(state, rules(), 0).next).toEqual({ role: 'end', reason: 'change-of-air' });
+		expect(next(state, rules(), 0, CHAINS).next).toEqual({ role: 'end', reason: 'change-of-air' });
 	});
 });
 
@@ -249,6 +310,17 @@ describe('settle', () => {
 		]);
 		expect(acted).toEqual({ diagnosis: 'execution', act: 'change-of-air' });
 		expect(state.ending).toBe('change-of-air');
+	});
+
+	it('acts the anti-blocking only when the rules ask it', () => {
+		const rounds = [round(0, ['regularity']), round(0, ['regularity']), round(0, ['regularity'])];
+		const asked = settleAll(playing(0), rules(), rounds);
+		expect(asked.acted).toEqual({ diagnosis: 'execution', act: 'aid-level' });
+		const never = settleAll(playing(0), rules({ antiBlocking: false }), [...rounds, ...rounds]);
+		expect(never.acted).toBeNull();
+		expect(never.state.levelState).toMatchObject({ level: 0, failures: 6, resumeAfter: null });
+		expect(never.state.ending).toBeNull();
+		expect(never.state.remedies).toEqual([]);
 	});
 
 	it('a level change starts the anti-blocking again', () => {

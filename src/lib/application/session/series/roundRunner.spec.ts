@@ -45,6 +45,7 @@ const item: ChordGridItem = {
 const planned: PlannedItem = {
 	exerciseId: 'gesture-jam',
 	mechanic: 'chord-grid',
+	exerciseLevel: 0,
 	item,
 	phase: 'free',
 	temperature: 'hot',

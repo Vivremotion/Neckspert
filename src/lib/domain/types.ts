@@ -1,7 +1,7 @@
 import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './time/modes/types';
-import type { Execution, ExerciseId, MechanicId, Progression } from './exercise/types';
+import type { Execution, ExerciseId, MechanicId } from './exercise/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
 	Aid,
@@ -14,16 +14,7 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type {
-	Aid,
-	Execution,
-	ExerciseId,
-	LevelState,
-	Measures,
-	MechanicId,
-	Progression,
-	VerdictEnvelope
-};
+export type { Aid, Execution, ExerciseId, LevelState, Measures, MechanicId, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 
@@ -124,8 +115,8 @@ export interface Attempt<D = unknown> {
 	promptedAt: number;
 	/** Tempo of the execution; it enters the judgement (direct recall). Null without a tempo. */
 	tempoBpm: number | null;
-	/** The scope of that execution's tempo (`PlannedItem.tempoScope`); absent without one. */
-	tempoScope?: string;
+	/** The scope of the exercise level it was played at (`PlannedItem.scope`); absent without one. */
+	scope?: string;
 	/** Time relation: null when answering at one's own pace. */
 	leadBeats: RecordedLeadBeats | null;
 	/** Latency-corrected onset minus target beat time, in ms. Null off the beat or unanswered. */
@@ -208,15 +199,22 @@ export interface PlannedItem<I = unknown> {
 	aid: AidLevel;
 	/** Time relation "beat" only. */
 	leadBeats: LeadBeats | null;
+	/** Its level on its exercise's ladder, when a source served it from one (`ladderOf`). */
+	level?: number;
+	/**
+	 * Its exercise's level (`exerciseLevelsOf`): a source writes 0, the series the level its
+	 * exercise plays at when the round is placed (`ExerciseLevels.played`).
+	 */
+	exerciseLevel: number;
 	/** Starts a sequence at another lead: the session counts a bar down before it. */
 	countIn?: boolean;
 	/** With `countIn`: bars of silence before the counted bar, a break heard without looking. */
 	restBars?: number;
 	/**
-	 * The scope of its exercise's tempo (`Execution.scope`): the prompt runs at, and moves, the
-	 * tempo of its exercise in that scope. Absent: the exercise's own tempo.
+	 * The scope of its exercise's level (`Execution.scope`): the prompt plays at, and moves, the
+	 * level of its exercise in that scope, and so its tempo. Absent: the exercise's own level.
 	 */
-	tempoScope?: string;
+	scope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
 }
@@ -393,7 +391,7 @@ export interface ExerciseSummary {
 
 /** What a gesture session did, exercise by exercise, and the changes it missed. */
 export interface GestureSummary {
-	/** One line per exercise and tempo scope (its grid; none for the link). */
+	/** One line per exercise and scope (its grid; none for the link). */
 	exercises: {
 		exerciseId: ExerciseId;
 		scope?: string;
@@ -401,8 +399,10 @@ export interface GestureSummary {
 		passagesSucceeded: number;
 		/** Share of its changes right and in time (`Attempt.success`). */
 		changeSuccessRate: number;
+		/** The tempo of its first round. */
 		tempoBpm: number;
-		nextTempoBpm: number;
+		/** The tempo of its last round: a level reached and not played yet does not show. */
+		lastTempoBpm: number;
 	}[];
 	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
 	misses: {
@@ -436,10 +436,9 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 6;
+	version: 7;
 	exportedAt: number;
 	settings: Settings;
-	progressions: Progression[];
 	cards: CardState[];
 	attempts: Attempt[];
 	sessions: SessionRecord[];

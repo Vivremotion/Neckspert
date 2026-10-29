@@ -1,5 +1,7 @@
+import type { LevelOverrides } from '$lib/domain/exercise/levels';
 import type { RoundTemplate } from '$lib/domain/exercise/round/types';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
+import type { Level } from '$lib/domain/time/levels';
 import type { GestureRule } from '$lib/domain/mechanics/chordGrid';
 import type { StringNumber } from '$lib/domain/music/types';
 
@@ -62,9 +64,38 @@ function gridRound(): RoundTemplate {
 	};
 }
 
+/** The tempo a gesture exercise starts at, its first level's (♩ = 80). */
+const GESTURE_START_BPM = 80;
+/** Its highest level's tempo: the gesture stops at ♩ = 120 (author, 2026-10-27). */
+const GESTURE_TOP_BPM = 120;
+/** From one level to the next. */
+const GESTURE_STEP_BPM = 5;
+/** Right changes in a row, unaided, that move a level up. To calibrate. */
+const GESTURE_PASS_CHANGES = 10;
+/** Missed changes in a row that move a level down. To calibrate. */
+const GESTURE_DROP_CHANGES = 3;
+
 /**
- * A gesture exercise. They share the chord-grid mechanic, so each starts at its own tempo rather
- * than the last tempo of another (`startTempo`).
+ * The gesture's exercise levels, plain data: one per tempo from `from` to `to` by `step`, each
+ * passed after `pass` right changes in a row and dropped after `drop` misses in a row.
+ */
+function tempoLevels(
+	from: number,
+	to: number,
+	step: number,
+	pass: number,
+	drop: number
+): Level<LevelOverrides>[] {
+	return Array.from({ length: Math.floor((to - from) / step) + 1 }, (_, index) => ({
+		params: { tempo: from + index * step },
+		pass: { successes: pass },
+		drop: { failures: drop }
+	}));
+}
+
+/**
+ * A gesture exercise, on its tempo levels: each exercise, and each grid of it (its scope), moves
+ * up and down them on its own.
  */
 function gestureExercise(
 	id: ExerciseId,
@@ -79,7 +110,14 @@ function gestureExercise(
 		mechanic: 'chord-grid',
 		round: gridRound(),
 		params: { ...gestureParams(rule, grids) },
-		startTempoBpm: 80,
+		tempo: GESTURE_START_BPM,
+		levels: tempoLevels(
+			GESTURE_START_BPM,
+			GESTURE_TOP_BPM,
+			GESTURE_STEP_BPM,
+			GESTURE_PASS_CHANGES,
+			GESTURE_DROP_CHANGES
+		),
 		view,
 		howTo
 	};

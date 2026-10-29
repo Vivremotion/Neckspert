@@ -2,7 +2,8 @@ import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
-import { ResponseSeriesController } from '$lib/application/session/series/ResponseSeriesController.svelte';
+import { SessionController } from '$lib/application/session/SessionController.svelte';
+import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById } from '$lib/domain/exercise';
 import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
 import { linkShapes } from '$lib/domain/gesture/passages';
@@ -10,16 +11,17 @@ import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
 import type { ItemSource } from '$lib/domain/progress';
 import { occurrenceId } from '$lib/domain/triads';
-import type { Execution, ResponseVerdict } from '$lib/domain/types';
+import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
 	FakeClock,
 	FakeNoteDetector,
 	FakeSoundScheduler,
+	FakeTakeBuffer,
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
-	InMemoryProgressionRepository,
+	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
@@ -94,13 +96,14 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 			return {
 				exerciseId: exercise.id,
 				mechanic: 'chord-grid',
+				exerciseLevel: 0,
 				item: changeOf(mode, passage, index),
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'show-position',
 				leadBeats: null,
 				...(index === 0 && { countIn: true }),
-				...(mode === 'climb' && { tempoScope: GRID_ID })
+				...(mode === 'climb' && { scope: GRID_ID })
 			};
 		},
 		record: () => null,
@@ -109,7 +112,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 }
 
 /**
- * A gesture session for /dev/gesture: the real response series, on a clock moved by the page,
+ * A gesture session for /dev/gesture: the real session controller, on a clock moved by the page,
  * with fakes for sound, input and storage, and a scripted player who strums each change.
  */
 export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
@@ -119,26 +122,17 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	const repositories = {
 		attempts: new InMemoryAttemptRepository(),
 		sessions: new InMemorySessionRepository(),
-		settings: new InMemorySettingsRepository(),
-		progressions: new InMemoryProgressionRepository()
+		settings: new InMemorySettingsRepository()
 	};
 	const cards = new InMemoryCardStateRepository();
-	const exercise = mode === 'link' ? GESTURE_LINK : GESTURE_CLIMB;
-	const executions: Execution[] = [
-		{
-			exerciseId: exercise.id,
-			...(mode === 'climb' && { scope: GRID_ID }),
-			tempoBpm: exercise.startTempoBpm ?? 80
-		}
-	];
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
-	const controller = new ResponseSeriesController(
+	const controller = new SessionController(
 		{ id: 'demo-gesture', kind: 'gesture' },
 		async (sessionId) => {
 			const source = passageLoop(mode);
 			sources.set(sessionId, source);
-			return { source, executions };
+			return { source };
 		},
 		{
 			clock,
@@ -147,6 +141,8 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			sensors: { chord: chordSensor(chords) },
 			mechanics: GESTURE_PRESENTERS,
 			repositories,
+			// Where its levels stand, in memory: the scripted player moves them up as it plays.
+			levels: new InMemoryLevelStateRepository(),
 			recorderFor: (sessionId) =>
 				new AttemptRecorder({
 					attempts: repositories.attempts,
@@ -161,7 +157,10 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			locale,
 			newId: () => `demo-gesture-${++ids}`,
 			development: true,
-			random: Math.random
+			random: Math.random,
+			// A demonstration hears nothing: no input to keep, no session to remember.
+			takes: new FakeTakeBuffer(),
+			memory: new SessionMemory()
 		}
 	);
 

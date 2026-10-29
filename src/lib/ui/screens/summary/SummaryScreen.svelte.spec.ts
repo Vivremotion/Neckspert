@@ -170,7 +170,7 @@ describe('SummaryScreen of a gesture session', () => {
 					passagesSucceeded: 3,
 					changeSuccessRate: 0.86,
 					tempoBpm: 80,
-					nextTempoBpm: 85
+					lastTempoBpm: 85
 				}
 			],
 			misses: [
@@ -193,9 +193,35 @@ describe('SummaryScreen of a gesture session', () => {
 		expect(screen.getByText('Relier les formes')).toBeTruthy();
 		expect(screen.getByText('3 / 4 passages réussis')).toBeTruthy();
 		expect(screen.getByText('86 % justes et à temps')).toBeTruthy();
-		expect(screen.getByText('♩ = 80 → ♩ = 85')).toBeTruthy();
+		expect(screen.getByText('♩ = 80 → 85')).toBeTruthy();
 		expect(screen.queryByText('Notes apprises')).toBeNull();
 		expect(screen.queryByText('Précision à froid')).toBeNull();
+	});
+
+	it('tells one tempo alone when the first and the last are the same, in French and English', () => {
+		const steady: SessionSummary = {
+			...gesture,
+			gesture: {
+				...gesture.gesture!,
+				exercises: [{ ...gesture.gesture!.exercises[0], tempoBpm: 80, lastTempoBpm: 80 }]
+			}
+		};
+		render(SummaryScreen, {
+			props: { summary: steady, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('♩ = 80')).toBeTruthy();
+		expect(screen.queryByText(/→/)).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		render(SummaryScreen, {
+			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('♩ = 80 → 85')).toBeTruthy();
+		cleanup();
+		render(SummaryScreen, {
+			props: { summary: steady, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(screen.getByText('♩ = 80')).toBeTruthy();
 	});
 
 	it('lists the missed changes, each contestable once', async () => {
@@ -223,7 +249,7 @@ describe('SummaryScreen of a gesture session', () => {
 					passagesSucceeded: 1,
 					changeSuccessRate: 1,
 					tempoBpm: 80,
-					nextTempoBpm: 80
+					lastTempoBpm: 80
 				})),
 				misses: []
 			}
@@ -330,6 +356,7 @@ describe('SummaryScreen of a series in memory', () => {
 				runs: [
 					{
 						id: 2,
+						exerciseId: 'rhythm-offbeats',
 						level: 0,
 						ended: 'done',
 						rounds: 4,
@@ -339,6 +366,7 @@ describe('SummaryScreen of a series in memory', () => {
 					},
 					{
 						id: 7,
+						exerciseId: 'rhythm-offbeats',
 						level: -1,
 						ended: 'interrupted',
 						rounds: 4,

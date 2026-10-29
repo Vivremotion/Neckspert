@@ -72,6 +72,13 @@ export interface AnswerChoice {
 	label: string;
 }
 
+/**
+ * What a series announces: a level moved (up, down, to an aid level), a remedy of the
+ * anti-blocking under way, or « On change d’air ».
+ */
+export type Announcement =
+	'level-up' | 'level-down' | 'aid-level' | 'listen-remedy' | 'play-along' | 'change-of-air';
+
 export interface PlayView {
 	status: PlayStatus;
 	/** The tempo played; 0 while the series has not set it (before its first item), and not shown. */
@@ -100,6 +107,13 @@ export interface PlayView {
 	 * start screen (idle), or at a stop of its own (paused, `resume` goes on); null otherwise.
 	 */
 	briefing: { text: string } | null;
+	/**
+	 * What the series announces before the run it applies to, from its breath (or its listen-in,
+	 * or its counted bar) until the player plays (its first bar, entry bars included), kept
+	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
+	 * the tempo it plays at; a remedy while it plays; null otherwise.
+	 */
+	announcement: { kind: Announcement; level: number; of: number; tempoBpm: number } | null;
 }
 
 export interface PlayTimeline {

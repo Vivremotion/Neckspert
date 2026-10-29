@@ -122,7 +122,7 @@ export const LOCATE_NECK: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'locate',
 	view: 'lane',
-	tempo: { fixed: 80 },
+	tempo: 80,
 	presentation: {
 		primary: '{note}',
 		secondary: '{string}',
@@ -164,7 +164,7 @@ export const TRIADS_ANCHOR: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'triad-anchor',
 	view: 'lane',
-	tempo: { fixed: 80 },
+	tempo: 80,
 	presentation: {
 		primary: '{chord}',
 		secondary: { fr: 'fondamentale sur {rootString}', en: 'root on {rootString}' },
@@ -183,7 +183,7 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	version: 1,
 	mechanic: 'triad-zone',
 	view: 'lane',
-	tempo: { fixed: 80 },
+	tempo: 80,
 	presentation: {
 		primary: '{chord}',
 		secondary: '{around}',

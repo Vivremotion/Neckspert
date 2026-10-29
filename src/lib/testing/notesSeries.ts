@@ -7,7 +7,7 @@ import { createAppServices } from '$lib/application/services/createAppServices';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { noteSensor, tapSensor, type SensorFactory } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { exerciseById, type ExerciseDefinition, type Progression } from '$lib/domain/exercise';
+import { exerciseById, type ExerciseDefinition } from '$lib/domain/exercise';
 import {
 	acceptableMidis,
 	formatNote,
@@ -31,7 +31,6 @@ import {
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
-	InMemoryProgressionRepository,
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from './fakes';
@@ -102,7 +101,6 @@ export function seeded(seed: number): () => number {
 export interface NotesSetup {
 	cards?: CardState[];
 	levels?: LevelState[];
-	progressions?: Progression[];
 	development?: boolean;
 	random?: () => number;
 	/** Exercises that replace the catalog's of the same id (a test catalog). */
@@ -129,7 +127,6 @@ export async function notesApp(setup: NotesSetup = {}) {
 		attempts: new InMemoryAttemptRepository(),
 		cards: new InMemoryCardStateRepository(),
 		sessions: new InMemorySessionRepository(),
-		progressions: new InMemoryProgressionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
 		random: setup.random ?? (() => 0),
@@ -146,7 +143,6 @@ export async function notesApp(setup: NotesSetup = {}) {
 	await deps.cards.putMany(setup.cards ?? []);
 	for (const attempt of setup.attempts ?? []) await deps.attempts.add(attempt);
 	for (const level of setup.levels ?? []) await deps.levels.put(level);
-	for (const progression of setup.progressions ?? []) await deps.progressions.put(progression);
 	const services: AppServices = createAppServices({
 		...deps,
 		backup: new FakeBackup(),

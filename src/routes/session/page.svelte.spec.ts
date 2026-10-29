@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/svelte';
 import { createFakeAppServices } from '$lib/ui/screens/calibration/fakeServices';
 import type { PlaySessionController } from '$lib/application/session/contract';
+import { stageModel } from '$lib/ui/play/views/testing/promptStage';
 import SessionHarness from './SessionHarness.svelte';
 
 const nav = vi.hoisted(() => ({ search: '', goto: vi.fn(async () => {}) }));
@@ -95,8 +96,14 @@ describe('/session page, the notes and the triads', () => {
 		'shows a %s session in the play frame, its instruction made ready',
 		async (kind) => {
 			nav.search = `?kind=${kind}`;
-			const ready = vi.fn(async () => {});
-			const startSession = vi.fn(async () => ({ ...idleController(), ready }));
+			// As the real controller does, `ready` puts its first exercise's view on stage: the frame
+			// takes its world from it, whatever the kind.
+			const idle = idleController();
+			const view = $state(idle.view);
+			const ready = vi.fn(async () => {
+				view.stage = { view: 'lane', model: stageModel() };
+			});
+			const startSession = vi.fn(async () => ({ ...idle, view, ready }));
 			const services = createFakeAppServices({ startSession });
 			const { container } = render(SessionHarness, { props: { services } });
 			await waitFor(() => expect(startSession).toHaveBeenCalledWith(kind));
@@ -104,4 +111,28 @@ describe('/session page, the notes and the triads', () => {
 			expect(ready).toHaveBeenCalled();
 		}
 	);
+
+	it('renders no frame, no pixel chrome, until ready() has put the first view on stage', async () => {
+		nav.search = '?kind=learn';
+		let finish: () => void = () => {};
+		const idle = idleController();
+		const view = $state(idle.view);
+		const ready = vi.fn(
+			() =>
+				new Promise<void>((resolve) => {
+					finish = () => {
+						view.stage = { view: 'lane', model: stageModel() };
+						resolve();
+					};
+				})
+		);
+		const startSession = vi.fn(async () => ({ ...idle, view, ready }));
+		const services = createFakeAppServices({ startSession });
+		const { container } = render(SessionHarness, { props: { services } });
+		await waitFor(() => expect(ready).toHaveBeenCalled());
+		expect(container.querySelector('[data-world]')).toBeNull();
+		finish();
+		await waitFor(() => expect(container.querySelector('[data-world="quiet"]')).toBeTruthy());
+		expect(container.querySelector('[data-world="pixel"]')).toBeNull();
+	});
 });

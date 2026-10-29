@@ -2,7 +2,6 @@ import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exe
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { LOCATE_NECK } from '$lib/domain/exercise';
 import type { IdentifyData } from '$lib/domain/mechanics';
 import {
 	asNeckCard,
@@ -36,7 +35,7 @@ import {
 } from '$lib/testing/notesSeries';
 
 /**
- * The notes' sessions on the response series (plan H4, Task 10): the real wiring of
+ * The notes' sessions on the session controller (plan H4, Task 10): the real wiring of
  * `createAppServices` (neck subject, learning procedure, presenters, the round templates), the stores in
  * memory, the transport on a fake clock. Each pedagogical rule kept by the migration is played
  * here as the player meets it: through the screen's model, the sounds and the stored attempts.
@@ -67,6 +66,16 @@ function lane(controller: PlaySessionController): PromptStageModel | null {
 const ALL_LOCATE = locateItems().map((item) => learnedCard({ mechanic: 'locate', item }));
 
 describe('a learn session of the notes', () => {
+	it('shows the lane of locate from the start screen, before any sound', async () => {
+		const app = await notesApp();
+		const controller = await app.services.startSession('learn');
+		expect(controller.view.stage).toBeNull();
+		await controller.ready?.();
+		expect(controller.view.status).toBe('idle');
+		expect(controller.view.stage?.view).toBe('lane');
+		expect(app.sounds.emitted()).toEqual([]);
+	});
+
 	it('probes a new note unaided, then presents it aided at once after a miss, with the string drawn', async () => {
 		const app = await notesApp();
 		const controller = await startNotes(app, 'learn');
@@ -355,6 +364,17 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
+	it('stores the latency of the first calibrated sensor its rounds listened to, a tap having none', async () => {
+		// A name to tap first (no latency for a tap), then a note to play, heard by the note sensor.
+		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
+		await app.deps.settings.update({ latency: { note: { ms: 30, provenance: 'system' } } });
+		const controller = await startNotes(app, 'learn');
+		const [named, played] = await playRounds(app, controller, allRight, { rounds: 2 });
+		expect([named.card.mechanic, played.card.mechanic]).toEqual(['identify', 'locate']);
+		await quitAndRead(app, controller);
+		expect((await app.deps.sessions.get(controller.sessionId))?.latencyMs).toBe(30);
+	});
+
 	it('keeps a named note off the note lane that follows', async () => {
 		// A name to tap due, then a new note to play: identify, a counted bar, locate.
 		const app = await notesApp({ cards: [learnedCard(identify(5, 3))] });
@@ -390,15 +410,12 @@ describe('a learn session of the notes', () => {
 		await quitAndRead(app, controller);
 	});
 
-	it('ignores a stored locate tempo: locate plays at 80 bpm, fixed, and writes its level', async () => {
+	it('plays locate at 80 bpm, fixed, and writes its level', async () => {
 		const card = locate(6, 'G');
-		// Learned at lead 2 (level 2 at ♩ = 80); the stored 160 is ignored, locate is fixed at 80.
+		// Learned at lead 2 (level 2 at ♩ = 80); locate is fixed at 80.
 		const app = await notesApp({
 			cards: [learnedCard(card)],
-			levels: [levelOf(card, 2)],
-			progressions: [
-				{ exerciseId: LOCATE_NECK.id, mechanic: 'locate', tempoBpm: 160, updatedAt: 0 }
-			]
+			levels: [levelOf(card, 2)]
 		});
 		const controller = await startNotes(app, 'learn');
 		const [played] = await playRounds(app, controller, allRight, { rounds: 1 });
@@ -412,7 +429,7 @@ describe('a learn session of the notes', () => {
 		expect(await app.deps.levels.get(levelOf(card, 2))).toMatchObject({ level: 2, successes: 1 });
 	});
 
-	it('ends after SESSION_MS once the round under way settles, and writes no locate tempo', async () => {
+	it('ends after SESSION_MS once the round under way settles', async () => {
 		const app = await notesApp({ cards: ALL_LOCATE, random: seeded(11) });
 		const controller = await startNotes(app, 'learn');
 		const record = await app.deps.sessions.get(controller.sessionId);
@@ -435,8 +452,6 @@ describe('a learn session of the notes', () => {
 		expect(ended).toBeGreaterThanOrEqual(startedAt + SESSION_MS);
 		const lastPrompt = Math.max(...attempts.map((a) => a.promptedAt));
 		expect(ended).toBeGreaterThan(lastPrompt);
-		// All right, but locate is fixed at ♩ = 80: no progression is written.
-		expect(await app.deps.progressions.all()).toEqual([]);
 	}, 30_000);
 
 	it('writes attempts the summary and the neck map read as before', async () => {

@@ -87,7 +87,7 @@ export function responseAttempt(input: {
 		aids: [...outcome.aids],
 		promptedAt: input.promptedAt,
 		tempoBpm: execution.tempoBpm,
-		...(execution.scope !== undefined && { tempoScope: execution.scope }),
+		...(execution.scope !== undefined && { scope: execution.scope }),
 		leadBeats: item.leadBeats,
 		timingOffsetMs: value.timingOffsetMs,
 		reactionMs: value.reactionMs,

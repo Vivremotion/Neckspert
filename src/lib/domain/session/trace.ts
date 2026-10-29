@@ -16,8 +16,11 @@ export const SEGMENT_ROLES = [
 ] as const;
 export type SegmentRole = (typeof SEGMENT_ROLES)[number];
 
-/** Why a series ended on its own: its time was spent, or « On change d’air ». */
-export type SeriesEnd = 'time' | 'change-of-air';
+/**
+ * Why a series ended on its own: its time was spent, « On change d’air », or its source had
+ * nothing more to give.
+ */
+export type SeriesEnd = 'time' | 'change-of-air' | 'complete';
 
 export interface SegmentFields {
 	exerciseId?: string;

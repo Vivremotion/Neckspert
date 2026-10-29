@@ -6,7 +6,6 @@ import type {
 	CardStateRepositoryPort,
 	LevelStateRepositoryPort,
 	NoteDetectorPort,
-	ProgressionRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort,
 	SoundSchedulerPort,
@@ -23,8 +22,6 @@ export interface SessionDeps {
 	attempts: AttemptRepositoryPort;
 	cards: CardStateRepositoryPort;
 	sessions: SessionRepositoryPort;
-	/** Tempo reached on each exercise on the beat; a learn session writes the next one. */
-	progressions: ProgressionRepositoryPort;
 	/** Locale, calibration, input device and gain. */
 	settings: SettingsRepositoryPort;
 	now: () => number;
@@ -36,34 +33,32 @@ export interface SessionDeps {
 	sensors: Record<SensorKind, SensorFactory>;
 	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
 	exercise?: (id: ExerciseId) => ExerciseDefinition;
-}
-
-/**
- * What a session that plays figures cycle after cycle needs beyond the core's: the one path every
- * sound takes, where each exercise stands in its levels, and the input of the last run kept to be
- * heard again.
- */
-export interface PlanSessionDeps extends SessionDeps {
+	/** The one path every sound takes. */
 	sounds: SoundSchedulerPort;
+	/** Where each exercise stands in its levels. */
 	levels: LevelStateRepositoryPort;
+	/** The input of the session's runs, kept to be heard again. */
 	takes: TakeBufferPort;
 	/** Where a series leaves its trace and its takes for the summary. */
 	memory: SessionMemory;
 }
 
 /**
- * What a series of response rounds on the transport needs: the one path every sound takes, the
- * sensors and presenters of its mechanics, where it writes, and whether
- * the development tools (« Joué juste ») show.
+ * What the session controller needs: the one path every sound takes, the
+ * sensors and presenters of its mechanics, where it writes (its attempts, its sessions, and where
+ * each exercise stands in its levels), the input of its runs kept to be heard again and where it
+ * leaves its trace, and whether the development tools (« Joué juste ») show.
  */
-export interface ResponseSeriesDeps {
+export interface SessionControllerDeps {
 	clock: AudioClockPort;
 	sounds: SoundSchedulerPort;
 	/** The guitar input, opened at start with the device and the built-in gain of the settings. */
 	detector: NoteDetectorPort;
 	sensors: SessionDeps['sensors'];
 	mechanics: SessionDeps['mechanics'];
-	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings' | 'progressions'>;
+	repositories: Pick<SessionDeps, 'attempts' | 'sessions' | 'settings'>;
+	/** Each exercise's level, by scope: read at the start of a series, written at each round. */
+	levels: LevelStateRepositoryPort;
 	/** The recorder of one series: a new series (a start after the end) gets its own. */
 	recorderFor: (sessionId: string) => AttemptRecorder;
 	/** The definition of an exercise (its view, its instruction); throws on an unknown one. */
@@ -74,4 +69,8 @@ export interface ResponseSeriesDeps {
 	development: boolean;
 	/** Spells the notes: one value is drawn per item taken from the source. */
 	random: () => number;
+	/** The input of the runs of the series, kept to be heard again. */
+	takes: TakeBufferPort;
+	/** Where a series leaves its trace and its takes for the summary. */
+	memory: SessionMemory;
 }

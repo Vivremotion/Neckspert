@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import type { PlaySessionController } from '$lib/application/session/contract';
+	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
 	import type { SessionKind } from '$lib/domain/types';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -32,17 +32,19 @@
 	const t = $derived(playMessages());
 	const view = $derived(controller.view);
 	const Stage = $derived(view.stage ? (views[view.stage.view] ?? null) : null);
+	/** The world of the last view shown: the frame keeps it when the stage empties (the end). */
+	let shownWorld: PlayWorld | null = null;
 	/**
-	 * The frame is drawn in the world of the view on stage; with none yet (the start screen, the
-	 * end), in the world of what the session plays: the notes' and the triads' views are quiet.
+	 * The frame is drawn in the world of the view on stage, from the start screen on (the
+	 * controller places its first exercise's view at `ready()`, and the page shows the frame
+	 * only then). When the stage empties (the end) it keeps the world it showed; with none ever
+	 * shown it is neutral, in the pixel world. The world never reads the kind of session (which
+	 * still names the header and gives the how-to when the exercise tells none).
 	 */
-	const world: PlayWorld = $derived(
-		view.stage
-			? (VIEW_WORLDS[view.stage.view] ?? 'pixel')
-			: kind === 'learn' || kind === 'free' || kind === 'triads' || kind === 'triads-zone'
-				? 'quiet'
-				: 'pixel'
-	);
+	const world: PlayWorld = $derived.by(() => {
+		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';
+		return shownWorld ?? 'pixel';
+	});
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
 	/** In the quiet world, start, end and pause are a light page over the field. */
 	const light = $derived(showStart || view.status === 'paused');
@@ -55,6 +57,26 @@
 	 */
 	const figures = $derived(Boolean(controller.listen || controller.replay));
 	const replay = $derived(replayOf(controller));
+	/** What the series announces (a level reached, with its tempo), in words; null when nothing. */
+	const announced = $derived(
+		view.announcement
+			? t.announcement[view.announcement.kind](
+					view.announcement.level + 1,
+					view.announcement.of,
+					view.announcement.tempoBpm
+				)
+			: null
+	);
+
+	/**
+	 * A level reached is told before play only (the breath, the listen-in, the count: cleared from
+	 * its run's first bar), so it is told prominently, laid over the field, the view never moved;
+	 * a remedy or the change of air stays in the status line, whatever the status.
+	 */
+	const LEVEL_TOLD: ReadonlySet<Announcement> = new Set(['level-up', 'level-down', 'aid-level']);
+	const toldInField = $derived(view.announcement ? LEVEL_TOLD.has(view.announcement.kind) : false);
+	/** The announcement in the status line, when it is not told in the field. */
+	const toldInLine = $derived(toldInField ? null : announced);
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {
@@ -151,6 +173,12 @@
 		/>
 
 		<div class="quiet-stage">
+			{#if toldInField && announced !== null}
+				<!-- Before play: the level reached and its tempo, laid over the field, as large as a prompt line. -->
+				<div class="told" role="status">
+					<Prompt main={announced} size="prompt" />
+				</div>
+			{/if}
 			{#if Stage && view.stage}
 				<Stage {controller} model={view.stage.model} />
 			{:else if view.countdown !== null}
@@ -159,8 +187,11 @@
 					<Prompt main={String(view.countdown)} size="prompt" />
 				</div>
 			{/if}
-			{#if view.contest !== null || view.fatigueDetected}
+			{#if view.contest !== null || view.fatigueDetected || toldInLine !== null}
 				<div class="quiet-status">
+					{#if toldInLine !== null}
+						<p class="announcement" role="status">{toldInLine}</p>
+					{/if}
 					{#if view.contest === 'available'}
 						<Button variant="quiet" onclick={() => controller.contest()}>{t.playedRight}</Button>
 					{:else if view.contest === 'done'}
@@ -192,6 +223,10 @@
 		</div>
 
 		<div class="stage">
+			{#if toldInField && announced !== null}
+				<!-- Before play: the level reached and its tempo, laid over the view, as large as a prompt. -->
+				<p class="told" role="status">{announced}</p>
+			{/if}
 			{#if Stage && view.stage}
 				<Stage {controller} model={view.stage.model} />
 			{/if}
@@ -206,6 +241,10 @@
 		{/snippet}
 
 		<div class="status">
+			{#if toldInLine !== null}
+				<!-- A remedy under way, or the change of air. -->
+				<p class="announcement" role="status">{toldInLine}</p>
+			{/if}
 			{#if view.countdown !== null}
 				<!-- The counted bar, down to the change itself: big, where the verdicts come. -->
 				<!-- In text: PixelWord draws the note letters only, no digit. -->
@@ -267,6 +306,7 @@
 <style>
 	/* The quiet world: the view fills the field under the info line, its status line below it. */
 	.quiet-stage {
+		position: relative;
 		grid-row: 2 / -1;
 		display: flex;
 		flex-direction: column;
@@ -279,6 +319,22 @@
 		flex: 1;
 		align-items: center;
 		justify-content: center;
+	}
+
+	/* Laid over the top of the field, out of the flow: the view never moves when it comes or goes. */
+	.told {
+		position: absolute;
+		z-index: 2;
+		inset-block-start: 0;
+		inset-inline: 0;
+		display: flex;
+		justify-content: center;
+		pointer-events: none;
+	}
+
+	.quiet-stage .told {
+		padding-block: var(--np-step-2);
+		background: var(--np-field);
 	}
 
 	.quiet-status {
@@ -365,6 +421,7 @@
 	}
 
 	.stage {
+		position: relative;
 		display: flex;
 		flex: 0 1 auto;
 		min-width: 0;
@@ -389,6 +446,33 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--np-space-2, 16px);
+	}
+
+	.announcement {
+		margin: 0;
+		font-size: var(--np-type-body);
+		line-height: 1.2;
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	/* The pixel world: the level reached, centred over the view, at the size of a prompt. */
+	.frame .told {
+		inset-inline: var(--np-space-1, 8px);
+		inset-block-start: var(--np-space-1, 8px);
+		margin: 0;
+		padding: var(--np-space-1, 8px) var(--np-space-2, 16px);
+		font-size: var(--np-type-prompt);
+		line-height: 1.1;
+		text-align: center;
+		text-transform: uppercase;
+		background: var(--np-bg);
+		border: calc(var(--np-tile) / 2) solid var(--np-ink);
+	}
+
+	.quiet-status .announcement {
+		font-size: var(--np-size-body);
+		text-transform: none;
 	}
 
 	.label,
