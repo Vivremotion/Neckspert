@@ -188,6 +188,45 @@ describe('validateExercise', () => {
 	});
 });
 
+describe('validateExercise on how a run starts', () => {
+	it('refuses a listen-in that is not a whole number of bars, and a count that is not a boolean', () => {
+		expect(validateExercise(withParams({ pacing: { listenInBars: 1.5 } }))).toBe(
+			'locate-neck: params.pacing.listenInBars must be a non-negative integer, got 1.5'
+		);
+		expect(validateExercise(withParams({ pacing: { listenInBars: -1 } }))).toMatch(
+			/^locate-neck: params\.pacing\.listenInBars .*-1/
+		);
+		expect(validateExercise(withParams({ pacing: { countIn: 'yes' } }))).toBe(
+			'locate-neck: params.pacing.countIn must be true or false, got yes'
+		);
+	});
+
+	it('refuses no listen-in and no counted bar, at the level that resolves them', () => {
+		// The listen-in is 0 by default: no counted bar leaves nothing to hear before playing.
+		expect(validateExercise(withParams({ pacing: { countIn: false } }))).toBe(
+			'locate-neck: params resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other'
+		);
+		expect(
+			validateExercise(withParams({ pacing: { countIn: false, listenInBars: 1 } }))
+		).toBeNull();
+		const levelled: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			params: { ...ARPEGGIO_EXERCISE.params, pacing: { roundsPerBreath: 3, listenInBars: 2 } },
+			levels: [{ params: {} }, { params: { 'pacing.listenInBars': 0, 'pacing.countIn': false } }]
+		};
+		expect(validateExercise(levelled)).toBe(
+			`${ARPEGGIO_EXERCISE.id}: levels[1] resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other`
+		);
+		const fractional: ExerciseDefinition = {
+			...levelled,
+			levels: [{ params: {} }, { params: { 'pacing.listenInBars': 0.5 } }]
+		};
+		expect(validateExercise(fractional)).toBe(
+			`${ARPEGGIO_EXERCISE.id}: levels[1] resolves params.pacing.listenInBars 0.5, not a non-negative integer`
+		);
+	});
+});
+
 describe('validateExercise on listed items', () => {
 	const withItems = (
 		items: string[],

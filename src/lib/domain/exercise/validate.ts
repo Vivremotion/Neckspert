@@ -91,8 +91,37 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	) {
 		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
 	}
+	const listenIn = pacing?.listenInBars;
+	if (listenIn !== undefined && !naturalNumber(listenIn)) {
+		return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
+	}
+	const countIn = pacing?.countIn;
+	if (countIn !== undefined && typeof countIn !== 'boolean') {
+		return `params.pacing.countIn must be true or false, got ${countIn}`;
+	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
+	}
+	return null;
+}
+
+/**
+ * Why a run could not start at a level's resolved params (`checkStart` at run start): a listen-in
+ * that is not a whole number of bars, a count that is not a boolean, or neither a listen-in nor a
+ * counted bar (the listen-in is 0 by default, the counted bar on by default).
+ */
+function startProblem(atLevel: Readonly<Record<string, unknown>>): string | null {
+	const pacing = (atLevel.pacing ?? {}) as Record<string, unknown>;
+	const listenIn = pacing.listenInBars ?? 0;
+	if (!naturalNumber(listenIn)) {
+		return `resolves params.pacing.listenInBars ${listenIn}, not a non-negative integer`;
+	}
+	const countIn = pacing.countIn ?? true;
+	if (typeof countIn !== 'boolean') {
+		return `resolves params.pacing.countIn ${countIn}, not true or false`;
+	}
+	if (!countIn && listenIn === 0) {
+		return 'resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other';
 	}
 	return null;
 }
@@ -112,7 +141,8 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
 /**
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
  * path of an exercise or item level through a value that is not an object (named by its level in
- * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive.
+ * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive,
+ * a run a level could not start (`startProblem`).
  * A path no piece reads passes: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
@@ -142,6 +172,8 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		if (!positive(atLevel.tempo)) {
 			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
 		}
+		const start = startProblem(atLevel);
+		if (start !== null) return `${field} ${start}`;
 		resolved.push(atLevel);
 	}
 	for (const [field, ladder] of laddersOf(definition.params)) {
