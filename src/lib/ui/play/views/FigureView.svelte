@@ -50,6 +50,9 @@
 	const figure = $derived(m.figure);
 	const next = $derived(m.next);
 	const cycleBars = $derived(m.cycleBars);
+	// Read apart too: the model is built again on every beat, its notation with it.
+	const staff = $derived(m.notation.staff);
+	const tab = $derived(m.notation.tab);
 
 	const levelText = $derived(m.level.aid ? t.aidLevel : t.level(m.level.shown, m.level.of));
 	const header = $derived(t.header(m.exerciseLabel, levelText, t.tempo(m.tempo.unit, m.tempo.bpm)));
@@ -59,7 +62,9 @@
 		told
 			? feedbackLine(told.report, i18n.locale, told.verdict, m.plainWords, {
 					wrongNotes: told.wrongNotes,
-					meter: m.figure.meter
+					meter: m.figure.meter,
+					// Told in the bars of the run played as engraved, where their marks are.
+					engraved: cycleFigure(m.figure, m.cycleBars)
 				})
 			: null
 	);
@@ -121,13 +126,21 @@
 	$effect(() => {
 		const host = figureHost;
 		if (!notation || !host || breathing) return;
-		figureLayout = notation.renderFigure(host, figure, { maxWidth: width, scale: LARGE_SCALE });
+		figureLayout = notation.renderFigure(host, figure, {
+			maxWidth: width,
+			scale: LARGE_SCALE,
+			notation: { staff, tab }
+		});
 	});
 
 	$effect(() => {
 		const host = nextHost;
 		if (!notation || !host || !breathing || !next) return;
-		notation.renderFigure(host, next, { maxWidth: nextWidth, scale: LARGE_SCALE });
+		notation.renderFigure(host, next, {
+			maxWidth: nextWidth,
+			scale: LARGE_SCALE,
+			notation: { staff, tab }
+		});
 	});
 
 	const cursor = $derived(
@@ -356,6 +369,11 @@
 
 	.engraving :global(svg) {
 		display: block;
+	}
+
+	/* VexFlow clears the tab's lines behind a fret number in white: the ground's colour instead. */
+	.engraving :global(.vf-tabnote rect) {
+		fill: var(--np-bg);
 	}
 
 	.cursor {

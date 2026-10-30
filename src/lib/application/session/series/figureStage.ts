@@ -17,9 +17,11 @@ import {
 import {
 	exerciseLevelsOf,
 	figureParamsOf,
+	notationOf,
 	tempoOf,
 	type ExerciseDefinition,
-	type FigureParams
+	type FigureParams,
+	type Notation
 } from '$lib/domain/exercise';
 import { FIGURE_CONTENT, isFigureEntry, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
@@ -36,10 +38,12 @@ export type FigurePhase = 'listen-in' | 'count-in' | 'play' | 'listening' | 'bre
 
 /**
  * A note played wrong in place: where it stands in its round (from the round's start, in whole
- * notes) and what tells it from the note asked (« A au lieu de G »), null when not known.
+ * notes), its expectation's index in the round's plan (the mark's note on the engraving), and
+ * what tells it from the note asked (« A au lieu de G »), null when not known.
  */
 export interface WrongNote {
 	at: Fraction;
+	index: number;
 	gap: string | null;
 }
 
@@ -71,9 +75,12 @@ export interface FigureStageModel {
 	level: { shown: number; of: number; aid: boolean };
 	/** « ♩ = 100 bpm »: the beats per minute and the glyph of the beat unit. */
 	tempo: { bpm: number; unit: string };
-	/** The figure played (or heard); at the breath, the one just played. */
+	/**
+	 * The figure played (or heard); at the breath, the one just played. Notes its round derives
+	 * from its item carry the pitch and the string derived, so its tab can be engraved.
+	 */
 	figure: Figure;
-	/** At the breath, the figure to play next; null otherwise. */
+	/** At the breath, the figure to play next (its derived notes written likewise); null otherwise. */
 	next: Figure | null;
 	/** Bar of the cycle from 0; the entry bars count as the end of a cycle before the first. */
 	barInCycle: number;
@@ -94,8 +101,11 @@ export interface FigureStageModel {
 	plainWords: boolean;
 	/** The exercise's prompt above the figure (`presentPrompt`); null when it writes none. */
 	prompt: { primary: string; secondary: string | null } | null;
-	/** How the figure is engraved: staff, tab; null until the view engraves them (plan S, Task 12). */
-	notation: { staff: boolean; tab: boolean } | null;
+	/**
+	 * How the figure to play is engraved: its staff, its tab, both joined, or neither (the rhythm
+	 * line), as its level writes, else as its round's content gives (`notationOf`).
+	 */
+	notation: Notation;
 	/** How the chord shapes it shows are drawn. */
 	chordDiagram: ChordDiagramStyle;
 }
@@ -173,6 +183,66 @@ function derivationOf(definition: ExerciseDefinition): string | null {
 	return from === undefined || from === FIGURE_CONTENT ? null : from;
 }
 
+/** The pitch and the string a content gives a note (`{ midi, string? }`); null when it gives none. */
+function pitchOf(value: unknown): { pitch?: number; string?: number } | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const { midi, string } = value as Record<string, unknown>;
+	if (typeof midi !== 'number') return null;
+	return { pitch: midi, ...(typeof string === 'number' ? { string } : {}) };
+}
+
+/** The figure with its derived notes written, by plan: one figure per plan, engraved once. */
+const DERIVED_FIGURES = new WeakMap<RoundPlan, { written: Figure; derived: Figure }>();
+
+/**
+ * The figure as its plan plays it: when the round derives its notes from its item, each attack of the
+ * first voice carries the pitch and the string of its expectation in the plan (a tied note those
+ * of its attack); the figure itself otherwise. Read on the plan's first loop of the figure, from
+ * its first bar.
+ */
+function figureAsPlayed(definition: ExerciseDefinition, figure: Figure, plan: RoundPlan): Figure {
+	if (derivationOf(definition) === null) return figure;
+	const kept = DERIVED_FIGURES.get(plan);
+	if (kept?.written === figure) return kept.derived;
+	// The entries before the round's first figure entry are places: one expectation each.
+	const from = definition.round?.expectations.findIndex(isFigureEntry) ?? 0;
+	const contents = plan.expectations.slice(from).map((e) => e.content?.value);
+	const [first, ...others] = figure.voices;
+	let attack = 0;
+	let held: ReturnType<typeof pitchOf> = null;
+	const elements = first.elements.map((element, i) => {
+		if (element.kind === 'rest') return element;
+		const before = first.elements[i - 1];
+		const tiedIn = before !== undefined && before.kind !== 'rest' && before.tieToNext === true;
+		if (!tiedIn) held = pitchOf(contents[attack++]);
+		return held ? { ...element, ...held } : element;
+	});
+	const derived: Figure = { ...figure, voices: [{ ...first, elements }, ...others] };
+	DERIVED_FIGURES.set(plan, { written: figure, derived });
+	return derived;
+}
+
+type Prompt = FigureStageModel['prompt'];
+
+/** The prompt of each item, by locale: presented once, not on every beat. */
+const PROMPTS = new WeakMap<PlannedItem, { locale: Locale; prompt: Prompt }>();
+
+/** The exercise's prompt for `item` (`presentPrompt`), null when it writes none. */
+function promptOf(
+	definition: ExerciseDefinition,
+	item: PlannedItem,
+	locale: Locale,
+	random: () => number
+): Prompt {
+	if (!definition.presentation) return null;
+	const kept = PROMPTS.get(item);
+	if (kept?.locale === locale) return kept.prompt;
+	const { primary, secondary } = presentPrompt(definition, item, locale, random);
+	const prompt = { primary, secondary };
+	PROMPTS.set(item, { locale, prompt });
+	return prompt;
+}
+
 /** The picture of what a failed round derived its notes from (its shape); null when none. */
 function expectedPicture(definition: ExerciseDefinition, item: PlannedItem): Picture | null {
 	const from = derivationOf(definition);
@@ -203,7 +273,7 @@ function wrongNotesOf(
 			view && content && entry.answer !== undefined
 				? view.miss(content.value, { answer: entry.answer, confusion: null }, locale, random).gap
 				: null;
-		return [{ at: expectation.at, gap }];
+		return [{ at: expectation.at, index: entry.index, gap }];
 	});
 }
 
@@ -255,7 +325,7 @@ export function figureStage(input: {
 	const level = item.exerciseLevel;
 	const meter = definition.meter ?? METER_4_4;
 	const params = figureParamsOf(definition, level);
-	const figure = figureOf(definition, item, meter);
+	const figure = figureAsPlayed(definition, figureOf(definition, item, meter), input.plan);
 	const cycleBars = barsOf(input.plan, meter);
 	const breath = moment === 'breath';
 	const played = breath && input.played ? input.played : null;
@@ -267,7 +337,7 @@ export function figureStage(input: {
 	const muted = (moment === 'round' || listening) && input.muted;
 	// A heard cycle shows where the figure stands, whatever the level gives.
 	const cursorShown = listening || (playing && params.cursor && !muted);
-	const prompt = definition.presentation ? presentPrompt(definition, item, locale, random) : null;
+	const prompt = promptOf(definition, item, locale, random);
 	return {
 		phase: playing
 			? 'play'
@@ -281,7 +351,9 @@ export function figureStage(input: {
 		exerciseLabel: definition.title?.[locale] ?? definition.id,
 		level: levelView(exerciseLevelsOf(definition), level),
 		tempo: tempoView({ at: Fraction.ZERO, bpm: tempoOf(definition, level), unit: meter.unit }),
-		figure: played ? figureOf(definition, played.item, meter) : figure,
+		figure: played
+			? figureAsPlayed(definition, figureOf(definition, played.item, meter), played.plan)
+			: figure,
 		next: breath ? figure : null,
 		barInCycle,
 		cycleBars: played ? barsOf(played.plan, meter) : cycleBars,
@@ -298,8 +370,8 @@ export function figureStage(input: {
 		settled: input.settled.map((round) => settledCycle(definition, round, locale, random)),
 		listen: params.listen,
 		plainWords: input.endedSessions < PLAIN_WORDS_SESSIONS,
-		prompt: prompt && { primary: prompt.primary, secondary: prompt.secondary },
-		notation: null,
+		prompt,
+		notation: notationOf(definition, level),
 		chordDiagram: input.chordDiagram
 	};
 }

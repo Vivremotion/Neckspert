@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { exerciseLevelsOf, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
@@ -14,7 +14,17 @@ import {
 import type { PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
+import { presentPrompt } from '$lib/application/presentation/presentPrompt';
+import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
+import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, ARPEGGIO_PATTERN } from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
+
+// The prompt is presented through the real presentation, counted.
+vi.mock('$lib/application/presentation/presentPrompt', async (original) => {
+	const actual = await original<typeof import('$lib/application/presentation/presentPrompt')>();
+	return { ...actual, presentPrompt: vi.fn(actual.presentPrompt) };
+});
 
 describe('the stage helpers', () => {
 	it('write the tempo with its unit and number the levels from 1', () => {
@@ -151,8 +161,8 @@ describe('figureStage', () => {
 		});
 		const rhythm = planned(RHYTHM_SILENT_BARS, { figureId: 'eighths', level: 0 });
 		expect(stage(RHYTHM_SILENT_BARS, rhythm, 'round').prompt).toBeNull();
-		// The staff and the tab come with plan S's last view (Task 12).
-		expect(stage(ARPEGGIO, item, 'round').notation).toBeNull();
+		// The notes derive from the shape the prompt names: the rhythm line, not the notes.
+		expect(stage(ARPEGGIO, item, 'round').notation).toEqual({ staff: false, tab: false });
 	});
 
 	it('reads the bars of the round on the plan it is given, compiling nothing on the beat', () => {
@@ -174,7 +184,9 @@ describe('figureStage', () => {
 			played: { item, plan },
 			settled: [{ item, plan, outcome: outcome(played, ['missed', 'wrong-pitch']) }]
 		});
-		expect(model.settled[0].wrongNotes).toEqual([{ at: Fraction.of(1, 4), gap: 'A au lieu de G' }]);
+		expect(model.settled[0].wrongNotes).toEqual([
+			{ at: Fraction.of(1, 4), index: 1, gap: 'A au lieu de G' }
+		]);
 	});
 
 	it('shows the expected shape after a failed derived round, and none after a passed one', () => {
@@ -203,5 +215,57 @@ describe('figureStage', () => {
 			settled: [{ item: rhythm, plan, outcome: outcome(failed, ['missed']) }]
 		});
 		expect(model.settled[0]).toMatchObject({ expected: null, wrongNotes: [] });
+	});
+});
+
+describe('figureStage, the notes it engraves', () => {
+	const c = voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]);
+	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
+	const at = (level: number): PlannedItem => ({
+		...planned(ARPEGGIO_EXERCISE, c),
+		exerciseLevel: level
+	});
+
+	it('hides the notes of a derived figure by default', () => {
+		const model = stage(ARPEGGIO_EXERCISE, at(0), 'round');
+		expect(model.notation).toEqual({ staff: false, tab: false });
+		// Written or not, its notes are the shape's, in the figure the view would engrave.
+		expect(
+			model.figure.voices[0].elements.every((e) => e.kind === 'rest' || e.pitch !== undefined)
+		).toBe(true);
+	});
+
+	it('writes the derived notes into the figure for the tab aid', () => {
+		const model = stage(ARPEGGIO_EXERCISE, at(-1), 'round');
+		expect(model.notation).toEqual({ staff: false, tab: true });
+		const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(c) as {
+			midi: number;
+			string: number;
+		}[];
+		const notes = model.figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+		expect(notes).toEqual(
+			ARPEGGIO_PATTERN.map((k) => ({ pitch: shape[k - 1].midi, string: shape[k - 1].string }))
+		);
+		// The exercise's own figure is left as written.
+		const written = ARPEGGIO_EXERCISE.figures?.[0].figure;
+		expect(
+			written?.voices[0].elements.some((e) => e.kind === 'note' && e.pitch !== undefined)
+		).toBe(false);
+	});
+
+	it('keeps one figure for a plan, so the view engraves it once, and presents the prompt once per item', () => {
+		const item = at(-1);
+		const plan = planOf(ARPEGGIO_EXERCISE, item);
+		const calls = vi.mocked(presentPrompt).mock.calls.length;
+		const first = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, beat: 0 });
+		const second = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, beat: 1 });
+		expect(second.figure).toBe(first.figure);
+		expect(second.prompt).toEqual(first.prompt);
+		expect(vi.mocked(presentPrompt).mock.calls.length - calls).toBe(1);
+		// In another language, presented again.
+		stage(ARPEGGIO_EXERCISE, item, 'round', { plan, locale: 'en' });
+		expect(vi.mocked(presentPrompt).mock.calls.length - calls).toBe(2);
 	});
 });

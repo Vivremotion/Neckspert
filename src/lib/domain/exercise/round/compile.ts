@@ -96,7 +96,7 @@ function readsFrom(
 }
 
 /** The value a dotted path of `params` gives, undefined when it gives none. */
-function paramValue(params: Readonly<Record<string, unknown>>, path: string): unknown {
+export function paramValue(params: Readonly<Record<string, unknown>>, path: string): unknown {
 	let found: unknown = params;
 	for (const key of path.split('.')) found = isRecord(found) ? found[key] : undefined;
 	return found;

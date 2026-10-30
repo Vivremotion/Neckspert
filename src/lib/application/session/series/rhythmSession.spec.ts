@@ -1281,6 +1281,22 @@ describe('the rhythm on the series, another series', () => {
 		controller.quit();
 	});
 
+	it('keeps no plan of the last series for the screen of the next', async () => {
+		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const stagePlan = () =>
+			(controller as unknown as { stagePlan: { item: PlannedItem } | null }).stagePlan;
+		await controller.start();
+		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect(stagePlan()?.item).toBeDefined();
+		// Forgotten as the next series begins, before it shows anything.
+		const starting = controller.start();
+		expect(stagePlan()).toBeNull();
+		await starting;
+		controller.quit();
+	});
+
 	it('keeps on its own session the level held when the series ended, whatever a later one does', async () => {
 		const { controller, sessions, levels, advance } = await rhythmSeries(RHYTHM_OFFBEATS, {
 			met: true

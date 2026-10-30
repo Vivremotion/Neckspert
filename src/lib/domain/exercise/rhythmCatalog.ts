@@ -52,8 +52,11 @@ const SHORTEST_BREATH_MS = 4000;
 /** Bars of the accompaniment alone before a run's counted bar. */
 const RHYTHM_LISTEN_IN_BARS = 2;
 
-/** The params of a rhythm exercise: what its round reads, its figure params and its pacing. */
-type RhythmParams = FigureParams & {
+/**
+ * The params of a rhythm exercise: what its round reads, its figure params (no notation: a bare
+ * rhythm is its rhythm line) and its pacing.
+ */
+type RhythmParams = Omit<FigureParams, 'notation'> & {
 	accompaniment: Accompaniment;
 	cycleBars: number;
 	window: ExpectationWindow;

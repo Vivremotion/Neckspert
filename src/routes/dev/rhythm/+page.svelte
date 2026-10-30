@@ -4,13 +4,29 @@
 	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
 	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, `?phase=wrong` a
 	// breath after wrong notes of a figure derived from a chord shape, its prompt above and the
-	// shape asked, the breath otherwise.
+	// shape asked, the breath otherwise. `?shot=written` a figure written with its notes (a G
+	// major scale in position), engraved as staff and tab; `?shot=derived` the triad arpeggio's
+	// aid level, the tab of the notes derived from its chord shape under its prompt.
 	// The frame tells what the series announces (a remedy, the level reached at the breath).
 	import { page } from '$app/state';
 	import type { PlayView } from '$lib/application/session/contract';
-	import type { FigureStageModel, SettledCycle } from '$lib/application/session/series/figureStage';
+	import {
+		figureStage,
+		type FigureStageModel,
+		type SettledCycle
+	} from '$lib/application/session/series/figureStage';
 	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
-	import { Fraction, type CycleReport } from '$lib/domain/time';
+	import { compileRound } from '$lib/domain/exercise/round';
+	import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+	import {
+		Fraction,
+		METER_4_4,
+		type CycleReport,
+		type Figure,
+		type FigureElement
+	} from '$lib/domain/time';
+	import type { PlannedItem } from '$lib/domain/types';
+	import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import { StageController } from '$lib/ui/play/views/testing/StageController.svelte';
 
@@ -72,7 +88,7 @@
 		listen: 'free',
 		plainWords: true,
 		prompt: null,
-		notation: null,
+		notation: { staff: false, tab: false },
 		chordDiagram: 'strings'
 	};
 	/** A failed cycle whose second bar lost a beat. */
@@ -98,7 +114,11 @@
 				)
 			},
 			verdict: { passed: false, reasons: ['wrong-pitch'] },
-			wrongNotes: wrong.map((index) => ({ at: Fraction.of(index, 8), gap: 'A au lieu de G' })),
+			wrongNotes: wrong.map((index) => ({
+				at: Fraction.of(index, 8),
+				index,
+				gap: 'A au lieu de G'
+			})),
 			expected: {
 				kind: 'shape',
 				notes: [
@@ -110,6 +130,83 @@
 		};
 	}
 
+	/** An eighth note of `pitch` (MIDI) on `string`. */
+	const fretted = (pitch: number, string: number): FigureElement => ({
+		kind: 'note',
+		duration: Fraction.of(1, 8),
+		content: null,
+		pitch,
+		string
+	});
+	/** G major in position, up and down: G3 on the D string to G4 on the B string. */
+	const SCALE: [number, number][] = [
+		[55, 4],
+		[57, 4],
+		[59, 3],
+		[60, 3],
+		[62, 3],
+		[64, 2],
+		[66, 2],
+		[67, 2]
+	];
+	const scale: Figure = {
+		schema: 2,
+		meter: METER_4_4,
+		bars: 2,
+		voices: [
+			{
+				id: 'main',
+				elements: [...SCALE, ...[...SCALE].reverse()].map(([pitch, string]) =>
+					fretted(pitch, string)
+				)
+			}
+		]
+	};
+	const written: FigureStageModel = {
+		...base,
+		exerciseLabel: 'Gamme de sol',
+		level: { shown: 1, of: 3, aid: false },
+		figure: scale,
+		barInCycle: 0,
+		cycleBars: 2,
+		cursor: Fraction.of(3, 8),
+		notation: { staff: true, tab: true }
+	};
+
+	/** The arpeggio's aid level, its round under way: the tab of the C chord's notes. */
+	function derived(): FigureStageModel {
+		const item: PlannedItem = {
+			exerciseId: ARPEGGIO_EXERCISE.id,
+			mechanic: ARPEGGIO_EXERCISE.mechanic,
+			exerciseLevel: -1,
+			item: voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null
+		};
+		return figureStage({
+			definition: ARPEGGIO_EXERCISE,
+			item,
+			plan: compileRound(ARPEGGIO_EXERCISE, item, METER_4_4, {
+				previewBeats: 0,
+				fromRunStart: null
+			}),
+			moment: 'round',
+			barInRound: 0,
+			beat: 1,
+			startBar: 0,
+			muted: false,
+			settled: [],
+			played: null,
+			locale: 'fr',
+			random: () => 0,
+			chordDiagram: 'strings',
+			endedSessions: 0
+		});
+	}
+
+	const shot = page.url.searchParams.get('shot');
 	const breath: FigureStageModel = {
 		...base,
 		phase: 'breath',
@@ -119,23 +216,27 @@
 		level: { shown: 4, of: 6, aid: false }
 	};
 	const model: FigureStageModel =
-		phase === 'play' || phase === 'along'
-			? base
-			: phase === 'muted'
-				? { ...base, barInCycle: 0, muted: true }
-				: phase === 'shift'
-					? { ...breath, settled: [lostBeat()] }
-					: phase === 'wrong'
-						? {
-								...breath,
-								settled: [wrongNotes()],
-								prompt: { primary: 'Do', secondary: 'cordes sol, si, mi' }
-							}
-						: breath;
+		shot === 'written'
+			? written
+			: shot === 'derived'
+				? derived()
+				: phase === 'play' || phase === 'along'
+					? base
+					: phase === 'muted'
+						? { ...base, barInCycle: 0, muted: true }
+						: phase === 'shift'
+							? { ...breath, settled: [lostBeat()] }
+							: phase === 'wrong'
+								? {
+										...breath,
+										settled: [wrongNotes()],
+										prompt: { primary: 'Do', secondary: 'cordes sol, si, mi' }
+									}
+								: breath;
 	const announcement: PlayView['announcement'] =
 		phase === 'along'
 			? { kind: 'play-along', level: 2, of: 6, tempoBpm: 80 }
-			: phase === null
+			: phase === null && shot === null
 				? { kind: 'level-up', level: 3, of: 6, tempoBpm: 80 }
 				: null;
 

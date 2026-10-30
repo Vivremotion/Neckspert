@@ -1,18 +1,24 @@
-// The one place that knows VexFlow: it engraves a rhythm figure as one-line staves. The Bravura
-// font comes bundled with the package (`vexflow/bravura`), so nothing is fetched at run time.
+// The one place that knows VexFlow: it engraves a figure as one-line rhythm staves, or as a staff
+// and a tablature (either or both). The Bravura font comes bundled with the package
+// (`vexflow/bravura`), so nothing is fetched at run time.
 import {
+	Accidental,
 	Beam,
 	Dot,
 	Formatter,
 	Fraction as VexFraction,
 	Renderer,
 	Stave,
+	StaveConnector,
 	StaveNote,
 	StaveTie,
 	Stem,
+	TabNote,
+	TabStave,
 	TimeSignature,
 	Tuplet,
-	Voice
+	Voice,
+	type StemmableNote
 } from 'vexflow/bravura';
 import {
 	barLength,
@@ -23,6 +29,8 @@ import {
 	type Meter,
 	type Voice as FigureVoice
 } from '$lib/domain/time';
+import type { Notation } from '$lib/domain/exercise/figureParams';
+import { CHROMATIC_NOTES, STANDARD_TUNING, type StringNumber } from '$lib/domain/music/types';
 
 /** Where the engraving put things, in CSS pixels from the host's top left corner. */
 export interface FigureLayout {
@@ -37,9 +45,12 @@ export interface FigureLayout {
 	height: number;
 	/** The line each attack of `noteX` is on (0 is the first line), parallel to `noteX`. */
 	noteLine: number[];
-	/** The top y of each line, in output pixels; a line holds one row per voice. */
+	/** The top y of each line, in output pixels; a line holds one system per voice. */
 	lineY: number[];
-	/** The height of one voice's row within a line, in output pixels. */
+	/**
+	 * The height of one voice's system within a line, in output pixels: its rhythm line, or its
+	 * staff and its tab.
+	 */
 	rowHeight: number;
 	/** The width of a bar (all bars are equally wide), in output pixels. */
 	barWidth: number;
@@ -50,6 +61,8 @@ export interface RenderOptions {
 	maxWidth: number;
 	/** Zoom of the drawing, 1 by default. */
 	scale?: number;
+	/** A staff, a tab, or both, joined; absent, or neither: the one-line rhythm. */
+	notation?: Notation;
 }
 
 /** Spacing in the engraving's own units (VexFlow's staff line spacing is 10). */
@@ -66,6 +79,31 @@ const BAR_END_PADDING = 16;
 /** The pitch every note sits on: the one that falls on the staff's single line (as a treble clef writes it). */
 const KEY = 'f/5';
 const INK = 'currentColor';
+
+/** Spaces above and below the five lines of the staff: room for ledger lines and stems. */
+const STAFF_ABOVE = 4;
+const STAFF_BELOW = 4;
+const STAFF_ROW = (STAFF_ABOVE + 4 + STAFF_BELOW + 1) * LINE_SPACING;
+/** The staff's note for a rest, and for a note of no pitch (with a cross for head): its middle line. */
+const STAFF_MIDDLE = 'b/4';
+/** Written an octave above the sound, as the guitar is (the treble clef with an 8 below). */
+const WRITTEN_OCTAVE_UP = 12;
+
+/** The tab's lines (one per string) and the spaces around them, in its own line spacing. */
+const TAB_LINES = 6;
+const TAB_ABOVE = 1;
+const TAB_BELOW = 4;
+/** VexFlow's tab line spacing, widened when the fret numbers are larger than it holds. */
+const TAB_SPACING = 13;
+const TAB_SPACING_PER_FRET_UNIT = 0.8;
+/** The fret numbers' size in the engraving's units, at least `MIN_TEXT_PX` once scaled. */
+const FRET_UNITS = 14;
+/** The fret numbers are text, not music: the music font's digits are a size too small. */
+const FRET_FAMILY = 'system-ui, sans-serif';
+/** Room on the left of a joined staff and tab for their bracket, in the engraving's units. */
+const BRACKET_ROOM = 10;
+/** No text of the screen is smaller (the fret numbers included), in CSS pixels. */
+const MIN_TEXT_PX = 16;
 
 // Note values a single VexFlow note can carry: a power of two, dotted up to twice.
 const NOTE_VALUES = ['w', 'h', 'q', '8', '16', '32', '64'] as const;
@@ -99,21 +137,114 @@ function splitIntoNoteValues(written: Fraction): NoteValue[] {
 	return pieces;
 }
 
+/** A row of a system: the one-line rhythm, the staff, or the tab. */
+type Row = 'rhythm' | 'staff' | 'tab';
+
+/** The rows of a voice's system: its staff over its tab, or the rhythm line when neither. */
+function rowsOf(notation: Notation | undefined): Row[] {
+	const rows: Row[] = [];
+	if (notation?.staff) rows.push('staff');
+	if (notation?.tab) rows.push('tab');
+	return rows.length > 0 ? rows : ['rhythm'];
+}
+
+/** How the tab is drawn at a scale: its fret numbers never under `MIN_TEXT_PX` once scaled. */
+interface TabLook {
+	/** The fret numbers' size, in the engraving's units. */
+	fretUnits: number;
+	/** The space between two strings, in the engraving's units. */
+	spacing: number;
+}
+
+function tabLook(scale: number): TabLook {
+	const fretUnits = Math.max(FRET_UNITS, MIN_TEXT_PX / scale);
+	return { fretUnits, spacing: Math.max(TAB_SPACING, fretUnits * TAB_SPACING_PER_FRET_UNIT) };
+}
+
+function rowHeight(row: Row, tab: TabLook): number {
+	if (row === 'rhythm') return ROW_HEIGHT;
+	if (row === 'staff') return STAFF_ROW;
+	return (TAB_ABOVE + TAB_LINES - 1 + TAB_BELOW) * tab.spacing;
+}
+
+/**
+ * A tab note whose fret numbers have a size of their own and stand, with its stem, `shift` to
+ * the right: under the centre of a staff's note head at the same time.
+ */
+class FretNote extends TabNote {
+	constructor(
+		struct: ConstructorParameters<typeof TabNote>[0],
+		private readonly look: { fretUnits: number; shift: number }
+	) {
+		super(struct, true);
+		this.setXShift(look.shift);
+		this.sizeFrets();
+	}
+
+	override setGhost(ghost: boolean): this {
+		super.setGhost(ghost);
+		this.sizeFrets();
+		return this;
+	}
+
+	private sizeFrets(): void {
+		if (!this.look) return;
+		for (const fret of this.fretElement) {
+			fret.setFont(FRET_FAMILY, `${this.look.fretUnits}px`);
+			fret.setYShift(fret.getHeight() / 2);
+			fret.setXShift(this.look.shift);
+		}
+		this.width = Math.max(0, ...this.fretElement.map((fret) => fret.getWidth()));
+	}
+}
+
+/** The staff's key of a sounding pitch, written an octave up, spelled with sharps. */
+function staffKey(pitch: number): string {
+	const written = pitch + WRITTEN_OCTAVE_UP;
+	const name = CHROMATIC_NOTES[((written % 12) + 12) % 12].toLowerCase();
+	return `${name}/${Math.floor(written / 12) - 1}`;
+}
+
+/** The fret of a note on its string; throws when it has none to give. */
+function fretOf(element: FigureNote, where: string): { str: number; fret: number } {
+	const { pitch, string } = element;
+	if (string === undefined)
+		throw new RangeError(`cannot engrave the tab of ${where}: it has no string`);
+	if (pitch === undefined)
+		throw new RangeError(`cannot engrave the tab of ${where}: it has no pitch`);
+	const open = STANDARD_TUNING[string as StringNumber];
+	if (open === undefined || pitch < open) {
+		throw new RangeError(
+			`cannot engrave the tab of ${where}: pitch ${pitch} is below string ${string} (${open})`
+		);
+	}
+	return { str: string, fret: pitch - open };
+}
+
+type FigureNote = Extract<FigureElement, { kind: 'note' }>;
+
 interface Head {
-	note: StaveNote;
+	note: StemmableNote;
 	/** True for the note that starts the sound (not for the tail of a split or a tied note). */
 	attack: boolean;
 	/** Whether this head is tied to the next one of the voice. */
 	tieNext: boolean;
+	/** Where its centre stands from the note's own x: the rhythm's and staff's head, the tab's number. */
+	centre: number;
 }
 
-interface EngravedBar {
+interface EngravedRow {
+	row: Row;
 	heads: Head[];
 	tuplets: Tuplet[];
 	voice: Voice;
+	beams: Beam[];
+}
+
+interface EngravedBar {
+	rows: EngravedRow[];
 	formatter: Formatter;
 	minWidth: number;
-	beams: Beam[];
 }
 
 /** The beat groups of the meter, as VexFlow fractions of a whole note. */
@@ -128,14 +259,56 @@ interface BarElement {
 	tiedIn: boolean;
 }
 
-function engraveBar(
+/** The note of one piece of an element on a row; `half` is half the width of its note head. */
+function pieceNote(
+	row: Row,
+	element: FigureElement,
+	piece: NoteValue,
+	tail: boolean,
+	look: { fretUnits: number; half: number },
+	where: string
+): StemmableNote {
+	const rest = element.kind === 'rest';
+	const duration = `${piece.name}${rest ? 'r' : ''}`;
+	if (row === 'rhythm') {
+		return new StaveNote({
+			keys: [KEY],
+			duration,
+			dots: piece.dots,
+			stemDirection: Stem.UP,
+			autoStem: false
+		});
+	}
+	if (row === 'staff' || rest) {
+		const pitch = element.kind === 'note' ? element.pitch : undefined;
+		const key = rest ? STAFF_MIDDLE : pitch === undefined ? `${STAFF_MIDDLE}/x2` : staffKey(pitch);
+		return new StaveNote({ keys: [key], duration, dots: piece.dots, autoStem: true });
+	}
+	const note = new FretNote(
+		{
+			positions: [fretOf(element, where)],
+			duration,
+			dots: piece.dots,
+			stemDirection: Stem.DOWN
+		},
+		{ fretUnits: look.fretUnits, shift: look.half }
+	);
+	// The tail of a split or a tied note: its fret again, in brackets.
+	if (tail) note.setGhost(true);
+	return note;
+}
+
+function engraveRow(
+	row: Row,
 	elements: BarElement[],
 	tuplets: FigureVoice['tuplets'],
-	meter: Meter
-): EngravedBar {
+	meter: Meter,
+	voiceId: string,
+	tab: TabLook
+): EngravedRow {
 	const bar = barLength(meter);
 	const heads: Head[] = [];
-	const notesOfElement = new Map<number, StaveNote[]>();
+	const notesOfElement = new Map<number, StemmableNote[]>();
 
 	for (const { element, index, tiedIn } of elements) {
 		const tuplet = (tuplets ?? []).find((t) => t.from <= index && index <= t.to);
@@ -143,58 +316,85 @@ function engraveBar(
 			? element.duration.mul(Fraction.of(tuplet.ratio[0], tuplet.ratio[1]))
 			: element.duration;
 		const pieces = splitIntoNoteValues(written);
-		const notes: StaveNote[] = [];
+		const notes: StemmableNote[] = [];
 		for (const [i, piece] of pieces.entries()) {
-			const note = new StaveNote({
-				keys: [KEY],
-				duration: `${piece.name}${element.kind === 'rest' ? 'r' : ''}`,
-				dots: piece.dots,
-				stemDirection: Stem.UP,
-				autoStem: false
-			});
+			// Half the width of the head this piece has on a staff: where the tab's number goes.
+			const half =
+				row === 'tab'
+					? new StaveNote({ keys: [KEY], duration: piece.name }).getGlyphWidth() / 2
+					: 0;
+			const tail = i > 0 || tiedIn;
+			const where = `note ${index + 1} of voice "${voiceId}"`;
+			const note = pieceNote(row, element, piece, tail, { fretUnits: tab.fretUnits, half }, where);
 			if (piece.dots > 0) Dot.buildAndAttach([note], { all: true });
 			notes.push(note);
 			const last = i === pieces.length - 1;
 			heads.push({
 				note,
-				attack: element.kind === 'note' && i === 0 && !tiedIn,
-				tieNext: element.kind === 'note' && (!last || element.tieToNext === true)
+				attack: element.kind === 'note' && !tail,
+				tieNext: element.kind === 'note' && (!last || element.tieToNext === true),
+				centre: note instanceof FretNote ? half : note.getGlyphWidth() / 2
 			});
 		}
 		notesOfElement.set(index, notes);
 	}
 
-	// A tuplet is drawn per bar: one that runs over a bar line is cut at it.
+	// A tuplet is drawn per bar: one that runs over a bar line is cut at it; on the tab, below.
 	const barTuplets: Tuplet[] = [];
 	for (const t of tuplets ?? []) {
 		const notes = elements
 			.filter(({ index }) => t.from <= index && index <= t.to)
 			.flatMap(({ index }) => notesOfElement.get(index) ?? []);
 		if (notes.length > 0) {
-			barTuplets.push(new Tuplet(notes, { numNotes: t.ratio[0], notesOccupied: t.ratio[1] }));
+			barTuplets.push(
+				new Tuplet(notes, {
+					numNotes: t.ratio[0],
+					notesOccupied: t.ratio[1],
+					...(row === 'tab' ? { location: Tuplet.LOCATION_BOTTOM } : {})
+				})
+			);
 		}
 	}
 
 	const voice = new Voice({ numBeats: bar.n, beatValue: bar.d }).setMode(Voice.Mode.SOFT);
 	const notes = heads.map((head) => head.note);
 	voice.addTickables(notes);
+	// No key signature: each altered note carries its accidental, for the rest of its bar.
+	if (row === 'staff') Accidental.applyAccidentals([voice], 'C');
 	const beams = Beam.generateBeams(notes, {
 		groups: beamGroups(meter),
-		stemDirection: Stem.UP,
 		beamRests: false,
-		maintainStemDirections: true
+		...(row === 'staff'
+			? {}
+			: { stemDirection: row === 'tab' ? Stem.DOWN : Stem.UP, maintainStemDirections: true })
 	});
-	const formatter = new Formatter().joinVoices([voice]);
+	return { row, heads, tuplets: barTuplets, voice, beams };
+}
+
+function engraveBar(
+	elements: BarElement[],
+	voice: FigureVoice,
+	meter: Meter,
+	rows: Row[],
+	tab: TabLook
+): EngravedBar {
+	const bar = barLength(meter);
+	const engraved = rows.map((row) =>
+		engraveRow(row, elements, voice.tuplets, meter, voice.id, tab)
+	);
+	// The rows of a bar share their ticks: a note of the staff and its fret stand at one x.
+	const formatter = new Formatter();
+	for (const row of engraved) formatter.joinVoices([row.voice]);
 	// VexFlow's tightest packing is unreadable: give each slot of the shortest note room to breathe.
 	const shortest = elements.reduce(
 		(min, { element }) => (element.duration.compare(min) < 0 ? element.duration : min),
 		bar
 	);
 	const minWidth = Math.max(
-		formatter.preCalculateMinTotalWidth([voice]),
+		formatter.preCalculateMinTotalWidth(engraved.map((row) => row.voice)),
 		Math.ceil(bar.div(shortest).toNumber()) * SLOT_PX
 	);
-	return { heads, tuplets: barTuplets, voice, formatter, minWidth, beams };
+	return { rows: engraved, formatter, minWidth };
 }
 
 /** Splits a voice's elements by the bar they fall in. */
@@ -216,7 +416,7 @@ function timeSignature(meter: Meter): string | null {
 	return meter.unit.n === 1 ? `${meter.count}/${meter.unit.d}` : null;
 }
 
-function newStave(x: number, y: number, width: number, signature: string | null): Stave {
+function rhythmStave(x: number, y: number, width: number, signature: string | null): Stave {
 	const stave = new Stave(x, y, width, {
 		numLines: 1,
 		spaceAboveStaffLn: LINES_ABOVE,
@@ -230,7 +430,51 @@ function newStave(x: number, y: number, width: number, signature: string | null)
 		time.bottomLine = 1;
 		stave.addModifier(time);
 	}
-	return stave.setStyle({ fillStyle: INK, strokeStyle: INK });
+	return stave;
+}
+
+/**
+ * The staves of one bar of a voice, a row each, from `y` down: the clef and the tab sign when the
+ * bar opens its line, the time signature on the first bar (on the tab when it stands alone).
+ * Their notes start at one x.
+ */
+function barStaves(
+	rows: Row[],
+	place: { x: number; y: number; width: number },
+	start: { line: boolean; signature: string | null },
+	tab: TabLook
+): Stave[] {
+	const { x, width } = place;
+	let y = place.y;
+	const staves = rows.map((row) => {
+		const top = y;
+		y += rowHeight(row, tab);
+		if (row === 'rhythm') return rhythmStave(x, top, width, start.signature);
+		if (row === 'staff') {
+			const staff = new Stave(x, top, width, {
+				spaceAboveStaffLn: STAFF_ABOVE,
+				spaceBelowStaffLn: STAFF_BELOW
+			});
+			if (start.line) staff.addClef('treble', undefined, '8vb');
+			if (start.signature) staff.addTimeSignature(start.signature);
+			return staff;
+		}
+		const stave = new TabStave(x, top, width, {
+			numLines: TAB_LINES,
+			spacingBetweenLinesPx: tab.spacing,
+			spaceAboveStaffLn: TAB_ABOVE,
+			spaceBelowStaffLn: TAB_BELOW
+		});
+		if (start.line) stave.addTabGlyph();
+		if (start.signature && !rows.includes('staff')) stave.addTimeSignature(start.signature);
+		return stave;
+	});
+	const noteStart = Math.max(...staves.map((stave) => stave.getNoteStartX()));
+	for (const stave of staves) {
+		stave.setNoteStartX(noteStart);
+		stave.setStyle({ fillStyle: INK, strokeStyle: INK });
+	}
+	return staves;
 }
 
 /** The music font the package registers when it loads; glyph widths are measured on it. */
@@ -251,9 +495,12 @@ export async function notationReady(): Promise<void> {
 }
 
 /**
- * Draws a figure (one rhythmic line per voice, bars wrapped to `maxWidth`) into `host`, replacing
- * what it held; returns where each note and bar landed. Every bar gets the same width, as many
- * to a line as fit. A bar wider than `maxWidth` on its own is drawn anyway, past it.
+ * Draws a figure into `host`, replacing what it held, and returns where each note and bar
+ * landed: one system per voice and line, its one-line rhythm, or its staff (`treble_8`, no key
+ * signature) over its tab (six strings, the frets read from each note's pitch and string, the
+ * rhythm on its stems), joined, as `notation` asks; bars wrapped to `maxWidth`. Every bar gets
+ * the same width, as many to a line as fit. A bar wider than `maxWidth` on its own is drawn
+ * anyway, past it. Throws on a tab note without a string or a fret.
  */
 export function renderFigure(
 	host: HTMLElement,
@@ -268,24 +515,31 @@ export function renderFigure(
 	}
 	const { meter, bars } = figure;
 	const signature = timeSignature(meter);
+	const rows = rowsOf(options.notation);
+	const tab = tabLook(scale);
+	const systemHeight = rows.reduce((sum, row) => sum + rowHeight(row, tab), 0);
 
 	const engraved = figure.voices.map((voice) =>
-		elementsByBar(voice, meter, bars).map((elements) => engraveBar(elements, voice.tuplets, meter))
+		elementsByBar(voice, meter, bars).map((elements) =>
+			engraveBar(elements, voice, meter, rows, tab)
+		)
 	);
 
-	// The widest a bar needs to be, the time signature of the first one included.
-	const probe = newStave(0, 0, 100, signature);
-	const overhead = probe.getNoteStartX() - probe.getX();
+	// The widest a bar needs to be, the clef and the time signature of the first one included.
+	const probe = barStaves(rows, { x: 0, y: 0, width: 100 }, { line: true, signature }, tab);
+	const overhead = probe[0].getNoteStartX() - probe[0].getX();
 	const needed =
 		Math.max(...engraved.flat().map((bar) => bar.minWidth)) + overhead + BAR_END_PADDING;
-	const available = options.maxWidth / scale - 2 * EDGE;
+	// A staff and a tab joined keep room on their left for their bracket.
+	const left = EDGE + (rows.length > 1 ? BRACKET_ROOM : 0);
+	const available = options.maxWidth / scale - left - EDGE;
 	const perLine = Math.max(1, Math.min(bars, Math.floor(available / needed)));
 	const barWidth = Math.floor(available / perLine);
 	const lines = Math.ceil(bars / perLine);
 
 	host.replaceChildren();
-	const width = Math.ceil((perLine * barWidth + 2 * EDGE) * scale);
-	const height = Math.ceil(lines * figure.voices.length * ROW_HEIGHT * scale);
+	const width = Math.ceil((left + perLine * barWidth + EDGE) * scale);
+	const height = Math.ceil(lines * figure.voices.length * systemHeight * scale);
 	const renderer = new Renderer(host as HTMLDivElement, Renderer.Backends.SVG);
 	renderer.resize(width, height);
 	const ctx = renderer.getContext();
@@ -296,29 +550,45 @@ export function renderFigure(
 	const noteX: number[] = [];
 	const noteLine: number[] = [];
 	const barX: number[] = [];
-	// The rows of lines hold one stave per voice, voice after voice.
+	// The lines hold one system per voice, voice after voice.
 	const lineOf = (bar: number) => Math.floor(bar / perLine);
 	for (const [v, voiceBars] of engraved.entries()) {
+		// The heads of the voice's first row, which carries its ties.
 		const heads: { head: Head; line: number }[] = [];
 		for (const [b, bar] of voiceBars.entries()) {
 			const line = lineOf(b);
-			const x = EDGE + (b % perLine) * barWidth;
-			const y = (line * figure.voices.length + v) * ROW_HEIGHT;
-			const stave = newStave(x, y, barWidth, b === 0 ? signature : null);
-			stave.setContext(ctx).draw();
-			const room = stave.getNoteEndX() - stave.getNoteStartX() - BAR_END_PADDING;
-			bar.formatter.format([bar.voice], room);
-			for (const head of bar.heads) head.note.setStyle({ fillStyle: INK, strokeStyle: INK });
-			bar.voice.draw(ctx, stave);
-			for (const beam of bar.beams)
-				beam.setStyle({ fillStyle: INK, strokeStyle: INK }).setContext(ctx).draw();
-			for (const tuplet of bar.tuplets) tuplet.setContext(ctx).draw();
-			for (const head of bar.heads) heads.push({ head, line });
+			const x = left + (b % perLine) * barWidth;
+			const y = (line * figure.voices.length + v) * systemHeight;
+			const opensLine = b % perLine === 0;
+			const staves = barStaves(
+				rows,
+				{ x, y, width: barWidth },
+				{ line: opensLine, signature: b === 0 ? signature : null },
+				tab
+			);
+			for (const stave of staves) stave.setContext(ctx).draw();
+			if (opensLine && staves.length > 1) joinStaves(ctx, staves[0], staves[staves.length - 1]);
+			const room =
+				Math.min(...staves.map((stave) => stave.getNoteEndX() - stave.getNoteStartX())) -
+				BAR_END_PADDING;
+			bar.formatter.format(
+				bar.rows.map((row) => row.voice),
+				room
+			);
+			for (const [r, row] of bar.rows.entries()) {
+				for (const head of row.heads) head.note.setStyle({ fillStyle: INK, strokeStyle: INK });
+				row.voice.draw(ctx, staves[r]);
+				for (const beam of row.beams)
+					beam.setStyle({ fillStyle: INK, strokeStyle: INK }).setContext(ctx).draw();
+				for (const tuplet of row.tuplets) tuplet.setContext(ctx).draw();
+			}
+			const [first] = bar.rows;
+			if (first.row !== 'tab') for (const head of first.heads) heads.push({ head, line });
 			if (v === 0) {
 				barX.push(x * scale);
-				for (const head of bar.heads) {
+				for (const head of first.heads) {
 					if (head.attack) {
-						noteX.push((head.note.getAbsoluteX() + head.note.getGlyphWidth() / 2) * scale);
+						noteX.push((head.note.getAbsoluteX() + head.centre) * scale);
 						noteLine.push(line);
 					}
 				}
@@ -327,13 +597,40 @@ export function renderFigure(
 		drawTies(ctx, heads);
 	}
 
-	const rowHeight = ROW_HEIGHT * scale;
-	const lineY = Array.from({ length: lines }, (_, line) => line * figure.voices.length * rowHeight);
-	return { noteX, barX, width, height, noteLine, lineY, rowHeight, barWidth: barWidth * scale };
+	const rowHeightPx = systemHeight * scale;
+	const lineY = Array.from(
+		{ length: lines },
+		(_, line) => line * figure.voices.length * rowHeightPx
+	);
+	return {
+		noteX,
+		barX,
+		width,
+		height,
+		noteLine,
+		lineY,
+		rowHeight: rowHeightPx,
+		barWidth: barWidth * scale
+	};
+}
+
+type Context = ReturnType<Renderer['getContext']>;
+
+/** Joins a line's staff and tab: a bracket and a line on their left. */
+function joinStaves(ctx: Context, top: Stave, bottom: Stave): void {
+	for (const type of ['bracket', 'singleLeft'] as const) {
+		ctx.openGroup('staveconnector');
+		new StaveConnector(top, bottom)
+			.setType(type)
+			.setStyle({ fillStyle: INK, strokeStyle: INK })
+			.setContext(ctx)
+			.drawWithStyle();
+		ctx.closeGroup();
+	}
 }
 
 /** Ties each head flagged for it to the next one; across a line break, two half ties. */
-function drawTies(ctx: ReturnType<Renderer['getContext']>, heads: { head: Head; line: number }[]) {
+function drawTies(ctx: Context, heads: { head: Head; line: number }[]) {
 	for (const [i, { head, line }] of heads.entries()) {
 		const next = heads[i + 1];
 		if (!head.tieNext || !next) continue;
@@ -346,7 +643,10 @@ function drawTies(ctx: ReturnType<Renderer['getContext']>, heads: { head: Head; 
 						{ firstNote: null, lastNote: next.head.note, ...opts }
 					];
 		for (const notes of ties) {
-			new StaveTie(notes).setStyle({ fillStyle: INK, strokeStyle: INK }).setContext(ctx).draw();
+			new StaveTie(notes as ConstructorParameters<typeof StaveTie>[0])
+				.setStyle({ fillStyle: INK, strokeStyle: INK })
+				.setContext(ctx)
+				.draw();
 		}
 	}
 }

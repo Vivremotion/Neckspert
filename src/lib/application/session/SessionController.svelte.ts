@@ -512,6 +512,7 @@ export class SessionController implements PlaySessionController {
 		this.run = null;
 		this.keptRun = null;
 		this.runRounds = [];
+		this.stagePlan = null;
 		this.runLatencyS = 0;
 		this.sessionLatencyMs = null;
 		this.listenIn = null;

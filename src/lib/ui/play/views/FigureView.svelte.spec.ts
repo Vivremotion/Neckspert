@@ -77,7 +77,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		listen: 'free',
 		plainWords: true,
 		prompt: null,
-		notation: null,
+		notation: { staff: false, tab: false },
 		chordDiagram: 'strings',
 		...overrides
 	};
@@ -196,6 +196,58 @@ describe('FigureView', () => {
 		const sameTempo = await lateMarkLeft(90);
 		// Played at half the tempo, a beat lasts twice as long: the same 90 ms is a smaller share.
 		expect(await lateMarkLeft(45)).toBeLessThan(sameTempo);
+	});
+
+	it('engraves the staff and the tab its level shows, the rhythm line otherwise', async () => {
+		const fretted = (pitch: number, string: number) => ({
+			kind: 'note' as const,
+			duration: Fraction.of(1, 4),
+			content: null,
+			pitch,
+			string
+		});
+		const written: Figure = {
+			schema: 2,
+			meter: figure(0).meter,
+			bars: 1,
+			voices: [
+				{ id: 'main', elements: [fretted(60, 2), fretted(64, 1), fretted(67, 1), fretted(64, 1)] }
+			]
+		};
+		const both = { staff: true, tab: true };
+		render(FigureView, {
+			props: { controller: running(), model: model({ figure: written, notation: both }) }
+		});
+		await engraved();
+		await vi.waitFor(() => expect(document.querySelectorAll('.vf-tabnote')).toHaveLength(4));
+		expect(document.querySelectorAll('.vf-stave')).toHaveLength(2);
+		// The cursor spans the system, its staff and its tab.
+		const cursor = screen.getByTestId('figure-cursor');
+		expect(Number.parseFloat(cursor.style.height)).toBeGreaterThan(200);
+		cleanup();
+
+		render(FigureView, {
+			props: {
+				controller: running(),
+				model: model({ figure: written, notation: { staff: false, tab: false } })
+			}
+		});
+		await engraved();
+		expect(document.querySelectorAll('.vf-tabnote')).toHaveLength(0);
+		expect(document.querySelectorAll('.vf-stave')).toHaveLength(1);
+		cleanup();
+
+		// At the breath, the figure to play shows them; the run played, with its marks, the rhythm.
+		render(FigureView, {
+			props: {
+				controller: running(),
+				model: breath({ figure: written, next: written, notation: both, settled: [] })
+			}
+		});
+		await engraved(2);
+		const next = screen.getByTestId('figure-next');
+		await vi.waitFor(() => expect(next.querySelectorAll('.vf-tabnote')).toHaveLength(4));
+		expect(screen.getByTestId('figure-played').querySelectorAll('.vf-tabnote')).toHaveLength(0);
 	});
 
 	it('puts the marks of each line of a wrapped run right under that line', async () => {
@@ -327,12 +379,13 @@ describe('FigureView', () => {
 				)
 			},
 			verdict: { passed: false, reasons: ['wrong-pitch'] },
-			wrongNotes: [{ at: Fraction.of(1, 4), gap: 'A au lieu de G' }],
+			// The offbeats' second note, an eighth after the downbeat.
+			wrongNotes: [{ at: Fraction.of(1, 8), index: 1, gap: 'A au lieu de G' }],
 			expected: null
 		};
 		render(FigureView, { props: { controller: running(), model: breath({ settled: [wrong] }) } });
 		expect(screen.getByTestId('figure-feedback').textContent).toContain(
-			'Mesure 1, temps 2 : A au lieu de G'
+			'Mesure 1, temps 1 : A au lieu de G'
 		);
 		await engraved(2);
 		await vi.waitFor(() => expect(screen.getAllByTestId('figure-mark')).toHaveLength(5));

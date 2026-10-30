@@ -1,4 +1,13 @@
-import { writesFigure } from '$lib/domain/exercise/figureParams';
+import { notationOf, writesFigure } from '$lib/domain/exercise/figureParams';
+import { exerciseLevelsOf, resolvedParamsOf } from '$lib/domain/exercise/levels';
+import {
+	FIGURE_CONTENT,
+	isFigureEntry,
+	paramValue,
+	type FigureRef
+} from '$lib/domain/exercise/round';
+import { levelRange, type Figure } from '$lib/domain/time';
+import { STANDARD_TUNING, type StringNumber } from '$lib/domain/music/types';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
@@ -64,7 +73,8 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
  * figure (`writesFigure`), which it draws with or without a prompt; a presentation drawn by a
  * view that does not draw one (`PROMPT_STAGE_VIEWS`), or such a view with no presentation to
  * read; a response exercise (one that writes its `round`) with neither a presentation nor a
- * screen of its mechanic presenter (`stageOf`). The view is the exercise's, else the one the
+ * screen of its mechanic presenter (`stageOf`); a level of the figure view that shows the tab of
+ * a figure with a note it cannot fret (`tabProblem`). The view is the exercise's, else the one the
  * series gives it (`playViewOf`).
  */
 export function screenProblem(
@@ -78,7 +88,7 @@ export function screenProblem(
 	const drawn = playViewOf(definition);
 	if (drawn === FIGURE_VIEW) {
 		return writesFigure(definition)
-			? null
+			? tabProblem(definition)
 			: `${id}: view "${drawn}" draws the figure of its round, and the round plays none`;
 	}
 	const readsPrompt = PROMPT_STAGE_VIEWS.includes(drawn);
@@ -96,6 +106,59 @@ export function screenProblem(
 		: undefined;
 	if (presenter?.stageOf) return null;
 	return `${id}: writes a round but no presentation, and ${definition.mechanic} draws no screen of its own`;
+}
+
+/** The figures a figure entry may play at an exercise level: the one it names, else all of them. */
+function figuresAt(
+	definition: ExerciseDefinition,
+	ref: FigureRef,
+	exerciseLevel: number
+): { id: string; figure: Figure }[] {
+	const figures = definition.figures ?? [];
+	if ('item' in ref) return [...figures];
+	const id =
+		'id' in ref
+			? ref.id
+			: paramValue(resolvedParamsOf(definition, { exerciseLevel, itemLevel: null }), ref.param);
+	return figures.filter((figure) => figure.id === id);
+}
+
+/** What keeps a figure from its tab: a note without a string or a pitch, or below its string. */
+function unfrettedNote(figure: Figure): string | null {
+	for (const voice of figure.voices) {
+		for (const [i, element] of voice.elements.entries()) {
+			if (element.kind !== 'note') continue;
+			const note = `note ${i + 1}${figure.voices.length > 1 ? ` of voice "${voice.id}"` : ''}`;
+			const { pitch, string } = element;
+			if (string === undefined) return `${note} has no string`;
+			if (pitch === undefined) return `${note} has no pitch`;
+			const open = STANDARD_TUNING[string as StringNumber];
+			if (pitch < open) return `${note} (pitch ${pitch}) is below string ${string}`;
+		}
+	}
+	return null;
+}
+
+/**
+ * Null when every level that shows the tab of its figure can engrave it, else the first that
+ * cannot (an engine limit: no tab without strings): a note of the figures it may play written
+ * without a string, a pitch, or below its string. Notes derived from the item take the pitch and
+ * the string the derivation gives.
+ */
+function tabProblem(definition: ExerciseDefinition): string | null {
+	const entry = definition.round?.expectations.find(isFigureEntry);
+	if (!entry || (entry.content !== null && entry.content.from !== FIGURE_CONTENT)) return null;
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	for (let level = lowest; level <= highest; level++) {
+		if (!notationOf(definition, level).tab) continue;
+		for (const { id, figure } of figuresAt(definition, entry.figure, level)) {
+			const problem = unfrettedNote(figure);
+			if (problem) {
+				return `${definition.id}: exercise level ${level} shows the tab of figure "${id}", whose ${problem}`;
+			}
+		}
+	}
+	return null;
 }
 
 /**

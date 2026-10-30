@@ -7,6 +7,8 @@ import { validateExercise } from '$lib/domain/exercise/validate';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { DEFAULT_PLAY_VIEW, playViewOf } from '$lib/application/session/contract';
+import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
 
@@ -110,6 +112,65 @@ describe('screenProblem', () => {
 		expect(screenProblem({ ...bare, round: figureRound }, presenters)).toBe(
 			'locate-neck: writes a round but no presentation, and locate draws no screen of its own'
 		);
+	});
+
+	it('refuses a level that shows the tab of a figure with a note without string', () => {
+		const fretted = (pitch: number, string?: number): FigureElement => ({
+			kind: 'note',
+			duration: Fraction.of(1, 4),
+			content: null,
+			pitch,
+			...(string === undefined ? {} : { string })
+		});
+		/** The arpeggio played on the notes written in its figures, the second a note without string. */
+		const written: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			figures: [
+				{
+					id: 'quarters',
+					figure: {
+						schema: 2,
+						meter: METER_4_4,
+						bars: 1,
+						voices: [
+							{
+								id: 'main',
+								elements: [fretted(60, 2), fretted(64), fretted(67, 1), fretted(64, 1)]
+							}
+						]
+					}
+				}
+			],
+			round: {
+				...ARPEGGIO_EXERCISE.round!,
+				expectations: [{ ...ARPEGGIO_EXERCISE.round!.expectations[0], content: { from: 'figure' } }]
+			},
+			levels: [{ params: {} }]
+		};
+		// A written figure shows its staff and its tab by default.
+		expect(screenProblem(written, {})).toBe(
+			'test-arpeggio-sequence: exercise level 0 shows the tab of figure "quarters", whose note 2 has no string'
+		);
+		// Without its tab, the staff alone needs no string.
+		expect(
+			screenProblem({ ...written, levels: [{ params: { 'notation.tab': false } }] }, {})
+		).toBeNull();
+		// A bare rhythm shows no tab, unless a level asks for it.
+		expect(screenProblem(RHYTHM_OFFBEATS, {})).toBeNull();
+		const [first, ...others] = RHYTHM_OFFBEATS.levels!;
+		expect(
+			screenProblem(
+				{
+					...RHYTHM_OFFBEATS,
+					levels: [{ ...first, params: { ...first.params, 'notation.tab': true } }, ...others]
+				},
+				{}
+			)
+		).toBe(
+			'rhythm-offbeats: exercise level -1 shows the tab of figure "offbeats-1", whose note 1 has no string'
+		);
+		// Notes derived from the item carry the string the derivation gives: the aid level's tab.
+		expect(screenProblem(ARPEGGIO_EXERCISE, {})).toBeNull();
 	});
 
 	it('draws a presentation without a view on the lane', () => {

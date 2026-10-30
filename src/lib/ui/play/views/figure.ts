@@ -177,13 +177,27 @@ export function labelRows(marks: readonly Mark[], charWidthPx: number): (0 | 1 |
  * have faded (null when it has none: the line then stays in words).
  */
 type Line = { words: string; term: FeedbackTerm | null; value: string | null };
+/** A line as told before the plain words fade: the lost or added beat's is marked as such. */
+type ToldLine = Line & { shift?: true };
 type Messages = (typeof FIGURE_MESSAGES)[Locale];
 type Words = Messages['words'];
 
-/** The wrong notes of the round told, at their places in a meter, when the breath knows them. */
+/**
+ * The wrong notes of the round told, at their places in a meter, when the breath knows them.
+ * With `engraved`, the figure the marks are drawn over (`cycleFigure`), each is told in the bar
+ * and beat of the engraved note its mark sits on (`index` in its attacks), else at its place in
+ * the round.
+ */
 export interface ToldWrongNotes {
 	wrongNotes: readonly WrongNote[];
 	meter: Meter;
+	engraved?: Figure;
+}
+
+/** Where a wrong note is told: on the engraved note its mark sits on, else its place in the round. */
+function toldAt(note: WrongNote, engraved: Figure | undefined): Fraction {
+	const attacks = engraved ? attackPositions(engraved) : [];
+	return attacks.length > 0 ? attacks[note.index % attacks.length] : note.at;
 }
 
 /** A note of a figure by its bar and beat, from 1: « mesure 6, temps 3 ». */
@@ -208,13 +222,14 @@ const REASON_ORDER: readonly CycleFailure[] = [
 ];
 
 /** A lost or added beat (a negative shift is a beat lost), or null. */
-function shiftLine(report: CycleReport, words: Words): Line | null {
+function shiftLine(report: CycleReport, words: Words): ToldLine | null {
 	if (!report.shift) return null;
 	const bar = report.shift.bar + 1;
 	return {
 		words: report.shift.byS < 0 ? words.lost(bar) : words.added(bar),
 		term: 'fidelity',
-		value: null
+		value: null,
+		shift: true
 	};
 }
 
@@ -253,7 +268,10 @@ function wrongPitchLine(
 	const line = (text: string): Line => ({ words: text, term: 'fidelity', value: null });
 	const notes = told?.wrongNotes ?? [];
 	if (!told || notes.length !== count) return line(words.wrongNotes(count));
-	const places = notes.map((note) => ({ ...notePlace(note.at, told.meter), gap: note.gap }));
+	const places = notes.map((note) => ({
+		...notePlace(toldAt(note, told.engraved), told.meter),
+		gap: note.gap
+	}));
 	if (count <= 2) return line(words.wrongAt(places));
 	const bars = [...new Set(places.map((place) => place.bar))].sort((a, b) => a - b);
 	return line(
@@ -313,7 +331,7 @@ function reasonLine(
 	report: CycleReport,
 	words: Words,
 	told: ToldWrongNotes | null
-): Line | null {
+): ToldLine | null {
 	switch (reason) {
 		case 'shift':
 			return shiftLine(report, words);
@@ -349,13 +367,13 @@ export function feedbackLine(
 	told: ToldWrongNotes | null = null
 ): Line {
 	const messages = FIGURE_MESSAGES[locale];
-	const line = toldLine(report, messages.words, verdict, told);
+	const { shift, ...line } = toldLine(report, messages.words, verdict, told);
 	if (plain) return line;
 	// The plain words faded (`PLAIN_WORDS_SESSIONS`): the term and its number stay.
 	if (line.term && line.value !== null) {
 		return { ...line, words: `${messages.term[line.term]} ${line.value}` };
 	}
-	if (report.shift && line.term === 'fidelity' && line.value === null) {
+	if (shift && report.shift) {
 		const bar = report.shift.bar + 1;
 		return {
 			...line,
@@ -371,7 +389,7 @@ function toldLine(
 	words: Words,
 	verdict: CycleVerdict | undefined,
 	told: ToldWrongNotes | null
-): Line {
+): ToldLine {
 	if (verdict && !verdict.passed) {
 		for (const reason of REASON_ORDER) {
 			if (!verdict.reasons.includes(reason)) continue;

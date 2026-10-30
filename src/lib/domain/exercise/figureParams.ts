@@ -1,19 +1,31 @@
 import type { CycleThresholds } from '../time/judge/measures';
 import type { Feedback } from '../time/levels';
 import { resolvedParamsOf } from './levels';
-import { isFigureEntry } from './round/types';
+import { FIGURE_CONTENT, isFigureEntry } from './round/types';
 import type { ExerciseDefinition } from './types';
+
+/** How a figure is engraved: a staff (its pitches), a tab (its frets); neither, the rhythm line. */
+export interface Notation {
+	staff: boolean;
+	tab: boolean;
+}
 
 /**
  * What a round that plays a figure reads of its exercise level, beyond its template: how its
- * marks are told, what listening to the figure is worth, the cursor over it, and the thresholds
- * its verdict judges against. Absent from the params: the defaults below.
+ * marks are told, what listening to the figure is worth, the cursor over it, the thresholds
+ * its verdict judges against, and how it is engraved. Absent from the params: the defaults below.
  */
 export interface FigureParams {
 	feedback: Feedback;
 	listen: 'free' | 'aid' | 'none';
 	cursor: boolean;
 	thresholds: CycleThresholds;
+	/**
+	 * The staff and the tab the level shows (`notation`, or `notation.staff` and `notation.tab`,
+	 * the one it leaves out taken from the round's content: `contentNotationOf`); null when it
+	 * writes none, the default of the round's content.
+	 */
+	notation: Notation | null;
 }
 
 const FEEDBACKS: readonly Feedback[] = ['every-cycle', 'summary', 'out-of-tolerance'];
@@ -24,7 +36,8 @@ export const DEFAULT_FIGURE_PARAMS: FigureParams = {
 	feedback: 'every-cycle',
 	listen: 'none',
 	cursor: false,
-	thresholds: {}
+	thresholds: {},
+	notation: null
 };
 
 /** The round template writes a figure entry. */
@@ -45,11 +58,12 @@ export function figureParamsOf(
 	definition: ExerciseDefinition,
 	exerciseLevel: number
 ): FigureParams {
-	const { feedback, listen, cursor, thresholds } = resolvedParamsOf(definition, {
+	const { feedback, listen, cursor, thresholds, notation } = resolvedParamsOf(definition, {
 		exerciseLevel,
 		itemLevel: null
 	});
 	return {
+		notation: notationParam(definition, notation),
 		feedback: oneOf(FEEDBACKS, feedback, DEFAULT_FIGURE_PARAMS.feedback),
 		listen: oneOf(LISTENS, listen, DEFAULT_FIGURE_PARAMS.listen),
 		cursor: typeof cursor === 'boolean' ? cursor : DEFAULT_FIGURE_PARAMS.cursor,
@@ -58,4 +72,36 @@ export function figureParamsOf(
 				? { ...(thresholds as CycleThresholds) }
 				: { ...DEFAULT_FIGURE_PARAMS.thresholds }
 	};
+}
+
+/** The content the round's first figure entry gives its notes: null, `'figure'` or a derivation. */
+function figureContentOf(definition: ExerciseDefinition): string | null {
+	const entry = definition.round?.expectations.find(isFigureEntry);
+	return entry?.content?.from ?? null;
+}
+
+/**
+ * How a figure is engraved when no level says: the pitches written in the figure (content
+ * `{ from: 'figure' }`) as staff and tab; notes derived from the item, the prompt telling them,
+ * and a bare rhythm, as the rhythm line.
+ */
+export function contentNotationOf(definition: ExerciseDefinition): Notation {
+	const written = figureContentOf(definition) === FIGURE_CONTENT;
+	return { staff: written, tab: written };
+}
+
+/** The notation a level's params write, the part it leaves out from the content; null without. */
+function notationParam(definition: ExerciseDefinition, value: unknown): Notation | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const { staff, tab } = value as Record<string, unknown>;
+	const otherwise = contentNotationOf(definition);
+	return {
+		staff: typeof staff === 'boolean' ? staff : otherwise.staff,
+		tab: typeof tab === 'boolean' ? tab : otherwise.tab
+	};
+}
+
+/** How the figure of exercise level `exerciseLevel` is engraved: what the level writes, else the content's. */
+export function notationOf(definition: ExerciseDefinition, exerciseLevel: number): Notation {
+	return figureParamsOf(definition, exerciseLevel).notation ?? contentNotationOf(definition);
 }

@@ -454,7 +454,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		listen: 'free',
 		plainWords: true,
 		prompt: null,
-		notation: null,
+		notation: { staff: false, tab: false },
 		chordDiagram: 'strings',
 		...overrides
 	};
@@ -471,7 +471,7 @@ describe('feedbackLine, wrong notes', () => {
 	const at = (n: number, d: number) => Fraction.of(n, d);
 
 	it('tells one wrong note by bar and beat, with the note heard and the note asked', () => {
-		const notes: WrongNote[] = [{ at: at(5, 2), gap: 'G au lieu de A' }];
+		const notes: WrongNote[] = [{ at: at(5, 2), index: 2, gap: 'G au lieu de A' }];
 		const line = feedbackLine(wrongAt(2), 'fr', failed, true, {
 			wrongNotes: notes,
 			meter: METER_4_4
@@ -492,8 +492,8 @@ describe('feedbackLine, wrong notes', () => {
 
 	it('tells two wrong notes both, and a wrong note heard as nothing readable as a wrong note', () => {
 		const notes: WrongNote[] = [
-			{ at: at(0, 1), gap: 'G, une octave trop haut' },
-			{ at: at(7, 4), gap: null }
+			{ at: at(0, 1), index: 0, gap: 'G, une octave trop haut' },
+			{ at: at(7, 4), index: 3, gap: null }
 		];
 		expect(
 			feedbackLine(wrongAt(0, 3), 'fr', failed, true, { wrongNotes: notes, meter: METER_4_4 }).words
@@ -511,6 +511,7 @@ describe('feedbackLine, wrong notes', () => {
 		});
 		const notes: WrongNote[] = faults.map((index) => ({
 			at: at(index, 4),
+			index,
 			gap: 'G au lieu de A'
 		}));
 		const told = { wrongNotes: notes, meter: METER_4_4 };
@@ -526,7 +527,7 @@ describe('feedbackLine, wrong notes', () => {
 			feedbackLine(wrongAt(0, 1, 2), 'fr', failed, true, { wrongNotes: few, meter: METER_4_4 })
 				.words
 		).toBe('3 fausses notes, mesures 3 et 6');
-		const oneBar: WrongNote[] = [0, 1, 2].map((k) => ({ at: at(k, 4), gap: null }));
+		const oneBar: WrongNote[] = [0, 1, 2].map((k) => ({ at: at(k, 4), index: k, gap: null }));
 		expect(
 			feedbackLine(wrongAt(0, 1, 2), 'fr', failed, true, { wrongNotes: oneBar, meter: METER_4_4 })
 				.words
@@ -540,6 +541,44 @@ describe('feedbackLine, wrong notes', () => {
 
 	it('tells the wrong notes of a cycle that passed on a fidelity threshold', () => {
 		expect(feedbackLine(wrongAt(1), 'fr', { passed: true }).words).toBe('1 fausse note');
+	});
+
+	it('tells a wrong note in the bar of the engraving its mark sits in', () => {
+		// Two halves, then four quarters; the round began in the figure's second bar, so its 4th
+		// note (round bar 1, beat 4) is marked on the engraving's 4th note: bar 2, beat 2.
+		const figure = figureOf(
+			[note(1, 2), note(1, 2), note(1, 4), note(1, 4), note(1, 4), note(1, 4)],
+			2
+		);
+		const sixth = report({
+			expectations: [0, 1, 2, 3, 4, 5].map((index) =>
+				index === 3 ? entry(index, 'wrong-pitch', 0) : entry(index, 'on-time', 0)
+			)
+		});
+		const notes: WrongNote[] = [{ at: at(3, 4), index: 3, gap: 'G au lieu de A' }];
+		expect(
+			feedbackLine(sixth, 'fr', failed, true, { wrongNotes: notes, meter: METER_4_4 }).words
+		).toBe('Mesure 1, temps 4 : G au lieu de A');
+		const told = { wrongNotes: notes, meter: METER_4_4, engraved: figure };
+		expect(feedbackLine(sixth, 'fr', failed, true, told).words).toBe(
+			'Mesure 2, temps 2 : G au lieu de A'
+		);
+		// The mark itself: on the engraving's 4th note, in its second bar.
+		const layout: FigureLayout = {
+			noteX: [40, 140, 260, 300, 340, 380],
+			barX: [10, 230],
+			width: 452,
+			height: 90,
+			noteLine: [0, 0, 0, 0, 0, 0],
+			lineY: [0],
+			rowHeight: 90,
+			barWidth: 220
+		};
+		const mark = cycleMarks(sixth, layout, 'every-cycle', BEAT_PX, BEAT_MS).find(
+			(m) => m.kind === 'wrong-pitch'
+		);
+		expect(mark?.x).toBe(300);
+		expect(cursorX(figure, layout, Fraction.of(5, 4))?.x).toBe(300);
 	});
 });
 
@@ -576,6 +615,27 @@ describe('feedbackLine without plain words', () => {
 		expect(feedbackLine(lost, 'fr', undefined, false).words).toBe('temps perdu, mesure 2');
 		const forgot = report({ expectations: played(entry(1, 'missed', null)) });
 		expect(feedbackLine(forgot, 'fr', undefined, false).words).toBe('fidélité à la figure 3/4');
+	});
+
+	it('keeps the wrong notes in words when the round also lost a beat', () => {
+		const both = report({
+			shift: { bar: 1, byS: -0.4 },
+			expectations: played(entry(2, 'wrong-pitch', 0))
+		});
+		const failed = { passed: false as const, reasons: ['wrong-pitch' as const] };
+		const told = {
+			wrongNotes: [{ at: Fraction.of(1, 2), index: 2, gap: 'G au lieu de A' }],
+			meter: METER_4_4
+		};
+		expect(feedbackLine(both, 'fr', failed, false, told).words).toBe(
+			'Mesure 1, temps 3 : G au lieu de A'
+		);
+		// Told without its places, the wrong notes are counted, not taken for the lost beat.
+		expect(feedbackLine(both, 'fr', failed, false).words).toBe('1 fausse note');
+		// The lost beat itself is still told briefly.
+		expect(
+			feedbackLine(both, 'fr', { passed: false, reasons: ['shift', 'wrong-pitch'] }, false).words
+		).toBe('temps perdu, mesure 2');
 	});
 
 	it('a line without a number is the same either way', () => {

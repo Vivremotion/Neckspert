@@ -33,7 +33,7 @@ function model(): FigureStageModel {
 		listen: 'free',
 		plainWords: true,
 		prompt: null,
-		notation: null,
+		notation: { staff: false, tab: false },
 		chordDiagram: 'strings'
 	};
 }
