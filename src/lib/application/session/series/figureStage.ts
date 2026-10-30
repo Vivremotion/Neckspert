@@ -1,9 +1,11 @@
 import {
 	Fraction,
 	METER_4_4,
+	attackNotes,
 	barLength,
 	beatPositions,
 	levelRange,
+	loopFigure,
 	type CycleReport,
 	type CycleVerdict,
 	type Feedback,
@@ -76,14 +78,17 @@ export interface FigureStageModel {
 	/** « ♩ = 100 bpm »: the beats per minute and the glyph of the beat unit. */
 	tempo: { bpm: number; unit: string };
 	/**
-	 * The figure played (or heard); at the breath, the one just played. Notes its round derives
-	 * from its item carry the pitch and the string derived, so its tab can be engraved.
+	 * The figure played (or heard); at the breath, the one just played: as its round plays it
+	 * (`roundFigure`), one loop when the round repeats it whole, else looped over the round and its
+	 * last loop cut, so its attacks are the round's notes. Notes its round derives from its item
+	 * carry the pitch and the string derived, so its tab can be engraved.
 	 */
 	figure: Figure;
 	/** At the breath, the figure to play next (its derived notes written likewise); null otherwise. */
 	next: Figure | null;
 	/** Bar of the cycle from 0; the entry bars count as the end of a cycle before the first. */
 	barInCycle: number;
+	/** The whole bars the round spans: a round cut inside a bar counts that bar. */
 	cycleBars: number;
 	/** The click is silent in this bar. */
 	muted: boolean;
@@ -171,9 +176,9 @@ function figureOf(definition: ExerciseDefinition, item: PlannedItem, meter: Mete
 	return found.figure;
 }
 
-/** The bars a compiled round lasts. */
+/** The whole bars a compiled round spans: a round cut inside a bar counts that bar. */
 function barsOf(plan: RoundPlan, meter: Meter): number {
-	return plan.length.div(barLength(meter)).toNumber();
+	return Math.ceil(plan.length.div(barLength(meter)).toNumber() - 1e-9);
 }
 
 /** The derivation the round's first figure entry spreads over its notes; null when it derives none. */
@@ -191,22 +196,14 @@ function pitchOf(value: unknown): { pitch?: number; string?: number } | null {
 	return { pitch: midi, ...(typeof string === 'number' ? { string } : {}) };
 }
 
-/** The figure with its derived notes written, by plan: one figure per plan, engraved once. */
-const DERIVED_FIGURES = new WeakMap<RoundPlan, { written: Figure; derived: Figure }>();
+/** The figure each plan engraves, kept by plan: one figure per plan, engraved once. */
+const ENGRAVED = new WeakMap<RoundPlan, { written: Figure; startBar: number; engraved: Figure }>();
 
 /**
- * The figure as its plan plays it: when the round derives its notes from its item, each attack of the
- * first voice carries the pitch and the string of its expectation in the plan (a tied note those
- * of its attack); the figure itself otherwise. Read on the plan's first loop of the figure, from
- * its first bar.
+ * The derived notes of the attacks of a figure's first voice: each attack carries the pitch and
+ * the string of its expectation in `contents` (a tied note those of its attack).
  */
-function figureAsPlayed(definition: ExerciseDefinition, figure: Figure, plan: RoundPlan): Figure {
-	if (derivationOf(definition) === null) return figure;
-	const kept = DERIVED_FIGURES.get(plan);
-	if (kept?.written === figure) return kept.derived;
-	// The entries before the round's first figure entry are places: one expectation each.
-	const from = definition.round?.expectations.findIndex(isFigureEntry) ?? 0;
-	const contents = plan.expectations.slice(from).map((e) => e.content?.value);
+function withContents(figure: Figure, contents: readonly unknown[]): Figure {
 	const [first, ...others] = figure.voices;
 	let attack = 0;
 	let held: ReturnType<typeof pitchOf> = null;
@@ -217,9 +214,46 @@ function figureAsPlayed(definition: ExerciseDefinition, figure: Figure, plan: Ro
 		if (!tiedIn) held = pitchOf(contents[attack++]);
 		return held ? { ...element, ...held } : element;
 	});
-	const derived: Figure = { ...figure, voices: [{ ...first, elements }, ...others] };
-	DERIVED_FIGURES.set(plan, { written: figure, derived });
-	return derived;
+	return { ...figure, voices: [{ ...first, elements }, ...others] };
+}
+
+/** The same pitch and string, read as `pitchOf` reads them. */
+function sameNote(a: unknown, b: unknown): boolean {
+	const one = pitchOf(a);
+	const other = pitchOf(b);
+	return one?.pitch === other?.pitch && one?.string === other?.string;
+}
+
+/**
+ * The figure as `plan` plays it, from bar `startBar` of its loop: looped over the round and its
+ * last loop cut at the round's end (`loopFigure`), so its attacks are the plan's expectations one
+ * for one; when the round derives its notes from its item, each attack carries the pitch and the
+ * string of its expectation. A round of whole loops from the figure's first bar, each loop
+ * playing the same notes, engraves one loop: the figure itself, its notes derived.
+ */
+function roundFigure(
+	definition: ExerciseDefinition,
+	figure: Figure,
+	plan: RoundPlan,
+	startBar: number
+): Figure {
+	const kept = ENGRAVED.get(plan);
+	if (kept?.written === figure && kept.startBar === startBar) return kept.engraved;
+	const derived = derivationOf(definition) !== null;
+	// The entries before the round's first figure entry are places: one expectation each.
+	const from = definition.round?.expectations.findIndex(isFigureEntry) ?? 0;
+	const contents = plan.expectations.slice(Math.max(0, from)).map((e) => e.content?.value);
+	const loop = barLength(figure.meter).mul(Fraction.of(figure.bars));
+	const loops = plan.length.div(loop);
+	const perLoop = attackNotes(figure).length;
+	const once =
+		loops.d === 1 &&
+		startBar % figure.bars === 0 &&
+		(!derived || contents.every((value, k) => sameNote(value, contents[k % perLoop])));
+	const played = once ? figure : loopFigure(figure, { length: plan.length, startBar });
+	const engraved = derived ? withContents(played, contents) : played;
+	ENGRAVED.set(plan, { written: figure, startBar, engraved });
+	return engraved;
 }
 
 type Prompt = FigureStageModel['prompt'];
@@ -301,7 +335,8 @@ function settledCycle(
  * click is silent in this bar, the rounds of the run settled so far, and how familiar the exercise
  * is (`endedSessions`). `plan` is `item`'s round as the series compiled it: nothing is compiled
  * here, on every beat. At the breath, `item` is the round to come, at the level it will play, and
- * `played` the run's last one with its plan: its figure and its bars carry the run's marks.
+ * `played` the run's last one with its plan: its figure and its bars carry the run's marks. The
+ * figure shown is the one its round plays (`roundFigure`), its bars counted whole.
  */
 export function figureStage(input: {
 	definition: ExerciseDefinition;
@@ -313,8 +348,11 @@ export function figureStage(input: {
 	startBar: number;
 	muted: boolean;
 	settled: readonly SettledRound[];
-	/** The run's last round and its plan, shown at the breath; null when none was played. */
-	played: { item: PlannedItem; plan: RoundPlan } | null;
+	/**
+	 * The run's last round, its plan and where it started in the loops of its figure (absent: its
+	 * first bar), shown at the breath; null when none was played.
+	 */
+	played: { item: PlannedItem; plan: RoundPlan; startBar?: number } | null;
 	locale: Locale;
 	/** Spells an altered note: the same for every call on one item. */
 	random: () => number;
@@ -325,7 +363,12 @@ export function figureStage(input: {
 	const level = item.exerciseLevel;
 	const meter = definition.meter ?? METER_4_4;
 	const params = figureParamsOf(definition, level);
-	const figure = figureAsPlayed(definition, figureOf(definition, item, meter), input.plan);
+	const figure = roundFigure(
+		definition,
+		figureOf(definition, item, meter),
+		input.plan,
+		input.startBar
+	);
 	const cycleBars = barsOf(input.plan, meter);
 	const breath = moment === 'breath';
 	const played = breath && input.played ? input.played : null;
@@ -352,19 +395,20 @@ export function figureStage(input: {
 		level: levelView(exerciseLevelsOf(definition), level),
 		tempo: tempoView({ at: Fraction.ZERO, bpm: tempoOf(definition, level), unit: meter.unit }),
 		figure: played
-			? figureAsPlayed(definition, figureOf(definition, played.item, meter), played.plan)
+			? roundFigure(
+					definition,
+					figureOf(definition, played.item, meter),
+					played.plan,
+					played.startBar ?? 0
+				)
 			: figure,
 		next: breath ? figure : null,
 		barInCycle,
 		cycleBars: played ? barsOf(played.plan, meter) : cycleBars,
 		muted,
 		cursor: cursorShown
-			? figurePosition({
-					figure,
-					startBar: input.startBar + barInRound,
-					barInCycle: 0,
-					beat: input.beat
-				})
+			? // The figure shown starts where the round does (`roundFigure`).
+				figurePosition({ figure, startBar: 0, barInCycle: barInRound, beat: input.beat })
 			: null,
 		feedback: playedParams.feedback,
 		settled: input.settled.map((round) => settledCycle(definition, round, locale, random)),

@@ -7,6 +7,7 @@ import type {
 import {
 	attackPositions,
 	Fraction,
+	loopFigure,
 	METER_4_4,
 	type Meter,
 	type CycleReport,
@@ -710,6 +711,59 @@ describe('cycleFigure', () => {
 			{ from: 0, to: 2, ratio: [3, 2] },
 			{ from: 4, to: 6, ratio: [3, 2] }
 		]);
+	});
+});
+
+describe('a round cut inside its figure', () => {
+	const failed = { passed: false as const, reasons: ['wrong-pitch' as const] };
+	const quarters = figureOf([note(1, 4), note(1, 4), note(1, 4), note(1, 4)]);
+	const entries = (count: number, wrong: number | null = null) =>
+		Array.from({ length: count }, (_, index) =>
+			entry(index, index === wrong ? 'wrong-pitch' : 'on-time', 0)
+		);
+
+	it('marks a 2-beat change on its two notes, its bar engraved whole', () => {
+		const cut = loopFigure(quarters, { length: of(1, 2), startBar: 0 });
+		expect(cycleFigure(cut, 1)).toBe(cut);
+		const layout: FigureLayout = { ...LAYOUT, noteX: [60, 160], noteLine: [0, 0] };
+		const marks = cycleMarks(
+			report({ expectations: entries(2, 1) }),
+			layout,
+			'every-cycle',
+			BEAT_PX,
+			BEAT_MS
+		);
+		expect(marks.map((m) => [m.x, m.kind])).toEqual([
+			[60, 'on-time'],
+			[160, 'wrong-pitch']
+		]);
+	});
+
+	it('tells and marks the fifth note of a 6-beat change in its second bar', () => {
+		const cut = loopFigure(quarters, { length: of(3, 2), startBar: 0 });
+		const engraved = cycleFigure(cut, 2);
+		expect(engraved).toBe(cut);
+		const sixth = report({ expectations: entries(6, 4) });
+		const notes: WrongNote[] = [{ at: of(1), index: 4, gap: 'G au lieu de A' }];
+		expect(
+			feedbackLine(sixth, 'fr', failed, true, { wrongNotes: notes, meter: METER_4_4, engraved })
+				.words
+		).toBe('Mesure 2, temps 1 : G au lieu de A');
+		const layout: FigureLayout = {
+			noteX: [40, 90, 140, 190, 260, 310],
+			barX: [10, 230],
+			width: 452,
+			height: 90,
+			noteLine: [0, 0, 0, 0, 0, 0],
+			lineY: [0],
+			rowHeight: 90,
+			barWidth: 220
+		};
+		const mark = cycleMarks(sixth, layout, 'every-cycle', BEAT_PX, BEAT_MS).find(
+			(m) => m.kind === 'wrong-pitch'
+		);
+		// On the fifth engraved note, not wrapped onto the first.
+		expect(mark?.x).toBe(260);
 	});
 });
 

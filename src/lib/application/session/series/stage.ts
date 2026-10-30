@@ -56,7 +56,7 @@ export function stageModel(input: {
 	/** Sessions of the exercise ended before this series. */
 	endedSessions: number;
 	/** The run's last round and its plan, shown at the breath with its marks; null when none was played. */
-	played: { item: PlannedItem; plan: RoundPlan } | null;
+	played: { item: PlannedItem; plan: RoundPlan; startBar?: number } | null;
 }): unknown {
 	const { definition, item, presenter, plan, settled, place, locale, random, moment } = input;
 	if (showsFigure(definition)) {

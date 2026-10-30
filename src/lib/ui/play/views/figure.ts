@@ -10,13 +10,13 @@ import {
 	barLength,
 	beatPositions,
 	Fraction,
+	loopFigure,
 	type CycleFailure,
 	type CycleReport,
 	type CycleVerdict,
 	type Feedback,
 	type Figure,
-	type Meter,
-	type Voice
+	type Meter
 } from '$lib/domain/time';
 import type { Locale } from '$lib/domain/types';
 import type { FigureLayout } from '$lib/ui/notation';
@@ -480,27 +480,17 @@ export function cursorX(
 }
 
 /**
- * The figure as a cycle plays it: repeated over `cycleBars` bars, so its attacks follow the
- * cycle's expectations one for one. The figure itself when it fills the cycle already.
+ * The figure as a cycle plays it over its `cycleBars` whole bars, so its attacks follow the
+ * cycle's expectations one for one: looped from its first bar (`loopFigure`), the figure itself
+ * when it fills the cycle already. The model's figure is the one its round plays (one loop of a
+ * round of whole loops, else the round's own bars, its last loop cut), so it always fills them.
  */
 export function cycleFigure(figure: Figure, cycleBars: number): Figure {
-	const copies = cycleBars / figure.bars;
-	if (!Number.isInteger(copies) || copies <= 1) return figure;
-	const repeat = (voice: Voice): Voice => {
-		const length = voice.elements.length;
-		const elements = Array.from({ length: copies }, () => voice.elements).flat();
-		const tuplets = voice.tuplets?.length
-			? Array.from({ length: copies }, (_, k) =>
-					(voice.tuplets ?? []).map((t) => ({
-						...t,
-						from: t.from + k * length,
-						to: t.to + k * length
-					}))
-				).flat()
-			: undefined;
-		return { ...voice, elements, ...(tuplets ? { tuplets } : {}) };
-	};
-	return { ...figure, bars: cycleBars, voices: figure.voices.map(repeat) };
+	if (!Number.isInteger(cycleBars) || cycleBars <= figure.bars) return figure;
+	return loopFigure(figure, {
+		length: barLength(figure.meter).mul(Fraction.of(cycleBars)),
+		startBar: 0
+	});
 }
 
 /** The cycle the breath tells in words: the last one that failed, else the last one. */

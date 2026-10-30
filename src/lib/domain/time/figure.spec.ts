@@ -5,12 +5,14 @@ import {
 	attackPositions,
 	figureFromJson,
 	figureToJson,
+	loopFigure,
 	validateFigure,
 	type Figure,
 	type FigureElement,
 	type Voice
 } from './figure';
 import { METER_4_4 } from './meter';
+import { figureExpectations } from './plan';
 
 const of = Fraction.of;
 const note = (n: number, d: number, tieToNext?: boolean): FigureElement => ({
@@ -241,5 +243,83 @@ describe('figure JSON', () => {
 	it('rejects a figure that does not validate', () => {
 		const json = JSON.parse(JSON.stringify(figureToJson(figure(eighths(7)))));
 		expect(() => figureFromJson(json)).toThrow('bar 1');
+	});
+});
+
+describe('loopFigure', () => {
+	const quarters = figure([note(1, 4), note(1, 4), note(1, 4), note(1, 4)]);
+	/** The attacks `figureExpectations` places over the same span, from 0. */
+	const expected = (source: Figure, length: Fraction, startBar = 0) =>
+		figureExpectations({
+			figure: source,
+			at: Fraction.ZERO,
+			length,
+			startBar,
+			sensor: 'attack',
+			window: { ms: 80 },
+			content: () => null
+		}).map((e) => e.at);
+	const kinds = (looped: Figure) => looped.voices[0].elements.map((e) => e.kind);
+
+	it('cuts a one-bar figure to two beats, its bar kept whole with rests', () => {
+		const looped = loopFigure(quarters, { length: of(1, 2), startBar: 0 });
+		expect(looped.bars).toBe(1);
+		expect(kinds(looped)).toEqual(['note', 'note', 'rest', 'rest']);
+		expect(validateFigure(looped)).toBeNull();
+		expect(attackPositions(looped)).toEqual(expected(quarters, of(1, 2)));
+	});
+
+	it('loops a one-bar figure over six beats, two bars, the second cut', () => {
+		const looped = loopFigure(quarters, { length: of(3, 2), startBar: 0 });
+		expect(looped.bars).toBe(2);
+		expect(kinds(looped)).toEqual(['note', 'note', 'note', 'note', 'note', 'note', 'rest', 'rest']);
+		expect(validateFigure(looped)).toBeNull();
+		expect(attackPositions(looped)).toEqual(expected(quarters, of(3, 2)));
+	});
+
+	it('is the figure itself over one loop from its first bar, and repeats it over whole loops', () => {
+		expect(loopFigure(quarters, { length: of(1), startBar: 0 })).toBe(quarters);
+		const twice = loopFigure(quarters, { length: of(2), startBar: 0 });
+		expect(twice.bars).toBe(2);
+		expect(attackPositions(twice)).toEqual(expected(quarters, of(2)));
+	});
+
+	it('starts at its bar `startBar`, a note held from the bar left out written as a rest', () => {
+		// | c2 c2~ | c2 c2 |: from bar 2, the first half note is held from bar 1.
+		const tied = figure([note(1, 2), note(1, 2, true), note(1, 2), note(1, 2)], {}, 2);
+		const looped = loopFigure(tied, { length: of(3, 2), startBar: 1 });
+		expect(kinds(looped)).toEqual(['rest', 'note', 'note', 'rest']);
+		expect(validateFigure(looped)).toBeNull();
+		expect(attackPositions(looped)).toEqual(expected(tied, of(3, 2), 1));
+	});
+
+	it('drops a tie into a note the cut leaves out', () => {
+		// | c4 c c c~ | c2~ c2 |, cut on its second bar's second half, then after its first bar.
+		const tied = figure(
+			[note(1, 4), note(1, 4), note(1, 4), note(1, 4, true), note(1, 2, true), note(1, 2)],
+			{},
+			2
+		);
+		const half = loopFigure(tied, { length: of(3, 2), startBar: 0 });
+		expect(half.voices[0].elements.slice(3)).toEqual([note(1, 4, true), note(1, 2), rest(1, 2)]);
+		expect(validateFigure(half)).toBeNull();
+		expect(attackPositions(half)).toEqual(expected(tied, of(3, 2)));
+		const bar = loopFigure(tied, { length: of(1), startBar: 0 });
+		expect(bar.voices[0].elements.at(-1)).toEqual(note(1, 4));
+		expect(validateFigure(bar)).toBeNull();
+		expect(attackPositions(bar)).toEqual(expected(tied, of(1)));
+	});
+
+	it('keeps a tuplet of a bar in every loop, its notes moved with it', () => {
+		const triplet = figure([note(1, 12), note(1, 12), note(1, 12), note(1, 4), note(1, 2)], {
+			tuplets: [{ from: 0, to: 2, ratio: [3, 2] }]
+		});
+		const looped = loopFigure(triplet, { length: of(3, 2), startBar: 0 });
+		expect(looped.voices[0].tuplets).toEqual([
+			{ from: 0, to: 2, ratio: [3, 2] },
+			{ from: 5, to: 7, ratio: [3, 2] }
+		]);
+		expect(validateFigure(looped)).toBeNull();
+		expect(attackPositions(looped)).toEqual(expected(triplet, of(3, 2)));
 	});
 });

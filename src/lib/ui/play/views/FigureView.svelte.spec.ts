@@ -2,7 +2,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FigureStageModel, SettledCycle } from '$lib/application/session/series/figureStage';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
-import { Fraction, type CycleReport, type Figure } from '$lib/domain/time';
+import { Fraction, METER_4_4, type CycleReport, type Figure } from '$lib/domain/time';
+import { compileRound } from '$lib/domain/exercise/round';
+import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import type { PlannedItem } from '$lib/domain/types';
+import { figureStage } from '$lib/application/session/series/figureStage';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PLAY_VIEWS } from './index';
 import FigureView from './FigureView.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
@@ -248,6 +253,52 @@ describe('FigureView', () => {
 		const next = screen.getByTestId('figure-next');
 		await vi.waitFor(() => expect(next.querySelectorAll('.vf-tabnote')).toHaveLength(4));
 		expect(screen.getByTestId('figure-played').querySelectorAll('.vf-tabnote')).toHaveLength(0);
+	});
+
+	it('engraves a change cut inside its figure as the round plays it, its tab aid included', async () => {
+		// A one-bar figure of quarters over a change of 2 beats, then of 6, at the tab aid level.
+		for (const [beats, tabNotes, bar] of [
+			[2, 2, 'mesure 1 / 1'],
+			[6, 6, 'mesure 2 / 2']
+		] as const) {
+			const item: PlannedItem = {
+				exerciseId: ARPEGGIO_EXERCISE.id,
+				mechanic: ARPEGGIO_EXERCISE.mechanic,
+				exerciseLevel: -1,
+				item: voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`),
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			};
+			const staged = figureStage({
+				definition: ARPEGGIO_EXERCISE,
+				item,
+				plan: compileRound(ARPEGGIO_EXERCISE, item, METER_4_4, {
+					previewBeats: 0,
+					fromRunStart: null
+				}),
+				moment: 'round',
+				barInRound: beats > 4 ? 1 : 0,
+				beat: 0,
+				startBar: 0,
+				muted: false,
+				settled: [],
+				played: null,
+				locale: 'fr',
+				random: () => 0,
+				chordDiagram: 'strings',
+				endedSessions: 0
+			});
+			render(FigureView, { props: { controller: running(), model: staged } });
+			await engraved();
+			await vi.waitFor(() =>
+				expect(document.querySelectorAll('.vf-tabnote')).toHaveLength(tabNotes)
+			);
+			expect(screen.queryByRole('alert')).toBeNull();
+			expect(screen.getByTestId('figure-bar').textContent).toContain(bar);
+			cleanup();
+		}
 	});
 
 	it('puts the marks of each line of a wrapped run right under that line', async () => {

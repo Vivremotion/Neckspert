@@ -204,6 +204,62 @@ describe('a sequence of chord shapes on the series', () => {
 		controller.quit();
 	});
 
+	it('shows each change of 4, 2 and 6 beats as it plays, cut in its bars and counted in whole bars', async () => {
+		const changes = ['C|maj|3:1,2:3,1:5@0@4', 'F|maj|3:1,2:3,1:5@0@2', 'G|maj|3:1,2:3,1:5@0@6'];
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			id: 'test-arpeggio-changes-shown',
+			items: changes
+		};
+		const { controller, advance } = await sequenceSeries(exercise, {
+			pattern: ARPEGGIO_PATTERN,
+			met: true
+		});
+		await controller.start();
+		const beatS = BAR_S / 4;
+		/** The stage on beat `beat` (from 0) of bar `bar` of the transport. */
+		const at = async (bar: number, beat: number) => {
+			await advance(ORIGIN + bar * BAR_S + beat * beatS + 0.01, false);
+			const model = stageOf(controller);
+			return {
+				phase: model.phase,
+				chord: model.prompt?.primary,
+				notes: model.figure.voices[0].elements.map((e) => e.kind),
+				bar: [model.barInCycle, model.cycleBars],
+				cursor: model.cursor?.toString()
+			};
+		};
+		const quarters = (notes: number, rests: number) => [
+			...Array(notes).fill('note'),
+			...Array(rests).fill('rest')
+		];
+		// The F change, two beats on bar 2: its two notes, then rests, in one whole bar.
+		expect(await at(2, 1)).toEqual({
+			phase: 'play',
+			chord: 'F',
+			notes: quarters(2, 2),
+			bar: [0, 1],
+			cursor: '1/4'
+		});
+		// The G change opens on beat 3 of bar 2: its first beat is the round's.
+		expect(await at(2, 2)).toEqual({
+			phase: 'play',
+			chord: 'G',
+			notes: quarters(6, 2),
+			bar: [0, 2],
+			cursor: '0'
+		});
+		// Its fifth beat, beat 3 of bar 3: the round's second bar.
+		expect(await at(3, 2)).toEqual({
+			phase: 'play',
+			chord: 'G',
+			notes: quarters(6, 2),
+			bar: [1, 2],
+			cursor: '1'
+		});
+		controller.quit();
+	});
+
 	it('listens with the note sensor only', async () => {
 		const { controller, stored, advance, attacks, detector } = await series();
 		await controller.start();

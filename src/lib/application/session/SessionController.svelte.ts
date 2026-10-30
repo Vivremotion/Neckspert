@@ -1827,7 +1827,13 @@ export class SessionController implements PlaySessionController {
 			moment,
 			runRounds: this.runRounds,
 			endedSessions: this.endedSessions.get(item.exerciseId) ?? 0,
-			played: this.round ? { item: this.round.item, plan: this.round.plan } : null
+			played: this.round
+				? {
+						item: this.round.item,
+						plan: this.round.plan,
+						startBar: this.round.fromRunStart ?? 0
+					}
+				: null
 		});
 		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
 	}
@@ -1898,26 +1904,34 @@ export class SessionController implements PlaySessionController {
 			0,
 			beats.findLastIndex((at) => at <= position - bar + 1e-9)
 		);
+		/**
+		 * Where the beat now stands in a span from `at` to `end` (in bars, a round may start inside
+		 * a bar): its bar and its beat counted from the span's start; null outside it.
+		 */
+		const inSpan = (at: Fraction, end: Fraction) => {
+			const from = position - at.toNumber();
+			if (from < -1e-9 || position >= end.toNumber() - 1e-9) return null;
+			const barInRound = Math.floor(from + 1e-9);
+			const inBar = from - barInRound + 1e-9;
+			return {
+				barInRound,
+				beat: Math.max(
+					0,
+					beats.findLastIndex((b) => b <= inBar)
+				)
+			};
+		};
 		const round = this.round;
-		if (
-			round &&
-			!inFreeTime(round.plan) &&
-			Fraction.of(bar).compare(round.at) >= 0 &&
-			Fraction.of(bar).compare(round.end) < 0
-		) {
-			const barInRound = Math.floor(Fraction.of(bar).sub(round.at).toNumber());
-			const muted = round.plan.mutedBars.includes(barInRound);
-			return { phase: 'round', barInRound, beat, fromRunStart: round.fromRunStart, muted };
+		const inRound = round && !inFreeTime(round.plan) ? inSpan(round.at, round.end) : null;
+		if (round && inRound) {
+			const muted = round.plan.mutedBars.includes(inRound.barInRound);
+			return { phase: 'round', ...inRound, fromRunStart: round.fromRunStart, muted };
 		}
 		const heard = this.heard;
-		if (
-			heard &&
-			Fraction.of(bar).compare(heard.at) >= 0 &&
-			Fraction.of(bar).compare(heard.end) < 0
-		) {
-			const barInRound = Math.floor(Fraction.of(bar).sub(heard.at).toNumber());
-			const muted = heard.plan.mutedBars.includes(barInRound);
-			return { phase: 'listening', barInRound, beat, fromRunStart: heard.fromRunStart, muted };
+		const inHeard = heard ? inSpan(heard.at, heard.end) : null;
+		if (heard && inHeard) {
+			const muted = heard.plan.mutedBars.includes(inHeard.barInRound);
+			return { phase: 'listening', ...inHeard, fromRunStart: heard.fromRunStart, muted };
 		}
 		const demo = this.demo;
 		if (demo && bar >= demo.from && bar < demo.to) {

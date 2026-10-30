@@ -269,3 +269,84 @@ describe('figureStage, the notes it engraves', () => {
 		expect(vi.mocked(presentPrompt).mock.calls.length - calls).toBe(2);
 	});
 });
+
+describe('figureStage, a round cut inside its figure', () => {
+	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
+	const change = (beats: number, level: number): PlannedItem => ({
+		...planned(ARPEGGIO_EXERCISE, voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`)),
+		exerciseLevel: level
+	});
+	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
+	const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(
+		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0])
+	) as { midi: number; string: number }[];
+	/** The shape's notes the pattern asks over `count` notes. */
+	const asked = (count: number) =>
+		Array.from({ length: count }, (_, k) => {
+			const note = shape[ARPEGGIO_PATTERN[k % ARPEGGIO_PATTERN.length] - 1];
+			return { pitch: note.midi, string: note.string };
+		});
+	const notesOf = (figure: Figure) =>
+		figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+
+	for (const level of [0, -1]) {
+		const tab = level === -1;
+		it(`engraves a 2-beat change as its two notes then rests, one whole bar${tab ? ', its tab derived' : ''}`, () => {
+			const model = stage(ARPEGGIO_EXERCISE, change(2, level), 'round', { beat: 1 });
+			expect(model.notation).toEqual({ staff: false, tab });
+			expect(model.figure.bars).toBe(1);
+			expect(kinds(model.figure)).toEqual(['note', 'note', 'rest', 'rest']);
+			expect(notesOf(model.figure)).toEqual(asked(2));
+			expect([model.barInCycle, model.cycleBars]).toEqual([0, 1]);
+			expect(model.cursor).toEqual(Fraction.of(1, 4));
+		});
+
+		it(`engraves a 6-beat change over two bars, the second cut${tab ? ', its tab derived' : ''}`, () => {
+			const item = change(6, level);
+			const plan = planOf(ARPEGGIO_EXERCISE, item);
+			expect(plan.expectations).toHaveLength(6);
+			const model = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, barInRound: 1, beat: 1 });
+			expect(model.figure.bars).toBe(2);
+			expect(kinds(model.figure)).toEqual([...Array(6).fill('note'), 'rest', 'rest']);
+			// Every note the round asks carries its pitch: the tab engraves all of them.
+			expect(notesOf(model.figure)).toEqual(asked(6));
+			expect([model.barInCycle, model.cycleBars]).toEqual([1, 2]);
+			// Bar 2, beat 2 of the round: its sixth note.
+			expect(model.cursor).toEqual(Fraction.of(5, 4));
+			// At the breath, the round played is the one engraved, its marks on its own notes.
+			const breath = stage(ARPEGGIO_EXERCISE, change(4, level), 'breath', {
+				played: { item, plan }
+			});
+			expect(breath.figure).toBe(model.figure);
+			expect(breath.cycleBars).toBe(2);
+		});
+	}
+
+	it('engraves a whole round once when each loop plays other notes of the shape', () => {
+		// Three notes of the pattern over four quarters: the second bar starts on another note.
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			round: {
+				...ARPEGGIO_EXERCISE.round!,
+				expectations: [
+					{
+						...ARPEGGIO_EXERCISE.round!.expectations[0],
+						content: { from: 'voicing-notes', pattern: [1, 2, 3] }
+					}
+				]
+			}
+		};
+		const item = { ...planned(exercise, voicingFigureRules.parseItem('C|maj|3:1,2:3,1:5@0@8')) };
+		const model = stage(exercise, item, 'round');
+		expect(model.figure.bars).toBe(2);
+		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
+			[1, 2, 3, 1, 2, 3, 1, 2].map((k) => shape[k - 1].midi)
+		);
+		// Every loop the same: one loop, as before.
+		const same = stage(ARPEGGIO_EXERCISE, change(8, 0), 'round');
+		expect(same.figure.bars).toBe(1);
+		expect(same.cycleBars).toBe(2);
+	});
+});
