@@ -37,11 +37,11 @@ describe('lilypond boundary', () => {
 
 	it('flags every way of reaching the parser from outside', () => {
 		const imports = [
-			`import { parseLilyPondRhythm } from '$lib/domain/time/notation/lilypond';`,
-			`import { parseLilyPondRhythm } from './notation/lilypond';`,
-			`import { parseLilyPondRhythm } from "../time/notation/lilypond";`,
+			`import { parseLilyPond } from '$lib/domain/time/notation/lilypond';`,
+			`import { parseLilyPond } from './notation/lilypond';`,
+			`import { parseLilyPond } from "../time/notation/lilypond";`,
 			`export * from './notation';`,
-			`export { parseLilyPondRhythm } from "./notation/index";`
+			`export { parseLilyPond } from "./notation/index";`
 		];
 		for (const line of imports) {
 			expect(offendersIn({ '/src/lib/domain/time/x.ts': line }), line).toEqual([
@@ -51,7 +51,7 @@ describe('lilypond boundary', () => {
 	});
 
 	it('allows the catalog and the notation folder, and unrelated words', () => {
-		const line = `import { parseLilyPondRhythm } from '../time/notation/lilypond';`;
+		const line = `import { parseLilyPond } from '../time/notation/lilypond';`;
 		expect(offendersIn({ '/src/lib/domain/exercise/catalog.ts': line })).toEqual([]);
 		expect(offendersIn({ '/src/lib/domain/time/notation/other.ts': line })).toEqual([]);
 		expect(

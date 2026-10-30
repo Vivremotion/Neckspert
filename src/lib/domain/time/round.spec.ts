@@ -14,7 +14,7 @@ const of = Fraction.of;
 
 /** A bar of 4/4 in eighths: the off-beats only (a rest, then a note, four times). */
 const offBeats: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [
@@ -232,7 +232,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	/** A bar of 4/4 from a pattern of steps of `step`: a note where it says 1, a rest at 0. */
 	function figureOf(pattern: string, step: Fraction): Figure {
 		return {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [

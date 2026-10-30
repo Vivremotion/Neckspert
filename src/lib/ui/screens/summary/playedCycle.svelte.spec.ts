@@ -36,7 +36,7 @@ afterEach(cleanup);
 
 const quarter = { kind: 'note', duration: Fraction.of(1, 4), content: null } as const;
 const figure: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [{ id: 'main', elements: [quarter, quarter, quarter, quarter] }]

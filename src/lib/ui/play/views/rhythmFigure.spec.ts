@@ -32,7 +32,7 @@ const note = (n: number, d: number, tieToNext = false): FigureElement => ({
 });
 const rest = (n: number, d: number): FigureElement => ({ kind: 'rest', duration: of(n, d) });
 const figureOf = (elements: FigureElement[], bars = 1): Figure => ({
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars,
 	voices: [{ id: 'main', elements }]

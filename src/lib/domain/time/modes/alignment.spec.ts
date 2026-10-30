@@ -15,7 +15,7 @@ const start = of(1);
 
 function figure(pattern: string): Figure {
 	return {
-		schema: 1,
+		schema: 2,
 		meter: METER_4_4,
 		bars: 1,
 		voices: [

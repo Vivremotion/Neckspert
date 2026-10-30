@@ -13,7 +13,7 @@ const of = Fraction.of;
 
 /** The cycle of `round.spec.ts`: a bar of 4/4 in eighths, the off-beats only, over two bars. */
 const offBeats: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [

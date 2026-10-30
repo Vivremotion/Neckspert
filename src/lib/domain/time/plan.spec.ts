@@ -15,7 +15,7 @@ const rest = (n: number, d: number): FigureElement => ({ kind: 'rest', duration:
 
 // c8 c8 r8 c8 r8 c8 r8 c8: five attacks in a bar.
 const contretemps: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [
@@ -36,7 +36,7 @@ const contretemps: Figure = {
 };
 // Bar 1: one whole note. Bar 2: two half notes.
 const twoBars: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 2,
 	voices: [{ id: 'main', elements: [note(1, 1), note(1, 2), note(1, 2)] }]
@@ -89,7 +89,7 @@ describe('compileCyclePlan', () => {
 
 	it('skips tied notes and counts the bar of each expectation', () => {
 		const tied: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [{ id: 'main', elements: [note(1, 2, true), note(1, 4), note(1, 4)] }]

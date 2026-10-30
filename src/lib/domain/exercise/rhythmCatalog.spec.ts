@@ -40,7 +40,7 @@ function paramsAt(exercise: ExerciseDefinition, level: number): LevelParams {
 const RESOLVED_ELSEWHERE = ['sensor', 'windows', 'pacing', 'recallThresholdMs'];
 
 const ACCENTED_EVERY_BEAT = {
-	schema: 1,
+	schema: 2,
 	meter: { count: 4, unit: '1/4', grouping: [1, 1, 1, 1] },
 	bars: 1,
 	voices: [

@@ -106,7 +106,7 @@ describe('renderSounds', () => {
 
 	it('throws on a note without a sound even when its bar is muted or not rendered', () => {
 		const silent: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [{ id: 'v', elements: [{ kind: 'note', duration: f(1), content: null }] }]
@@ -125,7 +125,7 @@ describe('renderSounds', () => {
 
 describe('renderFigure', () => {
 	const backbeat: Figure = {
-		schema: 1,
+		schema: 2,
 		meter: METER_4_4,
 		bars: 1,
 		voices: [
@@ -153,7 +153,7 @@ describe('renderFigure', () => {
 		const note = { kind: 'note', duration: f(1, 8), content: null } as const;
 		const rest = { kind: 'rest', duration: f(1, 8) } as const;
 		const contretemps: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [{ id: 'v', elements: [note, note, rest, note, rest, note, rest, note] }]
@@ -167,7 +167,7 @@ describe('renderFigure', () => {
 		const note = { kind: 'note', duration: f(1, 2), content: null } as const;
 		const rest = { kind: 'rest', duration: f(1, 4) } as const;
 		const two: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [
@@ -183,7 +183,7 @@ describe('renderFigure', () => {
 
 	it('plays a figure of several bars and skips tied notes', () => {
 		const tied: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 2,
 			voices: [

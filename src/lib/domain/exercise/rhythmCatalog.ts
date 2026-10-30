@@ -5,7 +5,7 @@ import {
 	type Figure,
 	type LevelParams
 } from '$lib/domain/time';
-import { parseLilyPondRhythm } from '$lib/domain/time/notation/lilypond';
+import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import type { LevelOverrides } from './levels';
 import type { ExerciseDefinition, ExercisePacing } from './types';
 
@@ -56,7 +56,7 @@ function runsOf(rounds: number): RhythmParams['pacing'] {
 }
 
 function figureOf(text: string): Figure {
-	return parseLilyPondRhythm(text, { meter: METER_4_4 });
+	return parseLilyPond(text, { meter: METER_4_4 });
 }
 
 // Mesures silencieuses ---------------------------------------------------------------------

@@ -56,7 +56,7 @@ export function clickAccompaniment(input: {
 		return { kind: 'note', duration, content: accent.includes(beat) ? 'click-accent' : 'click' };
 	});
 	return {
-		figure: { schema: 1, meter, bars: 1, voices: [{ id: 'click', elements }] },
+		figure: { schema: 2, meter, bars: 1, voices: [{ id: 'click', elements }] },
 		bars: [...bars]
 	};
 }

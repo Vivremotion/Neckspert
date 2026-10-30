@@ -19,7 +19,7 @@ const note = (n: number, d: number, tieToNext?: boolean): FigureElement => ({
 });
 const rest = (n: number, d: number): FigureElement => ({ kind: 'rest', duration: of(n, d) });
 const figure = (elements: FigureElement[], extra: Partial<Voice> = {}, bars = 1): Figure => ({
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars,
 	voices: [{ id: 'main', elements, ...extra }]
@@ -128,7 +128,7 @@ describe('renderFigure', () => {
 
 	it('stacks the voices of a line, so a line is as tall as its rows', () => {
 		const two: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 2,
 			voices: [
@@ -207,7 +207,7 @@ describe('renderFigure', () => {
 
 	it('draws one row of bars per voice and reports the first voice', () => {
 		const two: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [
@@ -240,7 +240,7 @@ describe('renderFigure', () => {
 
 	it('beams 6/8 by dotted quarter: four beams over two bars of eighths', () => {
 		const sixEight: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: { count: 6, unit: of(1, 8), grouping: [3, 3] },
 			bars: 2,
 			voices: [{ id: 'main', elements: eighths(12) }]
@@ -253,7 +253,7 @@ describe('renderFigure', () => {
 
 	it('beams 7/8 as 2+2+3', () => {
 		const sevenEight: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: { count: 7, unit: of(1, 8), grouping: [2, 2, 3] },
 			bars: 1,
 			voices: [{ id: 'main', elements: eighths(7) }]

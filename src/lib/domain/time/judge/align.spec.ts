@@ -27,7 +27,7 @@ function bar(pattern: string, step: Fraction): Figure {
 	const elements: FigureElement[] = [...pattern].map((c) =>
 		c === '1' ? { kind: 'note', duration: step, content: null } : { kind: 'rest', duration: step }
 	);
-	return { schema: 1, meter: METER_4_4, bars: 1, voices: [{ id: 'main', elements }] };
+	return { schema: 2, meter: METER_4_4, bars: 1, voices: [{ id: 'main', elements }] };
 }
 
 function cycle(
