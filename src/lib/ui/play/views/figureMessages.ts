@@ -14,6 +14,20 @@ export function signed(value: number): string {
 /** « −35 ms », « +28 ms ». */
 const signedMs = (value: number) => `${signed(value)} ms`;
 
+/** A wrong note at its place: its bar and beat from 1, and what tells it (null: not known). */
+export interface WrongPlace {
+	bar: number;
+	beat: number;
+	gap: string | null;
+}
+
+/** « 3, 6 et 9 »; « 3, 6, 9, 12… » when more follow. */
+function barList(bars: readonly number[], more: boolean, and: string): string {
+	if (more) return `${bars.join(', ')}…`;
+	if (bars.length <= 1) return bars.join('');
+	return `${bars.slice(0, -1).join(', ')} ${and} ${bars[bars.length - 1]}`;
+}
+
 const FR = {
 	header: (label: string, level: string, tempo: string) => `${label} · ${level} · ${tempo}`,
 	level: (shown: number, of: number) => `niveau ${shown} sur ${of}`,
@@ -41,8 +55,10 @@ const FR = {
 		early: 'devant',
 		late: 'derrière',
 		missed: 'oubliée',
-		extra: 'en trop'
+		extra: 'en trop',
+		'wrong-pitch': 'fausse'
 	},
+	expected: 'Forme attendue',
 	term: {
 		hold: 'tenue',
 		placement: 'placement',
@@ -64,6 +80,16 @@ const FR = {
 		added: (bar: number) => `Temps ajouté mesure ${bar}`,
 		forgotten: (n: number) => (n === 1 ? '1 note oubliée' : `${n} notes oubliées`),
 		extra: (n: number) => (n === 1 ? '1 note en trop' : `${n} notes en trop`),
+		wrongNotes: (n: number) => (n === 1 ? '1 fausse note' : `${n} fausses notes`),
+		wrongAt: (places: readonly WrongPlace[]) =>
+			places
+				.map(
+					({ bar, beat, gap }, i) =>
+						`${i === 0 ? 'Mesure' : 'mesure'} ${bar}, temps ${beat} : ${gap ?? 'fausse note'}`
+				)
+				.join(' ; '),
+		wrongInBars: (n: number, bars: readonly number[], more: boolean) =>
+			`${n} fausses notes, ${bars.length === 1 && !more ? 'mesure' : 'mesures'} ${barList(bars, more, 'et')}`,
 		uneven: (ms: number) => `Irrégulier (± ${ms} ms)`,
 		placement: (offsetMs: number) =>
 			`Tu joues ${offsetMs < 0 ? 'devant' : 'derrière'} le temps (${signedMs(offsetMs)})`,
@@ -107,8 +133,10 @@ const EN: typeof FR = {
 		early: 'ahead',
 		late: 'behind',
 		missed: 'missed',
-		extra: 'extra'
+		extra: 'extra',
+		'wrong-pitch': 'wrong'
 	},
+	expected: 'Expected shape',
 	term: {
 		hold: 'hold',
 		placement: 'placement',
@@ -130,6 +158,16 @@ const EN: typeof FR = {
 		added: (bar) => `Beat added in bar ${bar}`,
 		forgotten: (n) => (n === 1 ? '1 note missed' : `${n} notes missed`),
 		extra: (n) => (n === 1 ? '1 extra note' : `${n} extra notes`),
+		wrongNotes: (n) => (n === 1 ? '1 wrong note' : `${n} wrong notes`),
+		wrongAt: (places) =>
+			places
+				.map(
+					({ bar, beat, gap }, i) =>
+						`${i === 0 ? 'Bar' : 'bar'} ${bar}, beat ${beat}: ${gap ?? 'wrong note'}`
+				)
+				.join('; '),
+		wrongInBars: (n, bars, more) =>
+			`${n} wrong notes, ${bars.length === 1 && !more ? 'bar' : 'bars'} ${barList(bars, more, 'and')}`,
 		uneven: (ms) => `Uneven (± ${ms} ms)`,
 		placement: (offsetMs) =>
 			`You play ${offsetMs < 0 ? 'ahead of' : 'behind'} the beat (${signedMs(offsetMs)})`,
@@ -144,7 +182,7 @@ const EN: typeof FR = {
 	shift: { lost: 'beat lost', added: 'beat added' }
 };
 
-/** The rhythm view's copy, by locale: the pure module reads it for a given locale. */
-export const RHYTHM_MESSAGES: Record<Locale, typeof FR> = { fr: FR, en: EN };
+/** The figure view's copy, by locale: the pure module reads it for a given locale. */
+export const FIGURE_MESSAGES: Record<Locale, typeof FR> = { fr: FR, en: EN };
 
-export const rhythmMessages = defineMessages(RHYTHM_MESSAGES);
+export const figureMessages = defineMessages(FIGURE_MESSAGES);

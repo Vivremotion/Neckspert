@@ -2,7 +2,7 @@ import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
+import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
@@ -125,7 +125,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 			...NECK_PRESENTERS,
 			...TRIAD_PRESENTERS,
 			...GESTURE_PRESENTERS,
-			...RHYTHM_PRESENTERS
+			...FIGURE_PRESENTERS
 		},
 		sensors: {
 			note: noteSensor(detector),

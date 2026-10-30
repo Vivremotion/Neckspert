@@ -1,6 +1,10 @@
-// What the `rhythm-figure` view computes, kept pure: where the marks of a cycle go over an
-// engraving, the plain-words line of a cycle, where the cursor stands, and when it may show.
-import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
+// What the `figure` view computes, kept pure: where the marks of a round go over an
+// engraving, the plain-words line of a round, where the cursor stands, and when it may show.
+import type {
+	FigureStageModel,
+	SettledCycle,
+	WrongNote
+} from '$lib/application/session/series/figureStage';
 import {
 	attackPositions,
 	barLength,
@@ -11,11 +15,12 @@ import {
 	type CycleVerdict,
 	type Feedback,
 	type Figure,
+	type Meter,
 	type Voice
 } from '$lib/domain/time';
 import type { Locale } from '$lib/domain/types';
 import type { FigureLayout } from '$lib/ui/notation';
-import { RHYTHM_MESSAGES, signed, type DriftWords } from './rhythmMessages';
+import { FIGURE_MESSAGES, signed, type DriftWords } from './figureMessages';
 
 /** The smallest visible offset of a mark that is not dead on its note, in px. */
 export const MARK_MIN_OFFSET_PX = 6;
@@ -32,7 +37,10 @@ export const WORDS_MIN_MS = 15;
 /** Under this, a drift of the hold (ms per bar) is not worth « accélères » or « ralentis ». */
 export const WORDS_MIN_DRIFT_MS_PER_BAR = 5;
 
-export type MarkKind = 'early' | 'late' | 'on-time' | 'missed' | 'extra';
+/** Bars a sum-up of wrong notes names at most, the rest left to « … » and the marks. */
+export const FEEDBACK_MAX_BARS = 4;
+
+export type MarkKind = 'early' | 'late' | 'on-time' | 'missed' | 'extra' | 'wrong-pitch';
 
 export interface Mark {
 	/** Centre of the mark, in the engraving's px, on its `line`. */
@@ -91,8 +99,12 @@ export function cycleMarks(
 			const slot = index % notes;
 			const x = layout.noteX[slot];
 			const line = layout.noteLine[slot] ?? 0;
-			// A wrong note is marked as a missed one until the figure view marks it apart.
-			if (verdict === 'missed' || verdict === 'wrong-pitch' || offsetMs === null) {
+			// A wrong note in place is marked on its note: what was wrong is its pitch.
+			if (verdict === 'wrong-pitch') {
+				marks.push({ x, line, kind: 'wrong-pitch', label: null });
+				continue;
+			}
+			if (verdict === 'missed' || offsetMs === null) {
 				marks.push({ x, line, kind: 'missed', label: null });
 				continue;
 			}
@@ -165,8 +177,24 @@ export function labelRows(marks: readonly Mark[], charWidthPx: number): (0 | 1 |
  * have faded (null when it has none: the line then stays in words).
  */
 type Line = { words: string; term: FeedbackTerm | null; value: string | null };
-type Messages = (typeof RHYTHM_MESSAGES)[Locale];
+type Messages = (typeof FIGURE_MESSAGES)[Locale];
 type Words = Messages['words'];
+
+/** The wrong notes of the round told, at their places in a meter, when the breath knows them. */
+export interface ToldWrongNotes {
+	wrongNotes: readonly WrongNote[];
+	meter: Meter;
+}
+
+/** A note of a figure by its bar and beat, from 1: « mesure 6, temps 3 ». */
+export function notePlace(at: Fraction, meter: Meter): { bar: number; beat: number } {
+	const bar = barLength(meter);
+	const index = Math.floor(at.div(bar).toNumber());
+	const inBar = at.sub(bar.mul(Fraction.of(index)));
+	const beats = beatPositions(meter);
+	const beat = beats.findLastIndex((position) => position.compare(inBar) <= 0);
+	return { bar: index + 1, beat: Math.max(0, beat) + 1 };
+}
 
 /** The order a failed cycle's reasons are told in (`cycleVerdict` lists them in another order). */
 const REASON_ORDER: readonly CycleFailure[] = [
@@ -198,14 +226,39 @@ function fidelityLine(report: CycleReport, words: Words): Line | null {
 		forgotten > 0 ? words.forgotten(forgotten) : null,
 		report.extra > 0 ? words.extra(report.extra) : null
 	].filter((part) => part !== null);
+	return { words: parts.join(', '), term: 'fidelity', value: fidelityValue(report) };
+}
+
+/** The share of the notes played right, as the term says it: « 10/12 ». */
+function fidelityValue(report: CycleReport): string {
 	const heard = report.expectations.filter(
 		(e) => e.verdict !== 'missed' && e.verdict !== 'dropped' && e.verdict !== 'wrong-pitch'
 	).length;
-	return {
-		words: parts.join(', '),
-		term: 'fidelity',
-		value: `${heard}/${report.expectations.length}`
-	};
+	return `${heard}/${report.expectations.length}`;
+}
+
+/**
+ * The wrong notes, or null: one or two told by their bar and beat and what was played (« Mesure
+ * 6, temps 3 : G au lieu de A »), more summed up by their bars, at most `FEEDBACK_MAX_BARS`;
+ * counted only when their places are not known. No number: where to look stays in words once
+ * the plain words have faded.
+ */
+function wrongPitchLine(
+	report: CycleReport,
+	words: Words,
+	told: ToldWrongNotes | null
+): Line | null {
+	const count = report.expectations.filter((e) => e.verdict === 'wrong-pitch').length;
+	if (count === 0) return null;
+	const line = (text: string): Line => ({ words: text, term: 'fidelity', value: null });
+	const notes = told?.wrongNotes ?? [];
+	if (!told || notes.length !== count) return line(words.wrongNotes(count));
+	const places = notes.map((note) => ({ ...notePlace(note.at, told.meter), gap: note.gap }));
+	if (count <= 2) return line(words.wrongAt(places));
+	const bars = [...new Set(places.map((place) => place.bar))].sort((a, b) => a - b);
+	return line(
+		words.wrongInBars(count, bars.slice(0, FEEDBACK_MAX_BARS), bars.length > FEEDBACK_MAX_BARS)
+	);
 }
 
 /** The hold, its offset and its drift, each told from its cut-off (0: whatever its size). */
@@ -255,12 +308,18 @@ function precisionLine(report: CycleReport, words: Words, cutOff: number): Line 
 }
 
 /** The line of one failure reason, whatever the size of its measure. */
-function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Line | null {
+function reasonLine(
+	reason: CycleFailure,
+	report: CycleReport,
+	words: Words,
+	told: ToldWrongNotes | null
+): Line | null {
 	switch (reason) {
 		case 'shift':
 			return shiftLine(report, words);
-		case 'missed':
 		case 'wrong-pitch':
+			return wrongPitchLine(report, words, told);
+		case 'missed':
 		case 'extra':
 			return fidelityLine(report, words);
 		case 'hold':
@@ -275,20 +334,22 @@ function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Li
 /**
  * The plain-words line and its term, by locale: « Sans clic, tu passes devant (−35 ms) · tenue ».
  * One thing is told. A failed cycle is told by what failed it: the first of its `verdict`
- * reasons in `REASON_ORDER` (shift, missed or extra, hold, regularity, precision), whatever
- * its size. Otherwise (passed, or no verdict) the first that applies and is worth a sentence
- * (`WORDS_MIN_MS`, `WORDS_MIN_DRIFT_MS_PER_BAR`): a lost or added beat, the notes forgotten or
- * added, the hold, the spread, then (only when the latency was measured without the player)
- * the placement and the precision; « En place » when nothing is.
+ * reasons in `REASON_ORDER` (shift, missed, wrong notes, extra, hold, regularity, precision),
+ * whatever its size. Otherwise (passed, or no verdict) the first that applies and is worth a
+ * sentence (`WORDS_MIN_MS`, `WORDS_MIN_DRIFT_MS_PER_BAR`): a lost or added beat, the notes
+ * forgotten or added, the wrong notes, the hold, the spread, then (only when the latency was
+ * measured without the player) the placement and the precision; « En place » when nothing is.
+ * The wrong notes are told by their places when `told` gives them, else counted.
  */
 export function feedbackLine(
 	report: CycleReport,
 	locale: Locale,
 	verdict?: CycleVerdict,
-	plain = true
+	plain = true,
+	told: ToldWrongNotes | null = null
 ): Line {
-	const messages = RHYTHM_MESSAGES[locale];
-	const line = toldLine(report, messages.words, verdict);
+	const messages = FIGURE_MESSAGES[locale];
+	const line = toldLine(report, messages.words, verdict, told);
 	if (plain) return line;
 	// The plain words faded (`PLAIN_WORDS_SESSIONS`): the term and its number stay.
 	if (line.term && line.value !== null) {
@@ -305,11 +366,16 @@ export function feedbackLine(
 }
 
 /** The plain-words line (see `feedbackLine`). */
-function toldLine(report: CycleReport, words: Words, verdict?: CycleVerdict): Line {
+function toldLine(
+	report: CycleReport,
+	words: Words,
+	verdict: CycleVerdict | undefined,
+	told: ToldWrongNotes | null
+): Line {
 	if (verdict && !verdict.passed) {
 		for (const reason of REASON_ORDER) {
 			if (!verdict.reasons.includes(reason)) continue;
-			const line = reasonLine(reason, report, words);
+			const line = reasonLine(reason, report, words, told);
 			if (line) return line;
 		}
 	}
@@ -317,6 +383,7 @@ function toldLine(report: CycleReport, words: Words, verdict?: CycleVerdict): Li
 	const line =
 		shiftLine(report, words) ??
 		fidelityLine(report, words) ??
+		wrongPitchLine(report, words, told) ??
 		holdLine(report, words, { ms: WORDS_MIN_MS, msPerBar: WORDS_MIN_DRIFT_MS_PER_BAR }) ??
 		regularityLine(report, words, WORDS_MIN_MS);
 	if (line) return line;
@@ -343,7 +410,7 @@ export function shiftMark(report: CycleReport): { bar: number; lost: boolean } |
 }
 
 /** The cursor shows only on the figure played or heard, and never during a muted bar. */
-export function cursorVisible(model: RhythmStageModel): boolean {
+export function cursorVisible(model: FigureStageModel): boolean {
 	if (model.cursor === null || model.muted) return false;
 	return model.phase === 'play' || model.phase === 'listening';
 }

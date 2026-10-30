@@ -17,8 +17,16 @@ export type LatencyProvenance = 'system' | 'player';
 export type ReportedVerdict = ExpectationVerdict | 'dropped' | 'wrong-pitch';
 
 export interface CycleReport {
-	/** One entry per timed expectation, in plan order. */
-	expectations: { index: number; verdict: ReportedVerdict; offsetMs: number | null }[];
+	/**
+	 * One entry per timed expectation, in plan order. A `wrong-pitch` one keeps what its attack
+	 * played, as its judge read it (`answer`), when the verdict knows it.
+	 */
+	expectations: {
+		index: number;
+		verdict: ReportedVerdict;
+		offsetMs: number | null;
+		answer?: unknown;
+	}[];
 	/** Plan indexes of the expectations a shift made unplayable (neither played nor missed). */
 	dropped: number[];
 	/** How many attacks answered no expectation. */

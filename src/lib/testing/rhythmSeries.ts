@@ -17,8 +17,8 @@ import {
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
-import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
+import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
+import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { attackSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
@@ -69,10 +69,10 @@ export async function settled(): Promise<void> {
 }
 
 /** The rhythm's screen model on show; throws when there is none. */
-export function stageOf(controller: SessionController): RhythmStageModel {
+export function stageOf(controller: SessionController): FigureStageModel {
 	const stage = controller.view.stage;
 	if (!stage) throw new Error('no stage on show');
-	return stage.model as RhythmStageModel;
+	return stage.model as FigureStageModel;
 }
 
 /** The audio times of the attacks of figure bar `played % bars`, the bar starting at `startS`. */
@@ -110,7 +110,7 @@ export class Player {
 	step(): void {
 		const stage = this.controller.view.stage;
 		if (!stage) return;
-		const model = stage.model as RhythmStageModel;
+		const model = stage.model as FigureStageModel;
 		const barS = (60 / model.tempo.bpm) * 4;
 		const bar = Math.floor((this.clock.now() - ORIGIN) / barS + 1e-9);
 		if (bar !== this.bar) {
@@ -174,7 +174,8 @@ export async function rhythmSeries(
 		sounds,
 		detector,
 		sensors: { attack: attackSensor(attacks) },
-		mechanics: RHYTHM_PRESENTERS,
+		// The rhythm's presenter alone: the series opens the sensors of every presenter it is given.
+		mechanics: { [figurePresenter.rules.id]: figurePresenter },
 		repositories: { attempts, sessions, settings },
 		levels,
 		recorderFor: (sessionId) => {

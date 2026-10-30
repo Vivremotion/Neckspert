@@ -429,7 +429,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	// Its view: the one that draws it, or none (the lane for a presentation); now and then one
 	// that reads another model, or none the screen has.
 	const view = chance(random, 0.05)
-		? pick(random, ['grid-scroll', 'link-lane', 'rhythm-figure', 'score'])
+		? pick(random, ['grid-scroll', 'link-lane', 'figure', 'score'])
 		: chance(random, 0.2)
 			? undefined
 			: mechanic === 'identify' && free

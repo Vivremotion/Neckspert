@@ -166,6 +166,44 @@ describe('CONTENT_VIEWS', () => {
 		expect(silent).toMatchObject({ correction: 'G', gap: null });
 	});
 
+	it('tells an octave error as such, not as the same note twice', () => {
+		const told = (heard: number, locale: 'fr' | 'en') =>
+			CONTENT_VIEWS.pitch.miss(
+				{ midi: 67 },
+				{ answer: { midi: heard }, confusion: null },
+				locale,
+				() => 0
+			).gap;
+		expect(told(79, 'fr')).toBe('G, une octave trop haut');
+		expect(told(55, 'fr')).toBe('G, une octave trop bas');
+		expect(told(79, 'en')).toBe('G, an octave too high');
+		expect(told(55, 'en')).toBe('G, an octave too low');
+		expect(told(91, 'fr')).toBe('G, 2 octaves trop haut');
+		expect(told(43, 'en')).toBe('G, 2 octaves too low');
+	});
+
+	it('spells the note heard and the note expected with one accidental choice', () => {
+		// Each draw would flip the spelling: both notes take the first.
+		const draws = [0.9, 0.1, 0.9, 0.1];
+		const random = () => draws.shift() ?? 0.5;
+		const miss = CONTENT_VIEWS.pitch.miss(
+			{ midi: 70 },
+			{ answer: { midi: 68 }, confusion: null },
+			'fr',
+			random
+		);
+		expect(miss).toMatchObject({ correction: 'Bb', gap: 'Ab au lieu de Bb' });
+	});
+
+	it('tells the pitch played as the note view does', () => {
+		for (const r of [0, 0.9]) {
+			expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => r)).toBe(
+				CONTENT_VIEWS.note.answerLabel({ string: 2, pitch: 'G' }, { midi: 70 }, 'fr', () => r)
+			);
+		}
+		expect(CONTENT_VIEWS.pitch.answerLabel).toBe(CONTENT_VIEWS.note.answerLabel);
+	});
+
 	it('spells the pitch played', () => {
 		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => 0.9)).toBe('Bb');
 		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, null, 'fr', () => 0)).toBeNull();

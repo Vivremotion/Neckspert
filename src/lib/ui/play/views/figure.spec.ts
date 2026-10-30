@@ -1,15 +1,21 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
+import type {
+	FigureStageModel,
+	SettledCycle,
+	WrongNote
+} from '$lib/application/session/series/figureStage';
 import {
 	attackPositions,
 	Fraction,
 	METER_4_4,
+	type Meter,
 	type CycleReport,
 	type Figure,
 	type FigureElement
 } from '$lib/domain/time';
 import type { FigureLayout } from '$lib/ui/notation';
 import {
+	FEEDBACK_MAX_BARS,
 	MARK_EXAGGERATION,
 	MARK_MIN_OFFSET_PX,
 	cursorVisible,
@@ -19,9 +25,10 @@ import {
 	feedbackLine,
 	labelRows,
 	markOffsetPx,
+	notePlace,
 	shiftMark,
 	toldCycle
-} from './rhythmFigure';
+} from './figure';
 
 const of = Fraction.of;
 const note = (n: number, d: number, tieToNext = false): FigureElement => ({
@@ -127,6 +134,20 @@ describe('cycleMarks', () => {
 		expect(marks[1].label).toBe('−35');
 		expect(marks[2]).toEqual({ x: 260, line: 0, kind: 'missed', label: null });
 		expect(marks[3].x).toBe(360 + MARK_MIN_OFFSET_PX);
+	});
+
+	it('marks a wrong note in place as wrong-pitch, on its note and apart from a missed one', () => {
+		const marks = cycleMarks(
+			report({ expectations: played(entry(1, 'wrong-pitch', 30), entry(2, 'missed', null)) }),
+			LAYOUT,
+			'out-of-tolerance',
+			BEAT_PX,
+			BEAT_MS
+		);
+		expect(marks).toEqual([
+			{ x: 160, line: 0, kind: 'wrong-pitch', label: null },
+			{ x: 260, line: 0, kind: 'missed', label: null }
+		]);
 	});
 
 	it('keeps only the marks out of the window in out-of-tolerance', () => {
@@ -415,7 +436,7 @@ describe('feedbackLine', () => {
 	});
 });
 
-function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
+function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 	const figure = figureOf([note(1, 4), note(1, 4), note(1, 4), note(1, 4)]);
 	return {
 		phase: 'play',
@@ -432,9 +453,112 @@ function model(overrides: Partial<RhythmStageModel> = {}): RhythmStageModel {
 		settled: [],
 		listen: 'free',
 		plainWords: true,
+		prompt: null,
+		notation: null,
+		chordDiagram: 'strings',
 		...overrides
 	};
 }
+
+describe('feedbackLine, wrong notes', () => {
+	const wrongAt = (...indexes: number[]) =>
+		report({
+			expectations: [0, 1, 2, 3].map((index) =>
+				indexes.includes(index) ? entry(index, 'wrong-pitch', 0) : entry(index, 'on-time', 0)
+			)
+		});
+	const failed = { passed: false as const, reasons: ['wrong-pitch' as const] };
+	const at = (n: number, d: number) => Fraction.of(n, d);
+
+	it('tells one wrong note by bar and beat, with the note heard and the note asked', () => {
+		const notes: WrongNote[] = [{ at: at(5, 2), gap: 'G au lieu de A' }];
+		const line = feedbackLine(wrongAt(2), 'fr', failed, true, {
+			wrongNotes: notes,
+			meter: METER_4_4
+		});
+		expect(line).toEqual({
+			words: 'Mesure 3, temps 3 : G au lieu de A',
+			term: 'fidelity',
+			value: null
+		});
+		// Where to look stays in words once the plain words have faded.
+		expect(
+			feedbackLine(wrongAt(2), 'fr', failed, false, { wrongNotes: notes, meter: METER_4_4 }).words
+		).toBe('Mesure 3, temps 3 : G au lieu de A');
+		expect(
+			feedbackLine(wrongAt(2), 'en', failed, true, { wrongNotes: notes, meter: METER_4_4 }).words
+		).toBe('Bar 3, beat 3: G au lieu de A');
+	});
+
+	it('tells two wrong notes both, and a wrong note heard as nothing readable as a wrong note', () => {
+		const notes: WrongNote[] = [
+			{ at: at(0, 1), gap: 'G, une octave trop haut' },
+			{ at: at(7, 4), gap: null }
+		];
+		expect(
+			feedbackLine(wrongAt(0, 3), 'fr', failed, true, { wrongNotes: notes, meter: METER_4_4 }).words
+		).toBe('Mesure 1, temps 1 : G, une octave trop haut ; mesure 2, temps 4 : fausse note');
+	});
+
+	it('sums up more than two by their bars, at most FEEDBACK_MAX_BARS', () => {
+		// A 49-bar figure of quarter notes, twelve wrong notes over ten bars.
+		const bars = [3, 3, 6, 9, 12, 12, 20, 25, 31, 40, 44, 49];
+		const faults = bars.map((bar, k) => (bar - 1) * 4 + (k % 4));
+		const long = report({
+			expectations: Array.from({ length: 49 * 4 }, (_, index) =>
+				faults.includes(index) ? entry(index, 'wrong-pitch', 0) : entry(index, 'on-time', 0)
+			)
+		});
+		const notes: WrongNote[] = faults.map((index) => ({
+			at: at(index, 4),
+			gap: 'G au lieu de A'
+		}));
+		const told = { wrongNotes: notes, meter: METER_4_4 };
+		const line = feedbackLine(long, 'fr', failed, true, told);
+		expect(FEEDBACK_MAX_BARS).toBe(4);
+		expect(line.words).toBe('12 fausses notes, mesures 3, 6, 9, 12…');
+		expect(feedbackLine(long, 'en', failed, true, told).words).toBe(
+			'12 wrong notes, bars 3, 6, 9, 12…'
+		);
+		// Within the limit, no ellipsis; one bar, said once.
+		const few = notes.slice(0, 3);
+		expect(
+			feedbackLine(wrongAt(0, 1, 2), 'fr', failed, true, { wrongNotes: few, meter: METER_4_4 })
+				.words
+		).toBe('3 fausses notes, mesures 3 et 6');
+		const oneBar: WrongNote[] = [0, 1, 2].map((k) => ({ at: at(k, 4), gap: null }));
+		expect(
+			feedbackLine(wrongAt(0, 1, 2), 'fr', failed, true, { wrongNotes: oneBar, meter: METER_4_4 })
+				.words
+		).toBe('3 fausses notes, mesure 1');
+	});
+
+	it('counts the wrong notes when their places are not known', () => {
+		expect(feedbackLine(wrongAt(1, 2), 'fr', failed).words).toBe('2 fausses notes');
+		expect(feedbackLine(wrongAt(1), 'en', failed).words).toBe('1 wrong note');
+	});
+
+	it('tells the wrong notes of a cycle that passed on a fidelity threshold', () => {
+		expect(feedbackLine(wrongAt(1), 'fr', { passed: true }).words).toBe('1 fausse note');
+	});
+});
+
+describe('notePlace', () => {
+	const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
+
+	it('numbers the bar and the beat of a note from 1, in 4/4', () => {
+		expect(notePlace(Fraction.ZERO, METER_4_4)).toEqual({ bar: 1, beat: 1 });
+		expect(notePlace(Fraction.of(7, 4), METER_4_4)).toEqual({ bar: 2, beat: 4 });
+		// A note between two beats is told on the beat before it.
+		expect(notePlace(Fraction.of(21, 8), METER_4_4)).toEqual({ bar: 3, beat: 3 });
+	});
+
+	it('numbers them in 3/4', () => {
+		expect(notePlace(Fraction.of(3, 4), METER_3_4)).toEqual({ bar: 2, beat: 1 });
+		expect(notePlace(Fraction.of(1, 2), METER_3_4)).toEqual({ bar: 1, beat: 3 });
+		expect(notePlace(Fraction.of(11, 4), METER_3_4)).toEqual({ bar: 4, beat: 3 });
+	});
+});
 
 describe('feedbackLine without plain words', () => {
 	const held = report({ measures: { holdOffset: { value: -35, unit: 'ms' } } });
@@ -532,11 +656,15 @@ describe('cycleFigure', () => {
 describe('toldCycle', () => {
 	const passed = (offset: number): SettledCycle => ({
 		report: report({ measures: { holdOffset: { value: offset, unit: 'ms' } } }),
-		verdict: { passed: true }
+		verdict: { passed: true },
+		wrongNotes: [],
+		expected: null
 	});
 	const failed: SettledCycle = {
 		report: report({ extra: 1 }),
-		verdict: { passed: false, reasons: ['extra'] }
+		verdict: { passed: false, reasons: ['extra'] },
+		wrongNotes: [],
+		expected: null
 	};
 
 	it('tells the last failed cycle of the run, else the last one', () => {

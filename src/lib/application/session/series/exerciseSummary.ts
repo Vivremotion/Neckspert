@@ -11,8 +11,8 @@ import {
 } from '$lib/domain/time';
 import type { Attempt, ExerciseSummary } from '$lib/domain/types';
 import { levelAided } from '../aids';
-import type { FigureAttemptData, RoundPlanRecord } from '../series/recordResponse';
-import { levelView } from './rhythmStage';
+import type { FigureAttemptData, RoundPlanRecord } from './recordResponse';
+import { levelView } from './figureStage';
 
 /**
  * A cycle as played, to engrave it: the figure its item names in `exercise` at the level played,

@@ -15,16 +15,14 @@ const everywhere = import.meta.glob(['/src/**/*.ts', '/src/**/*.svelte'], {
 }) as Record<string, string>;
 
 const CORE = '/src/lib/application/session/';
-/** The pieces of the rhythm's cycle (plan H6, D8): an exception, until the sequence absorbs it. */
-const CYCLE = `${CORE}cycle/`;
 
 /** The figure mechanic's id as code writes it, quoted (a backquoted `figure` in a comment is the word). */
 const FIGURE_MECHANIC = [`'figure'`, `"figure"`];
 
-/** The core files (outside `cycle/`, specs aside) that name the figure mechanic. */
+/** The core files (specs aside) that name the figure mechanic. */
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
-		.filter(([path]) => path.startsWith(CORE) && !path.startsWith(CYCLE))
+		.filter(([path]) => path.startsWith(CORE))
 		.filter(([path]) => !/\.spec\.ts$/.test(path))
 		.filter(([, text]) => FIGURE_MECHANIC.some((name) => text.includes(name)))
 		.map(([path]) => path);
@@ -41,15 +39,18 @@ function namingGone(files: Record<string, string>): string[] {
 }
 
 describe('the session core', () => {
-	it('never names the figure mechanic: the cycle receives what it needs', () => {
+	it('never names the figure mechanic: its screen and its summary receive what they need', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
-	it('actually scans the core and the cycle folder', () => {
+	it('has no cycle folder left: the sequence absorbed the cycle (plan S)', () => {
+		expect(Object.keys(everywhere).filter((path) => path.startsWith(`${CORE}cycle/`))).toEqual([]);
+	});
+
+	it('actually scans the core, the figure stage included', () => {
 		const paths = Object.keys(sources);
 		expect(paths).toContain(`${CORE}SessionController.svelte.ts`);
-		expect(paths).toContain(`${CYCLE}presenter.ts`);
-		expect(offendersIn({ [`${CYCLE}x.ts`]: `const id = 'figure';` })).toEqual([]);
+		expect(paths).toContain(`${CORE}series/figureStage.ts`);
 		expect(offendersIn({ [`${CORE}x.ts`]: `const id = 'figure';` })).toEqual([`${CORE}x.ts`]);
 		expect(offendersIn({ [`${CORE}y.ts`]: `const id = "figure";` })).toEqual([`${CORE}y.ts`]);
 	});

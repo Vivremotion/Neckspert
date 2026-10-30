@@ -32,11 +32,11 @@ import { SessionController } from '$lib/application/session/SessionController.sv
 import { createAppServices } from './createAppServices';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
+import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
 import {
 	PLAIN_WORDS_SESSIONS,
-	type RhythmStageModel
-} from '$lib/application/session/cycle/rhythmStage';
+	type FigureStageModel
+} from '$lib/application/session/series/figureStage';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
 import {
@@ -97,7 +97,7 @@ function harness(options: { development?: boolean } = {}): {
 			...NECK_PRESENTERS,
 			...TRIAD_PRESENTERS,
 			...GESTURE_PRESENTERS,
-			...RHYTHM_PRESENTERS
+			...FIGURE_PRESENTERS
 		},
 		sensors: {
 			note: noteSensor(detector),
@@ -558,7 +558,7 @@ describe('the rhythm exercises', () => {
 		const controller = await services.startExercise('rhythm-two-four');
 		expect(controller).toBeInstanceOf(SessionController);
 		await controller.ready?.();
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		await controller.start();
 		// It listens to its own sensor, the attacks.
 		expect(attacks.listeners).toBe(1);
@@ -596,11 +596,11 @@ describe('the rhythm exercises', () => {
 		await controller.start();
 		await runOnTransport(
 			deps,
-			() => (controller.view.stage?.model as RhythmStageModel | undefined)?.phase === 'play',
+			() => (controller.view.stage?.model as FigureStageModel | undefined)?.phase === 'play',
 			0.01,
 			2000
 		);
-		expect((controller.view.stage?.model as RhythmStageModel).phase).toBe('play');
+		expect((controller.view.stage?.model as FigureStageModel).phase).toBe('play');
 		controller.quit();
 		await vi.waitFor(async () =>
 			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
@@ -615,7 +615,7 @@ describe('the rhythm exercises', () => {
 		const plainWords = async () => {
 			const controller = await services.startExercise(RHYTHM_TWO_FOUR.id);
 			await controller.ready?.();
-			const plain = (controller.view.stage?.model as RhythmStageModel).plainWords;
+			const plain = (controller.view.stage?.model as FigureStageModel).plainWords;
 			await controller.start();
 			controller.quit();
 			await vi.waitFor(async () =>
@@ -633,7 +633,7 @@ describe('the rhythm exercises', () => {
 		const controller = await services.startExercise('rhythm-offbeats');
 		await controller.ready?.();
 		expect(controller.view.briefing?.text).toBe(RHYTHM_OFFBEATS.howTo?.fr);
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		expect(typeof controller.listen).toBe('function');
 	});
 

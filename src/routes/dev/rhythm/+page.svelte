@@ -1,12 +1,14 @@
 <script lang="ts">
-	// Dev only: the rhythm view in its frame, with a still model, to look at it in a real browser
+	// Dev only: the figure view in its frame, with a still model, to look at it in a real browser
 	// (scripts/functional-ui.mjs checks the Bravura font, the cursor and the text sizes here).
 	// `?phase=play` a clicked bar, `?phase=muted` a silent one, `?phase=along` a cycle played along
-	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, the breath otherwise.
+	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, `?phase=wrong` a
+	// breath after wrong notes of a figure derived from a chord shape, its prompt above and the
+	// shape asked, the breath otherwise.
 	// The frame tells what the series announces (a remedy, the level reached at the breath).
 	import { page } from '$app/state';
 	import type { PlayView } from '$lib/application/session/contract';
-	import type { RhythmStageModel, SettledCycle } from '$lib/application/session/cycle/rhythmStage';
+	import type { FigureStageModel, SettledCycle } from '$lib/application/session/series/figureStage';
 	import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 	import { Fraction, type CycleReport } from '$lib/domain/time';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
@@ -47,12 +49,14 @@
 				},
 				latency: { ms: 18, provenance: 'player' }
 			},
-			verdict: passed ? { passed: true } : { passed: false, reasons: ['missed', 'extra'] }
+			verdict: passed ? { passed: true } : { passed: false, reasons: ['missed', 'extra'] },
+			wrongNotes: [],
+			expected: null
 		};
 	}
 
 	const phase = page.url.searchParams.get('phase');
-	const base: RhythmStageModel = {
+	const base: FigureStageModel = {
 		phase: 'play',
 		exerciseLabel: 'Mesures silencieuses',
 		level: { shown: 3, of: 6, aid: false },
@@ -66,18 +70,47 @@
 		feedback: 'every-cycle',
 		settled: [],
 		listen: 'free',
-		plainWords: true
+		plainWords: true,
+		prompt: null,
+		notation: null,
+		chordDiagram: 'strings'
 	};
 	/** A failed cycle whose second bar lost a beat. */
 	function lostBeat(): SettledCycle {
 		const failed = cycle(4, false);
 		return {
 			report: { ...failed.report, shift: { bar: 1, byS: -0.375 } },
-			verdict: { passed: false, reasons: ['shift'] }
+			verdict: { passed: false, reasons: ['shift'] },
+			wrongNotes: [],
+			expected: null
 		};
 	}
 
-	const breath: RhythmStageModel = {
+	/** A failed cycle with two wrong notes in place: bar 1 beat 2, bar 2 beat 2 (eighths 3 and 10). */
+	function wrongNotes(): SettledCycle {
+		const played = cycle(5, true);
+		const wrong = [3, 10];
+		return {
+			report: {
+				...played.report,
+				expectations: played.report.expectations.map((e) =>
+					wrong.includes(e.index) ? { ...e, verdict: 'wrong-pitch', answer: { midi: 69 } } : e
+				)
+			},
+			verdict: { passed: false, reasons: ['wrong-pitch'] },
+			wrongNotes: wrong.map((index) => ({ at: Fraction.of(index, 8), gap: 'A au lieu de G' })),
+			expected: {
+				kind: 'shape',
+				notes: [
+					{ string: 3, fret: 9 },
+					{ string: 2, fret: 8 },
+					{ string: 1, fret: 8 }
+				]
+			}
+		};
+	}
+
+	const breath: FigureStageModel = {
 		...base,
 		phase: 'breath',
 		cursor: null,
@@ -85,14 +118,20 @@
 		settled: [cycle(0, true), cycle(1, false), cycle(2, true), cycle(3, true)],
 		level: { shown: 4, of: 6, aid: false }
 	};
-	const model: RhythmStageModel =
+	const model: FigureStageModel =
 		phase === 'play' || phase === 'along'
 			? base
 			: phase === 'muted'
 				? { ...base, barInCycle: 0, muted: true }
 				: phase === 'shift'
 					? { ...breath, settled: [lostBeat()] }
-					: breath;
+					: phase === 'wrong'
+						? {
+								...breath,
+								settled: [wrongNotes()],
+								prompt: { primary: 'Do', secondary: 'cordes sol, si, mi' }
+							}
+						: breath;
 	const announcement: PlayView['announcement'] =
 		phase === 'along'
 			? { kind: 'play-along', level: 2, of: 6, tempoBpm: 80 }
@@ -102,7 +141,7 @@
 
 	const controller = new DevRhythmController();
 	controller.view.status = 'awaiting';
-	controller.view.stage = { view: 'rhythm-figure', model };
+	controller.view.stage = { view: 'figure', model };
 	controller.view.announcement = announcement;
 </script>
 

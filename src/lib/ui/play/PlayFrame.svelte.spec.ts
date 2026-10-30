@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/sve
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Announcement } from '$lib/application/session/contract';
-import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
+import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { presented, stageModel } from './views/testing/promptStage';
@@ -333,7 +333,7 @@ describe('PlayFrame', () => {
 			expect(VIEW_WORLDS['answer-keys']).toBe('quiet');
 			expect(VIEW_WORLDS['link-lane']).toBe('pixel');
 			expect(VIEW_WORLDS['grid-scroll']).toBe('pixel');
-			expect(VIEW_WORLDS['rhythm-figure']).toBe('pixel');
+			expect(VIEW_WORLDS['figure']).toBe('pixel');
 		});
 
 		it('shows no tempo while the series has not set one', () => {
@@ -493,7 +493,7 @@ describe('PlayFrame', () => {
 			try {
 				const controller = playing();
 				const figure = RHYTHM_OFFBEATS.figures![0].figure;
-				const model: RhythmStageModel = {
+				const model: FigureStageModel = {
 					phase: 'play',
 					exerciseLabel: 'Contretemps',
 					level: { shown: 1, of: 4, aid: false },
@@ -507,9 +507,12 @@ describe('PlayFrame', () => {
 					feedback: 'every-cycle',
 					settled: [],
 					listen: 'free',
-					plainWords: true
+					plainWords: true,
+					prompt: null,
+					notation: null,
+					chordDiagram: 'strings'
 				};
-				controller.view.stage = { view: 'rhythm-figure', model };
+				controller.view.stage = { view: 'figure', model };
 				render(PlayFrame, { props: { controller, kind: 'exercise' } });
 				const listen = screen.getByRole('button', { name: /écouter la figure/i });
 				await fireEvent.click(listen);

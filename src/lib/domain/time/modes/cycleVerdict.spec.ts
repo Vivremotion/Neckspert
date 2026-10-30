@@ -127,7 +127,14 @@ describe('cycleVerdictMode', () => {
 		expect(outcome.success).toBe(false);
 		expect(outcome.verdict.value).toEqual({ passed: false, reasons: ['wrong-pitch'] });
 		const report = outcome.detail as CycleReport;
-		expect(report.expectations[3]).toEqual({ index: 3, verdict: 'wrong-pitch', offsetMs: 0 });
+		// A wrong note keeps what it played, as its judge read it: the breath tells it.
+		expect(report.expectations[3]).toEqual({
+			index: 3,
+			verdict: 'wrong-pitch',
+			offsetMs: 0,
+			answer: { midi: 61 }
+		});
+		expect(report.expectations[4]).toEqual({ index: 4, verdict: 'on-time', offsetMs: 0 });
 		expect(outcome.measures.fidelity).toEqual({ value: 7 / 8, unit: 'ratio' });
 	});
 

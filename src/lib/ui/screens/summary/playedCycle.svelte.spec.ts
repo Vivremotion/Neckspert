@@ -88,11 +88,11 @@ describe('SummaryScreen of a rhythm session', () => {
 		render(SummaryScreen, {
 			props: { summary, now: 0, onhome: () => {}, onmap: () => {}, development: true }
 		});
-		await waitFor(() => expect(screen.getAllByTestId('rhythm-mark')).toHaveLength(4));
+		await waitFor(() => expect(screen.getAllByTestId('figure-mark')).toHaveLength(4));
 		expect(
-			screen.getAllByTestId('rhythm-mark').map((mark) => mark.getAttribute('data-kind'))
+			screen.getAllByTestId('figure-mark').map((mark) => mark.getAttribute('data-kind'))
 		).toEqual(['on-time', 'early', 'late', 'missed']);
-		const strip = screen.getByTestId('rhythm-strip');
+		const strip = screen.getByTestId('figure-strip');
 		const report = screen.getByText('Cycle raté');
 		expect(strip.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});

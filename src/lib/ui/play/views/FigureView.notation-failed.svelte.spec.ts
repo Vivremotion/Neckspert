@@ -1,9 +1,9 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
+import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import { i18n } from '$lib/i18n/index.svelte';
-import RhythmFigureView from './RhythmFigureView.svelte';
+import FigureView from './FigureView.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
 
 // The notation chunk fails to load (a stale deploy, offline).
@@ -16,7 +16,7 @@ afterEach(() => {
 	i18n.locale = 'fr';
 });
 
-function model(): RhythmStageModel {
+function model(): FigureStageModel {
 	return {
 		phase: 'listen-in',
 		exerciseLabel: 'Contretemps',
@@ -31,13 +31,16 @@ function model(): RhythmStageModel {
 		feedback: 'every-cycle',
 		settled: [],
 		listen: 'free',
-		plainWords: true
+		plainWords: true,
+		prompt: null,
+		notation: null,
+		chordDiagram: 'strings'
 	};
 }
 
-describe('RhythmFigureView, when the notation does not load', () => {
+describe('FigureView, when the notation does not load', () => {
 	it('still shows the header and the phase, and says the score could not load', async () => {
-		render(RhythmFigureView, {
+		render(FigureView, {
 			props: { controller: new FigureStageController(), model: model() }
 		});
 		const message = await screen.findByRole('alert');
@@ -46,13 +49,13 @@ describe('RhythmFigureView, when the notation does not load', () => {
 		);
 		// Set at the meta size, 18 px at least.
 		expect(message.classList.contains('notation-error')).toBe(true);
-		expect(screen.getByTestId('rhythm-header').textContent).toContain('Contretemps');
+		expect(screen.getByTestId('figure-header').textContent).toContain('Contretemps');
 		expect(screen.getByText('Écoute le clic')).toBeTruthy();
 	});
 
 	it('says it in English too', async () => {
 		i18n.locale = 'en';
-		render(RhythmFigureView, {
+		render(FigureView, {
 			props: { controller: new FigureStageController(), model: model() }
 		});
 		const message = await screen.findByRole('alert');

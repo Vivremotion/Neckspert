@@ -75,6 +75,7 @@ import { SeriesSensors } from './series/seriesSensors';
 import { SeriesTakes } from './series/seriesTakes';
 import { SeriesTrace } from './series/seriesTrace';
 import { idlePlayView } from './series/seriesView';
+import type { SettledRound } from './series/figureStage';
 import { followsBeats, stageModel, type SeriesMoment } from './series/stage';
 
 /** What a series runs: its item source, and its length (`SESSION_MS` when it gives none). */
@@ -288,8 +289,18 @@ export class SessionController implements PlaySessionController {
 	private lingering: OpenRound[] = [];
 	/** The run under way, from its counted bar (or listen-in) on; null before the first. */
 	private run: RunPlay | null = null;
-	/** The rounds of the run settled so far, oldest first. */
-	private runOutcomes: RoundOutcome[] = [];
+	/** The rounds of the run settled so far, oldest first, with their item and their plan. */
+	private runRounds: SettledRound[] = [];
+	/**
+	 * The plan the stage compiled last for an item waiting for its round, kept so that a screen
+	 * shown again on every beat compiles it once (`showStage`).
+	 */
+	private stagePlan: {
+		item: PlannedItem;
+		meter: Meter;
+		fromRunStart: number | null;
+		plan: RoundPlan;
+	} | null = null;
 	/** The listen-in placed last, in transport bars `[from, to)`. */
 	private listenIn: { from: number; to: number } | null = null;
 	/** The counted bar placed last; null when the run starts without one. */
@@ -500,7 +511,7 @@ export class SessionController implements PlaySessionController {
 		this.lingering = [];
 		this.run = null;
 		this.keptRun = null;
-		this.runOutcomes = [];
+		this.runRounds = [];
 		this.runLatencyS = 0;
 		this.sessionLatencyMs = null;
 		this.listenIn = null;
@@ -1559,7 +1570,7 @@ export class SessionController implements PlaySessionController {
 		this.endRunIfEnding(time);
 		const log = this.log;
 		if (!log || log.running) return;
-		this.runOutcomes = [];
+		this.runRounds = [];
 		this.keptRun = this.run;
 		// Its take is heard again with the latency of the sensor its rounds listen to.
 		this.runLatencyS = this.latencyMsOf(sensorOf(plan)) / 1000;
@@ -1704,7 +1715,7 @@ export class SessionController implements PlaySessionController {
 			);
 		}
 		if (detectFatigue(recorder.sessionAttempts)) this.view.fatigueDetected = true;
-		this.runOutcomes = [...this.runOutcomes, outcome];
+		this.runRounds = [...this.runRounds, { item, plan: round.plan, outcome }];
 		// A round in free time has no place on the beat: no tile on the lane; nor has a round
 		// with no one answer.
 		const verdict = responseVerdictOf(outcome);
@@ -1805,7 +1816,7 @@ export class SessionController implements PlaySessionController {
 			plan:
 				round.plan ??
 				(this.round?.item === item ? this.round.plan : null) ??
-				this.planOf(item, meter, moment.fromRunStart),
+				this.waitingPlan(item, meter, moment.fromRunStart),
 			settled,
 			place,
 			beatsPerBar: meter.count,
@@ -1813,11 +1824,22 @@ export class SessionController implements PlaySessionController {
 			locale: this.deps.locale(),
 			random,
 			moment,
-			runOutcomes: this.runOutcomes,
+			runRounds: this.runRounds,
 			endedSessions: this.endedSessions.get(item.exerciseId) ?? 0,
-			played: this.round?.item ?? null
+			played: this.round ? { item: this.round.item, plan: this.round.plan } : null
 		});
 		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
+	}
+
+	/** The plan of `item`, waiting for its round, as the stage shows it: compiled once, not on every beat. */
+	private waitingPlan(item: PlannedItem, meter: Meter, fromRunStart: number | null): RoundPlan {
+		const kept = this.stagePlan;
+		if (kept && kept.item === item && kept.meter === meter && kept.fromRunStart === fromRunStart) {
+			return kept.plan;
+		}
+		const plan = this.planOf(item, meter, fromRunStart);
+		this.stagePlan = { item, meter, fromRunStart, plan };
+		return plan;
 	}
 
 	/**

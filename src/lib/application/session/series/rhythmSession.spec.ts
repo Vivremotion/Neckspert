@@ -16,8 +16,8 @@ import {
 	type RoundPlanRecord
 } from './recordResponse';
 import { SETTLE_AFTER_BARS } from './compilePlan';
-import { PLAIN_WORDS_SESSIONS } from '../cycle/rhythmStage';
-import { summarizeExercise } from '../cycle/exerciseSummary';
+import { PLAIN_WORDS_SESSIONS } from './figureStage';
+import { summarizeExercise } from './exerciseSummary';
 import type { SessionMemory } from '../sessionMemory';
 import type { SessionController } from '../SessionController.svelte';
 import {
@@ -73,7 +73,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		expect(controller.view.status).toBe('awaiting');
 		expect(model.settled).toHaveLength(4);
 		expect(model.settled.every((cycle) => cycle.verdict.passed)).toBe(true);
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		controller.quit();
 	});
 
@@ -310,7 +310,7 @@ describe('the rhythm on the series, its screen', () => {
 	it('shows the figure waiting, then the listen-in, the count and the cycles in the rhythm view', async () => {
 		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
 		await controller.ready();
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		expect(stageOf(controller)).toMatchObject({
 			phase: 'listen-in',
 			exerciseLabel: 'Contretemps',

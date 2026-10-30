@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
+	import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 	import { beatPositions, type Figure } from '$lib/domain/time';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import type { FigureLayout } from '$lib/ui/notation';
@@ -16,8 +16,9 @@
 		labelRows,
 		toldCycle,
 		type Mark
-	} from './rhythmFigure';
-	import { rhythmMessages } from './rhythmMessages';
+	} from './figure';
+	import { figureMessages } from './figureMessages';
+	import { PICTURE_VIEWS } from './pictures';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from './PlayedCycle.svelte';
 	import Term from '$lib/ui/primitives/Term.svelte';
 	import { provideGlossaryScope } from '$lib/ui/primitives/glossaryScope';
@@ -39,8 +40,8 @@
 
 	provideGlossaryScope();
 
-	const m = $derived(model as RhythmStageModel);
-	const t = $derived(rhythmMessages());
+	const m = $derived(model as FigureStageModel);
+	const t = $derived(figureMessages());
 	const frame = $derived(playMessages());
 	const replay = $derived(replayOf(controller));
 
@@ -55,8 +56,15 @@
 	const phaseText = $derived(t.phase[m.phase]);
 	const told = $derived(breathing ? toldCycle(m.settled) : null);
 	const line = $derived(
-		told ? feedbackLine(told.report, i18n.locale, told.verdict, m.plainWords) : null
+		told
+			? feedbackLine(told.report, i18n.locale, told.verdict, m.plainWords, {
+					wrongNotes: told.wrongNotes,
+					meter: m.figure.meter
+				})
+			: null
 	);
+	/** After a failed round whose notes derive from its item: what was asked (its shape). */
+	const expected = $derived(told && !told.verdict.passed ? told.expected : null);
 
 	// VexFlow is heavy: the notation adapter is loaded once this view shows, never before.
 	let notation = $state<Notation | null>(null);
@@ -127,11 +135,11 @@
 	);
 </script>
 
-<div class="rhythm" data-phase={m.phase} bind:this={root}>
+<div class="figure-view" data-phase={m.phase} bind:this={root}>
 	<header class="head">
-		<p class="title" data-testid="rhythm-header">{header}</p>
+		<p class="title" data-testid="figure-header">{header}</p>
 		{#if m.phase === 'play' || m.phase === 'listening'}
-			<p class="where" data-testid="rhythm-bar">
+			<p class="where" data-testid="figure-bar">
 				<span>{t.bar(m.barInCycle + 1, m.cycleBars)}</span>
 				<span class="sep" aria-hidden="true">·</span>
 				<span class="click" class:muted={m.muted}>{m.muted ? t.silence : t.click}</span>
@@ -142,13 +150,22 @@
 		{/if}
 	</header>
 
+	{#if m.prompt}
+		<p class="prompt" data-testid="figure-prompt">
+			<span class="primary">{m.prompt.primary}</span>
+			{#if m.prompt.secondary}
+				<span class="secondary">{m.prompt.secondary}</span>
+			{/if}
+		</p>
+	{/if}
+
 	{#if notationFailed}
 		<p class="notation-error" role="alert">{t.notationFailed}</p>
 	{/if}
 
 	{#if breathing}
 		<div class="breath" class:stacked={!sideBySide}>
-			<section class="panel faded" data-testid="rhythm-played" aria-label={t.played}>
+			<section class="panel faded" data-testid="figure-played" aria-label={t.played}>
 				<h2 class="panel-title">{t.played}</h2>
 				<PlayedCycle
 					{figure}
@@ -161,20 +178,27 @@
 				{#if m.feedback === 'summary'}
 					<ul class="cycles">
 						{#each m.settled as cycle, i (i)}
-							<li class="cycle" class:failed={!cycle.verdict.passed} data-testid="rhythm-cycle">
+							<li class="cycle" class:failed={!cycle.verdict.passed} data-testid="figure-cycle">
 								{t.cycle(i + 1)} · {cycle.verdict.passed ? t.passed : t.failed}
 							</li>
 						{/each}
 					</ul>
 				{/if}
 			</section>
-			<section class="panel" data-testid="rhythm-next" aria-label={t.toPlay}>
+			<section class="panel" data-testid="figure-next" aria-label={t.toPlay}>
 				<h2 class="panel-title">{t.toPlay}</h2>
 				<div class="engraving large" bind:this={nextHost}></div>
 			</section>
 		</div>
+		{#if expected}
+			{@const Picture = PICTURE_VIEWS[expected.kind]}
+			<section class="expected" data-testid="figure-expected" aria-label={t.expected}>
+				<h2 class="panel-title">{t.expected}</h2>
+				<Picture picture={expected} chordDiagram={m.chordDiagram} size="small" />
+			</section>
+		{/if}
 		{#if line}
-			<p class="feedback" data-testid="rhythm-feedback">
+			<p class="feedback" data-testid="figure-feedback">
 				{#if !m.plainWords && line.term && line.value !== null}
 					<span class="term"
 						><Term id={line.term} locale={i18n.locale}>{t.term[line.term]}</Term></span
@@ -197,7 +221,7 @@
 			{#if cursor && figureLayout}
 				<span
 					class="cursor"
-					data-testid="rhythm-cursor"
+					data-testid="figure-cursor"
 					aria-hidden="true"
 					style:left="{cursor.x}px"
 					style:top="{figureLayout.lineY[cursor.line] ?? 0}px"
@@ -236,7 +260,7 @@
 </div>
 
 <style>
-	.rhythm {
+	.figure-view {
 		display: flex;
 		flex-direction: column;
 		gap: var(--np-space-3);
@@ -262,8 +286,34 @@
 	.where,
 	.phase,
 	.feedback,
-	.panel-title {
+	.panel-title,
+	.prompt {
 		margin: 0;
+	}
+
+	/* The exercise's prompt, above the figure: what to play, not how. */
+	.prompt {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--np-space-1) var(--np-space-3);
+	}
+
+	.prompt .primary {
+		font-size: var(--np-type-prompt);
+		font-weight: 600;
+		line-height: 1.1;
+	}
+
+	.prompt .secondary {
+		font-size: var(--np-type-body);
+	}
+
+	.expected {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: var(--np-space-1);
 	}
 
 	.title {

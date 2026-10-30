@@ -7,8 +7,8 @@
 	import { onMount } from 'svelte';
 	import { beatPositions, type CycleReport, type Feedback, type Figure } from '$lib/domain/time';
 	import type { FigureLayout } from '$lib/ui/notation';
-	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './rhythmFigure';
-	import { rhythmMessages } from './rhythmMessages';
+	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './figure';
+	import { figureMessages } from './figureMessages';
 
 	/**
 	 * The run played: the cycle's figure engraved whole, as small as it takes to hold on one
@@ -42,7 +42,7 @@
 	/** The figures' size (`--np-type-body`) before it is measured. */
 	const FIGURE_FALLBACK_PX = 22;
 
-	const t = $derived(rhythmMessages());
+	const t = $derived(figureMessages());
 
 	// VexFlow is heavy: the notation adapter is loaded once a run is shown, never before.
 	let notation = $state<Notation | null>(null);
@@ -153,7 +153,7 @@
 	{#each playedLines as block (block.line)}
 		<div
 			class="engraving line"
-			data-testid="rhythm-line"
+			data-testid="figure-line"
 			data-line={block.line}
 			style:height="{block.height}px"
 			style:width="{playedLayout?.width ?? 0}px"
@@ -165,7 +165,7 @@
 		{#each block.strips as strip (strip.cycle)}
 			<div
 				class="strip-row"
-				data-testid="rhythm-strip"
+				data-testid="figure-strip"
 				data-line={block.line}
 				role="group"
 				aria-label={t.cycle(strip.cycle + 1)}
@@ -175,7 +175,7 @@
 					{#each strip.marks as { mark, row }, i (i)}
 						<span
 							class="mark {mark.kind}"
-							data-testid="rhythm-mark"
+							data-testid="figure-mark"
 							data-kind={mark.kind}
 							style:left="{mark.x}px"
 							role="img"
@@ -190,7 +190,7 @@
 						</span>
 					{/each}
 					{#if strip.shift}
-						<span class="shift" data-testid="rhythm-shift" style:left="{strip.shift.x}px"
+						<span class="shift" data-testid="figure-shift" style:left="{strip.shift.x}px"
 							>{strip.shift.lost ? t.shift.lost : t.shift.added}</span
 						>
 					{/if}
@@ -318,6 +318,27 @@
 		height: 16px;
 		border: 3px solid var(--np-ink);
 		border-radius: 50%;
+	}
+
+	/* A wrong note in place: a cross on its note, neither a hole (missed) nor a diamond (extra). */
+	.wrong-pitch .shape {
+		width: 16px;
+		height: 16px;
+		background:
+			linear-gradient(
+				45deg,
+				transparent calc(50% - 2px),
+				var(--np-ink) calc(50% - 2px),
+				var(--np-ink) calc(50% + 2px),
+				transparent calc(50% + 2px)
+			),
+			linear-gradient(
+				-45deg,
+				transparent calc(50% - 2px),
+				var(--np-ink) calc(50% - 2px),
+				var(--np-ink) calc(50% + 2px),
+				transparent calc(50% + 2px)
+			);
 	}
 
 	.extra .shape {

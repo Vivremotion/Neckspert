@@ -46,12 +46,15 @@ const NO_MISS: MissView = { correction: null, heard: null, expected: null, gap: 
 
 const asPicture = (shape: ReturnType<typeof shapeOf>): Picture => ({ kind: 'shape', ...shape });
 
+/** The pitch an answer played, spelled as the prompt spells its target; null without one. */
+const midiAnswerLabel: ContentView['answerLabel'] = (_value, answer, _locale, random) => {
+	const midi = (answer as { midi?: Midi } | null)?.midi;
+	return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
+};
+
 /** A note on a string: the pitch played, spelled as the prompt spells its target. */
 const noteView: ContentView = {
-	answerLabel: (_value, answer, _locale, random) => {
-		const midi = (answer as { midi?: Midi } | null)?.midi;
-		return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
-	},
+	answerLabel: midiAnswerLabel,
 	miss: (value, _outcome, locale) => ({
 		...NO_MISS,
 		correction: positionLabel(value as LocateItem, locale)
@@ -63,21 +66,38 @@ const GAP_WORDS: Record<Locale, (heard: string, expected: string) => string> = {
 	en: (heard, expected) => `${heard} instead of ${expected}`
 };
 
-/** An exact pitch: the note played; a miss tells the note heard and the note expected. */
+/** The right note played `octaves` octaves off, higher when `higher`. */
+const OCTAVE_WORDS: Record<Locale, (note: string, octaves: number, higher: boolean) => string> = {
+	fr: (note, octaves, higher) =>
+		`${note}, ${octaves === 1 ? 'une octave' : `${octaves} octaves`} trop ${higher ? 'haut' : 'bas'}`,
+	en: (note, octaves, higher) =>
+		`${note}, ${octaves === 1 ? 'an octave' : `${octaves} octaves`} too ${higher ? 'high' : 'low'}`
+};
+
+/** Semitones in an octave. */
+const OCTAVE = 12;
+
+/**
+ * An exact pitch: the note played; a miss tells the note heard and the note expected, both
+ * spelled with one accidental choice, or the octave the right note was played off.
+ */
 const pitchView: ContentView = {
-	answerLabel: (_value, answer, _locale, random) => {
-		const midi = (answer as { midi?: Midi } | null)?.midi;
-		return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
-	},
+	answerLabel: midiAnswerLabel,
 	miss: (value, { answer }, locale, random) => {
-		const expected = noteName(pitchOfMidi((value as { midi: Midi }).midi), random);
+		// One draw for both notes: « Ab au lieu de Bb », never « G# au lieu de Bb ».
+		const drawn = random();
+		const spelling = () => drawn;
+		const asked = (value as { midi: Midi }).midi;
+		const expected = noteName(pitchOfMidi(asked), spelling);
 		const midi = (answer as { midi?: Midi } | null)?.midi;
-		return {
-			...NO_MISS,
-			correction: expected,
-			gap:
-				midi === undefined ? null : GAP_WORDS[locale](noteName(pitchOfMidi(midi), random), expected)
-		};
+		const octaves = midi === undefined ? 0 : (midi - asked) / OCTAVE;
+		const gap =
+			midi === undefined
+				? null
+				: Number.isInteger(octaves) && octaves !== 0
+					? OCTAVE_WORDS[locale](expected, Math.abs(octaves), octaves > 0)
+					: GAP_WORDS[locale](noteName(pitchOfMidi(midi), spelling), expected);
+		return { ...NO_MISS, correction: expected, gap };
 	}
 };
 

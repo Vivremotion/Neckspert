@@ -6,7 +6,7 @@ import type { MechanicPresenter } from '$lib/application/mechanics/types';
 import { playViewOf } from '$lib/application/session/contract';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES } from './pictures';
-import { PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from './playViews';
+import { FIGURE_VIEW, PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from './playViews';
 
 /** The names of the `{fields}` a slot reads, in each language. */
 function placeholders(slot: Slot): string[] {
@@ -60,12 +60,12 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 
 /**
  * Null when the exercise can be drawn, else what cannot, naming the exercise and the field: a
- * view the screen does not have (`PLAY_VIEW_NAMES`); a presentation drawn by a view that does not
- * read the model every presentation shares (`PROMPT_STAGE_VIEWS`), or such a view with no
- * presentation to read; a response exercise (one that writes its `round`) with neither a
- * presentation nor a screen of its mechanic presenter (`stageOf`), unless its round plays a figure
- * (`writesFigure`: its screen is the figure's, which the series builds). The view is the exercise's,
- * else the one the series gives it (`playViewOf`).
+ * view the screen does not have (`PLAY_VIEW_NAMES`); the figure view for a round that plays no
+ * figure (`writesFigure`), which it draws with or without a prompt; a presentation drawn by a
+ * view that does not draw one (`PROMPT_STAGE_VIEWS`), or such a view with no presentation to
+ * read; a response exercise (one that writes its `round`) with neither a presentation nor a
+ * screen of its mechanic presenter (`stageOf`). The view is the exercise's, else the one the
+ * series gives it (`playViewOf`).
  */
 export function screenProblem(
 	definition: ExerciseDefinition,
@@ -76,6 +76,11 @@ export function screenProblem(
 		return `${id}: view "${view}" is not a view of the screen (known: ${PLAY_VIEW_NAMES.join(', ')})`;
 	}
 	const drawn = playViewOf(definition);
+	if (drawn === FIGURE_VIEW) {
+		return writesFigure(definition)
+			? null
+			: `${id}: view "${drawn}" draws the figure of its round, and the round plays none`;
+	}
 	const readsPrompt = PROMPT_STAGE_VIEWS.includes(drawn);
 	if (definition.presentation !== undefined) {
 		return readsPrompt
@@ -85,7 +90,7 @@ export function screenProblem(
 	if (readsPrompt) {
 		return `${id}: view "${drawn}" draws a presentation, and the exercise writes none`;
 	}
-	if (definition.round === undefined || writesFigure(definition)) return null;
+	if (definition.round === undefined) return null;
 	const presenter = Object.hasOwn(presenters, definition.mechanic)
 		? presenters[definition.mechanic]
 		: undefined;

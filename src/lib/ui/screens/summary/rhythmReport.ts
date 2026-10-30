@@ -1,5 +1,5 @@
 import type { Locale, ExerciseSummary } from '$lib/domain/types';
-import { feedbackLine } from '$lib/ui/play/views/rhythmFigure';
+import { feedbackLine } from '$lib/ui/play/views/figure';
 import type { summaryMessages } from './messages';
 
 type Words = ReturnType<typeof summaryMessages>['report'];

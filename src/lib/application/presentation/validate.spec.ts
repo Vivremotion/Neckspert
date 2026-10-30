@@ -82,23 +82,34 @@ describe('screenProblem', () => {
 		expect(screenProblem({ ...bare, round: undefined }, {})).toBeNull();
 	});
 
-	it('accepts a round that plays a figure with neither a presentation nor a screen of its mechanic', () => {
+	const figureRound: RoundTemplate = {
+		expectations: [
+			{
+				figure: { id: 'main' },
+				at: { bars: 0 },
+				sensor: 'attack',
+				content: null,
+				window: { ms: 80 }
+			}
+		],
+		length: { bars: 1 },
+		policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+	};
+
+	it('accepts a round that plays a figure in the figure view, with or without a prompt', () => {
 		// Its screen is the figure's, built by the series from the round's figure.
 		expect(screenProblem(RHYTHM_OFFBEATS, {})).toBeNull();
-		const figureRound: RoundTemplate = {
-			expectations: [
-				{
-					figure: { id: 'main' },
-					at: { bars: 0 },
-					sensor: 'attack',
-					content: null,
-					window: { ms: 80 }
-				}
-			],
-			length: { bars: 1 },
-			policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
-		};
-		expect(screenProblem({ ...bare, view: 'rhythm-figure', round: figureRound }, {})).toBeNull();
+		expect(screenProblem({ ...bare, view: 'figure', round: figureRound }, {})).toBeNull();
+		expect(screenProblem({ ...LOCATE_NECK, view: 'figure', round: figureRound }, {})).toBeNull();
+	});
+
+	it('refuses the figure view for a round that plays no figure, and a figure with no view to draw it', () => {
+		expect(screenProblem({ ...LOCATE_NECK, view: 'figure' }, presenters)).toBe(
+			'locate-neck: view "figure" draws the figure of its round, and the round plays none'
+		);
+		expect(screenProblem({ ...bare, round: figureRound }, presenters)).toBe(
+			'locate-neck: writes a round but no presentation, and locate draws no screen of its own'
+		);
 	});
 
 	it('draws a presentation without a view on the lane', () => {
@@ -110,19 +121,20 @@ describe('screenProblem', () => {
 
 	it('refuses a view the screen does not have, naming the exercise and the field', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'score' }, presenters)).toBe(
-			'locate-neck: view "score" is not a view of the screen (known: answer-keys, grid-scroll, lane, link-lane, rhythm-figure)'
+			'locate-neck: view "score" is not a view of the screen (known: answer-keys, figure, grid-scroll, lane, link-lane)'
 		);
 	});
 
 	it('refuses a presentation drawn by a view that reads another model, and such a view without one', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'grid-scroll' }, presenters)).toBe(
-			'locate-neck: view "grid-scroll" cannot draw a presentation (the views that do: lane, answer-keys)'
+			'locate-neck: view "grid-scroll" cannot draw a presentation (the views that do: lane, answer-keys, figure)'
 		);
 		expect(screenProblem({ ...bare, view: 'lane', round: undefined }, presenters)).toBe(
 			'locate-neck: view "lane" draws a presentation, and the exercise writes none'
 		);
 		for (const view of PROMPT_STAGE_VIEWS) {
-			expect(screenProblem({ ...LOCATE_NECK, view }, presenters)).toBeNull();
+			const round = view === 'figure' ? figureRound : LOCATE_NECK.round;
+			expect(screenProblem({ ...LOCATE_NECK, view, round }, presenters)).toBeNull();
 		}
 	});
 });
