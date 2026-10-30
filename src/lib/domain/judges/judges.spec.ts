@@ -34,6 +34,20 @@ describe('contentJudges', () => {
 		expect(judge.judge(value, { midi: 59 }).confusion).toEqual({ kind: 'string-name' });
 	});
 
+	it('pitch judges the exact midi', () => {
+		const judge = contentJudges('pitch');
+		const value = { midi: 64, string: 3 };
+		expect(judge.judge(value, { midi: 64 })).toEqual({
+			correct: true,
+			answer: { midi: 64 },
+			confusion: null
+		});
+		// An octave above is not the note: the figure asks for this pitch.
+		expect(judge.judge(value, { midi: 76 }).correct).toBe(false);
+		expect(judge.judge(value, { midi: 52 }).correct).toBe(false);
+		expect(judge.judge({ midi: 64 }, { midi: 64 }).correct).toBe(true);
+	});
+
 	it('judges a tapped name as identify does', () => {
 		const judge = contentJudges('name');
 		const value = { string: 2, fret: 6 }; // F

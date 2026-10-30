@@ -1,6 +1,14 @@
-import { CHORD_GRID_CONTENT, CHORD_VOICING_CONTENT, NAME_CONTENT, NOTE_CONTENT } from '../judges';
+import {
+	CHORD_GRID_CONTENT,
+	CHORD_VOICING_CONTENT,
+	NAME_CONTENT,
+	NOTE_CONTENT,
+	PITCH_CONTENT
+} from '../judges';
+import type { VoicingFigureItem } from '../mechanics/voicingFigure';
 import { rootPosition } from '../mechanics/triadAnchor';
 import { parseVoicingKey } from '../music';
+import { voicingNotes } from '../music/voicingNotes';
 import type { MechanicId } from '../exercise/types';
 
 /**
@@ -14,6 +22,11 @@ export interface ContentDerivation {
 	kind: string;
 	/** The mechanics whose items it reads. */
 	reads: readonly MechanicId[];
+	/**
+	 * Set when `derive` gives a list: one content per element, which a figure's entry spreads over
+	 * its notes.
+	 */
+	list?: true;
 	derive(item: unknown): unknown;
 }
 
@@ -48,10 +61,30 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 			return { voicingKey, position };
 		}
 	},
-	'grid-change': { kind: CHORD_GRID_CONTENT, reads: ['chord-grid'], derive: (item) => item }
+	'grid-change': { kind: CHORD_GRID_CONTENT, reads: ['chord-grid'], derive: (item) => item },
+	'voicing-notes': {
+		kind: PITCH_CONTENT,
+		reads: ['voicing-figure'],
+		list: true,
+		derive: (item) => {
+			const { voicing, occurrence } = item as VoicingFigureItem;
+			return voicingNotes(parseVoicingKey(voicing), occurrence).map(({ midi, string }) => ({
+				midi,
+				string
+			}));
+		}
+	}
 };
 
 export const ITEM_NUMBERS: Readonly<Record<string, ItemNumber>> = {
+	beats: {
+		reads: ['voicing-figure'],
+		measure: (item) => {
+			const { beats } = item as VoicingFigureItem;
+			if (beats === undefined) throw new Error('This item has no length in beats');
+			return beats;
+		}
+	},
 	'change-beats': {
 		reads: ['chord-grid'],
 		measure: (item) => {

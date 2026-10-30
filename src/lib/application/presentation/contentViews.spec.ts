@@ -141,6 +141,36 @@ describe('CONTENT_VIEWS', () => {
 		expect(gap(null, null)).toBe('no chord heard');
 	});
 
+	it('tells a missed pitch the note heard and the note expected', () => {
+		const miss = (locale: 'fr' | 'en') =>
+			CONTENT_VIEWS.pitch.miss(
+				{ midi: 67, string: 2 },
+				{ answer: { midi: 69 }, confusion: null },
+				locale,
+				() => 0
+			);
+		expect(miss('en')).toEqual({
+			correction: 'G',
+			heard: null,
+			expected: null,
+			gap: 'A instead of G'
+		});
+		expect(miss('fr').gap).toBe('A au lieu de G');
+		// Nothing heard: only the right note.
+		const silent = CONTENT_VIEWS.pitch.miss(
+			{ midi: 67 },
+			{ answer: null, confusion: null },
+			'fr',
+			() => 0
+		);
+		expect(silent).toMatchObject({ correction: 'G', gap: null });
+	});
+
+	it('spells the pitch played', () => {
+		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => 0.9)).toBe('Bb');
+		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, null, 'fr', () => 0)).toBeNull();
+	});
+
 	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {
 		/** Kinds judged but drawn by their presenter's own model until the gesture is data. */
 		const NOT_VIEWED_YET = ['chord-grid'];

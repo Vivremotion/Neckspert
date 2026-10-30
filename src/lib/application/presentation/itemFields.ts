@@ -1,5 +1,5 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TriadAnchorItem, TriadZoneItem } from '$lib/domain/mechanics';
+import type { TriadAnchorItem, TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
 import {
 	fretLabel,
 	parseVoicingKey,
@@ -65,10 +65,19 @@ const triadZoneFields: ItemFields = {
 	})
 };
 
+const voicingFigureFields: ItemFields = {
+	names: ['chord', 'strings'],
+	fields: (raw, locale) => {
+		const voicing = parseVoicingKey((raw as VoicingFigureItem).voicing);
+		return { chord: chordName(voicing), strings: stringSetLabel(voicing, locale) };
+	}
+};
+
 /** The fields of a prompt's words, by mechanic. A mechanic left out offers none. */
 export const ITEM_FIELDS: Readonly<Record<MechanicId, ItemFields>> = {
 	locate: locateFields,
 	identify: identifyFields,
 	'triad-anchor': triadAnchorFields,
-	'triad-zone': triadZoneFields
+	'triad-zone': triadZoneFields,
+	'voicing-figure': voicingFigureFields
 };

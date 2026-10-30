@@ -8,7 +8,8 @@ const SAMPLES: Record<string, unknown> = {
 	locate: { string: 2, pitch: 'F' },
 	identify: { string: 3, fret: 8 },
 	'triad-anchor': { voicingKey: D_ON_B },
-	'triad-zone': { voicingKey: D_ON_B, position: 2, fret: 3 }
+	'triad-zone': { voicingKey: D_ON_B, position: 2, fret: 3 },
+	'voicing-figure': { voicing: D_ON_B, occurrence: 0, beats: 4 }
 };
 
 describe('ITEM_FIELDS', () => {
@@ -49,5 +50,19 @@ describe('the fields of a triad', () => {
 		const open = { voicingKey: 'E|min|3:b3,2:5,1:1', position: 'open' };
 		expect(zone.fields(open, 'fr', () => 0)).toMatchObject({ chord: 'Em', around: 'à vide' });
 		expect(zone.fields(open, 'en', () => 0).around).toBe('open');
+	});
+});
+
+describe('the fields of a voicing figure', () => {
+	const figure = ITEM_FIELDS['voicing-figure'];
+
+	it('names the chord and the strings, in either language', () => {
+		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', occurrence: 0 };
+		expect(figure.fields(item, 'fr', () => 0)).toEqual({ chord: 'Cmaj7', strings: 'ré‑sol‑si‑mi' });
+		expect(figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'fr', () => 0)).toEqual({
+			chord: 'D',
+			strings: 'sol‑si‑mi'
+		});
+		expect(figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'en', () => 0).strings).toBe('G‑B‑E');
 	});
 });

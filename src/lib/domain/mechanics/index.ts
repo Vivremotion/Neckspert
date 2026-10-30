@@ -5,10 +5,12 @@ import { locateRules } from './locate';
 import { rhythmFigureRules } from './rhythmFigure';
 import { triadAnchorRules } from './triadAnchor';
 import { triadZoneRules } from './triadZone';
+import { voicingFigureRules } from './voicingFigure';
 import type { MechanicIdentity } from './types';
 
 export * from './types';
 export { rhythmFigureRules, type RhythmItem } from './rhythmFigure';
+export { voicingFigureRules, type VoicingFigureItem } from './voicingFigure';
 export { identifyRules, type IdentifyData } from './identify';
 export { locateRules, type LocateData } from './locate';
 export {
@@ -49,7 +51,8 @@ export const MECHANIC_RULES: readonly MechanicIdentity[] = [
 	triadAnchorRules,
 	triadZoneRules,
 	chordGridRules,
-	rhythmFigureRules
+	rhythmFigureRules,
+	voicingFigureRules
 ];
 
 /** Throws on an unknown id. */

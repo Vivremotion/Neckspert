@@ -58,6 +58,29 @@ const noteView: ContentView = {
 	})
 };
 
+const GAP_WORDS: Record<Locale, (heard: string, expected: string) => string> = {
+	fr: (heard, expected) => `${heard} au lieu de ${expected}`,
+	en: (heard, expected) => `${heard} instead of ${expected}`
+};
+
+/** An exact pitch: the note played; a miss tells the note heard and the note expected. */
+const pitchView: ContentView = {
+	answerLabel: (_value, answer, _locale, random) => {
+		const midi = (answer as { midi?: Midi } | null)?.midi;
+		return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
+	},
+	miss: (value, { answer }, locale, random) => {
+		const expected = noteName(pitchOfMidi((value as { midi: Midi }).midi), random);
+		const midi = (answer as { midi?: Midi } | null)?.midi;
+		return {
+			...NO_MISS,
+			correction: expected,
+			gap:
+				midi === undefined ? null : GAP_WORDS[locale](noteName(pitchOfMidi(midi), random), expected)
+		};
+	}
+};
+
 /** The name of a note at a fret: the name tapped; a miss gives both spellings of the right one. */
 const nameView: ContentView = {
 	answerLabel: (_value, answer, _locale, random) => {
@@ -88,5 +111,6 @@ const chordVoicingView: ContentView = {
 export const CONTENT_VIEWS: Readonly<Record<string, ContentView>> = {
 	note: noteView,
 	name: nameView,
+	pitch: pitchView,
 	'chord-voicing': chordVoicingView
 };
