@@ -37,7 +37,12 @@ import type {
 	Position,
 	RoundTemplate
 } from '$lib/domain/exercise/round';
-import { CHORD_VOICING_CONTENT, NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
+import {
+	CHORD_VOICING_CONTENT,
+	NAME_CONTENT,
+	NOTE_CONTENT,
+	PITCH_CONTENT
+} from '$lib/domain/judges';
 import type { ChordVoicingContent } from '$lib/domain/judges';
 import {
 	acceptableMidis,
@@ -276,13 +281,6 @@ function earliestPointBeats(
 	return Math.min(...leads) + Math.min(...points);
 }
 
-/**
- * Whether a figure entry may ask for content (the pitches written in its figure, or a derived
- * list spread by a pattern). Held off until the alignment judges pitch, which refuses content
- * meanwhile: a figure entry is drawn with no content.
- */
-export const FIGURE_ENTRY_CONTENT = false;
-
 /** The ids of the figures a drawn exercise writes. */
 const FIGURE_IDS = ['one', 'two'];
 
@@ -312,7 +310,8 @@ function randomFigure(random: () => number, meter: Meter): Figure {
 /**
  * A figure entry heard by `sensor`: one of the exercise's figures, named by its id, by a param
  * or (now and then, refused) by the item; mostly from the round's start; its window written or
- * read in the params; its content one of the three a figure takes, once `FIGURE_ENTRY_CONTENT`.
+ * read in the params; its content one of the three a figure takes (none, the pitches written in
+ * its figure, or a derived list spread by a pattern).
  */
 function randomFigureEntry(random: () => number, sensor: string): FigureExpectationTemplate {
 	const ref: FigureRef = chance(random, 0.05)
@@ -338,7 +337,7 @@ function randomFigureEntry(random: () => number, sensor: string): FigureExpectat
 		figure: ref,
 		at: chance(random, 0.85) ? { bars: 0 } : { beats: pick(random, POSITIONS) },
 		sensor,
-		content: FIGURE_ENTRY_CONTENT ? content : null,
+		content,
 		window: chance(random, 0.3) ? { param: 'window' } : { ms: pick(random, WINDOWS_MS) }
 	};
 }
@@ -511,6 +510,8 @@ export function rightPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
 		case NOTE_CONTENT:
 			return { midi: acceptableMidis(content.value as LocateItem)[0] };
+		case PITCH_CONTENT:
+			return { midi: (content.value as { midi: number }).midi };
 		case NAME_CONTENT: {
 			const item = content.value as IdentifyItem;
 			return pitchOnString(item.string, item.fret);
@@ -531,6 +532,8 @@ export function wrongPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
 		case NOTE_CONTENT:
 			return { midi: acceptableMidis(content.value as LocateItem)[0] + 1 };
+		case PITCH_CONTENT:
+			return { midi: (content.value as { midi: number }).midi + 1 };
 		case NAME_CONTENT: {
 			const right = rightPayload(content) as PitchName;
 			return CHROMATIC_NOTES[(CHROMATIC_NOTES.indexOf(right) + 1) % CHROMATIC_NOTES.length];

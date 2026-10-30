@@ -181,7 +181,9 @@ export function termOfMeasure(id: MeasureId): TermId {
 	return id === 'holdOffset' || id === 'holdDrift' ? 'hold' : id;
 }
 
-/** The term of a reason a cycle failed; a missed or an extra note is a matter of fidelity. */
+/** The term of a reason a cycle failed; a missed, a wrong or an extra note is a matter of fidelity. */
 export function termOfFailure(reason: CycleFailure): TermId {
-	return reason === 'missed' || reason === 'extra' ? 'fidelity' : reason;
+	return reason === 'missed' || reason === 'wrong-pitch' || reason === 'extra'
+		? 'fidelity'
+		: reason;
 }

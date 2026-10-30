@@ -1,4 +1,5 @@
 import type { Accompaniment } from './accompaniment';
+import type { CycleThresholds } from './judge/measures';
 import type { ExpectationWindow } from './plan';
 
 /** Successes in a row, unaided, that move an exercise up a level (a level's `pass` overrides it). */
@@ -25,7 +26,7 @@ export interface LevelParams {
 	listenInBars?: number;
 	/** A counted bar (every beat clicked, countdown shown) after the listen-in; absent: true. */
 	countIn?: boolean;
-	thresholds: Partial<Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift', number>>;
+	thresholds: CycleThresholds;
 }
 
 /**

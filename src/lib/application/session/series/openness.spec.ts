@@ -202,6 +202,11 @@ describe('every valid exercise plays', () => {
 			(d) => d.round!.expectations.some((e) => 'figure' in e) && refusal(d) === null
 		);
 		expect(figured.length).toBeGreaterThan(0);
+		// Figure entries asking for pitches are played, by the alignment among others.
+		const pitched = figured.filter((d) =>
+			d.round!.expectations.some((e) => 'figure' in e && e.content !== null)
+		);
+		expect(pitched.some((d) => d.round!.policy.pairing.mode === 'alignment')).toBe(true);
 	});
 
 	it('draws an exercise that writes a presentation and no view on the lane', async () => {

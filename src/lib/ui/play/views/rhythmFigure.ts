@@ -91,7 +91,8 @@ export function cycleMarks(
 			const slot = index % notes;
 			const x = layout.noteX[slot];
 			const line = layout.noteLine[slot] ?? 0;
-			if (verdict === 'missed' || offsetMs === null) {
+			// A wrong note is marked as a missed one until the figure view marks it apart.
+			if (verdict === 'missed' || verdict === 'wrong-pitch' || offsetMs === null) {
 				marks.push({ x, line, kind: 'missed', label: null });
 				continue;
 			}
@@ -171,6 +172,7 @@ type Words = Messages['words'];
 const REASON_ORDER: readonly CycleFailure[] = [
 	'shift',
 	'missed',
+	'wrong-pitch',
 	'extra',
 	'hold',
 	'regularity',
@@ -197,7 +199,7 @@ function fidelityLine(report: CycleReport, words: Words): Line | null {
 		report.extra > 0 ? words.extra(report.extra) : null
 	].filter((part) => part !== null);
 	const heard = report.expectations.filter(
-		(e) => e.verdict !== 'missed' && e.verdict !== 'dropped'
+		(e) => e.verdict !== 'missed' && e.verdict !== 'dropped' && e.verdict !== 'wrong-pitch'
 	).length;
 	return {
 		words: parts.join(', '),
@@ -258,6 +260,7 @@ function reasonLine(reason: CycleFailure, report: CycleReport, words: Words): Li
 		case 'shift':
 			return shiftLine(report, words);
 		case 'missed':
+		case 'wrong-pitch':
 		case 'extra':
 			return fidelityLine(report, words);
 		case 'hold':

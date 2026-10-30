@@ -13,7 +13,8 @@ import {
 	type AlignContext,
 	SHIFT_MIN_MATCHES,
 	timeExpectations,
-	type TimedExpectation
+	type TimedExpectation,
+	WRONG_PITCH_COST
 } from './align';
 
 const of = Fraction.of;
@@ -52,6 +53,10 @@ describe('constants', () => {
 	it('match within a sixteenth and need three matches to call a shift', () => {
 		expect(MATCH_LIMIT.equals(of(1, 16))).toBe(true);
 		expect(SHIFT_MIN_MATCHES).toBe(3);
+	});
+
+	it('cost a wrong note in place half a pair, less than a missed and an extra note', () => {
+		expect(WRONG_PITCH_COST).toBe(0.5);
 	});
 });
 
@@ -277,7 +282,7 @@ describe('alignAttacks', () => {
 		];
 		const alignment = alignAttacks(two, [0.05], looseContext);
 		expect(alignment.pairs).toEqual([
-			{ expectation: 1, attack: 0, offsetMs: expect.closeTo(-50), verdict: 'early' }
+			{ expectation: 1, attack: 0, offsetMs: expect.closeTo(-50), verdict: 'early', fits: true }
 		]);
 		expect(alignment.missed).toEqual([0]);
 	});
@@ -390,5 +395,67 @@ describe('alignAttacks: a lost or added beat', () => {
 		const alignment = alignAttacks(timed, attacks, context);
 		expect(alignment.shift).toEqual({ bar: 1, byS: expect.closeTo(0.3) });
 		expect(alignment.missed).toEqual([]);
+	});
+});
+
+describe('alignAttacks: the pitch', () => {
+	const eighthsPlan = cycle('11111111', 1, { ms: 20 });
+	const eighths = timeExpectations(eighthsPlan, map100, Fraction.ZERO);
+
+	it('pairs a wrong note in place with its expectation', () => {
+		const four = eighths.slice(0, 4);
+		const alignment = alignAttacks(
+			four,
+			played(four),
+			looseContext,
+			(e, a) => !(e === 2 && a === 2)
+		);
+		expect(alignment.pairs.map((p) => [p.expectation, p.attack, p.fits])).toEqual([
+			[0, 0, true],
+			[1, 1, true],
+			[2, 2, false],
+			[3, 3, true]
+		]);
+		expect(alignment.missed).toEqual([]);
+		expect(alignment.extra).toEqual([]);
+	});
+
+	it('gives a right note after a skipped one to its own expectation', () => {
+		// A B C D, zones wide enough that the notes of C and D, played a little after B and C,
+		// stand in the zones of both: by time alone they would answer B and C, leaving D missed.
+		const abcd: TimedExpectation[] = [0, 0.1, 0.2, 0.3].map((time, index) => ({
+			index,
+			time,
+			zoneS: 0.1,
+			windowS: 0.02,
+			bar: 0
+		}));
+		const attacks = [0, 0.14, 0.24]; // A, then C, then D
+		const pitchOf = [0, 2, 3];
+		const byTime = alignAttacks(abcd, attacks, looseContext);
+		expect(byTime.pairs.map((p) => p.expectation)).toEqual([0, 1, 2]);
+		const alignment = alignAttacks(abcd, attacks, looseContext, (e, a) => pitchOf[a] === e);
+		expect(alignment.missed).toEqual([1]);
+		expect(alignment.pairs.map((p) => [p.expectation, p.attack, p.fits])).toEqual([
+			[0, 0, true],
+			[2, 1, true],
+			[3, 2, true]
+		]);
+		expect(alignment.extra).toEqual([]);
+	});
+
+	it('finds a lost beat under wrong notes', () => {
+		const plan = cycle('11100100', 4, { ms: 20 });
+		const timed = timeExpectations(plan, map100, Fraction.ZERO);
+		const context = alignContext(plan, map100, Fraction.ZERO);
+		const attacks = played(timed, (e) => (e.bar >= 2 ? -0.6 : 0));
+		// Two notes played wrong, one before the lost beat and one after it.
+		const wrong = new Set([1, 12]);
+		const alignment = alignAttacks(timed, attacks, context, (e, a) => e === a && !wrong.has(a));
+		expect(alignment.shift).toEqual({ bar: 2, byS: expect.closeTo(-0.6) });
+		expect(alignment.missed).toEqual([]);
+		expect(alignment.extra).toEqual([]);
+		expect(alignment.pairs).toHaveLength(16);
+		expect(alignment.pairs.filter((p) => !p.fits).map((p) => p.expectation)).toEqual([1, 12]);
 	});
 });

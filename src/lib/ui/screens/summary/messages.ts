@@ -70,6 +70,7 @@ export const summaryMessages = defineMessages({
 			reasons: (list: string[]) => `Raisons : ${list.join(', ')}`,
 			reason: {
 				missed: 'notes oubliées',
+				'wrong-pitch': 'fausses notes',
 				extra: 'notes en trop',
 				shift: 'décalage de temps',
 				precision: 'précision',
@@ -173,6 +174,7 @@ export const summaryMessages = defineMessages({
 			reasons: (list: string[]) => `Reasons: ${list.join(', ')}`,
 			reason: {
 				missed: 'missed notes',
+				'wrong-pitch': 'wrong notes',
 				extra: 'added notes',
 				shift: 'time shift',
 				precision: 'precision',

@@ -11,7 +11,10 @@ const ALIGNMENT = alignmentPairing.id;
 /** The version of the shape of a cycle verdict (`CycleVerdict`). */
 export const CYCLE_VERDICT_VERSION = 1;
 
-/** The alignment a pairing result came from, attacks indexed in `result.attacks`. */
+/**
+ * The alignment a pairing result came from, attacks indexed in `result.attacks`; a pair fits
+ * unless its judgment says otherwise (none for an expectation without content).
+ */
 function alignmentOf(result: PairingResult): Alignment {
 	const indexOf = (time: number): number => {
 		const index = result.attacks.indexOf(time);
@@ -27,7 +30,8 @@ function alignmentOf(result: PairingResult): Alignment {
 				expectation: p.expectation,
 				attack: indexOf(p.time),
 				offsetMs: p.offsetMs,
-				verdict: p.timing
+				verdict: p.timing,
+				fits: p.judged === null || p.judged.correct
 			};
 		}),
 		missed: [...result.missed],
@@ -40,7 +44,8 @@ function alignmentOf(result: PairingResult): Alignment {
 
 /**
  * A whole cycle judged at once: the alignment reported (`cycleReport`), then judged against the
- * level's thresholds (`cycleVerdict`). Time only: `correct` is null.
+ * level's thresholds (`cycleVerdict`). `correct` is null: a note judged wrong shows in the report
+ * (`wrong-pitch`).
  */
 export const cycleVerdictMode: VerdictMode = {
 	id: 'cycle',

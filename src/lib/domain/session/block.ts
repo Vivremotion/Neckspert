@@ -32,6 +32,7 @@ export interface SettledRound {
 /** The judge's order of reasons (`cycleVerdict`), for ties. */
 const REASON_ORDER: readonly CycleFailure[] = [
 	'missed',
+	'wrong-pitch',
 	'extra',
 	'shift',
 	'precision',
@@ -43,11 +44,15 @@ function reasonsOf(round: SettledRound): CycleFailure[] {
 	return !round.verdict || round.verdict.passed ? [] : round.verdict.reasons;
 }
 
+/** The reasons that say the figure was not played as written: a note missed, wrong or added. */
+const NOT_PLAYED: readonly CycleFailure[] = ['missed', 'wrong-pitch', 'extra'];
+
+/** The same expectation missed, or played wrong (a wrong note counts as a missed one), again. */
 function sameMissedSpot(rounds: readonly SettledRound[]): boolean {
 	const counts = new Map<number, number>();
 	for (const round of rounds) {
 		for (const expectation of round.report?.expectations ?? []) {
-			if (expectation.verdict !== 'missed') continue;
+			if (expectation.verdict !== 'missed' && expectation.verdict !== 'wrong-pitch') continue;
 			counts.set(expectation.index, (counts.get(expectation.index) ?? 0) + 1);
 		}
 	}
@@ -75,9 +80,7 @@ function sameExtraSpot(rounds: readonly SettledRound[]): boolean {
 export function diagnoseBlock(rounds: readonly SettledRound[]): BlockDiagnosis {
 	if (rounds.some((round) => !round.report || !round.verdict)) return 'unclear';
 	const played = rounds.every(
-		(round) =>
-			!round.success &&
-			!reasonsOf(round).some((reason) => reason === 'missed' || reason === 'extra')
+		(round) => !round.success && !reasonsOf(round).some((reason) => NOT_PLAYED.includes(reason))
 	);
 	if (rounds.length > 0 && played) return 'execution';
 	const byItem = new Map<string, SettledRound[]>();

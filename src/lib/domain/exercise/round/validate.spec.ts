@@ -237,9 +237,9 @@ describe('roundProblem', () => {
 			...t,
 			policy: { ...t.policy, verdict: 'cycle', pairing: alignment }
 		}));
-		// The alignment, before the verdict, refuses the note it would not judge.
+		// The alignment pairs the note and judges it; the cycle verdict refuses a response.
 		expect(roundProblem(cycle)).toBe(
-			'round.policy.pairing cannot be run by mode "alignment": expectation 0 asks for content (note): an alignment times attacks and judges no content'
+			'round.policy.verdict "cycle" cannot judge the round: a cycle verdict judges a whole cycle (unit "cycle"), got unit "response"'
 		);
 		const rhythm = withRound(LOCATE_NECK, (t) => ({
 			...t,
@@ -256,6 +256,12 @@ describe('roundProblem', () => {
 		}));
 		const thresholds = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
 		expect(roundProblem({ ...cycled, params: { ...cycled.params, thresholds } })).toBeNull();
+		// A cycle whose notes ask for content is run too.
+		const pitched = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			policy: { ...t.policy, unit: 'cycle', verdict: 'cycle', pairing: alignment }
+		}));
+		expect(roundProblem({ ...pitched, params: { ...pitched.params, thresholds } })).toBeNull();
 	});
 
 	it('refuses a verdict that reads thresholds an exercise level does not give', () => {
