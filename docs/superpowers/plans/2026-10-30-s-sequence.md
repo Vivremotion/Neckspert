@@ -139,7 +139,7 @@
   export const PITCH_CONTENT = 'pitch'; // value: { midi: number; string?: number }; payload: { midi }
   ```
 
-  - `CONTENT_DERIVATIONS['voicing-notes']`: kind `pitch`, reads `['voicing-figure']`, derives a list `{ midi, string }[]` (a figure entry spreads it over its notes, Task 3).
+  - `CONTENT_DERIVATIONS['voicing-notes']`: kind `pitch`, reads `['voicing-figure']`, `list: true`, derives a list `{ midi, string }[]` (a figure entry spreads it over its notes, Task 3). `ContentDerivation` gains `list?: true`.
   - `ITEM_NUMBERS.beats`: reads `['voicing-figure']`, the item’s `beats` (throws without).
   - `ITEM_FIELDS['voicing-figure']`: `chord` (« Do », « Cm7 »), `strings` (« sol-si-mi »).
   - `CONTENT_VIEWS.pitch.miss`: the heard and expected notes in words (« sol au lieu de la »).
@@ -202,6 +202,8 @@
   - The figure fills the round: `bars` = the round length in bars (a whole number of figure loops, else a compile error naming the field); `startBar` = `fromRunStart ?? landingBar(accompaniment)`, rotating figure and accompaniment as `compileCyclePlan` did.
   - Content per note k (the k-th attack): `null`; `{ from: 'figure' }` → `{ kind: 'pitch', value: { midi: note.pitch, string: note.string } }`; `{ from: d, pattern }` → the derived list’s element `pattern[k mod pattern.length] − 1` (no pattern: `k mod list.length`), kind of the derivation.
   - `compileCyclePlan` is deleted; its spec becomes `figureExpectations`’s.
+  - A figure entry with a derivation needs a `list` derivation, and a point entry refuses one (compile error and `roundProblem`, naming the field).
+  - `landingBar`, `accompanimentFrom` and `unmuted` move to `domain/time/accompaniment.ts` in this task; `cycle/rhythmExercise.ts` imports them from there until Task 6 deletes it.
 
 - [ ] **Step 1: Write the failing tests** in `compile.spec.ts`:
   - `unfolds a figure into one expectation per attack`: `c8 c c c c c c c` over 1 bar → 8 targets at `0, 1/8, …`, content null, bar 0 ;
@@ -274,10 +276,9 @@
   	handover: 'end',
   	policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
   },
-  pacing: { …, listenInBars: 2 } // D7, unless a level already writes it
-  ```
+    ```
 
-  `compilePlan` compiles every exercise with `compileRound`; `SETTLE_AFTER_BARS` moves to `series/compilePlan.ts`.
+  `compilePlan` compiles every exercise with `compileRound`; `SETTLE_AFTER_BARS` moves to `series/compilePlan.ts`. `listenInBars` and `countIn` stay where they are until Task 6.
 
 - [ ] **Step 1: Write** `rhythmCatalog.parity.spec.ts`: for each rhythm exercise, each level (aid levels included), each figure and `fromRunStart` in `0..3`, `compileRound(…)` equals `compileCycle(…)` (both called, deep equality on the plan).
 - [ ] **Step 2: Run** — FAIL (the exercises write no round yet).
@@ -290,7 +291,7 @@
 **Files:**
 
 - Create: `domain/exercise/figureParams.ts` (+ spec), `application/session/series/itemSource.ts` (+ spec)
-- Modify: `application/session/series/compilePlan.ts` (+ spec), `series/stage.ts`, `series/exerciseLevels.ts`, `SessionController.svelte.ts`, `domain/exercise/types.ts` (`items?: string[]`), `domain/time/levels.ts` (drop `LevelParams`, `checkStart` takes `{ listenInBars, countIn }`), `application/services/createAppServices.ts` (`startExercise`), `domain/exercise/catalog.ts` (`EXERCISE_SESSION_EXERCISES`), `src/routes/+page.svelte`, `ui/screens/home/HomeScreen.svelte` (+ spec, the list)
+- Modify: `application/session/series/compilePlan.ts` (+ spec), `series/stage.ts`, `series/exerciseLevels.ts`, `SessionController.svelte.ts`, `domain/exercise/types.ts` (`items?: string[]`), `domain/time/levels.ts` (drop `LevelParams`, `checkStart` takes `{ listenInBars, countIn }`), `application/services/createAppServices.ts` (`startExercise`), `domain/exercise/catalog.ts` (`exerciseSessionExercises()`), `src/routes/+page.svelte`, `ui/screens/home/HomeScreen.svelte` (+ spec, the list)
 - Delete: `application/session/cycle/rhythmExercise.ts`, `cycle/figureSource.ts` (+ specs)
 
 **Interfaces:**
@@ -309,12 +310,12 @@
   export function figureParamsOf(definition: ExerciseDefinition, exerciseLevel: number): FigureParams;
   /** Figures (`pick` loop | next, fitting the level's round) or the written `items`, an item per turn, `atLevel` as createFigureSource. */
   export function createExerciseItemSource(definition: ExerciseDefinition): ItemSource;
-  /** Exercises played in an exercise session: a round that writes a figure, and levels. */
-  export const EXERCISE_SESSION_EXERCISES: readonly ExerciseDefinition[];
+  /** Exercises played in an exercise session: a round that writes a figure, and levels; read from the live catalog (local exercises join it in Task 10). */
+  export function exerciseSessionExercises(): readonly ExerciseDefinition[];
   ```
 
   Each gate of `compilePlan.ts` reads, for every exercise:
-  - `runSetup`: `roundAccompanimentOf` (Task 3), `pacing.listenInBars` (0) and `pacing.countIn` (true), `checkStart`, `entryBars = landingBar(accompaniment)` ;
+  - `runSetup`: `roundAccompanimentOf` (Task 3), `pacing.listenInBars` (0) and `pacing.countIn` (true), `checkStart`, `entryBars = landingBar(accompaniment)` ; the rhythm catalog moves every `listenInBars` and `countIn` it writes (params and level overrides) to `pacing.listenInBars` / `pacing.countIn`, and its base writes `pacing.listenInBars: 2` where it relied on `LISTEN_IN_BARS` (D7) ;
   - `roundGiven`: thresholds from `figureParamsOf` when the verdict reads them, aids (`cycleAids` made generic: cursor, aid level, listened, play-along), `settleAfter = SETTLE_AFTER_BARS` when `plan.policy.unit === 'cycle'` ;
   - `aidedBeyondLevel`: `levelAided(aids, figureParamsOf(…).cursor)` when `writesFigure`, else any aid ;
   - `canSound`, `contentFigure`: the figure of the round’s first figure entry (`writesFigure`) ;
@@ -324,7 +325,7 @@
 
 - [ ] **Step 1: Write the failing tests:** `figureParams.spec.ts` (defaults; a level overrides `cursor` and `thresholds.fidelity`); `itemSource.spec.ts` (ported from `figureSource.spec.ts`, plus `serves the written items in order, again from the first`, items parsed by their mechanic); `compilePlan.spec.ts` (`runSetup` of a template exercise with `pacing.listenInBars: 1`, `countIn: false` → listen-in 1, no count; `checkStart` refuses `0` + `false`).
 - [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement**, then delete `rhythmExercise.ts`, `figureSource.ts` and `LevelParams`. `startExercise` accepts any exercise of `EXERCISE_SESSION_EXERCISES`; the home list « Rythme » becomes « Exercices » and lists them.
+- [ ] **Step 3: Implement**, then delete `rhythmExercise.ts`, `figureSource.ts` and `LevelParams`. `startExercise` accepts any exercise of `exerciseSessionExercises()`; the home list « Rythme » becomes « Exercices » and lists them.
 - [ ] **Step 4: Run** `npm test && npm run check` — PASS, `rhythmSession.spec.ts` unchanged.
 - [ ] **Step 5: Commit** `refactor: read figure rounds from their params, not from a cycle gate`
 
@@ -355,7 +356,7 @@
   - Dexie `version(12)` runs `attemptToV12` on attempts whose mechanic is `rhythm-figure`; backup 8 refuses `rhythm-figure` and a plan with `cycleBars`.
   - The oracle rebuilds the plan with `roundPlanFromRecord` and rejudges against `thresholds`.
 
-- [ ] **Step 1: Write the failing tests:** `v12.spec.ts` — `rewrites a stored cycle plan as the round plan it judged` (a fixture `CyclePlanRecord` of each rhythm exercise → `roundPlanFromRecord(cyclePlanToV12(r))` equals the snapshot plan of Task 5 at that startBar), `renames the mechanic`, tripwire `the frozen cycle compiler still matches figureExpectations`; `db.spec.ts` — `upgrades 11 to 12`; `validateBackup.spec.ts` — `imports a version 7 file through v12`, `refuses rhythm-figure in a version 8 file`; `recordResponse.spec.ts` — `records a cycle round with its report and plan`; `oracle.spec.ts` — the existing cases on `RoundPlanRecord`.
+- [ ] **Step 1: Write the failing tests:** `v12.spec.ts` — `rewrites a stored cycle plan as the round plan it judged` (a fixture `CyclePlanRecord` of each rhythm exercise → `roundPlanFromRecord(cyclePlanToV12(r))` equals `compileRound` of the live catalog at that `fromRunStart`), `renames the mechanic`, tripwire `the frozen cycle compiler still matches figureExpectations`; `db.spec.ts` — `upgrades 11 to 12`; `validateBackup.spec.ts` — `imports a version 7 file through v12`, `refuses rhythm-figure in a version 8 file`; `recordResponse.spec.ts` — `records a cycle round with its report and plan`; `oracle.spec.ts` — the existing cases on `RoundPlanRecord`.
 - [ ] **Step 2: Run** — FAIL.
 - [ ] **Step 3: Implement.** Rename `rhythm-figure` → `figure` and `RhythmItem` → `FigureItem` in one sweep (D9).
 - [ ] **Step 4: Run** `npm test && npm run check` — PASS.
@@ -521,7 +522,7 @@ Hors commit. Avec l’auteur :
 - Modify: `CLAUDE.md`, `docs/superpowers/specs/2026-10-30-sequence-design.md` (section « Réalisation »), `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` (la « Reprise » renvoie à S), `src/lib/infrastructure/CLAUDE.md` if the oracle text changes
 
 - [ ] **Step 1: Search** `src` and `scripts` (outside `migrations/` and `legacy/`) for the names of « Pas de reste de l’ancien modèle » — none found.
-- [ ] **Step 2: Update `CLAUDE.md`:** « Musical time » (figure entries, `figureExpectations`, `wrong-pitch`, `pitch`), « Exercise sessions » (no cycle gate, `EXERCISE_SESSION_EXERCISES`, `exercises.local/`), « Play views » (`figure`, staff and tab, `notation`), « Mechanics and exercises » (`figure`, `voicing-figure`, `items`), « Storage » (Dexie 12, backup 8, `v12.ts`; chantier 2 takes 13).
+- [ ] **Step 2: Update `CLAUDE.md`:** « Musical time » (figure entries, `figureExpectations`, `wrong-pitch`, `pitch`), « Exercise sessions » (no cycle gate, `exerciseSessionExercises()`, `exercises.local/`), « Play views » (`figure`, staff and tab, `notation`), « Mechanics and exercises » (`figure`, `voicing-figure`, `items`), « Storage » (Dexie 12, backup 8, `v12.ts`; chantier 2 takes 13).
 - [ ] **Step 3: Write « Réalisation »** in the spec: D1 to D10 of this plan, what the playable steps changed.
 - [ ] **Step 4: Run** `npm test && npm run check` — PASS.
 - [ ] **Step 5: Commit** `docs: record the sequence in the project guide and its spec`
