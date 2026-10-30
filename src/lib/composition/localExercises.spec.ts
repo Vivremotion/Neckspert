@@ -69,6 +69,19 @@ describe('readLocalExercises', () => {
 		]);
 	});
 
+	it('refuses on load an item its round cannot compile', () => {
+		const result = readLocalExercises(
+			texts({ 'a.json': arpeggioJson({ id: 'far', items: ['C|maj|3:1,2:3,1:5@9@4'] }) })
+		);
+		expect(result.loaded).toEqual([]);
+		expect(result.refused).toEqual([
+			{
+				file: 'a.json',
+				reason: expect.stringMatching(/^far: items\[0\] .*does not compile at exercise level -1/)
+			}
+		]);
+	});
+
 	it('refuses an unknown mechanic, a screen it cannot draw, and a second file with the same id', () => {
 		const result = readLocalExercises(
 			texts({

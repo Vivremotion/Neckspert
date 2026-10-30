@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import { EXERCISES, LOCATE_NECK } from './catalog';
+import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
+import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, Ladder } from './types';
 import { validateExercise } from './validate';
 
@@ -182,6 +184,53 @@ describe('validateExercise', () => {
 		note.string = 7;
 		expect(validateExercise(outside)).toMatch(
 			/^theme: figures\[0\] \(theme\) .*string 7, not 1 to 6/
+		);
+	});
+});
+
+describe('validateExercise on listed items', () => {
+	const withItems = (
+		items: string[],
+		over: Partial<ExerciseDefinition> = {}
+	): ExerciseDefinition => ({
+		...ARPEGGIO_EXERCISE,
+		items,
+		...over
+	});
+
+	it('accepts items its mechanic reads and its round compiles at every level', () => {
+		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
+	});
+
+	it('refuses an empty list, naming the field', () => {
+		expect(validateExercise(withItems([]))).toBe(`${ARPEGGIO_EXERCISE.id}: items lists no item`);
+	});
+
+	it('refuses a key its mechanic cannot read, naming the item', () => {
+		expect(validateExercise(withItems([ARPEGGIO_ITEMS[0], 'nonsense']))).toMatch(
+			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] \\("nonsense"\\): .*nonsense`)
+		);
+	});
+
+	it('refuses an occurrence the neck does not hold, naming the item and the level', () => {
+		expect(validateExercise(withItems([ARPEGGIO_ITEMS[0], 'C|maj|3:1,2:3,1:5@9@4']))).toMatch(
+			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] .* at exercise level -1: .*Occurrence 9`)
+		);
+	});
+
+	it('refuses a pattern note beyond the shape at the level that reads it', () => {
+		const round = ARPEGGIO_EXERCISE.round!;
+		const [entry] = round.expectations;
+		const beyond = withItems([...ARPEGGIO_ITEMS], {
+			round: {
+				...round,
+				expectations: [{ ...entry, content: { from: 'voicing-notes', pattern: [1, 2, 3, 4] } }]
+			} as RoundTemplate
+		});
+		expect(validateExercise(beyond)).toMatch(
+			new RegExp(
+				`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] .* at exercise level -1: round\\.expectations\\[0\\]\\.content\\.pattern asks note 4`
+			)
 		);
 	});
 });

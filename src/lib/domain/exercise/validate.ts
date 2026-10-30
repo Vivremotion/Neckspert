@@ -1,9 +1,12 @@
+import { mechanicRules } from '../mechanics';
 import { MAX_PLAYABLE_FRET, STANDARD_TUNING, type StringNumber } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
 import { levelRange } from '../time/levels';
-import { isBeatCount, validateMeter } from '../time/meter';
+import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
+import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
+import { compileRound } from './round/compile';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import { BRIEFINGS, type ExerciseDefinition, type Ladder } from './types';
 
@@ -177,11 +180,60 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
+ * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
+ * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
+ * the neck does not hold, a pattern note beyond its shape…), naming the item and the level.
+ * Checked once the round is known to be valid.
+ */
+function itemsProblem(definition: ExerciseDefinition): string | null {
+	const { items, round } = definition;
+	if (items === undefined) return null;
+	if (items.length === 0) return 'items lists no item';
+	const rules = mechanicRules(definition.mechanic);
+	const meter = definition.meter ?? METER_4_4;
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	for (const [i, key] of items.entries()) {
+		const field = `items[${i}] (${JSON.stringify(key)})`;
+		let item: unknown;
+		try {
+			item = rules.parseItem(key);
+		} catch (error) {
+			return `${field}: ${(error as Error).message}`;
+		}
+		if (round === undefined) continue;
+		for (let level = lowest; level <= highest; level++) {
+			const planned: PlannedItem = {
+				exerciseId: definition.id,
+				mechanic: definition.mechanic,
+				exerciseLevel: level,
+				item,
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			};
+			try {
+				compileRound(definition, planned, meter, {
+					previewBeats: definition.flow?.previewBeats ?? 0,
+					fromRunStart: null
+				});
+			} catch (error) {
+				// The compiler names the exercise too: it is named once.
+				const problem = (error as Error).message.replace(`${definition.id}: `, '');
+				return `${field} does not compile at exercise level ${level}: ${problem}`;
+			}
+		}
+	}
+	return null;
+}
+
+/**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
  * field: a tempo not positive, a ladder it cannot climb, a figure note impossible on its string,
  * levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
- * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
+ * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
+ * (`itemsProblem`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
@@ -212,7 +264,7 @@ export function validateExercise(
 		if (levels !== null) return levels;
 		const figures = figuresProblem(definition);
 		if (figures !== null) return figures;
-		return roundProblem(definition, options);
+		return roundProblem(definition, options) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

@@ -132,7 +132,7 @@ Pour chaque fichier, dans l'ordre du nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis `exerciseFromJson` : un objet, des clés connues, des figures en LilyPond qui se lisent.
 2. L'identifiant n'est pas déjà pris (par le catalogue ou par un fichier précédent) et la mécanique existe.
-3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, tour…).
+3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà de la forme refusent le fichier en nommant `items[i]` et le niveau).
 4. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.
