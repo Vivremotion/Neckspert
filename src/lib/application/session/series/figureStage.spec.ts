@@ -324,6 +324,30 @@ describe('figureStage, a round cut inside its figure', () => {
 		});
 	}
 
+	it('derives the notes of a round that starts in the second bar of its figure from that bar', () => {
+		// A two-bar figure, quarters then halves, over one bar from its second bar.
+		const half: FigureElement = { kind: 'note', duration: Fraction.of(1, 2), content: null };
+		const twoBars: Figure = {
+			...QUARTERS,
+			bars: 2,
+			voices: [{ id: 'main', elements: [quarter, quarter, quarter, quarter, half, half] }]
+		};
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			figures: [{ id: 'quarters', figure: twoBars }],
+			levels: undefined,
+			params: { ...ARPEGGIO_EXERCISE.params, figure: 'quarters' }
+		};
+		const item = { ...change(4, 0), exerciseId: exercise.id };
+		const plan = compileRound(exercise, item, METER_4_4, { previewBeats: 0, fromRunStart: 1 });
+		expect(plan.expectations).toHaveLength(2);
+		const model = stage(exercise, item, 'round', { plan, startBar: 1 });
+		expect(kinds(model.figure)).toEqual(['note', 'note']);
+		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
+			plan.expectations.map((e) => (e.content?.value as { midi: number }).midi)
+		);
+	});
+
 	it('engraves a whole round once when each loop plays other notes of the shape', () => {
 		// Three notes of the pattern over four quarters: the second bar starts on another note.
 		const exercise: ExerciseDefinition = {
