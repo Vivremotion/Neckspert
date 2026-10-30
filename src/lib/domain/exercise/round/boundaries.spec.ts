@@ -10,7 +10,15 @@ const sources = import.meta.glob('/src/lib/domain/exercise/round/**/*.ts', {
 const MODULE = '/src/lib/domain/exercise/round/';
 
 /** The mechanics the compiler never names: the vocabulary of derivations does. */
-const MECHANICS = ['locate', 'identify', 'triad-anchor', 'triad-zone', 'chord-grid'];
+const MECHANICS = [
+	'locate',
+	'identify',
+	'triad-anchor',
+	'triad-zone',
+	'chord-grid',
+	'rhythm-figure',
+	'voicing-figure'
+];
 
 /** What it may take from the derivations: their registries, looked up by name. */
 const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES'];

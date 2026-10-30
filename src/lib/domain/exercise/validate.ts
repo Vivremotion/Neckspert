@@ -1,5 +1,5 @@
 import { MAX_PLAYABLE_FRET, STANDARD_TUNING, type StringNumber } from '../music/types';
-import { attackNotes } from '../time/figure';
+import { attackNotes, validateFigure } from '../time/figure';
 import { levelRange } from '../time/levels';
 import { isBeatCount, validateMeter } from '../time/meter';
 import { levelConditionsProblem, validateLadder } from './ladder';
@@ -161,6 +161,8 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
  */
 function figuresProblem(definition: ExerciseDefinition): string | null {
 	for (const [index, { id, figure }] of (definition.figures ?? []).entries()) {
+		const invalid = validateFigure(figure);
+		if (invalid !== null) return `figures[${index}] (${id}) is invalid: ${invalid}`;
 		for (const voice of figure.voices) {
 			for (const [k, { note }] of attackNotes(figure, voice.id).entries()) {
 				if (note.pitch === undefined || note.string === undefined) continue;

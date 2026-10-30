@@ -352,7 +352,9 @@ function figureEntryOf(
 			content
 		});
 	} catch (error) {
-		return fail(context, `${field}.figure`, (error as Error).message);
+		// Only the figure's own refusals are told here; a content that fails already names its field.
+		if (!(error instanceof RangeError)) throw error;
+		return fail(context, `${field}.figure`, error.message);
 	}
 }
 

@@ -175,5 +175,13 @@ describe('validateExercise', () => {
 			/^theme: figures\[0\] \(theme\) note 1 has pitch 48, not on string 1 \(frets 0 to 24\)/
 		);
 		expect(validateExercise(written("e''''1\\1"))).toMatch(/^theme: figures\[0\] .*string 1/);
+		// A string outside 1 to 6 is the figure's own refusal, not a fret that happens to pass.
+		const outside: ExerciseDefinition = written("e'1\\1");
+		const note = outside.figures![0].figure.voices[0].elements[0];
+		if (note.kind !== 'note') throw new Error('expected a note');
+		note.string = 7;
+		expect(validateExercise(outside)).toMatch(
+			/^theme: figures\[0\] \(theme\) .*string 7, not 1 to 6/
+		);
 	});
 });

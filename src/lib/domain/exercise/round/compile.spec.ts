@@ -728,7 +728,7 @@ describe('compileRound, a figure entry', () => {
 			figures: [{ id: 'main', figure: pitchless() }]
 		};
 		expect(() => compileFigure(bare, { string: 3, pitch: 'F' })).toThrow(
-			/round\.expectations\[0\]\.content .*pitch/
+			/^test-locate: round\.expectations\[0\]\.content reads the pitches/
 		);
 	});
 });
