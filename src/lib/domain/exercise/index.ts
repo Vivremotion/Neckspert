@@ -11,3 +11,4 @@ export * from './ladder';
 export * from './validate';
 export * from './round/types';
 export * from './round/validate';
+export * from './fromJson';

@@ -28,3 +28,6 @@ vite.config.ts.timestamp-*
 
 # Recordings from the triad detection spike (/dev/corpus): large, local only.
 /corpus
+
+# Private exercises (JSON), read at build time: never committed. See docs/exercices-locaux.md.
+/exercises.local/

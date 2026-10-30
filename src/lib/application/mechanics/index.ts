@@ -1,6 +1,9 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
 import { identifyPresenter } from './identify';
 import { locatePresenter } from './locate';
+import { FIGURE_PRESENTERS } from './figurePresenters';
+import { GESTURE_PRESENTERS } from './chordGrid';
+import { TRIAD_PRESENTERS } from './triads';
 import type { MechanicPresenter } from './types';
 
 export * from './types';
@@ -23,4 +26,12 @@ export {
 export const NECK_PRESENTERS: Record<MechanicId, MechanicPresenter> = {
 	[locatePresenter.rules.id]: locatePresenter,
 	[identifyPresenter.rules.id]: identifyPresenter
+};
+
+/** Every mechanic the application plays, by mechanic id. */
+export const MECHANIC_PRESENTERS: Record<MechanicId, MechanicPresenter> = {
+	...NECK_PRESENTERS,
+	...TRIAD_PRESENTERS,
+	...GESTURE_PRESENTERS,
+	...FIGURE_PRESENTERS
 };

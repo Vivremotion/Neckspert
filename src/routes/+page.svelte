@@ -1,7 +1,9 @@
 <script lang="ts">
+	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
 	import type { TriadsHome } from '$lib/application/app';
+	import { refusedLocalExercises } from '$lib/composition/localExercises';
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
@@ -89,5 +91,6 @@
 		ongesture={startGesture}
 		exercises={exerciseSessionExercises()}
 		{resting}
+		refused={dev ? refusedLocalExercises() : []}
 	/>
 {/if}

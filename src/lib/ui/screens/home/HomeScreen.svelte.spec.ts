@@ -187,4 +187,31 @@ describe('HomeScreen', () => {
 			expect(screen.getByRole('link', { name: /Offbeats/ }).textContent).toContain('Exercises');
 		});
 	});
+	describe('local exercises refused', () => {
+		const refused = [
+			{
+				file: '/exercises.local/scale.json',
+				reason: 'scale: tempo must be a positive number, got -3'
+			}
+		];
+
+		it('lists the file and the reason of a refusal', () => {
+			render(HomeScreen, { props: props({ refused }) });
+			const list = screen.getByRole('region', { name: 'Exercices locaux refusés' });
+			expect(list.textContent).toContain(
+				'scale.json : scale: tempo must be a positive number, got -3'
+			);
+		});
+
+		it('says it in English', () => {
+			i18n.locale = 'en';
+			render(HomeScreen, { props: props({ refused }) });
+			expect(screen.getByRole('region', { name: 'Local exercises refused' })).toBeTruthy();
+		});
+
+		it('shows nothing when no file was refused', () => {
+			render(HomeScreen, { props: props() });
+			expect(screen.queryByRole('region', { name: 'Exercices locaux refusés' })).toBeNull();
+		});
+	});
 });

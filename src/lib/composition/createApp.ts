@@ -1,8 +1,7 @@
 import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
-import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
+import { MECHANIC_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
@@ -27,6 +26,7 @@ import {
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
 import { createDiagnosticJournal, shadowAttacks } from './diagnostics';
+import { loadLocalExercises } from './localExercises';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -44,9 +44,14 @@ export interface CreateAppOptions {
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
- * chord verifier write to it; the core never sees it.
+ * chord verifier write to it; the core never sees it. The exercises of `exercises.local/` are
+ * added to the catalog before anything reads it (`docs/exercices-locaux.md`).
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
+	// The private exercises, read at build time: a refused file is reported, never fatal.
+	loadLocalExercises(
+		import.meta.glob('/exercises.local/*.json', { eager: true, import: 'default' })
+	);
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).
@@ -121,12 +126,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		development: dev,
 		newId: () => crypto.randomUUID(),
-		mechanics: {
-			...NECK_PRESENTERS,
-			...TRIAD_PRESENTERS,
-			...GESTURE_PRESENTERS,
-			...FIGURE_PRESENTERS
-		},
+		mechanics: MECHANIC_PRESENTERS,
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

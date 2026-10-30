@@ -22,7 +22,8 @@
 		gesture = { open: false },
 		ongesture,
 		exercises,
-		resting = []
+		resting = [],
+		refused = []
 	}: {
 		stats: HomeStats;
 		now: number;
@@ -39,6 +40,8 @@
 		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
 		resting?: readonly string[];
+		/** Local exercise files refused, with the validator's reason; development builds pass them. */
+		refused?: readonly { file: string; reason: string }[];
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -133,6 +136,16 @@
 		</p>
 		<Button onclick={onstart}>{t.start}</Button>
 	</footer>
+	{#if refused.length > 0}
+		<section class="refused" aria-label={t.refusedTitle}>
+			<h2>{t.refusedTitle}</h2>
+			<ul>
+				{#each refused as { file, reason } (file)}
+					<li>{t.refusedWhy(file.split('/').pop() ?? file, reason)}</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 </Page>
 
 <style>
@@ -142,6 +155,24 @@
 		justify-content: space-between;
 		gap: var(--np-step-2);
 		margin-top: var(--np-step-6);
+	}
+
+	.refused {
+		margin-top: var(--np-step-6);
+		color: var(--np-earth-text);
+		font-size: var(--np-size-meta);
+	}
+
+	.refused h2 {
+		margin: 0 0 var(--np-step-1);
+		font-size: var(--np-size-meta);
+		font-weight: 600;
+	}
+
+	.refused ul {
+		margin: 0;
+		padding-left: var(--np-step-3);
+		overflow-wrap: anywhere;
 	}
 
 	.gap {

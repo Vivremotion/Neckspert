@@ -47,7 +47,9 @@ const noteJudge: ContentJudge = {
 const pitchJudge: ContentJudge = {
 	judge(value, payload) {
 		const expected = (value as { midi: Midi }).midi;
-		const { midi } = payload as { midi: Midi };
+		// A sensor that reports no pitch (a local exercise can pair one with pitch content) is wrong.
+		const midi = (payload as { midi?: unknown } | null | undefined)?.midi;
+		if (typeof midi !== 'number') return { correct: false, answer: null, confusion: null };
 		return { correct: midi === expected, answer: { midi }, confusion: null };
 	}
 };

@@ -13,6 +13,8 @@ export const homeMessages = defineMessages({
 		gesture: 'Geste',
 		exercises: 'Exercices',
 		resting: 'On y revient plus tard',
+		refusedTitle: 'Exercices locaux refusés',
+		refusedWhy: (file: string, reason: string) => `${file} : ${reason}`,
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
@@ -39,6 +41,8 @@ export const homeMessages = defineMessages({
 		gesture: 'Gesture',
 		exercises: 'Exercises',
 		resting: 'Back to it later',
+		refusedTitle: 'Local exercises refused',
+		refusedWhy: (file: string, reason: string) => `${file}: ${reason}`,
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',

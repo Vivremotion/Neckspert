@@ -195,7 +195,7 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	params: triadsParams()
 };
 
-export const EXERCISES: readonly ExerciseDefinition[] = [
+const CATALOG: ExerciseDefinition[] = [
 	LOCATE_NECK,
 	IDENTIFY_NECK,
 	TRIADS_ANCHOR,
@@ -203,6 +203,31 @@ export const EXERCISES: readonly ExerciseDefinition[] = [
 	...GESTURE_EXERCISES,
 	...RHYTHM_EXERCISES
 ];
+
+/** The live catalog: the exercises of the code, then those registered (`registerExercises`). */
+export const EXERCISES: readonly ExerciseDefinition[] = CATALOG;
+
+/**
+ * Appends exercises to the live catalog (the private ones of `exercises.local/`), so
+ * `exerciseById` and `exerciseSessionExercises` see them. An id already taken is refused, not
+ * thrown: the result lists the ids refused.
+ */
+export function registerExercises(exercises: readonly ExerciseDefinition[]): {
+	registered: ExerciseId[];
+	taken: ExerciseId[];
+} {
+	const registered: ExerciseId[] = [];
+	const taken: ExerciseId[] = [];
+	for (const exercise of exercises) {
+		if (CATALOG.some((known) => known.id === exercise.id)) {
+			taken.push(exercise.id);
+			continue;
+		}
+		CATALOG.push(exercise);
+		registered.push(exercise.id);
+	}
+	return { registered, taken };
+}
 
 /**
  * The exercises played in an exercise session, in catalog order: those whose round writes a
