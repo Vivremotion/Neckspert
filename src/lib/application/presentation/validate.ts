@@ -7,7 +7,7 @@ import {
 	type FigureRef
 } from '$lib/domain/exercise/round';
 import { levelRange, type Figure } from '$lib/domain/time';
-import { STANDARD_TUNING, type StringNumber } from '$lib/domain/music/types';
+import { fretOf } from '$lib/domain/music/fretboard';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
@@ -123,17 +123,14 @@ function figuresAt(
 	return figures.filter((figure) => figure.id === id);
 }
 
-/** What keeps a figure from its tab: a note without a string or a pitch, or below its string. */
+/** What keeps a figure from its tab: a note without a string or a pitch, or off its string's frets (`fretOf`). */
 function unfrettedNote(figure: Figure): string | null {
 	for (const voice of figure.voices) {
 		for (const [i, element] of voice.elements.entries()) {
 			if (element.kind !== 'note') continue;
 			const note = `note ${i + 1}${figure.voices.length > 1 ? ` of voice "${voice.id}"` : ''}`;
-			const { pitch, string } = element;
-			if (string === undefined) return `${note} has no string`;
-			if (pitch === undefined) return `${note} has no pitch`;
-			const open = STANDARD_TUNING[string as StringNumber];
-			if (pitch < open) return `${note} (pitch ${pitch}) is below string ${string}`;
+			const fret = fretOf(element.pitch, element.string);
+			if ('problem' in fret) return `${note} ${fret.problem}`;
 		}
 	}
 	return null;
@@ -142,7 +139,7 @@ function unfrettedNote(figure: Figure): string | null {
 /**
  * Null when every level that shows the tab of its figure can engrave it, else the first that
  * cannot (an engine limit: no tab without strings): a note of the figures it may play written
- * without a string, a pitch, or below its string. Notes derived from the item take the pitch and
+ * without a string, a pitch, or off its string's frets. Notes derived from the item take the pitch and
  * the string the derivation gives.
  */
 function tabProblem(definition: ExerciseDefinition): string | null {

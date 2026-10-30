@@ -30,7 +30,8 @@ import {
 	type Voice as FigureVoice
 } from '$lib/domain/time';
 import type { Notation } from '$lib/domain/exercise/figureParams';
-import { CHROMATIC_NOTES, STANDARD_TUNING, type StringNumber } from '$lib/domain/music/types';
+import { fretOf } from '$lib/domain/music/fretboard';
+import { CHROMATIC_NOTES } from '$lib/domain/music/types';
 
 /** Where the engraving put things, in CSS pixels from the host's top left corner. */
 export interface FigureLayout {
@@ -206,19 +207,12 @@ function staffKey(pitch: number): string {
 }
 
 /** The fret of a note on its string; throws when it has none to give. */
-function fretOf(element: FigureNote, where: string): { str: number; fret: number } {
-	const { pitch, string } = element;
-	if (string === undefined)
-		throw new RangeError(`cannot engrave the tab of ${where}: it has no string`);
-	if (pitch === undefined)
-		throw new RangeError(`cannot engrave the tab of ${where}: it has no pitch`);
-	const open = STANDARD_TUNING[string as StringNumber];
-	if (open === undefined || pitch < open) {
-		throw new RangeError(
-			`cannot engrave the tab of ${where}: pitch ${pitch} is below string ${string} (${open})`
-		);
+function tabPosition(element: FigureNote, where: string): { str: number; fret: number } {
+	const fret = fretOf(element.pitch, element.string);
+	if ('problem' in fret) {
+		throw new RangeError(`cannot engrave the tab of ${where}, which ${fret.problem}`);
 	}
-	return { str: string, fret: pitch - open };
+	return { str: element.string!, fret: fret.fret };
 }
 
 type FigureNote = Extract<FigureElement, { kind: 'note' }>;
@@ -286,7 +280,7 @@ function pieceNote(
 	}
 	const note = new FretNote(
 		{
-			positions: [fretOf(element, where)],
+			positions: [tabPosition(element, where)],
 			duration,
 			dots: piece.dots,
 			stemDirection: Stem.DOWN

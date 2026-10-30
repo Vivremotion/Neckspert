@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { LocateItem } from './items';
 import {
 	CHROMATIC_NOTES,
+	MAX_PLAYABLE_FRET,
 	STANDARD_TUNING,
 	STRING_NUMBERS,
 	pitchOfMidi
 } from '$lib/domain/music/types';
-import { acceptableMidis, fretsForPitch, midiOnString, pitchOnString } from './fretboard';
+import { acceptableMidis, fretOf, fretsForPitch, midiOnString, pitchOnString } from './fretboard';
 
 describe('midiOnString', () => {
 	it('adds the fret to the open string in standard tuning', () => {
@@ -84,5 +85,23 @@ describe('acceptableMidis', () => {
 				}
 			}
 		}
+	});
+});
+
+describe('fretOf', () => {
+	it('gives the fret of a pitch on its string, open string and last fret included', () => {
+		expect(fretOf(64, 1)).toEqual({ fret: 0 });
+		expect(fretOf(60, 2)).toEqual({ fret: 1 });
+		expect(fretOf(40 + MAX_PLAYABLE_FRET, 6)).toEqual({ fret: MAX_PLAYABLE_FRET });
+	});
+
+	it('tells why a note has no fret', () => {
+		expect(fretOf(60, undefined)).toEqual({ problem: 'has no string' });
+		expect(fretOf(undefined, 2)).toEqual({ problem: 'has no pitch' });
+		expect(fretOf(50, 1)).toEqual({ problem: '(pitch 50) is below string 1 (64)' });
+		expect(fretOf(64 + MAX_PLAYABLE_FRET + 1, 1)).toEqual({
+			problem: `(pitch ${64 + MAX_PLAYABLE_FRET + 1}) is above the last fret of string 1 (${MAX_PLAYABLE_FRET})`
+		});
+		expect(fretOf(60, 7)).toEqual({ problem: 'is on string 7, which the guitar does not have' });
 	});
 });
