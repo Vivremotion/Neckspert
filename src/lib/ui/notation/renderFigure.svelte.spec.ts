@@ -120,6 +120,19 @@ describe('renderFigure', () => {
 		expect(layout.barX.at(-1)).toBeLessThanOrEqual(layout.width - layout.barWidth);
 	});
 
+	it('keeps the room asked for under each line, whatever the scale', () => {
+		const plain = renderFigure(host, figure(eighths(32), {}, 4), { maxWidth: 360, scale: 1.5 });
+		const roomy = renderFigure(host, figure(eighths(32), {}, 4), {
+			maxWidth: 360,
+			scale: 1.5,
+			underLine: 30
+		});
+		expect(roomy.lineY.length).toBeGreaterThan(1);
+		expect(roomy.lineY[1]).toBeCloseTo(plain.lineY[1] + 30);
+		expect(roomy.rowHeight).toBe(plain.rowHeight);
+		expect(roomy.height).toBe(Math.ceil(plain.height + 30 * plain.lineY.length));
+	});
+
 	it('puts every line of a one-line figure at the top', () => {
 		const layout = renderFigure(host, figure(eighths(8)), { maxWidth: 600 });
 		expect(layout.lineY).toEqual([0]);

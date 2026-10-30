@@ -25,6 +25,7 @@ import {
 	cycleMarks,
 	feedbackLine,
 	labelRows,
+	liveMarks,
 	markOffsetPx,
 	notePlace,
 	shiftMark,
@@ -279,6 +280,54 @@ describe('cycleMarks', () => {
 	});
 });
 
+describe('liveMarks', () => {
+	const figure = figureOf([note(1, 4), note(1, 4), note(1, 4), note(1, 4)]);
+	const reading = (expectations: CycleReport['expectations'], extraAtMs: number[] = []) => ({
+		expectations,
+		extraAtMs
+	});
+
+	it('sets each note told on its note, without figures: it is read while playing', () => {
+		const marks = liveMarks(
+			reading([
+				{ index: 0, verdict: 'on-time', offsetMs: 2 },
+				{ index: 1, verdict: 'late', offsetMs: 40 },
+				{ index: 2, verdict: 'wrong-pitch', offsetMs: 0 },
+				{ index: 3, verdict: 'missed', offsetMs: null }
+			]),
+			LAYOUT,
+			100,
+			500,
+			figure
+		);
+		expect(marks.map((m) => m.kind)).toEqual(['on-time', 'late', 'wrong-pitch', 'missed']);
+		expect(marks.every((m) => m.label === null)).toBe(true);
+		expect(marks[2].x).toBe(LAYOUT.noteX[2]);
+		expect(marks[1].x).toBeGreaterThan(LAYOUT.noteX[1]);
+	});
+
+	it('shows only the loop under way of a figure engraved once', () => {
+		const notes = LAYOUT.noteX.length;
+		const marks = liveMarks(
+			reading([
+				{ index: 0, verdict: 'missed', offsetMs: null },
+				{ index: notes, verdict: 'on-time', offsetMs: 0 }
+			]),
+			LAYOUT,
+			100,
+			500,
+			figure
+		);
+		expect(marks.map((m) => [m.kind, m.x])).toEqual([['on-time', LAYOUT.noteX[0]]]);
+	});
+
+	it('marks an added attack where it fell', () => {
+		const marks = liveMarks(reading([], [250]), LAYOUT, 100, 500, figure);
+		expect(marks.map((m) => m.kind)).toEqual(['extra']);
+		expect(marks[0].line).toBe(0);
+	});
+});
+
 describe('labelRows', () => {
 	const mark = (x: number, label: string | null) => ({
 		x,
@@ -457,6 +506,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		prompt: null,
 		notation: { staff: false, tab: false },
 		neck: null,
+		live: null,
 		chordDiagram: 'strings',
 		...overrides
 	};

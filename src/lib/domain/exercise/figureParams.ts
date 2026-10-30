@@ -28,6 +28,8 @@ export interface FigureParams {
 	notation: Notation | null;
 	/** The level draws on the neck the notes its round derives from its item. */
 	neck: boolean;
+	/** The level marks on the figure, as it plays, what was heard of each note. */
+	liveMarks: boolean;
 }
 
 const FEEDBACKS: readonly Feedback[] = ['every-cycle', 'summary', 'out-of-tolerance'];
@@ -40,7 +42,8 @@ export const DEFAULT_FIGURE_PARAMS: FigureParams = {
 	cursor: false,
 	thresholds: {},
 	notation: null,
-	neck: false
+	neck: false,
+	liveMarks: false
 };
 
 /** The round template writes a figure entry. */
@@ -61,16 +64,17 @@ export function figureParamsOf(
 	definition: ExerciseDefinition,
 	exerciseLevel: number
 ): FigureParams {
-	const { feedback, listen, cursor, thresholds, notation, neck } = resolvedParamsOf(definition, {
-		exerciseLevel,
-		itemLevel: null
-	});
+	const { feedback, listen, cursor, thresholds, notation, neck, liveMarks } = resolvedParamsOf(
+		definition,
+		{ exerciseLevel, itemLevel: null }
+	);
 	return {
 		notation: notationParam(definition, notation),
 		feedback: oneOf(FEEDBACKS, feedback, DEFAULT_FIGURE_PARAMS.feedback),
 		listen: oneOf(LISTENS, listen, DEFAULT_FIGURE_PARAMS.listen),
 		cursor: typeof cursor === 'boolean' ? cursor : DEFAULT_FIGURE_PARAMS.cursor,
 		neck: typeof neck === 'boolean' ? neck : DEFAULT_FIGURE_PARAMS.neck,
+		liveMarks: typeof liveMarks === 'boolean' ? liveMarks : DEFAULT_FIGURE_PARAMS.liveMarks,
 		thresholds:
 			typeof thresholds === 'object' && thresholds !== null
 				? { ...(thresholds as CycleThresholds) }

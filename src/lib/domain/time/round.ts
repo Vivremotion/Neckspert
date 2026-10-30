@@ -2,6 +2,7 @@ import type { ContentJudges, Judged, RoundPlan } from './plan';
 import type { CycleReport, CycleThresholds, Measures } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type {
+	LiveReading,
 	ObservationFate,
 	Pairing,
 	PairingMode,
@@ -204,6 +205,16 @@ export class PlanRound {
 		this.#pairing.advance(now);
 		if (this.#pairing.droppable(now)) return null;
 		return this.#outcome();
+	}
+
+	/** What can already be told at `now`; null from a pairing that decides nothing before its end. */
+	live(now: number): LiveReading | null {
+		return this.#pairing.live?.(now) ?? null;
+	}
+
+	/** The instants from which `live` can tell more without a new attack. */
+	get liveWakes(): number[] {
+		return this.#pairing.liveWakes?.() ?? [];
 	}
 
 	#evaluate(now: number, answered: boolean): RoundEvent {

@@ -244,4 +244,102 @@ describe('alignmentPairing', () => {
 			offsetMs: expected.pairs[0].offsetMs
 		});
 	});
+
+	describe('live', () => {
+		// Eighths at ♩ = 100 from 2.4 s: a note every 0.3 s, a zone of 0.15 s either side.
+		const startS = map.toSeconds(start);
+		const pitched = () => pitchedPlanOf('11111111', 1, [60, 62, 64, 65, 67, 69, 71, 72]);
+
+		it('tells a right note as soon as it is heard, and nothing it cannot know yet', () => {
+			const pairing = pairingOf(pitched());
+			pairing.offer(note(startS + 0.05, 60));
+			expect(pairing.live?.(startS + 0.05)).toEqual({
+				expectations: [{ index: 0, verdict: 'late', offsetMs: expect.closeTo(50) }],
+				extraAtMs: []
+			});
+		});
+
+		it('waits for the end of its zone to tell a wrong note: a right one may still come', () => {
+			const pairing = pairingOf(pitched());
+			pairing.offer(note(startS, 61));
+			expect(pairing.live?.(startS + 0.1).expectations).toEqual([]);
+			expect(pairing.live?.(startS + 0.15).expectations).toEqual([
+				{ index: 0, verdict: 'wrong-pitch', offsetMs: expect.closeTo(0) }
+			]);
+		});
+
+		it('waits for a better reading of a note before telling it, unless its zone has closed', () => {
+			const pairing = pairingOf(pitched());
+			pairing.offer(note(startS, 60, false));
+			expect(pairing.live?.(startS + 0.01).expectations).toEqual([]);
+			expect(pairing.live?.(startS + 0.15).expectations.map((e) => e.verdict)).toEqual(['on-time']);
+		});
+
+		it('tells a note missed once its zone has closed', () => {
+			const pairing = pairingOf(pitched());
+			expect(pairing.live?.(startS + 0.14).expectations).toEqual([]);
+			expect(pairing.live?.(startS + 0.15).expectations).toEqual([
+				{ index: 0, verdict: 'missed', offsetMs: null }
+			]);
+		});
+
+		it('tells an added attack, from the round start, once no open zone can take it', () => {
+			const pairing = pairingOf(pitched());
+			pairing.offer(note(startS, 60));
+			pairing.offer(note(startS + 0.05, 60));
+			expect(pairing.live?.(startS + 0.05)).toEqual({
+				expectations: [{ index: 0, verdict: 'on-time', offsetMs: expect.closeTo(0) }],
+				extraAtMs: [expect.closeTo(50)]
+			});
+		});
+
+		it('never takes back what it told', () => {
+			const pairing = pairingOf(pitched());
+			pairing.offer(note(startS + 0.05, 60));
+			const told = pairing.live?.(startS + 0.05).expectations;
+			pairing.offer(note(startS + 0.06, 60));
+			pairing.offer(note(startS + 0.3, 62));
+			expect(pairing.live?.(startS + 0.5).expectations.slice(0, 1)).toEqual(told);
+		});
+
+		it('agrees with the judge on a run with no lost beat', () => {
+			const pairing = pairingOf(pitched());
+			const played: [number, number][] = [
+				[0, 60],
+				[0.31, 62],
+				[0.55, 64],
+				[0.9, 66],
+				[1.5, 69],
+				[1.8, 71]
+			];
+			for (const [at, midi] of played) {
+				pairing.offer(note(startS + at, midi));
+				pairing.live?.(startS + at);
+			}
+			const told = pairing.live?.(startS + 2.4);
+			const judged = pairing.result();
+			expect(told?.expectations.map((e) => e.index)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+			expect(told?.expectations.filter((e) => e.verdict === 'missed').map((e) => e.index)).toEqual(
+				judged.missed
+			);
+			expect(
+				told?.expectations
+					.filter((e) => e.verdict !== 'missed')
+					.map((e) => [e.index, e.offsetMs, e.verdict])
+			).toEqual(
+				judged.pairs.map((p) => [
+					p.expectation,
+					p.offsetMs,
+					p.judged?.correct ? p.timing : 'wrong-pitch'
+				])
+			);
+		});
+
+		it('says when each zone closes, so a silence is told without waiting for the next beat', () => {
+			const closes = pairingOf(pitched()).liveWakes?.() ?? [];
+			expect(closes).toHaveLength(8);
+			expect(closes[0]).toBeCloseTo(startS + 0.15);
+			expect(closes[1]).toBeCloseTo(startS + 0.45);
+		});
+	});
 });

@@ -11,6 +11,7 @@ import {
 	type Feedback,
 	type Figure,
 	type Level,
+	type LiveReading,
 	type Meter,
 	type RoundOutcome,
 	type RoundPlan,
@@ -119,9 +120,17 @@ export interface FigureStageModel {
 	notation: Notation;
 	/** The notes its round derives from its item, on the neck, when its level draws them; else null. */
 	neck: Picture | null;
+	/**
+	 * What was heard of the round under way, as far as it can be told, when its level marks it on
+	 * the figure; else null, so the view keeps no room for it.
+	 */
+	live: LiveReading | null;
 	/** How the chord shapes it shows are drawn. */
 	chordDiagram: ChordDiagramStyle;
 }
+
+/** Nothing told yet: before the round, or as it opens. */
+const NOTHING_HEARD: LiveReading = { expectations: [], extraAtMs: [] };
 
 /** Sessions of an exercise after which its feedback drops the plain words and keeps the term. */
 export const PLAIN_WORDS_SESSIONS = 3;
@@ -383,6 +392,8 @@ export function figureStage(input: {
 	random: () => number;
 	chordDiagram: ChordDiagramStyle;
 	endedSessions: number;
+	/** What the round under way can already tell; null when it tells nothing yet. */
+	live?: LiveReading | null;
 }): FigureStageModel {
 	const { definition, item, moment, barInRound, locale, random } = input;
 	const level = item.exerciseLevel;
@@ -442,6 +453,7 @@ export function figureStage(input: {
 		prompt,
 		notation: notationOf(definition, level),
 		neck: params.neck ? neckOf(definition, item) : null,
+		live: params.liveMarks ? ((moment === 'round' ? input.live : null) ?? NOTHING_HEARD) : null,
 		chordDiagram: input.chordDiagram
 	};
 }

@@ -158,6 +158,53 @@ describe('a sequence of chord shapes on the series', () => {
 		controller.quit();
 	});
 
+	describe('a level that marks what it hears', () => {
+		const marking: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			params: {
+				...ARPEGGIO_EXERCISE.params,
+				liveMarks: true,
+				pacing: { roundsPerBreath: 40, breathMinMs: 4000 }
+			}
+		};
+		const verdicts = (controller: Parameters<typeof stageOf>[0]) =>
+			stageOf(controller).live?.expectations.map((e) => e.verdict) ?? [];
+
+		it('tells each note as it plays, and starts again with the next round', async () => {
+			const { controller, advance, player } = await sequenceSeries(marking, {
+				pattern: ARPEGGIO_PATTERN,
+				met: true
+			});
+			await controller.start();
+			await advance(ORIGIN + BAR_S - 0.01);
+			expect(verdicts(controller)).toEqual([]);
+			const seen: number[] = [];
+			for (let to = ORIGIN + BAR_S; to < ORIGIN + 2 * BAR_S - 0.5; to += 0.05) {
+				await advance(to);
+				seen.push(verdicts(controller).length);
+			}
+			// Told one by one, not all at the round's end.
+			expect(seen).toEqual([...seen].sort((a, b) => a - b));
+			expect(new Set(seen).size).toBeGreaterThan(2);
+			expect(verdicts(controller).every((v) => v === 'on-time')).toBe(true);
+
+			player.pitch = () => null;
+			await advance(ORIGIN + 2 * BAR_S + 0.05);
+			expect(verdicts(controller)).toEqual([]);
+			await advance(ORIGIN + 2 * BAR_S + 1.5);
+			expect(verdicts(controller)[0]).toBe('missed');
+			controller.quit();
+		});
+
+		it('marks nothing at a level that does not ask for it', async () => {
+			const { controller, advance } = await series();
+			await controller.start();
+			await advance(ORIGIN + BAR_S + 2);
+			expect(stageOf(controller).live).toBeNull();
+			controller.quit();
+		});
+	});
+
 	describe('a level that applies at the next round', () => {
 		/** The neck drawn at level 1, gone at level 2; a long run, so no breath comes. */
 		const withNeck = (

@@ -43,7 +43,8 @@ describe('figureParamsOf', () => {
 			cursor: false,
 			thresholds: {},
 			notation: null,
-			neck: false
+			neck: false,
+			liveMarks: false
 		});
 		expect(figureParamsOf(LOCATE_NECK, 0)).toEqual({
 			feedback: 'every-cycle',
@@ -51,7 +52,8 @@ describe('figureParamsOf', () => {
 			cursor: false,
 			thresholds: {},
 			notation: null,
-			neck: false
+			neck: false,
+			liveMarks: false
 		});
 	});
 
@@ -62,7 +64,8 @@ describe('figureParamsOf', () => {
 			cursor: true,
 			thresholds: { fidelity: 0.9 },
 			notation: null,
-			neck: false
+			neck: false,
+			liveMarks: false
 		});
 		expect(figureParamsOf(RHYTHM_SILENT_BARS, 5)).toEqual({
 			feedback: 'out-of-tolerance',
@@ -70,7 +73,8 @@ describe('figureParamsOf', () => {
 			cursor: false,
 			thresholds: { regularity: 20, holdOffset: 25, holdDrift: 10, precision: 30 },
 			notation: null,
-			neck: false
+			neck: false,
+			liveMarks: false
 		});
 		expect(figureParamsOf(RHYTHM_TWO_FOUR, 0)).toMatchObject({ listen: 'aid', cursor: true });
 	});

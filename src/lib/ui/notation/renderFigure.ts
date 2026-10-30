@@ -64,6 +64,8 @@ export interface RenderOptions {
 	scale?: number;
 	/** A staff, a tab, or both, joined; absent, or neither: the one-line rhythm. */
 	notation?: Notation;
+	/** Room left free under each line, in CSS pixels; none by default. */
+	underLine?: number;
 }
 
 /** Spacing in the engraving's own units (VexFlow's staff line spacing is 10). */
@@ -512,6 +514,7 @@ export function renderFigure(
 	const rows = rowsOf(options.notation);
 	const tab = tabLook(scale);
 	const systemHeight = rows.reduce((sum, row) => sum + rowHeight(row, tab), 0);
+	const lineHeight = figure.voices.length * systemHeight + (options.underLine ?? 0) / scale;
 
 	const engraved = figure.voices.map((voice) =>
 		elementsByBar(voice, meter, bars).map((elements) =>
@@ -533,7 +536,7 @@ export function renderFigure(
 
 	host.replaceChildren();
 	const width = Math.ceil((left + perLine * barWidth + EDGE) * scale);
-	const height = Math.ceil(lines * figure.voices.length * systemHeight * scale);
+	const height = Math.ceil(lines * lineHeight * scale);
 	const renderer = new Renderer(host as HTMLDivElement, Renderer.Backends.SVG);
 	renderer.resize(width, height);
 	const ctx = renderer.getContext();
@@ -552,7 +555,7 @@ export function renderFigure(
 		for (const [b, bar] of voiceBars.entries()) {
 			const line = lineOf(b);
 			const x = left + (b % perLine) * barWidth;
-			const y = (line * figure.voices.length + v) * systemHeight;
+			const y = line * lineHeight + v * systemHeight;
 			const opensLine = b % perLine === 0;
 			const staves = barStaves(
 				rows,
@@ -592,10 +595,7 @@ export function renderFigure(
 	}
 
 	const rowHeightPx = systemHeight * scale;
-	const lineY = Array.from(
-		{ length: lines },
-		(_, line) => line * figure.voices.length * rowHeightPx
-	);
+	const lineY = Array.from({ length: lines }, (_, line) => line * lineHeight * scale);
 	return {
 		noteX,
 		barX,

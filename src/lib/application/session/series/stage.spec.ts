@@ -42,7 +42,8 @@ function modelOf(definition: ExerciseDefinition): Record<string, unknown> {
 		moment: { phase: 'round', barInRound: 0, beat: 0, fromRunStart: 0, muted: false },
 		runRounds: [],
 		endedSessions: 0,
-		played: null
+		played: null,
+			live: null
 	}) as Record<string, unknown>;
 }
 

@@ -9,6 +9,7 @@
 	import type { FigureLayout } from '$lib/ui/notation';
 	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './figure';
 	import { figureMessages } from './figureMessages';
+	import MarkShape from './MarkShape.svelte';
 
 	/**
 	 * The run played: the cycle's figure engraved whole, as small as it takes to hold on one
@@ -181,7 +182,7 @@
 							role="img"
 							aria-label={markLabel(mark)}
 						>
-							<span class="shape" aria-hidden="true"></span>
+							<MarkShape kind={mark.kind} />
 							{#if mark.label && row !== null}
 								<span class="figure-label" class:second={row === 1} aria-hidden="true"
 									>{mark.label}</span
@@ -271,82 +272,10 @@
 		height: 100%;
 	}
 
-	.mark > * {
+	.figure-label {
 		position: absolute;
 		left: 0;
 		transform: translateX(-50%);
-	}
-
-	.shape {
-		top: 2px;
-	}
-
-	.shape {
-		display: block;
-		box-sizing: border-box;
-	}
-
-	.missed .shape {
-		top: 0;
-	}
-
-	/* Each kind has its own shape, so colour is never the only cue. */
-	.on-time .shape {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--np-shade);
-	}
-
-	.early .shape,
-	.late .shape {
-		width: 0;
-		height: 0;
-		border-block: 8px solid transparent;
-	}
-
-	.early .shape {
-		border-inline-end: 12px solid var(--np-ink);
-	}
-
-	.late .shape {
-		border-inline-start: 12px solid var(--np-ink);
-	}
-
-	.missed .shape {
-		width: 16px;
-		height: 16px;
-		border: 3px solid var(--np-ink);
-		border-radius: 50%;
-	}
-
-	/* A wrong note in place: a cross on its note, neither a hole (missed) nor a diamond (extra). */
-	.wrong-pitch .shape {
-		width: 16px;
-		height: 16px;
-		background:
-			linear-gradient(
-				45deg,
-				transparent calc(50% - 2px),
-				var(--np-ink) calc(50% - 2px),
-				var(--np-ink) calc(50% + 2px),
-				transparent calc(50% + 2px)
-			),
-			linear-gradient(
-				-45deg,
-				transparent calc(50% - 2px),
-				var(--np-ink) calc(50% - 2px),
-				var(--np-ink) calc(50% + 2px),
-				transparent calc(50% + 2px)
-			);
-	}
-
-	.extra .shape {
-		width: 12px;
-		height: 12px;
-		border: 3px solid var(--np-ink);
-		transform: rotate(45deg);
-		margin-block: 2px;
 	}
 
 	/* « Le chiffre en grand »: read from a metre away. */

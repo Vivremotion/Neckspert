@@ -96,7 +96,8 @@ describe('compilePlan', () => {
 		expect(roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note))).toEqual({
 			thresholds: null,
 			aids: ['show-position'],
-			settleAfter: null
+			settleAfter: null,
+			liveMarks: false
 		});
 		const thresholds = { regularity: 1, holdOffset: 2, holdDrift: 3, precision: 4 };
 		const judged: ExerciseDefinition = {

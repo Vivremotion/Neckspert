@@ -68,6 +68,8 @@ export interface RoundGiven {
 	 * round open meanwhile; null: it closes at its handover.
 	 */
 	settleAfter: Fraction | null;
+	/** The level marks on the figure, as it plays, what was heard of each note. */
+	liveMarks: boolean;
 }
 
 /** How the series helped a round beyond its item: its content heard before it, or played along. */
@@ -101,7 +103,8 @@ export function roundGiven(
 				playAlong: help.playAlong
 			})
 		],
-		settleAfter: plan.policy.unit === 'cycle' ? SETTLE_AFTER_BARS : null
+		settleAfter: plan.policy.unit === 'cycle' ? SETTLE_AFTER_BARS : null,
+		liveMarks: params.liveMarks
 	};
 }
 

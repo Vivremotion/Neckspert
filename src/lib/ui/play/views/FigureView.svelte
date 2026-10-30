@@ -14,10 +14,12 @@
 		cycleMarks,
 		feedbackLine,
 		labelRows,
+		liveMarks,
 		toldCycle,
 		type Mark
 	} from './figure';
 	import { figureMessages } from './figureMessages';
+	import MarkShape from './MarkShape.svelte';
 	import { PICTURE_VIEWS } from './pictures';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from './PlayedCycle.svelte';
 	import Term from '$lib/ui/primitives/Term.svelte';
@@ -33,6 +35,8 @@
 	const LONG_FIGURE_BARS = 8;
 	/** Room kept above the line played: what is written over its staff (a tuplet's number). */
 	const LINE_MARGIN_PX = 24;
+	/** Room kept under each line for the marks of a level that shows them as it plays. */
+	const LIVE_MARKS_PX = 36;
 	/** Width assumed before the view is measured (and where nothing measures it). */
 	const FALLBACK_WIDTH = 640;
 	/** From this width the breath shows the run played and the next figure side by side. */
@@ -57,6 +61,8 @@
 	// Read apart too: the model is built again on every beat, its notation with it.
 	const staff = $derived(m.notation.staff);
 	const tab = $derived(m.notation.tab);
+	// Read apart too: the room for the marks is engraved, the marks themselves are not.
+	const marksRoom = $derived(m.live ? LIVE_MARKS_PX : 0);
 
 	const levelText = $derived(m.level.aid ? t.aidLevel : t.level(m.level.shown, m.level.of));
 	const header = $derived(t.header(m.exerciseLabel, levelText, t.tempo(m.tempo.unit, m.tempo.bpm)));
@@ -136,7 +142,8 @@
 		figureLayout = notation.renderFigure(host, figure, {
 			maxWidth: width,
 			scale,
-			notation: { staff, tab }
+			notation: { staff, tab },
+			underLine: marksRoom
 		});
 	});
 
@@ -155,6 +162,13 @@
 	);
 
 	const cursorLine = $derived(cursor?.line ?? null);
+
+	const shownMarks = $derived.by(() => {
+		if (!m.live || !figureLayout || breathing) return [];
+		const beatWidth = figureLayout.barWidth / beatPositions(figure.meter).length;
+		const beatMs = 60000 / (controller.view.tempoBpm || m.tempo.bpm);
+		return liveMarks(m.live, figureLayout, beatWidth, beatMs, figure);
+	});
 
 	// A figure taller than the screen starts from its top...
 	$effect(() => {
@@ -268,6 +282,20 @@
 					style:top="{figureLayout.lineY[cursor.line] ?? 0}px"
 					style:height="{figureLayout.rowHeight}px"
 				></span>
+			{/if}
+			{#if figureLayout}
+				{#each shownMarks as mark, i (i)}
+					<span
+						class="live-mark"
+						data-testid="figure-live-mark"
+						data-kind={mark.kind}
+						aria-hidden="true"
+						style:left="{mark.x}px"
+						style:top="{(figureLayout.lineY[mark.line] ?? 0) + figureLayout.rowHeight}px"
+					>
+						<MarkShape kind={mark.kind} />
+					</span>
+				{/each}
 			{/if}
 		</div>
 	{/if}
@@ -415,6 +443,14 @@
 		background: var(--np-shade);
 		opacity: 0.6;
 		transition: left 90ms linear;
+	}
+
+	/* Read while playing, from a metre away: the shapes of the run played, larger. */
+	.live-mark {
+		--mark-scale: 1.5;
+		position: absolute;
+		width: 0;
+		height: 0;
 	}
 
 	.breath {

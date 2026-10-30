@@ -309,6 +309,22 @@ function shifted(
 }
 
 /**
+ * The optimal alignment alone, no lost or added beat looked for: the same costs as `alignAttacks`,
+ * for what can be told before a round's end. `pairs[].attack` and `extra` index `attacks`.
+ */
+export function alignPlain(
+	expectations: TimedExpectation[],
+	attacks: number[],
+	fits: Fits
+): Pick<Alignment, 'pairs' | 'missed' | 'extra'> {
+	return optimalPath(
+		[...expectations].sort((a, b) => a.time - b.time),
+		attacks.map((time, index) => ({ time, index })).sort((a, b) => a.time - b.time),
+		fits
+	);
+}
+
+/**
  * Monotone optimal alignment (dynamic programming): match cost |offset| / zone (plus
  * `WRONG_PITCH_COST` for an attack that does not fit), insertion and deletion cost 1. `fits(e, a)`
  * says whether attack `a` (its index in `attacks`) plays what expectation `e` (its plan index)

@@ -158,6 +158,29 @@ function stage(
 describe('figureStage', () => {
 	const item = planned(ARPEGGIO, C_FIRST_INVERSION);
 
+	describe('live marks', () => {
+		const reading = {
+			expectations: [{ index: 0, verdict: 'on-time' as const, offsetMs: 0 }],
+			extraAtMs: []
+		};
+		const marking: ExerciseDefinition = {
+			...ARPEGGIO,
+			params: { ...ARPEGGIO.params, liveMarks: true }
+		};
+
+		it('are none at a level that does not ask for them', () => {
+			expect(stage(ARPEGGIO, item, 'round', { live: reading }).live).toBeNull();
+		});
+
+		it('tell the round under way, and nothing around it, the room for them kept', () => {
+			expect(stage(marking, item, 'round', { live: reading }).live).toEqual(reading);
+			const empty = { expectations: [], extraAtMs: [] };
+			expect(stage(marking, item, 'count-in', { live: reading }).live).toEqual(empty);
+			expect(stage(marking, item, 'breath', { live: reading }).live).toEqual(empty);
+			expect(stage(marking, item, 'round').live).toEqual(empty);
+		});
+	});
+
 	it("shows the exercise's prompt above the figure, and none without a presentation", () => {
 		const fields = ITEM_FIELDS['voicing-figure'].fields(
 			C_FIRST_INVERSION,

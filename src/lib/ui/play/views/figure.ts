@@ -16,6 +16,7 @@ import {
 	type CycleVerdict,
 	type Feedback,
 	type Figure,
+	type LiveReading,
 	type Meter
 } from '$lib/domain/time';
 import type { Locale } from '$lib/domain/types';
@@ -92,30 +93,7 @@ export function cycleMarks(
 		);
 	}
 	if (feedback === 'summary') return [];
-	const marks: Mark[] = [];
-	if (notes > 0) {
-		for (const { index, verdict, offsetMs } of report.expectations) {
-			if (verdict === 'dropped') continue;
-			const slot = index % notes;
-			const x = layout.noteX[slot];
-			const line = layout.noteLine[slot] ?? 0;
-			// A wrong note in place is marked on its note: what was wrong is its pitch.
-			if (verdict === 'wrong-pitch') {
-				marks.push({ x, line, kind: 'wrong-pitch', label: null });
-				continue;
-			}
-			if (verdict === 'missed' || offsetMs === null) {
-				marks.push({ x, line, kind: 'missed', label: null });
-				continue;
-			}
-			marks.push({
-				x: x + markOffsetPx(offsetMs, beatWidthPx, beatMs),
-				line,
-				kind: verdict,
-				label: verdict === 'on-time' ? null : signed(offsetMs)
-			});
-		}
-	}
+	const marks = expectationMarks(report.expectations, layout, beatWidthPx, beatMs);
 	const lastX = notes > 0 ? layout.noteX[notes - 1] : 0;
 	const lastLine = notes > 0 ? (layout.noteLine[notes - 1] ?? 0) : 0;
 	const placed =
@@ -130,6 +108,69 @@ export function cycleMarks(
 		marks.push({ ...at, kind: 'extra', label: null });
 	}
 	return feedback === 'out-of-tolerance' ? marks.filter((m) => m.kind !== 'on-time') : marks;
+}
+
+/** The marks of expectations over the layout of their figure, each on its note. */
+function expectationMarks(
+	expectations: CycleReport['expectations'],
+	layout: FigureLayout,
+	beatWidthPx: number,
+	beatMs: number
+): Mark[] {
+	const notes = layout.noteX.length;
+	const marks: Mark[] = [];
+	if (notes === 0) return marks;
+	for (const { index, verdict, offsetMs } of expectations) {
+		if (verdict === 'dropped') continue;
+		const slot = index % notes;
+		const x = layout.noteX[slot];
+		const line = layout.noteLine[slot] ?? 0;
+		// A wrong note in place is marked on its note: what was wrong is its pitch.
+		if (verdict === 'wrong-pitch') {
+			marks.push({ x, line, kind: 'wrong-pitch', label: null });
+			continue;
+		}
+		if (verdict === 'missed' || offsetMs === null) {
+			marks.push({ x, line, kind: 'missed', label: null });
+			continue;
+		}
+		marks.push({
+			x: x + markOffsetPx(offsetMs, beatWidthPx, beatMs),
+			line,
+			kind: verdict,
+			label: verdict === 'on-time' ? null : signed(offsetMs)
+		});
+	}
+	return marks;
+}
+
+/**
+ * The marks of a round as it plays: no figures, they are read while playing. A figure engraved
+ * once and looped shows its current loop's marks only.
+ */
+export function liveMarks(
+	reading: LiveReading,
+	layout: FigureLayout,
+	beatWidthPx: number,
+	beatMs: number,
+	figure: Figure
+): Mark[] {
+	const notes = layout.noteX.length;
+	if (notes === 0) return [];
+	const lastIndex = reading.expectations.at(-1)?.index ?? 0;
+	const loop = Math.floor(lastIndex / notes);
+	const current = reading.expectations.filter((e) => Math.floor(e.index / notes) === loop);
+	const added = reading.extraAtMs.flatMap((ms) => {
+		const at = extraPlace(figure, layout, ms, beatMs);
+		return at ? [{ ...at, kind: 'extra' as const, label: null }] : [];
+	});
+	return [
+		...expectationMarks(current, layout, beatWidthPx, beatMs).map((mark) => ({
+			...mark,
+			label: null
+		})),
+		...added
+	];
 }
 
 /** Where an attack `ms` after the cycle's start stands on the engraving, held inside the figure. */

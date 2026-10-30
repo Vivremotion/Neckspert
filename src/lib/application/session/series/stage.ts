@@ -1,5 +1,5 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { ResponseValue, RoundPlan } from '$lib/domain/time';
+import type { LiveReading, ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
 import { FIGURE_VIEW } from '$lib/application/presentation/playViews';
@@ -57,6 +57,8 @@ export function stageModel(input: {
 	endedSessions: number;
 	/** The run's last round and its plan, shown at the breath with its marks; null when none was played. */
 	played: { item: PlannedItem; plan: RoundPlan; startBar?: number } | null;
+	/** What the round under way can already tell, when its level asks for it. */
+	live: LiveReading | null;
 }): unknown {
 	const { definition, item, presenter, plan, settled, place, locale, random, moment } = input;
 	if (showsFigure(definition)) {
@@ -74,7 +76,8 @@ export function stageModel(input: {
 			locale,
 			random,
 			chordDiagram: input.chordDiagram,
-			endedSessions: input.endedSessions
+			endedSessions: input.endedSessions,
+			live: input.live
 		});
 	}
 	if (definition.presentation) {

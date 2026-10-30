@@ -170,6 +170,8 @@ L'essai a montré deux exercices inutilisables : le Thème, 49 mesures sur 10 00
 
 L'aide s'écrit comme un niveau ordinaire, pas `aid: true` : on ne descend à un niveau d'aide que par l'anti-blocage. La liaison du Geste a presque la même règle codée en dur (`LINK_AID_AFTER_MISSES`) : elle pourra passer par ces pièces quand le Geste deviendra de la donnée.
 
+Le deuxième essai a montré un autre manque : pendant le jeu, rien ne dit si la note a été reconnue, juste, ni en place, et le doute s'installe. **`liveMarks: true` sur un niveau** marque chaque note sous la ligne jouée, avec les formes du bilan et sans chiffres. Le Thème étant un seul round de 49 mesures, attendre son verdict ne convenait pas, et relancer le juge à chaque note coûtait une dizaine de millions de cases en fin de morceau : `Pairing.live` n'aligne que ce qui n'est pas encore tranché, avec les mêmes coûts mais sans chercher de temps perdu, et ne revient jamais sur ce qu'il a dit (`alignPlain`). Un silence n'est dit qu'une fois passé `LIVE_READING_MARGIN_S` et la latence du capteur après la fin de sa zone : sans cette marge, le premier essai avec un vrai détecteur comptait « manquée » une note jouée tard dont la lecture arrivait après. Ce n'est pas une `Aid` enregistrée : elle dit ce qui vient d'être joué, pas ce qu'il faut jouer.
+
 ### Les dix décisions du plan
 
 - **D1 — Une figure se désigne par son id.** `figure: { id } | { param } | { item }` ; la spec disait « écrite (texte LilyPond) ». Les figures sont listées une fois dans `ExerciseDefinition.figures` (texte LilyPond, parsé au chargement) : il n'y a pas deux façons d'écrire la même figure. Le gabarit gagne aussi `round.accompaniment` (une `Accompaniment` ou `{ param }`), comme la spec le prévoyait.

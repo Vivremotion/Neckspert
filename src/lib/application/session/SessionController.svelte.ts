@@ -17,6 +17,7 @@ import {
 	levelRange,
 	renderSounds,
 	type Accompaniment,
+	type LiveReading,
 	type Meter,
 	type ResponseValue,
 	type RoundOutcome,
@@ -91,6 +92,8 @@ interface OpenRound {
 	item: PlannedItem;
 	plan: RoundPlan;
 	runner: RoundRunner;
+	/** What it can already tell, when its level marks it on the figure. */
+	live?: LiveReading;
 	/** Its exercise and scope, at the tempo it plays (null in free time). */
 	execution: Execution;
 	/** Transport bar of its start (its target, for a change). */
@@ -1123,7 +1126,13 @@ export class SessionController implements PlaySessionController {
 						? (presenter.debugLines?.(item.item, payload) ?? [])
 						: []
 			},
-			onEvent: (event) => this.onRunnerEvent(round, event)
+			onEvent: (event) => this.onRunnerEvent(round, event),
+			...(given.liveMarks && {
+				onLive: (reading: LiveReading) => {
+					round.live = reading;
+					if (this.round === round) this.showNow();
+				}
+			})
 		});
 		this.round = round;
 		this.previous = item;
@@ -1840,7 +1849,8 @@ export class SessionController implements PlaySessionController {
 						plan: this.round.plan,
 						startBar: this.round.fromRunStart ?? 0
 					}
-				: null
+				: null,
+			live: this.round?.item === item ? (this.round.live ?? null) : null
 		});
 		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
 	}

@@ -35,6 +35,7 @@ function model(): FigureStageModel {
 		prompt: null,
 		notation: { staff: false, tab: false },
 		neck: null,
+		live: null,
 		chordDiagram: 'strings'
 	};
 }

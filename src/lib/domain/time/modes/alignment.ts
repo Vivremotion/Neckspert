@@ -1,4 +1,11 @@
-import { alignAttacks, alignContext, captureLeadIn, timeExpectations } from '../judge/align';
+import {
+	alignAttacks,
+	alignContext,
+	alignPlain,
+	captureLeadIn,
+	timeExpectations,
+	type TimedExpectation
+} from '../judge/align';
 import type { Fraction } from '../fraction';
 import type { Judged, RoundPlan } from '../plan';
 import type { TempoMap } from '../tempoMap';
@@ -6,6 +13,7 @@ import type { RoundTimes } from './times';
 import type {
 	Attack,
 	IgnoreReason,
+	LiveReading,
 	Pairing,
 	PairingContext,
 	PairingMode,
@@ -50,6 +58,12 @@ class AlignmentPairing implements Pairing {
 	private readonly closesS: number;
 	/** The reading kept of each attack, by its time. */
 	private readonly kept = new Map<number, { payload: unknown; final: boolean }>();
+	private readonly timed: TimedExpectation[];
+	/** What `live` has told, by expectation: never taken back. */
+	private readonly told = new Map<number, LiveReading['expectations'][number]>();
+	/** The attacks `live` has told, as an answer or as added. */
+	private readonly toldAttacks = new Set<number>();
+	private readonly extraAtMs: number[] = [];
 
 	constructor(private readonly context: PairingContext) {
 		const { clock, plan, times } = context;
@@ -62,6 +76,7 @@ class AlignmentPairing implements Pairing {
 			clock.start,
 			times
 		));
+		this.timed = timeExpectations(plan, clock.map, clock.start);
 	}
 
 	offer(attack: Attack): { fate: 'answer' | IgnoreReason; judged: null } {
@@ -131,6 +146,59 @@ class AlignmentPairing implements Pairing {
 			clampedWindows: alignment.clampedWindows,
 			attacks
 		};
+	}
+
+	/**
+	 * Only what is still undecided is aligned, so its cost does not grow with the round. A right
+	 * note whose reading is final is told at once; anything else waits for its zone to close, a
+	 * right note may still come in it. An attack outside every zone still open is told as added.
+	 */
+	live(now: number): LiveReading {
+		const { plan } = this.context;
+		const open = this.timed.filter((e) => !this.told.has(e.index) && e.time - e.zoneS <= now);
+		const attacks = [...this.kept.keys()]
+			.filter((time) => !this.toldAttacks.has(time))
+			.sort((a, b) => a - b);
+		const fits = (expectation: number, attack: number): boolean =>
+			plan.expectations[expectation].content === null ||
+			this.context.judge(expectation, this.kept.get(attacks[attack])?.payload)?.correct === true;
+		const closed = (index: number): boolean => {
+			const e = this.timed.find((t) => t.index === index);
+			return e !== undefined && e.time + e.zoneS <= now;
+		};
+		const path = alignPlain(open, attacks, fits);
+		for (const { expectation, attack, offsetMs, verdict, fits: right } of path.pairs) {
+			const time = attacks[attack];
+			if (!closed(expectation) && !(right && this.kept.get(time)?.final)) continue;
+			this.told.set(expectation, {
+				index: expectation,
+				verdict: right ? verdict : 'wrong-pitch',
+				offsetMs
+			});
+			this.toldAttacks.add(time);
+		}
+		for (const expectation of path.missed) {
+			if (closed(expectation)) {
+				this.told.set(expectation, { index: expectation, verdict: 'missed', offsetMs: null });
+			}
+		}
+		for (const attack of path.extra) {
+			const time = attacks[attack];
+			const taken = this.timed.some(
+				(e) => !this.told.has(e.index) && Math.abs(time - e.time) <= e.zoneS
+			);
+			if (taken) continue;
+			this.toldAttacks.add(time);
+			this.extraAtMs.push((time - this.map.toSeconds(this.start)) * 1000);
+		}
+		return {
+			expectations: [...this.told.values()].sort((a, b) => a.index - b.index),
+			extraAtMs: [...this.extraAtMs].sort((a, b) => a - b)
+		};
+	}
+
+	liveWakes(): number[] {
+		return this.timed.map((e) => e.time + e.zoneS);
 	}
 }
 

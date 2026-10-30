@@ -84,6 +84,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		prompt: null,
 		notation: { staff: false, tab: false },
 		neck: null,
+		live: null,
 		chordDiagram: 'strings',
 		...overrides
 	};
@@ -211,6 +212,35 @@ describe('FigureView', () => {
 			// A little room above the line, for what is written over its staff.
 			expect(screen.getByTestId('figure-score').scrollTop).toBe(top - 24);
 		});
+	});
+
+	it('marks each note as it plays under its line, at a level that asks for it', async () => {
+		render(FigureView, {
+			props: {
+				controller: running(),
+				model: model({
+					live: {
+						expectations: [
+							{ index: 0, verdict: 'on-time', offsetMs: 0 },
+							{ index: 1, verdict: 'wrong-pitch', offsetMs: 0 }
+						],
+						extraAtMs: []
+					}
+				})
+			}
+		});
+		await engraved();
+		await vi.waitFor(() => {
+			expect(
+				screen.getAllByTestId('figure-live-mark').map((mark) => mark.getAttribute('data-kind'))
+			).toEqual(['on-time', 'wrong-pitch']);
+		});
+	});
+
+	it('marks nothing as it plays at a level that does not ask for it', async () => {
+		render(FigureView, { props: { controller: running(), model: model() } });
+		await engraved();
+		expect(screen.queryByTestId('figure-live-mark')).toBeNull();
 	});
 
 	it('never shows the cursor in a muted bar, and says « silence »', async () => {
