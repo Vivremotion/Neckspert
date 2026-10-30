@@ -28,6 +28,8 @@ export interface ItemSource {
 	 * series changes the level alone.
 	 */
 	atLevel?(item: PlannedItem, exerciseLevel: number): PlannedItem;
+	/** What `next` will serve, for a source that knows without being asked. Serves nothing. */
+	peek?(): PlannedItem | null;
 }
 
 /** Serves a fixed list in order (free play). */

@@ -19,6 +19,7 @@ export function createExerciseItemSource(definition: ExerciseDefinition): ItemSo
 	const itemAt = turnItems(definition);
 	let turns = 0;
 	const turnOf = new WeakMap<PlannedItem, number>();
+	let peeked: { turn: number; item: PlannedItem } | null = null;
 	const served = (turn: number, level: number): PlannedItem => {
 		const item: PlannedItem = {
 			exerciseId: definition.id,
@@ -35,6 +36,10 @@ export function createExerciseItemSource(definition: ExerciseDefinition): ItemSo
 	};
 	return {
 		next: () => served(turns++, 0),
+		peek: () => {
+			if (peeked?.turn !== turns) peeked = { turn: turns, item: served(turns, 0) };
+			return peeked.item;
+		},
 		atLevel: (item, level) => {
 			const turn = turnOf.get(item);
 			if (turn === undefined) throw new Error('an item this source did not serve');

@@ -85,6 +85,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		notation: { staff: false, tab: false },
 		neck: null,
 		live: null,
+		nextPrompt: null,
 		chordDiagram: 'strings',
 		...overrides
 	};
@@ -235,6 +236,17 @@ describe('FigureView', () => {
 				screen.getAllByTestId('figure-live-mark').map((mark) => mark.getAttribute('data-kind'))
 			).toEqual(['on-time', 'wrong-pitch']);
 		});
+	});
+
+	it('shows what comes next beside the prompt, when the model has it', () => {
+		const prompt = { primary: 'D7', secondary: null };
+		render(FigureView, {
+			props: {
+				controller: running(),
+				model: model({ prompt, nextPrompt: { primary: 'Gm7', secondary: null } })
+			}
+		});
+		expect(screen.getByTestId('figure-next-prompt').textContent).toContain('Gm7');
 	});
 
 	it('marks nothing as it plays at a level that does not ask for it', async () => {

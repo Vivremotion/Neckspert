@@ -507,6 +507,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		notation: { staff: false, tab: false },
 		neck: null,
 		live: null,
+		nextPrompt: null,
 		chordDiagram: 'strings',
 		...overrides
 	};

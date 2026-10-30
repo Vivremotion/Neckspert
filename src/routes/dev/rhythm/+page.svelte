@@ -91,6 +91,7 @@
 		notation: { staff: false, tab: false },
 		neck: null,
 		live: null,
+		nextPrompt: null,
 		chordDiagram: 'strings'
 	};
 	/** A failed cycle whose second bar lost a beat. */

@@ -1850,7 +1850,8 @@ export class SessionController implements PlaySessionController {
 						startBar: this.round.fromRunStart ?? 0
 					}
 				: null,
-			live: this.round?.item === item ? (this.round.live ?? null) : null
+			live: this.round?.item === item ? (this.round.live ?? null) : null,
+			coming: this.pending ?? this.givenBack[0] ?? this.source?.peek?.() ?? null
 		});
 		this.view.stage = model === undefined ? null : { view: playViewOf(definition), model };
 	}

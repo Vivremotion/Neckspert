@@ -220,6 +220,35 @@ describe('a sequence of chord shapes on the series', () => {
 		});
 	});
 
+	describe('a level that shows what comes next', () => {
+		it('names the next chord in the last beats of each round', async () => {
+			const showing: ExerciseDefinition = {
+				...FORM_EXERCISE,
+				params: {
+					...FORM_EXERCISE.params,
+					nextBeats: 1,
+					pacing: { roundsPerBreath: 40, breathMinMs: 4000 }
+				}
+			};
+			const { controller, advance } = await sequenceSeries(showing, {
+				pattern: [1, 2, 3, 4],
+				met: true
+			});
+			await controller.start();
+			await advance(ORIGIN + BAR_S + 0.1, false);
+			expect(stageOf(controller).prompt?.primary).toBe('Cmaj7');
+			expect(stageOf(controller).nextPrompt).toBeNull();
+			await advance(ORIGIN + BAR_S + 3.1, false);
+			expect(stageOf(controller).nextPrompt?.primary).toBe('Fmaj7');
+			await advance(ORIGIN + 2 * BAR_S + 0.1, false);
+			expect(stageOf(controller).prompt?.primary).toBe('Fmaj7');
+			expect(stageOf(controller).nextPrompt).toBeNull();
+			await advance(ORIGIN + 2 * BAR_S + 1.1, false);
+			expect(stageOf(controller).nextPrompt?.primary).toBe('Gmaj7');
+			controller.quit();
+		});
+	});
+
 	describe('a level that marks what it hears', () => {
 		const marking: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,

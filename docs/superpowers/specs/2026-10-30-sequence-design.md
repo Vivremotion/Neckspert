@@ -174,6 +174,8 @@ Le deuxième essai a montré un autre manque : pendant le jeu, rien ne dit si la
 
 Le même essai a montré le Thème entièrement faux, à tort : sa mécanique `figure` n'ouvre que le capteur d'attaques, alors que son tour écoute avec le capteur de notes, et un tour ignore tout autre capteur que le sien. **Un exercice joué seul ouvre les capteurs que son tour nomme** (`exercisePresenter`), ceux de sa mécanique seulement si son tour n'en nomme aucun. Les vérifications précédentes avaient été faites micro muet, où un tour sourd et un joueur silencieux donnent le même écran.
 
+Et les Tétrades faisaient rater chaque première note d'accord, faute de voir venir le suivant. **`nextBeats` sur un niveau** montre, dans les derniers temps d'un tour, l'invite de ce qui vient (`nextPrompt`) et ses notes sur le manche, avec le ton `next` que la liaison du Geste dessinait déjà (`neckWithNext`). La source dit ce qui vient sans le servir (`ItemSource.peek`) ; les cases du manche couvrent les deux accords dès le début du tour, pour que rien ne bouge quand les notes apparaissent. C'est un nombre et non un booléen : le temps qu'il faut pour se préparer se règle à l'essai, et un niveau peut le réduire jusqu'à le retirer.
+
 ### Les dix décisions du plan
 
 - **D1 — Une figure se désigne par son id.** `figure: { id } | { param } | { item }` ; la spec disait « écrite (texte LilyPond) ». Les figures sont listées une fois dans `ExerciseDefinition.figures` (texte LilyPond, parsé au chargement) : il n'y a pas deux façons d'écrire la même figure. Le gabarit gagne aussi `round.accompaniment` (une `Accompaniment` ou `{ param }`), comme la spec le prévoyait.

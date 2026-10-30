@@ -34,6 +34,7 @@ import {
 	DERIVED_PICTURES,
 	PICTURES,
 	neckPicture,
+	neckWithNext,
 	type Picture
 } from '$lib/application/presentation/pictures';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
@@ -118,8 +119,13 @@ export interface FigureStageModel {
 	 * line), as its level writes, else as its round's content gives (`notationOf`).
 	 */
 	notation: Notation;
-	/** The notes its round derives from its item, on the neck, when its level draws them; else null. */
+	/**
+	 * The notes its round derives from its item, on the neck, when its level draws them, those of
+	 * what comes next added once it shows them; else null.
+	 */
 	neck: Picture | null;
+	/** The prompt of what comes next, in the last beats of a round whose level shows it; else null. */
+	nextPrompt: Prompt;
 	/**
 	 * What was heard of the round under way, as far as it can be told, when its level marks it on
 	 * the figure; else null, so the view keeps no room for it.
@@ -394,6 +400,8 @@ export function figureStage(input: {
 	endedSessions: number;
 	/** What the round under way can already tell; null when it tells nothing yet. */
 	live?: LiveReading | null;
+	/** What the series will play after the round under way, when it knows. */
+	coming?: PlannedItem | null;
 }): FigureStageModel {
 	const { definition, item, moment, barInRound, locale, random } = input;
 	const level = item.exerciseLevel;
@@ -417,6 +425,19 @@ export function figureStage(input: {
 	// A heard cycle shows where the figure stands, whatever the level gives.
 	const cursorShown = listening || (playing && params.cursor && !muted);
 	const prompt = promptOf(definition, item, locale, random);
+	const coming = moment === 'round' && params.nextBeats > 0 ? (input.coming ?? null) : null;
+	// Beats left in the round, its first beat counted from its start whatever bar it opens in.
+	const left = input.plan.length
+		.sub(
+			barLength(meter)
+				.mul(Fraction.of(barInRound))
+				.add(beatPositions(meter)[input.beat] ?? Fraction.ZERO)
+		)
+		.div(meter.unit)
+		.toNumber();
+	const nextDue = coming !== null && left <= params.nextBeats;
+	const neck = params.neck ? neckOf(definition, item) : null;
+	const comingNeck = neck && coming ? neckOf(definition, coming) : null;
 	return {
 		phase: playing
 			? 'play'
@@ -452,7 +473,11 @@ export function figureStage(input: {
 		plainWords: input.endedSessions < PLAIN_WORDS_SESSIONS,
 		prompt,
 		notation: notationOf(definition, level),
-		neck: params.neck ? neckOf(definition, item) : null,
+		neck:
+			neck?.kind === 'neck' && comingNeck?.kind === 'neck'
+				? neckWithNext(neck, comingNeck, nextDue)
+				: neck,
+		nextPrompt: nextDue ? promptOf(definition, coming, locale, random) : null,
 		live: params.liveMarks ? ((moment === 'round' ? input.live : null) ?? NOTHING_HEARD) : null,
 		chordDiagram: input.chordDiagram
 	};

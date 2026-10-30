@@ -13,13 +13,15 @@ import { lowestShape, shapeAt, shapeOf } from './triadWords';
 export type Picture =
 	| { kind: 'string'; string: StringNumber; label: string }
 	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] }
-	| { kind: 'neck'; notes: NeckNote[] };
+	| { kind: 'neck'; notes: NeckNote[]; frets?: { low: number; high: number } };
 
 /** A note named at its place on the neck. */
 export interface NeckNote {
 	string: StringNumber;
 	fret: number;
 	name: string;
+	/** A note of what comes next, not of what plays now. */
+	next?: true;
 }
 
 /**
@@ -35,6 +37,32 @@ export function neckPicture(contents: readonly unknown[]): Picture {
 			: [{ string, fret: place.fret, name: name ?? pitchOfMidi(midi) }];
 	});
 	return { kind: 'neck', notes };
+}
+
+/**
+ * The neck of what plays now, the notes of what comes next added once `due`. The frets span both
+ * from the start, so the notes do not move when those of what comes next appear. A place both play
+ * shows the note played now.
+ */
+export function neckWithNext(
+	now: Picture & { kind: 'neck' },
+	next: Picture & { kind: 'neck' },
+	due: boolean
+): Picture {
+	const frets = [...now.notes, ...next.notes].map((note) => note.fret);
+	const taken = new Set(now.notes.map((note) => `${note.string}-${note.fret}`));
+	return {
+		kind: 'neck',
+		frets: { low: Math.min(...frets), high: Math.max(...frets) },
+		notes: [
+			...now.notes,
+			...(due
+				? next.notes
+						.filter((note) => !taken.has(`${note.string}-${note.fret}`))
+						.map((note) => ({ ...note, next: true as const }))
+				: [])
+		]
+	};
 }
 
 export interface PictureKind {

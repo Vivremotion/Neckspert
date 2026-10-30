@@ -11,17 +11,20 @@
 <script lang="ts">
 	let {
 		notes,
-		strings
+		strings,
+		span
 	}: {
 		notes: readonly NeckDiagramNote[];
 		/** The strings drawn, top row first, with their names. */
 		strings: readonly { string: number; name: string }[];
+		/** The frets to span, whatever the notes; absent: those of the notes. */
+		span?: { low: number; high: number };
 	} = $props();
 
 	const frets = $derived.by(() => {
 		const played = notes.map((note) => note.fret);
-		const low = Math.max(0, Math.min(...played) - 1);
-		const high = Math.max(...played) + 1;
+		const low = Math.max(0, (span?.low ?? Math.min(...played)) - 1);
+		const high = (span?.high ?? Math.max(...played)) + 1;
 		return Array.from({ length: high - low + 1 }, (_, i) => low + i);
 	});
 	const col = (fret: number) => frets.indexOf(fret) + 2;

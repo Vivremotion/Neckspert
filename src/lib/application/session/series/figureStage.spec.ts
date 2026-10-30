@@ -158,6 +158,41 @@ function stage(
 describe('figureStage', () => {
 	const item = planned(ARPEGGIO, C_FIRST_INVERSION);
 
+	describe('what comes next', () => {
+		const FORMS: ExerciseDefinition = {
+			...ARPEGGIO,
+			params: { ...ARPEGGIO.params, nextBeats: 2, neck: true }
+		};
+		const fourBeats = planned(FORMS, C_FIRST_INVERSION);
+		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', occurrence: 0 });
+
+		it('shows only in the last beats of its round', () => {
+			const at = (beat: number) =>
+				stage(FORMS, fourBeats, 'round', { beat, coming }).nextPrompt?.primary ?? null;
+			expect(at(0)).toBeNull();
+			expect(at(1)).toBeNull();
+			expect(at(2)).not.toBeNull();
+			expect(at(3)).not.toBeNull();
+		});
+
+		it('adds its notes to the neck once due, the frets spanning both from the start', () => {
+			const neckAt = (beat: number) => {
+				const neck = stage(FORMS, fourBeats, 'round', { beat, coming }).neck;
+				if (neck?.kind !== 'neck') throw new Error('no neck');
+				return neck;
+			};
+			expect(neckAt(0).notes.some((note) => note.next)).toBe(false);
+			expect(neckAt(3).notes.some((note) => note.next)).toBe(true);
+			expect(neckAt(0).frets).toEqual(neckAt(3).frets);
+		});
+
+		it('does not show at a level that does not ask for it, nor out of a round', () => {
+			expect(stage(ARPEGGIO, item, 'round', { beat: 3, coming }).nextPrompt).toBeNull();
+			expect(stage(FORMS, fourBeats, 'count-in', { beat: 3, coming }).nextPrompt).toBeNull();
+			expect(stage(FORMS, fourBeats, 'round', { beat: 3 }).nextPrompt).toBeNull();
+		});
+	});
+
 	describe('live marks', () => {
 		const reading = {
 			expectations: [{ index: 0, verdict: 'on-time' as const, offsetMs: 0 }],

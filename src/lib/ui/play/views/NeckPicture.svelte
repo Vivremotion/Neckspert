@@ -13,13 +13,21 @@
 	}));
 
 	const notes = $derived(
-		picture.kind === 'neck' ? picture.notes.map((note) => ({ ...note, tone: 'now' as const })) : []
+		picture.kind === 'neck'
+			? picture.notes.map(({ string, fret, name, next }) => ({
+					string,
+					fret,
+					name,
+					tone: next ? ('next' as const) : ('now' as const)
+				}))
+			: []
 	);
+	const span = $derived(picture.kind === 'neck' ? picture.frets : undefined);
 </script>
 
 {#if notes.length > 0}
 	<div class="neck-picture">
-		<NeckDiagram {notes} strings={STRINGS} />
+		<NeckDiagram {notes} strings={STRINGS} {span} />
 	</div>
 {/if}
 

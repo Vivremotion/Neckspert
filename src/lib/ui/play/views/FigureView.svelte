@@ -204,6 +204,9 @@
 			{#if m.prompt.secondary}
 				<span class="secondary">{m.prompt.secondary}</span>
 			{/if}
+			{#if m.nextPrompt}
+				<span class="next-prompt" data-testid="figure-next-prompt">→ {m.nextPrompt.primary}</span>
+			{/if}
 		</p>
 	{/if}
 
@@ -376,6 +379,13 @@
 
 	.prompt .secondary {
 		font-size: var(--np-type-body);
+	}
+
+	/* What comes next, beside what plays now: read at a glance, without taking its place. */
+	.prompt .next-prompt {
+		font-size: calc(var(--np-type-prompt) * 0.7);
+		line-height: 1.1;
+		color: var(--np-shade);
 	}
 
 	.expected {

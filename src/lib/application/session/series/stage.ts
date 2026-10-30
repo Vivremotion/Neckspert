@@ -59,6 +59,8 @@ export function stageModel(input: {
 	played: { item: PlannedItem; plan: RoundPlan; startBar?: number } | null;
 	/** What the round under way can already tell, when its level asks for it. */
 	live: LiveReading | null;
+	/** What the series will play after the round under way, when it knows. */
+	coming: PlannedItem | null;
 }): unknown {
 	const { definition, item, presenter, plan, settled, place, locale, random, moment } = input;
 	if (showsFigure(definition)) {
@@ -77,7 +79,8 @@ export function stageModel(input: {
 			random,
 			chordDiagram: input.chordDiagram,
 			endedSessions: input.endedSessions,
-			live: input.live
+			live: input.live,
+			coming: input.coming
 		});
 	}
 	if (definition.presentation) {
