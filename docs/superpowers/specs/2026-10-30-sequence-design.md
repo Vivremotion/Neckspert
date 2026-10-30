@@ -159,6 +159,17 @@ Garde de fusion : `npm test && npm run check`.
 
 Branche `plan/sequence-s` (plan `docs/superpowers/plans/2026-10-30-s-sequence.md`, treize tâches, une tâche 12b et une tâche 14). Ce qui suit dit où la réalisation s'écarte de la spec ou la précise. Les rapports de tâche et le registre des décisions de l'exécution sont dans `.superpowers/sdd/2026-10-30-s-sequence/` (ignoré par git).
 
+### Après le premier essai de l'auteur
+
+L'essai a montré deux exercices inutilisables : le Thème, 49 mesures sur 10 000 px de haut qu'aucun défilement ne suivait, précédé de 2 min 48 d'écoute ; les Tétrades, sans aucune aide pour qui ne connaît pas encore les formes, le niveau d'aide écrit étant inatteignable. Quatre pièces génériques, aucune propre à ces exercices :
+
+- **`neck: true` sur un niveau** dessine sur le manche les notes que le tour dérive de son élément (image `neck`). La forme entière, même sur un changement qui n'en joue que deux : c'est elle qui s'apprend.
+- **Le nom d'une note suit la forme** (`movedForm`, `spelledLike`), donc E♭ G B♭ D♭ sur E♭7. La portée, elle, écrit toujours en dièses.
+- **`flow.levelChange: 'next-round'`** applique un niveau au tour enchaîné suivant, s'il garde le tempo, sans l'annoncer. Sans lui, l'aide revenait à la fin de la grille, trois minutes plus tard.
+- **La vue `figure` garde sa hauteur** et suit la ligne jouée ; **`flow.demonstration: false`** retire l'écoute de la première rencontre.
+
+L'aide s'écrit comme un niveau ordinaire, pas `aid: true` : on ne descend à un niveau d'aide que par l'anti-blocage. La liaison du Geste a presque la même règle codée en dur (`LINK_AID_AFTER_MISSES`) : elle pourra passer par ces pièces quand le Geste deviendra de la donnée.
+
 ### Les dix décisions du plan
 
 - **D1 — Une figure se désigne par son id.** `figure: { id } | { param } | { item }` ; la spec disait « écrite (texte LilyPond) ». Les figures sont listées une fois dans `ExerciseDefinition.figures` (texte LilyPond, parsé au chargement) : il n'y a pas deux façons d'écrire la même figure. Le gabarit gagne aussi `round.accompaniment` (une `Accompaniment` ou `{ param }`), comme la spec le prévoyait.
