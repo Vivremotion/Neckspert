@@ -76,6 +76,23 @@ describe('convertMelody', () => {
 		expect(convertMelody(xml, 'P1').lilypond.split('\n')[0]).toBe('r2 r4 g,4\\6 |');
 	});
 
+	it('accepts the standard tuning in both octave conventions, and warns on another', () => {
+		// P1 writes it an octave above the sound (E3 to E5), P2 as the sound (E2 to E4)
+		expect(FIXTURE).toContain('<tuning-octave>5</tuning-octave>');
+		expect(FIXTURE).toContain('<tuning-octave>2</tuning-octave>');
+		expect(convertMelody(FIXTURE, 'P1').warnings).toEqual([]);
+		const shapes: string[] = [];
+		listShapes(FIXTURE, 'P2', shapes);
+		expect(shapes).toEqual([]);
+		const dropped = FIXTURE.replace(
+			'<tuning-step>D</tuning-step>\n\t\t\t\t\t\t<tuning-octave>4</tuning-octave>',
+			'<tuning-step>C</tuning-step>\n\t\t\t\t\t\t<tuning-octave>4</tuning-octave>'
+		);
+		expect(convertMelody(dropped, 'P1').warnings).toEqual([
+			'tuning is E3 A3 C4 G4 B4 E5, not the standard tuning: pitches are read in standard tuning'
+		]);
+	});
+
 	it('says each warning once', () => {
 		const bare =
 			'<note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>';

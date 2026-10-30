@@ -20,8 +20,14 @@ import { pathToFileURL } from 'node:url';
 /** MIDI pitch of the open strings of a guitar in standard tuning, by string number (1 = high E). */
 const OPEN_STRINGS = { 1: 64, 2: 59, 3: 55, 4: 50, 5: 45, 6: 40 };
 const STRING_COUNT = 6;
-/** The staff tuning as the export writes it (one octave above the sound), lowest string first. */
-const WRITTEN_TUNING = ['E3', 'A3', 'D4', 'G4', 'B4', 'E5'];
+/**
+ * The standard tuning as a staff declares it, lowest string first. A part writes it either as the
+ * guitar's written convention (one octave above the sound) or as the sound itself.
+ */
+const STANDARD_TUNINGS = [
+	['E3', 'A3', 'D4', 'G4', 'B4', 'E5'],
+	['E2', 'A2', 'D3', 'G3', 'B3', 'E4']
+].map((tuning) => tuning.join(' '));
 /** The notation writes the guitar this many semitones above what sounds. */
 const WRITTEN_OCTAVE_SEMITONES = 12;
 const NOTE_TYPES = { whole: 1, half: 2, quarter: 4, eighth: 8, '16th': 16, '32nd': 32 };
@@ -304,7 +310,7 @@ function checkTuning(details, warn) {
 	const tuning = children(details, 'staff-tuning')
 		.sort((a, b) => Number(a.attrs.line) - Number(b.attrs.line))
 		.map((t) => `${textOf(t, 'tuning-step')}${textOf(t, 'tuning-octave')}`);
-	if (tuning.length > 0 && tuning.join(' ') !== WRITTEN_TUNING.join(' ')) {
+	if (tuning.length > 0 && !STANDARD_TUNINGS.includes(tuning.join(' '))) {
 		warn(
 			`tuning is ${tuning.join(' ')}, not the standard tuning: pitches are read in standard tuning`
 		);
