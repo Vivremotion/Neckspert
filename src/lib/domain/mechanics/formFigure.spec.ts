@@ -49,7 +49,7 @@ describe('formFigureRules', () => {
 });
 
 describe('formNamed', () => {
-	const form = { id: 'maj7', symbol: 'maj7', notes: [{ midi: 48, string: 5 }] };
+	const form = { id: 'maj7', symbol: 'maj7', notes: [{ midi: 48, string: 5, name: 'C' }] };
 
 	it('finds a form by its id', () => {
 		expect(formNamed([form], 'maj7')).toBe(form);

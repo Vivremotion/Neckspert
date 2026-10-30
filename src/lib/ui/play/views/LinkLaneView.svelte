@@ -3,6 +3,7 @@
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import DrawnMiss from './DrawnMiss.svelte';
+	import NeckDiagram from './NeckDiagram.svelte';
 	import { linkLaneLayout } from './linkLane';
 	import { viewMessages } from './messages';
 
@@ -37,24 +38,15 @@
 	const ahead = $derived(tiles.filter((tile) => tile.offset > 0));
 	const ARROWS = { up: '↗', down: '↘' } as const;
 
-	/** The aid's neck: the frets of the two shapes, one either side; the high string on top. */
+	/** The aid's neck: the two shapes, one either side; the high string on top. */
 	const neck = $derived.by(() => {
 		if (!lane.aid) return null;
-		const notes = [
-			...lane.aid.now.map((note) => ({ ...note, shape: 'now' as const })),
-			...(lane.aid.next ?? []).map((note) => ({ ...note, shape: 'next' as const }))
-		];
-		const fretsPlayed = notes.map((note) => note.fret);
-		const low = Math.max(0, Math.min(...fretsPlayed) - 1);
-		const high = Math.max(...fretsPlayed) + 1;
-		const frets = Array.from({ length: high - low + 1 }, (_, i) => low + i);
-		const strings = [...lane.strings].reverse();
 		return {
-			notes,
-			frets,
-			strings,
-			col: (fret: number) => frets.indexOf(fret) + 2,
-			row: (string: number) => strings.findIndex((s) => s.string === string) + 1
+			notes: [
+				...lane.aid.now.map((note) => ({ ...note, tone: 'now' as const })),
+				...(lane.aid.next ?? []).map((note) => ({ ...note, tone: 'next' as const }))
+			],
+			strings: [...lane.strings].reverse()
 		};
 	});
 </script>
@@ -116,43 +108,12 @@
 	{/if}
 
 	{#if neck}
-		<div
-			class="neck"
-			data-testid="aid-neck"
-			style:grid-template-columns={`auto repeat(${neck.frets.length}, minmax(0, 1fr))`}
-			style:grid-template-rows={`repeat(${neck.strings.length}, var(--row)) auto`}
-		>
-			{#each neck.strings as s (s.string)}
-				<span class="name" style:grid-row={neck.row(s.string)} style:grid-column="1">{s.name}</span>
-				<span
-					class="string"
-					style:grid-row={neck.row(s.string)}
-					style:grid-column={`2 / ${neck.frets.length + 2}`}
-				></span>
-			{/each}
-			{#each neck.notes as note (`${note.shape}-${note.string}`)}
-				<span
-					class="note {note.shape}"
-					data-testid="aid-note"
-					data-shape={note.shape}
-					style:grid-column={neck.col(note.fret)}
-					style:grid-row={neck.row(note.string)}>{note.name}</span
-				>
-			{/each}
-			{#each neck.frets as fret (fret)}
-				<span
-					class="fret"
-					style:grid-column={neck.col(fret)}
-					style:grid-row={neck.strings.length + 1}>{fret}</span
-				>
-			{/each}
-		</div>
+		<NeckDiagram notes={neck.notes} strings={neck.strings} />
 	{/if}
 </div>
 
 <style>
 	.link-lane {
-		--row: calc(var(--np-tile) * 6);
 		display: flex;
 		flex: 1;
 		flex-direction: column;
@@ -330,56 +291,5 @@
 		box-shadow:
 			-8px 0 0 var(--np-ink),
 			8px 0 0 var(--np-ink);
-	}
-
-	.neck {
-		display: grid;
-		align-items: center;
-		min-width: 0;
-	}
-
-	.name,
-	.fret {
-		font-size: var(--np-type-meta);
-		line-height: 1;
-		text-align: center;
-	}
-
-	.name {
-		padding-inline-end: var(--np-space-1, 8px);
-	}
-
-	.fret {
-		color: var(--np-shade);
-		padding-block-start: 4px;
-	}
-
-	.string {
-		block-size: calc(var(--np-tile) / 2);
-		background: var(--np-shade);
-	}
-
-	/* The one exception to the square world: a note is a circle, the colour of its tile. */
-	.note {
-		justify-self: center;
-		z-index: 1;
-		display: grid;
-		place-items: center;
-		box-sizing: border-box;
-		inline-size: min(calc(var(--np-tile) * 5), 90%);
-		aspect-ratio: 1;
-		border-radius: 50%;
-		font-size: var(--np-type-meta);
-		line-height: 1;
-	}
-
-	.note.now {
-		background: var(--np-ink);
-		color: var(--np-bg);
-	}
-
-	.note.next {
-		background: var(--np-mid);
-		color: var(--np-ink);
 	}
 </style>

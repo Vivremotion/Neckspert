@@ -28,13 +28,29 @@ export interface ExerciseFlow {
 	 * (`'first-encounter'`).
 	 */
 	briefing?: ExerciseBriefing;
+	/**
+	 * When a level reached applies: after the run, at its breath (`'breath'`, the default), or at
+	 * the next round chained when the level keeps the tempo (`'next-round'`, a level of another
+	 * tempo still waiting for the breath).
+	 */
+	levelChange?: LevelChange;
+	/**
+	 * Whether the first encounter makes its content heard before it is played, over a longer
+	 * listen-in; absent: yes. It lasts as long as the content does.
+	 */
+	demonstration?: boolean;
 }
 
 /** When an exercise's instruction is told (`ExerciseFlow.briefing`). */
 export type ExerciseBriefing = 'each-series' | 'first-encounter';
 
+/** When a level reached applies (`ExerciseFlow.levelChange`). */
+export type LevelChange = 'breath' | 'next-round';
+
 /** Every value of `ExerciseFlow.briefing`. */
 export const BRIEFINGS: readonly ExerciseBriefing[] = ['each-series', 'first-encounter'];
+
+export const LEVEL_CHANGES: readonly LevelChange[] = ['breath', 'next-round'];
 
 /** Text with `{field}` placeholders: one for every language, or one per language. */
 export type Slot = string | { fr: string; en: string };
@@ -68,7 +84,8 @@ export interface PromptPresentation {
 export interface ExerciseForm {
 	id: string;
 	symbol: string;
-	notes: { midi: number; string: number }[];
+	/** As written: `name` spells the note, so the form keeps its spelling when it moves. */
+	notes: { midi: number; string: number; name: string }[];
 }
 
 /** An exercise is data only: a mechanic plus its parameters. */

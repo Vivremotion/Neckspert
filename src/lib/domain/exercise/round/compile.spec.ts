@@ -618,10 +618,10 @@ describe('compileRound, a figure entry', () => {
 				beats: 4
 			});
 			expect(plan.expectations.map((e) => e.content)).toEqual([
-				{ kind: 'pitch', value: { midi: 50, string: 5 } },
-				{ kind: 'pitch', value: { midi: 54, string: 4 } },
-				{ kind: 'pitch', value: { midi: 57, string: 4 } },
-				{ kind: 'pitch', value: { midi: 61, string: 3 } }
+				{ kind: 'pitch', value: { midi: 50, string: 5, name: 'D' } },
+				{ kind: 'pitch', value: { midi: 54, string: 4, name: 'F#' } },
+				{ kind: 'pitch', value: { midi: 57, string: 4, name: 'A' } },
+				{ kind: 'pitch', value: { midi: 61, string: 3, name: 'C#' } }
 			]);
 		});
 

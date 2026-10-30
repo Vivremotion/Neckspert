@@ -510,6 +510,7 @@ describe('PlayFrame', () => {
 					plainWords: true,
 					prompt: null,
 					notation: { staff: false, tab: false },
+					neck: null,
 					chordDiagram: 'strings'
 				};
 				controller.view.stage = { view: 'figure', model };

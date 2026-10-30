@@ -278,11 +278,12 @@ describe('parseLilyPond', () => {
 describe('parseLilyPondNotes', () => {
 	it('reads notes with their strings, two on one string allowed', () => {
 		expect(parseLilyPondNotes('c\\5 e\\4 g\\4 b\\3')).toEqual([
-			{ midi: 48, string: 5 },
-			{ midi: 52, string: 4 },
-			{ midi: 55, string: 4 },
-			{ midi: 59, string: 3 }
+			{ midi: 48, string: 5, name: 'C' },
+			{ midi: 52, string: 4, name: 'E' },
+			{ midi: 55, string: 4, name: 'G' },
+			{ midi: 59, string: 3, name: 'B' }
 		]);
+		expect(parseLilyPondNotes('as\\4').map((n) => n.name)).toEqual(['Ab']);
 	});
 
 	it('reads the pitches as a figure does: absolute octaves, Dutch accidentals', () => {

@@ -1,6 +1,7 @@
 import type { Component } from 'svelte';
 import type { Picture } from '$lib/application/presentation/pictures';
 import type { ChordDiagramStyle } from '$lib/domain/types';
+import NeckPicture from './NeckPicture.svelte';
 import ShapePicture from './ShapePicture.svelte';
 import StringPicture from './StringPicture.svelte';
 
@@ -15,5 +16,6 @@ export interface PictureProps {
 /** The only place that maps a kind of picture to what draws it. */
 export const PICTURE_VIEWS: Record<Picture['kind'], Component<PictureProps>> = {
 	string: StringPicture,
-	shape: ShapePicture
+	shape: ShapePicture,
+	neck: NeckPicture
 };

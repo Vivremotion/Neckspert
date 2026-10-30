@@ -1,14 +1,41 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
 import type { TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
 import { openPitch, parseVoicingKey, type LocateItem } from '$lib/domain/music';
+import { fretOf } from '$lib/domain/music/fretboard';
 import { voicingNotes } from '$lib/domain/music/voicingNotes';
-import type { StringNumber } from '$lib/domain/music/types';
+import { pitchOfMidi, type StringNumber } from '$lib/domain/music/types';
 import { lowestShape, shapeAt, shapeOf } from './triadWords';
 
-/** What a prompt can draw: a string with its open note, or the notes of a chord shape. */
+/**
+ * What a prompt can draw: a string with its open note, the notes of a chord shape, or notes named
+ * on the neck, several on a string if need be.
+ */
 export type Picture =
 	| { kind: 'string'; string: StringNumber; label: string }
-	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] };
+	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] }
+	| { kind: 'neck'; notes: NeckNote[] };
+
+/** A note named at its place on the neck. */
+export interface NeckNote {
+	string: StringNumber;
+	fret: number;
+	name: string;
+}
+
+/**
+ * The picture of a list of derived notes (`{ midi, string, name? }`): each at its fret, named as
+ * its derivation spells it, else by its sharp spelling. What gives no place on the neck is left out.
+ */
+export function neckPicture(contents: readonly unknown[]): Picture {
+	const notes = contents.flatMap((content): NeckNote[] => {
+		const { midi, string, name } = content as { midi: number; string: StringNumber; name?: string };
+		const place = fretOf(midi, string);
+		return 'problem' in place
+			? []
+			: [{ string, fret: place.fret, name: name ?? pitchOfMidi(midi) }];
+	});
+	return { kind: 'neck', notes };
+}
 
 export interface PictureKind {
 	/** The mechanics whose items it draws. */

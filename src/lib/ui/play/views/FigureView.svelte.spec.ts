@@ -83,6 +83,7 @@ function model(overrides: Partial<FigureStageModel> = {}): FigureStageModel {
 		plainWords: true,
 		prompt: null,
 		notation: { staff: false, tab: false },
+		neck: null,
 		chordDiagram: 'strings',
 		...overrides
 	};
@@ -110,6 +111,37 @@ async function engraved(count = 1) {
 		expect(document.querySelectorAll('svg').length).toBeGreaterThanOrEqual(count);
 	});
 }
+
+describe('the figure view, a level that draws the neck', () => {
+	it('names the notes at their frets, several on a string, the high string on top', () => {
+		render(FigureView, {
+			controller: running(),
+			model: model({
+				neck: {
+					kind: 'neck',
+					notes: [
+						{ string: 4, fret: 5, name: 'G' },
+						{ string: 4, fret: 8, name: 'Bb' },
+						{ string: 3, fret: 7, name: 'D' }
+					]
+				}
+			})
+		});
+		const neck = screen.getByTestId('figure-neck');
+		const notes = screen.getAllByTestId('aid-note');
+		expect(notes.map((note) => note.textContent)).toEqual(['G', 'Bb', 'D']);
+		expect(neck.querySelectorAll('.name')).toHaveLength(6);
+		expect(neck.querySelector('.name')?.textContent).toBe('E');
+		// Fret 5 to fret 8, one fret either side: four to six columns, the two on string 4 apart.
+		expect(notes[0].style.gridRow).toBe(notes[1].style.gridRow);
+		expect(notes[0].style.gridColumn).not.toBe(notes[1].style.gridColumn);
+	});
+
+	it('draws no neck on a level that does not ask it', () => {
+		render(FigureView, { controller: running(), model: model() });
+		expect(screen.queryByTestId('figure-neck')).toBeNull();
+	});
+});
 
 describe('FigureView', () => {
 	it('is the view of the rhythm exercises', () => {
@@ -153,6 +185,32 @@ describe('FigureView', () => {
 		expect(screen.getByTestId('figure-cursor')).toBeTruthy();
 		// Nothing about the player's attacks while playing.
 		expect(screen.queryAllByTestId('figure-mark')).toHaveLength(0);
+	});
+
+	it('keeps the line played in view on a figure of several lines', async () => {
+		const { voices, meter } = figure(0);
+		const long: Figure = {
+			schema: figure(0).schema,
+			meter,
+			bars: 16,
+			voices: [
+				{ id: 'main', elements: Array.from({ length: 16 }, () => voices[0].elements).flat() }
+			]
+		};
+		render(FigureView, {
+			props: {
+				controller: running(),
+				model: model({ figure: long, cycleBars: 16, barInCycle: 12, cursor: Fraction.of(12) })
+			}
+		});
+		await engraved();
+		const cursor = screen.getByTestId('figure-cursor');
+		await vi.waitFor(() => {
+			const top = Number.parseFloat(cursor.style.top);
+			expect(top).toBeGreaterThan(0);
+			// A little room above the line, for what is written over its staff.
+			expect(screen.getByTestId('figure-score').scrollTop).toBe(top - 24);
+		});
 	});
 
 	it('never shows the cursor in a muted bar, and says « silence »', async () => {

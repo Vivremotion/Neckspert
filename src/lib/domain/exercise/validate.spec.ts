@@ -306,12 +306,25 @@ describe('validateExercise on the forms an exercise writes', () => {
 		);
 	});
 
+	it('refuses a flow it cannot follow, naming the field', () => {
+		const flowed = (flow: object) => ({ ...withForms([form]), flow }) as ExerciseDefinition;
+		expect(validateExercise(flowed({ levelChange: 'soon' }))).toBe(
+			`${id}: flow.levelChange must be one of breath, next-round, got soon`
+		);
+		expect(validateExercise(flowed({ demonstration: 'no' }))).toBe(
+			`${id}: flow.demonstration must be true or false, got no`
+		);
+		expect(
+			validateExercise(flowed({ levelChange: 'next-round', demonstration: false }))
+		).toBeNull();
+	});
+
 	it('refuses a note not playable as written, naming the form and the note', () => {
-		const below = [form.notes[0], { midi: 40, string: 4 }];
+		const below = [form.notes[0], { midi: 40, string: 4, name: 'E' }];
 		expect(validateExercise(withForms([{ ...form, notes: below }]))).toBe(
 			`${id}: forms[0] (maj7) note 1 (pitch 40) is below string 4 (50)`
 		);
-		const seventh = [{ midi: 60, string: 7 }];
+		const seventh = [{ midi: 60, string: 7, name: 'C' }];
 		expect(validateExercise(withForms([{ ...form, notes: seventh }]))).toMatch(
 			/^test-form-sequence: forms\[0\] \(maj7\) note 0 is on string 7/
 		);

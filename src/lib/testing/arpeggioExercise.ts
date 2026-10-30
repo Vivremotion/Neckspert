@@ -81,10 +81,10 @@ export const FORM_MAJ7 = {
 	id: 'maj7',
 	symbol: 'maj7',
 	notes: [
-		{ midi: 48, string: 5 },
-		{ midi: 52, string: 4 },
-		{ midi: 55, string: 4 },
-		{ midi: 59, string: 3 }
+		{ midi: 48, string: 5, name: 'C' },
+		{ midi: 52, string: 4, name: 'E' },
+		{ midi: 55, string: 4, name: 'G' },
+		{ midi: 59, string: 3, name: 'B' }
 	]
 };
 

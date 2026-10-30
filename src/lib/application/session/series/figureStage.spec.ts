@@ -389,6 +389,34 @@ describe('figureStage, a round cut inside its figure', () => {
 describe('figureStage, a form moved to its chord', () => {
 	const item = planned(FORM_EXERCISE, { form: 'maj7', first: 'd', beats: 4 });
 
+	it('draws the whole form on the neck where its level asks it, spelled for its chord', () => {
+		const flat = planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 2 });
+		const drawn: ExerciseDefinition = {
+			...FORM_EXERCISE,
+			levels: [{ params: { neck: true } }, { params: {} }]
+		};
+		expect(stage(drawn, flat, 'round').neck).toEqual({
+			kind: 'neck',
+			notes: [
+				{ string: 5, fret: 6, name: 'Eb' },
+				{ string: 4, fret: 5, name: 'G' },
+				{ string: 4, fret: 8, name: 'Bb' },
+				{ string: 3, fret: 7, name: 'D' }
+			]
+		});
+		expect(stage(drawn, { ...flat, exerciseLevel: 1 }, 'round').neck).toBeNull();
+		expect(stage(FORM_EXERCISE, flat, 'round').neck).toBeNull();
+	});
+
+	it('draws nothing on the neck for a figure that derives no list', () => {
+		const written: ExerciseDefinition = {
+			...RHYTHM_OFFBEATS,
+			params: { ...RHYTHM_OFFBEATS.params, neck: true }
+		};
+		const plain = planned(written, { figureId: written.figures![0].id, level: 0 });
+		expect(stage(written, plain, 'round').neck).toBeNull();
+	});
+
 	it('tells the wrong notes of a failed round in words, and draws no shape', () => {
 		const plan = planOf(FORM_EXERCISE, item);
 		const played = report([

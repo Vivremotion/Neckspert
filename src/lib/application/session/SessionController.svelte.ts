@@ -729,7 +729,9 @@ export class SessionController implements PlaySessionController {
 		this.pending = item;
 		const setup = this.runSetupOf(item);
 		const met = this.met.has(item.exerciseId) || this.demonstrated.has(item.exerciseId);
-		const demonstration = met ? null : contentFigure(this.items.definitionOf(item), item);
+		const definition = this.items.definitionOf(item);
+		const demonstration =
+			met || definition.flow?.demonstration === false ? null : contentFigure(definition, item);
 		const demoBars = demonstration?.bars ?? 0;
 		let playFrom: number;
 		try {
@@ -1264,6 +1266,11 @@ export class SessionController implements PlaySessionController {
 				plan = this.planOf(item, this.meterOf(item));
 			}
 			placement = placeNext(this.placementContext(item, plan, earliest, handover, true));
+		}
+		// An exercise that asks it moves within its run: the round chained plays the level reached.
+		if (placement.kind === 'chain' && this.levels.applyWithinRun(taken.exerciseId, taken.scope)) {
+			item = this.leveled(taken);
+			plan = this.planOf(item, this.meterOf(item));
 		}
 		switch (placement.kind) {
 			case 'chain': {

@@ -27,8 +27,14 @@ import {
 } from '$lib/domain/exercise';
 import { FIGURE_CONTENT, isFigureEntry, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
+import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import { CONTENT_VIEWS } from '$lib/application/presentation/contentViews';
-import { DERIVED_PICTURES, PICTURES, type Picture } from '$lib/application/presentation/pictures';
+import {
+	DERIVED_PICTURES,
+	PICTURES,
+	neckPicture,
+	type Picture
+} from '$lib/application/presentation/pictures';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
 
 /**
@@ -111,6 +117,8 @@ export interface FigureStageModel {
 	 * line), as its level writes, else as its round's content gives (`notationOf`).
 	 */
 	notation: Notation;
+	/** The notes its round derives from its item, on the neck, when its level draws them; else null. */
+	neck: Picture | null;
 	/** How the chord shapes it shows are drawn. */
 	chordDiagram: ChordDiagramStyle;
 }
@@ -286,6 +294,23 @@ function expectedPicture(definition: ExerciseDefinition, item: PlannedItem): Pic
 	return picture.draw(item.item);
 }
 
+/** The neck of each item: drawn once, not on every beat. */
+const NECKS = new WeakMap<PlannedItem, Picture | null>();
+
+/** Where the notes `item`'s round derives from it stand on the neck; null when it derives no list. */
+function neckOf(definition: ExerciseDefinition, item: PlannedItem): Picture | null {
+	const kept = NECKS.get(item);
+	if (kept !== undefined) return kept;
+	const from = derivationOf(definition);
+	const derivation = from === null ? undefined : CONTENT_DERIVATIONS[from];
+	const neck =
+		derivation?.list && derivation.reads.includes(item.mechanic)
+			? neckPicture(derivation.derive(item.item, definition) as unknown[])
+			: null;
+	NECKS.set(item, neck);
+	return neck;
+}
+
 /**
  * The wrong notes of a settled round, in plan order: each at its place in the round and told by
  * the view of its content against the note asked (`CONTENT_VIEWS`).
@@ -416,6 +441,7 @@ export function figureStage(input: {
 		plainWords: input.endedSessions < PLAIN_WORDS_SESSIONS,
 		prompt,
 		notation: notationOf(definition, level),
+		neck: params.neck ? neckOf(definition, item) : null,
 		chordDiagram: input.chordDiagram
 	};
 }

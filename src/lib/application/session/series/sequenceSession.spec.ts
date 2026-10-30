@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
+import type { Attempt } from '$lib/domain/types';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import {
 	ARPEGGIO_EXERCISE,
@@ -155,6 +156,104 @@ describe('a sequence of chord shapes on the series', () => {
 		// The breath: the second run does not chain to the first.
 		expect(second[0].promptedAt).toBeGreaterThan(epochOfBar(4));
 		controller.quit();
+	});
+
+	describe('a level that applies at the next round', () => {
+		/** The neck drawn at level 1, gone at level 2; a long run, so no breath comes. */
+		const withNeck = (
+			flow: ExerciseDefinition['flow'],
+			tempo2 = ARPEGGIO_EXERCISE.tempo
+		): ExerciseDefinition => ({
+			...ARPEGGIO_EXERCISE,
+			flow,
+			params: {
+				...ARPEGGIO_EXERCISE.params,
+				pacing: { roundsPerBreath: 40, breathMinMs: 4000 }
+			},
+			levels: [
+				{ params: { neck: true }, pass: { successes: 2 } },
+				{ params: { tempo: tempo2 }, drop: { failures: 2 } }
+			]
+		});
+		const levelsOf = (attempts: Attempt[]) =>
+			attempts.map((a) => (a.data as FigureAttemptData).level);
+
+		it('takes the neck away within the run, nothing told, and gives it back after failures', async () => {
+			const played = await sequenceSeries(withNeck({ levelChange: 'next-round' }), {
+				pattern: ARPEGGIO_PATTERN,
+				met: true
+			});
+			const { controller, advance, player, stored } = played;
+			await controller.start();
+			const told = new Set<string>();
+			const necks: boolean[] = [];
+			for (let to = ORIGIN; to < ORIGIN + 7 * BAR_S; to += 0.25) {
+				await advance(to);
+				const kind = controller.view.announcement?.kind;
+				if (kind) told.add(kind);
+				if (stageOf(controller).phase === 'play') necks.push(stageOf(controller).neck !== null);
+			}
+			expect(necks[0]).toBe(true);
+			expect(necks.at(-1)).toBe(false);
+			// Nothing is played from here: two failures bring the neck back, still in the run.
+			player.pitch = () => null;
+			for (let to = ORIGIN + 7 * BAR_S; to < ORIGIN + 13 * BAR_S; to += 0.25) {
+				await advance(to);
+				const kind = controller.view.announcement?.kind;
+				if (kind) told.add(kind);
+			}
+			expect(stageOf(controller).neck).not.toBeNull();
+			expect(told).toEqual(new Set());
+			const attempts = await stored();
+			const levels = levelsOf(attempts);
+			expect(levels).toContain(1);
+			expect(levels.at(0)).toBe(0);
+			expect(levels.at(-1)).toBe(0);
+			// One run: every round opens on the bar after the one before, no breath, no counted bar.
+			attempts.forEach((attempt, k) => expect(attempt.promptedAt).toBe(epochOfBar(k + 1)));
+			controller.quit();
+		});
+
+		it('keeps the level of the run without it', async () => {
+			const played = await sequenceSeries(withNeck(undefined), {
+				pattern: ARPEGGIO_PATTERN,
+				met: true
+			});
+			await played.controller.start();
+			await played.advance(ORIGIN + 8 * BAR_S);
+			expect(levelsOf(await played.stored()).every((level) => level === 0)).toBe(true);
+			played.controller.quit();
+		});
+
+		it('leaves a level of another tempo to the breath', async () => {
+			const played = await sequenceSeries(withNeck({ levelChange: 'next-round' }, 90), {
+				pattern: ARPEGGIO_PATTERN,
+				met: true
+			});
+			await played.controller.start();
+			await played.advance(ORIGIN + 8 * BAR_S);
+			expect(levelsOf(await played.stored()).every((level) => level === 0)).toBe(true);
+			played.controller.quit();
+		});
+	});
+
+	describe('the first encounter', () => {
+		const playedFirst = (flow: ExerciseDefinition['flow']) =>
+			sequenceSeries({ ...ARPEGGIO_EXERCISE, flow }, { pattern: ARPEGGIO_PATTERN });
+
+		it('makes the content heard first, unless the exercise says not to', async () => {
+			const heard = await playedFirst(undefined);
+			await heard.controller.start();
+			await heard.advance(ORIGIN + 0.5 * BAR_S, false);
+			expect(stageOf(heard.controller).phase).toBe('listening');
+			heard.controller.quit();
+
+			const direct = await playedFirst({ demonstration: false });
+			await direct.controller.start();
+			await direct.advance(ORIGIN + 1.5 * BAR_S, false);
+			expect(stageOf(direct.controller).phase).toBe('play');
+			direct.controller.quit();
+		});
 	});
 
 	it('chains changes of 4, 2 and 6 beats, the second starting on beat 1 of a bar and the third on beat 3', async () => {

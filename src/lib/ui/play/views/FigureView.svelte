@@ -29,6 +29,10 @@
 
 	/** The figure played is engraved large, the one to play next too; the run played smaller. */
 	const LARGE_SCALE = 1.5;
+	/** Beyond this many bars a figure is engraved at its plain size: more of it fits on the screen. */
+	const LONG_FIGURE_BARS = 8;
+	/** Room kept above the line played: what is written over its staff (a tuplet's number). */
+	const LINE_MARGIN_PX = 24;
 	/** Width assumed before the view is measured (and where nothing measures it). */
 	const FALLBACK_WIDTH = 640;
 	/** From this width the breath shows the run played and the next figure side by side. */
@@ -119,6 +123,9 @@
 		sideBySide ? Math.floor((width - GAP_PX) * (1 - PLAYED_SHARE)) : width
 	);
 
+	const scale = $derived(figure.bars > LONG_FIGURE_BARS ? 1 : LARGE_SCALE);
+
+	let scoreHost = $state<HTMLElement | null>(null);
 	let figureHost = $state<HTMLElement | null>(null);
 	let nextHost = $state<HTMLElement | null>(null);
 	let figureLayout = $state<FigureLayout | null>(null);
@@ -128,7 +135,7 @@
 		if (!notation || !host || breathing) return;
 		figureLayout = notation.renderFigure(host, figure, {
 			maxWidth: width,
-			scale: LARGE_SCALE,
+			scale,
 			notation: { staff, tab }
 		});
 	});
@@ -138,7 +145,7 @@
 		if (!notation || !host || !breathing || !next) return;
 		notation.renderFigure(host, next, {
 			maxWidth: nextWidth,
-			scale: LARGE_SCALE,
+			scale,
 			notation: { staff, tab }
 		});
 	});
@@ -146,6 +153,20 @@
 	const cursor = $derived(
 		figureLayout && m.cursor && cursorVisible(m) ? cursorX(figure, figureLayout, m.cursor) : null
 	);
+
+	const cursorLine = $derived(cursor?.line ?? null);
+
+	// A figure taller than the screen starts from its top...
+	$effect(() => {
+		void figure;
+		if (scoreHost) scoreHost.scrollTop = 0;
+	});
+
+	// ...and the line played stays in view, the next one under it.
+	$effect(() => {
+		if (!scoreHost || !figureLayout || cursorLine === null) return;
+		scoreHost.scrollTop = Math.max(0, (figureLayout.lineY[cursorLine] ?? 0) - LINE_MARGIN_PX);
+	});
 </script>
 
 <div class="figure-view" data-phase={m.phase} bind:this={root}>
@@ -170,6 +191,13 @@
 				<span class="secondary">{m.prompt.secondary}</span>
 			{/if}
 		</p>
+	{/if}
+
+	{#if m.neck}
+		{@const Neck = PICTURE_VIEWS[m.neck.kind]}
+		<section class="neck" data-testid="figure-neck">
+			<Neck picture={m.neck} chordDiagram={m.chordDiagram} />
+		</section>
 	{/if}
 
 	{#if notationFailed}
@@ -229,7 +257,7 @@
 			</p>
 		{/if}
 	{:else}
-		<div class="score">
+		<div class="score" data-testid="figure-score" bind:this={scoreHost}>
 			<div class="engraving large" bind:this={figureHost}></div>
 			{#if cursor && figureLayout}
 				<span
@@ -357,9 +385,13 @@
 		color: var(--np-shade);
 	}
 
+	/* A figure taller than this scrolls here: the view and what follows it stay on the screen. */
 	.score {
 		position: relative;
 		min-width: 0;
+		max-block-size: 65dvh;
+		overflow-y: auto;
+		scroll-behavior: smooth;
 	}
 
 	.engraving {
@@ -401,6 +433,8 @@
 		flex-direction: column;
 		gap: var(--np-space-1);
 		min-width: 0;
+		max-block-size: 65dvh;
+		overflow-y: auto;
 	}
 
 	.panel-title {
@@ -481,6 +515,10 @@
 	@media (prefers-reduced-motion: reduce) {
 		.cursor {
 			transition: none;
+		}
+
+		.score {
+			scroll-behavior: auto;
 		}
 	}
 </style>

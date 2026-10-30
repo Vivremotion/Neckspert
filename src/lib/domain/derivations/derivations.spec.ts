@@ -76,16 +76,16 @@ describe('the derivations', () => {
 		const notes = CONTENT_DERIVATIONS['form-notes'];
 		expect(notes.kind).toBe('pitch');
 		expect(notes.derive({ form: 'maj7', first: 'd' }, FORM_EXERCISE)).toEqual([
-			{ midi: 50, string: 5 },
-			{ midi: 54, string: 4 },
-			{ midi: 57, string: 4 },
-			{ midi: 61, string: 3 }
+			{ midi: 50, string: 5, name: 'D' },
+			{ midi: 54, string: 4, name: 'F#' },
+			{ midi: 57, string: 4, name: 'A' },
+			{ midi: 61, string: 3, name: 'C#' }
 		]);
 		expect(notes.derive({ form: 'maj7', first: 'bes', beats: 2 }, FORM_EXERCISE)).toEqual([
-			{ midi: 58, string: 5 },
-			{ midi: 62, string: 4 },
-			{ midi: 65, string: 4 },
-			{ midi: 69, string: 3 }
+			{ midi: 58, string: 5, name: 'Bb' },
+			{ midi: 62, string: 4, name: 'D' },
+			{ midi: 65, string: 4, name: 'F' },
+			{ midi: 69, string: 3, name: 'A' }
 		]);
 	});
 

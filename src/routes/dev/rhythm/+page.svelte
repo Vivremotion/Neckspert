@@ -89,6 +89,7 @@
 		plainWords: true,
 		prompt: null,
 		notation: { staff: false, tab: false },
+		neck: null,
 		chordDiagram: 'strings'
 	};
 	/** A failed cycle whose second bar lost a beat. */

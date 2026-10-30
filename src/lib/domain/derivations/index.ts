@@ -86,9 +86,10 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 		derive: (item, definition) => {
 			const { form, first } = item as FormFigureItem;
 			const { notes } = formNamed(definition.forms, form);
-			return movedForm(notes, parseNoteName(first).midi).map(({ midi, string }) => ({
+			return movedForm(notes, parseNoteName(first)).map(({ midi, string, name }) => ({
 				midi,
-				string
+				string,
+				name
 			}));
 		}
 	}

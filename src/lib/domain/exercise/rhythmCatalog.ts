@@ -56,7 +56,7 @@ const RHYTHM_LISTEN_IN_BARS = 2;
  * The params of a rhythm exercise: what its round reads, its figure params (no notation: a bare
  * rhythm is its rhythm line) and its pacing.
  */
-type RhythmParams = Omit<FigureParams, 'notation'> & {
+type RhythmParams = Omit<FigureParams, 'notation' | 'neck'> & {
 	accompaniment: Accompaniment;
 	cycleBars: number;
 	window: ExpectationWindow;

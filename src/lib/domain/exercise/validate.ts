@@ -10,7 +10,7 @@ import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { compileRound } from './round/compile';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
-import { BRIEFINGS, type ExerciseDefinition, type Ladder } from './types';
+import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isFinite(value);
@@ -313,6 +313,12 @@ export function validateExercise(
 		}
 		if (flow?.briefing !== undefined && !BRIEFINGS.includes(flow.briefing)) {
 			return `flow.briefing must be one of ${BRIEFINGS.join(', ')}, got ${String(flow.briefing)}`;
+		}
+		if (flow?.levelChange !== undefined && !LEVEL_CHANGES.includes(flow.levelChange)) {
+			return `flow.levelChange must be one of ${LEVEL_CHANGES.join(', ')}, got ${String(flow.levelChange)}`;
+		}
+		if (flow?.demonstration !== undefined && typeof flow.demonstration !== 'boolean') {
+			return `flow.demonstration must be true or false, got ${String(flow.demonstration)}`;
 		}
 		const params = paramsProblem(definition);
 		if (params !== null) return params;

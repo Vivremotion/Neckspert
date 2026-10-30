@@ -100,8 +100,8 @@ class Reader {
 	}
 
 	/** The notes of the whole text, each with its string; no rhythm, so nothing a rhythm needs. */
-	readNotes(): { midi: number; string: number }[] {
-		const notes: { midi: number; string: number }[] = [];
+	readNotes(): { midi: number; string: number; name: string }[] {
+		const notes: { midi: number; string: number; name: string }[] = [];
 		for (;;) {
 			this.skipBlanks();
 			const c = this.char();
@@ -113,12 +113,12 @@ class Reader {
 			}
 			if (!(c >= 'a' && c <= 'g')) this.refuse(c);
 			const start = this.at;
-			const midi = this.pitch();
+			const { midi, name } = this.noteName();
 			this.duration();
 			const string = this.stringNumber(true);
 			if (string === null) this.fail('a note of a form needs its string number', start);
 			this.afterEvent();
-			notes.push({ midi, string });
+			notes.push({ midi, string, name });
 		}
 		if (notes.length === 0) this.fail('no note');
 		return notes;
@@ -146,10 +146,14 @@ class Reader {
 
 	/** A note name's MIDI pitch: letter, accidental, octave marks. Leaves the reader after them. */
 	private pitch(): number {
+		return this.noteName().midi;
+	}
+
+	private noteName(): { midi: number; name: string } {
 		const read = readNoteName(this.text, this.at);
 		if ('problem' in read) this.fail(read.problem, read.offset);
 		this.at = read.end;
-		return read.midi;
+		return read;
 	}
 
 	/** A string number after a note's duration: `\1` to `\6`. Null when there is none. */
@@ -308,6 +312,6 @@ export function parseLilyPond(text: string, options: { meter?: Meter } = {}): Fi
  * `parseLilyPond`, and no rhythm to fill, so durations are read and ignored. A rest, a tie, a
  * tuplet, a note without string number, or anything else throws an `Error` naming the offset.
  */
-export function parseLilyPondNotes(text: string): { midi: number; string: number }[] {
+export function parseLilyPondNotes(text: string): { midi: number; string: number; name: string }[] {
 	return new Reader(text, METER_4_4).readNotes();
 }
