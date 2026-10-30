@@ -3,14 +3,17 @@ import type { RhythmItem } from '$lib/domain/mechanics';
 import {
 	Fraction,
 	RHYTHM_SENSOR,
-	compileCyclePlan,
+	barLength,
+	figureExpectations,
+	landingBar,
+	mutedBarsFrom,
 	sameMeter,
 	type Figure,
 	type Meter,
 	type RoundPlan
 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import { landingBar, rhythmParamsOf } from './rhythmExercise';
+import { rhythmParamsOf } from './rhythmExercise';
 
 /**
  * A cycle is settled this far (in bars) after its last bar ends, so an attack reported a little
@@ -48,12 +51,22 @@ export function compileCycle(
 	if (!sameMeter(figure.meter, meter)) {
 		throw new RangeError(`the figure ${item.item.figureId} is not in the meter played`);
 	}
-	return compileCyclePlan({
-		figure,
-		cycleBars: params.cycleBars,
-		startBar: startBar ?? landingBar(params.accompaniment),
-		sensor: cycleSensorOf(definition),
-		window: params.window,
-		accompanimentBars: params.accompaniment.bars
-	});
+	const startAt = startBar ?? landingBar(params.accompaniment);
+	const length = barLength(meter).mul(Fraction.of(params.cycleBars));
+	return {
+		prompt: null,
+		expectations: figureExpectations({
+			figure,
+			at: Fraction.ZERO,
+			bars: params.cycleBars,
+			startBar: startAt,
+			sensor: cycleSensorOf(definition),
+			window: params.window,
+			content: () => null
+		}),
+		length,
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
+		handover: length,
+		mutedBars: mutedBarsFrom(params.accompaniment.bars, startAt, params.cycleBars)
+	};
 }

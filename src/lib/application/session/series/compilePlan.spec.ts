@@ -56,7 +56,7 @@ describe('compilePlan', () => {
 		expect(playsCycles(LOCATE_NECK)).toBe(false);
 		const context = { previewBeats: 2, fromRunStart: 7 };
 		expect(compilePlan(LOCATE_NECK, note, METER_4_4, context)).toEqual(
-			compileRound(LOCATE_NECK, note, METER_4_4, { previewBeats: 2 })
+			compileRound(LOCATE_NECK, note, METER_4_4, context)
 		);
 		const cycle = compilePlan(RHYTHM_SILENT_BARS, eighths(0), METER_4_4, context);
 		expect(cycle.policy.unit).toBe('cycle');

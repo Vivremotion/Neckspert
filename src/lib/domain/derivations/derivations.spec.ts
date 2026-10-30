@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTENT_DERIVATIONS, ITEM_NUMBERS } from './index';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from './index';
 
 const C_FIRST = 'C|maj|3:3,2:5,1:1';
 
@@ -74,5 +74,10 @@ describe('the derivations', () => {
 	it("beats measures the item's own length and throws without one", () => {
 		expect(ITEM_NUMBERS.beats.measure({ voicing: C_FIRST, occurrence: 0, beats: 4 })).toBe(4);
 		expect(() => ITEM_NUMBERS.beats.measure({ voicing: C_FIRST, occurrence: 0 })).toThrow();
+	});
+
+	it('reads the figure a rhythm item names', () => {
+		expect(ITEM_FIGURES.figure.reads).toEqual(['rhythm-figure']);
+		expect(ITEM_FIGURES.figure.figureOf({ figureId: 'eighths' })).toBe('eighths');
 	});
 });

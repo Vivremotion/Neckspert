@@ -83,7 +83,7 @@ function stage(
 	return promptStage({
 		definition,
 		item: plannedItem,
-		plan: compileRound(definition, plannedItem, METER_4_4, { previewBeats: 0 }),
+		plan: compileRound(definition, plannedItem, METER_4_4, { previewBeats: 0, fromRunStart: null }),
 		settled,
 		place: PLACE,
 		beatsPerBar: 3,

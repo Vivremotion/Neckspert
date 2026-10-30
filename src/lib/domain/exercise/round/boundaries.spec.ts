@@ -13,7 +13,7 @@ const MODULE = '/src/lib/domain/exercise/round/';
 const MECHANICS = ['locate', 'identify', 'triad-anchor', 'triad-zone', 'chord-grid'];
 
 /** What it may take from the derivations: their registries, looked up by name. */
-const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS'];
+const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES'];
 
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];

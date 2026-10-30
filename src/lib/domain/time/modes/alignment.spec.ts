@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { cyclePlan } from '../testing/cyclePlan';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
 import { METER_4_4 } from '../meter';
-import { compileCyclePlan, type RoundPlan } from '../plan';
+import { type RoundPlan } from '../plan';
 import { alignAttacks, alignContext, timeExpectations } from '../judge/align';
 import { createTempoMap } from '../tempoMap';
 import { alignmentPairing } from './alignment';
@@ -32,7 +33,7 @@ function figure(pattern: string): Figure {
 }
 
 function planOf(pattern: string, cycleBars: number): RoundPlan {
-	return compileCyclePlan({
+	return cyclePlan({
 		figure: figure(pattern),
 		cycleBars,
 		startBar: 0,

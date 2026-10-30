@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { cyclePlan as loopedPlan } from './testing/cyclePlan';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
-import { compileCyclePlan, type ContentJudges, type Judged, type RoundPlan } from './plan';
+import { type ContentJudges, type Judged, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
@@ -30,7 +31,7 @@ const offBeats: Figure = {
 };
 
 function cyclePlan(cycleBars = 2): RoundPlan {
-	return compileCyclePlan({
+	return loopedPlan({
 		figure: offBeats,
 		cycleBars,
 		startBar: 0,
@@ -249,7 +250,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	}
 
 	function oneBar(figure: Figure): RoundPlan {
-		return compileCyclePlan({
+		return loopedPlan({
 			figure,
 			cycleBars: 1,
 			startBar: 0,

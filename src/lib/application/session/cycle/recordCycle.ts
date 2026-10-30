@@ -24,7 +24,7 @@ export interface CycleSetup {
 	/** Level index (0 = level 1, aid levels negative). */
 	level: number;
 	params: LevelParams;
-	/** The cycle's first bar in the loops of the figure and of the accompaniment (`compileCyclePlan`). */
+	/** The cycle's first bar in the loops of the figure and of the accompaniment (`figureExpectations`). */
 	startBar: number;
 }
 

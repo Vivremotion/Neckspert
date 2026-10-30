@@ -7,7 +7,6 @@ import {
 import {
 	checkStart,
 	Fraction,
-	type Accompaniment,
 	type Figure,
 	type Level,
 	type LevelParams,
@@ -57,34 +56,6 @@ export function rhythmParamsOf(exercise: ExerciseDefinition, level: number): Lev
 /** The tempo of level params as a segment from the start, its beat the accompaniment's unit. */
 export function tempoSegmentOf(params: Pick<LevelParams, 'tempo' | 'accompaniment'>): TempoSegment {
 	return { at: Fraction.ZERO, bpm: params.tempo, unit: params.accompaniment.figure.meter.unit };
-}
-
-/**
- * Landing (spec section 6): a cycle starts at the first muted bar of the accompaniment, so the 1
- * where the click comes back is judged in the same cycle as the silence. The clicked bars before
- * it are the entry. 0 when no bar is muted.
- */
-export function landingBar(accompaniment: Accompaniment): number {
-	return Math.max(0, accompaniment.bars.indexOf('off'));
-}
-
-/**
- * The accompaniment with its bar 0 on transport bar `from`: the transport reads the on/off
- * cycle from its own bar 0, a run starts wherever the count ended. Its figure is left as it
- * is, so an accompaniment figure longer than a bar stays on the transport's grid.
- */
-export function accompanimentFrom(accompaniment: Accompaniment, from: number): Accompaniment {
-	const { bars } = accompaniment;
-	const n = bars.length;
-	return {
-		figure: accompaniment.figure,
-		bars: bars.map((_, i) => bars[(((i - from) % n) + n) % n])
-	};
-}
-
-/** The accompaniment with no muted bar: the listen-in is heard, never silent. */
-export function unmuted(accompaniment: Accompaniment): Accompaniment {
-	return { figure: accompaniment.figure, bars: ['on'] };
 }
 
 /**

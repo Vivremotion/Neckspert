@@ -3,7 +3,15 @@ import { Fraction } from './fraction';
 import { METER_4_4 } from './meter';
 import { createTempoMap } from './tempoMap';
 import { figureFromJson, figureToJson, validateFigure, type Figure } from './figure';
-import { clickAccompaniment, renderFigure, renderSounds } from './accompaniment';
+import {
+	accompanimentFrom,
+	clickAccompaniment,
+	landingBar,
+	mutedBarsFrom,
+	renderFigure,
+	renderSounds,
+	unmuted
+} from './accompaniment';
 
 const f = Fraction.of;
 const map = createTempoMap(0, [{ at: Fraction.ZERO, bpm: 120, unit: f(1, 4) }]);
@@ -211,5 +219,51 @@ describe('figure JSON with a sound as content', () => {
 		const json = JSON.parse(JSON.stringify(figureToJson(acc.figure)));
 		json.voices[0].elements[2].content = 'kazoo';
 		expect(() => figureFromJson(json)).toThrow(/content/);
+	});
+});
+
+const threeOne = clickAccompaniment({
+	meter: METER_4_4,
+	beats: [1, 2, 3, 4],
+	accent: [1],
+	bars: ['on', 'on', 'on', 'off']
+});
+
+describe('landingBar', () => {
+	it('is the first muted bar, or 0 when the click never stops or there is no accompaniment', () => {
+		expect(landingBar(threeOne)).toBe(3);
+		expect(landingBar({ ...threeOne, bars: ['on', 'off', 'off', 'off'] })).toBe(1);
+		expect(landingBar({ ...threeOne, bars: ['on'] })).toBe(0);
+		expect(landingBar(null)).toBe(0);
+	});
+});
+
+describe('accompanimentFrom', () => {
+	it('puts the first bar of the accompaniment on the given transport bar', () => {
+		const rotated = accompanimentFrom(threeOne, 3);
+		// transport bars 3, 4, 5, 6 read bars 0, 1, 2, 3 of the accompaniment
+		expect([3, 4, 5, 6].map((bar) => rotated.bars[bar % 4])).toEqual(['on', 'on', 'on', 'off']);
+		expect(rotated.figure).toBe(threeOne.figure);
+	});
+
+	it('leaves no bar muted in the listen-in', () => {
+		expect(unmuted(threeOne).bars).toEqual(['on']);
+	});
+});
+
+describe('mutedBarsFrom', () => {
+	it('rotates the accompaniment by the start bar to find the muted bars of a round', () => {
+		expect(mutedBarsFrom(threeOne.bars, 3, 4)).toEqual([0]);
+		expect(mutedBarsFrom(threeOne.bars, 0, 4)).toEqual([3]);
+		expect(mutedBarsFrom(threeOne.bars, 1, 4)).toEqual([2]);
+	});
+
+	it('repeats a short accompaniment over the round', () => {
+		expect(mutedBarsFrom(['on', 'off'], 0, 4)).toEqual([1, 3]);
+	});
+
+	it('refuses an accompaniment without bars, or a start that is not a bar', () => {
+		expect(() => mutedBarsFrom([], 0, 4)).toThrow(RangeError);
+		expect(() => mutedBarsFrom(threeOne.bars, -1, 4)).toThrow(RangeError);
 	});
 });

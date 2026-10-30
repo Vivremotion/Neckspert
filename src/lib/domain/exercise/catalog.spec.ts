@@ -121,7 +121,10 @@ describe('exercise catalog', () => {
 			leadBeats
 		});
 		const compiled = (definition: ExerciseDefinition, item: unknown, leadBeats: number | null) =>
-			compileRound(definition, planned(definition, item, leadBeats), meter, { previewBeats });
+			compileRound(definition, planned(definition, item, leadBeats), meter, {
+				previewBeats,
+				fromRunStart: null
+			});
 		const key = 'D|maj|3:5,2:1,1:3';
 
 		// Locate, at each level of its ladder: the prompt `lead` beats ahead, one bar of breath,

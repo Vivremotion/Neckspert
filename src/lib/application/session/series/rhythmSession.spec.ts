@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { cyclePlan } from '$lib/domain/time/testing/cyclePlan';
 import {
 	RHYTHM_OFFBEATS,
 	RHYTHM_SILENT_BARS,
@@ -6,7 +7,7 @@ import {
 	type ExerciseDefinition
 } from '$lib/domain/exercise';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
-import { Fraction, compileCyclePlan, figureFromJson, type CycleReport } from '$lib/domain/time';
+import { Fraction, figureFromJson, type CycleReport } from '$lib/domain/time';
 import type { CyclePlanRecord, RhythmAttemptData } from '../cycle/recordCycle';
 import { SETTLE_AFTER_BARS } from '../cycle/compileCycle';
 import { PLAIN_WORDS_SESSIONS } from '../cycle/rhythmStage';
@@ -183,7 +184,7 @@ describe('the rhythm on the series, silent bars', () => {
 		// Every expectation of every stored plan, at its time.
 		const expectations = attempts.flatMap((attempt) => {
 			const plan = attempt.plan as CyclePlanRecord;
-			const compiled = compileCyclePlan({
+			const compiled = cyclePlan({
 				figure: figureFromJson(plan.figure),
 				cycleBars: plan.cycleBars,
 				startBar: plan.startBar,

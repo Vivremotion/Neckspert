@@ -27,12 +27,16 @@ export function changePlan(
 	meter: Meter = METER_4_4,
 	definition: ExerciseDefinition = GESTURE_LINK
 ): RoundPlan {
-	return compileRound(definition, plannedFor(definition, item), meter, { previewBeats: 0 });
+	return compileRound(definition, plannedFor(definition, item), meter, {
+		previewBeats: 0,
+		fromRunStart: null
+	});
 }
 
 /** The round of a note named in free time, within the identify exercise's recall threshold. */
 export function identifyPlan(item: { string: number; fret: number }): RoundPlan {
 	return compileRound(IDENTIFY_NECK, plannedFor(IDENTIFY_NECK, item), METER_4_4, {
-		previewBeats: 0
+		previewBeats: 0,
+		fromRunStart: null
 	});
 }

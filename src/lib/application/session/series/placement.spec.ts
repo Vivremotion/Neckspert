@@ -16,7 +16,7 @@ import {
 } from './placement';
 
 const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
-const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS };
+const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS, fromRunStart: null };
 
 const locate = (leadBeats: LeadBeats, meter: Meter) =>
 	compileRound(

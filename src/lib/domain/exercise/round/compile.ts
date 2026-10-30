@@ -1,10 +1,15 @@
-import { CONTENT_DERIVATIONS, ITEM_NUMBERS } from '../../derivations';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
+import { PITCH_CONTENT } from '../../judges';
 import { mechanicRules } from '../../mechanics';
+import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
+import type { Figure, FigureNote } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
-import { BEAT_RESOLUTION, barLength, beatsOf, type Meter } from '../../time/meter';
+import { BEAT_RESOLUTION, barLength, beatsOf, sameMeter, type Meter } from '../../time/meter';
 import {
+	figureExpectations,
 	validateRoundPlan,
 	type Expectation,
+	type ExpectationWindow,
 	type ExpectedContent,
 	type PairingPolicy,
 	type RoundPlan
@@ -12,7 +17,17 @@ import {
 import type { PlannedItem } from '../../types';
 import { resolvedParamsOf } from '../levels';
 import type { ExerciseDefinition } from '../types';
-import type { ExpectationTemplate, Num, Position, RoundTemplate, WindowTemplate } from './types';
+import {
+	FIGURE_CONTENT,
+	isFigureEntry,
+	type FigureExpectationTemplate,
+	type FigureRef,
+	type Num,
+	type PointExpectationTemplate,
+	type Position,
+	type RoundTemplate,
+	type WindowTemplate
+} from './types';
 
 /**
  * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
@@ -80,13 +95,17 @@ function readsFrom(
 	}
 }
 
+/** The value a dotted path of `params` gives, undefined when it gives none. */
+function paramValue(params: Readonly<Record<string, unknown>>, path: string): unknown {
+	let found: unknown = params;
+	for (const key of path.split('.')) found = isRecord(found) ? found[key] : undefined;
+	return found;
+}
+
 function num(context: Context, field: string, value: Num): number {
 	if (typeof value === 'number') return value;
 	if ('param' in value) {
-		let found: unknown = context.params;
-		for (const key of value.param.split('.')) {
-			found = isRecord(found) ? found[key] : undefined;
-		}
+		const found = paramValue(context.params, value.param);
 		if (typeof found !== 'number' || !Number.isFinite(found)) {
 			fail(
 				context,
@@ -146,21 +165,54 @@ function fractionOf(context: Context, field: string, text: string): Fraction {
 	}
 }
 
-function windowOf(context: Context, field: string, window: WindowTemplate): Expectation['window'] {
+function windowOf(context: Context, field: string, window: WindowTemplate): ExpectationWindow {
 	if ('ms' in window) return { ms: num(context, `${field}.ms`, window.ms) };
-	return { ofGap: fractionOf(context, `${field}.ofGap`, window.ofGap) };
+	if ('ofGap' in window) return { ofGap: fractionOf(context, `${field}.ofGap`, window.ofGap) };
+	const found = paramValue(context.params, window.param);
+	if (isRecord(found) && typeof found.ms === 'number' && Number.isFinite(found.ms)) {
+		return { ms: found.ms };
+	}
+	if (isRecord(found) && found.ofGap instanceof Fraction) return { ofGap: found.ofGap };
+	if (isRecord(found) && typeof found.ofGap === 'string') {
+		return { ofGap: fractionOf(context, `${field}.param`, found.ofGap) };
+	}
+	return fail(
+		context,
+		field,
+		`reads param "${window.param}", which gives no window ({ ms } or { ofGap }) for ${context.item.mechanic} item ${itemKeyOf(context.item)}`
+	);
 }
 
-function contentOf(context: Context, field: string, from: string): ExpectedContent {
+/** What a derivation gives for the item; a failure names the exercise, the field and the item. */
+function derive(context: Context, field: string, from: string): { kind: string; value: unknown } {
 	const derivation = Object.hasOwn(CONTENT_DERIVATIONS, from)
 		? CONTENT_DERIVATIONS[from]
 		: undefined;
 	if (!derivation) return fail(context, field, `derives unknown content "${from}"`);
 	readsFrom(context, field, from, derivation.reads, 'derives');
-	return { kind: derivation.kind, value: derivation.derive(context.item.item) };
+	try {
+		return { kind: derivation.kind, value: derivation.derive(context.item.item) };
+	} catch (error) {
+		return fail(
+			context,
+			field,
+			`derives "${from}" for ${context.item.mechanic} item ${itemKeyOf(context.item)}: ${(error as Error).message}`
+		);
+	}
 }
 
-function expectationOf(context: Context, template: ExpectationTemplate, i: number): Expectation {
+function contentOf(context: Context, field: string, from: string): ExpectedContent {
+	if (Object.hasOwn(CONTENT_DERIVATIONS, from) && CONTENT_DERIVATIONS[from].list) {
+		fail(context, field, `derives "${from}", a list, which only a figure spreads over its notes`);
+	}
+	return derive(context, field, from);
+}
+
+function expectationOf(
+	context: Context,
+	template: PointExpectationTemplate,
+	i: number
+): Expectation {
 	const field = `expectations[${i}]`;
 	return {
 		at: template.at && position(context, `${field}.at`, template.at),
@@ -171,6 +223,165 @@ function expectationOf(context: Context, template: ExpectationTemplate, i: numbe
 		window: windowOf(context, `${field}.window`, template.window),
 		bar: template.bar ?? 0
 	};
+}
+
+/** The figure a reference names, among the exercise's, in the meter played. */
+function figureOf(context: Context, field: string, ref: FigureRef): { id: string; figure: Figure } {
+	let id: string;
+	if ('id' in ref) {
+		id = ref.id;
+	} else if ('param' in ref) {
+		const found = paramValue(context.params, ref.param);
+		if (typeof found !== 'string') {
+			fail(
+				context,
+				field,
+				`reads param "${ref.param}", which names no figure for ${context.item.mechanic} item ${itemKeyOf(context.item)}`
+			);
+		}
+		id = found;
+	} else {
+		const reader = Object.hasOwn(ITEM_FIGURES, ref.item) ? ITEM_FIGURES[ref.item] : undefined;
+		if (!reader) fail(context, field, `reads unknown item figure "${ref.item}"`);
+		readsFrom(context, field, ref.item, reader.reads, 'reads');
+		id = reader.figureOf(context.item.item);
+	}
+	const figures = context.definition.figures ?? [];
+	const found = figures.find((written) => written.id === id);
+	if (!found) {
+		fail(
+			context,
+			field,
+			`names figure "${id}", which the exercise does not write (${figures.map((f) => f.id).join(', ') || 'none'})`
+		);
+	}
+	if (!sameMeter(found.figure.meter, context.meter)) {
+		fail(context, field, `names figure "${id}", which is not in the meter played`);
+	}
+	return found;
+}
+
+/** What the `k`-th note a figure entry plays must play. */
+type NoteContent = (k: number, note: FigureNote) => ExpectedContent | null;
+
+function figureContentOf(
+	context: Context,
+	field: string,
+	content: FigureExpectationTemplate['content'],
+	figureId: string
+): NoteContent {
+	if (content === null) return () => null;
+	if (content.from === FIGURE_CONTENT) {
+		if (content.pattern !== undefined) {
+			fail(
+				context,
+				`${field}.pattern`,
+				'spreads a derived list, and the figure writes its own pitches'
+			);
+		}
+		return (k, note) => {
+			if (note.pitch === undefined) {
+				fail(context, field, `reads the pitches of figure "${figureId}", whose note ${k} has none`);
+			}
+			return {
+				kind: PITCH_CONTENT,
+				value:
+					note.string === undefined
+						? { midi: note.pitch }
+						: { midi: note.pitch, string: note.string }
+			};
+		};
+	}
+	if (Object.hasOwn(CONTENT_DERIVATIONS, content.from) && !CONTENT_DERIVATIONS[content.from].list) {
+		fail(
+			context,
+			field,
+			`derives "${content.from}", not a list: a figure spreads a list over its notes`
+		);
+	}
+	const { kind, value } = derive(context, field, content.from);
+	const what = `"${content.from}" for ${context.item.mechanic} item ${itemKeyOf(context.item)}`;
+	if (!Array.isArray(value) || value.length === 0) {
+		fail(context, field, `derives no element from ${what}`);
+	}
+	const { pattern } = content;
+	for (const index of pattern ?? []) {
+		if (!Number.isInteger(index) || index < 1 || index > value.length) {
+			fail(
+				context,
+				`${field}.pattern`,
+				`asks note ${index} of ${what}, which gives ${value.length} notes`
+			);
+		}
+	}
+	return (k) => ({
+		kind,
+		value: value[pattern ? pattern[k % pattern.length] - 1 : k % value.length]
+	});
+}
+
+/** A figure entry unfolded from its place to the end of the round, from bar `startBar` of its loop. */
+function figureEntryOf(
+	context: Context,
+	template: FigureExpectationTemplate,
+	i: number,
+	length: Fraction,
+	startBar: number
+): Expectation[] {
+	const field = `expectations[${i}]`;
+	const { id, figure } = figureOf(context, `${field}.figure`, template.figure);
+	const at = position(context, `${field}.at`, template.at);
+	const bars = length.sub(at).div(barLength(context.meter));
+	if (bars.n <= 0 || bars.d !== 1 || bars.n % figure.bars !== 0) {
+		fail(
+			context,
+			`${field}.figure`,
+			`names figure "${id}" of ${figure.bars} bars, which does not fill the ${bars} bars from its place to the round's end a whole number of times`
+		);
+	}
+	const content = figureContentOf(context, `${field}.content`, template.content, id);
+	const window = windowOf(context, `${field}.window`, template.window);
+	try {
+		return figureExpectations({
+			figure,
+			at,
+			bars: bars.n,
+			startBar,
+			sensor: template.sensor,
+			window,
+			content
+		});
+	} catch (error) {
+		return fail(context, `${field}.figure`, (error as Error).message);
+	}
+}
+
+function isAccompaniment(value: unknown): value is Accompaniment {
+	return isRecord(value) && isRecord(value.figure) && Array.isArray(value.bars);
+}
+
+/**
+ * The round's accompaniment at an exercise level (the run's, D7 of H6): the one its template
+ * writes or reads in the params; null when it writes none. Throws, naming the exercise and the
+ * field, on a param that holds none.
+ */
+export function roundAccompanimentOf(
+	definition: ExerciseDefinition,
+	exerciseLevel: number
+): Accompaniment | null {
+	const written = definition.round?.accompaniment;
+	if (written === undefined) return null;
+	if (!('param' in written)) return written;
+	const found = paramValue(
+		resolvedParamsOf(definition, { exerciseLevel, itemLevel: null }),
+		written.param
+	);
+	if (!isAccompaniment(found)) {
+		throw new Error(
+			`${definition.id}: round.accompaniment reads param "${written.param}", which gives no accompaniment at exercise level ${exerciseLevel}`
+		);
+	}
+	return found;
 }
 
 function lengthOf(context: Context, template: RoundTemplate['length']): Fraction {
@@ -204,7 +415,7 @@ export function compileRound(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number }
+	resolved: { previewBeats: number; fromRunStart: number | null }
 ): RoundPlan {
 	const template = definition.round;
 	if (!template) throw new Error(`${definition.id}: the exercise has no round template`);
@@ -214,19 +425,33 @@ export function compileRound(
 		meter,
 		params: roundParamsOf(definition, item, resolved)
 	};
-	const lead = num(context, 'prompt.lead', template.prompt.lead);
-	let prompt: Fraction;
-	try {
-		prompt = lead === 0 ? Fraction.ZERO : beatsOf(meter, -lead);
-	} catch (error) {
-		return fail(context, 'prompt.lead', (error as Error).message);
+	let prompt: Fraction | null = null;
+	if (template.prompt) {
+		const lead = num(context, 'prompt.lead', template.prompt.lead);
+		try {
+			prompt = lead === 0 ? Fraction.ZERO : beatsOf(meter, -lead);
+		} catch (error) {
+			return fail(context, 'prompt.lead', (error as Error).message);
+		}
 	}
 	const length = lengthOf(context, template.length);
+	const accompaniment = roundAccompanimentOf(definition, item.exerciseLevel);
+	// Where the round starts in the loops of its figures and its accompaniment.
+	const startBar = resolved.fromRunStart ?? landingBar(accompaniment);
+	const bars = Math.ceil(length.div(barLength(meter)).toNumber());
 	const plan: RoundPlan = {
 		prompt,
-		expectations: template.expectations.map((e, i) => expectationOf(context, e, i)),
+		expectations: template.expectations.flatMap((e, i) =>
+			isFigureEntry(e)
+				? figureEntryOf(context, e, i, length, startBar)
+				: [expectationOf(context, e, i)]
+		),
 		length,
-		mutedBars: [...(template.mutedBars ?? [])],
+		mutedBars: template.mutedBars
+			? [...template.mutedBars]
+			: accompaniment
+				? mutedBarsFrom(accompaniment.bars, startBar, bars)
+				: [],
 		policy: {
 			unit: template.policy.unit,
 			verdict: template.policy.verdict,

@@ -1,10 +1,14 @@
 import { resolvedParamsOf } from '$lib/domain/exercise/levels';
+import { ITEM_FIGURES } from '$lib/domain/derivations';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import {
 	LISTEN_IN_BARS,
 	MATCH_LIMIT,
+	accompanimentFrom,
+	landingBar,
+	unmuted,
 	type Accompaniment,
 	type Aid,
 	type CycleReport,
@@ -21,7 +25,7 @@ import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types
 import { aidsOf } from '../aids';
 import { compileCycle, figureOf, SETTLE_AFTER_BARS } from '../cycle/compileCycle';
 import { cycleAids, levelAided, recordCycle } from '../cycle/recordCycle';
-import { accompanimentFrom, landingBar, rhythmParamsOf, unmuted } from '../cycle/rhythmExercise';
+import { rhythmParamsOf } from '../cycle/rhythmExercise';
 import { responseAttempt } from './recordResponse';
 
 /**
@@ -31,15 +35,21 @@ import { responseAttempt } from './recordResponse';
  * the series knows neither.
  */
 
-/** Its rounds are cycles of a figure (D8), until the sequence absorbs them into `round.figure`. */
+/**
+ * Its rounds are cycles of a figure (D8): its items are the figures it writes (`ITEM_FIGURES`),
+ * until the rhythm is written as a round template whose figure entry reads them.
+ */
 export function playsCycles(definition: ExerciseDefinition): boolean {
-	return (definition.figures?.length ?? 0) > 0;
+	return (
+		(definition.figures?.length ?? 0) > 0 &&
+		Object.values(ITEM_FIGURES).some((reader) => reader.reads.includes(definition.mechanic))
+	);
 }
 
 /**
  * The plan of `item`'s round in `meter`. `fromRunStart`: where it starts, in whole bars from the
- * first bar of its run (the bar 0 of its accompaniment), null when not known yet (a cycle then
- * takes the first one's place); a template ignores it.
+ * first bar of its run (the bar 0 of its accompaniment), null when not known yet (the round then
+ * takes the first one's place: the accompaniment's first muted bar).
  */
 export function compilePlan(
 	definition: ExerciseDefinition,
@@ -51,7 +61,10 @@ export function compilePlan(
 		const startBar = context.fromRunStart ?? undefined;
 		return compileCycle(definition, item as PlannedItem<RhythmItem>, meter, startBar);
 	}
-	return compileRound(definition, item, meter, { previewBeats: context.previewBeats });
+	return compileRound(definition, item, meter, {
+		previewBeats: context.previewBeats,
+		fromRunStart: context.fromRunStart
+	});
 }
 
 /** What the level of a round gives its judge beyond its plan, and how long it keeps listening. */

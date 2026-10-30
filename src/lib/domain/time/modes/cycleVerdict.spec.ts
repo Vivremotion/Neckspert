@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { cyclePlan } from '../testing/cyclePlan';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
 import { METER_4_4 } from '../meter';
-import { compileCyclePlan } from '../plan';
 import { createTempoMap } from '../tempoMap';
 import { CYCLE_VERDICT_VERSION as PUBLIC } from '..';
 import { CYCLE_VERDICT_VERSION, cycleVerdictMode } from './cycleVerdict';
@@ -27,7 +27,7 @@ const offBeats: Figure = {
 		}
 	]
 };
-const plan = compileCyclePlan({
+const plan = cyclePlan({
 	figure: offBeats,
 	cycleBars: 2,
 	startBar: 0,

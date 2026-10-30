@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
+import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import { EXERCISES, LOCATE_NECK } from './catalog';
 import type { ExerciseDefinition, Ladder } from './types';
 import { validateExercise } from './validate';
@@ -134,5 +135,45 @@ describe('validateExercise', () => {
 				tempo: 300
 			})
 		).toBeNull();
+	});
+
+	it('accepts figure entries, and refuses a written note impossible on its string', () => {
+		const written = (text: string): ExerciseDefinition => ({
+			id: 'theme',
+			version: 1,
+			mechanic: 'locate',
+			figures: [{ id: 'theme', figure: parseLilyPond(text) }],
+			params: { ladder: [{ params: { leadBeats: 4, aided: false } }] },
+			round: {
+				prompt: { lead: 4 },
+				expectations: [
+					{
+						figure: { id: 'theme' },
+						at: { bars: 0 },
+						sensor: 'note',
+						content: { from: 'figure' },
+						window: { ms: 80 }
+					}
+				],
+				length: { bars: 1 },
+				policy: {
+					unit: 'response',
+					verdict: 'response',
+					correction: false,
+					pairing: {
+						mode: 'first-answer',
+						opens: { afterPromptMs: 100 },
+						lateMs: 100,
+						lateCapture: null
+					}
+				}
+			}
+		});
+		expect(validateExercise(written("e'4\\1 g'\\1 c''\\2 e,"))).toBeNull();
+		// Below the open high E: no fret of string 1 plays it.
+		expect(validateExercise(written("e'4\\1 c\\1 c c"))).toMatch(
+			/^theme: figures\[0\] \(theme\) note 1 has pitch 48, not on string 1 \(frets 0 to 24\)/
+		);
+		expect(validateExercise(written("e''''1\\1"))).toMatch(/^theme: figures\[0\] .*string 1/);
 	});
 });

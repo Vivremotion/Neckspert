@@ -30,7 +30,13 @@ import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { directRecallOf } from '$lib/domain/learning';
 import { compileRound } from '$lib/domain/exercise/round';
-import type { ExpectationTemplate, Position, RoundTemplate } from '$lib/domain/exercise/round';
+import type {
+	ExpectationTemplate,
+	FigureExpectationTemplate,
+	FigureRef,
+	Position,
+	RoundTemplate
+} from '$lib/domain/exercise/round';
 import { CHORD_VOICING_CONTENT, NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import type { ChordVoicingContent } from '$lib/domain/judges';
 import {
@@ -43,11 +49,17 @@ import {
 	type IdentifyItem,
 	type LocateItem
 } from '$lib/domain/music';
-import { CHROMATIC_NOTES, type PitchName } from '$lib/domain/music/types';
+import {
+	CHROMATIC_NOTES,
+	STANDARD_TUNING,
+	type PitchName,
+	type StringNumber
+} from '$lib/domain/music/types';
 import { createListSource } from '$lib/domain/progress';
 import {
 	BEAT_RESOLUTION,
 	alignmentCapture,
+	barLength,
 	alignmentPairing,
 	createTempoMap,
 	Fraction,
@@ -56,6 +68,8 @@ import {
 	ROUND_MODES,
 	responseZones,
 	roundTimes,
+	type Figure,
+	type FigureElement,
 	type Meter,
 	type ResponseZone,
 	type RoundPlan,
@@ -254,7 +268,7 @@ function earliestPointBeats(
 	meter: Meter
 ): number | null {
 	const points = expectations.flatMap((e) => {
-		if (!e.at || e.until !== undefined) return [];
+		if (!e.at || ('until' in e && e.until !== undefined)) return [];
 		if ('beats' in e.at) return typeof e.at.beats === 'number' ? [e.at.beats] : [];
 		return typeof e.at.bars === 'number' ? [e.at.bars * meter.count] : [];
 	});
@@ -263,12 +277,80 @@ function earliestPointBeats(
 }
 
 /**
+ * Whether a figure entry may ask for content (the pitches written in its figure, or a derived
+ * list spread by a pattern). Held off until the alignment judges pitch, which refuses content
+ * meanwhile: a figure entry is drawn with no content.
+ */
+export const FIGURE_ENTRY_CONTENT = false;
+
+/** The ids of the figures a drawn exercise writes. */
+const FIGURE_IDS = ['one', 'two'];
+
+/**
+ * A one-bar figure in `meter`: its beats, or their halves, each a note or (now and then) a rest;
+ * every note pitched, now and then on a string (and now and then on one that cannot play it).
+ */
+function randomFigure(random: () => number, meter: Meter): Figure {
+	const step = chance(random, 0.5) ? meter.unit : meter.unit.div(Fraction.of(2));
+	const count = barLength(meter).div(step).toNumber();
+	const elements: FigureElement[] = Array.from({ length: count }, (_, i) => {
+		if (i > 0 && chance(random, 0.25)) return { kind: 'rest', duration: step };
+		const string = pick(random, [1, 2, 3, 4, 5, 6]) as StringNumber;
+		const fret = chance(random, 0.02) ? -1 : between(random, 0, 12);
+		const pitch = STANDARD_TUNING[string] + fret;
+		return {
+			kind: 'note',
+			duration: step,
+			content: null,
+			pitch,
+			...(chance(random, 0.3) && { string })
+		};
+	});
+	return { schema: 2, meter, bars: 1, voices: [{ id: 'main', elements }] };
+}
+
+/**
+ * A figure entry heard by `sensor`: one of the exercise's figures, named by its id, by a param
+ * or (now and then, refused) by the item; mostly from the round's start; its window written or
+ * read in the params; its content one of the three a figure takes, once `FIGURE_ENTRY_CONTENT`.
+ */
+function randomFigureEntry(random: () => number, sensor: string): FigureExpectationTemplate {
+	const ref: FigureRef = chance(random, 0.05)
+		? { item: 'figure' }
+		: chance(random, 0.3)
+			? { param: 'figure' }
+			: { id: pick(random, FIGURE_IDS) };
+	const lists = Object.keys(CONTENT_DERIVATIONS).filter((name) => CONTENT_DERIVATIONS[name].list);
+	const contents: FigureExpectationTemplate['content'][] = [
+		null,
+		{ from: 'figure' },
+		...lists.map((from) =>
+			chance(random, 0.5)
+				? { from }
+				: {
+						from,
+						pattern: Array.from({ length: between(random, 1, 4) }, () => between(random, 0, 4))
+					}
+		)
+	];
+	const content = pick(random, contents);
+	return {
+		figure: ref,
+		at: chance(random, 0.85) ? { bars: 0 } : { beats: pick(random, POSITIONS) },
+		sensor,
+		content: FIGURE_ENTRY_CONTENT ? content : null,
+		window: chance(random, 0.3) ? { param: 'window' } : { ms: pick(random, WINDOWS_MS) }
+	};
+}
+
+/**
  * A definition drawn from the registered pieces only; it may be one `validateExercise` refuses.
  *
  * - its shape: a mechanic among `RANDOM_MECHANICS`, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
  *   tempo from 50 to 160;
  * - its expectations: one or two, each with a derivation that reads the mechanic and the sensor
- *   of its kind; places, stretches and windows in fractions of a beat;
+ *   of its kind; places, stretches and windows in fractions of a beat; now and then one of them
+ *   a figure entry, over two one-bar figures the exercise writes;
  * - the rest: a length and a breath, a ladder of one to three levels, a place of the target and
  *   an end of the count, a presentation made of the mechanic's fields.
  *
@@ -282,7 +364,13 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	const ladder = randomLadder(random);
 	const pairingMode = drawMode(random, Object.keys(ROUND_MODES.pairings), 'first-answer', 0.25);
 	const aligned = pairingMode !== 'first-answer';
-	const expectations = randomExpectations(random, mechanic, aligned);
+	const expectations: ExpectationTemplate[] = randomExpectations(random, mechanic, aligned);
+	const figured = chance(random, aligned ? 0.4 : 0.15);
+	if (figured) {
+		const replaced = between(random, 0, expectations.length - 1);
+		expectations[replaced] = randomFigureEntry(random, expectations[replaced].sensor);
+	}
+	const figures = FIGURE_IDS.map((id) => ({ id, figure: randomFigure(random, meter) }));
 	const free = expectations.every((e) => e.at === null);
 
 	const writtenLead = chance(random, 0.3) ? pick(random, LEADS) : null;
@@ -308,10 +396,13 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	const preview = chance(random, 0.4) ? between(random, 0, 2) : undefined;
 	const length: RoundTemplate['length'] = {};
 	if (chance(random, 0.6)) length.bars = between(random, 0, 2);
-	if (chance(random, 0.4)) length.beats = pick(random, [0.5, 1, 2, 3]);
+	// A figure fills the round from its place: whole bars, mostly.
+	if (chance(random, figured ? 0.05 : 0.4)) length.beats = pick(random, [0.5, 1, 2, 3]);
 	if (chance(random, 0.8)) length.breath = true;
 	const round: RoundTemplate = {
-		prompt: { lead: writtenLead ?? { param: 'leadBeats' } },
+		...(!(figured && chance(random, 0.2)) && {
+			prompt: { lead: writtenLead ?? { param: 'leadBeats' } }
+		}),
 		expectations,
 		length,
 		policy: {
@@ -354,9 +445,14 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		tempo,
 		...(preview !== undefined && { flow: { previewBeats: preview } }),
 		...(presentation && { presentation }),
+		...(figured && { figures }),
 		round,
 		params: {
 			ladder,
+			...(figured && {
+				figure: pick(random, FIGURE_IDS),
+				window: { ms: pick(random, WINDOWS_MS) }
+			}),
 			...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
 			...(chance(random, 0.3) && {
 				windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
@@ -581,7 +677,8 @@ function emit(bench: ExerciseBench, sensor: string, payload: unknown, time: numb
 function planOf(definition: ExerciseDefinition, item: PlannedItem): RoundPlan {
 	const presenter = BENCH_PRESENTERS[item.mechanic];
 	return compileRound(definition, item, definition.meter ?? METER_4_4, {
-		previewBeats: previewBeatsOf(definition, presenter.previewBeats) ?? 0
+		previewBeats: previewBeatsOf(definition, presenter.previewBeats) ?? 0,
+		fromRunStart: null
 	});
 }
 

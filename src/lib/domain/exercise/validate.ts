@@ -1,3 +1,5 @@
+import { MAX_PLAYABLE_FRET, STANDARD_TUNING, type StringNumber } from '../music/types';
+import { attackNotes } from '../time/figure';
 import { levelRange } from '../time/levels';
 import { isBeatCount, validateMeter } from '../time/meter';
 import { levelConditionsProblem, validateLadder } from './ladder';
@@ -154,8 +156,27 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
+ * Why a figure the exercise writes cannot be played: a note written on a string where no fret
+ * (0 to `MAX_PLAYABLE_FRET`) gives its pitch.
+ */
+function figuresProblem(definition: ExerciseDefinition): string | null {
+	for (const [index, { id, figure }] of (definition.figures ?? []).entries()) {
+		for (const voice of figure.voices) {
+			for (const [k, { note }] of attackNotes(figure, voice.id).entries()) {
+				if (note.pitch === undefined || note.string === undefined) continue;
+				const fret = note.pitch - STANDARD_TUNING[note.string as StringNumber];
+				if (fret < 0 || fret > MAX_PLAYABLE_FRET) {
+					return `figures[${index}] (${id}) note ${k} has pitch ${note.pitch}, not on string ${note.string} (frets 0 to ${MAX_PLAYABLE_FRET})`;
+				}
+			}
+		}
+	}
+	return null;
+}
+
+/**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive, a ladder it cannot climb,
+ * field: a tempo not positive, a ladder it cannot climb, a figure note impossible on its string,
  * levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
@@ -187,6 +208,8 @@ export function validateExercise(
 		if (params !== null) return params;
 		const levels = levelsProblem(definition);
 		if (levels !== null) return levels;
+		const figures = figuresProblem(definition);
+		if (figures !== null) return figures;
 		return roundProblem(definition, options);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

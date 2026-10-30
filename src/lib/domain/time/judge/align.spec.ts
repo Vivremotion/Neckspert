@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { cyclePlan } from '../testing/cyclePlan';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
 import { METER_4_4 } from '../meter';
-import {
-	compileCyclePlan,
-	type Expectation,
-	type ExpectationWindow,
-	type RoundPlan
-} from '../plan';
+import { type Expectation, type ExpectationWindow, type RoundPlan } from '../plan';
 import { createTempoMap } from '../tempoMap';
 import {
 	alignAttacks,
@@ -36,7 +32,7 @@ function cycle(
 	window: ExpectationWindow,
 	step = of(1, 8)
 ): RoundPlan {
-	return compileCyclePlan({
+	return cyclePlan({
 		figure: bar(pattern, step),
 		cycleBars,
 		startBar: 0,

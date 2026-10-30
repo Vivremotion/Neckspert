@@ -1,44 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
-import { Fraction, METER_4_4, clickAccompaniment } from '$lib/domain/time';
+import { Fraction } from '$lib/domain/time';
 import { levelView, figurePosition, tempoView } from './rhythmStage';
-import {
-	accompanimentFrom,
-	figureFor,
-	landingBar,
-	rhythmLevels,
-	rhythmParamsOf,
-	tempoSegmentOf,
-	unmuted
-} from './rhythmExercise';
-
-const threeOne = clickAccompaniment({
-	meter: METER_4_4,
-	beats: [1, 2, 3, 4],
-	accent: [1],
-	bars: ['on', 'on', 'on', 'off']
-});
-
-describe('landingBar', () => {
-	it('is the first muted bar, or 0 when the click never stops', () => {
-		expect(landingBar(threeOne)).toBe(3);
-		expect(landingBar({ ...threeOne, bars: ['on', 'off', 'off', 'off'] })).toBe(1);
-		expect(landingBar({ ...threeOne, bars: ['on'] })).toBe(0);
-	});
-});
-
-describe('accompanimentFrom', () => {
-	it('puts the first bar of the accompaniment on the given transport bar', () => {
-		const rotated = accompanimentFrom(threeOne, 3);
-		// transport bars 3, 4, 5, 6 read bars 0, 1, 2, 3 of the accompaniment
-		expect([3, 4, 5, 6].map((bar) => rotated.bars[bar % 4])).toEqual(['on', 'on', 'on', 'off']);
-		expect(rotated.figure).toBe(threeOne.figure);
-	});
-
-	it('leaves no bar muted in the listen-in', () => {
-		expect(unmuted(threeOne).bars).toEqual(['on']);
-	});
-});
+import { figureFor, rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
 
 describe('figureFor', () => {
 	it('plays the same figure in a loop and the next line in turn otherwise', () => {

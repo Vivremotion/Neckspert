@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
+import { clickAccompaniment } from '../../time/accompaniment';
+import type { Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
-import { METER_4_4 } from '../../time/meter';
+import { METER_4_4, type Meter } from '../../time/meter';
+import { parseLilyPond } from '../../time/notation/lilypond';
 import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
 import type { PlannedItem } from '../../types';
 import { compileRound, roundParamsOf } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
-import type { RoundTemplate } from './types';
+import type { FigureExpectationTemplate, RoundTemplate } from './types';
 
 const meter = METER_4_4;
 const PREVIEW = 2;
@@ -144,7 +147,7 @@ describe('compileRound', () => {
 			definition('locate', LOCATE_ROUND),
 			planned('locate', item, 4),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1),
@@ -162,7 +165,7 @@ describe('compileRound', () => {
 			definition('identify', IDENTIFY_ROUND),
 			planned('identify', item, null),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		expect(plan).toEqual({
 			prompt: Fraction.ZERO,
@@ -184,7 +187,7 @@ describe('compileRound', () => {
 			definition('triad-anchor', ANCHOR_ROUND),
 			planned('triad-anchor', item, 2),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		// The template writes no listenBeforeEnd: absent means « listen to the end ».
 		expect(plan).toEqual({
@@ -224,7 +227,7 @@ describe('compileRound', () => {
 			definition('triad-zone', zone),
 			planned('triad-zone', item, 4),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1),
@@ -255,7 +258,7 @@ describe('compileRound', () => {
 			definition('chord-grid', GRID_ROUND),
 			planned('chord-grid', item, null),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1, 4),
@@ -272,7 +275,8 @@ describe('compileRound', () => {
 		const item = { string: 3, pitch: 'F' };
 		const written = definition('locate', LOCATE_ROUND, { windows: { perfectMs: 55 } });
 		const plan = compileRound(written, planned('locate', item, 2), meter, {
-			previewBeats: PREVIEW
+			previewBeats: PREVIEW,
+			fromRunStart: null
 		});
 		expect(plan.prompt).toEqual(Fraction.of(-2, 4));
 		expect(plan.expectations[0].window).toEqual({ ms: 55 });
@@ -293,7 +297,8 @@ describe('compileRound', () => {
 		};
 		const at = (exerciseLevel: number) =>
 			compileRound(leveled, { ...planned('locate', item, 2), exerciseLevel }, meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			}).expectations[0].window;
 		expect(at(0)).toEqual({ ms: 55 });
 		expect(at(1)).toEqual({ ms: 40 });
@@ -309,7 +314,8 @@ describe('compileRound', () => {
 		});
 		const at = (level: number | undefined) =>
 			compileRound(laddered, { ...planned('locate', item, 2), level }, meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			}).expectations[0].window;
 		expect(at(1)).toEqual({ ms: 120 });
 		expect(at(0)).toEqual({ ms: DEFAULT_RESPONSE_WINDOWS.perfectMs });
@@ -324,7 +330,8 @@ describe('compileRound', () => {
 			countEndsOn: 'target'
 		});
 		const plan = compileRound(placed, planned('locate', item, 4), meter, {
-			previewBeats: PREVIEW
+			previewBeats: PREVIEW,
+			fromRunStart: null
 		});
 		expect(plan.barOffset).toEqual(Fraction.of(1, 4));
 		expect(plan.countEndsOn).toBe('target');
@@ -332,7 +339,7 @@ describe('compileRound', () => {
 			definition('locate', LOCATE_ROUND),
 			planned('locate', item, 4),
 			meter,
-			{ previewBeats: PREVIEW }
+			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
 		expect(plain.barOffset).toBeUndefined();
 		expect(plain.countEndsOn).toBeUndefined();
@@ -346,7 +353,8 @@ describe('compileRound', () => {
 		};
 		expect(() =>
 			compileRound(definition('locate', absent), planned('locate', item, 4), meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			})
 		).toThrow(
 			/test-locate: round\.prompt\.lead reads param "windows\.nowhere", absent for locate item /
@@ -355,7 +363,8 @@ describe('compileRound', () => {
 		const noThreshold = definition('identify', IDENTIFY_ROUND, { recallThresholdMs: undefined });
 		expect(() =>
 			compileRound(noThreshold, planned('identify', { string: 3, fret: 5 }, null), meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			})
 		).toThrow(
 			/test-identify: round\.expectations\[0\]\.window\.ms reads param "recallThresholdMs"/
@@ -366,7 +375,8 @@ describe('compileRound', () => {
 		const item = { string: 3, pitch: 'F' };
 		const compiling = (round: RoundTemplate) => () =>
 			compileRound(definition('locate', round), planned('locate', item, 4), meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			});
 		expect(compiling({ ...LOCATE_ROUND, barOffset: 'a quarter' })).toThrow(
 			/test-locate: round\.barOffset not a fraction: "a quarter"/
@@ -388,7 +398,8 @@ describe('compileRound', () => {
 		};
 		expect(() =>
 			compileRound(definition('locate', outside), planned('locate', item, 4), meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			})
 		).toThrow(/test-locate: .*outside the plan length/);
 	});
@@ -397,12 +408,343 @@ describe('compileRound', () => {
 		const item = { string: 3, pitch: 'F' };
 		const bare: ExerciseDefinition = { id: 'bare', version: 1, mechanic: 'locate', params: {} };
 		expect(() =>
-			compileRound(bare, planned('locate', item, 4), meter, { previewBeats: PREVIEW })
+			compileRound(bare, planned('locate', item, 4), meter, {
+				previewBeats: PREVIEW,
+				fromRunStart: null
+			})
 		).toThrow(/bare: .*no round/);
 		expect(() =>
 			compileRound(definition('identify', LOCATE_ROUND), planned('identify', item, 4), meter, {
-				previewBeats: PREVIEW
+				previewBeats: PREVIEW,
+				fromRunStart: null
 			})
 		).toThrow(/test-identify: round\.expectations\[0\]\.content derives "note-of-item".*identify/);
 	});
 });
+
+const CYCLE_POLICY: RoundTemplate['policy'] = {
+	unit: 'cycle',
+	verdict: 'cycle',
+	correction: false,
+	pairing: { mode: 'alignment' }
+};
+
+/** A round that is one figure entry filling it, of `bars` bars; no prompt. */
+function figureRound(
+	entry: Partial<FigureExpectationTemplate> = {},
+	more: Partial<RoundTemplate> = {}
+): RoundTemplate {
+	return {
+		expectations: [
+			{
+				figure: { id: 'main' },
+				at: { bars: 0 },
+				sensor: 'attack',
+				content: null,
+				window: { ms: 80 },
+				...entry
+			}
+		],
+		length: { bars: 1 },
+		handover: 'end',
+		policy: CYCLE_POLICY,
+		...more
+	};
+}
+
+function figureExercise(
+	mechanic: string,
+	round: RoundTemplate,
+	figures: Record<string, string>,
+	params: Record<string, unknown> = {}
+): ExerciseDefinition {
+	return {
+		...definition(mechanic, round, params),
+		figures: Object.entries(figures).map(([id, text]) => ({ id, figure: parseLilyPond(text) }))
+	};
+}
+
+const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
+
+/** Compiles `round` over `item`, from `fromRunStart` bars into its run. */
+function compileFigure(
+	exercise: ExerciseDefinition,
+	item: unknown,
+	fromRunStart: number | null = null,
+	meter: Meter = METER_4_4
+) {
+	return compileRound(exercise, planned(exercise.mechanic, item, null), meter, {
+		previewBeats: PREVIEW,
+		fromRunStart
+	});
+}
+
+const midis = (plan: { expectations: { content: unknown }[] }) =>
+	plan.expectations.map((e) => (e.content as { value: { midi: number } }).value.midi);
+
+const THREE_ONE = clickAccompaniment({
+	meter: METER_4_4,
+	beats: [1, 2, 3, 4],
+	accent: [1],
+	bars: ['on', 'on', 'on', 'off']
+});
+
+describe('compileRound, a figure entry', () => {
+	it('unfolds a figure into one expectation per attack', () => {
+		const plan = compileFigure(
+			figureExercise('rhythm-figure', figureRound(), { main: 'c8 c c c c c c c' }),
+			{ figureId: 'main' }
+		);
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual([
+			'0',
+			'1/8',
+			'1/4',
+			'3/8',
+			'1/2',
+			'5/8',
+			'3/4',
+			'7/8'
+		]);
+		expect(
+			plan.expectations.every(
+				(e) =>
+					e.content === null &&
+					e.bar === 0 &&
+					e.sensor === 'attack' &&
+					e.span === 'point' &&
+					e.role === 'target'
+			)
+		).toBe(true);
+		expect(plan.expectations[0].window).toEqual({ ms: 80 });
+		expect(plan.length).toEqual(Fraction.of(1));
+		expect(plan.handover).toEqual(Fraction.of(1));
+		expect(plan.policy).toEqual(CYCLE_POLICY);
+	});
+
+	it('loops the figure over the round and rotates it from startBar', () => {
+		const twoBars = figureExercise('rhythm-figure', figureRound({}, { length: { bars: 2 } }), {
+			main: 'c1 | c2 c2'
+		});
+		// Bar 2 (two half notes), then bar 1 (one whole note) again; a start past the figure wraps.
+		for (const from of [1, 3]) {
+			const plan = compileFigure(twoBars, { figureId: 'main' }, from);
+			expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
+			expect(plan.expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
+		}
+		const looped = compileFigure(twoBars, { figureId: 'main' }, 0);
+		expect(looped.expectations.map((e) => e.at!.toString())).toEqual(['0', '1', '3/2']);
+
+		// The accompaniment turns with the figure: a round starts on its first muted bar by default.
+		const fourBars = figureExercise(
+			'rhythm-figure',
+			figureRound({}, { length: { bars: 4 }, accompaniment: THREE_ONE }),
+			{ main: 'c8 c r c r c r c' }
+		);
+		expect(compileFigure(fourBars, { figureId: 'main' }).mutedBars).toEqual([0]);
+		expect(compileFigure(fourBars, { figureId: 'main' }, 0).mutedBars).toEqual([3]);
+		expect(compileFigure(fourBars, { figureId: 'main' }, 1).mutedBars).toEqual([2]);
+		const plan = compileFigure(fourBars, { figureId: 'main' });
+		expect(plan.expectations).toHaveLength(20);
+		expect(plan.expectations[5].at).toEqual(Fraction.of(1));
+		expect(plan.expectations[19].at).toEqual(Fraction.of(31, 8));
+	});
+
+	it('spreads the derived notes by the pattern', () => {
+		const exercise = figureExercise(
+			'voicing-figure',
+			figureRound({ sensor: 'note', content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] } }),
+			{ main: 'c8 c c c r2' }
+		);
+		const plan = compileFigure(exercise, C_FIRST_INVERSION);
+		expect(midis(plan)).toEqual([64, 67, 72, 67]);
+		expect(plan.expectations.map((e) => e.content)).toEqual([
+			{ kind: 'pitch', value: { midi: 64, string: 3 } },
+			{ kind: 'pitch', value: { midi: 67, string: 2 } },
+			{ kind: 'pitch', value: { midi: 72, string: 1 } },
+			{ kind: 'pitch', value: { midi: 67, string: 2 } }
+		]);
+	});
+
+	it('plays the derived list in order without a pattern', () => {
+		const exercise = figureExercise(
+			'voicing-figure',
+			figureRound({ sensor: 'note', content: { from: 'voicing-notes' } }),
+			{ main: 'c8 c c c c c r4' }
+		);
+		expect(midis(compileFigure(exercise, C_FIRST_INVERSION))).toEqual([64, 67, 72, 64, 67, 72]);
+	});
+
+	it("reads written pitches with { from: 'figure' }", () => {
+		const exercise = figureExercise(
+			'locate',
+			figureRound({ sensor: 'note', content: { from: 'figure' } }),
+			{ main: "e'4\\1 g'\\1 c''\\2 e'" }
+		);
+		const plan = compileFigure(exercise, { string: 3, pitch: 'F' });
+		expect(plan.expectations.map((e) => e.content)).toEqual([
+			{ kind: 'pitch', value: { midi: 64, string: 1 } },
+			{ kind: 'pitch', value: { midi: 67, string: 1 } },
+			{ kind: 'pitch', value: { midi: 72, string: 2 } },
+			{ kind: 'pitch', value: { midi: 64 } }
+		]);
+	});
+
+	it('reads the figure a level names, the one an item names, and a window written in the params', () => {
+		const leveled: ExerciseDefinition = {
+			...figureExercise(
+				'locate',
+				figureRound({ figure: { param: 'figure' }, window: { param: 'window' } }),
+				{
+					quarters: 'c4 c c c',
+					eighths: 'c8 c c c c c c c'
+				},
+				{ figure: 'quarters', window: { ofGap: '1/4' } }
+			),
+			levels: [{ params: {} }, { params: { figure: 'eighths', window: { ms: 40 } } }]
+		};
+		const at = (exerciseLevel: number) =>
+			compileRound(
+				leveled,
+				{ ...planned('locate', { string: 3, pitch: 'F' }, null), exerciseLevel },
+				METER_4_4,
+				{
+					previewBeats: PREVIEW,
+					fromRunStart: null
+				}
+			);
+		expect(at(0).expectations).toHaveLength(4);
+		expect(at(0).expectations[0].window).toEqual({ ofGap: Fraction.of(1, 4) });
+		expect(at(1).expectations).toHaveLength(8);
+		expect(at(1).expectations[0].window).toEqual({ ms: 40 });
+
+		const byItem = figureExercise('rhythm-figure', figureRound({ figure: { item: 'figure' } }), {
+			quarters: 'c4 c c c',
+			eighths: 'c8 c c c c c c c'
+		});
+		expect(compileFigure(byItem, { figureId: 'eighths' }).expectations).toHaveLength(8);
+		expect(compileFigure(byItem, { figureId: 'quarters' }).expectations).toHaveLength(4);
+	});
+
+	it('gives a null prompt when the template writes none', () => {
+		const plan = compileFigure(figureExercise('rhythm-figure', figureRound(), { main: 'c1' }), {
+			figureId: 'main'
+		});
+		expect(plan.prompt).toBeNull();
+		const prompted = compileFigure(
+			figureExercise('rhythm-figure', figureRound({}, { prompt: { lead: 2 } }), { main: 'c1' }),
+			{ figureId: 'main' }
+		);
+		expect(prompted.prompt).toEqual(Fraction.of(-1, 2));
+	});
+
+	it("takes the muted bars from the accompaniment's off bars", () => {
+		const exercise = figureExercise(
+			'rhythm-figure',
+			figureRound({}, { length: { bars: 4 }, accompaniment: { param: 'accompaniment' } }),
+			{ main: 'c1' },
+			{ accompaniment: THREE_ONE }
+		);
+		expect(compileFigure(exercise, { figureId: 'main' }, 2).mutedBars).toEqual([1]);
+		// Written muted bars win over the accompaniment's.
+		const written = figureExercise(
+			'rhythm-figure',
+			figureRound({}, { length: { bars: 4 }, accompaniment: THREE_ONE, mutedBars: [2] }),
+			{ main: 'c1' }
+		);
+		expect(compileFigure(written, { figureId: 'main' }).mutedBars).toEqual([2]);
+		// No accompaniment: no muted bar, the round from its start.
+		expect(
+			compileFigure(figureExercise('rhythm-figure', figureRound(), { main: 'c1' }), {
+				figureId: 'main'
+			}).mutedBars
+		).toEqual([]);
+	});
+
+	it('fails naming the exercise and the field', () => {
+		const voicing = (entry: Partial<FigureExpectationTemplate>, text = 'c8 c c c r2') =>
+			figureExercise('voicing-figure', figureRound({ sensor: 'note', ...entry }), { main: text });
+		expect(() =>
+			compileFigure(
+				voicing({ content: { from: 'voicing-notes', pattern: [1, 4] } }),
+				C_FIRST_INVERSION
+			)
+		).toThrow(/test-voicing-figure: round\.expectations\[0\]\.content\.pattern .*4.*3 notes/);
+		expect(() => compileFigure(voicing({ figure: { id: 'nowhere' } }), C_FIRST_INVERSION)).toThrow(
+			/test-voicing-figure: round\.expectations\[0\]\.figure .*"nowhere"/
+		);
+		const threeBars = figureExercise('rhythm-figure', figureRound({}, { length: { bars: 3 } }), {
+			main: 'c1 | c1'
+		});
+		expect(() => compileFigure(threeBars, { figureId: 'main' })).toThrow(
+			/test-rhythm-figure: round\.expectations\[0\]\.figure .*whole number/
+		);
+		// Review Focus: an occurrence the neck does not hold fails at compilation, naming the item.
+		expect(() =>
+			compileFigure(voicing({ content: { from: 'voicing-notes' } }), {
+				...C_FIRST_INVERSION,
+				occurrence: 1
+			})
+		).toThrow(
+			/test-voicing-figure: round\.expectations\[0\]\.content derives "voicing-notes" for voicing-figure item C\|maj\|3:3,2:5,1:1@1: .*[Oo]ccurrence 1/
+		);
+		// A list on a point, a single content on a figure.
+		const point: RoundTemplate = {
+			...figureRound(),
+			expectations: [
+				{ at: { beats: 0 }, sensor: 'note', content: { from: 'voicing-notes' }, window: { ms: 80 } }
+			]
+		};
+		expect(() =>
+			compileFigure(figureExercise('voicing-figure', point, {}), C_FIRST_INVERSION)
+		).toThrow(/round\.expectations\[0\]\.content .*list/);
+		expect(() =>
+			compileFigure(
+				figureExercise('locate', figureRound({ content: { from: 'note-of-item' } }), {
+					main: 'c1'
+				}),
+				{ string: 3, pitch: 'F' }
+			)
+		).toThrow(/round\.expectations\[0\]\.content .*"note-of-item".*not a list/);
+		// The figure in another meter than the one played.
+		const threeFour: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
+		expect(() =>
+			compileFigure(
+				figureExercise('rhythm-figure', figureRound(), { main: 'c1' }),
+				{ figureId: 'main' },
+				null,
+				threeFour
+			)
+		).toThrow(/round\.expectations\[0\]\.figure .*meter/);
+		// A figure an item names, of a mechanic whose items name none.
+		expect(() =>
+			compileFigure(
+				figureExercise('locate', figureRound({ figure: { item: 'figure' } }), { main: 'c1' }),
+				{ string: 3, pitch: 'F' }
+			)
+		).toThrow(/round\.expectations\[0\]\.figure .*"figure".*not locate/);
+		// A figure without pitch read by { from: 'figure' }.
+		const bare: ExerciseDefinition = {
+			...figureExercise('locate', figureRound({ content: { from: 'figure' } }), {}),
+			figures: [{ id: 'main', figure: pitchless() }]
+		};
+		expect(() => compileFigure(bare, { string: 3, pitch: 'F' })).toThrow(
+			/round\.expectations\[0\]\.content .*pitch/
+		);
+	});
+});
+
+/** A schema 1 figure: its notes carry no pitch. */
+function pitchless(): Figure {
+	const figure = parseLilyPond('c1');
+	return {
+		...figure,
+		voices: figure.voices.map((voice) => ({
+			...voice,
+			elements: voice.elements.map((element) =>
+				element.kind === 'note'
+					? { kind: 'note', duration: element.duration, content: null }
+					: element
+			)
+		}))
+	};
+}

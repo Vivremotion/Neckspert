@@ -13,8 +13,9 @@ import {
 	PlanRound,
 	RHYTHM_SENSOR,
 	barLength,
-	compileCyclePlan,
 	createTempoMap,
+	figureExpectations,
+	mutedBarsFrom,
 	figureFromJson,
 	type CycleReport,
 	type CycleVerdict
@@ -331,15 +332,30 @@ export function rejudge(
 			bpm: plan.tempo.bpm,
 			unit: Fraction.parse(plan.tempo.unit)
 		};
+		const length = barLength(figure.meter).mul(Fraction.of(plan.cycleBars));
 		const round = new PlanRound({
-			plan: compileCyclePlan({
-				figure,
-				cycleBars: plan.cycleBars,
-				startBar: plan.startBar,
-				sensor: RHYTHM_SENSOR,
-				window,
-				accompanimentBars: plan.accompaniment.bars
-			}),
+			// The cycle as the rhythm compiled it: its figure looped from its start bar.
+			plan: {
+				prompt: null,
+				expectations: figureExpectations({
+					figure,
+					at: Fraction.ZERO,
+					bars: plan.cycleBars,
+					startBar: plan.startBar,
+					sensor: RHYTHM_SENSOR,
+					window,
+					content: () => null
+				}),
+				length,
+				policy: {
+					unit: 'cycle',
+					pairing: { mode: 'alignment' },
+					verdict: 'cycle',
+					correction: false
+				},
+				handover: length,
+				mutedBars: mutedBarsFrom(plan.accompaniment.bars, plan.startBar, plan.cycleBars)
+			},
 			clock: { map: createTempoMap(startS, [tempo]), start: Fraction.ZERO },
 			judges: contentJudges,
 			latency,

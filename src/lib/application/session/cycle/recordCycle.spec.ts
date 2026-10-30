@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { cyclePlan } from '$lib/domain/time/testing/cyclePlan';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
 import { contentJudges } from '$lib/domain/judges';
 import {
 	PlanRound,
 	attackPositions,
-	compileCyclePlan,
 	createTempoMap,
 	figureFromJson,
 	Fraction,
@@ -18,7 +18,7 @@ const [offbeats] = RHYTHM_OFFBEATS.figures ?? [];
 /** A cycle of the one-bar offbeats at level 1, played exactly when `exact`, else empty. */
 function settledCycle(exact: boolean) {
 	const params = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
-	const plan = compileCyclePlan({
+	const plan = cyclePlan({
 		figure: offbeats.figure,
 		cycleBars: params.cycleBars,
 		startBar: 0,
