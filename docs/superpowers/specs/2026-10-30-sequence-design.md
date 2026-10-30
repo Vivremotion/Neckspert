@@ -14,14 +14,14 @@ Le passage du corpus au crible (2026-10-27) compte 13 exercices sur 43 bloqués 
 
 ## Décisions de cadrage
 
-| #   | Décision                                                                                                                                                                                                                                                         |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #   | Décision                                                                                                                                                                                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | C1  | **Débit lent d'abord.** S vise le débit du détecteur de notes actuel (environ 4 notes/s). Le capteur de vérification de hauteur pour les notes rapides est une piste à part ; sa vraie limite se mesure après S, en jouant.                                         |
 | C2  | **Un seul plan** pour les notes dérivées et les notes écrites, conçues ensemble ; une étape jouable au milieu du plan.                                                                                                                                              |
 | C3  | **Une seule notion d'attente.** Une cible unique est déjà une liste d'une attente ; la figure n'est qu'une autre façon d'écrire des places dans cette liste. L'appariement (`first-answer` ou `alignment`) reste un réglage de la politique, pas un second concept. |
-| C4  | **La réussite d'un tour de séquence** est le verdict du cycle étendu : une fausse note compte comme une attente manquée dans la fidélité ; les seuils sont des données de l'exercice.                                                                                |
-| C5  | **La séquence est un savoir-faire** (`learner: 'skill'`), avec des niveaux d'exercice, sans carte FSRS. La mémoire des formes reste le travail des triades.                                                                                                       |
-| C6  | **La vue des figures** (l'actuelle vue du rythme, renommée) montre la séquence ; le plan visuel 3 la redessinera.                                                                                                                                                 |
+| C4  | **La réussite d'un tour de séquence** est le verdict du cycle étendu : une fausse note compte comme une attente manquée dans la fidélité ; les seuils sont des données de l'exercice.                                                                               |
+| C5  | **La séquence est un savoir-faire** (`learner: 'skill'`), avec des niveaux d'exercice, sans carte FSRS. La mémoire des formes reste le travail des triades.                                                                                                         |
+| C6  | **La vue des figures** (l'actuelle vue du rythme, renommée) montre la séquence ; le plan visuel 3 la redessinera.                                                                                                                                                   |
 | C7  | **Les exercices réels restent privés.** Les exercices du professeur et les morceaux protégés ne vont pas dans le dépôt public : un dossier d'exercices locaux, hors git, arrive dans S (§ 6).                                                                       |
 
 ## 1. Le format : une figure dans la liste d'attentes
@@ -72,12 +72,12 @@ D10 de H5 (`round.figure` à côté de `round.expectations`) est amendée : la f
 
 **La vue `figure`** (`FigureView`, l'actuelle `rhythm-figure` renommée d'un coup, sans alias). `ui/notation/renderFigure.ts`, seul importateur de VexFlow, grave chaque ligne en système selon `notation` :
 
-| `notation`      | La ligne                                                                 |
-| --------------- | ------------------------------------------------------------------------ |
-| rythme seul     | une portée à une ligne, comme aujourd'hui                                |
-| `staff`         | une portée en clé de sol 8 avec les hauteurs                              |
-| `tab`           | une tablature à six lignes, cases et rythme sur les hampes                |
-| `staff` + `tab` | portée en haut, tablature en bas, reliées (`StaveConnector`)              |
+| `notation`      | La ligne                                                     |
+| --------------- | ------------------------------------------------------------ |
+| rythme seul     | une portée à une ligne, comme aujourd'hui                    |
+| `staff`         | une portée en clé de sol 8 avec les hauteurs                 |
+| `tab`           | une tablature à six lignes, cases et rythme sur les hampes   |
+| `staff` + `tab` | portée en haut, tablature en bas, reliées (`StaveConnector`) |
 
 `FigureLayout` garde l'abscisse de chaque attaque : marques, curseur et lignes de retour se posent comme avant.
 
@@ -153,3 +153,46 @@ Garde de fusion : `npm test && npm run check`.
 - **Erreurs d'octave** du détecteur de hauteur : le contenu `pitch` est exact, une note lue à l'octave serait fausse. Mesuré sur les prises réelles après S.
 - **Débit** : un thème réel dépasse par endroits le débit du capteur ; les niveaux lents le contiennent, la pratique le mesure.
 - **Tours enchaînés au verdict du cycle** (§ 4) : à vérifier en premier dans le plan.
+
+## Réalisation (2026-10-30)
+
+Branche `plan/sequence-s` (plan `docs/superpowers/plans/2026-10-30-s-sequence.md`, treize tâches et une tâche 12b). Ce qui suit dit où la réalisation s'écarte de la spec ou la précise. Les rapports de tâche et le registre des décisions de l'exécution sont dans `.superpowers/sdd/2026-10-30-s-sequence/` (ignoré par git).
+
+### Les dix décisions du plan
+
+- **D1 — Une figure se désigne par son id.** `figure: { id } | { param } | { item }` ; la spec disait « écrite (texte LilyPond) ». Les figures sont listées une fois dans `ExerciseDefinition.figures` (texte LilyPond, parsé au chargement) : il n'y a pas deux façons d'écrire la même figure. Le gabarit gagne aussi `round.accompaniment` (une `Accompaniment` ou `{ param }`), comme la spec le prévoyait.
+- **D2 — Toute note d'une figure porte sa hauteur.** Le parseur donne à chaque note sa hauteur MIDI (`c` = do 3, MIDI 48) ; les figures du rythme gardent `c`, leur hauteur n'est lue que par un contenu `{ from: 'figure' }`. Le JSON de figure passe au schéma 2 ; le schéma 1 se lit toujours (sans hauteur) et devient du schéma 2.
+- **D3 — `domain/time/` garde des nombres.** `FigureElement` gagne `pitch?: number` (MIDI) et `string?: number` (1 à 6) sans importer `domain/music`.
+- **D4 — Une fidélité sans seuil exige zéro faute.** `thresholds.fidelity` (part des `hit`, de 0 à 1), quand un niveau l'écrit, laisse passer un tour dont la fidélité l'atteint malgré des notes manquées ou fausses ; les autres raisons d'échec (en trop, décalage, régularité, tenue, précision) restent. La spec disait « les seuils restent des données » sans nommer celui-ci.
+- **D5 — `WRONG_PITCH_COST = 0.5`.** Une paire coûte au plus 1 par le temps seul ; une note fausse en place coûte donc moins qu'une attente manquée plus une attaque en trop (2), et une note juste voisine gagne sur elle. L'anti-blocage traite une fausse note comme une manquée (la même fausse note deux fois est un problème de lecture, jamais d'exécution).
+- **D6 — Une attaque garde sa dernière lecture finale.** Le capteur de notes peut relire une attaque ; l'alignement garde, par instant d'attaque, la dernière charge `final`, sinon la dernière reçue.
+- **D7 — `listenInBars` et `countIn` passent dans `pacing`** pour tout exercice (0 et `true` par défaut). Les trois exercices du rythme écrivent `pacing.listenInBars: 2` (l'ancien `LISTEN_IN_BARS`) et gardent leur comportement ; leurs niveaux qui surchargeaient `listenInBars`/`countIn` écrivent désormais `pacing.*`.
+- **D8 — L'item d'une forme porte sa durée.** `VoicingFigureItem = { voicing, occurrence, beats? }`, clé `${voicing}@${occurrence}` suivie de `@${beats}` quand il y en a. Un exercice enchaîne ses formes par `ExerciseDefinition.items` (clés d'items de sa mécanique) ; la longueur du tour lit `{ item: 'beats' }`. Les tours enchaînés au verdict du cycle, le premier risque de la spec, se sont joués sans changement du moteur (tâche 9 : des tests et un banc seulement).
+- **D9 — `rhythm-figure` devient `figure` en un coup** : identité, catalogue, vue, tentatives stockées (Dexie 12). Sa clé d'item ne change pas (`${figureId}@${level}`). `createFigureSource` est remplacée par `createExerciseItemSource` (`series/itemSource.ts`), qui sert les `items` de l'exercice, sinon ses figures. Une tentative a une seule forme : `RoundPlanRecord` remplace `CyclePlanRecord`, `roundAttempt` remplace `recordCycle`. Un exercice qui écrit une figure et des niveaux se joue en séance d'exercice (`exerciseSessionExercises()`, une fonction sur le catalogue vivant et non une constante, pour que les exercices locaux apparaissent à l'accueil) ; le dossier `application/session/cycle/` n'existe plus.
+- **D10 — Le dossier local est lu au build** par `import.meta.glob('/exercises.local/*.json', { eager: true })`. Un fichier refusé n'arrête pas l'application : la raison du validateur va à la console et, en développement, sur l'accueil. Le format est décrit dans `docs/exercices-locaux.md` avec de la matière commune.
+
+### Précisions et écarts
+
+- **Le juge.** Le contenu `pitch` (hauteur exacte, `{ midi, string? }`) et le contenu `note` de Localiser (toute octave possible sur la corde) restent deux contenus. Une fausse note en place est `wrong-pitch` dans le rapport du cycle, la marque est distincte de « manquée » ; la fidélité est la part des `hit`, le placement et la précision se mesurent sur toutes les attaques appariées. Un capteur d'attaques apparié à un contenu `pitch` rend une fausse note (pas d'exception).
+- **Une figure remplit n'importe quelle durée (tâche 12b).** La spec disait « se répète pour remplir la longueur du tour » et la validation refusait une durée qui n'était pas un nombre entier de boucles. La grille réelle de l'auteur change d'accord sur 1, 2, 3, 6 ou 10 temps, et sur des temps qui ne sont pas le premier d'une mesure : `figureExpectations` coupe maintenant la dernière boucle à la fin de la durée (une attaque sur la fin revient au tour suivant). Le plan figé du rythme ne change pas.
+- **Des listes dérivées.** `ContentDerivation` gagne `list?: true` : une entrée de figure exige une dérivation qui donne une liste, une entrée de point la refuse (un tableau ne doit pas atteindre un juge). Les assistants `landingBar`, `accompanimentFrom` et `unmuted` vivent dans `domain/time/accompaniment.ts`.
+- **Les formes.** L'occurrence 1 d'un exemple de la spec dépassait `MAX_VOICING_FRET` : le test utilise la forme `C|maj|3:5,2:1,1:3` (0-1-0 puis 12-13-12). Dans la phrase de faute, les notes portent les lettres de l'application (« A au lieu de G »), pas le solfège de l'exemple de la spec : un seul nom par concept ; deux notes de même nom mais d'octaves différentes sont dites comme une erreur d'octave.
+- **La vue.** `figure` est dans `PROMPT_STAGE_VIEWS` ; l'écran dépend de la vue de l'exercice (`stage.ts`), et un exercice de figure doit écrire `view: 'figure'` (`screenProblem` le refuse sinon). Les notes dérivées sont écrites dans le modèle d'écran pour la tablature d'aide.
+- **`notation` se pose par les niveaux d'exercice.** Comme tout paramètre de figure (`feedback`, `listen`, `cursor`, `thresholds`), il est lu au niveau de l'exercice, pas de l'item : la spec disait « remplaçable par tout niveau ». Un niveau d'item (une échelle) ne peut pas montrer la tablature.
+- **Les altérations s'écrivent en dièses sur la portée.** Une `Figure` ne garde que la hauteur MIDI ; une armure ou une orthographe demandent un champ de plus. Un thème en tonalité de bémols s'engrave donc « La# » pour « Si♭ » tant que ce champ n'existe pas.
+- **À la respiration, les marques jouées restent sur la ligne de rythme**; la portée ne sert qu'à la grande gravure et à la figure suivante. Le plan visuel 3 redessine la respiration.
+- **L'oracle.** `/diagnostic/oracle` ne lit que `RoundPlanRecord` (fourni par la tentative, avec son tempo et ses seuils) ; il enchaîne deux cycles quand l'un commence à moins d'un temps de la fin de l'autre (le plan stocké ne porte pas de mètre ; c'était une mesure).
+- **Stockage.** Dexie 12 / sauvegarde 8 (`v12.ts`, pur, appliqué par la mise à jour et par l'import) : `rhythm-figure` devient `figure` (clé de carte comprise) et chaque `CyclePlanRecord` devient le `RoundPlanRecord` qu'il jugeait, recompilé par une copie figée de l'ancien compilateur de cycle, fil-piège contre `figureExpectations` ; un plan illisible devient null. Les fixtures de stockage utilisent l'identité figée du rythme (`RHYTHM_FIGURE_RULES_V11`). Le chantier 2 prend la version 13.
+- **Seuils lus au niveau de l'exercice.** Les seuils du verdict (`readsThresholds`) se lisent au niveau d'exercice seulement ; aucune échelle d'item n'en écrit. Un seuil d'item est ignoré.
+- **Pas de `round.figure`.** Le `roundProblem` continue de refuser toute clé de `round` qu'il ne connaît pas ; la figure est dans la liste des attentes, comme l'amendait déjà la spec.
+- **Le MusicXML.** `npm run musicxml -- <fichier> --part P1` ou `--shapes P2`, sans bibliothèque XML. Il lit les consignes `string`/`fret` des exports Guitar Pro (y compris dans les instructions de traitement `<?GP …?>`), une seule voix par partie, l'accordage standard déclaré dans l'une ou l'autre octave, les silences (`forward` compris), les triolets et les liaisons ; il signale par un avertissement ce qu'il n'exprime pas (accords dans une partie à une voix, ornements, capodastre, triolet ouvert en fin de mesure, écrit tout de même avec son avertissement).
+
+### Ce qui reste ouvert, pour le jeu
+
+- **Trois trous connus de la tâche 12b** : la démonstration et le « joué avec » restent silencieux sur un changement plus court que sa figure ; un tour qui ne commence pas sur le premier temps repart au début d'une figure de plusieurs mesures (une figure d'une mesure n'est pas touchée) ; l'affichage d'un changement de 2 temps ou hors premier temps n'est pas contrôlé par un test. Les tétrades de l'auteur utilisent des figures d'une mesure ; la pratique dira si l'affichage gêne.
+- **Notes rapides, erreurs d'octave du détecteur, débit réel** : toujours à mesurer en jouant (Risques).
+- **Points mineurs reportés** (relevés en relecture, sans effet connu sur le comportement) : la tablature d'aide attribue mal les hauteurs dérivées dans un tour tourné de plusieurs mesures ; la règle de case (au plus 24) est écrite à deux endroits ; `renderFigure.ts` passe 650 lignes (la tablature à extraire) ; le texte « note N » compte les silences ; une altération se répète sur une liaison à travers la barre.
+
+### Étapes jouables : à venir
+
+Les deux étapes jouables avec l'auteur n'ont pas encore eu lieu : les tétrades sur sa grille (notes dérivées, plusieurs accords enchaînés, tablature d'aide) et son thème (notes écrites, portée et tablature, figure longue), tous deux depuis `exercises.local/`. Cette section sera complétée de ce qu'elles changent. La fusion attend leur accord.

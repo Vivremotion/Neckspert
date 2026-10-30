@@ -239,7 +239,7 @@ const EVERY_BEAT_V11 = {
 const BASE_THRESHOLDS_V11 = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
 
 /**
- * A cycle of each rhythm exercise as versions 8 to 11 stored its plan (`CyclePlanRecord`): the
+ * A cycle of each rhythm exercise as versions 8 to 11 stored its plan (`CyclePlanRecordV11`): the
  * exercise level and the figure it was played at, and its record. Silent bars at level 2 from
  * the first of its two silent bars; the first line of « 2 et 4 » at ♩ = 120, kept before the
  * audio start was; two bars of offbeats from the second.
