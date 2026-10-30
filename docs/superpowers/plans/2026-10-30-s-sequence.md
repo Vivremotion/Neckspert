@@ -55,30 +55,30 @@
 
 ## File Structure
 
-| Fichier                                                                        | Rôle                                                                                     |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| `domain/time/notation/lilypond.ts`                                             | `parseLilyPond` : rythme, hauteurs, cordes (renommé de `parseLilyPondRhythm`)            |
-| `domain/time/figure.ts`                                                        | `FigureElement.pitch`/`string`, schéma 2, `attackNotes`                                   |
-| `domain/time/plan.ts`                                                          | `figureExpectations` (remplace `compileCyclePlan`)                                        |
-| `domain/music/voicingNotes.ts` (create)                                        | les notes d’une forme à une occurrence                                                    |
-| `domain/mechanics/voicingFigure.ts` (create), `domain/mechanics/figure.ts` (renamed from `rhythmFigure.ts`) | identités `voicing-figure` et `figure`                         |
-| `domain/judges/index.ts`, `domain/derivations/index.ts`                        | contenu et juge `pitch` ; dérivation `voicing-notes` ; `ITEM_FIGURES` ; `ITEM_NUMBERS.beats` |
-| `domain/exercise/round/{types,compile,validate}.ts`                            | entrées à figure, motif, accompagnement, invite optionnelle                               |
-| `domain/time/judge/{align,measures}.ts`, `domain/time/modes/alignment.ts`, `modes/cycleVerdict.ts` | hauteur dans l’alignement, `wrong-pitch`, fidélité                     |
-| `domain/exercise/rhythmCatalog.ts`                                             | le rythme écrit en `round`                                                                |
-| `domain/exercise/figureParams.ts` (create)                                     | `FigureParams`, `figureParamsOf`, `writesFigure`                                          |
-| `domain/exercise/fromJson.ts` (create)                                         | `exerciseFromJson` : une définition JSON → `ExerciseDefinition`                           |
-| `application/session/series/compilePlan.ts`                                    | les portes, sans « cycle ? »                                                              |
-| `application/session/series/itemSource.ts` (create, replaces `cycle/figureSource.ts`) | `createExerciseItemSource` : figures ou `items`                                   |
-| `application/session/series/recordResponse.ts`                                 | un seul enregistrement de tour ; `RoundPlanRecord` étendu ; `roundPlanFromRecord`         |
-| `application/session/series/figureStage.ts` (renamed from `cycle/rhythmStage.ts`) | `FigureStageModel`, `figureStage`                                                      |
-| `application/session/cycle/` (deleted at the end)                              | ce qui reste (`exerciseSummary`, `presenter`) va dans `series/` ou `mechanics/`           |
-| `infrastructure/storage/migrations/v12.ts` (create), `db.ts`, `validateBackup.ts` | Dexie 12, sauvegarde 8                                                                 |
-| `infrastructure/diagnostics/oracle.ts`                                         | lit `RoundPlanRecord`                                                                     |
-| `ui/notation/renderFigure.ts`                                                  | systèmes portée / tablature                                                               |
-| `ui/play/views/FigureView.svelte`, `views/figure.ts` (renamed from `RhythmFigureView.svelte`, `rhythmFigure.ts`) | la vue `figure` ; marques ; ligne de retour               |
-| `src/lib/composition/localExercises.ts` (create)                               | lecture de `exercises.local/`                                                             |
-| `scripts/musicxml-to-lilypond.mjs` (+ `scripts/musicxml-to-lilypond.spec.ts`, fixture `scripts/fixtures/scale.musicxml`) | conversion                                      |
+| Fichier                                                                                                                  | Rôle                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `domain/time/notation/lilypond.ts`                                                                                       | `parseLilyPond` : rythme, hauteurs, cordes (renommé de `parseLilyPondRhythm`)                |
+| `domain/time/figure.ts`                                                                                                  | `FigureElement.pitch`/`string`, schéma 2, `attackNotes`                                      |
+| `domain/time/plan.ts`                                                                                                    | `figureExpectations` (remplace `compileCyclePlan`)                                           |
+| `domain/music/voicingNotes.ts` (create)                                                                                  | les notes d’une forme à une occurrence                                                       |
+| `domain/mechanics/voicingFigure.ts` (create), `domain/mechanics/figure.ts` (renamed from `rhythmFigure.ts`)              | identités `voicing-figure` et `figure`                                                       |
+| `domain/judges/index.ts`, `domain/derivations/index.ts`                                                                  | contenu et juge `pitch` ; dérivation `voicing-notes` ; `ITEM_FIGURES` ; `ITEM_NUMBERS.beats` |
+| `domain/exercise/round/{types,compile,validate}.ts`                                                                      | entrées à figure, motif, accompagnement, invite optionnelle                                  |
+| `domain/time/judge/{align,measures}.ts`, `domain/time/modes/alignment.ts`, `modes/cycleVerdict.ts`                       | hauteur dans l’alignement, `wrong-pitch`, fidélité                                           |
+| `domain/exercise/rhythmCatalog.ts`                                                                                       | le rythme écrit en `round`                                                                   |
+| `domain/exercise/figureParams.ts` (create)                                                                               | `FigureParams`, `figureParamsOf`, `writesFigure`                                             |
+| `domain/exercise/fromJson.ts` (create)                                                                                   | `exerciseFromJson` : une définition JSON → `ExerciseDefinition`                              |
+| `application/session/series/compilePlan.ts`                                                                              | les portes, sans « cycle ? »                                                                 |
+| `application/session/series/itemSource.ts` (create, replaces `cycle/figureSource.ts`)                                    | `createExerciseItemSource` : figures ou `items`                                              |
+| `application/session/series/recordResponse.ts`                                                                           | un seul enregistrement de tour ; `RoundPlanRecord` étendu ; `roundPlanFromRecord`            |
+| `application/session/series/figureStage.ts` (renamed from `cycle/rhythmStage.ts`)                                        | `FigureStageModel`, `figureStage`                                                            |
+| `application/session/cycle/` (deleted at the end)                                                                        | ce qui reste (`exerciseSummary`, `presenter`) va dans `series/` ou `mechanics/`              |
+| `infrastructure/storage/migrations/v12.ts` (create), `db.ts`, `validateBackup.ts`                                        | Dexie 12, sauvegarde 8                                                                       |
+| `infrastructure/diagnostics/oracle.ts`                                                                                   | lit `RoundPlanRecord`                                                                        |
+| `ui/notation/renderFigure.ts`                                                                                            | systèmes portée / tablature                                                                  |
+| `ui/play/views/FigureView.svelte`, `views/figure.ts` (renamed from `RhythmFigureView.svelte`, `rhythmFigure.ts`)         | la vue `figure` ; marques ; ligne de retour                                                  |
+| `src/lib/composition/localExercises.ts` (create)                                                                         | lecture de `exercises.local/`                                                                |
+| `scripts/musicxml-to-lilypond.mjs` (+ `scripts/musicxml-to-lilypond.spec.ts`, fixture `scripts/fixtures/scale.musicxml`) | conversion                                                                                   |
 
 ---
 
@@ -96,13 +96,23 @@
 
   ```ts
   export type FigureElement =
-  	| { kind: 'note'; duration: Fraction; tieToNext?: boolean; content: null | SoundId; pitch?: number; string?: number }
+  	| {
+  			kind: 'note';
+  			duration: Fraction;
+  			tieToNext?: boolean;
+  			content: null | SoundId;
+  			pitch?: number;
+  			string?: number;
+  	  }
   	| { kind: 'rest'; duration: Fraction };
   export type FigureNote = Extract<FigureElement, { kind: 'note' }>;
   /** Figure.schema: 2; figureFromJson reads 1 (no pitch) and 2. */
   export function parseLilyPond(text: string, options?: { meter?: Meter }): Figure;
   /** Each attack of a voice (tied notes once): its position and its note. */
-  export function attackNotes(figure: Figure, voiceId?: string): { at: Fraction; note: FigureNote }[];
+  export function attackNotes(
+  	figure: Figure,
+  	voiceId?: string
+  ): { at: Fraction; note: FigureNote }[];
   ```
 
   `attackPositions` reste, écrit sur `attackNotes`.
@@ -132,10 +142,17 @@
 - Produces:
 
   ```ts
-  export interface VoicingFigureItem { voicing: string; occurrence: number; beats?: number }
+  export interface VoicingFigureItem {
+  	voicing: string;
+  	occurrence: number;
+  	beats?: number;
+  }
   export const voicingFigureRules: MechanicIdentity<VoicingFigureItem>; // id 'voicing-figure', learner 'skill', key D8
   /** The notes of `voicing` at its `occurrence`-th place on the neck (0: the lowest), lowest string first. Throws when it has no such place. */
-  export function voicingNotes(voicing: Voicing, occurrence: number): { midi: number; string: StringNumber; fret: number }[];
+  export function voicingNotes(
+  	voicing: Voicing,
+  	occurrence: number
+  ): { midi: number; string: StringNumber; fret: number }[];
   export const PITCH_CONTENT = 'pitch'; // value: { midi: number; string?: number }; payload: { midi }
   ```
 
@@ -171,29 +188,38 @@
   	figure: FigureRef;
   	at: Position;
   	sensor: string;
-  	content: null | { from: string; pattern?: number[] };   // from: a derivation, or 'figure'
+  	content: null | { from: string; pattern?: number[] }; // from: a derivation, or 'figure'
   	window: WindowTemplate;
   }
   export type ExpectationTemplate = PointExpectationTemplate | FigureExpectationTemplate; // PointExpectationTemplate = today's
-  export type WindowTemplate = { ms: Num } | { ofGap: string } | { param: string };     // { param }: an object window in the params
+  export type WindowTemplate = { ms: Num } | { ofGap: string } | { param: string }; // { param }: an object window in the params
   export interface RoundTemplate {
-  	prompt?: { lead: Num };                                   // absent: plan.prompt null
-  	accompaniment?: Accompaniment | { param: string };        // its 'off' bars give mutedBars when mutedBars is absent
+  	prompt?: { lead: Num }; // absent: plan.prompt null
+  	accompaniment?: Accompaniment | { param: string }; // its 'off' bars give mutedBars when mutedBars is absent
   	/* …the rest as today */
   }
   /** Replaces compileCyclePlan: the expectations of `figure` looped over `bars` bars from `startBar`. */
   export function figureExpectations(input: {
-  	figure: Figure; at: Fraction; bars: number; startBar: number;
-  	sensor: string; window: ExpectationWindow;
+  	figure: Figure;
+  	at: Fraction;
+  	bars: number;
+  	startBar: number;
+  	sensor: string;
+  	window: ExpectationWindow;
   	content: (k: number, note: FigureNote) => ExpectedContent | null;
   }): Expectation[];
   export function compileRound(
-  	definition: ExerciseDefinition, item: PlannedItem, meter: Meter,
+  	definition: ExerciseDefinition,
+  	item: PlannedItem,
+  	meter: Meter,
   	resolved: { previewBeats: number; fromRunStart: number | null }
   ): RoundPlan;
   // in domain/exercise/round/compile.ts:
   /** The round's accompaniment at an exercise level (the run’s, D7 of H6), or null. */
-  export function roundAccompanimentOf(definition: ExerciseDefinition, exerciseLevel: number): Accompaniment | null;
+  export function roundAccompanimentOf(
+  	definition: ExerciseDefinition,
+  	exerciseLevel: number
+  ): Accompaniment | null;
   /** The bar a run's first round starts on: the accompaniment's first muted bar, else 0 (moved from cycle/rhythmExercise.ts to domain/time/accompaniment.ts, with accompanimentFrom and unmuted). */
   export function landingBar(accompaniment: Accompaniment | null): number;
   ```
@@ -232,10 +258,16 @@
   ```ts
   export const WRONG_PITCH_COST = 0.5; // D5
   /** `fits(e, a)`: attack `a` plays what expectation `e` asks (true without content). */
-  export function alignAttacks(expectations: TimedExpectation[], attacks: number[], context: AlignContext, fits?: (expectation: number, attack: number) => boolean): Alignment;
+  export function alignAttacks(
+  	expectations: TimedExpectation[],
+  	attacks: number[],
+  	context: AlignContext,
+  	fits?: (expectation: number, attack: number) => boolean
+  ): Alignment;
   // Alignment.pairs[i] gains `fits: boolean`
   export type ReportedVerdict = ExpectationVerdict | 'dropped' | 'wrong-pitch';
-  export type CycleFailure = 'missed' | 'wrong-pitch' | 'extra' | 'shift' | 'precision' | 'regularity' | 'hold';
+  export type CycleFailure =
+  	'missed' | 'wrong-pitch' | 'extra' | 'shift' | 'precision' | 'regularity' | 'hold';
   // cycleVerdict thresholds gain `fidelity?: number` (D4)
   ```
 
@@ -276,7 +308,7 @@
   	handover: 'end',
   	policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
   },
-    ```
+  ```
 
   `compilePlan` compiles every exercise with `compileRound`; `SETTLE_AFTER_BARS` moves to `series/compilePlan.ts`. `listenInBars` and `countIn` stay where they are until Task 6.
 
@@ -302,12 +334,17 @@
   /** The round template writes a figure entry. */
   export function writesFigure(definition: ExerciseDefinition): boolean;
   export interface FigureParams {
-  	feedback: Feedback;                       // default 'every-cycle'
-  	listen: 'free' | 'aid' | 'none';          // default 'none'
-  	cursor: boolean;                          // default false
-  	thresholds: Partial<Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift' | 'fidelity', number>>; // default {}
+  	feedback: Feedback; // default 'every-cycle'
+  	listen: 'free' | 'aid' | 'none'; // default 'none'
+  	cursor: boolean; // default false
+  	thresholds: Partial<
+  		Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift' | 'fidelity', number>
+  	>; // default {}
   }
-  export function figureParamsOf(definition: ExerciseDefinition, exerciseLevel: number): FigureParams;
+  export function figureParamsOf(
+  	definition: ExerciseDefinition,
+  	exerciseLevel: number
+  ): FigureParams;
   /** Figures (`pick` loop | next, fitting the level's round) or the written `items`, an item per turn, `atLevel` as createFigureSource. */
   export function createExerciseItemSource(definition: ExerciseDefinition): ItemSource;
   /** Exercises played in an exercise session: a round that writes a figure, and levels; read from the live catalog (local exercises join it in Task 10). */
@@ -342,13 +379,21 @@
 - Produces:
 
   ```ts
-  export interface RoundPlanRecord { /* today’s fields */ startAudioS?: number; tempo?: { at: string; bpm: number; unit: string }; thresholds?: FigureParams['thresholds'] }
+  export interface RoundPlanRecord {
+  	/* today’s fields */ startAudioS?: number;
+  	tempo?: { at: string; bpm: number; unit: string };
+  	thresholds?: FigureParams['thresholds'];
+  }
   export function roundPlanFromRecord(record: RoundPlanRecord): RoundPlan;
   /** The data of a round judged by the cycle verdict. */
-  export interface FigureAttemptData { item: unknown; level: number; report: CycleReport }
+  export interface FigureAttemptData {
+  	item: unknown;
+  	level: number;
+  	report: CycleReport;
+  }
   // v12.ts
   export function cyclePlanToV12(record: CyclePlanRecordV11): RoundPlanRecord; // frozen copy of compileCyclePlan inside
-  export function attemptToV12<T>(attempt: T): T;   // rhythm-figure → figure, CyclePlanRecord → RoundPlanRecord
+  export function attemptToV12<T>(attempt: T): T; // rhythm-figure → figure, CyclePlanRecord → RoundPlanRecord
   export function backupV7ToV8(backup: BackupV7): BackupV8;
   ```
 
@@ -434,7 +479,10 @@
   ```ts
   /** A JSON definition: figures as { id, lilypond }, the rest as ExerciseDefinition. Throws naming the field. */
   export function exerciseFromJson(json: unknown): ExerciseDefinition;
-  export interface LocalExercises { loaded: ExerciseDefinition[]; refused: { file: string; reason: string }[] }
+  export interface LocalExercises {
+  	loaded: ExerciseDefinition[];
+  	refused: { file: string; reason: string }[];
+  }
   /** Parses, validates (validateExercise, presentationProblem, screenProblem) and keeps the valid ones; ids already in the catalog are refused. */
   export function readLocalExercises(files: Record<string, unknown>): LocalExercises;
   ```
@@ -460,9 +508,15 @@
 
   ```ts
   /** One part of one voice → our LilyPond (pitch from string + fret, standard tuning), plus warnings. */
-  export function convertMelody(xml: string, partId: string): { lilypond: string; warnings: string[] };
+  export function convertMelody(
+  	xml: string,
+  	partId: string
+  ): { lilypond: string; warnings: string[] };
   /** One part of chords → the shapes bar by bar: strings and frets, to name as voicing keys. */
-  export function listShapes(xml: string, partId: string): { bar: number; beat: number; frets: (number | null)[] }[];
+  export function listShapes(
+  	xml: string,
+  	partId: string
+  ): { bar: number; beat: number; frets: (number | null)[] }[];
   ```
 
   CLI: `npm run musicxml -- <file> --part P1` prints the LilyPond, `--shapes P2` the shapes; warnings go to stderr. No XML library: the script reads the elements it needs with a small tag reader, so the project gets no new dependency.
