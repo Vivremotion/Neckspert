@@ -1,6 +1,6 @@
 import { writesFigure } from '$lib/domain/exercise/figureParams';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { RhythmItem } from '$lib/domain/mechanics';
+import type { FigureItem } from '$lib/domain/mechanics';
 import type { ResponseValue, RoundOutcome, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
@@ -64,14 +64,14 @@ export function stageModel(input: {
 	if (showsFigure(definition)) {
 		return cycleStage({
 			definition,
-			item: item as PlannedItem<RhythmItem>,
+			item: item as PlannedItem<FigureItem>,
 			moment: moment.phase,
 			barInRound: moment.barInRound,
 			beat: moment.beat,
 			startBar: moment.fromRunStart ?? 0,
 			muted: moment.muted,
 			settled: input.runOutcomes,
-			played: input.played as PlannedItem<RhythmItem> | null,
+			played: input.played as PlannedItem<FigureItem> | null,
 			locale,
 			endedSessions: input.endedSessions
 		});

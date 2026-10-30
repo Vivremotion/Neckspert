@@ -5,7 +5,7 @@ import {
 	NOTE_CONTENT,
 	PITCH_CONTENT
 } from '../judges';
-import type { RhythmItem } from '../mechanics/rhythmFigure';
+import type { FigureItem } from '../mechanics/figure';
 import type { VoicingFigureItem } from '../mechanics/voicingFigure';
 import { rootPosition } from '../mechanics/triadAnchor';
 import { parseVoicingKey } from '../music';
@@ -110,8 +110,8 @@ export interface ItemFigure {
 /** The figures a template reads on an item (`{ item: <name> }` in a figure entry), by name. */
 export const ITEM_FIGURES: Readonly<Record<string, ItemFigure>> = {
 	figure: {
-		reads: ['rhythm-figure'],
-		figureOf: (item) => (item as RhythmItem).figureId,
-		itemOf: (figureId, exerciseLevel): RhythmItem => ({ figureId, level: exerciseLevel })
+		reads: ['figure'],
+		figureOf: (item) => (item as FigureItem).figureId,
+		itemOf: (figureId, exerciseLevel): FigureItem => ({ figureId, level: exerciseLevel })
 	}
 };

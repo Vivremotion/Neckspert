@@ -123,7 +123,7 @@ describe('createApp', () => {
 		await services.settings.update({ locale: 'en' });
 		const file = await services.backup.exportAll();
 		expect(file.settings.locale).toBe('en');
-		expect(file.version).toBe(7);
+		expect(file.version).toBe(8);
 		expect(file.attempts).toEqual([]);
 		expect(file.cards).toEqual([]);
 		expect(file.sessions).toEqual([]);

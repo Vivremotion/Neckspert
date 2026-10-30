@@ -652,8 +652,8 @@ describe('the rhythm exercises', () => {
 		({
 			sessionId,
 			exerciseId: RHYTHM_OFFBEATS.id,
-			mechanic: 'rhythm-figure',
-			cardKey: `rhythm-figure:offbeats-1@${level}`,
+			mechanic: 'figure',
+			cardKey: `figure:offbeats-1@${level}`,
 			phase: 'free',
 			temperature: 'hot',
 			aids: ['cursor'],

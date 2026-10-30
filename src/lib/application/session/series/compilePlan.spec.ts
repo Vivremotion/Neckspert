@@ -32,7 +32,7 @@ const note: PlannedItem = {
 
 const eighths = (level: number): PlannedItem => ({
 	exerciseId: RHYTHM_SILENT_BARS.id,
-	mechanic: 'rhythm-figure',
+	mechanic: 'figure',
 	exerciseLevel: level,
 	item: { figureId: 'eighths', level },
 	phase: 'free',

@@ -3,7 +3,7 @@ import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { summarizeExercise } from '$lib/application/session/cycle/exerciseSummary';
-import { levelAided } from '$lib/application/session/cycle/recordCycle';
+import { levelAided } from '$lib/application/session/aids';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';

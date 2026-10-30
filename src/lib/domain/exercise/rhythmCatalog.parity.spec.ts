@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RhythmItem } from '$lib/domain/mechanics';
+import type { FigureItem } from '$lib/domain/mechanics';
 import { levelRange, METER_4_4, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { compileRound, figureItemsAt } from './round';
@@ -11,10 +11,10 @@ import { RHYTHM_EXERCISES } from './rhythmCatalog';
  * is a change of what the rhythm asks of the player.
  */
 
-function item(exerciseId: string, figureId: string, level: number): PlannedItem<RhythmItem> {
+function item(exerciseId: string, figureId: string, level: number): PlannedItem<FigureItem> {
 	return {
 		exerciseId,
-		mechanic: 'rhythm-figure',
+		mechanic: 'figure',
 		exerciseLevel: level,
 		item: { figureId, level },
 		phase: 'free',

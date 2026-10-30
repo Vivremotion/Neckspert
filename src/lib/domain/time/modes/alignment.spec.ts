@@ -1,14 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { cyclePlan } from '../testing/cyclePlan';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
-import { METER_4_4 } from '../meter';
-import { type Judged, type RoundPlan } from '../plan';
+import { METER_4_4, barLength } from '../meter';
+import { figureExpectations, type ExpectationWindow, type Judged, type RoundPlan } from '../plan';
 import { alignAttacks, alignContext, timeExpectations } from '../judge/align';
 import { createTempoMap } from '../tempoMap';
 import { alignmentPairing } from './alignment';
 import type { Attack, Pairing } from './types';
 import { roundTimes } from './times';
+
+/** `figure` looped over `bars` bars from its first, judged whole by the alignment, handed over at its end. */
+function looped(figure: Figure, bars: number, window: ExpectationWindow): RoundPlan {
+	const length = barLength(figure.meter).mul(Fraction.of(bars));
+	return {
+		prompt: null,
+		expectations: figureExpectations({
+			figure,
+			at: Fraction.ZERO,
+			bars,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			content: () => null
+		}),
+		length,
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
+		handover: length,
+		mutedBars: []
+	};
+}
 
 const of = Fraction.of;
 const map = createTempoMap(0, [{ at: Fraction.ZERO, bpm: 100, unit: of(1, 4) }]);
@@ -33,14 +53,7 @@ function figure(pattern: string): Figure {
 }
 
 function planOf(pattern: string, cycleBars: number): RoundPlan {
-	return cyclePlan({
-		figure: figure(pattern),
-		cycleBars,
-		startBar: 0,
-		sensor: 'attack',
-		window: { ms: 20 },
-		accompanimentBars: ['on']
-	});
+	return looped(figure(pattern), cycleBars, { ms: 20 });
 }
 
 /** For specs: an exact pitch, as the pitch judge reads it, without importing the judges. */

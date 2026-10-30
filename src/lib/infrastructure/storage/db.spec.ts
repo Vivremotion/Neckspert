@@ -5,7 +5,15 @@ import { NeckspertDb, createDatabase } from './db';
 import { neckLevelOfCard } from './migrations/v9';
 import { triadLevelOfCard } from './migrations/v10';
 import { DexieBackup } from './DexieBackup';
-import { makeAttempt, makeBackupV5, makeBackupV6, makeCard } from './testing/fixtures';
+import {
+	makeAttempt,
+	makeBackupV5,
+	makeBackupV6,
+	makeBackupV7,
+	makeCard,
+	makeCycleAttemptV11
+} from './testing/fixtures';
+import { attemptToV12 } from './migrations/v12';
 import type { LevelState } from '$lib/domain/time';
 
 describe('createDatabase', () => {
@@ -56,7 +64,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -143,7 +151,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		const cards = await db.cards.orderBy('key').toArray();
 		expect(cards.map((card) => card.key)).toEqual(['identify:5:8', 'locate:3:C', 'locate:6:A']);
 		expect(cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
@@ -182,7 +190,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 
 		const { target: _target, leadBeats: _lead, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
@@ -286,7 +294,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		const { aid: _aid, ...kept } = attempt;
 		expect(await db.attempts.toArray()).toEqual([
 			{
@@ -304,10 +312,10 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 11 and stores rows', async () => {
+	it('opens at version 12 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		db.close();
@@ -442,7 +450,7 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(await db.levelStates.count()).toBe(0);
 		db.close();
@@ -502,7 +510,7 @@ describe('version 9', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		// Version 10 then took the lead off every card, and gave the triad card its level.
 		expect(await db.cards.orderBy('key').toArray()).toEqual(
 			[...cards]
@@ -575,7 +583,7 @@ describe('version 10', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		const stored = await db.cards.orderBy('key').toArray();
 		expect(stored.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		expect(stored).toEqual(
@@ -667,7 +675,7 @@ describe('version 11', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(11);
+		expect(db.verno).toBe(12);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(db.tables.map((table) => table.name)).not.toContain('scopedProgressions');
 		expect([...db.backendDB().objectStoreNames]).not.toContain('progressions');
@@ -709,6 +717,42 @@ describe('version 11', () => {
 		);
 		expect((await imported.levelStates.toArray()).sort(byKey)).toEqual(states);
 		expect(await imported.attempts.orderBy('id').toArray()).toEqual(stored);
+		imported.close();
+		db.close();
+	});
+});
+
+describe('version 12', () => {
+	it('upgrades 11 to 12: a rhythm attempt is of the figure mechanic and keeps the round plan it judged', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(11).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const rhythm = makeCycleAttemptV11({ id: 1 });
+		const locate = makeAttempt({ id: 2 });
+		await old.table('attempts').bulkAdd([rhythm, locate]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(12);
+		const [upgraded, other] = await db.attempts.orderBy('id').toArray();
+		expect(upgraded).toEqual(attemptToV12(rhythm));
+		expect(upgraded).toMatchObject({ mechanic: 'figure', cardKey: 'figure:offbeats-2@2' });
+		expect(upgraded.plan).not.toHaveProperty('cycleBars');
+		expect(other).toEqual(locate);
+
+		// The equivalent backup 7 lands on the same rows.
+		const imported = createDatabase(crypto.randomUUID());
+		await new DexieBackup(imported).importAll(
+			JSON.parse(JSON.stringify(makeBackupV7({ attempts: [rhythm, locate] })))
+		);
+		expect(await imported.attempts.orderBy('id').toArray()).toEqual([upgraded, other]);
 		imported.close();
 		db.close();
 	});

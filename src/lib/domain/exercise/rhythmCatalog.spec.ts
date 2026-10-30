@@ -15,7 +15,7 @@ import {
 	type Level
 } from '$lib/domain/time';
 import { mechanicRules } from '$lib/domain/mechanics';
-import { rhythmFigureRules } from '$lib/domain/mechanics/rhythmFigure';
+import { figureRules } from '$lib/domain/mechanics/figure';
 import { EXERCISES, exerciseById } from './catalog';
 import { exerciseLevelsOf, resolvedParamsOf } from './levels';
 import { figureItemsAt } from './round';
@@ -329,13 +329,13 @@ function indexes(levels: readonly Level<unknown>[]): number[] {
 }
 
 describe('the rhythm exercises', () => {
-	it('are in the catalog, on the rhythm-figure mechanic', () => {
+	it('are in the catalog, on the figure mechanic', () => {
 		expect(RHYTHM_EXERCISES).toEqual([RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR, RHYTHM_OFFBEATS]);
 		for (const exercise of RHYTHM_EXERCISES) {
 			expect(EXERCISES).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);
-			expect(exercise.mechanic).toBe('rhythm-figure');
-			expect(mechanicRules(exercise.mechanic)).toBe(rhythmFigureRules);
+			expect(exercise.mechanic).toBe('figure');
+			expect(mechanicRules(exercise.mechanic)).toBe(figureRules);
 		}
 		expect(RHYTHM_EXERCISES.map((e) => e.id)).toEqual([
 			'rhythm-silent-bars',

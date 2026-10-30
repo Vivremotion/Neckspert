@@ -121,7 +121,7 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	id: 'rhythm-silent-bars',
 	version: 1,
 	title: { fr: 'Mesures silencieuses', en: 'Silent bars' },
-	mechanic: 'rhythm-figure',
+	mechanic: 'figure',
 	params: { sensor: 'attack', ...SILENT_BARS_PARAMS },
 	tempo: 80,
 	// Its instruction is told until the player has played it once.
@@ -184,7 +184,7 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	id: 'rhythm-two-four',
 	version: 1,
 	title: { fr: 'Métronome sur 2 et 4', en: 'Click on 2 and 4' },
-	mechanic: 'rhythm-figure',
+	mechanic: 'figure',
 	params: { sensor: 'attack', ...TWO_FOUR_PARAMS },
 	tempo: 100,
 	// Its instruction is told until the player has played it once.
@@ -224,7 +224,7 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	id: 'rhythm-offbeats',
 	version: 1,
 	title: { fr: 'Contretemps', en: 'Offbeats' },
-	mechanic: 'rhythm-figure',
+	mechanic: 'figure',
 	params: { sensor: 'attack', ...OFFBEATS_PARAMS },
 	tempo: 80,
 	// Its instruction is told until the player has played it once.

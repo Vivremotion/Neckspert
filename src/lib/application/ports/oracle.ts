@@ -1,4 +1,4 @@
-import type { CyclePlanRecord } from '$lib/application/session/cycle/recordCycle';
+import type { RoundPlanRecord } from '$lib/application/session/series/recordResponse';
 import type { CycleReport, CycleVerdict } from '$lib/domain/time';
 
 /**
@@ -21,7 +21,7 @@ export interface OracleSuite {
 	/** Each cycle as played: its plan, its start (s from the slice start), its latency and verdict. */
 	cycles: {
 		attemptId: number;
-		plan: CyclePlanRecord;
+		plan: RoundPlanRecord;
 		startS: number;
 		latency: CycleReport['latency'];
 		verdict: CycleVerdict;

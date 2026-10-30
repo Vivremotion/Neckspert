@@ -77,7 +77,7 @@ describe('the derivations', () => {
 	});
 
 	it('reads the figure a rhythm item names', () => {
-		expect(ITEM_FIGURES.figure.reads).toEqual(['rhythm-figure']);
+		expect(ITEM_FIGURES.figure.reads).toEqual(['figure']);
 		expect(ITEM_FIGURES.figure.figureOf({ figureId: 'eighths' })).toBe('eighths');
 	});
 });

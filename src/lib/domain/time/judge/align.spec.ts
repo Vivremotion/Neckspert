@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { cyclePlan } from '../testing/cyclePlan';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
-import { METER_4_4 } from '../meter';
-import { type Expectation, type ExpectationWindow, type RoundPlan } from '../plan';
+import { METER_4_4, barLength } from '../meter';
+import {
+	figureExpectations,
+	type Expectation,
+	type ExpectationWindow,
+	type RoundPlan
+} from '../plan';
 import { createTempoMap } from '../tempoMap';
 import {
 	alignAttacks,
@@ -16,6 +20,27 @@ import {
 	type TimedExpectation,
 	WRONG_PITCH_COST
 } from './align';
+
+/** `figure` looped over `bars` bars from its first, judged whole by the alignment, handed over at its end. */
+function looped(figure: Figure, bars: number, window: ExpectationWindow): RoundPlan {
+	const length = barLength(figure.meter).mul(Fraction.of(bars));
+	return {
+		prompt: null,
+		expectations: figureExpectations({
+			figure,
+			at: Fraction.ZERO,
+			bars,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			content: () => null
+		}),
+		length,
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
+		handover: length,
+		mutedBars: []
+	};
+}
 
 const of = Fraction.of;
 
@@ -33,14 +58,7 @@ function cycle(
 	window: ExpectationWindow,
 	step = of(1, 8)
 ): RoundPlan {
-	return cyclePlan({
-		figure: bar(pattern, step),
-		cycleBars,
-		startBar: 0,
-		sensor: 'attack',
-		window,
-		accompanimentBars: ['on']
-	});
+	return looped(bar(pattern, step), cycleBars, window);
 }
 
 const quarterAt = (bpm: number) => createTempoMap(0, [{ at: Fraction.ZERO, bpm, unit: of(1, 4) }]);

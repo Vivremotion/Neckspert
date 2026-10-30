@@ -2,14 +2,14 @@ import type { MechanicId } from '$lib/domain/exercise/types';
 import { chordGridRules } from './chordGrid';
 import { identifyRules } from './identify';
 import { locateRules } from './locate';
-import { rhythmFigureRules } from './rhythmFigure';
+import { figureRules } from './figure';
 import { triadAnchorRules } from './triadAnchor';
 import { triadZoneRules } from './triadZone';
 import { voicingFigureRules } from './voicingFigure';
 import type { MechanicIdentity } from './types';
 
 export * from './types';
-export { rhythmFigureRules, type RhythmItem } from './rhythmFigure';
+export { figureRules, type FigureItem } from './figure';
 export { voicingFigureRules, type VoicingFigureItem } from './voicingFigure';
 export { identifyRules, type IdentifyData } from './identify';
 export { locateRules, type LocateData } from './locate';
@@ -51,7 +51,7 @@ export const MECHANIC_RULES: readonly MechanicIdentity[] = [
 	triadAnchorRules,
 	triadZoneRules,
 	chordGridRules,
-	rhythmFigureRules,
+	figureRules,
 	voicingFigureRules
 ];
 

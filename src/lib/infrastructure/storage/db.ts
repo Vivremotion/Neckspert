@@ -11,6 +11,7 @@ import { attemptToV8, relationOfMechanic, settingsToV8 } from './migrations/v8';
 import { levelStatesV9 } from './migrations/v9';
 import { cardToV10, levelStatesV10 } from './migrations/v10';
 import { attemptToV11, levelStatesV11 } from './migrations/v11';
+import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -232,6 +233,19 @@ export class NeckspertDb extends Dexie {
 						// An attempt without a tempo scope is not written again.
 						if (!Object.hasOwn(row, 'tempoScope')) return false;
 						ref.value = attemptToV11(row);
+					});
+			});
+		// Version 12 keeps one round plan record for every attempt (plan S, D9): a rhythm attempt
+		// is of the mechanic `figure`, and its cycle plan the round plan it judged. Same conversion
+		// as the import of a version 7 backup (`migrations/v12.ts`); no other attempt is written.
+		this.version(12)
+			.stores({ ...stores, levelStates: '[exerciseId+scope+item]' })
+			.upgrade(async (tx) => {
+				await tx
+					.table('attempts')
+					.filter((row) => row.mechanic === RHYTHM_FIGURE_MECHANIC_V11)
+					.modify((row, ref) => {
+						ref.value = attemptToV12(row);
 					});
 			});
 	}

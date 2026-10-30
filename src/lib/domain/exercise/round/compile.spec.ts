@@ -492,7 +492,7 @@ const THREE_ONE = clickAccompaniment({
 describe('compileRound, a figure entry', () => {
 	it('unfolds a figure into one expectation per attack', () => {
 		const plan = compileFigure(
-			figureExercise('rhythm-figure', figureRound(), { main: 'c8 c c c c c c c' }),
+			figureExercise('figure', figureRound(), { main: 'c8 c c c c c c c' }),
 			{ figureId: 'main' }
 		);
 		expect(plan.expectations.map((e) => e.at!.toString())).toEqual([
@@ -522,7 +522,7 @@ describe('compileRound, a figure entry', () => {
 	});
 
 	it('loops the figure over the round and rotates it from startBar', () => {
-		const twoBars = figureExercise('rhythm-figure', figureRound({}, { length: { bars: 2 } }), {
+		const twoBars = figureExercise('figure', figureRound({}, { length: { bars: 2 } }), {
 			main: 'c1 | c2 c2'
 		});
 		// Bar 2 (two half notes), then bar 1 (one whole note) again; a start past the figure wraps.
@@ -536,7 +536,7 @@ describe('compileRound, a figure entry', () => {
 
 		// The accompaniment turns with the figure: a round starts on its first muted bar by default.
 		const fourBars = figureExercise(
-			'rhythm-figure',
+			'figure',
 			figureRound({}, { length: { bars: 4 }, accompaniment: THREE_ONE }),
 			{ main: 'c8 c r c r c r c' }
 		);
@@ -617,7 +617,7 @@ describe('compileRound, a figure entry', () => {
 		expect(at(1).expectations).toHaveLength(8);
 		expect(at(1).expectations[0].window).toEqual({ ms: 40 });
 
-		const byItem = figureExercise('rhythm-figure', figureRound({ figure: { item: 'figure' } }), {
+		const byItem = figureExercise('figure', figureRound({ figure: { item: 'figure' } }), {
 			quarters: 'c4 c c c',
 			eighths: 'c8 c c c c c c c'
 		});
@@ -626,12 +626,12 @@ describe('compileRound, a figure entry', () => {
 	});
 
 	it('gives a null prompt when the template writes none', () => {
-		const plan = compileFigure(figureExercise('rhythm-figure', figureRound(), { main: 'c1' }), {
+		const plan = compileFigure(figureExercise('figure', figureRound(), { main: 'c1' }), {
 			figureId: 'main'
 		});
 		expect(plan.prompt).toBeNull();
 		const prompted = compileFigure(
-			figureExercise('rhythm-figure', figureRound({}, { prompt: { lead: 2 } }), { main: 'c1' }),
+			figureExercise('figure', figureRound({}, { prompt: { lead: 2 } }), { main: 'c1' }),
 			{ figureId: 'main' }
 		);
 		expect(prompted.prompt).toEqual(Fraction.of(-1, 2));
@@ -639,7 +639,7 @@ describe('compileRound, a figure entry', () => {
 
 	it("takes the muted bars from the accompaniment's off bars", () => {
 		const exercise = figureExercise(
-			'rhythm-figure',
+			'figure',
 			figureRound({}, { length: { bars: 4 }, accompaniment: { param: 'accompaniment' } }),
 			{ main: 'c1' },
 			{ accompaniment: THREE_ONE }
@@ -647,14 +647,14 @@ describe('compileRound, a figure entry', () => {
 		expect(compileFigure(exercise, { figureId: 'main' }, 2).mutedBars).toEqual([1]);
 		// Written muted bars win over the accompaniment's.
 		const written = figureExercise(
-			'rhythm-figure',
+			'figure',
 			figureRound({}, { length: { bars: 4 }, accompaniment: THREE_ONE, mutedBars: [2] }),
 			{ main: 'c1' }
 		);
 		expect(compileFigure(written, { figureId: 'main' }).mutedBars).toEqual([2]);
 		// No accompaniment: no muted bar, the round from its start.
 		expect(
-			compileFigure(figureExercise('rhythm-figure', figureRound(), { main: 'c1' }), {
+			compileFigure(figureExercise('figure', figureRound(), { main: 'c1' }), {
 				figureId: 'main'
 			}).mutedBars
 		).toEqual([]);
@@ -672,11 +672,11 @@ describe('compileRound, a figure entry', () => {
 		expect(() => compileFigure(voicing({ figure: { id: 'nowhere' } }), C_FIRST_INVERSION)).toThrow(
 			/test-voicing-figure: round\.expectations\[0\]\.figure .*"nowhere"/
 		);
-		const threeBars = figureExercise('rhythm-figure', figureRound({}, { length: { bars: 3 } }), {
+		const threeBars = figureExercise('figure', figureRound({}, { length: { bars: 3 } }), {
 			main: 'c1 | c1'
 		});
 		expect(() => compileFigure(threeBars, { figureId: 'main' })).toThrow(
-			/test-rhythm-figure: round\.expectations\[0\]\.figure .*whole number/
+			/test-figure: round\.expectations\[0\]\.figure .*whole number/
 		);
 		// Review Focus: an occurrence the neck does not hold fails at compilation, naming the item.
 		expect(() =>
@@ -709,7 +709,7 @@ describe('compileRound, a figure entry', () => {
 		const threeFour: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 		expect(() =>
 			compileFigure(
-				figureExercise('rhythm-figure', figureRound(), { main: 'c1' }),
+				figureExercise('figure', figureRound(), { main: 'c1' }),
 				{ figureId: 'main' },
 				null,
 				threeFour

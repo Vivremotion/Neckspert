@@ -99,9 +99,7 @@ describe('the session controller and its series', () => {
 		for (const gate of CYCLE_GATES) expect(paths).toContain(gate);
 		expect(cycleReachedFrom(sources)).toEqual([]);
 		const file = `${MODULE}x.ts`;
-		expect(cycleReachedFrom({ [file]: `import { a } from '../cycle/recordCycle';` })).toEqual([
-			file
-		]);
+		expect(cycleReachedFrom({ [file]: `import { a } from '../cycle/presenter';` })).toEqual([file]);
 		expect(
 			cycleReachedFrom({ [file]: `import { a } from '$lib/application/session/cycle/x';` })
 		).toEqual([file]);
@@ -127,10 +125,8 @@ describe('the session controller and its series', () => {
 		expect(paths).toContain(CONTROLLER);
 		// The session controller is held to the same rules as its series.
 		expect(offendersIn({ [CONTROLLER]: `const s = 'attack';` })).toEqual([`${CONTROLLER}: attack`]);
-		expect(offendersIn({ [CONTROLLER]: `const m = 'rhythm-figure';` })).toEqual([
-			`${CONTROLLER}: rhythm-figure`
-		]);
-		expect(cycleReachedFrom({ [CONTROLLER]: `import { a } from './cycle/recordCycle';` })).toEqual([
+		expect(offendersIn({ [CONTROLLER]: `const m = 'figure';` })).toEqual([`${CONTROLLER}: figure`]);
+		expect(cycleReachedFrom({ [CONTROLLER]: `import { a } from './cycle/presenter';` })).toEqual([
 			CONTROLLER
 		]);
 		expect(paths).toContain(PROMPT_STAGE);

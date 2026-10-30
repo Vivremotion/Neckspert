@@ -1671,8 +1671,7 @@ export class SessionController implements PlaySessionController {
 			execution: round.execution,
 			promptedAt: this.deps.clock.toEpochMs(round.promptTime),
 			startAudioS,
-			cardKey: this.items.cardKeyOf(item),
-			fromRunStart: round.fromRunStart
+			cardKey: this.items.cardKeyOf(item)
 		});
 		const recorder = this.recorder;
 		if (!recorder) return;

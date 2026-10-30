@@ -1,15 +1,41 @@
 import { describe, expect, it } from 'vitest';
-import { cyclePlan as loopedPlan } from './testing/cyclePlan';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
-import { METER_4_4 } from './meter';
-import { type ContentJudges, type Judged, type RoundPlan } from './plan';
+import { METER_4_4, barLength } from './meter';
+import {
+	figureExpectations,
+	type ContentJudges,
+	type ExpectationWindow,
+	type Judged,
+	type RoundPlan
+} from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
 import { triadAnchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
+
+/** `figure` looped over `bars` bars from its first, judged whole by the alignment, handed over at its end. */
+function looped(figure: Figure, bars: number, window: ExpectationWindow): RoundPlan {
+	const length = barLength(figure.meter).mul(Fraction.of(bars));
+	return {
+		prompt: null,
+		expectations: figureExpectations({
+			figure,
+			at: Fraction.ZERO,
+			bars,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			content: () => null
+		}),
+		length,
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
+		handover: length,
+		mutedBars: []
+	};
+}
 
 const of = Fraction.of;
 
@@ -31,14 +57,7 @@ const offBeats: Figure = {
 };
 
 function cyclePlan(cycleBars = 2): RoundPlan {
-	return loopedPlan({
-		figure: offBeats,
-		cycleBars,
-		startBar: 0,
-		sensor: 'attack',
-		window: { ms: 120 },
-		accompanimentBars: ['on']
-	});
+	return looped(offBeats, cycleBars, { ms: 120 });
 }
 
 // ♩ = 100 bpm: an eighth lasts 0.3 s, a bar 2.4 s; the cycle starts at bar 1 (2.4 s).
@@ -250,14 +269,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	}
 
 	function oneBar(figure: Figure): RoundPlan {
-		return loopedPlan({
-			figure,
-			cycleBars: 1,
-			startBar: 0,
-			sensor: 'attack',
-			window: { ms: 120 },
-			accompanimentBars: ['on']
-		});
+		return looped(figure, 1, { ms: 120 });
 	}
 
 	function at(plan: RoundPlan, bar: number): PlanRound {

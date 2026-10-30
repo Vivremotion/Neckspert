@@ -18,12 +18,15 @@ const CORE = '/src/lib/application/session/';
 /** The pieces of the rhythm's cycle (plan H6, D8): an exception, until the sequence absorbs it. */
 const CYCLE = `${CORE}cycle/`;
 
-/** The core files (outside `cycle/`, specs aside) that name the rhythm mechanic. */
+/** The figure mechanic's id as code writes it, quoted (a backquoted `figure` in a comment is the word). */
+const FIGURE_MECHANIC = [`'figure'`, `"figure"`];
+
+/** The core files (outside `cycle/`, specs aside) that name the figure mechanic. */
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
 		.filter(([path]) => path.startsWith(CORE) && !path.startsWith(CYCLE))
 		.filter(([path]) => !/\.spec\.ts$/.test(path))
-		.filter(([, text]) => text.includes('rhythm-figure'))
+		.filter(([, text]) => FIGURE_MECHANIC.some((name) => text.includes(name)))
 		.map(([path]) => path);
 }
 
@@ -38,18 +41,17 @@ function namingGone(files: Record<string, string>): string[] {
 }
 
 describe('the session core', () => {
-	it('never names the rhythm mechanic: the cycle receives what it needs', () => {
+	it('never names the figure mechanic: the cycle receives what it needs', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
 	it('actually scans the core and the cycle folder', () => {
 		const paths = Object.keys(sources);
 		expect(paths).toContain(`${CORE}SessionController.svelte.ts`);
-		expect(paths).toContain(`${CYCLE}recordCycle.ts`);
-		expect(offendersIn({ [`${CYCLE}x.ts`]: `const id = 'rhythm-figure';` })).toEqual([]);
-		expect(offendersIn({ [`${CORE}x.ts`]: `const id = 'rhythm-figure';` })).toEqual([
-			`${CORE}x.ts`
-		]);
+		expect(paths).toContain(`${CYCLE}presenter.ts`);
+		expect(offendersIn({ [`${CYCLE}x.ts`]: `const id = 'figure';` })).toEqual([]);
+		expect(offendersIn({ [`${CORE}x.ts`]: `const id = 'figure';` })).toEqual([`${CORE}x.ts`]);
+		expect(offendersIn({ [`${CORE}y.ts`]: `const id = "figure";` })).toEqual([`${CORE}y.ts`]);
 	});
 
 	it('plays every exercise on one session controller: the controllers it replaced are named nowhere', () => {

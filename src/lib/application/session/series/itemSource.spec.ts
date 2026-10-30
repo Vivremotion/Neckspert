@@ -41,7 +41,7 @@ describe('createExerciseItemSource, from the figures', () => {
 		expect(items.map(keyOf)).toEqual(['offbeats-1@0', 'offbeats-1@0', 'offbeats-1@0']);
 		expect(items[0]).toEqual({
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'rhythm-figure',
+			mechanic: 'figure',
 			exerciseLevel: 0,
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',

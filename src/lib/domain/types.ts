@@ -436,7 +436,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 7;
+	version: 8;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];

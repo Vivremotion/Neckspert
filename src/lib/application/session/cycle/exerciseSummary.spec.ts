@@ -2,22 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
-import type { RhythmAttemptData } from './recordCycle';
+import type { FigureAttemptData } from '../series/recordResponse';
 import { summarizeExercise } from './exerciseSummary';
 
 function cycle(
 	level: number,
 	success: boolean,
 	aids: Attempt['aids'] = ['cursor']
-): Attempt<RhythmAttemptData> {
+): Attempt<FigureAttemptData> {
 	return {
 		sessionId: 's1',
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'rhythm-figure',
+		mechanic: 'figure',
 		aids,
 		success,
 		data: { level }
-	} as unknown as Attempt<RhythmAttemptData>;
+	} as unknown as Attempt<FigureAttemptData>;
 }
 
 function state(level: number): LevelState {
@@ -111,5 +111,31 @@ describe('summarizeExercise', () => {
 			state: state(0)
 		});
 		expect(summary.cycles).toBe(1);
+	});
+
+	it('engraves the last cycle from the figure its item names, over the bars its plan kept', () => {
+		const [, two] = RHYTHM_OFFBEATS.figures ?? [];
+		const last = {
+			...cycle(2, true),
+			tempoBpm: 90,
+			verdict: { relation: 'cycle', version: 1, value: { passed: true } },
+			plan: { length: '2', tempo: { at: '0', bpm: 90, unit: '1/4' } },
+			data: {
+				item: { figureId: two.id, level: 2 },
+				level: 2,
+				report: { expectations: [], extra: 0 }
+			}
+		} as unknown as Attempt<FigureAttemptData>;
+		const summary = summarizeExercise({
+			exercise: RHYTHM_OFFBEATS,
+			attempts: [last],
+			state: state(2)
+		});
+		expect(summary.lastCycle?.played).toEqual({ figure: two.figure, cycleBars: 2, tempoBpm: 90 });
+		const unreadable = { ...last, plan: null } as unknown as Attempt<FigureAttemptData>;
+		expect(
+			summarizeExercise({ exercise: RHYTHM_OFFBEATS, attempts: [unreadable], state: state(2) })
+				.lastCycle
+		).not.toHaveProperty('played');
 	});
 });

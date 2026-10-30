@@ -311,7 +311,7 @@ describe('roundProblem', () => {
 		const RHYTHM: ExerciseDefinition = {
 			id: 'figured-rhythm',
 			version: 1,
-			mechanic: 'rhythm-figure',
+			mechanic: 'figure',
 			figures: [
 				{ id: 'eighths', figure: parseLilyPond('c8 c c c c c c c') },
 				{ id: 'halves', figure: parseLilyPond('c2 c') }
@@ -441,7 +441,7 @@ describe('roundProblem', () => {
 				/^round\.expectations\[0\]\.figure reads param "figure", which exercise level 1 gives as "sixteenths"/
 			);
 			expect(roundProblem(withEntry(ARPEGGIO, { figure: { item: 'figure' } }))).toMatch(
-				/^round\.expectations\[0\]\.figure .*"figure" which reads rhythm-figure, not voicing-figure/
+				/^round\.expectations\[0\]\.figure .*"figure" which reads figure, not voicing-figure/
 			);
 			expect(roundProblem(withEntry(RHYTHM, { figure: { line: 1 } }))).toMatch(
 				/^round\.expectations\[0\]\.figure must be/

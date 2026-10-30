@@ -32,7 +32,7 @@ describe('AttemptRecorder', () => {
 	const THRESHOLD_MS = 1500;
 	const LOCATE_KEY = cardKeyOf(locateRules, F_ON_B);
 
-	/** A note's response attempt as `responseAttempt` writes it: hot, at the item's lead. */
+	/** A note's response attempt as `recordedAttempt` writes it: hot, at the item's lead. */
 	function noteAttempt(
 		planned: PlannedItem,
 		{ success = true, reactionMs = 500 }: { success?: boolean; reactionMs?: number } = {}

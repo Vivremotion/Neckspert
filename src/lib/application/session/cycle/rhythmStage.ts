@@ -21,7 +21,7 @@ import {
 	type FigureParams
 } from '$lib/domain/exercise';
 import { compileRound, roundFigureOf } from '$lib/domain/exercise/round';
-import type { RhythmItem } from '$lib/domain/mechanics';
+import type { FigureItem } from '$lib/domain/mechanics';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 
 /**
@@ -148,7 +148,7 @@ function roundBars(definition: ExerciseDefinition, item: PlannedItem, meter: Met
  */
 export function cycleStage(input: {
 	definition: ExerciseDefinition;
-	item: PlannedItem<RhythmItem>;
+	item: PlannedItem<FigureItem>;
 	moment: CycleMoment;
 	barInRound: number;
 	beat: number;
@@ -156,7 +156,7 @@ export function cycleStage(input: {
 	muted: boolean;
 	settled: readonly RoundOutcome[];
 	/** The run's last cycle, shown at the breath; null when none was played. */
-	played: PlannedItem<RhythmItem> | null;
+	played: PlannedItem<FigureItem> | null;
 	locale: Locale;
 	endedSessions: number;
 }): RhythmStageModel {

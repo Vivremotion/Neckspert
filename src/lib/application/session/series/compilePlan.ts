@@ -1,18 +1,12 @@
 import { figureParamsOf, writesFigure, type FigureParams } from '$lib/domain/exercise/figureParams';
-import { pacingAt, tempoOf } from '$lib/domain/exercise/levels';
-import {
-	compileRound,
-	isFigureEntry,
-	roundAccompanimentOf,
-	roundFigureOf
-} from '$lib/domain/exercise/round';
+import { pacingAt } from '$lib/domain/exercise/levels';
+import { compileRound, roundAccompanimentOf, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
 	MATCH_LIMIT,
 	METER_4_4,
 	ROUND_MODES,
 	accompanimentFrom,
-	barLength,
 	checkStart,
 	landingBar,
 	unmuted,
@@ -29,9 +23,8 @@ import {
 	type RoundPlan
 } from '$lib/domain/time';
 import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types';
-import { aidsOf } from '../aids';
-import { cycleAids, levelAided, recordCycle } from '../cycle/recordCycle';
-import { responseAttempt } from './recordResponse';
+import { aidsOf, cycleAids, levelAided } from '../aids';
+import { recordedAttempt } from './recordResponse';
 
 /**
  * How the series plays an item's round: what it asks of a round's data beyond its plan, read for
@@ -209,17 +202,9 @@ export function runSetup(definition: ExerciseDefinition, exerciseLevel: number):
 }
 
 /**
- * A round whose figure its item names (`{ item: … }`) is kept as a cycle of that figure
- * (`recordCycle`), until every round is kept one way.
- */
-function keptAsCycle(definition: ExerciseDefinition): boolean {
-	const entry = definition.round?.expectations.find(isFigureEntry);
-	return entry !== undefined && 'item' in entry.figure;
-}
-
-/**
- * The attempt of a settled round: a cycle's (`recordCycle`, its figure and level, the resolved
- * plan) or a response round's (`responseAttempt`, with its presenter's `data`).
+ * The attempt of a settled round, every round one way (`recordedAttempt`): its plan with where it
+ * started, the tempo it was played at (the execution's, in its meter's unit; none in free time)
+ * and the thresholds its verdict read (`roundGiven`).
  */
 export function roundAttempt(input: {
 	definition: ExerciseDefinition;
@@ -235,50 +220,23 @@ export function roundAttempt(input: {
 	/** Audio seconds of the round's start. */
 	startAudioS: number;
 	cardKey: CardKey;
-	/** Whole bars from its run's first bar to its start; null when not known. */
-	fromRunStart: number | null;
 }): Omit<Attempt, 'id'> {
-	const { definition, item, outcome, plan } = input;
-	if (keptAsCycle(definition)) {
-		const meter = meterOf(definition);
-		const played = roundFigureOf(definition, item, meter);
-		const accompaniment = roundAccompanimentOf(definition, item.exerciseLevel);
-		const [first] = plan.expectations;
-		if (!played || !accompaniment || !first) {
-			throw new Error(`${definition.id}: a cycle is kept with its figure and its accompaniment`);
-		}
-		return recordCycle({
-			sessionId: input.sessionId,
-			exerciseId: item.exerciseId,
-			setup: {
-				figureId: played.id,
-				figure: played.figure,
-				level: item.exerciseLevel,
-				cycleBars: plan.length.div(barLength(meter)).toNumber(),
-				accompaniment,
-				tempo: {
-					at: Fraction.ZERO,
-					bpm: tempoOf(definition, item.exerciseLevel),
-					unit: meter.unit
-				},
-				window: first.window,
-				thresholds: figureParamsOf(definition, item.exerciseLevel).thresholds,
-				startBar: input.fromRunStart ?? landingBar(accompaniment)
-			},
-			outcome,
-			promptedAt: input.promptedAt,
-			startAudioS: input.startAudioS,
-			observations: []
-		});
-	}
-	return responseAttempt({
-		outcome,
+	const { definition, item, plan, execution } = input;
+	const { tempoBpm } = execution;
+	return recordedAttempt({
+		outcome: input.outcome,
 		item,
-		plan: input.plan,
-		data: input.data(outcome.verdict.value as ResponseValue),
+		plan,
+		data: input.data,
 		sessionId: input.sessionId,
-		execution: input.execution,
+		execution,
 		promptedAt: input.promptedAt,
-		cardKey: input.cardKey
+		cardKey: input.cardKey,
+		startAudioS: input.startAudioS,
+		tempo:
+			tempoBpm === null
+				? null
+				: { at: Fraction.ZERO, bpm: tempoBpm, unit: meterOf(definition).unit },
+		thresholds: roundGiven(definition, item, plan).thresholds
 	});
 }

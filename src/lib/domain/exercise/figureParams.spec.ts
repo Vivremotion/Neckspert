@@ -18,7 +18,7 @@ const FIGURE_ROUND: RoundTemplate = {
 const bare: ExerciseDefinition = {
 	id: 'test-figure',
 	version: 1,
-	mechanic: 'rhythm-figure',
+	mechanic: 'figure',
 	params: {},
 	round: FIGURE_ROUND,
 	levels: [{ params: {} }, { params: { cursor: true, 'thresholds.fidelity': 0.9 } }]

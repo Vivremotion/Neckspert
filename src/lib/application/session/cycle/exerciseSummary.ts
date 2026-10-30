@@ -1,28 +1,49 @@
 import { exerciseLevelsOf, figureParamsOf, type ExerciseDefinition } from '$lib/domain/exercise';
+import { roundFigureOf } from '$lib/domain/exercise/round';
 import {
-	figureFromJson,
+	Fraction,
+	METER_4_4,
+	barLength,
 	levelRange,
 	type CycleVerdict,
 	type Figure,
 	type LevelState
 } from '$lib/domain/time';
 import type { Attempt, ExerciseSummary } from '$lib/domain/types';
-import { levelAided, type CyclePlanRecord, type RhythmAttemptData } from './recordCycle';
+import { levelAided } from '../aids';
+import type { FigureAttemptData, RoundPlanRecord } from '../series/recordResponse';
 import { levelView } from './rhythmStage';
 
-/** The figure and bars of a cycle as its attempt's plan keeps them; none when the plan is not readable. */
+/**
+ * A cycle as played, to engrave it: the figure its item names in `exercise` at the level played,
+ * over the bars of the plan its attempt keeps, at its tempo; none when either is not readable.
+ */
 function playedOf(
-	attempt: Attempt
+	exercise: ExerciseDefinition,
+	attempt: Attempt<FigureAttemptData>
 ): { figure: Figure; cycleBars: number; tempoBpm: number } | null {
-	const plan = attempt.plan as Partial<CyclePlanRecord> | null;
+	const plan = attempt.plan as Partial<RoundPlanRecord> | null;
 	const tempoBpm = plan?.tempo?.bpm ?? attempt.tempoBpm;
-	if (!plan || typeof plan.cycleBars !== 'number' || !plan.figure || !tempoBpm) return null;
+	if (!plan || typeof plan.length !== 'string' || !tempoBpm) return null;
 	try {
-		return {
-			figure: figureFromJson(plan.figure),
-			cycleBars: plan.cycleBars,
-			tempoBpm
-		};
+		const meter = exercise.meter ?? METER_4_4;
+		const played = roundFigureOf(
+			exercise,
+			{
+				exerciseId: exercise.id,
+				mechanic: attempt.mechanic,
+				exerciseLevel: attempt.data.level,
+				item: attempt.data.item,
+				phase: attempt.phase,
+				temperature: attempt.temperature,
+				aid: 'none',
+				leadBeats: null
+			},
+			meter
+		);
+		if (!played) return null;
+		const cycleBars = Fraction.parse(plan.length).div(barLength(meter)).toNumber();
+		return { figure: played.figure, cycleBars, tempoBpm };
 	} catch {
 		return null;
 	}
@@ -46,7 +67,7 @@ export function summarizeExercise(input: {
 	const { exercise } = input;
 	const levels = exerciseLevelsOf(exercise);
 	const cycles = input.attempts.filter(
-		(attempt): attempt is Attempt<RhythmAttemptData> => attempt.exerciseId === exercise.id
+		(attempt): attempt is Attempt<FigureAttemptData> => attempt.exerciseId === exercise.id
 	);
 	const { lowest, highest } = levelRange(levels);
 	const last = cycles.at(-1);
@@ -55,7 +76,7 @@ export function summarizeExercise(input: {
 	// An attempt stored before the report existed, or by a test double, has neither: no report then.
 	const verdict =
 		typeof value === 'object' && value !== null && 'passed' in value ? value : undefined;
-	const played = last ? playedOf(last) : null;
+	const played = last ? playedOf(exercise, last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
 	return {
 		exerciseId: exercise.id,

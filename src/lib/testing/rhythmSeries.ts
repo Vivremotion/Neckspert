@@ -37,8 +37,8 @@ export function earlier(exerciseId: string): Attempt {
 	return {
 		sessionId: 'old',
 		exerciseId,
-		mechanic: 'rhythm-figure',
-		cardKey: 'rhythm-figure:old@0',
+		mechanic: 'figure',
+		cardKey: 'figure:old@0',
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
