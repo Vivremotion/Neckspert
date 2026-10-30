@@ -102,9 +102,11 @@ describe('the fields of a form figure', () => {
 		expect(chord('g,')).toBe('Gmaj7');
 	});
 
-	it('throws on a form the exercise does not write', () => {
-		expect(() =>
-			form.fields({ form: 'nowhere', first: 'd' }, 'fr', () => 0, FORM_EXERCISE)
-		).toThrow(/form "nowhere"/);
+	it('names the note alone on a form the exercise does not write', () => {
+		const item = { form: 'nowhere', first: 'bes' };
+		expect(form.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({ chord: 'Bb' });
+		expect(form.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, forms: undefined })).toEqual({
+			chord: 'Bb'
+		});
 	});
 });

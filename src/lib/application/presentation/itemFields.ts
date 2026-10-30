@@ -1,10 +1,9 @@
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
-import {
-	formNamed,
-	type FormFigureItem,
-	type TriadAnchorItem,
-	type TriadZoneItem,
-	type VoicingFigureItem
+import type {
+	FormFigureItem,
+	TriadAnchorItem,
+	TriadZoneItem,
+	VoicingFigureItem
 } from '$lib/domain/mechanics';
 import {
 	fretLabel,
@@ -92,7 +91,8 @@ const formFigureFields: ItemFields = {
 	names: ['chord'],
 	fields: (raw, _locale, _random, definition) => {
 		const { form, first } = raw as FormFigureItem;
-		const { symbol } = formNamed(definition.forms, form);
+		// A round that derives nothing may list a form the exercise does not write: the note alone.
+		const symbol = definition.forms?.find(({ id }) => id === form)?.symbol ?? '';
 		return { chord: `${parseNoteName(first).name}${symbol}` };
 	}
 };

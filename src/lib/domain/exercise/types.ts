@@ -61,7 +61,6 @@ export interface PromptPresentation {
 	fading?: { picture: string };
 }
 
-/** An exercise is data only: a mechanic plus its parameters. */
 /**
  * A suite of notes, each on its own string, written once and moved from chord to chord: plain
  * data, like the rest of a definition. `symbol` is what the chord's name adds to its first note.
@@ -72,6 +71,7 @@ export interface ExerciseForm {
 	notes: { midi: number; string: number }[];
 }
 
+/** An exercise is data only: a mechanic plus its parameters. */
 export interface ExerciseDefinition {
 	id: ExerciseId;
 	version: number;

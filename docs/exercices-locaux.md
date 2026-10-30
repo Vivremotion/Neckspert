@@ -125,7 +125,7 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 }
 ```
 
-Les `items` sont des clés de la mécanique (`voicing-figure` : `<forme>@<occurrence>@<temps>`, la forme s'écrivant `<racine>|<qualité>|<corde>:<degré>,…`, par exemple `C|maj|3:1,2:3,1:5`, puis l'occurrence de la forme sur le manche, puis la longueur du tour en temps). `"content": { "from": "voicing-notes" }` fait jouer à chaque note de la figure la note de la forme donnée par `pattern` (1 = la plus grave).
+Les `items` sont des clés de la mécanique (`voicing-figure` : `<voicing>@<occurrence>@<temps>`, le voicing s'écrivant `<racine>|<qualité>|<corde>:<degré>,…`, par exemple `C|maj|3:1,2:3,1:5`, puis l'occurrence du voicing sur le manche, puis la longueur du tour en temps). `"content": { "from": "voicing-notes" }` fait jouer à chaque note de la figure la note du voicing donnée par `pattern` (1 = la plus grave).
 
 ## Une forme déplacée d'accord en accord
 
@@ -157,7 +157,7 @@ et, dans `round.expectations`, `"content": { "from": "form-notes" }`.
 - **Le nom de l'accord** (`{chord}` dans la présentation) : la première note telle qu'elle est écrite, sans son octave, puis le `symbol` : `bes` donne `Bbmaj7`, `as` donne `Abmaj7`, `es` donne `Ebmaj7`, `fis` donne `F#maj7`.
 - **Les notes jouées** : `form-notes` donne la liste des notes de la forme déplacée. Sans `pattern`, elles se jouent dans l'ordre et bouclent ; `pattern` choisit parmi elles (1 = la première note de la forme). Sur un changement de 2 temps, une figure de noires joue les deux premières notes (sa dernière boucle est coupée).
 - **Chaque accord repart de la première note** de sa forme. Un arpège qui continue d'un accord à l'autre n'existe pas encore.
-- **Refusé** : deux formes de même `id`, une forme sans note, une note que sa corde ne peut pas donner telle qu'elle est écrite, un élément qui nomme une forme absente, une forme que son déplacement fait sortir du manche (sous la corde à vide ou au-delà de la case 24). Le refus nomme `forms[i]` ou `items[i]`.
+- **Refusé** : deux formes de même `id`, un `id` qui contient `@` (le séparateur des clés), une forme sans note, une note que sa corde ne peut pas donner telle qu'elle est écrite. Quand le tour dérive `form-notes`, aussi un élément qui nomme une forme absente ou que son déplacement fait sortir du manche (sous la corde à vide ou au-delà de la case 24). Le refus nomme `forms[i]` ou `items[i]`. Un tour qui ne dérive pas ses notes n'en a pas besoin : l'élément passe, et `{chord}` dit la note seule si la forme est absente.
 - **Après un tour raté**, la respiration dit les fausses notes en mots : pas de dessin d'accord, qui ne sait pas montrer plusieurs notes sur une corde. Un niveau d'aide peut écrire `"notation.tab": true` pour la tablature.
 
 ### Écrire les notes d'une forme
@@ -181,7 +181,7 @@ Pour chaque fichier, dans l'ordre du nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis `exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent.
 2. L'identifiant n'est pas déjà pris (par le catalogue ou par un fichier précédent) et la mécanique existe.
-3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà de la forme refusent le fichier en nommant `items[i]` et le niveau).
+3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent le fichier en nommant `items[i]` et le niveau).
 4. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.
@@ -200,10 +200,10 @@ Un export MusicXML de Guitar Pro 8 se convertit en LilyPond (le sous-ensemble de
 
 ```
 npm run musicxml -- <fichier.musicxml> --part P1      # la mélodie de la partie P1, en LilyPond
-npm run musicxml -- <fichier.musicxml> --shapes P2    # les formes de la partie P2
+npm run musicxml -- <fichier.musicxml> --shapes P2    # les voicings de la partie P2
 ```
 
 - **Mélodie** : une partie à une voix. La hauteur est celle de la corde à vide (accordage standard) plus la case : l'export écrit la guitare une octave plus haut, la tablature dit ce qui sonne. Chaque note garde sa corde (`c'4\2`). Les liaisons (`~`) et les triolets (`\tuplet 3/2 { … }`) sont repris ; une mesure par ligne, `|` à la fin. Une levée est complétée par des silences devant ses notes, pour que les mesures tombent juste. Les altérations sont écrites en dièses, ou en bémols si l'armure est en bémols. La corde et la case sont lues aussi dans les instructions `<?GP …?>` de Guitar Pro. Un `<forward>` est lu comme un silence.
-- **Formes** : une ligne par accord, `mesure beat`, puis les cases des cordes de la plus grave à la plus aiguë (`x` : corde non jouée), puis les clés `corde:case` (`5:3 4:2 3:0`) à recopier dans une clé de forme. La mesure est celle de l'export (la levée est la mesure 0) ; `beat` compte en temps à partir de 1.
+- **Voicings** : une ligne par accord, `mesure beat`, puis les cases des cordes de la plus grave à la plus aiguë (`x` : corde non jouée), puis les clés `corde:case` (`5:3 4:2 3:0`) à recopier dans une clé de voicing. La mesure est celle de l'export (la levée est la mesure 0) ; `beat` compte en temps à partir de 1.
 - **Avertissements** (sur la sortie d'erreur, rien n'est refusé) : un accord dans une partie mélodique (seule la première note est gardée), une deuxième voix (aussi dans une partie d'accords : seule la première voix est positionnée), une appogiature, un triolet que sa marque de fin ne ferme pas, une technique non convertie (marteau, tiré, tiré de corde, harmonique, glissé, ornement…), un accordage qui n'est pas le standard. Le doublon de la portée de tablature (voix 5) est ignoré sans bruit.
 - Le script n'a pas de dépendance : il lit le XML avec un petit lecteur de balises. Il ne comprend pas une deuxième portée de notation, ni un changement de mesure en cours de morceau.

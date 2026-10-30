@@ -1,5 +1,5 @@
-import { CONTENT_DERIVATIONS } from '../derivations';
 import { mechanicRules } from '../mechanics';
+import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
@@ -213,8 +213,8 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * Why a form the exercise writes cannot be played: an id already taken, no note, or a note written
- * on a string where no fret gives its pitch.
+ * Why a form the exercise writes cannot be played: an id already taken or that no item key could
+ * name, no note, or a note written on a string where no fret gives its pitch.
  */
 function formsProblem(definition: ExerciseDefinition): string | null {
 	const forms = definition.forms ?? [];
@@ -222,6 +222,9 @@ function formsProblem(definition: ExerciseDefinition): string | null {
 		const field = `forms[${index}] (${id})`;
 		const same = forms.findIndex((form) => form.id === id);
 		if (same !== index) return `${field} has the id of forms[${same}]`;
+		if (id.includes(FORM_ITEM_SEPARATOR)) {
+			return `${field} has an id with "${FORM_ITEM_SEPARATOR}", which separates the parts of an item key`;
+		}
 		if (notes.length === 0) return `${field} has no note`;
 		for (const [k, { midi, string }] of notes.entries()) {
 			const place = fretOf(midi, string);
@@ -232,27 +235,11 @@ function formsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * What an item cannot give of what its mechanic's derivations read on it (its form the exercise
- * does not write, or moved off the neck…), whether or not the round derives it: its prompt reads
- * the same item.
- */
-function derivedProblem(definition: ExerciseDefinition, item: unknown): string | null {
-	for (const [name, derivation] of Object.entries(CONTENT_DERIVATIONS)) {
-		if (!derivation.reads.includes(definition.mechanic)) continue;
-		try {
-			derivation.derive(item, definition);
-		} catch (error) {
-			return `derives "${name}": ${(error as Error).message}`;
-		}
-	}
-	return null;
-}
-
-/**
  * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
- * (`parseItem`), an item its round cannot compile at one of its exercise levels (an occurrence
- * the neck does not hold, a pattern note beyond its shape…), naming the item and the level, or a
- * derivation that cannot read it (`derivedProblem`). Checked once the round is known to be valid.
+ * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
+ * the neck does not hold, a form moved off it, a pattern note beyond its notes…), naming the item
+ * and the level. What the round does not derive it does not need. Checked once the round is known
+ * to be valid.
  */
 function itemsProblem(definition: ExerciseDefinition): string | null {
 	const { items, round } = definition;
@@ -269,7 +256,8 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 		} catch (error) {
 			return `${field}: ${(error as Error).message}`;
 		}
-		for (let level = lowest; round !== undefined && level <= highest; level++) {
+		if (round === undefined) continue;
+		for (let level = lowest; level <= highest; level++) {
 			const planned: PlannedItem = {
 				exerciseId: definition.id,
 				mechanic: definition.mechanic,
@@ -291,8 +279,6 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 				return `${field} does not compile at exercise level ${level}: ${problem}`;
 			}
 		}
-		const derived = derivedProblem(definition, item);
-		if (derived !== null) return `${field} ${derived}`;
 	}
 	return null;
 }

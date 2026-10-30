@@ -332,19 +332,32 @@ describe('validateExercise on the forms an exercise writes', () => {
 		);
 	});
 
-	it('refuses such an item even when the round does not derive its notes, or there is no round', () => {
+	it('accepts such an item when the round does not derive its notes, or there is no round', () => {
 		const round = FORM_EXERCISE.round!;
 		const [entry] = round.expectations;
 		const silent = {
 			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
 		};
 		for (const rest of [silent, { round: undefined }]) {
-			expect(validateExercise(withItems(['nowhere@c@4'], rest))).toMatch(
-				new RegExp(`^${id}: items\\[0\\] .*derives "form-notes": .*form "nowhere"`)
-			);
-			expect(validateExercise(withItems(['maj7@g,@4'], rest))).toMatch(
-				new RegExp(`^${id}: items\\[0\\] .*derives "form-notes": .*below string 5`)
-			);
+			expect(validateExercise(withItems(['nowhere@c@4'], rest))).toBeNull();
+			expect(validateExercise(withItems(['maj7@g,@4'], rest))).toBeNull();
 		}
+	});
+
+	it('refuses a form whose id holds the separator of an item key, which no item could name', () => {
+		expect(validateExercise(withForms([{ ...form, id: 'maj@7' }]))).toMatch(
+			new RegExp(`^${id}: forms\\[0\\] \\(maj@7\\) has an id with "@"`)
+		);
+	});
+
+	it('runs a voicing whose occurrence the neck does not hold when the round derives nothing', () => {
+		const round = ARPEGGIO_EXERCISE.round!;
+		const [entry] = round.expectations;
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			items: ['C|maj|3:1,2:3,1:5@9@4'],
+			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
+		};
+		expect(validateExercise(exercise)).toBeNull();
 	});
 });

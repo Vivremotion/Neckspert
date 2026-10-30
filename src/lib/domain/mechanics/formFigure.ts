@@ -15,7 +15,8 @@ export interface FormFigureItem {
 	beats?: number;
 }
 
-const SEPARATOR = '@';
+/** Between the parts of an item's key, so a form's id cannot hold it. */
+export const FORM_ITEM_SEPARATOR = '@';
 
 /**
  * Figures played on a form written once and moved from chord to chord: a skill (its attempts are
@@ -26,9 +27,9 @@ export const formFigureRules: MechanicIdentity<FormFigureItem> = {
 	id: 'form-figure',
 	learner: 'skill',
 	itemKey: ({ form, first, beats }) =>
-		`${form}${SEPARATOR}${first}${beats === undefined ? '' : `${SEPARATOR}${beats}`}`,
+		`${form}${FORM_ITEM_SEPARATOR}${first}${beats === undefined ? '' : `${FORM_ITEM_SEPARATOR}${beats}`}`,
 	parseItem: (itemKey) => {
-		const [form, first, beats, ...rest] = itemKey.split(SEPARATOR);
+		const [form, first, beats, ...rest] = itemKey.split(FORM_ITEM_SEPARATOR);
 		if (!form || first === undefined || rest.length > 0) {
 			throw new Error(`Invalid form figure item key: "${itemKey}"`);
 		}
