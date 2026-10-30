@@ -26,6 +26,7 @@ import {
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
 import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
+import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { attackSensor, noteSensor } from '$lib/application/session/sensors';
@@ -150,7 +151,7 @@ export async function sequenceSeries(
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
-	const presenter = FIGURE_PRESENTERS[exercise.mechanic];
+	const presenter = exercisePresenter(FIGURE_PRESENTERS[exercise.mechanic], exercise);
 	const deps: SessionControllerDeps = {
 		clock,
 		sounds,

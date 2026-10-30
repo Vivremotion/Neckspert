@@ -20,6 +20,8 @@ import {
 	TRIADS_ZONE
 } from '$lib/domain/exercise';
 import { locateRules } from '$lib/domain/mechanics';
+import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
+import type { MechanicPresenter } from '$lib/application/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -98,7 +100,7 @@ export function createAppServices(
 	 */
 	const playSession = async (
 		kind: SessionKind,
-		mechanics: readonly MechanicId[],
+		mechanics: Record<string, MechanicPresenter>,
 		prepareSeries: (sessionId: string) => Promise<PreparedSeries>
 	): Promise<SessionController> => {
 		const { locale } = await deps.settings.get();
@@ -114,7 +116,7 @@ export function createAppServices(
 			sounds: deps.sounds,
 			detector: deps.detector,
 			sensors: deps.sensors,
-			mechanics: presentersOf(mechanics),
+			mechanics,
 			repositories: {
 				attempts: deps.attempts,
 				sessions: deps.sessions,
@@ -150,7 +152,7 @@ export function createAppServices(
 	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		playSession('gesture', TRACK_MECHANICS, async (sessionId) => {
+		playSession('gesture', presentersOf(TRACK_MECHANICS), async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			// The open exercises in the order of the ladder; each grid of each (and the link, which
 			// plays no grid) at its own exercise level, which the series holds.
@@ -169,7 +171,7 @@ export function createAppServices(
 	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, TRACK_MECHANICS, async (sessionId) => {
+		playSession(kind, presentersOf(TRACK_MECHANICS), async (sessionId) => {
 			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
@@ -219,7 +221,7 @@ export function createAppServices(
 	const startTriads = (mechanic: TriadMechanic) =>
 		playSession(
 			mechanic === 'triad-zone' ? 'triads-zone' : 'triads',
-			TRACK_MECHANICS,
+			presentersOf(TRACK_MECHANICS),
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
 					deps.cards.all(),
@@ -441,7 +443,13 @@ export function createAppServices(
 				throw new Error(`Exercise ${exerciseId} is not played in an exercise session`);
 			}
 			const definition = exerciseOf(exerciseId);
-			return playSession('exercise', [definition.mechanic], async () => ({
+			const presenters = Object.fromEntries(
+				Object.entries(presentersOf([definition.mechanic])).map(([mechanic, presenter]) => [
+					mechanic,
+					exercisePresenter(presenter, definition)
+				])
+			);
+			return playSession('exercise', presenters, async () => ({
 				source: createExerciseItemSource(definition),
 				durationMs: SESSION_MS
 			}));

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
-import type { ExerciseDefinition } from '$lib/domain/exercise';
+import { exerciseFromJson, type ExerciseDefinition } from '$lib/domain/exercise';
 import {
 	ARPEGGIO_EXERCISE,
 	ARPEGGIO_ITEMS,
@@ -156,6 +156,68 @@ describe('a sequence of chord shapes on the series', () => {
 		// The breath: the second run does not chain to the first.
 		expect(second[0].promptedAt).toBeGreaterThan(epochOfBar(4));
 		controller.quit();
+	});
+
+	describe('a figure with its pitches written, played alone', () => {
+		const written = exerciseFromJson({
+			id: 'test-written',
+			version: 1,
+			title: { fr: 'Écrit', en: 'Written' },
+			mechanic: 'figure',
+			view: 'figure',
+			tempo: 60,
+			params: {
+				cycleBars: 1,
+				window: { ms: 80 },
+				thresholds: {},
+				liveMarks: true,
+				pacing: { roundsPerBreath: 1, breathMinMs: 4000, listenInBars: 0, countIn: true }
+			},
+			figures: [{ id: 'theme', lilypond: "c'4 d' e' f'" }],
+			pick: 'loop',
+			round: {
+				expectations: [
+					{
+						figure: { item: 'figure' },
+						at: { bars: 0 },
+						sensor: 'note',
+						content: { from: 'figure' },
+						window: { param: 'window' }
+					}
+				],
+				length: { bars: { param: 'cycleBars' } },
+				handover: 'end',
+				policy: {
+					unit: 'cycle',
+					verdict: 'cycle',
+					correction: false,
+					pairing: { mode: 'alignment' }
+				}
+			},
+			levels: [{ params: {} }]
+		});
+
+		it('is heard by the sensor its round names, not its mechanic’s', async () => {
+			const { controller, advance, detector } = await sequenceSeries(written, {
+				pattern: [1],
+				met: true
+			});
+			await controller.start();
+			await advance(ORIGIN + BAR_S - 0.01, false);
+			const heard = [60, 62, 64, 65];
+			for (const [k, midi] of heard.entries()) {
+				const time = ORIGIN + BAR_S + k;
+				await advance(time + 0.1, false);
+				detector.emitNote({ time, midi, frequencyHz: 440, clarity: 1 });
+			}
+			expect(stageOf(controller).live?.expectations.map((e) => e.verdict)).toEqual([
+				'on-time',
+				'on-time',
+				'on-time',
+				'on-time'
+			]);
+			controller.quit();
+		});
 	});
 
 	describe('a level that marks what it hears', () => {
