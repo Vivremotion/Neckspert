@@ -17,19 +17,28 @@ function arpeggioJson(over: Record<string, unknown> = {}): Record<string, unknow
 	};
 }
 
+/** Files as the folder holds them: their text. */
+function texts(files: Record<string, unknown>): Record<string, string> {
+	return Object.fromEntries(
+		Object.entries(files).map(([file, json]) => [file, JSON.stringify(json, null, '\t')])
+	);
+}
+
 describe('readLocalExercises', () => {
 	it('keeps the valid files and reports the others with their reason', () => {
-		const result = readLocalExercises({
-			'/exercises.local/arpeggio.json': arpeggioJson(),
-			'/exercises.local/number.json': 42,
-			'/exercises.local/figure.json': arpeggioJson({
-				id: 'bad-figure',
-				figures: [{ id: 'bad', lilypond: 'c4 #(foo)' }]
-			}),
-			'/exercises.local/taken.json': arpeggioJson({ id: LOCATE_NECK.id }),
-			'/exercises.local/tempo.json': arpeggioJson({ id: 'bad-tempo', tempo: -3 }),
-			'/exercises.local/key.json': arpeggioJson({ id: 'bad-key', colour: 'red' })
-		});
+		const result = readLocalExercises(
+			texts({
+				'/exercises.local/arpeggio.json': arpeggioJson(),
+				'/exercises.local/number.json': 42,
+				'/exercises.local/figure.json': arpeggioJson({
+					id: 'bad-figure',
+					figures: [{ id: 'bad', lilypond: 'c4 #(foo)' }]
+				}),
+				'/exercises.local/taken.json': arpeggioJson({ id: LOCATE_NECK.id }),
+				'/exercises.local/tempo.json': arpeggioJson({ id: 'bad-tempo', tempo: -3 }),
+				'/exercises.local/key.json': arpeggioJson({ id: 'bad-key', colour: 'red' })
+			})
+		);
 		expect(result.loaded.map((exercise) => exercise.id)).toEqual(['local-arpeggio']);
 		expect(result.refused).toEqual([
 			{
@@ -49,13 +58,26 @@ describe('readLocalExercises', () => {
 		]);
 	});
 
+	it('refuses a file whose JSON does not parse, naming why, and keeps the others', () => {
+		const valid = texts({ 'b.json': arpeggioJson({ id: 'fine' }) });
+		// A missing comma between two keys.
+		const broken = '{\n\t"id": "broken"\n\t"version": 1\n}';
+		const result = readLocalExercises({ 'a.json': broken, ...valid });
+		expect(result.loaded.map((exercise) => exercise.id)).toEqual(['fine']);
+		expect(result.refused).toEqual([
+			{ file: 'a.json', reason: expect.stringMatching(/^the file is not JSON: \S/) }
+		]);
+	});
+
 	it('refuses an unknown mechanic, a screen it cannot draw, and a second file with the same id', () => {
-		const result = readLocalExercises({
-			'a.json': arpeggioJson({ id: 'one' }),
-			'b.json': arpeggioJson({ id: 'one' }),
-			'c.json': arpeggioJson({ id: 'two', mechanic: 'nowhere' }),
-			'd.json': arpeggioJson({ id: 'three', view: 'score' })
-		});
+		const result = readLocalExercises(
+			texts({
+				'a.json': arpeggioJson({ id: 'one' }),
+				'b.json': arpeggioJson({ id: 'one' }),
+				'c.json': arpeggioJson({ id: 'two', mechanic: 'nowhere' }),
+				'd.json': arpeggioJson({ id: 'three', view: 'score' })
+			})
+		);
 		expect(result.loaded.map((exercise) => exercise.id)).toEqual(['one']);
 		expect(result.refused).toEqual([
 			{ file: 'b.json', reason: 'one: this id is already used by another local file' },
@@ -65,10 +87,12 @@ describe('readLocalExercises', () => {
 	});
 
 	it('reports a file whose content breaks a validator instead of stopping', () => {
-		const result = readLocalExercises({
-			'a.json': arpeggioJson({ id: 'broken', round: 'not a template' }),
-			'b.json': arpeggioJson({ id: 'fine' })
-		});
+		const result = readLocalExercises(
+			texts({
+				'a.json': arpeggioJson({ id: 'broken', round: 'not a template' }),
+				'b.json': arpeggioJson({ id: 'fine' })
+			})
+		);
 		expect(result.loaded.map((exercise) => exercise.id)).toEqual(['fine']);
 		expect(result.refused).toHaveLength(1);
 		expect(result.refused[0].file).toBe('a.json');
@@ -90,7 +114,7 @@ describe('docs/exercices-locaux.md', () => {
 	it('gives an example in JSON that loads', () => {
 		const doc = DOC['/docs/exercices-locaux.md'] ?? '';
 		const block = /```json\n([\s\S]*?)\n```/.exec(doc)?.[1] ?? '';
-		const result = readLocalExercises({ 'example.json': JSON.parse(block) });
+		const result = readLocalExercises({ 'example.json': block });
 		expect(result.refused).toEqual([]);
 		expect(result.loaded[0].view).toBe('figure');
 	});

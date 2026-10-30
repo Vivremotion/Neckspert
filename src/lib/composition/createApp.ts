@@ -44,14 +44,22 @@ export interface CreateAppOptions {
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
- * chord verifier write to it; the core never sees it. The exercises of `exercises.local/` are
- * added to the catalog before anything reads it (`docs/exercices-locaux.md`).
+ * chord verifier write to it; the core never sees it. In development builds, the exercises of
+ * `exercises.local/` are added to the catalog before anything reads it (`docs/exercices-locaux.md`).
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
-	// The private exercises, read at build time: a refused file is reported, never fatal.
-	loadLocalExercises(
-		import.meta.glob('/exercises.local/*.json', { eager: true, import: 'default' })
-	);
+	// The private exercises, read as text at build time, in development builds only: a production
+	// build drops this branch and the files with it. A refused file (its JSON unreadable
+	// included) is reported, never fatal.
+	if (import.meta.env.DEV) {
+		loadLocalExercises(
+			import.meta.glob<string>('/exercises.local/*.json', {
+				eager: true,
+				query: '?raw',
+				import: 'default'
+			})
+		);
+	}
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).

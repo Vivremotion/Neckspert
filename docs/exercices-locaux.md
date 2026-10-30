@@ -5,7 +5,7 @@ Un exercice privé est un fichier JSON dans le dossier `exercises.local/`, à la
 ## Où et quand
 
 - Un fichier par exercice : `exercises.local/<nom>.json`.
-- Les fichiers sont lus **au build** (`import.meta.glob('/exercises.local/*.json')` dans `createApp`) : en développement, enregistrez le fichier et la page se recharge ; en production, il faut reconstruire.
+- Les exercices locaux n'existent **qu'en développement** (`npm run dev`). Les fichiers sont lus comme du texte au build de développement (`import.meta.glob('/exercises.local/*.json', { query: '?raw' })` dans `createApp`, derrière `import.meta.env.DEV`) : enregistrez le fichier et la page se recharge. Un build de production (`npm run build`) ne les lit pas et n'en emporte rien : un exercice privé ne part jamais avec l'application publiée.
 - Les exercices valides rejoignent le catalogue (`registerExercises`) : ils se jouent comme ceux du code. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
 
 ## Le format
@@ -130,7 +130,7 @@ Les `items` sont des clés de la mécanique (`voicing-figure` : `<forme>@<occurr
 
 Pour chaque fichier, dans l'ordre du nom :
 
-1. `exerciseFromJson` : un objet, des clés connues, des figures en LilyPond qui se lisent.
+1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis `exerciseFromJson` : un objet, des clés connues, des figures en LilyPond qui se lisent.
 2. L'identifiant n'est pas déjà pris (par le catalogue ou par un fichier précédent) et la mécanique existe.
 3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, tour…).
 4. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
@@ -141,8 +141,7 @@ Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt p�
 
 Un fichier refusé n'arrête jamais l'application.
 
-- **En développement** : l'accueil liste les fichiers refusés avec la raison du validateur (en français et en anglais), et la console les reprend.
-- **En production** : `console.error` seulement, sous la forme `[exercises.local] <fichier> refused: <raison>`.
+L'accueil liste les fichiers refusés avec la raison du validateur (en français et en anglais), et la console les reprend sous la forme `[exercises.local] <fichier> refused: <raison>`.
 
 La raison nomme l'exercice et le champ, par exemple `mon-exercice: tempo must be a positive number, got -3`.
 

@@ -20,8 +20,8 @@ describe('loadLocalExercises', () => {
 		};
 		expect(refusedLocalExercises()).toEqual([]);
 		const first = loadLocalExercises({
-			'/exercises.local/ok.json': valid,
-			'/exercises.local/no.json': []
+			'/exercises.local/ok.json': JSON.stringify(valid),
+			'/exercises.local/no.json': '[]'
 		});
 		expect(exerciseById('loaded-from-a-file')).toBe(first.loaded[0]);
 		expect(error).toHaveBeenCalledTimes(1);

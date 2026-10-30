@@ -27,13 +27,14 @@ export interface LocalExercisesOptions {
 }
 
 /**
- * Parses, validates (`validateExercise`, `presentationProblem`, `screenProblem`, `previewProblem`)
- * and keeps the valid ones, by file name; a file that does not hold a runnable exercise is
- * refused with the reason, never thrown. An id already in the catalog, or used by an earlier
- * local file, is refused. Registers nothing: see `loadLocalExercises`.
+ * Parses each file's text as JSON, validates it (`validateExercise`, `presentationProblem`,
+ * `screenProblem`, `previewProblem`) and keeps the valid ones, by file name; a file that does not
+ * hold a runnable exercise, its JSON unreadable included, is refused with the reason, never
+ * thrown. An id already in the catalog, or used by an earlier local file, is refused. Registers
+ * nothing: see `loadLocalExercises`.
  */
 export function readLocalExercises(
-	files: Record<string, unknown>,
+	files: Record<string, string>,
 	options: LocalExercisesOptions = {}
 ): LocalExercises {
 	const presenters = options.presenters ?? MECHANIC_PRESENTERS;
@@ -42,7 +43,13 @@ export function readLocalExercises(
 	for (const file of Object.keys(files).sort()) {
 		const reason = ((): string | null => {
 			try {
-				const exercise = exerciseFromJson(files[file]);
+				let json: unknown;
+				try {
+					json = JSON.parse(files[file]);
+				} catch (error) {
+					return `the file is not JSON: ${(error as Error).message}`;
+				}
+				const exercise = exerciseFromJson(json);
 				const { id, mechanic } = exercise;
 				if (used.has(id)) {
 					return result.loaded.some((loaded) => loaded.id === id)
@@ -74,7 +81,7 @@ let local: LocalExercises | null = null;
  * Reads the local files once, registers the valid ones in the catalog, and reports each refused
  * file with `console.error`. Called again, it returns what the first call read.
  */
-export function loadLocalExercises(files: Record<string, unknown>): LocalExercises {
+export function loadLocalExercises(files: Record<string, string>): LocalExercises {
 	if (local) return local;
 	local = readLocalExercises(files);
 	registerExercises(local.loaded);
