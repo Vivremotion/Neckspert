@@ -8,6 +8,9 @@ import type { PairingResult, VerdictContext, VerdictMode } from './types';
 /** The pairing whose timed pairs the cycle verdict reads. */
 const ALIGNMENT = alignmentPairing.id;
 
+/** The id of the cycle verdict mode, and the relation of the envelope it writes. */
+export const CYCLE_VERDICT = 'cycle';
+
 /** The version of the shape of a cycle verdict (`CycleVerdict`). */
 export const CYCLE_VERDICT_VERSION = 1;
 
@@ -48,7 +51,7 @@ function alignmentOf(result: PairingResult): Alignment {
  * (`wrong-pitch`, with what its attack played).
  */
 export const cycleVerdictMode: VerdictMode = {
-	id: 'cycle',
+	id: CYCLE_VERDICT,
 	readsThresholds: true,
 	validate(plan: RoundPlan): string | null {
 		if (plan.policy.unit !== 'cycle') {
@@ -88,7 +91,7 @@ export const cycleVerdictMode: VerdictMode = {
 		return {
 			success: value.passed,
 			correct: null,
-			verdict: { relation: 'cycle', version: CYCLE_VERDICT_VERSION, value },
+			verdict: { relation: CYCLE_VERDICT, version: CYCLE_VERDICT_VERSION, value },
 			measures: report.measures,
 			aids: [...context.aids],
 			detail: report

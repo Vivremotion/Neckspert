@@ -392,7 +392,9 @@ describe('the rhythm exercises', () => {
 				window: { ms: 80 }
 			});
 			expect(paramsAt(exercise, 0).accompaniment.figure.meter.count).toBe(4);
-			expect(exercise.params).toMatchObject({ sensor: 'attack' });
+			// The round writes the sensor it listens with; no param stands for it.
+			expect(exercise.round?.expectations.map((e) => e.sensor)).toEqual(['attack']);
+			expect(exercise.params).not.toHaveProperty('sensor');
 			expect(exercise.howTo?.fr.length).toBeGreaterThan(20);
 			expect(exercise.howTo?.en.length).toBeGreaterThan(20);
 			expect(exercise.title?.fr.length).toBeGreaterThan(3);

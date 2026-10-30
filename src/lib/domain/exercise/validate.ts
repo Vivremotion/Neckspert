@@ -1,5 +1,6 @@
 import { mechanicRules } from '../mechanics';
-import { MAX_PLAYABLE_FRET, STANDARD_TUNING, type StringNumber } from '../music/types';
+import { fretOf } from '../music/fretboard';
+import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
 import { levelRange } from '../time/levels';
 import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
@@ -201,8 +202,7 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 		for (const voice of figure.voices) {
 			for (const [k, { note }] of attackNotes(figure, voice.id).entries()) {
 				if (note.pitch === undefined || note.string === undefined) continue;
-				const fret = note.pitch - STANDARD_TUNING[note.string as StringNumber];
-				if (fret < 0 || fret > MAX_PLAYABLE_FRET) {
+				if ('problem' in fretOf(note.pitch, note.string)) {
 					return `figures[${index}] (${id}) note ${k} has pitch ${note.pitch}, not on string ${note.string} (frets 0 to ${MAX_PLAYABLE_FRET})`;
 				}
 			}

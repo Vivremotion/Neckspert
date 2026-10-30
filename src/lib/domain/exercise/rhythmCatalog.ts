@@ -125,7 +125,7 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	version: 1,
 	title: { fr: 'Mesures silencieuses', en: 'Silent bars' },
 	mechanic: 'figure',
-	params: { sensor: 'attack', ...SILENT_BARS_PARAMS },
+	params: SILENT_BARS_PARAMS,
 	tempo: 80,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
@@ -188,7 +188,7 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	version: 1,
 	title: { fr: 'Métronome sur 2 et 4', en: 'Click on 2 and 4' },
 	mechanic: 'figure',
-	params: { sensor: 'attack', ...TWO_FOUR_PARAMS },
+	params: TWO_FOUR_PARAMS,
 	tempo: 100,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
@@ -228,7 +228,7 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	version: 1,
 	title: { fr: 'Contretemps', en: 'Offbeats' },
 	mechanic: 'figure',
-	params: { sensor: 'attack', ...OFFBEATS_PARAMS },
+	params: OFFBEATS_PARAMS,
 	tempo: 80,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },

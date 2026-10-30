@@ -1,4 +1,5 @@
 import {
+	CYCLE_VERDICT,
 	Fraction,
 	type CycleReport,
 	type CycleThresholds,
@@ -110,9 +111,6 @@ export function roundPlanFromRecord(record: RoundPlanRecord): RoundPlan {
 	if (record.barOffset !== undefined) plan.barOffset = Fraction.parse(record.barOffset);
 	return plan;
 }
-
-/** The relation of the cycle verdict's envelope. */
-const CYCLE_VERDICT = 'cycle';
 
 /**
  * The judge's word on the content of a cycle: null when no expectation asks for any (pure

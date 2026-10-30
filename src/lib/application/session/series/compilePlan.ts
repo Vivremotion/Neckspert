@@ -3,6 +3,7 @@ import { pacingAt } from '$lib/domain/exercise/levels';
 import { compileRound, roundAccompanimentOf, roundFigureOf } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
+	CYCLE_VERDICT,
 	MATCH_LIMIT,
 	METER_4_4,
 	ROUND_MODES,
@@ -142,9 +143,6 @@ export function contentFigure(definition: ExerciseDefinition, item: PlannedItem)
 export function listenOf(definition: ExerciseDefinition, level: number): FigureParams['listen'] {
 	return figureParamsOf(definition, level).listen;
 }
-
-/** The relation of the cycle verdict's envelope. */
-const CYCLE_VERDICT = 'cycle';
 
 /**
  * What the anti-blocking reads of a settled round (`SettledRound`): a round judged by the cycle
