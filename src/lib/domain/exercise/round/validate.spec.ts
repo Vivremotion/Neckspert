@@ -8,7 +8,7 @@ import { parseLilyPond } from '../../time/notation/lilypond';
 import type { FigureExpectationTemplate, PointExpectationTemplate, RoundTemplate } from './types';
 import { roundProblem } from './validate';
 
-const SENSORS = ['note', 'chord', 'tap'];
+const SENSORS = ['note', 'chord', 'tap', 'attack'];
 
 function round(definition: ExerciseDefinition): RoundTemplate {
 	if (!definition.round) throw new Error(`${definition.id} writes no round`);
@@ -37,7 +37,10 @@ describe('roundProblem', () => {
 			'gesture-link',
 			'gesture-climb',
 			'gesture-zone',
-			'gesture-jam'
+			'gesture-jam',
+			'rhythm-silent-bars',
+			'rhythm-two-four',
+			'rhythm-offbeats'
 		]);
 		for (const exercise of written) {
 			expect([exercise.id, roundProblem(exercise)]).toEqual([exercise.id, null]);

@@ -61,6 +61,14 @@ describe('presentationProblem', () => {
 
 describe('screenProblem', () => {
 	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
+	/**
+	 * The rhythm draws its screen through the series' stage dispatch (`cycleStage`), not through a
+	 * presenter's `stageOf`: this stands for it where the catalog is checked.
+	 */
+	const catalogPresenters = {
+		...presenters,
+		'rhythm-figure': { stageOf: () => ({ model: null }) }
+	};
 	/** Locate with neither its presentation nor its view. */
 	const bare: ExerciseDefinition = { ...LOCATE_NECK, view: undefined, presentation: undefined };
 
@@ -75,7 +83,10 @@ describe('screenProblem', () => {
 
 	it('accepts the catalog: a presentation, a screen of its mechanic, or no round', () => {
 		for (const exercise of EXERCISES) {
-			expect([exercise.id, screenProblem(exercise, presenters)]).toEqual([exercise.id, null]);
+			expect([exercise.id, screenProblem(exercise, catalogPresenters)]).toEqual([
+				exercise.id,
+				null
+			]);
 		}
 		expect(screenProblem({ ...bare, round: undefined }, {})).toBeNull();
 	});

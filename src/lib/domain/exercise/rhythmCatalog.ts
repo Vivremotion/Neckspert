@@ -7,6 +7,7 @@ import {
 } from '$lib/domain/time';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import type { LevelOverrides } from './levels';
+import type { RoundTemplate } from './round';
 import type { ExerciseDefinition, ExercisePacing } from './types';
 
 /**
@@ -59,6 +60,26 @@ function figureOf(text: string): Figure {
 	return parseLilyPond(text, { meter: METER_4_4 });
 }
 
+/**
+ * The round of every rhythm exercise: its item's figure looped over the cycle's bars, judged as a
+ * whole by the alignment; the cycle follows its accompaniment and window, both of its level.
+ */
+const CYCLE_ROUND: RoundTemplate = {
+	expectations: [
+		{
+			figure: { item: 'figure' },
+			at: { bars: 0 },
+			sensor: 'attack',
+			content: null,
+			window: { param: 'window' }
+		}
+	],
+	accompaniment: { param: 'accompaniment' },
+	length: { bars: { param: 'cycleBars' } },
+	handover: 'end',
+	policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+};
+
 // Mesures silencieuses ---------------------------------------------------------------------
 
 const SILENT_BARS_PARAMS: RhythmParams = {
@@ -90,6 +111,7 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.',
 		en: 'Play steady eighth notes, one attack on every half beat. The click drops out on some bars: keep the same tempo as if it carried on, and meet it again when it returns. You hear the figure first, then play it in runs of four turns.'
@@ -153,6 +175,7 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.',
 		en: 'Read the four-bar line and play it in one go. The click only marks beats 2 and 4: beats 1 and 3 are yours to carry. A new line comes each turn. You can listen to the line before you play it.'
@@ -192,6 +215,7 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
 	view: 'rhythm-figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',
 		en: 'Play the offbeats: one attack on the “and” of each beat, plus the first beat of the bar. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1.'

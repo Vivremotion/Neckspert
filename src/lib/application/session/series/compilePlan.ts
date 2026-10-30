@@ -14,7 +14,7 @@ import {
 	type CycleReport,
 	type CycleVerdict,
 	type Figure,
-	type Fraction,
+	Fraction,
 	type LevelParams,
 	type Meter,
 	type ResponseValue,
@@ -23,17 +23,21 @@ import {
 } from '$lib/domain/time';
 import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types';
 import { aidsOf } from '../aids';
-import { compileCycle, figureOf, SETTLE_AFTER_BARS } from '../cycle/compileCycle';
 import { cycleAids, levelAided, recordCycle } from '../cycle/recordCycle';
-import { rhythmParamsOf } from '../cycle/rhythmExercise';
+import { figureOf, rhythmParamsOf } from '../cycle/rhythmExercise';
 import { responseAttempt } from './recordResponse';
 
 /**
  * How the series plays an item's round: the one place that tells a cycle (an exercise that writes
- * `figures`, compiled from its figure by `compileCycle`, D8) from a round of a template
- * (`compileRound`). Everything the series asks of a round's data goes through here; the rest of
- * the series knows neither.
+ * `figures`) from a round of another kind. Every round compiles from its exercise's template
+ * (`compileRound`); everything else the series asks of a round's data goes through here.
  */
+
+/**
+ * A cycle is settled this far (in bars) after its last bar ends, so an attack reported a little
+ * late (detection, the scheduler's wake-up) still reaches it.
+ */
+export const SETTLE_AFTER_BARS = Fraction.of(1, 4);
 
 /**
  * Its rounds are cycles of a figure (D8): its items are the figures it writes (`ITEM_FIGURES`),
@@ -57,10 +61,6 @@ export function compilePlan(
 	meter: Meter,
 	context: { previewBeats: number; fromRunStart: number | null }
 ): RoundPlan {
-	if (playsCycles(definition)) {
-		const startBar = context.fromRunStart ?? undefined;
-		return compileCycle(definition, item as PlannedItem<RhythmItem>, meter, startBar);
-	}
 	return compileRound(definition, item, meter, {
 		previewBeats: context.previewBeats,
 		fromRunStart: context.fromRunStart

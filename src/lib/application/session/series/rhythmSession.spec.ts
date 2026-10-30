@@ -9,7 +9,7 @@ import {
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, figureFromJson, type CycleReport } from '$lib/domain/time';
 import type { CyclePlanRecord, RhythmAttemptData } from '../cycle/recordCycle';
-import { SETTLE_AFTER_BARS } from '../cycle/compileCycle';
+import { SETTLE_AFTER_BARS } from './compilePlan';
 import { PLAIN_WORDS_SESSIONS } from '../cycle/rhythmStage';
 import { summarizeExercise } from '../cycle/exerciseSummary';
 import type { SessionMemory } from '../sessionMemory';

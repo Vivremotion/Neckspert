@@ -99,7 +99,7 @@ describe('exercise catalog', () => {
 		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
 		// A round template holds no fraction object: it goes through JSON as it is.
 		const rounds = EXERCISES.filter((exercise) => exercise.round);
-		expect(rounds).toHaveLength(8);
+		expect(rounds).toHaveLength(11);
 		for (const { round } of rounds) expect(JSON.parse(JSON.stringify(round))).toEqual(round);
 	});
 

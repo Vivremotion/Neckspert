@@ -13,6 +13,13 @@ import {
 	type TempoSegment
 } from '$lib/domain/time';
 
+/** The figure an item names, among its exercise's; throws on one the exercise does not write. */
+export function figureOf(definition: ExerciseDefinition, figureId: string): Figure {
+	const found = definition.figures?.find((figure) => figure.id === figureId);
+	if (!found) throw new Error(`${definition.id} has no figure ${figureId}`);
+	return found.figure;
+}
+
 /** The levels of an exercise played cycle after cycle; throws without them. */
 export function rhythmLevels(exercise: ExerciseDefinition): readonly Level<LevelOverrides>[] {
 	const { levels } = exercise;

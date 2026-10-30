@@ -1,0 +1,2745 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the plans of the rhythm exercises > rhythm-offbeats at level -1 compiles as it always has 1`] = `
+{
+  "offbeats-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-offbeats at level 0 compiles as it always has 1`] = `
+{
+  "offbeats-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0",
+    "handover": "1",
+    "length": "1",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-offbeats at level 1 compiles as it always has 1`] = `
+{
+  "offbeats-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-offbeats at level 2 compiles as it always has 1`] = `
+{
+  "offbeats-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-offbeats at level 3 compiles as it always has 1`] = `
+{
+  "offbeats-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 3/8:0 5/8:0 7/8:0 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "offbeats-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "1/8:0 3/8:0 5/8:0 7/8:0 1:1 9/8:1 11/8:1 13/8:1 15/8:1",
+    "handover": "2",
+    "length": "2",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level -1 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 0 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 1 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 2 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 3 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 4 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":50}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-silent-bars at level 5 compiles as it always has 1`] = `
+{
+  "eighths from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":30}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      1,
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":30}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+      2,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":30}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      1,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "eighths from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":30}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [
+      0,
+      2,
+      3,
+    ],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-two-four at level -1 compiles as it always has 1`] = `
+{
+  "line-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 17/8:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 9/8:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 25/8:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 23/8:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 15/8:1 2:2 5/2:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 7/8:0 1:1 3/2:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 13/4:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 9/4:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 5/4:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 3/2:1 2:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-two-four at level 0 compiles as it always has 1`] = `
+{
+  "line-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 17/8:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 9/8:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 25/8:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 23/8:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 15/8:1 2:2 5/2:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 7/8:0 1:1 3/2:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 13/4:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 9/4:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 5/4:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 3/2:1 2:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-two-four at level 1 compiles as it always has 1`] = `
+{
+  "line-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 17/8:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 9/8:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 25/8:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 23/8:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 15/8:1 2:2 5/2:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 7/8:0 1:1 3/2:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 13/4:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 9/4:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 5/4:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 3/2:1 2:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;
+
+exports[`the plans of the rhythm exercises > rhythm-two-four at level 2 compiles as it always has 1`] = `
+{
+  "line-1 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-1 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-2 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 17/8:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 9/8:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-3 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 25/8:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 5/8:0 3/4:0 7/8:0 1:1 5/4:1 3/2:1 2:2 9/4:2 19/8:2 5/2:2 11/4:2 23/8:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 1:1 5/4:1 11/8:1 3/2:1 7/4:1 15/8:1 2:2 5/2:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 29/8:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/8:0 1/2:0 3/4:0 7/8:0 1:1 3/2:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 21/8:2 11/4:2 23/8:2 3:3 13/4:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-4 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 13/8:1 7/4:1 15/8:1 2:2 9/4:2 5/2:2 3:3 13/4:3 27/8:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 3/4:0 1:1 3/2:1 7/4:1 15/8:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 11/4:2 3:3 13/4:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 7/8:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 7/4:1 2:2 9/4:2 11/4:2 3:3 13/4:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 3/4:0 1:1 5/4:1 7/4:1 2:2 9/4:2 5/2:2 11/4:2 3:3 7/2:3 15/4:3 31/8:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-5 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 3/4:0 1:1 5/4:1 3/2:1 7/4:1 2:2 5/2:2 11/4:2 23/8:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 0": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 3/4:0 1:1 9/8:1 5/4:1 11/8:1 3/2:1 2:2 9/4:2 5/2:2 21/8:2 11/4:2 3:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 1": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/8:0 1/4:0 3/8:0 1/2:0 1:1 5/4:1 3/2:1 13/8:1 7/4:1 2:2 5/2:2 3:3 7/2:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 2": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/4:0 1/2:0 5/8:0 3/4:0 1:1 3/2:1 2:2 5/2:2 11/4:2 3:3 25/8:3 13/4:3 27/8:3 7/2:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+  "line-6 from bar 3": {
+    "every": [
+      "{"span":"point","role":"target","sensor":"attack","content":null,"window":{"ms":80}}",
+    ],
+    "expectations": "0:0 1/2:0 1:1 3/2:1 7/4:1 2:2 17/8:2 9/4:2 19/8:2 5/2:2 3:3 13/4:3 7/2:3 29/8:3 15/4:3",
+    "handover": "4",
+    "length": "4",
+    "mutedBars": [],
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "mode": "alignment",
+      },
+      "unit": "cycle",
+      "verdict": "cycle",
+    },
+    "prompt": null,
+  },
+}
+`;

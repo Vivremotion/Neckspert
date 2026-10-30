@@ -15,8 +15,7 @@ import {
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import type { Locale, PlannedItem } from '$lib/domain/types';
-import { figureOf } from './compileCycle';
-import { rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
+import { figureOf, rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
 
 /**
  * What the rhythm view shows at a moment of the series: the accompaniment alone before playing
