@@ -1,5 +1,12 @@
+import type { Figure } from '../../figure';
 import { Fraction } from '../../fraction';
-import type { Expectation, RoundPlan } from '../../plan';
+import { barLength } from '../../meter';
+import {
+	figureExpectations,
+	type Expectation,
+	type ExpectationWindow,
+	type RoundPlan
+} from '../../plan';
 import { createTempoMap } from '../../tempoMap';
 
 /** Hand-written plans and clocks for the specs of the round modes. Never imported by production code. */
@@ -87,5 +94,33 @@ export function freeTimePlan(): RoundPlan {
 		...locatePlan(),
 		prompt: null,
 		expectations: [{ ...expectation(Fraction.ZERO, 'point', 'note'), at: null }]
+	};
+}
+
+/**
+ * `figure` looped over `bars` bars from its first, heard by the attack sensor, no content: judged
+ * whole by the alignment and the cycle verdict, handed over at its end, no bar muted.
+ */
+export function loopedFigurePlan(
+	figure: Figure,
+	bars: number,
+	window: ExpectationWindow
+): RoundPlan {
+	const length = barLength(figure.meter).mul(Fraction.of(bars));
+	return {
+		prompt: null,
+		expectations: figureExpectations({
+			figure,
+			at: Fraction.ZERO,
+			bars,
+			startBar: 0,
+			sensor: 'attack',
+			window,
+			content: () => null
+		}),
+		length,
+		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
+		handover: length,
+		mutedBars: []
 	};
 }

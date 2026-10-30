@@ -7,7 +7,7 @@ import {
 } from '$lib/domain/exercise';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { compileRound } from '$lib/domain/exercise/round';
-import { Fraction, METER_4_4, type CycleReport } from '$lib/domain/time';
+import { Fraction, METER_4_4, clickAccompaniment, type CycleReport } from '$lib/domain/time';
 import type { FigureItem } from '$lib/domain/mechanics';
 import type { PlannedItem } from '$lib/domain/types';
 import {
@@ -81,7 +81,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
 		await controller.start();
 		await advance(ORIGIN + 5.6 * OFFBEATS_BAR_S);
-		const [first, second] = await stored();
+		const [first] = await stored();
 		expect(first).toMatchObject({
 			sessionId: 'series',
 			exerciseId: 'rhythm-offbeats',
@@ -128,8 +128,47 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		expect(data.item).toEqual({ figureId: 'offbeats-1', level: 0 });
 		expect(data.level).toBe(0);
 		expect(data.report.expectations).toHaveLength(5);
-		// The next cycle of the run, a bar further in the loops of the figure and the click.
-		expect(roundPlanFromRecord(second.plan as RoundPlanRecord)).toEqual(compiled(1));
+		controller.quit();
+	});
+
+	it('keeps where each cycle of a run starts in the loops of its click', async () => {
+		// Offbeats over a click of two bars, the second silent: each one-bar cycle is a bar further
+		// in the click's loop, its silent bar muted every other cycle.
+		const exercise: ExerciseDefinition = {
+			...RHYTHM_OFFBEATS,
+			params: {
+				...RHYTHM_OFFBEATS.params,
+				accompaniment: clickAccompaniment({
+					meter: METER_4_4,
+					beats: [1, 2, 3, 4],
+					accent: [1],
+					bars: ['on', 'off']
+				})
+			}
+		};
+		const { controller, stored, advance } = await rhythmSeries(exercise, { met: true });
+		await controller.start();
+		// listen-in 0-1, counted bar 2, entry bar 3 (the click's first bar), cycles from bar 4
+		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		const [first, second] = await stored();
+		const item: PlannedItem = {
+			exerciseId: exercise.id,
+			mechanic: 'figure',
+			exerciseLevel: 0,
+			item: { figureId: 'offbeats-1', level: 0 },
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null
+		};
+		const compiled = (fromRunStart: number) =>
+			compileRound(exercise, item, METER_4_4, { previewBeats: 0, fromRunStart });
+		expect(roundPlanFromRecord(first.plan as RoundPlanRecord)).toEqual(compiled(1));
+		expect(roundPlanFromRecord(second.plan as RoundPlanRecord)).toEqual(compiled(2));
+		expect([first, second].map((attempt) => (attempt.plan as RoundPlanRecord).mutedBars)).toEqual([
+			[0],
+			[]
+		]);
 		controller.quit();
 	});
 });

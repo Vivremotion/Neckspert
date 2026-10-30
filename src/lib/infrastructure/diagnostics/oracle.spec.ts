@@ -128,6 +128,12 @@ describe('oracleRuns', () => {
 		expect(runs.map((run) => run.attemptIds)).toEqual([[1], [3]]);
 	});
 
+	it('leaves out a cycle plan that expects nothing', () => {
+		const empty = { ...cycle(2, 's', 10_000 + CYCLE_MS), plan: { ...PLAN, expectations: [] } };
+		expect(oracleRuns([empty])).toEqual([]);
+		expect(oracleRuns([cycle(1, 's', 10_000), empty]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
 	it('chains a cycle that starts within a beat of the last one’s end', () => {
 		const beat = CYCLE_MS / 4;
 		const runs = oracleRuns([

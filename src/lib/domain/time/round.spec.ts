@@ -1,41 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
-import { METER_4_4, barLength } from './meter';
-import {
-	figureExpectations,
-	type ContentJudges,
-	type ExpectationWindow,
-	type Judged,
-	type RoundPlan
-} from './plan';
+import { METER_4_4 } from './meter';
+import { type ContentJudges, type Judged, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
-import { triadAnchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
-
-/** `figure` looped over `bars` bars from its first, judged whole by the alignment, handed over at its end. */
-function looped(figure: Figure, bars: number, window: ExpectationWindow): RoundPlan {
-	const length = barLength(figure.meter).mul(Fraction.of(bars));
-	return {
-		prompt: null,
-		expectations: figureExpectations({
-			figure,
-			at: Fraction.ZERO,
-			bars,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			content: () => null
-		}),
-		length,
-		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
-		handover: length,
-		mutedBars: []
-	};
-}
+import {
+	loopedFigurePlan,
+	triadAnchorPlan,
+	locatePlan,
+	map as beatMap
+} from './modes/testing/plans';
 
 const of = Fraction.of;
 
@@ -57,7 +35,7 @@ const offBeats: Figure = {
 };
 
 function cyclePlan(cycleBars = 2): RoundPlan {
-	return looped(offBeats, cycleBars, { ms: 120 });
+	return loopedFigurePlan(offBeats, cycleBars, { ms: 120 });
 }
 
 // ♩ = 100 bpm: an eighth lasts 0.3 s, a bar 2.4 s; the cycle starts at bar 1 (2.4 s).
@@ -269,7 +247,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	}
 
 	function oneBar(figure: Figure): RoundPlan {
-		return looped(figure, 1, { ms: 120 });
+		return loopedFigurePlan(figure, 1, { ms: 120 });
 	}
 
 	function at(plan: RoundPlan, bar: number): PlanRound {

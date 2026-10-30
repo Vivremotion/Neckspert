@@ -11,7 +11,7 @@ import {
 } from '$lib/domain/types';
 import type { LevelState } from '$lib/domain/time';
 import type { BackupV7, ProgressionV10 } from '../migrations/v11';
-import type { CyclePlanRecordV11 } from '../migrations/v12';
+import { RHYTHM_FIGURE_MECHANIC_V11, type CyclePlanRecordV11 } from '../migrations/v12';
 
 export const LOCATE_ITEM: LocateItem = { string: 2, pitch: 'F' };
 
@@ -127,7 +127,7 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	};
 }
 
-/** A version 7 export: its rhythm attempts are of the mechanic `rhythm-figure`, with a cycle plan. */
+/** A version 7 export: its rhythm attempts are of the version-11 rhythm mechanic, with a cycle plan. */
 export function makeBackupV7(overrides: Record<string, unknown> = {}): BackupV7 {
 	return { ...makeBackup(), version: 7, ...overrides } as unknown as BackupV7;
 }
@@ -318,7 +318,10 @@ export const CYCLE_PLANS_V11: readonly {
 	}
 ];
 
-/** A rhythm attempt as versions 8 to 11 stored it: of the mechanic `rhythm-figure`, a cycle plan. */
+/**
+ * A rhythm attempt as versions 8 to 11 stored it: of the version-11 rhythm mechanic
+ * (`RHYTHM_FIGURE_MECHANIC_V11`), a cycle plan.
+ */
 export function makeCycleAttemptV11(
 	overrides: Record<string, unknown> = {}
 ): Record<string, unknown> {
@@ -326,8 +329,8 @@ export function makeCycleAttemptV11(
 	return {
 		...makeAttempt({ id: 1 }),
 		exerciseId,
-		mechanic: 'rhythm-figure',
-		cardKey: `rhythm-figure:${figureId}@${level}`,
+		mechanic: RHYTHM_FIGURE_MECHANIC_V11,
+		cardKey: `${RHYTHM_FIGURE_MECHANIC_V11}:${figureId}@${level}`,
 		phase: 'free',
 		temperature: 'hot',
 		aids: ['cursor'],

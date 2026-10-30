@@ -53,8 +53,8 @@ export interface OracleRun {
 }
 
 /**
- * The plan of a cycle the attack sensor heard (a round judged whole, `policy.unit: 'cycle'`, its
- * expectations all of that sensor, played at a tempo), its length and a beat in ms; null for any
+ * The plan of a cycle the attack sensor heard (a round judged whole, `policy.unit: 'cycle'`, with
+ * expectations, all of that sensor, played at a tempo), its length and a beat in ms; null for any
  * other attempt.
  */
 function cycleOf(
@@ -67,6 +67,7 @@ function cycleOf(
 		!plan.tempo ||
 		typeof plan.length !== 'string' ||
 		!Array.isArray(plan.expectations) ||
+		plan.expectations.length === 0 ||
 		!plan.expectations.every((e) => e.sensor === RHYTHM_SENSOR)
 	) {
 		return null;

@@ -79,7 +79,7 @@ const OBSERVATION_FATES: readonly string[] = [
 ];
 /**
  * The mechanics a file of version 1 to 7 may name: today's, the rhythm's under its name until
- * version 8 (`rhythm-figure`, frozen) instead of `figure`.
+ * version 8 (`RHYTHM_FIGURE_RULES_V11`, frozen) instead of `figure`.
  */
 const MECHANICS_BEFORE_V8: readonly MechanicIdentity[] = [
 	...MECHANIC_RULES.filter((rules) => rules.id !== FIGURE_MECHANIC_V12),
@@ -734,7 +734,8 @@ function checkNoProgressions(backup: Fields): void {
 
 /**
  * Checks a version 7 file and returns it unchanged: no progressions (a tempo is an exercise
- * level), attempts carry `scope`; the rhythm's are of the mechanic `rhythm-figure`.
+ * level), attempts carry `scope`; the rhythm's are of the version-11 rhythm mechanic
+ * (`RHYTHM_FIGURE_MECHANIC_V11`).
  */
 export function validateBackupV7(file: unknown): BackupV7 {
 	const backup = checkHeader(file, 7);

@@ -3,7 +3,13 @@ import { roundPlanFromRecord } from '$lib/application/session/series/recordRespo
 import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import { figureRules } from '$lib/domain/mechanics';
-import { Fraction, METER_4_4, figureExpectations, figureToJson } from '$lib/domain/time';
+import {
+	Fraction,
+	METER_4_4,
+	figureExpectations,
+	figureToJson,
+	type Figure
+} from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { CYCLE_PLANS_V11, makeBackupV7, makeCycleAttemptV11 } from '../testing/fixtures';
 import {
@@ -59,43 +65,77 @@ describe('cyclePlanToV12', () => {
 
 	it('the frozen cycle compiler still matches figureExpectations', () => {
 		const window = { ms: 80 };
+		const of = Fraction.of;
+		// Two bars whose ties count each held note once, across the bar line too: a quarter tied
+		// to an eighth, an eighth, a rest, a quarter tied over the bar to a half, two quarters.
+		const tied: Figure = {
+			schema: 2,
+			meter: METER_4_4,
+			bars: 2,
+			voices: [
+				{
+					id: 'main',
+					elements: [
+						{ kind: 'note', duration: of(1, 4), content: null, tieToNext: true },
+						{ kind: 'note', duration: of(1, 8), content: null },
+						{ kind: 'note', duration: of(1, 8), content: null },
+						{ kind: 'rest', duration: of(1, 4) },
+						{ kind: 'note', duration: of(1, 4), content: null, tieToNext: true },
+						{ kind: 'note', duration: of(1, 2), content: null },
+						{ kind: 'note', duration: of(1, 4), content: null },
+						{ kind: 'note', duration: of(1, 4), content: null }
+					]
+				}
+			]
+		};
+		const figures = [
+			...RHYTHM_EXERCISES.flatMap((exercise) => exercise.figures ?? []),
+			{ id: 'tied', figure: tied }
+		];
 		let compared = 0;
-		for (const exercise of RHYTHM_EXERCISES) {
-			for (const { id, figure } of exercise.figures ?? []) {
-				for (const loops of [1, 2, 4]) {
-					for (const startBar of [0, 1, 2, 3]) {
-						const cycleBars = figure.bars * loops;
-						const record: CyclePlanRecordV11 = {
-							figureId: id,
-							figure: figureToJson(figure),
-							cycleBars,
+		for (const { id, figure } of figures) {
+			for (const loops of [1, 2, 4]) {
+				for (const startBar of [0, 1, 2, 3]) {
+					const cycleBars = figure.bars * loops;
+					const record: CyclePlanRecordV11 = {
+						figureId: id,
+						figure: figureToJson(figure),
+						cycleBars,
+						startBar,
+						accompaniment: { figure: figureToJson(figure), bars: ['on', 'off', 'on'] },
+						tempo: { at: '0', bpm: 80, unit: '1/4' },
+						window,
+						thresholds: {}
+					};
+					const rewritten = roundPlanFromRecord(cyclePlanToV12(record));
+					expect(rewritten.expectations, `${id} × ${loops} from ${startBar}`).toEqual(
+						figureExpectations({
+							figure,
+							at: Fraction.ZERO,
+							bars: cycleBars,
 							startBar,
-							accompaniment: { figure: figureToJson(figure), bars: ['on', 'off', 'on'] },
-							tempo: { at: '0', bpm: 80, unit: '1/4' },
+							sensor: RHYTHM_SENSOR_V11,
 							window,
-							thresholds: {}
-						};
-						const rewritten = roundPlanFromRecord(cyclePlanToV12(record));
-						expect(rewritten.expectations, `${id} × ${loops} from ${startBar}`).toEqual(
-							figureExpectations({
-								figure,
-								at: Fraction.ZERO,
-								bars: cycleBars,
-								startBar,
-								sensor: RHYTHM_SENSOR_V11,
-								window,
-								content: () => null
-							})
-						);
-						expect(rewritten.mutedBars).toEqual(
-							Array.from({ length: cycleBars }, (_, i) => i).filter((i) => (startBar + i) % 3 === 1)
-						);
-						compared++;
-					}
+							content: () => null
+						})
+					);
+					expect(rewritten.mutedBars).toEqual(
+						Array.from({ length: cycleBars }, (_, i) => i).filter((i) => (startBar + i) % 3 === 1)
+					);
+					compared++;
 				}
 			}
 		}
-		expect(compared).toBe(9 * 3 * 4);
+		expect(compared).toBe(10 * 3 * 4);
+		// The ties are read: five attacks, not the seven notes written.
+		const [{ record }] = CYCLE_PLANS_V11;
+		const loop = cyclePlanToV12({
+			...record,
+			figure: figureToJson(tied),
+			cycleBars: 2,
+			startBar: 0
+		});
+		expect(loop.expectations.map((e) => e.at)).toEqual(['0', '3/8', '3/4', '3/2', '7/4']);
 	});
 
 	it('throws on a record it cannot read', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { loopedFigurePlan } from './testing/plans';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
-import { METER_4_4, barLength } from '../meter';
-import { figureExpectations, type ExpectationWindow, type RoundPlan } from '../plan';
+import { METER_4_4 } from '../meter';
 import { createTempoMap } from '../tempoMap';
 import { CYCLE_VERDICT_VERSION as PUBLIC } from '..';
 import { CYCLE_VERDICT_VERSION, cycleVerdictMode } from './cycleVerdict';
@@ -10,27 +10,6 @@ import { timeExpectations } from '../judge/align';
 import type { CycleReport } from '../judge/measures';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
 import { roundTimes } from './times';
-
-/** `figure` looped over `bars` bars from its first, judged whole by the alignment, handed over at its end. */
-function looped(figure: Figure, bars: number, window: ExpectationWindow): RoundPlan {
-	const length = barLength(figure.meter).mul(Fraction.of(bars));
-	return {
-		prompt: null,
-		expectations: figureExpectations({
-			figure,
-			at: Fraction.ZERO,
-			bars,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			content: () => null
-		}),
-		length,
-		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
-		handover: length,
-		mutedBars: []
-	};
-}
 
 const of = Fraction.of;
 
@@ -56,7 +35,7 @@ const offBeats: Figure = {
 		}
 	]
 };
-const plan = looped(offBeats, 2, { ms: 120 });
+const plan = loopedFigurePlan(offBeats, 2, { ms: 120 });
 // ♩ = 100 bpm: an eighth lasts 0.3 s, a bar 2.4 s; the cycle starts at bar 1 (2.4 s).
 const clock: RoundClock = {
 	map: createTempoMap(0, [{ at: Fraction.ZERO, bpm: 100, unit: of(1, 4) }]),
@@ -154,7 +133,7 @@ describe('cycleVerdictMode', () => {
 
 	it('passes above thresholds.fidelity', () => {
 		// Ten eighths over two bars, the fourth played wrong: a fidelity of 0.9.
-		const ten = looped(
+		const ten = loopedFigurePlan(
 			{ ...offBeats, voices: [{ id: 'main', elements: [...'11111000'].map(eighth) }] },
 			2,
 			{ ms: 120 }

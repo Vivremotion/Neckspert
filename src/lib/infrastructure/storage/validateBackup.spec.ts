@@ -26,7 +26,7 @@ import {
 	validateBackupV7,
 	validateBackupV8
 } from './validateBackup';
-import { attemptToV12 } from './migrations/v12';
+import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
 
 /** The level states of a converted file: one per neck card, none of the exercises. */
 function expectNeckLevelStates(file: BackupFile): void {
@@ -1260,11 +1260,13 @@ describe('version 8', () => {
 		expect(validateBackupV8(file)).toBe(file);
 	});
 
-	it('refuses rhythm-figure in a version 8 file', () => {
+	it('refuses the version-11 rhythm mechanic in a version 8 file', () => {
 		const rhythm = attemptToV12(makeCycleAttemptV11({ id: 1 })) as Record<string, unknown>;
-		const file = makeBackup({ attempts: [{ ...rhythm, mechanic: 'rhythm-figure' } as never] });
+		const file = makeBackup({
+			attempts: [{ ...rhythm, mechanic: RHYTHM_FIGURE_MECHANIC_V11 } as never]
+		});
 		expect(() => validateBackup(file)).toThrow(
-			'Invalid attempts entry at index 0: mechanic rhythm-figure is renamed figure'
+			`Invalid attempts entry at index 0: mechanic ${RHYTHM_FIGURE_MECHANIC_V11} is renamed figure`
 		);
 		expect(validateBackup(makeBackup({ attempts: [rhythm as never] })).attempts).toEqual([rhythm]);
 	});
@@ -1279,7 +1281,7 @@ describe('version 8', () => {
 		);
 	});
 
-	it('refuses figure in a version 7 file, where the rhythm was rhythm-figure', () => {
+	it('refuses figure in a version 7 file, where the rhythm had its version-11 mechanic', () => {
 		const rhythm = attemptToV12(makeCycleAttemptV11({ id: 1 }));
 		expect(() => validateBackupV7(makeBackupV7({ attempts: [rhythm] }))).toThrow(
 			/Invalid attempts entry at index 0: mechanic must be one of/
