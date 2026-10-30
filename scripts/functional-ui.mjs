@@ -142,8 +142,8 @@ try {
 		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
 		check(
 			assert(
-				page.links.some((link) => link.startsWith('Rythme')),
-				'un bloc Rythme mène à son exercice'
+				page.links.some((link) => link.startsWith('Exercices')),
+				'un bloc Exercices mène à son exercice'
 			)
 		);
 		check(

@@ -50,7 +50,7 @@ const BASE_THRESHOLDS: CycleThresholds = {
 const SHORTEST_BREATH_MS = 4000;
 
 /** Bars of the accompaniment alone before a run's counted bar. */
-const LISTEN_IN_BARS = 2;
+const RHYTHM_LISTEN_IN_BARS = 2;
 
 /** The params of a rhythm exercise: what its round reads, its figure params and its pacing. */
 type RhythmParams = FigureParams & {
@@ -65,7 +65,11 @@ type RhythmParams = FigureParams & {
  * `SHORTEST_BREATH_MS` after each.
  */
 function runsOf(rounds: number): RhythmParams['pacing'] {
-	return { listenInBars: LISTEN_IN_BARS, roundsPerBreath: rounds, breathMinMs: SHORTEST_BREATH_MS };
+	return {
+		listenInBars: RHYTHM_LISTEN_IN_BARS,
+		roundsPerBreath: rounds,
+		breathMinMs: SHORTEST_BREATH_MS
+	};
 }
 
 function figureOf(text: string): Figure {

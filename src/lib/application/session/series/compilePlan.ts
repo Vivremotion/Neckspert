@@ -150,6 +150,9 @@ export function listenOf(definition: ExerciseDefinition, level: number): FigureP
 	return figureParamsOf(definition, level).listen;
 }
 
+/** The relation of the cycle verdict's envelope. */
+const CYCLE_VERDICT = 'cycle';
+
 /**
  * What the anti-blocking reads of a settled round (`SettledRound`): a round judged by the cycle
  * verdict gives its report and verdict, and the spot (`MATCH_LIMIT` at a whole note of `wholeS`
@@ -167,9 +170,6 @@ export function blockReadingOf(
 		spotMs: MATCH_LIMIT.toNumber() * wholeS * 1000
 	};
 }
-
-/** The relation of the cycle verdict's envelope. */
-const CYCLE_VERDICT = 'cycle';
 
 /** How a run of an exercise opens and what plays under it. */
 export interface RunSetup {

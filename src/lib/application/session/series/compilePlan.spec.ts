@@ -154,6 +154,16 @@ describe('compilePlan', () => {
 		expect(() => runSetup(paced({ listenInBars: 1.5 }), 0)).toThrow(/whole number/);
 	});
 
+	it('opens a run with the listen-in and the count a level writes over its pacing', () => {
+		const leveled: ExerciseDefinition = {
+			...LOCATE_NECK,
+			levels: [{ params: {} }, { params: { 'pacing.listenInBars': 1, 'pacing.countIn': false } }]
+		};
+		// Level 1 writes none: the defaults, no listen-in and a counted bar.
+		expect(runSetup(leveled, 0)).toMatchObject({ listenInBars: 0, countIn: true });
+		expect(runSetup(leveled, 1)).toMatchObject({ listenInBars: 1, countIn: false });
+	});
+
 	it('gives a cycle the listening and the playing along it was helped with', () => {
 		const plan = planOf(RHYTHM_SILENT_BARS, eighths(0));
 		const helped = roundGiven(RHYTHM_SILENT_BARS, eighths(0), plan, {
