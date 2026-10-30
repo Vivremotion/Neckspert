@@ -549,6 +549,32 @@ describe('compileRound, a figure entry', () => {
 		expect(plan.expectations[19].at).toEqual(Fraction.of(31, 8));
 	});
 
+	it('compiles a figure entry over a round shorter than a bar', () => {
+		const exercise = figureExercise(
+			'voicing-figure',
+			figureRound(
+				{ sensor: 'note', content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] } },
+				{ length: { beats: { item: 'beats' } } }
+			),
+			{ main: 'c4 c c c' }
+		);
+		const plan = compileFigure(exercise, { ...C_FIRST_INVERSION, beats: 2 });
+		expect(plan.length).toEqual(Fraction.of(1, 2));
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/4']);
+		expect(midis(plan)).toEqual([64, 67]);
+		expect(plan.handover).toEqual(Fraction.of(1, 2));
+	});
+
+	it('cuts the last loop of a figure at the round end', () => {
+		// A two-bar figure over three bars: its first bar comes again, its second does not.
+		const threeBars = figureExercise('figure', figureRound({}, { length: { bars: 3 } }), {
+			main: 'c1 | c2 c2'
+		});
+		const plan = compileFigure(threeBars, { figureId: 'main' }, 0);
+		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1', '3/2', '2']);
+		expect(plan.expectations.map((e) => e.bar)).toEqual([0, 1, 1, 2]);
+	});
+
 	it('spreads the derived notes by the pattern', () => {
 		const exercise = figureExercise(
 			'voicing-figure',
@@ -671,12 +697,6 @@ describe('compileRound, a figure entry', () => {
 		).toThrow(/test-voicing-figure: round\.expectations\[0\]\.content\.pattern .*4.*3 notes/);
 		expect(() => compileFigure(voicing({ figure: { id: 'nowhere' } }), C_FIRST_INVERSION)).toThrow(
 			/test-voicing-figure: round\.expectations\[0\]\.figure .*"nowhere"/
-		);
-		const threeBars = figureExercise('figure', figureRound({}, { length: { bars: 3 } }), {
-			main: 'c1 | c1'
-		});
-		expect(() => compileFigure(threeBars, { figureId: 'main' })).toThrow(
-			/test-figure: round\.expectations\[0\]\.figure .*whole number/
 		);
 		// Review Focus: an occurrence the neck does not hold fails at compilation, naming the item.
 		expect(() =>

@@ -139,40 +139,36 @@ export function validateRoundPlan(plan: RoundPlan): string | null {
 }
 
 /**
- * The expectations of `figure` looped over `bars` bars of a round, from the round's position
- * `at`: one point target per attack of its first voice (tied notes counted once, a rest
- * expecting nothing), the loop beginning at bar `startBar` of the figure (it wraps, the figure
- * repeats); `bars` is a whole number of figure loops. Each expectation's `bar` is the bar of the
- * round it falls in; `content(k, note)` gives what the `k`-th attack played (from 0, counted from
- * the round's start) must play.
+ * The expectations of `figure` looped over `length` (a fraction of a whole note) of a round, from
+ * the round's position `at`: one point target per attack of its first voice (tied notes counted
+ * once, a rest expecting nothing), the loop beginning at bar `startBar` of the figure (it wraps,
+ * the figure repeats) and cut at `at + length`: an attack on or past that end belongs to the next
+ * round. Each expectation's `bar` is the bar of the round it falls in; `content(k, note)` gives
+ * what the `k`-th attack played (from 0, counted from the round's start) must play.
  */
 export function figureExpectations(input: {
 	figure: Figure;
 	at: Fraction;
-	bars: number;
+	length: Fraction;
 	startBar: number;
 	sensor: string;
 	window: ExpectationWindow;
 	content: (k: number, note: FigureNote) => ExpectedContent | null;
 }): Expectation[] {
-	const { figure, at, bars, startBar, sensor, window, content } = input;
+	const { figure, at, length, startBar, sensor, window, content } = input;
 	const problem = validateFigure(figure);
 	if (problem) throw new RangeError(`invalid figure: ${problem}`);
-	if (!Number.isInteger(bars) || bars < 1) {
-		throw new RangeError(`bars must be a positive integer, got ${bars}`);
+	if (length.compare(Fraction.ZERO) <= 0) {
+		throw new RangeError(`the span to fill must be positive, got ${length}`);
 	}
 	if (!Number.isInteger(startBar) || startBar < 0) {
 		throw new RangeError(`startBar must be a non-negative integer, got ${startBar}`);
 	}
-	if (bars % figure.bars !== 0) {
-		throw new RangeError(
-			`${bars} bars are not a whole number of figure loops of ${figure.bars} bars`
-		);
-	}
 	const bar = barLength(figure.meter);
+	const end = at.add(length);
 	const attacks = attackNotes(figure);
 	const expectations: Expectation[] = [];
-	for (let i = 0; i < bars; i++) {
+	for (let i = 0; at.add(bar.mul(Fraction.of(i))).compare(end) < 0; i++) {
 		const figureBar = (startBar + i) % figure.bars;
 		const from = bar.mul(Fraction.of(figureBar));
 		const to = bar.mul(Fraction.of(figureBar + 1));
@@ -180,6 +176,7 @@ export function figureExpectations(input: {
 		for (const attack of attacks) {
 			if (attack.at.compare(from) < 0 || attack.at.compare(to) >= 0) continue;
 			const place = origin.add(attack.at.sub(from));
+			if (place.compare(end) >= 0) break;
 			expectations.push({
 				at: place,
 				span: 'point',

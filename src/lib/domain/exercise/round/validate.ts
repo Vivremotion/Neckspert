@@ -712,8 +712,6 @@ function shapeProblem(check: Check, template: Record_): string | null {
 			);
 		}
 	}
-	const fill = fillProblem(check, template);
-	if (fill !== null) return fill;
 	// Where it stops listening, when the exercise knows it; else the modes see no end of listening.
 	const listening =
 		length !== undefined && before !== undefined && template.listenBeforeEnd !== undefined
@@ -735,38 +733,6 @@ function shapeProblem(check: Check, template: Record_): string | null {
 			return at(
 				'policy.verdict',
 				`"${String(policy.verdict)}" judges against params.thresholds, which exercise level ${level} does not give`
-			);
-		}
-	}
-	return null;
-}
-
-/**
- * A figure entry that does not fill the round from its place a whole number of times, at an
- * exercise level where the exercise knows both (not when an item names the figure or measures
- * the length).
- */
-function fillProblem(check: Check, template: Record_): string | null {
-	const { definition } = check;
-	const levels = exerciseLevelIndexes(definition);
-	const bar = barLength(definition.meter ?? METER_4_4);
-	for (const level of levels) {
-		const params = resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null });
-		const atLevel: Check = { ...check, params };
-		const length = lengthOf(atLevel, template.length as Record_);
-		if (length === undefined || typeof length === 'string') continue;
-		for (const [i, e] of (template.expectations as Record_[]).entries()) {
-			if (!('figure' in e) || !isRecord(e.figure) || 'item' in e.figure) continue;
-			const start = whereOf(atLevel, '', e.at);
-			const id = 'id' in e.figure ? e.figure.id : paramValue(params, e.figure.param as string);
-			const found = definition.figures?.find((written) => written.id === id);
-			if (start === undefined || !found) continue;
-			const bars = length.sub(start).div(bar);
-			if (bars.n > 0 && bars.d === 1 && bars.n % found.figure.bars === 0) continue;
-			const where = levels.length > 1 ? ` at exercise level ${level}` : '';
-			return at(
-				`expectations[${i}].figure`,
-				`names figure "${String(id)}" of ${found.figure.bars} bars, which does not fill the ${bars} bars from its place to the round's end a whole number of times${where}`
 			);
 		}
 	}

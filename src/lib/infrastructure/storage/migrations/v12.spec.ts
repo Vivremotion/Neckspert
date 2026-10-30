@@ -6,6 +6,7 @@ import { figureRules } from '$lib/domain/mechanics';
 import {
 	Fraction,
 	METER_4_4,
+	barLength,
 	figureExpectations,
 	figureToJson,
 	type Figure
@@ -112,7 +113,7 @@ describe('cyclePlanToV12', () => {
 						figureExpectations({
 							figure,
 							at: Fraction.ZERO,
-							bars: cycleBars,
+							length: barLength(figure.meter).mul(Fraction.of(cycleBars)),
 							startBar,
 							sensor: RHYTHM_SENSOR_V11,
 							window,

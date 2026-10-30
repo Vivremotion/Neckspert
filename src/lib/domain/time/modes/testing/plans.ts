@@ -112,7 +112,7 @@ export function loopedFigurePlan(
 		expectations: figureExpectations({
 			figure,
 			at: Fraction.ZERO,
-			bars,
+			length,
 			startBar: 0,
 			sensor: 'attack',
 			window,

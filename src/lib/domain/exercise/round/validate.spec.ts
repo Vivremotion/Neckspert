@@ -448,17 +448,27 @@ describe('roundProblem', () => {
 			);
 		});
 
-		it('refuses a figure that does not fill the round from its place a whole number of times', () => {
+		it('accepts a figure that fills the round from its place with a cut last loop', () => {
 			const halves = withEntry(RHYTHM, { figure: { id: 'halves' }, at: { beats: 1 } });
-			expect(roundProblem(halves)).toMatch(
-				/^round\.expectations\[0\]\.figure names figure "halves" of 1 bars, which does not fill the 15\/4 bars/
-			);
+			expect(roundProblem(halves)).toBeNull();
 			const twoBars: ExerciseDefinition = {
 				...withEntry(RHYTHM, { figure: { id: 'long' } }),
 				figures: [{ id: 'long', figure: parseLilyPond('c1 | c1') }],
 				round: { ...withEntry(RHYTHM, { figure: { id: 'long' } }).round!, length: { bars: 3 } }
 			};
-			expect(roundProblem(twoBars)).toMatch(/^round\.expectations\[0\]\.figure .*"long" of 2 bars/);
+			expect(roundProblem(twoBars)).toBeNull();
+			const twoBeats: ExerciseDefinition = {
+				...RHYTHM,
+				round: { ...RHYTHM.round!, length: { beats: 2 } }
+			};
+			expect(roundProblem(twoBeats)).toBeNull();
+		});
+
+		it('refuses a figure placed where the round has nothing left to fill', () => {
+			const atTheEnd = withEntry(RHYTHM, { figure: { id: 'halves' }, at: { bars: 4 } });
+			expect(roundProblem(atTheEnd)).toMatch(
+				/^round\.expectations\[0\]\.at must fall within the round, which lasts 4, got 4/
+			);
 		});
 
 		it('refuses a list on a point and a single content on a figure', () => {

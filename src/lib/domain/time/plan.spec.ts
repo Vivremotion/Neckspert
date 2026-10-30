@@ -47,7 +47,12 @@ describe('figureExpectations', () => {
 	const base = { at: Fraction.ZERO, sensor: 'attack', window, content: () => null };
 
 	it('lists one point target per note of the contretemps over four bars', () => {
-		const expectations = figureExpectations({ ...base, figure: contretemps, bars: 4, startBar: 0 });
+		const expectations = figureExpectations({
+			...base,
+			figure: contretemps,
+			length: of(4),
+			startBar: 0
+		});
 		expect(expectations).toHaveLength(20);
 		expect(expectations.every((e) => e.role === 'target' && e.span === 'point')).toBe(true);
 		expect(expectations.every((e) => e.sensor === 'attack' && e.content === null)).toBe(true);
@@ -67,21 +72,31 @@ describe('figureExpectations', () => {
 			bars: 1,
 			voices: [{ id: 'main', elements: [note(1, 2, true), note(1, 4), note(1, 4)] }]
 		};
-		const expectations = figureExpectations({ ...base, figure: tied, bars: 2, startBar: 0 });
+		const expectations = figureExpectations({ ...base, figure: tied, length: of(2), startBar: 0 });
 		// The tie joins the half note to the quarter: one attack at 0, then the last quarter.
 		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '3/4', '1', '7/4']);
 		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1, 1]);
 	});
 
 	it('starts a two-bar figure at its second bar', () => {
-		const expectations = figureExpectations({ ...base, figure: twoBars, bars: 2, startBar: 1 });
+		const expectations = figureExpectations({
+			...base,
+			figure: twoBars,
+			length: of(2),
+			startBar: 1
+		});
 		// Bar 2 (two half notes), then bar 1 (one whole note) again.
 		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
 		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
 	});
 
 	it('wraps a start bar past the figure length', () => {
-		const expectations = figureExpectations({ ...base, figure: twoBars, bars: 2, startBar: 3 });
+		const expectations = figureExpectations({
+			...base,
+			figure: twoBars,
+			length: of(2),
+			startBar: 3
+		});
 		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
 	});
 
@@ -90,7 +105,7 @@ describe('figureExpectations', () => {
 			...base,
 			figure: twoBars,
 			at: of(1),
-			bars: 2,
+			length: of(2),
 			startBar: 0
 		});
 		expect(expectations.map((e) => e.at!.toString())).toEqual(['1', '2', '5/2']);
@@ -115,7 +130,7 @@ describe('figureExpectations', () => {
 		const expectations = figureExpectations({
 			...base,
 			figure: pitched,
-			bars: 4,
+			length: of(4),
 			startBar: 1,
 			content: (k, played) => {
 				seen.push([k, played.pitch]);
@@ -136,17 +151,70 @@ describe('figureExpectations', () => {
 	});
 
 	it('refuses an invalid loop', () => {
-		const loop = { ...base, figure: contretemps, bars: 4, startBar: 0 };
-		expect(() => figureExpectations({ ...loop, bars: 0 })).toThrow(RangeError);
+		const loop = { ...base, figure: contretemps, length: of(4), startBar: 0 };
+		expect(() => figureExpectations({ ...loop, length: Fraction.ZERO })).toThrow(RangeError);
+		expect(() => figureExpectations({ ...loop, length: of(-1, 4) })).toThrow(RangeError);
 		expect(() => figureExpectations({ ...loop, startBar: -1 })).toThrow(RangeError);
 		const broken: Figure = { ...contretemps, voices: [] };
 		expect(() => figureExpectations({ ...loop, figure: broken })).toThrow(RangeError);
 	});
 
-	it('refuses bars that are not a whole number of figure loops', () => {
+	// One bar of four quarters.
+	const quarters: Figure = {
+		schema: 2,
+		meter: METER_4_4,
+		bars: 1,
+		voices: [{ id: 'main', elements: [note(1, 4), note(1, 4), note(1, 4), note(1, 4)] }]
+	};
+	const places = (expectations: { at: Fraction | null }[]) =>
+		expectations.map((e) => e.at!.toString());
+
+	it('keeps whole loops as before', () => {
 		const loop = { ...base, figure: twoBars, startBar: 0 };
-		expect(() => figureExpectations({ ...loop, bars: 3 })).toThrow(RangeError);
-		expect(figureExpectations({ ...loop, bars: 4 })).toHaveLength(6);
+		expect(places(figureExpectations({ ...loop, length: of(4) }))).toEqual([
+			'0',
+			'1',
+			'3/2',
+			'2',
+			'3',
+			'7/2'
+		]);
+	});
+
+	it('cuts the last loop at the end of the span', () => {
+		const loop = { ...base, figure: quarters, startBar: 0 };
+		expect(places(figureExpectations({ ...loop, length: of(1, 2) }))).toEqual(['0', '1/4']);
+		const six = figureExpectations({ ...loop, length: of(3, 2) });
+		expect(places(six)).toEqual(['0', '1/4', '1/2', '3/4', '1', '5/4']);
+		expect(six.map((e) => e.bar)).toEqual([0, 0, 0, 0, 1, 1]);
+		expect(places(figureExpectations({ ...loop, length: of(1, 4) }))).toEqual(['0']);
+		// A two-bar figure over three bars: its second bar comes once, its first twice.
+		expect(
+			places(figureExpectations({ ...base, figure: twoBars, startBar: 1, length: of(3) }))
+		).toEqual(['0', '1/2', '1', '2', '5/2']);
+	});
+
+	it('drops an attack exactly on the span end', () => {
+		// Half notes over three beats: the second falls at 1/2, inside; over two beats, on the end.
+		const halves: Figure = {
+			...quarters,
+			voices: [{ id: 'main', elements: [note(1, 2), note(1, 2)] }]
+		};
+		const loop = { ...base, figure: halves, startBar: 0 };
+		expect(places(figureExpectations({ ...loop, length: of(1, 2) }))).toEqual(['0']);
+		expect(places(figureExpectations({ ...loop, length: of(3, 4) }))).toEqual(['0', '1/2']);
+	});
+
+	it('fills a span from a place off the downbeat, counting the bars of the round', () => {
+		const expectations = figureExpectations({
+			...base,
+			figure: quarters,
+			at: of(1, 2),
+			length: of(3, 4),
+			startBar: 0
+		});
+		expect(places(expectations)).toEqual(['1/2', '3/4', '1']);
+		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
 	});
 });
 

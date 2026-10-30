@@ -320,7 +320,10 @@ function figureContentOf(
 	});
 }
 
-/** A figure entry unfolded from its place to the end of the round, from bar `startBar` of its loop. */
+/**
+ * A figure entry unfolded from its place to the end of the round, from bar `startBar` of its
+ * loop: it repeats to fill the round, its last loop cut at the round's end.
+ */
 function figureEntryOf(
 	context: Context,
 	template: FigureExpectationTemplate,
@@ -331,21 +334,13 @@ function figureEntryOf(
 	const field = `expectations[${i}]`;
 	const { id, figure } = figureOf(context, `${field}.figure`, template.figure);
 	const at = position(context, `${field}.at`, template.at);
-	const bars = length.sub(at).div(barLength(context.meter));
-	if (bars.n <= 0 || bars.d !== 1 || bars.n % figure.bars !== 0) {
-		fail(
-			context,
-			`${field}.figure`,
-			`names figure "${id}" of ${figure.bars} bars, which does not fill the ${bars} bars from its place to the round's end a whole number of times`
-		);
-	}
 	const content = figureContentOf(context, `${field}.content`, template.content, id);
 	const window = windowOf(context, `${field}.window`, template.window);
 	try {
 		return figureExpectations({
 			figure,
 			at,
-			bars: bars.n,
+			length: length.sub(at),
 			startBar,
 			sensor: template.sensor,
 			window,

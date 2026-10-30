@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
+import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, ARPEGGIO_PATTERN } from '$lib/testing/arpeggioExercise';
 import { ORIGIN, sequenceSeries, shapePitches, stageOf } from '$lib/testing/sequenceSeries';
 import { validateExercise } from '$lib/domain/exercise/validate';
@@ -147,6 +148,59 @@ describe('a sequence of chord shapes on the series', () => {
 		}
 		// The breath: the second run does not chain to the first.
 		expect(second[0].promptedAt).toBeGreaterThan(epochOfBar(4));
+		controller.quit();
+	});
+
+	it('chains changes of 4, 2 and 6 beats, the second starting on beat 1 of a bar and the third on beat 3', async () => {
+		// A grid's changes last any number of beats: the quarters fill each, the last loop cut.
+		const changes = [
+			{ key: 'C|maj|3:1,2:3,1:5@0@4', beats: 4 },
+			{ key: 'F|maj|3:1,2:3,1:5@0@2', beats: 2 },
+			{ key: 'G|maj|3:1,2:3,1:5@0@6', beats: 6 }
+		];
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			id: 'test-arpeggio-changes',
+			items: changes.map((change) => change.key)
+		};
+		expect(validateExercise(exercise, { sensors: ['note'] })).toBeNull();
+		const { controller, stored, advance, detector } = await sequenceSeries(exercise, {
+			pattern: ARPEGGIO_PATTERN,
+			met: true
+		});
+		await controller.start();
+		// Each change's quarters on its beats, from bar 1 after the counted bar (a beat is 1 s).
+		const beatS = BAR_S / 4;
+		const notes: { time: number; midi: number }[] = [];
+		let beat = 0;
+		for (const { key, beats } of changes) {
+			const pitches = shapePitches(key);
+			for (let k = 0; k < beats; k++) {
+				const midi = pitches[ARPEGGIO_PATTERN[k % ARPEGGIO_PATTERN.length] - 1];
+				notes.push({ time: ORIGIN + BAR_S + (beat + k) * beatS, midi });
+			}
+			beat += beats;
+		}
+		for (const { time, midi } of notes) {
+			await advance(time, false);
+			detector.emitNote({ time, midi, frequencyHz: 440, clarity: 1 });
+		}
+		await advance(ORIGIN + 4.5 * BAR_S, false);
+		const attempts = await stored();
+		expect(attempts.map((a) => a.cardKey)).toEqual(
+			changes.map((change) => `voicing-figure:${change.key}`)
+		);
+		// Each round opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
+		expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
+		expect(attempts.map((a) => (a.data as FigureAttemptData).report.expectations.length)).toEqual([
+			4, 2, 6
+		]);
+		for (const attempt of attempts) {
+			const { report } = attempt.data as FigureAttemptData;
+			expect(report.expectations.every((e) => e.verdict === 'on-time')).toBe(true);
+			expect(report.extra).toBe(0);
+			expect([attempt.success, attempt.correct]).toEqual([true, true]);
+		}
 		controller.quit();
 	});
 
