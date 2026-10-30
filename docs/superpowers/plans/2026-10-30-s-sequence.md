@@ -26,7 +26,7 @@
 - **Le rythme ne change pas de comportement.** Ses plans compilés sont figés (Task 5) avant la suppression de `compileCycle` ; les specs du rythme sur la série (`series/rhythmSession.spec.ts`) gardent leurs attentes.
 - **Pas de reste de l’ancien modèle.** À la fin, une recherche dans `src` et `scripts` (hors `migrations/` et `legacy/`) ne trouve plus `rhythm-figure`, `RhythmItem`, `compileCycle`, `rhythmParamsOf`, `CyclePlanRecord`, `playsCycles`, `parseLilyPondRhythm`, `RhythmStageModel`, `RhythmFigureView`.
 - **Vocabulaire** (un nom par concept) :
-  - « figure » / `figure` (la mécanique, la vue, le modèle d’écran) ; « forme » / `voicing` ; « motif » / `pattern` ;
+  - « figure » / `figure` (la mécanique, la vue, le modèle d’écran) ; « voicing » / `voicing` (un accord joué d’un coup) ; « forme » / `form` (une suite de notes, chacune sur sa corde, déplaçable) ; « motif » / `pattern` ;
   - « fausse note » / `wrong-pitch` ; « hauteur » / `pitch` (MIDI exact) ; « portée » / `staff` ; « tablature » / `tab` ;
   - « tour » / `round`, « cycle » = un tour joué en boucle (`policy.unit: 'cycle'`).
 - **Textes d’interface** en français et en anglais, jamais sous 16 px (les chiffres de tablature compris).
@@ -580,6 +580,65 @@ Hors commit. Avec l’auteur :
 - [ ] **Step 3: Write « Réalisation »** in the spec: D1 to D10 of this plan, what the playable steps changed.
 - [ ] **Step 4: Run** `npm test && npm run check` — PASS.
 - [ ] **Step 5: Commit** `docs: record the sequence in the project guide and its spec`
+
+## Partie E — Les formes mobiles (ajoutée après le premier essai de l’auteur)
+
+### Task 14: Une forme écrite une fois, déplacée d’accord en accord
+
+Retour de l’auteur (2026-10-30) : les formes d’arpège travaillées ont plusieurs notes par corde, comme une gamme, et la même forme se déplace d’un accord à l’autre. `voicing-notes` ne peut pas les jouer (une note par corde). Sur une grille, chaque accord repart de la première note de sa forme ; un arpège qui continue d’un accord à l’autre viendra plus tard, hors de S.
+
+**Files:**
+
+- Create: `domain/mechanics/formFigure.ts` (+ spec), `domain/music/formNotes.ts` (+ spec)
+- Modify: `domain/time/notation/lilypond.ts` (+ spec), `domain/exercise/types.ts`, `domain/exercise/fromJson.ts` (+ spec), `domain/exercise/validate.ts` (+ spec), `domain/exercise/round/compile.ts` (+ spec), `domain/derivations/index.ts` (+ spec), `domain/mechanics/index.ts`, `application/presentation/itemFields.ts` (+ spec), `application/mechanics/figurePresenters.ts`, `application/session/series/sequenceSession.spec.ts`, `testing/` (a public exercise), `docs/exercices-locaux.md`, `CLAUDE.md`, the spec’s « Réalisation » and « Hors périmètre »
+
+**Interfaces:**
+
+- Produces:
+
+  ```ts
+  // lilypond.ts: notes only, for a form: no rhythm to fill, durations ignored; a rest, a tie, a tuplet or a note without string number throws with its offset.
+  export function parseLilyPondNotes(text: string): { midi: number; string: number }[];
+  // types.ts: plain data, like the rest of a definition
+  export interface ExerciseForm {
+  	id: string;
+  	symbol: string;
+  	notes: { midi: number; string: number }[];
+  }
+  // ExerciseDefinition gains forms?: readonly ExerciseForm[]; in a JSON file a form is { id, symbol, lilypond }
+  // formFigure.ts: mechanic 'form-figure', learner 'skill'; key `${form}@${first}` then `@${beats}` when present; `first` is one LilyPond note (`d`, `g,`, `bes'`), checked by parseItem
+  export interface FormFigureItem {
+  	form: string;
+  	first: string;
+  	beats?: number;
+  }
+  // formNotes.ts: the form moved so that its first note is `firstMidi`, strings kept; throws when a note falls off the neck (fretOf)
+  export function movedForm(
+  	notes: readonly { midi: number; string: number }[],
+  	firstMidi: number
+  ): { midi: number; string: number; fret: number }[];
+  ```
+
+  - `CONTENT_DERIVATIONS['form-notes']`: kind `pitch`, reads `['form-figure']`, `list: true`. `ContentDerivation.derive` also receives the exercise definition (`derive(item, definition)`), since the forms are the exercise’s.
+  - `ITEM_NUMBERS.beats` also reads `form-figure`.
+  - `ITEM_FIELDS['form-figure']`: `chord` = the name of `first` as written (`bes` → `Bb`, `as` → `Ab`, `fis` → `F#`) followed by the form’s `symbol` (« Dm7 »). `ItemFields.fields` receives the definition too.
+  - A `form-figure` presenter (sensor `note`) in `FIGURE_PRESENTERS`.
+  - `validateExercise`: forms have unique ids, at least one note, each note playable as written (`fretOf`). An item naming an unknown form, or a form moved off the neck, is refused by `itemsProblem` naming `items[i]`.
+  - No `shape` picture for a form (`DERIVED_PICTURES` unchanged): a chord diagram cannot draw several notes on one string. After a failed round the breath tells the wrong notes in words, and an aid level may write `notation.tab`.
+  - `voicing-figure` and `voicing-notes` stay, for arpeggios of a chord.
+
+- [ ] **Step 1: Write the failing tests** (public material only, never the author’s forms; example form `c\5 e\4 g\4 b\3`):
+  - `parseLilyPondNotes`: `c\5 e\4 g\4 b\3` → midis `48, 52, 55, 59`, strings `5, 4, 4, 3`, two notes on one string allowed; `refuses a rest, a tie, a tuplet, a note without string` ; durations ignored; no bar to fill.
+  - `movedForm`: from first 50 → midis `50, 54, 57, 61`, strings kept, frets `5, 4, 7, 6`; first 43 on a form whose first string is 5 → throws (below the open string); a note above fret 24 throws.
+  - `formFigureRules`: key round-trip with and without `beats`; a corrupted `first` throws.
+  - `form-notes` derivation; `chord` field: `bes` + `maj7` → « Bbmaj7 ».
+  - `validate.spec.ts`: refuses two forms with one id, an empty form, an unknown form in `items`, a form moved off the neck, each naming the field.
+  - `fromJson.spec.ts`: reads forms written in LilyPond; a form that does not parse is refused naming it.
+  - `sequenceSession.spec.ts`: `plays a form with two notes on a string, moved from chord to chord, each chord restarting from its first note` (changes of 4 and 2 beats, right notes pass; a wrong note on the right expectation).
+- [ ] **Step 2: Run** — FAIL.
+- [ ] **Step 3: Implement.** Update `docs/exercices-locaux.md` (the format, with the public example; the octave and accidental rules for writing a form), `CLAUDE.md`, and the spec’s « Réalisation » (why forms were added) and « Hors périmètre » (the arpeggio that continues from chord to chord).
+- [ ] **Step 4: Run** `npm test && npm run check` — PASS; no snapshot changes.
+- [ ] **Step 5: Commit** `feat: move a written form from chord to chord`
 
 ## Avant de fusionner
 
