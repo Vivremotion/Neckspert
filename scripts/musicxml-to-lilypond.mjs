@@ -27,7 +27,9 @@ const WRITTEN_OCTAVE_SEMITONES = 12;
 const NOTE_TYPES = { whole: 1, half: 2, quarter: 4, eighth: 8, '16th': 16, '32nd': 32 };
 const DENOMINATORS = [1, 2, 4, 8, 16, 32];
 const MAX_DOTS = 3;
-const PITCH_NAMES = ['c', 'cis', 'd', 'dis', 'e', 'f', 'fis', 'g', 'gis', 'a', 'ais', 'b'];
+const SHARP_PITCH_NAMES = ['c', 'cis', 'd', 'dis', 'e', 'f', 'fis', 'g', 'gis', 'a', 'ais', 'b'];
+/** Used when the key signature has flats (`es` and `as` alone are E and A flat, `ees` and `aes` too). */
+const FLAT_PITCH_NAMES = ['c', 'des', 'd', 'ees', 'e', 'f', 'ges', 'g', 'aes', 'a', 'bes', 'b'];
 /** MIDI number of a LilyPond `c` with no octave mark. */
 const C_MIDI = 48;
 const SEMITONES_PER_OCTAVE = 12;
@@ -65,11 +67,24 @@ const ZERO = frac(0);
 const TAG = /<(\/?)([\w:.-]+)((?:\s+[\w:.-]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>/g;
 const ATTRIBUTE = /([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
 
+/**
+ * Guitar Pro hides the string and the fret of some notes in a processing instruction inside
+ * `<technical>` (`<?GP <root><string>3</string><fret>2</fret></root>?>`). Only those two
+ * elements are kept, in place of the instruction, so the tree reads them like plain ones.
+ */
+function stringAndFretOf(body) {
+	return ['string', 'fret']
+		.map((name) => body.match(new RegExp(`<${name}\\b[^>]*>[^<]*</${name}>`))?.[0] ?? '')
+		.join('');
+}
+
 /** Reads the document into a tree. Text is kept on the element that holds it. */
 function readXml(xml) {
 	const cleaned = xml
 		.replace(/<!--[\s\S]*?-->/g, '')
-		.replace(/<\?[\s\S]*?\?>/g, '')
+		.replace(/<\?([\w-]+)([\s\S]*?)\?>/g, (_, target, body) =>
+			target === 'xml' ? '' : stringAndFretOf(body)
+		)
 		.replace(/<!DOCTYPE[^>]*>/g, '');
 	/** @type {XmlNode} */
 	const root = { name: '#document', attrs: {}, children: [], text: '' };
@@ -102,6 +117,19 @@ function readXml(xml) {
 /** @returns {XmlNode | undefined} the first child with that name */
 const child = (node, name) => node.children.find((c) => c.name === name);
 const children = (node, name) => node.children.filter((c) => c.name === name);
+/** The first descendant with that name, at any depth. */
+function findDeep(node, name) {
+	for (const c of node.children) {
+		if (c.name === name) return c;
+		const found = findDeep(c, name);
+		if (found) return found;
+	}
+	return undefined;
+}
+const deepNumber = (node, name) => {
+	const text = findDeep(node, name)?.text.trim();
+	return text === undefined || text === '' ? null : Number(text);
+};
 /** The trimmed text of a child element, or null when there is none. */
 const textOf = (node, name) => {
 	const c = child(node, name);
@@ -112,14 +140,25 @@ const numberOf = (node, name) => {
 	return t === null || t === '' ? null : Number(t);
 };
 
+/** A warning list that holds each message once. `into` may already hold some. */
+function makeWarner(into = []) {
+	const seen = new Set(into);
+	return (message) => {
+		if (!seen.has(message)) {
+			seen.add(message);
+			into.push(message);
+		}
+	};
+}
+
 // ---------------------------------------------------------------------------------------------
 // Reading a part
 // ---------------------------------------------------------------------------------------------
 
 /**
  * @typedef {{
- *   rest: boolean, chord: boolean, grace: boolean,
- *   duration: [number, number], staff: number, voice: string,
+ *   rest: boolean, forward: boolean, chord: boolean, grace: boolean,
+ *   duration: [number, number], staff: number, voice: string | null,
  *   type: string | null, dots: number, modification: [number, number] | null,
  *   tupletStart: boolean, tupletStop: boolean, tieStart: boolean,
  *   string: number | null, fret: number | null, writtenMidi: number | null,
@@ -127,7 +166,7 @@ const numberOf = (node, name) => {
  * }} PartNote
  * @typedef {{
  *   number: number, implicit: boolean, barLength: [number, number], beatType: number,
- *   notes: PartNote[]
+ *   flats: boolean, notes: PartNote[]
  * }} PartMeasure
  */
 
@@ -153,8 +192,8 @@ function writtenMidiOf(pitch) {
 }
 
 function noteOfNode(node) {
-	const technical = child(child(node, 'notations') ?? { children: [] }, 'technical');
 	const notations = child(node, 'notations');
+	const technical = notations ? child(notations, 'technical') : undefined;
 	const marks = [];
 	if (technical) {
 		for (const c of technical.children) if (!KNOWN_TECHNICAL.has(c.name)) marks.push(c.name);
@@ -169,6 +208,7 @@ function noteOfNode(node) {
 	const pitch = child(node, 'pitch');
 	return {
 		rest: child(node, 'rest') !== undefined,
+		forward: false,
 		chord: child(node, 'chord') !== undefined,
 		grace: child(node, 'grace') !== undefined,
 		duration: ZERO,
@@ -180,8 +220,8 @@ function noteOfNode(node) {
 		tupletStart: tuplets.some((t) => t.attrs.type === 'start'),
 		tupletStop: tuplets.some((t) => t.attrs.type === 'stop'),
 		tieStart: children(node, 'tie').some((t) => t.attrs.type === 'start'),
-		string: technical ? numberOf(technical, 'string') : null,
-		fret: technical ? numberOf(technical, 'fret') : null,
+		string: deepNumber(node, 'string'),
+		fret: deepNumber(node, 'fret'),
 		writtenMidi: pitch ? writtenMidiOf(pitch) : null,
 		marks
 	};
@@ -192,7 +232,7 @@ function noteOfNode(node) {
  * staves whose clef is `TAB`.
  * @returns {{ measures: PartMeasure[], tabStaves: Set<number> }}
  */
-function readPart(root, partId, warnings) {
+function readPart(root, partId, warn) {
 	const part = findPart(root, partId);
 	let divisions = 1;
 	let beats = 4;
@@ -201,6 +241,7 @@ function readPart(root, partId, warnings) {
 	/** @type {PartMeasure[]} */
 	const measures = [];
 	let metered = false;
+	let fifths = 0;
 	for (const [index, measureNode] of children(part, 'measure').entries()) {
 		const parsedNumber = Number.parseInt(measureNode.attrs.number ?? '', 10);
 		const number = Number.isNaN(parsedNumber) ? index + 1 : parsedNumber;
@@ -213,7 +254,7 @@ function readPart(root, partId, warnings) {
 					const nextBeats = numberOf(time, 'beats') ?? beats;
 					const nextType = numberOf(time, 'beat-type') ?? beatType;
 					if (metered && (nextBeats !== beats || nextType !== beatType)) {
-						warnings.push(
+						warn(
 							`bar ${number}: meter changes to ${nextBeats}/${nextType}; the figure is read in one meter`
 						);
 					}
@@ -221,18 +262,30 @@ function readPart(root, partId, warnings) {
 					beatType = nextType;
 					metered = true;
 				}
+				const key = child(node, 'key');
+				if (key) fifths = numberOf(key, 'fifths') ?? fifths;
 				for (const clef of children(node, 'clef')) {
 					if (textOf(clef, 'sign') === 'TAB') tabStaves.add(Number(clef.attrs.number ?? 1));
 				}
 				const details = children(node, 'staff-details').find((d) =>
 					tabStaves.has(Number(d.attrs.number ?? 1))
 				);
-				if (details) checkTuning(details, warnings);
+				if (details) checkTuning(details, warn);
 			} else if (node.name === 'note') {
 				const note = noteOfNode(node);
 				const duration = numberOf(node, 'duration');
 				note.duration = duration === null ? ZERO : frac(duration, divisions * 4);
 				notes.push(note);
+			} else if (node.name === 'forward') {
+				const duration = numberOf(node, 'duration');
+				notes.push({
+					...noteOfNode(node),
+					rest: true,
+					forward: true,
+					staff: numberOf(node, 'staff') ?? 1,
+					voice: textOf(node, 'voice'),
+					duration: duration === null ? ZERO : frac(duration, divisions * 4)
+				});
 			}
 		}
 		measures.push({
@@ -240,32 +293,31 @@ function readPart(root, partId, warnings) {
 			implicit: measureNode.attrs.implicit === 'yes',
 			barLength: frac(beats, beatType),
 			beatType,
+			flats: fifths < 0,
 			notes
 		});
 	}
 	return { measures, tabStaves };
 }
 
-function checkTuning(details, warnings) {
+function checkTuning(details, warn) {
 	const tuning = children(details, 'staff-tuning')
 		.sort((a, b) => Number(a.attrs.line) - Number(b.attrs.line))
 		.map((t) => `${textOf(t, 'tuning-step')}${textOf(t, 'tuning-octave')}`);
 	if (tuning.length > 0 && tuning.join(' ') !== WRITTEN_TUNING.join(' ')) {
-		warnings.push(
+		warn(
 			`tuning is ${tuning.join(' ')}, not the standard tuning: pitches are read in standard tuning`
 		);
 	}
 }
 
 /** The sounding MIDI pitch of a note: open string plus fret, else its written pitch an octave down. */
-function soundingPitch(note, bar, warnings) {
+function soundingPitch(note, bar, warn) {
 	if (note.string !== null && note.fret !== null && note.string in OPEN_STRINGS) {
 		return OPEN_STRINGS[note.string] + note.fret;
 	}
 	if (note.writtenMidi !== null) {
-		warnings.push(
-			`bar ${bar}: a note has no string and fret, its written pitch is taken an octave down`
-		);
+		warn(`bar ${bar}: a note has no string and fret, its written pitch is taken an octave down`);
 		return note.writtenMidi - WRITTEN_OCTAVE_SEMITONES;
 	}
 	throw new Error(`musicxml: bar ${bar}: a note has neither string and fret nor pitch`);
@@ -275,10 +327,11 @@ function soundingPitch(note, bar, warnings) {
 // LilyPond
 // ---------------------------------------------------------------------------------------------
 
-function lilyPitch(midi) {
+function lilyPitch(midi, flats) {
 	const octave = Math.floor(midi / SEMITONES_PER_OCTAVE) - C_MIDI / SEMITONES_PER_OCTAVE;
 	const marks = octave >= 0 ? "'".repeat(octave) : ','.repeat(-octave);
-	return `${PITCH_NAMES[midi % SEMITONES_PER_OCTAVE]}${marks}`;
+	const names = flats ? FLAT_PITCH_NAMES : SHARP_PITCH_NAMES;
+	return `${names[midi % SEMITONES_PER_OCTAVE]}${marks}`;
 }
 
 /** The written duration (`4`, `8.`) of a note: its type and dots, else worked out from its length. */
@@ -317,59 +370,71 @@ function fillWithRests(gap) {
 }
 
 /**
+ * The notes of the staff and the voice a part is read on, in order, with what is left out
+ * reported: the TAB staff (the duplicate of the notation) silently, another staff, a grace
+ * note, or another voice with a warning. `state.mainVoice` is the first voice met on the staff.
+ * A `<forward>` (no voice of its own) counts as time in the main voice.
+ */
+function mainNotes(measure, tabStaves, state, warn) {
+	const kept = [];
+	for (const note of measure.notes) {
+		if (tabStaves.has(note.staff)) continue;
+		if (note.staff !== 1) {
+			warn(`bar ${measure.number}: notes on staff ${note.staff} are ignored`);
+			continue;
+		}
+		if (note.grace) {
+			warn(`bar ${measure.number}: a grace note is ignored`);
+			continue;
+		}
+		if (note.voice !== null) {
+			state.mainVoice ??= note.voice;
+			if (note.voice !== state.mainVoice) {
+				warn(
+					`bar ${measure.number}: voice ${note.voice} is ignored (only voice ${state.mainVoice} is read)`
+				);
+				continue;
+			}
+		}
+		kept.push(note);
+	}
+	return kept;
+}
+
+/**
  * One part of one voice to our LilyPond (pitch from string and fret, standard tuning), plus
- * warnings. A bar per line; a pickup bar is filled with rests in front of its notes.
+ * warnings. A bar per line; a pickup bar is filled with rests in front of its notes. Pitches are
+ * spelled with sharps, or with flats in a key signature of flats.
  * @param {string} xml
  * @param {string} partId
  * @returns {{ lilypond: string, warnings: string[] }}
  */
 export function convertMelody(xml, partId) {
 	const warnings = [];
-	const seen = new Set();
-	const warn = (message) => {
-		if (!seen.has(message)) {
-			seen.add(message);
-			warnings.push(message);
-		}
-	};
-	const { measures, tabStaves } = readPart(readXml(xml), partId, warnings);
-	let mainVoice = null;
+	const warn = makeWarner(warnings);
+	const { measures, tabStaves } = readPart(readXml(xml), partId, warn);
+	const state = { mainVoice: null };
 	const lines = [];
 	for (const [index, measure] of measures.entries()) {
 		const events = [];
 		let length = ZERO;
-		for (const note of measure.notes) {
-			if (tabStaves.has(note.staff)) continue;
-			if (note.staff !== 1) {
-				warn(`bar ${measure.number}: notes on staff ${note.staff} are ignored`);
-				continue;
-			}
-			if (note.grace) {
-				warn(`bar ${measure.number}: a grace note is ignored`);
-				continue;
-			}
-			mainVoice ??= note.voice;
-			if (note.voice !== mainVoice) {
-				warn(
-					`bar ${measure.number}: voice ${note.voice} is ignored (only voice ${mainVoice} is read)`
-				);
-				continue;
-			}
+		for (const note of mainNotes(measure, tabStaves, state, warn)) {
 			if (note.chord) {
 				warn(`bar ${measure.number}: a chord in a melody part, only its first note is kept`);
 				continue;
 			}
+			if (note.forward) warn(`bar ${measure.number}: <forward> is read as a rest`);
 			for (const mark of note.marks) warn(`technique "${mark}" is not converted`);
-			const duration = writtenDuration(note, measure.number);
 			length = add(length, note.duration);
 			if (note.rest) {
-				events.push({ text: `r${duration}`, note });
+				events.push(restEvent(note, measure.number, warn));
 				continue;
 			}
-			const midi = soundingPitch(note, measure.number, warnings);
+			const duration = writtenDuration(note, measure.number);
+			const midi = soundingPitch(note, measure.number, warn);
 			const string = note.string !== null && note.string in OPEN_STRINGS ? `\\${note.string}` : '';
 			events.push({
-				text: `${lilyPitch(midi)}${duration}${string}${note.tieStart ? '~' : ''}`,
+				text: `${lilyPitch(midi, measure.flats)}${duration}${string}${note.tieStart ? '~' : ''}`,
 				note
 			});
 		}
@@ -384,28 +449,50 @@ export function convertMelody(xml, partId) {
 			} else {
 				warn(`bar ${measure.number}: the bar is short, it is filled with rests at its end`);
 			}
-			tokens.push(...groupTuplets(events));
+			tokens.push(...groupTuplets(events, measure.number, warn));
 			if (!pickup) tokens.push(...rests);
 		} else {
 			if (compare(length, measure.barLength) > 0) {
 				warn(`bar ${measure.number}: the bar is longer than its meter`);
 			}
-			tokens.push(...groupTuplets(events));
+			tokens.push(...groupTuplets(events, measure.number, warn));
 		}
 		if (tokens.length > 0) lines.push(`${tokens.join(' ')} |`);
 	}
 	return { lilypond: lines.join('\n'), warnings };
 }
 
-/** The events of a bar as tokens, with `\tuplet a/b { … }` around the notes of a tuplet. */
-function groupTuplets(events) {
+/** A rest as an event; one that has no written value (5/4 in one rest) is written as several. */
+function restEvent(note, bar, warn) {
+	try {
+		return { text: `r${writtenDuration(note, bar)}`, note };
+	} catch {
+		const { rests, left } = fillWithRests(note.duration);
+		warn(
+			`bar ${bar}: a rest of ${note.duration[0]}/${note.duration[1]} is written as ${rests.join(' ')}`
+		);
+		if (left[0] !== 0) warn(`bar ${bar}: ${left[0]}/${left[1]} of a rest is left out`);
+		return { text: rests.join(' '), note: { ...note, modification: null } };
+	}
+}
+
+/**
+ * The events of a bar as tokens, with `\tuplet a/b { … }` around the notes of a tuplet. A tuplet
+ * that its stop mark does not close is still written, and reported: the figure will not parse.
+ */
+function groupTuplets(events, bar, warn) {
 	const tokens = [];
 	let open = null;
 	let group = [];
+	let stopped = false;
 	const close = () => {
-		if (open) tokens.push(`\\tuplet ${open[0]}/${open[1]} { ${group.join(' ')} }`);
+		if (open) {
+			if (!stopped) warn(`bar ${bar}: a tuplet is not closed by a stop mark, it will not parse`);
+			tokens.push(`\\tuplet ${open[0]}/${open[1]} { ${group.join(' ')} }`);
+		}
 		open = null;
 		group = [];
+		stopped = false;
 	};
 	for (const { text, note } of events) {
 		const ratio = note.modification;
@@ -417,7 +504,10 @@ function groupTuplets(events) {
 		if (open && (compare(open, ratio) !== 0 || note.tupletStart)) close();
 		open ??= ratio;
 		group.push(text);
-		if (note.tupletStop) close();
+		if (note.tupletStop) {
+			stopped = true;
+			close();
+		}
 	}
 	close();
 	return tokens;
@@ -431,16 +521,19 @@ function groupTuplets(events) {
  * One part of chords to the shapes bar by bar: `frets[i]` is the fret on string `i + 1`
  * (1 = high E), null when the string does not sound. `bar` is the bar number as the export writes
  * it (a pickup bar is 0), `beat` counts from 1 in beats of the meter (2.5 is the half-way point).
+ * Only the first voice of the staff is positioned; another voice is left out with a warning.
  * @param {string} xml
  * @param {string} partId
  * @param {string[]} [warnings] receives what the converter had to leave out
  * @returns {{ bar: number, beat: number, frets: (number | null)[] }[]}
  */
 export function listShapes(xml, partId, warnings = []) {
-	const { measures, tabStaves } = readPart(readXml(xml), partId, warnings);
+	const warn = makeWarner(warnings);
+	const { measures, tabStaves } = readPart(readXml(xml), partId, warn);
+	const state = { mainVoice: null };
 	const shapes = [];
 	for (const [index, measure] of measures.entries()) {
-		const kept = measure.notes.filter((n) => !tabStaves.has(n.staff) && n.staff === 1 && !n.grace);
+		const kept = mainNotes(measure, tabStaves, state, warn);
 		const length = kept.filter((n) => !n.chord).reduce((sum, n) => add(sum, n.duration), ZERO);
 		const pickup = index === 0 && (measure.number === 0 || measure.implicit);
 		let position =
@@ -461,15 +554,11 @@ export function listShapes(xml, partId, warnings = []) {
 			}
 			if (!current || note.rest) continue;
 			if (note.string === null || note.fret === null || !(note.string in OPEN_STRINGS)) {
-				warnings.push(
-					`bar ${measure.number}: a note has no string and fret, it is left out of the shape`
-				);
+				warn(`bar ${measure.number}: a note has no string and fret, it is left out of the shape`);
 				continue;
 			}
 			if (current.frets[note.string - 1] !== null) {
-				warnings.push(
-					`bar ${measure.number}: two notes on string ${note.string}, the first is kept`
-				);
+				warn(`bar ${measure.number}: two notes on string ${note.string}, the first is kept`);
 				continue;
 			}
 			current.frets[note.string - 1] = note.fret;

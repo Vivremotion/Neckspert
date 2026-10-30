@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { Fraction } from '../src/lib/domain/time/fraction';
 import { parseLilyPond } from '../src/lib/domain/time/notation/lilypond';
 import { convertMelody, listShapes } from './musicxml-to-lilypond.mjs';
 
@@ -51,9 +52,9 @@ describe('convertMelody', () => {
 		);
 		const { lilypond, warnings } = convertMelody(xml, 'P1');
 		expect(warnings).toEqual([
-			'bar 1: a chord in a melody part, only its first note is kept',
 			'bar 1: voice 2 is ignored (only voice 1 is read)',
-			'bar 1: a grace note is ignored'
+			'bar 1: a grace note is ignored',
+			'bar 1: a chord in a melody part, only its first note is kept'
 		]);
 		expect(lilypond.split('\n')[1]).toBe('c4\\5 d4\\4 e4\\4 f4\\4 |');
 	});
@@ -75,8 +76,57 @@ describe('convertMelody', () => {
 		expect(convertMelody(xml, 'P1').lilypond.split('\n')[0]).toBe('r2 r4 g,4\\6 |');
 	});
 
+	it('says each warning once', () => {
+		const bare =
+			'<note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>';
+		const { warnings, lilypond } = convertMelody(withInBar1(bare + bare), 'P1');
+		const missing =
+			'bar 1: a note has no string and fret, its written pitch is taken an octave down';
+		expect(warnings.filter((w) => w === missing)).toHaveLength(1);
+		expect(lilypond.split('\n')[1]).toMatch(/^c'4 c'4 /);
+	});
+
 	it('refuses a part that is not there', () => {
-		expect(() => convertMelody(FIXTURE, 'P9')).toThrow('no part "P9" (found: P1, P2)');
+		expect(() => convertMelody(FIXTURE, 'P99')).toThrow('no part "P99" (found: P1, P2, P3');
+	});
+
+	it('reads the string and the fret from a Guitar Pro processing instruction', () => {
+		const { lilypond, warnings } = convertMelody(FIXTURE, 'P5');
+		expect(lilypond).toBe('c4\\5 d4\\4 e2\\4~ |\ne1\\4 |');
+		expect(warnings).toEqual([]);
+	});
+
+	it('reads a forward as a rest, with a warning', () => {
+		const { lilypond, warnings } = convertMelody(FIXTURE, 'P7');
+		expect(lilypond).toBe('c4\\5 r4 d2\\4 |');
+		expect(warnings).toEqual(['bar 1: <forward> is read as a rest']);
+	});
+
+	it('warns on a tuplet that no stop mark closes', () => {
+		const { warnings } = convertMelody(FIXTURE, 'P8');
+		expect(warnings).toContain('bar 1: a tuplet is not closed by a stop mark, it will not parse');
+	});
+
+	it('writes a whole-bar rest with no written value as several rests, with a warning', () => {
+		const { lilypond, warnings } = convertMelody(FIXTURE, 'P9');
+		expect(lilypond).toBe('r1 r4 |');
+		expect(warnings).toEqual(['bar 1: a rest of 5/4 is written as r1 r4']);
+		expect(
+			parseLilyPond(lilypond, { meter: { count: 5, unit: Fraction.of(1, 4), grouping: [5] } }).bars
+		).toBe(1);
+	});
+
+	it('spells the pitches with flats in a flat key and sharps in a sharp key', () => {
+		const flat = convertMelody(FIXTURE, 'P3');
+		const sharp = convertMelody(FIXTURE, 'P4');
+		expect(flat.lilypond).toBe("bes4\\3 ees4\\4 d'4\\2 bes,4\\5 |");
+		expect(sharp.lilypond).toBe('fis4\\4 dis4\\5 gis4\\3 d4\\4 |');
+		const midi = (text: string) =>
+			parseLilyPond(text)
+				.voices[0].elements.filter((e) => e.kind === 'note')
+				.map((n) => n.pitch);
+		expect(midi(flat.lilypond)).toEqual([58, 51, 62, 46]);
+		expect(midi(sharp.lilypond)).toEqual([54, 51, 56, 50]);
 	});
 
 	it('the output parses with parseLilyPond', () => {
@@ -91,6 +141,16 @@ describe('convertMelody', () => {
 });
 
 describe('listShapes', () => {
+	it('reads shapes whose strings sit in a processing instruction, and keeps a forward as time', () => {
+		const warnings: string[] = [];
+		expect(listShapes(FIXTURE, 'P6', warnings)).toEqual([
+			{ bar: 1, beat: 1, frets: [null, null, 0, 2, 3, null] },
+			{ bar: 2, beat: 3, frets: [null, null, 2, 2, 0, null] }
+		]);
+		// the second voice would have shifted the beat; it is left out and said so
+		expect(warnings).toEqual(['bar 2: voice 2 is ignored (only voice 1 is read)']);
+	});
+
 	it('lists the shapes of the chord part', () => {
 		expect(listShapes(FIXTURE, 'P2')).toEqual([
 			{ bar: 1, beat: 1, frets: [null, null, 0, 2, 3, null] },
