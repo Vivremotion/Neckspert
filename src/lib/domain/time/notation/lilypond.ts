@@ -10,18 +10,18 @@ import {
 	type Tuplet
 } from '../figure';
 import { barLength, METER_4_4, type Meter } from '../meter';
+import { readNoteName } from '../noteName';
 
 /**
  * A strict, declarative reader for a subset of LilyPond, so that figures can be written the
  * way musicians write them. Only the exercise catalog and the notation adapter should import it
  * (`boundaries.spec.ts` keeps it so): everything else works on a `Figure`.
  *
- * Accepted: a note (`a`-`g`, Dutch accidentals `is` `isis` `es` `eses` as in `cis` `des` `bes`,
- * and `es`/`as` alone for E and A flat, then absolute octave marks: `c` is MIDI 48, `c'` 60,
- * `c,` 36) or `r` (a rest) followed by a duration (`1 2 4 8 16 32`, then dots) and, on a note,
- * a string number `\1` to `\6`; an omitted duration repeats the previous one (a quarter at
- * first, as in LilyPond); `~` (a tie);
- * `\tuplet a/b { ... }` (not nested); `|` (a bar check: the position must be on a bar line);
+ * Accepted: a note (its name as `noteName.ts` reads it: `a`-`g`, Dutch accidentals as in `cis`
+ * `des` `bes`, then absolute octave marks: `c` is MIDI 48, `c'` 60, `c,` 36) or `r` (a rest)
+ * followed by a duration (`1 2 4 8 16 32`, then dots) and, on a note, a string number `\1` to
+ * `\6`; an omitted duration repeats the previous one (a quarter at first, as in LilyPond); `~` (a
+ * tie); `\tuplet a/b { ... }` (not nested); `|` (a bar check: the position must be on a bar line);
  * any blanks. Anything else throws, in particular `#` and `$` (LilyPond's embedded Scheme) and
  * every `\` command but `\tuplet`. Nothing is evaluated.
  */
@@ -30,21 +30,6 @@ const DURATIONS = new Set(['1', '2', '4', '8', '16', '32']);
 const MAX_DOTS = 3;
 const MAX_TUPLET_DIGITS = 3;
 const DEFAULT_DURATION = '4';
-/** MIDI number of a `c` with no octave mark (`c'` is middle C, 60). */
-const C_MIDI = 48;
-const OCTAVE_SEMITONES = 12;
-const NATURALS: Record<string, number> = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
-/** Dutch accidentals as the characters after the letter: `is` sharp, `es` flat, doubled for double. */
-const ACCIDENTALS: Record<string, number> = { '': 0, is: 1, isis: 2, es: -1, eses: -2 };
-
-/** Semitones of a Dutch note name (`c`, `cis`, `ees`, `es`, `as`...) from its natural, or null. */
-function noteShift(letter: string, suffix: string): number | null {
-	if ((letter === 'e' || letter === 'a') && (suffix === 's' || suffix === 'ses')) {
-		return suffix === 's' ? -1 : -2; // `es`, `as`, `eses`, `ases`
-	}
-	return ACCIDENTALS[suffix] ?? null;
-}
-
 const isBlank = (c: string) => c === ' ' || c === '\t' || c === '\n' || c === '\r';
 const isDigit = (c: string) => c >= '0' && c <= '9';
 const isLetter = (c: string) => (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -114,6 +99,37 @@ class Reader {
 		return figure;
 	}
 
+	/** The notes of the whole text, each with its string; no rhythm, so nothing a rhythm needs. */
+	readNotes(): { midi: number; string: number }[] {
+		const notes: { midi: number; string: number }[] = [];
+		for (;;) {
+			this.skipBlanks();
+			const c = this.char();
+			if (c === '') break;
+			if (c === 'r') this.fail('a form has no rest');
+			if (c === '~') this.fail('a form has no tie');
+			if (c === '\\' && this.text.startsWith('\\tuplet', this.at)) {
+				this.fail('a form has no tuplet');
+			}
+			if (!(c >= 'a' && c <= 'g')) this.refuse(c);
+			const start = this.at;
+			const midi = this.pitch();
+			this.duration();
+			const string = this.stringNumber(true);
+			if (string === null) this.fail('a note of a form needs its string number', start);
+			this.afterEvent();
+			notes.push({ midi, string });
+		}
+		if (notes.length === 0) this.fail('no note');
+		return notes;
+	}
+
+	/** What stands where a note or a command should: `#` and `$` are told apart, as Scheme. */
+	private refuse(c: string): never {
+		if (c === '#' || c === '$') this.fail(`'${c}' (embedded Scheme) is not allowed`);
+		return this.fail(`unexpected ${this.describe(c)}`);
+	}
+
 	/** Reads up to the end of the text, or up to the `}` that closes a tuplet (left unread). */
 	private sequence(): void {
 		for (;;) {
@@ -124,40 +140,16 @@ class Reader {
 			else if (c === '~') this.tie();
 			else if (c === '|') this.barCheck();
 			else if (c === '\\') this.command();
-			else if (c === '#' || c === '$') {
-				this.fail(`'${c}' (embedded Scheme) is not allowed`);
-			} else if (c === '{') this.fail("unexpected '{'");
-			else this.fail(`unexpected ${this.describe(c)}`);
+			else this.refuse(c);
 		}
 	}
 
 	/** A note name's MIDI pitch: letter, accidental, octave marks. Leaves the reader after them. */
 	private pitch(): number {
-		const start = this.at;
-		const letter = this.char();
-		this.at++;
-		let suffix = '';
-		while (this.char() === 'i' || this.char() === 'e' || this.char() === 's') {
-			suffix += this.text[this.at++];
-		}
-		const shift = noteShift(letter, suffix);
-		if (shift === null) this.fail(`unknown note name '${letter}${suffix}'`, start);
-		let octave = 0;
-		const mark = this.char();
-		if (mark === "'" || mark === ',') {
-			while (this.char() === mark) {
-				octave += mark === "'" ? 1 : -1;
-				this.at++;
-			}
-			if (this.char() === "'" || this.char() === ',') {
-				this.fail("octave marks must all go up (') or all go down (,)");
-			}
-		}
-		const pitch = C_MIDI + NATURALS[letter] + shift + octave * OCTAVE_SEMITONES;
-		if (pitch < MIN_PITCH || pitch > MAX_PITCH) {
-			this.fail(`pitch ${pitch} is out of the MIDI range`, start);
-		}
-		return pitch;
+		const read = readNoteName(this.text, this.at);
+		if ('problem' in read) this.fail(read.problem, read.offset);
+		this.at = read.end;
+		return read.midi;
 	}
 
 	/** A string number after a note's duration: `\1` to `\6`. Null when there is none. */
@@ -181,37 +173,45 @@ class Reader {
 		return string;
 	}
 
+	/** A written duration with its dots; an omitted one repeats the last. */
+	private duration(): { denominator: string; dots: number } {
+		const start = this.at;
+		let digits = '';
+		while (isDigit(this.char())) digits += this.text[this.at++];
+		if (digits === '') {
+			if (this.char() === '.') this.fail('dots need a duration');
+			return this.lastDuration;
+		}
+		if (!DURATIONS.has(digits)) {
+			this.fail(`unsupported duration "${digits}" (use 1 2 4 8 16 32)`, start);
+		}
+		let dots = 0;
+		while (this.char() === '.') {
+			dots++;
+			if (dots > MAX_DOTS) this.fail(`more than ${MAX_DOTS} dots`);
+			this.at++;
+		}
+		return { denominator: digits, dots };
+	}
+
+	/** Nothing may be glued to a note or a rest but a tie, a bar check or a closing brace. */
+	private afterEvent(): void {
+		const next = this.char();
+		if (!(next === '' || isBlank(next) || next === '~' || next === '|' || next === '}')) {
+			this.fail(`unexpected ${this.describe(next)}`);
+		}
+	}
+
 	private event(letter: string): void {
 		const isNote = letter !== 'r';
 		let pitch = 0;
 		if (isNote) pitch = this.pitch();
 		else this.at++;
-		const durationStart = this.at;
-		let digits = '';
-		let dots: number;
-		while (isDigit(this.char())) digits += this.text[this.at++];
-		if (digits === '') {
-			if (this.char() === '.') this.fail('dots need a duration');
-			digits = this.lastDuration.denominator;
-			dots = this.lastDuration.dots;
-		} else {
-			if (!DURATIONS.has(digits)) {
-				this.fail(`unsupported duration "${digits}" (use 1 2 4 8 16 32)`, durationStart);
-			}
-			dots = 0;
-			while (this.char() === '.') {
-				dots++;
-				if (dots > MAX_DOTS) this.fail(`more than ${MAX_DOTS} dots`);
-				this.at++;
-			}
-		}
+		const { denominator, dots } = this.duration();
 		const string = this.stringNumber(isNote);
-		const next = this.char();
-		if (!(next === '' || isBlank(next) || next === '~' || next === '|' || next === '}')) {
-			this.fail(`unexpected ${this.describe(next)}`);
-		}
-		this.lastDuration = { denominator: digits, dots };
-		const written = writtenDuration(digits, dots);
+		this.afterEvent();
+		this.lastDuration = { denominator, dots };
+		const written = writtenDuration(denominator, dots);
 		const duration = this.scale ? written.mul(this.scale) : written;
 		this.elements.push(
 			isNote
@@ -301,4 +301,13 @@ export function parseLilyPond(text: string, options: { meter?: Meter } = {}): Fi
 		// Exact-arithmetic failures (a ratio that overflows the fractions, say) come from below.
 		throw new Error(`lilypond: ${message} at offset ${reader.offset}`, { cause: error });
 	}
+}
+
+/**
+ * The notes of `text` for a form, each with its string: the notes and string numbers of
+ * `parseLilyPond`, and no rhythm to fill, so durations are read and ignored. A rest, a tie, a
+ * tuplet, a note without string number, or anything else throws an `Error` naming the offset.
+ */
+export function parseLilyPondNotes(text: string): { midi: number; string: number }[] {
+	return new Reader(text, METER_4_4).readNotes();
 }

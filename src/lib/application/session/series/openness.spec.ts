@@ -113,7 +113,12 @@ describe('every valid exercise plays', () => {
 		for (const round of rounds) {
 			expect(round.stage?.view).toBe('lane');
 			const model = round.stage?.model as PromptStageModel;
-			const fields = ITEM_FIELDS['triad-zone'].fields(round.item.item, 'fr', () => 0);
+			const fields = ITEM_FIELDS['triad-zone'].fields(
+				round.item.item,
+				'fr',
+				() => 0,
+				ROOT_THEN_CHORD
+			);
 			expect(model.prompt).toMatchObject({
 				primary: `racine de ${fields.chord}`,
 				secondary: fields.around,

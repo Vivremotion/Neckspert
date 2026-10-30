@@ -1,5 +1,11 @@
-import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TriadAnchorItem, TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
+import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
+import {
+	formNamed,
+	type FormFigureItem,
+	type TriadAnchorItem,
+	type TriadZoneItem,
+	type VoicingFigureItem
+} from '$lib/domain/mechanics';
 import {
 	fretLabel,
 	parseVoicingKey,
@@ -7,6 +13,7 @@ import {
 	type IdentifyItem,
 	type LocateItem
 } from '$lib/domain/music';
+import { parseNoteName } from '$lib/domain/time/noteName';
 import type { Locale } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { aroundLabel, chordName, rootName, rootStringName, stringSetLabel } from './triadWords';
@@ -14,8 +21,16 @@ import { aroundLabel, chordName, rootName, rootStringName, stringSetLabel } from
 /** What a mechanic's items offer to the words of a prompt: `{name}` in a slot reads `fields`. */
 export interface ItemFields {
 	names: readonly string[];
-	/** Every field, written for one item. A field with nothing to say is the empty string. */
-	fields(item: unknown, locale: Locale, random: () => number): Record<string, string>;
+	/**
+	 * Every field, written for one item of `definition`. A field with nothing to say is the empty
+	 * string.
+	 */
+	fields(
+		item: unknown,
+		locale: Locale,
+		random: () => number,
+		definition: ExerciseDefinition
+	): Record<string, string>;
 }
 
 const locateFields: ItemFields = {
@@ -73,11 +88,21 @@ const voicingFigureFields: ItemFields = {
 	}
 };
 
+const formFigureFields: ItemFields = {
+	names: ['chord'],
+	fields: (raw, _locale, _random, definition) => {
+		const { form, first } = raw as FormFigureItem;
+		const { symbol } = formNamed(definition.forms, form);
+		return { chord: `${parseNoteName(first).name}${symbol}` };
+	}
+};
+
 /** The fields of a prompt's words, by mechanic. A mechanic left out offers none. */
 export const ITEM_FIELDS: Readonly<Record<MechanicId, ItemFields>> = {
 	locate: locateFields,
 	identify: identifyFields,
 	'triad-anchor': triadAnchorFields,
 	'triad-zone': triadZoneFields,
-	'voicing-figure': voicingFigureFields
+	'voicing-figure': voicingFigureFields,
+	'form-figure': formFigureFields
 };

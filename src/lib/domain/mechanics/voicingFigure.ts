@@ -1,5 +1,5 @@
 import { parseVoicingKey } from '$lib/domain/music';
-import type { MechanicIdentity } from './types';
+import { parseItemBeats, type MechanicIdentity } from './types';
 
 /**
  * What a voicing-figure attempt is about: a chord shape, at its `occurrence`-th place on the neck
@@ -15,14 +15,6 @@ export interface VoicingFigureItem {
 
 const SEPARATOR = '@';
 const OCCURRENCE = /^\d+$/;
-
-function parseBeats(part: string, itemKey: string): number {
-	const beats = Number(part);
-	if (!Number.isFinite(beats) || beats <= 0 || String(beats) !== part) {
-		throw new Error(`Invalid voicing figure item key: "${itemKey}"`);
-	}
-	return beats;
-}
 
 /**
  * Figures played on the notes of a chord shape: a skill (its attempts are kept with their
@@ -42,6 +34,6 @@ export const voicingFigureRules: MechanicIdentity<VoicingFigureItem> = {
 		parseVoicingKey(voicing);
 		return beats === undefined
 			? { voicing, occurrence: Number(occurrence) }
-			: { voicing, occurrence: Number(occurrence), beats: parseBeats(beats, itemKey) };
+			: { voicing, occurrence: Number(occurrence), beats: parseItemBeats(beats, itemKey) };
 	}
 };

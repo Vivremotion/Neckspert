@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import { EXERCISES, LOCATE_NECK } from './catalog';
-import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
+import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, Ladder } from './types';
 import { validateExercise } from './validate';
@@ -271,5 +271,80 @@ describe('validateExercise on listed items', () => {
 				`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] .* at exercise level -1: round\\.expectations\\[0\\]\\.content\\.pattern asks note 4`
 			)
 		);
+	});
+});
+
+describe('validateExercise on the forms an exercise writes', () => {
+	const [form] = FORM_EXERCISE.forms!;
+	const withForms = (forms: ExerciseDefinition['forms']): ExerciseDefinition => ({
+		...FORM_EXERCISE,
+		forms
+	});
+	const withItems = (
+		items: string[],
+		rest: Partial<ExerciseDefinition> = {}
+	): ExerciseDefinition => ({
+		...FORM_EXERCISE,
+		items,
+		...rest
+	});
+	const id = FORM_EXERCISE.id;
+
+	it('accepts a form moved on the neck', () => {
+		expect(validateExercise(FORM_EXERCISE, { sensors: ['note'] })).toBeNull();
+	});
+
+	it('refuses two forms with one id, naming the second', () => {
+		expect(validateExercise(withForms([form, { ...form, symbol: 'm7' }]))).toBe(
+			`${id}: forms[1] (maj7) has the id of forms[0]`
+		);
+	});
+
+	it('refuses an empty form, naming it', () => {
+		expect(validateExercise(withForms([{ ...form, notes: [] }]))).toBe(
+			`${id}: forms[0] (maj7) has no note`
+		);
+	});
+
+	it('refuses a note not playable as written, naming the form and the note', () => {
+		const below = [form.notes[0], { midi: 40, string: 4 }];
+		expect(validateExercise(withForms([{ ...form, notes: below }]))).toBe(
+			`${id}: forms[0] (maj7) note 1 (pitch 40) is below string 4 (50)`
+		);
+		const seventh = [{ midi: 60, string: 7 }];
+		expect(validateExercise(withForms([{ ...form, notes: seventh }]))).toMatch(
+			/^test-form-sequence: forms\[0\] \(maj7\) note 0 is on string 7/
+		);
+	});
+
+	it('refuses an item naming a form the exercise does not write, naming the item', () => {
+		expect(validateExercise(withItems(['maj7@c@4', 'nowhere@c@4']))).toMatch(
+			new RegExp(`^${id}: items\\[1\\] \\("nowhere@c@4"\\) .*form "nowhere"`)
+		);
+	});
+
+	it('refuses an item moving its form off the neck, naming the item', () => {
+		expect(validateExercise(withItems(['maj7@c@4', "maj7@a'@4", 'maj7@g,@4']))).toMatch(
+			new RegExp(`^${id}: items\\[1\\] \\("maj7@a'@4"\\) .*above the last fret`)
+		);
+		expect(validateExercise(withItems(['maj7@g,@4']))).toMatch(
+			new RegExp(`^${id}: items\\[0\\] .*below string 5`)
+		);
+	});
+
+	it('refuses such an item even when the round does not derive its notes, or there is no round', () => {
+		const round = FORM_EXERCISE.round!;
+		const [entry] = round.expectations;
+		const silent = {
+			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
+		};
+		for (const rest of [silent, { round: undefined }]) {
+			expect(validateExercise(withItems(['nowhere@c@4'], rest))).toMatch(
+				new RegExp(`^${id}: items\\[0\\] .*derives "form-notes": .*form "nowhere"`)
+			);
+			expect(validateExercise(withItems(['maj7@g,@4'], rest))).toMatch(
+				new RegExp(`^${id}: items\\[0\\] .*derives "form-notes": .*below string 5`)
+			);
+		}
 	});
 });

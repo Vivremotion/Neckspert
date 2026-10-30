@@ -146,6 +146,7 @@ Garde de fusion : `npm test && npm run check`.
 - **Les positions de gamme** (dérivation d'une gamme dans une position) : se branchent sur le même motif, plus tard.
 - **D'autres accordages, plus de six cordes** : une donnée de l'exercice le jour où un exercice réel le demande.
 - **Le dessin définitif de la vue** : le plan visuel 3.
+- **L'arpège qui continue d'un accord à l'autre** : sur une grille, chaque accord repart de la première note de sa forme (`form-figure`). Enchaîner en gardant le fil, sans revenir à la première note, viendra plus tard.
 - **Le concept de mécanique** : l'auteur doute qu'il convienne au projet ; S n'y ajoute que ce qu'il lui faut, la question se rouvre plus tard.
 
 ## Risques
@@ -156,7 +157,7 @@ Garde de fusion : `npm test && npm run check`.
 
 ## Réalisation (2026-10-30)
 
-Branche `plan/sequence-s` (plan `docs/superpowers/plans/2026-10-30-s-sequence.md`, treize tâches et une tâche 12b). Ce qui suit dit où la réalisation s'écarte de la spec ou la précise. Les rapports de tâche et le registre des décisions de l'exécution sont dans `.superpowers/sdd/2026-10-30-s-sequence/` (ignoré par git).
+Branche `plan/sequence-s` (plan `docs/superpowers/plans/2026-10-30-s-sequence.md`, treize tâches, une tâche 12b et une tâche 14). Ce qui suit dit où la réalisation s'écarte de la spec ou la précise. Les rapports de tâche et le registre des décisions de l'exécution sont dans `.superpowers/sdd/2026-10-30-s-sequence/` (ignoré par git).
 
 ### Les dix décisions du plan
 
@@ -197,6 +198,18 @@ Branche `plan/sequence-s` (plan `docs/superpowers/plans/2026-10-30-s-sequence.md
 - **À la respiration, les marques de toute la course se posent sur la figure du dernier tour.** Une course qui enchaîne des changements de durées différentes montre donc les marques des autres tours sur une gravure qui n'est pas la leur ; le plan visuel 3 redessine la respiration.
 - **Notes rapides, erreurs d'octave du détecteur, débit réel** : toujours à mesurer en jouant (Risques).
 - **Points mineurs reportés** (relevés en relecture, sans effet connu sur le comportement ; la tablature d'aide d'un tour qui commence dans une figure de plusieurs mesures et la règle de case écrite deux fois sont réglées, `loopFigure` et `fretOf`) : `renderFigure.ts` passe 650 lignes (la tablature à extraire) ; le texte « note N » compte les silences ; une altération se répète sur une liaison à travers la barre.
+
+### Les formes (tâche 14, après le premier essai de l'auteur)
+
+Au premier essai sur une grille, l'auteur a constaté que les formes d'arpège travaillées ont plusieurs notes par corde, comme une gamme, et que la même forme se déplace d'un accord à l'autre. `voicing-notes` ne peut pas les jouer : une forme d'accord a une note par corde, et sa place se dit par une occurrence sur le manche. La tâche ajoute donc, à côté de `voicing-figure` et de `voicing-notes` qui restent pour les arpèges d'un accord :
+
+- **Une forme est une donnée de l'exercice** : `ExerciseDefinition.forms`, `{ id, symbol, notes }`, écrite `{ id, symbol, lilypond }` dans un fichier (`parseLilyPondNotes`, qui partage la lecture des notes et des cordes de `parseLilyPond` et ne lit aucun rythme).
+- **La mécanique `form-figure`** : l'item `{ form, first, beats? }`, clé `${form}@${first}` puis `@${beats}`, dit quelle forme jouer et sur quelle première note. Le déplacement garde les cordes (`movedForm`) ; chaque tour compile sa liste à part, donc chaque accord repart de la première note.
+- **`ContentDerivation.derive` et `ItemFields.fields` reçoivent la définition de l'exercice** : les formes sont à l'exercice, l'item ne fait que les nommer.
+- **La lecture d'un nom de note sort du parseur** (`domain/time/noteName.ts`, écart au plan qui ne le prévoyait pas) : la clé d'un item, la dérivation et le champ `chord` lisent `first`, et la frontière du LilyPond interdit à `domain/mechanics/`, `domain/derivations/` et `application/` d'importer le parseur. `parseLilyPond` lit ses notes avec le même code.
+- **`itemsProblem` essaie aussi les dérivations de la mécanique sur chaque item, après la compilation** (`derivedProblem`) : un tour qui ne dérive pas ses notes, ou pas de tour du tout, ne laisse pas passer une forme absente que le prompt lirait quand même. C'est générique : un `voicing-figure` à une occurrence impossible est aussi refusé sans dériver ses notes.
+- **Pas d'image `shape` pour une forme** (`DERIVED_PICTURES` inchangé) : un dessin d'accord ne sait pas montrer plusieurs notes sur une corde. La respiration dit les fausses notes en mots, et un niveau d'aide peut écrire `notation.tab`.
+- **Une barre de mesure dans une forme est refusée**, comme tout ce qui n'est pas une note : une forme n'a pas de mesure à vérifier.
 
 ### Étapes jouables : à venir
 

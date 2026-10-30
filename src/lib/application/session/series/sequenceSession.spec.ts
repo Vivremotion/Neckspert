@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
-import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, ARPEGGIO_PATTERN } from '$lib/testing/arpeggioExercise';
+import {
+	ARPEGGIO_EXERCISE,
+	ARPEGGIO_ITEMS,
+	ARPEGGIO_PATTERN,
+	FORM_EXERCISE,
+	FORM_ITEMS
+} from '$lib/testing/arpeggioExercise';
 import { ORIGIN, sequenceSeries, shapePitches, stageOf } from '$lib/testing/sequenceSeries';
 import { validateExercise } from '$lib/domain/exercise/validate';
 import {
@@ -258,6 +264,95 @@ describe('a sequence of chord shapes on the series', () => {
 			cursor: '1'
 		});
 		controller.quit();
+	});
+
+	describe('a form written once', () => {
+		/** The form's notes on each change, from its first note: two on string 4. */
+		const CHANGES = [
+			{ key: FORM_ITEMS[0], beats: 4, midis: [48, 52, 55, 59] }, // C
+			{ key: FORM_ITEMS[1], beats: 2, midis: [53, 57] }, // F, its first two notes
+			{ key: FORM_ITEMS[2], beats: 4, midis: [55, 59, 62, 66] } // G
+		];
+		const LAST_BEAT = 4 + 2 + 4;
+
+		/** The series played right, but for `wrong`: the pitch played at a change's note. */
+		async function playedChanges(
+			wrong: (change: number, note: number, midi: number) => number = (_c, _n, midi) => midi
+		) {
+			const played = await sequenceSeries(FORM_EXERCISE, { pattern: [1, 2, 3, 4], met: true });
+			const { controller, advance, detector } = played;
+			await controller.start();
+			const beatS = BAR_S / 4;
+			let beat = 0;
+			for (const [c, { midis }] of CHANGES.entries()) {
+				for (const [k, midi] of midis.entries()) {
+					const time = ORIGIN + BAR_S + (beat + k) * beatS;
+					await advance(time, false);
+					detector.emitNote({ time, midi: wrong(c, k, midi), frequencyHz: 440, clarity: 1 });
+				}
+				beat += midis.length;
+			}
+			await advance(ORIGIN + BAR_S + (LAST_BEAT + 2) * beatS, false);
+			return played;
+		}
+
+		it('is an exercise the engine runs', () => {
+			expect(validateExercise(FORM_EXERCISE, { sensors: ['note'] })).toBeNull();
+			expect(presentationProblem(FORM_EXERCISE)).toBeNull();
+			expect(screenProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+			expect(previewProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+		});
+
+		it('plays a form with two notes on a string, moved from chord to chord, each chord restarting from its first note', async () => {
+			const { controller, stored } = await playedChanges();
+			const attempts = await stored();
+			expect(attempts.map((a) => a.cardKey)).toEqual(CHANGES.map((c) => `form-figure:${c.key}`));
+			// Each change opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
+			expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
+			expect(attempts.map((a) => (a.data as FigureAttemptData).report.expectations.length)).toEqual(
+				[4, 2, 4]
+			);
+			for (const attempt of attempts) {
+				const { report } = attempt.data as FigureAttemptData;
+				expect(report.expectations.every((e) => e.verdict === 'on-time')).toBe(true);
+				expect(report.extra).toBe(0);
+				expect([attempt.success, attempt.correct]).toEqual([true, true]);
+			}
+			controller.quit();
+		});
+
+		it('names each chord from its first note and its symbol', async () => {
+			const { controller, advance } = await sequenceSeries(FORM_EXERCISE, {
+				pattern: [1, 2, 3, 4],
+				met: true
+			});
+			await controller.start();
+			const chords: unknown[] = [];
+			for (const beats of [0.5, 4.5, 6.5]) {
+				await advance(ORIGIN + BAR_S + beats * (BAR_S / 4), false);
+				chords.push(stageOf(controller).prompt?.primary);
+			}
+			expect(chords).toEqual(['Cmaj7', 'Fmaj7', 'Gmaj7']);
+			controller.quit();
+		});
+
+		it('tells a wrong note on the expectation it was played for', async () => {
+			// The second note of the G, a right note of the C: only the moved form is right.
+			const { controller, stored } = await playedChanges((change, note, midi) =>
+				change === 2 && note === 1 ? 52 : midi
+			);
+			const [c, f, g] = await stored();
+			expect([c.success, f.success]).toEqual([true, true]);
+			expect([g.success, g.correct]).toEqual([false, false]);
+			const report = (g.data as FigureAttemptData).report as CycleReport;
+			expect(report.expectations.map((e) => e.verdict)).toEqual([
+				'on-time',
+				'wrong-pitch',
+				'on-time',
+				'on-time'
+			]);
+			controller.quit();
+		});
 	});
 
 	it('listens with the note sensor only', async () => {

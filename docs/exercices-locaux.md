@@ -10,13 +10,14 @@ Un exercice privé est un fichier JSON dans le dossier `exercises.local/`, à la
 
 ## Le format
 
-C'est une `ExerciseDefinition` (`src/lib/domain/exercise/types.ts`) écrite en JSON, avec trois écarts :
+C'est une `ExerciseDefinition` (`src/lib/domain/exercise/types.ts`) écrite en JSON, avec quatre écarts :
 
 - `figures` : chaque figure s'écrit `{ "id": "…", "lilypond": "c4 c c c", "meter": { … } }`. Le LilyPond est le sous-ensemble strict de `parseLilyPond` (pas de `#` ni de `$`). `meter` est facultatif (4/4 par défaut) et s'écrit `{ "count": 3, "unit": "1/4", "grouping": [1, 1, 1] }`.
+- `forms` : chaque forme s'écrit `{ "id": "…", "symbol": "maj7", "lilypond": "c\\5 e\\4 g\\4 b\\3" }` (voir « Une forme déplacée d'accord en accord »).
 - `meter` au premier niveau s'écrit de la même façon (l'unité est une fraction écrite en texte).
 - Une clé inconnue au premier niveau refuse le fichier, en la nommant.
 
-Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `version`, `mechanic`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `pick`, `items`.
+Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `version`, `mechanic`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `forms`, `pick`, `items`.
 
 **Un exercice de figure doit nommer sa vue** : `"view": "figure"`. Sans elle, un exercice qui écrit une présentation serait dessiné sur la piste (`lane`), qui ne dessine pas de figure.
 
@@ -126,13 +127,61 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 
 Les `items` sont des clés de la mécanique (`voicing-figure` : `<forme>@<occurrence>@<temps>`, la forme s'écrivant `<racine>|<qualité>|<corde>:<degré>,…`, par exemple `C|maj|3:1,2:3,1:5`, puis l'occurrence de la forme sur le manche, puis la longueur du tour en temps). `"content": { "from": "voicing-notes" }` fait jouer à chaque note de la figure la note de la forme donnée par `pattern` (1 = la plus grave).
 
+## Une forme déplacée d'accord en accord
+
+`voicing-figure` joue les notes d'un accord, une par corde. Une **forme** est une suite de notes écrite une fois, chacune sur sa corde, avec autant de notes par corde qu'il en faut, et déplacée d'un accord à l'autre : c'est la mécanique `form-figure`.
+
+Ce qui change par rapport à l'exemple précédent (le reste s'écrit de la même façon) :
+
+```json
+{
+	"mechanic": "form-figure",
+	"forms": [
+		{
+			"id": "maj7",
+			"symbol": "maj7",
+			"lilypond": "c\\5 e\\4 g\\4 b\\3"
+		}
+	],
+	"items": ["maj7@c@4", "maj7@f@2", "maj7@bes@4"],
+	"presentation": {
+		"primary": "{chord}"
+	}
+}
+```
+
+et, dans `round.expectations`, `"content": { "from": "form-notes" }`.
+
+- **La forme** (`forms`) : `id` la nomme, `symbol` est ce que le nom de l'accord ajoute à sa première note, `lilypond` donne ses notes dans l'ordre, chacune avec son numéro de corde. Le rythme vient de la figure : une durée écrite est ignorée, et rien ne remplit de mesure. Un silence, une liaison, un triolet, une barre de mesure ou une note sans corde refusent le fichier, en nommant la forme et la position dans le texte.
+- **L'élément** (`items`) : `<forme>@<première note>@<temps>`. La première note est une note LilyPond seule, sans durée ni corde (`d`, `g,`, `bes'`). La forme est déplacée pour commencer sur elle : toutes ses notes bougent du même intervalle et gardent leur corde. L'exemple joue do 3 (`c`), fa 3 (`f`), puis si♭ 3 (`bes`). Les temps sont la longueur du tour, comme pour `voicing-figure`.
+- **Le nom de l'accord** (`{chord}` dans la présentation) : la première note telle qu'elle est écrite, sans son octave, puis le `symbol` : `bes` donne `Bbmaj7`, `as` donne `Abmaj7`, `es` donne `Ebmaj7`, `fis` donne `F#maj7`.
+- **Les notes jouées** : `form-notes` donne la liste des notes de la forme déplacée. Sans `pattern`, elles se jouent dans l'ordre et bouclent ; `pattern` choisit parmi elles (1 = la première note de la forme). Sur un changement de 2 temps, une figure de noires joue les deux premières notes (sa dernière boucle est coupée).
+- **Chaque accord repart de la première note** de sa forme. Un arpège qui continue d'un accord à l'autre n'existe pas encore.
+- **Refusé** : deux formes de même `id`, une forme sans note, une note que sa corde ne peut pas donner telle qu'elle est écrite, un élément qui nomme une forme absente, une forme que son déplacement fait sortir du manche (sous la corde à vide ou au-delà de la case 24). Le refus nomme `forms[i]` ou `items[i]`.
+- **Après un tour raté**, la respiration dit les fausses notes en mots : pas de dessin d'accord, qui ne sait pas montrer plusieurs notes sur une corde. Un niveau d'aide peut écrire `"notation.tab": true` pour la tablature.
+
+### Écrire les notes d'une forme
+
+Les octaves sont absolues, et la marque change à chaque do :
+
+| Écrit                   | Notes                                                           |
+| ----------------------- | --------------------------------------------------------------- |
+| `c,` à `b,`             | do 2 à si 2 (à la guitare, à partir de `e,`, la corde 6 à vide) |
+| `c` à `b` (sans marque) | do 3 à si 3                                                     |
+| `c'` à `b'`             | do 4 à si 4                                                     |
+| `c''` à `b''`           | do 5 à si 5                                                     |
+
+Les cordes à vide sont donc, de la 6 à la 1 : `e,` `a,` `d` `g` `b` `e'`.
+
+Les altérations s'écrivent `is` pour le dièse et `es` pour le bémol, collées à la lettre : `fis`, `bes`, `cis'`. `es` et `as` seuls sont mi♭ et la♭.
+
 ## Comment un fichier est vérifié
 
 Pour chaque fichier, dans l'ordre du nom :
 
-1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis `exerciseFromJson` : un objet, des clés connues, des figures en LilyPond qui se lisent.
+1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis `exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent.
 2. L'identifiant n'est pas déjà pris (par le catalogue ou par un fichier précédent) et la mécanique existe.
-3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà de la forme refusent le fichier en nommant `items[i]` et le niveau).
+3. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà de la forme refusent le fichier en nommant `items[i]` et le niveau).
 4. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.

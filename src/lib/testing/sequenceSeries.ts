@@ -2,6 +2,8 @@
  * A sequence of chord shapes played on the session controller, with the fakes and a player who
  * reads the screen: each round, the shape its prompt names, arpeggiated over the figure on show.
  */
+import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
+import { isFigureEntry } from '$lib/domain/exercise/round';
 import { SESSION_MS } from '$lib/domain/session';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { mechanicRules, type VoicingFigureItem } from '$lib/domain/mechanics';
@@ -43,6 +45,15 @@ export function shapePitches(itemKey: string): number[] {
 		itemKey
 	) as VoicingFigureItem;
 	return voicingNotes(parseVoicingKey(voicing), occurrence).map(({ midi }) => midi);
+}
+
+/** The pitches a round of `exercise` derives from an item: what its figure entry spreads. */
+function derivedPitches(exercise: ExerciseDefinition, itemKey: string): number[] {
+	const content = exercise.round?.expectations.find(isFigureEntry)?.content;
+	if (!content) throw new Error(`${exercise.id} derives no note`);
+	const item = mechanicRules(exercise.mechanic).parseItem(itemKey);
+	const notes = CONTENT_DERIVATIONS[content.from].derive(item, exercise) as { midi: number }[];
+	return notes.map(({ midi }) => midi);
 }
 
 /** The sequence's screen model on show; throws when there is none. */
@@ -112,8 +123,8 @@ export class ArpeggioPlayer {
 }
 
 /**
- * `exercise`, a `voicing-figure` exercise, on the session controller as `startExercise` builds
- * it: its items from `createExerciseItemSource`, its own mechanic's presenter alone, and both the
+ * `exercise`, whose items each derive their notes, on the session controller as `startExercise`
+ * builds it: its items from `createExerciseItemSource`, its own mechanic's presenter alone, and both the
  * note and the attack sensors offered, so the spec sees which the series opens.
  */
 export async function sequenceSeries(
@@ -183,8 +194,9 @@ export async function sequenceSeries(
 	const rules = mechanicRules(exercise.mechanic);
 	const shapes = new Map(
 		(exercise.items ?? []).map((key) => {
-			const { chord } = ITEM_FIELDS[exercise.mechanic].fields(rules.parseItem(key), 'fr', () => 0);
-			return [String(chord), shapePitches(key)] as const;
+			const item = rules.parseItem(key);
+			const { chord } = ITEM_FIELDS[exercise.mechanic].fields(item, 'fr', () => 0, exercise);
+			return [String(chord), derivedPitches(exercise, key)] as const;
 		})
 	);
 	const player = new ArpeggioPlayer(controller, detector, clock, shapes, options.pattern);

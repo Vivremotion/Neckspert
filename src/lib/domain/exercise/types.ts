@@ -62,6 +62,16 @@ export interface PromptPresentation {
 }
 
 /** An exercise is data only: a mechanic plus its parameters. */
+/**
+ * A suite of notes, each on its own string, written once and moved from chord to chord: plain
+ * data, like the rest of a definition. `symbol` is what the chord's name adds to its first note.
+ */
+export interface ExerciseForm {
+	id: string;
+	symbol: string;
+	notes: { midi: number; string: number }[];
+}
+
 export interface ExerciseDefinition {
 	id: ExerciseId;
 	version: number;
@@ -98,6 +108,8 @@ export interface ExerciseDefinition {
 	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the catalog. */
 	figures?: readonly { id: string; figure: Figure }[];
+	/** The forms its items move, written once (`form-figure`). */
+	forms?: readonly ExerciseForm[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
 	/**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
+import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import { clickAccompaniment } from '../../time/accompaniment';
 import type { Figure } from '../../time/figure';
@@ -598,6 +599,64 @@ describe('compileRound, a figure entry', () => {
 			{ main: 'c8 c c c c c r4' }
 		);
 		expect(midis(compileFigure(exercise, C_FIRST_INVERSION))).toEqual([64, 67, 72, 64, 67, 72]);
+	});
+
+	describe('a form', () => {
+		const exerciseOf = (content: FigureExpectationTemplate['content'], text = 'c4 c c c') => ({
+			...figureExercise(
+				'form-figure',
+				figureRound({ sensor: 'note', content }, { length: { beats: { item: 'beats' } } }),
+				{ main: text }
+			),
+			forms: [FORM_MAJ7]
+		});
+
+		it('is moved to the first note of the item, its notes in order, strings kept', () => {
+			const plan = compileFigure(exerciseOf({ from: 'form-notes' }), {
+				form: 'maj7',
+				first: 'd',
+				beats: 4
+			});
+			expect(plan.expectations.map((e) => e.content)).toEqual([
+				{ kind: 'pitch', value: { midi: 50, string: 5 } },
+				{ kind: 'pitch', value: { midi: 54, string: 4 } },
+				{ kind: 'pitch', value: { midi: 57, string: 4 } },
+				{ kind: 'pitch', value: { midi: 61, string: 3 } }
+			]);
+		});
+
+		it('plays its first notes over a short change, each change from its first note', () => {
+			const exercise = exerciseOf({ from: 'form-notes' });
+			const short = compileFigure(exercise, { form: 'maj7', first: 'd', beats: 2 });
+			expect(midis(short)).toEqual([50, 54]);
+			const next = compileFigure(exercise, { form: 'maj7', first: 'f', beats: 2 });
+			expect(midis(next)).toEqual([53, 57]);
+		});
+
+		it('loops over a change longer than the form', () => {
+			const plan = compileFigure(exerciseOf({ from: 'form-notes' }, 'c8 c c c c c c c'), {
+				form: 'maj7',
+				first: 'd',
+				beats: 4
+			});
+			expect(midis(plan)).toEqual([50, 54, 57, 61, 50, 54, 57, 61]);
+		});
+
+		it('takes a pattern over its notes', () => {
+			const plan = compileFigure(exerciseOf({ from: 'form-notes', pattern: [1, 3, 2, 4] }), {
+				form: 'maj7',
+				first: 'd',
+				beats: 4
+			});
+			expect(midis(plan)).toEqual([50, 57, 54, 61]);
+		});
+
+		it('fails naming the exercise, the field and the item', () => {
+			const exercise = exerciseOf({ from: 'form-notes' });
+			expect(() => compileFigure(exercise, { form: 'nowhere', first: 'd', beats: 4 })).toThrow(
+				/test-form-figure: round\.expectations\[0\]\.content derives "form-notes" for form-figure item nowhere@d@4: .*form "nowhere"/
+			);
+		});
 	});
 
 	it("reads written pitches with { from: 'figure' }", () => {

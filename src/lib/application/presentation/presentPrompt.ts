@@ -50,7 +50,7 @@ export function presentPrompt(
 	const presentation = definition.presentation;
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
 	const offered = ITEM_FIELDS[definition.mechanic];
-	const fields = offered ? offered.fields(item.item, locale, random) : {};
+	const fields = offered ? offered.fields(item.item, locale, random, definition) : {};
 	const aided = item.aid === 'show-position';
 	const names = [
 		aided ? presentation.aided?.picture : undefined,

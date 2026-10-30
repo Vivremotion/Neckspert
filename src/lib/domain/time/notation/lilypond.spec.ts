@@ -3,7 +3,7 @@ import { Fraction } from '../fraction';
 import { attackNotes, attackPositions, validateFigure } from '../figure';
 import { METER_4_4 } from '../meter';
 import { RHYTHM_EXERCISES } from '$lib/domain/exercise/rhythmCatalog';
-import { parseLilyPond } from './lilypond';
+import { parseLilyPond, parseLilyPondNotes } from './lilypond';
 
 const of = Fraction.of;
 const attacks = (text: string) => attackPositions(parseLilyPond(text)).map(String);
@@ -272,5 +272,44 @@ describe('parseLilyPond', () => {
 			expect(() => parseLilyPond('   ')).toThrow();
 			expect(() => parseLilyPond('c2 c1 c2')).toThrow(/bar/);
 		});
+	});
+});
+
+describe('parseLilyPondNotes', () => {
+	it('reads notes with their strings, two on one string allowed', () => {
+		expect(parseLilyPondNotes('c\\5 e\\4 g\\4 b\\3')).toEqual([
+			{ midi: 48, string: 5 },
+			{ midi: 52, string: 4 },
+			{ midi: 55, string: 4 },
+			{ midi: 59, string: 3 }
+		]);
+	});
+
+	it('reads the pitches as a figure does: absolute octaves, Dutch accidentals', () => {
+		expect(parseLilyPondNotes("g,\\6 bes\\3 es'\\2 fis''\\1").map((n) => n.midi)).toEqual([
+			43, 58, 63, 78
+		]);
+	});
+
+	it('ignores durations, with no bar to fill', () => {
+		expect(parseLilyPondNotes('c4\\5 e8.\\4')).toEqual(parseLilyPondNotes('c\\5 e\\4'));
+		expect(parseLilyPondNotes('c1\\5 e1\\4 g1\\4 b16\\3')).toHaveLength(4);
+	});
+
+	it('refuses a rest, a tie, a tuplet, a note without string, each with its offset', () => {
+		expect(() => parseLilyPondNotes('c\\5 r e\\4')).toThrow(/rest.* at offset 4/);
+		expect(() => parseLilyPondNotes('c\\5~ c\\5')).toThrow(/tie.* at offset 3/);
+		expect(() => parseLilyPondNotes('\\tuplet 3/2 { c\\5 e\\4 g\\4 }')).toThrow(
+			/tuplet.* at offset 0/
+		);
+		expect(() => parseLilyPondNotes('c\\5 e g\\4')).toThrow(/string.* at offset 4/);
+	});
+
+	it('refuses what is no note: no text, a bar check, Scheme, an unknown name, a seventh string', () => {
+		expect(() => parseLilyPondNotes('  ')).toThrow(/no note at offset 2/);
+		expect(() => parseLilyPondNotes('c\\5 | e\\4')).toThrow(/unexpected '\|' at offset 4/);
+		expect(() => parseLilyPondNotes('c\\5 #(foo)')).toThrow(/Scheme.* at offset 4/);
+		expect(() => parseLilyPondNotes('cisi\\5')).toThrow(/unknown note name.* at offset 0/);
+		expect(() => parseLilyPondNotes('c\\7')).toThrow(/string number.* at offset 1/);
 	});
 });

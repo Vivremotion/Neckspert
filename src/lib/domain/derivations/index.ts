@@ -6,11 +6,14 @@ import {
 	PITCH_CONTENT
 } from '../judges';
 import type { FigureItem } from '../mechanics/figure';
+import { formNamed, type FormFigureItem } from '../mechanics/formFigure';
 import type { VoicingFigureItem } from '../mechanics/voicingFigure';
 import { rootPosition } from '../mechanics/triadAnchor';
 import { parseVoicingKey } from '../music';
+import { movedForm } from '../music/formNotes';
 import { voicingNotes } from '../music/voicingNotes';
-import type { MechanicId } from '../exercise/types';
+import { parseNoteName } from '../time/noteName';
+import type { ExerciseDefinition, MechanicId } from '../exercise/types';
 
 /**
  * What an exercise's round template can ask of an item, by name: the content a round expects of
@@ -28,7 +31,8 @@ export interface ContentDerivation {
 	 * its notes.
 	 */
 	list?: true;
-	derive(item: unknown): unknown;
+	/** `definition`: the item's exercise, which holds what an item only names (its forms). */
+	derive(item: unknown, definition: ExerciseDefinition): unknown;
 }
 
 export interface ItemNumber {
@@ -74,14 +78,27 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 				string
 			}));
 		}
+	},
+	'form-notes': {
+		kind: PITCH_CONTENT,
+		reads: ['form-figure'],
+		list: true,
+		derive: (item, definition) => {
+			const { form, first } = item as FormFigureItem;
+			const { notes } = formNamed(definition.forms, form);
+			return movedForm(notes, parseNoteName(first).midi).map(({ midi, string }) => ({
+				midi,
+				string
+			}));
+		}
 	}
 };
 
 export const ITEM_NUMBERS: Readonly<Record<string, ItemNumber>> = {
 	beats: {
-		reads: ['voicing-figure'],
+		reads: ['voicing-figure', 'form-figure'],
 		measure: (item) => {
-			const { beats } = item as VoicingFigureItem;
+			const { beats } = item as VoicingFigureItem | FormFigureItem;
 			if (beats === undefined) throw new Error('This item has no length in beats');
 			return beats;
 		}

@@ -75,3 +75,39 @@ export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 		{ params: { figure: 'eighths' } }
 	]
 };
+
+/** A major seventh with its root on string 5 and two notes on string 4: `c\5 e\4 g\4 b\3`. */
+export const FORM_MAJ7 = {
+	id: 'maj7',
+	symbol: 'maj7',
+	notes: [
+		{ midi: 48, string: 5 },
+		{ midi: 52, string: 4 },
+		{ midi: 55, string: 4 },
+		{ midi: 59, string: 3 }
+	]
+};
+
+/** The form on C, then F, then G: a change of four beats, one of two, one of four. */
+export const FORM_ITEMS = ['maj7@c@4', 'maj7@f@2', 'maj7@g@4'] as const;
+
+/**
+ * One form written once, moved from chord to chord, the same figures and levels as the arpeggios:
+ * each item names the form and the note it starts on, and each chord restarts from it.
+ */
+export const FORM_EXERCISE: ExerciseDefinition = {
+	...ARPEGGIO_EXERCISE,
+	id: 'test-form-sequence',
+	title: { fr: 'Une forme déplacée', en: 'A moved form' },
+	mechanic: 'form-figure',
+	forms: [FORM_MAJ7],
+	items: [...FORM_ITEMS],
+	round: {
+		...ARPEGGIO_EXERCISE.round!,
+		expectations: ARPEGGIO_EXERCISE.round!.expectations.map((entry) => ({
+			...entry,
+			content: { from: 'form-notes' }
+		})) as NonNullable<ExerciseDefinition['round']>['expectations']
+	},
+	presentation: { primary: '{chord}' }
+};

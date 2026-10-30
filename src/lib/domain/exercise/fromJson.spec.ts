@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { ARPEGGIO_EXERCISE, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { Fraction } from '$lib/domain/time';
 import { exerciseFromJson } from './fromJson';
+import { validateExercise } from './validate';
 
 /** The public arpeggio exercise, as a JSON file writes it: its figures in LilyPond. */
 function arpeggioJson(): Record<string, unknown> {
@@ -51,6 +52,72 @@ describe('exerciseFromJson', () => {
 		);
 		expect(() => exerciseFromJson({ ...arpeggioJson(), figures: [{ id: 'a' }] })).toThrow(
 			'figures[0].lilypond must be a string'
+		);
+	});
+
+	it('reads forms written in lilypond', () => {
+		const exercise = exerciseFromJson({
+			...arpeggioJson(),
+			forms: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
+		});
+		expect(exercise.forms).toEqual([
+			{
+				id: 'maj7',
+				symbol: 'maj7',
+				notes: [
+					{ midi: 48, string: 5 },
+					{ midi: 52, string: 4 },
+					{ midi: 55, string: 4 },
+					{ midi: 59, string: 3 }
+				]
+			}
+		]);
+	});
+
+	it('reads a form exercise the engine runs, the same as written in code', () => {
+		const { figures: _figures, forms: _forms, ...rest } = FORM_EXERCISE;
+		const exercise = exerciseFromJson({
+			...JSON.parse(JSON.stringify(rest)),
+			figures: arpeggioJson().figures,
+			forms: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
+		});
+		expect(exercise.forms).toEqual(FORM_EXERCISE.forms);
+		expect(validateExercise(exercise, { sensors: ['note'] })).toBeNull();
+	});
+
+	it('leaves the forms out of an exercise that writes none', () => {
+		expect('forms' in exerciseFromJson(arpeggioJson())).toBe(false);
+	});
+
+	it('names the form that does not parse', () => {
+		expect(() =>
+			exerciseFromJson({
+				...arpeggioJson(),
+				forms: [{ id: 'bad', symbol: 'maj7', lilypond: 'c\\5 r e\\4' }]
+			})
+		).toThrow(/forms\[0\] \(bad\): lilypond: .*rest.* at offset 4/);
+	});
+
+	it('refuses a form that is not { id, symbol, lilypond }, naming the field', () => {
+		const withForms = (forms: unknown) => ({ ...arpeggioJson(), forms });
+		const form = { id: 'a', symbol: 'm', lilypond: 'c\\5' };
+		expect(() => exerciseFromJson(withForms('c\\5'))).toThrow(
+			'forms must be a list of { id, symbol, lilypond }'
+		);
+		expect(() => exerciseFromJson(withForms(['c\\5']))).toThrow(
+			'forms[0] must be { id, symbol, lilypond }'
+		);
+		expect(() => exerciseFromJson(withForms([{ ...form, id: 1 }]))).toThrow(
+			'forms[0].id must be a string'
+		);
+		expect(() => exerciseFromJson(withForms([{ ...form, symbol: 1 }]))).toThrow(
+			'forms[0].symbol must be a string'
+		);
+		expect(() => exerciseFromJson(withForms([{ ...form, lilypond: 1 }]))).toThrow(
+			'forms[0].lilypond must be a string'
+		);
+		expect(() => exerciseFromJson(withForms([{ ...form, notes: [] }]))).toThrow(
+			'forms[0]: unknown key "notes"'
 		);
 	});
 

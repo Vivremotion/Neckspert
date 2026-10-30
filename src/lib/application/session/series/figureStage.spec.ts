@@ -17,7 +17,12 @@ import { PICTURES } from '$lib/application/presentation/pictures';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
-import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, ARPEGGIO_PATTERN } from '$lib/testing/arpeggioExercise';
+import {
+	ARPEGGIO_EXERCISE,
+	ARPEGGIO_ITEMS,
+	ARPEGGIO_PATTERN,
+	FORM_EXERCISE
+} from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
 
 // The prompt is presented through the real presentation, counted.
@@ -154,7 +159,12 @@ describe('figureStage', () => {
 	const item = planned(ARPEGGIO, C_FIRST_INVERSION);
 
 	it("shows the exercise's prompt above the figure, and none without a presentation", () => {
-		const fields = ITEM_FIELDS['voicing-figure'].fields(C_FIRST_INVERSION, 'fr', () => 0);
+		const fields = ITEM_FIELDS['voicing-figure'].fields(
+			C_FIRST_INVERSION,
+			'fr',
+			() => 0,
+			ARPEGGIO_EXERCISE
+		);
 		expect(stage(ARPEGGIO, item, 'round').prompt).toEqual({
 			primary: fields.chord,
 			secondary: fields.strings
@@ -238,7 +248,7 @@ describe('figureStage, the notes it engraves', () => {
 	it('writes the derived notes into the figure for the tab aid', () => {
 		const model = stage(ARPEGGIO_EXERCISE, at(-1), 'round');
 		expect(model.notation).toEqual({ staff: false, tab: true });
-		const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(c) as {
+		const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(c, ARPEGGIO_EXERCISE) as {
 			midi: number;
 			string: number;
 		}[];
@@ -278,7 +288,8 @@ describe('figureStage, a round cut inside its figure', () => {
 	});
 	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
 	const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(
-		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0])
+		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+		ARPEGGIO_EXERCISE
 	) as { midi: number; string: number }[];
 	/** The shape's notes the pattern asks over `count` notes. */
 	const asked = (count: number) =>
@@ -372,5 +383,41 @@ describe('figureStage, a round cut inside its figure', () => {
 		const same = stage(ARPEGGIO_EXERCISE, change(8, 0), 'round');
 		expect(same.figure.bars).toBe(1);
 		expect(same.cycleBars).toBe(2);
+	});
+});
+
+describe('figureStage, a form moved to its chord', () => {
+	const item = planned(FORM_EXERCISE, { form: 'maj7', first: 'd', beats: 4 });
+
+	it('tells the wrong notes of a failed round in words, and draws no shape', () => {
+		const plan = planOf(FORM_EXERCISE, item);
+		const played = report([
+			{ index: 0, verdict: 'on-time', offsetMs: 0 },
+			// A asked (the form's third note on D), B played.
+			{ index: 2, verdict: 'wrong-pitch', offsetMs: 0, answer: { midi: 59 } }
+		]);
+		const model = stage(FORM_EXERCISE, item, 'breath', {
+			played: { item, plan },
+			settled: [{ item, plan, outcome: outcome(played, ['wrong-pitch']) }]
+		});
+		expect(model.settled[0].expected).toBeNull();
+		expect(model.settled[0].wrongNotes).toEqual([
+			{ at: Fraction.of(1, 2), index: 2, gap: 'B au lieu de A' }
+		]);
+	});
+
+	it('writes its moved notes into the figure for the tab aid', () => {
+		const aided = { ...item, exerciseLevel: -1 };
+		const model = stage(FORM_EXERCISE, aided, 'round');
+		expect(model.notation).toEqual({ staff: false, tab: true });
+		const notes = model.figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+		expect(notes).toEqual([
+			{ pitch: 50, string: 5 },
+			{ pitch: 54, string: 4 },
+			{ pitch: 57, string: 4 },
+			{ pitch: 61, string: 3 }
+		]);
 	});
 });

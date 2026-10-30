@@ -21,7 +21,8 @@ const MECHANICS = [
 	'triad-anchor',
 	'triad-zone',
 	'chord-grid',
-	'voicing-figure'
+	'voicing-figure',
+	'form-figure'
 ];
 
 /** What it may take from the derivations: their registries, looked up by name. */

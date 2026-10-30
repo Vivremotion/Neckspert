@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { figureRules, voicingFigureRules } from '$lib/domain/mechanics';
+import { figureRules, formFigureRules, voicingFigureRules } from '$lib/domain/mechanics';
 import { FIGURE_PRESENTERS } from './figurePresenters';
 
 describe('the figure presenters', () => {
-	it('play the rhythm on the attack sensor and a chord shape on the note sensor, on the guitar', () => {
+	it('play the rhythm on the attack sensor, a chord shape and a form on the note sensor, on the guitar', () => {
 		expect(Object.keys(FIGURE_PRESENTERS).sort()).toEqual(
-			[figureRules.id, voicingFigureRules.id].sort()
+			[figureRules.id, voicingFigureRules.id, formFigureRules.id].sort()
 		);
 		expect(FIGURE_PRESENTERS[figureRules.id]).toMatchObject({
 			scene: 'guitar',
@@ -13,6 +13,11 @@ describe('the figure presenters', () => {
 		});
 		expect(FIGURE_PRESENTERS[voicingFigureRules.id]).toMatchObject({
 			rules: voicingFigureRules,
+			scene: 'guitar',
+			sensors: ['note']
+		});
+		expect(FIGURE_PRESENTERS[formFigureRules.id]).toMatchObject({
+			rules: formFigureRules,
 			scene: 'guitar',
 			sensors: ['note']
 		});

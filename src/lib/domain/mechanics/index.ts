@@ -5,12 +5,14 @@ import { locateRules } from './locate';
 import { figureRules } from './figure';
 import { triadAnchorRules } from './triadAnchor';
 import { triadZoneRules } from './triadZone';
+import { formFigureRules } from './formFigure';
 import { voicingFigureRules } from './voicingFigure';
 import type { MechanicIdentity } from './types';
 
 export * from './types';
 export { figureRules, type FigureItem } from './figure';
 export { voicingFigureRules, type VoicingFigureItem } from './voicingFigure';
+export { formFigureRules, formNamed, type FormFigureItem } from './formFigure';
 export { identifyRules, type IdentifyData } from './identify';
 export { locateRules, type LocateData } from './locate';
 export {
@@ -52,7 +54,8 @@ export const MECHANIC_RULES: readonly MechanicIdentity[] = [
 	triadZoneRules,
 	chordGridRules,
 	figureRules,
-	voicingFigureRules
+	voicingFigureRules,
+	formFigureRules
 ];
 
 /** Throws on an unknown id. */

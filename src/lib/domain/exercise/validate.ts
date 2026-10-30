@@ -1,3 +1,4 @@
+import { CONTENT_DERIVATIONS } from '../derivations';
 import { mechanicRules } from '../mechanics';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
@@ -212,10 +213,46 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
+ * Why a form the exercise writes cannot be played: an id already taken, no note, or a note written
+ * on a string where no fret gives its pitch.
+ */
+function formsProblem(definition: ExerciseDefinition): string | null {
+	const forms = definition.forms ?? [];
+	for (const [index, { id, notes }] of forms.entries()) {
+		const field = `forms[${index}] (${id})`;
+		const same = forms.findIndex((form) => form.id === id);
+		if (same !== index) return `${field} has the id of forms[${same}]`;
+		if (notes.length === 0) return `${field} has no note`;
+		for (const [k, { midi, string }] of notes.entries()) {
+			const place = fretOf(midi, string);
+			if ('problem' in place) return `${field} note ${k} ${place.problem}`;
+		}
+	}
+	return null;
+}
+
+/**
+ * What an item cannot give of what its mechanic's derivations read on it (its form the exercise
+ * does not write, or moved off the neck…), whether or not the round derives it: its prompt reads
+ * the same item.
+ */
+function derivedProblem(definition: ExerciseDefinition, item: unknown): string | null {
+	for (const [name, derivation] of Object.entries(CONTENT_DERIVATIONS)) {
+		if (!derivation.reads.includes(definition.mechanic)) continue;
+		try {
+			derivation.derive(item, definition);
+		} catch (error) {
+			return `derives "${name}": ${(error as Error).message}`;
+		}
+	}
+	return null;
+}
+
+/**
  * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
- * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
- * the neck does not hold, a pattern note beyond its shape…), naming the item and the level.
- * Checked once the round is known to be valid.
+ * (`parseItem`), an item its round cannot compile at one of its exercise levels (an occurrence
+ * the neck does not hold, a pattern note beyond its shape…), naming the item and the level, or a
+ * derivation that cannot read it (`derivedProblem`). Checked once the round is known to be valid.
  */
 function itemsProblem(definition: ExerciseDefinition): string | null {
 	const { items, round } = definition;
@@ -232,8 +269,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 		} catch (error) {
 			return `${field}: ${(error as Error).message}`;
 		}
-		if (round === undefined) continue;
-		for (let level = lowest; level <= highest; level++) {
+		for (let level = lowest; round !== undefined && level <= highest; level++) {
 			const planned: PlannedItem = {
 				exerciseId: definition.id,
 				mechanic: definition.mechanic,
@@ -255,14 +291,16 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 				return `${field} does not compile at exercise level ${level}: ${problem}`;
 			}
 		}
+		const derived = derivedProblem(definition, item);
+		if (derived !== null) return `${field} ${derived}`;
 	}
 	return null;
 }
 
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive, a ladder it cannot climb, a figure note impossible on its string,
- * levels it cannot resolve (`levelsProblem`),
+ * field: a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
+ * string, forms with one id or no note (`formsProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
  * (`itemsProblem`). It never
@@ -296,6 +334,8 @@ export function validateExercise(
 		if (levels !== null) return levels;
 		const figures = figuresProblem(definition);
 		if (figures !== null) return figures;
+		const forms = formsProblem(definition);
+		if (forms !== null) return forms;
 		return roundProblem(definition, options) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

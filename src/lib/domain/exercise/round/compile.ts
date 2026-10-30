@@ -191,7 +191,10 @@ function derive(context: Context, field: string, from: string): { kind: string; 
 	if (!derivation) return fail(context, field, `derives unknown content "${from}"`);
 	readsFrom(context, field, from, derivation.reads, 'derives');
 	try {
-		return { kind: derivation.kind, value: derivation.derive(context.item.item) };
+		return {
+			kind: derivation.kind,
+			value: derivation.derive(context.item.item, context.definition)
+		};
 	} catch (error) {
 		return fail(
 			context,

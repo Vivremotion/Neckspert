@@ -1,6 +1,6 @@
 import { Fraction, type Figure, type Meter } from '$lib/domain/time';
-import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
-import type { ExerciseDefinition } from './types';
+import { parseLilyPond, parseLilyPondNotes } from '$lib/domain/time/notation/lilypond';
+import type { ExerciseDefinition, ExerciseForm } from './types';
 
 /** Every key an `ExerciseDefinition` has (the type's own list, held by the compiler). */
 const KEYS: Record<keyof ExerciseDefinition, true> = {
@@ -19,6 +19,7 @@ const KEYS: Record<keyof ExerciseDefinition, true> = {
 	title: true,
 	levels: true,
 	figures: true,
+	forms: true,
 	pick: true,
 	items: true
 };
@@ -63,9 +64,29 @@ function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
 	});
 }
 
+function formsFromJson(value: unknown): ExerciseForm[] {
+	if (!Array.isArray(value)) throw new Error('forms must be a list of { id, symbol, lilypond }');
+	return value.map((entry: unknown, index) => {
+		const where = `forms[${index}]`;
+		if (!isObject(entry)) throw new Error(`${where} must be { id, symbol, lilypond }`);
+		const { id, symbol, lilypond, ...rest } = entry;
+		const unknown = Object.keys(rest)[0];
+		if (unknown !== undefined) throw new Error(`${where}: unknown key "${unknown}"`);
+		if (typeof id !== 'string') throw new Error(`${where}.id must be a string`);
+		if (typeof symbol !== 'string') throw new Error(`${where}.symbol must be a string`);
+		if (typeof lilypond !== 'string') throw new Error(`${where}.lilypond must be a string`);
+		try {
+			return { id, symbol, notes: parseLilyPondNotes(lilypond) };
+		} catch (error) {
+			throw new Error(`${where} (${id}): ${(error as Error).message}`, { cause: error });
+		}
+	});
+}
+
 /**
  * An exercise written as JSON: its figures as `{ id, lilypond, meter? }` (parsed by
- * `parseLilyPond`), its top-level `meter` as `{ count, unit: "1/4", grouping }`, everything else
+ * `parseLilyPond`), its forms as `{ id, symbol, lilypond }` (parsed by `parseLilyPondNotes`), its
+ * top-level `meter` as `{ count, unit: "1/4", grouping }`, everything else
  * as the `ExerciseDefinition` it is. Throws an `Error` naming the field when the value is no
  * exercise or has a key the definition does not know; whether the engine can run it is for
  * `validateExercise`.
@@ -79,10 +100,11 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	if (typeof json.version !== 'number') throw new Error('version must be a number');
 	if (typeof json.mechanic !== 'string') throw new Error('mechanic must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
-	const { figures, meter, ...rest } = json;
+	const { figures, forms, meter, ...rest } = json;
 	return {
 		...(rest as unknown as ExerciseDefinition),
 		...(figures !== undefined && { figures: figuresFromJson(figures) }),
+		...(forms !== undefined && { forms: formsFromJson(forms) }),
 		...(meter !== undefined && { meter: meterFromJson(meter, 'meter') })
 	};
 }
