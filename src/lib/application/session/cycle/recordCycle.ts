@@ -1,14 +1,17 @@
 import { rhythmFigureRules, type RhythmItem } from '$lib/domain/mechanics';
+import type { FigureParams } from '$lib/domain/exercise/figureParams';
 import {
 	figureToJson,
+	type Accompaniment,
 	type Aid,
 	type CycleReport,
+	type CycleThresholds,
+	type ExpectationWindow,
 	type Figure,
-	type LevelParams,
-	type RoundOutcome
+	type RoundOutcome,
+	type TempoSegment
 } from '$lib/domain/time';
 import { cardKey, type Attempt, type RecordedObservation } from '$lib/domain/types';
-import { tempoSegmentOf } from './rhythmExercise';
 
 /** `Attempt.data` of a rhythm cycle: the figure and level played, and the judge's report. */
 export interface RhythmAttemptData {
@@ -17,13 +20,21 @@ export interface RhythmAttemptData {
 	report: CycleReport;
 }
 
-/** What a played cycle was set to: the figure, the level and its params, the landing bar. */
+/**
+ * What a played cycle was set to: the figure, the level and what it played at (its bars, its
+ * accompaniment, its tempo, its window and its thresholds), the landing bar.
+ */
 export interface CycleSetup {
 	figureId: string;
 	figure: Figure;
 	/** Level index (0 = level 1, aid levels negative). */
 	level: number;
-	params: LevelParams;
+	cycleBars: number;
+	accompaniment: Accompaniment;
+	/** From the start, its beat the exercise's. */
+	tempo: TempoSegment;
+	window: ExpectationWindow;
+	thresholds: CycleThresholds;
 	/** The cycle's first bar in the loops of the figure and of the accompaniment (`figureExpectations`). */
 	startBar: number;
 }
@@ -40,7 +51,7 @@ export interface CyclePlanRecord {
 	accompaniment: { figure: unknown; bars: ('on' | 'off')[] };
 	tempo: { at: string; bpm: number; unit: string };
 	window: { ms: number } | { ofGap: string };
-	thresholds: LevelParams['thresholds'];
+	thresholds: CycleThresholds;
 	/**
 	 * Audio time (s) the cycle started, on the clock the diagnostic journal uses too: the oracle
 	 * places the cycle by it. Absent from the cycles stored before it was kept.
@@ -49,13 +60,11 @@ export interface CyclePlanRecord {
 }
 
 export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
-	const { params } = setup;
-	const { window, accompaniment } = params;
-	const tempo = tempoSegmentOf(params);
+	const { window, accompaniment, tempo } = setup;
 	return {
 		figureId: setup.figureId,
 		figure: figureToJson(setup.figure),
-		cycleBars: params.cycleBars,
+		cycleBars: setup.cycleBars,
 		startBar: setup.startBar,
 		accompaniment: {
 			figure: figureToJson(accompaniment.figure),
@@ -63,37 +72,38 @@ export function cyclePlanRecord(setup: CycleSetup): CyclePlanRecord {
 		},
 		tempo: { at: tempo.at.toString(), bpm: tempo.bpm, unit: tempo.unit.toString() },
 		window: 'ms' in window ? { ms: window.ms } : { ofGap: window.ofGap.toString() },
-		thresholds: { ...params.thresholds }
+		thresholds: { ...setup.thresholds }
 	};
 }
 
 /**
- * The aids a cycle is played with: the cursor when the level gives it, a listen to the figure
- * just before when the level counts listening as an aid (`listen: 'aid'`), the aid level, and
- * the figure played along with it (the anti-blocking's remedy).
+ * The aids a round is played with beyond its item's: the cursor when the level gives it, a listen
+ * to the content just before when the level counts listening as an aid (`listen: 'aid'`), the aid
+ * level, and the content played along with it (the anti-blocking's remedy).
  */
 export function cycleAids(input: {
-	params: LevelParams;
+	cursor: boolean;
+	listen: FigureParams['listen'];
 	aidLevel: boolean;
 	listened: boolean;
 	playAlong: boolean;
 }): Aid[] {
-	const { params, aidLevel, listened, playAlong } = input;
+	const { cursor, listen, aidLevel, listened, playAlong } = input;
 	return [
-		...(params.cursor ? (['cursor'] as const) : []),
-		...(listened && params.listen === 'aid' ? (['listen'] as const) : []),
+		...(cursor ? (['cursor'] as const) : []),
+		...(listened && listen === 'aid' ? (['listen'] as const) : []),
 		...(aidLevel ? (['aid-level'] as const) : []),
 		...(playAlong ? (['play-along'] as const) : [])
 	];
 }
 
 /**
- * Whether a cycle had help beyond its level's own (`nextLevelState`'s `aided`): the cursor the
- * level gives and the aid level are the level itself, so a cycle with them alone still counts
- * to move up; any other aid (a listen worth an aid, playing along) does not.
+ * Whether a round had help beyond its level's own (`nextLevelState`'s `aided`): the cursor the
+ * level gives (`cursor`) and the aid level are the level itself, so a round with them alone still
+ * counts to move up; any other aid (a listen worth an aid, playing along) does not.
  */
-export function levelAided(aids: readonly Aid[], params: LevelParams): boolean {
-	return aids.some((aid) => !(aid === 'aid-level' || (aid === 'cursor' && params.cursor)));
+export function levelAided(aids: readonly Aid[], cursor: boolean): boolean {
+	return aids.some((aid) => !(aid === 'aid-level' || (aid === 'cursor' && cursor)));
 }
 
 /**
@@ -123,7 +133,7 @@ export function recordCycle(input: {
 		temperature: 'hot',
 		aids: [...outcome.aids],
 		promptedAt: input.promptedAt,
-		tempoBpm: setup.params.tempo,
+		tempoBpm: setup.tempo.bpm,
 		leadBeats: null,
 		timingOffsetMs: outcome.measures.placement?.value ?? null,
 		reactionMs: null,

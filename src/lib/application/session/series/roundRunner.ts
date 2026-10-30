@@ -6,7 +6,7 @@ import {
 	segmentAt,
 	type Aid,
 	type CycleReport,
-	type LevelParams,
+	type CycleThresholds,
 	type RoundEvent,
 	type RoundOutcome,
 	type RoundPlan,
@@ -88,7 +88,7 @@ export class RoundRunner {
 		/** The calibrated latency of a sensor; the round takes that of its first expectation's. */
 		latencyOf: (sensor: SensorKind) => CycleReport['latency'];
 		/** The level's thresholds, for a verdict that reads them; none by default. */
-		thresholds?: LevelParams['thresholds'] | null;
+		thresholds?: CycleThresholds | null;
 		/** The aids the round is played with; by default the item's own (`aidsOf`). */
 		aids?: Aid[];
 		sources: ReadonlyMap<SensorKind, ObservationSource>;

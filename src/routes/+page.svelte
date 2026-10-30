@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
 	import type { TriadsHome } from '$lib/application/app';
-	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
+	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
@@ -23,7 +23,7 @@
 			},
 			() => {}
 		);
-		void services.resting(RHYTHM_EXERCISES.map((exercise) => exercise.id)).then(
+		void services.resting(exerciseSessionExercises().map((exercise) => exercise.id)).then(
 			(value) => {
 				if (!cancelled) resting = value;
 			},
@@ -87,7 +87,7 @@
 		ontriads={startTriads}
 		{gesture}
 		ongesture={startGesture}
-		rhythm={RHYTHM_EXERCISES}
+		exercises={exerciseSessionExercises()}
 		{resting}
 	/>
 {/if}

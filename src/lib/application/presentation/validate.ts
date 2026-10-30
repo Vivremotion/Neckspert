@@ -1,3 +1,4 @@
+import { writesFigure } from '$lib/domain/exercise/figureParams';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
@@ -62,7 +63,8 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
  * view the screen does not have (`PLAY_VIEW_NAMES`); a presentation drawn by a view that does not
  * read the model every presentation shares (`PROMPT_STAGE_VIEWS`), or such a view with no
  * presentation to read; a response exercise (one that writes its `round`) with neither a
- * presentation nor a screen of its mechanic presenter (`stageOf`). The view is the exercise's,
+ * presentation nor a screen of its mechanic presenter (`stageOf`), unless its round plays a figure
+ * (`writesFigure`: its screen is the figure's, which the series builds). The view is the exercise's,
  * else the one the series gives it (`playViewOf`).
  */
 export function screenProblem(
@@ -83,7 +85,7 @@ export function screenProblem(
 	if (readsPrompt) {
 		return `${id}: view "${drawn}" draws a presentation, and the exercise writes none`;
 	}
-	if (definition.round === undefined) return null;
+	if (definition.round === undefined || writesFigure(definition)) return null;
 	const presenter = Object.hasOwn(presenters, definition.mechanic)
 		? presenters[definition.mechanic]
 		: undefined;

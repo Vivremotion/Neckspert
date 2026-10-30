@@ -2,9 +2,11 @@ import {
 	clickAccompaniment,
 	METER_4_4,
 	type Accompaniment,
-	type Figure,
-	type LevelParams
+	type CycleThresholds,
+	type ExpectationWindow,
+	type Figure
 } from '$lib/domain/time';
+import type { FigureParams } from './figureParams';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import type { LevelOverrides } from './levels';
 import type { RoundTemplate } from './round';
@@ -15,9 +17,10 @@ import type { ExerciseDefinition, ExercisePacing } from './types';
  * after cycle, the accompaniment taken away or the tempo raised as the player gets it. Figures
  * are written in LilyPond once, here, and are plain data afterwards; the how-to texts are ours.
  *
- * Their params are the `LevelParams` of the rhythm but the tempo, which each writes as its own
- * `tempo`, in quarter notes per minute, plus their `pacing`: runs of cycles and a breath of at
- * least `SHORTEST_BREATH_MS` between them. A level overrides dotted paths of the exercise's params
+ * Their params are what their round reads (accompaniment, cycle bars, window) and their figure
+ * params (`FigureParams`); each writes its tempo as its own `tempo`, in quarter notes per minute,
+ * and its `pacing`: two bars of listen-in, runs of cycles and a breath of at least
+ * `SHORTEST_BREATH_MS` between them. A level overrides dotted paths of the exercise's params
  * alone (`resolvedParamsOf`), the tempo included, so each level below states everything that
  * differs from the params, the changes of the levels before it included. Each asks the
  * anti-blocking (`flow.antiBlocking`).
@@ -36,7 +39,7 @@ function playedThenSilent(played: number, silent: number): ('on' | 'off')[] {
 }
 
 /** The thresholds that every rhythm exercise starts from (the measures of the judge, 0-100 or ms). */
-const BASE_THRESHOLDS: LevelParams['thresholds'] = {
+const BASE_THRESHOLDS: CycleThresholds = {
 	regularity: 40,
 	holdOffset: 60,
 	holdDrift: 25,
@@ -46,14 +49,23 @@ const BASE_THRESHOLDS: LevelParams['thresholds'] = {
 /** The shortest breath between two runs of cycles, rounded up to whole bars. */
 const SHORTEST_BREATH_MS = 4000;
 
-/** The params of a rhythm exercise: its level params but the tempo, and its pacing. */
-type RhythmParams = Omit<LevelParams, 'tempo'> & {
-	pacing: Pick<ExercisePacing, 'roundsPerBreath' | 'breathMinMs'>;
+/** Bars of the accompaniment alone before a run's counted bar. */
+const LISTEN_IN_BARS = 2;
+
+/** The params of a rhythm exercise: what its round reads, its figure params and its pacing. */
+type RhythmParams = FigureParams & {
+	accompaniment: Accompaniment;
+	cycleBars: number;
+	window: ExpectationWindow;
+	pacing: Pick<ExercisePacing, 'roundsPerBreath' | 'breathMinMs' | 'listenInBars' | 'countIn'>;
 };
 
-/** Runs of `rounds` cycles chained without a gap, a breath of at least `SHORTEST_BREATH_MS` after each. */
+/**
+ * Two bars of listen-in, then runs of `rounds` cycles chained without a gap, a breath of at least
+ * `SHORTEST_BREATH_MS` after each.
+ */
 function runsOf(rounds: number): RhythmParams['pacing'] {
-	return { roundsPerBreath: rounds, breathMinMs: SHORTEST_BREATH_MS };
+	return { listenInBars: LISTEN_IN_BARS, roundsPerBreath: rounds, breathMinMs: SHORTEST_BREATH_MS };
 }
 
 function figureOf(text: string): Figure {
@@ -158,10 +170,9 @@ const TWO_FOUR_PARAMS: RhythmParams = {
 	feedback: 'every-cycle',
 	listen: 'aid',
 	cursor: true,
-	// The click on 2 and 4 is the count: the line starts right after two bars of it.
-	countIn: false,
-	// A new line at each cycle: one cycle, then a breath.
-	pacing: runsOf(1),
+	// A new line at each cycle: one cycle, then a breath. The click on 2 and 4 is the count: the
+	// line starts right after two bars of it.
+	pacing: { ...runsOf(1), countIn: false },
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -246,18 +257,3 @@ export const RHYTHM_EXERCISES: readonly ExerciseDefinition[] = [
 	RHYTHM_TWO_FOUR,
 	RHYTHM_OFFBEATS
 ];
-
-/**
- * The figures of an exercise a level can play: those whose bars divide the level's cycle, the
- * longest ones only (a cycle of two bars plays the two-bar figure, not the bar twice).
- */
-export function eligibleFigures(
-	exercise: Pick<ExerciseDefinition, 'figures'>,
-	params: Pick<LevelParams, 'cycleBars'>
-): { id: string; figure: Figure }[] {
-	const fitting = (exercise.figures ?? []).filter(
-		({ figure }) => params.cycleBars % figure.bars === 0
-	);
-	const longest = Math.max(0, ...fitting.map(({ figure }) => figure.bars));
-	return fitting.filter(({ figure }) => figure.bars === longest);
-}

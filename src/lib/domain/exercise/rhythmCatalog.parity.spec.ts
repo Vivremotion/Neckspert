@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RhythmItem } from '$lib/domain/mechanics';
-import { levelRange, METER_4_4, type LevelParams, type RoundPlan } from '$lib/domain/time';
+import { levelRange, METER_4_4, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import { resolvedParamsOf } from './levels';
-import { compileRound } from './round';
-import { eligibleFigures, RHYTHM_EXERCISES } from './rhythmCatalog';
+import { compileRound, figureItemsAt } from './round';
+import { RHYTHM_EXERCISES } from './rhythmCatalog';
 
 /*
  * The plans the three rhythm exercises compile, frozen when the cycle compiler they replaced was
@@ -43,6 +42,9 @@ function describePlan(plan: RoundPlan) {
 		length: plan.length.toString(),
 		handover: plan.handover?.toString() ?? null,
 		mutedBars: plan.mutedBars,
+		listenUntil: plan.listenUntil?.toString() ?? null,
+		barOffset: plan.barOffset?.toString() ?? null,
+		countEndsOn: plan.countEndsOn ?? null,
 		policy: plan.policy,
 		every: [...shapes],
 		expectations: plan.expectations.map((e) => `${e.at?.toString() ?? 'free'}:${e.bar}`).join(' ')
@@ -55,8 +57,7 @@ describe('the plans of the rhythm exercises', () => {
 		for (let level = lowest; level <= highest; level++) {
 			it(`${exercise.id} at level ${level} compiles as it always has`, () => {
 				const plans: Record<string, unknown> = {};
-				const params = resolvedParamsOf(exercise, { exerciseLevel: level, itemLevel: null });
-				const figures = eligibleFigures(exercise, params as unknown as LevelParams);
+				const figures = figureItemsAt(exercise, level, METER_4_4) ?? [];
 				expect(figures.length).toBeGreaterThan(0);
 				for (const { id } of figures) {
 					for (const fromRunStart of [0, 1, 2, 3]) {
@@ -71,5 +72,16 @@ describe('the plans of the rhythm exercises', () => {
 				expect(plans).toMatchSnapshot();
 			});
 		}
+		it(`${exercise.id} compiles the first round of a run, its place not known yet`, () => {
+			const [{ id }] = figureItemsAt(exercise, 0, METER_4_4) ?? [];
+			expect(
+				describePlan(
+					compileRound(exercise, item(exercise.id, id, 0), METER_4_4, {
+						previewBeats: 0,
+						fromRunStart: null
+					})
+				)
+			).toMatchSnapshot();
+		});
 	}
 });

@@ -7,15 +7,19 @@ import {
 	Fraction,
 	levelRange,
 	validateFigure,
-	type Level,
-	type LevelParams
+	METER_4_4,
+	type Accompaniment,
+	type Feedback,
+	type CycleThresholds,
+	type ExpectationWindow,
+	type Level
 } from '$lib/domain/time';
 import { mechanicRules } from '$lib/domain/mechanics';
 import { rhythmFigureRules } from '$lib/domain/mechanics/rhythmFigure';
 import { EXERCISES, exerciseById } from './catalog';
 import { exerciseLevelsOf, resolvedParamsOf } from './levels';
+import { figureItemsAt } from './round';
 import {
-	eligibleFigures,
 	RHYTHM_EXERCISES,
 	RHYTHM_OFFBEATS,
 	RHYTHM_SILENT_BARS,
@@ -28,12 +32,29 @@ function levelsOf(exercise: ExerciseDefinition): readonly Level<Record<string, u
 	return exercise.levels;
 }
 
-/** The params of an exercise level, read as the rhythm reads them. */
-function paramsAt(exercise: ExerciseDefinition, level: number): LevelParams {
+/** What the rhythm's levels write, among their resolved params. */
+interface RhythmLevelParams {
+	accompaniment: Accompaniment;
+	cycleBars: number;
+	tempo: number;
+	window: ExpectationWindow;
+	feedback: Feedback;
+	listen: 'free' | 'aid' | 'none';
+	cursor: boolean;
+	thresholds: CycleThresholds;
+}
+
+/** The params of an exercise level, read as the rhythm writes them. */
+function paramsAt(exercise: ExerciseDefinition, level: number): RhythmLevelParams {
 	return resolvedParamsOf(exercise, {
 		exerciseLevel: level,
 		itemLevel: null
-	}) as unknown as LevelParams;
+	}) as unknown as RhythmLevelParams;
+}
+
+/** The figures a level plays: those that fill its round. */
+function playableAt(exercise: ExerciseDefinition, level: number) {
+	return figureItemsAt(exercise, level, METER_4_4) ?? [];
 }
 
 /** Keys every exercise's resolved params carry besides its level params. */
@@ -89,7 +110,8 @@ const TWO_AND_FOUR = {
 /**
  * Every level of every rhythm exercise as `resolveLevel` resolved it over the exercise's `base`
  * params before H6 (JSON, the tempo as its quarter-note bpm): frozen, the proof that writing the
- * levels as paths changed nothing.
+ * levels as paths changed nothing. Since plan S (D7), the listen-in and the count are in the
+ * pacing: the two bars the cycle always listened in, `countIn` written by « 2 et 4 » alone.
  */
 const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>> = {
 	'rhythm-silent-bars': {
@@ -101,7 +123,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		0: {
@@ -112,7 +134,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		1: {
@@ -123,7 +145,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		2: {
@@ -134,7 +156,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		3: {
@@ -145,7 +167,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		4: {
@@ -156,7 +178,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'summary',
 			listen: 'free',
 			cursor: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		5: {
@@ -167,7 +189,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'out-of-tolerance',
 			listen: 'free',
 			cursor: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 20, holdOffset: 25, holdDrift: 10, precision: 30 }
 		}
 	},
@@ -180,8 +202,13 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'aid',
 			cursor: true,
-			countIn: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 1, breathMinMs: 4000 },
+			pacing: {
+				respirationBars: 1,
+				listenInBars: 2,
+				roundsPerBreath: 1,
+				breathMinMs: 4000,
+				countIn: false
+			},
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		0: {
@@ -192,8 +219,13 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'aid',
 			cursor: true,
-			countIn: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 1, breathMinMs: 4000 },
+			pacing: {
+				respirationBars: 1,
+				listenInBars: 2,
+				roundsPerBreath: 1,
+				breathMinMs: 4000,
+				countIn: false
+			},
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		1: {
@@ -204,8 +236,13 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'aid',
 			cursor: true,
-			countIn: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 1, breathMinMs: 4000 },
+			pacing: {
+				respirationBars: 1,
+				listenInBars: 2,
+				roundsPerBreath: 1,
+				breathMinMs: 4000,
+				countIn: false
+			},
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		2: {
@@ -216,8 +253,13 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'aid',
 			cursor: false,
-			countIn: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 1, breathMinMs: 4000 },
+			pacing: {
+				respirationBars: 1,
+				listenInBars: 2,
+				roundsPerBreath: 1,
+				breathMinMs: 4000,
+				countIn: false
+			},
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		}
 	},
@@ -230,7 +272,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		0: {
@@ -241,7 +283,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 80, holdOffset: 200, holdDrift: 100, precision: 60 }
 		},
 		1: {
@@ -252,7 +294,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		2: {
@@ -263,7 +305,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: true,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		},
 		3: {
@@ -274,7 +316,7 @@ const RESOLVED_BEFORE_H6: Record<string, Record<number, Record<string, unknown>>
 			feedback: 'every-cycle',
 			listen: 'free',
 			cursor: false,
-			pacing: { respirationBars: 1, roundsPerBreath: 4, breathMinMs: 4000 },
+			pacing: { respirationBars: 1, listenInBars: 2, roundsPerBreath: 4, breathMinMs: 4000 },
 			thresholds: { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 }
 		}
 	}
@@ -319,7 +361,7 @@ describe('the rhythm exercises', () => {
 		for (const exercise of RHYTHM_EXERCISES) {
 			for (const index of indexes(levelsOf(exercise))) {
 				const params = paramsAt(exercise, index);
-				const playable = eligibleFigures(exercise, params);
+				const playable = playableAt(exercise, index);
 				expect(playable.length, `${exercise.id} level ${index}`).toBeGreaterThan(0);
 				for (const { figure } of playable) expect(params.cycleBars % figure.bars).toBe(0);
 			}
@@ -360,7 +402,13 @@ describe('the rhythm exercises', () => {
 		// The offbeat figure attacks the first beat of the bar too: its how-to says so.
 		expect(RHYTHM_OFFBEATS.howTo?.fr).toContain('plus le premier temps de la mesure');
 		expect(RHYTHM_OFFBEATS.howTo?.en).toContain('plus the first beat of the bar');
-		expect(RHYTHM_SILENT_BARS.params.pacing).toEqual({ roundsPerBreath: 4, breathMinMs: 4000 });
+		expect(RHYTHM_SILENT_BARS.params.pacing).toEqual({
+			listenInBars: 2,
+			roundsPerBreath: 4,
+			breathMinMs: 4000
+		});
+		// Two bars of listen-in, as the cycle always had; on 2 and 4, no counted bar (D7 of plan S).
+		expect(RHYTHM_TWO_FOUR.params.pacing).toMatchObject({ listenInBars: 2, countIn: false });
 		expect(RHYTHM_SILENT_BARS.params.thresholds).toEqual({
 			regularity: 40,
 			holdOffset: 60,
@@ -410,12 +458,12 @@ describe('the rhythm exercises', () => {
 	it('play offbeats on one bar, then on two bars whose second has no attack on the 1', () => {
 		expect(RHYTHM_OFFBEATS.pick).toBe('loop');
 		const level1 = paramsAt(RHYTHM_OFFBEATS, 0);
-		expect(eligibleFigures(RHYTHM_OFFBEATS, level1).map((f) => f.figure.bars)).toEqual([1]);
+		expect(playableAt(RHYTHM_OFFBEATS, 0).map((f) => f.figure.bars)).toEqual([1]);
 		expect(level1.thresholds).toMatchObject({ regularity: 80, holdOffset: 200, holdDrift: 100 });
 
 		const level2 = paramsAt(RHYTHM_OFFBEATS, 1);
 		expect(level2.cycleBars).toBe(2);
-		const [two] = eligibleFigures(RHYTHM_OFFBEATS, level2);
+		const [two] = playableAt(RHYTHM_OFFBEATS, 1);
 		expect(two.figure.bars).toBe(2);
 		const attacks = attackPositions(two.figure);
 		expect(attacks.some((a) => a.equals(Fraction.ZERO))).toBe(true);
@@ -456,7 +504,7 @@ describe('the rhythm exercises', () => {
 			for (const index of indexes(levelsOf(exercise))) {
 				const params = resolvedParamsOf(exercise, { exerciseLevel: index, itemLevel: null });
 				const { breathMinMs } = params.pacing as { breathMinMs?: number };
-				const { tempo, accompaniment } = params as unknown as LevelParams;
+				const { tempo, accompaniment } = params as unknown as RhythmLevelParams;
 				const { meter } = accompaniment.figure;
 				const barMs = (barLength(meter).div(meter.unit).toNumber() * 60_000) / tempo;
 				const bars = Math.max(1, Math.ceil((breathMinMs ?? 0) / barMs - 1e-9));

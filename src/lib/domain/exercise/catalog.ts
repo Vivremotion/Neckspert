@@ -1,4 +1,5 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
+import { writesFigure } from './figureParams';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { RoundTemplate } from './round/types';
@@ -202,6 +203,16 @@ export const EXERCISES: readonly ExerciseDefinition[] = [
 	...GESTURE_EXERCISES,
 	...RHYTHM_EXERCISES
 ];
+
+/**
+ * The exercises played in an exercise session, in catalog order: those whose round writes a
+ * figure and that write levels. Read from the live catalog at each call.
+ */
+export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
+	return EXERCISES.filter(
+		(exercise) => writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0
+	);
+}
 
 export function exerciseById(id: ExerciseId): ExerciseDefinition {
 	const found = EXERCISES.find((exercise) => exercise.id === id);

@@ -386,6 +386,85 @@ export function roundAccompanimentOf(
 	return found;
 }
 
+/** The context of `item`'s round, its params resolved at its levels. */
+function contextOf(
+	definition: ExerciseDefinition,
+	item: PlannedItem,
+	meter: Meter,
+	resolved: { previewBeats: number }
+): Context {
+	return { definition, item, meter, params: roundParamsOf(definition, item, resolved) };
+}
+
+/** The round's first figure entry and its index; null when it writes none. */
+function firstFigureEntry(
+	template: RoundTemplate | undefined
+): { entry: FigureExpectationTemplate; i: number } | null {
+	const i = template?.expectations.findIndex(isFigureEntry) ?? -1;
+	return i < 0 ? null : { entry: template!.expectations[i] as FigureExpectationTemplate, i };
+}
+
+/**
+ * The figure the round's first figure entry plays for `item`, among the exercise's, in `meter`;
+ * null when the round writes none. Throws as `compileRound` does on a figure it cannot name.
+ */
+export function roundFigureOf(
+	definition: ExerciseDefinition,
+	item: PlannedItem,
+	meter: Meter
+): { id: string; figure: Figure } | null {
+	const first = firstFigureEntry(definition.round);
+	if (!first) return null;
+	const context = contextOf(definition, item, meter, { previewBeats: 0 });
+	return figureOf(context, `expectations[${first.i}].figure`, first.entry.figure);
+}
+
+/**
+ * The items a round that reads its figure on the item (`{ item: <name> }`, `ITEM_FIGURES`) can
+ * play at exercise level `exerciseLevel`: one per figure of the exercise, in `meter`, that fills
+ * the entry's bars from its place to the round's end a whole number of times, the longest only (a
+ * round of two bars plays the two-bar figure, not the bar twice). Null when the round's first
+ * figure entry does not read its figure on the item, or it writes none.
+ */
+export function figureItemsAt(
+	definition: ExerciseDefinition,
+	exerciseLevel: number,
+	meter: Meter
+): { id: string; figure: Figure; item: unknown }[] | null {
+	const template = definition.round;
+	const first = firstFigureEntry(template);
+	if (!template || !first || !('item' in first.entry.figure)) return null;
+	const name = first.entry.figure.item;
+	const reader = Object.hasOwn(ITEM_FIGURES, name) ? ITEM_FIGURES[name] : undefined;
+	if (!reader) {
+		throw new Error(
+			`${definition.id}: round.expectations[${first.i}].figure reads unknown item figure "${name}"`
+		);
+	}
+	const bar = barLength(meter);
+	const fitting = (definition.figures ?? []).flatMap(({ id, figure }) => {
+		const item = reader.itemOf(id, exerciseLevel);
+		const planned: PlannedItem = {
+			exerciseId: definition.id,
+			mechanic: definition.mechanic,
+			exerciseLevel,
+			item,
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null
+		};
+		const context = contextOf(definition, planned, meter, { previewBeats: 0 });
+		const from = position(context, `expectations[${first.i}].at`, first.entry.at);
+		const bars = lengthOf(context, template.length).sub(from).div(bar);
+		const fills =
+			sameMeter(figure.meter, meter) && bars.d === 1 && bars.n > 0 && bars.n % figure.bars === 0;
+		return fills ? [{ id, figure, item }] : [];
+	});
+	const longest = Math.max(0, ...fitting.map(({ figure }) => figure.bars));
+	return fitting.filter(({ figure }) => figure.bars === longest);
+}
+
 function lengthOf(context: Context, template: RoundTemplate['length']): Fraction {
 	const bar = barLength(context.meter);
 	let length = Fraction.ZERO;
@@ -421,12 +500,7 @@ export function compileRound(
 ): RoundPlan {
 	const template = definition.round;
 	if (!template) throw new Error(`${definition.id}: the exercise has no round template`);
-	const context: Context = {
-		definition,
-		item,
-		meter,
-		params: roundParamsOf(definition, item, resolved)
-	};
+	const context = contextOf(definition, item, meter, resolved);
 	let prompt: Fraction | null = null;
 	if (template.prompt) {
 		const lead = num(context, 'prompt.lead', template.prompt.lead);

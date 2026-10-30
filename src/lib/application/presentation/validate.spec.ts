@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
+import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
+import type { RoundTemplate } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
@@ -61,14 +63,6 @@ describe('presentationProblem', () => {
 
 describe('screenProblem', () => {
 	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
-	/**
-	 * The rhythm draws its screen through the series' stage dispatch (`cycleStage`), not through a
-	 * presenter's `stageOf`: this stands for it where the catalog is checked.
-	 */
-	const catalogPresenters = {
-		...presenters,
-		'rhythm-figure': { stageOf: () => ({ model: null }) }
-	};
 	/** Locate with neither its presentation nor its view. */
 	const bare: ExerciseDefinition = { ...LOCATE_NECK, view: undefined, presentation: undefined };
 
@@ -81,14 +75,30 @@ describe('screenProblem', () => {
 		);
 	});
 
-	it('accepts the catalog: a presentation, a screen of its mechanic, or no round', () => {
+	it('accepts the catalog: a presentation, a screen of its mechanic, a figure, or no round', () => {
 		for (const exercise of EXERCISES) {
-			expect([exercise.id, screenProblem(exercise, catalogPresenters)]).toEqual([
-				exercise.id,
-				null
-			]);
+			expect([exercise.id, screenProblem(exercise, presenters)]).toEqual([exercise.id, null]);
 		}
 		expect(screenProblem({ ...bare, round: undefined }, {})).toBeNull();
+	});
+
+	it('accepts a round that plays a figure with neither a presentation nor a screen of its mechanic', () => {
+		// Its screen is the figure's, built by the series from the round's figure.
+		expect(screenProblem(RHYTHM_OFFBEATS, {})).toBeNull();
+		const figureRound: RoundTemplate = {
+			expectations: [
+				{
+					figure: { id: 'main' },
+					at: { bars: 0 },
+					sensor: 'attack',
+					content: null,
+					window: { ms: 80 }
+				}
+			],
+			length: { bars: 1 },
+			policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+		};
+		expect(screenProblem({ ...bare, view: 'rhythm-figure', round: figureRound }, {})).toBeNull();
 	});
 
 	it('draws a presentation without a view on the lane', () => {

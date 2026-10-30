@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
+import { exerciseSessionExercises } from '$lib/domain/exercise';
 import type { HomeStats } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
 import HomeScreen from './HomeScreen.svelte';
@@ -145,38 +145,46 @@ describe('HomeScreen', () => {
 		expect(ongesture).toHaveBeenCalledOnce();
 	});
 
-	describe('rhythm', () => {
-		const rhythm = RHYTHM_EXERCISES;
+	describe('exercises', () => {
+		const exercises = exerciseSessionExercises();
 
-		it('has no rhythm block without the exercises', () => {
+		it('has no exercise block without the exercises', () => {
 			render(HomeScreen, { props: props() });
 			expect(screen.queryAllByRole('link')).toHaveLength(0);
 		});
 
 		it('has one block per exercise, each linking to its own session', () => {
-			render(HomeScreen, { props: props({ rhythm }) });
+			render(HomeScreen, { props: props({ exercises }) });
 			const links = screen.getAllByRole('link') as HTMLAnchorElement[];
 			expect(links.map((link) => link.getAttribute('href'))).toEqual(
-				rhythm.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
+				exercises.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
 			);
 			links.forEach((link, i) => {
-				expect(link.textContent).toContain('Rythme');
-				expect(link.textContent).toContain(rhythm[i].title?.fr);
+				expect(link.textContent).toContain('Exercices');
+				expect(link.textContent).toContain(exercises[i].title?.fr);
 			});
 		});
 
 		it('marks an exercise resting after a change of air', () => {
-			render(HomeScreen, { props: props({ rhythm, resting: ['rhythm-offbeats'] }) });
+			render(HomeScreen, { props: props({ exercises, resting: ['rhythm-offbeats'] }) });
 			const offbeats = screen.getByRole('link', { name: /Contretemps/ });
 			expect(offbeats.closest('li')?.textContent).toContain('On y revient plus tard');
 			const silent = screen.getByRole('link', { name: /Mesures silencieuses/ });
 			expect(silent.closest('li')?.textContent).not.toContain('On y revient plus tard');
 		});
 
+		it('names an exercise without a title by its id', () => {
+			render(HomeScreen, { props: props({ exercises: [{ id: 'my-scale' }] }) });
+			expect(screen.getByRole('link', { name: /my-scale/ }).getAttribute('href')).toBe(
+				'/session?kind=exercise&exercise=my-scale'
+			);
+		});
+
 		it('names the exercises in English', () => {
 			i18n.locale = 'en';
-			render(HomeScreen, { props: props({ rhythm }) });
+			render(HomeScreen, { props: props({ exercises }) });
 			expect(screen.getByRole('link', { name: /Offbeats/ })).toBeTruthy();
+			expect(screen.getByRole('link', { name: /Offbeats/ }).textContent).toContain('Exercises');
 		});
 	});
 });

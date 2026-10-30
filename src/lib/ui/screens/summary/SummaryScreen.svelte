@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
+	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import { GLOSSARY, termOfFailure, termOfMeasure } from '$lib/domain/glossary';
 	import type { MeasureId } from '$lib/domain/time';
 	import Term from '$lib/ui/primitives/Term.svelte';
@@ -96,9 +96,9 @@
 		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
 	}
 
-	/** A rhythm exercise by its name in the current language. */
+	/** An exercise session's exercise by its name in the current language. */
 	function rhythmTitle(exerciseId: string): string {
-		const exercise = RHYTHM_EXERCISES.find((candidate) => candidate.id === exerciseId);
+		const exercise = exerciseSessionExercises().find((candidate) => candidate.id === exerciseId);
 		return exercise?.title?.[i18n.locale] ?? exerciseId;
 	}
 
@@ -181,7 +181,7 @@
 								>
 							{/if}
 							<span>{t.tryInstead}</span>
-							{#each RHYTHM_EXERCISES.filter((e) => e.id !== rhythm.exerciseId) as other (other.id)}
+							{#each exerciseSessionExercises().filter((e) => e.id !== rhythm.exerciseId) as other (other.id)}
 								<a href={`/session?kind=exercise&exercise=${other.id}`}
 									>{other.title?.[i18n.locale] ?? other.id}</a
 								>

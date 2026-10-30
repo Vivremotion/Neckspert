@@ -1,21 +1,28 @@
-import { resolvedParamsOf } from '$lib/domain/exercise/levels';
-import { ITEM_FIGURES } from '$lib/domain/derivations';
-import { compileRound } from '$lib/domain/exercise/round';
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { RhythmItem } from '$lib/domain/mechanics';
+import { figureParamsOf, writesFigure, type FigureParams } from '$lib/domain/exercise/figureParams';
+import { pacingAt, tempoOf } from '$lib/domain/exercise/levels';
 import {
-	LISTEN_IN_BARS,
+	compileRound,
+	isFigureEntry,
+	roundAccompanimentOf,
+	roundFigureOf
+} from '$lib/domain/exercise/round';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import {
 	MATCH_LIMIT,
+	METER_4_4,
+	ROUND_MODES,
 	accompanimentFrom,
+	barLength,
+	checkStart,
 	landingBar,
 	unmuted,
 	type Accompaniment,
 	type Aid,
 	type CycleReport,
+	type CycleThresholds,
 	type CycleVerdict,
 	type Figure,
 	Fraction,
-	type LevelParams,
 	type Meter,
 	type ResponseValue,
 	type RoundOutcome,
@@ -24,13 +31,13 @@ import {
 import type { Attempt, CardKey, Execution, PlannedItem } from '$lib/domain/types';
 import { aidsOf } from '../aids';
 import { cycleAids, levelAided, recordCycle } from '../cycle/recordCycle';
-import { figureOf, rhythmParamsOf } from '../cycle/rhythmExercise';
 import { responseAttempt } from './recordResponse';
 
 /**
- * How the series plays an item's round: the one place that tells a cycle (an exercise that writes
- * `figures`) from a round of another kind. Every round compiles from its exercise's template
- * (`compileRound`); everything else the series asks of a round's data goes through here.
+ * How the series plays an item's round: what it asks of a round's data beyond its plan, read for
+ * every exercise from its compiled round and its resolved params (`figureParamsOf`, `pacing`), with
+ * no question of what kind of round it is. Every round compiles from its exercise's template
+ * (`compileRound`).
  */
 
 /**
@@ -38,17 +45,6 @@ import { responseAttempt } from './recordResponse';
  * late (detection, the scheduler's wake-up) still reaches it.
  */
 export const SETTLE_AFTER_BARS = Fraction.of(1, 4);
-
-/**
- * Its rounds are cycles of a figure (D8): its items are the figures it writes (`ITEM_FIGURES`),
- * until the rhythm is written as a round template whose figure entry reads them.
- */
-export function playsCycles(definition: ExerciseDefinition): boolean {
-	return (
-		(definition.figures?.length ?? 0) > 0 &&
-		Object.values(ITEM_FIGURES).some((reader) => reader.reads.includes(definition.mechanic))
-	);
-}
 
 /**
  * The plan of `item`'s round in `meter`. `fromRunStart`: where it starts, in whole bars from the
@@ -69,8 +65,8 @@ export function compilePlan(
 
 /** What the level of a round gives its judge beyond its plan, and how long it keeps listening. */
 export interface RoundGiven {
-	/** The thresholds a verdict that reads them judges against; null when the exercise writes none. */
-	thresholds: LevelParams['thresholds'] | null;
+	/** The thresholds a verdict that reads them judges against; null for a verdict that reads none. */
+	thresholds: CycleThresholds | null;
 	/** The aids the round is played with. */
 	aids: Aid[];
 	/**
@@ -93,87 +89,87 @@ const UNHELPED: RoundHelp = { listened: false, playAlong: false };
 export function roundGiven(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
+	plan: RoundPlan,
 	help: RoundHelp = UNHELPED
 ): RoundGiven {
-	if (playsCycles(definition)) {
-		const params = rhythmParamsOf(definition, item.exerciseLevel);
-		return {
-			thresholds: params.thresholds,
-			aids: cycleAids({
-				params,
+	const params = figureParamsOf(definition, item.exerciseLevel);
+	return {
+		thresholds: ROUND_MODES.verdicts[plan.policy.verdict]?.readsThresholds
+			? params.thresholds
+			: null,
+		aids: [
+			...aidsOf(item),
+			...cycleAids({
+				cursor: params.cursor,
+				listen: params.listen,
 				aidLevel: item.exerciseLevel < 0,
 				listened: help.listened,
 				playAlong: help.playAlong
-			}),
-			settleAfter: SETTLE_AFTER_BARS
-		};
-	}
-	const { thresholds } = resolvedParamsOf(definition, {
-		exerciseLevel: item.exerciseLevel,
-		itemLevel: item.level ?? null,
-		mechanic: item.mechanic
-	});
-	return {
-		thresholds:
-			typeof thresholds === 'object' && thresholds !== null
-				? (thresholds as LevelParams['thresholds'])
-				: null,
-		aids: aidsOf(item),
-		settleAfter: null
+			})
+		],
+		settleAfter: plan.policy.unit === 'cycle' ? SETTLE_AFTER_BARS : null
 	};
 }
 
 /**
  * Whether a round's aids helped beyond what its level gives (`nextLevelState`'s `aided`): for a
- * cycle, its level's cursor and aid level are the level itself (`levelAided`); otherwise any aid.
+ * round that plays a figure, its level's cursor and aid level are the level itself (`levelAided`);
+ * otherwise any aid.
  */
 export function aidedBeyondLevel(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	aids: readonly Aid[]
 ): boolean {
-	if (playsCycles(definition)) {
-		return levelAided(aids, rhythmParamsOf(definition, item.exerciseLevel));
+	if (writesFigure(definition)) {
+		return levelAided(aids, figureParamsOf(definition, item.exerciseLevel).cursor);
 	}
 	return aids.length > 0;
 }
 
 /** The exercise can make its content sound (a figure): it can be listened to, and played along. */
 export function canSound(definition: ExerciseDefinition): boolean {
-	return playsCycles(definition);
+	return writesFigure(definition);
+}
+
+/** The meter an exercise is played in. */
+function meterOf(definition: ExerciseDefinition): Meter {
+	return definition.meter ?? METER_4_4;
 }
 
 /**
- * The figure `item`'s round plays, which the series can make sound (a demonstration, a listen, a
- * play-along); null when the exercise cannot make its content sound (a template).
+ * The figure `item`'s round plays (its round's first figure entry), which the series can make
+ * sound (a demonstration, a listen, a play-along); null when the round writes none.
  */
 export function contentFigure(definition: ExerciseDefinition, item: PlannedItem): Figure | null {
-	if (!playsCycles(definition)) return null;
-	return figureOf(definition, (item as PlannedItem<RhythmItem>).item.figureId);
+	return roundFigureOf(definition, item, meterOf(definition))?.figure ?? null;
 }
 
 /** What listening to the content is worth at exercise level `level`: free, an aid, or none. */
-export function listenOf(definition: ExerciseDefinition, level: number): LevelParams['listen'] {
-	return playsCycles(definition) ? rhythmParamsOf(definition, level).listen : 'none';
+export function listenOf(definition: ExerciseDefinition, level: number): FigureParams['listen'] {
+	return figureParamsOf(definition, level).listen;
 }
 
 /**
- * What the anti-blocking reads of a settled round (`SettledRound`): a cycle's report and verdict,
- * and the spot (`MATCH_LIMIT` at a whole note of `wholeS` seconds) within which extras fall on the
- * same place; a round judged otherwise gives nothing to compare.
+ * What the anti-blocking reads of a settled round (`SettledRound`): a round judged by the cycle
+ * verdict gives its report and verdict, and the spot (`MATCH_LIMIT` at a whole note of `wholeS`
+ * seconds) within which extras fall on the same place; a round judged otherwise gives nothing to
+ * compare.
  */
 export function blockReadingOf(
-	definition: ExerciseDefinition,
 	outcome: RoundOutcome,
 	wholeS: number
 ): { report?: CycleReport; verdict?: CycleVerdict; spotMs: number } {
-	if (!playsCycles(definition)) return { spotMs: 0 };
+	if (outcome.verdict.relation !== CYCLE_VERDICT) return { spotMs: 0 };
 	return {
 		report: outcome.detail as CycleReport,
 		verdict: outcome.verdict.value as CycleVerdict,
 		spotMs: MATCH_LIMIT.toNumber() * wholeS * 1000
 	};
 }
+
+/** The relation of the cycle verdict's envelope. */
+const CYCLE_VERDICT = 'cycle';
 
 /** How a run of an exercise opens and what plays under it. */
 export interface RunSetup {
@@ -192,36 +188,33 @@ export interface RunSetup {
 	entryBars: number;
 }
 
-/** The run of `definition` at exercise level `exerciseLevel`: from its params, the cycle's or any exercise's. */
+/**
+ * The run of `definition` at exercise level `exerciseLevel`, for any exercise: its round's
+ * accompaniment (none: the series' click), the listen-in and the count of its pacing
+ * (`pacing.listenInBars`, none by default; `pacing.countIn`, a counted bar by default), and its
+ * entry: the bars before the accompaniment's first muted bar. Throws on a start the player could
+ * not use (`checkStart`).
+ */
 export function runSetup(definition: ExerciseDefinition, exerciseLevel: number): RunSetup {
-	if (playsCycles(definition)) {
-		const params = rhythmParamsOf(definition, exerciseLevel);
-		return {
-			listenIn: unmuted(params.accompaniment),
-			accompaniment: (origin) => accompanimentFrom(params.accompaniment, origin),
-			listenInBars: params.listenInBars ?? LISTEN_IN_BARS,
-			countIn: params.countIn ?? true,
-			entryBars: landingBar(params.accompaniment)
-		};
-	}
-	const { accompaniment } = resolvedParamsOf(definition, { exerciseLevel, itemLevel: null });
-	const written = isAccompaniment(accompaniment) ? accompaniment : null;
+	const accompaniment = roundAccompanimentOf(definition, exerciseLevel);
+	const pacing = pacingAt(definition, exerciseLevel);
+	const start = { listenInBars: pacing.listenInBars ?? 0, countIn: pacing.countIn ?? true };
+	checkStart(start);
 	return {
-		listenIn: written && unmuted(written),
-		accompaniment: (origin) => written && accompanimentFrom(written, origin),
-		listenInBars: 0,
-		countIn: true,
-		entryBars: 0
+		listenIn: accompaniment && unmuted(accompaniment),
+		accompaniment: (origin) => accompaniment && accompanimentFrom(accompaniment, origin),
+		...start,
+		entryBars: landingBar(accompaniment)
 	};
 }
 
-function isAccompaniment(value: unknown): value is Accompaniment {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		'figure' in value &&
-		Array.isArray((value as { bars?: unknown }).bars)
-	);
+/**
+ * A round whose figure its item names (`{ item: … }`) is kept as a cycle of that figure
+ * (`recordCycle`), until every round is kept one way.
+ */
+function keptAsCycle(definition: ExerciseDefinition): boolean {
+	const entry = definition.round?.expectations.find(isFigureEntry);
+	return entry !== undefined && 'item' in entry.figure;
 }
 
 /**
@@ -245,19 +238,32 @@ export function roundAttempt(input: {
 	/** Whole bars from its run's first bar to its start; null when not known. */
 	fromRunStart: number | null;
 }): Omit<Attempt, 'id'> {
-	const { definition, item, outcome } = input;
-	if (playsCycles(definition)) {
-		const params = rhythmParamsOf(definition, item.exerciseLevel);
-		const { figureId } = (item as PlannedItem<RhythmItem>).item;
+	const { definition, item, outcome, plan } = input;
+	if (keptAsCycle(definition)) {
+		const meter = meterOf(definition);
+		const played = roundFigureOf(definition, item, meter);
+		const accompaniment = roundAccompanimentOf(definition, item.exerciseLevel);
+		const [first] = plan.expectations;
+		if (!played || !accompaniment || !first) {
+			throw new Error(`${definition.id}: a cycle is kept with its figure and its accompaniment`);
+		}
 		return recordCycle({
 			sessionId: input.sessionId,
 			exerciseId: item.exerciseId,
 			setup: {
-				figureId,
-				figure: figureOf(definition, figureId),
+				figureId: played.id,
+				figure: played.figure,
 				level: item.exerciseLevel,
-				params,
-				startBar: input.fromRunStart ?? landingBar(params.accompaniment)
+				cycleBars: plan.length.div(barLength(meter)).toNumber(),
+				accompaniment,
+				tempo: {
+					at: Fraction.ZERO,
+					bpm: tempoOf(definition, item.exerciseLevel),
+					unit: meter.unit
+				},
+				window: first.window,
+				thresholds: figureParamsOf(definition, item.exerciseLevel).thresholds,
+				startBar: input.fromRunStart ?? landingBar(accompaniment)
 			},
 			outcome,
 			promptedAt: input.promptedAt,

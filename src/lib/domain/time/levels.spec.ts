@@ -6,7 +6,6 @@ import {
 	nextLevelState,
 	checkStart,
 	type Level,
-	type LevelParams,
 	type LevelState
 } from './levels';
 
@@ -48,13 +47,13 @@ describe('level constants', () => {
 
 describe('checkStart', () => {
 	it('refuses a start with no listen-in and no counted bar, or a listen-in that is not whole', () => {
-		const at = (params: Pick<LevelParams, 'listenInBars' | 'countIn'>) => () => checkStart(params);
-		expect(at({ listenInBars: 0, countIn: false })).toThrow(RangeError);
-		expect(at({ listenInBars: -1 })).toThrow(RangeError);
-		expect(at({ listenInBars: 1.5 })).toThrow(RangeError);
-		expect(at({ listenInBars: 0 })).not.toThrow();
-		expect(at({ countIn: false })).not.toThrow();
-		expect(at({})).not.toThrow();
+		const at = (listenInBars: number, countIn: boolean) => () =>
+			checkStart({ listenInBars, countIn });
+		expect(at(0, false)).toThrow(RangeError);
+		expect(at(-1, true)).toThrow(RangeError);
+		expect(at(1.5, true)).toThrow(RangeError);
+		expect(at(0, true)).not.toThrow();
+		expect(at(1, false)).not.toThrow();
 	});
 });
 

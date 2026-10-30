@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { cyclePlan } from '$lib/domain/time/testing/cyclePlan';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
+import {
+	figureParamsOf,
+	resolvedParamsOf,
+	RHYTHM_OFFBEATS,
+	RHYTHM_SILENT_BARS,
+	tempoOf,
+	type ExerciseDefinition
+} from '$lib/domain/exercise';
 import { contentJudges } from '$lib/domain/judges';
 import {
 	PlanRound,
@@ -8,31 +15,60 @@ import {
 	createTempoMap,
 	figureFromJson,
 	Fraction,
-	type CycleReport
+	type Accompaniment,
+	type CycleReport,
+	type ExpectationWindow,
+	type Figure
 } from '$lib/domain/time';
-import { cycleAids, cyclePlanRecord, levelAided, recordCycle } from './recordCycle';
-import { rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
+import {
+	cycleAids,
+	cyclePlanRecord,
+	levelAided,
+	recordCycle,
+	type CycleSetup
+} from './recordCycle';
 
 const [offbeats] = RHYTHM_OFFBEATS.figures ?? [];
 
+/** What a cycle of `exercise` at `level` plays, from its resolved params. */
+function setupOf(
+	exercise: ExerciseDefinition,
+	level: number,
+	{ id, figure }: { id: string; figure: Figure },
+	startBar: number
+): CycleSetup {
+	const resolved = resolvedParamsOf(exercise, { exerciseLevel: level, itemLevel: null });
+	return {
+		figureId: id,
+		figure,
+		level,
+		cycleBars: resolved.cycleBars as number,
+		accompaniment: resolved.accompaniment as Accompaniment,
+		tempo: { at: Fraction.ZERO, bpm: tempoOf(exercise, level), unit: Fraction.of(1, 4) },
+		window: resolved.window as ExpectationWindow,
+		thresholds: figureParamsOf(exercise, level).thresholds,
+		startBar
+	};
+}
+
 /** A cycle of the one-bar offbeats at level 1, played exactly when `exact`, else empty. */
 function settledCycle(exact: boolean) {
-	const params = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
+	const setup = setupOf(RHYTHM_OFFBEATS, 0, offbeats, 0);
 	const plan = cyclePlan({
 		figure: offbeats.figure,
-		cycleBars: params.cycleBars,
+		cycleBars: setup.cycleBars,
 		startBar: 0,
 		sensor: 'attack',
-		window: params.window,
-		accompanimentBars: params.accompaniment.bars
+		window: setup.window,
+		accompanimentBars: setup.accompaniment.bars
 	});
-	const map = createTempoMap(10, [tempoSegmentOf(params)]);
+	const map = createTempoMap(10, [setup.tempo]);
 	const round = new PlanRound({
 		plan,
 		clock: { map, start: Fraction.ZERO },
 		judges: contentJudges,
 		latency: null,
-		thresholds: params.thresholds,
+		thresholds: setup.thresholds,
 		aids: ['cursor']
 	});
 	if (exact) {
@@ -42,19 +78,19 @@ function settledCycle(exact: boolean) {
 	}
 	const outcome = round.close(round.endTime);
 	if (outcome === null) throw new Error('a cycle closed without an outcome');
-	return { params, outcome, startTime: round.startTime };
+	return { setup, outcome, startTime: round.startTime };
 }
 
 describe('recordCycle', () => {
 	it('writes a cycle as a hot free attempt of the rhythm-figure mechanic, keyed by figure and level', () => {
-		const { params, outcome } = settledCycle(true);
+		const { setup, outcome } = settledCycle(true);
 		const observations = [
 			{ atMs: 0, sensor: 'attack', fate: 'answer' as const, correct: null, payload: {} }
 		];
 		const attempt = recordCycle({
 			sessionId: 's1',
 			exerciseId: RHYTHM_OFFBEATS.id,
-			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
+			setup,
 			outcome,
 			promptedAt: 1234,
 			startAudioS: 12.5,
@@ -88,11 +124,11 @@ describe('recordCycle', () => {
 	});
 
 	it('leaves the offset null when no attack gave a placement', () => {
-		const { params, outcome } = settledCycle(false);
+		const { setup, outcome } = settledCycle(false);
 		const attempt = recordCycle({
 			sessionId: 's1',
 			exerciseId: RHYTHM_OFFBEATS.id,
-			setup: { figureId: offbeats.id, figure: offbeats.figure, level: 0, params, startBar: 0 },
+			setup,
 			outcome,
 			promptedAt: 0,
 			startAudioS: 0,
@@ -103,15 +139,9 @@ describe('recordCycle', () => {
 	});
 
 	it('keeps the resolved plan as plain JSON the figure can be read back from', () => {
-		const params = rhythmParamsOf(RHYTHM_SILENT_BARS, 2);
 		const [eighths] = RHYTHM_SILENT_BARS.figures ?? [];
-		const record = cyclePlanRecord({
-			figureId: eighths.id,
-			figure: eighths.figure,
-			level: 2,
-			params,
-			startBar: 1
-		});
+		const setup = setupOf(RHYTHM_SILENT_BARS, 2, eighths, 1);
+		const record = cyclePlanRecord(setup);
 		const json = JSON.parse(JSON.stringify(record));
 		expect(json).toEqual(record);
 		expect(record).toMatchObject({
@@ -119,47 +149,37 @@ describe('recordCycle', () => {
 			startBar: 1,
 			tempo: { at: '0', bpm: 80, unit: '1/4' },
 			window: { ms: 80 },
-			thresholds: params.thresholds
+			thresholds: setup.thresholds
 		});
 		expect(record.accompaniment.bars).toEqual(['on', 'off', 'off', 'off']);
 		expect(figureFromJson(record.figure)).toEqual(eighths.figure);
-		expect(figureFromJson(record.accompaniment.figure)).toEqual(params.accompaniment.figure);
+		expect(figureFromJson(record.accompaniment.figure)).toEqual(setup.accompaniment.figure);
 	});
 });
 
 describe('cycleAids', () => {
+	const plain = { cursor: true, listen: 'free' as const, aidLevel: false, playAlong: false };
 	it('names the cursor the level gives, a listen worth an aid, and an aid level', () => {
-		const params = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
-		expect(cycleAids({ params, aidLevel: false, listened: false, playAlong: false })).toEqual([
-			'cursor'
-		]);
+		expect(cycleAids({ ...plain, listened: false })).toEqual(['cursor']);
 		expect(
-			cycleAids({
-				params: { ...params, cursor: false, listen: 'aid' },
-				aidLevel: true,
-				listened: true,
-				playAlong: false
-			})
+			cycleAids({ cursor: false, listen: 'aid', aidLevel: true, listened: true, playAlong: false })
 		).toEqual(['listen', 'aid-level']);
 		// Listening is free at this level: it is no aid.
-		expect(cycleAids({ params, aidLevel: false, listened: true, playAlong: false })).toEqual([
-			'cursor'
-		]);
+		expect(cycleAids({ ...plain, listened: true })).toEqual(['cursor']);
 	});
 
 	it('names playing along, which the level never gives', () => {
-		const params = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
-		const aids = cycleAids({ params, aidLevel: false, listened: false, playAlong: true });
+		const aids = cycleAids({ ...plain, listened: false, playAlong: true });
 		expect(aids).toContain('play-along');
-		expect(levelAided(aids, params)).toBe(true);
+		expect(levelAided(aids, true)).toBe(true);
 	});
 });
 
 describe('levelAided', () => {
 	it('counts only the aids beyond the level’s own cursor and aid level', () => {
-		const params = rhythmParamsOf(RHYTHM_OFFBEATS, 0);
-		expect(levelAided(['cursor', 'aid-level'], params)).toBe(false);
-		expect(levelAided(['cursor', 'listen'], params)).toBe(true);
-		expect(levelAided(['cursor'], { ...params, cursor: false })).toBe(true);
+		expect(levelAided(['cursor', 'aid-level'], true)).toBe(false);
+		expect(levelAided(['cursor', 'listen'], true)).toBe(true);
+		// A cursor the level does not give is an aid.
+		expect(levelAided(['cursor'], false)).toBe(true);
 	});
 });

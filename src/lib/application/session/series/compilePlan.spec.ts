@@ -3,7 +3,6 @@ import { LOCATE_NECK, RHYTHM_SILENT_BARS, type ExerciseDefinition } from '$lib/d
 import { compileRound } from '$lib/domain/exercise/round';
 import {
 	Fraction,
-	LISTEN_IN_BARS,
 	METER_4_4,
 	clickAccompaniment,
 	type CycleReport,
@@ -16,7 +15,6 @@ import {
 	compilePlan,
 	contentFigure,
 	listenOf,
-	playsCycles,
 	roundGiven,
 	runSetup
 } from './compilePlan';
@@ -43,6 +41,10 @@ const eighths = (level: number): PlannedItem => ({
 	leadBeats: null
 });
 
+const context = { previewBeats: 2, fromRunStart: 7 };
+const planOf = (definition: ExerciseDefinition, item: PlannedItem) =>
+	compilePlan(definition, item, METER_4_4, context);
+
 const threeOne = clickAccompaniment({
 	meter: METER_4_4,
 	beats: [1, 2, 3, 4],
@@ -51,10 +53,7 @@ const threeOne = clickAccompaniment({
 });
 
 describe('compilePlan', () => {
-	it('tells a cycle of a figure from a round of a template', () => {
-		expect(playsCycles(RHYTHM_SILENT_BARS)).toBe(true);
-		expect(playsCycles(LOCATE_NECK)).toBe(false);
-		const context = { previewBeats: 2, fromRunStart: 7 };
+	it('compiles every round from its template, a cycle where it falls in its run', () => {
 		expect(compilePlan(LOCATE_NECK, note, METER_4_4, context)).toEqual(
 			compileRound(LOCATE_NECK, note, METER_4_4, context)
 		);
@@ -71,7 +70,11 @@ describe('compilePlan', () => {
 	});
 
 	it('gives a cycle its level’s thresholds and aids, and a settlement past its end', () => {
-		const given = roundGiven(RHYTHM_SILENT_BARS, eighths(0));
+		const given = roundGiven(
+			RHYTHM_SILENT_BARS,
+			eighths(0),
+			planOf(RHYTHM_SILENT_BARS, eighths(0))
+		);
 		expect(given.thresholds).toEqual({
 			regularity: 40,
 			holdOffset: 60,
@@ -81,14 +84,16 @@ describe('compilePlan', () => {
 		expect(given.aids).toEqual(['cursor']);
 		expect(given.settleAfter).toEqual(Fraction.of(1, 4));
 		// The aid level is an aid of its own.
-		expect(roundGiven(RHYTHM_SILENT_BARS, eighths(-1)).aids).toEqual(['cursor', 'aid-level']);
+		expect(
+			roundGiven(RHYTHM_SILENT_BARS, eighths(-1), planOf(RHYTHM_SILENT_BARS, eighths(-1))).aids
+		).toEqual(['cursor', 'aid-level']);
 		// The cursor and the aid level are the level's: a cycle with them alone is not helped.
 		expect(aidedBeyondLevel(RHYTHM_SILENT_BARS, eighths(-1), ['cursor', 'aid-level'])).toBe(false);
 		expect(aidedBeyondLevel(RHYTHM_SILENT_BARS, eighths(0), ['cursor', 'listen'])).toBe(true);
 	});
 
-	it('gives a template round its item’s aids, and its params’ thresholds when written', () => {
-		expect(roundGiven(LOCATE_NECK, note)).toEqual({
+	it('gives a response round its item’s aids, and thresholds only to a verdict that reads them', () => {
+		expect(roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note))).toEqual({
 			thresholds: null,
 			aids: ['show-position'],
 			settleAfter: null
@@ -98,42 +103,75 @@ describe('compilePlan', () => {
 			...LOCATE_NECK,
 			params: { ...LOCATE_NECK.params, thresholds }
 		};
-		expect(roundGiven(judged, note).thresholds).toEqual(thresholds);
+		// The response verdict judges no measure: thresholds written are not read.
+		expect(roundGiven(judged, note, planOf(judged, note)).thresholds).toBeNull();
+		const silent: ExerciseDefinition = {
+			...RHYTHM_SILENT_BARS,
+			params: { ...RHYTHM_SILENT_BARS.params, thresholds }
+		};
+		expect(roundGiven(silent, eighths(0), planOf(silent, eighths(0))).thresholds).toEqual(
+			thresholds
+		);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, ['show-position'])).toBe(true);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, [])).toBe(false);
 	});
 
 	it('opens a cycle’s run with its listen-in, its accompaniment and its entry', () => {
 		const setup = runSetup(RHYTHM_SILENT_BARS, 0);
-		expect(setup).toMatchObject({ listenInBars: LISTEN_IN_BARS, countIn: true, entryBars: 3 });
+		expect(setup).toMatchObject({ listenInBars: 2, countIn: true, entryBars: 3 });
 		expect(setup.listenIn?.bars).toEqual(['on']);
 		// Its bar 0 on transport bar 3: bars 3, 4, 5 clicked, 6 silent.
 		const run = setup.accompaniment(3);
 		expect([3, 4, 5, 6].map((bar) => run?.bars[bar % 4])).toEqual(['on', 'on', 'on', 'off']);
 	});
 
-	it('opens a template’s run on the series’ click, or on the accompaniment it writes', () => {
+	it('opens a template’s run on the series’ click, or on the accompaniment its round writes', () => {
 		const plain = runSetup(LOCATE_NECK, 0);
 		expect(plain).toMatchObject({ listenIn: null, listenInBars: 0, countIn: true, entryBars: 0 });
 		expect(plain.accompaniment(2)).toBeNull();
+		const round = LOCATE_NECK.round!;
 		const accompanied = runSetup(
-			{ ...LOCATE_NECK, params: { ...LOCATE_NECK.params, accompaniment: threeOne } },
+			{ ...LOCATE_NECK, round: { ...round, accompaniment: threeOne } },
 			0
 		);
 		expect(accompanied.listenIn?.bars).toEqual(['on']);
 		expect(accompanied.accompaniment(1)?.bars).toEqual(['off', 'on', 'on', 'on']);
+		// Its first round lands on the first muted bar, as a cycle's.
+		expect(accompanied.entryBars).toBe(3);
+	});
+
+	it('opens a template’s run with the listen-in and the count its pacing writes', () => {
+		const paced = (pacing: Record<string, unknown>): ExerciseDefinition => ({
+			...LOCATE_NECK,
+			params: { ...LOCATE_NECK.params, pacing: { respirationBars: 1, ...pacing } }
+		});
+		expect(runSetup(paced({ listenInBars: 1, countIn: false }), 0)).toMatchObject({
+			listenInBars: 1,
+			countIn: false
+		});
+		// Nothing to hear before playing: no listen-in and no counted bar.
+		expect(() => runSetup(paced({ listenInBars: 0, countIn: false }), 0)).toThrow(/listen-in/);
+		expect(() => runSetup(paced({ listenInBars: 1.5 }), 0)).toThrow(/whole number/);
 	});
 
 	it('gives a cycle the listening and the playing along it was helped with', () => {
-		const helped = roundGiven(RHYTHM_SILENT_BARS, eighths(0), { listened: true, playAlong: true });
+		const plan = planOf(RHYTHM_SILENT_BARS, eighths(0));
+		const helped = roundGiven(RHYTHM_SILENT_BARS, eighths(0), plan, {
+			listened: true,
+			playAlong: true
+		});
 		// Listening is free at this level: no aid; playing along is one.
 		expect(helped.aids).toEqual(['cursor', 'play-along']);
-		const heard = roundGiven(RHYTHM_SILENT_BARS, eighths(0), { listened: true, playAlong: false });
+		const heard = roundGiven(RHYTHM_SILENT_BARS, eighths(0), plan, {
+			listened: true,
+			playAlong: false
+		});
 		expect(heard.aids).toEqual(['cursor']);
-		// A template is helped only by its item.
-		expect(roundGiven(LOCATE_NECK, note, { listened: true, playAlong: true }).aids).toEqual([
-			'show-position'
-		]);
+		// Where its level gives no listen, listening is worth nothing: the round keeps its item's aids.
+		expect(
+			roundGiven(LOCATE_NECK, note, planOf(LOCATE_NECK, note), { listened: true, playAlong: false })
+				.aids
+		).toEqual(['show-position']);
 	});
 
 	it('makes a cycle’s figure sound, and lets its level say what listening is worth', () => {
@@ -151,12 +189,16 @@ describe('compilePlan', () => {
 			detail: report,
 			verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: ['missed'] } }
 		} as unknown as RoundOutcome;
-		expect(blockReadingOf(RHYTHM_SILENT_BARS, outcome, 2)).toEqual({
+		expect(blockReadingOf(outcome, 2)).toEqual({
 			report,
 			verdict: { passed: false, reasons: ['missed'] },
 			// A sixteenth of a whole note of two seconds.
 			spotMs: 125
 		});
-		expect(blockReadingOf(LOCATE_NECK, outcome, 2)).toEqual({ spotMs: 0 });
+		const response = {
+			...outcome,
+			verdict: { relation: 'response', version: 1, value: { kind: 'wrong' } }
+		} as unknown as RoundOutcome;
+		expect(blockReadingOf(response, 2)).toEqual({ spotMs: 0 });
 	});
 });

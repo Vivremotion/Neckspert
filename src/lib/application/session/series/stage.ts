@@ -1,3 +1,4 @@
+import { writesFigure } from '$lib/domain/exercise/figureParams';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import type { ResponseValue, RoundOutcome, RoundPlan } from '$lib/domain/time';
@@ -5,7 +6,6 @@ import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
 import { promptStage } from '$lib/application/presentation/promptStage';
 import { cycleStage, type CycleMoment } from '../cycle/rhythmStage';
-import { playsCycles } from './compilePlan';
 
 /** Where the series stands at a beat: what it plays, the bar of the round played and the beat. */
 export interface SeriesMoment {
@@ -20,16 +20,25 @@ export interface SeriesMoment {
 }
 
 /**
- * The screen model follows the beat: the series shows it again on every beat, not only at a
- * round's opening and settlement (a cycle's cursor, its muted bars).
+ * The round's screen is its figure's (`cycleStage`): its round plays a figure and the exercise
+ * writes no presentation, which the shared prompt stage would draw.
  */
-export function followsBeats(definition: ExerciseDefinition): boolean {
-	return playsCycles(definition);
+function showsFigure(definition: ExerciseDefinition): boolean {
+	return writesFigure(definition) && definition.presentation === undefined;
 }
 
 /**
- * The stage dispatch: the screen model of `item` in the view its exercise names. A cycle's is
- * built from the series' events (`cycleStage`); an exercise that writes its presentation shares
+ * The screen model follows the beat: the series shows it again on every beat, not only at a
+ * round's opening and settlement (a figure's cursor, its muted bars).
+ */
+export function followsBeats(definition: ExerciseDefinition): boolean {
+	return showsFigure(definition);
+}
+
+/**
+ * The stage dispatch: the screen model of `item` in the view its exercise names. A round that
+ * plays a figure, with no presentation, has its model built from the series' events
+ * (`cycleStage`); an exercise that writes its presentation shares
  * `promptStage`; any other takes its presenter's own (`stageOf`). Undefined when none draws it.
  */
 export function stageModel(input: {
@@ -52,7 +61,7 @@ export function stageModel(input: {
 	played: PlannedItem | null;
 }): unknown {
 	const { definition, item, presenter, plan, settled, place, locale, random, moment } = input;
-	if (playsCycles(definition)) {
+	if (showsFigure(definition)) {
 		return cycleStage({
 			definition,
 			item: item as PlannedItem<RhythmItem>,

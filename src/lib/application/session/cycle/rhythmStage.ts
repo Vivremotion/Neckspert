@@ -1,5 +1,6 @@
 import {
 	Fraction,
+	METER_4_4,
 	barLength,
 	beatPositions,
 	levelRange,
@@ -8,14 +9,20 @@ import {
 	type Feedback,
 	type Figure,
 	type Level,
-	type LevelParams,
+	type Meter,
 	type RoundOutcome,
 	type TempoSegment
 } from '$lib/domain/time';
-import type { ExerciseDefinition } from '$lib/domain/exercise';
+import {
+	exerciseLevelsOf,
+	figureParamsOf,
+	tempoOf,
+	type ExerciseDefinition,
+	type FigureParams
+} from '$lib/domain/exercise';
+import { compileRound, roundFigureOf } from '$lib/domain/exercise/round';
 import type { RhythmItem } from '$lib/domain/mechanics';
 import type { Locale, PlannedItem } from '$lib/domain/types';
-import { figureOf, rhythmLevels, rhythmParamsOf, tempoSegmentOf } from './rhythmExercise';
 
 /**
  * What the rhythm view shows at a moment of the series: the accompaniment alone before playing
@@ -59,7 +66,7 @@ export interface RhythmStageModel {
 	/** The cycles of the run settled so far, oldest first; shown at the breath. */
 	settled: SettledCycle[];
 	/** What listening to the figure is worth at this level (`listen()`); `none` hides the button. */
-	listen: LevelParams['listen'];
+	listen: FigureParams['listen'];
 	/** The feedback is told in plain words; once the exercise is familiar, by its term alone. */
 	plainWords: boolean;
 }
@@ -118,6 +125,19 @@ export type CycleMoment =
 	/** Between two runs: the run played, with its marks, and what comes next. */
 	| 'breath';
 
+/** The figure `item`'s round plays; throws when its round writes none. */
+function figureOf(definition: ExerciseDefinition, item: PlannedItem, meter: Meter): Figure {
+	const found = roundFigureOf(definition, item, meter);
+	if (!found) throw new Error(`${definition.id}: its round plays no figure`);
+	return found.figure;
+}
+
+/** The bars `item`'s round lasts. */
+function roundBars(definition: ExerciseDefinition, item: PlannedItem, meter: Meter): number {
+	const plan = compileRound(definition, item, meter, { previewBeats: 0, fromRunStart: null });
+	return plan.length.div(barLength(meter)).toNumber();
+}
+
 /**
  * The rhythm view's model of `item`'s cycle at a moment of the series, built from the series'
  * events: what it plays now (`moment`), the bar of the cycle (`barInRound`, negative in the entry)
@@ -142,19 +162,17 @@ export function cycleStage(input: {
 }): RhythmStageModel {
 	const { definition, item, moment, barInRound } = input;
 	const level = item.exerciseLevel;
-	const params = rhythmParamsOf(definition, level);
-	const figure = figureOf(definition, item.item.figureId);
+	const meter = definition.meter ?? METER_4_4;
+	const params = figureParamsOf(definition, level);
+	const figure = figureOf(definition, item, meter);
+	const cycleBars = roundBars(definition, item, meter);
 	const breath = moment === 'breath';
 	const played = breath && input.played ? input.played : null;
-	const playedParams = played ? rhythmParamsOf(definition, played.exerciseLevel) : params;
+	const playedParams = played ? figureParamsOf(definition, played.exerciseLevel) : params;
 	const playing = moment === 'entry' || moment === 'round';
 	const listening = moment === 'listening';
 	const barInCycle =
-		moment === 'round' || listening
-			? barInRound
-			: moment === 'entry'
-				? params.cycleBars + barInRound
-				: 0;
+		moment === 'round' || listening ? barInRound : moment === 'entry' ? cycleBars + barInRound : 0;
 	const muted = (moment === 'round' || listening) && input.muted;
 	// A heard cycle shows where the figure stands, whatever the level gives.
 	const cursorShown = listening || (playing && params.cursor && !muted);
@@ -169,12 +187,12 @@ export function cycleStage(input: {
 						? 'count-in'
 						: 'listen-in',
 		exerciseLabel: definition.title?.[input.locale] ?? definition.id,
-		level: levelView(rhythmLevels(definition), level),
-		tempo: tempoView(tempoSegmentOf(params)),
-		figure: played ? figureOf(definition, played.item.figureId) : figure,
+		level: levelView(exerciseLevelsOf(definition), level),
+		tempo: tempoView({ at: Fraction.ZERO, bpm: tempoOf(definition, level), unit: meter.unit }),
+		figure: played ? figureOf(definition, played, meter) : figure,
 		next: breath ? figure : null,
 		barInCycle,
-		cycleBars: playedParams.cycleBars,
+		cycleBars: played ? roundBars(definition, played, meter) : cycleBars,
 		muted,
 		cursor: cursorShown
 			? figurePosition({

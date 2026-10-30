@@ -21,7 +21,7 @@
 		ontriads,
 		gesture = { open: false },
 		ongesture,
-		rhythm,
+		exercises,
 		resting = []
 	}: {
 		stats: HomeStats;
@@ -35,8 +35,8 @@
 		gesture?: { open: boolean };
 		/** Starts a gesture session; without it, no gesture block. */
 		ongesture?: () => void;
-		/** The rhythm exercises, each a link to its session; without them, no rhythm block. */
-		rhythm?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
+		/** The exercises played on their own, each a link to its session; without them, no such block. */
+		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
 		resting?: readonly string[];
 	} = $props();
@@ -109,10 +109,10 @@
 				onselect: ongesture
 			});
 		}
-		for (const exercise of rhythm ?? []) {
+		for (const exercise of exercises ?? []) {
 			list.push({
-				key: `rhythm-${exercise.id}`,
-				title: t.rhythm,
+				key: `exercise-${exercise.id}`,
+				title: t.exercises,
 				subtitle: exercise.title?.[i18n.locale] ?? exercise.id,
 				why: resting.includes(exercise.id) ? t.resting : undefined,
 				duration: formatMinutes(SESSION_MS, words),

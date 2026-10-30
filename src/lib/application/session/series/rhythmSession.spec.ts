@@ -382,7 +382,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 		const { controller, sounds, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
 			met: true
 		});
-		expect(RHYTHM_TWO_FOUR.params.countIn).toBe(false);
+		expect(RHYTHM_TWO_FOUR.params.pacing).toMatchObject({ countIn: false });
 		await controller.start();
 		// listen-in 0-1, the first cycle on bar 2: bar 2 is already the line, not a count
 		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);
@@ -1192,7 +1192,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 			...counted(RHYTHM_TWO_FOUR),
 			params: {
 				...counted(RHYTHM_TWO_FOUR).params,
-				pacing: { ...(RHYTHM_TWO_FOUR.params.pacing as object), roundsPerBreath: 2 }
+				pacing: { ...(counted(RHYTHM_TWO_FOUR).params.pacing as object), roundsPerBreath: 2 }
 			}
 		};
 		const { controller, stored, clock, advance } = await rhythmSeries(exercise, { met: true });

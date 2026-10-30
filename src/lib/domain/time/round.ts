@@ -1,6 +1,5 @@
-import type { LevelParams } from './levels';
 import type { ContentJudges, Judged, RoundPlan } from './plan';
-import type { CycleReport, Measures } from './judge/measures';
+import type { CycleReport, CycleThresholds, Measures } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type {
 	ObservationFate,
@@ -115,7 +114,7 @@ export class PlanRound {
 		chained?: boolean;
 		judges: ContentJudges;
 		latency: CycleReport['latency'];
-		thresholds: LevelParams['thresholds'] | null;
+		thresholds: CycleThresholds | null;
 		aids: Aid[];
 		modes?: RoundModes;
 	}) {

@@ -103,12 +103,15 @@ export interface ItemFigure {
 	reads: readonly MechanicId[];
 	/** The id of the figure the item names, among its exercise's `figures`. */
 	figureOf(item: unknown): string;
+	/** The item that names figure `figureId`, played at exercise level `exerciseLevel`. */
+	itemOf(figureId: string, exerciseLevel: number): unknown;
 }
 
 /** The figures a template reads on an item (`{ item: <name> }` in a figure entry), by name. */
 export const ITEM_FIGURES: Readonly<Record<string, ItemFigure>> = {
 	figure: {
 		reads: ['rhythm-figure'],
-		figureOf: (item) => (item as RhythmItem).figureId
+		figureOf: (item) => (item as RhythmItem).figureId,
+		itemOf: (figureId, exerciseLevel): RhythmItem => ({ figureId, level: exerciseLevel })
 	}
 };

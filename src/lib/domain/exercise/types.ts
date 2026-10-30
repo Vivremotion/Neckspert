@@ -100,6 +100,11 @@ export interface ExerciseDefinition {
 	figures?: readonly { id: string; figure: Figure }[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
+	/**
+	 * The items an exercise session serves, in order and again from the first: keys of its
+	 * mechanic's items (`parseItem`); absent: its figures, one per turn (`pick`).
+	 */
+	items?: readonly string[];
 }
 
 /** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
@@ -121,6 +126,10 @@ export interface ExercisePacing {
 	roundsPerBreath?: number;
 	/** The shortest breath between two runs, in ms, rounded up to whole bars; absent: 0. */
 	breathMinMs?: number;
+	/** Bars of accompaniment alone before a run's counted bar; absent: 0. */
+	listenInBars?: number;
+	/** A counted bar (every beat clicked, countdown shown) before a run; absent: true. */
+	countIn?: boolean;
 }
 
 /** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */

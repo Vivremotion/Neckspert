@@ -846,7 +846,7 @@ export class SessionController implements PlaySessionController {
 		// before it would already be past.
 		if (this.clicksOn(item)) this.accompanyTo(start);
 		// A round judged whole is laid now, its first beat on its start.
-		if (roundGiven(this.items.definitionOf(item), item).settleAfter !== null) {
+		if (roundGiven(this.items.definitionOf(item), item, plan).settleAfter !== null) {
 			this.layAhead(item, plan, start);
 		}
 		this.enterScene(item);
@@ -1068,7 +1068,7 @@ export class SessionController implements PlaySessionController {
 		// Compiled where it falls in its run: a cycle's place in the loops of its figure.
 		const plan = fromRunStart === null ? placed : this.planOf(item, this.seriesMeter, fromRunStart);
 		this.meetSensor(plan);
-		const given = roundGiven(this.items.definitionOf(item), item, help);
+		const given = roundGiven(this.items.definitionOf(item), item, plan, help);
 		const end = at.add(plan.length.div(this.transport.barLength));
 		if (this.clicksOn(item)) this.accompanyRound(at, plan);
 		const round = {
@@ -1691,7 +1691,7 @@ export class SessionController implements PlaySessionController {
 				success: outcome.success,
 				aided: aidedBeyondLevel(definition, item, outcome.aids),
 				// What the anti-blocking reads of it: a cycle's report, and its spot.
-				...blockReadingOf(definition, outcome, wholeS)
+				...blockReadingOf(outcome, wholeS)
 			})
 			// A failed write is reported by the levels (`settled` waits for it); anything else here,
 			// reported too: the series goes on.

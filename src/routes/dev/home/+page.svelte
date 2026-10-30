@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { TriadsHome } from '$lib/application/app';
-	import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
+	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
@@ -49,7 +49,7 @@
 				onstart={() => {}}
 				triads={fixture.triads}
 				ontriads={() => {}}
-				rhythm={RHYTHM_EXERCISES}
+				exercises={exerciseSessionExercises()}
 			/>
 		</section>
 	{/each}

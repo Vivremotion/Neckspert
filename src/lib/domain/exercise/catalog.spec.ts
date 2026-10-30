@@ -5,8 +5,10 @@ import {
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
 	TRIADS_ZONE,
-	exerciseById
+	exerciseById,
+	exerciseSessionExercises
 } from './catalog';
+import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import type { ChordGridItem } from '$lib/domain/mechanics';
@@ -215,5 +217,14 @@ describe('exercise catalog', () => {
 		for (const exercise of [LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE]) {
 			expect(exercise.tempo).toBe(80);
 		}
+	});
+});
+
+describe('exerciseSessionExercises', () => {
+	it('lists the exercises whose round writes a figure and that write levels, in catalog order', () => {
+		expect(exerciseSessionExercises()).toEqual([...RHYTHM_EXERCISES]);
+		// Levels, but no figure: the gesture is played in its own sessions.
+		expect(exerciseSessionExercises()).not.toEqual(expect.arrayContaining([GESTURE_EXERCISES[0]]));
+		expect(exerciseSessionExercises()).not.toContain(LOCATE_NECK);
 	});
 });

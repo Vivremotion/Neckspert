@@ -16,7 +16,7 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
-import { createFigureSource } from '$lib/application/session/cycle/figureSource';
+import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
 import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
 import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
 import { attackSensor } from '$lib/application/session/sensors';
@@ -59,7 +59,8 @@ export function earlier(exerciseId: string): Attempt {
 
 /** The exercise with a counted bar after its listen-in, whatever its catalog start. */
 export function counted(exercise: ExerciseDefinition): ExerciseDefinition {
-	return { ...exercise, params: { ...exercise.params, countIn: true } };
+	const pacing = exercise.params.pacing as Record<string, unknown> | undefined;
+	return { ...exercise, params: { ...exercise.params, pacing: { ...pacing, countIn: true } } };
 }
 
 /** Lets the writes started by the controller finish. */
@@ -135,8 +136,8 @@ export class Player {
 }
 
 /**
- * `exercise` on the session controller, its items from `createFigureSource`, the rhythm's presenter
- * and the attack sensor: as `startExercise` will build it (plan H6, Task 9).
+ * `exercise` on the session controller, its items from `createExerciseItemSource`, the rhythm's
+ * presenter and the attack sensor: as `startExercise` builds it.
  */
 export async function rhythmSeries(
 	exercise: ExerciseDefinition,
@@ -166,7 +167,7 @@ export async function rhythmSeries(
 		clickBleed: options.clickBleed ?? false
 	});
 	const recorders: AttemptRecorder[] = [];
-	const sources = new Map<string, ReturnType<typeof createFigureSource>>();
+	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
 	const deps: SessionControllerDeps = {
 		clock,
@@ -202,7 +203,7 @@ export async function rhythmSeries(
 	const controller = new SessionController(
 		{ id: 'series', kind: 'exercise' },
 		async (sessionId) => {
-			const source = createFigureSource(exercise);
+			const source = createExerciseItemSource(exercise);
 			sources.set(sessionId, source);
 			return { source, durationMs: SESSION_MS };
 		},

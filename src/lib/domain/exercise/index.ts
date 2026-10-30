@@ -3,6 +3,7 @@ export * from './catalog';
 export * from './rhythmCatalog';
 export * from './tempo';
 export * from './levels';
+export * from './figureParams';
 export * from './pacing';
 export * from './chordDiagram';
 export * from './recall';

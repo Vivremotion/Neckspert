@@ -39,7 +39,12 @@ import {
 } from '$lib/application/session/cycle/rhythmStage';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/domain/exercise';
+import {
+	exerciseSessionExercises,
+	RHYTHM_OFFBEATS,
+	RHYTHM_SILENT_BARS,
+	RHYTHM_TWO_FOUR
+} from '$lib/domain/exercise';
 import { TraceBuilder } from '$lib/domain/session';
 
 class FakeBackup implements BackupPort {
@@ -829,6 +834,17 @@ describe('the rhythm exercises', () => {
 		await services.sessionSummary('r1');
 		expect(all).not.toHaveBeenCalled();
 		expect(cards).not.toHaveBeenCalled();
+	});
+
+	it('startExercise plays every exercise of an exercise session', async () => {
+		expect(exerciseSessionExercises().length).toBeGreaterThan(0);
+		for (const exercise of exerciseSessionExercises()) {
+			const { services } = harness();
+			const controller = await services.startExercise(exercise.id);
+			await controller.ready?.();
+			expect(controller.view.stage?.view, exercise.id).toBe(exercise.view);
+			controller.quit();
+		}
 	});
 
 	it('startExercise refuses an exercise it does not know, or one without levels', async () => {

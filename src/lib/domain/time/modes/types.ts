@@ -1,6 +1,5 @@
 import type { Fraction } from '../fraction';
-import type { CycleReport } from '../judge/measures';
-import type { LevelParams } from '../levels';
+import type { CycleReport, CycleThresholds } from '../judge/measures';
 import type { Judged, RoundPlan } from '../plan';
 import type { Aid, RoundOutcome } from '../round';
 import type { TempoMap } from '../tempoMap';
@@ -90,7 +89,7 @@ export interface VerdictContext {
 	clock: RoundClock;
 	latency: CycleReport['latency'];
 	/** null for a response plan. */
-	thresholds: LevelParams['thresholds'] | null;
+	thresholds: CycleThresholds | null;
 	aids: Aid[];
 }
 
