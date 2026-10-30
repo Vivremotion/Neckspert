@@ -145,3 +145,17 @@ Un fichier refusé n'arrête jamais l'application.
 - **En production** : `console.error` seulement, sous la forme `[exercises.local] <fichier> refused: <raison>`.
 
 La raison nomme l'exercice et le champ, par exemple `mon-exercice: tempo must be a positive number, got -3`.
+
+## Écrire une figure à partir d'un export Guitar Pro
+
+Un export MusicXML de Guitar Pro 8 se convertit en LilyPond (le sous-ensemble de `parseLilyPond`), et les accords d'une partie d'accompagnement se listent mesure par mesure. Le script ne lit que le fichier que vous lui donnez ; ce qu'il en tire reste chez vous, dans `exercises.local/`.
+
+```
+npm run musicxml -- <fichier.musicxml> --part P1      # la mélodie de la partie P1, en LilyPond
+npm run musicxml -- <fichier.musicxml> --shapes P2    # les formes de la partie P2
+```
+
+- **Mélodie** : une partie à une voix. La hauteur est celle de la corde à vide (accordage standard) plus la case : l'export écrit la guitare une octave plus haut, la tablature dit ce qui sonne. Chaque note garde sa corde (`c'4\2`). Les liaisons (`~`) et les triolets (`\tuplet 3/2 { … }`) sont repris ; une mesure par ligne, `|` à la fin. Une levée est complétée par des silences devant ses notes, pour que les mesures tombent juste.
+- **Formes** : une ligne par accord, `mesure beat`, puis les cases des cordes de la plus grave à la plus aiguë (`x` : corde non jouée), puis les clés `corde:case` (`5:3 4:2 3:0`) à recopier dans une clé de forme. La mesure est celle de l'export (la levée est la mesure 0) ; `beat` compte en temps à partir de 1.
+- **Avertissements** (sur la sortie d'erreur, rien n'est refusé) : un accord dans une partie mélodique (seule la première note est gardée), une deuxième voix, une appogiature, une technique non convertie (marteau, tiré, tiré de corde, harmonique, glissé, ornement…), un accordage qui n'est pas le standard. Le doublon de la portée de tablature (voix 5) est ignoré sans bruit.
+- Le script n'a pas de dépendance : il lit le XML avec un petit lecteur de balises. Il ne comprend pas une deuxième portée de notation, ni un changement de mesure en cours de morceau.
