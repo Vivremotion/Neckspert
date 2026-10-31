@@ -1,67 +1,73 @@
 import type { NoteOnset, NoteRejection, NoteRejectionReason } from '$lib/application/ports';
 import { describeFrequency, describeReading, logDetection } from '$lib/debug/detectionLog';
 import { confirmedPitch } from './confirmPitch';
-import { CONFIRM_CENTS, type DetectorConfig } from './config';
+import { CONFIRM_CENTS, type PitchConfig } from './config';
 import { readPitch } from './estimatePitch';
 import { frequencyToMidi, midiIfInRange } from './frequencyToMidi';
-import { OnsetDetector } from './OnsetDetector';
 
 function centsBetween(a: number, b: number): number {
 	return Math.abs(1200 * Math.log2(a / b));
 }
 
-/** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
+/**
+ * Sound kept to read an attack, in windows: its two windows, and the wait before it is told. An
+ * attack is told some 150 ms after its onset at the latest (`PRE_ATTACK_MS`), more than two windows
+ * at 44.1 kHz.
+ */
+const KEPT_WINDOWS = 8;
+
+/**
+ * A played note is an attack and a pitch: told of each attack (`attack`, by the attack sensor), it
+ * reads the pitch of the two windows after it, and emits one NoteOnset once they have come.
+ */
 export class NoteTracker {
-	private readonly onset: OnsetDetector;
 	private readonly samples: number[] = [];
 	private readonly times: number[] = [];
-	private pendingOnsetTime: number | null = null;
+	/** The attacks whose two windows have not all come yet, oldest first. */
+	private readonly pending: number[] = [];
 	private readonly maxBuffer: number;
 
 	constructor(
-		private readonly config: DetectorConfig,
+		private readonly config: PitchConfig,
 		private readonly sampleRate: number,
 		private readonly onRejected?: (rejection: NoteRejection) => void
 	) {
-		this.onset = new OnsetDetector(config, sampleRate);
-		this.maxBuffer = config.windowSize * 4;
+		this.maxBuffer = config.windowSize * KEPT_WINDOWS;
 	}
 
-	push(frame: Float32Array, frameTime: number): NoteOnset | null {
+	/** An attack at `time` (audio s). One older than the sound kept (an input reopened) is dropped. */
+	attack(time: number): void {
+		if (this.times.length === 0 || time < this.times[0]) return;
+		this.pending.push(time);
+		logDetection('attaque', [
+			`t = ${time.toFixed(3)} s`,
+			'en attente de deux fenêtres de hauteur stables'
+		]);
+	}
+
+	/** Feeds one block of samples; returns the notes whose two windows it completes. */
+	push(frame: Float32Array, frameTime: number): NoteOnset[] {
 		for (let i = 0; i < frame.length; i++) {
 			this.samples.push(frame[i]);
 			this.times.push(frameTime + i / this.sampleRate);
+		}
+		const notes: NoteOnset[] = [];
+		while (this.pending.length > 0) {
+			const start = this.indexAtOrAfter(this.pending[0]);
+			if (start < 0 || this.samples.length - start < this.config.windowSize * 2) break;
+			const note = this.read(this.pending.shift()!, start);
+			if (note) notes.push(note);
 		}
 		if (this.samples.length > this.maxBuffer) {
 			const drop = this.samples.length - this.maxBuffer;
 			this.samples.splice(0, drop);
 			this.times.splice(0, drop);
 		}
-
-		if (this.pendingOnsetTime === null) {
-			const attack = this.onset.push(frame, frameTime);
-			if (attack !== null) {
-				this.pendingOnsetTime = attack;
-				logDetection('attaque', [
-					`t = ${attack.toFixed(3)} s`,
-					'en attente de deux fenêtres de hauteur stables'
-				]);
-			}
-		} else {
-			// Keep the onset detector's envelope/cooldown updated while confirming.
-			this.onset.push(frame, frameTime);
-		}
-
-		if (this.pendingOnsetTime === null) return null;
-		return this.tryConfirm(this.pendingOnsetTime);
+		return notes;
 	}
 
-	private tryConfirm(onsetTime: number): NoteOnset | null {
-		const start = this.indexAtOrAfter(onsetTime);
-		if (start < 0) return null;
+	private read(onsetTime: number, start: number): NoteOnset | null {
 		const need = this.config.windowSize * 2;
-		if (this.samples.length - start < need) return null;
-
 		const first = Float32Array.from(this.samples.slice(start, start + this.config.windowSize));
 		const second = Float32Array.from(
 			this.samples.slice(start + this.config.windowSize, start + need)
@@ -74,7 +80,6 @@ export class NoteTracker {
 			attackClarityThreshold: attackThreshold,
 			sustainClarityThreshold: sustainThreshold
 		});
-		this.pendingOnsetTime = null;
 
 		const drift =
 			a.frequencyHz > 0 && b.frequencyHz > 0 ? centsBetween(a.frequencyHz, b.frequencyHz) : null;

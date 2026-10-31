@@ -11,6 +11,12 @@ export interface DetectorConfig {
 	windowSize: number;
 }
 
+/** What reading the pitch of a note needs; the rest is the chord verifier's onset detector. */
+export type PitchConfig = Pick<
+	DetectorConfig,
+	'minMidi' | 'maxMidi' | 'clarityThreshold' | 'attackClarityThreshold' | 'windowSize'
+>;
+
 /** Guitar range: low E (MIDI 40) to E6 (MIDI 88). windowSize ≥ 2048 at 48 kHz for E2. */
 export const DEFAULT_DETECTOR_CONFIG: DetectorConfig = {
 	minMidi: 40,

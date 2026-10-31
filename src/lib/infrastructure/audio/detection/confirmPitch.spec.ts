@@ -53,4 +53,25 @@ describe('confirmedPitch', () => {
 			)
 		).toBeNull();
 	});
+
+	it('takes the sustained pitch when the attack window reads an octave below it', () => {
+		const result = confirmedPitch(
+			{ frequencyHz: 196, clarity: 0.85 },
+			{ frequencyHz: 392, clarity: 1 },
+			GATE
+		);
+		expect(result).toEqual({ frequencyHz: 392, clarity: 0.85 });
+	});
+
+	it('still rejects an attack window an octave above the sustained one', () => {
+		expect(
+			confirmedPitch({ frequencyHz: 392, clarity: 1 }, { frequencyHz: 196, clarity: 1 }, GATE)
+		).toBeNull();
+	});
+
+	it('still rejects an attack window a fifth below the sustained one', () => {
+		expect(
+			confirmedPitch({ frequencyHz: 196, clarity: 1 }, { frequencyHz: 293.66, clarity: 1 }, GATE)
+		).toBeNull();
+	});
 });

@@ -231,3 +231,9 @@ Au premier essai sur une grille, l'auteur a constaté que les formes d'arpège t
 ### Étapes jouables : à venir
 
 Les deux étapes jouables avec l'auteur n'ont pas encore eu lieu : les tétrades sur sa grille (notes dérivées, plusieurs accords enchaînés, tablature d'aide) et son thème (notes écrites, portée et tablature, figure longue), tous deux depuis `exercises.local/`. Cette section sera complétée de ce qu'elles changent. La fusion attend leur accord.
+
+### Le détecteur de notes (2026-10-31)
+
+Le thème joué par un joueur parfait (l'export de Guitar Pro, sans jeu humain) perdait une note sur deux : le détecteur exigeait un volume 1,8 fois supérieur à une moyenne lente, qu'une note qui sonne encore tient haute. 68 notes sur 125 à ♩ = 70, 52 à ♩ = 93, alors que le capteur d'attaques les entendait toutes. Une note jouée est maintenant une attaque de ce capteur et la hauteur lue après elle : 125 sur 125 aux deux tempos, sans note en trop, marques en jeu et bilan compris dans la vraie page à ♩ = 70, et 124 ou 125 quand le volume varie de note en note (jusqu'à ±6 dB). Une fenêtre d'attaque qui lit une octave sous la fenêtre tenue est comptée à la hauteur tenue : la note d'avant, sur une autre corde, la trompe.
+
+Ce n'est pas mesuré sur une vraie guitare. Le capteur d'accords garde l'ancienne règle.
