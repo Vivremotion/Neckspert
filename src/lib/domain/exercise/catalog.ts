@@ -1,4 +1,5 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
+import { writesFigure } from './figureParams';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { RoundTemplate } from './round/types';
@@ -194,7 +195,7 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	params: triadsParams()
 };
 
-export const EXERCISES: readonly ExerciseDefinition[] = [
+const CATALOG: ExerciseDefinition[] = [
 	LOCATE_NECK,
 	IDENTIFY_NECK,
 	TRIADS_ANCHOR,
@@ -202,6 +203,41 @@ export const EXERCISES: readonly ExerciseDefinition[] = [
 	...GESTURE_EXERCISES,
 	...RHYTHM_EXERCISES
 ];
+
+/** The live catalog: the exercises of the code, then those registered (`registerExercises`). */
+export const EXERCISES: readonly ExerciseDefinition[] = CATALOG;
+
+/**
+ * Appends exercises to the live catalog (the private ones of `exercises.local/`), so
+ * `exerciseById` and `exerciseSessionExercises` see them. An id already taken is refused, not
+ * thrown: the result lists the ids refused.
+ */
+export function registerExercises(exercises: readonly ExerciseDefinition[]): {
+	registered: ExerciseId[];
+	taken: ExerciseId[];
+} {
+	const registered: ExerciseId[] = [];
+	const taken: ExerciseId[] = [];
+	for (const exercise of exercises) {
+		if (CATALOG.some((known) => known.id === exercise.id)) {
+			taken.push(exercise.id);
+			continue;
+		}
+		CATALOG.push(exercise);
+		registered.push(exercise.id);
+	}
+	return { registered, taken };
+}
+
+/**
+ * The exercises played in an exercise session, in catalog order: those whose round writes a
+ * figure and that write levels. Read from the live catalog at each call.
+ */
+export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
+	return EXERCISES.filter(
+		(exercise) => writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0
+	);
+}
 
 export function exerciseById(id: ExerciseId): ExerciseDefinition {
 	const found = EXERCISES.find((exercise) => exercise.id === id);

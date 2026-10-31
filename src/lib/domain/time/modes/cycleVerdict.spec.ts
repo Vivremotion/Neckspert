@@ -1,19 +1,27 @@
 import { describe, expect, it } from 'vitest';
+import { loopedFigurePlan } from './testing/plans';
 import { Fraction } from '../fraction';
 import type { Figure, FigureElement } from '../figure';
 import { METER_4_4 } from '../meter';
-import { compileCyclePlan } from '../plan';
 import { createTempoMap } from '../tempoMap';
 import { CYCLE_VERDICT_VERSION as PUBLIC } from '..';
 import { CYCLE_VERDICT_VERSION, cycleVerdictMode } from './cycleVerdict';
+import { timeExpectations } from '../judge/align';
+import type { CycleReport } from '../judge/measures';
 import type { PairedAnswer, PairingResult, RoundClock, VerdictContext } from './types';
 import { roundTimes } from './times';
 
 const of = Fraction.of;
 
+const eighth = (c: string): FigureElement =>
+	c === '1'
+		? { kind: 'note', duration: of(1, 8), content: null }
+		: { kind: 'rest', duration: of(1, 8) };
+const start = (c: RoundClock): Fraction => ('start' in c ? c.start : Fraction.ZERO);
+
 /** The cycle of `round.spec.ts`: a bar of 4/4 in eighths, the off-beats only, over two bars. */
 const offBeats: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [
@@ -27,14 +35,7 @@ const offBeats: Figure = {
 		}
 	]
 };
-const plan = compileCyclePlan({
-	figure: offBeats,
-	cycleBars: 2,
-	startBar: 0,
-	sensor: 'attack',
-	window: { ms: 120 },
-	accompanimentBars: ['on']
-});
+const plan = loopedFigurePlan(offBeats, 2, { ms: 120 });
 // ♩ = 100 bpm: an eighth lasts 0.3 s, a bar 2.4 s; the cycle starts at bar 1 (2.4 s).
 const clock: RoundClock = {
 	map: createTempoMap(0, [{ at: Fraction.ZERO, bpm: 100, unit: of(1, 4) }]),
@@ -109,6 +110,71 @@ describe('cycleVerdictMode', () => {
 				latency: { ms: 20, provenance: 'system' }
 			}
 		});
+	});
+
+	it('fails a cycle with a wrong note', () => {
+		const wrong: PairingResult = {
+			...result,
+			extra: [],
+			attacks: attacks.filter((t) => t !== 2.8499999999999996),
+			pairs: result.pairs.map((p) =>
+				p.expectation === 3
+					? { ...p, judged: { correct: false, answer: { midi: 61 }, confusion: null } }
+					: { ...p, judged: { correct: true, answer: { midi: 60 }, confusion: null } }
+			)
+		};
+		const outcome = cycleVerdictMode.outcome(wrong, context({ precision: 40, regularity: 30 }));
+		expect(outcome.success).toBe(false);
+		expect(outcome.verdict.value).toEqual({ passed: false, reasons: ['wrong-pitch'] });
+		const report = outcome.detail as CycleReport;
+		// A wrong note keeps what it played, as its judge read it: the breath tells it.
+		expect(report.expectations[3]).toEqual({
+			index: 3,
+			verdict: 'wrong-pitch',
+			offsetMs: 0,
+			answer: { midi: 61 }
+		});
+		expect(report.expectations[4]).toEqual({ index: 4, verdict: 'on-time', offsetMs: 0 });
+		expect(outcome.measures.fidelity).toEqual({ value: 7 / 8, unit: 'ratio' });
+	});
+
+	it('passes above thresholds.fidelity', () => {
+		// Ten eighths over two bars, the fourth played wrong: a fidelity of 0.9.
+		const ten = loopedFigurePlan(
+			{ ...offBeats, voices: [{ id: 'main', elements: [...'11111000'].map(eighth) }] },
+			2,
+			{ ms: 120 }
+		);
+		const timed = timeExpectations(ten, clock.map, start(clock));
+		const played: PairingResult = {
+			pairs: timed.map((e) => ({
+				expectation: e.index,
+				time: e.time,
+				judged: { correct: e.index !== 3, answer: null, confusion: null },
+				late: false,
+				pending: false,
+				correction: null,
+				timing: 'on-time',
+				offsetMs: 0
+			})),
+			missed: [],
+			dropped: [],
+			extra: [],
+			shift: null,
+			clampedWindows: 0,
+			attacks: timed.map((e) => e.time)
+		};
+		const judged = (fidelity?: number) =>
+			cycleVerdictMode.outcome(played, {
+				...context({ precision: 40, regularity: 30, fidelity }),
+				plan: ten,
+				times: roundTimes(ten, clock)
+			});
+		expect(judged(0.8).measures.fidelity?.value).toBeCloseTo(0.9);
+		expect(judged(0.8).success).toBe(true);
+		expect(judged(0.8).verdict.value).toEqual({ passed: true });
+		expect(judged(0.95).verdict.value).toEqual({ passed: false, reasons: ['wrong-pitch'] });
+		expect(judged(undefined).verdict.value).toEqual({ passed: false, reasons: ['wrong-pitch'] });
 	});
 
 	it('needs thresholds', () => {

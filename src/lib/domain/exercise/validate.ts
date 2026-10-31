@@ -1,9 +1,16 @@
+import { mechanicRules } from '../mechanics';
+import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
+import { fretOf } from '../music/fretboard';
+import { MAX_PLAYABLE_FRET } from '../music/types';
+import { attackNotes, validateFigure } from '../time/figure';
 import { levelRange } from '../time/levels';
-import { isBeatCount, validateMeter } from '../time/meter';
+import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
+import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
+import { compileRound } from './round/compile';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
-import { BRIEFINGS, type ExerciseDefinition, type Ladder } from './types';
+import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
 	typeof value === 'number' && Number.isFinite(value);
@@ -86,8 +93,37 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 	) {
 		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
 	}
+	const listenIn = pacing?.listenInBars;
+	if (listenIn !== undefined && !naturalNumber(listenIn)) {
+		return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
+	}
+	const countIn = pacing?.countIn;
+	if (countIn !== undefined && typeof countIn !== 'boolean') {
+		return `params.pacing.countIn must be true or false, got ${countIn}`;
+	}
 	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
+	}
+	return null;
+}
+
+/**
+ * Why a run could not start at a level's resolved params (`checkStart` at run start): a listen-in
+ * that is not a whole number of bars, a count that is not a boolean, or neither a listen-in nor a
+ * counted bar (the listen-in is 0 by default, the counted bar on by default).
+ */
+function startProblem(atLevel: Readonly<Record<string, unknown>>): string | null {
+	const pacing = (atLevel.pacing ?? {}) as Record<string, unknown>;
+	const listenIn = pacing.listenInBars ?? 0;
+	if (!naturalNumber(listenIn)) {
+		return `resolves params.pacing.listenInBars ${listenIn}, not a non-negative integer`;
+	}
+	const countIn = pacing.countIn ?? true;
+	if (typeof countIn !== 'boolean') {
+		return `resolves params.pacing.countIn ${countIn}, not true or false`;
+	}
+	if (!countIn && listenIn === 0) {
+		return 'resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other';
 	}
 	return null;
 }
@@ -107,7 +143,8 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
 /**
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
  * path of an exercise or item level through a value that is not an object (named by its level in
- * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive.
+ * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive,
+ * a run a level could not start (`startProblem`).
  * A path no piece reads passes: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
@@ -137,6 +174,8 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		if (!positive(atLevel.tempo)) {
 			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
 		}
+		const start = startProblem(atLevel);
+		if (start !== null) return `${field} ${start}`;
 		resolved.push(atLevel);
 	}
 	for (const [field, ladder] of laddersOf(definition.params)) {
@@ -154,11 +193,103 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
+ * Why a figure the exercise writes cannot be played: a note written on a string where no fret
+ * (0 to `MAX_PLAYABLE_FRET`) gives its pitch.
+ */
+function figuresProblem(definition: ExerciseDefinition): string | null {
+	for (const [index, { id, figure }] of (definition.figures ?? []).entries()) {
+		const invalid = validateFigure(figure);
+		if (invalid !== null) return `figures[${index}] (${id}) is invalid: ${invalid}`;
+		for (const voice of figure.voices) {
+			for (const [k, { note }] of attackNotes(figure, voice.id).entries()) {
+				if (note.pitch === undefined || note.string === undefined) continue;
+				if ('problem' in fretOf(note.pitch, note.string)) {
+					return `figures[${index}] (${id}) note ${k} has pitch ${note.pitch}, not on string ${note.string} (frets 0 to ${MAX_PLAYABLE_FRET})`;
+				}
+			}
+		}
+	}
+	return null;
+}
+
+/**
+ * Why a form the exercise writes cannot be played: an id already taken or that no item key could
+ * name, no note, or a note written on a string where no fret gives its pitch.
+ */
+function formsProblem(definition: ExerciseDefinition): string | null {
+	const forms = definition.forms ?? [];
+	for (const [index, { id, notes }] of forms.entries()) {
+		const field = `forms[${index}] (${id})`;
+		const same = forms.findIndex((form) => form.id === id);
+		if (same !== index) return `${field} has the id of forms[${same}]`;
+		if (id.includes(FORM_ITEM_SEPARATOR)) {
+			return `${field} has an id with "${FORM_ITEM_SEPARATOR}", which separates the parts of an item key`;
+		}
+		if (notes.length === 0) return `${field} has no note`;
+		for (const [k, { midi, string }] of notes.entries()) {
+			const place = fretOf(midi, string);
+			if ('problem' in place) return `${field} note ${k} ${place.problem}`;
+		}
+	}
+	return null;
+}
+
+/**
+ * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
+ * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
+ * the neck does not hold, a form moved off it, a pattern note beyond its notes…), naming the item
+ * and the level. What the round does not derive it does not need. Checked once the round is known
+ * to be valid.
+ */
+function itemsProblem(definition: ExerciseDefinition): string | null {
+	const { items, round } = definition;
+	if (items === undefined) return null;
+	if (items.length === 0) return 'items lists no item';
+	const rules = mechanicRules(definition.mechanic);
+	const meter = definition.meter ?? METER_4_4;
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	for (const [i, key] of items.entries()) {
+		const field = `items[${i}] (${JSON.stringify(key)})`;
+		let item: unknown;
+		try {
+			item = rules.parseItem(key);
+		} catch (error) {
+			return `${field}: ${(error as Error).message}`;
+		}
+		if (round === undefined) continue;
+		for (let level = lowest; level <= highest; level++) {
+			const planned: PlannedItem = {
+				exerciseId: definition.id,
+				mechanic: definition.mechanic,
+				exerciseLevel: level,
+				item,
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			};
+			try {
+				compileRound(definition, planned, meter, {
+					previewBeats: definition.flow?.previewBeats ?? 0,
+					fromRunStart: null
+				});
+			} catch (error) {
+				// The compiler names the exercise too: it is named once.
+				const problem = (error as Error).message.replace(`${definition.id}: `, '');
+				return `${field} does not compile at exercise level ${level}: ${problem}`;
+			}
+		}
+	}
+	return null;
+}
+
+/**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive, a ladder it cannot climb,
- * levels it cannot resolve (`levelsProblem`),
+ * field: a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
+ * string, forms with one id or no note (`formsProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
- * template (`roundProblem`; `options.sensors`: the sensors the session has). It never
+ * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
+ * (`itemsProblem`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
@@ -183,11 +314,21 @@ export function validateExercise(
 		if (flow?.briefing !== undefined && !BRIEFINGS.includes(flow.briefing)) {
 			return `flow.briefing must be one of ${BRIEFINGS.join(', ')}, got ${String(flow.briefing)}`;
 		}
+		if (flow?.levelChange !== undefined && !LEVEL_CHANGES.includes(flow.levelChange)) {
+			return `flow.levelChange must be one of ${LEVEL_CHANGES.join(', ')}, got ${String(flow.levelChange)}`;
+		}
+		if (flow?.demonstration !== undefined && typeof flow.demonstration !== 'boolean') {
+			return `flow.demonstration must be true or false, got ${String(flow.demonstration)}`;
+		}
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
 		const levels = levelsProblem(definition);
 		if (levels !== null) return levels;
-		return roundProblem(definition, options);
+		const figures = figuresProblem(definition);
+		if (figures !== null) return figures;
+		const forms = formsProblem(definition);
+		if (forms !== null) return forms;
+		return roundProblem(definition, options) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

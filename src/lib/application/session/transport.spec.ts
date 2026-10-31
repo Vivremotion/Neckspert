@@ -186,7 +186,7 @@ describe('Transport.accompany and playFigure', () => {
 			accompaniment: clicks
 		});
 		const figure: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [
@@ -547,7 +547,7 @@ describe('Transport.changeTempo after a figure', () => {
 		const { transport } = setup();
 		await transport.begin({ meter: METER_4_4, tempo: tempo(100), accompaniment: clicks });
 		const figure: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 2,
 			voices: [{ id: 'a', elements: [{ kind: 'note', duration: f(2), content: null }] }]

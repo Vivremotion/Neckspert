@@ -113,7 +113,12 @@ describe('every valid exercise plays', () => {
 		for (const round of rounds) {
 			expect(round.stage?.view).toBe('lane');
 			const model = round.stage?.model as PromptStageModel;
-			const fields = ITEM_FIELDS['triad-zone'].fields(round.item.item, 'fr', () => 0);
+			const fields = ITEM_FIELDS['triad-zone'].fields(
+				round.item.item,
+				'fr',
+				() => 0,
+				ROOT_THEN_CHORD
+			);
 			expect(model.prompt).toMatchObject({
 				primary: `racine de ${fields.chord}`,
 				secondary: fields.around,
@@ -181,9 +186,9 @@ describe('every valid exercise plays', () => {
 			new Set(Object.keys(ROUND_MODES.verdicts))
 		);
 		expect(drawnValues((r) => [r.policy.unit])).toEqual(new Set(['response', 'cycle']));
-		expect(drawnValues((r) => r.expectations.map((e) => e.role ?? 'target'))).toEqual(
-			new Set(['target', 'judged-rest'])
-		);
+		expect(
+			drawnValues((r) => r.expectations.map((e) => ('role' in e && e.role) || 'target'))
+		).toEqual(new Set(['target', 'judged-rest']));
 		expect(drawnValues((r) => r.expectations.map((e) => e.content === null))).toEqual(
 			new Set([true, false])
 		);
@@ -193,6 +198,20 @@ describe('every valid exercise plays', () => {
 			(d) => d.round!.policy.pairing.mode === 'alignment' && refusal(d) === null
 		);
 		expect(aligned.length).toBeGreaterThan(0);
+		// Figure entries are drawn by every reference, and played, not only refused.
+		const refs = rounds.flatMap((r) =>
+			r.expectations.flatMap((e) => ('figure' in e ? Object.keys(e.figure) : []))
+		);
+		expect(new Set(refs)).toEqual(new Set(['id', 'param', 'item']));
+		const figured = SEEDS.map(drawn).filter(
+			(d) => d.round!.expectations.some((e) => 'figure' in e) && refusal(d) === null
+		);
+		expect(figured.length).toBeGreaterThan(0);
+		// Figure entries asking for pitches are played, by the alignment among others.
+		const pitched = figured.filter((d) =>
+			d.round!.expectations.some((e) => 'figure' in e && e.content !== null)
+		);
+		expect(pitched.some((d) => d.round!.policy.pairing.mode === 'alignment')).toBe(true);
 	});
 
 	it('draws an exercise that writes a presentation and no view on the lane', async () => {
@@ -213,7 +232,7 @@ describe('every valid exercise plays', () => {
 			expect(problem.startsWith(`random-${seed}: `), problem).toBe(true);
 			// A field follows the name: a path of the definition.
 			expect(problem.slice(`random-${seed}: `.length), problem).toMatch(
-				/^(round|params|presentation|meter|tempo|flow|view|writes a round)/
+				/^(round|params|presentation|meter|tempo|flow|view|figures|writes a round)/
 			);
 		}
 	});

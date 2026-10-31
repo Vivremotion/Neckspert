@@ -1245,6 +1245,8 @@ Les assertions de noms absents (`session/boundaries.spec.ts`) construisent les n
 
 ## Reprise (état au 2026-10-27, après H6)
 
+> **Mise à jour du 2026-10-30 : la séquence (S) est faite sur sa branche** `plan/sequence-s` (pas encore fusionnée dans `main`, elle attend les deux étapes jouables avec l’auteur). Elle a absorbé le cycle (D8 de H6 : `compileCycle`, la porte de `series/compilePlan.ts`, `cycle/` et `CyclePlanRecord` n’existent plus ; la mécanique `rhythm-figure` est devenue `figure`), changé la place de la figure (D10 de H5 amendée : une entrée de figure dans `round.expectations`, pas un `round.figure`), et pris la version 12 de Dexie (sauvegarde 8) ; **le chantier 2 prend donc la version 13**. À lire : `docs/superpowers/specs/2026-10-30-sequence-design.md` et sa « Réalisation ». Dans ce qui suit, « La suite : la séquence (S) » et le point « Le cycle (D8 de H6) » décrivent l’état avant S.
+
 Ce qu’il faut lire pour reprendre après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23, les sections « Réalisation » de H1, H2, H3 et H4, l’amendement du 2026-10-26 (un langage d’exercices ouvert), sa « Réalisation du plan L », et les « Réalisation » de H5 et de H6, ci-dessus. Au-delà : `docs/vision.md` et `docs/reality-check-corpus-2026-10-27.md`.
 
 ### Où en est le chantier

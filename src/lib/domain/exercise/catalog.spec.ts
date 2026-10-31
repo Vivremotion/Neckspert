@@ -5,8 +5,10 @@ import {
 	LOCATE_NECK,
 	TRIADS_ANCHOR,
 	TRIADS_ZONE,
-	exerciseById
+	exerciseById,
+	exerciseSessionExercises
 } from './catalog';
+import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import type { ChordGridItem } from '$lib/domain/mechanics';
@@ -99,7 +101,7 @@ describe('exercise catalog', () => {
 		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
 		// A round template holds no fraction object: it goes through JSON as it is.
 		const rounds = EXERCISES.filter((exercise) => exercise.round);
-		expect(rounds).toHaveLength(8);
+		expect(rounds).toHaveLength(11);
 		for (const { round } of rounds) expect(JSON.parse(JSON.stringify(round))).toEqual(round);
 	});
 
@@ -121,7 +123,10 @@ describe('exercise catalog', () => {
 			leadBeats
 		});
 		const compiled = (definition: ExerciseDefinition, item: unknown, leadBeats: number | null) =>
-			compileRound(definition, planned(definition, item, leadBeats), meter, { previewBeats });
+			compileRound(definition, planned(definition, item, leadBeats), meter, {
+				previewBeats,
+				fromRunStart: null
+			});
 		const key = 'D|maj|3:5,2:1,1:3';
 
 		// Locate, at each level of its ladder: the prompt `lead` beats ahead, one bar of breath,
@@ -212,5 +217,14 @@ describe('exercise catalog', () => {
 		for (const exercise of [LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE]) {
 			expect(exercise.tempo).toBe(80);
 		}
+	});
+});
+
+describe('exerciseSessionExercises', () => {
+	it('lists the exercises whose round writes a figure and that write levels, in catalog order', () => {
+		expect(exerciseSessionExercises()).toEqual([...RHYTHM_EXERCISES]);
+		// Levels, but no figure: the gesture is played in its own sessions.
+		expect(exerciseSessionExercises()).not.toEqual(expect.arrayContaining([GESTURE_EXERCISES[0]]));
+		expect(exerciseSessionExercises()).not.toContain(LOCATE_NECK);
 	});
 });

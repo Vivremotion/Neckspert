@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { EXERCISES } from '$lib/domain/exercise/catalog';
 import { MECHANIC_RULES } from '$lib/domain/mechanics';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
+import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
 
 // The session controller and its series as raw text, keyed by its path from the project root.
 const sources = {
@@ -61,7 +61,7 @@ const NAMES = [
 /** The sensors the presenters name: the series never writes them either. */
 const SENSORS = [
 	...new Set(
-		[NECK_PRESENTERS, TRIAD_PRESENTERS, GESTURE_PRESENTERS, RHYTHM_PRESENTERS].flatMap(
+		[NECK_PRESENTERS, TRIAD_PRESENTERS, GESTURE_PRESENTERS, FIGURE_PRESENTERS].flatMap(
 			(presenters) => Object.values(presenters).flatMap((presenter) => presenter.sensors)
 		)
 	)
@@ -79,35 +79,7 @@ function offendersIn(files: Record<string, string>): string[] {
 	return offenders;
 }
 
-/** The only files of the series that reach the rhythm's cycle (plan H6, D8): its compiler and its screen. */
-const CYCLE_GATES = [`${MODULE}compilePlan.ts`, `${MODULE}stage.ts`];
-
-/** The series' files (specs aside) that import from the cycle's folder, the gates aside. */
-function cycleReachedFrom(files: Record<string, string>): string[] {
-	return Object.entries(files)
-		.filter(
-			([path]) => (path.startsWith(MODULE) || path === CONTROLLER) && !/\.spec\.ts$/.test(path)
-		)
-		.filter(([path]) => !CYCLE_GATES.includes(path))
-		.filter(([, text]) => /from '(\.\.?\/cycle\/|\$lib\/application\/session\/cycle\/)/.test(text))
-		.map(([path]) => path);
-}
-
 describe('the session controller and its series', () => {
-	it('reaches the cycle only through its compiler and its stage dispatch', () => {
-		const paths = Object.keys(sources);
-		for (const gate of CYCLE_GATES) expect(paths).toContain(gate);
-		expect(cycleReachedFrom(sources)).toEqual([]);
-		const file = `${MODULE}x.ts`;
-		expect(cycleReachedFrom({ [file]: `import { a } from '../cycle/recordCycle';` })).toEqual([
-			file
-		]);
-		expect(
-			cycleReachedFrom({ [file]: `import { a } from '$lib/application/session/cycle/x';` })
-		).toEqual([file]);
-		expect(cycleReachedFrom({ [CYCLE_GATES[0]]: `import { a } from '../cycle/x';` })).toEqual([]);
-	});
-
 	it('names no mechanic nor exercise, nor do the prompt stage and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
@@ -127,12 +99,7 @@ describe('the session controller and its series', () => {
 		expect(paths).toContain(CONTROLLER);
 		// The session controller is held to the same rules as its series.
 		expect(offendersIn({ [CONTROLLER]: `const s = 'attack';` })).toEqual([`${CONTROLLER}: attack`]);
-		expect(offendersIn({ [CONTROLLER]: `const m = 'rhythm-figure';` })).toEqual([
-			`${CONTROLLER}: rhythm-figure`
-		]);
-		expect(cycleReachedFrom({ [CONTROLLER]: `import { a } from './cycle/recordCycle';` })).toEqual([
-			CONTROLLER
-		]);
+		expect(offendersIn({ [CONTROLLER]: `const m = 'figure';` })).toEqual([`${CONTROLLER}: figure`]);
 		expect(paths).toContain(PROMPT_STAGE);
 		for (const path of LANE_VIEW) {
 			expect(paths).toContain(path);

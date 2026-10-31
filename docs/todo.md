@@ -35,3 +35,13 @@ Ce qui est repéré mais pas encore conçu. Chaque entrée dit d’où elle vien
   3. **Familles de voicings** : un seul générateur aujourd’hui (`closeTriadVoicings`). Ajouter drop 2, drop 3, shells…, chacune comme générateur nommé dans les données de l’exercice.
   4. **Degrés étendus** : la table des degrés s’arrête à l’octave. Ajouter 9, 11, 13 et les altérations (b9, #9, #11, b13), puis les qualités de tétrades et d’accords enrichis ou altérés ; l’orthographe et les candidats « une case à côté » suivent.
 - **Limite physique, pas du code** : tous groupes confondus, deux formes de groupes différents peuvent sonner à l’identique. Le jam (qui ne juge que l’accord) le supporte ; une contrainte de position (monter, zone large) non, sauf capteur hexaphonique.
+
+## Capteur d’accords : des attaques peut-être perdues sur un accord qui sonne encore
+
+- **Étape** : chantier de reconnaissance des accords, à planifier ; indépendant de la séquence, dont les exercices écoutent le capteur `note`.
+- **Origine** : 2026-10-31, correctif du détecteur de notes (`src/lib/infrastructure/CLAUDE.md`, « Played notes »). L’ancienne règle de `OnsetDetector` (le niveau doit dépasser 1,8 fois une enveloppe lente) perdait une note sur deux quand la précédente sonnait encore. Le détecteur de notes écoute maintenant le capteur d’attaques, mais `NnlsChordVerifier` garde cette règle.
+- **Hypothèse, non mesurée** : le vérificateur d’accords perd des attaques de la même façon. L’auteur a noté le 2026-10-28 « 1 accord sur 2 » reconnu depuis son changement d’interface audio ; la cause peut aussi être ailleurs (le niveau d’entrée, le juge).
+- **À faire** :
+  1. **Mesurer d’abord, sans le jeu de l’auteur** : passer dans le vrai vérificateur et le vrai juge un export audio d’une suite d’accords connue, dont les temps et les formes sont parfaits, à plusieurs tempos et plusieurs volumes ; compter séparément les attaques entendues et les accords reconnus, pour séparer l’attaque de la lecture. Comparer avec le journal de diagnostic de vraies séances.
+  2. **Si l’attaque est en cause** : donner au vérificateur les attaques du capteur d’attaques, comme au détecteur de notes, en gardant `ARPEGGIO_SPAN_MS` (un arpège reste un seul accord). `OnsetDetector` n’aurait alors plus d’utilisateur et serait supprimé.
+  3. **Après** : refaire le calibrage (la latence `chord` en dépend) et rejouer les triades et le Geste.

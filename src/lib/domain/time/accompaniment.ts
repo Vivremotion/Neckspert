@@ -56,9 +56,57 @@ export function clickAccompaniment(input: {
 		return { kind: 'note', duration, content: accent.includes(beat) ? 'click-accent' : 'click' };
 	});
 	return {
-		figure: { schema: 1, meter, bars: 1, voices: [{ id: 'click', elements }] },
+		figure: { schema: 2, meter, bars: 1, voices: [{ id: 'click', elements }] },
 		bars: [...bars]
 	};
+}
+
+/**
+ * Landing (spec section 6 of 2026-10-14): a run's first round starts at the first muted bar of
+ * the accompaniment, so the 1 where the click comes back is judged in the same round as the
+ * silence. The clicked bars before it are the entry. 0 when no bar is muted, or no accompaniment.
+ */
+export function landingBar(accompaniment: Accompaniment | null): number {
+	return accompaniment ? Math.max(0, accompaniment.bars.indexOf('off')) : 0;
+}
+
+/**
+ * The accompaniment with its bar 0 on transport bar `from`: the transport reads the on/off
+ * cycle from its own bar 0, a run starts wherever the count ended. Its figure is left as it
+ * is, so an accompaniment figure longer than a bar stays on the transport's grid.
+ */
+export function accompanimentFrom(accompaniment: Accompaniment, from: number): Accompaniment {
+	const { bars } = accompaniment;
+	const n = bars.length;
+	return {
+		figure: accompaniment.figure,
+		bars: bars.map((_, i) => bars[(((i - from) % n) + n) % n])
+	};
+}
+
+/** The accompaniment with no muted bar: the listen-in is heard, never silent. */
+export function unmuted(accompaniment: Accompaniment): Accompaniment {
+	return { figure: accompaniment.figure, bars: ['on'] };
+}
+
+/**
+ * The muted bars (from 0) of a round of `bars` bars that starts at bar `startBar` of an
+ * accompaniment's on/off `cycle`: round bar `i` is muted when bar `startBar + i` of it is off.
+ */
+export function mutedBarsFrom(
+	cycle: Accompaniment['bars'],
+	startBar: number,
+	bars: number
+): number[] {
+	if (cycle.length === 0) throw new RangeError('an accompaniment needs at least one bar');
+	if (!Number.isInteger(startBar) || startBar < 0) {
+		throw new RangeError(`startBar must be a non-negative integer, got ${startBar}`);
+	}
+	const muted: number[] = [];
+	for (let i = 0; i < bars; i++) {
+		if (cycle[(startBar + i) % cycle.length] === 'off') muted.push(i);
+	}
+	return muted;
 }
 
 interface Attack {

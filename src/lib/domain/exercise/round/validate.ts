@@ -1,7 +1,15 @@
-import { CONTENT_DERIVATIONS, ITEM_NUMBERS } from '../../derivations';
-import { CONTENT_JUDGES } from '../../judges';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
+import { CONTENT_JUDGES, PITCH_CONTENT } from '../../judges';
+import { attackNotes, validateFigure, type Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
-import { barLength, BEAT_RESOLUTION, beatsOf, isBeatCount, METER_4_4 } from '../../time/meter';
+import {
+	barLength,
+	BEAT_RESOLUTION,
+	beatsOf,
+	isBeatCount,
+	METER_4_4,
+	sameMeter
+} from '../../time/meter';
 import { ROUND_MODES } from '../../time/modes';
 import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
 import { pacingOf } from '../pacing';
@@ -9,6 +17,7 @@ import { ladderFieldOf, ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
 import { levelRange } from '../../time/levels';
+import { FIGURE_CONTENT } from './types';
 
 /** What a check may be told about the session that will play the exercise. */
 export interface RoundCheckOptions {
@@ -27,9 +36,12 @@ const ROUND_KEYS = [
 	'mutedBars',
 	'policy',
 	'barOffset',
-	'countEndsOn'
+	'countEndsOn',
+	'accompaniment'
 ];
 const EXPECTATION_KEYS = ['at', 'until', 'role', 'sensor', 'content', 'window', 'bar'];
+const FIGURE_ENTRY_KEYS = ['figure', 'at', 'sensor', 'content', 'window'];
+const FIGURE_REF_KEYS = ['id', 'param', 'item'];
 const POLICY_KEYS = ['unit', 'verdict', 'correction', 'pairing'];
 const LENGTH_KEYS = ['bars', 'beats', 'breath'];
 const COUNT_ENDS = ['prompt', 'target'];
@@ -235,30 +247,68 @@ function contentProblem(check: Check, field: string, content: unknown): string |
 	if (!Object.hasOwn(CONTENT_DERIVATIONS, content.from)) {
 		return at(field, `derives unknown content "${content.from}"`);
 	}
-	const derivation = CONTENT_DERIVATIONS[content.from];
+	if (CONTENT_DERIVATIONS[content.from].list) {
+		return at(
+			field,
+			`derives "${content.from}", a list, which only a figure spreads over its notes`
+		);
+	}
+	return derivationProblem(check, field, content.from);
+}
+
+/** Why a known derivation cannot serve the exercise: another mechanic's, or a kind with no judge. */
+function derivationProblem(check: Check, field: string, from: string): string | null {
+	const derivation = CONTENT_DERIVATIONS[from];
 	if (!derivation.reads.includes(check.definition.mechanic)) {
 		return at(
 			field,
-			`derives "${content.from}" which reads ${derivation.reads.join(', ')}, not ${check.definition.mechanic}`
+			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${check.definition.mechanic}`
 		);
 	}
 	if (!Object.hasOwn(CONTENT_JUDGES, derivation.kind)) {
-		return at(
-			field,
-			`derives "${content.from}", whose content kind "${derivation.kind}" has no judge`
-		);
+		return at(field, `derives "${from}", whose content kind "${derivation.kind}" has no judge`);
+	}
+	return null;
+}
+
+const WINDOW_KEYS = ['ms', 'ofGap', 'param'];
+
+/** The window a param holds, as the compiler reads it; null when it holds none. */
+function paramWindow(value: unknown): { ms: number } | { ofGap: Fraction } | null {
+	if (!isRecord(value)) return null;
+	if (typeof value.ms === 'number' && Number.isFinite(value.ms) && value.ms >= 0) {
+		return { ms: value.ms };
+	}
+	if (value.ofGap instanceof Fraction) return value.ofGap.n > 0 ? { ofGap: value.ofGap } : null;
+	if (typeof value.ofGap === 'string') {
+		try {
+			const gap = Fraction.parse(value.ofGap);
+			return gap.n > 0 ? { ofGap: gap } : null;
+		} catch {
+			return null;
+		}
 	}
 	return null;
 }
 
 function windowProblem(check: Check, field: string, window: unknown): string | null {
-	if (!isRecord(window)) return at(field, 'must be { ms } or { ofGap }');
+	if (!isRecord(window)) return at(field, 'must be { ms }, { ofGap } or { param }');
 	const keys = Object.keys(window);
-	if (keys.length !== 1 || (keys[0] !== 'ms' && keys[0] !== 'ofGap')) {
-		const extra = keys.find((key) => key !== 'ms' && key !== 'ofGap');
+	if (keys.length !== 1 || !WINDOW_KEYS.includes(keys[0])) {
+		const extra = keys.find((key) => !WINDOW_KEYS.includes(key));
 		return extra
-			? at(`${field}.${extra}`, 'is not a key of a window (known: ms, ofGap)')
-			: at(field, 'must be { ms } or { ofGap }');
+			? at(`${field}.${extra}`, `is not a key of a window (known: ${WINDOW_KEYS.join(', ')})`)
+			: at(field, 'must be { ms }, { ofGap } or { param }');
+	}
+	if (keys[0] === 'param') {
+		if (typeof window.param !== 'string')
+			return at(`${field}.param`, 'reads a param named by text');
+		return paramWindow(paramValue(check.params, window.param)) === null
+			? at(
+					field,
+					`reads param "${window.param}", which the exercise does not give as a window ({ ms } or { ofGap })`
+				)
+			: null;
 	}
 	if (keys[0] === 'ofGap') {
 		try {
@@ -275,22 +325,183 @@ function windowProblem(check: Check, field: string, window: unknown): string | n
 	return null;
 }
 
+/** Why a sensor cannot be heard, when the session's sensors are known. */
+function sensorProblem(check: Check, field: string, sensor: unknown): string | null {
+	if (typeof sensor !== 'string') return at(field, 'must name a sensor');
+	const { sensors } = check.options;
+	if (sensors && !sensors.includes(sensor)) {
+		return at(
+			field,
+			`names sensor "${sensor}", which the session does not have (${sensors.join(', ')})`
+		);
+	}
+	return null;
+}
+
+/** The exercise levels, from the lowest. */
+function exerciseLevelIndexes(definition: ExerciseDefinition): number[] {
+	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	return Array.from({ length: highest - lowest + 1 }, (_, i) => lowest + i);
+}
+
+/** The figures a figure entry may name, or why it names none the exercise can play. */
+function namedFigures(
+	check: Check,
+	field: string,
+	ref: unknown
+): { id: string; figure: Figure }[] | string {
+	const { definition } = check;
+	const written = definition.figures ?? [];
+	const known = written.map((f) => f.id).join(', ') || 'none';
+	if (
+		!isRecord(ref) ||
+		Object.keys(ref).length !== 1 ||
+		!FIGURE_REF_KEYS.includes(Object.keys(ref)[0])
+	) {
+		return at(field, 'must be { id }, { param } or { item }');
+	}
+	const find = (id: string) => written.find((f) => f.id === id);
+	let named: { id: string; figure: Figure }[];
+	if ('id' in ref) {
+		const found = typeof ref.id === 'string' ? find(ref.id) : undefined;
+		if (!found) {
+			return at(
+				field,
+				`names figure "${String(ref.id)}", which the exercise does not write (${known})`
+			);
+		}
+		named = [found];
+	} else if ('param' in ref) {
+		if (typeof ref.param !== 'string') return at(`${field}.param`, 'reads a param named by text');
+		named = [];
+		for (const level of exerciseLevelIndexes(definition)) {
+			const id = paramValue(
+				resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null }),
+				ref.param
+			);
+			const found = typeof id === 'string' ? find(id) : undefined;
+			if (!found) {
+				return at(
+					field,
+					`reads param "${ref.param}", which exercise level ${level} gives as ${JSON.stringify(id) ?? 'nothing'}, not a figure the exercise writes (${known})`
+				);
+			}
+			if (!named.includes(found)) named.push(found);
+		}
+	} else {
+		const name = ref.item;
+		if (typeof name !== 'string' || !Object.hasOwn(ITEM_FIGURES, name)) {
+			return at(field, `reads unknown item figure "${String(name)}"`);
+		}
+		const { reads } = ITEM_FIGURES[name];
+		if (!reads.includes(definition.mechanic)) {
+			return at(
+				field,
+				`reads "${name}" which reads ${reads.join(', ')}, not ${definition.mechanic}`
+			);
+		}
+		if (written.length === 0)
+			return at(field, `reads "${name}" on its items, and the exercise writes no figure`);
+		named = [...written];
+	}
+	const meter = definition.meter ?? METER_4_4;
+	for (const { id, figure } of named) {
+		const invalid = validateFigure(figure);
+		if (invalid !== null) return at(field, `names figure "${id}", which is invalid: ${invalid}`);
+		if (!sameMeter(figure.meter, meter)) {
+			return at(field, `names figure "${id}", which is not in the exercise's meter`);
+		}
+	}
+	return named;
+}
+
+function figureContentProblem(
+	check: Check,
+	field: string,
+	content: unknown,
+	figures: readonly { id: string; figure: Figure }[]
+): string | null {
+	if (content === null) return null;
+	if (!isRecord(content) || typeof content.from !== 'string') {
+		return at(
+			field,
+			`must be null, { from: '${FIGURE_CONTENT}' } or { from: derivation, pattern? }`
+		);
+	}
+	if (content.from === FIGURE_CONTENT) {
+		const unknown = unknownKey(content, ['from'], field);
+		if (unknown !== null) return unknown;
+		for (const { id, figure } of figures) {
+			const missing = attackNotes(figure).findIndex(({ note }) => note.pitch === undefined);
+			if (missing >= 0) {
+				return at(field, `reads the pitches of figure "${id}", whose note ${missing} has none`);
+			}
+		}
+		return null;
+	}
+	const unknown = unknownKey(content, ['from', 'pattern'], field);
+	if (unknown !== null) return unknown;
+	if (!Object.hasOwn(CONTENT_DERIVATIONS, content.from)) {
+		return at(field, `derives unknown content "${content.from}"`);
+	}
+	if (!CONTENT_DERIVATIONS[content.from].list) {
+		return at(
+			field,
+			`derives "${content.from}", not a list: a figure spreads a list over its notes`
+		);
+	}
+	const derivation = derivationProblem(check, field, content.from);
+	if (derivation !== null) return derivation;
+	const { pattern } = content;
+	if (
+		pattern !== undefined &&
+		!(
+			Array.isArray(pattern) &&
+			pattern.length > 0 &&
+			pattern.every((index) => Number.isInteger(index) && index >= 1)
+		)
+	) {
+		return at(
+			`${field}.pattern`,
+			`must be a list of note numbers from 1, got ${JSON.stringify(pattern)}`
+		);
+	}
+	return null;
+}
+
+function figureEntryProblem(check: Check, template: Record_, field: string): string | null {
+	const unknown = unknownKey(template, FIGURE_ENTRY_KEYS, field);
+	if (unknown !== null) return unknown;
+	const sensor = sensorProblem(check, `${field}.sensor`, template.sensor);
+	if (sensor !== null) return sensor;
+	const figures = namedFigures(check, `${field}.figure`, template.figure);
+	if (typeof figures === 'string') return figures;
+	const content = figureContentProblem(
+		check,
+		`${field}.content`,
+		template.content ?? null,
+		figures
+	);
+	if (content !== null) return content;
+	const window = windowProblem(check, `${field}.window`, template.window);
+	if (window !== null) return window;
+	if (template.at === null || template.at === undefined)
+		return at(`${field}.at`, 'must place the figure');
+	const start = positionOf(check, `${field}.at`, template.at);
+	return typeof start === 'string' ? start : null;
+}
+
 function expectationProblem(check: Check, template: unknown, i: number): string | null {
 	const field = `expectations[${i}]`;
 	if (!isRecord(template)) return at(field, 'must be an object');
+	if ('figure' in template) return figureEntryProblem(check, template, field);
 	const unknown = unknownKey(template, EXPECTATION_KEYS, field);
 	if (unknown !== null) return unknown;
 	if (template.role !== undefined && !ROLES.includes(template.role as string)) {
 		return at(`${field}.role`, `must be one of ${ROLES.join(', ')}, got ${String(template.role)}`);
 	}
-	if (typeof template.sensor !== 'string') return at(`${field}.sensor`, 'must name a sensor');
-	const { sensors } = check.options;
-	if (sensors && !sensors.includes(template.sensor)) {
-		return at(
-			`${field}.sensor`,
-			`names sensor "${template.sensor}", which the session does not have (${sensors.join(', ')})`
-		);
-	}
+	const sensor = sensorProblem(check, `${field}.sensor`, template.sensor);
+	if (sensor !== null) return sensor;
 	if (
 		template.bar !== undefined &&
 		!(typeof template.bar === 'number' && Number.isInteger(template.bar) && template.bar >= 0)
@@ -380,6 +591,15 @@ function knownNumber(check: Check, value: unknown): unknown {
 	return value;
 }
 
+/** A window as far as the exercise knows it, its numbers 0 where an item or a level decides. */
+function knownWindow(check: Check, window: Record_): Expectation['window'] {
+	if ('ofGap' in window) return { ofGap: Fraction.parse(window.ofGap as string) };
+	if ('param' in window) {
+		return paramWindow(paramValue(check.params, window.param as string)) ?? { ms: 0 };
+	}
+	return { ms: knownNumber(check, window.ms) as number };
+}
+
 /** A length an item or a level decides stands as longer than any place, so it refuses none. */
 const UNKNOWN_LENGTH = Fraction.of(10_000);
 
@@ -394,26 +614,40 @@ function knownPlan(
 	listenUntil: Fraction | undefined
 ): RoundPlan {
 	const policy = template.policy as Record_;
-	const expectations = (template.expectations as Record_[]).map((e): Expectation => ({
-		at: e.at === null ? null : (whereOf(check, '', e.at) ?? Fraction.ZERO),
-		span:
-			e.until === undefined
-				? 'point'
-				: { until: whereOf(check, '', e.until) ?? length ?? UNKNOWN_LENGTH },
-		role: (e.role as Expectation['role'] | undefined) ?? 'target',
-		sensor: e.sensor as string,
-		// What its content is does not matter to a mode, only that it asks for some, and its kind.
-		content: isRecord(e.content)
-			? { kind: CONTENT_DERIVATIONS[e.content.from as string].kind, value: null }
-			: null,
-		window:
-			isRecord(e.window) && 'ofGap' in e.window
-				? { ofGap: Fraction.parse(e.window.ofGap as string) }
-				: { ms: knownNumber(check, (e.window as Record_).ms) as number },
-		bar: (e.bar as number | undefined) ?? 0
-	}));
+	const expectations = (template.expectations as Record_[]).flatMap((e, i): Expectation[] => {
+		const point: Expectation = {
+			at: e.at === null ? null : (whereOf(check, '', e.at) ?? Fraction.ZERO),
+			span:
+				e.until === undefined
+					? 'point'
+					: { until: whereOf(check, '', e.until) ?? length ?? UNKNOWN_LENGTH },
+			role: (e.role as Expectation['role'] | undefined) ?? 'target',
+			sensor: e.sensor as string,
+			// What its content is does not matter to a mode, only that it asks for some, and its kind.
+			content: isRecord(e.content)
+				? {
+						kind:
+							e.content.from === FIGURE_CONTENT
+								? PITCH_CONTENT
+								: CONTENT_DERIVATIONS[e.content.from as string].kind,
+						value: null
+					}
+				: null,
+			window: knownWindow(check, e.window as Record_),
+			bar: (e.bar as number | undefined) ?? 0
+		};
+		if (!('figure' in e)) return [point];
+		// A figure stands as one loop of the first figure it names, from its place.
+		const named = namedFigures(check, `expectations[${i}].figure`, e.figure);
+		const [first] = typeof named === 'string' ? [] : named;
+		if (!first) return [point];
+		return attackNotes(first.figure).map(({ at: attack }) => ({
+			...point,
+			at: (point.at ?? Fraction.ZERO).add(attack)
+		}));
+	});
 	return {
-		prompt: Fraction.ZERO,
+		prompt: template.prompt === undefined ? null : Fraction.ZERO,
 		expectations,
 		length: length ?? UNKNOWN_LENGTH,
 		...(listenUntil !== undefined && { listenUntil }),
@@ -515,6 +749,47 @@ function levelWithoutThresholds(definition: ExerciseDefinition): number | null {
 	return null;
 }
 
+/** Why an accompaniment cannot be played under the round: no on/off bars, or an invalid figure. */
+function playableProblem(value: unknown): string | null {
+	if (!isRecord(value) || !isRecord(value.figure) || !Array.isArray(value.bars)) {
+		return 'is no accompaniment ({ figure, bars })';
+	}
+	const { bars } = value;
+	if (bars.length === 0 || !bars.every((bar) => bar === 'on' || bar === 'off')) {
+		return `must have bars of "on" and "off", got ${JSON.stringify(bars)}`;
+	}
+	const invalid = validateFigure(value.figure as unknown as Figure);
+	return invalid === null ? null : `has an invalid figure: ${invalid}`;
+}
+
+function accompanimentProblem(check: Check, accompaniment: unknown): string | null {
+	if (accompaniment === undefined) return null;
+	if (!(isRecord(accompaniment) && 'param' in accompaniment)) {
+		const problem = playableProblem(accompaniment);
+		return problem === null ? null : at('accompaniment', problem);
+	}
+	const unknown = unknownKey(accompaniment, ['param'], 'accompaniment');
+	if (unknown !== null) return unknown;
+	if (typeof accompaniment.param !== 'string') {
+		return at('accompaniment.param', 'reads a param named by text');
+	}
+	const { definition } = check;
+	for (const level of exerciseLevelIndexes(definition)) {
+		const value = paramValue(
+			resolvedParamsOf(definition, { exerciseLevel: level, itemLevel: null }),
+			accompaniment.param
+		);
+		const problem = playableProblem(value);
+		if (problem !== null) {
+			return at(
+				'accompaniment',
+				`reads param "${accompaniment.param}", which at exercise level ${level} ${problem}`
+			);
+		}
+	}
+	return null;
+}
+
 function templateProblem(check: Check): string | null {
 	const template: unknown = check.definition.round;
 	if (!isRecord(template)) return at('', 'must be an object');
@@ -528,12 +803,16 @@ function templateProblem(check: Check): string | null {
 		if (problem !== null) return problem;
 	}
 	const prompt = template.prompt;
-	if (!isRecord(prompt)) return at('prompt', 'must be { lead }');
-	const promptUnknown = unknownKey(prompt, ['lead'], 'prompt');
-	if (promptUnknown !== null) return promptUnknown;
-	const lead = numberOf(check, 'prompt.lead', prompt.lead);
-	const leadProblemText = countProblem('prompt.lead', lead, 'beats');
-	if (leadProblemText !== null) return leadProblemText;
+	if (prompt !== undefined) {
+		if (!isRecord(prompt)) return at('prompt', 'must be { lead }');
+		const promptUnknown = unknownKey(prompt, ['lead'], 'prompt');
+		if (promptUnknown !== null) return promptUnknown;
+		const lead = numberOf(check, 'prompt.lead', prompt.lead);
+		const leadProblemText = countProblem('prompt.lead', lead, 'beats');
+		if (leadProblemText !== null) return leadProblemText;
+	}
+	const accompaniment = accompanimentProblem(check, template.accompaniment);
+	if (accompaniment !== null) return accompaniment;
 
 	const free = expectations.filter((e) => (e as Record_).at === null).length;
 	if (free > 0 && free < expectations.length) {

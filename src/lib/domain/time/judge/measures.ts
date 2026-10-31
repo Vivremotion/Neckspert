@@ -9,12 +9,24 @@ export type Measures = Partial<Record<MeasureId, { value: number; unit: MeasureU
 /** Who measured the latency the offsets were corrected by: the system alone, or the player's own taps. */
 export type LatencyProvenance = 'system' | 'player';
 
-/** The verdict of an expectation in the report: `dropped` for one a shift made unplayable. */
-export type ReportedVerdict = ExpectationVerdict | 'dropped';
+/**
+ * The verdict of an expectation in the report: `dropped` for one a shift made unplayable,
+ * `wrong-pitch` for one answered in its zone by an attack that does not play it (a wrong note in
+ * place), whatever its timing.
+ */
+export type ReportedVerdict = ExpectationVerdict | 'dropped' | 'wrong-pitch';
 
 export interface CycleReport {
-	/** One entry per timed expectation, in plan order. */
-	expectations: { index: number; verdict: ReportedVerdict; offsetMs: number | null }[];
+	/**
+	 * One entry per timed expectation, in plan order. A `wrong-pitch` one keeps what its attack
+	 * played, as its judge read it (`answer`), when the verdict knows it.
+	 */
+	expectations: {
+		index: number;
+		verdict: ReportedVerdict;
+		offsetMs: number | null;
+		answer?: unknown;
+	}[];
 	/** Plan indexes of the expectations a shift made unplayable (neither played nor missed). */
 	dropped: number[];
 	/** How many attacks answered no expectation. */
@@ -29,8 +41,20 @@ export interface CycleReport {
 	latency: { ms: number; provenance: LatencyProvenance } | null;
 }
 
-export type CycleFailure = 'missed' | 'extra' | 'shift' | 'precision' | 'regularity' | 'hold';
+export type CycleFailure =
+	'missed' | 'wrong-pitch' | 'extra' | 'shift' | 'precision' | 'regularity' | 'hold';
 export type CycleVerdict = { passed: true } | { passed: false; reasons: CycleFailure[] };
+
+/**
+ * What a level allows a cycle: the largest absolute value of a measure that still passes, and the
+ * least share of hits (`fidelity`, 0 to 1) that lets missed and wrong notes pass.
+ */
+export type CycleThresholds = Partial<
+	Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift' | 'fidelity', number>
+>;
+
+/** Float tolerance on a share: 9 hits out of 10 meet a threshold of 0.9. */
+const EPSILON = 1e-9;
 
 function mean(values: number[]): number {
 	return values.reduce((sum, v) => sum + v, 0) / values.length;
@@ -57,13 +81,15 @@ function slope(points: { x: number; y: number }[]): number {
 
 /**
  * The report of one cycle: a verdict per expectation, the added attacks, the shift, and the
- * measures, computed from the paired offsets. Fidelity counts every expectation (a dropped one
- * was not played). Placement, precision and hold offset need at least one paired offset (hold
- * offset also needs a muted and a clicked bar with data), regularity at least two, hold drift
- * at least two muted bars with data (each bar by the mean of its offsets). `mutedBars` are the
- * cycle bars where the click is silent. `attacks` are the times aligned (seconds, latency removed,
- * indexed as the alignment indexes them) and `startS` the cycle's start, which the extra
- * attacks are timed from. Pure: the same alignment gives the same report.
+ * measures, computed from the paired offsets. A pair whose attack does not fit is `wrong-pitch`.
+ * Fidelity is the share of the expectations hit (paired by a note that fits), over every
+ * expectation (a dropped one was not played). The other measures read every pair, a wrong
+ * note's too: it was played at its place. Placement, precision and hold offset need at least one
+ * paired offset (hold offset also needs a muted and a clicked bar with data), regularity at
+ * least two, hold drift at least two muted bars with data (each bar by the mean of its offsets).
+ * `mutedBars` are the cycle bars where the click is silent. `attacks` are the times aligned
+ * (seconds, latency removed, indexed as the alignment indexes them) and `startS` the cycle's
+ * start, which the extra attacks are timed from. Pure: the same alignment gives the same report.
  */
 export function cycleReport(input: {
 	alignment: Alignment;
@@ -80,14 +106,18 @@ export function cycleReport(input: {
 		.sort((a, b) => a.index - b.index)
 		.map((e) => {
 			const pair = paired.get(e.index);
-			if (pair) return { index: e.index, verdict: pair.verdict, offsetMs: pair.offsetMs };
+			if (pair) {
+				const verdict = pair.fits ? pair.verdict : 'wrong-pitch';
+				return { index: e.index, verdict, offsetMs: pair.offsetMs };
+			}
 			if (dropped.has(e.index)) return { index: e.index, verdict: 'dropped', offsetMs: null };
 			return { index: e.index, verdict: 'missed', offsetMs: null };
 		});
 
 	const measures: Measures = {};
 	if (expectations.length > 0) {
-		measures.fidelity = { value: alignment.pairs.length / expectations.length, unit: 'ratio' };
+		const hits = alignment.pairs.filter((p) => p.fits).length;
+		measures.fidelity = { value: hits / expectations.length, unit: 'ratio' };
 	}
 	const offsets = alignment.pairs.map((p) => p.offsetMs);
 	if (offsets.length > 0) {
@@ -132,24 +162,31 @@ export function cycleReport(input: {
 }
 
 /**
- * A cycle passes when the figure was played faithfully (nothing missed, nothing added, no
- * shift) and regularity and hold are within their thresholds. Precision judges only when the
+ * A cycle passes when the figure was played faithfully (nothing missed, no wrong note, nothing
+ * added, no shift) and regularity and hold are within their thresholds. A level that writes
+ * `thresholds.fidelity` (a share of hits, 0 to 1) lets missed and wrong notes pass while the
+ * fidelity is at or above it; without it, any one fails. Precision judges only when the
  * latency was measured without the player (`provenance === 'system'`): otherwise it is shown,
  * and judges nothing. A measure without data or without a threshold is not judged; a threshold
  * is the largest absolute value that still passes. Dropped expectations add no `missed`
  * reason: the `shift` already fails the cycle.
  */
-export function cycleVerdict(
-	report: CycleReport,
-	thresholds: Partial<Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift', number>>
-): CycleVerdict {
-	const over = (id: keyof typeof thresholds): boolean => {
+export function cycleVerdict(report: CycleReport, thresholds: CycleThresholds): CycleVerdict {
+	const over = (id: Exclude<keyof CycleThresholds, 'fidelity'>): boolean => {
 		const limit = thresholds[id];
 		const measure = report.measures[id];
 		return limit !== undefined && measure !== undefined && Math.abs(measure.value) > limit;
 	};
 	const reasons: CycleFailure[] = [];
-	if (report.expectations.some((e) => e.verdict === 'missed')) reasons.push('missed');
+	const fidelity = report.measures.fidelity?.value;
+	const faithful =
+		thresholds.fidelity !== undefined &&
+		fidelity !== undefined &&
+		fidelity >= thresholds.fidelity - EPSILON;
+	if (!faithful) {
+		if (report.expectations.some((e) => e.verdict === 'missed')) reasons.push('missed');
+		if (report.expectations.some((e) => e.verdict === 'wrong-pitch')) reasons.push('wrong-pitch');
+	}
 	if (report.extra > 0) reasons.push('extra');
 	if (report.shift) reasons.push('shift');
 	if (report.latency?.provenance === 'system' && over('precision')) reasons.push('precision');

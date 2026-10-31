@@ -2,19 +2,24 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
-import { compileCyclePlan, type ContentJudges, type Judged, type RoundPlan } from './plan';
+import { type ContentJudges, type Judged, type RoundPlan } from './plan';
 import { createTempoMap } from './tempoMap';
 import { AIDS, PlanRound, type Aid, type PlanObservation } from './round';
 import type { CycleReport } from './judge/measures';
 import { ROUND_MODES } from './modes';
 import type { PairingMode, PairingResult, RoundModes } from './modes/types';
-import { triadAnchorPlan, locatePlan, map as beatMap } from './modes/testing/plans';
+import {
+	loopedFigurePlan,
+	triadAnchorPlan,
+	locatePlan,
+	map as beatMap
+} from './modes/testing/plans';
 
 const of = Fraction.of;
 
 /** A bar of 4/4 in eighths: the off-beats only (a rest, then a note, four times). */
 const offBeats: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [
@@ -30,14 +35,7 @@ const offBeats: Figure = {
 };
 
 function cyclePlan(cycleBars = 2): RoundPlan {
-	return compileCyclePlan({
-		figure: offBeats,
-		cycleBars,
-		startBar: 0,
-		sensor: 'attack',
-		window: { ms: 120 },
-		accompanimentBars: ['on']
-	});
+	return loopedFigurePlan(offBeats, cycleBars, { ms: 120 });
 }
 
 // ♩ = 100 bpm: an eighth lasts 0.3 s, a bar 2.4 s; the cycle starts at bar 1 (2.4 s).
@@ -232,7 +230,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	/** A bar of 4/4 from a pattern of steps of `step`: a note where it says 1, a rest at 0. */
 	function figureOf(pattern: string, step: Fraction): Figure {
 		return {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [
@@ -249,14 +247,7 @@ describe('PlanRound capture window on chained cycles', () => {
 	}
 
 	function oneBar(figure: Figure): RoundPlan {
-		return compileCyclePlan({
-			figure,
-			cycleBars: 1,
-			startBar: 0,
-			sensor: 'attack',
-			window: { ms: 120 },
-			accompanimentBars: ['on']
-		});
+		return loopedFigurePlan(figure, 1, { ms: 120 });
 	}
 
 	function at(plan: RoundPlan, bar: number): PlanRound {

@@ -216,7 +216,7 @@ describe('importing an export of 2026-10-04', () => {
 
 		// The settings tempo went to a locate progression, which version 7 no longer keeps.
 		const exported = await new DexieBackup(db).exportAll();
-		expect(exported.version).toBe(7);
+		expect(exported.version).toBe(8);
 		expect(Object.hasOwn(exported, 'progressions')).toBe(false);
 
 		const settings = await new DexieSettingsRepository(db).get();

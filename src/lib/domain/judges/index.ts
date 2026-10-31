@@ -23,6 +23,9 @@ export const CHORD_VOICING_CONTENT = 'chord-voicing';
 /** A change of a chord grid, by its rule. Value: `ChordGridItem`; payload: `ChordReading`. */
 export const CHORD_GRID_CONTENT = 'chord-grid';
 
+/** An exact pitch, octave included. Value: `{ midi, string? }`; payload: `{ midi }`. */
+export const PITCH_CONTENT = 'pitch';
+
 export interface ChordVoicingContent {
 	voicingKey: string;
 	/** The position asked; null: the voicing anywhere. */
@@ -38,6 +41,16 @@ const noteJudge: ContentJudge = {
 			answer: { midi },
 			confusion: classifyNoteConfusion(item, midi)
 		};
+	}
+};
+
+const pitchJudge: ContentJudge = {
+	judge(value, payload) {
+		const expected = (value as { midi: Midi }).midi;
+		// A sensor that reports no pitch (a local exercise can pair one with pitch content) is wrong.
+		const midi = (payload as { midi?: unknown } | null | undefined)?.midi;
+		if (typeof midi !== 'number') return { correct: false, answer: null, confusion: null };
+		return { correct: midi === expected, answer: { midi }, confusion: null };
 	}
 };
 
@@ -80,6 +93,7 @@ const chordGridJudge: ContentJudge = {
 export const CONTENT_JUDGES: Readonly<Record<string, ContentJudge>> = {
 	[NOTE_CONTENT]: noteJudge,
 	[NAME_CONTENT]: nameJudge,
+	[PITCH_CONTENT]: pitchJudge,
 	[CHORD_VOICING_CONTENT]: chordVoicingJudge,
 	[CHORD_GRID_CONTENT]: chordGridJudge
 };

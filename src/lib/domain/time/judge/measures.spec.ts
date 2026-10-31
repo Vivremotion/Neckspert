@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import type { Alignment, ExpectationVerdict, TimedExpectation } from './align';
 import { cycleReport, cycleVerdict, type CycleReport } from './measures';
 
-/** One expectation per entry, in bar `bar`; an offset of `null` is an expectation nobody answered. */
-function scenario(entries: { bar: number; offsetMs: number | null }[]) {
+/**
+ * One expectation per entry, in bar `bar`; an offset of `null` is an expectation nobody answered,
+ * `fits: false` one answered by a wrong note.
+ */
+type Entry = { bar: number; offsetMs: number | null; fits?: boolean };
+
+function scenario(entries: Entry[]) {
 	const expectations: TimedExpectation[] = entries.map((e, index) => ({
 		index,
 		time: index,
@@ -18,7 +23,13 @@ function scenario(entries: { bar: number; offsetMs: number | null }[]) {
 		else {
 			const verdict: Exclude<ExpectationVerdict, 'missed'> =
 				Math.abs(e.offsetMs) <= 50 ? 'on-time' : e.offsetMs < 0 ? 'early' : 'late';
-			pairs.push({ expectation: index, attack: pairs.length, offsetMs: e.offsetMs, verdict });
+			pairs.push({
+				expectation: index,
+				attack: pairs.length,
+				offsetMs: e.offsetMs,
+				verdict,
+				fits: e.fits ?? true
+			});
 		}
 	});
 	const alignment: Alignment = {
@@ -36,7 +47,7 @@ const player = { ms: 20, provenance: 'player' } as const;
 const system = { ms: 20, provenance: 'system' } as const;
 
 function report(
-	entries: { bar: number; offsetMs: number | null }[],
+	entries: Entry[],
 	opts: {
 		mutedBars?: number[];
 		latency?: CycleReport['latency'];
@@ -102,6 +113,34 @@ describe('cycleReport', () => {
 		expect(r.extra).toBe(2);
 		expect(r.shift).toEqual({ bar: 1, byS: 0.5 });
 		expect(r.measures.fidelity?.value).toBeCloseTo(0.5);
+	});
+
+	it('reports wrong-pitch and counts it out of fidelity', () => {
+		const r = report([
+			{ bar: 0, offsetMs: 0 },
+			{ bar: 0, offsetMs: 30, fits: false },
+			{ bar: 1, offsetMs: 0 },
+			{ bar: 1, offsetMs: null }
+		]);
+		expect(r.expectations).toEqual([
+			{ index: 0, verdict: 'on-time', offsetMs: 0 },
+			{ index: 1, verdict: 'wrong-pitch', offsetMs: 30 },
+			{ index: 2, verdict: 'on-time', offsetMs: 0 },
+			{ index: 3, verdict: 'missed', offsetMs: null }
+		]);
+		expect(r.measures.fidelity).toEqual({ value: 0.5, unit: 'ratio' });
+	});
+
+	it('measures placement over wrong notes too', () => {
+		const r = report([
+			{ bar: 0, offsetMs: 20 },
+			{ bar: 1, offsetMs: -40, fits: false },
+			{ bar: 2, offsetMs: 20, fits: false }
+		]);
+		expect(r.measures.placement?.value).toBeCloseTo(0);
+		expect(r.measures.precision?.value).toBeCloseTo(80 / 3);
+		expect(r.measures.regularity?.value).toBeGreaterThan(0);
+		expect(r.measures.fidelity?.value).toBeCloseTo(1 / 3);
 	});
 
 	it('times the extra attacks in ms from the cycle start', () => {
@@ -302,6 +341,48 @@ describe('cycleVerdict', () => {
 		expect(cycleVerdict(r, strict)).toEqual({
 			passed: false,
 			reasons: ['missed', 'extra', 'shift', 'precision', 'regularity']
+		});
+	});
+
+	it('fails on a wrong note, right after a missed one', () => {
+		const r = report([
+			{ bar: 0, offsetMs: 0 },
+			{ bar: 1, offsetMs: 0, fits: false },
+			{ bar: 2, offsetMs: null }
+		]);
+		expect(cycleVerdict(r, strict)).toEqual({ passed: false, reasons: ['missed', 'wrong-pitch'] });
+		expect(cycleVerdict(report(exact, { patch: { extra: [9] } }), strict)).toEqual({
+			passed: false,
+			reasons: ['extra']
+		});
+	});
+
+	it('lets missed and wrong notes pass at or above thresholds.fidelity, and fail below it', () => {
+		const ten = (faults: Entry[]): Entry[] => [
+			...faults,
+			...Array.from({ length: 10 - faults.length }, (_, i) => ({ bar: i % 4, offsetMs: 0 }))
+		];
+		const wrongOne = report(ten([{ bar: 0, offsetMs: 0, fits: false }]));
+		expect(cycleVerdict(wrongOne, { ...strict, fidelity: 0.9 })).toEqual({ passed: true });
+		const twoOff = report(
+			ten([
+				{ bar: 0, offsetMs: 0, fits: false },
+				{ bar: 1, offsetMs: null }
+			])
+		);
+		expect(twoOff.measures.fidelity?.value).toBeCloseTo(0.8);
+		expect(cycleVerdict(twoOff, { ...strict, fidelity: 0.8 })).toEqual({ passed: true });
+		expect(cycleVerdict(twoOff, { ...strict, fidelity: 0.85 })).toEqual({
+			passed: false,
+			reasons: ['missed', 'wrong-pitch']
+		});
+		// Without the threshold, any fault fails, as before.
+		expect(cycleVerdict(wrongOne, strict)).toEqual({ passed: false, reasons: ['wrong-pitch'] });
+		// The threshold excuses only the notes: an extra one still fails.
+		const extra = report(ten([{ bar: 1, offsetMs: null }]), { patch: { extra: [9] } });
+		expect(cycleVerdict(extra, { ...strict, fidelity: 0.8 })).toEqual({
+			passed: false,
+			reasons: ['extra']
 		});
 	});
 

@@ -4,7 +4,7 @@ import AnswerKeysView from './AnswerKeysView.svelte';
 import GridScrollView from './GridScrollView.svelte';
 import LaneView from './LaneView.svelte';
 import LinkLaneView from './LinkLaneView.svelte';
-import RhythmFigureView from './RhythmFigureView.svelte';
+import FigureView from './FigureView.svelte';
 
 /** What a play view is given: the session, and the screen model of its mechanic. */
 export type PlayViewProps = { controller: PlaySessionController; model: unknown };
@@ -15,10 +15,10 @@ export type PlayViewProps = { controller: PlaySessionController; model: unknown 
  */
 export const PLAY_VIEWS: Record<string, Component<PlayViewProps>> = {
 	'answer-keys': AnswerKeysView,
+	figure: FigureView,
 	'grid-scroll': GridScrollView,
 	lane: LaneView,
-	'link-lane': LinkLaneView,
-	'rhythm-figure': RhythmFigureView
+	'link-lane': LinkLaneView
 };
 
 /**
@@ -30,8 +30,8 @@ export type PlayWorld = 'quiet' | 'pixel';
 
 export const VIEW_WORLDS: Record<string, PlayWorld> = {
 	'answer-keys': 'quiet',
+	figure: 'pixel',
 	'grid-scroll': 'pixel',
 	lane: 'quiet',
-	'link-lane': 'pixel',
-	'rhythm-figure': 'pixel'
+	'link-lane': 'pixel'
 };

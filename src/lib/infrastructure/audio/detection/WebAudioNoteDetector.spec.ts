@@ -255,10 +255,7 @@ describe('WebAudioNoteDetector', () => {
 			})
 		);
 		const detector = new WebAudioNoteDetector(() => fake as unknown as AudioContext, {
-			clarityThreshold: 0.5,
-			minRms: 0.001,
-			onsetRatio: 1.2,
-			cooldownMs: 50
+			clarityThreshold: 0.5
 		});
 		const levels: number[] = [];
 		detector.onLevel((rms) => levels.push(rms));
@@ -307,5 +304,58 @@ describe('WebAudioNoteDetector', () => {
 		expect(rejections).toHaveLength(1);
 		expect(rejections[0].reason).toBe('out-of-range');
 		detector.stop();
+	});
+});
+
+describe('WebAudioNoteDetector on notes that hold', () => {
+	const RATE = 48000;
+	const GAP_S = 0.43;
+	const HZ = [146.83, 196, 220, 233.08, 220, 196, 220, 164.81];
+
+	/** A phrase on one string: each note stops the last, and barely fades before it does. */
+	function heldPhrase(): Float32Array {
+		const out = new Float32Array(Math.floor(RATE * (HZ.length * GAP_S + 1)));
+		HZ.forEach((hz, index) => {
+			const from = Math.round(RATE * (0.2 + index * GAP_S));
+			const to =
+				index === HZ.length - 1 ? out.length : Math.round(RATE * (0.2 + (index + 1) * GAP_S));
+			for (let i = from; i < to; i++) {
+				const t = (i - from) / RATE;
+				const rise = Math.min(1, (i - from) / (0.001 * RATE));
+				out[i] =
+					0.2 *
+					rise *
+					Math.exp(-0.6 * t) *
+					(Math.sin(2 * Math.PI * hz * t) + 0.5 * Math.sin(4 * Math.PI * hz * t));
+			}
+		});
+		return out;
+	}
+
+	it('hears every note of the phrase, the last one still sounding', async () => {
+		installMedia();
+		const node = new FakeNode();
+		vi.stubGlobal(
+			'AudioWorkletNode',
+			vi.fn(function AudioWorkletNode() {
+				return node;
+			})
+		);
+		const fake = new FakeContext();
+		const detector = new WebAudioNoteDetector(() => fake as unknown as AudioContext);
+		const notes: NoteOnset[] = [];
+		detector.onNote((onset) => notes.push(onset));
+		await detector.start(null);
+		const signal = heldPhrase();
+		for (let offset = 0; offset + 512 <= signal.length; offset += 512) {
+			node.port.onmessage!({
+				data: { samples: signal.slice(offset, offset + 512), frameTime: offset / RATE }
+			} as MessageEvent);
+		}
+		detector.stop();
+		expect(notes.map((note) => note.midi)).toEqual([50, 55, 57, 58, 57, 55, 57, 52]);
+		notes.forEach((note, index) =>
+			expect(Math.abs(note.time - (0.2 + index * GAP_S))).toBeLessThan(0.01)
+		);
 	});
 });

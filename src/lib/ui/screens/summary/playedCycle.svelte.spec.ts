@@ -36,7 +36,7 @@ afterEach(cleanup);
 
 const quarter = { kind: 'note', duration: Fraction.of(1, 4), content: null } as const;
 const figure: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [{ id: 'main', elements: [quarter, quarter, quarter, quarter] }]
@@ -88,11 +88,11 @@ describe('SummaryScreen of a rhythm session', () => {
 		render(SummaryScreen, {
 			props: { summary, now: 0, onhome: () => {}, onmap: () => {}, development: true }
 		});
-		await waitFor(() => expect(screen.getAllByTestId('rhythm-mark')).toHaveLength(4));
+		await waitFor(() => expect(screen.getAllByTestId('figure-mark')).toHaveLength(4));
 		expect(
-			screen.getAllByTestId('rhythm-mark').map((mark) => mark.getAttribute('data-kind'))
+			screen.getAllByTestId('figure-mark').map((mark) => mark.getAttribute('data-kind'))
 		).toEqual(['on-time', 'early', 'late', 'missed']);
-		const strip = screen.getByTestId('rhythm-strip');
+		const strip = screen.getByTestId('figure-strip');
 		const report = screen.getByText('Cycle raté');
 		expect(strip.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});

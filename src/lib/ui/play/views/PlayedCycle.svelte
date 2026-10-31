@@ -7,8 +7,9 @@
 	import { onMount } from 'svelte';
 	import { beatPositions, type CycleReport, type Feedback, type Figure } from '$lib/domain/time';
 	import type { FigureLayout } from '$lib/ui/notation';
-	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './rhythmFigure';
-	import { rhythmMessages } from './rhythmMessages';
+	import { cycleFigure, cycleMarks, labelRows, shiftMark, type Mark } from './figure';
+	import { figureMessages } from './figureMessages';
+	import MarkShape from './MarkShape.svelte';
 
 	/**
 	 * The run played: the cycle's figure engraved whole, as small as it takes to hold on one
@@ -42,7 +43,7 @@
 	/** The figures' size (`--np-type-body`) before it is measured. */
 	const FIGURE_FALLBACK_PX = 22;
 
-	const t = $derived(rhythmMessages());
+	const t = $derived(figureMessages());
 
 	// VexFlow is heavy: the notation adapter is loaded once a run is shown, never before.
 	let notation = $state<Notation | null>(null);
@@ -153,7 +154,7 @@
 	{#each playedLines as block (block.line)}
 		<div
 			class="engraving line"
-			data-testid="rhythm-line"
+			data-testid="figure-line"
 			data-line={block.line}
 			style:height="{block.height}px"
 			style:width="{playedLayout?.width ?? 0}px"
@@ -165,7 +166,7 @@
 		{#each block.strips as strip (strip.cycle)}
 			<div
 				class="strip-row"
-				data-testid="rhythm-strip"
+				data-testid="figure-strip"
 				data-line={block.line}
 				role="group"
 				aria-label={t.cycle(strip.cycle + 1)}
@@ -175,13 +176,13 @@
 					{#each strip.marks as { mark, row }, i (i)}
 						<span
 							class="mark {mark.kind}"
-							data-testid="rhythm-mark"
+							data-testid="figure-mark"
 							data-kind={mark.kind}
 							style:left="{mark.x}px"
 							role="img"
 							aria-label={markLabel(mark)}
 						>
-							<span class="shape" aria-hidden="true"></span>
+							<MarkShape kind={mark.kind} />
 							{#if mark.label && row !== null}
 								<span class="figure-label" class:second={row === 1} aria-hidden="true"
 									>{mark.label}</span
@@ -190,7 +191,7 @@
 						</span>
 					{/each}
 					{#if strip.shift}
-						<span class="shift" data-testid="rhythm-shift" style:left="{strip.shift.x}px"
+						<span class="shift" data-testid="figure-shift" style:left="{strip.shift.x}px"
 							>{strip.shift.lost ? t.shift.lost : t.shift.added}</span
 						>
 					{/if}
@@ -271,61 +272,10 @@
 		height: 100%;
 	}
 
-	.mark > * {
+	.figure-label {
 		position: absolute;
 		left: 0;
 		transform: translateX(-50%);
-	}
-
-	.shape {
-		top: 2px;
-	}
-
-	.shape {
-		display: block;
-		box-sizing: border-box;
-	}
-
-	.missed .shape {
-		top: 0;
-	}
-
-	/* Each kind has its own shape, so colour is never the only cue. */
-	.on-time .shape {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--np-shade);
-	}
-
-	.early .shape,
-	.late .shape {
-		width: 0;
-		height: 0;
-		border-block: 8px solid transparent;
-	}
-
-	.early .shape {
-		border-inline-end: 12px solid var(--np-ink);
-	}
-
-	.late .shape {
-		border-inline-start: 12px solid var(--np-ink);
-	}
-
-	.missed .shape {
-		width: 16px;
-		height: 16px;
-		border: 3px solid var(--np-ink);
-		border-radius: 50%;
-	}
-
-	.extra .shape {
-		width: 12px;
-		height: 12px;
-		border: 3px solid var(--np-ink);
-		transform: rotate(45deg);
-		margin-block: 2px;
 	}
 
 	/* « Le chiffre en grand »: read from a metre away. */

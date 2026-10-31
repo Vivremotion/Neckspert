@@ -1,5 +1,5 @@
 import { Fraction } from './fraction';
-import { attackPositions, validateFigure, type Figure } from './figure';
+import { attackNotes, validateFigure, type Figure, type FigureNote } from './figure';
 import { barLength } from './meter';
 
 /** How far from an expectation an attack still counts: absolute, or a share of the local gap. */
@@ -139,68 +139,54 @@ export function validateRoundPlan(plan: RoundPlan): string | null {
 }
 
 /**
- * The plan of a looped figure played over `cycleBars` bars, the cycle beginning at bar
- * `startBar` of the figure loop (it wraps, the figure repeats); `cycleBars` is a whole number
- * of figure loops. One point target per note
- * of the figure's first voice, tied notes counted once. The accompaniment cycle is rotated
- * by the same `startBar`: cycle bar `i` is muted when `accompanimentBars[(startBar + i) % n]`
- * is `'off'`, so the cycle starts where the silence does (spec section 6, landing).
+ * The expectations of `figure` looped over `length` (a fraction of a whole note) of a round, from
+ * the round's position `at`: one point target per attack of its first voice (tied notes counted
+ * once, a rest expecting nothing), the loop beginning at bar `startBar` of the figure (it wraps,
+ * the figure repeats) and cut at `at + length`: an attack on or past that end belongs to the next
+ * round. Each expectation's `bar` is the bar of the round it falls in; `content(k, note)` gives
+ * what the `k`-th attack played (from 0, counted from the round's start) must play.
  */
-export function compileCyclePlan(input: {
+export function figureExpectations(input: {
 	figure: Figure;
-	cycleBars: number;
+	at: Fraction;
+	length: Fraction;
 	startBar: number;
 	sensor: string;
 	window: ExpectationWindow;
-	accompanimentBars: ('on' | 'off')[];
-}): RoundPlan {
-	const { figure, cycleBars, startBar, sensor, window, accompanimentBars } = input;
+	content: (k: number, note: FigureNote) => ExpectedContent | null;
+}): Expectation[] {
+	const { figure, at, length, startBar, sensor, window, content } = input;
 	const problem = validateFigure(figure);
 	if (problem) throw new RangeError(`invalid figure: ${problem}`);
-	if (!Number.isInteger(cycleBars) || cycleBars < 1) {
-		throw new RangeError(`cycleBars must be a positive integer, got ${cycleBars}`);
+	if (length.compare(Fraction.ZERO) <= 0) {
+		throw new RangeError(`the span to fill must be positive, got ${length}`);
 	}
 	if (!Number.isInteger(startBar) || startBar < 0) {
 		throw new RangeError(`startBar must be a non-negative integer, got ${startBar}`);
 	}
-	if (cycleBars % figure.bars !== 0) {
-		throw new RangeError(
-			`cycleBars (${cycleBars}) must be a whole number of figure loops of ${figure.bars} bars`
-		);
-	}
-	if (accompanimentBars.length === 0) {
-		throw new RangeError('an accompaniment needs at least one bar');
-	}
 	const bar = barLength(figure.meter);
-	const attacks = attackPositions(figure);
+	const end = at.add(length);
+	const attacks = attackNotes(figure);
 	const expectations: Expectation[] = [];
-	const mutedBars: number[] = [];
-	for (let i = 0; i < cycleBars; i++) {
+	for (let i = 0; at.add(bar.mul(Fraction.of(i))).compare(end) < 0; i++) {
 		const figureBar = (startBar + i) % figure.bars;
 		const from = bar.mul(Fraction.of(figureBar));
 		const to = bar.mul(Fraction.of(figureBar + 1));
-		const origin = bar.mul(Fraction.of(i));
+		const origin = at.add(bar.mul(Fraction.of(i)));
 		for (const attack of attacks) {
-			if (attack.compare(from) < 0 || attack.compare(to) >= 0) continue;
+			if (attack.at.compare(from) < 0 || attack.at.compare(to) >= 0) continue;
+			const place = origin.add(attack.at.sub(from));
+			if (place.compare(end) >= 0) break;
 			expectations.push({
-				at: origin.add(attack.sub(from)),
+				at: place,
 				span: 'point',
 				role: 'target',
 				sensor,
-				content: null,
+				content: content(expectations.length, attack.note),
 				window: { ...window },
-				bar: i
+				bar: Math.floor(place.div(bar).toNumber())
 			});
 		}
-		if (accompanimentBars[(startBar + i) % accompanimentBars.length] === 'off') mutedBars.push(i);
 	}
-	const length = bar.mul(Fraction.of(cycleBars));
-	return {
-		prompt: null,
-		expectations,
-		length,
-		policy: { unit: 'cycle', pairing: { mode: 'alignment' }, verdict: 'cycle', correction: false },
-		handover: length,
-		mutedBars
-	};
+	return expectations;
 }

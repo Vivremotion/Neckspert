@@ -67,6 +67,29 @@ export function formatSpelledNote(note: SpelledNote): string {
 	return note.letter + mark.repeat(Math.abs(note.accidental));
 }
 
+/**
+ * The note `to` stands to `from` as `written` stands to `root`: the same number of letters above
+ * it, with the accidental that makes it sound `midi`; its sharp spelling when no accidental from
+ * −2 to +2 does.
+ */
+export function spelledLike(
+	written: SpelledNote,
+	root: SpelledNote,
+	to: SpelledNote,
+	midi: number
+): SpelledNote {
+	const letters = mod(
+		LETTERS.indexOf(written.letter) - LETTERS.indexOf(root.letter),
+		LETTERS.length
+	);
+	const letter = LETTERS[(LETTERS.indexOf(to.letter) + letters) % LETTERS.length];
+	const above = mod(midi - NATURAL_SEMITONES[letter], OCTAVE);
+	const accidental = above > OCTAVE / 2 ? above - OCTAVE : above;
+	return Math.abs(accidental) <= MAX_ACCIDENTAL
+		? { letter, accidental: accidental as Accidental }
+		: parseSpelledNote(CHROMATIC_NOTES[mod(midi, OCTAVE)]);
+}
+
 /** Sharp spelling of a pitch: 'D#' → D sharp. */
 export function spelledFromPitch(pitch: PitchName): SpelledNote {
 	return parseSpelledNote(pitch);

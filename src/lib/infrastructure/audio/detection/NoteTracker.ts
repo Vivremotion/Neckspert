@@ -1,67 +1,96 @@
 import type { NoteOnset, NoteRejection, NoteRejectionReason } from '$lib/application/ports';
 import { describeFrequency, describeReading, logDetection } from '$lib/debug/detectionLog';
 import { confirmedPitch } from './confirmPitch';
-import { CONFIRM_CENTS, type DetectorConfig } from './config';
+import { CONFIRM_CENTS, type PitchConfig } from './config';
 import { readPitch } from './estimatePitch';
 import { frequencyToMidi, midiIfInRange } from './frequencyToMidi';
-import { OnsetDetector } from './OnsetDetector';
 
 function centsBetween(a: number, b: number): number {
 	return Math.abs(1200 * Math.log2(a / b));
 }
 
-/** Glues onset and pitch: emits one NoteOnset per attack, once the pitch is stable. */
+/** An attack is told within this of its onset (`PRE_ATTACK_MS` and the tracker's own lag). */
+const TOLD_WITHIN_S = 0.2;
+
+/** The level before an attack stops this long before it, its first sound left out. */
+const BEFORE_GUARD_S = 0.005;
+
+/**
+ * Under this share of the level before the attack, the sound has fallen: a finger lifted leaves an
+ * open string ringing, which is no note played. Real attacks stay above 0.9 on real takes, above
+ * 0.5 on an export whose notes stop the last, and fall to 0.3 only with a note 6 dB softer.
+ */
+export const FALLEN_LEVEL_RATIO = 0.25;
+
+/**
+ * Under this share of the level before the attack, the pitch of the last note has not been played
+ * again: a click or a touch over the note that still rings. A note played again raises its level.
+ */
+export const PLAYED_AGAIN_RATIO = 1;
+
+function rmsOf(samples: readonly number[], from: number, to: number): number {
+	let sum = 0;
+	for (let i = from; i < to; i++) sum += samples[i] * samples[i];
+	return Math.sqrt(sum / Math.max(1, to - from));
+}
+
+/**
+ * A played note is an attack and a pitch: told of each attack (`attack`, by the attack sensor), it
+ * reads the pitch of the two windows after it, and emits one NoteOnset once they have come, unless
+ * the level after the attack says that no note was played there.
+ */
 export class NoteTracker {
-	private readonly onset: OnsetDetector;
 	private readonly samples: number[] = [];
 	private readonly times: number[] = [];
-	private pendingOnsetTime: number | null = null;
+	/** The attacks whose two windows have not all come yet, oldest first. */
+	private readonly pending: number[] = [];
 	private readonly maxBuffer: number;
+	private readonly guard: number;
+	private lastMidi: number | null = null;
 
 	constructor(
-		private readonly config: DetectorConfig,
+		private readonly config: PitchConfig,
 		private readonly sampleRate: number,
 		private readonly onRejected?: (rejection: NoteRejection) => void
 	) {
-		this.onset = new OnsetDetector(config, sampleRate);
-		this.maxBuffer = config.windowSize * 4;
+		this.guard = Math.round(BEFORE_GUARD_S * sampleRate);
+		// The wait before an attack is told, its two windows, and the level before it.
+		this.maxBuffer = Math.ceil(TOLD_WITHIN_S * sampleRate) + config.windowSize * 3 + this.guard;
 	}
 
-	push(frame: Float32Array, frameTime: number): NoteOnset | null {
+	/** An attack at `time` (audio s). One older than the sound kept (an input reopened) is dropped. */
+	attack(time: number): void {
+		if (this.times.length === 0 || time < this.times[0]) return;
+		this.pending.push(time);
+		logDetection('attaque', [
+			`t = ${time.toFixed(3)} s`,
+			'en attente de deux fenêtres de hauteur stables'
+		]);
+	}
+
+	/** Feeds one block of samples; returns the notes whose two windows it completes. */
+	push(frame: Float32Array, frameTime: number): NoteOnset[] {
 		for (let i = 0; i < frame.length; i++) {
 			this.samples.push(frame[i]);
 			this.times.push(frameTime + i / this.sampleRate);
+		}
+		const notes: NoteOnset[] = [];
+		while (this.pending.length > 0) {
+			const start = this.indexAtOrAfter(this.pending[0]);
+			if (start < 0 || this.samples.length - start < this.config.windowSize * 2) break;
+			const note = this.read(this.pending.shift()!, start);
+			if (note) notes.push(note);
 		}
 		if (this.samples.length > this.maxBuffer) {
 			const drop = this.samples.length - this.maxBuffer;
 			this.samples.splice(0, drop);
 			this.times.splice(0, drop);
 		}
-
-		if (this.pendingOnsetTime === null) {
-			const attack = this.onset.push(frame, frameTime);
-			if (attack !== null) {
-				this.pendingOnsetTime = attack;
-				logDetection('attaque', [
-					`t = ${attack.toFixed(3)} s`,
-					'en attente de deux fenêtres de hauteur stables'
-				]);
-			}
-		} else {
-			// Keep the onset detector's envelope/cooldown updated while confirming.
-			this.onset.push(frame, frameTime);
-		}
-
-		if (this.pendingOnsetTime === null) return null;
-		return this.tryConfirm(this.pendingOnsetTime);
+		return notes;
 	}
 
-	private tryConfirm(onsetTime: number): NoteOnset | null {
-		const start = this.indexAtOrAfter(onsetTime);
-		if (start < 0) return null;
+	private read(onsetTime: number, start: number): NoteOnset | null {
 		const need = this.config.windowSize * 2;
-		if (this.samples.length - start < need) return null;
-
 		const first = Float32Array.from(this.samples.slice(start, start + this.config.windowSize));
 		const second = Float32Array.from(
 			this.samples.slice(start + this.config.windowSize, start + need)
@@ -74,7 +103,6 @@ export class NoteTracker {
 			attackClarityThreshold: attackThreshold,
 			sustainClarityThreshold: sustainThreshold
 		});
-		this.pendingOnsetTime = null;
 
 		const drift =
 			a.frequencyHz > 0 && b.frequencyHz > 0 ? centsBetween(a.frequencyHz, b.frequencyHz) : null;
@@ -135,6 +163,24 @@ export class NoteTracker {
 			reject('out-of-range');
 			return null;
 		}
+		const levelAfter = rmsOf(this.samples, start + this.config.windowSize, start + need);
+		const beforeEnd = Math.max(0, start - this.guard);
+		const levelBefore = rmsOf(
+			this.samples,
+			Math.max(0, beforeEnd - this.config.windowSize),
+			beforeEnd
+		);
+		if (
+			levelAfter < levelBefore * FALLEN_LEVEL_RATIO ||
+			(midi === this.lastMidi && levelAfter < levelBefore * PLAYED_AGAIN_RATIO)
+		) {
+			logDetection('attaque sans note jouée', [
+				`attaque à ${onsetTime.toFixed(3)} s`,
+				`MIDI ${midi}, niveau ${levelBefore.toFixed(3)} → ${levelAfter.toFixed(3)}`
+			]);
+			return null;
+		}
+		this.lastMidi = midi;
 		logDetection('hauteur confirmée', [
 			`attaque à ${onsetTime.toFixed(3)} s`,
 			describeFrequency(reading.frequencyHz),

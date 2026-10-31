@@ -1,22 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISES, exerciseById, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
 import type { ExerciseDefinition, Ladder } from '../types';
-import type { RoundTemplate } from './types';
+import { clickAccompaniment } from '../../time/accompaniment';
+import type { Figure } from '../../time/figure';
+import { METER_4_4 } from '../../time/meter';
+import { parseLilyPond } from '../../time/notation/lilypond';
+import type { FigureExpectationTemplate, PointExpectationTemplate, RoundTemplate } from './types';
 import { roundProblem } from './validate';
 
-const SENSORS = ['note', 'chord', 'tap'];
+const SENSORS = ['note', 'chord', 'tap', 'attack'];
 
 function round(definition: ExerciseDefinition): RoundTemplate {
 	if (!definition.round) throw new Error(`${definition.id} writes no round`);
 	return definition.round;
 }
 
+/** A template whose expectations are all points, as the catalog's are. */
+type PointRound = RoundTemplate & { expectations: PointExpectationTemplate[] };
+
 const withRound = (
 	definition: ExerciseDefinition,
-	change: (template: RoundTemplate) => unknown
+	change: (template: PointRound) => unknown
 ): ExerciseDefinition => ({
 	...definition,
-	round: change(structuredClone(round(definition))) as RoundTemplate
+	round: change(structuredClone(round(definition)) as PointRound) as RoundTemplate
 });
 
 describe('roundProblem', () => {
@@ -30,7 +37,10 @@ describe('roundProblem', () => {
 			'gesture-link',
 			'gesture-climb',
 			'gesture-zone',
-			'gesture-jam'
+			'gesture-jam',
+			'rhythm-silent-bars',
+			'rhythm-two-four',
+			'rhythm-offbeats'
 		]);
 		for (const exercise of written) {
 			expect([exercise.id, roundProblem(exercise)]).toEqual([exercise.id, null]);
@@ -230,9 +240,9 @@ describe('roundProblem', () => {
 			...t,
 			policy: { ...t.policy, verdict: 'cycle', pairing: alignment }
 		}));
-		// The alignment, before the verdict, refuses the note it would not judge.
+		// The alignment pairs the note and judges it; the cycle verdict refuses a response.
 		expect(roundProblem(cycle)).toBe(
-			'round.policy.pairing cannot be run by mode "alignment": expectation 0 asks for content (note): an alignment times attacks and judges no content'
+			'round.policy.verdict "cycle" cannot judge the round: a cycle verdict judges a whole cycle (unit "cycle"), got unit "response"'
 		);
 		const rhythm = withRound(LOCATE_NECK, (t) => ({
 			...t,
@@ -249,6 +259,12 @@ describe('roundProblem', () => {
 		}));
 		const thresholds = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
 		expect(roundProblem({ ...cycled, params: { ...cycled.params, thresholds } })).toBeNull();
+		// A cycle whose notes ask for content is run too.
+		const pitched = withRound(LOCATE_NECK, (t) => ({
+			...t,
+			policy: { ...t.policy, unit: 'cycle', verdict: 'cycle', pairing: alignment }
+		}));
+		expect(roundProblem({ ...pitched, params: { ...pitched.params, thresholds } })).toBeNull();
 	});
 
 	it('refuses a verdict that reads thresholds an exercise level does not give', () => {
@@ -289,4 +305,221 @@ describe('roundProblem', () => {
 		};
 		expect(roundProblem(noThreshold)).toMatch(/recallThresholdMs must be a positive number/);
 	});
+	describe('a figure entry', () => {
+		const THRESHOLDS = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
+		/** A rhythm written as a template: a figure filling the round, its click and window in the params. */
+		const RHYTHM: ExerciseDefinition = {
+			id: 'figured-rhythm',
+			version: 1,
+			mechanic: 'figure',
+			figures: [
+				{ id: 'eighths', figure: parseLilyPond('c8 c c c c c c c') },
+				{ id: 'halves', figure: parseLilyPond('c2 c') }
+			],
+			params: {
+				window: { ms: 80 },
+				accompaniment: clickAccompaniment({
+					meter: METER_4_4,
+					beats: [1, 2, 3, 4],
+					accent: [1],
+					bars: ['on', 'on', 'on', 'off']
+				}),
+				thresholds: THRESHOLDS
+			},
+			round: {
+				expectations: [
+					{
+						figure: { item: 'figure' },
+						at: { bars: 0 },
+						sensor: 'attack',
+						content: null,
+						window: { param: 'window' }
+					}
+				],
+				accompaniment: { param: 'accompaniment' },
+				length: { bars: 4 },
+				handover: 'end',
+				policy: {
+					unit: 'cycle',
+					verdict: 'cycle',
+					correction: false,
+					pairing: { mode: 'alignment' }
+				}
+			}
+		};
+		/** An arpeggio: the notes of a voicing spread over a figure a level names, answered one by one. */
+		const ARPEGGIO: ExerciseDefinition = {
+			id: 'arpeggio',
+			version: 1,
+			mechanic: 'voicing-figure',
+			figures: [
+				{ id: 'quarters', figure: parseLilyPond('c4 c c c') },
+				{ id: 'written', figure: parseLilyPond("e'4\\1 g'\\1 c''\\2 e'") }
+			],
+			params: { figure: 'quarters' },
+			levels: [{ params: {} }, { params: { figure: 'written' } }],
+			round: {
+				prompt: { lead: 4 },
+				expectations: [
+					{
+						figure: { param: 'figure' },
+						at: { bars: 0 },
+						sensor: 'note',
+						content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] },
+						window: { ms: 80 }
+					}
+				],
+				length: { beats: { item: 'beats' } },
+				handover: 'end',
+				policy: {
+					unit: 'response',
+					verdict: 'response',
+					correction: false,
+					pairing: {
+						mode: 'first-answer',
+						opens: { afterPromptMs: 100 },
+						lateMs: 100,
+						lateCapture: null
+					}
+				}
+			}
+		};
+		const entry = (definition: ExerciseDefinition) =>
+			round(definition).expectations[0] as FigureExpectationTemplate;
+		const withEntry = (definition: ExerciseDefinition, change: Record<string, unknown>) =>
+			withRound(definition, (t) => ({ ...t, expectations: [{ ...entry(definition), ...change }] }));
+
+		it('accepts figure entries and the new keys', () => {
+			expect(roundProblem(RHYTHM)).toBeNull();
+			expect(roundProblem(ARPEGGIO, { sensors: SENSORS })).toBeNull();
+			expect(roundProblem(withEntry(RHYTHM, { figure: { id: 'halves' } }))).toBeNull();
+			const written = withEntry(ARPEGGIO, {
+				figure: { id: 'written' },
+				content: { from: 'figure' }
+			});
+			expect(roundProblem(written)).toBeNull();
+			const accompanied = withRound(RHYTHM, (t) => ({
+				...t,
+				accompaniment: RHYTHM.params.accompaniment
+			}));
+			expect(roundProblem(accompanied)).toBeNull();
+		});
+
+		it("refuses { from: 'figure' } over a note without pitch", () => {
+			const schemaOne: ExerciseDefinition = {
+				...withEntry(ARPEGGIO, { figure: { id: 'bare' }, content: { from: 'figure' } }),
+				figures: [{ id: 'bare', figure: pitchless(parseLilyPond('c4 c c c')) }]
+			};
+			expect(roundProblem(schemaOne)).toMatch(
+				/^round\.expectations\[0\]\.content reads the pitches of figure "bare", whose note 0 has none/
+			);
+		});
+
+		it('refuses a pattern index below 1, and a pattern that is no list of indexes', () => {
+			for (const pattern of [[0, 1], [1, -2], [1.5], [], 'up']) {
+				const problem = roundProblem(
+					withEntry(ARPEGGIO, { content: { from: 'voicing-notes', pattern } })
+				);
+				expect(problem).toMatch(/^round\.expectations\[0\]\.content\.pattern /);
+			}
+			const onFigure = withEntry(ARPEGGIO, {
+				figure: { id: 'written' },
+				content: { from: 'figure', pattern: [1] }
+			});
+			expect(roundProblem(onFigure)).toMatch(/^round\.expectations\[0\]\.content\.pattern/);
+		});
+
+		it('refuses a figure it cannot find, naming the field', () => {
+			expect(roundProblem(withEntry(RHYTHM, { figure: { id: 'nowhere' } }))).toMatch(
+				/^round\.expectations\[0\]\.figure names figure "nowhere", which the exercise does not write \(eighths, halves\)/
+			);
+			const level = {
+				...ARPEGGIO,
+				levels: [{ params: {} }, { params: { figure: 'sixteenths' } }]
+			};
+			expect(roundProblem(level)).toMatch(
+				/^round\.expectations\[0\]\.figure reads param "figure", which exercise level 1 gives as "sixteenths"/
+			);
+			expect(roundProblem(withEntry(ARPEGGIO, { figure: { item: 'figure' } }))).toMatch(
+				/^round\.expectations\[0\]\.figure .*"figure" which reads figure, not voicing-figure/
+			);
+			expect(roundProblem(withEntry(RHYTHM, { figure: { line: 1 } }))).toMatch(
+				/^round\.expectations\[0\]\.figure must be/
+			);
+		});
+
+		it('accepts a figure that fills the round from its place with a cut last loop', () => {
+			const halves = withEntry(RHYTHM, { figure: { id: 'halves' }, at: { beats: 1 } });
+			expect(roundProblem(halves)).toBeNull();
+			const twoBars: ExerciseDefinition = {
+				...withEntry(RHYTHM, { figure: { id: 'long' } }),
+				figures: [{ id: 'long', figure: parseLilyPond('c1 | c1') }],
+				round: { ...withEntry(RHYTHM, { figure: { id: 'long' } }).round!, length: { bars: 3 } }
+			};
+			expect(roundProblem(twoBars)).toBeNull();
+			const twoBeats: ExerciseDefinition = {
+				...RHYTHM,
+				round: { ...RHYTHM.round!, length: { beats: 2 } }
+			};
+			expect(roundProblem(twoBeats)).toBeNull();
+		});
+
+		it('refuses a figure placed where the round has nothing left to fill', () => {
+			const atTheEnd = withEntry(RHYTHM, { figure: { id: 'halves' }, at: { bars: 4 } });
+			expect(roundProblem(atTheEnd)).toMatch(
+				/^round\.expectations\[0\]\.at must fall within the round, which lasts 4, got 4/
+			);
+		});
+
+		it('refuses a list on a point and a single content on a figure', () => {
+			const point = withRound(ARPEGGIO, (t) => ({
+				...t,
+				expectations: [
+					{
+						at: { beats: 0 },
+						sensor: 'note',
+						content: { from: 'voicing-notes' },
+						window: { ms: 80 }
+					}
+				]
+			}));
+			expect(roundProblem(point)).toMatch(
+				/^round\.expectations\[0\]\.content derives "voicing-notes", a list, which only a figure spreads/
+			);
+			const single = withEntry(
+				{ ...RHYTHM, mechanic: 'locate' },
+				{ figure: { id: 'eighths' }, sensor: 'note', content: { from: 'note-of-item' } }
+			);
+			expect(roundProblem(single)).toMatch(
+				/^round\.expectations\[0\]\.content derives "note-of-item", not a list/
+			);
+		});
+
+		it('refuses an accompaniment it cannot play and a window param that is none', () => {
+			const silent = withRound(RHYTHM, (t) => ({ ...t, accompaniment: { param: 'nowhere' } }));
+			expect(roundProblem(silent)).toMatch(/^round\.accompaniment /);
+			const empty = withRound(RHYTHM, (t) => ({
+				...t,
+				accompaniment: { figure: parseLilyPond('c1'), bars: [] }
+			}));
+			expect(roundProblem(empty)).toMatch(/^round\.accompaniment /);
+			const window = withEntry(RHYTHM, { window: { param: 'accompaniment' } });
+			expect(roundProblem(window)).toMatch(/^round\.expectations\[0\]\.window /);
+		});
+	});
 });
+
+/** The figure as a schema 1 figure gives it: its notes carry no pitch. */
+function pitchless(figure: Figure): Figure {
+	return {
+		...figure,
+		voices: figure.voices.map((voice) => ({
+			...voice,
+			elements: voice.elements.map((element) =>
+				element.kind === 'note'
+					? { kind: 'note', duration: element.duration, content: null }
+					: element
+			)
+		}))
+	};
+}

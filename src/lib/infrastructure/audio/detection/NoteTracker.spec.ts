@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { NoteOnset, NoteRejection } from '$lib/application/ports';
+import { AttackTracker } from '../attacks/AttackTracker';
 import { DEFAULT_DETECTOR_CONFIG } from './config';
 import { NoteTracker } from './NoteTracker';
-import { pushAll, synthesizePluck } from './synth';
+import { synthesizePluck } from './synth';
 
 const NOTES = {
 	E2: { hz: 82.40689, midi: 40 },
@@ -12,6 +13,19 @@ const NOTES = {
 	/** 12th fret on low E = E3 */
 	E3: { hz: 164.8138, midi: 52 }
 } as const;
+
+/** The signal played: its frames, and each attack the attack sensor hears told to the tracker. */
+function pushAll(tracker: NoteTracker, signal: Float32Array, sampleRate: number): NoteOnset[] {
+	const attacks = new AttackTracker(sampleRate);
+	const notes: NoteOnset[] = [];
+	for (let offset = 0; offset + 512 <= signal.length; offset += 512) {
+		const frame = signal.subarray(offset, offset + 512);
+		const frameTime = offset / sampleRate;
+		notes.push(...tracker.push(frame, frameTime));
+		for (const { time } of attacks.push(frame, frameTime)) tracker.attack(time);
+	}
+	return notes;
+}
 
 function expectOnset(
 	onsets: NoteOnset[],
@@ -35,7 +49,7 @@ function runPluck(frequencyHz: number, sampleRate: number, attackSample = 4800):
 		durationS: 1.2,
 		attackSample
 	});
-	return pushAll(tracker, signal, sampleRate) as NoteOnset[];
+	return pushAll(tracker, signal, sampleRate);
 }
 
 describe.each([44100, 48000])('NoteTracker at %s Hz', (sampleRate) => {
@@ -80,7 +94,7 @@ describe.each([44100, 48000])('NoteTracker at %s Hz', (sampleRate) => {
 		});
 		signal.set(first.subarray(0, Math.min(first.length, secondAttack - firstAttack)), firstAttack);
 		signal.set(second.subarray(0, Math.min(second.length, total - secondAttack)), secondAttack);
-		const onsets = pushAll(tracker, signal, sampleRate) as NoteOnset[];
+		const onsets = pushAll(tracker, signal, sampleRate);
 		expect(onsets.length).toBe(2);
 		expect(onsets[0].midi).toBe(NOTES.A2.midi);
 		expect(onsets[1].midi).toBe(NOTES.E4.midi);
@@ -99,6 +113,62 @@ describe.each([44100, 48000])('NoteTracker at %s Hz', (sampleRate) => {
 		const noise = new Float32Array(sampleRate);
 		for (let i = 0; i < noise.length; i++) noise[i] = (Math.random() * 2 - 1) * 0.2;
 		expect(pushAll(tracker, noise, sampleRate)).toEqual([]);
+	});
+});
+
+describe('NoteTracker told of attacks', () => {
+	const sampleRate = 48000;
+	const signal = synthesizePluck({
+		frequencyHz: NOTES.A2.hz,
+		sampleRate,
+		durationS: 0.5,
+		attackSample: 0
+	});
+
+	it('reads nothing without an attack', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		expect(tracker.push(signal, 0)).toEqual([]);
+	});
+
+	it('waits for the two windows after an attack, however late it is told', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		const window = DEFAULT_DETECTOR_CONFIG.windowSize;
+		expect(tracker.push(signal.subarray(0, window), 0)).toEqual([]);
+		tracker.attack(0);
+		expect(tracker.push(signal.subarray(window, 2 * window - 1), window / sampleRate)).toEqual([]);
+		const notes = tracker.push(
+			signal.subarray(2 * window - 1, 2 * window + 511),
+			(2 * window - 1) / sampleRate
+		);
+		expect(notes.map((note) => note.midi)).toEqual([NOTES.A2.midi]);
+		expect(notes[0].time).toBe(0);
+	});
+
+	it('reads two attacks told together, oldest first', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		tracker.push(signal.subarray(0, 512), 0);
+		tracker.attack(0);
+		tracker.attack(0.005);
+		const notes = tracker.push(signal.subarray(512), 512 / sampleRate);
+		expect(notes.map((note) => note.time)).toEqual([0, expect.closeTo(0.005, 3)]);
+	});
+
+	it('still reads an attack told as late as the sensor tells one', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		const told = Math.round(0.16 * sampleRate);
+		tracker.push(signal.subarray(0, told), 0);
+		tracker.attack(0);
+		const notes = tracker.push(signal.subarray(told, told + 512), told / sampleRate);
+		expect(notes.map((note) => note.midi)).toEqual([NOTES.A2.midi]);
+	});
+
+	it('drops an attack older than the sound it keeps', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		tracker.attack(5);
+		tracker.push(signal.subarray(0, 2 * DEFAULT_DETECTOR_CONFIG.windowSize + 512), 10);
+		tracker.attack(9);
+		const rest = signal.subarray(2 * DEFAULT_DETECTOR_CONFIG.windowSize + 512);
+		expect(tracker.push(rest, 10.5)).toEqual([]);
 	});
 });
 
@@ -183,11 +253,16 @@ describe('rejections', () => {
 		});
 		signal.set(low.subarray(0, window), attackSample);
 		signal.set(high.subarray(window, window * 3), attackSample + window);
-		const { rejections, onsets } = run(
-			{ clarityThreshold: 0.5, attackClarityThreshold: 0.5 },
-			signal
+		// One attack told: the sensor would hear a second where the sound changes.
+		const rejections: NoteRejection[] = [];
+		const tracker = new NoteTracker(
+			{ ...DEFAULT_DETECTOR_CONFIG, clarityThreshold: 0.5, attackClarityThreshold: 0.5 },
+			sampleRate,
+			(rejection) => rejections.push(rejection)
 		);
-		expect(onsets).toEqual([]);
+		tracker.push(signal.subarray(0, attackSample), 0);
+		tracker.attack(attackSample / sampleRate);
+		expect(tracker.push(signal.subarray(attackSample), attackSample / sampleRate)).toEqual([]);
 		expect(rejections).toHaveLength(1);
 		const rejection = rejections[0];
 		expect(rejection.reason).toBe('unstable');
@@ -211,5 +286,102 @@ describe('rejections', () => {
 		expect(Math.abs(rejection.time - 4800 / sampleRate)).toBeLessThan(0.01);
 		expect(rejection.attack.frequencyHz).toBeCloseTo(NOTES.E2.hz, 0);
 		expect(rejection.sustain.frequencyHz).toBeCloseTo(NOTES.E2.hz, 0);
+	});
+});
+
+describe('an attack that plays no new note', () => {
+	const RATE = 48000;
+	const A3 = 220;
+	const G3 = 196;
+	const string = (hz: number, t: number) =>
+		Math.sin(2 * Math.PI * hz * t) + 0.5 * Math.sin(4 * Math.PI * hz * t);
+
+	/** A short pitchless burst, like the click heard on the playing input. */
+	function addClick(signal: Float32Array, atS: number, gain: number): void {
+		const from = Math.round(atS * RATE);
+		let seed = 1234567;
+		for (let i = 0; i < 0.02 * RATE; i++) {
+			seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+			signal[from + i] += gain * ((seed / 0x7fffffff) * 2 - 1) * Math.exp((-i / RATE) * 300);
+		}
+	}
+
+	it('does not hear a note ringing again under a click', () => {
+		const signal = new Float32Array(RATE * 4);
+		for (let i = Math.round(0.2 * RATE); i < signal.length; i++) {
+			const t = i / RATE - 0.2;
+			signal[i] = 0.3 * Math.exp(-0.5 * t) * string(A3, t);
+		}
+		for (const at of [0.8, 1.4, 2, 2.6, 3.2]) addClick(signal, at, 0.2);
+		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
+		expect(notes.map((note) => note.midi)).toEqual([57]);
+	});
+
+	it('does not hear a note in the open string a lifted finger leaves ringing', () => {
+		const signal = new Float32Array(RATE * 2);
+		const lift = Math.round(0.8 * RATE);
+		for (let i = Math.round(0.2 * RATE); i < lift; i++) {
+			const t = i / RATE - 0.2;
+			signal[i] = 0.2 * Math.exp(-0.5 * t) * string(A3, t);
+		}
+		for (let i = lift; i < signal.length; i++) {
+			signal[i] = 0.03 * Math.exp((-(i - lift) / RATE) * 2) * string(G3, (i - lift) / RATE);
+		}
+		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
+		expect(notes.map((note) => note.midi)).toEqual([57]);
+	});
+
+	it('hears the same note played again, softer than it first was', () => {
+		const signal = new Float32Array(RATE * 3);
+		[
+			[0.2, 0.3],
+			[1.0, 0.24],
+			[1.8, 0.2]
+		].forEach(([at, level]) => {
+			for (let i = Math.round(at * RATE); i < signal.length; i++) {
+				const t = i / RATE - at;
+				signal[i] = level * Math.min(1, t / 0.001) * Math.exp(-1.5 * t) * string(A3, t);
+			}
+		});
+		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
+		expect(notes.map((note) => note.midi)).toEqual([57, 57, 57]);
+	});
+
+	it('hears a soft note that stops a louder one', () => {
+		const signal = new Float32Array(RATE * 2);
+		const next = Math.round(0.8 * RATE);
+		for (let i = Math.round(0.2 * RATE); i < next; i++) {
+			const t = i / RATE - 0.2;
+			signal[i] = 0.3 * Math.min(1, t / 0.001) * string(A3, t);
+		}
+		for (let i = next; i < signal.length; i++) {
+			const t = (i - next) / RATE;
+			signal[i] = 0.15 * Math.min(1, t / 0.001) * string(G3, t);
+		}
+		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
+		expect(notes.map((note) => note.midi)).toEqual([57, 55]);
+	});
+});
+
+describe.each([96000, 176400, 192000])('NoteTracker at %s Hz', (sampleRate) => {
+	it('reads an attack told as late as the attack sensor tells it', () => {
+		const tracker = new NoteTracker(DEFAULT_DETECTOR_CONFIG, sampleRate);
+		const signal = synthesizePluck({
+			frequencyHz: NOTES.E4.hz,
+			sampleRate,
+			durationS: 1,
+			attackSample: Math.round(0.2 * sampleRate)
+		});
+		const notes: NoteOnset[] = [];
+		let told = false;
+		for (let offset = 0; offset + 512 <= signal.length; offset += 512) {
+			const frameTime = offset / sampleRate;
+			notes.push(...tracker.push(signal.subarray(offset, offset + 512), frameTime));
+			if (!told && frameTime >= 0.2 + 0.13) {
+				tracker.attack(0.2);
+				told = true;
+			}
+		}
+		expect(notes.map((note) => note.midi)).toEqual([NOTES.E4.midi]);
 	});
 });

@@ -86,7 +86,7 @@ export class AttemptRecorder {
 	}
 
 	/**
-	 * Writes an attempt (`responseAttempt`) with what its span heard so far
+	 * Writes an attempt (`recordedAttempt`) with what its span heard so far
 	 * and learns from it: synchronously, the source is told (`selector.record`) with the item's
 	 * provisional temperature; then the temperature is settled from the card's history (a probe
 	 * by `probeTemperature` and `recall`), the attempt written, and for a memory learner the card

@@ -11,9 +11,12 @@ describe('the play views', () => {
 	it('are the views the application knows, each in a world', () => {
 		expect(Object.keys(PLAY_VIEWS).sort()).toEqual([...PLAY_VIEW_NAMES].sort());
 		expect(Object.keys(VIEW_WORLDS).sort()).toEqual([...PLAY_VIEW_NAMES].sort());
+		expect(PLAY_VIEW_NAMES).toContain('figure');
 	});
 
 	it('draw a presentation in every view the application gives one to', () => {
 		for (const view of PROMPT_STAGE_VIEWS) expect(Object.hasOwn(PLAY_VIEWS, view)).toBe(true);
+		// The figure view draws a prompt above its figure.
+		expect(PROMPT_STAGE_VIEWS).toContain('figure');
 	});
 });

@@ -8,6 +8,8 @@ import {
 	METER_4_4,
 	clickAccompaniment,
 	type CycleReport,
+	type Figure,
+	type LiveReading,
 	type ResponseValue,
 	type RoundPlan
 } from '$lib/domain/time';
@@ -16,11 +18,12 @@ import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { gridExpectation } from '$lib/application/mechanics/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
 import { identifyPlan, changePlan } from '$lib/testing/plans';
+import { loopedFigurePlan } from '$lib/domain/time/modes/testing/plans';
 import { shapeId } from '$lib/testing/shapes';
 import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
 import { Transport } from '../transport';
-import { RoundRunner, type RunnerEvent } from './roundRunner';
+import { LIVE_READING_MARGIN_S, RoundRunner, type RunnerEvent } from './roundRunner';
 
 vi.mock('$lib/debug/detectionLog', () => ({ logDetection: vi.fn() }));
 
@@ -354,5 +357,103 @@ describe('RoundRunner', () => {
 		expect(logged[0][1]).toContain('position : 7-6-5');
 		expect(logged[1][1][0]).toBe('juste : oui');
 		expect(lines).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe('a round that tells what it hears as it plays', () => {
+	const QUARTERS: Figure = {
+		schema: 2,
+		meter: METER_4_4,
+		bars: 1,
+		voices: [
+			{
+				id: 'main',
+				elements: [0, 1, 2, 3].map(() => ({
+					kind: 'note',
+					duration: Fraction.of(1, 4),
+					content: null
+				}))
+			}
+		]
+	};
+	/** ♩ = 120: a beat lasts 0.5 s, a zone 0.125 s either side of its note. */
+	const ZONE_S = 0.125;
+	const LATENCY_S = 0.05;
+
+	async function marked(asked = true) {
+		const clock = new FakeClock();
+		const sounds = new FakeSoundScheduler(clock);
+		const transport = new Transport({ clock, sounds });
+		const { map, playFrom } = await transport.begin({
+			meter: METER_4_4,
+			tempo: { at: Fraction.ZERO, bpm: 120, unit: Fraction.of(1, 4) },
+			accompaniment: clickAccompaniment({
+				meter: METER_4_4,
+				beats: [1, 2, 3, 4],
+				accent: [1],
+				bars: ['on']
+			})
+		});
+		const t0 = map.toSeconds(Fraction.of(playFrom));
+		const told: LiveReading[] = [];
+		const runner = new RoundRunner({
+			plan: loopedFigurePlan(QUARTERS, 1, { ms: 20 }),
+			item: planned,
+			at: Fraction.of(playFrom),
+			chained: false,
+			openedAt: t0,
+			transport,
+			map,
+			latencyOf: () => ({ ms: LATENCY_S * 1000, provenance: 'system' }),
+			sources: new Map(),
+			expectation: {},
+			onEvent: () => {},
+			...(asked && { onLive: (reading: LiveReading) => told.push(reading) })
+		});
+		const runTo = (time: number) => {
+			while (clock.now() < time) {
+				clock.time = Math.min(clock.now() + 0.01, time);
+				sounds.flush();
+			}
+		};
+		const heard = (time: number) =>
+			runner.observe('attack', { time, readable: true, payload: null });
+		return { t0, told, runTo, heard, runner };
+	}
+
+	it('tells a silence once what was played in its zone has had time to be read', async () => {
+		const { t0, told, runTo } = await marked();
+		const readable = t0 + ZONE_S + LATENCY_S + LIVE_READING_MARGIN_S;
+		runTo(readable - 0.02);
+		expect(told).toEqual([]);
+		runTo(readable + 0.04);
+		expect(told.at(-1)?.expectations).toEqual([{ index: 0, verdict: 'missed', offsetMs: null }]);
+	});
+
+	it('does not tell missed a note played late in its zone and read after it closed', async () => {
+		const { t0, told, runTo, heard } = await marked();
+		runTo(t0 + ZONE_S + 0.1);
+		heard(t0 + 0.1);
+		expect(told.at(-1)?.expectations).toEqual([
+			{ index: 0, verdict: 'late', offsetMs: expect.closeTo(100) }
+		]);
+		expect(told.at(-1)?.extraAtMs).toEqual([]);
+	});
+
+	it('tells only when it has more to tell', async () => {
+		const { t0, told, heard, runTo } = await marked();
+		runTo(t0 + 0.01);
+		heard(t0);
+		const after = told.length;
+		runTo(t0 + 0.2);
+		expect(told.length).toBe(after);
+	});
+
+	it('tells nothing unless asked', async () => {
+		const { t0, told, runTo, heard } = await marked(false);
+		runTo(t0 + 0.01);
+		heard(t0);
+		runTo(t0 + 2);
+		expect(told).toEqual([]);
 	});
 });

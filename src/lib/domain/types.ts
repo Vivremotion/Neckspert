@@ -6,9 +6,9 @@ import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVe
 import type {
 	Aid,
 	CycleReport,
+	CycleThresholds,
 	CycleVerdict,
 	Figure,
-	LevelParams,
 	LevelState,
 	Measures,
 	VerdictEnvelope
@@ -383,7 +383,7 @@ export interface ExerciseSummary {
 		report: CycleReport;
 		verdict: CycleVerdict;
 		/** The thresholds of the level it was played at. */
-		thresholds: LevelParams['thresholds'];
+		thresholds: CycleThresholds;
 		/** The cycle as played, to engrave it with its marks; absent when its plan cannot be read. */
 		played?: { figure: Figure; cycleBars: number; tempoBpm: number };
 	};
@@ -436,7 +436,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 7;
+	version: 8;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];

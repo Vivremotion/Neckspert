@@ -2,11 +2,14 @@ import {
 	clickAccompaniment,
 	METER_4_4,
 	type Accompaniment,
-	type Figure,
-	type LevelParams
+	type CycleThresholds,
+	type ExpectationWindow,
+	type Figure
 } from '$lib/domain/time';
-import { parseLilyPondRhythm } from '$lib/domain/time/notation/lilypond';
+import type { FigureParams } from './figureParams';
+import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import type { LevelOverrides } from './levels';
+import type { RoundTemplate } from './round';
 import type { ExerciseDefinition, ExercisePacing } from './types';
 
 /**
@@ -14,9 +17,10 @@ import type { ExerciseDefinition, ExercisePacing } from './types';
  * after cycle, the accompaniment taken away or the tempo raised as the player gets it. Figures
  * are written in LilyPond once, here, and are plain data afterwards; the how-to texts are ours.
  *
- * Their params are the `LevelParams` of the rhythm but the tempo, which each writes as its own
- * `tempo`, in quarter notes per minute, plus their `pacing`: runs of cycles and a breath of at
- * least `SHORTEST_BREATH_MS` between them. A level overrides dotted paths of the exercise's params
+ * Their params are what their round reads (accompaniment, cycle bars, window) and their figure
+ * params (`FigureParams`); each writes its tempo as its own `tempo`, in quarter notes per minute,
+ * and its `pacing`: two bars of listen-in, runs of cycles and a breath of at least
+ * `SHORTEST_BREATH_MS` between them. A level overrides dotted paths of the exercise's params
  * alone (`resolvedParamsOf`), the tempo included, so each level below states everything that
  * differs from the params, the changes of the levels before it included. Each asks the
  * anti-blocking (`flow.antiBlocking`).
@@ -35,7 +39,7 @@ function playedThenSilent(played: number, silent: number): ('on' | 'off')[] {
 }
 
 /** The thresholds that every rhythm exercise starts from (the measures of the judge, 0-100 or ms). */
-const BASE_THRESHOLDS: LevelParams['thresholds'] = {
+const BASE_THRESHOLDS: CycleThresholds = {
 	regularity: 40,
 	holdOffset: 60,
 	holdDrift: 25,
@@ -45,19 +49,55 @@ const BASE_THRESHOLDS: LevelParams['thresholds'] = {
 /** The shortest breath between two runs of cycles, rounded up to whole bars. */
 const SHORTEST_BREATH_MS = 4000;
 
-/** The params of a rhythm exercise: its level params but the tempo, and its pacing. */
-type RhythmParams = Omit<LevelParams, 'tempo'> & {
-	pacing: Pick<ExercisePacing, 'roundsPerBreath' | 'breathMinMs'>;
+/** Bars of the accompaniment alone before a run's counted bar. */
+const RHYTHM_LISTEN_IN_BARS = 2;
+
+/**
+ * The params of a rhythm exercise: what its round reads, its figure params (no notation: a bare
+ * rhythm is its rhythm line) and its pacing.
+ */
+type RhythmParams = Omit<FigureParams, 'notation' | 'neck' | 'liveMarks' | 'nextBeats'> & {
+	accompaniment: Accompaniment;
+	cycleBars: number;
+	window: ExpectationWindow;
+	pacing: Pick<ExercisePacing, 'roundsPerBreath' | 'breathMinMs' | 'listenInBars' | 'countIn'>;
 };
 
-/** Runs of `rounds` cycles chained without a gap, a breath of at least `SHORTEST_BREATH_MS` after each. */
+/**
+ * Two bars of listen-in, then runs of `rounds` cycles chained without a gap, a breath of at least
+ * `SHORTEST_BREATH_MS` after each.
+ */
 function runsOf(rounds: number): RhythmParams['pacing'] {
-	return { roundsPerBreath: rounds, breathMinMs: SHORTEST_BREATH_MS };
+	return {
+		listenInBars: RHYTHM_LISTEN_IN_BARS,
+		roundsPerBreath: rounds,
+		breathMinMs: SHORTEST_BREATH_MS
+	};
 }
 
 function figureOf(text: string): Figure {
-	return parseLilyPondRhythm(text, { meter: METER_4_4 });
+	return parseLilyPond(text, { meter: METER_4_4 });
 }
+
+/**
+ * The round of every rhythm exercise: its item's figure looped over the cycle's bars, judged as a
+ * whole by the alignment; the cycle follows its accompaniment and window, both of its level.
+ */
+const CYCLE_ROUND: RoundTemplate = {
+	expectations: [
+		{
+			figure: { item: 'figure' },
+			at: { bars: 0 },
+			sensor: 'attack',
+			content: null,
+			window: { param: 'window' }
+		}
+	],
+	accompaniment: { param: 'accompaniment' },
+	length: { bars: { param: 'cycleBars' } },
+	handover: 'end',
+	policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+};
 
 // Mesures silencieuses ---------------------------------------------------------------------
 
@@ -84,12 +124,13 @@ export const RHYTHM_SILENT_BARS: ExerciseDefinition = {
 	id: 'rhythm-silent-bars',
 	version: 1,
 	title: { fr: 'Mesures silencieuses', en: 'Silent bars' },
-	mechanic: 'rhythm-figure',
-	params: { sensor: 'attack', ...SILENT_BARS_PARAMS },
+	mechanic: 'figure',
+	params: SILENT_BARS_PARAMS,
 	tempo: 80,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
-	view: 'rhythm-figure',
+	view: 'figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.',
 		en: 'Play steady eighth notes, one attack on every half beat. The click drops out on some bars: keep the same tempo as if it carried on, and meet it again when it returns. You hear the figure first, then play it in runs of four turns.'
@@ -136,10 +177,9 @@ const TWO_FOUR_PARAMS: RhythmParams = {
 	feedback: 'every-cycle',
 	listen: 'aid',
 	cursor: true,
-	// The click on 2 and 4 is the count: the line starts right after two bars of it.
-	countIn: false,
-	// A new line at each cycle: one cycle, then a breath.
-	pacing: runsOf(1),
+	// A new line at each cycle: one cycle, then a breath. The click on 2 and 4 is the count: the
+	// line starts right after two bars of it.
+	pacing: { ...runsOf(1), countIn: false },
 	thresholds: BASE_THRESHOLDS
 };
 
@@ -147,12 +187,13 @@ export const RHYTHM_TWO_FOUR: ExerciseDefinition = {
 	id: 'rhythm-two-four',
 	version: 1,
 	title: { fr: 'Métronome sur 2 et 4', en: 'Click on 2 and 4' },
-	mechanic: 'rhythm-figure',
-	params: { sensor: 'attack', ...TWO_FOUR_PARAMS },
+	mechanic: 'figure',
+	params: TWO_FOUR_PARAMS,
 	tempo: 100,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
-	view: 'rhythm-figure',
+	view: 'figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.',
 		en: 'Read the four-bar line and play it in one go. The click only marks beats 2 and 4: beats 1 and 3 are yours to carry. A new line comes each turn. You can listen to the line before you play it.'
@@ -186,12 +227,13 @@ export const RHYTHM_OFFBEATS: ExerciseDefinition = {
 	id: 'rhythm-offbeats',
 	version: 1,
 	title: { fr: 'Contretemps', en: 'Offbeats' },
-	mechanic: 'rhythm-figure',
-	params: { sensor: 'attack', ...OFFBEATS_PARAMS },
+	mechanic: 'figure',
+	params: OFFBEATS_PARAMS,
 	tempo: 80,
 	// Its instruction is told until the player has played it once.
 	flow: { antiBlocking: true, briefing: 'first-encounter' },
-	view: 'rhythm-figure',
+	view: 'figure',
+	round: CYCLE_ROUND,
 	howTo: {
 		fr: 'Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.',
 		en: 'Play the offbeats: one attack on the “and” of each beat, plus the first beat of the bar. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1.'
@@ -222,18 +264,3 @@ export const RHYTHM_EXERCISES: readonly ExerciseDefinition[] = [
 	RHYTHM_TWO_FOUR,
 	RHYTHM_OFFBEATS
 ];
-
-/**
- * The figures of an exercise a level can play: those whose bars divide the level's cycle, the
- * longest ones only (a cycle of two bars plays the two-bar figure, not the bar twice).
- */
-export function eligibleFigures(
-	exercise: Pick<ExerciseDefinition, 'figures'>,
-	params: Pick<LevelParams, 'cycleBars'>
-): { id: string; figure: Figure }[] {
-	const fitting = (exercise.figures ?? []).filter(
-		({ figure }) => params.cycleBars % figure.bars === 0
-	);
-	const longest = Math.max(0, ...fitting.map(({ figure }) => figure.bars));
-	return fitting.filter(({ figure }) => figure.bars === longest);
-}

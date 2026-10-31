@@ -1,13 +1,73 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TriadZoneItem } from '$lib/domain/mechanics';
+import type { TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
 import { openPitch, parseVoicingKey, type LocateItem } from '$lib/domain/music';
-import type { StringNumber } from '$lib/domain/music/types';
+import { fretOf } from '$lib/domain/music/fretboard';
+import { voicingNotes } from '$lib/domain/music/voicingNotes';
+import { pitchOfMidi, type StringNumber } from '$lib/domain/music/types';
 import { lowestShape, shapeAt, shapeOf } from './triadWords';
 
-/** What a prompt can draw: a string with its open note, or the notes of a chord shape. */
+/**
+ * What a prompt can draw: a string with its open note, the notes of a chord shape, or notes named
+ * on the neck, several on a string if need be.
+ */
 export type Picture =
 	| { kind: 'string'; string: StringNumber; label: string }
-	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] };
+	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] }
+	| { kind: 'neck'; notes: NeckNote[]; frets?: { low: number; high: number } };
+
+/** A note named at its place on the neck. */
+export interface NeckNote {
+	string: StringNumber;
+	fret: number;
+	name: string;
+	/** A note of what comes next, not of what plays now. */
+	next?: true;
+}
+
+/**
+ * The picture of a list of derived notes (`{ midi, string, name? }`): each at its fret, named as
+ * its derivation spells it, else by its sharp spelling. What gives no place on the neck is left out.
+ */
+export function neckPicture(contents: readonly unknown[]): Picture {
+	// A form that comes back to a place draws it once.
+	const places = new Map<string, NeckNote>();
+	for (const content of contents) {
+		const { midi, string, name } = content as { midi: number; string: StringNumber; name?: string };
+		const place = fretOf(midi, string);
+		if ('problem' in place) continue;
+		const key = `${string}-${place.fret}`;
+		if (!places.has(key)) {
+			places.set(key, { string, fret: place.fret, name: name ?? pitchOfMidi(midi) });
+		}
+	}
+	return { kind: 'neck', notes: [...places.values()] };
+}
+
+/**
+ * The neck of what plays now, the notes of what comes next added once `due`. The frets span both
+ * from the start, so the notes do not move when those of what comes next appear. A place both play
+ * shows the note played now.
+ */
+export function neckWithNext(
+	now: Picture & { kind: 'neck' },
+	next: Picture & { kind: 'neck' },
+	due: boolean
+): Picture {
+	const frets = [...now.notes, ...next.notes].map((note) => note.fret);
+	const taken = new Set(now.notes.map((note) => `${note.string}-${note.fret}`));
+	return {
+		kind: 'neck',
+		frets: { low: Math.min(...frets), high: Math.max(...frets) },
+		notes: [
+			...now.notes,
+			...(due
+				? next.notes
+						.filter((note) => !taken.has(`${note.string}-${note.fret}`))
+						.map((note) => ({ ...note, next: true as const }))
+				: [])
+		]
+	};
+}
 
 export interface PictureKind {
 	/** The mechanics whose items it draws. */
@@ -46,5 +106,22 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 				item.position === undefined ? lowestShape(voicing) : shapeAt(voicing, item.position);
 			return { kind: 'shape', ...shapeOf(shape) };
 		}
+	},
+	/** The shape of the item's voicing at its occurrence on the neck. */
+	shape: {
+		reads: ['voicing-figure'],
+		draw: (raw) => {
+			const { voicing, occurrence } = raw as VoicingFigureItem;
+			const notes = voicingNotes(parseVoicingKey(voicing), occurrence);
+			return { kind: 'shape', notes: notes.map(({ string, fret }) => ({ string, fret })) };
+		}
 	}
+};
+
+/**
+ * The picture of where a derived list of notes comes from, by derivation (`CONTENT_DERIVATIONS`):
+ * after a failed round that plays it, the screen shows what was asked (the expected shape).
+ */
+export const DERIVED_PICTURES: Readonly<Record<string, string>> = {
+	'voicing-notes': 'shape'
 };

@@ -142,8 +142,8 @@ try {
 		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
 		check(
 			assert(
-				page.links.some((link) => link.startsWith('Rythme')),
-				'un bloc Rythme mène à son exercice'
+				page.links.some((link) => link.startsWith('Exercices')),
+				'un bloc Exercices mène à son exercice'
 			)
 		);
 		check(
@@ -447,13 +447,19 @@ try {
 		noteTiny('settings', run.texts);
 	}
 
-	// The rhythm view (`/dev/rhythm`, a still model in the play frame): the embedded Bravura font
+	// The figure view (`/dev/rhythm`, a still model in the play frame): the embedded Bravura font
 	// is loaded and draws, the run played and the next figure are engraved at the breath, and the
 	// cursor shows on a clicked bar but never on a muted one.
 	const RHYTHM_URL = process.env.RHYTHM_URL ?? 'http://localhost:5201/dev/rhythm';
+	// A text of an engraving is drawn at its own size times the drawing's zoom (its view box):
+	// its size on screen is what is checked, the tab's fret numbers included.
 	const texts = `[...document.querySelectorAll('body *')]
 		.filter((el) => [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))
-		.map((el) => ({ text: el.textContent.trim().slice(0, 60), fontSize: getComputedStyle(el).fontSize }))`;
+		.map((el) => {
+			const size = parseFloat(getComputedStyle(el).fontSize);
+			const zoom = el instanceof SVGElement ? (el.getScreenCTM?.()?.a ?? 1) : 1;
+			return { text: el.textContent.trim().slice(0, 60), fontSize: \`\${size * zoom}px\` };
+		})`;
 	const settle = `async () => {
 		await document.fonts.ready;
 		for (let i = 0; i < 40 && !document.querySelector('svg'); i++) {
@@ -472,15 +478,15 @@ try {
 				const head = document.querySelector('.vf-notehead path, .vf-notehead');
 				const box = head?.getBBox?.();
 				const faces = [...document.fonts].filter((face) => face.family.replaceAll('"', '') === 'Bravura');
-				const played = document.querySelector('[data-testid="rhythm-played"]');
-				const next = document.querySelector('[data-testid="rhythm-next"]');
+				const played = document.querySelector('[data-testid="figure-played"]');
+				const next = document.querySelector('[data-testid="figure-next"]');
 				return {
 					check: document.fonts.check('30px Bravura'),
 					loaded: faces.length > 0 && faces.every((face) => face.status === 'loaded'),
 					head: box ? box.width : 0,
 					svgs: document.querySelectorAll('svg').length,
 					order: Boolean(played && next && played.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING),
-					marks: document.querySelectorAll('[data-testid="rhythm-mark"]').length,
+					marks: document.querySelectorAll('[data-testid="figure-mark"]').length,
 					texts: ${texts}
 				};
 			}`
@@ -491,7 +497,7 @@ try {
 		check(assert(run.svgs >= 2, `la suite jouée et la figure à jouer sont gravées (${run.svgs})`));
 		check(assert(run.order, 'la suite jouée précède la figure à jouer'));
 		check(assert(run.marks > 0, `les marques de la suite sont dessinées (${run.marks})`));
-		noteTiny('rhythm-breath', run.texts);
+		noteTiny('figure-breath', run.texts);
 	}
 
 	for (const [phase, shown] of [
@@ -507,7 +513,7 @@ try {
 				await new Promise((resolve) => setTimeout(resolve, 200));
 				return {
 					svgs: document.querySelectorAll('svg').length,
-					cursor: document.querySelector('[data-testid="rhythm-cursor"]') !== null,
+					cursor: document.querySelector('[data-testid="figure-cursor"]') !== null,
 					// The time signature: its digits' baselines, the staff line and the row, in the
 					// engraving's own units (one line here, so the view box is the row).
 					signature: (() => {
@@ -546,7 +552,7 @@ try {
 				)
 			);
 		}
-		noteTiny(`rhythm-${phase}`, run.texts);
+		noteTiny(`figure-${phase}`, run.texts);
 	}
 
 	console.log('\nRythme /dev/rhythm?phase=shift');
@@ -557,7 +563,7 @@ try {
 			`async () => {
 				await (${settle})();
 				await new Promise((resolve) => setTimeout(resolve, 300));
-				const label = document.querySelector('[data-testid="rhythm-shift"]');
+				const label = document.querySelector('[data-testid="figure-shift"]');
 				const strip = label?.closest('.strip');
 				const box = label?.getBoundingClientRect();
 				const stripBox = strip?.getBoundingClientRect();
@@ -574,7 +580,114 @@ try {
 		);
 		check(assert(run.fontSize >= 16, `« temps perdu » fait au moins 16 px (${run.fontSize})`));
 		check(assert(run.inside, '« temps perdu » tient dans la largeur de la suite'));
-		noteTiny('rhythm-shift', run.texts);
+		noteTiny('figure-shift', run.texts);
+	}
+
+	console.log('\nFigure /dev/rhythm?phase=wrong');
+	{
+		const call = await open(`${RHYTHM_URL}?phase=wrong`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				return {
+					prompt: document.querySelector('[data-testid="figure-prompt"]')?.textContent ?? null,
+					wrong: document.querySelectorAll('[data-testid="figure-mark"][data-kind="wrong-pitch"]').length,
+					feedback: document.querySelector('[data-testid="figure-feedback"]')?.textContent ?? null,
+					shape: document.querySelector('[data-testid="figure-expected"] .chord-shape') !== null,
+					texts: ${texts}
+				};
+			}`
+		);
+		check(
+			assert(run.prompt?.includes('Do'), `la consigne est au-dessus de la figure (${run.prompt})`)
+		);
+		check(assert(run.wrong === 2, `les fausses notes ont leur marque (${run.wrong})`));
+		check(
+			assert(
+				run.feedback?.includes('Mesure 1, temps 2 : A au lieu de G'),
+				`les fausses notes sont dites par mesure et temps (${run.feedback})`
+			)
+		);
+		check(assert(run.shape, 'la forme attendue est dessinée'));
+		noteTiny('figure-wrong', run.texts);
+	}
+
+	console.log('\nFigure /dev/rhythm?shot=written');
+	{
+		const call = await open(`${RHYTHM_URL}?shot=written`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				const score = document.querySelector('.score svg');
+				const frets = [...document.querySelectorAll('.vf-tabnote text')];
+				const box = (el) => el.getBoundingClientRect();
+				const staff = score?.querySelector('.vf-stave');
+				const tab = score?.querySelectorAll('.vf-stave')[1];
+				return {
+					staves: score?.querySelectorAll('.vf-stave').length ?? 0,
+					clefs: score?.querySelectorAll('.vf-clef').length ?? 0,
+					joined: score?.querySelectorAll('.vf-staveconnector').length ?? 0,
+					frets: frets.map((t) => t.textContent),
+					sharps: [...(score?.querySelectorAll('text') ?? [])].filter((t) => t.textContent.includes('\\uE262')).length,
+					below: Boolean(staff && tab && box(tab).top >= box(staff).bottom - 1),
+					cursor: document.querySelector('[data-testid="figure-cursor"]') !== null,
+					texts: ${texts}
+				};
+			}`
+		);
+		check(
+			assert(run.staves >= 2, `la portée et la tablature sont gravées (${run.staves} portées)`)
+		);
+		check(assert(run.joined >= 2, `la portée et la tablature sont jointes (${run.joined})`));
+		check(assert(run.clefs >= 2, `clé de sol 8 et signe TAB en tête de ligne (${run.clefs})`));
+		check(assert(run.below, 'la tablature est sous la portée'));
+		check(
+			assert(
+				run.frets.join(' ') === '5 7 4 5 7 5 7 8 8 7 5 7 5 4 7 5',
+				`les cases viennent de la hauteur et de la corde (${run.frets.join(' ')})`
+			)
+		);
+		check(assert(run.sharps >= 1, `le fa dièse porte son altération (${run.sharps})`));
+		check(assert(run.cursor, 'le curseur suit la figure'));
+		noteTiny('figure-written', run.texts);
+	}
+
+	console.log('\nFigure /dev/rhythm?shot=derived');
+	{
+		const call = await open(`${RHYTHM_URL}?shot=derived`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				const score = document.querySelector('.score svg');
+				return {
+					prompt: document.querySelector('[data-testid="figure-prompt"]')?.textContent ?? null,
+					staves: score?.querySelectorAll('.vf-stave').length ?? 0,
+					clefs: score?.querySelectorAll('.vf-clef').length ?? 0,
+					frets: [...document.querySelectorAll('.vf-tabnote text')].map((t) => t.textContent),
+					texts: ${texts}
+				};
+			}`
+		);
+		check(assert(run.prompt?.includes('sol‑si‑mi'), `la consigne est au-dessus (${run.prompt})`));
+		check(
+			assert(
+				run.staves === 1 && run.clefs === 1,
+				`la tablature seule, sans portée (${run.staves} portée, ${run.clefs} signe)`
+			)
+		);
+		check(
+			assert(
+				run.frets.join(' ') === '5 5 3 5',
+				`les cases dérivées de la forme sont écrites (${run.frets.join(' ')})`
+			)
+		);
+		noteTiny('figure-derived', run.texts);
 	}
 
 	console.log('\nRythme /dev/rhythm?phase=along');
@@ -590,7 +703,7 @@ try {
 		check(
 			assert(run.status === 'On la joue ensemble', `l’aide en cours est annoncée (${run.status})`)
 		);
-		noteTiny('rhythm-along', run.texts);
+		noteTiny('figure-along', run.texts);
 	}
 
 	console.log('\nTextes sous 16 px');

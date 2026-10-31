@@ -9,11 +9,24 @@ const sources = import.meta.glob('/src/lib/domain/exercise/round/**/*.ts', {
 
 const MODULE = '/src/lib/domain/exercise/round/';
 
-/** The mechanics the compiler never names: the vocabulary of derivations does. */
-const MECHANICS = ['locate', 'identify', 'triad-anchor', 'triad-zone', 'chord-grid'];
+/**
+ * The mechanics the compiler never names: the vocabulary of derivations does. The figure
+ * mechanic (`figure`) is not among them: its id is also the word of a figure entry (its key
+ * `figure`, the content `{ from: 'figure' }`), which the compiler writes; it reads a figure on an
+ * item only through `ITEM_FIGURES`.
+ */
+const MECHANICS = [
+	'locate',
+	'identify',
+	'triad-anchor',
+	'triad-zone',
+	'chord-grid',
+	'voicing-figure',
+	'form-figure'
+];
 
 /** What it may take from the derivations: their registries, looked up by name. */
-const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS'];
+const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES'];
 
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];

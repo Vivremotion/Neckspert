@@ -34,6 +34,32 @@ describe('contentJudges', () => {
 		expect(judge.judge(value, { midi: 59 }).confusion).toEqual({ kind: 'string-name' });
 	});
 
+	it('pitch judges the exact midi', () => {
+		const judge = contentJudges('pitch');
+		const value = { midi: 64, string: 3 };
+		expect(judge.judge(value, { midi: 64 })).toEqual({
+			correct: true,
+			answer: { midi: 64 },
+			confusion: null
+		});
+		// An octave above is not the note: the figure asks for this pitch.
+		expect(judge.judge(value, { midi: 76 }).correct).toBe(false);
+		expect(judge.judge(value, { midi: 52 }).correct).toBe(false);
+		expect(judge.judge({ midi: 64 }, { midi: 64 }).correct).toBe(true);
+	});
+
+	it('pitch judges a payload without a numeric midi as wrong, not as an error', () => {
+		// A local exercise can pair a pitch with a sensor that reports none (the attack sensor).
+		const judge = contentJudges('pitch');
+		for (const payload of [undefined, null, {}, { midi: 'C' }, { onset: 12 }, 64]) {
+			expect(judge.judge({ midi: 64 }, payload)).toEqual({
+				correct: false,
+				answer: null,
+				confusion: null
+			});
+		}
+	});
+
 	it('judges a tapped name as identify does', () => {
 		const judge = contentJudges('name');
 		const value = { string: 2, fret: 6 }; // F

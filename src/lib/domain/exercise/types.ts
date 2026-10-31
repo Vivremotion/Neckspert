@@ -28,13 +28,29 @@ export interface ExerciseFlow {
 	 * (`'first-encounter'`).
 	 */
 	briefing?: ExerciseBriefing;
+	/**
+	 * When a level reached applies: after the run, at its breath (`'breath'`, the default), or at
+	 * the next round chained when the level keeps the tempo (`'next-round'`, a level of another
+	 * tempo still waiting for the breath).
+	 */
+	levelChange?: LevelChange;
+	/**
+	 * Whether the first encounter makes its content heard before it is played, over a longer
+	 * listen-in; absent: yes. It lasts as long as the content does.
+	 */
+	demonstration?: boolean;
 }
 
 /** When an exercise's instruction is told (`ExerciseFlow.briefing`). */
 export type ExerciseBriefing = 'each-series' | 'first-encounter';
 
+/** When a level reached applies (`ExerciseFlow.levelChange`). */
+export type LevelChange = 'breath' | 'next-round';
+
 /** Every value of `ExerciseFlow.briefing`. */
 export const BRIEFINGS: readonly ExerciseBriefing[] = ['each-series', 'first-encounter'];
+
+export const LEVEL_CHANGES: readonly LevelChange[] = ['breath', 'next-round'];
 
 /** Text with `{field}` placeholders: one for every language, or one per language. */
 export type Slot = string | { fr: string; en: string };
@@ -59,6 +75,17 @@ export interface PromptPresentation {
 	aided?: { line?: Slot; picture?: string };
 	/** The fading aid the learning procedure gives (`PlannedItem.stringAid`). */
 	fading?: { picture: string };
+}
+
+/**
+ * A suite of notes, each on its own string, written once and moved from chord to chord: plain
+ * data, like the rest of a definition. `symbol` is what the chord's name adds to its first note.
+ */
+export interface ExerciseForm {
+	id: string;
+	symbol: string;
+	/** As written: `name` spells the note, so the form keeps its spelling when it moves. */
+	notes: { midi: number; string: number; name: string }[];
 }
 
 /** An exercise is data only: a mechanic plus its parameters. */
@@ -98,8 +125,15 @@ export interface ExerciseDefinition {
 	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the catalog. */
 	figures?: readonly { id: string; figure: Figure }[];
+	/** The forms its items move, written once (`form-figure`). */
+	forms?: readonly ExerciseForm[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
+	/**
+	 * The items an exercise session serves, in order and again from the first: keys of its
+	 * mechanic's items (`parseItem`); absent: its figures, one per turn (`pick`).
+	 */
+	items?: readonly string[];
 }
 
 /** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
@@ -121,6 +155,10 @@ export interface ExercisePacing {
 	roundsPerBreath?: number;
 	/** The shortest breath between two runs, in ms, rounded up to whole bars; absent: 0. */
 	breathMinMs?: number;
+	/** Bars of accompaniment alone before a run's counted bar; absent: 0. */
+	listenInBars?: number;
+	/** A counted bar (every beat clicked, countdown shown) before a run; absent: true. */
+	countIn?: boolean;
 }
 
 /** What a level of an item changes: how long before the beat it is asked, and whether it is aided. */

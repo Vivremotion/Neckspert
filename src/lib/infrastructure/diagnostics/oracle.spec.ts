@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { roundPlanRecord } from '$lib/application/session/series/recordResponse';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
-import { attackPositions, figureToJson } from '$lib/domain/time';
+import { compileRound } from '$lib/domain/exercise/round';
+import { METER_4_4, attackPositions } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { DiagnosticTakeRow } from './diagnosticsDb';
 import {
@@ -25,13 +27,36 @@ if (!figure) throw new Error('no offbeats figure');
 /** ♩ = 80 bpm, one bar per cycle: 3 s. */
 const CYCLE_MS = 3000;
 
+/** The plan a cycle of one bar of offbeats at level 1 kept, at ♩ = 80, judged on no threshold. */
+const PLAN = {
+	...roundPlanRecord(
+		compileRound(
+			RHYTHM_OFFBEATS,
+			{
+				exerciseId: RHYTHM_OFFBEATS.id,
+				mechanic: 'figure',
+				exerciseLevel: 0,
+				item: { figureId: 'offbeats-1', level: 0 },
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			},
+			METER_4_4,
+			{ previewBeats: 0, fromRunStart: 0 }
+		)
+	),
+	tempo: { at: '0', bpm: 80, unit: '1/4' },
+	thresholds: {}
+};
+
 function cycle(id: number, sessionId: string, promptedAt: number, contested = false): Attempt {
 	return {
 		id,
 		sessionId,
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'rhythm-figure',
-		cardKey: `rhythm-figure:offbeats-1@0`,
+		mechanic: 'figure',
+		cardKey: `figure:offbeats-1@0`,
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
@@ -44,16 +69,7 @@ function cycle(id: number, sessionId: string, promptedAt: number, contested = fa
 		success: false,
 		verdict: { relation: 'cycle', version: 1, value: { passed: false, reasons: ['extra'] } },
 		measures: {},
-		plan: {
-			figureId: 'offbeats-1',
-			figure: figureToJson(figure as NonNullable<typeof figure>),
-			cycleBars: 1,
-			startBar: 0,
-			accompaniment: { figure: figureToJson(figure as NonNullable<typeof figure>), bars: ['on'] },
-			tempo: { at: '0', bpm: 80, unit: '1/4' },
-			window: { ms: 80 },
-			thresholds: {}
-		},
+		plan: structuredClone(PLAN),
 		data: {
 			item: { figureId: 'offbeats-1', level: 0 },
 			level: 0,
@@ -99,8 +115,33 @@ describe('oracleRuns', () => {
 	it('keeps sessions apart and leaves out attempts without a cycle plan', () => {
 		const other = { ...cycle(3, 's2', 10_000 + CYCLE_MS) };
 		const plain = { ...cycle(4, 's', 10_000 + CYCLE_MS), plan: null };
-		const runs = oracleRuns([cycle(1, 's', 10_000), other, plain]);
+		const response = {
+			...cycle(5, 's', 10_000 + CYCLE_MS),
+			plan: { ...PLAN, policy: { ...PLAN.policy, unit: 'response' } }
+		};
+		const untimed = { ...cycle(6, 's', 10_000 + CYCLE_MS), plan: { ...PLAN, tempo: undefined } };
+		const notes = {
+			...cycle(7, 's', 10_000 + CYCLE_MS),
+			plan: { ...PLAN, expectations: PLAN.expectations.map((e) => ({ ...e, sensor: 'note' })) }
+		};
+		const runs = oracleRuns([cycle(1, 's', 10_000), other, plain, response, untimed, notes]);
 		expect(runs.map((run) => run.attemptIds)).toEqual([[1], [3]]);
+	});
+
+	it('leaves out a cycle plan that expects nothing', () => {
+		const empty = { ...cycle(2, 's', 10_000 + CYCLE_MS), plan: { ...PLAN, expectations: [] } };
+		expect(oracleRuns([empty])).toEqual([]);
+		expect(oracleRuns([cycle(1, 's', 10_000), empty]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
+	it('chains a cycle that starts within a beat of the last one’s end', () => {
+		const beat = CYCLE_MS / 4;
+		const runs = oracleRuns([
+			cycle(1, 's', 10_000),
+			cycle(2, 's', 10_000 + CYCLE_MS + beat),
+			cycle(3, 's', 10_000 + 2 * CYCLE_MS + 2 * beat + 1)
+		]);
+		expect(runs.map((run) => run.attemptIds)).toEqual([[1, 2], [3]]);
 	});
 });
 

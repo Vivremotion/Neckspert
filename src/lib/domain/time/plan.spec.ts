@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { Fraction } from './fraction';
 import type { Figure, FigureElement } from './figure';
 import { METER_4_4 } from './meter';
-import { compileCyclePlan, validateRoundPlan, type RoundPlan } from './plan';
+import { figureExpectations, validateRoundPlan, type RoundPlan } from './plan';
 
 const of = Fraction.of;
 const note = (n: number, d: number, tieToNext?: boolean): FigureElement => ({
@@ -15,7 +15,7 @@ const rest = (n: number, d: number): FigureElement => ({ kind: 'rest', duration:
 
 // c8 c8 r8 c8 r8 c8 r8 c8: five attacks in a bar.
 const contretemps: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 1,
 	voices: [
@@ -36,147 +36,185 @@ const contretemps: Figure = {
 };
 // Bar 1: one whole note. Bar 2: two half notes.
 const twoBars: Figure = {
-	schema: 1,
+	schema: 2,
 	meter: METER_4_4,
 	bars: 2,
 	voices: [{ id: 'main', elements: [note(1, 1), note(1, 2), note(1, 2)] }]
 };
 const window = { ms: 80 };
 
-describe('compileCyclePlan', () => {
-	it('writes the cycle policy by its modes', () => {
-		const plan = compileCyclePlan({
-			figure: contretemps,
-			cycleBars: 4,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on']
-		});
-		expect(plan.policy).toEqual({
-			unit: 'cycle',
-			pairing: { mode: 'alignment' },
-			verdict: 'cycle',
-			correction: false
-		});
-	});
+describe('figureExpectations', () => {
+	const base = { at: Fraction.ZERO, sensor: 'attack', window, content: () => null };
 
 	it('lists one point target per note of the contretemps over four bars', () => {
-		const plan = compileCyclePlan({
+		const expectations = figureExpectations({
+			...base,
 			figure: contretemps,
-			cycleBars: 4,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on', 'on', 'on', 'on']
+			length: of(4),
+			startBar: 0
 		});
-		expect(plan.expectations).toHaveLength(20);
-		expect(plan.expectations.every((e) => e.role === 'target' && e.span === 'point')).toBe(true);
-		expect(plan.expectations.every((e) => e.sensor === 'attack' && e.content === null)).toBe(true);
-		expect(plan.expectations.every((e) => e.window !== window && 'ms' in e.window)).toBe(true);
-		expect(plan.expectations[0].window).toEqual(window);
-		expect(plan.expectations[0].window).not.toBe(plan.expectations[1].window);
-		expect(plan.handover?.equals(of(4))).toBe(true);
-		expect(plan.policy.unit).toBe('cycle');
-		expect(plan.prompt).toBeNull();
-		expect(plan.length.equals(of(4))).toBe(true);
-		expect(plan.expectations[0].at!.equals(Fraction.ZERO)).toBe(true);
-		expect(plan.expectations[5].at!.equals(of(1))).toBe(true);
-		expect(plan.expectations[5].bar).toBe(1);
-		expect(plan.expectations[19].at!.equals(of(3).add(of(7, 8)))).toBe(true);
-		expect(validateRoundPlan(plan)).toBeNull();
+		expect(expectations).toHaveLength(20);
+		expect(expectations.every((e) => e.role === 'target' && e.span === 'point')).toBe(true);
+		expect(expectations.every((e) => e.sensor === 'attack' && e.content === null)).toBe(true);
+		expect(expectations.every((e) => e.window !== window && 'ms' in e.window)).toBe(true);
+		expect(expectations[0].window).toEqual(window);
+		expect(expectations[0].window).not.toBe(expectations[1].window);
+		expect(expectations[0].at!.equals(Fraction.ZERO)).toBe(true);
+		expect(expectations[5].at!.equals(of(1))).toBe(true);
+		expect(expectations[5].bar).toBe(1);
+		expect(expectations[19].at!.equals(of(3).add(of(7, 8)))).toBe(true);
 	});
 
 	it('skips tied notes and counts the bar of each expectation', () => {
 		const tied: Figure = {
-			schema: 1,
+			schema: 2,
 			meter: METER_4_4,
 			bars: 1,
 			voices: [{ id: 'main', elements: [note(1, 2, true), note(1, 4), note(1, 4)] }]
 		};
-		const plan = compileCyclePlan({
-			figure: tied,
-			cycleBars: 2,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on']
-		});
+		const expectations = figureExpectations({ ...base, figure: tied, length: of(2), startBar: 0 });
 		// The tie joins the half note to the quarter: one attack at 0, then the last quarter.
-		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '3/4', '1', '7/4']);
-		expect(plan.expectations.map((e) => e.bar)).toEqual([0, 0, 1, 1]);
+		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '3/4', '1', '7/4']);
+		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1, 1]);
 	});
 
 	it('starts a two-bar figure at its second bar', () => {
-		const plan = compileCyclePlan({
+		const expectations = figureExpectations({
+			...base,
 			figure: twoBars,
-			cycleBars: 2,
-			startBar: 1,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on', 'on']
+			length: of(2),
+			startBar: 1
 		});
 		// Bar 2 (two half notes), then bar 1 (one whole note) again.
-		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
-		expect(plan.expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
+		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
+		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
 	});
 
 	it('wraps a start bar past the figure length', () => {
-		const plan = compileCyclePlan({
+		const expectations = figureExpectations({
+			...base,
 			figure: twoBars,
-			cycleBars: 2,
-			startBar: 3,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on']
+			length: of(2),
+			startBar: 3
 		});
-		expect(plan.expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
+		expect(expectations.map((e) => e.at!.toString())).toEqual(['0', '1/2', '1']);
 	});
 
-	it('rotates the accompaniment by the start bar to find the muted bars', () => {
-		const input = { figure: contretemps, cycleBars: 4, sensor: 'attack', window };
-		const accompanimentBars: ('on' | 'off')[] = ['on', 'on', 'on', 'off'];
-		expect(compileCyclePlan({ ...input, startBar: 3, accompanimentBars }).mutedBars).toEqual([0]);
-		expect(compileCyclePlan({ ...input, startBar: 0, accompanimentBars }).mutedBars).toEqual([3]);
-		expect(compileCyclePlan({ ...input, startBar: 1, accompanimentBars }).mutedBars).toEqual([2]);
-	});
-
-	it('repeats a short accompaniment over the cycle', () => {
-		const plan = compileCyclePlan({
-			figure: contretemps,
-			cycleBars: 4,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on', 'off']
-		});
-		expect(plan.mutedBars).toEqual([1, 3]);
-	});
-
-	it('refuses an invalid cycle', () => {
-		const base = {
-			figure: contretemps,
-			cycleBars: 4,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on', 'on', 'on', 'on'] as ('on' | 'off')[]
-		};
-		expect(() => compileCyclePlan({ ...base, cycleBars: 0 })).toThrow(RangeError);
-		expect(() => compileCyclePlan({ ...base, startBar: -1 })).toThrow(RangeError);
-		expect(() => compileCyclePlan({ ...base, accompanimentBars: [] })).toThrow(RangeError);
-	});
-
-	it('refuses a cycle that is not a whole number of figure loops', () => {
-		const base = {
+	it('starts the figure at its place in the round, counting the bars of the round', () => {
+		const expectations = figureExpectations({
+			...base,
 			figure: twoBars,
-			startBar: 0,
-			sensor: 'attack',
-			window,
-			accompanimentBars: ['on'] as ('on' | 'off')[]
+			at: of(1),
+			length: of(2),
+			startBar: 0
+		});
+		expect(expectations.map((e) => e.at!.toString())).toEqual(['1', '2', '5/2']);
+		expect(expectations.map((e) => e.bar)).toEqual([1, 2, 2]);
+	});
+
+	it('gives each played note, counted from the round start, the content it asks', () => {
+		const pitched: Figure = {
+			...twoBars,
+			voices: [
+				{
+					id: 'main',
+					elements: [
+						{ kind: 'note', duration: of(1), content: null, pitch: 60 },
+						{ kind: 'note', duration: of(1, 2), content: null, pitch: 62, string: 2 },
+						{ kind: 'note', duration: of(1, 2), content: null, pitch: 64 }
+					]
+				}
+			]
 		};
-		expect(() => compileCyclePlan({ ...base, cycleBars: 3 })).toThrow(RangeError);
-		expect(compileCyclePlan({ ...base, cycleBars: 4 }).expectations).toHaveLength(6);
+		const seen: [number, number | undefined][] = [];
+		const expectations = figureExpectations({
+			...base,
+			figure: pitched,
+			length: of(4),
+			startBar: 1,
+			content: (k, played) => {
+				seen.push([k, played.pitch]);
+				return { kind: 'pitch', value: k };
+			}
+		});
+		expect(seen).toEqual([
+			[0, 62],
+			[1, 64],
+			[2, 60],
+			[3, 62],
+			[4, 64],
+			[5, 60]
+		]);
+		expect(expectations.map((e) => e.content)).toEqual(
+			[0, 1, 2, 3, 4, 5].map((value) => ({ kind: 'pitch', value }))
+		);
+	});
+
+	it('refuses an invalid loop', () => {
+		const loop = { ...base, figure: contretemps, length: of(4), startBar: 0 };
+		expect(() => figureExpectations({ ...loop, length: Fraction.ZERO })).toThrow(RangeError);
+		expect(() => figureExpectations({ ...loop, length: of(-1, 4) })).toThrow(RangeError);
+		expect(() => figureExpectations({ ...loop, startBar: -1 })).toThrow(RangeError);
+		const broken: Figure = { ...contretemps, voices: [] };
+		expect(() => figureExpectations({ ...loop, figure: broken })).toThrow(RangeError);
+	});
+
+	// One bar of four quarters.
+	const quarters: Figure = {
+		schema: 2,
+		meter: METER_4_4,
+		bars: 1,
+		voices: [{ id: 'main', elements: [note(1, 4), note(1, 4), note(1, 4), note(1, 4)] }]
+	};
+	const places = (expectations: { at: Fraction | null }[]) =>
+		expectations.map((e) => e.at!.toString());
+
+	it('keeps whole loops as before', () => {
+		const loop = { ...base, figure: twoBars, startBar: 0 };
+		expect(places(figureExpectations({ ...loop, length: of(4) }))).toEqual([
+			'0',
+			'1',
+			'3/2',
+			'2',
+			'3',
+			'7/2'
+		]);
+	});
+
+	it('cuts the last loop at the end of the span', () => {
+		const loop = { ...base, figure: quarters, startBar: 0 };
+		expect(places(figureExpectations({ ...loop, length: of(1, 2) }))).toEqual(['0', '1/4']);
+		const six = figureExpectations({ ...loop, length: of(3, 2) });
+		expect(places(six)).toEqual(['0', '1/4', '1/2', '3/4', '1', '5/4']);
+		expect(six.map((e) => e.bar)).toEqual([0, 0, 0, 0, 1, 1]);
+		expect(places(figureExpectations({ ...loop, length: of(1, 4) }))).toEqual(['0']);
+		// A two-bar figure over three bars: its second bar comes once, its first twice.
+		expect(
+			places(figureExpectations({ ...base, figure: twoBars, startBar: 1, length: of(3) }))
+		).toEqual(['0', '1/2', '1', '2', '5/2']);
+	});
+
+	it('drops an attack exactly on the span end', () => {
+		// Half notes over three beats: the second falls at 1/2, inside; over two beats, on the end.
+		const halves: Figure = {
+			...quarters,
+			voices: [{ id: 'main', elements: [note(1, 2), note(1, 2)] }]
+		};
+		const loop = { ...base, figure: halves, startBar: 0 };
+		expect(places(figureExpectations({ ...loop, length: of(1, 2) }))).toEqual(['0']);
+		expect(places(figureExpectations({ ...loop, length: of(3, 4) }))).toEqual(['0', '1/2']);
+	});
+
+	it('fills a span from a place off the downbeat, counting the bars of the round', () => {
+		const expectations = figureExpectations({
+			...base,
+			figure: quarters,
+			at: of(1, 2),
+			length: of(3, 4),
+			startBar: 0
+		});
+		expect(places(expectations)).toEqual(['1/2', '3/4', '1']);
+		expect(expectations.map((e) => e.bar)).toEqual([0, 0, 1]);
 	});
 });
 

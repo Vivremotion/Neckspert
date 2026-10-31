@@ -16,9 +16,9 @@ import {
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
-import { createFigureSource } from '$lib/application/session/cycle/figureSource';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
-import type { RhythmStageModel } from '$lib/application/session/cycle/rhythmStage';
+import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
+import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
+import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { attackSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import type { SessionControllerDeps } from '$lib/application/session/SessionDeps';
@@ -37,8 +37,8 @@ export function earlier(exerciseId: string): Attempt {
 	return {
 		sessionId: 'old',
 		exerciseId,
-		mechanic: 'rhythm-figure',
-		cardKey: 'rhythm-figure:old@0',
+		mechanic: 'figure',
+		cardKey: 'figure:old@0',
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
@@ -59,7 +59,8 @@ export function earlier(exerciseId: string): Attempt {
 
 /** The exercise with a counted bar after its listen-in, whatever its catalog start. */
 export function counted(exercise: ExerciseDefinition): ExerciseDefinition {
-	return { ...exercise, params: { ...exercise.params, countIn: true } };
+	const pacing = exercise.params.pacing as Record<string, unknown> | undefined;
+	return { ...exercise, params: { ...exercise.params, pacing: { ...pacing, countIn: true } } };
 }
 
 /** Lets the writes started by the controller finish. */
@@ -68,10 +69,10 @@ export async function settled(): Promise<void> {
 }
 
 /** The rhythm's screen model on show; throws when there is none. */
-export function stageOf(controller: SessionController): RhythmStageModel {
+export function stageOf(controller: SessionController): FigureStageModel {
 	const stage = controller.view.stage;
 	if (!stage) throw new Error('no stage on show');
-	return stage.model as RhythmStageModel;
+	return stage.model as FigureStageModel;
 }
 
 /** The audio times of the attacks of figure bar `played % bars`, the bar starting at `startS`. */
@@ -109,7 +110,7 @@ export class Player {
 	step(): void {
 		const stage = this.controller.view.stage;
 		if (!stage) return;
-		const model = stage.model as RhythmStageModel;
+		const model = stage.model as FigureStageModel;
 		const barS = (60 / model.tempo.bpm) * 4;
 		const bar = Math.floor((this.clock.now() - ORIGIN) / barS + 1e-9);
 		if (bar !== this.bar) {
@@ -135,8 +136,8 @@ export class Player {
 }
 
 /**
- * `exercise` on the session controller, its items from `createFigureSource`, the rhythm's presenter
- * and the attack sensor: as `startExercise` will build it (plan H6, Task 9).
+ * `exercise` on the session controller, its items from `createExerciseItemSource`, the rhythm's
+ * presenter and the attack sensor: as `startExercise` builds it.
  */
 export async function rhythmSeries(
 	exercise: ExerciseDefinition,
@@ -166,14 +167,15 @@ export async function rhythmSeries(
 		clickBleed: options.clickBleed ?? false
 	});
 	const recorders: AttemptRecorder[] = [];
-	const sources = new Map<string, ReturnType<typeof createFigureSource>>();
+	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
 	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
 		sensors: { attack: attackSensor(attacks) },
-		mechanics: RHYTHM_PRESENTERS,
+		// The rhythm's presenter alone: the series opens the sensors of every presenter it is given.
+		mechanics: { [figurePresenter.rules.id]: figurePresenter },
 		repositories: { attempts, sessions, settings },
 		levels,
 		recorderFor: (sessionId) => {
@@ -202,7 +204,7 @@ export async function rhythmSeries(
 	const controller = new SessionController(
 		{ id: 'series', kind: 'exercise' },
 		async (sessionId) => {
-			const source = createFigureSource(exercise);
+			const source = createExerciseItemSource(exercise);
 			sources.set(sessionId, source);
 			return { source, durationMs: SESSION_MS };
 		},

@@ -1,8 +1,7 @@
 import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
-import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { RHYTHM_PRESENTERS } from '$lib/application/session/cycle/presenter';
+import { MECHANIC_PRESENTERS } from '$lib/application/mechanics';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
@@ -26,7 +25,8 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
-import { createDiagnosticJournal, shadowAttacks } from './diagnostics';
+import { createDiagnosticJournal, journalNotes } from './diagnostics';
+import { loadLocalExercises } from './localExercises';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -44,9 +44,22 @@ export interface CreateAppOptions {
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
- * chord verifier write to it; the core never sees it.
+ * chord verifier write to it; the core never sees it. In development builds, the exercises of
+ * `exercises.local/` are added to the catalog before anything reads it (`docs/exercices-locaux.md`).
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
+	// The private exercises, read as text at build time, in development builds only: a production
+	// build drops this branch and the files with it. A refused file (its JSON unreadable
+	// included) is reported, never fatal.
+	if (import.meta.env.DEV) {
+		loadLocalExercises(
+			import.meta.glob<string>('/exercises.local/*.json', {
+				eager: true,
+				query: '?raw',
+				import: 'default'
+			})
+		);
+	}
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).
@@ -62,13 +75,12 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 
 	const journal = createDiagnosticJournal(settings, { name: options.diagnosticsDatabaseName });
 	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
-	const detector = new WebAudioNoteDetector(context, { input });
-	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
 	const attacks = new WebAudioAttackDetector(input, { diagnostics: journal });
+	const detector = new WebAudioNoteDetector(context, { input, attacks });
+	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
 	// The input of the last run of a rhythm exercise, kept in memory to be heard again.
 	const takes = new TakeBuffer(input, context);
-	// The attack detector runs in the shadow of the note detector, both journaled for comparison.
-	shadowAttacks(journal, detector, attacks);
+	journalNotes(journal, detector);
 
 	const calibration = new CalibrationService({
 		clock,
@@ -121,12 +133,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		development: dev,
 		newId: () => crypto.randomUUID(),
-		mechanics: {
-			...NECK_PRESENTERS,
-			...TRIAD_PRESENTERS,
-			...GESTURE_PRESENTERS,
-			...RHYTHM_PRESENTERS
-		},
+		mechanics: MECHANIC_PRESENTERS,
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

@@ -5,14 +5,32 @@ import { barLength, validateMeter, type Meter } from './meter';
 export const SOUND_IDS = ['click-accent', 'click', 'demo', 'play-along'] as const;
 export type SoundId = (typeof SOUND_IDS)[number];
 
+/** Lowest and highest MIDI numbers a note's `pitch` may take. */
+export const MIN_PITCH = 0;
+export const MAX_PITCH = 127;
+/** The strings a note's `string` may name: 1 is the highest, 6 the lowest. */
+export const MIN_STRING = 1;
+export const MAX_STRING = 6;
+
 /**
  * One event of a voice. Durations are the sounding ones, as fractions of a whole note:
  * a triplet of eighths is three `1/12`. `content` is what a note carries:
- * the sound it plays in an accompaniment, null in a bare rhythm (a chord, a string... later).
+ * the sound it plays in an accompaniment, null in a bare rhythm. `pitch` is its exact
+ * MIDI number and `string` the string it is played on (1 to 6), both written by the notation
+ * when it has them: plain numbers, so that this domain knows nothing of the fretboard.
  */
 export type FigureElement =
-	| { kind: 'note'; duration: Fraction; tieToNext?: boolean; content: null | SoundId }
+	| {
+			kind: 'note';
+			duration: Fraction;
+			tieToNext?: boolean;
+			content: null | SoundId;
+			pitch?: number;
+			string?: number;
+	  }
 	| { kind: 'rest'; duration: Fraction };
+
+export type FigureNote = Extract<FigureElement, { kind: 'note' }>;
 
 /** `from` and `to` are element indexes (both included); `ratio` is [played, in the time of]. */
 export interface Tuplet {
@@ -29,7 +47,8 @@ export interface Voice {
 
 /** A rhythm figure: `bars` bars of `meter`, one or more voices that each fill them. */
 export interface Figure {
-	schema: 1;
+	/** 2: notes may carry a pitch and a string. Schema 1 JSON is read and becomes schema 2. */
+	schema: 2;
 	meter: Meter;
 	bars: number;
 	voices: Voice[];
@@ -56,6 +75,23 @@ function validateTuplets(voice: Voice): string | null {
 	return null;
 }
 
+function validateNote(note: FigureNote, voiceId: string, index: number): string | null {
+	const { pitch, string } = note;
+	if (
+		pitch !== undefined &&
+		!(Number.isInteger(pitch) && pitch >= MIN_PITCH && pitch <= MAX_PITCH)
+	) {
+		return `voice "${voiceId}": element ${index} has pitch ${pitch}, not a MIDI number (${MIN_PITCH} to ${MAX_PITCH})`;
+	}
+	if (
+		string !== undefined &&
+		!(Number.isInteger(string) && string >= MIN_STRING && string <= MAX_STRING)
+	) {
+		return `voice "${voiceId}": element ${index} has string ${string}, not ${MIN_STRING} to ${MAX_STRING}`;
+	}
+	return null;
+}
+
 function validateVoice(voice: Voice, meter: Meter, bars: number): string | null {
 	const bar = barLength(meter);
 	const total = Fraction.of(bars).mul(bar);
@@ -63,6 +99,10 @@ function validateVoice(voice: Voice, meter: Meter, bars: number): string | null 
 	for (const [i, element] of voice.elements.entries()) {
 		if (element.duration.n <= 0) {
 			return `voice "${voice.id}": element ${i} has a non-positive duration (${element.duration})`;
+		}
+		if (element.kind === 'note') {
+			const problem = validateNote(element, voice.id, i);
+			if (problem) return problem;
 		}
 		if (element.kind === 'note' && element.tieToNext) {
 			const next = voice.elements[i + 1];
@@ -107,17 +147,20 @@ export function validateFigure(figure: Figure): string | null {
 	return null;
 }
 
-/** Where each note of a voice (the first by default) starts, skipping notes tied from the previous one. */
-export function attackPositions(figure: Figure, voiceId?: string): Fraction[] {
+/** Each attack of a voice (the first by default; tied notes once): its position and its note. */
+export function attackNotes(
+	figure: Figure,
+	voiceId?: string
+): { at: Fraction; note: FigureNote }[] {
 	const voice =
 		voiceId === undefined ? figure.voices[0] : figure.voices.find((v) => v.id === voiceId);
 	if (!voice) throw new RangeError(`figure has no voice "${voiceId}"`);
-	const attacks: Fraction[] = [];
+	const attacks: { at: Fraction; note: FigureNote }[] = [];
 	let at = Fraction.ZERO;
 	let tied = false;
 	for (const element of voice.elements) {
 		if (element.kind === 'note') {
-			if (!tied) attacks.push(at);
+			if (!tied) attacks.push({ at, note: element });
 			tied = element.tieToNext === true;
 		} else {
 			tied = false;
@@ -125,6 +168,11 @@ export function attackPositions(figure: Figure, voiceId?: string): Fraction[] {
 		at = at.add(element.duration);
 	}
 	return attacks;
+}
+
+/** Where each note of a voice (the first by default) starts, skipping notes tied from the previous one. */
+export function attackPositions(figure: Figure, voiceId?: string): Fraction[] {
+	return attackNotes(figure, voiceId).map(({ at }) => at);
 }
 
 export function figureToJson(figure: Figure): unknown {
@@ -145,7 +193,9 @@ export function figureToJson(figure: Figure): unknown {
 							kind: 'note',
 							duration: element.duration.toString(),
 							...(element.tieToNext ? { tieToNext: true } : {}),
-							content: element.content
+							content: element.content,
+							...(element.pitch !== undefined ? { pitch: element.pitch } : {}),
+							...(element.string !== undefined ? { string: element.string } : {})
 						}
 			),
 			...(voice.tuplets
@@ -196,11 +246,15 @@ function elementFromJson(value: unknown, where: string): FigureElement {
 	if (e.tieToNext !== undefined && typeof e.tieToNext !== 'boolean') {
 		throw new Error(`${where} tieToNext must be a boolean`);
 	}
+	if (e.pitch !== undefined) asInteger(e.pitch, `${where} pitch`);
+	if (e.string !== undefined) asInteger(e.string, `${where} string`);
 	return {
 		kind: 'note',
 		duration,
 		...(e.tieToNext ? { tieToNext: true } : {}),
-		content: e.content as null | SoundId
+		content: e.content as null | SoundId,
+		...(e.pitch !== undefined ? { pitch: e.pitch as number } : {}),
+		...(e.string !== undefined ? { string: e.string as number } : {})
 	};
 }
 
@@ -232,7 +286,8 @@ function voiceFromJson(value: unknown, where: string): Voice {
 /** Reads a figure from its JSON form. Throws an `Error` with a readable message on anything invalid. */
 export function figureFromJson(value: unknown): Figure {
 	const f = asObject(value, 'figure');
-	if (f.schema !== 1) throw new Error(`unsupported figure schema: ${JSON.stringify(f.schema)}`);
+	if (f.schema !== 1 && f.schema !== 2)
+		throw new Error(`unsupported figure schema: ${JSON.stringify(f.schema)}`);
 	const m = asObject(f.meter, 'figure meter');
 	const meter: Meter = {
 		count: asInteger(m.count, 'figure meter count'),
@@ -242,7 +297,7 @@ export function figureFromJson(value: unknown): Figure {
 		)
 	};
 	const figure: Figure = {
-		schema: 1,
+		schema: 2,
 		meter,
 		bars: asInteger(f.bars, 'figure bars'),
 		voices: asArray(f.voices, 'figure voices').map((v, i) => voiceFromJson(v, `voice ${i}`))
@@ -250,4 +305,85 @@ export function figureFromJson(value: unknown): Figure {
 	const problem = validateFigure(figure);
 	if (problem) throw new Error(`invalid figure: ${problem}`);
 	return figure;
+}
+
+/**
+ * The figure as a span of `length` (from its start, in whole notes) plays it, looped from bar
+ * `startBar` of its loop: its bars in turn, its last loop cut at `length`, the notes that start
+ * at or after it written as rests of their length, so its last bar stays whole. Its attacks are
+ * those `figureExpectations` places over the same span, one for one: a tie into a cut note is
+ * dropped, and a note held from a bar left out of the span starts as a rest. A tuplet is kept
+ * when it lies within one bar. The figure itself when the span is exactly one loop from its
+ * first bar.
+ */
+export function loopFigure(figure: Figure, span: { length: Fraction; startBar: number }): Figure {
+	const { length, startBar } = span;
+	if (length.compare(Fraction.ZERO) <= 0) {
+		throw new RangeError(`the span to fill must be positive, got ${length}`);
+	}
+	if (!Number.isInteger(startBar) || startBar < 0) {
+		throw new RangeError(`startBar must be a non-negative integer, got ${startBar}`);
+	}
+	const bar = barLength(figure.meter);
+	const bars = Math.ceil(length.div(bar).toNumber() - 1e-9);
+	const first = startBar % figure.bars;
+	if (first === 0 && length.equals(bar.mul(Fraction.of(figure.bars)))) return figure;
+	const voice = (source: Voice): Voice => {
+		// The elements of each bar of the source, with their index and their place in the bar.
+		const inBar: { index: number; from: Fraction }[][] = Array.from(
+			{ length: figure.bars },
+			() => []
+		);
+		let at = Fraction.ZERO;
+		source.elements.forEach((element, index) => {
+			const b = Math.floor(at.div(bar).toNumber());
+			inBar[b]?.push({ index, from: at.sub(bar.mul(Fraction.of(b))) });
+			at = at.add(element.duration);
+		});
+		const elements: FigureElement[] = [];
+		const tuplets: Tuplet[] = [];
+		for (let i = 0; i < bars; i++) {
+			const b = (first + i) % figure.bars;
+			const origin = bar.mul(Fraction.of(i));
+			const base = elements.length;
+			for (const { index, from } of inBar[b]) {
+				const element = source.elements[index];
+				const before = elements.at(-1);
+				// Held from a note the span does not hold (a bar left out, or a cut note).
+				const heldIn =
+					element.kind === 'note' &&
+					index > 0 &&
+					source.elements[index - 1].kind === 'note' &&
+					(source.elements[index - 1] as FigureNote).tieToNext === true &&
+					!(before?.kind === 'note' && before.tieToNext === true);
+				const cut = origin.add(from).compare(length) >= 0;
+				if (cut || heldIn) {
+					if (before?.kind === 'note' && before.tieToNext) {
+						const { tieToNext: _tie, ...untied } = before;
+						elements[elements.length - 1] = untied;
+					}
+					elements.push({ kind: 'rest', duration: element.duration });
+				} else {
+					elements.push(element);
+				}
+			}
+			const indexes = inBar[b].map(({ index }) => index);
+			for (const tuplet of source.tuplets ?? []) {
+				const start = indexes.indexOf(tuplet.from);
+				const end = indexes.indexOf(tuplet.to);
+				if (start >= 0 && end >= 0) {
+					tuplets.push({ ...tuplet, from: base + start, to: base + end });
+				}
+			}
+		}
+		// The span ends on a tied note: what it was tied to is left out.
+		const last = elements.at(-1);
+		if (last?.kind === 'note' && last.tieToNext) {
+			const { tieToNext: _tie, ...untied } = last;
+			elements[elements.length - 1] = untied;
+		}
+		const { tuplets: _tuplets, ...rest } = source;
+		return { ...rest, elements, ...(tuplets.length > 0 ? { tuplets } : {}) };
+	};
+	return { ...figure, bars, voices: figure.voices.map(voice) };
 }

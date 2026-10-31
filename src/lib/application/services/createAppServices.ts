@@ -2,15 +2,17 @@ import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import { summarizeExercise } from '$lib/application/session/cycle/exerciseSummary';
-import { levelAided } from '$lib/application/session/cycle/recordCycle';
-import { rhythmParamsOf } from '$lib/application/session/cycle/rhythmExercise';
+import { summarizeExercise } from '$lib/application/session/series/exerciseSummary';
+import { levelAided } from '$lib/application/session/aids';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import { createFigureSource } from '$lib/application/session/cycle/figureSource';
+import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
 import { GESTURE_EXERCISES, gestureOpen } from '$lib/domain/gesture';
 import {
 	exerciseById,
+	exerciseSessionExercises,
+	figureParamsOf,
+	writesFigure,
 	type ExerciseDefinition,
 	IDENTIFY_NECK,
 	LOCATE_NECK,
@@ -18,6 +20,8 @@ import {
 	TRIADS_ZONE
 } from '$lib/domain/exercise';
 import { locateRules } from '$lib/domain/mechanics';
+import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
+import type { MechanicPresenter } from '$lib/application/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -96,7 +100,7 @@ export function createAppServices(
 	 */
 	const playSession = async (
 		kind: SessionKind,
-		mechanics: readonly MechanicId[],
+		mechanics: Record<string, MechanicPresenter>,
 		prepareSeries: (sessionId: string) => Promise<PreparedSeries>
 	): Promise<SessionController> => {
 		const { locale } = await deps.settings.get();
@@ -112,7 +116,7 @@ export function createAppServices(
 			sounds: deps.sounds,
 			detector: deps.detector,
 			sensors: deps.sensors,
-			mechanics: presentersOf(mechanics),
+			mechanics,
 			repositories: {
 				attempts: deps.attempts,
 				sessions: deps.sessions,
@@ -148,7 +152,7 @@ export function createAppServices(
 	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		playSession('gesture', TRACK_MECHANICS, async (sessionId) => {
+		playSession('gesture', presentersOf(TRACK_MECHANICS), async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			// The open exercises in the order of the ladder; each grid of each (and the link, which
 			// plays no grid) at its own exercise level, which the series holds.
@@ -167,7 +171,7 @@ export function createAppServices(
 	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, TRACK_MECHANICS, async (sessionId) => {
+		playSession(kind, presentersOf(TRACK_MECHANICS), async (sessionId) => {
 			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
@@ -217,7 +221,7 @@ export function createAppServices(
 	const startTriads = (mechanic: TriadMechanic) =>
 		playSession(
 			mechanic === 'triad-zone' ? 'triads-zone' : 'triads',
-			TRACK_MECHANICS,
+			presentersOf(TRACK_MECHANICS),
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
 					deps.cards.all(),
@@ -277,7 +281,7 @@ export function createAppServices(
 			aided: (attempt) =>
 				levelAided(
 					attempt.aids,
-					rhythmParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0)
+					figureParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0).cursor
 				)
 		});
 		const replayable = summary.runs
@@ -289,12 +293,15 @@ export function createAppServices(
 		return { series: summary, replayable };
 	};
 
-	/** The rhythm exercise a session played, when its exercise is still in the catalog with levels. */
-	const rhythmExerciseOf = (record: SessionRecord) => {
+	/**
+	 * The exercise an exercise session played, when it is still in the catalog with levels and a
+	 * round that writes a figure.
+	 */
+	const sessionExerciseOf = (record: SessionRecord) => {
 		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
 		try {
 			const played = exerciseOf(record.exerciseId);
-			return played.levels && played.levels.length > 0 && played.figures ? played : undefined;
+			return played.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 		} catch {
 			return undefined;
 		}
@@ -375,9 +382,9 @@ export function createAppServices(
 			if (!record) {
 				throw new Error(`Unknown session: ${sessionId}`);
 			}
-			const exercise = rhythmExerciseOf(record);
+			const exercise = sessionExerciseOf(record);
 			if (exercise) {
-				// A rhythm exercise: its own cycles and the level it ended on, nothing of the neck.
+				// An exercise session: its own rounds and the level it ended on, nothing of the neck.
 				const [attempts, state] = await Promise.all([
 					deps.attempts.listBySession(sessionId),
 					deps.levels.get({ exerciseId: exercise.id, scope: '', item: '' })
@@ -431,13 +438,19 @@ export function createAppServices(
 		},
 
 		async startExercise(exerciseId) {
-			// An exercise of figures, free play: the series plays it at the level it holds.
-			const definition = exerciseOf(exerciseId);
-			if (!definition.figures?.length || !definition.levels?.length) {
-				throw new Error(`Exercise ${exerciseId} has no figures and levels to play`);
+			// An exercise played on its own, free play: the series plays it at the level it holds.
+			if (!exerciseSessionExercises().some((exercise) => exercise.id === exerciseId)) {
+				throw new Error(`Exercise ${exerciseId} is not played in an exercise session`);
 			}
-			return playSession('exercise', [definition.mechanic], async () => ({
-				source: createFigureSource(definition),
+			const definition = exerciseOf(exerciseId);
+			const presenters = Object.fromEntries(
+				Object.entries(presentersOf([definition.mechanic])).map(([mechanic, presenter]) => [
+					mechanic,
+					exercisePresenter(presenter, definition)
+				])
+			);
+			return playSession('exercise', presenters, async () => ({
+				source: createExerciseItemSource(definition),
 				durationMs: SESSION_MS
 			}));
 		}

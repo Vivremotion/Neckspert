@@ -1,39 +1,20 @@
-import type { Accompaniment } from './accompaniment';
-import type { ExpectationWindow } from './plan';
-
 /** Successes in a row, unaided, that move an exercise up a level (a level's `pass` overrides it). */
 export const PASS_AFTER_CYCLES = 3;
 /** Failures in a row that move an exercise down a level (a level's `drop` overrides it). */
 export const DROP_AFTER_FAILS = 2;
 
-/** Bars of accompaniment alone (listen, do not play) before play, unless an exercise says otherwise. */
+/** Bars of accompaniment alone (listen, do not play) the transport plays when told no other. */
 export const LISTEN_IN_BARS = 2;
 
+/** How a round that plays a figure tells its marks: every cycle, a summary, or only what is out. */
 export type Feedback = 'every-cycle' | 'summary' | 'out-of-tolerance';
-
-/** Everything a level can change about how an exercise is played. */
-export interface LevelParams {
-	accompaniment: Accompaniment;
-	cycleBars: number;
-	/** Beats per minute, the beat being the unit of the accompaniment's meter. */
-	tempo: number;
-	window: ExpectationWindow;
-	feedback: Feedback;
-	listen: 'free' | 'aid' | 'none';
-	cursor: boolean;
-	/** Bars of accompaniment alone before play; absent: `LISTEN_IN_BARS`. */
-	listenInBars?: number;
-	/** A counted bar (every beat clicked, countdown shown) after the listen-in; absent: true. */
-	countIn?: boolean;
-	thresholds: Partial<Record<'precision' | 'regularity' | 'holdOffset' | 'holdDrift', number>>;
-}
 
 /**
  * A level, of an exercise or of an item: a partial override of the params (dotted paths for an
  * exercise's levels, see `overrideParams`), with its conditions as data. `aid` levels sit first in
  * the list, below level 1.
  */
-export interface Level<P = LevelParams> {
+export interface Level<P = Readonly<Record<string, unknown>>> {
 	params: Partial<P>;
 	pass?: { successes: number };
 	drop?: { failures: number };
@@ -70,12 +51,12 @@ export function levelRange(levels: readonly Level<unknown>[]): LevelRange {
  * Refuses a start the player could not use: a listen-in that is not a whole number of bars, or
  * no listen-in and no counted bar (nothing to hear before playing).
  */
-export function checkStart(params: Pick<LevelParams, 'listenInBars' | 'countIn'>): void {
-	const listenInBars = params.listenInBars ?? LISTEN_IN_BARS;
+export function checkStart(start: { listenInBars: number; countIn: boolean }): void {
+	const { listenInBars } = start;
 	if (!Number.isInteger(listenInBars) || listenInBars < 0) {
 		throw new RangeError(`listenInBars must be a whole number of bars, got ${listenInBars}`);
 	}
-	if (params.countIn === false && listenInBars === 0) {
+	if (!start.countIn && listenInBars === 0) {
 		throw new RangeError('a series with no counted bar needs at least one listen-in bar');
 	}
 }

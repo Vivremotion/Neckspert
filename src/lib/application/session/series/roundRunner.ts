@@ -6,7 +6,8 @@ import {
 	segmentAt,
 	type Aid,
 	type CycleReport,
-	type LevelParams,
+	type CycleThresholds,
+	type LiveReading,
 	type RoundEvent,
 	type RoundOutcome,
 	type RoundPlan,
@@ -34,6 +35,12 @@ const FATE_LOG: Partial<Record<ObservationFate, string>> = {
 	'other-sensor': 'ce capteur n’est pas celui que le tour écoute',
 	unreadable: 'lecture illisible'
 };
+
+/**
+ * How long after an attack its reading may still come, beyond the sensor's latency: a zone is
+ * told closed only then, or a note played late in it is told missed and its reading added.
+ */
+export const LIVE_READING_MARGIN_S = 0.2;
 
 /** Absorbs the float error of a beat falling exactly on an instant of the round. */
 const TIME_EPSILON_S = 1e-9;
@@ -68,6 +75,9 @@ export class RoundRunner {
 	#closing = false;
 	#closedWith: RoundOutcome | null = null;
 	#withdrawn = false;
+	readonly #onLive: ((reading: LiveReading) => void) | null;
+	/** How many things the last reading told: a reading that tells nothing more is not told. */
+	#liveTold = 0;
 	/** Every expectation is in free time: no beat, no wake-up. */
 	readonly #isFree: boolean;
 	readonly #debug: { lines(payload: unknown, sensor: SensorKind): string[] } | null;
@@ -88,7 +98,7 @@ export class RoundRunner {
 		/** The calibrated latency of a sensor; the round takes that of its first expectation's. */
 		latencyOf: (sensor: SensorKind) => CycleReport['latency'];
 		/** The level's thresholds, for a verdict that reads them; none by default. */
-		thresholds?: LevelParams['thresholds'] | null;
+		thresholds?: CycleThresholds | null;
 		/** The aids the round is played with; by default the item's own (`aidsOf`). */
 		aids?: Aid[];
 		sources: ReadonlyMap<SensorKind, ObservationSource>;
@@ -97,12 +107,15 @@ export class RoundRunner {
 		/** Its sensor tells which payload it is: a presenter describes its own sensors' only. */
 		debug?: { lines(payload: unknown, sensor: SensorKind): string[] };
 		onEvent: (event: RunnerEvent) => void;
+		/** Asked: told what the round can already tell, each time it can tell more. */
+		onLive?: (reading: LiveReading) => void;
 	}) {
 		const { plan, transport, map } = input;
 		this.#plan = plan;
 		this.#isFree = inFreeTime(plan);
 		this.#sources = input.sources;
 		this.#onEvent = input.onEvent;
+		this.#onLive = input.onLive ?? null;
 		this.#debug = input.debug ?? null;
 		// Transport bars are bar numbers; the map's positions are whole notes.
 		const barLength = transport.barLength;
@@ -124,6 +137,18 @@ export class RoundRunner {
 		for (const position of this.#wakePositions(map, start)) {
 			const time = map.toSeconds(position);
 			this.#wakeUps.push(transport.at(position.div(barLength), () => this.#wake(time)));
+		}
+		if (this.#onLive) {
+			// A silence is told once what was played in its zone has had time to be read; past the
+			// handover, the next round is on screen.
+			const latency = first ? input.latencyOf(first.sensor) : null;
+			const margin = (latency?.ms ?? 0) / 1000 + LIVE_READING_MARGIN_S;
+			const until = this.handoverTime ?? this.#round.listenUntilTime;
+			for (const time of this.#round.liveWakes) {
+				if (time + margin >= until) continue;
+				const position = map.toPosition(time + margin);
+				this.#wakeUps.push(transport.at(position.div(barLength), () => this.#tellLive(time)));
+			}
 		}
 	}
 
@@ -149,6 +174,7 @@ export class RoundRunner {
 		this.span.add(sensor, observation, observed.fate, correct);
 		this.#log(sensor, observation, observed.fate, correct);
 		this.#tell(observed.event);
+		if (observed.fate === 'answer') this.#tellLive(observation.time);
 	}
 
 	/**
@@ -223,6 +249,16 @@ export class RoundRunner {
 
 	#wake(time: number): void {
 		this.#tell(this.#round.advance(time));
+	}
+
+	#tellLive(now: number): void {
+		if (!this.#onLive || this.#settled) return;
+		const reading = this.#round.live(now);
+		if (!reading) return;
+		const told = reading.expectations.length + reading.extraAtMs.length;
+		if (told === this.#liveTold) return;
+		this.#liveTold = told;
+		this.#onLive(reading);
 	}
 
 	#tell(event: RoundEvent): void {

@@ -1,0 +1,509 @@
+import { describe, expect, it, vi } from 'vitest';
+import { exerciseLevelsOf, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
+import { compileRound } from '$lib/domain/exercise/round';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import {
+	Fraction,
+	METER_4_4,
+	type CycleReport,
+	type Figure,
+	type FigureElement,
+	type RoundOutcome,
+	type RoundPlan
+} from '$lib/domain/time';
+import type { PlannedItem } from '$lib/domain/types';
+import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
+import { PICTURES } from '$lib/application/presentation/pictures';
+import { presentPrompt } from '$lib/application/presentation/presentPrompt';
+import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
+import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import {
+	ARPEGGIO_EXERCISE,
+	ARPEGGIO_ITEMS,
+	ARPEGGIO_PATTERN,
+	FORM_EXERCISE
+} from '$lib/testing/arpeggioExercise';
+import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
+
+// The prompt is presented through the real presentation, counted.
+vi.mock('$lib/application/presentation/presentPrompt', async (original) => {
+	const actual = await original<typeof import('$lib/application/presentation/presentPrompt')>();
+	return { ...actual, presentPrompt: vi.fn(actual.presentPrompt) };
+});
+
+describe('the stage helpers', () => {
+	it('write the tempo with its unit and number the levels from 1', () => {
+		expect(tempoView({ at: Fraction.ZERO, bpm: 100, unit: Fraction.of(1, 4) })).toEqual({
+			bpm: 100,
+			unit: '♩'
+		});
+		const levels = exerciseLevelsOf(RHYTHM_SILENT_BARS);
+		expect(levelView(levels, 0)).toEqual({ shown: 1, of: 6, aid: false });
+		expect(levelView(levels, -1)).toEqual({ shown: 0, of: 6, aid: true });
+	});
+
+	it('place the cursor in the figure from the bar where the cycle began', () => {
+		const [two] = RHYTHM_OFFBEATS.figures?.slice(1) ?? [];
+		expect(figurePosition({ figure: two.figure, startBar: 0, barInCycle: 1, beat: 2 })).toEqual(
+			Fraction.of(3, 2)
+		);
+		expect(figurePosition({ figure: two.figure, startBar: 1, barInCycle: 1, beat: 0 })).toEqual(
+			Fraction.ZERO
+		);
+	});
+});
+
+const quarter: FigureElement = { kind: 'note', duration: Fraction.of(1, 4), content: null };
+const QUARTERS: Figure = {
+	schema: 2,
+	meter: METER_4_4,
+	bars: 1,
+	voices: [{ id: 'main', elements: [quarter, quarter, quarter, quarter] }]
+};
+
+/** The notes of a chord shape over four quarter notes, its chord and its strings above them. */
+const ARPEGGIO: ExerciseDefinition = {
+	id: 'test-arpeggio',
+	version: 1,
+	mechanic: 'voicing-figure',
+	view: 'figure',
+	figures: [{ id: 'quarters', figure: QUARTERS }],
+	round: {
+		expectations: [
+			{
+				figure: { id: 'quarters' },
+				at: { bars: 0 },
+				sensor: 'note',
+				content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] },
+				window: { ms: 80 }
+			}
+		],
+		length: { bars: 1 },
+		handover: 'end',
+		policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+	},
+	presentation: { primary: '{chord}', secondary: '{strings}' },
+	params: { pacing: { respirationBars: 1 } }
+};
+
+/** C, first inversion on G-B-E: E, G, C. */
+const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
+
+function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
+	return {
+		exerciseId: definition.id,
+		mechanic: definition.mechanic,
+		exerciseLevel: 0,
+		item,
+		phase: 'learning',
+		temperature: 'hot',
+		aid: 'none',
+		leadBeats: null
+	};
+}
+
+const planOf = (definition: ExerciseDefinition, item: PlannedItem): RoundPlan =>
+	compileRound(definition, item, METER_4_4, { previewBeats: 0, fromRunStart: null });
+
+/** A cycle outcome: its report, passed or failed for `reasons`. */
+function outcome(report: CycleReport, reasons: string[]): RoundOutcome {
+	return {
+		success: reasons.length === 0,
+		correct: null,
+		verdict: {
+			relation: 'cycle',
+			version: 1,
+			value: reasons.length === 0 ? { passed: true } : { passed: false, reasons }
+		},
+		measures: report.measures,
+		aids: [],
+		detail: report
+	};
+}
+
+const report = (expectations: CycleReport['expectations']): CycleReport => ({
+	expectations,
+	dropped: [],
+	extra: 0,
+	shift: null,
+	measures: {},
+	latency: null
+});
+
+function stage(
+	definition: ExerciseDefinition,
+	item: PlannedItem,
+	moment: CycleMoment,
+	more: Partial<Parameters<typeof figureStage>[0]> = {}
+) {
+	return figureStage({
+		definition,
+		item,
+		plan: planOf(definition, item),
+		moment,
+		barInRound: 0,
+		beat: 0,
+		startBar: 0,
+		muted: false,
+		settled: [],
+		played: null,
+		locale: 'fr',
+		random: () => 0,
+		chordDiagram: 'strings',
+		endedSessions: 0,
+		...more
+	});
+}
+
+describe('figureStage', () => {
+	const item = planned(ARPEGGIO, C_FIRST_INVERSION);
+
+	describe('what comes next', () => {
+		const FORMS: ExerciseDefinition = {
+			...ARPEGGIO,
+			params: { ...ARPEGGIO.params, nextBeats: 2, neck: true }
+		};
+		const fourBeats = planned(FORMS, C_FIRST_INVERSION);
+		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', occurrence: 0 });
+
+		it('shows only in the last beats of its round', () => {
+			const at = (beat: number) =>
+				stage(FORMS, fourBeats, 'round', { beat, coming }).nextPrompt?.primary ?? null;
+			expect(at(0)).toBeNull();
+			expect(at(1)).toBeNull();
+			expect(at(2)).not.toBeNull();
+			expect(at(3)).not.toBeNull();
+		});
+
+		it('adds its notes to the neck once due, the frets spanning both from the start', () => {
+			const neckAt = (beat: number) => {
+				const neck = stage(FORMS, fourBeats, 'round', { beat, coming }).neck;
+				if (neck?.kind !== 'neck') throw new Error('no neck');
+				return neck;
+			};
+			expect(neckAt(0).notes.some((note) => note.next)).toBe(false);
+			expect(neckAt(3).notes.some((note) => note.next)).toBe(true);
+			expect(neckAt(0).frets).toEqual(neckAt(3).frets);
+		});
+
+		it('does not show at a level that does not ask for it, nor out of a round', () => {
+			expect(stage(ARPEGGIO, item, 'round', { beat: 3, coming }).nextPrompt).toBeNull();
+			expect(stage(FORMS, fourBeats, 'count-in', { beat: 3, coming }).nextPrompt).toBeNull();
+			expect(stage(FORMS, fourBeats, 'round', { beat: 3 }).nextPrompt).toBeNull();
+		});
+	});
+
+	describe('live marks', () => {
+		const reading = {
+			expectations: [{ index: 0, verdict: 'on-time' as const, offsetMs: 0 }],
+			extraAtMs: []
+		};
+		const marking: ExerciseDefinition = {
+			...ARPEGGIO,
+			params: { ...ARPEGGIO.params, liveMarks: true }
+		};
+
+		it('are none at a level that does not ask for them', () => {
+			expect(stage(ARPEGGIO, item, 'round', { live: reading }).live).toBeNull();
+		});
+
+		it('tell the round under way, and nothing around it, the room for them kept', () => {
+			expect(stage(marking, item, 'round', { live: reading }).live).toEqual(reading);
+			const empty = { expectations: [], extraAtMs: [] };
+			expect(stage(marking, item, 'count-in', { live: reading }).live).toEqual(empty);
+			expect(stage(marking, item, 'breath', { live: reading }).live).toEqual(empty);
+			expect(stage(marking, item, 'round').live).toEqual(empty);
+		});
+	});
+
+	it("shows the exercise's prompt above the figure, and none without a presentation", () => {
+		const fields = ITEM_FIELDS['voicing-figure'].fields(
+			C_FIRST_INVERSION,
+			'fr',
+			() => 0,
+			ARPEGGIO_EXERCISE
+		);
+		expect(stage(ARPEGGIO, item, 'round').prompt).toEqual({
+			primary: fields.chord,
+			secondary: fields.strings
+		});
+		const rhythm = planned(RHYTHM_SILENT_BARS, { figureId: 'eighths', level: 0 });
+		expect(stage(RHYTHM_SILENT_BARS, rhythm, 'round').prompt).toBeNull();
+		// The notes derive from the shape the prompt names: the rhythm line, not the notes.
+		expect(stage(ARPEGGIO, item, 'round').notation).toEqual({ staff: false, tab: false });
+	});
+
+	it('reads the bars of the round on the plan it is given, compiling nothing on the beat', () => {
+		const plan = planOf(ARPEGGIO, item);
+		const longer: RoundPlan = { ...plan, length: plan.length.mul(Fraction.of(2)) };
+		expect(stage(ARPEGGIO, item, 'round', { plan: longer }).cycleBars).toBe(2);
+	});
+
+	it('tells each wrong note of a settled round by its place and the note heard', () => {
+		const plan = planOf(ARPEGGIO, item);
+		const played = report([
+			{ index: 0, verdict: 'on-time', offsetMs: 0 },
+			// G asked (the 2nd note of the shape), A played.
+			{ index: 1, verdict: 'wrong-pitch', offsetMs: 10, answer: { midi: 69 } },
+			{ index: 2, verdict: 'on-time', offsetMs: 0 },
+			{ index: 3, verdict: 'missed', offsetMs: null }
+		]);
+		const model = stage(ARPEGGIO, item, 'breath', {
+			played: { item, plan },
+			settled: [{ item, plan, outcome: outcome(played, ['missed', 'wrong-pitch']) }]
+		});
+		expect(model.settled[0].wrongNotes).toEqual([
+			{ at: Fraction.of(1, 4), index: 1, gap: 'A au lieu de G' }
+		]);
+	});
+
+	it('shows the expected shape after a failed derived round, and none after a passed one', () => {
+		const plan = planOf(ARPEGGIO, item);
+		const failed = report([{ index: 0, verdict: 'missed', offsetMs: null }]);
+		const passed = report([{ index: 0, verdict: 'on-time', offsetMs: 0 }]);
+		const model = stage(ARPEGGIO, item, 'breath', {
+			played: { item, plan },
+			settled: [
+				{ item, plan, outcome: outcome(failed, ['missed']) },
+				{ item, plan, outcome: outcome(passed, []) }
+			]
+		});
+		const shape = PICTURES.shape.draw(C_FIRST_INVERSION);
+		expect(shape).toMatchObject({ kind: 'shape' });
+		expect(model.settled.map((cycle) => cycle.expected)).toEqual([shape, null]);
+		expect(model.chordDiagram).toBe('strings');
+	});
+
+	it('shows no shape after a failed round of a figure that derives nothing', () => {
+		const rhythm = planned(RHYTHM_SILENT_BARS, { figureId: 'eighths', level: 0 });
+		const plan = planOf(RHYTHM_SILENT_BARS, rhythm);
+		const failed = report([{ index: 0, verdict: 'missed', offsetMs: null }]);
+		const model = stage(RHYTHM_SILENT_BARS, rhythm, 'breath', {
+			played: { item: rhythm, plan },
+			settled: [{ item: rhythm, plan, outcome: outcome(failed, ['missed']) }]
+		});
+		expect(model.settled[0]).toMatchObject({ expected: null, wrongNotes: [] });
+	});
+});
+
+describe('figureStage, the notes it engraves', () => {
+	const c = voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]);
+	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
+	const at = (level: number): PlannedItem => ({
+		...planned(ARPEGGIO_EXERCISE, c),
+		exerciseLevel: level
+	});
+
+	it('hides the notes of a derived figure by default', () => {
+		const model = stage(ARPEGGIO_EXERCISE, at(0), 'round');
+		expect(model.notation).toEqual({ staff: false, tab: false });
+		// Written or not, its notes are the shape's, in the figure the view would engrave.
+		expect(
+			model.figure.voices[0].elements.every((e) => e.kind === 'rest' || e.pitch !== undefined)
+		).toBe(true);
+	});
+
+	it('writes the derived notes into the figure for the tab aid', () => {
+		const model = stage(ARPEGGIO_EXERCISE, at(-1), 'round');
+		expect(model.notation).toEqual({ staff: false, tab: true });
+		const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(c, ARPEGGIO_EXERCISE) as {
+			midi: number;
+			string: number;
+		}[];
+		const notes = model.figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+		expect(notes).toEqual(
+			ARPEGGIO_PATTERN.map((k) => ({ pitch: shape[k - 1].midi, string: shape[k - 1].string }))
+		);
+		// The exercise's own figure is left as written.
+		const written = ARPEGGIO_EXERCISE.figures?.[0].figure;
+		expect(
+			written?.voices[0].elements.some((e) => e.kind === 'note' && e.pitch !== undefined)
+		).toBe(false);
+	});
+
+	it('keeps one figure for a plan, so the view engraves it once, and presents the prompt once per item', () => {
+		const item = at(-1);
+		const plan = planOf(ARPEGGIO_EXERCISE, item);
+		const calls = vi.mocked(presentPrompt).mock.calls.length;
+		const first = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, beat: 0 });
+		const second = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, beat: 1 });
+		expect(second.figure).toBe(first.figure);
+		expect(second.prompt).toEqual(first.prompt);
+		expect(vi.mocked(presentPrompt).mock.calls.length - calls).toBe(1);
+		// In another language, presented again.
+		stage(ARPEGGIO_EXERCISE, item, 'round', { plan, locale: 'en' });
+		expect(vi.mocked(presentPrompt).mock.calls.length - calls).toBe(2);
+	});
+});
+
+describe('figureStage, a round cut inside its figure', () => {
+	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
+	const change = (beats: number, level: number): PlannedItem => ({
+		...planned(ARPEGGIO_EXERCISE, voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`)),
+		exerciseLevel: level
+	});
+	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
+	const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(
+		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+		ARPEGGIO_EXERCISE
+	) as { midi: number; string: number }[];
+	/** The shape's notes the pattern asks over `count` notes. */
+	const asked = (count: number) =>
+		Array.from({ length: count }, (_, k) => {
+			const note = shape[ARPEGGIO_PATTERN[k % ARPEGGIO_PATTERN.length] - 1];
+			return { pitch: note.midi, string: note.string };
+		});
+	const notesOf = (figure: Figure) =>
+		figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+
+	for (const level of [0, -1]) {
+		const tab = level === -1;
+		it(`engraves a 2-beat change as its two notes then rests, one whole bar${tab ? ', its tab derived' : ''}`, () => {
+			const model = stage(ARPEGGIO_EXERCISE, change(2, level), 'round', { beat: 1 });
+			expect(model.notation).toEqual({ staff: false, tab });
+			expect(model.figure.bars).toBe(1);
+			expect(kinds(model.figure)).toEqual(['note', 'note', 'rest', 'rest']);
+			expect(notesOf(model.figure)).toEqual(asked(2));
+			expect([model.barInCycle, model.cycleBars]).toEqual([0, 1]);
+			expect(model.cursor).toEqual(Fraction.of(1, 4));
+		});
+
+		it(`engraves a 6-beat change over two bars, the second cut${tab ? ', its tab derived' : ''}`, () => {
+			const item = change(6, level);
+			const plan = planOf(ARPEGGIO_EXERCISE, item);
+			expect(plan.expectations).toHaveLength(6);
+			const model = stage(ARPEGGIO_EXERCISE, item, 'round', { plan, barInRound: 1, beat: 1 });
+			expect(model.figure.bars).toBe(2);
+			expect(kinds(model.figure)).toEqual([...Array(6).fill('note'), 'rest', 'rest']);
+			// Every note the round asks carries its pitch: the tab engraves all of them.
+			expect(notesOf(model.figure)).toEqual(asked(6));
+			expect([model.barInCycle, model.cycleBars]).toEqual([1, 2]);
+			// Bar 2, beat 2 of the round: its sixth note.
+			expect(model.cursor).toEqual(Fraction.of(5, 4));
+			// At the breath, the round played is the one engraved, its marks on its own notes.
+			const breath = stage(ARPEGGIO_EXERCISE, change(4, level), 'breath', {
+				played: { item, plan }
+			});
+			expect(breath.figure).toBe(model.figure);
+			expect(breath.cycleBars).toBe(2);
+		});
+	}
+
+	it('derives the notes of a round that starts in the second bar of its figure from that bar', () => {
+		// A two-bar figure, quarters then halves, over one bar from its second bar.
+		const half: FigureElement = { kind: 'note', duration: Fraction.of(1, 2), content: null };
+		const twoBars: Figure = {
+			...QUARTERS,
+			bars: 2,
+			voices: [{ id: 'main', elements: [quarter, quarter, quarter, quarter, half, half] }]
+		};
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			figures: [{ id: 'quarters', figure: twoBars }],
+			levels: undefined,
+			params: { ...ARPEGGIO_EXERCISE.params, figure: 'quarters' }
+		};
+		const item = { ...change(4, 0), exerciseId: exercise.id };
+		const plan = compileRound(exercise, item, METER_4_4, { previewBeats: 0, fromRunStart: 1 });
+		expect(plan.expectations).toHaveLength(2);
+		const model = stage(exercise, item, 'round', { plan, startBar: 1 });
+		expect(kinds(model.figure)).toEqual(['note', 'note']);
+		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
+			plan.expectations.map((e) => (e.content?.value as { midi: number }).midi)
+		);
+	});
+
+	it('engraves a whole round once when each loop plays other notes of the shape', () => {
+		// Three notes of the pattern over four quarters: the second bar starts on another note.
+		const exercise: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			round: {
+				...ARPEGGIO_EXERCISE.round!,
+				expectations: [
+					{
+						...ARPEGGIO_EXERCISE.round!.expectations[0],
+						content: { from: 'voicing-notes', pattern: [1, 2, 3] }
+					}
+				]
+			}
+		};
+		const item = { ...planned(exercise, voicingFigureRules.parseItem('C|maj|3:1,2:3,1:5@0@8')) };
+		const model = stage(exercise, item, 'round');
+		expect(model.figure.bars).toBe(2);
+		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
+			[1, 2, 3, 1, 2, 3, 1, 2].map((k) => shape[k - 1].midi)
+		);
+		// Every loop the same: one loop, as before.
+		const same = stage(ARPEGGIO_EXERCISE, change(8, 0), 'round');
+		expect(same.figure.bars).toBe(1);
+		expect(same.cycleBars).toBe(2);
+	});
+});
+
+describe('figureStage, a form moved to its chord', () => {
+	const item = planned(FORM_EXERCISE, { form: 'maj7', first: 'd', beats: 4 });
+
+	it('draws the whole form on the neck where its level asks it, spelled for its chord', () => {
+		const flat = planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 2 });
+		const drawn: ExerciseDefinition = {
+			...FORM_EXERCISE,
+			levels: [{ params: { neck: true } }, { params: {} }]
+		};
+		expect(stage(drawn, flat, 'round').neck).toEqual({
+			kind: 'neck',
+			notes: [
+				{ string: 5, fret: 6, name: 'Eb' },
+				{ string: 4, fret: 5, name: 'G' },
+				{ string: 4, fret: 8, name: 'Bb' },
+				{ string: 3, fret: 7, name: 'D' }
+			]
+		});
+		expect(stage(drawn, { ...flat, exerciseLevel: 1 }, 'round').neck).toBeNull();
+		expect(stage(FORM_EXERCISE, flat, 'round').neck).toBeNull();
+	});
+
+	it('draws nothing on the neck for a figure that derives no list', () => {
+		const written: ExerciseDefinition = {
+			...RHYTHM_OFFBEATS,
+			params: { ...RHYTHM_OFFBEATS.params, neck: true }
+		};
+		const plain = planned(written, { figureId: written.figures![0].id, level: 0 });
+		expect(stage(written, plain, 'round').neck).toBeNull();
+	});
+
+	it('tells the wrong notes of a failed round in words, and draws no shape', () => {
+		const plan = planOf(FORM_EXERCISE, item);
+		const played = report([
+			{ index: 0, verdict: 'on-time', offsetMs: 0 },
+			// A asked (the form's third note on D), B played.
+			{ index: 2, verdict: 'wrong-pitch', offsetMs: 0, answer: { midi: 59 } }
+		]);
+		const model = stage(FORM_EXERCISE, item, 'breath', {
+			played: { item, plan },
+			settled: [{ item, plan, outcome: outcome(played, ['wrong-pitch']) }]
+		});
+		expect(model.settled[0].expected).toBeNull();
+		expect(model.settled[0].wrongNotes).toEqual([
+			{ at: Fraction.of(1, 2), index: 2, gap: 'B au lieu de A' }
+		]);
+	});
+
+	it('writes its moved notes into the figure for the tab aid', () => {
+		const aided = { ...item, exerciseLevel: -1 };
+		const model = stage(FORM_EXERCISE, aided, 'round');
+		expect(model.notation).toEqual({ staff: false, tab: true });
+		const notes = model.figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [{ pitch: e.pitch, string: e.string }] : []
+		);
+		expect(notes).toEqual([
+			{ pitch: 50, string: 5 },
+			{ pitch: 54, string: 4 },
+			{ pitch: 57, string: 4 },
+			{ pitch: 61, string: 3 }
+		]);
+	});
+});

@@ -8,10 +8,16 @@ import type { PairingResult, VerdictContext, VerdictMode } from './types';
 /** The pairing whose timed pairs the cycle verdict reads. */
 const ALIGNMENT = alignmentPairing.id;
 
+/** The id of the cycle verdict mode, and the relation of the envelope it writes. */
+export const CYCLE_VERDICT = 'cycle';
+
 /** The version of the shape of a cycle verdict (`CycleVerdict`). */
 export const CYCLE_VERDICT_VERSION = 1;
 
-/** The alignment a pairing result came from, attacks indexed in `result.attacks`. */
+/**
+ * The alignment a pairing result came from, attacks indexed in `result.attacks`; a pair fits
+ * unless its judgment says otherwise (none for an expectation without content).
+ */
 function alignmentOf(result: PairingResult): Alignment {
 	const indexOf = (time: number): number => {
 		const index = result.attacks.indexOf(time);
@@ -27,7 +33,8 @@ function alignmentOf(result: PairingResult): Alignment {
 				expectation: p.expectation,
 				attack: indexOf(p.time),
 				offsetMs: p.offsetMs,
-				verdict: p.timing
+				verdict: p.timing,
+				fits: p.judged === null || p.judged.correct
 			};
 		}),
 		missed: [...result.missed],
@@ -40,10 +47,11 @@ function alignmentOf(result: PairingResult): Alignment {
 
 /**
  * A whole cycle judged at once: the alignment reported (`cycleReport`), then judged against the
- * level's thresholds (`cycleVerdict`). Time only: `correct` is null.
+ * level's thresholds (`cycleVerdict`). `correct` is null: a note judged wrong shows in the report
+ * (`wrong-pitch`, with what its attack played).
  */
 export const cycleVerdictMode: VerdictMode = {
-	id: 'cycle',
+	id: CYCLE_VERDICT,
 	readsThresholds: true,
 	validate(plan: RoundPlan): string | null {
 		if (plan.policy.unit !== 'cycle') {
@@ -61,7 +69,7 @@ export const cycleVerdictMode: VerdictMode = {
 		if (thresholds === null) throw new RangeError('a cycle verdict needs thresholds');
 		if (!('map' in clock)) throw new RangeError('a cycle verdict needs a tempo map');
 		const { map, start } = clock;
-		const report = cycleReport({
+		const reported = cycleReport({
 			alignment: alignmentOf(result),
 			expectations: timeExpectations(plan, map, start),
 			attacks: result.attacks,
@@ -69,11 +77,21 @@ export const cycleVerdictMode: VerdictMode = {
 			mutedBars: plan.mutedBars,
 			latency: context.latency
 		});
+		// A wrong note keeps what it played, so the breath can tell it against the note asked.
+		const played = new Map(result.pairs.map((p) => [p.expectation, p.judged?.answer]));
+		const report = {
+			...reported,
+			expectations: reported.expectations.map((entry) =>
+				entry.verdict === 'wrong-pitch' && played.get(entry.index) !== undefined
+					? { ...entry, answer: played.get(entry.index) }
+					: entry
+			)
+		};
 		const value: CycleVerdict = cycleVerdict(report, thresholds);
 		return {
 			success: value.passed,
 			correct: null,
-			verdict: { relation: 'cycle', version: CYCLE_VERDICT_VERSION, value },
+			verdict: { relation: CYCLE_VERDICT, version: CYCLE_VERDICT_VERSION, value },
 			measures: report.measures,
 			aids: [...context.aids],
 			detail: report

@@ -78,7 +78,7 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(7);
+			expect(file.version).toBe(8);
 			expect(file.exportedAt).toBe(123);
 			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', latency: LATENCY });
 			expect(file.levelStates).toHaveLength(2);
@@ -91,7 +91,7 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 7,
+				version: 8,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
 				cards: [],
@@ -101,10 +101,10 @@ describe('DexieBackup', () => {
 			});
 		});
 
-		it('exports version 7 without progressions, attempts with their scope', async () => {
+		it('exports version 8 without progressions, attempts with their scope', async () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
-			expect(file.version).toBe(7);
+			expect(file.version).toBe(8);
 			expect(file).not.toHaveProperty('progressions');
 			expect(file.attempts.map((attempt) => attempt.scope)).toEqual([
 				'iohefy-a',
@@ -409,13 +409,13 @@ describe('DexieBackup', () => {
 		);
 	});
 
-	it('imports the version 3 export of the application before version 4 and exports it as 7', async () => {
+	it('imports the version 3 export of the application before version 4 and exports it as 8', async () => {
 		const v3 = structuredClone(v3Export);
 		await new DexieBackup(db, () => 0).importAll(v3);
 
 		const exported = await new DexieBackup(db, () => 1000).exportAll();
 		const expected = validateBackup(structuredClone(v3Export));
-		expect(exported.version).toBe(7);
+		expect(exported.version).toBe(8);
 		expect(exported.cards).toEqual(expected.cards);
 		expect(exported.attempts).toEqual(expected.attempts);
 		expect(exported.settings).toEqual({ ...expected.settings, inputDeviceId: null });

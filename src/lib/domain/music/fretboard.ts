@@ -47,3 +47,27 @@ export function fretsForPitch(
 export function acceptableMidis(item: LocateItem): Midi[] {
 	return fretsForPitch(item.string, item.pitch).map((fret) => midiOnString(item.string, fret));
 }
+
+/**
+ * The fret where `pitch` (MIDI) is played on `string` in standard tuning, from 0 (open) to
+ * MAX_PLAYABLE_FRET; else what keeps the note from having one, told of the note (« has no
+ * string »), for its caller to name it.
+ */
+export function fretOf(
+	pitch: number | undefined,
+	string: number | undefined
+): { fret: number } | { problem: string } {
+	if (string === undefined) return { problem: 'has no string' };
+	if (pitch === undefined) return { problem: 'has no pitch' };
+	if (!Object.hasOwn(STANDARD_TUNING, string)) {
+		return { problem: `is on string ${string}, which the guitar does not have` };
+	}
+	const open = STANDARD_TUNING[string as StringNumber];
+	if (pitch < open) return { problem: `(pitch ${pitch}) is below string ${string} (${open})` };
+	if (pitch - open > MAX_PLAYABLE_FRET) {
+		return {
+			problem: `(pitch ${pitch}) is above the last fret of string ${string} (${MAX_PLAYABLE_FRET})`
+		};
+	}
+	return { fret: pitch - open };
+}

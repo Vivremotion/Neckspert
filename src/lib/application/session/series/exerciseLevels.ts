@@ -1,4 +1,4 @@
-import { exerciseLevelsOf, pacingAt } from '$lib/domain/exercise/levels';
+import { exerciseLevelsOf, pacingAt, tempoOf } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import {
 	askListen,
@@ -191,6 +191,28 @@ export class ExerciseLevels {
 		// An aid level is announced as one, never by a number below 1.
 		if (reached < 0) return 'aid-level';
 		return reached > played ? 'level-up' : 'level-down';
+	}
+
+	/**
+	 * At a round chained, for an exercise that asks it (`flow.levelChange`): the level it reached
+	 * becomes the one played, and its run's, if it keeps the tempo; a level of another tempo waits
+	 * for `apply`. Told by what the round shows: never announced. True when it changed.
+	 */
+	applyWithinRun(exerciseId: ExerciseId, scope?: string): boolean {
+		const definition = this.deps.exercise(exerciseId);
+		if (definition.flow?.levelChange !== 'next-round') return false;
+		const held = this.heldOf(exerciseId, scope);
+		const reached = held.series.levelState.level;
+		if (
+			reached === held.played ||
+			tempoOf(definition, reached) !== tempoOf(definition, held.played)
+		) {
+			return false;
+		}
+		held.played = reached;
+		const { run } = held.series;
+		if (run) held.series = { ...held.series, run: { ...run, level: reached } };
+		return true;
 	}
 
 	/** Once every level settled so far is written. */

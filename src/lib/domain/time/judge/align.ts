@@ -6,6 +6,12 @@ import { secondsOf, segmentAt, type TempoMap } from '../tempoMap';
 export const MATCH_LIMIT = Fraction.of(1, 16);
 /** Matches a shifted alignment must gain over the plain one before the judge calls it a shift. */
 export const SHIFT_MIN_MATCHES = 3;
+/**
+ * What pairing an attack with an expectation it does not play adds to the pair's cost (at most 1
+ * by time alone): a wrong note in place costs less than a missed one and an extra one (2), and a
+ * right note near by wins over it.
+ */
+export const WRONG_PITCH_COST = 0.5;
 
 /** Float tolerance on seconds and costs: ties are decided by rule, not by rounding noise. */
 const EPSILON = 1e-9;
@@ -38,6 +44,8 @@ export interface Alignment {
 		attack: number;
 		offsetMs: number;
 		verdict: Exclude<ExpectationVerdict, 'missed'>;
+		/** The attack plays what the expectation asks (always, for an expectation without content). */
+		fits: boolean;
 	}[];
 	/** Plan indexes of the expectations no attack answered. */
 	missed: number[];
@@ -197,6 +205,9 @@ interface Attack {
 	index: number;
 }
 
+/** Whether an attack (its index in the attacks given) plays an expectation (its plan index). */
+type Fits = (expectation: number, attack: number) => boolean;
+
 interface Path {
 	pairs: Alignment['pairs'];
 	missed: number[];
@@ -209,13 +220,13 @@ function verdictOf(offsetS: number, windowS: number): Exclude<ExpectationVerdict
 }
 
 /**
- * The monotone alignment of least cost. Pairing costs |offset| / zone and is allowed only
- * inside the zone (so at most 1); leaving an expectation unanswered or an attack unpaired
- * costs 1 each. Ties are broken while walking back from the end: a pair first, then a missed
- * expectation, then an extra attack. So an attack exactly between two expectations goes to
- * the later one (heard early rather than late).
+ * The monotone alignment of least cost. Pairing costs |offset| / zone, plus `WRONG_PITCH_COST`
+ * when the attack does not fit, and is allowed only inside the zone; leaving an expectation
+ * unanswered or an attack unpaired costs 1 each. Ties are broken while walking back from the
+ * end: a pair first, then a missed expectation, then an extra attack. So an attack exactly
+ * between two expectations goes to the later one (heard early rather than late).
  */
-function optimalPath(expectations: TimedExpectation[], attacks: Attack[]): Path {
+function optimalPath(expectations: TimedExpectation[], attacks: Attack[], fits: Fits): Path {
 	const n = expectations.length;
 	const m = attacks.length;
 	const width = m + 1;
@@ -224,7 +235,8 @@ function optimalPath(expectations: TimedExpectation[], attacks: Attack[]): Path 
 		const e = expectations[i - 1];
 		const offset = Math.abs(attacks[j - 1].time - e.time);
 		if (offset > e.zoneS + EPSILON) return null;
-		return e.zoneS > 0 ? offset / e.zoneS : 0;
+		const time = e.zoneS > 0 ? offset / e.zoneS : 0;
+		return fits(e.index, attacks[j - 1].index) ? time : time + WRONG_PITCH_COST;
 	};
 	for (let i = 0; i <= n; i++) {
 		for (let j = 0; j <= m; j++) {
@@ -251,7 +263,8 @@ function optimalPath(expectations: TimedExpectation[], attacks: Attack[]): Path 
 				expectation: e.index,
 				attack: attacks[j - 1].index,
 				offsetMs: offsetS * 1000,
-				verdict: verdictOf(offsetS, e.windowS)
+				verdict: verdictOf(offsetS, e.windowS),
+				fits: fits(e.index, attacks[j - 1].index)
 			});
 			i--;
 			j--;
@@ -296,7 +309,26 @@ function shifted(
 }
 
 /**
- * Monotone optimal alignment (dynamic programming): match cost |offset| / zone, insertion and deletion cost 1.
+ * The optimal alignment alone, no lost or added beat looked for: the same costs as `alignAttacks`,
+ * for what can be told before a round's end. `pairs[].attack` and `extra` index `attacks`.
+ */
+export function alignPlain(
+	expectations: TimedExpectation[],
+	attacks: number[],
+	fits: Fits
+): Pick<Alignment, 'pairs' | 'missed' | 'extra'> {
+	return optimalPath(
+		[...expectations].sort((a, b) => a.time - b.time),
+		attacks.map((time, index) => ({ time, index })).sort((a, b) => a.time - b.time),
+		fits
+	);
+}
+
+/**
+ * Monotone optimal alignment (dynamic programming): match cost |offset| / zone (plus
+ * `WRONG_PITCH_COST` for an attack that does not fit), insertion and deletion cost 1. `fits(e, a)`
+ * says whether attack `a` (its index in `attacks`) plays what expectation `e` (its plan index)
+ * asks; absent, every attack fits (time alone). A wrong note in place stays paired, `fits: false`.
  *
  * Then the shift search: for each bar of the cycle (in order) and each step of the context
  * (a beat forward and back, then the smallest subdivision forward and back), the attacks are
@@ -312,7 +344,8 @@ function shifted(
 export function alignAttacks(
 	expectations: TimedExpectation[],
 	attacks: number[],
-	context: AlignContext
+	context: AlignContext,
+	fits: Fits = () => true
 ): Alignment {
 	const sorted = [...expectations].sort((a, b) => a.time - b.time);
 	const timed: Attack[] = attacks
@@ -320,7 +353,7 @@ export function alignAttacks(
 		.sort((a, b) => a.time - b.time || a.index - b.index);
 	const clampedWindows = expectations.filter((e) => e.clamped).length;
 
-	const plain = optimalPath(sorted, timed);
+	const plain = optimalPath(sorted, timed, fits);
 	let best: { path: Path; dropped: number[]; bar: number; byS: number; gain: number } | null = null;
 	if (timed.length > 0) {
 		const steps = [context.beatS, context.subdivisionS]
@@ -331,7 +364,7 @@ export function alignAttacks(
 		for (const bar of bars) {
 			for (const byS of steps) {
 				const { playable, dropped } = shifted(sorted, bar, byS, context);
-				const path = optimalPath(playable, timed);
+				const path = optimalPath(playable, timed, fits);
 				const gain = path.pairs.length - plain.pairs.length;
 				if (gain >= SHIFT_MIN_MATCHES && (!best || gain > best.gain)) {
 					best = { path, dropped, bar, byS, gain };

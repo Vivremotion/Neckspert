@@ -6,11 +6,18 @@ import {
 	type ExerciseDefinition
 } from '$lib/domain/exercise';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
-import { Fraction, compileCyclePlan, figureFromJson, type CycleReport } from '$lib/domain/time';
-import type { CyclePlanRecord, RhythmAttemptData } from '../cycle/recordCycle';
-import { SETTLE_AFTER_BARS } from '../cycle/compileCycle';
-import { PLAIN_WORDS_SESSIONS } from '../cycle/rhythmStage';
-import { summarizeExercise } from '../cycle/exerciseSummary';
+import { compileRound } from '$lib/domain/exercise/round';
+import { Fraction, METER_4_4, clickAccompaniment, type CycleReport } from '$lib/domain/time';
+import type { FigureItem } from '$lib/domain/mechanics';
+import type { PlannedItem } from '$lib/domain/types';
+import {
+	roundPlanFromRecord,
+	type FigureAttemptData,
+	type RoundPlanRecord
+} from './recordResponse';
+import { SETTLE_AFTER_BARS } from './compilePlan';
+import { PLAIN_WORDS_SESSIONS } from './figureStage';
+import { summarizeExercise } from './exerciseSummary';
 import type { SessionMemory } from '../sessionMemory';
 import type { SessionController } from '../SessionController.svelte';
 import {
@@ -57,7 +64,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			expect(attempt.correct).toBeNull();
 			expect(attempt.verdict.relation).toBe('cycle');
 			expect(attempt.plan).not.toBeNull();
-			expect(attempt.mechanic).toBe('rhythm-figure');
+			expect(attempt.mechanic).toBe('figure');
 			expect(attempt.observations?.filter((o) => o.fate === 'answer')).toHaveLength(5);
 		}
 		// The breath, from bar 7, with the run's four cycles.
@@ -66,7 +73,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		expect(controller.view.status).toBe('awaiting');
 		expect(model.settled).toHaveLength(4);
 		expect(model.settled.every((cycle) => cycle.verdict.passed)).toBe(true);
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		controller.quit();
 	});
 
@@ -74,12 +81,12 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		const { controller, stored, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
 		await controller.start();
 		await advance(ORIGIN + 5.6 * OFFBEATS_BAR_S);
-		const [first, second] = await stored();
+		const [first] = await stored();
 		expect(first).toMatchObject({
 			sessionId: 'series',
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'rhythm-figure',
-			cardKey: 'rhythm-figure:offbeats-1@0',
+			mechanic: 'figure',
+			cardKey: 'figure:offbeats-1@0',
 			phase: 'free',
 			temperature: 'hot',
 			// The cursor the level gives.
@@ -92,23 +99,76 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			verdict: { relation: 'cycle', version: 1, value: { passed: true } }
 		});
 		expect(first.measures).toHaveProperty('fidelity');
-		const plan = first.plan as CyclePlanRecord;
+		const plan = first.plan as RoundPlanRecord;
+		// The round of its figure, one bar from the first of its run, the click on every bar.
+		const offbeats: PlannedItem = {
+			exerciseId: 'rhythm-offbeats',
+			mechanic: 'figure',
+			exerciseLevel: 0,
+			item: { figureId: 'offbeats-1', level: 0 },
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null
+		};
+		const compiled = (fromRunStart: number) =>
+			compileRound(RHYTHM_OFFBEATS, offbeats, METER_4_4, { previewBeats: 0, fromRunStart });
+		expect(roundPlanFromRecord(plan)).toEqual(compiled(0));
 		expect(plan).toMatchObject({
-			figureId: 'offbeats-1',
-			cycleBars: 1,
-			startBar: 0,
-			accompaniment: { bars: ['on'] },
+			length: '1',
+			mutedBars: [],
 			tempo: { at: '0', bpm: 80, unit: '1/4' },
-			window: { ms: 80 },
 			thresholds: { regularity: 80, holdOffset: 200, holdDrift: 100, precision: 60 }
 		});
+		expect(new Set(plan.expectations.map((e) => JSON.stringify(e.window)))).toEqual(
+			new Set([JSON.stringify({ ms: 80 })])
+		);
 		expect(plan.startAudioS).toBeCloseTo(ORIGIN + 3 * OFFBEATS_BAR_S, 9);
-		const data = first.data as RhythmAttemptData;
+		const data = first.data as FigureAttemptData;
 		expect(data.item).toEqual({ figureId: 'offbeats-1', level: 0 });
 		expect(data.level).toBe(0);
 		expect(data.report.expectations).toHaveLength(5);
-		// The next cycle of the run, a bar further in the loops of the figure and the click.
-		expect((second.plan as CyclePlanRecord).startBar).toBe(1);
+		controller.quit();
+	});
+
+	it('keeps where each cycle of a run starts in the loops of its click', async () => {
+		// Offbeats over a click of two bars, the second silent: each one-bar cycle is a bar further
+		// in the click's loop, its silent bar muted every other cycle.
+		const exercise: ExerciseDefinition = {
+			...RHYTHM_OFFBEATS,
+			params: {
+				...RHYTHM_OFFBEATS.params,
+				accompaniment: clickAccompaniment({
+					meter: METER_4_4,
+					beats: [1, 2, 3, 4],
+					accent: [1],
+					bars: ['on', 'off']
+				})
+			}
+		};
+		const { controller, stored, advance } = await rhythmSeries(exercise, { met: true });
+		await controller.start();
+		// listen-in 0-1, counted bar 2, entry bar 3 (the click's first bar), cycles from bar 4
+		await advance(ORIGIN + 6.6 * OFFBEATS_BAR_S);
+		const [first, second] = await stored();
+		const item: PlannedItem = {
+			exerciseId: exercise.id,
+			mechanic: 'figure',
+			exerciseLevel: 0,
+			item: { figureId: 'offbeats-1', level: 0 },
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null
+		};
+		const compiled = (fromRunStart: number) =>
+			compileRound(exercise, item, METER_4_4, { previewBeats: 0, fromRunStart });
+		expect(roundPlanFromRecord(first.plan as RoundPlanRecord)).toEqual(compiled(1));
+		expect(roundPlanFromRecord(second.plan as RoundPlanRecord)).toEqual(compiled(2));
+		expect([first, second].map((attempt) => (attempt.plan as RoundPlanRecord).mutedBars)).toEqual([
+			[0],
+			[]
+		]);
 		controller.quit();
 	});
 });
@@ -182,15 +242,7 @@ describe('the rhythm on the series, silent bars', () => {
 		const wholeMs = OFFBEATS_BAR_S * 1000;
 		// Every expectation of every stored plan, at its time.
 		const expectations = attempts.flatMap((attempt) => {
-			const plan = attempt.plan as CyclePlanRecord;
-			const compiled = compileCyclePlan({
-				figure: figureFromJson(plan.figure),
-				cycleBars: plan.cycleBars,
-				startBar: plan.startBar,
-				sensor: 'attack',
-				window: { ms: 80 },
-				accompanimentBars: plan.accompaniment.bars
-			});
+			const compiled = roundPlanFromRecord(attempt.plan as RoundPlanRecord);
 			return compiled.expectations.map((e) => ({
 				ms: attempt.promptedAt + e.at!.toNumber() * wholeMs,
 				bar: e.bar,
@@ -258,7 +310,7 @@ describe('the rhythm on the series, its screen', () => {
 	it('shows the figure waiting, then the listen-in, the count and the cycles in the rhythm view', async () => {
 		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
 		await controller.ready();
-		expect(controller.view.stage?.view).toBe('rhythm-figure');
+		expect(controller.view.stage?.view).toBe('figure');
 		expect(stageOf(controller)).toMatchObject({
 			phase: 'listen-in',
 			exerciseLabel: 'Contretemps',
@@ -336,11 +388,11 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		await advance(ORIGIN + 11.6 * OFFBEATS_BAR_S);
 		const attempts = await stored();
 		expect(attempts.map((a) => [a.cardKey, a.success])).toEqual([
-			['rhythm-figure:offbeats-1@0', false],
-			['rhythm-figure:offbeats-1@0', true],
-			['rhythm-figure:offbeats-1@0', true],
-			['rhythm-figure:offbeats-1@0', true],
-			['rhythm-figure:offbeats-2@1', true]
+			['figure:offbeats-1@0', false],
+			['figure:offbeats-1@0', true],
+			['figure:offbeats-1@0', true],
+			['figure:offbeats-1@0', true],
+			['figure:offbeats-2@1', true]
 		]);
 		expect(attempts[4].promptedAt).toBe(epochOfBar(9, OFFBEATS_BAR_S));
 		controller.quit();
@@ -371,7 +423,7 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
 		expect(attempts.slice(0, 3).every((a) => a.tempoBpm === 100 && a.success)).toBe(true);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'rhythm-figure:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'figure:line-4@1' });
 		controller.quit();
 	});
 });
@@ -381,7 +433,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 		const { controller, sounds, clock, advance } = await rhythmSeries(RHYTHM_TWO_FOUR, {
 			met: true
 		});
-		expect(RHYTHM_TWO_FOUR.params.countIn).toBe(false);
+		expect(RHYTHM_TWO_FOUR.params.pacing).toMatchObject({ countIn: false });
 		await controller.start();
 		// listen-in 0-1, the first cycle on bar 2: bar 2 is already the line, not a count
 		await advance(ORIGIN + 2.5 * TWO_FOUR_BAR_S);
@@ -411,7 +463,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 		await advance(ORIGIN + 7.5 * TWO_FOUR_BAR_S);
 		const [line] = await stored();
 		expect(line.promptedAt).toBe(epochOfBar(3, TWO_FOUR_BAR_S));
-		expect(line).toMatchObject({ cardKey: 'rhythm-figure:line-1@0', success: true });
+		expect(line).toMatchObject({ cardKey: 'figure:line-1@0', success: true });
 		controller.quit();
 	});
 });
@@ -666,7 +718,7 @@ describe('the rhythm on the series, the latency of its sensor', () => {
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
 		const [first] = await stored();
-		const report = (first.data as RhythmAttemptData).report;
+		const report = (first.data as FigureAttemptData).report;
 		expect(report.latency).toEqual({ ms: 30, provenance: 'player' });
 		expect(first.success).toBe(true);
 		for (const { offsetMs } of report.expectations) expect(Math.abs(offsetMs!)).toBeLessThan(1);
@@ -840,9 +892,9 @@ describe('the rhythm on the series, the breath and the levels', () => {
 		expect(stageOf(controller).phase).toBe('breath');
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual([
-			...Array(4).fill('rhythm-figure:offbeats-1@0'),
-			'rhythm-figure:offbeats-2@1',
-			'rhythm-figure:offbeats-2@1'
+			...Array(4).fill('figure:offbeats-1@0'),
+			'figure:offbeats-2@1',
+			'figure:offbeats-2@1'
 		]);
 		controller.quit();
 	});
@@ -1127,7 +1179,9 @@ describe('the rhythm on the series, the anti-blocking', () => {
 describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () => {
 	/** The lines of the cycles stored, in order. */
 	async function lines(stored: () => Promise<{ data: unknown }[]>): Promise<string[]> {
-		return (await stored()).map((attempt) => (attempt.data as RhythmAttemptData).item.figureId);
+		return (await stored()).map(
+			(attempt) => ((attempt.data as FigureAttemptData).item as FigureItem).figureId
+		);
 	}
 
 	/** Resumes, then lets two cycles be played (unanswered) from the run that follows. */
@@ -1191,7 +1245,7 @@ describe('the rhythm on the series, pausing in « Métronome sur 2 et 4 »', () 
 			...counted(RHYTHM_TWO_FOUR),
 			params: {
 				...counted(RHYTHM_TWO_FOUR).params,
-				pacing: { ...(RHYTHM_TWO_FOUR.params.pacing as object), roundsPerBreath: 2 }
+				pacing: { ...(counted(RHYTHM_TWO_FOUR).params.pacing as object), roundsPerBreath: 2 }
 			}
 		};
 		const { controller, stored, clock, advance } = await rhythmSeries(exercise, { met: true });
@@ -1224,6 +1278,22 @@ describe('the rhythm on the series, another series', () => {
 			exerciseId: 'rhythm-offbeats',
 			endedAt: null
 		});
+		controller.quit();
+	});
+
+	it('keeps no plan of the last series for the screen of the next', async () => {
+		const { controller, advance } = await rhythmSeries(RHYTHM_OFFBEATS, { met: true });
+		const stagePlan = () =>
+			(controller as unknown as { stagePlan: { item: PlannedItem } | null }).stagePlan;
+		await controller.start();
+		await advance(ORIGIN + 1.6 * OFFBEATS_BAR_S);
+		controller.quit();
+		await settled();
+		expect(stagePlan()?.item).toBeDefined();
+		// Forgotten as the next series begins, before it shows anything.
+		const starting = controller.start();
+		expect(stagePlan()).toBeNull();
+		await starting;
 		controller.quit();
 	});
 
@@ -1544,7 +1614,7 @@ describe('the rhythm on the series, a latency', () => {
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
 		const [first] = await stored();
-		const report = (first.data as RhythmAttemptData).report as CycleReport;
+		const report = (first.data as FigureAttemptData).report as CycleReport;
 		expect(report.latency).toBeNull();
 		expect(first.measures.precision?.value).toBeCloseTo(70, 0);
 		expect(first.success).toBe(true);
@@ -1575,7 +1645,7 @@ describe('the rhythm on the series, a latency', () => {
 		await controller.start();
 		await advance(ORIGIN + 4.6 * OFFBEATS_BAR_S);
 		const [first] = await stored();
-		const report = (first.data as RhythmAttemptData).report as CycleReport;
+		const report = (first.data as FigureAttemptData).report as CycleReport;
 		expect(report.latency).toEqual({ ms: 0, provenance: 'system' });
 		expect(first.verdict.value).toEqual({ passed: false, reasons: ['precision'] });
 		controller.quit();
@@ -1765,7 +1835,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 		await advance(resumedAt + 6 + 8 + 0.6, false);
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'rhythm-figure:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'figure:line-4@1' });
 		controller.quit();
 	});
 

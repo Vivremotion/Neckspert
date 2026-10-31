@@ -1,6 +1,5 @@
 import type { Fraction } from '../fraction';
-import type { CycleReport } from '../judge/measures';
-import type { LevelParams } from '../levels';
+import type { CycleReport, CycleThresholds } from '../judge/measures';
 import type { Judged, RoundPlan } from '../plan';
 import type { Aid, RoundOutcome } from '../round';
 import type { TempoMap } from '../tempoMap';
@@ -56,6 +55,13 @@ export interface PairingContext {
 	judge(index: number, payload: unknown): Judged | null;
 }
 
+/**
+ * What a round can already tell while it listens: each expectation told once and never taken back,
+ * in plan order, and the attacks that answer nothing, in ms from the round's start. No lost or added
+ * beat is looked for: the round's outcome keeps the last word.
+ */
+export type LiveReading = Pick<CycleReport, 'expectations'> & { extraAtMs: number[] };
+
 /** Which attack answers which expectation of one round, decided live. */
 export interface Pairing {
 	offer(attack: Attack): { fate: 'answer' | IgnoreReason; judged: Judged | null };
@@ -68,6 +74,10 @@ export interface Pairing {
 	shownMisses(now: number): number[];
 	/** As of now; pending readings are in it as they stand. */
 	result(): PairingResult;
+	/** What can be told by `now`; absent from a pairing that decides nothing before its end. */
+	live?(now: number): LiveReading;
+	/** The instants from which `live` can tell more without a new attack. */
+	liveWakes?(): number[];
 }
 
 export interface PairingMode {
@@ -90,7 +100,7 @@ export interface VerdictContext {
 	clock: RoundClock;
 	latency: CycleReport['latency'];
 	/** null for a response plan. */
-	thresholds: LevelParams['thresholds'] | null;
+	thresholds: CycleThresholds | null;
 	aids: Aid[];
 }
 

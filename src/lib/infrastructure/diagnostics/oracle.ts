@@ -5,17 +5,17 @@ import type {
 	OracleSuite,
 	SensorComparison
 } from '$lib/application/ports';
-import type { CyclePlanRecord } from '$lib/application/session/cycle/recordCycle';
+import {
+	roundPlanFromRecord,
+	type RoundPlanRecord
+} from '$lib/application/session/series/recordResponse';
 
 export type { AttackMatch, OracleReport, OracleSuite, SensorComparison };
 import {
 	Fraction,
 	PlanRound,
 	RHYTHM_SENSOR,
-	barLength,
-	compileCyclePlan,
 	createTempoMap,
-	figureFromJson,
 	type CycleReport,
 	type CycleVerdict
 } from '$lib/domain/time';
@@ -39,7 +39,10 @@ export const ORACLE_MARGIN_S = 1;
 /** The event of the attack sensor in the journal. */
 const ATTACK_EVENT = 'attack.detected';
 
-/** Consecutive cycle attempts of a session with no gap above one bar: one run of the oracle. */
+/**
+ * Consecutive cycle attempts of a session, each starting within a beat of the last one's end (a
+ * breath between two runs lasts whole bars): one run of the oracle.
+ */
 export interface OracleRun {
 	sessionId: string;
 	attemptIds: number[];
@@ -49,19 +52,32 @@ export interface OracleRun {
 	contested: boolean;
 }
 
-/** The plan of a cycle attempt, and its length and bar in ms; null for any other attempt. */
+/**
+ * The plan of a cycle the attack sensor heard (a round judged whole, `policy.unit: 'cycle'`, with
+ * expectations, all of that sensor, played at a tempo), its length and a beat in ms; null for any
+ * other attempt.
+ */
 function cycleOf(
 	attempt: Attempt
-): { plan: CyclePlanRecord; cycleMs: number; barMs: number } | null {
-	const plan = attempt.plan as Partial<CyclePlanRecord> | null;
-	if (!plan || typeof plan.cycleBars !== 'number' || !plan.tempo || !plan.figure) return null;
+): { plan: RoundPlanRecord; cycleMs: number; beatMs: number } | null {
+	const plan = attempt.plan as Partial<RoundPlanRecord> | null;
+	if (
+		!plan ||
+		plan.policy?.unit !== 'cycle' ||
+		!plan.tempo ||
+		typeof plan.length !== 'string' ||
+		!Array.isArray(plan.expectations) ||
+		plan.expectations.length === 0 ||
+		!plan.expectations.every((e) => e.sensor === RHYTHM_SENSOR)
+	) {
+		return null;
+	}
 	try {
-		const bar = barLength(figureFromJson(plan.figure).meter).toNumber();
 		const wholeMs = 60_000 / plan.tempo.bpm / Fraction.parse(plan.tempo.unit).toNumber();
 		return {
-			plan: plan as CyclePlanRecord,
-			cycleMs: bar * plan.cycleBars * wholeMs,
-			barMs: bar * wholeMs
+			plan: plan as RoundPlanRecord,
+			cycleMs: Fraction.parse(plan.length).toNumber() * wholeMs,
+			beatMs: 60_000 / plan.tempo.bpm
 		};
 	} catch {
 		return null;
@@ -94,7 +110,7 @@ export function oracleRuns(attempts: readonly Attempt[]): OracleRun[] {
 			last !== null &&
 			run !== undefined &&
 			last.attempt.sessionId === attempt.sessionId &&
-			attempt.promptedAt - run.toMs <= last.cycle.barMs;
+			attempt.promptedAt - run.toMs <= last.cycle.beatMs;
 		if (chained && run) {
 			run.attemptIds.push(attempt.id);
 			run.toMs = end;
@@ -190,7 +206,7 @@ export function buildOracleSuite(input: {
 	// A cycle's own audio start when it has one (the journal's clock); else the wall clock's
 	// mapping of the take, off by the output latency.
 	const startOf = (attempt: Attempt) =>
-		(attempt.plan as Partial<CyclePlanRecord> | null)?.startAudioS ?? audioOf(attempt.promptedAt);
+		(attempt.plan as Partial<RoundPlanRecord> | null)?.startAudioS ?? audioOf(attempt.promptedAt);
 	const first = played[0];
 	const last = played.at(-1);
 	const lastCycle = last && cycleOf(last);
@@ -317,33 +333,28 @@ export function compareAttacks(
 	};
 }
 
-/** Each cycle of a suite judged again on `truth` (s from the slice start, before latency). */
+/**
+ * Each cycle of a suite judged again on `truth` (s from the slice start, before latency), against
+ * the plan, the tempo and the thresholds its attempt kept.
+ */
 export function rejudge(
 	suite: OracleSuite,
 	truth: readonly number[]
 ): { attemptId: number; before: CycleVerdict; after: CycleVerdict }[] {
 	return suite.cycles.map(({ attemptId, plan, startS, latency, verdict }) => {
-		const figure = figureFromJson(plan.figure);
-		const window =
-			'ms' in plan.window ? { ms: plan.window.ms } : { ofGap: Fraction.parse(plan.window.ofGap) };
-		const tempo = {
-			at: Fraction.ZERO,
+		const tempo = plan.tempo && {
+			at: Fraction.parse(plan.tempo.at),
 			bpm: plan.tempo.bpm,
 			unit: Fraction.parse(plan.tempo.unit)
 		};
+		if (!tempo) throw new Error(`cycle ${attemptId} was kept without its tempo`);
 		const round = new PlanRound({
-			plan: compileCyclePlan({
-				figure,
-				cycleBars: plan.cycleBars,
-				startBar: plan.startBar,
-				sensor: RHYTHM_SENSOR,
-				window,
-				accompanimentBars: plan.accompaniment.bars
-			}),
+			// The cycle as it was judged: the plan its attempt kept.
+			plan: roundPlanFromRecord(plan),
 			clock: { map: createTempoMap(startS, [tempo]), start: Fraction.ZERO },
 			judges: contentJudges,
 			latency,
-			thresholds: plan.thresholds,
+			thresholds: plan.thresholds ?? {},
 			aids: []
 		});
 		const latencyS = (latency?.ms ?? 0) / 1000;
