@@ -57,7 +57,9 @@ export class WebAudioNoteDetector implements NoteDetectorPort {
 				this.noteListeners.forEach((listener) => listener(onset));
 			}
 		});
-		this.stopAttacks = this.attacks.onAttack(({ time }) => tracker.attack(time));
+		this.stopAttacks = this.attacks.onAttack(({ time }) => {
+			if (this.tracker === tracker) tracker.attack(time);
+		});
 	}
 
 	stop(): void {

@@ -136,8 +136,9 @@ function computerMic(devices: AudioInputDevice[], playingId: string | null) {
  * 2. Compare: the player plays `CALIBRATION_ATTACKS` notes freely; the interface's attacks pair
  *    with the mic's, and `attack = R + median(t_interface − t_mic) + d`. With the computer's mic
  *    as the playing input, `attack = R` and this phase only serves the note detector.
- * 3. The note detector's own delay behind the attacks of the same input, measured on the same
- *    notes: `note = chord = attack + delay`.
+ * 3. The notes of the same input must be read and pair with its attacks: a note takes its
+ *    attack's time, so the delay is 0 within a sample (`note = chord = attack + delay`). The chord
+ *    verifier's onsets, its own rule, stay within 6 ms of the attacks, neglected.
  * 4. Fallback, when the mic does not open or does not hear the clicks in 1: the player on the
  *    click, every latency of provenance `player`.
  */
@@ -470,7 +471,7 @@ export class CalibrationService implements CalibrationPort {
 					resolve({ ok: false, reason: 'inconsistent', measure: measure(null) });
 					return;
 				}
-				// The attack sensor reads the same attacks ahead of the note detector.
+				// A note takes its attack's time: the two latencies differ by what this measures, nothing.
 				const delay = noteDelay(heard.notes, heard.play)?.ms ?? 0;
 				const attackMs = result.offsetMs - delay;
 				resolve({
@@ -508,8 +509,8 @@ function isBleed(clicks: number[], heard: number[]): boolean {
 }
 
 /**
- * How long after the attack sensor the note detector reads the same attack, anchored on the
- * notes: an attack with no note (a breath, a fret noise) does not count against it. Null when
+ * How far from the attack sensor the note detector dates the same attack, anchored on the notes:
+ * an attack with no note (a breath, a fret noise) does not count against it. Null when
  * fewer than `NOTE_DELAY_MIN_PAIRS`, or than `MIN_PAIRED_SHARE` of the notes, pair.
  */
 function noteDelay(notes: number[], attacks: number[]): ReturnType<typeof pairedDelay> {

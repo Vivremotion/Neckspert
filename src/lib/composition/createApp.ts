@@ -25,7 +25,7 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
-import { createDiagnosticJournal, shadowAttacks } from './diagnostics';
+import { createDiagnosticJournal, journalNotes } from './diagnostics';
 import { loadLocalExercises } from './localExercises';
 
 export interface CreateAppOptions {
@@ -80,8 +80,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
 	// The input of the last run of a rhythm exercise, kept in memory to be heard again.
 	const takes = new TakeBuffer(input, context);
-	// The attack detector runs in the shadow of the note detector, both journaled for comparison.
-	shadowAttacks(journal, detector, attacks);
+	journalNotes(journal, detector);
 
 	const calibration = new CalibrationService({
 		clock,
