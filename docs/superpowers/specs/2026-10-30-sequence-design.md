@@ -228,12 +228,14 @@ Au premier essai sur une grille, l'auteur a constaté que les formes d'arpège t
 - **Pas d'image `shape` pour une forme** (`DERIVED_PICTURES` inchangé) : un dessin d'accord ne sait pas montrer plusieurs notes sur une corde. La respiration dit les fausses notes en mots, et un niveau d'aide peut écrire `notation.tab`.
 - **Une barre de mesure dans une forme est refusée**, comme tout ce qui n'est pas une note : une forme n'a pas de mesure à vérifier.
 
-### Étapes jouables : à venir
+### Étapes jouables
 
-Les deux étapes jouables avec l'auteur n'ont pas encore eu lieu : les tétrades sur sa grille (notes dérivées, plusieurs accords enchaînés, tablature d'aide) et son thème (notes écrites, portée et tablature, figure longue), tous deux depuis `exercises.local/`. Cette section sera complétée de ce qu'elles changent. La fusion attend leur accord.
+L'auteur a joué les tétrades sur sa grille et son thème, depuis `exercises.local/`, le 2026-10-31, après les retouches ci-dessus et ci-dessous, et a donné son accord pour fusionner. Les croches des tétrades n'ont pas été essayées.
 
 ### Le détecteur de notes (2026-10-31)
 
 Le thème joué par un joueur parfait (l'export de Guitar Pro, sans jeu humain) perdait une note sur deux : le détecteur exigeait un volume 1,8 fois supérieur à une moyenne lente, qu'une note qui sonne encore tient haute. 68 notes sur 125 à ♩ = 70, 52 à ♩ = 93, alors que le capteur d'attaques les entendait toutes. Une note jouée est maintenant une attaque de ce capteur et la hauteur lue après elle : 125 sur 125 aux deux tempos, sans note en trop, marques en jeu et bilan compris dans la vraie page à ♩ = 70, et 124 ou 125 quand le volume varie de note en note (jusqu'à ±6 dB). Une fenêtre d'attaque qui lit une octave sous la fenêtre tenue est comptée à la hauteur tenue : la note d'avant, sur une autre corde, la trompe.
 
-Ce n'est pas mesuré sur une vraie guitare. Le capteur d'accords garde l'ancienne règle.
+Une attaque n'est pas toujours une note jouée, ce qu'un export ne peut pas montrer : la revue a simulé un clic par-dessus une note qui sonne, et un doigt levé qui laisse sonner la corde à vide, tous deux lus comme des notes. Sur les vraies prises d'arpèges du corpus (10 prises en direct, jouées laissant sonner), 247 notes sur 266 tombent sur la grille, aucune avant la première note jouée, et une dizaine ne correspond à aucun coup. Le niveau après l'attaque les écarte : un son tombé sous un quart du niveau d'avant n'est pas une note, ni la hauteur de la dernière note sans que son niveau monte. Cinq de ces fausses notes partent, les deux cas simulés aussi, pour 2 notes de la grille sur 247 ; l'export reste à 125 sur 125, mais une note répétée 6 dB plus doucement se perd (121 à 125 quand le volume varie de note en note). Le choix est assumé : une note en trop fait échouer un tour, une note manquée peut passer sous `thresholds.fidelity`.
+
+Reste une limite, que ces prises montrent et que le joueur des tétrades n'a pas rencontrée : quand plusieurs notes sonnent ensemble, la lecture de la hauteur peut tomber sur leur fondamentale commune (fa grave sous la, do, fa), et l'attaque, vraie, est comptée fausse note. L'ancien détecteur perdait ces notes-là. Le capteur d'accords garde l'ancienne règle (`docs/todo.md`).
