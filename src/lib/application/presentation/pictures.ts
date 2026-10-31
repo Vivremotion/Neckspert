@@ -29,14 +29,18 @@ export interface NeckNote {
  * its derivation spells it, else by its sharp spelling. What gives no place on the neck is left out.
  */
 export function neckPicture(contents: readonly unknown[]): Picture {
-	const notes = contents.flatMap((content): NeckNote[] => {
+	// A form that comes back to a place draws it once.
+	const places = new Map<string, NeckNote>();
+	for (const content of contents) {
 		const { midi, string, name } = content as { midi: number; string: StringNumber; name?: string };
 		const place = fretOf(midi, string);
-		return 'problem' in place
-			? []
-			: [{ string, fret: place.fret, name: name ?? pitchOfMidi(midi) }];
-	});
-	return { kind: 'neck', notes };
+		if ('problem' in place) continue;
+		const key = `${string}-${place.fret}`;
+		if (!places.has(key)) {
+			places.set(key, { string, fret: place.fret, name: name ?? pitchOfMidi(midi) });
+		}
+	}
+	return { kind: 'neck', notes: [...places.values()] };
 }
 
 /**
