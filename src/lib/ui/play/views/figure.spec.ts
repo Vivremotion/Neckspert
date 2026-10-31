@@ -321,6 +321,14 @@ describe('liveMarks', () => {
 		expect(marks.map((m) => [m.kind, m.x])).toEqual([['on-time', LAYOUT.noteX[0]]]);
 	});
 
+	it('marks an added attack of a figure engraved once on the loop under way only', () => {
+		const notes = LAYOUT.noteX.length;
+		const told = [{ index: notes, verdict: 'on-time' as const, offsetMs: 0 }];
+		const alone = liveMarks(reading([], [250]), LAYOUT, 100, 500, figure);
+		const marks = liveMarks(reading(told, [300, 2250]), LAYOUT, 100, 500, figure);
+		expect(marks.filter((m) => m.kind === 'extra').map((m) => m.x)).toEqual([alone[0].x]);
+	});
+
 	it('marks an added attack where it fell', () => {
 		const marks = liveMarks(reading([], [250]), LAYOUT, 100, 500, figure);
 		expect(marks.map((m) => m.kind)).toEqual(['extra']);

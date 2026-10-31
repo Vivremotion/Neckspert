@@ -146,7 +146,7 @@ function expectationMarks(
 
 /**
  * The marks of a round as it plays: no figures, they are read while playing. A figure engraved
- * once and looped shows its current loop's marks only.
+ * once and looped shows its current loop's marks only, added attacks included.
  */
 export function liveMarks(
 	reading: LiveReading,
@@ -160,8 +160,10 @@ export function liveMarks(
 	const lastIndex = reading.expectations.at(-1)?.index ?? 0;
 	const loop = Math.floor(lastIndex / notes);
 	const current = reading.expectations.filter((e) => Math.floor(e.index / notes) === loop);
+	const loopMs = figure.bars * beatPositions(figure.meter).length * beatMs;
 	const added = reading.extraAtMs.flatMap((ms) => {
-		const at = extraPlace(figure, layout, ms, beatMs);
+		if (Math.floor(ms / loopMs) !== loop) return [];
+		const at = extraPlace(figure, layout, ms - loop * loopMs, beatMs);
 		return at ? [{ ...at, kind: 'extra' as const, label: null }] : [];
 	});
 	return [
