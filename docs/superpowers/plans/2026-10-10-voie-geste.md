@@ -444,8 +444,8 @@ contest(attemptId: number): Promise<void>;
 - [ ] **Step 4 : lancer `npm test && npm run check`.** Tout passe (PASS). Puis `npm run dev` : ouvrir `/dev/gesture` et vérifier l’affichage. Lancer `scripts/functional-ui.mjs` s’il couvre la page, ou noter dans le rapport ce qui n’a pas été vu.
 - [ ] **Step 5 : mettre à jour la documentation.**
   - `CLAUDE.md` : la voie du geste, la passe, `MetronomePort.at`, l’apprenant `skill`, `PlayView.stage` et le registre, les sessions `gesture`.
-  - `docs/plateforme.md` : D fait.
-  - `docs/todo.md` : rien n’en sort ; ajouter « `PlayFrame` pour les notes et les triades » à l’entrée « Une vue de jeu par mécanique ».
+  - `docs/feuille-de-route.md` : D fait.
+  - la liste « à faire » d’alors (aujourd’hui les issues GitHub) : rien n’en sort ; ajouter « `PlayFrame` pour les notes et les triades » à l’entrée « Une vue de jeu par mécanique ».
 - [ ] **Step 6 : commit** `feat: play a gesture passage on a scrolling chord grid`.
 
 ---

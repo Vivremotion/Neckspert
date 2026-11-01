@@ -2,7 +2,7 @@
 
 Date : 2026-10-05. Statut : approuvé dans la conversation de développement du 2026-10-05.
 
-Étape 1 de la feuille de route de `docs/plateforme.md`, dont cette spec reprend le vocabulaire (mécanique, exercice, progression, session, exécution, carte, essai) et les décisions sans les répéter. Refactor sans nouvelle fonctionnalité : les modes 1 (localiser) et 2 (identifier) deviennent les deux premières mécaniques, chacune avec un seul exercice sans paramètre. Le comportement observable ne change pas, sauf les deux exceptions de la section 9.
+Étape 1 de `docs/feuille-de-route.md` ; cette spec reprend le vocabulaire de `docs/projet.md` (mécanique, exercice, progression, session, exécution, carte, essai) et les décisions sans les répéter. Refactor sans nouvelle fonctionnalité : les modes 1 (localiser) et 2 (identifier) deviennent les deux premières mécaniques, chacune avec un seul exercice sans paramètre. Le comportement observable ne change pas, sauf les deux exceptions de la section 9.
 
 ## Objectifs
 
@@ -440,7 +440,7 @@ TDD, specs colocalisées.
 ## 11. Documentation
 
 - `CLAUDE.md` : architecture (domaine `timing/`, `mechanics/`, `exercise/` ; application `mechanics/`, `AttemptRecorder`), règles (tempo par exercice, `settings.tempoBpm` retiré, Dexie version 5, sauvegarde v2).
-- `docs/plateforme.md` : étape 1 faite, renvoi à cette spec.
+- `docs/feuille-de-route.md` : étape 1 faite, renvoi à cette spec.
 - `PRODUCT.md` : le tempo adaptatif est propre à chaque exercice.
 
 ## Hors périmètre

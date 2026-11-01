@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A fretboard-memory trainer for guitarists, built as a rhythm game. The player hears a metronome, sees a prompt ("F, corde de B"), and plays the note on a real guitar on the beat (mode 1, _locate_), or taps the note name for a given string/fret (mode 2, _identify_). Spaced repetition (FSRS via `ts-fsrs`) decides what comes back; only the first, _cold_ attempt at a card after a delay feeds retention stats. Read `PRODUCT.md` for the product rules and `docs/brief.md` for the original brief. Product docs, plans and UI copy are in French; code, identifiers and comments are in English.
+A fretboard-memory trainer for guitarists, built as a rhythm game. The player hears a metronome, sees a prompt ("F, corde de B"), and plays the note on a real guitar on the beat (mode 1, _locate_), or taps the note name for a given string/fret (mode 2, _identify_). Spaced repetition (FSRS via `ts-fsrs`) decides what comes back; only the first, _cold_ attempt at a card after a delay feeds retention stats. Read `PRODUCT.md` for the product rules and `docs/projet.md` for the project (product, principles, engine, exercise language); the order of work is in `docs/feuille-de-route.md`, the backlog in GitHub issues. Product docs, plans and UI copy are in French; code, identifiers and comments are in English.
 
 ## Commands
 
@@ -51,6 +51,7 @@ These are fixed product decisions documented in `docs/superpowers/plans/README.m
 
 ## Workflow conventions
 
+- The backlog is GitHub issues and the project board, not a file in the repository; issues are in French.
 - Implementation plans and specs live in `docs/superpowers/plans/` and `docs/superpowers/specs/` (dated, in French). Plan work historically ran in git worktrees under `.worktrees/` on `plan/<id>` branches.
 - Commit messages: Conventional Commits, lowercase, imperative and behavior-focused (`feat: open the summary when free play ends`, `fix: …`, `test: …`, `docs: …`).
 - TDD for any logic: domain and application code each have colocated `*.spec.ts`.

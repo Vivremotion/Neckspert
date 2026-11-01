@@ -240,4 +240,4 @@ Le thème joué par un joueur parfait (l'export de Guitar Pro, sans jeu humain) 
 
 Le coût à surveiller : en localisation, la première note est la réponse, donc une bavure dans la fenêtre devient une réponse fausse et compte comme un oubli dans la répétition espacée. Si la pratique le montre, la réponse appartient au juge ou aux données de l'exercice, pas au capteur.
 
-Reste une limite, que ces prises montrent et que le joueur des tétrades n'a pas rencontrée : quand plusieurs notes sonnent ensemble, la lecture de la hauteur peut tomber sur leur fondamentale commune (fa grave sous la, do, fa), et l'attaque, vraie, est comptée fausse note. L'ancien détecteur perdait ces notes-là. Le capteur d'accords garde l'ancienne règle (`docs/todo.md`).
+Reste une limite, que ces prises montrent et que le joueur des tétrades n'a pas rencontrée : quand plusieurs notes sonnent ensemble, la lecture de la hauteur peut tomber sur leur fondamentale commune (fa grave sous la, do, fa), et l'attaque, vraie, est comptée fausse note. L'ancien détecteur perdait ces notes-là. Le capteur d'accords garde l'ancienne règle ([issue 10](https://github.com/Vivremotion/Neckspert/issues/10)).

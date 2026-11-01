@@ -8,7 +8,7 @@
 
 **Stack :** SvelteKit (SPA), Svelte 5 runes, TypeScript, Vitest (projets `server` et `client`), Dexie, ts-fsrs.
 
-**Spec :** `docs/superpowers/specs/2026-10-05-mecaniques-exercices-design.md` (vocabulaire et décisions : `docs/plateforme.md`).
+**Spec :** `docs/superpowers/specs/2026-10-05-mecaniques-exercices-design.md` (vocabulaire et décisions : `docs/projet.md`).
 
 ## Contraintes globales
 
@@ -516,7 +516,7 @@ Rétablit la garde complète.
 **Fichiers :**
 
 - Créer : `src/lib/application/session/thirdMechanic.spec.ts`
-- Modifier : `CLAUDE.md`, `docs/plateforme.md`, `PRODUCT.md`, `docs/superpowers/plans/README.md` (index des plans)
+- Modifier : `CLAUDE.md`, `docs/feuille-de-route.md`, `PRODUCT.md`, `docs/superpowers/plans/README.md` (index des plans)
 
 **Interfaces :**
 
@@ -528,7 +528,7 @@ Rétablit la garde complète.
 - [ ] **Étape 2 :** `npx vitest run src/lib/application/session/thirdMechanic.spec.ts` → PASS. S’il échoue parce qu’un fichier du cœur connaît `'locate'` ou `'identify'`, corriger ce fichier (c’est le défaut que le test doit révéler), pas le test.
 - [ ] **Étape 3 : documentation.**
   - `CLAUDE.md` : architecture (`domain/exercise`, `domain/timing`, `domain/mechanics`, `application/mechanics`, `AttemptRecorder`, capteurs) ; règles : tempo par exercice (`startTempo`, `nextTempo`, progressions), `settings.tempoBpm` retiré, Dexie version 5, sauvegarde v2 qui importe la v1, point d’ajout d’une mécanique.
-  - `docs/plateforme.md` : étape 1 faite, renvoi à la spec du 2026-10-05.
+  - `docs/feuille-de-route.md` : étape 1 faite, renvoi à la spec du 2026-10-05.
   - `PRODUCT.md` : le tempo adaptatif est propre à chaque exercice ; il n’est plus réglable dans les Réglages.
   - `docs/superpowers/plans/README.md` : ligne « Mécaniques et exercices » dans l’index.
 - [ ] **Étape 4 :** `npm test && npm run check` → PASS ; `npm run lint` sur les fichiers touchés → propre.

@@ -1,6 +1,6 @@
 # Design — temps musical et séquences (chantier 1, tranche « rythme pur »)
 
-Chantier 1 de `docs/vision.md` (« Ordre des chantiers »). Conçu dans la conversation du 2026-10-14 à partir du test du langage sur deux ans de cours (15 exercices du corpus demandent des séquences, 8 du rythme, 5 un clic paramétrable), puis relu (section « Revue »). Specs liées : `2026-10-10-voie-geste-design.md` (passages enchaînés, vue choisie par l’exercice), `2026-10-06-journal-observations-design.md` (enveloppes d’observations), `2026-10-07-capteur-accords-design.md` (variantes en ombre, vérification par candidats).
+Chantier 1 de `docs/feuille-de-route.md`. Conçu dans la conversation du 2026-10-14 à partir du test du langage sur deux ans de cours (15 exercices du corpus demandent des séquences, 8 du rythme, 5 un clic paramétrable), puis relu (section « Revue »). Specs liées : `2026-10-10-voie-geste-design.md` (passages enchaînés, vue choisie par l’exercice), `2026-10-06-journal-observations-design.md` (enveloppes d’observations), `2026-10-07-capteur-accords-design.md` (variantes en ombre, vérification par candidats).
 
 ## Décisions
 
@@ -496,7 +496,7 @@ Vérification de hauteur sur séquence et attaques legato (sous-projet suivant) 
 
 ## Documentation à mettre à jour avec le code
 
-`CLAUDE.md` (temps, sons, verdicts, aides, stockage, séance `'exercise'`, changement de tempo à une respiration) ; `docs/vision.md` (avancement) ; `PRODUCT.md` (le rythme comme compétence).
+`CLAUDE.md` (temps, sons, verdicts, aides, stockage, séance `'exercise'`, changement de tempo à une respiration) ; `docs/feuille-de-route.md` (avancement) ; `PRODUCT.md` (le rythme comme compétence).
 
 ## Réalisation (2026-10-16)
 
@@ -613,7 +613,7 @@ Décidé dans la conversation du 2026-10-17, en préparant le plan 2. Il remplac
 
 ### Décisions
 
-- **Aucune frontière entre familles d’exercices.** `SessionKind` (`learn`, `free`, `triads`, `triads-zone`, `gesture`, `exercise`) disparaît : une séance est une suite de **séries**, une série étant un exercice joué d’affilée. Ce qui distingue aujourd’hui les sortes de séance devient soit une donnée de l’exercice, soit le **choix des items**, qui ne dépend d’aucune famille (section « Le choix des items » ci-dessous). Les types propres à une famille (`isTriadsKind`, `AppServices.triads()`, `gesture()`) disparaissent avec elle. **Quand** : au chantier 2 de `docs/vision.md`, avec les parcours en données qui remplacent les entrées de l’accueil ; le plan 2 et H n’ajoutent aucune dépendance à `SessionKind` et s’appuient sur les séries et le choix des items.
+- **Aucune frontière entre familles d’exercices.** `SessionKind` (`learn`, `free`, `triads`, `triads-zone`, `gesture`, `exercise`) disparaît : une séance est une suite de **séries**, une série étant un exercice joué d’affilée. Ce qui distingue aujourd’hui les sortes de séance devient soit une donnée de l’exercice, soit le **choix des items**, qui ne dépend d’aucune famille (section « Le choix des items » ci-dessous). Les types propres à une famille (`isTriadsKind`, `AppServices.triads()`, `gesture()`) disparaissent avec elle. **Quand** : au chantier 2 de `docs/feuille-de-route.md`, avec les parcours en données qui remplacent les entrées de l’accueil ; le plan 2 et H n’ajoutent aucune dépendance à `SessionKind` et s’appuient sur les séries et le choix des items.
 - **La durée d’une séance appartient à la séance.** `LEARN_SESSION_MS`, `GESTURE_SESSION_MS` et `RHYTHM_SERIES_MS` (trois fois 5 minutes) deviennent un seul paramètre de séance, `SESSION_MS` par défaut, que le planificateur fixera (chantier 5). `LevelParams.cyclesPerSeries` (provisoire, un cycle par série) est retiré.
 - **Deux pièces, aucune théorie de plus** : une **trace** (ce qui a eu lieu) et une **politique** (ce qui vient ensuite). Les ensembles décrivent la trace (des intervalles emboîtés), pas la génération : une série réagit (niveau, écoute demandée, blocage, fin du temps), ce qu’aucun ensemble ni aucune grammaire ne dit. Les statecharts seraient la théorie exacte du problème ; ils ne sont pas introduits tant qu’aucun exercice ne l’exige.
 - **La trace n’est pas stockée pour l’instant** : elle vit en mémoire le temps de la séance et sert au bilan. **On la stockera pour l’analyse entre séances** (profil de groove, part du temps joué au fil des jours) quand la première analyse la lira ; ajouter un champ non indexé ne demande pas de nouvelle version de schéma. Les tentatives gardent déjà leur plan résolu et leurs instants ; seuls les segments sans tentative (mise en oreille, respirations, écoutes) sont perdus d’ici là.
@@ -657,7 +657,7 @@ interface Segment {
 | `briefing`  | consigne        | l’arrêt sur le `howTo`                                                    |
 | `pause`     | pause           |                                                                           |
 
-- **« Séquence » retrouve un seul sens** : plusieurs cibles dans un tour (titre de cette spec). L’essai `SEQUENCE_LENGTH` / `SEQUENCES_ENABLED` des notes, qui portait le même mot, est supprimé à H s’il n’a pas été justifié par l’usage (comme le prévoit `docs/vision.md`), renommé sinon.
+- **« Séquence » retrouve un seul sens** : plusieurs cibles dans un tour (titre de cette spec). L’essai `SEQUENCE_LENGTH` / `SEQUENCES_ENABLED` des notes, qui portait le même mot, est supprimé à H s’il n’a pas été justifié par l’usage (comme le prévoyait la vision d’alors), renommé sinon.
 
 ### La politique : une seule fonction `next`
 
@@ -668,8 +668,8 @@ interface Segment {
 
 ### Le choix des items
 
-- **Un choix parmi des candidats** (exercice × item), comme le planificateur de `docs/vision.md` : urgence (probabilité d’oubli), frange (le graphe des prérequis : acquis, pas maîtrisé), faiblesse (confusions récentes), objectif, moins la fatigue et la répétition. Le graphe en est une source parmi d’autres ; aucune source n’est propre à une famille d’exercices.
-- **La mémoire n’est pas une famille d’exercices.** Elle vaut pour tout ce qui s’apprend : les notes du manche, les formes, le geste (la mémoire musculaire). Le modèle de l’apprenant pose deux questions aux mêmes observations de n’importe quelle compétence : **ce qui reste sans pratique** (rétention : le froid, FSRS) et **ce qui progresse avec la pratique** (acquisition : courbes de tempo, de précision). Les deux sont deux projections d’un seul état par (compétence, item). L’actuel `learner: 'card' | 'skill'` par mécanique, qui range les notes du côté « mémoire » et le geste du côté « compétence », est l’erreur que le chantier 5 corrige (`docs/vision.md`, « À reconstruire »).
+- **Un choix parmi des candidats** (exercice × item), comme le planificateur de `docs/projet.md` : urgence (probabilité d’oubli), frange (le graphe des prérequis : acquis, pas maîtrisé), faiblesse (confusions récentes), objectif, moins la fatigue et la répétition. Le graphe en est une source parmi d’autres ; aucune source n’est propre à une famille d’exercices.
+- **La mémoire n’est pas une famille d’exercices.** Elle vaut pour tout ce qui s’apprend : les notes du manche, les formes, le geste (la mémoire musculaire). Le modèle de l’apprenant pose deux questions aux mêmes observations de n’importe quelle compétence : **ce qui reste sans pratique** (rétention : le froid, FSRS) et **ce qui progresse avec la pratique** (acquisition : courbes de tempo, de précision). Les deux sont deux projections d’un seul état par (compétence, item). L’actuel `learner: 'card' | 'skill'` par mécanique, qui range les notes du côté « mémoire » et le geste du côté « compétence », est l’erreur que le chantier 5 corrige (`docs/feuille-de-route.md`).
 - **Les niveaux ne sont pas un modèle de l’apprenant** : ils règlent la difficulté que l’exercice présente ; le choix des items les lit comme un état, au même titre que la rétention.
 - **La création n’est pas de la récitation** : un exercice d’improvisation ne rappelle pas une réponse, il est jugé sur un ensemble admis (chantier 3). Ce qui s’y retient (le vocabulaire, les formes) relève de la rétention ; ce qui s’y produit relève de l’acquisition.
 - **Dans ce chantier** : le contrat du choix (`choose(candidates, state)`), avec le seul cas d’une séance d’un exercice (son item, ou ses figures dans l’ordre de l’exercice) ; les sélecteurs actuels y passent à H ; le score et le graphe viennent au chantier 5.
@@ -737,13 +737,13 @@ Décidé dans la conversation du 2026-10-23, après la journée de validation (G
 
 ### Le principe
 
-H ne vaut que s’il **généralise** : supprimer les quatre relations et les sélecteurs n’a d’intérêt que si ce qui les remplace sert à écrire de nouveaux exercices **sans nouveau code**. Réécrire la même spécialisation ailleurs n’est pas un gain. Chaque pièce de H est donc une primitive du moteur, branchée par des données ; ce qui reste propre à un exercice passe derrière une interface, et n’est généralisé que quand un deuxième exercice réel le demande (règle de `docs/vision.md`).
+H ne vaut que s’il **généralise** : supprimer les quatre relations et les sélecteurs n’a d’intérêt que si ce qui les remplace sert à écrire de nouveaux exercices **sans nouveau code**. Réécrire la même spécialisation ailleurs n’est pas un gain. Chaque pièce de H est donc une primitive du moteur, branchée par des données ; ce qui reste propre à un exercice passe derrière une interface, et n’est généralisé que quand un deuxième exercice réel le demande (règle de `docs/projet.md`).
 
 Corollaire, pour tout ce que H remplace : on ne reproduit pas l’ancien comportement pour lui-même. Ce qui compte est que le joueur progresse ; un autre ordre des items, une règle en moins, sont bienvenus s’ils ne nuisent pas à l’apprentissage et simplifient le moteur.
 
 ### Décisions
 
-- **H porte aussi les notes et les triades sur `PlayFrame`** (fin de `PlayScreen`) : la forme du verdict que l’écran lit change à H, le travail ne se fait qu’une fois. Retiré du chantier 2 (`docs/vision.md`).
+- **H porte aussi les notes et les triades sur `PlayFrame`** (fin de `PlayScreen`) : la forme du verdict que l’écran lit change à H, le travail ne se fait qu’une fois. Retiré du chantier 2 (`docs/feuille-de-route.md`).
 - **Les séquences (`SEQUENCES_ENABLED`, `sequence.ts`) sont supprimées** : l’usage ne les a pas justifiées ; l’auteur testera sans elles. Un changement d’avance n’est plus annoncé par une mesure comptée.
 - **Un seul moteur de tour** pour tous les plans, à emplacements (ci-dessous) ; écarté : deux moteurs côte à côte (la séquence avec contenu en demanderait un troisième), un compilateur et une machine par relation (la spécialisation déplacée).
 - **Une seule procédure d’apprentissage** pour les items à retenir, qui remplace `learnSelector` et `triadSelector` (les mêmes notions en double) ; le générateur du geste passe derrière l’interface des sources d’items sans être réécrit.
@@ -1056,7 +1056,7 @@ Relevé dans le code au 2026-10-26 (branche H4). Une constante n’est pas fauti
 
 **Code par famille (la limite connue, pas des règles de conformité)**
 
-Une famille entièrement nouvelle demande encore du code : un sujet d’apprentissage (`neckSubject`, `triadSubject` : ordre d’introduction, voisins et miroirs, condition « prêt », échelle), un constructeur de plan, un générateur (le geste), un juge de contenu, un présentateur et souvent une vue. La règle de `docs/vision.md` (généraliser quand un deuxième exercice réel le demande) s’applique ; le corpus des cours de l’auteur est le banc qui dira quelles de ces pièces doivent devenir des données du langage. **Fait en partie (H5)** : le constructeur de plan, le présentateur et la vue d’un exercice à réponse sont des données et du vocabulaire enregistré ; ce qui reste est la frontière nommée par D9 de H5.
+Une famille entièrement nouvelle demande encore du code : un sujet d’apprentissage (`neckSubject`, `triadSubject` : ordre d’introduction, voisins et miroirs, condition « prêt », échelle), un constructeur de plan, un générateur (le geste), un juge de contenu, un présentateur et souvent une vue. La règle de `docs/projet.md` (généraliser quand un deuxième exercice réel le demande) s’applique ; le corpus des cours de l’auteur est le banc qui dira quelles de ces pièces doivent devenir des données du langage. **Fait en partie (H5)** : le constructeur de plan, le présentateur et la vue d’un exercice à réponse sont des données et du vocabulaire enregistré ; ce qui reste est la frontière nommée par D9 de H5.
 
 **Simplifications du modèle à examiner**
 
@@ -1247,7 +1247,7 @@ Les assertions de noms absents (`session/boundaries.spec.ts`) construisent les n
 
 > **Mise à jour du 2026-10-30 : la séquence (S) est faite sur sa branche** `plan/sequence-s` (pas encore fusionnée dans `main`, elle attend les deux étapes jouables avec l’auteur). Elle a absorbé le cycle (D8 de H6 : `compileCycle`, la porte de `series/compilePlan.ts`, `cycle/` et `CyclePlanRecord` n’existent plus ; la mécanique `rhythm-figure` est devenue `figure`), changé la place de la figure (D10 de H5 amendée : une entrée de figure dans `round.expectations`, pas un `round.figure`), et pris la version 12 de Dexie (sauvegarde 8) ; **le chantier 2 prend donc la version 13**. À lire : `docs/superpowers/specs/2026-10-30-sequence-design.md` et sa « Réalisation ». Dans ce qui suit, « La suite : la séquence (S) » et le point « Le cycle (D8 de H6) » décrivent l’état avant S.
 
-Ce qu’il faut lire pour reprendre après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23, les sections « Réalisation » de H1, H2, H3 et H4, l’amendement du 2026-10-26 (un langage d’exercices ouvert), sa « Réalisation du plan L », et les « Réalisation » de H5 et de H6, ci-dessus. Au-delà : `docs/vision.md` et `docs/reality-check-corpus-2026-10-27.md`.
+Ce qu’il faut lire pour reprendre après un résumé de conversation ou dans une conversation neuve, sans rien redemander : cette section, puis l’amendement du 2026-10-23, les sections « Réalisation » de H1, H2, H3 et H4, l’amendement du 2026-10-26 (un langage d’exercices ouvert), sa « Réalisation du plan L », et les « Réalisation » de H5 et de H6, ci-dessus. Au-delà : `docs/projet.md`, `docs/feuille-de-route.md` et le passage du corpus au crible (document privé, hors dépôt).
 
 ### Où en est le chantier
 
@@ -1259,7 +1259,7 @@ Ce qu’il faut lire pour reprendre après un résumé de conversation ou dans u
 
 ### La suite : la séquence (S), puis le chantier 2
 
-- **La séquence (S)** (`docs/vision.md`) vient maintenant : une suite de notes imposée, jouée en rythme, jugée note à note sur la hauteur et le moment (des figures dont les notes portent une hauteur, un appariement par le temps et la hauteur, un capteur de notes rapides). Elle débloque à elle seule 13 exercices du corpus. Dans le format, elle s’écrit `round.figure` à côté de `round.expectations`, sans changer la forme d’aujourd’hui (D10 de H5). Elle absorbe le cycle (D8 de H6) : un exercice de figures devient un gabarit qui écrit `round.figure`, `compileCycle` et la porte de `series/compilePlan.ts` disparaissent, et `cycle/` ne garde que ce qui reste propre au rythme (son modèle d’écran, peut-être), ou rien.
+- **La séquence (S)** (`docs/feuille-de-route.md`) vient maintenant : une suite de notes imposée, jouée en rythme, jugée note à note sur la hauteur et le moment (des figures dont les notes portent une hauteur, un appariement par le temps et la hauteur, un capteur de notes rapides). Elle débloque à elle seule 13 exercices du corpus. Dans le format, elle s’écrit `round.figure` à côté de `round.expectations`, sans changer la forme d’aujourd’hui (D10 de H5). Elle absorbe le cycle (D8 de H6) : un exercice de figures devient un gabarit qui écrit `round.figure`, `compileCycle` et la porte de `series/compilePlan.ts` disparaissent, et `cycle/` ne garde que ce qui reste propre au rythme (son modèle d’écran, peut-être), ou rien.
 - **Ce que H6 laisse à S** : la respiration joue l’accompagnement que l’exercice écrit à son niveau (`accompaniment`, mesures muettes rendues) ; quand la séquence écrira son accompagnement dans `round`, la respiration devra le lire là ; une série de réponses qui respire par `roundsPerBreath` ne lit pas `breathMinMs` (une seule mesure comptée) ; les capteurs qu’ouvre une séance sont choisis par la liste `TRACK_MECHANICS`, pas par ce que ses exercices écoutent ; `PlayFrame` garde deux mondes (`VIEW_WORLDS`, calme et Game Boy) jusqu’au plan visuel 3 ; le bilan ne propose la réécoute des suites que pour une séance du rythme (`replayRun` marche pour toute séance en mémoire). Deux notes de la relecture finale : `SessionController` fait environ 2 150 lignes, et `beginNewSeries` remet à zéro une liste d’états tenue à la main (un état oublié fuit d’une série à l’autre) ; à découper quand S le touche : un état par série, créé neuf à chaque série, et le côté écran (modèle de scène, annonces, historique) en collaborateur. Et « Réécouter » dans une séance des notes rejoue toute la dernière suite, qui peut durer plusieurs minutes quand aucune mesure comptée ne la coupe (jusqu’à `SESSION_TAKE_MAX_S`) ; envisager une limite (les dernières mesures seulement).
 - **Le chantier 2** (aucun exercice dans le code) prend **la version 12** : le catalogue, les grilles et la composition des séances deviennent des fichiers de données, chargés au démarrage et validés à ce moment par `validateExercise` et les vérifications de la présentation (aujourd’hui en test seulement).
 

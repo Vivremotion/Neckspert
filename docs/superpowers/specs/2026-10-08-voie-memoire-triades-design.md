@@ -2,7 +2,7 @@
 
 Date : 2026-10-08. Statut : approuvé dans la conversation du 2026-10-07/08, section par section.
 
-Sous-projet C1 de l’étape 3 de `docs/plateforme.md`. S’appuie sur le domaine des accords (A, `2026-10-06-accords-voicings-design.md`), le capteur d’accords (B1, `2026-10-07-capteur-accords-design.md`) et le journal de diagnostic (C0, `2026-10-07-journal-diagnostic-design.md`), qui ne demande rien ici : il est découplé.
+Sous-projet C1 de l’étape 3 de `docs/feuille-de-route.md`. S’appuie sur le domaine des accords (A, `2026-10-06-accords-voicings-design.md`), le capteur d’accords (B1, `2026-10-07-capteur-accords-design.md`) et le journal de diagnostic (C0, `2026-10-07-journal-diagnostic-design.md`), qui ne demande rien ici : il est découplé.
 
 ## Décisions de pédagogie
 

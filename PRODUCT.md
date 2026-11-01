@@ -8,7 +8,7 @@ web
 
 ## Stack
 
-SvelteKit en site statique, Svelte 5 (runes uniquement), CSS natif avec variables, sans bibliothèque de composants. Données locales dans IndexedDB (Dexie). Tests Vitest pour la logique métier. Décision de l'utilisateur, consignée dans `docs/brief.md`.
+SvelteKit en site statique, Svelte 5 (runes uniquement), CSS natif avec variables, sans bibliothèque de composants. Données locales dans IndexedDB (Dexie). Tests Vitest pour la logique métier. Décision de l'utilisateur, consignée dans `docs/projet.md`.
 
 ## Users
 
@@ -22,7 +22,7 @@ Ce qui marche pour ce public : des exercices simples et ciblés, avec un objecti
 
 ## Product Purpose
 
-**Une plateforme d'apprentissage de la guitare** dont le moteur permet d'écrire n'importe quel exercice et de structurer l'apprentissage : notes du manche, formes d'accord, précision rythmique aujourd'hui ; lecture, oreille, improvisation ensuite. On joue sur une vraie guitare, sur le temps, et l'application mesure ce qui reste d'une séance à l'autre. Vision et feuille de route : `docs/vision.md`.
+**Une plateforme d'apprentissage de la guitare** dont le moteur permet d'écrire n'importe quel exercice et de structurer l'apprentissage : notes du manche, formes d'accord, précision rythmique aujourd'hui ; lecture, oreille, improvisation ensuite. On joue sur une vraie guitare, sur le temps, et l'application mesure ce qui reste d'une séance à l'autre. Le projet : `docs/projet.md`, la feuille de route : `docs/feuille-de-route.md`.
 
 La revendication : **mesurer ce qui reste, pas ce qui réussit pendant l'exercice.** Le froid compte à part du chaud ; la maîtrise exige le rappel espacé et le transfert hors de l'aide. Exemple pour le manche : une position est **maîtrisée** quand elle est retrouvée juste et vite, à froid, dans des séances distinctes espacées de plusieurs jours (valeurs initiales, à calibrer : 90 % de premières réponses justes, en moins de 1,5 s, sur trois séances, la dernière réussite au moins 72 h après la précédente).
 
@@ -30,11 +30,11 @@ Gratuite et open source : au moins le moteur et les exercices fondamentaux. Un m
 
 ## Positioning
 
-**« JTC rendu interactif »** : un cours pour guitaristes investis, du débutant motivé à l'expert, avec de vraies leçons et des exercices variés, pas une porte d'entrée pour débutants ni un jeu sans portée pédagogique (Yousician, Rocksmith). JTC n'est pas interactif ; ici, chaque exercice écoute la guitare et juge.
+**Un cours interactif** pour guitaristes investis, du débutant motivé à l'expert, avec de vraies leçons et des exercices variés, pas une porte d'entrée pour débutants ni un jeu sans portée pédagogique (Yousician, Rocksmith). Chaque exercice écoute la guitare et juge.
 
 Le mécanisme que les autres n'ont pas : le premier essai d'un item après un délai (à froid) est compté à part des suivants (à chaud), et seul le froid alimente la rétention ; la répétition espacée (FSRS) ramène ce qui faiblit ; chaque mesure dit ce qu'elle prouve (justesse, rappel, précision, régularité, tenue, placement). Les autres entraîneurs mesurent si tu trouves pendant l'exercice ; celui-ci mesure si tu trouves encore le lendemain, sans réfléchir et sans l'écran.
 
-Ce projet remplacera Neckspert, l'outil d'origine.
+Ce projet a remplacé Neckspert v1, l'outil d'origine (tag `v0.1.0`).
 
 ## Operating Context
 
@@ -58,7 +58,7 @@ Ce projet remplacera Neckspert, l'outil d'origine.
 
 **Rythme** : trois exercices du professeur (mesures silencieuses, métronome sur 2 et 4, contretemps), une figure jouée en boucle et jugée par cycle, des niveaux, l'écoute et la réécoute de sa prise (voir « Rythme » plus bas).
 
-**À venir** (`docs/vision.md`, « Ordre des chantiers ») : séquences et figures sur les exercices du manche, ensembles admis et formes pleines, audio joué et prises partagées, compétences et planificateur, langage d'exercices et Atelier. Les vues prévues : Prochaine séance, Séance, Bilan, Progrès, Bibliothèque, Fiche d'exercice, Atelier, Réglages.
+**À venir** (`docs/feuille-de-route.md`) : séquences et figures sur les exercices du manche, ensembles admis et formes pleines, audio joué et prises partagées, compétences et planificateur, langage d'exercices et Atelier. Les vues prévues : Prochaine séance, Séance, Bilan, Progrès, Bibliothèque, Fiche d'exercice, Atelier, Réglages.
 
 ### Règles de jeu
 
@@ -95,7 +95,7 @@ Le jeu se pilote au taux de réussite (une réussite : juste et dans le temps ; 
 - **Séquences** (essai) : les consignes vont par séquences de 4, au même temps d'avance et dans la même scène ; un changement de temps d'avance entre deux séquences est annoncé par une mesure décomptée.
 - **Corde dessinée** (essai) : une aide qui se retire dès qu'elle ne sert plus. Les six cordes sont dessinées, la corde demandée marquée, plus épaisse (la consigne la nomme au-dessus), à la présentation aidée d'une note nouvelle et à la consigne qui suit un raté de cette note dans la session ; elles disparaissent après une réussite de la note. Jamais aux révisions à froid ni aux sondages.
 
-Le tempo est propre à chaque exercice (chaque exercice sur le temps, mode 1, a le sien ; le mode 2 se joue à son propre rythme, sans tempo, voir `docs/plateforme.md`) et n'est plus réglable dans les Réglages. Il reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
+Le tempo est propre à chaque exercice (chaque exercice sur le temps, mode 1, a le sien ; le mode 2 se joue à son propre rythme, sans tempo, voir `docs/projet.md`) et n'est plus réglable dans les Réglages. Il reste fixe pendant une session. À la fin d'une session d'Apprentissage, il s'adapte pour la suivante : plus de 90 % de réussite au mode 1 → +5 bpm ; moins de 70 % → −5 bpm ; entre 80 et 160 bpm. À 80 bpm, 2 temps durent 1,5 s : le temps d'avance le plus court reste un test de rappel direct.
 
 Apprendre une note (mode 1), après un sondage manqué : présentation à 8 temps avec la position affichée, dès la consigne suivante. Chaque réussite divise le temps d'avance par deux (8, 4, 2 à 80 bpm), chaque échec le double, au plus 8 ; l'aide n'apparaît qu'à 8 temps. La note est **apprise** après 2 réussites au temps d'avance du rappel direct. En mode 2, présentation avec le nom de la note, puis 2 réponses rapides sans aide.
 
@@ -108,7 +108,7 @@ Quand on passe de la guitare à l'écran ou l'inverse, une mesure est décompté
 - **Sondage** : la première fois qu'une note sort de la file, elle est demandée sans aide (mode 1 au temps d'avance du rappel direct, mode 2 avec son seuil). Retrouvée en rappel direct, elle passe directement en révision, acquise ; sinon l'aide arrive à la consigne suivante et l'apprentissage commence. Rien n'annonce un sondage à l'écran. Le sondage dispense de l'enseignement, jamais de la vérification. Il n'y a plus de session de positionnement (spec `docs/superpowers/specs/2026-10-03-sondage-avant-apprentissage-design.md`).
 - **File d'introduction** : naturelles puis altérées, cordes alternées, cases 1 à 11. Une note entre quand une place de la fenêtre se libère, pas quand un ensemble est acquis.
 - **Mode 2** : une position entre dans la file en mode 2 dès qu'elle est acquise en mode 1. Chaque sens (nom vers position, position vers nom) est suivi séparément par la répétition espacée.
-- **Triades et geste** : la zone des triades s'ouvre une fois les ancrages acquis ; la voie du geste s'ouvre sur les triades acquises. Les déblocages par compétence viendront avec le graphe de compétences et le planificateur (`docs/vision.md`, chantier 5).
+- **Triades et geste** : la zone des triades s'ouvre une fois les ancrages acquis ; la voie du geste s'ouvre sur les triades acquises. Les déblocages par compétence viendront avec le graphe de compétences et le planificateur (`docs/feuille-de-route.md`, chantier 5).
 
 ### Rythme
 
@@ -157,7 +157,7 @@ Le rythme est une compétence à part entière, pas un décor des exercices du m
 
 ## Evidence on Hand
 
-- `docs/vision.md` : vision, principes, vues prévues et ordre des chantiers. `docs/brief.md` : brief d'origine.
+- `docs/projet.md` : le produit, les principes, le moteur et le langage d'exercices. `docs/feuille-de-route.md` : l'ordre des chantiers.
 - Les écrans existants (accueil, séance, bilan, carte du manche, réglages, calibration) et leurs vues de jeu : consigne de note, grille d'accords, lane du lien, figure rythmique en notation (`src/lib/ui/`).
 - Le corpus de cours de l'auteur (coffre Obsidian, hors dépôt) : c'est l'œuvre du professeur, à ne pas reproduire.
 - Aucune donnée d'usage externe, aucun utilisateur externe, aucun témoignage : ne rien inventer de tel.

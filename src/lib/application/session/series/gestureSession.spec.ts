@@ -990,7 +990,7 @@ describe('« Joué juste » on a change', () => {
 		expect((await ctx.stored())[0].contested).toBe(true);
 	});
 
-	// Accepted difference: « Joué juste » is a development tool now (docs/vision.md).
+	// Accepted difference: « Joué juste » is a development tool now (docs/projet.md).
 	it('never offers it outside development', async () => {
 		const ctx = await missed(false);
 		expect(ctx.controller.view.contest).toBeNull();

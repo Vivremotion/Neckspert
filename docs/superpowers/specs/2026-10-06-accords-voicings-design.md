@@ -2,7 +2,7 @@
 
 Date : 2026-10-06. Statut : approuvé dans la conversation du 2026-10-06, section par section.
 
-Sous-projet A de l’étape 3 de la feuille de route de `docs/plateforme.md`, dont cette spec reprend le vocabulaire (mécanique, exercice, item, carte). Logique pure, sans mécanique, sans interface, sans stockage ni capteur : le savoir musical sur les accords dont les exercices de triades et de renversements ont besoin, général dès maintenant parce qu’il ne coûte presque rien de plus.
+Sous-projet A de l’étape 3 de `docs/feuille-de-route.md` ; cette spec reprend le vocabulaire de `docs/projet.md` (mécanique, exercice, item, carte). Logique pure, sans mécanique, sans interface, sans stockage ni capteur : le savoir musical sur les accords dont les exercices de triades et de renversements ont besoin, général dès maintenant parce qu’il ne coûte presque rien de plus.
 
 ## Contexte : les exercices de triades
 

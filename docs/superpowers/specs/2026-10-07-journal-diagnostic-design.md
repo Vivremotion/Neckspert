@@ -2,7 +2,7 @@
 
 Date : 2026-10-07. Statut : approuvé dans la conversation du 2026-10-07, section par section.
 
-Sous-projet C0 de l’étape 3 de `docs/plateforme.md`, avant les mécaniques de la voie mémoire (C1). Il prolonge le capteur d’accords (`docs/superpowers/specs/2026-10-07-capteur-accords-design.md`) et le principe « on tranche avec de vraies données, en jouant ».
+Sous-projet C0 de l’étape 3 de `docs/feuille-de-route.md`, avant les mécaniques de la voie mémoire (C1). Il prolonge le capteur d’accords (`docs/superpowers/specs/2026-10-07-capteur-accords-design.md`) et le principe « on tranche avec de vraies données, en jouant ».
 
 ## Pourquoi
 

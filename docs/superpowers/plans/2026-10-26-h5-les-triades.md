@@ -18,7 +18,7 @@
 
 **Tech Stack:** TypeScript, Svelte 5 (runes), Vitest (node : `*.spec.ts` ; jsdom : `*.svelte.spec.ts`), Dexie.
 
-**Spec:** `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` : « Reprise (état au 2026-10-26, après le plan L) », « Amendement (2026-10-23) » (sections 5 et 6, critère de fin), « Réalisation du plan H4 » (« Ce qui reste à H5 »), « Amendement (2026-10-26) » et « Réalisation du plan L ». À lire aussi : `docs/reality-check-corpus-2026-10-27.md`, d’où viennent le périmètre et la contrainte de format (D10).
+**Spec:** `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` : « Reprise (état au 2026-10-26, après le plan L) », « Amendement (2026-10-23) » (sections 5 et 6, critère de fin), « Réalisation du plan H4 » (« Ce qui reste à H5 »), « Amendement (2026-10-26) » et « Réalisation du plan L ». À lire aussi : le passage du corpus au crible (document privé, hors dépôt), d’où viennent le périmètre et la contrainte de format (D10).
 
 ## Global Constraints
 

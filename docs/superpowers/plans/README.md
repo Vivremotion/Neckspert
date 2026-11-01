@@ -1,6 +1,8 @@
 # Plans du prototype — feuille de route
 
-Prototype : modes 1 et 2, répétition espacée, tableau de bord de rétention (voir `PRODUCT.md` et `docs/brief.md`). Le travail est découpé pour paralléliser au maximum : un socle court et bloquant, puis des vagues de plans indépendants, chacun dans sa branche.
+> Le brief, la vision, le document de plateforme et la liste « à faire » cités par les anciens plans et specs ont été fondus le 2026-11-01 dans `docs/projet.md`, `docs/feuille-de-route.md` et les issues GitHub. Leurs chemins y ont été mis à jour, y compris dans les étapes qui décrivent une modification faite à l’époque dans ces anciens fichiers.
+
+Prototype : modes 1 et 2, répétition espacée, tableau de bord de rétention (voir `PRODUCT.md` et `docs/projet.md`). Le travail est découpé pour paralléliser au maximum : un socle court et bloquant, puis des vagues de plans indépendants, chacun dans sa branche.
 
 ## Vagues
 

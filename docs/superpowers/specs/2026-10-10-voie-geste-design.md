@@ -1,6 +1,6 @@
 # Design — voie du geste (D)
 
-Sous-projet D de l’étape 3 (`docs/plateforme.md`). Conçu dans la conversation du 2026-10-10, à partir du cours du 2026-09-24 (`docs/brief.md`) et de ses devoirs : la grille d’« I Only Have Eyes for You », lignes 1 et 2, en montant le manche puis, à la reprise, en descendant ; retrouver plusieurs formes d’un même accord. Specs liées : `2026-10-06-accords-voicings-design.md` (A), `2026-10-07-capteur-accords-design.md` (B1), `2026-10-08-voie-memoire-triades-design.md` (C1), `2026-10-09-retours-voie-memoire-design.md`.
+Sous-projet D de l’étape 3 (`docs/feuille-de-route.md`). Conçu dans la conversation du 2026-10-10, à partir du cours du 2026-09-24 (`docs/projet.md`) et de ses devoirs : la grille d’« I Only Have Eyes for You », lignes 1 et 2, en montant le manche puis, à la reprise, en descendant ; retrouver plusieurs formes d’un même accord. Specs liées : `2026-10-06-accords-voicings-design.md` (A), `2026-10-07-capteur-accords-design.md` (B1), `2026-10-08-voie-memoire-triades-design.md` (C1), `2026-10-09-retours-voie-memoire-design.md`.
 
 ## Décisions de pédagogie
 
@@ -226,7 +226,7 @@ Les observations restent rattachées à la manche ouverte **à leur arrivée**. 
   Avec `PlayView.targetBeatIndex` (le temps du changement en cours, donc le début du passage) et `PlayView.history` (un verdict par changement, à son temps), une vue sait tout placer.
 
 - **Registre** `src/lib/ui/play/views/index.ts` : `PLAY_VIEWS: Record<string, Component<{ controller: PlaySessionController; model: unknown }>>`. Une vue factice enregistrée sous un autre nom et nommée par un exercice factice est choisie à sa place (test).
-- **Cadre commun** `PlayFrame.svelte` : démarrer, pause (Espace), quitter, décompte, « Joué juste » (Entrée), erreur d’entrée audio, fatigue. Au centre, la vue du registre. La page `/session` l’emploie pour le genre `gesture` ; les notes et les triades gardent `PlayScreen` (leur migration reste dans `docs/todo.md`).
+- **Cadre commun** `PlayFrame.svelte` : démarrer, pause (Espace), quitter, décompte, « Joué juste » (Entrée), erreur d’entrée audio, fatigue. Au centre, la vue du registre. La page `/session` l’emploie pour le genre `gesture` ; les notes et les triades gardent `PlayScreen` (leur migration, faite depuis par H4 et H5).
 - **Vue `grid-scroll`** (`GridScrollView.svelte`, Game Boy, `DESIGN.md`) :
   - la ligne des accords défile mesure par mesure, comme la ligne du prof ;
   - l’accord en cours est grand, le suivant est visible et annoncé au moins un temps avant, les suivants sont petits ;
@@ -302,7 +302,7 @@ Les observations restent rattachées à la manche ouverte **à leur arrivée**. 
 
 ## Hors périmètre
 
-La session à deux voies (E), l’accompagnement de batterie, les formes pleines (CAGED), les tétrades jouées, les changements sur des subdivisions cliquées par le métronome, le passage des notes et des triades à `PlayFrame`, la Généralisation (`docs/todo.md`) et un éditeur de grilles.
+La session à deux voies (E), l’accompagnement de batterie, les formes pleines (CAGED), les tétrades jouées, les changements sur des subdivisions cliquées par le métronome, le passage des notes et des triades à `PlayFrame`, la Généralisation (issues GitHub) et un éditeur de grilles.
 
 ## Réalisation (2026-10-10)
 
@@ -336,7 +336,7 @@ Branche `plan/voie-geste`, plan `docs/superpowers/plans/2026-10-10-voie-geste.md
 - **Sans aide**, aucun point : chaque forme est un cadre sur ses cases, numéroté ; celui à jouer est rempli d’un damier fond et mi-teinte (règle de `DESIGN.md` pour une cinquième teinte), le suivant en pointillés. Le joueur cherche les cases lui-même.
 - **Une seule mesure comptée** avant le premier changement d’un passage, après une reprise et entre deux passages : 4, 3, 2, 1 sur les quatre temps juste avant le changement, qui tombe sur le temps fort suivant. La manche s’ouvre toujours un temps avant son changement (l’attaque en avance compte) ; le décompte compte jusqu’au changement, pas jusqu’à l’ouverture. Le cœur reste générique : un rapport au temps peut donner `targetOffset` (le temps entre l’ouverture et la cible) ; le contrôleur prend alors sa borne comme celle de la cible et compte jusqu’à elle. Les notes et les triades n’en ont pas : rien ne change pour elles.
 - **Décompte visible** : grand, dans le cadre, à la place des verdicts, avec « Départ dans ». Trouvé en route : `PixelWord` ne dessine que des lettres de notes ; un chiffre y est vide. Le cadre écrit donc le décompte en texte. **L’écran des notes et des triades (`PlayScreen`) a le même défaut** et n’a pas été touché.
-- **Une consigne avant le premier passage d’un exercice dans la série** (`ExerciseDefinition.howTo`, en données, français et anglais) : le contrôleur s’arrête là, métronome arrêté, `PlayView.briefing`, puis une mesure comptée au tempo de l’exercice quand le joueur appuie sur « C’est parti » (ou Espace) ; cet arrêt remplace le redémarrage pour le tempo. La consigne du premier exercice est sur l’écran de départ (`controller.ready()`, appelé par `/session` pour le geste), sans second arrêt. Le cœur ne lit que la présence et le texte de `howTo` ; les notes et les triades n’en ont pas. Cela couvre en partie l’entrée « Présenter un exercice que le guitariste n’a jamais vu » de `docs/todo.md`.
+- **Une consigne avant le premier passage d’un exercice dans la série** (`ExerciseDefinition.howTo`, en données, français et anglais) : le contrôleur s’arrête là, métronome arrêté, `PlayView.briefing`, puis une mesure comptée au tempo de l’exercice quand le joueur appuie sur « C’est parti » (ou Espace) ; cet arrêt remplace le redémarrage pour le tempo. La consigne du premier exercice est sur l’écran de départ (`controller.ready()`, appelé par `/session` pour le geste), sans second arrêt. Le cœur ne lit que la présence et le texte de `howTo` ; les notes et les triades n’en ont pas. Cela couvre en partie l’entrée « Présenter un exercice que le guitariste n’a jamais vu » de la liste « à faire » d’alors (aujourd’hui une issue GitHub).
 - **`/dev/gesture`** montre relier sur `link-path`, en boucle ; `?view=grid` montre une contrainte sur `grid-scroll`.
 
 ### Risques connus

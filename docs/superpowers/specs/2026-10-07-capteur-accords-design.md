@@ -2,7 +2,7 @@
 
 Date : 2026-10-07. Statut : approuvé dans la conversation du 2026-10-07, section par section.
 
-Sous-projet B1 de l’étape 3 de `docs/plateforme.md`. Il s’appuie sur le domaine des accords et des voicings (sous-projet A, `docs/superpowers/specs/2026-10-06-accords-voicings-design.md`) et sur la recommandation du spike de détection (`docs/superpowers/specs/2026-10-06-triades-detection-spike.md`) : sur sol‑si‑mi, le juge `nnls-abs` dit si l’accord attendu a sonné et dans quel renversement, plaqué, arpégé ou mélangé, à condition de **vérifier parmi des candidats connus** au lieu de transcrire. C’est démontré pour la voie de la mémoire, pas pour le jam.
+Sous-projet B1 de l’étape 3 de `docs/feuille-de-route.md`. Il s’appuie sur le domaine des accords et des voicings (sous-projet A, `docs/superpowers/specs/2026-10-06-accords-voicings-design.md`) et sur la recommandation du spike de détection (`docs/superpowers/specs/2026-10-06-triades-detection-spike.md`) : sur sol‑si‑mi, le juge `nnls-abs` dit si l’accord attendu a sonné et dans quel renversement, plaqué, arpégé ou mélangé, à condition de **vérifier parmi des candidats connus** au lieu de transcrire. C’est démontré pour la voie de la mémoire, pas pour le jam.
 
 ## Principes
 

@@ -33,7 +33,7 @@
 - `src/lib/ui/screens/map/NeckMapScreen.svelte` — secondes ou statut.
 - `src/lib/ui/screens/summary/SummaryScreen.svelte` et `messages.ts` — note, libellé, ligne suivante.
 - `src/routes/session/+page.svelte` — redirection. `src/routes/dev/summary/+page.svelte` — fixture Jeu libre. `src/routes/dev/map/+page.svelte` — `locateLeadMs` fourni.
-- `docs/brief.md` — une phrase de seuil.
+- `docs/projet.md` — une phrase de seuil.
 
 ---
 
@@ -47,7 +47,7 @@
 - Modify: `src/lib/domain/scoring/recall.spec.ts`
 - Modify: `src/lib/domain/progress/lead.ts`
 - Modify: `src/lib/domain/progress/lead.spec.ts`
-- Modify: `docs/brief.md` (la puce « Seuil mémoire contre calcul »)
+- Modify: `docs/projet.md` (la puce « Seuil mémoire contre calcul »)
 - Test: les trois `*.spec.ts` ci-dessus
 
 **Interfaces:**
@@ -115,7 +115,7 @@ return attempt.reactionMs !== null && attempt.reactionMs <= IDENTIFY_RECALL_THRE
 
 La branche avec `leadBeats` reste sur `RECALL_THRESHOLD_MS`. Mettre à jour le commentaire de chaque fonction pour dire que le mode 2 compare à `IDENTIFY_RECALL_THRESHOLD_MS`.
 
-Dans `docs/brief.md`, remplacer la puce seuil par :
+Dans `docs/projet.md`, remplacer la puce seuil par :
 
 ```md
 - **Seuil « mémoire contre calcul ».** Jouer une note en moins d'environ 1,5 s correspond à un rappel direct ; la nommer, en moins de 3 s. Au-delà, c'est un calcul.
@@ -132,7 +132,7 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/lib/domain/types.ts src/lib/domain/scoring/identify.ts src/lib/domain/scoring/identify.spec.ts src/lib/domain/scoring/recall.ts src/lib/domain/scoring/recall.spec.ts src/lib/domain/progress/lead.ts src/lib/domain/progress/lead.spec.ts docs/brief.md
+git add src/lib/domain/types.ts src/lib/domain/scoring/identify.ts src/lib/domain/scoring/identify.spec.ts src/lib/domain/scoring/recall.ts src/lib/domain/scoring/recall.spec.ts src/lib/domain/progress/lead.ts src/lib/domain/progress/lead.spec.ts docs/projet.md
 git commit -m "$(cat <<'EOF'
 feat: count a named note within 3s as direct recall
 

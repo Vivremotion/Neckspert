@@ -655,7 +655,7 @@ oracleReport(files: readonly { name: string; text: string }[]): OracleReport;  /
 
 ### Task 14: Documentation
 
-**Files:** Modify `CLAUDE.md`, `docs/vision.md` (avancement du chantier 1), la spec (section « Réalisation » : un paragraphe « Plan 2 » avec les décisions de ce plan et ce que l’exécution aura décidé d’autre)
+**Files:** Modify `CLAUDE.md`, `docs/feuille-de-route.md` (avancement du chantier 1), la spec (section « Réalisation » : un paragraphe « Plan 2 » avec les décisions de ce plan et ce que l’exécution aura décidé d’autre)
 
 - [ ] **Step 1:** `CLAUDE.md` : `domain/session/` (trace, politique `next`, anti-blocage, bilan sur la trace), `domain/glossary/`, `SessionMemory` et la réécoute par suite, `SESSION_MS` pour les séances d’exercice, la contestation par raison (développement), l’oracle (`/diagnostic/oracle`) ; retirer `RHYTHM_SERIES_MS`, `cyclesPerSeries`, `TAKE_BUFFER_MAX_S`, `SessionSummary.rhythm`.
 - [ ] **Step 2:** `npm run lint` → PASS (ou `npm run format` puis relire).

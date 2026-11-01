@@ -699,10 +699,10 @@ Lignes de retour (fr) : décalage de tenue « Sans clic, tu passes devant (−35
 
 ### Task 21: Documentation
 
-**Files:** Modify `CLAUDE.md`, `docs/vision.md`, `PRODUCT.md`, `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` (section « Réalisation »)
+**Files:** Modify `CLAUDE.md`, `docs/feuille-de-route.md`, `PRODUCT.md`, `docs/superpowers/specs/2026-10-14-temps-musical-et-sequences-design.md` (section « Réalisation »)
 
 - [ ] **Step 1:** `CLAUDE.md` : le temps musical (`domain/time/`, fractions de ronde, plan d’attentes, `PlanRound`, `PlanSessionController` à côté de `SessionController` jusqu’à la migration), les sons (`SoundSchedulerPort`, `Transport`, journal des sons), le verdict (`success`, `correct` nullable, enveloppe, `ResponseVerdict`), les aides (`aids`), le stockage (Dexie 8, sauvegarde 4, chaîne `migrations/`, `levelStates`), la séance `'exercise'`, la latence par capteur et sa provenance, le changement de tempo à une respiration.
-- [ ] **Step 2:** `docs/vision.md` : chantier 1, plan 1 fait ; `PRODUCT.md` : le rythme comme compétence ; spec : « Réalisation » (écarts, résultat de l’essai à deux entrées).
+- [ ] **Step 2:** `docs/feuille-de-route.md` : chantier 1, plan 1 fait ; `PRODUCT.md` : le rythme comme compétence ; spec : « Réalisation » (écarts, résultat de l’essai à deux entrées).
 - [ ] **Step 3:** `npm run lint` → PASS (ou `npm run format` puis relire).
 - [ ] **Step 4:** `git commit -m "docs: describe musical time, the plan controller and the target storage"`
 

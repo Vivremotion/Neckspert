@@ -191,4 +191,4 @@ Le profil aide là où il a été mesuré et dégrade un peu ailleurs : **il fau
 
 ### Suite
 
-La spec de la mécanique des triades (étape 3 de `docs/plateforme.md`) part de la voie mémoire et des conditions ci-dessus. Le juge y est réécrit proprement (le code du spike reste jetable), sur l’horloge unique, avec ses deux étalonnages et l’enregistrement des essais. Le format du corpus (`src/lib/spike/triads/corpus.ts`) et les prises enregistrées servent de fixtures. Les seuils sont revus sur l’audio des premières vraies séances avant de compter les essais à froid dans FSRS.
+La spec de la mécanique des triades (étape 3 de `docs/feuille-de-route.md`) part de la voie mémoire et des conditions ci-dessus. Le juge y est réécrit proprement (le code du spike reste jetable), sur l’horloge unique, avec ses deux étalonnages et l’enregistrement des essais. Le format du corpus (`src/lib/spike/triads/corpus.ts`) et les prises enregistrées servent de fixtures. Les seuils sont revus sur l’audio des premières vraies séances avant de compter les essais à froid dans FSRS.

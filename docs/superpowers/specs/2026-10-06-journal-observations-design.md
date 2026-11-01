@@ -2,7 +2,7 @@
 
 Date : 2026-10-06. Statut : approuvé dans la conversation de développement du 2026-10-06.
 
-Étape 2 de la feuille de route de `docs/plateforme.md`, dont cette spec reprend le vocabulaire sans le répéter. La première moitié de l’étape (champs communs d’un côté, données propres à la mécanique de l’autre) est déjà faite par l’étape 1 : `Attempt<D>` sépare les champs communs de `data` (`docs/superpowers/specs/2026-10-05-mecaniques-exercices-design.md`, section « Essai »). Reste la seconde : enregistrer les observations brutes, pour calculer après coup des mesures et des graphes non prévus.
+Étape 2 de `docs/feuille-de-route.md` ; cette spec reprend le vocabulaire de `docs/projet.md` sans le répéter. La première moitié de l’étape (champs communs d’un côté, données propres à la mécanique de l’autre) est déjà faite par l’étape 1 : `Attempt<D>` sépare les champs communs de `data` (`docs/superpowers/specs/2026-10-05-mecaniques-exercices-design.md`, section « Essai »). Reste la seconde : enregistrer les observations brutes, pour calculer après coup des mesures et des graphes non prévus.
 
 Aucun verdict, aucun seuil, aucun écran ne change.
 
@@ -174,7 +174,7 @@ Porte de fusion : `npm test && npm run check`.
 ## 7. Documentation
 
 - `CLAUDE.md` : Dexie version 6, sauvegarde version 3, une règle « observations » (plage d’un essai, rattachement à l’arrivée, rejets jamais réponses).
-- `docs/plateforme.md` : étape 2 marquée faite, avec un renvoi à cette spec.
+- `docs/feuille-de-route.md` : étape 2 marquée faite, avec un renvoi à cette spec.
 
 ## Hors périmètre
 

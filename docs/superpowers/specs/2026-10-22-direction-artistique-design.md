@@ -1,13 +1,13 @@
 # Direction artistique « Près du silence » et design system
 
-Date : 2026-10-22. Statut : décidé avec l'utilisateur (2026-10-21 et 22), deux tirages impeccable puis des corrections sur pièces. Remplace la cartouche Game Boy (abandonnée le 2026-10-13, `docs/vision.md`, « Direction artistique et ton »). Piste parallèle au cœur : elle ne touche ni `application/session/` ni `domain/` (voir « Frontières »).
+Date : 2026-10-22. Statut : décidé avec l'utilisateur (2026-10-21 et 22), deux tirages impeccable puis des corrections sur pièces. Remplace la cartouche Game Boy (abandonnée le 2026-10-13, `docs/projet.md`, « Direction artistique et ton »). Piste parallèle au cœur : elle ne touche ni `application/session/` ni `domain/` (voir « Frontières »).
 
 Pièces de référence :
 
 - l'esquisse approuvée, `.impeccable/mocks/decision/silence.html` (« Prochaine séance » et « En séance ») ;
 - la planche des états de jeu, `.impeccable/mocks/decision/silence-etats.html` (état 3 retenu) ;
 - le contrat de direction, `.impeccable/surfaces/src-routes-session-page-svelte.md` (thèse, monde, premier écran, seed du tirage) ;
-- `PRODUCT.md`, rafraîchi depuis `docs/vision.md` le 2026-10-21.
+- `PRODUCT.md`, rafraîchi le 2026-10-21.
 
 ## Ce qui est décidé
 

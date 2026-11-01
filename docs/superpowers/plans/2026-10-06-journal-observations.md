@@ -257,9 +257,9 @@ Règles (spec, section 3) : la plage s’ouvre dans `beginNextItem` (après avoi
 
 **Files:**
 
-- Modify: `CLAUDE.md`, `docs/plateforme.md`
+- Modify: `CLAUDE.md`, `docs/feuille-de-route.md`
 
 - [ ] **Step 1:** `CLAUDE.md` : section Storage → Dexie version 6 (observations et latence), sauvegarde version 3 (v2 et v1 encore importées) ; nouvelle règle « **Observations** » : la plage d’un essai (de sa manche à la suivante, pause, fin), rattachement à l’arrivée, `fate`, les rejets du détecteur enregistrés `'unreadable'` et jamais réponses, `observations: null` pour les anciens essais ; architecture : `observationSpan.ts`, `NoteDetectorPort.onRejected`.
-- [ ] **Step 2:** `docs/plateforme.md`, feuille de route : étape 2 marquée **Fait** (2026-10-06) avec renvoi à la spec.
+- [ ] **Step 2:** `docs/feuille-de-route.md`, feuille de route : étape 2 marquée **Fait** (2026-10-06) avec renvoi à la spec.
 - [ ] **Step 3:** `npm run lint` → passe.
 - [ ] **Step 4:** commit `docs: describe the observations kept with each attempt`.

@@ -76,7 +76,7 @@ Suite de C1 (`2026-10-08-voie-memoire-triades-design.md`), avant sa fusion. Vien
 
 ### Dette assumée
 
-`PromptView.shape`, `VerdictView.heard` / `expected` / `gap` et `PlayView.contest` s’ajoutent au contrat commun de l’écran de jeu. Ils rejoignent la liste de l’entrée « Une vue de jeu par mécanique » de `docs/todo.md`.
+`PromptView.shape`, `VerdictView.heard` / `expected` / `gap` et `PlayView.contest` s’ajoutent au contrat commun de l’écran de jeu. Ils rejoignent la liste de l’entrée « Une vue de jeu par mécanique » de la liste « à faire » d’alors (réalisée depuis par H4 et H5).
 
 ## 3. Tests
 
@@ -93,8 +93,8 @@ Barrière de fusion : `npm test && npm run check`, puis vérification dans Chrom
 Deux retours du premier essai de cette branche, décidés dans la conversation, sans nouvelle spec :
 
 - **« Vers la case 3 »** remplace « position 3 ». La case nommée est tirée, à chaque consigne, parmi celles que couvre la forme demandée, de sa plus basse case appuyée à sa plus haute (`cueFrets`, `TriadZoneItem.fret`). Elle n’est pas la case de la fondamentale : avec la note, elle donnerait la corde, et la zone redeviendrait l’ancrage. Deux formes d’un même accord sur les mêmes cordes ne couvrent jamais la même case (vérifié sur les 48 accords du catalogue), la consigne reste sans ambiguïté. Un essai enregistré avant nomme la plus basse case.
-- **Deux exercices.** Une session ne sert plus qu’une mécanique : `triads` l’ancrage, `triads-zone` la zone (`SessionKind`, `createTriadSelector({ mechanic })`), chacun sa consigne de départ ; les séquences d’une même mécanique disparaissent de la session Triades. La zone apparaît à l’accueil, « Triades vers une case », dès que `ZONE_MIN_ACQUIRED_TRIADS` (6, une famille) triades sont acquises en ancrage, et reste ouverte une fois qu’elle a une carte (`triadZoneOpen`). L’intégration aux sessions d’Apprentissage est notée dans `docs/todo.md`.
+- **Deux exercices.** Une session ne sert plus qu’une mécanique : `triads` l’ancrage, `triads-zone` la zone (`SessionKind`, `createTriadSelector({ mechanic })`), chacun sa consigne de départ ; les séquences d’une même mécanique disparaissent de la session Triades. La zone apparaît à l’accueil, « Triades vers une case », dès que `ZONE_MIN_ACQUIRED_TRIADS` (6, une famille) triades sont acquises en ancrage, et reste ouverte une fois qu’elle a une carte (`triadZoneOpen`). L’intégration aux sessions d’Apprentissage est notée dans les issues GitHub.
 
 ## Hors périmètre
 
-Justesse de la reconnaissance (après la fusion de C1), correction en zone, une vue de jeu par mécanique (`docs/todo.md`), marque « entendu » à l’attaque.
+Justesse de la reconnaissance (après la fusion de C1), correction en zone, une vue de jeu par mécanique (liste « à faire » d’alors), marque « entendu » à l’attaque.
