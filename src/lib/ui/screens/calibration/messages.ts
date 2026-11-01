@@ -65,7 +65,7 @@ export const calibrationMessages = defineMessages({
 		clickChoice: 'Calibrer sur mon jeu au clic',
 		clickChoiceNote:
 			'Elle mesure aussi ton jeu : la latence obtenue est affichée, jamais utilisée pour juger.',
-		bleed: 'Ton entrée entend le clic : pour les exercices de rythme, joue au casque.',
+		bleed: 'Ton entrée entend le clic : joue au casque, sinon il compte comme une note.',
 		'no-sound': 'Aucun son détecté. Réessaie plus fort, ou change d’entrée.',
 		inconsistent:
 			'Les deux entrées ne s’accordent pas assez (dispersion ci-dessous). Ce n’est pas ton jeu : réessaie, en laissant sonner chaque note.',
@@ -124,7 +124,7 @@ export const calibrationMessages = defineMessages({
 		clickChoice: 'Calibrate on my playing on the click',
 		clickChoiceNote:
 			'It measures your playing too: the latency it gives is shown, never used to judge.',
-		bleed: 'Your input hears the click: wear headphones for the rhythm exercises.',
+		bleed: 'Your input hears the click: wear headphones, or it counts as a note.',
 		'no-sound': 'No sound detected. Try louder, or pick another input.',
 		inconsistent:
 			'The two inputs do not agree closely enough (spread below). It is not your playing: retry, letting each note ring.',

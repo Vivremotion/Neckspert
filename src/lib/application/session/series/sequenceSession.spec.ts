@@ -41,6 +41,19 @@ describe('a sequence of chord shapes on the series', () => {
 		expect(previewProblem(ARPEGGIO_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
 	});
 
+	it('asks for headphones when the calibration heard the click, the series not refused', async () => {
+		const { controller } = await sequenceSeries(ARPEGGIO_EXERCISE, {
+			pattern: ARPEGGIO_PATTERN,
+			met: true,
+			clickBleed: true
+		});
+		await controller.ready();
+		expect(controller.view.audioError).toBe('bleed');
+		await controller.start();
+		expect(controller.view.status).toBe('count-in');
+		controller.quit();
+	});
+
 	it('chains the three chords without a gap, one attempt each', async () => {
 		const { controller, stored, advance, player } = await series();
 		await controller.ready();

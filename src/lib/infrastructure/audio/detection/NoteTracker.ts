@@ -12,32 +12,10 @@ function centsBetween(a: number, b: number): number {
 /** An attack is told within this of its onset (`PRE_ATTACK_MS` and the tracker's own lag). */
 const TOLD_WITHIN_S = 0.2;
 
-/** The level before an attack stops this long before it, its first sound left out. */
-const BEFORE_GUARD_S = 0.005;
-
-/**
- * Under this share of the level before the attack, the sound has fallen: a finger lifted leaves an
- * open string ringing, which is no note played. Real attacks stay above 0.9 on real takes, above
- * 0.5 on an export whose notes stop the last, and fall to 0.3 only with a note 6 dB softer.
- */
-export const FALLEN_LEVEL_RATIO = 0.25;
-
-/**
- * Under this share of the level before the attack, the pitch of the last note has not been played
- * again: a click or a touch over the note that still rings. A note played again raises its level.
- */
-export const PLAYED_AGAIN_RATIO = 1;
-
-function rmsOf(samples: readonly number[], from: number, to: number): number {
-	let sum = 0;
-	for (let i = from; i < to; i++) sum += samples[i] * samples[i];
-	return Math.sqrt(sum / Math.max(1, to - from));
-}
-
 /**
  * A played note is an attack and a pitch: told of each attack (`attack`, by the attack sensor), it
- * reads the pitch of the two windows after it, and emits one NoteOnset once they have come, unless
- * the level after the attack says that no note was played there.
+ * reads the pitch of the two windows after it, and emits one NoteOnset once they have come. It
+ * reports what sounds: a string left ringing by a lifted finger is a note, the player's to clean.
  */
 export class NoteTracker {
 	private readonly samples: number[] = [];
@@ -45,17 +23,14 @@ export class NoteTracker {
 	/** The attacks whose two windows have not all come yet, oldest first. */
 	private readonly pending: number[] = [];
 	private readonly maxBuffer: number;
-	private readonly guard: number;
-	private lastMidi: number | null = null;
 
 	constructor(
 		private readonly config: PitchConfig,
 		private readonly sampleRate: number,
 		private readonly onRejected?: (rejection: NoteRejection) => void
 	) {
-		this.guard = Math.round(BEFORE_GUARD_S * sampleRate);
-		// The wait before an attack is told, its two windows, and the level before it.
-		this.maxBuffer = Math.ceil(TOLD_WITHIN_S * sampleRate) + config.windowSize * 3 + this.guard;
+		// The wait before an attack is told, and its two windows.
+		this.maxBuffer = Math.ceil(TOLD_WITHIN_S * sampleRate) + config.windowSize * 2;
 	}
 
 	/** An attack at `time` (audio s). One older than the sound kept (an input reopened) is dropped. */
@@ -163,24 +138,6 @@ export class NoteTracker {
 			reject('out-of-range');
 			return null;
 		}
-		const levelAfter = rmsOf(this.samples, start + this.config.windowSize, start + need);
-		const beforeEnd = Math.max(0, start - this.guard);
-		const levelBefore = rmsOf(
-			this.samples,
-			Math.max(0, beforeEnd - this.config.windowSize),
-			beforeEnd
-		);
-		if (
-			levelAfter < levelBefore * FALLEN_LEVEL_RATIO ||
-			(midi === this.lastMidi && levelAfter < levelBefore * PLAYED_AGAIN_RATIO)
-		) {
-			logDetection('attaque sans note jouée', [
-				`attaque à ${onsetTime.toFixed(3)} s`,
-				`MIDI ${midi}, niveau ${levelBefore.toFixed(3)} → ${levelAfter.toFixed(3)}`
-			]);
-			return null;
-		}
-		this.lastMidi = midi;
 		logDetection('hauteur confirmée', [
 			`attaque à ${onsetTime.toFixed(3)} s`,
 			describeFrequency(reading.frequencyHz),

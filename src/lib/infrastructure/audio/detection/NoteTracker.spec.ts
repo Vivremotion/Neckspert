@@ -289,7 +289,7 @@ describe('rejections', () => {
 	});
 });
 
-describe('an attack that plays no new note', () => {
+describe('every attack with a pitch is a note', () => {
 	const RATE = 48000;
 	const A3 = 220;
 	const G3 = 196;
@@ -306,7 +306,7 @@ describe('an attack that plays no new note', () => {
 		}
 	}
 
-	it('does not hear a note ringing again under a click', () => {
+	it('hears the ringing note again under a click on the playing input, hence the headphones', () => {
 		const signal = new Float32Array(RATE * 4);
 		for (let i = Math.round(0.2 * RATE); i < signal.length; i++) {
 			const t = i / RATE - 0.2;
@@ -314,10 +314,11 @@ describe('an attack that plays no new note', () => {
 		}
 		for (const at of [0.8, 1.4, 2, 2.6, 3.2]) addClick(signal, at, 0.2);
 		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
-		expect(notes.map((note) => note.midi)).toEqual([57]);
+		expect(notes.length).toBeGreaterThan(1);
+		expect(new Set(notes.map((note) => note.midi))).toEqual(new Set([57]));
 	});
 
-	it('does not hear a note in the open string a lifted finger leaves ringing', () => {
+	it('hears the open string a lifted finger leaves ringing: the sound is the player\'s', () => {
 		const signal = new Float32Array(RATE * 2);
 		const lift = Math.round(0.8 * RATE);
 		for (let i = Math.round(0.2 * RATE); i < lift; i++) {
@@ -328,7 +329,7 @@ describe('an attack that plays no new note', () => {
 			signal[i] = 0.03 * Math.exp((-(i - lift) / RATE) * 2) * string(G3, (i - lift) / RATE);
 		}
 		const notes = pushAll(new NoteTracker(DEFAULT_DETECTOR_CONFIG, RATE), signal, RATE);
-		expect(notes.map((note) => note.midi)).toEqual([57]);
+		expect(notes.map((note) => note.midi)).toEqual([57, 55]);
 	});
 
 	it('hears the same note played again, softer than it first was', () => {

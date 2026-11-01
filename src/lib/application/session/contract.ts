@@ -93,7 +93,7 @@ export interface PlayView {
 	contest: 'available' | 'done' | null;
 	/**
 	 * 'input': no audio input could be opened at start; 'bleed': the calibration heard the click
-	 * on the playing input, so an exercise that listens to attacks asks for headphones. The
+	 * on the playing input, so an exercise whose sensor it would fool asks for headphones. The
 	 * screen says so.
 	 */
 	audioError: 'input' | 'bleed' | null;

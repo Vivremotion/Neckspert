@@ -134,6 +134,7 @@ export async function sequenceSeries(
 		pattern: readonly number[];
 		/** The exercise was played before: no demonstration of a first encounter. */
 		met?: boolean;
+		clickBleed?: boolean;
 	}
 ) {
 	const clock = new FakeClock();
@@ -147,7 +148,7 @@ export async function sequenceSeries(
 	const takes = new FakeTakeBuffer();
 	const memory = new SessionMemory();
 	if (options.met) await attempts.add(earlier(exercise.id));
-	await settings.update({ latency: {}, clickBleed: false });
+	await settings.update({ latency: {}, clickBleed: options.clickBleed ?? false });
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
