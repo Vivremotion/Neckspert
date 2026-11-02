@@ -52,6 +52,7 @@ These are fixed product decisions documented in `docs/superpowers/plans/README.m
 ## Workflow conventions
 
 - The backlog is GitHub issues and the project board, not a file in the repository; issues are in French.
+- How a ticket moves (columns, one ticket in progress per track, Definition of Ready and Done, questions as issue comments labeled `attend-auteur`, the handover comment, local previews on port 5200 + issue number via `scripts/preview.mjs`, continuous deployment from `main`): `docs/flux-de-travail.md`. Never decide a product or pedagogy question yourself: ask it on the issue.
 - Implementation plans and specs live in `docs/superpowers/plans/` and `docs/superpowers/specs/` (dated, in French). Plan work historically ran in git worktrees under `.worktrees/` on `plan/<id>` branches.
 - Commit messages: Conventional Commits, lowercase, imperative and behavior-focused (`feat: open the summary when free play ends`, `fix: …`, `test: …`, `docs: …`).
 - TDD for any logic: domain and application code each have colocated `*.spec.ts`.
