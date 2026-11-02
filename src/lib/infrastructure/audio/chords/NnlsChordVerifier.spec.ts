@@ -172,8 +172,8 @@ describe('NnlsChordVerifier', () => {
 		expect(finalOf(second)?.decided).toBe('2,3,2');
 	});
 
-	it('reads a right chord apart from an unrecognized one an arpeggio before it', () => {
-		const at = 1.0 + ARPEGGIO_SPAN_MS / 1000 + 0.1;
+	it('reads a right chord apart from an unrecognized one before it', () => {
+		const at = 1.6;
 		const { source, verifier, reports } = twoChords([60, 64, 67], 1.0, D_232, at);
 		verifier.expect(expectation(0.9));
 		source.playUntil();

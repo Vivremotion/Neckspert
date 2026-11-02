@@ -21,11 +21,18 @@ export const STABLE_READINGS = 3;
 export const NOTHING_FINAL_MS = 1000;
 /**
  * A new attack closes the window of an earlier one older than this: the notes of an arpeggio come
- * within it, a chord played again comes later (sooner, it is read with the first one). The
- * arpeggios of the triad corpus, in eighths at 80 bpm, play their third note 580 to 750 ms after
- * the first; now that the attack sensor hears each of them, 500 ms cut them (2026-11-02).
+ * within it, a chord played again comes later (sooner, it is read with the first one)…
  */
-export const ARPEGGIO_SPAN_MS = 1000;
+export const ARPEGGIO_SPAN_MS = 500;
+/**
+ * …unless the new attack is weaker than STRUM_STRENGTH: then it is taken for one more note of an
+ * arpeggio, up to this age of the earlier window. On the triad corpus (DI, 2026-11-02), the first
+ * attack of a strum has a strength of 0.44 to 0.65 (10th to 90th percentile), the notes of an
+ * arpeggio after its first 0.16 to 0.35; the arpeggios in eighths at 80 bpm play their third note
+ * 580 to 750 ms after the first.
+ */
+export const ARPEGGIO_NOTES_SPAN_MS = 1000;
+export const STRUM_STRENGTH = 0.4;
 /**
  * The attack sensor tells an attack this long after it at the latest (66 to 150 ms on the 1 603
  * attacks of the triad corpus): a window is read only once no attack can still be told inside it,

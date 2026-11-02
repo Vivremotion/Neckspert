@@ -7,6 +7,7 @@ import type {
 } from '$lib/application/ports';
 import type { AudioFrame, FrameSource } from '../input/WebAudioInput';
 import {
+	ARPEGGIO_NOTES_SPAN_MS,
 	ARPEGGIO_SPAN_MS,
 	ATTACK_NOTICE_S,
 	FIRST_READING_MS,
@@ -17,6 +18,7 @@ import {
 	SPECTRUM_POINTS_MS,
 	STABLE_READINGS,
 	SPECTRUM_KEEP_MIN_HZ,
+	STRUM_STRENGTH,
 	fftSizeFor,
 	hopSizeFor
 } from './constants';
@@ -99,7 +101,7 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 			throw new RangeError(`No judge variant: ${this.active}`);
 		}
 		input.onFrame((frame) => this.onFrame(frame));
-		attacks.onAttack(({ time }) => this.onAttack(time));
+		attacks.onAttack(({ time, strength }) => this.onAttack(time, strength));
 	}
 
 	expect(expectation: ChordExpectation | null): void {
@@ -168,9 +170,9 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	}
 
 	/** An attack told by the attack sensor: a window opens at it, when it falls in the round. */
-	private onAttack(attack: number): void {
+	private onAttack(attack: number, strength: number): void {
 		if (!this.expectation || attack < this.expectation.opensAt) return;
-		this.closeBefore(attack);
+		this.closeBefore(attack, strength);
 		const w: OpenWindow = {
 			attack,
 			pooled: null,
@@ -182,11 +184,13 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	}
 
 	/** A new attack at `attack`: the windows it closes give their final reading now. */
-	private closeBefore(attack: number): void {
+	private closeBefore(attack: number, strength: number): void {
+		// Within the span, it may be an arpeggio whose notes have not all come: two of them can
+		// already read as another shape. Known risk: a chord played again this soon is read with the
+		// first, and a weak one (or a firm arpeggio note) within ARPEGGIO_NOTES_SPAN_MS likewise.
+		const spanMs = strength >= STRUM_STRENGTH ? ARPEGGIO_SPAN_MS : ARPEGGIO_NOTES_SPAN_MS;
 		this.windows = this.windows.filter((w) => {
-			// Younger, it may be an arpeggio whose notes have not all come: two of them can already
-			// read as another shape. Known risk: a chord played again this soon is read with the first.
-			if ((attack - w.attack) * 1000 <= ARPEGGIO_SPAN_MS) return true;
+			if ((attack - w.attack) * 1000 <= spanMs) return true;
 			pool(w, this.spectra, attack);
 			this.report(w, Math.round((attack - w.attack) * 1000), true);
 			return false;
