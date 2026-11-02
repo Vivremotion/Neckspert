@@ -87,11 +87,12 @@
 			</li>
 			<li>
 				Convention : le début d’une attaque est le premier point où la forme d’onde monte nettement
-				au-dessus du bruit, avant le premier pic. On ne note aucun verdict, aucun timecode à la main.
-				Une pré-attaque (l’ongle ou le médiator qui touche la corde juste avant la note, faible
-				et inaudible sous elle) n’est pas une attaque : pas d’étiquette, l’étiquette va sur la note.
-				Une attaque entendue mais peu visible reste une attaque : la vue spectrogramme
-				(<em>Vue multiple</em> dans le menu de la piste) la montre mieux que la forme d’onde.
+				au-dessus du bruit, avant le premier pic. On ne note aucun verdict, aucun timecode à la
+				main. Une pré-attaque (l’ongle ou le médiator qui touche la corde juste avant la note,
+				faible et inaudible sous elle) n’est pas une attaque : pas d’étiquette, l’étiquette va sur
+				la note. Une attaque entendue mais peu visible reste une attaque : la vue spectrogramme (<em
+					>Vue multiple</em
+				> dans le menu de la piste) la montre mieux que la forme d’onde.
 			</li>
 			<li>
 				<em>Fichier › Exporter › Exporter les étiquettes</em> : un <code>.txt</code> par suite, du même
@@ -113,7 +114,9 @@
 					<p>Fausses (le capteur, sans étiquette) : {row.attacks.falseS.map(at).join(', ')}</p>
 				{/if}
 				{#if row.attacks.missedS.length > 0}
-					<p>Manquées (une étiquette, rien du capteur) : {row.attacks.missedS.map(at).join(', ')}</p>
+					<p>
+						Manquées (une étiquette, rien du capteur) : {row.attacks.missedS.map(at).join(', ')}
+					</p>
 				{/if}
 				{#if row.attacks.pairs.some((pair) => Math.abs(pair.deltaMs) > ORACLE_OFFSET_SHOWN_MS)}
 					<p>
@@ -149,11 +152,11 @@
 	.oracle {
 		max-width: 48rem;
 		margin: 0 auto;
-		padding: var(--np-space-3);
-		font-family: system-ui, sans-serif;
-		font-size: 16px;
+		padding: var(--np-step-3);
+		font-family: var(--np-font-text);
+		font-size: var(--np-size-body);
 		line-height: 1.5;
-		color: var(--np-ink);
-		background: var(--np-bg);
+		color: var(--np-text);
+		background: var(--np-ground);
 	}
 </style>

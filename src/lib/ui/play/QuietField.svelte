@@ -39,10 +39,6 @@
 		/* A veil over the lightest stop of the field, under the info line. */
 		background: linear-gradient(rgba(35, 33, 31, 0.4), transparent 160px), var(--np-field);
 		color: var(--np-on-field);
-		font-family: var(--np-font-text);
-		/* Not the pixel world's bold, unsmoothed body. */
-		font-weight: 400;
-		image-rendering: auto;
 		-webkit-font-smoothing: antialiased;
 	}
 </style>

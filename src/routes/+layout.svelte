@@ -78,11 +78,6 @@
 		min-height: 100dvh;
 	}
 
-	:global(html:has(.shell)),
-	:global(body:has(.shell)) {
-		background: var(--np-ground);
-	}
-
 	.app {
 		box-sizing: border-box;
 		width: 100%;
@@ -92,23 +87,12 @@
 		container: app / inline-size;
 	}
 
-	/* The light world: the Game Boy rule on html and body stays for the session. */
+	/* The light world is the page's own (tokens.css): the shell only lays out the rail. */
 	.shell {
 		--rail-width: 168px;
 		display: grid;
 		grid-template-columns: var(--rail-width) 1fr;
 		min-height: 100dvh;
-		background: var(--np-ground);
-		color: var(--np-text);
-		font-family: var(--np-font-text);
-		font-weight: 400;
-		-webkit-font-smoothing: auto;
-		image-rendering: auto;
-	}
-
-	.shell ::selection {
-		background: var(--np-text);
-		color: var(--np-ground);
 	}
 
 	main {

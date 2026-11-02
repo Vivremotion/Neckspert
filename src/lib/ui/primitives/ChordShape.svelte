@@ -102,11 +102,13 @@
 <style>
 	/*
 	 * Colours from --shape-ink (strings played, dots, names), --shape-ground (the tile under a
-	 * fret) and --shape-accent (strings and frets not played); unset, the Game Boy tones.
+	 * fret) and --shape-accent (strings and frets not played); unset, the Game Boy tones, which
+	 * exist only in the pixel world. Its sizes likewise: the pixel world's, else the quiet meta.
 	 */
 	.chord-shape {
+		--shape-name-size: var(--np-type-meta, var(--np-size-meta));
 		color: var(--shape-ink, var(--np-ink));
-		font-size: var(--np-type-meta);
+		font-size: var(--shape-name-size);
 		line-height: 1;
 	}
 
@@ -132,7 +134,7 @@
 	}
 
 	.row.played {
-		block-size: calc(var(--np-type-meta) + 4px);
+		block-size: calc(var(--shape-name-size) + 4px);
 	}
 
 	.name {
