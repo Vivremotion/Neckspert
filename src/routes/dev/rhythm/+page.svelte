@@ -5,7 +5,8 @@
 	// (the anti-blocking's remedy), `?phase=shift` a breath after a beat lost, `?phase=wrong` a
 	// breath after wrong notes of a figure derived from a chord shape, its prompt above and the
 	// shape asked, the breath otherwise. `?shot=written` a figure written with its notes (a G
-	// major scale in position), engraved as staff and tab; `?shot=derived` the triad arpeggio's
+	// major scale in position), engraved as staff and tab; `?shot=flats` an F major scale whose
+	// B flat is written so, not as A sharp; `?shot=derived` the triad arpeggio's
 	// aid level, the tab of the notes derived from its chord shape under its prompt.
 	// The frame tells what the series announces (a remedy, the level reached at the breath).
 	import { page } from '$app/state';
@@ -23,7 +24,8 @@
 		METER_4_4,
 		type CycleReport,
 		type Figure,
-		type FigureElement
+		type FigureElement,
+		type WrittenAccidental
 	} from '$lib/domain/time';
 	import type { PlannedItem } from '$lib/domain/types';
 	import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
@@ -133,12 +135,17 @@
 		};
 	}
 
-	/** An eighth note of `pitch` (MIDI) on `string`. */
-	const fretted = (pitch: number, string: number): FigureElement => ({
+	/** An eighth note of `pitch` (MIDI) on `string`, written with `accidental` when it has one. */
+	const fretted = (
+		pitch: number,
+		string: number,
+		accidental?: WrittenAccidental
+	): FigureElement => ({
 		kind: 'note',
 		duration: Fraction.of(1, 8),
 		content: null,
 		pitch,
+		...(accidental === undefined ? {} : { accidental }),
 		string
 	});
 	/** G major in position, up and down: G3 on the D string to G4 on the B string. */
@@ -174,6 +181,33 @@
 		cycleBars: 2,
 		cursor: Fraction.of(3, 8),
 		notation: { staff: true, tab: true }
+	};
+
+	/** F major in position, up and down: F3 on the D string to F4 on the B string, B flat written. */
+	const F_SCALE: [number, number, WrittenAccidental?][] = [
+		[53, 4],
+		[55, 4],
+		[57, 3],
+		[58, 3, -1],
+		[60, 3],
+		[62, 2],
+		[64, 2],
+		[65, 2]
+	];
+	const flats: FigureStageModel = {
+		...written,
+		exerciseLabel: 'Gamme de fa',
+		figure: {
+			...scale,
+			voices: [
+				{
+					id: 'main',
+					elements: [...F_SCALE, ...[...F_SCALE].reverse()].map(([pitch, string, accidental]) =>
+						fretted(pitch, string, accidental)
+					)
+				}
+			]
+		}
 	};
 
 	/** The arpeggio's aid level, its round under way: the tab of the C chord's notes. */
@@ -221,21 +255,23 @@
 	const model: FigureStageModel =
 		shot === 'written'
 			? written
-			: shot === 'derived'
-				? derived()
-				: phase === 'play' || phase === 'along'
-					? base
-					: phase === 'muted'
-						? { ...base, barInCycle: 0, muted: true }
-						: phase === 'shift'
-							? { ...breath, settled: [lostBeat()] }
-							: phase === 'wrong'
-								? {
-										...breath,
-										settled: [wrongNotes()],
-										prompt: { primary: 'Do', secondary: 'cordes sol, si, mi' }
-									}
-								: breath;
+			: shot === 'flats'
+				? flats
+				: shot === 'derived'
+					? derived()
+					: phase === 'play' || phase === 'along'
+						? base
+						: phase === 'muted'
+							? { ...base, barInCycle: 0, muted: true }
+							: phase === 'shift'
+								? { ...breath, settled: [lostBeat()] }
+								: phase === 'wrong'
+									? {
+											...breath,
+											settled: [wrongNotes()],
+											prompt: { primary: 'Do', secondary: 'cordes sol, si, mi' }
+										}
+									: breath;
 	const announcement: PlayView['announcement'] =
 		phase === 'along'
 			? { kind: 'play-along', level: 2, of: 6, tempoBpm: 80 }

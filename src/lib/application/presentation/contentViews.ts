@@ -91,11 +91,12 @@ const pitchView: ContentView = {
 	miss: (value, { answer }, locale, random) => {
 		// One spelling for both notes: « Ab au lieu de Bb », never « G# au lieu de Bb ». A note
 		// the content names (as its figure or its chord writes it) gives it; else one draw.
-		const { midi: asked, name } = value as { midi: Midi; name?: string };
+		const { midi: asked, name } = value as { midi: Midi; name?: unknown };
 		const drawn = random();
-		const accidental = name === undefined ? null : accidentalOfName(name);
+		const accidental = typeof name === 'string' ? accidentalOfName(name) : null;
 		const spelling = () => (accidental ? (accidental < 0 ? FLAT_DRAW : SHARP_DRAW) : drawn);
-		const expected = name ?? noteName(pitchOfMidi(asked), spelling);
+		const expected =
+			accidental === null ? noteName(pitchOfMidi(asked), spelling) : (name as string);
 		const midi = (answer as { midi?: Midi } | null)?.midi;
 		const octaves = midi === undefined ? 0 : (midi - asked) / OCTAVE;
 		const gap =

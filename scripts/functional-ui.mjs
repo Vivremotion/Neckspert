@@ -656,6 +656,37 @@ try {
 		noteTiny('figure-written', run.texts);
 	}
 
+	console.log('\nFigure /dev/rhythm?shot=flats');
+	{
+		const call = await open(`${RHYTHM_URL}?shot=flats`);
+		const run = await evaluate(
+			call,
+			`async () => {
+				await (${settle})();
+				await new Promise((resolve) => setTimeout(resolve, 300));
+				const glyphs = (glyph) =>
+					[...(document.querySelectorAll('.score svg text') ?? [])].filter((t) =>
+						t.textContent.includes(glyph)
+					).length;
+				return {
+					frets: [...document.querySelectorAll('.vf-tabnote text')].map((t) => t.textContent),
+					flats: glyphs('\\uE260'),
+					sharps: glyphs('\\uE262'),
+					texts: ${texts}
+				};
+			}`
+		);
+		check(
+			assert(
+				run.frets.join(' ') === '3 5 2 3 5 3 5 6 6 5 3 5 3 2 5 3',
+				`les cases de la gamme de fa (${run.frets.join(' ')})`
+			)
+		);
+		check(assert(run.flats >= 1, `le si bémol porte un bémol (${run.flats})`));
+		check(assert(run.sharps === 0, `aucun dièse dans la gamme de fa (${run.sharps})`));
+		noteTiny('figure-flats', run.texts);
+	}
+
 	console.log('\nFigure /dev/rhythm?shot=derived');
 	{
 		const call = await open(`${RHYTHM_URL}?shot=derived`);

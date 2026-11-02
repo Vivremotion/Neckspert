@@ -318,7 +318,7 @@ describe('every attack with a pitch is a note', () => {
 		expect(new Set(notes.map((note) => note.midi))).toEqual(new Set([57]));
 	});
 
-	it("hears the open string a lifted finger leaves ringing: the sound is the player's", () => {
+	it('hears the open string a lifted finger leaves ringing: the sound is the player\'s', () => {
 		const signal = new Float32Array(RATE * 2);
 		const lift = Math.round(0.8 * RATE);
 		for (let i = Math.round(0.2 * RATE); i < lift; i++) {

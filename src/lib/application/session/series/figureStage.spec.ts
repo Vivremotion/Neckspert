@@ -9,7 +9,8 @@ import {
 	type Figure,
 	type FigureElement,
 	type RoundOutcome,
-	type RoundPlan
+	type RoundPlan,
+	validateFigure
 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
@@ -507,6 +508,34 @@ describe('figureStage, a form moved to its chord', () => {
 			[58, -1],
 			[62, undefined]
 		]);
+	});
+
+	it('spells a derived note by its own name, not by the written rhythm figure', () => {
+		// The rhythm written on B flat: every derived note of D maj7 keeps only its own spelling.
+		const onFlats: ExerciseDefinition = {
+			...FORM_EXERCISE,
+			figures: FORM_EXERCISE.figures!.map(({ id, figure }) => ({
+				id,
+				figure: {
+					...figure,
+					voices: figure.voices.map((voice) => ({
+						...voice,
+						elements: voice.elements.map((e) =>
+							e.kind === 'note' ? { ...e, pitch: 58, accidental: -1 as const } : e
+						)
+					}))
+				}
+			}))
+		};
+		const aided = {
+			...planned(onFlats, { form: 'maj7', first: 'd', beats: 4 }),
+			exerciseLevel: -1
+		};
+		const engraved = stage(onFlats, aided, 'round').figure;
+		expect(validateFigure(engraved)).toBeNull();
+		expect(
+			engraved.voices[0].elements.flatMap((e) => (e.kind === 'note' ? [e.accidental] : []))
+		).toEqual([undefined, 1, undefined, 1]);
 	});
 
 	it('writes its moved notes into the figure for the tab aid', () => {

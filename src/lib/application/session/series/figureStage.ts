@@ -233,7 +233,8 @@ const ENGRAVED = new WeakMap<RoundPlan, { written: Figure; startBar: number; eng
 
 /**
  * The derived notes of the attacks of a figure's first voice: each attack carries the pitch and
- * the string of its expectation in `contents` (a tied note those of its attack).
+ * the string of its expectation in `contents` (a tied note those of its attack), and its spelling
+ * when the content names an altered note.
  */
 function withContents(figure: Figure, contents: readonly unknown[]): Figure {
 	const [first, ...others] = figure.voices;
@@ -244,7 +245,10 @@ function withContents(figure: Figure, contents: readonly unknown[]): Figure {
 		const before = first.elements[i - 1];
 		const tiedIn = before !== undefined && before.kind !== 'rest' && before.tieToNext === true;
 		if (!tiedIn) held = pitchOf(contents[attack++]);
-		return held ? { ...element, ...held } : element;
+		if (!held) return element;
+		// The derived note's spelling, never the written rhythm's: its pitch is another.
+		const { accidental: _written, ...rest } = element;
+		return { ...rest, ...held };
 	});
 	return { ...figure, voices: [{ ...first, elements }, ...others] };
 }

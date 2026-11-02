@@ -216,6 +216,14 @@ describe('CONTENT_VIEWS', () => {
 			() => 0.9
 		);
 		expect(natural).toMatchObject({ correction: 'G', gap: 'Ab au lieu de G' });
+		// A name it cannot read is not shown: the pitch is spelled as without one.
+		const unread = CONTENT_VIEWS.pitch.miss(
+			{ midi: 70, name: 'bes' },
+			{ answer: null, confusion: null },
+			'fr',
+			() => 0
+		);
+		expect(unread.correction).toBe('A#');
 	});
 
 	it('tells the pitch played as the note view does', () => {
