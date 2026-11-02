@@ -10,7 +10,7 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ fallback: 'index.html' })
+			adapter: adapter({ fallback: '404.html' })
 		})
 	],
 	test: {
