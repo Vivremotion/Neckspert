@@ -43,9 +43,10 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 		list: true,
 		derive: (item) => {
 			const { voicing, frets } = item as VoicingFigureItem;
-			return voicingNotes(parseVoicingKey(voicing), frets).map(({ midi, string }) => ({
+			return voicingNotes(parseVoicingKey(voicing), frets).map(({ midi, string, name }) => ({
 				midi,
-				string
+				string,
+				name
 			}));
 		}
 	},

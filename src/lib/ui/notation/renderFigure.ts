@@ -27,8 +27,10 @@ import {
 	type Figure,
 	type FigureElement,
 	type Meter,
-	type Voice as FigureVoice
+	type Voice as FigureVoice,
+	type WrittenAccidental
 } from '$lib/domain/time';
+import { writtenName } from '$lib/domain/time/noteName';
 import type { Notation } from '$lib/domain/exercise/figureParams';
 import { fretOf } from '$lib/domain/music/fretboard';
 import { CHROMATIC_NOTES } from '$lib/domain/music/types';
@@ -201,11 +203,20 @@ class FretNote extends TabNote {
 	}
 }
 
-/** The staff's key of a sounding pitch, written an octave up, spelled with sharps. */
-function staffKey(pitch: number): string {
+/**
+ * The staff's key of a sounding pitch, written an octave up: on the letter its `accidental` leaves
+ * (`bes` stays B flat, not A sharp), spelled with sharps when the figure writes none.
+ */
+function staffKey(pitch: number, accidental: WrittenAccidental | undefined): string {
 	const written = pitch + WRITTEN_OCTAVE_UP;
-	const name = CHROMATIC_NOTES[((written % 12) + 12) % 12].toLowerCase();
-	return `${name}/${Math.floor(written / 12) - 1}`;
+	if (accidental === undefined) {
+		const name = CHROMATIC_NOTES[((written % 12) + 12) % 12].toLowerCase();
+		return `${name}/${Math.floor(written / 12) - 1}`;
+	}
+	// The octave is the letter's: C flat 5 sounds as B 4.
+	const natural = written - accidental;
+	const name = writtenName(pitch, accidental).toLowerCase();
+	return `${name}/${Math.floor(natural / 12) - 1}`;
 }
 
 /** The fret of a note on its string; throws when it has none to give. */
@@ -277,7 +288,12 @@ function pieceNote(
 	}
 	if (row === 'staff' || rest) {
 		const pitch = element.kind === 'note' ? element.pitch : undefined;
-		const key = rest ? STAFF_MIDDLE : pitch === undefined ? `${STAFF_MIDDLE}/x2` : staffKey(pitch);
+		const accidental = element.kind === 'note' ? element.accidental : undefined;
+		const key = rest
+			? STAFF_MIDDLE
+			: pitch === undefined
+				? `${STAFF_MIDDLE}/x2`
+				: staffKey(pitch, accidental);
 		return new StaveNote({ keys: [key], duration, dots: piece.dots, autoStem: true });
 	}
 	const note = new FretNote(

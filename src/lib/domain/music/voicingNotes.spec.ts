@@ -7,9 +7,9 @@ describe('voicingNotes', () => {
 
 	it('gives the notes of a voicing at the place of its frets, lowest string first', () => {
 		expect(voicingNotes(cFirstInversion, [9, 8, 8])).toEqual([
-			{ midi: 64, string: 3, fret: 9 },
-			{ midi: 67, string: 2, fret: 8 },
-			{ midi: 72, string: 1, fret: 8 }
+			{ midi: 64, string: 3, fret: 9, name: 'E' },
+			{ midi: 67, string: 2, fret: 8, name: 'G' },
+			{ midi: 72, string: 1, fret: 8, name: 'C' }
 		]);
 	});
 
@@ -17,9 +17,9 @@ describe('voicingNotes', () => {
 		const cRootPosition = parseVoicingKey('C|maj|3:5,2:1,1:3');
 		expect(voicingNotes(cRootPosition, [0, 1, 0]).map((n) => n.midi)).toEqual([55, 60, 64]);
 		expect(voicingNotes(cRootPosition, [12, 13, 12])).toEqual([
-			{ midi: 67, string: 3, fret: 12 },
-			{ midi: 72, string: 2, fret: 13 },
-			{ midi: 76, string: 1, fret: 12 }
+			{ midi: 67, string: 3, fret: 12, name: 'G' },
+			{ midi: 72, string: 2, fret: 13, name: 'C' },
+			{ midi: 76, string: 1, fret: 12, name: 'E' }
 		]);
 	});
 
