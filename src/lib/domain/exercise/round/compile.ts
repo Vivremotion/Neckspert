@@ -4,6 +4,7 @@ import { mechanicRules } from '../../mechanics';
 import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
 import type { Figure, FigureNote } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
+import { writtenName } from '../../time/noteName';
 import { BEAT_RESOLUTION, barLength, beatsOf, sameMeter, type Meter } from '../../time/meter';
 import {
 	figureExpectations,
@@ -288,10 +289,13 @@ function figureContentOf(
 			}
 			return {
 				kind: PITCH_CONTENT,
-				value:
-					note.string === undefined
-						? { midi: note.pitch }
-						: { midi: note.pitch, string: note.string }
+				value: {
+					midi: note.pitch,
+					...(note.string === undefined ? {} : { string: note.string }),
+					...(note.accidental === undefined
+						? {}
+						: { name: writtenName(note.pitch, note.accidental) })
+				}
 			};
 		};
 	}

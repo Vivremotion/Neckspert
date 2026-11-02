@@ -1,19 +1,26 @@
+import { formatSpelledNote } from './spelling';
 import type { StringNumber } from './types';
 import { voicingOccurrences, type Voicing } from './voicing';
 
 /**
  * The notes of `voicing` at its `occurrence`-th place on the neck (0: the lowest), lowest string
- * first, each with its exact pitch. Throws when it has no such place.
+ * first, each with its exact pitch and its name as the chord spells it. Throws when it has no
+ * such place.
  */
 export function voicingNotes(
 	voicing: Voicing,
 	occurrence: number
-): { midi: number; string: StringNumber; fret: number }[] {
+): { midi: number; string: StringNumber; fret: number; name: string }[] {
 	const places = voicingOccurrences(voicing);
 	if (!Number.isInteger(occurrence) || occurrence < 0 || occurrence >= places.length) {
 		throw new RangeError(
 			`Occurrence ${occurrence} does not exist: the voicing has ${places.length} places`
 		);
 	}
-	return places[occurrence].notes.map(({ midi, string, fret }) => ({ midi, string, fret }));
+	return places[occurrence].notes.map(({ midi, string, fret, note }) => ({
+		midi,
+		string,
+		fret,
+		name: formatSpelledNote(note)
+	}));
 }

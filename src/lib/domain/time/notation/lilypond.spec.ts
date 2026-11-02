@@ -91,6 +91,18 @@ describe('parseLilyPond', () => {
 			expect(pitches("es'4 aisis g,, ces' | bis r2.")).toEqual([63, 59, 31, 59, 60]);
 		});
 
+		it('keeps the accidental each note is written with, none on a natural', () => {
+			const written = (text: string) =>
+				attackNotes(parseLilyPond(text)).map(({ note }) => note.accidental);
+			expect(written("bes4 ais ees' es' | ces' bis eses' fisis'")).toEqual([
+				-1, 1, -1, -1, -1, 1, -2, 2
+			]);
+			expect(written("f4 g a b | c' d' e' f'")).toEqual(Array(8).fill(undefined));
+			// A tied note keeps its spelling on both heads.
+			const tied = parseLilyPond('bes2~ bes').voices[0].elements;
+			expect(tied.map((e) => e.kind === 'note' && e.accidental)).toEqual([-1, -1]);
+		});
+
 		it('gives every note a pitch, the rhythm figures written c included', () => {
 			expect(pitches('c8 c c c c c c c')).toEqual(Array(8).fill(48));
 			expect(pitches('c4 r c c')).toEqual([48, 48, 48]);

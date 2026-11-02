@@ -15,8 +15,10 @@ import {
 	type Meter,
 	type RoundOutcome,
 	type RoundPlan,
-	type TempoSegment
+	type TempoSegment,
+	type WrittenAccidental
 } from '$lib/domain/time';
+import { accidentalOfName } from '$lib/domain/time/noteName';
 import {
 	exerciseLevelsOf,
 	figureParamsOf,
@@ -212,11 +214,18 @@ function derivationOf(definition: ExerciseDefinition): string | null {
 }
 
 /** The pitch and the string a content gives a note (`{ midi, string? }`); null when it gives none. */
-function pitchOf(value: unknown): { pitch?: number; string?: number } | null {
+function pitchOf(
+	value: unknown
+): { pitch?: number; string?: number; accidental?: WrittenAccidental } | null {
 	if (typeof value !== 'object' || value === null) return null;
-	const { midi, string } = value as Record<string, unknown>;
+	const { midi, string, name } = value as Record<string, unknown>;
 	if (typeof midi !== 'number') return null;
-	return { pitch: midi, ...(typeof string === 'number' ? { string } : {}) };
+	const accidental = typeof name === 'string' ? accidentalOfName(name) : null;
+	return {
+		pitch: midi,
+		...(typeof string === 'number' ? { string } : {}),
+		...(accidental ? { accidental } : {})
+	};
 }
 
 /** The figure each plan engraves, kept by plan: one figure per plan, engraved once. */

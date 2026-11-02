@@ -492,6 +492,23 @@ describe('figureStage, a form moved to its chord', () => {
 		]);
 	});
 
+	it('writes the spelling of its moved notes into the figure, for the staff', () => {
+		const flat = {
+			...planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 4 }),
+			exerciseLevel: -1
+		};
+		const notes = stage(FORM_EXERCISE, flat, 'round').figure.voices[0].elements.flatMap((e) =>
+			e.kind === 'note' ? [[e.pitch, e.accidental]] : []
+		);
+		// Eb, G, Bb, D: the flats written, none on a natural.
+		expect(notes).toEqual([
+			[51, -1],
+			[55, undefined],
+			[58, -1],
+			[62, undefined]
+		]);
+	});
+
 	it('writes its moved notes into the figure for the tab aid', () => {
 		const aided = { ...item, exerciseLevel: -1 };
 		const model = stage(FORM_EXERCISE, aided, 'round');
