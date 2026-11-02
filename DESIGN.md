@@ -392,12 +392,11 @@ A full mist overlay over the field: the how-to in body size (max 36rem, centred)
 
 ## Migration
 
-After plan 2 the shell, home, summary, settings, calibration and neck map are in « Près du silence ». The old Game Boy world (the first `:root` block of `src/lib/ui/tokens.css`: `--np-bg`, `--np-mid`, `--np-shade`, `--np-ink`, `--np-tile`, `--np-font-pixel`, `--np-type-*`, `--np-space-*`, the scaffold region variables, VT323, `.np-dither`, the global pixel `html, body` rules) is still used by:
+After plan 2 the shell, home, summary, settings, calibration and neck map are in « Près du silence », and every page is painted in it from its first load (`html, body` on `--np-ground`, `--np-text`, Atkinson). The old Game Boy world (`--np-bg`, `--np-mid`, `--np-shade`, `--np-ink`, `--np-tile`, `--np-font-pixel`, `--np-type-*`, `--np-space-*`, VT323, the pixel `html, body` rules) is declared in `src/lib/ui/tokens.css` under `:root:has([data-world='pixel'])` only: it exists while a frame of the pixel world is on screen, and nowhere else. It is still used by:
 
 - `PlayFrame` and its views (grid scroll, link lane, rhythm figure, played cycle, `PixelWord`), until plan 3;
-- the diagnostic oracle page;
-- `ChordShape`'s internals and `Term`'s fallbacks, which read the old names when `--shape-*` or `--term-*` are not set;
-- the `Pixel*` primitives and `VerdictSprite`, now used only inside `PlayFrame` and its views;
+- `ChordShape`'s internals and `Term`'s fallbacks, which read the old names when `--shape-*` or `--term-*` are not set (in a migrated screen they are unset, and `ChordShape` falls back on the quiet meta size);
+- `PixelButton` and `VerdictSprite`, used only inside `PlayFrame` and its views;
 - the dev-only played cycle on the summary, through a commented local bridge that redefines the old names (`--np-ink`, `--np-shade`, `--np-bg`, `--np-type-body`, `--np-type-meta`) from the new tokens on its own wrapper, until plan 3.
 
-**The One World Per Screen Rule.** A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A migrated screen resets what the global pixel rules impose (weight, smoothing, image rendering), as `PlayScreen` and the shell do. A shared component used in both worlds is themed by the screen through its own variables, never by old tokens leaking in; the local bridge on the summary is the one sanctioned exception, scoped and dated. The old tokens, VT323, the scaffold region variables, the bridge and the pixel primitives are deleted when the last screen migrates.
+**The One World Per Screen Rule.** A screen is either wholly in « Près du silence » or wholly in the old world; it never mixes the two. A shared component used in both worlds is themed by the screen through its own variables, never by old tokens leaking in; the local bridge on the summary is the one sanctioned exception, scoped and dated. The old tokens, VT323, the bridge and the pixel primitives are deleted when the last screen migrates; `tokens.spec.ts` lists the files still allowed to read them, a list that only shrinks.

@@ -9,6 +9,16 @@ import { contrastRatio } from './contrast';
 const css = readFileSync(fileURLToPath(new URL('./tokens.css', import.meta.url)), 'utf8');
 const staticRoot = fileURLToPath(new URL('../../../static', import.meta.url));
 
+// Every Svelte source as raw text, keyed by its path from the project root, with the stylesheet.
+const sources = {
+	...(import.meta.glob('/src/**/*.svelte', {
+		query: '?raw',
+		import: 'default',
+		eager: true
+	}) as Record<string, string>),
+	'/src/lib/ui/tokens.css': css
+};
+
 const ROLE_TOKENS = [
 	'--np-ground',
 	'--np-text',
@@ -95,5 +105,67 @@ describe('contrastRatio', () => {
 	});
 	it('keeps the amber button label readable', () => {
 		expect(contrastRatio('#23211F', '#D9A13B')).toBeGreaterThanOrEqual(4.5);
+	});
+});
+
+/** The Game Boy tokens: the pixel world's only, until plan 3 migrates its last views. */
+const GAME_BOY_TOKEN = /--np-(?:bg|mid|shade|ink|tile|font-pixel|type-[a-z]+|space-\d+)\b/;
+
+/**
+ * The files still drawn in the pixel world, or bridging it in a migrated screen. The list only
+ * shrinks: a migrated view leaves it, and the last one takes the Game Boy tokens with it.
+ */
+const PIXEL_WORLD_FILES = [
+	'/src/lib/ui/play/PixelWord.svelte',
+	'/src/lib/ui/play/PlayFrame.svelte',
+	'/src/lib/ui/play/views/DrawnMiss.svelte',
+	'/src/lib/ui/play/views/FigureView.svelte',
+	'/src/lib/ui/play/views/GridScrollView.svelte',
+	'/src/lib/ui/play/views/LinkLaneView.svelte',
+	'/src/lib/ui/play/views/MarkShape.svelte',
+	'/src/lib/ui/play/views/NeckDiagram.svelte',
+	'/src/lib/ui/play/views/NeckPicture.svelte',
+	'/src/lib/ui/play/views/PlayedCycle.svelte',
+	'/src/lib/ui/primitives/ChordShape.svelte',
+	'/src/lib/ui/primitives/PixelButton.svelte',
+	'/src/lib/ui/primitives/Term.svelte',
+	'/src/lib/ui/primitives/VerdictSprite.svelte',
+	'/src/lib/ui/screens/summary/SummaryScreen.svelte',
+	'/src/lib/ui/tokens.css'
+];
+
+/** The rule blocks of a stylesheet, as their selector and body (no nesting in tokens.css). */
+function blocks(css: string): { selector: string; body: string }[] {
+	const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, '');
+	return [...withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selector, body]) => ({
+		selector: selector.trim(),
+		body
+	}));
+}
+
+describe('the Game Boy tokens', () => {
+	it('are declared only while a frame of the pixel world is on screen', () => {
+		const declaring = blocks(css).filter(({ body }) =>
+			new RegExp(`${GAME_BOY_TOKEN.source}\\s*:`).test(body)
+		);
+		expect(declaring.length).toBeGreaterThan(0);
+		for (const { selector } of declaring) {
+			expect(selector).toBe(":root:has([data-world='pixel'])");
+		}
+	});
+
+	it('do not paint the page outside the pixel world', () => {
+		const page = blocks(css).filter(({ selector }) => /^html,\s*body$/.test(selector));
+		expect(page).toHaveLength(1);
+		expect(page[0].body).toContain('var(--np-ground)');
+		expect(page[0].body).not.toMatch(GAME_BOY_TOKEN);
+	});
+
+	it('are read only by the files of the pixel world and their bridges', () => {
+		const readers = Object.entries(sources)
+			.filter(([, text]) => GAME_BOY_TOKEN.test(text))
+			.map(([path]) => path)
+			.sort();
+		expect(readers).toEqual([...PIXEL_WORLD_FILES].sort());
 	});
 });
