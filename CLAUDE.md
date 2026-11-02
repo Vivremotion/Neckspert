@@ -12,6 +12,8 @@ Node 22.23.3 (`.nvmrc`, `engine-strict=true`). Scripts are in `package.json`; `n
 
 Vitest has two projects (`vite.config.ts`): `*.spec.ts` runs in **node** (`server`), `*.svelte.spec.ts` runs in **jsdom** (`client`, `npx vitest run --project client`). Any test that renders components or uses runes must be named `*.svelte.spec.ts`. `expect.requireAssertions` is on, so every test must assert. Dexie specs import `fake-indexeddb/auto`. The merge gate used throughout the plans is `npm test && npm run check`.
 
+`.github/workflows/deploy.yml` runs `npm test`, `npm run check` and the build on every pull request, and on `main` publishes `build/` to GitHub Pages (neckspert.app). Only the root is prerendered (`index.html`); every other path is the SPA fallback `404.html`, which Pages serves for an unknown path (with status 404).
+
 `scripts/functional-ui.mjs` drives real pages in headless Chrome against running dev servers (it fails on behavior errors and on text under 16px). It is not part of `npm test`.
 
 ## Architecture
