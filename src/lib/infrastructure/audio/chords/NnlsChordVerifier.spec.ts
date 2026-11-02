@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
-import { FakeDiagnosticSink } from '$lib/testing/fakes';
-import { SPECTRUM_KEEP_MAX_HZ, SPECTRUM_KEEP_MIN_HZ } from './constants';
+import { FakeAttackDetector, FakeDiagnosticSink } from '$lib/testing/fakes';
+import { WebAudioAttackDetector } from '../attacks';
+import {
+	ARPEGGIO_SPAN_MS,
+	ATTACK_NOTICE_S,
+	SPECTRUM_KEEP_MAX_HZ,
+	SPECTRUM_KEEP_MIN_HZ
+} from './constants';
 import { NnlsChordVerifier } from './NnlsChordVerifier';
 import { DEFAULT_VARIANT } from './variants';
 import { FakeFrameSource } from './testing/frames';
@@ -10,15 +16,31 @@ import { dCandidates, synthChordSignal } from './testing/synthChord';
 const D_232 = [57, 62, 66];
 const D_775 = [62, 66, 69];
 
+/** The verifier on a source, with the attacks the attack sensor hears on it, as in the app. */
+function verifierOn(source: FakeFrameSource, options = {}) {
+	return new NnlsChordVerifier(source, new WebAudioAttackDetector(source), options);
+}
+
+/** A signal's samples scaled by `gain`, in decibels. */
+function louder(signal: Float32Array, db: number): Float32Array {
+	return signal.map((v) => v * 10 ** (db / 20));
+}
+
 /** Two chords struck one after the other, the first damped when the second comes. */
-function twoChords(first: number[], firstAt: number, second: number[], secondAt: number) {
+function twoChords(
+	first: number[],
+	firstAt: number,
+	second: number[],
+	secondAt: number,
+	{ ringing = false } = {}
+) {
 	const sampleRate = 48000;
 	const a = synthChordSignal(first, sampleRate, { durationS: 3.6, attackS: firstAt });
 	const b = synthChordSignal(second, sampleRate, { durationS: 3.6, attackS: secondAt });
-	const damped = Math.floor(secondAt * sampleRate);
+	const damped = ringing ? Infinity : Math.floor(secondAt * sampleRate);
 	const signal = b.map((v, i) => v + (i < damped ? a[i] : 0));
 	const source = new FakeFrameSource(sampleRate, signal);
-	const verifier = new NnlsChordVerifier(source);
+	const verifier = verifierOn(source);
 	const reports: ChordReport[] = [];
 	verifier.onReport((report) => reports.push(report));
 	return { source, verifier, reports };
@@ -31,13 +53,82 @@ function expectation(opensAt: number, expected: readonly string[] = ['2,3,2']): 
 function setup(sampleRate = 48000, midis: number[] = D_232, options = {}) {
 	const signal = synthChordSignal(midis, sampleRate, { durationS: 3.6, attackS: 1.0 });
 	const source = new FakeFrameSource(sampleRate, signal);
-	const verifier = new NnlsChordVerifier(source, options);
+	const verifier = verifierOn(source, options);
 	const reports: ChordReport[] = [];
 	verifier.onReport((report) => reports.push(report));
 	return { source, verifier, reports };
 }
 
 describe('NnlsChordVerifier', () => {
+	it('reads from each attack the attack sensor tells, timed as told', () => {
+		const signal = synthChordSignal(D_232, 48000, { durationS: 3.6, attackS: 1.0 });
+		const source = new FakeFrameSource(48000, signal);
+		const attacks = new FakeAttackDetector();
+		const verifier = new NnlsChordVerifier(source, attacks);
+		const reports: ChordReport[] = [];
+		verifier.onReport((report) => reports.push(report));
+		verifier.expect(expectation(0.9));
+		// Told late, as the sensor does: it knows an attack once the sound after it is heard.
+		source.playUntil(1.0 + ATTACK_NOTICE_S);
+		attacks.emit({ time: 1.003, strength: 1 });
+		source.playUntil();
+		expect(reports.map((r) => [r.time, r.windowMs, r.final, r.decided])).toEqual([
+			[1.003, 250, true, '2,3,2']
+		]);
+	});
+
+	it('takes no attack from anything but the attack sensor', () => {
+		const signal = synthChordSignal(D_232, 48000, { durationS: 3.6, attackS: 1.0 });
+		const source = new FakeFrameSource(48000, signal);
+		const verifier = new NnlsChordVerifier(source, new FakeAttackDetector());
+		const reports: ChordReport[] = [];
+		verifier.onReport((report) => reports.push(report));
+		verifier.expect(expectation(0.9));
+		source.playUntil();
+		expect(reports).toEqual([]);
+	});
+
+	it('reads a strum only once no later attack can still be told inside its window', () => {
+		const signal = synthChordSignal(D_232, 48000, { durationS: 3.6, attackS: 1.0 });
+		const source = new FakeFrameSource(48000, signal);
+		const attacks = new FakeAttackDetector();
+		const verifier = new NnlsChordVerifier(source, attacks);
+		const reports: ChordReport[] = [];
+		verifier.onReport((report) => reports.push(report));
+		verifier.expect(expectation(0.9));
+		source.playUntil(1.1);
+		attacks.emit({ time: 1.0, strength: 1 });
+		source.playUntil(1.0 + 0.25 + ATTACK_NOTICE_S - 0.02);
+		expect(reports).toEqual([]);
+		source.playUntil(1.0 + 0.25 + ATTACK_NOTICE_S + 0.02);
+		expect(reports.map((r) => r.windowMs)).toEqual([250]);
+	});
+
+	for (const db of [-10, -20]) {
+		it(`reads a chord played ${-db} dB softer`, () => {
+			const signal = louder(synthChordSignal(D_232, 48000, { durationS: 3.6, attackS: 1.0 }), db);
+			const source = new FakeFrameSource(48000, signal);
+			const verifier = verifierOn(source);
+			const reports: ChordReport[] = [];
+			verifier.onReport((report) => reports.push(report));
+			verifier.expect(expectation(0.9));
+			source.playUntil();
+			expect(reports.filter((r) => r.final).map((r) => r.decided)).toEqual(['2,3,2']);
+			expect(Math.abs(reports[0].time - 1.0)).toBeLessThan(0.015);
+		});
+	}
+
+	it('reads a chord struck while the one before still rings', () => {
+		const { source, verifier, reports } = twoChords(D_775, 1.0, D_232, 1.75, { ringing: true });
+		verifier.expect(expectation(0.9));
+		source.playUntil(1.5);
+		verifier.expect(expectation(1.5));
+		source.playUntil();
+		const second = reports.filter((r) => r.time >= 1.5 && r.final);
+		expect(second.map((r) => r.decided)).toEqual(['2,3,2']);
+		expect(Math.abs(second[0].time - 1.75)).toBeLessThan(0.015);
+	});
+
 	it('reads a strummed chord from 250 ms on and stops once it is final', () => {
 		const { source, verifier, reports } = setup();
 		verifier.expect(expectation(0.9));
@@ -81,12 +172,13 @@ describe('NnlsChordVerifier', () => {
 		expect(finalOf(second)?.decided).toBe('2,3,2');
 	});
 
-	it('reads a right chord apart from an unrecognized one before it', () => {
-		const { source, verifier, reports } = twoChords([60, 64, 67], 1.0, D_232, 1.6);
+	it('reads a right chord apart from an unrecognized one an arpeggio before it', () => {
+		const at = 1.0 + ARPEGGIO_SPAN_MS / 1000 + 0.1;
+		const { source, verifier, reports } = twoChords([60, 64, 67], 1.0, D_232, at);
 		verifier.expect(expectation(0.9));
 		source.playUntil();
 		const first = Math.min(...reports.map((r) => r.time));
-		const second = reports.find((r) => Math.abs(r.time - 1.6) < 0.015)?.time;
+		const second = reports.find((r) => Math.abs(r.time - at) < 0.015)?.time;
 		expect(Math.abs(first - 1.0)).toBeLessThan(0.015);
 		expect(reports.filter((r) => r.time === first).every((r) => r.decided !== '2,3,2')).toBe(true);
 		expect(reports.find((r) => r.time === second && r.final)?.decided).toBe('2,3,2');
@@ -105,7 +197,7 @@ describe('NnlsChordVerifier', () => {
 			for (let j = 0; j < signal.length; j++) signal[j] += note[j] * gain;
 		});
 		const source = new FakeFrameSource(sampleRate, signal);
-		const verifier = new NnlsChordVerifier(source);
+		const verifier = verifierOn(source);
 		const reports: ChordReport[] = [];
 		verifier.onReport((report) => reports.push(report));
 		verifier.expect(expectation(0.9));
@@ -127,15 +219,16 @@ describe('NnlsChordVerifier', () => {
 	it('marks final a report cut by the next expectation', () => {
 		const { source, verifier, reports } = setup();
 		verifier.expect(expectation(0.9, ['0,1,0']));
-		source.playUntil(1.3);
-		verifier.expect(expectation(1.3, ['0,1,0']));
+		// Past the first reading (1.25 s, read once no attack can be told before it), not the next.
+		source.playUntil(1.43);
+		verifier.expect(expectation(1.43, ['0,1,0']));
 		expect(reports.map((r) => r.final)).toEqual([false, true]);
 	});
 
 	it('reports nothing without an attack', () => {
 		const signal = new Float32Array(48000 * 3);
 		const source = new FakeFrameSource(48000, signal);
-		const verifier = new NnlsChordVerifier(source);
+		const verifier = verifierOn(source);
 		const reports: ChordReport[] = [];
 		verifier.onReport((report) => reports.push(report));
 		verifier.expect(expectation(0.5));

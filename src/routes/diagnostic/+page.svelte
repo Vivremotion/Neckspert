@@ -11,6 +11,7 @@
 		type StringNumber,
 		type VoicingOccurrence
 	} from '$lib/domain/music';
+	import { WebAudioAttackDetector } from '$lib/infrastructure/audio/attacks';
 	import { NnlsChordVerifier } from '$lib/infrastructure/audio/chords';
 	import { WebAudioNoteDetector, frequencyToMidi } from '$lib/infrastructure/audio/detection';
 	import { WebAudioInput } from '$lib/infrastructure/audio/input';
@@ -41,16 +42,18 @@
 	let context: AudioContext | null = null;
 	let detector: WebAudioNoteDetector | null = null;
 	let input: WebAudioInput | null = null;
+	let attacks: WebAudioAttackDetector | null = null;
 	let verifier: NnlsChordVerifier | null = null;
 	let unsubReport: (() => void) | null = null;
 
-	/** One input for both detectors, created with the context. */
+	/** One input and its attacks for both detectors, created with the context. */
 	function ensureDetectors() {
 		context ??= new AudioContext();
 		input ??= new WebAudioInput(() => context!, { diagnostics: journal });
-		detector ??= new WebAudioNoteDetector(() => context!, { input });
+		attacks ??= new WebAudioAttackDetector(input);
+		detector ??= new WebAudioNoteDetector(() => context!, { input, attacks });
 		if (!verifier) {
-			verifier = new NnlsChordVerifier(input, { diagnostics: journal });
+			verifier = new NnlsChordVerifier(input, attacks, { diagnostics: journal });
 			unsubReport = verifier.onReport((report) => {
 				reports = [report, ...reports].slice(0, 20);
 			});

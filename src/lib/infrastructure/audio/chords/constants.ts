@@ -21,9 +21,17 @@ export const STABLE_READINGS = 3;
 export const NOTHING_FINAL_MS = 1000;
 /**
  * A new attack closes the window of an earlier one older than this: the notes of an arpeggio come
- * within it, a chord played again comes later (sooner, it is read with the first one).
+ * within it, a chord played again comes later (sooner, it is read with the first one). The
+ * arpeggios of the triad corpus, in eighths at 80 bpm, play their third note 580 to 750 ms after
+ * the first; now that the attack sensor hears each of them, 500 ms cut them (2026-11-02).
  */
-export const ARPEGGIO_SPAN_MS = 500;
+export const ARPEGGIO_SPAN_MS = 1000;
+/**
+ * The attack sensor tells an attack this long after it at the latest (66 to 150 ms on the 1 603
+ * attacks of the triad corpus): a window is read only once no attack can still be told inside it,
+ * so a chord struck next is never read with the one before.
+ */
+export const ATTACK_NOTICE_S = 0.16;
 /** Readings journaled with their spectrum, besides the final one. */
 export const SPECTRUM_POINTS_MS: readonly number[] = [250, 500, 1000, 2000];
 
