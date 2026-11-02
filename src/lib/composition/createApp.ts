@@ -77,7 +77,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
 	const attacks = new WebAudioAttackDetector(input, { diagnostics: journal });
 	const detector = new WebAudioNoteDetector(context, { input, attacks });
-	const chords = new NnlsChordVerifier(input, { diagnostics: journal });
+	const chords = new NnlsChordVerifier(input, attacks, { diagnostics: journal });
 	// The input of the last run of a rhythm exercise, kept in memory to be heard again.
 	const takes = new TakeBuffer(input, context);
 	journalNotes(journal, detector);

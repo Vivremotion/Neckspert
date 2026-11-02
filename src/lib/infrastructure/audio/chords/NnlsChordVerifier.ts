@@ -1,14 +1,15 @@
 import type {
+	AttackDetectorPort,
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
 	DiagnosticSink
 } from '$lib/application/ports';
 import type { AudioFrame, FrameSource } from '../input/WebAudioInput';
-import { DEFAULT_DETECTOR_CONFIG } from '../detection/config';
-import { OnsetDetector } from '../detection/OnsetDetector';
 import {
+	ARPEGGIO_NOTES_SPAN_MS,
 	ARPEGGIO_SPAN_MS,
+	ATTACK_NOTICE_S,
 	FIRST_READING_MS,
 	JUDGE_EVERY_MS,
 	LAST_READING_MS,
@@ -17,6 +18,7 @@ import {
 	SPECTRUM_POINTS_MS,
 	STABLE_READINGS,
 	SPECTRUM_KEEP_MIN_HZ,
+	STRUM_STRENGTH,
 	fftSizeFor,
 	hopSizeFor
 } from './constants';
@@ -35,9 +37,17 @@ export interface KeptSpectrum {
 /** Significant digits kept for each journaled magnitude. */
 const KEPT_DIGITS = 4;
 
+/** A spectrum of the round, over the samples from `start` to `end` (audio s). */
+interface TimedSpectrum {
+	start: number;
+	end: number;
+	magnitudes: Float64Array;
+}
+
 /** One attack being listened to: the peak of each bin since it, and its readings so far. */
 interface OpenWindow {
 	attack: number;
+	/** The peak of each bin over the spectra since the attack that it has taken so far. */
 	pooled: Float64Array | null;
 	/** Length of the next reading due, ms. */
 	nextMs: number;
@@ -49,10 +59,12 @@ interface OpenWindow {
 
 /**
  * Chord verification by fitting harmonic combs (the spike's `nnls-abs` judge): after each attack
- * in a round, the peak-held spectrum since the attack is judged against the expected candidates by
- * every variant, from FIRST_READING_MS every JUDGE_EVERY_MS until a reading is final. A new attack
- * closes an earlier window that has outlived an arpeggio: a chord played again is read on its own.
- * Between rounds, only the onset envelope runs.
+ * the attack sensor tells in a round, the peak-held spectrum since the attack is judged against
+ * the expected candidates by every variant, from FIRST_READING_MS every JUDGE_EVERY_MS until a
+ * reading is final. The sensor tells an attack up to ATTACK_NOTICE_S after it, so a window takes
+ * a spectrum, and is read, only once no attack can still be told before that spectrum's end. A
+ * new attack closes an earlier window that has outlived an arpeggio: a chord played again is read
+ * on its own. Spectra are computed only while an expectation is set.
  */
 export class NnlsChordVerifier implements ChordVerifierPort {
 	private readonly variants: readonly JudgeVariant[];
@@ -61,7 +73,8 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	private readonly listeners = new Set<(report: ChordReport) => void>();
 	private expectation: ChordExpectation | null = null;
 	private windows: OpenWindow[] = [];
-	private onsets: OnsetDetector | null = null;
+	/** The spectra of the round not taken by the windows yet: an attack may still come before. */
+	private spectra: TimedSpectrum[] = [];
 	private rate = 0;
 	private fftSize = 0;
 	private hopSize = 0;
@@ -73,6 +86,7 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 
 	constructor(
 		private readonly input: FrameSource,
+		attacks: Pick<AttackDetectorPort, 'onAttack'>,
 		options: {
 			variants?: readonly JudgeVariant[];
 			active?: string;
@@ -87,10 +101,12 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 			throw new RangeError(`No judge variant: ${this.active}`);
 		}
 		input.onFrame((frame) => this.onFrame(frame));
+		attacks.onAttack(({ time, strength }) => this.onAttack(time, strength));
 	}
 
 	expect(expectation: ChordExpectation | null): void {
 		this.flushWindows();
+		this.spectra = [];
 		this.expectation = expectation;
 		if (this.diagnostics?.enabled) {
 			this.diagnostics.event('chord.expectation', this.lastFrameEnd, expectation);
@@ -110,51 +126,38 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		this.window = hannWindow(this.fftSize);
 		this.recent = new Float64Array(this.fftSize);
 		this.sinceSpectrum = 0;
-		this.onsets = new OnsetDetector(DEFAULT_DETECTOR_CONFIG, sampleRate);
 	}
 
 	private onFrame({ samples, frameTime }: AudioFrame): void {
-		// Fed even between rounds: the onset envelope must know what is already ringing, or a
-		// chord still sounding when a round opens would pass for an attack.
+		// The last samples are kept even between rounds: a round's first spectrum needs them.
 		this.prepare(this.input.sampleRate);
 		const n = samples.length;
 		this.recent.copyWithin(0, n);
 		this.recent.set(samples, this.fftSize - n);
 		this.sinceSpectrum += n;
 		this.lastFrameEnd = frameTime + n / this.rate;
-		const attack = this.onsets?.push(samples, frameTime) ?? null;
 		if (!this.expectation) return;
-
-		if (attack !== null && attack >= this.expectation.opensAt) {
-			this.closeBefore(attack);
-			this.windows.push({
-				attack,
-				pooled: null,
-				nextMs: FIRST_READING_MS,
-				decided: undefined,
-				sameCount: 0
-			});
-		}
-		if (this.windows.length === 0) return;
 
 		if (this.sinceSpectrum >= this.hopSize) {
 			this.sinceSpectrum = 0;
-			const start = this.lastFrameEnd - this.fftSize / this.rate;
-			const listening = this.windows.filter((w) => start >= w.attack);
-			if (listening.length > 0) {
-				const frame = new Float64Array(this.fftSize);
-				for (let i = 0; i < this.fftSize; i++) frame[i] = this.recent[i] * this.window[i];
-				const spectrum = magnitudeSpectrum(frame);
-				for (const w of listening) {
-					if (!w.pooled) w.pooled = new Float64Array(spectrum);
-					else maxPool(w.pooled, spectrum);
-				}
-			}
+			const frame = new Float64Array(this.fftSize);
+			for (let i = 0; i < this.fftSize; i++) frame[i] = this.recent[i] * this.window[i];
+			this.spectra.push({
+				start: this.lastFrameEnd - this.fftSize / this.rate,
+				end: this.lastFrameEnd,
+				magnitudes: magnitudeSpectrum(frame)
+			});
 		}
+
+		// Every attack up to here has been told: what was heard before belongs to the windows open.
+		const known = this.lastFrameEnd - ATTACK_NOTICE_S;
+		const settled = this.spectra.filter((spectrum) => spectrum.end <= known);
+		this.spectra = this.spectra.filter((spectrum) => spectrum.end > known);
+		for (const w of this.windows) pool(w, settled, known);
 
 		const done = new Set<OpenWindow>();
 		for (const w of this.windows) {
-			while (!done.has(w) && this.lastFrameEnd >= w.attack + w.nextMs / 1000) {
+			while (!done.has(w) && known >= w.attack + w.nextMs / 1000) {
 				const windowMs = w.nextMs;
 				// On the grid of JUDGE_EVERY_MS after the first reading: 250, 300, 400 … 2000.
 				const next = (Math.floor(windowMs / JUDGE_EVERY_MS) + 1) * JUDGE_EVERY_MS;
@@ -166,13 +169,30 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 		this.windows = this.windows.filter((w) => !done.has(w));
 	}
 
+	/** An attack told by the attack sensor: a window opens at it, when it falls in the round. */
+	private onAttack(attack: number, strength: number): void {
+		if (!this.expectation || attack < this.expectation.opensAt) return;
+		this.closeBefore(attack, strength);
+		const w: OpenWindow = {
+			attack,
+			pooled: null,
+			nextMs: FIRST_READING_MS,
+			decided: undefined,
+			sameCount: 0
+		};
+		this.windows.push(w);
+	}
+
 	/** A new attack at `attack`: the windows it closes give their final reading now. */
-	private closeBefore(attack: number): void {
+	private closeBefore(attack: number, strength: number): void {
+		// Within the span, it may be an arpeggio whose notes have not all come: two of them can
+		// already read as another shape. Known risk: a chord played again this soon is read with the
+		// first, and a weak one (or a firm arpeggio note) within ARPEGGIO_NOTES_SPAN_MS likewise.
+		const spanMs = strength >= STRUM_STRENGTH ? ARPEGGIO_SPAN_MS : ARPEGGIO_NOTES_SPAN_MS;
 		this.windows = this.windows.filter((w) => {
-			// Younger, it may be an arpeggio whose notes have not all come: two of them can already
-			// read as another shape. Known risk: a chord played again this soon is read with the first.
-			if ((attack - w.attack) * 1000 <= ARPEGGIO_SPAN_MS) return true;
-			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
+			if ((attack - w.attack) * 1000 <= spanMs) return true;
+			pool(w, this.spectra, attack);
+			this.report(w, Math.round((attack - w.attack) * 1000), true);
 			return false;
 		});
 	}
@@ -180,6 +200,7 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 	/** The windows still open report what they heard, then are forgotten. */
 	private flushWindows(): void {
 		for (const w of this.windows) {
+			pool(w, this.spectra, this.lastFrameEnd);
 			this.report(w, Math.round((this.lastFrameEnd - w.attack) * 1000), true);
 		}
 		this.windows = [];
@@ -220,5 +241,14 @@ export class NnlsChordVerifier implements ChordVerifierPort {
 			Number(v.toPrecision(KEPT_DIGITS))
 		);
 		return { fromHz: from * width, binHz: width, magnitudes };
+	}
+}
+
+/** Takes into the window the spectra heard after its attack and ending by `until`. */
+function pool(w: OpenWindow, spectra: readonly TimedSpectrum[], until: number): void {
+	for (const spectrum of spectra) {
+		if (spectrum.start < w.attack || spectrum.end > until) continue;
+		if (!w.pooled) w.pooled = new Float64Array(spectrum.magnitudes);
+		else maxPool(w.pooled, spectrum.magnitudes);
 	}
 }

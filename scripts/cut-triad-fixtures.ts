@@ -28,7 +28,16 @@ const PICKS: Pick[] = [
 	{ key: 'relier_F_melange_di', frets: [2, 1, 1], previous: null, expect: 'recognized' },
 	{ key: 'relier_D_plaque_micro', frets: [2, 3, 2], previous: null, expect: 'recognized' },
 	{ key: 'relier_Em_plaque_micro', frets: [0, 0, 0], previous: null, expect: 'recognized' },
-	{ key: 'relier_Ab_arpege_micro', frets: [5, 4, 4], previous: null, expect: 'recognized' },
+	// A faint sound 93 ms before the first note is an attack of its own (the attack sensor reports
+	// what sounds): its window holds that sound too and stays under the threshold. Recognized
+	// while the chord verifier had its own onset rule, which did not hear that sound (2026-11-02).
+	{
+		key: 'relier_Ab_arpege_micro',
+		frets: [5, 4, 4],
+		previous: null,
+		expect: 'frozen',
+		frozenDecision: null
+	},
 	// The spike's two octave traps: a shape sharing two notes with the chord still ringing.
 	// The ringing chord is never a candidate. D: a FALSE ACCEPTANCE today, another inversion
 	// (11-10-10) is retained instead of 2-3-2 — a known risk for the memory mechanics.

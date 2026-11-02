@@ -8,9 +8,6 @@ describe('DEFAULT_DETECTOR_CONFIG', () => {
 		expect(DEFAULT_DETECTOR_CONFIG.maxMidi).toBe(88);
 		expect(DEFAULT_DETECTOR_CONFIG.windowSize).toBeGreaterThanOrEqual(2048);
 		expect(DEFAULT_DETECTOR_CONFIG.clarityThreshold).toBeGreaterThan(0);
-		expect(DEFAULT_DETECTOR_CONFIG.onsetRatio).toBeGreaterThan(1);
-		expect(DEFAULT_DETECTOR_CONFIG.minRms).toBeGreaterThan(0);
-		expect(DEFAULT_DETECTOR_CONFIG.cooldownMs).toBeGreaterThan(0);
 	});
 });
 
