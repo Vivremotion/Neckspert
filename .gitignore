@@ -31,3 +31,7 @@ vite.config.ts.timestamp-*
 
 # Private exercises (JSON), read at build time: never committed. See docs/exercices-locaux.md.
 /exercises.local/
+
+# Claude Code: only the project skills are shared; launch configs, worktrees and checkpoints stay local.
+/.claude/*
+!/.claude/skills/
