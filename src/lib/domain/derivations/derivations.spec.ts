@@ -58,17 +58,25 @@ describe('the derivations', () => {
 		expect(notes.kind).toBe('pitch');
 		expect(notes.list).toBe(true);
 		expect(notes.derive({ voicing: C_FIRST, occurrence: 0 }, NO_FORMS)).toEqual([
-			{ midi: 64, string: 3 },
-			{ midi: 67, string: 2 },
-			{ midi: 72, string: 1 }
+			{ midi: 64, string: 3, name: 'E' },
+			{ midi: 67, string: 2, name: 'G' },
+			{ midi: 72, string: 1, name: 'C' }
 		]);
 		expect(
 			notes.derive({ voicing: 'C|maj|3:5,2:1,1:3', occurrence: 1, beats: 4 }, NO_FORMS)
 		).toEqual([
-			{ midi: 67, string: 3 },
-			{ midi: 72, string: 2 },
-			{ midi: 76, string: 1 }
+			{ midi: 67, string: 3, name: 'G' },
+			{ midi: 72, string: 2, name: 'C' },
+			{ midi: 76, string: 1, name: 'E' }
 		]);
+		// Each note spelled as its chord spells it: the minor third of G is B flat.
+		expect(
+			(
+				notes.derive({ voicing: 'G|min|3:1,2:b3,1:5', occurrence: 0 }, NO_FORMS) as {
+					name: string;
+				}[]
+			).map((n) => n.name)
+		).toEqual(['G', 'Bb', 'D']);
 		expect(() => notes.derive({ voicing: C_FIRST, occurrence: 1 }, NO_FORMS)).toThrow();
 	});
 

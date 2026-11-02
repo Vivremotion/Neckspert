@@ -7,10 +7,11 @@ import {
 	validateFigure,
 	type Figure,
 	type FigureElement,
-	type Tuplet
+	type Tuplet,
+	type WrittenAccidental
 } from '../figure';
 import { barLength, METER_4_4, type Meter } from '../meter';
-import { readNoteName } from '../noteName';
+import { readNoteName, type NoteName } from '../noteName';
 
 /**
  * A strict, declarative reader for a subset of LilyPond, so that figures can be written the
@@ -144,12 +145,7 @@ class Reader {
 		}
 	}
 
-	/** A note name's MIDI pitch: letter, accidental, octave marks. Leaves the reader after them. */
-	private pitch(): number {
-		return this.noteName().midi;
-	}
-
-	private noteName(): { midi: number; name: string } {
+	private noteName(): NoteName {
 		const read = readNoteName(this.text, this.at);
 		if ('problem' in read) this.fail(read.problem, read.offset);
 		this.at = read.end;
@@ -209,7 +205,8 @@ class Reader {
 	private event(letter: string): void {
 		const isNote = letter !== 'r';
 		let pitch = 0;
-		if (isNote) pitch = this.pitch();
+		let accidental: WrittenAccidental = 0;
+		if (isNote) ({ midi: pitch, accidental } = this.noteName());
 		else this.at++;
 		const { denominator, dots } = this.duration();
 		const string = this.stringNumber(isNote);
@@ -224,6 +221,7 @@ class Reader {
 						duration,
 						content: null,
 						pitch,
+						...(accidental === 0 ? {} : { accidental }),
 						...(string === null ? {} : { string })
 					}
 				: { kind: 'rest', duration }

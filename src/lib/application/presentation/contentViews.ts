@@ -7,6 +7,7 @@ import {
 	type LocateItem
 } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
+import { accidentalOfName } from '$lib/domain/time/noteName';
 import type { Locale } from '$lib/domain/types';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { nameChoice, noteName, positionLabel } from './noteWords';
@@ -74,6 +75,10 @@ const OCTAVE_WORDS: Record<Locale, (note: string, octaves: number, higher: boole
 		`${note}, ${octaves === 1 ? 'an octave' : `${octaves} octaves`} too ${higher ? 'high' : 'low'}`
 };
 
+/** Draws that make `noteName` spell an altered pitch with a flat, and with a sharp. */
+const FLAT_DRAW = 1;
+const SHARP_DRAW = 0;
+
 /** Semitones in an octave. */
 const OCTAVE = 12;
 
@@ -84,11 +89,14 @@ const OCTAVE = 12;
 const pitchView: ContentView = {
 	answerLabel: midiAnswerLabel,
 	miss: (value, { answer }, locale, random) => {
-		// One draw for both notes: « Ab au lieu de Bb », never « G# au lieu de Bb ».
+		// One spelling for both notes: « Ab au lieu de Bb », never « G# au lieu de Bb ». A note
+		// the content names (as its figure or its chord writes it) gives it; else one draw.
+		const { midi: asked, name } = value as { midi: Midi; name?: unknown };
 		const drawn = random();
-		const spelling = () => drawn;
-		const asked = (value as { midi: Midi }).midi;
-		const expected = noteName(pitchOfMidi(asked), spelling);
+		const accidental = typeof name === 'string' ? accidentalOfName(name) : null;
+		const spelling = () => (accidental ? (accidental < 0 ? FLAT_DRAW : SHARP_DRAW) : drawn);
+		const expected =
+			accidental === null ? noteName(pitchOfMidi(asked), spelling) : (name as string);
 		const midi = (answer as { midi?: Midi } | null)?.midi;
 		const octaves = midi === undefined ? 0 : (midi - asked) / OCTAVE;
 		const gap =

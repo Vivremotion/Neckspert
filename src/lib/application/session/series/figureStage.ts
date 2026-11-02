@@ -15,8 +15,10 @@ import {
 	type Meter,
 	type RoundOutcome,
 	type RoundPlan,
-	type TempoSegment
+	type TempoSegment,
+	type WrittenAccidental
 } from '$lib/domain/time';
+import { accidentalOfName } from '$lib/domain/time/noteName';
 import {
 	exerciseLevelsOf,
 	figureParamsOf,
@@ -212,11 +214,18 @@ function derivationOf(definition: ExerciseDefinition): string | null {
 }
 
 /** The pitch and the string a content gives a note (`{ midi, string? }`); null when it gives none. */
-function pitchOf(value: unknown): { pitch?: number; string?: number } | null {
+function pitchOf(
+	value: unknown
+): { pitch?: number; string?: number; accidental?: WrittenAccidental } | null {
 	if (typeof value !== 'object' || value === null) return null;
-	const { midi, string } = value as Record<string, unknown>;
+	const { midi, string, name } = value as Record<string, unknown>;
 	if (typeof midi !== 'number') return null;
-	return { pitch: midi, ...(typeof string === 'number' ? { string } : {}) };
+	const accidental = typeof name === 'string' ? accidentalOfName(name) : null;
+	return {
+		pitch: midi,
+		...(typeof string === 'number' ? { string } : {}),
+		...(accidental ? { accidental } : {})
+	};
 }
 
 /** The figure each plan engraves, kept by plan: one figure per plan, engraved once. */
@@ -224,7 +233,8 @@ const ENGRAVED = new WeakMap<RoundPlan, { written: Figure; startBar: number; eng
 
 /**
  * The derived notes of the attacks of a figure's first voice: each attack carries the pitch and
- * the string of its expectation in `contents` (a tied note those of its attack).
+ * the string of its expectation in `contents` (a tied note those of its attack), and its spelling
+ * when the content names an altered note.
  */
 function withContents(figure: Figure, contents: readonly unknown[]): Figure {
 	const [first, ...others] = figure.voices;
@@ -235,7 +245,10 @@ function withContents(figure: Figure, contents: readonly unknown[]): Figure {
 		const before = first.elements[i - 1];
 		const tiedIn = before !== undefined && before.kind !== 'rest' && before.tieToNext === true;
 		if (!tiedIn) held = pitchOf(contents[attack++]);
-		return held ? { ...element, ...held } : element;
+		if (!held) return element;
+		// The derived note's spelling, never the written rhythm's: its pitch is another.
+		const { accidental: _written, ...rest } = element;
+		return { ...rest, ...held };
 	});
 	return { ...figure, voices: [{ ...first, elements }, ...others] };
 }

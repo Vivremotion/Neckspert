@@ -195,6 +195,37 @@ describe('CONTENT_VIEWS', () => {
 		expect(miss).toMatchObject({ correction: 'Bb', gap: 'Ab au lieu de Bb' });
 	});
 
+	it('spells the note expected as its content names it, and the note heard alike', () => {
+		const miss = (name: string, heard: number) =>
+			CONTENT_VIEWS.pitch.miss(
+				{ midi: 70, name },
+				{ answer: { midi: heard }, confusion: null },
+				'fr',
+				() => 0
+			);
+		// Written B flat: a flat for the note heard too, whatever the draw.
+		expect(miss('Bb', 68)).toMatchObject({ correction: 'Bb', gap: 'Ab au lieu de Bb' });
+		expect(miss('A#', 68)).toMatchObject({ correction: 'A#', gap: 'G# au lieu de A#' });
+		expect(miss('Bb', 69).gap).toBe('A au lieu de Bb');
+		expect(miss('Bb', 82).gap).toBe('Bb, une octave trop haut');
+		// A natural names itself; the note heard takes the draw.
+		const natural = CONTENT_VIEWS.pitch.miss(
+			{ midi: 67, name: 'G' },
+			{ answer: { midi: 68 }, confusion: null },
+			'fr',
+			() => 0.9
+		);
+		expect(natural).toMatchObject({ correction: 'G', gap: 'Ab au lieu de G' });
+		// A name it cannot read is not shown: the pitch is spelled as without one.
+		const unread = CONTENT_VIEWS.pitch.miss(
+			{ midi: 70, name: 'bes' },
+			{ answer: null, confusion: null },
+			'fr',
+			() => 0
+		);
+		expect(unread.correction).toBe('A#');
+	});
+
 	it('tells the pitch played as the note view does', () => {
 		for (const r of [0, 0.9]) {
 			expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => r)).toBe(

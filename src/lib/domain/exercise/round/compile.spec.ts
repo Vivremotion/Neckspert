@@ -585,10 +585,10 @@ describe('compileRound, a figure entry', () => {
 		const plan = compileFigure(exercise, C_FIRST_INVERSION);
 		expect(midis(plan)).toEqual([64, 67, 72, 67]);
 		expect(plan.expectations.map((e) => e.content)).toEqual([
-			{ kind: 'pitch', value: { midi: 64, string: 3 } },
-			{ kind: 'pitch', value: { midi: 67, string: 2 } },
-			{ kind: 'pitch', value: { midi: 72, string: 1 } },
-			{ kind: 'pitch', value: { midi: 67, string: 2 } }
+			{ kind: 'pitch', value: { midi: 64, string: 3, name: 'E' } },
+			{ kind: 'pitch', value: { midi: 67, string: 2, name: 'G' } },
+			{ kind: 'pitch', value: { midi: 72, string: 1, name: 'C' } },
+			{ kind: 'pitch', value: { midi: 67, string: 2, name: 'G' } }
 		]);
 	});
 
@@ -671,6 +671,21 @@ describe('compileRound, a figure entry', () => {
 			{ kind: 'pitch', value: { midi: 67, string: 1 } },
 			{ kind: 'pitch', value: { midi: 72, string: 2 } },
 			{ kind: 'pitch', value: { midi: 64 } }
+		]);
+	});
+
+	it("names each written pitch as the figure spells it, with { from: 'figure' }", () => {
+		const exercise = figureExercise(
+			'locate',
+			figureRound({ sensor: 'note', content: { from: 'figure' } }),
+			{ main: "bes4\\3 ais\\3 ees'\\2 f'\\2" }
+		);
+		const plan = compileFigure(exercise, { string: 3, pitch: 'F' });
+		expect(plan.expectations.map((e) => e.content?.value)).toEqual([
+			{ midi: 58, string: 3, name: 'Bb' },
+			{ midi: 58, string: 3, name: 'A#' },
+			{ midi: 63, string: 2, name: 'Eb' },
+			{ midi: 65, string: 2 }
 		]);
 	});
 
