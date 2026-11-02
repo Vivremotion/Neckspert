@@ -1,6 +1,6 @@
 # Feuille de route
 
-État au 2026-11-01. Ce document dit dans quel ordre le projet avance et pourquoi ; ce que le projet veut être est dans `docs/projet.md`. Le travail au jour le jour est suivi dans les [issues](https://github.com/Vivremotion/Neckspert/issues) et sur le [tableau du projet](https://github.com/users/Vivremotion/projects/1). Chaque chantier a sa spec dans `docs/superpowers/specs/` et ses plans dans `docs/superpowers/plans/`.
+État au 2026-11-01. Ce document dit dans quel ordre le projet avance et pourquoi ; ce que le projet veut être est dans `docs/projet.md`. Le travail au jour le jour est suivi dans les [issues](https://github.com/Vivremotion/Neckspert/issues) et sur le [tableau du projet](https://github.com/users/Vivremotion/projects/1). Chaque chantier a sa spec dans `docs/superpowers/specs/` et ses plans dans `docs/superpowers/plans/`. Comment un ticket avance, du backlog à la prod : `docs/flux-de-travail.md`.
 
 ## Où on en est
 
