@@ -400,8 +400,8 @@ Le moteur refuse toujours ce qu'il ne sait pas jouer, jamais ce qui manque de va
 
 Cinq plans, dans cet ordre ; chacun laisse l'application jouable.
 
-1. Le format, le lecteur, le registre, le catalogue en fichiers, l'import et ses refus (§ 2, 3, 10).
-2. Les capacités et les ensembles à la place des mécaniques ; la migration 13 entière et la sauvegarde 9 (§ 4, 9).
+1. Le format, le lecteur, le registre, le catalogue en fichiers, les refus et les trous de validation (§ 2, 3, 10). Les fichiers gardent `mechanic` ; `exercises.local/` reste, lu par le nouveau lecteur.
+2. Les capacités et les ensembles à la place des mécaniques ; la migration 13 entière et la sauvegarde 9 ; l'import, sa table et son écran, puisqu'il demande la version 13 ; la fin de `exercises.local/` (§ 3, 4, 9).
 3. L'apprentissage en données (§ 5).
 4. Les familles et les filtres ; les changements en données (§ 6, 7).
 5. Les routines, l'accueil, la Bibliothèque (§ 8).
