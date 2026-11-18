@@ -429,3 +429,18 @@ Cinq plans, dans cet ordre ; chacun laisse l'application jouable.
 
 - La distinction entre capacités avec et sans mémoire, que l'auteur tient pour imaginaire : `memory` est une donnée, à reprendre avec le chantier 5.
 - La clé `eighths@1` d'une figure porte un niveau d'exercice : relevé, non nettoyé.
+
+## Réalisation (plan 1, 2026-11-18)
+
+- L'import, sa table, l'écran « Fichiers importés » et la progression gardée sans définition passent au plan 2 : ils demandent la version 13 de la base.
+- Au plan 1 les fichiers gardent `mechanic` et `version`, et aucun identifiant n'est renommé. Un fichier dont `skills` ou `routines` n'est pas vide est refusé en entier : ces listes ne sont pas encore lues.
+- Un refus porte le fichier, la sorte d'objet, l'identifiant et la raison. Le champ reste dans la raison du validateur.
+- Un accompagnement s'écrit `{ "clicks": { "beats", "accent"? }, "bars" }`, lu sur le mètre de l'exercice. Le paramètre que `round.accompaniment` nomme est un paramètre de premier niveau : un nom qui contient un point est refusé à la lecture.
+- Les registres sont des listes vivantes de module, remplies une fois au démarrage par `loadDefinitions` et, pour les tests, par `src/lib/testing/setup.ts`. Le code de production les lit à l'appel, jamais à l'import d'un module.
+- Les identifiants que le code nomme encore vivent dans `src/lib/domain/exercise/catalogIds.ts`, jusqu'aux plans qui mettent leurs lecteurs en données.
+- L'ordre des exercices d'un fichier à l'autre suit les noms des fichiers ; rien ne le lit.
+- Les refus s'affichent sur l'accueil en développement seulement ; en production, une ligne de console. L'écran vient avec l'import.
+- La règle « un tour jugé au cycle exige `pacing.roundsPerBreath` » se lit sur `policy.unit`.
+- À un niveau, seules les valeurs que le moteur lit à ce niveau sont vérifiées (tempo, fenêtres, respiration). `recallThresholdMs` et `learning.*` ne le sont que sur les paramètres de base.
+- `overrideParams` refuse un chemin écrit `undefined`, et un chemin écrit avec l'un de ses sous-chemins.
+- Laissé au plan 2, avant d'importer des fichiers non fiables : vérifier le type des clés de premier niveau d'un exercice (`presentation: 3`, `flow: "x"`, `pick`, `howTo`) et des paramètres des changements (`qualities`, `stringSets`) ; un garde général contre la lecture d'un registre à l'import d'un module de route ; le mode dégradé quand un fichier du catalogue est refusé en production (une séance de notes, de triades ou de geste s'ouvre alors sur une erreur brute).

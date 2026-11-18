@@ -175,7 +175,7 @@ Ce qui change par rapport à l'exemple précédent (le reste s'écrit de la mêm
 
 et, dans `round.expectations`, `"content": { "from": "form-notes" }`.
 
-- **La forme** (`forms`) : `id` la nomme, `symbol` est ce que le nom de l'accord ajoute à sa première note, `lilypond` donne ses notes dans l'ordre, chacune avec son numéro de corde. Le rythme vient de la figure : une durée écrite est ignorée, et rien ne remplit de mesure. Un silence, une liaison, un triolet, une barre de mesure ou une note sans corde refusent le fichier, en nommant la forme et la position dans le texte.
+- **La forme** (`forms`) : `id` la nomme, `symbol` est ce que le nom de l'accord ajoute à sa première note, `lilypond` donne ses notes dans l'ordre, chacune avec son numéro de corde. Le rythme vient de la figure : une durée écrite est ignorée, et rien ne remplit de mesure. Un silence, une liaison, un triolet, une barre de mesure ou une note sans corde refusent l'exercice, en nommant la forme et la position dans le texte.
 - **L'élément** (`items`) : `<forme>@<première note>@<temps>`. La première note est une note LilyPond seule, sans durée ni corde (`d`, `g,`, `bes'`). La forme est déplacée pour commencer sur elle : toutes ses notes bougent du même intervalle et gardent leur corde. L'exemple joue do 3 (`c`), fa 3 (`f`), puis si♭ 3 (`bes`). Les temps sont la longueur du tour, comme pour `voicing-figure`.
 - **Le nom de l'accord** (`{chord}` dans la présentation) : la première note telle qu'elle est écrite, sans son octave, puis le `symbol` : `bes` donne `Bbmaj7`, `as` donne `Abmaj7`, `es` donne `Ebmaj7`, `fis` donne `F#maj7`.
 - **Les notes jouées** : `form-notes` donne la liste des notes de la forme déplacée. Sans `pattern`, elles se jouent dans l'ordre et bouclent ; `pattern` choisit parmi elles (1 = la première note de la forme). Sur un changement de 2 temps, une figure de noires joue les deux premières notes (sa dernière boucle est coupée).
@@ -242,10 +242,11 @@ Les fichiers du catalogue d'abord, puis les fichiers locaux, chacun dans l'ordre
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
 2. Chaque grille se lit (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
-3. Les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés : la mécanique existe, et les grilles qu'un exercice de geste nomme sont définies.
-4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent le fichier en nommant `items[i]` et le niveau).
+3. Les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la mécanique existe.
+4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
 5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
-6. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient.
+6. Les grilles qu'un exercice de geste nomme sont définies par un fichier lu jusque-là.
+7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient.
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.
 
