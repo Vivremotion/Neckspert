@@ -132,6 +132,7 @@ exports[`keeps gesture-climb as it is 1`] = `
       ],
     ],
   },
+  "practices": "grid-in-direction",
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -318,6 +319,7 @@ exports[`keeps gesture-jam as it is 1`] = `
       ],
     ],
   },
+  "practices": "grid-reading",
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -500,6 +502,7 @@ exports[`keeps gesture-link as it is 1`] = `
       ],
     ],
   },
+  "practices": "inversion-run",
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -686,6 +689,7 @@ exports[`keeps gesture-zone as it is 1`] = `
       ],
     ],
   },
+  "practices": "grid-in-zone",
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -774,6 +778,7 @@ exports[`keeps identify-neck as it is 1`] = `
     ],
     "recallThresholdMs": 3000,
   },
+  "practices": "identify-note",
   "presentation": {
     "aided": {
       "line": "{name}",
@@ -867,6 +872,7 @@ exports[`keeps locate-neck as it is 1`] = `
     ],
     "recallThresholdMs": 1500,
   },
+  "practices": "locate-note-string",
   "presentation": {
     "aided": {
       "line": "{fret}",
@@ -1222,6 +1228,7 @@ exports[`keeps rhythm-offbeats as it is 1`] = `
     },
   },
   "pick": "loop",
+  "practices": "figure-independence",
   "round": {
     "accompaniment": {
       "param": "accompaniment",
@@ -1817,6 +1824,7 @@ exports[`keeps rhythm-silent-bars as it is 1`] = `
     },
   },
   "pick": "loop",
+  "practices": "inner-pulse",
   "round": {
     "accompaniment": {
       "param": "accompaniment",
@@ -2754,6 +2762,7 @@ exports[`keeps rhythm-two-four as it is 1`] = `
     },
   },
   "pick": "next",
+  "practices": "displaced-pulse",
   "round": {
     "accompaniment": {
       "param": "accompaniment",
@@ -2995,6 +3004,7 @@ exports[`keeps triads-anchor as it is 1`] = `
       ],
     ],
   },
+  "practices": "chord-anchor",
   "presentation": {
     "aided": {
       "picture": "lowest-shape",
@@ -3146,6 +3156,7 @@ exports[`keeps triads-zone as it is 1`] = `
       ],
     ],
   },
+  "practices": "chord-zone",
   "presentation": {
     "aided": {
       "line": {

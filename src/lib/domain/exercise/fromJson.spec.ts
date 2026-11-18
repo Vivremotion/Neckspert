@@ -236,3 +236,15 @@ describe('exerciseFromJson', () => {
 		});
 	});
 });
+
+describe('exerciseFromJson practices', () => {
+	const base = { id: 'x', version: 1, mechanic: 'locate', params: {} };
+
+	it('reads the skill an exercise practises', () => {
+		expect(exerciseFromJson({ ...base, practices: 'inner-pulse' }).practices).toBe('inner-pulse');
+	});
+
+	it('refuses a practices that is not a string', () => {
+		expect(() => exerciseFromJson({ ...base, practices: 3 })).toThrow('practices must be a string');
+	});
+});

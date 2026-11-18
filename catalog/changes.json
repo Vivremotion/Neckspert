@@ -1,5 +1,43 @@
 {
 	"format": 0,
+	"skills": [
+		{
+			"id": "inversion-run",
+			"name": {
+				"fr": "Enchaîner les renversements d'un accord",
+				"en": "Run through a chord's inversions"
+			},
+			"items": "placed-voicing",
+			"memory": false
+		},
+		{
+			"id": "grid-in-direction",
+			"name": {
+				"fr": "Jouer une grille en montant ou en descendant",
+				"en": "Play a grid going up or down"
+			},
+			"items": "change",
+			"memory": false
+		},
+		{
+			"id": "grid-in-zone",
+			"name": {
+				"fr": "Jouer une grille dans une zone",
+				"en": "Play a grid in a zone"
+			},
+			"items": "change",
+			"memory": false
+		},
+		{
+			"id": "grid-reading",
+			"name": {
+				"fr": "Lire une grille",
+				"en": "Read a grid"
+			},
+			"items": "change",
+			"memory": false
+		}
+	],
 	"grids": [
 		{
 			"id": "iohefy-a",
@@ -133,6 +171,7 @@
 			"id": "gesture-link",
 			"version": 1,
 			"mechanic": "chord-grid",
+			"practices": "inversion-run",
 			"round": {
 				"prompt": {
 					"lead": 1
@@ -301,6 +340,7 @@
 			"id": "gesture-climb",
 			"version": 1,
 			"mechanic": "chord-grid",
+			"practices": "grid-in-direction",
 			"round": {
 				"prompt": {
 					"lead": 1
@@ -470,6 +510,7 @@
 			"id": "gesture-zone",
 			"version": 1,
 			"mechanic": "chord-grid",
+			"practices": "grid-in-zone",
 			"round": {
 				"prompt": {
 					"lead": 1
@@ -639,6 +680,7 @@
 			"id": "gesture-jam",
 			"version": 1,
 			"mechanic": "chord-grid",
+			"practices": "grid-reading",
 			"round": {
 				"prompt": {
 					"lead": 1

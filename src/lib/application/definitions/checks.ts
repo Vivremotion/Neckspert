@@ -7,6 +7,7 @@ import {
 } from '$lib/application/presentation/validate';
 import type { DefinitionChecks } from '$lib/domain/definitions';
 import { validateExercise } from '$lib/domain/exercise';
+import { hasSkill } from '$lib/domain/skill/registry';
 import { allGrids } from '$lib/domain/grid/registry';
 import { readGestureParams } from '$lib/domain/gesture/exercises';
 
@@ -21,6 +22,9 @@ export function definitionChecks(
 		exercise(exercise) {
 			if (!Object.hasOwn(presenters, exercise.mechanic)) {
 				return `mechanic "${exercise.mechanic}" is unknown`;
+			}
+			if (exercise.practices !== undefined && !hasSkill(exercise.practices)) {
+				return `practices names skill "${exercise.practices}", which no file read so far defines`;
 			}
 			const problem =
 				validateExercise(exercise, { sensors: SESSION_SENSORS }) ??

@@ -6,4 +6,6 @@ it('starts the registries empty: only the loader fills them', async () => {
 	const { allGrids } = await import('$lib/domain/grid/registry');
 	expect(allExercises()).toEqual([]);
 	expect(allGrids()).toEqual([]);
+	const { allSkills } = await import('$lib/domain/skill/registry');
+	expect(allSkills()).toEqual([]);
 });

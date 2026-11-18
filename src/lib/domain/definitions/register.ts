@@ -1,5 +1,6 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { registerExercise } from '$lib/domain/exercise/registry';
+import { registerSkill } from '$lib/domain/skill/registry';
 import { registerGrid } from '$lib/domain/grid/registry';
 import { readDefinitionFile, type Refusal } from './file';
 
@@ -11,7 +12,7 @@ export interface DefinitionChecks {
 
 /**
  * Reads definition files into the registries, the origin of an object being the key of its file.
- * Files in the order of their names; in a file, its reading refusals, then its grids, then its
+ * Files in the order of their names; in a file, its reading refusals, then its skills, its grids, then its
  * exercises (checked once the file's grids are registered). A refused object is left out, the
  * rest of its file kept. Never throws.
  */
@@ -23,6 +24,17 @@ export function registerFiles(
 	for (const file of Object.keys(files).sort()) {
 		const read = readDefinitionFile(file, files[file]);
 		refusals.push(...read.refusals);
+		for (const skill of read.skills) {
+			const holder = registerSkill(skill, file);
+			if (holder !== null) {
+				refusals.push({
+					file,
+					kind: 'skill',
+					id: skill.id,
+					reason: `this id is already defined in ${holder}`
+				});
+			}
+		}
 		for (const grid of read.grids) {
 			const holder = registerGrid(grid, file);
 			if (holder !== null) {

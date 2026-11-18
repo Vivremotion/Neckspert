@@ -15,6 +15,16 @@ describe('definitionChecks', () => {
 		);
 	});
 
+	it('refuses a practices that names no registered skill', () => {
+		expect(check({ ...LOCATE_NECK, practices: 'nope' })).toBe(
+			'practices names skill "nope", which no file read so far defines'
+		);
+	});
+
+	it('accepts a practices that names a registered skill', () => {
+		expect(check({ ...LOCATE_NECK, practices: 'locate-note-string' })).toBeNull();
+	});
+
 	it('refuses an unknown mechanic', () =>
 		expect(check({ ...LOCATE_NECK, mechanic: 'nope' })).toBe('mechanic "nope" is unknown'));
 

@@ -1,15 +1,23 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { allGrids, clearGrids, gridById } from '$lib/domain/grid/registry';
+import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill/registry';
 import { registerFiles, type DefinitionChecks } from './register';
 import { LOCATE_NECK, BLUES_F } from '$lib/testing/catalog';
 
 const accept: DefinitionChecks = { exercise: () => null };
+const skill = (id: string) => ({
+	id,
+	name: { fr: 'x', en: 'x' },
+	items: 'figure',
+	memory: false
+});
 const file = (value: object) => JSON.stringify({ format: 0, ...value });
 const exercise = (id: string) => ({ ...LOCATE_NECK, id });
 const grid = (id: string) => ({ ...BLUES_F, id });
 
 beforeEach(() => {
+	clearSkills();
 	clearExercises();
 	clearGrids();
 });
@@ -108,5 +116,41 @@ describe('registerFiles', () => {
 		expect(refusals).toHaveLength(1);
 		expect(refusals[0]).toMatchObject({ file: 'a.json', kind: 'file', id: null });
 		expect(allExercises().map((e) => e.id)).toEqual(['x']);
+	});
+
+	it('registers a skill before the exercise of its file that names it', () => {
+		let seen: boolean | null = null;
+		const refusals = registerFiles(
+			{ 'a.json': file({ skills: [skill('s')], exercises: [exercise('e')] }) },
+			{
+				exercise: () => {
+					seen = hasSkill('s');
+					return null;
+				}
+			}
+		);
+		expect(refusals).toEqual([]);
+		expect(seen).toBe(true);
+		expect(allSkills()).toHaveLength(1);
+	});
+
+	it('refuses a skill id another file holds', () => {
+		const refusals = registerFiles(
+			{ 'a.json': file({ skills: [skill('s')] }), 'b.json': file({ skills: [skill('s')] }) },
+			accept
+		);
+		expect(refusals).toEqual([
+			{ file: 'b.json', kind: 'skill', id: 's', reason: 'this id is already defined in a.json' }
+		]);
+	});
+
+	it('lets a skill, a grid and an exercise share an id', () => {
+		const refusals = registerFiles(
+			{
+				'a.json': file({ skills: [skill('x')], grids: [grid('x')], exercises: [exercise('x')] })
+			},
+			accept
+		);
+		expect(refusals).toEqual([]);
 	});
 });

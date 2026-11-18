@@ -14,6 +14,7 @@ const KEYS: Record<keyof ExerciseDefinition, true> = {
 	id: true,
 	version: true,
 	mechanic: true,
+	practices: true,
 	params: true,
 	tempo: true,
 	chordDiagram: true,
@@ -132,6 +133,9 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 		throw new Error('id must be a string, not empty');
 	if (typeof json.version !== 'number') throw new Error('version must be a number');
 	if (typeof json.mechanic !== 'string') throw new Error('mechanic must be a string');
+	if (json.practices !== undefined && typeof json.practices !== 'string') {
+		throw new Error('practices must be a string');
+	}
 	if (!isObject(json.params)) throw new Error('params must be an object');
 	const { figures, forms, meter, ...rest } = json;
 	const exerciseMeter = meter === undefined ? undefined : meterFromJson(meter, 'meter');

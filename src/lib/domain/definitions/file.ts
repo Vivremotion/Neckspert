@@ -1,11 +1,12 @@
 import { exerciseFromJson, type ExerciseDefinition } from '$lib/domain/exercise';
 import { gridFromJson, type ChordGrid } from '$lib/domain/grid';
+import { skillFromJson, type SkillDefinition } from '$lib/domain/skill';
 
 /** The version of the definition file format; unstable until it moves off 0. */
 export const DEFINITION_FORMAT = 0;
 export const MAX_DEFINITION_FILE_CHARS = 1_000_000;
 
-export type DefinitionKind = 'file' | 'grid' | 'exercise';
+export type DefinitionKind = 'file' | 'skill' | 'grid' | 'exercise';
 
 /** What an author reads to fix a file. `id` is null when the entry has none (or the file as a whole is refused). */
 export interface Refusal {
@@ -16,12 +17,13 @@ export interface Refusal {
 }
 
 export interface DefinitionFile {
+	skills: SkillDefinition[];
 	grids: ChordGrid[];
 	exercises: ExerciseDefinition[];
 	refusals: Refusal[];
 }
 
-const LISTS = ['grids', 'exercises', 'skills', 'routines'] as const;
+const LISTS = ['skills', 'grids', 'exercises', 'routines'] as const;
 const KEYS: readonly string[] = ['format', ...LISTS];
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -35,7 +37,7 @@ function idOf(entry: unknown): string | null {
 /** Reads each entry of a list; the first of two entries with one id is kept. */
 function readEntries<T>(
 	file: string,
-	kind: 'grid' | 'exercise',
+	kind: 'skill' | 'grid' | 'exercise',
 	entries: unknown[],
 	read: (entry: unknown) => T,
 	refusals: Refusal[]
@@ -83,11 +85,8 @@ function fileProblem(text: string): { problem: string } | { json: Record<string,
 			return { problem: `${key} must be a list` };
 		}
 	}
-	for (const key of ['skills', 'routines'] as const) {
-		const list = json[key];
-		if (Array.isArray(list) && list.length > 0) {
-			return { problem: `${key} are not read by this version` };
-		}
+	if (Array.isArray(json.routines) && json.routines.length > 0) {
+		return { problem: 'routines are not read by this version' };
 	}
 	return { json };
 }
@@ -97,6 +96,7 @@ export function readDefinitionFile(file: string, text: string): DefinitionFile {
 	const checked = fileProblem(text);
 	if ('problem' in checked) {
 		return {
+			skills: [],
 			grids: [],
 			exercises: [],
 			refusals: [{ file, kind: 'file', id: null, reason: checked.problem }]
@@ -104,6 +104,13 @@ export function readDefinitionFile(file: string, text: string): DefinitionFile {
 	}
 	const { json } = checked;
 	const refusals: Refusal[] = [];
+	const skills = readEntries(
+		file,
+		'skill',
+		(json.skills as unknown[]) ?? [],
+		skillFromJson,
+		refusals
+	);
 	const grids = readEntries(file, 'grid', (json.grids as unknown[]) ?? [], gridFromJson, refusals);
 	const exercises = readEntries(
 		file,
@@ -112,5 +119,5 @@ export function readDefinitionFile(file: string, text: string): DefinitionFile {
 		exerciseFromJson,
 		refusals
 	);
-	return { grids, exercises, refusals };
+	return { skills, grids, exercises, refusals };
 }

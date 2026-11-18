@@ -93,6 +93,8 @@ export interface ExerciseDefinition {
 	id: ExerciseId;
 	version: number;
 	mechanic: MechanicId;
+	/** The skill it practises, a registered one (`SkillId`). */
+	practices?: string;
 	params: Readonly<Record<string, unknown>>;
 	/**
 	 * Its tempo, in beats of its meter per minute, before any level; absent: `DEFAULT_TEMPO_BPM`.

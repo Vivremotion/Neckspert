@@ -3,6 +3,7 @@ import { defineMessages } from '$lib/i18n/index.svelte';
 
 const FR_KINDS: Record<DefinitionKind, string> = {
 	file: 'fichier',
+	skill: 'capacité',
 	exercise: 'exercice',
 	grid: 'grille'
 };

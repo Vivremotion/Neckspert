@@ -78,10 +78,7 @@ describe('readDefinitionFile', () => {
 		expect(fileRefusal('{"format": 0, "grids": null}').reason).toBe('grids must be a list');
 	});
 
-	it('refuses skills and routines that are not empty', () => {
-		expect(fileRefusal('{"format": 0, "skills": [{}]}').reason).toBe(
-			'skills are not read by this version'
-		);
+	it('refuses routines that are not empty', () => {
 		expect(fileRefusal('{"format": 0, "routines": [{}]}').reason).toBe(
 			'routines are not read by this version'
 		);
@@ -158,11 +155,17 @@ describe('readDefinitionFile', () => {
 	});
 
 	it('reads an empty file as three empty lists', () => {
-		expect(read('{"format": 0}')).toEqual({ grids: [], exercises: [], refusals: [] });
+		expect(read('{"format": 0}')).toEqual({
+			skills: [],
+			grids: [],
+			exercises: [],
+			refusals: []
+		});
 	});
 
 	it('accepts empty skills and routines', () => {
 		expect(read('{"format": 0, "skills": [], "routines": []}')).toEqual({
+			skills: [],
 			grids: [],
 			exercises: [],
 			refusals: []
@@ -181,5 +184,40 @@ describe('readDefinitionFile', () => {
 		expect(result.exercises.map((exercise) => exercise.id)).toEqual([ARPEGGIO_EXERCISE.id]);
 		expect(result.refusals).toHaveLength(1);
 		expect(result.refusals[0]).toMatchObject({ kind: 'exercise', id: 'other' });
+	});
+
+	it('reads skills, and keeps the other objects when one is refused', () => {
+		const skill = {
+			id: 'inner-pulse',
+			name: { fr: 'x', en: 'x' },
+			items: 'figure',
+			memory: false
+		};
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				skills: [skill, { ...skill, id: 'bad', items: 'cards' }],
+				grids: [GRID]
+			})
+		);
+		expect(result.skills.map((s) => s.id)).toEqual(['inner-pulse']);
+		expect(result.grids.map((grid) => grid.id)).toEqual(['blues']);
+		expect(result.refusals).toEqual([
+			{
+				file: 'a.json',
+				kind: 'skill',
+				id: 'bad',
+				reason: 'items must name a registered set, got "cards"'
+			}
+		]);
+	});
+
+	it('refuses the second of two skills with one id', () => {
+		const skill = { id: 'x', name: { fr: 'x', en: 'x' }, items: 'figure', memory: false };
+		const result = read(JSON.stringify({ format: 0, skills: [skill, skill] }));
+		expect(result.skills).toHaveLength(1);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'skill', id: 'x', reason: 'this id is used twice in the file' }
+		]);
 	});
 });

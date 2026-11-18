@@ -1,10 +1,37 @@
 {
 	"format": 0,
+	"skills": [
+		{
+			"id": "chord-anchor",
+			"name": {
+				"fr": "Ancrer un accord sur sa fondamentale",
+				"en": "Anchor a chord on its root"
+			},
+			"items": "voicing-on-strings",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		},
+		{
+			"id": "chord-zone",
+			"name": {
+				"fr": "Jouer un accord près d'une case",
+				"en": "Play a chord near a fret"
+			},
+			"items": "voicing-on-strings",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		}
+	],
 	"exercises": [
 		{
 			"id": "triads-anchor",
 			"version": 1,
 			"mechanic": "triad-anchor",
+			"practices": "chord-anchor",
 			"view": "lane",
 			"tempo": 80,
 			"presentation": {
@@ -142,6 +169,7 @@
 			"id": "triads-zone",
 			"version": 1,
 			"mechanic": "triad-zone",
+			"practices": "chord-zone",
 			"view": "lane",
 			"tempo": 80,
 			"presentation": {

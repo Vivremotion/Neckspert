@@ -1,10 +1,37 @@
 {
 	"format": 0,
+	"skills": [
+		{
+			"id": "locate-note-string",
+			"name": {
+				"fr": "Trouver une note sur une corde",
+				"en": "Find a note on a string"
+			},
+			"items": "note-on-string",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 1500
+			}
+		},
+		{
+			"id": "identify-note",
+			"name": {
+				"fr": "Nommer une note",
+				"en": "Name a note"
+			},
+			"items": "placed-note",
+			"memory": true,
+			"directRecall": {
+				"withinMs": 3000
+			}
+		}
+	],
 	"exercises": [
 		{
 			"id": "locate-neck",
 			"version": 1,
 			"mechanic": "locate",
+			"practices": "locate-note-string",
 			"view": "lane",
 			"tempo": 80,
 			"presentation": {
@@ -117,6 +144,7 @@
 			"id": "identify-neck",
 			"version": 1,
 			"mechanic": "identify",
+			"practices": "identify-note",
 			"view": "answer-keys",
 			"presentation": {
 				"primary": "{fret}",
