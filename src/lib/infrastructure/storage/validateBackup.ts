@@ -1,4 +1,3 @@
-import { MECHANIC_RULES, type MechanicIdentity } from '$lib/domain/mechanics';
 import { AIDS } from '$lib/domain/time';
 import {
 	CHORD_DIAGRAM_STYLES,
@@ -21,6 +20,7 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
+import { MECHANICS_V12, type MechanicV12 } from './migrations/v13';
 import { backupV6ToV7, type BackupV6, type BackupV7 } from './migrations/v11';
 import {
 	FIGURE_MECHANIC_V12,
@@ -81,9 +81,9 @@ const OBSERVATION_FATES: readonly string[] = [
  * The mechanics a file of version 1 to 7 may name: today's, the rhythm's under its name until
  * version 8 (`RHYTHM_FIGURE_RULES_V11`, frozen) instead of `figure`.
  */
-const MECHANICS_BEFORE_V8: readonly MechanicIdentity[] = [
-	...MECHANIC_RULES.filter((rules) => rules.id !== FIGURE_MECHANIC_V12),
-	RHYTHM_FIGURE_RULES_V11
+const MECHANICS_BEFORE_V8: readonly MechanicV12[] = [
+	...MECHANICS_V12.filter((rules) => rules.id !== FIGURE_MECHANIC_V12),
+	{ ...RHYTHM_FIGURE_RULES_V11, cards: false }
 ];
 const VERDICT_PROBLEM = 'must be perfect, early, late, offbeat, corrected or wrong';
 
@@ -132,8 +132,8 @@ function sameValue(a: unknown, b: unknown): boolean {
 
 function rulesOf(
 	mechanic: unknown,
-	mechanics: readonly MechanicIdentity[] = MECHANIC_RULES
-): MechanicIdentity | null {
+	mechanics: readonly MechanicV12[] = MECHANICS_V12
+): MechanicV12 | null {
 	return mechanics.find((rules) => rules.id === mechanic) ?? null;
 }
 
@@ -415,7 +415,7 @@ export function validateBackupV1(file: unknown): V1Backup {
 
 // Version 2: mechanic cards and attempts, executions, progressions.
 
-function mechanicProblem(mechanics: readonly MechanicIdentity[] = MECHANIC_RULES): string {
+function mechanicProblem(mechanics: readonly MechanicV12[] = MECHANICS_V12): string {
 	return `mechanic must be one of ${mechanics.map((rules) => rules.id).join(', ')}`;
 }
 
@@ -427,7 +427,7 @@ function checkItem(
 	keyField: string,
 	itemField: string,
 	prompted = false,
-	mechanics: readonly MechanicIdentity[] = MECHANIC_RULES
+	mechanics: readonly MechanicV12[] = MECHANICS_V12
 ): string | null {
 	const rules = rulesOf(mechanic, mechanics);
 	if (!rules) return mechanicProblem(mechanics);
@@ -463,7 +463,7 @@ function checkCardV6(card: Fields): string | null {
 
 function checkAttempt(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
 ): string | null {
 	const header = checkAttemptHeader(attempt);
 	if (header) return header;
@@ -597,7 +597,7 @@ function checkContestReason(value: unknown): string | null {
 
 function checkAttemptV3(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
 ): string | null {
 	return (
 		checkAttempt(attempt, mechanics) ??
@@ -644,7 +644,7 @@ export function validateBackupV3(file: unknown): Fields {
 
 function checkAttemptV4(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
 ): string | null {
 	if (isBeforeTarget(attempt)) return 'verdict must be { relation, version, value }';
 	return checkAttemptV3(attempt, mechanics);
@@ -684,7 +684,7 @@ function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
 /** Version 7: the scope of an attempt is its exercise level's, no longer its tempo's. */
 function checkAttemptV7(
 	attempt: Fields,
-	mechanics: readonly MechanicIdentity[] = MECHANICS_BEFORE_V8
+	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
 ): string | null {
 	if (Object.hasOwn(attempt, 'tempoScope')) return 'tempoScope is renamed scope';
 	return (
@@ -701,7 +701,7 @@ function checkAttemptV8(attempt: Fields): string | null {
 	if (isCyclePlanV11(attempt.plan)) {
 		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
 	}
-	return checkAttemptV7(attempt, MECHANIC_RULES);
+	return checkAttemptV7(attempt, MECHANICS_V12);
 }
 
 /** Checks a version 4 file and returns it unchanged: its level states are those of the exercises. */
