@@ -42,10 +42,16 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Why the values of params cannot be run, named by their path: the params an exercise writes
- * (with its `tempo`), and alike the params resolved at each of its levels, so that a value is
- * checked the same wherever it is written. A value left out passes: its default is runnable.
+ * (with its `tempo`, `read` `'params'`), and alike the params resolved at each of its levels
+ * (`read` `'level'`), so that a value is checked the same wherever it is written. At a level only
+ * what the engine reads from the resolved params is checked (tempo, windows, pacing); the
+ * learning settings and the recall threshold are read from the exercise's params alone. A value
+ * left out passes: its default is runnable.
  */
-function valuesProblem(values: Readonly<Record<string, unknown>>): string | null {
+function valuesProblem(
+	values: Readonly<Record<string, unknown>>,
+	read: 'params' | 'level'
+): string | null {
 	const { tempo } = values;
 	if (tempo !== undefined && !positive(tempo)) {
 		return `tempo must be a positive number, got ${tempo}`;
@@ -61,20 +67,6 @@ function valuesProblem(values: Readonly<Record<string, unknown>>): string | null
 		const anchor = values.windows.anchorChordFromBeats;
 		if (anchor !== undefined && !isBeatCount(anchor)) {
 			return `params.windows.anchorChordFromBeats must be an exact fraction of a beat, got ${anchor}`;
-		}
-	}
-	if (values.learning !== undefined) {
-		if (!isObject(values.learning)) return 'params.learning must be an object';
-		const gaps = values.learning.retestGaps;
-		if (
-			gaps !== undefined &&
-			!(Array.isArray(gaps) && gaps.length === 2 && gaps.every(naturalNumber))
-		) {
-			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
-		}
-		const fade = values.learning.aidFadeSuccesses;
-		if (fade !== undefined && !naturalNumber(fade)) {
-			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
 	if (values.pacing !== undefined) {
@@ -102,9 +94,24 @@ function valuesProblem(values: Readonly<Record<string, unknown>>): string | null
 			return `params.pacing.countIn must be true or false, got ${countIn}`;
 		}
 	}
-	// Null: no direct recall, as when none is written.
-	const recall = values.recallThresholdMs;
-	if (recall !== undefined && recall !== null && !positive(recall)) {
+	// Read from the exercise's own params only (`itemLearningOf`, `recallThresholdOf`): what a
+	// level writes there is without effect.
+	if (read === 'level') return null;
+	if (values.learning !== undefined) {
+		if (!isObject(values.learning)) return 'params.learning must be an object';
+		const gaps = values.learning.retestGaps;
+		if (
+			gaps !== undefined &&
+			!(Array.isArray(gaps) && gaps.length === 2 && gaps.every(naturalNumber))
+		) {
+			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
+		}
+		const fade = values.learning.aidFadeSuccesses;
+		if (fade !== undefined && !naturalNumber(fade)) {
+			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
+		}
+	}
+	if (values.recallThresholdMs !== undefined && !positive(values.recallThresholdMs)) {
 		return `params.recallThresholdMs must be a positive number, got ${values.recallThresholdMs}`;
 	}
 	return null;
@@ -112,7 +119,7 @@ function valuesProblem(values: Readonly<Record<string, unknown>>): string | null
 
 function paramsProblem(definition: ExerciseDefinition): string | null {
 	return (
-		valuesProblem({ ...definition.params, tempo: definition.tempo }) ??
+		valuesProblem({ ...definition.params, tempo: definition.tempo }, 'params') ??
 		ladderProblem(definition.params)
 	);
 }
@@ -154,9 +161,10 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
 /**
  * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
- * hold a value the params could not (`valuesProblem`), named by its level in `levels` (aid levels
- * counted) or on its ladder, a run a level could not start or end (`runProblem`).
- * A path no piece reads passes: it is without effect.
+ * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
+ * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
+ * end (`runProblem`). A path no piece reads at a level passes, the learning settings and the
+ * recall threshold among them: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;
@@ -182,7 +190,7 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		} catch (error) {
 			return `${field} ${(error as Error).message}`;
 		}
-		const values = valuesProblem(atLevel);
+		const values = valuesProblem(atLevel, 'level');
 		if (values !== null) return `${field}: ${values}`;
 		const run = runProblem(definition, atLevel);
 		if (run !== null) return `${field} ${run}`;
@@ -197,7 +205,7 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 				} catch (error) {
 					return `${field} level ${index}: ${(error as Error).message}`;
 				}
-				const values = valuesProblem(atItemLevel);
+				const values = valuesProblem(atItemLevel, 'level');
 				if (values !== null) return `${field} level ${index}: ${values}`;
 			}
 		}

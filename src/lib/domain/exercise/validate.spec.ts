@@ -224,6 +224,22 @@ describe('validateExercise on what a file could break in play', () => {
 		);
 	});
 
+	it('passes the learning settings and the recall threshold at a level, read from the params alone', () => {
+		const ladder = [
+			{ params: { leadBeats: 4, aided: false, recallThresholdMs: -1, 'learning.retestGaps': [2] } }
+		];
+		expect(validateExercise(withParams({ ladder }))).toBeNull();
+		expect(
+			validateExercise(levelled({ recallThresholdMs: 0, 'learning.aidFadeSuccesses': 1.5 }))
+		).toBeNull();
+		expect(validateExercise(withParams({ recallThresholdMs: 0 }))).toMatch(
+			/^locate-neck: params\.recallThresholdMs /
+		);
+		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
+			/^locate-neck: params\.learning\.aidFadeSuccesses /
+		);
+	});
+
 	it('refuses a level that writes an object and one of its sub-paths', () => {
 		expectRefusal(
 			validateExercise(levelled({ windows: { perfectMs: 60 }, 'windows.lateMs': 200 })),

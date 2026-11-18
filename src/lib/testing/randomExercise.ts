@@ -435,6 +435,22 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 			: mechanic === 'identify' && free
 				? 'answer-keys'
 				: 'lane';
+	const params: Record<string, unknown> = {
+		ladder,
+		...(figured && {
+			figure: pick(random, FIGURE_IDS),
+			window: { ms: pick(random, WINDOWS_MS) }
+		}),
+		...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
+		...(chance(random, 0.3) && {
+			windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
+		}),
+		...(chance(random, 0.5) && { recallThresholdMs: between(random, 800, 3000) })
+	};
+	// A run of cycles breathes after so many: drawn last, so the other draws stay as they were.
+	if (round.policy.unit === 'cycle') {
+		params.pacing = { ...(params.pacing as object), roundsPerBreath: between(random, 1, 3) };
+	}
 	return {
 		id,
 		version: 1,
@@ -446,18 +462,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		...(presentation && { presentation }),
 		...(figured && { figures }),
 		round,
-		params: {
-			ladder,
-			...(figured && {
-				figure: pick(random, FIGURE_IDS),
-				window: { ms: pick(random, WINDOWS_MS) }
-			}),
-			...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
-			...(chance(random, 0.3) && {
-				windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
-			}),
-			...(chance(random, 0.5) && { recallThresholdMs: between(random, 800, 3000) })
-		}
+		params
 	};
 }
 
