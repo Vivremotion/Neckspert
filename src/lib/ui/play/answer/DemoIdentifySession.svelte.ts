@@ -5,7 +5,7 @@ import type {
 	PlayTimeline,
 	PlayView
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK } from '$lib/domain/exercise';
+import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK_ID, exerciseById } from '$lib/domain/exercise';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { answerChoiceLabel, pitchOnString, type IdentifyItem } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
@@ -25,7 +25,7 @@ export const DEMO_IDENTIFY_SCRIPT: readonly IdentifyItem[] = [
 export const DEMO_VERDICT_MS = 1200;
 
 /** A name given within the exercise's recall threshold is perfect, later late. */
-const RECALL_THRESHOLD_MS = recallThresholdOf(IDENTIFY_NECK) ?? 0;
+const recallThresholdMs = () => recallThresholdOf(exerciseById(IDENTIFY_NECK_ID)) ?? 0;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
@@ -90,7 +90,7 @@ export class DemoIdentifySession implements PlaySessionController {
 		const right = pitchOnString(target.string, target.fret);
 		const reactionMs = Date.now() - this.promptedAt;
 		const verdict: ResponseVerdict =
-			pitch !== right ? 'wrong' : reactionMs <= RECALL_THRESHOLD_MS ? 'perfect' : 'late';
+			pitch !== right ? 'wrong' : reactionMs <= recallThresholdMs() ? 'perfect' : 'late';
 		this.view.stage = {
 			view: 'answer-keys',
 			model: {
@@ -140,10 +140,10 @@ export class DemoIdentifySession implements PlaySessionController {
 			view: 'answer-keys',
 			model: {
 				prompt: presentPrompt(
-					IDENTIFY_NECK,
+					exerciseById(IDENTIFY_NECK_ID),
 					{
-						exerciseId: IDENTIFY_NECK.id,
-						mechanic: IDENTIFY_NECK.mechanic,
+						exerciseId: IDENTIFY_NECK_ID,
+						mechanic: exerciseById(IDENTIFY_NECK_ID).mechanic,
 						exerciseLevel: 0,
 						item: target,
 						phase: 'review',

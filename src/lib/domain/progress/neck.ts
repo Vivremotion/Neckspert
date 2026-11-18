@@ -1,4 +1,4 @@
-import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
+import { IDENTIFY_NECK_ID, LOCATE_NECK_ID } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseId, MechanicId } from '$lib/domain/exercise/types';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { CardKey, PlannedItem } from '$lib/domain/types';
@@ -8,7 +8,7 @@ import type { CardKey, PlannedItem } from '$lib/domain/types';
  * mechanics; the core does not. This is where it reads their exercises.
  */
 export function neckExerciseId(mechanic: MechanicId): ExerciseId {
-	return asNeckMechanic(mechanic) === 'locate' ? LOCATE_NECK.id : IDENTIFY_NECK.id;
+	return asNeckMechanic(mechanic) === 'locate' ? LOCATE_NECK_ID : IDENTIFY_NECK_ID;
 }
 
 /** Whether a card or an attempt belongs to the neck, not to another track (triads). */

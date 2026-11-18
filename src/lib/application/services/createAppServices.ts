@@ -7,17 +7,18 @@ import { levelAided } from '$lib/application/session/aids';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { GESTURE_EXERCISES, gestureOpen } from '$lib/domain/gesture';
+import { gestureOpen } from '$lib/domain/gesture';
 import {
 	exerciseById,
 	exerciseSessionExercises,
 	figureParamsOf,
 	writesFigure,
 	type ExerciseDefinition,
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	TRIADS_ANCHOR,
-	TRIADS_ZONE
+	GESTURE_EXERCISE_IDS,
+	IDENTIFY_NECK_ID,
+	LOCATE_NECK_ID,
+	TRIADS_ANCHOR_ID,
+	TRIADS_ZONE_ID
 } from '$lib/domain/exercise';
 import { locateRules } from '$lib/domain/mechanics';
 import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
@@ -84,13 +85,15 @@ export function createAppServices(
 	 * The mechanics of the memory and gesture tracks: a session of the notes, the triads or the
 	 * gesture opens the sensors of them all, its observations of the others kept on its attempts.
 	 */
-	const TRACK_MECHANICS: readonly MechanicId[] = [
-		LOCATE_NECK,
-		IDENTIFY_NECK,
-		TRIADS_ANCHOR,
-		TRIADS_ZONE,
-		...GESTURE_EXERCISES
-	].map((definition) => definition.mechanic);
+	const trackMechanics = (): readonly MechanicId[] =>
+		[
+			LOCATE_NECK_ID,
+			IDENTIFY_NECK_ID,
+			TRIADS_ANCHOR_ID,
+			TRIADS_ZONE_ID,
+			...GESTURE_EXERCISE_IDS
+		].map((id) => exerciseOf(id).mechanic);
+	const gestureExercises = () => GESTURE_EXERCISE_IDS.map((id) => exerciseOf(id));
 
 	/**
 	 * A session on the session controller: `prepare` reads the stores again for each series, so a
@@ -152,11 +155,11 @@ export function createAppServices(
 	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		playSession('gesture', presentersOf(TRACK_MECHANICS), async (sessionId) => {
+		playSession('gesture', presentersOf(trackMechanics()), async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			// The open exercises in the order of the ladder; each grid of each (and the link, which
 			// plays no grid) at its own exercise level, which the series holds.
-			const definitions = GESTURE_EXERCISES.filter((definition) => gestureOpen(definition, cards));
+			const definitions = gestureExercises().filter((definition) => gestureOpen(definition, cards));
 			const source = createGestureSelector({
 				definitions,
 				cards,
@@ -171,7 +174,7 @@ export function createAppServices(
 	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, presentersOf(TRACK_MECHANICS), async (sessionId) => {
+		playSession(kind, presentersOf(trackMechanics()), async (sessionId) => {
 			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
@@ -179,8 +182,8 @@ export function createAppServices(
 			]);
 			// The neck's exercises as the catalog writes them: locate on the click at its tempo,
 			// identify answered in free time.
-			const locate = exerciseOf(LOCATE_NECK.id);
-			const identify = exerciseOf(IDENTIFY_NECK.id);
+			const locate = exerciseOf(LOCATE_NECK_ID);
+			const identify = exerciseOf(IDENTIFY_NECK_ID);
 			// The neck's sessions see the neck's cards only; the triads lead its notes queue.
 			const subject = neckSubject({
 				definitions: { locate, identify },
@@ -221,7 +224,7 @@ export function createAppServices(
 	const startTriads = (mechanic: TriadMechanic) =>
 		playSession(
 			mechanic === 'triad-zone' ? 'triads-zone' : 'triads',
-			presentersOf(TRACK_MECHANICS),
+			presentersOf(trackMechanics()),
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
 					deps.cards.all(),
@@ -229,8 +232,8 @@ export function createAppServices(
 					deps.levels.all()
 				]);
 				const definitions = {
-					anchor: exerciseOf(TRIADS_ANCHOR.id),
-					zone: exerciseOf(TRIADS_ZONE.id)
+					anchor: exerciseOf(TRIADS_ANCHOR_ID),
+					zone: exerciseOf(TRIADS_ZONE_ID)
 				};
 				// The anchor's queue puts first the triads of the notes already acquired in locate.
 				const acquiredPositions = new Set(
@@ -346,7 +349,7 @@ export function createAppServices(
 
 		async gesture() {
 			const cards = await deps.cards.all();
-			return { open: GESTURE_EXERCISES.some((definition) => gestureOpen(definition, cards)) };
+			return { open: gestureExercises().some((definition) => gestureOpen(definition, cards)) };
 		},
 
 		async contest(attemptId: number, reason?: string) {

@@ -11,7 +11,7 @@ import type {
 	PlayTimeline,
 	PlayView
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, LOCATE_NECK } from '$lib/domain/exercise';
+import { DEFAULT_TEMPO_BPM, LOCATE_NECK_ID, exerciseById } from '$lib/domain/exercise';
 import { acceptableMidis, midiOnString, type LocateItem } from '$lib/domain/music';
 import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
@@ -164,8 +164,8 @@ export class DemoPlaySession implements PlaySessionController {
 	#show(place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
 		const { item } = SCRIPT[this.#step];
 		const planned = {
-			exerciseId: LOCATE_NECK.id,
-			mechanic: LOCATE_NECK.mechanic,
+			exerciseId: LOCATE_NECK_ID,
+			mechanic: exerciseById(LOCATE_NECK_ID).mechanic,
 			exerciseLevel: 0,
 			item,
 			phase: 'review',
@@ -176,7 +176,7 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.stage = {
 			view: 'lane',
 			model: {
-				prompt: presentPrompt(LOCATE_NECK, planned, i18n.locale, noRandom),
+				prompt: presentPrompt(exerciseById(LOCATE_NECK_ID), planned, i18n.locale, noRandom),
 				history: this.#history,
 				bands: [],
 				beatsPerBar: BAR_BEATS,

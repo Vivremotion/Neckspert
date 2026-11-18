@@ -11,7 +11,8 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
-import { LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise/catalog';
+import { LOCATE_NECK_ID, TRIADS_ANCHOR_ID, TRIADS_ZONE_ID } from '$lib/domain/exercise/catalogIds';
+import { exerciseById } from '$lib/domain/exercise/registry';
 import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
@@ -116,8 +117,13 @@ export function summarizeSession(input: {
 	const endedAt = input.record.endedAt ?? input.now;
 	const triads = isTriadsKind(input.record.kind);
 	// The tempo shown is the session's exercise's: locate for the notes.
-	const shownExercise =
-		input.record.kind === 'triads-zone' ? TRIADS_ZONE : triads ? TRIADS_ANCHOR : LOCATE_NECK;
+	const shownExercise = exerciseById(
+		input.record.kind === 'triads-zone'
+			? TRIADS_ZONE_ID
+			: triads
+				? TRIADS_ANCHOR_ID
+				: LOCATE_NECK_ID
+	);
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
 	);

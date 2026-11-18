@@ -5,7 +5,6 @@ import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById } from '$lib/domain/exercise';
-import { GESTURE_CLIMB, GESTURE_LINK } from '$lib/domain/gesture';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
@@ -30,7 +29,7 @@ import {
 export type DemoGestureMode = 'link' | 'climb';
 
 const GRID_ID = 'iohefy-a';
-const GRID = gridChanges(gridById(GRID_ID));
+const gridOf = () => gridChanges(gridById(GRID_ID));
 /** E on G-B-E, linked up the neck and back: one shape per bar. */
 const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
 const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
@@ -68,13 +67,14 @@ function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordG
 			previous: null
 		};
 	}
-	const symbol = GRID[index].symbol;
+	const grid = gridOf();
+	const symbol = grid[index].symbol;
 	return {
 		rule: 'climb',
 		element: `climb:${GRID_ID}:3,2,1`,
 		passageId,
 		index,
-		changes: GRID,
+		changes: grid,
 		symbol,
 		chord: triadId(triadOf(symbol)),
 		sets: [[3, 2, 1]],
@@ -85,8 +85,8 @@ function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordG
 
 /** Serves the demo's passage again and again, each one counted in, aided. */
 function passageLoop(mode: DemoGestureMode): ItemSource {
-	const exercise = mode === 'link' ? GESTURE_LINK : GESTURE_CLIMB;
-	const length = mode === 'link' ? LINK.length : GRID.length;
+	const exercise = exerciseById(mode === 'link' ? 'gesture-link' : 'gesture-climb');
+	const length = mode === 'link' ? LINK.length : gridOf().length;
 	let served = 0;
 	return {
 		next: () => {

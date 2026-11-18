@@ -1,17 +1,15 @@
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
 import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
 import { expectedShape } from '$lib/domain/mechanics/chordGrid';
 import type { VoicingOccurrence } from '$lib/domain/music';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
-import { GESTURE_EXERCISES } from './exercises';
 import { passageSucceeded } from './passages';
 
-/** The gesture exercise of an id; throws on one the track does not list, rather than invent it. */
-function gestureDefinition(exerciseId: string): ExerciseDefinition {
-	const definition = GESTURE_EXERCISES.find((exercise) => exercise.id === exerciseId);
-	if (!definition) throw new Error(`${exerciseId}: not an exercise of the gesture track`);
-	return definition;
+/** Throws on an exercise the track does not list, rather than invent it. */
+function assertGestureExercise(exerciseId: string): void {
+	if (!(GESTURE_EXERCISE_IDS as readonly string[]).includes(exerciseId))
+		throw new Error(`${exerciseId}: not an exercise of the gesture track`);
 }
 
 function fretsOf(occurrence: VoicingOccurrence | null): string | null {
@@ -43,7 +41,7 @@ export function summarizeGesture(
 		);
 		if (own.length === 0 || tempoBpm === null) return [];
 		// Only an exercise of the gesture track is summed up here.
-		gestureDefinition(exerciseId);
+		assertGestureExercise(exerciseId);
 		const passages = new Map<string, Attempt[]>();
 		for (const attempt of own) {
 			const id = itemOf(attempt).passageId;
