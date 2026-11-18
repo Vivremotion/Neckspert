@@ -1,0 +1,195 @@
+{
+	"format": 0,
+	"exercises": [
+		{
+			"id": "locate-neck",
+			"version": 1,
+			"mechanic": "locate",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{note}",
+				"secondary": "{string}",
+				"preview": "{string}",
+				"aided": {
+					"line": "{fret}"
+				},
+				"fading": {
+					"picture": "string"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "note",
+						"content": {
+							"from": "note-of-item"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"breath": true
+				},
+				"listenBeforeEnd": {
+					"beats": {
+						"param": "previewBeats"
+					}
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"recallThresholdMs": 1500,
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				]
+			}
+		},
+		{
+			"id": "identify-neck",
+			"version": 1,
+			"mechanic": "identify",
+			"view": "answer-keys",
+			"presentation": {
+				"primary": "{fret}",
+				"secondary": "{string}",
+				"aided": {
+					"line": "{name}"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": 0
+				},
+				"expectations": [
+					{
+						"at": null,
+						"sensor": "tap",
+						"content": {
+							"from": "name-of-item"
+						},
+						"window": {
+							"ms": {
+								"param": "recallThresholdMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"bars": 1
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": 0
+						},
+						"lateMs": 0,
+						"lateCapture": null
+					}
+				}
+			},
+			"params": {
+				"recallThresholdMs": 3000,
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": null,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": null,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				]
+			}
+		}
+	]
+}

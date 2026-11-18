@@ -1,0 +1,451 @@
+{
+	"format": 0,
+	"exercises": [
+		{
+			"id": "rhythm-silent-bars",
+			"version": 1,
+			"title": {
+				"fr": "Mesures silencieuses",
+				"en": "Silent bars"
+			},
+			"mechanic": "figure",
+			"params": {
+				"accompaniment": {
+					"clicks": {
+						"beats": [1, 2, 3, 4],
+						"accent": [1]
+					},
+					"bars": ["on", "on", "on", "off"]
+				},
+				"cycleBars": 4,
+				"window": {
+					"ms": 80
+				},
+				"feedback": "every-cycle",
+				"listen": "free",
+				"cursor": true,
+				"pacing": {
+					"listenInBars": 2,
+					"roundsPerBreath": 4,
+					"breathMinMs": 4000
+				},
+				"thresholds": {
+					"regularity": 40,
+					"holdOffset": 60,
+					"holdDrift": 25,
+					"precision": 60
+				}
+			},
+			"tempo": 80,
+			"flow": {
+				"antiBlocking": true,
+				"briefing": "first-encounter"
+			},
+			"view": "figure",
+			"round": {
+				"expectations": [
+					{
+						"figure": {
+							"item": "figure"
+						},
+						"at": {
+							"bars": 0
+						},
+						"sensor": "attack",
+						"content": null,
+						"window": {
+							"param": "window"
+						}
+					}
+				],
+				"accompaniment": {
+					"param": "accompaniment"
+				},
+				"length": {
+					"bars": {
+						"param": "cycleBars"
+					}
+				},
+				"handover": "end",
+				"policy": {
+					"unit": "cycle",
+					"verdict": "cycle",
+					"correction": false,
+					"pairing": {
+						"mode": "alignment"
+					}
+				}
+			},
+			"howTo": {
+				"fr": "Joue des croches continues, une attaque sur chaque demi-temps. Le clic se tait sur certaines mesures : garde le même tempo, comme s’il continuait, et retrouve-le quand il revient. Tu entends la figure d’abord, puis tu la joues par séries de quatre tours.",
+				"en": "Play steady eighth notes, one attack on every half beat. The click drops out on some bars: keep the same tempo as if it carried on, and meet it again when it returns. You hear the figure first, then play it in runs of four turns."
+			},
+			"figures": [
+				{
+					"id": "eighths",
+					"lilypond": "c8 c c c c c c c"
+				}
+			],
+			"pick": "loop",
+			"levels": [
+				{
+					"aid": true,
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "on", "on", "on"]
+						}
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "on", "on", "off"]
+						}
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "on", "off", "off"]
+						}
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "off", "off", "off"]
+						}
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "on", "on", "off"]
+						},
+						"tempo": 65,
+						"cursor": false,
+						"window": {
+							"ms": 50
+						}
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "on", "off", "off"]
+						},
+						"tempo": 65,
+						"cursor": false,
+						"window": {
+							"ms": 50
+						},
+						"feedback": "summary"
+					}
+				},
+				{
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4],
+								"accent": [1]
+							},
+							"bars": ["on", "off", "off", "off"]
+						},
+						"tempo": 65,
+						"cursor": false,
+						"window": {
+							"ms": 30
+						},
+						"feedback": "out-of-tolerance",
+						"thresholds.regularity": 20,
+						"thresholds.holdOffset": 25,
+						"thresholds.holdDrift": 10,
+						"thresholds.precision": 30
+					}
+				}
+			]
+		},
+		{
+			"id": "rhythm-two-four",
+			"version": 1,
+			"title": {
+				"fr": "Métronome sur 2 et 4",
+				"en": "Click on 2 and 4"
+			},
+			"mechanic": "figure",
+			"params": {
+				"accompaniment": {
+					"clicks": {
+						"beats": [2, 4]
+					},
+					"bars": ["on"]
+				},
+				"cycleBars": 4,
+				"window": {
+					"ms": 80
+				},
+				"feedback": "every-cycle",
+				"listen": "aid",
+				"cursor": true,
+				"pacing": {
+					"listenInBars": 2,
+					"roundsPerBreath": 1,
+					"breathMinMs": 4000,
+					"countIn": false
+				},
+				"thresholds": {
+					"regularity": 40,
+					"holdOffset": 60,
+					"holdDrift": 25,
+					"precision": 60
+				}
+			},
+			"tempo": 100,
+			"flow": {
+				"antiBlocking": true,
+				"briefing": "first-encounter"
+			},
+			"view": "figure",
+			"round": {
+				"expectations": [
+					{
+						"figure": {
+							"item": "figure"
+						},
+						"at": {
+							"bars": 0
+						},
+						"sensor": "attack",
+						"content": null,
+						"window": {
+							"param": "window"
+						}
+					}
+				],
+				"accompaniment": {
+					"param": "accompaniment"
+				},
+				"length": {
+					"bars": {
+						"param": "cycleBars"
+					}
+				},
+				"handover": "end",
+				"policy": {
+					"unit": "cycle",
+					"verdict": "cycle",
+					"correction": false,
+					"pairing": {
+						"mode": "alignment"
+					}
+				}
+			},
+			"howTo": {
+				"fr": "Lis la ligne de quatre mesures et joue-la d’un trait. Le clic ne marque que les temps 2 et 4 : le 1 et le 3, c’est à toi de les porter. Une nouvelle ligne vient à chaque tour. Tu peux réécouter la ligne avant de la jouer.",
+				"en": "Read the four-bar line and play it in one go. The click only marks beats 2 and 4: beats 1 and 3 are yours to carry. A new line comes each turn. You can listen to the line before you play it."
+			},
+			"figures": [
+				{
+					"id": "line-1",
+					"lilypond": "c4 c4 c4 c4 | c4 c4 c2 | c2 c4 c4 | c4 c4 c4 c4"
+				},
+				{
+					"id": "line-2",
+					"lilypond": "c4 c8 c8 c4 c4 | c8 c8 c8 c8 c4 c4 | c2 c4 c4 | c4 c4 c2"
+				},
+				{
+					"id": "line-3",
+					"lilypond": "c2 c2 | c4 c4 c8 c8 c4 | c8 c8 c4 c8 c8 c4 | c4 c4 c4 c4"
+				},
+				{
+					"id": "line-4",
+					"lilypond": "c8 c8 c8 c8 c8 c8 c8 c8 | c4 c4 c2 | c4 c8 c8 c4 c8 c8 | c2 c2"
+				},
+				{
+					"id": "line-5",
+					"lilypond": "c4 c4 c4 c4 | c2 c4 c8 c8 | c8 c8 c8 c8 c4 c4 | c4 c2 c4"
+				},
+				{
+					"id": "line-6",
+					"lilypond": "c4 r4 c4 c4 | c8 c8 c8 c8 c2 | c4 c4 c8 c8 c4 | c2 c4 r4"
+				}
+			],
+			"pick": "next",
+			"levels": [
+				{
+					"aid": true,
+					"params": {
+						"accompaniment": {
+							"clicks": {
+								"beats": [1, 2, 3, 4]
+							},
+							"bars": ["on"]
+						}
+					}
+				},
+				{
+					"params": {}
+				},
+				{
+					"params": {
+						"tempo": 120
+					}
+				},
+				{
+					"params": {
+						"tempo": 140,
+						"cursor": false
+					}
+				}
+			]
+		},
+		{
+			"id": "rhythm-offbeats",
+			"version": 1,
+			"title": {
+				"fr": "Contretemps",
+				"en": "Offbeats"
+			},
+			"mechanic": "figure",
+			"params": {
+				"accompaniment": {
+					"clicks": {
+						"beats": [1, 2, 3, 4],
+						"accent": [1]
+					},
+					"bars": ["on"]
+				},
+				"cycleBars": 1,
+				"window": {
+					"ms": 80
+				},
+				"feedback": "every-cycle",
+				"listen": "free",
+				"cursor": true,
+				"pacing": {
+					"listenInBars": 2,
+					"roundsPerBreath": 4,
+					"breathMinMs": 4000
+				},
+				"thresholds": {
+					"regularity": 40,
+					"holdOffset": 60,
+					"holdDrift": 25,
+					"precision": 60
+				}
+			},
+			"tempo": 80,
+			"flow": {
+				"antiBlocking": true,
+				"briefing": "first-encounter"
+			},
+			"view": "figure",
+			"round": {
+				"expectations": [
+					{
+						"figure": {
+							"item": "figure"
+						},
+						"at": {
+							"bars": 0
+						},
+						"sensor": "attack",
+						"content": null,
+						"window": {
+							"param": "window"
+						}
+					}
+				],
+				"accompaniment": {
+					"param": "accompaniment"
+				},
+				"length": {
+					"bars": {
+						"param": "cycleBars"
+					}
+				},
+				"handover": "end",
+				"policy": {
+					"unit": "cycle",
+					"verdict": "cycle",
+					"correction": false,
+					"pairing": {
+						"mode": "alignment"
+					}
+				}
+			},
+			"howTo": {
+				"fr": "Joue les contretemps : une attaque sur le « et » de chaque temps, plus le premier temps de la mesure. D’abord une mesure en boucle, sans ajouter ni retirer un seul temps ; puis deux mesures dont la seconde ne tombe pas sur le 1.",
+				"en": "Play the offbeats: one attack on the “and” of each beat, plus the first beat of the bar. First one bar on a loop, without adding or dropping a single beat; then two bars whose second does not land on the 1."
+			},
+			"figures": [
+				{
+					"id": "offbeats-1",
+					"lilypond": "c8 c r c r c r c"
+				},
+				{
+					"id": "offbeats-2",
+					"lilypond": "c8 c r c r c r c | r c r c r c r c"
+				}
+			],
+			"pick": "loop",
+			"levels": [
+				{
+					"aid": true,
+					"params": {
+						"tempo": 70
+					}
+				},
+				{
+					"params": {
+						"thresholds.regularity": 80,
+						"thresholds.holdOffset": 200,
+						"thresholds.holdDrift": 100
+					}
+				},
+				{
+					"params": {
+						"cycleBars": 2
+					}
+				},
+				{
+					"params": {
+						"cycleBars": 2,
+						"tempo": 90
+					}
+				},
+				{
+					"params": {
+						"cycleBars": 2,
+						"tempo": 100,
+						"cursor": false
+					}
+				}
+			]
+		}
+	]
+}

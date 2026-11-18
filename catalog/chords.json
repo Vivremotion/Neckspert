@@ -1,0 +1,257 @@
+{
+	"format": 0,
+	"exercises": [
+		{
+			"id": "triads-anchor",
+			"version": 1,
+			"mechanic": "triad-anchor",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{chord}",
+				"secondary": {
+					"fr": "fondamentale sur {rootString}",
+					"en": "root on {rootString}"
+				},
+				"detail": "{strings}",
+				"target": "{root}",
+				"band": "{chord}",
+				"aided": {
+					"picture": "lowest-shape"
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "note",
+						"content": {
+							"from": "voicing-root"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					},
+					{
+						"at": {
+							"beats": {
+								"param": "windows.anchorChordFromBeats"
+							}
+						},
+						"until": {
+							"bars": 1
+						},
+						"sensor": "chord",
+						"content": {
+							"from": "voicing-anywhere"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"bars": 1,
+					"breath": true
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": true,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"stringSets": [
+					[3, 2, 1],
+					[4, 3, 2]
+				],
+				"qualities": ["maj", "min"],
+				"pacing": {
+					"respirationBars": 1
+				},
+				"recallThresholdMs": 1500,
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				]
+			}
+		},
+		{
+			"id": "triads-zone",
+			"version": 1,
+			"mechanic": "triad-zone",
+			"view": "lane",
+			"tempo": 80,
+			"presentation": {
+				"primary": "{chord}",
+				"secondary": "{around}",
+				"detail": "{strings}",
+				"aided": {
+					"line": {
+						"fr": "fondamentale sur {rootString}",
+						"en": "root on {rootString}"
+					}
+				}
+			},
+			"round": {
+				"prompt": {
+					"lead": {
+						"param": "leadBeats"
+					}
+				},
+				"expectations": [
+					{
+						"at": {
+							"beats": 0
+						},
+						"sensor": "chord",
+						"content": {
+							"from": "voicing-at-position"
+						},
+						"window": {
+							"ms": {
+								"param": "windows.perfectMs"
+							}
+						}
+					}
+				],
+				"length": {
+					"breath": true
+				},
+				"policy": {
+					"unit": "response",
+					"verdict": "response",
+					"correction": false,
+					"pairing": {
+						"mode": "first-answer",
+						"opens": {
+							"afterPromptMs": {
+								"param": "windows.minResponseMs"
+							}
+						},
+						"lateMs": {
+							"param": "windows.lateMs"
+						},
+						"lateCapture": {
+							"ms": {
+								"param": "windows.lateCaptureMs"
+							}
+						}
+					}
+				}
+			},
+			"params": {
+				"stringSets": [
+					[3, 2, 1],
+					[4, 3, 2]
+				],
+				"qualities": ["maj", "min"],
+				"pacing": {
+					"respirationBars": 1
+				},
+				"recallThresholdMs": 1500,
+				"ladder": [
+					{
+						"params": {
+							"leadBeats": 8,
+							"aided": true
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 4,
+							"aided": false
+						},
+						"pass": {
+							"successes": 1
+						},
+						"drop": {
+							"failures": 1
+						}
+					},
+					{
+						"params": {
+							"leadBeats": 2,
+							"aided": false
+						},
+						"pass": {
+							"successes": 2
+						},
+						"drop": {
+							"failures": 1
+						},
+						"success": "direct-recall"
+					}
+				]
+			}
+		}
+	]
+}
