@@ -1,0 +1,117 @@
+import { exerciseFromJson, type ExerciseDefinition } from '$lib/domain/exercise';
+import { gridFromJson, type ChordGrid } from '$lib/domain/grid';
+
+/** The version of the definition file format; unstable until it moves off 0. */
+export const DEFINITION_FORMAT = 0;
+export const MAX_DEFINITION_FILE_CHARS = 1_000_000;
+
+export type DefinitionKind = 'file' | 'grid' | 'exercise';
+
+/** What an author reads to fix a file. `id` is null when the entry has none (or the file as a whole is refused). */
+export interface Refusal {
+	file: string;
+	kind: DefinitionKind;
+	id: string | null;
+	reason: string;
+}
+
+export interface DefinitionFile {
+	grids: ChordGrid[];
+	exercises: ExerciseDefinition[];
+	refusals: Refusal[];
+}
+
+const LISTS = ['grids', 'exercises', 'skills', 'routines'] as const;
+const KEYS: readonly string[] = ['format', ...LISTS];
+
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+function idOf(entry: unknown): string | null {
+	if (!isObject(entry)) return null;
+	return typeof entry.id === 'string' && entry.id !== '' ? entry.id : null;
+}
+
+/** Reads each entry of a list; the first of two entries with one id is kept. */
+function readEntries<T>(
+	file: string,
+	kind: 'grid' | 'exercise',
+	entries: unknown[],
+	read: (entry: unknown) => T,
+	refusals: Refusal[]
+): T[] {
+	const kept: T[] = [];
+	const seen = new Set<string>();
+	for (const entry of entries) {
+		const id = idOf(entry);
+		if (id !== null && seen.has(id)) {
+			refusals.push({ file, kind, id, reason: 'this id is used twice in the file' });
+			continue;
+		}
+		try {
+			kept.push(read(entry));
+			if (id !== null) seen.add(id);
+		} catch (error) {
+			let reason = error instanceof Error ? error.message : String(error);
+			if (id !== null && reason.startsWith(`${id}: `)) reason = reason.slice(id.length + 2);
+			refusals.push({ file, kind, id, reason });
+		}
+	}
+	return kept;
+}
+
+/** The first problem that makes the whole file unreadable, if any. */
+function fileProblem(text: string): { problem: string } | { json: Record<string, unknown> } {
+	if (text.length > MAX_DEFINITION_FILE_CHARS) {
+		return { problem: `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters` };
+	}
+	let json: unknown;
+	try {
+		json = JSON.parse(text);
+	} catch (error) {
+		return { problem: `the file is not JSON: ${(error as Error).message}` };
+	}
+	if (!isObject(json)) {
+		return { problem: 'the file must be a JSON object { format, grids, exercises }' };
+	}
+	if (json.format !== DEFINITION_FORMAT) {
+		return { problem: `format must be ${DEFINITION_FORMAT}, got ${JSON.stringify(json.format)}` };
+	}
+	const unknown = Object.keys(json).find((key) => !KEYS.includes(key));
+	if (unknown !== undefined) return { problem: `unknown key "${unknown}"` };
+	for (const key of LISTS) {
+		if (json[key] !== undefined && !Array.isArray(json[key])) {
+			return { problem: `${key} must be a list` };
+		}
+	}
+	for (const key of ['skills', 'routines'] as const) {
+		const list = json[key];
+		if (Array.isArray(list) && list.length > 0) {
+			return { problem: `${key} are not read by this version` };
+		}
+	}
+	return { json };
+}
+
+/** Never throws. A `file` refusal means nothing of the file was read. */
+export function readDefinitionFile(file: string, text: string): DefinitionFile {
+	const checked = fileProblem(text);
+	if ('problem' in checked) {
+		return {
+			grids: [],
+			exercises: [],
+			refusals: [{ file, kind: 'file', id: null, reason: checked.problem }]
+		};
+	}
+	const { json } = checked;
+	const refusals: Refusal[] = [];
+	const grids = readEntries(file, 'grid', (json.grids as unknown[]) ?? [], gridFromJson, refusals);
+	const exercises = readEntries(
+		file,
+		'exercise',
+		(json.exercises as unknown[]) ?? [],
+		exerciseFromJson,
+		refusals
+	);
+	return { grids, exercises, refusals };
+}
