@@ -30,18 +30,18 @@ const withRound = (
 describe('roundProblem', () => {
 	it('accepts the catalog', () => {
 		const written = allExercises().filter((exercise) => exercise.round);
-		expect(written.map((exercise) => exercise.id)).toEqual([
-			'locate-neck',
-			'identify-neck',
-			'triads-anchor',
-			'triads-zone',
-			'gesture-link',
+		expect(written.map((exercise) => exercise.id).sort()).toEqual([
 			'gesture-climb',
-			'gesture-zone',
 			'gesture-jam',
+			'gesture-link',
+			'gesture-zone',
+			'identify-neck',
+			'locate-neck',
+			'rhythm-offbeats',
 			'rhythm-silent-bars',
 			'rhythm-two-four',
-			'rhythm-offbeats'
+			'triads-anchor',
+			'triads-zone'
 		]);
 		for (const exercise of written) {
 			expect([exercise.id, roundProblem(exercise)]).toEqual([exercise.id, null]);

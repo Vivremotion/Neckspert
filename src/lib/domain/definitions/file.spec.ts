@@ -103,6 +103,28 @@ describe('readDefinitionFile', () => {
 		});
 	});
 
+	it('refuses an exercise whose figure does not read, or with an unknown key, naming it', () => {
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				exercises: [
+					{ ...arpeggioJson(), id: 'bad-figure', figures: [{ id: 'bad', lilypond: 'c4 #(foo)' }] },
+					{ ...arpeggioJson(), id: 'bad-key', colour: 'red' }
+				]
+			})
+		);
+		expect(result.exercises).toEqual([]);
+		expect(result.refusals).toEqual([
+			{
+				file: 'a.json',
+				kind: 'exercise',
+				id: 'bad-figure',
+				reason: expect.stringMatching(/^figures\[0\] \(bad\): lilypond:/)
+			},
+			{ file: 'a.json', kind: 'exercise', id: 'bad-key', reason: 'unknown key "colour"' }
+		]);
+	});
+
 	it('gives a null id to an entry that is no object', () => {
 		const result = read(JSON.stringify({ format: 0, exercises: [3] }));
 		expect(result.refusals).toEqual([

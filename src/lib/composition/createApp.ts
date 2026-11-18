@@ -26,7 +26,8 @@ import {
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
 import { createDiagnosticJournal, journalNotes } from './diagnostics';
-import { loadLocalExercises } from './localExercises';
+import { CATALOG_FILES } from './catalogFiles';
+import { loadDefinitions } from './definitions';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -44,22 +45,24 @@ export interface CreateAppOptions {
  * every repository and DexieBackup. Calibration measures the input it is given and may open a
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
- * chord verifier write to it; the core never sees it. In development builds, the exercises of
- * `exercises.local/` are added to the catalog before anything reads it (`docs/exercices-locaux.md`).
+ * chord verifier write to it; the core never sees it. Before anything reads them, the registries
+ * are filled from the definition files of `catalog/` and, in development builds, of
+ * `exercises.local/` (`docs/exercices-locaux.md`).
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
-	// The private exercises, read as text at build time, in development builds only: a production
-	// build drops this branch and the files with it. A refused file (its JSON unreadable
-	// included) is reported, never fatal.
-	if (import.meta.env.DEV) {
-		loadLocalExercises(
-			import.meta.glob<string>('/exercises.local/*.json', {
-				eager: true,
-				query: '?raw',
-				import: 'default'
-			})
-		);
-	}
+	// The private definition files, read as text at build time, in development builds only: a
+	// production build drops this branch and the files with it. A refusal (a file's JSON
+	// unreadable included) is reported, never fatal.
+	loadDefinitions({
+		catalog: CATALOG_FILES,
+		local: import.meta.env.DEV
+			? import.meta.glob<string>('/exercises.local/*.json', {
+					eager: true,
+					query: '?raw',
+					import: 'default'
+				})
+			: undefined
+	});
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).

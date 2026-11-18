@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Refusal } from '$lib/domain/definitions';
 import { exerciseSessionExercises } from '$lib/domain/exercise';
 import type { HomeStats } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
@@ -187,31 +188,63 @@ describe('HomeScreen', () => {
 			expect(screen.getByRole('link', { name: /Offbeats/ }).textContent).toContain('Exercises');
 		});
 	});
-	describe('local exercises refused', () => {
-		const refused = [
+	describe('definition files refused', () => {
+		const refused: Refusal[] = [
+			{ file: '/exercises.local/broken.json', kind: 'file', id: null, reason: 'unknown key "x"' },
 			{
 				file: '/exercises.local/scale.json',
-				reason: 'scale: tempo must be a positive number, got -3'
+				kind: 'exercise',
+				id: 'scale',
+				reason: 'tempo must be a positive number, got -3'
+			},
+			{
+				file: '/exercises.local/scale.json',
+				kind: 'grid',
+				id: 'blues',
+				reason: 'bars must be a positive integer'
+			},
+			{
+				file: '/exercises.local/scale.json',
+				kind: 'exercise',
+				id: null,
+				reason: 'an exercise must be a JSON object'
 			}
 		];
 
-		it('lists the file and the reason of a refusal', () => {
+		it('lists each refusal with its file, its object and its reason', () => {
 			render(HomeScreen, { props: props({ refused }) });
-			const list = screen.getByRole('region', { name: 'Exercices locaux refusés' });
-			expect(list.textContent).toContain(
-				'scale.json : scale: tempo must be a positive number, got -3'
-			);
+			const list = screen.getByRole('region', { name: 'Fichiers refusés' });
+			expect(
+				within(list)
+					.getAllByRole('listitem')
+					.map((item) => item.textContent)
+			).toEqual([
+				'broken.json : unknown key "x"',
+				'scale.json, exercice `scale` : tempo must be a positive number, got -3',
+				'scale.json, grille `blues` : bars must be a positive integer',
+				'scale.json, exercice : an exercise must be a JSON object'
+			]);
 		});
 
 		it('says it in English', () => {
 			i18n.locale = 'en';
 			render(HomeScreen, { props: props({ refused }) });
-			expect(screen.getByRole('region', { name: 'Local exercises refused' })).toBeTruthy();
+			const list = screen.getByRole('region', { name: 'Files refused' });
+			expect(
+				within(list)
+					.getAllByRole('listitem')
+					.map((item) => item.textContent)
+			).toEqual([
+				'broken.json: unknown key "x"',
+				'scale.json, exercise `scale`: tempo must be a positive number, got -3',
+				'scale.json, grid `blues`: bars must be a positive integer',
+				'scale.json, exercise: an exercise must be a JSON object'
+			]);
 		});
 
 		it('shows nothing when no file was refused', () => {
 			render(HomeScreen, { props: props() });
-			expect(screen.queryByRole('region', { name: 'Exercices locaux refusés' })).toBeNull();
+			expect(screen.queryByRole('region', { name: 'Fichiers refusés' })).toBeNull();
 		});
 	});
 });

@@ -1,8 +1,7 @@
-import { CATALOG_EXERCISES } from './catalog';
 import { writesFigure } from './figureParams';
 import type { ExerciseDefinition, ExerciseId } from './types';
 
-/** The live exercises, with the origin that defined each; seeded by the code's catalog. */
+/** The live exercises, with the origin (file) that defined each; empty until files are read. */
 const registered = new Map<ExerciseId, { exercise: ExerciseDefinition; origin: string }>();
 
 /** Null: registered. Else the origin that already holds this id; nothing changes. */
@@ -38,6 +37,3 @@ export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
 export function clearExercises(): void {
 	registered.clear();
 }
-
-// Until the catalog moves to files, the constants seed the registry.
-for (const exercise of CATALOG_EXERCISES) registerExercise(exercise, 'catalog');

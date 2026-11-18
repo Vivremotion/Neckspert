@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { definitionChecks } from './checks';
 import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB } from '$lib/testing/catalog';
 
@@ -21,6 +22,17 @@ describe('definitionChecks', () => {
 		const reason = check({ ...LOCATE_NECK, tempo: -3 });
 		expect(reason).toContain('tempo');
 		expect(reason).toContain('locate-neck');
+	});
+
+	it('refuses an item its round cannot compile', () => {
+		const far = { ...ARPEGGIO_EXERCISE, id: 'far', items: ['C|maj|3:1,2:3,1:5@9@4'] };
+		expect(check(far)).toMatch(/^far: items\[0\] .*does not compile at exercise level -1/);
+	});
+
+	it('refuses a view the screen cannot draw', () => {
+		expect(check({ ...ARPEGGIO_EXERCISE, id: 'three', view: 'score' })).toContain(
+			'three: view "score" is not a view'
+		);
 	});
 
 	describe('grids', () => {

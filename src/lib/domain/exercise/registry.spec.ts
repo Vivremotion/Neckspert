@@ -9,7 +9,7 @@ import {
 } from './registry';
 
 describe('the exercise registry', () => {
-	it('is seeded with the catalog', () => {
+	it('holds the catalog the test setup loads', () => {
 		expect(exerciseById('locate-neck').id).toBe('locate-neck');
 		expect(allExercises().length).toBeGreaterThan(0);
 	});

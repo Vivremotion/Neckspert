@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { TriadsHome } from '$lib/application/app';
+	import type { Refusal } from '$lib/domain/definitions';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -40,8 +41,8 @@
 		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
 		resting?: readonly string[];
-		/** Local exercise files refused, with the validator's reason; development builds pass them. */
-		refused?: readonly { file: string; reason: string }[];
+		/** What the definition files refused, with the reason; development builds pass them. */
+		refused?: readonly Refusal[];
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -140,8 +141,8 @@
 		<section class="refused" aria-label={t.refusedTitle}>
 			<h2>{t.refusedTitle}</h2>
 			<ul>
-				{#each refused as { file, reason } (file)}
-					<li>{t.refusedWhy(file.split('/').pop() ?? file, reason)}</li>
+				{#each refused as { file, kind, id, reason }, index (index)}
+					<li>{t.refusedWhy(file.split('/').pop() ?? file, kind, id, reason)}</li>
 				{/each}
 			</ul>
 		</section>

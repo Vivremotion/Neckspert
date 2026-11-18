@@ -3,7 +3,7 @@ import { allGrids, clearGrids, gridById, registerGrid } from './registry';
 import { BLUES_F, IOHEFY_A } from '$lib/testing/catalog';
 
 describe('the grid registry', () => {
-	it('is seeded with the catalog', () => {
+	it('holds the catalog the test setup loads', () => {
 		expect(allGrids().map((grid) => grid.id)).toEqual(['iohefy-a', 'blues-f']);
 	});
 

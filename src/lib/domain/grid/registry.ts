@@ -1,7 +1,6 @@
-import { CATALOG_GRIDS } from './catalog';
 import type { ChordGrid } from './grid';
 
-/** The live grids, with the origin that defined each; seeded by the code's catalog. */
+/** The live grids, with the origin (file) that defined each; empty until files are read. */
 const registered = new Map<string, { grid: ChordGrid; origin: string }>();
 
 /** Null: registered. Else the origin that already holds this id; nothing changes. */
@@ -27,6 +26,3 @@ export function gridById(id: string): ChordGrid {
 export function clearGrids(): void {
 	registered.clear();
 }
-
-// Until the catalog moves to files, the constants seed the registry.
-for (const grid of CATALOG_GRIDS) registerGrid(grid, 'catalog');

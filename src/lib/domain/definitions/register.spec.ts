@@ -79,6 +79,27 @@ describe('registerFiles', () => {
 		expect(allExercises()).toHaveLength(1);
 	});
 
+	it('refuses an exercise whose check throws, and goes on', () => {
+		const refusals = registerFiles(
+			{ 'a.json': file({ exercises: [exercise('broken'), exercise('fine')] }) },
+			{
+				exercise: (e) => {
+					if (e.id === 'broken') throw new Error('round is not a template');
+					return null;
+				}
+			}
+		);
+		expect(refusals).toEqual([
+			{ file: 'a.json', kind: 'exercise', id: 'broken', reason: 'round is not a template' }
+		]);
+		expect(allExercises().map((e) => e.id)).toEqual(['fine']);
+	});
+
+	it('refuses nothing when there is no file', () => {
+		expect(registerFiles({}, accept)).toEqual([]);
+		expect(allExercises()).toEqual([]);
+	});
+
 	it('never throws on a file that is no JSON', () => {
 		const refusals = registerFiles(
 			{ 'a.json': '{ nope', 'b.json': file({ exercises: [exercise('x')] }) },
