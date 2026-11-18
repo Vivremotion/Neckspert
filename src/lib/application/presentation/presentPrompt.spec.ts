@@ -10,6 +10,7 @@ import {
 import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
+import { presentationProblem } from './validate';
 import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 /** The locate prompt as its presenter wrote it before its presentation became data (H5). */
@@ -223,13 +224,13 @@ describe('presentPrompt', () => {
 		expect(count({ aid: 'show-position', stringAid: true })).toBe(2);
 	});
 
-	it('refuses to present a prompt the exercise writes wrongly', () => {
+	it('leaves a presentation written wrongly to the check at load', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,
 			presentation: { primary: '{chord}' }
 		};
-		expect(() =>
-			presentPrompt(definition, planned(definition, { string: 2, pitch: 'F' }), 'fr', () => 0)
-		).toThrow('locate-neck: presentation.primary names field "chord", which locate does not have');
+		expect(presentationProblem(definition)).toBe(
+			'locate-neck: presentation.primary names field "chord", which locate does not have'
+		);
 	});
 });

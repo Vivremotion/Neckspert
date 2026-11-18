@@ -189,6 +189,81 @@ describe('validateExercise', () => {
 	});
 });
 
+describe('validateExercise on what a file could break in play', () => {
+	const levelled = (params: Record<string, unknown>): ExerciseDefinition => ({
+		...LOCATE_NECK,
+		levels: [{ params }]
+	});
+	const expectRefusal = (problem: string | null, ...fragments: string[]) => {
+		expect(problem).toMatch(/^locate-neck: /);
+		for (const fragment of fragments) expect(problem).toContain(fragment);
+	};
+
+	it('checks a value an exercise level writes as the same value written in the params', () => {
+		expectRefusal(
+			validateExercise(levelled({ 'windows.perfectMs': 'x' })),
+			'levels[0]',
+			'windows.perfectMs'
+		);
+	});
+
+	it('checks the tempo an item level writes', () => {
+		const ladder = [{ params: { leadBeats: 4, aided: false, tempo: -3 } }];
+		expectRefusal(
+			validateExercise(withParams({ ladder })),
+			'ladder',
+			'tempo must be a positive number'
+		);
+	});
+
+	it('refuses a level path written undefined', () => {
+		expectRefusal(
+			validateExercise(levelled({ cursor: undefined })),
+			'levels[0]',
+			'"cursor" is undefined'
+		);
+	});
+
+	it('refuses a level that writes an object and one of its sub-paths', () => {
+		expectRefusal(
+			validateExercise(levelled({ windows: { perfectMs: 60 }, 'windows.lateMs': 200 })),
+			'levels[0] writes "windows" and its sub-path "windows.lateMs"'
+		);
+	});
+
+	it.each([0, -1, 1.5])('refuses %s rounds per breath', (rounds) => {
+		expectRefusal(
+			validateExercise(withParams({ pacing: { roundsPerBreath: rounds } })),
+			'params.pacing.roundsPerBreath must be a positive integer'
+		);
+	});
+
+	it('checks the rounds per breath an exercise level writes', () => {
+		expectRefusal(
+			validateExercise(levelled({ 'pacing.roundsPerBreath': 0 })),
+			'levels[0]',
+			'pacing.roundsPerBreath'
+		);
+	});
+
+	it('refuses pacing that is not an object', () => {
+		expectRefusal(validateExercise(withParams({ pacing: 3 })), 'params.pacing must be an object');
+	});
+
+	it('refuses a round judged by cycle with no rounds per breath', () => {
+		const endless: ExerciseDefinition = {
+			...ARPEGGIO_EXERCISE,
+			params: { ...ARPEGGIO_EXERCISE.params, pacing: { breathMinMs: 4000 } }
+		};
+		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
+		const problem = validateExercise(endless);
+		expect(problem).toMatch(new RegExp(`^${ARPEGGIO_EXERCISE.id}: `));
+		expect(problem).toContain(
+			'params.pacing.roundsPerBreath is required for a round judged by cycle'
+		);
+	});
+});
+
 describe('validateExercise on how a run starts', () => {
 	it('refuses a listen-in that is not a whole number of bars, and a count that is not a boolean', () => {
 		expect(validateExercise(withParams({ pacing: { listenInBars: 1.5 } }))).toBe(
@@ -223,7 +298,7 @@ describe('validateExercise on how a run starts', () => {
 			levels: [{ params: {} }, { params: { 'pacing.listenInBars': 0.5 } }]
 		};
 		expect(validateExercise(fractional)).toBe(
-			`${ARPEGGIO_EXERCISE.id}: levels[1] resolves params.pacing.listenInBars 0.5, not a non-negative integer`
+			`${ARPEGGIO_EXERCISE.id}: levels[1]: params.pacing.listenInBars must be a non-negative integer, got 0.5`
 		);
 	});
 });

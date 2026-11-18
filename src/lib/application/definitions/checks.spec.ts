@@ -24,6 +24,12 @@ describe('definitionChecks', () => {
 		expect(reason).toContain('locate-neck');
 	});
 
+	it('refuses a presentation naming a field its mechanic does not have', () => {
+		expect(check({ ...LOCATE_NECK, presentation: { primary: '{chord}' } })).toBe(
+			'locate-neck: presentation.primary names field "chord", which locate does not have'
+		);
+	});
+
 	it('refuses an item its round cannot compile', () => {
 		const far = { ...ARPEGGIO_EXERCISE, id: 'far', items: ['C|maj|3:1,2:3,1:5@9@4'] };
 		expect(check(far)).toMatch(/^far: items\[0\] .*does not compile at exercise level -1/);

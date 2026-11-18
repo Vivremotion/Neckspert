@@ -2,7 +2,6 @@ import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES, type Picture } from './pictures';
-import { presentationProblem } from './validate';
 
 /** What the screen says of one prompt, in the player's language. */
 export interface PresentedPrompt {
@@ -37,7 +36,7 @@ function say(
 /**
  * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
  * fields its mechanic offers. `random` spells an altered note: give every call for one item the
- * same value. Throws on a presentation `presentationProblem` refuses.
+ * same value. The presentation is checked once, as its exercise loads (`definitionChecks`).
  */
 export function presentPrompt(
 	definition: ExerciseDefinition,
@@ -45,8 +44,6 @@ export function presentPrompt(
 	locale: Locale,
 	random: () => number
 ): PresentedPrompt {
-	const problem = presentationProblem(definition);
-	if (problem !== null) throw new Error(problem);
 	const presentation = definition.presentation;
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
 	const offered = ITEM_FIELDS[definition.mechanic];

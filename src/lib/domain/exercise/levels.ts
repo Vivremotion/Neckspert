@@ -14,14 +14,33 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Why overrides cannot be applied whatever the params: a path written with no value, or a path
+ * written with one of its sub-paths (which of the two wins would depend on their order).
+ */
+function overridesProblem(overrides: LevelOverrides): string | null {
+	const paths = Object.keys(overrides);
+	for (const path of paths) {
+		if (overrides[path] === undefined) {
+			return `writes a path with no value: "${path}" is undefined`;
+		}
+		const sub = paths.find((other) => other.startsWith(`${path}.`));
+		if (sub !== undefined) return `writes "${path}" and its sub-path "${sub}"`;
+	}
+	return null;
+}
+
+/**
  * The params with the value at each dotted path replaced, nothing else: an object written at a
  * path replaces the one there whole, a missing path is created. The params are not modified.
- * Throws, naming the path, when a path runs through a value that is not an object.
+ * Throws, naming the path, when a path runs through a value that is not an object, is written
+ * with no value, or is written with one of its sub-paths.
  */
 export function overrideParams(
 	params: Readonly<Record<string, unknown>>,
 	overrides: LevelOverrides
 ): Readonly<Record<string, unknown>> {
+	const problem = overridesProblem(overrides);
+	if (problem !== null) throw new Error(problem);
 	const result: Record<string, unknown> = { ...params };
 	for (const [path, value] of Object.entries(overrides)) {
 		const keys = path.split('.');

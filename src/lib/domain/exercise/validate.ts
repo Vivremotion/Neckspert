@@ -20,12 +20,6 @@ const naturalNumber = (value: unknown) =>
 
 const SCENES = ['guitar', 'screen'];
 
-function tempoProblem(definition: ExerciseDefinition): string | null {
-	const { tempo } = definition;
-	if (tempo === undefined || positive(tempo)) return null;
-	return `tempo must be a positive number, got ${tempo}`;
-}
-
 function ladderProblem(params: ExerciseDefinition['params']): string | null {
 	if (params.ladder !== undefined) {
 		const invalid = validateLadder(params.ladder as Ladder);
@@ -43,87 +37,104 @@ function ladderProblem(params: ExerciseDefinition['params']): string | null {
 	return null;
 }
 
-function paramsProblem(definition: ExerciseDefinition): string | null {
-	const { params } = definition;
-	const ladder = ladderProblem(params);
-	if (ladder !== null) return ladder;
-	if (params.windows !== undefined) {
-		if (typeof params.windows !== 'object' || params.windows === null) {
-			return 'params.windows must map windows to numbers';
-		}
-		for (const [field, value] of Object.entries(params.windows)) {
+const isObject = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Why the values of params cannot be run, named by their path: the params an exercise writes
+ * (with its `tempo`), and alike the params resolved at each of its levels, so that a value is
+ * checked the same wherever it is written. A value left out passes: its default is runnable.
+ */
+function valuesProblem(values: Readonly<Record<string, unknown>>): string | null {
+	const { tempo } = values;
+	if (tempo !== undefined && !positive(tempo)) {
+		return `tempo must be a positive number, got ${tempo}`;
+	}
+	if (values.windows !== undefined) {
+		if (!isObject(values.windows)) return 'params.windows must map windows to numbers';
+		for (const [field, value] of Object.entries(values.windows)) {
 			if (!finite(value) || value < 0) {
 				return `params.windows.${field} must be a non-negative number, got ${value}`;
 			}
 		}
 		// Placed on the beat: an exact fraction of one.
-		const anchor = (params.windows as Record<string, unknown>).anchorChordFromBeats;
+		const anchor = values.windows.anchorChordFromBeats;
 		if (anchor !== undefined && !isBeatCount(anchor)) {
 			return `params.windows.anchorChordFromBeats must be an exact fraction of a beat, got ${anchor}`;
 		}
 	}
-	if (params.learning !== undefined) {
-		const learning = params.learning as Record<string, unknown>;
-		const gaps = learning.retestGaps;
+	if (values.learning !== undefined) {
+		if (!isObject(values.learning)) return 'params.learning must be an object';
+		const gaps = values.learning.retestGaps;
 		if (
 			gaps !== undefined &&
 			!(Array.isArray(gaps) && gaps.length === 2 && gaps.every(naturalNumber))
 		) {
 			return `params.learning.retestGaps must be two non-negative integers, got ${JSON.stringify(gaps)}`;
 		}
-		const fade = learning.aidFadeSuccesses;
+		const fade = values.learning.aidFadeSuccesses;
 		if (fade !== undefined && !naturalNumber(fade)) {
 			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
-	const pacing = params.pacing as Record<string, unknown> | undefined;
-	// A round on the beat lasts its breath: 0 bars would make it last nothing.
-	const bars = pacing?.respirationBars;
-	if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
-		return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
+	if (values.pacing !== undefined) {
+		if (!isObject(values.pacing)) return `params.pacing must be an object, got ${values.pacing}`;
+		const pacing = values.pacing;
+		// A round on the beat lasts its breath: 0 bars would make it last nothing.
+		const bars = pacing.respirationBars;
+		if (bars !== undefined && !(naturalNumber(bars) && (bars as number) >= 1)) {
+			return `params.pacing.respirationBars must be a positive integer, got ${bars}`;
+		}
+		const rounds = pacing.roundsPerBreath;
+		if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
+			return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
+		}
+		const breathMs = pacing.breathMinMs;
+		if (breathMs !== undefined && !(finite(breathMs) && breathMs >= 0)) {
+			return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
+		}
+		const listenIn = pacing.listenInBars;
+		if (listenIn !== undefined && !naturalNumber(listenIn)) {
+			return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
+		}
+		const countIn = pacing.countIn;
+		if (countIn !== undefined && typeof countIn !== 'boolean') {
+			return `params.pacing.countIn must be true or false, got ${countIn}`;
+		}
 	}
-	const rounds = pacing?.roundsPerBreath;
-	if (rounds !== undefined && !(naturalNumber(rounds) && (rounds as number) >= 1)) {
-		return `params.pacing.roundsPerBreath must be a positive integer, got ${rounds}`;
-	}
-	const breathMs = pacing?.breathMinMs;
-	if (
-		breathMs !== undefined &&
-		!(typeof breathMs === 'number' && Number.isFinite(breathMs) && breathMs >= 0)
-	) {
-		return `params.pacing.breathMinMs must be a non-negative number, got ${breathMs}`;
-	}
-	const listenIn = pacing?.listenInBars;
-	if (listenIn !== undefined && !naturalNumber(listenIn)) {
-		return `params.pacing.listenInBars must be a non-negative integer, got ${listenIn}`;
-	}
-	const countIn = pacing?.countIn;
-	if (countIn !== undefined && typeof countIn !== 'boolean') {
-		return `params.pacing.countIn must be true or false, got ${countIn}`;
-	}
-	if (params.recallThresholdMs !== undefined && !positive(params.recallThresholdMs)) {
-		return `params.recallThresholdMs must be a positive number, got ${params.recallThresholdMs}`;
+	// Null: no direct recall, as when none is written.
+	const recall = values.recallThresholdMs;
+	if (recall !== undefined && recall !== null && !positive(recall)) {
+		return `params.recallThresholdMs must be a positive number, got ${values.recallThresholdMs}`;
 	}
 	return null;
 }
 
+function paramsProblem(definition: ExerciseDefinition): string | null {
+	return (
+		valuesProblem({ ...definition.params, tempo: definition.tempo }) ??
+		ladderProblem(definition.params)
+	);
+}
+
 /**
- * Why a run could not start at a level's resolved params (`checkStart` at run start): a listen-in
- * that is not a whole number of bars, a count that is not a boolean, or neither a listen-in nor a
- * counted bar (the listen-in is 0 by default, the counted bar on by default).
+ * Why a run could not start or end at a level's resolved params, once their values are known to
+ * be runnable: neither a listen-in nor a counted bar (`checkStart` at run start; the listen-in is
+ * 0 by default, the counted bar on by default), or a round judged by cycle with no
+ * `pacing.roundsPerBreath`, whose run would never breathe.
  */
-function startProblem(atLevel: Readonly<Record<string, unknown>>): string | null {
-	const pacing = (atLevel.pacing ?? {}) as Record<string, unknown>;
+function runProblem(
+	definition: ExerciseDefinition,
+	atLevel: Readonly<Record<string, unknown>>
+): string | null {
+	const pacing = atLevel.pacing as Record<string, unknown>;
 	const listenIn = pacing.listenInBars ?? 0;
-	if (!naturalNumber(listenIn)) {
-		return `resolves params.pacing.listenInBars ${listenIn}, not a non-negative integer`;
-	}
 	const countIn = pacing.countIn ?? true;
-	if (typeof countIn !== 'boolean') {
-		return `resolves params.pacing.countIn ${countIn}, not true or false`;
-	}
 	if (!countIn && listenIn === 0) {
 		return 'resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other';
+	}
+	if (definition.round?.policy?.unit === 'cycle' && pacing.roundsPerBreath === undefined) {
+		return 'resolves no rounds per breath: params.pacing.roundsPerBreath is required for a round judged by cycle';
 	}
 	return null;
 }
@@ -141,10 +152,10 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
 }
 
 /**
- * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, a
- * path of an exercise or item level through a value that is not an object (named by its level in
- * `levels`, aid levels counted, or on its ladder), a tempo a level resolves that is not positive,
- * a run a level could not start (`startProblem`).
+ * Why the levels cannot be run: exercise levels out of order or with conditions it cannot run, an
+ * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
+ * hold a value the params could not (`valuesProblem`), named by its level in `levels` (aid levels
+ * counted) or on its ladder, a run a level could not start or end (`runProblem`).
  * A path no piece reads passes: it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
@@ -171,21 +182,23 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 		} catch (error) {
 			return `${field} ${(error as Error).message}`;
 		}
-		if (!positive(atLevel.tempo)) {
-			return `${field} resolves a tempo that is not a positive number, got ${atLevel.tempo}`;
-		}
-		const start = startProblem(atLevel);
-		if (start !== null) return `${field} ${start}`;
+		const values = valuesProblem(atLevel);
+		if (values !== null) return `${field}: ${values}`;
+		const run = runProblem(definition, atLevel);
+		if (run !== null) return `${field} ${run}`;
 		resolved.push(atLevel);
 	}
 	for (const [field, ladder] of laddersOf(definition.params)) {
 		for (const [index, level] of ladder.entries()) {
 			for (const atLevel of resolved) {
+				let atItemLevel: Readonly<Record<string, unknown>>;
 				try {
-					overrideParams(atLevel, level.params as LevelOverrides);
+					atItemLevel = overrideParams(atLevel, level.params as LevelOverrides);
 				} catch (error) {
 					return `${field} level ${index}: ${(error as Error).message}`;
 				}
+				const values = valuesProblem(atItemLevel);
+				if (values !== null) return `${field} level ${index}: ${values}`;
 			}
 		}
 	}
@@ -301,8 +314,6 @@ export function validateExercise(
 			const meter = validateMeter(definition.meter);
 			if (meter !== null) return `meter ${meter}`;
 		}
-		const tempo = tempoProblem(definition);
-		if (tempo !== null) return tempo;
 		const flow = definition.flow;
 		// Beats are counted whole on the transport.
 		if (flow?.previewBeats !== undefined && !naturalNumber(flow.previewBeats)) {
