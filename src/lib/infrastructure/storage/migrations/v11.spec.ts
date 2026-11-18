@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import { GESTURE_EXERCISES, readGestureParams } from '$lib/domain/gesture/exercises';
+import { readGestureParams } from '$lib/domain/gesture/exercises';
 import type { LevelState } from '$lib/domain/time';
 import {
 	GESTURE_EXERCISES_V11,
@@ -13,6 +13,7 @@ import {
 	type BackupV6,
 	type ProgressionV10
 } from './v11';
+import { GESTURE_EXERCISES } from '$lib/testing/catalog';
 
 function progression(
 	exerciseId: string,

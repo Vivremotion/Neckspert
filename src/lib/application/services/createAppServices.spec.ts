@@ -39,13 +39,9 @@ import {
 } from '$lib/application/session/series/figureStage';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
-import {
-	exerciseSessionExercises,
-	RHYTHM_OFFBEATS,
-	RHYTHM_SILENT_BARS,
-	RHYTHM_TWO_FOUR
-} from '$lib/domain/exercise';
+import { exerciseSessionExercises } from '$lib/domain/exercise';
 import { TraceBuilder } from '$lib/domain/session';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 
 class FakeBackup implements BackupPort {
 	async exportAll(): Promise<BackupFile> {

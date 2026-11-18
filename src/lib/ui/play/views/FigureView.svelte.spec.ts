@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { FigureStageModel, SettledCycle } from '$lib/application/session/series/figureStage';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 import { Fraction, METER_4_4, type CycleReport, type Figure } from '$lib/domain/time';
 import { compileRound } from '$lib/domain/exercise/round';
 import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
@@ -11,6 +10,7 @@ import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PLAY_VIEWS } from './index';
 import FigureView from './FigureView.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 // jsdom has no canvas, and VexFlow measures its text on one: a fixed-size stand-in.
 beforeAll(() => {

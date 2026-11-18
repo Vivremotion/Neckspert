@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BLUES_F, IOHEFY_A } from './catalog';
 import { allGrids, clearGrids, gridById, registerGrid } from './registry';
+import { BLUES_F, IOHEFY_A } from '$lib/testing/catalog';
 
 describe('the grid registry', () => {
 	it('is seeded with the catalog', () => {

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { exerciseById, exerciseLevelsOf, tempoOf } from '$lib/domain/exercise';
 import { allExercises } from '$lib/domain/exercise';
+import { gestureElements } from './exercises';
 import {
 	GESTURE_CLIMB,
 	GESTURE_EXERCISES,
 	GESTURE_JAM,
 	GESTURE_LINK,
-	GESTURE_ZONE,
-	gestureElements
-} from './exercises';
+	GESTURE_ZONE
+} from '$lib/testing/catalog';
 
 describe('the gesture exercises', () => {
 	it('are four, in the order of the ladder, in the catalog, each with its view and instruction', () => {

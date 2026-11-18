@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from './catalog';
 import { allExercises, exerciseById, exerciseSessionExercises } from './registry';
-import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { gridById, gridChanges } from '$lib/domain/grid';
-import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import { Fraction, METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
@@ -12,6 +9,14 @@ import { pacingOf } from './pacing';
 import { compileRound } from './round';
 import { freeTime, gridChange, onTheBeat, pointAt } from './round/testing/plans';
 import type { ExerciseDefinition } from './types';
+import {
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	TRIADS_ANCHOR,
+	TRIADS_ZONE,
+	RHYTHM_EXERCISES,
+	GESTURE_EXERCISES
+} from '$lib/testing/catalog';
 
 describe('exercise catalog', () => {
 	it('describes the two neck exercises', () => {

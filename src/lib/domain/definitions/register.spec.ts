@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { allGrids, clearGrids, gridById } from '$lib/domain/grid/registry';
-import { BLUES_F } from '$lib/domain/grid/catalog';
 import { registerFiles, type DefinitionChecks } from './register';
+import { LOCATE_NECK, BLUES_F } from '$lib/testing/catalog';
 
 const accept: DefinitionChecks = { exercise: () => null };
 const file = (value: object) => JSON.stringify({ format: 0, ...value });

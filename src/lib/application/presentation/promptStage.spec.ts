@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { midiOnString, parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
@@ -11,6 +10,7 @@ import { identifyPresenter } from '$lib/application/mechanics/identify';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const D_ON_G = 'D|maj|3:1,2:3,1:5';

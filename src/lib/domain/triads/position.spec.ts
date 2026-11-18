@@ -6,9 +6,9 @@ import {
 	voicingOccurrences,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import { triadParams, triadVoicings } from './items';
 import { cueFrets, occurrencePosition } from './position';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 function occurrence(root: string, quality: string, frets: string): VoicingOccurrence {
 	const chord = { root: parseSpelledNote(root), quality: qualityById(quality) };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from '$lib/domain/exercise';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { readLocalExercises } from './localExercises';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 /** The public arpeggio exercise as a JSON file writes it: its figures in LilyPond. */
 function arpeggioJson(over: Record<string, unknown> = {}): Record<string, unknown> {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from '../exercise/catalog';
 import * as constants from '../progress/constants';
 import { DEFAULT_ITEM_LEARNING, DEFAULT_SET_LEARNING, itemLearningOf } from './params';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('the learning procedure’s settings', () => {
 	it('keeps no constant of the procedure outside its defaults', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK, RHYTHM_SILENT_BARS, type ExerciseDefinition } from '$lib/domain/exercise';
+import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import {
 	Fraction,
@@ -18,6 +18,7 @@ import {
 	roundGiven,
 	runSetup
 } from './compilePlan';
+import { LOCATE_NECK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const note: PlannedItem = {
 	exerciseId: LOCATE_NECK.id,

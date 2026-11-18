@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, neckLevelOfCard } from './v9';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 type Row = Record<string, unknown>;
 

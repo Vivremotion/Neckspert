@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { roundPlanFromRecord } from '$lib/application/session/series/recordResponse';
-import { RHYTHM_EXERCISES } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import { figureRules } from '$lib/domain/mechanics';
 import {
@@ -22,6 +21,7 @@ import {
 	cyclePlanToV12,
 	type CyclePlanRecordV11
 } from './v12';
+import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 
 function exerciseOf(id: string) {
 	const exercise = RHYTHM_EXERCISES.find((candidate) => candidate.id === id);

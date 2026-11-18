@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { GESTURE_LINK, summarizeGesture } from '$lib/domain/gesture';
+import { summarizeGesture } from '$lib/domain/gesture';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { contentJudges } from '$lib/domain/judges';
 import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
-import { figureParamsOf, RHYTHM_OFFBEATS } from '$lib/domain/exercise';
+import { figureParamsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import {
 	Fraction,
@@ -36,6 +36,7 @@ import {
 	roundPlanRecord,
 	type FigureAttemptData
 } from './recordResponse';
+import { GESTURE_LINK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 const G_B_E: StringNumber[] = [3, 2, 1];
 const IOHEFY = gridChanges(gridById('iohefy-a'));

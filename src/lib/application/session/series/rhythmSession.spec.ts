@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-	RHYTHM_OFFBEATS,
-	RHYTHM_SILENT_BARS,
-	RHYTHM_TWO_FOUR,
-	type ExerciseDefinition
-} from '$lib/domain/exercise';
+import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, clickAccompaniment, type CycleReport } from '$lib/domain/time';
@@ -28,6 +23,7 @@ import {
 	settled,
 	stageOf
 } from '$lib/testing/rhythmSeries';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 
 /**
  * The rhythm's cycles on the session controller (plan H6, Tasks 7 and 8): every behaviour the

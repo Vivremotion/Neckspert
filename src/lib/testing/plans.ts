@@ -1,10 +1,9 @@
-import { IDENTIFY_NECK } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import { METER_4_4, type Meter, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
+import { IDENTIFY_NECK, GESTURE_LINK } from '$lib/testing/catalog';
 
 /** The plans the series compiles, for specs that need one: compiled from the exercise's template. */
 

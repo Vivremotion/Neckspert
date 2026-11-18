@@ -4,7 +4,6 @@ import type { ChordExpectation } from '$lib/application/ports';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { chordSensor } from '$lib/application/session/sensors';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import { rootPosition } from '$lib/domain/mechanics';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress';
@@ -17,6 +16,7 @@ import {
 import type { CardState } from '$lib/domain/types';
 import { CutShortVerifier } from './gestureSeries';
 import { notesApp, step, type NotesSetup } from './notesSeries';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 /** The anchor's introduction queue, with no locate position acquired: C's three inversions first. */
 export const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);

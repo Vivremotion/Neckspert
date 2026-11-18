@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
@@ -18,6 +17,7 @@ import { introductionOrder } from './introduction';
 import { neckSubject } from './neckSubject';
 import { graduateToReview } from './scheduling';
 import type { LevelState } from '$lib/domain/time/levels';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 const LOCATE = 'locate' as MechanicId;
 const IDENTIFY = 'identify' as MechanicId;

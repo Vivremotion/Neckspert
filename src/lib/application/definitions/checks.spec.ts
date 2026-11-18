@@ -1,11 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
-import { LOCATE_NECK } from '$lib/domain/exercise/catalog';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
-import { IOHEFY_A } from '$lib/domain/grid/catalog';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
-import { GESTURE_CLIMB } from '$lib/domain/gesture/exercises';
 import { definitionChecks } from './checks';
+import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB } from '$lib/testing/catalog';
 
 const check = (exercise: ExerciseDefinition) => definitionChecks().exercise(exercise);
 

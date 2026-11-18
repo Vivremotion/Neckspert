@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseSessionExercises, RHYTHM_EXERCISES } from '$lib/domain/exercise';
+import { exerciseSessionExercises } from '$lib/domain/exercise';
 import { exerciseFromQuery } from './exerciseFromQuery';
+import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 
 describe('exerciseFromQuery', () => {
 	it('gives the id of each exercise of an exercise session, the rhythm’s among them', () => {

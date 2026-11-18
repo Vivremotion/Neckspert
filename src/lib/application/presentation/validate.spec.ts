@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
 import { allExercises } from '$lib/domain/exercise/registry';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
@@ -12,6 +10,7 @@ import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
+import { LOCATE_NECK, TRIADS_ANCHOR, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 const withPresentation = (
 	base: ExerciseDefinition,

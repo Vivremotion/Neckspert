@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { pitchOfSpelled, spellInterval, voicingKey, type Voicing } from '$lib/domain/music';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import { triadIntroductionOrder, triadParams, triadVoicings } from './index';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const PARAMS = triadParams(TRIADS_ANCHOR);
 

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import type { CycleReport } from '$lib/domain/time';
 import type { LevelState } from '$lib/domain/time';
 import { InMemoryLevelStateRepository } from '$lib/testing/fakes';
 import { ExerciseLevels } from './exerciseLevels';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 /** A data exercise with three tempo levels, each passed after two successes, dropped after two misses. */
 const CLIMB: ExerciseDefinition = {

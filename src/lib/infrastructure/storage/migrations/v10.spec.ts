@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise/catalog';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { TRIAD_LADDER_V10, backupV5ToV6, cardToV10, levelStatesV10, triadLevelOfCard } from './v10';
 import { neckLevelOfCard } from './v9';
+import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 type Row = Record<string, unknown>;
 

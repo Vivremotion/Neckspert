@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
 import { FREE_PLAY_COUNT } from './constants';
-import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise';
 import type { LevelState } from '$lib/domain/time/levels';
 import { neckSubject } from './neckSubject';
 import { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 const L1: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
 const L2: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };

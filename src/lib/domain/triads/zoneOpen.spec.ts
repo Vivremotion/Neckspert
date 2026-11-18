@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import { voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress/cards';
 import { cardKey, type CardState } from '$lib/domain/types';
 import { triadIntroductionOrder } from './introduction';
 import { triadParams } from './items';
 import { triadZoneOpen, ZONE_MIN_ACQUIRED_TRIADS } from './zoneOpen';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
 

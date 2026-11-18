@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exerciseById, IDENTIFY_NECK, LOCATE_NECK } from '$lib/domain/exercise';
+import { exerciseById } from '$lib/domain/exercise';
 import { DEFAULT_PREVIEW_BEATS } from '$lib/domain/exercise/pacing';
 import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, type Meter } from '$lib/domain/time';
@@ -14,6 +14,7 @@ import {
 	timedStart,
 	type PlacementContext
 } from './placement';
+import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
 const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 const resolved = { previewBeats: DEFAULT_PREVIEW_BEATS, fromRunStart: null };

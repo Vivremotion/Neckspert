@@ -5,7 +5,6 @@ import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Announcement } from '$lib/application/session/contract';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import PlayFrame from './PlayFrame.svelte';
 import { presented, stageModel } from './views/testing/promptStage';
 import { PLAY_VIEWS, VIEW_WORLDS } from './views';
@@ -15,6 +14,7 @@ import { FigureStageController } from './views/testing/FigureStageController.sve
 import { StageController } from './views/testing/StageController.svelte';
 import { DemoPlaySession, ManualDemoClock } from './demo/DemoPlaySession.svelte';
 import { DEMO_IDENTIFY_SCRIPT, DemoIdentifySession } from './answer/DemoIdentifySession.svelte';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 afterEach(() => cleanup());
 

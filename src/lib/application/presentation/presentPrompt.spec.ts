@@ -1,10 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import {
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	TRIADS_ANCHOR,
-	TRIADS_ZONE
-} from '$lib/domain/exercise/catalog';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
 	fretLabel,
@@ -16,6 +10,7 @@ import {
 import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 /** The locate prompt as its presenter wrote it before its presentation became data (H5). */
 function locateToday(

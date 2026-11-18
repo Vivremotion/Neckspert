@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { Segment } from '$lib/domain/session';
-import { LOCATE_NECK, validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
+import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import { Fraction } from '$lib/domain/time/fraction';
@@ -20,6 +20,7 @@ import {
 	startNotes,
 	type NotesApp
 } from '$lib/testing/notesSeries';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 /**
  * The acceptance test of plan L: an exercise that exists only here, as data, plays end to end on

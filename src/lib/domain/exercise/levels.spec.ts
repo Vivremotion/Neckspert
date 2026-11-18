@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from './catalog';
 import { exerciseLevelsOf, overrideParams, pacingAt, resolvedParamsOf, tempoOf } from './levels';
 import type { ExerciseDefinition } from './types';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('overrideParams', () => {
 	it('replaces the value at a dotted path and nothing else', () => {

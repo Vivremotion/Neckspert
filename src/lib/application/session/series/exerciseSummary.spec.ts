@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
 import type { FigureAttemptData } from '../series/recordResponse';
 import { summarizeExercise } from './exerciseSummary';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 function cycle(
 	level: number,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { triadCards } from '$lib/testing/shapes';
-import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from './exercises';
 import { gestureOpen, openElements } from './opening';
+import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from '$lib/testing/catalog';
 
 const G_B_E = [3, 2, 1] as const;
 const D_G_B = [4, 3, 2] as const;

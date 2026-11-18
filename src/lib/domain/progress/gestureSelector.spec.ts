@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
-import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import {
 	admittedShapes,
 	chordGridRules,
@@ -14,6 +13,7 @@ import { SESSION_MS } from '$lib/domain/session/policy';
 import { createGestureSelector } from './gestureSelector';
 import { LINK_AID_AFTER_MISSES, LINK_REST_BARS } from '$lib/domain/gesture';
 import type { ItemSource } from './selector';
+import { GESTURE_EXERCISES } from '$lib/testing/catalog';
 
 const NOW = Date.parse('2026-10-10T10:00:00.000Z');
 const G_B_E = [3, 2, 1] as const;

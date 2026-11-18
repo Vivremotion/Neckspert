@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { chordDiagramFor } from './chordDiagram';
-import { TRIADS_ANCHOR } from './catalog';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 describe('chordDiagramFor', () => {
 	it('draws chords as the player chose', () => {

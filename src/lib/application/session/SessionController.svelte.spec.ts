@@ -5,11 +5,10 @@ import {
 	type ContentDerivation,
 	type ItemNumber
 } from '$lib/domain/derivations';
-import { exerciseById, LOCATE_NECK } from '$lib/domain/exercise';
+import { exerciseById } from '$lib/domain/exercise';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
 import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
-import { GESTURE_EXERCISES } from '$lib/domain/gesture';
 import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
 import { createGestureSelector } from '$lib/domain/progress';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
@@ -35,6 +34,7 @@ import {
 	rightShape,
 	roles
 } from '$lib/testing/gestureSeries';
+import { LOCATE_NECK, GESTURE_EXERCISES } from '$lib/testing/catalog';
 
 /** The gesture's exercises as the catalog writes them, their round edited. */
 const withRound = (edit: (round: RoundTemplate) => RoundTemplate) => (id: string) => {

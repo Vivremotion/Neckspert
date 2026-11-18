@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { GESTURE_LINK } from '$lib/domain/gesture/exercises';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { ChordGridItem } from '$lib/domain/mechanics';
 import type { StringNumber } from '$lib/domain/music';
@@ -24,6 +23,7 @@ import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
 import { Transport } from '../transport';
 import { LIVE_READING_MARGIN_S, RoundRunner, type RunnerEvent } from './roundRunner';
+import { GESTURE_LINK } from '$lib/testing/catalog';
 
 vi.mock('$lib/debug/detectionLog', () => ({ logDetection: vi.fn() }));
 

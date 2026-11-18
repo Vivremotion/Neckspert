@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { roundPlanRecord } from '$lib/application/session/series/recordResponse';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import { METER_4_4, attackPositions } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
@@ -20,6 +19,7 @@ import {
 	pickOracleRuns,
 	type OracleRun
 } from './oracle';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 const figure = RHYTHM_OFFBEATS.figures?.[0]?.figure;
 if (!figure) throw new Error('no offbeats figure');

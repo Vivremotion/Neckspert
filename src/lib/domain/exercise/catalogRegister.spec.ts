@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from './catalog';
 import { allExercises, exerciseById, exerciseSessionExercises, registerExercise } from './registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 // Its own file: registering changes the live registry of the module instance.
 describe('registerExercise', () => {

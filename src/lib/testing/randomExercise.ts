@@ -19,7 +19,6 @@ import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import {
 	exerciseById,
 	tempoOf,
-	TRIADS_ANCHOR,
 	type ExerciseDefinition,
 	type Ladder,
 	type MechanicId,
@@ -95,6 +94,7 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from './fakes';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 /** A seeded draw in [0, 1) (mulberry32): the same seed draws the same exercise. */
 export function mulberry32(seed: number): () => number {

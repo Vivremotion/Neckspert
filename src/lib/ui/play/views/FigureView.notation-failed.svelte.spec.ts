@@ -1,10 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import { i18n } from '$lib/i18n/index.svelte';
 import FigureView from './FigureView.svelte';
 import { FigureStageController } from './testing/FigureStageController.svelte';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 // The notation chunk fails to load (a stale deploy, offline).
 vi.mock('$lib/ui/notation', () => {

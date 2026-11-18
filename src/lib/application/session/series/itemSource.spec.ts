@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RHYTHM_OFFBEATS, RHYTHM_TWO_FOUR, type ExerciseDefinition } from '$lib/domain/exercise';
+import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { mechanicRules } from '$lib/domain/mechanics';
 import type { PlannedItem } from '$lib/domain/types';
 import { createExerciseItemSource } from './itemSource';
+import { RHYTHM_OFFBEATS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 
 const context = { now: 0, elapsedMs: 0, fatigued: false };
 const keyOf = (item: PlannedItem | null) => item && mechanicRules(item.mechanic).itemKey(item.item);

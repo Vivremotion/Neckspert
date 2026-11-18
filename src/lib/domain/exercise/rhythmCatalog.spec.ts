@@ -19,13 +19,13 @@ import { figureRules } from '$lib/domain/mechanics/figure';
 import { allExercises, exerciseById } from './registry';
 import { exerciseLevelsOf, resolvedParamsOf } from './levels';
 import { figureItemsAt } from './round';
+import type { ExerciseDefinition } from './types';
 import {
 	RHYTHM_EXERCISES,
 	RHYTHM_OFFBEATS,
 	RHYTHM_SILENT_BARS,
 	RHYTHM_TWO_FOUR
-} from './rhythmCatalog';
-import type { ExerciseDefinition } from './types';
+} from '$lib/testing/catalog';
 
 function levelsOf(exercise: ExerciseDefinition): readonly Level<Record<string, unknown>>[] {
 	if (!exercise.levels) throw new Error(`${exercise.id} has no levels`);

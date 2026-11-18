@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { exerciseLevelsOf, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/domain/exercise';
+import { exerciseLevelsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import {
@@ -24,6 +24,7 @@ import {
 	FORM_EXERCISE
 } from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
+import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 // The prompt is presented through the real presentation, counted.
 vi.mock('$lib/application/presentation/presentPrompt', async (original) => {

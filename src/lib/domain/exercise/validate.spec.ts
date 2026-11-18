@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
-import { LOCATE_NECK } from './catalog';
 import { allExercises } from './registry';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, Ladder } from './types';
 import { validateExercise } from './validate';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 const withParams = (params: Record<string, unknown>): ExerciseDefinition => ({
 	...LOCATE_NECK,

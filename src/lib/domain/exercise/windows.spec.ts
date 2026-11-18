@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from './catalog';
 import { DEFAULT_RESPONSE_WINDOWS, windowsOf } from './windows';
+import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('windowsOf', () => {
 	it('defaults to today’s constants', () => {

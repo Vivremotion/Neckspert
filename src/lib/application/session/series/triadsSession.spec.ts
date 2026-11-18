@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { finishDestination } from '$lib/application/session/finishDestination';
-import { TRIADS_ANCHOR } from '$lib/domain/exercise';
 import type { TriadAnchorData, TriadZoneData } from '$lib/domain/mechanics';
 import {
 	closeTriadVoicings,
@@ -32,6 +31,7 @@ import {
 	type TriadSeen,
 	type TriadsApp
 } from '$lib/testing/triadsSeries';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 /**
  * The triads' sessions on the session controller (plan H5, Task 7): the real wiring of

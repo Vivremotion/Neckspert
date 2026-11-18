@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { exercisePresenter } from './exercisePresenter';
 import { figurePresenter } from './figurePresenters';
+import { RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 describe('exercisePresenter', () => {
 	const round = RHYTHM_SILENT_BARS.round as NonNullable<ExerciseDefinition['round']>;

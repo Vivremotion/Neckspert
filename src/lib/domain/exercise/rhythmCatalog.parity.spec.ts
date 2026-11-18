@@ -3,7 +3,7 @@ import type { FigureItem } from '$lib/domain/mechanics';
 import { levelRange, METER_4_4, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { compileRound, figureItemsAt } from './round';
-import { RHYTHM_EXERCISES } from './rhythmCatalog';
+import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 
 /*
  * The plans the three rhythm exercises compile, frozen when the cycle compiler they replaced was

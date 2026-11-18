@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
 import { allExercises, exerciseById } from '../registry';
 import type { ExerciseDefinition, Ladder } from '../types';
 import { clickAccompaniment } from '../../time/accompaniment';
@@ -8,6 +7,7 @@ import { METER_4_4 } from '../../time/meter';
 import { parseLilyPond } from '../../time/notation/lilypond';
 import type { FigureExpectationTemplate, PointExpectationTemplate, RoundTemplate } from './types';
 import { roundProblem } from './validate';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const SENSORS = ['note', 'chord', 'tap', 'attack'];
 

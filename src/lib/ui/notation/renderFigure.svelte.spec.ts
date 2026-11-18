@@ -1,5 +1,4 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import {
 	attackPositions,
 	Fraction,
@@ -9,6 +8,7 @@ import {
 	type Voice
 } from '$lib/domain/time';
 import { notationReady, renderFigure } from './renderFigure';
+import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 const of = Fraction.of;
 const note = (n: number, d: number, tieToNext?: boolean): FigureElement => ({

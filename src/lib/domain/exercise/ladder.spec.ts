@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from './catalog';
 import { ladderOf, validateLadder } from './ladder';
 import type { ExerciseDefinition, Ladder } from './types';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 /** Today's lead ladder at 80 bpm: 8 beats aided, 4, then 2 where only a direct recall counts. */
 const LEADS: Ladder = [

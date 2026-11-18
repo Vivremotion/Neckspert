@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { LOCATE_NECK } from './catalog';
 import { figureParamsOf, notationOf, writesFigure } from './figureParams';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from './rhythmCatalog';
 import type { RoundTemplate } from './round';
 import type { ExerciseDefinition } from './types';
+import {
+	LOCATE_NECK,
+	RHYTHM_OFFBEATS,
+	RHYTHM_SILENT_BARS,
+	RHYTHM_TWO_FOUR
+} from '$lib/testing/catalog';
 
 const FIGURE_ROUND: RoundTemplate = {
 	expectations: [

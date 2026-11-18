@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/domain/exercise';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
@@ -21,6 +20,7 @@ import { triadIntroductionOrder } from './introduction';
 import { triadParams, voicingPositions } from './items';
 import { occurrencePosition } from './position';
 import { triadSubject, type TriadMechanic } from './triadSubject';
+import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 const ANCHOR = 'triad-anchor' as MechanicId;
 const ZONE = 'triad-zone' as MechanicId;

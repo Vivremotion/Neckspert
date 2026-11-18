@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { figureRules } from '$lib/domain/mechanics';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { RHYTHM_SILENT_BARS } from '$lib/domain/exercise/rhythmCatalog';
 import { METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
 import { followsBeats, stageModel } from './stage';
+import { RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const ITEM: PlannedItem = {
 	exerciseId: RHYTHM_SILENT_BARS.id,
@@ -43,8 +43,8 @@ function modelOf(definition: ExerciseDefinition): Record<string, unknown> {
 		runRounds: [],
 		endedSessions: 0,
 		played: null,
-			live: null,
-			coming: null
+		live: null,
+		coming: null
 	}) as Record<string, unknown>;
 }
 
