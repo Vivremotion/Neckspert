@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { triadParams } from '$lib/domain/triads/items';
-import { IDENTIFY_NECK, LOCATE_NECK, RHYTHM_EXERCISES, TRIADS_ANCHOR, TRIADS_ZONE } from './index';
 import { recallThresholdOf } from './recall';
 import type { ExerciseDefinition } from './types';
-import { GESTURE_EXERCISES } from '$lib/testing/catalog';
+import {
+	GESTURE_EXERCISES,
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	RHYTHM_EXERCISES,
+	TRIADS_ANCHOR,
+	TRIADS_ZONE
+} from '$lib/testing/catalog';
 
 const withThreshold = (value: unknown): ExerciseDefinition => ({
 	...LOCATE_NECK,
