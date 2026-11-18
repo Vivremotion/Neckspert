@@ -165,7 +165,7 @@ export class DemoPlaySession implements PlaySessionController {
 		const { item } = SCRIPT[this.#step];
 		const planned = {
 			exerciseId: LOCATE_NECK_ID,
-			mechanic: exerciseById(LOCATE_NECK_ID).mechanic,
+			skill: exerciseById(LOCATE_NECK_ID).practices,
 			exerciseLevel: 0,
 			item,
 			phase: 'review',

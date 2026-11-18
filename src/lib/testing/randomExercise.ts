@@ -1,3 +1,5 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { SKILL_OF_MECHANIC } from './testSkills';
 /**
  * Exercises drawn at random from the registered pieces, and a bench that plays any response
  * exercise on a fixed list of items: the promise « every valid exercise plays » put to the test.
@@ -453,8 +455,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	}
 	return {
 		id,
-		version: 1,
-		mechanic,
+		practices: SKILL_OF_MECHANIC[mechanic],
 		...(view !== undefined && { view }),
 		meter,
 		tempo,
@@ -500,9 +501,9 @@ export function listItems(
 	const [first] = definition.params.ladder as Ladder;
 	return Array.from({ length: count }, () => ({
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
-		item: randomItem(random, definition.mechanic),
+		item: randomItem(random, mechanicOfSkill(definition.practices)),
 		phase: 'free',
 		temperature: 'hot',
 		aid: first.params.aided ? 'show-position' : 'none',
@@ -614,7 +615,7 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
 				sessionId,
-				rules: (mechanic) => BENCH_PRESENTERS[mechanic].rules,
+				rules: (skill) => BENCH_PRESENTERS[mechanicOfSkill(skill)].rules,
 				// Direct recall as the exercise writes it, as the notes' free play reads it.
 				recall: () => directRecallOf(recallThresholdOf(definition)),
 				levels: new InMemoryLevelStateRepository()
@@ -683,7 +684,7 @@ function emit(bench: ExerciseBench, sensor: string, payload: unknown, time: numb
  * exercise's or its presenter's.
  */
 function planOf(definition: ExerciseDefinition, item: PlannedItem): RoundPlan {
-	const presenter = BENCH_PRESENTERS[item.mechanic];
+	const presenter = BENCH_PRESENTERS[mechanicOfSkill(item.skill)];
 	return compileRound(definition, item, definition.meter ?? METER_4_4, {
 		previewBeats: previewBeatsOf(definition, presenter.previewBeats) ?? 0,
 		fromRunStart: null

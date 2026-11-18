@@ -6,8 +6,8 @@ import { neckSubject } from './neckSubject';
 import { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
-const L1: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'G' } };
-const L2: NeckCard = { mechanic: 'locate', item: { string: 6, pitch: 'A' } };
+const L1: NeckCard = { skill: 'locate-note-string', item: { string: 6, pitch: 'G' } };
+const L2: NeckCard = { skill: 'locate-note-string', item: { string: 6, pitch: 'A' } };
 
 describe('buildFreePlan', () => {
 	it('draws from every position, including ones with no card yet', () => {
@@ -21,13 +21,15 @@ describe('buildFreePlan', () => {
 		expect(plan.every((item) => item.phase === 'free')).toBe(true);
 		expect(plan.every((item) => item.temperature === 'hot')).toBe(true);
 		expect(plan.every((item) => item.aid === 'none')).toBe(true);
-		expect(plan.filter((item) => item.mechanic === 'identify')).toHaveLength(66);
+		expect(plan.filter((item) => item.skill === 'identify-note')).toHaveLength(66);
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(2);
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(8);
-		expect(plan.find((item) => item.mechanic === 'identify')?.leadBeats).toBeNull();
-		expect(plan.find((item) => item.mechanic === 'locate')?.exerciseId).toBe('locate-neck');
-		expect(plan.find((item) => item.mechanic === 'identify')?.exerciseId).toBe('identify-neck');
+		expect(plan.find((item) => item.skill === 'identify-note')?.leadBeats).toBeNull();
+		expect(plan.find((item) => item.skill === 'locate-note-string')?.exerciseId).toBe(
+			'locate-neck'
+		);
+		expect(plan.find((item) => item.skill === 'identify-note')?.exerciseId).toBe('identify-neck');
 	});
 
 	it('plays one series of the free-play length by default', () => {
@@ -79,7 +81,7 @@ describe('freeLeadOf', () => {
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.leadBeats).toBe(2);
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(4);
-		expect(plan.find((item) => keyOf(item) === 'locate:5:C')?.leadBeats).toBe(8);
+		expect(plan.find((item) => keyOf(item) === 'locate-note-string:5:C')?.leadBeats).toBe(8);
 	});
 
 	it('serves a free plan at those levels, the identified notes without one', () => {
@@ -93,9 +95,9 @@ describe('freeLeadOf', () => {
 		const keyOf = (item: (typeof plan)[number]) => neckCardKey(asNeckCard(item));
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L1))?.level).toBe(2);
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.level).toBe(1);
-		expect(plan.find((item) => keyOf(item) === 'locate:5:C')?.level).toBe(0);
+		expect(plan.find((item) => keyOf(item) === 'locate-note-string:5:C')?.level).toBe(0);
 		expect(
-			plan.filter((item) => item.mechanic === 'identify').every((item) => !('level' in item))
+			plan.filter((item) => item.skill === 'identify-note').every((item) => !('level' in item))
 		).toBe(true);
 		expect(plan.every((item) => item.exerciseLevel === 0)).toBe(true);
 	});

@@ -1,3 +1,4 @@
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 /** The triads' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import { TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import type { ChordExpectation } from '$lib/application/ports';
@@ -11,7 +12,7 @@ import {
 	occurrenceOfId,
 	triadIntroductionOrder,
 	triadParams,
-	type TriadMechanic
+	type TriadSkill
 } from '$lib/domain/triads';
 import type { CardState } from '$lib/domain/types';
 import { CutShortVerifier } from './gestureSeries';
@@ -23,16 +24,12 @@ export const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set(
 
 /** A learned triad card, due at once (a cold review), acquired unless told otherwise. */
 export function learnedTriad(
-	mechanic: TriadMechanic,
+	skill: TriadSkill,
 	voicing: string,
 	options: { acquired?: boolean } = {}
 ): CardState {
 	const learned = markLearned(
-		introduceCard(
-			{ key: `${mechanic}:${voicing}`, mechanic, item: { voicingKey: voicing } },
-			0,
-			's-old'
-		),
+		introduceCard({ key: `${skill}:${voicing}`, skill, item: { voicingKey: voicing } }, 0, 's-old'),
 		0
 	);
 	return {
@@ -84,7 +81,7 @@ export function voicingOfShape(id: string): string {
 /** A triad round as the player meets it: the screen and what the chord sensor is told. */
 export interface TriadSeen {
 	n: number;
-	mechanic: TriadMechanic;
+	skill: TriadSkill;
 	voicing: string;
 	/** The fret a zone prompt names; 'open' for a shape on open strings only. */
 	fret?: number | 'open';
@@ -127,7 +124,7 @@ function seen(app: TriadsApp, controller: PlaySessionController, n: number): Tri
 	const beatS = 60 / controller.view.tempoBpm;
 	return {
 		n,
-		mechanic: zone ? 'triad-zone' : 'triad-anchor',
+		skill: zone ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID,
 		voicing,
 		...(zone && {
 			fret: secondary === 'à vide' ? 'open' : Number(secondary.replace('vers la case ', ''))
@@ -190,10 +187,10 @@ export async function playTriads(
 				const { right, wrong } = shapes(round);
 				const beatS = 60 / controller.view.tempoBpm;
 				const chordAt =
-					round.mechanic === 'triad-anchor'
+					round.skill === CHORD_ANCHOR_SKILL_ID
 						? round.targetAt + (answer.chordBeats ?? ANCHOR_CHORD_BEATS) * beatS
 						: round.targetAt;
-				if (round.mechanic === 'triad-anchor' && answer.root !== 'none') {
+				if (round.skill === CHORD_ANCHOR_SKILL_ID && answer.root !== 'none') {
 					const time = round.targetAt + (answer.rootOffsetMs ?? 0) / 1000;
 					sounds.push({ time, play: () => playRoot(app, round, answer.root === 'right', time) });
 				}

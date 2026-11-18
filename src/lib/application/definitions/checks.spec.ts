@@ -25,8 +25,10 @@ describe('definitionChecks', () => {
 		expect(check({ ...LOCATE_NECK, practices: 'locate-note-string' })).toBeNull();
 	});
 
-	it('refuses an unknown mechanic', () =>
-		expect(check({ ...LOCATE_NECK, mechanic: 'nope' })).toBe('mechanic "nope" is unknown'));
+	it('refuses an exercise whose skill is missing', () => {
+		const { practices: _practices, ...rest } = LOCATE_NECK;
+		expect(check(rest as ExerciseDefinition)).toBe('practices is missing');
+	});
 
 	it('gives the reason of the first validator that refuses, without the exercise id', () => {
 		const reason = check({ ...LOCATE_NECK, tempo: -3 });

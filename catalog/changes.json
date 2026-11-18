@@ -169,8 +169,6 @@
 	"exercises": [
 		{
 			"id": "gesture-link",
-			"version": 1,
-			"mechanic": "chord-grid",
 			"practices": "inversion-run",
 			"round": {
 				"prompt": {
@@ -338,8 +336,6 @@
 		},
 		{
 			"id": "gesture-climb",
-			"version": 1,
-			"mechanic": "chord-grid",
 			"practices": "grid-in-direction",
 			"round": {
 				"prompt": {
@@ -508,8 +504,6 @@
 		},
 		{
 			"id": "gesture-zone",
-			"version": 1,
-			"mechanic": "chord-grid",
 			"practices": "grid-in-zone",
 			"round": {
 				"prompt": {
@@ -678,8 +672,6 @@
 		},
 		{
 			"id": "gesture-jam",
-			"version": 1,
-			"mechanic": "chord-grid",
 			"practices": "grid-reading",
 			"round": {
 				"prompt": {

@@ -1,4 +1,5 @@
 import { mechanicRules } from '../mechanics';
+import { mechanicOfSkill } from '../skill/bridge';
 import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
@@ -271,7 +272,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 	if (items === undefined) return null;
 	if (!Array.isArray(items)) return 'items must be a list';
 	if (items.length === 0) return 'items lists no item';
-	const rules = mechanicRules(definition.mechanic);
+	const rules = mechanicRules(mechanicOfSkill(definition.practices));
 	const meter = definition.meter ?? METER_4_4;
 	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
 	for (const [i, key] of items.entries()) {
@@ -286,7 +287,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 		for (let level = lowest; level <= highest; level++) {
 			const planned: PlannedItem = {
 				exerciseId: definition.id,
-				mechanic: definition.mechanic,
+				skill: definition.practices,
 				exerciseLevel: level,
 				item,
 				phase: 'free',

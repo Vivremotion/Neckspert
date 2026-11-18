@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardKeyOf, mechanicRules, MECHANIC_RULES } from './index';
+import { mechanicRules, MECHANIC_RULES } from './index';
 import { voicingFigureRules, type VoicingFigureItem } from './voicingFigure';
 
 const C = 'C|maj|3:3,2:5,1:1';
@@ -14,9 +14,6 @@ describe('voicingFigureRules', () => {
 	it('keys an item by its voicing and its place, then its length when it has one', () => {
 		expect(voicingFigureRules.itemKey({ voicing: C, occurrence: 1 })).toBe(`${C}@1`);
 		expect(voicingFigureRules.itemKey({ voicing: C, occurrence: 0, beats: 4 })).toBe(`${C}@0@4`);
-		expect(cardKeyOf(voicingFigureRules, { voicing: C, occurrence: 0 })).toBe(
-			`voicing-figure:${C}@0`
-		);
 	});
 
 	it('parses a key back, with and without beats', () => {

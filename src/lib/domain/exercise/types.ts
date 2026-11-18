@@ -2,6 +2,7 @@ import type { Figure, Level, Meter } from '$lib/domain/time';
 import type { LevelOverrides } from './levels';
 import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
+import type { SkillId } from '$lib/domain/skill/types';
 
 export type MechanicId = string;
 export type ExerciseId = string;
@@ -88,13 +89,11 @@ export interface ExerciseForm {
 	notes: { midi: number; string: number; name: string }[];
 }
 
-/** An exercise is data only: a mechanic plus its parameters. */
+/** An exercise is data only: the skill it practises plus its parameters. */
 export interface ExerciseDefinition {
 	id: ExerciseId;
-	version: number;
-	mechanic: MechanicId;
-	/** The skill it practises, a registered one (`SkillId`). */
-	practices?: string;
+	/** The skill it practises, a registered one. */
+	practices: SkillId;
 	params: Readonly<Record<string, unknown>>;
 	/**
 	 * Its tempo, in beats of its meter per minute, before any level; absent: `DEFAULT_TEMPO_BPM`.

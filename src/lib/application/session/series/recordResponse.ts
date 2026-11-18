@@ -159,7 +159,7 @@ export function recordedAttempt(input: {
 	return {
 		sessionId: input.sessionId,
 		exerciseId: execution.exerciseId,
-		mechanic: item.mechanic,
+		skill: item.skill,
 		cardKey: input.cardKey,
 		phase: item.phase,
 		temperature: 'hot',

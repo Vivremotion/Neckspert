@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import {
 	Fraction,
 	METER_4_4,
@@ -305,7 +306,7 @@ function expectedPicture(definition: ExerciseDefinition, item: PlannedItem): Pic
 	const from = derivationOf(definition);
 	const name = from === null ? undefined : DERIVED_PICTURES[from];
 	const picture = name === undefined ? undefined : PICTURES[name];
-	if (!picture || !picture.reads.includes(item.mechanic)) return null;
+	if (!picture || !picture.reads.includes(mechanicOfSkill(item.skill))) return null;
 	return picture.draw(item.item);
 }
 
@@ -319,7 +320,7 @@ function neckOf(definition: ExerciseDefinition, item: PlannedItem): Picture | nu
 	const from = derivationOf(definition);
 	const derivation = from === null ? undefined : CONTENT_DERIVATIONS[from];
 	const neck =
-		derivation?.list && derivation.reads.includes(item.mechanic)
+		derivation?.list && derivation.reads.includes(mechanicOfSkill(item.skill))
 			? neckPicture(derivation.derive(item.item, definition) as unknown[])
 			: null;
 	NECKS.set(item, neck);

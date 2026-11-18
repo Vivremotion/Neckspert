@@ -1,3 +1,4 @@
+import { CHANGE_SKILL_IDS } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { SESSION_MS } from '$lib/domain/session/policy';
 import {
@@ -21,8 +22,6 @@ import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 import type { RecordOutcome, SelectorContext, ItemSource } from './selector';
-
-const MECHANIC = 'chord-grid';
 
 /** Beats of a bar of a link passage: one shape per bar. */
 const LINK_BAR_BEATS = 4;
@@ -58,7 +57,7 @@ interface Passage {
 }
 
 function itemOf(attempt: Attempt): ChordGridItem | null {
-	if (attempt.mechanic !== MECHANIC) return null;
+	if (!(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)) return null;
 	return ((attempt.data as { item?: ChordGridItem } | null)?.item ?? null) as ChordGridItem | null;
 }
 
@@ -96,6 +95,13 @@ class GestureSelector implements ItemSource {
 		for (const attempt of [...attempts].sort((a, b) => a.promptedAt - b.promptedAt)) {
 			this.remember(attempt);
 		}
+	}
+
+	/** The skill an exercise of the ladder practises. */
+	private skillOf(exerciseId: string): string {
+		const found = this.exercises.find((exercise) => exercise.definition.id === exerciseId);
+		if (!found) throw new Error(`Not a gesture exercise of this session: ${exerciseId}`);
+		return found.definition.practices;
 	}
 
 	next(context: SelectorContext): PlannedItem | null {
@@ -137,7 +143,7 @@ class GestureSelector implements ItemSource {
 		};
 		return {
 			exerciseId: element.exerciseId,
-			mechanic: MECHANIC,
+			skill: this.skillOf(element.exerciseId),
 			// The series sets the level its exercise plays at.
 			exerciseLevel: 0,
 			item,

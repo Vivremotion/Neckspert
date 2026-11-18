@@ -108,7 +108,6 @@ exports[`keeps gesture-climb as it is 1`] = `
       },
     },
   ],
-  "mechanic": "chord-grid",
   "params": {
     "grids": [
       "iohefy-a",
@@ -182,7 +181,6 @@ exports[`keeps gesture-climb as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "grid-scroll",
 }
 `;
@@ -295,7 +293,6 @@ exports[`keeps gesture-jam as it is 1`] = `
       },
     },
   ],
-  "mechanic": "chord-grid",
   "params": {
     "grids": [
       "iohefy-a",
@@ -369,7 +366,6 @@ exports[`keeps gesture-jam as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "grid-scroll",
 }
 `;
@@ -482,7 +478,6 @@ exports[`keeps gesture-link as it is 1`] = `
       },
     },
   ],
-  "mechanic": "chord-grid",
   "params": {
     "qualities": [
       "maj",
@@ -552,7 +547,6 @@ exports[`keeps gesture-link as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "link-lane",
 }
 `;
@@ -665,7 +659,6 @@ exports[`keeps gesture-zone as it is 1`] = `
       },
     },
   ],
-  "mechanic": "chord-grid",
   "params": {
     "grids": [
       "iohefy-a",
@@ -739,7 +732,6 @@ exports[`keeps gesture-zone as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "grid-scroll",
 }
 `;
@@ -747,7 +739,6 @@ exports[`keeps gesture-zone as it is 1`] = `
 exports[`keeps identify-neck as it is 1`] = `
 {
   "id": "identify-neck",
-  "mechanic": "identify",
   "params": {
     "ladder": [
       {
@@ -821,7 +812,6 @@ exports[`keeps identify-neck as it is 1`] = `
       "lead": 0,
     },
   },
-  "version": 1,
   "view": "answer-keys",
 }
 `;
@@ -829,7 +819,6 @@ exports[`keeps identify-neck as it is 1`] = `
 exports[`keeps locate-neck as it is 1`] = `
 {
   "id": "locate-neck",
-  "mechanic": "locate",
   "params": {
     "ladder": [
       {
@@ -937,7 +926,6 @@ exports[`keeps locate-neck as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "lane",
 }
 `;
@@ -1160,7 +1148,6 @@ exports[`keeps rhythm-offbeats as it is 1`] = `
       },
     },
   ],
-  "mechanic": "figure",
   "params": {
     "accompaniment": {
       "bars": [
@@ -1268,7 +1255,6 @@ exports[`keeps rhythm-offbeats as it is 1`] = `
     "en": "Offbeats",
     "fr": "Contretemps",
   },
-  "version": 1,
   "view": "figure",
 }
 `;
@@ -1753,7 +1739,6 @@ exports[`keeps rhythm-silent-bars as it is 1`] = `
       },
     },
   ],
-  "mechanic": "figure",
   "params": {
     "accompaniment": {
       "bars": [
@@ -1864,7 +1849,6 @@ exports[`keeps rhythm-silent-bars as it is 1`] = `
     "en": "Silent bars",
     "fr": "Mesures silencieuses",
   },
-  "version": 1,
   "view": "figure",
 }
 `;
@@ -2695,7 +2679,6 @@ exports[`keeps rhythm-two-four as it is 1`] = `
       },
     },
   ],
-  "mechanic": "figure",
   "params": {
     "accompaniment": {
       "bars": [
@@ -2802,7 +2785,6 @@ exports[`keeps rhythm-two-four as it is 1`] = `
     "en": "Click on 2 and 4",
     "fr": "Métronome sur 2 et 4",
   },
-  "version": 1,
   "view": "figure",
 }
 `;
@@ -2942,7 +2924,6 @@ exports[`keeps the grid iohefy-a as it is 1`] = `
 exports[`keeps triads-anchor as it is 1`] = `
 {
   "id": "triads-anchor",
-  "mechanic": "triad-anchor",
   "params": {
     "ladder": [
       {
@@ -3086,7 +3067,6 @@ exports[`keeps triads-anchor as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "lane",
 }
 `;
@@ -3094,7 +3074,6 @@ exports[`keeps triads-anchor as it is 1`] = `
 exports[`keeps triads-zone as it is 1`] = `
 {
   "id": "triads-zone",
-  "mechanic": "triad-zone",
   "params": {
     "ladder": [
       {
@@ -3216,7 +3195,6 @@ exports[`keeps triads-zone as it is 1`] = `
     },
   },
   "tempo": 80,
-  "version": 1,
   "view": "lane",
 }
 `;

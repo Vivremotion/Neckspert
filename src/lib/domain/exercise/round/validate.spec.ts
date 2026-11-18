@@ -1,3 +1,4 @@
+import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { allExercises, exerciseById } from '../registry';
 import type { ExerciseDefinition, Ladder } from '../types';
@@ -51,7 +52,7 @@ describe('roundProblem', () => {
 			]);
 		}
 		// An exercise without a round has nothing to check.
-		expect(roundProblem({ id: 'bare', version: 1, mechanic: 'locate', params: {} })).toBeNull();
+		expect(roundProblem({ id: 'bare', practices: 'locate-note-string', params: {} })).toBeNull();
 	});
 
 	it('refuses an unknown key, naming it', () => {
@@ -311,8 +312,7 @@ describe('roundProblem', () => {
 		/** A rhythm written as a template: a figure filling the round, its click and window in the params. */
 		const RHYTHM: ExerciseDefinition = {
 			id: 'figured-rhythm',
-			version: 1,
-			mechanic: 'figure',
+			practices: 'inner-pulse',
 			figures: [
 				{ id: 'eighths', figure: parseLilyPond('c8 c c c c c c c') },
 				{ id: 'halves', figure: parseLilyPond('c2 c') }
@@ -351,8 +351,7 @@ describe('roundProblem', () => {
 		/** An arpeggio: the notes of a voicing spread over a figure a level names, answered one by one. */
 		const ARPEGGIO: ExerciseDefinition = {
 			id: 'arpeggio',
-			version: 1,
-			mechanic: 'voicing-figure',
+			practices: TEST_PLACED_VOICING_SKILL.id,
 			figures: [
 				{ id: 'quarters', figure: parseLilyPond('c4 c c c') },
 				{ id: 'written', figure: parseLilyPond("e'4\\1 g'\\1 c''\\2 e'") }
@@ -488,7 +487,7 @@ describe('roundProblem', () => {
 				/^round\.expectations\[0\]\.content derives "voicing-notes", a list, which only a figure spreads/
 			);
 			const single = withEntry(
-				{ ...RHYTHM, mechanic: 'locate' },
+				{ ...RHYTHM, practices: 'locate-note-string' },
 				{ figure: { id: 'eighths' }, sensor: 'note', content: { from: 'note-of-item' } }
 			);
 			expect(roundProblem(single)).toMatch(

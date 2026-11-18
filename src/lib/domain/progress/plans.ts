@@ -1,3 +1,4 @@
+import { LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { ladderLevel } from '$lib/domain/learning/ladder';
 import type { LadderParams, LearningSubject } from '$lib/domain/learning/subject';
 import { practiceCards, type LocateItem } from '$lib/domain/music';
@@ -25,10 +26,10 @@ export function freeLevelOf(input: {
 	levels: readonly LevelState[];
 }): (item: LocateItem) => number {
 	const { subject, levels } = input;
-	const exerciseId = subject.exerciseOf('locate');
-	const ladder = subject.ladder('locate');
+	const exerciseId = subject.exerciseOf(LOCATE_SKILL_ID);
+	const ladder = subject.ladder(LOCATE_SKILL_ID);
 	return (item) => {
-		const key = subject.itemKey({ mechanic: 'locate', item });
+		const key = subject.itemKey({ skill: LOCATE_SKILL_ID, item });
 		const held = levels.find(
 			(state) => state.exerciseId === exerciseId && state.scope === '' && state.item === key
 		) ?? {
@@ -49,7 +50,7 @@ export function freeLeadOf(input: {
 	subject: LearningSubject;
 	levels: readonly LevelState[];
 }): (item: LocateItem) => LeadBeats {
-	const ladder = input.subject.ladder('locate');
+	const ladder = input.subject.ladder(LOCATE_SKILL_ID);
 	const { lowest } = levelRange(ladder);
 	const levelOf = freeLevelOf(input);
 	return (item) => {
@@ -78,8 +79,8 @@ export function buildFreePlan(input: {
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',
-				leadBeats: card.mechanic === 'locate' ? input.leadOf(card.item) : null,
-				...(card.mechanic === 'locate' && input.levelOf && { level: input.levelOf(card.item) }),
+				leadBeats: card.skill === LOCATE_SKILL_ID ? input.leadOf(card.item) : null,
+				...(card.skill === LOCATE_SKILL_ID && input.levelOf && { level: input.levelOf(card.item) }),
 				exerciseLevel: 0
 			})
 		);

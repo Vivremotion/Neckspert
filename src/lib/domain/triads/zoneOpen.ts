@@ -1,3 +1,4 @@
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { CardState } from '$lib/domain/types';
 
 /**
@@ -11,9 +12,9 @@ export const ZONE_MIN_ACQUIRED_TRIADS = 6;
  * enough to ask; once it has a card, it stays open.
  */
 export function triadZoneOpen(cards: readonly CardState[]): boolean {
-	if (cards.some((card) => card.mechanic === 'triad-zone')) return true;
+	if (cards.some((card) => card.skill === CHORD_ZONE_SKILL_ID)) return true;
 	const acquired = cards.filter(
-		(card) => card.mechanic === 'triad-anchor' && card.acquiredAt !== null
+		(card) => card.skill === CHORD_ANCHOR_SKILL_ID && card.acquiredAt !== null
 	);
 	return acquired.length >= ZONE_MIN_ACQUIRED_TRIADS;
 }

@@ -62,12 +62,12 @@ describe('a sequence of chord shapes on the series', () => {
 		await advance(ORIGIN + 4.5 * BAR_S);
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual(
-			ARPEGGIO_ITEMS.map((key) => `voicing-figure:${key}`)
+			ARPEGGIO_ITEMS.map((key) => `test-placed-voicing:${key}`)
 		);
 		expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 3].map(epochOfBar));
 		expect(player.prompts).toHaveLength(3);
 		for (const attempt of attempts) {
-			expect(attempt.mechanic).toBe('voicing-figure');
+			expect(attempt.skill).toBe('test-placed-voicing');
 			expect(attempt.success).toBe(true);
 			expect(attempt.correct).toBe(true);
 			expect(attempt.observations?.filter((o) => o.fate === 'answer')).toHaveLength(4);
@@ -158,7 +158,7 @@ describe('a sequence of chord shapes on the series', () => {
 		expect(first.map((a) => (a.data as FigureAttemptData).level)).toEqual([0, 0, 0]);
 		expect(second.map((a) => (a.data as FigureAttemptData).level)).toEqual([1, 1, 1]);
 		expect(second.map((a) => a.cardKey)).toEqual(
-			ARPEGGIO_ITEMS.map((key) => `voicing-figure:${key}`)
+			ARPEGGIO_ITEMS.map((key) => `test-placed-voicing:${key}`)
 		);
 		for (const attempt of second) {
 			// The figure param changes, the tempo stays.
@@ -174,9 +174,8 @@ describe('a sequence of chord shapes on the series', () => {
 	describe('a figure with its pitches written, played alone', () => {
 		const written = exerciseFromJson({
 			id: 'test-written',
-			version: 1,
 			title: { fr: 'Écrit', en: 'Written' },
-			mechanic: 'figure',
+			practices: 'inner-pulse',
 			view: 'figure',
 			tempo: 60,
 			params: {
@@ -444,7 +443,7 @@ describe('a sequence of chord shapes on the series', () => {
 		await advance(ORIGIN + 4.5 * BAR_S, false);
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual(
-			changes.map((change) => `voicing-figure:${change.key}`)
+			changes.map((change) => `test-placed-voicing:${change.key}`)
 		);
 		// Each round opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
 		expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
@@ -556,7 +555,9 @@ describe('a sequence of chord shapes on the series', () => {
 		it('plays a form with two notes on a string, moved from chord to chord, each chord restarting from its first note', async () => {
 			const { controller, stored } = await playedChanges();
 			const attempts = await stored();
-			expect(attempts.map((a) => a.cardKey)).toEqual(CHANGES.map((c) => `form-figure:${c.key}`));
+			expect(attempts.map((a) => a.cardKey)).toEqual(
+				CHANGES.map((c) => `test-placed-shape:${c.key}`)
+			);
 			// Each change opens at the handover of the one before: bar 1, bar 2, bar 2 beat 3.
 			expect(attempts.map((a) => a.promptedAt)).toEqual([1, 2, 2.5].map(epochOfBar));
 			expect(attempts.map((a) => (a.data as FigureAttemptData).report.expectations.length)).toEqual(

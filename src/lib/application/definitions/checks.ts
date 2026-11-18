@@ -8,6 +8,8 @@ import {
 import type { DefinitionChecks } from '$lib/domain/definitions';
 import { validateExercise } from '$lib/domain/exercise';
 import { hasSkill } from '$lib/domain/skill/registry';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { CHANGE_SKILL_IDS } from '$lib/domain/exercise/catalogIds';
 import { allGrids } from '$lib/domain/grid/registry';
 import { readGestureParams } from '$lib/domain/gesture/exercises';
 
@@ -20,11 +22,15 @@ export function definitionChecks(
 ): DefinitionChecks {
 	return {
 		exercise(exercise) {
-			if (!Object.hasOwn(presenters, exercise.mechanic)) {
-				return `mechanic "${exercise.mechanic}" is unknown`;
+			if (typeof exercise.practices !== 'string' || exercise.practices === '') {
+				return 'practices is missing';
 			}
-			if (exercise.practices !== undefined && !hasSkill(exercise.practices)) {
+			if (!hasSkill(exercise.practices)) {
 				return `practices names skill "${exercise.practices}", which no file read so far defines`;
+			}
+			const mechanic = mechanicOfSkill(exercise.practices);
+			if (!Object.hasOwn(presenters, mechanic)) {
+				return `skill "${exercise.practices}" is played by no presenter (${mechanic})`;
 			}
 			const problem =
 				validateExercise(exercise, { sensors: SESSION_SENSORS }) ??
@@ -36,7 +42,7 @@ export function definitionChecks(
 				const prefix = `${exercise.id}: `;
 				return problem.startsWith(prefix) ? problem.slice(prefix.length) : problem;
 			}
-			if (exercise.mechanic === 'chord-grid') {
+			if ((CHANGE_SKILL_IDS as readonly string[]).includes(exercise.practices)) {
 				const known = new Set(allGrids().map((grid) => grid.id));
 				for (const id of readGestureParams(exercise).grids ?? []) {
 					if (!known.has(id))

@@ -1,3 +1,4 @@
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId } from '$lib/domain/mechanics/chordGrid';
@@ -11,7 +12,7 @@ import {
 import { cardKey, type CardState } from '$lib/domain/types';
 import { gestureElements, type GestureElement } from './exercises';
 
-type TriadMechanic = 'triad-anchor' | 'triad-zone';
+type TriadSkill = typeof CHORD_ANCHOR_SKILL_ID | typeof CHORD_ZONE_SKILL_ID;
 
 /** The triads a grid plays, once each (Eb and D# alike). */
 function gridTriads(gridId: string): Chord[] {
@@ -24,15 +25,15 @@ function gridTriads(gridId: string): Chord[] {
 	return [...byPitch.values()];
 }
 
-/** The three inversions of `chord` on `set` are acquired in `mechanic`. */
+/** The three inversions of `chord` on `set` are acquired in `skill`. */
 function acquired(
 	acquiredKeys: ReadonlySet<string>,
-	mechanic: TriadMechanic,
+	skill: TriadSkill,
 	chord: Chord,
 	set: readonly StringNumber[]
 ): boolean {
 	return closeTriadVoicings(chord, set).every((voicing) =>
-		acquiredKeys.has(cardKey(mechanic, voicingKey(voicing)))
+		acquiredKeys.has(cardKey(skill, voicingKey(voicing)))
 	);
 }
 
@@ -43,19 +44,23 @@ function acquired(
  * inversions in anchor on one set at least.
  */
 function isOpen(element: GestureElement, acquiredKeys: ReadonlySet<string>): boolean {
-	const has = (mechanic: TriadMechanic, chord: Chord, set: readonly StringNumber[]) =>
-		acquired(acquiredKeys, mechanic, chord, set);
+	const has = (skill: TriadSkill, chord: Chord, set: readonly StringNumber[]) =>
+		acquired(acquiredKeys, skill, chord, set);
 	if (element.rule === 'link') {
-		return has('triad-anchor', parseTriadId(element.chord ?? ''), element.sets[0]);
+		return has(CHORD_ANCHOR_SKILL_ID, parseTriadId(element.chord ?? ''), element.sets[0]);
 	}
 	const triads = gridTriads(element.gridId ?? '');
 	switch (element.rule) {
 		case 'climb':
-			return triads.every((chord) => has('triad-anchor', chord, element.sets[0]));
+			return triads.every((chord) => has(CHORD_ANCHOR_SKILL_ID, chord, element.sets[0]));
 		case 'zone':
-			return triads.every((chord) => element.sets.every((set) => has('triad-zone', chord, set)));
+			return triads.every((chord) =>
+				element.sets.every((set) => has(CHORD_ZONE_SKILL_ID, chord, set))
+			);
 		case 'jam':
-			return triads.every((chord) => element.sets.some((set) => has('triad-anchor', chord, set)));
+			return triads.every((chord) =>
+				element.sets.some((set) => has(CHORD_ANCHOR_SKILL_ID, chord, set))
+			);
 	}
 }
 

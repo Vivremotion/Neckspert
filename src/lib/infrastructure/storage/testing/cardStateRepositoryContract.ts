@@ -42,7 +42,7 @@ export function cardStateRepositoryContract(
 		});
 
 		it('stores many cards at once', async () => {
-			const cards = [makeCard(), makeCard({ mechanic: 'identify' })];
+			const cards = [makeCard(), makeCard({ skill: 'identify-note' })];
 			await repo.putMany(cards);
 			expect((await repo.all()).sort(byKey)).toEqual([...cards].sort(byKey));
 		});
@@ -50,7 +50,7 @@ export function cardStateRepositoryContract(
 		it('replaces existing cards when storing many', async () => {
 			await repo.put(makeCard());
 			const updated = makeCard({ masteredAt: 9000 });
-			await repo.putMany([updated, makeCard({ mechanic: 'identify' })]);
+			await repo.putMany([updated, makeCard({ skill: 'identify-note' })]);
 			expect(await repo.get(updated.key)).toEqual(updated);
 			expect(await repo.all()).toHaveLength(2);
 		});

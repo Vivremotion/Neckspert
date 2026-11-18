@@ -60,7 +60,7 @@ function change(index: number, passageId = 's:0'): ChordGridItem {
 function plannedOf(item: ChordGridItem): PlannedItem {
 	return {
 		exerciseId: 'gesture-jam',
-		mechanic: 'chord-grid',
+		skill: 'grid-reading',
 		exerciseLevel: 0,
 		item,
 		phase: 'free',
@@ -280,7 +280,7 @@ function offbeatsCycle(exact: boolean) {
 	const [offbeats] = RHYTHM_OFFBEATS.figures ?? [];
 	const item: PlannedItem = {
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'figure',
+		skill: 'inner-pulse',
 		exerciseLevel: 0,
 		item: { figureId: offbeats.id, level: 0 },
 		phase: 'free',
@@ -317,7 +317,7 @@ function offbeatsCycle(exact: boolean) {
 		sessionId: 's1',
 		execution: { exerciseId: RHYTHM_OFFBEATS.id, tempoBpm: 80 },
 		promptedAt: 1234,
-		cardKey: 'figure:offbeats-1@0',
+		cardKey: 'figure-independence:offbeats-1@0',
 		startAudioS: 12.5,
 		tempo,
 		thresholds
@@ -331,8 +331,8 @@ describe('recordedAttempt, a cycle', () => {
 		expect(attempt).toMatchObject({
 			sessionId: 's1',
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'figure',
-			cardKey: 'figure:offbeats-1@0',
+			skill: 'inner-pulse',
+			cardKey: 'figure-independence:offbeats-1@0',
 			phase: 'free',
 			temperature: 'hot',
 			promptedAt: 1234,
@@ -389,7 +389,7 @@ describe('recordedAttempt, a cycle', () => {
 						expectations: report.expectations.map((e, k) => (k === 1 ? { ...e, verdict } : e))
 					}
 				},
-				item: { ...plannedOf(change(1)), exerciseId: rhythm.exerciseId, mechanic: 'figure' },
+				item: { ...plannedOf(change(1)), exerciseId: rhythm.exerciseId, skill: 'inner-pulse' },
 				plan: pitched,
 				data: () => null,
 				sessionId: 's1',

@@ -45,10 +45,12 @@ export function attemptRepositoryContract(name: string, create: () => AttemptRep
 		it("lists a card's attempts, oldest first", async () => {
 			await repo.add(makeAttempt({ promptedAt: 3000 }));
 			await repo.add(makeAttempt({ promptedAt: 1000 }));
-			await repo.add(makeAttempt({ mechanic: 'identify', promptedAt: 2000 }));
-			expect((await repo.listByCard('locate:2:F')).map((a) => a.promptedAt)).toEqual([1000, 3000]);
-			expect((await repo.listByCard('identify:5:8')).map((a) => a.promptedAt)).toEqual([2000]);
-			expect(await repo.listByCard('identify:1:0')).toEqual([]);
+			await repo.add(makeAttempt({ skill: 'identify-note', promptedAt: 2000 }));
+			expect((await repo.listByCard('locate-note-string:2:F')).map((a) => a.promptedAt)).toEqual([
+				1000, 3000
+			]);
+			expect((await repo.listByCard('identify-note:5:8')).map((a) => a.promptedAt)).toEqual([2000]);
+			expect(await repo.listByCard('identify-note:1:0')).toEqual([]);
 		});
 
 		it("lists a session's attempts, oldest first", async () => {

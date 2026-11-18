@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
 import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
@@ -96,7 +97,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 			served++;
 			return {
 				exerciseId: exercise.id,
-				mechanic: 'chord-grid',
+				skill: exercise.practices,
 				exerciseLevel: 0,
 				item: changeOf(mode, passage, index),
 				phase: 'free',
@@ -152,7 +153,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					now: () => clock.toEpochMs(clock.now()),
 					selector: sources.get(sessionId) ?? passageLoop(mode),
 					sessionId,
-					rules: (mechanic) => GESTURE_PRESENTERS[mechanic].rules
+					rules: (skill) => GESTURE_PRESENTERS[mechanicOfSkill(skill)].rules
 				}),
 			exercise: exerciseById,
 			locale,

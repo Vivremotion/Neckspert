@@ -1,5 +1,4 @@
 import type { MechanicId } from '$lib/domain/exercise/types';
-import type { CardKey } from '$lib/domain/types';
 
 /**
  * What every mechanic is: its id, its learner model and its items. The registry holds these; a
@@ -48,8 +47,4 @@ export function parseItemBeats(part: string, itemKey: string): number {
 		throw new Error(`Invalid length in beats in item key: "${itemKey}"`);
 	}
 	return beats;
-}
-
-export function cardKeyOf<I>(rules: MechanicIdentity<I>, item: I): CardKey {
-	return `${rules.id}:${rules.itemKey(item)}`;
 }

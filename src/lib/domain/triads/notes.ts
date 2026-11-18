@@ -1,3 +1,4 @@
+import { CHORD_ANCHOR_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import {
 	LEARNABLE_FRETS,
 	locateItemKey,
@@ -16,7 +17,7 @@ import { cardKey, type CardState } from '$lib/domain/types';
 export function triadNotesToLearn(cards: readonly CardState[]): LocateItem[] {
 	const byKey = new Map(cards.map((card) => [card.key, card]));
 	const anchoring = cards
-		.filter((card) => card.mechanic === 'triad-anchor' && card.acquiredAt === null)
+		.filter((card) => card.skill === CHORD_ANCHOR_SKILL_ID && card.acquiredAt === null)
 		.sort((a, b) => a.introducedAt - b.introducedAt || a.key.localeCompare(b.key));
 	const notes: LocateItem[] = [];
 	const seen = new Set<string>();
@@ -30,7 +31,7 @@ export function triadNotesToLearn(cards: readonly CardState[]): LocateItem[] {
 				const key = locateItemKey(item);
 				if (seen.has(key)) continue;
 				seen.add(key);
-				if (byKey.get(cardKey('locate', key))?.acquiredAt == null) notes.push(item);
+				if (byKey.get(cardKey(LOCATE_SKILL_ID, key))?.acquiredAt == null) notes.push(item);
 			}
 		}
 	}

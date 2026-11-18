@@ -7,6 +7,7 @@ import type {
 } from '$lib/domain/exercise/types';
 import { cardKey, type CardKey, type Locale, type PlannedItem } from '$lib/domain/types';
 import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 
 /** What a series reads of its items' data: their presenter, card key and exercise. */
 export class SeriesItems {
@@ -16,14 +17,15 @@ export class SeriesItems {
 	) {}
 
 	presenterOf(item: PlannedItem): MechanicPresenter {
-		const presenter = this.mechanics[item.mechanic];
-		if (!presenter) throw new Error(`No presenter for mechanic: ${item.mechanic}`);
+		const mechanic = mechanicOfSkill(item.skill);
+		const presenter = this.mechanics[mechanic];
+		if (!presenter) throw new Error(`No presenter for skill ${item.skill} (${mechanic})`);
 		return presenter;
 	}
 
 	cardKeyOf(item: PlannedItem): CardKey {
 		const { rules } = this.presenterOf(item);
-		return cardKey(rules.id, rules.itemKey(item.item));
+		return cardKey(item.skill, rules.itemKey(item.item));
 	}
 
 	/** The definition of an item's exercise; an exercise the registry does not hold throws. */

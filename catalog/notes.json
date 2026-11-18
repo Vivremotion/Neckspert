@@ -29,8 +29,6 @@
 	"exercises": [
 		{
 			"id": "locate-neck",
-			"version": 1,
-			"mechanic": "locate",
 			"practices": "locate-note-string",
 			"view": "lane",
 			"tempo": 80,
@@ -142,8 +140,6 @@
 		},
 		{
 			"id": "identify-neck",
-			"version": 1,
-			"mechanic": "identify",
 			"practices": "identify-note",
 			"view": "answer-keys",
 			"presentation": {

@@ -14,13 +14,18 @@ import {
 	figureParamsOf,
 	writesFigure,
 	type ExerciseDefinition,
+	CHANGE_SKILL_IDS,
+	CHORD_ANCHOR_SKILL_ID,
+	CHORD_ZONE_SKILL_ID,
 	GESTURE_EXERCISE_IDS,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
+	LOCATE_SKILL_ID,
 	TRIADS_ANCHOR_ID,
 	TRIADS_ZONE_ID
 } from '$lib/domain/exercise';
 import { locateRules } from '$lib/domain/mechanics';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
 import type { MechanicPresenter } from '$lib/application/mechanics';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
@@ -45,13 +50,14 @@ import {
 	type DirectRecall
 } from '$lib/domain/learning';
 import { triadNotesToLearn, triadZoneOpen } from '$lib/domain/triads';
-import { triadSubject, type TriadMechanic } from '$lib/domain/triads/triadSubject';
+import { triadSubject, type TriadSkill } from '$lib/domain/triads/triadSubject';
 import {
 	isTriadsKind,
 	type Attempt,
 	type ExerciseSummary,
 	type MechanicId,
 	type SessionKind,
+	type SkillId,
 	type SessionRecord
 } from '$lib/domain/types';
 
@@ -64,11 +70,11 @@ export function createAppServices(
 		development?: boolean;
 	}
 ): AppServices {
-	/** What a series prepares: its source, its length, and its mechanics' direct recall. */
+	/** What a series prepares: its source, its length, and its skills' direct recall. */
 	type PreparedSeries = {
 		source: ItemSource;
 		durationMs: number;
-		recall?: (mechanic: MechanicId) => DirectRecall;
+		recall?: (skill: SkillId) => DirectRecall;
 	};
 
 	const exerciseOf = deps.exercise ?? exerciseById;
@@ -92,7 +98,7 @@ export function createAppServices(
 			TRIADS_ANCHOR_ID,
 			TRIADS_ZONE_ID,
 			...GESTURE_EXERCISE_IDS
-		].map((id) => exerciseOf(id).mechanic);
+		].map((id) => mechanicOfSkill(exerciseOf(id).practices));
 	const gestureExercises = () => GESTURE_EXERCISE_IDS.map((id) => exerciseOf(id));
 
 	/**
@@ -136,7 +142,7 @@ export function createAppServices(
 					now: deps.now,
 					selector: series.source,
 					sessionId,
-					rules: (mechanic) => deps.mechanics[mechanic].rules,
+					rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules,
 					...(series.recall && { recall: series.recall, levels: deps.levels })
 				});
 			},
@@ -163,7 +169,9 @@ export function createAppServices(
 			const source = createGestureSelector({
 				definitions,
 				cards,
-				attempts: attempts.filter((attempt) => attempt.mechanic === 'chord-grid'),
+				attempts: attempts.filter((attempt) =>
+					(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)
+				),
 				sessionId
 			});
 			return { source, durationMs: SESSION_MS };
@@ -213,7 +221,7 @@ export function createAppServices(
 			return {
 				source,
 				durationMs: SESSION_MS,
-				recall: (mechanic) => subject.recall(mechanic)
+				recall: (skill) => subject.recall(skill)
 			};
 		});
 
@@ -221,9 +229,9 @@ export function createAppServices(
 	 * A triads session, played on the session controller: one exercise, the anchor or the zone, on
 	 * the learning procedure with the triad subject, each triad a round of its exercise's template.
 	 */
-	const startTriads = (mechanic: TriadMechanic) =>
+	const startTriads = (skill: TriadSkill) =>
 		playSession(
-			mechanic === 'triad-zone' ? 'triads-zone' : 'triads',
+			skill === CHORD_ZONE_SKILL_ID ? 'triads-zone' : 'triads',
 			presentersOf(trackMechanics()),
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
@@ -238,15 +246,15 @@ export function createAppServices(
 				// The anchor's queue puts first the triads of the notes already acquired in locate.
 				const acquiredPositions = new Set(
 					cards
-						.filter((card) => card.mechanic === locateRules.id && card.acquiredAt !== null)
+						.filter((card) => card.skill === LOCATE_SKILL_ID && card.acquiredAt !== null)
 						.map((card) => locateRules.itemKey(card.item as LocateItem))
 				);
 				// The triads' cards and attempts: the zone reads the anchor's, the anchor the zone's last positions.
-				const ofTriads = (x: { mechanic: string }) =>
-					x.mechanic === 'triad-anchor' || x.mechanic === 'triad-zone';
+				const ofTriads = (x: { skill: string }) =>
+					x.skill === CHORD_ANCHOR_SKILL_ID || x.skill === CHORD_ZONE_SKILL_ID;
 				const triadAttempts = attempts.filter(ofTriads);
 				const subject = triadSubject({
-					mechanic,
+					skill,
 					definitions,
 					acquiredPositions,
 					attempts: triadAttempts
@@ -335,15 +343,15 @@ export function createAppServices(
 		async triads() {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			const last = lastAttemptByCard(attempts);
-			const due = (mechanic: TriadMechanic) =>
+			const due = (skill: TriadSkill) =>
 				reviewableCards(
-					cards.filter((card) => card.mechanic === mechanic),
+					cards.filter((card) => card.skill === skill),
 					last,
 					deps.now()
 				).length;
 			return {
-				anchorDue: due('triad-anchor'),
-				zoneDue: triadZoneOpen(cards) ? due('triad-zone') : null
+				anchorDue: due(CHORD_ANCHOR_SKILL_ID),
+				zoneDue: triadZoneOpen(cards) ? due(CHORD_ZONE_SKILL_ID) : null
 			};
 		},
 
@@ -417,7 +425,7 @@ export function createAppServices(
 				deps.cards.all()
 			]);
 			// Next reviews of the session's own track: the neck's, or the triads'.
-			const ofTrack = (x: { mechanic: string }) => isNeck(x) === !isTriadsKind(record.kind);
+			const ofTrack = (x: { skill: string }) => isNeck(x) === !isTriadsKind(record.kind);
 			return summarizeSession({
 				record,
 				attempts,
@@ -437,7 +445,7 @@ export function createAppServices(
 			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
 			if (kind === 'gesture') return startGesture();
 			if (kind === 'learn' || kind === 'free') return startNotes(kind);
-			return startTriads(kind === 'triads-zone' ? 'triad-zone' : 'triad-anchor');
+			return startTriads(kind === 'triads-zone' ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID);
 		},
 
 		async startExercise(exerciseId) {
@@ -447,10 +455,9 @@ export function createAppServices(
 			}
 			const definition = exerciseOf(exerciseId);
 			const presenters = Object.fromEntries(
-				Object.entries(presentersOf([definition.mechanic])).map(([mechanic, presenter]) => [
-					mechanic,
-					exercisePresenter(presenter, definition)
-				])
+				Object.entries(presentersOf([mechanicOfSkill(definition.practices)])).map(
+					([mechanic, presenter]) => [mechanic, exercisePresenter(presenter, definition)]
+				)
 			);
 			return playSession('exercise', presenters, async () => ({
 				source: createExerciseItemSource(definition),

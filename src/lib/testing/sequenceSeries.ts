@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /**
  * A sequence of chord shapes played on the session controller, with the fakes and a player who
  * reads the screen: each round, the shape its prompt names, arpeggiated over the figure on show.
@@ -52,7 +53,7 @@ export function shapePitches(itemKey: string): number[] {
 function derivedPitches(exercise: ExerciseDefinition, itemKey: string): number[] {
 	const content = exercise.round?.expectations.find(isFigureEntry)?.content;
 	if (!content) throw new Error(`${exercise.id} derives no note`);
-	const item = mechanicRules(exercise.mechanic).parseItem(itemKey);
+	const item = mechanicRules(mechanicOfSkill(exercise.practices)).parseItem(itemKey);
 	const notes = CONTENT_DERIVATIONS[content.from].derive(item, exercise) as { midi: number }[];
 	return notes.map(({ midi }) => midi);
 }
@@ -147,12 +148,15 @@ export async function sequenceSeries(
 	const detector = new FakeNoteDetector();
 	const takes = new FakeTakeBuffer();
 	const memory = new SessionMemory();
-	if (options.met) await attempts.add(earlier(exercise.id));
+	if (options.met) await attempts.add(earlier(exercise.id, exercise.practices));
 	await settings.update({ latency: {}, clickBleed: options.clickBleed ?? false });
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
-	const presenter = exercisePresenter(FIGURE_PRESENTERS[exercise.mechanic], exercise);
+	const presenter = exercisePresenter(
+		FIGURE_PRESENTERS[mechanicOfSkill(exercise.practices)],
+		exercise
+	);
 	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
@@ -171,7 +175,7 @@ export async function sequenceSeries(
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
 				sessionId,
-				rules: (mechanic) => deps.mechanics[mechanic].rules
+				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
 			});
 			recorders.push(recorder);
 			return recorder;
@@ -193,11 +197,12 @@ export async function sequenceSeries(
 		},
 		deps
 	);
-	const rules = mechanicRules(exercise.mechanic);
+	const mechanic = mechanicOfSkill(exercise.practices);
+	const rules = mechanicRules(mechanic);
 	const shapes = new Map(
 		(exercise.items ?? []).map((key) => {
 			const item = rules.parseItem(key);
-			const { chord } = ITEM_FIELDS[exercise.mechanic].fields(item, 'fr', () => 0, exercise);
+			const { chord } = ITEM_FIELDS[mechanic].fields(item, 'fr', () => 0, exercise);
 			return [String(chord), derivedPitches(exercise, key)] as const;
 		})
 	);

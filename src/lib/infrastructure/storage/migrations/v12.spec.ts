@@ -32,7 +32,7 @@ function exerciseOf(id: string) {
 function itemOf(exerciseId: string, figureId: string, level: number): PlannedItem {
 	return {
 		exerciseId,
-		mechanic: 'figure',
+		skill: exerciseOf(exerciseId).practices,
 		exerciseLevel: level,
 		item: { figureId, level },
 		phase: 'free',

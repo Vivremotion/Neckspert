@@ -180,7 +180,7 @@
 	function derived(): FigureStageModel {
 		const item: PlannedItem = {
 			exerciseId: ARPEGGIO_EXERCISE.id,
-			mechanic: ARPEGGIO_EXERCISE.mechanic,
+			skill: ARPEGGIO_EXERCISE.practices,
 			exerciseLevel: -1,
 			item: voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
 			phase: 'free',

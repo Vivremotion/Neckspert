@@ -32,8 +32,8 @@ const IOHEFY = [
 /** Every exercise open: the triads of iohefy-a acquired in anchor and in the zone, on both sets. */
 const ALL_OPEN: CardState[] = IOHEFY.flatMap(([root, quality]) =>
 	[G_B_E, D_G_B].flatMap((set) => [
-		...triadCards('triad-anchor', root, quality, set),
-		...triadCards('triad-zone', root, quality, set)
+		...triadCards('chord-anchor', root, quality, set),
+		...triadCards('chord-zone', root, quality, set)
 	])
 );
 
@@ -57,8 +57,8 @@ function attemptOf(
 	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: planned.exerciseId,
-		mechanic: 'chord-grid',
-		cardKey: cardKey('chord-grid', chordGridRules.itemKey(itemOf(planned))),
+		skill: planned.skill,
+		cardKey: cardKey(planned.skill, chordGridRules.itemKey(itemOf(planned))),
 		phase: 'free',
 		temperature: 'hot',
 		aid: planned.aid,
@@ -111,7 +111,7 @@ describe('createGestureSelector', () => {
 	});
 
 	it('skips an exercise with nothing open', () => {
-		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const s = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const clock = { now: NOW };
 		expect(playPassage(s, clock)[0].exerciseId).toBe('gesture-link');
 		expect(playPassage(s, clock)[0].exerciseId).toBe('gesture-link');
@@ -119,8 +119,8 @@ describe('createGestureSelector', () => {
 
 	it('takes the element played least recently, the two sets of a chord in turn', () => {
 		const cards = [
-			...triadCards('triad-anchor', 'D', 'maj', G_B_E),
-			...triadCards('triad-anchor', 'D', 'maj', D_G_B)
+			...triadCards('chord-anchor', 'D', 'maj', G_B_E),
+			...triadCards('chord-anchor', 'D', 'maj', D_G_B)
 		];
 		const s = selector(cards);
 		const clock = { now: NOW };
@@ -130,8 +130,8 @@ describe('createGestureSelector', () => {
 
 	it('remembers the elements played in earlier sessions', () => {
 		const cards = [
-			...triadCards('triad-anchor', 'D', 'maj', G_B_E),
-			...triadCards('triad-anchor', 'D', 'maj', D_G_B)
+			...triadCards('chord-anchor', 'D', 'maj', G_B_E),
+			...triadCards('chord-anchor', 'D', 'maj', D_G_B)
 		];
 		const before = playPassage(selector(cards), { now: NOW });
 		const history = before.map((planned, i) => attemptOf(planned, NOW + i));
@@ -140,7 +140,7 @@ describe('createGestureSelector', () => {
 	});
 
 	it('links the shapes of a chord one per bar, up then down, the first change counted in', () => {
-		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const s = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const passage = playPassage(s, { now: NOW });
 		expect(passage.map((p) => itemOf(p).shape)).toEqual([
 			shapeId('D', 'maj', G_B_E, '2-3-2'),
@@ -169,7 +169,7 @@ describe('createGestureSelector', () => {
 			changes: [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'D' }))
 		});
 		expect(passage[0]).toMatchObject({
-			mechanic: 'chord-grid',
+			skill: 'inversion-run',
 			phase: 'free',
 			temperature: 'hot',
 			leadBeats: null
@@ -178,7 +178,7 @@ describe('createGestureSelector', () => {
 
 	it('alternates the direction of the climb, from one session to the next too', () => {
 		const cards = IOHEFY.flatMap(([root, quality]) =>
-			triadCards('triad-anchor', root, quality, G_B_E)
+			triadCards('chord-anchor', root, quality, G_B_E)
 		);
 		const s = selector(cards);
 		const clock = { now: NOW };
@@ -215,7 +215,7 @@ describe('createGestureSelector', () => {
 	});
 
 	it('follows the last shape heard in the passage', () => {
-		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const s = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const ctx = { now: NOW, elapsedMs: 0, fatigued: false };
 		const first = s.next(ctx)!;
 		expect(itemOf(first).previous).toBeNull();
@@ -231,7 +231,7 @@ describe('createGestureSelector', () => {
 	it('aids a grid passage until one succeeds, and again after a failed one', () => {
 		// One set: a single climb element, iohefy-a on sol-si-mi.
 		const s = selector(
-			IOHEFY.flatMap(([root, quality]) => triadCards('triad-anchor', root, quality, G_B_E))
+			IOHEFY.flatMap(([root, quality]) => triadCards('chord-anchor', root, quality, G_B_E))
 		);
 		const clock = { now: NOW };
 		const climbs = [true, false, true, true];
@@ -254,7 +254,7 @@ describe('createGestureSelector', () => {
 	});
 
 	it('starts no passage after SESSION_MS or once fatigued, but finishes the one begun', () => {
-		const s = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const s = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const late = { now: NOW, elapsedMs: SESSION_MS - 1, fatigued: false };
 		const first = s.next(late)!;
 		const over = { ...late, elapsedMs: SESSION_MS + 60_000 };
@@ -266,7 +266,7 @@ describe('createGestureSelector', () => {
 			if (planned) rest++;
 		}
 		expect(rest).toBe(6);
-		const tired = selector(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const tired = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		expect(tired.next({ now: NOW, elapsedMs: 0, fatigued: true })).toBeNull();
 	});
 
@@ -297,7 +297,7 @@ describe('createGestureSelector', () => {
 			triads: readonly (readonly [string, string])[]
 		) {
 			const cards = triads.flatMap(([root, quality]) =>
-				triadCards('triad-anchor', root, quality, set)
+				triadCards('chord-anchor', root, quality, set)
 			);
 			const s = createGestureSelector({
 				definitions: GESTURE_EXERCISES.filter((d) => d.id === 'gesture-climb'),
@@ -366,8 +366,8 @@ describe('createGestureSelector', () => {
 
 describe('the link', () => {
 	const D_ON_BOTH = [
-		...triadCards('triad-anchor', 'D', 'maj', G_B_E),
-		...triadCards('triad-anchor', 'D', 'maj', D_G_B)
+		...triadCards('chord-anchor', 'D', 'maj', G_B_E),
+		...triadCards('chord-anchor', 'D', 'maj', D_G_B)
 	];
 
 	/** Plays a passage, each change right or not by its index; the shapes heard are the shapes asked. */

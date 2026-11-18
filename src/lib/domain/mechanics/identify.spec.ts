@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardKeyOf, identifyRules, mechanicRules } from './index';
+import { identifyRules, mechanicRules } from './index';
 
 describe('identifyRules', () => {
 	it('judges the name of the note at a fret', () => {
@@ -22,8 +22,8 @@ describe('identifyRules', () => {
 		expect(identifyRules.learner).toBe('memory');
 	});
 
-	it('keys its cards by mechanic and item', () => {
-		expect(cardKeyOf(identifyRules, { string: 6, fret: 3 })).toBe('identify:6:3');
+	it('keys its items', () => {
+		expect(identifyRules.itemKey({ string: 6, fret: 3 })).toBe('6:3');
 		expect(identifyRules.parseItem('6:3')).toEqual({ string: 6, fret: 3 });
 		expect(() => identifyRules.parseItem('6:12')).toThrow();
 		expect(mechanicRules('identify')).toBe(identifyRules);

@@ -31,8 +31,7 @@ const WALTZ = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 
 const WALTZ_LOCATE: ExerciseDefinition = {
 	id: LOCATE_NECK.id,
-	version: 1,
-	mechanic: 'locate',
+	practices: 'locate-note-string',
 	view: 'lane',
 	meter: WALTZ,
 	tempo: 90,
@@ -191,9 +190,9 @@ describe('an exercise written only in data', () => {
 			expect(accents[i] - accents[i - 1]).toBeCloseTo(BAR_BEATS * BEAT_S, 6);
 		}
 		expect(accents.some((time) => Math.abs(note.dueAt - BEAT_S - time) < 0.005)).toBe(true);
-		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([
-			['identify', true],
-			['locate', true]
+		expect(attempts.map((a) => [a.skill, a.success])).toEqual([
+			['identify-note', true],
+			['locate-note-string', true]
 		]);
 	});
 

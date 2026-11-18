@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
@@ -46,7 +47,7 @@ export function presentPrompt(
 ): PresentedPrompt {
 	const presentation = definition.presentation;
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
-	const offered = ITEM_FIELDS[definition.mechanic];
+	const offered = ITEM_FIELDS[mechanicOfSkill(definition.practices)];
 	const fields = offered ? offered.fields(item.item, locale, random, definition) : {};
 	const aided = item.aid === 'show-position';
 	const names = [

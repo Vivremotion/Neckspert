@@ -86,8 +86,8 @@ const presenter: MechanicPresenter = {
  */
 const EXERCISE: ExerciseDefinition = {
 	id: 'fake-ex',
-	version: 1,
-	mechanic: MECHANIC,
+	// A skill no definition holds: the bridge reads it as the mechanic of the same name.
+	practices: MECHANIC,
 	view: 'lane',
 	tempo: 120,
 	presentation: { primary: '{n}', secondary: { fr: 'le nombre', en: 'the number' } },
@@ -138,7 +138,7 @@ afterAll(() => {
 function item(n: number, phase: ItemPhase = 'free'): PlannedItem {
 	return {
 		exerciseId: EXERCISE.id,
-		mechanic: MECHANIC,
+		skill: MECHANIC,
 		exerciseLevel: 0,
 		item: { n },
 		phase,
@@ -201,7 +201,7 @@ describe('a third mechanic, unknown to the core', () => {
 		expect(ctx.lane()?.verdict).toMatchObject({ verdict: 'perfect', answerLabel: '3', misses: [] });
 		const [attempt] = await ctx.stored();
 		expect(attempt).toMatchObject({
-			mechanic: MECHANIC,
+			skill: MECHANIC,
 			exerciseId: EXERCISE.id,
 			cardKey: 'fake:3',
 			tempoBpm: 120,
@@ -258,7 +258,7 @@ describe('a third mechanic, unknown to the core', () => {
 			await drain();
 
 			const [attempt] = await ctx.stored();
-			expect(attempt).toMatchObject({ mechanic: MECHANIC, phase, correct: true });
+			expect(attempt).toMatchObject({ skill: MECHANIC, phase, correct: true });
 			expect(attempt.observations).toHaveLength(1);
 			expect(await ctx.cards.all()).toEqual([]);
 		}

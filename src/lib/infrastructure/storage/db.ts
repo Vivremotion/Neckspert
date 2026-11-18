@@ -12,6 +12,7 @@ import { levelStatesV9 } from './migrations/v9';
 import { cardToV10, levelStatesV10 } from './migrations/v10';
 import { attemptToV11, levelStatesV11 } from './migrations/v11';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
+import { attemptToV13, cardToV13 } from './migrations/v13';
 
 export const DEFAULT_DATABASE_NAME = 'neckspert-play';
 
@@ -246,6 +247,23 @@ export class NeckspertDb extends Dexie {
 					.filter((row) => row.mechanic === RHYTHM_FIGURE_MECHANIC_V11)
 					.modify((row, ref) => {
 						ref.value = attemptToV12(row);
+					});
+			});
+		// Version 13 (chantier 2, plan 2a): a card and an attempt name the skill they practise, their
+		// key prefixed by it. A card's key is its primary key: every card is written again under its
+		// new key. Same conversion as the import of a version 8 backup (`migrations/v13.ts`).
+		this.version(13)
+			.stores({ ...stores, levelStates: '[exerciseId+scope+item]' })
+			.upgrade(async (tx) => {
+				const cards = tx.table('cards');
+				const upgraded = (await cards.toArray()).map(cardToV13);
+				await cards.clear();
+				await cards.bulkAdd(upgraded);
+				await tx
+					.table('attempts')
+					.toCollection()
+					.modify((row, ref) => {
+						ref.value = attemptToV13(row);
 					});
 			});
 	}

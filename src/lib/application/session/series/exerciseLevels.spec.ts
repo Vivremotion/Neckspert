@@ -9,8 +9,7 @@ import { RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 /** A data exercise with three tempo levels, each passed after two successes, dropped after two misses. */
 const CLIMB: ExerciseDefinition = {
 	id: 'climb',
-	version: 1,
-	mechanic: 'chord-grid',
+	practices: 'grid-reading',
 	params: {},
 	tempo: 80,
 	levels: [80, 90, 100].map((tempo) => ({

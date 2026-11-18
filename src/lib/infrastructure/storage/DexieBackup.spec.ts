@@ -16,12 +16,14 @@ import {
 	makeBackupV6,
 	makeCard,
 	makeCardV5,
+	makeAttemptV12,
 	makeLevelState,
 	makeProgressionV6,
 	makeSession
 } from './testing/fixtures';
 import v3Export from './fixtures/backup-v3.json';
 import { validateBackup } from './validateBackup';
+import { cardToV13 } from './migrations/v13';
 
 const LATENCY = { note: { ms: 42, provenance: 'player' as const } };
 
@@ -34,7 +36,10 @@ async function seed(db: NeckspertDb): Promise<void> {
 	const levels = new DexieLevelStateRepository(db);
 	await levels.put(makeLevelState());
 	await levels.put(makeLevelState({ exerciseId: 'gesture-climb', scope: 'iohefy-a', level: 2 }));
-	await new DexieCardStateRepository(db).putMany([makeCard(), makeCard({ mechanic: 'identify' })]);
+	await new DexieCardStateRepository(db).putMany([
+		makeCard(),
+		makeCard({ skill: 'identify-note' })
+	]);
 	const attempts = new DexieAttemptRepository(db);
 	await attempts.add(
 		makeAttempt({
@@ -46,7 +51,7 @@ async function seed(db: NeckspertDb): Promise<void> {
 	await attempts.add(makeAttempt({ promptedAt: 1000, scope: 'iohefy-a' }));
 	await attempts.add(
 		makeAttempt({
-			mechanic: 'identify',
+			skill: 'identify-note',
 			promptedAt: 2000,
 			data: { item: { string: 5, fret: 8 }, answer: { pitch: 'E' }, confusion: null },
 			correct: false,
@@ -78,11 +83,14 @@ describe('DexieBackup', () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
 			expect(file.app).toBe('neckspert-play');
-			expect(file.version).toBe(8);
+			expect(file.version).toBe(9);
 			expect(file.exportedAt).toBe(123);
 			expect(file.settings).toEqual({ ...DEFAULT_SETTINGS, locale: 'en', latency: LATENCY });
 			expect(file.levelStates).toHaveLength(2);
-			expect(file.cards.map((card) => card.key).sort()).toEqual(['identify:5:8', 'locate:2:F']);
+			expect(file.cards.map((card) => card.key).sort()).toEqual([
+				'identify-note:5:8',
+				'locate-note-string:2:F'
+			]);
 			expect(file.attempts.map((attempt) => attempt.promptedAt)).toEqual([1000, 2000, 3000]);
 			expect(file.attempts.every((attempt) => typeof attempt.id === 'number')).toBe(true);
 			expect(file.sessions.map((session) => session.id)).toEqual(['s1', 's2']);
@@ -91,7 +99,7 @@ describe('DexieBackup', () => {
 		it('exports an empty database with the default settings', async () => {
 			expect(await new DexieBackup(db, () => 5).exportAll()).toEqual({
 				app: 'neckspert-play',
-				version: 8,
+				version: 9,
 				exportedAt: 5,
 				settings: DEFAULT_SETTINGS,
 				cards: [],
@@ -101,10 +109,10 @@ describe('DexieBackup', () => {
 			});
 		});
 
-		it('exports version 8 without progressions, attempts with their scope', async () => {
+		it('exports version 9 without progressions, attempts with their scope', async () => {
 			await seed(db);
 			const file = await new DexieBackup(db, () => 123).exportAll();
-			expect(file.version).toBe(8);
+			expect(file.version).toBe(9);
 			expect(file).not.toHaveProperty('progressions');
 			expect(file.attempts.map((attempt) => attempt.scope)).toEqual([
 				'iohefy-a',
@@ -186,7 +194,7 @@ describe('DexieBackup', () => {
 			await new DexieBackup(db).importAll(makeBackupV5({ cards: [card] }));
 
 			const { leadBeats: _lead, ...withoutLead } = card;
-			expect(await new DexieCardStateRepository(db).all()).toEqual([withoutLead]);
+			expect(await new DexieCardStateRepository(db).all()).toEqual([cardToV13(withoutLead)]);
 			expect(
 				await new DexieLevelStateRepository(db).get({
 					exerciseId: 'triads-anchor',
@@ -382,7 +390,7 @@ describe('DexieBackup', () => {
 					tempoBpm: 110
 				})
 			],
-			attempts: [{ ...makeAttempt({ id: 1 }), tempoScope: 'blues-f' }]
+			attempts: [{ ...makeAttemptV12({ id: 1 }), tempoScope: 'blues-f' }]
 		});
 
 		await new DexieBackup(db).importAll(JSON.parse(JSON.stringify(file)));
@@ -409,14 +417,17 @@ describe('DexieBackup', () => {
 		);
 	});
 
-	it('imports the version 3 export of the application before version 4 and exports it as 8', async () => {
+	it('imports the version 3 export of the application before version 4 and exports it as 9', async () => {
 		const v3 = structuredClone(v3Export);
 		await new DexieBackup(db, () => 0).importAll(v3);
 
 		const exported = await new DexieBackup(db, () => 1000).exportAll();
 		const expected = validateBackup(structuredClone(v3Export));
-		expect(exported.version).toBe(8);
-		expect(exported.cards).toEqual(expected.cards);
+		expect(exported.version).toBe(9);
+		// The database lists its cards by key: a skill's prefix sorts them apart from the file.
+		const byKey = (cards: typeof exported.cards) =>
+			[...cards].sort((x, y) => x.key.localeCompare(y.key));
+		expect(exported.cards).toEqual(byKey(expected.cards));
 		expect(exported.attempts).toEqual(expected.attempts);
 		expect(exported.settings).toEqual({ ...expected.settings, inputDeviceId: null });
 		expect(validateBackup(JSON.parse(JSON.stringify(exported)))).toEqual(exported);

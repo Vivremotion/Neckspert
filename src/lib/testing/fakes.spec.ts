@@ -15,8 +15,8 @@ function attempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
-		mechanic: 'locate',
-		cardKey: 'locate:2:F',
+		skill: 'locate-note-string',
+		cardKey: 'locate-note-string:2:F',
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',
@@ -130,9 +130,9 @@ describe('in-memory repositories', () => {
 
 	it('stores card states by key', async () => {
 		const repo = new InMemoryCardStateRepository();
-		const state = { key: 'locate:2:F' } as CardState;
+		const state = { key: 'locate-note-string:2:F' } as CardState;
 		await repo.put(state);
-		expect(await repo.get('locate:2:F')).toEqual(state);
+		expect(await repo.get('locate-note-string:2:F')).toEqual(state);
 	});
 
 	it('merges settings over defaults', async () => {

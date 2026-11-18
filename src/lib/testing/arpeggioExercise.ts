@@ -1,3 +1,4 @@
+import { TEST_PLACED_SHAPE_SKILL, TEST_PLACED_VOICING_SKILL } from './testSkills';
 /**
  * Common material for the sequence's specs: plain major triads on the G, B and E strings, each
  * chord shape one round of four beats arpeggiated over a figure, the shapes chained without a gap.
@@ -35,9 +36,8 @@ function evenNotes(count: number): Figure {
  */
 export const ARPEGGIO_EXERCISE: ExerciseDefinition = {
 	id: 'test-arpeggio-sequence',
-	version: 1,
 	title: { fr: 'Arpèges de triades', en: 'Triad arpeggios' },
-	mechanic: 'voicing-figure',
+	practices: TEST_PLACED_VOICING_SKILL.id,
 	view: 'figure',
 	tempo: ARPEGGIO_TEMPO,
 	params: {
@@ -99,7 +99,7 @@ export const FORM_EXERCISE: ExerciseDefinition = {
 	...ARPEGGIO_EXERCISE,
 	id: 'test-form-sequence',
 	title: { fr: 'Une forme déplacée', en: 'A moved form' },
-	mechanic: 'form-figure',
+	practices: TEST_PLACED_SHAPE_SKILL.id,
 	forms: [FORM_MAJ7],
 	items: [...FORM_ITEMS],
 	round: {

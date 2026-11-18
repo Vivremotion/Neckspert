@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { figureItemsAt } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { mechanicRules } from '$lib/domain/mechanics';
@@ -23,7 +24,7 @@ export function createExerciseItemSource(definition: ExerciseDefinition): ItemSo
 	const served = (turn: number, level: number): PlannedItem => {
 		const item: PlannedItem = {
 			exerciseId: definition.id,
-			mechanic: definition.mechanic,
+			skill: definition.practices,
 			exerciseLevel: level,
 			item: itemAt(turn, level),
 			phase: 'free',
@@ -55,7 +56,7 @@ function turnItems(definition: ExerciseDefinition): (turn: number, level: number
 	const { items } = definition;
 	if (items !== undefined) {
 		if (items.length === 0) throw new Error(`${definition.id}: items lists no item`);
-		const rules = mechanicRules(definition.mechanic);
+		const rules = mechanicRules(mechanicOfSkill(definition.practices));
 		const parsed = items.map((key, i) => {
 			try {
 				return rules.parseItem(key);

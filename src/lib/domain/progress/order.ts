@@ -11,7 +11,7 @@ export function allowedAfter(card: NeckCard, previous: NeckCard | null): boolean
  * Random draw (injected `random`) among the candidates allowed after `previous`, preferring
  * another string than the previous one when such a candidate exists. Null when none is allowed.
  */
-export function pickAtRandom<T extends { mechanic: string; item: unknown }>(
+export function pickAtRandom<T extends { skill: string; item: unknown }>(
 	candidates: readonly T[],
 	previous: NeckCard | null,
 	random: () => number

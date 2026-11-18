@@ -7,7 +7,7 @@ const CONTEXT = { now: 0, elapsedMs: 0, fatigued: false };
 function item(pitch: 'F' | 'G'): PlannedItem {
 	return {
 		exerciseId: 'locate-neck',
-		mechanic: 'locate',
+		skill: 'locate-note-string',
 		exerciseLevel: 0,
 		item: { string: 6, pitch },
 		phase: 'free',

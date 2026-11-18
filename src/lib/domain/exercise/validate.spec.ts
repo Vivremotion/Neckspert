@@ -143,8 +143,7 @@ describe('validateExercise', () => {
 	it('accepts figure entries, and refuses a written note impossible on its string', () => {
 		const written = (text: string): ExerciseDefinition => ({
 			id: 'theme',
-			version: 1,
-			mechanic: 'locate',
+			practices: 'locate-note-string',
 			figures: [{ id: 'theme', figure: parseLilyPond(text) }],
 			params: { ladder: [{ params: { leadBeats: 4, aided: false } }] },
 			round: {

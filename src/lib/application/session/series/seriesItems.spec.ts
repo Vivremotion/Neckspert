@@ -12,7 +12,7 @@ const presenter: MechanicPresenter = {
 	previewBeats: 1,
 	contestable: true
 };
-const item = { mechanic: 'chord-grid', exerciseId: 'gesture-link' } as unknown as PlannedItem;
+const item = { skill: 'grid-reading', exerciseId: 'gesture-link' } as unknown as PlannedItem;
 const itemsOf = (flow?: ExerciseDefinition['flow']) =>
 	new SeriesItems({ 'chord-grid': presenter }, (id) => ({ ...exerciseById(id), flow }));
 
@@ -63,6 +63,8 @@ describe('SeriesItems.flowOf', () => {
 describe('SeriesItems.presenterOf', () => {
 	it('names a mechanic without a presenter', () => {
 		const items = new SeriesItems({}, exerciseById);
-		expect(() => items.presenterOf(item)).toThrow('No presenter for mechanic: chord-grid');
+		expect(() => items.presenterOf(item)).toThrow(
+			'No presenter for skill grid-reading (chord-grid)'
+		);
 	});
 });

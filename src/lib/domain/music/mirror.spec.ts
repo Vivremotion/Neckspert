@@ -7,7 +7,7 @@ const item = (string: LocateItem['string'], pitch: LocateItem['pitch']): LocateI
 	pitch
 });
 const on = (string: LocateItem['string'], pitch: LocateItem['pitch']): NeckCard => ({
-	mechanic: 'locate',
+	skill: 'locate-note-string',
 	item: item(string, pitch)
 });
 
@@ -43,7 +43,7 @@ describe('isMirrorPair', () => {
 	it('leaves other notes, identical cards and mode 2 alone', () => {
 		expect(isMirrorPair(on(6, 'A'), on(5, 'F'))).toBe(false);
 		expect(isMirrorPair(on(6, 'A'), on(6, 'A'))).toBe(false);
-		expect(isMirrorPair(on(6, 'A'), { mechanic: 'identify', item: { string: 5, fret: 7 } })).toBe(
+		expect(isMirrorPair(on(6, 'A'), { skill: 'identify-note', item: { string: 5, fret: 7 } })).toBe(
 			false
 		);
 	});

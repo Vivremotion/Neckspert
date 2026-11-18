@@ -1,3 +1,4 @@
+import { LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { STRING_NUMBERS, type PitchName, type StringNumber } from '$lib/domain/music/types';
 import { pitchOnString } from './fretboard';
 import type { LocateItem, NeckCard } from './items';
@@ -13,7 +14,7 @@ export function openPitch(string: StringNumber): PitchName {
  * on the A string. E names strings 1 and 6.
  */
 export function isMirrorPair(a: NeckCard, b: NeckCard): boolean {
-	if (a.mechanic !== 'locate' || b.mechanic !== 'locate') return false;
+	if (a.skill !== LOCATE_SKILL_ID || b.skill !== LOCATE_SKILL_ID) return false;
 	if (a.item.string === b.item.string) return false;
 	return a.item.pitch === openPitch(b.item.string) && b.item.pitch === openPitch(a.item.string);
 }

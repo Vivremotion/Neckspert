@@ -10,7 +10,7 @@ import {
 	shapePosition,
 	type ChordGridItem
 } from './chordGrid';
-import { cardKeyOf, mechanicRules } from './index';
+import { mechanicRules } from './index';
 
 const G_B_E: StringNumber[] = [3, 2, 1];
 const D_G_B: StringNumber[] = [4, 3, 2];
@@ -41,7 +41,6 @@ describe('chordGridRules', () => {
 	it('keys an attempt by its element and its place in the passage, and parses it back', () => {
 		const link = item({ rule: 'link', element: 'link:D|maj:3,2,1', index: 2 });
 		expect(chordGridRules.itemKey(link)).toBe('link:D|maj:3,2,1#2');
-		expect(cardKeyOf(chordGridRules, link)).toBe('chord-grid:link:D|maj:3,2,1#2');
 		expect(chordGridRules.parseItem('link:D|maj:3,2,1#2')).toEqual({
 			element: 'link:D|maj:3,2,1',
 			index: 2

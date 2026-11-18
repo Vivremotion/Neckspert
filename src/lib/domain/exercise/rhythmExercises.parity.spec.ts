@@ -14,7 +14,7 @@ import { RHYTHM_EXERCISES } from '$lib/testing/catalog';
 function item(exerciseId: string, figureId: string, level: number): PlannedItem<FigureItem> {
 	return {
 		exerciseId,
-		mechanic: 'figure',
+		skill: RHYTHM_EXERCISES.find((exercise) => exercise.id === exerciseId)!.practices,
 		exerciseLevel: level,
 		item: { figureId, level },
 		phase: 'free',

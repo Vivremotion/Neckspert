@@ -1,3 +1,4 @@
+import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseLevelsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
@@ -65,8 +66,7 @@ const QUARTERS: Figure = {
 /** The notes of a chord shape over four quarter notes, its chord and its strings above them. */
 const ARPEGGIO: ExerciseDefinition = {
 	id: 'test-arpeggio',
-	version: 1,
-	mechanic: 'voicing-figure',
+	practices: TEST_PLACED_VOICING_SKILL.id,
 	view: 'figure',
 	figures: [{ id: 'quarters', figure: QUARTERS }],
 	round: {
@@ -93,7 +93,7 @@ const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
 function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',

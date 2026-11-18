@@ -13,11 +13,12 @@ Les exercices privés s'écrivent dans des fichiers de définitions JSON, dans l
 Un fichier de définitions est un objet JSON :
 
 ```
-{ "format": 0, "grids": [], "exercises": [] }
+{ "format": 0, "skills": [], "grids": [], "exercises": [] }
 ```
 
 - `format` vaut 0 : le format n'est pas encore stable et changera sans conversion.
-- `grids` et `exercises` sont des listes, facultatives ; un fichier peut en tenir plusieurs. `skills` et `routines` sont réservés : vides ou absents.
+- `skills`, `grids` et `exercises` sont des listes, facultatives ; un fichier peut en tenir plusieurs. `routines` est réservé : vide ou absent.
+- Une capacité s'écrit `{ "id": "…", "name": { "fr": "…", "en": "…" }, "items": "<ensemble>", "memory": false }` ; une capacité de mémoire (`"memory": true`) écrit aussi `"directRecall": { "withinMs": 1500 }`. Les ensembles : `note-on-string`, `placed-note`, `voicing-on-strings`, `placed-voicing`, `placed-shape`, `change`, `figure`.
 - Une clé inconnue au premier niveau, un texte qui n'est pas du JSON ou un fichier de plus d'un million de caractères refusent tout le fichier.
 - Dans un fichier, deux objets de même `id` dans une liste : le second est refusé. Un exercice et une grille peuvent partager un `id`.
 
@@ -35,7 +36,9 @@ C'est une `ExerciseDefinition` (`src/lib/domain/exercise/types.ts`) écrite en J
 - L'accompagnement (`round.accompaniment`, ou le paramètre qu'il nomme par `{ "param": "…" }`, dans `params` et dans les `params` de chaque niveau) s'écrit `{ "clicks": { "beats": [1, 2, 3, 4], "accent": [1] }, "bars": ["on", "on", "on", "off"] }` : les temps où le clic sonne, ceux qu'il accentue (facultatif), puis une mesure par entrée, `"off"` pour une mesure muette.
 - Une clé inconnue au premier niveau refuse l'exercice, en la nommant.
 
-Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `version`, `mechanic`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `forms`, `pick`, `items`.
+Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `practices`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `forms`, `pick`, `items`.
+
+`practices` nomme la capacité que l'exercice travaille : elle doit être définie dans un fichier, le sien ou un autre lu avant.
 
 **Un exercice de figure doit nommer sa vue** : `"view": "figure"`. Sans elle, un exercice qui écrit une présentation serait dessiné sur la piste (`lane`), qui ne dessine pas de figure.
 
@@ -46,15 +49,25 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 ```json
 {
 	"format": 0,
+	"skills": [
+		{
+			"id": "arpeges-de-triades",
+			"name": {
+				"fr": "Arpéger une triade",
+				"en": "Arpeggiate a triad"
+			},
+			"items": "placed-voicing",
+			"memory": false
+		}
+	],
 	"exercises": [
 		{
 			"id": "arpeges-de-triades",
-			"version": 1,
 			"title": {
 				"fr": "Arpèges de triades",
 				"en": "Triad arpeggios"
 			},
-			"mechanic": "voicing-figure",
+			"practices": "arpeges-de-triades",
 			"view": "figure",
 			"tempo": 60,
 			"params": {
@@ -156,9 +169,11 @@ Les `items` sont des clés de la mécanique (`voicing-figure` : `<voicing>@<occu
 
 Ce qui change par rapport à l'exemple précédent (le reste s'écrit de la même façon) :
 
+Le fichier définit une capacité sur l'ensemble `placed-shape` (`"items": "placed-shape"`), que l'exercice nomme :
+
 ```json
 {
-	"mechanic": "form-figure",
+	"practices": "forme-deplacee",
 	"forms": [
 		{
 			"id": "maj7",

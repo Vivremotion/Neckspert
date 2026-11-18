@@ -1,6 +1,9 @@
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
-import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import type { SkillId } from '$lib/domain/skill/types';
 import {
 	directRecallOf,
 	itemLearningOf,
@@ -16,17 +19,17 @@ import { triadIntroductionOrder } from './introduction';
 import { triadParams } from './items';
 import { cueFrets, occurrencePosition } from './position';
 
-export type TriadMechanic = 'triad-anchor' | 'triad-zone';
+export type TriadSkill = typeof CHORD_ANCHOR_SKILL_ID | typeof CHORD_ZONE_SKILL_ID;
 
-const ANCHOR = 'triad-anchor' satisfies TriadMechanic;
-const ZONE = 'triad-zone' satisfies TriadMechanic;
+const ANCHOR = CHORD_ANCHOR_SKILL_ID;
+const ZONE = CHORD_ZONE_SKILL_ID;
 
 type Position = number | 'open';
 
-/** Throws on a mechanic outside the triads. */
-function triadMechanic(mechanic: MechanicId): TriadMechanic {
-	if (mechanic === ANCHOR || mechanic === ZONE) return mechanic;
-	throw new Error(`Not a triad mechanic: ${mechanic}`);
+/** Throws on a skill outside the triads. */
+function triadSkill(skill: SkillId): TriadSkill {
+	if (skill === ANCHOR || skill === ZONE) return skill;
+	throw new Error(`Not a triad skill: ${skill}`);
 }
 
 function voicingOf(card: CardRef): string {
@@ -56,25 +59,25 @@ function thresholdOf(definition: ExerciseDefinition): number {
  * it keeps each zone card's last position, read from `attempts` and updated as prompts are drawn.
  */
 export function triadSubject(input: {
-	mechanic: TriadMechanic;
+	skill: TriadSkill;
 	definitions: { anchor: ExerciseDefinition; zone: ExerciseDefinition };
 	/** Locate positions (`string:pitch`) already acquired: their triads come first. */
 	acquiredPositions: ReadonlySet<string>;
 	/** Stored attempts: the last position asked of each zone card. */
 	attempts: readonly Attempt[];
 }): LearningSubject {
-	const { mechanic, definitions } = input;
-	const definitionOf: Record<TriadMechanic, ExerciseDefinition> = {
+	const { skill, definitions } = input;
+	const definitionOf: Record<TriadSkill, ExerciseDefinition> = {
 		[ANCHOR]: definitions.anchor,
 		[ZONE]: definitions.zone
 	};
-	const recalls: Record<TriadMechanic, DirectRecall> = {
+	const recalls: Record<TriadSkill, DirectRecall> = {
 		[ANCHOR]: directRecallOf(thresholdOf(definitions.anchor)),
 		[ZONE]: directRecallOf(thresholdOf(definitions.zone))
 	};
 	const ladders = {
-		[ANCHOR]: ladderOf(definitions.anchor, ANCHOR),
-		[ZONE]: ladderOf(definitions.zone, ZONE)
+		[ANCHOR]: ladderOf(definitions.anchor, mechanicOfSkill(ANCHOR)),
+		[ZONE]: ladderOf(definitions.zone, mechanicOfSkill(ZONE))
 	};
 	const order = triadIntroductionOrder(
 		triadParams(definitions.anchor),
@@ -83,7 +86,7 @@ export function triadSubject(input: {
 
 	const lastPosition = new Map<string, Position>();
 	const zoneAttempts = input.attempts
-		.filter((attempt) => attempt.mechanic === ZONE)
+		.filter((attempt) => attempt.skill === ZONE)
 		.sort((a, b) => a.promptedAt - b.promptedAt);
 	for (const attempt of zoneAttempts) {
 		const data = attempt.data as { item?: { voicingKey?: string; position?: Position } } | null;
@@ -108,19 +111,17 @@ export function triadSubject(input: {
 	}
 
 	return {
-		owns: (card) => card.mechanic === mechanic,
+		owns: (card) => card.skill === skill,
 		itemKey: voicingOf,
-		exerciseOf: (of): ExerciseId => definitionOf[triadMechanic(of)].id,
+		exerciseOf: (of): ExerciseId => definitionOf[triadSkill(of)].id,
 		nextNew(cards, history, blocked) {
-			const has = (of: TriadMechanic, voicing: string) =>
-				cards.some((card) => card.mechanic === of && voicingOf(card) === voicing);
+			const has = (of: TriadSkill, voicing: string) =>
+				cards.some((card) => card.skill === of && voicingOf(card) === voicing);
 			for (const voicing of order) {
-				const ref: CardRef = { mechanic, item: { voicingKey: voicing } };
-				if (has(mechanic, voicing) || blocked(ref)) continue;
-				if (mechanic === ANCHOR) return ref;
-				const anchor = cards.find(
-					(card) => card.mechanic === ANCHOR && voicingOf(card) === voicing
-				);
+				const ref: CardRef = { skill, item: { voicingKey: voicing } };
+				if (has(skill, voicing) || blocked(ref)) continue;
+				if (skill === ANCHOR) return ref;
+				const anchor = cards.find((card) => card.skill === ANCHOR && voicingOf(card) === voicing);
 				const anchorHistory = history.get(cardKey(ANCHOR, voicing)) ?? [];
 				if (anchor && isAcquired(anchor, anchorHistory, recalls[ANCHOR])) return ref;
 			}
@@ -129,15 +130,15 @@ export function triadSubject(input: {
 		// The chord just asked still rings: its presentation waits a prompt.
 		presentsAtOnce: false,
 		neighbours: (a, b) => voicingOf(a) === voicingOf(b),
-		ladder: (of) => ladders[triadMechanic(of)],
-		itemLearning: (of) => itemLearningOf(definitionOf[triadMechanic(of)]),
-		recall: (of) => recalls[triadMechanic(of)],
+		ladder: (of) => ladders[triadSkill(of)],
+		itemLearning: (of) => itemLearningOf(definitionOf[triadSkill(of)]),
+		recall: (of) => recalls[triadSkill(of)],
 		confused: (attempt) => {
 			const data = attempt.data as { confusion?: unknown } | null;
 			return data?.confusion != null;
 		},
 		fadingAid: () => false,
-		...(mechanic === ZONE && {
+		...(skill === ZONE && {
 			promptItem: (card: CardRef, random: () => number) => zoneItem(voicingOf(card), random)
 		})
 	};

@@ -47,7 +47,7 @@ function planned(
 ): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'review',

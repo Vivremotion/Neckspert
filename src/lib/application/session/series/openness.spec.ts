@@ -28,8 +28,7 @@ import {
 /** Written here only: the root of a chord on beat 2 of a 3/4 bar, then the chord at its position over two beats. */
 const ROOT_THEN_CHORD: ExerciseDefinition = {
 	id: 'root-then-chord',
-	version: 1,
-	mechanic: 'triad-zone',
+	practices: 'chord-zone',
 	view: 'lane',
 	meter: METER_3_4,
 	tempo: 72,
@@ -95,10 +94,10 @@ describe('every valid exercise plays', () => {
 		const attempts = await bench.stored();
 
 		expect(rounds).toHaveLength(3);
-		expect(attempts.map((a) => [a.mechanic, a.success])).toEqual([
-			['triad-zone', true],
-			['triad-zone', true],
-			['triad-zone', true]
+		expect(attempts.map((a) => [a.skill, a.success])).toEqual([
+			['chord-zone', true],
+			['chord-zone', true],
+			['chord-zone', true]
 		]);
 		for (const attempt of attempts) {
 			// The root on the target, the chord from the next beat over two beats, as written.

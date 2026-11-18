@@ -1,3 +1,4 @@
+import { SKILL_OF_MECHANIC } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
@@ -121,8 +122,7 @@ function definition(
 ): ExerciseDefinition {
 	return {
 		id: `test-${mechanic}`,
-		version: 1,
-		mechanic,
+		practices: SKILL_OF_MECHANIC[mechanic] ?? mechanic,
 		round,
 		params: { pacing: { respirationBars: 1 }, recallThresholdMs: 1500, ...params }
 	};
@@ -131,7 +131,7 @@ function definition(
 function planned<I>(mechanic: string, item: I, leadBeats: number | null = 4): PlannedItem<I> {
 	return {
 		exerciseId: `test-${mechanic}`,
-		mechanic,
+		skill: SKILL_OF_MECHANIC[mechanic] ?? mechanic,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',
@@ -407,7 +407,7 @@ describe('compileRound', () => {
 
 	it('refuses an exercise without a round, and a derivation that reads another mechanic', () => {
 		const item = { string: 3, pitch: 'F' };
-		const bare: ExerciseDefinition = { id: 'bare', version: 1, mechanic: 'locate', params: {} };
+		const bare: ExerciseDefinition = { id: 'bare', practices: 'locate-note-string', params: {} };
 		expect(() =>
 			compileRound(bare, planned('locate', item, 4), meter, {
 				previewBeats: PREVIEW,
@@ -474,7 +474,7 @@ function compileFigure(
 	fromRunStart: number | null = null,
 	meter: Meter = METER_4_4
 ) {
-	return compileRound(exercise, planned(exercise.mechanic, item, null), meter, {
+	return compileRound(exercise, planned(exercise.practices, item, null), meter, {
 		previewBeats: PREVIEW,
 		fromRunStart
 	});

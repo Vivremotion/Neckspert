@@ -47,7 +47,7 @@ const item: ChordGridItem = {
 
 const planned: PlannedItem = {
 	exerciseId: 'gesture-jam',
-	mechanic: 'chord-grid',
+	skill: 'grid-reading',
 	exerciseLevel: 0,
 	item,
 	phase: 'free',

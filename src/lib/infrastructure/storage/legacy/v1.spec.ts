@@ -189,7 +189,8 @@ describe('convertV1', () => {
 		for (const attempt of attempts) {
 			expect(attempt).toHaveProperty('tempoBpm');
 			expect(attempt.tempoBpm).not.toBeUndefined();
-			if (attempt.mechanic === 'locate') expect(typeof attempt.tempoBpm).toBe('number');
+			if ((attempt as unknown as { mechanic: string }).mechanic === 'locate')
+				expect(typeof attempt.tempoBpm).toBe('number');
 			else expect(attempt.tempoBpm).toBeNull();
 		}
 		expect(attempts[3].data).toEqual({

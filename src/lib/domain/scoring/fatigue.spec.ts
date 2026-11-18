@@ -15,8 +15,8 @@ function answered(correct: boolean, reactionMs = 1000): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
-		mechanic: 'locate',
-		cardKey: 'locate:2:F',
+		skill: 'locate-note-string',
+		cardKey: 'locate-note-string:2:F',
 		phase: 'review',
 		temperature: 'cold',
 		aid: 'none',

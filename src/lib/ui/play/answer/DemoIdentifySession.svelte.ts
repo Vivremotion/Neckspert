@@ -143,7 +143,7 @@ export class DemoIdentifySession implements PlaySessionController {
 					exerciseById(IDENTIFY_NECK_ID),
 					{
 						exerciseId: IDENTIFY_NECK_ID,
-						mechanic: exerciseById(IDENTIFY_NECK_ID).mechanic,
+						skill: exerciseById(IDENTIFY_NECK_ID).practices,
 						exerciseLevel: 0,
 						item: target,
 						phase: 'review',

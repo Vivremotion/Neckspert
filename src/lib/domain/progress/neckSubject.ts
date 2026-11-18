@@ -1,6 +1,9 @@
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { recallThresholdOf } from '$lib/domain/exercise/recall';
-import type { ExerciseDefinition, ExerciseId, MechanicId } from '$lib/domain/exercise/types';
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import type { SkillId } from '$lib/domain/skill/types';
 import {
 	directRecallOf,
 	itemLearningOf,
@@ -20,21 +23,25 @@ import {
 import { nextNewCard } from './introduction';
 import { isNeck } from './neck';
 
-/** Throws on a mechanic outside the neck. */
-function neckMechanic(mechanic: MechanicId): NeckCard['mechanic'] {
-	if (mechanic === 'locate' || mechanic === 'identify') return mechanic;
-	throw new Error(`Not a neck mechanic: ${mechanic}`);
+/** The neck's exercise of a skill; throws on a skill outside the neck. */
+function neckExercise(
+	definitions: { locate: ExerciseDefinition; identify: ExerciseDefinition },
+	skill: SkillId
+): ExerciseDefinition {
+	if (skill === LOCATE_SKILL_ID) return definitions.locate;
+	if (skill === IDENTIFY_SKILL_ID) return definitions.identify;
+	throw new Error(`Not a neck skill: ${skill}`);
 }
 
 /** The exercise's recall threshold; the neck's exercises must declare one. */
-function thresholdOf(definition: ExerciseDefinition, name: NeckCard['mechanic']): number {
+function thresholdOf(definition: ExerciseDefinition, name: string): number {
 	const threshold = recallThresholdOf(definition);
 	if (threshold === null) throw new Error(`the ${name} exercise must declare its recall threshold`);
 	return threshold;
 }
 
 function itemKeyOf(card: NeckCard): string {
-	return card.mechanic === 'locate' ? locateItemKey(card.item) : identifyItemKey(card.item);
+	return card.skill === LOCATE_SKILL_ID ? locateItemKey(card.item) : identifyItemKey(card.item);
 }
 
 /**
@@ -49,19 +56,21 @@ export function neckSubject(input: {
 }): LearningSubject {
 	const { definitions } = input;
 	const priority = input.priority ?? [];
-	const recalls: Record<NeckCard['mechanic'], DirectRecall> = {
-		locate: directRecallOf(thresholdOf(definitions.locate, 'locate')),
-		identify: directRecallOf(thresholdOf(definitions.identify, 'identify'))
+	const recalls: Record<NeckCard['skill'], DirectRecall> = {
+		[LOCATE_SKILL_ID]: directRecallOf(thresholdOf(definitions.locate, 'locate')),
+		[IDENTIFY_SKILL_ID]: directRecallOf(thresholdOf(definitions.identify, 'identify'))
 	};
 	const ladders = {
-		locate: ladderOf(definitions.locate, 'locate'),
-		identify: ladderOf(definitions.identify, 'identify')
+		[LOCATE_SKILL_ID]: ladderOf(definitions.locate, mechanicOfSkill(LOCATE_SKILL_ID)),
+		[IDENTIFY_SKILL_ID]: ladderOf(definitions.identify, mechanicOfSkill(IDENTIFY_SKILL_ID))
 	};
+	const neck = (skill: SkillId): NeckCard['skill'] =>
+		neckExercise(definitions, skill) === definitions.locate ? LOCATE_SKILL_ID : IDENTIFY_SKILL_ID;
 
 	return {
 		owns: isNeck,
 		itemKey: (card) => itemKeyOf(asNeckCard(card)),
-		exerciseOf: (mechanic): ExerciseId => definitions[neckMechanic(mechanic)].id,
+		exerciseOf: (skill): ExerciseId => neckExercise(definitions, skill).id,
 		nextNew(cards, _history, blocked) {
 			const next = nextNewCard(cards.filter(isNeck), priority);
 			if (next === null || blocked(next)) return null;
@@ -71,17 +80,17 @@ export function neckSubject(input: {
 		neighbours(a: CardRef, b: CardRef) {
 			const x = asNeckCard(a);
 			const y = asNeckCard(b);
-			return (x.mechanic === y.mechanic && itemKeyOf(x) === itemKeyOf(y)) || isMirrorPair(x, y);
+			return (x.skill === y.skill && itemKeyOf(x) === itemKeyOf(y)) || isMirrorPair(x, y);
 		},
 		prefers: (candidate, previous) =>
 			asNeckCard(candidate).item.string !== asNeckCard(previous).item.string,
-		ladder: (mechanic) => ladders[neckMechanic(mechanic)],
-		itemLearning: (mechanic) => itemLearningOf(definitions[neckMechanic(mechanic)]),
-		recall: (mechanic) => recalls[neckMechanic(mechanic)],
+		ladder: (skill) => ladders[neck(skill)],
+		itemLearning: (skill) => itemLearningOf(neckExercise(definitions, skill)),
+		recall: (skill) => recalls[neck(skill)],
 		confused: (attempt) => {
 			const data = attempt.data as LocateData | IdentifyData | null;
 			return data !== null && data.confusion !== null;
 		},
-		fadingAid: (mechanic) => mechanic === 'locate'
+		fadingAid: (skill) => skill === LOCATE_SKILL_ID
 	};
 }

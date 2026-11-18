@@ -31,7 +31,7 @@ function playedOf(
 			exercise,
 			{
 				exerciseId: exercise.id,
-				mechanic: attempt.mechanic,
+				skill: attempt.skill,
 				exerciseLevel: attempt.data.level,
 				item: attempt.data.item,
 				phase: attempt.phase,

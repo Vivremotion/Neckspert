@@ -8,7 +8,7 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
-import { cardKeyOf, mechanicRules, MECHANIC_RULES } from './index';
+import { mechanicRules, MECHANIC_RULES } from './index';
 import { triadAnchorRules } from './triadAnchor';
 import { triadZoneRules } from './triadZone';
 
@@ -109,7 +109,7 @@ describe('triadZoneRules', () => {
 	});
 
 	it('keeps one card per voicing, whatever the position asked', () => {
-		expect(cardKeyOf(triadZoneRules, item)).toBe(`triad-zone:${KEY}`);
+		expect(triadZoneRules.itemKey(item)).toBe(KEY);
 		expect(triadZoneRules.cardItem?.(item)).toEqual({ voicingKey: KEY });
 	});
 });

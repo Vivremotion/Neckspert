@@ -22,7 +22,7 @@ import { LOCATE_NECK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const note: PlannedItem = {
 	exerciseId: LOCATE_NECK.id,
-	mechanic: 'locate',
+	skill: 'locate-note-string',
 	exerciseLevel: 0,
 	item: { string: 3, fret: 5 },
 	phase: 'free',
@@ -33,7 +33,7 @@ const note: PlannedItem = {
 
 const eighths = (level: number): PlannedItem => ({
 	exerciseId: RHYTHM_SILENT_BARS.id,
-	mechanic: 'figure',
+	skill: 'inner-pulse',
 	exerciseLevel: level,
 	item: { figureId: 'eighths', level },
 	phase: 'free',

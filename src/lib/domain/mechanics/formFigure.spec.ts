@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardKeyOf, mechanicRules, MECHANIC_RULES } from './index';
+import { mechanicRules, MECHANIC_RULES } from './index';
 import { formFigureRules, formNamed, type FormFigureItem } from './formFigure';
 
 describe('formFigureRules', () => {
@@ -12,7 +12,6 @@ describe('formFigureRules', () => {
 	it('keys an item by its form and its first note, then its length when it has one', () => {
 		expect(formFigureRules.itemKey({ form: 'maj7', first: 'bes' })).toBe('maj7@bes');
 		expect(formFigureRules.itemKey({ form: 'maj7', first: 'bes', beats: 2 })).toBe('maj7@bes@2');
-		expect(cardKeyOf(formFigureRules, { form: 'maj7', first: 'g,' })).toBe('form-figure:maj7@g,');
 	});
 
 	it('parses a key back, with and without beats', () => {

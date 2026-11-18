@@ -21,8 +21,7 @@ const FIGURE_ROUND: RoundTemplate = {
 /** An exercise whose round writes a figure, and nothing else of the figure params. */
 const bare: ExerciseDefinition = {
 	id: 'test-figure',
-	version: 1,
-	mechanic: 'figure',
+	practices: 'inner-pulse',
 	params: {},
 	round: FIGURE_ROUND,
 	levels: [{ params: {} }, { params: { cursor: true, 'thresholds.fidelity': 0.9 } }]

@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { describe, expect, it } from 'vitest';
 import {
 	attackPositions,
@@ -329,13 +330,17 @@ function indexes(levels: readonly Level<unknown>[]): number[] {
 }
 
 describe('the rhythm exercises', () => {
-	it('are in the catalog, on the figure mechanic', () => {
+	it('are in the catalog, each on its skill, played by the figure mechanic', () => {
 		expect(RHYTHM_EXERCISES).toEqual([RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR, RHYTHM_OFFBEATS]);
+		expect(RHYTHM_EXERCISES.map((exercise) => exercise.practices)).toEqual([
+			'inner-pulse',
+			'displaced-pulse',
+			'figure-independence'
+		]);
 		for (const exercise of RHYTHM_EXERCISES) {
 			expect(allExercises()).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);
-			expect(exercise.mechanic).toBe('figure');
-			expect(mechanicRules(exercise.mechanic)).toBe(figureRules);
+			expect(mechanicRules(mechanicOfSkill(exercise.practices))).toBe(figureRules);
 		}
 		expect(RHYTHM_EXERCISES.map((e) => e.id)).toEqual([
 			'rhythm-silent-bars',

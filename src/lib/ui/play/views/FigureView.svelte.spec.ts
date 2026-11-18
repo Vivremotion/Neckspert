@@ -363,7 +363,7 @@ describe('FigureView', () => {
 		] as const) {
 			const item: PlannedItem = {
 				exerciseId: ARPEGGIO_EXERCISE.id,
-				mechanic: ARPEGGIO_EXERCISE.mechanic,
+				skill: ARPEGGIO_EXERCISE.practices,
 				exerciseLevel: -1,
 				item: voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`),
 				phase: 'free',

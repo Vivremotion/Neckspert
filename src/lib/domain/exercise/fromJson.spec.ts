@@ -238,7 +238,7 @@ describe('exerciseFromJson', () => {
 });
 
 describe('exerciseFromJson practices', () => {
-	const base = { id: 'x', version: 1, mechanic: 'locate', params: {} };
+	const base = { id: 'x', practices: 'locate-note-string', params: {} };
 
 	it('reads the skill an exercise practises', () => {
 		expect(exerciseFromJson({ ...base, practices: 'inner-pulse' }).practices).toBe('inner-pulse');
@@ -246,5 +246,14 @@ describe('exerciseFromJson practices', () => {
 
 	it('refuses a practices that is not a string', () => {
 		expect(() => exerciseFromJson({ ...base, practices: 3 })).toThrow('practices must be a string');
+	});
+
+	it('requires practices', () => {
+		const { practices: _practices, ...rest } = base;
+		expect(() => exerciseFromJson(rest)).toThrow('practices must be a string');
+	});
+
+	it.each(['mechanic', 'version'])('refuses %s as an unknown key', (key) => {
+		expect(() => exerciseFromJson({ ...base, [key]: 1 })).toThrow(`unknown key "${key}"`);
 	});
 });

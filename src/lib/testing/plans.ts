@@ -10,7 +10,7 @@ import { IDENTIFY_NECK, GESTURE_LINK } from '$lib/testing/catalog';
 function plannedFor(definition: ExerciseDefinition, item: unknown): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',

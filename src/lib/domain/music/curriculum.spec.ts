@@ -34,7 +34,9 @@ describe('practiceCards', () => {
 		const cards = practiceCards();
 		expect(cards).toHaveLength(132);
 		expect(new Set(cards.map(neckCardKey)).size).toBe(132);
-		expect(cards.filter((card) => card.mechanic === 'identify')).toHaveLength(66);
-		expect(cards.some((card) => card.mechanic === 'identify' && card.item.fret === 0)).toBe(false);
+		expect(cards.filter((card) => card.skill === 'identify-note')).toHaveLength(66);
+		expect(cards.some((card) => card.skill === 'identify-note' && card.item.fret === 0)).toBe(
+			false
+		);
 	});
 });

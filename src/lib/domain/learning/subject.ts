@@ -1,22 +1,22 @@
-import type { Attempt, CardKey, CardState } from '../types';
-import type { ExerciseId, Ladder, MechanicId } from '../exercise/types';
+import type { Attempt, CardKey, CardState, SkillId } from '../types';
+import type { ExerciseId, Ladder } from '../exercise/types';
 import type { ItemLearning } from './params';
 import type { DirectRecall } from './recall';
 
 export type { Ladder, LadderParams } from '../exercise/types';
 
-/** A card as the procedure sees it: its mechanic and its item (the card key is `cardKey(mechanic, itemKey(item))`). */
+/** A card as the procedure sees it: its skill and its item (the card key is `cardKey(skill, itemKey(item))`). */
 export interface CardRef {
-	mechanic: MechanicId;
+	skill: SkillId;
 	item: unknown;
 }
 
 /** What an exercise gives the learning procedure, as data and pure functions. */
 export interface LearningSubject {
 	/** The cards this procedure serves, among those of the store (the others are only read, e.g. the anchor's for the zone). */
-	owns(card: { mechanic: MechanicId }): boolean;
+	owns(card: { skill: SkillId }): boolean;
 	itemKey(card: CardRef): string;
-	exerciseOf(mechanic: MechanicId): ExerciseId;
+	exerciseOf(skill: SkillId): ExerciseId;
 	/** The next item to introduce, ready (its prerequisites met), or null. `cards` and `history`: the whole store's, owned or not. `blocked`: may not be served now. */
 	nextNew(
 		cards: readonly CardState[],
@@ -33,16 +33,16 @@ export interface LearningSubject {
 	neighbours(a: CardRef, b: CardRef): boolean;
 	/** Preferred after `previous` when such a candidate exists (another string). Absent: none. */
 	prefers?(candidate: CardRef, previous: CardRef): boolean;
-	/** The ladder of a mechanic, as its exercise writes it. */
-	ladder(mechanic: MechanicId): Ladder;
-	/** What the exercise of a mechanic sets for its items (`itemLearningOf`). */
-	itemLearning(mechanic: MechanicId): ItemLearning;
-	/** The direct-recall rule of a mechanic. */
-	recall(mechanic: MechanicId): DirectRecall;
+	/** The ladder of a skill, as its exercise writes it. */
+	ladder(skill: SkillId): Ladder;
+	/** What the exercise of a skill sets for its items (`itemLearningOf`). */
+	itemLearning(skill: SkillId): ItemLearning;
+	/** The direct-recall rule of a skill. */
+	recall(skill: SkillId): DirectRecall;
 	/** A confusion recorded in the attempt (consolidation favours the confused). */
 	confused(attempt: Attempt): boolean;
-	/** A mechanic whose prompt may draw a fading aid (the string). */
-	fadingAid(mechanic: MechanicId): boolean;
+	/** A skill whose prompt may draw a fading aid (the string). */
+	fadingAid(skill: SkillId): boolean;
 	/** The item a prompt asks (a zone card draws its position here); absent: the card's item. */
 	promptItem?(card: CardRef, random: () => number): unknown;
 }

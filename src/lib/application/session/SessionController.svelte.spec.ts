@@ -52,7 +52,7 @@ describe('SessionController', () => {
 	describe('start', () => {
 		it('tells an exercise’s instruction in every series, played before or not', async () => {
 			const ctx = setup(passage());
-			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), mechanic: 'chord-grid' });
+			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), skill: 'grid-reading' });
 			expect(exerciseById('gesture-jam').flow?.briefing).toBeUndefined();
 			await ctx.controller.ready();
 			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
@@ -905,7 +905,7 @@ describe('SessionController', () => {
 
 	describe('the gesture selector', () => {
 		it('ends a link tour replayed past SESSION_MS at the end of its passage, with no new passage', async () => {
-			const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
+			const cards = triadCards('chord-anchor', 'D', 'maj', G_B_E);
 			const selector = createGestureSelector({
 				definitions: GESTURE_EXERCISES,
 				cards,
@@ -1042,7 +1042,7 @@ describe('SessionController', () => {
 		): PlannedItem => ({
 			...change(index % 2),
 			item: { ...(change(index % 2).item as ChordGridItem), index },
-			mechanic,
+			skill: mechanic,
 			...(mechanic === 'tap' && { exerciseId: TAP_EXERCISE }),
 			leadBeats: lead,
 			countIn: index === 0,
@@ -1482,7 +1482,7 @@ describe('SessionController', () => {
 			reads: [...numbers['change-beats'].reads, 'screen-grid']
 		};
 		const onScreen = (items: PlannedItem[]) =>
-			items.map((item) => ({ ...item, mechanic: 'screen-grid' }));
+			items.map((item) => ({ ...item, skill: 'screen-grid' }));
 		/** A sensor fed by the screen, keeping what it was pushed. */
 		const pushable = () => {
 			const pushed: unknown[] = [];

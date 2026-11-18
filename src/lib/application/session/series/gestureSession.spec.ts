@@ -191,7 +191,7 @@ const dataOf = (attempt: Attempt) => attempt.data as ChordGridData;
 
 describe('a gesture session on the session controller, end to end', () => {
 	it('links D on G-B-E right: seven changes, no card, the passage won, never aided', async () => {
-		const cards = triadCards('triad-anchor', 'D', 'maj', G_B_E);
+		const cards = triadCards('chord-anchor', 'D', 'maj', G_B_E);
 		const app = await appSession(cards);
 		const played = await play(app, 14, right);
 		await finish(app);
@@ -202,7 +202,7 @@ describe('a gesture session on the session controller, end to end', () => {
 			)
 		);
 		const attempts = await app.deps.attempts.all();
-		expect(attempts.slice(0, 14).every((a) => a.correct && a.mechanic === 'chord-grid')).toBe(true);
+		expect(attempts.slice(0, 14).every((a) => a.correct && a.skill === 'inversion-run')).toBe(true);
 		expect(attempts.slice(0, 14).every((a) => a.success && a.tempoBpm === 80)).toBe(true);
 		const passages = new Set(attempts.map((a) => dataOf(a).item.passageId));
 		expect(passages.size).toBeGreaterThanOrEqual(2);
@@ -233,7 +233,7 @@ describe('a gesture session on the session controller, end to end', () => {
 			['Ab', 'maj']
 		] as const;
 		const cards = triads.flatMap(([root, quality]) =>
-			triadCards('triad-anchor', root, quality, G_B_E)
+			triadCards('chord-anchor', root, quality, G_B_E)
 		);
 		const app = await appSession(cards);
 		// Link (7), then the climb (9), then the jam (9). In the climb's third change (Dm7), a Dm
@@ -282,7 +282,7 @@ describe('a gesture session on the session controller, end to end', () => {
 	});
 
 	it('plays a failed link tour again at once, chained, aided after two misses in the tour', async () => {
-		const app = await appSession(triadCards('triad-anchor', 'D', 'maj', G_B_E));
+		const app = await appSession(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		// Nothing right in the first tour (7 changes), then right.
 		await play(app, 14, (expectation, n) => (n < 7 ? null : right(expectation)));
 		await finish(app);

@@ -20,15 +20,18 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
-import { MECHANICS_V12, type MechanicV12 } from './migrations/v13';
+import { MECHANICS_V12, backupV8ToV9, type MechanicV12 } from './migrations/v13';
 import { backupV6ToV7, type BackupV6, type BackupV7 } from './migrations/v11';
 import {
 	FIGURE_MECHANIC_V12,
 	RHYTHM_FIGURE_MECHANIC_V11,
 	RHYTHM_FIGURE_RULES_V11,
 	backupV7ToV8,
-	isCyclePlanV11
+	isCyclePlanV11,
+	type BackupV8
 } from './migrations/v12';
+import { hasSkill } from '$lib/domain/skill/registry';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -351,7 +354,7 @@ function checkHeader(file: unknown, version: number): Fields {
 function parseV1Key(key: unknown): Fields | null {
 	if (typeof key !== 'string') return null;
 	try {
-		const { mechanic, itemKey } = parseCardKey(key);
+		const { skill: mechanic, itemKey } = parseCardKey(key);
 		if (!Object.hasOwn(V1_EXERCISE_IDS, mechanic)) return null;
 		const rules = rulesOf(mechanic);
 		return rules && { direction: mechanic, ...(rules.parseItem(itemKey) as Fields) };
@@ -431,17 +434,33 @@ function checkItem(
 ): string | null {
 	const rules = rulesOf(mechanic, mechanics);
 	if (!rules) return mechanicProblem(mechanics);
+	return checkKeyedItem(rules, rules.id, 'mechanic', key, item, keyField, itemField, prompted);
+}
+
+/**
+ * The key must be `cardKey(prefix, itemKey(item))` as `rules` write its item, and the item the
+ * one the key names (or, `prompted`, a prompted item its card keeps part of).
+ */
+function checkKeyedItem(
+	rules: MechanicV12,
+	prefix: string,
+	prefixName: string,
+	key: unknown,
+	item: unknown,
+	keyField: string,
+	itemField: string,
+	prompted: boolean
+): string | null {
 	if (typeof key !== 'string') return `${keyField} is not a valid card key`;
 	let parsed: unknown;
 	try {
 		const split = parseCardKey(key);
-		if (split.mechanic !== rules.id) return `${keyField} does not match mechanic`;
+		if (split.skill !== prefix) return `${keyField} does not match ${prefixName}`;
 		parsed = rules.parseItem(split.itemKey);
 	} catch {
 		return `${keyField} is not a valid card key`;
 	}
-	if (cardKey(rules.id, rules.itemKey(parsed)) !== key)
-		return `${keyField} is not a valid card key`;
+	if (cardKey(prefix, rules.itemKey(parsed)) !== key) return `${keyField} is not a valid card key`;
 	// A prompted item may add to its card's (a position drawn for one prompt).
 	const kept = prompted && rules.cardItem ? rules.cardItem(item) : item;
 	if (!sameValue(kept, parsed)) return `${itemField} does not match ${keyField}`;
@@ -461,14 +480,61 @@ function checkCardV6(card: Fields): string | null {
 	);
 }
 
+/** What names the items of a card or an attempt: its mechanic (files 1 to 8) or its skill (9). */
+interface Identity {
+	/** Why the entry names no identity the file may hold; null when it does. */
+	named(entry: Fields): string | null;
+	/** Why its key does not name its item; null when it does. */
+	item(
+		entry: Fields,
+		key: unknown,
+		item: unknown,
+		keyField: string,
+		itemField: string,
+		prompted: boolean
+	): string | null;
+}
+
+/** Entries named by one of `mechanics`, keyed by its id. */
+function byMechanic(mechanics: readonly MechanicV12[]): Identity {
+	return {
+		named: (entry) => (rulesOf(entry.mechanic, mechanics) ? null : mechanicProblem(mechanics)),
+		item: (entry, key, item, keyField, itemField, prompted) =>
+			checkItem(entry.mechanic, key, item, keyField, itemField, prompted, mechanics)
+	};
+}
+
+/**
+ * Version 9: entries named by their skill, keyed by it. The key of a skill the registry holds is
+ * read by the mechanic that plays it, as version 12 wrote its items; the key of a skill no loaded
+ * file defines is kept as it is (its progress is not lost).
+ */
+const BY_SKILL: Identity = {
+	named(entry) {
+		if (Object.hasOwn(entry, 'mechanic')) return 'mechanic is gone: an entry names its skill';
+		return isNonEmptyString(entry.skill) ? null : 'skill must be a non-empty string';
+	},
+	item(entry, key, item, keyField, itemField, prompted) {
+		const skill = entry.skill as string;
+		if (typeof key !== 'string' || !key.startsWith(`${skill}:`) || key === `${skill}:`) {
+			return `${keyField} does not match skill`;
+		}
+		if (!hasSkill(skill)) return null;
+		const rules = rulesOf(mechanicOfSkill(skill));
+		if (!rules) return null;
+		return checkKeyedItem(rules, skill, 'skill', key, item, keyField, itemField, prompted);
+	}
+};
+
 function checkAttempt(
 	attempt: Fields,
-	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	const header = checkAttemptHeader(attempt);
 	if (header) return header;
 	if (!isNonEmptyString(attempt.exerciseId)) return 'exerciseId must be a non-empty string';
-	if (!rulesOf(attempt.mechanic, mechanics)) return mechanicProblem(mechanics);
+	const named = identity.named(attempt);
+	if (named) return named;
 	const data = attempt.data;
 	if (!isFields(data) || !Object.hasOwn(data, 'item')) {
 		return 'data must be an object with an item';
@@ -477,15 +543,7 @@ function checkAttempt(
 		return 'tempoBpm must be a positive number or null';
 	}
 	return (
-		checkItem(
-			attempt.mechanic,
-			attempt.cardKey,
-			data.item,
-			'cardKey',
-			'data.item',
-			true,
-			mechanics
-		) ??
+		identity.item(attempt, attempt.cardKey, data.item, 'cardKey', 'data.item', true) ??
 		checkAttemptFields(attempt) ??
 		checkConfusion(data.confusion, 'data.confusion')
 	);
@@ -597,10 +655,10 @@ function checkContestReason(value: unknown): string | null {
 
 function checkAttemptV3(
 	attempt: Fields,
-	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	return (
-		checkAttempt(attempt, mechanics) ??
+		checkAttempt(attempt, identity) ??
 		checkObservations(attempt.observations) ??
 		checkContested(attempt.contested) ??
 		checkContestReason(attempt.contestReason) ??
@@ -644,10 +702,10 @@ export function validateBackupV3(file: unknown): Fields {
 
 function checkAttemptV4(
 	attempt: Fields,
-	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	if (isBeforeTarget(attempt)) return 'verdict must be { relation, version, value }';
-	return checkAttemptV3(attempt, mechanics);
+	return checkAttemptV3(attempt, identity);
 }
 
 function isNaturalNumber(value: unknown): boolean {
@@ -684,11 +742,11 @@ function checkBackupBody(backup: Fields, cardCheck: Check = checkCard): void {
 /** Version 7: the scope of an attempt is its exercise level's, no longer its tempo's. */
 function checkAttemptV7(
 	attempt: Fields,
-	mechanics: readonly MechanicV12[] = MECHANICS_BEFORE_V8
+	identity: Identity = byMechanic(MECHANICS_BEFORE_V8)
 ): string | null {
 	if (Object.hasOwn(attempt, 'tempoScope')) return 'tempoScope is renamed scope';
 	return (
-		checkAttemptV4(attempt, mechanics) ??
+		checkAttemptV4(attempt, identity) ??
 		(isScope(attempt.scope) ? null : 'scope must be a non-empty string')
 	);
 }
@@ -701,7 +759,24 @@ function checkAttemptV8(attempt: Fields): string | null {
 	if (isCyclePlanV11(attempt.plan)) {
 		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
 	}
-	return checkAttemptV7(attempt, MECHANICS_V12);
+	return checkAttemptV7(attempt, byMechanic(MECHANICS_V12));
+}
+
+/** Version 9: an attempt names its skill, its card key prefixed by it. */
+function checkAttemptV9(attempt: Fields): string | null {
+	if (isCyclePlanV11(attempt.plan)) {
+		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
+	}
+	return checkAttemptV7(attempt, BY_SKILL);
+}
+
+/** Version 9: a card names its skill, its key prefixed by it; no lead. */
+function checkCardV9(card: Fields): string | null {
+	return (
+		BY_SKILL.named(card) ??
+		BY_SKILL.item(card, card.key, card.item, 'key', 'item', false) ??
+		checkSchedulingAndDates(card, checkNoLead)
+	);
 }
 
 /** Checks a version 4 file and returns it unchanged: its level states are those of the exercises. */
@@ -748,21 +823,33 @@ export function validateBackupV7(file: unknown): BackupV7 {
  * Checks a version 8 file and returns it unchanged: as version 7, the rhythm's attempts of the
  * mechanic `figure`, every plan a round plan.
  */
-export function validateBackupV8(file: unknown): BackupFile {
+export function validateBackupV8(file: unknown): BackupV8 {
 	const backup = checkHeader(file, 8);
 	checkNoProgressions(backup);
 	checkBackupTables(backup, checkCardV6, checkAttemptV8);
+	return backup as unknown as BackupV8;
+}
+
+/**
+ * Checks a version 9 file and returns it unchanged: cards and attempts name their skill, their
+ * keys prefixed by it.
+ */
+export function validateBackupV9(file: unknown): BackupFile {
+	const backup = checkHeader(file, 9);
+	checkNoProgressions(backup);
+	checkBackupTables(backup, checkCardV9, checkAttemptV9);
 	return backup as unknown as BackupFile;
 }
 
 /**
- * Accepts version 8, and versions 1 to 7 brought to it by the migration chain, the one the
+ * Accepts version 9, and versions 1 to 8 brought to it by the migration chain, the one the
  * database upgrade runs. Throws a readable error on anything else.
  */
 export function validateBackup(file: unknown): BackupFile {
 	if (!isFields(file)) throw new Error('Backup file is not a JSON object');
 	if (file.app !== 'neckspert-play') throw new Error('Not a Neckspert Play backup');
-	const toV8 = (v7: Fields) => validateBackupV8(backupV7ToV8(validateBackupV7(v7)));
+	const toV9 = (v8: Fields) => validateBackupV9(backupV8ToV9(validateBackupV8(v8)));
+	const toV8 = (v7: Fields) => toV9(backupV7ToV8(validateBackupV7(v7)));
 	const toV7 = (v6: Fields) => toV8(backupV6ToV7(validateBackupV6(v6)));
 	const toV6 = (v5: Fields) => toV7(backupV5ToV6(validateBackupV5(v5)));
 	const toV5 = (v4: Fields) => toV6(backupV4ToV5(validateBackupV4(v4)));
@@ -776,6 +863,7 @@ export function validateBackup(file: unknown): BackupFile {
 	if (file.version === 5) return toV6(file);
 	if (file.version === 6) return toV7(file);
 	if (file.version === 7) return toV8(file);
-	if (file.version === 8) return validateBackupV8(file);
+	if (file.version === 8) return toV9(file);
+	if (file.version === 9) return validateBackupV9(file);
 	throw new Error(`Unsupported backup version: ${String(file.version)}`);
 }

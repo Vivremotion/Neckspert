@@ -117,9 +117,9 @@ function harness(options: { development?: boolean } = {}): {
 }
 
 /** A learned triad card, due at once. */
-function learnedTriad(mechanic: 'triad-anchor' | 'triad-zone', key: string): CardState {
+function learnedTriad(skill: 'chord-anchor' | 'chord-zone', key: string): CardState {
 	const card = markLearned(
-		introduceCard({ key: `${mechanic}:${key}`, mechanic, item: { voicingKey: key } }, 0, 's-old'),
+		introduceCard({ key: `${skill}:${key}`, skill, item: { voicingKey: key } }, 0, 's-old'),
 		0
 	);
 	return { ...card, scheduling: { ...card.scheduling, due: 0 } };
@@ -227,7 +227,11 @@ describe('createAppServices', () => {
 		// A note learned long ago, due: a cold review, served at its stored level.
 		const item = { string: 6 as StringNumber, pitch: 'G' as PitchName };
 		const learned = markLearned(
-			introduceCard({ key: 'locate:6:G', mechanic: 'locate', item }, 0, 's-old'),
+			introduceCard(
+				{ key: 'locate-note-string:6:G', skill: 'locate-note-string', item },
+				0,
+				's-old'
+			),
 			0
 		);
 		await deps.cards.put({ ...learned, scheduling: { ...learned.scheduling, due: 0 } });
@@ -254,8 +258,8 @@ describe('createAppServices', () => {
 		const { services, deps } = harness();
 		const key = 'D|maj|3:5,2:1,1:3';
 		await deps.cards.put({
-			key: `triad-anchor:${key}`,
-			mechanic: 'triad-anchor',
+			key: `chord-anchor:${key}`,
+			skill: 'chord-anchor',
 			item: { voicingKey: key },
 			introducedAt: 0,
 			introducedInSession: 's-old',
@@ -300,11 +304,11 @@ describe('createAppServices', () => {
 	it('free-plays a note at the lead of its stored level, on the ladder at 80 bpm', async () => {
 		const { services, deps } = harness();
 		// Every note at level 2: lead 2 at ♩ = 80.
-		for (const card of practiceCards().filter((c) => c.mechanic === 'locate')) {
+		for (const card of practiceCards().filter((c) => c.skill === 'locate-note-string')) {
 			await deps.levels.put({
 				exerciseId: 'locate-neck',
 				scope: '',
-				item: neckCardKey(card).slice('locate:'.length),
+				item: neckCardKey(card).slice('locate-note-string:'.length),
 				level: 2,
 				successes: 0,
 				failures: 0,
@@ -402,7 +406,7 @@ describe('createAppServices', () => {
 
 	it('counts the triad reviews due apart from the notes, the zone closed', async () => {
 		const { services, deps } = harness();
-		await deps.cards.put(learnedTriad('triad-anchor', 'D|maj|3:5,2:1,1:3'));
+		await deps.cards.put(learnedTriad('chord-anchor', 'D|maj|3:5,2:1,1:3'));
 		expect(await services.triads()).toEqual({ anchorDue: 1, zoneDue: null });
 		expect((await services.homeStats()).dueCount).toBe(0);
 	});
@@ -418,10 +422,10 @@ describe('createAppServices', () => {
 			'C|min|3:b3,2:5,1:1'
 		];
 		for (const key of keys) {
-			await deps.cards.put({ ...learnedTriad('triad-anchor', key), acquiredAt: 0 });
+			await deps.cards.put({ ...learnedTriad('chord-anchor', key), acquiredAt: 0 });
 		}
 		expect((await services.triads()).zoneDue).toBe(0);
-		await deps.cards.put(learnedTriad('triad-zone', keys[0]));
+		await deps.cards.put(learnedTriad('chord-zone', keys[0]));
 		expect((await services.triads()).zoneDue).toBe(1);
 	});
 });
@@ -430,13 +434,13 @@ describe('the gesture track', () => {
 	it('is open once a chord is acquired in anchor on a string set', async () => {
 		const { services, deps } = harness();
 		expect(await services.gesture()).toEqual({ open: false });
-		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
 		expect(await services.gesture()).toEqual({ open: true });
 	});
 
 	it('plays a gesture session on the session controller', async () => {
 		const { services, deps, chords } = harness();
-		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
 		const controller = await services.startSession('gesture');
 		expect(controller).toBeInstanceOf(SessionController);
 		await controller.ready?.();
@@ -461,7 +465,7 @@ describe('the gesture track', () => {
 	it('shows « Joué juste » on a gesture session only in development', async () => {
 		const played = async (development: boolean) => {
 			const { services, deps, chords } = harness({ development });
-			await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+			await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
 			const controller = await services.startSession('gesture');
 			await controller.start();
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
@@ -487,8 +491,8 @@ describe('the gesture track', () => {
 			responseAttempt({
 				sessionId: 's1',
 				exerciseId: 'gesture-jam',
-				mechanic: 'chord-grid',
-				cardKey: 'chord-grid:jam:blues-f#0',
+				skill: 'grid-reading',
+				cardKey: 'grid-reading:jam:blues-f#0',
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',
@@ -530,7 +534,7 @@ describe('the gesture track', () => {
 
 	it('starts the gesture at the level it reached, read from the levels stored', async () => {
 		const { services, deps } = harness();
-		await deps.cards.putMany(triadCards('triad-anchor', 'D', 'maj', [3, 2, 1]));
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
 		await deps.levels.put({
 			exerciseId: 'gesture-link',
 			scope: '',
@@ -648,8 +652,8 @@ describe('the rhythm exercises', () => {
 		({
 			sessionId,
 			exerciseId: RHYTHM_OFFBEATS.id,
-			mechanic: 'figure',
-			cardKey: `figure:offbeats-1@${level}`,
+			skill: 'inner-pulse',
+			cardKey: `figure-independence:offbeats-1@${level}`,
 			phase: 'free',
 			temperature: 'hot',
 			aids: ['cursor'],

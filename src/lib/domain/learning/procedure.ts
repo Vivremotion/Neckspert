@@ -1,4 +1,4 @@
-import type { MechanicId } from '../exercise/types';
+import type { SkillId } from '../types';
 import { introduceCard, markLearned, probeCard } from '../progress/cards';
 import { lastAttemptByCard, reviewableCards } from '../progress/review';
 import type { RecordOutcome, SelectorContext, ItemSource } from '../progress/selector';
@@ -40,7 +40,7 @@ function retestDueAt(servedAt: number, gap: number): number {
 }
 
 function refOf(card: CardState): CardRef {
-	return { mechanic: card.mechanic, item: card.item };
+	return { skill: card.skill, item: card.item };
 }
 
 function levelKey(exerciseId: string, item: string): string {
@@ -72,8 +72,8 @@ class Procedure implements LearningProcedure {
 	private readonly fadingAid = new Map<CardKey, number>();
 	/** Misses in a row, probes and recoveries left out. */
 	private missStreak = 0;
-	/** The last miss calls for a solid item of this mechanic on the next prompt. */
-	private pendingRecovery: MechanicId | null = null;
+	/** The last miss calls for a solid item of this skill on the next prompt. */
+	private pendingRecovery: SkillId | null = null;
 	/** The item just served is a recovery: a miss on it calls for no other. */
 	private servedRecovery = false;
 
@@ -147,7 +147,7 @@ class Procedure implements LearningProcedure {
 		// A level that asks it counts only a direct recall; the level's own aid is not « aided ».
 		const success =
 			ladder[state.level - levelRange(ladder).lowest].success === 'direct-recall'
-				? this.subject.recall(ref.mechanic)(attempt)
+				? this.subject.recall(ref.skill)(attempt)
 				: attempt.success;
 		const learned = attempt.phase === 'learning' && passesTop(state, ladder, success);
 		const level = nextLevelState(state, ladder, { success, aided: false }).state;
@@ -169,10 +169,10 @@ class Procedure implements LearningProcedure {
 		return { level };
 	}
 
-	/** An attempt of a card the subject owns, played in the exercise it plays that mechanic in. */
+	/** An attempt of a card the subject owns, played in the exercise it plays that skill in. */
 	private plays(attempt: Attempt): boolean {
 		return (
-			this.subject.owns(attempt) && attempt.exerciseId === this.subject.exerciseOf(attempt.mechanic)
+			this.subject.owns(attempt) && attempt.exerciseId === this.subject.exerciseOf(attempt.skill)
 		);
 	}
 
@@ -181,7 +181,7 @@ class Procedure implements LearningProcedure {
 	}
 
 	levelOf(card: CardRef): LevelState {
-		const exerciseId = this.subject.exerciseOf(card.mechanic);
+		const exerciseId = this.subject.exerciseOf(card.skill);
 		const item = this.subject.itemKey(card);
 		return (
 			this.levels.get(levelKey(exerciseId, item)) ?? {
@@ -199,7 +199,7 @@ class Procedure implements LearningProcedure {
 	/** A passed probe goes to review at the level served; a missed one is presented aided next, at level 0. */
 	private recordProbe(card: CardState, attempt: Attempt, now: number): RecordOutcome {
 		const ref = refOf(card);
-		const probed = probeCard(card, attempt, now, this.sessionId, this.subject.recall(ref.mechanic));
+		const probed = probeCard(card, attempt, now, this.sessionId, this.subject.recall(ref.skill));
 		if (probed) {
 			this.cards.set(probed.key, probed);
 			const level = this.setLevel({
@@ -233,12 +233,12 @@ class Procedure implements LearningProcedure {
 		this.missStreak++;
 		if (this.missStreak < this.set.recoveryAfterMisses) return;
 		this.missStreak = 0;
-		this.pendingRecovery = attempt.mechanic;
+		this.pendingRecovery = attempt.skill;
 	}
 
 	/** A miss brings the fading aid back for its item; its successes since take it away. */
 	private fadeAid(attempt: Attempt): void {
-		if (!this.subject.fadingAid(attempt.mechanic)) return;
+		if (!this.subject.fadingAid(attempt.skill)) return;
 		const key = attempt.cardKey;
 		if (!attempt.success) {
 			this.fadingAid.set(key, 0);
@@ -246,18 +246,18 @@ class Procedure implements LearningProcedure {
 		}
 		const successes = this.fadingAid.get(key);
 		if (successes === undefined) return;
-		const { aidFadeSuccesses } = this.subject.itemLearning(attempt.mechanic);
+		const { aidFadeSuccesses } = this.subject.itemLearning(attempt.skill);
 		if (successes + 1 >= aidFadeSuccesses) this.fadingAid.delete(key);
 		else this.fadingAid.set(key, successes + 1);
 	}
 
 	/**
-	 * After a miss: a solid item of the same mechanic (acquired, no miss in its last attempts, not
+	 * After a miss: a solid item of the same skill (acquired, no miss in its last attempts, not
 	 * waiting for its cold review), served hot as consolidation. Null when none qualifies.
 	 */
 	private recovery(now: number): { planned: PlannedItem; ref: CardRef } | null {
-		const mechanic = this.pendingRecovery;
-		if (mechanic === null) return null;
+		const skill = this.pendingRecovery;
+		if (skill === null) return null;
 		const waiting = new Set(
 			reviewableCards(this.owned(), this.last, now)
 				.filter((card) => !this.servedAt.has(card.key))
@@ -265,7 +265,7 @@ class Procedure implements LearningProcedure {
 		);
 		const solid = this.owned().filter(
 			(card) =>
-				card.mechanic === mechanic &&
+				card.skill === skill &&
 				card.acquiredAt !== null &&
 				!waiting.has(card.key) &&
 				(this.history.get(card.key) ?? [])
@@ -278,7 +278,7 @@ class Procedure implements LearningProcedure {
 	}
 
 	private keyOf(ref: CardRef): CardKey {
-		return cardKey(ref.mechanic, this.subject.itemKey(ref));
+		return cardKey(ref.skill, this.subject.itemKey(ref));
 	}
 
 	private owned(): CardState[] {
@@ -395,7 +395,7 @@ class Procedure implements LearningProcedure {
 		const key = this.keyOf(ref);
 		this.learning.set(key, entry);
 		// The aided presentation draws the fading aid, until the item is played right.
-		if (this.subject.fadingAid(ref.mechanic) && this.levelParams(ref).aided) {
+		if (this.subject.fadingAid(ref.skill) && this.levelParams(ref).aided) {
 			this.fadingAid.set(key, 0);
 		}
 		return entry;
@@ -448,11 +448,7 @@ class Procedure implements LearningProcedure {
 		);
 		if (!ref || !this.subject.owns(ref) || !this.allowedAfter(ref)) return null;
 		const key = this.keyOf(ref);
-		const card = introduceCard(
-			{ key, mechanic: ref.mechanic, item: ref.item },
-			now,
-			this.sessionId
-		);
+		const card = introduceCard({ key, skill: ref.skill, item: ref.item }, now, this.sessionId);
 		this.cards.set(key, card);
 		this.unansweredProbe = key;
 		return { planned: this.plan(ref, 'probe', 'cold', this.topLevel(ref), false), ref };
@@ -510,11 +506,11 @@ class Procedure implements LearningProcedure {
 
 	/** What the item's exercise sets for it. */
 	private itemLearning(ref: CardRef): ItemLearning {
-		return this.subject.itemLearning(ref.mechanic);
+		return this.subject.itemLearning(ref.skill);
 	}
 
 	private ladderOf(ref: CardRef): Ladder {
-		return this.subject.ladder(ref.mechanic);
+		return this.subject.ladder(ref.skill);
 	}
 
 	/** The item's level, brought into today's ladder. */
@@ -561,8 +557,8 @@ class Procedure implements LearningProcedure {
 	): PlannedItem {
 		const params = this.paramsAt(ref, level);
 		return {
-			exerciseId: this.subject.exerciseOf(ref.mechanic),
-			mechanic: ref.mechanic,
+			exerciseId: this.subject.exerciseOf(ref.skill),
+			skill: ref.skill,
 			item: this.subject.promptItem?.(ref, this.random) ?? ref.item,
 			phase,
 			temperature,

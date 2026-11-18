@@ -18,7 +18,7 @@ const D_ON_G = 'D|maj|3:1,2:3,1:5';
 function planned(definition: ExerciseDefinition, item: unknown): PlannedItem {
 	return {
 		exerciseId: definition.id,
-		mechanic: definition.mechanic,
+		skill: definition.practices,
 		exerciseLevel: 0,
 		item,
 		phase: 'review',

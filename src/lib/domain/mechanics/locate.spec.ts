@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardKeyOf, locateRules, mechanicRules, MECHANIC_RULES } from './index';
+import { locateRules, mechanicRules, MECHANIC_RULES } from './index';
 
 describe('locateRules', () => {
 	it('judges a played note right on any acceptable octave', () => {
@@ -26,8 +26,8 @@ describe('locateRules', () => {
 		expect(locateRules.learner).toBe('memory');
 	});
 
-	it('keys its cards by mechanic and item', () => {
-		expect(cardKeyOf(locateRules, { string: 6, pitch: 'F' })).toBe('locate:6:F');
+	it('keys its items', () => {
+		expect(locateRules.itemKey({ string: 6, pitch: 'F' })).toBe('6:F');
 		expect(locateRules.parseItem('6:F')).toEqual({ string: 6, pitch: 'F' });
 		expect(() => locateRules.parseItem('7:F')).toThrow();
 	});

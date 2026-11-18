@@ -2,6 +2,7 @@ import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './time/modes/types';
 import type { Execution, ExerciseId, MechanicId } from './exercise/types';
+import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
 	Aid,
@@ -14,26 +15,35 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type { Aid, Execution, ExerciseId, LevelState, Measures, MechanicId, VerdictEnvelope };
+export type {
+	Aid,
+	Execution,
+	ExerciseId,
+	LevelState,
+	Measures,
+	MechanicId,
+	SkillId,
+	VerdictEnvelope
+};
 
 export type Locale = 'fr' | 'en';
 
-/** `${mechanic}:${itemKey}`: `locate:6:F`, `identify:6:3`. */
+/** `${skill}:${itemKey}`: `locate-note-string:6:F`, `identify-note:6:3`. */
 export type CardKey = string;
 
-export function cardKey(mechanic: MechanicId, itemKey: string): CardKey {
-	return `${mechanic}:${itemKey}`;
+export function cardKey(skill: SkillId, itemKey: string): CardKey {
+	return `${skill}:${itemKey}`;
 }
 
 /** Splits at the first `:`; throws without one or with an empty side. */
-export function parseCardKey(key: CardKey): { mechanic: MechanicId; itemKey: string } {
+export function parseCardKey(key: CardKey): { skill: SkillId; itemKey: string } {
 	const colon = key.indexOf(':');
-	const mechanic = colon < 0 ? '' : key.slice(0, colon);
+	const skill = colon < 0 ? '' : key.slice(0, colon);
 	const itemKey = colon < 0 ? '' : key.slice(colon + 1);
-	if (mechanic === '' || itemKey === '') {
+	if (skill === '' || itemKey === '') {
 		throw new Error(`Invalid card key: ${key}`);
 	}
-	return { mechanic, itemKey };
+	return { skill, itemKey };
 }
 
 // The one-answer verdict lives with the response verdict mode; re-exported for its readers.
@@ -105,7 +115,8 @@ export interface Attempt<D = unknown> {
 	id?: number;
 	sessionId: string;
 	exerciseId: ExerciseId;
-	mechanic: MechanicId;
+	/** The skill its exercise practises. */
+	skill: SkillId;
 	cardKey: CardKey;
 	phase: ItemPhase;
 	temperature: Temperature;
@@ -133,7 +144,7 @@ export interface Attempt<D = unknown> {
 	measures: Measures;
 	/** The round's resolved plan; null before plans and for the one-answer relations. */
 	plan: unknown | null;
-	/** Mechanic-specific: item, answer and confusion. */
+	/** Specific to its skill's items: item, answer and confusion. */
 	data: D;
 	/** Raw observations heard during the prompt. Null when not recorded (older attempts). */
 	observations: RecordedObservation[] | null;
@@ -178,7 +189,7 @@ export interface SchedulingState {
 
 export interface CardState<I = unknown> {
 	key: CardKey;
-	mechanic: MechanicId;
+	skill: SkillId;
 	item: I;
 	/** Epoch ms of the learning (or probe) that introduced the card. */
 	introducedAt: number;
@@ -192,7 +203,8 @@ export interface CardState<I = unknown> {
 
 export interface PlannedItem<I = unknown> {
 	exerciseId: ExerciseId;
-	mechanic: MechanicId;
+	/** The skill its exercise practises (`ExerciseDefinition.practices`). */
+	skill: SkillId;
 	item: I;
 	phase: ItemPhase;
 	temperature: Temperature;
@@ -436,7 +448,7 @@ export interface NeckMapCell {
 
 export interface BackupFile {
 	app: 'neckspert-play';
-	version: 8;
+	version: 9;
 	exportedAt: number;
 	settings: Settings;
 	cards: CardState[];

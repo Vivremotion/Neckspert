@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { LOCATE_NECK } from '$lib/testing/catalog';
+import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { CATALOG_FILES } from './catalogFiles';
 
 /** The public arpeggio exercise as a definition file writes it: its figures in LilyPond. */
@@ -16,7 +17,9 @@ function arpeggioJson(id: string): Record<string, unknown> {
 	};
 }
 
-const file = (exercises: unknown[]) => JSON.stringify({ format: 0, exercises });
+/** A definition file of `exercises`, with the skill the arpeggios practise, which no catalog file holds. */
+const file = (exercises: unknown[]) =>
+	JSON.stringify({ format: 0, skills: [TEST_PLACED_VOICING_SKILL], exercises });
 
 let errors: string[];
 
@@ -68,7 +71,7 @@ describe('loadDefinitions', () => {
 		expect(errors).toEqual([
 			'[exercises.local] /exercises.local/a.json, exercise locate-neck refused: this id is already defined in /catalog/notes.json'
 		]);
-		expect(exerciseById('locate-neck').mechanic).toBe('locate');
+		expect(exerciseById('locate-neck').practices).toBe('locate-note-string');
 	});
 
 	it('starts with the other files when a catalog file is refused', async () => {

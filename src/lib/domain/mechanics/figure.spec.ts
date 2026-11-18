@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardKeyOf, mechanicRules, MECHANIC_RULES } from './index';
+import { mechanicRules, MECHANIC_RULES } from './index';
 import { figureRules, type FigureItem } from './figure';
 
 describe('figureRules', () => {
@@ -12,7 +12,6 @@ describe('figureRules', () => {
 	it('keys an item by its figure and its level', () => {
 		const item: FigureItem = { figureId: 'offbeats-2', level: 3 };
 		expect(figureRules.itemKey(item)).toBe('offbeats-2@3');
-		expect(cardKeyOf(figureRules, item)).toBe('figure:offbeats-2@3');
 	});
 
 	it('parses a key back, negative aid levels included', () => {

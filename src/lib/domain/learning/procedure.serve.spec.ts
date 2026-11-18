@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ExerciseId, MechanicId } from '../exercise/types';
+import type { ExerciseId } from '../exercise/types';
+import type { SkillId } from '../types';
 import type { LevelState } from '../time/levels';
 import type { Attempt, CardState, PlannedItem } from '../types';
 import { DEFAULT_SET_LEARNING, type SetLearning } from './params';
@@ -10,7 +11,7 @@ import { attemptOf, fakeCard, fakeSubject, rung } from './testing/fakeSubject';
 /** A ladder of two levels: 8 beats aided, then 4 beats, the top. */
 const SHORT = [rung(8, { aided: true }), rung(4, { pass: 2, success: 'direct-recall' as const })];
 
-const FAKE = 'fake' as MechanicId;
+const FAKE = 'fake' as SkillId;
 const EXERCISE = 'exercise-fake' as ExerciseId;
 const SESSION = 'session';
 const at = (now: number, fatigued = false) => ({ now, elapsedMs: 0, fatigued });
@@ -58,7 +59,7 @@ const reviewable = (item: number, due = 0) =>
 function played(item: number, successes: readonly boolean[], from = 0): Attempt[] {
 	return successes.map((success, index) =>
 		attemptOf(
-			{ exerciseId: EXERCISE, mechanic: FAKE, item, phase: 'learning', temperature: 'hot' },
+			{ exerciseId: EXERCISE, skill: FAKE, item, phase: 'learning', temperature: 'hot' },
 			{ success, at: from + index }
 		)
 	);
@@ -69,7 +70,7 @@ describe('createLearningProcedure next', () => {
 		const item = procedure({ subject: fakeSubject({ ladder: SHORT }) }).next(at(0));
 		expect(item).toMatchObject({
 			exerciseId: EXERCISE,
-			mechanic: FAKE,
+			skill: FAKE,
 			item: 0,
 			phase: 'probe',
 			temperature: 'cold',
@@ -252,11 +253,11 @@ describe('createLearningProcedure next', () => {
 			cards: [reviewable(0)],
 			levels: [level]
 		});
-		const card = { mechanic: FAKE, item: 0 };
+		const card = { skill: FAKE, item: 0 };
 		expect(source.levelOf(card)).toEqual(level);
 		expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'review', leadBeats: 4 });
 		// An item with no stored level starts at level 0, the longest lead, aided while learning.
-		expect(procedure().levelOf({ mechanic: FAKE, item: 3 })).toEqual({
+		expect(procedure().levelOf({ skill: FAKE, item: 3 })).toEqual({
 			exerciseId: EXERCISE,
 			scope: '',
 			item: '3',
@@ -340,21 +341,21 @@ describe('createLearningProcedure next', () => {
 	});
 
 	describe('settings', () => {
-		const OTHER = 'other' as MechanicId;
+		const OTHER = 'other' as SkillId;
 
 		it('spaces the retests of an item as its exercise says', () => {
 			// Two exercises in one session: the fake's retests at 1 then 3 prompts, the other's at the defaults.
 			// No new item: between the retests, consolidations of other items, never neighbours.
 			const subject = fakeSubject({
 				items: 0,
-				mechanics: [FAKE, OTHER],
+				skills: [FAKE, OTHER],
 				learning: { [FAKE]: { retestGaps: [1, 3] } }
 			});
 			const source = procedure({
 				subject,
 				cards: [
 					learning(0),
-					fakeCard(9, { mechanic: OTHER, introducedInSession: 'past' }),
+					fakeCard(9, { skill: OTHER, introducedInSession: 'past' }),
 					...[1, 2, 3, 4, 5, 6, 7].map((item) => learned(item))
 				]
 			});
@@ -364,7 +365,7 @@ describe('createLearningProcedure next', () => {
 			for (let draw = 0; draw < 40; draw++) {
 				const item = source.next(at(0));
 				if (item === null) break;
-				const key = `${item.mechanic}:${item.item}`;
+				const key = `${item.skill}:${item.item}`;
 				if (item.phase === 'learning') {
 					const last = lastServed.get(key);
 					if (last !== undefined) gaps.set(key, [...(gaps.get(key) ?? []), draw - last - 1]);

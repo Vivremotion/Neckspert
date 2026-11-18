@@ -32,12 +32,10 @@
 	"exercises": [
 		{
 			"id": "rhythm-silent-bars",
-			"version": 1,
 			"title": {
 				"fr": "Mesures silencieuses",
 				"en": "Silent bars"
 			},
-			"mechanic": "figure",
 			"practices": "inner-pulse",
 			"params": {
 				"accompaniment": {
@@ -221,12 +219,10 @@
 		},
 		{
 			"id": "rhythm-two-four",
-			"version": 1,
 			"title": {
 				"fr": "Métronome sur 2 et 4",
 				"en": "Click on 2 and 4"
 			},
-			"mechanic": "figure",
 			"practices": "displaced-pulse",
 			"params": {
 				"accompaniment": {
@@ -356,12 +352,10 @@
 		},
 		{
 			"id": "rhythm-offbeats",
-			"version": 1,
 			"title": {
 				"fr": "Contretemps",
 				"en": "Offbeats"
 			},
-			"mechanic": "figure",
 			"practices": "figure-independence",
 			"params": {
 				"accompaniment": {

@@ -1,3 +1,5 @@
+import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
 import type { GridChange } from '$lib/domain/grid';
@@ -42,12 +44,18 @@ export interface ChangeOptions {
 	scope?: string;
 }
 
+/** The skill a gesture exercise of the catalog practises; a reading of a grid for another id. */
+function skillOfGesture(exerciseId: string): string {
+	const index = (GESTURE_EXERCISE_IDS as readonly string[]).indexOf(exerciseId);
+	return index < 0 ? CHANGE_SKILL_IDS[3] : CHANGE_SKILL_IDS[index];
+}
+
 /** Change `index` of a passage, as the gesture selector would serve it. */
 export function change(index: number, options: ChangeOptions = {}): PlannedItem<ChordGridItem> {
 	const scope = options.scope ?? 'iohefy-a';
 	return {
 		exerciseId: options.exerciseId ?? 'gesture-jam',
-		mechanic: 'chord-grid',
+		skill: skillOfGesture(options.exerciseId ?? 'gesture-jam'),
 		exerciseLevel: 0,
 		item: {
 			rule: 'jam',
@@ -131,7 +139,7 @@ export const BENCH_LEVEL_STATES: LevelState[] = [
 
 /** A chord-grid exercise on the bench's levels; any other as it is. */
 function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
-	return definition.mechanic === 'chord-grid'
+	return (CHANGE_SKILL_IDS as readonly string[]).includes(definition.practices)
 		? { ...definition, levels: BENCH_LEVELS }
 		: definition;
 }
@@ -208,7 +216,7 @@ export function gestureSeries(
 				now: () => clock.toEpochMs(clock.now()),
 				selector: sourceOf.get(sessionId) ?? source,
 				sessionId,
-				rules: (mechanic) => deps.mechanics[mechanic].rules
+				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
 			});
 			recorders.push(recorder);
 			return recorder;

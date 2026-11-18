@@ -6,15 +6,15 @@ import {
 	type CardStatus,
 	type Temperature
 } from '$lib/domain/types';
-import type { MechanicId } from '$lib/domain/exercise/types';
+import type { SkillId } from '$lib/domain/skill/types';
 import { MASTERY_ACCURACY, MASTERY_MIN_GAP_MS, MASTERY_SESSIONS } from './constants';
 import { Rating, graduateToReview, introScheduling, reviewScheduling } from './scheduling';
 import type { Grade } from 'ts-fsrs';
 
-/** What a card is before it has a state: its key, mechanic and item. */
+/** What a card is before it has a state: its key, skill and item. */
 interface NewCard<I> {
 	key: CardKey;
-	mechanic: MechanicId;
+	skill: SkillId;
 	item: I;
 }
 
@@ -38,7 +38,7 @@ function qualifiesAsAcquired(state: CardState, attempt: Attempt, recall: DirectR
 export function introduceCard<I>(card: NewCard<I>, now: number, sessionId: string): CardState<I> {
 	return {
 		key: card.key,
-		mechanic: card.mechanic,
+		skill: card.skill,
 		item: card.item,
 		introducedAt: now,
 		introducedInSession: sessionId,
@@ -72,7 +72,7 @@ export function probeCard<I>(
 	if (!recall(attempt)) return null;
 	return {
 		key: card.key,
-		mechanic: card.mechanic,
+		skill: card.skill,
 		item: card.item,
 		introducedAt: now,
 		introducedInSession: sessionId,

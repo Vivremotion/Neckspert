@@ -13,7 +13,7 @@ function cycle(
 	return {
 		sessionId: 's1',
 		exerciseId: RHYTHM_OFFBEATS.id,
-		mechanic: 'figure',
+		skill: 'inner-pulse',
 		aids,
 		success,
 		data: { level }

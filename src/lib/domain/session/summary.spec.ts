@@ -13,7 +13,7 @@ function attempt(
 		id,
 		sessionId: 's',
 		exerciseId: 'x',
-		mechanic: 'm',
+		skill: 'm',
 		cardKey: `m:${id}`,
 		phase: 'free',
 		temperature: 'hot',

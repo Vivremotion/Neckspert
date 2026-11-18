@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /** A rhythm exercise played on the session controller, with the fakes and a player who reads the screen. */
 import { SESSION_MS } from '$lib/domain/session';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
@@ -33,12 +34,12 @@ export const ORIGIN = 0.1;
 const STEPS_PER_S = 64;
 
 /** An attempt of the exercise from an earlier series: the exercise is no longer met for the first time. */
-export function earlier(exerciseId: string): Attempt {
+export function earlier(exerciseId: string, skill = 'inner-pulse'): Attempt {
 	return {
 		sessionId: 'old',
 		exerciseId,
-		mechanic: 'figure',
-		cardKey: 'figure:old@0',
+		skill,
+		cardKey: `${skill}:old@0`,
 		phase: 'free',
 		temperature: 'hot',
 		aids: [],
@@ -188,7 +189,7 @@ export async function rhythmSeries(
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
 				sessionId,
-				rules: (mechanic) => deps.mechanics[mechanic].rules
+				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
 			});
 			recorders.push(recorder);
 			return recorder;

@@ -60,7 +60,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 			expect(attempt.correct).toBeNull();
 			expect(attempt.verdict.relation).toBe('cycle');
 			expect(attempt.plan).not.toBeNull();
-			expect(attempt.mechanic).toBe('figure');
+			expect(attempt.skill).toBe('figure-independence');
 			expect(attempt.observations?.filter((o) => o.fate === 'answer')).toHaveLength(5);
 		}
 		// The breath, from bar 7, with the run's four cycles.
@@ -81,8 +81,8 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		expect(first).toMatchObject({
 			sessionId: 'series',
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'figure',
-			cardKey: 'figure:offbeats-1@0',
+			skill: 'figure-independence',
+			cardKey: 'figure-independence:offbeats-1@0',
 			phase: 'free',
 			temperature: 'hot',
 			// The cursor the level gives.
@@ -99,7 +99,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		// The round of its figure, one bar from the first of its run, the click on every bar.
 		const offbeats: PlannedItem = {
 			exerciseId: 'rhythm-offbeats',
-			mechanic: 'figure',
+			skill: 'figure-independence',
 			exerciseLevel: 0,
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',
@@ -149,7 +149,7 @@ describe('the rhythm on the series, a run of offbeats played exactly', () => {
 		const [first, second] = await stored();
 		const item: PlannedItem = {
 			exerciseId: exercise.id,
-			mechanic: 'figure',
+			skill: 'inner-pulse',
 			exerciseLevel: 0,
 			item: { figureId: 'offbeats-1', level: 0 },
 			phase: 'free',
@@ -384,11 +384,11 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		await advance(ORIGIN + 11.6 * OFFBEATS_BAR_S);
 		const attempts = await stored();
 		expect(attempts.map((a) => [a.cardKey, a.success])).toEqual([
-			['figure:offbeats-1@0', false],
-			['figure:offbeats-1@0', true],
-			['figure:offbeats-1@0', true],
-			['figure:offbeats-1@0', true],
-			['figure:offbeats-2@1', true]
+			['figure-independence:offbeats-1@0', false],
+			['figure-independence:offbeats-1@0', true],
+			['figure-independence:offbeats-1@0', true],
+			['figure-independence:offbeats-1@0', true],
+			['figure-independence:offbeats-2@1', true]
 		]);
 		expect(attempts[4].promptedAt).toBe(epochOfBar(9, OFFBEATS_BAR_S));
 		controller.quit();
@@ -419,7 +419,7 @@ describe('the rhythm on the series, a level reached on the run’s last cycle', 
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
 		expect(attempts.slice(0, 3).every((a) => a.tempoBpm === 100 && a.success)).toBe(true);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'figure:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@1' });
 		controller.quit();
 	});
 });
@@ -459,7 +459,7 @@ describe('the rhythm on the series, a run with no counted bar', () => {
 		await advance(ORIGIN + 7.5 * TWO_FOUR_BAR_S);
 		const [line] = await stored();
 		expect(line.promptedAt).toBe(epochOfBar(3, TWO_FOUR_BAR_S));
-		expect(line).toMatchObject({ cardKey: 'figure:line-1@0', success: true });
+		expect(line).toMatchObject({ cardKey: 'displaced-pulse:line-1@0', success: true });
 		controller.quit();
 	});
 });
@@ -888,9 +888,9 @@ describe('the rhythm on the series, the breath and the levels', () => {
 		expect(stageOf(controller).phase).toBe('breath');
 		const attempts = await stored();
 		expect(attempts.map((a) => a.cardKey)).toEqual([
-			...Array(4).fill('figure:offbeats-1@0'),
-			'figure:offbeats-2@1',
-			'figure:offbeats-2@1'
+			...Array(4).fill('figure-independence:offbeats-1@0'),
+			'figure-independence:offbeats-2@1',
+			'figure-independence:offbeats-2@1'
 		]);
 		controller.quit();
 	});
@@ -1831,7 +1831,7 @@ describe('the rhythm on the series, hearing the last run again', () => {
 		await advance(resumedAt + 6 + 8 + 0.6, false);
 		const attempts = await stored();
 		expect(attempts).toHaveLength(4);
-		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'figure:line-4@1' });
+		expect(attempts[3]).toMatchObject({ tempoBpm: 120, cardKey: 'displaced-pulse:line-4@1' });
 		controller.quit();
 	});
 

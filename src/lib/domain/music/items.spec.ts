@@ -44,25 +44,34 @@ describe('identify item keys', () => {
 });
 
 describe('neckCardKey', () => {
-	it('prefixes the item key with its mechanic', () => {
-		expect(neckCardKey({ mechanic: 'identify', item: { string: 6, fret: 3 } })).toBe(
-			'identify:6:3'
+	it('prefixes the item key with its skill', () => {
+		expect(neckCardKey({ skill: 'identify-note', item: { string: 6, fret: 3 } })).toBe(
+			'identify-note:6:3'
 		);
-		expect(neckCardKey({ mechanic: 'locate', item: { string: 6, pitch: 'F' } })).toBe('locate:6:F');
+		expect(neckCardKey({ skill: 'locate-note-string', item: { string: 6, pitch: 'F' } })).toBe(
+			'locate-note-string:6:F'
+		);
 	});
 });
 
 describe('asNeckCard', () => {
-	it('reads a card of either neck mechanic', () => {
-		const card = { key: 'locate:6:F', mechanic: 'locate', item: { string: 6, pitch: 'F' } };
-		expect(asNeckCard(card)).toEqual({ mechanic: 'locate', item: { string: 6, pitch: 'F' } });
-		expect(asNeckCard({ mechanic: 'identify', item: { string: 6, fret: 3 } })).toEqual({
-			mechanic: 'identify',
+	it('reads a card of either neck skill', () => {
+		const card = {
+			key: 'locate-note-string:6:F',
+			skill: 'locate-note-string',
+			item: { string: 6, pitch: 'F' }
+		};
+		expect(asNeckCard(card)).toEqual({
+			skill: 'locate-note-string',
+			item: { string: 6, pitch: 'F' }
+		});
+		expect(asNeckCard({ skill: 'identify-note', item: { string: 6, fret: 3 } })).toEqual({
+			skill: 'identify-note',
 			item: { string: 6, fret: 3 }
 		});
 	});
 
-	it('throws on another mechanic', () => {
-		expect(() => asNeckCard({ mechanic: 'chords', item: {} })).toThrow(/chords/);
+	it('throws on another skill', () => {
+		expect(() => asNeckCard({ skill: 'chords', item: {} })).toThrow(/chords/);
 	});
 });

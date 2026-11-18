@@ -1,3 +1,4 @@
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import {
 	CURRICULUM_STRINGS,
 	LEARNABLE_FRETS,
@@ -68,9 +69,9 @@ function prioritized(priority: readonly LocateItem[]): Position[] {
 	return [...first, ...positions.filter((position) => !first.includes(position))];
 }
 
-function locateAt(position: Position): { mechanic: 'locate'; item: LocateItem } {
+function locateAt(position: Position): { skill: typeof LOCATE_SKILL_ID; item: LocateItem } {
 	return {
-		mechanic: 'locate',
+		skill: LOCATE_SKILL_ID,
 		item: { string: position.string, pitch: pitchOnString(position.string, position.fret) }
 	};
 }
@@ -101,7 +102,7 @@ export function nextNewCard(
 	for (const position of positions) {
 		const locate = byKey.get(neckCardKey(locateAt(position)));
 		const identify: NeckCard = {
-			mechanic: 'identify',
+			skill: IDENTIFY_SKILL_ID,
 			item: { string: position.string, fret: position.fret }
 		};
 		if (locate?.acquiredAt != null && !byKey.has(neckCardKey(identify))) return identify;
@@ -111,7 +112,7 @@ export function nextNewCard(
 		if (byKey.has(neckCardKey(locate))) continue;
 		// A note waits while its mirror is still fragile: learning both at once mixes them up.
 		const fragileMirror = mirrorItems(locate.item).some((mirror) => {
-			const card = byKey.get(neckCardKey({ mechanic: 'locate', item: mirror }));
+			const card = byKey.get(neckCardKey({ skill: LOCATE_SKILL_ID, item: mirror }));
 			return card !== undefined && card.acquiredAt === null;
 		});
 		if (!fragileMirror) return locate;

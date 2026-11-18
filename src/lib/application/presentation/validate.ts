@@ -1,3 +1,4 @@
+import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { notationOf, writesFigure } from '$lib/domain/exercise/figureParams';
 import { exerciseLevelsOf, resolvedParamsOf } from '$lib/domain/exercise/levels';
 import {
@@ -32,7 +33,8 @@ function placeholders(slot: Slot): string[] {
 export function presentationProblem(definition: ExerciseDefinition): string | null {
 	const presentation = definition.presentation;
 	if (!presentation) return null;
-	const { id, mechanic } = definition;
+	const { id } = definition;
+	const mechanic = mechanicOfSkill(definition.practices);
 	const known = ITEM_FIELDS[mechanic]?.names ?? [];
 	const slots: [string, Slot | undefined][] = [
 		['primary', presentation.primary],
@@ -101,11 +103,10 @@ export function screenProblem(
 		return `${id}: view "${drawn}" draws a presentation, and the exercise writes none`;
 	}
 	if (definition.round === undefined) return null;
-	const presenter = Object.hasOwn(presenters, definition.mechanic)
-		? presenters[definition.mechanic]
-		: undefined;
+	const mechanic = mechanicOfSkill(definition.practices);
+	const presenter = Object.hasOwn(presenters, mechanic) ? presenters[mechanic] : undefined;
 	if (presenter?.stageOf) return null;
-	return `${id}: writes a round but no presentation, and ${definition.mechanic} draws no screen of its own`;
+	return `${id}: writes a round but no presentation, and ${mechanic} draws no screen of its own`;
 }
 
 /** The figures a figure entry may play at an exercise level: the one it names, else all of them. */
@@ -169,9 +170,8 @@ export function previewProblem(
 	presenters: Readonly<Record<string, Pick<MechanicPresenter, 'previewBeats'>>>
 ): string | null {
 	if (definition.round === undefined || definition.flow?.previewBeats !== undefined) return null;
-	const presenter = Object.hasOwn(presenters, definition.mechanic)
-		? presenters[definition.mechanic]
-		: undefined;
+	const mechanic = mechanicOfSkill(definition.practices);
+	const presenter = Object.hasOwn(presenters, mechanic) ? presenters[mechanic] : undefined;
 	const previewBeats = previewBeatsOf(definition, presenter?.previewBeats) ?? 0;
 	const problem = validateExercise({
 		...definition,
@@ -179,5 +179,5 @@ export function previewProblem(
 	});
 	return problem === null
 		? null
-		: `${problem} (its preview is ${definition.mechanic}'s, ${previewBeats} beats)`;
+		: `${problem} (its preview is ${mechanic}'s, ${previewBeats} beats)`;
 }

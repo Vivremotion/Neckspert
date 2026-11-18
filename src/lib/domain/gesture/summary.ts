@@ -1,4 +1,4 @@
-import { GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
+import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
 import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
 import { expectedShape } from '$lib/domain/mechanics/chordGrid';
 import type { VoicingOccurrence } from '$lib/domain/music';
@@ -34,7 +34,9 @@ export function summarizeGesture(
 	executions: readonly Execution[],
 	attempts: readonly Attempt[]
 ): GestureSummary {
-	const changes = attempts.filter((attempt) => attempt.mechanic === 'chord-grid');
+	const changes = attempts.filter((attempt) =>
+		(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)
+	);
 	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
 		const own = changes.filter(
 			(attempt) => attempt.exerciseId === exerciseId && (attempt.scope ?? null) === (scope ?? null)

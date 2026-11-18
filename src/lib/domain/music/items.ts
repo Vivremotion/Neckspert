@@ -1,3 +1,4 @@
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { cardKey, type CardKey } from '$lib/domain/types';
 import { CHROMATIC_NOTES, MAX_PROMPT_FRET, type PitchName, type StringNumber } from './types';
 
@@ -13,9 +14,10 @@ export interface IdentifyItem {
 	fret: number;
 }
 
-/** A card of the neck: one item of one of its two mechanics. */
+/** A card of the neck: one item of one of its two skills. */
 export type NeckCard =
-	{ mechanic: 'locate'; item: LocateItem } | { mechanic: 'identify'; item: IdentifyItem };
+	| { skill: typeof LOCATE_SKILL_ID; item: LocateItem }
+	| { skill: typeof IDENTIFY_SKILL_ID; item: IdentifyItem };
 
 /** Splits `string:value`, checking the string; throws on any other shape. */
 function splitItemKey(key: string): { string: StringNumber; value: string } {
@@ -57,14 +59,15 @@ export function parseIdentifyItem(key: string): IdentifyItem {
 
 export function neckCardKey(card: NeckCard): CardKey {
 	return cardKey(
-		card.mechanic,
-		card.mechanic === 'locate' ? locateItemKey(card.item) : identifyItemKey(card.item)
+		card.skill,
+		card.skill === LOCATE_SKILL_ID ? locateItemKey(card.item) : identifyItemKey(card.item)
 	);
 }
 
 /** A card, attempt-free prompt or planned item of the neck, read as a `NeckCard`. */
-export function asNeckCard(x: { mechanic: string; item: unknown }): NeckCard {
-	if (x.mechanic === 'locate') return { mechanic: 'locate', item: x.item as LocateItem };
-	if (x.mechanic === 'identify') return { mechanic: 'identify', item: x.item as IdentifyItem };
-	throw new Error(`Not a neck mechanic: ${x.mechanic}`);
+export function asNeckCard(x: { skill: string; item: unknown }): NeckCard {
+	if (x.skill === LOCATE_SKILL_ID) return { skill: LOCATE_SKILL_ID, item: x.item as LocateItem };
+	if (x.skill === IDENTIFY_SKILL_ID)
+		return { skill: IDENTIFY_SKILL_ID, item: x.item as IdentifyItem };
+	throw new Error(`Not a neck skill: ${x.skill}`);
 }

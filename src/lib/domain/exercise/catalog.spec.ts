@@ -22,8 +22,6 @@ describe('exercise catalog', () => {
 	it('describes the two neck exercises', () => {
 		expect(LOCATE_NECK).toEqual({
 			id: 'locate-neck',
-			version: 1,
-			mechanic: 'locate',
 			practices: 'locate-note-string',
 			view: 'lane',
 			tempo: 80,
@@ -33,8 +31,6 @@ describe('exercise catalog', () => {
 		});
 		expect(IDENTIFY_NECK).toEqual({
 			id: 'identify-neck',
-			version: 1,
-			mechanic: 'identify',
 			practices: 'identify-note',
 			view: 'answer-keys',
 			round: IDENTIFY_NECK.round,
@@ -70,8 +66,6 @@ describe('exercise catalog', () => {
 		};
 		expect(TRIADS_ANCHOR).toEqual({
 			id: 'triads-anchor',
-			version: 1,
-			mechanic: 'triad-anchor',
 			practices: 'chord-anchor',
 			view: 'lane',
 			tempo: 80,
@@ -81,8 +75,6 @@ describe('exercise catalog', () => {
 		});
 		expect(TRIADS_ZONE).toEqual({
 			id: 'triads-zone',
-			version: 1,
-			mechanic: 'triad-zone',
 			practices: 'chord-zone',
 			view: 'lane',
 			tempo: 80,
@@ -116,7 +108,7 @@ describe('exercise catalog', () => {
 			leadBeats: number | null
 		): PlannedItem => ({
 			exerciseId: definition.id,
-			mechanic: definition.mechanic,
+			skill: definition.practices,
 			exerciseLevel: 0,
 			item,
 			phase: 'learning',

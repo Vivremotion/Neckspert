@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ladderOf } from '$lib/domain/exercise/ladder';
-import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import type { SkillId } from '$lib/domain/types';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
@@ -19,11 +20,11 @@ import {
 import { triadIntroductionOrder } from './introduction';
 import { triadParams, voicingPositions } from './items';
 import { occurrencePosition } from './position';
-import { triadSubject, type TriadMechanic } from './triadSubject';
+import { triadSubject, type TriadSkill } from './triadSubject';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
-const ANCHOR = 'triad-anchor' as MechanicId;
-const ZONE = 'triad-zone' as MechanicId;
+const ANCHOR = 'chord-anchor' as SkillId;
+const ZONE = 'chord-zone' as SkillId;
 const DEFINITIONS = { anchor: TRIADS_ANCHOR, zone: TRIADS_ZONE };
 const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
 /** 80 bpm: a beat is 750 ms; leads 8, 4, 2 beats are 6 000, 3 000, 1 500 ms. */
@@ -32,17 +33,17 @@ const NO_HISTORY = new Map<CardKey, readonly Attempt[]>();
 const NOTHING_BLOCKED = () => false;
 const NOW = 1_000_000;
 
-function subjectOf(mechanic: TriadMechanic, attempts: readonly Attempt[] = []) {
+function subjectOf(skill: TriadSkill, attempts: readonly Attempt[] = []) {
 	return triadSubject({
-		mechanic,
+		skill,
 		definitions: DEFINITIONS,
 		acquiredPositions: new Set(),
 		attempts
 	});
 }
 
-const ref = (mechanic: MechanicId, voicing: string): CardRef => ({
-	mechanic,
+const ref = (skill: SkillId, voicing: string): CardRef => ({
+	skill,
 	item: { voicingKey: voicing }
 });
 
@@ -51,15 +52,15 @@ const ref = (mechanic: MechanicId, voicing: string): CardRef => ({
  * scheduling, `due` 0 makes it due for its cold review.
  */
 function triadCard(
-	mechanic: MechanicId,
+	skill: SkillId,
 	voicing: string,
 	fields: Partial<Pick<CardState, 'learnedAt' | 'acquiredAt'>> & { due?: number } = {}
 ): CardState {
 	const learnedAt = fields.learnedAt ?? null;
 	const scheduling = learnedAt === null ? introScheduling(0) : graduateToReview(0);
 	return {
-		key: cardKey(mechanic, voicing),
-		mechanic,
+		key: cardKey(skill, voicing),
+		skill,
 		item: { voicingKey: voicing },
 		introducedAt: 0,
 		introducedInSession: 'past',
@@ -83,7 +84,7 @@ function answerOf(
 	return attemptOf(planned, {
 		success,
 		tempoBpm: TEMPO,
-		cardKey: cardKey(planned.mechanic, voicingOf(planned)),
+		cardKey: cardKey(planned.skill, voicingOf(planned)),
 		data: { item: planned.item, answer: null, confusion: success ? null : { kind: 'quality' } },
 		...overrides
 	});
@@ -108,10 +109,10 @@ function topLevels(
 	cards: readonly CardState[]
 ): LevelState[] {
 	return cards.map((card) => ({
-		exerciseId: subject.exerciseOf(card.mechanic),
+		exerciseId: subject.exerciseOf(card.skill),
 		scope: '',
 		item: subject.itemKey(card),
-		level: subject.ladder(card.mechanic).length - 1,
+		level: subject.ladder(card.skill).length - 1,
 		successes: 0,
 		failures: 0,
 		resumeAfter: null
@@ -119,11 +120,11 @@ function topLevels(
 }
 
 describe('triadSubject', () => {
-	it('plays each mechanic in its exercise and climbs its leads', () => {
-		const subject = subjectOf('triad-anchor');
+	it('plays each skill in its exercise and climbs its leads', () => {
+		const subject = subjectOf('chord-anchor');
 		expect(subject.exerciseOf(ANCHOR)).toBe(TRIADS_ANCHOR.id);
 		expect(subject.exerciseOf(ZONE)).toBe(TRIADS_ZONE.id);
-		expect(`triad-anchor:${subject.itemKey(ref(ANCHOR, ORDER[0]))}`).toBe(
+		expect(`chord-anchor:${subject.itemKey(ref(ANCHOR, ORDER[0]))}`).toBe(
 			cardKey(ANCHOR, ORDER[0])
 		);
 		// The ladder each exercise writes: 8 beats aided, 4, then 2 where only a direct recall counts.
@@ -140,7 +141,7 @@ describe('triadSubject', () => {
 		expect(subject.prefers).toBeUndefined();
 		const planned: PlannedItem = {
 			exerciseId: TRIADS_ANCHOR.id,
-			mechanic: ANCHOR,
+			skill: ANCHOR,
 			exerciseLevel: 0,
 			item: { voicingKey: ORDER[0] },
 			phase: 'consolidation',
@@ -158,7 +159,7 @@ describe('triadSubject', () => {
 	it('refuses a triads exercise that declares no recall threshold', () => {
 		expect(() =>
 			triadSubject({
-				mechanic: 'triad-anchor',
+				skill: 'chord-anchor',
 				definitions: { anchor: withoutThreshold(TRIADS_ANCHOR), zone: TRIADS_ZONE },
 				acquiredPositions: new Set(),
 				attempts: []
@@ -167,7 +168,7 @@ describe('triadSubject', () => {
 	});
 
 	it('introduces anchor triads in their queue, the acquired notes’ triads first', () => {
-		const subject = subjectOf('triad-anchor');
+		const subject = subjectOf('chord-anchor');
 		expect(subject.nextNew([], NO_HISTORY, NOTHING_BLOCKED)).toEqual(ref(ANCHOR, ORDER[0]));
 		const first = triadCard(ANCHOR, ORDER[0]);
 		expect(subject.nextNew([first], NO_HISTORY, NOTHING_BLOCKED)).toEqual(ref(ANCHOR, ORDER[1]));
@@ -187,7 +188,7 @@ describe('triadSubject', () => {
 		if (!later) return;
 		const acquired = new Set(voicingPositions(later));
 		const prioritized = triadSubject({
-			mechanic: 'triad-anchor',
+			skill: 'chord-anchor',
 			definitions: DEFINITIONS,
 			acquiredPositions: acquired,
 			attempts: []
@@ -199,7 +200,7 @@ describe('triadSubject', () => {
 	});
 
 	it('opens a zone triad only once it is acquired in anchor', () => {
-		const subject = subjectOf('triad-zone');
+		const subject = subjectOf('chord-zone');
 		expect(subject.nextNew([], NO_HISTORY, NOTHING_BLOCKED)).toBeNull();
 		const learned = triadCard(ANCHOR, ORDER[0], { learnedAt: 0 });
 		expect(subject.nextNew([learned], NO_HISTORY, NOTHING_BLOCKED)).toBeNull();
@@ -207,7 +208,7 @@ describe('triadSubject', () => {
 		// Acquired by a cold direct recall in its history.
 		const review: PlannedItem = {
 			exerciseId: TRIADS_ANCHOR.id,
-			mechanic: ANCHOR,
+			skill: ANCHOR,
 			exerciseLevel: 0,
 			item: { voicingKey: ORDER[0] },
 			phase: 'review',
@@ -236,11 +237,11 @@ describe('triadSubject', () => {
 	});
 
 	it('serves only its own exercise’s cards', () => {
-		for (const mechanic of ['triad-anchor', 'triad-zone'] as const) {
-			const subject = subjectOf(mechanic);
-			expect(subject.owns({ mechanic: ANCHOR })).toBe(mechanic === 'triad-anchor');
-			expect(subject.owns({ mechanic: ZONE })).toBe(mechanic === 'triad-zone');
-			expect(subject.owns({ mechanic: 'locate' as MechanicId })).toBe(false);
+		for (const skill of ['chord-anchor', 'chord-zone'] as const) {
+			const subject = subjectOf(skill);
+			expect(subject.owns({ skill: ANCHOR })).toBe(skill === 'chord-anchor');
+			expect(subject.owns({ skill: ZONE })).toBe(skill === 'chord-zone');
+			expect(subject.owns({ skill: 'locate-note-string' as SkillId })).toBe(false);
 			// Both exercises' cards in the store, due for review, solid, or being learned.
 			const cards = [ANCHOR, ZONE].flatMap((of) => [
 				triadCard(of, ORDER[0], { learnedAt: 0, acquiredAt: 0, due: 0 }),
@@ -257,22 +258,22 @@ describe('triadSubject', () => {
 				random: seeded(3)
 			});
 			let now = NOW;
-			const served: MechanicId[] = [];
+			const served: SkillId[] = [];
 			for (let prompt = 0; prompt < 20; prompt += 1) {
 				const planned = procedure.next({ now, elapsedMs: 0, fatigued: false });
 				if (!planned) break;
-				served.push(planned.mechanic);
+				served.push(planned.skill);
 				// Misses every other prompt: recoveries and consolidations come too.
 				procedure.record(answerOf(planned, prompt % 2 === 0, { at: now }), now);
 				now += 4_000;
 			}
 			expect(served.length).toBeGreaterThan(5);
-			expect(new Set(served)).toEqual(new Set([mechanic]));
+			expect(new Set(served)).toEqual(new Set([skill]));
 		}
 	});
 
 	it('never asks the voicing still ringing', () => {
-		const subject = subjectOf('triad-zone');
+		const subject = subjectOf('chord-zone');
 		expect(subject.neighbours(ref(ANCHOR, ORDER[0]), ref(ZONE, ORDER[0]))).toBe(true);
 		expect(subject.neighbours(ref(ZONE, ORDER[0]), ref(ZONE, ORDER[0]))).toBe(true);
 		expect(subject.neighbours(ref(ZONE, ORDER[0]), ref(ZONE, ORDER[1]))).toBe(false);
@@ -288,7 +289,7 @@ describe('triadSubject', () => {
 			answerOf(
 				{
 					exerciseId: TRIADS_ZONE.id,
-					mechanic: ZONE,
+					skill: ZONE,
 					exerciseLevel: 0,
 					item: { voicingKey: voicing, position },
 					phase: 'review',
@@ -300,7 +301,7 @@ describe('triadSubject', () => {
 				{ at }
 			);
 		const stored = [asked(positions[1], 2), asked(positions[0], 1)];
-		const subject = subjectOf('triad-zone', stored);
+		const subject = subjectOf('chord-zone', stored);
 		let last: number | 'open' = positions[1];
 		for (let draw = 0; draw < 6; draw += 1) {
 			const item = subject.promptItem?.(card, seeded(draw)) as TriadZoneItem;
@@ -316,11 +317,11 @@ describe('triadSubject', () => {
 			last = item.position;
 		}
 		// The anchor asks its card's item as it is.
-		expect(subjectOf('triad-anchor').promptItem).toBeUndefined();
+		expect(subjectOf('chord-anchor').promptItem).toBeUndefined();
 	});
 
 	it('plays a zone session on the triads acquired in anchor, a new position each time', () => {
-		const subject = subjectOf('triad-zone');
+		const subject = subjectOf('chord-zone');
 		const acquired = [ORDER[0], ORDER[2], ORDER[4]];
 		const stored = [
 			...acquired.map((voicing) => triadCard(ANCHOR, voicing, { learnedAt: 0, acquiredAt: 0 })),
@@ -343,7 +344,7 @@ describe('triadSubject', () => {
 		for (let prompt = 0; prompt < 20; prompt += 1) {
 			const planned = procedure.next({ now, elapsedMs: 0, fatigued: false });
 			if (!planned) break;
-			expect(planned.mechanic).toBe(ZONE);
+			expect(planned.skill).toBe(ZONE);
 			const item = planned.item as TriadZoneItem;
 			expect(item.voicingKey).not.toBe(previous);
 			if (planned.phase === 'probe') introduced.add(item.voicingKey);
@@ -364,7 +365,7 @@ describe('triadSubject', () => {
 	});
 
 	it('plays a triads session end to end on the procedure', () => {
-		const subject = subjectOf('triad-anchor');
+		const subject = subjectOf('chord-anchor');
 		// Already in the store, at the top of their ladder: an acquired triad (solid, not due), a
 		// learned one, one due for its review; and the zone's cards, never served here.
 		const stored = [
@@ -403,10 +404,10 @@ describe('triadSubject', () => {
 			expect(planned, `prompt ${prompt}`).not.toBeNull();
 			if (!planned) return;
 			const voicing = voicingOf(planned);
-			const key = cardKey(planned.mechanic, voicing);
+			const key = cardKey(planned.skill, voicing);
 
 			// The anchor's own cards only, in its exercise, at a lead of its exercise.
-			expect(planned.mechanic).toBe(ANCHOR);
+			expect(planned.skill).toBe(ANCHOR);
 			expect(planned.exerciseId).toBe(TRIADS_ANCHOR.id);
 			expect([8, 4, 2]).toContain(planned.leadBeats);
 			// Never the chord still ringing.

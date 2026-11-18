@@ -7,13 +7,16 @@ import { triadLevelOfCard } from './migrations/v10';
 import { DexieBackup } from './DexieBackup';
 import {
 	makeAttempt,
+	makeAttemptV12,
 	makeBackupV5,
 	makeBackupV6,
 	makeBackupV7,
 	makeCard,
+	makeCardV12,
 	makeCycleAttemptV11
 } from './testing/fixtures';
 import { attemptToV12 } from './migrations/v12';
+import { attemptToV13, cardToV13 } from './migrations/v13';
 import type { LevelState } from '$lib/domain/time';
 
 describe('createDatabase', () => {
@@ -64,7 +67,7 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(await db.attempts.count()).toBe(0);
 		expect(await db.cards.count()).toBe(0);
 		expect(await db.sessions.count()).toBe(0);
@@ -107,7 +110,7 @@ describe('createDatabase', () => {
 			latency: {},
 			clickBleed: false
 		});
-		expect((await db.cards.toArray()).map((card) => card.mechanic)).toEqual(['locate']);
+		expect((await db.cards.toArray()).map((card) => card.skill)).toEqual(['locate-note-string']);
 		db.close();
 	});
 
@@ -151,9 +154,13 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const cards = await db.cards.orderBy('key').toArray();
-		expect(cards.map((card) => card.key)).toEqual(['identify:5:8', 'locate:3:C', 'locate:6:A']);
+		expect(cards.map((card) => card.key)).toEqual([
+			'identify-note:5:8',
+			'locate-note-string:3:C',
+			'locate-note-string:6:A'
+		]);
 		expect(cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		// Lead 4 is locate's level 1, the one-beat step moved to 2 its top.
 		expect(
@@ -190,11 +197,16 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 
 		const { target: _target, leadBeats: _lead, ...card } = v1Card();
 		expect(await db.cards.toArray()).toEqual([
-			{ ...card, mechanic: 'locate', item: { string: 6, pitch: 'A' } }
+			{
+				...card,
+				key: 'locate-note-string:6:A',
+				skill: 'locate-note-string',
+				item: { string: 6, pitch: 'A' }
+			}
 		]);
 
 		const [locate, identify] = await db.attempts.orderBy('promptedAt').toArray();
@@ -202,8 +214,8 @@ describe('createDatabase', () => {
 			id: 1,
 			sessionId: 's1',
 			exerciseId: 'locate-neck',
-			mechanic: 'locate',
-			cardKey: 'locate:6:A',
+			skill: 'locate-note-string',
+			cardKey: 'locate-note-string:6:A',
 			phase: 'review',
 			temperature: 'cold',
 			aids: [],
@@ -223,7 +235,7 @@ describe('createDatabase', () => {
 		expect(identify).toMatchObject({
 			id: 2,
 			exerciseId: 'identify-neck',
-			mechanic: 'identify',
+			skill: 'identify-note',
 			tempoBpm: null,
 			data: { item: { string: 6, fret: 3 }, answer: { pitch: 'G' }, confusion: null }
 		});
@@ -294,11 +306,13 @@ describe('createDatabase', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
-		const { aid: _aid, ...kept } = attempt;
+		expect(db.verno).toBe(13);
+		const { aid: _aid, mechanic: _mechanic, ...kept } = attempt;
 		expect(await db.attempts.toArray()).toEqual([
 			{
 				...kept,
+				skill: 'locate-note-string',
+				cardKey: 'locate-note-string:6:A',
 				id: 1,
 				observations: null,
 				success: true,
@@ -312,10 +326,10 @@ describe('createDatabase', () => {
 		db.close();
 	});
 
-	it('opens at version 12 and stores rows', async () => {
+	it('opens at version 13 and stores rows', async () => {
 		const db = createDatabase(crypto.randomUUID());
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		await db.settings.put({ id: 'settings', locale: 'en' });
 		expect(await db.settings.get('settings')).toEqual({ id: 'settings', locale: 'en' });
 		db.close();
@@ -450,7 +464,7 @@ describe('version 7', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(await db.levelStates.count()).toBe(0);
 		db.close();
@@ -510,14 +524,15 @@ describe('version 9', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
-		// Version 10 then took the lead off every card, and gave the triad card its level.
+		expect(db.verno).toBe(13);
+		// Version 10 then took the lead off every card, and gave the triad card its level; version 13
+		// named each by its skill.
 		expect(await db.cards.orderBy('key').toArray()).toEqual(
-			[...cards]
-				.sort((a, b) => a.key.localeCompare(b.key))
-				.map(({ leadBeats: _lead, ...card }) => card)
+			cards
+				.map(({ leadBeats: _lead, ...card }) => cardToV13(card))
+				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
 		);
-		expect(await db.attempts.toArray()).toEqual([{ ...attempts[0], id: 1 }]);
+		expect(await db.attempts.toArray()).toEqual([attemptToV13({ ...attempts[0], id: 1 })]);
 		// Version 11 dropped the locate progression: locate plays at a fixed tempo.
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		const states = await db.levelStates.toArray();
@@ -551,7 +566,7 @@ describe('version 10', () => {
 		const v9Card =
 			(mechanic: string, item: Record<string, unknown>, itemKey: string) =>
 			(leadBeats: number, learnedAt: number | null) => ({
-				...makeCard({ mechanic: 'locate', learnedAt }),
+				...makeCardV12({ learnedAt }),
 				key: `${mechanic}:${itemKey}`,
 				mechanic,
 				item,
@@ -575,7 +590,7 @@ describe('version 10', () => {
 			failures: 0,
 			resumeAfter: null
 		};
-		const attempts = [{ ...makeAttempt(), id: 1 }];
+		const attempts = [{ ...makeAttemptV12(), id: 1 }];
 		await old.table('cards').bulkAdd(cards);
 		await old.table('attempts').bulkAdd(attempts);
 		await old.table('levelStates').add(locateLevel);
@@ -583,15 +598,15 @@ describe('version 10', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const stored = await db.cards.orderBy('key').toArray();
 		expect(stored.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 		expect(stored).toEqual(
-			[...cards]
-				.sort((a, b) => a.key.localeCompare(b.key))
-				.map(({ leadBeats: _lead, ...card }) => card)
+			cards
+				.map(({ leadBeats: _lead, ...card }) => cardToV13(card))
+				.sort((a, b) => String(a.key).localeCompare(String(b.key)))
 		);
-		expect(await db.attempts.toArray()).toEqual(attempts);
+		expect(await db.attempts.toArray()).toEqual(attempts.map(attemptToV13));
 		const states = await db.levelStates.toArray();
 		const levelOf = (exerciseId: string, item: string) =>
 			states.find((state) => state.exerciseId === exerciseId && state.item === item)?.level;
@@ -664,8 +679,8 @@ describe('version 11', () => {
 			resumeAfter: null
 		};
 		const attempts = [
-			{ ...makeAttempt({ id: 1 }), tempoScope: 'blues-f' },
-			{ ...makeAttempt({ id: 2 }) }
+			{ ...makeAttemptV12({ id: 1 }), tempoScope: 'blues-f' },
+			{ ...makeAttemptV12({ id: 2 }) }
 		];
 		await old.table('progressions').bulkAdd(progressions);
 		await old.table('scopedProgressions').bulkAdd(scopedProgressions);
@@ -675,7 +690,7 @@ describe('version 11', () => {
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		expect(db.tables.map((table) => table.name)).not.toContain('scopedProgressions');
 		expect([...db.backendDB().objectStoreNames]).not.toContain('progressions');
@@ -700,7 +715,7 @@ describe('version 11', () => {
 		const { tempoScope: _scope, ...first } = attempts[0] as (typeof attempts)[0] & {
 			tempoScope: string;
 		};
-		expect(stored).toEqual([{ ...first, scope: 'blues-f' }, attempts[1]]);
+		expect(stored).toEqual([{ ...first, scope: 'blues-f' }, attempts[1]].map(attemptToV13));
 
 		// The equivalent backup 6 lands on the same rows.
 		const imported = createDatabase(crypto.randomUUID());
@@ -734,18 +749,22 @@ describe('version 12', () => {
 			levelStates: '[exerciseId+scope+item]'
 		});
 		const rhythm = makeCycleAttemptV11({ id: 1 });
-		const locate = makeAttempt({ id: 2 });
+		const locate = makeAttemptV12({ id: 2 });
 		await old.table('attempts').bulkAdd([rhythm, locate]);
 		old.close();
 
 		const db = createDatabase(name);
 		await db.open();
-		expect(db.verno).toBe(12);
+		expect(db.verno).toBe(13);
 		const [upgraded, other] = await db.attempts.orderBy('id').toArray();
-		expect(upgraded).toEqual(attemptToV12(rhythm));
-		expect(upgraded).toMatchObject({ mechanic: 'figure', cardKey: 'figure:offbeats-2@2' });
+		// Version 13 then named each by the skill of its exercise.
+		expect(upgraded).toEqual(attemptToV13(attemptToV12(rhythm)));
+		expect(upgraded).toMatchObject({
+			skill: 'figure-independence',
+			cardKey: 'figure-independence:offbeats-2@2'
+		});
 		expect(upgraded.plan).not.toHaveProperty('cycleBars');
-		expect(other).toEqual(locate);
+		expect(other).toEqual(attemptToV13(locate));
 
 		// The equivalent backup 7 lands on the same rows.
 		const imported = createDatabase(crypto.randomUUID());
@@ -754,6 +773,87 @@ describe('version 12', () => {
 		);
 		expect(await imported.attempts.orderBy('id').toArray()).toEqual([upgraded, other]);
 		imported.close();
+		db.close();
+	});
+});
+
+describe('version 13', () => {
+	it('upgrades 12 to 13: every card and attempt names its skill, its key prefixed by it', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const triad = 'D|maj|3:5,2:1,1:3';
+		const cards = [
+			makeCardV12(),
+			makeCardV12({ mechanic: 'identify' }),
+			makeCardV12({
+				mechanic: 'triad-anchor',
+				key: `triad-anchor:${triad}`,
+				item: { voicingKey: triad }
+			}),
+			makeCardV12({
+				mechanic: 'triad-zone',
+				key: `triad-zone:${triad}`,
+				item: { voicingKey: triad }
+			})
+		];
+		const attempt = (exerciseId: string, mechanic: string, key: string) => ({
+			...makeAttemptV12(),
+			exerciseId,
+			mechanic,
+			cardKey: `${mechanic}:${key}`
+		});
+		const attempts = [
+			attempt('locate-neck', 'locate', '2:F'),
+			attempt('identify-neck', 'identify', '5:8'),
+			attempt('triads-anchor', 'triad-anchor', triad),
+			attempt('triads-zone', 'triad-zone', triad),
+			attempt('gesture-jam', 'chord-grid', 'jam:iohefy-a#0'),
+			attempt('rhythm-offbeats', 'figure', 'offbeats-2@2'),
+			attempt('somewhere-else', 'figure', 'x@0')
+		];
+		await old.table('cards').bulkAdd(cards);
+		await old.table('attempts').bulkAdd(attempts);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		const stored = await db.cards.toArray();
+		expect(stored).toHaveLength(cards.length);
+		expect(stored.map((card) => card.key).sort()).toEqual(
+			[
+				'locate-note-string:2:F',
+				'identify-note:5:8',
+				`chord-anchor:${triad}`,
+				`chord-zone:${triad}`
+			].sort()
+		);
+		for (const card of stored) {
+			expect(card).not.toHaveProperty('mechanic');
+			const before = cards.find((old) =>
+				String(old.key).endsWith(card.key.slice(card.skill.length))
+			);
+			expect(card.scheduling).toEqual(before?.scheduling);
+		}
+		const upgraded = await db.attempts.orderBy('id').toArray();
+		expect(upgraded.map(({ skill, cardKey }) => [skill, cardKey])).toEqual([
+			['locate-note-string', 'locate-note-string:2:F'],
+			['identify-note', 'identify-note:5:8'],
+			['chord-anchor', `chord-anchor:${triad}`],
+			['chord-zone', `chord-zone:${triad}`],
+			['grid-reading', 'grid-reading:jam:iohefy-a#0'],
+			['figure-independence', 'figure-independence:offbeats-2@2'],
+			// An exercise the catalog of version 12 did not hold: its id names its skill.
+			['somewhere-else', 'somewhere-else:x@0']
+		]);
+		expect(upgraded.some((row) => Object.hasOwn(row, 'mechanic'))).toBe(false);
 		db.close();
 	});
 });

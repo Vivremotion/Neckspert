@@ -15,10 +15,10 @@ import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 
-const L1: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'E' } };
-const L2: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F' } };
-const L3: NeckCard = { mechanic: 'locate', item: { string: 1, pitch: 'F#' } };
-const I0: NeckCard = { mechanic: 'identify', item: { string: 1, fret: 0 } };
+const L1: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'E' } };
+const L2: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'F' } };
+const L3: NeckCard = { skill: 'locate-note-string', item: { string: 1, pitch: 'F#' } };
+const I0: NeckCard = { skill: 'identify-note', item: { string: 1, fret: 0 } };
 
 function introduced(card: NeckCard, now: number, sessionId: string): CardState {
 	return introduceCard(keyed(card), now, sessionId);
@@ -31,10 +31,10 @@ function learnedAt(state: CardState, now: number): CardState {
 /** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */
 function on(card: NeckCard): AttemptOverrides {
 	return {
-		exerciseId: neckExerciseId(card.mechanic),
-		mechanic: card.mechanic,
+		exerciseId: neckExerciseId(card.skill),
+		skill: card.skill,
 		cardKey: neckCardKey(card),
-		tempoBpm: card.mechanic === 'locate' ? 80 : null,
+		tempoBpm: card.skill === 'locate-note-string' ? 80 : null,
 		data: { item: card.item, answer: null, confusion: null }
 	};
 }
@@ -44,7 +44,7 @@ function coldAttempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
-		mechanic: 'locate',
+		skill: 'locate-note-string',
 		cardKey: neckCardKey(L1),
 		phase: 'review',
 		temperature: 'cold',
@@ -391,7 +391,7 @@ describe('summarizeSession', () => {
 
 describe('buildNeckMap', () => {
 	it('leaves a missed probe out of cold accuracy', () => {
-		const target: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const target: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
 		const card = { ...introduced(target, NOW, 's0'), acquiredAt: NOW };
 		const attempts = [
 			coldAttempt({
@@ -411,8 +411,8 @@ describe('buildNeckMap', () => {
 	});
 
 	it('builds 72 cells with injected pitches and per-sense status', () => {
-		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
-		const FRET_1: NeckCard = { mechanic: 'identify', item: { string: 2, fret: 1 } };
+		const C_ON_B: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
+		const FRET_1: NeckCard = { skill: 'identify-note', item: { string: 2, fret: 1 } };
 		const locate = {
 			...introduced(C_ON_B, NOW, 's0'),
 			acquiredAt: NOW,
@@ -478,7 +478,7 @@ describe('buildNeckMap', () => {
 	});
 
 	describe('last cold recall of a locate card', () => {
-		const C_ON_B: NeckCard = { mechanic: 'locate', item: { string: 2, pitch: 'C' } };
+		const C_ON_B: NeckCard = { skill: 'locate-note-string', item: { string: 2, pitch: 'C' } };
 		const card = { ...introduced(C_ON_B, NOW, 'intro'), leadBeats: 4 as const };
 		/** Each session's attempts carry its tempo; 'old' is from before tempos were recorded. */
 		const tempos: Record<string, number | null> = { slow: 80, fast: 115, old: null };
@@ -551,7 +551,11 @@ describe('buildNeckMap', () => {
 	});
 
 	it('reads the tempo of the attempt, without a list of sessions', () => {
-		const card = introduced({ mechanic: 'locate', item: { string: 2, pitch: 'C' } }, NOW, 's0');
+		const card = introduced(
+			{ skill: 'locate-note-string', item: { string: 2, pitch: 'C' } },
+			NOW,
+			's0'
+		);
 		const cells = buildNeckMap({
 			cards: [card],
 			attempts: [coldAttempt({ cardKey: card.key, leadBeats: 4, tempoBpm: 120 })],
@@ -568,8 +572,8 @@ describe('summarizeSession of a triads session', () => {
 			id: 1,
 			sessionId: 'tri',
 			exerciseId: 'triads-anchor',
-			mechanic: 'triad-anchor',
-			cardKey: `triad-anchor:${KEY}`,
+			skill: 'chord-anchor',
+			cardKey: `chord-anchor:${KEY}`,
 			data: { item: { voicingKey: KEY }, answer: null, confusion: null },
 			...overrides
 		});
@@ -611,8 +615,8 @@ describe('summarizeSession of a triads session', () => {
 		triad({
 			id: 4,
 			exerciseId: 'triads-zone',
-			mechanic: 'triad-zone',
-			cardKey: `triad-zone:${KEY}`,
+			skill: 'chord-zone',
+			cardKey: `chord-zone:${KEY}`,
 			correct: false,
 			verdict: 'wrong',
 			data: {
@@ -689,8 +693,8 @@ describe('summarizeSession of a gesture session', () => {
 		const attempts = [0, 1].map((index) =>
 			coldAttempt({
 				exerciseId: 'gesture-jam',
-				mechanic: 'chord-grid',
-				cardKey: `chord-grid:jam:blues-f#${index}`,
+				skill: 'grid-reading',
+				cardKey: `grid-reading:jam:blues-f#${index}`,
 				temperature: 'hot',
 				phase: 'free',
 				data: {

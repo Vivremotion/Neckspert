@@ -29,8 +29,6 @@
 	"exercises": [
 		{
 			"id": "triads-anchor",
-			"version": 1,
-			"mechanic": "triad-anchor",
 			"practices": "chord-anchor",
 			"view": "lane",
 			"tempo": 80,
@@ -167,8 +165,6 @@
 		},
 		{
 			"id": "triads-zone",
-			"version": 1,
-			"mechanic": "triad-zone",
 			"practices": "chord-zone",
 			"view": "lane",
 			"tempo": 80,

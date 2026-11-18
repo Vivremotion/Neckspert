@@ -11,9 +11,9 @@ import type { DirectRecall } from '$lib/domain/learning';
 import type {
 	Attempt,
 	CardState,
-	MechanicId,
 	PlannedItem,
 	RecordedObservation,
+	SkillId,
 	Temperature
 } from '$lib/domain/types';
 import type { ObservationSpan } from './observationSpan';
@@ -24,7 +24,7 @@ import type {
 	LevelStateRepositoryPort
 } from '$lib/application/ports/repositories';
 
-/** `Attempt.data` as the recorder writes it: the mechanic's item, answer and confusion. */
+/** `Attempt.data` as the recorder writes it: the item, answer and confusion. */
 export interface AttemptData {
 	item: unknown;
 	answer: unknown;
@@ -38,10 +38,10 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: ItemSource;
 	sessionId: string;
-	/** Rules of a prompt's mechanic: its learner model and its items. */
-	rules: (mechanic: MechanicId) => MechanicIdentity;
-	/** The direct-recall rule of a mechanic (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
-	recall?: (mechanic: MechanicId) => DirectRecall;
+	/** Rules of the items of a prompt's skill: their learner model and their keys. */
+	rules: (skill: SkillId) => MechanicIdentity;
+	/** The direct-recall rule of a skill (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
+	recall?: (skill: SkillId) => DirectRecall;
 	levels?: LevelStateRepositoryPort;
 }
 
@@ -99,10 +99,10 @@ export class AttemptRecorder {
 		span: ObservationSpan,
 		item: PlannedItem
 	): Promise<number> {
-		const rules = this.deps.rules(item.mechanic);
-		const recall = this.deps.recall?.(item.mechanic);
+		const rules = this.deps.rules(item.skill);
+		const recall = this.deps.recall?.(item.skill);
 		if (!recall && (item.phase === 'probe' || rules.learner === 'memory')) {
-			throw new Error(`No direct-recall rule for mechanic ${item.mechanic}`);
+			throw new Error(`No direct-recall rule for skill ${item.skill}`);
 		}
 		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
 		const stored = attempt as Attempt<AttemptData>;
@@ -243,7 +243,7 @@ export class AttemptRecorder {
 			else if (!existing) {
 				// A prompt may add to its card's item (a position drawn for it): the card keeps its own.
 				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
-				const card = { key, mechanic: item.mechanic, item: kept };
+				const card = { key, skill: item.skill, item: kept };
 				const introduced = introduceCard(card, now, this.deps.sessionId);
 				await this.storeCard(introduced);
 			}

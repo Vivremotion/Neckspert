@@ -11,7 +11,13 @@ import {
 	type SessionSummary,
 	type Settings
 } from '$lib/domain/types';
-import { LOCATE_NECK_ID, TRIADS_ANCHOR_ID, TRIADS_ZONE_ID } from '$lib/domain/exercise/catalogIds';
+import {
+	IDENTIFY_SKILL_ID,
+	LOCATE_NECK_ID,
+	LOCATE_SKILL_ID,
+	TRIADS_ANCHOR_ID,
+	TRIADS_ZONE_ID
+} from '$lib/domain/exercise/catalogIds';
 import { exerciseById } from '$lib/domain/exercise/registry';
 import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
@@ -24,7 +30,7 @@ function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'col
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
 		// Off-beat answers are far past the window: they would hide the distance to the beat.
 		if (!attempt.success) return [];
-		if (attempt.mechanic !== 'locate' || attempt.timingOffsetMs === null) return [];
+		if (attempt.skill !== LOCATE_SKILL_ID || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
 }
@@ -46,7 +52,7 @@ function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | n
 	return latest?.ms ?? null;
 }
 
-/** |offset| of the cold successes on the beat of a triads session, whatever their mechanic. */
+/** |offset| of the cold successes on the beat of a triads session, whatever their skill. */
 function beatOffsets(attempts: readonly Attempt[]): number[] {
 	return attempts.flatMap((attempt) => {
 		if (attempt.temperature !== 'cold' || !attempt.success) return [];
@@ -57,7 +63,7 @@ function beatOffsets(attempts: readonly Attempt[]): number[] {
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
-		if (attempt.mechanic !== 'identify') return [];
+		if (attempt.skill !== IDENTIFY_SKILL_ID) return [];
 		if (attempt.reactionMs === null) return [];
 		return [attempt.reactionMs];
 	});
@@ -166,8 +172,8 @@ export function buildNeckMap(input: {
 	for (let string = 1 as StringNumber; string <= 6; string = (string + 1) as StringNumber) {
 		for (const fret of LEARNABLE_FRETS) {
 			const pitch = input.pitchAt(string, fret);
-			const locateKey = neckCardKey({ mechanic: 'locate', item: { string, pitch } });
-			const identifyKey = neckCardKey({ mechanic: 'identify', item: { string, fret } });
+			const locateKey = neckCardKey({ skill: LOCATE_SKILL_ID, item: { string, pitch } });
+			const identifyKey = neckCardKey({ skill: IDENTIFY_SKILL_ID, item: { string, fret } });
 			const locateCard = byKey.get(locateKey);
 			const cold = input.attempts.filter(
 				(attempt) =>

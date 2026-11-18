@@ -27,8 +27,14 @@ describe('the gesture exercises', () => {
 		expect(GESTURE_LINK.howTo?.fr).toMatch(
 			/^Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave/
 		);
+		expect(GESTURE_EXERCISES.map((exercise) => exercise.practices)).toEqual([
+			'inversion-run',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading'
+		]);
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(exercise).toMatchObject({ mechanic: 'chord-grid', tempo: 80 });
+			expect(exercise).toMatchObject({ tempo: 80 });
 			// Nine tempo levels, 80 to 120 by 5, up after ten right changes, down after three misses.
 			expect(exerciseLevelsOf(exercise).map((_, level) => tempoOf(exercise, level))).toEqual([
 				80, 85, 90, 95, 100, 105, 110, 115, 120

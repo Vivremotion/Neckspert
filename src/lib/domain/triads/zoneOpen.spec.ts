@@ -9,9 +9,9 @@ import { TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
 
-function card(mechanic: 'triad-anchor' | 'triad-zone', key: string, acquired: boolean): CardState {
+function card(skill: 'chord-anchor' | 'chord-zone', key: string, acquired: boolean): CardState {
 	const learned = markLearned(
-		introduceCard({ key: cardKey(mechanic, key), mechanic, item: { voicingKey: key } }, 0, 's-old'),
+		introduceCard({ key: cardKey(skill, key), skill, item: { voicingKey: key } }, 0, 's-old'),
 		0
 	);
 	return { ...learned, acquiredAt: acquired ? 0 : null };
@@ -20,9 +20,9 @@ function card(mechanic: 'triad-anchor' | 'triad-zone', key: string, acquired: bo
 describe('triadZoneOpen', () => {
 	it('opens the zone once six triads are acquired in anchor', () => {
 		expect(ZONE_MIN_ACQUIRED_TRIADS).toBe(6);
-		const acquired = ORDER.slice(0, 6).map((key) => card('triad-anchor', key, true));
+		const acquired = ORDER.slice(0, 6).map((key) => card('chord-anchor', key, true));
 		expect(triadZoneOpen(acquired.slice(0, 5))).toBe(false);
-		expect(triadZoneOpen([...acquired.slice(0, 5), card('triad-anchor', ORDER[5], false)])).toBe(
+		expect(triadZoneOpen([...acquired.slice(0, 5), card('chord-anchor', ORDER[5], false)])).toBe(
 			false
 		);
 		expect(triadZoneOpen(acquired)).toBe(true);
@@ -30,7 +30,7 @@ describe('triadZoneOpen', () => {
 
 	it('keeps the zone open once it has a card', () => {
 		expect(
-			triadZoneOpen([card('triad-anchor', ORDER[0], true), card('triad-zone', ORDER[0], false)])
+			triadZoneOpen([card('chord-anchor', ORDER[0], true), card('chord-zone', ORDER[0], false)])
 		).toBe(true);
 	});
 });

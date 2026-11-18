@@ -1,3 +1,4 @@
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { MAX_PROMPT_FRET, type StringNumber } from '$lib/domain/music/types';
 import { pitchOnString } from './fretboard';
 import type { LocateItem, NeckCard } from './items';
@@ -25,9 +26,12 @@ export function locateItems(): LocateItem[] {
 /** Every card free play draws from: 66 locate, then 66 identify. */
 export function practiceCards(): NeckCard[] {
 	return [
-		...locateItems().map((item): NeckCard => ({ mechanic: 'locate', item })),
+		...locateItems().map((item): NeckCard => ({ skill: LOCATE_SKILL_ID, item })),
 		...CURRICULUM_STRINGS.flatMap((string) =>
-			LEARNABLE_FRETS.map((fret): NeckCard => ({ mechanic: 'identify', item: { string, fret } }))
+			LEARNABLE_FRETS.map((fret): NeckCard => ({
+				skill: IDENTIFY_SKILL_ID,
+				item: { string, fret }
+			}))
 		)
 	];
 }

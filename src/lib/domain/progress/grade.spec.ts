@@ -15,8 +15,8 @@ function attempts(
 	const base: ResponseAttemptFields = {
 		sessionId: 's1',
 		exerciseId: 'locate-neck',
-		mechanic: 'locate',
-		cardKey: 'locate:2:F',
+		skill: 'locate-note-string',
+		cardKey: 'locate-note-string:2:F',
 		phase: 'free',
 		temperature: 'cold',
 		aid: 'none',

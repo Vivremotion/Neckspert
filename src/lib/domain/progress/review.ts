@@ -1,4 +1,5 @@
-import type { MechanicId } from '$lib/domain/exercise/types';
+import { LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import type { SkillId } from '$lib/domain/skill/types';
 import type { Attempt, CardKey, CardState } from '$lib/domain/types';
 import { MIN_COLD_DELAY_MS } from './constants';
 
@@ -24,8 +25,8 @@ export function reviewableAt(card: CardState, lastAttemptAt: number | undefined)
 	return Math.max(card.scheduling.due, lastAttemptAt + MIN_COLD_DELAY_MS);
 }
 
-function mechanicRank(mechanic: MechanicId): number {
-	return mechanic === 'locate' ? 0 : 1;
+function skillRank(skill: SkillId): number {
+	return skill === LOCATE_SKILL_ID ? 0 : 1;
 }
 
 /** Cards that would be reviewed cold now: by due time, locate first, then key. */
@@ -41,8 +42,8 @@ export function reviewableCards(
 		})
 		.sort((a, b) => {
 			if (a.scheduling.due !== b.scheduling.due) return a.scheduling.due - b.scheduling.due;
-			const byMechanic = mechanicRank(a.mechanic) - mechanicRank(b.mechanic);
-			if (byMechanic !== 0) return byMechanic;
+			const bySkill = skillRank(a.skill) - skillRank(b.skill);
+			if (bySkill !== 0) return bySkill;
 			return a.key.localeCompare(b.key);
 		});
 }

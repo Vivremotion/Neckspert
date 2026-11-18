@@ -17,7 +17,7 @@ function keys(items: readonly LocateItem[]): string[] {
 	return items.map((item) => `${item.string}:${item.pitch}`);
 }
 
-const locate = (item: LocateItem): NeckCard => ({ mechanic: 'locate', item });
+const locate = (item: LocateItem): NeckCard => ({ skill: 'locate-note-string', item });
 
 function introduced(card: NeckCard): CardState {
 	return introduceCard(keyed(card), NOW, 's1');
@@ -84,7 +84,7 @@ describe('nextNewCard', () => {
 
 	it('offers the identify position of an acquired locate card first', () => {
 		const cards = [acquired(introduced(locate({ string: 6, pitch: 'G' })))];
-		expect(nextNewCard(cards)).toEqual({ mechanic: 'identify', item: { string: 6, fret: 3 } });
+		expect(nextNewCard(cards)).toEqual({ skill: 'identify-note', item: { string: 6, fret: 3 } });
 	});
 
 	it('holds back a note whose mirror is not acquired yet, without blocking the next ones', () => {
@@ -94,7 +94,7 @@ describe('nextNewCard', () => {
 			const fret = fretsForPitch(item.string, item.pitch, 11).find((f) => f > 0) ?? 0;
 			return [
 				acquired(introduced(locate(item))),
-				introduced({ mechanic: 'identify', item: { string: item.string, fret } })
+				introduced({ skill: 'identify-note', item: { string: item.string, fret } })
 			];
 		});
 		const aOnLowE = neckCardKey(locate({ string: 6, pitch: 'A' }));

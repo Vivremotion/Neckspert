@@ -1,4 +1,5 @@
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
+import { mechanicOfSkill } from '../../skill/bridge';
 import { CONTENT_JUDGES, PITCH_CONTENT } from '../../judges';
 import { attackNotes, validateFigure, type Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
@@ -87,10 +88,10 @@ function paramValue(params: Readonly<Record<string, unknown>>, path: string): un
 /** Why no level of the ladder can give the lead, naming the levels; null when each gives one. */
 function leadProblem(check: Check): string | null {
 	const { definition } = check;
-	const field = ladderFieldOf(definition, definition.mechanic);
+	const field = ladderFieldOf(definition, mechanicOfSkill(definition.practices));
 	let ladder;
 	try {
-		ladder = ladderOf(definition, definition.mechanic);
+		ladder = ladderOf(definition, mechanicOfSkill(definition.practices));
 	} catch {
 		return `reads param "leadBeats", but the exercise writes no ladder (${field})`;
 	}
@@ -118,10 +119,10 @@ function numberOf(check: Check, field: string, value: unknown): number | undefin
 			return at(field, `measures unknown item number "${String(value.item)}"`);
 		}
 		const { reads } = ITEM_NUMBERS[value.item];
-		if (!reads.includes(check.definition.mechanic)) {
+		if (!reads.includes(mechanicOfSkill(check.definition.practices))) {
 			return at(
 				field,
-				`measures "${value.item}" which reads ${reads.join(', ')}, not ${check.definition.mechanic}`
+				`measures "${value.item}" which reads ${reads.join(', ')}, not ${mechanicOfSkill(check.definition.practices)}`
 			);
 		}
 		return undefined;
@@ -259,10 +260,10 @@ function contentProblem(check: Check, field: string, content: unknown): string |
 /** Why a known derivation cannot serve the exercise: another mechanic's, or a kind with no judge. */
 function derivationProblem(check: Check, field: string, from: string): string | null {
 	const derivation = CONTENT_DERIVATIONS[from];
-	if (!derivation.reads.includes(check.definition.mechanic)) {
+	if (!derivation.reads.includes(mechanicOfSkill(check.definition.practices))) {
 		return at(
 			field,
-			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${check.definition.mechanic}`
+			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${mechanicOfSkill(check.definition.practices)}`
 		);
 	}
 	if (!Object.hasOwn(CONTENT_JUDGES, derivation.kind)) {
@@ -394,10 +395,10 @@ function namedFigures(
 			return at(field, `reads unknown item figure "${String(name)}"`);
 		}
 		const { reads } = ITEM_FIGURES[name];
-		if (!reads.includes(definition.mechanic)) {
+		if (!reads.includes(mechanicOfSkill(definition.practices))) {
 			return at(
 				field,
-				`reads "${name}" which reads ${reads.join(', ')}, not ${definition.mechanic}`
+				`reads "${name}" which reads ${reads.join(', ')}, not ${mechanicOfSkill(definition.practices)}`
 			);
 		}
 		if (written.length === 0)

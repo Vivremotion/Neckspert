@@ -3,7 +3,7 @@ import type { LocateItem, NeckCard } from '$lib/domain/music';
 import { allowedAfter, pickAtRandom } from './order';
 
 const on = (string: LocateItem['string'], pitch: LocateItem['pitch']): NeckCard => ({
-	mechanic: 'locate',
+	skill: 'locate-note-string',
 	item: { string, pitch }
 });
 /** A candidate carrying a card, as cards and planned items do. */
@@ -18,7 +18,7 @@ describe('allowedAfter', () => {
 	});
 
 	it('tells a locate card from the identify card of the same position', () => {
-		expect(allowedAfter({ mechanic: 'identify', item: { string: 6, fret: 5 } }, on(6, 'A'))).toBe(
+		expect(allowedAfter({ skill: 'identify-note', item: { string: 6, fret: 5 } }, on(6, 'A'))).toBe(
 			true
 		);
 	});

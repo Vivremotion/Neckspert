@@ -10,7 +10,7 @@ import { RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const ITEM: PlannedItem = {
 	exerciseId: RHYTHM_SILENT_BARS.id,
-	mechanic: figureRules.id,
+	skill: figureRules.id,
 	exerciseLevel: 0,
 	item: { figureId: 'eighths', level: 0 },
 	phase: 'learning',
@@ -43,8 +43,8 @@ function modelOf(definition: ExerciseDefinition): Record<string, unknown> {
 		runRounds: [],
 		endedSessions: 0,
 		played: null,
-			live: null,
-			coming: null
+		live: null,
+		coming: null
 	}) as Record<string, unknown>;
 }
 

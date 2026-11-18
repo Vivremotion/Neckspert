@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import type { SkillId } from '$lib/domain/types';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
@@ -19,8 +20,8 @@ import { graduateToReview } from './scheduling';
 import type { LevelState } from '$lib/domain/time/levels';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
-const LOCATE = 'locate' as MechanicId;
-const IDENTIFY = 'identify' as MechanicId;
+const LOCATE = 'locate-note-string' as SkillId;
+const IDENTIFY = 'identify-note' as SkillId;
 const DEFINITIONS = { locate: LOCATE_NECK, identify: IDENTIFY_NECK };
 /** 80 bpm: a beat is 750 ms; leads 8, 4, 2 beats are 6 000, 3 000, 1 500 ms. */
 const TEMPO = 80;
@@ -28,9 +29,9 @@ const NO_HISTORY = new Map<CardKey, readonly Attempt[]>();
 const NOTHING_BLOCKED = () => false;
 const PROMPTS = 40;
 
-const locate = (item: LocateItem): CardRef => ({ mechanic: LOCATE, item });
+const locate = (item: LocateItem): CardRef => ({ skill: LOCATE, item });
 const identify = (string: 1 | 2 | 3 | 4 | 5 | 6, fret: number): CardRef => ({
-	mechanic: IDENTIFY,
+	skill: IDENTIFY,
 	item: { string, fret }
 });
 
@@ -42,7 +43,7 @@ function neckCard(
 	const learnedAt = fields.learnedAt ?? null;
 	return {
 		key: neckCardKey(card),
-		mechanic: card.mechanic,
+		skill: card.skill,
 		item: card.item,
 		introducedAt: 0,
 		introducedInSession: 'past',
@@ -73,15 +74,15 @@ function withThreshold(definition: ExerciseDefinition, recallThresholdMs: number
 }
 
 describe('neckSubject', () => {
-	it('owns the neck’s cards and plays each mechanic in its exercise', () => {
+	it('owns the neck’s cards and plays each skill in its exercise', () => {
 		const subject = neckSubject({ definitions: DEFINITIONS });
-		expect(subject.owns({ mechanic: LOCATE })).toBe(true);
-		expect(subject.owns({ mechanic: IDENTIFY })).toBe(true);
-		expect(subject.owns({ mechanic: 'triad-anchor' as MechanicId })).toBe(false);
+		expect(subject.owns({ skill: LOCATE })).toBe(true);
+		expect(subject.owns({ skill: IDENTIFY })).toBe(true);
+		expect(subject.owns({ skill: 'chord-anchor' as SkillId })).toBe(false);
 		expect(subject.exerciseOf(LOCATE)).toBe(LOCATE_NECK.id);
 		expect(subject.exerciseOf(IDENTIFY)).toBe(IDENTIFY_NECK.id);
 		const g = locate({ string: 6, pitch: 'G' });
-		expect(`locate:${subject.itemKey(g)}`).toBe(neckCardKey(asNeckCard(g)));
+		expect(`locate-note-string:${subject.itemKey(g)}`).toBe(neckCardKey(asNeckCard(g)));
 		expect(subject.itemKey(identify(5, 3))).toBe('5:3');
 	});
 
@@ -140,7 +141,7 @@ describe('neckSubject', () => {
 		const acquired = neckCard(asNeckCard(locate(order[0])), { learnedAt: 0, acquiredAt: 0 });
 		expect(subject.nextNew([acquired], NO_HISTORY, NOTHING_BLOCKED)).toEqual(identify(6, 3));
 		// A card of another track does not count among the neck's.
-		const foreign: CardState = { ...first, mechanic: 'triad-anchor' as MechanicId };
+		const foreign: CardState = { ...first, skill: 'chord-anchor' as SkillId };
 		expect(subject.nextNew([foreign], NO_HISTORY, NOTHING_BLOCKED)).toEqual(locate(order[0]));
 		// Blocked: nothing now.
 		expect(subject.nextNew([], NO_HISTORY, () => true)).toBeNull();
@@ -189,7 +190,7 @@ describe('neckSubject', () => {
 
 		const planned: PlannedItem = {
 			exerciseId: LOCATE_NECK.id,
-			mechanic: LOCATE,
+			skill: LOCATE,
 			exerciseLevel: 0,
 			item: { string: 6, pitch: 'G' },
 			phase: 'consolidation',
@@ -204,7 +205,7 @@ describe('neckSubject', () => {
 	it('judges direct recall by the threshold the exercise declares', () => {
 		const planned = (leadBeats: 2 | 4): PlannedItem => ({
 			exerciseId: LOCATE_NECK.id,
-			mechanic: LOCATE,
+			skill: LOCATE,
 			exerciseLevel: 0,
 			item: { string: 6, pitch: 'G' },
 			phase: 'review',
@@ -228,7 +229,7 @@ describe('neckSubject', () => {
 		// Identify, in free time: its reaction against its exercise's threshold.
 		const named: PlannedItem = {
 			exerciseId: IDENTIFY_NECK.id,
-			mechanic: IDENTIFY,
+			skill: IDENTIFY,
 			exerciseLevel: 0,
 			item: { string: 6, fret: 3 },
 			phase: 'review',
@@ -280,18 +281,18 @@ describe('neckSubject', () => {
 		// The player: right at every prompt but the probes of the first locate note and the first
 		// identify one probed, so each of them is learned through its ladder (locate 8, 4, 2, 2;
 		// identify the name shown, then twice unaided).
-		const unknown = new Map<MechanicId, CardKey>();
+		const unknown = new Map<SkillId, CardKey>();
 		const succeeds = (planned: PlannedItem, key: CardKey): boolean => {
-			if (planned.phase === 'probe' && !unknown.has(planned.mechanic)) {
-				unknown.set(planned.mechanic, key);
+			if (planned.phase === 'probe' && !unknown.has(planned.skill)) {
+				unknown.set(planned.skill, key);
 			}
-			return !(planned.phase === 'probe' && unknown.get(planned.mechanic) === key);
+			return !(planned.phase === 'probe' && unknown.get(planned.skill) === key);
 		};
 
 		const hot = new Set<CardKey>();
 		let previous: { planned: PlannedItem; key: CardKey; success: boolean } | null = null;
 		let missedProbes = 0;
-		const learnedByLadder = new Set<MechanicId>();
+		const learnedByLadder = new Set<SkillId>();
 		let reviews = 0;
 		let now = 1_000_000;
 		for (let prompt = 0; prompt < PROMPTS; prompt += 1) {
@@ -301,9 +302,9 @@ describe('neckSubject', () => {
 			const card = asNeckCard(planned);
 			const key = neckCardKey(card);
 
-			// Each mechanic in its exercise, at a lead of its own.
-			expect(planned.exerciseId).toBe(subject.exerciseOf(planned.mechanic));
-			if (planned.mechanic === LOCATE) expect([8, 4, 2]).toContain(planned.leadBeats);
+			// Each skill in its exercise, at a lead of its own.
+			expect(planned.exerciseId).toBe(subject.exerciseOf(planned.skill));
+			if (planned.skill === LOCATE) expect([8, 4, 2]).toContain(planned.leadBeats);
 			else expect(planned.leadBeats).toBeNull();
 			// Categories: probes and reviews cold and unaided, learning and consolidation hot.
 			const cold = planned.phase === 'probe' || planned.phase === 'review';
@@ -313,7 +314,7 @@ describe('neckSubject', () => {
 				expect(planned.stringAid ?? false).toBe(false);
 			}
 			if (planned.aid !== 'none') expect(planned.phase).toBe('learning');
-			if (planned.stringAid) expect(planned.mechanic).toBe(LOCATE);
+			if (planned.stringAid) expect(planned.skill).toBe(LOCATE);
 			// Never the previous item nor its mirror, but for the aided presentation right after a
 			// probe not recalled directly (the procedure's judgement, not the player's success).
 			if (previous !== null) {
@@ -336,7 +337,7 @@ describe('neckSubject', () => {
 			const outcome = procedure.record(answerOf(planned, success, { at: now }), now);
 			if (planned.phase === 'probe' && !success) missedProbes += 1;
 			if (planned.phase === 'learning' && outcome?.card?.learnedAt != null) {
-				learnedByLadder.add(planned.mechanic);
+				learnedByLadder.add(planned.skill);
 			}
 			previous = { planned, key, success };
 			now += 4_000;

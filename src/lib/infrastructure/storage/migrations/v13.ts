@@ -16,6 +16,7 @@ import {
 } from '$lib/domain/music/items';
 import { parseVoicingKey } from '$lib/domain/music/voicing';
 import { parseNoteName } from '$lib/domain/time/noteName';
+import type { BackupV8 } from './v12';
 
 /** What a mechanic was up to version 12: its id, whether it had cards, its item keys. Frozen. */
 export interface MechanicV12 {
@@ -172,3 +173,83 @@ export const MECHANICS_V12: readonly MechanicV12[] = [
 	voicingFigureV12,
 	formFigureV12
 ];
+
+// Version 13 (backup 9): a card and an attempt name the skill they practise, not the mechanic
+// that played it, and their key begins with that skill. The tables are frozen: they are what the
+// catalog of version 12 played; a tripwire test compares the exercises' with the catalog.
+
+type Row = Record<string, unknown>;
+
+/** The skill of a card of each memory mechanic of version 12. Frozen. */
+export const SKILL_OF_MECHANIC_V13: Readonly<Record<string, string>> = {
+	locate: 'locate-note-string',
+	identify: 'identify-note',
+	'triad-anchor': 'chord-anchor',
+	'triad-zone': 'chord-zone'
+};
+
+/** The skill each exercise of the catalog of version 12 practises, by its id then. Frozen. */
+export const SKILL_OF_EXERCISE_V12: Readonly<Record<string, string>> = {
+	'locate-neck': 'locate-note-string',
+	'identify-neck': 'identify-note',
+	'triads-anchor': 'chord-anchor',
+	'triads-zone': 'chord-zone',
+	'gesture-link': 'inversion-run',
+	'gesture-climb': 'grid-in-direction',
+	'gesture-zone': 'grid-in-zone',
+	'gesture-jam': 'grid-reading',
+	'rhythm-silent-bars': 'inner-pulse',
+	'rhythm-two-four': 'displaced-pulse',
+	'rhythm-offbeats': 'figure-independence'
+};
+
+/** `key` with its prefix (up to the first `:`) replaced by `skill`; as it is without a prefix. */
+function rekeyed(key: unknown, skill: string): unknown {
+	if (typeof key !== 'string') return key;
+	const colon = key.indexOf(':');
+	return colon < 0 ? key : `${skill}:${key.slice(colon + 1)}`;
+}
+
+function lookUp(table: Readonly<Record<string, string>>, name: unknown): string | undefined {
+	return typeof name === 'string' && Object.hasOwn(table, name) ? table[name] : undefined;
+}
+
+/**
+ * A card as version 13 keeps it: the skill of its mechanic, its key prefixed by it, no
+ * `mechanic`. A card of a mechanic the table does not know keeps its mechanic as its skill and
+ * its key as it is: never dropped.
+ */
+export function cardToV13(card: Row): Row {
+	const { mechanic, ...rest } = card;
+	const skill = lookUp(SKILL_OF_MECHANIC_V13, mechanic);
+	if (skill === undefined) return { ...rest, skill: mechanic };
+	return { ...rest, skill, key: rekeyed(card.key, skill) };
+}
+
+/**
+ * An attempt as version 13 keeps it: the skill of its exercise (its exercise id when the
+ * catalog of version 12 had no such exercise), its card key prefixed by it, no `mechanic`. An
+ * attempt without an exercise id keeps the rest as it is.
+ */
+export function attemptToV13(attempt: Row): Row {
+	const { mechanic: _mechanic, ...rest } = attempt;
+	const skill = lookUp(SKILL_OF_EXERCISE_V12, attempt.exerciseId) ?? attempt.exerciseId;
+	if (typeof skill !== 'string') return rest;
+	return { ...rest, skill, cardKey: rekeyed(attempt.cardKey, skill) };
+}
+
+/** A backup at version 9: cards and attempts name their skill. */
+export interface BackupV9 extends Row {
+	version: 9;
+}
+
+/** A version 8 backup as version 9: its cards and attempts upgraded (`cardToV13`, `attemptToV13`). */
+export function backupV8ToV9(backup: BackupV8): BackupV9 {
+	const rows = (value: unknown): Row[] => (Array.isArray(value) ? (value as Row[]) : []);
+	return {
+		...backup,
+		version: 9,
+		cards: rows(backup.cards).map(cardToV13),
+		attempts: rows(backup.attempts).map(attemptToV13)
+	};
+}
