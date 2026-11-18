@@ -27,11 +27,16 @@ export function definitionChecks(
 				presentationProblem(exercise) ??
 				screenProblem(exercise, presenters) ??
 				previewProblem(exercise, presenters);
-			if (problem !== null) return problem;
+			if (problem !== null) {
+				// The validators name the exercise; a refusal carries its id apart.
+				const prefix = `${exercise.id}: `;
+				return problem.startsWith(prefix) ? problem.slice(prefix.length) : problem;
+			}
 			if (exercise.mechanic === 'chord-grid') {
 				const known = new Set(allGrids().map((grid) => grid.id));
 				for (const id of readGestureParams(exercise).grids ?? []) {
-					if (!known.has(id)) return `params.grids names grid "${id}", which no file defines`;
+					if (!known.has(id))
+						return `params.grids names grid "${id}", which no file read so far defines`;
 				}
 			}
 			return null;

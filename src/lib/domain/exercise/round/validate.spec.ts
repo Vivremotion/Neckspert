@@ -507,6 +507,16 @@ describe('roundProblem', () => {
 			const window = withEntry(RHYTHM, { window: { param: 'accompaniment' } });
 			expect(roundProblem(window)).toMatch(/^round\.expectations\[0\]\.window /);
 		});
+
+		it('names the shape a file writes when an accompaniment is none', () => {
+			const written = withRound(RHYTHM, (t) => ({
+				...t,
+				accompaniment: { clicks: { beats: [1] }, bars: ['on'] } as unknown as typeof t.accompaniment
+			}));
+			expect(roundProblem(written)).toBe(
+				'round.accompaniment is no accompaniment ({ figure, bars }; a file writes { clicks, bars })'
+			);
+		});
 	});
 });
 

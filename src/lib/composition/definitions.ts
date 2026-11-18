@@ -17,7 +17,7 @@ function refusalLine(source: string, { file, kind, id, reason }: Refusal): strin
 export function loadDefinitions(input: {
 	catalog: Readonly<Record<string, string>>;
 	local?: Readonly<Record<string, string>>;
-}): Refusal[] {
+}): readonly Refusal[] {
 	if (refused) return refused;
 	const checks = definitionChecks();
 	const sources: [string, Readonly<Record<string, string>> | undefined][] = [

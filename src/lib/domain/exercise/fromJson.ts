@@ -128,7 +128,8 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	for (const key of Object.keys(json)) {
 		if (!Object.hasOwn(KEYS, key)) throw new Error(`unknown key "${key}"`);
 	}
-	if (typeof json.id !== 'string' || json.id === '') throw new Error('id must be a string');
+	if (typeof json.id !== 'string' || json.id === '')
+		throw new Error('id must be a string, not empty');
 	if (typeof json.version !== 'number') throw new Error('version must be a number');
 	if (typeof json.mechanic !== 'string') throw new Error('mechanic must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
@@ -144,7 +145,8 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 
 /**
  * Turns every click accompaniment the file writes into the engine's: the one in `round`, or, when
- * `round.accompaniment` names a param, that param in `params` and in each level's `params`.
+ * `round.accompaniment` names a param, that param in `params` and in each level's `params`. The
+ * param must be a top-level one: a dotted name is refused, the nested value being out of reach.
  */
 function accompanimentsFromJson(
 	json: Record<string, unknown>,
@@ -163,6 +165,9 @@ function accompanimentsFromJson(
 		};
 	}
 	const name = written.param;
+	if (name.includes('.')) {
+		throw new Error(`round.accompaniment.param must name a top-level param, got "${name}"`);
+	}
 	const convert = (params: unknown, where: string): unknown =>
 		isObject(params) && Object.hasOwn(params, name)
 			? { ...params, [name]: accompanimentFromJson(params[name], meter, `${where}.${name}`) }

@@ -219,10 +219,10 @@ describe('HomeScreen', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent)
 			).toEqual([
-				'broken.json : unknown key "x"',
-				'scale.json, exercice `scale` : tempo must be a positive number, got -3',
-				'scale.json, grille `blues` : bars must be a positive integer',
-				'scale.json, exercice : an exercise must be a JSON object'
+				'/exercises.local/broken.json : unknown key "x"',
+				'/exercises.local/scale.json, exercice `scale` : tempo must be a positive number, got -3',
+				'/exercises.local/scale.json, grille `blues` : bars must be a positive integer',
+				'/exercises.local/scale.json, exercice : an exercise must be a JSON object'
 			]);
 		});
 
@@ -235,10 +235,10 @@ describe('HomeScreen', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent)
 			).toEqual([
-				'broken.json: unknown key "x"',
-				'scale.json, exercise `scale`: tempo must be a positive number, got -3',
-				'scale.json, grid `blues`: bars must be a positive integer',
-				'scale.json, exercise: an exercise must be a JSON object'
+				'/exercises.local/broken.json: unknown key "x"',
+				'/exercises.local/scale.json, exercise `scale`: tempo must be a positive number, got -3',
+				'/exercises.local/scale.json, grid `blues`: bars must be a positive integer',
+				'/exercises.local/scale.json, exercise: an exercise must be a JSON object'
 			]);
 		});
 

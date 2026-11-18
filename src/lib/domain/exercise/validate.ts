@@ -170,6 +170,10 @@ function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;
 	if (levels !== undefined) {
 		if (!Array.isArray(levels)) return 'levels is not a list of levels';
+		for (const [index, level] of levels.entries()) {
+			if (!isObject(level)) return `levels[${index}] must be an object`;
+			if (!isObject(level.params)) return `levels[${index}].params must be an object`;
+		}
 		try {
 			levelRange(levels);
 		} catch (error) {
@@ -265,6 +269,7 @@ function formsProblem(definition: ExerciseDefinition): string | null {
 function itemsProblem(definition: ExerciseDefinition): string | null {
 	const { items, round } = definition;
 	if (items === undefined) return null;
+	if (!Array.isArray(items)) return 'items must be a list';
 	if (items.length === 0) return 'items lists no item';
 	const rules = mechanicRules(definition.mechanic);
 	const meter = definition.meter ?? METER_4_4;

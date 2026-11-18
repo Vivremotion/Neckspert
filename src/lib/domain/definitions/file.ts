@@ -52,8 +52,7 @@ function readEntries<T>(
 			kept.push(read(entry));
 			if (id !== null) seen.add(id);
 		} catch (error) {
-			let reason = error instanceof Error ? error.message : String(error);
-			if (id !== null && reason.startsWith(`${id}: `)) reason = reason.slice(id.length + 2);
+			const reason = error instanceof Error ? error.message : String(error);
 			refusals.push({ file, kind, id, reason });
 		}
 	}

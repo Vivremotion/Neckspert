@@ -64,7 +64,7 @@ describe('registerFiles', () => {
 	it('keeps the valid objects of a file that holds a refused one', () => {
 		const refusals = registerFiles(
 			{ 'a.json': file({ exercises: [exercise('bad'), exercise('good')] }) },
-			{ exercise: (e) => (e.id === 'bad' ? 'bad: no good' : null) }
+			{ exercise: (e) => (e.id === 'bad' ? 'no good' : null) }
 		);
 		expect(refusals).toEqual([{ file: 'a.json', kind: 'exercise', id: 'bad', reason: 'no good' }]);
 		expect(allExercises().map((e) => e.id)).toEqual(['good']);

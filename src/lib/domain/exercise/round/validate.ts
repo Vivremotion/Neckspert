@@ -752,7 +752,7 @@ function levelWithoutThresholds(definition: ExerciseDefinition): number | null {
 /** Why an accompaniment cannot be played under the round: no on/off bars, or an invalid figure. */
 function playableProblem(value: unknown): string | null {
 	if (!isRecord(value) || !isRecord(value.figure) || !Array.isArray(value.bars)) {
-		return 'is no accompaniment ({ figure, bars })';
+		return 'is no accompaniment ({ figure, bars }; a file writes { clicks, bars })';
 	}
 	const { bars } = value;
 	if (bars.length === 0 || !bars.every((bar) => bar === 'on' || bar === 'off')) {

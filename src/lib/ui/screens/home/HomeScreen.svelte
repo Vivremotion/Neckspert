@@ -142,7 +142,7 @@
 			<h2>{t.refusedTitle}</h2>
 			<ul>
 				{#each refused as { file, kind, id, reason }, index (index)}
-					<li>{t.refusedWhy(file.split('/').pop() ?? file, kind, id, reason)}</li>
+					<li>{t.refusedWhy(file, kind, id, reason)}</li>
 				{/each}
 			</ul>
 		</section>

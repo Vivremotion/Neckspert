@@ -319,6 +319,23 @@ describe('validateExercise on how a run starts', () => {
 	});
 });
 
+describe('validateExercise on levels a file writes wrong', () => {
+	it('refuses a level that is not an object', () => {
+		expect(
+			validateExercise({
+				...LOCATE_NECK,
+				levels: [null] as unknown as ExerciseDefinition['levels']
+			})
+		).toBe('locate-neck: levels[0] must be an object');
+	});
+
+	it('refuses a level without params', () => {
+		expect(
+			validateExercise({ ...LOCATE_NECK, levels: [{}] as unknown as ExerciseDefinition['levels'] })
+		).toBe('locate-neck: levels[0].params must be an object');
+	});
+});
+
 describe('validateExercise on listed items', () => {
 	const withItems = (
 		items: string[],
@@ -335,6 +352,12 @@ describe('validateExercise on listed items', () => {
 
 	it('refuses an empty list, naming the field', () => {
 		expect(validateExercise(withItems([]))).toBe(`${ARPEGGIO_EXERCISE.id}: items lists no item`);
+	});
+
+	it('refuses items that are not a list', () => {
+		expect(validateExercise(withItems('abc' as unknown as string[]))).toBe(
+			`${ARPEGGIO_EXERCISE.id}: items must be a list`
+		);
 	});
 
 	it('refuses a key its mechanic cannot read, naming the item', () => {

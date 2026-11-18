@@ -3,8 +3,9 @@ import { registerExercise } from '$lib/domain/exercise/registry';
 import { registerGrid } from '$lib/domain/grid/registry';
 import { readDefinitionFile, type Refusal } from './file';
 
-/** What the application demands of an exercise beyond the format: a reason, or null. */
+/** What the application demands of an exercise beyond the format. */
 export interface DefinitionChecks {
+	/** The reason it is refused, without the exercise id (the refusal carries it), or null. */
 	exercise(exercise: ExerciseDefinition): string | null;
 }
 
@@ -44,8 +45,7 @@ export function registerFiles(
 				problem = error instanceof Error ? error.message : String(error);
 			}
 			if (problem !== null) {
-				const prefix = `${exercise.id}: `;
-				refusal(problem.startsWith(prefix) ? problem.slice(prefix.length) : problem);
+				refusal(problem);
 				continue;
 			}
 			const holder = registerExercise(exercise, file);

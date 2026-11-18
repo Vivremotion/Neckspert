@@ -18,26 +18,26 @@ describe('definitionChecks', () => {
 	it('refuses an unknown mechanic', () =>
 		expect(check({ ...LOCATE_NECK, mechanic: 'nope' })).toBe('mechanic "nope" is unknown'));
 
-	it('gives the reason of the first validator that refuses', () => {
+	it('gives the reason of the first validator that refuses, without the exercise id', () => {
 		const reason = check({ ...LOCATE_NECK, tempo: -3 });
-		expect(reason).toContain('tempo');
-		expect(reason).toContain('locate-neck');
+		expect(reason).toMatch(/^tempo /);
+		expect(reason).not.toContain('locate-neck');
 	});
 
 	it('refuses a presentation naming a field its mechanic does not have', () => {
 		expect(check({ ...LOCATE_NECK, presentation: { primary: '{chord}' } })).toBe(
-			'locate-neck: presentation.primary names field "chord", which locate does not have'
+			'presentation.primary names field "chord", which locate does not have'
 		);
 	});
 
 	it('refuses an item its round cannot compile', () => {
 		const far = { ...ARPEGGIO_EXERCISE, id: 'far', items: ['C|maj|3:1,2:3,1:5@9@4'] };
-		expect(check(far)).toMatch(/^far: items\[0\] .*does not compile at exercise level -1/);
+		expect(check(far)).toMatch(/^items\[0\] .*does not compile at exercise level -1/);
 	});
 
 	it('refuses a view the screen cannot draw', () => {
-		expect(check({ ...ARPEGGIO_EXERCISE, id: 'three', view: 'score' })).toContain(
-			'three: view "score" is not a view'
+		expect(check({ ...ARPEGGIO_EXERCISE, id: 'three', view: 'score' })).toMatch(
+			/^view "score" is not a view/
 		);
 	});
 
@@ -47,10 +47,12 @@ describe('definitionChecks', () => {
 			clearGrids();
 		});
 
-		it('refuses a grid no file defines', () => {
+		it('refuses a grid no file read so far defines', () => {
 			clearGrids();
 			const link = { ...GESTURE_CLIMB, params: { ...GESTURE_CLIMB.params, grids: ['nowhere'] } };
-			expect(check(link)).toBe('params.grids names grid "nowhere", which no file defines');
+			expect(check(link)).toBe(
+				'params.grids names grid "nowhere", which no file read so far defines'
+			);
 		});
 
 		it('accepts a grid a file defines', () => {

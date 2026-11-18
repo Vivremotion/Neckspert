@@ -50,6 +50,9 @@ describe('exerciseFromJson', () => {
 		expect(() => exerciseFromJson({ ...arpeggioJson(), params: [] })).toThrow(
 			'params must be an object'
 		);
+		expect(() => exerciseFromJson({ ...arpeggioJson(), id: '' })).toThrow(
+			'id must be a string, not empty'
+		);
 		expect(() => exerciseFromJson({ ...arpeggioJson(), figures: [{ id: 'a' }] })).toThrow(
 			'figures[0].lilypond must be a string'
 		);
@@ -211,6 +214,16 @@ describe('exerciseFromJson', () => {
 					levels: [{ params: { accompaniment: { clicks: { beats: [5] }, bars: ['on'] } } }]
 				})
 			).toThrow('levels[0].params.accompaniment: beat 5 is not in a bar of 4 beats');
+		});
+
+		it('refuses a param name that is not a top-level param', () => {
+			const json = arpeggioJson();
+			expect(() =>
+				exerciseFromJson({
+					...json,
+					round: { ...(json.round as object), accompaniment: { param: 'sounds.click' } }
+				})
+			).toThrow('round.accompaniment.param must name a top-level param, got "sounds.click"');
 		});
 
 		it('leaves alone a param no accompaniment reads', () => {
