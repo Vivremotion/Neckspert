@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES, exerciseById, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '../catalog';
+import { allExercises, exerciseById } from '../registry';
 import type { ExerciseDefinition, Ladder } from '../types';
 import { clickAccompaniment } from '../../time/accompaniment';
 import type { Figure } from '../../time/figure';
@@ -28,7 +29,7 @@ const withRound = (
 
 describe('roundProblem', () => {
 	it('accepts the catalog', () => {
-		const written = EXERCISES.filter((exercise) => exercise.round);
+		const written = allExercises().filter((exercise) => exercise.round);
 		expect(written.map((exercise) => exercise.id)).toEqual([
 			'locate-neck',
 			'identify-neck',

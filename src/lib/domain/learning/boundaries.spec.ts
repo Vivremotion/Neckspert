@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES } from '../exercise/catalog';
+import { allExercises } from '../exercise/registry';
 import { MECHANIC_RULES } from '../mechanics';
 
 // The learning module as raw text, keyed by its path from the project root.
@@ -21,7 +21,7 @@ const NAMES = [
 		'triad-zone',
 		'chord-grid',
 		...MECHANIC_RULES.map((rules) => rules.id),
-		...EXERCISES.map((exercise) => exercise.id)
+		...allExercises().map((exercise) => exercise.id)
 	])
 ];
 

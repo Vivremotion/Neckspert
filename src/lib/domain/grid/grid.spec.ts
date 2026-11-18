@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { gridById, GRIDS } from './catalog';
+import { gridById, allGrids } from './registry';
 import { gridChanges, type ChordGrid } from './grid';
 
 function grid(chords: ChordGrid['chords'], bars = 2): ChordGrid {
@@ -85,9 +85,9 @@ describe('gridChanges', () => {
 
 describe('the grid catalog', () => {
 	it('holds the two starting grids, valid, as data', () => {
-		expect(GRIDS.map((g) => g.id)).toEqual(['iohefy-a', 'blues-f']);
-		for (const g of GRIDS) expect(() => gridChanges(g)).not.toThrow();
-		expect(JSON.parse(JSON.stringify(GRIDS))).toEqual(GRIDS);
+		expect(allGrids().map((g) => g.id)).toEqual(['iohefy-a', 'blues-f']);
+		for (const g of allGrids()) expect(() => gridChanges(g)).not.toThrow();
+		expect(JSON.parse(JSON.stringify(allGrids()))).toEqual(allGrids());
 	});
 
 	it('throws on an unknown grid', () => {

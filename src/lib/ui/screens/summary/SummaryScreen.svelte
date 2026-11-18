@@ -4,7 +4,7 @@
 	import type { MeasureId } from '$lib/domain/time';
 	import Term from '$lib/ui/primitives/Term.svelte';
 	import { provideGlossaryScope } from '$lib/ui/primitives/glossaryScope';
-	import { GRIDS } from '$lib/domain/grid';
+	import { allGrids } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
 	import { isTriadsKind, type ExerciseSummary, type SessionSummary } from '$lib/domain/types';
@@ -87,7 +87,7 @@
 	function exerciseLabel(exerciseId: string, scope: string | undefined): string {
 		const name = t.exercise[exerciseId] ?? exerciseId;
 		if (scope === undefined) return name;
-		const grid = GRIDS.find((candidate) => candidate.id === scope);
+		const grid = allGrids().find((candidate) => candidate.id === scope);
 		return `${name} · ${grid?.title ?? scope}`;
 	}
 

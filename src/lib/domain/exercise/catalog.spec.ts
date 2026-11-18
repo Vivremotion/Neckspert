@@ -1,13 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-	EXERCISES,
-	IDENTIFY_NECK,
-	LOCATE_NECK,
-	TRIADS_ANCHOR,
-	TRIADS_ZONE,
-	exerciseById,
-	exerciseSessionExercises
-} from './catalog';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from './catalog';
+import { allExercises, exerciseById, exerciseSessionExercises } from './registry';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { GESTURE_EXERCISES } from '$lib/domain/gesture';
@@ -98,9 +91,9 @@ describe('exercise catalog', () => {
 		// the catalog looks like one.
 		const fractionsBack = (_key: string, value: unknown) =>
 			typeof value === 'string' && /^-?\d+(\/\d+)?$/.test(value) ? Fraction.parse(value) : value;
-		expect(JSON.parse(JSON.stringify(EXERCISES), fractionsBack)).toEqual(EXERCISES);
+		expect(JSON.parse(JSON.stringify(allExercises()), fractionsBack)).toEqual(allExercises());
 		// A round template holds no fraction object: it goes through JSON as it is.
-		const rounds = EXERCISES.filter((exercise) => exercise.round);
+		const rounds = allExercises().filter((exercise) => exercise.round);
 		expect(rounds).toHaveLength(11);
 		for (const { round } of rounds) expect(JSON.parse(JSON.stringify(round))).toEqual(round);
 	});

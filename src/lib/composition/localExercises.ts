@@ -1,20 +1,12 @@
 import { MECHANIC_PRESENTERS } from '$lib/application/mechanics';
 import type { MechanicPresenter } from '$lib/application/mechanics';
+import { definitionChecks } from '$lib/application/definitions/checks';
 import {
-	previewProblem,
-	presentationProblem,
-	screenProblem
-} from '$lib/application/presentation/validate';
-import {
-	EXERCISES,
+	allExercises,
 	exerciseFromJson,
-	registerExercises,
-	validateExercise,
+	registerExercise,
 	type ExerciseDefinition
 } from '$lib/domain/exercise';
-
-/** The sensors a session has (the keys of `SessionDeps.sensors` in `createApp`). */
-const SENSORS = ['note', 'tap', 'chord', 'attack'];
 
 export interface LocalExercises {
 	loaded: ExerciseDefinition[];
@@ -37,9 +29,9 @@ export function readLocalExercises(
 	files: Record<string, string>,
 	options: LocalExercisesOptions = {}
 ): LocalExercises {
-	const presenters = options.presenters ?? MECHANIC_PRESENTERS;
+	const checks = definitionChecks(options.presenters ?? MECHANIC_PRESENTERS);
 	const result: LocalExercises = { loaded: [], refused: [] };
-	const used = new Set<string>(EXERCISES.map((exercise) => exercise.id));
+	const used = new Set<string>(allExercises().map((exercise) => exercise.id));
 	for (const file of Object.keys(files).sort()) {
 		const reason = ((): string | null => {
 			try {
@@ -50,19 +42,14 @@ export function readLocalExercises(
 					return `the file is not JSON: ${(error as Error).message}`;
 				}
 				const exercise = exerciseFromJson(json);
-				const { id, mechanic } = exercise;
+				const { id } = exercise;
 				if (used.has(id)) {
 					return result.loaded.some((loaded) => loaded.id === id)
 						? `${id}: this id is already used by another local file`
 						: `${id}: this id is already in the catalog`;
 				}
-				if (!Object.hasOwn(presenters, mechanic)) return `${id}: mechanic "${mechanic}" is unknown`;
-				const problem =
-					validateExercise(exercise, { sensors: SENSORS }) ??
-					presentationProblem(exercise) ??
-					screenProblem(exercise, presenters) ??
-					previewProblem(exercise, presenters);
-				if (problem !== null) return problem;
+				const problem = checks.exercise(exercise);
+				if (problem !== null) return problem.startsWith(`${id}: `) ? problem : `${id}: ${problem}`;
 				used.add(id);
 				result.loaded.push(exercise);
 				return null;
@@ -84,7 +71,7 @@ let local: LocalExercises | null = null;
 export function loadLocalExercises(files: Record<string, string>): LocalExercises {
 	if (local) return local;
 	local = readLocalExercises(files);
-	registerExercises(local.loaded);
+	for (const exercise of local.loaded) registerExercise(exercise, 'exercises.local');
 	for (const { file, reason } of local.refused) {
 		console.error(`[exercises.local] ${file} refused: ${reason}`);
 	}

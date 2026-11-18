@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
-import { EXERCISES, LOCATE_NECK } from './catalog';
+import { LOCATE_NECK } from './catalog';
+import { allExercises } from './registry';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, Ladder } from './types';
@@ -19,8 +20,8 @@ const RISING: Ladder = [1, 2, 4, 8, 16].map((leadBeats) => ({
 
 describe('validateExercise', () => {
 	it('accepts every exercise of the catalog', () => {
-		expect(EXERCISES.map((exercise) => [exercise.id, validateExercise(exercise)])).toEqual(
-			EXERCISES.map((exercise) => [exercise.id, null])
+		expect(allExercises().map((exercise) => [exercise.id, validateExercise(exercise)])).toEqual(
+			allExercises().map((exercise) => [exercise.id, null])
 		);
 	});
 

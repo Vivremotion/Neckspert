@@ -16,7 +16,7 @@ import {
 } from '$lib/domain/time';
 import { mechanicRules } from '$lib/domain/mechanics';
 import { figureRules } from '$lib/domain/mechanics/figure';
-import { EXERCISES, exerciseById } from './catalog';
+import { allExercises, exerciseById } from './registry';
 import { exerciseLevelsOf, resolvedParamsOf } from './levels';
 import { figureItemsAt } from './round';
 import {
@@ -332,7 +332,7 @@ describe('the rhythm exercises', () => {
 	it('are in the catalog, on the figure mechanic', () => {
 		expect(RHYTHM_EXERCISES).toEqual([RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR, RHYTHM_OFFBEATS]);
 		for (const exercise of RHYTHM_EXERCISES) {
-			expect(EXERCISES).toContain(exercise);
+			expect(allExercises()).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);
 			expect(exercise.mechanic).toBe('figure');
 			expect(mechanicRules(exercise.mechanic)).toBe(figureRules);

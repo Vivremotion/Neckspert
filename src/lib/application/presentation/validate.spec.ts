@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
+import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/domain/exercise/catalog';
+import { allExercises } from '$lib/domain/exercise/registry';
 import { RHYTHM_OFFBEATS } from '$lib/domain/exercise/rhythmCatalog';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
@@ -19,10 +20,12 @@ const withPresentation = (
 
 describe('presentationProblem', () => {
 	it('accepts the catalog', () => {
-		for (const exercise of EXERCISES) {
+		for (const exercise of allExercises()) {
 			expect(presentationProblem(exercise)).toBeNull();
 		}
-		expect(EXERCISES.filter((exercise) => exercise.presentation).length).toBeGreaterThanOrEqual(4);
+		expect(
+			allExercises().filter((exercise) => exercise.presentation).length
+		).toBeGreaterThanOrEqual(4);
 	});
 
 	it('refuses a field the mechanic does not have, naming the exercise and the field', () => {
@@ -78,7 +81,7 @@ describe('screenProblem', () => {
 	});
 
 	it('accepts the catalog: a presentation, a screen of its mechanic, a figure, or no round', () => {
-		for (const exercise of EXERCISES) {
+		for (const exercise of allExercises()) {
 			expect([exercise.id, screenProblem(exercise, presenters)]).toEqual([exercise.id, null]);
 		}
 		expect(screenProblem({ ...bare, round: undefined }, {})).toBeNull();
@@ -223,7 +226,7 @@ describe('previewProblem', () => {
 
 	it('leaves to validateExercise an exercise that writes its preview, and accepts the catalog', () => {
 		expect(previewProblem(short({ previewBeats: 0 }), presenters)).toBeNull();
-		for (const exercise of EXERCISES) {
+		for (const exercise of allExercises()) {
 			expect([exercise.id, previewProblem(exercise, presenters)]).toEqual([exercise.id, null]);
 		}
 	});

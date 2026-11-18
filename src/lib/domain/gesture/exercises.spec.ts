@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES, exerciseById, exerciseLevelsOf, tempoOf } from '$lib/domain/exercise';
+import { exerciseById, exerciseLevelsOf, tempoOf } from '$lib/domain/exercise';
+import { allExercises } from '$lib/domain/exercise';
 import {
 	GESTURE_CLIMB,
 	GESTURE_EXERCISES,
@@ -38,7 +39,7 @@ describe('the gesture exercises', () => {
 				)
 			).toBe(true);
 			expect(exercise.howTo?.fr && exercise.howTo.en).toBeTruthy();
-			expect(EXERCISES).toContain(exercise);
+			expect(allExercises()).toContain(exercise);
 			expect(exerciseById(exercise.id)).toBe(exercise);
 		}
 		expect(GESTURE_CLIMB.params).toEqual({

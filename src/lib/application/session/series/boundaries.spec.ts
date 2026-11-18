@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXERCISES } from '$lib/domain/exercise/catalog';
+import { allExercises } from '$lib/domain/exercise/registry';
 import { MECHANIC_RULES } from '$lib/domain/mechanics';
 import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
@@ -54,7 +54,7 @@ const NAMES = [
 		'triad-zone',
 		'chord-grid',
 		...MECHANIC_RULES.map((rules) => rules.id),
-		...EXERCISES.map((exercise) => exercise.id)
+		...allExercises().map((exercise) => exercise.id)
 	])
 ];
 

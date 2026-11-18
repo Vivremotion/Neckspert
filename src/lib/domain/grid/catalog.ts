@@ -34,10 +34,5 @@ export const BLUES_F: ChordGrid = {
 	)
 };
 
-export const GRIDS: readonly ChordGrid[] = [IOHEFY_A, BLUES_F];
-
-export function gridById(id: string): ChordGrid {
-	const found = GRIDS.find((grid) => grid.id === id);
-	if (!found) throw new Error(`Unknown grid: ${id}`);
-	return found;
-}
+/** The grids of the code, in catalog order: they seed the registry (`registry.ts`). */
+export const CATALOG_GRIDS: readonly ChordGrid[] = [IOHEFY_A, BLUES_F];

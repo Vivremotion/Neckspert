@@ -1,9 +1,8 @@
 import { GESTURE_EXERCISES } from '$lib/domain/gesture/exercises';
-import { writesFigure } from './figureParams';
 import { RHYTHM_EXERCISES } from './rhythmCatalog';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
 import type { RoundTemplate } from './round/types';
-import type { ExerciseDefinition, ExerciseId, Ladder } from './types';
+import type { ExerciseDefinition, Ladder } from './types';
 
 /**
  * Leads on the beat, at 80 bpm: 8 beats with the answer shown, then 4, then 2 (1 500 ms, the
@@ -195,7 +194,8 @@ export const TRIADS_ZONE: ExerciseDefinition = {
 	params: triadsParams()
 };
 
-const CATALOG: ExerciseDefinition[] = [
+/** The exercises of the code, in catalog order: they seed the registry (`registry.ts`). */
+export const CATALOG_EXERCISES: readonly ExerciseDefinition[] = [
 	LOCATE_NECK,
 	IDENTIFY_NECK,
 	TRIADS_ANCHOR,
@@ -203,44 +203,3 @@ const CATALOG: ExerciseDefinition[] = [
 	...GESTURE_EXERCISES,
 	...RHYTHM_EXERCISES
 ];
-
-/** The live catalog: the exercises of the code, then those registered (`registerExercises`). */
-export const EXERCISES: readonly ExerciseDefinition[] = CATALOG;
-
-/**
- * Appends exercises to the live catalog (the private ones of `exercises.local/`), so
- * `exerciseById` and `exerciseSessionExercises` see them. An id already taken is refused, not
- * thrown: the result lists the ids refused.
- */
-export function registerExercises(exercises: readonly ExerciseDefinition[]): {
-	registered: ExerciseId[];
-	taken: ExerciseId[];
-} {
-	const registered: ExerciseId[] = [];
-	const taken: ExerciseId[] = [];
-	for (const exercise of exercises) {
-		if (CATALOG.some((known) => known.id === exercise.id)) {
-			taken.push(exercise.id);
-			continue;
-		}
-		CATALOG.push(exercise);
-		registered.push(exercise.id);
-	}
-	return { registered, taken };
-}
-
-/**
- * The exercises played in an exercise session, in catalog order: those whose round writes a
- * figure and that write levels. Read from the live catalog at each call.
- */
-export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
-	return EXERCISES.filter(
-		(exercise) => writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0
-	);
-}
-
-export function exerciseById(id: ExerciseId): ExerciseDefinition {
-	const found = EXERCISES.find((exercise) => exercise.id === id);
-	if (!found) throw new Error(`Unknown exercise: ${id}`);
-	return found;
-}
