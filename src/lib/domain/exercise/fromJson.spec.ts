@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { Fraction } from '$lib/domain/time';
+import { Fraction, METER_4_4, clickAccompaniment } from '$lib/domain/time';
 import { exerciseFromJson } from './fromJson';
 import { validateExercise } from './validate';
 
@@ -125,5 +125,101 @@ describe('exerciseFromJson', () => {
 		expect(() =>
 			exerciseFromJson({ ...arpeggioJson(), figures: [{ id: 'bad', lilypond: 'c4 #(foo)' }] })
 		).toThrow(/figures\[0\] \(bad\): lilypond:/);
+	});
+
+	describe('click accompaniment', () => {
+		const withAccompanimentParam = () => {
+			const json = arpeggioJson();
+			return {
+				...json,
+				round: { ...(json.round as object), accompaniment: { param: 'accompaniment' } }
+			};
+		};
+		const baseParams = () => arpeggioJson().params as Record<string, unknown>;
+
+		it('reads a click accompaniment written in a param and in a level', () => {
+			const exercise = exerciseFromJson({
+				...withAccompanimentParam(),
+				params: {
+					...baseParams(),
+					accompaniment: {
+						clicks: { beats: [1, 2, 3, 4], accent: [1] },
+						bars: ['on', 'on', 'on', 'off']
+					}
+				},
+				levels: [{ params: { accompaniment: { clicks: { beats: [2, 4] }, bars: ['on'] } } }]
+			});
+			expect(exercise.params.accompaniment).toEqual(
+				clickAccompaniment({
+					meter: METER_4_4,
+					beats: [1, 2, 3, 4],
+					accent: [1],
+					bars: ['on', 'on', 'on', 'off']
+				})
+			);
+			expect(exercise.levels?.[0].params?.accompaniment).toEqual(
+				clickAccompaniment({ meter: METER_4_4, beats: [2, 4], accent: [], bars: ['on'] })
+			);
+		});
+
+		it('reads an accompaniment written in the round, on the exercise meter', () => {
+			const json = arpeggioJson();
+			const exercise = exerciseFromJson({
+				...json,
+				meter: { count: 3, unit: '1/4', grouping: [1, 1, 1] },
+				round: {
+					...(json.round as object),
+					accompaniment: { clicks: { beats: [1, 2, 3] }, bars: ['on'] }
+				}
+			});
+			expect(exercise.round?.accompaniment).toEqual(
+				clickAccompaniment({
+					meter: { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] },
+					beats: [1, 2, 3],
+					accent: [],
+					bars: ['on']
+				})
+			);
+		});
+
+		it('refuses an accompaniment that is not written as clicks', () => {
+			expect(() =>
+				exerciseFromJson({
+					...withAccompanimentParam(),
+					params: { ...baseParams(), accompaniment: { bars: ['on'] } }
+				})
+			).toThrow('params.accompaniment must be { clicks: { beats, accent? }, bars }');
+		});
+
+		it('refuses an unknown key, naming it', () => {
+			expect(() =>
+				exerciseFromJson({
+					...withAccompanimentParam(),
+					params: {
+						...baseParams(),
+						accompaniment: { clicks: { beats: [1], loud: true }, bars: ['on'] }
+					}
+				})
+			).toThrow('params.accompaniment: unknown key "loud"');
+		});
+
+		it('names the level of a beat outside the bar', () => {
+			expect(() =>
+				exerciseFromJson({
+					...withAccompanimentParam(),
+					params: { ...baseParams() },
+					levels: [{ params: { accompaniment: { clicks: { beats: [5] }, bars: ['on'] } } }]
+				})
+			).toThrow('levels[0].params.accompaniment: beat 5 is not in a bar of 4 beats');
+		});
+
+		it('leaves alone a param no accompaniment reads', () => {
+			const written = { clicks: { beats: [1] }, bars: ['on'] };
+			const exercise = exerciseFromJson({
+				...arpeggioJson(),
+				params: { ...baseParams(), accompaniment: written }
+			});
+			expect(exercise.params.accompaniment).toEqual(written);
+		});
 	});
 });

@@ -1,4 +1,11 @@
-import { Fraction, type Figure, type Meter } from '$lib/domain/time';
+import {
+	Fraction,
+	METER_4_4,
+	clickAccompaniment,
+	type Accompaniment,
+	type Figure,
+	type Meter
+} from '$lib/domain/time';
 import { parseLilyPond, parseLilyPondNotes } from '$lib/domain/time/notation/lilypond';
 import type { ExerciseDefinition, ExerciseForm } from './types';
 
@@ -43,6 +50,31 @@ function meterFromJson(value: unknown, where: string): Meter {
 		throw new Error(`${where}.unit: ${(error as Error).message}`, { cause: error });
 	}
 	return { count, unit: fraction, grouping: grouping as number[] };
+}
+
+/** An accompaniment written `{ clicks: { beats, accent? }, bars }`; throws naming `where`. */
+function accompanimentFromJson(value: unknown, meter: Meter, where: string): Accompaniment {
+	const shape = `${where} must be { clicks: { beats, accent? }, bars }`;
+	if (!isObject(value) || !isObject(value.clicks)) throw new Error(shape);
+	const { clicks, bars, ...rest } = value;
+	const { beats, accent = [], ...clickRest } = clicks;
+	const unknown = Object.keys(rest)[0] ?? Object.keys(clickRest)[0];
+	if (unknown !== undefined) throw new Error(`${where}: unknown key "${unknown}"`);
+	const numbers = (list: unknown): list is number[] =>
+		Array.isArray(list) && list.every((n) => typeof n === 'number');
+	if (
+		!numbers(beats) ||
+		!numbers(accent) ||
+		!Array.isArray(bars) ||
+		!bars.every((bar) => bar === 'on' || bar === 'off')
+	) {
+		throw new Error(shape);
+	}
+	try {
+		return clickAccompaniment({ meter, beats, accent, bars });
+	} catch (error) {
+		throw new Error(`${where}: ${(error as Error).message}`, { cause: error });
+	}
 }
 
 function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
@@ -101,10 +133,50 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	if (typeof json.mechanic !== 'string') throw new Error('mechanic must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
 	const { figures, forms, meter, ...rest } = json;
+	const exerciseMeter = meter === undefined ? undefined : meterFromJson(meter, 'meter');
 	return {
-		...(rest as unknown as ExerciseDefinition),
+		...(accompanimentsFromJson(rest, exerciseMeter ?? METER_4_4) as unknown as ExerciseDefinition),
 		...(figures !== undefined && { figures: figuresFromJson(figures) }),
 		...(forms !== undefined && { forms: formsFromJson(forms) }),
-		...(meter !== undefined && { meter: meterFromJson(meter, 'meter') })
+		...(exerciseMeter !== undefined && { meter: exerciseMeter })
+	};
+}
+
+/**
+ * Turns every click accompaniment the file writes into the engine's: the one in `round`, or, when
+ * `round.accompaniment` names a param, that param in `params` and in each level's `params`.
+ */
+function accompanimentsFromJson(
+	json: Record<string, unknown>,
+	meter: Meter
+): Record<string, unknown> {
+	const round = json.round;
+	if (!isObject(round) || round.accompaniment === undefined) return json;
+	const written = round.accompaniment;
+	if (!isObject(written) || typeof written.param !== 'string') {
+		return {
+			...json,
+			round: {
+				...round,
+				accompaniment: accompanimentFromJson(written, meter, 'round.accompaniment')
+			}
+		};
+	}
+	const name = written.param;
+	const convert = (params: unknown, where: string): unknown =>
+		isObject(params) && Object.hasOwn(params, name)
+			? { ...params, [name]: accompanimentFromJson(params[name], meter, `${where}.${name}`) }
+			: params;
+	const levels = Array.isArray(json.levels)
+		? json.levels.map((level: unknown, index) =>
+				isObject(level) && level.params !== undefined
+					? { ...level, params: convert(level.params, `levels[${index}].params`) }
+					: level
+			)
+		: json.levels;
+	return {
+		...json,
+		params: convert(json.params, 'params'),
+		...(levels !== undefined && { levels })
 	};
 }
