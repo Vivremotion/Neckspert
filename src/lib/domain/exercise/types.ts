@@ -123,7 +123,7 @@ export interface ExerciseDefinition {
 	 * (`resolvedParamsOf`), the tempo included; absent: one level that changes nothing.
 	 */
 	levels?: readonly Level<LevelOverrides>[];
-	/** The figures it plays, written once in the catalog. */
+	/** The figures it plays, written once in the exercise. */
 	figures?: readonly { id: string; figure: Figure }[];
 	/** The forms its items move, written once (`form-figure`). */
 	forms?: readonly ExerciseForm[];

@@ -10,3 +10,7 @@ export const GESTURE_EXERCISE_IDS = [
 	'gesture-zone',
 	'gesture-jam'
 ] as const;
+/** The grid the gesture demo plays (`/dev/gesture`). */
+export const DEMO_GRID_ID = 'iohefy-a';
+/** The exercise whose figure the figure view's development page shows (`/dev/rhythm`). */
+export const RHYTHM_SILENT_BARS_ID = 'rhythm-silent-bars';

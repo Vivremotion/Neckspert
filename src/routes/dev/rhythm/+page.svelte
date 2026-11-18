@@ -15,7 +15,7 @@
 		type FigureStageModel,
 		type SettledCycle
 	} from '$lib/application/session/series/figureStage';
-	import { exerciseById } from '$lib/domain/exercise';
+	import { exerciseById, RHYTHM_SILENT_BARS_ID } from '$lib/domain/exercise';
 	import { compileRound } from '$lib/domain/exercise/round';
 	import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
 	import {
@@ -42,7 +42,7 @@
 		}
 	}
 
-	const figure = exerciseById('rhythm-silent-bars').figures?.[0]?.figure;
+	const figure = exerciseById(RHYTHM_SILENT_BARS_ID).figures?.[0]?.figure;
 	if (!figure) throw new Error('the silent bars exercise has no figure');
 
 	/** A cycle of four bars of eighths (32 attacks), bar 0 muted; offsets drawn from `seed`. */

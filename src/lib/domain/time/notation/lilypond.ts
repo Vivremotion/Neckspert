@@ -14,8 +14,8 @@ import { readNoteName } from '../noteName';
 
 /**
  * A strict, declarative reader for a subset of LilyPond, so that figures can be written the
- * way musicians write them. Only the exercise catalog and the notation adapter should import it
- * (`boundaries.spec.ts` keeps it so): everything else works on a `Figure`.
+ * way musicians write them. Only the exercise reader (`domain/exercise/`) and the notation adapter
+ * should import it (`boundaries.spec.ts` keeps it so): everything else works on a `Figure`.
  *
  * Accepted: a note (its name as `noteName.ts` reads it: `a`-`g`, Dutch accidentals as in `cis`
  * `des` `bes`, then absolute octave marks: `c` is MIDI 48, `c'` 60, `c,` 36) or `r` (a rest)

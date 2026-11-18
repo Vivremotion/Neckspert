@@ -26,7 +26,7 @@ export class SeriesItems {
 		return cardKey(rules.id, rules.itemKey(item.item));
 	}
 
-	/** The definition of an item's exercise; an exercise the catalog does not know throws. */
+	/** The definition of an item's exercise; an exercise the registry does not hold throws. */
 	definitionOf(item: PlannedItem): ExerciseDefinition {
 		return this.exercise(item.exerciseId);
 	}

@@ -180,8 +180,8 @@ export function createAppServices(
 				deps.attempts.all(),
 				deps.levels.all()
 			]);
-			// The neck's exercises as the catalog writes them: locate on the click at its tempo,
-			// identify answered in free time.
+			// The neck's exercises as the catalog's files write them: locate on the click at its
+			// tempo, identify answered in free time.
 			const locate = exerciseOf(LOCATE_NECK_ID);
 			const identify = exerciseOf(IDENTIFY_NECK_ID);
 			// The neck's sessions see the neck's cards only; the triads lead its notes queue.
@@ -297,7 +297,7 @@ export function createAppServices(
 	};
 
 	/**
-	 * The exercise an exercise session played, when it is still in the catalog with levels and a
+	 * The exercise an exercise session played, when the registry still holds it with levels and a
 	 * round that writes a figure.
 	 */
 	const sessionExerciseOf = (record: SessionRecord) => {

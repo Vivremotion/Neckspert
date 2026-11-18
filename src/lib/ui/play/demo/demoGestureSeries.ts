@@ -4,7 +4,7 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { exerciseById } from '$lib/domain/exercise';
+import { DEMO_GRID_ID, exerciseById, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
@@ -28,8 +28,7 @@ import {
 /** Which exercise the demo plays: the link on its lane, or a climb on the scrolling grid. */
 export type DemoGestureMode = 'link' | 'climb';
 
-const GRID_ID = 'iohefy-a';
-const gridOf = () => gridChanges(gridById(GRID_ID));
+const gridOf = () => gridChanges(gridById(DEMO_GRID_ID));
 /** E on G-B-E, linked up the neck and back: one shape per bar. */
 const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
 const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
@@ -71,7 +70,7 @@ function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordG
 	const symbol = grid[index].symbol;
 	return {
 		rule: 'climb',
-		element: `climb:${GRID_ID}:3,2,1`,
+		element: `climb:${DEMO_GRID_ID}:3,2,1`,
 		passageId,
 		index,
 		changes: grid,
@@ -85,7 +84,9 @@ function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordG
 
 /** Serves the demo's passage again and again, each one counted in, aided. */
 function passageLoop(mode: DemoGestureMode): ItemSource {
-	const exercise = exerciseById(mode === 'link' ? 'gesture-link' : 'gesture-climb');
+	const exercise = exerciseById(
+		mode === 'link' ? GESTURE_EXERCISE_IDS[0] : GESTURE_EXERCISE_IDS[1]
+	);
 	const length = mode === 'link' ? LINK.length : gridOf().length;
 	let served = 0;
 	return {
@@ -103,7 +104,7 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 				aid: 'show-position',
 				leadBeats: null,
 				...(index === 0 && { countIn: true }),
-				...(mode === 'climb' && { scope: GRID_ID })
+				...(mode === 'climb' && { scope: DEMO_GRID_ID })
 			};
 		},
 		record: () => null,

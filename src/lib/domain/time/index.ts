@@ -1,5 +1,5 @@
 // The public API of the time domain. The rhythm parser is deliberately left out: only the
-// notation folder and the exercise catalog may reach it.
+// notation folder and the exercise reader (`domain/exercise/`) may reach it.
 export * from './fraction';
 export * from './meter';
 export * from './tempoMap';

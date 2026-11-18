@@ -74,6 +74,10 @@ describe('readDefinitionFile', () => {
 		expect(fileRefusal('{"format": 0, "exercises": {}}').reason).toBe('exercises must be a list');
 	});
 
+	it('refuses a list written null', () => {
+		expect(fileRefusal('{"format": 0, "grids": null}').reason).toBe('grids must be a list');
+	});
+
 	it('refuses skills and routines that are not empty', () => {
 		expect(fileRefusal('{"format": 0, "skills": [{}]}').reason).toBe(
 			'skills are not read by this version'
@@ -142,6 +146,14 @@ describe('readDefinitionFile', () => {
 				id: ARPEGGIO_EXERCISE.id,
 				reason: 'this id is used twice in the file'
 			}
+		]);
+	});
+
+	it('keeps the first of two grids with the same id', () => {
+		const result = read(JSON.stringify({ format: 0, grids: [GRID, GRID] }));
+		expect(result.grids).toHaveLength(1);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'grid', id: 'blues', reason: 'this id is used twice in the file' }
 		]);
 	});
 

@@ -50,9 +50,9 @@ export interface CreateAppOptions {
  * `exercises.local/` (`docs/exercices-locaux.md`).
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
-	// The private definition files, read as text at build time, in development builds only: a
-	// production build drops this branch and the files with it. A refusal (a file's JSON
-	// unreadable included) is reported, never fatal.
+	// The catalog's definition files, then the private ones, both read as text at build time; the
+	// private files in development builds only: a production build drops that branch and the files
+	// with it. A refusal (a file's JSON unreadable included) is reported, never fatal.
 	loadDefinitions({
 		catalog: CATALOG_FILES,
 		local: import.meta.env.DEV

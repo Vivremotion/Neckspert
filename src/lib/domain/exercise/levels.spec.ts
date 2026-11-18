@@ -35,6 +35,18 @@ describe('overrideParams', () => {
 	it('throws on a path through a value that is not an object', () => {
 		expect(() => overrideParams({ tempo: 80 }, { 'tempo.bpm': 90 })).toThrow(/tempo\.bpm/);
 	});
+
+	it('throws on a path written undefined', () => {
+		expect(() => overrideParams({ tempo: 80 }, { tempo: undefined })).toThrow(
+			'writes a path with no value: "tempo" is undefined'
+		);
+	});
+
+	it('throws on a path written together with one of its sub-paths', () => {
+		expect(() => overrideParams({}, { windows: { lateMs: 100 }, 'windows.lateMs': 120 })).toThrow(
+			'writes "windows" and its sub-path "windows.lateMs"'
+		);
+	});
 });
 
 describe('resolvedParamsOf', () => {

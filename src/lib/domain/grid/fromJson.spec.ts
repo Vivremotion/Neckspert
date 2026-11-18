@@ -59,4 +59,12 @@ describe('gridFromJson', () => {
 			'must start on bar 1, beat 1'
 		);
 	});
+	it('refuses a chord on a bar that is no integer', () => {
+		const chords = [BLUES.chords[0], { bar: 1.5, beat: 1, symbol: 'Bb7' }];
+		expect(() => gridFromJson({ ...BLUES, chords })).toThrow('bar 1.5 is outside the grid');
+	});
+	it('refuses a chord on a beat outside its bar', () => {
+		const chords = [BLUES.chords[0], { bar: 2, beat: 5, symbol: 'Bb7' }];
+		expect(() => gridFromJson({ ...BLUES, chords })).toThrow('beat 5 is outside its bar');
+	});
 });

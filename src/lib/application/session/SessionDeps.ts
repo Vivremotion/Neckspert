@@ -31,7 +31,7 @@ export interface SessionDeps {
 	mechanics: Record<MechanicId, MechanicPresenter>;
 	/** The observation sources a series opens, by sensor kind. */
 	sensors: Record<SensorKind, SensorFactory>;
-	/** The definition of an exercise, for its pacing; the catalog's when omitted. */
+	/** The definition of an exercise, for its pacing; the registry's when omitted. */
 	exercise?: (id: ExerciseId) => ExerciseDefinition;
 	/** The one path every sound takes. */
 	sounds: SoundSchedulerPort;
