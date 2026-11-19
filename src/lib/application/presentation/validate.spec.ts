@@ -111,6 +111,29 @@ describe('presentationProblem', () => {
 		);
 	});
 
+	it('refuses the picture of the members admitted off a passage view, and as a fading picture on every view', () => {
+		expect(
+			presentationProblem({
+				...TRIADS_ANCHOR,
+				presentation: { ...TRIADS_ANCHOR.presentation!, aided: { picture: 'admitted' } }
+			})
+		).toBe(
+			'chord-anchor: presentation.aided.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "lane"'
+		);
+		expect(
+			presentationProblem({
+				...GESTURE_CLIMB,
+				presentation: { ...GESTURE_CLIMB.presentation!, fading: { picture: 'admitted' } }
+			})
+		).toBe(
+			'grid-in-direction: presentation.fading.picture names picture "admitted", which no view draws as a fading picture'
+		);
+		for (const exercise of [GESTURE_CLIMB, GESTURE_LINK]) {
+			expect(exercise.presentation?.aided?.picture).toBe('admitted');
+			expect(presentationProblem(exercise)).toBeNull();
+		}
+	});
+
 	it('is silent about an exercise that says nothing', () => {
 		expect(presentationProblem({ ...LOCATE_NECK, presentation: undefined })).toBeNull();
 	});

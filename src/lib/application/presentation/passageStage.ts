@@ -3,13 +3,13 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { familyNamed, passageDerivation, type Member } from '$lib/domain/families';
 import { MEMBER_CONTENT, admittedMembers, type MemberContent } from '$lib/domain/judges';
 import { itemSet } from '$lib/domain/sets';
-import { METER_4_4, type ResponseValue, type RoundPlan } from '$lib/domain/time';
+import { Fraction, METER_4_4, type ResponseValue, type RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem, PlannedPassage } from '$lib/domain/types';
 import type { StagePlace } from '$lib/application/sets/types';
 import type { LaneEntry } from '$lib/application/session/contract';
 import { membersPicture, roundMemberFields } from './contentViews';
 import { CONTENT_PICTURES, type Picture } from './pictures';
-import { presentPrompt, type PresentedPrompt } from './presentPrompt';
+import { isAided, presentPrompt, type PresentedPrompt } from './presentPrompt';
 import { stageVerdict, type StageVerdict } from './promptStage';
 
 /** A round of the passage on its line. */
@@ -17,7 +17,7 @@ export interface PassageRound {
 	/** Beats from the passage's start. */
 	at: number;
 	length: number;
-	/** The prompt's slot `target`, said for this round's item; empty without it. */
+	/** The prompt's slot `target`, said for this round's item, else its `primary`. */
 	label: string;
 	/** From the round before to this one, on the `position` attribute of the family; null on the first and without position. */
 	way: 'up' | 'down' | 'same' | null;
@@ -105,16 +105,17 @@ function lineOf(
 	const unit = (definition.meter ?? METER_4_4).unit;
 	const cache = new Map<string, unknown>();
 	const positions = positionsOf(definition, items);
-	let at = 0;
+	// Summed exactly, read as numbers at the end: a round never drifts off its beat.
+	let at = Fraction.ZERO;
 	const places = items.map((_, rank) => {
 		const plan = compilePassageRound(definition, roundAt(item, items, rank, null), cache);
-		const length = plan.length.div(unit).toNumber();
+		const length = plan.length.div(unit);
 		const place = {
-			at,
-			length,
+			at: at.toNumber(),
+			length: length.toNumber(),
 			way: rank === 0 ? null : wayBetween(positions[rank - 1], positions[rank])
 		};
-		at += length;
+		at = at.add(length);
 		return place;
 	});
 	const line = { definition, exerciseLevel: item.exerciseLevel, places, labels: new Map() };
@@ -122,7 +123,10 @@ function lineOf(
 	return line;
 }
 
-/** Each round's `target` said for its item, with the content fields of the round on show. */
+/**
+ * Each round's words on the line, said for its item with the content fields of the round on show:
+ * its `target`, else its `primary`.
+ */
 function labelsOf(
 	line: Line,
 	item: PlannedItem,
@@ -134,12 +138,17 @@ function labelsOf(
 	const key = JSON.stringify([locale, contentFields]);
 	let labels = line.labels.get(key);
 	if (!labels) {
-		const plain: PlannedItem = { ...item, aid: 'none', stringAid: false };
-		labels = items.map(
-			(each) =>
-				presentPrompt(line.definition, { ...plain, item: each }, locale, random, contentFields)
-					.target ?? ''
-		);
+		const plain: PlannedItem = { ...item, aid: 'none', stringAid: false, exerciseLevel: 0 };
+		labels = items.map((each) => {
+			const said = presentPrompt(
+				line.definition,
+				{ ...plain, item: each },
+				locale,
+				random,
+				contentFields
+			);
+			return said.target ?? said.primary;
+		});
 		line.labels.set(key, labels);
 	}
 	return labels;
@@ -188,7 +197,7 @@ function admittedPicture(
 		);
 		next = coming === null ? [] : admittedMembers(coming.value);
 	}
-	return membersPicture(family, now, next);
+	return membersPicture(content.value, now, next);
 }
 
 /**
@@ -213,7 +222,7 @@ export function passageStage(input: {
 	const { definition, item, plan, settled, place, locale, random } = input;
 	const passage = item.passage;
 	// A source serves every round of a passage with its items: without them there is no line.
-	if (!passage?.items) {
+	if (!passage?.items || passage.items.length === 0) {
 		throw new Error(`${definition.id}: a round of a passage came without the items of its passage`);
 	}
 	const items = passage.items;
@@ -222,13 +231,12 @@ export function passageStage(input: {
 		content?.kind === MEMBER_CONTENT ? [content.value] : []
 	);
 	const contentFields = roundMemberFields(members, locale);
-	const aided = item.exerciseLevel < 0 || item.aid === 'show-position';
-	const shown: PlannedItem = aided ? { ...item, aid: 'show-position' } : item;
+	const aided = isAided(item);
 	const picture = definition.presentation?.aided?.picture;
 	const line = lineOf(definition, round, items);
 	const labels = labelsOf(line, item, items, locale, random, contentFields);
 	return {
-		prompt: presentPrompt(definition, shown, locale, random, contentFields),
+		prompt: presentPrompt(definition, item, locale, random, contentFields),
 		rounds: line.places.map((placed, rank) => ({
 			at: placed.at,
 			length: placed.length,

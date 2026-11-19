@@ -4,7 +4,7 @@ import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
 import { allExercises } from './registry';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
-import type { RoundTemplate } from './round/types';
+import type { FigureExpectationTemplate, RoundTemplate } from './round/types';
 import type { ExerciseDefinition, ItemEntry, Ladder } from './types';
 import {
 	MAX_EXERCISE_ITEMS,
@@ -14,7 +14,7 @@ import {
 	MAX_ROUND_CHECKS,
 	validateExercise
 } from './validate';
-import { LOCATE_NECK } from '$lib/testing/catalog';
+import { GESTURE_JAM, LOCATE_NECK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 registerTestSkills();
 
@@ -383,6 +383,25 @@ describe('validateExercise on listed items', () => {
 	it('refuses a key its set cannot read, naming the item', () => {
 		expect(validateExercise(withItems([ARPEGGIO_EXERCISE.items![0], 'nonsense']))).toMatch(
 			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] \\("nonsense"\\): .*nonsense`)
+		);
+	});
+
+	it('refuses a change of a grid no file defines, naming the item', () => {
+		const [entry] = RHYTHM_OFFBEATS.round!.expectations as FigureExpectationTemplate[];
+		const onChanges = (key: string): ExerciseDefinition => ({
+			...RHYTHM_OFFBEATS,
+			id: 'test-changes',
+			practices: GESTURE_JAM.practices,
+			items: [key],
+			view: 'figure',
+			round: {
+				...RHYTHM_OFFBEATS.round!,
+				expectations: [{ ...entry, figure: { id: RHYTHM_OFFBEATS.figures![0].id } }]
+			}
+		});
+		expect(validateExercise(onChanges('iohefy-a#0'))).toBeNull();
+		expect(validateExercise(onChanges('nowhere#0'))).toBe(
+			'test-changes: items[0] ("nowhere#0"): names grid "nowhere", which no file defines'
 		);
 	});
 

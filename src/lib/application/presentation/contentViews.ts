@@ -122,8 +122,15 @@ interface MemberView {
 	names: readonly string[];
 	/** Every field of `names` for `value`; a field with nothing to say is the empty string. */
 	fields(value: MemberContent, locale: Locale): Record<string, string>;
-	/** The picture of members of the family; null when there is nothing to draw. */
-	picture(members: readonly Member[], next: readonly Member[]): Picture | null;
+	/**
+	 * The picture of members of the family admitted by `value` (now) and at the next round;
+	 * null when there is nothing to draw.
+	 */
+	picture(
+		value: MemberContent,
+		members: readonly Member[],
+		next: readonly Member[]
+	): Picture | null;
 }
 
 /** A place of a note: the pitch played, spelled as the prompt spells its target; its place on its string. */
@@ -195,7 +202,7 @@ function passageMiss(
  * expected (the admitted shape nearest the one heard, else the lowest fretted admitted), its
  * frets and notes, and what tells them apart. Its fields: the strings of its index, the frets
  * of a zone (`in.frets`) and the way a climb goes (`position.toward`); its picture, the notes of
- * its shapes on the neck, on the strings they are played on.
+ * its shapes on the neck, on the strings of its index (the zone of strings the exercise writes).
  */
 const chordShapesView: MemberView = {
 	answerLabel: (_value, answer) => heardFrets(answer as ChordReading | null),
@@ -229,13 +236,10 @@ const chordShapesView: MemberView = {
 			toward: toward ? messages.toward[toward] : ''
 		};
 	},
-	picture: (members, next) => {
+	picture: ({ index }, members, next) => {
 		if (members.length === 0 && next.length === 0) return null;
-		const shapes = [...members, ...next] as unknown as readonly ChordShape[];
-		// The strings the shapes now and next are played on, low to high: the neck draws those.
-		const strings = [
-			...new Set(shapes.flatMap(({ occurrence }) => occurrence.notes.map((note) => note.string)))
-		].sort((a, b) => b - a);
+		// The strings of the content's index, low to high: the neck keeps its rows along a passage.
+		const strings = [...(index as ChordShapesIndex).strings].sort((a, b) => b - a);
 		return {
 			...neckWithNext(
 				neckOf(members as readonly ChordShape[]),
@@ -277,7 +281,7 @@ export function memberFields(value: unknown, locale: Locale): Record<string, str
 
 /**
  * The fields of a round's member contents, in the order of its expectations: a field is the
- * first content's that offers it.
+ * first content's that gives it words (an empty field gives way to a later content's).
  */
 export function roundMemberFields(
 	values: readonly unknown[],
@@ -286,19 +290,19 @@ export function roundMemberFields(
 	const fields: Record<string, string> = {};
 	for (const value of values) {
 		for (const [name, text] of Object.entries(memberFields(value, locale))) {
-			if (!Object.hasOwn(fields, name)) fields[name] = text;
+			if (!Object.hasOwn(fields, name) || fields[name] === '') fields[name] = text;
 		}
 	}
 	return fields;
 }
 
-/** The picture of the members admitted now and next; null without a view. */
+/** The picture of the members `content` admits now and of those admitted next; null without a view. */
 export function membersPicture(
-	family: string,
+	content: MemberContent,
 	now: readonly Member[],
 	next: readonly Member[]
 ): Picture | null {
-	return familyView(family)?.picture(now, next) ?? null;
+	return memberViewOf(content)?.picture(content, now, next) ?? null;
 }
 
 /** A member of a family, told as its family tells it; nothing for a family without a view. */

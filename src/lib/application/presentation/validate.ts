@@ -38,7 +38,9 @@ function memberFamilies(definition: ExerciseDefinition): string[] {
  * Null when the exercise's presentation can be written, else what it cannot: a slot that names a
  * field neither its set nor any family its round selects members of (`memberFieldNames`)
  * has, a picture that does not exist or does not read its set, the picture of the members
- * admitted (`CONTENT_PICTURES`) for a round that selects none. Names the exercise and the field.
+ * admitted (`CONTENT_PICTURES`) for a round that selects none, as a fading picture (no view
+ * draws one), or as the aided picture of an exercise drawn on a view that draws no passage
+ * (`PASSAGE_VIEWS`). Names the exercise and the field.
  * It is not part of `validateExercise` because its words are code of the application layer.
  */
 export function presentationProblem(definition: ExerciseDefinition): string | null {
@@ -77,8 +79,17 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 	for (const [path, name] of pictures) {
 		if (name === undefined) continue;
 		if (CONTENT_PICTURES.includes(name)) {
-			if (families.length > 0) continue;
-			return `${id}: presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
+			if (families.length === 0) {
+				return `${id}: presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
+			}
+			if (path === 'fading.picture') {
+				return `${id}: presentation.${path} names picture "${name}", which no view draws as a fading picture`;
+			}
+			const view = playViewOf(definition);
+			if (!PASSAGE_VIEWS.includes(view)) {
+				return `${id}: presentation.${path} names picture "${name}", which only a view that draws a passage draws (${PASSAGE_VIEWS.join(', ')}), and the exercise is drawn on "${view}"`;
+			}
+			continue;
 		}
 		const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
 		if (!picture) {

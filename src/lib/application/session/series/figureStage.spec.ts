@@ -25,7 +25,9 @@ import {
 	FORM_EXERCISE
 } from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
-import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { GESTURE_CLIMB, RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { servedPassageRound } from '$lib/testing/changesPassages';
+import { presentationProblem } from '$lib/application/presentation/validate';
 
 registerTestSkills();
 
@@ -234,6 +236,45 @@ describe('figureStage', () => {
 		expect(stage(RHYTHM_SILENT_BARS, rhythm, 'round').prompt).toBeNull();
 		// The notes derive from the shape the prompt names: the rhythm line, not the notes.
 		expect(stage(ARPEGGIO, item, 'round').notation).toEqual({ staff: false, tab: false });
+	});
+
+	it("says the fields of its round's member contents in its prompt", () => {
+		const climbing = servedPassageRound(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 0, {
+			direction: 'up'
+		});
+		const chord = climbing.plan.expectations[0];
+		const reading: ExerciseDefinition = {
+			...ARPEGGIO,
+			round: {
+				...ARPEGGIO.round!,
+				expectations: [
+					...ARPEGGIO.round!.expectations,
+					{ ...GESTURE_CLIMB.round!.expectations[0] }
+				] as never
+			},
+			presentation: { primary: '{chord}', secondary: '{strings} {toward}' }
+		};
+		expect(presentationProblem(reading)).toBeNull();
+		const asked = planned(reading, C_FIRST_INVERSION);
+		const plan = planOf(ARPEGGIO, asked);
+		const withChord = { ...plan, expectations: [...plan.expectations, chord] };
+		const shown = figureStage({
+			definition: reading,
+			item: asked,
+			plan: withChord,
+			moment: 'round',
+			barInRound: 0,
+			beat: 0,
+			startBar: 0,
+			muted: false,
+			settled: [],
+			played: null,
+			locale: 'fr',
+			random: () => 0,
+			chordDiagram: 'strings',
+			endedSessions: 0
+		});
+		expect(shown.prompt?.secondary).toBe('sol‑si‑mi ↑ en montant');
 	});
 
 	it('reads the bars of the round on the plan it is given, compiling nothing on the beat', () => {

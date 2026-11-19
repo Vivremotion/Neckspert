@@ -47,6 +47,7 @@ export function gridPlacement(
 ): GridPlacement {
 	const { rounds, beatsPerBar, index, anchorBeat, history } = model;
 	const { nowBeat } = input;
+	if (rounds.length === 0) return { bars: [], current: null, next: null, nextAnnounced: false };
 	const opened = anchorBeat !== null;
 	const current = opened ? index : null;
 	const nextIndex = opened ? index + 1 : index;

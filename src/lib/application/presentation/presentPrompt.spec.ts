@@ -196,6 +196,25 @@ describe('presentPrompt', () => {
 		).toBe('à vide');
 	});
 
+	it('shows the aided presentation at an aid level of the exercise as when the item is served aided, on the lane too', () => {
+		const item = { voicingKey: D_ON_B, position: 14, fret: 15 };
+		const at = (over: Partial<PlannedItem>) =>
+			presentPrompt(TRIADS_ZONE, planned(TRIADS_ZONE, item, over), 'en', () => 0);
+		expect(at({ exerciseLevel: -1 }).aid).toBe('root on B');
+		expect(at({ exerciseLevel: -2 }).aid).toBe('root on B');
+		expect(at({ exerciseLevel: 0 }).aid).toBeNull();
+		expect(at({ exerciseLevel: 1 }).aid).toBeNull();
+		const anchor = (over: Partial<PlannedItem>) =>
+			presentPrompt(
+				TRIADS_ANCHOR,
+				planned(TRIADS_ANCHOR, { voicingKey: D_ON_B }, over),
+				'fr',
+				() => 0
+			).pictures.length;
+		expect(anchor({ exerciseLevel: -1 })).toBe(1);
+		expect(anchor({ exerciseLevel: 0 })).toBe(0);
+	});
+
 	it('writes a slot per language', () => {
 		const definition: ExerciseDefinition = {
 			...LOCATE_NECK,

@@ -1,3 +1,4 @@
+import { allGrids } from '$lib/domain/grid/registry';
 import type { ChordGridConfusion, ChordReading } from '$lib/domain/families/guitar/chordShapes';
 import type { AttemptPassage } from '$lib/domain/types';
 import type { VoicingFigureItem } from './placedVoicing';
@@ -30,7 +31,12 @@ export const changeSet: ItemSet<ChangeItem> = {
 			throw new RangeError(`Not a change key: "${itemKey}"`);
 		}
 		return { grid, index: Number(rank) };
-	}
+	},
+	// The grids of every file are registered before any exercise is checked.
+	itemProblem: ({ grid }) =>
+		allGrids().some((known) => known.id === grid)
+			? null
+			: `names grid "${grid}", which no file defines`
 };
 
 /**

@@ -102,6 +102,35 @@ describe('linkLaneLayout', () => {
 		expect(tiles.some((t) => t.verdict)).toBe(false);
 	});
 
+	it("finds a round's tile though its place carries a float's error", () => {
+		const drifted = [0, 3 - 1e-12, 6 + 1e-12].map((at, i) => ({
+			at,
+			length: 3,
+			label: `R${i}`,
+			way: null
+		}));
+		const tiles = linkLaneLayout(
+			{ rounds: drifted, index: 1, beatsPerBar: 4, anchorBeat: 11, history: [] },
+			{ nowBeat: 10.2 }
+		);
+		expect(
+			tiles.filter((t) => t.symbol !== null).map((t) => [t.beatIndex, t.symbol, t.due])
+		).toEqual([
+			[8, 'R0', false],
+			[11, 'R1', true],
+			[14, 'R2', false]
+		]);
+	});
+
+	it('draws an empty line as beats alone, without an error', () => {
+		const tiles = linkLaneLayout(
+			{ rounds: [], index: 0, beatsPerBar: 4, anchorBeat: null, history: [] },
+			{ nowBeat: 3.2 }
+		);
+		expect(tiles).toHaveLength(LANE_BEATS_BEFORE + LANE_BEATS_AFTER);
+		expect(tiles.every((t) => t.symbol === null && !t.due)).toBe(true);
+	});
+
 	it('waits without an anchor: the first change next, nothing counted', () => {
 		const tiles = linkLaneLayout(model(0), { nowBeat: 3.2 });
 		expect(tiles.find((t) => t.symbol === 'D')).toMatchObject({ beatIndex: 4, due: true });

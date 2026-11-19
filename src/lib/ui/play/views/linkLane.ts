@@ -7,7 +7,7 @@ export const LANE_BEATS_BEFORE = 4;
 /** Beats on show ahead of it: two bars. */
 export const LANE_BEATS_AFTER = 8;
 
-/** Far below a beat: absorbs floating-point error when matching a verdict to its change. */
+/** Far below a beat: absorbs floating-point error when matching a round or a verdict to its beat. */
 const BEAT_TOLERANCE = 1e-6;
 
 /** The arrow of a round that lies higher or lower than the one before. */
@@ -49,10 +49,19 @@ export function linkLaneLayout(
 	const anchorBeat = model.anchorBeat ?? time.countedBeat ?? null;
 	const anchored = anchorBeat !== null;
 	const anchor = anchorBeat ?? Math.floor(time.nowBeat) + 1;
-	const start = anchor - rounds[index].at;
+	// An empty line has no round to anchor: its beats alone.
+	const start = anchor - (rounds[index]?.at ?? 0);
 
+	// Each round on the tile of its beat, a float's error absorbed; a round that starts between
+	// two beats has no tile.
 	const symbols = new Map<number, { symbol: string; change: number }>();
-	rounds.forEach((round, i) => symbols.set(start + round.at, { symbol: markOf(round), change: i }));
+	rounds.forEach((round, i) => {
+		const at = start + round.at;
+		const beat = Math.round(at);
+		if (Math.abs(at - beat) < BEAT_TOLERANCE) {
+			symbols.set(beat, { symbol: markOf(round), change: i });
+		}
+	});
 
 	const played = anchored
 		? history.filter((e) => e.beatIndex <= time.nowBeat + BEAT_TOLERANCE)

@@ -385,6 +385,13 @@ describe('the fields of the members of a family', () => {
 		expect(roundMemberFields([notePlaces({ string: 2, pitch: 'D' })], 'fr')).toEqual({});
 	});
 
+	it('takes a field from the first content that gives it words, past one that leaves it empty', () => {
+		// The jam's content says no way and no frets; the climb's and the zone's do.
+		const fields = roundMemberFields([jam().value, climb('up').value, zone([5, 9]).value], 'fr');
+		expect(fields).toEqual({ strings: 'ré‑sol‑si‑mi', frets: '5 à 9', toward: '↑ en montant' });
+		expect(roundMemberFields([jam().value], 'fr')).toMatchObject({ frets: '', toward: '' });
+	});
+
 	it('offers nothing for a note, a family without a view, or what is no member content', () => {
 		expect(memberFields(notePlaces({ string: 2, pitch: 'D' }), 'fr')).toEqual({});
 		expect(memberFields({ family: 'nobody', index: null, selection: {} }, 'fr')).toEqual({});
@@ -401,10 +408,10 @@ describe('the picture of the members admitted', () => {
 	it('names the notes of every shape now, and of the next where none of now sits', () => {
 		const now = [shapeMember('D', 'min', G_B_E, '7-6-5'), shapeMember('D', 'min', D_G_B, '7-7-6')];
 		const next = [shapeMember('G', 'maj', G_B_E, '7-8-7')];
-		expect(membersPicture('chord-shapes', now, next)).toEqual({
+		expect(membersPicture(jam().value, now, next)).toEqual({
 			kind: 'neck',
 			frets: { low: 5, high: 8 },
-			// The strings the shapes are played on, low to high: D-G-B now, G-B-E next.
+			// The strings of the content's index, low to high: the jam's zone of four strings.
 			strings: [4, 3, 2, 1],
 			notes: [
 				{ string: 3, fret: 7, name: 'D' },
@@ -419,15 +426,31 @@ describe('the picture of the members admitted', () => {
 
 	it('draws a place two shapes share once', () => {
 		const shared = shapeMember('D', 'min', G_B_E, '7-6-5');
-		const picture = membersPicture('chord-shapes', [shared, shared], []);
+		const picture = membersPicture(climb('up').value, [shared, shared], []);
 		expect(picture).toMatchObject({ kind: 'neck', frets: { low: 5, high: 7 }, strings: [3, 2, 1] });
 		expect((picture as { notes: unknown[] }).notes).toHaveLength(3);
 	});
 
+	it("keeps the strings of the content's zone whatever strings the shapes use", () => {
+		// Shapes on G-B-E alone, now and next: the zone's neck keeps its four strings.
+		const now = [shapeMember('D', 'min', G_B_E, '7-6-5')];
+		const next = [shapeMember('G', 'maj', G_B_E, '7-8-7')];
+		expect(membersPicture(zone([5, 9]).value, now, next)).toMatchObject({
+			strings: [4, 3, 2, 1]
+		});
+		expect(membersPicture(climb('up').value, now, next)).toMatchObject({ strings: [3, 2, 1] });
+	});
+
 	it('draws nothing of no shape, of a note, or of a family without a view', () => {
-		expect(membersPicture('chord-shapes', [], [])).toBeNull();
-		expect(membersPicture('note-places', [{ id: '2:3' }], [])).toBeNull();
-		expect(membersPicture('nobody', [{ id: 'x' }], [])).toBeNull();
+		expect(membersPicture(jam().value, [], [])).toBeNull();
+		expect(membersPicture(notePlaces({ string: 2, pitch: 'D' }), [{ id: '2:3' }], [])).toBeNull();
+		expect(
+			membersPicture(
+				{ family: 'nobody', index: null, selection: { family: 'nobody' } },
+				[{ id: 'x' }],
+				[]
+			)
+		).toBeNull();
 	});
 });
 
@@ -573,6 +596,18 @@ describe('the miss of a change', () => {
 		expect(
 			member.miss(jam().value, { answer: { decided: heard }, confusion: null }, 'fr', () => 0)
 		).toEqual({ correction: null, heard: drawn('7-6-5'), expected: drawn('7-6-5'), gap: null });
+	});
+
+	it('tells the gap of a missed change in English', () => {
+		const ringing = shapeId('D', 'min', G_B_E, '7-6-5');
+		expect(told(jam(), shapeId('C', 'maj', G_B_E, '5-5-3'), 'en').told.gap).toBe('other chord');
+		expect(told(jam(), shapeId('D', 'maj', G_B_E, '7-7-5'), 'en').told.gap).toBe('other quality');
+		expect(told(climb('up', ringing), shapeId('D', 'min', G_B_E, '2-3-1'), 'en').told.gap).toBe(
+			'not higher'
+		);
+		expect(told(zone([5, 9]), shapeId('D', 'min', G_B_E, '10-10-10'), 'en').told.gap).toBe(
+			'out of the zone'
+		);
 	});
 
 	it('says no chord was heard when nothing answered', () => {

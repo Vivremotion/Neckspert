@@ -20,7 +20,9 @@ import type { PlannedItem, PlannedPassage } from '$lib/domain/types';
 import { CHANGES_EXERCISES, alternatingGrid } from '$lib/testing/changesPassages';
 import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from '$lib/testing/catalog';
 import { shapeId } from '$lib/testing/shapes';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { passageStage } from './passageStage';
+import { presentationProblem, screenProblem } from './validate';
 import type { Picture } from './pictures';
 
 const G_B_E = [3, 2, 1] as const;
@@ -152,6 +154,26 @@ describe('passageStage: the line of a passage', () => {
 			'down'
 		]);
 		expect(model.index).toBe(4);
+	});
+
+	it('places rounds of a fraction of a beat where their lengths add up exactly', () => {
+		const tenths: ExerciseDefinition = {
+			...LINK,
+			round: { ...LINK.round!, length: { beats: 0.1 } }
+		};
+		const rounds = passageOf(tenths, 'chord=D;strings=3,2,1');
+		const model = show(tenths, rounds[0]);
+		expect(model.rounds.map(({ at }) => at)).toEqual(rounds.map((_, i) => i / 10));
+		expect(model.rounds.every(({ length }) => length === 0.1)).toBe(true);
+	});
+
+	it("writes a round's words on the line from its primary when its presentation writes no target", () => {
+		const primaryOnly: ExerciseDefinition = { ...CLIMB, presentation: { primary: '{symbol}' } };
+		const rounds = passageOf(primaryOnly, 'grid=iohefy-a;strings=3,2,1', { direction: 'up' });
+		const changes = gridChanges(gridById('iohefy-a'));
+		expect(show(primaryOnly, rounds[1]).rounds.map(({ label }) => label)).toEqual(
+			changes.map(({ symbol }) => symbol)
+		);
 	});
 
 	it('finds again, by the key of its item, the member each round of a passage is', () => {
@@ -338,12 +360,16 @@ describe('passageStage: a miss', () => {
 		});
 	});
 
-	it('refuses a round of a passage that came without the items of its passage', () => {
+	it('refuses a round of a passage that came without the items of its passage, or with none', () => {
 		const [first] = passageOf(LINK, 'chord=D;strings=3,2,1');
 		const { items: _items, ...untold } = first.passage;
 		expect(() => show(LINK, { ...first, passage: untold })).toThrow(
 			/came without the items of its passage/
 		);
+		const plan = compilePassageRound(LINK, first);
+		expect(() =>
+			show(LINK, { ...first, passage: { ...first.passage, items: [] } }, null, plan)
+		).toThrow(/came without the items of its passage/);
 	});
 });
 
@@ -383,7 +409,7 @@ const stepsExercise = (grid: string): ExerciseDefinition => ({
 		expectations: [{ ...GESTURE_JAM.round!.expectations[0], content: null }] as never
 	},
 	passages: { of: { grid: [grid] }, members: { family: 'test-steps' } },
-	presentation: { primary: '{symbol}', target: '{strings}', aided: { picture: 'admitted' } }
+	presentation: { primary: '{symbol}' }
 });
 
 const SHORT_GRID = 'test-steps-grid';
@@ -401,15 +427,18 @@ afterAll(() => {
 });
 
 describe('passageStage: a family the screen has no view of', () => {
-	it('draws the line with empty words and the way of its positions, no aid, without an error', () => {
+	it('draws the line with the words of its items and the way of its positions, no aid, without an error', () => {
 		const STEPS = stepsExercise(SHORT_GRID);
+		// An exercise the checks at load accept: its words read its items, none its family.
+		expect(presentationProblem(STEPS)).toBeNull();
+		expect(screenProblem(STEPS, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })).toBeNull();
 		const rounds = passageOf(STEPS, `grid=${SHORT_GRID}`, {}, 's:steps');
 		const model = show(STEPS, { ...rounds[1], aid: 'show-position' });
 		expect(model.rounds).toEqual([
-			{ at: 0, length: 4, label: '', way: null },
-			{ at: 4, length: 4, label: '', way: 'up' },
-			{ at: 8, length: 4, label: '', way: 'same' },
-			{ at: 12, length: 4, label: '', way: 'down' }
+			{ at: 0, length: 4, label: 'C', way: null },
+			{ at: 4, length: 4, label: 'F', way: 'up' },
+			{ at: 8, length: 4, label: 'C', way: 'same' },
+			{ at: 12, length: 4, label: 'F', way: 'down' }
 		]);
 		expect(model.prompt.primary).toBe('F');
 		expect(model.aid).toBeNull();
@@ -430,7 +459,7 @@ describe('passageStage: a long passage', () => {
 		expect(position).toHaveBeenCalledTimes(256);
 		const last = show(LONG, rounds[255], null, plan);
 		expect(last.rounds).toHaveLength(256);
-		expect(last.rounds[255]).toEqual({ at: 255 * 4, length: 4, label: '', way: 'down' });
+		expect(last.rounds[255]).toEqual({ at: 255 * 4, length: 4, label: 'F', way: 'down' });
 		expect(last.index).toBe(255);
 		// Another passage of the same index has its own line.
 		show(LONG, passageOf(LONG, `grid=${LONG_GRID}`, {}, 's:again')[0], null, plan);

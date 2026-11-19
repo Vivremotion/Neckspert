@@ -1397,12 +1397,13 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		}
 	});
 
-	it('the jam: three misses in a row at its level 1 bring its aid level, every shape of the chord drawn, three right take it back', async () => {
+	it('the jam: four misses at its level 1, the third bringing its aid level, every shape of the chord drawn, three right take it back', async () => {
 		const jams = [0, 1, 2, 3, 4].flatMap((n) => passage({ passage: `j:${n}` }));
 		const ctx = gestureSeries(jams, { catalogLevels: true });
 		const seen = watching(ctx);
 		await ctx.controller.start();
-		// Three misses (the third the second passage's first change), then everything right.
+		// Four misses, the first two passages whole (the third miss, the second passage's first
+		// change, brings the aid level), then everything right.
 		await playAllRight(ctx, (n, expected) => (n < 4 ? null : expected), seen.watch);
 
 		const attempts = await ctx.stored();
@@ -1505,7 +1506,8 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		const ctx = gestureSeries(climbs(5), { catalogLevels: true });
 		const seen = watching(ctx);
 		await ctx.controller.start();
-		// Three misses (the third the second passage's first change), then everything right.
+		// Four misses, the first two passages whole (the third miss, the second passage's first
+		// change, brings the aid level), then everything right.
 		await playAllRight(ctx, (n, expected) => (n < 4 ? null : expected), seen.watch);
 
 		const attempts = await ctx.stored();

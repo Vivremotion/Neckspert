@@ -8,6 +8,12 @@ export interface ItemSet<I = unknown> {
 	/** Throws on an invalid key (backup validation). */
 	parseItem(itemKey: string): I;
 	/**
+	 * Why an item an exercise lists cannot be played though its key reads (what it names that no
+	 * file defines); null when it can. Read where an exercise's items are checked, never on a
+	 * stored item.
+	 */
+	itemProblem?(item: I): string | null;
+	/**
 	 * The part of a prompted item its card keeps, when a prompt adds to it (a position drawn for
 	 * this prompt only); the item itself without it. `parseItem` returns this part.
 	 */

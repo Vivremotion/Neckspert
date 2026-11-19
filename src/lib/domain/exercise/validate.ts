@@ -354,6 +354,8 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 			return (error as Error).message;
 		}
 		const field = `items[${i}] (${JSON.stringify(itemEntryKey(entry))})`;
+		const unplayable = set.itemProblem?.(item);
+		if (unplayable) return `${field}: ${unplayable}`;
 		if (round === undefined) continue;
 		for (let level = lowest; level <= highest; level++) {
 			for (const at of itemLevels) {

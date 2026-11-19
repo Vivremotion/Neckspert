@@ -91,4 +91,15 @@ describe('gridPlacement', () => {
 		expect(p.bars.map((bar) => bar.bar)).toEqual([0, 1, 2, 3]);
 		expect(p.bars[0].cells[0]).toMatchObject({ change: 0, state: 'next' });
 	});
+
+	it('places an empty line as no bar, without an error', () => {
+		for (const anchorBeat of [null, 8]) {
+			expect(
+				gridPlacement(
+					{ rounds: [], beatsPerBar: 4, index: 0, anchorBeat, history: [] },
+					{ nowBeat: 9, visibleBars: 4 }
+				)
+			).toEqual({ bars: [], current: null, next: null, nextAnnounced: false });
+		}
+	});
 });

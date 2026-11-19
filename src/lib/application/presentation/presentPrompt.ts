@@ -35,10 +35,18 @@ function say(
 }
 
 /**
+ * Whether the prompt of `item` shows its exercise's `aided` presentation, on every view: when the
+ * item is served aided, or played at an aid level of its exercise (an exercise level below 1).
+ */
+export function isAided(item: PlannedItem): boolean {
+	return item.aid === 'show-position' || item.exerciseLevel < 0;
+}
+
+/**
  * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
  * fields its set offers and those of its round's content (`contentFields`, given by the caller),
  * an item's field winning over the content's of the same name. `random` spells an altered note:
- * give every call for one item the same value. The presentation is checked once, as its exercise
+ * give every call for one item the same value. Aided as `isAided` says. The presentation is checked once, as its exercise
  * loads (`definitionChecks`). A picture of the round's content (`CONTENT_PICTURES`) is left to
  * the view of the round.
  */
@@ -57,7 +65,7 @@ export function presentPrompt(
 		...contentFields,
 		...(offered ? offered.fields(item.item, locale, random, definition) : {})
 	};
-	const aided = item.aid === 'show-position';
+	const aided = isAided(item);
 	const names = [
 		aided ? presentation.aided?.picture : undefined,
 		item.stringAid ? presentation.fading?.picture : undefined
