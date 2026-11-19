@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { admitted, selectionProblem } from './select';
+import { admitted, refusedBy, select as selectWith, selectionProblem } from './select';
 import type { Family, Filter, Member, Selection } from './types';
 
 /** A member of the test family: one note per string, at a fret. */
@@ -39,7 +39,8 @@ const FAMILY: Family<null, Spot> = {
 	member: (id) => SPOTS.find((m) => m.id === id) ?? null,
 	recognise: () => null,
 	answer: () => null,
-	confusion: () => null
+	confusion: () => null,
+	heard: () => null
 };
 
 /** A family that knows only a weight: no strings, no frets, no position. */
@@ -229,6 +230,109 @@ describe('admitted', () => {
 	it('takes the first n', () => {
 		expect(select({ order: ['weight'], take: 2 })).toEqual(['3:2,2:3', '2:7,1:8']);
 		expect(select({ take: 0 })).toEqual([]);
+	});
+});
+
+describe('select', () => {
+	const run = (where: readonly Filter[], previous: Spot | null) =>
+		selectWith(FAMILY, null, { family: 't', where }, { previous });
+	const up = (turns?: boolean): Filter => ({
+		position: { beyond: 'previous', toward: 'up', ...(turns && { turns }) }
+	});
+
+	it('admits what `admitted` admits', () => {
+		for (const previous of [null, ...SPOTS]) {
+			for (const where of [[], [up(true)], [{ in: { frets: [1, 5] } }, up(true)]] as Filter[][]) {
+				expect(ids(run(where, previous).admitted)).toEqual(
+					ids(admitted(FAMILY, null, { family: 't', where }, { previous }))
+				);
+			}
+		}
+	});
+
+	it('tells it turned only when a `position` with `turns` found nothing beyond', () => {
+		expect(run([up(true)], SPOTS[4]).turned).toBe(true);
+		expect(run([up(true)], SPOTS[3]).turned).toBe(false);
+		expect(run([up()], SPOTS[4]).turned).toBe(false);
+		expect(run([up(true)], null).turned).toBe(false);
+		expect(run([{ other: 'previous' }], SPOTS[4]).turned).toBe(false);
+		// Turned on what the zone left: nothing above fret 5 in it.
+		expect(run([up(true), { in: { frets: [1, 5] } }], SPOTS[2]).turned).toBe(true);
+	});
+});
+
+describe('refusedBy', () => {
+	const refused = (where: readonly Filter[], member: Spot, previous: Spot | null = null) =>
+		refusedBy(FAMILY, null, { family: 't', where }, member, { previous });
+	const zone: Filter = { in: { frets: [1, 5] } };
+	const strings: Filter = { in: { strings: [3, 2] } };
+	const at: Filter = { at: 9 };
+	const up: Filter = { position: { beyond: 'previous', toward: 'up' } };
+	const down: Filter = { position: { beyond: 'previous', toward: 'down' } };
+	const other: Filter = { other: 'previous' };
+
+	it('gives null for an admitted member, and for one that is no member of the index', () => {
+		expect(refused([zone], SPOTS[1])).toBeNull();
+		expect(refused([], SPOTS[0])).toBeNull();
+		expect(refused([zone], spot(0, [3, 9], [2, 9]))).toBeNull();
+	});
+
+	it('names the `in` or `at` filter that leaves the member out, in written order', () => {
+		expect(refused([zone], SPOTS[4])).toBe(zone);
+		expect(refused([strings, zone], SPOTS[3])).toBe(strings);
+		expect(refused([zone, strings], SPOTS[3])).toBe(zone);
+		expect(refused([zone, at], SPOTS[4])).toBe(zone);
+		expect(refused([at, zone], SPOTS[2])).toBe(at);
+	});
+
+	it('names `in` and `at` before `position`, whatever the order written', () => {
+		expect(refused([up, zone], SPOTS[4], SPOTS[4])).toBe(zone);
+		expect(refused([up, zone], SPOTS[1], SPOTS[2])).toBe(up);
+	});
+
+	it('names the first `position` that leaves the member out, in written order', () => {
+		expect(refused([up], SPOTS[0], SPOTS[2])).toBe(up);
+		expect(refused([down, up], SPOTS[3], SPOTS[2])).toBe(down);
+		expect(refused([up, down], SPOTS[3], SPOTS[2])).toBe(down);
+		expect(refused([up], SPOTS[0], null)).toBeNull();
+	});
+
+	it('names a `position` that turned as it was applied, the other way', () => {
+		const turning: Filter = { position: { beyond: 'previous', toward: 'up', turns: true } };
+		expect(refused([turning], SPOTS[3], SPOTS[4])).toBeNull();
+		expect(refused([turning], SPOTS[4], SPOTS[4])).toEqual({
+			position: { beyond: 'previous', toward: 'down', turns: true }
+		});
+		expect(refused([turning], SPOTS[4], SPOTS[2])).toBeNull();
+		expect(refused([turning], SPOTS[0], SPOTS[2])).toBe(turning);
+	});
+
+	it('names `other` for the previous member, unless nothing else is left, as `admitted` does', () => {
+		expect(refused([other], SPOTS[1], SPOTS[1])).toBe(other);
+		expect(refused([{ at: 5 }, other], SPOTS[2], SPOTS[2])).toBeNull();
+		expect(refused([other, zone], SPOTS[4], SPOTS[4])).toBe(zone);
+	});
+
+	it('agrees with `admitted` on every member, filters and previous', () => {
+		const filters: readonly Filter[] = [zone, strings, { at: 5 }, at, up, down, other];
+		const turning: Filter = { position: { beyond: 'previous', toward: 'up', turns: true } };
+		let compared = 0;
+		for (const a of [...filters, turning]) {
+			for (const b of [...filters, turning]) {
+				for (const previous of [null, ...SPOTS]) {
+					const where = [a, b];
+					const kept = new Set(ids(admitted(FAMILY, null, { family: 't', where }, { previous })));
+					for (const member of SPOTS) {
+						expect(
+							refused(where, member, previous) === null,
+							JSON.stringify([where, member.id, previous?.id])
+						).toBe(kept.has(member.id));
+						compared++;
+					}
+				}
+			}
+		}
+		expect(compared).toBe(8 * 8 * 6 * 5);
 	});
 });
 

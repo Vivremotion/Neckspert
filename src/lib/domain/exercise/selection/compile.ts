@@ -172,7 +172,7 @@ export function compileSelection(
 	}
 	let index: unknown;
 	try {
-		index = derivation.index(item.item);
+		index = derivation.index(item.item, { of: {}, params });
 	} catch (error) {
 		fail(
 			'',

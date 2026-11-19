@@ -4,7 +4,7 @@ import { CORRESPONDENCE_NAMES, correspondence } from './correspondences';
 
 describe('correspondences between item sets', () => {
 	it('names its correspondences', () => {
-		expect([...CORRESPONDENCE_NAMES]).toEqual(['same', 'same-place']);
+		expect([...CORRESPONDENCE_NAMES]).toEqual(['same', 'same-place', 'voicing']);
 	});
 
 	it('maps a placed note to the note on its string, by its place', () => {
@@ -20,6 +20,15 @@ describe('correspondences between item sets', () => {
 				pitch: pitchOnString(string, fret)
 			});
 		}
+	});
+
+	it('maps a placed voicing to its voicing on its strings', () => {
+		const voicing = correspondence('voicing', 'placed-voicing', 'voicing-on-strings');
+		expect(voicing?.of({ voicing: 'C|maj|3:1,2:3,1:5', frets: [5, 5, 3] })).toEqual({
+			voicingKey: 'C|maj|3:1,2:3,1:5'
+		});
+		expect(correspondence('voicing', 'voicing-on-strings', 'placed-voicing')).toBeNull();
+		expect(correspondence('voicing', 'placed-note', 'voicing-on-strings')).toBeNull();
 	});
 
 	it('holds `same` between a set and itself, as the item itself', () => {

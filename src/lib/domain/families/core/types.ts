@@ -29,8 +29,14 @@ export interface Family<I = unknown, M extends Member = Member> {
 	attributes: Readonly<Record<string, Attribute<M>>>;
 	/** The admitted member a sensor's payload is, or null. */
 	recognise(admitted: readonly M[], payload: unknown): M | null;
-	/** How a payload that is no admitted member relates to them; null when nothing can be said. */
-	confusion(index: I, admitted: readonly M[], payload: unknown): unknown;
+	/** The member of this index a sensor's payload is, admitted or not; null when it is none. */
+	heard(index: I, payload: unknown): M | null;
+	/**
+	 * How a payload that is no admitted member relates to them; null when nothing can be said.
+	 * `refused`: the filter that left out the member heard (`refusedBy`), when it is one of the
+	 * index's; null or absent otherwise.
+	 */
+	confusion(index: I, admitted: readonly M[], payload: unknown, refused?: Filter | null): unknown;
 	/** What of a payload an attempt keeps as its answer; null when the payload is unreadable. */
 	answer(payload: unknown): unknown;
 }

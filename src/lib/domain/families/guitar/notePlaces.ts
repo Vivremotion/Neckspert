@@ -69,6 +69,9 @@ export const notePlaces: Family<NotePlacesIndex, NotePlace> = {
 		const midi = midiOf(payload);
 		return midi === null ? null : (admitted.find((member) => member.midi === midi) ?? null);
 	},
+	heard(index, payload) {
+		return notePlaces.recognise(notePlaces.members(index), payload);
+	},
 	answer(payload) {
 		const midi = midiOf(payload);
 		return midi === null ? null : { midi };

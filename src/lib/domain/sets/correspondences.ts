@@ -8,7 +8,7 @@ export interface Correspondence {
 }
 
 /** The names a correspondence is registered under. */
-export const CORRESPONDENCE_NAMES: readonly string[] = ['same', 'same-place'];
+export const CORRESPONDENCE_NAMES: readonly string[] = ['same', 'same-place', 'voicing'];
 
 const SAME: Correspondence = { of: (item) => item };
 
@@ -20,6 +20,11 @@ const SAME_PLACE: Correspondence = {
 	}
 };
 
+/** A placed voicing `{ voicing, frets }` names its voicing on its strings `{ voicingKey }`. */
+const VOICING: Correspondence = {
+	of: (item) => ({ voicingKey: (item as { voicing: string }).voicing })
+};
+
 /**
  * The correspondence `name` from set `from` to set `to` (set ids); null when none is registered.
  * `same` holds between any set and itself.
@@ -27,5 +32,7 @@ const SAME_PLACE: Correspondence = {
 export function correspondence(name: string, from: string, to: string): Correspondence | null {
 	if (name === 'same') return from === to ? SAME : null;
 	if (name === 'same-place' && from === 'placed-note' && to === 'note-on-string') return SAME_PLACE;
+	if (name === 'voicing' && from === 'placed-voicing' && to === 'voicing-on-strings')
+		return VOICING;
 	return null;
 }

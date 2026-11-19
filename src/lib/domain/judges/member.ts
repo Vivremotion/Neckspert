@@ -1,4 +1,11 @@
-import { admitted, familyNamed, type Family, type Member, type Selection } from '../families';
+import {
+	admitted,
+	familyNamed,
+	refusedBy,
+	type Family,
+	type Member,
+	type Selection
+} from '../families';
 import type { ContentJudge } from '../time';
 
 /** A member of a family, admitted by a selection. Value: `MemberContent`; payload: the sensor's. */
@@ -29,17 +36,27 @@ export function admittedMembers(content: MemberContent): Member[] {
 
 /**
  * Right when the payload is a member the selection admits. The answer is what the family keeps
- * of the payload; the confusion, on a miss, the family's.
+ * of the payload; the confusion, on a miss, the family's, told which filter refused the member
+ * heard when it is one of the index's.
  */
 export const memberJudge: ContentJudge = {
 	judge(value, payload) {
 		const content = value as MemberContent;
 		const { family, members } = familyAndMembers(content);
-		const heard = family.recognise(members, payload);
+		if (family.recognise(members, payload) !== null) {
+			return { correct: true, answer: family.answer(payload), confusion: null };
+		}
+		const heard = family.heard(content.index, payload);
+		const refused =
+			heard === null
+				? null
+				: refusedBy(family, content.index, content.selection, heard, {
+						previous: content.previous ?? null
+					});
 		return {
-			correct: heard !== null,
+			correct: false,
 			answer: family.answer(payload),
-			confusion: heard === null ? family.confusion(content.index, members, payload) : null
+			confusion: family.confusion(content.index, members, payload, refused)
 		};
 	}
 };

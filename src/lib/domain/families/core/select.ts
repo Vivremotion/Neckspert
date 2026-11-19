@@ -46,13 +46,16 @@ function placeKeeps<M extends Member>(family: Family<unknown, M>, filter: PlaceF
 	);
 }
 
-/** What `position` keeps of `members`: beyond the previous member, else, with `turns`, the other way. */
+/**
+ * What `position` keeps of `members`: beyond the previous member, else, with `turns`, the other
+ * way. `applied`: the filter as it ran, its `toward` turned when it turned.
+ */
 function beyondPrevious<M extends Member>(
 	family: Family<unknown, M>,
 	members: readonly M[],
 	filter: PositionFilter,
 	previous: M
-): readonly M[] {
+): { kept: readonly M[]; turned: boolean; applied: PositionFilter } {
 	const position = (member: M) => scalar(family.attributes.position(member));
 	const from = position(previous);
 	const beyond = (toward: 'up' | 'down') =>
@@ -61,8 +64,34 @@ function beyondPrevious<M extends Member>(
 		);
 	const { toward, turns } = filter.position;
 	const ahead = beyond(toward);
-	if (ahead.length > 0 || !turns) return ahead;
-	return beyond(toward === 'up' ? 'down' : 'up');
+	if (ahead.length > 0 || !turns) return { kept: ahead, turned: false, applied: filter };
+	const back = toward === 'up' ? 'down' : 'up';
+	return {
+		kept: beyond(back),
+		turned: true,
+		applied: { position: { ...filter.position, toward: back } }
+	};
+}
+
+/** The filters by kind, each kind in the order written. */
+function sorted(where: readonly Filter[]) {
+	const places: PlaceFilter[] = [];
+	const positions: PositionFilter[] = [];
+	let other: Extract<Filter, { other: unknown }> | null = null;
+	for (const filter of where) {
+		if ('in' in filter || 'at' in filter) places.push(filter);
+		else if ('position' in filter) positions.push(filter);
+		else if ('other' in filter) other ??= filter;
+		else unknownFilter(filter);
+	}
+	return { places, positions, other };
+}
+
+/** What the filters kept, whether a `position` turned, and the first filter that left out the member asked about. */
+interface Run<M extends Member> {
+	kept: readonly M[];
+	turned: boolean;
+	refused: Filter | null;
 }
 
 /**
@@ -70,47 +99,56 @@ function beyondPrevious<M extends Member>(
  * read the member alone; then each `position`, on what they left (several add up); then `other`,
  * which leaves the previous member out unless nothing else is left, the members then staying as
  * the other filters left them. Without a previous member, `position` and `other` restrict nothing.
+ * With `member`, also the first filter, in that order, that left it out.
  */
 function filtered<M extends Member>(
 	family: Family<unknown, M>,
 	members: readonly M[],
 	where: readonly Filter[],
-	previous: M | null
-): readonly M[] {
-	const places: PlaceFilter[] = [];
-	const positions: PositionFilter[] = [];
-	let other = false;
-	for (const filter of where) {
-		if ('in' in filter || 'at' in filter) places.push(filter);
-		else if ('position' in filter) positions.push(filter);
-		else if ('other' in filter) other = true;
-		else unknownFilter(filter);
-	}
-	let kept = members.filter((member) =>
-		places.every((filter) => placeKeeps(family, filter, member))
-	);
-	if (!previous) return kept;
+	previous: M | null,
+	member: M | null = null
+): Run<M> {
+	const { places, positions, other } = sorted(where);
+	let refused: Filter | null = member
+		? (places.find((filter) => !placeKeeps(family, filter, member)) ?? null)
+		: null;
+	let kept = members.filter((each) => places.every((filter) => placeKeeps(family, filter, each)));
+	if (!previous) return { kept, turned: false, refused };
 	const placed = kept;
+	let turned = false;
 	for (const filter of positions) {
-		const beyond = new Set(beyondPrevious(family, placed, filter, previous));
-		kept = kept.filter((member) => beyond.has(member));
+		const run = beyondPrevious(family, placed, filter, previous);
+		const beyond = new Set(run.kept);
+		turned ||= run.turned;
+		if (member && refused === null && !beyond.has(member)) refused = run.applied;
+		kept = kept.filter((each) => beyond.has(each));
 	}
-	if (!other) return kept;
-	const others = kept.filter((member) => member.id !== previous.id);
-	return others.length > 0 ? others : kept;
+	if (!other) return { kept, turned, refused };
+	const others = kept.filter((each) => each.id !== previous.id);
+	if (others.length === 0) return { kept, turned, refused };
+	if (member && refused === null && member.id === previous.id) refused = other;
+	return { kept: others, turned, refused };
+}
+
+/** What `select` gives: the members admitted, and whether a `position` turned. */
+export interface Selected<M extends Member> {
+	admitted: M[];
+	/** A `position` filter with `turns` found nothing beyond and turned. */
+	turned: boolean;
 }
 
 /**
  * The members a selection admits for an index: restricted (the filters in an order of their
- * own, see `filtered`, so the order they are written in changes nothing), ordered, taken. Pure.
+ * own, see `filtered`, so the order they are written in changes nothing), ordered, taken; and
+ * whether its direction turned. Pure.
  */
-export function admitted<M extends Member>(
+export function select<M extends Member>(
 	family: Family<unknown, M>,
 	index: unknown,
 	selection: Selection,
 	context: SelectionContext<M> = {}
-): M[] {
-	const members = filtered(
+): Selected<M> {
+	const { kept: members, turned } = filtered(
 		family,
 		family.members(index),
 		selection.where ?? [],
@@ -128,7 +166,39 @@ export function admitted<M extends Member>(
 					}
 					return 0;
 				});
-	return selection.take === undefined ? ordered : ordered.slice(0, selection.take);
+	return {
+		admitted: selection.take === undefined ? ordered : ordered.slice(0, selection.take),
+		turned
+	};
+}
+
+/** The members a selection admits for an index (`select`, without whether it turned). Pure. */
+export function admitted<M extends Member>(
+	family: Family<unknown, M>,
+	index: unknown,
+	selection: Selection,
+	context: SelectionContext<M> = {}
+): M[] {
+	return select(family, index, selection, context).admitted;
+}
+
+/**
+ * Why a member of the index is not admitted: the first filter that leaves it out, in the order
+ * `filtered` applies them (`in` and `at` as written, then each `position` as written, a turned
+ * one given as it ran, then `other`). Null when the filters keep it, and for a member the index
+ * does not give (what the family's confusion tells). The take is no filter: it refuses nothing.
+ */
+export function refusedBy<M extends Member>(
+	family: Family<unknown, M>,
+	index: unknown,
+	selection: Selection,
+	member: M,
+	context: SelectionContext<M> = {}
+): Filter | null {
+	const members = family.members(index);
+	const own = members.find((each) => each.id === member.id);
+	if (!own) return null;
+	return filtered(family, members, selection.where ?? [], context.previous ?? null, own).refused;
 }
 
 function filterName(filter: Filter): string {

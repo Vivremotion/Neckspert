@@ -20,7 +20,7 @@ const F_ON_B: MemberContent = {
 const C_KEY = 'C|maj|3:1,2:3,1:5';
 const C_SHAPES: MemberContent = {
 	family: 'chord-shapes',
-	index: INDEX_DERIVATIONS.voicing.index({ voicingKey: C_KEY }),
+	index: INDEX_DERIVATIONS.voicing.index({ voicingKey: C_KEY }, { of: {}, params: {} }),
 	selection: { family: 'chord-shapes' }
 };
 
@@ -128,6 +128,21 @@ describe('the member judge', () => {
 				answer: null,
 				confusion: { kind: 'none', part: 'chord' }
 			});
+		});
+
+		it('tells the family which filter refused the shape heard', () => {
+			const zone: MemberContent = {
+				family: 'chord-shapes',
+				index: { chord: parseVoicingKey(C_KEY).chord, strings: [4, 3, 2, 1] },
+				selection: { family: 'chord-shapes', where: [{ in: { frets: [1, 5] } }] }
+			};
+			const high = 'C|maj|3:1,2:3,1:5@17-17-15';
+			expect(judge(zone, { decided: high })).toEqual({
+				correct: false,
+				answer: { decided: high },
+				confusion: { kind: 'out-of-zone', part: 'chord' }
+			});
+			expect(judge(zone, { decided: 'C|maj|3:1,2:3,1:5@5-5-3' }).correct).toBe(true);
 		});
 	});
 });
