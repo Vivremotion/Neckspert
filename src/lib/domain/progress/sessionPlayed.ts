@@ -1,12 +1,13 @@
 import { findExercise } from '$lib/domain/exercise/registry';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import { findRoutine } from '$lib/domain/routine/registry';
+import { voicingOnStringsSet } from '$lib/domain/sets';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import type { SkillId } from '$lib/domain/skill/types';
 import type { Attempt, SessionRecord } from '$lib/domain/types';
 
 /** The item set of the chord voicings: a session whose skills are on it counts triads. */
-const CHORD_VOICINGS_SET = 'voicing-on-strings';
+const CHORD_VOICINGS_SET: string = voicingOnStringsSet.id;
 
 /** What a stored session played, as its summary reads it. */
 export interface SessionPlayed {

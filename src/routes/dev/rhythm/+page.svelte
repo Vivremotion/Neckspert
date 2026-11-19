@@ -28,6 +28,7 @@
 	import type { PlannedItem } from '$lib/domain/types';
 	import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
+	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
 	import { StageController } from '$lib/ui/play/views/testing/StageController.svelte';
 
 	/** A still session: listening and replaying only say so. */
@@ -47,9 +48,9 @@
 	const shown = allExercises().find(
 		(exercise) => exercise.view === 'figure' && (exercise.figures ?? []).length > 0
 	);
-	const figure = shown?.figures?.[0]?.figure;
-	if (!shown || !figure)
-		throw new Error('No exercise on the figure view writes a figure: nothing to show');
+	const found = shown?.figures?.[0]?.figure;
+	/** Without one the page says so; the model below is then built on an empty figure, never drawn. */
+	const figure: Figure = found ?? { schema: 2, meter: METER_4_4, bars: 1, voices: [] };
 
 	/** A cycle of four bars of eighths (32 attacks), bar 0 muted; offsets drawn from `seed`. */
 	function cycle(seed: number, passed: boolean): SettledCycle {
@@ -80,7 +81,7 @@
 	const phase = page.url.searchParams.get('phase');
 	const base: FigureStageModel = {
 		phase: 'play',
-		exerciseLabel: shown.title?.fr ?? shown.id,
+		exerciseLabel: shown?.title?.fr ?? shown?.id ?? '',
 		level: { shown: 3, of: 6, aid: false },
 		tempo: { bpm: 80, unit: '♩' },
 		figure,
@@ -255,4 +256,8 @@
 	controller.view.announcement = announcement;
 </script>
 
-<PlayFrame {controller} />
+{#if found}
+	<PlayFrame {controller} />
+{:else}
+	<NothingToShow text="No exercise on the figure view writes a figure: nothing to show." />
+{/if}

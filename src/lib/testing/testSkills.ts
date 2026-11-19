@@ -42,17 +42,6 @@ export function registerTestSkills(): void {
 	registerSkill(TEST_OTHER_NOTE_SKILL, 'test');
 }
 
-/** A skill on each set, for a spec that draws an exercise of a set. */
-export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
-	'note-on-string': 'locate-note-string',
-	'placed-note': 'identify-note',
-	'voicing-on-strings': 'chord-anchor',
-	change: 'grid-reading',
-	figure: 'inner-pulse',
-	'placed-voicing': TEST_PLACED_VOICING_SKILL.id,
-	'placed-shape': TEST_PLACED_SHAPE_SKILL.id
-};
-
 /**
  * The exercise practising a skill like its own (same items, with memory) whose direct recall is
  * within `withinMs`: registered once under an id naming both, kept for the rest of the file.

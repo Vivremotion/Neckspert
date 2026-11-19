@@ -1,5 +1,11 @@
 import { IDENTIFY_NECK } from '$lib/testing/catalog';
-import { practisingWithoutRecall, SKILL_OF_SET, registerTestSkills } from '$lib/testing/testSkills';
+import {
+	practisingWithoutRecall,
+	registerTestSkills,
+	TEST_PLACED_SHAPE_SKILL,
+	TEST_PLACED_VOICING_SKILL
+} from '$lib/testing/testSkills';
+import type { SkillId } from '$lib/domain/skill/types';
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { CLIMB_PASSAGES } from '$lib/testing/changesPassages';
@@ -18,6 +24,17 @@ import { admittedMembers, type MemberContent } from '../../judges';
 import { compileRound, roundParamsOf, RoundCompileError, type ResolutionCache } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
+
+/** A skill on each set, for a spec that draws an exercise of a set. */
+export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
+	'note-on-string': 'locate-note-string',
+	'placed-note': 'identify-note',
+	'voicing-on-strings': 'chord-anchor',
+	change: 'grid-reading',
+	figure: 'inner-pulse',
+	'placed-voicing': TEST_PLACED_VOICING_SKILL.id,
+	'placed-shape': TEST_PLACED_SHAPE_SKILL.id
+};
 
 registerTestSkills();
 

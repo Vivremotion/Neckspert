@@ -59,17 +59,23 @@ const STRUM_BEATS: Partial<Record<ResponseVerdict, number>> = {
 	wrong: 0.02
 };
 
+/** The exercise the demo plays: the first registered one playing passages on its view. */
+export function gestureDemoExercise(mode: DemoGestureMode) {
+	return allExercises().find(
+		(candidate) => candidate.passages !== undefined && candidate.view === DEMO_VIEWS[mode]
+	);
+}
+
 /**
  * The demo's exercise, read from the registry by what it is: the first that plays passages on the
  * demo's view (the link on its lane, the climb on the scrolling grid); the index of its passage,
  * and each passage param at its first value (the climb going up).
  */
 function demoPassage(mode: DemoGestureMode) {
-	const view = DEMO_VIEWS[mode];
-	const exercise = allExercises().find(
-		(candidate) => candidate.passages !== undefined && candidate.view === view
-	);
-	if (!exercise) throw new Error(`No exercise plays passages on the ${view} view: nothing to show`);
+	const exercise = gestureDemoExercise(mode);
+	if (!exercise) {
+		throw new Error(`No exercise plays passages on the ${DEMO_VIEWS[mode]} view: nothing to show`);
+	}
 	const indices = passageIndices(exercise);
 	const index = indices.find((found) => found.key === demoIndexKey(mode)) ?? indices[0];
 	const each = Object.fromEntries(

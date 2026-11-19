@@ -12,7 +12,11 @@
 		ManualDemoClock
 	} from '$lib/ui/play/demo/DemoPlaySession.svelte';
 
-	if (!locateDemoExercise()) throw new Error('No exercise locates notes: nothing to show');
+	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
+	import { demoMessages } from '$lib/ui/play/demo/messages';
+
+	/** Whether the registry holds an exercise that locates notes for the demo to play. */
+	const shown = locateDemoExercise() !== undefined;
 
 	const clock = new ManualDemoClock();
 	const controller = new DemoPlaySession({ clock });
@@ -73,6 +77,7 @@
 	}
 
 	onMount(() => {
+		if (!shown) return;
 		let raf = 0;
 		void (async () => {
 			await controller.start();
@@ -189,7 +194,9 @@
 	});
 </script>
 
-{#if ready}
+{#if !shown}
+	<NothingToShow text={demoMessages().noLocate} />
+{:else if ready}
 	<!-- The notes and the triads play in the frame, on the same lane view. -->
 	<PlayFrame {controller} />
 {/if}

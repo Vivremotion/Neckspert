@@ -3,17 +3,18 @@ import { allExercises } from '$lib/domain/exercise/registry';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { fretsForPitch, type IdentifyItem, type LocateItem } from '$lib/domain/music';
 import { MAX_PROMPT_FRET, type StringNumber } from '$lib/domain/music/types';
-import { setOfSkill } from '$lib/domain/sets';
+import { noteOnStringSet, placedNoteSet, setOfSkill } from '$lib/domain/sets';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import type { SkillId } from '$lib/domain/types';
 
 /**
  * The neck domain (stats, neck map, free play's reviews order) knows the neck by the item sets of
- * its skills, never by a skill or an exercise of the catalog: a note to locate on a string, and a
- * place on the neck to name. These are the guitar's registered vocabulary (`ITEM_SET_NAMES`).
+ * its skills, never by a skill or an exercise of the catalog: a note to locate on a string
+ * (`note-on-string`), and a place on the neck to name (`placed-note`), read from the sets
+ * themselves.
  */
-export const LOCATED_NOTES = 'note-on-string';
-export const NAMED_NOTES = 'placed-note';
+export const LOCATED_NOTES: string = noteOnStringSet.id;
+export const NAMED_NOTES: string = placedNoteSet.id;
 
 /** The set a skill's items belong to, when a loaded file defines the skill. */
 function setNameOf(skill: SkillId): string | null {

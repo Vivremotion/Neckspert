@@ -5,6 +5,7 @@ export const mapMessages = defineMessages({
 	fr: {
 		title: 'Carte du manche',
 		board: 'Manche',
+		empty: 'Aucune case à montrer : aucun exercice ne liste de place sur le manche.',
 		home: 'Pratiquer',
 		locate: 'Localisation',
 		identify: 'Identification',
@@ -22,6 +23,7 @@ export const mapMessages = defineMessages({
 	en: {
 		title: 'Neck map',
 		board: 'Neck',
+		empty: 'No place to show: no exercise lists a place on the neck.',
 		home: 'Practice',
 		locate: 'Locate',
 		identify: 'Identify',

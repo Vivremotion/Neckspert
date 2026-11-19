@@ -10,12 +10,6 @@ import { admittedMembers, MEMBER_CONTENT, type MemberContent } from '$lib/domain
 import { passageOf } from '$lib/domain/session/passageSource';
 import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
 
-/** Throws on an exercise no file defines as one that plays passages, rather than invent it. */
-function assertPassagesExercise(exerciseId: string): void {
-	if (findExercise(exerciseId)?.passages === undefined)
-		throw new Error(`${exerciseId}: not an exercise that plays passages`);
-}
-
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -127,14 +121,16 @@ export function summarizeGesture(
 	executions: readonly Execution[],
 	attempts: readonly Attempt[]
 ): GestureSummary {
-	const changes = attempts.filter(isChange);
+	// The changes of an exercise no file defines as one that plays passages any more are left
+	// out: nothing tells what it was (plan 5b gives every exercise its line).
+	const changes = attempts.filter(
+		(attempt) => isChange(attempt) && findExercise(attempt.exerciseId)?.passages !== undefined
+	);
 	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
 		const own = changes.filter(
 			(attempt) => attempt.exerciseId === exerciseId && (attempt.scope ?? null) === (scope ?? null)
 		);
 		if (own.length === 0 || tempoBpm === null) return [];
-		// Only an exercise that plays passages is summed up here.
-		assertPassagesExercise(exerciseId);
 		const passages = new Map<string, Attempt[]>();
 		for (const attempt of own) {
 			const id = passageIdOf(attempt);

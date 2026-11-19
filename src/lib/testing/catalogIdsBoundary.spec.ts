@@ -4,7 +4,13 @@ import { describe, expect, it } from 'vitest';
  * No exercise in the code (spec 2026-11-18, § 11 « La frontière »): no id of a skill, a grid,
  * an exercise or a routine of the catalog is written in `src/` outside the tests and the
  * migrations. The ids are read from the catalog's files themselves, so a new one is guarded
- * as soon as it is written there.
+ * as soon as it is written there. A production file may not import, directly or through another
+ * module, the tests' catalog constants (`testing/catalogIds.ts`).
+ *
+ * What the scan does NOT cover: an id inside a longer string literal (`'the notes'`, a template
+ * with text around it) — looking for those would flag `notes`, `chords` and `changes` wherever
+ * they are everyday words; an id built from parts at run time; and the ids nested in a
+ * definition (figures, shapes, levels), which are not read from the catalog.
  */
 
 // Every source of the app and every catalog file as raw text (Vite resolves the globs).
@@ -75,11 +81,72 @@ function offendersIn(files: Record<string, string>, ids: readonly string[]): str
 	return offenders.sort();
 }
 
-/** Every guarded file that imports the tests' catalog constants. */
-function importersOfTestIds(files: Record<string, string>): string[] {
-	return Object.entries(files)
-		.filter(([path, text]) => !exempt(path) && /['"][^'"]*testing\/catalogIds['"]/.test(text))
-		.map(([path]) => path);
+/** The tests' catalog constants. */
+const TEST_IDS = '/src/lib/testing/catalogIds.ts';
+
+const IMPORT_SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]+)['"]/g;
+const EXTENSIONS = ['', '.ts', '.js', '.svelte', '.svelte.ts', '/index.ts'];
+
+/** The file of `files` an import of `specifier` from `from` names; null outside `src/`. */
+function resolve(files: Record<string, string>, from: string, specifier: string): string | null {
+	let base: string;
+	if (specifier.startsWith('$lib/')) base = `/src/lib/${specifier.slice('$lib/'.length)}`;
+	else if (specifier.startsWith('.')) base = new URL(specifier, `file://${from}`).pathname;
+	else return null;
+	return EXTENSIONS.map((extension) => base + extension).find((path) => path in files) ?? null;
+}
+
+function importsOf(files: Record<string, string>, path: string): string[] {
+	return [...files[path].matchAll(IMPORT_SPECIFIER)].flatMap((match) => {
+		const found = resolve(files, path, match[1]);
+		return found === null ? [] : [found];
+	});
+}
+
+/** The test modules a production file could import: the benches and the storage fixtures. */
+const TEST_MODULES = /^\/src\/lib\/(testing|infrastructure\/storage\/testing)\/(?!.*\.spec\.ts$)/;
+
+/** Whether a text writes one of `ids` between quotes. */
+function names(text: string, ids: readonly string[]): boolean {
+	return ids.some((id) => ["'", '"', '`'].some((quote) => text.includes(`${quote}${id}${quote}`)));
+}
+
+/**
+ * The tests' catalog constants, the test modules that name catalog ids themselves
+ * (`testing/catalog.ts`), and every test module that imports one of them, directly or through
+ * another (`testing/neck`, the benches), computed from the imports. Migrations name ids too and
+ * are imported by the storage: they are not test modules.
+ */
+function testIdsModules(files: Record<string, string>, ids: readonly string[]): Set<string> {
+	const reaching = new Set([
+		TEST_IDS,
+		...Object.keys(files).filter((path) => TEST_MODULES.test(path) && names(files[path], ids))
+	]);
+	for (let grown = true; grown;) {
+		grown = false;
+		for (const path of Object.keys(files)) {
+			if (reaching.has(path) || !TEST_MODULES.test(path)) continue;
+			if (importsOf(files, path).some((imported) => reaching.has(imported))) {
+				reaching.add(path);
+				grown = true;
+			}
+		}
+	}
+	return reaching;
+}
+
+/** Every guarded file that imports the tests' catalog constants or a module that reaches them. */
+function importersOfTestIds(files: Record<string, string>, ids: readonly string[]): string[] {
+	const reaching = testIdsModules(files, ids);
+	return Object.keys(files)
+		.filter((path) => !exempt(path))
+		.filter((path) => importsOf(files, path).some((imported) => reaching.has(imported)))
+		.flatMap((path) =>
+			importsOf(files, path)
+				.filter((imported) => reaching.has(imported))
+				.map((imported) => `${path} imports ${imported}`)
+		)
+		.sort();
 }
 
 describe('no catalog id in the code', () => {
@@ -97,7 +164,7 @@ describe('no catalog id in the code', () => {
 	});
 
 	it('imports the tests’ catalog ids from tests only', () => {
-		expect(importersOfTestIds(sources)).toEqual([]);
+		expect(importersOfTestIds(sources, ids)).toEqual([]);
 	});
 
 	it('actually scans the sources, the screens and the pages included', () => {
@@ -122,9 +189,43 @@ describe('no catalog id in the code', () => {
 			'/src/lib/infrastructure/storage/legacy/planted.ts'
 		])
 			expect(offendersIn({ [path]: `const id = 'chord-anchor';` }, ids)).toEqual([]);
+		const bench = '/src/lib/testing/bench.ts';
+		const neck = '/src/lib/testing/neckLists.ts';
+		const files = {
+			[TEST_IDS]: `export const X = 1;`,
+			[neck]: `import { X } from './catalogIds';`,
+			[bench]: `import { Y } from '$lib/testing/neckLists';`,
+			'/src/lib/testing/fakes.ts': `export const F = 1;`,
+			'/src/lib/testing/named.ts': `export const N = 'chord-anchor';`
+		};
 		expect(
-			importersOfTestIds({ [planted]: `import { X } from '$lib/testing/catalogIds';` })
-		).toEqual([planted]);
+			importersOfTestIds(
+				{ ...files, [planted]: `import { X } from '$lib/testing/catalogIds';` },
+				ids
+			)
+		).toEqual([`${planted} imports ${TEST_IDS}`]);
+		// Through a module that reaches them, two steps away; a testing module that does not is free.
+		expect(
+			importersOfTestIds(
+				{
+					...files,
+					[planted]: `import { Z } from '$lib/testing/bench';\nimport { F } from '$lib/testing/fakes';`
+				},
+				ids
+			)
+		).toEqual([`${planted} imports ${bench}`]);
+		// A testing module that names a catalog id itself counts as the constants do.
+		expect(
+			importersOfTestIds({ ...files, [planted]: `import { N } from '../testing/named';` }, ids)
+		).toEqual([`${planted} imports /src/lib/testing/named.ts`]);
+		expect([...testIdsModules(sources, ids)]).toEqual(
+			expect.arrayContaining([
+				TEST_IDS,
+				'/src/lib/testing/neck.ts',
+				'/src/lib/testing/notesSeries.ts',
+				'/src/lib/testing/catalog.ts'
+			])
+		);
 	});
 
 	it('lets a word of the format pass only in the files it is listed for', () => {
