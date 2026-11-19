@@ -25,6 +25,9 @@ const NAMES = [
 /** What it never imports: the instrument, and the families built on it. */
 const IMPORTS: readonly RegExp[] = [/families\/guitar/, /(^|\/)music(\/|$)/, /(^|\/)triads(\/|$)/];
 
+/** What a module imports: `from '…'`, a bare `import '…'` or a dynamic `import('…')`. */
+const IMPORT_SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]*)['"]/g;
+
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
@@ -33,7 +36,7 @@ function offendersIn(files: Record<string, string>): string[] {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
-		for (const match of text.matchAll(/from\s*['"]([^'"]*)['"]/g)) {
+		for (const match of text.matchAll(IMPORT_SPECIFIER)) {
 			if (IMPORTS.some((pattern) => pattern.test(match[1])))
 				offenders.push(`${path}: imports ${match[1]}`);
 		}
@@ -56,6 +59,12 @@ describe('the selection module', () => {
 		expect(
 			offendersIn({ [file]: `import { notePlaces } from '../../families/guitar/notePlaces';` })
 		).toEqual([`${file}: imports ../../families/guitar/notePlaces`]);
+		expect(offendersIn({ [file]: `import '../../families/guitar/notes';` })).toEqual([
+			`${file}: imports ../../families/guitar/notes`
+		]);
+		expect(offendersIn({ [file]: `const m = import("../../music");` })).toEqual([
+			`${file}: imports ../../music`
+		]);
 		expect(offendersIn({ [file]: `import { midiOnString } from '../../music';` })).toEqual([
 			`${file}: imports ../../music`
 		]);

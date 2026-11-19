@@ -36,6 +36,9 @@ const FAMILY_IDS = ['note-places', 'chord-shapes'];
 /** What it may take from the derivations: their registries, looked up by name. */
 const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES', 'ITEM_VALUES'];
 
+/** What a module imports: `from '…'`, a bare `import '…'` or a dynamic `import('…')`. */
+const IMPORT_SPECIFIER = /(?:\bfrom|\bimport)\s*\(?\s*['"]([^'"]*)['"]/g;
+
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
@@ -44,8 +47,8 @@ function offendersIn(files: Record<string, string>): string[] {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
-		for (const match of text.matchAll(/from\s*['"]([^'"]*families\/guitar[^'"]*)['"]/g))
-			offenders.push(`${path}: imports ${match[1]}`);
+		for (const match of text.matchAll(IMPORT_SPECIFIER))
+			if (/families\/guitar/.test(match[1])) offenders.push(`${path}: imports ${match[1]}`);
 		for (const match of text.matchAll(
 			/import\s+(?:type\s+)?\{([^}]*)\}\s*from\s*['"]([^'"]*derivations[^'"]*)['"]/g
 		)) {
@@ -81,6 +84,12 @@ describe('the round compiler', () => {
 		}
 		expect(
 			offendersIn({ [file]: `import { chordShapes } from '../../families/guitar/chordShapes';` })
+		).toEqual([`${file}: imports ../../families/guitar/chordShapes`]);
+		expect(offendersIn({ [file]: `import '../../families/guitar/notes';` })).toEqual([
+			`${file}: imports ../../families/guitar/notes`
+		]);
+		expect(
+			offendersIn({ [file]: `const m = await import('../../families/guitar/chordShapes');` })
 		).toEqual([`${file}: imports ../../families/guitar/chordShapes`]);
 		expect(offendersIn({ [file]: `import { familyNamed } from '../../families';` })).toEqual([]);
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);

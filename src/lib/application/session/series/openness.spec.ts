@@ -238,6 +238,26 @@ describe('every valid exercise plays', () => {
 				)
 		);
 		expect(families).toEqual(new Set(['note-places', 'chord-shapes']));
+		// Zones are drawn with their first fret written, read in a param and read on the item, and
+		// played, not only refused.
+		const zoneEnds = SEEDS.map(drawn)
+			.filter((d) => refusal(d) === null)
+			.flatMap((d) =>
+				d.round!.expectations.flatMap((e) =>
+					!('figure' in e) && e.content && 'family' in e.content
+						? (e.content.where ?? []).flatMap((filter) =>
+								'in' in filter && Array.isArray(filter.in.frets)
+									? [
+											typeof filter.in.frets[0] === 'number'
+												? 'written'
+												: Object.keys(filter.in.frets[0])[0]
+										]
+									: []
+							)
+						: []
+				)
+			);
+		expect(new Set(zoneEnds)).toEqual(new Set(['written', 'param', 'item']));
 	});
 
 	it('draws an exercise that writes a presentation and no view on the lane', async () => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
 	CONTENT_DERIVATIONS,
 	ITEM_NUMBERS,
@@ -1009,6 +1009,11 @@ describe('SessionController', () => {
 			reads: ['tap'],
 			derive: () => ({ string: 3, fret: 5 })
 		};
+		// The vocabulary leaves the live registries with this block.
+		afterAll(() => {
+			delete indexes['test-note-c'];
+			delete derivations['test-name'];
+		});
 		const BEAT_ROUND: RoundTemplate = {
 			...(LOCATE_NECK.round as RoundTemplate),
 			expectations: [

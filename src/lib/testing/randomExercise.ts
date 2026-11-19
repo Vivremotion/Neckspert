@@ -14,7 +14,7 @@ import type { SessionControllerDeps } from '$lib/application/session/SessionDeps
 import { START_DELAY_S } from '$lib/application/session/transport';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
+import { CONTENT_DERIVATIONS, ITEM_VALUES } from '$lib/domain/derivations';
 import {
 	exerciseById,
 	tempoOf,
@@ -202,6 +202,42 @@ function drawnContents(): DrawnContent[] {
 	return [...derived, ...selected];
 }
 
+/** The param a drawn zone may read its first fret in: 1 at the exercise, above its last fret at the ladder's last level. */
+export const ZONE_FROM_PARAM = 'zoneFrom';
+const ZONE_FROM = 1;
+const ZONE_FROM_REVERSED = 13;
+/** The last fret of a drawn zone: below some frets an item names, so that a zone comes out reversed. */
+const ZONE_TO = 7;
+
+/** A number an item of `reads` carries (`ITEM_VALUES`), or none. */
+function itemNumberOf(reads: readonly string[]): string | undefined {
+	return Object.keys(ITEM_VALUES).find(
+		(name) =>
+			ITEM_VALUES[name].kind === 'number' &&
+			reads.some((set) => ITEM_VALUES[name].reads.includes(set))
+	);
+}
+
+/**
+ * Now and then a zone of frets added to a selection: its first fret written, read in the params
+ * (reversed at the ladder's last level) or read on the item (reversed past `ZONE_TO`); a zone that
+ * comes out reversed admits nothing.
+ */
+function withZone(random: () => number, drawn: DrawnContent): DrawnContent {
+	if (!('family' in drawn.content) || !chance(random, 0.3)) return drawn;
+	const item = itemNumberOf(drawn.reads);
+	const from = pick(random, [
+		ZONE_FROM,
+		{ param: ZONE_FROM_PARAM },
+		...(item !== undefined ? [{ item }] : [])
+	]);
+	const zone = { in: { frets: [from, ZONE_TO] as const } };
+	return {
+		...drawn,
+		content: { ...drawn.content, where: [...(drawn.content.where ?? []), zone] }
+	};
+}
+
 /** The sensors a session of the bench has. */
 export const BENCH_SENSORS: readonly string[] = ['note', 'chord', 'tap'];
 
@@ -292,7 +328,10 @@ function randomExpectations(
 	const places = Array.from({ length: count }, () => pick(random, POSITIONS));
 	if (chance(random, 0.85)) places.sort((a, b) => a - b);
 	return places.map((beats, i) => {
-		const drawn = chance(random, 0.05) ? pick(random, all) : pick(random, reading);
+		const drawn = withZone(
+			random,
+			chance(random, 0.05) ? pick(random, all) : pick(random, reading)
+		);
 		const inFreeTime = mixed ? i === 0 : free;
 		const window = chance(random, 0.3)
 			? { ms: { param: 'windows.perfectMs' } }
@@ -513,8 +552,14 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 			: set === 'placed-note' && free
 				? 'answer-keys'
 				: 'lane';
+	// What a zone may read: its first fret, above its last at the ladder's last level.
+	ladder[ladder.length - 1].params = {
+		...ladder[ladder.length - 1].params,
+		[ZONE_FROM_PARAM]: ZONE_FROM_REVERSED
+	} as Ladder[number]['params'];
 	const params: Record<string, unknown> = {
 		ladder,
+		[ZONE_FROM_PARAM]: ZONE_FROM,
 		...(figured && {
 			figure: pick(random, FIGURE_IDS),
 			window: { ms: pick(random, WINDOWS_MS) }
@@ -637,7 +682,8 @@ const chordReading = (decided: string | null) => ({
 /** What a sensor sends for the first member a content admits: its lowest fretted shape, its note. */
 function rightMember(content: MemberContent): unknown {
 	const members = admittedMembers(content);
-	if (members.length === 0) throw new Error(`No member admitted by ${JSON.stringify(content)}`);
+	// Nothing admitted (a zone that came out reversed): nothing is right.
+	if (members.length === 0) return wrongMember(content);
 	switch (content.family) {
 		case 'note-places':
 			return { midi: (members[0] as NotePlace).midi };
@@ -680,7 +726,8 @@ export interface BenchRound {
 	/**
 	 * Every expectation has a moment its zone holds in time, as the engine's pairing computes
 	 * it: false when one opens only once the round has stopped listening (a window that opens a
-	 * few ms before a place past the end of listening), which no answer can then pass.
+	 * few ms before a place past the end of listening), which no answer can then pass; false too
+	 * when a selection admits nothing (a zone that came out reversed).
 	 */
 	answerable: boolean;
 }
@@ -870,7 +917,13 @@ export async function playExercise(
 		const times = plan.expectations.map((_, index) =>
 			free || anchorBeat === null ? null : answerTime(zones?.[index])
 		);
-		round.answerable = free || times.every((time) => time !== null);
+		// A selection that admits nothing has no right answer.
+		const admitsNone = plan.expectations.some(
+			(e) =>
+				e.content?.kind === MEMBER_CONTENT &&
+				admittedMembers(e.content.value as MemberContent).length === 0
+		);
+		round.answerable = !admitsNone && (free || times.every((time) => time !== null));
 		plan.expectations.forEach((expectation, index) => {
 			if (answer === 'none' && !free) return;
 			const content = expectation.content;

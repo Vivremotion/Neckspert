@@ -149,6 +149,23 @@ describe('oracleRuns', () => {
 		expect(oracleRuns([cycle(1, 's', 10_000), old]).map((run) => run.attemptIds)).toEqual([[1]]);
 	});
 
+	it('leaves out a member plan whose family is no longer registered, without throwing', () => {
+		const gone = {
+			...cycle(2, 's', 10_000 + CYCLE_MS),
+			plan: {
+				...PLAN,
+				expectations: PLAN.expectations.map((e) => ({
+					...e,
+					content: {
+						kind: 'member',
+						value: { family: 'gone-family', index: null, selection: { family: 'gone-family' } }
+					}
+				}))
+			}
+		};
+		expect(oracleRuns([cycle(1, 's', 10_000), gone]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
 	it('chains a cycle that starts within a beat of the last one’s end', () => {
 		const beat = CYCLE_MS / 4;
 		const runs = oracleRuns([
