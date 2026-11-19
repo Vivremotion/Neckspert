@@ -78,9 +78,15 @@ describe('admitted', () => {
 		expect(select({ where: [{ in: { frets: [2, 3] } }] })).toEqual(['3:2,2:3']);
 	});
 
-	it('keeps the members with a note at the fret of `at`', () => {
+	it('keeps the members that cover the fret of `at`, from their lowest to their highest fret', () => {
 		expect(select({ where: [{ at: 5 }] })).toEqual(['3:5,2:5']);
 		expect(select({ where: [{ at: 0 }] })).toEqual(['3:0,2:1']);
+		expect(select({ where: [{ at: 1 }] })).toEqual(['3:0,2:1']);
+		expect(select({ where: [{ at: 4 }] })).toEqual([]);
+		const gap = spot(0, [3, 5], [2, 5], [1, 3]);
+		const withGap = { ...FAMILY, members: () => [gap] };
+		expect(ids(admitted(withGap, null, { family: 't', where: [{ at: 4 }] }))).toEqual([gap.id]);
+		expect(ids(admitted(withGap, null, { family: 't', where: [{ at: 6 }] }))).toEqual([]);
 	});
 
 	it('adds two filters up', () => {

@@ -38,7 +38,8 @@ export interface Family<I = unknown, M extends Member = Member> {
 /**
  * A restriction of the members, independent of the others: a selection admits the same members
  * whatever order its filters are written in (`admitted` applies them in an order of its own).
- * `in` and `at` read the member alone; `position` keeps what lies beyond the previous member,
+ * `in` and `at` read the member alone (`at`: the member covers that fret, between its lowest and
+ * its highest, an open string counted as fret 0: 5-5-3 covers 3, 4 and 5); `position` keeps what lies beyond the previous member,
  * its turn decided on what `in` and `at` left; `other` leaves the previous member out, unless
  * nothing else is left.
  */

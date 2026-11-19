@@ -137,6 +137,30 @@ describe('chord-shapes selection', () => {
 		expect(compared).toBeGreaterThan(100);
 	});
 
+	it('admits at a fret the shape that covers it, between its lowest and its highest fret', () => {
+		const voicing = indexOf(C_MAJOR);
+		const at = (fret: number) =>
+			admitted(chordShapes, voicing, { family: 'chord-shapes', where: [{ at: fret }] }).map(
+				(m) => m.id
+			);
+		const shape = 'C|maj|3:1,2:3,1:5@5-5-3';
+		expect(at(3)).toEqual([shape]);
+		expect(at(4)).toEqual([shape]);
+		expect(at(5)).toEqual([shape]);
+		expect(at(6)).toEqual([]);
+	});
+
+	it('admits a shape on open strings at fret 0 only, not its octave', () => {
+		const eMinor = indexOf(parseVoicingKey('E|min|3:b3,2:5,1:1'));
+		const at = (fret: number) =>
+			admitted(chordShapes, eMinor, { family: 'chord-shapes', where: [{ at: fret }] }).map(
+				(m) => m.id
+			);
+		expect(at(0)).toEqual(['E|min|3:b3,2:5,1:1@0-0-0']);
+		expect(at(1)).toEqual([]);
+		expect(at(12)).toEqual(['E|min|3:b3,2:5,1:1@12-12-12']);
+	});
+
 	it('keeps the previous shape when it is the only one covering the fret, in either order', () => {
 		const shapes = chordShapes.members(index);
 		const only = shapes.find(

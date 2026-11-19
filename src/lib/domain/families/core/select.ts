@@ -20,6 +20,11 @@ function fretInZone(fret: number, [from, to]: readonly [number, number]): boolea
 	return fret <= to && (fret >= from || (fret === 0 && from === 1));
 }
 
+/** A member covers the frets from its lowest to its highest, an open string counted as fret 0. */
+function covers(frets: readonly number[], fret: number): boolean {
+	return frets.length > 0 && fret >= Math.min(...frets) && fret <= Math.max(...frets);
+}
+
 type PlaceFilter = Extract<Filter, { in: unknown } | { at: unknown }>;
 type PositionFilter = Extract<Filter, { position: unknown }>;
 
@@ -30,7 +35,7 @@ function unknownFilter(filter: never): never {
 /** What `in` or `at` keeps: it reads the member alone. */
 function placeKeeps<M extends Member>(family: Family<unknown, M>, filter: PlaceFilter, member: M) {
 	const memberFrets = list(family.attributes.frets(member));
-	if ('at' in filter) return memberFrets.includes(filter.at);
+	if ('at' in filter) return covers(memberFrets, filter.at);
 	const { strings, frets } = filter.in;
 	const memberStrings = list(family.attributes.strings(member));
 	return memberFrets.every(
