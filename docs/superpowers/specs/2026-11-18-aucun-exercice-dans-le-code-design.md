@@ -681,11 +681,12 @@ Ce que l'exécution a décidé en plus :
 - Le niveau d'aide n'écrit ni `pass` ni `drop`. Le moteur compte alors trois réussites de suite, sans autre aide, pour revenir au niveau 1. L'ancienne aide partait après un passage réussi ; dix réussites de suite la garderaient bien plus longtemps.
 - Un changement joué au niveau d'aide porte l'aide `'aid-level'`, qui compte comme le niveau lui-même, pas comme une aide : sans cela, personne ne remonterait du niveau d'aide. Cette règle vaut maintenant pour tout exercice (`aidedBeyondLevel` lit `levelAided`).
 - `grid-reading` n'écrit ni niveau d'aide ni `flow.antiBlocking` dans ce plan, contrairement au § 7 (« chaque exercice ») : son aide ne dessinait rien, un niveau d'aide n'aurait fait qu'annoncer une aide absente, puis arrêter la séance. L'ancienne lecture n'avait pas d'aide non plus. Le dessin des membres admis vient avec le modèle générique du plan 4c, qui décidera alors de son niveau d'aide.
+- Le bilan d'une séance de changements dit « On change d'air » et nomme l'exercice (et la grille) qui se repose, tant que la séance est encore en mémoire (`SessionSummary.gesture.changeOfAir`).
 - Deux dérivations d'index s'ajoutent à la guitare : `placed` (une forme placée : son voicing et ses cases) et `change-chord` (la triade du symbole d'un changement, sur la zone de cordes du passage, sinon des paramètres).
 - La vue `link-lane` trouve encore son présentateur par la vue (`VIEW_PRESENTERS` n'a plus qu'elle) : ses formes sont des éléments de `placed-voicing`, que les figures présentent autrement. Les trois exercices de grille trouvent le leur par l'ensemble `change`.
 - La consigne de la grille se lit dans les paramètres de passage par leur nom : `direction` pour la montée, `zone` pour la zone, aucun des deux pour la lecture. C'est une exception du présentateur, jusqu'au modèle générique.
 
-La preuve, avant la bascule :
+La preuve, avant le remplacement de l'ancienne règle :
 
 - Une comparaison exhaustive de l'ancien et du nouveau, sur tous les changements du catalogue. Passages : 56 index, 660 tours. Jugement : 736 854 cas (lien 365 460, montée 82 532, zone 268 229, lecture 20 633), plus les tournants de la montée. Ouverture : 11 200 verdicts sur 200 tirages de cartes acquises. Aucune différence de passage, de verdict, de confusion, de membres admis (identités et ordre), de tournant ni d'ouverture.
 - Capteur d'accords : 10 788 paires, 518 différences connues, toutes sur le lien, toutes expliquées par la règle de la forme qui sonne encore. Le présentateur garde cette règle : sur les 10 788 paires, il rend ce que rendait l'ancien.
@@ -700,7 +701,7 @@ Ce qui change pour le joueur (le tableau du § 7), et rien d'autre :
 
 ### À décider par l'auteur
 
-Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un tour de sept, puis trois au niveau d'aide. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`. Le résumé de la séance le dit et nomme l'exercice (et la grille) qui se repose, tant que la séance est encore en mémoire (`SessionSummary.gesture.changeOfAir`).
+Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un passage de sept changements, puis trois changements au niveau d'aide. Vu dans l'application (l'aperçu, un micro qui n'entend rien) : la séance s'arrête 37 secondes après « Commencer » ; l'écran de jeu montre « On change d'air » une seconde, puis le bilan, qui le dit et nomme l'exercice. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`.
 
 Laissé au plan 4c :
 
@@ -712,5 +713,5 @@ Laissé au plan 4c :
 
 Encore ouvert :
 
-- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore ses passages (les routines, plan 5).
+- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance de changements ne joue encore les passages d'un fichier importé (les routines, plan 5). S'il écrit aussi un tour à figure et des niveaux, il apparaît sous « Exercices », mais sa séance s'arrête au démarrage : il n'écrit pas d'`items`, et sa figure ne se lit pas sur ses éléments.
 - Une séance enregistrée avant ce plan ne montre pas la forme attendue dans son bilan.

@@ -350,7 +350,7 @@ Pour le joueur : il joue une grille entière sur un groupe de cordes, chaque acc
 
   Les membres doivent être des éléments de l'ensemble de la capacité que l'exercice travaille. `andBack: true` fait le chemin du retour : les membres dans l'ordre, puis en sens inverse sans répéter le dernier (`a b c d` donne `a b c d c b a`). Le lien écrit `{ "family": "chord-shapes", "order": ["position"], "take": 4, "andBack": true }` : les quatre formes les plus graves de l'accord, en montant, puis le retour, sept mesures.
 
-- **`each`** : les **paramètres de passage**. Chaque nom a une liste de valeurs (de 1 à 64). Au premier passage d'un index, chaque paramètre prend la première valeur de sa liste ; ensuite, la valeur qui suit celle par laquelle le dernier passage de cet index a commencé, et la liste reprend au début. Le tour lit un paramètre de passage comme un autre : `{ "param": "direction" }`. La montée alterne ainsi `up` et `down` sur chaque index ; la zone écrit sa liste de zones :
+- **`each`** : les **paramètres de passage**. Chaque nom a une liste de valeurs (de 1 à 64). Au premier passage d'un index, chaque paramètre prend la première valeur de sa liste. Aux passages suivants, il prend la valeur qui vient après celle du dernier passage de cet index. À la fin de la liste, il revient à la première. Le tour lit un paramètre de passage comme un autre : `{ "param": "direction" }`. La montée alterne ainsi `up` et `down` sur chaque index ; la zone écrit sa liste de zones :
 
   ```json
   "each": {
@@ -360,7 +360,7 @@ Pour le joueur : il joue une grille entière sur un groupe de cordes, chaque acc
 
   Un paramètre de passage n'a qu'une source : son nom ne peut pas être aussi écrit dans `params`, à un niveau de l'exercice ou de son échelle, être une clé de `of`, ni être un nom que le tour donne lui-même (`leadBeats`, `previewBeats`). Chacune de ses valeurs est vérifiée là où le tour la lit : une `direction` doit valoir `"up"` ou `"down"`, une zone être une paire de cases dans l'ordre.
 
-- **`opens`** : l'**ouverture** d'un index. `{ "acquired": { "skill": "chord-anchor", "item": "voicing", "need": "every-group" } }`. Pour chaque tour du passage, les formes que son contenu admet, filtres retirés, sont groupées par leurs cordes ; chacune nomme une carte de la capacité `skill` par la correspondance `item` (`voicing` : une forme placée nomme son voicing sur ses cordes, élément de `voicing-on-strings`). L'index est ouvert quand ces cartes sont acquises dans chaque groupe (`"every-group"`, par défaut) ou dans un groupe au moins (`"one-group"`), pour chaque tour. La capacité doit avoir des cartes. Sans `opens`, tout index est ouvert. Le passage est lu avec chaque paramètre de passage à sa première valeur.
+- **`opens`** : l'**ouverture** d'un index. `{ "acquired": { "skill": "chord-anchor", "item": "voicing", "need": "every-group" } }`. Pour chaque changement du passage, on prend les formes que son contenu admet, sans ses filtres. On les groupe par leurs cordes. Chaque forme nomme une carte de la capacité `skill`, par la correspondance `item` (`voicing` : une forme placée nomme son voicing sur ses cordes, élément de `voicing-on-strings`). L'index est ouvert quand, pour chaque changement, ces cartes sont acquises dans chaque groupe (`"every-group"`, par défaut) ou dans un groupe au moins (`"one-group"`). La capacité doit avoir des cartes. Sans `opens`, tout index est ouvert. Le passage est lu avec chaque paramètre de passage à sa première valeur.
 - **`again`** : `"until-passed"` fait revenir un passage raté, entier, sur le même index et avec les mêmes paramètres, après une mesure comptée, jusqu'à ce qu'il réussisse. Seul le lien l'écrit.
 - **`restBars`** : des mesures de silence (de 0 à 16) avant la mesure comptée d'un passage qui en suit un autre dans la séance. Jamais avant le premier passage, ni avant un passage qui revient par `again`. Le lien écrit 1.
 - **`passes`** : la part de tours justes qui fait réussir un passage, au-dessus de 0 et au plus 1 (1 par défaut). Les quatre exercices écrivent 0,9. Un tour qui n'a pas de tentative compte comme raté.
@@ -390,9 +390,10 @@ La séance « Geste » joue les quatre exercices du catalogue, chacun à son tou
 - Chaque passage commence par une mesure comptée, puis ses tours s'enchaînent sans silence.
 - Un passage qui ne peut pas se jouer est sauté : il ne donne aucun membre, plus de 256, ou un de ses tours n'admet aucune forme (une zone où un accord n'a pas de forme). La séance essaie alors les valeurs suivantes des paramètres de passage de cet index ; un index sans aucun passage jouable est laissé de côté pour la séance, et un exercice sans index jouable aussi.
 - Une tentative de changement garde son passage (`data.passage` : son identité, son index, son rang, les valeurs de ses paramètres). Le moins récemment joué et la valeur suivante se relisent là. Les tentatives d'avant les passages ne la portent pas : au premier lancement, chaque index repart « jamais joué », la montée repart vers le haut, la zone de la première.
-- Une fois la durée de la séance passée, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
+- Une fois la durée de la séance passée, ou dès que la séance juge le joueur fatigué, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
+- « On change d'air » (voir « Les niveaux et l'aide ») peut arrêter un passage en son milieu.
 
-La séance « Geste » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore ses passages. Ce sera le rôle des routines.
+La séance « Geste » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance de changements ne joue encore les passages d'un fichier importé. Ce sera le rôle des routines. Un tel exercice qui écrit aussi un tour à figure et des niveaux apparaît sous « Exercices », mais sa séance ne démarre pas : il n'écrit pas d'`items`, et sa figure ne peut pas se lire sur ses éléments (seul l'ensemble `figure` le permet, et ses membres ne sont pas des éléments de `figure`). Au démarrage, la séance d'exercice s'arrête sur l'erreur `<id>: writes no items, and its round reads no figure on its items`.
 
 ### Les niveaux et l'aide
 
@@ -403,19 +404,20 @@ L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage :
 ```json
 "levels": [
 	{ "aid": true, "params": { "tempo": 80, "shapes": true } },
-	{ "params": { "tempo": 80 }, "pass": { "successes": 10 }, "drop": { "failures": 3 } },
-	…
+	{ "params": { "tempo": 80 }, "pass": { "successes": 10 }, "drop": { "failures": 3 } }
 ],
 "flow": { "antiBlocking": true }
 ```
 
+Dans le catalogue, les niveaux suivants (♩ = 85 à 120) s'écrivent de la même façon que le niveau 1, avec leur tempo.
+
 - **`"shapes": true`** fait dessiner la forme à jouer. Sur la grille, au changement suivant : pour la montée, la forme admise la plus proche de celle qui sonne, dans le sens de la montée ; pour la zone, la plus grave admise. Sur le lien, les notes de la forme à jouer et de la suivante, sur le manche. À tout autre niveau, rien n'est dessiné.
 - **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure (il reste jouable depuis l'accueil).
-- **La lecture** (`grid-reading`) n'écrit ni niveau d'aide ni anti-blocage : elle n'a pas de forme à dessiner.
+- **La lecture** (`grid-reading`) n'écrit ni niveau d'aide ni anti-blocage : aucune aide n'y est dessinée aujourd'hui. Son aide viendra avec le modèle générique du plan 4c.
 
 ### Les vues
 
-Un exercice de grille prend la vue `grid-scroll` ; le lien, la vue `link-lane`. La consigne de la grille se lit dans les paramètres de passage par leur nom : un paramètre `direction` dit le sens de la montée, un paramètre `zone` dit les cases ; sans l'un ni l'autre, la grille se lit librement.
+Un exercice de grille prend la vue `grid-scroll` ; le lien, la vue `link-lane`. La consigne de la grille se lit dans les paramètres de passage par leur nom : un paramètre `direction` dit le sens de la montée, un paramètre `zone` dit les cases ; sans l'un ni l'autre, la grille se joue sans consigne.
 
 ### Refusé
 
@@ -426,10 +428,10 @@ Le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les
 - `passages.of gives no index of <famille>: <raison>` : un index que la famille ne sait pas lire, par exemple `unknown grid "x"`, ou une zone de cordes qui manque (`no zone of strings: neither the passage nor the params give "strings"`).
 - `passages.members must be a selection { family, where?, order?, take?, andBack? }` ; `passages.members.andBack must be true or false` ; `passages.members names family "<famille>", which gives no members from a passage’s index` ; `passages.members names family "<famille>", whose members are no items of <ensemble>` ; un problème du choix lui-même, sous `passages.members.<champ>`.
 - `passages.each must map names to lists of values` ; `passages.each.<nom> must be a list, not empty` ; `passages.each.<nom> is a name the round gives` ; `passages.each.<nom> is also written in params` ; `passages.each.<nom> is also a key of passages.of` ; `passages.each.<nom> is also written at a level` ; une valeur qui ne convient pas là où le tour la lit : `reads param "<nom>", which passages.each.<nom>[<i>] gives as <valeur>, <pourquoi>`.
-- `passages.opens must be { acquired: { skill, item, need? } }` ; `passages.opens.acquired.need must be "every-group" or "one-group"` ; `passages.opens names skill "<id>", which no file read so far defines` ; `passages.opens names skill "<id>", which has no cards` ; `passages.opens needs a round whose content is a selection` ; `passages.opens.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>`.
+- `passages.opens must be { acquired: { skill, item, need? } }` ; `passages.opens.acquired.need must be "every-group" or "one-group"` ; `passages.opens names skill "<id>", which no file read so far defines` ; `passages.opens names skill "<id>", which has no cards` ; `passages.opens needs a round whose content is a selection` ; `passages.opens reads the members of family "<famille>", which are items of no set` ; `passages.opens needs the round’s contents to give members of one set` ; `passages.opens.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>`.
 - `passages.again must be "until-passed"` ; `passages.restBars must be a whole number from 0 to 16` ; `passages.passes must be a number above 0 and at most 1` ; `passages.scope must name a key of passages.of` ; `passages.scope names "<nom>", which passages.of does not write`.
 
-Les limites, chacune vérifiée avant le travail qu'elle borne : 500 index (`passages.of gives <n> indices, more than 500`), 64 valeurs par paramètre de passage (`passages.each.<nom> has <n> values, more than 64`), 256 membres par passage (`passages.members gives <n> members for index <clé>, more than 256`, comptés sans les filtres ni la prise qui lisent un paramètre de passage, pour borner tous les passages de l'index) et 256 accords par grille.
+Les limites, chacune vérifiée avant le travail qu'elle borne : 500 index (`passages.of gives <n> indices, more than 500`, ou `passages.of gives more than 500 indices` quand le produit dépasse la limite avant la dernière liste), 64 valeurs par paramètre de passage (`passages.each.<nom> has <n> values, more than 64`), 256 membres par passage (`passages.members gives <n> members for index <clé>, more than 256`, comptés sans les filtres ni la prise qui lisent un paramètre de passage, pour borner tous les passages de l'index) et 256 accords par grille.
 
 ## Une forme déplacée d'accord en accord
 
