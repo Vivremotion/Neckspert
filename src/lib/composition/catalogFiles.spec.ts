@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { definitionChecks } from '$lib/application/definitions/checks';
 import { registerFiles } from '$lib/domain/definitions/register';
-import { allExercises, clearExercises } from '$lib/domain/exercise';
+import {
+	allExercises,
+	clearExercises,
+	MAX_EXERCISE_ITEMS,
+	MAX_EXERCISE_LEVELS,
+	MAX_LADDER_LEVELS,
+	MAX_LEVEL_PARAMS
+} from '$lib/domain/exercise';
 import { allGrids, clearGrids } from '$lib/domain/grid';
 import { idProblem, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill';
@@ -38,6 +45,24 @@ describe('the catalog files', () => {
 		expect(load()).toEqual([]);
 		expect(allExercises()).toHaveLength(11);
 		expect(allGrids().map((grid) => grid.id)).toEqual(['iohefy-a', 'blues-f']);
+	});
+
+	it('stays far under the limits of what checking an exercise may cost', () => {
+		expect(load()).toEqual([]);
+		for (const exercise of allExercises()) {
+			const ladder = (exercise.params.ladder ?? []) as { params: object }[];
+			const levels = [...(exercise.levels ?? []), ...ladder];
+			expect(exercise.levels?.length ?? 0, exercise.id).toBeLessThanOrEqual(
+				MAX_EXERCISE_LEVELS / 10
+			);
+			expect(ladder.length, exercise.id).toBeLessThanOrEqual(MAX_LADDER_LEVELS / 10);
+			expect(exercise.items?.length ?? 0, exercise.id).toBeLessThanOrEqual(MAX_EXERCISE_ITEMS / 10);
+			for (const level of levels) {
+				expect(Object.keys(level.params).length, exercise.id).toBeLessThanOrEqual(
+					MAX_LEVEL_PARAMS / 10
+				);
+			}
+		}
 	});
 
 	it('writes the eleven skills, each exercise practising a registered one', () => {

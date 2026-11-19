@@ -6,7 +6,14 @@ import { allExercises } from './registry';
 import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, ItemEntry, Ladder } from './types';
-import { validateExercise } from './validate';
+import {
+	MAX_EXERCISE_ITEMS,
+	MAX_EXERCISE_LEVELS,
+	MAX_LADDER_LEVELS,
+	MAX_LEVEL_PARAMS,
+	MAX_ROUND_CHECKS,
+	validateExercise
+} from './validate';
 import { LOCATE_NECK } from '$lib/testing/catalog';
 
 registerTestSkills();
@@ -547,5 +554,68 @@ describe('validateExercise on the shapes an exercise writes', () => {
 			round: { ...round, expectations: [{ ...entry, content: null }] } as RoundTemplate
 		};
 		expect(validateExercise(exercise)).toMatch(/no place at frets 9-9-9/);
+	});
+});
+
+describe('validateExercise limits', () => {
+	const plainLevels = (count: number) => Array.from({ length: count }, () => ({ params: {} }));
+	const manyParams = (count: number) =>
+		Object.fromEntries(Array.from({ length: count }, (_, i) => [`free.p${i}`, i]));
+	const ladderOf = (count: number): Ladder =>
+		Array.from({ length: count }, () => ({ params: { leadBeats: 2, aided: false } }));
+
+	it('refuses more exercise levels than MAX_EXERCISE_LEVELS', () => {
+		expect(MAX_EXERCISE_LEVELS).toBe(100);
+		expect(validateExercise({ ...LOCATE_NECK, levels: plainLevels(1000) })).toBe(
+			'locate-note-string: levels has 1000 entries, more than 100'
+		);
+		expect(validateExercise({ ...LOCATE_NECK, levels: plainLevels(100) })).toBeNull();
+	});
+
+	it('refuses a ladder of more levels than MAX_LADDER_LEVELS', () => {
+		expect(MAX_LADDER_LEVELS).toBe(100);
+		expect(validateExercise(withParams({ ladder: ladderOf(101) }))).toBe(
+			'locate-note-string: params.ladder has 101 levels, more than 100'
+		);
+		expect(validateExercise(withParams({ ladder: ladderOf(100) }))).toBeNull();
+	});
+
+	it('refuses a level writing more params than MAX_LEVEL_PARAMS', () => {
+		expect(MAX_LEVEL_PARAMS).toBe(200);
+		const levels = [...plainLevels(3), { params: manyParams(201) }];
+		expect(validateExercise({ ...LOCATE_NECK, levels })).toBe(
+			'locate-note-string: levels[3].params has 201 entries, more than 200'
+		);
+		const ladder: Ladder = [
+			...ladderOf(2),
+			{ params: { leadBeats: 2, aided: false, ...manyParams(199) } }
+		];
+		expect(validateExercise(withParams({ ladder }))).toBe(
+			'locate-note-string: params.ladder[2].params has 201 entries, more than 200'
+		);
+		expect(validateExercise({ ...LOCATE_NECK, levels: [{ params: manyParams(200) }] })).toBeNull();
+	});
+
+	it('refuses more items than MAX_EXERCISE_ITEMS', () => {
+		expect(MAX_EXERCISE_ITEMS).toBe(2000);
+		const items = Array.from({ length: 2001 }, () => ARPEGGIO_EXERCISE.items![0]);
+		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items })).toBe(
+			'test-arpeggio-sequence: items has 2001 entries, more than 2000'
+		);
+	});
+
+	it('refuses items × levels asking more round checks than MAX_ROUND_CHECKS, before any', () => {
+		expect(MAX_ROUND_CHECKS).toBe(20_000);
+		// 201 items at 100 exercise levels (one an aid level): 20 100 rounds to compile.
+		const items = Array.from({ length: 201 }, () => ARPEGGIO_EXERCISE.items![0]);
+		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
+		const start = performance.now();
+		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items, levels })).toBe(
+			'test-arpeggio-sequence: items × levels asks 20100 round checks, more than 20000'
+		);
+		expect(performance.now() - start).toBeLessThan(200);
+		expect(
+			validateExercise({ ...ARPEGGIO_EXERCISE, items: items.slice(0, 200), levels })
+		).toBeNull();
 	});
 });

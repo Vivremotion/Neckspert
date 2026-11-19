@@ -47,6 +47,25 @@ describe('overrideParams', () => {
 			'writes "windows" and its sub-path "windows.lateMs"'
 		);
 	});
+
+	it('names the first path written with a sub-path, and its first sub-path, in the order written', () => {
+		expect(() => overrideParams({}, { 'a.b.c': 1, x: 1, a: { b: 1 }, 'x.y': 2, 'a.b': 3 })).toThrow(
+			'writes "x" and its sub-path "x.y"'
+		);
+		expect(() => overrideParams({}, { 'a..b': 1, 'a.': 2 })).toThrow(
+			'writes "a." and its sub-path "a..b"'
+		);
+	});
+
+	it('checks many paths in a time that grows with their number, not its square', () => {
+		const overrides = Object.fromEntries(
+			Array.from({ length: 20_000 }, (_, i) => [`p${i}.q${i}`, i])
+		);
+		const start = performance.now();
+		const result = overrideParams({}, overrides);
+		expect(performance.now() - start).toBeLessThan(1_000);
+		expect(Object.keys(result)).toHaveLength(20_000);
+	});
 });
 
 describe('resolvedParamsOf', () => {

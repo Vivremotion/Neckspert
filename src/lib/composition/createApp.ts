@@ -27,6 +27,7 @@ import {
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
 import { DexieDefinitionFileRepository } from '$lib/infrastructure/storage/DexieDefinitionFileRepository';
+import { LocalStorageLoadMark } from '$lib/infrastructure/storage/LocalStorageLoadMark';
 import { createDiagnosticJournal, journalNotes } from './diagnostics';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions, loadedDefinitions } from './definitions';
@@ -71,7 +72,10 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const definitions = createDefinitionsService({
 		files: new DexieDefinitionFileRepository(db),
 		load: (imported) => loadDefinitions({ catalog: CATALOG_FILES, imported }),
-		now: () => Date.now()
+		now: () => Date.now(),
+		// Kept across page loads: a load of the imported files that never finished is not tried
+		// again at the next start.
+		mark: new LocalStorageLoadMark()
 	});
 
 	const journal = createDiagnosticJournal(settings, { name: options.diagnosticsDatabaseName });

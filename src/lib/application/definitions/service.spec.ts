@@ -4,7 +4,7 @@ import { loadDefinitions } from '$lib/composition/definitions';
 import { allExercises } from '$lib/domain/exercise/registry';
 import { hasSkill } from '$lib/domain/skill/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { InMemoryDefinitionFileRepository } from '$lib/testing/fakes';
+import { FakeLoadMark, InMemoryDefinitionFileRepository } from '$lib/testing/fakes';
 import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { createDefinitionsService } from './service';
 
@@ -32,16 +32,31 @@ function file(ids: readonly string[], skill = TEST_PLACED_VOICING_SKILL.id): str
 
 const exerciseIds = () => allExercises().map((exercise) => exercise.id);
 
-function setup(files = new InMemoryDefinitionFileRepository()) {
+function setup(files = new InMemoryDefinitionFileRepository(), mark = new FakeLoadMark()) {
 	let time = 100;
 	const all = vi.spyOn(files, 'all');
+	/** Whether the mark was set at each load, in order. */
+	const marked: boolean[] = [];
 	const service = createDefinitionsService({
 		files,
-		load: (imported) => loadDefinitions({ catalog: CATALOG_FILES, imported }),
-		now: () => time++
+		load: (imported) => {
+			marked.push(mark.isSet());
+			return loadDefinitions({ catalog: CATALOG_FILES, imported });
+		},
+		now: () => time++,
+		mark
 	});
-	return { service, files, all };
+	return { service, files, all, mark, marked };
 }
+
+/** The refusal of a start whose last load of the imported files never finished. */
+const UNFINISHED = {
+	file: 'imported files',
+	kind: 'file',
+	id: null,
+	reason:
+		'the last load of the imported files did not finish: they are not loaded this time. Remove the file added last if this happens again'
+};
 
 beforeEach(() => {
 	vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -224,7 +239,8 @@ describe('createDefinitionsService', () => {
 				const loaded = loadDefinitions({ catalog: CATALOG_FILES, imported });
 				return { ...loaded, catalog: { ...loaded.catalog, refusals: [catalogRefusal] } };
 			},
-			now: () => 1
+			now: () => 1,
+			mark: new FakeLoadMark()
 		});
 		await service.ready();
 
@@ -289,5 +305,87 @@ describe('createDefinitionsService', () => {
 		expect(await files.all()).toEqual([]);
 		expect(await service.files()).toEqual([]);
 		expect(exerciseIds()).not.toContain('raced-arpeggio');
+	});
+
+	it('sets the mark around every load of the imported files and clears it once the load returned', async () => {
+		const files = new InMemoryDefinitionFileRepository();
+		await files.put({ name: 'a.json', text: file(['marked-arpeggio']), importedAt: 1 });
+		const { service, mark, marked } = setup(files);
+
+		await service.ready();
+		await service.import([{ name: 'b.json', text: file(['other-arpeggio'], 'skill-b') }]);
+		await service.remove('b.json');
+		await service.reload();
+
+		expect(marked).toEqual([true, true, true, true]);
+		expect(mark.isSet()).toBe(false);
+		expect(mark.history).toEqual(['set', 'clear', 'set', 'clear', 'set', 'clear', 'set', 'clear']);
+	});
+
+	it('starts on the catalog alone when the last load never finished, and says so', async () => {
+		const catalogIds = exerciseIds();
+		const files = new InMemoryDefinitionFileRepository();
+		await files.put({ name: 'slow.json', text: file(['slow-arpeggio']), importedAt: 4 });
+		const { service, mark, marked } = setup(files, new FakeLoadMark(true));
+
+		await expect(service.ready()).resolves.toBeUndefined();
+
+		expect(exerciseIds()).toEqual(catalogIds);
+		expect(marked).toEqual([false]);
+		expect(mark.isSet()).toBe(false);
+		expect(service.refusals()).toEqual([UNFINISHED]);
+		expect(await service.files()).toEqual([
+			{ name: 'slow.json', importedAt: 4, skills: [], grids: [], exercises: [], refusals: [] }
+		]);
+
+		await service.remove('slow.json');
+
+		expect(service.refusals()).toEqual([]);
+		expect(await service.files()).toEqual([]);
+		expect(mark.history).toEqual(['clear', 'set', 'clear']);
+	});
+
+	it('loads the files again at the next import or reload after a start without them', async () => {
+		const files = new InMemoryDefinitionFileRepository();
+		await files.put({ name: 'slow.json', text: file(['slow-arpeggio']), importedAt: 4 });
+		const { service } = setup(files, new FakeLoadMark(true));
+		await service.ready();
+		expect(service.refusals()).toEqual([UNFINISHED]);
+
+		await service.reload();
+
+		expect(service.refusals()).toEqual([]);
+		expect(exerciseIds()).toContain('slow-arpeggio');
+	});
+
+	it('loads the files at an import asked before ready(), whatever the mark', async () => {
+		const files = new InMemoryDefinitionFileRepository();
+		await files.put({ name: 'slow.json', text: file(['slow-arpeggio']), importedAt: 4 });
+		const { service } = setup(files, new FakeLoadMark(true));
+		await service.import([{ name: 'b.json', text: file(['b-arpeggio'], 'skill-b') }]);
+		await service.ready();
+		expect(service.refusals()).toEqual([]);
+		expect(exerciseIds()).toContain('slow-arpeggio');
+	});
+
+	it('loads once per operation', async () => {
+		const { service, marked } = setup();
+		await service.ready();
+		expect(marked).toHaveLength(1);
+		await service.import([{ name: 'a.json', text: file(['once-arpeggio']) }]);
+		expect(marked).toHaveLength(2);
+		await service.remove('a.json');
+		expect(marked).toHaveLength(3);
+		await service.reload();
+		expect(marked).toHaveLength(4);
+	});
+
+	it('loads once for an import asked before ready()', async () => {
+		const { service, marked, all } = setup();
+		await service.import([{ name: 'a.json', text: file(['first-op-arpeggio']) }]);
+		await service.ready();
+		expect(marked).toHaveLength(1);
+		expect(all).toHaveBeenCalledTimes(1);
+		expect(exerciseIds()).toContain('first-op-arpeggio');
 	});
 });

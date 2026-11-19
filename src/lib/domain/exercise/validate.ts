@@ -22,6 +22,63 @@ const naturalNumber = (value: unknown) =>
 
 const SCENES = ['guitar', 'screen'];
 
+/**
+ * What checking an exercise may cost, so that a small file cannot hold the application at its
+ * start: each is checked before the work it bounds.
+ */
+export const MAX_EXERCISE_LEVELS = 100;
+/** Levels of one ladder (`params.ladder`). */
+export const MAX_LADDER_LEVELS = 100;
+/** Entries of one level's `params`, an exercise level's or a ladder level's. */
+export const MAX_LEVEL_PARAMS = 200;
+export const MAX_EXERCISE_ITEMS = 2000;
+/** Rounds compiled to check the items: one per item at each exercise level. */
+export const MAX_ROUND_CHECKS = 20_000;
+
+/** The number of entries of a level's params; 0 when it writes no object (refused later). */
+const paramCount = (level: unknown): number =>
+	isObject(level) && isObject(level.params) ? Object.keys(level.params).length : 0;
+
+/** Why checking the exercise would cost more than the limits allow; null when it would not. */
+function limitsProblem(definition: ExerciseDefinition): string | null {
+	const { levels, items, round } = definition;
+	if (Array.isArray(levels)) {
+		if (levels.length > MAX_EXERCISE_LEVELS) {
+			return `levels has ${levels.length} entries, more than ${MAX_EXERCISE_LEVELS}`;
+		}
+		for (const [index, level] of levels.entries()) {
+			const count = paramCount(level);
+			if (count > MAX_LEVEL_PARAMS) {
+				return `levels[${index}].params has ${count} entries, more than ${MAX_LEVEL_PARAMS}`;
+			}
+		}
+	}
+	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
+	if (Array.isArray(ladder)) {
+		if (ladder.length > MAX_LADDER_LEVELS) {
+			return `params.ladder has ${ladder.length} levels, more than ${MAX_LADDER_LEVELS}`;
+		}
+		for (const [index, level] of ladder.entries()) {
+			const count = paramCount(level);
+			if (count > MAX_LEVEL_PARAMS) {
+				return `params.ladder[${index}].params has ${count} entries, more than ${MAX_LEVEL_PARAMS}`;
+			}
+		}
+	}
+	if (Array.isArray(items)) {
+		if (items.length > MAX_EXERCISE_ITEMS) {
+			return `items has ${items.length} entries, more than ${MAX_EXERCISE_ITEMS}`;
+		}
+		// `itemsProblem` compiles the round of each item at each exercise level.
+		const exerciseLevels = Array.isArray(levels) && levels.length > 0 ? levels.length : 1;
+		const checks = items.length * exerciseLevels;
+		if (round !== undefined && checks > MAX_ROUND_CHECKS) {
+			return `items × levels asks ${checks} round checks, more than ${MAX_ROUND_CHECKS}`;
+		}
+	}
+	return null;
+}
+
 function ladderProblem(params: ExerciseDefinition['params']): string | null {
 	if (params.ladder !== undefined) {
 		const invalid = validateLadder(params.ladder as Ladder);
@@ -306,7 +363,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
- * field: a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
+ * field: more to check than the limits allow (`limitsProblem`, before any other check), a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
  * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
@@ -318,6 +375,8 @@ export function validateExercise(
 	options: RoundCheckOptions = {}
 ): string | null {
 	const problem = ((): string | null => {
+		const limits = limitsProblem(definition);
+		if (limits !== null) return limits;
 		if (definition.meter !== undefined) {
 			const meter = validateMeter(definition.meter);
 			if (meter !== null) return `meter ${meter}`;

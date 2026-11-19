@@ -19,11 +19,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 function overridesProblem(overrides: LevelOverrides): string | null {
 	const paths = Object.keys(overrides);
+	// Each path's first sub-path in the order written, found from the sub-paths' dotted prefixes:
+	// linear in the length of the paths, so a level writing many paths is checked fast.
+	const firstSub = new Map<string, string>();
+	for (const path of paths) {
+		for (let dot = path.indexOf('.'); dot !== -1; dot = path.indexOf('.', dot + 1)) {
+			const prefix = path.slice(0, dot);
+			if (!firstSub.has(prefix)) firstSub.set(prefix, path);
+		}
+	}
 	for (const path of paths) {
 		if (overrides[path] === undefined) {
 			return `writes a path with no value: "${path}" is undefined`;
 		}
-		const sub = paths.find((other) => other.startsWith(`${path}.`));
+		const sub = firstSub.get(path);
 		if (sub !== undefined) return `writes "${path}" and its sub-path "${sub}"`;
 	}
 	return null;
@@ -42,6 +51,8 @@ export function overrideParams(
 	const problem = overridesProblem(overrides);
 	if (problem !== null) throw new Error(problem);
 	const result: Record<string, unknown> = { ...params };
+	// The objects this call made or copied: each copied once, however many paths run through it.
+	const own = new WeakSet<object>([result]);
 	for (const [path, value] of Object.entries(overrides)) {
 		const keys = path.split('.');
 		let at = result;
@@ -49,9 +60,13 @@ export function overrideParams(
 			const next = at[key];
 			if (next === undefined) {
 				at[key] = {};
+				own.add(at[key] as object);
 			} else if (isRecord(next)) {
 				// Copied on the way down: the params given and their nested objects stay as they are.
-				at[key] = { ...next };
+				if (!own.has(next)) {
+					at[key] = { ...next };
+					own.add(at[key] as object);
+				}
 			} else {
 				throw new Error(
 					`the path ${path} runs through ${keys.slice(0, depth + 1).join('.')}, which is not an object`

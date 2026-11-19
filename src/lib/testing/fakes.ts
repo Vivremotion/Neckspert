@@ -20,6 +20,7 @@ import type {
 	DefinitionFileRecord,
 	DefinitionFileRepositoryPort,
 	LevelStateRepositoryPort,
+	LoadMarkPort,
 	ChordExpectation,
 	ChordReport,
 	ChordVerifierPort,
@@ -507,6 +508,26 @@ export class InMemoryDefinitionFileRepository implements DefinitionFileRepositor
 
 	async delete(name: string): Promise<void> {
 		this.files.delete(name);
+	}
+}
+
+/** The load mark kept in memory; `history` lists every set and clear, in order. */
+export class FakeLoadMark implements LoadMarkPort {
+	history: ('set' | 'clear')[] = [];
+	constructor(private marked = false) {}
+
+	set(): void {
+		this.marked = true;
+		this.history.push('set');
+	}
+
+	clear(): void {
+		this.marked = false;
+		this.history.push('clear');
+	}
+
+	isSet(): boolean {
+		return this.marked;
 	}
 }
 
