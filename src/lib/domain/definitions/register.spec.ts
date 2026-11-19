@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { allGrids, clearGrids, gridById } from '$lib/domain/grid/registry';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill/registry';
+import { clearRoutines, routines } from '$lib/domain/routine/registry';
 import { registerFiles, type DefinitionChecks } from './register';
 import { LOCATE_NECK, BLUES_F } from '$lib/testing/catalog';
 
@@ -20,6 +21,7 @@ beforeEach(() => {
 	clearSkills();
 	clearExercises();
 	clearGrids();
+	clearRoutines();
 });
 
 describe('registerFiles', () => {
@@ -267,5 +269,93 @@ describe('registerFiles', () => {
 			{ file: 'b.json', kind: 'grid', id: 'h' },
 			{ file: 'a.json', kind: 'exercise', id: 'e3' }
 		]);
+	});
+
+	describe('the routines, after every exercise', () => {
+		/** The skill LOCATE_NECK practises, with memory. */
+		const locateSkill = {
+			id: LOCATE_NECK.practices,
+			name: { fr: 'x', en: 'x' },
+			items: 'note-on-string',
+			memory: true,
+			directRecall: { withinMs: 1500 }
+		};
+		const routine = (id: string, exercises: string[]) => ({
+			id,
+			title: { fr: id, en: id },
+			exercises
+		});
+
+		it('registers a routine naming an exercise of a file read after its own', () => {
+			const { refusals, registered } = registerFiles(
+				{
+					'a.json': file({ routines: [routine('r', ['e'])] }),
+					'b.json': file({ skills: [locateSkill], exercises: [exercise('e')] })
+				},
+				accept
+			);
+			expect(refusals).toEqual([]);
+			expect(registered.slice(-1)).toEqual([{ file: 'a.json', kind: 'routine', id: 'r' }]);
+			expect(routines().map((r) => r.id)).toEqual(['r']);
+		});
+
+		it('refuses a routine id another file holds, naming it; a routine and an exercise may share an id', () => {
+			const { refusals } = registerFiles(
+				{
+					'a.json': file({
+						skills: [locateSkill],
+						exercises: [exercise('e')],
+						routines: [routine('e', ['e'])]
+					}),
+					'b.json': file({ routines: [routine('e', ['e'])] })
+				},
+				accept
+			);
+			expect(refusals).toEqual([
+				{ file: 'b.json', kind: 'routine', id: 'e', reason: 'this id is already defined in a.json' }
+			]);
+			expect(routines()).toHaveLength(1);
+		});
+
+		it('refuses the routine of a refused exercise, and loads the others', () => {
+			const { refusals } = registerFiles(
+				{
+					'a.json': file({
+						skills: [locateSkill],
+						exercises: [exercise('bad'), exercise('good')],
+						routines: [routine('with-bad', ['bad']), routine('with-good', ['good'])]
+					})
+				},
+				{ exercise: (e) => (e.id === 'bad' ? 'no good' : null) }
+			);
+			expect(refusals).toEqual([
+				{ file: 'a.json', kind: 'exercise', id: 'bad', reason: 'no good' },
+				{
+					file: 'a.json',
+					kind: 'routine',
+					id: 'with-bad',
+					reason: 'exercises[0]: no file defines the exercise "bad"'
+				}
+			]);
+			expect(routines().map((r) => r.id)).toEqual(['with-good']);
+		});
+
+		it('refuses the routine of an exercise whose file is refused whole', () => {
+			const { refusals } = registerFiles(
+				{
+					'a.json': file({ routines: [routine('r', ['e'])] }),
+					'b.json': '{ nope'
+				},
+				accept
+			);
+			expect(refusals).toHaveLength(2);
+			expect(refusals[1]).toEqual({
+				file: 'a.json',
+				kind: 'routine',
+				id: 'r',
+				reason: 'exercises[0]: no file defines the exercise "e"'
+			});
+			expect(routines()).toEqual([]);
+		});
 	});
 });

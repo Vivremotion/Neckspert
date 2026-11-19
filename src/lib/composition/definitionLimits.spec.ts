@@ -14,6 +14,13 @@ import {
 	MAX_SELECTION_ORDER
 } from '$lib/domain/exercise';
 import { MAX_GRID_CHANGES } from '$lib/domain/grid';
+import {
+	MAX_OPENING_DEPTH,
+	MAX_OPENING_TERMS,
+	MAX_ROUTINE_EXERCISES,
+	type Opening
+} from '$lib/domain/routine/types';
+import { routines } from '$lib/domain/routine/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { LOCATE_NECK } from '$lib/testing/catalog';
 import {
@@ -450,5 +457,36 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			expect(refusals).toEqual([{ file: 'h.json', kind: 'exercise', id: 'h-over', reason }]);
 			expect(ms, reason).toBeLessThan(REFUSED_MS);
 		}
+	});
+
+	it('loads a routine of the most exercises allowed, opening at the most terms and depth', () => {
+		const ids = Array.from({ length: MAX_ROUTINE_EXERCISES }, (_, i) => `h-memory-${i}`);
+		const skills = ids.map((id) => ({
+			id,
+			name: { fr: id, en: id },
+			items: 'note-on-string',
+			memory: true,
+			directRecall: { withinMs: 1500 }
+		}));
+		const exercises = ids.map((id) => ({ ...locateJson(id), practices: id }));
+		const leaf: Opening = { acquired: { skill: ids[0], atLeast: 1 } };
+		let deep: Opening = { level: { exercise: ids[1], scope: 's', atLeast: 2 } };
+		// `all` › `any` … › the level: as deep as allowed; the leaves fill the terms.
+		for (let depth = 2; depth < MAX_OPENING_DEPTH; depth++) deep = { any: [deep] };
+		const opens: Opening = {
+			all: [deep, ...Array.from({ length: MAX_OPENING_TERMS - MAX_OPENING_DEPTH }, () => leaf)]
+		};
+		const text = JSON.stringify({
+			format: 0,
+			skills,
+			exercises,
+			routines: [{ id: 'h-routine', title: { fr: 'h', en: 'h' }, exercises: ids, opens }]
+		});
+		const start = performance.now();
+		const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'h.json': text } });
+		const ms = performance.now() - start;
+		expect(imported.refusals).toEqual([]);
+		expect(routines().find((r) => r.id === 'h-routine')?.exercises).toEqual(ids);
+		expect(ms).toBeLessThan(BUDGET_MS);
 	});
 });

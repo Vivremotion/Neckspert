@@ -59,7 +59,7 @@ describe('readDefinitionFile', () => {
 	it('refuses JSON that is no object', () => {
 		for (const text of ['null', '[]', '"x"']) {
 			expect(fileRefusal(text).reason).toBe(
-				'the file must be a JSON object { format, skills, grids, exercises }'
+				'the file must be a JSON object { format, skills, grids, exercises, routines }'
 			);
 		}
 	});
@@ -81,10 +81,20 @@ describe('readDefinitionFile', () => {
 		expect(fileRefusal('{"format": 0, "grids": null}').reason).toBe('grids must be a list');
 	});
 
-	it('refuses routines that are not empty', () => {
-		expect(fileRefusal('{"format": 0, "routines": [{}]}').reason).toBe(
-			'routines are not read by this version'
+	it('reads the routines, refusing one that routineFromJson refuses, and one written twice', () => {
+		const routine = { id: 'r', title: { fr: 'R', en: 'R' }, exercises: ['e'] };
+		const result = read(
+			JSON.stringify({
+				format: 0,
+				routines: [routine, { ...routine, id: 'empty', exercises: [] }, routine, 3]
+			})
 		);
+		expect(result.routines).toEqual([routine]);
+		expect(result.refusals).toEqual([
+			{ file: 'a.json', kind: 'routine', id: 'empty', reason: 'exercises is empty' },
+			{ file: 'a.json', kind: 'routine', id: 'r', reason: 'this id is used twice in the file' },
+			{ file: 'a.json', kind: 'routine', id: null, reason: 'a routine must be a JSON object' }
+		]);
 	});
 
 	it('refuses a grid that gridFromJson refuses, with its id', () => {
@@ -157,11 +167,12 @@ describe('readDefinitionFile', () => {
 		]);
 	});
 
-	it('reads an empty file as three empty lists', () => {
+	it('reads an empty file as four empty lists', () => {
 		expect(read('{"format": 0}')).toEqual({
 			skills: [],
 			grids: [],
 			exercises: [],
+			routines: [],
 			refusals: []
 		});
 	});
@@ -171,6 +182,7 @@ describe('readDefinitionFile', () => {
 			skills: [],
 			grids: [],
 			exercises: [],
+			routines: [],
 			refusals: []
 		});
 	});

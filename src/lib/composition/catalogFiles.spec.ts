@@ -12,12 +12,17 @@ import {
 import { allGrids, clearGrids } from '$lib/domain/grid';
 import { idProblem, RESERVED_EXERCISE_IDS, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill';
+import { clearRoutines, routines } from '$lib/domain/routine/registry';
+import { i18n } from '$lib/i18n/index.svelte';
+import { playMessages } from '$lib/ui/play/messages';
+import { homeMessages } from '$lib/ui/screens/home/messages';
 import { CATALOG_FILES } from './catalogFiles';
 
 function load() {
 	clearSkills();
 	clearExercises();
 	clearGrids();
+	clearRoutines();
 	return registerFiles(CATALOG_FILES, definitionChecks()).refusals;
 }
 
@@ -108,5 +113,45 @@ describe('the catalog files', () => {
 			'rhythm-two-four': 'displaced-pulse',
 			'rhythm-offbeats': 'figure-independence'
 		});
+	});
+
+	it('writes the four routines, each in the file of its exercises', () => {
+		expect(load()).toEqual([]);
+		expect(routines().map((r) => [r.id, r.exercises, r.opens])).toEqual([
+			[
+				'changes',
+				['inversion-run', 'grid-in-direction', 'grid-in-zone', 'grid-reading'],
+				undefined
+			],
+			['chords', ['chord-anchor'], undefined],
+			['chords-zone', ['chord-zone'], { acquired: { skill: 'chord-anchor', atLeast: 6 } }],
+			['notes', ['identify-note', 'locate-note-string'], undefined]
+		]);
+	});
+
+	it('titles the routines and tells their how-to as the screens do today, word for word', () => {
+		expect(load()).toEqual([]);
+		const told = (locale: 'fr' | 'en') => {
+			i18n.locale = locale;
+			const home = homeMessages();
+			const play = playMessages();
+			return {
+				notes: { title: home.session, howTo: play.howTo.learn },
+				chords: { title: home.triads, howTo: play.howTo.triads },
+				'chords-zone': { title: home.triadsZone, howTo: play.howTo['triads-zone'] },
+				changes: { title: home.gesture, howTo: play.howTo.gesture }
+			};
+		};
+		try {
+			for (const locale of ['fr', 'en'] as const) {
+				const today = told(locale);
+				const written = Object.fromEntries(
+					routines().map((r) => [r.id, { title: r.title[locale], howTo: r.howTo?.[locale] }])
+				);
+				expect(written, locale).toEqual(today);
+			}
+		} finally {
+			i18n.locale = 'fr';
+		}
 	});
 });

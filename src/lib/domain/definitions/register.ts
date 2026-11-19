@@ -2,6 +2,8 @@ import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { registerExercise } from '$lib/domain/exercise/registry';
 import { registerSkill } from '$lib/domain/skill/registry';
 import { registerGrid } from '$lib/domain/grid/registry';
+import { registerRoutine } from '$lib/domain/routine/registry';
+import { routineProblem } from '$lib/domain/routine/validate';
 import { readDefinitionFile, type Refusal } from './file';
 
 /** What the application demands of an exercise beyond the format. */
@@ -13,7 +15,7 @@ export interface DefinitionChecks {
 /** An object a file registered. */
 export interface Registered {
 	file: string;
-	kind: 'skill' | 'grid' | 'exercise';
+	kind: 'skill' | 'grid' | 'exercise' | 'routine';
 	id: string;
 }
 
@@ -26,9 +28,10 @@ export interface RegisterResult {
 /**
  * Reads definition files into the registries, the origin of an object being the key of its file.
  * Every file is read first (its reading refusals), then every file's skills are registered, then
- * every file's grids, then every file's exercises are checked and registered, the files in the
- * order of their names in each pass: an exercise may name a skill or a grid of any file of the
- * call, whatever their names. Of two objects of one id, the first registered stays. A refused
+ * every file's grids, then every file's exercises are checked and registered, then every file's
+ * routines (`routineProblem`), the files in the order of their names in each pass: an exercise
+ * may name a skill or a grid, a routine an exercise or a skill, of any file of the call, whatever
+ * their names. A routine naming an exercise that was refused is refused. Of two objects of one id, the first registered stays. A refused
  * object is left out, the rest of its file kept. Never throws.
  */
 export function registerFiles(
@@ -44,7 +47,7 @@ export function registerFiles(
 	/** Registers an object, or refuses it naming the file that holds its id. */
 	const register = (
 		file: string,
-		kind: 'skill' | 'grid',
+		kind: 'skill' | 'grid' | 'routine',
 		id: string,
 		holder: string | null
 	): void => {
@@ -76,6 +79,14 @@ export function registerFiles(
 			const holder = registerExercise(exercise, file);
 			if (holder !== null) refusal(`this id is already defined in ${holder}`);
 			else registered.push({ file, kind: 'exercise', id: exercise.id });
+		}
+	}
+	for (const { file, routines } of read) {
+		for (const routine of routines) {
+			const problem = routineProblem(routine);
+			if (problem !== null)
+				refusals.push({ file, kind: 'routine', id: routine.id, reason: problem });
+			else register(file, 'routine', routine.id, registerRoutine(routine, file));
 		}
 	}
 	return { refusals, registered };

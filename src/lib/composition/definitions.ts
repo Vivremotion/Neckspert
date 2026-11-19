@@ -3,6 +3,7 @@ import type { LoadedDefinitions } from '$lib/application/definitions/service';
 import { registerFiles, type RegisterResult, type Refusal } from '$lib/domain/definitions';
 import { clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids } from '$lib/domain/grid/registry';
+import { clearRoutines } from '$lib/domain/routine/registry';
 import { clearSkills } from '$lib/domain/skill/registry';
 
 export type { LoadedDefinitions };
@@ -27,6 +28,7 @@ export function loadDefinitions(input: {
 	clearSkills();
 	clearGrids();
 	clearExercises();
+	clearRoutines();
 	const read = (source: string, files: Readonly<Record<string, string>>): RegisterResult => {
 		const result = registerFiles(files, checks);
 		for (const refusal of result.refusals) console.error(refusalLine(source, refusal));

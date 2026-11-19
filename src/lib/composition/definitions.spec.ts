@@ -128,7 +128,7 @@ describe('loadDefinitions', () => {
 			'/imported/number.json'
 		]);
 		expect(errors).toEqual([
-			'[imported] /imported/list.json refused: the file must be a JSON object { format, skills, grids, exercises }',
+			'[imported] /imported/list.json refused: the file must be a JSON object { format, skills, grids, exercises, routines }',
 			'[imported] /imported/number.json, exercise refused: an exercise must be a JSON object'
 		]);
 	});

@@ -1031,5 +1031,19 @@
 				"en": "Play the chart as you like: any shape, any rhythm. Only the chord counts."
 			}
 		}
+	],
+	"routines": [
+		{
+			"id": "changes",
+			"title": {
+				"fr": "Changements",
+				"en": "Changes"
+			},
+			"exercises": ["inversion-run", "grid-in-direction", "grid-in-zone", "grid-reading"],
+			"howTo": {
+				"fr": "Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.",
+				"en": "Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers."
+			}
+		}
 	]
 }

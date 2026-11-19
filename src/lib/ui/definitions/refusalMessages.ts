@@ -2,8 +2,14 @@ import type { DefinitionKind, Refusal } from '$lib/domain/definitions';
 import type { Locale } from '$lib/domain/types';
 
 const KIND_WORDS: Record<Locale, Record<DefinitionKind, string>> = {
-	fr: { file: 'fichier', skill: 'capacité', exercise: 'exercice', grid: 'grille' },
-	en: { file: 'file', skill: 'skill', exercise: 'exercise', grid: 'grid' }
+	fr: {
+		file: 'fichier',
+		skill: 'capacité',
+		exercise: 'exercice',
+		grid: 'grille',
+		routine: 'routine'
+	},
+	en: { file: 'file', skill: 'skill', exercise: 'exercise', grid: 'grid', routine: 'routine' }
 };
 
 /**

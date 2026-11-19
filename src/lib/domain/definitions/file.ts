@@ -1,12 +1,13 @@
 import { exerciseFromJson, type ExerciseDefinition } from '$lib/domain/exercise';
 import { gridFromJson, type ChordGrid } from '$lib/domain/grid';
+import { routineFromJson, type RoutineDefinition } from '$lib/domain/routine';
 import { skillFromJson, type SkillDefinition } from '$lib/domain/skill';
 
 /** The version of the definition file format; unstable until it moves off 0. */
 export const DEFINITION_FORMAT = 0;
 export const MAX_DEFINITION_FILE_CHARS = 1_000_000;
 
-export type DefinitionKind = 'file' | 'skill' | 'grid' | 'exercise';
+export type DefinitionKind = 'file' | 'skill' | 'grid' | 'exercise' | 'routine';
 
 /** What an author reads to fix a file. `id` is null when the entry has none (or the file as a whole is refused). */
 export interface Refusal {
@@ -20,6 +21,7 @@ export interface DefinitionFile {
 	skills: SkillDefinition[];
 	grids: ChordGrid[];
 	exercises: ExerciseDefinition[];
+	routines: RoutineDefinition[];
 	refusals: Refusal[];
 }
 
@@ -37,7 +39,7 @@ function idOf(entry: unknown): string | null {
 /** Reads each entry of a list; the first of two entries with one id is kept. */
 function readEntries<T>(
 	file: string,
-	kind: 'skill' | 'grid' | 'exercise',
+	kind: Exclude<DefinitionKind, 'file'>,
 	entries: unknown[],
 	read: (entry: unknown) => T,
 	refusals: Refusal[]
@@ -73,7 +75,9 @@ function fileProblem(text: string): { problem: string } | { json: Record<string,
 		return { problem: `the file is not JSON: ${(error as Error).message}` };
 	}
 	if (!isObject(json)) {
-		return { problem: 'the file must be a JSON object { format, skills, grids, exercises }' };
+		return {
+			problem: 'the file must be a JSON object { format, skills, grids, exercises, routines }'
+		};
 	}
 	if (json.format !== DEFINITION_FORMAT) {
 		return { problem: `format must be ${DEFINITION_FORMAT}, got ${JSON.stringify(json.format)}` };
@@ -84,9 +88,6 @@ function fileProblem(text: string): { problem: string } | { json: Record<string,
 		if (json[key] !== undefined && !Array.isArray(json[key])) {
 			return { problem: `${key} must be a list` };
 		}
-	}
-	if (Array.isArray(json.routines) && json.routines.length > 0) {
-		return { problem: 'routines are not read by this version' };
 	}
 	return { json };
 }
@@ -99,6 +100,7 @@ export function readDefinitionFile(file: string, text: string): DefinitionFile {
 			skills: [],
 			grids: [],
 			exercises: [],
+			routines: [],
 			refusals: [{ file, kind: 'file', id: null, reason: checked.problem }]
 		};
 	}
@@ -119,5 +121,12 @@ export function readDefinitionFile(file: string, text: string): DefinitionFile {
 		exerciseFromJson,
 		refusals
 	);
-	return { skills, grids, exercises, refusals };
+	const routines = readEntries(
+		file,
+		'routine',
+		(json.routines as unknown[]) ?? [],
+		routineFromJson,
+		refusals
+	);
+	return { skills, grids, exercises, routines, refusals };
 }
