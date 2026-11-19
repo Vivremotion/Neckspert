@@ -175,6 +175,21 @@ describe('screenProblem', () => {
 		expect(screenProblem(GESTURE_LINK, presenters)).toBeNull();
 	});
 
+	it('accepts a presentation on a view that draws a passage, and asks it passages', () => {
+		const climb: PromptPresentation = { primary: '{symbol}', target: '{symbol}' };
+		expect(screenProblem(withPresentation(GESTURE_CLIMB, climb), presenters)).toBeNull();
+		expect(
+			screenProblem(withPresentation(GESTURE_LINK, { primary: '{chord}' }), presenters)
+		).toBeNull();
+		const { passages: _passages, ...items } = GESTURE_CLIMB;
+		expect(screenProblem(withPresentation(items, climb), presenters)).toBe(
+			'grid-in-direction: view "grid-scroll" draws a passage, and the exercise writes no passages'
+		);
+		// Without a presentation, the default view stays the screen its presenter draws.
+		expect(screenProblem(items, presenters)).toBeNull();
+		expect(screenProblem({ ...bare, view: 'grid-scroll', round: undefined }, NONE)).toBeNull();
+	});
+
 	it('refuses the figure view for a round that plays no figure, and a figure with no view to draw it', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'figure' }, presenters)).toBe(
 			'locate-note-string: view "figure" draws the figure of its round, and the round plays none'
@@ -258,7 +273,7 @@ describe('screenProblem', () => {
 
 	it('refuses a presentation drawn by a view that reads another model, and such a view without one', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'grid-scroll' }, presenters)).toBe(
-			'locate-note-string: view "grid-scroll" cannot draw a presentation (the views that do: lane, answer-keys, figure)'
+			'locate-note-string: view "grid-scroll" draws a passage, and the exercise writes no passages'
 		);
 		expect(screenProblem({ ...bare, view: 'lane', round: undefined }, presenters)).toBe(
 			'locate-note-string: view "lane" draws a presentation, and the exercise writes none'

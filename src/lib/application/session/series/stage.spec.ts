@@ -6,7 +6,10 @@ import { METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { figurePresenter } from '$lib/application/sets/figurePresenters';
 import { followsBeats, stageModel } from './stage';
-import { RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { GESTURE_CLIMB, GESTURE_LINK, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+import { servedPassageRound } from '$lib/testing/changesPassages';
+import { changePresenter, linkPresenter } from '$lib/application/sets/chordGrid';
+import type { SetPresenter } from '$lib/application/sets/types';
 
 const ITEM: PlannedItem = {
 	exerciseId: RHYTHM_SILENT_BARS.id,
@@ -26,12 +29,16 @@ const prompted = (view: string): ExerciseDefinition => ({
 	presentation: { primary: 'Joue la figure' }
 });
 
-function modelOf(definition: ExerciseDefinition): Record<string, unknown> {
-	const plan = compileRound(definition, ITEM, METER_4_4, { previewBeats: 0, fromRunStart: null });
+function modelOf(
+	definition: ExerciseDefinition,
+	item: PlannedItem = ITEM,
+	presenter: SetPresenter = figurePresenter
+): Record<string, unknown> {
+	const plan = compileRound(definition, item, METER_4_4, { previewBeats: 0, fromRunStart: null });
 	return stageModel({
 		definition,
-		item: ITEM,
-		presenter: figurePresenter,
+		item,
+		presenter,
 		plan,
 		settled: null,
 		place: { anchorBeat: null, promptBeat: null, history: [], bands: [] },
@@ -67,5 +74,42 @@ describe('the stage dispatch', () => {
 		expect(followsBeats(prompted('figure'))).toBe(true);
 		expect(followsBeats(prompted('lane'))).toBe(false);
 		expect(followsBeats({ ...RHYTHM_SILENT_BARS, view: undefined })).toBe(false);
+	});
+
+	it('builds the passage stage for an exercise that writes its presentation and passages on a passage view', () => {
+		const climb = { ...GESTURE_CLIMB, presentation: { primary: '{symbol}', target: '{symbol}' } };
+		const { planned } = servedPassageRound(climb, 'grid=iohefy-a;strings=3,2,1', 1, {
+			direction: 'up'
+		});
+		const model = modelOf(climb, planned, changePresenter);
+		expect(model.index).toBe(1);
+		expect((model.rounds as unknown[]).length).toBeGreaterThan(1);
+		expect(model).toMatchObject({ prompt: { primary: 'G7' } });
+		const link = { ...GESTURE_LINK, presentation: { primary: '{chord}' } };
+		const tour = servedPassageRound(link, 'chord=D;strings=3,2,1', 0).planned;
+		expect(modelOf(link, tour, linkPresenter)).toHaveProperty('rounds');
+	});
+
+	it("keeps the presenter's own model for a passage exercise without a presentation", () => {
+		const { planned } = servedPassageRound(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 1, {
+			direction: 'up'
+		});
+		const model = modelOf(GESTURE_CLIMB, planned, changePresenter);
+		expect(model).toHaveProperty('cue');
+		expect(model).not.toHaveProperty('rounds');
+	});
+
+	it('keeps the prompt stage for a passage exercise drawn on the lane', () => {
+		const climb = {
+			...GESTURE_CLIMB,
+			view: 'lane',
+			presentation: { primary: '{symbol}' }
+		};
+		const { planned } = servedPassageRound(climb, 'grid=iohefy-a;strings=3,2,1', 1, {
+			direction: 'up'
+		});
+		const model = modelOf(climb, planned, changePresenter);
+		expect(model).toHaveProperty('promptBeat');
+		expect(model).not.toHaveProperty('rounds');
 	});
 });

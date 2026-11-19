@@ -43,7 +43,7 @@ function viewOf(kind: string): ContentView | null {
 }
 
 /** What a settled round tells: each answer by its content, and each expectation it missed. */
-function stageVerdict(
+export function stageVerdict(
 	plan: RoundPlan,
 	settled: { value: ResponseValue; success: boolean },
 	locale: Locale,

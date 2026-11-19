@@ -25,7 +25,9 @@ export const PLAY_VIEW_NAMES: readonly string[] = [
 ];
 
 /**
- * The views that draw the passage a round belongs to (the link's lane draws the tour its passage
- * plays): an exercise that writes no `passages` cannot name one.
+ * The views that draw the passage a round belongs to (the grid's cells, the link's tiles): an
+ * exercise that writes its presentation reads them through `passageStage`, and must write
+ * `passages`. The default view (`grid-scroll`) without a presentation stays the screen its
+ * presenter draws.
  */
-export const PASSAGE_VIEWS: readonly string[] = ['link-lane'];
+export const PASSAGE_VIEWS: readonly string[] = ['grid-scroll', 'link-lane'];

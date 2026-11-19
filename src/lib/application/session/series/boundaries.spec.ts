@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allExercises } from '$lib/domain/exercise/registry';
+import { FAMILIES } from '$lib/domain/families';
 import { ITEM_SET_NAMES } from '$lib/domain/sets';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 
@@ -13,11 +14,18 @@ const sources = {
 		{ query: '?raw', import: 'default', eager: true }
 	),
 	// The screen model of every response exercise, which the series builds (H5).
-	...import.meta.glob('/src/lib/application/presentation/promptStage.ts', {
-		query: '?raw',
-		import: 'default',
-		eager: true
-	}),
+	...import.meta.glob(
+		[
+			'/src/lib/application/presentation/promptStage.ts',
+			// The screen model of a passage's round (plan 4c), its sibling.
+			'/src/lib/application/presentation/passageStage.ts'
+		],
+		{
+			query: '?raw',
+			import: 'default',
+			eager: true
+		}
+	),
 	// The generic lane that draws them (H5): a view of the screen, naming no set either.
 	...import.meta.glob(
 		[
@@ -32,6 +40,7 @@ const sources = {
 const MODULE = '/src/lib/application/session/series/';
 const CONTROLLER = '/src/lib/application/session/SessionController.svelte.ts';
 const PROMPT_STAGE = '/src/lib/application/presentation/promptStage.ts';
+const PASSAGE_STAGE = '/src/lib/application/presentation/passageStage.ts';
 const LANE_VIEW = [
 	'/src/lib/ui/play/views/LaneView.svelte',
 	'/src/lib/ui/play/views/laneView.ts',
@@ -42,9 +51,10 @@ const SCANNED = (path: string) =>
 	path.startsWith(MODULE) ||
 	path === CONTROLLER ||
 	path === PROMPT_STAGE ||
+	path === PASSAGE_STAGE ||
 	LANE_VIEW.includes(path);
 
-/** The ids of sets and exercises the series never names, and the old ids of the sets: every one of the registry and the catalog. */
+/** The ids of sets, families and exercises the series never names, and the old ids of the sets: every one of the registry and the catalog. */
 const NAMES = [
 	...new Set([
 		'locate',
@@ -53,6 +63,7 @@ const NAMES = [
 		'triad-zone',
 		'chord-grid',
 		...ITEM_SET_NAMES,
+		...Object.keys(FAMILIES),
 		...allExercises().map((exercise) => exercise.id)
 	])
 ];
@@ -79,7 +90,7 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the session controller and its series', () => {
-	it('names no set nor exercise, nor do the prompt stage and the lane view', () => {
+	it('names no set nor exercise, nor do the prompt and passage stages and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
@@ -100,6 +111,12 @@ describe('the session controller and its series', () => {
 		expect(offendersIn({ [CONTROLLER]: `const s = 'attack';` })).toEqual([`${CONTROLLER}: attack`]);
 		expect(offendersIn({ [CONTROLLER]: `const m = 'figure';` })).toEqual([`${CONTROLLER}: figure`]);
 		expect(paths).toContain(PROMPT_STAGE);
+		expect(paths).toContain(PASSAGE_STAGE);
+		for (const name of ['chord-shapes', 'grid-changes', 'change', 'inversion-run', 'chord']) {
+			expect(offendersIn({ [PASSAGE_STAGE]: `const m = '${name}';` })).toEqual([
+				`${PASSAGE_STAGE}: ${name}`
+			]);
+		}
 		for (const path of LANE_VIEW) {
 			expect(paths).toContain(path);
 			expect(offendersIn({ [path]: `const m = 'chord-grid';` })).toEqual([`${path}: chord-grid`]);

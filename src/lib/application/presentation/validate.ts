@@ -13,7 +13,7 @@ import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
 import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
-import { playViewOf } from '$lib/application/session/contract';
+import { DEFAULT_PLAY_VIEW, playViewOf } from '$lib/application/session/contract';
 import { isSelectionTemplate } from '$lib/domain/exercise/selection/types';
 import { memberFieldNames } from './contentViews';
 import { ITEM_FIELDS } from './itemFields';
@@ -95,11 +95,12 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
  * Null when the exercise can be drawn, else what cannot, naming the exercise and the field: a
  * view the screen does not have (`PLAY_VIEW_NAMES`); the figure view for a round that plays no
  * figure (`writesFigure`), which it draws with or without a prompt; a presentation drawn by a
- * view that does not draw one (`PROMPT_STAGE_VIEWS`), or such a view with no presentation to
- * read; a response exercise (one that writes its `round`) with neither a presentation nor a
+ * view that does not draw one (`PROMPT_STAGE_VIEWS`, or a view of `PASSAGE_VIEWS` on an
+ * exercise that writes `passages`), or a prompt view with no presentation to read; a response exercise (one that writes its `round`) with neither a presentation nor a
  * screen of its presenter (`stageOf`); a level of the figure view that shows the tab of
  * a figure with a note it cannot fret (`tabProblem`); a view that draws a passage
- * (`PASSAGE_VIEWS`) on an exercise that writes no `passages`. The view is the exercise's, else
+ * (`PASSAGE_VIEWS`, but the default view of an exercise its presenter draws, with no
+ * presentation) on an exercise that writes no `passages`. The view is the exercise's, else
  * the one the series gives it (`playViewOf`).
  */
 export function screenProblem(
@@ -111,7 +112,11 @@ export function screenProblem(
 		return `${id}: view "${view}" is not a view of the screen (known: ${PLAY_VIEW_NAMES.join(', ')})`;
 	}
 	const drawn = playViewOf(definition);
-	if (PASSAGE_VIEWS.includes(drawn) && definition.passages === undefined) {
+	const drawsPassage =
+		PASSAGE_VIEWS.includes(drawn) &&
+		// The default view without a presentation is the screen its presenter draws.
+		(definition.presentation !== undefined || drawn !== DEFAULT_PLAY_VIEW);
+	if (drawsPassage && definition.passages === undefined) {
 		return `${id}: view "${drawn}" draws a passage, and the exercise writes no passages`;
 	}
 	if (drawn === FIGURE_VIEW) {
@@ -121,9 +126,9 @@ export function screenProblem(
 	}
 	const readsPrompt = PROMPT_STAGE_VIEWS.includes(drawn);
 	if (definition.presentation !== undefined) {
-		return readsPrompt
+		return readsPrompt || drawsPassage
 			? null
-			: `${id}: view "${drawn}" cannot draw a presentation (the views that do: ${PROMPT_STAGE_VIEWS.join(', ')})`;
+			: `${id}: view "${drawn}" cannot draw a presentation (the views that do: ${[...PROMPT_STAGE_VIEWS, ...PASSAGE_VIEWS].join(', ')})`;
 	}
 	if (readsPrompt) {
 		return `${id}: view "${drawn}" draws a presentation, and the exercise writes none`;

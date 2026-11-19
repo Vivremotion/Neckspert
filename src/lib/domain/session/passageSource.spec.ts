@@ -171,6 +171,22 @@ describe('createPassageSource', () => {
 		expect(played.map((p) => p.passage!.rank)).toEqual([...Array(IOHEFY_CHANGES).keys()]);
 	});
 
+	it('serves every round with the items of its whole passage, whatever the family of its members', () => {
+		const s = source(PASSAGE_EXERCISES);
+		const clock = { now: NOW };
+		const families = new Set<string>();
+		for (const definition of PASSAGE_EXERCISES) {
+			const played = playPassage(s, clock);
+			expect(played[0].exerciseId).toBe(definition.id);
+			families.add(definition.passages!.members.family);
+			const items = played.map((p) => p.item);
+			for (const round of played) expect(round.passage!.items).toEqual(items);
+			// One list for the passage: a view computes its line once.
+			expect(new Set(played.map((round) => round.passage!.items)).size).toBe(1);
+		}
+		expect([...families].sort()).toEqual(['chord-shapes', 'grid-changes']);
+	});
+
 	it('writes no scope for an exercise whose passages name none; serves its members as the link does', () => {
 		const s = source([LINK_PASSAGES], triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const played = playPassage(s, { now: NOW });
