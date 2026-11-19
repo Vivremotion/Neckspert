@@ -1,8 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Refusal } from '$lib/domain/definitions';
-import { exerciseSessionExercises } from '$lib/domain/exercise';
-import type { HomeStats } from '$lib/domain/types';
 import type { RoutineEntry } from '$lib/application/app';
 import { i18n } from '$lib/i18n/index.svelte';
 import HomeScreen from './HomeScreen.svelte';
@@ -11,11 +9,6 @@ afterEach(() => {
 	cleanup();
 	i18n.locale = 'fr';
 });
-
-const base: HomeStats = {
-	medianColdOffsetMs: 40,
-	trend: 'improving'
-};
 
 /** A catalog routine as the service tells it on a fresh install, then `over`. */
 function routine(id: string, over: Partial<RoutineEntry> = {}): RoutineEntry {
@@ -43,7 +36,6 @@ const routines = (over: Record<string, Partial<RoutineEntry>> = {}) =>
 	['notes', 'chords', 'chords-zone', 'changes'].map((id) => routine(id, over[id]));
 
 const props = (over: Record<string, unknown> = {}) => ({
-	stats: base,
 	now: 0,
 	onstart: () => {},
 	routines: routines(),
@@ -112,7 +104,7 @@ describe('HomeScreen', () => {
 	});
 
 	it('says nothing about reviews on the first visit', () => {
-		render(HomeScreen, { props: props({ stats: { medianColdOffsetMs: null, trend: null } }) });
+		render(HomeScreen, { props: props() });
 		expect(screen.queryByText(/révision/i)).toBeNull();
 		expect(screen.getByText('Apprentissage')).toBeTruthy();
 	});
@@ -133,33 +125,27 @@ describe('HomeScreen', () => {
 		expect(screen.getByText('Prochaines révisions · Dans 2 h')).toBeTruthy();
 	});
 
-	it('shows the gap to the beat with its trend, and a dash when unknown', () => {
+	it('shows neither the exercises, the gap to the beat nor its trend (D3, D4)', () => {
 		render(HomeScreen, { props: props() });
-		expect(screen.getByText('Écart au temps')).toBeTruthy();
-		expect(screen.getByText('40 ms')).toBeTruthy();
-		expect(screen.getByText('plus près')).toBeTruthy();
-		cleanup();
-		render(HomeScreen, {
-			props: props({ stats: { ...base, medianColdOffsetMs: null, trend: null } })
-		});
-		expect(screen.getByText('—')).toBeTruthy();
+		expect(screen.queryByText('Exercices')).toBeNull();
+		expect(screen.queryByText('Écart au temps')).toBeNull();
+		expect(screen.queryByText(/\bms\b/)).toBeNull();
+		expect(screen.queryByText(/plus près|stable|plus loin/)).toBeNull();
+		// Its blocks are its routines, and no link leads elsewhere.
+		expect(within(blocks()).getAllByRole('listitem')).toHaveLength(2);
+		expect(screen.queryAllByRole('link')).toHaveLength(0);
 	});
 
 	it('switches copy to English', () => {
 		i18n.locale = 'en';
 		render(HomeScreen, {
-			props: props({
-				stats: { medianColdOffsetMs: 12, trend: 'stable' },
-				routines: routines({ notes: { due: 2 } })
-			})
+			props: props({ routines: routines({ notes: { due: 2 } }) })
 		});
 		expect(screen.getByRole('heading', { level: 1, name: 'Practice' })).toBeTruthy();
 		expect(screen.getByRole('list', { name: 'Sessions' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: /^Learn/ })).toBeTruthy();
 		expect(screen.getByText('2 reviews due')).toBeTruthy();
-		expect(screen.getByText('From the beat')).toBeTruthy();
-		expect(screen.getByText('12 ms')).toBeTruthy();
 	});
 
 	it('lists the triads block with its reviews due, without when none', async () => {
@@ -247,49 +233,59 @@ describe('HomeScreen', () => {
 		expect(changes.querySelector('.why')?.textContent).toBe('On y revient plus tard');
 	});
 
-	describe('exercises', () => {
-		const exercises = exerciseSessionExercises();
+	describe('no routine open', () => {
+		const none = () => routines({ notes: { open: false }, chords: { open: false } });
 
-		it('has no exercise block without the exercises', () => {
-			render(HomeScreen, { props: props() });
-			expect(screen.queryAllByRole('link')).toHaveLength(0);
-			expect(screen.queryByText('Exercices')).toBeNull();
+		it('says there is nothing to play and leads to the Library', () => {
+			render(HomeScreen, { props: props({ routines: none() }) });
+			expect(screen.getByText('Rien à jouer pour l’instant')).toBeTruthy();
+			const link = screen.getByRole('link', { name: 'Bibliothèque' });
+			expect(link.getAttribute('href')).toMatch(/\/library$/);
+			expect(screen.queryByRole('list', { name: 'Séances' })).toBeNull();
+			expect(screen.queryByRole('button', { name: 'Commencer' })).toBeNull();
 		});
 
-		it('has one block per exercise, each linking to its own session', () => {
-			render(HomeScreen, { props: props({ exercises }) });
-			const links = screen.getAllByRole('link') as HTMLAnchorElement[];
-			expect(links.map((link) => link.getAttribute('href'))).toEqual(
-				exercises.map((exercise) => `/session?exercise=${exercise.id}`)
-			);
-			links.forEach((link, i) => {
-				expect(link.textContent).toContain('Exercices');
-				expect(link.textContent).toContain(exercises[i].title?.fr);
-			});
-		});
-
-		it('marks an exercise resting after a change of air', () => {
-			render(HomeScreen, { props: props({ exercises, resting: ['rhythm-offbeats'] }) });
-			const offbeats = screen.getByRole('link', { name: /Contretemps/ });
-			expect(offbeats.closest('li')?.textContent).toContain('On y revient plus tard');
-			const silent = screen.getByRole('link', { name: /Mesures silencieuses/ });
-			expect(silent.closest('li')?.textContent).not.toContain('On y revient plus tard');
-		});
-
-		it('names an exercise without a title by its id', () => {
-			render(HomeScreen, { props: props({ exercises: [{ id: 'my-scale' }] }) });
-			expect(screen.getByRole('link', { name: /my-scale/ }).getAttribute('href')).toBe(
-				'/session?exercise=my-scale'
-			);
-		});
-
-		it('names the exercises in English', () => {
+		it('says it in English', () => {
 			i18n.locale = 'en';
-			render(HomeScreen, { props: props({ exercises }) });
-			expect(screen.getByRole('link', { name: /Offbeats/ })).toBeTruthy();
-			expect(screen.getByRole('link', { name: /Offbeats/ }).textContent).toContain('Exercises');
+			render(HomeScreen, { props: props({ routines: [] }) });
+			expect(screen.getByText('Nothing to play for now')).toBeTruthy();
+			expect(screen.getByRole('link', { name: 'Library' })).toBeTruthy();
+		});
+
+		it('says nothing of it while a routine is open', () => {
+			render(HomeScreen, { props: props() });
+			expect(screen.queryByText('Rien à jouer pour l’instant')).toBeNull();
 		});
 	});
+
+	describe('part of the catalog refused (Review Focus 4)', () => {
+		it('says it in one line, beside the routines left', () => {
+			render(HomeScreen, { props: props({ catalogRefused: true }) });
+			expect(screen.getByText('Une partie du catalogue n’a pas pu être chargée.')).toBeTruthy();
+			expect(within(blocks()).getAllByRole('listitem')).toHaveLength(2);
+		});
+
+		it('says it beside the imported files’ line, and with no routine open', () => {
+			render(HomeScreen, {
+				props: props({ catalogRefused: true, importedProblems: 1, routines: [] })
+			});
+			expect(screen.getByText('Une partie du catalogue n’a pas pu être chargée.')).toBeTruthy();
+			expect(screen.getByText('Un fichier importé a un problème.')).toBeTruthy();
+			expect(screen.getByText('Rien à jouer pour l’instant')).toBeTruthy();
+		});
+
+		it('says it in English', () => {
+			i18n.locale = 'en';
+			render(HomeScreen, { props: props({ catalogRefused: true }) });
+			expect(screen.getByText('Part of the catalog could not be loaded.')).toBeTruthy();
+		});
+
+		it('says nothing when the whole catalog loaded', () => {
+			render(HomeScreen, { props: props() });
+			expect(screen.queryByText(/catalogue/)).toBeNull();
+		});
+	});
+
 	describe('imported files with a problem', () => {
 		it('shows nothing at zero', () => {
 			render(HomeScreen, { props: props({ importedProblems: 0 }) });

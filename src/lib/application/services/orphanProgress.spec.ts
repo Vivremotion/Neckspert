@@ -272,7 +272,6 @@ describe('stored progress whose definition is gone', () => {
 	it('resolves the home services', async () => {
 		const { services, deps } = harness();
 		await seed(deps);
-		expect(await services.homeStats()).toEqual({ medianColdOffsetMs: 10, trend: null });
 		// The locate card alone: the card of a skill no file defines is not counted.
 		// What can fail here is a throw on the card of a skill no file defines.
 		expect(await home(services)).toEqual([
@@ -281,7 +280,9 @@ describe('stored progress whose definition is gone', () => {
 			['chords-zone', false, 0, null],
 			['changes', false, null, null]
 		]);
-		expect(await services.resting([GONE_EXERCISE])).toEqual([GONE_EXERCISE]);
+		expect((await services.library()).map((entry) => entry.exerciseId)).not.toContain(
+			GONE_EXERCISE
+		);
 	});
 
 	it('draws the neck map', async () => {
@@ -396,7 +397,9 @@ describe('a card no list names', () => {
 		expect(await home(services)).toEqual(before);
 		expect(before[0]).toEqual(['notes', true, 1, 3_601_000]);
 		expect(await services.neckMap()).toEqual(mapBefore);
-		expect(await services.resting([GONE_EXERCISE])).toEqual([GONE_EXERCISE]);
+		expect((await services.library()).map((entry) => entry.exerciseId)).not.toContain(
+			GONE_EXERCISE
+		);
 		const summary = await services.sessionSummary('s-normal');
 		expect(summary.attemptCount).toBe(2);
 		expect(summary.nextReviewAt).toBe(3_601_000);
@@ -542,7 +545,9 @@ describe('a track exercise no file defines', () => {
 			['chords-zone', false, 0, null],
 			['changes', false, null, null]
 		]);
-		expect(await services.resting(['grid-reading'])).toEqual([]);
+		expect((await services.library()).map((entry) => entry.exerciseId)).not.toContain(
+			'grid-reading'
+		);
 	});
 
 	it('reads an injected lookup that does not know the exercise as an exercise no file defines', async () => {

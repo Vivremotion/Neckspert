@@ -5,7 +5,7 @@ import type {
 	CalibrationPort,
 	CalibrationProgress
 } from '$lib/application/ports';
-import type { BackupFile, HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
+import type { BackupFile, NeckMapCell, SessionSummary } from '$lib/domain/types';
 import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import { validateBackup } from '$lib/infrastructure/storage';
 import {
@@ -107,11 +107,6 @@ export class FakeBackup implements BackupPort {
 	}
 }
 
-const EMPTY_HOME: HomeStats = {
-	medianColdOffsetMs: null,
-	trend: null
-};
-
 const EMPTY_SUMMARY: SessionSummary = {
 	sessionId: 'none',
 	pool: 'cold',
@@ -146,13 +141,11 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 	const diagnostics = new FakeDiagnostics();
 
 	return {
-		homeStats: async () => EMPTY_HOME,
 		routines: async () => [],
 		library: async () => [],
 		contest: async () => {},
 		replayRun: async () => {},
 		stopReplay: () => {},
-		resting: async () => [],
 		sessionSummary: async () => EMPTY_SUMMARY,
 		neckMap: async (): Promise<NeckMapCell[]> => [],
 		startRoutine: async () => {

@@ -5,22 +5,19 @@
 	import type { RoutineEntry } from '$lib/application/app';
 	import { importedProblemCount } from '$lib/application/definitions/problems';
 	import { loadedDefinitions } from '$lib/composition/definitions';
-	import { exerciseSessionExercises } from '$lib/domain/exercise';
-	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
 	const services = useAppServices();
 
-	function refusalsLoaded() {
+	/** What the load refused of the catalog, files and objects alike. */
+	function catalogRefusals() {
 		const loaded = loadedDefinitions();
 		return loaded ? loaded.catalog.refusals : [];
 	}
 
-	let stats = $state<HomeStats | null>(null);
 	let routines = $state<RoutineEntry[]>([]);
 	/** The routines were read: the screen waits for them, so Space finds them; a failure is told. */
 	let routinesRead = $state(false);
-	let resting = $state<string[]>([]);
 	let now = $state(Date.now());
 	let error = $state<string | null>(null);
 
@@ -30,24 +27,8 @@
 			(value) => {
 				if (!cancelled) {
 					routines = value;
-					routinesRead = true;
-				}
-			},
-			(err: unknown) => {
-				if (!cancelled) error = err instanceof Error ? err.message : String(err);
-			}
-		);
-		void services.resting(exerciseSessionExercises().map((exercise) => exercise.id)).then(
-			(value) => {
-				if (!cancelled) resting = value;
-			},
-			() => {}
-		);
-		void services.homeStats().then(
-			(value) => {
-				if (!cancelled) {
-					stats = value;
 					now = Date.now();
+					routinesRead = true;
 				}
 			},
 			(err: unknown) => {
@@ -66,7 +47,7 @@
 
 	/** « Commencer » and Space: the first open routine. */
 	function start() {
-		if (!stats) return;
+		if (!routinesRead) return;
 		const first = routines.find((routine) => routine.open);
 		if (first) startRoutine(first.id);
 	}
@@ -85,16 +66,14 @@
 
 {#if error}
 	<p role="alert">{error}</p>
-{:else if stats && routinesRead}
+{:else if routinesRead}
 	<HomeScreen
-		{stats}
 		{now}
 		onstart={start}
 		{routines}
 		onroutine={startRoutine}
-		exercises={exerciseSessionExercises()}
-		{resting}
-		refused={dev ? refusalsLoaded() : []}
+		refused={dev ? catalogRefusals() : []}
+		catalogRefused={catalogRefusals().length > 0}
 		importedProblems={importedProblemCount(services.definitions.refusals())}
 	/>
 {/if}

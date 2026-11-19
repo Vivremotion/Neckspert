@@ -1,7 +1,7 @@
 import type { OracleReport } from '$lib/application/ports';
 import { getContext, setContext } from 'svelte';
 import type { ExerciseId } from '$lib/domain/exercise/types';
-import type { HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
+import type { NeckMapCell, SessionSummary } from '$lib/domain/types';
 import type {
 	BackupPort,
 	CalibrationPort,
@@ -63,9 +63,10 @@ export interface AppServices {
 	detector: NoteDetectorPort;
 	calibration: CalibrationPort;
 	diagnostics: DiagnosticsService;
-	/** The gap to the beat the home screen shows, and its trend. */
-	homeStats(): Promise<HomeStats>;
-	/** Every registered routine, in the order registered, the closed ones included. */
+	/**
+	 * Every registered routine, in the order registered, the closed ones included; a routine whose
+	 * entry cannot be computed is told closed and logged.
+	 */
 	routines(): Promise<RoutineEntry[]>;
 	/**
 	 * Every exercise of the registry, none filtered or ranked, in an order of presentation: the
@@ -82,11 +83,6 @@ export interface AppServices {
 	/** Plays run `runId` of a session still in memory; rejects a run whose take is not held. */
 	replayRun(sessionId: string, runId: number): Promise<void>;
 	stopReplay(): void;
-	/**
-	 * Of `exerciseIds`, those resting after « On change d’air » (`resumeAfter` still ahead), at
-	 * scope `''`: kept for the exercises played alone until plan 5b.
-	 */
-	resting(exerciseIds: readonly ExerciseId[]): Promise<ExerciseId[]>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
 	/**

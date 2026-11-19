@@ -5,7 +5,6 @@ import {
 	type Attempt,
 	type CardKey,
 	type CardState,
-	type HomeStats,
 	type NeckMapCell,
 	type PlayedExercise,
 	type SessionRecord,
@@ -15,7 +14,6 @@ import { summarizePlayed } from '$lib/domain/session/played';
 import { summaryMisses } from '$lib/domain/session/misses';
 import { setOfSkill } from '$lib/domain/sets';
 import { isLocated, isNamed, neckOf, type Neck } from './neck';
-import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
 import { lastAttemptByCard, nextReviewAt } from './review';
@@ -63,31 +61,6 @@ function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 
 		if (attempt.reactionMs === null) return [];
 		return [attempt.reactionMs];
 	});
-}
-
-function trendFor(attempts: readonly Attempt[], now: number): HomeStats['trend'] {
-	const recentStart = now - TREND_WINDOW_MS;
-	const previousStart = now - 2 * TREND_WINDOW_MS;
-	const recent = median(
-		locateOffsets(attempts.filter((a) => a.promptedAt >= recentStart && a.promptedAt <= now))
-	);
-	const previous = median(
-		locateOffsets(
-			attempts.filter((a) => a.promptedAt >= previousStart && a.promptedAt < recentStart)
-		)
-	);
-	if (recent === null || previous === null) return null;
-	if (recent <= previous * (1 - TREND_RATIO)) return 'improving';
-	if (recent >= previous * (1 + TREND_RATIO)) return 'worsening';
-	return 'stable';
-}
-
-/** The gap to the beat of the cold locate notes, and its trend; the reviews are the routines'. */
-export function computeHomeStats(input: { attempts: readonly Attempt[]; now: number }): HomeStats {
-	return {
-		medianColdOffsetMs: median(locateOffsets(input.attempts)),
-		trend: trendFor(input.attempts, input.now)
-	};
 }
 
 /**

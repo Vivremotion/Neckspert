@@ -1,24 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
-import {
-	exercisesOnSet,
-	isLocated,
-	isNamed,
-	isNeck,
-	LOCATED_NOTES,
-	NAMED_NOTES,
-	neckOf
-} from './neck';
+import { exercisesOnSet, isLocated, isNamed, LOCATED_NOTES, NAMED_NOTES, neckOf } from './neck';
 
 describe('the neck, told by the item sets of its skills', () => {
 	it('tells a located note, a named place and the rest apart by set', () => {
 		expect(isLocated(LOCATE_NECK.practices)).toBe(true);
 		expect(isNamed(IDENTIFY_NECK.practices)).toBe(true);
-		expect(isNeck({ skill: LOCATE_NECK.practices })).toBe(true);
-		expect(isNeck({ skill: IDENTIFY_NECK.practices })).toBe(true);
-		expect(isNeck({ skill: TRIADS_ANCHOR.practices })).toBe(false);
+		expect(isNamed(LOCATE_NECK.practices)).toBe(false);
+		expect(isLocated(IDENTIFY_NECK.practices)).toBe(false);
+		expect(isLocated(TRIADS_ANCHOR.practices) || isNamed(TRIADS_ANCHOR.practices)).toBe(false);
 		// A skill no file defines belongs to no track.
-		expect(isNeck({ skill: 'kazoo' })).toBe(false);
+		expect(isLocated('kazoo') || isNamed('kazoo')).toBe(false);
 	});
 
 	it('finds the registered exercises on a set', () => {

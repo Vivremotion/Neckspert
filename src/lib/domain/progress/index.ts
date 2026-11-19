@@ -21,6 +21,5 @@ export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
 export { lastAttemptByCard, reviewableAt, reviewableCards, nextReviewAt } from './review';
 export { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
-export { isNeck } from './neck';
-export { computeHomeStats, summarizeSession, buildNeckMap } from './stats';
+export { summarizeSession, buildNeckMap } from './stats';
 export { sessionPlayed, type SessionPlayed } from './sessionPlayed';

@@ -32,9 +32,7 @@ describe('the learning procedure’s settings', () => {
 			'MASTERY_ACCURACY',
 			'MASTERY_MIN_GAP_MS',
 			'MASTERY_SESSIONS',
-			'MIN_COLD_DELAY_MS',
-			'TREND_RATIO',
-			'TREND_WINDOW_MS'
+			'MIN_COLD_DELAY_MS'
 		]);
 	});
 

@@ -142,8 +142,8 @@ try {
 		check(assert(count('Triades') > 0, 'le bouton Triades est présent'));
 		check(
 			assert(
-				page.links.some((link) => link.startsWith('Exercices')),
-				'un bloc Exercices mène à son exercice'
+				!page.links.some((link) => link.startsWith('Exercices')),
+				'l’accueil n’a plus de bloc Exercices'
 			)
 		);
 		check(
@@ -154,8 +154,17 @@ try {
 		);
 		check(assert(body.includes('6 révisions dues'), 'les révisions dues sont comptées'));
 		check(assert(body.includes('dans 2 h'), 'la prochaine révision est « Dans 2 h »'));
-		check(assert(body.includes('40 ms'), 'l’écart au temps de 40 ms est affiché'));
-		check(assert(body.includes('plus près'), 'la tendance « Plus près » est affichée'));
+		check(assert(!body.includes('écart au temps'), 'l’écart au temps n’est plus affiché'));
+		check(assert(!body.includes('plus près'), 'la tendance n’est plus affichée'));
+		check(
+			assert(body.includes('rien à jouer pour l’instant'), 'sans routine ouverte, rien à jouer')
+		);
+		check(
+			assert(
+				body.includes('une partie du catalogue n’a pas pu être chargée'),
+				'le catalogue amputé est dit'
+			)
+		);
 		noteTiny('home', page.texts);
 	}
 

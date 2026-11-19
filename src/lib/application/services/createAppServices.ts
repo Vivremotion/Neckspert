@@ -32,10 +32,8 @@ import { pitchOnString } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
-	computeHomeStats,
 	createListSource,
 	type ItemSource,
-	isNeck,
 	lastAttemptByCard,
 	nextReviewAt,
 	reviewableCards,
@@ -391,7 +389,7 @@ export function createAppServices(
 		return source !== null && (source !== 'passages' || passagesOpen(exercise, acquired));
 	};
 
-	/** What the home is told of the routines, read once from the stores. */
+	/** What the home is told of the routines, read once from the stores; one entry per routine. */
 	const routineEntries = async (): Promise<RoutineEntry[]> => {
 		const [cards, attempts, levels] = await Promise.all([
 			deps.cards.all(),
@@ -459,7 +457,25 @@ export function createAppServices(
 				resting
 			};
 		};
-		return registeredRoutines().map(entryOf);
+		/** Its entry; a throw computing it (a damaged imported file) closes it, the others told. */
+		const guardedEntryOf = (
+			routine: ReturnType<typeof registeredRoutines>[number]
+		): RoutineEntry => {
+			try {
+				return entryOf(routine);
+			} catch (error) {
+				console.error(`[home] ${routine.id}: cannot tell whether it opens`, error);
+				return {
+					id: routine.id,
+					title: routine.title,
+					open: false,
+					due: null,
+					nextReviewAt: null,
+					resting: false
+				};
+			}
+		};
+		return registeredRoutines().map(guardedEntryOf);
 	};
 
 	/**
@@ -520,12 +536,6 @@ export function createAppServices(
 		calibration: deps.calibration,
 		diagnostics: deps.diagnostics,
 
-		async homeStats() {
-			const attempts = await deps.attempts.all();
-			// The gap to the beat and its trend are the neck's.
-			return computeHomeStats({ attempts: attempts.filter(isNeck), now: deps.now() });
-		},
-
 		routines: routineEntries,
 
 		library: libraryEntries,
@@ -545,17 +555,6 @@ export function createAppServices(
 
 		stopReplay() {
 			deps.takes.stop();
-		},
-
-		async resting(exerciseIds) {
-			const now = deps.now();
-			const states = await Promise.all(
-				exerciseIds.map((exerciseId) => deps.levels.get({ exerciseId, scope: '', item: '' }))
-			);
-			return exerciseIds.filter((_, i) => {
-				const resumeAfter = states[i]?.resumeAfter;
-				return typeof resumeAfter === 'number' && resumeAfter > now;
-			});
 		},
 
 		async sessionSummary(sessionId: string) {

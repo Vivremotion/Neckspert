@@ -344,12 +344,6 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
 
-export interface HomeStats {
-	/** Median |onset − beat| in ms, cold correct locate attempts. The home number. */
-	medianColdOffsetMs: number | null;
-	trend: 'improving' | 'stable' | 'worsening' | null;
-}
-
 export type SessionGrade = 'S+' | 'S' | 'A+' | 'A' | 'B+' | 'B' | 'C+' | 'C' | 'D+' | 'D' | 'F+';
 
 export interface SessionSummary {

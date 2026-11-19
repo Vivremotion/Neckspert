@@ -218,10 +218,10 @@ describe('createAppServices', () => {
 		expect(await services.diagnostics.usage()).toEqual({ bytes: 0, takes: 0 });
 	});
 
-	it('wires homeStats, neckMap and sessionSummary through C and A', async () => {
+	it('wires neckMap through C and A, and tells the home no gap to the beat (D4)', async () => {
 		const { services } = harness();
-		const stats = await services.homeStats();
-		expect(stats).toEqual({ medianColdOffsetMs: null, trend: null });
+		expect(services).not.toHaveProperty('homeStats');
+		expect(services).not.toHaveProperty('resting');
 		const map = await services.neckMap();
 		expect(map).toHaveLength(66);
 		expect(map[0]).toHaveProperty('pitch');
@@ -564,6 +564,54 @@ describe('a routine that opens on a level', () => {
 			await deps.levels.put(held(1, scope));
 			expect(await open(), 'level 2').toBe(true);
 		}
+	});
+});
+
+describe('a routine whose entry cannot be computed', () => {
+	afterEach(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+		vi.restoreAllMocks();
+	});
+
+	it('is closed and logged with its id, the other routines told', async () => {
+		const { registerExercise } = await import('$lib/domain/exercise/registry');
+		const run = exerciseById('inversion-run');
+		const passages = run.passages!;
+		// Its opening names a skill no file defines: reading it throws, as a damaged file would.
+		registerExercise(
+			{
+				...run,
+				id: 'broken-opening',
+				passages: {
+					...passages,
+					opens: { acquired: { ...passages.opens!.acquired, skill: 'no-such-skill' } }
+				}
+			},
+			'probe.json'
+		);
+		registerRoutine(
+			{ id: 'broken', title: { fr: 'Abîmée', en: 'Damaged' }, exercises: ['broken-opening'] },
+			'probe.json'
+		);
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { services } = harness();
+		const routines = await services.routines();
+		expect(routines.map((routine) => [routine.id, routine.open])).toEqual([
+			['notes', true],
+			['chords', true],
+			['chords-zone', false],
+			['changes', false],
+			['broken', false]
+		]);
+		expect(routines.at(-1)).toEqual({
+			id: 'broken',
+			title: { fr: 'Abîmée', en: 'Damaged' },
+			open: false,
+			due: null,
+			nextReviewAt: null,
+			resting: false
+		});
+		expect(error).toHaveBeenCalledWith(expect.stringContaining('broken'), expect.anything());
 	});
 });
 
@@ -1017,20 +1065,6 @@ describe('the rhythm exercises', () => {
 			contested: true,
 			contestReason: 'regularity'
 		});
-	});
-
-	it('resting lists the exercises whose resumeAfter is ahead', async () => {
-		const { services, deps } = harness();
-		const now = deps.now();
-		await deps.levels.put({ ...heldLevel(0), resumeAfter: now + 1 });
-		await deps.levels.put({
-			...heldLevel(0),
-			exerciseId: RHYTHM_TWO_FOUR.id,
-			resumeAfter: now - 1
-		});
-		expect(
-			await services.resting([RHYTHM_OFFBEATS.id, RHYTHM_TWO_FOUR.id, RHYTHM_SILENT_BARS.id])
-		).toEqual([RHYTHM_OFFBEATS.id]);
 	});
 
 	it('an older session keeps its own level after a later one moved it', async () => {

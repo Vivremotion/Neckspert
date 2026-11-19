@@ -31,11 +31,6 @@ export function isNamed(skill: SkillId): boolean {
 	return setNameOf(skill) === NAMED_NOTES;
 }
 
-/** Whether a card, an attempt or a skill belongs to the neck, not to another track (triads). */
-export function isNeck(x: { skill: SkillId }): boolean {
-	return isLocated(x.skill) || isNamed(x.skill);
-}
-
 /** The registered exercises whose skill's items are of `set`, in the registry's order. */
 export function exercisesOnSet(
 	set: string,

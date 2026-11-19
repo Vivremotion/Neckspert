@@ -2,10 +2,8 @@
 	import { resolve } from '$app/paths';
 	import type { RoutineEntry } from '$lib/application/app';
 	import type { Refusal } from '$lib/domain/definitions';
-	import type { ExerciseDefinition } from '$lib/domain/exercise';
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
-	import type { HomeStats } from '$lib/domain/types';
 	import { refusalText } from '$lib/ui/definitions/refusalMessages';
 	import BlockList from '$lib/ui/primitives/BlockList.svelte';
 	import type { Block } from '$lib/ui/primitives/BlockList.svelte';
@@ -13,21 +11,17 @@
 	import Page from '$lib/ui/primitives/Page.svelte';
 	import { formatMinutes } from './duration';
 	import { formatRelativeDelay } from './relativeTime';
-	import { formatTrend } from './trend';
 	import { homeMessages } from './messages';
 
 	let {
-		stats,
 		now,
 		onstart,
 		routines = [],
 		onroutine,
-		exercises,
-		resting = [],
 		refused = [],
-		importedProblems = 0
+		importedProblems = 0,
+		catalogRefused = false
 	}: {
-		stats: HomeStats;
 		now: number;
 		/** « Commencer » (and Space, on the page): the first open routine. */
 		onstart: () => void;
@@ -35,14 +29,12 @@
 		routines?: readonly RoutineEntry[];
 		/** Starts a session of the routine; without it, no routine block can be started. */
 		onroutine?: (id: string) => void;
-		/** The exercises played on their own, each a link to its session; without them, no such block. */
-		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
-		/** Exercises resting after « On change d’air »: marked, still to be played. */
-		resting?: readonly string[];
 		/** What the definition files refused, with the reason; development builds pass them. */
 		refused?: readonly Refusal[];
 		/** How many imported files have a refusal; shown in every build. */
 		importedProblems?: number;
+		/** Whether the load refused a file or an object of the catalog; told in every build. */
+		catalogRefused?: boolean;
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -72,59 +64,35 @@
 		return lines.length > 0 ? lines.join(' · ') : undefined;
 	}
 
-	const reaction = $derived(
-		stats.medianColdOffsetMs == null
-			? t.emptyReaction
-			: `${Math.round(stats.medianColdOffsetMs)} ms`
-	);
-
-	const trend = $derived(
-		formatTrend(stats.trend, {
-			improving: t.improving,
-			stable: t.stable,
-			worsening: t.worsening
-		})
-	);
-
-	const blocks = $derived.by((): Block[] => {
-		const list: Block[] = offered.map((routine) => ({
+	const blocks = $derived(
+		offered.map((routine): Block => ({
 			key: `routine-${routine.id}`,
 			title: routine.title[i18n.locale],
 			why: whyOf(routine),
 			// Every session plays on the session controller: one session length.
 			duration: formatMinutes(SESSION_MS, words),
 			...(onroutine && { onselect: () => onroutine(routine.id) })
-		}));
-		for (const exercise of exercises ?? []) {
-			list.push({
-				key: `exercise-${exercise.id}`,
-				title: t.exercises,
-				subtitle: exercise.title?.[i18n.locale] ?? exercise.id,
-				why: resting.includes(exercise.id) ? t.resting : undefined,
-				duration: formatMinutes(SESSION_MS, words),
-				href: `/session?exercise=${exercise.id}`
-			});
-		}
-		return list;
-	});
+		}))
+	);
 </script>
 
 <Page title={t.title}>
-	<BlockList
-		label={t.blocks}
-		{blocks}
-		current={offered[0] ? `routine-${offered[0].id}` : undefined}
-	/>
-	<footer>
-		<p class="gap">
-			<span class="label">{t.reactionLabel}</span>
-			<span class="value">{reaction}</span>
-			{#if trend}<span class="trend">{trend}</span>{/if}
+	{#if offered.length > 0}
+		<BlockList label={t.blocks} {blocks} current={`routine-${offered[0].id}`} />
+		<footer>
+			<Button onclick={onstart}>{t.start}</Button>
+		</footer>
+	{:else}
+		<p class="nothing">
+			{t.nothingToPlay}
+			<a href={resolve('/library')}>{t.library}</a>
 		</p>
-		<Button onclick={onstart}>{t.start}</Button>
-	</footer>
+	{/if}
+	{#if catalogRefused}
+		<p class="state">{t.catalogRefused}</p>
+	{/if}
 	{#if importedProblems > 0}
-		<p class="imported-problems">
+		<p class="state">
 			{t.importedProblems(importedProblems)}
 			<a href={`${resolve('/settings')}#imported-files`}>{t.importedProblemsLink}</a>
 		</p>
@@ -145,24 +113,35 @@
 	footer {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: var(--np-step-2);
 		margin-top: var(--np-step-6);
 	}
 
-	.imported-problems {
+	.nothing {
+		margin: 0;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: var(--np-step-1) var(--np-step-2);
+	}
+
+	.state {
 		margin: var(--np-step-6) 0 0;
 		color: var(--np-earth-text);
 		font-size: var(--np-size-meta);
 	}
 
-	.imported-problems a {
+	.state + .state {
+		margin-top: var(--np-step-1);
+	}
+
+	a {
 		color: inherit;
 		text-decoration: underline;
 		text-underline-offset: 4px;
 	}
 
-	.imported-problems a:focus-visible {
+	a:focus-visible {
 		outline: 2px solid currentColor;
 		outline-offset: 4px;
 	}
@@ -183,29 +162,5 @@
 		margin: 0;
 		padding-left: var(--np-step-3);
 		overflow-wrap: anywhere;
-	}
-
-	.gap {
-		margin: 0;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--np-step-1) var(--np-step-2);
-	}
-
-	.label {
-		font-size: var(--np-size-meta);
-		color: var(--np-muted-text);
-	}
-
-	.value {
-		font-size: var(--np-size-title);
-		font-weight: 300;
-		font-variant-numeric: tabular-nums;
-	}
-
-	.trend {
-		font-size: var(--np-size-meta);
-		color: var(--np-earth-text);
 	}
 </style>

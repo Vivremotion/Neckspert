@@ -7,10 +7,10 @@ import {
 	type SessionRecord
 } from '$lib/domain/types';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
-import { MIN_COLD_DELAY_MS, TREND_WINDOW_MS } from './constants';
+import { MIN_COLD_DELAY_MS } from './constants';
 import { introduceCard, markLearned } from './cards';
 import { keyed, neckExerciseId, neckCardKey, type NeckCard } from '$lib/testing/neck';
-import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
+import { buildNeckMap, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');
 
@@ -66,41 +66,7 @@ const RECORD_EXECUTIONS: SessionRecord['executions'] = [
 	{ exerciseId: 'identify-note', tempoBpm: null }
 ];
 
-describe('computeHomeStats', () => {
-	it('scores cold correct locate notes by distance to the beat', () => {
-		const stats = computeHomeStats({
-			attempts: [
-				coldAttempt({ reactionMs: 6000, timingOffsetMs: 20 }),
-				coldAttempt({ reactionMs: 6000, timingOffsetMs: -40 }),
-				coldAttempt({
-					correct: false,
-					verdict: 'wrong',
-					reactionMs: 100,
-					timingOffsetMs: 500
-				}),
-				coldAttempt({
-					...on(I0),
-					leadBeats: null,
-					timingOffsetMs: null,
-					reactionMs: 400
-				})
-			],
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(30);
-	});
-
-	it('leaves off-beat answers out of the distance to the beat', () => {
-		const stats = computeHomeStats({
-			attempts: [
-				coldAttempt({ timingOffsetMs: 20 }),
-				coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })
-			],
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(20);
-	});
-
+describe('summarizeSession of off-beat answers', () => {
 	it('counts an off-beat cold review as a miss in the session accuracy', () => {
 		const summary = summarizeSession({
 			record: {
@@ -118,39 +84,6 @@ describe('computeHomeStats', () => {
 			now: NOW
 		});
 		expect(summary).toMatchObject({ attemptCount: 2, correctCount: 1, medianOffsetMs: 0 });
-	});
-
-	it('trends toward a smaller distance to the beat over 7 days', () => {
-		const recent = [
-			coldAttempt({ promptedAt: NOW - 1000, timingOffsetMs: 10, reactionMs: 6000 }),
-			coldAttempt({ promptedAt: NOW - 2000, timingOffsetMs: -30, reactionMs: 6000 })
-		];
-		const previous = [
-			coldAttempt({
-				promptedAt: NOW - TREND_WINDOW_MS - 1000,
-				timingOffsetMs: 80,
-				reactionMs: 1500
-			}),
-			coldAttempt({
-				promptedAt: NOW - TREND_WINDOW_MS - 2000,
-				timingOffsetMs: 120,
-				reactionMs: 1500
-			})
-		];
-		const stats = computeHomeStats({
-			attempts: [...previous, ...recent],
-			now: NOW
-		});
-		expect(stats.medianColdOffsetMs).toBe(55);
-		expect(stats.trend).toBe('improving');
-	});
-
-	it('returns a null trend when either window is empty', () => {
-		const stats = computeHomeStats({
-			attempts: [coldAttempt({ promptedAt: NOW - 1000, reactionMs: 900 })],
-			now: NOW
-		});
-		expect(stats.trend).toBeNull();
 	});
 });
 

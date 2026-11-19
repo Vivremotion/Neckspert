@@ -7,8 +7,10 @@ export const homeMessages = defineMessages({
 		start: 'Commencer',
 		minutes: (n: number) => `${n}′`,
 		minutesSpoken: (n: number) => `${n} min`,
-		exercises: 'Exercices',
 		resting: 'On y revient plus tard',
+		nothingToPlay: 'Rien à jouer pour l’instant',
+		library: 'Bibliothèque',
+		catalogRefused: 'Une partie du catalogue n’a pas pu être chargée.',
 		refusedTitle: 'Fichiers refusés',
 		importedProblems: (n: number) =>
 			n === 1 ? 'Un fichier importé a un problème.' : `${n} fichiers importés ont un problème.`,
@@ -18,12 +20,7 @@ export const homeMessages = defineMessages({
 		soon: 'Bientôt',
 		inMinutes: (n: number) => (n === 1 ? 'Dans 1 min' : `Dans ${n} min`),
 		inHours: (n: number) => (n === 1 ? 'Dans 1 h' : `Dans ${n} h`),
-		inDays: (n: number) => (n === 1 ? 'Dans 1 j' : `Dans ${n} j`),
-		improving: 'plus près',
-		stable: 'stable',
-		worsening: 'plus loin',
-		reactionLabel: 'Écart au temps',
-		emptyReaction: '—'
+		inDays: (n: number) => (n === 1 ? 'Dans 1 j' : `Dans ${n} j`)
 	},
 	en: {
 		title: 'Practice',
@@ -31,8 +28,10 @@ export const homeMessages = defineMessages({
 		start: 'Start',
 		minutes: (n: number) => `${n}′`,
 		minutesSpoken: (n: number) => `${n} min`,
-		exercises: 'Exercises',
 		resting: 'Back to it later',
+		nothingToPlay: 'Nothing to play for now',
+		library: 'Library',
+		catalogRefused: 'Part of the catalog could not be loaded.',
 		refusedTitle: 'Files refused',
 		importedProblems: (n: number) =>
 			n === 1 ? 'An imported file has a problem.' : `${n} imported files have a problem.`,
@@ -42,11 +41,6 @@ export const homeMessages = defineMessages({
 		soon: 'Soon',
 		inMinutes: (n: number) => (n === 1 ? 'In 1 min' : `In ${n} min`),
 		inHours: (n: number) => (n === 1 ? 'In 1 h' : `In ${n} h`),
-		inDays: (n: number) => (n === 1 ? 'In 1 d' : `In ${n} d`),
-		improving: 'closer',
-		stable: 'stable',
-		worsening: 'farther',
-		reactionLabel: 'From the beat',
-		emptyReaction: '—'
+		inDays: (n: number) => (n === 1 ? 'In 1 d' : `In ${n} d`)
 	}
 });
