@@ -2143,8 +2143,10 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private sessionRecord(endedAt: number | null): SessionRecord {
-		// A session of one exercise not played freely keeps the level it ended on: its own.
-		const one = 'exercise' in this.origin && !this.origin.free ? this.sessionItem : null;
+		// A session of one exercise not played freely keeps the level it ended on, when that level
+		// is its own: held without a scope (an exercise scoped by grid holds one per scope).
+		const item = 'exercise' in this.origin && !this.origin.free ? this.sessionItem : null;
+		const one = item && (item.scope === undefined || item.scope === '') ? item : null;
 		return {
 			id: this.sessionId,
 			// The routine it played, or the exercise, as it was given.

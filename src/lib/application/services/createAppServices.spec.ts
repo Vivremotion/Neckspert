@@ -1016,6 +1016,17 @@ describe('the rhythm exercises', () => {
 	});
 });
 
+/** iohefy-a's triads: every change of its grid has a shape once they are acquired. */
+const IOHEFY_TRIADS = [
+	['D', 'min'],
+	['G', 'maj'],
+	['C', 'maj'],
+	['F', 'maj'],
+	['E', 'min'],
+	['Eb', 'min'],
+	['Ab', 'maj']
+] as const;
+
 describe('a session by its routine or its exercise', () => {
 	afterEach(() => {
 		loadDefinitions({ catalog: CATALOG_FILES });
@@ -1056,13 +1067,12 @@ describe('a session by its routine or its exercise', () => {
 	});
 
 	it('introduces in the order a routine writes its memory exercises', async () => {
-		for (const [first, primary] of [
-			['locate-note-string', 'G'],
-			['chord-anchor', 'C']
+		for (const [first, primary, exercises] of [
+			['locate-note-string', 'G', ['locate-note-string', 'chord-anchor']],
+			['chord-anchor', 'C', ['chord-anchor', 'locate-note-string']]
 		] as const) {
-			const exercises = ['locate-note-string', 'chord-anchor'].sort((a) => (a === first ? -1 : 1));
 			registerRoutine(
-				{ id: `from-${first}`, title: { fr: 'Essai', en: 'Trial' }, exercises },
+				{ id: `from-${first}`, title: { fr: 'Essai', en: 'Trial' }, exercises: [...exercises] },
 				'test.json'
 			);
 			const { services, deps } = harness();
@@ -1129,12 +1139,71 @@ describe('a session by its routine or its exercise', () => {
 		expect(record).not.toHaveProperty('routine');
 	});
 
+	it('plays the zone alone freely, a member asked of each item, its rounds judged', async () => {
+		const { services, deps, chords } = harness();
+		const controller = await services.startExercise('chord-zone');
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		const lane = noteLane(controller);
+		expect(controller.view.stage?.view).toBe('lane');
+		const expected = chords.expectations.at(-1)?.expected ?? [];
+		expect(expected.length).toBeGreaterThan(0);
+		// The asked shape on its target: the round is judged.
+		const target = deps.clock.now() + (lead(lane) ?? 0) * 0.75;
+		await runOnTransport(deps, () => deps.clock.now() >= target);
+		chords.emit({ time: target, windowMs: 300, decided: expected[0], final: true, variants: [] });
+		await runOnTransport(deps, () => controller.view.status !== 'awaiting', 0.01, 2000);
+		const record = await ended(deps, controller);
+		expect(record).toMatchObject({ exercise: 'chord-zone', free: true });
+		expect(record).not.toHaveProperty('levelReached');
+		const [attempt] = await deps.attempts.listBySession(controller.sessionId);
+		expect(attempt).toMatchObject({ exerciseId: 'chord-zone', phase: 'free', success: true });
+		// The item asked carries the member drawn: its position on the neck.
+		expect((attempt.data as { item: { fret?: number } }).item.fret).toEqual(expect.any(Number));
+	});
+
+	it('ends a passages exercise alone with no open index on the summary, its record stored', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startExercise('grid-reading');
+		await controller.ready?.();
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'finished');
+		expect(controller.view.status).toBe('finished');
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
+		);
+		const record = await deps.sessions.get(controller.sessionId);
+		expect(record).toMatchObject({ exercise: 'grid-reading' });
+		expect(record).not.toHaveProperty('levelReached');
+		expect(await services.sessionSummary(controller.sessionId)).toMatchObject({
+			attemptCount: 0
+		});
+	});
+
+	it('keeps no level reached for a passages exercise alone scoped by grid', async () => {
+		const { services, deps } = harness();
+		for (const [root, quality] of IOHEFY_TRIADS) {
+			await deps.cards.putMany(triadCards('chord-anchor', root, quality, [3, 2, 1]));
+		}
+		const controller = await services.startExercise('grid-in-direction');
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		expect(controller.view.stage?.view).toBe('grid-scroll');
+		const record = await ended(deps, controller);
+		expect(record).toMatchObject({ exercise: 'grid-in-direction' });
+		expect(record?.executions[0]?.scope).toBeTruthy();
+		expect(record).not.toHaveProperty('levelReached');
+	});
+
 	it('plays an exercise of figures alone as an exercise session plays it', async () => {
 		const { services, deps } = harness();
 		const controller = await services.startExercise(RHYTHM_OFFBEATS.id);
 		await controller.ready?.();
 		expect(controller.view.stage?.view).toBe('figure');
 		await controller.start();
-		expect(await ended(deps, controller)).toMatchObject({ exercise: RHYTHM_OFFBEATS.id });
+		expect(await ended(deps, controller)).toMatchObject({
+			exercise: RHYTHM_OFFBEATS.id,
+			levelReached: 0
+		});
 	});
 });
