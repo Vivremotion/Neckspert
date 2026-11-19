@@ -173,3 +173,45 @@ describe('the learning procedure', () => {
 		]);
 	});
 });
+
+// The domain and the application as raw text: the old subjects and their generators are gone.
+const everywhere = import.meta.glob(
+	['/src/lib/domain/**/*.{ts,svelte}', '/src/lib/application/**/*.{ts,svelte}'],
+	{ query: '?raw', import: 'default', eager: true }
+) as Record<string, string>;
+
+/** The hand-written subjects and the code generators of the introduction order, deleted. */
+const GONE = [
+	'neckSubject',
+	'triadSubject',
+	'isMirrorPair',
+	'mirrorItems',
+	'triadNotesToLearn',
+	'introductionOrder',
+	'triadIntroductionOrder',
+	'MARKER_FRETS'
+];
+
+const THIS_FILE = `${MODULE}boundaries.spec.ts`;
+
+function namingGone(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE
+			? []
+			: GONE.filter((name) => new RegExp(`\\b${name}\\b`).test(text)).map(
+					(name) => `${path}: ${name}`
+				)
+	);
+}
+
+describe('the old subjects', () => {
+	it('are named nowhere in the domain or the application', () => {
+		expect(Object.keys(everywhere)).toEqual(
+			expect.arrayContaining([`${MODULE}procedure.ts`, '/src/lib/application/app.ts'])
+		);
+		expect(namingGone({ '/src/lib/domain/x.ts': 'neckSubject({})' })).toEqual([
+			'/src/lib/domain/x.ts: neckSubject'
+		]);
+		expect(namingGone(everywhere)).toEqual([]);
+	});
+});

@@ -15,7 +15,6 @@ function pick<T>(candidates: readonly T[], random: () => number): T | null {
 /**
  * A shape of the voicing other than the one `previous` asked (any when it names none, or when
  * there is no other), and a fret it covers. Stateless: the previous item is passed.
- * (Same computation as the triads' zone subject, which a later task deletes.)
  */
 const anotherPlace: Draw = (item, previous, random) => {
 	const voicing = (item as { voicingKey: string }).voicingKey;

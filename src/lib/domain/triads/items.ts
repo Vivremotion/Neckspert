@@ -1,63 +1,13 @@
-import type { ExerciseDefinition, ExercisePacing } from '$lib/domain/exercise/types';
+import type { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import {
-	CHROMATIC_NOTES,
-	closeTriadVoicings,
-	pitchOfSpelled,
-	qualityById,
-	spelledFromPitch,
-	spellInterval,
-	type PitchName,
 	parseVoicingKey,
 	voicingKey,
 	voicingOccurrences,
-	type StringSet,
-	type Voicing,
 	type VoicingOccurrence
 } from '$lib/domain/music';
 
-/** What a triads exercise is made of, and its rhythm. */
-export interface TriadParams {
-	/** In the order they are introduced. */
-	stringSets: StringSet[];
-	/** Quality ids, in the order they are introduced within a root ('maj' then 'min'). */
-	qualities: string[];
-	pacing: ExercisePacing;
-}
-
-/** The params of a triads exercise. Throws on another exercise. */
-export function triadParams(definition: ExerciseDefinition): TriadParams {
-	const params = definition.params as Partial<TriadParams>;
-	if (!Array.isArray(params.stringSets) || !Array.isArray(params.qualities) || !params.pacing) {
-		throw new Error(`Not a triads exercise: ${definition.id}`);
-	}
-	return params as TriadParams;
-}
-
-/** Every close voicing of the params: string set, then root (sharps, from C), then quality. */
-export function triadVoicings(params: TriadParams): Voicing[] {
-	return params.stringSets.flatMap((strings) =>
-		CHROMATIC_NOTES.flatMap((pitch) =>
-			params.qualities.flatMap((quality) =>
-				closeTriadVoicings(
-					{ root: spelledFromPitch(pitch), quality: qualityById(quality) },
-					strings
-				)
-			)
-		)
-	);
-}
-
-/** `${string}:${pitch}`: a position of the neck, keyed like a locate item. */
-export function positionKey(string: number, pitch: PitchName): string {
-	return `${string}:${pitch}`;
-}
-
-/** The positions (string and note, any octave) a voicing plays. */
-export function voicingPositions(voicing: Voicing): string[] {
-	return voicing.strings.map(({ string, degree }) =>
-		positionKey(string, pitchOfSpelled(spellInterval(voicing.chord.root, degree)))
-	);
-}
+/** The two skills of the triads, the anchor's and the zone's. */
+export type TriadSkill = typeof CHORD_ANCHOR_SKILL_ID | typeof CHORD_ZONE_SKILL_ID;
 
 /** Joins the voicing key and the frets of a shape: `D|maj|3:5,2:1,1:3@2-3-2`. */
 const OCCURRENCE_SEPARATOR = '@';

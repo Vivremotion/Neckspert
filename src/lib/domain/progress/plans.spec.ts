@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
 import { FREE_PLAY_COUNT } from './constants';
 import type { LevelState } from '$lib/domain/time/levels';
-import { neckSubject } from './neckSubject';
+import { exerciseSubject } from '$lib/domain/learning/exerciseSubject';
 import { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
@@ -39,7 +39,7 @@ describe('buildFreePlan', () => {
 });
 
 describe('freeLeadOf', () => {
-	const subject = neckSubject({ definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK } });
+	const subject = exerciseSubject({ exercises: [IDENTIFY_NECK, LOCATE_NECK], attempts: [] });
 	const level = (item: string, at: number): LevelState => ({
 		exerciseId: 'locate-note-string',
 		scope: '',

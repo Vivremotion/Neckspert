@@ -11,6 +11,11 @@ import type { LocateItem } from './items';
 
 const OCTAVE = 12;
 
+/** The note a string is named after in a prompt ("corde de A"). */
+export function openPitch(string: StringNumber): PitchName {
+	return pitchOnString(string, 0);
+}
+
 function assertFret(fret: number): void {
 	if (!Number.isInteger(fret) || fret < 0 || fret > MAX_PLAYABLE_FRET) {
 		throw new RangeError(`Fret must be an integer from 0 to ${MAX_PLAYABLE_FRET}: ${fret}`);

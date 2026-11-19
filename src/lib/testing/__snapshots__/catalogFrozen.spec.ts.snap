@@ -195,22 +195,6 @@ exports[`keeps chord-anchor as it is 1`] = `
     "pacing": {
       "respirationBars": 1,
     },
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
   },
   "practices": "chord-anchor",
   "presentation": {
@@ -500,22 +484,6 @@ exports[`keeps chord-zone as it is 1`] = `
     "pacing": {
       "respirationBars": 1,
     },
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
   },
   "practices": "chord-zone",
   "presentation": {

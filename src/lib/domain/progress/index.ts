@@ -17,7 +17,6 @@ export {
 	isMastered,
 	cardStatus
 } from './cards';
-export { introductionOrder, nextNewCard } from './introduction';
 export { createListSource } from './selector';
 export type { ItemSource, SelectorContext, RecordOutcome } from './selector';
 export { createGestureSelector } from './gestureSelector';

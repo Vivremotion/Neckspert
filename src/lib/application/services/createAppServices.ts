@@ -24,12 +24,10 @@ import {
 	GESTURE_EXERCISE_IDS,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
-	LOCATE_SKILL_ID,
 	TRIADS_ANCHOR_ID,
 	TRIADS_ZONE_ID
 } from '$lib/domain/exercise';
-import { noteOnStringSet } from '$lib/domain/sets';
-import { pitchOnString, type LocateItem } from '$lib/domain/music';
+import { pitchOnString } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
@@ -44,14 +42,13 @@ import {
 	reviewableCards,
 	summarizeSession
 } from '$lib/domain/progress';
-import { neckSubject } from '$lib/domain/progress/neckSubject';
 import {
 	createLearningProcedure,
 	DEFAULT_SET_LEARNING,
+	exerciseSubject,
 	type DirectRecall
 } from '$lib/domain/learning';
-import { triadNotesToLearn, triadZoneOpen } from '$lib/domain/triads';
-import { triadSubject, type TriadSkill } from '$lib/domain/triads/triadSubject';
+import { triadZoneOpen, type TriadSkill } from '$lib/domain/triads';
 import {
 	isTriadsKind,
 	sessionKindOf,
@@ -212,11 +209,10 @@ export function createAppServices(
 			// tempo, identify answered in free time.
 			const locate = exerciseOf(LOCATE_NECK_ID);
 			const identify = exerciseOf(IDENTIFY_NECK_ID);
-			// The neck's sessions see the neck's cards only; the triads lead its notes queue.
-			const subject = neckSubject({
-				definitions: { locate, identify },
-				priority: triadNotesToLearn(cards)
-			});
+			// The subject the two exercises write: naming a note already located comes before a new
+			// note. The neck's sessions see the neck's cards only: identify enters on locate's.
+			const neckAttempts = attempts.filter(isNeck);
+			const subject = exerciseSubject({ exercises: [identify, locate], attempts: neckAttempts });
 			const neckCards = cards.filter(isNeck);
 			const source =
 				kind === 'free'
@@ -231,7 +227,7 @@ export function createAppServices(
 					: createLearningProcedure({
 							subject,
 							cards: neckCards,
-							attempts: attempts.filter(isNeck),
+							attempts: neckAttempts,
 							levels,
 							sessionId,
 							random: deps.random,
@@ -247,7 +243,8 @@ export function createAppServices(
 
 	/**
 	 * A triads session, played on the session controller: one exercise, the anchor or the zone, on
-	 * the learning procedure with the triad subject, each triad a round of its exercise's template.
+	 * the learning procedure with the subject its exercise writes, each triad a round of its
+	 * exercise's template.
 	 */
 	const startTriads = (skill: TriadSkill) =>
 		playSession(
@@ -259,26 +256,14 @@ export function createAppServices(
 					deps.attempts.all(),
 					deps.levels.all()
 				]);
-				const definitions = {
-					anchor: exerciseOf(TRIADS_ANCHOR_ID),
-					zone: exerciseOf(TRIADS_ZONE_ID)
-				};
-				// The anchor's queue puts first the triads of the notes already acquired in locate.
-				const acquiredPositions = new Set(
-					cards
-						.filter((card) => card.skill === LOCATE_SKILL_ID && card.acquiredAt !== null)
-						.map((card) => noteOnStringSet.itemKey(card.item as LocateItem))
+				const exercise = exerciseOf(
+					skill === CHORD_ZONE_SKILL_ID ? TRIADS_ZONE_ID : TRIADS_ANCHOR_ID
 				);
-				// The triads' cards and attempts: the zone reads the anchor's, the anchor the zone's last positions.
+				// The triads' cards and attempts, both skills': the zone enters on the anchor's.
 				const ofTriads = (x: { skill: string }) =>
 					x.skill === CHORD_ANCHOR_SKILL_ID || x.skill === CHORD_ZONE_SKILL_ID;
 				const triadAttempts = attempts.filter(ofTriads);
-				const subject = triadSubject({
-					skill,
-					definitions,
-					acquiredPositions,
-					attempts: triadAttempts
-				});
+				const subject = exerciseSubject({ exercises: [exercise], attempts: triadAttempts });
 				const source = createLearningProcedure({
 					subject,
 					cards: cards.filter(ofTriads),

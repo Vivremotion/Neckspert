@@ -258,7 +258,7 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('startSession(learn) probes first the notes of a triad being anchored', async () => {
+	it('startSession(learn) probes the first note of the list, a triad being anchored', async () => {
 		const { services, deps } = harness();
 		const key = 'D|maj|3:5,2:1,1:3';
 		await deps.cards.put({
@@ -286,8 +286,11 @@ describe('createAppServices', () => {
 		const controller = await services.startSession('learn');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
-		// A on the G string: the first note of D 2-3-2 that locate does not know.
-		expect(noteLane(controller)?.prompt).toMatchObject({ primary: 'A', secondary: 'corde de G' });
+		// The triads being anchored no longer lead the notes: G on the low E string, the list's first.
+		expect(noteLane(controller)?.prompt).toMatchObject({
+			primary: 'G',
+			secondary: 'corde de E grave'
+		});
 		controller.quit();
 	});
 

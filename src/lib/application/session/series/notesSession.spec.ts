@@ -4,12 +4,17 @@ import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { IdentifyData } from '$lib/domain/sets';
 import {
+	LEARNABLE_FRETS,
 	locateItems,
 	neckCardKey,
 	openPitch,
 	pitchOnString,
+	type LocateItem,
 	type NeckCard
 } from '$lib/domain/music';
+import type { PitchName } from '$lib/domain/music/types';
+import { introduceCard } from '$lib/domain/progress';
+import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
 import { DEFAULT_ITEM_LEARNING } from '$lib/domain/learning/params';
 import { SESSION_MS } from '$lib/domain/session';
 import { START_DELAY_S } from '$lib/application/session/transport';
@@ -497,6 +502,74 @@ describe('a learn session of the notes', () => {
 			identifyMedianReactionMs: named.reactionMs,
 			coldAccuracy: 1
 		});
+	});
+});
+
+/** A learned card of the neck, not due before long. */
+function notDue(card: NeckCard, options: { acquired?: boolean } = {}) {
+	const learned = learnedCard(card, options);
+	return { ...learned, scheduling: { ...learned.scheduling, due: Number.MAX_SAFE_INTEGER } };
+}
+
+/** The first `count` notes of the locate list the catalog writes. */
+const LOCATE_ORDER = (LOCATE_NECK.items ?? []).map((entry) => {
+	const [string, pitch] = String(entry).split(':');
+	return locate(Number(string) as LocateItem['string'], pitch as PitchName);
+});
+
+describe('the notes on the subject the catalog writes', () => {
+	it('serves a player in mid-learning by category: a due review, a resumed note, then a note to name before a new one', async () => {
+		const resumed = introduceCard(
+			{ key: keyOf(locate(4, 'F')), skill: 'locate-note-string', item: locate(4, 'F').item },
+			0,
+			's-old'
+		);
+		const app = await notesApp({
+			cards: [learnedCard(locate(6, 'G')), notDue(locate(5, 'C')), resumed]
+		});
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 6 });
+		const attempts = await quitAndRead(app, controller);
+		expect(attempts.slice(0, 2)).toMatchObject([
+			{ cardKey: keyOf(locate(6, 'G')), phase: 'review', temperature: 'cold' },
+			{ cardKey: keyOf(locate(4, 'F')), phase: 'learning' }
+		]);
+		// The first card introduced names a note already located (6:G, the first of the list).
+		const probes = attempts.filter((attempt) => attempt.phase === 'probe');
+		expect(probes[0]?.cardKey).toBe(keyOf(identify(6, 3)));
+	});
+
+	it('introduces a note in its turn, its mirror still fragile', async () => {
+		const before = LOCATE_ORDER.slice(
+			0,
+			LOCATE_ORDER.findIndex((c) => keyOf(c) === keyOf(locate(5, 'E')))
+		);
+		const fragile = keyOf(locate(6, 'A'));
+		const cards = before.flatMap((card) => {
+			if (keyOf(card) === fragile) return [notDue(card, { acquired: false })];
+			const { string, pitch } = card.item as LocateItem;
+			const fret = LEARNABLE_FRETS.find((f) => pitchOnString(string, f) === pitch)!;
+			return [notDue(card), notDue(identify(string, fret))];
+		});
+		const app = await notesApp({ cards });
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 1 });
+		const [first] = await quitAndRead(app, controller);
+		expect(first).toMatchObject({ cardKey: keyOf(locate(5, 'E')), phase: 'probe' });
+	});
+
+	it('keeps the order of the notes whatever triads are being learned', async () => {
+		const voicing = String(TRIADS_ANCHOR.items?.[0]);
+		const anchoring = introduceCard(
+			{ key: `chord-anchor:${voicing}`, skill: 'chord-anchor', item: { voicingKey: voicing } },
+			0,
+			's-old'
+		);
+		const app = await notesApp({ cards: [anchoring] });
+		const controller = await startNotes(app, 'learn');
+		await playRounds(app, controller, allRight, { rounds: 1 });
+		const [first] = await quitAndRead(app, controller);
+		expect(first).toMatchObject({ cardKey: keyOf(LOCATE_ORDER[0]), phase: 'probe' });
 	});
 });
 

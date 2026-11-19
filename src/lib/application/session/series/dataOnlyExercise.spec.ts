@@ -37,6 +37,8 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	tempo: 90,
 	flow: { previewBeats: 2 },
 	presentation: LOCATE_NECK.presentation,
+	// The notes it introduces, the list locate writes: a card its list does not name is not its own.
+	items: LOCATE_NECK.items,
 	// Its round is locate's, the target on beat 2 of the bar.
 	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {

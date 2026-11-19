@@ -2,6 +2,7 @@
  * The catalog's exercises and grids, read from the registries the test setup fills
  * (`testing/setup.ts`), for the specs that name them.
  */
+import { itemEntryKey } from '$lib/domain/exercise/itemEntries';
 import { exerciseById } from '$lib/domain/exercise/registry';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { gridById } from '$lib/domain/grid/registry';
@@ -10,6 +11,8 @@ export const LOCATE_NECK = exerciseById('locate-note-string');
 export const IDENTIFY_NECK = exerciseById('identify-note');
 export const TRIADS_ANCHOR = exerciseById('chord-anchor');
 export const TRIADS_ZONE = exerciseById('chord-zone');
+/** The voicing keys the anchor introduces, in the order its list writes them: C's three inversions first. */
+export const TRIAD_ORDER: readonly string[] = (TRIADS_ANCHOR.items ?? []).map(itemEntryKey);
 
 export const RHYTHM_SILENT_BARS = exerciseById('rhythm-silent-bars');
 export const RHYTHM_TWO_FOUR = exerciseById('rhythm-two-four');

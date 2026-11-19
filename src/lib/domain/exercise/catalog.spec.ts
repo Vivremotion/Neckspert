@@ -48,11 +48,6 @@ describe('exercise catalog', () => {
 
 	it('describes the two triads exercises of the memory track, each with its rhythm, on the lane', () => {
 		const params = {
-			stringSets: [
-				[3, 2, 1],
-				[4, 3, 2]
-			],
-			qualities: ['maj', 'min'],
 			pacing: { respirationBars: 1 },
 			ladder: [
 				{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },

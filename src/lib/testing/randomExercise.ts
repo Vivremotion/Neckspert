@@ -48,7 +48,6 @@ import {
 	locateItems,
 	parseVoicingKey,
 	pitchOnString,
-	voicingKey,
 	voicingOccurrences,
 	type IdentifyItem,
 	type LocateItem
@@ -81,7 +80,7 @@ import {
 	type TempoMap
 } from '$lib/domain/time';
 import type { ExpectedContent } from '$lib/domain/time/plan';
-import { occurrenceId, occurrencePosition, triadParams, triadVoicings } from '$lib/domain/triads';
+import { occurrenceId, occurrencePosition } from '$lib/domain/triads';
 import type { Attempt, PlannedItem } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
@@ -95,7 +94,7 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from './fakes';
-import { TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { TRIAD_ORDER } from '$lib/testing/catalog';
 
 /** A seeded draw in [0, 1) (mulberry32): the same seed draws the same exercise. */
 export function mulberry32(seed: number): () => number {
@@ -513,7 +512,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 }
 
 /** The voicings of the triads' catalog, by key. */
-const TRIAD_VOICINGS = triadVoicings(triadParams(TRIADS_ANCHOR)).map(voicingKey);
+const TRIAD_VOICINGS = TRIAD_ORDER;
 
 /** An item of `skill`'s set drawn at random. */
 function randomItem(random: () => number, skill: string): unknown {

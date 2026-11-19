@@ -18,8 +18,6 @@ describe('progress index', () => {
 			'isAcquired',
 			'isMastered',
 			'cardStatus',
-			'introductionOrder',
-			'nextNewCard',
 			'createListSource',
 			'buildFreePlan',
 			'freeLeadOf',

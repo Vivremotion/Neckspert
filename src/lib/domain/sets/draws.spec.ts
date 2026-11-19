@@ -1,12 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
+import { parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
 import { occurrencePosition } from '$lib/domain/triads/position';
-import { triadIntroductionOrder } from '$lib/domain/triads/introduction';
-import { triadParams } from '$lib/domain/triads/items';
-import { TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { TRIAD_ORDER } from '$lib/testing/catalog';
 import { drawNamed } from './draws';
 
-const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
+const ORDER = TRIAD_ORDER;
 
 function seeded(seed: number): () => number {
 	return () => {

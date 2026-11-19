@@ -7,19 +7,14 @@ import { chordSensor } from '$lib/application/session/sensors';
 import { rootPosition } from '$lib/domain/sets';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress';
-import {
-	occurrenceOfId,
-	triadIntroductionOrder,
-	triadParams,
-	type TriadSkill
-} from '$lib/domain/triads';
+import { occurrenceOfId, type TriadSkill } from '$lib/domain/triads';
 import type { CardState } from '$lib/domain/types';
 import { CutShortVerifier } from './gestureSeries';
 import { notesApp, step, type NotesSetup } from './notesSeries';
-import { TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { TRIAD_ORDER } from '$lib/testing/catalog';
 
-/** The anchor's introduction queue, with no locate position acquired: C's three inversions first. */
-export const ORDER = triadIntroductionOrder(triadParams(TRIADS_ANCHOR), new Set()).map(voicingKey);
+/** The anchor's introduction queue, the list it writes: C's three inversions first. */
+export const ORDER = TRIAD_ORDER;
 
 /** A learned triad card, due at once (a cold review), acquired unless told otherwise. */
 export function learnedTriad(

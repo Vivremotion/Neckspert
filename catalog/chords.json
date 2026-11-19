@@ -113,11 +113,6 @@
 				}
 			},
 			"params": {
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"],
 				"pacing": {
 					"respirationBars": 1
 				},
@@ -375,11 +370,6 @@
 				}
 			},
 			"params": {
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"],
 				"pacing": {
 					"respirationBars": 1
 				},
