@@ -45,18 +45,16 @@ const FAKE_LADDER: Ladder = [
 
 /**
  * A subject of numbered items `0..items-1`, introduced in order, for the specs of the procedure.
- * Its items are numbers; a neighbour is the same item unless `neighbours` says otherwise.
+ * Its items are numbers.
  */
 export function fakeSubject(
 	input: {
 		items?: number;
 		skills?: readonly SkillId[];
-		neighbours?: (a: number, b: number) => boolean;
 		/** The ladder of every skill; default `FAKE_LADDER`. */
 		ladder?: Ladder;
 		/** Prerequisite: an item not ready is skipped by `nextNew`. */
 		ready?: (item: number, cards: readonly CardState[]) => boolean;
-		prefers?: (candidate: number, previous: number) => boolean;
 		/** Default true: the aided presentation follows its missed probe at once. */
 		presentsAtOnce?: boolean;
 		/** What each skill's exercise writes of its items' settings; the defaults otherwise. */
@@ -65,10 +63,9 @@ export function fakeSubject(
 ): LearningSubject {
 	const items = input.items ?? 12;
 	const skills = input.skills ?? [FAKE_SKILL];
-	const neighbours = input.neighbours ?? ((a: number, b: number) => a === b);
 	const ladder = input.ladder ?? FAKE_LADDER;
 	const recall = directRecallWithin(1500);
-	const { ready, prefers } = input;
+	const { ready } = input;
 
 	return {
 		owns: (card) => skills.includes(card.skill),
@@ -85,16 +82,11 @@ export function fakeSubject(
 			return null;
 		},
 		presentsAtOnce: input.presentsAtOnce ?? true,
-		neighbours: (a, b) => neighbours(a.item as number, b.item as number),
 		ladder: () => ladder,
 		itemLearning: (skill) => ({ ...DEFAULT_ITEM_LEARNING, ...input.learning?.[skill] }),
 		recall: () => recall,
 		confused: (attempt) => (attempt.data as { confused?: boolean } | null)?.confused === true,
-		fadingAid: (skill) => skill === FAKE_SKILL,
-		...(prefers && {
-			prefers: (candidate: CardRef, previous: CardRef) =>
-				prefers(candidate.item as number, previous.item as number)
-		})
+		fadingAid: (skill) => skill === FAKE_SKILL
 	};
 }
 

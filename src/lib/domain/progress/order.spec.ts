@@ -10,9 +10,9 @@ const on = (string: LocateItem['string'], pitch: LocateItem['pitch']): NeckCard 
 const item = (card: NeckCard) => ({ ...card, key: 'k' });
 
 describe('allowedAfter', () => {
-	it('never allows the same card or its mirror right after a card', () => {
+	it('never allows the same card right after a card, its mirror allowed', () => {
 		expect(allowedAfter(on(6, 'A'), on(6, 'A'))).toBe(false);
-		expect(allowedAfter(on(5, 'E'), on(6, 'A'))).toBe(false);
+		expect(allowedAfter(on(5, 'E'), on(6, 'A'))).toBe(true);
 		expect(allowedAfter(on(5, 'F'), on(6, 'A'))).toBe(true);
 		expect(allowedAfter(on(6, 'A'), null)).toBe(true);
 	});
@@ -33,17 +33,12 @@ describe('pickAtRandom', () => {
 		expect(pickAtRandom(candidates, null, () => 0.5)?.item).toEqual(on(4, 'F').item);
 	});
 
-	it('skips the previous card and its mirror', () => {
+	it('skips the previous card only, preferring no string', () => {
+		expect(pickAtRandom([on(6, 'A')].map(item), on(6, 'A'), () => 0)).toBeNull();
 		const picked = pickAtRandom([on(6, 'A'), on(5, 'E')].map(item), on(6, 'A'), () => 0);
-		expect(picked).toBeNull();
-	});
-
-	it('avoids the string just played while another string is possible', () => {
-		const previous = on(6, 'F');
-		for (const r of [0, 0.3, 0.6, 0.99]) {
-			expect(pickAtRandom(candidates, previous, () => r)?.item.string).not.toBe(6);
-		}
-		expect(pickAtRandom([on(6, 'G')].map(item), previous, () => 0)?.item).toEqual(on(6, 'G').item);
+		expect(picked?.item).toEqual(on(5, 'E').item);
+		// The string just played may come again.
+		expect(pickAtRandom(candidates, on(6, 'F'), () => 0)?.item).toEqual(on(6, 'G').item);
 	});
 
 	it('returns null without candidates', () => {

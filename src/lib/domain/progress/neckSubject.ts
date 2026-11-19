@@ -3,17 +3,11 @@ import { exerciseRecallOf } from '$lib/domain/exercise/recall';
 import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import type { SkillId } from '$lib/domain/skill/types';
-import {
-	itemLearningOf,
-	type CardRef,
-	type DirectRecall,
-	type LearningSubject
-} from '$lib/domain/learning';
+import { itemLearningOf, type DirectRecall, type LearningSubject } from '$lib/domain/learning';
 import type { IdentifyData, LocateData } from '$lib/domain/sets';
 import {
 	asNeckCard,
 	identifyItemKey,
-	isMirrorPair,
 	locateItemKey,
 	type LocateItem,
 	type NeckCard
@@ -37,8 +31,7 @@ function itemKeyOf(card: NeckCard): string {
 
 /**
  * The neck's notes as a subject of the learning procedure: locate and identify, introduced in the
- * neck's order (`priority`, the triads' notes, first), a note never right after itself nor its
- * mirror, another string preferred. Each climbs the ladder its exercise writes (locate its leads,
+ * neck's order (`priority`, the triads' notes, first). Each climbs the ladder its exercise writes (locate its leads,
  * identify the name shown) and judges direct recall by the time the skill its exercise practises writes.
  */
 export function neckSubject(input: {
@@ -68,13 +61,6 @@ export function neckSubject(input: {
 			return next;
 		},
 		presentsAtOnce: true,
-		neighbours(a: CardRef, b: CardRef) {
-			const x = asNeckCard(a);
-			const y = asNeckCard(b);
-			return (x.skill === y.skill && itemKeyOf(x) === itemKeyOf(y)) || isMirrorPair(x, y);
-		},
-		prefers: (candidate, previous) =>
-			asNeckCard(candidate).item.string !== asNeckCard(previous).item.string,
 		ladder: (skill) => ladders[neck(skill)],
 		itemLearning: (skill) => itemLearningOf(neckExercise(definitions, skill)),
 		recall: (skill) => recalls[neck(skill)],

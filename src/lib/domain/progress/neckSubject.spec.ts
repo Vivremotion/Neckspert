@@ -4,13 +4,7 @@ import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
-import {
-	asNeckCard,
-	isMirrorPair,
-	neckCardKey,
-	type LocateItem,
-	type NeckCard
-} from '$lib/domain/music';
+import { asNeckCard, neckCardKey, type LocateItem, type NeckCard } from '$lib/domain/music';
 import { type Attempt, type CardKey, type CardState, type PlannedItem } from '$lib/domain/types';
 import { DEFAULT_SET_LEARNING } from '$lib/domain/learning/params';
 import { introductionOrder } from './introduction';
@@ -72,9 +66,11 @@ function answerOf(
 describe('neckSubject', () => {
 	it('owns the neck’s cards and plays each skill in its exercise', () => {
 		const subject = neckSubject({ definitions: DEFINITIONS });
-		expect(subject.owns({ skill: LOCATE })).toBe(true);
-		expect(subject.owns({ skill: IDENTIFY })).toBe(true);
-		expect(subject.owns({ skill: 'chord-anchor' as SkillId })).toBe(false);
+		expect(subject.owns({ skill: LOCATE, key: 'locate-note-string:6:G' as CardKey })).toBe(true);
+		expect(subject.owns({ skill: IDENTIFY, key: 'identify-note:6:3' as CardKey })).toBe(true);
+		expect(
+			subject.owns({ skill: 'chord-anchor' as SkillId, key: 'chord-anchor:x' as CardKey })
+		).toBe(false);
 		expect(subject.exerciseOf(LOCATE)).toBe(LOCATE_NECK.id);
 		expect(subject.exerciseOf(IDENTIFY)).toBe(IDENTIFY_NECK.id);
 		const g = locate({ string: 6, pitch: 'G' });
@@ -141,22 +137,6 @@ describe('neckSubject', () => {
 		expect(subject.nextNew([foreign], NO_HISTORY, NOTHING_BLOCKED)).toEqual(locate(order[0]));
 		// Blocked: nothing now.
 		expect(subject.nextNew([], NO_HISTORY, () => true)).toBeNull();
-	});
-
-	it('keeps a note and its mirror apart, and prefers another string', () => {
-		const subject = neckSubject({ definitions: DEFINITIONS });
-		const aOnLowE = locate({ string: 6, pitch: 'A' });
-		const eOnA = locate({ string: 5, pitch: 'E' });
-		expect(isMirrorPair(asNeckCard(aOnLowE), asNeckCard(eOnA))).toBe(true);
-		expect(subject.neighbours(aOnLowE, eOnA)).toBe(true);
-		expect(subject.neighbours(aOnLowE, aOnLowE)).toBe(true);
-		expect(subject.neighbours(aOnLowE, locate({ string: 5, pitch: 'C' }))).toBe(false);
-		expect(subject.neighbours(identify(6, 5), identify(5, 7))).toBe(false);
-
-		expect(subject.prefers?.(eOnA, aOnLowE)).toBe(true);
-		expect(subject.prefers?.(locate({ string: 6, pitch: 'G' }), aOnLowE)).toBe(false);
-		expect(subject.prefers?.(identify(6, 3), aOnLowE)).toBe(false);
-		expect(subject.prefers?.(identify(4, 3), aOnLowE)).toBe(true);
 	});
 
 	it('learns locate over its leads and identify over the name shown', () => {
@@ -311,7 +291,7 @@ describe('neckSubject', () => {
 			}
 			if (planned.aid !== 'none') expect(planned.phase).toBe('learning');
 			if (planned.stringAid) expect(planned.skill).toBe(LOCATE);
-			// Never the previous item nor its mirror, but for the aided presentation right after a
+			// Never the previous item, but for the aided presentation right after a
 			// probe not recalled directly (the procedure's judgement, not the player's success).
 			if (previous !== null) {
 				const presentation =
@@ -321,7 +301,6 @@ describe('neckSubject', () => {
 					planned.aid === 'show-position';
 				if (!presentation) {
 					expect(key, `prompt ${prompt}`).not.toBe(previous.key);
-					expect(isMirrorPair(card, asNeckCard(previous.planned))).toBe(false);
 				}
 			}
 			if (planned.temperature === 'hot') hot.add(key);

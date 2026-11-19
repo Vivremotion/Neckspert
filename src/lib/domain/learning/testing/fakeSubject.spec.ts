@@ -8,7 +8,7 @@ const none = new Map();
 const skill = 'fake' as SkillId;
 
 describe('fakeSubject', () => {
-	it('introduces its items in order and keeps neighbours apart', () => {
+	it('introduces its items in order', () => {
 		const subject = fakeSubject();
 		expect(subject.nextNew([], none, () => false)).toEqual({ skill, item: 0 });
 		expect(subject.nextNew([fakeCard(0)], none, () => false)).toEqual({ skill, item: 1 });
@@ -16,8 +16,6 @@ describe('fakeSubject', () => {
 			skill,
 			item: 2
 		});
-		expect(subject.neighbours({ skill, item: 3 }, { skill, item: 3 })).toBe(true);
-		expect(subject.neighbours({ skill, item: 3 }, { skill, item: 4 })).toBe(false);
 	});
 
 	it('builds a complete attempt that its recall rule reads', () => {
@@ -38,12 +36,9 @@ describe('fakeSubject', () => {
 		expect(subject.ladder(skill).length).toBe(3);
 	});
 
-	it('skips an item whose prerequisite is not ready and honours prefers', () => {
+	it('skips an item whose prerequisite is not ready', () => {
 		const gated = fakeSubject({ ready: (item) => item !== 0 });
 		expect(gated.nextNew([], none, () => false)).toEqual({ skill, item: 1 });
-		const liking = fakeSubject({ prefers: (candidate, previous) => candidate !== previous });
-		expect(liking.prefers?.({ skill, item: 1 }, { skill, item: 2 })).toBe(true);
-		expect(fakeSubject().prefers).toBeUndefined();
 	});
 
 	it('builds learned cards that come due in order', () => {

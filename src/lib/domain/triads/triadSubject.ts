@@ -42,8 +42,7 @@ function draw<T>(candidates: readonly T[], random: () => number): T | null {
 /**
  * The triads as a subject of the learning procedure, for one session's exercise: the anchor
  * introduces its queue's head (the acquired notes' triads first), the zone a triad acquired in
- * anchor (read from the whole store's anchor cards and history). The chord just asked still rings:
- * the same voicing is never asked next. Both climb the ladder their exercise writes; a zone prompt asks a
+ * anchor (read from the whole store's anchor cards and history). Both climb the ladder their exercise writes; a zone prompt asks a
  * shape other than the last one asked of its card, and a fret it covers. One instance per session:
  * it keeps each zone card's last position, read from `attempts` and updated as prompts are drawn.
  */
@@ -118,7 +117,6 @@ export function triadSubject(input: {
 		},
 		// The chord just asked still rings: its presentation waits a prompt.
 		presentsAtOnce: false,
-		neighbours: (a, b) => voicingOf(a) === voicingOf(b),
 		ladder: (of) => ladders[triadSkill(of)],
 		itemLearning: (of) => itemLearningOf(definitionOf[triadSkill(of)]),
 		recall: (of) => recalls[triadSkill(of)],

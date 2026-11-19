@@ -189,8 +189,8 @@ describe('a learn session of the notes', () => {
 		expect((await app.deps.cards.get(keyOf(probed)))?.scheduling).toEqual(afterProbe?.scheduling);
 	});
 
-	it('never serves a note right after itself nor its mirror', async () => {
-		// A on the low E string and E on the A string mirror each other.
+	it('never serves a note right after itself, its mirror allowed', async () => {
+		// A on the low E string and E on the A string mirror each other: they may follow each other.
 		const app = await notesApp({
 			cards: [
 				learnedCard(locate(6, 'A')),
@@ -225,9 +225,13 @@ describe('a learn session of the notes', () => {
 			}
 			checked++;
 			expect(after.cardKey).not.toBe(before.cardKey);
-			expect(isMirrorPair(cardOf(before), cardOf(after))).toBe(false);
 		}
 		expect(checked).toBeGreaterThan(20);
+		// No longer kept apart: in this seeded session a note follows its mirror.
+		const mirrorFollows = attempts.some(
+			(after, i) => i > 0 && isMirrorPair(cardOf(attempts[i - 1]), cardOf(after))
+		);
+		expect(mirrorFollows).toBe(true);
 	});
 
 	it('lands every locate target on a downbeat, a breathing bar after the one before', async () => {

@@ -18,10 +18,28 @@ export const TEST_PLACED_SHAPE_SKILL: SkillDefinition = {
 	memory: false
 };
 
+/** A skill with cards on the notes on a string, which no catalog exercise practises. */
+export const TEST_NOTE_SKILL: SkillDefinition = {
+	id: 'test-note-on-string',
+	name: { fr: 'Une note sur une corde', en: 'A note on a string' },
+	items: 'note-on-string',
+	memory: true,
+	directRecall: { withinMs: 1500 }
+};
+
+/** A second skill with cards on the same set, for what one skill's cards open to another. */
+export const TEST_OTHER_NOTE_SKILL: SkillDefinition = {
+	...TEST_NOTE_SKILL,
+	id: 'test-other-note-on-string',
+	name: { fr: 'Une autre note sur une corde', en: 'Another note on a string' }
+};
+
 /** Registers the test skills beside the catalog's; a skill already registered is kept. */
 export function registerTestSkills(): void {
 	registerSkill(TEST_PLACED_VOICING_SKILL, 'test');
 	registerSkill(TEST_PLACED_SHAPE_SKILL, 'test');
+	registerSkill(TEST_NOTE_SKILL, 'test');
+	registerSkill(TEST_OTHER_NOTE_SKILL, 'test');
 }
 
 /** A skill on each set, for a spec that draws an exercise of a set. */

@@ -62,7 +62,7 @@ class Procedure implements LearningProcedure {
 	/** Probe served and not recorded yet; still set at the next `next()`: abandoned (pause). */
 	private unansweredProbe: CardKey | null = null;
 	private reviews = 0;
-	/** The item last served: the next one is never it, nor its neighbour. */
+	/** The item last served: the next one is never it. */
 	private previous: CardRef | null = null;
 	/** This session's attempts the procedure plays (`plays`), oldest first: success rates steer new items. */
 	private readonly played: Attempt[] = [];
@@ -172,7 +172,8 @@ class Procedure implements LearningProcedure {
 	/** An attempt of a card the subject owns, played in the exercise it plays that skill in. */
 	private plays(attempt: Attempt): boolean {
 		return (
-			this.subject.owns(attempt) && attempt.exerciseId === this.subject.exerciseOf(attempt.skill)
+			this.subject.owns({ skill: attempt.skill, key: attempt.cardKey }) &&
+			attempt.exerciseId === this.subject.exerciseOf(attempt.skill)
 		);
 	}
 
@@ -299,26 +300,17 @@ class Procedure implements LearningProcedure {
 		this.previous = null;
 	}
 
-	/** Never the previous item nor its neighbour. */
+	/** Never the card served last. */
 	private allowedAfter(ref: CardRef): boolean {
 		const previous = this.previous;
-		if (previous === null) return true;
-		if (this.keyOf(ref) === this.keyOf(previous)) return false;
-		return !this.subject.neighbours(ref, previous);
+		return previous === null || this.keyOf(ref) !== this.keyOf(previous);
 	}
 
-	/** A random draw among the allowed candidates, those the subject prefers first. */
+	/** A random draw among the allowed candidates. */
 	private draw<T>(candidates: readonly T[], refOfCandidate: (candidate: T) => CardRef): T | null {
 		const allowed = candidates.filter((candidate) => this.allowedAfter(refOfCandidate(candidate)));
-		const previous = this.previous;
-		const prefers = this.subject.prefers?.bind(this.subject);
-		const preferred =
-			previous === null || prefers === undefined
-				? []
-				: allowed.filter((candidate) => prefers(refOfCandidate(candidate), previous));
-		const pool = preferred.length > 0 ? preferred : allowed;
-		if (pool.length === 0) return null;
-		return pool[Math.min(pool.length - 1, Math.floor(this.random() * pool.length))];
+		if (allowed.length === 0) return null;
+		return allowed[Math.min(allowed.length - 1, Math.floor(this.random() * allowed.length))];
 	}
 
 	/**
@@ -363,8 +355,8 @@ class Procedure implements LearningProcedure {
 	private dueRetest(): LearningEntry | null {
 		const due = [...this.learning.values()].filter((entry) => entry.dueAt <= this.served);
 		// The aided presentation after a missed probe comes first. With `presentsAtOnce` it follows
-		// the miss directly, even after its neighbour (or itself, the probe being the previous
-		// item); without, it waits for a prompt the neighbour rule allows.
+		// the miss directly, even after itself (the probe being the previous item); without, it
+		// waits for a prompt after another card.
 		const afterProbe = due.find((entry) => entry.dueAt === -Infinity);
 		if (afterProbe && (this.subject.presentsAtOnce || this.allowedAfter(afterProbe.ref))) {
 			return afterProbe;
@@ -372,7 +364,7 @@ class Procedure implements LearningProcedure {
 		return this.draw(due, (entry) => entry.ref);
 	}
 
-	/** The retest nearest to due, never the previous item nor its neighbour. */
+	/** The retest nearest to due, never the previous item. */
 	private earliestRetest(): LearningEntry | null {
 		let best: LearningEntry | null = null;
 		for (const entry of this.learning.values()) {
@@ -446,8 +438,9 @@ class Procedure implements LearningProcedure {
 			this.history,
 			(candidate) => !this.allowedAfter(candidate)
 		);
-		if (!ref || !this.subject.owns(ref) || !this.allowedAfter(ref)) return null;
+		if (!ref) return null;
 		const key = this.keyOf(ref);
+		if (!this.subject.owns({ skill: ref.skill, key }) || !this.allowedAfter(ref)) return null;
 		const card = introduceCard({ key, skill: ref.skill, item: ref.item }, now, this.sessionId);
 		this.cards.set(key, card);
 		this.unansweredProbe = key;

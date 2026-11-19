@@ -132,7 +132,6 @@ describe('triadSubject', () => {
 		expect(subject.ladder(ZONE)[2].success).toBe('direct-recall');
 		expect(subject.fadingAid(ANCHOR)).toBe(false);
 		expect(subject.fadingAid(ZONE)).toBe(false);
-		expect(subject.prefers).toBeUndefined();
 		const planned: PlannedItem = {
 			exerciseId: TRIADS_ANCHOR.id,
 			skill: ANCHOR,
@@ -233,9 +232,18 @@ describe('triadSubject', () => {
 	it('serves only its own exercise’s cards', () => {
 		for (const skill of ['chord-anchor', 'chord-zone'] as const) {
 			const subject = subjectOf(skill);
-			expect(subject.owns({ skill: ANCHOR })).toBe(skill === 'chord-anchor');
-			expect(subject.owns({ skill: ZONE })).toBe(skill === 'chord-zone');
-			expect(subject.owns({ skill: 'locate-note-string' as SkillId })).toBe(false);
+			expect(subject.owns({ skill: ANCHOR, key: cardKey(ANCHOR, ORDER[0]) })).toBe(
+				skill === 'chord-anchor'
+			);
+			expect(subject.owns({ skill: ZONE, key: cardKey(ZONE, ORDER[0]) })).toBe(
+				skill === 'chord-zone'
+			);
+			expect(
+				subject.owns({
+					skill: 'locate-note-string' as SkillId,
+					key: cardKey('locate-note-string' as SkillId, '6:G')
+				})
+			).toBe(false);
 			// Both exercises' cards in the store, due for review, solid, or being learned.
 			const cards = [ANCHOR, ZONE].flatMap((of) => [
 				triadCard(of, ORDER[0], { learnedAt: 0, acquiredAt: 0, due: 0 }),
@@ -264,13 +272,6 @@ describe('triadSubject', () => {
 			expect(served.length).toBeGreaterThan(5);
 			expect(new Set(served)).toEqual(new Set([skill]));
 		}
-	});
-
-	it('never asks the voicing still ringing', () => {
-		const subject = subjectOf('chord-zone');
-		expect(subject.neighbours(ref(ANCHOR, ORDER[0]), ref(ZONE, ORDER[0]))).toBe(true);
-		expect(subject.neighbours(ref(ZONE, ORDER[0]), ref(ZONE, ORDER[0]))).toBe(true);
-		expect(subject.neighbours(ref(ZONE, ORDER[0]), ref(ZONE, ORDER[1]))).toBe(false);
 	});
 
 	it('asks a zone triad at another position than the last', () => {

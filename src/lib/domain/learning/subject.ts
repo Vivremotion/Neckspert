@@ -14,7 +14,7 @@ export interface CardRef {
 /** What an exercise gives the learning procedure, as data and pure functions. */
 export interface LearningSubject {
 	/** The cards this procedure serves, among those of the store (the others are only read, e.g. the anchor's for the zone). */
-	owns(card: { skill: SkillId }): boolean;
+	owns(card: { skill: SkillId; key: CardKey }): boolean;
 	itemKey(card: CardRef): string;
 	exerciseOf(skill: SkillId): ExerciseId;
 	/** The next item to introduce, ready (its prerequisites met), or null. `cards` and `history`: the whole store's, owned or not. `blocked`: may not be served now. */
@@ -24,15 +24,11 @@ export interface LearningSubject {
 		blocked: (card: CardRef) => boolean
 	): CardRef | null;
 	/**
-	 * true: the aided presentation follows its missed probe at once, the neighbour rule aside;
-	 * false: it is due first but waits for a prompt the neighbour rule allows (a chord still ringing
+	 * true: the aided presentation follows its missed probe at once, even right after itself;
+	 * false: it is due first but waits for a prompt after another card (a chord still ringing
 	 * cannot be judged).
 	 */
 	presentsAtOnce: boolean;
-	/** Never served right after each other (the same item, its mirror, the same voicing). */
-	neighbours(a: CardRef, b: CardRef): boolean;
-	/** Preferred after `previous` when such a candidate exists (another string). Absent: none. */
-	prefers?(candidate: CardRef, previous: CardRef): boolean;
 	/** The ladder of a skill, as its exercise writes it. */
 	ladder(skill: SkillId): Ladder;
 	/** What the exercise of a skill sets for its items (`itemLearningOf`). */

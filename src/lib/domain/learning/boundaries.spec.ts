@@ -43,6 +43,22 @@ const ALLOWED = [
 	'time/'
 ];
 
+/**
+ * What the subject read from the exercises' data may import besides: it alone turns an exercise's
+ * items, entry condition and draw into what the procedure asks, through the registries of sets
+ * and skills (it names no set, skill nor exercise itself).
+ */
+const SUBJECT = `${MODULE}exerciseSubject.ts`;
+const SUBJECT_ALLOWED = [
+	'exercise/itemEntries',
+	'exercise/ladder',
+	'exercise/recall',
+	'sets',
+	'sets/correspondences',
+	'sets/draws',
+	'skill/registry'
+];
+
 /** A package (`ts-fsrs`), or a module of `src/lib/` resolved from there (`domain/time/levels`). */
 type Import = { package: string } | { lib: string };
 
@@ -62,10 +78,11 @@ function importsOf(path: string, text: string): Import[] {
 	});
 }
 
-/** Inside the module, or one of the allowed modules of the domain. */
-function allowed(module: string): boolean {
+/** Inside the module, or one of the allowed modules of the domain (of the subject's, for its file). */
+function allowed(module: string, path: string): boolean {
 	if (!module.startsWith('domain/')) return false;
 	const inDomain = module.slice('domain/'.length);
+	if (path === SUBJECT && SUBJECT_ALLOWED.includes(inDomain)) return true;
 	if (inDomain.startsWith('learning/')) return true;
 	return ALLOWED.some((entry) =>
 		entry.endsWith('/') ? inDomain.startsWith(entry) : inDomain === entry
@@ -84,10 +101,10 @@ function offendersIn(files: Record<string, string>): string[] {
 		for (const imported of importsOf(path, text)) {
 			if ('package' in imported) continue;
 			const module = imported.lib;
-			const forbidden = FORBIDDEN.some(
-				(entry) => module === entry || module.startsWith(`${entry}/`)
-			);
-			if (forbidden || !allowed(module)) offenders.push(`${path}: ${module}`);
+			const forbidden =
+				!(path === SUBJECT && allowed(module, path)) &&
+				FORBIDDEN.some((entry) => module === entry || module.startsWith(`${entry}/`));
+			if (forbidden || !allowed(module, path)) offenders.push(`${path}: ${module}`);
 		}
 	}
 	return offenders;
@@ -140,5 +157,19 @@ describe('the learning procedure', () => {
 		// The catalog's exercise ids are names too.
 		expect(NAMES).toEqual(expect.arrayContaining(['locate-note-string', 'chord-anchor']));
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
+		// The subject alone reads the registries of sets and skills; the procedure does not.
+		expect(paths).toContain(SUBJECT);
+		const registries = `import { a } from '../sets/draws';\nimport { b } from '../skill/registry';`;
+		expect(offendersIn({ [SUBJECT]: registries })).toEqual([]);
+		expect(offendersIn({ [`${MODULE}procedure.ts`]: registries })).toEqual([
+			`${MODULE}procedure.ts: domain/sets/draws`,
+			`${MODULE}procedure.ts: domain/skill/registry`
+		]);
+		expect(offendersIn({ [SUBJECT]: `import { x } from '../music';` })).toEqual([
+			`${SUBJECT}: domain/music`
+		]);
+		expect(offendersIn({ [SUBJECT]: `const m = 'chord-anchor';` })).toEqual([
+			`${SUBJECT}: chord-anchor`
+		]);
 	});
 });

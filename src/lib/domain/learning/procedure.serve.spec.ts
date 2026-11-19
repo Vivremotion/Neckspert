@@ -136,35 +136,31 @@ describe('createLearningProcedure next', () => {
 		);
 	});
 
-	it('never serves the previous item nor its neighbour, and prefers what the subject prefers', () => {
-		const subject = fakeSubject({
-			items: 6,
-			neighbours: (a, b) => a === b || a + b === 5,
-			prefers: (candidate, previous) => candidate % 2 !== previous % 2
-		});
+	it('never serves the same item twice in a row, and prefers none of the others', () => {
 		const cards = Array.from({ length: 6 }, (_, item) => reviewable(item));
+		/** Every item drawn right after `first`, over many seeds. */
+		const after = new Map<number, Set<number>>();
 		for (let seed = 1; seed <= 200; seed++) {
-			const source = procedure({ subject, cards, random: seeded(seed) });
+			const source = procedure({ cards, random: seeded(seed) });
 			const first = source.next(at(0))?.item as number;
 			const second = source.next(at(0))?.item as number;
 			expect(second).not.toBe(first);
-			expect(first + second).not.toBe(5);
-			// Another parity remains after any first draw, so it is always preferred.
-			expect(second % 2).not.toBe(first % 2);
+			after.set(first, (after.get(first) ?? new Set()).add(second));
+		}
+		// Any other item may follow: none is kept apart nor drawn first.
+		for (const [first, seconds] of after) {
+			expect([...seconds].sort()).toEqual([0, 1, 2, 3, 4, 5].filter((item) => item !== first));
 		}
 
 		const consolidating = procedure({
-			subject: fakeSubject({ items: 6, neighbours: (a, b) => a === b || a + b === 5 }),
+			subject: fakeSubject({ items: 6 }),
 			cards: Array.from({ length: 6 }, (_, item) => learned(item)),
 			random: seeded(7)
 		});
 		let previous: number | null = null;
 		for (let draw = 0; draw < 200; draw++) {
 			const item = consolidating.next(at(0))?.item as number;
-			if (previous !== null) {
-				expect(item).not.toBe(previous);
-				expect(item + previous).not.toBe(5);
-			}
+			if (previous !== null) expect(item).not.toBe(previous);
 			previous = item;
 		}
 	});
@@ -275,20 +271,16 @@ describe('createLearningProcedure next', () => {
 	});
 
 	it('keeps new items out while all the learning slots are taken', () => {
-		// The items being learned are all neighbours: once one is served, the others wait.
-		const subject = fakeSubject({ neighbours: (a, b) => a === b || (a < 3 && b < 3) });
-		const secondAfter = (being: number[]) => {
-			const source = procedure({
-				subject,
+		// Only new items and consolidations: the items being learned are not resumed.
+		const firstAfter = (being: number[]) =>
+			procedure({
 				cards: [...being.map(learning), learned(5)],
-				attempts: being.flatMap((item, index) => played(item, [true, true], index * 10))
-			});
-			expect(source.next(at(0))).toMatchObject({ item: 0, phase: 'learning' });
-			return source.next(at(0));
-		};
+				attempts: being.flatMap((item, index) => played(item, [true, true], index * 10)),
+				set: { order: ['new', 'consolidation'] }
+			}).next(at(0));
 		expect(DEFAULT_SET_LEARNING.learningSlots).toBe(3);
-		expect(secondAfter([0, 1, 2])).toMatchObject({ item: 5, phase: 'consolidation' });
-		expect(secondAfter([0, 1])).toMatchObject({ item: 3, phase: 'probe' });
+		expect(firstAfter([0, 1, 2])).toMatchObject({ item: 5, phase: 'consolidation' });
+		expect(firstAfter([0, 1])).toMatchObject({ item: 2, phase: 'probe' });
 	});
 
 	it('keeps new items out once too many learned items are not yet acquired', () => {
@@ -345,7 +337,7 @@ describe('createLearningProcedure next', () => {
 
 		it('spaces the retests of an item as its exercise says', () => {
 			// Two exercises in one session: the fake's retests at 1 then 3 prompts, the other's at the defaults.
-			// No new item: between the retests, consolidations of other items, never neighbours.
+			// No new item: between the retests, consolidations of other items.
 			const subject = fakeSubject({
 				items: 0,
 				skills: [FAKE, OTHER],
