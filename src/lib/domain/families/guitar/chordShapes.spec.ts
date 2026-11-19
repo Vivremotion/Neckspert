@@ -16,7 +16,8 @@ import { classifyChord } from '$lib/domain/sets/triadChord';
 import { occurrenceId, occurrencePosition } from '$lib/domain/triads';
 import { BLUES_F, IOHEFY_A, TRIADS_ANCHOR } from '$lib/testing/catalog';
 import { admitted } from '../core/select';
-import { chordShapes, type ChordShapesIndex } from './chordShapes';
+import type { Filter } from '../core/types';
+import { chordShapes, type ChordShape, type ChordShapesIndex } from './chordShapes';
 
 const ANCHOR_VOICINGS: readonly Voicing[] = (TRIADS_ANCHOR.items ?? []).map((entry) =>
 	parseVoicingKey(itemEntryKey(entry))
@@ -95,6 +96,57 @@ describe('chord-shapes members', () => {
 		expect(chordShapes.members(apart)).toEqual([]);
 		expect(chordShapes.indexProblem(null)).not.toBeNull();
 		expect(chordShapes.members(null as unknown as ChordShapesIndex)).toEqual([]);
+	});
+});
+
+describe('chord-shapes member', () => {
+	it('gives a shape back from its id, of any index', () => {
+		for (const shape of chordShapes.members(indexOf(C_MAJOR, false))) {
+			expect(chordShapes.member(shape.id)).toEqual(shape);
+		}
+		expect(chordShapes.member('C|maj|3:1,2:3,1:5@1-1-1')).toBeNull();
+		expect(chordShapes.member('not a shape')).toBeNull();
+	});
+});
+
+describe('chord-shapes selection', () => {
+	const FILTERS: readonly Filter[] = [
+		{ in: { frets: [3, 7] } },
+		{ at: 5 },
+		{ position: { beyond: 'previous', toward: 'up', turns: true } },
+		{ other: 'previous' }
+	];
+	const index = indexOf(C_MAJOR, false);
+	const select = (where: readonly Filter[], previous: ChordShape | null) =>
+		admitted(chordShapes, index, { family: 'chord-shapes', where }, { previous }).map((m) => m.id);
+
+	it('gives the same shapes whatever order the filters are written in', () => {
+		const G = chordShapes.members(indexOf(parseVoicingKey('G|maj|3:1,2:3,1:5'), false));
+		const previousShapes = [null, ...chordShapes.members(index), ...G];
+		let compared = 0;
+		for (const a of FILTERS) {
+			for (const b of FILTERS) {
+				for (const previous of previousShapes) {
+					expect(select([a, b], previous), JSON.stringify([a, b, previous?.id])).toEqual(
+						select([b, a], previous)
+					);
+					compared++;
+				}
+			}
+		}
+		expect(compared).toBeGreaterThan(100);
+	});
+
+	it('keeps the previous shape when it is the only one covering the fret, in either order', () => {
+		const shapes = chordShapes.members(index);
+		const only = shapes.find(
+			(shape) =>
+				shapes.filter((other) => other.notes.some((n) => n.fret === 12)).length === 1 &&
+				shape.notes.some((n) => n.fret === 12)
+		)!;
+		expect(only).toBeDefined();
+		expect(select([{ at: 12 }, { other: 'previous' }], only)).toEqual([only.id]);
+		expect(select([{ other: 'previous' }, { at: 12 }], only)).toEqual([only.id]);
 	});
 });
 

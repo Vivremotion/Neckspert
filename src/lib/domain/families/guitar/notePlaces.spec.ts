@@ -85,6 +85,18 @@ describe('note-places', () => {
 		expect(notePlaces.confusion(onString, [], { decided: 'x' })).toBeNull();
 	});
 
+	it('tells nothing for an index it does not read', () => {
+		expect(notePlaces.confusion({ pitch: 'H', string: 6 } as never, [], { midi: 46 })).toBeNull();
+	});
+
+	it('gives a place back from its id', () => {
+		expect(notePlaces.member('6:5')).toEqual(notePlaces.members({ pitch: 'A', string: 6 })[0]);
+		expect(notePlaces.member('1:0')?.midi).toBe(64);
+		for (const id of ['7:1', '1:25', '1:-1', '1:1.5', '1', '1:2:3', 'x:y', '']) {
+			expect(notePlaces.member(id), id).toBeNull();
+		}
+	});
+
 	it('says which index it cannot read', () => {
 		expect(notePlaces.indexProblem({ pitch: 'A', string: 6 })).toBeNull();
 		expect(notePlaces.indexProblem({ pitch: 'A' })).toBeNull();

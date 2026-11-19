@@ -2,6 +2,7 @@ import {
 	CHROMATIC_NOTES,
 	classifyNoteConfusion,
 	fretsForPitch,
+	MAX_PLAYABLE_FRET,
 	midiOnString,
 	STRING_NUMBERS,
 	type Midi,
@@ -40,6 +41,9 @@ function place(string: StringNumber, fret: number): NotePlace {
 	return { id: `${string}:${fret}`, string, fret, midi, notes: [{ string, fret, midi }] };
 }
 
+/** `<string>:<fret>`, as `place` names it. */
+const PLACE_ID = /^([1-6]):(\d{1,2})$/;
+
 const midiOf = (payload: unknown): number | null =>
 	isObject(payload) && typeof payload.midi === 'number' ? payload.midi : null;
 
@@ -54,6 +58,12 @@ export const notePlaces: Family<NotePlacesIndex, NotePlace> = {
 			fretsForPitch(string, index.pitch).map((fret) => place(string, fret))
 		);
 	},
+	member(id) {
+		const match = PLACE_ID.exec(id);
+		if (!match) return null;
+		const fret = Number(match[2]);
+		return fret > MAX_PLAYABLE_FRET ? null : place(Number(match[1]) as StringNumber, fret);
+	},
 	attributes: GUITAR_ATTRIBUTES,
 	recognise(admitted, payload) {
 		const midi = midiOf(payload);
@@ -61,7 +71,7 @@ export const notePlaces: Family<NotePlacesIndex, NotePlace> = {
 	},
 	confusion(index, _admitted, payload) {
 		const midi = midiOf(payload);
-		if (midi === null || index.string === undefined) return null;
+		if (indexProblem(index) !== null || midi === null || index.string === undefined) return null;
 		return classifyNoteConfusion({ string: index.string, pitch: index.pitch }, midi);
 	}
 };

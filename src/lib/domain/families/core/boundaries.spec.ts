@@ -14,6 +14,7 @@ const FORBIDDEN: readonly RegExp[] = [
 	/domain\/sets/,
 	/domain\/triads/,
 	/['"]\.\.\/guitar/,
+	/['"](\.\.\/){2,}/,
 	/note-places/,
 	/chord-shapes/
 ];
@@ -42,7 +43,8 @@ describe('families core boundary', () => {
 			`import { rootPosition } from '$lib/domain/sets/voicingOnStrings';`,
 			`import { occurrenceId } from '$lib/domain/triads';`,
 			`if (family.id === 'note-places') return [];`,
-			`const id = "chord-shapes";`
+			`const id = "chord-shapes";`,
+			`import { midiOnString } from '../../music';`
 		]) {
 			expect(offendersIn({ [path]: line }), line).toEqual([path]);
 		}

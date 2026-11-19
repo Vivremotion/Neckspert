@@ -23,6 +23,8 @@ export interface Family<I = unknown, M extends Member = Member> {
 	indexProblem(index: unknown): string | null;
 	/** Every member for this index, in a stable order. */
 	members(index: I): M[];
+	/** The member an identity names, whatever its index; null for an id that names none. */
+	member(id: string): M | null;
 	/** By name: what a filter or an order compares. A list for `strings` and `frets`. */
 	attributes: Readonly<Record<string, Attribute<M>>>;
 	/** The admitted member a sensor's payload is, or null. */
@@ -31,6 +33,13 @@ export interface Family<I = unknown, M extends Member = Member> {
 	confusion(index: I, admitted: readonly M[], payload: unknown): unknown;
 }
 
+/**
+ * A restriction of the members, independent of the others: a selection admits the same members
+ * whatever order its filters are written in (`admitted` applies them in an order of its own).
+ * `in` and `at` read the member alone; `position` keeps what lies beyond the previous member,
+ * its turn decided on what `in` and `at` left; `other` leaves the previous member out, unless
+ * nothing else is left.
+ */
 export type Filter =
 	| { in: { strings?: readonly number[]; frets?: readonly [number, number] } }
 	| { at: number }
@@ -45,7 +54,10 @@ export interface Selection {
 	take?: number;
 }
 
-export interface SelectionContext {
-	/** The member before: the last asked of the card, or the last heard in the passage. */
-	previous?: Member | null;
+export interface SelectionContext<M extends Member = Member> {
+	/**
+	 * The member before: the last asked of the card, or the last heard in the passage. A member
+	 * of the family, of this index or of another (the last shape heard was of another chord).
+	 */
+	previous?: M | null;
 }

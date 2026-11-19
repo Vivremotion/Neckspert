@@ -80,7 +80,19 @@ function neighbours(strings: readonly unknown[]): boolean {
 	return strings.every((string, i) => i === 0 || string === (strings[i - 1] as number) - 1);
 }
 
-function indexProblem(index: unknown): string | null {
+/** The voicings an index names, or why the family cannot read it. */
+function readIndex(index: unknown): { voicings: Voicing[] } | { problem: string } {
+	const problem = shapeProblem(index);
+	if (problem !== null) return { problem };
+	try {
+		return { voicings: voicingsOf(index as ChordShapesIndex) };
+	} catch (error) {
+		return { problem: `chord-shapes: ${(error as Error).message}` };
+	}
+}
+
+/** What keeps an index from naming voicings, before they are built. */
+function shapeProblem(index: unknown): string | null {
 	if (!isObject(index) || !isObject(index.chord) || !Array.isArray(index.strings)) {
 		return 'chord-shapes reads a chord on strings { chord, strings, degrees? }';
 	}
@@ -100,12 +112,12 @@ function indexProblem(index: unknown): string | null {
 	} else if (!Array.isArray(degrees) || degrees.length !== index.strings.length) {
 		return 'chord-shapes needs one degree per string';
 	}
-	try {
-		voicingsOf(index as unknown as ChordShapesIndex);
-	} catch (error) {
-		return `chord-shapes: ${(error as Error).message}`;
-	}
 	return null;
+}
+
+function indexProblem(index: unknown): string | null {
+	const read = readIndex(index);
+	return 'problem' in read ? read.problem : null;
 }
 
 function shape(occurrence: VoicingOccurrence): ChordShape {
@@ -127,8 +139,13 @@ export const chordShapes: Family<ChordShapesIndex, ChordShape> = {
 	id: 'chord-shapes',
 	indexProblem,
 	members(index) {
-		if (indexProblem(index) !== null) return [];
-		return voicingsOf(index).flatMap((voicing) => voicingOccurrences(voicing).map(shape));
+		const read = readIndex(index);
+		if ('problem' in read) return [];
+		return read.voicings.flatMap((voicing) => voicingOccurrences(voicing).map(shape));
+	},
+	member(id) {
+		const occurrence = occurrenceOfId(id);
+		return occurrence ? shape(occurrence) : null;
 	},
 	attributes: GUITAR_ATTRIBUTES,
 	recognise(admitted, payload) {
@@ -140,10 +157,11 @@ export const chordShapes: Family<ChordShapesIndex, ChordShape> = {
 	 * when more are). Without: only no chord read or another chord; plan 4b refines it.
 	 */
 	confusion(index, admitted, payload) {
-		if (indexProblem(index) !== null) return null;
+		const read = readIndex(index);
+		if ('problem' in read) return null;
 		const decided = decidedOf(payload);
 		if (index.degrees) {
-			const [asked] = voicingsOf(index);
+			const [asked] = read.voicings;
 			const position = admitted.length === 1 ? occurrencePosition(admitted[0].occurrence) : null;
 			return classifyChordShape(asked, position, decided).confusion;
 		}

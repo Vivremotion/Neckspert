@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { admitted, selectionProblem } from './select';
-import type { Family, Member, Selection } from './types';
+import type { Family, Filter, Member, Selection } from './types';
 
 /** A member of the test family: one note per string, at a fret. */
 interface Spot extends Member {
@@ -36,6 +36,7 @@ const FAMILY: Family<null, Spot> = {
 		position: positionOf,
 		weight: (m) => m.weight
 	},
+	member: (id) => SPOTS.find((m) => m.id === id) ?? null,
 	recognise: () => null,
 	confusion: () => null
 };
@@ -48,7 +49,7 @@ const BARE: Family<null, Spot> = {
 };
 
 const ids = (members: readonly Member[]) => members.map((m) => m.id);
-const select = (selection: Omit<Selection, 'family'>, previous?: Member | null) =>
+const select = (selection: Omit<Selection, 'family'>, previous?: Spot | null) =>
 	ids(admitted(FAMILY, null, { family: 't', ...selection }, { previous }));
 
 describe('admitted', () => {
@@ -127,8 +128,59 @@ describe('admitted', () => {
 		]);
 	});
 
-	it('keeps the only member when `other` would leave none', () => {
+	it('keeps the only member when `other` would leave none, in either order', () => {
 		expect(select({ where: [{ at: 5 }, { other: 'previous' }] }, SPOTS[2])).toEqual(['3:5,2:5']);
+		expect(select({ where: [{ other: 'previous' }, { at: 5 }] }, SPOTS[2])).toEqual(['3:5,2:5']);
+	});
+
+	it('reads the previous member as itself, even when this index does not give it', () => {
+		const elsewhere = spot(0, [3, 4], [2, 4]);
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'up' } }] }, elsewhere)
+		).toEqual(['3:5,2:5', '2:7,1:8', '3:9,2:10']);
+		expect(select({ where: [{ other: 'previous' }] }, elsewhere)).toEqual(ids(SPOTS));
+	});
+
+	it('gives the same members whatever order the filters are written in', () => {
+		const filters: readonly Filter[] = [
+			{ in: { frets: [1, 5] } },
+			{ in: { strings: [3, 2] } },
+			{ at: 5 },
+			{ at: 9 },
+			{ position: { beyond: 'previous', toward: 'up' } },
+			{ position: { beyond: 'previous', toward: 'up', turns: true } },
+			{ position: { beyond: 'previous', toward: 'down', turns: true } },
+			{ other: 'previous' }
+		];
+		let compared = 0;
+		for (const a of filters) {
+			for (const b of filters) {
+				for (const previous of [null, ...SPOTS]) {
+					expect(select({ where: [a, b] }, previous), JSON.stringify([a, b, previous?.id])).toEqual(
+						select({ where: [b, a] }, previous)
+					);
+					compared++;
+				}
+			}
+		}
+		expect(compared).toBe(filters.length ** 2 * (SPOTS.length + 1));
+	});
+
+	it('turns on what `in` and `at` left, written before or after', () => {
+		const where = (first: boolean): Filter[] => {
+			const turn: Filter = { position: { beyond: 'previous', toward: 'up', turns: true } };
+			const zone: Filter = { in: { frets: [1, 5] } };
+			return first ? [turn, zone] : [zone, turn];
+		};
+		for (const first of [true, false]) {
+			expect(select({ where: where(first) }, SPOTS[2])).toEqual(['3:0,2:1', '3:2,2:3']);
+		}
+	});
+
+	it('refuses a filter it does not know', () => {
+		expect(() =>
+			admitted(FAMILY, null, { family: 't', where: [{ near: 3 } as unknown as Filter] })
+		).toThrow('unknown filter');
 	});
 
 	it('restricts nothing by the previous one when there is none', () => {
@@ -185,6 +237,15 @@ describe('selectionProblem', () => {
 		expect(selectionProblem(FAMILY, { family: 't', order: ['x'] })).toBe(
 			'order names attribute "x", which family "t" does not have'
 		);
+	});
+
+	it('refuses frets whose bounds are inverted', () => {
+		expect(selectionProblem(FAMILY, { family: 't', where: [{ in: { frets: [5, 1] } }] })).toBe(
+			'filter "in" has frets [5, 1]: the first is above the second'
+		);
+		expect(
+			selectionProblem(FAMILY, { family: 't', where: [{ in: { frets: [5, 5] } }] })
+		).toBeNull();
 	});
 
 	it('names the attributes a filter needs', () => {
