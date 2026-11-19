@@ -525,7 +525,8 @@ function byMechanic(mechanics: readonly MechanicV12[]): Identity {
  * Version 9: entries named by their skill, keyed by it. A card of a skill the registry holds is
  * live state a session serves: its key is read by the set of its items, as the set writes them
  * today (version 13 took the length of a turn and the rank of a shape out of them), and a card of
- * a skill with cards keeps the item its key names. An attempt is history, its key only groups it
+ * a skill with cards whose key the set reads keeps the item its key names (one it cannot read is
+ * kept as written and ignored, no list names it). An attempt is history, its key only groups it
  * by card: it is never refused for a key its set cannot read; a readable key of a skill with
  * cards still names the item the attempt keeps (a skill without keeps what it played: the link, a
  * change, keyed by its placed voicing). The key of a skill no loaded file defines is kept as it is
@@ -550,6 +551,9 @@ const BY_SKILL: Identity = {
 			return checkKeyedItem(set, skill, 'skill', key, item, keyField, itemField, prompted);
 		}
 		if (hasCards(skill)) {
+			// A card no list names is kept and ignored: a key its set cannot read is not refused,
+			// and there is no item to compare it with.
+			if (checkKey(set, skill, key, keyField)) return null;
 			return checkKeyedItem(set, skill, 'skill', key, item, keyField, itemField, prompted);
 		}
 		return checkKey(set, skill, key, keyField);

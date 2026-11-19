@@ -350,6 +350,61 @@ describe('stored progress whose definition is gone', () => {
 	});
 });
 
+/**
+ * Two cards of locate no session serves, due for review: one whose key its set cannot read (the
+ * item is stored garbage), one well formed that locate's list does not name (an open string,
+ * which locate never prompts).
+ */
+async function seedUnserved(deps: SessionDeps): Promise<void> {
+	await deps.cards.putMany([
+		learned({
+			key: 'locate-note-string:not-a-note',
+			skill: 'locate-note-string',
+			item: { garbage: true }
+		}),
+		learned({
+			key: 'locate-note-string:6:E',
+			skill: 'locate-note-string',
+			item: { string: 6, pitch: 'E' }
+		})
+	]);
+}
+
+describe('a card no list names', () => {
+	it('is not counted due, nor drawn, nor read as a next review', async () => {
+		const { services, deps } = harness();
+		await seed(deps);
+		const before = await services.homeStats();
+		const mapBefore = await services.neckMap();
+		await seedUnserved(deps);
+		// The home counts what a session can serve: the two cards change nothing.
+		expect(await services.homeStats()).toEqual(before);
+		expect(before.dueCount).toBe(1);
+		expect(await services.neckMap()).toEqual(mapBefore);
+		expect(await services.triads()).toEqual({ anchorDue: 0, zoneDue: null });
+		expect(await services.resting([GONE_EXERCISE])).toEqual([GONE_EXERCISE]);
+		const summary = await services.sessionSummary('s-normal');
+		expect(summary.attemptCount).toBe(2);
+		expect(summary.nextReviewAt).toBe(3_601_000);
+		// Kept as stored.
+		expect(await deps.cards.all()).toHaveLength(4);
+	});
+
+	it('is never asked by a learning session', async () => {
+		const { services, deps } = harness();
+		await seed(deps);
+		await seedUnserved(deps);
+		const controller = await services.startSession('learn');
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		expect(controller.view.status).toBe('awaiting');
+		const asked = (await deps.attempts.all()).map((row) => row.cardKey);
+		expect(asked).not.toContain('locate-note-string:not-a-note');
+		expect(asked).not.toContain('locate-note-string:6:E');
+		controller.quit();
+	});
+});
+
 describe('a track exercise no file defines', () => {
 	const catalog = allExercises();
 	afterEach(() => {

@@ -4,8 +4,6 @@ import { occurrencePosition } from '$lib/domain/triads/position';
 import { TRIAD_ORDER } from '$lib/testing/catalog';
 import { drawNamed } from './draws';
 
-const ORDER = TRIAD_ORDER;
-
 function seeded(seed: number): () => number {
 	return () => {
 		seed = (seed * 1_664_525 + 1_013_904_223) >>> 0;
@@ -25,7 +23,7 @@ describe('the draws of a set', () => {
 	});
 
 	it('never asks the shape last asked when another exists, and a fret it covers', () => {
-		const voicing = ORDER[0];
+		const voicing = TRIAD_ORDER[0];
 		const shapes = voicingOccurrences(parseVoicingKey(voicing));
 		const positions = shapes.map(occurrencePosition);
 		expect(positions.length).toBeGreaterThan(1);
@@ -44,7 +42,7 @@ describe('the draws of a set', () => {
 	});
 
 	it('draws any shape without a previous, or one that has no position', () => {
-		const voicing = ORDER[0];
+		const voicing = TRIAD_ORDER[0];
 		const positions = voicingOccurrences(parseVoicingKey(voicing)).map(occurrencePosition);
 		const seen = new Set<unknown>();
 		for (let seed = 0; seed < 40; seed += 1) {
@@ -60,7 +58,7 @@ describe('the draws of a set', () => {
 	});
 
 	it('asks the only shape when there is one', () => {
-		const single = ORDER.find(
+		const single = TRIAD_ORDER.find(
 			(voicing) => voicingOccurrences(parseVoicingKey(voicing)).length === 1
 		);
 		expect(single).toBeDefined();

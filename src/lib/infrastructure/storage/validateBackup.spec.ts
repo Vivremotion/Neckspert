@@ -351,12 +351,11 @@ describe('validateBackup', () => {
 
 	it('rejects a card whose key does not match its skill and item', () => {
 		const card = makeCard();
-		expect(() =>
-			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'locate-note-string:7:F' }] })
-		).toThrow('Invalid cards entry at index 0: key is not a valid card key');
-		expect(() =>
-			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'locate-note-string:02:F' }] })
-		).toThrow('Invalid cards entry at index 0: key is not a valid card key');
+		// Flipped (D10): a key its set cannot read is no list's item, the card is kept and ignored.
+		for (const key of ['locate-note-string:7:F', 'locate-note-string:02:F']) {
+			const kept = makeBackup({ cards: [{ ...card, key }] });
+			expect(validateBackup(kept)).toEqual(kept);
+		}
 		expect(() =>
 			validateBackup({ ...makeBackup(), cards: [{ ...card, key: 'identify-note:2:6' }] })
 		).toThrow('Invalid cards entry at index 0: key does not match skill');
@@ -1582,13 +1581,16 @@ describe('version 9', () => {
 			expect(() =>
 				validateBackupV9(row('locate-note-string', '6:F', { string: 5, pitch: 'F' }))
 			).toThrow(/data\.item does not match cardKey/);
-			// An attempt whose key the set cannot read is kept; a card is not.
+			// An attempt and a card whose key the set cannot read are kept (a card no list names is
+			// ignored), a card malformed in itself is not.
 			const unreadable = row('locate-note-string', '7:F', { string: 7, pitch: 'F' });
 			expect(validateBackupV9(unreadable)).toBe(unreadable);
 			const card = makeCard({ key: 'locate-note-string:7:F', item: { string: 7, pitch: 'F' } });
-			expect(() => validateBackupV9(makeBackup({ cards: [card] }))).toThrow(
-				'Invalid cards entry at index 0: key is not a valid card key'
-			);
+			const kept = makeBackup({ cards: [card] });
+			expect(validateBackupV9(kept)).toBe(kept);
+			expect(() =>
+				validateBackupV9(makeBackup({ cards: [{ ...card, key: 'identify-note:7:F' }] }))
+			).toThrow('Invalid cards entry at index 0: key does not match skill');
 		});
 
 		it('without cards: any key under the skill, whatever item the attempt keeps', () => {
@@ -1712,6 +1714,14 @@ describe('the version 8 backup of the fixture', () => {
 			['gesture-link', '', ''],
 			['rhythm-offbeats', '', '']
 		]);
+	});
+
+	it('does not refuse a card no list names on its way to version 9', () => {
+		const base = fixture() as { cards: Record<string, unknown>[] };
+		// An open string: a locate item its set reads, which no exercise lists.
+		const open = { ...base.cards[0], key: 'locate:6:E', item: { string: 6, pitch: 'E' } };
+		const file = validateBackup({ ...base, cards: [...base.cards, open] });
+		expect(file.cards.map((card) => card.key)).toContain('locate-note-string:6:E');
 	});
 
 	it('lands on a valid version 9 file, each row upgraded by its own function', () => {

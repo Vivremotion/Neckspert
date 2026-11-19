@@ -46,13 +46,16 @@ import {
 	createLearningProcedure,
 	DEFAULT_SET_LEARNING,
 	exerciseSubject,
-	type DirectRecall
+	type DirectRecall,
+	type LearningSubject
 } from '$lib/domain/learning';
+import { hasCards } from '$lib/domain/skill/registry';
 import { triadZoneOpen, type TriadSkill } from '$lib/domain/triads';
 import {
 	isTriadsKind,
 	sessionKindOf,
 	type Attempt,
+	type CardKey,
 	type ExerciseSummary,
 	type SessionKind,
 	type SkillId,
@@ -114,6 +117,21 @@ export function createAppServices(
 		...GESTURE_EXERCISE_IDS
 	];
 	const trackExercises = () => TRACK_EXERCISES.filter((id) => exerciseFound(id) !== undefined);
+	/**
+	 * The cards a session can serve. A card of a skill whose exercise a file defines is served only
+	 * when that exercise lists it (`exerciseSubject(...).owns`); one it does not list, or whose key
+	 * its set cannot read, stays stored and is ignored. A skill no file practises is left as it is.
+	 */
+	const servedCards = <T extends { skill: SkillId; key: CardKey }>(cards: readonly T[]): T[] => {
+		const owners = new Map<string, LearningSubject['owns']>();
+		for (const id of [LOCATE_NECK_ID, IDENTIFY_NECK_ID, TRIADS_ANCHOR_ID, TRIADS_ZONE_ID]) {
+			const found = exerciseFound(id);
+			if (found && hasCards(found.practices)) {
+				owners.set(found.practices, exerciseSubject({ exercises: [found], attempts: [] }).owns);
+			}
+		}
+		return cards.filter((card) => owners.get(card.skill)?.(card) ?? true);
+	};
 	/** The gesture's exercises a file defines, in the order of the ladder. */
 	const gestureExercises = () => GESTURE_EXERCISE_IDS.flatMap((id) => exerciseFound(id) ?? []);
 
@@ -342,7 +360,7 @@ export function createAppServices(
 			]);
 			// The home number and its reviews are the neck's; the triads count theirs apart.
 			return computeHomeStats({
-				cards: cards.filter(isNeck),
+				cards: servedCards(cards.filter(isNeck)),
 				attempts: attempts.filter(isNeck),
 				settings,
 				now: deps.now()
@@ -353,11 +371,8 @@ export function createAppServices(
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			const last = lastAttemptByCard(attempts);
 			const due = (skill: TriadSkill) =>
-				reviewableCards(
-					cards.filter((card) => card.skill === skill),
-					last,
-					deps.now()
-				).length;
+				reviewableCards(servedCards(cards.filter((card) => card.skill === skill)), last, deps.now())
+					.length;
 			return {
 				anchorDue: due(CHORD_ANCHOR_SKILL_ID),
 				zoneDue: triadZoneOpen(cards) ? due(CHORD_ZONE_SKILL_ID) : null
@@ -439,14 +454,14 @@ export function createAppServices(
 				record,
 				attempts,
 				allAttempts: allAttempts.filter(ofTrack),
-				cards: cards.filter(ofTrack),
+				cards: servedCards(cards.filter(ofTrack)),
 				now: deps.now()
 			});
 		},
 
 		async neckMap() {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
-			return buildNeckMap({ cards, attempts, pitchAt: pitchOnString });
+			return buildNeckMap({ cards: servedCards(cards), attempts, pitchAt: pitchOnString });
 		},
 
 		async startSession(kind: SessionKind) {

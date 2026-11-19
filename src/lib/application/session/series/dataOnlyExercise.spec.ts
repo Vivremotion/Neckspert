@@ -59,7 +59,7 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 const BAR_BEATS = 3;
 const BEAT_S = 60 / 90;
 
-/** Two notes on other strings, neither the other's mirror, learned and due, at level 0. */
+/** Two notes on different strings, learned and due, at level 0. */
 const FIRST = locate(5, 'C');
 const SECOND = locate(2, 'G');
 

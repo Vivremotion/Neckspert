@@ -258,42 +258,6 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('startSession(learn) probes the first note of the list, a triad being anchored', async () => {
-		const { services, deps } = harness();
-		const key = 'D|maj|3:5,2:1,1:3';
-		await deps.cards.put({
-			key: `chord-anchor:${key}`,
-			skill: 'chord-anchor',
-			item: { voicingKey: key },
-			introducedAt: 0,
-			introducedInSession: 's-old',
-			scheduling: {
-				due: 0,
-				stability: 0,
-				difficulty: 0,
-				elapsedDays: 0,
-				scheduledDays: 0,
-				learningSteps: 0,
-				reps: 0,
-				lapses: 0,
-				state: 0,
-				lastReview: null
-			},
-			learnedAt: null,
-			acquiredAt: null,
-			masteredAt: null
-		});
-		const controller = await services.startSession('learn');
-		await controller.start();
-		await runOnTransport(deps, () => controller.view.status === 'awaiting');
-		// The triads being anchored no longer lead the notes: G on the low E string, the list's first.
-		expect(noteLane(controller)?.prompt).toMatchObject({
-			primary: 'G',
-			secondary: 'corde de E grave'
-		});
-		controller.quit();
-	});
-
 	it('runs locate at its level 0 tempo, 80 bpm', async () => {
 		const { services, deps } = harness();
 		const controller = await services.startSession('learn');
