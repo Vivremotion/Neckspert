@@ -145,7 +145,7 @@ describe('SettingsScreen', () => {
 
 	it('shows import confirmation and a readable error', async () => {
 		const confirming = renderScreen({ confirmingImport: true });
-		expect(screen.getByText(/remplac/i)).toBeTruthy();
+		expect(screen.getByText(/Remplacer les données/)).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		expect(confirming.props.onimportconfirm).toHaveBeenCalledTimes(1);
 		cleanup();

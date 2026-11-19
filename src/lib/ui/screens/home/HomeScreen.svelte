@@ -5,6 +5,7 @@
 	import { SESSION_MS } from '$lib/domain/session/policy';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import type { HomeStats } from '$lib/domain/types';
+	import { refusalText } from '$lib/ui/definitions/refusalMessages';
 	import BlockList from '$lib/ui/primitives/BlockList.svelte';
 	import type { Block } from '$lib/ui/primitives/BlockList.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
@@ -141,8 +142,8 @@
 		<section class="refused" aria-label={t.refusedTitle}>
 			<h2>{t.refusedTitle}</h2>
 			<ul>
-				{#each refused as { file, kind, id, reason }, index (index)}
-					<li>{t.refusedWhy(file, kind, id, reason)}</li>
+				{#each refused as refusal, index (index)}
+					<li>{refusalText(refusal, i18n.locale)}</li>
 				{/each}
 			</ul>
 		</section>

@@ -11,6 +11,8 @@
 		type Locale,
 		type Settings
 	} from '$lib/domain/types';
+	import type { ImportedFile } from '$lib/application/definitions/service';
+	import type { Refusal } from '$lib/domain/definitions';
 	import { downloadDiagnosticArchive } from '$lib/infrastructure/diagnostics';
 	import { downloadBackup, readBackupFile, validateBackup } from '$lib/infrastructure/storage';
 	import { i18n } from '$lib/i18n/index.svelte';
@@ -36,6 +38,9 @@
 	const diagnosticsEnabled = $derived(resolveDiagnosticsEnabled(diagnostics, import.meta.env.DEV));
 	/** Bumped by user edits so a late initial load cannot overwrite them. */
 	let loadSeq = 0;
+	let importedFiles = $state<ImportedFile[]>([]);
+	let notStored = $state<Refusal[]>([]);
+	let definitionsError = $state<string | null>(null);
 
 	async function load() {
 		const seq = ++loadSeq;
@@ -52,6 +57,7 @@
 		chordDiagram = settings.chordDiagram;
 		inputs = devices;
 		i18n.locale = settings.locale;
+		importedFiles = await services.definitions.files();
 	}
 
 	async function loadUsage() {
@@ -106,6 +112,59 @@
 		loadSeq += 1;
 		inputDeviceId = id;
 		await services.settings.update({ inputDeviceId: id });
+	}
+
+	async function reloadFiles() {
+		try {
+			importedFiles = await services.definitions.files();
+		} catch (error) {
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+	}
+
+	async function readFile(file: File): Promise<{ name: string; text: string } | null> {
+		try {
+			return { name: file.name, text: await file.text() };
+		} catch {
+			return null;
+		}
+	}
+
+	async function onimportfiles(chosen: File[]) {
+		definitionsError = null;
+		const read = await Promise.all(chosen.map(readFile));
+		const unreadable: Refusal[] = chosen.flatMap((file, index) =>
+			read[index] === null
+				? [
+						{
+							file: file.name,
+							kind: 'file' as const,
+							id: null,
+							reason: 'the file could not be read'
+						}
+					]
+				: []
+		);
+		const texts = read.filter((file) => file !== null);
+		try {
+			const result = await services.definitions.import(texts);
+			notStored = [...unreadable, ...result.refused];
+		} catch (error) {
+			notStored = unreadable;
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+		await reloadFiles();
+	}
+
+	async function onremovefile(name: string) {
+		definitionsError = null;
+		notStored = [];
+		try {
+			await services.definitions.remove(name);
+		} catch (error) {
+			definitionsError = error instanceof Error ? error.message : String(error);
+		}
+		await reloadFiles();
 	}
 
 	async function onexport() {
@@ -209,6 +268,11 @@
 	{ondiagnosticsnativerate}
 	{ondiagnosticsexport}
 	{ondiagnosticsclear}
+	{importedFiles}
+	{notStored}
+	{definitionsError}
+	{onimportfiles}
+	{onremovefile}
 	{diagnosticsExporting}
 	{diagnosticsError}
 />

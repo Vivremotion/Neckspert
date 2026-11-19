@@ -58,7 +58,7 @@ describe('/settings page', () => {
 		services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
 		render(TestHarness, { props: { services } });
 
-		await waitFor(() => expect(screen.getByRole('button', { name: /importer/i })).toBeTruthy());
+		await waitFor(() => expect(screen.getByRole('button', { name: /^importer$/i })).toBeTruthy());
 
 		const bad = new File(['{"app":"nope"}'], 'bad.json', { type: 'application/json' });
 		const hidden = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -87,7 +87,7 @@ describe('/settings page', () => {
 			{ type: 'application/json' }
 		);
 		await fireEvent.change(hidden, { target: { files: [good] } });
-		await waitFor(() => expect(screen.getByText(/remplac/i)).toBeTruthy());
+		await waitFor(() => expect(screen.getByText(/Remplacer les données/)).toBeTruthy());
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		await waitFor(async () => {
 			// The version 1 tempo went to a locate progression, which version 7 no longer keeps.

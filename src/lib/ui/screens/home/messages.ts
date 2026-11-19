@@ -1,18 +1,4 @@
-import type { DefinitionKind } from '$lib/domain/definitions';
 import { defineMessages } from '$lib/i18n/index.svelte';
-
-const FR_KINDS: Record<DefinitionKind, string> = {
-	file: 'fichier',
-	skill: 'capacité',
-	exercise: 'exercice',
-	grid: 'grille'
-};
-
-/** Where a refusal lies: the file alone, or the file and its object, with its id when it has one. */
-function refusedPlace(file: string, kind: DefinitionKind, id: string | null, word: string): string {
-	if (kind === 'file') return file;
-	return `${file}, ${word}${id === null ? '' : ` \`${id}\``}`;
-}
 
 export const homeMessages = defineMessages({
 	fr: {
@@ -28,8 +14,6 @@ export const homeMessages = defineMessages({
 		exercises: 'Exercices',
 		resting: 'On y revient plus tard',
 		refusedTitle: 'Fichiers refusés',
-		refusedWhy: (file: string, kind: DefinitionKind, id: string | null, reason: string) =>
-			`${refusedPlace(file, kind, id, FR_KINDS[kind])} : ${reason}`,
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
@@ -57,8 +41,6 @@ export const homeMessages = defineMessages({
 		exercises: 'Exercises',
 		resting: 'Back to it later',
 		refusedTitle: 'Files refused',
-		refusedWhy: (file: string, kind: DefinitionKind, id: string | null, reason: string) =>
-			`${refusedPlace(file, kind, id, kind)}: ${reason}`,
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',

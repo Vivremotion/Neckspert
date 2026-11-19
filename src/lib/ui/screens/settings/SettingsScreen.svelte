@@ -13,6 +13,9 @@
 	} from '$lib/domain/types';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
+	import ImportedFiles from './ImportedFiles.svelte';
+	import type { ImportedFile } from '$lib/application/definitions/service';
+	import type { Refusal } from '$lib/domain/definitions';
 	import Page from '$lib/ui/primitives/Page.svelte';
 	import { settingsMessages } from './messages';
 
@@ -45,7 +48,12 @@
 		diagnosticsExporting = false,
 		diagnosticsError = null,
 		chordDiagram,
-		onchorddiagram
+		onchorddiagram,
+		importedFiles = [],
+		notStored = [],
+		definitionsError = null,
+		onimportfiles = () => {},
+		onremovefile = () => {}
 	}: {
 		locale: Locale;
 		inputs: AudioInputDevice[];
@@ -81,6 +89,12 @@
 		/** How chord shapes are drawn, unless an exercise says. */
 		chordDiagram: ChordDiagramStyle;
 		onchorddiagram: (style: ChordDiagramStyle) => void;
+		/** The definition files kept, the files of the last import that were not, and a storage error. */
+		importedFiles?: readonly ImportedFile[];
+		notStored?: readonly Refusal[];
+		definitionsError?: string | null;
+		onimportfiles?: (files: File[]) => void;
+		onremovefile?: (name: string) => void;
 	} = $props();
 	const uid = $props.id();
 
@@ -220,6 +234,16 @@
 			<p class="error" role="alert">{importError}</p>
 		{/if}
 	</section>
+
+	<ImportedFiles
+		files={importedFiles}
+		refused={notStored}
+		onimport={onimportfiles}
+		onremove={onremovefile}
+	/>
+	{#if definitionsError}
+		<p class="error" role="alert">{definitionsError}</p>
+	{/if}
 
 	<section class="group" aria-labelledby="{uid}-diagnostics">
 		<h2 id="{uid}-diagnostics">{m.diagnostics}</h2>
