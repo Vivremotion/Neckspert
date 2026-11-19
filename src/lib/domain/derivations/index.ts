@@ -117,6 +117,26 @@ export const ITEM_NUMBERS: Readonly<Record<string, ItemNumber>> = {
 	}
 };
 
+/** A value a selection's filter reads on an item (`{ item: <name> }`). */
+export interface ItemValue {
+	/** The sets whose items it reads. */
+	reads: readonly string[];
+	/** Undefined when the item carries none: the filter is then left out. */
+	valueOf(item: unknown): number | readonly number[] | undefined;
+}
+
+/** The values a filter reads on an item, by name. */
+export const ITEM_VALUES: Readonly<Record<string, ItemValue>> = {
+	fret: {
+		reads: ['voicing-on-strings'],
+		valueOf: (item) => (item as { fret?: number }).fret
+	},
+	string: {
+		reads: ['note-on-string'],
+		valueOf: (item) => (item as { string: number }).string
+	}
+};
+
 export interface ItemFigure {
 	/** The sets whose items it reads. */
 	reads: readonly string[];

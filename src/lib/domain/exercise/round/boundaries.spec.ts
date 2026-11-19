@@ -31,7 +31,7 @@ const SETS = [
 ];
 
 /** What it may take from the derivations: their registries, looked up by name. */
-const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES'];
+const REGISTRIES = ['CONTENT_DERIVATIONS', 'ITEM_NUMBERS', 'ITEM_FIGURES', 'ITEM_VALUES'];
 
 function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];

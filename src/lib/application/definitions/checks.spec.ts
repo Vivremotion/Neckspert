@@ -239,3 +239,25 @@ describe('definitionChecks, the items of a memory exercise', () => {
 		expect(check({ ...ARPEGGIO_EXERCISE, items: [first, first] })).toBeNull();
 	});
 });
+
+describe('definitionChecks, a content written as a selection', () => {
+	const asking = (content: unknown): ExerciseDefinition => ({
+		...LOCATE_NECK,
+		round: {
+			...LOCATE_NECK.round!,
+			expectations: LOCATE_NECK.round!.expectations.map((e) => ({ ...e, content }))
+		} as ExerciseDefinition['round']
+	});
+
+	it('accepts a selection every listed item compiles', () => {
+		expect(
+			check(asking({ family: 'note-places', where: [{ in: { strings: { item: 'string' } } }] }))
+		).toBeNull();
+	});
+
+	it('refuses a selection the engine cannot run, naming the field', () => {
+		expect(check(asking({ family: 'nope' }))).toBe(
+			'round.expectations[0].content names family "nope", which is not registered'
+		);
+	});
+});

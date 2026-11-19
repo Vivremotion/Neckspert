@@ -148,6 +148,13 @@ export const chordShapes: Family<ChordShapesIndex, ChordShape> = {
 		return occurrence ? shape(occurrence) : null;
 	},
 	attributes: GUITAR_ATTRIBUTES,
+	/** The shape decided, or none decided (`{ decided: null }`); null when the payload says neither. */
+	answer(payload) {
+		if (!isObject(payload) || !(typeof payload.decided === 'string' || payload.decided === null)) {
+			return null;
+		}
+		return { decided: payload.decided };
+	},
 	recognise(admitted, payload) {
 		const decided = decidedOf(payload);
 		return decided === null ? null : (admitted.find((member) => member.id === decided) ?? null);

@@ -263,3 +263,15 @@ describe('chord-shapes filter in', () => {
 		expect(compared).toBeGreaterThan(100);
 	});
 });
+
+describe('chord-shapes answer', () => {
+	it('gives the shape decided, or none decided, as the attempt keeps it; null when unreadable', () => {
+		const [shape] = chordShapes.members(indexOf(C_MAJOR));
+		expect(chordShapes.answer({ decided: shape.id, candidates: [] })).toEqual({
+			decided: shape.id
+		});
+		expect(chordShapes.answer({ decided: null })).toEqual({ decided: null });
+		expect(chordShapes.answer({ midi: 60 })).toBeNull();
+		expect(chordShapes.answer(null)).toBeNull();
+	});
+});

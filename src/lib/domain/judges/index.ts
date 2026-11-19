@@ -13,6 +13,9 @@ import type { ChordGridItem } from '$lib/domain/sets/chordGrid';
 import { classifyChord, type ChordReading } from '$lib/domain/sets/triadChord';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { ContentJudge, ContentJudges } from '$lib/domain/time';
+import { MEMBER_CONTENT, memberJudge } from './member';
+
+export { MEMBER_CONTENT, type MemberContent } from './member';
 
 /** A note on a string. Value: `LocateItem`; payload: `{ midi }`. */
 export const NOTE_CONTENT = 'note';
@@ -95,7 +98,8 @@ export const CONTENT_JUDGES: Readonly<Record<string, ContentJudge>> = {
 	[NAME_CONTENT]: nameJudge,
 	[PITCH_CONTENT]: pitchJudge,
 	[CHORD_VOICING_CONTENT]: chordVoicingJudge,
-	[CHORD_GRID_CONTENT]: chordGridJudge
+	[CHORD_GRID_CONTENT]: chordGridJudge,
+	[MEMBER_CONTENT]: memberJudge
 };
 
 export const contentJudges: ContentJudges = (kind) => {

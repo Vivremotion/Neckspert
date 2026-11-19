@@ -38,6 +38,7 @@ const FAMILY: Family<null, Spot> = {
 	},
 	member: (id) => SPOTS.find((m) => m.id === id) ?? null,
 	recognise: () => null,
+	answer: () => null,
 	confusion: () => null
 };
 

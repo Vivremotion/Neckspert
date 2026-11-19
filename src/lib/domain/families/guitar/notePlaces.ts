@@ -69,6 +69,10 @@ export const notePlaces: Family<NotePlacesIndex, NotePlace> = {
 		const midi = midiOf(payload);
 		return midi === null ? null : (admitted.find((member) => member.midi === midi) ?? null);
 	},
+	answer(payload) {
+		const midi = midiOf(payload);
+		return midi === null ? null : { midi };
+	},
 	confusion(index, _admitted, payload) {
 		const midi = midiOf(payload);
 		if (indexProblem(index) !== null || midi === null || index.string === undefined) return null;

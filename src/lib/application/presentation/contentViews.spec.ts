@@ -210,8 +210,12 @@ describe('CONTENT_VIEWS', () => {
 	});
 
 	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {
-		/** Kinds judged but drawn by their presenter's own model until the gesture is data. */
-		const NOT_VIEWED_YET = ['chord-grid'];
+		/**
+		 * Kinds judged but not drawn by a view yet: the gesture's, drawn by its presenter's own
+		 * model until the gesture is data; the member's, which no exercise writes before the
+		 * catalog moves to it (plan 4a, Task 4).
+		 */
+		const NOT_VIEWED_YET = ['chord-grid', 'member'];
 		const judged = Object.keys(CONTENT_JUDGES);
 		expect(NOT_VIEWED_YET.every((kind) => judged.includes(kind))).toBe(true);
 		expect(Object.keys(CONTENT_VIEWS).sort()).toEqual(

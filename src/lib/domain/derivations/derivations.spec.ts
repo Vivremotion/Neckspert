@@ -5,7 +5,7 @@ import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { CHORD_VOICING_CONTENT, CONTENT_JUDGES } from '../judges';
 import { parseVoicingKey, voicingOccurrences } from '../music';
 import { occurrenceId } from '../triads';
-import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from './index';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS, ITEM_VALUES } from './index';
 
 registerTestSkills();
 
@@ -137,5 +137,18 @@ describe('the derivations', () => {
 	it('reads the figure a rhythm item names', () => {
 		expect(ITEM_FIGURES.figure.reads).toEqual(['figure']);
 		expect(ITEM_FIGURES.figure.figureOf({ figureId: 'eighths' })).toBe('eighths');
+	});
+});
+
+describe('the values a filter reads on an item', () => {
+	it('reads the fret of a voicing on strings, absent when the item carries none', () => {
+		expect(ITEM_VALUES.fret.reads).toEqual(['voicing-on-strings']);
+		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY, fret: 7 })).toBe(7);
+		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY })).toBeUndefined();
+	});
+
+	it('reads the string of a note on a string', () => {
+		expect(ITEM_VALUES.string.reads).toEqual(['note-on-string']);
+		expect(ITEM_VALUES.string.valueOf({ string: 2, pitch: 'F' })).toBe(2);
 	});
 });

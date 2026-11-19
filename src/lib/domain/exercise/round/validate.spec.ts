@@ -8,7 +8,8 @@ import { METER_4_4 } from '../../time/meter';
 import { parseLilyPond } from '../../time/notation/lilypond';
 import type { FigureExpectationTemplate, PointExpectationTemplate, RoundTemplate } from './types';
 import { roundProblem } from './validate';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
+import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 
 registerTestSkills();
 
@@ -528,3 +529,155 @@ function pitchless(figure: Figure): Figure {
 		}))
 	};
 }
+
+describe('roundProblem, a content written as a selection', () => {
+	const asking = (definition: ExerciseDefinition, content: unknown) =>
+		withRound(definition, (t) => {
+			(t.expectations[0] as { content: unknown }).content = content;
+			return t;
+		});
+	const problem = (definition: ExerciseDefinition, content: unknown) =>
+		roundProblem(asking(definition, content), { sensors: SENSORS });
+
+	it('accepts a selection the exercise can run', () => {
+		expect(problem(LOCATE_NECK, { family: 'note-places' })).toBeNull();
+		expect(
+			problem(LOCATE_NECK, {
+				family: 'note-places',
+				where: [{ in: { strings: { item: 'string' }, frets: [0, 12] } }, { other: 'previous' }],
+				order: ['position', 'pitch'],
+				take: 1
+			})
+		).toBeNull();
+		expect(
+			problem(TRIADS_ZONE, {
+				family: 'chord-shapes',
+				where: [
+					{ at: { item: 'fret' } },
+					{ position: { beyond: 'previous', toward: 'up', turns: true } }
+				]
+			})
+		).toBeNull();
+		expect(problem(TRIADS_ZONE, { family: 'note-places', of: 'root' })).toBeNull();
+		const zone = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, zone: [3, 7] } };
+		expect(
+			problem(zone, { family: 'note-places', where: [{ in: { frets: { param: 'zone' } } }] })
+		).toBeNull();
+	});
+
+	it('refuses a family that is not registered', () => {
+		expect(problem(LOCATE_NECK, { family: 'nope' })).toBe(
+			'round.expectations[0].content names family "nope", which is not registered'
+		);
+	});
+
+	it('refuses an index derivation that gives no index of the family from the set', () => {
+		expect(problem(TRIADS_ZONE, { family: 'chord-shapes', of: 'nope' })).toBe(
+			'round.expectations[0].content.of "nope" gives no index of chord-shapes from voicing-on-strings'
+		);
+		expect(problem(TRIADS_ZONE, { family: 'chord-shapes', of: 'root' })).toBe(
+			'round.expectations[0].content.of "root" gives no index of chord-shapes from voicing-on-strings'
+		);
+	});
+
+	it('refuses a set that indexes the family by no derivation of its own', () => {
+		expect(problem(IDENTIFY_NECK, { family: 'chord-shapes' })).toBe(
+			'round.expectations[0].content set placed-note gives no index of chord-shapes'
+		);
+	});
+
+	it('refuses a filter it does not know', () => {
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: [{ near: 3 }] })).toBe(
+			'round.expectations[0].content.where[0] is no filter (in, at, position, other)'
+		);
+		expect(
+			problem(LOCATE_NECK, { family: 'note-places', where: [{ at: 3, other: 'previous' }] })
+		).toBe('round.expectations[0].content.where[0] is no filter (in, at, position, other)');
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: 'all' })).toMatch(
+			/^round\.expectations\[0\]\.content\.where must be a list/
+		);
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: [{ at: 'six' }] })).toMatch(
+			/^round\.expectations\[0\]\.content\.where\[0\]\.at /
+		);
+		expect(
+			problem(LOCATE_NECK, { family: 'note-places', where: [{ position: { beyond: 'next' } }] })
+		).toMatch(/^round\.expectations\[0\]\.content\.where\[0\]\.position /);
+	});
+
+	it('refuses what the family cannot run, by the reason it gives', () => {
+		expect(problem(LOCATE_NECK, { family: 'note-places', order: ['nope'] })).toBe(
+			'round.expectations[0].content order names attribute "nope", which family "note-places" does not have'
+		);
+		expect(
+			problem(LOCATE_NECK, { family: 'note-places', where: [{ in: { frets: [7, 3] } }] })
+		).toBe(
+			'round.expectations[0].content filter "in" has frets [7, 3]: the first is above the second'
+		);
+	});
+
+	it('refuses an item value the set does not have', () => {
+		expect(
+			problem(TRIADS_ZONE, { family: 'chord-shapes', where: [{ at: { item: 'nope' } }] })
+		).toBe(
+			'round.expectations[0].content.where[0] reads item value "nope", which voicing-on-strings does not have'
+		);
+		expect(
+			problem(TRIADS_ZONE, { family: 'chord-shapes', where: [{ at: { item: 'string' } }] })
+		).toBe(
+			'round.expectations[0].content.where[0] reads item value "string", which voicing-on-strings does not have'
+		);
+	});
+
+	it('refuses a param that a level does not write', () => {
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: [{ at: { param: 'a.b' } }] })).toBe(
+			'round.expectations[0].content.where[0] reads param "a.b", which no level of the exercise writes'
+		);
+		const ladder = LOCATE_NECK.params.ladder as Ladder;
+		const once: ExerciseDefinition = {
+			...LOCATE_NECK,
+			params: {
+				...LOCATE_NECK.params,
+				ladder: ladder.map((level, i) =>
+					i === 0 ? { ...level, params: { ...level.params, 'a.b': 6 } } : level
+				)
+			}
+		};
+		expect(problem(once, { family: 'note-places', where: [{ at: { param: 'a.b' } }] })).toBe(
+			'round.expectations[0].content.where[0] reads param "a.b", which exercise level 0, item level 1 does not write'
+		);
+		const text = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, a: { b: 'six' } } };
+		expect(problem(text, { family: 'note-places', where: [{ at: { param: 'a.b' } }] })).toMatch(
+			/^round\.expectations\[0\]\.content\.where\[0\] reads param "a\.b", which exercise level 0, item level 0 gives as "six", not a number$/
+		);
+	});
+
+	it('refuses a take that is no positive whole number', () => {
+		for (const take of [0, -1, 1.5]) {
+			expect(problem(LOCATE_NECK, { family: 'note-places', take })).toBe(
+				'round.expectations[0].content.take must be a positive whole number'
+			);
+		}
+	});
+
+	it('refuses a key a selection does not have', () => {
+		expect(problem(LOCATE_NECK, { family: 'note-places', from: 'note-of-item' })).toMatch(
+			/^round\.expectations\[0\]\.content\.from is not a key/
+		);
+	});
+
+	it('refuses a selection in a figure entry', () => {
+		const exercise = {
+			...ARPEGGIO_EXERCISE,
+			round: {
+				...ARPEGGIO_EXERCISE.round!,
+				expectations: ARPEGGIO_EXERCISE.round!.expectations.map((e) => ({
+					...e,
+					content: { family: 'note-places' }
+				})) as RoundTemplate['expectations']
+			}
+		};
+		expect(roundProblem(exercise)).toBe(
+			'round.expectations[0].content a figure entry takes its content from a derivation'
+		);
+	});
+});

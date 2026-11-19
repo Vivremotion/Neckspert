@@ -105,3 +105,12 @@ describe('note-places', () => {
 		expect(notePlaces.indexProblem(null)).not.toBeNull();
 	});
 });
+
+describe('note-places answer', () => {
+	it('gives the pitch heard, as the attempt keeps it; null when none is', () => {
+		expect(notePlaces.answer({ midi: 65 })).toEqual({ midi: 65 });
+		expect(notePlaces.answer({ midi: 65, onset: 3 })).toEqual({ midi: 65 });
+		expect(notePlaces.answer({})).toBeNull();
+		expect(notePlaces.answer(null)).toBeNull();
+	});
+});

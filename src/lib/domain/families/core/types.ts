@@ -31,6 +31,8 @@ export interface Family<I = unknown, M extends Member = Member> {
 	recognise(admitted: readonly M[], payload: unknown): M | null;
 	/** How a payload that is no admitted member relates to them; null when nothing can be said. */
 	confusion(index: I, admitted: readonly M[], payload: unknown): unknown;
+	/** What of a payload an attempt keeps as its answer; null when the payload is unreadable. */
+	answer(payload: unknown): unknown;
 }
 
 /**

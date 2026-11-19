@@ -870,3 +870,113 @@ function pitchless(): Figure {
 		}))
 	};
 }
+
+describe('compileRound, a content written as a selection', () => {
+	const F_ON_B = { string: 2, pitch: 'F' };
+	/** LOCATE_ROUND whose one expectation asks `content`, heard by `sensor`. */
+	const asking = (content: unknown, sensor = 'note'): RoundTemplate => ({
+		...LOCATE_ROUND,
+		expectations: [
+			{ ...LOCATE_ROUND.expectations[0], sensor, content } as RoundTemplate['expectations'][0]
+		]
+	});
+	const contentOf = (
+		set: string,
+		round: RoundTemplate,
+		item: unknown,
+		params: Record<string, unknown> = {}
+	) =>
+		compileRound(definition(set, round, params), planned(set, item, 4), meter, {
+			previewBeats: PREVIEW,
+			fromRunStart: null
+		}).expectations[0].content;
+
+	it('gives a member content, its index from the set’s default derivation', () => {
+		expect(contentOf('note-on-string', asking({ family: 'note-places' }), F_ON_B)).toEqual({
+			kind: 'member',
+			value: {
+				family: 'note-places',
+				index: { pitch: 'F', string: 2 },
+				selection: { family: 'note-places' }
+			}
+		});
+	});
+
+	it('takes the index from the derivation `of` names', () => {
+		// D major with its root on the B string.
+		const content = contentOf('voicing-on-strings', asking({ family: 'note-places', of: 'root' }), {
+			voicingKey: KEY
+		});
+		expect(content).toEqual({
+			kind: 'member',
+			value: {
+				family: 'note-places',
+				index: { pitch: 'D', string: 2 },
+				selection: { family: 'note-places' }
+			}
+		});
+	});
+
+	it('resolves the filters, the order and the take: written, read in the params, read on the item', () => {
+		const round = asking(
+			{
+				family: 'note-places',
+				where: [
+					{ in: { strings: { item: 'string' }, frets: { param: 'zone' } } },
+					{ at: { param: 'fret' } },
+					{ other: 'previous' }
+				],
+				order: ['position'],
+				take: { param: 'take' }
+			},
+			'note'
+		);
+		const content = contentOf('note-on-string', round, F_ON_B, { zone: [3, 7], fret: 6, take: 1 });
+		expect(content).toEqual({
+			kind: 'member',
+			value: {
+				family: 'note-places',
+				index: { pitch: 'F', string: 2 },
+				selection: {
+					family: 'note-places',
+					where: [{ in: { strings: [2], frets: [3, 7] } }, { at: 6 }, { other: 'previous' }],
+					order: ['position'],
+					take: 1
+				}
+			}
+		});
+	});
+
+	it('drops a filter whose value the item does not carry', () => {
+		const round = asking(
+			{ family: 'chord-shapes', where: [{ at: { item: 'fret' } }, { other: 'previous' }] },
+			'chord'
+		);
+		const selection = (item: unknown) =>
+			(contentOf('voicing-on-strings', round, item)?.value as { selection: unknown }).selection;
+		expect(selection({ voicingKey: KEY, fret: 7 })).toEqual({
+			family: 'chord-shapes',
+			where: [{ at: 7 }, { other: 'previous' }]
+		});
+		expect(selection({ voicingKey: KEY })).toEqual({
+			family: 'chord-shapes',
+			where: [{ other: 'previous' }]
+		});
+	});
+
+	it('fails naming the exercise and the field', () => {
+		expect(() => contentOf('note-on-string', asking({ family: 'nope' }), F_ON_B)).toThrow(
+			/test-note-on-string: round\.expectations\[0\]\.content names family "nope"/
+		);
+		expect(() =>
+			contentOf('note-on-string', asking({ family: 'note-places', take: { param: 'n' } }), F_ON_B)
+		).toThrow(/test-note-on-string: round\.expectations\[0\]\.content\.take reads param "n"/);
+		expect(() =>
+			contentOf(
+				'note-on-string',
+				asking({ family: 'note-places', where: [{ in: { frets: [7, 3] } }] }),
+				F_ON_B
+			)
+		).toThrow(/test-note-on-string: round\.expectations\[0\]\.content .*first is above the second/);
+	});
+});
