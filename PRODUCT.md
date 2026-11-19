@@ -85,7 +85,7 @@ Une session d'environ 5 minutes, toujours ouverte, à relancer autant qu'on veut
 4. **Note nouvelle**, la suivante de la file, sondée d'abord sans aide (voir Progression), s'il y a moins de 3 notes en cours d'apprentissage et moins de 10 notes apprises mais pas encore acquises.
 5. **Consolidation** : une note déjà apprise, parmi les plus fragiles (confusions récentes, faible stabilité). À chaud, ne compte pas.
 
-Dans chaque catégorie, le choix se fait au hasard : jamais deux fois la même note de suite, jamais les deux notes d'une paire miroir à la suite (« A, corde de E grave » et « E, corde de A »), et pas deux fois la même corde quand c'est possible. Une note n'entre pas dans la file tant que sa note miroir n'est pas acquise.
+Dans chaque catégorie, le choix se fait au hasard : jamais deux fois la même note de suite. Les notes nouvelles entrent dans l'ordre que l'exercice écrit.
 
 Le jeu se pilote au taux de réussite (une réussite : juste et dans le temps ; hors temps, fausse note et absence de réponse sont des ratés) :
 
