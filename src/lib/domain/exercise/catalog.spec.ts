@@ -6,6 +6,7 @@ import { Fraction, METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
+import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { compileRound } from './round';
 import { freeTime, gridChange, onTheBeat, pointAt } from './round/testing/plans';
 import type { ExerciseDefinition } from './types';
@@ -128,7 +129,12 @@ describe('exercise catalog', () => {
 		for (const lead of [8, 4, 2]) {
 			expect(compiled(LOCATE_NECK, note, lead)).toEqual({
 				prompt: Fraction.of(-lead, 4),
-				expectations: [pointAt('note', { kind: 'note', value: note })],
+				expectations: [
+					pointAt('note', {
+						kind: 'member',
+						value: { family: 'note-places', index: note, selection: { family: 'note-places' } }
+					})
+				],
 				length: Fraction.of(1),
 				listenUntil: Fraction.of(1, 2),
 				mutedBars: [],
@@ -153,11 +159,25 @@ describe('exercise catalog', () => {
 			expect(compiled(TRIADS_ANCHOR, { voicingKey: key }, lead)).toEqual({
 				prompt: Fraction.of(-lead, 4),
 				expectations: [
-					pointAt('note', { kind: 'note', value: { string: 2, pitch: 'D' } }),
+					pointAt('note', {
+						kind: 'member',
+						value: {
+							family: 'note-places',
+							index: { pitch: 'D', string: 2 },
+							selection: { family: 'note-places' }
+						}
+					}),
 					{
 						...pointAt(
 							'chord',
-							{ kind: 'chord-voicing', value: { voicingKey: key, position: null } },
+							{
+								kind: 'member',
+								value: {
+									family: 'chord-shapes',
+									index: GUITAR_DERIVATIONS.voicing.index({ voicingKey: key }),
+									selection: { family: 'chord-shapes' }
+								}
+							},
 							Fraction.of(1, 4)
 						),
 						span: { until: Fraction.of(1) }
@@ -169,11 +189,20 @@ describe('exercise catalog', () => {
 			});
 		}
 
-		// The zone: a beat plan heard by the chord sensor.
-		const voicing = { voicingKey: key, position: 7 };
+		// The zone: a beat plan heard by the chord sensor, the shape that covers the fret named.
+		const voicing = { voicingKey: key, position: 7, fret: 8 };
 		expect(compiled(TRIADS_ZONE, voicing, 4)).toEqual({
 			prompt: Fraction.of(-1),
-			expectations: [pointAt('chord', { kind: 'chord-voicing', value: voicing })],
+			expectations: [
+				pointAt('chord', {
+					kind: 'member',
+					value: {
+						family: 'chord-shapes',
+						index: GUITAR_DERIVATIONS.voicing.index(voicing),
+						selection: { family: 'chord-shapes', where: [{ at: 8 }] }
+					}
+				})
+			],
 			length: Fraction.of(1),
 			mutedBars: [],
 			policy: onTheBeat(false)

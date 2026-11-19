@@ -43,12 +43,17 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 	round: {
 		prompt: { lead: { param: 'leadBeats' } },
 		expectations: [
-			{ at: { beats: 0 }, sensor: 'note', content: { from: 'voicing-root' }, window: { ms: 100 } },
+			{
+				at: { beats: 0 },
+				sensor: 'note',
+				content: { family: 'note-places', of: 'root' },
+				window: { ms: 100 }
+			},
 			{
 				at: { beats: 1 },
 				until: { beats: 3 },
 				sensor: 'chord',
-				content: { from: 'voicing-at-position' },
+				content: { family: 'chord-shapes', where: [{ at: { item: 'fret' } }] },
 				window: { ms: 100 }
 			}
 		],
@@ -111,8 +116,8 @@ describe('every valid exercise plays', () => {
 			expect(attempt.plan).toMatchObject({
 				barOffset: '1/4',
 				expectations: [
-					{ at: '0', span: 'point', sensor: 'note', content: { kind: 'note' } },
-					{ at: '1/4', span: { until: '3/4' }, sensor: 'chord', content: { kind: 'chord-voicing' } }
+					{ at: '0', span: 'point', sensor: 'note', content: { kind: 'member' } },
+					{ at: '1/4', span: { until: '3/4' }, sensor: 'chord', content: { kind: 'member' } }
 				]
 			});
 		}
@@ -222,6 +227,17 @@ describe('every valid exercise plays', () => {
 			d.round!.expectations.some((e) => 'figure' in e && e.content !== null)
 		);
 		expect(pitched.some((d) => d.round!.policy.pairing.mode === 'alignment')).toBe(true);
+		// Members of both families are asked, and played, not only refused.
+		const families = new Set(
+			SEEDS.map(drawn)
+				.filter((d) => refusal(d) === null)
+				.flatMap((d) =>
+					d.round!.expectations.flatMap((e) =>
+						!('figure' in e) && e.content && 'family' in e.content ? [e.content.family] : []
+					)
+				)
+		);
+		expect(families).toEqual(new Set(['note-places', 'chord-shapes']));
 	});
 
 	it('draws an exercise that writes a presentation and no view on the lane', async () => {

@@ -56,7 +56,7 @@
 						},
 						"sensor": "note",
 						"content": {
-							"from": "note-of-item"
+							"family": "note-places"
 						},
 						"window": {
 							"ms": {

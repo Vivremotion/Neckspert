@@ -14,21 +14,29 @@ export interface MemberContent {
 	previous?: Member | null;
 }
 
+/** The members a member content admits, in its selection's order. Throws on an unknown family. */
+export function admittedMembers(content: MemberContent): Member[] {
+	const { family: id, index, selection, previous } = content;
+	const family = familyNamed(id);
+	if (!family) throw new Error(`member content names family "${id}", which is not registered`);
+	return admitted(family, index, selection, { previous: previous ?? null });
+}
+
 /**
  * Right when the payload is a member the selection admits. The answer is what the family keeps
  * of the payload; the confusion, on a miss, the family's.
  */
 export const memberJudge: ContentJudge = {
 	judge(value, payload) {
-		const { family: id, index, selection, previous } = value as MemberContent;
-		const family = familyNamed(id);
-		if (!family) throw new Error(`member content names family "${id}", which is not registered`);
-		const members = admitted(family, index, selection, { previous: previous ?? null });
+		const content = value as MemberContent;
+		// Throws first on a family that is not registered.
+		const members = admittedMembers(content);
+		const family = familyNamed(content.family)!;
 		const heard = family.recognise(members, payload);
 		return {
 			correct: heard !== null,
 			answer: family.answer(payload),
-			confusion: heard === null ? family.confusion(index, members, payload) : null
+			confusion: heard === null ? family.confusion(content.index, members, payload) : null
 		};
 	}
 };

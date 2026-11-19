@@ -6,7 +6,7 @@ import type {
 	PlannedItem,
 	ResponseVerdict
 } from '$lib/domain/types';
-import type { ResponseValue } from '$lib/domain/time';
+import type { Expectation, ResponseValue } from '$lib/domain/time';
 import type { Scene } from '$lib/domain/exercise/types';
 import type { AnswerChoice, LaneEntry, ShapeView } from '$lib/application/session/contract';
 
@@ -60,12 +60,17 @@ export interface SetPresenter<I = any, A = any> {
 	debugLines?(item: I, payload: unknown): string[];
 	/**
 	 * What each of its sensors should listen for in a round that opens at `opensAt` (audio s),
-	 * after the session's `previous` prompt (null for the first). Opaque to the core. A sensor
-	 * left out, or every sensor without it, is told null.
+	 * after the session's `previous` prompt (null for the first), whose plan expects
+	 * `expectations` (their sensor and content, as compiled). Opaque to the core. A sensor left
+	 * out, or every sensor without it, is told null.
 	 */
 	expectation?(
 		item: I,
-		round: { opensAt: number; previous: PlannedItem | null }
+		round: {
+			opensAt: number;
+			previous: PlannedItem | null;
+			expectations: readonly Pick<Expectation, 'sensor' | 'content'>[];
+		}
 	): Partial<Record<SensorKind, unknown>>;
 	/**
 	 * The screen model of a prompt on the target model, for an exercise that writes no

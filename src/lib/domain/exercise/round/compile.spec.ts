@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
 import type { ChordGridItem } from '$lib/domain/sets';
+import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { clickAccompaniment } from '../../time/accompaniment';
 import type { Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
@@ -40,7 +41,7 @@ const LOCATE_ROUND: RoundTemplate = {
 		{
 			at: { beats: 0 },
 			sensor: 'note',
-			content: { from: 'note-of-item' },
+			content: { family: 'note-places' },
 			window: { ms: { param: 'windows.perfectMs' } }
 		}
 	],
@@ -55,14 +56,14 @@ const ANCHOR_ROUND: RoundTemplate = {
 		{
 			at: { beats: 0 },
 			sensor: 'note',
-			content: { from: 'voicing-root' },
+			content: { family: 'note-places', of: 'root' },
 			window: { ms: { param: 'windows.perfectMs' } }
 		},
 		{
 			at: { beats: { param: 'windows.anchorChordFromBeats' } },
 			until: { bars: 1 },
 			sensor: 'chord',
-			content: { from: 'voicing-anywhere' },
+			content: { family: 'chord-shapes' },
 			window: { ms: { param: 'windows.perfectMs' } }
 		}
 	],
@@ -155,7 +156,12 @@ describe('compileRound', () => {
 		);
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1),
-			expectations: [pointAt('note', { kind: 'note', value: item })],
+			expectations: [
+				pointAt('note', {
+					kind: 'member',
+					value: { family: 'note-places', index: item, selection: { family: 'note-places' } }
+				})
+			],
 			length: Fraction.of(1),
 			listenUntil: Fraction.of(1, 2),
 			mutedBars: [],
@@ -198,11 +204,25 @@ describe('compileRound', () => {
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1, 2),
 			expectations: [
-				pointAt('note', { kind: 'note', value: { string: 2, pitch: 'D' } }),
+				pointAt('note', {
+					kind: 'member',
+					value: {
+						family: 'note-places',
+						index: { pitch: 'D', string: 2 },
+						selection: { family: 'note-places' }
+					}
+				}),
 				{
 					...pointAt(
 						'chord',
-						{ kind: 'chord-voicing', value: { voicingKey: KEY, position: null } },
+						{
+							kind: 'member',
+							value: {
+								family: 'chord-shapes',
+								index: GUITAR_DERIVATIONS.voicing.index(item),
+								selection: { family: 'chord-shapes' }
+							}
+						},
 						Fraction.of(1, 4)
 					),
 					span: { until: Fraction.of(1) }
@@ -223,7 +243,7 @@ describe('compileRound', () => {
 				{
 					at: { beats: 0 },
 					sensor: 'chord',
-					content: { from: 'voicing-at-position' },
+					content: { family: 'chord-shapes', where: [{ at: { item: 'fret' } }] },
 					window: { ms: { param: 'windows.perfectMs' } }
 				}
 			]
@@ -237,7 +257,15 @@ describe('compileRound', () => {
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1),
 			expectations: [
-				pointAt('chord', { kind: 'chord-voicing', value: { voicingKey: KEY, position: 7 } })
+				// The item names no fret: the shape at its position.
+				pointAt('chord', {
+					kind: 'member',
+					value: {
+						family: 'chord-shapes',
+						index: GUITAR_DERIVATIONS.voicing.index(item),
+						selection: { family: 'chord-shapes', where: [{ at: 7 }] }
+					}
+				})
 			],
 			length: Fraction.of(1),
 			mutedBars: [],
@@ -450,8 +478,8 @@ describe('compileRound', () => {
 		).toThrow(/bare: .*no round/);
 		expect(() =>
 			compileRound(
-				definition('placed-note', LOCATE_ROUND),
-				planned('placed-note', item, 4),
+				definition('note-on-string', IDENTIFY_ROUND),
+				planned('note-on-string', item, 4),
 				meter,
 				{
 					previewBeats: PREVIEW,
@@ -459,7 +487,7 @@ describe('compileRound', () => {
 				}
 			)
 		).toThrow(
-			/test-placed-note: round\.expectations\[0\]\.content derives "note-of-item".*placed-note/
+			/test-note-on-string: round\.expectations\[0\]\.content derives "name-of-item".*note-on-string/
 		);
 	});
 });
@@ -819,12 +847,12 @@ describe('compileRound, a figure entry', () => {
 		).toThrow(/round\.expectations\[0\]\.content .*list/);
 		expect(() =>
 			compileFigure(
-				figureExercise('note-on-string', figureRound({ content: { from: 'note-of-item' } }), {
+				figureExercise('placed-note', figureRound({ content: { from: 'name-of-item' } }), {
 					main: 'c1'
 				}),
-				{ string: 3, pitch: 'F' }
+				{ string: 3, fret: 5 }
 			)
-		).toThrow(/round\.expectations\[0\]\.content .*"note-of-item".*not a list/);
+		).toThrow(/round\.expectations\[0\]\.content .*"name-of-item".*not a list/);
 		// The figure in another meter than the one played.
 		const threeFour: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
 		expect(() =>

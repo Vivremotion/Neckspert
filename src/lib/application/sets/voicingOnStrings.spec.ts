@@ -3,6 +3,9 @@ import type { ChordExpectation } from '$lib/application/ports';
 import { voicingOnStringsSet } from '$lib/domain/sets';
 import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
+import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
+import type { Filter } from '$lib/domain/families';
+import { MEMBER_CONTENT } from '$lib/domain/judges';
 import { SET_PRESENTERS } from './index';
 import { voicingOnStringsPresenter } from './voicingOnStrings';
 
@@ -25,6 +28,32 @@ function previous(voicingKey: string): PlannedItem {
 	};
 }
 
+/** A round whose chord expectation admits the shapes of the voicing that `where` keeps. */
+function chordRound(
+	voicingKey: string,
+	where: readonly Filter[],
+	opensAt: number,
+	previousItem: PlannedItem | null = null
+) {
+	return {
+		opensAt,
+		previous: previousItem,
+		expectations: [
+			{
+				sensor: 'chord',
+				content: {
+					kind: MEMBER_CONTENT,
+					value: {
+						family: 'chord-shapes',
+						index: GUITAR_DERIVATIONS.voicing.index({ voicingKey }),
+						selection: { family: 'chord-shapes', where }
+					}
+				}
+			}
+		]
+	};
+}
+
 describe('voicingOnStringsPresenter, for an item without a position (the anchor)', () => {
 	it('is played on the guitar, heard by the note and the chord sensors unless its round names others', () => {
 		expect(voicingOnStringsPresenter.set).toBe(voicingOnStringsSet);
@@ -36,7 +65,7 @@ describe('voicingOnStringsPresenter, for an item without a position (the anchor)
 	it('expects every shape of the voicing on the chord sensor', () => {
 		const { chord } = voicingOnStringsPresenter.expectation!(
 			{ voicingKey: D_ON_B },
-			{ opensAt: 4.2, previous: null }
+			chordRound(D_ON_B, [], 4.2)
 		) as { chord: ChordExpectation };
 		expect(chord.opensAt).toBe(4.2);
 		expect(chord.style).toBe('unknown');
@@ -49,7 +78,7 @@ describe('voicingOnStringsPresenter, for an item without a position (the anchor)
 	it('never lists a shape of the chord still ringing from the prompt before', () => {
 		const { chord } = voicingOnStringsPresenter.expectation!(
 			{ voicingKey: D_ON_G },
-			{ opensAt: 4.2, previous: previous(D_ON_B) }
+			chordRound(D_ON_G, [], 4.2, previous(D_ON_B))
 		) as { chord: ChordExpectation };
 		const frets = chord.candidates.map((c) => c.notes.map((n) => n.fret).join('-'));
 		expect(frets).not.toContain('2-3-2');
@@ -62,7 +91,7 @@ describe('voicingOnStringsPresenter, for an item with a position (the zone)', ()
 	it('expects the shape at the position asked, among its look-alikes', () => {
 		const { chord } = voicingOnStringsPresenter.expectation!(
 			{ voicingKey: D_ON_B, position: 14 },
-			{ opensAt: 1, previous: null }
+			chordRound(D_ON_B, [{ at: 14 }], 1)
 		) as { chord: ChordExpectation };
 		expect(chord.expected).toEqual([`${D_ON_B}@14-15-14`]);
 		expect(chord.candidates.find((c) => c.id === `${D_ON_B}@2-3-2`)?.kind).toBe('other-octave');
@@ -71,6 +100,26 @@ describe('voicingOnStringsPresenter, for an item with a position (the zone)', ()
 			{ string: 2, fret: 15, midi: 74 },
 			{ string: 1, fret: 14, midi: 78 }
 		]);
+	});
+});
+
+describe('voicingOnStringsPresenter, reading what its round admits', () => {
+	it('expects the shapes its chord expectation admits, whatever the item says', () => {
+		const { chord } = voicingOnStringsPresenter.expectation!(
+			{ voicingKey: D_ON_B },
+			chordRound(D_ON_B, [{ at: 15 }], 1)
+		) as { chord: ChordExpectation };
+		expect(chord.expected).toEqual([`${D_ON_B}@14-15-14`]);
+		expect(chord.candidates.find((c) => c.id === `${D_ON_B}@2-3-2`)?.kind).toBe('other-octave');
+	});
+
+	it('tells the chord sensor nothing in a round that expects no chord', () => {
+		expect(
+			voicingOnStringsPresenter.expectation!(
+				{ voicingKey: D_ON_B },
+				{ opensAt: 1, previous: null, expectations: [] }
+			)
+		).toEqual({});
 	});
 });
 

@@ -217,7 +217,8 @@ exports[`keeps chord-anchor as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "voicing-root",
+          "family": "note-places",
+          "of": "root",
         },
         "sensor": "note",
         "window": {
@@ -233,7 +234,7 @@ exports[`keeps chord-anchor as it is 1`] = `
           },
         },
         "content": {
-          "from": "voicing-anywhere",
+          "family": "chord-shapes",
         },
         "sensor": "chord",
         "until": {
@@ -511,7 +512,14 @@ exports[`keeps chord-zone as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "voicing-at-position",
+          "family": "chord-shapes",
+          "where": [
+            {
+              "at": {
+                "item": "fret",
+              },
+            },
+          ],
         },
         "sensor": "chord",
         "window": {
@@ -1578,7 +1586,7 @@ exports[`keeps locate-note-string as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "note-of-item",
+          "family": "note-places",
         },
         "sensor": "note",
         "window": {

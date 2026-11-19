@@ -30,6 +30,11 @@ export interface ChordShape extends GuitarMember {
 	occurrence: VoicingOccurrence;
 }
 
+/** The chord sensor's reading: the shape it decided (`occurrenceId`), or none. */
+export interface ChordReading {
+	decided: string | null;
+}
+
 /** What went wrong with a chord: the chord heard, or none. Part of a triad confusion. */
 export type ChordConfusion = {
 	kind: 'other-octave' | 'other-inversion' | 'other-quality' | 'none';

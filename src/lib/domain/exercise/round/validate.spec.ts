@@ -88,9 +88,9 @@ describe('roundProblem', () => {
 	});
 
 	it('refuses a derivation that does not read the set', () => {
-		const wrong: ExerciseDefinition = { ...IDENTIFY_NECK, round: round(LOCATE_NECK) };
+		const wrong: ExerciseDefinition = { ...LOCATE_NECK, round: round(IDENTIFY_NECK) };
 		expect(roundProblem(wrong)).toMatch(
-			/round\.expectations\[0\]\.content .*"note-of-item".*note-on-string.*not placed-note/
+			/round\.expectations\[0\]\.content .*"name-of-item".*placed-note.*not note-on-string/
 		);
 		const measure = withRound(LOCATE_NECK, (t) => ({
 			...t,
@@ -483,11 +483,11 @@ describe('roundProblem', () => {
 				/^round\.expectations\[0\]\.content derives "voicing-notes", a list, which only a figure spreads/
 			);
 			const single = withEntry(
-				{ ...RHYTHM, practices: 'locate-note-string' },
-				{ figure: { id: 'eighths' }, sensor: 'note', content: { from: 'note-of-item' } }
+				{ ...RHYTHM, practices: 'identify-note' },
+				{ figure: { id: 'eighths' }, sensor: 'note', content: { from: 'name-of-item' } }
 			);
 			expect(roundProblem(single)).toMatch(
-				/^round\.expectations\[0\]\.content derives "note-of-item", not a list/
+				/^round\.expectations\[0\]\.content derives "name-of-item", not a list/
 			);
 		});
 
@@ -714,7 +714,7 @@ describe('roundProblem, a content written as a selection', () => {
 	});
 
 	it('refuses a key a selection does not have', () => {
-		expect(problem(LOCATE_NECK, { family: 'note-places', from: 'note-of-item' })).toMatch(
+		expect(problem(LOCATE_NECK, { family: 'note-places', from: 'name-of-item' })).toMatch(
 			/^round\.expectations\[0\]\.content\.from is not a key/
 		);
 	});

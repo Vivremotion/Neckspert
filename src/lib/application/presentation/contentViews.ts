@@ -1,11 +1,9 @@
-import type { ChordVoicingContent } from '$lib/domain/judges';
+import { familyNamed } from '$lib/domain/families';
+import type { ChordShape } from '$lib/domain/families/guitar/chordShapes';
+import type { NotePlacesIndex } from '$lib/domain/families/guitar/notePlaces';
+import { admittedMembers, type MemberContent } from '$lib/domain/judges';
 import type { ChordReading } from '$lib/domain/sets';
-import {
-	parseVoicingKey,
-	pitchOfMidi,
-	type IdentifyItem,
-	type LocateItem
-} from '$lib/domain/music';
+import { pitchOfMidi, type IdentifyItem } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
 import type { Locale } from '$lib/domain/types';
 import { TRIAD_MESSAGES } from './triadMessages';
@@ -18,7 +16,6 @@ import {
 	heardFrets,
 	heardOf,
 	notesOf,
-	shapeAt,
 	shapeOf
 } from './triadWords';
 
@@ -50,15 +47,6 @@ const asPicture = (shape: ReturnType<typeof shapeOf>): Picture => ({ kind: 'shap
 const midiAnswerLabel: ContentView['answerLabel'] = (_value, answer, _locale, random) => {
 	const midi = (answer as { midi?: Midi } | null)?.midi;
 	return midi === undefined ? null : noteName(pitchOfMidi(midi), random);
-};
-
-/** A note on a string: the pitch played, spelled as the prompt spells its target. */
-const noteView: ContentView = {
-	answerLabel: midiAnswerLabel,
-	miss: (value, _outcome, locale) => ({
-		...NO_MISS,
-		correction: positionLabel(value as LocateItem, locale)
-	})
 };
 
 const GAP_WORDS: Record<Locale, (heard: string, expected: string) => string> = {
@@ -110,14 +98,48 @@ const nameView: ContentView = {
 	miss: (value) => ({ ...NO_MISS, correction: nameChoice(value as IdentifyItem) })
 };
 
-/** A triad voicing, anywhere or at a position. */
-const chordVoicingView: ContentView = {
+/** How a member of one family tells an answer and a miss; `value` is the member content judged. */
+interface MemberView {
+	answerLabel(
+		value: MemberContent,
+		answer: unknown,
+		locale: Locale,
+		random: () => number
+	): string | null;
+	miss(
+		value: MemberContent,
+		outcome: { answer: unknown; confusion: unknown },
+		locale: Locale,
+		random: () => number
+	): MissView;
+}
+
+/** A place of a note: the pitch played, spelled as the prompt spells its target; its place on its string. */
+const notePlacesView: MemberView = {
+	answerLabel: midiAnswerLabel,
+	miss: ({ index }, _outcome, locale) => {
+		const { pitch, string } = index as NotePlacesIndex;
+		return {
+			...NO_MISS,
+			correction: string === undefined ? null : positionLabel({ string, pitch }, locale)
+		};
+	}
+};
+
+/**
+ * A shape of a chord: the frets heard; after a miss, the shape heard, the shape expected (the one
+ * admitted, else the admitted shape nearest the one heard) and what tells them apart.
+ */
+const chordShapesView: MemberView = {
 	answerLabel: (_value, answer) => heardFrets(answer as ChordReading | null),
-	miss: (raw, { answer, confusion }, locale) => {
-		const { voicingKey, position } = raw as ChordVoicingContent;
-		const voicing = parseVoicingKey(voicingKey);
+	miss: (value, { answer, confusion }, locale) => {
+		const admitted = admittedMembers(value) as ChordShape[];
+		if (admitted.length === 0) return NO_MISS;
 		const heard = heardOf(answer as ChordReading | null);
-		const expected = position === null ? closestShape(voicing, heard) : shapeAt(voicing, position);
+		const expected =
+			admitted.length === 1
+				? admitted[0].occurrence
+				: closestShape(admitted[0].occurrence.voicing, heard);
 		return {
 			correction: `${fretsOf(expected)} · ${notesOf(expected)}`,
 			heard: heard && asPicture(shapeOf(heard)),
@@ -127,10 +149,28 @@ const chordVoicingView: ContentView = {
 	}
 };
 
+/** The views of the members of each family, by family id. */
+const MEMBER_VIEWS: Readonly<Record<string, MemberView>> = {
+	'note-places': notePlacesView,
+	'chord-shapes': chordShapesView
+};
+
+function memberViewOf(value: unknown): MemberView | null {
+	const { family } = value as MemberContent;
+	return Object.hasOwn(MEMBER_VIEWS, family) && familyNamed(family) ? MEMBER_VIEWS[family] : null;
+}
+
+/** A member of a family, told as its family tells it; nothing for a family without a view. */
+const memberView: ContentView = {
+	answerLabel: (value, answer, locale, random) =>
+		memberViewOf(value)?.answerLabel(value as MemberContent, answer, locale, random) ?? null,
+	miss: (value, outcome, locale, random) =>
+		memberViewOf(value)?.miss(value as MemberContent, outcome, locale, random) ?? NO_MISS
+};
+
 /** The views of content, by kind of content (the kinds of `CONTENT_JUDGES`). */
 export const CONTENT_VIEWS: Readonly<Record<string, ContentView>> = {
-	note: noteView,
 	name: nameView,
 	pitch: pitchView,
-	'chord-voicing': chordVoicingView
+	member: memberView
 };

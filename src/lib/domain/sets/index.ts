@@ -30,7 +30,7 @@ export {
 	type TriadZoneData,
 	type RootConfusion
 } from './voicingOnStrings';
-export { classifyChord, type ChordConfusion, type ChordReading } from './triadChord';
+export type { ChordConfusion, ChordReading } from '$lib/domain/families/guitar/chordShapes';
 export {
 	admits,
 	admittedShapes,

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { voicingOccurrences, parseVoicingKey } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
-import { CONTENT_JUDGES } from '$lib/domain/judges';
+import { CONTENT_JUDGES, type MemberContent } from '$lib/domain/judges';
+import type { Filter } from '$lib/domain/families';
+import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { CONTENT_VIEWS } from './contentViews';
 
@@ -26,18 +28,34 @@ const shape = (frets: [number, number, number]) => ({
 	]
 });
 
+/** A note on a string, as its exercise asks it: any of its places on that string. */
+const notePlaces = (index: { string: number; pitch: string }): MemberContent => ({
+	family: 'note-places',
+	index,
+	selection: { family: 'note-places' }
+});
+
+/** A voicing's shapes, those `where` admits (all without it). */
+const chordShapes = (voicingKey: string, where: readonly Filter[] = []): MemberContent => ({
+	family: 'chord-shapes',
+	index: GUITAR_DERIVATIONS.voicing.index({ voicingKey }),
+	selection: { family: 'chord-shapes', where }
+});
+
+const member = CONTENT_VIEWS.member;
+
 describe('CONTENT_VIEWS', () => {
 	it('spells the note played as the prompt spells its target', () => {
-		const value = { string: 2, pitch: 'D' };
-		expect(CONTENT_VIEWS.note.answerLabel(value, { midi: 62 }, 'fr', () => 0)).toBe('D');
+		const value = notePlaces({ string: 2, pitch: 'D' });
+		expect(member.answerLabel(value, { midi: 62 }, 'fr', () => 0)).toBe('D');
 		// A# played: sharp or flat as the same random draws it for the prompt.
-		expect(CONTENT_VIEWS.note.answerLabel(value, { midi: 70 }, 'fr', () => 0.9)).toBe('Bb');
-		expect(CONTENT_VIEWS.note.answerLabel(value, { midi: 70 }, 'fr', () => 0)).toBe('A#');
+		expect(member.answerLabel(value, { midi: 70 }, 'fr', () => 0.9)).toBe('Bb');
+		expect(member.answerLabel(value, { midi: 70 }, 'fr', () => 0)).toBe('A#');
 	});
 
 	it('tells a missed note its position', () => {
-		const miss = CONTENT_VIEWS.note.miss(
-			{ string: 6, pitch: 'A' },
+		const miss = member.miss(
+			notePlaces({ string: 6, pitch: 'A' }),
 			{ answer: { midi: 50 }, confusion: { kind: 'octave' } },
 			'fr',
 			() => 0
@@ -52,7 +70,7 @@ describe('CONTENT_VIEWS', () => {
 
 	it('never tells the open string as a position, fret 12 instead, in either language', () => {
 		const told = (item: { string: number; pitch: string }, locale: 'fr' | 'en') =>
-			CONTENT_VIEWS.note.miss(item, { answer: null, confusion: null }, locale, () => 0).correction;
+			member.miss(notePlaces(item), { answer: null, confusion: null }, locale, () => 0).correction;
 		expect(told({ string: 5, pitch: 'A' }, 'fr')).toBe('corde de A, case 12');
 		expect(told({ string: 2, pitch: 'F' }, 'en')).toBe('B string, fret 6');
 	});
@@ -67,23 +85,16 @@ describe('CONTENT_VIEWS', () => {
 	});
 
 	it('tells the frets of the chord heard, nothing when none was recognized', () => {
-		const value = { voicingKey: D_ON_B, position: null };
-		expect(
-			CONTENT_VIEWS['chord-voicing'].answerLabel(
-				value,
-				{ decided: idAt(D_ON_B, [2, 3, 2]) },
-				'fr',
-				() => 0
-			)
-		).toBe('2‑3‑2');
-		expect(
-			CONTENT_VIEWS['chord-voicing'].answerLabel(value, { decided: null }, 'fr', () => 0)
-		).toBeNull();
+		const value = chordShapes(D_ON_B);
+		expect(member.answerLabel(value, { decided: idAt(D_ON_B, [2, 3, 2]) }, 'fr', () => 0)).toBe(
+			'2‑3‑2'
+		);
+		expect(member.answerLabel(value, { decided: null }, 'fr', () => 0)).toBeNull();
 	});
 
 	it('tells a missed chord what was heard, what was expected near it, and the gap', () => {
-		const value = { voicingKey: D_ON_B, position: null };
-		const miss = CONTENT_VIEWS['chord-voicing'].miss(
+		const value = chordShapes(D_ON_B);
+		const miss = member.miss(
 			value,
 			{
 				answer: { decided: idAt(D_ON_G, [7, 7, 5]) },
@@ -100,8 +111,8 @@ describe('CONTENT_VIEWS', () => {
 	});
 
 	it("expects the zone's shape at its position", () => {
-		const value = { voicingKey: D_ON_B, position: 14 };
-		const miss = CONTENT_VIEWS['chord-voicing'].miss(
+		const value = chordShapes(D_ON_B, [{ at: 14 }]);
+		const miss = member.miss(
 			value,
 			{
 				answer: { decided: idAt(D_ON_B, [2, 3, 2]) },
@@ -116,8 +127,8 @@ describe('CONTENT_VIEWS', () => {
 	});
 
 	it('says no chord was heard when nothing answered', () => {
-		const miss = CONTENT_VIEWS['chord-voicing'].miss(
-			{ voicingKey: D_ON_B, position: 2 },
+		const miss = member.miss(
+			chordShapes(D_ON_B, [{ at: 2 }]),
 			{ answer: null, confusion: null },
 			'fr',
 			() => 0
@@ -129,12 +140,7 @@ describe('CONTENT_VIEWS', () => {
 
 	it('names the gap of a missed chord in English', () => {
 		const gap = (confusion: unknown, answer: unknown = { decided: null }) =>
-			CONTENT_VIEWS['chord-voicing'].miss(
-				{ voicingKey: D_ON_B, position: null },
-				{ answer, confusion },
-				'en',
-				() => 0
-			).gap;
+			member.miss(chordShapes(D_ON_B), { answer, confusion }, 'en', () => 0).gap;
 		expect(gap({ kind: 'other-inversion', part: 'chord' })).toBe('other inversion');
 		expect(gap({ kind: 'other-quality', part: 'chord' })).toBe('other quality');
 		expect(gap({ kind: 'none', part: 'chord' })).toBe('nothing recognized');
@@ -195,13 +201,23 @@ describe('CONTENT_VIEWS', () => {
 		expect(miss).toMatchObject({ correction: 'Bb', gap: 'Ab au lieu de Bb' });
 	});
 
-	it('tells the pitch played as the note view does', () => {
+	it('tells the pitch played as the view of a note on a string does', () => {
 		for (const r of [0, 0.9]) {
 			expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => r)).toBe(
-				CONTENT_VIEWS.note.answerLabel({ string: 2, pitch: 'G' }, { midi: 70 }, 'fr', () => r)
+				member.answerLabel(notePlaces({ string: 2, pitch: 'G' }), { midi: 70 }, 'fr', () => r)
 			);
 		}
-		expect(CONTENT_VIEWS.pitch.answerLabel).toBe(CONTENT_VIEWS.note.answerLabel);
+	});
+
+	it('tells nothing of a member of a family it has no view for', () => {
+		const value = { family: 'nobody', index: null, selection: { family: 'nobody' } };
+		expect(member.answerLabel(value, { midi: 60 }, 'fr', () => 0)).toBeNull();
+		expect(member.miss(value, { answer: null, confusion: null }, 'fr', () => 0)).toEqual({
+			correction: null,
+			heard: null,
+			expected: null,
+			gap: null
+		});
 	});
 
 	it('spells the pitch played', () => {
@@ -212,10 +228,9 @@ describe('CONTENT_VIEWS', () => {
 	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {
 		/**
 		 * Kinds judged but not drawn by a view yet: the gesture's, drawn by its presenter's own
-		 * model until the gesture is data; the member's, which no exercise writes before the
-		 * catalog moves to it (plan 4a, Task 4).
+		 * model until the gesture is data.
 		 */
-		const NOT_VIEWED_YET = ['chord-grid', 'member'];
+		const NOT_VIEWED_YET = ['chord-grid'];
 		const judged = Object.keys(CONTENT_JUDGES);
 		expect(NOT_VIEWED_YET.every((kind) => judged.includes(kind))).toBe(true);
 		expect(Object.keys(CONTENT_VIEWS).sort()).toEqual(

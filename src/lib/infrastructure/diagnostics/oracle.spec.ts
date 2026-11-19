@@ -134,6 +134,21 @@ describe('oracleRuns', () => {
 		expect(oracleRuns([cycle(1, 's', 10_000), empty]).map((run) => run.attemptIds)).toEqual([[1]]);
 	});
 
+	it('leaves out a cycle plan whose content no judge reads any more, without throwing', () => {
+		// Kept before plan 4a: a stored plan keeps its content kind (D10), `note` among them.
+		const old = {
+			...cycle(2, 's', 10_000 + CYCLE_MS),
+			plan: {
+				...PLAN,
+				expectations: PLAN.expectations.map((e) => ({
+					...e,
+					content: { kind: 'note', value: { string: 2, pitch: 'F' } }
+				}))
+			}
+		};
+		expect(oracleRuns([cycle(1, 's', 10_000), old]).map((run) => run.attemptIds)).toEqual([[1]]);
+	});
+
 	it('chains a cycle that starts within a beat of the last one’s end', () => {
 		const beat = CYCLE_MS / 4;
 		const runs = oracleRuns([

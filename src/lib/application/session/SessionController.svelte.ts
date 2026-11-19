@@ -1124,7 +1124,11 @@ export class SessionController implements PlaySessionController {
 			aids: given.aids,
 			sources: this.sensors.sources,
 			expectation:
-				presenter.expectation?.(item.item, { opensAt: promptTime, previous: this.previous }) ?? {},
+				presenter.expectation?.(item.item, {
+					opensAt: promptTime,
+					previous: this.previous,
+					expectations: plan.expectations
+				}) ?? {},
 			// A presenter reads the payloads of its own sensors, not a bare attack heard by another.
 			debug: {
 				lines: (payload, sensor) =>

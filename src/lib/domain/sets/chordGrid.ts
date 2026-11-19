@@ -6,7 +6,7 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceOfId } from '$lib/domain/triads';
-import type { ChordReading } from './triadChord';
+import type { ChordReading } from '$lib/domain/families/guitar/chordShapes';
 import {
 	beyond,
 	classifyGridChord,

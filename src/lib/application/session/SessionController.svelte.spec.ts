@@ -7,7 +7,7 @@ import {
 } from '$lib/domain/derivations';
 import { exerciseById } from '$lib/domain/exercise';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
-import { NAME_CONTENT, NOTE_CONTENT } from '$lib/domain/judges';
+import { NAME_CONTENT, PITCH_CONTENT } from '$lib/domain/judges';
 import { acceptableMidis } from '$lib/domain/music';
 import { triadShapes, type ChordGridItem } from '$lib/domain/sets';
 import { createGestureSelector } from '$lib/domain/progress';
@@ -997,9 +997,9 @@ describe('SessionController', () => {
 		// are the vocabulary this file adds to the registry.
 		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
 		derivations['test-note-c'] = {
-			kind: NOTE_CONTENT,
+			kind: PITCH_CONTENT,
 			reads: ['beat', 'beat-unannounced'],
-			derive: () => NOTE_C
+			derive: () => ({ midi: C })
 		};
 		derivations['test-name'] = {
 			kind: NAME_CONTENT,

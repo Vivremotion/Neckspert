@@ -18,10 +18,11 @@ import {
 	type Voicing,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import { occurrenceId } from '$lib/domain/triads';
-import type { ExpectationResult, ResponseValue } from '$lib/domain/time';
+import type { ChordShape } from '$lib/domain/families/guitar/chordShapes';
+import { admittedMembers, MEMBER_CONTENT, type MemberContent } from '$lib/domain/judges';
+import { occurrenceId, occurrencePosition } from '$lib/domain/triads';
+import type { Expectation, ExpectationResult, ResponseValue } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
 import type { SetPresenter } from './types';
 
 function toCandidate(kind: string, occurrence: VoicingOccurrence): ChordCandidate {
@@ -39,24 +40,28 @@ function ringing(previous: PlannedItem | null): string | null {
 }
 
 /**
- * What the chord sensor listens for: the shapes expected and their look-alikes (spec 2026-10-07),
- * never a shape of the chord still ringing from the prompt before.
+ * What the chord sensor listens for: the shapes its round admits, and around the lowest of them
+ * the look-alikes (spec 2026-10-07), never a shape of the chord still ringing from the prompt
+ * before.
  */
 function chordExpectation(
 	voicing: Voicing,
-	shape: VoicingOccurrence,
-	everyOctave: boolean,
+	admitted: readonly ChordShape[],
 	round: { opensAt: number; previous: PlannedItem | null }
 ): ChordExpectation {
 	const inversions = closeTriadVoicings(
 		voicing.chord,
 		voicing.strings.map((s) => s.string)
 	);
+	// As the lowest shape is drawn: a shape on open strings only when no other is admitted.
+	const centre =
+		admitted.find((shape) => occurrencePosition(shape.occurrence) !== 'open') ?? admitted[0];
+	const expected = new Set(admitted.map((shape) => shape.id));
 	const excluded = ringing(round.previous);
-	const candidates = voicingCandidates(shape, inversions)
+	const candidates = voicingCandidates(centre.occurrence, inversions)
 		.filter((c) => voicingKey(c.occurrence.voicing) !== excluded)
 		.map((c) =>
-			toCandidate(everyOctave && c.kind === 'other-octave' ? 'expected' : c.kind, c.occurrence)
+			toCandidate(expected.has(occurrenceId(c.occurrence)) ? 'expected' : c.kind, c.occurrence)
 		);
 	return {
 		opensAt: round.opensAt,
@@ -64,6 +69,14 @@ function chordExpectation(
 		candidates,
 		style: 'unknown'
 	};
+}
+
+/** The shapes the round's chord expectation admits; none when it has no chord expectation. */
+function admittedShapes(expectations: readonly Pick<Expectation, 'sensor' | 'content'>[]) {
+	const chord = expectations.find(
+		(e) => e.sensor === 'chord' && e.content?.kind === MEMBER_CONTENT
+	);
+	return chord ? (admittedMembers(chord.content!.value as MemberContent) as ChordShape[]) : [];
 }
 
 /** The confusion of an anchor whose root was right and whose chord never came in its band. */
@@ -128,9 +141,9 @@ function chordData(item: VoicingOnStringsItem, value: ResponseValue): TriadZoneD
 
 /**
  * A triad voicing on its strings, played on the guitar: its words and what it draws are its
- * exercise's presentation. The chord sensor listens for the shape at the item's position when it
- * has one, else for the lowest shape at any octave. An attempt keeps what was heard of each part
- * when its round asks the root then the chord (the anchor), else of the chord alone (the zone).
+ * exercise's presentation. The chord sensor listens for the shapes the round's chord
+ * expectation admits. An attempt keeps what was heard of each part when its round asks the root
+ * then the chord (the anchor), else of the chord alone (the zone).
  */
 export const voicingOnStringsPresenter: SetPresenter<VoicingOnStringsItem> = {
 	set: voicingOnStringsSet,
@@ -138,13 +151,10 @@ export const voicingOnStringsPresenter: SetPresenter<VoicingOnStringsItem> = {
 	sensors: ['note', 'chord'],
 	contestable: true,
 	expectation: (item, round) => {
-		const voicing = parseVoicingKey(item.voicingKey);
-		return {
-			chord:
-				item.position === undefined
-					? chordExpectation(voicing, lowestShape(voicing), true, round)
-					: chordExpectation(voicing, shapeAt(voicing, item.position), false, round)
-		};
+		const admitted = admittedShapes(round.expectations);
+		// A round that admits no shape tells the chord sensor nothing.
+		if (admitted.length === 0) return {};
+		return { chord: chordExpectation(parseVoicingKey(item.voicingKey), admitted, round) };
 	},
 	attemptData: (item, value) =>
 		value.expectations.length === 2 ? anchorData(item, value) : chordData(item, value)

@@ -19,7 +19,7 @@ import {
 	type CycleReport,
 	type CycleVerdict
 } from '$lib/domain/time';
-import { contentJudges } from '$lib/domain/judges';
+import { CONTENT_JUDGES, contentJudges } from '$lib/domain/judges';
 import type { Attempt } from '$lib/domain/types';
 import type { DexieDiagnosticSink } from './DexieDiagnosticSink';
 import type { DiagnosticTakeRow } from './diagnosticsDb';
@@ -54,8 +54,8 @@ export interface OracleRun {
 
 /**
  * The plan of a cycle the attack sensor heard (a round judged whole, `policy.unit: 'cycle'`, with
- * expectations, all of that sensor, played at a tempo), its length and a beat in ms; null for any
- * other attempt.
+ * expectations, all of that sensor and of a content a judge reads, played at a tempo), its length
+ * and a beat in ms; null for any other attempt.
  */
 function cycleOf(
 	attempt: Attempt
@@ -68,7 +68,10 @@ function cycleOf(
 		typeof plan.length !== 'string' ||
 		!Array.isArray(plan.expectations) ||
 		plan.expectations.length === 0 ||
-		!plan.expectations.every((e) => e.sensor === RHYTHM_SENSOR)
+		!plan.expectations.every((e) => e.sensor === RHYTHM_SENSOR) ||
+		// A plan stored before plan 4a keeps its content kind (D10): one no judge reads any more
+		// (`note`, `chord-voicing`) cannot be judged again, so its attempt is left out.
+		!plan.expectations.every((e) => !e.content || Object.hasOwn(CONTENT_JUDGES, e.content.kind))
 	) {
 		return null;
 	}

@@ -1,14 +1,7 @@
-import {
-	CHORD_GRID_CONTENT,
-	CHORD_VOICING_CONTENT,
-	NAME_CONTENT,
-	NOTE_CONTENT,
-	PITCH_CONTENT
-} from '../judges';
+import { CHORD_GRID_CONTENT, NAME_CONTENT, PITCH_CONTENT } from '../judges';
 import type { FigureItem } from '../sets/figure';
 import { shapeNamed, type FormFigureItem } from '../sets/placedShape';
 import type { VoicingFigureItem } from '../sets/placedVoicing';
-import { rootPosition } from '../sets/voicingOnStrings';
 import { parseVoicingKey } from '../music';
 import { movedShape } from '../music/formNotes';
 import { voicingNotes } from '../music/voicingNotes';
@@ -40,33 +33,8 @@ export interface ItemNumber {
 	measure(item: unknown): number;
 }
 
-interface Voiced {
-	voicingKey: string;
-	position?: number | 'open';
-}
-
 export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = {
-	'note-of-item': { kind: NOTE_CONTENT, reads: ['note-on-string'], derive: (item) => item },
 	'name-of-item': { kind: NAME_CONTENT, reads: ['placed-note'], derive: (item) => item },
-	'voicing-root': {
-		kind: NOTE_CONTENT,
-		reads: ['voicing-on-strings'],
-		derive: (item) => rootPosition(parseVoicingKey((item as Voiced).voicingKey))
-	},
-	'voicing-anywhere': {
-		kind: CHORD_VOICING_CONTENT,
-		reads: ['voicing-on-strings'],
-		derive: (item) => ({ voicingKey: (item as Voiced).voicingKey, position: null })
-	},
-	'voicing-at-position': {
-		kind: CHORD_VOICING_CONTENT,
-		reads: ['voicing-on-strings'],
-		// An item without a position asks the voicing at any of its places, as `voicing-anywhere`.
-		derive: (item) => {
-			const { voicingKey, position } = item as Voiced;
-			return { voicingKey, position: position ?? null };
-		}
-	},
 	'grid-change': { kind: CHORD_GRID_CONTENT, reads: ['change'], derive: (item) => item },
 	'voicing-notes': {
 		kind: PITCH_CONTENT,
@@ -129,10 +97,20 @@ export interface ItemValue {
 
 /** The values a filter reads on an item, by name. */
 export const ITEM_VALUES: Readonly<Record<string, ItemValue>> = {
+	/**
+	 * The fret the prompt names; when it names none, the place of the shape asked: 0 for a shape on
+	 * open strings, else its position (attempts stored before the cue fret named the position).
+	 * Absent only for an item without a position: the filter is then left out, and the voicing is
+	 * asked at any of its places.
+	 */
 	fret: {
 		reads: ['voicing-on-strings'],
 		kind: 'number',
-		valueOf: (item) => (item as { fret?: number }).fret
+		valueOf: (item) => {
+			const { fret, position } = item as { fret?: number; position?: number | 'open' };
+			if (fret !== undefined) return fret;
+			return position === 'open' ? 0 : position;
+		}
 	},
 	string: {
 		reads: ['note-on-string'],

@@ -6,7 +6,6 @@ import { CHORD_ANCHOR_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { presenterOf, SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
-import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import type { PromptStageModel } from '$lib/application/presentation/promptStage';
 import type { PlaySessionController } from '$lib/application/session/contract';
@@ -37,20 +36,22 @@ import type {
 	RoundTemplate
 } from '$lib/domain/exercise/round';
 import {
-	CHORD_VOICING_CONTENT,
+	admittedMembers,
+	MEMBER_CONTENT,
 	NAME_CONTENT,
-	NOTE_CONTENT,
-	PITCH_CONTENT
+	PITCH_CONTENT,
+	type MemberContent
 } from '$lib/domain/judges';
-import type { ChordVoicingContent } from '$lib/domain/judges';
+import { INDEX_DERIVATIONS } from '$lib/domain/families';
+import type { ChordShape } from '$lib/domain/families/guitar/chordShapes';
+import type { NotePlace } from '$lib/domain/families/guitar/notePlaces';
+import type { SelectionTemplate } from '$lib/domain/exercise/selection/types';
 import {
-	acceptableMidis,
 	locateItems,
 	parseVoicingKey,
 	pitchOnString,
 	voicingOccurrences,
-	type IdentifyItem,
-	type LocateItem
+	type IdentifyItem
 } from '$lib/domain/music';
 import {
 	CHROMATIC_NOTES,
@@ -80,7 +81,7 @@ import {
 	type TempoMap
 } from '$lib/domain/time';
 import type { ExpectedContent } from '$lib/domain/time/plan';
-import { occurrenceId, occurrencePosition } from '$lib/domain/triads';
+import { occurrencePosition } from '$lib/domain/triads';
 import type { Attempt, PlannedItem } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
@@ -156,12 +157,50 @@ export const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [
 export const METER_6_8: Meter = { count: 6, unit: Fraction.of(1, 8), grouping: [3, 3] };
 const METERS: readonly Meter[] = [METER_2_4, METER_3_4, METER_4_4, METER_6_8];
 
-/** The sensor that hears each kind of content. */
+/** The sensor that hears each kind of content a derivation gives. */
 export const SENSOR_OF_KIND: Readonly<Record<string, string>> = {
-	[NOTE_CONTENT]: 'note',
-	[CHORD_VOICING_CONTENT]: 'chord',
 	[NAME_CONTENT]: 'tap'
 };
+
+/** The sensor that hears the members of each family. */
+export const SENSOR_OF_FAMILY: Readonly<Record<string, string>> = {
+	'note-places': 'note',
+	'chord-shapes': 'chord'
+};
+
+/** A content a point expectation may write: a derivation's, or a selection of a family's members. */
+interface DrawnContent {
+	content: { from: string } | SelectionTemplate;
+	/** The sets whose items it reads. */
+	reads: readonly string[];
+	sensor: string;
+}
+
+/**
+ * Every content a point expectation may draw: the derivations heard by a sensor, and for each
+ * index derivation its family's members, all of them or (for a voicing's shapes) the one at the
+ * fret the item names.
+ */
+function drawnContents(): DrawnContent[] {
+	const derived = Object.keys(CONTENT_DERIVATIONS)
+		.filter((name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND)
+		.map((from) => ({
+			content: { from },
+			reads: CONTENT_DERIVATIONS[from].reads,
+			sensor: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind]
+		}));
+	const selected = Object.entries(INDEX_DERIVATIONS).flatMap(([of, derivation]) => {
+		const base = {
+			reads: derivation.reads,
+			sensor: SENSOR_OF_FAMILY[derivation.family]
+		};
+		const all = { ...base, content: { family: derivation.family, of } };
+		return derivation.family === 'chord-shapes'
+			? [all, { ...base, content: { ...all.content, where: [{ at: { item: 'fret' } }] } }]
+			: [all];
+	});
+	return [...derived, ...selected];
+}
 
 /** The sensors a session of the bench has. */
 export const BENCH_SENSORS: readonly string[] = ['note', 'chord', 'tap'];
@@ -231,8 +270,9 @@ function randomPosition(random: () => number, beats: number): Position {
 }
 
 /**
- * One or two expectations, each derived from the item by a derivation that reads the set
- * (now and then one that does not) and heard by the sensor of its kind, or asking for no content
+ * One or two expectations, each derived from the item by a derivation, or a selection of a
+ * family's members indexed by the item, that reads the set (now and then one that does not) and
+ * heard by the sensor of its kind or family, or asking for no content
  * (a bare attack, heard by any sensor: mostly so under an alignment, which judges none); now and
  * then a judged rest; in free time, or placed on the beat (now and then the two mixed).
  */
@@ -241,10 +281,8 @@ function randomExpectations(
 	set: string,
 	aligned: boolean
 ): ExpectationTemplate[] {
-	const all = Object.keys(CONTENT_DERIVATIONS).filter(
-		(name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND
-	);
-	const reading = all.filter((name) => CONTENT_DERIVATIONS[name].reads.includes(set));
+	const all = drawnContents();
+	const reading = all.filter((drawn) => drawn.reads.includes(set));
 	const count = between(random, 1, 2);
 	const free = chance(random, aligned ? 0.05 : set === 'placed-note' ? 0.6 : 0.15);
 	// A bare attack's sensor: one for the whole round, now and then not.
@@ -254,7 +292,7 @@ function randomExpectations(
 	const places = Array.from({ length: count }, () => pick(random, POSITIONS));
 	if (chance(random, 0.85)) places.sort((a, b) => a - b);
 	return places.map((beats, i) => {
-		const from = chance(random, 0.05) ? pick(random, all) : pick(random, reading);
+		const drawn = chance(random, 0.05) ? pick(random, all) : pick(random, reading);
 		const inFreeTime = mixed ? i === 0 : free;
 		const window = chance(random, 0.3)
 			? { ms: { param: 'windows.perfectMs' } }
@@ -266,8 +304,8 @@ function randomExpectations(
 				? chance(random, 0.9)
 					? bareSensor
 					: pick(random, BENCH_SENSORS)
-				: SENSOR_OF_KIND[CONTENT_DERIVATIONS[from].kind],
-			content: bare ? null : { from },
+				: drawn.sensor,
+			content: bare ? null : drawn.content,
 			window
 		};
 		if (chance(random, 0.05)) template.role = 'judged-rest';
@@ -386,8 +424,8 @@ function listedItems(skill: string): string[] | undefined {
  * - its shape: a skill among `RANDOM_SKILLS` or the one without memory beside it
  *   (`registerRandomSkills`), on its set, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
  *   tempo from 50 to 160;
- * - its expectations: one or two, each with a derivation that reads the set and the sensor
- *   of its kind; places, stretches and windows in fractions of a beat; now and then one of them
+ * - its expectations: one or two, each with a derivation or a selection that reads the set and
+ *   the sensor of its kind or family; places, stretches and windows in fractions of a beat; now and then one of them
  *   a figure entry, over two one-bar figures the exercise writes;
  * - the rest: a length and a breath, a ladder of one to three levels, a place of the target and
  *   an end of the count, a presentation made of the set's fields.
@@ -559,19 +597,13 @@ export function listItems(
 /** The payload a fake sensor sends for a right answer to `content`, by content kind. */
 export function rightPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
-		case NOTE_CONTENT:
-			return { midi: acceptableMidis(content.value as LocateItem)[0] };
+		case MEMBER_CONTENT:
+			return rightMember(content.value as MemberContent);
 		case PITCH_CONTENT:
 			return { midi: (content.value as { midi: number }).midi };
 		case NAME_CONTENT: {
 			const item = content.value as IdentifyItem;
 			return pitchOnString(item.string, item.fret);
-		}
-		case CHORD_VOICING_CONTENT: {
-			const { voicingKey: key, position } = content.value as ChordVoicingContent;
-			const voicing = parseVoicingKey(key);
-			const shape = position === null ? lowestShape(voicing) : shapeAt(voicing, position);
-			return { windowMs: 300, decided: occurrenceId(shape), final: true, variants: [] };
 		}
 		default:
 			throw new Error(`No right payload for content kind ${content.kind}`);
@@ -581,18 +613,56 @@ export function rightPayload(content: ExpectedContent): unknown {
 /** The payload a fake sensor sends for a wrong answer to `content`, by content kind. */
 export function wrongPayload(content: ExpectedContent): unknown {
 	switch (content.kind) {
-		case NOTE_CONTENT:
-			return { midi: acceptableMidis(content.value as LocateItem)[0] + 1 };
+		case MEMBER_CONTENT:
+			return wrongMember(content.value as MemberContent);
 		case PITCH_CONTENT:
 			return { midi: (content.value as { midi: number }).midi + 1 };
 		case NAME_CONTENT: {
 			const right = rightPayload(content) as PitchName;
 			return CHROMATIC_NOTES[(CHROMATIC_NOTES.indexOf(right) + 1) % CHROMATIC_NOTES.length];
 		}
-		case CHORD_VOICING_CONTENT:
-			return { windowMs: 300, decided: null, final: true, variants: [] };
 		default:
 			throw new Error(`No wrong payload for content kind ${content.kind}`);
+	}
+}
+
+/** A chord sensor's final reading of `decided`. */
+const chordReading = (decided: string | null) => ({
+	windowMs: 300,
+	decided,
+	final: true,
+	variants: []
+});
+
+/** What a sensor sends for the first member a content admits: its lowest fretted shape, its note. */
+function rightMember(content: MemberContent): unknown {
+	const members = admittedMembers(content);
+	if (members.length === 0) throw new Error(`No member admitted by ${JSON.stringify(content)}`);
+	switch (content.family) {
+		case 'note-places':
+			return { midi: (members[0] as NotePlace).midi };
+		case 'chord-shapes': {
+			const shapes = members as ChordShape[];
+			const shape = shapes.find((s) => occurrencePosition(s.occurrence) !== 'open') ?? shapes[0];
+			return chordReading(shape.id);
+		}
+		default:
+			throw new Error(`No right payload for family ${content.family}`);
+	}
+}
+
+/** What a sensor sends that no member of the content is: a note a semitone off, no chord. */
+function wrongMember(content: MemberContent): unknown {
+	switch (content.family) {
+		case 'note-places': {
+			// The places of one note lie octaves apart: a semitone above the first is none of them.
+			const [first] = admittedMembers(content) as NotePlace[];
+			return { midi: (first?.midi ?? 60) + 1 };
+		}
+		case 'chord-shapes':
+			return chordReading(null);
+		default:
+			throw new Error(`No wrong payload for family ${content.family}`);
 	}
 }
 

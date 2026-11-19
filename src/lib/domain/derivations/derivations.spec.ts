@@ -2,9 +2,6 @@ import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '../exercise/types';
 import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
-import { CHORD_VOICING_CONTENT, CONTENT_JUDGES } from '../judges';
-import { parseVoicingKey, voicingOccurrences } from '../music';
-import { occurrenceId } from '../triads';
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS, ITEM_VALUES } from './index';
 
 registerTestSkills();
@@ -18,33 +15,8 @@ const C_FIRST = 'C|maj|3:3,2:5,1:1';
 const KEY = 'D|maj|3:5,2:1,1:3';
 
 describe('the derivations', () => {
-	it('derives the root of a voicing as a note on its string', () => {
-		const root = CONTENT_DERIVATIONS['voicing-root'];
-		expect(root.kind).toBe('note');
-		expect(root.derive({ voicingKey: KEY }, NO_SHAPES)).toEqual({ string: 2, pitch: 'D' });
-	});
-
-	it('derives a voicing at the position of an item without one as the voicing at any place', () => {
-		const asked = CONTENT_DERIVATIONS['voicing-at-position'].derive({ voicingKey: KEY }, NO_SHAPES);
-		const judge = (decided: string) =>
-			CONTENT_JUDGES[CHORD_VOICING_CONTENT].judge(asked, { decided }).correct;
-		const places = voicingOccurrences(parseVoicingKey(KEY));
-		expect(places.length).toBeGreaterThan(1);
-		for (const place of places) expect(judge(occurrenceId(place))).toBe(true);
-		const other = voicingOccurrences(parseVoicingKey('D|maj|3:1,2:3,1:5'))[0];
-		expect(judge(occurrenceId(other))).toBe(false);
-	});
-
-	it('derives a voicing anywhere and at its position', () => {
-		expect(
-			CONTENT_DERIVATIONS['voicing-anywhere'].derive({ voicingKey: KEY, position: 7 }, NO_SHAPES)
-		).toEqual({ voicingKey: KEY, position: null });
-		expect(
-			CONTENT_DERIVATIONS['voicing-at-position'].derive({ voicingKey: KEY, position: 7 }, NO_SHAPES)
-		).toEqual({ voicingKey: KEY, position: 7 });
-		expect(CONTENT_DERIVATIONS['voicing-at-position'].kind).toBe('chord-voicing');
+	it('derives the item itself and the length of a change', () => {
 		const item = { string: 3, pitch: 'F' };
-		expect(CONTENT_DERIVATIONS['note-of-item'].derive(item, NO_SHAPES)).toBe(item);
 		expect(CONTENT_DERIVATIONS['name-of-item'].derive(item, NO_SHAPES)).toBe(item);
 		expect(CONTENT_DERIVATIONS['grid-change'].derive(item, NO_SHAPES)).toBe(item);
 		expect(
@@ -57,11 +29,7 @@ describe('the derivations', () => {
 			Object.entries(CONTENT_DERIVATIONS).map(([name, d]) => [name, d.reads])
 		);
 		expect(reads).toEqual({
-			'note-of-item': ['note-on-string'],
 			'name-of-item': ['placed-note'],
-			'voicing-root': ['voicing-on-strings'],
-			'voicing-anywhere': ['voicing-on-strings'],
-			'voicing-at-position': ['voicing-on-strings'],
 			'grid-change': ['change'],
 			'voicing-notes': ['placed-voicing'],
 			'shape-notes': ['placed-shape']
@@ -141,9 +109,11 @@ describe('the derivations', () => {
 });
 
 describe('the values a filter reads on an item', () => {
-	it('reads the fret of a voicing on strings, absent when the item carries none', () => {
+	it('reads the fret the prompt names, else the place of the shape asked, absent without one', () => {
 		expect(ITEM_VALUES.fret.reads).toEqual(['voicing-on-strings']);
-		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY, fret: 7 })).toBe(7);
+		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY, position: 5, fret: 7 })).toBe(7);
+		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY, position: 5 })).toBe(5);
+		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY, position: 'open' })).toBe(0);
 		expect(ITEM_VALUES.fret.valueOf({ voicingKey: KEY })).toBeUndefined();
 	});
 

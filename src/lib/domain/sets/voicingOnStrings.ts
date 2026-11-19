@@ -12,7 +12,7 @@ import {
 } from '$lib/domain/music';
 import { occurrenceId, occurrenceOfId } from '$lib/domain/triads/items';
 import { cueFrets, occurrencePosition } from '$lib/domain/triads/position';
-import type { ChordConfusion, ChordReading } from './triadChord';
+import type { ChordConfusion, ChordReading } from '$lib/domain/families/guitar/chordShapes';
 import type { ItemSet } from './types';
 
 /**

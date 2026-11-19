@@ -206,12 +206,20 @@ export class DemoPlaySession implements PlaySessionController {
 		const missed = verdict === 'wrong';
 		// The wrong note is the string's open note, played; a right one, the target.
 		const answer = { midi: missed ? midiOnString(item.string, 0) : acceptableMidis(item)[0] };
-		const note = CONTENT_VIEWS.note;
+		// Judged as locate asks it: any place of the note on its string.
+		const content = {
+			family: 'note-places',
+			index: { pitch: item.pitch, string: item.string },
+			selection: { family: 'note-places' }
+		};
+		const member = CONTENT_VIEWS.member;
 		const told: StageVerdict = {
 			verdict,
 			offsetMs,
-			answerLabel: note.answerLabel(item, answer, i18n.locale, noRandom),
-			misses: missed ? [note.miss(item, { answer, confusion: null }, i18n.locale, noRandom)] : []
+			answerLabel: member.answerLabel(content, answer, i18n.locale, noRandom),
+			misses: missed
+				? [member.miss(content, { answer, confusion: null }, i18n.locale, noRandom)]
+				: []
 		};
 		this.#show({ anchorBeat: target, promptBeat: this.#promptBeat, verdict: told });
 		this.view.status = 'verdict';

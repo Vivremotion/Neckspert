@@ -12,12 +12,16 @@ import {
 	type Voicing
 } from '$lib/domain/music';
 import { inZone } from '$lib/domain/sets/chordGrid';
-import { classifyChord } from '$lib/domain/sets/triadChord';
 import { occurrenceId, occurrencePosition } from '$lib/domain/triads';
 import { BLUES_F, IOHEFY_A, TRIADS_ANCHOR } from '$lib/testing/catalog';
 import { admitted } from '../core/select';
 import type { Filter } from '../core/types';
-import { chordShapes, type ChordShape, type ChordShapesIndex } from './chordShapes';
+import {
+	chordShapes,
+	classifyChordShape,
+	type ChordShape,
+	type ChordShapesIndex
+} from './chordShapes';
 
 const ANCHOR_VOICINGS: readonly Voicing[] = (TRIADS_ANCHOR.items ?? []).map((entry) =>
 	parseVoicingKey(itemEntryKey(entry))
@@ -205,13 +209,13 @@ describe('chord-shapes confusion', () => {
 
 	const SAMPLE = ANCHOR_VOICINGS.filter((_, i) => i % 9 === 0);
 
-	it('tells what classifyChord tells when every shape of the voicing is admitted', () => {
+	it('tells what classifyChordShape tells when every shape of the voicing is admitted', () => {
 		const kinds = new Set<string>();
 		for (const voicing of SAMPLE) {
 			const index = indexOf(voicing);
 			const all = chordShapes.members(index);
 			for (const decided of payloadsFor(voicing)) {
-				const expected = classifyChord(voicing, null, decided).confusion;
+				const expected = classifyChordShape(voicing, null, decided).confusion;
 				expect(chordShapes.confusion(index, all, { decided }), `${decided}`).toEqual(expected);
 				if (expected) kinds.add(expected.kind);
 			}
@@ -219,14 +223,14 @@ describe('chord-shapes confusion', () => {
 		expect(kinds).toEqual(new Set(['none', 'other-inversion', 'other-quality']));
 	});
 
-	it('tells what classifyChord tells at the position of the one shape admitted', () => {
+	it('tells what classifyChordShape tells at the position of the one shape admitted', () => {
 		const kinds = new Set<string>();
 		for (const voicing of SAMPLE) {
 			const index = indexOf(voicing);
 			for (const shape of chordShapes.members(index)) {
 				const position = occurrencePosition(shape.occurrence);
 				for (const decided of payloadsFor(voicing)) {
-					const expected = classifyChord(voicing, position, decided).confusion;
+					const expected = classifyChordShape(voicing, position, decided).confusion;
 					expect(chordShapes.confusion(index, [shape], { decided }), `${decided}`).toEqual(
 						expected
 					);
