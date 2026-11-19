@@ -40,8 +40,8 @@ export interface LearningSubject {
 	/** A skill whose prompt may draw a fading aid (the string). */
 	fadingAid(skill: SkillId): boolean;
 	/**
-	 * The item a prompt asks, served at item level `level` (absent: the params of no item level;
-	 * a zone card draws its shape here); absent: the card's item.
+	 * The item a prompt asks, served at item level `level` (a zone card draws its shape here);
+	 * absent: the card's item.
 	 */
-	promptItem?(card: CardRef, random: () => number, level?: number): unknown;
+	promptItem?(card: CardRef, random: () => number, level: number): unknown;
 }

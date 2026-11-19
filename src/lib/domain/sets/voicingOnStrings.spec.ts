@@ -29,6 +29,16 @@ describe('voicingOnStringsSet', () => {
 		expect(() => voicingOnStringsSet.parseItem('D|maj')).toThrow();
 	});
 
+	it('reads a key written another way as the voicing’s own key: one item, one card', () => {
+		const written = KEY.replace(/(\d):/g, '0$1:');
+		expect(written).not.toBe(KEY);
+		expect(voicingOnStringsSet.parseItem(written)).toEqual({ voicingKey: KEY });
+	});
+
+	it('asks members of chord-shapes', () => {
+		expect(voicingOnStringsSet.asks).toBe('chord-shapes');
+	});
+
 	it('asks a member as its position and a fret drawn among those it covers', () => {
 		const item = { voicingKey: KEY };
 		// 2-3-2 covers frets 2 and 3: the fret takes one number.
@@ -74,5 +84,6 @@ describe('voicingOnStringsSet', () => {
 		);
 		expect(voicingOnStringsSet.memberOf!({ voicingKey: KEY })).toBeNull();
 		expect(voicingOnStringsSet.memberOf!({ voicingKey: KEY, position: 99 })).toBeNull();
+		expect(voicingOnStringsSet.memberOf!({ voicingKey: 'garbage', position: 2 })).toBeNull();
 	});
 });

@@ -17,6 +17,8 @@ export interface ItemSet<I = unknown> {
 	 * names); may take more numbers of `random` for what it draws beside the member.
 	 */
 	asked?(item: I, member: Member, random: () => number): I;
+	/** The id of the family whose members `asked` turns into items; written with it. */
+	asks?: string;
 	/** The id of the family member an asked item names; null when it names none. */
 	memberOf?(item: I): string | null;
 }

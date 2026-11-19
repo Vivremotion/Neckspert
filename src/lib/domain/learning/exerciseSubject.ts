@@ -79,7 +79,7 @@ function practised(definition: ExerciseDefinition): Practised {
 	let asks: Asks | null = null;
 	if (learning.asks) {
 		const family = familyNamed(learning.asks.family);
-		if (!family || !set.asked) {
+		if (!family || !set.asked || family.id !== set.asks) {
 			throw new Error(`"${definition.id}" asks a member its set or family cannot give`);
 		}
 		const asked = set.asked.bind(set);
@@ -210,7 +210,7 @@ export function exerciseSubject(input: {
 			const key = cardKey(card.skill, exercise.set.itemKey(card.item));
 			const params = resolvedParamsOf(exercise.definition, {
 				exerciseLevel: 0,
-				itemLevel: level ?? null
+				itemLevel: level
 			});
 			const { index, selection } = compileSelection(
 				exercise.definition,

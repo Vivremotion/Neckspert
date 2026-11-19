@@ -85,9 +85,10 @@ export interface ExerciseLearning extends ItemLearning {
 	presentAtOnce: boolean;
 	/**
 	 * What a prompt asks of a card's item: a member drawn among those this selection admits for
-	 * it, turned into an item by its set (`ItemSet.asked`). No order and no take: one is drawn.
+	 * it, turned into an item by its set (`ItemSet.asked`), of the family its set asks. No `of`
+	 * (the card's own item is the index), no order and no take: one is drawn.
 	 */
-	asks?: Pick<SelectionTemplate, 'family' | 'of' | 'where'>;
+	asks?: Pick<SelectionTemplate, 'family' | 'where'>;
 }
 
 /** `params.learning` of an exercise over the defaults; `enter` and `asks` only when written. */

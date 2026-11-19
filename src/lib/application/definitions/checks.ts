@@ -110,8 +110,17 @@ function asksProblem(exercise: ExerciseDefinition, asks: unknown): string | null
 	if (Object.hasOwn(asks, 'order') || Object.hasOwn(asks, 'take')) {
 		return `${field} takes no order and no take: one member is drawn`;
 	}
+	if (Object.hasOwn(asks, 'of')) {
+		return `${field} takes no "of": a member of the card’s own item is asked`;
+	}
 	const set = setOfSkill(exercise.practices);
-	if (!set.asked) return `${field} needs a set that can ask a member, which ${set.id} cannot`;
+	if (!set.asked || set.asks === undefined) {
+		return `${field} needs a set that can ask a member, which ${set.id} cannot`;
+	}
+	const family = (asks as { family?: unknown }).family;
+	if (family !== set.asks) {
+		return `${field} names family ${JSON.stringify(family)}, but ${set.id} asks members of ${set.asks}`;
+	}
 	const problem = selectionFieldProblem(exercise, asks);
 	if (problem === null) return null;
 	return `${problem.field === '' ? field : `${field}.${problem.field}`} ${problem.text}`;

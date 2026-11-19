@@ -84,7 +84,8 @@ describe('chord-zone asks a member as the draw it replaced did', () => {
 		const script = scripted(numbers);
 		const item = subject.promptItem!(
 			{ skill: TRIADS_ZONE.practices, item: { voicingKey: voicing } },
-			script.random
+			script.random,
+			0
 		);
 		expect([item, script.taken()]).toEqual([expected, taken]);
 	});

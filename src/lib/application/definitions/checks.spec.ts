@@ -12,7 +12,8 @@ import {
 	LOCATE_NECK,
 	IOHEFY_A,
 	GESTURE_CLIMB,
-	RHYTHM_TWO_FOUR
+	RHYTHM_TWO_FOUR,
+	TRIADS_ZONE
 } from '$lib/testing/catalog';
 import { exerciseById } from '$lib/domain/exercise/registry';
 
@@ -222,13 +223,29 @@ describe('the learning an exercise writes', () => {
 		}
 	});
 
+	it('refuses a family other than the one the set asks members of', () => {
+		for (const family of ['note-places', 'nope']) {
+			expect(check(withLearning(ZONE, { asks: { family } }))).toBe(
+				`params.learning.asks names family "${family}", but voicing-on-strings asks members of chord-shapes`
+			);
+		}
+	});
+
+	it('refuses an "of": a member of the card’s own item is asked', () => {
+		for (const of of ['root', 'nope']) {
+			expect(check(withLearning(ZONE, { asks: { family: 'chord-shapes', of } }))).toBe(
+				'params.learning.asks takes no "of": a member of the card’s own item is asked'
+			);
+		}
+	});
+
+	it('refuses a member asked of a skill without cards, whose set cannot ask one', () => {
+		expect(check(withLearning(PULSE, { asks: { family: 'chord-shapes' } }))).toBe(
+			'params.learning.asks needs a set that can ask a member, which figure cannot'
+		);
+	});
+
 	it('refuses what the selection cannot run, naming its field under params.learning.asks', () => {
-		expect(check(withLearning(ZONE, { asks: { family: 'nope' } }))).toBe(
-			'params.learning.asks names family "nope", which is not registered'
-		);
-		expect(check(withLearning(ZONE, { asks: { family: 'chord-shapes', of: 'nope' } }))).toBe(
-			'params.learning.asks.of "nope" gives no index of chord-shapes from voicing-on-strings'
-		);
 		expect(
 			check(withLearning(ZONE, { asks: { family: 'chord-shapes', where: [{ near: 1 }] } }))
 		).toBe('params.learning.asks.where[0] is no filter (in, at, position, other)');
@@ -254,6 +271,9 @@ describe('definitionChecks, the items of a memory exercise', () => {
 
 	it('refuses two spellings of one item, naming both places', () => {
 		expect(check({ ...IDENTIFY_NECK, items: ['6:5', '6:05'] })).toBe('items[1] repeats items[0]');
+		expect(check({ ...TRIADS_ZONE, items: ['C|maj|3:5,2:1,1:3', 'C|maj|03:5,02:1,01:3'] })).toBe(
+			'items[1] repeats items[0]'
+		);
 	});
 
 	it('lets an exercise without memory repeat an item, or list none', () => {

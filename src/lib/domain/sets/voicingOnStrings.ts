@@ -7,7 +7,8 @@ import {
 	type Confusion,
 	type LocateItem,
 	type Midi,
-	type Voicing
+	type Voicing,
+	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId, occurrenceOfId } from '$lib/domain/triads/items';
 import { cueFrets, occurrencePosition } from '$lib/domain/triads/position';
@@ -79,15 +80,14 @@ export function rootPosition(voicing: Voicing): LocateItem {
 export const voicingOnStringsSet: ItemSet<VoicingOnStringsItem> = {
 	id: 'voicing-on-strings',
 	itemKey: (item) => item.voicingKey,
-	parseItem: (itemKey) => {
-		parseVoicingKey(itemKey);
-		return { voicingKey: itemKey };
-	},
+	/** The voicing's own key, however the key is written: one spelling, one card. */
+	parseItem: (itemKey) => ({ voicingKey: voicingKey(parseVoicingKey(itemKey)) }),
 	cardItem: (item) => ({ voicingKey: item.voicingKey }),
+	asks: 'chord-shapes',
 	/** The shape the member is: its position, and a fret it covers drawn by one number, if any. */
 	asked(item, member, random) {
 		const shape = occurrenceOfId(member.id);
-		if (!shape || voicingKey(shape.voicing) !== item.voicingKey) {
+		if (!shape || voicingKey(shape.voicing) !== voicingKey(parseVoicingKey(item.voicingKey))) {
 			throw new Error(`member "${member.id}" names no shape of voicing ${item.voicingKey}`);
 		}
 		const position = occurrencePosition(shape);
@@ -96,11 +96,16 @@ export const voicingOnStringsSet: ItemSet<VoicingOnStringsItem> = {
 		const fret = frets[Math.min(frets.length - 1, Math.floor(random() * frets.length))];
 		return { voicingKey: item.voicingKey, position, fret };
 	},
+	/** Null too for an item it cannot read (a stored attempt's, written by an older version). */
 	memberOf(item) {
 		if (item.position === undefined) return null;
-		const shape = voicingOccurrences(parseVoicingKey(item.voicingKey)).find(
-			(occurrence) => occurrencePosition(occurrence) === item.position
-		);
+		let shapes: VoicingOccurrence[];
+		try {
+			shapes = voicingOccurrences(parseVoicingKey(item.voicingKey));
+		} catch {
+			return null;
+		}
+		const shape = shapes.find((occurrence) => occurrencePosition(occurrence) === item.position);
 		return shape ? occurrenceId(shape) : null;
 	}
 };

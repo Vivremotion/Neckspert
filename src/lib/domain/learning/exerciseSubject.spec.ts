@@ -324,7 +324,10 @@ describe('exerciseSubject', () => {
 		const ref = { skill: zone, item: { voicingKey: voicing } };
 		let last: number | 'open' = positions[0];
 		for (const r of [0, 0.5, 0.99, 0]) {
-			const item = subject.promptItem!(ref, () => r) as { voicingKey: string; position: unknown };
+			const item = subject.promptItem!(ref, () => r, 0) as {
+				voicingKey: string;
+				position: unknown;
+			};
 			expect(item.voicingKey).toBe(voicing);
 			expect(positions).toContain(item.position);
 			// Then what it last drew in this session.
@@ -338,7 +341,7 @@ describe('exerciseSubject', () => {
 				exercises: [TRIADS_ZONE],
 				attempts: [asked(positions[0], 1), asked(positions[1], 2, null), asked(positions[1], 3, {})]
 			});
-			const item = itemless.promptItem!(ref, () => r) as { position: unknown };
+			const item = itemless.promptItem!(ref, () => r, 0) as { position: unknown };
 			expect(item.position).not.toBe(positions[0]);
 		}
 	});
@@ -369,7 +372,8 @@ describe('exerciseSubject', () => {
 			for (let seed = 0; seed < 12; seed += 1) {
 				const item = subject.promptItem!(
 					{ skill: zone, item: { voicingKey: voicing } },
-					seeded(seed)
+					seeded(seed),
+					0
 				) as Asked;
 				expect(item.voicingKey).toBe(voicing);
 				const shape = shapes.find((s) => occurrencePosition(s) === item.position);
@@ -387,7 +391,8 @@ describe('exerciseSubject', () => {
 				const subject = exerciseSubject({ exercises: [OTHER], attempts: [] });
 				const item = subject.promptItem!(
 					{ skill: zone, item: { voicingKey: voicing } },
-					() => r / 40
+					() => r / 40,
+					0
 				) as Asked;
 				seen.add(item.position);
 			}
@@ -404,10 +409,43 @@ describe('exerciseSubject', () => {
 			for (let seed = 0; seed < 3; seed += 1) {
 				const item = subject.promptItem!(
 					{ skill: zone, item: { voicingKey: single! } },
-					seeded(seed)
+					seeded(seed),
+					0
 				) as Asked;
 				expect(item.position).toBe(only);
 			}
+		});
+
+		it('asks the shapes of a voicing listed in another spelling', () => {
+			const voicing = TRIADS_ZONE.items![0] as string;
+			const written = voicing.replace(/(\d):/g, '0$1:');
+			expect(written).not.toBe(voicing);
+			const subject = exerciseSubject({
+				exercises: [{ ...OTHER, items: [written] }],
+				attempts: []
+			});
+			const card = { skill: zone, item: setOfSkill(zone).parseItem(written) };
+			const item = subject.promptItem!(card, seeded(3), 0) as Asked;
+			expect(item.voicingKey).toBe(voicing);
+			expect(shapesOf(voicing).map(occurrencePosition)).toContain(item.position);
+		});
+
+		it('takes a stored item it cannot read for no previous one', () => {
+			const voicing = TRIADS_ZONE.items![0] as string;
+			const garbage = attemptOf(
+				{
+					exerciseId: TRIADS_ZONE.id,
+					skill: zone,
+					item: voicing,
+					phase: 'review',
+					temperature: 'cold'
+				},
+				{ at: 1, cardKey: cardKey(zone, voicing), data: { item: { voicingKey: '?', position: 1 } } }
+			);
+			const read = exerciseSubject({ exercises: [OTHER], attempts: [garbage] });
+			const fresh = exerciseSubject({ exercises: [OTHER], attempts: [] });
+			const card = { skill: zone, item: { voicingKey: voicing } };
+			expect(read.promptItem!(card, seeded(5), 0)).toEqual(fresh.promptItem!(card, seeded(5), 0));
 		});
 
 		it('asks the card’s own item, drawing nothing, when the selection admits no member', () => {
@@ -417,7 +455,7 @@ describe('exerciseSubject', () => {
 				throw new Error('nothing to draw');
 			};
 			const item = { voicingKey: TRIADS_ZONE.items![0] as string };
-			expect(subject.promptItem!({ skill: zone, item }, random)).toBe(item);
+			expect(subject.promptItem!({ skill: zone, item }, random, 0)).toBe(item);
 		});
 	});
 
@@ -430,7 +468,7 @@ describe('exerciseSubject', () => {
 			throw new Error('no draw');
 		};
 		expect(subject.promptItem).toBeDefined();
-		const item = subject.promptItem!({ skill: A, item: note('5:C') }, random);
+		const item = subject.promptItem!({ skill: A, item: note('5:C') }, random, 0);
 		expect(item).toEqual(note('5:C'));
 	});
 });
