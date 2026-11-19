@@ -108,12 +108,23 @@ describe('definitionChecks', () => {
 			);
 		});
 
-		it.each([[[[9, 8, 7]]], [[[1, 2]]], [[[3, 3, 1]]], [['a']]])(
+		it.each([[[[9, 8, 7]]], [[[1, 2]]], [[[1, 2, 3]]], [[[3, 3, 1]]], [['a']]])(
 			'refuses the sets of strings %j',
 			(stringSets) => {
 				expect(check(withParams({ stringSets }))).toBe('params.stringSets[0] is no set of strings');
 			}
 		);
+
+		it('refuses a quality that is no triad', () => {
+			expect(check(withParams({ qualities: ['maj7'] }))).toBe(
+				'params.qualities names "maj7", which is no triad quality'
+			);
+		});
+
+		it('leaves an exercise of another view alone', () => {
+			const other = { ...GESTURE_CLIMB, view: 'lane', params: { grids: [] } };
+			expect(check(other)).not.toMatch(/^params\.(rule|qualities|stringSets)/);
+		});
 
 		it('refuses a rule that is none', () => {
 			expect(check(withParams({ rule: 'fly' }))).toBe(

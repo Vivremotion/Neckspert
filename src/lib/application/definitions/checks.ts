@@ -8,7 +8,7 @@ import {
 import type { DefinitionChecks } from '$lib/domain/definitions';
 import { validateExercise } from '$lib/domain/exercise';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
-import { QUALITIES } from '$lib/domain/music';
+import { isTriadQuality, QUALITIES } from '$lib/domain/music';
 import { readsChanges } from '$lib/domain/sets';
 import { allGrids } from '$lib/domain/grid/registry';
 
@@ -20,8 +20,8 @@ const STRING_NUMBERS = [1, 2, 3, 4, 5, 6];
 
 /**
  * Why the params of an exercise of the changes (the ones `readGestureParams` reads at play) cannot
- * be run; null when they can. A set of strings is three distinct strings, 1 to 6, as the triads
- * on a string set are.
+ * be run; null when they can. A set of strings is three strings, 1 to 6, from the lowest to the
+ * highest (strictly decreasing numbers), as a close triad voicing needs; a quality is a triad's.
  */
 function gestureParamsProblem(params: Record<string, unknown>): string | null {
 	if (!GESTURE_RULES.includes(params.rule as string)) {
@@ -29,9 +29,14 @@ function gestureParamsProblem(params: Record<string, unknown>): string | null {
 	}
 	const { qualities, stringSets } = params;
 	if (!Array.isArray(qualities)) return 'params.qualities must be a list of chord qualities';
-	const quality = qualities.find((q) => !QUALITIES.some((known) => known.id === q));
-	if (quality !== undefined) {
-		return `params.qualities names ${JSON.stringify(quality)}, which is no chord quality`;
+	for (const id of qualities) {
+		const known = QUALITIES.find((quality) => quality.id === id);
+		if (known === undefined) {
+			return `params.qualities names ${JSON.stringify(id)}, which is no chord quality`;
+		}
+		if (!isTriadQuality(known)) {
+			return `params.qualities names ${JSON.stringify(id)}, which is no triad quality`;
+		}
 	}
 	if (!Array.isArray(stringSets)) return 'params.stringSets must be a list of sets of strings';
 	const bad = stringSets.findIndex(
@@ -39,7 +44,7 @@ function gestureParamsProblem(params: Record<string, unknown>): string | null {
 			!Array.isArray(set) ||
 			set.length !== 3 ||
 			!set.every((string) => STRING_NUMBERS.includes(string)) ||
-			new Set(set).size !== 3
+			!set.every((string, i) => i === 0 || string < set[i - 1])
 	);
 	if (bad !== -1) return `params.stringSets[${bad}] is no set of strings`;
 	return null;

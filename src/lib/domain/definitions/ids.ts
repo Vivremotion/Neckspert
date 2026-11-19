@@ -3,6 +3,13 @@ export const RESERVED_IDS = ['unknown'] as const;
 
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
+/** `id` itself when it may name a definition; throws the reason otherwise. */
+export function checkedId(id: unknown, options: { reserved?: readonly string[] } = {}): string {
+	const problem = idProblem(id, options);
+	if (problem !== null || typeof id !== 'string') throw new Error(problem ?? 'id must be a string');
+	return id;
+}
+
 /** Null when `id` may name a skill, a grid or an exercise; else why not. */
 export function idProblem(
 	id: unknown,

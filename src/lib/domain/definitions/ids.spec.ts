@@ -9,7 +9,7 @@ describe('idProblem', () => {
 		expect(idProblem(id)).toBe('id must be a string, not empty');
 	});
 
-	it.each(['a:b', 'a#b', 'a b', '-a', 'é', '_a', '.a'])('refuses %j for its shape', (id) => {
+	it.each(['a:b', 'a#b', 'a b', '-a', 'é', '_a', '.a', 'a\n'])('refuses %j for its shape', (id) => {
 		expect(idProblem(id)).toBe(SHAPE);
 	});
 
