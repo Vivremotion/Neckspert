@@ -14,6 +14,7 @@ import {
 	exerciseSessionExercises,
 	figureParamsOf,
 	findExercise,
+	UNKNOWN_EXERCISE,
 	writesFigure,
 	type ExerciseDefinition,
 	type ExerciseId,
@@ -85,10 +86,14 @@ export function createAppServices(
 	 */
 	const exerciseFound = (id: ExerciseId): ExerciseDefinition | undefined => {
 		if (!deps.exercise) return findExercise(id);
+		// An injected lookup says « unknown » only by throwing, as `exerciseById` does: that throw
+		// alone is read as an exercise no file defines. What remains: a lookup telling an unknown
+		// exercise in other words would be taken for a failure, and its error would go up.
 		try {
 			return deps.exercise(id);
-		} catch {
-			return undefined;
+		} catch (error) {
+			if (error instanceof Error && error.message.startsWith(UNKNOWN_EXERCISE)) return undefined;
+			throw error;
 		}
 	};
 	/** The exercises a session cannot play without, read at its start: an error names the first missing. */

@@ -146,12 +146,27 @@ describe('SettingsScreen', () => {
 	it('shows import confirmation and a readable error', async () => {
 		const confirming = renderScreen({ confirmingImport: true });
 		expect(screen.getByText(/Remplacer les données/)).toBeTruthy();
+		expect(
+			screen.getByText(
+				'L’import écrase réglages, cartes, tentatives, sessions et les fichiers importés.'
+			)
+		).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: /confirmer/i }));
 		expect(confirming.props.onimportconfirm).toHaveBeenCalledTimes(1);
 		cleanup();
 
 		renderScreen({ importError: 'Not a Neckspert Play backup' });
 		expect(screen.getByText(/Not a Neckspert Play backup/)).toBeTruthy();
+	});
+
+	it('says in English that a backup import replaces the imported files too', () => {
+		i18n.locale = 'en';
+		renderScreen({ confirmingImport: true });
+		expect(
+			screen.getByText(
+				'Import overwrites settings, cards, attempts, sessions and the imported files.'
+			)
+		).toBeTruthy();
 	});
 
 	describe('diagnostic block', () => {

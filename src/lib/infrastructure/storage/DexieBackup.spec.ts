@@ -203,10 +203,14 @@ describe('DexieBackup', () => {
 				})
 			);
 			await sessions.put(makeSession({ id: 'gone-routine', routine: 'gone-routine' }));
-			const backup = new DexieBackup(db, () => 5);
-			const exported = await backup.exportAll();
+			const exported = await new DexieBackup(db, () => 5).exportAll();
+			// Into a fresh database, so that an import writing nothing would fail.
+			const fresh = createDatabase(`fresh-${crypto.randomUUID()}`);
+			const backup = new DexieBackup(fresh, () => 5);
 			await backup.importAll(JSON.parse(JSON.stringify(exported)));
 			expect(await backup.exportAll()).toEqual(exported);
+			expect(exported.attempts.map((attempt) => attempt.skill)).toContain('gone-skill');
+			fresh.close();
 		});
 
 		it("replaces the stored definition files with the file's", async () => {

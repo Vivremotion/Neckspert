@@ -11,6 +11,7 @@ import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/applicati
 import {
 	allExercises,
 	clearExercises,
+	exerciseById,
 	registerExercise,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
@@ -73,7 +74,7 @@ class FakeCalibration implements CalibrationPort {
 	cancel(): void {}
 }
 
-function harness(): {
+function harness(exercise?: SessionDeps['exercise']): {
 	services: AppServices;
 	deps: SessionDeps & { clock: FakeClock };
 	backup: RepositoryBackup;
@@ -101,7 +102,8 @@ function harness(): {
 		sounds: new FakeSoundScheduler(clock),
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),
-		levels: new InMemoryLevelStateRepository()
+		levels: new InMemoryLevelStateRepository(),
+		...(exercise && { exercise })
 	};
 	const backup = new RepositoryBackup(deps);
 	const services = createAppServices({
@@ -257,9 +259,15 @@ describe('stored progress whose definition is gone', () => {
 	it('resolves the home services', async () => {
 		const { services, deps } = harness();
 		await seed(deps);
-		const stats = await services.homeStats();
-		expect(stats.dueCount).toBeGreaterThanOrEqual(0);
-		expect(await services.triads()).toMatchObject({ anchorDue: 0 });
+		// The locate card alone: the card of a skill no file defines is not counted.
+		expect(await services.homeStats()).toEqual({
+			dueCount: 1,
+			nextReviewAt: 3_601_000,
+			medianColdOffsetMs: 10,
+			trend: null
+		});
+		expect(await services.triads()).toEqual({ anchorDue: 0, zoneDue: null });
+		// What can fail here is a throw on the card of a skill no file defines.
 		expect(await services.gesture()).toEqual({ open: false });
 		expect(await services.resting([GONE_EXERCISE])).toEqual([GONE_EXERCISE]);
 	});
@@ -268,16 +276,50 @@ describe('stored progress whose definition is gone', () => {
 		const { services, deps } = harness();
 		await seed(deps);
 		const map = await services.neckMap();
-		expect(map).toBeDefined();
+		expect(map).toHaveLength(66);
+		expect(map.filter((cell) => cell.locate !== 'unseen')).toEqual([
+			expect.objectContaining({
+				string: 6,
+				fret: 3,
+				pitch: 'G',
+				locate: 'learning',
+				coldAccuracy: 1
+			})
+		]);
 	});
 
 	it('sums up every session, its exercise or routine gone or not', async () => {
 		const { services, deps } = harness();
 		await seed(deps);
-		for (const id of ['s-normal', 's-gone-exercise', 's-gone-routine']) {
+		const summed = async (id: string) => {
 			const summary = await services.sessionSummary(id);
-			expect(summary).toBeDefined();
-		}
+			return {
+				kind: summary.kind,
+				exercise: summary.exercise,
+				attemptCount: summary.attemptCount,
+				tempoBpm: summary.tempoBpm
+			};
+		};
+		expect(await summed('s-normal')).toEqual({
+			kind: 'learn',
+			exercise: undefined,
+			attemptCount: 2,
+			tempoBpm: 80
+		});
+		// An exercise no file defines: summed up as an exercise session, with no exercise summary.
+		expect(await summed('s-gone-exercise')).toEqual({
+			kind: 'exercise',
+			exercise: undefined,
+			attemptCount: 1,
+			tempoBpm: null
+		});
+		// A routine the code does not know is read as an exercise session.
+		expect(await summed('s-gone-routine')).toEqual({
+			kind: 'exercise',
+			exercise: undefined,
+			attemptCount: 1,
+			tempoBpm: null
+		});
 	});
 
 	it('exports the rows as stored, none dropped', async () => {
@@ -354,9 +396,23 @@ describe('a track exercise no file defines', () => {
 	it('keeps the home services without a gesture exercise', async () => {
 		const { services } = harness();
 		withoutExercise('grid-reading');
+		// What can fail here is a throw on the exercise no file defines.
 		expect(await services.gesture()).toEqual({ open: false });
-		expect(await services.triads()).toMatchObject({ anchorDue: 0 });
+		expect(await services.triads()).toEqual({ anchorDue: 0, zoneDue: null });
 		expect((await services.homeStats()).dueCount).toBe(0);
 		expect(await services.resting(['grid-reading'])).toEqual([]);
+	});
+
+	it('reads an injected lookup that does not know the exercise as an exercise no file defines', async () => {
+		withoutExercise('grid-reading');
+		const { services } = harness(exerciseById);
+		expect(await services.gesture()).toEqual({ open: false });
+	});
+
+	it('lets any other failure of the injected lookup through', async () => {
+		const { services } = harness(() => {
+			throw new Error('the lookup broke');
+		});
+		await expect(services.gesture()).rejects.toThrow('the lookup broke');
 	});
 });

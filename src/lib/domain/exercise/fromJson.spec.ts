@@ -295,6 +295,16 @@ describe('exerciseFromJson practices', () => {
 			expect(refused({ [key]: value })).toThrow(`${key} must be an object`);
 		});
 
+		it.each(['boxes', 3, null])('refuses the chord diagram %j', (chordDiagram) => {
+			expect(refused({ chordDiagram })).toThrow('chordDiagram must be one of strings, grid');
+		});
+
+		it('reads a chord diagram style', () => {
+			expect(exerciseFromJson({ ...arpeggioJson(), chordDiagram: 'grid' }).chordDiagram).toBe(
+				'grid'
+			);
+		});
+
 		it('refuses a pick that is neither loop nor next', () => {
 			expect(refused({ pick: 'weird' })).toThrow('pick must be "loop" or "next"');
 		});

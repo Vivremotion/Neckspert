@@ -1,5 +1,9 @@
 // A removed definition file empties the registries of its objects: no page or layout may read
 // one when its module loads, or the app would not open at all.
+// Its limit: a module is evaluated once per test file. The ones the setup file
+// (`src/lib/testing/setup.ts`) and this spec's own static imports have already evaluated, with
+// the registries full, are not evaluated again here with them empty: a read at load in one of
+// those would go unseen.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { CATALOG_FILES } from '$lib/composition/catalogFiles';
 import { loadDefinitions } from '$lib/composition/definitions';

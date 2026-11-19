@@ -8,6 +8,7 @@ import {
 	type Meter
 } from '$lib/domain/time';
 import { parseLilyPond, parseLilyPondNotes } from '$lib/domain/time/notation/lilypond';
+import { CHORD_DIAGRAM_STYLES } from '$lib/domain/types';
 import type { ExerciseDefinition, ExerciseShape } from './types';
 
 /** Every key an `ExerciseDefinition` has (the type's own list, held by the compiler). */
@@ -113,6 +114,12 @@ function shapesOfKeys(json: Record<string, unknown>): void {
 		throw new Error('view must be a string');
 	if (json.tempo !== undefined && typeof json.tempo !== 'number')
 		throw new Error('tempo must be a number');
+	if (
+		json.chordDiagram !== undefined &&
+		!(CHORD_DIAGRAM_STYLES as readonly unknown[]).includes(json.chordDiagram)
+	) {
+		throw new Error(`chordDiagram must be one of ${CHORD_DIAGRAM_STYLES.join(', ')}`);
+	}
 }
 
 function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {

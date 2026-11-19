@@ -21,11 +21,14 @@ export function findExercise(id: ExerciseId): ExerciseDefinition | undefined {
 	return registered.get(id)?.exercise;
 }
 
+/** How the error of an exercise the registry does not hold begins (`exerciseById`). */
+export const UNKNOWN_EXERCISE = 'Unknown exercise: ';
+
 export function exerciseById(id: ExerciseId): ExerciseDefinition {
 	const found = registered.get(id);
 	if (found) return found.exercise;
 	throw new Error(
-		`Unknown exercise: ${id}${registered.size === 0 ? ' (no definition is loaded)' : ''}`
+		`${UNKNOWN_EXERCISE}${id}${registered.size === 0 ? ' (no definition is loaded)' : ''}`
 	);
 }
 

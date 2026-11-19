@@ -205,6 +205,22 @@ describe('/settings page', () => {
 			);
 		});
 
+		it('refuses a file far too long before reading its text', async () => {
+			await open();
+			const file = new File(['{}'], 'huge.json');
+			Object.defineProperty(file, 'size', { value: 3_000_001 });
+			const text = vi.spyOn(file, 'text');
+			await choose(file);
+			await waitFor(() =>
+				expect(
+					screen.getByText(
+						'huge.json n’a pas été importé : the file is longer than 1000000 characters'
+					)
+				).toBeTruthy()
+			);
+			expect(text).not.toHaveBeenCalled();
+		});
+
 		it('shows a failed import as text and reads the list again', async () => {
 			const services = await open();
 			const files = vi.spyOn(services.definitions, 'files');

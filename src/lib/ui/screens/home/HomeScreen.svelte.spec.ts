@@ -213,6 +213,12 @@ describe('HomeScreen', () => {
 			expect(screen.getByText('2 imported files have a problem.')).toBeTruthy();
 			expect(screen.getByRole('link', { name: 'See in the settings' })).toBeTruthy();
 		});
+
+		it('tells one file in English', () => {
+			i18n.locale = 'en';
+			render(HomeScreen, { props: props({ importedProblems: 1 }) });
+			expect(screen.getByText('An imported file has a problem.')).toBeTruthy();
+		});
 	});
 	describe('definition files refused', () => {
 		const refused: Refusal[] = [
