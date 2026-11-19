@@ -137,21 +137,22 @@ export function registerFiles(
 ): RegisterResult;
 
 // composition/definitions.ts
+/** What a load gave, the catalog's files apart from the imported ones. */
 export interface LoadedDefinitions {
-	refusals: readonly Refusal[];
-	registered: readonly Registered[];
+	catalog: RegisterResult;
+	imported: RegisterResult;
 }
 /** Empties the registries, then fills them: the catalog, then the imported files. */
 export function loadDefinitions(input: {
 	catalog: Readonly<Record<string, string>>;
 	imported?: Readonly<Record<string, string>>;
 }): LoadedDefinitions;
-/** What the last load refused, of the catalog and of the imported files. */
-export function loadedDefinitions(): LoadedDefinitions;
+/** The last load; null before any. */
+export function loadedDefinitions(): LoadedDefinitions | null;
 ```
 
 - `loadDefinitions` n'a plus de garde « une seule fois » : chaque appel vide les trois registres et les remplit. Les lignes de console gardent leur forme, la source des fichiers importés étant `imported`.
-- `createApp` ne lit plus `exercises.local/` : il appelle `loadDefinitions({ catalog: CATALOG_FILES })`.
+- `createApp` ne lit plus `exercises.local/` : il charge le catalogue seul, et seulement si rien n'a encore été chargé (`loadedDefinitions() === null`) : des tests enregistrent leurs propres objets avant de l'appeler. La page d'accueil lit `loadedDefinitions()` à la place de `refusedDefinitions()`, qui disparaît.
 
 - [ ] **Step 1: Écrire les tests qui échouent** — `register.spec.ts` : `registered` liste chaque objet enregistré, dans l'ordre, et aucun objet refusé. `definitions.spec.ts` : un second appel avec moins de fichiers retire les objets des fichiers absents (Review Focus 1) ; un fichier importé nommé `notes.json` et le fichier du catalogue `/catalog/notes.json` cohabitent (D4) ; une collision d'identifiant avec le catalogue nomme `/catalog/notes.json` ; `loadedDefinitions()` rend le dernier chargement.
 - [ ] **Step 2: Lancer, vérifier l'échec.**
