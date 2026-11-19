@@ -8,6 +8,7 @@ import { definitionChecks } from './checks';
 
 registerTestSkills();
 import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB } from '$lib/testing/catalog';
+import { exerciseById } from '$lib/domain/exercise/registry';
 
 const check = (exercise: ExerciseDefinition) => definitionChecks().exercise(exercise);
 
@@ -138,5 +139,70 @@ describe('definitionChecks', () => {
 			);
 			expect(check(withParams({ grids: [3] }))).toBe('params.grids must be a list of grid ids');
 		});
+	});
+});
+
+describe('the learning an exercise writes', () => {
+	const IDENTIFY = exerciseById('identify-note');
+	const ZONE = exerciseById('chord-zone');
+	const PULSE = exerciseById('rhythm-silent-bars');
+	const withLearning = (base: ExerciseDefinition, learning: unknown) => ({
+		...base,
+		params: { ...base.params, learning }
+	});
+	const enter = (acquired: unknown) => ({ enter: { acquired } });
+
+	it('accepts a well-formed entry condition and draw', () => {
+		const good = withLearning(IDENTIFY, {
+			presentAtOnce: false,
+			...enter({ skill: 'locate-note-string', item: 'same-place' })
+		});
+		expect(check(good)).toBeNull();
+		expect(check(withLearning(ZONE, { draw: 'another-place' }))).toBeNull();
+		expect(check(withLearning(IDENTIFY, { somethingNoPieceReads: 3 }))).toBeNull();
+	});
+
+	it.each([
+		[3, 'params.learning must be an object'],
+		[{ presentAtOnce: 3 }, 'params.learning.presentAtOnce must be true or false'],
+		[{ enter: 3 }, 'params.learning.enter must be { acquired: { skill, item } }'],
+		[{ enter: {} }, 'params.learning.enter must be { acquired: { skill, item } }'],
+		[
+			enter({ skill: 3, item: 'same' }),
+			'params.learning.enter must be { acquired: { skill, item } }'
+		],
+		[{ draw: 3 }, 'params.learning.draw must be a string'],
+		[{ draw: 'nope' }, 'params.learning.draw "nope" is no draw of placed-note']
+	])('refuses %j', (learning, reason) => {
+		expect(check(withLearning(IDENTIFY, learning))).toBe(reason);
+	});
+
+	it('refuses an entry condition on a skill without cards', () => {
+		expect(check(withLearning(PULSE, enter({ skill: 'locate-note-string', item: 'same' })))).toBe(
+			'params.learning.enter needs a skill with cards'
+		);
+	});
+
+	it('refuses an entry condition naming a skill no file defines, or one without cards', () => {
+		expect(check(withLearning(IDENTIFY, enter({ skill: 'x', item: 'same' })))).toBe(
+			'params.learning.enter names skill "x", which no file read so far defines'
+		);
+		expect(check(withLearning(IDENTIFY, enter({ skill: 'inner-pulse', item: 'same' })))).toBe(
+			'params.learning.enter names skill "inner-pulse", which has no cards'
+		);
+	});
+
+	it('refuses a correspondence that does not exist between the two sets', () => {
+		expect(
+			check(withLearning(IDENTIFY, enter({ skill: 'locate-note-string', item: 'nope' })))
+		).toBe(
+			'params.learning.enter.acquired.item "nope" is no correspondence from placed-note to note-on-string'
+		);
+	});
+
+	it('refuses a draw the exercise’s set does not have', () => {
+		expect(check(withLearning(ZONE, { draw: 'nope' }))).toBe(
+			'params.learning.draw "nope" is no draw of voicing-on-strings'
+		);
 	});
 });

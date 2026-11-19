@@ -5,7 +5,10 @@ export type { CardRef, Ladder, LadderParams, LearningSubject } from './subject';
 export {
 	DEFAULT_ITEM_LEARNING,
 	DEFAULT_SET_LEARNING,
+	exerciseLearningOf,
 	itemLearningOf,
+	type EntryCondition,
+	type ExerciseLearning,
 	type ItemLearning,
 	type LearningCategory,
 	type SetLearning

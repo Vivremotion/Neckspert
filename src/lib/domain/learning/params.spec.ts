@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import * as constants from '../progress/constants';
-import { DEFAULT_ITEM_LEARNING, DEFAULT_SET_LEARNING, itemLearningOf } from './params';
+import {
+	DEFAULT_ITEM_LEARNING,
+	DEFAULT_SET_LEARNING,
+	exerciseLearningOf,
+	itemLearningOf
+} from './params';
 import { LOCATE_NECK } from '$lib/testing/catalog';
 
 describe('the learning procedure’s settings', () => {
@@ -38,5 +43,27 @@ describe('the learning procedure’s settings', () => {
 		expect(
 			itemLearningOf({ ...LOCATE_NECK, params: { learning: { retestGaps: [1, 3] } } })
 		).toEqual({ ...DEFAULT_ITEM_LEARNING, retestGaps: [1, 3] });
+	});
+
+	it('reads an exercise’s learning over the defaults, entry and draw only when written', () => {
+		expect(exerciseLearningOf({ ...LOCATE_NECK, params: {} })).toEqual({
+			...DEFAULT_ITEM_LEARNING,
+			presentAtOnce: true
+		});
+		const enter = { acquired: { skill: 'locate-note-string', item: 'same-place' } };
+		expect(
+			exerciseLearningOf({
+				...LOCATE_NECK,
+				params: {
+					learning: { enter, draw: 'another-place', presentAtOnce: false, retestGaps: [1, 3] }
+				}
+			})
+		).toEqual({
+			...DEFAULT_ITEM_LEARNING,
+			retestGaps: [1, 3],
+			presentAtOnce: false,
+			enter,
+			draw: 'another-place'
+		});
 	});
 });
