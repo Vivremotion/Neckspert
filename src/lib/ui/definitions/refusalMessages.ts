@@ -1,5 +1,4 @@
-import type { DefinitionKind } from '$lib/domain/definitions';
-import type { Refusal } from '$lib/domain/definitions';
+import type { DefinitionKind, Refusal } from '$lib/domain/definitions';
 import type { Locale } from '$lib/domain/types';
 
 const KIND_WORDS: Record<Locale, Record<DefinitionKind, string>> = {

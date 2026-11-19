@@ -179,4 +179,95 @@ describe('/settings page', () => {
 			expect(services.diagnostics.clears).toBe(1);
 		});
 	});
+
+	describe('imported files', () => {
+		async function open() {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(document.querySelector('#imported-files input')).toBeTruthy());
+			return services;
+		}
+		async function choose(...files: File[]) {
+			const input = document.querySelector('#imported-files input') as HTMLInputElement;
+			await fireEvent.change(input, { target: { files } });
+		}
+
+		it('lists a file whose text cannot be read as not imported', async () => {
+			await open();
+			const file = new File(['{}'], 'broken.json');
+			file.text = () => Promise.reject(new Error('nope'));
+			await choose(file);
+			await waitFor(() =>
+				expect(
+					screen.getByText('broken.json n’a pas été importé : the file could not be read')
+				).toBeTruthy()
+			);
+		});
+
+		it('shows a failed import as text and reads the list again', async () => {
+			const services = await open();
+			const files = vi.spyOn(services.definitions, 'files');
+			services.definitions.import = () => Promise.reject(new Error('storage is full'));
+			await choose(new File(['{}'], 'a.json'));
+			await waitFor(() => expect(screen.getByText('storage is full')).toBeTruthy());
+			expect(files).toHaveBeenCalled();
+		});
+
+		it('shows a failed removal as text and reads the list again', async () => {
+			const services = await open();
+			await choose(new File(['{}'], 'a.json'));
+			await waitFor(() => expect(screen.getByText('a.json')).toBeTruthy());
+			const files = vi.spyOn(services.definitions, 'files');
+			services.definitions.remove = () => Promise.reject(new Error('cannot remove'));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer a.json' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+			await waitFor(() => expect(screen.getByText('cannot remove')).toBeTruthy());
+			expect(files).toHaveBeenCalled();
+		});
+
+		it('clears the not-imported lines at the next import and lists a stored file', async () => {
+			await open();
+			const big = new File(['x'.repeat(2_000_000)], 'big.json');
+			await choose(big);
+			await waitFor(() => expect(screen.getByText(/big\.json n’a pas été importé/)).toBeTruthy());
+			await choose(new File(['{}'], 'ok.json'));
+			await waitFor(() => expect(screen.getByText('ok.json')).toBeTruthy());
+			expect(screen.queryByText(/big\.json n’a pas été importé/)).toBeNull();
+		});
+
+		it('shows a failed read of the list at load without losing the rest of the page', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			services.definitions.files = () => Promise.reject(new Error('list unreadable'));
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(screen.getByText('list unreadable')).toBeTruthy());
+			expect(screen.getByRole('button', { name: 'EN' })).toBeTruthy();
+		});
+
+		it('keeps a newer import list when a late load finishes', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			let release: () => void = () => {};
+			const gate = new Promise<void>((resolve) => (release = resolve));
+			const real = services.definitions.files.bind(services.definitions);
+			let first = true;
+			services.definitions.files = async () => {
+				if (first) {
+					first = false;
+					await gate;
+					return [];
+				}
+				return real();
+			};
+			render(TestHarness, { props: { services } });
+			await waitFor(() => expect(document.querySelector('#imported-files input')).toBeTruthy());
+			const input = document.querySelector('#imported-files input') as HTMLInputElement;
+			await fireEvent.change(input, { target: { files: [new File(['{}'], 'new.json')] } });
+			await waitFor(() => expect(screen.getByText('new.json')).toBeTruthy());
+			release();
+			await new Promise((r) => setTimeout(r, 20));
+			expect(screen.getByText('new.json')).toBeTruthy();
+		});
+	});
 });

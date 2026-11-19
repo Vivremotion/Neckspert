@@ -38,6 +38,8 @@
 	const diagnosticsEnabled = $derived(resolveDiagnosticsEnabled(diagnostics, import.meta.env.DEV));
 	/** Bumped by user edits so a late initial load cannot overwrite them. */
 	let loadSeq = 0;
+	/** Bumped by every read of the list, so a late read cannot overwrite a newer one. */
+	let filesSeq = 0;
 	let importedFiles = $state<ImportedFile[]>([]);
 	let notStored = $state<Refusal[]>([]);
 	let definitionsError = $state<string | null>(null);
@@ -57,7 +59,6 @@
 		chordDiagram = settings.chordDiagram;
 		inputs = devices;
 		i18n.locale = settings.locale;
-		importedFiles = await services.definitions.files();
 	}
 
 	async function loadUsage() {
@@ -66,6 +67,7 @@
 
 	void load();
 	void loadUsage();
+	void reloadFiles();
 
 	async function onlocale(next: Locale) {
 		loadSeq += 1;
@@ -115,8 +117,10 @@
 	}
 
 	async function reloadFiles() {
+		const seq = ++filesSeq;
 		try {
-			importedFiles = await services.definitions.files();
+			const files = await services.definitions.files();
+			if (seq === filesSeq) importedFiles = files;
 		} catch (error) {
 			definitionsError = error instanceof Error ? error.message : String(error);
 		}
@@ -191,6 +195,7 @@
 			confirmingImport = false;
 			pendingImport = null;
 			await load();
+			await reloadFiles();
 		} catch (error) {
 			importError = error instanceof Error ? error.message : String(error);
 			confirmingImport = false;

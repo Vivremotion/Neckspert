@@ -65,7 +65,7 @@
 		<p>{m.importedFilesEmpty}</p>
 	{:else}
 		<ul>
-			{#each files as file (file.name)}
+			{#each files as file, index (file.name)}
 				{@const counts = m.importedFileCounts(
 					file.skills.length,
 					file.grids.length,
@@ -79,8 +79,8 @@
 						<p class="refusal">{refusalText(refusal, i18n.locale, { file: false })}</p>
 					{/each}
 					{#if confirming === file.name}
-						<div class="row" role="group" aria-label={m.removeFileConfirm}>
-							<span>{m.removeFileConfirm}</span>
+						<div class="row" role="group" aria-labelledby="{uid}-confirm-{index}">
+							<span id="{uid}-confirm-{index}">{m.removeFileConfirm}</span>
 							<Button variant="choice" onclick={() => remove(file.name)}>{m.removeFile}</Button>
 							<Button variant="quiet" onclick={() => (confirming = null)}>{m.cancel}</Button>
 						</div>
