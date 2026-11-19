@@ -931,6 +931,7 @@ describe('the rhythm exercises', () => {
 				passed: 2,
 				aided: 0,
 				tempo: { first: 80, last: 80 },
+				inPassages: false,
 				passages: null,
 				changedAir: false
 			}
@@ -1083,6 +1084,7 @@ describe('the rhythm exercises', () => {
 				aided: 1,
 				level: null,
 				tempo: { first: 80, last: 80 },
+				inPassages: false,
 				passages: null,
 				changedAir: false
 			}

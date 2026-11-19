@@ -22,20 +22,12 @@ describe('sessionPlayed', () => {
 		expect(played.exerciseIds).toEqual(['identify-note', 'locate-note-string']);
 		expect([...played.skills]).toEqual(['identify-note', 'locate-note-string']);
 		expect(played.chords).toBe(false);
-		expect(played.passages).toBe(false);
 	});
 
 	it('tells a session of chords from the item set of its skills', () => {
 		expect(sessionPlayed(record({ routine: 'chords' }), []).chords).toBe(true);
 		expect(sessionPlayed(record({ routine: 'chords-zone' }), []).chords).toBe(true);
 		expect(sessionPlayed(record({ exercise: 'chord-anchor', free: true }), []).chords).toBe(true);
-	});
-
-	it('tells a session of passages from its exercises', () => {
-		const played = sessionPlayed(record({ routine: 'changes' }), []);
-		expect(played.passages).toBe(true);
-		expect(played.chords).toBe(false);
-		expect(sessionPlayed(record({ exercise: 'grid-reading' }), []).passages).toBe(true);
 	});
 
 	it('reads the exercise played alone, whatever its executions and attempts', () => {
@@ -75,7 +67,6 @@ describe('sessionPlayed', () => {
 			exercises: [],
 			skills: new Set(),
 			chords: false,
-			passages: false,
 			memory: true
 		});
 	});
@@ -83,6 +74,7 @@ describe('sessionPlayed', () => {
 	it('tells a session of memory: its skills have cards, or nothing tells otherwise', () => {
 		expect(sessionPlayed(record({ routine: 'notes' }), []).memory).toBe(true);
 		expect(sessionPlayed(record({ routine: 'changes' }), []).memory).toBe(false);
+		expect(sessionPlayed(record({ routine: 'changes' }), []).chords).toBe(false);
 		expect(sessionPlayed(record({ exercise: 'rhythm-offbeats' }), []).memory).toBe(false);
 		// Gone, with its skill: the skill tells. Gone with an unknown skill: nothing tells.
 		const gone = (skill: string) =>

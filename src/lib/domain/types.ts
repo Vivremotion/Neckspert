@@ -434,7 +434,12 @@ export interface PlayedExercise {
 	level: { shown: number; of: number; aid: boolean } | null;
 	/** The tempo of its first and of its last round; null in free time. */
 	tempo: { first: number; last: number } | null;
-	/** Passages played and passed, for rounds played in passages; null otherwise. */
+	/** Its rounds were played in passages: they are changes, told as right and in time. */
+	inPassages: boolean;
+	/**
+	 * Passages played and passed, for rounds played in passages of an exercise a file still
+	 * defines (its threshold is known); null otherwise.
+	 */
 	passages: { played: number; passed: number } | null;
 	/**
 	 * It left the session by « On change d’air »: known only while the session's series is in

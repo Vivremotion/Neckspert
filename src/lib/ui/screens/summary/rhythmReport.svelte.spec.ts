@@ -33,6 +33,7 @@ const failed: SessionSummary = {
 			aided: 0,
 			level: { shown: 1, of: 4, aid: false },
 			tempo: { first: 80, last: 80 },
+			inPassages: false,
 			passages: null,
 			changedAir: false
 		}

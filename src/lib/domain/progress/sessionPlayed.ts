@@ -22,8 +22,6 @@ export interface SessionPlayed {
 	skills: ReadonlySet<SkillId>;
 	/** One of its skills is on the chord voicings: it counts triads, not notes. */
 	chords: boolean;
-	/** One of its exercises plays passages. */
-	passages: boolean;
 	/**
 	 * Its skills have cards, or nothing tells otherwise: none of them is a skill a file defines
 	 * without cards (a session whose exercises and skills are all gone sums up as one of memory).
@@ -67,7 +65,6 @@ export function sessionPlayed(
 		chords: [...skills].some(
 			(skill) => hasSkill(skill) && skillById(skill).items === CHORD_VOICINGS_SET
 		),
-		passages: exercises.some((exercise) => exercise.passages !== undefined),
 		memory: ![...skills].some((skill) => hasSkill(skill) && !hasCards(skill))
 	};
 }

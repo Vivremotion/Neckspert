@@ -34,6 +34,7 @@ const summary: SessionSummary = {
 			aided: 0,
 			level: null,
 			tempo: { first: 92, last: 92 },
+			inPassages: false,
 			passages: null,
 			changedAir: false
 		}
@@ -50,6 +51,7 @@ const played = (
 	aided: 0,
 	level: null,
 	tempo: null,
+	inPassages: false,
 	passages: null,
 	changedAir: false,
 	...fields
@@ -198,6 +200,7 @@ describe('SummaryScreen of a gesture session', () => {
 				rounds: 50,
 				passed: 43,
 				tempo: { first: 80, last: 85 },
+				inPassages: true,
 				passages: { played: 4, passed: 3 }
 			})
 		],
@@ -224,6 +227,7 @@ describe('SummaryScreen of a gesture session', () => {
 							exerciseId: 'grid-in-direction',
 							scope: 'iohefy-a',
 							rounds: 3,
+							inPassages: true,
 							passages: { played: 1, passed: 0 },
 							changedAir: true
 						}),
@@ -232,6 +236,7 @@ describe('SummaryScreen of a gesture session', () => {
 							scope: 'iohefy-a',
 							rounds: 9,
 							passed: 9,
+							inPassages: true,
 							passages: { played: 1, passed: 1 }
 						})
 					]
@@ -317,6 +322,7 @@ describe('SummaryScreen of a gesture session', () => {
 					rounds: 9,
 					passed: 9,
 					tempo: { first: 80, last: 80 },
+					inPassages: true,
 					passages: { played: 1, passed: 1 }
 				})
 			),
@@ -484,15 +490,19 @@ describe('SummaryScreen of a series in memory', () => {
 		expect(screen.getByText('62 % du temps joué')).toBeTruthy();
 	});
 
-	it('a change of air names what breaks and offers the other exercises', () => {
+	it('a change of air names what breaks and offers the other exercises, said once with the exercise', () => {
+		// As the service gives it: the series ended by a change of air, the exercise left it.
 		const blocked: SessionSummary = {
 			...base,
+			exercises: [{ ...base.exercises[0], changedAir: true }],
 			series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
 		};
 		render(SummaryScreen, {
 			props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
 		});
-		expect(screen.getByText('On change d’air')).toBeTruthy();
+		expect(screen.getAllByText('On change d’air')).toHaveLength(1);
+		expect(document.querySelectorAll('.change-of-air')).toHaveLength(1);
+		expect(screen.getAllByText('Contretemps')).toHaveLength(2);
 		expect(screen.getByText('Ce qui casse :')).toBeTruthy();
 		expect(screen.getByText('tenue')).toBeTruthy();
 		const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
@@ -556,6 +566,7 @@ describe('SummaryScreen: one list for any session', () => {
 					passed: 9,
 					aided: 1,
 					tempo: { first: 80, last: 85 },
+					inPassages: true,
 					passages: { played: 1, passed: 1 }
 				}),
 				played({
@@ -564,6 +575,7 @@ describe('SummaryScreen: one list for any session', () => {
 					rounds: 12,
 					passed: 6,
 					tempo: { first: 100, last: 100 },
+					inPassages: true,
 					passages: { played: 1, passed: 0 }
 				}),
 				played({

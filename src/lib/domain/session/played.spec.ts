@@ -127,6 +127,7 @@ describe('summarizePlayed of a session of changes', () => {
 				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
+				inPassages: true,
 				passages: { played: 2, passed: 1 },
 				changedAir: false
 			}
@@ -145,6 +146,7 @@ describe('summarizePlayed of a session of changes', () => {
 			exerciseId: 'grid-reading',
 			rounds: 1,
 			passed: 1,
+			inPassages: true,
 			passages: { played: 1, passed: 1 }
 		});
 	});
@@ -186,6 +188,7 @@ describe('summarizePlayed of a session of changes', () => {
 				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
+				inPassages: true,
 				passages: { played: 1, passed: 1 },
 				changedAir: false
 			},
@@ -197,6 +200,7 @@ describe('summarizePlayed of a session of changes', () => {
 				aided: 0,
 				level: null,
 				tempo: { first: 100, last: 100 },
+				inPassages: true,
 				passages: { played: 1, passed: 0 },
 				changedAir: false
 			}
@@ -218,6 +222,7 @@ describe('summarizePlayed of a session of changes', () => {
 			rounds: 3,
 			passed: 0,
 			tempo: { first: 80, last: 80 },
+			inPassages: true,
 			passages: { played: 2, passed: 0 }
 		});
 	});
@@ -265,6 +270,7 @@ describe('summarizePlayed of a figure exercise', () => {
 			aided: 1,
 			level: { shown: 3, of: 4, aid: false },
 			tempo: { first: 80, last: 80 },
+			inPassages: false,
 			passages: null,
 			changedAir: false
 		});
@@ -280,7 +286,19 @@ describe('summarizePlayed of a figure exercise', () => {
 		expect(exercises[0]).toMatchObject({ rounds: 2, tempo: { first: 90, last: 95 } });
 	});
 
-	it('keeps the line of the exercise played alone even without a cycle', () => {
+	it('gives no line to an exercise played alone with nothing played and no level told', () => {
+		expect(
+			summarizePlayed({
+				executions: [{ exerciseId: 'grid-in-direction', tempoBpm: 80 }],
+				attempts: [],
+				aided,
+				alone: 'grid-in-direction',
+				level: () => null
+			})
+		).toEqual([]);
+	});
+
+	it('keeps the line of the exercise played alone, its level told, even without a cycle', () => {
 		const exercises = summarizePlayed({
 			executions: [],
 			attempts: [],
@@ -323,7 +341,7 @@ describe('summarizePlayed of a session of several exercises and scopes', () => {
 });
 
 describe('summarizePlayed of an exercise no file defines (D2)', () => {
-	it('keeps its line with what its attempts say: no level, its passages at the format’s threshold', () => {
+	it('keeps its line with what its attempts say: no level, its changes but not its passages', () => {
 		const exercises = summarizePlayed({
 			executions: [
 				{ exerciseId: 'gesture-unknown', tempoBpm: 80 },
@@ -337,13 +355,14 @@ describe('summarizePlayed of an exercise no file defines (D2)', () => {
 			aided
 		});
 		expect(exercises.map((line) => line.exerciseId)).toEqual(['gesture-unknown', 'grid-reading']);
-		// Its threshold is unknown: the format's default, 1, so a passage passes only whole.
+		// Its threshold is unknown: its passages are not counted, its changes are.
 		expect(exercises[0]).toMatchObject({
 			rounds: 2,
 			passed: 1,
 			level: null,
 			tempo: { first: 80, last: 80 },
-			passages: { played: 1, passed: 0 }
+			inPassages: true,
+			passages: null
 		});
 	});
 });

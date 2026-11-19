@@ -105,6 +105,12 @@
 	/** The lines of the exercises that changed air and left the session. */
 	const changedAir = $derived(summary.exercises.filter((line) => line.changedAir));
 
+	/**
+	 * The series in memory ended by a change of air: its block tells it, once, with what breaks and
+	 * the exercises to try instead.
+	 */
+	const seriesChangedAir = $derived(summary.series?.ended === 'change-of-air');
+
 	/** Misses contested on this screen, on top of those stored contested. */
 	let contestedHere = $state<number[]>([]);
 
@@ -215,7 +221,8 @@
 			</ul>
 		{:else}
 			<!-- Any other session: a line per exercise and scope, each field told when it has a
-			     value; its rounds told as changes when played in passages, else as cycles. -->
+			     value; its rounds told as changes when played in passages (`inPassages`), else as
+			     cycles. -->
 			<ul class="rows">
 				{#each summary.exercises as line (`${line.exerciseId}:${line.scope ?? ''}`)}
 					<li class="exercise">
@@ -225,6 +232,8 @@
 						{/if}
 						{#if line.passages}
 							<span>{t.passages(line.passages.passed, line.passages.played)}</span>
+						{/if}
+						{#if line.inPassages}
 							<span>{t.changes(share(line))}</span>
 						{:else}
 							<span>{t.cyclesSucceeded(line.passed, line.rounds)}</span>
@@ -238,7 +247,7 @@
 					</li>
 				{/each}
 			</ul>
-			{#if changedAir.length > 0}
+			{#if changedAir.length > 0 && !seriesChangedAir}
 				<ul class="rows">
 					<li class="exercise change-of-air">
 						<strong>{t.changeOfAir}</strong>
@@ -277,10 +286,12 @@
 						{#if series.listens > 0}<span>{t.listens(series.listens)}</span>{/if}
 						<span>{t.playedShare(Math.round(series.playedShare * 100))}</span>
 					</li>
-					<!-- A series that ended by a change of air is told so here unless its lines left. -->
-					{#if series.ended === 'change-of-air' && changedAir.length === 0}
+					{#if seriesChangedAir}
 						<li class="exercise change-of-air">
 							<strong>{t.changeOfAir}</strong>
+							{#each changedAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
+								<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
+							{/each}
 							{#if series.breaking}
 								{@const term = termOfFailure(series.breaking)}
 								<span

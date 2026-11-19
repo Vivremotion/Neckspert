@@ -48,6 +48,7 @@
 				aided: 2,
 				level: { shown: 3, of: 6, aid: false },
 				tempo: { first: 80, last: 80 },
+				inPassages: false,
 				passages: null,
 				changedAir: false
 			}

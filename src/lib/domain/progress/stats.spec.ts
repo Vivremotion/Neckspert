@@ -676,6 +676,7 @@ describe('summarizeSession of a gesture session', () => {
 				aided: 0,
 				level: null,
 				tempo: { first: 80, last: 80 },
+				inPassages: true,
 				passages: { played: 1, passed: 1 },
 				changedAir: false
 			}

@@ -11,32 +11,32 @@ interface Played {
 const keyOf = ({ exerciseId, scope }: Played) => `${exerciseId}\u0000${scope ?? ''}`;
 
 /**
- * Whether a passage passed: a share of its changes right and in time of at least its exercise's
- * `passes`. An exercise no loaded file defines leaves its threshold unknown (an attempt keeps no
- * threshold): 1 then, the format's default, so such a passage passes only when all its changes did.
+ * Whether a passage passed: a share of its changes right and in time of at least `passes`, its
+ * exercise's threshold.
  */
-function passagePassed(exerciseId: ExerciseId, attempts: readonly Attempt[]): boolean {
+function passagePassed(passes: number, attempts: readonly Attempt[]): boolean {
 	if (attempts.length === 0) return false;
-	const passes = findExercise(exerciseId)?.passages?.passes ?? 1;
 	return attempts.filter((attempt) => attempt.success).length / attempts.length >= passes;
 }
 
 /**
  * A session by exercise and scope (spec 2026-11-18, § 8), whatever its exercises, a file defining
  * them or not: a line per exercise and scope with a round played (and the exercise played alone,
- * `alone`, even without one), in the order first met (its executions, then its attempts). Each
- * line: its rounds and those passed, the passed ones aided beyond their level (`aided`), its level
- * (`level`, when the caller knows it), the tempo of its first round (its execution's, else its
- * first round's) and of its last, its passages when its rounds were played in passages (a change
- * stored before the passages grouped by the passage it kept; a round outside a passage of such a
- * line is not counted), and whether it left the session (`left`, the trace's).
+ * `alone`, without one when its level is told), in the order first met (its executions, then its
+ * attempts). Each line: its rounds and those passed, the passed ones aided beyond their level
+ * (`aided`), its level (`level`, when the caller knows it), the tempo of its first round (its
+ * execution's, else its first round's) and of its last, whether its rounds were played in
+ * passages (`inPassages`: a round outside a passage of such a line is not counted) and its
+ * passages played and passed when a file still defines its exercise's threshold (a change stored
+ * before the passages grouped by the passage it kept), and whether it left the session (`left`,
+ * the trace's).
  */
 export function summarizePlayed(input: {
 	executions: readonly Execution[];
 	attempts: readonly Attempt[];
 	/** A round had an aid beyond its level's own. */
 	aided(attempt: Attempt): boolean;
-	/** The exercise the session played alone: its line is kept with no round. */
+	/** The exercise the session played alone: its line is kept with no round when its level is told. */
 	alone?: ExerciseId;
 	/** The level a line held at the end; null (the default) when it is not told. */
 	level?(played: Played): PlayedExercise['level'];
@@ -60,14 +60,19 @@ export function summarizePlayed(input: {
 		const own = input.attempts.filter((attempt) => keyOf(attempt) === key);
 		const changes = own.filter(isChange);
 		const rounds = changes.length > 0 ? changes : own;
-		if (rounds.length === 0 && played.exerciseId !== input.alone) return [];
+		const level = input.level?.(played) ?? null;
+		if (rounds.length === 0 && !(played.exerciseId === input.alone && level !== null)) return [];
 		const execution = input.executions.find((each) => keyOf(each) === key);
 		const first = execution
 			? execution.tempoBpm
 			: (rounds.find((attempt) => attempt.tempoBpm !== null)?.tempoBpm ?? null);
 		const last = rounds.at(-1)?.tempoBpm ?? first;
+		// An exercise no file defines leaves its threshold unknown (an attempt keeps none): its
+		// passages are not counted. One a file defines passes at its `passes`, else the format's 1.
+		const definition = findExercise(played.exerciseId);
+		const passes = definition ? (definition.passages?.passes ?? 1) : undefined;
 		let passages: PlayedExercise['passages'] = null;
-		if (changes.length > 0) {
+		if (changes.length > 0 && passes !== undefined) {
 			const byPassage = new Map<string, Attempt[]>();
 			for (const attempt of changes) {
 				const id = passageIdOf(attempt);
@@ -75,8 +80,7 @@ export function summarizePlayed(input: {
 			}
 			passages = {
 				played: byPassage.size,
-				passed: [...byPassage.values()].filter((each) => passagePassed(played.exerciseId, each))
-					.length
+				passed: [...byPassage.values()].filter((each) => passagePassed(passes, each)).length
 			};
 		}
 		const passed = rounds.filter((attempt) => attempt.success);
@@ -86,8 +90,9 @@ export function summarizePlayed(input: {
 				rounds: rounds.length,
 				passed: passed.length,
 				aided: passed.filter((attempt) => input.aided(attempt)).length,
-				level: input.level?.(played) ?? null,
+				level,
 				tempo: first === null || last === null ? null : { first, last },
+				inPassages: changes.length > 0,
 				passages,
 				changedAir: left.has(key)
 			}
