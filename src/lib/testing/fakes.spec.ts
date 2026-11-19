@@ -4,6 +4,7 @@ import type { Attempt, CardState } from '$lib/domain/types';
 import {
 	FakeChordVerifier,
 	FakeClock,
+	FakeDefinitionsService,
 	FakeDiagnosticSink,
 	FakeNoteDetector,
 	InMemoryAttemptRepository,
@@ -140,5 +141,17 @@ describe('in-memory repositories', () => {
 		expect((await repo.get()).locale).toBe('fr');
 		expect((await repo.update({ clickBleed: true })).clickBleed).toBe(true);
 		expect((await repo.get()).locale).toBe('fr');
+	});
+});
+
+describe('FakeDefinitionsService', () => {
+	it('keeps the last of two files of one name in one import', async () => {
+		const service = new FakeDefinitionsService();
+		const { stored } = await service.import([
+			{ name: 'a.json', text: '1' },
+			{ name: 'a.json', text: '2' }
+		]);
+		expect(stored.map((file) => file.name)).toEqual(['a.json']);
+		expect((await service.files()).map((file) => file.name)).toEqual(['a.json']);
 	});
 });

@@ -209,9 +209,85 @@ describe('createDefinitionsService', () => {
 		expect(exerciseIds()).toContain('hidden-arpeggio');
 	});
 
-	it("gives the catalog's refusals too when asked", async () => {
-		const { service } = setup();
+	it("gives the catalog's refusals only when asked", async () => {
+		const catalogRefusal = {
+			file: '/catalog/x.json',
+			kind: 'file' as const,
+			id: null,
+			reason: 'unreadable'
+		};
+		const files = new InMemoryDefinitionFileRepository();
+		await files.put({ name: 'broken.json', text: '{ not json', importedAt: 1 });
+		const service = createDefinitionsService({
+			files,
+			load: (imported) => {
+				const loaded = loadDefinitions({ catalog: CATALOG_FILES, imported });
+				return { ...loaded, catalog: { ...loaded.catalog, refusals: [catalogRefusal] } };
+			},
+			now: () => 1
+		});
 		await service.ready();
-		expect(service.refusals({ catalog: true })).toEqual([]);
+
+		const imported = service.refusals();
+		expect(imported.map((refusal) => refusal.file)).toEqual(['broken.json']);
+		expect(service.refusals({ catalog: true })).toEqual([catalogRefusal, ...imported]);
+	});
+
+	it('keeps the registries matching the table when storing a file fails', async () => {
+		const files = new InMemoryDefinitionFileRepository();
+		const put = files.put.bind(files);
+		let puts = 0;
+		vi.spyOn(files, 'put').mockImplementation(async (file) => {
+			if (++puts === 2) throw new Error('quota');
+			await put(file);
+		});
+		const { service } = setup(files);
+
+		await expect(
+			service.import([
+				{ name: 'a.json', text: file(['stored-arpeggio'], 'skill-a') },
+				{ name: 'b.json', text: file(['lost-arpeggio'], 'skill-b') }
+			])
+		).rejects.toThrow('quota');
+
+		expect(exerciseIds()).toContain('stored-arpeggio');
+		expect(exerciseIds()).not.toContain('lost-arpeggio');
+		expect((await service.files()).map((stored) => stored.name)).toEqual(['a.json']);
+	});
+
+	it('keeps the registries matching the table when removing a file fails', async () => {
+		const { service, files } = setup();
+		await service.import([{ name: 'a.json', text: file(['kept-arpeggio']) }]);
+		await files.put({ name: 'b.json', text: file(['written-arpeggio'], 'skill-b'), importedAt: 2 });
+		vi.spyOn(files, 'delete').mockRejectedValueOnce(new Error('blocked'));
+
+		await expect(service.remove('a.json')).rejects.toThrow('blocked');
+
+		expect(exerciseIds()).toContain('kept-arpeggio');
+		expect(exerciseIds()).toContain('written-arpeggio');
+	});
+
+	it('runs its operations in the order asked, a failed one not stopping the next', async () => {
+		const files = new InMemoryDefinitionFileRepository();
+		const put = files.put.bind(files);
+		const { service } = setup(files);
+		await service.ready();
+		// Storing takes long: a removal asked meanwhile must wait for it.
+		vi.spyOn(files, 'put').mockImplementation(async (stored) => {
+			await new Promise((resolve) => setTimeout(resolve, 20));
+			await put(stored);
+		});
+		vi.spyOn(files, 'delete').mockRejectedValueOnce(new Error('blocked'));
+
+		const imported = service.import([{ name: 'a.json', text: file(['raced-arpeggio']) }]);
+		const failed = service.remove('a.json');
+		const removed = service.remove('a.json');
+		await imported;
+		await expect(failed).rejects.toThrow('blocked');
+		await removed;
+
+		expect(await files.all()).toEqual([]);
+		expect(await service.files()).toEqual([]);
+		expect(exerciseIds()).not.toContain('raced-arpeggio');
 	});
 });

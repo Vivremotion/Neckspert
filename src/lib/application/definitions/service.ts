@@ -93,8 +93,30 @@ export function createDefinitionsService(deps: {
 		};
 	};
 
+	/** The service's operations, one after the other in the order asked; a failed one does not stop the next. */
+	let queue: Promise<unknown> = Promise.resolve();
+	const enqueue = <T>(operation: () => Promise<T>): Promise<T> => {
+		const run = queue.then(operation);
+		queue = run.catch(() => {});
+		return run;
+	};
+
+	/**
+	 * A change to the table, then a read of it whether the change went through or not, then what
+	 * `told` says of the load, all in one operation.
+	 */
+	const changing = <T>(change: () => Promise<void>, told: () => T): Promise<T> =>
+		enqueue(async () => {
+			try {
+				await change();
+			} finally {
+				await read();
+			}
+			return told();
+		});
+
 	const ready = () => {
-		started ??= read().catch((error) => console.error('[imported] load failed', error));
+		started ??= enqueue(read).catch((error) => console.error('[imported] load failed', error));
 		return started;
 	};
 
@@ -102,43 +124,50 @@ export function createDefinitionsService(deps: {
 		ready,
 
 		async files() {
-			await ready();
-			return stored.map(describe);
+			void ready();
+			return enqueue(async () => stored.map(describe));
 		},
 
 		async import(files) {
-			await ready();
+			void ready();
 			// Two files of one name in one call: the last one wins.
 			const byName = new Map(files.map((file) => [file.name, file.text]));
 			const refused: Refusal[] = [];
 			const names: string[] = [];
-			for (const [name, text] of byName) {
-				if (text.length > MAX_DEFINITION_FILE_CHARS) {
-					refused.push({
-						file: name,
-						kind: 'file',
-						id: null,
-						reason: `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`
-					});
-					continue;
-				}
-				await deps.files.put({ name, text, importedAt: deps.now() });
-				names.push(name);
-			}
-			await read();
-			const kept = stored.filter((file) => names.includes(file.name));
-			return { stored: kept.map(describe), refused };
+			return changing(
+				async () => {
+					for (const [name, text] of byName) {
+						if (text.length > MAX_DEFINITION_FILE_CHARS) {
+							refused.push({
+								file: name,
+								kind: 'file',
+								id: null,
+								reason: `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`
+							});
+							continue;
+						}
+						await deps.files.put({ name, text, importedAt: deps.now() });
+						names.push(name);
+					}
+				},
+				() => ({
+					stored: stored.filter((file) => names.includes(file.name)).map(describe),
+					refused
+				})
+			);
 		},
 
 		async remove(name) {
-			await ready();
-			await deps.files.delete(name);
-			await read();
+			void ready();
+			await changing(
+				() => deps.files.delete(name),
+				() => undefined
+			);
 		},
 
 		async reload() {
-			await ready();
-			await read();
+			void ready();
+			await enqueue(read);
 		},
 
 		refusals(options = {}) {

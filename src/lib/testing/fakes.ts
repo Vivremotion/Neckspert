@@ -531,7 +531,9 @@ export class FakeDefinitionsService implements DefinitionsService {
 	): Promise<{ stored: ImportedFile[]; refused: Refusal[] }> {
 		const stored: ImportedFile[] = [];
 		const refused: Refusal[] = [];
-		for (const { name, text } of files) {
+		// Two files of one name in one call: the last one wins, as in the real service.
+		const byName = new Map(files.map((file) => [file.name, file.text]));
+		for (const [name, text] of byName) {
 			if (text.length > MAX_DEFINITION_FILE_CHARS) {
 				const reason = `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`;
 				refused.push({ file: name, kind: 'file', id: null, reason });
