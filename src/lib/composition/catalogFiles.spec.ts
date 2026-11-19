@@ -13,8 +13,6 @@ import { allGrids, clearGrids } from '$lib/domain/grid';
 import { idProblem, RESERVED_EXERCISE_IDS, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill';
 import { clearRoutines, routines } from '$lib/domain/routine/registry';
-import { i18n } from '$lib/i18n/index.svelte';
-import { playMessages } from '$lib/ui/play/messages';
 import { CATALOG_FILES } from './catalogFiles';
 
 function load() {
@@ -129,7 +127,9 @@ describe('the catalog files', () => {
 		}
 	});
 
-	it('titles the routines as the home did and tells their how-to as the screens do today', () => {
+	// Their how-to, which the play screen now reads from them, is held word for word by the
+	// screen's own spec (PlayFrame, « what the session plays »).
+	it('titles the routines as the home did', () => {
 		expect(load()).toEqual([]);
 		// The home's block titles, which the routines now give it.
 		const titles = {
@@ -146,29 +146,11 @@ describe('the catalog files', () => {
 				changes: 'Changes'
 			}
 		};
-		const told = (locale: 'fr' | 'en') => {
-			i18n.locale = locale;
-			const play = playMessages();
-			return {
-				notes: { title: titles[locale].notes, howTo: play.howTo.learn },
-				chords: { title: titles[locale].chords, howTo: play.howTo.triads },
-				'chords-zone': {
-					title: titles[locale]['chords-zone'],
-					howTo: play.howTo['triads-zone']
-				},
-				changes: { title: titles[locale].changes, howTo: play.howTo.gesture }
-			};
-		};
-		try {
-			for (const locale of ['fr', 'en'] as const) {
-				const today = told(locale);
-				const written = Object.fromEntries(
-					routines().map((r) => [r.id, { title: r.title[locale], howTo: r.howTo?.[locale] }])
-				);
-				expect(written, locale).toEqual(today);
-			}
-		} finally {
-			i18n.locale = 'fr';
+		for (const locale of ['fr', 'en'] as const) {
+			const written = Object.fromEntries(routines().map((r) => [r.id, r.title[locale]]));
+			expect(written, locale).toEqual(titles[locale]);
+			// Each tells a how-to in both languages.
+			expect(routines().every((r) => (r.howTo?.[locale] ?? '') !== '')).toBe(true);
 		}
 	});
 });

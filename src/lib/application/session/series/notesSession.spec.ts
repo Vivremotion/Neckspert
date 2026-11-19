@@ -482,7 +482,7 @@ describe('a learn session of the notes', () => {
 			attemptCount: 2,
 			correctCount: 2,
 			tempoBpm: 80,
-			kind: 'learn'
+			chords: false
 		});
 		expect(summary.medianOffsetMs).toBeCloseTo(30, 0);
 		expect(summary.identifyMedianReactionMs).toBe(named.reactionMs);

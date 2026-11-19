@@ -6,7 +6,7 @@
 	import { importedProblemCount } from '$lib/application/definitions/problems';
 	import { loadedDefinitions } from '$lib/composition/definitions';
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
-	import { sessionKindOf, type HomeStats, type SessionKind } from '$lib/domain/types';
+	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
 	const services = useAppServices();
@@ -59,25 +59,15 @@
 		};
 	});
 
-	/**
-	 * The bridge until Task 4 of plan 5a starts a session by its routine: the kind of session the
-	 * stored origins name for the routine of `id`; null for a routine they do not know (an
-	 * imported one), which cannot be started yet.
-	 */
-	function kindOf(id: string): Exclude<SessionKind, 'exercise'> | null {
-		const kind = sessionKindOf({ routine: id });
-		return kind === 'exercise' ? null : kind;
-	}
-
+	/** A routine's session, by its id (D6). */
 	function startRoutine(id: string) {
-		const kind = kindOf(id);
-		if (kind !== null) void goto(`/session?kind=${kind}`);
+		void goto(`/session?routine=${encodeURIComponent(id)}`);
 	}
 
-	/** « Commencer » and Space: the first open routine that can be started. */
+	/** « Commencer » and Space: the first open routine. */
 	function start() {
 		if (!stats) return;
-		const first = routines.find((routine) => routine.open && kindOf(routine.id) !== null);
+		const first = routines.find((routine) => routine.open);
 		if (first) startRoutine(first.id);
 	}
 
@@ -102,7 +92,6 @@
 		onstart={start}
 		{routines}
 		onroutine={startRoutine}
-		startable={(id) => kindOf(id) !== null}
 		exercises={exerciseSessionExercises()}
 		{resting}
 		refused={dev ? refusalsLoaded() : []}

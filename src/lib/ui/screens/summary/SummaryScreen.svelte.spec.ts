@@ -23,7 +23,7 @@ const summary: SessionSummary = {
 	nextReviewAt: 2 * 60 * 60 * 1000,
 	grade: null,
 	tempoBpm: 92,
-	kind: 'learn'
+	chords: false
 };
 
 describe('SummaryScreen', () => {
@@ -136,7 +136,7 @@ describe('SummaryScreen', () => {
 			identifyMedianReactionMs: null,
 			learnedCount: 1,
 			knownCount: 2,
-			kind: 'triads'
+			chords: true
 		};
 
 		it('counts triads, not notes, and leaves naming out', () => {
@@ -161,7 +161,7 @@ describe('SummaryScreen', () => {
 describe('SummaryScreen of a gesture session', () => {
 	const gesture: SessionSummary = {
 		...summary,
-		kind: 'gesture',
+		chords: false,
 		gesture: {
 			exercises: [
 				{
@@ -289,7 +289,7 @@ describe('SummaryScreen of a gesture session', () => {
 describe('SummaryScreen of a rhythm session', () => {
 	const rhythm: SessionSummary = {
 		...summary,
-		kind: 'exercise',
+		chords: false,
 		exercise: {
 			exerciseId: 'rhythm-offbeats',
 			levelReached: { shown: 3, of: 6, aid: false },
@@ -359,7 +359,7 @@ describe('SummaryScreen of a rhythm session', () => {
 describe('SummaryScreen of a series in memory', () => {
 	const base: SessionSummary = {
 		...summary,
-		kind: 'exercise',
+		chords: false,
 		exercise: {
 			exerciseId: 'rhythm-offbeats',
 			levelReached: { shown: 0, of: 4, aid: true },
@@ -449,9 +449,9 @@ describe('SummaryScreen of a series in memory', () => {
 		expect(screen.getByText('Ce qui casse :')).toBeTruthy();
 		expect(screen.getByText('tenue')).toBeTruthy();
 		const links = screen.getAllByRole('link').map((link) => link.getAttribute('href'));
-		expect(links).toContain('/session?kind=exercise&exercise=rhythm-silent-bars');
-		expect(links).toContain('/session?kind=exercise&exercise=rhythm-two-four');
-		expect(links).not.toContain('/session?kind=exercise&exercise=rhythm-offbeats');
+		expect(links).toContain('/session?exercise=rhythm-silent-bars');
+		expect(links).toContain('/session?exercise=rhythm-two-four');
+		expect(links).not.toContain('/session?exercise=rhythm-offbeats');
 	});
 
 	it('without a series, the counts alone and no replay', () => {

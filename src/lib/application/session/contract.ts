@@ -121,9 +121,27 @@ export interface PlayTimeline {
 	nowBeat(): number;
 }
 
+/** Words in each language of the play screen. */
+export interface PlayWords {
+	readonly fr: string;
+	readonly en: string;
+}
+
+/** What a session plays, as the play screen names it (D10); it never chooses the view's world. */
+export interface PlayOrigin {
+	/** The routine's title, or the exercise's own when played alone (its id when it writes none). */
+	readonly title: PlayWords;
+	/** Told on the start screen when the first exercise tells none: the routine's; null alone. */
+	readonly howTo: PlayWords | null;
+	/** Played freely, out of the learning procedure. */
+	readonly free: boolean;
+}
+
 /** Runs one session. Implemented by the session orchestration, displayed by the play screen. */
 export interface PlaySessionController {
 	readonly sessionId: string;
+	/** What it plays; absent from the screens' demonstrations, which name nothing. */
+	readonly origin?: PlayOrigin;
 	/** Deeply reactive ($state). Read-only for the UI. */
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;

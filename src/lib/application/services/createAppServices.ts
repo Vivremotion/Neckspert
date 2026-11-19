@@ -35,6 +35,7 @@ import {
 	lastAttemptByCard,
 	nextReviewAt,
 	reviewableCards,
+	sessionPlayed,
 	summarizeSession
 } from '$lib/domain/progress';
 import {
@@ -53,14 +54,10 @@ import {
 	type Known
 } from '$lib/domain/routine';
 import {
-	isTriadsKind,
-	sessionKindOf,
-	sessionOriginOf,
 	type Attempt,
 	type CardKey,
 	type CardState,
 	type ExerciseSummary,
-	type SessionKind,
 	type SessionOrigin,
 	type SkillId,
 	type SessionRecord
@@ -332,11 +329,11 @@ export function createAppServices(
 	};
 
 	/**
-	 * The exercise an exercise session played, when the registry still holds it with levels and a
+	 * The exercise a session played alone, when the registry still holds it with levels and a
 	 * round that writes a figure.
 	 */
 	const sessionExerciseOf = (record: SessionRecord) => {
-		if (sessionKindOf(record) !== 'exercise' || record.exercise === undefined) return undefined;
+		if (record.exercise === undefined) return undefined;
 		const played = exerciseFound(record.exercise);
 		return played?.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 	};
@@ -509,13 +506,14 @@ export function createAppServices(
 				deps.attempts.all(),
 				deps.cards.all()
 			]);
-			// Next reviews of the session's own track: the neck's, or the triads'.
-			const ofTrack = (x: { skill: string }) => isNeck(x) === !isTriadsKind(sessionKindOf(record));
+			// Next reviews of the skills the session played: its routine's, or its exercise's.
+			const { skills } = sessionPlayed(record, attempts);
+			const played = (x: { skill: SkillId }) => skills.has(x.skill);
 			const summary = summarizeSession({
 				record,
 				attempts,
-				allAttempts: allAttempts.filter(ofTrack),
-				cards: servedCards(cards.filter(ofTrack)),
+				allAttempts: allAttempts.filter(played),
+				cards: servedCards(cards.filter(played)),
 				now: deps.now()
 			});
 			const rested = summary.gesture && changeOfAirOf(sessionId, attempts);
@@ -527,14 +525,6 @@ export function createAppServices(
 		async neckMap() {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			return buildNeckMap({ cards: servedCards(cards), attempts, pitchAt: pitchOnString });
-		},
-
-		async startSession(kind: SessionKind) {
-			// An exercise session needs its exercise: recorded without it, no backup would import.
-			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
-			// A bridge until the kinds go: the routine the kind's session records.
-			const { routine, free } = sessionOriginOf(kind);
-			return startRoutine(routine!, { free: free === true });
 		},
 
 		startRoutine,

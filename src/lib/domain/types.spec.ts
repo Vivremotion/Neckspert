@@ -7,10 +7,7 @@ import {
 	RESPONSE_RELATIONS,
 	RESPONSE_VERDICTS,
 	responseVerdictOf,
-	resolveDiagnosticsEnabled,
-	sessionKindOf,
-	sessionOriginOf,
-	type SessionKind
+	resolveDiagnosticsEnabled
 } from './types';
 
 describe('cardKey', () => {
@@ -104,29 +101,5 @@ describe('responseVerdictOf', () => {
 describe('chord diagram setting', () => {
 	it('draws chords on strings by default', () => {
 		expect(DEFAULT_SETTINGS.chordDiagram).toBe('strings');
-	});
-});
-
-describe('the origin of a session', () => {
-	it.each([
-		['learn', undefined, { routine: 'notes' }],
-		['free', undefined, { routine: 'notes', free: true }],
-		['triads', undefined, { routine: 'chords' }],
-		['triads-zone', undefined, { routine: 'chords-zone' }],
-		['gesture', undefined, { routine: 'changes' }],
-		['exercise', 'rhythm-two-four', { exercise: 'rhythm-two-four' }]
-	] as const)('%s: recorded as its routine or its exercise, and read back', (kind, id, origin) => {
-		expect(sessionOriginOf(kind as SessionKind, id)).toEqual(origin);
-		expect(sessionKindOf(origin)).toBe(kind);
-	});
-
-	it('records an exercise session without an exercise as no origin', () => {
-		expect(sessionOriginOf('exercise')).toEqual({});
-	});
-
-	it('reads a record no routine describes as an exercise session', () => {
-		expect(sessionKindOf({})).toBe('exercise');
-		expect(sessionKindOf({ routine: 'kazoo' })).toBe('exercise');
-		expect(sessionKindOf({ routine: 'chords', free: true })).toBe('exercise');
 	});
 });

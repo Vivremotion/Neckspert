@@ -16,7 +16,7 @@
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+',
 		tempoBpm: 92,
-		kind: 'learn'
+		chords: false
 	};
 
 	const triads: SessionSummary = {
@@ -24,14 +24,14 @@
 		pool: 'cold',
 		grade: null,
 		identifyMedianReactionMs: null,
-		kind: 'triads'
+		chords: true
 	};
 
 	const rhythm: SessionSummary = {
 		...summary,
 		pool: 'cold',
 		grade: null,
-		kind: 'exercise',
+		chords: false,
 		exercise: {
 			exerciseId: 'rhythm-offbeats',
 			levelReached: { shown: 3, of: 6, aid: false },

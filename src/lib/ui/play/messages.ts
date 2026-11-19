@@ -1,11 +1,5 @@
 import { defineMessages } from '$lib/i18n/index.svelte';
 import type { Announcement } from '$lib/application/session/contract';
-import type { SessionKind } from '$lib/domain/types';
-
-const HOW_TO_NOTES_FR =
-	'La note défile dans la piste. Joue-la, sur la corde indiquée, quand sa case atteint le trait. Le clic sort des enceintes de l’ordinateur.';
-const HOW_TO_NOTES_EN =
-	'The note travels along the lane. Play it, on the string shown, when its tile reaches the line. The click comes from the computer speakers.';
 
 export const playMessages = defineMessages({
 	fr: {
@@ -14,18 +8,9 @@ export const playMessages = defineMessages({
 		quit: 'Quitter',
 		start: 'Commencer',
 		again: 'Recommencer',
-		howTo: {
-			learn: HOW_TO_NOTES_FR,
-			free: HOW_TO_NOTES_FR,
-			triads:
-				'« C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. Le clic sort des enceintes de l’ordinateur.',
-			'triads-zone':
-				'« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.',
-			gesture:
-				'Joue la grille sans t’arrêter : attaque chaque accord sur son changement, puis joue-le comme tu veux jusqu’au suivant. Suis le repère de l’exercice. Le clic sort des enceintes de l’ordinateur.',
-			exercise:
-				'Joue ce que l’exercice demande, en suivant le clic. Sa consigne s’affiche avant la première série.'
-		} satisfies Record<SessionKind, string>,
+		/** Told on the start screen of an exercise played alone that tells none. */
+		howTo:
+			'Joue ce que l’exercice demande, en suivant le clic. Sa consigne s’affiche avant la première série.',
 		verdict: {
 			perfect: 'Parfait',
 			early: 'En avance',
@@ -49,14 +34,8 @@ export const playMessages = defineMessages({
 		bleed:
 			'Le micro entend le clic : branche un casque ou ta guitare sur une interface, puis relance.',
 		quitExercise: 'Quitter l’exercice',
-		kindName: {
-			learn: 'Apprentissage',
-			free: 'Jeu libre',
-			triads: 'Triades',
-			'triads-zone': 'Triades · zone',
-			gesture: 'Changements',
-			exercise: 'Exercice'
-		} satisfies Record<SessionKind, string>,
+		/** The header of a session played freely. */
+		freePlay: 'Jeu libre',
 		playedAs: (label: string) => `${label} joué`,
 		nothingHeard: 'rien entendu',
 		tempo: (bpm: number) => `♩ = ${bpm}`,
@@ -83,18 +62,8 @@ export const playMessages = defineMessages({
 		quit: 'Quit',
 		start: 'Start',
 		again: 'Restart',
-		howTo: {
-			learn: HOW_TO_NOTES_EN,
-			free: HOW_TO_NOTES_EN,
-			triads:
-				'“C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. The click comes from the computer speakers.',
-			'triads-zone':
-				'“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers.',
-			gesture:
-				'Play the chart without stopping: attack each chord on its change, then play it as you like until the next one. Follow the exercise’s cue. The click comes from the computer speakers.',
-			exercise:
-				'Play what the exercise asks, following the click. Its instructions show before the first run.'
-		} satisfies Record<SessionKind, string>,
+		howTo:
+			'Play what the exercise asks, following the click. Its instructions show before the first run.',
 		verdict: {
 			perfect: 'Perfect',
 			early: 'Early',
@@ -118,14 +87,7 @@ export const playMessages = defineMessages({
 		bleed:
 			'The microphone hears the click: plug in headphones, or your guitar through an interface, then start again.',
 		quitExercise: 'Quit the exercise',
-		kindName: {
-			learn: 'Learn',
-			free: 'Free play',
-			triads: 'Triads',
-			'triads-zone': 'Triads · zone',
-			gesture: 'Changes',
-			exercise: 'Exercise'
-		} satisfies Record<SessionKind, string>,
+		freePlay: 'Free play',
 		playedAs: (label: string) => `${label} played`,
 		nothingHeard: 'nothing heard',
 		tempo: (bpm: number) => `♩ = ${bpm}`,

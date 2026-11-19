@@ -5,9 +5,8 @@
 	import { page } from '$app/state';
 	import { useAppServices } from '$lib/application/app';
 	import type { PlaySessionController } from '$lib/application/session/contract';
-	import { exerciseFromQuery } from '$lib/application/session/exerciseFromQuery';
 	import { finishDestination } from '$lib/application/session/finishDestination';
-	import { sessionKindFromQuery } from '$lib/application/session/sessionKindFromQuery';
+	import { sessionFromQuery } from '$lib/application/session/sessionFromQuery';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import { sessionPageMessages } from './messages';
 
@@ -15,24 +14,23 @@
 	/** The frame is shown once the controller has put its first view on stage (`ready`). */
 	let ready = $state(false);
 	let error = $state<string | null>(null);
+	/** The address names no routine and no exercise a file defines: nothing to play. */
+	let notFound = $state(false);
 
 	const t = $derived(sessionPageMessages());
-	const kind = $derived(sessionKindFromQuery(page.url.searchParams.get('kind')));
 
 	onMount(async () => {
 		try {
 			const services = useAppServices();
-			if (kind === 'exercise') {
-				const exerciseId = exerciseFromQuery(page.url.searchParams.get('exercise'));
-				if (exerciseId === null) {
-					// A link to an exercise that does not exist: nothing to play, back to the home screen.
-					void goto('/', { replaceState: true });
-					return;
-				}
-				controller = await services.startExercise(exerciseId);
-			} else {
-				controller = await services.startSession(kind);
+			const origin = sessionFromQuery(page.url.searchParams);
+			if (origin === null) {
+				notFound = true;
+				return;
 			}
+			controller =
+				'routine' in origin
+					? await services.startRoutine(origin.routine, { free: origin.free === true })
+					: await services.startExercise(origin.exercise);
 			// The frame tells the first exercise's instruction on its start screen.
 			await controller.ready?.();
 			ready = true;
@@ -57,15 +55,15 @@
 	});
 </script>
 
-{#if error}
+{#if error || notFound}
 	<!-- The nav bar is hidden on /session: the way out is here. -->
 	<div class="error" role="alert">
-		<p>{error}</p>
+		<p>{notFound ? t.notFound : error}</p>
 		<a href={resolve('/')}>{t.home}</a>
 	</div>
 {:else if controller && ready}
 	<!-- Every session shows its exercise's view in the common frame. -->
-	<PlayFrame {controller} {kind} quitToSummary />
+	<PlayFrame {controller} quitToSummary />
 {/if}
 
 <style>

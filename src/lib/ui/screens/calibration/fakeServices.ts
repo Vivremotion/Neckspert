@@ -126,7 +126,7 @@ const EMPTY_SUMMARY: SessionSummary = {
 	nextReviewAt: null,
 	grade: null,
 	tempoBpm: null,
-	kind: 'learn'
+	chords: false
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {
@@ -151,9 +151,6 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 		resting: async () => [],
 		sessionSummary: async () => EMPTY_SUMMARY,
 		neckMap: async (): Promise<NeckMapCell[]> => [],
-		startSession: async () => {
-			throw new Error('startSession is not used by I3 screens');
-		},
 		startRoutine: async () => {
 			throw new Error('startRoutine is not used by I3 screens');
 		},

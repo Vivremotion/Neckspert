@@ -4,12 +4,6 @@ import type { IgnoreReason } from './time/modes/types';
 import type { Execution, ExerciseId } from './exercise/types';
 import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
-import {
-	ROUTINE_CHANGES_ID,
-	ROUTINE_CHORDS_ID,
-	ROUTINE_CHORDS_ZONE_ID,
-	ROUTINE_NOTES_ID
-} from './exercise/catalogIds';
 import type {
 	Aid,
 	CycleReport,
@@ -77,58 +71,9 @@ export const IDENTIFY_RECALL_THRESHOLD_MS = 3000;
 
 export type Temperature = 'cold' | 'hot';
 
-/**
- * Notes: learn and free play. The memory track of the triads (spec 2026-10-08), one exercise per
- * session: `triads` the anchor (sessions before 2026-10-09 mixed in the zone), `triads-zone`.
- * The gesture track (spec 2026-10-10): `gesture`, every open gesture exercise in turn.
- */
-export type SessionKind =
-	| 'learn'
-	| 'free'
-	| 'triads'
-	| 'triads-zone'
-	| 'gesture'
-	/** Free play of one exercise (`SessionRecord.exercise`): the rhythm exercises. */
-	| 'exercise';
-
-/** A session of the triads' memory track. */
-export function isTriadsKind(kind: SessionKind): boolean {
-	return kind === 'triads' || kind === 'triads-zone';
-}
-
 /** What a session plays, as it records it: a routine, or one exercise, freely or not. */
 export type SessionOrigin =
 	{ routine: string; free?: true } | { exercise: ExerciseId; free?: true };
-
-/** What a stored session says it played: a routine, or one exercise (sessions of any age). */
-type StoredOrigin = Pick<SessionRecord, 'routine' | 'exercise' | 'free'>;
-
-/** The routine each kind of session but `exercise` plays (until plan 5). */
-const ROUTINE_OF_KIND: Readonly<
-	Record<Exclude<SessionKind, 'exercise'>, { routine: string; free?: true }>
-> = {
-	learn: { routine: ROUTINE_NOTES_ID },
-	free: { routine: ROUTINE_NOTES_ID, free: true },
-	triads: { routine: ROUTINE_CHORDS_ID },
-	'triads-zone': { routine: ROUTINE_CHORDS_ZONE_ID },
-	gesture: { routine: ROUTINE_CHANGES_ID }
-};
-
-/** What a session of `kind` records it played; an exercise session names its exercise. */
-export function sessionOriginOf(kind: SessionKind, exercise?: ExerciseId): StoredOrigin {
-	if (kind === 'exercise') return exercise === undefined ? {} : { exercise };
-	return { ...ROUTINE_OF_KIND[kind] };
-}
-
-/** The kind of session a record came from: learn, free, triads, triads-zone, gesture, exercise. */
-export function sessionKindOf(record: StoredOrigin): SessionKind {
-	for (const [kind, origin] of Object.entries(ROUTINE_OF_KIND)) {
-		if (origin.routine === record.routine && origin.free === record.free) {
-			return kind as SessionKind;
-		}
-	}
-	return 'exercise';
-}
 
 /** Where an attempt happened inside a session. */
 export type ItemPhase = 'probe' | 'review' | 'learning' | 'consolidation' | 'free';
@@ -298,7 +243,7 @@ export interface AttemptPassage {
 
 export interface SessionRecord {
 	id: string;
-	/** The routine the session played (`ROUTINE_*_ID`); absent for a session of one exercise. */
+	/** The id of the routine the session played; absent for a session of one exercise. */
 	routine?: string;
 	/** The exercise played, for a session of one exercise. */
 	exercise?: ExerciseId;
@@ -431,8 +376,11 @@ export interface SessionSummary {
 	 * Null when it did not run.
 	 */
 	tempoBpm: number | null;
-	/** Which session it was: a triads session counts triads, not notes. */
-	kind: SessionKind;
+	/**
+	 * The session played chord voicings (its skills' item set is `voicing-on-strings`): it counts
+	 * triads, not notes.
+	 */
+	chords: boolean;
 	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
 	gesture?: GestureSummary;
 	/** A rhythm exercise session: the rest of the summary is not shown for it. */

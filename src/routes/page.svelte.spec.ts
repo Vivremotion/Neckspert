@@ -33,15 +33,15 @@ describe('/ page', () => {
 		vi.clearAllMocks();
 	});
 
-	it('starts learn on Space when nothing has the focus', async () => {
+	it('starts the notes on Space when nothing has the focus', async () => {
 		const services = createFakeAppServices({ routines: async () => catalogRoutines() });
 		render(TestHarness, { props: { services } });
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Commencer' })).toBeTruthy());
 		await fireEvent.keyDown(document.body, { code: 'Space', key: ' ' });
-		expect(goto).toHaveBeenCalledWith('/session?kind=learn');
+		expect(goto).toHaveBeenCalledWith('/session?routine=notes');
 	});
 
-	it('starts each routine of the catalog from its block, by the kind of its session', async () => {
+	it('starts each routine of the catalog from its block, by its id', async () => {
 		const services = createFakeAppServices({ routines: async () => catalogRoutines() });
 		render(TestHarness, { props: { services } });
 		await waitFor(() => expect(screen.getByRole('button', { name: /^Triades$/ })).toBeTruthy());
@@ -50,10 +50,10 @@ describe('/ page', () => {
 		await fireEvent.click(screen.getByRole('button', { name: /^Triades vers une case/ }));
 		await fireEvent.click(screen.getByRole('button', { name: /^Changements/ }));
 		expect(goto.mock.calls.map(([url]) => url)).toEqual([
-			'/session?kind=learn',
-			'/session?kind=triads',
-			'/session?kind=triads-zone',
-			'/session?kind=gesture'
+			'/session?routine=notes',
+			'/session?routine=chords',
+			'/session?routine=chords-zone',
+			'/session?routine=changes'
 		]);
 	});
 
@@ -67,7 +67,7 @@ describe('/ page', () => {
 		expect(screen.queryByText(/Changements/)).toBeNull();
 	});
 
-	it('shows a routine the stored origins do not know, with no start yet', async () => {
+	it('starts an imported routine by its id, first on Space when it comes first', async () => {
 		const imported: RoutineEntry = {
 			id: 'my-routine',
 			title: { fr: 'Ma routine', en: 'My routine' },
@@ -81,10 +81,13 @@ describe('/ page', () => {
 		});
 		render(TestHarness, { props: { services } });
 		await waitFor(() => expect(screen.getByText('Ma routine')).toBeTruthy());
-		expect(screen.queryByRole('button', { name: /Ma routine/ })).toBeNull();
-		// Space starts the first open routine that can be started.
+		await fireEvent.click(screen.getByRole('button', { name: /Ma routine/ }));
+		// Space starts the first open routine.
 		await fireEvent.keyDown(document.body, { code: 'Space', key: ' ' });
-		expect(goto).toHaveBeenCalledWith('/session?kind=learn');
+		expect(goto.mock.calls.map(([url]) => url)).toEqual([
+			'/session?routine=my-routine',
+			'/session?routine=my-routine'
+		]);
 	});
 
 	it('tells a failure to read the routines, and starts nothing on Space', async () => {

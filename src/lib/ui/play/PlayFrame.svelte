@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
-	import type { SessionKind } from '$lib/domain/types';
+	import { i18n } from '$lib/i18n/index.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
 	import Prompt from '$lib/ui/primitives/Prompt.svelte';
@@ -17,13 +17,10 @@
 
 	let {
 		controller,
-		kind = 'gesture',
 		quitToSummary = false,
 		views = PLAY_VIEWS
 	}: {
 		controller: PlaySessionController;
-		/** Which session runs: its how-to shows before the start. */
-		kind?: SessionKind;
 		quitToSummary?: boolean;
 		/** The registry the stage's view is looked up in. */
 		views?: Record<string, Component<PlayViewProps>>;
@@ -38,13 +35,24 @@
 	 * The frame is drawn in the world of the view on stage, from the start screen on (the
 	 * controller places its first exercise's view at `ready()`, and the page shows the frame
 	 * only then). When the stage empties (the end) it keeps the world it showed; with none ever
-	 * shown it is neutral, in the pixel world. The world never reads the kind of session (which
-	 * still names the header and gives the how-to when the exercise tells none).
+	 * shown it is neutral, in the pixel world. The world never reads what the session plays (its
+	 * origin, which names the header and gives the how-to when the exercise tells none).
 	 */
 	const world: PlayWorld = $derived.by(() => {
 		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';
 		return shownWorld ?? 'pixel';
 	});
+	/** The header names what plays: « Jeu libre » when free, else the routine or the exercise. */
+	const named = $derived.by(() => {
+		const origin = controller.origin;
+		if (!origin) return [];
+		return [origin.free ? t.freePlay : origin.title[i18n.locale]];
+	});
+	/**
+	 * Before the start: the first exercise's instruction, else the routine's, else the general
+	 * sentence of an exercise played alone.
+	 */
+	const how = $derived(view.briefing?.text ?? controller.origin?.howTo?.[i18n.locale] ?? t.howTo);
 	const showStart = $derived(view.status === 'idle' || view.status === 'finished');
 	/** In the quiet world, start, end and pause are a light page over the field. */
 	const light = $derived(showStart || view.status === 'paused');
@@ -165,7 +173,7 @@
 {#if world === 'quiet'}
 	<QuietField {light} data-world="quiet" data-status={view.status}>
 		<QuietTop
-			parts={view.tempoBpm > 0 ? [t.kindName[kind], t.tempo(view.tempoBpm)] : [t.kindName[kind]]}
+			parts={view.tempoBpm > 0 ? [...named, t.tempo(view.tempoBpm)] : named}
 			playing={running}
 			{light}
 			onpause={() => controller.pause()}
@@ -207,7 +215,7 @@
 		<QuietOverlay
 			status={view.status}
 			audioError={view.audioError}
-			how={view.briefing?.text ?? t.howTo[kind]}
+			{how}
 			briefing={view.briefing?.text ?? null}
 			onstart={() => controller.start()}
 			onresume={() => controller.resume()}
@@ -273,9 +281,9 @@
 				{:else if view.audioError === 'bleed'}
 					<!-- The game is not refused: a first encounter still reads its instruction. -->
 					<p class="how" role="alert">{t.bleed}</p>
-					<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
+					<p class="how">{how}</p>
 				{:else}
-					<p class="how">{view.briefing?.text ?? t.howTo[kind]}</p>
+					<p class="how">{how}</p>
 				{/if}
 				<PixelButton size="huge" onclick={() => controller.start()}
 					>{view.status === 'finished' ? t.again : t.start}</PixelButton

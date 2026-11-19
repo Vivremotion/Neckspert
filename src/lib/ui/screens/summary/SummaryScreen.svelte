@@ -7,7 +7,7 @@
 	import { allGrids } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
-	import { isTriadsKind, type ExerciseSummary, type SessionSummary } from '$lib/domain/types';
+	import type { ExerciseSummary, SessionSummary } from '$lib/domain/types';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import Page from '$lib/ui/primitives/Page.svelte';
@@ -111,7 +111,8 @@
 		await oncontest(attemptId);
 	}
 
-	const triads = $derived(isTriadsKind(summary.kind));
+	/** A session of chords counts triads, not notes. */
+	const triads = $derived(summary.chords);
 
 	const t = $derived(summaryMessages());
 	const accuracyLabel = $derived(summary.pool === 'all' ? t.accuracyAll : t.accuracy);
@@ -182,7 +183,7 @@
 							{/if}
 							<span>{t.tryInstead}</span>
 							{#each exerciseSessionExercises().filter((e) => e.id !== rhythm.exerciseId) as other (other.id)}
-								<a href={`/session?kind=exercise&exercise=${other.id}`}
+								<a href={`/session?exercise=${other.id}`}
 									>{other.title?.[i18n.locale] ?? other.id}</a
 								>
 							{/each}

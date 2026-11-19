@@ -15,7 +15,6 @@ import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/c
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import {
-	sessionKindOf,
 	type Attempt,
 	type BackupFile,
 	type CardState,
@@ -209,20 +208,18 @@ describe('createAppServices', () => {
 		expect(map[0]).toHaveProperty('pitch');
 	});
 
-	it('startSession refuses an exercise session, which starts only through startExercise', async () => {
-		const { services } = harness();
-		await expect(services.startSession('exercise')).rejects.toThrow(/startExercise/);
-	});
-
-	it('plays learn and free sessions on the session controller', async () => {
-		for (const kind of ['learn', 'free'] as const) {
+	it('plays the notes and their free play on the session controller', async () => {
+		for (const free of [false, true]) {
 			const { services, deps } = harness();
-			const controller = await services.startSession(kind);
+			const controller = await services.startRoutine('notes', { free });
 			expect(controller).toBeInstanceOf(SessionController);
 			await controller.ready?.();
 			await controller.start();
 			const record = await deps.sessions.get(controller.sessionId);
-			expect(record && sessionKindOf(record)).toBe(kind);
+			expect(record && { routine: record.routine, free: record.free }).toEqual({
+				routine: 'notes',
+				free: free ? true : undefined
+			});
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			expect(controller.view.status).toBe('awaiting');
 			expect(['lane', 'answer-keys']).toContain(controller.view.stage?.view);
@@ -230,9 +227,9 @@ describe('createAppServices', () => {
 		}
 	});
 
-	it('startSession(learn) probes the first note of the queue without aid', async () => {
+	it('the notes probe the first note of the queue without aid', async () => {
 		const { services, deps } = harness();
-		const controller = await services.startSession('learn');
+		const controller = await services.startRoutine('notes');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
@@ -265,7 +262,7 @@ describe('createAppServices', () => {
 			failures: 0,
 			resumeAfter: null
 		});
-		const controller = await services.startSession('learn');
+		const controller = await services.startRoutine('notes');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		const lane = noteLane(controller);
@@ -276,7 +273,7 @@ describe('createAppServices', () => {
 
 	it('runs locate at its level 0 tempo, 80 bpm', async () => {
 		const { services, deps } = harness();
-		const controller = await services.startSession('learn');
+		const controller = await services.startRoutine('notes');
 		await controller.start();
 		expect(controller.view.tempoBpm).toBe(80);
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
@@ -302,7 +299,7 @@ describe('createAppServices', () => {
 				resumeAfter: null
 			});
 		}
-		const controller = await services.startSession('free');
+		const controller = await services.startRoutine('notes', { free: true });
 		await controller.start();
 		await runOnTransport(
 			deps,
@@ -318,9 +315,9 @@ describe('createAppServices', () => {
 		controller.quit();
 	});
 
-	it('startSession(free) never prompts an open string', async () => {
+	it('the free play of the notes never prompts an open string', async () => {
 		const { services, deps } = harness();
-		const controller = await services.startSession('free');
+		const controller = await services.startRoutine('notes', { free: true });
 		await controller.start();
 		const prompts: string[] = [];
 		await runOnTransport(
@@ -344,9 +341,9 @@ describe('createAppServices', () => {
 		expect(prompts).not.toContain('A|corde de A');
 	});
 
-	it('startSession(learn) runs the procedure and exposes a summary', async () => {
+	it('the notes run the procedure and exposes a summary', async () => {
 		const { services, deps } = harness();
-		const controller = await services.startSession('learn');
+		const controller = await services.startRoutine('notes');
 		await controller.start();
 		let answered: number | null = null;
 		await runOnTransport(
@@ -582,7 +579,7 @@ describe('the gesture track', () => {
 	it('plays a gesture session on the session controller', async () => {
 		const { services, deps, chords } = harness();
 		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
-		const controller = await services.startSession('gesture');
+		const controller = await services.startRoutine('changes');
 		expect(controller).toBeInstanceOf(SessionController);
 		await controller.ready?.();
 		// The first exercise's instruction, on the start screen.
@@ -613,7 +610,7 @@ describe('the gesture track', () => {
 		const played = async (development: boolean) => {
 			const { services, deps, chords } = harness({ development });
 			await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
-			const controller = await services.startSession('gesture');
+			const controller = await services.startRoutine('changes');
 			await controller.start();
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			// Another chord on the target, a beat (0.75 s at ♩ = 80) after the prompt: a miss.
@@ -676,7 +673,7 @@ describe('the gesture track', () => {
 			latencyMs: 0
 		});
 		const summary = await services.sessionSummary('g1');
-		expect(summary).toMatchObject({ kind: 'gesture', gesture: { exercises: [], misses: [] } });
+		expect(summary).toMatchObject({ chords: false, gesture: { exercises: [], misses: [] } });
 	});
 
 	it('starts the gesture at the level it reached, read from the levels stored', async () => {
@@ -691,7 +688,7 @@ describe('the gesture track', () => {
 			failures: 0,
 			resumeAfter: null
 		});
-		const controller = await services.startSession('gesture');
+		const controller = await services.startRoutine('changes');
 		await controller.start();
 		// Level 3 of the link: ♩ = 90.
 		expect(controller.view.tempoBpm).toBe(90);
@@ -713,11 +710,16 @@ describe('the rhythm exercises', () => {
 	});
 
 	it('opens no attack sensor for a session of the notes, the triads or the gesture', async () => {
-		for (const kind of ['learn', 'free', 'triads', 'gesture'] as const) {
+		for (const [routine, free] of [
+			['notes', false],
+			['notes', true],
+			['chords', false],
+			['changes', false]
+		] as const) {
 			const { services, attacks } = harness();
-			const controller = await services.startSession(kind);
+			const controller = await services.startRoutine(routine, { free });
 			await controller.start();
-			expect([kind, attacks.listeners]).toEqual([kind, 0]);
+			expect([routine, attacks.listeners]).toEqual([routine, 0]);
 			controller.quit();
 		}
 	});
@@ -834,7 +836,7 @@ describe('the rhythm exercises', () => {
 		await deps.attempts.add(rhythmCycle(1, false));
 		await deps.attempts.add(rhythmCycle(0, true, 'other'));
 		const summary = await services.sessionSummary('r1');
-		expect(summary.kind).toBe('exercise');
+		expect(summary.chords).toBe(false);
 		expect(summary.exercise).toEqual({
 			exerciseId: RHYTHM_OFFBEATS.id,
 			levelReached: { shown: 2, of: 4, aid: false },
@@ -967,7 +969,7 @@ describe('the rhythm exercises', () => {
 		await deps.sessions.put(rhythmSession({ id: 'neck', exercise: 'locate-note-string' }));
 		for (const id of ['gone', 'neck']) {
 			const summary = await services.sessionSummary(id);
-			expect(summary.kind).toBe('exercise');
+			expect(summary.chords).toBe(false);
 			expect(summary.exercise).toBeUndefined();
 		}
 	});
@@ -1204,6 +1206,135 @@ describe('a session by its routine or its exercise', () => {
 		expect(await ended(deps, controller)).toMatchObject({
 			exercise: RHYTHM_OFFBEATS.id,
 			levelReached: 0
+		});
+	});
+});
+
+describe('the summary of a stored session, told by what it played (Review Focus 4)', () => {
+	const KEY = 'D|maj|3:5,2:1,1:3';
+	/** A learned card due at `due`. */
+	const due = (card: CardState, at: number): CardState => ({
+		...card,
+		scheduling: { ...card.scheduling, due: at }
+	});
+	const neck = (): CardState => {
+		const item = { string: 6 as StringNumber, pitch: 'G' as PitchName };
+		return markLearned(
+			introduceCard({ key: 'locate-note-string:6:G', skill: 'locate-note-string', item }, 0, 's0'),
+			0
+		);
+	};
+	const stored = (
+		id: string,
+		origin: Partial<SessionRecord>,
+		executions: SessionRecord['executions'] = []
+	): SessionRecord => ({
+		id,
+		startedAt: 0,
+		endedAt: 1,
+		fatigueDetected: false,
+		executions,
+		latencyMs: 0,
+		...origin
+	});
+
+	async function seeded() {
+		const { services, deps } = harness();
+		await deps.cards.putMany([
+			due(neck(), 1000),
+			due(learnedTriad('chord-anchor', KEY), 2000),
+			due(learnedTriad('chord-zone', KEY), 3000)
+		]);
+		return { services, deps };
+	}
+
+	it('sums up each origin as its kind was summed up before plan 5a', async () => {
+		const { services, deps } = await seeded();
+		const sessions: [string, Partial<SessionRecord>, SessionRecord['executions']][] = [
+			[
+				'learn',
+				{ routine: 'notes' },
+				[
+					{ exerciseId: 'identify-note', tempoBpm: null },
+					{ exerciseId: 'locate-note-string', tempoBpm: 80 }
+				]
+			],
+			[
+				'free',
+				{ routine: 'notes', free: true },
+				[{ exerciseId: 'locate-note-string', tempoBpm: 90 }]
+			],
+			['triads', { routine: 'chords' }, [{ exerciseId: 'chord-anchor', tempoBpm: 85 }]],
+			['zone', { routine: 'chords-zone' }, [{ exerciseId: 'chord-zone', tempoBpm: 75 }]],
+			['gesture', { routine: 'changes' }, [{ exerciseId: 'inversion-run', tempoBpm: 80 }]],
+			['none', {}, [{ exerciseId: 'locate-note-string', tempoBpm: 80 }]]
+		];
+		for (const [id, origin, executions] of sessions) {
+			await deps.sessions.put(stored(id, origin, executions));
+		}
+		const summed = async (id: string) => {
+			const summary = await services.sessionSummary(id);
+			return {
+				pool: summary.pool,
+				chords: summary.chords,
+				tempoBpm: summary.tempoBpm,
+				nextReviewAt: summary.nextReviewAt,
+				gesture: summary.gesture !== undefined,
+				exercise: summary.exercise !== undefined
+			};
+		};
+		const notes = { chords: false, gesture: false, exercise: false };
+		expect(await summed('learn')).toEqual({
+			...notes,
+			pool: 'cold',
+			tempoBpm: 80,
+			nextReviewAt: 1000
+		});
+		expect(await summed('free')).toEqual({
+			...notes,
+			pool: 'all',
+			tempoBpm: 90,
+			nextReviewAt: 1000
+		});
+		// The triads: the anchor's reviews (the zone's card is the zone routine's, as on the home).
+		expect(await summed('triads')).toEqual({
+			...notes,
+			chords: true,
+			pool: 'cold',
+			tempoBpm: 85,
+			nextReviewAt: 2000
+		});
+		expect(await summed('zone')).toEqual({
+			...notes,
+			chords: true,
+			pool: 'cold',
+			tempoBpm: 75,
+			nextReviewAt: 3000
+		});
+		expect(await summed('gesture')).toMatchObject({ chords: false, gesture: true });
+		// Neither a routine nor an exercise (a record migration 13 kept): read from what it holds.
+		expect(await summed('none')).toEqual({
+			...notes,
+			pool: 'cold',
+			tempoBpm: 80,
+			nextReviewAt: 1000
+		});
+	});
+
+	it('sums up a triad exercise played alone with the triads’ next reviews, never the notes’', async () => {
+		const { services, deps } = await seeded();
+		await deps.sessions.put(stored('alone', { exercise: 'chord-anchor', free: true }));
+		const summary = await services.sessionSummary('alone');
+		expect(summary).toMatchObject({ chords: true, pool: 'all', nextReviewAt: 2000 });
+		expect(summary.exercise).toBeUndefined();
+	});
+
+	it('sums up a notes exercise played alone with its own next reviews', async () => {
+		const { services, deps } = await seeded();
+		await deps.sessions.put(stored('alone', { exercise: 'locate-note-string', free: true }));
+		expect(await services.sessionSummary('alone')).toMatchObject({
+			chords: false,
+			nextReviewAt: 1000
 		});
 	});
 });

@@ -309,28 +309,28 @@ describe('stored progress whose definition is gone', () => {
 		const summed = async (id: string) => {
 			const summary = await services.sessionSummary(id);
 			return {
-				kind: summary.kind,
+				chords: summary.chords,
 				exercise: summary.exercise,
 				attemptCount: summary.attemptCount,
 				tempoBpm: summary.tempoBpm
 			};
 		};
 		expect(await summed('s-normal')).toEqual({
-			kind: 'learn',
+			chords: false,
 			exercise: undefined,
 			attemptCount: 2,
 			tempoBpm: 80
 		});
-		// An exercise no file defines: summed up as an exercise session, with no exercise summary.
+		// An exercise no file defines: summed up from its attempts, with no exercise summary.
 		expect(await summed('s-gone-exercise')).toEqual({
-			kind: 'exercise',
+			chords: false,
 			exercise: undefined,
 			attemptCount: 1,
 			tempoBpm: null
 		});
-		// A routine the code does not know is read as an exercise session.
+		// A routine no file defines: summed up from its attempts.
 		expect(await summed('s-gone-routine')).toEqual({
-			kind: 'exercise',
+			chords: false,
 			exercise: undefined,
 			attemptCount: 1,
 			tempoBpm: null
@@ -357,7 +357,7 @@ describe('stored progress whose definition is gone', () => {
 	it('starts a learning session', async () => {
 		const { services, deps } = harness();
 		await seed(deps);
-		const controller = await services.startSession('learn');
+		const controller = await services.startRoutine('notes');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
@@ -457,7 +457,7 @@ describe('a track exercise no file defines', () => {
 	it('starts the triads without identify (D9)', async () => {
 		const { services, deps } = harness();
 		withoutExercise(IDENTIFY_NECK_ID);
-		const controller = await services.startSession('triads');
+		const controller = await services.startRoutine('chords');
 		await controller.start();
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
@@ -465,17 +465,17 @@ describe('a track exercise no file defines', () => {
 	});
 
 	it('starts the anchor session without the zone, and the zone session without the anchor', async () => {
-		for (const [missing, kind] of [
-			[TRIADS_ZONE_ID, 'triads'],
-			[TRIADS_ANCHOR_ID, 'triads-zone']
+		for (const [missing, routine] of [
+			[TRIADS_ZONE_ID, 'chords'],
+			[TRIADS_ANCHOR_ID, 'chords-zone']
 		] as const) {
 			const { services, deps } = harness();
 			withoutExercise(missing);
-			const controller = await services.startSession(kind);
+			const controller = await services.startRoutine(routine);
 			await controller.start();
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			// A zone session with no anchor card acquired has nothing to ask and ends at once.
-			expect(controller.view.status, kind).toBe(kind === 'triads' ? 'awaiting' : 'finished');
+			expect(controller.view.status, routine).toBe(routine === 'chords' ? 'awaiting' : 'finished');
 			controller.quit();
 		}
 	});
@@ -483,7 +483,7 @@ describe('a track exercise no file defines', () => {
 	it('refuses a triads session without its own exercise, naming it', async () => {
 		const { services } = harness();
 		withoutExercise(TRIADS_ZONE_ID);
-		await expect(services.startSession('triads-zone')).rejects.toThrow(
+		await expect(services.startRoutine('chords-zone')).rejects.toThrow(
 			`Unknown exercise: ${TRIADS_ZONE_ID}`
 		);
 	});
@@ -491,7 +491,7 @@ describe('a track exercise no file defines', () => {
 	it('refuses a notes session without its own exercise, naming it', async () => {
 		const { services } = harness();
 		withoutExercise(IDENTIFY_NECK_ID);
-		await expect(services.startSession('learn')).rejects.toThrow(
+		await expect(services.startRoutine('notes')).rejects.toThrow(
 			`Unknown exercise: ${IDENTIFY_NECK_ID}`
 		);
 	});
@@ -501,7 +501,7 @@ describe('a track exercise no file defines', () => {
 		await seed(deps);
 		withoutExercise(LOCATE_NECK_ID);
 		const summary = await services.sessionSummary('s-normal');
-		expect(summary).toMatchObject({ kind: 'learn', tempoBpm: 80 });
+		expect(summary).toMatchObject({ chords: false, tempoBpm: 80 });
 		// The notes cannot be started without locate; telling them throws nothing.
 		const notes = async () => (await services.routines()).find((r) => r.id === 'notes');
 		expect((await notes())?.open).toBe(false);

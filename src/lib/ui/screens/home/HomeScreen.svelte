@@ -22,7 +22,6 @@
 		onstart,
 		routines = [],
 		onroutine,
-		startable = () => true,
 		exercises,
 		resting = [],
 		refused = [],
@@ -36,8 +35,6 @@
 		routines?: readonly RoutineEntry[];
 		/** Starts a session of the routine; without it, no routine block can be started. */
 		onroutine?: (id: string) => void;
-		/** Whether the routine of `id` can be started yet (the bridge of the home page). */
-		startable?: (id: string) => boolean;
 		/** The exercises played on their own, each a link to its session; without them, no such block. */
 		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
@@ -96,7 +93,7 @@
 			why: whyOf(routine),
 			// Every session plays on the session controller: one session length.
 			duration: formatMinutes(SESSION_MS, words),
-			...(onroutine && startable(routine.id) && { onselect: () => onroutine(routine.id) })
+			...(onroutine && { onselect: () => onroutine(routine.id) })
 		}));
 		for (const exercise of exercises ?? []) {
 			list.push({
@@ -105,7 +102,7 @@
 				subtitle: exercise.title?.[i18n.locale] ?? exercise.id,
 				why: resting.includes(exercise.id) ? t.resting : undefined,
 				duration: formatMinutes(SESSION_MS, words),
-				href: `/session?kind=exercise&exercise=${exercise.id}`
+				href: `/session?exercise=${exercise.id}`
 			});
 		}
 		return list;

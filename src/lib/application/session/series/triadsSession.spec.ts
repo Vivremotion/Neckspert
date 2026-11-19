@@ -523,7 +523,7 @@ describe('the length and the tempo of a triads session', () => {
 		expect(record).not.toHaveProperty('kind');
 		expect(record?.endedAt).not.toBeNull();
 		const summary = await app.services.sessionSummary(controller.sessionId);
-		expect(summary).toMatchObject({ kind: 'triads-zone', attemptCount: 0 });
+		expect(summary).toMatchObject({ chords: true, attemptCount: 0 });
 	});
 
 	it('ends after SESSION_MS, a round under way finishing', async () => {

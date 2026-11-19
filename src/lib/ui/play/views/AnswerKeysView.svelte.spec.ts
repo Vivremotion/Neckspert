@@ -99,10 +99,10 @@ describe('AnswerKeysView', () => {
 	});
 
 	it('does not pause when Space activates a key in the frame', async () => {
-		const controller = new StageController();
+		const controller = new StageController({ routine: 'notes' });
 		controller.view.status = 'awaiting';
 		controller.view.stage = { view: 'answer-keys', model: model() };
-		render(PlayFrame, { props: { controller, kind: 'learn' } });
+		render(PlayFrame, { props: { controller } });
 		const key = within(screen.getByRole('group', PAD)).getByRole('button', { name: 'C' });
 		key.focus();
 		await fireEvent.keyDown(key, { key: ' ', code: 'Space' });

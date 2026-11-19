@@ -1,3 +1,6 @@
+import type { ExerciseId } from '$lib/domain/exercise/types';
+import type { RoutineDefinition } from '$lib/domain/routine/types';
+
 export type Destination = 'practice' | 'library' | 'progress' | 'settings';
 
 /** Paths played full screen: no rail (a session, the mode-2 demo, the diagnostics, the dev play views). */
@@ -34,4 +37,18 @@ export function activeDestination(path: string): Destination | null {
 	const page = stripDev(path);
 	if (page === '/') return 'practice';
 	return DESTINATION_PREFIXES.find(([prefix]) => under(page, prefix))?.[1] ?? null;
+}
+
+/**
+ * The library (until plan 5b): the free play of the first routine whose exercises are all on
+ * memory skills (`memory`), read from the registry; home when there is none.
+ */
+export function libraryHref(
+	routines: readonly Pick<RoutineDefinition, 'id' | 'exercises'>[],
+	memory: (exerciseId: ExerciseId) => boolean
+): string {
+	const free = routines.find(
+		(routine) => routine.exercises.length > 0 && routine.exercises.every(memory)
+	);
+	return free ? `/session?routine=${encodeURIComponent(free.id)}&free=1` : '/';
 }

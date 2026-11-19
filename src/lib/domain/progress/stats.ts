@@ -2,8 +2,6 @@ import { LEARNABLE_FRETS, neckCardKey } from '$lib/domain/music';
 import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
-	isTriadsKind,
-	sessionKindOf,
 	type Attempt,
 	type CardState,
 	type HomeStats,
@@ -11,18 +9,13 @@ import {
 	type SessionRecord,
 	type SessionSummary
 } from '$lib/domain/types';
-import {
-	IDENTIFY_SKILL_ID,
-	LOCATE_NECK_ID,
-	LOCATE_SKILL_ID,
-	TRIADS_ANCHOR_ID,
-	TRIADS_ZONE_ID
-} from '$lib/domain/exercise/catalogIds';
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
 import { lastAttemptByCard, nextReviewAt } from './review';
+import { sessionPlayed } from './sessionPlayed';
 
 function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
@@ -51,7 +44,7 @@ function lastColdRecallMs(key: string, attempts: readonly Attempt[]): number | n
 	return latest?.ms ?? null;
 }
 
-/** |offset| of the cold successes on the beat of a triads session, whatever their skill. */
+/** |offset| of the cold successes on the beat of a session of chords, whatever their skill. */
 function beatOffsets(attempts: readonly Attempt[]): number[] {
 	return attempts.flatMap((attempt) => {
 		if (attempt.temperature !== 'cold' || !attempt.success) return [];
@@ -93,6 +86,10 @@ export function computeHomeStats(input: { attempts: readonly Attempt[]; now: num
 	};
 }
 
+/**
+ * A session summed up from what it played (`sessionPlayed`): free play scores every attempt; a
+ * session of chords counts triads; a session of passages sums its passages up.
+ */
 export function summarizeSession(input: {
 	record: SessionRecord;
 	/** This session's attempts. */
@@ -102,8 +99,8 @@ export function summarizeSession(input: {
 	cards: readonly CardState[];
 	now: number;
 }): SessionSummary {
-	const kind = sessionKindOf(input.record);
-	const pool = kind === 'free' ? 'all' : 'cold';
+	const played = sessionPlayed(input.record, input.attempts);
+	const pool = input.record.free === true ? 'all' : 'cold';
 	// Cold figures measure reviews: probes are shown apart, as notes already known.
 	const scored =
 		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.phase !== 'probe');
@@ -111,11 +108,10 @@ export function summarizeSession(input: {
 		pool === 'all' ? scored : scored.filter((attempt) => attempt.temperature === 'cold');
 	const startedAt = input.record.startedAt;
 	const endedAt = input.record.endedAt ?? input.now;
-	const triads = isTriadsKind(kind);
-	// The tempo shown is the session's exercise's: locate for the notes. Read from the record
-	// alone, so a session sums up once the file of its exercise is removed.
-	const shownExerciseId =
-		kind === 'triads-zone' ? TRIADS_ZONE_ID : triads ? TRIADS_ANCHOR_ID : LOCATE_NECK_ID;
+	const chords = played.chords;
+	// The tempo shown is the first of the session's exercises played at one (identify plays in
+	// free time). Read from the record's ids, so a session sums up once its exercise's file is gone.
+	const playedIds = new Set(played.exerciseIds);
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
 	);
@@ -124,7 +120,7 @@ export function summarizeSession(input: {
 		pool,
 		attemptCount: counted.length,
 		correctCount: counted.filter((attempt) => attempt.success).length,
-		medianOffsetMs: median(triads ? beatOffsets(counted) : locateOffsets(scored, pool)),
+		medianOffsetMs: median(chords ? beatOffsets(counted) : locateOffsets(scored, pool)),
 		identifyMedianReactionMs: median(identifyReactions(scored, pool)),
 		learnedCount: input.cards.filter(
 			(card) => card.learnedAt !== null && card.learnedAt >= startedAt && card.learnedAt <= endedAt
@@ -138,10 +134,11 @@ export function summarizeSession(input: {
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
 		tempoBpm:
-			input.record.executions.find((execution) => execution.exerciseId === shownExerciseId)
-				?.tempoBpm ?? null,
-		kind,
-		...(kind === 'gesture' && {
+			input.record.executions.find(
+				(execution) => playedIds.has(execution.exerciseId) && execution.tempoBpm !== null
+			)?.tempoBpm ?? null,
+		chords,
+		...(played.passages && {
 			gesture: summarizeGesture(input.record.executions, input.attempts)
 		})
 	};

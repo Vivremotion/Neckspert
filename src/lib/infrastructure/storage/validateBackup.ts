@@ -12,7 +12,6 @@ import {
 	type BackupFile,
 	type ItemPhase,
 	type Locale,
-	type SessionKind,
 	type Temperature
 } from '$lib/domain/types';
 import { V1_EXERCISE_IDS, convertV1, type V1Backup } from './legacy/v1';
@@ -40,7 +39,8 @@ const LOCALES: readonly Locale[] = ['fr', 'en'];
 
 const TEMPERATURES: readonly Temperature[] = ['cold', 'hot'];
 const ITEM_PHASES: readonly ItemPhase[] = ['probe', 'review', 'learning', 'consolidation', 'free'];
-const SESSION_KINDS: readonly SessionKind[] = [
+/** The kinds of session files 1 to 8 recorded (frozen: version 9 records what a session played). */
+const SESSION_KINDS: readonly string[] = [
 	'learn',
 	'free',
 	'triads',

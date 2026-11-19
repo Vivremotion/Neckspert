@@ -31,4 +31,4 @@
 	});
 </script>
 
-<PlayFrame {controller} kind="gesture" />
+<PlayFrame {controller} />

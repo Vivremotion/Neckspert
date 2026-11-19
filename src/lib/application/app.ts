@@ -1,7 +1,7 @@
 import type { OracleReport } from '$lib/application/ports';
 import { getContext, setContext } from 'svelte';
 import type { ExerciseId } from '$lib/domain/exercise/types';
-import type { HomeStats, NeckMapCell, SessionKind, SessionSummary } from '$lib/domain/types';
+import type { HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
 import type {
 	BackupPort,
 	CalibrationPort,
@@ -70,11 +70,6 @@ export interface AppServices {
 	resting(exerciseIds: readonly ExerciseId[]): Promise<ExerciseId[]>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
-	/**
-	 * The session of the routine a kind of session names (`startRoutine`); rejects `'exercise'`
-	 * (see `startExercise`). A bridge until the kinds go (plan 5a, Task 4).
-	 */
-	startSession(kind: SessionKind): Promise<PlaySessionController>;
 	/**
 	 * The session of a routine, not yet started: how it draws is deduced from its exercises, the
 	 * learning procedure on memory exercises, else their passages in turn. `free` plays a routine

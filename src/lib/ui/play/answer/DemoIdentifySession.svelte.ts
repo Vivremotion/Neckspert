@@ -3,7 +3,8 @@ import { CONTENT_VIEWS, presentPrompt, type PromptStageModel } from '$lib/applic
 import type {
 	PlaySessionController,
 	PlayTimeline,
-	PlayView
+	PlayView,
+	PlayOrigin
 } from '$lib/application/session/contract';
 import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK_ID, exerciseById } from '$lib/domain/exercise';
 import { skillById } from '$lib/domain/skill/registry';
@@ -37,6 +38,8 @@ const noRandom = () => 0;
  */
 export class DemoIdentifySession implements PlaySessionController {
 	readonly sessionId = 'demo-identify';
+	/** What the demonstration is named as, given by its page; nothing by default. */
+	origin?: PlayOrigin;
 	view = $state<PlayView>({
 		status: 'idle',
 		tempoBpm: DEFAULT_TEMPO_BPM,

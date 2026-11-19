@@ -9,7 +9,8 @@ import type {
 	LaneEntry,
 	PlaySessionController,
 	PlayTimeline,
-	PlayView
+	PlayView,
+	PlayOrigin
 } from '$lib/application/session/contract';
 import { DEFAULT_TEMPO_BPM, LOCATE_NECK_ID, exerciseById } from '$lib/domain/exercise';
 import { acceptableMidis, midiOnString, type LocateItem } from '$lib/domain/music';
@@ -62,6 +63,8 @@ const noRandom = () => 0;
  */
 export class DemoPlaySession implements PlaySessionController {
 	readonly sessionId = 'demo-play';
+	/** What the demonstration is named as, given by its page; nothing by default. */
+	origin?: PlayOrigin;
 	readonly view: PlayView;
 	readonly timeline: PlayTimeline;
 

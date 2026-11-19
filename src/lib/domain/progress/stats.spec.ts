@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import {
-	sessionOriginOf,
 	type Attempt,
 	type CardState,
-	type SessionKind,
+	type SessionOrigin,
 	type SessionRecord
 } from '$lib/domain/types';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
@@ -210,9 +209,9 @@ describe('summarizeSession', () => {
 		temperature: 'hot',
 		promptedAt: NOW - 40_000
 	});
-	const record = (kind: SessionKind): SessionRecord => ({
+	const record = (origin: SessionOrigin): SessionRecord => ({
 		id: 'sess',
-		...sessionOriginOf(kind),
+		...origin,
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: true,
@@ -223,7 +222,7 @@ describe('summarizeSession', () => {
 	it('summarizes cold accuracy, notes learned, notes pending and the next review', () => {
 		const sessionAttempts = [...attempts, pending];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: sessionAttempts,
 			allAttempts: sessionAttempts,
 			cards,
@@ -243,14 +242,14 @@ describe('summarizeSession', () => {
 			nextReviewAt: NOW + 1000,
 			grade: null,
 			tempoBpm: 80,
-			kind: 'learn'
+			chords: false
 		});
 	});
 
 	it('gives the tempo the locate exercise was played at', () => {
 		const summarize = (executions: SessionRecord['executions']) =>
 			summarizeSession({
-				record: { ...record('learn'), executions },
+				record: { ...record({ routine: 'notes' }), executions },
 				attempts: [],
 				allAttempts: [],
 				cards: [],
@@ -274,7 +273,7 @@ describe('summarizeSession', () => {
 			coldAttempt({ sessionId: 'sess', correct: false, verdict: 'wrong', timingOffsetMs: 90 })
 		];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: sessionAttempts,
 			allAttempts: sessionAttempts,
 			cards,
@@ -291,7 +290,7 @@ describe('summarizeSession', () => {
 			coldAttempt({ sessionId: 'sess', phase: 'probe', correct: true, timingOffsetMs: 3 })
 		];
 		const summary = summarizeSession({
-			record: record('learn'),
+			record: record({ routine: 'notes' }),
 			attempts: only,
 			allAttempts: only,
 			cards,
@@ -304,7 +303,7 @@ describe('summarizeSession', () => {
 
 	it('scores a free session across cold and hot attempts', () => {
 		const summary = summarizeSession({
-			record: record('free'),
+			record: record({ routine: 'notes', free: true }),
 			attempts,
 			allAttempts: attempts,
 			cards,
@@ -320,7 +319,7 @@ describe('summarizeSession', () => {
 
 	it('leaves an empty free session ungraded', () => {
 		const summary = summarizeSession({
-			record: record('free'),
+			record: record({ routine: 'notes', free: true }),
 			attempts: [],
 			allAttempts: [],
 			cards: [],
@@ -590,7 +589,7 @@ describe('summarizeSession of a triads session', () => {
 	});
 
 	it('says it was a triads session, and lists no refused chords: they are contested in play', () => {
-		expect(summary.kind).toBe('triads');
+		expect(summary.chords).toBe(true);
 		expect('triads' in summary).toBe(false);
 	});
 
@@ -606,7 +605,7 @@ describe('summarizeSession of a triads session', () => {
 			cards: [],
 			now: NOW
 		});
-		expect(zone).toMatchObject({ kind: 'triads-zone', tempoBpm: 85 });
+		expect(zone).toMatchObject({ chords: true, tempoBpm: 85 });
 	});
 
 	it('says a notes session is one', () => {
@@ -617,15 +616,15 @@ describe('summarizeSession of a triads session', () => {
 				allAttempts: [],
 				cards: [],
 				now: NOW
-			}).kind
-		).toBe('learn');
+			}).chords
+		).toBe(false);
 	});
 });
 
 describe('summarizeSession of a gesture session', () => {
-	const record = (kind: 'gesture' | 'learn'): SessionRecord => ({
+	const record = (origin: SessionOrigin): SessionRecord => ({
 		id: 's1',
-		...sessionOriginOf(kind),
+		...origin,
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: false,
@@ -662,7 +661,7 @@ describe('summarizeSession of a gesture session', () => {
 			})
 		);
 		const input = { attempts, allAttempts: [], cards: [], now: NOW };
-		expect(summarizeSession({ ...input, record: record('gesture') }).gesture).toEqual({
+		expect(summarizeSession({ ...input, record: record({ routine: 'changes' }) }).gesture).toEqual({
 			exercises: [
 				{
 					exerciseId: 'grid-reading',
@@ -675,6 +674,8 @@ describe('summarizeSession of a gesture session', () => {
 			],
 			misses: []
 		});
-		expect(summarizeSession({ ...input, record: record('learn') }).gesture).toBeUndefined();
+		expect(
+			summarizeSession({ ...input, record: record({ routine: 'notes' }) }).gesture
+		).toBeUndefined();
 	});
 });

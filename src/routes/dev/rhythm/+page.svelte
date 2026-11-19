@@ -249,4 +249,4 @@
 	controller.view.announcement = announcement;
 </script>
 
-<PlayFrame {controller} kind="exercise" />
+<PlayFrame {controller} />

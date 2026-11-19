@@ -23,7 +23,7 @@ const failed: SessionSummary = {
 	nextReviewAt: null,
 	grade: null,
 	tempoBpm: 80,
-	kind: 'exercise',
+	chords: false,
 	exercise: {
 		exerciseId: 'rhythm-offbeats',
 		levelReached: { shown: 1, of: 4, aid: false },

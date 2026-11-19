@@ -40,9 +40,11 @@ import {
 	playViewOf,
 	type Announcement,
 	type LaneEntry,
+	type PlayOrigin,
 	type PlaySessionController,
 	type PlayView
 } from './contract';
+import { playOriginOf } from './playOrigin';
 import { openAudioInput } from './audioInput';
 import { asksForHeadphones } from './clickBleed';
 import type { AttemptRecorder } from './AttemptRecorder';
@@ -223,7 +225,9 @@ export class SessionController implements PlaySessionController {
 	};
 
 	/** What the session plays, recorded as it is: its routine, or its exercise. */
-	private readonly origin: SessionOrigin;
+	private readonly recordedOrigin: SessionOrigin;
+	/** What the session plays, as the play screen names it. */
+	readonly origin: PlayOrigin;
 	private readonly prepare: PrepareSession;
 	private readonly deps: SessionControllerDeps;
 	private readonly transport: Transport;
@@ -359,7 +363,8 @@ export class SessionController implements PlaySessionController {
 		deps: SessionControllerDeps
 	) {
 		this.sessionId = session.id;
-		this.origin = session.origin;
+		this.recordedOrigin = session.origin;
+		this.origin = playOriginOf(session.origin);
 		this.prepare = prepare;
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
@@ -2145,12 +2150,13 @@ export class SessionController implements PlaySessionController {
 	private sessionRecord(endedAt: number | null): SessionRecord {
 		// A session of one exercise not played freely keeps the level it ended on, when that level
 		// is its own: held without a scope (an exercise scoped by grid holds one per scope).
-		const item = 'exercise' in this.origin && !this.origin.free ? this.sessionItem : null;
+		const item =
+			'exercise' in this.recordedOrigin && !this.recordedOrigin.free ? this.sessionItem : null;
 		const one = item && (item.scope === undefined || item.scope === '') ? item : null;
 		return {
 			id: this.sessionId,
 			// The routine it played, or the exercise, as it was given.
-			...this.origin,
+			...this.recordedOrigin,
 			...(one && { levelReached: this.levels.reached(one.exerciseId, one.scope) }),
 			startedAt: this.startedAt,
 			endedAt,

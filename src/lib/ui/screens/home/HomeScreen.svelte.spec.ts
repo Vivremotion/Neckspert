@@ -91,11 +91,17 @@ describe('HomeScreen', () => {
 		expect(onstart).toHaveBeenCalledOnce();
 	});
 
-	it('gives no start to a routine that cannot be started yet', () => {
-		render(HomeScreen, { props: props({ startable: (id: string) => id !== 'chords' }) });
-		expect(screen.getByText('Triades')).toBeTruthy();
-		expect(screen.queryByRole('button', { name: /^Triades$/ })).toBeNull();
-		expect(screen.getByRole('button', { name: /Apprentissage/ })).toBeTruthy();
+	it('starts every routine it shows by its id, an imported one included', async () => {
+		const onroutine = vi.fn();
+		const mine: RoutineEntry = {
+			...routine('notes'),
+			id: 'my-notes',
+			title: { fr: 'Mes notes', en: 'My notes' }
+		};
+		render(HomeScreen, { props: props({ onroutine, routines: [...routines(), mine] }) });
+		await fireEvent.click(within(blocks()).getByRole('button', { name: /^Triades/ }));
+		await fireEvent.click(within(blocks()).getByRole('button', { name: /Mes notes/ }));
+		expect(onroutine.mock.calls).toEqual([['chords'], ['my-notes']]);
 	});
 
 	it('has Commencer as its only primary button', () => {
@@ -254,7 +260,7 @@ describe('HomeScreen', () => {
 			render(HomeScreen, { props: props({ exercises }) });
 			const links = screen.getAllByRole('link') as HTMLAnchorElement[];
 			expect(links.map((link) => link.getAttribute('href'))).toEqual(
-				exercises.map((exercise) => `/session?kind=exercise&exercise=${exercise.id}`)
+				exercises.map((exercise) => `/session?exercise=${exercise.id}`)
 			);
 			links.forEach((link, i) => {
 				expect(link.textContent).toContain('Exercices');
@@ -273,7 +279,7 @@ describe('HomeScreen', () => {
 		it('names an exercise without a title by its id', () => {
 			render(HomeScreen, { props: props({ exercises: [{ id: 'my-scale' }] }) });
 			expect(screen.getByRole('link', { name: /my-scale/ }).getAttribute('href')).toBe(
-				'/session?kind=exercise&exercise=my-scale'
+				'/session?exercise=my-scale'
 			);
 		});
 
