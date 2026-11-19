@@ -269,5 +269,35 @@ describe('/settings page', () => {
 			await new Promise((r) => setTimeout(r, 20));
 			expect(screen.getByText('new.json')).toBeTruthy();
 		});
+
+		it('shows what kept the imported files from loading, and reads it again after a removal', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			const unread = {
+				file: 'imported files',
+				kind: 'file' as const,
+				id: null,
+				reason: 'the imported files could not be read: blocked'
+			};
+			const ofFile = { file: 'a.json', kind: 'file' as const, id: null, reason: 'not JSON' };
+			let refusals = [unread, ofFile];
+			services.definitions.refusals = () => refusals;
+			await services.definitions.import([{ name: 'a.json', text: '{}' }]);
+			render(TestHarness, { props: { services } });
+			await waitFor(() =>
+				expect(
+					screen.getByText('imported files : the imported files could not be read: blocked')
+				).toBeTruthy()
+			);
+			// A refusal of a stored file is told under it, not above the list.
+			expect(screen.queryByText(/a\.json : not JSON/)).toBeNull();
+
+			refusals = [];
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer a.json' }));
+			await fireEvent.click(screen.getByRole('button', { name: 'Supprimer' }));
+			await waitFor(() =>
+				expect(screen.queryByText(/the imported files could not be read/)).toBeNull()
+			);
+		});
 	});
 });

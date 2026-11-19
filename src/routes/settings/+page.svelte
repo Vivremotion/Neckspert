@@ -42,6 +42,8 @@
 	let filesSeq = 0;
 	let importedFiles = $state<ImportedFile[]>([]);
 	let notStored = $state<Refusal[]>([]);
+	/** The refusals of the imported files that no stored file carries: what kept them from loading. */
+	let definitionsProblems = $state<Refusal[]>([]);
 	let definitionsError = $state<string | null>(null);
 
 	async function load() {
@@ -120,7 +122,12 @@
 		const seq = ++filesSeq;
 		try {
 			const files = await services.definitions.files();
-			if (seq === filesSeq) importedFiles = files;
+			if (seq !== filesSeq) return;
+			importedFiles = files;
+			const names = new Set(files.map((file) => file.name));
+			definitionsProblems = services.definitions
+				.refusals()
+				.filter((refusal) => !names.has(refusal.file));
 		} catch (error) {
 			definitionsError = error instanceof Error ? error.message : String(error);
 		}
@@ -275,6 +282,7 @@
 	{ondiagnosticsclear}
 	{importedFiles}
 	{notStored}
+	{definitionsProblems}
 	{definitionsError}
 	{onimportfiles}
 	{onremovefile}

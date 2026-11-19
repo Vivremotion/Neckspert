@@ -51,6 +51,7 @@
 		onchorddiagram,
 		importedFiles = [],
 		notStored = [],
+		definitionsProblems = [],
 		definitionsError = null,
 		onimportfiles = () => {},
 		onremovefile = () => {}
@@ -92,6 +93,8 @@
 		/** The definition files kept, the files of the last import that were not, and a storage error. */
 		importedFiles?: readonly ImportedFile[];
 		notStored?: readonly Refusal[];
+		/** What kept the imported files from loading, told by no stored file. */
+		definitionsProblems?: readonly Refusal[];
 		definitionsError?: string | null;
 		onimportfiles?: (files: File[]) => void;
 		onremovefile?: (name: string) => void;
@@ -238,6 +241,7 @@
 	<ImportedFiles
 		files={importedFiles}
 		refused={notStored}
+		problems={definitionsProblems}
 		onimport={onimportfiles}
 		onremove={onremovefile}
 	/>

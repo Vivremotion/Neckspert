@@ -18,6 +18,7 @@ function setup(
 	over: Partial<{
 		files: ImportedFile[];
 		refused: Refusal[];
+		problems: Refusal[];
 		onimport: (files: File[]) => void;
 		onremove: (name: string) => void;
 	}> = {}
@@ -124,5 +125,23 @@ describe('ImportedFiles', () => {
 		i18n.locale = 'en';
 		setup({ refused: [{ file: 'x.json', kind: 'file', id: null, reason: 'not JSON' }] });
 		expect(screen.getByText('x.json was not imported: not JSON')).toBeTruthy();
+	});
+
+	it('shows above the list what kept the imported files from loading', () => {
+		setup({
+			problems: [
+				{
+					file: 'imported files',
+					kind: 'file',
+					id: null,
+					reason: 'the imported files could not be read: blocked'
+				}
+			]
+		});
+		const problem = screen.getByText(
+			'imported files : the imported files could not be read: blocked'
+		);
+		const empty = screen.getByText('Aucun fichier importé.');
+		expect(problem.compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 });

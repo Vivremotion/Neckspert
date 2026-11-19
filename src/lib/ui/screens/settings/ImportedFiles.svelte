@@ -9,12 +9,15 @@
 	let {
 		files,
 		refused,
+		problems = [],
 		onimport,
 		onremove
 	}: {
 		files: readonly ImportedFile[];
 		/** The files of the last import that were not stored, with the reason. */
 		refused: readonly Refusal[];
+		/** The refusals of the imported files that point to no stored file: what kept them all from loading. */
+		problems?: readonly Refusal[];
 		onimport: (files: File[]) => void;
 		onremove: (name: string) => void;
 	} = $props();
@@ -59,6 +62,10 @@
 		<p class="refused">
 			{m.notImported(refusal.file, refusalText(refusal, i18n.locale, { file: false }))}
 		</p>
+	{/each}
+
+	{#each problems as problem, index (index)}
+		<p class="refusal">{refusalText(problem, i18n.locale)}</p>
 	{/each}
 
 	{#if files.length === 0}

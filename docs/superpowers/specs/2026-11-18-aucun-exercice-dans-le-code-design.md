@@ -491,7 +491,7 @@ Les onze décisions de ce plan :
 - D2 : un fichier est rangé sous son nom, tel que le navigateur le donne. Un fichier du même nom remplace le premier ; la casse compte.
 - D3 : un fichier de plus de `MAX_DEFINITION_FILE_CHARS` n'est pas rangé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
 - D4 : l'origine d'un objet importé est le nom de son fichier ; celle d'un objet du catalogue reste `/catalog/<nom>.json`. Un fichier importé du nom d'un fichier du catalogue ne le remplace pas.
-- D5 : le premier écran attend les fichiers importés. Si la base ne répond pas, l'application démarre avec le catalogue seul et le dit en un refus.
+- D5 : le premier écran attend les fichiers importés. Si la lecture des fichiers importés échoue, l'application démarre avec le catalogue seul et le dit en un refus. Une base qui ne s'ouvre jamais, sans échouer, n'est pas couverte : le premier écran l'attend.
 - D6 : supprimer un fichier demande une confirmation, qui dit que la progression est gardée. Remplacer un fichier n'en demande pas.
 - D7 : l'accueil montre une ligne, dans toute construction, quand un fichier importé a un refus ; elle mène aux réglages. La liste des refus du catalogue reste réservée au développement.
 - D8 : la doc du format s'appelle `docs/fichiers-de-definitions.md` (l'ancien `docs/exercices-locaux.md`, déplacé).
