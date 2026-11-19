@@ -7,7 +7,7 @@ import { registerTestSkills } from '$lib/testing/testSkills';
 import { definitionChecks } from './checks';
 
 registerTestSkills();
-import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB } from '$lib/testing/catalog';
+import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 import { exerciseById } from '$lib/domain/exercise/registry';
 
 const check = (exercise: ExerciseDefinition) => definitionChecks().exercise(exercise);
@@ -204,5 +204,25 @@ describe('the learning an exercise writes', () => {
 		expect(check(withLearning(ZONE, { draw: 'nope' }))).toBe(
 			'params.learning.draw "nope" is no draw of voicing-on-strings'
 		);
+	});
+});
+
+describe('definitionChecks, the items of a memory exercise', () => {
+	it('refuses an exercise that practises a skill with cards and lists no items', () => {
+		const { items: _items, ...without } = LOCATE_NECK;
+		expect(check(without as ExerciseDefinition)).toBe(
+			'an exercise that practises a skill with cards must list its items'
+		);
+	});
+
+	it('refuses an item listed twice, naming both places', () => {
+		const items = [...(LOCATE_NECK.items as string[])];
+		items[5] = items[1];
+		expect(check({ ...LOCATE_NECK, items })).toBe('items[5] repeats items[1]');
+	});
+
+	it('lets an exercise without memory repeat an item, or list none', () => {
+		const { items: _items, ...without } = RHYTHM_TWO_FOUR;
+		expect(check(without as ExerciseDefinition)).toBeNull();
 	});
 });

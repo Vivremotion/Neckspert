@@ -60,6 +60,7 @@ import {
 	type StringNumber
 } from '$lib/domain/music/types';
 import { createListSource } from '$lib/domain/progress';
+import { noteOnStringSet, placedNoteSet, voicingOnStringsSet } from '$lib/domain/sets';
 import {
 	BEAT_RESOLUTION,
 	alignmentCapture,
@@ -358,6 +359,29 @@ function randomFigureEntry(random: () => number, sensor: string): FigureExpectat
 }
 
 /**
+ * The items a memory exercise of the draw lists, by set: a few distinct ones, written once and
+ * drawing nothing, so the draws of the other fields stay as they were.
+ */
+function listedItems(skill: string): string[] | undefined {
+	switch (skillById(skill).items) {
+		case 'note-on-string':
+			return locateItems()
+				.slice(0, 6)
+				.map((item) => noteOnStringSet.itemKey(item));
+		case 'placed-note':
+			return ([1, 2, 3, 4, 5, 6] as StringNumber[]).map((string) =>
+				placedNoteSet.itemKey({ string, fret: 3 })
+			);
+		case 'voicing-on-strings':
+			return TRIAD_VOICINGS.slice(0, 6).map((key) =>
+				voicingOnStringsSet.itemKey({ voicingKey: key } as never)
+			);
+		default:
+			return undefined;
+	}
+}
+
+/**
  * A definition drawn from the registered pieces only; it may be one `validateExercise` refuses.
  *
  * - its shape: a skill among `RANDOM_SKILLS` or the one without memory beside it
@@ -471,9 +495,11 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	// drawn last, so the other draws stay as they were.
 	const memoryless =
 		WITHOUT_MEMORY.has(skill) && (round.policy.unit === 'cycle' || chance(random, 0.3));
+	const practices = memoryless ? WITHOUT_MEMORY.get(skill)! : skill;
+	const items = memoryless ? undefined : listedItems(skill);
 	return {
 		id,
-		practices: memoryless ? WITHOUT_MEMORY.get(skill)! : skill,
+		practices,
 		...(view !== undefined && { view }),
 		meter,
 		tempo,
@@ -481,7 +507,8 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		...(presentation && { presentation }),
 		...(figured && { figures }),
 		round,
-		params
+		params,
+		...(items !== undefined && { items })
 	};
 }
 

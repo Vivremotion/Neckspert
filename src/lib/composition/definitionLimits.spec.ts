@@ -103,6 +103,8 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		const { ms, refusals } = timedLoad({
 			...exercise,
 			params: { ...(exercise.params as object), ladder },
+			// A few items: the cost under test is the levels', not the catalog's 66 items'.
+			items: (exercise.items as string[]).slice(0, 3),
 			levels
 		});
 		expect(refusals).toEqual([]);

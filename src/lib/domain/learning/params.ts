@@ -88,6 +88,7 @@ export interface ExerciseLearning extends ItemLearning {
 
 /** `params.learning` of an exercise over the defaults; `enter` and `draw` only when written. */
 export function exerciseLearningOf(definition: ExerciseDefinition): ExerciseLearning {
+	// Trusts what the definition checks accepted (`learningProblem`).
 	const written = (definition.params.learning ?? {}) as Partial<ExerciseLearning>;
 	return { ...DEFAULT_ITEM_LEARNING, presentAtOnce: true, ...written };
 }

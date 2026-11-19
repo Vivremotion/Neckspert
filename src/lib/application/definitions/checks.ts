@@ -69,10 +69,11 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 		return 'params.learning.presentAtOnce must be true or false';
 	}
 	if (enter !== undefined) {
-		const acquired = (enter as { acquired?: { skill?: unknown; item?: unknown } } | null)?.acquired;
+		const acquired =
+			typeof enter === 'object' && enter !== null
+				? (enter as { acquired?: { skill?: unknown; item?: unknown } }).acquired
+				: undefined;
 		if (
-			typeof enter !== 'object' ||
-			enter === null ||
 			typeof acquired !== 'object' ||
 			acquired === null ||
 			typeof acquired.skill !== 'string' ||
@@ -98,6 +99,28 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 		if (drawNamed(draw, own.items) === null) {
 			return `params.learning.draw "${draw}" is no draw of ${own.items}`;
 		}
+	}
+	return null;
+}
+
+/**
+ * Why the items an exercise lists cannot be introduced; null when they can. A skill with cards is
+ * learned item by item, so its exercise lists them, each once; an exercise without memory may
+ * list none, or repeat one (a sequence of shapes).
+ */
+function itemsListProblem(exercise: ExerciseDefinition): string | null {
+	if (!hasCards(exercise.practices)) return null;
+	const { items } = exercise;
+	if (!Array.isArray(items)) {
+		return 'an exercise that practises a skill with cards must list its items';
+	}
+	const first = new Map<string, number>();
+	for (const [i, entry] of items.entries()) {
+		const key = typeof entry === 'string' ? entry : (entry as { item?: unknown })?.item;
+		if (typeof key !== 'string') continue;
+		const seen = first.get(key);
+		if (seen !== undefined) return `items[${i}] repeats items[${seen}]`;
+		first.set(key, i);
 	}
 	return null;
 }
@@ -135,6 +158,8 @@ export function definitionChecks(
 			}
 			const learning = learningProblem(exercise);
 			if (learning !== null) return learning;
+			const listed = itemsListProblem(exercise);
+			if (listed !== null) return listed;
 			// Any exercise that names grids: each must be defined by a file read so far.
 			const grids = (exercise.params as { grids?: unknown } | undefined)?.grids;
 			if (grids !== undefined) {

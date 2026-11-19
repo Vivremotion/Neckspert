@@ -326,6 +326,18 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 	const set = exerciseItemSet(definition);
 	const meter = definition.meter ?? METER_4_4;
 	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
+	// An exercise that writes a ladder plays each item from the ladder's first level, which gives
+	// the lead its round reads: its rounds are compiled there.
+	const ladder = isObject(definition.params) ? definition.params.ladder : undefined;
+	const itemLevels: { level?: number; leadBeats: number | null }[] = [{ leadBeats: null }];
+	if (Array.isArray(ladder) && ladder.length > 0) {
+		const written = (ladder as Ladder)[0];
+		const lead = isObject(written?.params) ? written.params.leadBeats : null;
+		itemLevels[0] = {
+			level: levelRange(ladder as Ladder).lowest,
+			leadBeats: typeof lead === 'number' ? lead : null
+		};
+	}
 	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
@@ -336,25 +348,28 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 		const field = `items[${i}] (${JSON.stringify(itemEntryKey(entry))})`;
 		if (round === undefined) continue;
 		for (let level = lowest; level <= highest; level++) {
-			const planned: PlannedItem = {
-				exerciseId: definition.id,
-				skill: definition.practices,
-				exerciseLevel: level,
-				item,
-				phase: 'free',
-				temperature: 'hot',
-				aid: 'none',
-				leadBeats: null
-			};
-			try {
-				compileRound(definition, planned, meter, {
-					previewBeats: definition.flow?.previewBeats ?? 0,
-					fromRunStart: null
-				});
-			} catch (error) {
-				// The compiler names the exercise too: it is named once.
-				const problem = (error as Error).message.replace(`${definition.id}: `, '');
-				return `${field} does not compile at exercise level ${level}: ${problem}`;
+			for (const at of itemLevels) {
+				const planned: PlannedItem = {
+					exerciseId: definition.id,
+					skill: definition.practices,
+					exerciseLevel: level,
+					...(at.level !== undefined && { level: at.level }),
+					item,
+					phase: 'free',
+					temperature: 'hot',
+					aid: 'none',
+					leadBeats: at.leadBeats
+				};
+				try {
+					compileRound(definition, planned, meter, {
+						previewBeats: definition.flow?.previewBeats ?? 0,
+						fromRunStart: null
+					});
+				} catch (error) {
+					// The compiler names the exercise too: it is named once.
+					const problem = (error as Error).message.replace(`${definition.id}: `, '');
+					return `${field} does not compile at exercise level ${level}: ${problem}`;
+				}
 			}
 		}
 	}

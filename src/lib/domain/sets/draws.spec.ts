@@ -65,11 +65,11 @@ describe('the draws of a set', () => {
 		const single = ORDER.find(
 			(voicing) => voicingOccurrences(parseVoicingKey(voicing)).length === 1
 		);
-		if (single === undefined) return expect(true).toBe(true);
-		const only = occurrencePosition(voicingOccurrences(parseVoicingKey(single))[0]);
+		expect(single).toBeDefined();
+		const only = occurrencePosition(voicingOccurrences(parseVoicingKey(single!))[0]);
 		const item = another!(
-			{ voicingKey: single },
-			{ voicingKey: single, position: only },
+			{ voicingKey: single! },
+			{ voicingKey: single!, position: only },
 			seeded(1)
 		) as Asked;
 		expect(item.position).toBe(only);
