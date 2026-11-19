@@ -103,8 +103,19 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		const { ms, refusals } = timedLoad({
 			...exercise,
 			params: { ...(exercise.params as object), ladder },
-			// A few items: the cost under test is the levels', not the catalog's 66 items'.
-			items: (exercise.items as string[]).slice(0, 3),
+			levels
+		});
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads an exercise listing 200 items at 100 levels of 200 params, just under the round checks allowed', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
+			params: manyParams(MAX_LEVEL_PARAMS)
+		}));
+		const { ms, refusals } = timedLoad({
+			...arpeggioJson('h-wide'),
+			items: Array.from({ length: 200 }, () => (ARPEGGIO_EXERCISE.items as unknown[])[0]),
 			levels
 		});
 		expect(refusals).toEqual([]);

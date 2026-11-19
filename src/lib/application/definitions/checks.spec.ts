@@ -224,5 +224,8 @@ describe('definitionChecks, the items of a memory exercise', () => {
 	it('lets an exercise without memory repeat an item, or list none', () => {
 		const { items: _items, ...without } = RHYTHM_TWO_FOUR;
 		expect(check(without as ExerciseDefinition)).toBeNull();
+		// A sequence of shapes may play the same one twice.
+		const [first] = ARPEGGIO_EXERCISE.items!;
+		expect(check({ ...ARPEGGIO_EXERCISE, items: [first, first] })).toBeNull();
 	});
 });

@@ -30,19 +30,32 @@ import {
 } from './types';
 
 /**
+ * What a caller compiling many rounds of one exercise keeps between them: the params resolved at
+ * a level and the accompaniment of an exercise level depend on the level only, so they are
+ * resolved once. Held by the caller for as long as the exercise does not change.
+ */
+export type ResolutionCache = Map<string, unknown>;
+
+function memo<T>(cache: ResolutionCache | undefined, key: string, make: () => T): T {
+	if (cache === undefined) return make();
+	if (!cache.has(key)) cache.set(key, make());
+	return cache.get(key) as T;
+}
+
+/**
  * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
  * exercise level's, its item level's), the item's lead and the preview.
  */
 export function roundParamsOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
-	resolved: { previewBeats: number }
+	resolved: { previewBeats: number; cache?: ResolutionCache }
 ): Readonly<Record<string, unknown>> {
+	const at = { exerciseLevel: item.exerciseLevel, itemLevel: item.level ?? null };
 	return {
-		...resolvedParamsOf(definition, {
-			exerciseLevel: item.exerciseLevel,
-			itemLevel: item.level ?? null
-		}),
+		...memo(resolved.cache, `p:${at.exerciseLevel}:${at.itemLevel}`, () =>
+			resolvedParamsOf(definition, at)
+		),
 		leadBeats: item.leadBeats,
 		previewBeats: resolved.previewBeats
 	};
@@ -385,7 +398,7 @@ function contextOf(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number }
+	resolved: { previewBeats: number; cache?: ResolutionCache }
 ): Context {
 	return { definition, item, meter, params: roundParamsOf(definition, item, resolved) };
 }
@@ -490,7 +503,7 @@ export function compileRound(
 	definition: ExerciseDefinition,
 	item: PlannedItem,
 	meter: Meter,
-	resolved: { previewBeats: number; fromRunStart: number | null }
+	resolved: { previewBeats: number; fromRunStart: number | null; cache?: ResolutionCache }
 ): RoundPlan {
 	const template = definition.round;
 	if (!template) throw new Error(`${definition.id}: the exercise has no round template`);
@@ -505,7 +518,9 @@ export function compileRound(
 		}
 	}
 	const length = lengthOf(context, template.length);
-	const accompaniment = roundAccompanimentOf(definition, item.exerciseLevel);
+	const accompaniment = memo(resolved.cache, `a:${item.exerciseLevel}`, () =>
+		roundAccompanimentOf(definition, item.exerciseLevel)
+	);
 	// Where the round starts in the loops of its figures and its accompaniment.
 	const startBar = resolved.fromRunStart ?? landingBar(accompaniment);
 	const bars = Math.ceil(length.div(barLength(meter)).toNumber());

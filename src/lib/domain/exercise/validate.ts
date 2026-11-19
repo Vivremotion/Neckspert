@@ -10,7 +10,7 @@ import { isBeatCount, METER_4_4, validateMeter } from '../time/meter';
 import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
-import { compileRound } from './round/compile';
+import { compileRound, type ResolutionCache } from './round/compile';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
@@ -338,6 +338,8 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 			leadBeats: typeof lead === 'number' ? lead : null
 		};
 	}
+	// What depends on a level alone is resolved once for all the items.
+	const cache: ResolutionCache = new Map();
 	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
@@ -363,7 +365,8 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 				try {
 					compileRound(definition, planned, meter, {
 						previewBeats: definition.flow?.previewBeats ?? 0,
-						fromRunStart: null
+						fromRunStart: null,
+						cache
 					});
 				} catch (error) {
 					// The compiler names the exercise too: it is named once.
