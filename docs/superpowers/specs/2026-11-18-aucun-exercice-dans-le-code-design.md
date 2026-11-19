@@ -573,9 +573,9 @@ Ce qui diffère du § 5, que celui-ci ne dit pas (le § 5 reste tel quel) :
 
 Laissé au plan 4 :
 
-- le tirage `another-place` devient deux filtres (« à une case », « autre que le précédent ») et disparaît ; `domain/sets/draws.ts` lit encore `domain/triads/position.ts` ;
-- `voicing-on-strings` garde une clé telle qu'elle est écrite : si des cordes écrites dans un autre ordre étaient acceptées, une liste importée pourrait faire deux cartes pour un même voicing (les familles générées retirent la question) ;
-- `itemsProblem` lit l'ensemble de l'exercice (`exerciseItemSet`) alors que le sujet lit celui de la capacité (`setOfSkill`) : ils ne diffèrent que pour un exercice de mémoire sur une vue de changements.
+- le tirage `another-place` devient deux filtres (« à une case », « autre que le précédent ») et disparaît ; `domain/sets/draws.ts` lit encore `domain/triads/position.ts` : fait au plan 4a (D6, `params.learning.asks`, le registre des tirages est supprimé) ;
+- `voicing-on-strings` garde une clé telle qu'elle est écrite : si des cordes écrites dans un autre ordre étaient acceptées, une liste importée pourrait faire deux cartes pour un même voicing : fait au plan 4a (l'ensemble lit une clé écrite autrement comme sa forme canonique) ;
+- `itemsProblem` lit l'ensemble de l'exercice (`exerciseItemSet`) alors que le sujet lit celui de la capacité (`setOfSkill`) : ils ne diffèrent que pour un exercice de mémoire sur une vue de changements : encore ouvert, laissé au plan 4b.
 
 Laissé au plan 5 :
 
@@ -585,3 +585,52 @@ Laissé au plan 5 :
 - le jeu libre et la carte du manche prennent encore leurs places dans le code (`practiceCards()`, `LEARNABLE_FRETS`), égales aux listes d'aujourd'hui ;
 - le jeu libre d'un exercice de mémoire importé déplace-t-il les cartes partagées ? C'est la décision de l'auteur.
 - toujours du plan 2b : une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité importée sans contrôle ; depuis ce plan elles sont gardées et ignorées tant qu'aucune liste ne les nomme.
+
+## Réalisation (plan 4a, 2026-11-19)
+
+Les dix décisions de ce plan :
+
+- D1 : un choix s'écrit comme au § 7 : `{ "family", "of", "where", "order", "take" }`. Seule `family` est obligatoire.
+- D2 : `of` nomme ce qui donne l'index à partir de l'élément (`note`, `voicing`, `root`). Absent : l'index que l'ensemble de l'élément donne à cette famille.
+- D3 : l'index de `note-places` est une note, avec ou sans corde ; celui de `chord-shapes` est un accord sur des cordes, avec ou sans le degré de chaque corde.
+- D4 : les filtres s'écrivent `{ "in": { "strings", "frets" } }`, `{ "at": <case> }`, `{ "position": { "beyond": "previous", "toward": "up" | "down", "turns": true } }` et `{ "other": "previous" }`. Une valeur est écrite, `{ "param" }` ou `{ "item" }` ; une valeur lue sur l'élément et absente laisse le filtre sans effet.
+- D5 : « le précédent » est donné par qui appelle (le dernier membre demandé pour le tirage ; pour un passage, au plan 4b, le dernier entendu). Sans précédent, `position` et `other` ne restreignent rien.
+- D6 : le tirage de `chord-zone` s'écrit `params.learning.asks`, un choix ; `draw` et le registre des tirages disparaissent.
+- D7 : un membre se reconnaît à ce que le capteur rend : la hauteur seule pour une note, l'identité décidée par le capteur d'accords pour une forme.
+- D8 : les confusions restent celles d'avant, dites par la famille.
+- D9 : les juges `note` et `chord-voicing` et les dérivations `note-of-item`, `voicing-root`, `voicing-anywhere`, `voicing-at-position` sont supprimés. `name` et `pitch` restent ; `chord-grid` reste jusqu'au plan 4b.
+- D10 : un plan de tour déjà stocké garde son ancien contenu, n'est pas réécrit et n'est rien rejugé (l'oracle de diagnostic laisse de côté un plan d'une sorte supprimée).
+
+Ce que l'exécution a décidé en plus :
+
+- Les filtres s'appliquent dans un ordre fixe du cœur, quel que soit l'ordre où ils sont écrits : `in` et `at`, puis `position` (le sens qui tourne est jugé sur ce que `in` et `at` ont laissé ; plusieurs `position` se croisent), puis `other`.
+- `other` laisse le précédent admis quand rien d'autre ne reste (une seule forme), comme le tirage de `chord-zone`.
+- `at` admet le membre qui couvre la case (entre sa case la plus basse et sa plus haute, une corde à vide comptant pour 0). La première écriture disait « une case du membre est celle-là » : la comparaison exhaustive l'a démentie, 44 bonnes réponses auraient été refusées.
+- La valeur `fret` d'un élément de `voicing-on-strings` est la case que la consigne nomme ; sans elle, la place de la forme demandée (0 pour une forme à vide, sinon sa position) ; absente sans position : le filtre tombe et le voicing est accepté partout.
+- Le précédent est un membre entier, de cet index ou d'un autre ; une famille redonne un membre à partir de son identité (`Family.member(id)`) et dit ce qu'une tentative garde d'une réponse (`Family.answer`).
+- La validation et la compilation d'un choix ont leur module (`domain/exercise/selection/`), appelé par le tour et par `params.learning.asks`. Deux limites : 16 filtres, 8 attributs d'ordre (`MAX_SELECTION_FILTERS`, `MAX_SELECTION_ORDER`). Une prise lue dans un paramètre est vérifiée à chaque niveau, comme les valeurs des filtres.
+- Un ensemble dit la famille dont il sait demander un membre (`ItemSet.asks`) ; `asks` sur une autre famille, avec un `of`, un `order` ou un `take` est refusé au chargement.
+- `voicing-on-strings` lit une clé de voicing écrite autrement comme sa forme canonique : un élément, une carte.
+- Une charge utile de note sans hauteur est jugée fausse, sans réponse ni confusion.
+- Le présentateur de `voicing-on-strings` reçoit les attentes compilées du tour et donne au capteur d'accords les membres admis ; les sosies autour sont ceux d'avant.
+- Mesuré avant de supprimer les anciens juges : 20 427 cas (élément, attente, réponse), 1 472 attentes du capteur d'accords et 85 492 comparaisons de mots et de dessins après un raté, aucune différence.
+
+Ce qui diffère du § 6, que celui-ci ne dit pas (le § 6 reste tel quel) :
+
+- Le § 6 dit qu'un seul juge remplace `note`, `chord-voicing` et `chord-grid` : `member` remplace les deux premiers ; `chord-grid` attend le plan 4b.
+- Le § 6 dit « prendre : tout membre qui reste, ou seulement le premier » : `take` est un nombre (entier, d'au moins 1), lu écrit, dans un paramètre ou mesuré sur l'élément.
+- Le § 6 dit que les filtres s'additionnent, chacun comparant un attribut à une valeur : ils s'écrivent chacun à sa façon (D4) et s'appliquent dans un ordre fixe.
+- Le § 6 nomme `grid-changes` parmi les familles : elle n'est pas enregistrée, c'est le plan 4b.
+- Le § 6 dit que la série tient la liste des membres entendus et que le contexte la passe au juge : le plan 4a ne donne au juge que le dernier membre (`previous`) ; la liste du passage est au plan 4b.
+- Le § 6 dit « plus aucun sélecteur n'écrit `previous` ou `direction` sur les éléments » : vrai du plan 4a pour les notes et les triades ; le sélecteur du geste en écrit encore, jusqu'au plan 4b.
+- Les attributs `strings` et `frets` d'un membre sont des listes ; `position` et `pitch` des nombres. Un attribut liste se compare par son plus petit élément (`order`, `position`).
+
+Laissé au plan 4b :
+
+- La famille `grid-changes`, le passage (`passages` : `of`, `members`, `each`, `opens`), les quatre exercices des changements en données, le juge `chord-grid` remplacé par `member`.
+- Le sens qui tourne « pour le reste du passage » : le filtre ne dit pas s'il a tourné ; qui appelle porte le sens. La montée cherche « au-delà » sur tous les groupes de cordes de l'élément alors qu'un index de `chord-shapes` n'en a qu'un : le tour se décide sur leur union, ou l'index prend plusieurs groupes.
+- La confusion de `chord-shapes` pour un index sans degrés (tous les renversements) est sommaire.
+- Un cache des membres admis par contenu, si une mesure montre un coût (la lecture en direct rejuge à chaque réveil).
+- `itemsProblem` contre l'ensemble du sujet (voir le plan 3).
+
+Reste à faire dans ce plan : borner le nombre d'attentes d'un tour (le contrôle par niveau se répète pour chaque contenu écrit comme un choix).
