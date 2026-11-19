@@ -1,5 +1,7 @@
 import { hasCards } from '$lib/domain/skill/registry';
+import { METER_4_4 } from '$lib/domain/time';
 import { writesFigure } from './figureParams';
+import { figureItemsAt } from './round';
 import type { ExerciseDefinition, ExerciseId } from './types';
 
 /** The live exercises, with the origin (file) that defined each; empty until files are read. */
@@ -34,15 +36,29 @@ export function exerciseById(id: ExerciseId): ExerciseDefinition {
 }
 
 /**
+ * Whether an exercise session can serve the exercise's turns (`createExerciseItemSource`): the
+ * items it writes, else the figures its round reads on its items. An exercise that writes
+ * `passages` is never one: no session plays an imported file's passages yet.
+ */
+export function servesExerciseSession(exercise: ExerciseDefinition): boolean {
+	if (exercise.passages !== undefined) return false;
+	if (exercise.items !== undefined) return exercise.items.length > 0;
+	return figureItemsAt(exercise, 0, exercise.meter ?? METER_4_4) !== null;
+}
+
+/**
  * The exercises played in an exercise session, in registry order: those whose round writes a
- * figure and that write levels, on a skill without cards. An exercise on a skill with cards is
- * loaded and checked but no session plays it yet (the Library will). Read from the live registry
- * at each call.
+ * figure, that write levels and whose turns the session can serve (`servesExerciseSession`), on
+ * a skill without cards. An exercise on a skill with cards is loaded and checked but no session
+ * plays it yet (the Library will). Read from the live registry at each call.
  */
 export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
 	return allExercises().filter(
 		(exercise) =>
-			writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0 && !hasCards(exercise.practices)
+			writesFigure(exercise) &&
+			(exercise.levels?.length ?? 0) > 0 &&
+			!hasCards(exercise.practices) &&
+			servesExerciseSession(exercise)
 	);
 }
 

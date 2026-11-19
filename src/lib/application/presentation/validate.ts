@@ -16,7 +16,7 @@ import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets
 import { playViewOf } from '$lib/application/session/contract';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES } from './pictures';
-import { FIGURE_VIEW, PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from './playViews';
+import { FIGURE_VIEW, PASSAGE_VIEWS, PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from './playViews';
 
 /** The names of the `{fields}` a slot reads, in each language. */
 function placeholders(slot: Slot): string[] {
@@ -76,8 +76,9 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
  * view that does not draw one (`PROMPT_STAGE_VIEWS`), or such a view with no presentation to
  * read; a response exercise (one that writes its `round`) with neither a presentation nor a
  * screen of its presenter (`stageOf`); a level of the figure view that shows the tab of
- * a figure with a note it cannot fret (`tabProblem`). The view is the exercise's, else the one the
- * series gives it (`playViewOf`).
+ * a figure with a note it cannot fret (`tabProblem`); a view that draws a passage
+ * (`PASSAGE_VIEWS`) on an exercise that writes no `passages`. The view is the exercise's, else
+ * the one the series gives it (`playViewOf`).
  */
 export function screenProblem(
 	definition: ExerciseDefinition,
@@ -88,6 +89,9 @@ export function screenProblem(
 		return `${id}: view "${view}" is not a view of the screen (known: ${PLAY_VIEW_NAMES.join(', ')})`;
 	}
 	const drawn = playViewOf(definition);
+	if (PASSAGE_VIEWS.includes(drawn) && definition.passages === undefined) {
+		return `${id}: view "${drawn}" draws a passage, and the exercise writes no passages`;
+	}
 	if (drawn === FIGURE_VIEW) {
 		return writesFigure(definition)
 			? tabProblem(definition)

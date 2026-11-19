@@ -10,7 +10,7 @@ import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
-import { LOCATE_NECK, TRIADS_ANCHOR, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
+import { GESTURE_LINK, LOCATE_NECK, TRIADS_ANCHOR, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 registerTestSkills();
 
@@ -112,6 +112,18 @@ describe('screenProblem', () => {
 		expect(screenProblem(RHYTHM_OFFBEATS, NONE)).toBeNull();
 		expect(screenProblem({ ...bare, view: 'figure', round: figureRound }, NONE)).toBeNull();
 		expect(screenProblem({ ...LOCATE_NECK, view: 'figure', round: figureRound }, NONE)).toBeNull();
+	});
+
+	it('refuses a view that draws a passage on an exercise that writes none, naming the field', () => {
+		// The link's lane draws the tour its passage plays: an exercise of items has none.
+		const { passages: _passages, ...link } = GESTURE_LINK;
+		expect(screenProblem(link, presenters)).toBe(
+			'inversion-run: view "link-lane" draws a passage, and the exercise writes no passages'
+		);
+		expect(screenProblem({ ...ARPEGGIO_EXERCISE, view: 'link-lane' }, presenters)).toBe(
+			'test-arpeggio-sequence: view "link-lane" draws a passage, and the exercise writes no passages'
+		);
+		expect(screenProblem(GESTURE_LINK, presenters)).toBeNull();
 	});
 
 	it('refuses the figure view for a round that plays no figure, and a figure with no view to draw it', () => {

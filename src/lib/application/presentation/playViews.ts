@@ -23,3 +23,9 @@ export const PLAY_VIEW_NAMES: readonly string[] = [
 	'lane',
 	'link-lane'
 ];
+
+/**
+ * The views that draw the passage a round belongs to (the link's lane draws the tour its passage
+ * plays): an exercise that writes no `passages` cannot name one.
+ */
+export const PASSAGE_VIEWS: readonly string[] = ['link-lane'];

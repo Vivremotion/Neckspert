@@ -7,8 +7,10 @@ import {
 	exerciseById,
 	exerciseSessionExercises,
 	findExercise,
-	registerExercise
+	registerExercise,
+	servesExerciseSession
 } from './registry';
+import type { ExerciseDefinition } from './types';
 
 registerTestSkills();
 
@@ -58,5 +60,31 @@ describe('the exercise registry', () => {
 		registerExercise(onCards, 'b.json');
 		expect(exerciseSessionExercises()).toContain(A);
 		expect(exerciseSessionExercises()).not.toContain(onCards);
+	});
+
+	it('leaves out what the exercise session cannot serve: no items and no figure read on its items', () => {
+		clearExercises();
+		const { items: _items, ...noItems } = A;
+		const unserved = { ...noItems, id: 'no-items' };
+		registerExercise(unserved, 'a.json');
+		expect(exerciseSessionExercises()).not.toContain(unserved);
+		expect(servesExerciseSession(unserved)).toBe(false);
+		expect(servesExerciseSession(A)).toBe(true);
+	});
+
+	it('leaves out an exercise that writes passages: no session plays an imported file’s passages yet', () => {
+		clearExercises();
+		const { items: _items, ...noItems } = A;
+		const withPassages: ExerciseDefinition = {
+			...noItems,
+			id: 'with-passages',
+			passages: {
+				of: { chord: ['C'], strings: [[3, 2, 1]] },
+				members: { family: 'chord-shapes', order: ['position'], take: 4 }
+			}
+		} as ExerciseDefinition;
+		registerExercise(withPassages, 'a.json');
+		registerExercise({ ...withPassages, id: 'with-both', items: A.items }, 'b.json');
+		expect(exerciseSessionExercises()).toEqual([]);
 	});
 });

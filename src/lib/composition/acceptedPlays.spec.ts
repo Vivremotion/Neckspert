@@ -1,7 +1,8 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { voicingOnStringsPresenter } from '$lib/application/sets/voicingOnStrings';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
-import { findExercise } from '$lib/domain/exercise/registry';
+import { exerciseSessionExercises, findExercise } from '$lib/domain/exercise/registry';
+import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
 import { compileRound } from '$lib/domain/exercise/round';
 import { itemEntryKey } from '$lib/domain/exercise/itemEntries';
 import { admittedMembers, type MemberContent } from '$lib/domain/judges';
@@ -216,5 +217,104 @@ describe('a listed voicing without a playable shape', () => {
 		expect(shown.primary).toBe('C');
 		expect(shown.pictures).toEqual([]);
 		expect(playAll('anchor-no-shape')).toBe(3);
+	});
+});
+
+/** An arpeggio of a placed voicing over a figure a param names: no figure read on its items. */
+function arpeggio(id: string, extra: Json = {}): Json {
+	return {
+		id,
+		title: { fr: id, en: id },
+		practices: 'arpeggio',
+		view: 'figure',
+		tempo: 60,
+		params: {
+			figure: 'quarters',
+			window: { ms: 80 },
+			thresholds: { regularity: 40 },
+			pacing: { roundsPerBreath: 3, breathMinMs: 4000 }
+		},
+		figures: [{ id: 'quarters', lilypond: 'c4 c c c' }],
+		round: {
+			expectations: [
+				{
+					figure: { param: 'figure' },
+					at: { bars: 0 },
+					sensor: 'note',
+					content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] },
+					window: { param: 'window' }
+				}
+			],
+			length: { bars: 1 },
+			handover: 'end',
+			policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
+		},
+		levels: [{ params: { figure: 'quarters' } }],
+		...extra
+	};
+}
+
+describe('the exercise sessions list exactly what their source can serve', () => {
+	afterAll(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+	});
+
+	it('accepts a passages exercise and one without items, lists neither, and starts every one listed', () => {
+		const text = JSON.stringify({
+			format: 0,
+			skills: [
+				{ id: 'arpeggio', name: { fr: 'a', en: 'a' }, items: 'placed-voicing', memory: false }
+			],
+			exercises: [
+				arpeggio('arpeggio-passages', {
+					passages: {
+						of: { chord: ['C', 'F'], strings: [[3, 2, 1]] },
+						members: { family: 'chord-shapes', order: ['position'], take: 4, andBack: true }
+					}
+				}),
+				arpeggio('arpeggio-no-items')
+			]
+		});
+		const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'a.json': text } });
+		expect(imported.refusals).toEqual([]);
+		expect(findExercise('arpeggio-passages')).toBeDefined();
+		expect(findExercise('arpeggio-no-items')).toBeDefined();
+
+		const listed = exerciseSessionExercises().map((exercise) => exercise.id);
+		expect(listed).not.toContain('arpeggio-passages');
+		expect(listed).not.toContain('arpeggio-no-items');
+		expect(listed.length).toBeGreaterThan(0);
+		for (const exercise of exerciseSessionExercises()) {
+			expect(
+				() => createExerciseItemSource(exercise).next({ now: 0, elapsedMs: 0, fatigued: false }),
+				exercise.id
+			).not.toThrow();
+		}
+	});
+});
+
+describe('the link’s lane on an exercise without passages', () => {
+	afterAll(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+	});
+
+	it('is refused at load, naming the view', () => {
+		const text = JSON.stringify({
+			format: 0,
+			skills: [
+				{ id: 'arpeggio', name: { fr: 'a', en: 'a' }, items: 'placed-voicing', memory: false }
+			],
+			exercises: [
+				arpeggio('arpeggio-link-lane', {
+					view: 'link-lane',
+					items: [{ item: 'C|maj|3:1,2:3,1:5@5-5-3', beats: 4 }]
+				})
+			]
+		});
+		const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'a.json': text } });
+		expect(imported.refusals.map((refusal) => refusal.reason)).toEqual([
+			'view "link-lane" draws a passage, and the exercise writes no passages'
+		]);
+		expect(findExercise('arpeggio-link-lane')).toBeUndefined();
 	});
 });
