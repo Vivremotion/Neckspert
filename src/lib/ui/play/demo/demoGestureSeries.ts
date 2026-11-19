@@ -102,17 +102,18 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	};
 	const cards = new InMemoryCardStateRepository();
 	// The demo starts at its exercise's aid level, the shapes drawn; the scripted player moves it up.
-	const levels = new InMemoryLevelStateRepository();
 	const { exercise, scope } = demoPassage(mode);
-	void levels.put({
-		exerciseId: exercise.id,
-		scope,
-		item: '',
-		level: levelRange(exerciseLevelsOf(exercise)).lowest,
-		successes: 0,
-		failures: 0,
-		resumeAfter: null
-	});
+	const levels = new InMemoryLevelStateRepository([
+		{
+			exerciseId: exercise.id,
+			scope,
+			item: '',
+			level: levelRange(exerciseLevelsOf(exercise)).lowest,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		}
+	]);
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
 	const controller = new SessionController(

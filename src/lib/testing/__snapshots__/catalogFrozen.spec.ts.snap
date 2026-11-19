@@ -1053,22 +1053,12 @@ exports[`keeps grid-in-zone as it is 1`] = `
 
 exports[`keeps grid-reading as it is 1`] = `
 {
-  "flow": {
-    "antiBlocking": true,
-  },
   "howTo": {
     "en": "Play the chart as you like: any shape, any rhythm. Only the chord counts.",
     "fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
   },
   "id": "grid-reading",
   "levels": [
-    {
-      "aid": true,
-      "params": {
-        "shapes": true,
-        "tempo": 80,
-      },
-    },
     {
       "drop": {
         "failures": 3,

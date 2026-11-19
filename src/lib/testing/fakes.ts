@@ -475,6 +475,15 @@ export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
 	/** By exercise, scope and item: `JSON.stringify([exerciseId, scope, item])`. */
 	private readonly states = new Map<string, LevelState>();
 
+	/** Holds `states` from the start. */
+	constructor(states: readonly LevelState[] = []) {
+		for (const state of states) this.keep(state);
+	}
+
+	private keep(state: LevelState): void {
+		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+	}
+
 	async get(key: {
 		exerciseId: string;
 		scope: string;
@@ -485,7 +494,7 @@ export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
 	}
 
 	async put(state: LevelState): Promise<void> {
-		this.states.set(JSON.stringify([state.exerciseId, state.scope, state.item]), { ...state });
+		this.keep(state);
 	}
 
 	async all(): Promise<LevelState[]> {

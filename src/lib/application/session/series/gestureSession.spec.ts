@@ -53,6 +53,8 @@ import {
 	type Ctx
 } from '$lib/testing/gestureSeries';
 import { shapeId, triadCards } from '$lib/testing/shapes';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
+import { triadOf } from '$lib/domain/grid';
 import { SessionController } from '../SessionController.svelte';
 
 /**
@@ -1292,13 +1294,75 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 	const levelOf = (ctx: Ctx, exerciseId = CLIMB) =>
 		ctx.levels.get({ exerciseId, scope: 'iohefy-a', item: '' });
 
-	it('writes an aid level under level 1 that draws the shapes, and asks the anti-blocking', () => {
+	it('writes an aid level under level 1 that draws the shapes, and asks the anti-blocking, but for the jam', () => {
 		for (const id of GESTURE_EXERCISE_IDS) {
 			const definition = exerciseById(id);
+			if (id === 'grid-reading') {
+				// Its aid draws nothing: no aid level, no anti-blocking.
+				expect(definition.levels?.every((level) => !level.aid)).toBe(true);
+				expect(definition.flow).toBeUndefined();
+				continue;
+			}
 			expect(definition.levels?.[0]).toEqual({ aid: true, params: { tempo: 80, shapes: true } });
 			expect(definition.levels?.slice(1).every((level) => !level.aid)).toBe(true);
 			expect(definition.flow).toEqual({ antiBlocking: true });
 		}
+	});
+
+	it('the jam: three misses in a row at its level 1 change nothing, as before', async () => {
+		const jams = [0, 1, 2].flatMap((n) => passage({ passage: `j:${n}` }));
+		const ctx = gestureSeries(jams, { catalogLevels: true });
+		const seen = watching(ctx);
+		await ctx.controller.start();
+		await playAllRight(ctx, () => null, seen.watch);
+		const attempts = await ctx.stored();
+		// Every change played, at level 1, unaided: no aid level, no announcement, no change of air.
+		expect(attempts.map((attempt) => attempt.success)).toEqual(Array(6).fill(false));
+		expect(attempts.every((attempt) => attempt.aids.length === 0)).toBe(true);
+		expect(seen.announced).toEqual([]);
+		expect(seen.shown.every((each) => each.aid === null)).toBe(true);
+		expect(ctx.controller.view.announcement).toBeNull();
+		expect(await levelOf(ctx, 'grid-reading')).toMatchObject({
+			level: 0,
+			failures: 6,
+			resumeAfter: null
+		});
+	});
+
+	it('draws the shapes of the level played, not of another level that writes them', async () => {
+		// A climb written in the test: its level 2 draws the shapes, its level 1 does not.
+		const exercise = (id: string) => {
+			const definition = exerciseById(id);
+			if (id !== CLIMB) return definition;
+			return {
+				...definition,
+				flow: undefined,
+				levels: [{ params: { tempo: 80 } }, { params: { tempo: 80, shapes: true } }]
+			};
+		};
+		const at = async (level: number) => {
+			const ctx = gestureSeries(climbs(1), {
+				catalogLevels: true,
+				exercise,
+				levelStates: [
+					{
+						exerciseId: CLIMB,
+						scope: 'iohefy-a',
+						item: '',
+						level,
+						successes: 0,
+						failures: 0,
+						resumeAfter: null
+					}
+				]
+			});
+			const seen = watching(ctx);
+			await ctx.controller.start();
+			await playAllRight(ctx, () => null, seen.watch);
+			return seen.shown.map((each) => each.aid);
+		};
+		expect(await at(0)).toEqual([null, null]);
+		expect((await at(1)).every((aid) => aid !== null)).toBe(true);
 	});
 
 	it('draws no aid at the first passage of an index', async () => {
@@ -1344,6 +1408,18 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			false,
 			false
 		]);
+		// The third passage's first change, Dm7, nothing heard before: the lowest G on G-B-E, 4-3-3,
+		// the shape the climb goes up to next.
+		const lowestG = chordShapes.members({ chord: triadOf('G7'), strings: [...G_B_E] })[0];
+		const expectedAid = { notes: lowestG.notes.map(({ string, fret }) => ({ string, fret })) };
+		expect(expectedAid).toEqual({
+			notes: [
+				{ string: 3, fret: 4 },
+				{ string: 2, fret: 3 },
+				{ string: 1, fret: 3 }
+			]
+		});
+		expect(seen.shown[4].aid).toEqual(expectedAid);
 		expect(seen.shown.every((each) => each.tempoBpm === 80)).toBe(true);
 		// Announced at the counted bars of the third passage and of the fifth.
 		expect(seen.announced).toEqual(['aid-level', 'level-up']);
@@ -1355,6 +1431,49 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			[]
 		]);
 		expect(await levelOf(ctx)).toMatchObject({ level: 0, successes: 2, failures: 0 });
+	});
+
+	it('link: a tour at the aid level draws the notes of its shapes, one at level 1 nothing', async () => {
+		const tour = (id: string): PlannedItem[] => [0, 1].map((index) => linkChange(index, id));
+		// Held at the aid level: two tours there (the third right change moves it up), then level 1.
+		const ctx = gestureSeries([...tour('s:0'), ...tour('s:1'), ...tour('s:2')], {
+			catalogLevels: true,
+			levelStates: [
+				{
+					exerciseId: 'inversion-run',
+					scope: '',
+					item: '',
+					level: -1,
+					successes: 0,
+					failures: 0,
+					resumeAfter: null
+				}
+			]
+		});
+		const seen = watching(ctx);
+		await ctx.controller.start();
+		await playAllRight(ctx, (_n, expected) => expected, seen.watch);
+		// D on G-B-E: 2-3-2 is A, D, F#; 7-7-5 is D, F#, A.
+		const first = [
+			{ string: 3, fret: 2, name: 'A' },
+			{ string: 2, fret: 3, name: 'D' },
+			{ string: 1, fret: 2, name: 'F#' }
+		];
+		const second = [
+			{ string: 3, fret: 7, name: 'D' },
+			{ string: 2, fret: 7, name: 'F#' },
+			{ string: 1, fret: 5, name: 'A' }
+		];
+		const aided = [
+			{ now: first, next: second },
+			{ now: second, next: null }
+		];
+		expect(seen.shown.map((each) => each.aid)).toEqual([...aided, ...aided, null, null]);
+		expect((await ctx.stored()).map((attempt) => attempt.aids.join())).toEqual([
+			...Array(4).fill('aid-level'),
+			'',
+			''
+		]);
 	});
 
 	it('ends the whole session (« On change d’air ») on three more misses at the aid level', async () => {

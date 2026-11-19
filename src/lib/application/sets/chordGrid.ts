@@ -84,7 +84,7 @@ export interface LinkLaneModel {
 	/** The change on show. */
 	index: number;
 	beatsPerBar: 4;
-	/** The notes of the shapes to play now and next, when the change is aided. */
+	/** The notes of the shapes to play now and next, at a level that writes `shapes: true`. */
 	aid: { now: LinkAidNote[]; next: LinkAidNote[] | null } | null;
 	/** The beat of the change's target, in the map's beats from the series' start; null before. */
 	anchorBeat: number | null;
@@ -111,7 +111,7 @@ export interface GridStageModel {
 	/** The change on show. */
 	index: number;
 	cue: GridCue;
-	/** The shape to play at the next change, when the passage is aided. */
+	/** The shape to play at the next change, at a level that writes `shapes: true`. */
 	aid: ShapeView | null;
 	/** How its chord shapes are drawn: the exercise's style, else the player's. */
 	chordDiagram: ChordDiagramStyle;

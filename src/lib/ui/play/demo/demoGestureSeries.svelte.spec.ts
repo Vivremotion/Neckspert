@@ -17,8 +17,14 @@ describe('demoGestureSeries', () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();
 		expect(demo.controller.view.stage?.view).toBe('link-lane');
-		// It starts at the aid level: the shapes are drawn.
-		expect((demo.controller.view.stage?.model as { aid: unknown }).aid).not.toBeNull();
+		// It starts at the aid level: the notes of E on G-B-E are drawn, string by string.
+		const aid = (
+			demo.controller.view.stage?.model as {
+				aid: { now: { string: number; name: string }[] } | null;
+			}
+		).aid;
+		expect(aid?.now.map((note) => note.string)).toEqual([3, 2, 1]);
+		expect(aid?.now.map((note) => note.name).sort()).toEqual(['B', 'E', 'G#']);
 		// ♩ = 80: a counted bar, then four changes of a bar each.
 		await run(demo, 3 + 4 * 3);
 		expect(historyOf(demo).map((entry) => entry.verdict)).toEqual([

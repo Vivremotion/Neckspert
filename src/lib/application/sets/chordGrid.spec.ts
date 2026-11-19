@@ -291,8 +291,25 @@ describe('the presenters of the changes', () => {
 		});
 
 		it('draws its aid only at a level that writes shapes, whatever the item says', () => {
-			for (const served of [link(1), climb('up', null), zone([7, 11])]) {
-				expect(modelOf(served, null, true)).toMatchObject({ aid: expect.anything() });
+			const linkAid = {
+				now: [
+					{ string: 3, fret: 7, name: 'D' },
+					{ string: 2, fret: 7, name: 'F#' },
+					{ string: 1, fret: 5, name: 'A' }
+				],
+				next: [
+					{ string: 3, fret: 11, name: 'F#' },
+					{ string: 2, fret: 10, name: 'A' },
+					{ string: 1, fret: 10, name: 'D' }
+				]
+			};
+			const cases = [
+				[link(1), linkAid],
+				[climb('up', null), view('4-3-3')],
+				[zone([7, 11]), view('7-8-7')]
+			] as const;
+			for (const [served, aid] of cases) {
+				expect(modelOf(served, null, true)).toMatchObject({ aid });
 				expect(modelOf(served, null, false)).toMatchObject({ aid: null });
 				// The item's aid draws nothing: only the level's params do.
 				const presenter =

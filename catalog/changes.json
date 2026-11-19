@@ -879,13 +879,6 @@
 			"tempo": 80,
 			"levels": [
 				{
-					"aid": true,
-					"params": {
-						"tempo": 80,
-						"shapes": true
-					}
-				},
-				{
 					"params": {
 						"tempo": 80
 					},
@@ -985,9 +978,6 @@
 					}
 				}
 			],
-			"flow": {
-				"antiBlocking": true
-			},
 			"view": "grid-scroll",
 			"howTo": {
 				"fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
