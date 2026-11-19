@@ -1,3 +1,4 @@
+import { CHORD_ANCHOR_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 /**
  * Exercises drawn at random from the registered pieces, and a bench that plays any response
  * exercise on a fixed list of items: the promise « every valid exercise plays » put to the test.
@@ -463,8 +464,9 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 /** The voicings of the triads' catalog, by key. */
 const TRIAD_VOICINGS = triadVoicings(triadParams(TRIADS_ANCHOR)).map(voicingKey);
 
-/** An item of `set` drawn at random. */
-function randomItem(random: () => number, set: string): unknown {
+/** An item of `skill`'s set drawn at random. */
+function randomItem(random: () => number, skill: string): unknown {
+	const set = skillById(skill).items;
 	switch (set) {
 		case 'note-on-string':
 			return pick(random, locateItems());
@@ -473,9 +475,10 @@ function randomItem(random: () => number, set: string): unknown {
 				string: pick(random, [1, 2, 3, 4, 5, 6]),
 				fret: between(random, 1, 11)
 			} satisfies IdentifyItem;
-		// Always with a position: any derivation of the set may read it.
+		// The anchor's items carry no position; the zone's, the shape asked this time.
 		case 'voicing-on-strings': {
 			const key = pick(random, TRIAD_VOICINGS);
+			if (skill === CHORD_ANCHOR_SKILL_ID) return { voicingKey: key };
 			const shape = pick(random, voicingOccurrences(parseVoicingKey(key)));
 			return { voicingKey: key, position: occurrencePosition(shape) };
 		}
@@ -495,7 +498,7 @@ export function listItems(
 		exerciseId: definition.id,
 		skill: definition.practices,
 		exerciseLevel: 0,
-		item: randomItem(random, skillById(definition.practices).items),
+		item: randomItem(random, definition.practices),
 		phase: 'free',
 		temperature: 'hot',
 		aid: first.params.aided ? 'show-position' : 'none',

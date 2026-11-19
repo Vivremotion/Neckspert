@@ -61,9 +61,10 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 	'voicing-at-position': {
 		kind: CHORD_VOICING_CONTENT,
 		reads: ['voicing-on-strings'],
+		// An item without a position asks the voicing at any of its places, as `voicing-anywhere`.
 		derive: (item) => {
-			const { voicingKey, position } = item as Required<Voiced>;
-			return { voicingKey, position };
+			const { voicingKey, position } = item as Voiced;
+			return { voicingKey, position: position ?? null };
 		}
 	},
 	'grid-change': { kind: CHORD_GRID_CONTENT, reads: ['change'], derive: (item) => item },

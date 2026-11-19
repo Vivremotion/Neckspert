@@ -2,6 +2,9 @@ import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '../exercise/types';
 import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { CHORD_VOICING_CONTENT, CONTENT_JUDGES } from '../judges';
+import { parseVoicingKey, voicingOccurrences } from '../music';
+import { occurrenceId } from '../triads';
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from './index';
 
 registerTestSkills();
@@ -19,6 +22,17 @@ describe('the derivations', () => {
 		const root = CONTENT_DERIVATIONS['voicing-root'];
 		expect(root.kind).toBe('note');
 		expect(root.derive({ voicingKey: KEY }, NO_SHAPES)).toEqual({ string: 2, pitch: 'D' });
+	});
+
+	it('derives a voicing at the position of an item without one as the voicing at any place', () => {
+		const asked = CONTENT_DERIVATIONS['voicing-at-position'].derive({ voicingKey: KEY }, NO_SHAPES);
+		const judge = (decided: string) =>
+			CONTENT_JUDGES[CHORD_VOICING_CONTENT].judge(asked, { decided }).correct;
+		const places = voicingOccurrences(parseVoicingKey(KEY));
+		expect(places.length).toBeGreaterThan(1);
+		for (const place of places) expect(judge(occurrenceId(place))).toBe(true);
+		const other = voicingOccurrences(parseVoicingKey('D|maj|3:1,2:3,1:5'))[0];
+		expect(judge(occurrenceId(other))).toBe(false);
 	});
 
 	it('derives a voicing anywhere and at its position', () => {
