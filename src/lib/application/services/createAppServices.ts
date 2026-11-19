@@ -328,6 +328,20 @@ export function createAppServices(
 	};
 
 	/**
+	 * The exercise and scope that rest when the session's series, still in memory, ended by
+	 * « On change d’air »: those of its last attempt, the round that blocked.
+	 */
+	const changeOfAirOf = (sessionId: string, attempts: readonly Attempt[]) => {
+		const series = deps.memory.get(sessionId)?.trace.children.find((s) => s.role === 'series');
+		const last = attempts.at(-1);
+		if (series?.reason !== 'change-of-air' || !last) return undefined;
+		return {
+			exerciseId: last.exerciseId,
+			...(last.scope !== undefined && last.scope !== '' && { scope: last.scope })
+		};
+	};
+
+	/**
 	 * The exercise an exercise session played, when the registry still holds it with levels and a
 	 * round that writes a figure.
 	 */
@@ -455,13 +469,17 @@ export function createAppServices(
 			]);
 			// Next reviews of the session's own track: the neck's, or the triads'.
 			const ofTrack = (x: { skill: string }) => isNeck(x) === !isTriadsKind(sessionKindOf(record));
-			return summarizeSession({
+			const summary = summarizeSession({
 				record,
 				attempts,
 				allAttempts: allAttempts.filter(ofTrack),
 				cards: servedCards(cards.filter(ofTrack)),
 				now: deps.now()
 			});
+			const rested = summary.gesture && changeOfAirOf(sessionId, attempts);
+			return rested
+				? { ...summary, gesture: { ...summary.gesture!, changeOfAir: rested } }
+				: summary;
 		},
 
 		async neckMap() {

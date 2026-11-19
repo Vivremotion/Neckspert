@@ -186,6 +186,30 @@ describe('SummaryScreen of a gesture session', () => {
 		}
 	};
 
+	it('says « On change d’air » with the exercise that rests, only when the session ended so', () => {
+		render(SummaryScreen, {
+			props: {
+				summary: {
+					...gesture,
+					gesture: { ...gesture.gesture!, changeOfAir: { exerciseId: 'inversion-run' } }
+				},
+				now: 0,
+				onhome: () => {},
+				onmap: () => {}
+			}
+		});
+		const line = document.querySelector('.change-of-air');
+		expect(line?.textContent).toContain('On change d’air');
+		expect(line?.textContent).toContain('Relier les formes');
+	});
+
+	it('says nothing of a change of air without the field', () => {
+		render(SummaryScreen, {
+			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }
+		});
+		expect(document.querySelector('.change-of-air')).toBeNull();
+	});
+
 	it('shows each exercise played, its passages, its changes and its tempos, and nothing of the notes', () => {
 		render(SummaryScreen, {
 			props: { summary: gesture, now: 0, onhome: () => {}, onmap: () => {} }

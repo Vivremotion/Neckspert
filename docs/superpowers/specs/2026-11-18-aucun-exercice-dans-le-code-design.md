@@ -700,7 +700,7 @@ Ce qui change pour le joueur (le tableau du § 7), et rien d'autre :
 
 ### À décider par l'auteur
 
-Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un tour de sept, puis trois au niveau d'aide. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`.
+Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un tour de sept, puis trois au niveau d'aide. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`. Le résumé de la séance le dit et nomme l'exercice (et la grille) qui se repose, tant que la séance est encore en mémoire (`SessionSummary.gesture.changeOfAir`).
 
 Laissé au plan 4c :
 

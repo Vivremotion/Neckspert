@@ -357,6 +357,58 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(rested?.resumeAfter).not.toBeNull();
 	});
 
+	it('tells « On change d’air » in the summary while the session is in memory, naming the exercise', async () => {
+		const app = await appSession(triadCards('chord-anchor', 'D', 'maj', G_B_E));
+		await play(app, 30, () => null);
+		await finish(app);
+		const sessionId = app.controller.sessionId;
+
+		const summary = await app.services.sessionSummary(sessionId);
+		expect(summary.gesture?.changeOfAir).toEqual({ exerciseId: 'inversion-run' });
+
+		// Another session takes the memory's place: this one is no longer told.
+		const playback = app.deps.memory.get(sessionId)!;
+		app.deps.memory.remember({ ...playback, sessionId: 'later' });
+		const forgotten = await app.services.sessionSummary(sessionId);
+		expect(forgotten.gesture?.changeOfAir).toBeUndefined();
+	});
+
+	it('names the scope of the last attempt: the grid exercise that rests', async () => {
+		const app = await appSession(iohefyCards('chord-anchor', G_B_E));
+		// The link right (7 changes), then the climb of iohefy-a, nothing right.
+		await play(app, 12, (expectation, n) => (n < 7 ? right(expectation) : null));
+		await finish(app);
+		const sessionId = app.controller.sessionId;
+		const attempts = await app.deps.attempts.listBySession(sessionId);
+		expect(attempts.at(-1)).toMatchObject({ exerciseId: 'grid-in-direction', scope: 'iohefy-a' });
+
+		// The time ran out before the climb could block: the series' end is told as the change of
+		// air to read what the summary does with the last attempt.
+		const playback = app.deps.memory.get(sessionId)!;
+		const ended = (segment: typeof playback.trace): typeof playback.trace => ({
+			...segment,
+			...(segment.role === 'series' && { reason: 'change-of-air' as const }),
+			children: segment.children.map(ended)
+		});
+		app.deps.memory.remember({ ...playback, trace: ended(playback.trace) });
+
+		const summary = await app.services.sessionSummary(sessionId);
+		expect(summary.gesture?.changeOfAir).toEqual({
+			exerciseId: 'grid-in-direction',
+			scope: 'iohefy-a'
+		});
+	});
+
+	it('tells no change of air for a session that ended by time or by being quit', async () => {
+		const app = await appSession(triadCards('chord-anchor', 'D', 'maj', G_B_E));
+		await play(app, 14, right);
+		await finish(app);
+
+		const summary = await app.services.sessionSummary(app.controller.sessionId);
+		expect(summary.gesture?.exercises).toHaveLength(1);
+		expect(summary.gesture?.changeOfAir).toBeUndefined();
+	});
+
 	it('links each of its 48 indices in the order written, a bar of silence before a new one', async () => {
 		expect(passageIndices(exerciseById('inversion-run'))).toHaveLength(48);
 		// C major acquired on both groups: the link alone opens, on its two indices.

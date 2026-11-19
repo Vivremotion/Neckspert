@@ -478,6 +478,11 @@ export interface GestureSummary {
 		/** The tempo of its last round: a level reached and not played yet does not show. */
 		lastTempoBpm: number;
 	}[];
+	/**
+	 * The exercise and scope that rest after « On change d’air »; present only while the session's
+	 * series is in memory and ended so. Computed, never stored.
+	 */
+	changeOfAir?: { exerciseId: ExerciseId; scope?: string };
 	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
 	misses: {
 		attemptId: number;

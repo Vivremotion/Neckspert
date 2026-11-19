@@ -263,6 +263,15 @@
 					</li>
 				{/each}
 			</ul>
+			{#if summary.gesture.changeOfAir}
+				{@const rested = summary.gesture.changeOfAir}
+				<ul class="rows">
+					<li class="exercise change-of-air">
+						<strong>{t.changeOfAir}</strong>
+						<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
+					</li>
+				</ul>
+			{/if}
 			{#if summary.gesture.misses.length > 0}
 				<ul class="rows" aria-label={t.misses}>
 					<li><span>{t.misses}</span></li>
