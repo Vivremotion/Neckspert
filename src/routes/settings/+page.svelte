@@ -118,16 +118,20 @@
 		await services.settings.update({ inputDeviceId: id });
 	}
 
+	const refusalKey = ({ file, kind, id, reason }: Refusal) =>
+		JSON.stringify([file, kind, id, reason]);
+
 	async function reloadFiles() {
 		const seq = ++filesSeq;
 		try {
 			const files = await services.definitions.files();
 			if (seq !== filesSeq) return;
 			importedFiles = files;
-			const names = new Set(files.map((file) => file.name));
+			// What no stored file already tells under its name (a file may bear any name).
+			const told = new Set(files.flatMap((file) => file.refusals.map(refusalKey)));
 			definitionsProblems = services.definitions
 				.refusals()
-				.filter((refusal) => !names.has(refusal.file));
+				.filter((refusal) => !told.has(refusalKey(refusal)));
 		} catch (error) {
 			definitionsError = error instanceof Error ? error.message : String(error);
 		}

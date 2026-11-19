@@ -286,6 +286,25 @@ describe('/settings page', () => {
 			expect(screen.getByText('new.json')).toBeTruthy();
 		});
 
+		it('shows what kept the files from loading even when a stored file bears that name', async () => {
+			const services = createFakeAppServices();
+			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
+			const unfinished = {
+				file: 'imported files',
+				kind: 'file' as const,
+				id: null,
+				reason: 'the last load of the imported files did not finish'
+			};
+			services.definitions.refusals = () => [unfinished];
+			await services.definitions.import([{ name: 'imported files', text: '{}' }]);
+			render(TestHarness, { props: { services } });
+			await waitFor(() =>
+				expect(
+					screen.getByText('imported files : the last load of the imported files did not finish')
+				).toBeTruthy()
+			);
+		});
+
 		it('shows what kept the imported files from loading, and reads it again after a removal', async () => {
 			const services = createFakeAppServices();
 			services.detector.listInputs = async () => [{ id: 'usb', label: 'Scarlett 2i2 USB' }];
@@ -299,6 +318,13 @@ describe('/settings page', () => {
 			let refusals = [unread, ofFile];
 			services.definitions.refusals = () => refusals;
 			await services.definitions.import([{ name: 'a.json', text: '{}' }]);
+			// As the service does: a stored file carries the refusals of its name.
+			const files = services.definitions.files.bind(services.definitions);
+			services.definitions.files = async () =>
+				(await files()).map((file) => ({
+					...file,
+					refusals: refusals.filter((refusal) => refusal.file === file.name)
+				}));
 			render(TestHarness, { props: { services } });
 			await waitFor(() =>
 				expect(
