@@ -235,6 +235,7 @@ pour `chord-zone`.
 - `items must be a list`, `items lists no item` : `items` n'est pas une liste, ou elle est vide. Le premier ne se voit que pour un exercice dont la capacité n'a pas de cartes ; avec des cartes, `items` absent donne d'abord « must list its items ».
 - `items[<n>] repeats items[<m>]` : un élément écrit deux fois.
 - Une clé que l'ensemble ne sait pas lire : le refus nomme l'entrée, `items[<n>] ("<clé>")`.
+- `items[<n>] ("<clé>"): names grid "<grille>", which no file defines` : un changement (ensemble `change`) d'une grille qu'aucun fichier ne définit. Les grilles de tous les fichiers sont lues avant qu'un exercice soit vérifié.
 - `params.learning must be an object`, `params.learning.presentAtOnce must be true or false`.
 - `params.learning.enter must be { acquired: { skill, item } }` ; `params.learning.enter needs a skill with cards` (la capacité de l'exercice n'a pas de cartes) ; `params.learning.enter names skill "<id>", which no file read so far defines` ; `params.learning.enter names skill "<id>", which has no cards`.
 - `params.learning.enter.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>` : la correspondance n'existe pas entre ces deux ensembles.
@@ -411,18 +412,18 @@ L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage. Le
 
 Dans le catalogue, les niveaux suivants (♩ = 85 à 120) s'écrivent de la même façon que le niveau 1, avec leur tempo.
 
-- **Un niveau d'aide de l'exercice montre l'aide de sa consigne** (`presentation.aided`, voir « La consigne d'un passage »). Les quatre exercices écrivent `"aided": { "picture": "admitted" }` : sur le manche, les formes que le tour admet. À tout autre niveau, rien n'est dessiné. Cette règle vaut sur les vues de passage seulement : sur `lane`, `aided` ne se montre que pour un élément servi aidé, par l'échelle d'un exercice de mémoire. L'ancien paramètre `"shapes": true` n'existe plus : il n'est lu par rien, et un niveau qui l'écrit n'a pas d'aide de plus.
+- **Un niveau d'aide de l'exercice montre l'aide de sa consigne** (`presentation.aided`, voir « La consigne d'un passage »). Les quatre exercices écrivent `"aided": { "picture": "admitted" }` : sur le manche, les formes que le tour admet. À tout autre niveau, rien n'est dessiné. La règle est la même sur toutes les vues : `aided` se montre à un niveau d'aide de l'exercice, ou pour un élément servi aidé par l'échelle d'un exercice de mémoire. L'ancien paramètre `"shapes": true` n'existe plus : il n'est lu par rien, et un niveau qui l'écrit n'a pas d'aide de plus.
 - **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête juste après ce changement, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure. L'accueil ne montre pas ce repos pour « Changements » : la séance suivante, lancée tout de suite, retombe d'abord sur cet exercice, à son niveau d'aide.
-- **La lecture** (`grid-reading`) a son niveau d'aide comme les trois autres. Son aide dessine toutes les formes de l'accord sur les cordes 4-3-2-1, puisque son tour n'a pas de filtre.
+- **La lecture** (`grid-reading`) a son niveau d'aide comme les trois autres. Son aide dessine toutes les formes de l'accord sur les quatre cordes ré, sol, si, mi, puisque son tour n'a pas de filtre.
 
 ### La consigne d'un passage
 
 Un exercice de passages écrit sa consigne dans `presentation`, avec les emplacements de tout exercice. Une vue de passage (voir « Les vues ») en lit cinq :
 
 - `primary` : le grand mot du tour montré. Seule la vue du lien le montre.
-- `secondary` : la ligne sous ce mot sur le lien ; le titre, en haut, sur la grille.
+- `secondary` : la ligne à côté de ce mot sur le lien ; le titre, en haut, sur la grille.
 - `detail` : la ligne de consigne (les cordes, le sens, les cases). Une consigne vide ne s'affiche pas.
-- `target` : les mots de **chaque tour** sur la ligne du passage, dits pour l'élément de ce tour. La grille les écrit dans ses cases, et pour l'accord du moment et celui d'« Ensuite ». Le lien les écrit sur la tuile d'un tour qui ne monte ni ne descend : le premier, toujours.
+- `target` : les mots de **chaque tour** sur la ligne du passage, dits pour l'élément de ce tour. Sans `target`, ce sont ceux de `primary`. La grille les écrit dans ses cases, et pour l'accord du moment et celui d'« Ensuite ». Le lien les écrit sur la tuile du premier tour, et sur celle d'un tour qui ne monte ni ne descend.
 - `aided` : l'aide, à un niveau d'aide de l'exercice. Seul le dessin `admitted` se voit sur une vue de passage.
 
 `band`, `preview`, `fading` et `aided.line` sont acceptés, mais aucune vue de passage ne les montre.
@@ -440,7 +441,7 @@ Un champ entre accolades, comme `{symbol}`, vient de deux endroits.
 - `frets` : les cases du filtre `in` (`{ "in": { "frets": … } }`) : « 1 à 5 » (« 1 to 5 »). Vide sans ce filtre.
 - `toward` : le sens du filtre `position` : « ↑ en montant » ou « ↓ en descendant » (« ↑ going up », « ↓ going down »). Vide sans ce filtre. Il dit la valeur que le filtre lit : quand le sens tourne au bout du manche (voir « Le sens qui tourne »), il dit le nouveau sens.
 
-Un champ de l'élément passe avant un champ du contenu de même nom : sur le lien, `{strings}` est celui de la forme (le même texte). Quand plusieurs attentes d'un tour ont un choix, un champ vient de la première qui le donne.
+Un champ de l'élément passe avant un champ du contenu de même nom : sur le lien, `{strings}` est celui de la forme (le même texte). Quand plusieurs attentes d'un tour ont un choix, un champ vient de la première qui le donne non vide.
 
 Les quatre consignes du catalogue :
 
@@ -453,20 +454,20 @@ Les quatre consignes du catalogue :
 
 Pour le joueur : le lien montre « Ebm » en grand, « mineur », « sur cordes ré‑sol‑si » ; la montée, le titre de la grille et « sol‑si‑mi · ↑ en montant » ; la zone, « cases 1 à 5 » ; la lecture, le titre seul.
 
-**Le dessin `admitted`** se dessine sur le manche. Il montre les formes que le contenu du tour admet, en notes nommées, et celles du tour suivant, en plus clair. Les formes du tour suivant sont choisies avec, pour forme d'avant, celle qui a été entendue une fois le tour jugé ; avant, c'est la forme d'avant du tour montré. Une case commune aux deux n'est dessinée qu'une fois, comme note du tour montré. Le manche ne dessine que les cordes de ces formes. Au dernier tour d'un passage, il n'y a pas de tour suivant : seules les formes du tour montré sont dessinées. Le dessin n'a pas de légende. Il n'existe que pour un tour dont une attente est un choix de membres.
+**Le dessin `admitted`** se dessine sur le manche. Il montre les formes que le contenu du tour admet, en notes nommées, et celles du tour suivant, en plus clair. Les formes du tour suivant sont choisies avec, pour forme d'avant, celle qui a été entendue une fois le tour jugé ; avant, c'est la forme d'avant du tour montré. Une case commune aux deux n'est dessinée qu'une fois, comme note du tour montré. Le manche dessine les cordes de la zone que le tour écrit : trois pour le lien et la montée, quatre pour la zone et la lecture. Il garde ainsi ses cordes d'un tour à l'autre. Au dernier tour d'un passage, il n'y a pas de tour suivant : seules les formes du tour montré sont dessinées. Le dessin n'a pas de légende. Il n'existe que pour un tour dont une attente est un choix de membres, et seules les vues de passage le dessinent : ailleurs, ou sous `fading`, il est refusé.
 
 ### Les vues
 
-Deux vues dessinent un passage : `grid-scroll` (la grille) et `link-lane` (le lien). Elles lisent la consigne de l'exercice et la ligne de son passage : pour chaque tour, sa place en temps, ses mots (`target`) et son sens depuis le tour d'avant.
+Deux vues dessinent un passage : `grid-scroll` (la grille) et `link-lane` (le lien). Elles lisent la consigne de l'exercice et la ligne de son passage : pour chaque tour, sa place en temps, ses mots (`target`, sinon `primary`) et son sens depuis le tour d'avant.
 
-- **`grid-scroll`** : en haut, `secondary` et `detail`. Au milieu, l'accord du moment et celui d'« Ensuite » (le `target` de leurs tours), puis l'aide. En bas, les mesures de la grille, une case par tour avec son `target` ; chaque case jugée prend sa marque.
+- **`grid-scroll`** : en haut, `secondary` et `detail`. Au milieu, l'accord du moment et celui d'« Ensuite » (les mots de leurs tours). Puis les mesures de la grille, une case par tour avec ses mots ; chaque case jugée prend sa marque. En bas, l'aide, sur toute la largeur de la vue.
 - **`link-lane`** : en haut, `primary` en grand, `secondary` et `detail`. Puis une tuile par temps. Sur le premier temps de chaque tour : ↗ quand le tour monte, ↘ quand il descend, sinon son `target`. Puis l'aide.
 
 Le sens se lit sur la position des membres de la famille du passage (`members`), d'un tour au suivant : plus haut, plus bas, ou à la même place. Les changements d'une grille (`grid-changes`) n'ont pas de position : sur `link-lane`, chaque tuile y écrirait son `target`.
 
 Après un raté, les deux vues dessinent la forme entendue et la forme attendue, et disent l'écart (« pas plus haut », « hors de la zone »…). La forme attendue est la forme admise la plus proche de celle entendue, sinon de celle qui sonne encore, sinon la première admise.
 
-Un exercice qui écrit `passages` et une `presentation`, sur l'une de ces deux vues, est dessiné ainsi. Sur une autre vue qui lit une consigne (`lane`), il est dessiné comme un tour seul, sans la ligne du passage.
+Un exercice qui écrit `passages` et une `presentation`, sur l'une de ces deux vues, est dessiné ainsi. Un exercice de passages doit donc nommer sa vue (`"view": "grid-scroll"` ou `"view": "link-lane"`). Avec une consigne et sans `view`, il est dessiné sur `lane`, comme un tour seul : sans la ligne du passage, et sans aide.
 
 ### Refusé
 
@@ -483,6 +484,8 @@ Le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les
 - `writes a round but no presentation, and <ensemble> draws no screen of its own` : un exercice de passages sans `presentation`. Aucun code ne dessine plus l'écran des changements : la consigne est obligatoire. Pour une grille, `<ensemble>` est `change` ; pour le lien, `placed-voicing`.
 - `presentation.<emplacement> names field "<champ>", which neither <ensemble> nor <familles> has` : un champ que ni l'élément ni le contenu du tour ne donne. Par exemple, sur une grille : `which neither change nor chord-shapes has`.
 - `presentation.aided.picture names picture "admitted", which draws the members its round admits, and no expectation of its round has a member content` : le dessin `admitted` sur un tour sans choix de membres (de même sous `fading.picture`).
+- `presentation.aided.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "<vue>"` : le dessin `admitted` en aide d'un exercice qui n'est pas sur une vue de passage.
+- `presentation.fading.picture names picture "admitted", which no view draws as a fading picture` : le dessin `admitted` sous `fading`. Aucune vue ne le dessine là.
 - `passages.again must be "until-passed"` ; `passages.restBars must be a whole number from 0 to 16` ; `passages.passes must be a number above 0 and at most 1` ; `passages.scope must name a key of passages.of` ; `passages.scope names "<nom>", which passages.of does not write`.
 
 Les limites, chacune vérifiée avant le travail qu'elle borne : 500 index (`passages.of gives <n> indices, more than 500`, ou `passages.of gives more than 500 indices` quand le produit dépasse la limite avant la dernière liste), 64 valeurs par paramètre de passage (`passages.each.<nom> has <n> values, more than 64`), 256 membres par passage (`passages.members gives <n> members for index <clé>, more than 256`, comptés sans les filtres ni la prise qui lisent un paramètre de passage, pour borner tous les passages de l'index) et 256 accords par grille. Les tours compilés au chargement sont au plus 5 000, comptés avant d'en compiler un (`passages gives <n> rounds to check in the first passage of each index, more than 5000`).

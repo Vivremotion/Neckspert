@@ -710,7 +710,7 @@ Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. 
 
 Le § 8 a déjà décidé la suite : l'exercice bloqué sort de la séance et se repose, la séance continue avec les autres. Le plan 5 le construit, avec les routines. D'ici là, deux choses à savoir :
 
-- La séance suivante, lancée tout de suite, retombe d'abord sur l'exercice au repos, à son niveau d'aide : trois ratés de plus l'arrêtent encore. Le repos ne change pas ce que la séance pioche, et l'accueil ne le montre pas pour « Geste ».
+- La séance suivante, lancée tout de suite, retombe d'abord sur l'exercice au repos, à son niveau d'aide : trois ratés de plus l'arrêtent encore. Le repos ne change pas ce que la séance pioche, et l'accueil ne le montre pas pour « Changements ».
 - Reste à décider, au plan 5 : une séance doit-elle laisser de côté un exercice au repos tant qu'un autre a quelque chose à jouer ?
 
 Laissé au plan 4c, et ce qu'il en est advenu :
@@ -723,7 +723,7 @@ Laissé au plan 4c, et ce qu'il en est advenu :
 
 Encore ouvert :
 
-- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé (les routines, plan 5), et il n'apparaît pas sous « Exercices ».
+- La séance « Changements » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé (les routines, plan 5), et il n'apparaît pas sous « Exercices ».
 - Le travail de la source pour chaque passage servi n'est pas borné (plan 5, avant qu'une séance joue des passages importés).
 - Le banc ouvert (`openness.spec.ts`) ne tire aucun exercice à passages (plan 5).
 - Les limites bornent le nombre de tours vérifiés au chargement, pas leur coût. Un fichier qui écrit à la fois le plus de tours de passage (5 000, `MAX_PASSAGE_ROUND_CHECKS`), le plus d'attentes par tour (64) et le plus de filtres par choix (16) est accepté après une demi-minute de chargement (28 secondes mesurées). Le budget par fichier du plan 5 doit compter les tours, leurs attentes et leurs filtres.
@@ -734,11 +734,11 @@ Encore ouvert :
 Les neuf décisions de ce plan, telles que le code les tient :
 
 - D1 : un seul modèle pour les deux vues, `PassageStageModel` (`application/presentation/passageStage.ts`). Il porte la consigne du tour montré, la ligne du passage (`rounds` : pour chaque tour, sa place en temps, ses mots, son sens depuis le tour d'avant), le rang du tour montré, l'aide, le verdict et ses ratés. La grille le dessine en cases, le lien en tuiles et en flèches. `GridStageModel` et `LinkLaneModel` sont partis, avec ce que les présentateurs dessinaient (`stageOf`, `feedback`).
-- D2 : les mots viennent de la `presentation`, dans les emplacements qui existaient : `primary`, `secondary`, `detail`, `target`, `aided`. Aucun emplacement nouveau. La grille ne montre pas `primary` : son accord du moment et celui d'« Ensuite » sont le `target` de leurs tours, lu au temps qui passe.
+- D2 : les mots viennent de la `presentation`, dans les emplacements qui existaient : `primary`, `secondary`, `detail`, `target`, `aided`. Aucun emplacement nouveau. La grille ne montre pas `primary` : son accord du moment et celui d'« Ensuite » sont le `target` de leurs tours, lu à chaque temps.
 - D3 : la famille `chord-shapes` donne trois champs, nommés pour ce qu'ils disent : `{strings}` (« sol‑si‑mi »), `{frets}` (« 1 à 5 », vide sans zone de cases) et `{toward}` (« ↑ en montant », « ↓ en descendant », vide sans sens). Un changement de grille donne `{symbol}` et `{title}` ; une forme placée gagne `{quality}` (« mineur »).
 - D4 : le sens d'un tour au suivant (`up`, `down`, `same`, ou rien) se lit sur l'attribut `position` de la famille du passage. Les changements d'une grille n'ont pas de position, donc pas de sens.
 - D5 : l'aide est le dessin `admitted`. Sur le manche, il montre les formes admises au tour montré, et en plus clair celles du tour suivant. Le tour suivant est préparé avec la forme entendue une fois le tour jugé, sinon avec la forme d'avant du tour montré.
-- D6 : un niveau d'aide de l'exercice montre `presentation.aided`. Le paramètre `shapes: true` est parti. Dans le code, la règle vit dans le modèle d'un passage : sur `lane`, un niveau d'aide de l'exercice ne montre pas `aided`, seul un élément servi aidé le montre. Aucun exercice du catalogue n'est touché par cette différence.
+- D6 : un niveau d'aide de l'exercice montre `presentation.aided`. Le paramètre `shapes: true` est parti. La règle est la même sur toutes les vues : la consigne est aidée quand l'élément est servi aidé, ou joué à un niveau d'aide de l'exercice (`isAided`, dans `presentPrompt`).
 - D7 : la lecture écrit son niveau d'aide, `{ "aid": true, "params": { "tempo": 80 } }`, et `flow.antiBlocking`, comme les trois autres.
 - D8 : « Geste » s'écrit « Changements » (« Changes » en anglais) sur l'accueil et dans l'en-tête du jeu. Le code garde `'gesture'`. L'en-tête du jeu ne nomme la séance que dans le monde calme (`lane`, `answer-keys`) ; les vues des changements sont encore dans le monde pixel : en jeu, le mot ne se voit donc pas aujourd'hui.
 - D9 : un passage portait déjà ses éléments (`PlannedItem.passage.items`) avant ce plan. Le modèle s'en sert, et refuse un tour qui viendrait sans eux. La ligne d'un passage se calcule une fois, et ses mots une fois par langue ; elle est oubliée avec le passage.
@@ -747,13 +747,20 @@ Ce que l'exécution a décidé en plus :
 
 - Un champ du contenu se lit sur la première attente du tour qui le donne, et non sur la seule première attente qui a un choix. Un tour qui demande une note puis un accord donne ainsi les `{frets}` de l'accord. Le refus d'un champ inconnu nomme l'ensemble et toutes les familles du tour. Un champ de l'élément passe avant un champ du contenu de même nom.
 - Un raté de changement et un raté de triade ne se disent pas de la même façon : la forme attendue n'est pas choisie pareil, et seule la triade donne une correction en mots. Le code les distingue par la présence de « précédent » (`previous`) dans le contenu : seul un contenu préparé dans un passage le porte. Une triade jouée dans un passage serait donc dite comme un changement.
-- Le dessin du manche nomme les cordes qu'il dessine (`strings`) : celles des formes du tour montré et du suivant. Le manche du lien garde ainsi ses trois cordes ; celui de la zone et de la lecture en a quatre.
+- Le dessin du manche nomme les cordes qu'il dessine (`strings`) : celles de la zone que l'exercice écrit. Trois pour le lien et la montée, quatre pour la zone et la lecture. Le manche garde ainsi ses cordes d'un changement à l'autre.
 - Sur le lien, une tuile dont le sens est « même place » écrit ses mots, comme le premier tour. Aucun passage du catalogue ne le fait.
 - À un niveau d'aide, la consigne est dite comme pour un élément servi aidé.
-- `admitted` est accepté aussi dans `fading.picture`, aux mêmes conditions que dans `aided.picture` ; aucune vue ne le montre là.
 - Un exercice de passages sans `presentation` est refusé au chargement (`writes a round but no presentation, and change draws no screen of its own`) : aucun présentateur ne dessine plus son écran. `SetPresenter.feedback` est parti. `SetPresenter.stageOf` reste, comme chemin général d'un présentateur qui dessinerait son propre écran ; aucun présentateur de l'application ne s'en sert plus.
 - Les présentateurs des changements gardent ce que le capteur d'accords et la tentative demandent. L'attente du lien donne au capteur son seul accord, et non chaque forme de son tour : les candidats sont les mêmes.
-- Le banc ouvert (`openness.spec.ts`) tire 300 exercices au lieu de 200, car les nouveaux champs déplacent ses tirages. Un exercice écrit à la main y garde le cas d'une figure à hauteurs jugée par l'alignement.
+- Le test ouvert essaie 300 exercices tirés au hasard au lieu de 200, car les nouveaux champs changent ce que le hasard donne. Un exercice écrit à la main y garde le cas d'une figure à hauteurs jugée par l'alignement.
+- Après la revue finale :
+  - La consigne est aidée par une seule règle, pour toutes les vues (D6).
+  - Le dessin `admitted` est refusé au chargement en aide d'un exercice qui n'est pas sur une vue de passage : `presentation.aided.picture names picture "admitted", which only a view that draws a passage draws (grid-scroll, link-lane), and the exercise is drawn on "<vue>"`. Sous `fading`, il est refusé partout : `presentation.fading.picture names picture "admitted", which no view draws as a fading picture`.
+  - Les mots d'un tour sur la ligne du passage sont son `target`, sinon son `primary`.
+  - Un champ du contenu vient de la première attente qui le donne non vide.
+  - Un élément de l'ensemble `change` qui nomme une grille qu'aucun fichier ne définit est refusé au chargement : `items[<n>] ("<clé>"): names grid "<grille>", which no file defines`.
+  - L'aide de la grille a sa propre ligne, sous les cases, sur toute la largeur de la vue. Une case du manche n'est jamais plus étroite que sa note et son numéro : les numéros ne se touchent plus.
+  - La ligne d'un passage additionne ses longueurs sans arrondi, et le lien trouve la tuile d'un tour à une erreur d'arrondi près. Un tour qui commence entre deux temps n'a pas de tuile sur le lien.
 
 La preuve, avant de supprimer les anciens modèles :
 
@@ -764,9 +771,10 @@ La preuve, avant de supprimer les anciens modèles :
 Ce qui change pour le joueur, et rien d'autre :
 
 - L'aide des grilles dessine sur le manche toutes les formes admises au changement montré et au suivant. Avant, elle dessinait une seule forme, choisie par le code, dans un dessin d'accord. Elle se voit aussi au dernier changement d'un passage, avec les seules formes de ce changement.
+- L'aide des grilles a sa propre ligne, sous les cases, sur toute la largeur de la vue. Avant, elle tenait dans la petite place d'un dessin d'accord.
 - L'aide des grilles n'a plus de légende : « Forme suivante » est parti. Le manche montre les formes de maintenant et d'ensuite, et l'écran de jeu ne porte pas de mots qui expliquent.
 - L'en-tête du lien écrit ses cordes comme la voie des triades : « sur cordes sol‑si‑mi », sur une ligne. Avant : « sur cordes », puis « sol · si · mi » dessous.
-- La lecture a son niveau d'aide et l'anti-blocage. Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant, annoncé ; toutes les formes de l'accord sur les cordes 4-3-2-1 sont alors dessinées. Trois changements justes de suite ramènent au niveau 1. Trois ratés de suite au niveau d'aide amènent « On change d'air ».
+- La lecture a son niveau d'aide et l'anti-blocage. Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant, annoncé ; toutes les formes de l'accord sur les quatre cordes ré, sol, si, mi sont alors dessinées. Trois changements justes de suite ramènent au niveau 1. Trois ratés de suite au niveau d'aide amènent « On change d'air ».
 - « Geste » s'écrit « Changements ».
 
 Laissé au plan 5 :
