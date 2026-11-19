@@ -18,6 +18,7 @@ import {
 import { attemptToV12 } from './migrations/v12';
 import { attemptToV13, cardToV13, levelStateToV13, sessionToV13 } from './migrations/v13';
 import type { LevelState } from '$lib/domain/time';
+import v8Export from './fixtures/backup-v8.json';
 
 describe('createDatabase', () => {
 	it('uses the app name by default', () => {
@@ -1035,6 +1036,100 @@ describe('version 13', () => {
 			skill: 'locate-note-string',
 			scheduling: holder.scheduling
 		});
+		db.close();
+	});
+});
+
+describe('the whole chain to version 13', () => {
+	type Row = Record<string, unknown>;
+	const fixture = () => structuredClone(v8Export) as unknown as Record<string, Row[]> & Row;
+	const sortedBy = <T>(rows: T[], key: (row: T) => unknown) =>
+		[...rows].sort((a, b) => JSON.stringify(key(a)).localeCompare(JSON.stringify(key(b))));
+
+	/** Every table but the settings, each sorted by its primary key. */
+	async function tables(db: NeckspertDb): Promise<Record<string, Row[]>> {
+		return {
+			cards: sortedBy(await db.cards.toArray(), (card) => card.key),
+			attempts: sortedBy(await db.attempts.toArray(), (attempt) => attempt.id),
+			sessions: sortedBy(await db.sessions.toArray(), (session) => session.id),
+			levelStates: sortedBy(await db.levelStates.toArray(), (state) => [
+				state.exerciseId,
+				state.scope,
+				state.item
+			]),
+			definitionFiles: await db.definitionFiles.toArray()
+		} as unknown as Record<string, Row[]>;
+	}
+
+	/** A version 12 database holding exactly the rows of the version 8 fixture, opened at 13. */
+	async function migrated(): Promise<NeckspertDb> {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const { cards, attempts, sessions, levelStates, settings } = fixture();
+		await old.table('cards').bulkAdd(cards);
+		await old.table('attempts').bulkAdd(attempts);
+		await old.table('sessions').bulkAdd(sessions);
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('settings').put({ ...(settings as unknown as Row), id: 'settings' });
+		old.close();
+		const db = createDatabase(name);
+		await db.open();
+		return db;
+	}
+
+	it('opens a version 12 database of the fixture at 13: the same rows in every table, every card scheduled as it was', async () => {
+		const db = await migrated();
+		const v8 = fixture();
+		expect(db.verno).toBe(13);
+		const after = await tables(db);
+		for (const table of ['cards', 'attempts', 'sessions', 'levelStates'] as const) {
+			expect(after[table]).toHaveLength(v8[table].length);
+		}
+		expect(after.definitionFiles).toEqual([]);
+		for (const card of v8.cards) {
+			const upgraded = await db.cards.get(cardToV13(card).key as string);
+			const { key: _key, mechanic: _mechanic, ...kept } = card;
+			expect(upgraded).toMatchObject(kept);
+			expect(upgraded?.scheduling).toEqual(card.scheduling);
+		}
+		expect(await db.settings.get('settings')).toEqual({ ...v8.settings, id: 'settings' });
+		db.close();
+	});
+
+	it('imports the fixture to the same rows as the migrated database', async () => {
+		const db = await migrated();
+		const imported = createDatabase(crypto.randomUUID());
+		await new DexieBackup(imported).importAll(fixture());
+		// Both paths keep the ids the fixture gives its attempts.
+		expect(await tables(imported)).toEqual(await tables(db));
+		// The input device belongs to the browser that exported the file.
+		expect(await imported.settings.get('settings')).toEqual({
+			...(await db.settings.get('settings')),
+			inputDeviceId: null
+		});
+		imported.close();
+		db.close();
+	});
+
+	it('gives the same rows when the migrated database is exported and imported again', async () => {
+		const db = await migrated();
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		expect(exported.version).toBe(9);
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		expect(await tables(again)).toEqual(await tables(db));
+		expect(await new DexieBackup(again, () => 1).exportAll()).toEqual({
+			...exported,
+			settings: { ...exported.settings, inputDeviceId: null }
+		});
+		again.close();
 		db.close();
 	});
 });

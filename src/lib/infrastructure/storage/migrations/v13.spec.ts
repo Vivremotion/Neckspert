@@ -276,6 +276,21 @@ describe('a backup at version 9', () => {
 	});
 });
 
+describe('the settings at version 13', () => {
+	it('are kept as they are', () => {
+		const settings = {
+			locale: 'en',
+			latency: { note: { ms: 42, provenance: 'system' } },
+			clickBleed: true,
+			inputDeviceId: 'usb',
+			chordDiagram: 'grid'
+		};
+		const backup = { app: 'neckspert-play', version: 8, settings } as unknown as BackupV8;
+		expect(backupV8ToV9(backup).settings).toEqual(settings);
+		expect(backupV8ToV9(backup).settings).toBe(settings);
+	});
+});
+
 describe('the exercise ids of version 13', () => {
 	it('rename the eight exercises after their skill', () => {
 		expect(EXERCISE_IDS_V13).toEqual({

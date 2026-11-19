@@ -1,0 +1,725 @@
+{
+	"app": "neckspert-play",
+	"version": 8,
+	"exportedAt": 1767060000000,
+	"settings": {
+		"locale": "fr",
+		"latency": {
+			"attack": {
+				"ms": 30,
+				"provenance": "system"
+			},
+			"note": {
+				"ms": 42,
+				"provenance": "system"
+			},
+			"chord": {
+				"ms": 42,
+				"provenance": "system"
+			}
+		},
+		"clickBleed": true,
+		"inputDeviceId": "usb-interface",
+		"builtInInputGain": 8,
+		"diagnostics": {
+			"enabled": null,
+			"budgetMb": 300
+		},
+		"chordDiagram": "grid"
+	},
+	"cards": [
+		{
+			"key": "locate:2:F",
+			"mechanic": "locate",
+			"item": {
+				"string": 2,
+				"pitch": "F"
+			},
+			"introducedAt": 1767000000000,
+			"introducedInSession": "s-learn",
+			"scheduling": {
+				"due": 1767400000000,
+				"stability": 3.2,
+				"difficulty": 5.1,
+				"elapsedDays": 1,
+				"scheduledDays": 3,
+				"learningSteps": 0,
+				"reps": 3,
+				"lapses": 0,
+				"state": 2,
+				"lastReview": 1767100000000
+			},
+			"learnedAt": 1767000060000,
+			"acquiredAt": 1767100000000,
+			"masteredAt": null
+		},
+		{
+			"key": "identify:5:8",
+			"mechanic": "identify",
+			"item": {
+				"string": 5,
+				"fret": 8
+			},
+			"introducedAt": 1767000100000,
+			"introducedInSession": "s-learn",
+			"scheduling": {
+				"due": 1767300000000,
+				"stability": 1.4,
+				"difficulty": 6.3,
+				"elapsedDays": 1,
+				"scheduledDays": 3,
+				"learningSteps": 0,
+				"reps": 2,
+				"lapses": 1,
+				"state": 3,
+				"lastReview": 1767050000000
+			},
+			"learnedAt": 1767000160000,
+			"acquiredAt": null,
+			"masteredAt": null
+		},
+		{
+			"key": "triad-anchor:D|maj|3:5,2:1,1:3",
+			"mechanic": "triad-anchor",
+			"item": {
+				"voicingKey": "D|maj|3:5,2:1,1:3"
+			},
+			"introducedAt": 1767010000000,
+			"introducedInSession": "s-triads",
+			"scheduling": {
+				"due": 1767500000000,
+				"stability": 8.7,
+				"difficulty": 4.2,
+				"elapsedDays": 1,
+				"scheduledDays": 3,
+				"learningSteps": 0,
+				"reps": 5,
+				"lapses": 0,
+				"state": 2,
+				"lastReview": 1767200000000
+			},
+			"learnedAt": 1767010060000,
+			"acquiredAt": 1767200000000,
+			"masteredAt": 1767300000000
+		},
+		{
+			"key": "triad-zone:D|maj|3:5,2:1,1:3",
+			"mechanic": "triad-zone",
+			"item": {
+				"voicingKey": "D|maj|3:5,2:1,1:3"
+			},
+			"introducedAt": 1767020000000,
+			"introducedInSession": "s-triads-zone",
+			"scheduling": {
+				"due": 1767020000000,
+				"stability": 0,
+				"difficulty": 0,
+				"elapsedDays": 1,
+				"scheduledDays": 3,
+				"learningSteps": 0,
+				"reps": 0,
+				"lapses": 0,
+				"state": 0,
+				"lastReview": null
+			},
+			"learnedAt": null,
+			"acquiredAt": null,
+			"masteredAt": null
+		}
+	],
+	"attempts": [
+		{
+			"id": 1,
+			"sessionId": "s-learn",
+			"exerciseId": "locate-neck",
+			"mechanic": "locate",
+			"cardKey": "locate:2:F",
+			"phase": "review",
+			"temperature": "cold",
+			"aids": [],
+			"promptedAt": 1767000010000,
+			"tempoBpm": 80,
+			"leadBeats": 2,
+			"timingOffsetMs": 12,
+			"reactionMs": 850,
+			"correct": true,
+			"success": true,
+			"verdict": {
+				"relation": "beat",
+				"version": 1,
+				"value": "perfect"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"string": 2,
+					"pitch": "F"
+				},
+				"answer": {
+					"midi": 65
+				},
+				"confusion": null
+			},
+			"observations": [
+				{
+					"atMs": -12,
+					"sensor": "note",
+					"fate": "answer",
+					"correct": true,
+					"payload": {
+						"midi": 65
+					}
+				}
+			]
+		},
+		{
+			"id": 2,
+			"sessionId": "s-learn",
+			"exerciseId": "identify-neck",
+			"mechanic": "identify",
+			"cardKey": "identify:5:8",
+			"phase": "review",
+			"temperature": "cold",
+			"aids": [],
+			"promptedAt": 1767000020000,
+			"tempoBpm": null,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 1900,
+			"correct": false,
+			"success": false,
+			"verdict": {
+				"relation": "free",
+				"version": 1,
+				"value": "wrong"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"string": 5,
+					"fret": 8
+				},
+				"answer": {
+					"pitch": "E"
+				},
+				"confusion": {
+					"kind": "semitone",
+					"delta": -1
+				}
+			},
+			"observations": []
+		},
+		{
+			"id": 3,
+			"sessionId": "s-triads",
+			"exerciseId": "triads-anchor",
+			"mechanic": "triad-anchor",
+			"cardKey": "triad-anchor:D|maj|3:5,2:1,1:3",
+			"phase": "review",
+			"temperature": "cold",
+			"aids": ["show-position"],
+			"promptedAt": 1767000030000,
+			"tempoBpm": 80,
+			"leadBeats": 2,
+			"timingOffsetMs": 12,
+			"reactionMs": 850,
+			"correct": false,
+			"success": false,
+			"verdict": {
+				"relation": "anchor",
+				"version": 1,
+				"value": "corrected"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"voicingKey": "D|maj|3:5,2:1,1:3"
+				},
+				"answer": null,
+				"confusion": {
+					"kind": "semitone",
+					"delta": 1,
+					"part": "root"
+				}
+			},
+			"observations": []
+		},
+		{
+			"id": 4,
+			"sessionId": "s-triads-zone",
+			"exerciseId": "triads-zone",
+			"mechanic": "triad-zone",
+			"cardKey": "triad-zone:D|maj|3:5,2:1,1:3",
+			"phase": "probe",
+			"temperature": "cold",
+			"aids": [],
+			"promptedAt": 1767000040000,
+			"tempoBpm": 80,
+			"leadBeats": 2,
+			"timingOffsetMs": 12,
+			"reactionMs": 850,
+			"correct": false,
+			"success": false,
+			"verdict": {
+				"relation": "anchor",
+				"version": 1,
+				"value": "wrong"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"voicingKey": "D|maj|3:5,2:1,1:3",
+					"position": 2
+				},
+				"answer": {
+					"decided": null
+				},
+				"confusion": {
+					"kind": "other-octave",
+					"part": "chord"
+				}
+			},
+			"observations": []
+		},
+		{
+			"id": 5,
+			"sessionId": "s-gesture",
+			"exerciseId": "gesture-link",
+			"mechanic": "chord-grid",
+			"cardKey": "chord-grid:link:D|maj:3,2,1#1",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000050000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": true,
+			"success": true,
+			"verdict": {
+				"relation": "grid-change",
+				"version": 1,
+				"value": "perfect"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"rule": "link",
+					"element": "link:D|maj:3,2,1",
+					"index": 1,
+					"shape": "D|maj|3:5,2:1,1:3@2-3-2"
+				},
+				"answer": {
+					"decided": "D|maj|3:5,2:1,1:3@2-3-2"
+				},
+				"confusion": null
+			},
+			"observations": []
+		},
+		{
+			"id": 6,
+			"sessionId": "s-gesture",
+			"exerciseId": "gesture-climb",
+			"mechanic": "chord-grid",
+			"cardKey": "chord-grid:climb:iohefy-a:3,2,1#2",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000060000,
+			"tempoBpm": 85,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": false,
+			"success": false,
+			"verdict": {
+				"relation": "grid-change",
+				"version": 1,
+				"value": "wrong"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"rule": "climb",
+					"element": "climb:iohefy-a:3,2,1",
+					"index": 2,
+					"symbol": "Dm7",
+					"direction": "up"
+				},
+				"answer": {
+					"decided": "D|min|3:5,2:1,1:b3@7-6-5"
+				},
+				"confusion": {
+					"kind": "not-higher",
+					"part": "chord"
+				}
+			},
+			"observations": [],
+			"scope": "iohefy-a"
+		},
+		{
+			"id": 7,
+			"sessionId": "s-gesture",
+			"exerciseId": "gesture-zone",
+			"mechanic": "chord-grid",
+			"cardKey": "chord-grid:zone:iohefy-a#0",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000070000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": true,
+			"success": true,
+			"verdict": {
+				"relation": "grid-change",
+				"version": 1,
+				"value": "perfect"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"rule": "zone",
+					"element": "zone:iohefy-a",
+					"index": 0,
+					"zone": {
+						"from": 5,
+						"to": 8
+					}
+				},
+				"answer": {
+					"decided": null
+				},
+				"confusion": null
+			},
+			"observations": [],
+			"scope": "iohefy-a"
+		},
+		{
+			"id": 8,
+			"sessionId": "s-gesture",
+			"exerciseId": "gesture-jam",
+			"mechanic": "chord-grid",
+			"cardKey": "chord-grid:jam:blues-f#3",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000080000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": true,
+			"success": true,
+			"verdict": {
+				"relation": "grid-change",
+				"version": 1,
+				"value": "perfect"
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"rule": "jam",
+					"element": "jam:blues-f",
+					"index": 3
+				},
+				"answer": {
+					"decided": null
+				},
+				"confusion": null
+			},
+			"observations": [],
+			"scope": "blues-f"
+		},
+		{
+			"id": 9,
+			"sessionId": "s-exercise",
+			"exerciseId": "rhythm-offbeats",
+			"mechanic": "figure",
+			"cardKey": "figure:offbeats-2@2",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000090000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": null,
+			"success": true,
+			"verdict": {
+				"relation": "cycle",
+				"version": 1,
+				"value": {
+					"passed": true
+				}
+			},
+			"measures": {
+				"fidelity": 1,
+				"regularity": 18
+			},
+			"plan": null,
+			"data": {
+				"item": {
+					"figureId": "offbeats-2",
+					"level": 2
+				},
+				"answer": null,
+				"confusion": null
+			},
+			"observations": []
+		},
+		{
+			"id": 10,
+			"sessionId": "s-exercise-local",
+			"exerciseId": "my-arpeggios",
+			"mechanic": "voicing-figure",
+			"cardKey": "voicing-figure:D|maj|3:5,2:1,1:3@0@4",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000100000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": false,
+			"success": false,
+			"verdict": {
+				"relation": "cycle",
+				"version": 1,
+				"value": {
+					"reasons": ["fidelity"]
+				}
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"voicing": "D|maj|3:5,2:1,1:3",
+					"occurrence": 0,
+					"beats": 4
+				},
+				"answer": null,
+				"confusion": null
+			},
+			"observations": []
+		},
+		{
+			"id": 11,
+			"sessionId": "s-exercise-local",
+			"exerciseId": "my-arpeggios",
+			"mechanic": "form-figure",
+			"cardKey": "form-figure:maj7@d@4",
+			"phase": "free",
+			"temperature": "hot",
+			"aids": [],
+			"promptedAt": 1767000110000,
+			"tempoBpm": 80,
+			"leadBeats": null,
+			"timingOffsetMs": null,
+			"reactionMs": 850,
+			"correct": true,
+			"success": true,
+			"verdict": {
+				"relation": "cycle",
+				"version": 1,
+				"value": {
+					"passed": true
+				}
+			},
+			"measures": {},
+			"plan": null,
+			"data": {
+				"item": {
+					"form": "maj7",
+					"first": "d",
+					"beats": 4
+				},
+				"answer": null,
+				"confusion": null
+			},
+			"observations": []
+		}
+	],
+	"sessions": [
+		{
+			"id": "s-learn",
+			"kind": "learn",
+			"startedAt": 1767000000000,
+			"endedAt": 1767000600000,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "locate-neck",
+					"tempoBpm": 80
+				},
+				{
+					"exerciseId": "identify-neck",
+					"tempoBpm": null
+				}
+			],
+			"latencyMs": 42
+		},
+		{
+			"id": "s-free",
+			"kind": "free",
+			"startedAt": 1767001000000,
+			"endedAt": 1767001600000,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "locate-neck",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": 42
+		},
+		{
+			"id": "s-triads",
+			"kind": "triads",
+			"startedAt": 1767010000000,
+			"endedAt": 1767010600000,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "triads-anchor",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": 42
+		},
+		{
+			"id": "s-triads-zone",
+			"kind": "triads-zone",
+			"startedAt": 1767020000000,
+			"endedAt": 1767020600000,
+			"fatigueDetected": true,
+			"executions": [
+				{
+					"exerciseId": "triads-zone",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": 42
+		},
+		{
+			"id": "s-gesture",
+			"kind": "gesture",
+			"startedAt": 1767030000000,
+			"endedAt": 1767030600000,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "gesture-link",
+					"tempoBpm": 80
+				},
+				{
+					"exerciseId": "gesture-climb",
+					"scope": "iohefy-a",
+					"tempoBpm": 85
+				},
+				{
+					"exerciseId": "gesture-zone",
+					"scope": "iohefy-a",
+					"tempoBpm": 80
+				},
+				{
+					"exerciseId": "gesture-jam",
+					"scope": "blues-f",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": 42
+		},
+		{
+			"id": "s-exercise",
+			"kind": "exercise",
+			"startedAt": 1767040000000,
+			"endedAt": 1767040600000,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "rhythm-offbeats",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": 42,
+			"exerciseId": "rhythm-offbeats",
+			"levelReached": 2
+		},
+		{
+			"id": "s-exercise-local",
+			"kind": "exercise",
+			"startedAt": 1767050000000,
+			"endedAt": null,
+			"fatigueDetected": false,
+			"executions": [
+				{
+					"exerciseId": "my-arpeggios",
+					"tempoBpm": 80
+				}
+			],
+			"latencyMs": null,
+			"exerciseId": "my-arpeggios"
+		}
+	],
+	"levelStates": [
+		{
+			"exerciseId": "locate-neck",
+			"scope": "",
+			"item": "2:F",
+			"level": 2,
+			"successes": 1,
+			"failures": 0,
+			"resumeAfter": null
+		},
+		{
+			"exerciseId": "triads-anchor",
+			"scope": "",
+			"item": "D|maj|3:5,2:1,1:3",
+			"level": 1,
+			"successes": 0,
+			"failures": 1,
+			"resumeAfter": null
+		},
+		{
+			"exerciseId": "gesture-climb",
+			"scope": "iohefy-a",
+			"item": "",
+			"level": 3,
+			"successes": 4,
+			"failures": 0,
+			"resumeAfter": null
+		},
+		{
+			"exerciseId": "gesture-link",
+			"scope": "",
+			"item": "",
+			"level": 1,
+			"successes": 2,
+			"failures": 0,
+			"resumeAfter": null
+		},
+		{
+			"exerciseId": "rhythm-offbeats",
+			"scope": "",
+			"item": "",
+			"level": 2,
+			"successes": 0,
+			"failures": 2,
+			"resumeAfter": 1767999999000
+		}
+	]
+}

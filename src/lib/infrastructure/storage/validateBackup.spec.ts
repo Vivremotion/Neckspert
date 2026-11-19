@@ -33,7 +33,14 @@ import {
 	validateBackupV9
 } from './validateBackup';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
-import { attemptToV13, cardToV13, levelStateToV13, sessionToV13 } from './migrations/v13';
+import {
+	attemptToV13,
+	backupV8ToV9,
+	cardToV13,
+	levelStateToV13,
+	sessionToV13
+} from './migrations/v13';
+import v8Export from './fixtures/backup-v8.json';
 
 registerTestSkills();
 
@@ -1645,5 +1652,81 @@ describe('version 9', () => {
 		expect(() => validateBackupV8({ ...makeBackup(), version: 8 })).toThrow(
 			'Invalid cards entry at index 0: mechanic must be one of'
 		);
+	});
+});
+
+describe('the version 8 backup of the fixture', () => {
+	const rows = (table: unknown) => table as Record<string, unknown>[];
+	const fixture = () => structuredClone(v8Export) as unknown as Record<string, unknown>;
+
+	it('is a valid version 8 file, returned as it is', () => {
+		const file = fixture();
+		expect(validateBackupV8(file)).toBe(file);
+	});
+
+	it('holds a card and an attempt of each memory mechanic, every rule of the changes, the three figures, a session of each kind', () => {
+		const file = fixture();
+		expect(rows(file.cards).map((card) => card.mechanic)).toEqual([
+			'locate',
+			'identify',
+			'triad-anchor',
+			'triad-zone'
+		]);
+		expect(
+			rows(file.attempts).map((attempt) => [
+				attempt.mechanic,
+				(attempt.data as { item: { rule?: string } }).item.rule,
+				attempt.exerciseId
+			])
+		).toEqual([
+			['locate', undefined, 'locate-neck'],
+			['identify', undefined, 'identify-neck'],
+			['triad-anchor', undefined, 'triads-anchor'],
+			['triad-zone', undefined, 'triads-zone'],
+			['chord-grid', 'link', 'gesture-link'],
+			['chord-grid', 'climb', 'gesture-climb'],
+			['chord-grid', 'zone', 'gesture-zone'],
+			['chord-grid', 'jam', 'gesture-jam'],
+			['figure', undefined, 'rhythm-offbeats'],
+			['voicing-figure', undefined, 'my-arpeggios'],
+			['form-figure', undefined, 'my-arpeggios']
+		]);
+		expect(new Set(rows(file.sessions).map((session) => session.kind))).toEqual(
+			new Set(['learn', 'free', 'triads', 'triads-zone', 'gesture', 'exercise'])
+		);
+		expect(
+			rows(file.levelStates).map(({ exerciseId, scope, item }) => [exerciseId, scope, item])
+		).toEqual([
+			['locate-neck', '', '2:F'],
+			['triads-anchor', '', 'D|maj|3:5,2:1,1:3'],
+			['gesture-climb', 'iohefy-a', ''],
+			['gesture-link', '', ''],
+			['rhythm-offbeats', '', '']
+		]);
+	});
+
+	it('lands on a valid version 9 file, each row upgraded by its own function', () => {
+		const file = validateBackup(fixture());
+		expect(file).toEqual(backupV8ToV9(fixture() as never));
+		expect(file.cards).toEqual(rows(v8Export.cards).map(cardToV13));
+		expect(file.attempts).toEqual(rows(v8Export.attempts).map(attemptToV13));
+		expect(file.levelStates).toEqual(rows(v8Export.levelStates).map(levelStateToV13));
+		expect(file.sessions).toEqual(rows(v8Export.sessions).map(sessionToV13));
+		expect(file.settings).toEqual(v8Export.settings);
+		expect(file.definitionFiles).toEqual([]);
+		expect(file.attempts.map((attempt) => attempt.cardKey)).toEqual([
+			'locate-note-string:2:F',
+			'identify-note:5:8',
+			'chord-anchor:D|maj|3:5,2:1,1:3',
+			'chord-zone:D|maj|3:5,2:1,1:3',
+			'inversion-run:D|maj|3:5,2:1,1:3@2-3-2',
+			'grid-in-direction:iohefy-a#2',
+			'grid-in-zone:iohefy-a#0',
+			'grid-reading:blues-f#3',
+			'figure-independence:offbeats-2@2',
+			'my-arpeggios:D|maj|3:5,2:1,1:3@2-3-2',
+			'my-arpeggios:maj7@d'
+		]);
+		expect(validateBackupV9(file)).toBe(file);
 	});
 });
