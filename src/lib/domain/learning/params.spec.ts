@@ -51,11 +51,12 @@ describe('the learning procedure’s settings', () => {
 			presentAtOnce: true
 		});
 		const enter = { acquired: { skill: 'locate-note-string', item: 'same-place' } };
+		const asks = { family: 'chord-shapes', where: [{ other: 'previous' }] };
 		expect(
 			exerciseLearningOf({
 				...LOCATE_NECK,
 				params: {
-					learning: { enter, draw: 'another-place', presentAtOnce: false, retestGaps: [1, 3] }
+					learning: { enter, asks, presentAtOnce: false, retestGaps: [1, 3] }
 				}
 			})
 		).toEqual({
@@ -63,7 +64,7 @@ describe('the learning procedure’s settings', () => {
 			retestGaps: [1, 3],
 			presentAtOnce: false,
 			enter,
-			draw: 'another-place'
+			asks
 		});
 	});
 });

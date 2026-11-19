@@ -2,11 +2,15 @@ import {
 	parseVoicingKey,
 	pitchOfSpelled,
 	spellInterval,
+	voicingKey,
+	voicingOccurrences,
 	type Confusion,
 	type LocateItem,
 	type Midi,
 	type Voicing
 } from '$lib/domain/music';
+import { occurrenceId, occurrenceOfId } from '$lib/domain/triads/items';
+import { cueFrets, occurrencePosition } from '$lib/domain/triads/position';
 import type { ChordConfusion, ChordReading } from './triadChord';
 import type { ItemSet } from './types';
 
@@ -79,5 +83,24 @@ export const voicingOnStringsSet: ItemSet<VoicingOnStringsItem> = {
 		parseVoicingKey(itemKey);
 		return { voicingKey: itemKey };
 	},
-	cardItem: (item) => ({ voicingKey: item.voicingKey })
+	cardItem: (item) => ({ voicingKey: item.voicingKey }),
+	/** The shape the member is: its position, and a fret it covers drawn by one number, if any. */
+	asked(item, member, random) {
+		const shape = occurrenceOfId(member.id);
+		if (!shape || voicingKey(shape.voicing) !== item.voicingKey) {
+			throw new Error(`member "${member.id}" names no shape of voicing ${item.voicingKey}`);
+		}
+		const position = occurrencePosition(shape);
+		const frets = cueFrets(shape);
+		if (frets.length === 0) return { voicingKey: item.voicingKey, position };
+		const fret = frets[Math.min(frets.length - 1, Math.floor(random() * frets.length))];
+		return { voicingKey: item.voicingKey, position, fret };
+	},
+	memberOf(item) {
+		if (item.position === undefined) return null;
+		const shape = voicingOccurrences(parseVoicingKey(item.voicingKey)).find(
+			(occurrence) => occurrencePosition(occurrence) === item.position
+		);
+		return shape ? occurrenceId(shape) : null;
+	}
 };

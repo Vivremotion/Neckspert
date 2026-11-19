@@ -472,7 +472,14 @@ exports[`keeps chord-zone as it is 1`] = `
       },
     ],
     "learning": {
-      "draw": "another-place",
+      "asks": {
+        "family": "chord-shapes",
+        "where": [
+          {
+            "other": "previous",
+          },
+        ],
+      },
       "enter": {
         "acquired": {
           "item": "same",

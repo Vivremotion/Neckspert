@@ -1,3 +1,4 @@
+import type { SelectionTemplate } from '../exercise/selection/types';
 import type { ExerciseDefinition } from '../exercise/types';
 import type { SkillId } from '../skill/types';
 
@@ -82,11 +83,14 @@ export interface ExerciseLearning extends ItemLearning {
 	enter?: EntryCondition;
 	/** true by default: the aided presentation follows its missed probe at once. */
 	presentAtOnce: boolean;
-	/** The name of a draw of its set (`drawNamed`): what a prompt asks of a card's item. */
-	draw?: string;
+	/**
+	 * What a prompt asks of a card's item: a member drawn among those this selection admits for
+	 * it, turned into an item by its set (`ItemSet.asked`). No order and no take: one is drawn.
+	 */
+	asks?: Pick<SelectionTemplate, 'family' | 'of' | 'where'>;
 }
 
-/** `params.learning` of an exercise over the defaults; `enter` and `draw` only when written. */
+/** `params.learning` of an exercise over the defaults; `enter` and `asks` only when written. */
 export function exerciseLearningOf(definition: ExerciseDefinition): ExerciseLearning {
 	// Trusts what the definition checks accepted (`learningProblem`).
 	const written = (definition.params.learning ?? {}) as Partial<ExerciseLearning>;

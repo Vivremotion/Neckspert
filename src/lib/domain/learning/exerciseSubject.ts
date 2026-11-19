@@ -1,14 +1,21 @@
 import { itemEntryKey } from '../exercise/itemEntries';
 import { ladderOf } from '../exercise/ladder';
+import { resolvedParamsOf } from '../exercise/levels';
 import { exerciseRecallOf } from '../exercise/recall';
+import { compileSelection } from '../exercise/selection/compile';
 import type { ExerciseDefinition, ExerciseId, Ladder } from '../exercise/types';
 import { isAcquired } from '../progress/cards';
 import { correspondence, type Correspondence } from '../sets/correspondences';
-import { drawNamed, type Draw } from '../sets/draws';
+import { admitted, familyNamed, type Family } from '../families';
 import { setOfSkill, type ItemSet } from '../sets';
 import { hasCards, skillById } from '../skill/registry';
 import { cardKey, type Attempt, type CardKey, type CardState, type SkillId } from '../types';
-import { exerciseLearningOf, itemLearningOf, type ItemLearning } from './params';
+import {
+	exerciseLearningOf,
+	itemLearningOf,
+	type ExerciseLearning,
+	type ItemLearning
+} from './params';
 import { directRecallOf, type DirectRecall } from './recall';
 import type { CardRef, LearningSubject } from './subject';
 
@@ -30,7 +37,16 @@ interface Practised {
 	ladder: Ladder;
 	itemLearning: ItemLearning;
 	entry: Entry | null;
-	draw: Draw | null;
+	/** What a prompt asks of a card's item, when the exercise writes it (`params.learning.asks`). */
+	asks: Asks | null;
+}
+
+/** A member drawn among those a selection admits, turned into the item asked by the set. */
+interface Asks {
+	template: NonNullable<ExerciseLearning['asks']>;
+	family: Family;
+	asked: NonNullable<ItemSet['asked']>;
+	memberOf: (item: unknown) => string | null;
 }
 
 /** A skill that writes no direct recall: only a card marked acquired counts. */
@@ -60,9 +76,15 @@ function practised(definition: ExerciseDefinition): Practised {
 			recall: directRecallOf(skillById(named.skill)) ?? NO_RECALL
 		};
 	}
-	const draw = learning.draw === undefined ? null : drawNamed(learning.draw, set.id);
-	if (learning.draw !== undefined && draw === null) {
-		throw new Error(`"${definition.id}" draws by no draw "${learning.draw}"`);
+	let asks: Asks | null = null;
+	if (learning.asks) {
+		const family = familyNamed(learning.asks.family);
+		if (!family || !set.asked) {
+			throw new Error(`"${definition.id}" asks a member its set or family cannot give`);
+		}
+		const asked = set.asked.bind(set);
+		const memberOf = (item: unknown) => set.memberOf?.(item) ?? null;
+		asks = { template: learning.asks, family, asked, memberOf };
 	}
 	return {
 		definition,
@@ -72,7 +94,7 @@ function practised(definition: ExerciseDefinition): Practised {
 		ladder: ladderOf(definition),
 		itemLearning: itemLearningOf(definition),
 		entry,
-		draw
+		asks
 	};
 }
 
@@ -123,7 +145,7 @@ export function firstReady(
  */
 export function exerciseSubject(input: {
 	exercises: readonly ExerciseDefinition[];
-	/** Stored attempts: the item last asked of each card, for a draw. */
+	/** Stored attempts: the item last asked of each card, for a member asked. */
 	attempts: readonly Attempt[];
 }): LearningSubject {
 	const bySkill = new Map<SkillId, Practised>();
@@ -142,14 +164,14 @@ export function exerciseSubject(input: {
 	}
 
 	/**
-	 * The item last asked of each card that draws: that of its latest attempt holding one, then
-	 * the last drawn.
+	 * The item last asked of each card that asks a member: that of its latest attempt holding
+	 * one, then the last asked in the session.
 	 */
 	const lastAsked = new Map<CardKey, unknown>();
-	const drawing = [...input.attempts]
-		.filter((attempt) => bySkill.get(attempt.skill)?.draw && askedItem(attempt) !== undefined)
+	const asking = [...input.attempts]
+		.filter((attempt) => bySkill.get(attempt.skill)?.asks && askedItem(attempt) !== undefined)
 		.sort((a, b) => a.promptedAt - b.promptedAt);
-	for (const attempt of drawing) lastAsked.set(attempt.cardKey, askedItem(attempt));
+	for (const attempt of asking) lastAsked.set(attempt.cardKey, askedItem(attempt));
 
 	const recalls = new Map<SkillId, DirectRecall>();
 
@@ -181,11 +203,29 @@ export function exerciseSubject(input: {
 		},
 		confused: (attempt) => (attempt.data as { confusion?: unknown } | null)?.confusion != null,
 		fadingAid: (skill) => of(skill).definition.presentation?.fading !== undefined,
-		promptItem(card, random) {
+		promptItem(card, random, level) {
 			const exercise = of(card.skill);
-			if (!exercise.draw) return card.item;
+			const asks = exercise.asks;
+			if (!asks) return card.item;
 			const key = cardKey(card.skill, exercise.set.itemKey(card.item));
-			const asked = exercise.draw(card.item, lastAsked.get(key) ?? null, random);
+			const params = resolvedParamsOf(exercise.definition, {
+				exerciseLevel: 0,
+				itemLevel: level ?? null
+			});
+			const { index, selection } = compileSelection(
+				exercise.definition,
+				{ item: card.item },
+				asks.template,
+				params
+			);
+			const last = lastAsked.get(key);
+			const id = last === undefined ? null : asks.memberOf(last);
+			const previous = id === null ? null : asks.family.member(id);
+			const members = admitted(asks.family, index, selection, { previous });
+			// Nothing admitted, nothing to draw: the card's own item, no number taken.
+			if (members.length === 0) return card.item;
+			const member = members[Math.min(members.length - 1, Math.floor(random() * members.length))];
+			const asked = asks.asked(card.item, member, random);
 			lastAsked.set(key, asked);
 			return asked;
 		}

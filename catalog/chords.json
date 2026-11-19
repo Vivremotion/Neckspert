@@ -419,7 +419,14 @@
 							"item": "same"
 						}
 					},
-					"draw": "another-place",
+					"asks": {
+						"family": "chord-shapes",
+						"where": [
+							{
+								"other": "previous"
+							}
+						]
+					},
 					"presentAtOnce": false
 				}
 			},

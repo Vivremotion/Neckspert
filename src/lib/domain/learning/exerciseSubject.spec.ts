@@ -343,7 +343,85 @@ describe('exerciseSubject', () => {
 		}
 	});
 
-	it('asks a card’s own item, drawing nothing, when its exercise writes no draw', () => {
+	describe('a member asked among those a selection admits', () => {
+		const zone = TRIADS_ZONE.practices;
+		const withAsks = (asks: unknown): ExerciseDefinition => ({
+			...TRIADS_ZONE,
+			params: {
+				...TRIADS_ZONE.params,
+				learning: { ...(TRIADS_ZONE.params.learning as object), asks }
+			}
+		});
+		const OTHER = withAsks({ family: 'chord-shapes', where: [{ other: 'previous' }] });
+		const shapesOf = (voicing: string) => voicingOccurrences(parseVoicingKey(voicing));
+		const seeded = (seed: number) => () => {
+			seed = (seed * 1_664_525 + 1_013_904_223) >>> 0;
+			return seed / 2 ** 32;
+		};
+		type Asked = { voicingKey: string; position: number | 'open'; fret?: number };
+
+		it('never asks the shape last asked when another exists, and a fret that shape covers', () => {
+			const voicing = TRIADS_ZONE.items![0] as string;
+			const shapes = shapesOf(voicing);
+			expect(shapes.length).toBeGreaterThan(1);
+			const subject = exerciseSubject({ exercises: [OTHER], attempts: [] });
+			let last: Asked | null = null;
+			for (let seed = 0; seed < 12; seed += 1) {
+				const item = subject.promptItem!(
+					{ skill: zone, item: { voicingKey: voicing } },
+					seeded(seed)
+				) as Asked;
+				expect(item.voicingKey).toBe(voicing);
+				const shape = shapes.find((s) => occurrencePosition(s) === item.position);
+				expect(shape).toBeDefined();
+				if (last) expect(item.position).not.toBe(last.position);
+				expect(shape!.notes.some((note) => note.fret === item.fret)).toBe(item.fret !== undefined);
+				last = item;
+			}
+		});
+
+		it('asks any shape without a previous one', () => {
+			const voicing = TRIADS_ZONE.items![0] as string;
+			const seen = new Set<unknown>();
+			for (let r = 0; r < 40; r += 1) {
+				const subject = exerciseSubject({ exercises: [OTHER], attempts: [] });
+				const item = subject.promptItem!(
+					{ skill: zone, item: { voicingKey: voicing } },
+					() => r / 40
+				) as Asked;
+				seen.add(item.position);
+			}
+			expect(seen.size).toBe(shapesOf(voicing).length);
+		});
+
+		it('asks the only shape again when there is one', () => {
+			const single = (TRIADS_ZONE.items as string[]).find(
+				(voicing) => shapesOf(voicing).length === 1
+			);
+			expect(single).toBeDefined();
+			const only = occurrencePosition(shapesOf(single!)[0]);
+			const subject = exerciseSubject({ exercises: [OTHER], attempts: [] });
+			for (let seed = 0; seed < 3; seed += 1) {
+				const item = subject.promptItem!(
+					{ skill: zone, item: { voicingKey: single! } },
+					seeded(seed)
+				) as Asked;
+				expect(item.position).toBe(only);
+			}
+		});
+
+		it('asks the card’s own item, drawing nothing, when the selection admits no member', () => {
+			const none = withAsks({ family: 'chord-shapes', where: [{ in: { frets: [40, 41] } }] });
+			const subject = exerciseSubject({ exercises: [none], attempts: [] });
+			const random = () => {
+				throw new Error('nothing to draw');
+			};
+			const item = { voicingKey: TRIADS_ZONE.items![0] as string };
+			expect(subject.promptItem!({ skill: zone, item }, random)).toBe(item);
+		});
+	});
+
+	it('asks a card’s own item, drawing nothing, when its exercise asks no member', () => {
 		const subject = exerciseSubject({
 			exercises: [exerciseOn('first', A, ['5:C'])],
 			attempts: []

@@ -552,7 +552,7 @@ class Procedure implements LearningProcedure {
 		return {
 			exerciseId: this.subject.exerciseOf(ref.skill),
 			skill: ref.skill,
-			item: this.subject.promptItem?.(ref, this.random) ?? ref.item,
+			item: this.subject.promptItem?.(ref, this.random, level) ?? ref.item,
 			phase,
 			temperature,
 			aid: 'none',

@@ -31,6 +31,7 @@ const FORBIDDEN = ['domain/music', 'domain/triads', 'domain/gesture', 'domain/se
 /** What it may import outside itself, from `src/lib/domain/` (a trailing `/` allows a folder). */
 const ALLOWED = [
 	'exercise/types',
+	'exercise/selection/types',
 	'exercise/tempo',
 	'progress/selector',
 	'progress/constants',
@@ -45,17 +46,19 @@ const ALLOWED = [
 
 /**
  * What the subject read from the exercises' data may import besides: it alone turns an exercise's
- * items, entry condition and draw into what the procedure asks, through the registries of sets
- * and skills (it names no set, skill nor exercise itself).
+ * items, entry condition and member asked into what the procedure asks, through the registries
+ * of sets, families and skills (it names no set, skill nor exercise itself).
  */
 const SUBJECT = `${MODULE}exerciseSubject.ts`;
 const SUBJECT_ALLOWED = [
 	'exercise/itemEntries',
 	'exercise/ladder',
+	'exercise/levels',
 	'exercise/recall',
+	'exercise/selection/compile',
+	'families',
 	'sets',
 	'sets/correspondences',
-	'sets/draws',
 	'skill/registry'
 ];
 
@@ -159,10 +162,10 @@ describe('the learning procedure', () => {
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
 		// The subject alone reads the registries of sets and skills; the procedure does not.
 		expect(paths).toContain(SUBJECT);
-		const registries = `import { a } from '../sets/draws';\nimport { b } from '../skill/registry';`;
+		const registries = `import { a } from '../families';\nimport { b } from '../skill/registry';`;
 		expect(offendersIn({ [SUBJECT]: registries })).toEqual([]);
 		expect(offendersIn({ [`${MODULE}procedure.ts`]: registries })).toEqual([
-			`${MODULE}procedure.ts: domain/sets/draws`,
+			`${MODULE}procedure.ts: domain/families`,
 			`${MODULE}procedure.ts: domain/skill/registry`
 		]);
 		expect(offendersIn({ [SUBJECT]: `import { x } from '../music';` })).toEqual([
@@ -213,5 +216,34 @@ describe('the old subjects', () => {
 			'/src/lib/domain/x.ts: neckSubject'
 		]);
 		expect(namingGone(everywhere)).toEqual([]);
+	});
+});
+
+// Every module of `src/lib/` as raw text: the named draw a selection replaced is gone.
+const library = import.meta.glob('/src/lib/**/*.{ts,svelte}', {
+	query: '?raw',
+	import: 'default',
+	eager: true
+}) as Record<string, string>;
+
+/** The named draw and its registry, replaced by `params.learning.asks`. */
+const DRAW_NAMES = ['drawNamed', 'another-place'];
+
+function namingDraws(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE || path.includes('/storage/migrations/')
+			? []
+			: DRAW_NAMES.filter((name) => text.includes(name)).map((name) => `${path}: ${name}`)
+	);
+}
+
+describe('the named draw', () => {
+	it('is named nowhere in the library, migrations aside', () => {
+		expect(Object.keys(library)).toContain(`${MODULE}exerciseSubject.ts`);
+		expect(namingDraws({ '/src/lib/x.ts': `drawNamed('another-place', set)` })).toEqual([
+			'/src/lib/x.ts: drawNamed',
+			'/src/lib/x.ts: another-place'
+		]);
+		expect(namingDraws(library)).toEqual([]);
 	});
 });

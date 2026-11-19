@@ -28,4 +28,51 @@ describe('voicingOnStringsSet', () => {
 		expect(voicingOnStringsSet.parseItem(KEY)).toEqual({ voicingKey: KEY });
 		expect(() => voicingOnStringsSet.parseItem('D|maj')).toThrow();
 	});
+
+	it('asks a member as its position and a fret drawn among those it covers', () => {
+		const item = { voicingKey: KEY };
+		// 2-3-2 covers frets 2 and 3: the fret takes one number.
+		let taken = 0;
+		const random = () => (taken++ === 0 ? 0.9 : 0);
+		expect(voicingOnStringsSet.asked!(item, { id: `${KEY}@2-3-2` }, random)).toEqual({
+			voicingKey: KEY,
+			position: 2,
+			fret: 3
+		});
+		expect(taken).toBe(1);
+		expect(voicingOnStringsSet.asked!(item, { id: `${KEY}@14-15-14` }, () => 0)).toEqual({
+			voicingKey: KEY,
+			position: 14,
+			fret: 14
+		});
+	});
+
+	it('asks a shape on open strings with no fret, drawing nothing', () => {
+		const E_MINOR = closeTriadVoicings(
+			{ root: parseSpelledNote('E'), quality: qualityById('min') },
+			[3, 2, 1]
+		).find((voicing) => voicingKey(voicing).endsWith('3:b3,2:5,1:1'))!;
+		const key = voicingKey(E_MINOR);
+		const never = () => {
+			throw new Error('nothing to draw');
+		};
+		expect(voicingOnStringsSet.asked!({ voicingKey: key }, { id: `${key}@0-0-0` }, never)).toEqual({
+			voicingKey: key,
+			position: 'open'
+		});
+	});
+
+	it('refuses to ask a member that names no shape of the voicing', () => {
+		expect(() =>
+			voicingOnStringsSet.asked!({ voicingKey: KEY }, { id: 'D|maj@1-1-1' }, () => 0)
+		).toThrow(/names no shape/);
+	});
+
+	it('names the member an asked item names, by its voicing and position', () => {
+		expect(voicingOnStringsSet.memberOf!({ voicingKey: KEY, position: 14, fret: 15 })).toBe(
+			`${KEY}@14-15-14`
+		);
+		expect(voicingOnStringsSet.memberOf!({ voicingKey: KEY })).toBeNull();
+		expect(voicingOnStringsSet.memberOf!({ voicingKey: KEY, position: 99 })).toBeNull();
+	});
 });

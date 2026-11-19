@@ -157,14 +157,15 @@ describe('the learning an exercise writes', () => {
 		params: { ...base.params, learning }
 	});
 	const enter = (acquired: unknown) => ({ enter: { acquired } });
+	const OTHER_SHAPE = { family: 'chord-shapes', where: [{ other: 'previous' }] };
 
-	it('accepts a well-formed entry condition and draw', () => {
+	it('accepts a well-formed entry condition and member asked', () => {
 		const good = withLearning(IDENTIFY, {
 			presentAtOnce: false,
 			...enter({ skill: 'locate-note-string', item: 'same-place' })
 		});
 		expect(check(good)).toBeNull();
-		expect(check(withLearning(ZONE, { draw: 'another-place' }))).toBeNull();
+		expect(check(withLearning(ZONE, { asks: OTHER_SHAPE }))).toBeNull();
 		expect(check(withLearning(IDENTIFY, { somethingNoPieceReads: 3 }))).toBeNull();
 	});
 
@@ -177,8 +178,9 @@ describe('the learning an exercise writes', () => {
 			enter({ skill: 3, item: 'same' }),
 			'params.learning.enter must be { acquired: { skill, item } }'
 		],
-		[{ draw: 3 }, 'params.learning.draw must be a string'],
-		[{ draw: 'nope' }, 'params.learning.draw "nope" is no draw of placed-note']
+		[{ draw: 'any-name' }, 'params.learning.draw is gone: write params.learning.asks'],
+		[{ asks: 3 }, 'params.learning.asks must be a selection'],
+		[{ asks: [] }, 'params.learning.asks must be a selection']
 	])('refuses %j', (learning, reason) => {
 		expect(check(withLearning(IDENTIFY, learning))).toBe(reason);
 	});
@@ -206,9 +208,32 @@ describe('the learning an exercise writes', () => {
 		);
 	});
 
-	it('refuses a draw the exercise’s set does not have', () => {
-		expect(check(withLearning(ZONE, { draw: 'nope' }))).toBe(
-			'params.learning.draw "nope" is no draw of voicing-on-strings'
+	it('refuses a member asked of a set that cannot ask one', () => {
+		expect(check(withLearning(LOCATE_NECK, { asks: { family: 'note-places' } }))).toBe(
+			'params.learning.asks needs a set that can ask a member, which note-on-string cannot'
+		);
+	});
+
+	it('refuses an order or a take in the member asked: one member is drawn', () => {
+		for (const extra of [{ order: ['position'] }, { take: 1 }]) {
+			expect(check(withLearning(ZONE, { asks: { ...OTHER_SHAPE, ...extra } }))).toBe(
+				'params.learning.asks takes no order and no take: one member is drawn'
+			);
+		}
+	});
+
+	it('refuses what the selection cannot run, naming its field under params.learning.asks', () => {
+		expect(check(withLearning(ZONE, { asks: { family: 'nope' } }))).toBe(
+			'params.learning.asks names family "nope", which is not registered'
+		);
+		expect(check(withLearning(ZONE, { asks: { family: 'chord-shapes', of: 'nope' } }))).toBe(
+			'params.learning.asks.of "nope" gives no index of chord-shapes from voicing-on-strings'
+		);
+		expect(
+			check(withLearning(ZONE, { asks: { family: 'chord-shapes', where: [{ near: 1 }] } }))
+		).toBe('params.learning.asks.where[0] is no filter (in, at, position, other)');
+		expect(check(withLearning(ZONE, { asks: { family: 'chord-shapes', from: 1 } }))).toMatch(
+			/^params\.learning\.asks\.from is not a key/
 		);
 	});
 });

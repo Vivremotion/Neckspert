@@ -13,7 +13,7 @@ import { isTriadQuality, QUALITIES } from '$lib/domain/music';
 import { readsChanges, setOfSkill } from '$lib/domain/sets';
 import type { ItemSet } from '$lib/domain/sets/types';
 import { correspondence } from '$lib/domain/sets/correspondences';
-import { drawNamed } from '$lib/domain/sets/draws';
+import { selectionFieldProblem } from '$lib/domain/exercise/selection/validate';
 import { allGrids } from '$lib/domain/grid/registry';
 
 /** The sensors a session has (the keys of `SessionDeps.sensors` in `createApp`). */
@@ -55,8 +55,8 @@ function gestureParamsProblem(params: Record<string, unknown>): string | null {
 }
 
 /**
- * Why what an exercise writes of its learning (`params.learning`: entry condition, draw) cannot be
- * run; null when it can. A key no piece reads passes, like any parameter.
+ * Why what an exercise writes of its learning (`params.learning`: entry condition, member asked)
+ * cannot be run; null when it can. A key no piece reads passes, like any parameter.
  */
 function learningProblem(exercise: ExerciseDefinition): string | null {
 	const learning = exercise.params?.learning;
@@ -64,7 +64,10 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 	if (typeof learning !== 'object' || learning === null || Array.isArray(learning)) {
 		return 'params.learning must be an object';
 	}
-	const { presentAtOnce, enter, draw } = learning as Record<string, unknown>;
+	const { presentAtOnce, enter, asks } = learning as Record<string, unknown>;
+	if (Object.hasOwn(learning, 'draw')) {
+		return 'params.learning.draw is gone: write params.learning.asks';
+	}
 	const own = skillById(exercise.practices);
 	if (presentAtOnce !== undefined && typeof presentAtOnce !== 'boolean') {
 		return 'params.learning.presentAtOnce must be true or false';
@@ -95,13 +98,23 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 			return `params.learning.enter.acquired.item "${acquired.item}" is no correspondence from ${from} to ${to}`;
 		}
 	}
-	if (draw !== undefined) {
-		if (typeof draw !== 'string') return 'params.learning.draw must be a string';
-		if (drawNamed(draw, own.items) === null) {
-			return `params.learning.draw "${draw}" is no draw of ${own.items}`;
-		}
+	return asks === undefined ? null : asksProblem(exercise, asks);
+}
+
+/** Why a member cannot be asked as `params.learning.asks` writes it; null when it can. */
+function asksProblem(exercise: ExerciseDefinition, asks: unknown): string | null {
+	const field = 'params.learning.asks';
+	if (typeof asks !== 'object' || asks === null || Array.isArray(asks)) {
+		return `${field} must be a selection`;
 	}
-	return null;
+	if (Object.hasOwn(asks, 'order') || Object.hasOwn(asks, 'take')) {
+		return `${field} takes no order and no take: one member is drawn`;
+	}
+	const set = setOfSkill(exercise.practices);
+	if (!set.asked) return `${field} needs a set that can ask a member, which ${set.id} cannot`;
+	const problem = selectionFieldProblem(exercise, asks);
+	if (problem === null) return null;
+	return `${problem.field === '' ? field : `${field}.${problem.field}`} ${problem.text}`;
 }
 
 /** The key a set writes for a key as written; the key as written when the set cannot read it. */

@@ -32,7 +32,7 @@ export class SelectionCompileError extends Error {
 /** What a compilation reads. */
 interface Context {
 	definition: ExerciseDefinition;
-	item: PlannedItem;
+	item: Pick<PlannedItem, 'item'>;
 	params: Readonly<Record<string, unknown>>;
 }
 
@@ -162,7 +162,7 @@ function takeOf(context: Context, take: SelectionTemplate['take'] & {}): number 
  */
 export function compileSelection(
 	definition: ExerciseDefinition,
-	item: PlannedItem,
+	item: Pick<PlannedItem, 'item'>,
 	template: SelectionTemplate,
 	params: Readonly<Record<string, unknown>>
 ): MemberContent {
