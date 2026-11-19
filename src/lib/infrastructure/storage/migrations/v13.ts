@@ -248,8 +248,9 @@ export function cardToV13(card: Row): Row {
 /**
  * Rows upgraded one by one, none given a primary key another row holds: a row whose upgraded key
  * any row of the list held before the upgrade, or a row upgraded before it took, takes
- * `orphaned(row)` instead, which keeps its old key. So an orphan's key is its own, and which rows
- * are orphaned does not depend on their order. Rows keep their order. The rows given hold
+ * `orphaned(row)` instead, which keeps its old key. In any order the keys stay distinct and no
+ * row is lost; between two rows renamed to one free key, the first in the order takes it and the
+ * other keeps its old name. Rows keep their order. The rows given hold
  * distinct keys, as a table's do; so do the rows returned.
  */
 function upgradedApart(

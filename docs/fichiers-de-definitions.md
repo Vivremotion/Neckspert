@@ -1,12 +1,18 @@
-# Exercices locaux
+# Fichiers de définitions
 
-Les exercices privés s'écrivent dans des fichiers de définitions JSON, dans le dossier `exercises.local/`, à la racine du dépôt. Le dossier est dans `.gitignore` : rien de ce qu'il contient n'est versionné ni publié. Les fichiers du catalogue, dans `catalog/`, ont le même format. Cette page décrit le format avec de la matière commune (des triades arpégées) ; vos propres exercices restent chez vous.
+Les capacités, les grilles et les exercices s'écrivent dans des fichiers de définitions JSON. Les fichiers du catalogue, dans `catalog/`, partent avec l'application. Un joueur ajoute les siens par l'écran des réglages, et ils restent chez lui. Les deux ont le même format. Cette page décrit le format avec de la matière commune (des triades arpégées) ; vos propres exercices restent chez vous.
 
 ## Où et quand
 
-- Un fichier de définitions `exercises.local/<nom>.json` peut tenir plusieurs capacités, exercices et grilles (voir « Le fichier »).
-- Les exercices locaux n'existent **qu'en développement** (`npm run dev`). Les fichiers sont lus comme du texte au build de développement (`import.meta.glob('/exercises.local/*.json', { query: '?raw' })` dans `createApp`, derrière `import.meta.env.DEV`) : enregistrez le fichier et la page se recharge. Un build de production (`npm run build`) ne les lit pas et n'en emporte rien : un exercice privé ne part jamais avec l'application publiée.
-- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) lit les fichiers de `catalog/`, puis les fichiers locaux, et remplit les registres de capacités, d'exercices et de grilles : un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
+- Un fichier de définitions peut tenir plusieurs capacités, exercices et grilles (voir « Le fichier »).
+- On importe un fichier depuis les réglages, section « Fichiers importés » : choisir un ou plusieurs fichiers `.json`. Cela marche dans toute construction, en développement comme en production. Le fichier est gardé dans la base du navigateur, sous son nom, et lu à chaque démarrage : il suffit de l'importer une fois.
+- Un fichier importé du même nom remplace le précédent, sans confirmation. Le nom est comparé tel quel, majuscules comprises. Pour corriger un fichier, on le réimporte.
+- Supprimer un fichier demande une confirmation. Il retire ses capacités, ses grilles et ses exercices de l'application, mais la progression reste, et se retrouve si l'on réimporte un fichier qui les définit de nouveau. Une progression dont aucun fichier chargé ne donne la définition est gardée et ignorée par les écrans.
+- Un fichier de plus d'un million de caractères n'est pas gardé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
+- La sauvegarde (réglages) emporte les fichiers importés avec la progression, et les rend à l'import.
+- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) vide les registres de capacités, d'exercices et de grilles, puis les remplit : les fichiers de `catalog/`, puis les fichiers importés. Le premier écran attend cette lecture. Si la base ne répond pas, l'application démarre avec le catalogue seul et le dit par un refus : « les fichiers importés n'ont pas pu être lus ». Un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
+- Aucun dossier du dépôt n'est lu à la construction : un fichier privé se garde où l'on veut, hors du dépôt, et s'importe. Il n'entre jamais dans le catalogue ni dans la construction publiée.
+- Un fichier importé n'est jamais exécuté, et ses textes s'affichent comme du texte.
 
 ## Le fichier
 
@@ -20,11 +26,12 @@ Un fichier de définitions est un objet JSON :
 - `skills`, `grids` et `exercises` sont des listes, facultatives ; un fichier peut en tenir plusieurs. `routines` est réservé : vide ou absent.
 - Une capacité s'écrit `{ "id": "…", "name": { "fr": "…", "en": "…" }, "items": "<ensemble>", "memory": false }` ; une capacité de mémoire (`"memory": true`) écrit aussi `"directRecall": { "withinMs": 1500 }`. Les ensembles : `note-on-string`, `placed-note`, `voicing-on-strings`, `placed-voicing`, `placed-shape`, `change`, `figure`.
 - Une clé inconnue au premier niveau, un texte qui n'est pas du JSON ou un fichier de plus d'un million de caractères refusent tout le fichier.
+- Un `id` de capacité, de grille ou d'exercice est fait de lettres, de chiffres, de `-`, de `_` et de `.`, et commence par une lettre ou un chiffre. L'identifiant `unknown` est réservé (capacités et exercices) : la migration le donne aux tentatives que rien ne nomme.
 - Dans un fichier, deux objets de même `id` dans une liste : le second est refusé. Un exercice et une grille peuvent partager un `id`.
 
 ## Une grille
 
-Une grille s'écrit `{ "id": "…", "title": "…", "beatsPerBar": 4, "bars": 12, "chords": [ … ] }`, chaque accord `{ "bar": 1, "beat": 1, "symbol": "F7" }`, avec de vrais symboles d'accords (`parseChordSymbol`). La première commence mesure 1, temps 1, et les accords vont dans l'ordre, dans la grille. Un exercice de geste nomme ses grilles par leur `id` dans `params.grids` : la grille doit être définie dans un fichier, le sien ou un autre lu avant (le catalogue est lu avant les fichiers locaux).
+Une grille s'écrit `{ "id": "…", "title": "…", "beatsPerBar": 4, "bars": 12, "chords": [ … ] }`, chaque accord `{ "bar": 1, "beat": 1, "symbol": "F7" }`, avec de vrais symboles d'accords (`parseChordSymbol`). La première commence mesure 1, temps 1, et les accords vont dans l'ordre, dans la grille. Un exercice de geste nomme ses grilles par leur `id` dans `params.grids` : la grille doit être définie dans un fichier, le sien ou un autre lu avant (le catalogue est lu avant les fichiers importés, et les fichiers importés dans l'ordre de leurs noms).
 
 ## Un exercice
 
@@ -262,7 +269,7 @@ Les altérations s'écrivent `is` pour le dièse et `es` pour le bémol, collée
 
 ## Comment un fichier est vérifié
 
-Les fichiers du catalogue d'abord, puis les fichiers locaux, chacun dans l'ordre du nom :
+Les fichiers du catalogue d'abord, puis les fichiers importés, chacun dans l'ordre du nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
 2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
@@ -278,13 +285,15 @@ Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt p�
 
 Un refus n'arrête jamais l'application. Il porte sur un fichier entier (illisible, enveloppe fausse) ou sur un seul objet : le reste du fichier est gardé.
 
-En développement, l'accueil liste les refus (en français et en anglais) : `<fichier> : <raison>` pour un fichier, ``<fichier>, capacité `<id>` : <raison>``, ``<fichier>, exercice `<id>` : <raison>`` ou ``<fichier>, grille `<id>` : <raison>`` pour un objet. La console les reprend sous la forme `[exercises.local] <fichier> refused: <raison>` ou `[exercises.local] <fichier>, exercise <id> refused: <raison>` (`skill`, `grid` pour une capacité, une grille) (`[catalog]` pour un fichier du catalogue).
+- Dans les réglages, la section « Fichiers importés » liste chaque fichier avec ce qu'il a donné (capacités, grilles, exercices) et ses refus : `<fichier> : <raison>` pour un fichier, ``<fichier>, capacité `<id>` : <raison>``, ``<fichier>, exercice `<id>` : <raison>`` ou ``<fichier>, grille `<id>` : <raison>`` pour un objet (en anglais, `file`, `skill`, `exercise`, `grid`).
+- Sur l'accueil, dans toute construction, une ligne dit qu'un fichier importé a un problème et mène aux réglages. La liste des refus du catalogue n'est montrée qu'en développement.
+- La console reprend chaque refus sous la forme `[imported] <fichier> refused: <raison>` ou `[imported] <fichier>, exercise <id> refused: <raison>` (`skill`, `grid` pour une capacité, une grille), `[catalog]` pour un fichier du catalogue.
 
 La raison nomme le champ, par exemple `tempo must be a positive number, got -3`.
 
 ## Écrire une figure à partir d'un export Guitar Pro
 
-Un export MusicXML de Guitar Pro 8 se convertit en LilyPond (le sous-ensemble de `parseLilyPond`), et les accords d'une partie d'accompagnement se listent mesure par mesure. Le script ne lit que le fichier que vous lui donnez ; ce qu'il en tire reste chez vous, dans `exercises.local/`.
+Un export MusicXML de Guitar Pro 8 se convertit en LilyPond (le sous-ensemble de `parseLilyPond`), et les accords d'une partie d'accompagnement se listent mesure par mesure. Le script ne lit que le fichier que vous lui donnez ; ce qu'il en tire se colle dans un fichier de définitions, qui reste chez vous.
 
 ```
 npm run musicxml -- <fichier.musicxml> --part P1      # la mélodie de la partie P1, en LilyPond

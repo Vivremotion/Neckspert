@@ -201,16 +201,16 @@ describe('loadDefinitions', () => {
 	});
 });
 
-const DOC = import.meta.glob<string>('/docs/exercices-locaux.md', {
+const DOC = import.meta.glob<string>('/docs/fichiers-de-definitions.md', {
 	query: '?raw',
 	import: 'default',
 	eager: true
 });
 
-describe('docs/exercices-locaux.md', () => {
+describe('docs/fichiers-de-definitions.md', () => {
 	it('gives an example file that loads', async () => {
 		const { loadDefinitions, allExercises } = await fresh();
-		const doc = DOC['/docs/exercices-locaux.md'] ?? '';
+		const doc = DOC['/docs/fichiers-de-definitions.md'] ?? '';
 		const block = /```json\n([\s\S]*?)\n```/.exec(doc)?.[1] ?? '';
 		const {
 			imported: { refusals }

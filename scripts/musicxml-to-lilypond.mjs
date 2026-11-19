@@ -1,6 +1,6 @@
 /**
  * Converts a Guitar Pro 8 MusicXML export into the project's LilyPond subset, and lists the
- * chord shapes of a chord part, so that private exercises can be written in `exercises.local/`.
+ * chord shapes of a chord part, so that the output can be pasted into a definition file.
  *
  *   npm run musicxml -- <file> --part P1      the melody of part P1, as LilyPond
  *   npm run musicxml -- <file> --shapes P2    the shapes of part P2, bar by bar

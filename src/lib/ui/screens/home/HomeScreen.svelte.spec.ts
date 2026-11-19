@@ -216,21 +216,21 @@ describe('HomeScreen', () => {
 	});
 	describe('definition files refused', () => {
 		const refused: Refusal[] = [
-			{ file: '/exercises.local/broken.json', kind: 'file', id: null, reason: 'unknown key "x"' },
+			{ file: '/catalog/broken.json', kind: 'file', id: null, reason: 'unknown key "x"' },
 			{
-				file: '/exercises.local/scale.json',
+				file: '/catalog/scale.json',
 				kind: 'exercise',
 				id: 'scale',
 				reason: 'tempo must be a positive number, got -3'
 			},
 			{
-				file: '/exercises.local/scale.json',
+				file: '/catalog/scale.json',
 				kind: 'grid',
 				id: 'blues',
 				reason: 'bars must be a positive integer'
 			},
 			{
-				file: '/exercises.local/scale.json',
+				file: '/catalog/scale.json',
 				kind: 'exercise',
 				id: null,
 				reason: 'an exercise must be a JSON object'
@@ -245,10 +245,10 @@ describe('HomeScreen', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent)
 			).toEqual([
-				'/exercises.local/broken.json : unknown key "x"',
-				'/exercises.local/scale.json, exercice `scale` : tempo must be a positive number, got -3',
-				'/exercises.local/scale.json, grille `blues` : bars must be a positive integer',
-				'/exercises.local/scale.json, exercice : an exercise must be a JSON object'
+				'/catalog/broken.json : unknown key "x"',
+				'/catalog/scale.json, exercice `scale` : tempo must be a positive number, got -3',
+				'/catalog/scale.json, grille `blues` : bars must be a positive integer',
+				'/catalog/scale.json, exercice : an exercise must be a JSON object'
 			]);
 		});
 
@@ -261,10 +261,10 @@ describe('HomeScreen', () => {
 					.getAllByRole('listitem')
 					.map((item) => item.textContent)
 			).toEqual([
-				'/exercises.local/broken.json: unknown key "x"',
-				'/exercises.local/scale.json, exercise `scale`: tempo must be a positive number, got -3',
-				'/exercises.local/scale.json, grid `blues`: bars must be a positive integer',
-				'/exercises.local/scale.json, exercise: an exercise must be a JSON object'
+				'/catalog/broken.json: unknown key "x"',
+				'/catalog/scale.json, exercise `scale`: tempo must be a positive number, got -3',
+				'/catalog/scale.json, grid `blues`: bars must be a positive integer',
+				'/catalog/scale.json, exercise: an exercise must be a JSON object'
 			]);
 		});
 

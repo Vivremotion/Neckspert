@@ -465,19 +465,56 @@ Ce que le plan 2a a décidé contre la spec, ou en plus d'elle :
 - Les données d'une tentative (`Attempt.data`) ne sont pas réécrites par la migration. Un niveau n'est pas nettoyé par sa clé : seul son exercice est renommé.
 - Une tentative d'un exercice hors du catalogue reçoit une capacité du nom de l'exercice.
 - Une tentative d'un exercice hors du catalogue qui travaillait une mécanique de mémoire est séparée de sa carte. La tentative prend la capacité du nom de l'exercice, la carte celle de la mécanique. L'auteur n'a pas de telle tentative.
-- Une ligne que la migration ne sait pas ranger n'est jamais perdue, et un export se réimporte toujours : une carte ou un niveau dont le nouveau nom est déjà pris garde l'ancien ; une tentative que rien ne nomme reçoit la capacité `unknown`.
+- Une ligne que la migration ne sait pas ranger n'est jamais perdue, et un export des lignes que l'application ou la migration ont écrites se réimporte : une carte ou un niveau dont le nouveau nom est déjà pris garde l'ancien ; une tentative que rien ne nomme reçoit la capacité `unknown`. Une carte d'une capacité de mémoire dont la clé ne se lit pas par son ensemble reste refusée.
 - À l'import d'une sauvegarde 9, une tentative n'est jamais refusée pour la clé de son élément : elle est un historique, et sa clé ne sert qu'à la ranger avec sa carte. Quand l'ensemble lit sa clé et que sa capacité a des cartes, ses données doivent encore correspondre à la clé. Une carte d'une capacité de mémoire dont la clé ne se lit pas est refusée : une séance la sert. La progression d'une capacité qu'aucun fichier chargé ne définit est acceptée.
 - Le mot « mechanic » ne reste dans le code que là où il relit d'anciennes versions de la base ou d'anciens fichiers.
 
-Laissé au plan 2b :
+Laissé au plan 2b (le plan 2b l'a fait, sauf mention) :
 
-- l'import et son écran, le dépôt des fichiers branché au démarrage, la progression sans définition ignorée par les écrans, la fin de `exercises.local/` ;
-- les trois points que le plan 1 laissait « au plan 2 ». Vérifier le type des clés de premier niveau d'un exercice et des paramètres des changements avant d'importer des fichiers non fiables. Un garde général contre la lecture d'un registre à l'import d'un module de route. Le mode dégradé quand un fichier du catalogue est refusé en production ;
-- les règles sur les identifiants : un identifiant ne contient ni `:` ni `#`, et `unknown` est réservé ;
-- les cartes dont la clé ne se lit plus par l'ensemble de leur capacité : elles seront gardées et ignorées ;
-- le contrôle d'une sauvegarde 9 lit le registre vivant. Il ne lit donc pas les fichiers que la sauvegarde elle-même porte.
+- l'import et son écran, le dépôt des fichiers branché au démarrage, la progression sans définition ignorée par les écrans, la fin de `exercises.local/` : fait au plan 2b ;
+- les trois points que le plan 1 laissait « au plan 2 ». Vérifier le type des clés de premier niveau d'un exercice et des paramètres des changements avant d'importer des fichiers non fiables : fait au plan 2b, sauf que les paramètres des changements sont contrôlés par vue (voir « Laissé au plan 4 »). Un garde général contre la lecture d'un registre à l'import d'un module de route : fait au plan 2b. Le mode dégradé quand un fichier du catalogue est refusé en production : passé au plan 5 (D9) ;
+- les règles sur les identifiants : un identifiant ne contient ni `:` ni `#`, et `unknown` est réservé : fait au plan 2b (D1, qui est plus étroite : lettres, chiffres, `-`, `_` et `.`) ;
+- les cartes dont la clé ne se lit plus par l'ensemble de leur capacité : elles seront gardées et ignorées : passé au plan 3 (D10) ;
+- le contrôle d'une sauvegarde 9 lit le registre vivant. Il ne lit donc pas les fichiers que la sauvegarde elle-même porte : rien n'a changé ; une sauvegarde qui porte une progression sans définition s'importe, et ses fichiers se chargent après l'import (`reload`).
 
 Laissé au plan 4 :
 
 - deux ensembles portent l'identifiant `change`. Celui du registre lit `{ grid, index }`, celui des changements lit un changement complet ;
 - les noms de l'ancien modèle encore dans le code : `VoicingFigureItem`, `FormFigureItem`, `TriadAnchor*`, `TriadZone*`, `ChordGridItem`.
+
+## Réalisation (plan 2b, 2026-11-19)
+
+Les onze décisions de ce plan :
+
+- D1 : un identifiant (capacité, grille, exercice) est fait de lettres, de chiffres, de `-`, de `_` et de `.`, et commence par une lettre ou un chiffre. `unknown` est réservé, pour les capacités et les exercices.
+- D2 : un fichier est rangé sous son nom, tel que le navigateur le donne. Un fichier du même nom remplace le premier ; la casse compte.
+- D3 : un fichier de plus de `MAX_DEFINITION_FILE_CHARS` n'est pas rangé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
+- D4 : l'origine d'un objet importé est le nom de son fichier ; celle d'un objet du catalogue reste `/catalog/<nom>.json`. Un fichier importé du nom d'un fichier du catalogue ne le remplace pas.
+- D5 : le premier écran attend les fichiers importés. Si la base ne répond pas, l'application démarre avec le catalogue seul et le dit en un refus.
+- D6 : supprimer un fichier demande une confirmation, qui dit que la progression est gardée. Remplacer un fichier n'en demande pas.
+- D7 : l'accueil montre une ligne, dans toute construction, quand un fichier importé a un refus ; elle mène aux réglages. La liste des refus du catalogue reste réservée au développement.
+- D8 : la doc du format s'appelle `docs/fichiers-de-definitions.md` (l'ancien `docs/exercices-locaux.md`, déplacé).
+- D9 : le mode dégradé quand un fichier du catalogue est refusé en production passe au plan 5. Ici, une séance ne lit plus que les exercices de sa piste qui existent.
+- D10 : les cartes dont la clé ne se lit plus par l'ensemble de leur capacité passent au plan 3.
+- D11 : le dossier lié, relu à chaque rechargement, n'est pas construit. Un fichier retouché se réimporte.
+
+Ce que l'exécution a décidé en plus :
+
+- Les paramètres des changements sont contrôlés pour tout exercice des vues `grid-scroll` et `link-lane` : `params.rule` parmi link, climb, zone, jam ; `params.qualities` des qualités de triade (une autre qualité est refusée : le moteur ne sait pas encore la jouer en changement) ; `params.stringSets` des jeux de trois cordes, de la plus grave à la plus aiguë ; `params.grids` une liste d'identifiants.
+- `createApp` ne charge le catalogue que si rien n'a encore été chargé ; le service recharge toujours tout (vider, puis remplir).
+- Les opérations du service (lecture au démarrage, import, suppression, rechargement) passent l'une après l'autre. Si ranger ou supprimer un fichier échoue, la table est relue quand même, pour que les registres la suivent.
+- Une séance dont l'exercice n'est défini par aucun fichier est refusée au départ, avec l'identifiant manquant. Les autres séances et l'accueil ne lisent que les exercices qui existent.
+- Une sauvegarde qui porte une progression sans définition s'importe : rien dans `validateBackup` n'a changé.
+- `docs/projet.md` n'est pas retouché par ce plan.
+
+Laissé au plan 3 :
+
+- les cartes d'une capacité de mémoire dont la clé ne se lit plus par l'ensemble de sa capacité (D10) : rien ne sert encore une carte d'une capacité importée ; le plan 3 construit le sujet d'apprentissage qui les ignorera.
+
+Laissé au plan 4 :
+
+- les contrôles des paramètres des changements, faits par vue (`grid-scroll`, `link-lane`), sont à refaire quand les changements deviennent des données.
+
+Laissé au plan 5 :
+
+- le mode dégradé quand un fichier du catalogue est refusé en production (D9) : il touche l'accueil et la composition des séances, que le plan 5 récrit.
