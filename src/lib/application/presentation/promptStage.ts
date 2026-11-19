@@ -4,7 +4,7 @@ import type { ChordDiagramStyle, Locale, PlannedItem, ResponseVerdict } from '$l
 import type { StagePlace } from '$lib/application/sets/types';
 import type { AnswerChoice, LaneEntry } from '$lib/application/session/contract';
 import { MEMBER_CONTENT } from '$lib/domain/judges';
-import { CONTENT_VIEWS, memberFields, type ContentView, type MissView } from './contentViews';
+import { CONTENT_VIEWS, roundMemberFields, type ContentView, type MissView } from './contentViews';
 import { presentPrompt, type PresentedPrompt } from './presentPrompt';
 
 /** What a settled round tells. */
@@ -83,7 +83,7 @@ function stageVerdict(
 
 /**
  * The screen model of `item`'s prompt, from its exercise's presentation and its round's plan (the
- * fields of its first member content among them):
+ * fields of its member contents among them, each the first's that offers it):
  * before its round (`settled` null) and once settled. `place` tells where it stands on the lane;
  * `random` spells a note: give every call for one item the same value.
  */
@@ -100,8 +100,10 @@ export function promptStage(input: {
 	random: () => number;
 }): PromptStageModel {
 	const { definition, item, plan, settled, place, locale, random } = input;
-	const members = plan.expectations.find(({ content }) => content?.kind === MEMBER_CONTENT);
-	const contentFields = members ? memberFields(members.content!.value, locale) : {};
+	const members = plan.expectations.flatMap(({ content }) =>
+		content?.kind === MEMBER_CONTENT ? [content.value] : []
+	);
+	const contentFields = roundMemberFields(members, locale);
 	return {
 		prompt: presentPrompt(definition, item, locale, random, contentFields),
 		anchorBeat: place.anchorBeat,

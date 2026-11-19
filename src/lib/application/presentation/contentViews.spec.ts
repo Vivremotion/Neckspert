@@ -5,7 +5,13 @@ import { CONTENT_JUDGES, type MemberContent } from '$lib/domain/judges';
 import type { Filter } from '$lib/domain/families';
 import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { TRIAD_MESSAGES } from './triadMessages';
-import { CONTENT_VIEWS, memberFieldNames, memberFields, membersPicture } from './contentViews';
+import {
+	CONTENT_VIEWS,
+	memberFieldNames,
+	memberFields,
+	membersPicture,
+	roundMemberFields
+} from './contentViews';
 import { shapeOf } from './triadWords';
 import {
 	chordShapes as chordShapesFamily,
@@ -314,6 +320,10 @@ const climb = (direction: 'up' | 'down', previous: string | null = null) =>
 	changeRound(
 		servedPassageRound(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 0, { direction }, previous)
 	);
+const climbOn = (strings: string) =>
+	changeRound(
+		servedPassageRound(GESTURE_CLIMB, `grid=iohefy-a;strings=${strings}`, 0, { direction: 'up' })
+	);
 const zone = (frets: [number, number]) =>
 	changeRound(servedPassageRound(GESTURE_ZONE, 'grid=iohefy-a', 0, { zone: frets }));
 const jam = (previous: string | null = null) =>
@@ -356,6 +366,24 @@ describe('the fields of the members of a family', () => {
 
 	it('tells neither frets nor way when the round reads the grid alone', () => {
 		expect(memberFields(jam().value, 'fr')).toMatchObject({ frets: '', toward: '' });
+	});
+
+	it('tells the strings low first on D-G-B, and every string of a zone of four', () => {
+		expect(memberFields(climbOn('4,3,2').value, 'fr').strings).toBe('ré‑sol‑si');
+		expect(memberFields(climbOn('4,3,2').value, 'en').strings).toBe('D‑G‑B');
+		// The zone and the jam play on the four high strings (`params.strings`).
+		expect(memberFields(zone([5, 9]).value, 'fr').strings).toBe('ré‑sol‑si‑mi');
+		expect(memberFields(jam().value, 'en').strings).toBe('D‑G‑B‑E');
+	});
+
+	it("gathers the fields of a round, each the first content's that offers it", () => {
+		const low = zone([1, 5]).value;
+		const high = zone([6, 10]).value;
+		expect(roundMemberFields([notePlaces({ string: 2, pitch: 'D' }), low, high], 'fr')).toEqual(
+			memberFields(low, 'fr')
+		);
+		expect(roundMemberFields([high, low], 'fr').frets).toBe('6 à 10');
+		expect(roundMemberFields([notePlaces({ string: 2, pitch: 'D' })], 'fr')).toEqual({});
 	});
 
 	it('offers nothing for a note, a family without a view, or what is no member content', () => {

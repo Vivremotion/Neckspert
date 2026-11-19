@@ -10,6 +10,7 @@ import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
+import { anchorWithZone } from '$lib/testing/changesPassages';
 import {
 	GESTURE_CLIMB,
 	GESTURE_LINK,
@@ -47,7 +48,7 @@ describe('presentationProblem', () => {
 				})
 			)
 		).toBe(
-			'chord-anchor: presentation.aided.line names field "fret", which voicing-on-strings does not have'
+			'chord-anchor: presentation.aided.line names field "fret", which neither voicing-on-strings nor note-places nor chord-shapes has'
 		);
 	});
 
@@ -88,6 +89,15 @@ describe('presentationProblem', () => {
 			)
 		).toBe(
 			'grid-in-direction: presentation.detail names field "nope", which neither change nor chord-shapes has'
+		);
+	});
+
+	it('reads the fields of every member content of its round, a note first and a chord then', () => {
+		expect(
+			presentationProblem(anchorWithZone({ primary: '{chord}', detail: '{strings} {frets}' }))
+		).toBeNull();
+		expect(presentationProblem(anchorWithZone({ primary: '{chord}', detail: '{nope}' }))).toBe(
+			'chord-anchor: presentation.detail names field "nope", which neither voicing-on-strings nor note-places nor chord-shapes has'
 		);
 	});
 

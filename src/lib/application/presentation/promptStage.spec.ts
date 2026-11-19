@@ -11,7 +11,7 @@ import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
 import { GESTURE_CLIMB, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
-import { servedPassageRound } from '$lib/testing/changesPassages';
+import { anchorWithZone, servedPassageRound } from '$lib/testing/changesPassages';
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const D_ON_G = 'D|maj|3:1,2:3,1:5';
@@ -242,5 +242,13 @@ describe('promptStage', () => {
 			random: () => 0
 		});
 		expect(model.prompt).toMatchObject({ primary: 'G7', detail: 'sol‑si‑mi · ↓ en descendant' });
+	});
+
+	it('reads a field of the first member content that offers it, after a note that offers none', () => {
+		const definition = anchorWithZone({ primary: '{chord}', detail: '{strings} · {frets}' });
+		expect(stage(definition, ANCHOR, null).prompt).toMatchObject({
+			primary: 'D',
+			detail: 'sol‑si‑mi · 1 à 12'
+		});
 	});
 });

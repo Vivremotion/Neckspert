@@ -14,7 +14,8 @@ import {
 	GESTURE_EXERCISES,
 	GESTURE_JAM,
 	GESTURE_LINK,
-	GESTURE_ZONE
+	GESTURE_ZONE,
+	TRIADS_ANCHOR
 } from './catalog';
 
 export const LINK_PASSAGES = GESTURE_LINK;
@@ -71,4 +72,29 @@ export function servedPassageRound(
 		fromRunStart: null
 	});
 	return { planned, plan };
+}
+
+/**
+ * The triad anchor's round written again, its chord's content kept to frets 1 to 12: a note
+ * first (the root), then a chord whose content offers fields; the presentation `presentation`.
+ */
+export function anchorWithZone(
+	presentation: ExerciseDefinition['presentation']
+): ExerciseDefinition {
+	const round = TRIADS_ANCHOR.round!;
+	const [root, chord] = round.expectations;
+	return {
+		...TRIADS_ANCHOR,
+		presentation,
+		round: {
+			...round,
+			expectations: [
+				root,
+				{
+					...chord,
+					content: { family: 'chord-shapes', where: [{ in: { frets: [1, 12] } }] }
+				} as typeof chord
+			]
+		}
+	};
 }

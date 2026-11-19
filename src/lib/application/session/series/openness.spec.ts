@@ -8,7 +8,13 @@ import {
 } from '$lib/application/presentation';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
-import { ROUND_MODES } from '$lib/domain/time';
+import {
+	Fraction,
+	METER_4_4,
+	ROUND_MODES,
+	type Figure,
+	type FigureElement
+} from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import {
 	BENCH_SENSORS,
@@ -76,6 +82,61 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 	}
 };
 
+/** One 4/4 bar of four quarter notes, C D E F on the B string (frets 1, 3, 5, 6). */
+const C_D_E_F: Figure = {
+	schema: 2,
+	meter: METER_4_4,
+	bars: 1,
+	voices: [
+		{
+			id: 'main',
+			elements: [60, 62, 64, 65].map((pitch): FigureElement => ({
+				kind: 'note',
+				duration: Fraction.of(1, 4),
+				content: null,
+				pitch,
+				string: 2
+			}))
+		}
+	]
+};
+
+/**
+ * Written here only: a figure with written pitches, each note judged on its pitch by the
+ * alignment, played after the prompt of a placed note (the bench's item, whatever it is).
+ */
+const PITCHED_FIGURE: ExerciseDefinition = {
+	id: 'pitched-figure',
+	practices: 'identify-note',
+	view: 'lane',
+	tempo: 80,
+	presentation: { primary: { fr: 'joue après {fret}', en: 'play after {fret}' } },
+	figures: [{ id: 'c-d-e-f', figure: C_D_E_F }],
+	round: {
+		prompt: { lead: { param: 'leadBeats' } },
+		expectations: [
+			{
+				figure: { id: 'c-d-e-f' },
+				at: { bars: 0 },
+				sensor: 'note',
+				content: { from: 'figure' },
+				window: { ms: 80 }
+			}
+		],
+		length: { bars: 1 },
+		policy: {
+			unit: 'response',
+			verdict: 'response',
+			correction: false,
+			pairing: { mode: 'alignment' }
+		}
+	},
+	params: {
+		ladder: [{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 } }]
+	},
+	items: ['1:3', '2:3', '3:3', '4:3', '5:3', '6:3']
+};
+
 const SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
 
 // The skills without memory the draw practises beside the memory skills.
@@ -141,6 +202,32 @@ describe('every valid exercise plays', () => {
 			const anchor = model.anchorBeat as number;
 			expect(anchor % 3).toBe(1);
 			expect(model.bands).toEqual([{ fromBeat: anchor + 1, untilBeat: anchor + 3 }]);
+		}
+	});
+
+	it('plays a figure written with pitches, each note judged on its pitch by the alignment', async () => {
+		expect(refusal(PITCHED_FIGURE)).toBeNull();
+		const items: PlannedItem[] = listItems(PITCHED_FIGURE, mulberry32(11));
+		for (const [answer, passed] of [
+			['right', true],
+			['none', false]
+		] as const) {
+			const bench = exerciseSeries(PITCHED_FIGURE, items);
+			const rounds = await playExercise(bench, answer);
+			const attempts = await bench.stored();
+			expect(rounds, answer).toHaveLength(items.length);
+			expect(
+				attempts.map((attempt) => attempt.success),
+				answer
+			).toEqual(items.map(() => passed));
+			for (const attempt of attempts) {
+				// One expectation per note, each with the pitch the figure writes.
+				expect(
+					(attempt.plan as { expectations: { content: unknown }[] }).expectations.map(
+						({ content }) => content
+					)
+				).toEqual([60, 62, 64, 65].map((midi) => ({ kind: 'pitch', value: { midi, string: 2 } })));
+			}
 		}
 	});
 
@@ -226,7 +313,12 @@ describe('every valid exercise plays', () => {
 		const pitched = figured.filter((d) =>
 			d.round!.expectations.some((e) => 'figure' in e && e.content !== null)
 		);
-		expect(pitched.some((d) => d.round!.policy.pairing.mode === 'alignment')).toBe(true);
+		// Seeds that qualify: a drop shows in the message (`PITCHED_FIGURE` pins the case itself).
+		const pitchedAligned = pitched.filter((d) => d.round!.policy.pairing.mode === 'alignment');
+		expect(
+			pitchedAligned.length,
+			`${pitchedAligned.length} of ${SEEDS.length} seeds draw an accepted figure with pitches judged by the alignment`
+		).toBeGreaterThan(0);
 		// Members of both families are asked, and played, not only refused.
 		const families = new Set(
 			SEEDS.map(drawn)

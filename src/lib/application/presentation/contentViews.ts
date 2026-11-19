@@ -267,6 +267,23 @@ export function memberFields(value: unknown, locale: Locale): Record<string, str
 	return memberViewOf(value)?.fields(value as MemberContent, locale) ?? {};
 }
 
+/**
+ * The fields of a round's member contents, in the order of its expectations: a field is the
+ * first content's that offers it.
+ */
+export function roundMemberFields(
+	values: readonly unknown[],
+	locale: Locale
+): Record<string, string> {
+	const fields: Record<string, string> = {};
+	for (const value of values) {
+		for (const [name, text] of Object.entries(memberFields(value, locale))) {
+			if (!Object.hasOwn(fields, name)) fields[name] = text;
+		}
+	}
+	return fields;
+}
+
 /** The picture of the members admitted now and next; null without a view. */
 export function membersPicture(
 	family: string,

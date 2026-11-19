@@ -26,21 +26,18 @@ function placeholders(slot: Slot): string[] {
 	return texts.flatMap((text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]));
 }
 
-/**
- * The family whose members the first expectation of the round template that selects members
- * selects (the content whose fields the prompt reads, `promptStage`); null when none selects.
- */
-function memberFamily(definition: ExerciseDefinition): string | null {
-	for (const { content } of definition.round?.expectations ?? []) {
-		if (isSelectionTemplate(content)) return content.family;
-	}
-	return null;
+/** The families whose members the round template's expectations select, in order, each once. */
+function memberFamilies(definition: ExerciseDefinition): string[] {
+	const families = (definition.round?.expectations ?? []).flatMap(({ content }) =>
+		isSelectionTemplate(content) ? [content.family] : []
+	);
+	return [...new Set(families)];
 }
 
 /**
  * Null when the exercise's presentation can be written, else what it cannot: a slot that names a
- * field neither its set nor the members its round's first member content selects
- * (`memberFieldNames`) have, a picture that does not exist or does not read its set, the picture of the members
+ * field neither its set nor any family its round selects members of (`memberFieldNames`)
+ * has, a picture that does not exist or does not read its set, the picture of the members
  * admitted (`CONTENT_PICTURES`) for a round that selects none. Names the exercise and the field.
  * It is not part of `validateExercise` because its words are code of the application layer.
  */
@@ -49,11 +46,14 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 	if (!presentation) return null;
 	const { id } = definition;
 	const set = exerciseSetId(definition);
-	const family = memberFamily(definition);
-	const offered = family === null ? [] : memberFieldNames(family);
+	const families = memberFamilies(definition);
+	const offered = families.flatMap((family) => memberFieldNames(family));
 	const known = [...(Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set].names : []), ...offered];
+	// The families are named once one of them offers fields: a slot could have read one.
 	const owners =
-		offered.length === 0 ? `which ${set} does not have` : `which neither ${set} nor ${family} has`;
+		offered.length === 0
+			? `which ${set} does not have`
+			: `which neither ${[set, ...families].join(' nor ')} has`;
 	const slots: [string, Slot | undefined][] = [
 		['primary', presentation.primary],
 		['secondary', presentation.secondary],
@@ -77,7 +77,7 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 	for (const [path, name] of pictures) {
 		if (name === undefined) continue;
 		if (CONTENT_PICTURES.includes(name)) {
-			if (family !== null) continue;
+			if (families.length > 0) continue;
 			return `${id}: presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
 		}
 		const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
