@@ -1,7 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { gridById, gridChanges } from '$lib/domain/grid';
-import type { ChordGridItem } from '$lib/domain/sets';
-import type { StringNumber } from '$lib/domain/music';
+import type { ChangeItem } from '$lib/domain/sets';
 import {
 	Fraction,
 	METER_4_4,
@@ -14,47 +12,34 @@ import {
 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
-import { gridExpectation } from '$lib/application/sets/chordGrid';
+import { changePresenter } from '$lib/application/sets/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
 import { identifyPlan, changePlan } from '$lib/testing/plans';
 import { loopedFigurePlan } from '$lib/domain/time/modes/testing/plans';
+import { change, G_B_E } from '$lib/testing/gestureSeries';
 import { shapeId } from '$lib/testing/shapes';
 import { logDetection } from '$lib/debug/detectionLog';
 import { chordSensor, type Observation, type ObservationSource } from '../sensors';
 import { Transport } from '../transport';
 import { LIVE_READING_MARGIN_S, RoundRunner, type RunnerEvent } from './roundRunner';
-import { GESTURE_LINK } from '$lib/testing/catalog';
 
 vi.mock('$lib/debug/detectionLog', () => ({ logDetection: vi.fn() }));
 
-const G_B_E: StringNumber[] = [3, 2, 1];
-const IOHEFY = gridChanges(gridById('iohefy-a'));
 const RIGHT = shapeId('D', 'min', G_B_E, '7-6-5');
 const WRONG = shapeId('D', 'maj', G_B_E, '7-7-5');
 
-/** The second change of the grid, Dm7 for 4 beats: one bar in 4/4. */
-const item: ChordGridItem = {
-	rule: 'jam',
-	element: 'jam:iohefy-a',
-	passageId: 's:0',
-	index: 1,
-	changes: IOHEFY,
-	symbol: IOHEFY[1].symbol,
-	chord: 'D|min',
-	sets: [G_B_E],
-	previous: null
-};
+/** The first change of a jam of iohefy-a, Dm7 for 4 beats: one bar in 4/4. */
+const planned: PlannedItem = { ...change(0), countIn: undefined, scope: undefined };
+const item = planned.item as ChangeItem;
 
-const planned: PlannedItem = {
-	exerciseId: 'grid-reading',
-	skill: 'grid-reading',
-	exerciseLevel: 0,
-	item,
-	phase: 'free',
-	temperature: 'hot',
-	aid: 'none',
-	leadBeats: null
-};
+/** What the chord sensor is told of the change, its round opening at `opensAt`. */
+const told = (opensAt: number): ChordExpectation =>
+	changePresenter.expectation!(item, {
+		opensAt,
+		previous: null,
+		expectations: changePlan(planned, METER_4_4).expectations,
+		passage: planned.passage
+	}).chord as ChordExpectation;
 
 /** A verifier that may report at once when its expectation is withdrawn (a window cut short). */
 class CutShortVerifier extends FakeChordVerifier {
@@ -112,7 +97,7 @@ async function setup(
 	};
 	const events: { at: number; event: RunnerEvent }[] = [];
 	const runner = new RoundRunner({
-		plan: options.plan ?? changePlan(item, METER_4_4, GESTURE_LINK),
+		plan: options.plan ?? changePlan(planned, METER_4_4),
 		item: planned,
 		at: Fraction.of(playFrom),
 		chained: options.chained ?? false,
@@ -124,7 +109,7 @@ async function setup(
 			['chord', chord],
 			['note', note]
 		]),
-		expectation: { chord: gridExpectation(item, t0 - 0.5) },
+		expectation: { chord: told(t0 - 0.5) },
 		debug: options.debug,
 		onEvent: (event) => events.push({ at: clock.now(), event })
 	});
@@ -157,7 +142,7 @@ describe('RoundRunner', () => {
 
 	it('tells each sensor what to listen for, and the others nothing', async () => {
 		const ctx = await setup();
-		expect(ctx.verifier.expectations).toEqual([gridExpectation(item, ctx.t0 - 0.5)]);
+		expect(ctx.verifier.expectations).toEqual([told(ctx.t0 - 0.5)]);
 		expect(ctx.noteExpectations).toEqual([null]);
 		expect(ctx.runner.span.planned).toBe(planned);
 		expect(ctx.runner.span.snapshot()).toEqual([]);
@@ -245,7 +230,7 @@ describe('RoundRunner', () => {
 	it('settles a round without a handover at its end of listening, between beats', async () => {
 		// Listening ends at 3.5 beats.
 		const plan: RoundPlan = {
-			...changePlan(item, METER_4_4, GESTURE_LINK),
+			...changePlan(planned, METER_4_4),
 			listenUntil: Fraction.of(7, 8)
 		};
 		delete plan.handover;
@@ -324,7 +309,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('opens a chained round without a handover at its first opening, and wakes it to its end of listening', async () => {
-		const plan: RoundPlan = { ...changePlan(item, METER_4_4, GESTURE_LINK) };
+		const plan: RoundPlan = { ...changePlan(planned, METER_4_4) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		expect(ctx.runner.handoverTime).toBeNull();
@@ -335,7 +320,7 @@ describe('RoundRunner', () => {
 	});
 
 	it('wakes a chained round without a handover to the end of its bar', async () => {
-		const plan: RoundPlan = { ...changePlan(item, METER_4_4, GESTURE_LINK) };
+		const plan: RoundPlan = { ...changePlan(planned, METER_4_4) };
 		delete plan.handover;
 		const ctx = await setup({ plan, chained: true });
 		ctx.runTo(ctx.t0 + 1.99);

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
-import type { ChordGridData, ChordGridItem } from '$lib/domain/sets';
+import { passageIndices } from '$lib/domain/exercise/passage/indices';
+import type { ChangeData, ChangeItem } from '$lib/domain/sets';
 import type { PlannedItem } from '$lib/domain/types';
 import {
 	responseVerdictOf,
@@ -16,7 +17,7 @@ import type {
 } from '$lib/application/ports';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { GESTURE_EXERCISE_IDS, LOCATE_NECK_ID } from '$lib/domain/exercise/catalogIds';
-import { chordGridPresenter } from '$lib/application/sets/chordGrid';
+import { changePresenter } from '$lib/application/sets/chordGrid';
 import type { SetPresenter } from '$lib/application/sets/types';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
@@ -43,6 +44,8 @@ import {
 	drain,
 	expectationsAsked,
 	gestureSeries,
+	linkChange,
+	LINK_FRETS,
 	model,
 	passage,
 	rightShape,
@@ -191,7 +194,30 @@ async function finish(app: App) {
 }
 
 const right = (expectation: ChordExpectation) => expectation.expected[0];
-const dataOf = (attempt: Attempt) => attempt.data as ChordGridData;
+const dataOf = (attempt: Attempt) => attempt.data as ChangeData;
+const passageIdOf = (attempt: Attempt) => dataOf(attempt).passage!.id;
+
+/** The attempts of each passage, in order. */
+function byPassage(attempts: readonly Attempt[]): Attempt[][] {
+	const passages = new Map<string, Attempt[]>();
+	for (const attempt of attempts) {
+		passages.set(passageIdOf(attempt), [...(passages.get(passageIdOf(attempt)) ?? []), attempt]);
+	}
+	return [...passages.values()];
+}
+
+/** The cards of iohefy-a's triads, acquired in `skill` on `set`. */
+const IOHEFY_TRIADS = [
+	['D', 'min'],
+	['G', 'maj'],
+	['C', 'maj'],
+	['F', 'maj'],
+	['E', 'min'],
+	['Eb', 'min'],
+	['Ab', 'maj']
+] as const;
+const iohefyCards = (skill: 'chord-anchor' | 'chord-zone', set: readonly (3 | 4 | 2 | 1)[]) =>
+	IOHEFY_TRIADS.flatMap(([root, quality]) => triadCards(skill, root, quality, set));
 
 describe('a gesture session on the session controller, end to end', () => {
 	it('links D on G-B-E right: seven changes, no card, the passage won, never aided', async () => {
@@ -208,7 +234,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		const attempts = await app.deps.attempts.all();
 		expect(attempts.slice(0, 14).every((a) => a.correct && a.skill === 'inversion-run')).toBe(true);
 		expect(attempts.slice(0, 14).every((a) => a.success && a.tempoBpm === 80)).toBe(true);
-		const passages = new Set(attempts.map((a) => dataOf(a).item.passageId));
+		const passages = new Set(attempts.map(passageIdOf));
 		expect(passages.size).toBeGreaterThanOrEqual(2);
 		expect(attempts.slice(0, 14).every((a) => a.aids.length === 0)).toBe(true);
 		expect(await app.deps.cards.all()).toEqual(cards);
@@ -227,19 +253,7 @@ describe('a gesture session on the session controller, end to end', () => {
 	});
 
 	it('climbs iohefy-a, refuses a shape that does not climb, and jams it', async () => {
-		const triads = [
-			['D', 'min'],
-			['G', 'maj'],
-			['C', 'maj'],
-			['F', 'maj'],
-			['E', 'min'],
-			['Eb', 'min'],
-			['Ab', 'maj']
-		] as const;
-		const cards = triads.flatMap(([root, quality]) =>
-			triadCards('chord-anchor', root, quality, G_B_E)
-		);
-		const app = await appSession(cards);
+		const app = await appSession(iohefyCards('chord-anchor', G_B_E));
 		// Link (7), then the climb (9), then the jam (9). In the climb's third change (Dm7), a Dm
 		// lower than the G just heard.
 		const low = shapeId('D', 'min', G_B_E, '2-3-1');
@@ -259,7 +273,10 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(attempts.slice(7, 25).map((a) => a.scope)).toEqual(Array(18).fill('iohefy-a'));
 
 		const missed = attempts[9];
-		expect(dataOf(missed).item).toMatchObject({ rule: 'climb', symbol: 'Dm7', direction: 'up' });
+		expect(dataOf(missed)).toMatchObject({
+			item: { grid: 'iohefy-a', index: 2 },
+			passage: { index: 'grid=iohefy-a;strings=3,2,1', rank: 2, each: { direction: 'up' } }
+		});
 		expect(missed).toMatchObject({
 			correct: false,
 			success: false,
@@ -268,9 +285,13 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(responseVerdictOf(missed)).toBe('wrong');
 		expect(dataOf(missed).confusion).toEqual({ kind: 'not-higher', part: 'chord' });
 		// The G still ringing was never a candidate of that change.
-		const ringing = dataOf(missed).item.previous;
-		expect(ringing).toBe(played[8].decided);
+		const ringing = played[8].decided;
+		expect(ringing).not.toBeNull();
 		expect(played[9].expectation.candidates.map((c) => c.id)).not.toContain(ringing);
+		// Each change keeps the key the old rule wrote: its grid and its rank.
+		expect(attempts.slice(7, 16).map((a) => a.cardKey)).toEqual(
+			[...Array(9).keys()].map((rank) => `grid-in-direction:iohefy-a#${rank}`)
+		);
 		expect(attempts.filter((a) => a.exerciseId === 'grid-in-direction' && !a.correct)).toHaveLength(
 			1
 		);
@@ -287,33 +308,101 @@ describe('a gesture session on the session controller, end to end', () => {
 		]);
 	});
 
-	it('plays a failed link tour again at once, chained, aided after two misses in the tour', async () => {
+	it('plays a failed link tour again whole, after a counted bar, unaided', async () => {
 		const app = await appSession(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		// Nothing right in the first tour (7 changes), then right.
 		await play(app, 14, (expectation, n) => (n < 7 ? null : right(expectation)));
 		await finish(app);
 		const attempts = await app.deps.attempts.all();
-		const first = attempts.slice(0, 7);
-		const replayed = dataOf(attempts[7]).item.passageId;
-		// The tour played again leaves out its lowest shape, just played: six changes.
-		const second = attempts.filter((a) => dataOf(a).item.passageId === replayed);
-		expect(second).toHaveLength(6);
+		const [first, second] = byPassage(attempts);
 		expect(first.every((a) => !a.success)).toBe(true);
-		expect(second.every((a) => dataOf(a).item.continued === true)).toBe(true);
-		// Chained: its first change opened at the handover of the last one, no counted bar.
-		expect(second[0].promptedAt - first[6].promptedAt).toBeCloseTo(4 * 750, -1);
-		// Aided from LINK_AID_AFTER_MISSES misses in the tour, until a tour succeeds.
-		expect(first.map((a) => a.aids.length > 0)).toEqual([
-			false,
-			false,
-			true,
-			true,
-			true,
-			true,
-			true
-		]);
-		expect(second.every((a) => a.aids.length > 0)).toBe(true);
+		// The same index again, its seven shapes from the lowest: nothing left out.
+		expect(second.map((a) => a.cardKey)).toEqual(first.map((a) => a.cardKey));
+		expect(second.map((a) => dataOf(a).passage!.rank)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+		expect(new Set(attempts.map((a) => dataOf(a).passage!.index))).toEqual(
+			new Set(['chord=D;strings=3,2,1'])
+		);
+		// Not chained: a counted bar between the tours, no rest; a counted change is prompted a
+		// beat before its target, a chained one at its handover (200 ms before).
+		const bar = 4 * 750;
+		expect(second[0].promptedAt - first[6].promptedAt).toBeCloseTo(2 * bar - (750 - 200), -1);
+		// No aid in this plan's span: the aid level comes with the next task.
+		expect(attempts.every((a) => a.aids.length === 0)).toBe(true);
 		expect(second.every((a) => a.success)).toBe(true);
+	});
+
+	it('links each of its 48 indices in the order written, a bar of silence before a new one', async () => {
+		expect(passageIndices(exerciseById('inversion-run'))).toHaveLength(48);
+		// C major acquired on both groups: the link alone opens, on its two indices.
+		const app = await appSession([
+			...triadCards('chord-anchor', 'C', 'maj', G_B_E),
+			...triadCards('chord-anchor', 'C', 'maj', [4, 3, 2])
+		]);
+		await play(app, 21, right);
+		await finish(app);
+		const attempts = await app.deps.attempts.all();
+		const tours = byPassage(attempts).slice(0, 3);
+		expect(tours.map((tour) => tour.length)).toEqual([7, 7, 7]);
+		expect(tours.map((tour) => dataOf(tour[0]).passage!.index)).toEqual([
+			'chord=C;strings=3,2,1',
+			'chord=C;strings=4,3,2',
+			'chord=C;strings=3,2,1'
+		]);
+		// The keys the old rule wrote: the placed shape asked.
+		expect(tours[0].map((a) => a.cardKey)).toEqual(
+			[
+				'C|maj|3:5,2:1,1:3@0-1-0',
+				'C|maj|3:1,2:3,1:5@5-5-3',
+				'C|maj|3:3,2:5,1:1@9-8-8',
+				'C|maj|3:5,2:1,1:3@12-13-12',
+				'C|maj|3:3,2:5,1:1@9-8-8',
+				'C|maj|3:1,2:3,1:5@5-5-3',
+				'C|maj|3:5,2:1,1:3@0-1-0'
+			].map((key) => `inversion-run:${key}`)
+		);
+		// A new index after a tour: a bar of silence, then the counted bar.
+		const bar = 4 * 750;
+		expect(tours[1][0].promptedAt - tours[0][6].promptedAt).toBeCloseTo(3 * bar - (750 - 200), -1);
+	});
+
+	it('climbs one way then the other from one passage to the next, turning where the neck runs out', async () => {
+		const app = await appSession(iohefyCards('chord-anchor', G_B_E));
+		// The link (7), the climb (9), the jam (9), the link again (7), the climb again (9).
+		await play(app, 41, right);
+		await finish(app);
+		const climbs = byPassage(
+			(await app.deps.attempts.all()).filter((a) => a.exerciseId === 'grid-in-direction')
+		);
+		const directions = climbs.map((passage) =>
+			passage.map((a) => dataOf(a).passage!.each.direction)
+		);
+		expect(directions.map((passage) => passage[0])).toEqual(['up', 'down']);
+		// The first climb runs out of neck on the way up and turns for the rest of its passage.
+		// Each shape played is the lowest beyond the one before: the first climb runs out of neck
+		// at Em (rank 7) and turns down, then out of neck again below Em's open shape and turns up;
+		// the second, down from the start, turns up at once. As the old rule served it.
+		expect(directions).toEqual([
+			['up', 'up', 'up', 'up', 'up', 'up', 'up', 'down', 'up'],
+			['down', 'up', 'up', 'up', 'up', 'up', 'up', 'down', 'up']
+		]);
+		expect(climbs.flat().every((a) => a.success)).toBe(true);
+	});
+
+	it('plays the zones of grid-in-zone in the order written', async () => {
+		const app = await appSession([
+			...iohefyCards('chord-zone', G_B_E),
+			...iohefyCards('chord-zone', [4, 3, 2])
+		]);
+		await play(app, 27, right);
+		await finish(app);
+		const zones = byPassage(await app.deps.attempts.all()).map((passage) => [
+			...new Set(passage.map((a) => JSON.stringify(dataOf(a).passage!.each.zone)))
+		]);
+		expect(zones.slice(0, 3)).toEqual([['[1,5]'], ['[6,10]'], ['[11,15]']]);
+		const attempts = await app.deps.attempts.all();
+		expect(attempts.every((a) => a.exerciseId === 'grid-in-zone' && a.scope === 'iohefy-a')).toBe(
+			true
+		);
 	});
 });
 
@@ -793,16 +882,16 @@ describe('the chord sensor of a change (twoSensors)', () => {
 	function noting() {
 		const rounds: [number, number | null][] = [];
 		const presenter: SetPresenter = {
-			...chordGridPresenter,
+			...changePresenter,
 			expectation: (item, round) => {
-				const previous = round.previous?.item as ChordGridItem | undefined;
-				rounds.push([(item as ChordGridItem).index, previous?.index ?? null]);
-				return chordGridPresenter.expectation!(item as ChordGridItem, round);
+				const previous = round.previous?.item as ChangeItem | undefined;
+				rounds.push([(item as ChangeItem).index, previous?.index ?? null]);
+				return changePresenter.expectation!(item as ChangeItem, round);
 			}
 		} as SetPresenter;
 		return {
 			rounds,
-			options: { views: { 'grid-scroll': presenter, 'link-lane': presenter } }
+			options: { presenters: { ...SET_PRESENTERS, change: presenter } }
 		};
 	}
 
@@ -895,29 +984,14 @@ describe('the chord sensor of a change (twoSensors)', () => {
 });
 
 describe('the miss of a passage’s last change (shown until the count starts)', () => {
-	const LINK_SHAPES = ['2-3-2', '7-7-5'].map((frets) => shapeId('D', 'maj', G_B_E, frets));
+	const LINK_SHAPES = LINK_FRETS.map((frets) => shapeId('D', 'maj', G_B_E, frets));
 
 	/** A link tour of two changes, D on G-B-E, at ♩ = 120 like the jam. */
 	function linkTour(id: string, restBars?: number): PlannedItem[] {
-		return [0, 1].map((index) => {
-			const { scope: _scope, ...base } = change(index, {
-				passage: id,
-				exerciseId: 'inversion-run'
-			});
-			const item: ChordGridItem = {
-				...(base.item as ChordGridItem),
-				rule: 'link',
-				element: 'link:D|maj:3,2,1',
-				chord: 'D|maj',
-				symbol: 'D',
-				changes: [
-					{ at: 0, length: 4, symbol: 'D' },
-					{ at: 4, length: 4, symbol: 'D' }
-				],
-				shape: LINK_SHAPES[index]
-			};
-			return { ...base, item, ...(index === 0 && restBars && { restBars }) };
-		});
+		return [0, 1].map((index) => ({
+			...linkChange(index, id),
+			...(index === 0 && restBars && { restBars })
+		}));
 	}
 
 	/** The drawn miss, the contest offer and the change shown, read at `time`. */
@@ -1084,35 +1158,11 @@ describe('the exercise level moving in session (levels)', () => {
 		expect(await levelOf(ctx)).toMatchObject({ level: 1, successes: 2, failures: 0 });
 	});
 
-	it('keeps the tempo through a link tour played again', async () => {
-		/** A link tour of two changes, D on G-B-E; `again`: played again at once, chained. */
-		const tour = (id: string, again = false): PlannedItem[] =>
-			[0, 1].map((index) => {
-				const {
-					scope: _scope,
-					countIn: _count,
-					...base
-				} = change(index, {
-					passage: id,
-					exerciseId: 'inversion-run'
-				});
-				const item: ChordGridItem = {
-					...(base.item as ChordGridItem),
-					rule: 'link',
-					element: 'link:D|maj:3,2,1',
-					chord: 'D|maj',
-					symbol: 'D',
-					changes: [
-						{ at: 0, length: 4, symbol: 'D' },
-						{ at: 4, length: 4, symbol: 'D' }
-					],
-					shape: shapeId('D', 'maj', G_B_E, ['2-3-2', '7-7-5'][index]),
-					...(again && { continued: true })
-				};
-				return { ...base, item, ...(index === 0 && !again && { countIn: true }) };
-			});
+	it('counts a link tour played again in at the level reached', async () => {
+		/** A link tour of two changes, D on G-B-E, counted in. */
+		const tour = (id: string): PlannedItem[] => [0, 1].map((index) => linkChange(index, id));
 		// Eight right changes stored: the tour's last change is the tenth and moves the level up.
-		const ctx = gestureSeries([...tour('s:0'), ...tour('s:0', true), ...tour('s:1')], {
+		const ctx = gestureSeries([...tour('s:0'), ...tour('s:1'), ...tour('s:2')], {
 			catalogLevels: true,
 			levelStates: [standing(8, 'inversion-run', '')]
 		});
@@ -1120,8 +1170,8 @@ describe('the exercise level moving in session (levels)', () => {
 		await ctx.controller.start();
 		const tempos = await playAllRight(ctx, RIGHT, seen.watch);
 
-		// The tour played again chains at its tempo; the next one, counted, starts at 85.
-		expect(tempos).toEqual([80, 80, 80, 80, 85, 85]);
+		// A tour played again is counted in like any passage: it starts at the level reached.
+		expect(tempos).toEqual([80, 80, 85, 85, 85, 85]);
 		expect(
 			seen.counting.filter((frame) => frame.announcement !== null).map((f) => f.tempoBpm)
 		).toEqual([85, 85, 85]);

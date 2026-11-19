@@ -53,13 +53,9 @@ const locateJson = (id: string): Record<string, unknown> => ({
 	id
 });
 
-/**
- * The link as plan 4b writes its passages, as a definition file writes it, under `id`; with a
- * presentation, its set drawing no screen of its own until the changes are data.
- */
+/** The link as the catalog writes its passages, as a definition file writes it, under `id`. */
 const linkJson = (id: string): Record<string, unknown> => ({
 	...JSON.parse(JSON.stringify(LINK_PASSAGES)),
-	presentation: { primary: 'Passage' },
 	id
 });
 
@@ -278,17 +274,6 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			{
 				...zone,
 				id: 'h-grid-indices',
-				// Drawn by the grid's view, whose params are the changes' until Task 5.
-				view: 'grid-scroll',
-				params: {
-					...zone.params,
-					rule: 'jam',
-					qualities: ['maj', 'min'],
-					stringSets: [
-						[3, 2, 1],
-						[4, 3, 2]
-					]
-				},
 				passages: {
 					...zone.passages,
 					of: {

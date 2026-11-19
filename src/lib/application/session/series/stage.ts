@@ -104,6 +104,7 @@ export function stageModel(input: {
 		{ aid: item.aid, stringAid: item.stringAid ?? false },
 		place,
 		{ chordDiagram: input.chordDiagram },
-		random
+		random,
+		{ passage: item.passage ?? null, expectations: plan.expectations }
 	)?.model;
 }

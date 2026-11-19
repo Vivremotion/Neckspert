@@ -2,15 +2,19 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import type { SetPresenter } from './types';
 
-/** Presenters by set id, and by view for the exercises a view presents (D6). */
+/**
+ * Presenters by set id, and by view: a set with more than one presenter (the link's placed
+ * voicings, which the sequence's figures present too) has the others found by the view.
+ */
 export interface PresenterRegistries {
 	presenters: Readonly<Record<string, SetPresenter>>;
 	views: Readonly<Record<string, SetPresenter>>;
 }
 
 /**
- * The presenter an exercise finds in `registries`: its view's, else its skill's set's; undefined
- * when none. It listens with the sensors its round names, the set's where it names none (D5).
+ * The presenter an exercise finds in `registries`: the one registered for its view when it
+ * presents its skill's set, else its set's; undefined when none. It listens with the sensors
+ * its round names, the set's where it names none (D5).
  */
 export function lookUpPresenter(
 	definition: ExerciseDefinition,
@@ -18,9 +22,10 @@ export function lookUpPresenter(
 ): SetPresenter | undefined {
 	const { view } = definition;
 	const set = hasSkill(definition.practices) ? skillById(definition.practices).items : null;
+	const byView = view !== undefined && Object.hasOwn(views, view) ? views[view] : undefined;
 	const found =
-		view !== undefined && Object.hasOwn(views, view)
-			? views[view]
+		byView !== undefined && byView.set.id === set
+			? byView
 			: set !== null && Object.hasOwn(presenters, set)
 				? presenters[set]
 				: undefined;

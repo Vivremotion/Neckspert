@@ -1,9 +1,5 @@
 import { classifyNameConfusion, pitchOnString, type IdentifyItem } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
-import { classifyGridChord } from '$lib/domain/sets/gridClassify';
-import type { ChordGridItem } from '$lib/domain/sets/chordGrid';
-import type { ChordReading } from '$lib/domain/families/guitar/chordShapes';
-import { occurrenceOfId } from '$lib/domain/triads';
 import type { ContentJudge, ContentJudges } from '$lib/domain/time';
 import { MEMBER_CONTENT, memberJudge } from './member';
 
@@ -11,8 +7,6 @@ export { admittedMembers, MEMBER_CONTENT, type MemberContent } from './member';
 
 /** The name of the note at a fret of a string. Value: `IdentifyItem`; payload: a `PitchName`. */
 export const NAME_CONTENT = 'name';
-/** A change of a chord grid, by its rule. Value: `ChordGridItem`; payload: `ChordReading`. */
-export const CHORD_GRID_CONTENT = 'chord-grid';
 
 /** An exact pitch, octave included. Value: `{ midi, string? }`; payload: `{ midi }`. */
 export const PITCH_CONTENT = 'pitch';
@@ -40,22 +34,10 @@ const nameJudge: ContentJudge = {
 	}
 };
 
-const chordGridJudge: ContentJudge = {
-	judge(value, payload) {
-		const { decided } = payload as ChordReading;
-		const found = classifyGridChord(
-			value as ChordGridItem,
-			decided === null ? null : occurrenceOfId(decided)
-		);
-		return { correct: found === null, answer: { decided }, confusion: found };
-	}
-};
-
 /** The content judges by kind of content. */
 export const CONTENT_JUDGES: Readonly<Record<string, ContentJudge>> = {
 	[NAME_CONTENT]: nameJudge,
 	[PITCH_CONTENT]: pitchJudge,
-	[CHORD_GRID_CONTENT]: chordGridJudge,
 	[MEMBER_CONTENT]: memberJudge
 };
 

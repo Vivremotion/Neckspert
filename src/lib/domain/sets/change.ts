@@ -1,3 +1,6 @@
+import type { ChordGridConfusion, ChordReading } from '$lib/domain/families/guitar/chordShapes';
+import type { AttemptPassage } from '$lib/domain/types';
+import type { VoicingFigureItem } from './placedVoicing';
 import type { ItemSet } from './types';
 
 /** A change of a chord grid: the grid and the rank of the change in it. */
@@ -29,3 +32,14 @@ export const changeSet: ItemSet<ChangeItem> = {
 		return { grid, index: Number(rank) };
 	}
 };
+
+/**
+ * `Attempt.data` of a change of a passage: its item (a change of a grid, or the placed shape a
+ * link asks), its passage (null for a round served outside one), the shape heard and what went wrong.
+ */
+export interface ChangeData {
+	item: ChangeItem | VoicingFigureItem;
+	passage: AttemptPassage | null;
+	answer: ChordReading | null;
+	confusion: ChordGridConfusion | null;
+}

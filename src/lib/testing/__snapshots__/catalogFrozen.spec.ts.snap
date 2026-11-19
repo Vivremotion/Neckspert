@@ -672,28 +672,44 @@ exports[`keeps grid-in-direction as it is 1`] = `
       },
     },
   ],
-  "params": {
-    "grids": [
-      "iohefy-a",
-      "blues-f",
-    ],
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "climb",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
+  "params": {},
+  "passages": {
+    "each": {
+      "direction": [
+        "up",
+        "down",
       ],
-      [
-        4,
-        3,
-        2,
+    },
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
       ],
-    ],
+      "strings": [
+        [
+          3,
+          2,
+          1,
+        ],
+        [
+          4,
+          3,
+          2,
+        ],
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
   },
   "practices": "grid-in-direction",
   "round": {
@@ -704,7 +720,18 @@ exports[`keeps grid-in-direction as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "grid-change",
+          "family": "chord-shapes",
+          "where": [
+            {
+              "position": {
+                "beyond": "previous",
+                "toward": {
+                  "param": "direction",
+                },
+                "turns": true,
+              },
+            },
+          ],
         },
         "sensor": "chord",
         "window": {
@@ -858,27 +885,88 @@ exports[`keeps grid-in-zone as it is 1`] = `
     },
   ],
   "params": {
-    "grids": [
-      "iohefy-a",
-      "blues-f",
+    "strings": [
+      4,
+      3,
+      2,
+      1,
     ],
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "zone",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
+  },
+  "passages": {
+    "each": {
+      "zone": [
+        [
+          1,
+          5,
+        ],
+        [
+          6,
+          10,
+        ],
+        [
+          11,
+          15,
+        ],
+        [
+          3,
+          7,
+        ],
+        [
+          8,
+          12,
+        ],
+        [
+          13,
+          17,
+        ],
+        [
+          5,
+          9,
+        ],
+        [
+          10,
+          14,
+        ],
+        [
+          2,
+          6,
+        ],
+        [
+          7,
+          11,
+        ],
+        [
+          12,
+          16,
+        ],
+        [
+          4,
+          8,
+        ],
+        [
+          9,
+          13,
+        ],
       ],
-      [
-        4,
-        3,
-        2,
+    },
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
       ],
-    ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-zone",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
   },
   "practices": "grid-in-zone",
   "round": {
@@ -889,7 +977,16 @@ exports[`keeps grid-in-zone as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "grid-change",
+          "family": "chord-shapes",
+          "where": [
+            {
+              "in": {
+                "frets": {
+                  "param": "zone",
+                },
+              },
+            },
+          ],
         },
         "sensor": "chord",
         "window": {
@@ -1043,27 +1140,32 @@ exports[`keeps grid-reading as it is 1`] = `
     },
   ],
   "params": {
-    "grids": [
-      "iohefy-a",
-      "blues-f",
+    "strings": [
+      4,
+      3,
+      2,
+      1,
     ],
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "jam",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
+  },
+  "passages": {
+    "members": {
+      "family": "grid-changes",
+    },
+    "of": {
+      "grid": [
+        "iohefy-a",
+        "blues-f",
       ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "one-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "scope": "grid",
   },
   "practices": "grid-reading",
   "round": {
@@ -1074,7 +1176,7 @@ exports[`keeps grid-reading as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "grid-change",
+          "family": "chord-shapes",
         },
         "sensor": "chord",
         "window": {
@@ -1382,24 +1484,66 @@ exports[`keeps inversion-run as it is 1`] = `
       },
     },
   ],
-  "params": {
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "link",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
+  "params": {},
+  "passages": {
+    "again": "until-passed",
+    "members": {
+      "andBack": true,
+      "family": "chord-shapes",
+      "order": [
+        "position",
       ],
-      [
-        4,
-        3,
-        2,
+      "take": 4,
+    },
+    "of": {
+      "chord": [
+        "C",
+        "Cm",
+        "C#",
+        "C#m",
+        "D",
+        "Dm",
+        "Eb",
+        "Ebm",
+        "E",
+        "Em",
+        "F",
+        "Fm",
+        "F#",
+        "F#m",
+        "G",
+        "Gm",
+        "Ab",
+        "Abm",
+        "A",
+        "Am",
+        "Bb",
+        "Bbm",
+        "B",
+        "Bm",
       ],
-    ],
+      "strings": [
+        [
+          3,
+          2,
+          1,
+        ],
+        [
+          4,
+          3,
+          2,
+        ],
+      ],
+    },
+    "opens": {
+      "acquired": {
+        "item": "voicing",
+        "need": "every-group",
+        "skill": "chord-anchor",
+      },
+    },
+    "passes": 0.9,
+    "restBars": 1,
   },
   "practices": "inversion-run",
   "round": {
@@ -1410,7 +1554,7 @@ exports[`keeps inversion-run as it is 1`] = `
           "beats": 0,
         },
         "content": {
-          "from": "grid-change",
+          "family": "chord-shapes",
         },
         "sensor": "chord",
         "window": {
@@ -1422,9 +1566,7 @@ exports[`keeps inversion-run as it is 1`] = `
     ],
     "handover": "end",
     "length": {
-      "beats": {
-        "item": "change-beats",
-      },
+      "bars": 1,
     },
     "policy": {
       "correction": false,

@@ -4,21 +4,25 @@ import { ITEM_SET_NAMES } from '$lib/domain/sets/names';
 import { presenterOf, SET_PRESENTERS, VIEW_PRESENTERS } from './index';
 
 describe('SET_PRESENTERS', () => {
-	it('holds a presenter for each set but the changes, which their views present', () => {
-		expect(Object.keys(SET_PRESENTERS).sort()).toEqual(
-			ITEM_SET_NAMES.filter((name) => name !== 'change').sort()
-		);
+	it('holds a presenter for each set, and by view a set’s other presenter', () => {
+		expect(Object.keys(SET_PRESENTERS).sort()).toEqual([...ITEM_SET_NAMES].sort());
 		for (const [id, presenter] of Object.entries(SET_PRESENTERS)) expect(presenter.set.id).toBe(id);
-		expect(Object.keys(VIEW_PRESENTERS).sort()).toEqual(['grid-scroll', 'link-lane']);
+		// The link's shapes are placed voicings, which the sequence's figures present otherwise.
+		expect(Object.keys(VIEW_PRESENTERS)).toEqual(['link-lane']);
+		expect(VIEW_PRESENTERS['link-lane'].set.id).toBe('placed-voicing');
 	});
 });
 
 describe('presenterOf', () => {
-	it('presents an exercise drawn by a changes view with that view’s presenter, whatever its skill', () => {
+	it('presents an exercise with its view’s presenter when that presenter presents its set', () => {
 		const link = exerciseById('inversion-run');
 		const presenter = presenterOf(link);
 		expect(presenter.stageOf).toBe(VIEW_PRESENTERS['link-lane'].stageOf);
 		expect(presenter.set).toBe(VIEW_PRESENTERS['link-lane'].set);
+		// Another set's exercise on that view keeps its own set's presenter.
+		const jam = { ...exerciseById('grid-reading'), view: 'link-lane' };
+		expect(presenterOf(jam).set).toBe(SET_PRESENTERS.change.set);
+		expect(presenterOf(exerciseById('grid-reading')).stageOf).toBe(SET_PRESENTERS.change.stageOf);
 	});
 
 	it('presents the anchor and the zone with the voicings’ presenter', () => {

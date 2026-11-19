@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXERCISE_IDS_V13 } from './v13';
 import { exerciseLevelsOf, tempoOf } from '$lib/domain/exercise/levels';
-import { readGestureParams } from '$lib/domain/gesture/exercises';
 import type { LevelState } from '$lib/domain/time';
 import {
 	GESTURE_EXERCISES_V11,
@@ -124,10 +123,11 @@ describe('GESTURE_TEMPOS_V11', () => {
 				...GESTURE_TEMPOS_V11
 			]);
 		}
+		// The exercises whose level is scoped by grid: their passages say so.
 		expect(
-			GESTURE_EXERCISES.filter(
-				(definition) => (readGestureParams(definition).grids ?? []).length > 0
-			).map((definition) => definition.id)
+			GESTURE_EXERCISES.filter((definition) => definition.passages?.scope === 'grid').map(
+				(definition) => definition.id
+			)
 		).toEqual(GESTURE_GRID_EXERCISES_V11.map((id) => EXERCISE_IDS_V13[id]));
 	});
 });

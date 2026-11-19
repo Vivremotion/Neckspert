@@ -10,15 +10,14 @@ import type { RoundTemplate } from '$lib/domain/exercise/round';
 import { NAME_CONTENT } from '$lib/domain/judges';
 import { INDEX_DERIVATIONS, type IndexDerivation } from '$lib/domain/families';
 import { acceptableMidis } from '$lib/domain/music';
-import { triadShapes, type ChordGridItem } from '$lib/domain/sets';
-import { createGestureSelector } from '$lib/domain/progress';
+import type { ChangeData, ChangeItem } from '$lib/domain/sets';
+import { createPassageSource } from '$lib/domain/session/passageSource';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { Fraction, type LevelState, type Meter } from '$lib/domain/time';
-import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, LeadBeats, PlannedItem } from '$lib/domain/types';
 import { earlier } from '$lib/testing/rhythmSeries';
 import { triadCards } from '$lib/testing/shapes';
-import { chordGridPresenter } from '$lib/application/sets/chordGrid';
+import { changePresenter } from '$lib/application/sets/chordGrid';
 import { SET_PRESENTERS } from '$lib/application/sets';
 import { registerSkill } from '$lib/domain/skill/registry';
 import { GESTURE_EXERCISE_IDS, IDENTIFY_NECK_ID } from '$lib/domain/exercise/catalogIds';
@@ -266,7 +265,7 @@ describe('SessionController', () => {
 			ctx.runTo(9.1);
 			expect(ctx.controller.view.status).toBe('awaiting');
 			ctx.runTo(10.13);
-			ctx.play(10.12, rightShape(change(0)));
+			ctx.play(10.12, rightShape(change(0, { scope: 'blues-f' })));
 			// Two bars at ♩ = 60 (8 s), then the ballad again at ♩ = 120 after a counted bar.
 			ctx.runTo(18.1 - 0.19);
 			expect(ctx.controller.view.tempoBpm).toBe(120);
@@ -305,7 +304,7 @@ describe('SessionController', () => {
 			expect(clicksBetween(ctx, 30, 34.1)).toEqual([30.1, 31.1, 32.1, 33.1]);
 			ctx.runTo(33.11);
 			expect(ctx.controller.view.status).toBe('awaiting');
-			expect((model(ctx) as unknown as { cue: { kind: string } }).cue.kind).toBe('jam');
+			expect((model(ctx) as unknown as { cue: { kind: string } }).cue.kind).toBe('zone');
 		});
 	});
 
@@ -338,7 +337,7 @@ describe('SessionController', () => {
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(1) + 0.5);
 			// Another chord than the one asked.
-			ctx.play(ctx.bar(1) + 0.02, occurrenceId(triadShapes(change(1).item as ChordGridItem)[0]));
+			ctx.play(ctx.bar(1) + 0.02, rightShape(change(1)));
 			ctx.controller.pause();
 			await drain();
 			const [attempt] = await ctx.stored();
@@ -440,7 +439,7 @@ describe('SessionController', () => {
 		it('spells an item alike from its preview to its settlement', async () => {
 			const seen: number[] = [];
 			const presenter: SetPresenter = {
-				...chordGridPresenter,
+				...changePresenter,
 				stageOf: (_item, _settled, _locale, _aids, _place, _drawing, random) => {
 					seen.push(random());
 					return { model: {} };
@@ -448,7 +447,7 @@ describe('SessionController', () => {
 			};
 			let drawn = 0;
 			const ctx = setup(passage(), {
-				views: { 'grid-scroll': presenter, 'link-lane': presenter },
+				presenters: { ...SET_PRESENTERS, change: presenter },
 				random: () => ++drawn / 100
 			});
 			await ctx.controller.start();
@@ -900,7 +899,7 @@ describe('SessionController', () => {
 		it('reads an exercise through the lookup it is given, and lets an unknown one throw', async () => {
 			const exercise = (id: string) => ({ ...exerciseById(id), view: 'own-view' });
 			// Its view's presenter, as the changes' views have theirs.
-			const ctx = setup(passage(), { exercise, views: { 'own-view': chordGridPresenter } });
+			const ctx = setup(passage(), { exercise, views: { 'own-view': changePresenter } });
 			await ctx.controller.ready();
 			expect(ctx.controller.view.stage?.view).toBe('own-view');
 			const unknown = setup([change(0, { exerciseId: 'nowhere' })]);
@@ -908,44 +907,38 @@ describe('SessionController', () => {
 		});
 	});
 
-	describe('the gesture selector', () => {
-		it('ends a link tour replayed past SESSION_MS at the end of its passage, with no new passage', async () => {
+	describe('the passage source', () => {
+		it('ends a link tour played again past SESSION_MS at the end of its passage, with no new passage', async () => {
 			const cards = triadCards('chord-anchor', 'D', 'maj', G_B_E);
-			const selector = createGestureSelector({
-				definitions: GESTURE_EXERCISES,
+			const source = createPassageSource({
+				exercises: GESTURE_EXERCISES,
 				cards,
 				attempts: [],
-				sessionId: 'series-1'
+				sessionId: 'series-1',
+				durationMs: SESSION_MS
 			});
-			const ctx = setup([], { sources: [selector] });
+			const ctx = setup([], { sources: [source] });
 			await ctx.controller.start();
-			// Nothing is played: the first tour fails and is replayed at once, chained.
-			const indexes: number[] = [];
+			// Nothing is played: the first tour fails and comes back whole, after a counted bar.
 			const watch = (until: number) => {
 				while (ctx.clock.now() < until && ctx.controller.view.status !== 'finished') {
 					ctx.runTo(ctx.clock.now() + 0.05);
-					const index = model(ctx)?.index;
-					if (index !== undefined && index !== indexes.at(-1)) indexes.push(index);
 				}
 			};
 			const tour = (model(ctx) as unknown as { changes: unknown[] }).changes.length;
-			watch(ctx.bar(1 + tour) - 0.1);
-			// The replay has begun; the series' time runs out in its middle.
-			watch(ctx.bar(1 + tour + 1));
+			// The tour again has begun after its counted bar; the series' time runs out in its middle.
+			watch(ctx.bar(1 + tour + 1 + 1));
 			ctx.clock.epochAtZero += SESSION_MS;
 			watch(ctx.bar(1 + 3 * tour));
 			await drain();
 			expect(ctx.controller.view.status).toBe('finished');
 			const attempts = await ctx.stored();
-			const passages = new Set(
-				attempts.map((a) => (a.data as { item: ChordGridItem }).item.passageId)
-			);
-			expect(passages.size).toBe(2);
-			const replay = attempts.filter(
-				(a) => (a.data as { item: ChordGridItem }).item.continued === true
-			);
-			expect(replay.length).toBeGreaterThan(0);
-			expect(indexes.length).toBeGreaterThan(tour);
+			const passages = attempts.map((a) => (a.data as ChangeData).passage!.id);
+			expect(new Set(passages).size).toBe(2);
+			// Played to its end: its seven shapes, from the lowest.
+			const again = attempts.filter((a) => (a.data as ChangeData).passage!.id === passages.at(-1));
+			expect(again.map((a) => (a.data as ChangeData).passage!.rank)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+			expect(tour).toBe(7);
 		});
 	});
 	describe('rounds without a handover', () => {
@@ -964,7 +957,7 @@ describe('SessionController', () => {
 		const C = acceptableMidis(NOTE_C)[0];
 		/** A set played on the guitar on the beat, its string shown a beat before its prompt. */
 		const presenter = (overrides: Partial<SetPresenter> = {}): SetPresenter => ({
-			...chordGridPresenter,
+			...changePresenter,
 			scene: 'guitar',
 			sensors: ['note'],
 			expectation: undefined,
@@ -974,7 +967,7 @@ describe('SessionController', () => {
 			previewBeats: 1,
 			stageOf: (item, settled, _locale, aids, place) => ({
 				model: {
-					index: (item as ChordGridItem).index,
+					index: (item as ChangeItem).index,
 					settled: settled ? settled.value.verdict : null,
 					place,
 					aids
@@ -1067,7 +1060,7 @@ describe('SessionController', () => {
 			skill = 'beat'
 		): PlannedItem => ({
 			...change(index % 2),
-			item: { ...(change(index % 2).item as ChordGridItem), index },
+			item: { ...change(index % 2).item, index },
 			skill,
 			...(skill === 'tap' && { exerciseId: TAP_EXERCISE }),
 			...(skill === 'beat-unannounced' && { exerciseId: UNANNOUNCED_EXERCISE }),
@@ -1494,7 +1487,7 @@ describe('SessionController', () => {
 	});
 	describe('scenes, taps and the meter', () => {
 		/** The gesture's presenter on the screen: a scene that does not click. */
-		const SCREEN_GRID: SetPresenter = { ...chordGridPresenter, scene: 'screen' };
+		const SCREEN_GRID: SetPresenter = { ...changePresenter, scene: 'screen' };
 		registerSkill(
 			{
 				id: 'screen-grid',
@@ -1511,19 +1504,35 @@ describe('SessionController', () => {
 		const SCREEN_JAM = 'screen-jam';
 		const screenExercise = (id: string) => {
 			const jam = { ...exerciseById(id === SCREEN_JAM ? 'grid-reading' : id), howTo: undefined };
-			return id === SCREEN_JAM ? { ...jam, id, practices: 'screen-grid', view: undefined } : jam;
+			if (id !== SCREEN_JAM) return jam;
+			// Its chord's shapes on the zone of strings, through the change's index derivation.
+			const round = jam.round!;
+			const expectations = round.expectations.map((expectation) => ({
+				...expectation,
+				content: { family: 'chord-shapes', of: 'change-chord' }
+			})) as typeof round.expectations;
+			return {
+				...jam,
+				id,
+				practices: 'screen-grid',
+				view: undefined,
+				round: { ...round, expectations }
+			};
 		};
 		// The chord grid's items, read under another set's name.
-		const grids = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
-		grids['grid-change'] = {
-			...grids['grid-change'],
-			reads: [...grids['grid-change'].reads, 'screen-grid']
+		const changeIndexes = INDEX_DERIVATIONS as Record<string, IndexDerivation>;
+		const changeChord = changeIndexes['change-chord'];
+		changeIndexes['change-chord'] = {
+			...changeChord,
+			reads: [...changeChord.reads, 'screen-grid']
 		};
 		const numbers = ITEM_NUMBERS as Record<string, ItemNumber>;
-		numbers['change-beats'] = {
-			...numbers['change-beats'],
-			reads: [...numbers['change-beats'].reads, 'screen-grid']
-		};
+		const changeBeats = numbers['change-beats'];
+		numbers['change-beats'] = { ...changeBeats, reads: [...changeBeats.reads, 'screen-grid'] };
+		afterAll(() => {
+			changeIndexes['change-chord'] = changeChord;
+			numbers['change-beats'] = changeBeats;
+		});
 		const onScreen = (items: PlannedItem[]) =>
 			items.map((item) => ({ ...item, skill: 'screen-grid', exerciseId: SCREEN_JAM }));
 		/** A sensor fed by the screen, keeping what it was pushed. */

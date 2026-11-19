@@ -4,7 +4,6 @@ import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { registerTestSkills } from '$lib/testing/testSkills';
-import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { JAM_PASSAGES, LINK_PASSAGES, PASSAGE_EXERCISES } from '$lib/testing/changesPassages';
 import { definitionChecks, passagesOpensProblem } from './checks';
 
@@ -81,73 +80,24 @@ describe('definitionChecks', () => {
 			clearGrids();
 		});
 
-		it('refuses a grid no file read so far defines', () => {
-			clearGrids();
-			const link = { ...GESTURE_CLIMB, params: { ...GESTURE_CLIMB.params, grids: ['nowhere'] } };
-			expect(check(link)).toBe(
-				'params.grids names grid "nowhere", which no file read so far defines'
-			);
+		const climbing = (grid: string) => ({
+			...GESTURE_CLIMB,
+			passages: { ...GESTURE_CLIMB.passages!, of: { grid: [grid], strings: [[3, 2, 1]] } }
 		});
 
-		it('refuses a grid no file defines for any exercise that names grids, gesture or not', () => {
-			const other = {
-				...ARPEGGIO_EXERCISE,
-				id: 'other',
-				params: { ...ARPEGGIO_EXERCISE.params, grids: ['nowhere'] }
-			};
-			expect(check(other)).toBe(
-				'params.grids names grid "nowhere", which no file read so far defines'
-			);
+		it('refuses a passage of a grid no file read so far defines, naming it', () => {
+			expect(check(climbing('nowhere'))).toMatch(/grid-changes: unknown grid "nowhere"/);
 		});
 
 		it('accepts a grid a file defines', () => {
 			registerGrid(IOHEFY_A, 'a.json');
-			const climb = { ...GESTURE_CLIMB, params: { ...GESTURE_CLIMB.params, grids: ['iohefy-a'] } };
-			expect(check(climb)).toBeNull();
-		});
-	});
-
-	describe('the params of the changes', () => {
-		const withParams = (params: Record<string, unknown>) => ({
-			...GESTURE_CLIMB,
-			params: { ...GESTURE_CLIMB.params, grids: [], ...params }
+			expect(check(climbing('iohefy-a'))).toBeNull();
 		});
 
-		it('refuses a quality that is none', () => {
-			expect(check(withParams({ qualities: ['xyz'] }))).toBe(
-				'params.qualities names "xyz", which is no chord quality'
-			);
-		});
-
-		it.each([[[[9, 8, 7]]], [[[1, 2]]], [[[1, 2, 3]]], [[[3, 3, 1]]], [['a']]])(
-			'refuses the sets of strings %j',
-			(stringSets) => {
-				expect(check(withParams({ stringSets }))).toBe('params.stringSets[0] is no set of strings');
-			}
-		);
-
-		it('refuses a quality that is no triad', () => {
-			expect(check(withParams({ qualities: ['maj7'] }))).toBe(
-				'params.qualities names "maj7", which is no triad quality'
-			);
-		});
-
-		it('leaves an exercise of another view alone', () => {
-			const other = { ...GESTURE_CLIMB, view: 'lane', params: { grids: [] } };
-			expect(check(other)).not.toMatch(/^params\.(rule|qualities|stringSets)/);
-		});
-
-		it('refuses a rule that is none', () => {
-			expect(check(withParams({ rule: 'fly' }))).toBe(
-				'params.rule must be link, climb, zone or jam'
-			);
-		});
-
-		it('refuses grids that are no list of ids', () => {
-			expect(check(withParams({ grids: 'iohefy-a' }))).toBe(
-				'params.grids must be a list of grid ids'
-			);
-			expect(check(withParams({ grids: [3] }))).toBe('params.grids must be a list of grid ids');
+		it('lets a param no piece reads pass: the changes read their grids in their passages', () => {
+			registerGrid(IOHEFY_A, 'a.json');
+			const named = { ...climbing('iohefy-a'), params: { grids: ['nowhere'] } };
+			expect(check(named)).toBeNull();
 		});
 	});
 });
@@ -311,13 +261,7 @@ describe('definitionChecks, a content written as a selection', () => {
 });
 
 describe('definitionChecks, the passages an exercise writes', () => {
-	// The changes find their presenter by their view until plan 4b's Task 5: here by their set.
-	const checks = definitionChecks({
-		...SET_PRESENTERS,
-		'placed-voicing': VIEW_PRESENTERS['link-lane'],
-		change: VIEW_PRESENTERS['grid-scroll']
-	});
-	const checkPassages = (exercise: ExerciseDefinition) => checks.exercise(exercise);
+	const checkPassages = check;
 
 	beforeEach(() => {
 		// The grids of the catalog, which a spec above clears.
@@ -328,7 +272,7 @@ describe('definitionChecks, the passages an exercise writes', () => {
 	const opening = (exercise: ExerciseDefinition, opens: unknown): ExerciseDefinition =>
 		({ ...exercise, passages: { ...exercise.passages, opens } }) as ExerciseDefinition;
 
-	it('accepts the four exercises of the changes as plan 4b writes them', () => {
+	it('accepts the four exercises of the changes as the catalog writes them', () => {
 		expect(PASSAGE_EXERCISES.map((e) => [e.id, checkPassages(e)])).toEqual(
 			PASSAGE_EXERCISES.map((e) => [e.id, null])
 		);

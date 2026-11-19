@@ -267,7 +267,15 @@ class PassageSource implements ItemSource {
 			rank,
 			passage.items.length
 		);
-		return { ...round, passage: { ...round.passage, id: passage.id, previous: this.previous } };
+		return {
+			...round,
+			passage: {
+				...round.passage,
+				id: passage.id,
+				previous: this.previous,
+				items: passage.items
+			}
+		};
 	}
 
 	/**

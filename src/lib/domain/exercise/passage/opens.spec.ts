@@ -1,22 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
-import { openElements } from '$lib/domain/gesture/opening';
-import { gestureElements } from '$lib/domain/gesture/exercises';
 import type { StringNumber } from '$lib/domain/music';
 import type { TriadSkill } from '$lib/domain/triads';
 import type { CardState } from '$lib/domain/types';
-import { GESTURE_EXERCISES } from '$lib/testing/catalog';
 import {
 	CLIMB_PASSAGES,
 	JAM_PASSAGES,
 	LINK_PASSAGES,
-	PASSAGE_EXERCISES,
 	ZONE_PASSAGES
 } from '$lib/testing/changesPassages';
 import { triadCards } from '$lib/testing/shapes';
 import type { ExerciseDefinition } from '../types';
 import { passageIndices } from './indices';
-import { indexOpen } from './opens';
+import { indexOpen, passagesOpen } from './opens';
 
 const G_B_E = [3, 2, 1] as const;
 const D_G_B = [4, 3, 2] as const;
@@ -119,36 +115,19 @@ describe('indexOpen', () => {
 		expect(indexOpen(broken, index, acquiredOf(iohefy('chord-anchor', G_B_E)))).toBe(false);
 	});
 
-	describe('agrees with the opening of the gesture exercises', () => {
-		const cardSets: Record<string, CardState[]> = {
-			none: [],
-			'anchor on G B E': iohefy('chord-anchor', G_B_E),
-			'anchor on both, one card short': [
-				...iohefy('chord-anchor', G_B_E),
-				...iohefy('chord-anchor', D_G_B).slice(1)
-			],
-			'zone on G B E': iohefy('chord-zone', G_B_E),
-			'everything of iohefy-a': [
-				...iohefy('chord-anchor', G_B_E),
-				...iohefy('chord-anchor', D_G_B),
-				...iohefy('chord-zone', G_B_E),
-				...iohefy('chord-zone', D_G_B)
-			],
-			'a few link chords': [
-				...triadCards('chord-anchor', 'C#', 'min', D_G_B),
-				...triadCards('chord-anchor', 'Bb', 'maj', G_B_E),
-				...triadCards('chord-anchor', 'F#', 'maj', G_B_E).slice(1)
-			]
-		};
-		for (const [name, cards] of Object.entries(cardSets)) {
-			it(name, () => {
-				for (const [i, written] of PASSAGE_EXERCISES.entries()) {
-					const old = GESTURE_EXERCISES[i];
-					const openKeys = new Set(openElements(old, cards).map((element) => element.key));
-					const expected = gestureElements(old).map((element) => openKeys.has(element.key));
-					expect(opened(written, cards), written.id).toEqual(expected);
-				}
-			});
-		}
+	// What the old rule opened on sets of cards is frozen in `testing/catalogChanges.spec.ts`.
+});
+
+describe('passagesOpen', () => {
+	it('is open once one index of the exercise is', () => {
+		expect(passagesOpen(LINK_PASSAGES, acquiredOf([]))).toBe(false);
+		const d = triadCards('chord-anchor', 'D', 'maj', G_B_E);
+		expect(passagesOpen(LINK_PASSAGES, acquiredOf(d))).toBe(true);
+		expect(passagesOpen(ZONE_PASSAGES, acquiredOf(d))).toBe(false);
+	});
+
+	it('is closed for an exercise that writes no passages', () => {
+		const { passages: _passages, ...none } = JAM_PASSAGES;
+		expect(passagesOpen(none, acquiredOf([]))).toBe(false);
 	});
 });

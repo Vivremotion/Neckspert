@@ -181,7 +181,7 @@
 						},
 						"sensor": "chord",
 						"content": {
-							"from": "grid-change"
+							"family": "chord-shapes"
 						},
 						"window": {
 							"ms": {
@@ -191,9 +191,7 @@
 					}
 				],
 				"length": {
-					"beats": {
-						"item": "change-beats"
-					}
+					"bars": 1
 				},
 				"handover": "end",
 				"countEndsOn": "target",
@@ -218,13 +216,56 @@
 					}
 				}
 			},
-			"params": {
-				"rule": "link",
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"]
+			"params": {},
+			"passages": {
+				"of": {
+					"chord": [
+						"C",
+						"Cm",
+						"C#",
+						"C#m",
+						"D",
+						"Dm",
+						"Eb",
+						"Ebm",
+						"E",
+						"Em",
+						"F",
+						"Fm",
+						"F#",
+						"F#m",
+						"G",
+						"Gm",
+						"Ab",
+						"Abm",
+						"A",
+						"Am",
+						"Bb",
+						"Bbm",
+						"B",
+						"Bm"
+					],
+					"strings": [
+						[3, 2, 1],
+						[4, 3, 2]
+					]
+				},
+				"members": {
+					"family": "chord-shapes",
+					"order": ["position"],
+					"take": 4,
+					"andBack": true
+				},
+				"opens": {
+					"acquired": {
+						"skill": "chord-anchor",
+						"item": "voicing",
+						"need": "every-group"
+					}
+				},
+				"again": "until-passed",
+				"restBars": 1,
+				"passes": 0.9
 			},
 			"tempo": 80,
 			"levels": [
@@ -348,7 +389,18 @@
 						},
 						"sensor": "chord",
 						"content": {
-							"from": "grid-change"
+							"family": "chord-shapes",
+							"where": [
+								{
+									"position": {
+										"beyond": "previous",
+										"toward": {
+											"param": "direction"
+										},
+										"turns": true
+									}
+								}
+							]
 						},
 						"window": {
 							"ms": {
@@ -385,14 +437,30 @@
 					}
 				}
 			},
-			"params": {
-				"rule": "climb",
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"],
-				"grids": ["iohefy-a", "blues-f"]
+			"params": {},
+			"passages": {
+				"of": {
+					"grid": ["iohefy-a", "blues-f"],
+					"strings": [
+						[3, 2, 1],
+						[4, 3, 2]
+					]
+				},
+				"members": {
+					"family": "grid-changes"
+				},
+				"each": {
+					"direction": ["up", "down"]
+				},
+				"opens": {
+					"acquired": {
+						"skill": "chord-anchor",
+						"item": "voicing",
+						"need": "every-group"
+					}
+				},
+				"passes": 0.9,
+				"scope": "grid"
 			},
 			"tempo": 80,
 			"levels": [
@@ -516,7 +584,16 @@
 						},
 						"sensor": "chord",
 						"content": {
-							"from": "grid-change"
+							"family": "chord-shapes",
+							"where": [
+								{
+									"in": {
+										"frets": {
+											"param": "zone"
+										}
+									}
+								}
+							]
 						},
 						"window": {
 							"ms": {
@@ -554,13 +631,41 @@
 				}
 			},
 			"params": {
-				"rule": "zone",
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"],
-				"grids": ["iohefy-a", "blues-f"]
+				"strings": [4, 3, 2, 1]
+			},
+			"passages": {
+				"of": {
+					"grid": ["iohefy-a", "blues-f"]
+				},
+				"members": {
+					"family": "grid-changes"
+				},
+				"each": {
+					"zone": [
+						[1, 5],
+						[6, 10],
+						[11, 15],
+						[3, 7],
+						[8, 12],
+						[13, 17],
+						[5, 9],
+						[10, 14],
+						[2, 6],
+						[7, 11],
+						[12, 16],
+						[4, 8],
+						[9, 13]
+					]
+				},
+				"opens": {
+					"acquired": {
+						"skill": "chord-zone",
+						"item": "voicing",
+						"need": "every-group"
+					}
+				},
+				"passes": 0.9,
+				"scope": "grid"
 			},
 			"tempo": 80,
 			"levels": [
@@ -684,7 +789,7 @@
 						},
 						"sensor": "chord",
 						"content": {
-							"from": "grid-change"
+							"family": "chord-shapes"
 						},
 						"window": {
 							"ms": {
@@ -722,13 +827,24 @@
 				}
 			},
 			"params": {
-				"rule": "jam",
-				"stringSets": [
-					[3, 2, 1],
-					[4, 3, 2]
-				],
-				"qualities": ["maj", "min"],
-				"grids": ["iohefy-a", "blues-f"]
+				"strings": [4, 3, 2, 1]
+			},
+			"passages": {
+				"of": {
+					"grid": ["iohefy-a", "blues-f"]
+				},
+				"members": {
+					"family": "grid-changes"
+				},
+				"opens": {
+					"acquired": {
+						"skill": "chord-anchor",
+						"item": "voicing",
+						"need": "one-group"
+					}
+				},
+				"passes": 0.9,
+				"scope": "grid"
 			},
 			"tempo": 80,
 			"levels": [

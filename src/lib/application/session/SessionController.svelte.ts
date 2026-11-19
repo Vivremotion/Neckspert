@@ -1127,7 +1127,8 @@ export class SessionController implements PlaySessionController {
 				presenter.expectation?.(item.item, {
 					opensAt: promptTime,
 					previous: this.previous,
-					expectations: plan.expectations
+					expectations: plan.expectations,
+					passage: item.passage ?? null
 				}) ?? {},
 			// A presenter reads the payloads of its own sensors, not a bare attack heard by another.
 			debug: {
@@ -1704,7 +1705,11 @@ export class SessionController implements PlaySessionController {
 			item,
 			plan: round.plan,
 			outcome,
-			data: (answered) => presenter.attemptData?.(item.item, answered) ?? null,
+			data: (answered) =>
+				presenter.attemptData?.(item.item, answered, {
+					passage: item.passage ?? null,
+					expectations: round.plan.expectations
+				}) ?? null,
 			sessionId: this.sessionId,
 			execution: round.execution,
 			promptedAt: this.deps.clock.toEpochMs(round.promptTime),

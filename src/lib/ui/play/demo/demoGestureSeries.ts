@@ -5,11 +5,10 @@ import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { DEMO_GRID_ID, exerciseById, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise';
-import { linkShapes } from '$lib/domain/gesture/passages';
-import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/sets';
+import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
+import { passageRound } from '$lib/domain/exercise/passage/round';
+import { passageDerivation } from '$lib/domain/families';
 import type { ItemSource } from '$lib/domain/progress';
-import { occurrenceId } from '$lib/domain/triads';
 import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
 import {
@@ -28,10 +27,11 @@ import {
 /** Which exercise the demo plays: the link on its lane, or a climb on the scrolling grid. */
 export type DemoGestureMode = 'link' | 'climb';
 
-const gridOf = () => gridChanges(gridById(DEMO_GRID_ID));
-/** E on G-B-E, linked up the neck and back: one shape per bar. */
-const LINK_SHAPES_E = linkShapes(parseTriadId('E|maj'), [3, 2, 1]);
-const LINK = LINK_SHAPES_E.map((_, i) => ({ at: i * 4, length: 4, symbol: 'E' }));
+/** The passage the demo plays: E linked on G-B-E, or a climb of its grid on G-B-E, going up. */
+const DEMO_PASSAGES = {
+	link: { index: 'chord=E;strings=3,2,1', each: {} },
+	climb: { index: `grid=${DEMO_GRID_ID};strings=3,2,1`, each: { direction: 'up' } }
+} as const;
 
 /** The verdict the scripted player aims at on each change, in turn. */
 const AIMS: readonly ResponseVerdict[] = [
@@ -50,61 +50,29 @@ const STRUM_BEATS: Partial<Record<ResponseVerdict, number>> = {
 	wrong: 0.02
 };
 
-function changeOf(mode: DemoGestureMode, passage: number, index: number): ChordGridItem {
-	const passageId = `demo:${passage}`;
-	if (mode === 'link') {
-		return {
-			rule: 'link',
-			element: 'link:E|maj:3,2,1',
-			passageId,
-			index,
-			changes: LINK,
-			symbol: 'E',
-			chord: 'E|maj',
-			sets: [[3, 2, 1]],
-			shape: occurrenceId(LINK_SHAPES_E[index]),
-			previous: null
-		};
-	}
-	const grid = gridOf();
-	const symbol = grid[index].symbol;
-	return {
-		rule: 'climb',
-		element: `climb:${DEMO_GRID_ID}:3,2,1`,
-		passageId,
-		index,
-		changes: grid,
-		symbol,
-		chord: triadId(triadOf(symbol)),
-		sets: [[3, 2, 1]],
-		direction: 'up',
-		previous: null
-	};
-}
-
 /** Serves the demo's passage again and again, each one counted in, aided. */
 function passageLoop(mode: DemoGestureMode): ItemSource {
 	const exercise = exerciseById(
 		mode === 'link' ? GESTURE_EXERCISE_IDS[0] : GESTURE_EXERCISE_IDS[1]
 	);
-	const length = mode === 'link' ? LINK.length : gridOf().length;
+	const { index: key, each } = DEMO_PASSAGES[mode];
+	const index = passageIndices(exercise).find((found) => found.key === key)!;
+	const derivation = passageDerivation(exercise.passages!.members.family)!;
+	const items = passageMembers(exercise, index, each).map((member) => derivation.itemOf(member));
 	let served = 0;
 	return {
 		next: () => {
-			const passage = Math.floor(served / length);
-			const index = served % length;
+			const passage = Math.floor(served / items.length);
+			const rank = served % items.length;
 			served++;
+			const round = passageRound(exercise, index, each, items[rank], rank, items.length);
+			const scope = exercise.passages?.scope;
 			return {
-				exerciseId: exercise.id,
-				skill: exercise.practices,
-				exerciseLevel: 0,
-				item: changeOf(mode, passage, index),
-				phase: 'free',
-				temperature: 'hot',
+				...round,
+				passage: { ...round.passage, id: `demo:${passage}`, items },
 				aid: 'show-position',
-				leadBeats: null,
-				...(index === 0 && { countIn: true }),
-				...(mode === 'climb' && { scope: DEMO_GRID_ID })
+				...(rank === 0 && { countIn: true }),
+				...(scope !== undefined && { scope: String(index.of[scope]) })
 			};
 		},
 		record: () => null,

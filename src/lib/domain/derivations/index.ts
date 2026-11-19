@@ -1,4 +1,6 @@
-import { CHORD_GRID_CONTENT, NAME_CONTENT, PITCH_CONTENT } from '../judges';
+import { NAME_CONTENT, PITCH_CONTENT } from '../judges';
+import { gridById, gridChanges } from '../grid';
+import type { ChangeItem } from '../sets/change';
 import type { FigureItem } from '../sets/figure';
 import { shapeNamed, type FormFigureItem } from '../sets/placedShape';
 import type { VoicingFigureItem } from '../sets/placedVoicing';
@@ -35,7 +37,6 @@ export interface ItemNumber {
 
 export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = {
 	'name-of-item': { kind: NAME_CONTENT, reads: ['placed-note'], derive: (item) => item },
-	'grid-change': { kind: CHORD_GRID_CONTENT, reads: ['change'], derive: (item) => item },
 	'voicing-notes': {
 		kind: PITCH_CONTENT,
 		reads: ['placed-voicing'],
@@ -73,14 +74,14 @@ export const ITEM_NUMBERS: Readonly<Record<string, ItemNumber>> = {
 			return beats;
 		}
 	},
+	/** The beats a change of a grid lasts, until the next. Throws on a grid or rank it cannot find. */
 	'change-beats': {
 		reads: ['change'],
 		measure: (item) => {
-			const { changes, index } = item as {
-				changes: readonly { length: number }[];
-				index: number;
-			};
-			return changes[index].length;
+			const { grid, index } = item as ChangeItem;
+			const change = gridChanges(gridById(grid))[index];
+			if (!change) throw new Error(`grid "${grid}" has no change at rank ${index}`);
+			return change.length;
 		}
 	}
 };

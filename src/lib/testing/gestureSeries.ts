@@ -1,14 +1,14 @@
 import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
 /** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
-import type { GridChange } from '$lib/domain/grid';
-import { triadShapes, type ChordGridItem } from '$lib/domain/sets';
-import type { StringNumber } from '$lib/domain/music';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
+import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
+import { voicingKey, type StringNumber } from '$lib/domain/music';
+import type { ChangeItem, VoicingFigureItem } from '$lib/domain/sets';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
 import type { Level, LevelState } from '$lib/domain/time';
-import { occurrenceId } from '$lib/domain/triads';
-import type { Attempt, PlannedItem, SessionKind } from '$lib/domain/types';
+import type { Attempt, PlannedItem, PlannedPassage, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import { SET_PRESENTERS, VIEW_PRESENTERS, type GridStageModel } from '$lib/application/sets';
 import {
@@ -30,12 +30,8 @@ import type { SessionControllerDeps } from '$lib/application/session/SessionDeps
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 
 export const G_B_E: StringNumber[] = [3, 2, 1];
-/** Two changes of one bar each: a passage lasts two bars. */
-export const CHANGES: GridChange[] = [
-	{ at: 0, length: 4, symbol: 'Dm7' },
-	{ at: 4, length: 4, symbol: 'G7' }
-];
-export const CHORDS = ['D|min', 'G|maj'];
+/** The two first changes of a grid, a bar each: a scripted passage lasts two bars. */
+const PASSAGE_CHANGES = 2;
 
 export interface ChangeOptions {
 	passage?: string;
@@ -49,28 +45,52 @@ function skillOfGesture(exerciseId: string): string {
 	return index < 0 ? CHANGE_SKILL_IDS[3] : CHANGE_SKILL_IDS[index];
 }
 
-/** Change `index` of a passage, as the gesture selector would serve it. */
-export function change(index: number, options: ChangeOptions = {}): PlannedItem<ChordGridItem> {
+/** The passage params each exercise of the changes reads: the climb goes up, the zone is the first. */
+function eachOf(exerciseId: string): Record<string, unknown> {
+	if (exerciseId === 'grid-in-direction') return { direction: 'up' };
+	if (exerciseId === 'grid-in-zone') return { zone: [1, 5] };
+	return {};
+}
+
+/** The values of a passage's index: the grid, on G-B-E for the climb. */
+function ofFor(exerciseId: string, grid: string): Record<string, unknown> {
+	return exerciseId === 'grid-in-direction' ? { grid, strings: G_B_E } : { grid };
+}
+
+/**
+ * Change `index` of a passage of the two first changes of the grid `scope` (iohefy-a: Dm7 then
+ * G7, a bar each), as the passage source would serve it, nothing heard before.
+ */
+export function change(index: number, options: ChangeOptions = {}): PlannedItem<ChangeItem> {
 	const scope = options.scope ?? 'iohefy-a';
+	const exerciseId = options.exerciseId ?? 'grid-reading';
+	const of = ofFor(exerciseId, scope);
+	const items = Array.from({ length: PASSAGE_CHANGES }, (_, rank) => ({
+		grid: scope,
+		index: rank
+	}));
+	const passage: PlannedPassage = {
+		id: options.passage ?? 's:0',
+		index: Object.entries(of)
+			.map(([name, value]) => `${name}=${Array.isArray(value) ? value.join(',') : value}`)
+			.join(';'),
+		of,
+		rank: index,
+		length: PASSAGE_CHANGES,
+		each: eachOf(exerciseId),
+		previous: null,
+		items
+	};
 	return {
-		exerciseId: options.exerciseId ?? 'grid-reading',
-		skill: skillOfGesture(options.exerciseId ?? 'grid-reading'),
+		exerciseId,
+		skill: skillOfGesture(exerciseId),
 		exerciseLevel: 0,
-		item: {
-			rule: 'jam',
-			element: `jam:${scope}`,
-			passageId: options.passage ?? 's:0',
-			index,
-			changes: CHANGES,
-			symbol: CHANGES[index].symbol,
-			chord: CHORDS[index],
-			sets: [G_B_E],
-			previous: null
-		},
+		item: { grid: scope, index },
 		phase: 'free',
 		temperature: 'hot',
 		aid: 'none',
 		leadBeats: null,
+		passage,
 		...(index === 0 && { countIn: true }),
 		scope
 	};
@@ -82,9 +102,50 @@ export function passage(options: ChangeOptions & { restBars?: number } = {}): Pl
 	return [{ ...first, ...(options.restBars && { restBars: options.restBars }) }, second];
 }
 
-/** The shape a jam takes as right: any shape of its chord. */
+/** The two first shapes of the link's tour of D on G-B-E. */
+export const LINK_FRETS = ['2-3-2', '7-7-5'];
+
+/**
+ * Shape `index` of a link tour of two shapes, D on G-B-E, as the passage source would serve it
+ * (at ♩ = 120 like the jam on the bench); its first counted in.
+ */
+export function linkChange(index: number, passageId = 's:0'): PlannedItem<VoicingFigureItem> {
+	const shapes = chordShapes.members({ chord: triadOf('D'), strings: G_B_E });
+	const items = LINK_FRETS.map((frets) => {
+		const shape = shapes.find((each) => each.notes.map((n) => n.fret).join('-') === frets)!;
+		return {
+			voicing: voicingKey(shape.occurrence.voicing),
+			frets: shape.notes.map((note) => note.fret)
+		};
+	});
+	return {
+		exerciseId: 'inversion-run',
+		skill: 'inversion-run',
+		exerciseLevel: 0,
+		item: items[index],
+		phase: 'free',
+		temperature: 'hot',
+		aid: 'none',
+		leadBeats: null,
+		passage: {
+			id: passageId,
+			index: 'chord=D;strings=3,2,1',
+			of: { chord: 'D', strings: G_B_E },
+			rank: index,
+			length: items.length,
+			each: {},
+			previous: null,
+			items
+		},
+		...(index === 0 && { countIn: true })
+	};
+}
+
+/** The shape a jam takes as right: the lowest of its chord on G-B-E. */
 export function rightShape(item: PlannedItem): string {
-	return occurrenceId(triadShapes(item.item as ChordGridItem)[0]);
+	const { grid, index } = item.item as ChangeItem;
+	const chord = triadOf(gridChanges(gridById(grid))[index].symbol);
+	return chordShapes.members({ chord, strings: G_B_E })[0].id;
 }
 
 /** A verifier that may report at once when its expectation is withdrawn (a window cut short). */
@@ -137,13 +198,11 @@ export const BENCH_LEVEL_STATES: LevelState[] = [
 ].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
 
 /**
- * A gesture exercise (its params name a rule), or one a spec draws from it, on the bench's
+ * An exercise of the changes (it writes passages), or one a spec draws from it, on the bench's
  * levels; any other as it is.
  */
 function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
-	return typeof (definition.params as { rule?: unknown } | undefined)?.rule === 'string'
-		? { ...definition, levels: BENCH_LEVELS }
-		: definition;
+	return definition.passages !== undefined ? { ...definition, levels: BENCH_LEVELS } : definition;
 }
 
 /**

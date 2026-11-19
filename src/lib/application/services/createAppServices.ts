@@ -8,7 +8,8 @@ import { levelAided } from '$lib/application/session/aids';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { gestureOpen } from '$lib/domain/gesture';
+import { passagesOpen } from '$lib/domain/exercise/passage/opens';
+import { createPassageSource } from '$lib/domain/session/passageSource';
 import {
 	exerciseById,
 	exerciseSessionExercises,
@@ -34,7 +35,6 @@ import {
 	freeLeadOf,
 	freeLevelOf,
 	computeHomeStats,
-	createGestureSelector,
 	createListSource,
 	type ItemSource,
 	isNeck,
@@ -192,22 +192,22 @@ export function createAppServices(
 	};
 
 	/**
-	 * A gesture session, played on the session controller: the gesture selector serves the open
-	 * exercises in the order of the ladder, each change a round of its exercise's template.
+	 * A gesture session, played on the session controller: the passages its exercises write, in
+	 * the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
 		playSession('gesture', trackExercises(), async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
-			// The open exercises in the order of the ladder; each grid of each (and the link, which
-			// plays no grid) at its own exercise level, which the series holds.
-			const definitions = gestureExercises().filter((definition) => gestureOpen(definition, cards));
-			const source = createGestureSelector({
-				definitions,
+			// Each grid of each exercise (and the link, which plays no grid) at its own exercise
+			// level, which the series holds.
+			const source = createPassageSource({
+				exercises: gestureExercises(),
 				cards,
 				attempts: attempts.filter((attempt) =>
 					(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)
 				),
-				sessionId
+				sessionId,
+				durationMs: SESSION_MS
 			});
 			return { source, durationMs: SESSION_MS };
 		});
@@ -381,7 +381,12 @@ export function createAppServices(
 
 		async gesture() {
 			const cards = await deps.cards.all();
-			return { open: gestureExercises().some((definition) => gestureOpen(definition, cards)) };
+			const acquired = new Set(
+				cards.filter((card) => card.acquiredAt !== null).map((card) => card.key)
+			);
+			return {
+				open: gestureExercises().some((definition) => passagesOpen(definition, acquired))
+			};
 		},
 
 		async contest(attemptId: number, reason?: string) {

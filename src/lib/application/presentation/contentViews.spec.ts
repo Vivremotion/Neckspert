@@ -282,16 +282,7 @@ describe('CONTENT_VIEWS', () => {
 		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, null, 'fr', () => 0)).toBeNull();
 	});
 
-	it('has a view for every kind of content the judges judge, but those no view covers yet', () => {
-		/**
-		 * Kinds judged but not drawn by a view yet: the gesture's, drawn by its presenter's own
-		 * model until the gesture is data.
-		 */
-		const NOT_VIEWED_YET = ['chord-grid'];
-		const judged = Object.keys(CONTENT_JUDGES);
-		expect(NOT_VIEWED_YET.every((kind) => judged.includes(kind))).toBe(true);
-		expect(Object.keys(CONTENT_VIEWS).sort()).toEqual(
-			judged.filter((kind) => !NOT_VIEWED_YET.includes(kind)).sort()
-		);
+	it('has a view for every kind of content the judges judge', () => {
+		expect(Object.keys(CONTENT_VIEWS).sort()).toEqual(Object.keys(CONTENT_JUDGES).sort());
 	});
 });

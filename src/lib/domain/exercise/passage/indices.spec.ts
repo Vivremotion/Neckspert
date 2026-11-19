@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { linkShapes } from '$lib/domain/gesture/passages';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import type { StringNumber } from '$lib/domain/music';
-import { occurrenceId } from '$lib/domain/triads';
 import {
 	CLIMB_PASSAGES,
 	JAM_PASSAGES,
@@ -15,6 +14,15 @@ import type { ExerciseDefinition } from '../types';
 import { passageIndexKey, passageIndices, passageMembers } from './indices';
 
 const ids = (members: readonly { id: string }[]) => members.map((member) => member.id);
+
+/**
+ * A link tour (frozen against the old rule in `testing/catalogChanges.spec.ts`): the chord's first
+ * four shapes on its strings by position, then back down without the highest twice.
+ */
+function tour(chord: string, strings: readonly StringNumber[]): string[] {
+	const up = ids(chordShapes.members({ chord: triadOf(chord), strings }).slice(0, 4));
+	return [...up, ...up.slice(0, -1).reverse()];
+}
 
 describe('passageIndices', () => {
 	it('gives the product of the lists of `of`, the first name outermost', () => {
@@ -70,10 +78,9 @@ describe('passageMembers', () => {
 		const indices = passageIndices(LINK_PASSAGES);
 		expect(indices).toHaveLength(LINK_CHORDS.length * STRING_GROUPS.length);
 		for (const index of indices) {
-			const chord = triadOf(index.of.chord as string);
 			const strings = index.of.strings as StringNumber[];
 			expect(ids(passageMembers(LINK_PASSAGES, index, {})), index.key).toEqual(
-				linkShapes(chord, strings).map(occurrenceId)
+				tour(index.of.chord as string, strings)
 			);
 		}
 		const [first] = indices;
@@ -87,9 +94,9 @@ describe('passageMembers', () => {
 			['F#', [6, 5, 4]]
 		] as const) {
 			const index = { key: `chord=${chord}`, of: { chord, strings } };
-			const shapes = linkShapes(triadOf(chord), [...strings]);
+			const shapes = tour(chord, strings);
 			expect(shapes).toHaveLength(5);
-			expect(ids(passageMembers(LINK_PASSAGES, index, {}))).toEqual(shapes.map(occurrenceId));
+			expect(ids(passageMembers(LINK_PASSAGES, index, {}))).toEqual(shapes);
 		}
 	});
 

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { allExercises, exerciseById, exerciseSessionExercises } from './registry';
-import { gridById, gridChanges } from '$lib/domain/grid';
-import type { ChordGridItem } from '$lib/domain/sets';
+import { passageIndices, passageMembers } from './passage/indices';
+import { firstEach, passageRound } from './passage/round';
+import { passageDerivation } from '$lib/domain/families';
 import { Fraction, METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { ladderOf } from './ladder';
@@ -208,23 +209,21 @@ describe('exercise catalog', () => {
 			policy: onTheBeat(false)
 		});
 
-		// The gesture: a change of a grid, whichever exercise plays it.
-		const changes = gridChanges(gridById('iohefy-a'));
-		const change: ChordGridItem = {
-			rule: 'jam',
-			element: 'jam:iohefy-a',
-			passageId: 's:0',
-			index: 1,
-			changes,
-			symbol: changes[1].symbol,
-			chord: 'D|min',
-			sets: [[3, 2, 1]],
-			previous: null
-		};
+		// The changes: the second round of the first passage of each, a bar long, its chord's shapes.
 		for (const exercise of GESTURE_EXERCISES) {
-			expect(compiled(exercise, change, null)).toEqual({
+			const [index] = passageIndices(exercise);
+			const each = firstEach(exercise);
+			const derivation = passageDerivation(exercise.passages!.members.family)!;
+			const items = passageMembers(exercise, index, each).map((m) => derivation.itemOf(m));
+			const round = passageRound(exercise, index, each, items[1], 1, items.length);
+			expect(compileRound(exercise, round, meter, { previewBeats, fromRunStart: null })).toEqual({
 				prompt: Fraction.of(-1, 4),
-				expectations: [pointAt('chord', { kind: 'chord-grid', value: change })],
+				expectations: [
+					pointAt('chord', {
+						kind: 'member',
+						value: expect.objectContaining({ family: 'chord-shapes', previous: null })
+					})
+				],
 				length: Fraction.of(1),
 				handover: Fraction.of(1),
 				mutedBars: [],

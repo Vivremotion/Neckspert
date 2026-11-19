@@ -1,99 +1,100 @@
 import { describe, expect, it } from 'vitest';
-import { gridById, gridChanges, type GridChange } from '$lib/domain/grid';
-import { CHORD_GRID_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
-import { gestureChangeSet, type ChordGridConfusion, type ChordGridItem } from '$lib/domain/sets';
+import type { ChordExpectation } from '$lib/application/ports';
+import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
+import { passageRound } from '$lib/domain/exercise/passage/round';
+import { compileRound } from '$lib/domain/exercise/round';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { passageDerivation } from '$lib/domain/families';
+import type { ChordGridConfusion } from '$lib/domain/families/guitar/chordShapes';
+import { contentJudges } from '$lib/domain/judges';
 import type { StringNumber } from '$lib/domain/music';
-import type { ResponseValue } from '$lib/domain/time';
-import { DEFAULT_SETTINGS } from '$lib/domain/types';
+import { changeSet, placedVoicingSet, type ChangeItem } from '$lib/domain/sets';
+import { METER_4_4, type ResponseValue } from '$lib/domain/time';
+import { DEFAULT_SETTINGS, type PlannedItem } from '$lib/domain/types';
 import type { LaneEntry } from '$lib/application/session/contract';
-import type { StagePlace } from './types';
+import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from '$lib/testing/catalog';
 import { shapeAt, shapeId } from '$lib/testing/shapes';
+import type { PresentedRound, StagePlace } from './types';
 import {
-	chordGridPresenter,
+	changePresenter,
+	linkPresenter,
 	VIEW_PRESENTERS,
-	gridExpectation,
 	type GridStageModel,
 	type LinkLaneModel
 } from './chordGrid';
+import { SET_PRESENTERS } from './index';
 
 const G_B_E: StringNumber[] = [3, 2, 1];
+const D_G_B: StringNumber[] = [4, 3, 2];
 
-/** A change judged as the round judges it: by the content judge of a grid change. */
-const judgeChange = (item: ChordGridItem, reading: { decided: string | null }) =>
-	CONTENT_JUDGES[CHORD_GRID_CONTENT].judge(item, reading) as {
+/** A round of a passage of `definition`, as the passage source serves it, `previous` heard before. */
+function served(
+	definition: ExerciseDefinition,
+	key: string,
+	rank: number,
+	each: Record<string, unknown> = {},
+	previous: string | null = null
+): { planned: PlannedItem; round: PresentedRound } {
+	const index = passageIndices(definition).find((found) => found.key === key)!;
+	const derivation = passageDerivation(definition.passages!.members.family)!;
+	const items = passageMembers(definition, index, each).map((member) => derivation.itemOf(member));
+	const base = passageRound(definition, index, each, items[rank], rank, items.length);
+	const planned = { ...base, passage: { ...base.passage, id: 's:0', previous, items } };
+	const plan = compileRound(definition, planned, METER_4_4, {
+		previewBeats: 0,
+		fromRunStart: null
+	});
+	return { planned, round: { passage: planned.passage, expectations: plan.expectations } };
+}
+
+const link = (rank: number, previous: string | null = null) =>
+	served(GESTURE_LINK, 'chord=D;strings=3,2,1', rank, {}, previous);
+const climb = (direction: 'up' | 'down', previous: string | null, rank = 0) =>
+	served(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', rank, { direction }, previous);
+const zone = (frets: [number, number], rank = 0) =>
+	served(GESTURE_ZONE, 'grid=iohefy-a', rank, { zone: frets });
+const jam = (rank = 0, previous: string | null = null) =>
+	served(GESTURE_JAM, 'grid=iohefy-a', rank, {}, previous);
+
+/** A shape judged as the round judges it: by its member content. */
+function judged({ round }: { round: PresentedRound }, decided: string | null) {
+	const { content } = round.expectations[0];
+	return contentJudges(content!.kind).judge(content!.value, { decided }) as {
 		correct: boolean;
 		answer: { decided: string | null };
 		confusion: ChordGridConfusion | null;
 	};
-const D_G_B: StringNumber[] = [4, 3, 2];
-const IOHEFY = gridChanges(gridById('iohefy-a'));
-const LINK_D: GridChange[] = [0, 4, 8, 12, 16, 20, 24].map((at) => ({
-	at,
-	length: 4,
-	symbol: 'D'
-}));
-
-function item(overrides: Partial<ChordGridItem>): ChordGridItem {
-	return {
-		rule: 'jam',
-		element: 'jam:iohefy-a',
-		passageId: 's:0',
-		index: 0,
-		changes: IOHEFY,
-		symbol: 'Dm7',
-		chord: 'D|min',
-		sets: [G_B_E, D_G_B],
-		previous: null,
-		...overrides
-	};
 }
-
-const link = (index: number, shape: string, previous: string | null = null) =>
-	item({
-		rule: 'link',
-		element: 'link:D|maj:3,2,1',
-		index,
-		changes: LINK_D,
-		symbol: 'D',
-		chord: 'D|maj',
-		sets: [G_B_E],
-		shape,
-		previous
-	});
-
-const climb = (direction: 'up' | 'down', previous: string | null, index = 0) =>
-	item({
-		rule: 'climb',
-		element: 'climb:iohefy-a:3,2,1',
-		sets: [G_B_E],
-		direction,
-		previous,
-		index,
-		symbol: IOHEFY[index].symbol
-	});
 
 const view = (frets: string, set: StringNumber[] = G_B_E) => ({
 	notes: frets.split('-').map((fret, i) => ({ string: set[i], fret: Number(fret) }))
 });
 
-describe('chordGridPresenter', () => {
-	it('is played on the guitar, heard by the chord sensor, contestable', () => {
-		expect(chordGridPresenter).toMatchObject({
-			set: gestureChangeSet,
+/** The chord sensor's expectation of a round, opening at 3 s. */
+function told({ planned, round }: { planned: PlannedItem; round: PresentedRound }) {
+	const presenter = planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter;
+	return presenter.expectation!(planned.item as never, { ...round, opensAt: 3, previous: null })
+		.chord as ChordExpectation;
+}
+
+describe('the presenters of the changes', () => {
+	it('are played on the guitar, heard by the chord sensor, contestable', () => {
+		expect(changePresenter).toMatchObject({
+			set: changeSet,
 			scene: 'guitar',
 			sensors: ['chord'],
 			contestable: true
 		});
-		expect(VIEW_PRESENTERS['grid-scroll']).toBe(chordGridPresenter);
-		expect(VIEW_PRESENTERS['link-lane']).toBe(chordGridPresenter);
+		expect(linkPresenter).toMatchObject({ set: placedVoicingSet, sensors: ['chord'] });
+		// A grid's change is found by its set; the link's shape by its view, its set having another.
+		expect(SET_PRESENTERS.change).toBe(changePresenter);
+		expect(VIEW_PRESENTERS).toEqual({ 'link-lane': linkPresenter });
 	});
 
 	describe('candidates', () => {
-		const ids = (it: ChordGridItem) => gridExpectation(it, 3);
-
 		it('link: the shape asked, its look-alikes near it, never the shape still ringing', () => {
 			const ringing = shapeId('D', 'maj', G_B_E, '2-3-2');
-			const expectation = ids(link(1, shapeId('D', 'maj', G_B_E, '7-7-5'), ringing));
+			const expectation = told(link(1, ringing));
 			expect(expectation).toMatchObject({
 				opensAt: 3,
 				expected: [shapeId('D', 'maj', G_B_E, '7-7-5')],
@@ -108,7 +109,7 @@ describe('chordGridPresenter', () => {
 
 		it('climb: the shapes above the one heard before, which is not one', () => {
 			const ringing = shapeId('D', 'min', G_B_E, '7-6-5');
-			const expectation = ids(climb('up', ringing));
+			const expectation = told(climb('up', ringing));
 			expect(expectation.expected).toEqual([
 				shapeId('D', 'min', G_B_E, '10-10-10'),
 				shapeId('D', 'min', G_B_E, '14-15-13')
@@ -116,19 +117,18 @@ describe('chordGridPresenter', () => {
 			expect(expectation.candidates.map((c) => c.id)).not.toContain(ringing);
 		});
 
-		it('zone: the shapes in the zone, on both sets', () => {
-			const zone = item({ rule: 'zone', element: 'zone:iohefy-a', zone: { from: 5, to: 8 } });
-			expect(ids(zone).expected).toEqual([
+		it('zone: the shapes in the zone, on both groups', () => {
+			expect(told(zone([5, 9])).expected).toEqual([
 				shapeId('D', 'min', G_B_E, '7-6-5'),
 				shapeId('D', 'min', D_G_B, '7-7-6')
 			]);
 		});
 
-		it('jam: every shape of the chord, never the ringing one nor its twin on the other set', () => {
+		it('jam: every shape of the chord, never the ringing one nor its twin on the other group', () => {
 			const ringing = shapeId('D', 'min', G_B_E, '7-6-5');
 			// The same pitches (D F A) on D-G-B: 12-10-10.
 			const twin = shapeId('D', 'min', D_G_B, '12-10-10');
-			const expectation = ids(item({ index: 1, symbol: 'G7', chord: 'G|maj', previous: ringing }));
+			const expectation = told(jam(1, ringing));
 			// G: four shapes on G-B-E, five on D-G-B (0-0-0 among them).
 			expect(expectation.expected).toHaveLength(9);
 			const candidates = expectation.candidates.map((c) => c.id);
@@ -139,20 +139,31 @@ describe('chordGridPresenter', () => {
 				expectation.candidates.find((c) => c.id === shapeId('C', 'maj', G_B_E, '5-5-3'))?.kind
 			).toBe('other-chord');
 		});
+
+		it('tells nothing for a round with no chord shapes', () => {
+			const { planned } = jam();
+			expect(
+				changePresenter.expectation!(planned.item as ChangeItem, {
+					opensAt: 3,
+					previous: null,
+					expectations: []
+				})
+			).toEqual({});
+		});
 	});
 
 	describe('the screen model', () => {
 		/** Not placed yet: waiting for its round. */
 		const UNPLACED = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
-		/** The model of `it`, settled on the shape `answer` when given, `aid` its aid. */
+		/** The model of a round, settled on the shape `answer` when given, `aid` its aid. */
 		const modelOf = (
-			it: ChordGridItem,
+			{ planned, round }: { planned: PlannedItem; round: PresentedRound },
 			answer: string | null = null,
 			aid: 'none' | 'show-position' = 'show-position',
 			locale: 'fr' | 'en' = 'fr'
 		) =>
-			chordGridPresenter.stageOf(
-				it,
+			(planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter).stageOf(
+				planned.item as never,
 				answer === null
 					? null
 					: {
@@ -178,17 +189,14 @@ describe('chordGridPresenter', () => {
 				{ aid, stringAid: false },
 				UNPLACED,
 				undefined,
-				() => 0
+				() => 0,
+				round
 			).model;
-		const stage = (it: ChordGridItem, answer: string | null = null) =>
-			modelOf(it, answer) as GridStageModel;
+		const stage = (served: { planned: PlannedItem; round: PresentedRound }, answer?: string) =>
+			modelOf(served, answer ?? null) as GridStageModel;
 
 		it('link: the lane, the root then the way of each shape, the chord and its strings', () => {
-			const model = modelOf(
-				link(1, shapeId('D', 'maj', G_B_E, '7-7-5')),
-				null,
-				'none'
-			) as LinkLaneModel;
+			const model = modelOf(link(1), null, 'none') as LinkLaneModel;
 			expect(model).toEqual({
 				kind: 'link-lane',
 				root: 'D',
@@ -200,8 +208,9 @@ describe('chordGridPresenter', () => {
 					{ string: 1, name: 'mi' }
 				],
 				tiles: ['root', 'up', 'up', 'up', 'down', 'down', 'down'],
-				following: ['up', 'up', 'up', 'down', 'down', 'down'],
-				changes: LINK_D,
+				// A tour no longer chains to the next: nothing is drawn after its last bar.
+				following: [],
+				changes: [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'D' })),
 				index: 1,
 				beatsPerBar: 4,
 				aid: null,
@@ -209,19 +218,12 @@ describe('chordGridPresenter', () => {
 				history: [],
 				miss: null
 			});
-			const english = modelOf(link(1, ''), null, 'none', 'en') as LinkLaneModel;
+			const english = modelOf(link(1), null, 'none', 'en') as LinkLaneModel;
 			expect(english).toMatchObject({ quality: 'major', set: 'G · B · E' });
 		});
 
-		it('link: a chained tour starts on an arrow, from the second shape', () => {
-			const chained = { ...link(0, shapeId('D', 'maj', G_B_E, '7-7-5')), continued: true as const };
-			const model = modelOf({ ...chained, changes: LINK_D.slice(1) }) as LinkLaneModel;
-			expect(model.tiles).toEqual(['up', 'up', 'up', 'down', 'down', 'down']);
-			expect(model.aid?.now.map((n) => n.fret)).toEqual([7, 7, 5]);
-		});
-
 		it('link: aided, the notes of the shape now and of the next one', () => {
-			const model = modelOf(link(1, shapeId('D', 'maj', G_B_E, '7-7-5'))) as LinkLaneModel;
+			const model = modelOf(link(1)) as LinkLaneModel;
 			expect(model.aid).toEqual({
 				now: [
 					{ string: 3, fret: 7, name: 'D' },
@@ -234,7 +236,7 @@ describe('chordGridPresenter', () => {
 					{ string: 1, fret: 10, name: 'D' }
 				]
 			});
-			const last = modelOf(link(6, shapeId('D', 'maj', G_B_E, '2-3-2'))) as LinkLaneModel;
+			const last = modelOf(link(6)) as LinkLaneModel;
 			expect(last.aid?.next).toBeNull();
 		});
 
@@ -259,46 +261,44 @@ describe('chordGridPresenter', () => {
 		});
 
 		it('zone: the frets, and the lowest shape of the next chord in them', () => {
-			const zone = item({ rule: 'zone', element: 'zone:iohefy-a', zone: { from: 7, to: 10 } });
-			expect(stage(zone)).toMatchObject({ cue: { kind: 'zone', from: 7, to: 10 } });
-			expect(stage(zone).aid).toEqual(view('7-8-7'));
+			const inZone = zone([7, 11]);
+			expect(stage(inZone)).toMatchObject({ cue: { kind: 'zone', from: 7, to: 11 } });
+			expect(stage(inZone).aid).toEqual(view('7-8-7'));
 		});
 
 		it('jam: the chords alone, no aid', () => {
-			expect(stage(item({}))).toMatchObject({ cue: { kind: 'jam' }, aid: null });
+			expect(stage(jam())).toMatchObject({ cue: { kind: 'jam' }, aid: null });
 		});
 	});
 
 	describe('on the target model', () => {
 		const ringing = shapeId('D', 'maj', G_B_E, '7-7-5');
-		const climbing = item({
-			rule: 'climb',
-			sets: [G_B_E],
-			direction: 'up',
-			chord: 'D|maj',
-			symbol: 'D',
-			previous: ringing
-		});
-		const higher = judgeChange(climbing, {
-			decided: shapeId('D', 'maj', G_B_E, '11-10-10')
-		});
-		const lower = judgeChange(climbing, { decided: shapeId('D', 'maj', G_B_E, '2-3-2') });
+		// iohefy-a has no D major: the climb is asked on the blues' F after a ringing D.
+		const climbing = served(
+			GESTURE_CLIMB,
+			'grid=blues-f;strings=3,2,1',
+			0,
+			{ direction: 'up' },
+			ringing
+		);
+		const higher = judged(climbing, shapeId('F', 'maj', G_B_E, '10-10-8'));
+		const lower = judged(climbing, shapeId('F', 'maj', G_B_E, '2-1-1'));
 
 		const valueOf = (
 			verdict: ResponseValue['verdict'],
-			judged: { answer: unknown; correct: boolean; confusion: unknown } | null,
+			result: { answer: unknown; correct: boolean; confusion: unknown } | null,
 			late = false
 		): ResponseValue => ({
 			verdict,
-			timingOffsetMs: judged ? 12 : null,
-			reactionMs: judged ? 400 : null,
+			timingOffsetMs: result ? 12 : null,
+			reactionMs: result ? 400 : null,
 			leadMs: 500,
 			expectations: [
 				{
 					index: 0,
-					answer: judged?.answer ?? null,
-					correct: judged ? judged.correct : null,
-					confusion: judged?.confusion ?? null,
+					answer: result?.answer ?? null,
+					correct: result ? result.correct : null,
+					confusion: result?.confusion ?? null,
 					correction: null,
 					late
 				}
@@ -322,20 +322,23 @@ describe('chordGridPresenter', () => {
 		const placed = { anchorBeat: place.anchorBeat, history: place.history };
 
 		it('places the change where the series says, and draws a miss after a wrong chord or none only', () => {
-			expect(lower.confusion).not.toBeNull();
-			const items = [climbing, link(1, shapeId('D', 'maj', G_B_E, '7-7-5'))];
+			expect(higher.correct).toBe(true);
+			expect(lower.confusion).toEqual({ kind: 'not-higher', part: 'chord' });
 			const unplaced: StagePlace = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
-			for (const it of items) {
+			for (const each of [climbing, link(1)]) {
+				const presenter =
+					each.planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter;
 				for (const aid of ['none', 'show-position'] as const) {
 					const modelOf = (settled: (typeof cases)[number] | null, at: StagePlace = place) =>
-						chordGridPresenter.stageOf(
-							it,
+						presenter.stageOf(
+							each.planned.item as never,
 							settled,
 							'fr',
 							{ aid, stringAid: false },
 							at,
 							undefined,
-							() => 0
+							() => 0,
+							each.round
 						).model as GridStageModel;
 					expect(modelOf(null)).toEqual({ ...modelOf(null, unplaced), ...placed });
 					expect(modelOf(null, unplaced)).toMatchObject({ anchorBeat: null, history: [] });
@@ -350,26 +353,28 @@ describe('chordGridPresenter', () => {
 		});
 
 		it('draws a miss as the old verdict did: heard, expected and gap, in the style given', () => {
-			const jam = item({});
-			const wrong = judgeChange(jam, { decided: shapeId('G', 'maj', G_B_E, '7-8-7') });
-			const right = judgeChange(jam, { decided: shapeId('D', 'min', G_B_E, '7-6-5') });
+			const asked = jam();
+			const wrong = judged(asked, shapeId('G', 'maj', G_B_E, '7-8-7'));
+			const right = judged(asked, shapeId('D', 'min', G_B_E, '7-6-5'));
 			const missed = { value: valueOf('wrong', wrong), success: false };
 			const played = { value: valueOf('perfect', right), success: true };
 			const drawing = { chordDiagram: 'grid' as const };
 			const stageOf = (settled: typeof missed | null) =>
-				chordGridPresenter.stageOf!(
-					jam,
+				changePresenter.stageOf!(
+					asked.planned.item as ChangeItem,
 					settled,
 					'fr',
 					{ aid: 'none', stringAid: false },
 					place,
 					drawing,
-					() => 0
+					() => 0,
+					asked.round
 				).model as GridStageModel;
-			const feedback = chordGridPresenter.feedback!(
-				jam,
+			const feedback = changePresenter.feedback!(
+				asked.planned.item as ChangeItem,
 				{ answer: wrong.answer, confusion: wrong.confusion, verdict: 'wrong' },
-				'fr'
+				'fr',
+				asked.round
 			);
 			expect(feedback?.heard).toBeTruthy();
 			expect(feedback?.expected).toBeTruthy();
@@ -378,60 +383,101 @@ describe('chordGridPresenter', () => {
 			expect(stageOf(played).miss).toBeNull();
 			expect(stageOf(null).miss).toBeNull();
 			// The link draws it the same way.
-			const linked = chordGridPresenter.stageOf!(
-				link(0, shapeId('D', 'maj', G_B_E, '2-3-2')),
+			const linked = link(0);
+			const lane = linkPresenter.stageOf!(
+				linked.planned.item as never,
 				{ value: valueOf('wrong', null), success: false },
 				'fr',
 				{ aid: 'none', stringAid: false },
 				place,
 				undefined,
-				() => 0
+				() => 0,
+				linked.round
 			).model as LinkLaneModel;
-			expect(linked.miss).toMatchObject({ heard: null, style: 'strings' });
+			expect(lane.miss).toMatchObject({ heard: null, style: 'strings' });
 		});
 
-		it('keeps the attempt data a gesture attempt has today', () => {
-			const today = (judged: { answer: unknown; confusion: unknown } | null) => ({
-				item: climbing,
-				answer: judged?.answer ?? null,
-				confusion: judged?.confusion ?? null
+		it('keeps an attempt’s item, its passage, the shape heard and what went wrong', () => {
+			const { planned, round } = climbing;
+			const data = (result: { answer: unknown; confusion: unknown } | null) => ({
+				item: { grid: 'blues-f', index: 0 },
+				passage: {
+					id: 's:0',
+					index: 'grid=blues-f;strings=3,2,1',
+					rank: 0,
+					each: { direction: 'up' }
+				},
+				answer: result?.answer ?? null,
+				confusion: result?.confusion ?? null
 			});
-			expect(chordGridPresenter.attemptData!(climbing, cases[0].value)).toEqual(today(higher));
-			expect(chordGridPresenter.attemptData!(climbing, cases[1].value)).toEqual(today(lower));
-			expect(chordGridPresenter.attemptData!(climbing, cases[3].value)).toEqual(today(null));
+			const item = planned.item as ChangeItem;
+			expect(changePresenter.attemptData!(item, cases[0].value, round)).toEqual(data(higher));
+			expect(changePresenter.attemptData!(item, cases[1].value, round)).toEqual(data(lower));
+			expect(changePresenter.attemptData!(item, cases[3].value, round)).toEqual(data(null));
+			// Outside a passage, none.
+			expect(changePresenter.attemptData!(item, cases[3].value)).toMatchObject({ passage: null });
 		});
 	});
 
 	it('draws the shape heard and the closest admitted after a shape that does not climb', () => {
-		const ringing = shapeId('D', 'maj', G_B_E, '7-7-5');
-		const asked = item({
-			rule: 'climb',
-			sets: [G_B_E],
-			direction: 'up',
-			chord: 'D|maj',
-			symbol: 'D',
-			previous: ringing
-		});
-		const heard = shapeId('D', 'maj', G_B_E, '2-3-2');
-		const judged = judgeChange(asked, { decided: heard });
-		expect(judged.confusion?.kind).toBe('not-higher');
+		const ringing = shapeId('F', 'maj', G_B_E, '5-6-5');
+		const asked = served(
+			GESTURE_CLIMB,
+			'grid=blues-f;strings=3,2,1',
+			0,
+			{ direction: 'up' },
+			ringing
+		);
+		const heard = shapeId('F', 'maj', G_B_E, '2-1-1');
+		const result = judged(asked, heard);
+		expect(result.confusion?.kind).toBe('not-higher');
+		const item = asked.planned.item as ChangeItem;
 		expect(
-			chordGridPresenter.feedback!(
-				asked,
-				{ answer: judged.answer, confusion: judged.confusion, verdict: 'wrong' },
-				'fr'
+			changePresenter.feedback!(
+				item,
+				{ answer: result.answer, confusion: result.confusion, verdict: 'wrong' },
+				'fr',
+				asked.round
 			)
-		).toEqual({ heard: view('2-3-2'), expected: view('11-10-10'), gap: 'pas plus haut' });
+		).toEqual({ heard: view('2-1-1'), expected: view('10-10-8'), gap: 'pas plus haut' });
 		expect(
-			chordGridPresenter.feedback!(asked, { answer: null, confusion: null, verdict: 'wrong' }, 'en')
+			changePresenter.feedback!(
+				item,
+				{ answer: null, confusion: null, verdict: 'wrong' },
+				'en',
+				asked.round
+			)
 		).toMatchObject({ heard: null, gap: 'no chord heard' });
 		expect(
-			chordGridPresenter.feedback!(
-				asked,
-				{ answer: judged.answer, confusion: null, verdict: 'perfect' },
-				'fr'
+			changePresenter.feedback!(
+				item,
+				{ answer: result.answer, confusion: null, verdict: 'perfect' },
+				'fr',
+				asked.round
 			)
 		).toBeNull();
-		expect(shapeAt('D', 'maj', G_B_E, '2-3-2').notes).toHaveLength(3);
+		expect(shapeAt('F', 'maj', G_B_E, '2-1-1').notes).toHaveLength(3);
+	});
+
+	it('tells a miss whose confusion says nothing without a gap, and without throwing', () => {
+		const asked = jam();
+		const heard = shapeId('D', 'min', G_B_E, '7-6-5');
+		const item = asked.planned.item as ChangeItem;
+		expect(
+			changePresenter.feedback!(
+				item,
+				{ answer: { decided: heard }, confusion: null, verdict: 'wrong' },
+				'fr',
+				asked.round
+			)
+		).toEqual({ heard: view('7-6-5'), expected: view('7-6-5'), gap: null });
+		// Nothing compiled to read: no shape due.
+		expect(
+			changePresenter.feedback!(
+				item,
+				{ answer: { decided: heard }, confusion: { kind: 'unknown' }, verdict: 'wrong' },
+				'fr'
+			)
+		).toEqual({ heard: view('7-6-5'), expected: null, gap: null });
 	});
 });

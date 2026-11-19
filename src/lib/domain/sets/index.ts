@@ -2,7 +2,6 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { skillById } from '$lib/domain/skill/registry';
 import type { SkillId } from '$lib/domain/skill/types';
 import { changeSet } from './change';
-import { gestureChangeSet } from './chordGrid';
 import { figureSet } from './figure';
 import { noteOnStringSet } from './noteOnString';
 import { placedNoteSet } from './placedNote';
@@ -13,7 +12,7 @@ import type { ItemSet } from './types';
 
 export * from './types';
 export { ITEM_SET_NAMES, type ItemSetName } from './names';
-export { changeSet, type ChangeItem } from './change';
+export { changeSet, type ChangeData, type ChangeItem } from './change';
 export { figureSet, type FigureItem } from './figure';
 export { placedVoicingSet, type VoicingFigureItem } from './placedVoicing';
 export { placedShapeSet, shapeNamed, type FormFigureItem } from './placedShape';
@@ -30,24 +29,11 @@ export {
 	type TriadZoneData,
 	type RootConfusion
 } from './voicingOnStrings';
-export type { ChordConfusion, ChordReading } from '$lib/domain/families/guitar/chordShapes';
-export {
-	admits,
-	admittedShapes,
-	gestureChangeSet,
-	climbDirection,
-	closestShape,
-	expectedShape,
-	inZone,
-	parseTriadId,
-	shapePosition,
-	triadId,
-	triadShapes,
-	type ChordGridConfusion,
-	type ChordGridData,
-	type ChordGridItem,
-	type GestureRule
-} from './chordGrid';
+export type {
+	ChordConfusion,
+	ChordGridConfusion,
+	ChordReading
+} from '$lib/domain/families/guitar/chordShapes';
 
 /** The sets the code knows, in the order of `ITEM_SET_NAMES`. */
 export const ITEM_SETS: readonly ItemSet[] = [
@@ -72,18 +58,9 @@ export function setOfSkill(skill: SkillId): ItemSet {
 	return itemSet(skillById(skill).items);
 }
 
-/** The views of the changes, whose rounds read a gesture change until plan 4 (D6). */
-const CHANGE_VIEWS: readonly string[] = ['grid-scroll', 'link-lane'];
-
-/**
- * The set whose items an exercise's rounds read: its skill's, but a gesture change for an exercise
- * drawn by a changes view until plan 4 (D6), whatever its skill's set (the link's skill is on
- * placed voicings, its rounds read changes).
- */
+/** The set whose items an exercise's rounds read: its skill's. */
 export function exerciseItemSet(definition: ExerciseDefinition): ItemSet {
-	return readsChanges(definition)
-		? (gestureChangeSet as ItemSet)
-		: setOfSkill(definition.practices);
+	return setOfSkill(definition.practices);
 }
 
 /**
@@ -91,10 +68,5 @@ export function exerciseItemSet(definition: ExerciseDefinition): ItemSet {
  * vocabulary's `reads` name: a set the code may not hold (a spec's invented one) is named too.
  */
 export function exerciseSetId(definition: ExerciseDefinition): string {
-	return readsChanges(definition) ? gestureChangeSet.id : skillById(definition.practices).items;
-}
-
-/** An exercise drawn by a changes view reads gesture changes: the gesture's params run it. */
-export function readsChanges(definition: ExerciseDefinition): boolean {
-	return definition.view !== undefined && CHANGE_VIEWS.includes(definition.view);
+	return skillById(definition.practices).items;
 }

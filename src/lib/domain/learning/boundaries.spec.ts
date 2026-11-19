@@ -247,3 +247,37 @@ describe('the named draw', () => {
 		expect(namingDraws(library)).toEqual([]);
 	});
 });
+
+/** The rule the changes were played by, replaced by the passages their exercises write (plan 4b). */
+const CHANGES_RULE_NAMES = [
+	'GestureRule',
+	'gestureSelector',
+	'createGestureSelector',
+	'classifyGridChord',
+	'readGestureParams',
+	'ChordGridItem'
+];
+
+function namingChangesRule(files: Record<string, string>): string[] {
+	return Object.entries(files).flatMap(([path, text]) =>
+		path === THIS_FILE || path.includes('/storage/migrations/')
+			? []
+			: CHANGES_RULE_NAMES.filter((name) => new RegExp(`\\b${name}\\b`).test(text)).map(
+					(name) => `${path}: ${name}`
+				)
+	);
+}
+
+describe('the changes’ rule', () => {
+	it('is named nowhere in the library, migrations aside', () => {
+		expect(
+			namingChangesRule({
+				'/src/lib/x.ts': 'const s = createGestureSelector(); let i: ChordGridItem;'
+			})
+		).toEqual(['/src/lib/x.ts: createGestureSelector', '/src/lib/x.ts: ChordGridItem']);
+		expect(
+			namingChangesRule({ '/src/lib/infrastructure/storage/migrations/v99.ts': 'GestureRule' })
+		).toEqual([]);
+		expect(namingChangesRule(library)).toEqual([]);
+	});
+});

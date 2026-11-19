@@ -15,13 +15,17 @@ const C_FIRST = 'C|maj|3:3,2:5,1:1';
 const KEY = 'D|maj|3:5,2:1,1:3';
 
 describe('the derivations', () => {
-	it('derives the item itself and the length of a change', () => {
+	it('derives the item itself, and measures a change of a grid on its grid', () => {
 		const item = { string: 3, pitch: 'F' };
 		expect(CONTENT_DERIVATIONS['name-of-item'].derive(item, NO_SHAPES)).toBe(item);
-		expect(CONTENT_DERIVATIONS['grid-change'].derive(item, NO_SHAPES)).toBe(item);
-		expect(
-			ITEM_NUMBERS['change-beats'].measure({ changes: [{ length: 2 }, { length: 4 }], index: 1 })
-		).toBe(4);
+		const beats = ITEM_NUMBERS['change-beats'];
+		// iohefy-a: Cmaj7 over a bar and a half (equal symbols in a row are one change), then F7.
+		expect(beats.measure({ grid: 'iohefy-a', index: 0 })).toBe(4);
+		expect(beats.measure({ grid: 'iohefy-a', index: 4 })).toBe(6);
+		expect(beats.measure({ grid: 'iohefy-a', index: 5 })).toBe(2);
+		expect(() => beats.measure({ grid: 'iohefy-a', index: 40 })).toThrow(
+			'grid "iohefy-a" has no change at rank 40'
+		);
 	});
 
 	it('declares the sets each derivation reads', () => {
@@ -30,7 +34,6 @@ describe('the derivations', () => {
 		);
 		expect(reads).toEqual({
 			'name-of-item': ['placed-note'],
-			'grid-change': ['change'],
 			'voicing-notes': ['placed-voicing'],
 			'shape-notes': ['placed-shape']
 		});

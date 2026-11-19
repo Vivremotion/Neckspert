@@ -2,7 +2,7 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { placedNotePresenter } from './placedNote';
 import { noteOnStringPresenter } from './noteOnString';
 import { figurePresenter, placedShapePresenter, placedVoicingPresenter } from './figurePresenters';
-import { VIEW_PRESENTERS } from './chordGrid';
+import { changePresenter, VIEW_PRESENTERS } from './chordGrid';
 import { voicingOnStringsPresenter } from './voicingOnStrings';
 import type { SetPresenter } from './types';
 import { lookUpPresenter, requirePresenter } from './lookUp';
@@ -13,11 +13,11 @@ export { placedNotePresenter } from './placedNote';
 export { noteOnStringPresenter } from './noteOnString';
 export { voicingOnStringsPresenter } from './voicingOnStrings';
 export { figurePresenter, placedShapePresenter, placedVoicingPresenter } from './figurePresenters';
+export { changeExpectation, NEIGHBOUR_FRETS } from './changeExpectation';
 export {
-	chordGridPresenter,
+	changePresenter,
+	linkPresenter,
 	VIEW_PRESENTERS,
-	gridExpectation,
-	NEIGHBOUR_FRETS,
 	type GridCue,
 	type GridStageModel,
 	type LinkAidNote,
@@ -25,7 +25,7 @@ export {
 	type LinkTile
 } from './chordGrid';
 
-/** Every set the application presents, by set id; the changes are presented by their views. */
+/** Every set the application presents, by set id; a set's other presenters by view (`VIEW_PRESENTERS`). */
 export const SET_PRESENTERS: Readonly<Record<string, SetPresenter>> = Object.fromEntries(
 	[
 		noteOnStringPresenter,
@@ -33,6 +33,7 @@ export const SET_PRESENTERS: Readonly<Record<string, SetPresenter>> = Object.fro
 		voicingOnStringsPresenter,
 		placedVoicingPresenter,
 		placedShapePresenter,
+		changePresenter,
 		figurePresenter
 	].map((presenter) => [presenter.set.id, presenter])
 );
@@ -47,8 +48,8 @@ export function findPresenter(
 }
 
 /**
- * The presenter of an exercise: its view's when its view has one (the changes, D6), else the one
- * of its skill's set; it listens with the sensors its round names, the set's where it names none
+ * The presenter of an exercise: the one registered for its view when it presents its skill's
+ * set (the link's lane), else its set's; it listens with the sensors its round names, the set's where it names none
  * (D5). Throws, naming the set and the skill, when there is none.
  */
 export function presenterOf(

@@ -268,6 +268,11 @@ export interface PlannedPassage {
 	/** Its rank in the passage, and the passage's length. */
 	rank: number;
 	length: number;
+	/**
+	 * The item of every round of the passage, in order, as its source serves them (a view draws
+	 * the whole passage); absent when the source does not tell them.
+	 */
+	items?: readonly unknown[];
 	/** The values of the passage params, as this round reads them. */
 	each: Readonly<Record<string, unknown>>;
 	/** The identity of the last member heard in the passage; null before any. */

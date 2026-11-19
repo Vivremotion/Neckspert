@@ -5,7 +5,6 @@ import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
 import { CLIMB_PASSAGES } from '$lib/testing/changesPassages';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
-import type { ChordGridItem } from '$lib/domain/sets';
 import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import { clickAccompaniment } from '../../time/accompaniment';
 import type { Figure } from '../../time/figure';
@@ -80,7 +79,7 @@ const GRID_ROUND: RoundTemplate = {
 		{
 			at: { beats: 0 },
 			sensor: 'chord',
-			content: { from: 'grid-change' },
+			content: { family: 'chord-shapes' },
 			window: { ms: { param: 'windows.perfectMs' } }
 		}
 	],
@@ -278,27 +277,22 @@ describe('compileRound', () => {
 
 	it('compiles a grid template to the grid change plan, its length measured on the item', () => {
 		const changes = gridChanges(gridById('iohefy-a'));
-		const item: ChordGridItem = {
-			rule: 'jam',
-			element: 'jam:iohefy-a',
-			passageId: 's:0',
-			index: 1,
-			changes,
-			symbol: changes[1].symbol,
-			chord: 'D|min',
-			sets: [[3, 2, 1]],
-			previous: null
-		};
+		const item = { grid: 'iohefy-a', index: 1 };
 		expect(changes[1].length).toBe(4);
 		const plan = compileRound(
-			definition('change', GRID_ROUND),
+			definition('change', GRID_ROUND, { strings: [3, 2, 1] }),
 			planned('change', item, null),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
+		const content = {
+			family: 'chord-shapes',
+			index: { chord: triadOf(changes[1].symbol), strings: [3, 2, 1] },
+			selection: { family: 'chord-shapes' }
+		};
 		expect(plan).toEqual({
 			prompt: Fraction.of(-1, 4),
-			expectations: [pointAt('chord', { kind: 'chord-grid', value: item })],
+			expectations: [pointAt('chord', { kind: 'member', value: content })],
 			length: Fraction.of(1),
 			handover: Fraction.of(1),
 			mutedBars: [],
@@ -1047,11 +1041,7 @@ describe('a round of a passage', () => {
 		};
 	}
 
-	// A change's length is measured on the old change item until the presenter serves the new one.
-	const climb: ExerciseDefinition = {
-		...CLIMB_PASSAGES,
-		round: { ...CLIMB_PASSAGES.round!, length: { beats: 4 } }
-	};
+	const climb = CLIMB_PASSAGES;
 
 	const contentOf = (item: PlannedItem, cache?: ResolutionCache) =>
 		compileRound(climb, item, meter, { previewBeats: 0, fromRunStart: null, cache }).expectations[0]

@@ -9,52 +9,15 @@ import type { DefinitionChecks } from '$lib/domain/definitions';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise';
 import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
-import { isTriadQuality, QUALITIES } from '$lib/domain/music';
-import { readsChanges, setOfSkill } from '$lib/domain/sets';
+import { setOfSkill } from '$lib/domain/sets';
 import type { ItemSet } from '$lib/domain/sets/types';
 import { correspondence } from '$lib/domain/sets/correspondences';
 import { selectionFieldProblem } from '$lib/domain/exercise/selection/validate';
 import { isSelectionTemplate } from '$lib/domain/exercise/selection/types';
 import { passageDerivation } from '$lib/domain/families';
-import { allGrids } from '$lib/domain/grid/registry';
 
 /** The sensors a session has (the keys of `SessionDeps.sensors` in `createApp`). */
 export const SESSION_SENSORS = ['note', 'tap', 'chord', 'attack'];
-
-const GESTURE_RULES = ['link', 'climb', 'zone', 'jam'];
-const STRING_NUMBERS = [1, 2, 3, 4, 5, 6];
-
-/**
- * Why the params of an exercise of the changes (the ones `readGestureParams` reads at play) cannot
- * be run; null when they can. A set of strings is three strings, 1 to 6, from the lowest to the
- * highest (strictly decreasing numbers), as a close triad voicing needs; a quality is a triad's.
- */
-function gestureParamsProblem(params: Record<string, unknown>): string | null {
-	if (!GESTURE_RULES.includes(params.rule as string)) {
-		return 'params.rule must be link, climb, zone or jam';
-	}
-	const { qualities, stringSets } = params;
-	if (!Array.isArray(qualities)) return 'params.qualities must be a list of chord qualities';
-	for (const id of qualities) {
-		const known = QUALITIES.find((quality) => quality.id === id);
-		if (known === undefined) {
-			return `params.qualities names ${JSON.stringify(id)}, which is no chord quality`;
-		}
-		if (!isTriadQuality(known)) {
-			return `params.qualities names ${JSON.stringify(id)}, which is no triad quality`;
-		}
-	}
-	if (!Array.isArray(stringSets)) return 'params.stringSets must be a list of sets of strings';
-	const bad = stringSets.findIndex(
-		(set) =>
-			!Array.isArray(set) ||
-			set.length !== 3 ||
-			!set.every((string) => STRING_NUMBERS.includes(string)) ||
-			!set.every((string, i) => i === 0 || string < set[i - 1])
-	);
-	if (bad !== -1) return `params.stringSets[${bad}] is no set of strings`;
-	return null;
-}
 
 /**
  * Why what an exercise writes of its learning (`params.learning`: entry condition, member asked)
@@ -226,28 +189,12 @@ export function definitionChecks(
 				const prefix = `${exercise.id}: `;
 				return problem.startsWith(prefix) ? problem.slice(prefix.length) : problem;
 			}
-			if (readsChanges(exercise)) {
-				const bad = gestureParamsProblem(exercise.params);
-				if (bad !== null) return bad;
-			}
 			const opens = passagesOpensProblem(exercise);
 			if (opens !== null) return opens;
 			const learning = learningProblem(exercise);
 			if (learning !== null) return learning;
 			const listed = itemsListProblem(exercise);
 			if (listed !== null) return listed;
-			// Any exercise that names grids: each must be defined by a file read so far.
-			const grids = (exercise.params as { grids?: unknown } | undefined)?.grids;
-			if (grids !== undefined) {
-				if (!Array.isArray(grids) || !grids.every((id) => typeof id === 'string')) {
-					return 'params.grids must be a list of grid ids';
-				}
-				const known = new Set(allGrids().map((grid) => grid.id));
-				for (const id of grids) {
-					if (!known.has(id))
-						return `params.grids names grid "${id}", which no file read so far defines`;
-				}
-			}
 			return null;
 		}
 	};

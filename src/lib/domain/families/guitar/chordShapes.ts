@@ -12,7 +12,6 @@ import {
 	type Voicing,
 	type VoicingOccurrence
 } from '$lib/domain/music';
-import type { ChordGridConfusion } from '$lib/domain/sets/gridClassify';
 import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
 import type { Family, Filter } from '../core/types';
 import { GUITAR_ATTRIBUTES, isObject, type GuitarMember } from './notes';
@@ -43,6 +42,20 @@ export interface ChordReading {
 /** What went wrong with a chord: the chord heard, or none. Part of a triad confusion. */
 export type ChordConfusion = {
 	kind: 'other-octave' | 'other-inversion' | 'other-quality' | 'none';
+	part: 'chord';
+};
+
+/** What went wrong with the chord of a change. */
+export type ChordGridConfusion = {
+	kind:
+		| 'none'
+		| 'other-chord'
+		| 'other-quality'
+		| 'other-set'
+		| 'other-shape'
+		| 'not-higher'
+		| 'not-lower'
+		| 'out-of-zone';
 	part: 'chord';
 };
 

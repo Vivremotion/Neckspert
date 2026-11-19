@@ -1,14 +1,21 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { chordGridPresenter, type LinkLaneModel } from '$lib/application/sets/chordGrid';
-import type { ChordGridItem } from '$lib/domain/sets';
+import { linkPresenter, type LinkLaneModel } from '$lib/application/sets/chordGrid';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
+import { triadOf } from '$lib/domain/grid';
+import { voicingKey } from '$lib/domain/music';
 import { PLAY_VIEWS } from './index';
 import LinkLaneView from './LinkLaneView.svelte';
 import { StageController } from './testing/StageController.svelte';
 
 afterEach(() => cleanup());
 
-const CHANGES = [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'E' }));
+/** The tour of E on G-B-E: its four lowest shapes up, then down again. */
+const SHAPES = chordShapes.members({ chord: triadOf('E'), strings: [3, 2, 1] }).slice(0, 4);
+const TOUR = [...SHAPES, ...SHAPES.slice(0, -1).reverse()].map((shape) => ({
+	voicing: voicingKey(shape.occurrence.voicing),
+	frets: shape.notes.map((note) => note.fret)
+}));
 
 /** Change `index`'s model, its target on `anchorBeat` (null before its round opens). */
 function model(
@@ -16,25 +23,25 @@ function model(
 	aided: boolean,
 	anchorBeat: number | null = index * 4
 ): LinkLaneModel {
-	const item: ChordGridItem = {
-		rule: 'link',
-		element: 'link:E|maj:3,2,1',
-		passageId: 's:0',
-		index,
-		changes: CHANGES,
-		symbol: 'E',
-		chord: 'E|maj',
-		sets: [[3, 2, 1]],
-		previous: null
+	const passage = {
+		id: 's:0',
+		index: 'chord=E;strings=3,2,1',
+		of: { chord: 'E', strings: [3, 2, 1] },
+		rank: index,
+		length: TOUR.length,
+		each: {},
+		previous: null,
+		items: TOUR
 	};
-	return chordGridPresenter.stageOf!(
-		item,
+	return linkPresenter.stageOf!(
+		TOUR[index],
 		null,
 		'fr',
 		{ aid: aided ? 'show-position' : 'none', stringAid: false },
 		{ anchorBeat, promptBeat: anchorBeat === null ? null : anchorBeat - 1, history: [], bands: [] },
 		undefined,
-		() => 0
+		() => 0,
+		{ passage, expectations: [] }
 	).model as LinkLaneModel;
 }
 

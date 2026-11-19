@@ -4,6 +4,7 @@ import type {
 	ChordDiagramStyle,
 	Locale,
 	PlannedItem,
+	PlannedPassage,
 	ResponseVerdict
 } from '$lib/domain/types';
 import type { Expectation, ResponseValue } from '$lib/domain/time';
@@ -30,6 +31,16 @@ export interface StagePlace {
 	bands: readonly { fromBeat: number; untilBeat: number }[];
 }
 
+/**
+ * What a presenter reads of the round beside its item: the passage it belongs to (null or absent
+ * for an item served outside a passage), and its plan's expectations, their sensor and content as
+ * compiled.
+ */
+export interface PresentedRound {
+	passage?: PlannedPassage | null;
+	expectations: readonly Pick<Expectation, 'sensor' | 'content'>[];
+}
+
 /** How the items of a set show on the play screen and which sensors answer them. */
 export interface SetPresenter<I = any, A = any> {
 	/** The set whose items it presents: their key and what a card keeps. */
@@ -50,7 +61,8 @@ export interface SetPresenter<I = any, A = any> {
 	feedback?(
 		item: I,
 		outcome: { answer: unknown; confusion: unknown; verdict: ResponseVerdict },
-		locale: Locale
+		locale: Locale,
+		round?: PresentedRound
 	): { heard: ShapeView | null; expected: ShapeView | null; gap: string | null } | null;
 	/** Its misses may be contested during play (« Joué juste »): the judge may be wrong. */
 	contestable?: boolean;
@@ -61,15 +73,14 @@ export interface SetPresenter<I = any, A = any> {
 	/**
 	 * What each of its sensors should listen for in a round that opens at `opensAt` (audio s),
 	 * after the session's `previous` prompt (null for the first), whose plan expects
-	 * `expectations` (their sensor and content, as compiled). Opaque to the core. A sensor left
-	 * out, or every sensor without it, is told null.
+	 * `expectations` (their sensor and content, as compiled), in its `passage` when it has one.
+	 * Opaque to the core. A sensor left out, or every sensor without it, is told null.
 	 */
 	expectation?(
 		item: I,
-		round: {
+		round: PresentedRound & {
 			opensAt: number;
 			previous: PlannedItem | null;
-			expectations: readonly Pick<Expectation, 'sensor' | 'content'>[];
 		}
 	): Partial<Record<SensorKind, unknown>>;
 	/**
@@ -79,7 +90,7 @@ export interface SetPresenter<I = any, A = any> {
 	 * where it stands, and `drawing` how its chord shapes are drawn (the settings' style, default
 	 * `DEFAULT_SETTINGS.chordDiagram`, unless the exercise imposes one). `random` spells a note:
 	 * the series gives every call for one item the same value, so a note is written alike from
-	 * its preview to its settlement.
+	 * its preview to its settlement. `round`: the round's passage and expectations.
 	 */
 	stageOf?(
 		item: I,
@@ -88,8 +99,9 @@ export interface SetPresenter<I = any, A = any> {
 		aids: { aid: AidLevel; stringAid: boolean },
 		place: StagePlace,
 		drawing: { chordDiagram: ChordDiagramStyle } | undefined,
-		random: () => number
+		random: () => number,
+		round?: PresentedRound
 	): { model: unknown };
-	/** The `Attempt.data` of an item a round answered with `value`. */
-	attemptData?(item: I, value: ResponseValue): unknown;
+	/** The `Attempt.data` of an item a round answered with `value`, in `round`. */
+	attemptData?(item: I, value: ResponseValue, round?: PresentedRound): unknown;
 }

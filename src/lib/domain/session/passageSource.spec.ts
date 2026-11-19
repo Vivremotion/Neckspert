@@ -110,14 +110,8 @@ function playPassage(
 	}
 }
 
-/**
- * The climb with rounds of a bar: the length of a change is measured on the old change item until
- * the presenter serves the new one (Task 5).
- */
-const CLIMB: ExerciseDefinition = {
-	...CLIMB_PASSAGES,
-	round: { ...CLIMB_PASSAGES.round!, length: { beats: 4 } }
-};
+/** The climb as the catalog writes it: a change lasts as long as its grid says. */
+const CLIMB: ExerciseDefinition = CLIMB_PASSAGES;
 
 /** The member content the round of `planned` judges. */
 function contentOf(definition: ExerciseDefinition, planned: PlannedItem): MemberContent {
@@ -170,7 +164,9 @@ describe('createPassageSource', () => {
 			rank: 0,
 			length: IOHEFY_CHANGES,
 			each: { direction: 'up' },
-			previous: null
+			previous: null,
+			// Every round's item, so a view draws the whole passage.
+			items: played.map((p) => p.item)
 		});
 		expect(played.map((p) => p.passage!.rank)).toEqual([...Array(IOHEFY_CHANGES).keys()]);
 	});

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { itemEntryKey } from '$lib/domain/exercise/itemEntries';
-import { ZONE_FRETS, ZONE_STARTS } from '$lib/domain/gesture/passages';
 import { gridChanges, triadOf } from '$lib/domain/grid';
 import {
 	closeTriadVoicings,
@@ -11,19 +10,11 @@ import {
 	voicingOccurrences,
 	type Chord,
 	type StringNumber,
-	type Voicing
+	type Voicing,
+	type VoicingOccurrence
 } from '$lib/domain/music';
 import { occurrenceId, occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
 import { CONTENT_JUDGES, MEMBER_CONTENT, type MemberContent } from '$lib/domain/judges';
-import {
-	classifyGridChord,
-	climbDirection,
-	inZone,
-	triadId,
-	triadShapes,
-	type ChordGridItem,
-	type GestureRule
-} from '$lib/domain/sets/chordGrid';
 import { BLUES_F, IOHEFY_A, TRIADS_ANCHOR } from '$lib/testing/catalog';
 import { admitted } from '../core/select';
 import type { Filter, Selection } from '../core/types';
@@ -48,6 +39,39 @@ function indexOf(voicing: Voicing, withDegrees = true): ChordShapesIndex {
 }
 
 const C_MAJOR = parseVoicingKey('C|maj|3:1,2:3,1:5');
+
+/** `D|min`: a triad, its root as spelled. */
+const triadId = (chord: Chord) => `${formatSpelledNote(chord.root)}|${chord.quality.id}`;
+
+/** Where a shape sits: its lowest fretted fret, a shape on open strings only at 0. */
+function shapePosition(occurrence: VoicingOccurrence): number {
+	const position = occurrencePosition(occurrence);
+	return position === 'open' ? 0 : position;
+}
+
+/** Every shape of a triad on each set, by position (a stable sort), as the changes listed them. */
+function triadShapes({
+	chord,
+	sets
+}: {
+	chord: Chord;
+	sets: readonly (readonly StringNumber[])[];
+}) {
+	return sets
+		.flatMap((set) => closeTriadVoicings(chord, set).flatMap((v) => voicingOccurrences(v)))
+		.sort((a, b) => shapePosition(a) - shapePosition(b));
+}
+
+/** Every fret of the shape in the zone, an open string inside it at fret 1 only, as the zones judged. */
+const inZone = (occurrence: VoicingOccurrence, zone: { from: number; to: number }) =>
+	occurrence.notes.every(
+		(note) =>
+			note.fret <= zone.to && (note.fret >= zone.from || (note.fret === 0 && zone.from === 1))
+	);
+
+/** Zones of five frets, every start up to the 13th. */
+const ZONE_FRETS = 5;
+const ZONE_STARTS = Array.from({ length: 13 }, (_, i) => i + 1);
 
 /** The zone of strings the changes play on, and its groups as the catalog writes them today. */
 const ZONE: StringNumber[] = [4, 3, 2, 1];
@@ -90,9 +114,7 @@ describe('chord-shapes members', () => {
 	it('gives, without degrees, the shapes of the three inversions, lowest position first', () => {
 		for (const voicing of ANCHOR_VOICINGS) {
 			const strings = voicing.strings.map((s) => s.string);
-			const expected = triadShapes({ chord: triadId(voicing.chord), sets: [strings] }).map(
-				occurrenceId
-			);
+			const expected = triadShapes({ chord: voicing.chord, sets: [strings] }).map(occurrenceId);
 			expect(chordShapes.members(indexOf(voicing, false)).map((m) => m.id)).toEqual(expected);
 		}
 	});
@@ -102,7 +124,7 @@ describe('chord-shapes members', () => {
 		for (const chord of GRID_CHORDS) {
 			const ids = chordShapes.members({ chord, strings: ZONE }).map((m) => m.id);
 			expect(ids, triadId(chord)).toEqual(
-				triadShapes({ chord: triadId(chord), sets: CATALOG_SETS }).map(occurrenceId)
+				triadShapes({ chord, sets: CATALOG_SETS }).map(occurrenceId)
 			);
 			const groups = CATALOG_SETS.flatMap((set) =>
 				closeTriadVoicings(chord, set).flatMap((v) => voicingOccurrences(v))
@@ -388,165 +410,8 @@ describe('chord-shapes heard', () => {
 	});
 });
 
-describe('chord-shapes judged as the changes are', () => {
-	/** A change of a grid as the gesture selector builds it, for the old judge. */
-	function change(
-		symbol: string,
-		rule: GestureRule,
-		overrides: Partial<ChordGridItem>
-	): ChordGridItem {
-		return {
-			rule,
-			element: `${rule}:test`,
-			passageId: 's:0',
-			index: 0,
-			changes: [{ at: 0, length: 4, symbol }],
-			symbol,
-			chord: triadId(triadOf(symbol)),
-			sets: CATALOG_SETS,
-			previous: null,
-			...overrides
-		};
-	}
-
-	/** Every shape of the chord, of its other quality and of another root, on every group; and none. */
-	function payloads(chord: Chord): (string | null)[] {
-		const quality = qualityById(chord.quality.id === 'maj' ? 'min' : 'maj');
-		const other = triadOf(chord.root.letter === 'A' ? 'B' : 'A');
-		return [
-			null,
-			...[chord, { root: chord.root, quality }, other].flatMap((c) =>
-				EVERY_SET.flatMap((set) =>
-					closeTriadVoicings(c, set).flatMap((v) => voicingOccurrences(v).map(occurrenceId))
-				)
-			)
-		];
-	}
-
-	const kinds = new Set<string>();
-
-	function compare(item: ChordGridItem, content: MemberContent, chord: Chord): number {
-		let compared = 0;
-		for (const decided of payloads(chord)) {
-			const old = classifyGridChord(item, decided === null ? null : occurrenceOfId(decided));
-			const judged = CONTENT_JUDGES[MEMBER_CONTENT].judge(content, { decided });
-			expect(
-				{ correct: judged.correct, confusion: judged.confusion },
-				`${item.rule} ${item.chord} ${item.direction ?? ''} ${item.previous} ${decided}`
-			).toEqual({ correct: old === null, confusion: old });
-			if (old) kinds.add(old.kind);
-			compared++;
-		}
-		return compared;
-	}
-
-	it('judges a link change as classifyGridChord does', () => {
-		let compared = 0;
-		for (const chord of GRID_CHORDS) {
-			for (const set of CATALOG_SETS) {
-				for (const voicing of closeTriadVoicings(chord, set)) {
-					const [first] = voicingOccurrences(voicing);
-					const placed = {
-						voicing: voicingKey(voicing),
-						frets: first.notes.map((n) => n.fret)
-					};
-					const item = change(formatChord(chord), 'link', {
-						sets: [set],
-						shape: occurrenceId(first)
-					});
-					const index = INDEX_DERIVATIONS.placed.index(placed, { of: {}, params: {} });
-					compared += compare(item, { family: 'chord-shapes', index, selection: SHAPES }, chord);
-				}
-			}
-		}
-		expect(compared).toBeGreaterThan(1000);
-	});
-
-	it('judges a climb change as classifyGridChord does, its direction turned as the session turns it', () => {
-		let compared = 0;
-		for (const chord of GRID_CHORDS) {
-			for (const set of CATALOG_SETS) {
-				const shapes = triadShapes({ chord: triadId(chord), sets: [set] });
-				const elsewhere = triadShapes({ chord: triadId(triadOf('Bb')), sets: [set] });
-				const previouses = [
-					null,
-					shapes[0],
-					shapes[Math.floor(shapes.length / 2)],
-					shapes.at(-1)!,
-					elsewhere[1]
-				];
-				for (const toward of ['up', 'down'] as const) {
-					for (const before of previouses) {
-						const previous = before === null ? null : occurrenceId(before);
-						const asked = change(formatChord(chord), 'climb', {
-							sets: [set],
-							direction: toward,
-							previous
-						});
-						const item = { ...asked, direction: climbDirection(asked) };
-						const content: MemberContent = {
-							family: 'chord-shapes',
-							index: { chord, strings: set },
-							selection: {
-								family: 'chord-shapes',
-								where: [{ position: { beyond: 'previous', toward, turns: true } }]
-							},
-							previous
-						};
-						compared += compare(item, content, chord);
-					}
-				}
-			}
-		}
-		expect(compared).toBeGreaterThan(1000);
-	});
-
-	it('judges a zone change as classifyGridChord does', () => {
-		let compared = 0;
-		for (const chord of GRID_CHORDS) {
-			for (const from of ZONE_STARTS.filter((_, i) => i % 3 === 0)) {
-				const zone = { from, to: from + ZONE_FRETS - 1 };
-				const item = change(formatChord(chord), 'zone', { zone });
-				const content: MemberContent = {
-					family: 'chord-shapes',
-					index: { chord, strings: ZONE },
-					selection: { family: 'chord-shapes', where: [{ in: { frets: [zone.from, zone.to] } }] }
-				};
-				compared += compare(item, content, chord);
-			}
-		}
-		expect(compared).toBeGreaterThan(1000);
-	});
-
-	it('judges a jam change as classifyGridChord does', () => {
-		let compared = 0;
-		for (const chord of GRID_CHORDS) {
-			const item = change(formatChord(chord), 'jam', {});
-			const content: MemberContent = {
-				family: 'chord-shapes',
-				index: { chord, strings: ZONE },
-				selection: SHAPES
-			};
-			compared += compare(item, content, chord);
-		}
-		expect(compared).toBeGreaterThan(300);
-	});
-
-	it('met every confusion of the changes', () => {
-		expect(kinds).toEqual(
-			new Set([
-				'none',
-				'other-chord',
-				'other-quality',
-				'other-set',
-				'other-shape',
-				'not-higher',
-				'not-lower',
-				'out-of-zone'
-			])
-		);
-	});
-});
+// How the changes are judged as members, compared with the rule they replaced, is frozen in
+// `testing/catalogChanges.spec.ts`.
 
 describe('chord-shapes filter in', () => {
 	const SETS: readonly StringNumber[][] = [
@@ -556,7 +421,7 @@ describe('chord-shapes filter in', () => {
 		[6, 5, 4]
 	];
 
-	it('admits in a zone what the gesture zone admits, open strings included', () => {
+	it('admits in a zone the shapes whose frets lie in it, an open string at fret 1 only', () => {
 		const symbols = new Set(
 			[IOHEFY_A, BLUES_F].flatMap((grid) => gridChanges(grid).map((change) => change.symbol))
 		);
@@ -565,7 +430,7 @@ describe('chord-shapes filter in', () => {
 			const chord = triadOf(symbol);
 			for (const strings of SETS) {
 				const index: ChordShapesIndex = { chord, strings };
-				const shapes = triadShapes({ chord: triadId(chord), sets: [strings] });
+				const shapes = triadShapes({ chord, sets: [strings] });
 				for (const from of [0, ...ZONE_STARTS]) {
 					const zone = { from, to: from + ZONE_FRETS - 1 };
 					const ids = admitted(chordShapes, index, {

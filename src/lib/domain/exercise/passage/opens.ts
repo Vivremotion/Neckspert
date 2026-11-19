@@ -3,7 +3,7 @@ import { correspondingCard } from '../../sets/correspondences';
 import type { CardKey } from '../../types';
 import type { ExerciseDefinition } from '../types';
 import { roundMemberContents, type RoundMemberContent } from './contents';
-import { passageMembers } from './indices';
+import { passageIndices, passageMembers } from './indices';
 import { firstEach, isUnplayable, passageRound } from './round';
 import type { PassageIndex } from './types';
 
@@ -76,4 +76,12 @@ export function indexOpen(
 		if (isUnplayable(error)) return false;
 		throw error;
 	}
+}
+
+/** Whether an exercise has an index open (`indexOpen`); never for one that writes no passages. */
+export function passagesOpen(
+	definition: ExerciseDefinition,
+	acquired: ReadonlySet<CardKey>
+): boolean {
+	return passageIndices(definition).some((index) => indexOpen(definition, index, acquired));
 }
