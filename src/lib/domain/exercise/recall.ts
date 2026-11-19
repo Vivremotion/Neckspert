@@ -1,16 +1,14 @@
+import { directRecallOf, type DirectRecall } from '../learning/recall';
+import { skillById } from '../skill/registry';
 import type { ExerciseDefinition } from './types';
 
-/**
- * The direct-recall threshold an exercise declares in its params
- * (`params.recallThresholdMs`), in ms; null when it declares none (the gesture,
- * the rhythm: never direct recall). Throws on a value that is not a positive
- * finite number.
- */
-export function recallThresholdOf(definition: ExerciseDefinition): number | null {
-	const value = definition.params.recallThresholdMs;
-	if (value === undefined) return null;
-	if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-		throw new Error('recallThresholdMs must be a positive number');
+/** The direct recall of the skill an exercise practises; throws when the skill writes none. */
+export function exerciseRecallOf(definition: ExerciseDefinition): DirectRecall {
+	const recall = directRecallOf(skillById(definition.practices));
+	if (recall === null) {
+		throw new Error(
+			`the ${definition.id} exercise practises ${definition.practices}, which writes no direct recall`
+		);
 	}
-	return value;
+	return recall;
 }

@@ -121,7 +121,6 @@
 				"pacing": {
 					"respirationBars": 1
 				},
-				"recallThresholdMs": 1500,
 				"ladder": [
 					{
 						"params": {
@@ -235,7 +234,6 @@
 				"pacing": {
 					"respirationBars": 1
 				},
-				"recallThresholdMs": 1500,
 				"ladder": [
 					{
 						"params": {

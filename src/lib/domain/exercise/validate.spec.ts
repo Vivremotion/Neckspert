@@ -223,17 +223,10 @@ describe('validateExercise on what a file could break in play', () => {
 		);
 	});
 
-	it('passes the learning settings and the recall threshold at a level, read from the params alone', () => {
-		const ladder = [
-			{ params: { leadBeats: 4, aided: false, recallThresholdMs: -1, 'learning.retestGaps': [2] } }
-		];
+	it('passes the learning settings at a level, read from the params alone', () => {
+		const ladder = [{ params: { leadBeats: 4, aided: false, 'learning.retestGaps': [2] } }];
 		expect(validateExercise(withParams({ ladder }))).toBeNull();
-		expect(
-			validateExercise(levelled({ recallThresholdMs: 0, 'learning.aidFadeSuccesses': 1.5 }))
-		).toBeNull();
-		expect(validateExercise(withParams({ recallThresholdMs: 0 }))).toMatch(
-			/^locate-neck: params\.recallThresholdMs /
-		);
+		expect(validateExercise(levelled({ 'learning.aidFadeSuccesses': 1.5 }))).toBeNull();
 		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
 			/^locate-neck: params\.learning\.aidFadeSuccesses /
 		);
@@ -263,6 +256,18 @@ describe('validateExercise on what a file could break in play', () => {
 
 	it('refuses pacing that is not an object', () => {
 		expectRefusal(validateExercise(withParams({ pacing: 3 })), 'params.pacing must be an object');
+	});
+
+	it('passes a recall threshold written in the params: no piece reads it', () => {
+		expect(validateExercise(withParams({ recallThresholdMs: 0 }))).toBeNull();
+	});
+
+	it('refuses a memory skill practised with a round judged by cycle', () => {
+		const remembered: ExerciseDefinition = { ...ARPEGGIO_EXERCISE, practices: 'chord-anchor' };
+		expect(validateExercise(remembered)).toBe(
+			`${ARPEGGIO_EXERCISE.id}: practices a memory skill with a round judged by cycle`
+		);
+		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
 	});
 
 	it('refuses a round judged by cycle with no rounds per breath', () => {

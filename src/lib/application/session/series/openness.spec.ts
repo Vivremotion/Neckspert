@@ -231,7 +231,7 @@ describe('every valid exercise plays', () => {
 			expect(problem.startsWith(`random-${seed}: `), problem).toBe(true);
 			// A field follows the name: a path of the definition.
 			expect(problem.slice(`random-${seed}: `.length), problem).toMatch(
-				/^(round|params|presentation|meter|tempo|flow|view|figures|writes a round)/
+				/^(round|params|presentation|meter|tempo|flow|view|figures|writes a round|practices)/
 			);
 		}
 	});

@@ -40,7 +40,6 @@ const WALTZ_LOCATE: ExerciseDefinition = {
 	// Its round is locate's, the target on beat 2 of the bar.
 	round: { ...LOCATE_NECK.round!, barOffset: '1/4' },
 	params: {
-		recallThresholdMs: 1500,
 		pacing: { respirationBars: 2 },
 		windows: { perfectMs: 120 },
 		ladder: [

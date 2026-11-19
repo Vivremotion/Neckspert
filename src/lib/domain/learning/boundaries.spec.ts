@@ -44,6 +44,7 @@ const ALLOWED = [
 	'progress/success',
 	'progress/cards',
 	'progress/scheduling',
+	'skill/types',
 	'types',
 	'time/'
 ];

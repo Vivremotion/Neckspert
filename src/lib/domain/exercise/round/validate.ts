@@ -14,7 +14,7 @@ import {
 import { ROUND_MODES } from '../../time/modes';
 import type { Expectation, PairingPolicy, RoundPlan } from '../../time/plan';
 import { pacingOf } from '../pacing';
-import { ladderFieldOf, ladderOf } from '../ladder';
+import { ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
 import { levelRange } from '../../time/levels';
@@ -88,10 +88,10 @@ function paramValue(params: Readonly<Record<string, unknown>>, path: string): un
 /** Why no level of the ladder can give the lead, naming the levels; null when each gives one. */
 function leadProblem(check: Check): string | null {
 	const { definition } = check;
-	const field = ladderFieldOf(definition, mechanicOfSkill(definition.practices));
+	const field = 'params.ladder';
 	let ladder;
 	try {
-		ladder = ladderOf(definition, mechanicOfSkill(definition.practices));
+		ladder = ladderOf(definition);
 	} catch {
 		return `reads param "leadBeats", but the exercise writes no ladder (${field})`;
 	}
@@ -879,11 +879,5 @@ export function roundProblem(
 	options: RoundCheckOptions = {}
 ): string | null {
 	if (definition.round === undefined) return null;
-	let params: Readonly<Record<string, unknown>>;
-	try {
-		params = exerciseParamsOf(definition);
-	} catch (error) {
-		return (error as Error).message;
-	}
-	return templateProblem({ definition, params, options });
+	return templateProblem({ definition, params: exerciseParamsOf(definition), options });
 }

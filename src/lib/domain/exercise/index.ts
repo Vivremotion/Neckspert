@@ -6,7 +6,6 @@ export * from './levels';
 export * from './figureParams';
 export * from './pacing';
 export * from './chordDiagram';
-export * from './recall';
 export * from './ladder';
 export * from './validate';
 export * from './round/types';

@@ -1,4 +1,5 @@
 import type { MechanicIdentity } from '$lib/domain/mechanics';
+import { hasCards } from '$lib/domain/skill/registry';
 import {
 	applyColdAttempt,
 	classifyTemperature,
@@ -38,7 +39,7 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: ItemSource;
 	sessionId: string;
-	/** Rules of the items of a prompt's skill: their learner model and their keys. */
+	/** Rules of the items of a prompt's skill: their keys and the part of an item a card keeps. */
 	rules: (skill: SkillId) => MechanicIdentity;
 	/** The direct-recall rule of a skill (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
 	recall?: (skill: SkillId) => DirectRecall;
@@ -89,7 +90,7 @@ export class AttemptRecorder {
 	 * Writes an attempt (`recordedAttempt`) with what its span heard so far
 	 * and learns from it: synchronously, the source is told (`selector.record`) with the item's
 	 * provisional temperature; then the temperature is settled from the card's history (a probe
-	 * by `probeTemperature` and `recall`), the attempt written, and for a memory learner the card
+	 * by `probeTemperature` and `recall`), the attempt written, and for a memory skill the card
 	 * stored (a cold review or free attempt through FSRS, a probe or a learning prompt as the
 	 * source returned it, a learning prompt's card introduced) and the level the source moved
 	 * written. Its observations are completed when the span closes. Resolves with the attempt's id.
@@ -101,7 +102,7 @@ export class AttemptRecorder {
 	): Promise<number> {
 		const rules = this.deps.rules(item.skill);
 		const recall = this.deps.recall?.(item.skill);
-		if (!recall && (item.phase === 'probe' || rules.learner === 'memory')) {
+		if (!recall && (item.phase === 'probe' || hasCards(item.skill))) {
 			throw new Error(`No direct-recall rule for skill ${item.skill}`);
 		}
 		// The caller's object is the one kept, so `completeObservations` and `contest` find it.
@@ -128,7 +129,7 @@ export class AttemptRecorder {
 		id.catch(() => {});
 		this.ids.set(stored, id);
 		const learning: Learning = {
-			// A skill learner without a rule never asks it: it has no probe and no card.
+			// A skill without memory and without a rule never asks it: it has no probe and no card.
 			recall: recall ?? (() => false),
 			levels: this.deps.levels
 		};
@@ -217,7 +218,7 @@ export class AttemptRecorder {
 		if (outcome?.level) await learning.levels?.put(outcome.level);
 	}
 
-	/** Only a memory learner keeps FSRS cards; a skill learner is measured by its attempts alone. */
+	/** Only a memory skill keeps FSRS cards; another is measured by its attempts alone. */
 	private async learnCard(
 		item: PlannedItem,
 		rules: MechanicIdentity,
@@ -227,7 +228,7 @@ export class AttemptRecorder {
 		history: readonly Attempt[],
 		existing: CardState | undefined
 	): Promise<void> {
-		if (rules.learner !== 'memory') return;
+		if (!hasCards(item.skill)) return;
 		const key = attempt.cardKey;
 		const now = this.deps.now();
 		if ((item.phase === 'review' || item.phase === 'free') && attempt.temperature === 'cold') {

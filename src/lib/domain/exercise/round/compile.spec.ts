@@ -1,4 +1,5 @@
-import { SKILL_OF_MECHANIC } from '$lib/testing/testSkills';
+import { IDENTIFY_NECK } from '$lib/testing/catalog';
+import { practisingWithoutRecall, SKILL_OF_MECHANIC } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
@@ -103,7 +104,7 @@ const IDENTIFY_ROUND: RoundTemplate = {
 			at: null,
 			sensor: 'tap',
 			content: { from: 'name-of-item' },
-			window: { ms: { param: 'recallThresholdMs' } }
+			window: { ms: { param: 'directRecall.withinMs' } }
 		}
 	],
 	length: { bars: 1 },
@@ -124,7 +125,7 @@ function definition(
 		id: `test-${mechanic}`,
 		practices: SKILL_OF_MECHANIC[mechanic] ?? mechanic,
 		round,
-		params: { pacing: { respirationBars: 1 }, recallThresholdMs: 1500, ...params }
+		params: { pacing: { respirationBars: 1 }, ...params }
 	};
 }
 
@@ -173,7 +174,8 @@ describe('compileRound', () => {
 			expectations: [
 				{
 					...pointAt('tap', { kind: 'name', value: item }, null),
-					window: { ms: 1500 }
+					// The direct recall of the skill identify practises.
+					window: { ms: 3000 }
 				}
 			],
 			length: Fraction.of(1),
@@ -284,10 +286,28 @@ describe('compileRound', () => {
 		expect(roundParamsOf(written, planned('locate', item, 8), { previewBeats: 3 })).toMatchObject({
 			leadBeats: 8,
 			previewBeats: 3,
-			recallThresholdMs: 1500,
+			directRecall: { withinMs: 1500 },
 			windows: { perfectMs: 55, lateMs: DEFAULT_RESPONSE_WINDOWS.lateMs },
 			pacing: { respirationBars: 1 }
 		});
+	});
+
+	it('gives the naming round the time of its skill’s direct recall', () => {
+		const plan = compileRound(
+			IDENTIFY_NECK,
+			planned('identify', { string: 3, fret: 5 }, null),
+			meter,
+			{
+				previewBeats: PREVIEW,
+				fromRunStart: null
+			}
+		);
+		expect(plan.expectations[0].window).toEqual({ ms: 3000 });
+		expect(
+			roundParamsOf(IDENTIFY_NECK, planned('identify', { string: 3, fret: 5 }, null), {
+				previewBeats: 0
+			})
+		).not.toHaveProperty('recallThresholdMs');
 	});
 
 	it('reads a window an exercise level overrides', () => {
@@ -360,15 +380,15 @@ describe('compileRound', () => {
 		).toThrow(
 			/test-locate: round\.prompt\.lead reads param "windows\.nowhere", absent for locate item /
 		);
-		// A null value is as absent: identify without a recall threshold.
-		const noThreshold = definition('identify', IDENTIFY_ROUND, { recallThresholdMs: undefined });
+		// Identify practising a skill that writes no direct recall.
+		const noThreshold = practisingWithoutRecall(definition('identify', IDENTIFY_ROUND));
 		expect(() =>
 			compileRound(noThreshold, planned('identify', { string: 3, fret: 5 }, null), meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			})
 		).toThrow(
-			/test-identify: round\.expectations\[0\]\.window\.ms reads param "recallThresholdMs"/
+			/test-identify: round\.expectations\[0\]\.window\.ms reads param "directRecall\.withinMs"/
 		);
 	});
 

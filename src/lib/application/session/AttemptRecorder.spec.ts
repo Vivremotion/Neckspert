@@ -3,7 +3,7 @@ import { cardKey } from '$lib/domain/types';
 import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, LevelState, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import { introduceCard, markLearned, type ItemSource } from '$lib/domain/progress';
-import { directRecallOf } from '$lib/domain/learning';
+import { directRecallWithin } from '$lib/domain/learning';
 import { locateRules, mechanicRules } from '$lib/domain/mechanics';
 import {
 	FakeClock,
@@ -72,11 +72,7 @@ describe('AttemptRecorder', () => {
 		};
 	}
 
-	function setupResponse(
-		selector?: Partial<ItemSource>,
-		learner: 'memory' | 'skill' = 'memory',
-		withRecall = true
-	) {
+	function setupResponse(selector?: Partial<ItemSource>, withRecall = true) {
 		const clock = new FakeClock();
 		const attempts = new InMemoryAttemptRepository();
 		const cards = new InMemoryCardStateRepository();
@@ -104,8 +100,8 @@ describe('AttemptRecorder', () => {
 			now: () => 5_000,
 			selector: source,
 			sessionId: 'sess-1',
-			rules: (skill) => ({ ...mechanicRules(mechanicOfSkill(skill)), learner }),
-			recall: withRecall ? () => directRecallOf(THRESHOLD_MS) : undefined,
+			rules: (skill) => mechanicRules(mechanicOfSkill(skill)),
+			recall: withRecall ? () => directRecallWithin(THRESHOLD_MS) : undefined,
 			levels
 		});
 		return { recorder, attempts, cards, levels, told };
@@ -148,9 +144,17 @@ describe('AttemptRecorder', () => {
 	});
 
 	it('refuses a probe without a recall rule', () => {
-		const { recorder } = setupResponse(undefined, 'memory', false);
+		const { recorder } = setupResponse(undefined, false);
 		const probe = item({ phase: 'probe', temperature: 'cold' });
 		expect(() => recorder.recordResponse(noteAttempt(probe), span(probe), probe)).toThrow(/recall/);
+	});
+
+	it('refuses an attempt of a memory skill without a recall rule', () => {
+		const { recorder } = setupResponse(undefined, false);
+		const review = item({ phase: 'review', temperature: 'cold' });
+		expect(() => recorder.recordResponse(noteAttempt(review), span(review), review)).toThrow(
+			'No direct-recall rule for skill locate-note-string'
+		);
 	});
 
 	it('grades a cold review through FSRS and stores its card', async () => {
@@ -300,9 +304,15 @@ describe('AttemptRecorder', () => {
 		});
 	});
 
-	it('touches no card for a skill learner', async () => {
-		const { recorder, cards, attempts } = setupResponse(undefined, 'skill');
-		const learning = item({ phase: 'learning', temperature: 'hot' });
+	it('touches no card for a skill without memory', async () => {
+		const { recorder, cards, attempts } = setupResponse();
+		const learning = item({
+			exerciseId: 'rhythm-silent-bars',
+			skill: 'inner-pulse',
+			item: { figureId: 'quarters', level: 0 },
+			phase: 'learning',
+			temperature: 'hot'
+		});
 		await recorder.recordResponse(noteAttempt(learning), span(learning), learning);
 		await recorder.settled();
 		expect(await cards.all()).toEqual([]);

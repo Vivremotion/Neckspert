@@ -1,11 +1,9 @@
 import { ladderOf } from '$lib/domain/exercise/ladder';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { exerciseRecallOf } from '$lib/domain/exercise/recall';
 import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import type { SkillId } from '$lib/domain/skill/types';
 import {
-	directRecallOf,
 	itemLearningOf,
 	type CardRef,
 	type DirectRecall,
@@ -41,15 +39,6 @@ function draw<T>(candidates: readonly T[], random: () => number): T | null {
 	return candidates[Math.min(candidates.length - 1, Math.floor(random() * candidates.length))];
 }
 
-/** The exercise's recall threshold; the triads must declare one. */
-function thresholdOf(definition: ExerciseDefinition): number {
-	const threshold = recallThresholdOf(definition);
-	if (threshold === null) {
-		throw new Error(`the ${definition.id} exercise must declare its recall threshold`);
-	}
-	return threshold;
-}
-
 /**
  * The triads as a subject of the learning procedure, for one session's exercise: the anchor
  * introduces its queue's head (the acquired notes' triads first), the zone a triad acquired in
@@ -72,12 +61,12 @@ export function triadSubject(input: {
 		[ZONE]: definitions.zone
 	};
 	const recalls: Record<TriadSkill, DirectRecall> = {
-		[ANCHOR]: directRecallOf(thresholdOf(definitions.anchor)),
-		[ZONE]: directRecallOf(thresholdOf(definitions.zone))
+		[ANCHOR]: exerciseRecallOf(definitions.anchor),
+		[ZONE]: exerciseRecallOf(definitions.zone)
 	};
 	const ladders = {
-		[ANCHOR]: ladderOf(definitions.anchor, mechanicOfSkill(ANCHOR)),
-		[ZONE]: ladderOf(definitions.zone, mechanicOfSkill(ZONE))
+		[ANCHOR]: ladderOf(definitions.anchor),
+		[ZONE]: ladderOf(definitions.zone)
 	};
 	const order = triadIntroductionOrder(
 		triadParams(definitions.anchor),

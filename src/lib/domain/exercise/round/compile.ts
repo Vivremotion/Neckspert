@@ -42,8 +42,7 @@ export function roundParamsOf(
 	return {
 		...resolvedParamsOf(definition, {
 			exerciseLevel: item.exerciseLevel,
-			itemLevel: item.level ?? null,
-			mechanic: mechanicOfSkill(item.skill)
+			itemLevel: item.level ?? null
 		}),
 		leadBeats: item.leadBeats,
 		previewBeats: resolved.previewBeats

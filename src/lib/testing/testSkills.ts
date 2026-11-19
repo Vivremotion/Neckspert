@@ -1,4 +1,5 @@
-import { registerSkill } from '$lib/domain/skill/registry';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { registerSkill, skillById } from '$lib/domain/skill/registry';
 import type { SkillDefinition, SkillId } from '$lib/domain/skill/types';
 
 /** A skill on the shapes of chords placed on the neck, which no catalog exercise practises. */
@@ -36,3 +37,36 @@ export const SKILL_OF_MECHANIC: Readonly<Record<string, SkillId>> = {
 	'voicing-figure': TEST_PLACED_VOICING_SKILL.id,
 	'form-figure': TEST_PLACED_SHAPE_SKILL.id
 };
+
+/**
+ * The exercise practising a skill like its own (same items, with memory) whose direct recall is
+ * within `withinMs`: registered once under an id naming both, kept for the rest of the file.
+ */
+export function practisingWithin(
+	definition: ExerciseDefinition,
+	withinMs: number
+): ExerciseDefinition {
+	const skill: SkillDefinition = {
+		...skillById(definition.practices),
+		id: `${definition.practices}-within-${withinMs}`,
+		memory: true,
+		directRecall: { withinMs }
+	};
+	registerSkill(skill, 'test');
+	return { ...definition, practices: skill.id };
+}
+
+/**
+ * The exercise practising a skill like its own (same items) that writes no direct recall, without
+ * memory: registered once, kept for the rest of the file.
+ */
+export function practisingWithoutRecall(definition: ExerciseDefinition): ExerciseDefinition {
+	const { directRecall: _none, ...rest } = skillById(definition.practices);
+	const skill: SkillDefinition = {
+		...rest,
+		id: `${definition.practices}-without-recall`,
+		memory: false
+	};
+	registerSkill(skill, 'test');
+	return { ...definition, practices: skill.id };
+}

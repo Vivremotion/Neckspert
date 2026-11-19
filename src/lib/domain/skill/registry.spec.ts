@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { allSkills, clearSkills, hasSkill, registerSkill, skillById } from './registry';
+import { allSkills, clearSkills, hasCards, hasSkill, registerSkill, skillById } from './registry';
 import type { SkillDefinition } from './types';
 
 const SKILL: SkillDefinition = {
@@ -13,6 +13,14 @@ describe('the skill registry', () => {
 	it('holds the catalog the test setup loads', () => {
 		expect(allSkills()).toHaveLength(11);
 		expect(hasSkill('locate-note-string')).toBe(true);
+	});
+
+	it('gives cards to the items of a registered memory skill only', () => {
+		expect(hasCards('locate-note-string')).toBe(true);
+		expect(hasCards('chord-zone')).toBe(true);
+		expect(hasCards('inner-pulse')).toBe(false);
+		expect(hasCards('grid-reading')).toBe(false);
+		expect(hasCards('unregistered')).toBe(false);
 	});
 
 	it('registers a skill once', () => {

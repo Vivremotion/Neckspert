@@ -1,6 +1,6 @@
 import type { Level } from '$lib/domain/time/levels';
 import { isBeatCount } from '$lib/domain/time/meter';
-import type { ExerciseDefinition, Ladder, MechanicId } from './types';
+import type { ExerciseDefinition, Ladder } from './types';
 
 const positiveInteger = (value: unknown) =>
 	typeof value === 'number' && Number.isInteger(value) && value > 0;
@@ -44,25 +44,13 @@ export function validateLadder(ladder: Ladder): string | null {
 	return null;
 }
 
-/** Where an exercise writes the ladder of the items of `mechanic`: `params.ladder`, or `params.ladders.<mechanic>`. */
-export function ladderFieldOf(definition: ExerciseDefinition, mechanic?: MechanicId): string {
-	return definition.params.ladder !== undefined || mechanic === undefined
-		? 'params.ladder'
-		: `params.ladders.${mechanic}`;
-}
-
-/** The ladder an exercise writes for the items of `mechanic` (`params.ladder`, or `params.ladders[mechanic]` for an exercise of several mechanics); throws when it has none. */
-export function ladderOf(definition: ExerciseDefinition, mechanic?: MechanicId): Ladder {
-	const { ladder, ladders } = definition.params as {
-		ladder?: Ladder;
-		ladders?: Readonly<Record<MechanicId, Ladder>>;
-	};
-	const field = ladderFieldOf(definition, mechanic);
-	const written = ladder ?? (mechanic === undefined ? undefined : ladders?.[mechanic]);
+/** The ladder an exercise writes (`params.ladder`); throws when it has none. */
+export function ladderOf(definition: ExerciseDefinition): Ladder {
+	const written = definition.params.ladder as Ladder | undefined;
 	if (written === undefined) {
-		throw new Error(`${definition.id}: ${field} is missing, the exercise writes no ladder`);
+		throw new Error(`${definition.id}: params.ladder is missing, the exercise writes no ladder`);
 	}
 	const invalid = validateLadder(written);
-	if (invalid !== null) throw new Error(`${definition.id}: ${field} ${invalid}`);
+	if (invalid !== null) throw new Error(`${definition.id}: params.ladder ${invalid}`);
 	return written;
 }

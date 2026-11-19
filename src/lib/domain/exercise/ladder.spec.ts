@@ -35,15 +35,15 @@ describe('ladderOf', () => {
 				success: 'direct-recall'
 			}
 		]);
-		// An exercise of several mechanics writes one ladder per mechanic.
+		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-neck.*ladder/);
+	});
+
+	it('reads no ladder from params.ladders', () => {
 		const two: ExerciseDefinition = {
 			...LOCATE_NECK,
 			params: { ladders: { locate: LEADS, identify: ladderOf(IDENTIFY_NECK) } }
 		};
-		expect(ladderOf(two, 'locate')).toEqual(LEADS);
-		expect(ladderOf(two, 'identify')).toEqual(ladderOf(IDENTIFY_NECK));
-		expect(() => ladderOf(two, 'triad-anchor')).toThrow(/locate-neck.*ladder/);
-		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-neck.*ladder/);
+		expect(() => ladderOf(two)).toThrow('locate-neck: params.ladder is missing');
 	});
 
 	it('refuses an empty ladder, a lead that is not positive, a pass that is not a positive integer', () => {

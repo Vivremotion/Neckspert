@@ -28,8 +28,8 @@ import {
 	type Slot
 } from '$lib/domain/exercise';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
 import { directRecallOf } from '$lib/domain/learning';
+import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import { compileRound } from '$lib/domain/exercise/round';
 import type {
 	ExpectationTemplate,
@@ -446,8 +446,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 		...(chance(random, 0.6) && { pacing: { respirationBars: between(random, 1, 2) } }),
 		...(chance(random, 0.3) && {
 			windows: { perfectMs: pick(random, WINDOWS_MS), lateMs: pick(random, [100, 200, 400]) }
-		}),
-		...(chance(random, 0.5) && { recallThresholdMs: between(random, 800, 3000) })
+		})
 	};
 	// A run of cycles breathes after so many: drawn last, so the other draws stay as they were.
 	if (round.policy.unit === 'cycle') {
@@ -616,8 +615,10 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 				selector: source,
 				sessionId,
 				rules: (skill) => BENCH_PRESENTERS[mechanicOfSkill(skill)].rules,
-				// Direct recall as the exercise writes it, as the notes' free play reads it.
-				recall: () => directRecallOf(recallThresholdOf(definition)),
+				// Direct recall as the exercise's skill writes it, as the notes' free play reads it.
+				recall: () =>
+					(hasSkill(definition.practices) && directRecallOf(skillById(definition.practices))) ||
+					(() => false),
 				levels: new InMemoryLevelStateRepository()
 			});
 			recorders.push(recorder);

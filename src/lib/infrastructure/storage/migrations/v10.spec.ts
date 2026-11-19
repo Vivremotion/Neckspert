@@ -119,8 +119,8 @@ describe('TRIAD_LADDER_V10', () => {
 	// Tripwire, as for NECK_LADDER_V9: the migration never reads the catalog, but a divergence must
 	// be noticed, then decided (the frozen ladder stays as it is).
 	it('keeps the frozen ladder equal to the catalog', () => {
-		const anchor = ladderOf(TRIADS_ANCHOR, 'triad-anchor');
-		const zone = ladderOf(TRIADS_ZONE, 'triad-zone');
+		const anchor = ladderOf(TRIADS_ANCHOR);
+		const zone = ladderOf(TRIADS_ZONE);
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(anchor.map((level) => level.params.leadBeats));
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(zone.map((level) => level.params.leadBeats));
 		expect(TRIAD_LADDER_V10.exercises).toEqual({

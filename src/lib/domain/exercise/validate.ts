@@ -1,5 +1,6 @@
 import { mechanicRules } from '../mechanics';
 import { mechanicOfSkill } from '../skill/bridge';
+import { hasSkill, skillById } from '../skill/registry';
 import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
@@ -26,15 +27,6 @@ function ladderProblem(params: ExerciseDefinition['params']): string | null {
 		const invalid = validateLadder(params.ladder as Ladder);
 		if (invalid !== null) return `params.ladder ${invalid}`;
 	}
-	if (params.ladders !== undefined) {
-		if (typeof params.ladders !== 'object' || params.ladders === null) {
-			return 'params.ladders must map mechanics to ladders';
-		}
-		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
-			const invalid = validateLadder(ladder as Ladder);
-			if (invalid !== null) return `params.ladders.${mechanic} ${invalid}`;
-		}
-	}
 	return null;
 }
 
@@ -46,7 +38,7 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
  * (with its `tempo`, `read` `'params'`), and alike the params resolved at each of its levels
  * (`read` `'level'`), so that a value is checked the same wherever it is written. At a level only
  * what the engine reads from the resolved params is checked (tempo, windows, pacing); the
- * learning settings and the recall threshold are read from the exercise's params alone. A value
+ * learning settings are read from the exercise's params alone. A value
  * left out passes: its default is runnable.
  */
 function valuesProblem(
@@ -95,8 +87,8 @@ function valuesProblem(
 			return `params.pacing.countIn must be true or false, got ${countIn}`;
 		}
 	}
-	// Read from the exercise's own params only (`itemLearningOf`, `recallThresholdOf`): what a
-	// level writes there is without effect.
+	// Read from the exercise's own params only (`itemLearningOf`): what a level writes there is
+	// without effect.
 	if (read === 'level') return null;
 	if (values.learning !== undefined) {
 		if (!isObject(values.learning)) return 'params.learning must be an object';
@@ -112,9 +104,6 @@ function valuesProblem(
 			return `params.learning.aidFadeSuccesses must be a non-negative integer, got ${fade}`;
 		}
 	}
-	if (values.recallThresholdMs !== undefined && !positive(values.recallThresholdMs)) {
-		return `params.recallThresholdMs must be a positive number, got ${values.recallThresholdMs}`;
-	}
 	return null;
 }
 
@@ -123,6 +112,17 @@ function paramsProblem(definition: ExerciseDefinition): string | null {
 		valuesProblem({ ...definition.params, tempo: definition.tempo }, 'params') ??
 		ladderProblem(definition.params)
 	);
+}
+
+/**
+ * Why the skill an exercise practises cannot be learned by its round: a memory skill (its items
+ * kept as cards, each attempt one answer) with a round judged by cycle.
+ */
+function memoryProblem(definition: ExerciseDefinition): string | null {
+	const memory = hasSkill(definition.practices) && skillById(definition.practices).memory;
+	return memory && definition.round?.policy?.unit === 'cycle'
+		? 'practices a memory skill with a round judged by cycle'
+		: null;
 }
 
 /**
@@ -147,16 +147,9 @@ function runProblem(
 	return null;
 }
 
-/** The ladders an exercise writes, by the field that holds them. */
+/** The ladder an exercise writes, by the field that holds it; none when it writes none. */
 function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
-	const ladders: [string, Ladder][] = [];
-	if (params.ladder !== undefined) ladders.push(['params.ladder', params.ladder as Ladder]);
-	if (typeof params.ladders === 'object' && params.ladders !== null) {
-		for (const [mechanic, ladder] of Object.entries(params.ladders)) {
-			ladders.push([`params.ladders.${mechanic}`, ladder as Ladder]);
-		}
-	}
-	return ladders;
+	return params.ladder === undefined ? [] : [['params.ladder', params.ladder as Ladder]];
 }
 
 /**
@@ -164,8 +157,8 @@ function laddersOf(params: ExerciseDefinition['params']): [string, Ladder][] {
  * exercise or item level whose paths cannot be applied (`overrideParams`) or whose resolved params
  * hold a tempo, windows or pacing the engine could not run (`valuesProblem` at a level), named by
  * its level in `levels` (aid levels counted) or on its ladder, a run a level could not start or
- * end (`runProblem`). A path no piece reads at a level passes, the learning settings and the
- * recall threshold among them: it is without effect.
+ * end (`runProblem`). A path no piece reads at a level passes, the learning settings among them:
+ * it is without effect.
  */
 function levelsProblem(definition: ExerciseDefinition): string | null {
 	const { levels } = definition;
@@ -345,6 +338,8 @@ export function validateExercise(
 		if (flow?.demonstration !== undefined && typeof flow.demonstration !== 'boolean') {
 			return `flow.demonstration must be true or false, got ${String(flow.demonstration)}`;
 		}
+		const memory = memoryProblem(definition);
+		if (memory !== null) return memory;
 		const params = paramsProblem(definition);
 		if (params !== null) return params;
 		const levels = levelsProblem(definition);

@@ -1,9 +1,9 @@
+import { hasSkill, skillById } from '../skill/registry';
 import { levelRange, type Level } from '../time/levels';
 import { ladderOf } from './ladder';
 import { pacingOf } from './pacing';
-import { recallThresholdOf } from './recall';
 import { DEFAULT_TEMPO_BPM } from './tempo';
-import type { ExerciseDefinition, ExercisePacing, MechanicId } from './types';
+import type { ExerciseDefinition, ExercisePacing } from './types';
 import { windowsOf } from './windows';
 
 /** Dotted paths of the resolved params and the values that replace them. */
@@ -81,9 +81,18 @@ function levelAt<P>(levels: readonly Level<P>[], index: number, what: string): L
 	return levels[index - lowest];
 }
 
+/** The direct recall of the skill the exercise practises; none when it writes none or is unregistered. */
+function directRecallParamsOf(definition: ExerciseDefinition): {
+	directRecall?: { withinMs: number };
+} {
+	if (!hasSkill(definition.practices)) return {};
+	const { directRecall } = skillById(definition.practices);
+	return directRecall === undefined ? {} : { directRecall: { ...directRecall } };
+}
+
 /**
- * The params the exercise alone gives: its own, its windows, pacing and recall threshold over
- * their defaults, and its `tempo` (the one it writes, else `DEFAULT_TEMPO_BPM`).
+ * The params the exercise alone gives: its own, its windows and pacing over their defaults, its
+ * `tempo` (the one it writes, else `DEFAULT_TEMPO_BPM`), and the `directRecall` its skill writes.
  */
 export function exerciseParamsOf(
 	definition: ExerciseDefinition
@@ -94,22 +103,22 @@ export function exerciseParamsOf(
 		tempo: definition.tempo ?? DEFAULT_TEMPO_BPM,
 		windows: windowsOf(definition),
 		pacing: pacingOf(definition),
-		recallThresholdMs: recallThresholdOf(definition)
+		...directRecallParamsOf(definition)
 	};
 }
 
 /**
  * Exercise params (`exerciseParamsOf`, with `tempo`), then the exercise level, then the item
- * level (on the ladder the exercise writes for `mechanic`), each overriding the one before.
+ * level (on the ladder the exercise writes), each overriding the one before.
  */
 export function resolvedParamsOf(
 	definition: ExerciseDefinition,
-	at: { exerciseLevel: number; itemLevel: number | null; mechanic?: MechanicId }
+	at: { exerciseLevel: number; itemLevel: number | null }
 ): Readonly<Record<string, unknown>> {
 	const exerciseLevel = levelAt(exerciseLevelsOf(definition), at.exerciseLevel, definition.id);
 	const params = overrideParams(exerciseParamsOf(definition), exerciseLevel.params);
 	if (at.itemLevel === null) return params;
-	const ladder = ladderOf(definition, at.mechanic);
+	const ladder = ladderOf(definition);
 	const itemLevel = levelAt(ladder, at.itemLevel, `${definition.id} item`);
 	return overrideParams(params, itemLevel.params as LevelOverrides);
 }

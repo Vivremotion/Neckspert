@@ -300,13 +300,6 @@ describe('roundProblem', () => {
 		expect(roundProblem(gap)).toMatch(/round\.expectations\[0\]\.window\.ofGap .*fraction/);
 	});
 
-	it('returns the problem of the exercise’s own params instead of checking raw ones', () => {
-		const noThreshold: ExerciseDefinition = {
-			...LOCATE_NECK,
-			params: { ...LOCATE_NECK.params, recallThresholdMs: -5 }
-		};
-		expect(roundProblem(noThreshold)).toMatch(/recallThresholdMs must be a positive number/);
-	});
 	describe('a figure entry', () => {
 		const THRESHOLDS = { regularity: 40, holdOffset: 60, holdDrift: 25, precision: 60 };
 		/** A rhythm written as a template: a figure filling the round, its click and window in the params. */

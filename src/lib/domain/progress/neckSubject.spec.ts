@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { SkillId } from '$lib/domain/types';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
@@ -19,6 +18,7 @@ import { neckSubject } from './neckSubject';
 import { graduateToReview } from './scheduling';
 import type { LevelState } from '$lib/domain/time/levels';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
+import { practisingWithin, practisingWithoutRecall } from '$lib/testing/testSkills';
 
 const LOCATE = 'locate-note-string' as SkillId;
 const IDENTIFY = 'identify-note' as SkillId;
@@ -69,10 +69,6 @@ function answerOf(
 	});
 }
 
-function withThreshold(definition: ExerciseDefinition, recallThresholdMs: number) {
-	return { ...definition, params: { ...definition.params, recallThresholdMs } };
-}
-
 describe('neckSubject', () => {
 	it('owns the neck’s cards and plays each skill in its exercise', () => {
 		const subject = neckSubject({ definitions: DEFINITIONS });
@@ -86,14 +82,14 @@ describe('neckSubject', () => {
 		expect(subject.itemKey(identify(5, 3))).toBe('5:3');
 	});
 
-	it('refuses a locate or identify exercise that declares no recall threshold', () => {
-		const silent = { ...LOCATE_NECK, params: {} };
+	it('refuses a locate or identify exercise whose skill writes no direct recall', () => {
+		const silent = practisingWithoutRecall(LOCATE_NECK);
 		expect(() => neckSubject({ definitions: { locate: silent, identify: IDENTIFY_NECK } })).toThrow(
-			/recall threshold/
+			'the locate-neck exercise practises locate-note-string-without-recall, which writes no direct recall'
 		);
-		const mute = { ...IDENTIFY_NECK, params: {} };
+		const mute = practisingWithoutRecall(IDENTIFY_NECK);
 		expect(() => neckSubject({ definitions: { locate: LOCATE_NECK, identify: mute } })).toThrow(
-			/recall threshold/
+			/identify-note-without-recall, which writes no direct recall/
 		);
 	});
 
@@ -214,7 +210,7 @@ describe('neckSubject', () => {
 			leadBeats
 		});
 		const declared = neckSubject({
-			definitions: { locate: withThreshold(LOCATE_NECK, 3000), identify: IDENTIFY_NECK }
+			definitions: { locate: practisingWithin(LOCATE_NECK, 3000), identify: IDENTIFY_NECK }
 		});
 		// The threshold judges recall; the ladder stays as written.
 		expect(declared.ladder(LOCATE)).toEqual(ladderOf(LOCATE_NECK));
@@ -240,7 +236,7 @@ describe('neckSubject', () => {
 		const slow = answerOf(named, true, { reactionMs: 2500 });
 		expect(catalog.recall(IDENTIFY)(slow)).toBe(true);
 		const strict = neckSubject({
-			definitions: { locate: LOCATE_NECK, identify: withThreshold(IDENTIFY_NECK, 2000) }
+			definitions: { locate: LOCATE_NECK, identify: practisingWithin(IDENTIFY_NECK, 2000) }
 		});
 		expect(strict.recall(IDENTIFY)(slow)).toBe(false);
 	});

@@ -27,6 +27,11 @@ export function hasSkill(id: SkillId): boolean {
 	return registered.has(id);
 }
 
+/** Whether the items of a skill have cards (FSRS): a registered skill with memory. */
+export function hasCards(id: SkillId): boolean {
+	return registered.get(id)?.skill.memory === true;
+}
+
 export function clearSkills(): void {
 	registered.clear();
 }

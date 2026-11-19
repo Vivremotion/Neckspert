@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ladderOf } from '$lib/domain/exercise/ladder';
-import { recallThresholdOf } from '$lib/domain/exercise/recall';
+import { skillById } from '$lib/domain/skill/registry';
 import { NECK_LADDER_V9, backupV4ToV5, levelStatesV9, neckLevelOfCard } from './v9';
 import { IDENTIFY_NECK, LOCATE_NECK } from '$lib/testing/catalog';
 
@@ -79,7 +79,9 @@ describe('NECK_LADDER_V9', () => {
 			locate.map((level) => level.params.leadBeats)
 		);
 		expect(NECK_LADDER_V9.locate.learnedAfter).toBe(locate[locate.length - 1].pass?.successes);
-		expect(NECK_LADDER_V9.locate.recallThresholdMs).toBe(recallThresholdOf(LOCATE_NECK));
+		expect(NECK_LADDER_V9.locate.recallThresholdMs).toBe(
+			skillById(LOCATE_NECK.practices).directRecall?.withinMs
+		);
 		expect(NECK_LADDER_V9.identify.exerciseId).toBe(IDENTIFY_NECK.id);
 		const identify = ladderOf(IDENTIFY_NECK);
 		expect(NECK_LADDER_V9.identify.learnedAfter).toBe(

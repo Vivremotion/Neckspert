@@ -96,7 +96,6 @@
 				}
 			},
 			"params": {
-				"recallThresholdMs": 1500,
 				"ladder": [
 					{
 						"params": {
@@ -162,7 +161,7 @@
 						},
 						"window": {
 							"ms": {
-								"param": "recallThresholdMs"
+								"param": "directRecall.withinMs"
 							}
 						}
 					}
@@ -185,7 +184,6 @@
 				}
 			},
 			"params": {
-				"recallThresholdMs": 3000,
 				"ladder": [
 					{
 						"params": {

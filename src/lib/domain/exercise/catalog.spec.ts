@@ -27,7 +27,7 @@ describe('exercise catalog', () => {
 			tempo: 80,
 			round: LOCATE_NECK.round,
 			presentation: LOCATE_NECK.presentation,
-			params: { recallThresholdMs: 1500, ladder: ladderOf(LOCATE_NECK) }
+			params: { ladder: ladderOf(LOCATE_NECK) }
 		});
 		expect(IDENTIFY_NECK).toEqual({
 			id: 'identify-neck',
@@ -35,7 +35,7 @@ describe('exercise catalog', () => {
 			view: 'answer-keys',
 			round: IDENTIFY_NECK.round,
 			presentation: IDENTIFY_NECK.presentation,
-			params: { recallThresholdMs: 3000, ladder: ladderOf(IDENTIFY_NECK) }
+			params: { ladder: ladderOf(IDENTIFY_NECK) }
 		});
 	});
 
@@ -52,7 +52,6 @@ describe('exercise catalog', () => {
 			],
 			qualities: ['maj', 'min'],
 			pacing: { respirationBars: 1 },
-			recallThresholdMs: 1500,
 			ladder: [
 				{ params: { leadBeats: 8, aided: true }, pass: { successes: 1 }, drop: { failures: 1 } },
 				{ params: { leadBeats: 4, aided: false }, pass: { successes: 1 }, drop: { failures: 1 } },

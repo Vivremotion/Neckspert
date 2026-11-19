@@ -59,7 +59,7 @@ function playableAt(exercise: ExerciseDefinition, level: number) {
 }
 
 /** Keys every exercise's resolved params carry besides its level params. */
-const RESOLVED_ELSEWHERE = ['sensor', 'windows', 'pacing', 'recallThresholdMs'];
+const RESOLVED_ELSEWHERE = ['sensor', 'windows', 'pacing'];
 
 const ACCENTED_EVERY_BEAT = {
 	schema: 2,

@@ -4,7 +4,7 @@ import type { Attempt, CardState } from '$lib/domain/types';
 import { State } from 'ts-fsrs';
 import { MIN_COLD_DELAY_MS } from './constants';
 import { IDENTIFY_RECALL_THRESHOLD_MS, RECALL_THRESHOLD_MS } from '$lib/domain/types';
-import { directRecallOf } from '$lib/domain/learning/recall';
+import { directRecallWithin } from '$lib/domain/learning/recall';
 import {
 	applyColdAttempt,
 	cardStatus,
@@ -24,8 +24,8 @@ const LOCATE = {
 	item: { string: 6, pitch: 'G' }
 };
 const IDENTIFY = { key: 'identify-note:6:3', skill: 'identify-note', item: { string: 6, fret: 3 } };
-const recall = directRecallOf(RECALL_THRESHOLD_MS);
-const naming = directRecallOf(IDENTIFY_RECALL_THRESHOLD_MS);
+const recall = directRecallWithin(RECALL_THRESHOLD_MS);
+const naming = directRecallWithin(IDENTIFY_RECALL_THRESHOLD_MS);
 
 /** A cold locate review, played at TEMPO. */
 function attempt(overrides: AttemptOverrides): Attempt {

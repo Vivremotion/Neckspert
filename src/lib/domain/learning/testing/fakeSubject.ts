@@ -15,7 +15,7 @@ import {
 	type ResponseValue,
 	type ResponseVerdict
 } from '../../time/modes/responseVerdict';
-import { directRecallOf } from '../recall';
+import { directRecallWithin } from '../recall';
 import type { Level } from '../../time/levels';
 import { DEFAULT_ITEM_LEARNING, type ItemLearning } from '../params';
 import type { CardRef, Ladder, LadderParams, LearningSubject } from '../subject';
@@ -67,7 +67,7 @@ export function fakeSubject(
 	const skills = input.skills ?? [FAKE_SKILL];
 	const neighbours = input.neighbours ?? ((a: number, b: number) => a === b);
 	const ladder = input.ladder ?? FAKE_LADDER;
-	const recall = directRecallOf(1500);
+	const recall = directRecallWithin(1500);
 	const { ready, prefers } = input;
 
 	return {

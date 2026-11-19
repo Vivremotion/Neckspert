@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { ladderOf } from '$lib/domain/exercise/ladder';
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { SkillId } from '$lib/domain/types';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
@@ -21,6 +20,7 @@ import { triadIntroductionOrder } from './introduction';
 import { triadParams, voicingPositions } from './items';
 import { occurrencePosition } from './position';
 import { triadSubject, type TriadSkill } from './triadSubject';
+import { practisingWithoutRecall } from '$lib/testing/testSkills';
 import { TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
 
 const ANCHOR = 'chord-anchor' as SkillId;
@@ -90,12 +90,6 @@ function answerOf(
 	});
 }
 
-function withoutThreshold(definition: ExerciseDefinition): ExerciseDefinition {
-	const params = { ...definition.params };
-	delete params.recallThresholdMs;
-	return { ...definition, params };
-}
-
 function seeded(seed: number): () => number {
 	return () => {
 		seed = (seed * 1_664_525 + 1_013_904_223) >>> 0;
@@ -156,15 +150,15 @@ describe('triadSubject', () => {
 		expect(subject.recall(ANCHOR)(answerOf({ ...planned, leadBeats: 4 }, true))).toBe(false);
 	});
 
-	it('refuses a triads exercise that declares no recall threshold', () => {
+	it('refuses a triads exercise whose skill writes no direct recall', () => {
 		expect(() =>
 			triadSubject({
 				skill: 'chord-anchor',
-				definitions: { anchor: withoutThreshold(TRIADS_ANCHOR), zone: TRIADS_ZONE },
+				definitions: { anchor: practisingWithoutRecall(TRIADS_ANCHOR), zone: TRIADS_ZONE },
 				acquiredPositions: new Set(),
 				attempts: []
 			})
-		).toThrow(/recall threshold/);
+		).toThrow(/chord-anchor-without-recall, which writes no direct recall/);
 	});
 
 	it('introduces anchor triads in their queue, the acquired notes’ triads first', () => {
