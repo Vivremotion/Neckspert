@@ -10,6 +10,7 @@ import { loadDefinitions } from '$lib/composition/definitions';
 import { clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids } from '$lib/domain/grid/registry';
 import { clearSkills } from '$lib/domain/skill/registry';
+import { clearRoutines } from '$lib/domain/routine/registry';
 
 const ROUTE_MODULES = import.meta.glob(['./**/+page.svelte', './**/+layout.svelte']);
 
@@ -17,6 +18,7 @@ function clearRegistries(): void {
 	clearExercises();
 	clearGrids();
 	clearSkills();
+	clearRoutines();
 }
 
 describe('every route module with the registries empty', () => {

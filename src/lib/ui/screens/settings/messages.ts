@@ -36,11 +36,12 @@ export const settingsMessages = defineMessages({
 		importFiles: 'Importer des fichiers',
 		importedFilesEmpty: 'Aucun fichier importé.',
 		importedFilesHelp: 'Un fichier du même nom remplace le précédent.',
-		importedFileCounts: (skills: number, grids: number, exercises: number) =>
+		importedFileCounts: (skills: number, grids: number, exercises: number, routines: number) =>
 			[
 				skills > 0 && `${skills} ${skills === 1 ? 'capacité' : 'capacités'}`,
 				grids > 0 && `${grids} ${grids === 1 ? 'grille' : 'grilles'}`,
-				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercice' : 'exercices'}`
+				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercice' : 'exercices'}`,
+				routines > 0 && `${routines} ${routines === 1 ? 'routine' : 'routines'}`
 			]
 				.filter(Boolean)
 				.join(', '),
@@ -94,11 +95,12 @@ export const settingsMessages = defineMessages({
 		importFiles: 'Import files',
 		importedFilesEmpty: 'No imported file.',
 		importedFilesHelp: 'A file of the same name replaces the one before.',
-		importedFileCounts: (skills: number, grids: number, exercises: number) =>
+		importedFileCounts: (skills: number, grids: number, exercises: number, routines: number) =>
 			[
 				skills > 0 && `${skills} ${skills === 1 ? 'skill' : 'skills'}`,
 				grids > 0 && `${grids} ${grids === 1 ? 'grid' : 'grids'}`,
-				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercise' : 'exercises'}`
+				exercises > 0 && `${exercises} ${exercises === 1 ? 'exercise' : 'exercises'}`,
+				routines > 0 && `${routines} ${routines === 1 ? 'routine' : 'routines'}`
 			]
 				.filter(Boolean)
 				.join(', '),

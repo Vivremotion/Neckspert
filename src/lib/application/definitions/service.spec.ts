@@ -85,6 +85,7 @@ describe('createDefinitionsService', () => {
 				skills: [TEST_PLACED_VOICING_SKILL.id],
 				grids: [],
 				exercises: ['stored-arpeggio'],
+				routines: [],
 				refusals: []
 			}
 		]);
@@ -124,6 +125,39 @@ describe('createDefinitionsService', () => {
 		expect((await files.all()).map((stored) => stored.name)).toEqual(['a.json']);
 		expect(exerciseIds()).toContain('first-arpeggio');
 		expect(service.refusals()).toEqual(result.stored[0].refusals);
+	});
+
+	it('tells the routines a file defines, and those it refuses', async () => {
+		const { service } = setup();
+		const routine = (id: string, exercises: string[]) => ({
+			id,
+			title: { fr: id, en: id },
+			exercises
+		});
+		const { stored } = await service.import([
+			{
+				name: 'r.json',
+				text: JSON.stringify({
+					format: 0,
+					routines: [routine('my-notes', ['identify-note']), routine('nothing', ['nowhere'])]
+				})
+			}
+		]);
+		expect(stored[0]).toMatchObject({
+			name: 'r.json',
+			skills: [],
+			grids: [],
+			exercises: [],
+			routines: ['my-notes']
+		});
+		expect(stored[0].refusals).toEqual([
+			{
+				file: 'r.json',
+				kind: 'routine',
+				id: 'nothing',
+				reason: 'exercises[0]: no file defines the exercise "nowhere"'
+			}
+		]);
 	});
 
 	it('keeps the last of two files of one name in one import', async () => {
@@ -190,7 +224,8 @@ describe('createDefinitionsService', () => {
 			importedAt: 3,
 			skills: [],
 			grids: [],
-			exercises: []
+			exercises: [],
+			routines: []
 		});
 		expect(broken.refusals).toHaveLength(1);
 		expect(broken.refusals[0]).toMatchObject({ file: 'broken.json', kind: 'file', id: null });
@@ -335,7 +370,15 @@ describe('createDefinitionsService', () => {
 		expect(mark.isSet()).toBe(false);
 		expect(service.refusals()).toEqual([UNFINISHED]);
 		expect(await service.files()).toEqual([
-			{ name: 'slow.json', importedAt: 4, skills: [], grids: [], exercises: [], refusals: [] }
+			{
+				name: 'slow.json',
+				importedAt: 4,
+				skills: [],
+				grids: [],
+				exercises: [],
+				routines: [],
+				refusals: []
+			}
 		]);
 
 		await service.remove('slow.json');

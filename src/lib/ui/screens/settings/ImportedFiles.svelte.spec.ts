@@ -11,6 +11,7 @@ const FILE: ImportedFile = {
 	skills: ['a', 'b'],
 	grids: ['g'],
 	exercises: ['e1', 'e2', 'e3'],
+	routines: ['r'],
 	refusals: []
 };
 
@@ -50,20 +51,20 @@ describe('ImportedFiles', () => {
 	it('lists a file with its counts, its date and its name as text', () => {
 		setup({ files: [FILE] });
 		expect(screen.getByText('mes accords été.json')).toBeTruthy();
-		expect(screen.getByText('2 capacités, 1 grille, 3 exercices')).toBeTruthy();
+		expect(screen.getByText('2 capacités, 1 grille, 3 exercices, 1 routine')).toBeTruthy();
 		expect(screen.getByText(/19 novembre 2026/)).toBeTruthy();
 	});
 
 	it('leaves out the kinds at zero, singular and plural, in English', () => {
 		i18n.locale = 'en';
 		setup({
-			files: [{ ...FILE, skills: ['a'], grids: [], exercises: ['e'] }]
+			files: [{ ...FILE, skills: ['a'], grids: [], exercises: ['e'], routines: ['r', 's'] }]
 		});
-		expect(screen.getByText('1 skill, 1 exercise')).toBeTruthy();
+		expect(screen.getByText('1 skill, 1 exercise, 2 routines')).toBeTruthy();
 	});
 
 	it('says nothing was read from an empty file', () => {
-		setup({ files: [{ ...FILE, skills: [], grids: [], exercises: [] }] });
+		setup({ files: [{ ...FILE, skills: [], grids: [], exercises: [], routines: [] }] });
 		expect(screen.getByText('Rien n’a été lu dans ce fichier.')).toBeTruthy();
 	});
 

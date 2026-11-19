@@ -569,7 +569,15 @@ export class FakeDefinitionsService implements DefinitionsService {
 				refused.push({ file: name, kind: 'file', id: null, reason });
 				continue;
 			}
-			const file = { name, importedAt: 0, skills: [], grids: [], exercises: [], refusals: [] };
+			const file = {
+				name,
+				importedAt: 0,
+				skills: [],
+				grids: [],
+				exercises: [],
+				routines: [],
+				refusals: []
+			};
 			this.stored.set(name, file);
 			stored.push(structuredClone(file));
 		}

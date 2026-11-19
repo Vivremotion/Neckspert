@@ -76,7 +76,8 @@
 				{@const counts = m.importedFileCounts(
 					file.skills.length,
 					file.grids.length,
-					file.exercises.length
+					file.exercises.length,
+					file.routines.length
 				)}
 				<li>
 					<p class="name">{file.name}</p>

@@ -31,8 +31,9 @@ export interface RegisterResult {
  * every file's grids, then every file's exercises are checked and registered, then every file's
  * routines (`routineProblem`), the files in the order of their names in each pass: an exercise
  * may name a skill or a grid, a routine an exercise or a skill, of any file of the call, whatever
- * their names. A routine naming an exercise that was refused is refused. Of two objects of one id, the first registered stays. A refused
- * object is left out, the rest of its file kept. Never throws.
+ * their names. A routine naming an exercise that was refused is refused. Of two objects of one id,
+ * the first registered stays. A refused object is left out, the rest of its file kept. A check
+ * that throws refuses its object with the error's message. Never throws.
  */
 export function registerFiles(
 	files: Readonly<Record<string, string>>,
@@ -83,7 +84,12 @@ export function registerFiles(
 	}
 	for (const { file, routines } of read) {
 		for (const routine of routines) {
-			const problem = routineProblem(routine);
+			let problem: string | null;
+			try {
+				problem = routineProblem(routine);
+			} catch (error) {
+				problem = error instanceof Error ? error.message : String(error);
+			}
 			if (problem !== null)
 				refusals.push({ file, kind: 'routine', id: routine.id, reason: problem });
 			else register(file, 'routine', routine.id, registerRoutine(routine, file));

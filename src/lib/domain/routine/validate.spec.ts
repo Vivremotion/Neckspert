@@ -23,6 +23,10 @@ describe('routineProblem, on the catalog the test setup loads', () => {
 		).toBeNull();
 	});
 
+	it('refuses an empty list of exercises without throwing', () => {
+		expect(routineProblem(routine([]))).toBe('exercises is empty');
+	});
+
 	it('refuses an exercise no file defines, naming it', () => {
 		expect(routineProblem(routine(['identify-note', 'nowhere']))).toBe(
 			'exercises[1]: no file defines the exercise "nowhere"'

@@ -23,6 +23,7 @@ export interface ImportedFile {
 	skills: string[];
 	grids: string[];
 	exercises: string[];
+	routines: string[];
 	refusals: Refusal[];
 }
 
@@ -107,7 +108,7 @@ export function createDefinitionsService(deps: {
 
 	const describe = (file: DefinitionFileRecord): ImportedFile => {
 		const imported = loaded?.imported ?? { registered: [], refusals: [] };
-		const ids = (kind: 'skill' | 'grid' | 'exercise') =>
+		const ids = (kind: 'skill' | 'grid' | 'exercise' | 'routine') =>
 			imported.registered
 				.filter((object) => object.file === file.name && object.kind === kind)
 				.map((object) => object.id);
@@ -117,6 +118,7 @@ export function createDefinitionsService(deps: {
 			skills: ids('skill'),
 			grids: ids('grid'),
 			exercises: ids('exercise'),
+			routines: ids('routine'),
 			refusals: imported.refusals.filter((refusal) => refusal.file === file.name)
 		};
 	};

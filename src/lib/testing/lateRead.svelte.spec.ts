@@ -1,6 +1,7 @@
 import { it, expect } from 'vitest';
 import { clearExercises } from '$lib/domain/exercise';
 import { clearGrids } from '$lib/domain/grid';
+import { clearRoutines } from '$lib/domain/routine';
 
 const MODULES: [string, () => Promise<unknown>][] = [
 	['neck', () => import('$lib/domain/progress/neck')],
@@ -15,5 +16,6 @@ const MODULES: [string, () => Promise<unknown>][] = [
 it.each(MODULES)('%s imports with empty registries', async (_name, load) => {
 	clearExercises();
 	clearGrids();
+	clearRoutines();
 	await expect(load()).resolves.toBeDefined();
 });

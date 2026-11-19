@@ -29,6 +29,7 @@ function openingProblem(opening: Opening, where: string): string | null {
  * writes `passages`; the opening names only skills and exercises defined.
  */
 export function routineProblem(routine: RoutineDefinition): string | null {
+	if (routine.exercises.length === 0) return 'exercises is empty';
 	const exercises = [];
 	for (const [index, id] of routine.exercises.entries()) {
 		const exercise = findExercise(id);

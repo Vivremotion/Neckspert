@@ -30,7 +30,8 @@ async function fresh() {
 	vi.resetModules();
 	const definitions = await import('./definitions');
 	const exercises = await import('$lib/domain/exercise/registry');
-	return { ...definitions, ...exercises };
+	const routines = await import('$lib/domain/routine/registry');
+	return { ...definitions, ...exercises, ...routines };
 }
 
 beforeEach(() => {
@@ -159,6 +160,46 @@ describe('loadDefinitions', () => {
 		const ids = allExercises().map((exercise) => exercise.id);
 		expect(ids).toContain('kept');
 		expect(ids).not.toContain('on-broken');
+	});
+
+	it('refuses a routine whose exercise the checks refuse, naming it, and loads the rest of its file', async () => {
+		const { loadDefinitions, allExercises, routines } = await fresh();
+		const broken = { ...TEST_PLACED_VOICING_SKILL, id: 'broken-skill', items: 'no-such-set' };
+		const routine = (id: string, exercises: string[]) => ({
+			id,
+			title: { fr: id, en: id },
+			exercises
+		});
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
+			catalog: CATALOG_FILES,
+			imported: {
+				'/imported/a.json': JSON.stringify({
+					format: 0,
+					skills: [TEST_PLACED_VOICING_SKILL, broken],
+					exercises: [
+						{ ...arpeggioJson('on-broken'), practices: 'broken-skill' },
+						arpeggioJson('kept')
+					],
+					routines: [routine('on-refused', ['on-broken']), routine('my-notes', ['identify-note'])]
+				})
+			}
+		});
+		expect(refusals.map(({ kind, id }) => ({ kind, id }))).toEqual([
+			{ kind: 'skill', id: 'broken-skill' },
+			{ kind: 'exercise', id: 'on-broken' },
+			{ kind: 'routine', id: 'on-refused' }
+		]);
+		expect(refusals[2].reason).toBe('exercises[0]: no file defines the exercise "on-broken"');
+		expect(allExercises().map((exercise) => exercise.id)).toContain('kept');
+		expect(routines().map((r) => r.id)).toEqual([
+			'changes',
+			'chords',
+			'chords-zone',
+			'notes',
+			'my-notes'
+		]);
 	});
 
 	it('empties the registries before filling them: a file left out takes its objects with it', async () => {
