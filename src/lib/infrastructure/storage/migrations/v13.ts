@@ -230,16 +230,61 @@ function lookUp(table: Readonly<Record<string, string>>, name: unknown): string 
 	return typeof name === 'string' && Object.hasOwn(table, name) ? table[name] : undefined;
 }
 
+const isName = (value: unknown): value is string => typeof value === 'string' && value !== '';
+
 /**
  * A card as version 13 keeps it: the skill of its mechanic, its key prefixed by it, no
  * `mechanic`. A card of a mechanic the table does not know keeps its mechanic as its skill and
- * its key as it is: never dropped.
+ * its key as it is; a card without a mechanic is kept as it is: never dropped.
  */
 export function cardToV13(card: Row): Row {
 	const { mechanic, ...rest } = card;
+	if (!isName(mechanic)) return { ...card };
 	const skill = lookUp(SKILL_OF_MECHANIC_V13, mechanic);
 	if (skill === undefined) return { ...rest, skill: mechanic };
 	return { ...rest, skill, key: rekeyed(card.key, skill) };
+}
+
+/**
+ * Rows upgraded one by one, none given a primary key another row already holds: a row whose
+ * upgraded key is taken, by a row that keeps its key or one upgraded before it, takes
+ * `orphaned(row)` instead, which keeps its old key. Rows keep their order. The rows given hold
+ * distinct keys, as a table's do; so do the rows returned.
+ */
+function upgradedApart(
+	rows: readonly Row[],
+	upgrade: (row: Row) => Row,
+	orphaned: (row: Row) => Row,
+	keyOf: (row: Row) => string
+): Row[] {
+	const upgraded = rows.map(upgrade);
+	const taken = new Set(
+		rows.filter((row, index) => keyOf(row) === keyOf(upgraded[index])).map(keyOf)
+	);
+	return rows.map((row, index) => {
+		const next = upgraded[index];
+		if (keyOf(row) === keyOf(next)) return next;
+		if (!taken.has(keyOf(next))) {
+			taken.add(keyOf(next));
+			return next;
+		}
+		const kept = orphaned(row);
+		taken.add(keyOf(kept));
+		return kept;
+	});
+}
+
+/**
+ * The cards of a table at version 13 (`cardToV13`). A card whose new key a card already holds
+ * keeps its old key, its skill named and its mechanic gone: orphaned, never lost or overwritten.
+ */
+export function cardsToV13(cards: readonly Row[]): Row[] {
+	return upgradedApart(
+		cards,
+		cardToV13,
+		(card) => ({ ...cardToV13(card), key: card.key }),
+		(card) => JSON.stringify(card.key)
+	);
 }
 
 const isRow = (value: unknown): value is Row =>
@@ -293,17 +338,30 @@ function itemKeyV13(mechanic: unknown, itemKey: string, data: unknown): string |
 }
 
 /**
- * An attempt as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), the skill of its
- * exercise read from its old id (its exercise id when the
- * catalog of version 12 had no such exercise), its card key prefixed by it and its item key as
- * version 13 writes it (`itemKeyV13`; the rest of its old key when that cannot read it), no
- * `mechanic`. Its data stays as version 12 wrote it. An attempt without an exercise id keeps the
- * rest as it is.
+ * The skill of an attempt of version 12: the skill of its exercise (`SKILL_OF_EXERCISE_V12`), else
+ * its exercise id, else the skill of its mechanic (its mechanic when the table does not know it);
+ * undefined when it names neither an exercise nor a mechanic.
+ */
+function attemptSkillV13(attempt: Row): string | undefined {
+	const { exerciseId, mechanic } = attempt;
+	const ofExercise = lookUp(SKILL_OF_EXERCISE_V12, exerciseId);
+	if (ofExercise !== undefined) return ofExercise;
+	if (isName(exerciseId)) return exerciseId;
+	if (isName(mechanic)) return lookUp(SKILL_OF_MECHANIC_V13, mechanic) ?? mechanic;
+	return undefined;
+}
+
+/**
+ * An attempt as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), its skill
+ * (`attemptSkillV13`), its card key prefixed by it and its item key as version 13 writes it
+ * (`itemKeyV13`; the rest of its old key when that cannot read it), no `mechanic`. Its data stays
+ * as version 12 wrote it. An attempt that names neither an exercise nor a mechanic is kept as it
+ * is, with no skill.
  */
 export function attemptToV13(attempt: Row): Row {
+	const skill = attemptSkillV13(attempt);
+	if (skill === undefined) return { ...attempt };
 	const { mechanic, ...rest } = withExerciseIdV13(attempt);
-	const skill = lookUp(SKILL_OF_EXERCISE_V12, attempt.exerciseId) ?? attempt.exerciseId;
-	if (typeof skill !== 'string') return rest;
 	const key = attempt.cardKey;
 	const colon = typeof key === 'string' ? key.indexOf(':') : -1;
 	if (typeof key !== 'string' || colon < 0) return { ...rest, skill, cardKey: rekeyed(key, skill) };
@@ -315,6 +373,20 @@ export function attemptToV13(attempt: Row): Row {
 /** A level state as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), nothing else. */
 export function levelStateToV13(state: Row): Row {
 	return withExerciseIdV13(state);
+}
+
+/**
+ * The level states of a table at version 13 (`levelStateToV13`). A state whose new key (exercise,
+ * scope, item) a state already holds, such as a local exercise of version 12 that took one of the
+ * new ids, keeps its old exercise id: orphaned, never lost or overwritten.
+ */
+export function levelStatesToV13(states: readonly Row[]): Row[] {
+	return upgradedApart(
+		states,
+		levelStateToV13,
+		(state) => ({ ...state }),
+		(state) => JSON.stringify([state.exerciseId, state.scope, state.item])
+	);
 }
 
 /** Where a session of each kind of version 12 came from, as version 13 records it. Frozen. */
@@ -358,16 +430,16 @@ export interface BackupV9 extends Row {
 
 /**
  * A version 8 backup as version 9: its cards, attempts, level states and sessions upgraded
- * (`cardToV13`, `attemptToV13`, `levelStateToV13`, `sessionToV13`), no definition files.
+ * (`cardsToV13`, `attemptToV13`, `levelStatesToV13`, `sessionToV13`), no definition files.
  */
 export function backupV8ToV9(backup: BackupV8): BackupV9 {
 	const rows = (value: unknown): Row[] => (Array.isArray(value) ? (value as Row[]) : []);
 	return {
 		...backup,
 		version: 9,
-		cards: rows(backup.cards).map(cardToV13),
+		cards: cardsToV13(rows(backup.cards)),
 		attempts: rows(backup.attempts).map(attemptToV13),
-		levelStates: rows(backup.levelStates).map(levelStateToV13),
+		levelStates: levelStatesToV13(rows(backup.levelStates)),
 		sessions: rows(backup.sessions).map(sessionToV13),
 		// Version 8 had no imported definition files.
 		definitionFiles: []

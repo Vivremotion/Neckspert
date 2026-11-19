@@ -8,7 +8,9 @@ import {
 	attemptToV13,
 	backupV8ToV9,
 	cardToV13,
+	cardsToV13,
 	levelStateToV13,
+	levelStatesToV13,
 	sessionToV13
 } from './v13';
 import type { BackupV8 } from './v12';
@@ -103,6 +105,13 @@ describe('a card at version 13', () => {
 		});
 	});
 
+	it('keeps a card without a mechanic as it is', () => {
+		const card = { key: 'locate:6:F', item: { string: 6, pitch: 'F' }, learnedAt: 5 };
+		expect(cardToV13(card)).toStrictEqual(card);
+		const odd = { key: 'locate:6:F', mechanic: 3 };
+		expect(cardToV13(odd)).toStrictEqual(odd);
+	});
+
 	it('does not change the row it is given', () => {
 		const row = { key: 'locate:6:F', mechanic: 'locate' };
 		cardToV13(row);
@@ -132,6 +141,38 @@ describe('an attempt at version 13', () => {
 		expect(
 			attemptToV13({ exerciseId: 'my-own', mechanic: 'figure', cardKey: 'figure:a@0' })
 		).toEqual({ exerciseId: 'my-own', skill: 'my-own', cardKey: 'my-own:a@0' });
+	});
+});
+
+describe('an attempt at version 13 that names no exercise', () => {
+	it('without an exercise id: the skill of its mechanic, its key prefixed by it', () => {
+		expect(
+			attemptToV13({ mechanic: 'triad-zone', cardKey: 'triad-zone:k', success: true })
+		).toEqual({ skill: 'chord-zone', cardKey: 'chord-zone:k', success: true });
+	});
+
+	it('with an exercise id that is not a string: the skill of its mechanic, the id kept', () => {
+		expect(attemptToV13({ exerciseId: 7, mechanic: 'locate', cardKey: 'locate:6:F' })).toEqual({
+			exerciseId: 7,
+			skill: 'locate-note-string',
+			cardKey: 'locate-note-string:6:F'
+		});
+		expect(attemptToV13({ exerciseId: '', mechanic: 'identify', cardKey: 'identify:5:8' })).toEqual(
+			{ exerciseId: '', skill: 'identify-note', cardKey: 'identify-note:5:8' }
+		);
+	});
+
+	it('of a mechanic the table does not know: its mechanic as its skill', () => {
+		expect(attemptToV13({ mechanic: 'kazoo', cardKey: 'kazoo:1' })).toEqual({
+			skill: 'kazoo',
+			cardKey: 'kazoo:1'
+		});
+	});
+
+	it('with neither an exercise id nor a mechanic: every field kept, no skill', () => {
+		const row = { id: 3, exerciseId: null, cardKey: 'locate:6:F', success: false };
+		expect(attemptToV13(row)).toStrictEqual(row);
+		expect(attemptToV13({ cardKey: 'x' })).toStrictEqual({ cardKey: 'x' });
 	});
 });
 
@@ -282,6 +323,77 @@ describe('a level state at version 13', () => {
 		const rhythm = { exerciseId: 'rhythm-two-four', scope: '', item: '', level: 1 };
 		expect(levelStateToV13(rhythm)).toEqual(rhythm);
 		expect(levelStateToV13({ scope: '', item: 'x' })).toEqual({ scope: '', item: 'x' });
+	});
+});
+
+describe('the cards of a table at version 13', () => {
+	const scheduling = { due: 1, reps: 2 };
+
+	it('are each renamed when no key collides', () => {
+		const cards = [
+			{ key: 'locate:6:F', mechanic: 'locate', scheduling },
+			{ key: 'identify:5:8', mechanic: 'identify', scheduling }
+		];
+		expect(cardsToV13(cards)).toEqual(cards.map(cardToV13));
+	});
+
+	it('keep the old key of a card whose new key a card already holds', () => {
+		// A card of version 12 already stored under a key of version 13.
+		const holder = { key: 'locate-note-string:6:F', mechanic: 'locate-note-string', scheduling };
+		const renamed = { key: 'locate:6:F', mechanic: 'locate', scheduling: { due: 9, reps: 1 } };
+		const other = { key: 'locate:5:C', mechanic: 'locate', scheduling };
+		const upgraded = cardsToV13([renamed, holder, other]);
+		expect(upgraded).toEqual([
+			{ key: 'locate:6:F', skill: 'locate-note-string', scheduling: { due: 9, reps: 1 } },
+			{ key: 'locate-note-string:6:F', skill: 'locate-note-string', scheduling },
+			{ key: 'locate-note-string:5:C', skill: 'locate-note-string', scheduling }
+		]);
+		expect(new Set(upgraded.map((card) => card.key)).size).toBe(upgraded.length);
+	});
+});
+
+describe('the level states of a table at version 13', () => {
+	const state = (exerciseId: string, level = 2) => ({
+		exerciseId,
+		scope: 'blues-f',
+		item: '',
+		level,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+	const keyOf = (row: Record<string, unknown>) =>
+		JSON.stringify([row.exerciseId, row.scope, row.item]);
+
+	it('are each renamed when no key collides', () => {
+		const states = [state('gesture-climb'), state('gesture-zone'), state('rhythm-two-four')];
+		expect(levelStatesToV13(states)).toEqual(states.map(levelStateToV13));
+	});
+
+	it('keep the old id of a state whose new key a state already holds', () => {
+		// A local exercise of version 12 that happened to take the new id.
+		const holder = state('grid-in-direction', 7);
+		const renamed = state('gesture-climb', 3);
+		const upgraded = levelStatesToV13([renamed, holder, state('gesture-zone')]);
+		expect(upgraded).toEqual([renamed, holder, state('grid-in-zone')]);
+		expect(upgraded).toHaveLength(3);
+	});
+
+	it('never give two states the same key', () => {
+		const states = [
+			state('gesture-climb', 1),
+			state('grid-in-direction', 2),
+			state('gesture-zone', 3),
+			state('grid-in-zone', 4),
+			state('gesture-jam', 5),
+			state('locate-neck', 6)
+		];
+		for (const order of [states, [...states].reverse()]) {
+			const upgraded = levelStatesToV13(order);
+			expect(upgraded).toHaveLength(order.length);
+			expect(new Set(upgraded.map(keyOf)).size).toBe(order.length);
+			expect(upgraded.map((row) => row.level).sort()).toEqual([1, 2, 3, 4, 5, 6]);
+		}
 	});
 });
 

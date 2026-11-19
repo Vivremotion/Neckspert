@@ -987,4 +987,54 @@ describe('version 13', () => {
 		]);
 		db.close();
 	});
+
+	it('opens 12 at 13 when a renamed row would take a key already held: that row keeps its old one', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const level = (exerciseId: string, value: number) => ({
+			exerciseId,
+			scope: 'blues-f',
+			item: '',
+			level: value,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		// A local exercise of version 12 that took one of the new ids, and a card stored under a
+		// key of version 13.
+		const levelStates = [level('gesture-climb', 3), level('grid-in-direction', 7)];
+		const holder: Record<string, unknown> = {
+			...makeCardV12(),
+			key: 'locate-note-string:2:F',
+			mechanic: 'locate-note-string'
+		};
+		const cards = [makeCardV12(), holder];
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('cards').bulkAdd(cards);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		const states = await db.levelStates.toArray();
+		expect(states).toHaveLength(2);
+		expect(await db.levelStates.get(['gesture-climb', 'blues-f', ''])).toEqual(levelStates[0]);
+		expect(await db.levelStates.get(['grid-in-direction', 'blues-f', ''])).toEqual(levelStates[1]);
+		const stored = await db.cards.toArray();
+		expect(stored).toHaveLength(2);
+		const { mechanic: _mechanic, ...renamed } = cards[0];
+		expect(await db.cards.get('locate:2:F')).toEqual({ ...renamed, skill: 'locate-note-string' });
+		expect(await db.cards.get('locate-note-string:2:F')).toMatchObject({
+			skill: 'locate-note-string',
+			scheduling: holder.scheduling
+		});
+		db.close();
+	});
 });
