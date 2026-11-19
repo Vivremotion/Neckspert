@@ -161,6 +161,15 @@ function isOf(item: PlannedItem, at: { exerciseId: ExerciseId; scope?: string })
 	return item.exerciseId === at.exerciseId && (item.scope ?? '') === (at.scope ?? '');
 }
 
+/** How the play view names (exercise, scope) as it leaves: its title, and its scope when it has one. */
+function leavingOf(at: {
+	exerciseId: ExerciseId;
+	scope?: string;
+}): NonNullable<PlayView['leaving']> {
+	const title = exerciseTitle(at.exerciseId);
+	return at.scope === undefined || at.scope === '' ? { title } : { title, scope: at.scope };
+}
+
 /**
  * The count before a run that starts on bar `playFrom` after `listenInBars` of listen-in: its
  * counted bar; without one, the last listen-in bar, its count shown silently (the transport marks
@@ -212,9 +221,10 @@ function silentCountOr(
  * its count. An exercise that can make its content sound (`contentFigure`) has it
  * demonstrated over a longer listen-in the first time the player meets it, heard on demand
  * (`listen`, a heard cycle the policy places) and, when the anti-blocking asks it, heard then
- * played along, each remedy announced; « On change d’air » ends the series and names the measure
- * that breaks, unless its source can leave that (exercise, scope) out and still has something to
- * serve: then it leaves, told until the next round opens, and the series goes on with the others. Decided ahead (a breath, an instruction) the policy is only asked, so a run, its
+ * played along, each remedy announced; « On change d’air » ends the series and names the
+ * measure that breaks, unless its source can leave that (exercise, scope) out and still has
+ * something to serve: then it leaves, told until the next round opens, and the series goes on
+ * with the others. Decided ahead (a breath, an instruction) the policy is only asked, so a run, its
  * remedies and a listen asked are taken once. A pause cuts the round under way, which comes again
  * first; the last run is heard again from the pause or the breath, its muted bars clicked. It
  * judges nothing and knows no exercise: what it plays comes from its data.
@@ -1103,6 +1113,7 @@ export class SessionController implements PlaySessionController {
 		this.announcing = null;
 		this.view.announcement =
 			playAlong && decided.remedy ? this.announcementOf('play-along', item) : null;
+		this.view.leaving = null;
 		const presenter = this.items.presenterOf(item);
 		const fromRunStart = this.fromRunStart(at);
 		// Compiled where it falls in its run: a cycle's place in the loops of its figure.
@@ -1560,7 +1571,9 @@ export class SessionController implements PlaySessionController {
 		this.ended = reason;
 		const at = this.levels.resting() ?? this.round?.item ?? this.pending;
 		if (reason === 'change-of-air' && at) {
-			this.view.announcement = this.changeOfAir(at);
+			this.view.announcement = this.announcementOf('change-of-air', at);
+			// A session that could leave an exercise out names the one that ended it.
+			if (this.source?.leave) this.view.leaving = leavingOf(at);
 		}
 		void this.finish();
 	}
@@ -1601,23 +1614,12 @@ export class SessionController implements PlaySessionController {
 
 	/**
 	 * (exercise, scope) has left the series, which goes on: kept in the trace and told
-	 * (« On change d’air », its name) until the next round opens.
+	 * (« On change d’air », its name) until the next round opens, beside any level announced.
 	 */
 	private leftSeries(left: { exerciseId: ExerciseId; scope?: string }): void {
 		this.levels.leave(left.exerciseId, left.scope);
 		this.log?.leave(left);
-		this.announcing = this.changeOfAir(left);
-		this.view.announcement = this.announcing;
-	}
-
-	/** « On change d’air » of `at`: by its name, for a source that can leave an exercise out. */
-	private changeOfAir(
-		at: Pick<PlannedItem, 'exerciseId' | 'scope'>
-	): NonNullable<PlayView['announcement']> {
-		const told = this.announcementOf('change-of-air', at);
-		if (!this.source?.leave) return told;
-		const scope = at.scope === undefined || at.scope === '' ? {} : { scope: at.scope };
-		return { ...told, exercise: { title: exerciseTitle(at.exerciseId), ...scope } };
+		this.view.leaving = leavingOf(left);
 	}
 
 	/**

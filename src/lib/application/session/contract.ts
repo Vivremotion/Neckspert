@@ -118,12 +118,14 @@ export interface PlayView {
 		level: number;
 		of: number;
 		tempoBpm: number;
-		/**
-		 * « On change d’air » in a session that goes on without it, or could have: the exercise that
-		 * leaves, by its name, and its scope.
-		 */
-		exercise?: { title: PlayWords; scope?: string };
 	} | null;
+	/**
+	 * The exercise that changed air and leaves the session (« On change d’air »), by its name, and
+	 * its scope: from the boundary after the round that blocked until the next round opens, beside
+	 * a level announcement; at the end, the one that ended the session, for a session that could
+	 * leave an exercise out. Null otherwise.
+	 */
+	leaving: { title: PlayWords; scope?: string } | null;
 }
 
 export interface PlayTimeline {

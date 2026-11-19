@@ -430,22 +430,16 @@ describe('PlayFrame', () => {
 		}
 	});
 
-	it('names the exercise that changes air and its grid, when the announcement carries it', () => {
+	it('names the exercise that changes air and its grid in the status line', () => {
 		const told = (scope?: string) => {
 			const controller = new StageController();
 			controller.view.status = 'count-in';
-			controller.view.announcement = {
-				kind: 'change-of-air',
-				level: -1,
-				of: 9,
-				tempoBpm: 80,
-				exercise: {
-					title: { fr: 'Relier les formes', en: 'Link the shapes' },
-					...(scope !== undefined && { scope })
-				}
+			controller.view.leaving = {
+				title: { fr: 'Relier les formes', en: 'Link the shapes' },
+				...(scope !== undefined && { scope })
 			};
 			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
-			const text = screen.getByRole('status').textContent;
+			const text = document.querySelector('.announcement')?.textContent;
 			cleanup();
 			return text;
 		};
@@ -456,6 +450,28 @@ describe('PlayFrame', () => {
 			expect(told()).toBe('Time for a change of air: Link the shapes');
 		} finally {
 			i18n.locale = 'fr';
+		}
+	});
+
+	it('tells the exercise leaving beside the level the next one reached, each in its place', () => {
+		for (const world of ['quiet', 'pixel'] as const) {
+			const controller = new StageController();
+			const name = Object.entries(VIEW_WORLDS).find(([, w]) => w === world)?.[0] ?? '';
+			controller.view.stage = { view: name, model: null };
+			controller.view.status = 'count-in';
+			controller.view.announcement = { kind: 'level-up', level: 1, of: 9, tempoBpm: 85 };
+			controller.view.leaving = { title: { fr: 'Relier les formes', en: 'Link the shapes' } };
+			render(PlayFrame, {
+				props: {
+					controller: playingAs(controller, ALONE),
+					views: { ...PLAY_VIEWS, [name]: FakeView }
+				}
+			});
+			expect(document.querySelector('.told')?.textContent?.trim()).toBe('Niveau 2 sur 9 · ♩ = 85');
+			expect(document.querySelector('.announcement')?.textContent).toBe(
+				'On change d’air : Relier les formes'
+			);
+			cleanup();
 		}
 	});
 

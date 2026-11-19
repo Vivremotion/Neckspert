@@ -73,16 +73,16 @@
 	const replay = $derived(replayOf(controller));
 	/** What the series announces (a level reached, with its tempo), in words; null when nothing. */
 	const announced = $derived(
-		view.announcement?.exercise
-			? t.changeOfAirOf(leavingName(view.announcement.exercise))
-			: view.announcement
-				? t.announcement[view.announcement.kind](
-						view.announcement.level + 1,
-						view.announcement.of,
-						view.announcement.tempoBpm
-					)
-				: null
+		view.announcement
+			? t.announcement[view.announcement.kind](
+					view.announcement.level + 1,
+					view.announcement.of,
+					view.announcement.tempoBpm
+				)
+			: null
 	);
+	/** The exercise that changes air and leaves, by its name: told in the status line. */
+	const leaving = $derived(view.leaving ? t.changeOfAirOf(leavingName(view.leaving)) : null);
 
 	/** The exercise that changes air, by its name, and its scope's (a grid's title when it is one). */
 	function leavingName(exercise: { title: { fr: string; en: string }; scope?: string }): string {
@@ -99,8 +99,11 @@
 	 */
 	const LEVEL_TOLD: ReadonlySet<Announcement> = new Set(['level-up', 'level-down', 'aid-level']);
 	const toldInField = $derived(view.announcement ? LEVEL_TOLD.has(view.announcement.kind) : false);
-	/** The announcement in the status line, when it is not told in the field. */
-	const toldInLine = $derived(toldInField ? null : announced);
+	/**
+	 * The status line: the exercise that leaves, by its name (a level of the next one told in the
+	 * field beside it), else the announcement when it is not told in the field.
+	 */
+	const toldInLine = $derived(leaving ?? (toldInField ? null : announced));
 
 	function leave(event: MouseEvent) {
 		if (quitToSummary && view.status !== 'idle') {

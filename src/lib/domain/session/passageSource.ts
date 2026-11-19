@@ -166,7 +166,8 @@ class PassageSource implements ItemSource {
 	/**
 	 * Leaves out the indices of `exerciseId` whose scope value is `scope` (every index of an exercise
 	 * without a scope, or when no scope is named), its passage under way dropped; whether an index
-	 * of any exercise is still left to serve.
+	 * of any exercise is still left to serve. Optimistic: an index left that is unplayable but not
+	 * yet found so counts, and then `next` gives null and the series ends.
 	 */
 	leave(exerciseId: ExerciseId, scope?: string): boolean {
 		for (const exercise of this.exercises) {

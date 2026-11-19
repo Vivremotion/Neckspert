@@ -87,7 +87,8 @@ export class DemoPlaySession implements PlaySessionController {
 			audioError: null,
 			stage: null,
 			briefing: null,
-			announcement: null
+			announcement: null,
+			leaving: null
 		});
 		this.timeline = {
 			nowBeat: () => this.#clock.nowBeat()
