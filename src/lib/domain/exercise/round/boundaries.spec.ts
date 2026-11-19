@@ -10,12 +10,17 @@ const sources = import.meta.glob('/src/lib/domain/exercise/round/**/*.ts', {
 const MODULE = '/src/lib/domain/exercise/round/';
 
 /**
- * The mechanics the compiler never names: the vocabulary of derivations does. The figure
- * mechanic (`figure`) is not among them: its id is also the word of a figure entry (its key
+ * The sets the compiler never names, by their ids and their old ones: the vocabulary of
+ * derivations does. The figure set (`figure`) is not among them: its id is also the word of a figure entry (its key
  * `figure`, the content `{ from: 'figure' }`), which the compiler writes; it reads a figure on an
  * item only through `ITEM_FIGURES`.
  */
-const MECHANICS = [
+const SETS = [
+	'note-on-string',
+	'placed-note',
+	'voicing-on-strings',
+	'placed-voicing',
+	'placed-shape',
 	'locate',
 	'identify',
 	'triad-anchor',
@@ -32,7 +37,7 @@ function offendersIn(files: Record<string, string>): string[] {
 	const offenders: string[] = [];
 	for (const [path, text] of Object.entries(files)) {
 		if (!path.startsWith(MODULE) || /\.spec\.ts$/.test(path)) continue;
-		for (const name of MECHANICS) {
+		for (const name of SETS) {
 			if (["'", '"', '`'].some((quote) => text.includes(`${quote}${name}${quote}`)))
 				offenders.push(`${path}: ${name}`);
 		}
@@ -50,14 +55,14 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the round compiler', () => {
-	it('names no mechanic and takes only the registries of the derivations', () => {
+	it('names no set and takes only the registries of the derivations', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 
 	it('actually scans the compiler', () => {
 		expect(Object.keys(sources)).toContain(`${MODULE}compile.ts`);
 		const file = `${MODULE}x.ts`;
-		for (const name of MECHANICS) {
+		for (const name of SETS) {
 			expect(offendersIn({ [file]: `const m = '${name}';` })).toEqual([`${file}: ${name}`]);
 		}
 		expect(

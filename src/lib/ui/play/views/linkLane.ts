@@ -1,4 +1,4 @@
-import type { LinkLaneModel, LinkTile } from '$lib/application/mechanics/chordGrid';
+import type { LinkLaneModel, LinkTile } from '$lib/application/sets/chordGrid';
 import type { LaneEntry } from '$lib/application/session/contract';
 import type { ResponseVerdict } from '$lib/domain/types';
 

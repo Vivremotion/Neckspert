@@ -17,7 +17,7 @@
 	} from '$lib/application/session/series/figureStage';
 	import { exerciseById, RHYTHM_SILENT_BARS_ID } from '$lib/domain/exercise';
 	import { compileRound } from '$lib/domain/exercise/round';
-	import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+	import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 	import {
 		Fraction,
 		METER_4_4,
@@ -182,7 +182,7 @@
 			exerciseId: ARPEGGIO_EXERCISE.id,
 			skill: ARPEGGIO_EXERCISE.practices,
 			exerciseLevel: -1,
-			item: { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
+			item: { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',

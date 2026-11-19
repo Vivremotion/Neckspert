@@ -1,34 +1,37 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { ITEM_FIELDS } from './itemFields';
 
+registerTestSkills();
+
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 
-/** One item of each mechanic that offers fields. */
+/** One item of each set that offers fields. */
 const SAMPLES: Record<string, unknown> = {
-	locate: { string: 2, pitch: 'F' },
-	identify: { string: 3, fret: 8 },
-	'triad-anchor': { voicingKey: D_ON_B },
-	'triad-zone': { voicingKey: D_ON_B, position: 2, fret: 3 },
-	'voicing-figure': { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 },
-	'form-figure': { shape: 'maj7', first: 'd', beats: 4 }
+	'note-on-string': { string: 2, pitch: 'F' },
+	'placed-note': { string: 3, fret: 8 },
+	'voicing-on-strings': { voicingKey: D_ON_B, position: 2, fret: 3 },
+	'placed-voicing': { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 },
+	'placed-shape': { shape: 'maj7', first: 'd', beats: 4 }
 };
 
 describe('ITEM_FIELDS', () => {
 	it('names exactly the fields it writes for an item', () => {
 		expect(Object.keys(ITEM_FIELDS).sort()).toEqual(Object.keys(SAMPLES).sort());
-		for (const [mechanic, offered] of Object.entries(ITEM_FIELDS)) {
+		for (const [set, offered] of Object.entries(ITEM_FIELDS)) {
 			for (const locale of ['fr', 'en'] as const) {
-				const written = offered.fields(SAMPLES[mechanic], locale, () => 0, FORM_EXERCISE);
-				expect(Object.keys(written).sort(), mechanic).toEqual([...offered.names].sort());
+				const written = offered.fields(SAMPLES[set], locale, () => 0, FORM_EXERCISE);
+				expect(Object.keys(written).sort(), set).toEqual([...offered.names].sort());
 			}
 		}
 	});
 });
 
 describe('the fields of a triad', () => {
-	const anchor = ITEM_FIELDS['triad-anchor'];
-	const zone = ITEM_FIELDS['triad-zone'];
+	// The anchor's and the zone's: one set, its items with a position or without.
+	const anchor = ITEM_FIELDS['voicing-on-strings'];
+	const zone = ITEM_FIELDS['voicing-on-strings'];
 
 	it('spells Eb, Ab and Bb with a flat', () => {
 		expect(
@@ -52,6 +55,10 @@ describe('the fields of a triad', () => {
 		).toBe('vers la case 2');
 	});
 
+	it('says nothing around an item without a position', () => {
+		expect(anchor.fields({ voicingKey: D_ON_B }, 'fr', () => 0, FORM_EXERCISE).around).toBe('');
+	});
+
 	it('calls a shape on open strings open', () => {
 		const open = { voicingKey: 'E|min|3:b3,2:5,1:1', position: 'open' };
 		expect(zone.fields(open, 'fr', () => 0, FORM_EXERCISE)).toMatchObject({
@@ -63,7 +70,7 @@ describe('the fields of a triad', () => {
 });
 
 describe('the fields of a voicing figure', () => {
-	const figure = ITEM_FIELDS['voicing-figure'];
+	const figure = ITEM_FIELDS['placed-voicing'];
 
 	it('names the chord and the strings, in either language', () => {
 		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', frets: [10, 12, 12, 12] };
@@ -84,7 +91,7 @@ describe('the fields of a voicing figure', () => {
 });
 
 describe('the fields of a form figure', () => {
-	const shape = ITEM_FIELDS['form-figure'];
+	const shape = ITEM_FIELDS['placed-shape'];
 	const chord = (first: string) =>
 		shape.fields({ shape: 'maj7', first }, 'fr', () => 0, FORM_EXERCISE).chord;
 

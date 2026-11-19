@@ -1,7 +1,7 @@
 import type { SeriesSummary } from './session/summary';
 import type { PitchName, StringNumber } from './music/types';
 import type { IgnoreReason } from './time/modes/types';
-import type { Execution, ExerciseId, MechanicId } from './exercise/types';
+import type { Execution, ExerciseId } from './exercise/types';
 import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
 import type {
@@ -15,16 +15,7 @@ import type {
 	VerdictEnvelope
 } from './time';
 
-export type {
-	Aid,
-	Execution,
-	ExerciseId,
-	LevelState,
-	Measures,
-	MechanicId,
-	SkillId,
-	VerdictEnvelope
-};
+export type { Aid, Execution, ExerciseId, LevelState, Measures, SkillId, VerdictEnvelope };
 
 export type Locale = 'fr' | 'en';
 

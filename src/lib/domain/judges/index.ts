@@ -8,9 +8,9 @@ import {
 	type LocateItem
 } from '$lib/domain/music';
 import type { Midi, PitchName } from '$lib/domain/music/types';
-import { classifyGridChord } from '$lib/domain/mechanics/gridClassify';
-import type { ChordGridItem } from '$lib/domain/mechanics/chordGrid';
-import { classifyChord, type ChordReading } from '$lib/domain/mechanics/triadChord';
+import { classifyGridChord } from '$lib/domain/sets/gridClassify';
+import type { ChordGridItem } from '$lib/domain/sets/chordGrid';
+import { classifyChord, type ChordReading } from '$lib/domain/sets/triadChord';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { ContentJudge, ContentJudges } from '$lib/domain/time';
 

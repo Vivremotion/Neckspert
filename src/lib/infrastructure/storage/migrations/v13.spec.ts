@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { MECHANIC_RULES } from '$lib/domain/mechanics';
 import { allExercises } from '$lib/domain/exercise/registry';
 import {
 	MECHANICS_V12,
@@ -64,21 +63,8 @@ describe('the mechanics as version 12 knew them', () => {
 		});
 	});
 
-	// Temporary: it goes with the live mechanics. The three whose keys version 13 changed are
-	// compared no more.
-	const UNCHANGED = Object.entries(EXAMPLES).filter(
-		([id]) => !['chord-grid', 'voicing-figure', 'form-figure'].includes(id)
-	);
-	it.each(UNCHANGED)('%s: equals the live mechanic (until the live mechanics go)', (id, key) => {
-		const live = MECHANIC_RULES.find((rules) => rules.id === id)!;
-		const old = frozen(id);
-		expect(old.parseItem(key)).toEqual(live.parseItem(key));
-		expect(old.itemKey(old.parseItem(key))).toBe(live.itemKey(live.parseItem(key)));
-		expect(old.cards).toBe(live.learner === 'memory');
-	});
-
-	it('imports nothing from the live mechanics', () => {
-		expect(source).not.toMatch(/from '\$lib\/(domain|application)\/mechanics/);
+	it('imports nothing from the live sets', () => {
+		expect(source).not.toMatch(/from '\$lib\/(domain|application)\/(mechanics|sets)/);
 	});
 });
 

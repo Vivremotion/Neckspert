@@ -1,3 +1,4 @@
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { describe, expect, it } from 'vitest';
 import {
 	presentationProblem,
@@ -10,7 +11,6 @@ import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise'
 import { ROUND_MODES } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import {
-	BENCH_PRESENTERS,
 	BENCH_SENSORS,
 	exerciseSeries,
 	listItems,
@@ -75,13 +75,16 @@ const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
 /** The definition a seed draws, its id naming the seed. */
 const drawn = (seed: number) => randomExercise(mulberry32(seed), `random-${seed}`);
 
+/** The presenters of the application, as the bench plays them. */
+const BENCH_REGISTRIES = { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS };
+
 /** Why the engine or the screen cannot run `definition`, null when they can. */
 function refusal(definition: ExerciseDefinition): string | null {
 	return (
 		validateExercise(definition, { sensors: BENCH_SENSORS }) ??
 		presentationProblem(definition) ??
-		screenProblem(definition, BENCH_PRESENTERS) ??
-		previewProblem(definition, BENCH_PRESENTERS)
+		screenProblem(definition, BENCH_REGISTRIES) ??
+		previewProblem(definition, BENCH_REGISTRIES)
 	);
 }
 
@@ -112,7 +115,7 @@ describe('every valid exercise plays', () => {
 		for (const round of rounds) {
 			expect(round.stage?.view).toBe('lane');
 			const model = round.stage?.model as PromptStageModel;
-			const fields = ITEM_FIELDS['triad-zone'].fields(
+			const fields = ITEM_FIELDS['voicing-on-strings'].fields(
 				round.item.item,
 				'fr',
 				() => 0,

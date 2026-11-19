@@ -1,10 +1,5 @@
-import type { ExerciseDefinition, MechanicId } from '$lib/domain/exercise/types';
-import type {
-	FormFigureItem,
-	TriadAnchorItem,
-	TriadZoneItem,
-	VoicingFigureItem
-} from '$lib/domain/mechanics';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import type { FormFigureItem, VoicingOnStringsItem, VoicingFigureItem } from '$lib/domain/sets';
 import {
 	fretLabel,
 	parseVoicingKey,
@@ -17,7 +12,7 @@ import type { Locale } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { aroundLabel, chordName, rootName, rootStringName, stringSetLabel } from './triadWords';
 
-/** What a mechanic's items offer to the words of a prompt: `{name}` in a slot reads `fields`. */
+/** What a set's items offer to the words of a prompt: `{name}` in a slot reads `fields`. */
 export interface ItemFields {
 	names: readonly string[];
 	/**
@@ -56,7 +51,7 @@ const identifyFields: ItemFields = {
 	}
 };
 
-function triadFields(item: TriadAnchorItem, locale: Locale) {
+function triadFields(item: VoicingOnStringsItem, locale: Locale) {
 	const voicing = parseVoicingKey(item.voicingKey);
 	return {
 		chord: chordName(voicing),
@@ -66,17 +61,17 @@ function triadFields(item: TriadAnchorItem, locale: Locale) {
 	};
 }
 
-const triadAnchorFields: ItemFields = {
-	names: ['chord', 'root', 'rootString', 'strings'],
-	fields: (item, locale) => triadFields(item as TriadAnchorItem, locale)
-};
-
-const triadZoneFields: ItemFields = {
+/** The anchor's fields and the zone's together; `around` is empty for an item without a position. */
+const voicingOnStringsFields: ItemFields = {
 	names: ['chord', 'root', 'rootString', 'strings', 'around'],
-	fields: (item, locale) => ({
-		...triadFields(item as TriadZoneItem, locale),
-		around: aroundLabel(item as TriadZoneItem, locale)
-	})
+	fields: (raw, locale) => {
+		const item = raw as VoicingOnStringsItem;
+		const { position } = item;
+		return {
+			...triadFields(item, locale),
+			around: position === undefined ? '' : aroundLabel({ ...item, position }, locale)
+		};
+	}
 };
 
 const voicingFigureFields: ItemFields = {
@@ -97,12 +92,11 @@ const formFigureFields: ItemFields = {
 	}
 };
 
-/** The fields of a prompt's words, by mechanic. A mechanic left out offers none. */
-export const ITEM_FIELDS: Readonly<Record<MechanicId, ItemFields>> = {
-	locate: locateFields,
-	identify: identifyFields,
-	'triad-anchor': triadAnchorFields,
-	'triad-zone': triadZoneFields,
-	'voicing-figure': voicingFigureFields,
-	'form-figure': formFigureFields
+/** The fields of a prompt's words, by set. A set left out offers none. */
+export const ITEM_FIELDS: Readonly<Record<string, ItemFields>> = {
+	'note-on-string': locateFields,
+	'placed-note': identifyFields,
+	'voicing-on-strings': voicingOnStringsFields,
+	'placed-voicing': voicingFigureFields,
+	'placed-shape': formFigureFields
 };

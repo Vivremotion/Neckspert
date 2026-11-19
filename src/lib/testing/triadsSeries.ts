@@ -1,11 +1,10 @@
 import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 /** The triads' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
-import { TRIAD_PRESENTERS } from '$lib/application/mechanics';
 import type { ChordExpectation } from '$lib/application/ports';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { chordSensor } from '$lib/application/session/sensors';
-import { rootPosition } from '$lib/domain/mechanics';
+import { rootPosition } from '$lib/domain/sets';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import {
@@ -39,12 +38,11 @@ export function learnedTriad(
 	};
 }
 
-/** The app's services on fakes, with the triads' presenters and a chord sensor on a fake verifier. */
+/** The app's services on fakes, with a chord sensor on a fake verifier. */
 export async function triadsApp(setup: NotesSetup = {}) {
 	const verifier = new CutShortVerifier();
 	const app = await notesApp({
 		...setup,
-		presenters: { ...TRIAD_PRESENTERS, ...setup.presenters },
 		sensors: { chord: chordSensor(verifier), ...setup.sensors }
 	});
 	return { ...app, verifier };

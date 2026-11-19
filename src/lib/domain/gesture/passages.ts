@@ -1,5 +1,5 @@
 import { gridChanges, triadOf, type ChordGrid } from '$lib/domain/grid';
-import { inZone, shapePosition } from '$lib/domain/mechanics/chordGrid';
+import { inZone, shapePosition } from '$lib/domain/sets/chordGrid';
 import {
 	closeTriadVoicings,
 	MAX_VOICING_FRET,

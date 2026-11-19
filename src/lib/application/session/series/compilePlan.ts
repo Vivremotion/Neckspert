@@ -212,7 +212,7 @@ export function roundAttempt(input: {
 	item: PlannedItem;
 	plan: RoundPlan;
 	outcome: RoundOutcome;
-	/** The mechanic's data for a response value (`MechanicPresenter.attemptData`). */
+	/** The presenter's data for a response value (`SetPresenter.attemptData`). */
 	data: (value: ResponseValue) => unknown;
 	sessionId: string;
 	execution: Execution;

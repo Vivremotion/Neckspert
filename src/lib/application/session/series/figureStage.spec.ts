@@ -1,4 +1,4 @@
-import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
+import { TEST_PLACED_VOICING_SKILL, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseLevelsOf } from '$lib/domain/exercise';
 import { compileRound } from '$lib/domain/exercise/round';
@@ -17,7 +17,7 @@ import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
 import { presentPrompt } from '$lib/application/presentation/presentPrompt';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
-import { voicingFigureRules } from '$lib/domain/mechanics/voicingFigure';
+import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import {
 	ARPEGGIO_EXERCISE,
 	ARPEGGIO_ITEMS,
@@ -26,6 +26,8 @@ import {
 } from '$lib/testing/arpeggioExercise';
 import { figurePosition, figureStage, levelView, tempoView, type CycleMoment } from './figureStage';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 // The prompt is presented through the real presentation, counted.
 vi.mock('$lib/application/presentation/presentPrompt', async (original) => {
@@ -218,7 +220,7 @@ describe('figureStage', () => {
 	});
 
 	it("shows the exercise's prompt above the figure, and none without a presentation", () => {
-		const fields = ITEM_FIELDS['voicing-figure'].fields(
+		const fields = ITEM_FIELDS['placed-voicing'].fields(
 			C_FIRST_INVERSION,
 			'fr',
 			() => 0,
@@ -288,7 +290,7 @@ describe('figureStage', () => {
 });
 
 describe('figureStage, the notes it engraves', () => {
-	const c = { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 };
+	const c = { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 };
 	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
 	const at = (level: number): PlannedItem => ({
 		...planned(ARPEGGIO_EXERCISE, c),
@@ -342,12 +344,12 @@ describe('figureStage, the notes it engraves', () => {
 describe('figureStage, a round cut inside its figure', () => {
 	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
 	const change = (beats: number, level: number): PlannedItem => ({
-		...planned(ARPEGGIO_EXERCISE, { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats }),
+		...planned(ARPEGGIO_EXERCISE, { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats }),
 		exerciseLevel: level
 	});
 	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
 	const shape = CONTENT_DERIVATIONS['voicing-notes'].derive(
-		voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+		placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]),
 		ARPEGGIO_EXERCISE
 	) as { midi: number; string: number }[];
 	/** The shape's notes the pattern asks over `count` notes. */
@@ -433,7 +435,7 @@ describe('figureStage, a round cut inside its figure', () => {
 			}
 		};
 		const item = {
-			...planned(exercise, { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 8 })
+			...planned(exercise, { ...placedVoicingSet.parseItem(ARPEGGIO_ITEMS[0]), beats: 8 })
 		};
 		const model = stage(exercise, item, 'round');
 		expect(model.figure.bars).toBe(2);

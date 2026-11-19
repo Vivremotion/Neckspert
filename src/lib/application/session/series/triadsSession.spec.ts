@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import { finishDestination } from '$lib/application/session/finishDestination';
-import type { TriadAnchorData, TriadZoneData } from '$lib/domain/mechanics';
+import type { TriadAnchorData, TriadZoneData } from '$lib/domain/sets';
 import {
 	closeTriadVoicings,
 	parseVoicingKey,
@@ -52,8 +52,8 @@ async function quitAndRead(app: TriadsApp, controller: PlaySessionController): P
 	return app.deps.attempts.listBySession(controller.sessionId);
 }
 
-async function cardOf(app: TriadsApp, mechanic: string, voicing: string) {
-	return app.deps.cards.get(`${mechanic}:${voicing}`);
+async function cardOf(app: TriadsApp, skill: string, voicing: string) {
+	return app.deps.cards.get(`${skill}:${voicing}`);
 }
 
 /** Plays rounds, one at a time, until `done` holds (checked after each round has settled). */
@@ -155,6 +155,25 @@ describe('the triads exercises, from the probe to the zone', () => {
 		);
 		expect(cold?.success).toBe(true);
 	}, 30_000);
+
+	it('keeps an anchor card and a zone card of one voicing apart, each keyed by its skill', async () => {
+		const app = await triadsApp({ cards: [learnedTriad('chord-anchor', C)] });
+		const controller = await startTriads(app, 'triads-zone');
+		await playUntil(
+			app,
+			controller,
+			allRight,
+			async () => (await cardOf(app, 'chord-zone', C)) !== undefined,
+			20
+		);
+		await quitAndRead(app, controller);
+		const ofC = (await app.deps.cards.all()).filter(
+			(card) => (card.item as { voicingKey: string }).voicingKey === C
+		);
+		expect(ofC.map((card) => card.key).sort()).toEqual([`chord-anchor:${C}`, `chord-zone:${C}`]);
+		// The zone's card keeps its voicing alone: the position belongs to the prompt.
+		expect((await cardOf(app, 'chord-zone', C))?.item).toEqual({ voicingKey: C });
+	});
 
 	it('probes a new chord unaided, then shows it aided on the next prompt after a miss, not at once', async () => {
 		const app = await triadsApp();

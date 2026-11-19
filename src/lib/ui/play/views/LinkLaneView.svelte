@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LinkLaneModel } from '$lib/application/mechanics/chordGrid';
+	import type { LinkLaneModel } from '$lib/application/sets/chordGrid';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import DrawnMiss from './DrawnMiss.svelte';

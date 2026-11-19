@@ -1,5 +1,5 @@
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
-import { mechanicOfSkill } from '../../skill/bridge';
+import { exerciseSetId } from '../../sets';
 import { CONTENT_JUDGES, PITCH_CONTENT } from '../../judges';
 import { attackNotes, validateFigure, type Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
@@ -119,10 +119,10 @@ function numberOf(check: Check, field: string, value: unknown): number | undefin
 			return at(field, `measures unknown item number "${String(value.item)}"`);
 		}
 		const { reads } = ITEM_NUMBERS[value.item];
-		if (!reads.includes(mechanicOfSkill(check.definition.practices))) {
+		if (!reads.includes(exerciseSetId(check.definition))) {
 			return at(
 				field,
-				`measures "${value.item}" which reads ${reads.join(', ')}, not ${mechanicOfSkill(check.definition.practices)}`
+				`measures "${value.item}" which reads ${reads.join(', ')}, not ${exerciseSetId(check.definition)}`
 			);
 		}
 		return undefined;
@@ -257,13 +257,13 @@ function contentProblem(check: Check, field: string, content: unknown): string |
 	return derivationProblem(check, field, content.from);
 }
 
-/** Why a known derivation cannot serve the exercise: another mechanic's, or a kind with no judge. */
+/** Why a known derivation cannot serve the exercise: another set's, or a kind with no judge. */
 function derivationProblem(check: Check, field: string, from: string): string | null {
 	const derivation = CONTENT_DERIVATIONS[from];
-	if (!derivation.reads.includes(mechanicOfSkill(check.definition.practices))) {
+	if (!derivation.reads.includes(exerciseSetId(check.definition))) {
 		return at(
 			field,
-			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${mechanicOfSkill(check.definition.practices)}`
+			`derives "${from}" which reads ${derivation.reads.join(', ')}, not ${exerciseSetId(check.definition)}`
 		);
 	}
 	if (!Object.hasOwn(CONTENT_JUDGES, derivation.kind)) {
@@ -395,10 +395,10 @@ function namedFigures(
 			return at(field, `reads unknown item figure "${String(name)}"`);
 		}
 		const { reads } = ITEM_FIGURES[name];
-		if (!reads.includes(mechanicOfSkill(definition.practices))) {
+		if (!reads.includes(exerciseSetId(definition))) {
 			return at(
 				field,
-				`reads "${name}" which reads ${reads.join(', ')}, not ${mechanicOfSkill(definition.practices)}`
+				`reads "${name}" which reads ${reads.join(', ')}, not ${exerciseSetId(definition)}`
 			);
 		}
 		if (written.length === 0)
@@ -867,7 +867,7 @@ function templateProblem(check: Check): string | null {
 /**
  * Null when the exercise writes no round or writes one the engine can run, else the first thing
  * it cannot, naming the field (`round.expectations[1].until …`): a key it does not know, a
- * derivation or number of an item that does not read the exercise's mechanic, content without a
+ * derivation or number of an item that does not read the exercise's set, content without a
  * judge, a mode it does not have, a sensor the session lacks (when told the `sensors`), a param
  * no level resolves, a negative place, a stretch that does not end after it starts, expectations
  * in free time mixed with placed ones, a bar offset outside its bar; and, as far as the exercise

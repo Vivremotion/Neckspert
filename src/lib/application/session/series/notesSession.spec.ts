@@ -2,7 +2,7 @@ import { DEFAULT_PREVIEW_BEATS, DEFAULT_RESPIRATION_BARS } from '$lib/domain/exe
 import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import type { IdentifyData } from '$lib/domain/mechanics';
+import type { IdentifyData } from '$lib/domain/sets';
 import {
 	asNeckCard,
 	isMirrorPair,

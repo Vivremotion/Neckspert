@@ -8,7 +8,7 @@ export interface DiagnosticAudioChunk {
 
 /**
  * The diagnostic journal, written by adapters only (input, sensors): neither the core nor the
- * mechanics know it exists. Event kinds are free strings prefixed by their producer
+ * presenters know it exists. Event kinds are free strings prefixed by their producer
  * (`input.opened`, `chord.report`…); the journal does not read them.
  */
 export interface DiagnosticSink {

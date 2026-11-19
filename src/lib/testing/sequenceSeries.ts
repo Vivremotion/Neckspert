@@ -1,4 +1,3 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /**
  * A sequence of chord shapes played on the session controller, with the fakes and a player who
  * reads the screen: each round, the shape its prompt names, arpeggiated over the figure on show.
@@ -7,7 +6,7 @@ import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import { isFigureEntry } from '$lib/domain/exercise/round';
 import { SESSION_MS } from '$lib/domain/session';
 import { itemEntryKey, type ExerciseDefinition } from '$lib/domain/exercise';
-import { mechanicRules, type VoicingFigureItem } from '$lib/domain/mechanics';
+import { itemSet, setOfSkill, type VoicingFigureItem } from '$lib/domain/sets';
 import { parseVoicingKey } from '$lib/domain/music';
 import { voicingNotes } from '$lib/domain/music/voicingNotes';
 import { attackPositions, barLength } from '$lib/domain/time';
@@ -26,8 +25,7 @@ import {
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
-import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { attackSensor, noteSensor } from '$lib/application/session/sensors';
@@ -43,9 +41,7 @@ const STEPS_PER_S = 64;
 
 /** The pitches of a shape's notes, lowest string first. */
 export function shapePitches(itemKey: string): number[] {
-	const { voicing, frets } = mechanicRules('voicing-figure').parseItem(
-		itemKey
-	) as VoicingFigureItem;
+	const { voicing, frets } = itemSet('placed-voicing').parseItem(itemKey) as VoicingFigureItem;
 	return voicingNotes(parseVoicingKey(voicing), frets).map(({ midi }) => midi);
 }
 
@@ -53,7 +49,7 @@ export function shapePitches(itemKey: string): number[] {
 function derivedPitches(exercise: ExerciseDefinition, itemKey: string): number[] {
 	const content = exercise.round?.expectations.find(isFigureEntry)?.content;
 	if (!content) throw new Error(`${exercise.id} derives no note`);
-	const item = mechanicRules(mechanicOfSkill(exercise.practices)).parseItem(itemKey);
+	const item = setOfSkill(exercise.practices).parseItem(itemKey);
 	const notes = CONTENT_DERIVATIONS[content.from].derive(item, exercise) as { midi: number }[];
 	return notes.map(({ midi }) => midi);
 }
@@ -126,7 +122,7 @@ export class ArpeggioPlayer {
 
 /**
  * `exercise`, whose items each derive their notes, on the session controller as `startExercise`
- * builds it: its items from `createExerciseItemSource`, its own mechanic's presenter alone, and both the
+ * builds it: its items from `createExerciseItemSource`, its own presenter alone, and both the
  * note and the attack sensors offered, so the spec sees which the series opens.
  */
 export async function sequenceSeries(
@@ -153,16 +149,14 @@ export async function sequenceSeries(
 	const recorders: AttemptRecorder[] = [];
 	const sources = new Map<string, ReturnType<typeof createExerciseItemSource>>();
 	let ids = 0;
-	const presenter = exercisePresenter(
-		FIGURE_PRESENTERS[mechanicOfSkill(exercise.practices)],
-		exercise
-	);
 	const deps: SessionControllerDeps = {
 		clock,
 		sounds,
 		detector,
 		sensors: { note: noteSensor(detector), attack: attackSensor(attacks) },
-		mechanics: { [presenter.rules.id]: presenter },
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
+		plays: [exercise.id],
 		repositories: { attempts, sessions, settings },
 		levels,
 		recorderFor: (sessionId) => {
@@ -174,8 +168,7 @@ export async function sequenceSeries(
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
-				sessionId,
-				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
+				sessionId
 			});
 			recorders.push(recorder);
 			return recorder;
@@ -197,13 +190,12 @@ export async function sequenceSeries(
 		},
 		deps
 	);
-	const mechanic = mechanicOfSkill(exercise.practices);
-	const rules = mechanicRules(mechanic);
+	const set = setOfSkill(exercise.practices);
 	const shapes = new Map(
 		(exercise.items ?? []).map((entry) => {
 			const key = itemEntryKey(entry);
-			const item = rules.parseItem(key);
-			const { chord } = ITEM_FIELDS[mechanic].fields(item, 'fr', () => 0, exercise);
+			const item = set.parseItem(key);
+			const { chord } = ITEM_FIELDS[set.id].fields(item, 'fr', () => 0, exercise);
 			return [String(chord), derivedPitches(exercise, key)] as const;
 		})
 	);

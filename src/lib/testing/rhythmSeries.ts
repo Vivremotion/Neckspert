@@ -1,4 +1,3 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /** A rhythm exercise played on the session controller, with the fakes and a player who reads the screen. */
 import { SESSION_MS } from '$lib/domain/session';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
@@ -18,7 +17,7 @@ import {
 } from '$lib/testing/fakes';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
-import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { FigureStageModel } from '$lib/application/session/series/figureStage';
 import { attackSensor } from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
@@ -175,8 +174,10 @@ export async function rhythmSeries(
 		sounds,
 		detector,
 		sensors: { attack: attackSensor(attacks) },
-		// The rhythm's presenter alone: the series opens the sensors of every presenter it is given.
-		mechanics: { [figurePresenter.rules.id]: figurePresenter },
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
+		// The exercise alone: the series opens the sensors its round names.
+		plays: [exercise.id],
 		repositories: { attempts, sessions, settings },
 		levels,
 		recorderFor: (sessionId) => {
@@ -188,8 +189,7 @@ export async function rhythmSeries(
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
-				sessionId,
-				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
+				sessionId
 			});
 			recorders.push(recorder);
 			return recorder;

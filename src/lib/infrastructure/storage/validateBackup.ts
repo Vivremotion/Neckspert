@@ -30,9 +30,8 @@ import {
 	isCyclePlanV11,
 	type BackupV8
 } from './migrations/v12';
-import { hasSkill } from '$lib/domain/skill/registry';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
-import { MECHANIC_RULES } from '$lib/domain/mechanics';
+import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
+import { ITEM_SETS, type ItemSet } from '$lib/domain/sets';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -468,6 +467,23 @@ function checkKeyedItem(
 	return null;
 }
 
+/** The key must be `cardKey(skill, itemKey(item))` for an item `set` reads back from it. */
+function checkKey(
+	set: Pick<ItemSet, 'itemKey' | 'parseItem'>,
+	skill: string,
+	key: string,
+	keyField: string
+): string | null {
+	try {
+		const parsed = set.parseItem(key.slice(skill.length + 1));
+		return cardKey(skill, set.itemKey(parsed)) === key
+			? null
+			: `${keyField} is not a valid card key`;
+	} catch {
+		return `${keyField} is not a valid card key`;
+	}
+}
+
 function checkCard(card: Fields): string | null {
 	return (
 		checkItem(card.mechanic, card.key, card.item, 'key', 'item') ?? checkSchedulingAndDates(card)
@@ -507,9 +523,10 @@ function byMechanic(mechanics: readonly MechanicV12[]): Identity {
 
 /**
  * Version 9: entries named by their skill, keyed by it. The key of a skill the registry holds is
- * read by the mechanic that plays it, as it writes its items today (version 13 took the length of
- * a turn and the rank of a shape out of them); the key of a skill no loaded file defines is kept
- * as it is (its progress is not lost).
+ * read by the set of its items, as the set writes them today (version 13 took the length of a turn
+ * and the rank of a shape out of them); a skill with cards keeps on its entries the item its key
+ * names, a skill without keeps what it played (the link: a change, keyed by its placed voicing).
+ * The key of a skill no loaded file defines is kept as it is (its progress is not lost).
  */
 const BY_SKILL: Identity = {
 	named(entry) {
@@ -522,9 +539,12 @@ const BY_SKILL: Identity = {
 			return `${keyField} does not match skill`;
 		}
 		if (!hasSkill(skill)) return null;
-		const rules = MECHANIC_RULES.find(({ id }) => id === mechanicOfSkill(skill));
-		if (!rules) return null;
-		return checkKeyedItem(rules, skill, 'skill', key, item, keyField, itemField, prompted);
+		const set = ITEM_SETS.find(({ id }) => id === skillById(skill).items);
+		if (!set) return null;
+		if (hasCards(skill)) {
+			return checkKeyedItem(set, skill, 'skill', key, item, keyField, itemField, prompted);
+		}
+		return checkKey(set, skill, key, keyField);
 	}
 };
 

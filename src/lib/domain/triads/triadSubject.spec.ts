@@ -4,7 +4,7 @@ import type { SkillId } from '$lib/domain/types';
 import { createLearningProcedure } from '$lib/domain/learning/procedure';
 import type { CardRef } from '$lib/domain/learning/subject';
 import { attemptOf } from '$lib/domain/learning/testing/fakeSubject';
-import type { TriadZoneItem } from '$lib/domain/mechanics';
+import type { TriadZoneItem } from '$lib/domain/sets';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
 import { DEFAULT_SET_LEARNING } from '$lib/domain/learning/params';
 import { graduateToReview, introScheduling } from '$lib/domain/progress/scheduling';

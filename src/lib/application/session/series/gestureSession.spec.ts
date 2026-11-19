@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
-import type { ChordGridData, ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridData, ChordGridItem } from '$lib/domain/sets';
 import type { PlannedItem } from '$lib/domain/types';
 import {
 	responseVerdictOf,
@@ -14,9 +14,10 @@ import type {
 	CalibrationPort,
 	ChordExpectation
 } from '$lib/application/ports';
-import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
+import { GESTURE_EXERCISE_IDS, LOCATE_NECK_ID } from '$lib/domain/exercise/catalogIds';
+import { chordGridPresenter } from '$lib/application/sets/chordGrid';
+import type { SetPresenter } from '$lib/application/sets/types';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import type { PlaySessionController } from '$lib/application/session/contract';
@@ -95,7 +96,8 @@ async function appSession(cards: CardState[]) {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => 'gesture-session',
-		mechanics: { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS },
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
 		sensors: { note: noteSensor(detector), tap: tapSensor(), chord: chordSensor(chords) },
 		sounds,
 		takes: new FakeTakeBuffer(),
@@ -738,7 +740,7 @@ describe('fatigue', () => {
 });
 
 describe('the chord sensor of a change (twoSensors)', () => {
-	/** A sensor the gesture does not listen to, open because another mechanic of the series does. */
+	/** A sensor the gesture does not listen to, open because another exercise of the series does. */
 	function noteOnTheSide() {
 		const told: unknown[] = [];
 		let listener: ((observation: Observation) => void) | null = null;
@@ -749,14 +751,11 @@ describe('the chord sensor of a change (twoSensors)', () => {
 			},
 			expect: (expectation) => told.push(expectation)
 		});
-		const other: MechanicPresenter = {
-			...chordGridPresenter,
-			sensors: ['note']
-		} as MechanicPresenter;
 		return {
 			told,
 			emit: (time: number) => listener?.({ time, payload: { midi: 62 }, readable: true }),
-			options: { mechanics: { ...GESTURE_PRESENTERS, other }, sensors: { note } }
+			// A session that plays locate too opens the note sensor.
+			options: { plays: [...GESTURE_EXERCISE_IDS, LOCATE_NECK_ID], sensors: { note } }
 		};
 	}
 
@@ -788,15 +787,18 @@ describe('the chord sensor of a change (twoSensors)', () => {
 	/** The gesture's presenter, the change before each expectation noted. */
 	function noting() {
 		const rounds: [number, number | null][] = [];
-		const presenter: MechanicPresenter = {
+		const presenter: SetPresenter = {
 			...chordGridPresenter,
 			expectation: (item, round) => {
 				const previous = round.previous?.item as ChordGridItem | undefined;
 				rounds.push([(item as ChordGridItem).index, previous?.index ?? null]);
 				return chordGridPresenter.expectation!(item as ChordGridItem, round);
 			}
-		} as MechanicPresenter;
-		return { rounds, options: { mechanics: { 'chord-grid': presenter } } };
+		} as SetPresenter;
+		return {
+			rounds,
+			options: { views: { 'grid-scroll': presenter, 'link-lane': presenter } }
+		};
 	}
 
 	it('tells the expectation the change before it', async () => {

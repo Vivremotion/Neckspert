@@ -1,9 +1,9 @@
 import { IDENTIFY_NECK } from '$lib/testing/catalog';
-import { practisingWithoutRecall, SKILL_OF_MECHANIC } from '$lib/testing/testSkills';
+import { practisingWithoutRecall, SKILL_OF_SET, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridItem } from '$lib/domain/sets';
 import { clickAccompaniment } from '../../time/accompaniment';
 import type { Figure } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
@@ -15,6 +15,8 @@ import type { PlannedItem } from '../../types';
 import { compileRound, roundParamsOf } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
+
+registerTestSkills();
 
 const meter = METER_4_4;
 const PREVIEW = 2;
@@ -117,22 +119,22 @@ const IDENTIFY_ROUND: RoundTemplate = {
 };
 
 function definition(
-	mechanic: string,
+	set: string,
 	round: RoundTemplate,
 	params: Record<string, unknown> = {}
 ): ExerciseDefinition {
 	return {
-		id: `test-${mechanic}`,
-		practices: SKILL_OF_MECHANIC[mechanic] ?? mechanic,
+		id: `test-${set}`,
+		practices: SKILL_OF_SET[set] ?? set,
 		round,
 		params: { pacing: { respirationBars: 1 }, ...params }
 	};
 }
 
-function planned<I>(mechanic: string, item: I, leadBeats: number | null = 4): PlannedItem<I> {
+function planned<I>(set: string, item: I, leadBeats: number | null = 4): PlannedItem<I> {
 	return {
-		exerciseId: `test-${mechanic}`,
-		skill: SKILL_OF_MECHANIC[mechanic] ?? mechanic,
+		exerciseId: `test-${set}`,
+		skill: SKILL_OF_SET[set] ?? set,
 		exerciseLevel: 0,
 		item,
 		phase: 'learning',
@@ -146,8 +148,8 @@ describe('compileRound', () => {
 	it('compiles a locate template to the beat plan', () => {
 		const item = { string: 3, pitch: 'F' };
 		const plan = compileRound(
-			definition('locate', LOCATE_ROUND),
-			planned('locate', item, 4),
+			definition('note-on-string', LOCATE_ROUND),
+			planned('note-on-string', item, 4),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -164,8 +166,8 @@ describe('compileRound', () => {
 	it('compiles an identify template to the free plan', () => {
 		const item = { string: 3, fret: 5 };
 		const plan = compileRound(
-			definition('identify', IDENTIFY_ROUND),
-			planned('identify', item, null),
+			definition('placed-note', IDENTIFY_ROUND),
+			planned('placed-note', item, null),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -187,8 +189,8 @@ describe('compileRound', () => {
 	it('compiles an anchor template to the anchor plan: root on the beat, chord from beat 2 to the bar end', () => {
 		const item = { voicingKey: KEY };
 		const plan = compileRound(
-			definition('triad-anchor', ANCHOR_ROUND),
-			planned('triad-anchor', item, 2),
+			definition('voicing-on-strings', ANCHOR_ROUND),
+			planned('voicing-on-strings', item, 2),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -227,8 +229,8 @@ describe('compileRound', () => {
 			]
 		};
 		const plan = compileRound(
-			definition('triad-zone', zone),
-			planned('triad-zone', item, 4),
+			definition('voicing-on-strings', zone),
+			planned('voicing-on-strings', item, 4),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -258,8 +260,8 @@ describe('compileRound', () => {
 		};
 		expect(changes[1].length).toBe(4);
 		const plan = compileRound(
-			definition('chord-grid', GRID_ROUND),
-			planned('chord-grid', item, null),
+			definition('change', GRID_ROUND),
+			planned('change', item, null),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -276,14 +278,16 @@ describe('compileRound', () => {
 
 	it('reads a number a level gives (the lead) and one a definition writes (a window)', () => {
 		const item = { string: 3, pitch: 'F' };
-		const written = definition('locate', LOCATE_ROUND, { windows: { perfectMs: 55 } });
-		const plan = compileRound(written, planned('locate', item, 2), meter, {
+		const written = definition('note-on-string', LOCATE_ROUND, { windows: { perfectMs: 55 } });
+		const plan = compileRound(written, planned('note-on-string', item, 2), meter, {
 			previewBeats: PREVIEW,
 			fromRunStart: null
 		});
 		expect(plan.prompt).toEqual(Fraction.of(-2, 4));
 		expect(plan.expectations[0].window).toEqual({ ms: 55 });
-		expect(roundParamsOf(written, planned('locate', item, 8), { previewBeats: 3 })).toMatchObject({
+		expect(
+			roundParamsOf(written, planned('note-on-string', item, 8), { previewBeats: 3 })
+		).toMatchObject({
 			leadBeats: 8,
 			previewBeats: 3,
 			directRecall: { withinMs: 1500 },
@@ -295,7 +299,7 @@ describe('compileRound', () => {
 	it('gives the naming round the time of its skill’s direct recall', () => {
 		const plan = compileRound(
 			IDENTIFY_NECK,
-			planned('identify', { string: 3, fret: 5 }, null),
+			planned('placed-note', { string: 3, fret: 5 }, null),
 			meter,
 			{
 				previewBeats: PREVIEW,
@@ -304,7 +308,7 @@ describe('compileRound', () => {
 		);
 		expect(plan.expectations[0].window).toEqual({ ms: 3000 });
 		expect(
-			roundParamsOf(IDENTIFY_NECK, planned('identify', { string: 3, fret: 5 }, null), {
+			roundParamsOf(IDENTIFY_NECK, planned('placed-note', { string: 3, fret: 5 }, null), {
 				previewBeats: 0
 			})
 		).not.toHaveProperty('recallThresholdMs');
@@ -313,11 +317,11 @@ describe('compileRound', () => {
 	it('reads a window an exercise level overrides', () => {
 		const item = { string: 3, pitch: 'F' };
 		const leveled: ExerciseDefinition = {
-			...definition('locate', LOCATE_ROUND, { windows: { perfectMs: 55 } }),
+			...definition('note-on-string', LOCATE_ROUND, { windows: { perfectMs: 55 } }),
 			levels: [{ params: {} }, { params: { 'windows.perfectMs': 40 } }]
 		};
 		const at = (exerciseLevel: number) =>
-			compileRound(leveled, { ...planned('locate', item, 2), exerciseLevel }, meter, {
+			compileRound(leveled, { ...planned('note-on-string', item, 2), exerciseLevel }, meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			}).expectations[0].window;
@@ -327,14 +331,14 @@ describe('compileRound', () => {
 
 	it('reads a window an item level overrides', () => {
 		const item = { string: 3, pitch: 'F' };
-		const laddered = definition('locate', LOCATE_ROUND, {
+		const laddered = definition('note-on-string', LOCATE_ROUND, {
 			ladder: [
 				{ params: { leadBeats: 4, aided: false } },
 				{ params: { leadBeats: 2, aided: false, 'windows.perfectMs': 120 } }
 			]
 		});
 		const at = (level: number | undefined) =>
-			compileRound(laddered, { ...planned('locate', item, 2), level }, meter, {
+			compileRound(laddered, { ...planned('note-on-string', item, 2), level }, meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			}).expectations[0].window;
@@ -345,20 +349,20 @@ describe('compileRound', () => {
 
 	it('places a target and ends the count where the template says', () => {
 		const item = { string: 3, pitch: 'F' };
-		const placed = definition('locate', {
+		const placed = definition('note-on-string', {
 			...LOCATE_ROUND,
 			barOffset: '1/4',
 			countEndsOn: 'target'
 		});
-		const plan = compileRound(placed, planned('locate', item, 4), meter, {
+		const plan = compileRound(placed, planned('note-on-string', item, 4), meter, {
 			previewBeats: PREVIEW,
 			fromRunStart: null
 		});
 		expect(plan.barOffset).toEqual(Fraction.of(1, 4));
 		expect(plan.countEndsOn).toBe('target');
 		const plain = compileRound(
-			definition('locate', LOCATE_ROUND),
-			planned('locate', item, 4),
+			definition('note-on-string', LOCATE_ROUND),
+			planned('note-on-string', item, 4),
 			meter,
 			{ previewBeats: PREVIEW, fromRunStart: null }
 		);
@@ -373,41 +377,46 @@ describe('compileRound', () => {
 			prompt: { lead: { param: 'windows.nowhere' } }
 		};
 		expect(() =>
-			compileRound(definition('locate', absent), planned('locate', item, 4), meter, {
-				previewBeats: PREVIEW,
-				fromRunStart: null
-			})
+			compileRound(
+				definition('note-on-string', absent),
+				planned('note-on-string', item, 4),
+				meter,
+				{
+					previewBeats: PREVIEW,
+					fromRunStart: null
+				}
+			)
 		).toThrow(
-			/test-locate: round\.prompt\.lead reads param "windows\.nowhere", absent for locate item /
+			/test-note-on-string: round\.prompt\.lead reads param "windows\.nowhere", absent for note-on-string item /
 		);
 		// Identify practising a skill that writes no direct recall.
-		const noThreshold = practisingWithoutRecall(definition('identify', IDENTIFY_ROUND));
+		const noThreshold = practisingWithoutRecall(definition('placed-note', IDENTIFY_ROUND));
 		expect(() =>
-			compileRound(noThreshold, planned('identify', { string: 3, fret: 5 }, null), meter, {
+			compileRound(noThreshold, planned('placed-note', { string: 3, fret: 5 }, null), meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			})
 		).toThrow(
-			/test-identify: round\.expectations\[0\]\.window\.ms reads param "directRecall\.withinMs"/
+			/test-placed-note: round\.expectations\[0\]\.window\.ms reads param "directRecall\.withinMs"/
 		);
 	});
 
 	it('names the exercise and the field when a fraction is malformed', () => {
 		const item = { string: 3, pitch: 'F' };
 		const compiling = (round: RoundTemplate) => () =>
-			compileRound(definition('locate', round), planned('locate', item, 4), meter, {
+			compileRound(definition('note-on-string', round), planned('note-on-string', item, 4), meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			});
 		expect(compiling({ ...LOCATE_ROUND, barOffset: 'a quarter' })).toThrow(
-			/test-locate: round\.barOffset not a fraction: "a quarter"/
+			/test-note-on-string: round\.barOffset not a fraction: "a quarter"/
 		);
 		const gap: RoundTemplate = {
 			...LOCATE_ROUND,
 			expectations: [{ ...LOCATE_ROUND.expectations[0], window: { ofGap: '1,5' } }]
 		};
 		expect(compiling(gap)).toThrow(
-			/test-locate: round\.expectations\[0\]\.window\.ofGap not a fraction: "1,5"/
+			/test-note-on-string: round\.expectations\[0\]\.window\.ofGap not a fraction: "1,5"/
 		);
 	});
 
@@ -418,28 +427,40 @@ describe('compileRound', () => {
 			expectations: [{ ...LOCATE_ROUND.expectations[0], at: { bars: 5 } }]
 		};
 		expect(() =>
-			compileRound(definition('locate', outside), planned('locate', item, 4), meter, {
-				previewBeats: PREVIEW,
-				fromRunStart: null
-			})
-		).toThrow(/test-locate: .*outside the plan length/);
+			compileRound(
+				definition('note-on-string', outside),
+				planned('note-on-string', item, 4),
+				meter,
+				{
+					previewBeats: PREVIEW,
+					fromRunStart: null
+				}
+			)
+		).toThrow(/test-note-on-string: .*outside the plan length/);
 	});
 
-	it('refuses an exercise without a round, and a derivation that reads another mechanic', () => {
+	it('refuses an exercise without a round, and a derivation that reads another set', () => {
 		const item = { string: 3, pitch: 'F' };
 		const bare: ExerciseDefinition = { id: 'bare', practices: 'locate-note-string', params: {} };
 		expect(() =>
-			compileRound(bare, planned('locate', item, 4), meter, {
+			compileRound(bare, planned('note-on-string', item, 4), meter, {
 				previewBeats: PREVIEW,
 				fromRunStart: null
 			})
 		).toThrow(/bare: .*no round/);
 		expect(() =>
-			compileRound(definition('identify', LOCATE_ROUND), planned('identify', item, 4), meter, {
-				previewBeats: PREVIEW,
-				fromRunStart: null
-			})
-		).toThrow(/test-identify: round\.expectations\[0\]\.content derives "note-of-item".*identify/);
+			compileRound(
+				definition('placed-note', LOCATE_ROUND),
+				planned('placed-note', item, 4),
+				meter,
+				{
+					previewBeats: PREVIEW,
+					fromRunStart: null
+				}
+			)
+		).toThrow(
+			/test-placed-note: round\.expectations\[0\]\.content derives "note-of-item".*placed-note/
+		);
 	});
 });
 
@@ -474,13 +495,13 @@ function figureRound(
 }
 
 function figureExercise(
-	mechanic: string,
+	set: string,
 	round: RoundTemplate,
 	figures: Record<string, string>,
 	params: Record<string, unknown> = {}
 ): ExerciseDefinition {
 	return {
-		...definition(mechanic, round, params),
+		...definition(set, round, params),
 		figures: Object.entries(figures).map(([id, text]) => ({ id, figure: parseLilyPond(text) }))
 	};
 }
@@ -572,7 +593,7 @@ describe('compileRound, a figure entry', () => {
 
 	it('compiles a figure entry over a round shorter than a bar', () => {
 		const exercise = figureExercise(
-			'voicing-figure',
+			'placed-voicing',
 			figureRound(
 				{ sensor: 'note', content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] } },
 				{ length: { beats: { item: 'beats' } } }
@@ -598,7 +619,7 @@ describe('compileRound, a figure entry', () => {
 
 	it('spreads the derived notes by the pattern', () => {
 		const exercise = figureExercise(
-			'voicing-figure',
+			'placed-voicing',
 			figureRound({ sensor: 'note', content: { from: 'voicing-notes', pattern: [1, 2, 3, 2] } }),
 			{ main: 'c8 c c c r2' }
 		);
@@ -614,7 +635,7 @@ describe('compileRound, a figure entry', () => {
 
 	it('plays the derived list in order without a pattern', () => {
 		const exercise = figureExercise(
-			'voicing-figure',
+			'placed-voicing',
 			figureRound({ sensor: 'note', content: { from: 'voicing-notes' } }),
 			{ main: 'c8 c c c c c r4' }
 		);
@@ -624,7 +645,7 @@ describe('compileRound, a figure entry', () => {
 	describe('a shape', () => {
 		const exerciseOf = (content: FigureExpectationTemplate['content'], text = 'c4 c c c') => ({
 			...figureExercise(
-				'form-figure',
+				'placed-shape',
 				figureRound({ sensor: 'note', content }, { length: { beats: { item: 'beats' } } }),
 				{ main: text }
 			),
@@ -674,7 +695,7 @@ describe('compileRound, a figure entry', () => {
 		it('fails naming the exercise, the field and the item', () => {
 			const exercise = exerciseOf({ from: 'shape-notes' });
 			expect(() => compileFigure(exercise, { shape: 'nowhere', first: 'd', beats: 4 })).toThrow(
-				/test-form-figure: round\.expectations\[0\]\.content derives "shape-notes" for form-figure item nowhere@d: .*shape "nowhere"/
+				/test-placed-shape: round\.expectations\[0\]\.content derives "shape-notes" for placed-shape item nowhere@d: .*shape "nowhere"/
 			);
 		});
 	});
@@ -710,7 +731,7 @@ describe('compileRound, a figure entry', () => {
 		const at = (exerciseLevel: number) =>
 			compileRound(
 				leveled,
-				{ ...planned('locate', { string: 3, pitch: 'F' }, null), exerciseLevel },
+				{ ...planned('note-on-string', { string: 3, pitch: 'F' }, null), exerciseLevel },
 				METER_4_4,
 				{
 					previewBeats: PREVIEW,
@@ -767,15 +788,15 @@ describe('compileRound, a figure entry', () => {
 
 	it('fails naming the exercise and the field', () => {
 		const voicing = (entry: Partial<FigureExpectationTemplate>, text = 'c8 c c c r2') =>
-			figureExercise('voicing-figure', figureRound({ sensor: 'note', ...entry }), { main: text });
+			figureExercise('placed-voicing', figureRound({ sensor: 'note', ...entry }), { main: text });
 		expect(() =>
 			compileFigure(
 				voicing({ content: { from: 'voicing-notes', pattern: [1, 4] } }),
 				C_FIRST_INVERSION
 			)
-		).toThrow(/test-voicing-figure: round\.expectations\[0\]\.content\.pattern .*4.*3 notes/);
+		).toThrow(/test-placed-voicing: round\.expectations\[0\]\.content\.pattern .*4.*3 notes/);
 		expect(() => compileFigure(voicing({ figure: { id: 'nowhere' } }), C_FIRST_INVERSION)).toThrow(
-			/test-voicing-figure: round\.expectations\[0\]\.figure .*"nowhere"/
+			/test-placed-voicing: round\.expectations\[0\]\.figure .*"nowhere"/
 		);
 		// Review Focus: a place the neck does not hold fails at compilation, naming the item.
 		expect(() =>
@@ -784,7 +805,7 @@ describe('compileRound, a figure entry', () => {
 				frets: [21, 20, 20]
 			})
 		).toThrow(
-			/test-voicing-figure: round\.expectations\[0\]\.content derives "voicing-notes" for voicing-figure item C\|maj\|3:3,2:5,1:1@21-20-20: .*no place at frets 21-20-20/
+			/test-placed-voicing: round\.expectations\[0\]\.content derives "voicing-notes" for placed-voicing item C\|maj\|3:3,2:5,1:1@21-20-20: .*no place at frets 21-20-20/
 		);
 		// A list on a point, a single content on a figure.
 		const point: RoundTemplate = {
@@ -794,11 +815,11 @@ describe('compileRound, a figure entry', () => {
 			]
 		};
 		expect(() =>
-			compileFigure(figureExercise('voicing-figure', point, {}), C_FIRST_INVERSION)
+			compileFigure(figureExercise('placed-voicing', point, {}), C_FIRST_INVERSION)
 		).toThrow(/round\.expectations\[0\]\.content .*list/);
 		expect(() =>
 			compileFigure(
-				figureExercise('locate', figureRound({ content: { from: 'note-of-item' } }), {
+				figureExercise('note-on-string', figureRound({ content: { from: 'note-of-item' } }), {
 					main: 'c1'
 				}),
 				{ string: 3, pitch: 'F' }
@@ -814,20 +835,22 @@ describe('compileRound, a figure entry', () => {
 				threeFour
 			)
 		).toThrow(/round\.expectations\[0\]\.figure .*meter/);
-		// A figure an item names, of a mechanic whose items name none.
+		// A figure an item names, of a set whose items name none.
 		expect(() =>
 			compileFigure(
-				figureExercise('locate', figureRound({ figure: { item: 'figure' } }), { main: 'c1' }),
+				figureExercise('note-on-string', figureRound({ figure: { item: 'figure' } }), {
+					main: 'c1'
+				}),
 				{ string: 3, pitch: 'F' }
 			)
-		).toThrow(/round\.expectations\[0\]\.figure .*"figure".*not locate/);
+		).toThrow(/round\.expectations\[0\]\.figure .*"figure".*not note-on-string/);
 		// A figure without pitch read by { from: 'figure' }.
 		const bare: ExerciseDefinition = {
-			...figureExercise('locate', figureRound({ content: { from: 'figure' } }), {}),
+			...figureExercise('note-on-string', figureRound({ content: { from: 'figure' } }), {}),
 			figures: [{ id: 'main', figure: pitchless() }]
 		};
 		expect(() => compileFigure(bare, { string: 3, pitch: 'F' })).toThrow(
-			/^test-locate: round\.expectations\[0\]\.content reads the pitches/
+			/^test-note-on-string: round\.expectations\[0\]\.content reads the pitches/
 		);
 	});
 });

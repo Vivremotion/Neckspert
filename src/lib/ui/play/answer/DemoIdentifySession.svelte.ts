@@ -1,4 +1,4 @@
-import { identifyPresenter } from '$lib/application/mechanics/identify';
+import { placedNotePresenter } from '$lib/application/sets/placedNote';
 import { CONTENT_VIEWS, presentPrompt, type PromptStageModel } from '$lib/application/presentation';
 import type {
 	PlaySessionController,
@@ -162,7 +162,7 @@ export class DemoIdentifySession implements PlaySessionController {
 				beatsPerBar: 4,
 				verdict: null,
 				chordDiagram: 'strings',
-				choices: identifyPresenter.answerChoices!()
+				choices: placedNotePresenter.answerChoices!()
 			} satisfies PromptStageModel
 		};
 		this.promptedAt = Date.now();

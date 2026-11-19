@@ -1,7 +1,6 @@
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
 import { PITCH_CONTENT } from '../../judges';
-import { mechanicRules } from '../../mechanics';
-import { mechanicOfSkill } from '../../skill/bridge';
+import { exerciseItemSet, exerciseSetId } from '../../sets';
 import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
 import type { Figure, FigureNote } from '../../time/figure';
 import { Fraction } from '../../time/fraction';
@@ -57,11 +56,11 @@ interface Context {
 	params: Readonly<Record<string, unknown>>;
 }
 
-function itemKeyOf(item: PlannedItem): string {
+function itemKeyOf(context: Context): string {
 	try {
-		return mechanicRules(mechanicOfSkill(item.skill)).itemKey(item.item);
+		return exerciseItemSet(context.definition).itemKey(context.item.item);
 	} catch {
-		return JSON.stringify(item.item);
+		return JSON.stringify(context.item.item);
 	}
 }
 
@@ -86,9 +85,9 @@ function readsFrom(
 	reads: readonly string[],
 	what: string
 ): void {
-	const mechanic = mechanicOfSkill(context.item.skill);
-	if (!reads.includes(mechanic)) {
-		fail(context, field, `${what} "${name}" which reads ${reads.join(', ')}, not ${mechanic}`);
+	const set = exerciseSetId(context.definition);
+	if (!reads.includes(set)) {
+		fail(context, field, `${what} "${name}" which reads ${reads.join(', ')}, not ${set}`);
 	}
 }
 
@@ -107,7 +106,7 @@ function num(context: Context, field: string, value: Num): number {
 			fail(
 				context,
 				field,
-				`reads param "${value.param}", absent for ${mechanicOfSkill(context.item.skill)} item ${itemKeyOf(context.item)}`
+				`reads param "${value.param}", absent for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 			);
 		}
 		return found;
@@ -176,7 +175,7 @@ function windowOf(context: Context, field: string, window: WindowTemplate): Expe
 	return fail(
 		context,
 		field,
-		`reads param "${window.param}", which gives no window ({ ms } or { ofGap }) for ${mechanicOfSkill(context.item.skill)} item ${itemKeyOf(context.item)}`
+		`reads param "${window.param}", which gives no window ({ ms } or { ofGap }) for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 	);
 }
 
@@ -196,7 +195,7 @@ function derive(context: Context, field: string, from: string): { kind: string; 
 		return fail(
 			context,
 			field,
-			`derives "${from}" for ${mechanicOfSkill(context.item.skill)} item ${itemKeyOf(context.item)}: ${(error as Error).message}`
+			`derives "${from}" for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}: ${(error as Error).message}`
 		);
 	}
 }
@@ -236,7 +235,7 @@ function figureOf(context: Context, field: string, ref: FigureRef): { id: string
 			fail(
 				context,
 				field,
-				`reads param "${ref.param}", which names no figure for ${mechanicOfSkill(context.item.skill)} item ${itemKeyOf(context.item)}`
+				`reads param "${ref.param}", which names no figure for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
 			);
 		}
 		id = found;
@@ -300,7 +299,7 @@ function figureContentOf(
 		);
 	}
 	const { kind, value } = derive(context, field, content.from);
-	const what = `"${content.from}" for ${mechanicOfSkill(context.item.skill)} item ${itemKeyOf(context.item)}`;
+	const what = `"${content.from}" for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`;
 	if (!Array.isArray(value) || value.length === 0) {
 		fail(context, field, `derives no element from ${what}`);
 	}

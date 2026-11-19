@@ -2,7 +2,7 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { StringNumber } from '$lib/domain/music/types';
 import type { ResponseVerdict } from '$lib/domain/types';
 
-/** The view that shows a mechanic's screen model when its exercise names none. */
+/** The view that shows a presenter's screen model when its exercise names none. */
 export const DEFAULT_PLAY_VIEW = 'grid-scroll';
 
 /** The view of an exercise that writes its presentation and names none: the generic lane. */
@@ -52,7 +52,7 @@ export interface VerdictView {
 	answerLabel: string | null;
 	/** After a miss: the right answer, the position in mode 1 ("corde de E grave, case 5"), the name in mode 2. */
 	correction: string | null;
-	/** After a miss of a mechanic that draws shapes: the shape heard (null: none recognized). */
+	/** After a miss of items drawn as shapes: the shape heard (null: none recognized). */
 	heard?: ShapeView | null;
 	/** …the shape asked, and what tells them apart ("autre renversement"). */
 	expected?: ShapeView | null;
@@ -87,7 +87,7 @@ export interface PlayView {
 	/** Beats left before the next prompt during a counted bar (4 to 1), otherwise null. */
 	countdown: number | null;
 	/**
-	 * After a miss of a contestable mechanic, until the next prompt: 'available' offers « Joué
+	 * After a miss of a contestable exercise, until the next prompt: 'available' offers « Joué
 	 * juste », 'done' once pressed; null otherwise.
 	 */
 	contest: 'available' | 'done' | null;

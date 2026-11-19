@@ -1,8 +1,11 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE, FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { Fraction, METER_4_4, clickAccompaniment } from '$lib/domain/time';
 import { exerciseFromJson } from './fromJson';
 import { validateExercise } from './validate';
+
+registerTestSkills();
 
 /** The public arpeggio exercise, as a JSON file writes it: its figures in LilyPond. */
 function arpeggioJson(): Record<string, unknown> {

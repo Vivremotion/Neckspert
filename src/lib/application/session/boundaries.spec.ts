@@ -16,15 +16,15 @@ const everywhere = import.meta.glob(['/src/**/*.ts', '/src/**/*.svelte'], {
 
 const CORE = '/src/lib/application/session/';
 
-/** The figure mechanic's id as code writes it, quoted (a backquoted `figure` in a comment is the word). */
-const FIGURE_MECHANIC = [`'figure'`, `"figure"`];
+/** The figure set's id as code writes it, quoted (a backquoted `figure` in a comment is the word). */
+const FIGURE_SET = [`'figure'`, `"figure"`];
 
-/** The core files (specs aside) that name the figure mechanic. */
+/** The core files (specs aside) that name the figure set. */
 function offendersIn(files: Record<string, string>): string[] {
 	return Object.entries(files)
 		.filter(([path]) => path.startsWith(CORE))
 		.filter(([path]) => !/\.spec\.ts$/.test(path))
-		.filter(([, text]) => FIGURE_MECHANIC.some((name) => text.includes(name)))
+		.filter(([, text]) => FIGURE_SET.some((name) => text.includes(name)))
 		.map(([path]) => path);
 }
 
@@ -39,7 +39,7 @@ function namingGone(files: Record<string, string>): string[] {
 }
 
 describe('the session core', () => {
-	it('never names the figure mechanic: its screen and its summary receive what they need', () => {
+	it('never names the figure set: its screen and its summary receive what they need', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 

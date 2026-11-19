@@ -1,7 +1,7 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import type { StagePlace } from '$lib/application/mechanics/types';
+import type { StagePlace } from '$lib/application/sets/types';
 import type { AnswerChoice, LaneEntry } from '$lib/application/session/contract';
 import { CONTENT_VIEWS, type ContentView, type MissView } from './contentViews';
 import { presentPrompt, type PresentedPrompt } from './presentPrompt';
@@ -27,7 +27,7 @@ export interface PromptStageModel {
 	beatsPerBar: number;
 	verdict: StageVerdict | null;
 	chordDiagram: ChordDiagramStyle;
-	/** The answer keys of a screen mechanic (`presenter.answerChoices`); empty otherwise. */
+	/** The answer keys of items answered on the screen (`presenter.answerChoices`); empty otherwise. */
 	choices: readonly AnswerChoice[];
 }
 

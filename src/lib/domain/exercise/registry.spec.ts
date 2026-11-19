@@ -1,3 +1,4 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE as A } from '$lib/testing/arpeggioExercise';
 import {
@@ -7,6 +8,8 @@ import {
 	exerciseSessionExercises,
 	registerExercise
 } from './registry';
+
+registerTestSkills();
 
 describe('the exercise registry', () => {
 	it('holds the catalog the test setup loads', () => {

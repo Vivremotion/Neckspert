@@ -1,4 +1,4 @@
-import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
+import type { GridStageModel } from '$lib/application/sets/chordGrid';
 import type { GridChange } from '$lib/domain/grid';
 import type { ResponseVerdict } from '$lib/domain/types';
 

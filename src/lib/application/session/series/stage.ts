@@ -1,7 +1,7 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { LiveReading, ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
-import type { MechanicPresenter, StagePlace } from '$lib/application/mechanics/types';
+import type { SetPresenter, StagePlace } from '$lib/application/sets/types';
 import { FIGURE_VIEW } from '$lib/application/presentation/playViews';
 import { promptStage } from '$lib/application/presentation/promptStage';
 import { playViewOf } from '../contract';
@@ -42,7 +42,7 @@ export function followsBeats(definition: ExerciseDefinition): boolean {
 export function stageModel(input: {
 	definition: ExerciseDefinition;
 	item: PlannedItem;
-	presenter: MechanicPresenter;
+	presenter: SetPresenter;
 	plan: RoundPlan;
 	settled: { value: ResponseValue; success: boolean } | null;
 	place: StagePlace;

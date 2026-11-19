@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { DrawnMiss } from '$lib/application/mechanics/chordGrid';
+	import type { DrawnMiss } from '$lib/application/sets/chordGrid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
 	import { playMessages } from '../messages';

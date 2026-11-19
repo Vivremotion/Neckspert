@@ -1,7 +1,10 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '../exercise/types';
 import { FORM_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from './index';
+
+registerTestSkills();
 
 /** What the derivations that do not read an exercise's shapes are given. */
 const NO_SHAPES = { ...FORM_EXERCISE, shapes: undefined } satisfies ExerciseDefinition;
@@ -35,22 +38,22 @@ describe('the derivations', () => {
 		).toBe(4);
 	});
 
-	it('declares the mechanics each derivation reads', () => {
+	it('declares the sets each derivation reads', () => {
 		const reads = Object.fromEntries(
 			Object.entries(CONTENT_DERIVATIONS).map(([name, d]) => [name, d.reads])
 		);
 		expect(reads).toEqual({
-			'note-of-item': ['locate'],
-			'name-of-item': ['identify'],
-			'voicing-root': ['triad-anchor', 'triad-zone'],
-			'voicing-anywhere': ['triad-anchor', 'triad-zone'],
-			'voicing-at-position': ['triad-zone'],
-			'grid-change': ['chord-grid'],
-			'voicing-notes': ['voicing-figure'],
-			'shape-notes': ['form-figure']
+			'note-of-item': ['note-on-string'],
+			'name-of-item': ['placed-note'],
+			'voicing-root': ['voicing-on-strings'],
+			'voicing-anywhere': ['voicing-on-strings'],
+			'voicing-at-position': ['voicing-on-strings'],
+			'grid-change': ['change'],
+			'voicing-notes': ['placed-voicing'],
+			'shape-notes': ['placed-shape']
 		});
-		expect(ITEM_NUMBERS['change-beats'].reads).toEqual(['chord-grid']);
-		expect(ITEM_NUMBERS.beats.reads).toEqual(['voicing-figure', 'form-figure']);
+		expect(ITEM_NUMBERS['change-beats'].reads).toEqual(['change']);
+		expect(ITEM_NUMBERS.beats.reads).toEqual(['placed-voicing', 'placed-shape']);
 	});
 
 	it("voicing-notes derives the notes of the item's voicing", () => {

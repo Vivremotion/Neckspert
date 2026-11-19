@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
+import { CHORD_GRID_CONTENT, CONTENT_JUDGES } from '$lib/domain/judges';
 import {
 	admittedShapes,
-	chordGridRules,
+	gestureChangeSet,
 	closestShape,
 	type ChordGridItem
-} from '$lib/domain/mechanics';
+} from '$lib/domain/sets';
 import { occurrenceId, occurrenceOfId } from '$lib/domain/triads';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { shapeId, triadCards } from '$lib/testing/shapes';
@@ -58,7 +59,7 @@ function attemptOf(
 		sessionId: 's1',
 		exerciseId: planned.exerciseId,
 		skill: planned.skill,
-		cardKey: cardKey(planned.skill, chordGridRules.itemKey(itemOf(planned))),
+		cardKey: cardKey(planned.skill, gestureChangeSet.itemKey(itemOf(planned))),
 		phase: 'free',
 		temperature: 'hot',
 		aid: planned.aid,
@@ -315,7 +316,7 @@ describe('createGestureSelector', () => {
 				const reference = item.previous === null ? null : occurrenceOfId(item.previous);
 				const shape = closestShape(admittedShapes(item), reference);
 				const decided = shape && occurrenceId(shape);
-				const judged = chordGridRules.judge(item, { decided });
+				const judged = CONTENT_JUDGES[CHORD_GRID_CONTENT].judge(item, { decided });
 				if (judged.correct) right++;
 				s.record(attemptOf(planned, NOW + n, judged.correct, decided), NOW);
 				if (item.index === item.changes.length - 1)

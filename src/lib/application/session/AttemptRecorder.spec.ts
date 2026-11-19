@@ -1,10 +1,9 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { cardKey } from '$lib/domain/types';
 import { describe, expect, it, vi } from 'vitest';
 import type { Attempt, LevelState, PlannedItem, RecordedObservation } from '$lib/domain/types';
 import { introduceCard, markLearned, type ItemSource } from '$lib/domain/progress';
 import { directRecallWithin } from '$lib/domain/learning';
-import { locateRules, mechanicRules } from '$lib/domain/mechanics';
+import { noteOnStringSet } from '$lib/domain/sets';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
@@ -32,7 +31,7 @@ function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 
 describe('AttemptRecorder', () => {
 	const THRESHOLD_MS = 1500;
-	const LOCATE_KEY = cardKey('locate-note-string', locateRules.itemKey(F_ON_B));
+	const LOCATE_KEY = cardKey('locate-note-string', noteOnStringSet.itemKey(F_ON_B));
 
 	/** A note's response attempt as `recordedAttempt` writes it: hot, at the item's lead. */
 	function noteAttempt(
@@ -100,7 +99,6 @@ describe('AttemptRecorder', () => {
 			now: () => 5_000,
 			selector: source,
 			sessionId: 'sess-1',
-			rules: (skill) => mechanicRules(mechanicOfSkill(skill)),
 			recall: withRecall ? () => directRecallWithin(THRESHOLD_MS) : undefined,
 			levels
 		});
@@ -318,7 +316,7 @@ describe('AttemptRecorder', () => {
 		expect(await cards.all()).toEqual([]);
 		expect(await attempts.all()).toHaveLength(1);
 	});
-	it('keeps on a new card only the part of the item its mechanic keeps', async () => {
+	it('keeps on a new card only the part of the item its set keeps', async () => {
 		const { recorder, cards } = setupResponse();
 		const key = 'D|maj|3:5,2:1,1:3';
 		const planned = item({

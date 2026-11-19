@@ -2,11 +2,16 @@ import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalog
 /** The notes' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
-import { NECK_PRESENTERS, type MechanicPresenter } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS, type SetPresenter } from '$lib/application/sets';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import type { PlaySessionController } from '$lib/application/session/contract';
-import { noteSensor, tapSensor, type SensorFactory } from '$lib/application/session/sensors';
+import {
+	chordSensor,
+	noteSensor,
+	tapSensor,
+	type SensorFactory
+} from '$lib/application/session/sensors';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { exerciseById, type ExerciseDefinition } from '$lib/domain/exercise';
 import {
@@ -24,6 +29,7 @@ import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { LevelState } from '$lib/domain/time';
 import type { Attempt, CardState } from '$lib/domain/types';
 import {
+	FakeChordVerifier,
 	FakeClock,
 	FakeDiagnostics,
 	FakeNoteDetector,
@@ -108,9 +114,9 @@ export interface NotesSetup {
 	exercises?: readonly ExerciseDefinition[];
 	/** Attempts already stored. */
 	attempts?: Attempt[];
-	/** Presenters beside the neck's, by mechanic (the registry's keys). */
-	presenters?: Record<string, MechanicPresenter>;
-	/** Sensors beside the note and the tap. */
+	/** Presenters beside the application's, by set id. */
+	presenters?: Record<string, SetPresenter>;
+	/** Sensors over the note, the tap and a chord sensor on a silent verifier. */
 	sensors?: Record<string, SensorFactory>;
 	/** The audio clock; a `FakeClock` by default. */
 	clock?: FakeClock;
@@ -132,8 +138,15 @@ export async function notesApp(setup: NotesSetup = {}) {
 		now: () => clock.toEpochMs(clock.now()),
 		random: setup.random ?? (() => 0),
 		newId: () => `notes-${++ids}`,
-		mechanics: { ...NECK_PRESENTERS, ...setup.presenters },
-		sensors: { note: noteSensor(detector), tap: tapSensor(), ...setup.sensors },
+		presenters: { ...SET_PRESENTERS, ...setup.presenters },
+		views: VIEW_PRESENTERS,
+		// The notes' sessions open the chord sensor too: they play every exercise of the tracks.
+		sensors: {
+			note: noteSensor(detector),
+			tap: tapSensor(),
+			chord: chordSensor(new FakeChordVerifier()),
+			...setup.sensors
+		},
 		sounds,
 		takes: new FakeTakeBuffer(),
 		memory: new SessionMemory(),

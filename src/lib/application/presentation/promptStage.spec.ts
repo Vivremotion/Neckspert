@@ -6,7 +6,7 @@ import { METER_4_4, type ResponseValue } from '$lib/domain/time';
 import type { ExpectationResult } from '$lib/domain/time/modes/responseVerdict';
 import { occurrenceId } from '$lib/domain/triads';
 import type { PlannedItem, ResponseVerdict } from '$lib/domain/types';
-import { identifyPresenter } from '$lib/application/mechanics/identify';
+import { placedNotePresenter } from '$lib/application/sets/placedNote';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
@@ -199,8 +199,8 @@ describe('promptStage', () => {
 		).toBeNull();
 	});
 
-	it('gives the answer keys of a screen mechanic', () => {
-		const choices = identifyPresenter.answerChoices!();
+	it('gives the answer keys of items answered on the screen', () => {
+		const choices = placedNotePresenter.answerChoices!();
 		const item = { string: 3, fret: 3 };
 		const tapped = value('wrong', [
 			result(0, { answer: { pitch: 'A' }, correct: false, confusion: null })

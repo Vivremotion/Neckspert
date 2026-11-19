@@ -1,8 +1,8 @@
 import type { Midi, StringNumber } from '$lib/domain/music';
 
-/** A chord the player may have played: a voicing at one position, chosen by the mechanic. */
+/** A chord the player may have played: a voicing at one position, chosen by the presenter. */
 export interface ChordCandidate {
-	/** Chosen by the mechanic: voicing key and position. */
+	/** Chosen by the presenter: voicing key and position. */
 	id: string;
 	/** From the domain ('expected', 'other-inversion'…), never read by the sensor. */
 	kind: string;
@@ -45,7 +45,7 @@ export interface ChordReport {
 }
 
 /**
- * Says which known candidate a played chord matches. Knows no mechanic; the technique behind it
+ * Says which known candidate a played chord matches. Knows no set of items; the technique behind it
  * (spectral fit, hexaphonic pickup…) is the adapter's business.
  */
 export interface ChordVerifierPort {

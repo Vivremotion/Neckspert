@@ -1,15 +1,15 @@
-import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { TEST_PLACED_VOICING_SKILL, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { type ExerciseDefinition } from '$lib/domain/exercise';
-import { mechanicRules } from '$lib/domain/mechanics';
+import { setOfSkill } from '$lib/domain/sets';
 import type { PlannedItem } from '$lib/domain/types';
 import { createExerciseItemSource } from './itemSource';
 import { RHYTHM_OFFBEATS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 
+registerTestSkills();
+
 const context = { now: 0, elapsedMs: 0, fatigued: false };
-const keyOf = (item: PlannedItem | null) =>
-	item && mechanicRules(mechanicOfSkill(item.skill)).itemKey(item.item);
+const keyOf = (item: PlannedItem | null) => item && setOfSkill(item.skill).itemKey(item.item);
 
 const C_ROOT = 'C|maj|3:1,2:3,1:5@5-5-3';
 const C_FIRST = 'C|maj|3:3,2:5,1:1@9-8-8';
@@ -110,7 +110,7 @@ describe('createExerciseItemSource, from the written items', () => {
 		expect(keys).toEqual([C_ROOT, C_FIRST, C_ROOT_HIGH, C_ROOT, C_FIRST]);
 	});
 
-	it('parses each key by its mechanic, with the length its entry gives, and serves it again at the level played', () => {
+	it('parses each key by its set, with the length its entry gives, and serves it again at the level played', () => {
 		const source = createExerciseItemSource(shapes);
 		const first = source.next(context)!;
 		expect(first).toEqual({
@@ -133,7 +133,7 @@ describe('createExerciseItemSource, from the written items', () => {
 		expect(second.item).toEqual({ voicing: 'C|maj|3:3,2:5,1:1', frets: [9, 8, 8] });
 	});
 
-	it('refuses an item its mechanic cannot read, and an empty list, naming the exercise', () => {
+	it('refuses an item its set cannot read, and an empty list, naming the exercise', () => {
 		expect(() => createExerciseItemSource({ ...shapes, items: ['nope'] })).toThrow(
 			/test-shapes.*items\[0\]/
 		);

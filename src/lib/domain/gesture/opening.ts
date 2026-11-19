@@ -1,7 +1,7 @@
 import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { parseTriadId } from '$lib/domain/mechanics/chordGrid';
+import { parseTriadId } from '$lib/domain/sets/chordGrid';
 import {
 	closeTriadVoicings,
 	pitchOfSpelled,

@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { allExercises } from '$lib/domain/exercise/registry';
-import { MECHANIC_RULES } from '$lib/domain/mechanics';
-import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
+import { ITEM_SET_NAMES } from '$lib/domain/sets';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 
 // The session controller and its series as raw text, keyed by its path from the project root.
 const sources = {
@@ -19,7 +18,7 @@ const sources = {
 		import: 'default',
 		eager: true
 	}),
-	// The generic lane that draws them (H5): a view of the screen, naming no mechanic either.
+	// The generic lane that draws them (H5): a view of the screen, naming no set either.
 	...import.meta.glob(
 		[
 			'/src/lib/ui/play/views/LaneView.svelte',
@@ -45,7 +44,7 @@ const SCANNED = (path: string) =>
 	path === PROMPT_STAGE ||
 	LANE_VIEW.includes(path);
 
-/** The ids of mechanics and exercises the series never names: every one of the registry and the catalog. */
+/** The ids of sets and exercises the series never names, and the old ids of the sets: every one of the registry and the catalog. */
 const NAMES = [
 	...new Set([
 		'locate',
@@ -53,7 +52,7 @@ const NAMES = [
 		'triad-anchor',
 		'triad-zone',
 		'chord-grid',
-		...MECHANIC_RULES.map((rules) => rules.id),
+		...ITEM_SET_NAMES,
 		...allExercises().map((exercise) => exercise.id)
 	])
 ];
@@ -61,8 +60,8 @@ const NAMES = [
 /** The sensors the presenters name: the series never writes them either. */
 const SENSORS = [
 	...new Set(
-		[NECK_PRESENTERS, TRIAD_PRESENTERS, GESTURE_PRESENTERS, FIGURE_PRESENTERS].flatMap(
-			(presenters) => Object.values(presenters).flatMap((presenter) => presenter.sensors)
+		[SET_PRESENTERS, VIEW_PRESENTERS].flatMap((presenters) =>
+			Object.values(presenters).flatMap((presenter) => presenter.sensors)
 		)
 	)
 ];
@@ -80,7 +79,7 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the session controller and its series', () => {
-	it('names no mechanic nor exercise, nor do the prompt stage and the lane view', () => {
+	it('names no set nor exercise, nor do the prompt stage and the lane view', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 

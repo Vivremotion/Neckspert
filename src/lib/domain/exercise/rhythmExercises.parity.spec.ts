@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FigureItem } from '$lib/domain/mechanics';
+import type { FigureItem } from '$lib/domain/sets';
 import { levelRange, METER_4_4, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { compileRound, figureItemsAt } from './round';

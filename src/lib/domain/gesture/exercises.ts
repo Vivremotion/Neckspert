@@ -1,5 +1,5 @@
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
-import type { GestureRule } from '$lib/domain/mechanics/chordGrid';
+import type { GestureRule } from '$lib/domain/sets/chordGrid';
 import type { StringNumber } from '$lib/domain/music/types';
 
 /** What a gesture exercise is made of. */

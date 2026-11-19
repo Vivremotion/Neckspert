@@ -15,7 +15,7 @@ import {
 } from '$lib/domain/time';
 import type { ObservationFate, PlannedItem } from '$lib/domain/types';
 import { logDetection } from '$lib/debug/detectionLog';
-import type { SensorKind } from '$lib/application/mechanics/types';
+import type { SensorKind } from '$lib/application/sets/types';
 import { aidsOf } from '../aids';
 import { ObservationSpan } from '../observationSpan';
 import type { Observation, ObservationSource } from '../sensors';

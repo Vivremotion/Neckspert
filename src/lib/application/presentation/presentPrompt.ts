@@ -1,4 +1,4 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { exerciseSetId } from '$lib/domain/sets';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import type { Locale, PlannedItem } from '$lib/domain/types';
 import { ITEM_FIELDS } from './itemFields';
@@ -36,7 +36,7 @@ function say(
 
 /**
  * What the screen says of `item`, from the words its exercise writes (`presentation`) over the
- * fields its mechanic offers. `random` spells an altered note: give every call for one item the
+ * fields its set offers. `random` spells an altered note: give every call for one item the
  * same value. The presentation is checked once, as its exercise loads (`definitionChecks`).
  */
 export function presentPrompt(
@@ -47,7 +47,8 @@ export function presentPrompt(
 ): PresentedPrompt {
 	const presentation = definition.presentation;
 	if (!presentation) throw new Error(`${definition.id}: has no presentation`);
-	const offered = ITEM_FIELDS[mechanicOfSkill(definition.practices)];
+	const set = exerciseSetId(definition);
+	const offered = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set] : undefined;
 	const fields = offered ? offered.fields(item.item, locale, random, definition) : {};
 	const aided = item.aid === 'show-position';
 	const names = [

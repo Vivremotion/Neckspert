@@ -1,4 +1,4 @@
-import { rootPosition, type ChordReading, type TriadZoneItem } from '$lib/domain/mechanics';
+import { rootPosition, type ChordReading, type TriadZoneItem } from '$lib/domain/sets';
 import {
 	formatSpelledNote,
 	pitchOfSpelled,

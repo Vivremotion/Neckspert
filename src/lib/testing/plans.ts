@@ -1,6 +1,6 @@
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridItem } from '$lib/domain/sets';
 import { METER_4_4, type Meter, type RoundPlan } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { IDENTIFY_NECK, GESTURE_LINK } from '$lib/testing/catalog';

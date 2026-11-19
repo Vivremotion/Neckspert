@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LinkLaneModel } from '$lib/application/mechanics/chordGrid';
+import type { LinkLaneModel } from '$lib/application/sets/chordGrid';
 import type { LaneEntry } from '$lib/application/session/contract';
 import { LANE_BEATS_AFTER, LANE_BEATS_BEFORE, linkLaneLayout } from './linkLane';
 

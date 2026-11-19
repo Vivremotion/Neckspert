@@ -1,6 +1,6 @@
 /**
  * The view that draws the figure of a round (`figureStage`), the exercise's prompt above it when
- * it writes a presentation. Named here, out of the session core, which never names the mechanic
+ * it writes a presentation. Named here, out of the session core, which never names the set
  * of the same name.
  */
 export const FIGURE_VIEW = 'figure';

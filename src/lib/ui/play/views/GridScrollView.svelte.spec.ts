@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DrawnMiss, GridStageModel } from '$lib/application/mechanics/chordGrid';
+import type { DrawnMiss, GridStageModel } from '$lib/application/sets/chordGrid';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import GridScrollView from './GridScrollView.svelte';
 import { StageController } from './testing/StageController.svelte';

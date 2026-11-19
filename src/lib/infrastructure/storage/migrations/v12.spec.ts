@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { roundPlanFromRecord } from '$lib/application/session/series/recordResponse';
 import { compileRound } from '$lib/domain/exercise/round';
-import { figureRules } from '$lib/domain/mechanics';
+import { figureSet } from '$lib/domain/sets';
 import {
 	Fraction,
 	METER_4_4,
@@ -156,7 +156,7 @@ describe('attemptToV12', () => {
 		const attempt = makeCycleAttemptV11();
 		const upgraded = attemptToV12(attempt) as Record<string, unknown>;
 		expect(RHYTHM_FIGURE_MECHANIC_V11).toBe('rhythm-figure');
-		expect(FIGURE_MECHANIC_V12).toBe(figureRules.id);
+		expect(FIGURE_MECHANIC_V12).toBe(figureSet.id);
 		expect(upgraded).toEqual({
 			...attempt,
 			mechanic: 'figure',

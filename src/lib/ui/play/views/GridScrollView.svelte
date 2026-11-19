@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { GridStageModel } from '$lib/application/mechanics/chordGrid';
+	import type { GridStageModel } from '$lib/application/sets/chordGrid';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';

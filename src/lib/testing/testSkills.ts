@@ -24,18 +24,15 @@ export function registerTestSkills(): void {
 	registerSkill(TEST_PLACED_SHAPE_SKILL, 'test');
 }
 
-registerTestSkills();
-
-/** A skill each mechanic plays, for a spec that draws an exercise of a mechanic. */
-export const SKILL_OF_MECHANIC: Readonly<Record<string, SkillId>> = {
-	locate: 'locate-note-string',
-	identify: 'identify-note',
-	'triad-anchor': 'chord-anchor',
-	'triad-zone': 'chord-zone',
-	'chord-grid': 'grid-reading',
+/** A skill on each set, for a spec that draws an exercise of a set. */
+export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
+	'note-on-string': 'locate-note-string',
+	'placed-note': 'identify-note',
+	'voicing-on-strings': 'chord-anchor',
+	change: 'grid-reading',
 	figure: 'inner-pulse',
-	'voicing-figure': TEST_PLACED_VOICING_SKILL.id,
-	'form-figure': TEST_PLACED_SHAPE_SKILL.id
+	'placed-voicing': TEST_PLACED_VOICING_SKILL.id,
+	'placed-shape': TEST_PLACED_SHAPE_SKILL.id
 };
 
 /**

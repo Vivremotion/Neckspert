@@ -9,7 +9,7 @@ import {
 	type DirectRecall,
 	type LearningSubject
 } from '$lib/domain/learning';
-import type { IdentifyData, LocateData } from '$lib/domain/mechanics';
+import type { IdentifyData, LocateData } from '$lib/domain/sets';
 import {
 	asNeckCard,
 	identifyItemKey,

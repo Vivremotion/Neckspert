@@ -4,13 +4,12 @@ import type { RoundTemplate } from './round/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 import type { SkillId } from '$lib/domain/skill/types';
 
-export type MechanicId = string;
 export type ExerciseId = string;
 
 /** Lane and clicks for the guitar; answer pad and silence for the screen. */
 export type Scene = 'guitar' | 'screen';
 
-/** How a session plays an exercise's rounds; what it leaves out, its mechanic's presenter gives. */
+/** How a session plays an exercise's rounds; what it leaves out, its presenter gives. */
 export interface ExerciseFlow {
 	/** Where it is played: the guitar (the click is heard) or the screen (silence). */
 	scene?: Scene;
@@ -58,7 +57,7 @@ export type Slot = string | { fr: string; en: string };
 
 /**
  * What the screen says of a prompt, as data: each slot is text with `{field}` placeholders, the
- * fields being those its mechanic's items offer (`ITEM_FIELDS`). Pictures are named
+ * fields being those its set's items offer (`ITEM_FIELDS`). Pictures are named
  * (`PICTURES`). Read by `presentPrompt`.
  */
 export interface PromptPresentation {
@@ -105,13 +104,13 @@ export interface ExerciseDefinition {
 	chordDiagram?: ChordDiagramStyle;
 	/** The meter it is played in; absent: `METER_4_4`. */
 	meter?: Meter;
-	/** Its scene, preview and contest, over its mechanic presenter's defaults. */
+	/** Its scene, preview and contest, over its presenter's defaults. */
 	flow?: ExerciseFlow;
 	/** What a round of this exercise expects, as data; compiled to a plan per item (`compileRound`). */
 	round?: RoundTemplate;
 	/** What the screen says of one of its prompts; see `presentPrompt`. */
 	presentation?: PromptPresentation;
-	/** The play view that shows its mechanic's screen model, when the mechanic gives one. */
+	/** The play view that shows its presenter's screen model, when the presenter gives one. */
 	view?: string;
 	/**
 	 * What to do, told before the exercise's first prompt in a series: on the start screen when it
@@ -133,7 +132,7 @@ export interface ExerciseDefinition {
 	pick?: 'loop' | 'next';
 	/**
 	 * The items an exercise session serves, in order and again from the first: keys of its
-	 * mechanic's items (`parseItem`), each alone or with the length of its turn; absent: its
+	 * set's items (`parseItem`), each alone or with the length of its turn; absent: its
 	 * figures, one per turn (`pick`).
 	 */
 	items?: readonly ItemEntry[];
@@ -145,7 +144,7 @@ export interface ExerciseDefinition {
  */
 export type ItemEntry = string | { readonly item: string; readonly beats: number };
 
-/** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
+/** One run of an exercise (or of one scope of it); a null tempo means its rounds have none (free time). */
 export interface Execution {
 	exerciseId: ExerciseId;
 	/** The scope of its exercise level (a grid); its prompts carry it as `PlannedItem.scope`. */

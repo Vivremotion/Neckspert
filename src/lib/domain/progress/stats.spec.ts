@@ -28,7 +28,7 @@ function learnedAt(state: CardState, now: number): CardState {
 	return markLearned(state, now);
 }
 
-/** The attempt fields of `card`: exercise, mechanic, key and data (no answer). */
+/** The attempt fields of `card`: exercise, skill, key and data (no answer). */
 function on(card: NeckCard): AttemptOverrides {
 	return {
 		exerciseId: neckExerciseId(card.skill),

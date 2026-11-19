@@ -1,4 +1,3 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { describe, expect, it } from 'vitest';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { TRIAD_LADDER_V10, backupV5ToV6, cardToV10, levelStatesV10, triadLevelOfCard } from './v10';
@@ -124,8 +123,8 @@ describe('TRIAD_LADDER_V10', () => {
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(anchor.map((level) => level.params.leadBeats));
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(zone.map((level) => level.params.leadBeats));
 		expect(TRIAD_LADDER_V10.exercises).toEqual({
-			[mechanicOfSkill(TRIADS_ANCHOR.practices)]: TRIADS_ANCHOR.id,
-			[mechanicOfSkill(TRIADS_ZONE.practices)]: TRIADS_ZONE.id
+			'triad-anchor': TRIADS_ANCHOR.id,
+			'triad-zone': TRIADS_ZONE.id
 		});
 	});
 });

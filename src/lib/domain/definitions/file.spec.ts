@@ -1,6 +1,9 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { MAX_DEFINITION_FILE_CHARS, readDefinitionFile } from './file';
+
+registerTestSkills();
 
 function arpeggioJson(): Record<string, unknown> {
 	const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;

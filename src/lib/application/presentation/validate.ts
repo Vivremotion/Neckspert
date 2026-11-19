@@ -1,4 +1,4 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { exerciseSetId } from '$lib/domain/sets';
 import { notationOf, writesFigure } from '$lib/domain/exercise/figureParams';
 import { exerciseLevelsOf, resolvedParamsOf } from '$lib/domain/exercise/levels';
 import {
@@ -12,7 +12,7 @@ import { fretOf } from '$lib/domain/music/fretboard';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
 import { playViewOf } from '$lib/application/session/contract';
 import { ITEM_FIELDS } from './itemFields';
 import { PICTURES } from './pictures';
@@ -26,16 +26,16 @@ function placeholders(slot: Slot): string[] {
 
 /**
  * Null when the exercise's presentation can be written, else what it cannot: a slot that names a
- * field its mechanic does not have, a picture that does not exist or does not read its
- * mechanic. Names the exercise and the field. It is not part of `validateExercise` because its
+ * field its set does not have, a picture that does not exist or does not read its
+ * set. Names the exercise and the field. It is not part of `validateExercise` because its
  * words are code of the application layer.
  */
 export function presentationProblem(definition: ExerciseDefinition): string | null {
 	const presentation = definition.presentation;
 	if (!presentation) return null;
 	const { id } = definition;
-	const mechanic = mechanicOfSkill(definition.practices);
-	const known = ITEM_FIELDS[mechanic]?.names ?? [];
+	const set = exerciseSetId(definition);
+	const known = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set].names : [];
 	const slots: [string, Slot | undefined][] = [
 		['primary', presentation.primary],
 		['secondary', presentation.secondary],
@@ -49,7 +49,7 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		if (slot === undefined) continue;
 		const unknown = placeholders(slot).find((name) => !known.includes(name));
 		if (unknown !== undefined) {
-			return `${id}: presentation.${path} names field "${unknown}", which ${mechanic} does not have`;
+			return `${id}: presentation.${path} names field "${unknown}", which ${set} does not have`;
 		}
 	}
 	const pictures: [string, string | undefined][] = [
@@ -62,8 +62,8 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		if (!picture) {
 			return `${id}: presentation.${path} names picture "${name}", which does not exist`;
 		}
-		if (!picture.reads.includes(mechanic)) {
-			return `${id}: presentation.${path} names picture "${name}", which does not read ${mechanic}`;
+		if (!picture.reads.includes(set)) {
+			return `${id}: presentation.${path} names picture "${name}", which does not read ${set}`;
 		}
 	}
 	return null;
@@ -75,13 +75,13 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
  * figure (`writesFigure`), which it draws with or without a prompt; a presentation drawn by a
  * view that does not draw one (`PROMPT_STAGE_VIEWS`), or such a view with no presentation to
  * read; a response exercise (one that writes its `round`) with neither a presentation nor a
- * screen of its mechanic presenter (`stageOf`); a level of the figure view that shows the tab of
+ * screen of its presenter (`stageOf`); a level of the figure view that shows the tab of
  * a figure with a note it cannot fret (`tabProblem`). The view is the exercise's, else the one the
  * series gives it (`playViewOf`).
  */
 export function screenProblem(
 	definition: ExerciseDefinition,
-	presenters: Readonly<Record<string, Pick<MechanicPresenter, 'stageOf'>>>
+	registries: PresenterRegistries
 ): string | null {
 	const { id, view } = definition;
 	if (view !== undefined && !PLAY_VIEW_NAMES.includes(view)) {
@@ -103,10 +103,8 @@ export function screenProblem(
 		return `${id}: view "${drawn}" draws a presentation, and the exercise writes none`;
 	}
 	if (definition.round === undefined) return null;
-	const mechanic = mechanicOfSkill(definition.practices);
-	const presenter = Object.hasOwn(presenters, mechanic) ? presenters[mechanic] : undefined;
-	if (presenter?.stageOf) return null;
-	return `${id}: writes a round but no presentation, and ${mechanic} draws no screen of its own`;
+	if (lookUpPresenter(definition, registries)?.stageOf) return null;
+	return `${id}: writes a round but no presentation, and ${exerciseSetId(definition)} draws no screen of its own`;
 }
 
 /** The figures a figure entry may play at an exercise level: the one it names, else all of them. */
@@ -161,17 +159,16 @@ function tabProblem(definition: ExerciseDefinition): string | null {
 
 /**
  * Null when the exercise's round can run with the preview the series gives it: its own
- * (`flow.previewBeats`, which `validateExercise` checks), else its mechanic presenter's, else
+ * (`flow.previewBeats`, which `validateExercise` checks), else its presenter's, else
  * none. With the presenter's, what the round cannot run once that preview is read (a
  * `{ param: 'previewBeats' }` that leaves no listening), naming the exercise and the field.
  */
 export function previewProblem(
 	definition: ExerciseDefinition,
-	presenters: Readonly<Record<string, Pick<MechanicPresenter, 'previewBeats'>>>
+	registries: PresenterRegistries
 ): string | null {
 	if (definition.round === undefined || definition.flow?.previewBeats !== undefined) return null;
-	const mechanic = mechanicOfSkill(definition.practices);
-	const presenter = Object.hasOwn(presenters, mechanic) ? presenters[mechanic] : undefined;
+	const presenter = lookUpPresenter(definition, registries);
 	const previewBeats = previewBeatsOf(definition, presenter?.previewBeats) ?? 0;
 	const problem = validateExercise({
 		...definition,
@@ -179,5 +176,5 @@ export function previewProblem(
 	});
 	return problem === null
 		? null
-		: `${problem} (its preview is ${mechanic}'s, ${previewBeats} beats)`;
+		: `${problem} (its preview is ${exerciseSetId(definition)}'s, ${previewBeats} beats)`;
 }

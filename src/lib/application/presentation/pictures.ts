@@ -1,5 +1,4 @@
-import type { MechanicId } from '$lib/domain/exercise/types';
-import type { TriadZoneItem, VoicingFigureItem } from '$lib/domain/mechanics';
+import type { VoicingOnStringsItem, VoicingFigureItem } from '$lib/domain/sets';
 import { openPitch, parseVoicingKey, type LocateItem } from '$lib/domain/music';
 import { fretOf } from '$lib/domain/music/fretboard';
 import { voicingNotes } from '$lib/domain/music/voicingNotes';
@@ -70,19 +69,17 @@ export function neckWithNext(
 }
 
 export interface PictureKind {
-	/** The mechanics whose items it draws. */
-	reads: readonly MechanicId[];
+	/** The sets whose items it draws. */
+	reads: readonly string[];
 	/** The picture of one item, null when it has nothing to draw. */
 	draw(item: unknown): Picture | null;
 }
-
-const TRIADS: readonly MechanicId[] = ['triad-anchor', 'triad-zone'];
 
 /** The pictures an exercise can name, by name. */
 export const PICTURES: Readonly<Record<string, PictureKind>> = {
 	/** The string of the item and its open note. */
 	string: {
-		reads: ['locate'],
+		reads: ['note-on-string'],
 		draw: (item) => {
 			const { string } = item as LocateItem;
 			return { kind: 'string', string, label: openPitch(string) };
@@ -90,17 +87,17 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 	},
 	/** The lowest fretted shape of the item's voicing. */
 	'lowest-shape': {
-		reads: TRIADS,
+		reads: ['voicing-on-strings'],
 		draw: (item) => ({
 			kind: 'shape',
-			...shapeOf(lowestShape(parseVoicingKey((item as TriadZoneItem).voicingKey)))
+			...shapeOf(lowestShape(parseVoicingKey((item as VoicingOnStringsItem).voicingKey)))
 		})
 	},
 	/** The shape of the item's voicing at its position, the lowest when it has none. */
 	'shape-at-position': {
-		reads: TRIADS,
+		reads: ['voicing-on-strings'],
 		draw: (raw) => {
-			const item = raw as TriadZoneItem;
+			const item = raw as VoicingOnStringsItem;
 			const voicing = parseVoicingKey(item.voicingKey);
 			const shape =
 				item.position === undefined ? lowestShape(voicing) : shapeAt(voicing, item.position);
@@ -109,7 +106,7 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 	},
 	/** The shape of the item's voicing at its place on the neck. */
 	shape: {
-		reads: ['voicing-figure'],
+		reads: ['placed-voicing'],
 		draw: (raw) => {
 			const { voicing, frets } = raw as VoicingFigureItem;
 			const notes = voicingNotes(parseVoicingKey(voicing), frets);

@@ -230,7 +230,7 @@ describe('presentPrompt', () => {
 			presentation: { primary: '{chord}' }
 		};
 		expect(presentationProblem(definition)).toBe(
-			'locate-neck: presentation.primary names field "chord", which locate does not have'
+			'locate-neck: presentation.primary names field "chord", which note-on-string does not have'
 		);
 	});
 });

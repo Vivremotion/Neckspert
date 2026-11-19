@@ -1,4 +1,4 @@
-import type { MechanicIdentity } from '$lib/domain/mechanics';
+import { setOfSkill } from '$lib/domain/sets';
 import { hasCards } from '$lib/domain/skill/registry';
 import {
 	applyColdAttempt,
@@ -39,8 +39,6 @@ export interface AttemptRecorderDeps {
 	now: () => number;
 	selector: ItemSource;
 	sessionId: string;
-	/** Rules of the items of a prompt's skill: their keys and the part of an item a card keeps. */
-	rules: (skill: SkillId) => MechanicIdentity;
 	/** The direct-recall rule of a skill (`LearningSubject.recall`): a probe's temperature, FSRS grades. */
 	recall?: (skill: SkillId) => DirectRecall;
 	levels?: LevelStateRepositoryPort;
@@ -100,7 +98,6 @@ export class AttemptRecorder {
 		span: ObservationSpan,
 		item: PlannedItem
 	): Promise<number> {
-		const rules = this.deps.rules(item.skill);
 		const recall = this.deps.recall?.(item.skill);
 		if (!recall && (item.phase === 'probe' || hasCards(item.skill))) {
 			throw new Error(`No direct-recall rule for skill ${item.skill}`);
@@ -133,15 +130,7 @@ export class AttemptRecorder {
 			recall: recall ?? (() => false),
 			levels: this.deps.levels
 		};
-		const written = this.store(
-			item,
-			rules,
-			learning,
-			stored,
-			recorded,
-			attemptedInSession,
-			resolveId
-		);
+		const written = this.store(item, learning, stored, recorded, attemptedInSession, resolveId);
 		written.catch(rejectId);
 		this.track(written);
 		if (!span.isClosed) {
@@ -189,7 +178,6 @@ export class AttemptRecorder {
 
 	private async store(
 		item: PlannedItem,
-		rules: MechanicIdentity,
 		learning: Learning,
 		attempt: Attempt,
 		outcome: RecordOutcome,
@@ -214,14 +202,13 @@ export class AttemptRecorder {
 
 		attemptId(await attempts.add(attempt));
 
-		await this.learnCard(item, rules, learning, attempt, outcome, history, existing);
+		await this.learnCard(item, learning, attempt, outcome, history, existing);
 		if (outcome?.level) await learning.levels?.put(outcome.level);
 	}
 
 	/** Only a memory skill keeps FSRS cards; another is measured by its attempts alone. */
 	private async learnCard(
 		item: PlannedItem,
-		rules: MechanicIdentity,
 		learning: Learning,
 		attempt: Attempt,
 		outcome: RecordOutcome,
@@ -243,7 +230,7 @@ export class AttemptRecorder {
 			if (outcome?.card) await this.storeCard(outcome.card);
 			else if (!existing) {
 				// A prompt may add to its card's item (a position drawn for it): the card keeps its own.
-				const kept = rules.cardItem ? rules.cardItem(item.item) : item.item;
+				const kept = setOfSkill(item.skill).cardItem?.(item.item) ?? item.item;
 				const card = { key, skill: item.skill, item: kept };
 				const introduced = introduceCard(card, now, this.deps.sessionId);
 				await this.storeCard(introduced);

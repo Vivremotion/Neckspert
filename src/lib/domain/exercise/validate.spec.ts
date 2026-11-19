@@ -1,3 +1,4 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { Fraction } from '$lib/domain/time/fraction';
 import { parseLilyPond } from '$lib/domain/time/notation/lilypond';
@@ -7,6 +8,8 @@ import type { RoundTemplate } from './round/types';
 import type { ExerciseDefinition, ItemEntry, Ladder } from './types';
 import { validateExercise } from './validate';
 import { LOCATE_NECK } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 const withParams = (params: Record<string, unknown>): ExerciseDefinition => ({
 	...LOCATE_NECK,
@@ -350,7 +353,7 @@ describe('validateExercise on listed items', () => {
 		...over
 	});
 
-	it('accepts items its mechanic reads and its round compiles at every level', () => {
+	it('accepts items its set reads and its round compiles at every level', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE)).toBeNull();
 	});
 
@@ -364,7 +367,7 @@ describe('validateExercise on listed items', () => {
 		);
 	});
 
-	it('refuses a key its mechanic cannot read, naming the item', () => {
+	it('refuses a key its set cannot read, naming the item', () => {
 		expect(validateExercise(withItems([ARPEGGIO_EXERCISE.items![0], 'nonsense']))).toMatch(
 			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[1\\] \\("nonsense"\\): .*nonsense`)
 		);
@@ -378,7 +381,7 @@ describe('validateExercise on listed items', () => {
 		);
 	});
 
-	it('refuses a key that still ends with a length, like any key its mechanic cannot read', () => {
+	it('refuses a key that still ends with a length, like any key its set cannot read', () => {
 		expect(validateExercise(withItems([`${ARPEGGIO_ITEMS[0]}@4`]))).toMatch(
 			new RegExp(`^${ARPEGGIO_EXERCISE.id}: items\\[0\\] \\(".*@4"\\): `)
 		);

@@ -8,7 +8,7 @@ import {
 	voicingOccurrences
 } from '$lib/domain/music';
 import type { Attempt, ResponseVerdict } from '$lib/domain/types';
-import { inZone } from '$lib/domain/mechanics';
+import { inZone } from '$lib/domain/sets';
 import { shapeAt } from '$lib/testing/shapes';
 import {
 	LINK_SHAPES,

@@ -30,9 +30,8 @@ import {
 } from '$lib/testing/fakes';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { createAppServices } from './createAppServices';
-import { GESTURE_PRESENTERS, NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
 import {
 	PLAIN_WORDS_SESSIONS,
 	type FigureStageModel
@@ -89,12 +88,8 @@ function harness(options: { development?: boolean } = {}): {
 		now: () => clock.toEpochMs(clock.now()),
 		random: () => 0,
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
-		mechanics: {
-			...NECK_PRESENTERS,
-			...TRIAD_PRESENTERS,
-			...GESTURE_PRESENTERS,
-			...FIGURE_PRESENTERS
-		},
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

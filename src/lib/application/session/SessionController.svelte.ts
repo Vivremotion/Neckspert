@@ -35,7 +35,7 @@ import {
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
-import { SCENE_CLICKS, type Scene, type StagePlace } from '$lib/application/mechanics/types';
+import { SCENE_CLICKS, type Scene, type StagePlace } from '$lib/application/sets/types';
 import {
 	playViewOf,
 	type Announcement,
@@ -73,6 +73,7 @@ import {
 } from './series/placement';
 import { SeriesItems } from './series/seriesItems';
 import { SeriesSensors } from './series/seriesSensors';
+import { requirePresenter } from '$lib/application/sets/lookUp';
 import { SeriesTakes } from './series/seriesTakes';
 import { SeriesTrace } from './series/seriesTrace';
 import { idlePlayView } from './series/seriesView';
@@ -362,13 +363,17 @@ export class SessionController implements PlaySessionController {
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
 		this.takes = new SeriesTakes({ takes: deps.takes, sounds: deps.sounds });
-		this.items = new SeriesItems(deps.mechanics, deps.exercise);
+		this.items = new SeriesItems(deps, deps.exercise);
 		this.levels = new ExerciseLevels({
 			levels: deps.levels,
 			exercise: deps.exercise,
 			now: () => this.epochNow()
 		});
-		this.sensors = new SeriesSensors(deps);
+		this.sensors = new SeriesSensors({
+			clock: deps.clock,
+			sensors: deps.sensors,
+			listening: () => deps.plays.map((id) => requirePresenter(deps.exercise(id), deps))
+		});
 		this.view = $state<PlayView>(idlePlayView());
 	}
 
@@ -1784,7 +1789,7 @@ export class SessionController implements PlaySessionController {
 		round.runner.span.close();
 	}
 
-	/** A miss of a contestable mechanic may be contested until the next round, in development only. */
+	/** A miss of a contestable set may be contested until the next round, in development only. */
 	private offerContest(round: OpenRound, outcome: RoundOutcome): void {
 		if (!this.deps.development) return;
 		const miss = outcome.correct === false;

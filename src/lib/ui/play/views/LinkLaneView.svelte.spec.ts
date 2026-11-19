@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import { chordGridPresenter, type LinkLaneModel } from '$lib/application/mechanics/chordGrid';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import { chordGridPresenter, type LinkLaneModel } from '$lib/application/sets/chordGrid';
+import type { ChordGridItem } from '$lib/domain/sets';
 import { PLAY_VIEWS } from './index';
 import LinkLaneView from './LinkLaneView.svelte';
 import { StageController } from './testing/StageController.svelte';

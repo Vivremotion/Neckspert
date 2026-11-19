@@ -1,16 +1,18 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { allExercises } from '$lib/domain/exercise/registry';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
-import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
-import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { DEFAULT_PLAY_VIEW, playViewOf } from '$lib/application/session/contract';
 import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
 import { LOCATE_NECK, TRIADS_ANCHOR, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 const withPresentation = (
 	base: ExerciseDefinition,
@@ -27,9 +29,9 @@ describe('presentationProblem', () => {
 		).toBeGreaterThanOrEqual(4);
 	});
 
-	it('refuses a field the mechanic does not have, naming the exercise and the field', () => {
+	it('refuses a field the set does not have, naming the exercise and the field', () => {
 		expect(presentationProblem(withPresentation(LOCATE_NECK, { primary: '{chord}' }))).toBe(
-			'locate-neck: presentation.primary names field "chord", which locate does not have'
+			'locate-neck: presentation.primary names field "chord", which note-on-string does not have'
 		);
 		expect(
 			presentationProblem(
@@ -39,17 +41,17 @@ describe('presentationProblem', () => {
 				})
 			)
 		).toBe(
-			'triads-anchor: presentation.aided.line names field "fret", which triad-anchor does not have'
+			'triads-anchor: presentation.aided.line names field "fret", which voicing-on-strings does not have'
 		);
 	});
 
-	it('refuses a picture that does not read the mechanic', () => {
+	it('refuses a picture that does not read the set', () => {
 		expect(
 			presentationProblem(
 				withPresentation(LOCATE_NECK, { primary: '{note}', aided: { picture: 'lowest-shape' } })
 			)
 		).toBe(
-			'locate-neck: presentation.aided.picture names picture "lowest-shape", which does not read locate'
+			'locate-neck: presentation.aided.picture names picture "lowest-shape", which does not read note-on-string'
 		);
 		expect(
 			presentationProblem(
@@ -65,25 +67,30 @@ describe('presentationProblem', () => {
 	});
 });
 
+/** No presenter at all. */
+const NONE = { presenters: {}, views: {} };
+
 describe('screenProblem', () => {
-	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
+	const presenters = { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS };
 	/** Locate with neither its presentation nor its view. */
 	const bare: ExerciseDefinition = { ...LOCATE_NECK, view: undefined, presentation: undefined };
 
-	it('refuses a response exercise with neither a presentation nor a screen of its mechanic, naming the exercise', () => {
+	it('refuses a response exercise with neither a presentation nor a screen of its presenter, naming the exercise', () => {
 		expect(screenProblem(bare, presenters)).toBe(
-			'locate-neck: writes a round but no presentation, and locate draws no screen of its own'
+			'locate-neck: writes a round but no presentation, and note-on-string draws no screen of its own'
 		);
-		expect(screenProblem({ ...TRIADS_ANCHOR, view: undefined, presentation: undefined }, {})).toBe(
-			'triads-anchor: writes a round but no presentation, and triad-anchor draws no screen of its own'
+		expect(
+			screenProblem({ ...TRIADS_ANCHOR, view: undefined, presentation: undefined }, NONE)
+		).toBe(
+			'triads-anchor: writes a round but no presentation, and voicing-on-strings draws no screen of its own'
 		);
 	});
 
-	it('accepts the catalog: a presentation, a screen of its mechanic, a figure, or no round', () => {
+	it('accepts the catalog: a presentation, a screen of its presenter, a figure, or no round', () => {
 		for (const exercise of allExercises()) {
 			expect([exercise.id, screenProblem(exercise, presenters)]).toEqual([exercise.id, null]);
 		}
-		expect(screenProblem({ ...bare, round: undefined }, {})).toBeNull();
+		expect(screenProblem({ ...bare, round: undefined }, NONE)).toBeNull();
 	});
 
 	const figureRound: RoundTemplate = {
@@ -102,9 +109,9 @@ describe('screenProblem', () => {
 
 	it('accepts a round that plays a figure in the figure view, with or without a prompt', () => {
 		// Its screen is the figure's, built by the series from the round's figure.
-		expect(screenProblem(RHYTHM_OFFBEATS, {})).toBeNull();
-		expect(screenProblem({ ...bare, view: 'figure', round: figureRound }, {})).toBeNull();
-		expect(screenProblem({ ...LOCATE_NECK, view: 'figure', round: figureRound }, {})).toBeNull();
+		expect(screenProblem(RHYTHM_OFFBEATS, NONE)).toBeNull();
+		expect(screenProblem({ ...bare, view: 'figure', round: figureRound }, NONE)).toBeNull();
+		expect(screenProblem({ ...LOCATE_NECK, view: 'figure', round: figureRound }, NONE)).toBeNull();
 	});
 
 	it('refuses the figure view for a round that plays no figure, and a figure with no view to draw it', () => {
@@ -112,7 +119,7 @@ describe('screenProblem', () => {
 			'locate-neck: view "figure" draws the figure of its round, and the round plays none'
 		);
 		expect(screenProblem({ ...bare, round: figureRound }, presenters)).toBe(
-			'locate-neck: writes a round but no presentation, and locate draws no screen of its own'
+			'locate-neck: writes a round but no presentation, and note-on-string draws no screen of its own'
 		);
 	});
 
@@ -150,15 +157,15 @@ describe('screenProblem', () => {
 			levels: [{ params: {} }]
 		};
 		// A written figure shows its staff and its tab by default.
-		expect(screenProblem(written, {})).toBe(
+		expect(screenProblem(written, NONE)).toBe(
 			'test-arpeggio-sequence: exercise level 0 shows the tab of figure "quarters", whose note 2 has no string'
 		);
 		// Without its tab, the staff alone needs no string.
 		expect(
-			screenProblem({ ...written, levels: [{ params: { 'notation.tab': false } }] }, {})
+			screenProblem({ ...written, levels: [{ params: { 'notation.tab': false } }] }, NONE)
 		).toBeNull();
 		// A bare rhythm shows no tab, unless a level asks for it.
-		expect(screenProblem(RHYTHM_OFFBEATS, {})).toBeNull();
+		expect(screenProblem(RHYTHM_OFFBEATS, NONE)).toBeNull();
 		const [first, ...others] = RHYTHM_OFFBEATS.levels!;
 		expect(
 			screenProblem(
@@ -166,13 +173,13 @@ describe('screenProblem', () => {
 					...RHYTHM_OFFBEATS,
 					levels: [{ ...first, params: { ...first.params, 'notation.tab': true } }, ...others]
 				},
-				{}
+				NONE
 			)
 		).toBe(
 			'rhythm-offbeats: exercise level -1 shows the tab of figure "offbeats-1", whose note 1 has no string'
 		);
 		// Notes derived from the item carry the string the derivation gives: the aid level's tab.
-		expect(screenProblem(ARPEGGIO_EXERCISE, {})).toBeNull();
+		expect(screenProblem(ARPEGGIO_EXERCISE, NONE)).toBeNull();
 	});
 
 	it('draws a presentation without a view on the lane', () => {
@@ -203,7 +210,7 @@ describe('screenProblem', () => {
 });
 
 describe('previewProblem', () => {
-	const presenters = { ...NECK_PRESENTERS, ...TRIAD_PRESENTERS, ...GESTURE_PRESENTERS };
+	const presenters = { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS };
 	/** Locate on a round of one beat that stops listening its preview before its end. */
 	const short = (flow?: ExerciseDefinition['flow']): ExerciseDefinition => ({
 		...LOCATE_NECK,
@@ -219,7 +226,7 @@ describe('previewProblem', () => {
 		// The domain cannot know the presenter's preview: it accepts the exercise.
 		expect(validateExercise(short())).toBeNull();
 		expect(previewProblem(short(), presenters)).toBe(
-			"locate-neck: round.listenBeforeEnd must leave the round some listening: it lasts 1/4, got 1/4 (its preview is locate's, 1 beats)"
+			"locate-neck: round.listenBeforeEnd must leave the round some listening: it lasts 1/4, got 1/4 (its preview is note-on-string's, 1 beats)"
 		);
 	});
 

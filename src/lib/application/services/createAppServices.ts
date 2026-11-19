@@ -14,6 +14,7 @@ import {
 	figureParamsOf,
 	writesFigure,
 	type ExerciseDefinition,
+	type ExerciseId,
 	CHANGE_SKILL_IDS,
 	CHORD_ANCHOR_SKILL_ID,
 	CHORD_ZONE_SKILL_ID,
@@ -24,10 +25,7 @@ import {
 	TRIADS_ANCHOR_ID,
 	TRIADS_ZONE_ID
 } from '$lib/domain/exercise';
-import { locateRules } from '$lib/domain/mechanics';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
-import { exercisePresenter } from '$lib/application/mechanics/exercisePresenter';
-import type { MechanicPresenter } from '$lib/application/mechanics';
+import { noteOnStringSet } from '$lib/domain/sets';
 import { pitchOnString, type LocateItem } from '$lib/domain/music';
 import {
 	buildFreePlan,
@@ -55,7 +53,6 @@ import {
 	isTriadsKind,
 	type Attempt,
 	type ExerciseSummary,
-	type MechanicId,
 	type SessionKind,
 	type SkillId,
 	type SessionRecord
@@ -79,37 +76,28 @@ export function createAppServices(
 
 	const exerciseOf = deps.exercise ?? exerciseById;
 
-	/** The presenters of these mechanics: a session opens the sensors of the mechanics it plays. */
-	const presentersOf = (mechanics: readonly MechanicId[]) =>
-		Object.fromEntries(
-			mechanics
-				.filter((mechanic) => deps.mechanics[mechanic] !== undefined)
-				.map((mechanic) => [mechanic, deps.mechanics[mechanic]])
-		);
-
 	/**
-	 * The mechanics of the memory and gesture tracks: a session of the notes, the triads or the
+	 * The exercises of the memory and gesture tracks: a session of the notes, the triads or the
 	 * gesture opens the sensors of them all, its observations of the others kept on its attempts.
 	 */
-	const trackMechanics = (): readonly MechanicId[] =>
-		[
-			LOCATE_NECK_ID,
-			IDENTIFY_NECK_ID,
-			TRIADS_ANCHOR_ID,
-			TRIADS_ZONE_ID,
-			...GESTURE_EXERCISE_IDS
-		].map((id) => mechanicOfSkill(exerciseOf(id).practices));
+	const TRACK_EXERCISES: readonly ExerciseId[] = [
+		LOCATE_NECK_ID,
+		IDENTIFY_NECK_ID,
+		TRIADS_ANCHOR_ID,
+		TRIADS_ZONE_ID,
+		...GESTURE_EXERCISE_IDS
+	];
 	const gestureExercises = () => GESTURE_EXERCISE_IDS.map((id) => exerciseOf(id));
 
 	/**
 	 * A session on the session controller: `prepare` reads the stores again for each series, so a
 	 * new one starts at the levels the last one reached (the series reads its exercise levels
-	 * itself); each item is a round compiled from its exercise's data. It opens the sensors of
-	 * `mechanics`.
+	 * itself); each item is a round compiled from its exercise's data. It opens the sensors of the
+	 * presenters of the exercises it `plays`.
 	 */
 	const playSession = async (
 		kind: SessionKind,
-		mechanics: Record<string, MechanicPresenter>,
+		plays: readonly ExerciseId[],
 		prepareSeries: (sessionId: string) => Promise<PreparedSeries>
 	): Promise<SessionController> => {
 		const { locale } = await deps.settings.get();
@@ -125,7 +113,9 @@ export function createAppServices(
 			sounds: deps.sounds,
 			detector: deps.detector,
 			sensors: deps.sensors,
-			mechanics,
+			presenters: deps.presenters,
+			views: deps.views,
+			plays,
 			repositories: {
 				attempts: deps.attempts,
 				sessions: deps.sessions,
@@ -142,7 +132,6 @@ export function createAppServices(
 					now: deps.now,
 					selector: series.source,
 					sessionId,
-					rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules,
 					...(series.recall && { recall: series.recall, levels: deps.levels })
 				});
 			},
@@ -161,7 +150,7 @@ export function createAppServices(
 	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		playSession('gesture', presentersOf(trackMechanics()), async (sessionId) => {
+		playSession('gesture', TRACK_EXERCISES, async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			// The open exercises in the order of the ladder; each grid of each (and the link, which
 			// plays no grid) at its own exercise level, which the series holds.
@@ -182,7 +171,7 @@ export function createAppServices(
 	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, presentersOf(trackMechanics()), async (sessionId) => {
+		playSession(kind, TRACK_EXERCISES, async (sessionId) => {
 			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
@@ -232,7 +221,7 @@ export function createAppServices(
 	const startTriads = (skill: TriadSkill) =>
 		playSession(
 			skill === CHORD_ZONE_SKILL_ID ? 'triads-zone' : 'triads',
-			presentersOf(trackMechanics()),
+			TRACK_EXERCISES,
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
 					deps.cards.all(),
@@ -247,7 +236,7 @@ export function createAppServices(
 				const acquiredPositions = new Set(
 					cards
 						.filter((card) => card.skill === LOCATE_SKILL_ID && card.acquiredAt !== null)
-						.map((card) => locateRules.itemKey(card.item as LocateItem))
+						.map((card) => noteOnStringSet.itemKey(card.item as LocateItem))
 				);
 				// The triads' cards and attempts: the zone reads the anchor's, the anchor the zone's last positions.
 				const ofTriads = (x: { skill: string }) =>
@@ -454,12 +443,8 @@ export function createAppServices(
 				throw new Error(`Exercise ${exerciseId} is not played in an exercise session`);
 			}
 			const definition = exerciseOf(exerciseId);
-			const presenters = Object.fromEntries(
-				Object.entries(presentersOf([mechanicOfSkill(definition.practices)])).map(
-					([mechanic, presenter]) => [mechanic, exercisePresenter(presenter, definition)]
-				)
-			);
-			return playSession('exercise', presenters, async () => ({
+			// Alone in its session: only the sensors its round names open.
+			return playSession('exercise', [definition.id], async () => ({
 				source: createExerciseItemSource(definition),
 				durationMs: SESSION_MS
 			}));

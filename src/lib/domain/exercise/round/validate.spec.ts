@@ -1,4 +1,4 @@
-import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
+import { TEST_PLACED_VOICING_SKILL, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { allExercises, exerciseById } from '../registry';
 import type { ExerciseDefinition, Ladder } from '../types';
@@ -9,6 +9,8 @@ import { parseLilyPond } from '../../time/notation/lilypond';
 import type { FigureExpectationTemplate, PointExpectationTemplate, RoundTemplate } from './types';
 import { roundProblem } from './validate';
 import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
+
+registerTestSkills();
 
 const SENSORS = ['note', 'chord', 'tap', 'attack'];
 
@@ -84,16 +86,16 @@ describe('roundProblem', () => {
 		expect(roundProblem(measure)).toMatch(/round\.length\.beats.*"size"/);
 	});
 
-	it('refuses a derivation that does not read the mechanic', () => {
+	it('refuses a derivation that does not read the set', () => {
 		const wrong: ExerciseDefinition = { ...IDENTIFY_NECK, round: round(LOCATE_NECK) };
 		expect(roundProblem(wrong)).toMatch(
-			/round\.expectations\[0\]\.content .*"note-of-item".*locate.*not identify/
+			/round\.expectations\[0\]\.content .*"note-of-item".*note-on-string.*not placed-note/
 		);
 		const measure = withRound(LOCATE_NECK, (t) => ({
 			...t,
 			length: { beats: { item: 'change-beats' } }
 		}));
-		expect(roundProblem(measure)).toMatch(/round\.length\.beats .*"change-beats".*chord-grid/);
+		expect(roundProblem(measure)).toMatch(/round\.length\.beats .*"change-beats".*change/);
 	});
 
 	it('refuses a lead param a level of the ladder does not give, naming the levels', () => {
@@ -434,7 +436,7 @@ describe('roundProblem', () => {
 				/^round\.expectations\[0\]\.figure reads param "figure", which exercise level 1 gives as "sixteenths"/
 			);
 			expect(roundProblem(withEntry(ARPEGGIO, { figure: { item: 'figure' } }))).toMatch(
-				/^round\.expectations\[0\]\.figure .*"figure" which reads figure, not voicing-figure/
+				/^round\.expectations\[0\]\.figure .*"figure" which reads figure, not placed-voicing/
 			);
 			expect(roundProblem(withEntry(RHYTHM, { figure: { line: 1 } }))).toMatch(
 				/^round\.expectations\[0\]\.figure must be/

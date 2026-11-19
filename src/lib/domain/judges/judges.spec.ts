@@ -7,7 +7,7 @@ import {
 	type StringNumber
 } from '$lib/domain/music';
 import { shapeId } from '$lib/testing/shapes';
-import type { ChordGridItem } from '$lib/domain/mechanics/chordGrid';
+import type { ChordGridItem } from '$lib/domain/sets/chordGrid';
 import { contentJudges } from './index';
 
 const G_B_E: StringNumber[] = [3, 2, 1];

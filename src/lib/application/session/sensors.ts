@@ -28,7 +28,7 @@ export interface ObservationSource {
 	/** Sources fed by the screen take their values here. */
 	push?(payload: unknown): void;
 	/**
-	 * What the round that opens listens for, as its mechanic prepared it; null when nothing.
+	 * What the round that opens listens for, as its presenter prepared it; null when nothing.
 	 * Opaque to the core: only the sensor reads it.
 	 */
 	expect?(expectation: unknown): void;
@@ -116,7 +116,7 @@ export type ChordObservationPayload = Omit<ChordReport, 'time'>;
 
 /**
  * Played chords: each report of the verifier, dated at its attack minus the calibrated latency.
- * The expectation of each round goes to the verifier as the mechanic prepared it.
+ * The expectation of each round goes to the verifier as the presenter prepared it.
  */
 export function chordSensor(verifier: ChordVerifierPort): SensorFactory {
 	return ({ latencyMs }) => ({

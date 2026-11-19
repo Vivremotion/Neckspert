@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { gridById, gridChanges } from '$lib/domain/grid';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridItem } from '$lib/domain/sets';
 import type { StringNumber } from '$lib/domain/music';
 import {
 	Fraction,
@@ -14,7 +14,7 @@ import {
 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
-import { gridExpectation } from '$lib/application/mechanics/chordGrid';
+import { gridExpectation } from '$lib/application/sets/chordGrid';
 import { FakeChordVerifier, FakeClock, FakeSoundScheduler } from '$lib/testing/fakes';
 import { identifyPlan, changePlan } from '$lib/testing/plans';
 import { loopedFigurePlan } from '$lib/domain/time/modes/testing/plans';

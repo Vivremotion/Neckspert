@@ -1,7 +1,6 @@
-import { mechanicRules } from '../mechanics';
-import { mechanicOfSkill } from '../skill/bridge';
+import { exerciseItemSet } from '../sets';
 import { hasSkill, skillById } from '../skill/registry';
-import { SHAPE_ITEM_SEPARATOR } from '../mechanics/formFigure';
+import { SHAPE_ITEM_SEPARATOR } from '../sets/placedShape';
 import { itemEntryKey, itemOfEntry } from './itemEntries';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
@@ -256,7 +255,7 @@ function shapesProblem(definition: ExerciseDefinition): string | null {
 
 /**
  * Why an item the exercise lists cannot be played: an empty list, an entry that is neither a key
- * nor `{ item, beats }` with a positive length, a key its mechanic cannot read (`parseItem`), or an
+ * nor `{ item, beats }` with a positive length, a key its set cannot read (`parseItem`), or an
  * item its round cannot compile at one of its exercise levels (a shape moved off the neck, a
  * pattern note beyond its notes, a length the round reads and the entry does not give…), naming
  * the item and the level. What the round does not derive it does not need. Checked once the round
@@ -267,13 +266,13 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 	if (items === undefined) return null;
 	if (!Array.isArray(items)) return 'items must be a list';
 	if (items.length === 0) return 'items lists no item';
-	const rules = mechanicRules(mechanicOfSkill(definition.practices));
+	const set = exerciseItemSet(definition);
 	const meter = definition.meter ?? METER_4_4;
 	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
 	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
-			item = itemOfEntry((key) => rules.parseItem(key), entry, i);
+			item = itemOfEntry((key) => set.parseItem(key), entry, i);
 		} catch (error) {
 			return (error as Error).message;
 		}

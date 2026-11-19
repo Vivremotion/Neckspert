@@ -3,7 +3,7 @@ import { type ExerciseDefinition } from '$lib/domain/exercise';
 import { SESSION_MS, type Segment } from '$lib/domain/session';
 import { compileRound } from '$lib/domain/exercise/round';
 import { Fraction, METER_4_4, clickAccompaniment, type CycleReport } from '$lib/domain/time';
-import type { FigureItem } from '$lib/domain/mechanics';
+import type { FigureItem } from '$lib/domain/sets';
 import type { PlannedItem } from '$lib/domain/types';
 import {
 	roundPlanFromRecord,

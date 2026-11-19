@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import { gridById, gridChanges } from '$lib/domain/grid';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridItem } from '$lib/domain/sets';
 import type { Attempt, ResponseVerdict } from '$lib/domain/types';
 import { shapeId } from '$lib/testing/shapes';
 import { summarizeGesture } from './summary';

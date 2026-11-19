@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-// The test skills: a version 9 file's keys are read by the set they name.
-import '$lib/testing/testSkills';
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { DEFAULT_SETTINGS, type BackupFile } from '$lib/domain/types';
 import {
 	makeAttempt,
@@ -34,6 +33,8 @@ import {
 } from './validateBackup';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
 import { attemptToV13, cardToV13 } from './migrations/v13';
+
+registerTestSkills();
 
 /** The level states of a converted file: one per neck card, none of the exercises. */
 function expectNeckLevelStates(file: BackupFile): void {
@@ -1430,6 +1431,47 @@ describe('version 9', () => {
 			/cardKey/
 		);
 		expect(() => validateBackupV9(old('maj7@d@2', moved, 'test-placed-shape'))).toThrow(/cardKey/);
+	});
+
+	describe('reads a key by the set of its skill', () => {
+		const D = 'D|maj|3:5,2:1,1:3';
+		const row = (skill: string, key: string, item: object) =>
+			makeBackup({
+				attempts: [
+					makeAttempt({
+						exerciseId: `exercise-${skill}`,
+						skill,
+						cardKey: `${skill}:${key}`,
+						data: { item, answer: null, confusion: null }
+					})
+				]
+			});
+
+		it('with cards: the key must parse by the set, and the item be the one it names', () => {
+			const file = row('locate-note-string', '6:F', { string: 6, pitch: 'F' });
+			expect(validateBackupV9(file)).toBe(file);
+			expect(() =>
+				validateBackupV9(row('locate-note-string', '6:F', { string: 5, pitch: 'F' }))
+			).toThrow(/data\.item does not match cardKey/);
+			expect(() =>
+				validateBackupV9(row('locate-note-string', '7:F', { string: 7, pitch: 'F' }))
+			).toThrow(/cardKey is not a valid card key/);
+		});
+
+		it('without cards: the key must parse by the set, whatever item the attempt keeps', () => {
+			// The link: its skill is on placed voicings, its attempts keep the change they played.
+			const change = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1, shape: `${D}@2-3-2` };
+			const file = row('inversion-run', `${D}@2-3-2`, change);
+			expect(validateBackupV9(file)).toBe(file);
+			expect(() => validateBackupV9(row('inversion-run', 'iohefy-a#2', change))).toThrow(
+				/cardKey is not a valid card key/
+			);
+		});
+
+		it('of a skill no file defines: keeps the key as it is', () => {
+			const file = row('unknown-skill', 'anything at all', { whatever: true });
+			expect(validateBackupV9(file)).toBe(file);
+		});
 	});
 
 	it('refuses a version 8 file whose rows already name their skill', () => {

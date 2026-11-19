@@ -1,7 +1,7 @@
 import { dev } from '$app/environment';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { createAppServices } from '$lib/application/services/createAppServices';
-import { MECHANIC_PRESENTERS } from '$lib/application/mechanics';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
@@ -136,7 +136,8 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		random: () => Math.random(),
 		development: dev,
 		newId: () => crypto.randomUUID(),
-		mechanics: MECHANIC_PRESENTERS,
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
 		sensors: {
 			note: noteSensor(detector),
 			tap: tapSensor(),

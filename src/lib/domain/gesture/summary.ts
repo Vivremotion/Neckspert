@@ -1,6 +1,6 @@
 import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
-import type { ChordGridItem, ChordReading } from '$lib/domain/mechanics';
-import { expectedShape } from '$lib/domain/mechanics/chordGrid';
+import type { ChordGridItem, ChordReading } from '$lib/domain/sets';
+import { expectedShape } from '$lib/domain/sets/chordGrid';
 import type { VoicingOccurrence } from '$lib/domain/music';
 import { occurrenceOfId } from '$lib/domain/triads';
 import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';

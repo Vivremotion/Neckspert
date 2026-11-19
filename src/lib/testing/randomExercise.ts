@@ -1,11 +1,8 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
-import { SKILL_OF_MECHANIC } from './testSkills';
 /**
  * Exercises drawn at random from the registered pieces, and a bench that plays any response
  * exercise on a fixed list of items: the promise « every valid exercise plays » put to the test.
  */
-import { NECK_PRESENTERS, TRIAD_PRESENTERS } from '$lib/application/mechanics';
-import type { MechanicPresenter } from '$lib/application/mechanics/types';
+import { presenterOf, SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
 import { lowestShape, shapeAt } from '$lib/application/presentation/triadWords';
@@ -23,7 +20,6 @@ import {
 	tempoOf,
 	type ExerciseDefinition,
 	type Ladder,
-	type MechanicId,
 	type PromptPresentation,
 	type Slot
 } from '$lib/domain/exercise';
@@ -127,12 +123,12 @@ function drawMode(
 	return others.length > 0 && chance(random, p) ? pick(random, others) : usual;
 }
 
-/** The mechanics drawn: those a response exercise is written for today. */
-export const RANDOM_MECHANICS: readonly MechanicId[] = [
-	'locate',
-	'identify',
-	'triad-anchor',
-	'triad-zone'
+/** The skills drawn, each on its set: those a response exercise is written for today. */
+export const RANDOM_SKILLS: readonly string[] = [
+	'locate-note-string',
+	'identify-note',
+	'chord-anchor',
+	'chord-zone'
 ];
 
 export const METER_2_4: Meter = { count: 2, unit: Fraction.of(1, 4), grouping: [1, 1] };
@@ -164,13 +160,10 @@ function slotOf(random: () => number, names: readonly string[]): Slot {
 		: { fr: `joue ${field}`, en: `play ${field}` };
 }
 
-/** A presentation made of the mechanic's fields; now and then a field or a picture it lacks. */
-function randomPresentation(
-	random: () => number,
-	mechanic: MechanicId
-): PromptPresentation | undefined {
+/** A presentation made of the set's fields; now and then a field or a picture it lacks. */
+function randomPresentation(random: () => number, set: string): PromptPresentation | undefined {
 	if (chance(random, 0.1)) return undefined;
-	const own = ITEM_FIELDS[mechanic]?.names ?? [];
+	const own = ITEM_FIELDS[set]?.names ?? [];
 	const every = [...new Set(Object.values(ITEM_FIELDS).flatMap((fields) => fields.names))];
 	const names = chance(random, 0.1) ? every : own;
 	const optional = (p: number) => (chance(random, p) ? slotOf(random, names) : undefined);
@@ -218,22 +211,22 @@ function randomPosition(random: () => number, beats: number): Position {
 }
 
 /**
- * One or two expectations, each derived from the item by a derivation that reads the mechanic
+ * One or two expectations, each derived from the item by a derivation that reads the set
  * (now and then one that does not) and heard by the sensor of its kind, or asking for no content
  * (a bare attack, heard by any sensor: mostly so under an alignment, which judges none); now and
  * then a judged rest; in free time, or placed on the beat (now and then the two mixed).
  */
 function randomExpectations(
 	random: () => number,
-	mechanic: MechanicId,
+	set: string,
 	aligned: boolean
 ): ExpectationTemplate[] {
 	const all = Object.keys(CONTENT_DERIVATIONS).filter(
 		(name) => CONTENT_DERIVATIONS[name].kind in SENSOR_OF_KIND
 	);
-	const reading = all.filter((name) => CONTENT_DERIVATIONS[name].reads.includes(mechanic));
+	const reading = all.filter((name) => CONTENT_DERIVATIONS[name].reads.includes(set));
 	const count = between(random, 1, 2);
-	const free = chance(random, aligned ? 0.05 : mechanic === 'identify' ? 0.6 : 0.15);
+	const free = chance(random, aligned ? 0.05 : set === 'placed-note' ? 0.6 : 0.15);
 	// A bare attack's sensor: one for the whole round, now and then not.
 	const bareSensor = pick(random, BENCH_SENSORS);
 	const mixed = count === 2 && chance(random, 0.05);
@@ -347,25 +340,26 @@ function randomFigureEntry(random: () => number, sensor: string): FigureExpectat
 /**
  * A definition drawn from the registered pieces only; it may be one `validateExercise` refuses.
  *
- * - its shape: a mechanic among `RANDOM_MECHANICS`, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
+ * - its shape: a skill among `RANDOM_SKILLS`, on its set, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
  *   tempo from 50 to 160;
- * - its expectations: one or two, each with a derivation that reads the mechanic and the sensor
+ * - its expectations: one or two, each with a derivation that reads the set and the sensor
  *   of its kind; places, stretches and windows in fractions of a beat; now and then one of them
  *   a figure entry, over two one-bar figures the exercise writes;
  * - the rest: a length and a breath, a ladder of one to three levels, a place of the target and
- *   an end of the count, a presentation made of the mechanic's fields.
+ *   an end of the count, a presentation made of the set's fields.
  *
  * Its round opens on a first answer: the window opens soon enough after the prompt that an answer
  * on the beat can be heard (a round no one can answer right proves nothing about the engine).
  */
 export function randomExercise(random: () => number, id = 'random'): ExerciseDefinition {
-	const mechanic = pick(random, RANDOM_MECHANICS);
+	const skill = pick(random, RANDOM_SKILLS);
+	const set = skillById(skill).items;
 	const meter = pick(random, METERS);
 	const tempo = between(random, 50, 160);
 	const ladder = randomLadder(random);
 	const pairingMode = drawMode(random, Object.keys(ROUND_MODES.pairings), 'first-answer', 0.25);
 	const aligned = pairingMode !== 'first-answer';
-	const expectations: ExpectationTemplate[] = randomExpectations(random, mechanic, aligned);
+	const expectations: ExpectationTemplate[] = randomExpectations(random, set, aligned);
 	const figured = chance(random, aligned ? 0.4 : 0.15);
 	if (figured) {
 		const replaced = between(random, 0, expectations.length - 1);
@@ -427,14 +421,14 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	}
 	if (chance(random, 0.5)) round.countEndsOn = pick(random, ['prompt', 'target'] as const);
 
-	const presentation = randomPresentation(random, mechanic);
+	const presentation = randomPresentation(random, set);
 	// Its view: the one that draws it, or none (the lane for a presentation); now and then one
 	// that reads another model, or none the screen has.
 	const view = chance(random, 0.05)
 		? pick(random, ['grid-scroll', 'link-lane', 'figure', 'score'])
 		: chance(random, 0.2)
 			? undefined
-			: mechanic === 'identify' && free
+			: set === 'placed-note' && free
 				? 'answer-keys'
 				: 'lane';
 	const params: Record<string, unknown> = {
@@ -454,7 +448,7 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	}
 	return {
 		id,
-		practices: SKILL_OF_MECHANIC[mechanic],
+		practices: skill,
 		...(view !== undefined && { view }),
 		meter,
 		tempo,
@@ -469,29 +463,28 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 /** The voicings of the triads' catalog, by key. */
 const TRIAD_VOICINGS = triadVoicings(triadParams(TRIADS_ANCHOR)).map(voicingKey);
 
-/** An item of `mechanic` drawn at random. */
-function randomItem(random: () => number, mechanic: MechanicId): unknown {
-	switch (mechanic) {
-		case 'locate':
+/** An item of `set` drawn at random. */
+function randomItem(random: () => number, set: string): unknown {
+	switch (set) {
+		case 'note-on-string':
 			return pick(random, locateItems());
-		case 'identify':
+		case 'placed-note':
 			return {
 				string: pick(random, [1, 2, 3, 4, 5, 6]),
 				fret: between(random, 1, 11)
 			} satisfies IdentifyItem;
-		case 'triad-anchor':
-			return { voicingKey: pick(random, TRIAD_VOICINGS) };
-		case 'triad-zone': {
+		// Always with a position: any derivation of the set may read it.
+		case 'voicing-on-strings': {
 			const key = pick(random, TRIAD_VOICINGS);
 			const shape = pick(random, voicingOccurrences(parseVoicingKey(key)));
 			return { voicingKey: key, position: occurrencePosition(shape) };
 		}
 		default:
-			throw new Error(`No items drawn for mechanic ${mechanic}`);
+			throw new Error(`No items drawn for set ${set}`);
 	}
 }
 
-/** `count` items of `definition`'s mechanic, free-played at its first level's lead and aid. */
+/** `count` items of `definition`'s set, free-played at its first level's lead and aid. */
 export function listItems(
 	definition: ExerciseDefinition,
 	random: () => number,
@@ -502,7 +495,7 @@ export function listItems(
 		exerciseId: definition.id,
 		skill: definition.practices,
 		exerciseLevel: 0,
-		item: randomItem(random, mechanicOfSkill(definition.practices)),
+		item: randomItem(random, skillById(definition.practices).items),
 		phase: 'free',
 		temperature: 'hot',
 		aid: first.params.aided ? 'show-position' : 'none',
@@ -550,12 +543,6 @@ export function wrongPayload(content: ExpectedContent): unknown {
 	}
 }
 
-/** The presenters of every response mechanic the bench plays. */
-export const BENCH_PRESENTERS: Record<string, MechanicPresenter> = {
-	...NECK_PRESENTERS,
-	...TRIAD_PRESENTERS
-};
-
 /** How each round is answered: every expectation right, or wrong, or nothing played. */
 export type BenchAnswer = 'right' | 'wrong' | 'none';
 
@@ -582,7 +569,7 @@ const FREE_REACTION_S = 0.3;
 
 /**
  * A session controller on fakes playing `definition` over a fixed list of `items`
- * (`createListSource`), on the real presenters of the response mechanics and a note, a chord and
+ * (`createListSource`), on the real presenters of the response sets and a note, a chord and
  * a tap sensor.
  */
 export function exerciseSeries(definition: ExerciseDefinition, items: readonly PlannedItem[]) {
@@ -599,7 +586,9 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		sounds,
 		detector,
 		sensors: { note: noteSensor(detector), chord: chordSensor(verifier), tap: tapSensor() },
-		mechanics: BENCH_PRESENTERS,
+		presenters: SET_PRESENTERS,
+		views: VIEW_PRESENTERS,
+		plays: [definition.id],
 		repositories: {
 			attempts,
 			sessions: new InMemorySessionRepository(),
@@ -614,7 +603,6 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 				now: () => clock.toEpochMs(clock.now()),
 				selector: source,
 				sessionId,
-				rules: (skill) => BENCH_PRESENTERS[mechanicOfSkill(skill)].rules,
 				// Direct recall as the exercise's skill writes it, as the notes' free play reads it.
 				recall: () =>
 					(hasSkill(definition.practices) && directRecallOf(skillById(definition.practices))) ||
@@ -685,7 +673,7 @@ function emit(bench: ExerciseBench, sensor: string, payload: unknown, time: numb
  * exercise's or its presenter's.
  */
 function planOf(definition: ExerciseDefinition, item: PlannedItem): RoundPlan {
-	const presenter = BENCH_PRESENTERS[mechanicOfSkill(item.skill)];
+	const presenter = presenterOf(definition);
 	return compileRound(definition, item, definition.meter ?? METER_4_4, {
 		previewBeats: previewBeatsOf(definition, presenter.previewBeats) ?? 0,
 		fromRunStart: null

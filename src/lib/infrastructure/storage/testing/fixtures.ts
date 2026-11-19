@@ -1,7 +1,6 @@
 import type { IdentifyItem, LocateItem } from '$lib/domain/music';
-import { mechanicRules, type IdentifyData, type LocateData } from '$lib/domain/mechanics';
+import { setOfSkill, type IdentifyData, type LocateData } from '$lib/domain/sets';
 import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import {
 	DEFAULT_SETTINGS,
 	cardKey,
@@ -21,7 +20,7 @@ export const LOCATE_ITEM: LocateItem = { string: 2, pitch: 'F' };
 export const IDENTIFY_ITEM: IdentifyItem = { string: 5, fret: 8 };
 
 function keyOf(skill: SkillId, item: unknown): string {
-	return cardKey(skill, mechanicRules(mechanicOfSkill(skill)).itemKey(item));
+	return cardKey(skill, setOfSkill(skill).itemKey(item));
 }
 
 /** A card key as versions 1 to 12 wrote it: prefixed by its mechanic. */

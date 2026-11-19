@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { allExercises, exerciseById, exerciseSessionExercises } from './registry';
 import { gridById, gridChanges } from '$lib/domain/grid';
-import type { ChordGridItem } from '$lib/domain/mechanics';
+import type { ChordGridItem } from '$lib/domain/sets';
 import { Fraction, METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
 import { ladderOf } from './ladder';

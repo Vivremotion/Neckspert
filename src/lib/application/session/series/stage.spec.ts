@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { figureRules } from '$lib/domain/mechanics';
+import { figureSet } from '$lib/domain/sets';
 import { compileRound } from '$lib/domain/exercise/round';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { METER_4_4 } from '$lib/domain/time';
 import type { PlannedItem } from '$lib/domain/types';
-import { figurePresenter } from '$lib/application/mechanics/figurePresenters';
+import { figurePresenter } from '$lib/application/sets/figurePresenters';
 import { followsBeats, stageModel } from './stage';
 import { RHYTHM_SILENT_BARS } from '$lib/testing/catalog';
 
 const ITEM: PlannedItem = {
 	exerciseId: RHYTHM_SILENT_BARS.id,
-	skill: figureRules.id,
+	skill: figureSet.id,
 	exerciseLevel: 0,
 	item: { figureId: 'eighths', level: 0 },
 	phase: 'learning',

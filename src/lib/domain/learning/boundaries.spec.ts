@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { allExercises } from '../exercise/registry';
-import { MECHANIC_RULES } from '../mechanics';
+import { ITEM_SET_NAMES } from '../sets/names';
 
 // The learning module as raw text, keyed by its path from the project root.
 const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
@@ -12,7 +12,7 @@ const sources = import.meta.glob('/src/lib/domain/learning/**/*.ts', {
 const DOMAIN = '/src/lib/domain/';
 const MODULE = `${DOMAIN}learning/`;
 
-/** The ids of mechanics and exercises the procedure never names: every one of the registry and the catalog. */
+/** The ids of sets and exercises the procedure never names, and the old ids of the sets: every one of the registry and the catalog. */
 const NAMES = [
 	...new Set([
 		'locate',
@@ -20,19 +20,13 @@ const NAMES = [
 		'triad-anchor',
 		'triad-zone',
 		'chord-grid',
-		...MECHANIC_RULES.map((rules) => rules.id),
+		...ITEM_SET_NAMES,
 		...allExercises().map((exercise) => exercise.id)
 	])
 ];
 
 /** What the procedure never imports, from `src/lib/`. */
-const FORBIDDEN = [
-	'domain/music',
-	'domain/triads',
-	'domain/gesture',
-	'domain/mechanics',
-	'application'
-];
+const FORBIDDEN = ['domain/music', 'domain/triads', 'domain/gesture', 'domain/sets', 'application'];
 
 /** What it may import outside itself, from `src/lib/domain/` (a trailing `/` allows a folder). */
 const ALLOWED = [
@@ -100,7 +94,7 @@ function offendersIn(files: Record<string, string>): string[] {
 }
 
 describe('the learning procedure', () => {
-	it('names no mechanic nor exercise and imports no music', () => {
+	it('names no set nor exercise and imports no music', () => {
 		expect(offendersIn(sources)).toEqual([]);
 	});
 

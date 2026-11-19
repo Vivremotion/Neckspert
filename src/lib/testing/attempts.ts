@@ -1,6 +1,5 @@
-import { hasSkill } from '$lib/domain/skill/registry';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
-import { V7_RELATIONS } from '$lib/infrastructure/storage/migrations/v8';
+import { CHANGE_SKILL_IDS, CHORD_ANCHOR_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import {
 	type AidLevel,
 	type Attempt,
@@ -27,13 +26,22 @@ export type ResponseAttemptFields<D = unknown> = Omit<
 /** Overrides of a spec's attempt builder, in either shape. */
 export type AttemptOverrides<D = unknown> = Partial<ResponseAttemptFields<D>>;
 
+/** The one-answer relation a set's attempts were judged by before the target model. */
+const RELATION_OF_SET: Readonly<Record<string, string>> = {
+	'placed-note': 'free',
+	change: 'grid-change'
+};
+
 /**
- * The relation the attempts of a skill's old mechanic were judged by (frozen at version 7);
- * `beat` otherwise, a skill no definition holds included.
+ * The relation the attempts of a skill were judged by before the target model: the anchor's (a
+ * skill drawn from it included), the changes', else its set's; `beat` otherwise, a skill no
+ * definition holds included.
  */
 function relationOf(skill: string): string {
+	if (skill.startsWith(CHORD_ANCHOR_SKILL_ID)) return 'anchor';
+	if ((CHANGE_SKILL_IDS as readonly string[]).includes(skill)) return 'grid-change';
 	if (!hasSkill(skill)) return 'beat';
-	return V7_RELATIONS[mechanicOfSkill(skill)] ?? 'beat';
+	return RELATION_OF_SET[skillById(skill).items] ?? 'beat';
 }
 
 /**

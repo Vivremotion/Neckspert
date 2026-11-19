@@ -1,5 +1,5 @@
 import type { ChordVoicingContent } from '$lib/domain/judges';
-import type { ChordReading } from '$lib/domain/mechanics';
+import type { ChordReading } from '$lib/domain/sets';
 import {
 	parseVoicingKey,
 	pitchOfMidi,

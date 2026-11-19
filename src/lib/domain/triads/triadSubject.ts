@@ -9,7 +9,7 @@ import {
 	type DirectRecall,
 	type LearningSubject
 } from '$lib/domain/learning';
-import type { TriadZoneItem } from '$lib/domain/mechanics';
+import type { TriadZoneItem } from '$lib/domain/sets';
 import { parseVoicingKey, voicingKey, voicingOccurrences } from '$lib/domain/music';
 import { isAcquired } from '$lib/domain/progress/cards';
 import { cardKey, type Attempt } from '$lib/domain/types';

@@ -17,7 +17,7 @@ import {
 	triadId,
 	type ChordGridItem,
 	type ChordReading
-} from '$lib/domain/mechanics';
+} from '$lib/domain/sets';
 import { formatSpelledNote } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';

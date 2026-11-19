@@ -1,9 +1,8 @@
 import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 /** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
 import type { GridChange } from '$lib/domain/grid';
-import { triadShapes, type ChordGridItem } from '$lib/domain/mechanics';
+import { triadShapes, type ChordGridItem } from '$lib/domain/sets';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
@@ -11,7 +10,7 @@ import type { Level, LevelState } from '$lib/domain/time';
 import { occurrenceId } from '$lib/domain/triads';
 import type { Attempt, PlannedItem, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
-import { GESTURE_PRESENTERS, type GridStageModel } from '$lib/application/mechanics/chordGrid';
+import { SET_PRESENTERS, VIEW_PRESENTERS, type GridStageModel } from '$lib/application/sets';
 import {
 	FakeChordVerifier,
 	FakeClock,
@@ -137,9 +136,12 @@ export const BENCH_LEVEL_STATES: LevelState[] = [
 	{ exerciseId: 'gesture-zone', scope: 'iohefy-a', level: 1 }
 ].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
 
-/** A chord-grid exercise on the bench's levels; any other as it is. */
+/**
+ * A gesture exercise (its params name a rule), or one a spec draws from it, on the bench's
+ * levels; any other as it is.
+ */
 function onBenchLevels(definition: ExerciseDefinition): ExerciseDefinition {
-	return (CHANGE_SKILL_IDS as readonly string[]).includes(definition.practices)
+	return typeof (definition.params as { rule?: unknown } | undefined)?.rule === 'string'
 		? { ...definition, levels: BENCH_LEVELS }
 		: definition;
 }
@@ -162,8 +164,11 @@ export function gestureSeries(
 		 */
 		levelStates?: LevelState[];
 		catalogLevels?: boolean;
-		/** The presenters, by mechanic: the gesture's by default. */
-		mechanics?: SessionControllerDeps['mechanics'];
+		/** The presenters by set and by view: the application's by default. */
+		presenters?: SessionControllerDeps['presenters'];
+		views?: SessionControllerDeps['views'];
+		/** The exercises whose sensors the series opens: the gesture's by default. */
+		plays?: SessionControllerDeps['plays'];
 		/** Sensors beside the chord sensor. */
 		sensors?: SessionControllerDeps['sensors'];
 		random?: () => number;
@@ -203,7 +208,9 @@ export function gestureSeries(
 		sounds,
 		detector,
 		sensors: { chord: chordSensor(verifier), ...options.sensors },
-		mechanics: options.mechanics ?? GESTURE_PRESENTERS,
+		presenters: options.presenters ?? SET_PRESENTERS,
+		views: options.views ?? VIEW_PRESENTERS,
+		plays: options.plays ?? GESTURE_EXERCISE_IDS,
 		repositories,
 		levels,
 		takes,
@@ -215,8 +222,7 @@ export function gestureSeries(
 				clock,
 				now: () => clock.toEpochMs(clock.now()),
 				selector: sourceOf.get(sessionId) ?? source,
-				sessionId,
-				rules: (skill) => deps.mechanics[mechanicOfSkill(skill)].rules
+				sessionId
 			});
 			recorders.push(recorder);
 			return recorder;

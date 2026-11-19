@@ -3,7 +3,10 @@ import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { definitionChecks } from './checks';
+
+registerTestSkills();
 import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB } from '$lib/testing/catalog';
 
 const check = (exercise: ExerciseDefinition) => definitionChecks().exercise(exercise);
@@ -36,9 +39,16 @@ describe('definitionChecks', () => {
 		expect(reason).not.toContain('locate-neck');
 	});
 
-	it('refuses a presentation naming a field its mechanic does not have', () => {
+	it('refuses a presentation naming a field its set does not have', () => {
 		expect(check({ ...LOCATE_NECK, presentation: { primary: '{chord}' } })).toBe(
-			'presentation.primary names field "chord", which locate does not have'
+			'presentation.primary names field "chord", which note-on-string does not have'
+		);
+	});
+
+	it('refuses an exercise whose skill’s item set has no presenter', () => {
+		const checks = definitionChecks({}, {});
+		expect(checks.exercise(LOCATE_NECK)).toBe(
+			'practices a skill whose item set "note-on-string" has no presenter'
 		);
 	});
 
@@ -64,6 +74,17 @@ describe('definitionChecks', () => {
 			clearGrids();
 			const link = { ...GESTURE_CLIMB, params: { ...GESTURE_CLIMB.params, grids: ['nowhere'] } };
 			expect(check(link)).toBe(
+				'params.grids names grid "nowhere", which no file read so far defines'
+			);
+		});
+
+		it('refuses a grid no file defines for any exercise that names grids, gesture or not', () => {
+			const other = {
+				...ARPEGGIO_EXERCISE,
+				id: 'other',
+				params: { ...ARPEGGIO_EXERCISE.params, grids: ['nowhere'] }
+			};
+			expect(check(other)).toBe(
 				'params.grids names grid "nowhere", which no file read so far defines'
 			);
 		});

@@ -1,3 +1,4 @@
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import type { CycleReport } from '$lib/domain/time';
 import type { Attempt } from '$lib/domain/types';
@@ -16,8 +17,10 @@ import {
 	previewProblem,
 	screenProblem
 } from '$lib/application/presentation/validate';
-import { FIGURE_PRESENTERS } from '$lib/application/mechanics/figurePresenters';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { FigureAttemptData } from './recordResponse';
+
+registerTestSkills();
 
 /**
  * Several chord shapes chained (plan S, Task 9): a `voicing-figure` exercise lists its shapes, each
@@ -37,8 +40,12 @@ describe('a sequence of chord shapes on the series', () => {
 	it('is an exercise the engine runs, its unread aid path included', () => {
 		expect(validateExercise(ARPEGGIO_EXERCISE, { sensors: ['note'] })).toBeNull();
 		expect(presentationProblem(ARPEGGIO_EXERCISE)).toBeNull();
-		expect(screenProblem(ARPEGGIO_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
-		expect(previewProblem(ARPEGGIO_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+		expect(
+			screenProblem(ARPEGGIO_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+		).toBeNull();
+		expect(
+			previewProblem(ARPEGGIO_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+		).toBeNull();
 	});
 
 	it('asks for headphones when the calibration heard the click, the series not refused', async () => {
@@ -209,7 +216,7 @@ describe('a sequence of chord shapes on the series', () => {
 			levels: [{ params: {} }]
 		});
 
-		it('is heard by the sensor its round names, not its mechanic’s', async () => {
+		it('is heard by the sensor its round names, not its set’s', async () => {
 			const { controller, advance, detector } = await sequenceSeries(written, {
 				pattern: [1],
 				met: true
@@ -553,8 +560,12 @@ describe('a sequence of chord shapes on the series', () => {
 		it('is an exercise the engine runs', () => {
 			expect(validateExercise(FORM_EXERCISE, { sensors: ['note'] })).toBeNull();
 			expect(presentationProblem(FORM_EXERCISE)).toBeNull();
-			expect(screenProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
-			expect(previewProblem(FORM_EXERCISE, FIGURE_PRESENTERS)).toBeNull();
+			expect(
+				screenProblem(FORM_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+			).toBeNull();
+			expect(
+				previewProblem(FORM_EXERCISE, { presenters: SET_PRESENTERS, views: VIEW_PRESENTERS })
+			).toBeNull();
 		});
 
 		it('plays a form with two notes on a string, moved from chord to chord, each chord restarting from its first note', async () => {

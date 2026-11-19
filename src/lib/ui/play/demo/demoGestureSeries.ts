@@ -1,5 +1,4 @@
-import { mechanicOfSkill } from '$lib/domain/skill/bridge';
-import { GESTURE_PRESENTERS } from '$lib/application/mechanics/chordGrid';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import type { ChordExpectation } from '$lib/application/ports';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
@@ -8,7 +7,7 @@ import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { DEMO_GRID_ID, exerciseById, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise';
 import { linkShapes } from '$lib/domain/gesture/passages';
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/mechanics';
+import { parseTriadId, triadId, type ChordGridItem } from '$lib/domain/sets';
 import type { ItemSource } from '$lib/domain/progress';
 import { occurrenceId } from '$lib/domain/triads';
 import type { ResponseVerdict } from '$lib/domain/types';
@@ -141,7 +140,9 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			sounds,
 			detector: new FakeNoteDetector(),
 			sensors: { chord: chordSensor(chords) },
-			mechanics: GESTURE_PRESENTERS,
+			presenters: SET_PRESENTERS,
+			views: VIEW_PRESENTERS,
+			plays: GESTURE_EXERCISE_IDS,
 			repositories,
 			// Where its levels stand, in memory: the scripted player moves them up as it plays.
 			levels: new InMemoryLevelStateRepository(),
@@ -152,8 +153,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 					clock,
 					now: () => clock.toEpochMs(clock.now()),
 					selector: sources.get(sessionId) ?? passageLoop(mode),
-					sessionId,
-					rules: (skill) => GESTURE_PRESENTERS[mechanicOfSkill(skill)].rules
+					sessionId
 				}),
 			exercise: exerciseById,
 			locale,

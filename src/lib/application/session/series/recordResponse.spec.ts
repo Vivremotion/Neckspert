@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { summarizeGesture } from '$lib/domain/gesture';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { contentJudges } from '$lib/domain/judges';
-import { chordGridRules, type ChordGridItem } from '$lib/domain/mechanics';
+import { gestureChangeSet, type ChordGridItem } from '$lib/domain/sets';
 import type { StringNumber } from '$lib/domain/music';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
 import { figureParamsOf } from '$lib/domain/exercise';
@@ -20,7 +20,7 @@ import {
 } from '$lib/domain/time';
 import { cardKey, type Attempt, type Execution, type PlannedItem } from '$lib/domain/types';
 import { changePlan } from '$lib/testing/plans';
-import { chordGridPresenter } from '$lib/application/mechanics/chordGrid';
+import { chordGridPresenter } from '$lib/application/sets/chordGrid';
 import {
 	FakeClock,
 	InMemoryAttemptRepository,
@@ -94,8 +94,7 @@ function makeRecorder() {
 		clock,
 		now: () => clock.toEpochMs(clock.now()),
 		selector: { next: () => null, record: () => null, cardChanged: () => {} },
-		sessionId: 'sess-1',
-		rules: () => chordGridRules
+		sessionId: 'sess-1'
 	});
 	return { recorder, attempts, clock };
 }
@@ -137,7 +136,7 @@ function newAttempt(item: ChordGridItem, decided: string | null, ms: number) {
 		sessionId: 'sess-1',
 		execution: RUN,
 		promptedAt: clock.toEpochMs(PROMPT_S),
-		cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+		cardKey: cardKey('chord-grid', gestureChangeSet.itemKey(item)),
 		startAudioS: CHANGE_S,
 		tempo: TEMPO,
 		thresholds: null
@@ -247,7 +246,7 @@ describe('recordedAttempt', () => {
 			sessionId: 'sess-1',
 			execution: RUN,
 			promptedAt: clock.toEpochMs(PROMPT_S),
-			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+			cardKey: cardKey('chord-grid', gestureChangeSet.itemKey(item)),
 			startAudioS: CHANGE_S,
 			tempo: TEMPO,
 			thresholds: null
@@ -266,7 +265,7 @@ describe('recordedAttempt', () => {
 			sessionId: 'sess-1',
 			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },
 			promptedAt: clock.toEpochMs(PROMPT_S),
-			cardKey: cardKey('chord-grid', chordGridRules.itemKey(item)),
+			cardKey: cardKey('chord-grid', gestureChangeSet.itemKey(item)),
 			startAudioS: CHANGE_S,
 			tempo: TEMPO,
 			thresholds: null
