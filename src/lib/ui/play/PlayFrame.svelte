@@ -42,11 +42,16 @@
 		if (view.stage) shownWorld = VIEW_WORLDS[view.stage.view] ?? 'pixel';
 		return shownWorld ?? 'pixel';
 	});
-	/** The header names what plays: « Jeu libre » when free, else the routine or the exercise. */
+	/**
+	 * The header names what plays: the routine, or the exercise alone; « Jeu libre » alone for a
+	 * routine played freely (the notes' free play), in front of an exercise played alone freely.
+	 */
 	const named = $derived.by(() => {
 		const origin = controller.origin;
 		if (!origin) return [];
-		return [origin.free ? t.freePlay : origin.title[i18n.locale]];
+		const title = origin.title[i18n.locale];
+		if (!origin.free) return [title];
+		return origin.alone ? [t.freePlay, title] : [t.freePlay];
 	});
 	/**
 	 * Before the start: the first exercise's instruction, else the routine's, else the general

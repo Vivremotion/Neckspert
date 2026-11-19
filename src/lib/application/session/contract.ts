@@ -129,12 +129,17 @@ export interface PlayWords {
 
 /** What a session plays, as the play screen names it (D10); it never chooses the view's world. */
 export interface PlayOrigin {
-	/** The routine's title, or the exercise's own when played alone (its id when it writes none). */
+	/**
+	 * The routine's title, or the exercise's own when played alone (else its skill's name, else
+	 * its id).
+	 */
 	readonly title: PlayWords;
 	/** Told on the start screen when the first exercise tells none: the routine's; null alone. */
 	readonly howTo: PlayWords | null;
 	/** Played freely, out of the learning procedure. */
 	readonly free: boolean;
+	/** One exercise played alone, not a routine. */
+	readonly alone: boolean;
 }
 
 /** Runs one session. Implemented by the session orchestration, displayed by the play screen. */

@@ -13,6 +13,13 @@ const historyOf = (demo: ReturnType<typeof demoGestureSeries>) =>
 	(demo.controller.view.stage?.model as { history?: LaneEntry[] } | undefined)?.history ?? [];
 
 describe('demoGestureSeries', () => {
+	it('is named as the first routine that plays passages, so it tells the changes’ start text', () => {
+		const demo = demoGestureSeries('link', () => 'fr');
+		expect(demo.controller.origin?.title.fr).toBe('Changements');
+		expect(demo.controller.origin?.howTo?.fr).toMatch(/^Joue la grille sans t’arrêter/);
+		demo.controller.quit();
+	});
+
 	it('plays the link on the session controller, the scripted player strumming each change', async () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();

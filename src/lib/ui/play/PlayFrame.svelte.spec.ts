@@ -95,6 +95,15 @@ describe('PlayFrame, what the session plays (D10)', () => {
 		expect(english.how).toBe(how[1]);
 	});
 
+	it('puts « Jeu libre » in front of a memory exercise played alone, freely', () => {
+		const [french, english] = shown({ exercise: 'locate-note-string', free: true });
+		expect(french.header).toMatch(
+			/^Jeu libre\s*·?\s*Trouver une note sur une corde\s*·?\s*♩ = 80$/
+		);
+		expect(english.header).toMatch(/^Free play\s*·?\s*Find a note on a string\s*·?\s*♩ = 80$/);
+		expect(french.how).toBe(HOW_TO.alone[0]);
+	});
+
 	it('names an exercise played alone by its title, with the general start text', () => {
 		const [french, english] = shown(ALONE);
 		expect(french.header).toContain('Contretemps');

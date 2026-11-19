@@ -47,6 +47,8 @@ export function sessionPlayed(
 			...attempts.map((attempt) => attempt.exerciseId)
 		])
 	];
+	// A registered routine's exercise no file defines any more drops out here, and so does its
+	// skill from the skills read: its cards are not served either.
 	const exercises = ids.flatMap((id) => findExercise(id) ?? []);
 	const skills = new Set([
 		...exercises.map((exercise) => exercise.practices),

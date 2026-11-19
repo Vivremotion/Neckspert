@@ -41,7 +41,10 @@
 	const nav = $derived(navMessages());
 	const path = $derived(page.url.pathname);
 	const rail = $derived(showsRail(path));
-	/** The free play of the first memory routine, read from the registry (until plan 5b). */
+	/**
+	 * The free play of the first memory routine, read from the registry (until plan 5b, which gives
+	 * the Library its own page). Read once per render of the nav: it follows an import at the next.
+	 */
 	const library = (): string => {
 		const href = libraryHref(routines(), (id) => {
 			const exercise = findExercise(id);

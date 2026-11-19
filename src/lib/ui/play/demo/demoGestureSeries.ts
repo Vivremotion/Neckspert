@@ -4,7 +4,13 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { DEMO_GRID_ID, exerciseById, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise';
+import {
+	DEMO_GRID_ID,
+	exerciseById,
+	findExercise,
+	GESTURE_EXERCISE_IDS
+} from '$lib/domain/exercise';
+import { routines } from '$lib/domain/routine/registry';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
 import { passageRound } from '$lib/domain/exercise/passage/round';
 import { passageDerivation } from '$lib/domain/families';
@@ -116,8 +122,18 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	]);
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
+	// Named as the first routine of the registry that plays passages (the changes), so its start
+	// screen tells what that routine tells; the exercise alone when there is none.
+	const passages = routines().find(
+		(routine) =>
+			routine.exercises.length > 0 &&
+			routine.exercises.every((id) => findExercise(id)?.passages !== undefined)
+	);
 	const controller = new SessionController(
-		{ id: 'demo-gesture', origin: { exercise: exercise.id } },
+		{
+			id: 'demo-gesture',
+			origin: passages ? { routine: passages.id } : { exercise: exercise.id }
+		},
 		async (sessionId) => {
 			const source = passageLoop(mode);
 			sources.set(sessionId, source);

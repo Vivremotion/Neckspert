@@ -5,6 +5,8 @@ import type { SessionOrigin } from '$lib/domain/types';
 /**
  * What /session plays (D6): `?routine=<id>`, freely with `&free=1`, or `?exercise=<id>`, alone.
  * Null when the address names neither, or an id no file defines (the old `?kind=` is not read).
+ * An address naming a routine means that routine alone: an exercise also named is not read, and
+ * an unknown routine is not found even when the exercise exists (one address, one meaning).
  */
 export function sessionFromQuery(query: URLSearchParams): SessionOrigin | null {
 	const routine = query.get('routine');

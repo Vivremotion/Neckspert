@@ -17,6 +17,11 @@ describe('sessionFromQuery', () => {
 		expect(read('?exercise=grid-reading')).toEqual({ exercise: 'grid-reading' });
 	});
 
+	it('reads one meaning of an address naming both: its routine, never the exercise instead', () => {
+		expect(read('?routine=notes&exercise=rhythm-offbeats')).toEqual({ routine: 'notes' });
+		expect(read('?routine=kazoo&exercise=rhythm-offbeats')).toBeNull();
+	});
+
 	it('finds nothing without a routine or an exercise, for an id no file defines, or by kind', () => {
 		for (const search of [
 			'',
