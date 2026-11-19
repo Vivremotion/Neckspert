@@ -791,3 +791,102 @@ Laissé au plan 5 :
 - Sur un manche, une case ne fait jamais moins de 32 px de large. Un manche trop large pour l'écran défile de côté : au premier changement d'une montée, au niveau d'aide, le manche va de la case 0 à la case 16 ou plus ; sur un téléphone, une partie des formes est hors de l'écran. La règle vaut pour tous les manches (l'aide du lien, le manche d'une figure) ; sur un écran d'ordinateur rien ne change pour eux.
 - Au premier changement d'une montée, rien n'a encore été entendu : toutes les formes de l'accord sont admises, pour ce changement et pour le suivant. Le manche de l'aide est alors chargé. C'est ce que le § 7 écrit ; à voir à l'écran.
 - Sur la piste du lien, un tour qui commence entre deux temps n'a pas de tuile. Aucun passage du catalogue n'en a.
+
+## Réalisation (plan 5a, 2026-11-19)
+
+Le plan 5 de cette spec a été coupé en deux. Le plan 5a, celui-ci, fait le moteur : les routines en données, les séances par routine ou par exercice, la fin des sortes de séance et des identifiants du catalogue dans le code. Le plan 5b fera le reste du § 8 : le bilan unique, l'accueil sans « Exercices », la Bibliothèque, et le durcissement (voir « Laissé au plan 5b »).
+
+Les onze décisions de ce plan, telles que le code les tient :
+
+- D1 : la routine s'écrit comme au § 8, `{ "id", "title", "exercises", "opens" }`, plus `howTo` (D10). Le catalogue en écrit quatre, toutes dans un seul fichier, `catalog/routines.json`, et non chacune dans le fichier de ses exercices : l'ordre de ce fichier est celui de l'accueil (`notes`, `chords`, `chords-zone`, `changes`). `notes` s'appelle « Apprentissage », « Learn » en anglais, comme l'accueil l'écrivait.
+- D2 : dans une routine de mémoire, le premier exercice listé qui a un élément prêt introduit. `notes` liste `identify-note` puis `locate-note-string`.
+- D3 : trois routines sont refusées au chargement : celle qui mêle des exercices sur des capacités avec et sans mémoire, celle dont deux exercices travaillent la même capacité, celle dont un exercice sans mémoire n'écrit pas `passages`. Les exercices de rythme se jouent donc seuls.
+- D4 : l'ouverture a quatre formes, `acquired`, `level`, `all`, `any`. Au plus 16 termes et 4 étages. `acquired` compte les cartes marquées acquises qu'une séance peut servir ; `level` compte le niveau 1 pour 1, et un niveau d'aide ne compte jamais. `chords-zone` s'ouvre à six triades acquises en ancrage. « Une fois ouverte, elle le reste » est tenu autrement que le plan le disait : une routine de mémoire reste montrée dès que le joueur a une carte d'un de ses exercices, quelle que soit son ouverture.
+- D5 : l'accueil montre une routine quand tous ses exercices sont définis, que son ouverture est vraie et qu'elle a quelque chose à jouer (une carte, ou un élément prêt à être introduit ; pour des passages, un index ouvert), ou quand elle tient déjà une carte (D4). `changes` n'écrit pas d'ouverture. L'adresse d'une routine ne lit pas l'ouverture : elle lance la routine même fermée.
+- D6 : une séance se lance par `/session?routine=<id>` (avec `&free=1` pour le jeu libre, et seulement `1`) ou par `/session?exercise=<id>`. Une adresse qui ne mène nulle part dit « Séance introuvable » avec un lien « Retour à l'accueil » : elle ne renvoie pas d'elle-même à l'accueil. Les anciennes adresses `?kind=` tombent là. Une adresse qui nomme une routine et un exercice ne lit que la routine.
+- D7 : le jeu libre d'une routine de mémoire tire vingt consignes parmi les éléments que ses exercices listent, chacune au niveau que l'élément tient. Le lien « Bibliothèque » mène au jeu libre de la première routine dont tous les exercices sont de mémoire, lue dans le registre : aujourd'hui `notes`. Un exercice de mémoire joué seul se joue en jeu libre sur ses seuls éléments ; un exercice de passages joué seul passe par la source de passages ; un exercice de figures, comme avant.
+- D8 : « On change d'air » fait sortir l'exercice bloqué, sur sa portée, quand la source de la séance sait le laisser de côté : c'est la source de passages seule. La séance continue avec les autres et finit quand il ne reste plus rien. Ailleurs (la procédure d'apprentissage, le jeu libre, la séance d'un exercice de rythme), la séance finit comme avant. Un écart avec la lettre de D8 (« dans une séance d'un seul exercice, rien ne change ») : un exercice de grille joué seul ne laisse de côté que la grille où il a bloqué, et son autre grille continue. Le repos ne change pas ce que la séance suivante pioche.
+- D9 : une séance de routine ouvre les capteurs des exercices de toutes les routines enregistrées, celles des fichiers importés comprises. Pour le catalogue, ce sont les huit exercices d'avant. Un exercice joué seul n'ouvre que les siens.
+- D10 : l'en-tête du jeu porte le titre de la routine, ou celui de l'exercice joué seul (sinon le nom de sa capacité). « Jeu libre » seul pour une routine en jeu libre, « Jeu libre · <titre> » pour un exercice de mémoire joué seul. La consigne de départ vient du premier exercice, sinon de la routine (`howTo`), sinon de la phrase générale. Les quatre routines écrivent les textes d'avant, mot pour mot.
+- D11 : aucun identifiant du catalogue n'est écrit dans `src/` hors des tests et des migrations ; un test de frontière le tient, en lisant les identifiants dans `catalog/` même. Le manche se lit par ensemble (`note-on-string`, `placed-note`) ; le jeu libre et la carte prennent leurs places dans les listes des exercices ; les pages de démonstration choisissent dans le registre. Les constantes des tests vivent dans `src/lib/testing/catalogIds.ts`.
+
+Ce que l'exécution a décidé en plus :
+
+- Les routines sont lues après les exercices de tous les fichiers de leur source. Une routine importée peut nommer un exercice du catalogue ; une routine qui nomme un exercice refusé est refusée. Les routines ont leurs propres identifiants : une routine peut porter l'`id` d'un exercice.
+- L'ordre de l'accueil est l'ordre où les routines sont lues : le catalogue, puis les fichiers importés dans l'ordre de leurs noms. Une routine importée se montre et se lance comme celles du catalogue.
+- Une seule ligne de révisions pour toute routine de mémoire : « N révisions dues », sinon « Prochaines révisions · … », sinon rien. Une routine de passages n'en a pas.
+- Les révisions d'une routine sont celles des cartes de ses propres exercices. La séance `chords` ne lit plus les cartes ni les tentatives de la zone : la procédure ne s'en servait pas, rien de ce qu'elle pioche ne change. Les prochaines révisions du bilan d'une séance `chords` ne comptent plus les cartes de la zone.
+- Une routine dont un exercice n'est plus défini n'est pas montrée, et sa séance ne se lance pas : l'erreur nomme l'exercice. L'ancienne séance « Changements » jouait ceux des quatre qui restaient.
+- Le bilan d'un exercice de mémoire joué seul est celui du jeu libre : toutes ses tentatives, pas de « Prochaines révisions ». Le bilan d'un exercice de passages joué seul est celui des changements.
+- Le niveau atteint (`levelReached`) n'est écrit que pour un exercice joué seul, pas en jeu libre, et dont le premier élément n'a pas de portée.
+- L'exercice qui sort a sa propre ligne dans l'écran de jeu, à côté d'une annonce de niveau : les deux se voient. La ligne part quand le premier tour de l'exercice suivant s'ouvre ; pour un changement, c'est un peu avant la fin de sa mesure comptée.
+- Une limite connue : un tour décidé à l'avance (les cycles) qui bloque arrête encore toute la séance. Aucun exercice qui sait sortir ne se décide à l'avance aujourd'hui.
+- Les quatre exercices des changements écrivent leur nom court en `title` (« Relier les formes », « Contrainte de déplacement », « Rester dans une zone », « Jam ») : le bilan et l'écran de jeu les lisent là. L'instantané du catalogue a changé pour ces quatre titres, en plus des quatre routines.
+- Le bilan des changements laisse de côté les tentatives d'un exercice qu'aucun fichier ne définit plus comme exercice de passages, au lieu de lever une erreur.
+- La carte du manche dessine une case vide là où une corde n'a pas une place qu'une autre a, et dit « Aucune case à montrer » quand aucun exercice ne liste de place.
+- Le jeu libre tire maintenant dans l'ordre des listes des exercices, puis mélange : pour un même hasard, la suite tirée n'est plus celle d'avant. Ce sont les mêmes éléments, avec les mêmes chances.
+- Le test de frontière ne cherche que des textes entiers entre guillemets : `notes`, `chords`, `changes` sont des mots courants, et chercher plus loin signalerait les textes de l'écran. Un identifiant caché dans un texte plus long n'est pas vu.
+- Pendant le plan, l'accueil a lancé les séances par les anciennes sortes, le temps qu'une séance sache partir d'une routine. Ce pont est parti.
+
+Ce qui change pour le joueur, et rien d'autre :
+
+- Le bloc « Triades » dit « N révisions dues » ; avant, « N révisions de triades dues ».
+- Les deux blocs des triades montrent « Prochaines révisions · … » quand rien n'est dû.
+- Un bloc dit « On y revient plus tard » quand un de ses exercices se repose. « Changements » ne le disait pas.
+- « On change d'air » ne finit plus la séance des changements : l'exercice bloqué sort, la ligne d'état le nomme (« On change d'air : Relier les formes »), les autres continuent, et le bilan nomme chaque exercice sorti.
+- L'en-tête de la zone des triades dit « Triades vers une case » ; avant, « Triades · zone ».
+- Le bilan d'une séance de triades ne compte plus les cartes de la zone dans ses prochaines révisions.
+- Les quatre exercices des changements sont nommés par leur nom court sur l'écran de jeu, comme dans le bilan.
+- Les adresses : `/session?routine=…`, `/session?exercise=…`. Une ancienne adresse dit « Séance introuvable ».
+- Tout exercice se joue seul par son adresse, un exercice de mémoire ou de passages compris. L'accueil ne les propose pas encore (plan 5b).
+- Une routine d'un fichier importé se montre sur l'accueil et se joue.
+- La carte du manche, avec un fichier importé qui liste des places inégales : des cases vides au lieu d'une erreur.
+
+### À regarder par l'auteur
+
+- Les chiffres de l'accueil (l'écart au temps, sa tendance) et les médianes du bilan comptent les tentatives de toute capacité sur `note-on-string` ou `placed-note`, une capacité importée comprise. La carte du manche, elle, ne dessine que les cartes de la première capacité de chaque ensemble.
+- La progression d'une capacité du manche qu'aucun fichier ne définit plus est gardée, et n'est plus comptée dans ces chiffres.
+
+### À décider par l'auteur
+
+- Une séance doit-elle laisser de côté un exercice au repos tant qu'un autre a quelque chose à jouer ? Aujourd'hui non : le repos ne change rien à ce que la séance suivante pioche. Lancée tout de suite, elle retombe sur l'exercice au repos, à son niveau d'aide.
+- Une routine d'exercices sans mémoire et sans passages (des exercices de rythme) est refusée. Faut-il une séance qui les enchaîne ?
+- `catalog/routines.json` est un cinquième fichier du catalogue, là où le § 2 en comptait quatre. L'autre voie aurait été un rang écrit sur chaque routine.
+- D9 : une séance de routine ouvre les capteurs des exercices de toutes les routines. Faut-il n'ouvrir que les siens ?
+- Le jeu libre garde sa règle : une tentative sur une carte apprise et laissée assez longtemps compte à froid. Le jeu libre d'un exercice de mémoire, importé ou non, fait donc avancer les cartes qu'il partage avec d'autres exercices (la question du plan 3).
+
+### Laissé au plan 5b
+
+- Un seul bilan, par exercice et par portée ; la fin de `src/lib/domain/gesture/` (`SessionSummary.gesture`, `summary.ts`). Le bilan d'une séance dont la routine ou l'exercice n'est plus défini retombe sur ce que ses tentatives disent, le cadre des notes quand rien ne le nomme.
+- L'accueil sans « Exercices », sans la tendance ni l'écart au temps. `AppServices.resting(ids)` sert encore aux blocs « Exercices ».
+- La Bibliothèque : tous les exercices du registre, chacun joué seul. Le lien « Bibliothèque » mène encore au jeu libre des notes.
+- Le mode dégradé quand un fichier du catalogue est refusé en production.
+- Un budget par fichier, qui compte les tours, leurs attentes et leurs filtres ; la validation d'un exercice faite une fois au lieu de deux.
+- Le travail de la source de passages pour chaque passage servi, à borner.
+- Le banc ouvert (`openness.spec.ts`), qui ne tire encore ni exercice à passages ni routine.
+- Un préfixe réservé aux identifiants du catalogue, avant que le format quitte la version 0.
+- `VIEW_PRESENTERS` : le présentateur du lien est encore trouvé par sa vue.
+
+### Le sort des lignes « au plan 5 » des « Réalisation » précédentes
+
+- Plan 2a, « les routines ne sont pas encore des objets ; la sorte de séance reste un type du code » : fait (D1, D6).
+- Plan 2a et 2b (D9), le mode dégradé quand un fichier du catalogue est refusé : au plan 5b.
+- Plan 2b, le budget par fichier et la validation faite une fois : au plan 5b.
+- Plan 2b, un préfixe réservé aux identifiants du catalogue : au plan 5b.
+- Plan 2b, le bilan d'une séance dont l'exercice a été supprimé montre le cadre des notes : toujours vrai quand rien ne le nomme ; au plan 5b, avec le bilan unique.
+- Plan 3, D6, l'ordre entre les exercices d'une séance en code : fait, c'est l'ordre de la routine (D2).
+- Plan 3, deux exercices d'une séance sur une même capacité : fait, la routine est refusée au chargement (D3).
+- Plan 3, les décomptes de l'accueil ne consultent que les quatre exercices du catalogue : fait, une carte est servie dès qu'un exercice enregistré de sa capacité la liste.
+- Plan 3, les statistiques de l'accueil lisent les tentatives par capacité : fait, elles lisent les capacités des deux ensembles du manche (voir « À regarder par l'auteur »).
+- Plan 3, le jeu libre et la carte prennent leurs places dans le code : fait (D11).
+- Plan 3, le jeu libre d'un exercice de mémoire importé déplace-t-il les cartes partagées : reste à l'auteur (voir « À décider par l'auteur »).
+- Plan 3 (du plan 2b), une sauvegarde importée sur un appareil sans les fichiers apporte des cartes non vérifiées : inchangé, au plan 5b.
+- Plan 4b, « En attendant le plan 5 » : fait, l'exercice bloqué sort et la séance continue (D8) ; l'accueil montre le repos. La question reste à l'auteur.
+- Plan 4b, la sorte de séance `'gesture'` : faite. Le bilan et la fin de `domain/gesture/` : au plan 5b.
+- Plan 4b, aucune séance ne joue les passages d'un fichier importé : fait, par une routine ou seul. Un tel exercice n'est toujours pas sous « Exercices ».
+- Plan 4b, le travail de la source par passage non borné : au plan 5b.
+- Plan 4b, le banc ouvert sans exercice à passages : au plan 5b.
+- Plan 4b, le budget par fichier qui compte tours, attentes et filtres : au plan 5b.
+- Plan 4c, `AppServices.gesture()` et la sorte `'gesture'` : faits (`routines()`). `SessionSummary.gesture` et `summary.ts` : au plan 5b.
+- Plan 4c, `VIEW_PRESENTERS` : au plan 5b.
+- Plan 4c, le banc ouvert : au plan 5b.

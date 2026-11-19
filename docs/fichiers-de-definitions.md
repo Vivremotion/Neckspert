@@ -1,19 +1,19 @@
 # Fichiers de définitions
 
-Les capacités, les grilles et les exercices s'écrivent dans des fichiers de définitions JSON. Les fichiers du catalogue, dans `catalog/`, partent avec l'application. Un joueur ajoute les siens par l'écran des réglages, et ils restent chez lui. Les deux ont le même format. Cette page décrit le format avec de la matière commune (des triades arpégées) ; vos propres exercices restent chez vous.
+Les capacités, les grilles, les exercices et les routines s'écrivent dans des fichiers de définitions JSON. Les fichiers du catalogue, dans `catalog/`, partent avec l'application. Un joueur ajoute les siens par l'écran des réglages, et ils restent chez lui. Les deux ont le même format. Cette page décrit le format avec de la matière commune (des triades arpégées) ; vos propres exercices restent chez vous.
 
 ## Où et quand
 
-- Un fichier de définitions peut tenir plusieurs capacités, exercices et grilles (voir « Le fichier »).
+- Un fichier de définitions peut tenir plusieurs capacités, grilles, exercices et routines (voir « Le fichier »).
 - On importe un fichier depuis les réglages, section « Fichiers importés » : choisir un ou plusieurs fichiers `.json`. Cela marche dans toute construction, en développement comme en production. Le fichier est gardé dans la base du navigateur, sous son nom, et lu à chaque démarrage : il suffit de l'importer une fois.
 - Un fichier importé du même nom remplace le précédent, sans confirmation. Le nom est comparé tel quel, majuscules comprises. Pour corriger un fichier, on le réimporte.
-- Supprimer un fichier demande une confirmation. Il retire ses capacités, ses grilles et ses exercices de l'application, mais la progression reste, et se retrouve si l'on réimporte un fichier qui les définit de nouveau. Une progression dont aucun fichier chargé ne donne la définition est gardée et ignorée par les écrans.
+- Supprimer un fichier demande une confirmation. Il retire ses capacités, ses grilles, ses exercices et ses routines de l'application, mais la progression reste, et se retrouve si l'on réimporte un fichier qui les définit de nouveau. Une progression dont aucun fichier chargé ne donne la définition est gardée et ignorée par les écrans.
 - Un fichier de plus d'un million de caractères n'est pas gardé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
 - Vérifier un exercice a des limites, pour qu'un seul exercice ne coûte pas des secondes à vérifier à chaque démarrage. Le total d'un fichier n'est pas encore borné : un très gros fichier d'exercices aux limites peut prendre une demi-minute à charger. Un exercice est refusé s'il écrit plus de 100 niveaux (`levels`), une échelle (`params.ladder`) de plus de 100 niveaux, un niveau dont les `params` ont plus de 200 entrées, plus de 2 000 éléments (`items`), ou si ses éléments multipliés par ses niveaux demandent plus de 20 000 tours à vérifier. Le refus nomme le champ, le nombre écrit et la limite.
 - La sauvegarde (réglages) emporte les fichiers importés avec la progression, et les rend à l'import.
-- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) vide les registres de capacités, d'exercices et de grilles, puis les remplit : les fichiers de `catalog/`, puis les fichiers importés. Le premier écran attend cette lecture.
+- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) vide les registres de capacités, de grilles, d'exercices et de routines, puis les remplit : les fichiers de `catalog/`, puis les fichiers importés. Le premier écran attend cette lecture.
 - Si la lecture des fichiers importés échoue, l'application démarre avec le catalogue seul et le dit par un refus, sous le nom `imported files` : `the imported files could not be read: <message>`. La section « Fichiers importés » des réglages montre ce refus au-dessus de la liste.
-- Un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
+- Un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice se joue seul par `/session?exercise=<id>` (voir « Le jeu libre, et un exercice joué seul »), et dans la séance d'une routine qui le nomme (voir « Une routine »). Sur l'accueil, le bloc « Exercices » ne montre que les exercices qui écrivent une `round` avec une figure et des `levels`, sur une capacité sans cartes.
 - Si le chargement des fichiers importés ne s'est pas terminé la dernière fois, l'application démarre sans eux cette fois-là et le dit ; on peut alors supprimer le dernier fichier ajouté.
 - Aucun dossier du dépôt n'est lu à la construction : un fichier privé se garde où l'on veut, hors du dépôt, et s'importe. Il n'entre jamais dans le catalogue ni dans la construction publiée.
 - Un fichier importé n'est jamais exécuté, et ses textes s'affichent comme du texte.
@@ -23,15 +23,15 @@ Les capacités, les grilles et les exercices s'écrivent dans des fichiers de d�
 Un fichier de définitions est un objet JSON :
 
 ```
-{ "format": 0, "skills": [], "grids": [], "exercises": [] }
+{ "format": 0, "skills": [], "grids": [], "exercises": [], "routines": [] }
 ```
 
 - `format` vaut 0 : le format n'est pas encore stable et changera sans conversion.
-- `skills`, `grids` et `exercises` sont des listes, facultatives ; un fichier peut en tenir plusieurs. `routines` est réservé : vide ou absent.
+- `skills`, `grids`, `exercises` et `routines` sont des listes, facultatives ; un fichier peut en tenir plusieurs.
 - Une capacité s'écrit `{ "id": "…", "name": { "fr": "…", "en": "…" }, "items": "<ensemble>", "memory": false }` ; une capacité de mémoire (`"memory": true`) écrit aussi `"directRecall": { "withinMs": 1500 }`. Les ensembles : `note-on-string`, `placed-note`, `voicing-on-strings`, `placed-voicing`, `placed-shape`, `change`, `figure`.
 - Une clé inconnue au premier niveau, un texte qui n'est pas du JSON ou un fichier de plus d'un million de caractères refusent tout le fichier.
 - Un `id` de capacité, de grille ou d'exercice est fait de lettres, de chiffres, de `-`, de `_` et de `.`, et commence par une lettre ou un chiffre. L'identifiant `unknown` est réservé (capacités et exercices) : la migration le donne aux tentatives que rien ne nomme. Un exercice ne peut pas non plus prendre l'ancien identifiant d'un exercice renommé par la migration 13 (`locate-neck`, `identify-neck`, `triads-anchor`, `triads-zone`, `gesture-link`, `gesture-climb`, `gesture-zone`, `gesture-jam`) : une sauvegarde de sa progression serait refusée.
-- Dans un fichier, deux objets de même `id` dans une liste : le second est refusé. Un exercice et une grille peuvent partager un `id`.
+- Dans un fichier, deux objets de même `id` dans une liste : le second est refusé. Un exercice, une grille et une routine peuvent partager un `id` : chaque sorte a ses propres identifiants.
 
 ## Une grille
 
@@ -185,7 +185,7 @@ Chaque entrée de `items` donne une clé d'élément de l'ensemble `placed-voici
 
 Une capacité de mémoire (`"memory": true`) a une carte par élément : la séance introduit les éléments un à un, les fait revenir, les révise. L'exercice qui la travaille écrit lui-même ce qu'il introduit, dans quel ordre et à quelle condition. Le moteur n'a aucune liste en code.
 
-Aucune séance ne joue encore un exercice de mémoire importé : il est chargé, vérifié, et attend la Bibliothèque.
+Un exercice de mémoire importé se joue dans la séance d'une routine qui le nomme (voir « Une routine »), ou seul, en jeu libre, par `/session?exercise=<id>`. Il n'apparaît pas encore sur l'accueil hors d'une routine : il attend la Bibliothèque.
 
 **La liste.** Un exercice dont la capacité a des cartes écrit `items` : c'est obligatoire. L'ordre de la liste est l'ordre d'introduction : la séance prend le premier élément de la liste qui n'a pas encore de carte, puis le suivant. Un élément ne s'écrit qu'une fois.
 
@@ -227,7 +227,7 @@ pour `identify-note`, et
 
 pour `chord-zone`.
 
-**Ce que le joueur vit.** La séance des notes liste `identify-note` puis `locate-note-string` : si une note déjà placée peut se nommer, elle passe avant une nouvelle note à placer. Un élément n'est jamais demandé deux fois de suite. Une note n'attend plus que son « miroir » soit acquis (le miroir de « A, corde de E grave » était « E, corde de A »), la séance ne cherche plus une autre corde, et les notes des triades en cours d'apprentissage ne viennent plus en premier : rien de cela n'est calculé sur l'état du joueur, seule la liste décide. Cet ordre entre les exercices d'une séance reste en code jusqu'aux routines (plan 5) ; deux exercices d'une même séance sur une même capacité sont refusés par la séance.
+**Ce que le joueur vit.** La séance des notes liste `identify-note` puis `locate-note-string` : si une note déjà placée peut se nommer, elle passe avant une nouvelle note à placer. Un élément n'est jamais demandé deux fois de suite. Une note n'attend plus que son « miroir » soit acquis (le miroir de « A, corde de E grave » était « E, corde de A »), la séance ne cherche plus une autre corde, et les notes des triades en cours d'apprentissage ne viennent plus en premier : rien de cela n'est calculé sur l'état du joueur, seule la liste décide. Cet ordre entre les exercices d'une séance est celui que la routine écrit (`exercises`) ; une routine dont deux exercices travaillent une même capacité est refusée au chargement.
 
 **Refusé** (le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les donne) :
 
@@ -386,7 +386,7 @@ Le contenu de l'attente du tour est un choix de la famille `chord-shapes`. Pour 
 
 ### Ce que la séance joue
 
-La séance « Changements » joue les quatre exercices du catalogue, chacun à son tour, dans l'ordre du lien, de la montée, de la zone et de la lecture. Pour l'exercice dont c'est le tour, elle prend, parmi ses index ouverts, celui qui a été joué le moins récemment (à égalité, le premier écrit).
+La séance d'une routine dont les exercices écrivent `passages` les joue chacun à son tour, dans l'ordre où la routine les liste. La routine « Changements » (`changes`) liste le lien, la montée, la zone et la lecture. Pour l'exercice dont c'est le tour, elle prend, parmi ses index ouverts, celui qui a été joué le moins récemment (à égalité, le premier écrit).
 
 - Chaque passage commence par une mesure comptée, puis ses tours s'enchaînent sans silence.
 - Un passage qui ne peut pas se jouer est sauté : il ne donne aucun membre, plus de 256, un de ses tours ne se compile pas, ou un de ses tours n'admet aucune forme (une zone où un accord n'a pas de forme). La séance essaie alors les valeurs suivantes des paramètres de passage de cet index ; un index sans aucun passage jouable est laissé de côté pour la séance, et un exercice sans index jouable aussi.
@@ -394,7 +394,7 @@ La séance « Changements » joue les quatre exercices du catalogue, chacun à s
 - Une fois la durée de la séance passée, ou dès que la séance juge le joueur fatigué, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
 - « On change d'air » (voir « Les niveaux et l'aide ») peut arrêter un passage en son milieu.
 
-La séance « Changements » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé. Ce sera le rôle des routines. Un tel exercice n'apparaît pas sous « Exercices », même s'il écrit un tour à figure et des niveaux. La liste « Exercices » ne garde que ce que la séance d'exercice sait servir : les éléments écrits (`items`), sinon des figures lues sur les éléments.
+Un exercice de passages d'un fichier importé se joue de la même façon : dans la séance d'une routine qui le nomme, ou seul, par `/session?exercise=<id>` (ses passages, sur ses index ouverts). Il n'apparaît pas sous « Exercices », même s'il écrit un tour à figure et des niveaux. La liste « Exercices » ne garde que ce que la séance d'exercice sait servir : les éléments écrits (`items`), sinon des figures lues sur les éléments.
 
 ### Les niveaux et l'aide
 
@@ -413,7 +413,7 @@ L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage. Le
 Dans le catalogue, les niveaux suivants (♩ = 85 à 120) s'écrivent de la même façon que le niveau 1, avec leur tempo.
 
 - **Un niveau d'aide de l'exercice montre l'aide de sa consigne** (`presentation.aided`, voir « La consigne d'un passage »). Les quatre exercices écrivent `"aided": { "picture": "admitted" }` : sur le manche, les formes que le tour admet. À tout autre niveau, rien n'est dessiné. La règle est la même sur toutes les vues : `aided` se montre à un niveau d'aide de l'exercice, ou pour un élément servi aidé par l'échelle d'un exercice de mémoire. L'ancien paramètre `"shapes": true` n'existe plus : il n'est lu par rien, et un niveau qui l'écrit n'a pas d'aide de plus.
-- **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête juste après ce changement, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure. L'accueil ne montre pas ce repos pour « Changements » : la séance suivante, lancée tout de suite, retombe d'abord sur cet exercice, à son niveau d'aide.
+- **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : juste après ce changement, au milieu du passage, cet exercice sort de la séance et se repose une heure ; pour un exercice de grille, seule la grille où il a bloqué sort. La séance continue avec les autres, et s'arrête quand il ne reste plus rien à jouer (voir « Une routine »). Le bloc « Changements » de l'accueil dit alors « On y revient plus tard ». Le repos ne change pas ce que la séance suivante pioche : lancée tout de suite, elle retombe d'abord sur cet exercice, à son niveau d'aide.
 - **La lecture** (`grid-reading`) a son niveau d'aide comme les trois autres. Son aide dessine toutes les formes de l'accord sur les quatre cordes ré, sol, si, mi, puisque son tour n'a pas de filtre.
 
 ### La consigne d'un passage
@@ -582,17 +582,153 @@ Les cordes à vide sont donc, de la 6 à la 1 : `e,` `a,` `d` `g` `b` `e'`.
 
 Les altérations s'écrivent `is` pour le dièse et `es` pour le bémol, collées à la lettre : `fis`, `bes`, `cis'`. `es` et `as` seuls sont mi♭ et la♭.
 
+## Une routine : une entrée de l'accueil
+
+Une **routine** est une entrée de l'accueil : un titre, et les exercices qu'une séance joue ensemble. Elle s'écrit dans la liste `routines` d'un fichier. Le catalogue en écrit quatre, toutes dans `catalog/routines.json`. La zone des triades :
+
+```json
+{
+	"id": "chords-zone",
+	"title": { "fr": "Triades vers une case", "en": "Triads around a fret" },
+	"exercises": ["chord-zone"],
+	"howTo": {
+		"fr": "« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord…",
+		"en": "…"
+	},
+	"opens": { "acquired": { "skill": "chord-anchor", "atLeast": 6 } }
+}
+```
+
+### Les clés
+
+`id`, `title` et `exercises` sont obligatoires ; `howTo` et `opens` sont facultatives. Une autre clé refuse la routine.
+
+- **`id`** : il s'écrit comme les autres identifiants (lettres, chiffres, `-`, `_`, `.`). Les routines ont leurs propres identifiants : une routine peut porter l'`id` d'un exercice. C'est lui que l'adresse d'une séance nomme : `/session?routine=<id>`.
+- **`title`** : `{ "fr": "…", "en": "…" }`, deux textes non vides. C'est le titre du bloc sur l'accueil, et l'en-tête de l'écran de jeu (les vues des changements et de la figure ne montrent pas encore cet en-tête).
+- **`exercises`** : les identifiants des exercices, de 1 à 32, chacun une fois. L'ordre compte : c'est l'ordre où ils introduisent, ou l'ordre où ils jouent à tour de rôle (voir « Ce qu'une séance joue »).
+- **`howTo`** : `{ "fr": "…", "en": "…" }`, la consigne de l'écran de départ, quand le premier exercice joué n'écrit pas la sienne (son `howTo`). Sans elle, l'écran donne la phrase générale.
+- **`opens`** : l'**ouverture**, ce que le joueur doit savoir pour que la routine soit proposée (voir « L'ouverture »). Sans elle, la routine est ouverte.
+
+Les quatre routines du catalogue, dans l'ordre de l'accueil :
+
+| `id`          | `title`               | `exercises`                                                          | `opens`                                                     |
+| ------------- | --------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `notes`       | Apprentissage (Learn) | `identify-note`, `locate-note-string`                                | aucune                                                      |
+| `chords`      | Triades               | `chord-anchor`                                                       | aucune                                                      |
+| `chords-zone` | Triades vers une case | `chord-zone`                                                         | `{ "acquired": { "skill": "chord-anchor", "atLeast": 6 } }` |
+| `changes`     | Changements           | `inversion-run`, `grid-in-direction`, `grid-in-zone`, `grid-reading` | aucune                                                      |
+
+Chacune écrit aussi son `howTo` : le texte que l'écran de départ montrait pour elle.
+
+### Ce qu'une séance joue
+
+La routine n'écrit pas comment sa séance pioche : cela se déduit de ses exercices.
+
+| Les exercices de la routine                             | La séance                                                                                             |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| tous sur une capacité de mémoire                        | la procédure d'apprentissage, sur les éléments de leurs listes (voir « Un exercice de mémoire »)      |
+| tous sur une capacité sans mémoire, avec `passages`     | chaque exercice à son tour, un passage chacun, puis on recommence (voir « Une suite de changements ») |
+| un mélange, ou un exercice sans mémoire sans `passages` | refusé au chargement                                                                                  |
+
+- **Mémoire.** Entre les exercices, le premier listé qui a un élément prêt introduit. `notes` liste `identify-note` avant `locate-note-string` : nommer une note déjà placée passe avant une nouvelle note à placer. La séance lit les cartes des capacités de ses exercices, et celles que leur condition d'entrée nomme (`params.learning.enter`) : `chord-zone` lit les cartes de `chord-anchor`.
+- **Passages.** Les exercices jouent dans l'ordre de la liste. `changes` : le lien, la montée, la zone, la lecture.
+- Les exercices de rythme n'ont ni mémoire ni passages : ils ne forment pas de routine, ils se jouent seuls.
+- Une séance dure cinq minutes, comme toutes les séances.
+- Une séance de routine écoute avec les capteurs des exercices de **toutes** les routines, pas seulement des siens : ce que les autres capteurs entendent reste gardé sur les tentatives. Un exercice joué seul n'ouvre que ses propres capteurs.
+
+### L'ouverture
+
+`opens` s'écrit sous l'une de quatre formes :
+
+- `{ "acquired": { "skill": "<capacité>", "atLeast": 6 } }` : au moins 6 cartes acquises dans cette capacité. Ne comptent que les cartes marquées acquises qu'une séance peut servir, c'est-à-dire que la liste d'un exercice nomme. Une capacité sans mémoire n'a pas de cartes : rien n'y est jamais acquis.
+- `{ "level": { "exercise": "<exercice>", "scope": "<portée>", "atLeast": 2 } }` : le niveau d'exercice atteint, au moins le niveau 2. Le niveau 1 compte 1 ; un niveau d'aide ne compte jamais. `scope` est facultative : sans elle, c'est le niveau de l'exercice sans portée ; avec elle, celui de cette portée (`"blues-f"` pour une grille). Un exercice qui n'écrit pas de `levels` n'a pas de niveau : la forme n'est jamais vraie.
+- `{ "all": [ … ] }` : toutes les formes de la liste sont vraies.
+- `{ "any": [ … ] }` : au moins une l'est.
+
+`atLeast` est un entier d'au moins 1. Les formes s'emboîtent :
+
+```json
+"opens": {
+	"any": [
+		{ "acquired": { "skill": "chord-anchor", "atLeast": 6 } },
+		{ "level": { "exercise": "grid-reading", "scope": "blues-f", "atLeast": 2 } }
+	]
+}
+```
+
+Une ouverture a au plus 16 termes (chaque forme compte, `all` et `any` comprises) et 4 étages (la forme du dessus est le premier). Chaque limite se vérifie avant de lire plus loin.
+
+**Quand une routine se montre.** L'accueil montre une routine quand tous ses exercices sont définis, que son ouverture est vraie, et qu'un de ses exercices a quelque chose à jouer :
+
+- une routine de mémoire : un élément est prêt à être introduit, ou le joueur a déjà une carte d'un de ses exercices ;
+- une routine de passages : un de ses exercices a un index ouvert (voir `passages.opens`). `changes` n'écrit donc pas d'ouverture : elle se montre dès qu'un index l'est.
+
+Une routine de mémoire reste montrée dès que le joueur a une carte d'un de ses exercices, quelle que soit son ouverture : une entrée déjà jouée ne disparaît pas. L'adresse `/session?routine=<id>` ne lit pas l'ouverture : elle lance la routine, même fermée.
+
+### Sur l'accueil
+
+- Les blocs sont dans l'ordre où les routines sont lues : celles du catalogue, dans l'ordre de `catalog/routines.json`, puis celles des fichiers importés, fichier par fichier dans l'ordre de leurs noms, chacune dans l'ordre de sa liste.
+- Un bloc porte le titre de la routine. Une routine de mémoire dit ses révisions : « N révisions dues », sinon « Prochaines révisions · … », sinon rien quand aucune carte n'est apprise. Une routine de passages n'a pas cette ligne.
+- « On y revient plus tard » s'ajoute quand un de ses exercices se repose (voir plus bas).
+- Un bloc lance `/session?routine=<id>`. La touche Espace et « Commencer » lancent la première routine montrée.
+
+### « On change d'air » dans une séance de plusieurs exercices
+
+Un exercice qui écrit `flow.antiBlocking` peut bloquer : quand il échoue encore à son niveau d'aide le plus bas, c'est « On change d'air » (pour les changements, trois ratés de suite au niveau d'aide). Dans une séance de passages, l'exercice bloqué sort de la séance, sur sa portée (la valeur de `passages.scope` où il a bloqué : pour un exercice de grille, la grille), et se repose une heure. La séance continue avec les autres :
+
+- la ligne d'état dit « On change d'air : <exercice> » (et la grille), jusqu'au premier tour de l'exercice suivant ;
+- l'exercice sorti ne revient pas dans cette séance ; une autre grille du même exercice, si ;
+- la séance s'arrête quand il ne reste plus rien à jouer ; le bilan nomme chaque exercice sorti, dans l'ordre.
+
+Le repos ne change pas ce que la séance suivante pioche. Seule la séance de passages sait laisser un exercice de côté. Ailleurs, « On change d'air » finit la séance, comme avant : un exercice de rythme joué seul, ou un exercice de mémoire qui écrirait `flow.antiBlocking` (aucun du catalogue ne l'écrit).
+
+### Le jeu libre, et un exercice joué seul
+
+- **Le jeu libre d'une routine** : `/session?routine=<id>&free=1`, pour une routine de mémoire seulement. Vingt consignes tirées au hasard parmi les éléments que ses exercices listent, qu'ils aient une carte ou non, chacune au niveau que l'élément tient. L'en-tête dit « Jeu libre ». Une tentative sur une carte apprise et laissée assez longtemps compte à froid. Le lien « Bibliothèque » de la navigation mène au jeu libre de la première routine dont tous les exercices sont de mémoire : aujourd'hui `notes`. Une routine de passages en jeu libre ne se lance pas : `Routine <id> is not played freely: its exercises have no memory`.
+- **Un exercice joué seul** : `/session?exercise=<id>`, pour tout exercice qu'un fichier définit. Il n'ouvre que ses propres capteurs. L'en-tête porte son `title`, sinon le nom de sa capacité.
+  - Un exercice de mémoire se joue en jeu libre, sur les seuls éléments de sa liste ; l'en-tête dit « Jeu libre · <titre> », et son bilan est celui du jeu libre.
+  - Un exercice de passages joue ses passages, sur ses index ouverts.
+  - Un autre exercice se joue comme une séance d'exercice : il faut un tour à figure, des `levels`, une capacité sans mémoire et des éléments ou des figures à servir. Sinon : `Exercise <id> is not played in an exercise session`.
+- Une adresse qui ne nomme ni une routine ni un exercice définis (ou l'ancienne `?kind=…`) dit « Séance introuvable », avec un lien « Retour à l'accueil ». Une adresse qui nomme une routine et un exercice ne lit que la routine.
+
+### Ce qui est lu, et dans quel ordre
+
+Dans une source (le catalogue, puis les fichiers importés), les routines sont lues après les exercices de **tous** les fichiers. Une routine peut donc nommer un exercice de n'importe quel fichier de sa source. Une routine d'un fichier importé peut nommer un exercice du catalogue ; une routine du catalogue, jamais un exercice d'un fichier importé. Une routine qui nomme un exercice refusé est refusée.
+
+### Refusé
+
+Le refus nomme la routine et le champ ; les raisons sont dites comme le code les donne.
+
+À la lecture :
+
+- `a routine must be a JSON object` ; `unknown key "<clé>"` ; un `id` mal écrit (comme pour les autres objets).
+- `title must be { fr, en }, each a text not empty` (de même pour `howTo`).
+- `exercises must be a list of exercise ids` ; `exercises is empty` ; `exercises has <n> entries, more than 32` (mesuré avant de lire les entrées) ; `exercises[<i>] must be a string` ; `exercises[<i>] lists "<id>" a second time`.
+- `opens must be one of { acquired }, { level }, { all }, { any }` (le chemin nommé : `opens.any[1] must be …`) ; `opens.acquired must be { skill, atLeast }` ; `opens.acquired: unknown key "<clé>"` ; `opens.acquired.atLeast must be a positive integer` ; `opens.acquired.skill must be a string` ; `opens.level.exercise must be a string` ; `opens.level.scope must be a string` ; `opens.all must be a list` ; `opens.all is empty` (de même pour `any`) ; `opens has more than 16 terms` ; `opens is deeper than 4 levels`.
+
+Une fois les exercices lus :
+
+- `exercises[<i>]: no file defines the exercise "<id>"`.
+- `exercises[<i>] practises a skill without memory, exercises[0] one with memory: a routine does not mix them` (ou l'inverse).
+- `exercises[<i>] practises the skill "<id>", as exercises[<j>] does` : deux exercices d'une routine ne travaillent jamais la même capacité.
+- `exercises[<i>]: "<id>" practises a skill without memory and writes no passages`.
+- `opens.acquired.skill: no file defines the skill "<id>"` ; `opens.level.exercise: no file defines the exercise "<id>"`, avec le chemin de la forme (`opens.any[1].acquired.skill: …`).
+- `this id is already defined in <fichier>` : une routine de même `id` a déjà été lue.
+
+Le moteur refuse ce qu'il ne sait pas jouer : une routine qui ne mène à rien d'intéressant n'est pas refusée pour autant.
+
 ## Comment un fichier est vérifié
 
 Les fichiers du catalogue d'abord, puis les fichiers importés ; dans chaque source, les fichiers dans l'ordre de leur nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
-2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
+2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`), chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit) et chaque routine (`routineFromJson` : sa forme, ses limites).
 3. Les capacités de tous les fichiers de la source, puis leurs grilles, rejoignent le registre ; ensuite seulement, les exercices de chaque fichier sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la capacité que l'exercice nomme dans `practices` est définie par un fichier lu jusque-là, et l'application sait montrer son ensemble.
 4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour, passages…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
 5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 6. L'ouverture des passages (`passages.opens`) nomme une capacité définie, qui a des cartes, et une correspondance qui existe. Les grilles que nomment les passages sont vérifiées avec eux, à l'étape 4.
 7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient. Pour une capacité ou une grille, ce contrôle se fait quand elle rejoint le registre (étape 3), avant que les exercices du fichier soient vérifiés.
+8. Une fois les exercices de tous les fichiers de la source vérifiés, les routines de chaque fichier : ses exercices existent, ne mêlent pas mémoire et sans mémoire, ne travaillent pas deux fois une capacité, écrivent `passages` quand ils sont sans mémoire, et son ouverture nomme des capacités et des exercices définis (`routineProblem`). Puis son identifiant, comme à l'étape 7.
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.
 
@@ -600,9 +736,9 @@ Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt p�
 
 Un refus n'arrête jamais l'application. Il porte sur un fichier entier (illisible, enveloppe fausse) ou sur un seul objet : le reste du fichier est gardé.
 
-- Dans les réglages, la section « Fichiers importés » liste chaque fichier avec ce qu'il a donné (capacités, grilles, exercices) et ses refus : `<fichier> : <raison>` pour un fichier, ``<fichier>, capacité `<id>` : <raison>``, ``<fichier>, exercice `<id>` : <raison>`` ou ``<fichier>, grille `<id>` : <raison>`` pour un objet (en anglais, `file`, `skill`, `exercise`, `grid`).
+- Dans les réglages, la section « Fichiers importés » liste chaque fichier avec ce qu'il a donné (capacités, grilles, exercices, routines) et ses refus : `<fichier> : <raison>` pour un fichier, ``<fichier>, capacité `<id>` : <raison>``, ``<fichier>, exercice `<id>` : <raison>``, ``<fichier>, grille `<id>` : <raison>`` ou ``<fichier>, routine `<id>` : <raison>`` pour un objet (en anglais, `file`, `skill`, `exercise`, `grid`, `routine`).
 - Sur l'accueil, dans toute construction, une ligne dit qu'un fichier importé a un problème et mène aux réglages. La liste des refus du catalogue n'est montrée qu'en développement.
-- La console reprend chaque refus sous la forme `[imported] <fichier> refused: <raison>` ou `[imported] <fichier>, exercise <id> refused: <raison>` (`skill`, `grid` pour une capacité, une grille), `[catalog]` pour un fichier du catalogue.
+- La console reprend chaque refus sous la forme `[imported] <fichier> refused: <raison>` ou `[imported] <fichier>, exercise <id> refused: <raison>` (`skill`, `grid`, `routine` pour une capacité, une grille, une routine), `[catalog]` pour un fichier du catalogue.
 
 La raison nomme le champ, par exemple `tempo must be a positive number, got -3`.
 
