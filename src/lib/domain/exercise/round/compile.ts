@@ -44,6 +44,9 @@ function memo<T>(cache: ResolutionCache | undefined, key: string, make: () => T)
 	return cache.get(key) as T;
 }
 
+/** The params a round gives its template beside the resolved ones (`roundParamsOf`). */
+export const ROUND_GIVEN_PARAMS: readonly string[] = ['leadBeats', 'previewBeats'];
+
 /**
  * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
  * exercise level's, its item level's), the item's lead and the preview.

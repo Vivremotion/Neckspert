@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { gridFromJson } from './fromJson';
+import { alternatingGrid } from '$lib/testing/changesPassages';
+import { gridFromJson, MAX_GRID_CHANGES } from './fromJson';
 
 const BLUES = {
 	id: 'blues',
@@ -30,6 +31,14 @@ describe('gridFromJson', () => {
 		expect(() => gridFromJson({ ...BLUES, chords: {} })).toThrow(
 			'chords must be a list of { bar, beat, symbol }'
 		));
+	it('reads a grid of as many chords as the limit allows', () =>
+		expect(gridFromJson(alternatingGrid('long', MAX_GRID_CHANGES)).chords).toHaveLength(256));
+	it('refuses more chords than the limit, before reading one', () => {
+		const grid = alternatingGrid('long', 300);
+		expect(() => gridFromJson(grid)).toThrow('chords has 300 entries, more than 256');
+		const unread = { ...grid, chords: Array.from({ length: 50_000 }, () => 'x') };
+		expect(() => gridFromJson(unread)).toThrow('chords has 50000 entries, more than 256');
+	});
 	it('refuses a chord that is no object', () =>
 		expect(() => gridFromJson({ ...BLUES, chords: ['F7'] })).toThrow(
 			'chords[0] must be { bar, beat, symbol }'

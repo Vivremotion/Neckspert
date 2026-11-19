@@ -80,7 +80,7 @@ export const MUSIC_PASSAGE_DERIVATIONS: Readonly<Record<string, PassageDerivatio
 		set: 'change',
 		passageIndex(of): GridChangesIndex {
 			if (typeof of.grid !== 'string') {
-				throw new Error('a passage of grid-changes reads "grid", the id of a grid');
+				throw new Error('"grid" must be the id of a grid');
 			}
 			return { grid: of.grid };
 		},

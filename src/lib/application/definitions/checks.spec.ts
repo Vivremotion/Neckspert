@@ -6,7 +6,7 @@ import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { registerTestSkills } from '$lib/testing/testSkills';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { JAM_PASSAGES, LINK_PASSAGES, PASSAGE_EXERCISES } from '$lib/testing/changesPassages';
-import { definitionChecks } from './checks';
+import { definitionChecks, passagesOpensProblem } from './checks';
 
 registerTestSkills();
 import {
@@ -371,5 +371,37 @@ describe('definitionChecks, the passages an exercise writes', () => {
 		expect(checkPassages(unselected)).toBe(
 			'passages.opens needs a round whose content is a selection'
 		);
+	});
+
+	describe('every selection content of the round', () => {
+		const contents = (...list: unknown[]): ExerciseDefinition => {
+			const round = LINK_PASSAGES.round!;
+			const [expectation] = round.expectations;
+			return {
+				...LINK_PASSAGES,
+				round: {
+					...round,
+					expectations: list.map((content) => ({ ...expectation, content }))
+				} as typeof round
+			};
+		};
+
+		it('accepts contents whose members are items of one set', () => {
+			expect(
+				passagesOpensProblem(contents({ family: 'chord-shapes' }, { family: 'chord-shapes' }))
+			).toBeNull();
+		});
+
+		it('refuses contents whose members are items of different sets', () => {
+			expect(
+				passagesOpensProblem(contents({ family: 'chord-shapes' }, { family: 'grid-changes' }))
+			).toBe('passages.opens needs the round’s contents to give members of one set');
+		});
+
+		it('refuses a content whose members are items of no set, wherever it comes', () => {
+			expect(
+				passagesOpensProblem(contents({ family: 'chord-shapes' }, { family: 'note-places' }))
+			).toBe('passages.opens reads the members of family "note-places", which are items of no set');
+		});
 	});
 });

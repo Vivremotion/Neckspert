@@ -12,6 +12,7 @@ import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { compileRound, type ResolutionCache } from './round/compile';
 import { passagesProblem } from './passage/validate';
+import type { LevelSweep } from './selection/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
@@ -427,10 +428,12 @@ export function validateExercise(
 		if (figures !== null) return figures;
 		const shapes = shapesProblem(definition);
 		if (shapes !== null) return shapes;
-		// Before the round, whose selections read the passage params.
-		const passages = passagesProblem(definition);
+		// Before the round, whose selections read the passage params; the levels swept for the
+		// members' selection serve the round's.
+		const sweep: LevelSweep = new Map();
+		const passages = passagesProblem(definition, sweep);
 		if (passages !== null) return passages;
-		return roundProblem(definition, options) ?? itemsProblem(definition);
+		return roundProblem(definition, options, sweep) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

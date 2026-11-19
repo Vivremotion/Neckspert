@@ -131,10 +131,11 @@ function asksProblem(exercise: ExerciseDefinition, asks: unknown): string | null
 /**
  * Why the opening of a passage's index cannot be read (`passages.opens`, its form checked by
  * `validateExercise`): a skill no file defines or without cards, a round with no member content
- * whose shapes it groups, a correspondence from the items of that content's members to the
- * skill's that does not exist. Null when it can, or when the exercise writes none.
+ * whose shapes it groups, a content whose members are items of no set, contents whose members are
+ * items of different sets, a correspondence from that set to the skill's that does not exist.
+ * Null when it can, or when the exercise writes none.
  */
-function opensProblem(exercise: ExerciseDefinition): string | null {
+export function passagesOpensProblem(exercise: ExerciseDefinition): string | null {
 	const acquired = exercise.passages?.opens?.acquired;
 	if (acquired === undefined) return null;
 	if (!hasSkill(acquired.skill)) {
@@ -143,15 +144,20 @@ function opensProblem(exercise: ExerciseDefinition): string | null {
 	if (!hasCards(acquired.skill)) {
 		return `passages.opens names skill "${acquired.skill}", which has no cards`;
 	}
-	const content = exercise.round?.expectations
+	const contents = (exercise.round?.expectations ?? [])
 		.map((expectation) => (expectation as { content?: unknown }).content)
-		.find(isSelectionTemplate);
-	if (content === undefined) return 'passages.opens needs a round whose content is a selection';
-	const derivation = passageDerivation(content.family);
-	if (derivation === null) {
-		return `passages.opens reads the members of family "${content.family}", which are items of no set`;
+		.filter(isSelectionTemplate);
+	if (contents.length === 0) return 'passages.opens needs a round whose content is a selection';
+	const sets = new Set<string>();
+	for (const { family } of contents) {
+		const derivation = passageDerivation(family);
+		if (derivation === null) {
+			return `passages.opens reads the members of family "${family}", which are items of no set`;
+		}
+		sets.add(derivation.set);
 	}
-	const from = derivation.set;
+	if (sets.size > 1) return 'passages.opens needs the round’s contents to give members of one set';
+	const [from] = sets;
 	const to = skillById(acquired.skill).items;
 	if (correspondence(acquired.item, from, to) === null) {
 		return `passages.opens.acquired.item "${acquired.item}" is no correspondence from ${from} to ${to}`;
@@ -224,7 +230,7 @@ export function definitionChecks(
 				const bad = gestureParamsProblem(exercise.params);
 				if (bad !== null) return bad;
 			}
-			const opens = opensProblem(exercise);
+			const opens = passagesOpensProblem(exercise);
 			if (opens !== null) return opens;
 			const learning = learningProblem(exercise);
 			if (learning !== null) return learning;

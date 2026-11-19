@@ -80,6 +80,19 @@ describe('passageMembers', () => {
 		expect(passageMembers(LINK_PASSAGES, first, {})).toHaveLength(7);
 	});
 
+	it('gives fewer shapes where the neck holds fewer than four, as the link does', () => {
+		for (const [chord, strings] of [
+			['Ebm', [5, 4, 3]],
+			['B', [5, 4, 3]],
+			['F#', [6, 5, 4]]
+		] as const) {
+			const index = { key: `chord=${chord}`, of: { chord, strings } };
+			const shapes = linkShapes(triadOf(chord), [...strings]);
+			expect(shapes).toHaveLength(5);
+			expect(ids(passageMembers(LINK_PASSAGES, index, {}))).toEqual(shapes.map(occurrenceId));
+		}
+	});
+
 	it('goes back down without `andBack` only when the exercise writes it', () => {
 		const once: ExerciseDefinition = {
 			...LINK_PASSAGES,

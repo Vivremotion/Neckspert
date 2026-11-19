@@ -130,3 +130,18 @@ export const PASSAGE_EXERCISES: readonly ExerciseDefinition[] = [
 	ZONE_PASSAGES,
 	JAM_PASSAGES
 ];
+
+/** A grid as a file writes it, of `count` changes: C and F in turn, a bar each. */
+export function alternatingGrid(id: string, count: number) {
+	return {
+		id,
+		title: id,
+		beatsPerBar: 4,
+		bars: count,
+		chords: Array.from({ length: count }, (_, i) => ({
+			bar: i + 1,
+			beat: 1,
+			symbol: i % 2 === 0 ? 'C' : 'F'
+		}))
+	};
+}

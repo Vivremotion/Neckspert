@@ -3,6 +3,7 @@ import {
 	MAX_EXERCISE_ITEMS,
 	MAX_EXERCISE_LEVELS,
 	MAX_LADDER_LEVELS,
+	MAX_PASSAGE_MEMBERS,
 	MAX_LEVEL_PARAMS,
 	MAX_PASSAGE_EACH,
 	MAX_PASSAGE_INDICES,
@@ -11,9 +12,15 @@ import {
 	MAX_SELECTION_FILTERS,
 	MAX_SELECTION_ORDER
 } from '$lib/domain/exercise';
+import { MAX_GRID_CHANGES } from '$lib/domain/grid';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { LOCATE_NECK } from '$lib/testing/catalog';
-import { LINK_CHORDS, LINK_PASSAGES } from '$lib/testing/changesPassages';
+import {
+	alternatingGrid,
+	LINK_CHORDS,
+	LINK_PASSAGES,
+	ZONE_PASSAGES
+} from '$lib/testing/changesPassages';
 import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions } from './definitions';
@@ -69,11 +76,12 @@ function asking(exercise: Record<string, unknown>, content: unknown): Record<str
 	};
 }
 
-/** Loads one imported file holding `exercise`; how long it took and what came of it. */
-function timedLoad(exercise: Record<string, unknown>) {
+/** Loads one imported file holding `exercise` (and `grids`); how long it took and what came of it. */
+function timedLoad(exercise: Record<string, unknown>, grids: unknown[] = []) {
 	const text = JSON.stringify({
 		format: 0,
 		skills: [TEST_PLACED_VOICING_SKILL],
+		grids,
 		exercises: [exercise]
 	});
 	const start = performance.now();
@@ -263,13 +271,76 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(ms).toBeLessThan(BUDGET_MS);
 	});
 
+	it('loads the most passage indices allowed on a grid of the most changes allowed', () => {
+		const grid = alternatingGrid('h-grid', MAX_GRID_CHANGES);
+		const zone = JSON.parse(JSON.stringify(ZONE_PASSAGES));
+		const { ms, refusals } = timedLoad(
+			{
+				...zone,
+				id: 'h-grid-indices',
+				// Drawn by the grid's view, whose params are the changes' until Task 5.
+				view: 'grid-scroll',
+				params: {
+					...zone.params,
+					rule: 'jam',
+					qualities: ['maj', 'min'],
+					stringSets: [
+						[3, 2, 1],
+						[4, 3, 2]
+					]
+				},
+				passages: {
+					...zone.passages,
+					of: {
+						grid: ['h-grid'],
+						n: Array.from({ length: MAX_PASSAGE_INDICES }, (_, i) => i)
+					}
+				}
+			},
+			[grid]
+		);
+		expect(refusals).toEqual([]);
+		expect(MAX_GRID_CHANGES).toBeLessThanOrEqual(MAX_PASSAGE_MEMBERS);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads members and a round reading the same params with the most filters, at the most levels and ladder levels', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
+			params: manyParams(MAX_LEVEL_PARAMS)
+		}));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+		}));
+		const zones = Object.fromEntries(
+			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
+		);
+		const filters = Object.keys(zones).map((z) => ({ in: { frets: { param: `zones.${z}` } } }));
+		const link = linkJson('h-shared');
+		const { ms, refusals } = timedLoad(
+			asking(
+				{
+					...link,
+					params: { ladder, zones },
+					levels,
+					passages: {
+						...(link.passages as object),
+						members: { family: 'chord-shapes', where: filters, take: 4, andBack: true }
+					}
+				},
+				{ family: 'chord-shapes', where: filters }
+			)
+		);
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
 	it('refuses fast passages over their limits', () => {
 		const link = linkJson('h-over');
 		const passages = link.passages as object;
 		const cases: [unknown, string][] = [
 			[
 				{ ...passages, of: { chord: Array.from({ length: 50_000 }, (_, i) => i), x: [1, 2] } },
-				'passages.of gives 100000 indices, more than 500'
+				'passages.of gives more than 500 indices'
 			],
 			[
 				{ ...passages, each: { z: Array.from({ length: 50_000 }, () => [0, 24]) } },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { registerGrid } from '$lib/domain/grid/registry';
-import type { ChordGrid } from '$lib/domain/grid';
+import { gridFromJson, MAX_GRID_CHANGES } from '$lib/domain/grid';
 import {
+	alternatingGrid,
 	CLIMB_PASSAGES,
 	LINK_PASSAGES,
 	PASSAGE_EXERCISES,
@@ -9,7 +10,12 @@ import {
 } from '$lib/testing/changesPassages';
 import type { ExerciseDefinition } from '../types';
 import { validateExercise } from '../validate';
-import { MAX_PASSAGE_EACH, MAX_PASSAGE_INDICES, MAX_PASSAGE_MEMBERS } from './validate';
+import {
+	MAX_PASSAGE_EACH,
+	MAX_PASSAGE_INDICES,
+	MAX_PASSAGE_MEMBERS,
+	MAX_REST_BARS
+} from './validate';
 
 /** `exercise` with its passages changed by `change` (a key set to undefined is left out). */
 function passing(
@@ -58,20 +64,19 @@ describe('the passages an exercise writes', () => {
 	});
 
 	it('refuses more indices than the limit, before reading a value', () => {
-		const chord = Array.from({ length: 600 }, () => ({ deep: true }));
-		expect(
-			refusal(
-				passing(LINK_PASSAGES, {
-					of: {
-						chord,
-						strings: [
-							[3, 2, 1],
-							[4, 3, 2]
-						]
-					}
-				})
-			)
-		).toBe(`passages.of gives 1200 indices, more than ${MAX_PASSAGE_INDICES}`);
+		// The product passes the limit at its last list: told whole.
+		const chord = Array.from({ length: 300 }, () => ({ deep: true }));
+		const strings = Array.from({ length: 4 }, () => ({ deep: true }));
+		expect(refusal(passing(LINK_PASSAGES, { of: { chord, strings } }))).toBe(
+			`passages.of gives 1200 indices, more than ${MAX_PASSAGE_INDICES}`
+		);
+	});
+
+	it('stops multiplying past the limit, never telling an endless product', () => {
+		const of = Object.fromEntries(Array.from({ length: 2000 }, (_, i) => [`k${i}`, [1, 2]]));
+		expect(refusal(passing(LINK_PASSAGES, { of }))).toBe(
+			`passages.of gives more than ${MAX_PASSAGE_INDICES} indices`
+		);
 	});
 
 	it.each([
@@ -103,8 +108,8 @@ describe('the passages an exercise writes', () => {
 		expect(refusal(passing(LINK_PASSAGES, { members: { family: 'nope' } }))).toBe(
 			'passages.members names family "nope", which is not registered'
 		);
-		expect(refusal(passing(LINK_PASSAGES, { members: undefined }))).toMatch(
-			/^passages.members must be a selection/
+		expect(refusal(passing(LINK_PASSAGES, { members: undefined }))).toBe(
+			'passages.members must be a selection { family, where?, order?, take?, andBack? }'
 		);
 	});
 
@@ -148,7 +153,7 @@ describe('the passages an exercise writes', () => {
 
 	it('refuses an index the family cannot read, checked on every index', () => {
 		expect(refusal(passing(ZONE_PASSAGES, { of: { grid: ['iohefy-a', 'nowhere'] } }))).toBe(
-			'passages.of gives no index of grid-changes: grid-changes: unknown grid "nowhere"'
+			'passages.of gives no index of grid-changes: unknown grid "nowhere"'
 		);
 		expect(
 			refusal(passing(LINK_PASSAGES, { of: { chord: ['C', 'H'], strings: [[3, 2, 1]] } }))
@@ -157,26 +162,38 @@ describe('the passages an exercise writes', () => {
 			/^passages.of gives no index of chord-shapes: .*strings/
 		);
 		expect(refusal(passing(LINK_PASSAGES, { of: { chord: ['C'], strings: [[3, 1]] } }))).toMatch(
-			/^passages.of gives no index of chord-shapes: chord-shapes needs three/
+			/^passages.of gives no index of chord-shapes: needs three/
 		);
 	});
 
-	it('refuses a passage of more members than the limit, naming its index', () => {
-		const long: ChordGrid = {
-			id: 'test-long',
-			title: 'Long',
-			beatsPerBar: 4,
-			bars: 300,
-			chords: Array.from({ length: 300 }, (_, i) => ({
-				bar: i + 1,
-				beat: 1,
-				symbol: i % 2 === 0 ? 'C' : 'F'
-			}))
-		} as ChordGrid;
-		registerGrid(long, 'test');
-		expect(refusal(passing(ZONE_PASSAGES, { of: { grid: ['iohefy-a', 'test-long'] } }))).toBe(
-			`passages.members gives 300 members for index grid=test-long, more than ${MAX_PASSAGE_MEMBERS}`
-		);
+	describe('the members of a passage', () => {
+		// A grid at the limit of a file's grids: 256 changes, back down 511.
+		registerGrid(gridFromJson(alternatingGrid('test-long', MAX_GRID_CHANGES)), 'test');
+		const long = (members: Record<string, unknown>, each?: Record<string, unknown[]>) =>
+			passing(ZONE_PASSAGES, {
+				of: { grid: ['iohefy-a', 'test-long'] },
+				members: { family: 'grid-changes', ...members },
+				...(each && { each: { zone: [[1, 5]], ...each } })
+			});
+
+		it('refuses a passage of more members than the limit, naming its index', () => {
+			expect(refusal(long({}))).toBeNull();
+			expect(refusal(long({ andBack: true }))).toBe(
+				`passages.members gives 511 members for index grid=test-long, more than ${MAX_PASSAGE_MEMBERS}`
+			);
+		});
+
+		it('bounds every passage of an index: a take or a filter read in a passage param is left out', () => {
+			expect(refusal(long({ andBack: true, take: { param: 't' } }, { t: [1, 100_000] }))).toBe(
+				`passages.members gives 511 members for index grid=test-long, more than ${MAX_PASSAGE_MEMBERS}`
+			);
+			expect(refusal(long({ andBack: true, take: 2 }))).toBeNull();
+		});
+
+		it('keeps a take read in the exercise’s params, which no passage changes', () => {
+			const taking = long({ andBack: true, take: { param: 't' } });
+			expect(refusal({ ...taking, params: { ...taking.params, t: 3 } })).toBeNull();
+		});
 	});
 
 	it.each([
@@ -205,6 +222,34 @@ describe('the passages an exercise writes', () => {
 		);
 	});
 
+	it('refuses a passage param of the name of a key of passages.of', () => {
+		expect(refusal(passing(CLIMB_PASSAGES, { each: { strings: [[3, 2, 1]] } }))).toBe(
+			'passages.each.strings is also a key of passages.of'
+		);
+	});
+
+	it('refuses a passage param an exercise level or a ladder level writes', () => {
+		const levels = CLIMB_PASSAGES.levels!.map((level, i) =>
+			i === 2 ? { ...level, params: { ...level.params, 'direction.x': 1 } } : level
+		);
+		expect(refusal({ ...CLIMB_PASSAGES, levels })).toBe(
+			'passages.each.direction is also written at a level'
+		);
+		const ladder = [{ params: { leadBeats: 2, aided: false, direction: 'up' } }];
+		expect(refusal({ ...CLIMB_PASSAGES, params: { ladder } })).toBe(
+			'passages.each.direction is also written at a level'
+		);
+	});
+
+	it.each(['leadBeats', 'previewBeats'])(
+		'refuses a passage param named %s, which the round gives',
+		(name) => {
+			expect(refusal(passing(CLIMB_PASSAGES, { each: { [name]: [1] } }))).toBe(
+				`passages.each.${name} is a name the round gives`
+			);
+		}
+	);
+
 	it('refuses a passage param that does not fit where the round reads it', () => {
 		expect(refusal(passing(CLIMB_PASSAGES, { each: { direction: ['up', 'sideways'] } }))).toBe(
 			'round.expectations[0].content.where[0].position.toward reads param "direction", which passages.each.direction[1] gives as "sideways", not up or down'
@@ -232,6 +277,14 @@ describe('the passages an exercise writes', () => {
 		],
 		['chord-anchor', 'passages.opens must be { acquired: { skill, item, need? } }'],
 		[
+			{ acquired: { skill: 'chord-anchor', item: 'voicing' }, x: 1 },
+			'passages.opens must be { acquired: { skill, item, need? } }'
+		],
+		[
+			{ acquired: { skill: 'chord-anchor', item: 'voicing', x: 1 } },
+			'passages.opens must be { acquired: { skill, item, need? } }'
+		],
+		[
 			{ acquired: { skill: 'chord-anchor', item: 'voicing', need: 'all' } },
 			'passages.opens.acquired.need must be "every-group" or "one-group"'
 		]
@@ -241,8 +294,9 @@ describe('the passages an exercise writes', () => {
 
 	it.each([
 		[{ again: 'always' }, 'passages.again must be "until-passed"'],
-		[{ restBars: -1 }, 'passages.restBars must be a non-negative integer'],
-		[{ restBars: 1.5 }, 'passages.restBars must be a non-negative integer'],
+		[{ restBars: -1 }, `passages.restBars must be a whole number from 0 to ${MAX_REST_BARS}`],
+		[{ restBars: 1.5 }, `passages.restBars must be a whole number from 0 to ${MAX_REST_BARS}`],
+		[{ restBars: 17 }, `passages.restBars must be a whole number from 0 to ${MAX_REST_BARS}`],
 		[{ passes: 0 }, 'passages.passes must be a number above 0 and at most 1'],
 		[{ passes: 1.2 }, 'passages.passes must be a number above 0 and at most 1'],
 		[{ passes: '1' }, 'passages.passes must be a number above 0 and at most 1'],
@@ -252,7 +306,8 @@ describe('the passages an exercise writes', () => {
 		expect(refusal(passing(LINK_PASSAGES, change))).toBe(reason);
 	});
 
-	it('accepts a restBars of 0 and passes of 1', () => {
+	it('accepts a restBars of 0 or 16 and passes of 1', () => {
 		expect(refusal(passing(LINK_PASSAGES, { restBars: 0, passes: 1 }))).toBeNull();
+		expect(refusal(passing(LINK_PASSAGES, { restBars: 16 }))).toBeNull();
 	});
 });

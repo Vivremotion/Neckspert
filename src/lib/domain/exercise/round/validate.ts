@@ -906,13 +906,14 @@ function templateProblem(check: Check): string | null {
  */
 export function roundProblem(
 	definition: ExerciseDefinition,
-	options: RoundCheckOptions = {}
+	options: RoundCheckOptions = {},
+	sweep: LevelSweep = new Map()
 ): string | null {
 	if (definition.round === undefined) return null;
 	return templateProblem({
 		definition,
 		params: exerciseParamsOf(definition),
 		options,
-		sweep: new Map()
+		sweep
 	});
 }

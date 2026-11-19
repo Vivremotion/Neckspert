@@ -96,7 +96,7 @@ export const GUITAR_PASSAGE_DERIVATIONS: Readonly<Record<string, PassageDerivati
 		set: 'placed-voicing',
 		passageIndex(of, params): ChordShapesIndex {
 			if (typeof of.chord !== 'string') {
-				throw new Error('a passage of chord-shapes reads "chord", a chord symbol');
+				throw new Error('"chord" must be a chord symbol');
 			}
 			const strings = of.strings ?? params.strings;
 			if (!Array.isArray(strings)) {

@@ -2,6 +2,12 @@ import { checkedId } from '$lib/domain/definitions/ids';
 import { gridChanges, type ChordGrid, type GridChord } from './grid';
 import { parseChordSymbol } from './symbols';
 
+/**
+ * The most chords a grid may write, counted before any is read or merged: a passage lists a
+ * grid's changes, once per index.
+ */
+export const MAX_GRID_CHANGES = 256;
+
 const GRID_KEYS = ['id', 'title', 'beatsPerBar', 'bars', 'chords'];
 const CHORD_KEYS = ['bar', 'beat', 'symbol'];
 
@@ -41,6 +47,9 @@ export function gridFromJson(json: unknown): ChordGrid {
 		throw new Error('bars must be a positive integer');
 	}
 	if (!Array.isArray(chords)) throw new Error('chords must be a list of { bar, beat, symbol }');
+	if (chords.length > MAX_GRID_CHANGES) {
+		throw new Error(`chords has ${chords.length} entries, more than ${MAX_GRID_CHANGES}`);
+	}
 	const grid: ChordGrid = {
 		id: gridId,
 		title,
