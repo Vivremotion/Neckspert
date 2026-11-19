@@ -188,6 +188,32 @@ describe('HomeScreen', () => {
 			expect(screen.getByRole('link', { name: /Offbeats/ }).textContent).toContain('Exercises');
 		});
 	});
+	describe('imported files with a problem', () => {
+		it('shows nothing at zero', () => {
+			render(HomeScreen, { props: props({ importedProblems: 0 }) });
+			expect(screen.queryByText(/problème/)).toBeNull();
+			expect(screen.queryByRole('link', { name: 'Voir dans les réglages' })).toBeNull();
+		});
+
+		it('tells one file and links to the settings section', () => {
+			render(HomeScreen, { props: props({ importedProblems: 1 }) });
+			expect(screen.getByText('Un fichier importé a un problème.')).toBeTruthy();
+			const link = screen.getByRole('link', { name: 'Voir dans les réglages' });
+			expect(link.getAttribute('href')).toMatch(/\/settings#imported-files$/);
+		});
+
+		it('tells several files', () => {
+			render(HomeScreen, { props: props({ importedProblems: 3 }) });
+			expect(screen.getByText('3 fichiers importés ont un problème.')).toBeTruthy();
+		});
+
+		it('says it in English', () => {
+			i18n.locale = 'en';
+			render(HomeScreen, { props: props({ importedProblems: 2 }) });
+			expect(screen.getByText('2 imported files have a problem.')).toBeTruthy();
+			expect(screen.getByRole('link', { name: 'See in the settings' })).toBeTruthy();
+		});
+	});
 	describe('definition files refused', () => {
 		const refused: Refusal[] = [
 			{ file: '/exercises.local/broken.json', kind: 'file', id: null, reason: 'unknown key "x"' },

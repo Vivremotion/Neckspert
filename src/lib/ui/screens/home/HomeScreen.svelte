@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import type { TriadsHome } from '$lib/application/app';
 	import type { Refusal } from '$lib/domain/definitions';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
@@ -25,7 +26,8 @@
 		ongesture,
 		exercises,
 		resting = [],
-		refused = []
+		refused = [],
+		importedProblems = 0
 	}: {
 		stats: HomeStats;
 		now: number;
@@ -44,6 +46,8 @@
 		resting?: readonly string[];
 		/** What the definition files refused, with the reason; development builds pass them. */
 		refused?: readonly Refusal[];
+		/** How many imported files have a refusal; shown in every build. */
+		importedProblems?: number;
 	} = $props();
 
 	const t = $derived(homeMessages());
@@ -138,6 +142,12 @@
 		</p>
 		<Button onclick={onstart}>{t.start}</Button>
 	</footer>
+	{#if importedProblems > 0}
+		<p class="imported-problems">
+			{t.importedProblems(importedProblems)}
+			<a href={`${resolve('/settings')}#imported-files`}>{t.importedProblemsLink}</a>
+		</p>
+	{/if}
 	{#if refused.length > 0}
 		<section class="refused" aria-label={t.refusedTitle}>
 			<h2>{t.refusedTitle}</h2>
@@ -157,6 +167,23 @@
 		justify-content: space-between;
 		gap: var(--np-step-2);
 		margin-top: var(--np-step-6);
+	}
+
+	.imported-problems {
+		margin: var(--np-step-6) 0 0;
+		color: var(--np-earth-text);
+		font-size: var(--np-size-meta);
+	}
+
+	.imported-problems a {
+		color: inherit;
+		text-decoration: underline;
+		text-underline-offset: 4px;
+	}
+
+	.imported-problems a:focus-visible {
+		outline: 2px solid currentColor;
+		outline-offset: 4px;
 	}
 
 	.refused {

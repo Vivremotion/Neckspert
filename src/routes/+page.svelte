@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { useAppServices } from '$lib/application/app';
 	import type { TriadsHome } from '$lib/application/app';
+	import { importedProblemCount } from '$lib/application/definitions/problems';
 	import { loadedDefinitions } from '$lib/composition/definitions';
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
@@ -12,7 +13,7 @@
 
 	function refusalsLoaded() {
 		const loaded = loadedDefinitions();
-		return loaded ? [...loaded.catalog.refusals, ...loaded.imported.refusals] : [];
+		return loaded ? loaded.catalog.refusals : [];
 	}
 
 	let stats = $state<HomeStats | null>(null);
@@ -97,5 +98,6 @@
 		exercises={exerciseSessionExercises()}
 		{resting}
 		refused={dev ? refusalsLoaded() : []}
+		importedProblems={importedProblemCount(services.definitions.refusals())}
 	/>
 {/if}

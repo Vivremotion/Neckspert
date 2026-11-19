@@ -31,4 +31,14 @@ describe('/ page', () => {
 		expect(goto).not.toHaveBeenCalled();
 		link.remove();
 	});
+
+	it('tells that an imported file has a problem', async () => {
+		const services = createFakeAppServices();
+		services.definitions.refusals = () => [
+			{ file: 'a.json', kind: 'file', id: null, reason: 'no' },
+			{ file: 'a.json', kind: 'exercise', id: 'x', reason: 'no' }
+		];
+		render(TestHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByText('Un fichier importé a un problème.')).toBeTruthy());
+	});
 });

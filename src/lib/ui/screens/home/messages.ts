@@ -14,6 +14,9 @@ export const homeMessages = defineMessages({
 		exercises: 'Exercices',
 		resting: 'On y revient plus tard',
 		refusedTitle: 'Fichiers refusés',
+		importedProblems: (n: number) =>
+			n === 1 ? 'Un fichier importé a un problème.' : `${n} fichiers importés ont un problème.`,
+		importedProblemsLink: 'Voir dans les réglages',
 		triadsDue: (n: number) =>
 			n === 1 ? '1 révision de triades due' : `${n} révisions de triades dues`,
 		due: (n: number) => (n === 1 ? '1 révision due' : `${n} révisions dues`),
@@ -41,6 +44,9 @@ export const homeMessages = defineMessages({
 		exercises: 'Exercises',
 		resting: 'Back to it later',
 		refusedTitle: 'Files refused',
+		importedProblems: (n: number) =>
+			n === 1 ? 'An imported file has a problem.' : `${n} imported files have a problem.`,
+		importedProblemsLink: 'See in the settings',
 		triadsDue: (n: number) => (n === 1 ? '1 triad review due' : `${n} triad reviews due`),
 		due: (n: number) => (n === 1 ? '1 review due' : `${n} reviews due`),
 		nextReviews: 'Next reviews',
