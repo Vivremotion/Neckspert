@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import {
-	DEFAULT_SETTINGS,
 	sessionOriginOf,
 	type Attempt,
 	type CardState,
@@ -70,58 +69,8 @@ const RECORD_EXECUTIONS: SessionRecord['executions'] = [
 ];
 
 describe('computeHomeStats', () => {
-	it('has nothing due and no next review on a fresh install', () => {
-		const stats = computeHomeStats({
-			cards: [],
-			attempts: [],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(0);
-		expect(stats.nextReviewAt).toBeNull();
-	});
-
-	it('counts due reviews but not a card played in free play ten minutes ago', () => {
-		const learnedDue = (target: NeckCard, due: number): CardState => {
-			const card = learnedAt(
-				introduced(target, NOW - 3 * MIN_COLD_DELAY_MS, 's0'),
-				NOW - 2 * MIN_COLD_DELAY_MS
-			);
-			return { ...card, scheduling: { ...card.scheduling, due } };
-		};
-		const recent = NOW - 10 * 60 * 1000;
-		const stats = computeHomeStats({
-			cards: [learnedDue(L1, NOW - 5), learnedDue(L2, NOW - 1)],
-			attempts: [
-				coldAttempt({
-					...on(L2),
-					phase: 'free',
-					temperature: 'hot',
-					promptedAt: recent
-				})
-			],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(1);
-		expect(stats.nextReviewAt).toBe(NOW - 5);
-	});
-
-	it('tells when the next review comes when nothing is due', () => {
-		const card = learnedAt(introduced(L1, NOW - 3 * MIN_COLD_DELAY_MS, 's0'), NOW);
-		const stats = computeHomeStats({
-			cards: [{ ...card, scheduling: { ...card.scheduling, due: NOW + 10_000 } }],
-			attempts: [],
-			settings: DEFAULT_SETTINGS,
-			now: NOW
-		});
-		expect(stats.dueCount).toBe(0);
-		expect(stats.nextReviewAt).toBe(NOW + 10_000);
-	});
-
 	it('scores cold correct locate notes by distance to the beat', () => {
 		const stats = computeHomeStats({
-			cards: [],
 			attempts: [
 				coldAttempt({ reactionMs: 6000, timingOffsetMs: 20 }),
 				coldAttempt({ reactionMs: 6000, timingOffsetMs: -40 }),
@@ -138,7 +87,6 @@ describe('computeHomeStats', () => {
 					reactionMs: 400
 				})
 			],
-			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(30);
@@ -146,12 +94,10 @@ describe('computeHomeStats', () => {
 
 	it('leaves off-beat answers out of the distance to the beat', () => {
 		const stats = computeHomeStats({
-			cards: [],
 			attempts: [
 				coldAttempt({ timingOffsetMs: 20 }),
 				coldAttempt({ verdict: 'offbeat', timingOffsetMs: 1500 })
 			],
-			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(20);
@@ -194,9 +140,7 @@ describe('computeHomeStats', () => {
 			})
 		];
 		const stats = computeHomeStats({
-			cards: [],
 			attempts: [...previous, ...recent],
-			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.medianColdOffsetMs).toBe(55);
@@ -205,9 +149,7 @@ describe('computeHomeStats', () => {
 
 	it('returns a null trend when either window is empty', () => {
 		const stats = computeHomeStats({
-			cards: [],
 			attempts: [coldAttempt({ promptedAt: NOW - 1000, reactionMs: 900 })],
-			settings: DEFAULT_SETTINGS,
 			now: NOW
 		});
 		expect(stats.trend).toBeNull();

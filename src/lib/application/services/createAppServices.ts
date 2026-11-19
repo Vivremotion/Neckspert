@@ -1,4 +1,4 @@
-import type { AppServices, DiagnosticsService } from '$lib/application/app';
+import type { AppServices, DiagnosticsService, RoutineEntry } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import type { DefinitionsService } from '$lib/application/definitions/service';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
@@ -39,6 +39,7 @@ import {
 	type ItemSource,
 	isNeck,
 	lastAttemptByCard,
+	nextReviewAt,
 	reviewableCards,
 	summarizeSession
 } from '$lib/domain/progress';
@@ -50,12 +51,14 @@ import {
 	type LearningSubject
 } from '$lib/domain/learning';
 import { hasCards } from '$lib/domain/skill/registry';
-import { triadZoneOpen, type TriadSkill } from '$lib/domain/triads';
+import { opened, routines as registeredRoutines, type Known } from '$lib/domain/routine';
+import type { TriadSkill } from '$lib/domain/triads';
 import {
 	isTriadsKind,
 	sessionKindOf,
 	type Attempt,
 	type CardKey,
+	type CardState,
 	type ExerciseSummary,
 	type SessionKind,
 	type SkillId,
@@ -351,6 +354,80 @@ export function createAppServices(
 		return played?.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 	};
 
+	/** What the home is told of the routines, read once from the stores. */
+	const routineEntries = async (): Promise<RoutineEntry[]> => {
+		const [cards, attempts, levels] = await Promise.all([
+			deps.cards.all(),
+			deps.attempts.all(),
+			deps.levels.all()
+		]);
+		const now = deps.now();
+		const last = lastAttemptByCard(attempts);
+		const history = new Map<CardKey, Attempt[]>();
+		for (const attempt of [...attempts].sort((a, b) => a.promptedAt - b.promptedAt)) {
+			history.set(attempt.cardKey, [...(history.get(attempt.cardKey) ?? []), attempt]);
+		}
+		// Acquired as the passages' openings read it: any card marked acquired.
+		const acquiredKeys = new Set(
+			cards.filter((card) => card.acquiredAt !== null).map((card) => card.key)
+		);
+		// An opening counts the cards a session can serve: a card no list names opens nothing.
+		const served = servedCards(cards);
+		const known: Known = {
+			acquired: (skill) =>
+				served.filter((card) => card.skill === skill && card.acquiredAt !== null).length,
+			level: (exercise, scope) => {
+				const state = levels.find(
+					(level) =>
+						level.exerciseId === exercise && level.scope === (scope ?? '') && level.item === ''
+				);
+				// Index 0 is level 1.
+				return state ? state.level + 1 : null;
+			}
+		};
+
+		const entryOf = (routine: ReturnType<typeof registeredRoutines>[number]): RoutineEntry => {
+			const found = routine.exercises.map((id) => exerciseFound(id));
+			const exercises = found.filter((exercise) => exercise !== undefined);
+			const resting = levels.some(
+				(level) =>
+					routine.exercises.includes(level.exerciseId) &&
+					typeof level.resumeAfter === 'number' &&
+					level.resumeAfter > now
+			);
+			const memory =
+				exercises.length > 0 && exercises.every((exercise) => hasCards(exercise.practices));
+			let playable: boolean;
+			let due: number | null = null;
+			let next: number | null = null;
+			if (memory) {
+				// Its reviews are the served cards of the skills its exercises practise.
+				const subject = exerciseSubject({ exercises, attempts });
+				const skills = new Set(exercises.map((exercise) => exercise.practices));
+				const own: CardState[] = cards.filter(
+					(card) => skills.has(card.skill) && subject.owns(card)
+				);
+				due = reviewableCards(own, last, now).length;
+				next = nextReviewAt(own, last);
+				playable = own.length > 0 || subject.nextNew(cards, history, () => false) !== null;
+			} else {
+				playable = exercises.some(
+					(exercise) => exercise.passages !== undefined && passagesOpen(exercise, acquiredKeys)
+				);
+			}
+			return {
+				id: routine.id,
+				title: routine.title,
+				// A routine one of whose exercises no file defines any more cannot be started.
+				open: exercises.length === found.length && playable && opened(routine.opens, known),
+				due,
+				nextReviewAt: next,
+				resting
+			};
+		};
+		return registeredRoutines().map(entryOf);
+	};
+
 	return {
 		settings: deps.settings,
 		// The data a backup replaces includes the imported files: the registries follow it.
@@ -367,41 +444,12 @@ export function createAppServices(
 		diagnostics: deps.diagnostics,
 
 		async homeStats() {
-			const [cards, attempts, settings] = await Promise.all([
-				deps.cards.all(),
-				deps.attempts.all(),
-				deps.settings.get()
-			]);
-			// The home number and its reviews are the neck's; the triads count theirs apart.
-			return computeHomeStats({
-				cards: servedCards(cards.filter(isNeck)),
-				attempts: attempts.filter(isNeck),
-				settings,
-				now: deps.now()
-			});
+			const attempts = await deps.attempts.all();
+			// The gap to the beat and its trend are the neck's.
+			return computeHomeStats({ attempts: attempts.filter(isNeck), now: deps.now() });
 		},
 
-		async triads() {
-			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
-			const last = lastAttemptByCard(attempts);
-			const due = (skill: TriadSkill) =>
-				reviewableCards(servedCards(cards.filter((card) => card.skill === skill)), last, deps.now())
-					.length;
-			return {
-				anchorDue: due(CHORD_ANCHOR_SKILL_ID),
-				zoneDue: triadZoneOpen(servedCards(cards)) ? due(CHORD_ZONE_SKILL_ID) : null
-			};
-		},
-
-		async gesture() {
-			const cards = await deps.cards.all();
-			const acquired = new Set(
-				cards.filter((card) => card.acquiredAt !== null).map((card) => card.key)
-			);
-			return {
-				open: gestureExercises().some((definition) => passagesOpen(definition, acquired))
-			};
-		},
+		routines: routineEntries,
 
 		async contest(attemptId: number, reason?: string) {
 			await deps.attempts.setContested(attemptId, reason);

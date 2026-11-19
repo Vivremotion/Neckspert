@@ -10,7 +10,7 @@ const routine = (id: string): RoutineDefinition => ({
 
 describe('the routine registry', () => {
 	it('holds the catalog the test setup loads, in the order registered', () => {
-		expect(routines().map((r) => r.id)).toEqual(['changes', 'chords', 'chords-zone', 'notes']);
+		expect(routines().map((r) => r.id)).toEqual(['notes', 'chords', 'chords-zone', 'changes']);
 	});
 
 	it('registers a routine once, giving the holder of a taken id', () => {

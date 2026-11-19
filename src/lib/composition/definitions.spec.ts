@@ -193,11 +193,12 @@ describe('loadDefinitions', () => {
 		]);
 		expect(refusals[2].reason).toBe('exercises[0]: no file defines the exercise "on-broken"');
 		expect(allExercises().map((exercise) => exercise.id)).toContain('kept');
+		// The catalog's routines first, in the order written, then the imported file's.
 		expect(routines().map((r) => r.id)).toEqual([
-			'changes',
+			'notes',
 			'chords',
 			'chords-zone',
-			'notes',
+			'changes',
 			'my-notes'
 		]);
 	});

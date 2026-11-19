@@ -33,10 +33,10 @@ it.each(['iohefy-a', 'blues-f'])('keeps the grid %s as it is', (id) => {
 });
 it('holds exactly the four routines', () => {
 	expect(routines().map((routine) => routine.id)).toEqual([
-		'changes',
+		'notes',
 		'chords',
 		'chords-zone',
-		'notes'
+		'changes'
 	]);
 });
 it.each(['notes', 'chords', 'chords-zone', 'changes'])('keeps the routine %s as it is', (id) => {

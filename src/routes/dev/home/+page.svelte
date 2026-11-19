@@ -1,40 +1,55 @@
 <script lang="ts">
-	import type { TriadsHome } from '$lib/application/app';
+	import type { RoutineEntry } from '$lib/application/app';
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { HomeStats } from '$lib/domain/types';
 	import HomeScreen from '$lib/ui/screens/home/HomeScreen.svelte';
 
-	const fixtures: { label: string; stats: HomeStats; now: number; triads?: TriadsHome }[] = [
+	/** A routine as the service would tell it; fixtures only, the titles written here. */
+	const routine = (
+		id: string,
+		fr: string,
+		en: string,
+		over: Partial<RoutineEntry> = {}
+	): RoutineEntry => ({
+		id,
+		title: { fr, en },
+		open: true,
+		due: 0,
+		nextReviewAt: null,
+		resting: false,
+		...over
+	});
+
+	const fixtures: { label: string; stats: HomeStats; now: number; routines: RoutineEntry[] }[] = [
 		{
 			label: 'learn, reviews due',
 			now: 0,
-			triads: { anchorDue: 4, zoneDue: 2 },
-			stats: {
-				dueCount: 6,
-				nextReviewAt: null,
-				medianColdOffsetMs: 40,
-				trend: 'improving'
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn', { due: 6 }),
+				routine('b', 'Triades', 'Triads', { due: 4 }),
+				routine('c', 'Triades vers une case', 'Triads around a fret', { due: 2 }),
+				routine('d', 'Changements', 'Changes', { due: null, resting: true })
+			],
+			stats: { medianColdOffsetMs: 40, trend: 'improving' }
 		},
 		{
 			label: 'first visit',
 			now: 0,
-			stats: {
-				dueCount: 0,
-				nextReviewAt: null,
-				medianColdOffsetMs: null,
-				trend: null
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn'),
+				routine('b', 'Triades', 'Triads'),
+				routine('c', 'Triades vers une case', 'Triads around a fret', { open: false })
+			],
+			stats: { medianColdOffsetMs: null, trend: null }
 		},
 		{
 			label: 'learn, next reviews later',
 			now: 0,
-			stats: {
-				dueCount: 0,
-				nextReviewAt: 2 * 60 * 60 * 1000,
-				medianColdOffsetMs: 80,
-				trend: 'worsening'
-			}
+			routines: [
+				routine('a', 'Apprentissage', 'Learn', { nextReviewAt: 2 * 60 * 60 * 1000 }),
+				routine('b', 'Triades', 'Triads', { nextReviewAt: 26 * 60 * 60 * 1000 })
+			],
+			stats: { medianColdOffsetMs: 80, trend: 'worsening' }
 		}
 	];
 </script>
@@ -47,8 +62,8 @@
 				stats={fixture.stats}
 				now={fixture.now}
 				onstart={() => {}}
-				triads={fixture.triads}
-				ontriads={() => {}}
+				routines={fixture.routines}
+				onroutine={() => {}}
 				exercises={exerciseSessionExercises()}
 			/>
 		</section>

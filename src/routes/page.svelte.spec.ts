@@ -1,11 +1,30 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import type { RoutineEntry } from '$lib/application/app';
 import { i18n } from '$lib/i18n/index.svelte';
 import { createFakeAppServices } from '$lib/ui/screens/calibration/fakeServices';
 import TestHarness from './TestHarness.svelte';
 
 const goto = vi.hoisted(() => vi.fn());
 vi.mock('$app/navigation', () => ({ goto }));
+
+/** The four routines of the catalog as the service tells them, each open unless `closed`. */
+function catalogRoutines(closed: readonly string[] = []): RoutineEntry[] {
+	const entry = (id: string, fr: string, en: string, memory: boolean): RoutineEntry => ({
+		id,
+		title: { fr, en },
+		open: !closed.includes(id),
+		due: memory ? 0 : null,
+		nextReviewAt: null,
+		resting: false
+	});
+	return [
+		entry('notes', 'Apprentissage', 'Learn', true),
+		entry('chords', 'Triades', 'Triads', true),
+		entry('chords-zone', 'Triades vers une case', 'Triads around a fret', true),
+		entry('changes', 'Changements', 'Changes', false)
+	];
+}
 
 describe('/ page', () => {
 	afterEach(() => {
@@ -15,8 +34,55 @@ describe('/ page', () => {
 	});
 
 	it('starts learn on Space when nothing has the focus', async () => {
-		render(TestHarness, { props: { services: createFakeAppServices() } });
+		const services = createFakeAppServices({ routines: async () => catalogRoutines() });
+		render(TestHarness, { props: { services } });
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Commencer' })).toBeTruthy());
+		await fireEvent.keyDown(document.body, { code: 'Space', key: ' ' });
+		expect(goto).toHaveBeenCalledWith('/session?kind=learn');
+	});
+
+	it('starts each routine of the catalog from its block, by the kind of its session', async () => {
+		const services = createFakeAppServices({ routines: async () => catalogRoutines() });
+		render(TestHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByRole('button', { name: /^Triades$/ })).toBeTruthy());
+		await fireEvent.click(screen.getByRole('button', { name: /^Apprentissage/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Triades$/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Triades vers une case/ }));
+		await fireEvent.click(screen.getByRole('button', { name: /^Changements/ }));
+		expect(goto.mock.calls.map(([url]) => url)).toEqual([
+			'/session?kind=learn',
+			'/session?kind=triads',
+			'/session?kind=triads-zone',
+			'/session?kind=gesture'
+		]);
+	});
+
+	it('shows only the open routines', async () => {
+		const services = createFakeAppServices({
+			routines: async () => catalogRoutines(['chords-zone', 'changes'])
+		});
+		render(TestHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByRole('button', { name: /^Triades$/ })).toBeTruthy());
+		expect(screen.queryByText(/vers une case/)).toBeNull();
+		expect(screen.queryByText(/Changements/)).toBeNull();
+	});
+
+	it('shows a routine the stored origins do not know, with no start yet', async () => {
+		const imported: RoutineEntry = {
+			id: 'my-routine',
+			title: { fr: 'Ma routine', en: 'My routine' },
+			open: true,
+			due: 0,
+			nextReviewAt: null,
+			resting: false
+		};
+		const services = createFakeAppServices({
+			routines: async () => [imported, ...catalogRoutines()]
+		});
+		render(TestHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByText('Ma routine')).toBeTruthy());
+		expect(screen.queryByRole('button', { name: /Ma routine/ })).toBeNull();
+		// Space starts the first open routine that can be started.
 		await fireEvent.keyDown(document.body, { code: 'Space', key: ' ' });
 		expect(goto).toHaveBeenCalledWith('/session?kind=learn');
 	});

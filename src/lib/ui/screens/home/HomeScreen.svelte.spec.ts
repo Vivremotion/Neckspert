@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Refusal } from '$lib/domain/definitions';
 import { exerciseSessionExercises } from '$lib/domain/exercise';
 import type { HomeStats } from '$lib/domain/types';
+import type { RoutineEntry } from '$lib/application/app';
 import { i18n } from '$lib/i18n/index.svelte';
 import HomeScreen from './HomeScreen.svelte';
 
@@ -12,16 +13,41 @@ afterEach(() => {
 });
 
 const base: HomeStats = {
-	dueCount: 0,
-	nextReviewAt: null,
 	medianColdOffsetMs: 40,
 	trend: 'improving'
 };
+
+/** A catalog routine as the service tells it on a fresh install, then `over`. */
+function routine(id: string, over: Partial<RoutineEntry> = {}): RoutineEntry {
+	const titles: Record<string, [string, string]> = {
+		notes: ['Apprentissage', 'Learn'],
+		chords: ['Triades', 'Triads'],
+		'chords-zone': ['Triades vers une case', 'Triads around a fret'],
+		changes: ['Changements', 'Changes']
+	};
+	const [fr, en] = titles[id];
+	const memory = id !== 'changes';
+	return {
+		id,
+		title: { fr, en },
+		open: id === 'notes' || id === 'chords',
+		due: memory ? 0 : null,
+		nextReviewAt: null,
+		resting: false,
+		...over
+	};
+}
+
+/** The four routines, in the order registered, each changed by `over[id]`. */
+const routines = (over: Record<string, Partial<RoutineEntry>> = {}) =>
+	['notes', 'chords', 'chords-zone', 'changes'].map((id) => routine(id, over[id]));
 
 const props = (over: Record<string, unknown> = {}) => ({
 	stats: base,
 	now: 0,
 	onstart: () => {},
+	routines: routines(),
+	onroutine: () => {},
 	...over
 });
 
@@ -43,12 +69,33 @@ describe('HomeScreen', () => {
 		expect(first.textContent).toContain('5 min');
 	});
 
-	it('starts from the block title and from Commencer', async () => {
+	it('shows the open routines in the order told, titled in the player’s language', () => {
+		render(HomeScreen, {
+			props: props({
+				routines: routines({ 'chords-zone': { open: true }, changes: { open: true } })
+			})
+		});
+		const titles = within(blocks())
+			.getAllByRole('listitem')
+			.map((item) => item.querySelector('b')?.textContent);
+		expect(titles).toEqual(['Apprentissage', 'Triades', 'Triades vers une case', 'Changements']);
+	});
+
+	it('starts a routine from its block title, and Commencer from onstart', async () => {
 		const onstart = vi.fn();
-		render(HomeScreen, { props: props({ onstart }) });
+		const onroutine = vi.fn();
+		render(HomeScreen, { props: props({ onstart, onroutine }) });
 		await fireEvent.click(within(blocks()).getByRole('button', { name: /Apprentissage/ }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Commencer' }));
-		expect(onstart).toHaveBeenCalledTimes(2);
+		expect(onroutine).toHaveBeenCalledWith('notes');
+		expect(onstart).toHaveBeenCalledOnce();
+	});
+
+	it('gives no start to a routine that cannot be started yet', () => {
+		render(HomeScreen, { props: props({ startable: (id: string) => id !== 'chords' }) });
+		expect(screen.getByText('Triades')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /^Triades$/ })).toBeNull();
+		expect(screen.getByRole('button', { name: /Apprentissage/ })).toBeTruthy();
 	});
 
 	it('has Commencer as its only primary button', () => {
@@ -59,28 +106,24 @@ describe('HomeScreen', () => {
 	});
 
 	it('says nothing about reviews on the first visit', () => {
-		const first: HomeStats = {
-			dueCount: 0,
-			nextReviewAt: null,
-			medianColdOffsetMs: null,
-			trend: null
-		};
-		render(HomeScreen, { props: props({ stats: first }) });
+		render(HomeScreen, { props: props({ stats: { medianColdOffsetMs: null, trend: null } }) });
 		expect(screen.queryByText(/révision/i)).toBeNull();
 		expect(screen.getByText('Apprentissage')).toBeTruthy();
 	});
 
 	it('counts the reviews due as the why of the first block', () => {
-		render(HomeScreen, { props: props({ stats: { ...base, dueCount: 6 } }) });
+		render(HomeScreen, { props: props({ routines: routines({ notes: { due: 6 } }) }) });
 		const first = within(blocks()).getAllByRole('listitem')[0];
 		expect(first.textContent).toContain('6 révisions dues');
 		cleanup();
-		render(HomeScreen, { props: props({ stats: { ...base, dueCount: 1 } }) });
+		render(HomeScreen, { props: props({ routines: routines({ notes: { due: 1 } }) }) });
 		expect(screen.getByText('1 révision due')).toBeTruthy();
 	});
 
 	it('tells when the next reviews come', () => {
-		render(HomeScreen, { props: props({ stats: { ...base, nextReviewAt: 2 * 60 * 60 * 1000 } }) });
+		render(HomeScreen, {
+			props: props({ routines: routines({ notes: { nextReviewAt: 2 * 60 * 60 * 1000 } }) })
+		});
 		expect(screen.getByText('Prochaines révisions · Dans 2 h')).toBeTruthy();
 	});
 
@@ -99,66 +142,103 @@ describe('HomeScreen', () => {
 	it('switches copy to English', () => {
 		i18n.locale = 'en';
 		render(HomeScreen, {
-			props: props({ stats: { ...base, dueCount: 2, medianColdOffsetMs: 12, trend: 'stable' } })
+			props: props({
+				stats: { medianColdOffsetMs: 12, trend: 'stable' },
+				routines: routines({ notes: { due: 2 } })
+			})
 		});
 		expect(screen.getByRole('heading', { level: 1, name: 'Practice' })).toBeTruthy();
 		expect(screen.getByRole('list', { name: 'Sessions' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: /^Learn/ })).toBeTruthy();
 		expect(screen.getByText('2 reviews due')).toBeTruthy();
 		expect(screen.getByText('From the beat')).toBeTruthy();
 		expect(screen.getByText('12 ms')).toBeTruthy();
 	});
 
 	it('lists the triads block with its reviews due, without when none', async () => {
-		const ontriads = vi.fn();
-		render(HomeScreen, {
-			props: props({ triads: { anchorDue: 3, zoneDue: null }, ontriads })
-		});
-		expect(screen.getByText('3 révisions de triades dues')).toBeTruthy();
+		const onroutine = vi.fn();
+		render(HomeScreen, { props: props({ routines: routines({ chords: { due: 3 } }), onroutine }) });
+		// Plan 5a: the triads tell their reviews in the words of every routine.
+		expect(screen.getByText('3 révisions dues')).toBeTruthy();
 		expect(screen.queryByText(/vers une case/i)).toBeNull();
 		await fireEvent.click(screen.getByRole('button', { name: /^Triades$/ }));
-		expect(ontriads).toHaveBeenCalledWith('triads');
+		expect(onroutine).toHaveBeenCalledWith('chords');
 		cleanup();
-		render(HomeScreen, {
-			props: props({ triads: { anchorDue: 0, zoneDue: null }, ontriads: () => {} })
-		});
+		render(HomeScreen, { props: props() });
 		expect(screen.getByRole('button', { name: /^Triades$/ })).toBeTruthy();
-		expect(screen.queryByText(/triades dues?/i)).toBeNull();
+		expect(screen.queryByText(/dues?/i)).toBeNull();
+	});
+
+	it('tells when the next triad reviews come, when none is due', () => {
+		// Plan 5a: the triads blocks show their next reviews, as the notes do.
+		render(HomeScreen, {
+			props: props({
+				routines: routines({
+					chords: { nextReviewAt: 2 * 60 * 60 * 1000 },
+					'chords-zone': { open: true, nextReviewAt: 3 * 24 * 60 * 60 * 1000 }
+				})
+			})
+		});
+		const [, chords, zone] = within(blocks()).getAllByRole('listitem');
+		expect(chords.textContent).toContain('Prochaines révisions · Dans 2 h');
+		expect(zone.textContent).toContain('Prochaines révisions · Dans 3 j');
 	});
 
 	it('offers the zone once open, with its reviews due', async () => {
-		const ontriads = vi.fn();
+		const onroutine = vi.fn();
 		render(HomeScreen, {
-			props: props({ triads: { anchorDue: 0, zoneDue: 2 }, ontriads })
+			props: props({ routines: routines({ 'chords-zone': { open: true, due: 2 } }), onroutine })
 		});
 		expect(screen.getByText('2 révisions dues')).toBeTruthy();
 		await fireEvent.click(screen.getByRole('button', { name: /Triades vers une case/ }));
-		expect(ontriads).toHaveBeenCalledWith('triads-zone');
+		expect(onroutine).toHaveBeenCalledWith('chords-zone');
 	});
 
-	it('offers the gesture track once open', async () => {
-		const ongesture = vi.fn();
-		render(HomeScreen, { props: props({ gesture: { open: false }, ongesture }) });
+	it('offers the gesture track once open, with no line of reviews', async () => {
+		const onroutine = vi.fn();
+		render(HomeScreen, { props: props({ onroutine }) });
 		expect(screen.queryByRole('button', { name: /changements/i })).toBeNull();
 		cleanup();
-		render(HomeScreen, { props: props({ gesture: { open: true }, ongesture }) });
-		await fireEvent.click(screen.getByRole('button', { name: /changements/i }));
-		expect(ongesture).toHaveBeenCalledOnce();
+		render(HomeScreen, {
+			props: props({ routines: routines({ changes: { open: true } }), onroutine })
+		});
+		const button = screen.getByRole('button', { name: /changements/i });
+		expect(button.closest('li')?.querySelector('.why')).toBeNull();
+		await fireEvent.click(button);
+		expect(onroutine).toHaveBeenCalledWith('changes');
 	});
 
 	it('calls the gesture track « Changements », « Changes » in English', () => {
-		render(HomeScreen, { props: props({ gesture: { open: true }, ongesture: vi.fn() }) });
+		const open = { routines: routines({ changes: { open: true } }) };
+		render(HomeScreen, { props: props(open) });
 		expect(screen.getByRole('button', { name: /^Changements/ })).toBeTruthy();
 		expect(screen.queryByText(/geste/i)).toBeNull();
 		cleanup();
 		i18n.locale = 'en';
 		try {
-			render(HomeScreen, { props: props({ gesture: { open: true }, ongesture: vi.fn() }) });
+			render(HomeScreen, { props: props(open) });
 			expect(screen.getByRole('button', { name: /^Changes/ })).toBeTruthy();
 			expect(screen.queryByText(/gesture/i)).toBeNull();
 		} finally {
 			i18n.locale = 'fr';
 		}
+	});
+
+	it('marks a routine resting, beside its reviews', () => {
+		render(HomeScreen, {
+			props: props({
+				routines: routines({
+					chords: { resting: true, due: 1 },
+					changes: { open: true, resting: true }
+				})
+			})
+		});
+		const [, chords, changes] = within(blocks()).getAllByRole('listitem');
+		expect(chords.querySelector('.why')?.textContent).toBe(
+			'1 révision due · On y revient plus tard'
+		);
+		expect(changes.querySelector('.why')?.textContent).toBe('On y revient plus tard');
 	});
 
 	describe('exercises', () => {
@@ -167,6 +247,7 @@ describe('HomeScreen', () => {
 		it('has no exercise block without the exercises', () => {
 			render(HomeScreen, { props: props() });
 			expect(screen.queryAllByRole('link')).toHaveLength(0);
+			expect(screen.queryByText('Exercices')).toBeNull();
 		});
 
 		it('has one block per exercise, each linking to its own session', () => {

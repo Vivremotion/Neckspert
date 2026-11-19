@@ -108,8 +108,6 @@ export class FakeBackup implements BackupPort {
 }
 
 const EMPTY_HOME: HomeStats = {
-	dueCount: 0,
-	nextReviewAt: null,
 	medianColdOffsetMs: null,
 	trend: null
 };
@@ -146,8 +144,7 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 
 	return {
 		homeStats: async () => EMPTY_HOME,
-		triads: async () => ({ anchorDue: 0, zoneDue: null }),
-		gesture: async () => ({ open: false }),
+		routines: async () => [],
 		contest: async () => {},
 		replayRun: async () => {},
 		stopReplay: () => {},

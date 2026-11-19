@@ -15,7 +15,6 @@ import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill';
 import { clearRoutines, routines } from '$lib/domain/routine/registry';
 import { i18n } from '$lib/i18n/index.svelte';
 import { playMessages } from '$lib/ui/play/messages';
-import { homeMessages } from '$lib/ui/screens/home/messages';
 import { CATALOG_FILES } from './catalogFiles';
 
 function load() {
@@ -27,12 +26,13 @@ function load() {
 }
 
 describe('the catalog files', () => {
-	it('holds the four files', () => {
+	it('holds the five files', () => {
 		expect(Object.keys(CATALOG_FILES).sort()).toEqual([
 			'/catalog/changes.json',
 			'/catalog/chords.json',
 			'/catalog/notes.json',
-			'/catalog/rhythm.json'
+			'/catalog/rhythm.json',
+			'/catalog/routines.json'
 		]);
 	});
 
@@ -115,31 +115,48 @@ describe('the catalog files', () => {
 		});
 	});
 
-	it('writes the four routines, each in the file of its exercises', () => {
+	it('writes the four routines in one file, in the order of the home', () => {
 		expect(load()).toEqual([]);
 		expect(routines().map((r) => [r.id, r.exercises, r.opens])).toEqual([
-			[
-				'changes',
-				['inversion-run', 'grid-in-direction', 'grid-in-zone', 'grid-reading'],
-				undefined
-			],
+			['notes', ['identify-note', 'locate-note-string'], undefined],
 			['chords', ['chord-anchor'], undefined],
 			['chords-zone', ['chord-zone'], { acquired: { skill: 'chord-anchor', atLeast: 6 } }],
-			['notes', ['identify-note', 'locate-note-string'], undefined]
+			['changes', ['inversion-run', 'grid-in-direction', 'grid-in-zone', 'grid-reading'], undefined]
 		]);
+		for (const [name, text] of Object.entries(CATALOG_FILES)) {
+			const routinesWritten = (JSON.parse(text) as { routines?: unknown[] }).routines ?? [];
+			expect(routinesWritten.length, name).toBe(name === '/catalog/routines.json' ? 4 : 0);
+		}
 	});
 
-	it('titles the routines and tells their how-to as the screens do today, word for word', () => {
+	it('titles the routines as the home did and tells their how-to as the screens do today', () => {
 		expect(load()).toEqual([]);
+		// The home's block titles, which the routines now give it.
+		const titles = {
+			fr: {
+				notes: 'Apprentissage',
+				chords: 'Triades',
+				'chords-zone': 'Triades vers une case',
+				changes: 'Changements'
+			},
+			en: {
+				notes: 'Learn',
+				chords: 'Triads',
+				'chords-zone': 'Triads around a fret',
+				changes: 'Changes'
+			}
+		};
 		const told = (locale: 'fr' | 'en') => {
 			i18n.locale = locale;
-			const home = homeMessages();
 			const play = playMessages();
 			return {
-				notes: { title: home.session, howTo: play.howTo.learn },
-				chords: { title: home.triads, howTo: play.howTo.triads },
-				'chords-zone': { title: home.triadsZone, howTo: play.howTo['triads-zone'] },
-				changes: { title: home.gesture, howTo: play.howTo.gesture }
+				notes: { title: titles[locale].notes, howTo: play.howTo.learn },
+				chords: { title: titles[locale].chords, howTo: play.howTo.triads },
+				'chords-zone': {
+					title: titles[locale]['chords-zone'],
+					howTo: play.howTo['triads-zone']
+				},
+				changes: { title: titles[locale].changes, howTo: play.howTo.gesture }
 			};
 		};
 		try {

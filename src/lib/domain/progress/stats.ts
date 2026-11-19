@@ -9,8 +9,7 @@ import {
 	type HomeStats,
 	type NeckMapCell,
 	type SessionRecord,
-	type SessionSummary,
-	type Settings
+	type SessionSummary
 } from '$lib/domain/types';
 import {
 	IDENTIFY_SKILL_ID,
@@ -23,7 +22,7 @@ import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
-import { lastAttemptByCard, nextReviewAt, reviewableCards } from './review';
+import { lastAttemptByCard, nextReviewAt } from './review';
 
 function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
@@ -86,21 +85,11 @@ function trendFor(attempts: readonly Attempt[], now: number): HomeStats['trend']
 	return 'stable';
 }
 
-export function computeHomeStats(input: {
-	cards: readonly CardState[];
-	attempts: readonly Attempt[];
-	settings: Settings;
-	now: number;
-}): HomeStats {
-	const medianColdOffsetMs = median(locateOffsets(input.attempts));
-	const trend = trendFor(input.attempts, input.now);
-
-	const last = lastAttemptByCard(input.attempts);
+/** The gap to the beat of the cold locate notes, and its trend; the reviews are the routines'. */
+export function computeHomeStats(input: { attempts: readonly Attempt[]; now: number }): HomeStats {
 	return {
-		dueCount: reviewableCards(input.cards, last, input.now).length,
-		nextReviewAt: nextReviewAt(input.cards, last),
-		medianColdOffsetMs,
-		trend
+		medianColdOffsetMs: median(locateOffsets(input.attempts)),
+		trend: trendFor(input.attempts, input.now)
 	};
 }
 

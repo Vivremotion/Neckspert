@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import type { TriadsHome } from '$lib/application/app';
+	import type { RoutineEntry } from '$lib/application/app';
 	import type { Refusal } from '$lib/domain/definitions';
 	import type { ExerciseDefinition } from '$lib/domain/exercise';
 	import { SESSION_MS } from '$lib/domain/session/policy';
@@ -20,10 +20,9 @@
 		stats,
 		now,
 		onstart,
-		triads = { anchorDue: 0, zoneDue: null },
-		ontriads,
-		gesture = { open: false },
-		ongesture,
+		routines = [],
+		onroutine,
+		startable = () => true,
 		exercises,
 		resting = [],
 		refused = [],
@@ -31,15 +30,14 @@
 	}: {
 		stats: HomeStats;
 		now: number;
+		/** « Commencer » (and Space, on the page): the first open routine. */
 		onstart: () => void;
-		/** The triads exercises: reviews due, and whether the zone is open. */
-		triads?: TriadsHome;
-		/** Starts a session of one triads exercise; without it, no triads block. */
-		ontriads?: (kind: 'triads' | 'triads-zone') => void;
-		/** The gesture track: offered once one of its exercises is open. */
-		gesture?: { open: boolean };
-		/** Starts a gesture session; without it, no gesture block. */
-		ongesture?: () => void;
+		/** Every routine, in the order registered; the open ones are shown. */
+		routines?: readonly RoutineEntry[];
+		/** Starts a session of the routine; without it, no routine block can be started. */
+		onroutine?: (id: string) => void;
+		/** Whether the routine of `id` can be started yet (the bridge of the home page). */
+		startable?: (id: string) => boolean;
 		/** The exercises played on their own, each a link to its session; without them, no such block. */
 		exercises?: readonly Pick<ExerciseDefinition, 'id' | 'title'>[];
 		/** Exercises resting after « On change d’air »: marked, still to be played. */
@@ -54,18 +52,28 @@
 
 	const words = $derived({ short: t.minutes, spoken: t.minutesSpoken });
 
+	const offered = $derived(routines.filter((routine) => routine.open));
+
 	/** Due reviews, or when the next ones come; nothing without a learned card. */
-	const reviews = $derived.by((): string | null => {
-		if (stats.dueCount > 0) return t.due(stats.dueCount);
-		if (stats.nextReviewAt == null) return null;
-		const delay = formatRelativeDelay(stats.nextReviewAt, now, {
+	function reviewsOf(routine: RoutineEntry): string | null {
+		if (routine.due !== null && routine.due > 0) return t.due(routine.due);
+		if (routine.nextReviewAt === null) return null;
+		const delay = formatRelativeDelay(routine.nextReviewAt, now, {
 			soon: t.soon,
 			inMinutes: t.inMinutes,
 			inHours: t.inHours,
 			inDays: t.inDays
 		});
 		return `${t.nextReviews} · ${delay}`;
-	});
+	}
+
+	/** Its reviews, and « au repos » as an exercise's entry marks it. */
+	function whyOf(routine: RoutineEntry): string | undefined {
+		const lines = [reviewsOf(routine), routine.resting ? t.resting : null].filter(
+			(line) => line !== null
+		);
+		return lines.length > 0 ? lines.join(' · ') : undefined;
+	}
 
 	const reaction = $derived(
 		stats.medianColdOffsetMs == null
@@ -82,42 +90,14 @@
 	);
 
 	const blocks = $derived.by((): Block[] => {
-		const list: Block[] = [
-			{
-				key: 'learn',
-				title: t.session,
-				why: reviews ?? undefined,
-				// The notes play on the session controller: one session length, as every exercise.
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: onstart
-			}
-		];
-		if (ontriads) {
-			list.push({
-				key: 'triads',
-				title: t.triads,
-				why: triads.anchorDue > 0 ? t.triadsDue(triads.anchorDue) : undefined,
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: () => ontriads('triads')
-			});
-			if (triads.zoneDue !== null) {
-				list.push({
-					key: 'triads-zone',
-					title: t.triadsZone,
-					why: triads.zoneDue > 0 ? t.due(triads.zoneDue) : undefined,
-					duration: formatMinutes(SESSION_MS, words),
-					onselect: () => ontriads('triads-zone')
-				});
-			}
-		}
-		if (ongesture && gesture.open) {
-			list.push({
-				key: 'gesture',
-				title: t.gesture,
-				duration: formatMinutes(SESSION_MS, words),
-				onselect: ongesture
-			});
-		}
+		const list: Block[] = offered.map((routine) => ({
+			key: `routine-${routine.id}`,
+			title: routine.title[i18n.locale],
+			why: whyOf(routine),
+			// Every session plays on the session controller: one session length.
+			duration: formatMinutes(SESSION_MS, words),
+			...(onroutine && startable(routine.id) && { onselect: () => onroutine(routine.id) })
+		}));
 		for (const exercise of exercises ?? []) {
 			list.push({
 				key: `exercise-${exercise.id}`,
@@ -133,7 +113,11 @@
 </script>
 
 <Page title={t.title}>
-	<BlockList label={t.blocks} {blocks} current="learn" />
+	<BlockList
+		label={t.blocks}
+		{blocks}
+		current={offered[0] ? `routine-${offered[0].id}` : undefined}
+	/>
 	<footer>
 		<p class="gap">
 			<span class="label">{t.reactionLabel}</span>

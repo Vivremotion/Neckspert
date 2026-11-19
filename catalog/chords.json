@@ -585,37 +585,5 @@
 				"A#|min|4:b3,3:5,2:1"
 			]
 		}
-	],
-	"routines": [
-		{
-			"id": "chords",
-			"title": {
-				"fr": "Triades",
-				"en": "Triads"
-			},
-			"exercises": ["chord-anchor"],
-			"howTo": {
-				"fr": "« C · fondamentale sur sol » : quand la case atteint le trait, joue la fondamentale seule sur cette corde, puis plaque l’accord sur les trois cordes indiquées pendant la bande qui suit. Le clic sort des enceintes de l’ordinateur.",
-				"en": "“C · root on G”: when its tile reaches the line, play the root alone on that string, then strum the chord on the three strings shown during the band that follows. The click comes from the computer speakers."
-			}
-		},
-		{
-			"id": "chords-zone",
-			"title": {
-				"fr": "Triades vers une case",
-				"en": "Triads around a fret"
-			},
-			"exercises": ["chord-zone"],
-			"howTo": {
-				"fr": "« C · vers la case 5 » : quand la case atteint le trait, plaque l’accord d’un coup, sur les trois cordes indiquées, dans la forme qui couvre cette case. Pas de fondamentale seule ici. Le clic sort des enceintes de l’ordinateur.",
-				"en": "“C · around fret 5”: when its tile reaches the line, strum the chord at once, on the three strings shown, in the shape that covers that fret. No root alone here. The click comes from the computer speakers."
-			},
-			"opens": {
-				"acquired": {
-					"skill": "chord-anchor",
-					"atLeast": 6
-				}
-			}
-		}
 	]
 }

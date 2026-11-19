@@ -1,5 +1,7 @@
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CATALOG_FILES } from '$lib/composition/catalogFiles';
+import { loadDefinitions } from '$lib/composition/definitions';
 import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
 import type {
@@ -121,6 +123,18 @@ function harness(options: { development?: boolean } = {}): {
 }
 
 /** A learned triad card, due at once. */
+/** A routine as the home is told it on a fresh install: closed, nothing due, nothing resting. */
+function entry(id: string, fr: string, en: string) {
+	return {
+		id,
+		title: { fr, en },
+		open: false,
+		due: null as number | null,
+		nextReviewAt: null,
+		resting: false
+	};
+}
+
 function learnedTriad(skill: 'chord-anchor' | 'chord-zone', key: string): CardState {
 	const card = markLearned(
 		introduceCard({ key: `${skill}:${key}`, skill, item: { voicingKey: key } }, 0, 's-old'),
@@ -188,7 +202,7 @@ describe('createAppServices', () => {
 	it('wires homeStats, neckMap and sessionSummary through C and A', async () => {
 		const { services } = harness();
 		const stats = await services.homeStats();
-		expect(stats.dueCount).toBe(0);
+		expect(stats).toEqual({ medianColdOffsetMs: null, trend: null });
 		const map = await services.neckMap();
 		expect(map).toHaveLength(66);
 		expect(map[0]).toHaveProperty('pitch');
@@ -376,11 +390,23 @@ describe('createAppServices', () => {
 		expect(summary.sessionId).toBe(controller.sessionId);
 	});
 
+	it('starts the zone closed and no change open when nothing is acquired', async () => {
+		const { services } = harness();
+		expect(await services.routines()).toEqual([
+			{ ...entry('notes', 'Apprentissage', 'Learn'), open: true, due: 0 },
+			{ ...entry('chords', 'Triades', 'Triads'), open: true, due: 0 },
+			{ ...entry('chords-zone', 'Triades vers une case', 'Triads around a fret'), due: 0 },
+			entry('changes', 'Changements', 'Changes')
+		]);
+	});
+
 	it('counts the triad reviews due apart from the notes, the zone closed', async () => {
 		const { services, deps } = harness();
 		await deps.cards.put(learnedTriad('chord-anchor', 'D|maj|3:5,2:1,1:3'));
-		expect(await services.triads()).toEqual({ anchorDue: 1, zoneDue: null });
-		expect((await services.homeStats()).dueCount).toBe(0);
+		const [notes, chords, zone] = await services.routines();
+		expect(chords).toMatchObject({ open: true, due: 1, nextReviewAt: 0 });
+		expect(notes).toMatchObject({ open: true, due: 0, nextReviewAt: null });
+		expect(zone.open).toBe(false);
 	});
 
 	it('opens the zone once six triads are acquired in anchor, and counts its reviews', async () => {
@@ -393,21 +419,98 @@ describe('createAppServices', () => {
 			'C|min|3:1,2:b3,1:5',
 			'C|min|3:b3,2:5,1:1'
 		];
-		for (const key of keys) {
+		for (const key of keys.slice(0, 5)) {
 			await deps.cards.put({ ...learnedTriad('chord-anchor', key), acquiredAt: 0 });
 		}
-		expect((await services.triads()).zoneDue).toBe(0);
+		expect((await services.routines())[2]).toMatchObject({ id: 'chords-zone', open: false });
+		await deps.cards.put({ ...learnedTriad('chord-anchor', keys[5]), acquiredAt: 0 });
+		expect((await services.routines())[2]).toMatchObject({ open: true, due: 0 });
 		await deps.cards.put(learnedTriad('chord-zone', keys[0]));
-		expect((await services.triads()).zoneDue).toBe(1);
+		expect((await services.routines())[2]).toMatchObject({ open: true, due: 1 });
+	});
+
+	it('tells when the next reviews of the notes come, when none is due', async () => {
+		const { services, deps } = harness();
+		const card = markLearned(
+			introduceCard(
+				{
+					key: 'locate-note-string:6:G',
+					skill: 'locate-note-string',
+					item: { string: 6, pitch: 'G' }
+				},
+				0,
+				's-old'
+			),
+			0
+		);
+		const later = deps.now() + 3_600_000;
+		await deps.cards.put({ ...card, scheduling: { ...card.scheduling, due: later } });
+		expect((await services.routines())[0]).toMatchObject({
+			id: 'notes',
+			due: 0,
+			nextReviewAt: later
+		});
+	});
+
+	it('marks a routine resting while one of its exercises rests, in any scope', async () => {
+		const { services, deps } = harness();
+		const now = deps.now();
+		await deps.levels.put({
+			exerciseId: 'grid-reading',
+			scope: 'iohefy-a',
+			item: '',
+			level: 0,
+			successes: 0,
+			failures: 0,
+			resumeAfter: now + 1
+		});
+		await deps.levels.put({
+			exerciseId: 'chord-anchor',
+			scope: '',
+			item: '',
+			level: 0,
+			successes: 0,
+			failures: 0,
+			resumeAfter: now - 1
+		});
+		const resting = (await services.routines()).map((routine) => [routine.id, routine.resting]);
+		expect(resting).toEqual([
+			['notes', false],
+			['chords', false],
+			['chords-zone', false],
+			['changes', true]
+		]);
+	});
+});
+
+describe('the routines a file refuses', () => {
+	afterEach(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+		vi.restoreAllMocks();
+	});
+
+	it('are not told to the home, and nothing throws', async () => {
+		// The triads' file removed: the routines of its exercises are refused at load.
+		const catalog = Object.fromEntries(
+			Object.entries(CATALOG_FILES).filter(([name]) => name !== '/catalog/chords.json')
+		);
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		loadDefinitions({ catalog });
+		const { services } = harness();
+		const ids = (await services.routines()).map((routine) => routine.id);
+		expect(ids).toContain('notes');
+		expect(ids).not.toContain('chords');
+		expect(ids).not.toContain('chords-zone');
 	});
 });
 
 describe('the gesture track', () => {
 	it('is open once a chord is acquired in anchor on a string set', async () => {
 		const { services, deps } = harness();
-		expect(await services.gesture()).toEqual({ open: false });
+		const changes = async () => (await services.routines()).find((r) => r.id === 'changes');
+		expect(await changes()).toMatchObject({ open: false, due: null, nextReviewAt: null });
 		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
-		expect(await services.gesture()).toEqual({ open: true });
+		expect(await changes()).toMatchObject({ open: true, due: null, nextReviewAt: null });
 	});
 
 	it('plays a gesture session on the session controller', async () => {

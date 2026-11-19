@@ -394,10 +394,6 @@ export const DEFAULT_SETTINGS: Settings = {
 export type CardStatus = 'unseen' | 'learning' | 'acquired' | 'mastered';
 
 export interface HomeStats {
-	/** Cards a learn session would review cold right now. */
-	dueCount: number;
-	/** Earliest time a learned card can be reviewed cold. Null without a learned card. */
-	nextReviewAt: number | null;
 	/** Median |onset − beat| in ms, cold correct locate attempts. The home number. */
 	medianColdOffsetMs: number | null;
 	trend: 'improving' | 'stable' | 'worsening' | null;

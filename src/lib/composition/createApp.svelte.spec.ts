@@ -108,6 +108,7 @@ describe('createApp', () => {
 		expect(services.detector).toBeDefined();
 		expect(services.calibration).toBeDefined();
 		expect(typeof services.homeStats).toBe('function');
+		expect(typeof services.routines).toBe('function');
 		expect(typeof services.sessionSummary).toBe('function');
 		expect(typeof services.neckMap).toBe('function');
 		expect(typeof services.startSession).toBe('function');
@@ -119,8 +120,13 @@ describe('createApp', () => {
 		expect(settings.inputDeviceId).toBeNull();
 		expect(settings.latency).toEqual({});
 
-		const stats = await services.homeStats();
-		expect(stats.dueCount).toBe(0);
+		expect(await services.homeStats()).toEqual({ medianColdOffsetMs: null, trend: null });
+		expect((await services.routines()).map((routine) => [routine.id, routine.open])).toEqual([
+			['notes', true],
+			['chords', true],
+			['chords-zone', false],
+			['changes', false]
+		]);
 		expect(factory).not.toHaveBeenCalled();
 	});
 
