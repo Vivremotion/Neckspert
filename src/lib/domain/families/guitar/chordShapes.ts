@@ -254,6 +254,11 @@ export const chordShapes: Family<ChordShapesIndex, ChordShape> = {
 	heard(index, payload) {
 		return chordShapes.recognise(chordShapes.members(index), payload);
 	},
+	/** The shape decided, of whatever chord. */
+	named(payload) {
+		const decided = decidedOf(payload);
+		return decided === null ? null : chordShapes.member(decided);
+	},
 	/**
 	 * With degrees and no frets: as the triads judge it, the position asked being the one shape
 	 * admitted (none when more are). Else as the changes judge a shape (`changeConfusion`).

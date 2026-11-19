@@ -34,7 +34,8 @@ const IMPORTS: readonly RegExp[] = [
 	/families\/guitar/,
 	/families\/music/,
 	/(^|\/)grid(\/|$)/,
-	// The correspondences alone, a registry looked up by the names the data gives.
+	// The correspondences alone, a registry looked up by the names the data gives. That module
+	// itself imports the instrument: this boundary checks direct imports only.
 	/(^|\/)sets(\/(?!correspondences$)|$)/,
 	/(^|\/)music(\/|$)/,
 	/(^|\/)triads(\/|$)/

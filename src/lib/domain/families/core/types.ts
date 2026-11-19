@@ -32,6 +32,12 @@ export interface Family<I = unknown, M extends Member = Member> {
 	/** The member of this index a sensor's payload is, admitted or not; null when it is none. */
 	heard(index: I, payload: unknown): M | null;
 	/**
+	 * The member of the family a payload (or the answer an attempt kept of it) names by its
+	 * identity, whatever its index; null when it names none, or when a payload cannot name one
+	 * without an index.
+	 */
+	named(payload: unknown): M | null;
+	/**
 	 * How a payload that is no admitted member relates to them; null when nothing can be said.
 	 * `refused`: the filter that left out the member heard (`refusedBy`), when it is one of the
 	 * index's; null or absent otherwise.

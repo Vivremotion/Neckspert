@@ -40,7 +40,8 @@ const FAMILY: Family<null, Spot> = {
 	recognise: () => null,
 	answer: () => null,
 	confusion: () => null,
-	heard: () => null
+	heard: () => null,
+	named: () => null
 };
 
 /** A family that knows only a weight: no strings, no frets, no position. */

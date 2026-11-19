@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { compileRound } from '$lib/domain/exercise/round/compile';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
@@ -349,6 +349,20 @@ describe('createPassageSource', () => {
 			expect(second.slice(1).every((p) => p.restBars === undefined && !p.countIn)).toBe(true);
 		});
 
+		it('rest before the same index again after a passed passage, never before a passage played again', () => {
+			const s = source([LINK_PASSAGES], triadCards('chord-anchor', 'D', 'maj', G_B_E));
+			const clock = { now: NOW };
+			const first = playPassage(s, clock);
+			const second = playPassage(s, clock, () => false);
+			const again = playPassage(s, clock);
+			expect(first[0].restBars).toBeUndefined();
+			expect(second[0].passage!.index).toBe(first[0].passage!.index);
+			expect(second[0]).toMatchObject({ countIn: true, restBars: 1 });
+			expect(again[0].passage!.each).toEqual(second[0].passage!.each);
+			expect(again[0].countIn).toBe(true);
+			expect(again[0].restBars).toBeUndefined();
+		});
+
 		it('rest after another exercise’s passage', () => {
 			const cards = [...triadCards('chord-anchor', 'D', 'maj', G_B_E), ...ALL_OPEN];
 			const s = source([JAM_PASSAGES, LINK_PASSAGES], cards);
@@ -389,6 +403,24 @@ describe('createPassageSource', () => {
 			expect(source([none]).next(at(NOW))).toBeNull();
 		});
 
+		it('takes a content that cannot be compiled for unplayable', () => {
+			const unreadable = zones([['nope', 5] as unknown as [number, number]]);
+			expect(source([unreadable]).next(at(NOW))).toBeNull();
+		});
+
+		it('lets a programming error through', () => {
+			const spy = vi.spyOn(chordShapes, 'members').mockImplementation(() => {
+				throw new TypeError('a bug');
+			});
+			try {
+				expect(() => source([JAM_PASSAGES]).next(at(NOW))).toThrow(TypeError);
+				const free = { ...JAM_PASSAGES, passages: { ...JAM_PASSAGES.passages!, opens: undefined } };
+				expect(() => source([free]).next(at(NOW))).toThrow(TypeError);
+			} finally {
+				spy.mockRestore();
+			}
+		});
+
 		it('skips a passage with no member, and an index the family cannot read, without throwing', () => {
 			const empty: ExerciseDefinition = {
 				...LINK_PASSAGES,
@@ -415,7 +447,7 @@ describe('createPassageSource', () => {
 	describe('the previous member', () => {
 		const cards = iohefy('chord-anchor', G_B_E);
 
-		it('gives the member heard to the next round of the passage, whatever the verdict, and none to a new passage', () => {
+		it('gives the member heard to the next round of the passage, whatever the verdict and its chord, and none to a new passage', () => {
 			const s = source([CLIMB_PASSAGES], cards);
 			const clock = { now: NOW };
 			const first = s.next(at(clock.now))!;
@@ -427,10 +459,11 @@ describe('createPassageSource', () => {
 			s.record(attemptOf(second, ++clock.now, false, null), clock.now);
 			const third = s.next(at(clock.now))!;
 			expect(third.passage!.previous).toBe(dm.id);
-			// A shape that is no member of the round's chord is not one of its members heard.
-			s.record(attemptOf(third, ++clock.now, false, shapesOf('Ab', D_G_B)[0].id), clock.now);
+			// A shape of another chord than the round's is heard too: it still rings.
+			const ab = shapesOf('Ab', D_G_B)[0];
+			s.record(attemptOf(third, ++clock.now, false, ab.id), clock.now);
 			const fourth = s.next(at(clock.now))!;
-			expect(fourth.passage!.previous).toBe(dm.id);
+			expect(fourth.passage!.previous).toBe(ab.id);
 			for (let rank = 4; rank < IOHEFY_CHANGES; rank++) s.next(at(clock.now));
 			expect(s.next(at(clock.now))!.passage!.previous).toBeNull();
 		});
@@ -483,6 +516,31 @@ describe('createPassageSource', () => {
 		expect(fourth.passage!.each).toEqual({ direction: 'down' });
 		for (let rank = 4; rank < IOHEFY_CHANGES; rank++) s.next(at(clock.now));
 		// Started up: the next passage starts down, as without the turn.
+		expect(s.next(at(clock.now))!.passage!.each).toEqual({ direction: 'down' });
+	});
+
+	it('writes no scope when the index has no value under the name passages.scope gives', () => {
+		const scoped: ExerciseDefinition = {
+			...CLIMB_PASSAGES,
+			passages: { ...CLIMB_PASSAGES.passages!, scope: 'nope' }
+		};
+		const planned = source([scoped], iohefy('chord-anchor', G_B_E)).next(at(NOW))!;
+		expect(planned.scope).toBeUndefined();
+	});
+
+	it('turns a passage param once in a round, however many of its contents turn', () => {
+		const round = CLIMB_PASSAGES.round!;
+		const twice: ExerciseDefinition = {
+			...CLIMB_PASSAGES,
+			round: { ...round, expectations: [round.expectations[0], round.expectations[0]] }
+		};
+		const s = source([twice], iohefy('chord-anchor', G_B_E));
+		const clock = { now: NOW };
+		const highest = shapesOf('G', G_B_E).at(-1)!;
+		const first = s.next(at(clock.now))!;
+		s.record(attemptOf(first, ++clock.now), clock.now);
+		const second = s.next(at(clock.now))!;
+		s.record(attemptOf(second, ++clock.now, true, highest.id), clock.now);
 		expect(s.next(at(clock.now))!.passage!.each).toEqual({ direction: 'down' });
 	});
 

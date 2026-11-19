@@ -70,6 +70,7 @@ export const gridChangesFamily: Family<GridChangesIndex, GridChangeMember> = {
 	},
 	recognise: () => null,
 	heard: () => null,
+	named: () => null,
 	confusion: () => null,
 	answer: () => null
 };

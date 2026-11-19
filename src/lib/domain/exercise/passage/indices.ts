@@ -4,6 +4,17 @@ import { passageSelection } from '../selection/compile';
 import type { ExerciseDefinition } from '../types';
 import type { PassageIndex, PassagesTemplate } from './types';
 
+/**
+ * A passage that cannot be read from its data: its exercise writes none, its family gives no
+ * members from a passage's index, or the index gives none the family can read.
+ */
+export class PassageReadError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'PassageReadError';
+	}
+}
+
 /** Level 1 of an exercise, whose params a passage's members are read with. */
 const FIRST_LEVEL = 0;
 
@@ -45,12 +56,12 @@ export function passageParams(
 /** The family of the members, and what gives them to a passage; throws when there is none. */
 function membersFamily(definition: ExerciseDefinition) {
 	const passages = definition.passages;
-	if (!passages) throw new Error(`${definition.id} writes no passages`);
+	if (!passages) throw new PassageReadError(`${definition.id} writes no passages`);
 	const { family: id } = passages.members;
 	const family = familyNamed(id);
 	const derivation = passageDerivation(id);
 	if (!family || !derivation) {
-		throw new Error(`family "${id}" gives no members from a passage’s index`);
+		throw new PassageReadError(`family "${id}" gives no members from a passage’s index`);
 	}
 	return { family, derivation };
 }
@@ -58,14 +69,23 @@ function membersFamily(definition: ExerciseDefinition) {
 /**
  * The index of the members' family that a passage's index gives, read with the exercise's params
  * at its level 1: the passage params feed the members' selection, never the index, so every
- * passage of an index lists the members of one family index. Throws an Error saying why when it
- * gives none the family can read.
+ * passage of an index lists the members of one family index. Throws a `PassageReadError` saying
+ * why when it gives none the family can read.
  */
 export function passageFamilyIndex(definition: ExerciseDefinition, index: PassageIndex): unknown {
 	const { family, derivation } = membersFamily(definition);
-	const familyIndex = derivation.passageIndex(index.of, passageParams(definition, {}));
+	let familyIndex: unknown;
+	try {
+		familyIndex = derivation.passageIndex(index.of, passageParams(definition, {}));
+	} catch (error) {
+		// A derivation tells what its data lack with an Error or a RangeError (a chord symbol
+		// with no triad); anything else, a TypeError above all, is a bug.
+		const proto = Object.getPrototypeOf(error);
+		if (proto !== Error.prototype && proto !== RangeError.prototype) throw error;
+		throw new PassageReadError((error as Error).message);
+	}
 	const problem = family.indexProblem(familyIndex);
-	if (problem !== null) throw new Error(problem);
+	if (problem !== null) throw new PassageReadError(problem);
 	return familyIndex;
 }
 

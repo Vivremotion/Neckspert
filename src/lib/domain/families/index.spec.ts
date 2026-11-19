@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { triadOf } from '$lib/domain/grid';
 import { parseVoicingKey } from '$lib/domain/music';
 import { itemSet } from '$lib/domain/sets';
+import { chordShapes } from './guitar/chordShapes';
+import { notePlaces } from './guitar/notePlaces';
+import { gridChangesFamily } from './music/gridChanges';
 import {
 	FAMILIES,
 	familyNamed,
@@ -193,5 +196,20 @@ describe('passage derivations', () => {
 			grid: 'blues-f',
 			index: 3
 		});
+	});
+});
+
+describe('named members', () => {
+	it('names the shape a chord payload decided, whatever its index; nothing for an unreadable payload', () => {
+		const [shape] = chordShapes.members({ chord: triadOf('G'), strings: [3, 2, 1] });
+		expect(chordShapes.named({ decided: shape.id })).toEqual(shape);
+		expect(chordShapes.named({ decided: null })).toBeNull();
+		expect(chordShapes.named({ midi: 60 })).toBeNull();
+		expect(chordShapes.named({ decided: 'no-such-shape' })).toBeNull();
+	});
+
+	it('names no note place (a pitch has no string) and no change of a grid', () => {
+		expect(notePlaces.named({ midi: 60 })).toBeNull();
+		expect(gridChangesFamily.named({ decided: 'x' })).toBeNull();
 	});
 });

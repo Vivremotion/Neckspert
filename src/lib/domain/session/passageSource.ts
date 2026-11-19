@@ -1,13 +1,11 @@
-import {
-	roundMemberContents,
-	type RoundMemberContent
-} from '$lib/domain/exercise/passage/contents';
+import { roundMemberContents } from '$lib/domain/exercise/passage/contents';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
-import { indexOpen, passageRound } from '$lib/domain/exercise/passage/opens';
+import { indexOpen } from '$lib/domain/exercise/passage/opens';
+import { isUnplayable, passageRound } from '$lib/domain/exercise/passage/round';
 import type { PassageIndex } from '$lib/domain/exercise/passage/types';
 import { MAX_PASSAGE_MEMBERS } from '$lib/domain/exercise/passage/validate';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import { familyNamed, passageDerivation, select } from '$lib/domain/families';
+import { familyNamed, passageDerivation, select, type Family } from '$lib/domain/families';
 import { admittedMembers } from '$lib/domain/judges';
 import type { ItemSource, RecordOutcome, SelectorContext } from '$lib/domain/progress/selector';
 import type { Attempt, AttemptPassage, CardState, PlannedItem } from '$lib/domain/types';
@@ -64,13 +62,13 @@ interface Passage {
 	/** The passage params it started with, and as its next round reads them. */
 	started: Values;
 	each: Values;
-	/** A break of silence before its counted bar: the index changed after a passage of the session. */
+	/** A break of silence before its counted bar: it follows a passage of the session, and is not one played again. */
 	rests: boolean;
 	next: number;
 	/** Whether each round passed, as `record` learned it. */
 	passed: (boolean | undefined)[];
-	/** The member contents each round served judges, by rank. */
-	contents: Map<number, RoundMemberContent[]>;
+	/** The families of the member contents each round served judges, by rank. */
+	families: Map<number, Family[]>;
 }
 
 const stateKey = (exerciseId: string, index: string) => JSON.stringify([exerciseId, index]);
@@ -90,8 +88,8 @@ class PassageSource implements ItemSource {
 	private passages = 0;
 	/** The identity of the last member heard in the passage under way. */
 	private previous: string | null = null;
-	/** The exercise and index of the session's last passage; null before the first. */
-	private lastServed: string | null = null;
+	/** The passages served so far in the session. */
+	private served = 0;
 
 	constructor(
 		definitions: readonly ExerciseDefinition[],
@@ -109,10 +107,12 @@ class PassageSource implements ItemSource {
 			.filter((exercise) => exercise.indices.length > 0);
 		const ids = new Set(this.exercises.map((exercise) => exercise.definition.id));
 		const history = attempts
-			.filter((attempt) => ids.has(attempt.exerciseId) && passageOf(attempt) !== null)
-			.sort((a, b) => a.promptedAt - b.promptedAt);
-		for (const attempt of history) {
-			const passage = passageOf(attempt)!;
+			.flatMap((attempt) => {
+				const passage = ids.has(attempt.exerciseId) ? passageOf(attempt) : null;
+				return passage ? [{ attempt, passage }] : [];
+			})
+			.sort((a, b) => a.attempt.promptedAt - b.attempt.promptedAt);
+		for (const { attempt, passage } of history) {
 			const state = this.state(attempt.exerciseId, passage.index);
 			state.lastPlayedAt = Math.max(state.lastPlayedAt, attempt.promptedAt);
 			// The values a passage started with: a turn on the way does not count.
@@ -132,7 +132,6 @@ class PassageSource implements ItemSource {
 		if (!passage) return null;
 		this.passage = passage;
 		this.previous = null;
-		this.lastServed = stateKey(passage.exercise.definition.id, passage.index.key);
 		return this.serve(passage);
 	}
 
@@ -145,8 +144,9 @@ class PassageSource implements ItemSource {
 		state.lastPlayedAt = Math.max(state.lastPlayedAt, attempt.promptedAt);
 		const answer = isRecord(attempt.data) ? attempt.data.answer : undefined;
 		if (answer === undefined || answer === null) return null;
-		for (const { content } of passage.contents.get(recorded.rank) ?? []) {
-			const heard = familyNamed(content.family)?.heard(content.index, answer) ?? null;
+		// Whatever member was heard, of the round's index or not: it still rings.
+		for (const family of passage.families.get(recorded.rank) ?? []) {
+			const heard = family.named(answer);
 			if (heard !== null) {
 				this.previous = heard.id;
 				break;
@@ -177,7 +177,10 @@ class PassageSource implements ItemSource {
 	/** A failed passage again, whole, on its index with the values it started with; null when its exercise does not ask it. */
 	private again(finished: Passage): Passage | null {
 		if (finished.exercise.definition.passages?.again !== 'until-passed') return null;
-		return this.passageOf(finished.exercise, finished.index, finished.items, finished.started);
+		// Played again at once, the index unchanged: no break of silence.
+		return this.passageOf(finished.exercise, finished.index, finished.items, finished.started, {
+			rests: false
+		});
 	}
 
 	/** The next exercise in turn with a playable index, on its index played least recently. */
@@ -211,7 +214,7 @@ class PassageSource implements ItemSource {
 				state.started = each;
 				// Played from now: a passage left without an attempt still takes its turn.
 				state.lastPlayedAt = Math.max(state.lastPlayedAt, now);
-				return this.passageOf(exercise, index, items, each);
+				return this.passageOf(exercise, index, items, each, { rests: this.served > 0 });
 			}
 			state.unplayable = true;
 		}
@@ -220,7 +223,9 @@ class PassageSource implements ItemSource {
 
 	/**
 	 * The passage params `skipped + 1` values after those the index's last passage started with,
-	 * each in its own list, wrapping; the first values for an index never played.
+	 * each in its own list, wrapping; the first values for an index never played. Several lists
+	 * step together: when passages are skipped, the params move side by side, so some of their
+	 * combinations are never tried before the index is left out.
 	 */
 	private eachAfter(definition: ExerciseDefinition, started: Values | null, skipped: number) {
 		const each: Record<string, unknown> = {};
@@ -235,9 +240,9 @@ class PassageSource implements ItemSource {
 		exercise: Exercise,
 		index: PassageIndex,
 		items: unknown[],
-		each: Values
+		each: Values,
+		{ rests }: { rests: boolean }
 	): Passage {
-		const key = stateKey(exercise.definition.id, index.key);
 		return {
 			exercise,
 			index,
@@ -245,10 +250,10 @@ class PassageSource implements ItemSource {
 			items,
 			started: each,
 			each,
-			rests: this.lastServed !== null && this.lastServed !== key,
+			rests,
 			next: 0,
 			passed: [],
-			contents: new Map()
+			families: new Map()
 		};
 	}
 
@@ -262,7 +267,7 @@ class PassageSource implements ItemSource {
 			rank,
 			passage.items.length
 		);
-		return { ...round, passage: { ...round.passage!, id: passage.id, previous: this.previous } };
+		return { ...round, passage: { ...round.passage, id: passage.id, previous: this.previous } };
 	}
 
 	/**
@@ -271,24 +276,24 @@ class PassageSource implements ItemSource {
 	 */
 	private followTurn(passage: Passage, rank: number): void {
 		if (this.previous === null) return;
-		let contents: RoundMemberContent[];
-		try {
-			contents = roundMemberContents(passage.exercise.definition, this.round(passage, rank));
-		} catch {
-			return;
-		}
+		const contents = roundMemberContents(passage.exercise.definition, this.round(passage, rank));
+		// Each param turns once, however many contents read it and turn.
+		const turning = new Set<string>();
 		for (const { content, template } of contents) {
 			const family = familyNamed(content.family);
 			const previous = family?.member(this.previous) ?? null;
 			if (!family || !previous) continue;
 			if (!select(family, content.index, content.selection, { previous }).turned) continue;
 			for (const filter of template.where ?? []) {
-				if (!('position' in filter) || typeof filter.position.toward === 'string') continue;
-				const name = filter.position.toward.param;
-				const value = passage.each[name];
-				if (typeof value === 'string' && Object.hasOwn(TURNED, value)) {
-					passage.each = { ...passage.each, [name]: TURNED[value] };
+				if ('position' in filter && typeof filter.position.toward !== 'string') {
+					turning.add(filter.position.toward.param);
 				}
+			}
+		}
+		for (const name of turning) {
+			const value = passage.each[name];
+			if (typeof value === 'string' && Object.hasOwn(TURNED, value)) {
+				passage.each = { ...passage.each, [name]: TURNED[value] };
 			}
 		}
 	}
@@ -297,46 +302,46 @@ class PassageSource implements ItemSource {
 		const rank = passage.next++;
 		this.followTurn(passage, rank);
 		const round = this.round(passage, rank);
-		try {
-			passage.contents.set(rank, roundMemberContents(passage.exercise.definition, round));
-		} catch {
-			passage.contents.set(rank, []);
-		}
+		// Compiled once already, with no member heard, when the passage was found playable.
+		const families = roundMemberContents(passage.exercise.definition, round).flatMap(
+			({ content }) => familyNamed(content.family) ?? []
+		);
+		passage.families.set(rank, families);
+		if (rank === 0) this.served++;
 		const { passages } = passage.exercise.definition;
 		const restBars = passages?.restBars ?? 0;
-		const scope = passages?.scope;
+		const scope = passages?.scope === undefined ? undefined : passage.index.of[passages.scope];
 		return {
 			...round,
 			...(rank === 0 && { countIn: true }),
 			...(rank === 0 && passage.rests && restBars > 0 && { restBars }),
-			...(scope !== undefined && { scope: String(passage.index.of[scope]) })
+			...(scope !== undefined && { scope: String(scope) })
 		};
 	}
 }
 
-/** The indices of an exercise that are open, in the order written; none when they cannot be read. */
+/** The indices of an exercise that are open, in the order written. */
 function openIndices(definition: ExerciseDefinition, acquired: ReadonlySet<string>) {
-	try {
-		return passageIndices(definition).filter((index) => indexOpen(definition, index, acquired));
-	} catch {
-		return [];
-	}
+	return passageIndices(definition).filter((index) => indexOpen(definition, index, acquired));
 }
 
 /**
  * The items of a passage of `index` with the passage params `each`; null when it cannot be
  * played: no member, more than `MAX_PASSAGE_MEMBERS`, a round whose content admits no member
- * with none heard before, or anything that fails to be read.
+ * with none heard before, or what cannot be read or compiled from its data (`isUnplayable`).
+ * Any other error goes through.
  */
 function playableItems(
 	definition: ExerciseDefinition,
 	index: PassageIndex,
 	each: Values
 ): unknown[] | null {
+	const family = definition.passages?.members.family;
+	const derivation = family === undefined ? null : passageDerivation(family);
+	if (!derivation) return null;
 	try {
 		const members = passageMembers(definition, index, each);
 		if (members.length === 0 || members.length > MAX_PASSAGE_MEMBERS) return null;
-		const derivation = passageDerivation(definition.passages!.members.family)!;
 		const items = members.map((member) => derivation.itemOf(member));
 		const playable = items.every((item, rank) =>
 			roundMemberContents(
@@ -345,8 +350,9 @@ function playableItems(
 			).every(({ content }) => admittedMembers(content).length > 0)
 		);
 		return playable ? items : null;
-	} catch {
-		return null;
+	} catch (error) {
+		if (isUnplayable(error)) return null;
+		throw error;
 	}
 }
 
@@ -356,8 +362,8 @@ function playableItems(
  * A passage's params take, at each passage of an index, the values after those its last passage
  * started with; a passage that cannot be played is skipped to the next values, an index with none
  * left out for the session. The first round counts in, after `passages.restBars` of silence when
- * the index changed after a passage of the session; a passage under `passages.passes` comes back
- * whole with `again: 'until-passed'`. No passage starts after `durationMs` or once fatigued.
+ * it follows a passage of the session; a passage under `passages.passes` comes back whole with
+ * `again: 'until-passed'`, without that silence. No passage starts after `durationMs` or once fatigued.
  */
 export function createPassageSource(input: {
 	exercises: readonly ExerciseDefinition[];

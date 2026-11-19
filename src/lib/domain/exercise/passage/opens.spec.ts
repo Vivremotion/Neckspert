@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { openElements } from '$lib/domain/gesture/opening';
 import { gestureElements } from '$lib/domain/gesture/exercises';
 import type { StringNumber } from '$lib/domain/music';
@@ -92,6 +93,30 @@ describe('indexOpen', () => {
 		const { opens: _opens, ...passages } = JAM_PASSAGES.passages!;
 		const free = { ...JAM_PASSAGES, passages };
 		expect(opened(free, [])).toEqual([true, true]);
+	});
+
+	it('lets a programming error through', () => {
+		const index = indexOf(CLIMB_PASSAGES, 'grid=iohefy-a;strings=3,2,1');
+		const spy = vi.spyOn(chordShapes, 'members').mockImplementation(() => {
+			throw new TypeError('a bug');
+		});
+		try {
+			expect(() => indexOpen(CLIMB_PASSAGES, index, new Set())).toThrow(TypeError);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it('closes an index whose passage cannot be read', () => {
+		const broken = {
+			...CLIMB_PASSAGES,
+			passages: {
+				...CLIMB_PASSAGES.passages!,
+				of: { grid: ['no-such-grid'], strings: [[3, 2, 1]] }
+			}
+		};
+		const [index] = passageIndices(broken);
+		expect(indexOpen(broken, index, acquiredOf(iohefy('chord-anchor', G_B_E)))).toBe(false);
 	});
 
 	describe('agrees with the opening of the gesture exercises', () => {

@@ -69,6 +69,14 @@ export function roundParamsOf(
 	};
 }
 
+/** A round that cannot be compiled from its data: its message names the exercise and the field. */
+export class RoundCompileError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'RoundCompileError';
+	}
+}
+
 /** What a compilation reads, and how it names a failure. */
 interface Context {
 	definition: ExerciseDefinition;
@@ -86,7 +94,7 @@ function itemKeyOf(context: Context): string {
 }
 
 function fail(context: Context, field: string, problem: string): never {
-	throw new Error(`${context.definition.id}: round.${field} ${problem}`);
+	throw new RoundCompileError(`${context.definition.id}: round.${field} ${problem}`);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -418,7 +426,7 @@ export function roundAccompanimentOf(
 		written.param
 	);
 	if (!isAccompaniment(found)) {
-		throw new Error(
+		throw new RoundCompileError(
 			`${definition.id}: round.accompaniment reads param "${written.param}", which gives no accompaniment at exercise level ${exerciseLevel}`
 		);
 	}
@@ -476,7 +484,7 @@ export function figureItemsAt(
 	const name = first.entry.figure.item;
 	const reader = Object.hasOwn(ITEM_FIGURES, name) ? ITEM_FIGURES[name] : undefined;
 	if (!reader) {
-		throw new Error(
+		throw new RoundCompileError(
 			`${definition.id}: round.expectations[${first.i}].figure reads unknown item figure "${name}"`
 		);
 	}
@@ -538,7 +546,8 @@ export function compileRound(
 	resolved: { previewBeats: number; fromRunStart: number | null; cache?: ResolutionCache }
 ): RoundPlan {
 	const template = definition.round;
-	if (!template) throw new Error(`${definition.id}: the exercise has no round template`);
+	if (!template)
+		throw new RoundCompileError(`${definition.id}: the exercise has no round template`);
 	const context = contextOf(definition, item, meter, resolved);
 	let prompt: Fraction | null = null;
 	if (template.prompt) {
@@ -584,6 +593,6 @@ export function compileRound(
 		plan.barOffset = fractionOf(context, 'barOffset', template.barOffset);
 	if (template.countEndsOn) plan.countEndsOn = template.countEndsOn;
 	const problem = validateRoundPlan(plan);
-	if (problem) throw new Error(`${definition.id}: round plan is invalid: ${problem}`);
+	if (problem) throw new RoundCompileError(`${definition.id}: round plan is invalid: ${problem}`);
 	return plan;
 }

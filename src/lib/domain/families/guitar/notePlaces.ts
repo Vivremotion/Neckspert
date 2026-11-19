@@ -72,6 +72,8 @@ export const notePlaces: Family<NotePlacesIndex, NotePlace> = {
 	heard(index, payload) {
 		return notePlaces.recognise(notePlaces.members(index), payload);
 	},
+	/** A pitch heard names no place: its string is not heard. */
+	named: () => null,
 	answer(payload) {
 		const midi = midiOf(payload);
 		return midi === null ? null : { midi };

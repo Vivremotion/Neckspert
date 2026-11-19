@@ -1,39 +1,11 @@
 import { admitted, familyNamed, passageDerivation, type Member } from '../../families';
 import { correspondingCard } from '../../sets/correspondences';
-import type { CardKey, PlannedItem } from '../../types';
+import type { CardKey } from '../../types';
 import type { ExerciseDefinition } from '../types';
 import { roundMemberContents, type RoundMemberContent } from './contents';
 import { passageMembers } from './indices';
+import { firstEach, isUnplayable, passageRound } from './round';
 import type { PassageIndex } from './types';
-
-/** Every passage param at its first value: the passage the opening reads. */
-export function firstEach(definition: ExerciseDefinition): Record<string, unknown> {
-	return Object.fromEntries(
-		Object.entries(definition.passages?.each ?? {}).map(([name, values]) => [name, values[0]])
-	);
-}
-
-/** The round of a passage's member, as a source would serve it, with no member heard before. */
-export function passageRound(
-	definition: ExerciseDefinition,
-	index: PassageIndex,
-	each: Readonly<Record<string, unknown>>,
-	item: unknown,
-	rank: number,
-	length: number
-): PlannedItem {
-	return {
-		exerciseId: definition.id,
-		skill: definition.practices,
-		exerciseLevel: 0,
-		item,
-		phase: 'free',
-		temperature: 'hot',
-		aid: 'none',
-		leadBeats: null,
-		passage: { id: '', index: index.key, of: index.of, rank, length, each, previous: null }
-	};
-}
 
 /**
  * Whether the members a content admits are acquired: each named, through the correspondence,
@@ -69,21 +41,24 @@ function contentOpen(
  * member of its passage, each member the round's contents admit with no filter is acquired as
  * the card the correspondence `opens.acquired.item` names in the skill `opens.acquired.skill`,
  * grouped by their strings: in every group (`every-group`, the default) or in one at least
- * (`one-group`). The passage is read with each passage param at its first value: the filters
- * that read them are left out, so their values change no content's members. An index whose
- * passage cannot be read is closed.
+ * (`one-group`). The passage is read with each passage param at its first value, and the
+ * contents with none of their filters, so the values of the passage params change no content's
+ * members. An index whose passage cannot be read from its data (`isUnplayable`) is closed; any
+ * other error goes through.
  */
 export function indexOpen(
 	definition: ExerciseDefinition,
 	index: PassageIndex,
 	acquired: ReadonlySet<CardKey>
 ): boolean {
-	const opening = definition.passages?.opens;
-	if (opening === undefined) return true;
+	const { passages } = definition;
+	const opening = passages?.opens;
+	if (passages === undefined || opening === undefined) return true;
+	const derivation = passageDerivation(passages.members.family);
+	if (!derivation) return false;
 	try {
 		const each = firstEach(definition);
 		const members = passageMembers(definition, index, each);
-		const derivation = passageDerivation(definition.passages!.members.family)!;
 		return members.every((member, rank) => {
 			const round = passageRound(
 				definition,
@@ -97,7 +72,8 @@ export function indexOpen(
 				contentOpen(content, opening, acquired)
 			);
 		});
-	} catch {
-		return false;
+	} catch (error) {
+		if (isUnplayable(error)) return false;
+		throw error;
 	}
 }
