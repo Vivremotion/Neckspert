@@ -1,4 +1,4 @@
-/** The catalog ids the code still names (D6); everything else about an exercise is read from the registry. */
+/** The catalog ids the tests name (the code names none: `catalogIdsBoundary.spec.ts`). */
 export const LOCATE_NECK_ID = 'locate-note-string';
 export const IDENTIFY_NECK_ID = 'identify-note';
 export const TRIADS_ANCHOR_ID = 'chord-anchor';

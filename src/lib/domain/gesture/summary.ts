@@ -1,4 +1,3 @@
-import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
 import { findExercise } from '$lib/domain/exercise/registry';
 import {
@@ -11,10 +10,10 @@ import { admittedMembers, MEMBER_CONTENT, type MemberContent } from '$lib/domain
 import { passageOf } from '$lib/domain/session/passageSource';
 import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
 
-/** Throws on an exercise the track does not list, rather than invent it. */
-function assertGestureExercise(exerciseId: string): void {
-	if (!(GESTURE_EXERCISE_IDS as readonly string[]).includes(exerciseId))
-		throw new Error(`${exerciseId}: not an exercise of the gesture track`);
+/** Throws on an exercise no file defines as one that plays passages, rather than invent it. */
+function assertPassagesExercise(exerciseId: string): void {
+	if (findExercise(exerciseId)?.passages === undefined)
+		throw new Error(`${exerciseId}: not an exercise that plays passages`);
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -32,6 +31,14 @@ function dataOf(attempt: Attempt): Record<string, unknown> {
 function storedChange(attempt: Attempt): { passageId?: unknown; symbol?: unknown } {
 	const { item } = dataOf(attempt);
 	return isRecord(item) ? item : {};
+}
+
+/**
+ * Whether an attempt is a change: it carries its passage (`data.passage`), or, stored before the
+ * passages, the passage id its whole change kept.
+ */
+function isChange(attempt: Attempt): boolean {
+	return passageOf(attempt) !== null || typeof storedChange(attempt).passageId === 'string';
 }
 
 /** The passage a change belongs to: the one it kept, or, stored before the passages, its change's. */
@@ -120,16 +127,14 @@ export function summarizeGesture(
 	executions: readonly Execution[],
 	attempts: readonly Attempt[]
 ): GestureSummary {
-	const changes = attempts.filter((attempt) =>
-		(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)
-	);
+	const changes = attempts.filter(isChange);
 	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
 		const own = changes.filter(
 			(attempt) => attempt.exerciseId === exerciseId && (attempt.scope ?? null) === (scope ?? null)
 		);
 		if (own.length === 0 || tempoBpm === null) return [];
-		// Only an exercise of the gesture track is summed up here.
-		assertGestureExercise(exerciseId);
+		// Only an exercise that plays passages is summed up here.
+		assertPassagesExercise(exerciseId);
 		const passages = new Map<string, Attempt[]>();
 		for (const attempt of own) {
 			const id = passageIdOf(attempt);

@@ -6,7 +6,8 @@ import type {
 	PlayView,
 	PlayOrigin
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, IDENTIFY_NECK_ID, exerciseById } from '$lib/domain/exercise';
+import { DEFAULT_TEMPO_BPM, type ExerciseDefinition } from '$lib/domain/exercise';
+import { exercisesOnSet, NAMED_NOTES } from '$lib/domain/progress/neck';
 import { skillById } from '$lib/domain/skill/registry';
 import { answerChoiceLabel, pitchOnString, type IdentifyItem } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
@@ -25,9 +26,19 @@ export const DEMO_IDENTIFY_SCRIPT: readonly IdentifyItem[] = [
 /** How long the demo shows a verdict before the next prompt. */
 export const DEMO_VERDICT_MS = 1200;
 
+/** The exercise the demo plays: the first registered one that names places; none without. */
+export function identifyDemoExercise(): ExerciseDefinition | undefined {
+	return exercisesOnSet(NAMED_NOTES)[0];
+}
+
+function demoExercise(): ExerciseDefinition {
+	const exercise = identifyDemoExercise();
+	if (!exercise) throw new Error('No exercise names places on the neck: nothing to demonstrate');
+	return exercise;
+}
+
 /** A name given within the direct recall of the exercise's skill is perfect, later late. */
-const recallThresholdMs = () =>
-	skillById(exerciseById(IDENTIFY_NECK_ID).practices).directRecall?.withinMs ?? 0;
+const recallThresholdMs = () => skillById(demoExercise().practices).directRecall?.withinMs ?? 0;
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
@@ -145,10 +156,10 @@ export class DemoIdentifySession implements PlaySessionController {
 			view: 'answer-keys',
 			model: {
 				prompt: presentPrompt(
-					exerciseById(IDENTIFY_NECK_ID),
+					demoExercise(),
 					{
-						exerciseId: IDENTIFY_NECK_ID,
-						skill: exerciseById(IDENTIFY_NECK_ID).practices,
+						exerciseId: demoExercise().id,
+						skill: demoExercise().practices,
 						exerciseLevel: 0,
 						item: target,
 						phase: 'review',

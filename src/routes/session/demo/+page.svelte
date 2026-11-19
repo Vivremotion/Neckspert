@@ -6,7 +6,13 @@
 	import { playOriginOf } from '$lib/application/session/playOrigin';
 	import { routines } from '$lib/domain/routine/registry';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
-	import { DemoPlaySession, ManualDemoClock } from '$lib/ui/play/demo/DemoPlaySession.svelte';
+	import {
+		DemoPlaySession,
+		locateDemoExercise,
+		ManualDemoClock
+	} from '$lib/ui/play/demo/DemoPlaySession.svelte';
+
+	if (!locateDemoExercise()) throw new Error('No exercise locates notes: nothing to show');
 
 	const clock = new ManualDemoClock();
 	const controller = new DemoPlaySession({ clock });

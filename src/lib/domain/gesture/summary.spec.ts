@@ -107,6 +107,23 @@ describe('summarizeGesture', () => {
 		expect(summary.misses).toEqual([]);
 	});
 
+	it('reads the changes by their passage, whatever their skill, and nothing else', () => {
+		const ofAnySkill = change('grid-reading', 'p1', 0, 'perfect', null, { skill: 'another-skill' });
+		const noPassage = change('grid-reading', 'p1', 1, 'wrong');
+		const summary = summarizeGesture(
+			[{ exerciseId: 'grid-reading', tempoBpm: 80 }],
+			[ofAnySkill, { ...noPassage, data: { item: { grid: 'iohefy-a', index: 1 } } }]
+		);
+		expect(summary.exercises).toEqual([
+			expect.objectContaining({
+				exerciseId: 'grid-reading',
+				passagesPlayed: 1,
+				changeSuccessRate: 1
+			})
+		]);
+		expect(summary.misses).toEqual([]);
+	});
+
 	it('tells the first and the last tempo played', () => {
 		const at80 = [0, 1].map((i) => change('grid-reading', 'p1', i, 'perfect'));
 		const at85 = [0, 1].map((i) =>

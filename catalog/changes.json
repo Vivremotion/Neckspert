@@ -169,6 +169,10 @@
 	"exercises": [
 		{
 			"id": "inversion-run",
+			"title": {
+				"fr": "Relier les formes",
+				"en": "Link the shapes"
+			},
 			"practices": "inversion-run",
 			"round": {
 				"prompt": {
@@ -398,6 +402,10 @@
 		},
 		{
 			"id": "grid-in-direction",
+			"title": {
+				"fr": "Contrainte de déplacement",
+				"en": "Move constraint"
+			},
 			"practices": "grid-in-direction",
 			"round": {
 				"prompt": {
@@ -611,6 +619,10 @@
 		},
 		{
 			"id": "grid-in-zone",
+			"title": {
+				"fr": "Rester dans une zone",
+				"en": "Stay in a zone"
+			},
 			"practices": "grid-in-zone",
 			"round": {
 				"prompt": {
@@ -837,6 +849,10 @@
 		},
 		{
 			"id": "grid-reading",
+			"title": {
+				"fr": "Jam",
+				"en": "Jam"
+			},
 			"practices": "grid-reading",
 			"round": {
 				"prompt": {

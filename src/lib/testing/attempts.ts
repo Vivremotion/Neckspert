@@ -1,4 +1,4 @@
-import { CHANGE_SKILL_IDS, CHORD_ANCHOR_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import { CHANGE_SKILL_IDS, CHORD_ANCHOR_SKILL_ID } from '$lib/testing/catalogIds';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import {
 	type AidLevel,

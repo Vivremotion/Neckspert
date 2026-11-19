@@ -1,4 +1,4 @@
-import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
+import { CHANGE_SKILL_IDS, GESTURE_EXERCISE_IDS } from '$lib/testing/catalogIds';
 /** A session controller on the gesture's real presenter and exercises, with scripted items and the fakes. */
 import { exerciseById, type ExerciseDefinition, type LevelOverrides } from '$lib/domain/exercise';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';

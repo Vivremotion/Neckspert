@@ -4,12 +4,8 @@ import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { chordSensor } from '$lib/application/session/sensors';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
-import {
-	DEMO_GRID_ID,
-	exerciseById,
-	findExercise,
-	GESTURE_EXERCISE_IDS
-} from '$lib/domain/exercise';
+import { allExercises, exerciseById, findExercise } from '$lib/domain/exercise';
+import { allGrids } from '$lib/domain/grid';
 import { routines } from '$lib/domain/routine/registry';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
 import { passageRound } from '$lib/domain/exercise/passage/round';
@@ -35,11 +31,16 @@ import {
 /** Which exercise the demo plays: the link on its lane, or a climb on the scrolling grid. */
 export type DemoGestureMode = 'link' | 'climb';
 
-/** The passage the demo plays: E linked on G-B-E, or a climb of its grid on G-B-E, going up. */
-const DEMO_PASSAGES = {
-	link: { index: 'chord=E;strings=3,2,1', each: {} },
-	climb: { index: `grid=${DEMO_GRID_ID};strings=3,2,1`, each: { direction: 'up' } }
-} as const;
+/** The view each demo draws its exercise on. */
+const DEMO_VIEWS: Record<DemoGestureMode, string> = { link: 'link-lane', climb: 'grid-scroll' };
+
+/**
+ * The index of the passage the demo plays, when its exercise has it: E linked on G-B-E, or the
+ * first registered grid on G-B-E; else the exercise's first index.
+ */
+function demoIndexKey(mode: DemoGestureMode): string {
+	return mode === 'link' ? 'chord=E;strings=3,2,1' : `grid=${allGrids()[0]?.id};strings=3,2,1`;
+}
 
 /** The verdict the scripted player aims at on each change, in turn. */
 const AIMS: readonly ResponseVerdict[] = [
@@ -58,13 +59,22 @@ const STRUM_BEATS: Partial<Record<ResponseVerdict, number>> = {
 	wrong: 0.02
 };
 
-/** The demo's exercise and the index of its passage. */
+/**
+ * The demo's exercise, read from the registry by what it is: the first that plays passages on the
+ * demo's view (the link on its lane, the climb on the scrolling grid); the index of its passage,
+ * and each passage param at its first value (the climb going up).
+ */
 function demoPassage(mode: DemoGestureMode) {
-	const exercise = exerciseById(
-		mode === 'link' ? GESTURE_EXERCISE_IDS[0] : GESTURE_EXERCISE_IDS[1]
+	const view = DEMO_VIEWS[mode];
+	const exercise = allExercises().find(
+		(candidate) => candidate.passages !== undefined && candidate.view === view
 	);
-	const { index: key, each } = DEMO_PASSAGES[mode];
-	const index = passageIndices(exercise).find((found) => found.key === key)!;
+	if (!exercise) throw new Error(`No exercise plays passages on the ${view} view: nothing to show`);
+	const indices = passageIndices(exercise);
+	const index = indices.find((found) => found.key === demoIndexKey(mode)) ?? indices[0];
+	const each = Object.fromEntries(
+		Object.entries(exercise.passages?.each ?? {}).map(([name, values]) => [name, values[0]])
+	);
 	const scope = exercise.passages?.scope;
 	return { exercise, index, each, scope: scope === undefined ? '' : String(index.of[scope]) };
 }
@@ -146,7 +156,9 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			sensors: { chord: chordSensor(chords) },
 			presenters: SET_PRESENTERS,
 			views: VIEW_PRESENTERS,
-			plays: GESTURE_EXERCISE_IDS,
+			plays: allExercises()
+				.filter((exercise) => exercise.passages !== undefined)
+				.map((exercise) => exercise.id),
 			repositories,
 			// Where its levels stand, in memory: the scripted player moves them up as it plays.
 			levels,

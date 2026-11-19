@@ -17,7 +17,7 @@ import type {
 } from '$lib/application/ports';
 import type { Picture } from '$lib/application/presentation/pictures';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
-import { GESTURE_EXERCISE_IDS, LOCATE_NECK_ID } from '$lib/domain/exercise/catalogIds';
+import { GESTURE_EXERCISE_IDS, LOCATE_NECK_ID } from '$lib/testing/catalogIds';
 import { changePresenter } from '$lib/application/sets/chordGrid';
 import type { SetPresenter } from '$lib/application/sets/types';
 import { createAppServices } from '$lib/application/services/createAppServices';

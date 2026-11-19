@@ -1,4 +1,4 @@
-import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/testing/catalogIds';
 /** The triads' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import type { ChordExpectation } from '$lib/application/ports';
 import type { PresentedPrompt, PromptStageModel } from '$lib/application/presentation';

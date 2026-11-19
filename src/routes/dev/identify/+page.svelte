@@ -4,8 +4,12 @@
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import {
 		DEMO_IDENTIFY_SCRIPT,
-		DemoIdentifySession
+		DemoIdentifySession,
+		identifyDemoExercise
 	} from '$lib/ui/play/answer/DemoIdentifySession.svelte';
+
+	if (!identifyDemoExercise())
+		throw new Error('No exercise names places on the neck: nothing to show');
 
 	// Held on the first prompt (case 8, corde de A) until an answer, so `?shot=1` needs nothing more.
 	const controller = new DemoIdentifySession(DEMO_IDENTIFY_SCRIPT, 60_000);

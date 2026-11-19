@@ -2,7 +2,6 @@ export * from './types';
 export * from './fretboard';
 export * from './naming';
 export * from './confusion';
-export * from './curriculum';
 export * from './items';
 export * from './spelling';
 export * from './chord';

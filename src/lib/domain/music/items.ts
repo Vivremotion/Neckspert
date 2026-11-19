@@ -1,5 +1,4 @@
-import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
-import { cardKey, type CardKey } from '$lib/domain/types';
+import { cardKey, type CardKey, type SkillId } from '$lib/domain/types';
 import { CHROMATIC_NOTES, MAX_PROMPT_FRET, type PitchName, type StringNumber } from './types';
 
 /** Locate: play `pitch` on `string`, any octave playable on that string. */
@@ -14,10 +13,16 @@ export interface IdentifyItem {
 	fret: number;
 }
 
-/** A card of the neck: one item of one of its two skills. */
+/**
+ * A card of the neck: one item of a skill that locates notes (a `LocateItem`) or names places (an
+ * `IdentifyItem`); the item tells which.
+ */
 export type NeckCard =
-	| { skill: typeof LOCATE_SKILL_ID; item: LocateItem }
-	| { skill: typeof IDENTIFY_SKILL_ID; item: IdentifyItem };
+	{ skill: SkillId; item: LocateItem } | { skill: SkillId; item: IdentifyItem };
+
+function isLocateItem(item: LocateItem | IdentifyItem): item is LocateItem {
+	return 'pitch' in item;
+}
 
 /** Splits `string:value`, checking the string; throws on any other shape. */
 function splitItemKey(key: string): { string: StringNumber; value: string } {
@@ -60,14 +65,16 @@ export function parseIdentifyItem(key: string): IdentifyItem {
 export function neckCardKey(card: NeckCard): CardKey {
 	return cardKey(
 		card.skill,
-		card.skill === LOCATE_SKILL_ID ? locateItemKey(card.item) : identifyItemKey(card.item)
+		isLocateItem(card.item) ? locateItemKey(card.item) : identifyItemKey(card.item)
 	);
 }
 
 /** A card, attempt-free prompt or planned item of the neck, read as a `NeckCard`. */
 export function asNeckCard(x: { skill: string; item: unknown }): NeckCard {
-	if (x.skill === LOCATE_SKILL_ID) return { skill: LOCATE_SKILL_ID, item: x.item as LocateItem };
-	if (x.skill === IDENTIFY_SKILL_ID)
-		return { skill: IDENTIFY_SKILL_ID, item: x.item as IdentifyItem };
-	throw new Error(`Not a neck skill: ${x.skill}`);
+	const item = x.item as Partial<LocateItem & IdentifyItem> | null;
+	if (item && typeof item.string === 'number') {
+		if (typeof item.pitch === 'string') return { skill: x.skill, item: item as LocateItem };
+		if (typeof item.fret === 'number') return { skill: x.skill, item: item as IdentifyItem };
+	}
+	throw new Error(`Not a neck item: ${x.skill}`);
 }

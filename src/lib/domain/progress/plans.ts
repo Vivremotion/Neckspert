@@ -2,10 +2,9 @@ import { itemEntryKey } from '$lib/domain/exercise/itemEntries';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { ladderLevel } from '$lib/domain/learning/ladder';
 import type { CardRef, LadderParams, LearningSubject } from '$lib/domain/learning/subject';
-import { neckCardKey, practiceCards } from '$lib/domain/music';
 import { setOfSkill } from '$lib/domain/sets';
 import { levelRange, type LevelState } from '$lib/domain/time/levels';
-import { cardKey, type CardKey, type LeadBeats, type PlannedItem } from '$lib/domain/types';
+import { cardKey, type LeadBeats, type PlannedItem } from '$lib/domain/types';
 import { FREE_PLAY_COUNT } from './constants';
 
 function shuffle<T>(items: readonly T[], random: () => number): T[] {
@@ -61,20 +60,6 @@ export function freeLeadOf(input: {
 }
 
 /**
- * The order free play has always drawn the neck's notes in (`practiceCards`), kept so that a draw
- * stays what it was for a given `random` while that list exists; any other item keeps its place
- * after them.
- */
-function inDrawOrder<T extends { key: CardKey }>(candidates: readonly T[]): T[] {
-	const rank = new Map<CardKey, number>(practiceCards().map((card, i) => [neckCardKey(card), i]));
-	const ranked = (candidate: T) => rank.get(candidate.key) ?? Number.POSITIVE_INFINITY;
-	return candidates
-		.map((candidate, i) => ({ candidate, i }))
-		.sort((a, b) => ranked(a.candidate) - ranked(b.candidate) || a.i - b.i)
-		.map(({ candidate }) => candidate);
-}
-
-/**
  * Free-play prompts drawn among the items the given exercises list (`definition.items`, read by
  * their skill's set), with or without a card. An item whose level gives a lead is played at that
  * lead and that level (`freeLeadOf`, `freeLevelOf`); one answered in free time at none. A prompt
@@ -99,7 +84,7 @@ export function buildFreePlan(input: {
 			return { key: cardKey(skill, set.itemKey(item)), exerciseId: definition.id, skill, item };
 		});
 	});
-	return shuffle(inDrawOrder(candidates), random)
+	return shuffle(candidates, random)
 		.slice(0, count)
 		.map(({ exerciseId, skill, item }) => {
 			const card = { skill, item };

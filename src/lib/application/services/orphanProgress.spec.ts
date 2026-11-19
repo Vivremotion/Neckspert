@@ -8,17 +8,14 @@ import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
+import { allExercises, clearExercises, exerciseById, registerExercise } from '$lib/domain/exercise';
 import {
-	allExercises,
-	clearExercises,
-	exerciseById,
-	registerExercise,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
 	ROUTINE_NOTES_ID,
 	TRIADS_ANCHOR_ID,
 	TRIADS_ZONE_ID
-} from '$lib/domain/exercise';
+} from '$lib/testing/catalogIds';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { Attempt, BackupFile, CardState, LevelState, SessionRecord } from '$lib/domain/types';
 import { responseAttempt } from '$lib/testing/attempts';
@@ -453,6 +450,22 @@ describe('a track exercise no file defines', () => {
 			registerExercise(exercise, 'catalog');
 		}
 	}
+
+	it('serves a card that any registered exercise of its skill lists', async () => {
+		const { services, deps } = harness();
+		await seed(deps);
+		await seedUnserved(deps);
+		const before = await services.sessionSummary('s-normal');
+		expect(before.nextReviewAt).toBe(3_601_000);
+		// A second exercise of the same skill lists 6:E: the union of the lists serves it.
+		registerExercise(
+			{ ...exerciseById(LOCATE_NECK_ID), id: 'locate-low-e', items: ['6:E'] },
+			'imported'
+		);
+		const after = await services.sessionSummary('s-normal');
+		expect(after.nextReviewAt).not.toBe(3_601_000);
+		expect(after.nextReviewAt).toBeLessThan(3_601_000);
+	});
 
 	it('starts the triads without identify (D9)', async () => {
 		const { services, deps } = harness();

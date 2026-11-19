@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { asNeckCard, neckCardKey, practiceCards, type NeckCard } from '$lib/domain/music';
+import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
 import { FREE_PLAY_COUNT } from './constants';
 import type { LevelState } from '$lib/domain/time/levels';
 import { exerciseSubject } from '$lib/domain/learning/exerciseSubject';
-import { ladderLevel } from '$lib/domain/learning/ladder';
-import type { LadderParams } from '$lib/domain/learning/subject';
-import { levelRange } from '$lib/domain/time/levels';
-import type { PlannedItem } from '$lib/domain/types';
 import { buildFreePlan, freeLeadOf, freeLevelOf } from './plans';
-import { plannedFor } from './neck';
 import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
 
 const L1: NeckCard = { skill: 'locate-note-string', item: { string: 6, pitch: 'G' } };
@@ -37,41 +32,6 @@ function seeded(seed: number): () => number {
 		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
 		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 	};
-}
-
-/**
- * Free play as it drew before plan 5a: `practiceCards()` shuffled, each located note at the lead
- * and level of its level state on the locate ladder. Kept here while `practiceCards()` exists.
- */
-function freePlanBefore(levels: readonly LevelState[], random: () => number): PlannedItem[] {
-	const ladder = subject.ladder('locate-note-string');
-	const { lowest } = levelRange(ladder);
-	const levelOf = (card: NeckCard) =>
-		ladderLevel(
-			levels.find(
-				(state) =>
-					state.exerciseId === 'locate-note-string' &&
-					state.scope === '' &&
-					state.item === neckCardKey(card).slice('locate-note-string:'.length)
-			) ?? level(neckCardKey(card).slice('locate-note-string:'.length), 0),
-			ladder
-		).level;
-	const items = [...practiceCards()];
-	for (let i = items.length - 1; i > 0; i--) {
-		const j = Math.floor(random() * (i + 1));
-		[items[i], items[j]] = [items[j], items[i]];
-	}
-	return items.slice(0, FREE_PLAY_COUNT).map((card) => {
-		const locate = card.skill === 'locate-note-string';
-		return plannedFor(card, {
-			phase: 'free',
-			temperature: 'hot',
-			aid: 'none',
-			leadBeats: locate ? (ladder[levelOf(card) - lowest].params as LadderParams).leadBeats : null,
-			...(locate && { level: levelOf(card) }),
-			exerciseLevel: 0
-		});
-	});
 }
 
 describe('buildFreePlan', () => {
@@ -104,14 +64,29 @@ describe('buildFreePlan', () => {
 		expect(capped).toHaveLength(FREE_PLAY_COUNT);
 	});
 
-	it('draws the notes exactly as free play drew them before, for a seeded random', () => {
+	it('draws the notes as frozen for a seeded random (the draw of plan 5a, Task 6)', () => {
 		const levels = [level('6:G', 2), level('6:A', 1), level('5:C', 5)];
-		for (const seed of [1, 7, 2026]) {
-			expect(
-				buildFreePlan({ exercises: NOTES, subject, levels, random: seeded(seed) }),
-				`seed ${seed}`
-			).toEqual(freePlanBefore(levels, seeded(seed)));
-		}
+		const plan = buildFreePlan({ exercises: NOTES, subject, levels, random: seeded(2026) });
+		const drawn = plan
+			.slice(0, 10)
+			.map((item) => [item.exerciseId, item.item, item.leadBeats, item.level ?? null]);
+		expect(drawn).toEqual([
+			['identify-note', { string: 1, fret: 2 }, null, null],
+			['identify-note', { string: 3, fret: 7 }, null, null],
+			['locate-note-string', { string: 4, pitch: 'D#' }, 8, 0],
+			['locate-note-string', { string: 5, pitch: 'G' }, 8, 0],
+			['identify-note', { string: 4, fret: 2 }, null, null],
+			['locate-note-string', { string: 1, pitch: 'G#' }, 8, 0],
+			['identify-note', { string: 6, fret: 6 }, null, null],
+			['identify-note', { string: 6, fret: 7 }, null, null],
+			['locate-note-string', { string: 4, pitch: 'A' }, 8, 0],
+			['locate-note-string', { string: 2, pitch: 'G' }, 8, 0]
+		]);
+		expect(plan).toHaveLength(FREE_PLAY_COUNT);
+		expect(plan.find((item) => neckCardKey(asNeckCard(item)) === neckCardKey(L2))).toMatchObject({
+			leadBeats: 4,
+			level: 1
+		});
 	});
 
 	it('draws one exercise alone among its own items only', () => {

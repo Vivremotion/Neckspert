@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { IdentifyData } from '$lib/domain/sets';
+import { LEARNABLE_FRETS, locateItems } from '$lib/testing/neck';
 import {
-	LEARNABLE_FRETS,
-	locateItems,
 	neckCardKey,
 	openPitch,
 	pitchOnString,
+	type IdentifyItem,
 	type LocateItem,
 	type NeckCard
 } from '$lib/domain/music';
@@ -311,7 +311,7 @@ describe('a learn session of the notes', () => {
 		const first = onStage(controller);
 		expect(first?.card.skill).toBe('identify-note');
 		for (let i = 0; i < 60; i++) await step(app);
-		const right = rightName((first?.card as Extract<NeckCard, { skill: 'identify-note' }>).item);
+		const right = rightName(first?.card.item as IdentifyItem);
 		// Two taps: the first answers, the second comes after the answer.
 		controller.answer(right);
 		expect(controller.view.status).toBe('verdict');
@@ -397,9 +397,7 @@ describe('a learn session of the notes', () => {
 		await runUntil(app, () => (nextBar - controller.timeline.nowBeat()) * beatS <= 0.05);
 		const tappedAt = app.clock.now();
 		expect((nextBar - controller.timeline.nowBeat()) * beatS).toBeGreaterThan(0);
-		controller.answer(
-			rightName((named?.card as Extract<NeckCard, { skill: 'identify-note' }>).item)
-		);
+		controller.answer(rightName(named?.card.item as IdentifyItem));
 		await runUntil(app, () => controller.view.status === 'awaiting');
 		expect(onStage(controller)?.card.skill).toBe('locate-note-string');
 		// The count's first click, the first sound since the tap.
@@ -609,8 +607,9 @@ describe('a free session of the notes', () => {
 		expect(rounds.length).toBeGreaterThanOrEqual(10);
 		expect(attempts).toHaveLength(rounds.length);
 		for (const round of rounds) {
-			if (round.card.skill === 'identify-note') expect(round.card.item.fret).not.toBe(0);
-			else expect(round.card.item.pitch).not.toBe(openPitch(round.card.item.string));
+			const item = round.card.item;
+			if (round.card.skill === 'identify-note') expect((item as IdentifyItem).fret).not.toBe(0);
+			else expect((item as LocateItem).pitch).not.toBe(openPitch(item.string));
 		}
 	});
 });

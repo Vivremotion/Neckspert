@@ -1,4 +1,4 @@
-import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/testing/catalogIds';
 /** The notes' sessions on the app's real wiring (`createAppServices`), the stores in memory and the fakes. */
 import type { AppServices } from '$lib/application/app';
 import type { BackupPort, CalibrationOutcome, CalibrationPort } from '$lib/application/ports';
@@ -342,10 +342,10 @@ export async function playRounds(
 			round.answeredAt = now;
 			const { card } = round;
 			if (card.skill === LOCATE_SKILL_ID) {
-				const midi = rightMidi(card.item) + (answer.play === 'right' ? 0 : 1);
+				const midi = rightMidi(card.item as LocateItem) + (answer.play === 'right' ? 0 : 1);
 				detector.emitNote({ time: round.dueAt, midi, frequencyHz: 220, clarity: 0.9 });
 			} else {
-				const name = rightName(card.item);
+				const name = rightName(card.item as IdentifyItem);
 				controller.answer(answer.play === 'right' ? name : wrongName(name));
 			}
 		}

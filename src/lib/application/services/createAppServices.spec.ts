@@ -20,7 +20,8 @@ import {
 	type CardState,
 	type SessionRecord
 } from '$lib/domain/types';
-import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
+import { acceptableMidis, neckCardKey } from '$lib/domain/music';
+import { practiceCards } from '$lib/testing/neck';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeAttackDetector,
@@ -72,7 +73,18 @@ class FakeCalibration implements CalibrationPort {
 	cancel(): void {}
 }
 
-function harness(options: { development?: boolean } = {}): {
+/** A seeded random (mulberry32). */
+function seeded(seed: number): () => number {
+	let a = seed;
+	return () => {
+		a = (a + 0x6d2b79f5) | 0;
+		let t = Math.imul(a ^ (a >>> 15), 1 | a);
+		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+	};
+}
+
+function harness(options: { development?: boolean; random?: () => number } = {}): {
 	services: AppServices;
 	deps: SessionDeps & {
 		clock: FakeClock;
@@ -96,7 +108,7 @@ function harness(options: { development?: boolean } = {}): {
 		sessions: new InMemorySessionRepository(),
 		settings: new InMemorySettingsRepository(),
 		now: () => clock.toEpochMs(clock.now()),
-		random: () => 0,
+		random: options.random ?? (() => 0),
 		newId: () => `id-${Math.random().toString(16).slice(2)}`,
 		presenters: SET_PRESENTERS,
 		views: VIEW_PRESENTERS,
@@ -286,7 +298,9 @@ describe('createAppServices', () => {
 	});
 
 	it('free-plays a note at the lead of its stored level, on the ladder at 80 bpm', async () => {
-		const { services, deps } = harness();
+		// A draw that mixes the two exercises' items (with `() => 0` the list's order would serve
+		// the named places first, all twenty of them).
+		const { services, deps } = harness({ random: seeded(2026) });
 		// Every note at level 2: lead 2 at ♩ = 80.
 		for (const card of practiceCards().filter((c) => c.skill === 'locate-note-string')) {
 			await deps.levels.put({

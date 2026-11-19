@@ -15,7 +15,7 @@
 		type FigureStageModel,
 		type SettledCycle
 	} from '$lib/application/session/series/figureStage';
-	import { exerciseById, RHYTHM_SILENT_BARS_ID } from '$lib/domain/exercise';
+	import { allExercises } from '$lib/domain/exercise';
 	import { compileRound } from '$lib/domain/exercise/round';
 	import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 	import {
@@ -42,8 +42,14 @@
 		}
 	}
 
-	const figure = exerciseById(RHYTHM_SILENT_BARS_ID).figures?.[0]?.figure;
-	if (!figure) throw new Error('the silent bars exercise has no figure');
+	// The first registered exercise drawn on the figure view that writes a figure (the catalog's
+	// silent bars), and its first figure.
+	const shown = allExercises().find(
+		(exercise) => exercise.view === 'figure' && (exercise.figures ?? []).length > 0
+	);
+	const figure = shown?.figures?.[0]?.figure;
+	if (!shown || !figure)
+		throw new Error('No exercise on the figure view writes a figure: nothing to show');
 
 	/** A cycle of four bars of eighths (32 attacks), bar 0 muted; offsets drawn from `seed`. */
 	function cycle(seed: number, passed: boolean): SettledCycle {
@@ -74,7 +80,7 @@
 	const phase = page.url.searchParams.get('phase');
 	const base: FigureStageModel = {
 		phase: 'play',
-		exerciseLabel: 'Mesures silencieuses',
+		exerciseLabel: shown.title?.fr ?? shown.id,
 		level: { shown: 3, of: 6, aid: false },
 		tempo: { bpm: 80, unit: '♩' },
 		figure,

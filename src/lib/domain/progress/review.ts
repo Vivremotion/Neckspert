@@ -1,7 +1,7 @@
-import { LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import type { SkillId } from '$lib/domain/skill/types';
 import type { Attempt, CardKey, CardState } from '$lib/domain/types';
 import { MIN_COLD_DELAY_MS } from './constants';
+import { isLocated } from './neck';
 
 /** Latest prompt time of each card, any phase. */
 export function lastAttemptByCard(attempts: readonly Attempt[]): Map<CardKey, number> {
@@ -26,10 +26,10 @@ export function reviewableAt(card: CardState, lastAttemptAt: number | undefined)
 }
 
 function skillRank(skill: SkillId): number {
-	return skill === LOCATE_SKILL_ID ? 0 : 1;
+	return isLocated(skill) ? 0 : 1;
 }
 
-/** Cards that would be reviewed cold now: by due time, locate first, then key. */
+/** Cards that would be reviewed cold now: by due time, located notes first, then key. */
 export function reviewableCards(
 	cards: readonly CardState[],
 	lastByCard: ReadonlyMap<CardKey, number>,

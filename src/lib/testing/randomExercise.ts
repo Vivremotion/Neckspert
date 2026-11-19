@@ -1,4 +1,4 @@
-import { CHORD_ANCHOR_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import { CHORD_ANCHOR_SKILL_ID } from '$lib/testing/catalogIds';
 /**
  * Exercises drawn at random from the registered pieces, and a bench that plays any response
  * exercise on a fixed list of items: the promise « every valid exercise plays » put to the test.
@@ -46,8 +46,8 @@ import { INDEX_DERIVATIONS } from '$lib/domain/families';
 import type { ChordShape } from '$lib/domain/families/guitar/chordShapes';
 import type { NotePlace } from '$lib/domain/families/guitar/notePlaces';
 import type { SelectionTemplate } from '$lib/domain/exercise/selection/types';
+import { locateItems } from './neck';
 import {
-	locateItems,
 	parseVoicingKey,
 	pitchOnString,
 	voicingOccurrences,

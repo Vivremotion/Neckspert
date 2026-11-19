@@ -790,6 +790,10 @@ exports[`keeps grid-in-direction as it is 1`] = `
     },
   },
   "tempo": 80,
+  "title": {
+    "en": "Move constraint",
+    "fr": "Contrainte de déplacement",
+  },
   "view": "grid-scroll",
 }
 `;
@@ -1066,6 +1070,10 @@ exports[`keeps grid-in-zone as it is 1`] = `
     },
   },
   "tempo": 80,
+  "title": {
+    "en": "Stay in a zone",
+    "fr": "Rester dans une zone",
+  },
   "view": "grid-scroll",
 }
 `;
@@ -1273,6 +1281,10 @@ exports[`keeps grid-reading as it is 1`] = `
     },
   },
   "tempo": 80,
+  "title": {
+    "en": "Jam",
+    "fr": "Jam",
+  },
   "view": "grid-scroll",
 }
 `;
@@ -1670,6 +1682,10 @@ exports[`keeps inversion-run as it is 1`] = `
     },
   },
   "tempo": 80,
+  "title": {
+    "en": "Link the shapes",
+    "fr": "Relier les formes",
+  },
   "view": "link-lane",
 }
 `;

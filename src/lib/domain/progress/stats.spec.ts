@@ -10,7 +10,7 @@ import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import { MIN_COLD_DELAY_MS, TREND_WINDOW_MS } from './constants';
 import { introduceCard, markLearned } from './cards';
-import { keyed, neckExerciseId } from './neck';
+import { keyed, neckExerciseId } from '$lib/testing/neck';
 import { buildNeckMap, computeHomeStats, summarizeSession } from './stats';
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z');

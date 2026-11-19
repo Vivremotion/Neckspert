@@ -20,7 +20,7 @@ import { triadCards } from '$lib/testing/shapes';
 import { changePresenter } from '$lib/application/sets/chordGrid';
 import { SET_PRESENTERS } from '$lib/application/sets';
 import { registerSkill } from '$lib/domain/skill/registry';
-import { GESTURE_EXERCISE_IDS, IDENTIFY_NECK_ID } from '$lib/domain/exercise/catalogIds';
+import { GESTURE_EXERCISE_IDS, IDENTIFY_NECK_ID } from '$lib/testing/catalogIds';
 import type { SetPresenter, StagePlace } from '$lib/application/sets/types';
 import type { Observation, SensorFactory } from './sensors';
 import {

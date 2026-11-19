@@ -11,6 +11,7 @@ import { createExerciseItemSource } from '$lib/application/session/series/itemSo
 import { passagesOpen } from '$lib/domain/exercise/passage/opens';
 import { createPassageSource } from '$lib/domain/session/passageSource';
 import {
+	allExercises,
 	exerciseById,
 	exerciseSessionExercises,
 	figureParamsOf,
@@ -18,11 +19,7 @@ import {
 	UNKNOWN_EXERCISE,
 	writesFigure,
 	type ExerciseDefinition,
-	type ExerciseId,
-	IDENTIFY_NECK_ID,
-	LOCATE_NECK_ID,
-	TRIADS_ANCHOR_ID,
-	TRIADS_ZONE_ID
+	type ExerciseId
 } from '$lib/domain/exercise';
 import { pitchOnString } from '$lib/domain/music';
 import {
@@ -115,19 +112,23 @@ export function createAppServices(
 			(id) => exerciseFound(id) !== undefined
 		);
 	/**
-	 * The cards a session can serve. A card of a skill whose exercise a file defines is served only
-	 * when that exercise lists it (`exerciseSubject(...).owns`); one it does not list, or whose key
-	 * its set cannot read, stays stored and is ignored. A skill no file practises is left as it is.
+	 * The cards a session can serve. A card of a skill with cards that a registered exercise
+	 * practises is served only when one of those exercises lists it (`exerciseSubject(...).owns`);
+	 * one none lists, or whose key its set cannot read, stays stored and is ignored. A skill no
+	 * registered exercise practises is left as it is.
 	 */
 	const servedCards = <T extends { skill: SkillId; key: CardKey }>(cards: readonly T[]): T[] => {
-		const owners = new Map<string, LearningSubject['owns']>();
-		for (const id of [LOCATE_NECK_ID, IDENTIFY_NECK_ID, TRIADS_ANCHOR_ID, TRIADS_ZONE_ID]) {
+		const owners = new Map<string, LearningSubject['owns'][]>();
+		for (const { id } of allExercises()) {
 			const found = exerciseFound(id);
-			if (found && hasCards(found.practices)) {
-				owners.set(found.practices, exerciseSubject({ exercises: [found], attempts: [] }).owns);
-			}
+			if (!found || !hasCards(found.practices)) continue;
+			const owns = exerciseSubject({ exercises: [found], attempts: [] }).owns;
+			owners.set(found.practices, [...(owners.get(found.practices) ?? []), owns]);
 		}
-		return cards.filter((card) => owners.get(card.skill)?.(card) ?? true);
+		return cards.filter((card) => {
+			const own = owners.get(card.skill);
+			return own === undefined || own.some((owns) => owns(card));
+		});
 	};
 
 	/**

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
+	import { exerciseTitle } from '$lib/application/session/playOrigin';
 	import { GLOSSARY, termOfFailure, termOfMeasure } from '$lib/domain/glossary';
 	import type { MeasureId } from '$lib/domain/time';
 	import Term from '$lib/ui/primitives/Term.svelte';
@@ -83,9 +84,9 @@
 	/** Width assumed before the box is measured. */
 	const FALLBACK_WIDTH = 640;
 
-	/** The exercise, and the grid its tempo belongs to when it has one. */
+	/** The exercise by the name the play screen gives it, and the grid its tempo belongs to. */
 	function exerciseLabel(exerciseId: string, scope: string | undefined): string {
-		const name = t.exercise[exerciseId] ?? exerciseId;
+		const name = exerciseTitle(exerciseId)[i18n.locale];
 		if (scope === undefined) return name;
 		const grid = allGrids().find((candidate) => candidate.id === scope);
 		return `${name} · ${grid?.title ?? scope}`;

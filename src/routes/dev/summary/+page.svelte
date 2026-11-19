@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import type { SessionSummary } from '$lib/domain/types';
 	import SummaryScreen from '$lib/ui/screens/summary/SummaryScreen.svelte';
 
@@ -27,13 +28,16 @@
 		chords: true
 	};
 
+	/** The last registered exercise played cycle after cycle (the catalog's offbeats). */
+	const figureExercise = exerciseSessionExercises().at(-1);
+
 	const rhythm: SessionSummary = {
 		...summary,
 		pool: 'cold',
 		grade: null,
 		chords: false,
 		exercise: {
-			exerciseId: 'rhythm-offbeats',
+			exerciseId: figureExercise?.id ?? '',
 			levelReached: { shown: 3, of: 6, aid: false },
 			cycles: 14,
 			successes: 11,

@@ -6,7 +6,7 @@ import {
 	LOCATE_NECK_ID,
 	LOCATE_SKILL_ID,
 	ROUTINE_NOTES_ID
-} from '$lib/domain/exercise/catalogIds';
+} from '$lib/testing/catalogIds';
 import {
 	DEFAULT_SETTINGS,
 	cardKey,

@@ -1,16 +1,18 @@
-import { LEARNABLE_FRETS, neckCardKey } from '$lib/domain/music';
 import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
+	cardKey,
 	type Attempt,
+	type CardKey,
 	type CardState,
 	type HomeStats,
 	type NeckMapCell,
 	type SessionRecord,
 	type SessionSummary
 } from '$lib/domain/types';
-import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
 import { summarizeGesture } from '$lib/domain/gesture/summary';
+import { setOfSkill } from '$lib/domain/sets';
+import { isLocated, isNamed, neckOf, type Neck } from './neck';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
 import { sessionGrade } from './grade';
@@ -22,7 +24,7 @@ function locateOffsets(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'col
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
 		// Off-beat answers are far past the window: they would hide the distance to the beat.
 		if (!attempt.success) return [];
-		if (attempt.skill !== LOCATE_SKILL_ID || attempt.timingOffsetMs === null) return [];
+		if (!isLocated(attempt.skill) || attempt.timingOffsetMs === null) return [];
 		return [Math.abs(attempt.timingOffsetMs)];
 	});
 }
@@ -55,7 +57,7 @@ function beatOffsets(attempts: readonly Attempt[]): number[] {
 function identifyReactions(attempts: readonly Attempt[], pool: 'cold' | 'all' = 'cold'): number[] {
 	return attempts.flatMap((attempt) => {
 		if (pool === 'cold' && attempt.temperature !== 'cold') return [];
-		if (attempt.skill !== IDENTIFY_SKILL_ID) return [];
+		if (!isNamed(attempt.skill)) return [];
 		if (attempt.reactionMs === null) return [];
 		return [attempt.reactionMs];
 	});
@@ -144,42 +146,48 @@ export function summarizeSession(input: {
 	};
 }
 
+/**
+ * The neck map: a cell per place its exercises list (`neckOf`), each with the card of the note
+ * located there (its pitch read by `pitchAt`) and of the place named.
+ */
 export function buildNeckMap(input: {
 	cards: readonly CardState[];
 	attempts: readonly Attempt[];
 	pitchAt: (string: StringNumber, fret: number) => PitchName;
+	/** The neck's places and skills; the registered exercises' by default. */
+	neck?: Neck;
 }): NeckMapCell[] {
+	const neck = input.neck ?? neckOf();
 	const byKey = new Map(input.cards.map((card) => [card.key, card]));
-	const cells: NeckMapCell[] = [];
+	const keyOf = (skill: string | null, item: unknown): CardKey | null =>
+		skill === null ? null : cardKey(skill, setOfSkill(skill).itemKey(item));
 
-	for (let string = 1 as StringNumber; string <= 6; string = (string + 1) as StringNumber) {
-		for (const fret of LEARNABLE_FRETS) {
-			const pitch = input.pitchAt(string, fret);
-			const locateKey = neckCardKey({ skill: LOCATE_SKILL_ID, item: { string, pitch } });
-			const identifyKey = neckCardKey({ skill: IDENTIFY_SKILL_ID, item: { string, fret } });
-			const locateCard = byKey.get(locateKey);
-			const cold = input.attempts.filter(
-				(attempt) =>
-					attempt.temperature === 'cold' &&
-					(attempt.cardKey === locateKey || attempt.cardKey === identifyKey)
-			);
-			const identifyReaction = input.attempts.flatMap((attempt) => {
-				if (attempt.temperature !== 'cold' || attempt.cardKey !== identifyKey) return [];
-				if (attempt.reactionMs === null) return [];
-				return [attempt.reactionMs];
-			});
-			cells.push({
-				string,
-				fret,
-				pitch,
-				locate: cardStatus(locateCard),
-				identify: cardStatus(byKey.get(identifyKey)),
-				locateRecallMs: locateCard ? lastColdRecallMs(locateKey, input.attempts) : null,
-				identifyMedianReactionMs: median(identifyReaction),
-				coldAccuracy:
-					cold.length === 0 ? null : cold.filter((attempt) => attempt.success).length / cold.length
-			});
-		}
-	}
-	return cells;
+	return neck.places.map(({ string, fret }) => {
+		const pitch = input.pitchAt(string, fret);
+		const locateKey = keyOf(neck.located, { string, pitch });
+		const identifyKey = keyOf(neck.named, { string, fret });
+		const locateCard = locateKey === null ? undefined : byKey.get(locateKey);
+		const cold = input.attempts.filter(
+			(attempt) =>
+				attempt.temperature === 'cold' &&
+				(attempt.cardKey === locateKey || attempt.cardKey === identifyKey)
+		);
+		const identifyReaction = input.attempts.flatMap((attempt) => {
+			if (attempt.temperature !== 'cold' || attempt.cardKey !== identifyKey) return [];
+			if (attempt.reactionMs === null) return [];
+			return [attempt.reactionMs];
+		});
+		return {
+			string,
+			fret,
+			pitch,
+			locate: cardStatus(locateCard),
+			identify: cardStatus(identifyKey === null ? undefined : byKey.get(identifyKey)),
+			locateRecallMs:
+				locateCard && locateKey !== null ? lastColdRecallMs(locateKey, input.attempts) : null,
+			identifyMedianReactionMs: median(identifyReaction),
+			coldAccuracy:
+				cold.length === 0 ? null : cold.filter((attempt) => attempt.success).length / cold.length
+		};
+	});
 }

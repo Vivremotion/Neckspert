@@ -9,7 +9,7 @@ import { V7_RELATIONS, attemptToV8, backupV3ToV4, relationOfMechanic, settingsTo
 import { TRIAD_LADDER_V10 } from './v10';
 import { attemptToV11 } from './v11';
 import { EXERCISE_IDS_V13, SKILL_OF_EXERCISE_V12, attemptToV13, cardToV13 } from './v13';
-import { GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
+import { GESTURE_EXERCISE_IDS } from '$lib/testing/catalogIds';
 
 type Row = Record<string, unknown>;
 

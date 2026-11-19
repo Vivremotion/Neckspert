@@ -12,7 +12,8 @@ import type {
 	PlayView,
 	PlayOrigin
 } from '$lib/application/session/contract';
-import { DEFAULT_TEMPO_BPM, LOCATE_NECK_ID, exerciseById } from '$lib/domain/exercise';
+import { DEFAULT_TEMPO_BPM, type ExerciseDefinition } from '$lib/domain/exercise';
+import { exercisesOnSet, LOCATED_NOTES } from '$lib/domain/progress/neck';
 import { acceptableMidis, midiOnString, type LocateItem } from '$lib/domain/music';
 import type { ResponseVerdict } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
@@ -53,6 +54,11 @@ const COUNT_IN = BAR_BEATS;
 const LEAD = 8;
 /** The breathing bar after a target: its verdict stays, then the next note comes. */
 const BREATH_BEATS = DEFAULT_RESPIRATION_BARS * BAR_BEATS;
+
+/** The exercise the demo plays: the first registered one that locates notes; none without. */
+export function locateDemoExercise(): ExerciseDefinition | undefined {
+	return exercisesOnSet(LOCATED_NOTES)[0];
+}
 
 /** Spells the demo's notes always alike. */
 const noRandom = () => 0;
@@ -167,9 +173,11 @@ export class DemoPlaySession implements PlaySessionController {
 
 	#show(place: Pick<PromptStageModel, 'anchorBeat' | 'promptBeat' | 'verdict'>): void {
 		const { item } = SCRIPT[this.#step];
+		const exercise = locateDemoExercise();
+		if (!exercise) throw new Error('No exercise locates notes: nothing to demonstrate');
 		const planned = {
-			exerciseId: LOCATE_NECK_ID,
-			skill: exerciseById(LOCATE_NECK_ID).practices,
+			exerciseId: exercise.id,
+			skill: exercise.practices,
 			exerciseLevel: 0,
 			item,
 			phase: 'review',
@@ -180,7 +188,7 @@ export class DemoPlaySession implements PlaySessionController {
 		this.view.stage = {
 			view: 'lane',
 			model: {
-				prompt: presentPrompt(exerciseById(LOCATE_NECK_ID), planned, i18n.locale, noRandom),
+				prompt: presentPrompt(exercise, planned, i18n.locale, noRandom),
 				history: this.#history,
 				bands: [],
 				beatsPerBar: BAR_BEATS,

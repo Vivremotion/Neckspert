@@ -1,5 +1,4 @@
 export * from './types';
-export * from './catalogIds';
 export * from './registry';
 export * from './tempo';
 export * from './levels';

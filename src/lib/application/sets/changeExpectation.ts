@@ -49,8 +49,8 @@ function shapesOn(chord: Chord, strings: ChordShapesIndex['strings']): VoicingOc
  * What the chord sensor listens for in a change (spec 2026-10-10, section 3): the shapes its
  * content admits; then, within NEIGHBOUR_FRETS of their frets (`anywhere`: wherever they lie),
  * the other shapes of the chord on the content's strings, those of its other quality and those
- * of the other chords of the passage's line (`changes`). Never a shape of the pitches of the one
- * still ringing (the content's previous member).
+ * of the other chords of the passage's line (its second argument). Never a shape of the pitches
+ * of the one still ringing (the content's previous member).
  */
 export function changeExpectation(
 	content: MemberContent,

@@ -1,4 +1,4 @@
-import type { CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import type { SkillId } from '$lib/domain/skill/types';
 import {
 	parseVoicingKey,
 	voicingKey,
@@ -6,8 +6,8 @@ import {
 	type VoicingOccurrence
 } from '$lib/domain/music';
 
-/** The two skills of the triads, the anchor's and the zone's. */
-export type TriadSkill = typeof CHORD_ANCHOR_SKILL_ID | typeof CHORD_ZONE_SKILL_ID;
+/** A skill of the triads (its items are `voicing-on-strings`). */
+export type TriadSkill = SkillId;
 
 /** Joins the voicing key and the frets of a shape: `D|maj|3:5,2:1,1:3@2-3-2`. */
 const OCCURRENCE_SEPARATOR = '@';
