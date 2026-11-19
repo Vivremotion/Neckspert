@@ -604,7 +604,7 @@ Une **routine** est une entrée de l'accueil : un titre, et les exercices qu'une
 `id`, `title` et `exercises` sont obligatoires ; `howTo` et `opens` sont facultatives. Une autre clé refuse la routine.
 
 - **`id`** : il s'écrit comme les autres identifiants (lettres, chiffres, `-`, `_`, `.`). Les routines ont leurs propres identifiants : une routine peut porter l'`id` d'un exercice. C'est lui que l'adresse d'une séance nomme : `/session?routine=<id>`.
-- **`title`** : `{ "fr": "…", "en": "…" }`, deux textes non vides. C'est le titre du bloc sur l'accueil, et l'en-tête de l'écran de jeu (les vues des changements et de la figure ne montrent pas encore cet en-tête).
+- **`title`** : `{ "fr": "…", "en": "…" }`, deux textes non vides. C'est le titre du bloc sur l'accueil, et l'en-tête de l'écran de jeu (les écrans des changements et des figures ne montrent pas encore cet en-tête).
 - **`exercises`** : les identifiants des exercices, de 1 à 32, chacun une fois. L'ordre compte : c'est l'ordre où ils introduisent, ou l'ordre où ils jouent à tour de rôle (voir « Ce qu'une séance joue »).
 - **`howTo`** : `{ "fr": "…", "en": "…" }`, la consigne de l'écran de départ, quand le premier exercice joué n'écrit pas la sienne (son `howTo`). Sans elle, l'écran donne la phrase générale.
 - **`opens`** : l'**ouverture**, ce que le joueur doit savoir pour que la routine soit proposée (voir « L'ouverture »). Sans elle, la routine est ouverte.
@@ -640,7 +640,7 @@ La routine n'écrit pas comment sa séance pioche : cela se déduit de ses exerc
 
 `opens` s'écrit sous l'une de quatre formes :
 
-- `{ "acquired": { "skill": "<capacité>", "atLeast": 6 } }` : au moins 6 cartes acquises dans cette capacité. Ne comptent que les cartes marquées acquises qu'une séance peut servir, c'est-à-dire que la liste d'un exercice nomme. Une capacité sans mémoire n'a pas de cartes : rien n'y est jamais acquis.
+- `{ "acquired": { "skill": "<capacité>", "atLeast": 6 } }` : au moins 6 cartes acquises dans cette capacité. Ne comptent que les cartes acquises que la liste d'un exercice nomme. Une capacité sans mémoire n'a pas de cartes : rien n'y est jamais acquis.
 - `{ "level": { "exercise": "<exercice>", "scope": "<portée>", "atLeast": 2 } }` : le niveau d'exercice atteint, au moins le niveau 2. Le niveau 1 compte 1 ; un niveau d'aide ne compte jamais. `scope` est facultative : sans elle, c'est le niveau de l'exercice sans portée ; avec elle, celui de cette portée (`"blues-f"` pour une grille). Un exercice qui n'écrit pas de `levels` n'a pas de niveau : la forme n'est jamais vraie.
 - `{ "all": [ … ] }` : toutes les formes de la liste sont vraies.
 - `{ "any": [ … ] }` : au moins une l'est.
@@ -678,7 +678,9 @@ Un exercice qui écrit `flow.antiBlocking` peut bloquer : quand il échoue encor
 
 - la ligne d'état dit « On change d'air : <exercice> » (et la grille), jusqu'au premier tour de l'exercice suivant ;
 - l'exercice sorti ne revient pas dans cette séance ; une autre grille du même exercice, si ;
-- la séance s'arrête quand il ne reste plus rien à jouer ; le bilan nomme chaque exercice sorti, dans l'ordre.
+- la séance s'arrête quand il ne reste plus rien à jouer ; le bilan nomme chaque exercice sorti, dans l'ordre, tant que la séance est gardée en mémoire.
+
+La fatigue peut finir la séance avant : un joueur qui commence bien puis rate (vingt points de moins entre ses six premières réponses et ses six dernières, sur douze réponses) voit sa séance finir sur la fatigue, et aucun exercice ne sort.
 
 Le repos ne change pas ce que la séance suivante pioche. Seule la séance de passages sait laisser un exercice de côté. Ailleurs, « On change d'air » finit la séance, comme avant : un exercice de rythme joué seul, ou un exercice de mémoire qui écrirait `flow.antiBlocking` (aucun du catalogue ne l'écrit).
 
@@ -689,7 +691,7 @@ Le repos ne change pas ce que la séance suivante pioche. Seule la séance de pa
   - Un exercice de mémoire se joue en jeu libre, sur les seuls éléments de sa liste ; l'en-tête dit « Jeu libre · <titre> », et son bilan est celui du jeu libre.
   - Un exercice de passages joue ses passages, sur ses index ouverts.
   - Un autre exercice se joue comme une séance d'exercice : il faut un tour à figure, des `levels`, une capacité sans mémoire et des éléments ou des figures à servir. Sinon : `Exercise <id> is not played in an exercise session`.
-- Une adresse qui ne nomme ni une routine ni un exercice définis (ou l'ancienne `?kind=…`) dit « Séance introuvable », avec un lien « Retour à l'accueil ». Une adresse qui nomme une routine et un exercice ne lit que la routine.
+- Une adresse qui ne nomme ni une routine ni un exercice définis dit « Séance introuvable », avec un lien « Retour à l'accueil ». L'ancien paramètre `kind` n'est plus lu : `?kind=learn` est introuvable, mais `?kind=exercise&exercise=<id>` joue l'exercice. Une adresse qui nomme une routine et un exercice ne lit que la routine.
 
 ### Ce qui est lu, et dans quel ordre
 
