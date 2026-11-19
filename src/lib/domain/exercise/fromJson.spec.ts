@@ -290,7 +290,8 @@ describe('exerciseFromJson practices', () => {
 			['presentation', 3],
 			['flow', 'x'],
 			['round', []],
-			['params', null]
+			['params', null],
+			['passages', ['grid']]
 		])('refuses %s written as %j', (key, value) => {
 			expect(refused({ [key]: value })).toThrow(`${key} must be an object`);
 		});

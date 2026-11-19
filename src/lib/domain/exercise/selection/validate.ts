@@ -24,6 +24,10 @@ export interface SelectionProblem {
 type Record_ = Record<string, unknown>;
 
 const SELECTION_KEYS = ['family', 'of', 'where', 'order', 'take'];
+/** A passage's members take their index from the passage: no `of`. */
+const MEMBERS_KEYS = ['family', 'where', 'order', 'take'];
+/** What a passage's members are read for, in place of an item set: no item value is read on it. */
+const PASSAGE = 'a passage';
 const FILTER_NAMES = ['in', 'at', 'position', 'other'];
 const PLACE_KEYS = ['strings', 'frets'];
 const POSITION_KEYS = ['beyond', 'toward', 'turns'];
@@ -62,7 +66,7 @@ interface ParamRead {
 	unfitText?: string;
 }
 
-/** What a selection check reads: the exercise, its set, and the params it reads. */
+/** What a selection check reads: the exercise, its set (`PASSAGE` for a passage's members), and the params it reads. */
 interface Check {
 	definition: ExerciseDefinition;
 	set: string;
@@ -155,19 +159,28 @@ function filterProblem(check: Check, field: string, filter: unknown): Filter | S
 	}
 	if ('position' in filter) {
 		const position = filter.position;
+		const toward = isRecord(position) ? position.toward : undefined;
+		const read = isRef(toward) && 'param' in toward && typeof toward.param === 'string';
 		if (
 			!isRecord(position) ||
 			unknownKey(position, POSITION_KEYS, '') !== null ||
 			position.beyond !== 'previous' ||
-			(position.toward !== 'up' && position.toward !== 'down') ||
+			(toward !== 'up' && toward !== 'down' && !read) ||
 			(position.turns !== undefined && typeof position.turns !== 'boolean')
 		) {
 			return problemAt(
 				`${field}.position`,
-				'must be { beyond: "previous", toward: "up" or "down", turns?: true or false }'
+				'must be { beyond: "previous", toward: "up", "down" or { param }, turns?: true or false }'
 			);
 		}
-		return filter as Filter;
+		if (!read) return filter as Filter;
+		check.params.push({
+			field: `${field}.position.toward`,
+			path: (toward as { param: string }).param,
+			unfit: (found) => (found === 'up' || found === 'down' ? null : 'not up or down')
+		});
+		// Its direction is known at each level: `selectionProblem` needs only the filter's kind.
+		return { position: { ...position, toward: 'up' } } as Filter;
 	}
 	return filter.other === 'previous'
 		? (filter as Filter)
@@ -300,18 +313,66 @@ function sweepLevels(definition: ExerciseDefinition, paths: readonly string[], s
 }
 
 /**
+ * The passage params the exercise writes (`passages.each`), by name: each read as a param, in
+ * each of its values. A list that is none is left to the passages' own check.
+ */
+function passageParamsOf(definition: ExerciseDefinition): Map<string, readonly unknown[]> {
+	const passages: unknown = definition.passages;
+	const each = isRecord(passages) ? passages.each : undefined;
+	if (!isRecord(each)) return new Map();
+	return new Map(
+		Object.entries(each).filter((entry): entry is [string, unknown[]] => Array.isArray(entry[1]))
+	);
+}
+
+/**
+ * Why a param read in a passage param is not written as it must be in each of its values; an
+ * `each` value does not depend on the level, so no level is swept for it.
+ */
+function passageParamProblem(
+	read: ParamRead,
+	name: string,
+	values: readonly unknown[]
+): SelectionProblem | null {
+	const reads = `reads param "${read.path}", which`;
+	for (const [i, value] of values.entries()) {
+		const where = `passages.each.${name}[${i}]`;
+		const found = paramValue({ [name]: value }, read.path);
+		if (found === undefined) return problemAt(read.field, `${reads} ${where} does not write`);
+		const text = read.unfit(found);
+		if (text === null) continue;
+		return problemAt(
+			read.field,
+			read.unfitText ?? `${reads} ${where} gives as ${JSON.stringify(found)}, ${text}`
+		);
+	}
+	return null;
+}
+
+/**
  * Why a param the selection reads is not written as it must be at every level: the levels are
  * swept once for the paths read (once per round with a shared `sweep`), each distinct value
- * checked once.
+ * checked once. A param a passage writes (`passages.each`) is checked in each of its values.
  */
 function paramsProblem(check: Check, sweep: LevelSweep): SelectionProblem | null {
 	if (check.params.length === 0) return null;
+	const passageParams = passageParamsOf(check.definition);
+	const passageParamOf = (read: ParamRead) => {
+		const name = read.path.split('.')[0];
+		return passageParams.has(name) ? name : null;
+	};
 	sweepLevels(
 		check.definition,
-		check.params.map((read) => read.path),
+		check.params.filter((read) => passageParamOf(read) === null).map((read) => read.path),
 		sweep
 	);
 	for (const read of check.params) {
+		const name = passageParamOf(read);
+		if (name !== null) {
+			const problem = passageParamProblem(read, name, passageParams.get(name)!);
+			if (problem !== null) return problem;
+			continue;
+		}
 		const { missing, values } = sweep.get(read.path)!;
 		const reads = `reads param "${read.path}", which`;
 		if (values.length === 0)
@@ -333,17 +394,20 @@ function paramsProblem(check: Check, sweep: LevelSweep): SelectionProblem | null
  * Why a selection cannot be compiled for the exercise's items, naming its own field: a key it
  * does not know, a family not registered, no index of it from the exercise's set, more filters or
  * order than the limits, a filter it does not know, an item value the set does not have or of
- * another shape, a param a level does not write as it must, a take that is no positive whole
- * number, what the family cannot run. Null when it can be.
+ * another shape, a param a level (or a passage param's value) does not write as it must, a take
+ * that is no positive whole number, what the family cannot run. Null when it can be. With
+ * `options.members`, the members of a passage (`SelectionCheckOptions`).
  */
 export function selectionFieldProblem(
 	definition: ExerciseDefinition,
 	selection: unknown,
-	sweep: LevelSweep = new Map()
+	sweep: LevelSweep = new Map(),
+	options: SelectionCheckOptions = {}
 ): SelectionProblem | null {
 	if (!isRecord(selection))
 		return problemAt('', 'must be a selection { family, of?, where?, order?, take? }');
-	const unknown = unknownKey(selection, SELECTION_KEYS, '');
+	const members = options.members === true;
+	const unknown = unknownKey(selection, members ? MEMBERS_KEYS : SELECTION_KEYS, '');
 	if (unknown !== null) return unknown;
 	if (typeof selection.family !== 'string') return problemAt('family', 'must name a family');
 	const family = familyNamed(selection.family);
@@ -351,8 +415,8 @@ export function selectionFieldProblem(
 	if (selection.of !== undefined && typeof selection.of !== 'string') {
 		return problemAt('of', 'must name an index derivation');
 	}
-	const set = exerciseSetId(definition);
-	if (!indexDerivation(selection.family, set, selection.of)) {
+	const set = members ? PASSAGE : exerciseSetId(definition);
+	if (!members && !indexDerivation(selection.family, set, selection.of)) {
 		return selection.of === undefined
 			? problemAt('', `set ${set} gives no index of ${selection.family}`)
 			: problemAt('of', `"${selection.of}" gives no index of ${selection.family} from ${set}`);
@@ -390,6 +454,15 @@ export function selectionFieldProblem(
 	});
 	if (reason !== null) return problemAt('', reason);
 	return paramsProblem(check, sweep);
+}
+
+/** How a selection is checked. */
+export interface SelectionCheckOptions {
+	/**
+	 * The members of a passage: their index comes from the passage (no `of`, no index derivation
+	 * from the exercise's set) and no item is there to read a value on.
+	 */
+	members?: boolean;
 }
 
 /** `selectionFieldProblem` told as one line: the field, a space, what is wrong. */

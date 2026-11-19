@@ -20,7 +20,14 @@ export type FilterTemplate =
 			};
 	  }
 	| { at: FilterValue<number> }
-	| { position: { beyond: 'previous'; toward: 'up' | 'down'; turns?: boolean } }
+	| {
+			position: {
+				beyond: 'previous';
+				/** Written, or read in the params (a passage's params among them). */
+				toward: 'up' | 'down' | { param: string };
+				turns?: boolean;
+			};
+	  }
 	| { other: 'previous' };
 
 /**

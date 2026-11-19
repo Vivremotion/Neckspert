@@ -29,7 +29,8 @@ const KEYS: Record<keyof ExerciseDefinition, true> = {
 	figures: true,
 	shapes: true,
 	pick: true,
-	items: true
+	items: true,
+	passages: true
 };
 
 const isObject = (value: unknown): value is Record<string, unknown> =>
@@ -78,7 +79,7 @@ function accompanimentFromJson(value: unknown, meter: Meter, where: string): Acc
 	}
 }
 
-const OBJECT_KEYS = ['params', 'flow', 'round', 'presentation'];
+const OBJECT_KEYS = ['params', 'flow', 'round', 'presentation', 'passages'];
 const LIST_KEYS = ['levels', 'items', 'figures', 'shapes'];
 /** What a list of figures or shapes holds, told after "must be a list". */
 const LIST_FORMS: Record<string, string> = {

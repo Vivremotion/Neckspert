@@ -1,6 +1,7 @@
 import type { Figure, Level, Meter } from '$lib/domain/time';
 import type { LevelOverrides } from './levels';
 import type { RoundTemplate } from './round/types';
+import type { PassagesTemplate } from './passage/types';
 import type { ChordDiagramStyle, LeadBeats } from '$lib/domain/types';
 import type { SkillId } from '$lib/domain/skill/types';
 
@@ -136,6 +137,8 @@ export interface ExerciseDefinition {
 	 * figures, one per turn (`pick`).
 	 */
 	items?: readonly ItemEntry[];
+	/** The passages it plays, each member of a passage the item of a round; never with `items`. */
+	passages?: PassagesTemplate;
 }
 
 /**

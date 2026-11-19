@@ -67,4 +67,18 @@ describe('compileSelection', () => {
 			);
 		}
 	});
+
+	it('reads the direction of a position in the params, failing on one neither up nor down', () => {
+		const climbing = {
+			family: 'chord-shapes',
+			where: [{ position: { beyond: 'previous' as const, toward: { param: 'way' }, turns: true } }]
+		};
+		const item = planned(TRIADS_ZONE.id, { voicingKey: 'C|maj|3:1,2:3,1:5' });
+		expect(compileSelection(TRIADS_ZONE, item, climbing, { way: 'down' }).selection.where).toEqual([
+			{ position: { beyond: 'previous', toward: 'down', turns: true } }
+		]);
+		expect(() => compileSelection(TRIADS_ZONE, item, climbing, { way: 'left' })).toThrow(
+			'where[0].position.toward must be up or down, got "left"'
+		);
+	});
 });

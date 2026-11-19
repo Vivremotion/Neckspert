@@ -4,6 +4,8 @@ import {
 	MAX_EXERCISE_LEVELS,
 	MAX_LADDER_LEVELS,
 	MAX_LEVEL_PARAMS,
+	MAX_PASSAGE_EACH,
+	MAX_PASSAGE_INDICES,
 	MAX_ROUND_CHECKS,
 	MAX_ROUND_EXPECTATIONS,
 	MAX_SELECTION_FILTERS,
@@ -11,6 +13,7 @@ import {
 } from '$lib/domain/exercise';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { LOCATE_NECK } from '$lib/testing/catalog';
+import { LINK_CHORDS, LINK_PASSAGES } from '$lib/testing/changesPassages';
 import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions } from './definitions';
@@ -40,6 +43,16 @@ function arpeggioJson(id: string): Record<string, unknown> {
 /** Locate as a definition file writes it, under `id`. */
 const locateJson = (id: string): Record<string, unknown> => ({
 	...JSON.parse(JSON.stringify(LOCATE_NECK)),
+	id
+});
+
+/**
+ * The link as plan 4b writes its passages, as a definition file writes it, under `id`; with a
+ * presentation, its set drawing no screen of its own until the changes are data.
+ */
+const linkJson = (id: string): Record<string, unknown> => ({
+	...JSON.parse(JSON.stringify(LINK_PASSAGES)),
+	presentation: { primary: 'Passage' },
 	id
 });
 
@@ -194,6 +207,80 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		});
 		expect(refusals).toEqual([]);
 		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads the most passage indices allowed, each on the widest zone of strings', () => {
+		// Every zone of three neighbouring strings or more, the six strings first.
+		const zones = [6, 5, 4, 3].flatMap((size) =>
+			Array.from({ length: 7 - size }, (_, i) => Array.from({ length: size }, (_, k) => 6 - i - k))
+		);
+		const chords = [...LINK_CHORDS, 'Db'];
+		const repeat = MAX_PASSAGE_INDICES / (chords.length * zones.length);
+		expect(Number.isInteger(repeat)).toBe(true);
+		const link = linkJson('h-indices');
+		const { ms, refusals } = timedLoad({
+			...link,
+			passages: {
+				...(link.passages as object),
+				of: { chord: chords, strings: zones, n: Array.from({ length: repeat }, (_, i) => i) }
+			}
+		});
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads the most values of passage params, read by the most filters, at the most levels and ladder levels', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
+			params: manyParams(MAX_LEVEL_PARAMS)
+		}));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+		}));
+		const names = Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => `z${i}`);
+		const link = linkJson('h-each');
+		const filters = names.map((name) => ({ in: { frets: { param: name } } }));
+		const { ms, refusals } = timedLoad(
+			asking(
+				{
+					...link,
+					params: { ladder },
+					levels,
+					passages: {
+						...(link.passages as object),
+						members: { family: 'chord-shapes', where: filters },
+						each: Object.fromEntries(
+							names.map((name) => [
+								name,
+								Array.from({ length: MAX_PASSAGE_EACH }, (_, i) => [0, i])
+							])
+						)
+					}
+				},
+				{ family: 'chord-shapes', where: filters }
+			)
+		);
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses fast passages over their limits', () => {
+		const link = linkJson('h-over');
+		const passages = link.passages as object;
+		const cases: [unknown, string][] = [
+			[
+				{ ...passages, of: { chord: Array.from({ length: 50_000 }, (_, i) => i), x: [1, 2] } },
+				'passages.of gives 100000 indices, more than 500'
+			],
+			[
+				{ ...passages, each: { z: Array.from({ length: 50_000 }, () => [0, 24]) } },
+				'passages.each.z has 50000 values, more than 64'
+			]
+		];
+		for (const [written, reason] of cases) {
+			const { ms, refusals } = timedLoad({ ...link, passages: written });
+			expect(refusals).toEqual([{ file: 'h.json', kind: 'exercise', id: 'h-over', reason }]);
+			expect(ms, reason).toBeLessThan(REFUSED_MS);
+		}
 	});
 
 	it('refuses fast a round over its expectations', () => {

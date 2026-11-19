@@ -1,10 +1,10 @@
 import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
-import { parseVoicingKey, type LocateItem, type StringNumber } from '$lib/domain/music';
+import { parseVoicingKey, voicingKey, type LocateItem, type StringNumber } from '$lib/domain/music';
 import type { ChangeItem } from '$lib/domain/sets/change';
 import type { VoicingFigureItem } from '$lib/domain/sets/placedVoicing';
 import { rootPosition, type VoicingOnStringsItem } from '$lib/domain/sets/voicingOnStrings';
-import type { IndexContext, IndexDerivation } from '../index';
-import type { ChordShapesIndex } from './chordShapes';
+import type { IndexContext, IndexDerivation, PassageDerivation } from '../index';
+import type { ChordShape, ChordShapesIndex } from './chordShapes';
 import type { NotePlacesIndex } from './notePlaces';
 
 /** A voicing by its key: its chord, its strings and the degree each carries. */
@@ -84,5 +84,32 @@ export const GUITAR_DEFAULT_DERIVATIONS: Readonly<
 		'voicing-on-strings': 'voicing',
 		'placed-voicing': 'placed',
 		change: 'change-chord'
+	}
+};
+
+/**
+ * A passage of a chord's shapes: the triad of the chord symbol its index names (as a chart writes
+ * it, `C#m`) on its zone of strings, else the params'; each shape the placed voicing it is.
+ */
+export const GUITAR_PASSAGE_DERIVATIONS: Readonly<Record<string, PassageDerivation>> = {
+	'chord-shapes': {
+		set: 'placed-voicing',
+		passageIndex(of, params): ChordShapesIndex {
+			if (typeof of.chord !== 'string') {
+				throw new Error('a passage of chord-shapes reads "chord", a chord symbol');
+			}
+			const strings = of.strings ?? params.strings;
+			if (!Array.isArray(strings)) {
+				throw new Error('no zone of strings: neither the passage nor the params give "strings"');
+			}
+			return { chord: triadOf(of.chord), strings: strings as StringNumber[] };
+		},
+		itemOf(member) {
+			const { occurrence } = member as ChordShape;
+			return {
+				voicing: voicingKey(occurrence.voicing),
+				frets: occurrence.notes.map((note) => note.fret)
+			};
+		}
 	}
 };

@@ -13,5 +13,8 @@ export * from './round/validate';
 export * from './selection/types';
 export * from './selection/validate';
 export * from './selection/compile';
+export * from './passage/types';
+export * from './passage/validate';
+export * from './passage/indices';
 export * from './fromJson';
 export * from './itemEntries';

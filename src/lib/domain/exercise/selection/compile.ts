@@ -23,12 +23,15 @@ export class SelectionCompileError extends Error {
 	}
 }
 
-/** What a compilation reads. */
+/** What a compilation reads; no item for a passage's members. */
 interface Context {
 	definition: ExerciseDefinition;
-	item: Pick<PlannedItem, 'item'>;
+	item: Pick<PlannedItem, 'item'> | null;
 	params: Readonly<Record<string, unknown>>;
 }
+
+/** What a passage's members are resolved for, in place of an item. */
+const PASSAGE = 'a passage';
 
 function fail(field: string, text: string): never {
 	throw new SelectionCompileError(field, text);
@@ -52,6 +55,7 @@ function paramValue(params: Readonly<Record<string, unknown>>, path: string): un
 
 /** The item for a message: its key, or its JSON when its set cannot read it. */
 function itemOf(context: Context): string {
+	if (context.item === null) return PASSAGE;
 	const set = exerciseSetId(context.definition);
 	try {
 		return `${set} item ${exerciseItemSet(context.definition).itemKey(context.item.item)}`;
@@ -92,6 +96,8 @@ function filterValue(
 	if (isRef(value) && 'param' in value) found = param(context, field, value.param);
 	else if (isRef(value) && 'item' in value) {
 		const name = value.item;
+		if (context.item === null)
+			fail(field, `reads item value "${name}", which ${PASSAGE} does not have`);
 		const reader = Object.hasOwn(ITEM_VALUES, name) ? ITEM_VALUES[name] : undefined;
 		if (!reader) fail(field, `reads unknown item value "${name}"`);
 		readsSet(field, name, reader.reads, 'reads', exerciseSetId(context.definition));
@@ -115,6 +121,15 @@ function filterOf(context: Context, field: string, filter: FilterTemplate): Filt
 		const at = filterValue(context, `${field}.at`, filter.at, 'number');
 		return at === ABSENT ? null : { at: at as number };
 	}
+	if ('position' in filter) {
+		const { toward } = filter.position;
+		if (typeof toward === 'string') return filter as Filter;
+		const found = param(context, `${field}.position.toward`, toward.param);
+		if (found !== 'up' && found !== 'down') {
+			fail(`${field}.position.toward`, `must be up or down, got ${JSON.stringify(found)}`);
+		}
+		return { position: { ...filter.position, toward: found } };
+	}
 	if (!('in' in filter)) return filter;
 	let strings: readonly number[] | undefined;
 	let frets: readonly [number, number] | undefined;
@@ -137,6 +152,8 @@ function takeOf(context: Context, take: SelectionTemplate['take'] & {}): number 
 	let found: unknown = take;
 	if (isRef(take) && 'param' in take) found = param(context, 'take', take.param);
 	else if (isRef(take)) {
+		if (context.item === null)
+			fail('take', `measures "${take.item}", which ${PASSAGE} does not have`);
 		const measure = Object.hasOwn(ITEM_NUMBERS, take.item) ? ITEM_NUMBERS[take.item] : undefined;
 		if (!measure) fail('take', `measures unknown item number "${take.item}"`);
 		readsSet('take', take.item, measure.reads, 'measures', exerciseSetId(context.definition));
@@ -146,6 +163,34 @@ function takeOf(context: Context, take: SelectionTemplate['take'] & {}): number 
 		fail('take', `must be a positive whole number, got ${JSON.stringify(found)}`);
 	}
 	return found;
+}
+
+/** The selection with its filters' values resolved (a filter the item leaves out dropped) and its take counted. */
+function resolvedSelection(context: Context, template: SelectionTemplate): Selection {
+	const where = template.where?.flatMap((filter, i) => {
+		const resolved = filterOf(context, `where[${i}]`, filter);
+		return resolved === null ? [] : [resolved];
+	});
+	const take = template.take === undefined ? undefined : takeOf(context, template.take);
+	return {
+		family: template.family,
+		...(where && { where }),
+		...(template.order && { order: [...template.order] }),
+		...(take !== undefined && { take })
+	};
+}
+
+/**
+ * The selection of a passage's members, resolved in `params` (the exercise's and the passage's):
+ * no item is there, so a value read on one fails. Throws a `SelectionCompileError` naming the
+ * selection's own field.
+ */
+export function passageSelection(
+	definition: ExerciseDefinition,
+	template: SelectionTemplate,
+	params: Readonly<Record<string, unknown>>
+): Selection {
+	return resolvedSelection({ definition, item: null, params }, template);
 }
 
 /**
@@ -179,17 +224,7 @@ export function compileSelection(
 			`gives no index of ${template.family} for ${itemOf(context)}: ${(error as Error).message}`
 		);
 	}
-	const where = template.where?.flatMap((filter, i) => {
-		const resolved = filterOf(context, `where[${i}]`, filter);
-		return resolved === null ? [] : [resolved];
-	});
-	const take = template.take === undefined ? undefined : takeOf(context, template.take);
-	const selection: Selection = {
-		family: template.family,
-		...(where && { where }),
-		...(template.order && { order: [...template.order] }),
-		...(take !== undefined && { take })
-	};
+	const selection = resolvedSelection(context, template);
 	// What the family cannot run is refused at the load; a zone whose ends come out reversed
 	// here is no error: it admits nothing.
 	return { family: template.family, index, selection };

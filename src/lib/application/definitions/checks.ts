@@ -14,6 +14,8 @@ import { readsChanges, setOfSkill } from '$lib/domain/sets';
 import type { ItemSet } from '$lib/domain/sets/types';
 import { correspondence } from '$lib/domain/sets/correspondences';
 import { selectionFieldProblem } from '$lib/domain/exercise/selection/validate';
+import { isSelectionTemplate } from '$lib/domain/exercise/selection/types';
+import { passageDerivation } from '$lib/domain/families';
 import { allGrids } from '$lib/domain/grid/registry';
 
 /** The sensors a session has (the keys of `SessionDeps.sensors` in `createApp`). */
@@ -126,6 +128,37 @@ function asksProblem(exercise: ExerciseDefinition, asks: unknown): string | null
 	return `${problem.field === '' ? field : `${field}.${problem.field}`} ${problem.text}`;
 }
 
+/**
+ * Why the opening of a passage's index cannot be read (`passages.opens`, its form checked by
+ * `validateExercise`): a skill no file defines or without cards, a round with no member content
+ * whose shapes it groups, a correspondence from the items of that content's members to the
+ * skill's that does not exist. Null when it can, or when the exercise writes none.
+ */
+function opensProblem(exercise: ExerciseDefinition): string | null {
+	const acquired = exercise.passages?.opens?.acquired;
+	if (acquired === undefined) return null;
+	if (!hasSkill(acquired.skill)) {
+		return `passages.opens names skill "${acquired.skill}", which no file read so far defines`;
+	}
+	if (!hasCards(acquired.skill)) {
+		return `passages.opens names skill "${acquired.skill}", which has no cards`;
+	}
+	const content = exercise.round?.expectations
+		.map((expectation) => (expectation as { content?: unknown }).content)
+		.find(isSelectionTemplate);
+	if (content === undefined) return 'passages.opens needs a round whose content is a selection';
+	const derivation = passageDerivation(content.family);
+	if (derivation === null) {
+		return `passages.opens reads the members of family "${content.family}", which are items of no set`;
+	}
+	const from = derivation.set;
+	const to = skillById(acquired.skill).items;
+	if (correspondence(acquired.item, from, to) === null) {
+		return `passages.opens.acquired.item "${acquired.item}" is no correspondence from ${from} to ${to}`;
+	}
+	return null;
+}
+
 /** The key a set writes for a key as written; the key as written when the set cannot read it. */
 function itemKeyOf(set: ItemSet, written: string): string {
 	try {
@@ -191,6 +224,8 @@ export function definitionChecks(
 				const bad = gestureParamsProblem(exercise.params);
 				if (bad !== null) return bad;
 			}
+			const opens = opensProblem(exercise);
+			if (opens !== null) return opens;
 			const learning = learningProblem(exercise);
 			if (learning !== null) return learning;
 			const listed = itemsListProblem(exercise);

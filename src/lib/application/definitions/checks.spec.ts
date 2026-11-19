@@ -4,6 +4,8 @@ import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { registerTestSkills } from '$lib/testing/testSkills';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
+import { JAM_PASSAGES, LINK_PASSAGES, PASSAGE_EXERCISES } from '$lib/testing/changesPassages';
 import { definitionChecks } from './checks';
 
 registerTestSkills();
@@ -11,6 +13,7 @@ import {
 	IDENTIFY_NECK,
 	LOCATE_NECK,
 	IOHEFY_A,
+	BLUES_F,
 	GESTURE_CLIMB,
 	RHYTHM_TWO_FOUR,
 	TRIADS_ZONE
@@ -303,6 +306,70 @@ describe('definitionChecks, a content written as a selection', () => {
 	it('refuses a selection the engine cannot run, naming the field', () => {
 		expect(check(asking({ family: 'nope' }))).toBe(
 			'round.expectations[0].content names family "nope", which is not registered'
+		);
+	});
+});
+
+describe('definitionChecks, the passages an exercise writes', () => {
+	// The changes find their presenter by their view until plan 4b's Task 5: here by their set.
+	const checks = definitionChecks({
+		...SET_PRESENTERS,
+		'placed-voicing': VIEW_PRESENTERS['link-lane'],
+		change: VIEW_PRESENTERS['grid-scroll']
+	});
+	const checkPassages = (exercise: ExerciseDefinition) => checks.exercise(exercise);
+
+	beforeEach(() => {
+		// The grids of the catalog, which a spec above clears.
+		clearGrids();
+		registerGrid(IOHEFY_A, 'catalog');
+		registerGrid(BLUES_F, 'catalog');
+	});
+	const opening = (exercise: ExerciseDefinition, opens: unknown): ExerciseDefinition =>
+		({ ...exercise, passages: { ...exercise.passages, opens } }) as ExerciseDefinition;
+
+	it('accepts the four exercises of the changes as plan 4b writes them', () => {
+		expect(PASSAGE_EXERCISES.map((e) => [e.id, checkPassages(e)])).toEqual(
+			PASSAGE_EXERCISES.map((e) => [e.id, null])
+		);
+	});
+
+	it('refuses passages on a skill with cards', () => {
+		expect(checkPassages({ ...JAM_PASSAGES, practices: 'chord-anchor' })).toMatch(
+			/passages needs a skill without cards$/
+		);
+	});
+
+	it('refuses an opening on a skill no file defines, or without cards', () => {
+		expect(
+			checkPassages(opening(LINK_PASSAGES, { acquired: { skill: 'nope', item: 'voicing' } }))
+		).toBe('passages.opens names skill "nope", which no file read so far defines');
+		expect(
+			checkPassages(
+				opening(LINK_PASSAGES, { acquired: { skill: 'grid-reading', item: 'voicing' } })
+			)
+		).toBe('passages.opens names skill "grid-reading", which has no cards');
+	});
+
+	it('refuses an opening through a correspondence that does not exist', () => {
+		expect(
+			checkPassages(opening(LINK_PASSAGES, { acquired: { skill: 'chord-anchor', item: 'same' } }))
+		).toBe(
+			'passages.opens.acquired.item "same" is no correspondence from placed-voicing to voicing-on-strings'
+		);
+	});
+
+	it('refuses an opening when the round’s content is no selection', () => {
+		const round = LINK_PASSAGES.round!;
+		const unselected: ExerciseDefinition = {
+			...LINK_PASSAGES,
+			round: {
+				...round,
+				expectations: round.expectations.map((e) => ({ ...e, content: null }))
+			} as typeof round
+		};
+		expect(checkPassages(unselected)).toBe(
+			'passages.opens needs a round whose content is a selection'
 		);
 	});
 });

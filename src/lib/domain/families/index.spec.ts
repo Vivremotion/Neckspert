@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { triadOf } from '$lib/domain/grid';
 import { parseVoicingKey } from '$lib/domain/music';
-import { FAMILIES, familyNamed, INDEX_DERIVATIONS, indexDerivation } from './index';
+import { itemSet } from '$lib/domain/sets';
+import {
+	FAMILIES,
+	familyNamed,
+	INDEX_DERIVATIONS,
+	indexDerivation,
+	PASSAGE_DERIVATIONS,
+	passageDerivation
+} from './index';
 
 describe('families', () => {
 	it('registers the guitar and music families by their id', () => {
@@ -132,5 +140,58 @@ describe('index derivations', () => {
 		expect(indexDerivation('note-places', 'note-on-string', 'nothing')).toBeNull();
 		expect(indexDerivation('note-places', 'note-on-string', 'toString')).toBeNull();
 		expect(indexDerivation('nothing', 'note-on-string')).toBeNull();
+	});
+});
+
+describe('passage derivations', () => {
+	it('gives the families whose members a passage lists, the set of their items and their index', () => {
+		expect(Object.keys(PASSAGE_DERIVATIONS).sort()).toEqual(['chord-shapes', 'grid-changes']);
+		expect(passageDerivation('grid-changes')?.set).toBe('change');
+		expect(passageDerivation('chord-shapes')?.set).toBe('placed-voicing');
+		expect(passageDerivation('note-places')).toBeNull();
+		expect(passageDerivation('toString')).toBeNull();
+	});
+
+	it('reads a grid from a passage index', () => {
+		const derivation = passageDerivation('grid-changes')!;
+		expect(derivation.passageIndex({ grid: 'blues-f', strings: [3, 2, 1] }, {})).toEqual({
+			grid: 'blues-f'
+		});
+		expect(() => derivation.passageIndex({ strings: [3, 2, 1] }, {})).toThrow(/grid/);
+	});
+
+	it('reads a chord symbol and a zone of strings, the passage’s else the params’', () => {
+		const derivation = passageDerivation('chord-shapes')!;
+		expect(derivation.passageIndex({ chord: 'C#m', strings: [4, 3, 2] }, {})).toEqual({
+			chord: triadOf('C#m'),
+			strings: [4, 3, 2]
+		});
+		expect(derivation.passageIndex({ chord: 'Eb' }, { strings: [4, 3, 2, 1] })).toEqual({
+			chord: triadOf('Eb'),
+			strings: [4, 3, 2, 1]
+		});
+		expect(() => derivation.passageIndex({ chord: 'Eb' }, {})).toThrow(/strings/);
+		expect(() => derivation.passageIndex({ chord: 'H7', strings: [3, 2, 1] }, {})).toThrow();
+		expect(() => derivation.passageIndex({ chord: 3, strings: [3, 2, 1] }, {})).toThrow(/chord/);
+	});
+
+	it('makes of each member the item of its set whose key is the member’s id', () => {
+		for (const [family, index] of [
+			['grid-changes', { grid: 'iohefy-a' }],
+			['chord-shapes', { chord: triadOf('Dm'), strings: [4, 3, 2, 1] }]
+		] as const) {
+			const derivation = passageDerivation(family)!;
+			const members = FAMILIES[family].members(index);
+			expect(members.length).toBeGreaterThan(0);
+			for (const member of members) {
+				expect(itemSet(derivation.set).itemKey(derivation.itemOf(member))).toBe(member.id);
+			}
+		}
+		expect(
+			passageDerivation('grid-changes')!.itemOf(FAMILIES['grid-changes'].member('blues-f#3')!)
+		).toEqual({
+			grid: 'blues-f',
+			index: 3
+		});
 	});
 });

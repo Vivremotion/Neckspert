@@ -11,6 +11,7 @@ import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { compileRound, type ResolutionCache } from './round/compile';
+import { passagesProblem } from './passage/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
@@ -384,8 +385,8 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
  * field: more to check than the limits allow (`limitsProblem`, before any other check), a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
  * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
- * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
- * (`itemsProblem`). It never
+ * template (`roundProblem`; `options.sensors`: the sensors the session has), the passages it
+ * writes (`passagesProblem`), an item it lists (`itemsProblem`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
@@ -426,6 +427,9 @@ export function validateExercise(
 		if (figures !== null) return figures;
 		const shapes = shapesProblem(definition);
 		if (shapes !== null) return shapes;
+		// Before the round, whose selections read the passage params.
+		const passages = passagesProblem(definition);
+		if (passages !== null) return passages;
 		return roundProblem(definition, options) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

@@ -1,5 +1,6 @@
 import { gridById, gridChanges } from '$lib/domain/grid';
 import type { Family, Member } from '../core/types';
+import type { PassageDerivation } from '../index';
 
 /** A chord grid of the registry, by its id. */
 export interface GridChangesIndex {
@@ -71,4 +72,21 @@ export const gridChangesFamily: Family<GridChangesIndex, GridChangeMember> = {
 	heard: () => null,
 	confusion: () => null,
 	answer: () => null
+};
+
+/** A passage of a grid's changes: the grid its index names, each change the item of its rank. */
+export const MUSIC_PASSAGE_DERIVATIONS: Readonly<Record<string, PassageDerivation>> = {
+	[gridChangesFamily.id]: {
+		set: 'change',
+		passageIndex(of): GridChangesIndex {
+			if (typeof of.grid !== 'string') {
+				throw new Error('a passage of grid-changes reads "grid", the id of a grid');
+			}
+			return { grid: of.grid };
+		},
+		itemOf(member) {
+			const { id, rank } = member as GridChangeMember;
+			return { grid: id.slice(0, id.lastIndexOf(SEPARATOR)), index: rank };
+		}
+	}
 };
