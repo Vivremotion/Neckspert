@@ -615,6 +615,14 @@ Ce que l'exécution a décidé en plus :
 - Le présentateur de `voicing-on-strings` reçoit les attentes compilées du tour et donne au capteur d'accords les membres admis ; les sosies autour sont ceux d'avant.
 - Mesuré avant de supprimer les anciens juges : 20 427 cas (élément, attente, réponse), 1 472 attentes du capteur d'accords et 85 492 comparaisons de mots et de dessins après un raté, aucune différence.
 
+Ce que la revue finale a changé :
+
+- Une zone dont une borne est lue, dans un paramètre ou sur l'élément, peut sortir à l'envers à un niveau ou pour un élément. Elle n'admet alors rien : la réponse est fausse, et la consigne garde l'élément de la carte. Le chargement refuse toujours une zone écrite à l'envers, et un paramètre qui tient une paire à l'envers.
+- Un voicing qui n'est pas une triade serrée sur trois cordes n'a pas de sosies : le capteur d'accords n'attend que les formes admises.
+- Un voicing sans forme sur le manche ne dessine rien : la consigne aidée garde ses mots, sans dessin.
+- Après un accord raté, la forme attendue est la forme admise la plus proche de celle entendue, choisie parmi les formes admises seulement.
+- Un tour écrit au plus 64 attentes (`MAX_ROUND_EXPECTATIONS`). Le contrôle par niveau des paramètres qu'un choix lit se fait une fois par tour pour chaque chemin lu.
+
 Ce qui diffère du § 6, que celui-ci ne dit pas (le § 6 reste tel quel) :
 
 - Le § 6 dit qu'un seul juge remplace `note`, `chord-voicing` et `chord-grid` : `member` remplace les deux premiers ; `chord-grid` attend le plan 4b.
@@ -632,5 +640,13 @@ Laissé au plan 4b :
 - La confusion de `chord-shapes` pour un index sans degrés (tous les renversements) est sommaire.
 - Un cache des membres admis par contenu, si une mesure montre un coût (la lecture en direct rejuge à chaque réveil).
 - `itemsProblem` contre l'ensemble du sujet (voir le plan 3).
+- Deux écritures du § 7 sont refusées aujourd'hui : `{ "in": { "param": "zone" } }` (une zone entière lue dans un paramètre) et `"toward": { "param": "direction" }`, avec `andBack`.
+- Le compilateur ne peut pas encore recevoir un membre précédent (`compileSelection`). Un membre précédent devrait être gardé dans un plan par son identité, et retrouvé par `Family.member`.
+- Les paramètres d'un passage (`each`) doivent entrer dans ce que voient le contrôle par niveau et les paramètres du tour.
+- L'index de `chord-shapes` sans degrés demande exactement trois cordes voisines. Pour une zone de cordes, il faudrait des membres sur chaque groupe de trois cordes voisines.
+- `admitted` ne dit pas si le sens a tourné.
+- Les vues et le capteur doivent lire partout les membres admis : quand un filtre n'admet aucune forme, ou en admet plusieurs, un bon voicing joué à une octave non admise n'a pas de confusion.
+- `INDEX_DERIVATIONS` est la table de la guitare telle quelle ; elle est à réunir avec celle de `grid-changes`.
+- `MEMBER_VIEWS` est un registre par famille.
 
-Reste à faire dans ce plan : borner le nombre d'attentes d'un tour (le contrôle par niveau se répète pour chaque contenu écrit comme un choix).
+Fait dans ce plan : le nombre d'attentes d'un tour est borné (64), voir plus haut.

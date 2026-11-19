@@ -237,7 +237,7 @@ pour `chord-zone`.
 - `params.learning.enter must be { acquired: { skill, item } }` ; `params.learning.enter needs a skill with cards` (la capacité de l'exercice n'a pas de cartes) ; `params.learning.enter names skill "<id>", which no file read so far defines` ; `params.learning.enter names skill "<id>", which has no cards`.
 - `params.learning.enter.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>` : la correspondance n'existe pas entre ces deux ensembles.
 - `params.learning.draw is gone: write params.learning.asks`.
-- `params.learning.asks must be a selection` ; `params.learning.asks takes no order and no take: one member is drawn` ; `params.learning.asks takes no "of": a member of the card’s own item is asked` ; `params.learning.asks needs a set that can ask a member, which <ensemble> cannot` ; `params.learning.asks names family "<famille>", but <ensemble> asks members of <famille>`. Un problème du choix lui-même est dit sous `params.learning.asks.<champ>`, avec les raisons de la section suivante.
+- `params.learning.asks must be a selection` ; `params.learning.asks takes no order and no take: one member is drawn` ; `params.learning.asks takes no "of": a member of the card’s own item is asked` ; `params.learning.asks needs a set that can ask a member, which <ensemble> cannot` ; `params.learning.asks names family "<famille>", but <ensemble> asks members of <famille>`. Un problème du choix lui-même est dit sous `params.learning.asks.<champ>`, avec les raisons de « Un contenu écrit comme un choix », plus bas.
 
 Une condition d'entrée qui nomme la capacité de l'exercice lui-même est acceptée : le moteur sait la jouer, et rien n'entre jamais.
 
@@ -251,7 +251,7 @@ Une attente d'un tour dit ce que le tour accepte comme réponse. Elle l'écrit e
 
 Un choix a cinq clés. Seule `family` est obligatoire.
 
-- `family` : la famille. Il y en a deux, `note-places` (les places d'une note sur le manche : une par case où elle sonne) et `chord-shapes` (les formes d'un accord sur des cordes voisines : une par octave où elle tient sur le manche).
+- `family` : la famille. Il y en a deux, `note-places` (les places d'une note sur le manche : une par corde et par case) et `chord-shapes` (les formes d'un accord sur des cordes voisines : une par octave où elle tient sur le manche).
 - `of` : le nom de ce qui donne l'**index** de la famille à partir de l'élément. Absent, c'est l'index que l'ensemble de l'élément donne à cette famille. Trois noms existent : `note` (la note d'un élément de `note-on-string`, avec sa corde), `voicing` (l'accord d'un élément de `voicing-on-strings`) et `root` (la fondamentale d'un voicing : la note de la corde qui porte le degré 1). L'index de `note-places` est une note, avec ou sans corde (un élément de `note-on-string` donne la note et sa corde) ; celui de `chord-shapes` est un accord sur des cordes, avec ou sans le degré de chaque corde (un élément de `voicing-on-strings` donne l'accord, ses cordes et ses degrés).
 - `where` : une liste de **filtres**. Chacun restreint les membres admis.
 - `order` : une liste d'**attributs** ; les membres admis sont rangés par le premier, puis par le suivant à égalité.
@@ -263,14 +263,19 @@ Les quatre **filtres** s'écrivent chacun comme un objet à une seule clé :
 
 | Filtre                 | Écriture                                                                  | Ce qu'il admet                                                                                                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dans une zone          | `{ "in": { "strings": [3, 2, 1], "frets": [5, 8] } }`                     | le membre dont chaque note est sur ces cordes et dans ces cases (une des deux bornes suffit) ; une corde à vide compte dans une zone qui commence à la case 1, et dans aucune autre |
+| dans une zone          | `{ "in": { "strings": [3, 2, 1], "frets": [5, 8] } }`                     | le membre dont chaque note est sur ces cordes et dans ces cases (une des deux bornes suffit). Une corde à vide compte dans une zone qui commence à la case 1, et dans aucune autre. |
 | à une case             | `{ "at": 7 }`                                                             | le membre qui **couvre** cette case : elle est entre sa case la plus basse et sa plus haute, une corde à vide comptant pour la case 0                                               |
 | au-delà du précédent   | `{ "position": { "beyond": "previous", "toward": "up", "turns": true } }` | le membre dont la position est plus haute (`"up"`) ou plus basse (`"down"`) que celle du précédent ; avec `turns`, quand plus rien n'est au-delà, le sens contraire                 |
 | autre que le précédent | `{ "other": "previous" }`                                                 | tout membre sauf le précédent ; si rien d'autre ne reste (une seule forme), le précédent reste admis                                                                                |
 
-Le précédent est donné par ce qui appelle : pour le choix de la consigne, la dernière forme demandée de cette carte. Sans précédent, `position` et `other` ne restreignent rien. **L'ordre où les filtres sont écrits ne change rien** : le moteur applique toujours d'abord `in` et `at`, puis `position` (plusieurs `position` se croisent), puis `other`.
+Le précédent est donné par ce qui appelle : pour le choix de la consigne, la dernière forme demandée de cette carte. Sans précédent, `position` et `other` ne restreignent rien. Aucun précédent n'est encore donné à un tour : écrits dans le `content` d'un tour, `position` et `other` ne restreignent rien aujourd'hui. Ils servent maintenant à `params.learning.asks`, et serviront plus tard aux passages des changements. **L'ordre où les filtres sont écrits ne change rien** : le moteur applique toujours d'abord `in` et `at`, puis `position` (plusieurs `position` se croisent), puis `other`.
 
-Une valeur d'un filtre s'écrit de trois façons : un nombre ou une liste écrits, `{ "param": "a.b" }` lue dans les paramètres du niveau, ou `{ "item": "fret" }` lue sur l'élément (`fret` et `string` : la case que la consigne nomme, la corde de l'élément ; `take` lit de même un paramètre). Un filtre dont la valeur lue sur l'élément est absente ne restreint rien : un élément de `chord-zone` sans case demandée accepte le voicing partout.
+Une valeur d'un filtre s'écrit de trois façons : un nombre ou une liste écrits, `{ "param": "a.b" }` lue dans les paramètres du niveau, ou `{ "item": "fret" }` lue sur l'élément (`take` lit de même un paramètre). Deux valeurs se lisent sur un élément :
+
+- `string`, la corde d'un élément de `note-on-string` ;
+- `fret`, pour un élément de `voicing-on-strings` : la case que la consigne nomme. Si l'élément n'en nomme pas, c'est la place de la forme demandée : 0 pour une forme à vide, sinon sa position. Elle n'est absente que pour un élément sans position, et alors seulement le filtre ne restreint rien : il accepte le voicing partout.
+
+Une zone dont une borne est lue (dans un paramètre ou sur l'élément) peut sortir à l'envers à un niveau ou pour un élément : la première case au-dessus de la seconde. Elle n'admet alors rien : toute réponse est fausse, et la consigne garde l'élément de la carte. Seule une zone écrite à l'envers, ou un paramètre qui tient une paire à l'envers, est refusée.
 
 Dans le catalogue :
 
@@ -283,13 +288,14 @@ Dans le catalogue :
 - `must be a selection { family, of?, where?, order?, take? }` ; `<clé> is not a key of its place (known: …)` ; `family must name a family` ; `names family "<nom>", which is not registered`.
 - `set <ensemble> gives no index of <famille>` ; `of "<nom>" gives no index of <famille> from <ensemble>`.
 - `where must be a list of filters` ; `where[<i>] is no filter (in, at, position, other)` ; `where[<i>].in must be { strings?, frets? }` ; `where[<i>].position must be { beyond: "previous", toward: "up" or "down", turns?: true or false }` ; `where[<i>].other must be "previous", got …`.
-- `where[<i>].at must be a number, got …` (de même pour `strings`, `frets`) ; `reads item value "<nom>", which <ensemble> does not have` ; `reads item value "<nom>", a number, where a list of numbers is needed` ; une valeur lue dans un paramètre qu'un niveau n'écrit pas ou écrit d'une autre forme : `reads param "<chemin>", which no level of the exercise writes`, `…which <niveau> does not write`, `…which <niveau> gives as <valeur>, <pourquoi>`.
+- `where[<i>].at must be a number, got …` (de même pour `strings`, `frets`) ; `reads item value "<nom>", which <ensemble> does not have` ; `reads item value "<nom>", <sa forme>, where <la forme voulue> is needed` (par exemple `where[0].in.frets reads item value "fret", a number, where a pair of frets is needed`) ; une valeur lue dans un paramètre qu'un niveau n'écrit pas ou écrit d'une autre forme : `reads param "<chemin>", which no level of the exercise writes`, `…which <niveau> does not write`, `…which <niveau> gives as <valeur>, <pourquoi>`.
+- `of must name an index derivation` ; `<champ>.param reads a param named by text`.
 - `order must be a list of attribute names` ; `order names attribute "<nom>", which family "<famille>" does not have`.
 - `take must be a positive whole number` ; `take must be a number, { param: path } or { item: name }` ; `take measures unknown item number "<nom>"`.
 - `filter "in" has frets [<a>, <b>]: the first is above the second`.
 - Un contenu qui n'est ni `null`, ni `{ "from": … }`, ni un choix : `must be null, { from: derivation } or a selection { family, of?, where?, order?, take? }`.
 
-Deux limites s'ajoutent à celles de la section « Le fichier », pour qu'un choix ne coûte pas des secondes à vérifier à chaque niveau : au plus 16 filtres dans `where` (`has <n> filters, more than 16`) et 8 attributs dans `order` (`names <n> attributes, more than 8`).
+Trois limites s'ajoutent à celles de la section « Le fichier », pour qu'un choix ne coûte pas des secondes à vérifier à chaque niveau : au plus 16 filtres dans `where` (`has <n> filters, more than 16`), 8 attributs dans `order` (`names <n> attributes, more than 8`), et 64 attentes dans un tour (`round.expectations has <n> entries, more than 64`).
 
 Ce que le joueur ne voit pas changer : une note se reconnaît à sa hauteur seule (le capteur n'entend pas la corde), une forme à ce que le capteur d'accords décide. Les confusions (octave, corde, écart en cases ; autre octave, autre renversement, autre accord) sont celles d'avant. Un tour déjà joué garde son ancien contenu dans la tentative : il n'est pas rejugé.
 
