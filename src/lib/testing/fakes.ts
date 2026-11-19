@@ -37,6 +37,8 @@ import type {
 } from '$lib/application/ports';
 import type { ScheduledSound, SoundId } from '$lib/domain/time';
 import type { DiagnosticsService } from '$lib/application/app';
+import type { DefinitionsService, ImportedFile } from '$lib/application/definitions/service';
+import { MAX_DEFINITION_FILE_CHARS, type Refusal } from '$lib/domain/definitions';
 
 export class FakeClock implements AudioClockPort {
 	time = 0;
@@ -505,6 +507,53 @@ export class InMemoryDefinitionFileRepository implements DefinitionFileRepositor
 
 	async delete(name: string): Promise<void> {
 		this.files.delete(name);
+	}
+}
+
+/**
+ * The imported files kept in memory, registering nothing (the registries stay as the test filled
+ * them): each file is stored with no object and no refusal. `reloads` counts the reloads asked.
+ */
+export class FakeDefinitionsService implements DefinitionsService {
+	private readonly stored = new Map<string, ImportedFile>();
+	reloads = 0;
+
+	async ready(): Promise<void> {}
+
+	async files(): Promise<ImportedFile[]> {
+		return [...this.stored.values()]
+			.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+			.map((file) => structuredClone(file));
+	}
+
+	async import(
+		files: readonly { name: string; text: string }[]
+	): Promise<{ stored: ImportedFile[]; refused: Refusal[] }> {
+		const stored: ImportedFile[] = [];
+		const refused: Refusal[] = [];
+		for (const { name, text } of files) {
+			if (text.length > MAX_DEFINITION_FILE_CHARS) {
+				const reason = `the file is longer than ${MAX_DEFINITION_FILE_CHARS} characters`;
+				refused.push({ file: name, kind: 'file', id: null, reason });
+				continue;
+			}
+			const file = { name, importedAt: 0, skills: [], grids: [], exercises: [], refusals: [] };
+			this.stored.set(name, file);
+			stored.push(structuredClone(file));
+		}
+		return { stored, refused };
+	}
+
+	async remove(name: string): Promise<void> {
+		this.stored.delete(name);
+	}
+
+	async reload(): Promise<void> {
+		this.reloads++;
+	}
+
+	refusals(): readonly Refusal[] {
+		return [];
 	}
 }
 

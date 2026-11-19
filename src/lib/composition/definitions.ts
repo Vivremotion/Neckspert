@@ -1,14 +1,11 @@
 import { definitionChecks } from '$lib/application/definitions/checks';
+import type { LoadedDefinitions } from '$lib/application/definitions/service';
 import { registerFiles, type RegisterResult, type Refusal } from '$lib/domain/definitions';
 import { clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids } from '$lib/domain/grid/registry';
 import { clearSkills } from '$lib/domain/skill/registry';
 
-/** What a load gave, the catalog's files apart from the imported ones. */
-export interface LoadedDefinitions {
-	catalog: RegisterResult;
-	imported: RegisterResult;
-}
+export type { LoadedDefinitions };
 
 let loaded: LoadedDefinitions | null = null;
 
@@ -26,10 +23,10 @@ export function loadDefinitions(input: {
 	catalog: Readonly<Record<string, string>>;
 	imported?: Readonly<Record<string, string>>;
 }): LoadedDefinitions {
+	const checks = definitionChecks();
 	clearSkills();
 	clearGrids();
 	clearExercises();
-	const checks = definitionChecks();
 	const read = (source: string, files: Readonly<Record<string, string>>): RegisterResult => {
 		const result = registerFiles(files, checks);
 		for (const refusal of result.refusals) console.error(refusalLine(source, refusal));

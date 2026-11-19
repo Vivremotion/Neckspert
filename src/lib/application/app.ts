@@ -8,6 +8,7 @@ import type {
 	NoteDetectorPort,
 	SettingsRepositoryPort
 } from './ports';
+import type { DefinitionsService } from './definitions/service';
 import type { PlaySessionController } from './session/contract';
 
 /** The diagnostic journal as the settings screen sees it. */
@@ -32,7 +33,10 @@ export interface TriadsHome {
 /** Everything the screens need. Implemented by the application layer, wired by the composition root. */
 export interface AppServices {
 	settings: SettingsRepositoryPort;
+	/** Replacing the stored data reloads the definition files the backup carries. */
 	backup: BackupPort;
+	/** The imported definition files; the layout awaits `ready()` before drawing anything. */
+	definitions: DefinitionsService;
 	detector: NoteDetectorPort;
 	calibration: CalibrationPort;
 	diagnostics: DiagnosticsService;

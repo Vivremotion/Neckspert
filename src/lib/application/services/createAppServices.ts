@@ -1,5 +1,6 @@
 import type { AppServices, DiagnosticsService } from '$lib/application/app';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
+import type { DefinitionsService } from '$lib/application/definitions/service';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { summarizeExercise } from '$lib/application/session/series/exerciseSummary';
@@ -62,6 +63,7 @@ import {
 export function createAppServices(
 	deps: SessionDeps & {
 		backup: BackupPort;
+		definitions: DefinitionsService;
 		calibration: CalibrationPort;
 		diagnostics: DiagnosticsService;
 		/** The development tools show (« Joué juste » on the gesture): a development build only. */
@@ -310,7 +312,15 @@ export function createAppServices(
 
 	return {
 		settings: deps.settings,
-		backup: deps.backup,
+		// The data a backup replaces includes the imported files: the registries follow it.
+		backup: {
+			exportAll: () => deps.backup.exportAll(),
+			importAll: async (file) => {
+				await deps.backup.importAll(file);
+				await deps.definitions.reload();
+			}
+		},
+		definitions: deps.definitions,
 		detector: deps.detector,
 		calibration: deps.calibration,
 		diagnostics: deps.diagnostics,

@@ -4,6 +4,7 @@ import { createAppServices } from '$lib/application/services/createAppServices';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { attackSensor, chordSensor, noteSensor, tapSensor } from '$lib/application/session/sensors';
 import type { AppServices } from '$lib/application/app';
+import { createDefinitionsService } from '$lib/application/definitions/service';
 import { WebAudioClock } from '$lib/infrastructure/audio/clock';
 import { CalibrationService, REFERENCE_ATTACK_CONFIG } from '$lib/infrastructure/audio/calibration';
 import { WebAudioNoteDetector } from '$lib/infrastructure/audio/detection';
@@ -25,6 +26,7 @@ import {
 	DexieSessionRepository,
 	DexieSettingsRepository
 } from '$lib/infrastructure/storage';
+import { DexieDefinitionFileRepository } from '$lib/infrastructure/storage/DexieDefinitionFileRepository';
 import { createDiagnosticJournal, journalNotes } from './diagnostics';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions, loadedDefinitions } from './definitions';
@@ -46,7 +48,8 @@ export interface CreateAppOptions {
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
  * chord verifier write to it; the core never sees it. Before anything reads them, the registries
- * are filled from the definition files of `catalog/`.
+ * are filled from the definition files of `catalog/`; `definitions.ready()` loads them again with
+ * the imported files stored, and replacing the data from a backup reloads them.
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
 	// The catalog's definition files, read as text at build time, unless something is loaded
@@ -64,6 +67,12 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 	const levels = new DexieLevelStateRepository(db);
 	const settings = new DexieSettingsRepository(db);
 	const backup = new DexieBackup(db);
+	// The imported definition files, loaded after the catalog once `ready()` has read them.
+	const definitions = createDefinitionsService({
+		files: new DexieDefinitionFileRepository(db),
+		load: (imported) => loadDefinitions({ catalog: CATALOG_FILES, imported }),
+		now: () => Date.now()
+	});
 
 	const journal = createDiagnosticJournal(settings, { name: options.diagnosticsDatabaseName });
 	const input = new WebAudioInput(context, { resume: () => clock.resume(), diagnostics: journal });
@@ -113,6 +122,7 @@ export function createApp(options: CreateAppOptions = {}): AppServices {
 		memory: new SessionMemory(),
 		settings,
 		backup,
+		definitions,
 		calibration,
 		diagnostics: {
 			usage: () => journal.usage(),

@@ -39,7 +39,8 @@ import {
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
-	InMemorySettingsRepository
+	InMemorySettingsRepository,
+	FakeDefinitionsService
 } from './fakes';
 
 class FakeBackup implements BackupPort {
@@ -160,6 +161,7 @@ export async function notesApp(setup: NotesSetup = {}) {
 	const services: AppServices = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
+		definitions: new FakeDefinitionsService(),
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics(),
 		development: setup.development ?? false

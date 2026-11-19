@@ -8,7 +8,12 @@ import type {
 import type { BackupFile, HomeStats, NeckMapCell, SessionSummary } from '$lib/domain/types';
 import { DEFAULT_SETTINGS } from '$lib/domain/types';
 import { validateBackup } from '$lib/infrastructure/storage';
-import { FakeDiagnostics, FakeNoteDetector, InMemorySettingsRepository } from '$lib/testing/fakes';
+import {
+	FakeDefinitionsService,
+	FakeDiagnostics,
+	FakeNoteDetector,
+	InMemorySettingsRepository
+} from '$lib/testing/fakes';
 
 export class FakeCalibration implements CalibrationPort {
 	nextOutcome: CalibrationOutcome = {
@@ -155,6 +160,7 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 		startExercise: async () => {
 			throw new Error('startExercise is not used by I3 screens');
 		},
+		definitions: new FakeDefinitionsService(),
 		...overrides,
 		settings,
 		detector,

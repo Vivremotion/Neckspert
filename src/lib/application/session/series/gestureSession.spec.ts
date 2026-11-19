@@ -34,7 +34,8 @@ import {
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
-	InMemorySettingsRepository
+	InMemorySettingsRepository,
+	FakeDefinitionsService
 } from '$lib/testing/fakes';
 import {
 	change,
@@ -108,6 +109,7 @@ async function appSession(cards: CardState[]) {
 	const services = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
+		definitions: new FakeDefinitionsService(),
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics()
 	});

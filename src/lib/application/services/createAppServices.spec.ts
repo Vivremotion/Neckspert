@@ -32,7 +32,8 @@ import {
 	InMemoryCardStateRepository,
 	InMemoryLevelStateRepository,
 	InMemorySessionRepository,
-	InMemorySettingsRepository
+	InMemorySettingsRepository,
+	FakeDefinitionsService
 } from '$lib/testing/fakes';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
 import { createAppServices } from './createAppServices';
@@ -110,6 +111,7 @@ function harness(options: { development?: boolean } = {}): {
 	const services = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
+		definitions: new FakeDefinitionsService(),
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics(),
 		development: options.development ?? false
