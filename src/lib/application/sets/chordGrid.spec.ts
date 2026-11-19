@@ -222,6 +222,23 @@ describe('the presenters of the changes', () => {
 			expect(english).toMatchObject({ quality: 'major', set: 'G · B · E' });
 		});
 
+		it('link: refuses to draw a shape whose passage does not tell its tour', () => {
+			const { planned, round } = link(1);
+			const { items: _items, ...untold } = round.passage!;
+			expect(() =>
+				linkPresenter.stageOf(
+					planned.item as never,
+					null,
+					'fr',
+					{ aid: 'none', stringAid: false },
+					UNPLACED,
+					undefined,
+					() => 0,
+					{ ...round, passage: untold }
+				)
+			).toThrow(/a link's shape is drawn in its tour/);
+		});
+
 		it('link: aided, the notes of the shape now and of the next one', () => {
 			const model = modelOf(link(1)) as LinkLaneModel;
 			expect(model.aid).toEqual({

@@ -154,6 +154,88 @@ describe('registerFiles', () => {
 		expect(refusals).toEqual([]);
 	});
 
+	describe('every skill and grid of the files, before any exercise', () => {
+		/**
+		 * As the application's checks do: each skill an exercise names (its practices, its entry
+		 * condition, its opening) and each grid its passages name must be registered.
+		 */
+		const naming: DefinitionChecks = {
+			exercise: (e) => {
+				const learning = e.params?.learning as { enter?: { acquired: { skill: string } } };
+				const skills = [
+					e.practices,
+					learning?.enter?.acquired.skill,
+					e.passages?.opens?.acquired.skill
+				].filter((id): id is string => id !== undefined);
+				const missing = skills.find((id) => !hasSkill(id));
+				if (missing) return `names skill "${missing}", which no file read so far defines`;
+				const grids = (e.passages?.of.grid ?? []) as string[];
+				const grid = grids.find((id) => !allGrids().some((g) => g.id === id));
+				return grid ? `names grid "${grid}", which no file read so far defines` : null;
+			}
+		};
+		const named = (overrides: object) => ({ ...exercise('e'), practices: 'own', ...overrides });
+		const withA = (exercises: object[]) =>
+			registerFiles(
+				{
+					'a.json': file({ skills: [skill('own')], exercises }),
+					'b.json': file({ skills: [skill('later')], grids: [grid('later-grid')] })
+				},
+				naming
+			);
+
+		it('accepts an exercise practising a skill of a file read later', () => {
+			expect(withA([named({ practices: 'later' })]).refusals).toEqual([]);
+			expect(allExercises().map((e) => e.id)).toEqual(['e']);
+		});
+
+		it('accepts an entry condition and an opening naming a skill of a file read later', () => {
+			const enter = named({
+				params: { learning: { enter: { acquired: { skill: 'later', item: 'same' } } } }
+			});
+			const opens = named({
+				id: 'f',
+				passages: {
+					of: {},
+					members: { family: 'x' },
+					opens: { acquired: { skill: 'later', item: 'same' } }
+				}
+			});
+			expect(withA([enter, opens]).refusals).toEqual([]);
+		});
+
+		it('accepts passages of a grid of a file read later', () => {
+			const passages = named({
+				passages: { of: { grid: ['later-grid'] }, members: { family: 'grid-changes' } }
+			});
+			expect(withA([passages]).refusals).toEqual([]);
+		});
+
+		it('still refuses a skill no file of the source defines', () => {
+			expect(withA([named({ practices: 'nowhere' })]).refusals).toEqual([
+				{
+					file: 'a.json',
+					kind: 'exercise',
+					id: 'e',
+					reason: 'names skill "nowhere", which no file read so far defines'
+				}
+			]);
+		});
+
+		it('keeps the first registered of two skills of one id, in the order of the names', () => {
+			const { refusals } = registerFiles(
+				{
+					'b.json': file({ skills: [skill('s')] }),
+					'a.json': file({ skills: [skill('s')] })
+				},
+				accept
+			);
+			expect(refusals).toEqual([
+				{ file: 'b.json', kind: 'skill', id: 's', reason: 'this id is already defined in a.json' }
+			]);
+		});
+	});
+
 	it('lists what it registers in order, and nothing it refused', () => {
 		const { registered } = registerFiles(
 			{
@@ -166,11 +248,24 @@ describe('registerFiles', () => {
 			},
 			{ exercise: (e) => (e.id === 'bad' ? 'no good' : null) }
 		);
+		// Every skill, then every grid, then every exercise; the files in name order in each.
 		expect(registered).toEqual([
 			{ file: 'a.json', kind: 'skill', id: 's' },
 			{ file: 'a.json', kind: 'grid', id: 'g' },
 			{ file: 'a.json', kind: 'exercise', id: 'e1' },
 			{ file: 'b.json', kind: 'exercise', id: 'e2' }
+		]);
+		const later = registerFiles(
+			{
+				'a.json': file({ exercises: [exercise('e3')] }),
+				'b.json': file({ skills: [skill('t')], grids: [grid('h')] })
+			},
+			accept
+		).registered;
+		expect(later).toEqual([
+			{ file: 'b.json', kind: 'skill', id: 't' },
+			{ file: 'b.json', kind: 'grid', id: 'h' },
+			{ file: 'a.json', kind: 'exercise', id: 'e3' }
 		]);
 	});
 });

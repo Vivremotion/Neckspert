@@ -24,9 +24,9 @@ function load() {
 describe('the catalog files', () => {
 	it('holds the four files', () => {
 		expect(Object.keys(CATALOG_FILES).sort()).toEqual([
+			'/catalog/changes.json',
 			'/catalog/chords.json',
 			'/catalog/notes.json',
-			'/catalog/passages.json',
 			'/catalog/rhythm.json'
 		]);
 	});

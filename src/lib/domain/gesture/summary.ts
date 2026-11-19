@@ -98,7 +98,11 @@ function fretsOf(shape: { notes: readonly { fret: number }[] } | null): string |
 	return shape && shape.notes.map((note) => note.fret).join('-');
 }
 
-/** Whether a passage passed: a share of its changes right and in time of at least its exercise's `passes`. */
+/**
+ * Whether a passage passed: a share of its changes right and in time of at least its exercise's
+ * `passes`. An exercise no loaded file defines leaves its threshold unknown (an attempt keeps no
+ * threshold): 1 then, the format's default, so such a passage passes only when all its changes did.
+ */
 function passed(exerciseId: string, attempts: readonly Attempt[]): boolean {
 	if (attempts.length === 0) return false;
 	const passes = findExercise(exerciseId)?.passages?.passes ?? 1;

@@ -176,10 +176,17 @@ function cueOf(round: PresentedRound, locale: Locale): GridCue {
 /** The changes of a grid passage, the whole grid. */
 const gridLine = (item: ChangeItem): GridChange[] => gridChanges(gridById(item.grid));
 
-/** The shapes of a link tour, from its passage's items (the one asked alone outside a passage). */
+/** The shapes of a link tour, from its passage's items; throws without them. */
 function tourShapes(item: VoicingFigureItem, passage: PlannedPassage | null): VoicingOccurrence[] {
-	const items = (passage?.items ?? [item]) as VoicingFigureItem[];
-	return items.flatMap((each) => occurrenceOfId(placedVoicingSet.itemKey(each)) ?? []);
+	// A source serves every round of a passage with its items: without them there is no tour.
+	if (!passage?.items) {
+		throw new Error(
+			`a link's shape is drawn in its tour: ${placedVoicingSet.itemKey(item)} came without the items of its passage`
+		);
+	}
+	return (passage.items as VoicingFigureItem[]).flatMap(
+		(each) => occurrenceOfId(placedVoicingSet.itemKey(each)) ?? []
+	);
 }
 
 /** The chord a link plays, as a chord chart writes it: its passage's, else its voicing's. */

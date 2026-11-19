@@ -58,6 +58,24 @@ describe('loadDefinitions', () => {
 		expect(ids.at(-1)).toBe('local-arpeggio');
 	});
 
+	it('accepts an imported exercise practising a skill of an imported file named after it', async () => {
+		const { loadDefinitions, allExercises } = await fresh();
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
+			catalog: CATALOG_FILES,
+			imported: {
+				'/imported/a.json': JSON.stringify({
+					format: 0,
+					exercises: [arpeggioJson('early-arpeggio')]
+				}),
+				'/imported/b.json': JSON.stringify({ format: 0, skills: [TEST_PLACED_VOICING_SKILL] })
+			}
+		});
+		expect(refusals).toEqual([]);
+		expect(allExercises().map((exercise) => exercise.id)).toContain('early-arpeggio');
+	});
+
 	it('refuses an imported id the catalog holds', async () => {
 		const { loadDefinitions, exerciseById } = await fresh();
 		const {

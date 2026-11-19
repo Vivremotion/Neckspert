@@ -25,9 +25,11 @@ export interface RegisterResult {
 
 /**
  * Reads definition files into the registries, the origin of an object being the key of its file.
- * Files in the order of their names; in a file, its reading refusals, then its skills, its grids, then its
- * exercises (checked once the file's grids are registered). A refused object is left out, the
- * rest of its file kept. Never throws.
+ * Every file is read first (its reading refusals), then every file's skills are registered, then
+ * every file's grids, then every file's exercises are checked and registered, the files in the
+ * order of their names in each pass: an exercise may name a skill or a grid of any file of the
+ * call, whatever their names. Of two objects of one id, the first registered stays. A refused
+ * object is left out, the rest of its file kept. Never throws.
  */
 export function registerFiles(
 	files: Readonly<Record<string, string>>,
@@ -35,32 +37,29 @@ export function registerFiles(
 ): RegisterResult {
 	const refusals: Refusal[] = [];
 	const registered: Registered[] = [];
-	for (const file of Object.keys(files).sort()) {
-		const read = readDefinitionFile(file, files[file]);
-		refusals.push(...read.refusals);
-		for (const skill of read.skills) {
-			const holder = registerSkill(skill, file);
-			if (holder !== null) {
-				refusals.push({
-					file,
-					kind: 'skill',
-					id: skill.id,
-					reason: `this id is already defined in ${holder}`
-				});
-			} else registered.push({ file, kind: 'skill', id: skill.id });
-		}
-		for (const grid of read.grids) {
-			const holder = registerGrid(grid, file);
-			if (holder !== null) {
-				refusals.push({
-					file,
-					kind: 'grid',
-					id: grid.id,
-					reason: `this id is already defined in ${holder}`
-				});
-			} else registered.push({ file, kind: 'grid', id: grid.id });
-		}
-		for (const exercise of read.exercises) {
+	const read = Object.keys(files)
+		.sort()
+		.map((file) => ({ file, ...readDefinitionFile(file, files[file]) }));
+	for (const each of read) refusals.push(...each.refusals);
+	/** Registers an object, or refuses it naming the file that holds its id. */
+	const register = (
+		file: string,
+		kind: 'skill' | 'grid',
+		id: string,
+		holder: string | null
+	): void => {
+		if (holder !== null) {
+			refusals.push({ file, kind, id, reason: `this id is already defined in ${holder}` });
+		} else registered.push({ file, kind, id });
+	};
+	for (const { file, skills } of read) {
+		for (const skill of skills) register(file, 'skill', skill.id, registerSkill(skill, file));
+	}
+	for (const { file, grids } of read) {
+		for (const grid of grids) register(file, 'grid', grid.id, registerGrid(grid, file));
+	}
+	for (const { file, exercises } of read) {
+		for (const exercise of exercises) {
 			const refusal = (reason: string): void => {
 				refusals.push({ file, kind: 'exercise', id: exercise.id, reason });
 			};
