@@ -27,7 +27,7 @@ export class SeriesItems {
 	}
 
 	/** The definition of an item's exercise; an exercise the registry does not hold throws. */
-	definitionOf(item: PlannedItem): ExerciseDefinition {
+	definitionOf(item: Pick<PlannedItem, 'exerciseId'>): ExerciseDefinition {
 		return this.exercise(item.exerciseId);
 	}
 

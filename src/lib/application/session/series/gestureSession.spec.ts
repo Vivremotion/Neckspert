@@ -55,6 +55,7 @@ import {
 import { shapeId, triadCards } from '$lib/testing/shapes';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { triadOf } from '$lib/domain/grid';
+import type { LevelState } from '$lib/domain/time';
 import { SessionController } from '../SessionController.svelte';
 
 /**
@@ -86,8 +87,11 @@ class FakeCalibration implements CalibrationPort {
 	cancel(): void {}
 }
 
-/** The app's services on fakes, `cards` acquired; a gesture session started from them. */
-async function appSession(cards: CardState[]) {
+/**
+ * The app's services on fakes, `cards` acquired and `levels` stored; a gesture session started
+ * from them.
+ */
+async function appSession(cards: CardState[], levels: LevelState[] = []) {
 	const clock = new FakeClock();
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
@@ -111,6 +115,7 @@ async function appSession(cards: CardState[]) {
 		levels: new InMemoryLevelStateRepository()
 	};
 	await deps.cards.putMany(cards);
+	for (const state of levels) await deps.levels.put(state);
 	const services = createAppServices({
 		...deps,
 		backup: new FakeBackup(),
@@ -373,25 +378,40 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(forgotten.gesture?.changeOfAir).toBeUndefined();
 	});
 
-	it('names the scope of the last attempt: the grid exercise that rests', async () => {
-		const app = await appSession(iohefyCards('chord-anchor', G_B_E));
-		// The link right (7 changes), then the climb of iohefy-a, nothing right.
-		await play(app, 12, (expectation, n) => (n < 7 ? right(expectation) : null));
+	it('ends the session right after the round that blocks, naming the exercise and scope that rest', async () => {
+		// The climb of iohefy-a held at its aid level: its third miss in a row is its passage's last
+		// change, and another exercise's passage comes next.
+		const app = await appSession(iohefyCards('chord-anchor', G_B_E), [
+			{
+				exerciseId: 'grid-in-direction',
+				scope: 'iohefy-a',
+				item: '',
+				level: -1,
+				successes: 0,
+				failures: 0,
+				resumeAfter: null
+			}
+		]);
+		// The link's first tour fails (it comes back), its second is right; then the climb.
+		const script = [...'MRMRMRR', ...'RRRRRRR', ...'RMRMRRMMM'];
+		const played = await play(app, 40, (expectation, n) =>
+			(script[n] ?? 'R') === 'M' ? null : right(expectation)
+		);
 		await finish(app);
 		const sessionId = app.controller.sessionId;
 		const attempts = await app.deps.attempts.listBySession(sessionId);
+
+		// Nothing is asked after the climb's last change: no round of another exercise.
+		expect(played).toHaveLength(script.length);
+		expect(attempts).toHaveLength(script.length);
 		expect(attempts.at(-1)).toMatchObject({ exerciseId: 'grid-in-direction', scope: 'iohefy-a' });
-
-		// The time ran out before the climb could block: the series' end is told as the change of
-		// air to read what the summary does with the last attempt.
-		const playback = app.deps.memory.get(sessionId)!;
-		const ended = (segment: typeof playback.trace): typeof playback.trace => ({
-			...segment,
-			...(segment.role === 'series' && { reason: 'change-of-air' as const }),
-			children: segment.children.map(ended)
+		// The announcement is the climb's: its aid level, at its tempo.
+		expect(app.controller.view.announcement).toEqual({
+			kind: 'change-of-air',
+			level: -1,
+			of: 9,
+			tempoBpm: 80
 		});
-		app.deps.memory.remember({ ...playback, trace: ended(playback.trace) });
-
 		const summary = await app.services.sessionSummary(sessionId);
 		expect(summary.gesture?.changeOfAir).toEqual({
 			exerciseId: 'grid-in-direction',

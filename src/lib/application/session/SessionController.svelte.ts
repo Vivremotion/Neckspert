@@ -1538,12 +1538,12 @@ export class SessionController implements PlaySessionController {
 		this.wakeAt(round.end.add(after), () => this.end(reason));
 	}
 
-	/** The series ends on its own, for `reason`; « On change d’air » is said. */
+	/** The series ends on its own, for `reason`; « On change d’air » is said, of the exercise that rests. */
 	private end(reason: SeriesEnd): void {
 		this.ended = reason;
-		const item = this.round?.item ?? this.pending;
-		if (reason === 'change-of-air' && item) {
-			this.view.announcement = this.announcementOf('change-of-air', item);
+		const at = this.levels.resting() ?? this.round?.item ?? this.pending;
+		if (reason === 'change-of-air' && at) {
+			this.view.announcement = this.announcementOf('change-of-air', at);
 		}
 		void this.finish();
 	}
@@ -2218,7 +2218,7 @@ export class SessionController implements PlaySessionController {
 	/** `kind` announced for `item`'s exercise, at the level it plays and that level's tempo. */
 	private announcementOf(
 		kind: Announcement,
-		item: PlannedItem
+		item: Pick<PlannedItem, 'exerciseId' | 'scope'>
 	): NonNullable<PlayView['announcement']> {
 		const definition = this.items.definitionOf(item);
 		const level = this.levels.played(item.exerciseId, item.scope);
