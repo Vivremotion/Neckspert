@@ -726,4 +726,5 @@ Encore ouvert :
 - La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé (les routines, plan 5), et il n'apparaît pas sous « Exercices ».
 - Le travail de la source pour chaque passage servi n'est pas borné (plan 5, avant qu'une séance joue des passages importés).
 - Le banc ouvert (`openness.spec.ts`) ne tire aucun exercice à passages (plan 5).
+- Les limites bornent le nombre de tours vérifiés au chargement, pas leur coût. Un fichier qui écrit à la fois le plus de tours de passage (5 000, `MAX_PASSAGE_ROUND_CHECKS`), le plus d'attentes par tour (64) et le plus de filtres par choix (16) est accepté après une demi-minute de chargement (28 secondes mesurées). Le budget par fichier du plan 5 doit compter les tours, leurs attentes et leurs filtres.
 - Une séance enregistrée avant ce plan ne montre pas la forme attendue dans son bilan.
