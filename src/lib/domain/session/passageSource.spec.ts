@@ -7,7 +7,7 @@ import type { MemberContent } from '$lib/domain/judges';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource } from '$lib/domain/progress/selector';
 import { METER_4_4 } from '$lib/domain/time/meter';
-import type { TriadSkill } from '$lib/domain/triads';
+import type { SkillId } from '$lib/domain/skill/types';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { responseAttempt } from '$lib/testing/attempts';
 import {
@@ -38,7 +38,7 @@ const IOHEFY = [
 /** Dm7 G7 Dm7 G7 Cmaj7 F7 Em7 Ebm7 Ab7: Cmaj7 twice in a row is one change. */
 const IOHEFY_CHANGES = 9;
 
-function iohefy(skill: TriadSkill, set: readonly StringNumber[]): CardState[] {
+function iohefy(skill: SkillId, set: readonly StringNumber[]): CardState[] {
 	return IOHEFY.flatMap(([root, quality]) => triadCards(skill, root, quality, set));
 }
 

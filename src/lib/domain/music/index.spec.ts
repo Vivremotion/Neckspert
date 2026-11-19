@@ -14,8 +14,6 @@ const PUBLIC_FUNCTIONS = [
 	'classifyNoteConfusion',
 	'classifyNameConfusion',
 	'openPitch',
-	'neckCardKey',
-	'asNeckCard',
 	'pitchOfMidi',
 	'parseSpelledNote',
 	'formatSpelledNote',

@@ -1845,7 +1845,8 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		]);
 	});
 
-	it('ends the whole session (« On change d’air ») on three more misses at the aid level', async () => {
+	it('ends the whole session (« On change d’air ») on three more misses at the aid level when its source cannot leave the exercise out', async () => {
+		// The bench's scripted source has no `leave`, so the series ends as before plan 5a.
 		// The climb's passages, then the jam's: the jam is never served.
 		const ctx = gestureSeries([...climbs(4), ...passage({ passage: 'j:0' })], {
 			catalogLevels: true

@@ -43,7 +43,8 @@
 	const rail = $derived(showsRail(path));
 	/**
 	 * The free play of the first memory routine, read from the registry (until plan 5b, which gives
-	 * the Library its own page). Read once per render of the nav: it follows an import at the next.
+	 * the Library its own page). The registry is not reactive: the link is read again only when the
+	 * nav's words change (a change of locale) or on a reload, not after an import.
 	 */
 	const library = (): string => {
 		const href = libraryHref(routines(), (id) => {

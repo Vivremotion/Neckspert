@@ -52,6 +52,21 @@ const withoutHandover = withRound((round) => {
 });
 
 describe('SessionController', () => {
+	describe('origin', () => {
+		it('names an exercise played alone through the lookup it is given, not the registry', () => {
+			const injected = {
+				...exerciseById('inversion-run'),
+				id: 'injected-run',
+				title: { fr: 'Enchaînement injecté', en: 'Injected run' }
+			};
+			const ctx = setup(passage(), {
+				origin: { exercise: injected.id },
+				exercise: (id) => (id === injected.id ? injected : exerciseById(id))
+			});
+			expect(ctx.controller.origin.title).toEqual(injected.title);
+		});
+	});
+
 	describe('start', () => {
 		it('tells an exercise’s instruction in every series, played before or not', async () => {
 			const ctx = setup(passage());

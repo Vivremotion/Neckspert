@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { responseAttempt } from '$lib/testing/attempts';
-import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { Attempt, CardState } from '$lib/domain/types';
 import { introduceCard, markLearned } from './cards';
 import { MIN_COLD_DELAY_MS } from './constants';
-import { keyed, neckExerciseId } from '$lib/testing/neck';
+import { keyed, neckExerciseId, neckCardKey, type NeckCard } from '$lib/testing/neck';
 import { lastAttemptByCard, nextReviewAt, reviewableAt, reviewableCards } from './review';
 
 const NOW = Date.parse('2026-10-02T10:00:00.000Z');

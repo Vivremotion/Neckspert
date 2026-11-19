@@ -3,15 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { IdentifyData } from '$lib/domain/sets';
-import { LEARNABLE_FRETS, locateItems } from '$lib/testing/neck';
-import {
-	neckCardKey,
-	openPitch,
-	pitchOnString,
-	type IdentifyItem,
-	type LocateItem,
-	type NeckCard
-} from '$lib/domain/music';
+import { LEARNABLE_FRETS, locateItems, neckCardKey, type NeckCard } from '$lib/testing/neck';
+import { openPitch, pitchOnString, type IdentifyItem, type LocateItem } from '$lib/domain/music';
 import type { PitchName } from '$lib/domain/music/types';
 import { introduceCard } from '$lib/domain/progress';
 import { LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';

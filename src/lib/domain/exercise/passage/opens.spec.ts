@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import type { StringNumber } from '$lib/domain/music';
-import type { TriadSkill } from '$lib/domain/triads';
+import type { SkillId } from '$lib/domain/skill/types';
 import type { CardState } from '$lib/domain/types';
 import {
 	CLIMB_PASSAGES,
@@ -28,7 +28,7 @@ const IOHEFY = [
 	['Ab', 'maj']
 ] as const;
 
-function iohefy(skill: TriadSkill, set: readonly StringNumber[]): CardState[] {
+function iohefy(skill: SkillId, set: readonly StringNumber[]): CardState[] {
 	return IOHEFY.flatMap(([root, quality]) => triadCards(skill, root, quality, set));
 }
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { ExerciseDefinition } from '$lib/domain/exercise';
 import { allExercises, clearExercises } from '$lib/domain/exercise/registry';
 import { clearGrids, registerGrid } from '$lib/domain/grid/registry';
+import { clearRoutines } from '$lib/domain/routine/registry';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { registerTestSkills } from '$lib/testing/testSkills';
 import { JAM_PASSAGES, LINK_PASSAGES, PASSAGE_EXERCISES } from '$lib/testing/changesPassages';
@@ -76,6 +77,8 @@ describe('definitionChecks', () => {
 
 	describe('grids', () => {
 		beforeEach(() => {
+			// Routines name exercises: they go with them, so no routine names one cleared.
+			clearRoutines();
 			clearExercises();
 			clearGrids();
 		});

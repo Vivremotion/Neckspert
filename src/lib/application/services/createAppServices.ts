@@ -532,6 +532,7 @@ export function createAppServices(
 
 		async startExercise(exerciseId) {
 			const definition = exerciseFound(exerciseId);
+			if (!definition) requireExercises([exerciseId]);
 			// Alone in its session: only the sensors its round names open.
 			if (definition && hasCards(definition.practices) && (definition.items ?? []).length > 0) {
 				// A memory exercise freely, among its own items, each at the level it holds.

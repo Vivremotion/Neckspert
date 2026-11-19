@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { asNeckCard, neckCardKey, type NeckCard } from '$lib/domain/music';
+import { asNeckCard, neckCardKey, type NeckCard } from '$lib/testing/neck';
 import { FREE_PLAY_COUNT } from './constants';
 import type { LevelState } from '$lib/domain/time/levels';
 import { exerciseSubject } from '$lib/domain/learning/exerciseSubject';

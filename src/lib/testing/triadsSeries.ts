@@ -7,7 +7,8 @@ import { chordSensor } from '$lib/application/session/sensors';
 import { rootPosition } from '$lib/domain/sets';
 import { acceptableMidis, parseVoicingKey, voicingKey } from '$lib/domain/music';
 import { introduceCard, markLearned } from '$lib/domain/progress';
-import { occurrenceOfId, type TriadSkill } from '$lib/domain/triads';
+import { occurrenceOfId } from '$lib/domain/triads';
+import type { SkillId } from '$lib/domain/skill/types';
 import type { CardState } from '$lib/domain/types';
 import { CutShortVerifier } from './gestureSeries';
 import { notesApp, step, type NotesSetup } from './notesSeries';
@@ -18,7 +19,7 @@ export const ORDER = TRIAD_ORDER;
 
 /** A learned triad card, due at once (a cold review), acquired unless told otherwise. */
 export function learnedTriad(
-	skill: TriadSkill,
+	skill: SkillId,
 	voicing: string,
 	options: { acquired?: boolean } = {}
 ): CardState {
@@ -74,7 +75,7 @@ export function voicingOfShape(id: string): string {
 /** A triad round as the player meets it: the screen and what the chord sensor is told. */
 export interface TriadSeen {
 	n: number;
-	skill: TriadSkill;
+	skill: SkillId;
 	voicing: string;
 	/** The fret a zone prompt names; 'open' for a shape on open strings only. */
 	fret?: number | 'open';

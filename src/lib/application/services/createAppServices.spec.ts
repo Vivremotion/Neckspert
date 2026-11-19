@@ -20,8 +20,8 @@ import {
 	type CardState,
 	type SessionRecord
 } from '$lib/domain/types';
-import { acceptableMidis, neckCardKey } from '$lib/domain/music';
-import { practiceCards } from '$lib/testing/neck';
+import { acceptableMidis } from '$lib/domain/music';
+import { practiceCards, neckCardKey } from '$lib/testing/neck';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	FakeAttackDetector,
@@ -1079,12 +1079,12 @@ describe('the rhythm exercises', () => {
 		}
 	});
 
-	it('startExercise refuses an exercise it does not know', async () => {
+	it('startExercise refuses an exercise no file defines, naming it as unknown', async () => {
 		const { services } = harness();
-		await expect(services.startExercise('nope')).rejects.toThrow(/nope/);
+		await expect(services.startExercise('nope')).rejects.toThrow('Unknown exercise: nope');
 	});
 
-	it('startExercise refuses an exercise on a skill with cards, which no session plays yet', async () => {
+	it('startExercise refuses an exercise on a skill with cards that lists no items', async () => {
 		const { registerExercise, clearExercises, allExercises } =
 			await import('$lib/domain/exercise/registry');
 		const kept = [...allExercises()];

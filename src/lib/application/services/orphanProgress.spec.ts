@@ -42,7 +42,7 @@ import {
 	startNotes,
 	notesApp
 } from '$lib/testing/notesSeries';
-import { neckCardKey } from '$lib/domain/music';
+import { neckCardKey } from '$lib/testing/neck';
 import { createAppServices } from './createAppServices';
 
 const GONE_SKILL = 'gone-skill';

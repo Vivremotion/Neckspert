@@ -4,7 +4,7 @@ import type { PlaySessionController } from '$lib/application/session/contract';
 import type { Segment } from '$lib/domain/session';
 import { validateExercise, type ExerciseDefinition } from '$lib/domain/exercise';
 import type { ResponseValue } from '$lib/domain/time/modes/responseVerdict';
-import { neckCardKey, type NeckCard } from '$lib/domain/music';
+import { neckCardKey, type NeckCard } from '$lib/testing/neck';
 import { Fraction } from '$lib/domain/time/fraction';
 import type { Attempt } from '$lib/domain/types';
 import {

@@ -17,13 +17,12 @@ import { exerciseById, type ExerciseDefinition } from '$lib/domain/exercise';
 import {
 	acceptableMidis,
 	formatNote,
-	neckCardKey,
 	pitchOnString,
 	stringLabel,
 	type IdentifyItem,
-	type LocateItem,
-	type NeckCard
+	type LocateItem
 } from '$lib/domain/music';
+import { neckCardKey, type NeckCard } from './neck';
 import { CHROMATIC_NOTES, STRING_NUMBERS, type PitchName } from '$lib/domain/music/types';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { LevelState } from '$lib/domain/time';

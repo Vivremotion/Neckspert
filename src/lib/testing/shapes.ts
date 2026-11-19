@@ -1,4 +1,4 @@
-import type { TriadSkill } from '$lib/domain/triads';
+import type { SkillId } from '$lib/domain/skill/types';
 import {
 	closeTriadVoicings,
 	parseSpelledNote,
@@ -38,7 +38,7 @@ export function shapeId(
 
 /** The cards of the three inversions of a close triad in a triads skill, acquired or not. */
 export function triadCards(
-	skill: TriadSkill,
+	skill: SkillId,
 	root: string,
 	quality: string,
 	set: readonly StringNumber[],

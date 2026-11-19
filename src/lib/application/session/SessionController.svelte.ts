@@ -45,7 +45,7 @@ import {
 	type PlaySessionController,
 	type PlayView
 } from './contract';
-import { exerciseTitle, playOriginOf } from './playOrigin';
+import { exerciseTitle, playOriginOf, type ExerciseLookup } from './playOrigin';
 import { openAudioInput } from './audioInput';
 import { asksForHeadphones } from './clickBleed';
 import type { AttemptRecorder } from './AttemptRecorder';
@@ -161,12 +161,29 @@ function isOf(item: PlannedItem, at: { exerciseId: ExerciseId; scope?: string })
 	return item.exerciseId === at.exerciseId && (item.scope ?? '') === (at.scope ?? '');
 }
 
+/**
+ * The injected lookup, which says « unknown » only by throwing, read as `undefined` there: the
+ * play screen then names the exercise by its id.
+ */
+function lookupOf(exercise: SessionControllerDeps['exercise']): ExerciseLookup {
+	return (id) => {
+		try {
+			return exercise(id);
+		} catch {
+			return undefined;
+		}
+	};
+}
+
 /** How the play view names (exercise, scope) as it leaves: its title, and its scope when it has one. */
-function leavingOf(at: {
-	exerciseId: ExerciseId;
-	scope?: string;
-}): NonNullable<PlayView['leaving']> {
-	const title = exerciseTitle(at.exerciseId);
+function leavingOf(
+	at: {
+		exerciseId: ExerciseId;
+		scope?: string;
+	},
+	lookUp: ExerciseLookup
+): NonNullable<PlayView['leaving']> {
+	const title = exerciseTitle(at.exerciseId, lookUp);
 	return at.scope === undefined || at.scope === '' ? { title } : { title, scope: at.scope };
 }
 
@@ -381,7 +398,7 @@ export class SessionController implements PlaySessionController {
 	) {
 		this.sessionId = session.id;
 		this.recordedOrigin = session.origin;
-		this.origin = playOriginOf(session.origin);
+		this.origin = playOriginOf(session.origin, lookupOf(deps.exercise));
 		this.prepare = prepare;
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
@@ -1573,7 +1590,7 @@ export class SessionController implements PlaySessionController {
 		if (reason === 'change-of-air' && at) {
 			this.view.announcement = this.announcementOf('change-of-air', at);
 			// A session that could leave an exercise out names the one that ended it.
-			if (this.source?.leave) this.view.leaving = leavingOf(at);
+			if (this.source?.leave) this.view.leaving = leavingOf(at, lookupOf(this.deps.exercise));
 		}
 		void this.finish();
 	}
@@ -1619,7 +1636,7 @@ export class SessionController implements PlaySessionController {
 	private leftSeries(left: { exerciseId: ExerciseId; scope?: string }): void {
 		this.levels.leave(left.exerciseId, left.scope);
 		this.log?.leave(left);
-		this.view.leaving = leavingOf(left);
+		this.view.leaving = leavingOf(left, lookupOf(this.deps.exercise));
 	}
 
 	/**
