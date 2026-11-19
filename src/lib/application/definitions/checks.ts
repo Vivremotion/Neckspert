@@ -10,7 +10,8 @@ import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise';
 import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
 import { isTriadQuality, QUALITIES } from '$lib/domain/music';
-import { readsChanges } from '$lib/domain/sets';
+import { readsChanges, setOfSkill } from '$lib/domain/sets';
+import type { ItemSet } from '$lib/domain/sets/types';
 import { correspondence } from '$lib/domain/sets/correspondences';
 import { drawNamed } from '$lib/domain/sets/draws';
 import { allGrids } from '$lib/domain/grid/registry';
@@ -103,6 +104,15 @@ function learningProblem(exercise: ExerciseDefinition): string | null {
 	return null;
 }
 
+/** The key a set writes for a key as written; the key as written when the set cannot read it. */
+function itemKeyOf(set: ItemSet, written: string): string {
+	try {
+		return set.itemKey(set.parseItem(written));
+	} catch {
+		return written;
+	}
+}
+
 /**
  * Why the items an exercise lists cannot be introduced; null when they can. A skill with cards is
  * learned item by item, so its exercise lists them, each once; an exercise without memory may
@@ -114,10 +124,13 @@ function itemsListProblem(exercise: ExerciseDefinition): string | null {
 	if (!Array.isArray(items)) {
 		return 'an exercise that practises a skill with cards must list its items';
 	}
+	const set = setOfSkill(exercise.practices);
 	const first = new Map<string, number>();
 	for (const [i, entry] of items.entries()) {
-		const key = typeof entry === 'string' ? entry : (entry as { item?: unknown })?.item;
-		if (typeof key !== 'string') continue;
+		const written = typeof entry === 'string' ? entry : (entry as { item?: unknown })?.item;
+		if (typeof written !== 'string') continue;
+		// Two spellings of one item are one item: compare the keys the set writes.
+		const key = itemKeyOf(set, written);
 		const seen = first.get(key);
 		if (seen !== undefined) return `items[${i}] repeats items[${seen}]`;
 		first.set(key, i);

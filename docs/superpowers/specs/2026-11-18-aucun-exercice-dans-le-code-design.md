@@ -560,7 +560,8 @@ Ce que l'exécution a décidé en plus :
 
 Ce qui diffère du § 5, que celui-ci ne dit pas (le § 5 reste tel quel) :
 
-- Les listes ne sont pas écrites « une fois par un script » puis laissées aux paramètres : elles sont des fichiers du catalogue, écrits dans l'ordre statique d'aujourd'hui (D3), et rien n'en garde la trace en code.
+- Un script a écrit les listes une fois, à partir de l'ancien ordre statique (D3) ; il n'a pas été gardé. Les listes sont maintenant des données du catalogue, et rien n'en garde la trace en code.
+- Le § 5 écrit `learning: {…}` ; le code lit `params.learning`.
 - Le § 5 écrit `learning: { enter: … }` pour `chord-zone` seul. `chord-zone` écrit aussi `draw` et `presentAtOnce: false` ; `chord-anchor` écrit `presentAtOnce: false` ; `identify-note` écrit `enter`.
 - Le § 5 nomme la correspondance de `identify-note` « la note d'une case » : elle s'appelle `same-place` (D4).
 - Le § 5 ne dit pas que « acquis » est la règle de `isAcquired` (D5), ni l'ordre entre les exercices d'une séance (D6), ni le tirage de `chord-zone` (D7), ni que la liste est obligatoire (D2) et que ce qu'elle ne nomme pas est ignoré (D1).

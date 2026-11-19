@@ -9,8 +9,9 @@ import { neckCardKey, type NeckCard } from '$lib/domain/music';
 import type { CardKey, PlannedItem, SkillId } from '$lib/domain/types';
 
 /**
- * The neck domain (learn selector, introduction queue, free plan, stats) knows both of its
- * skills; the core does not. This is where it reads their exercises.
+ * The neck domain (learn selector, free plan, stats, neck map) knows both of its skills; the
+ * core does not. What a session introduces is not here: it is the lists its exercises write.
+ * This is where the neck reads their exercises.
  */
 export function neckExerciseId(skill: SkillId): ExerciseId {
 	return asNeckSkill(skill) === LOCATE_SKILL_ID ? LOCATE_NECK_ID : IDENTIFY_NECK_ID;

@@ -15,7 +15,9 @@ import {
 	registerExercise,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
-	ROUTINE_NOTES_ID
+	ROUTINE_NOTES_ID,
+	TRIADS_ANCHOR_ID,
+	TRIADS_ZONE_ID
 } from '$lib/domain/exercise';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import type { Attempt, BackupFile, CardState, LevelState, SessionRecord } from '$lib/domain/types';
@@ -35,6 +37,15 @@ import {
 	InMemorySessionRepository,
 	InMemorySettingsRepository
 } from '$lib/testing/fakes';
+import {
+	allRight,
+	learnedCard,
+	locate,
+	playRounds,
+	startNotes,
+	notesApp
+} from '$lib/testing/notesSeries';
+import { neckCardKey } from '$lib/domain/music';
 import { createAppServices } from './createAppServices';
 
 const GONE_SKILL = 'gone-skill';
@@ -390,18 +401,38 @@ describe('a card no list names', () => {
 		expect(await deps.cards.all()).toHaveLength(4);
 	});
 
-	it('is never asked by a learning session', async () => {
+	it('does not open the triads zone', async () => {
 		const { services, deps } = harness();
-		await seed(deps);
-		await seedUnserved(deps);
-		const controller = await services.startSession('learn');
-		await controller.start();
-		await runOnTransport(deps, () => controller.view.status === 'awaiting');
-		expect(controller.view.status).toBe('awaiting');
-		const asked = (await deps.attempts.all()).map((row) => row.cardKey);
-		expect(asked).not.toContain('locate-note-string:not-a-note');
-		expect(asked).not.toContain('locate-note-string:6:E');
+		// Six anchor cards acquired, none of them named by the anchor's list.
+		await deps.cards.putMany(
+			['a', 'b', 'c', 'd', 'e', 'f'].map((name) => ({
+				...learned({ key: `chord-anchor:${name}`, skill: 'chord-anchor', item: { garbage: name } }),
+				acquiredAt: 0
+			}))
+		);
+		expect((await services.triads()).zoneDue).toBeNull();
+	});
+
+	it('is never asked by a learning session', async () => {
+		// The ignored cards come first in the store, so a draw that served them would pick them.
+		const app = await notesApp({
+			cards: [learnedCard(locate(6, 'E')), learnedCard(locate(5, 'C')), learnedCard(locate(4, 'F'))]
+		});
+		await app.deps.cards.putMany([
+			learned({
+				key: 'locate-note-string:not-a-note',
+				skill: 'locate-note-string',
+				item: { garbage: true }
+			})
+		]);
+		const controller = await startNotes(app, 'learn');
+		const rounds = await playRounds(app, controller, allRight, { rounds: 6 });
 		controller.quit();
+		expect(rounds.length).toBeGreaterThan(1);
+		const asked = rounds.map((round) => neckCardKey(round.card));
+		expect(asked).not.toContain('locate-note-string:6:E');
+		expect(asked).toContain('locate-note-string:5:C');
+		expect(asked).toContain('locate-note-string:4:F');
 	});
 });
 
@@ -428,6 +459,30 @@ describe('a track exercise no file defines', () => {
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
 		controller.quit();
+	});
+
+	it('starts the anchor session without the zone, and the zone session without the anchor', async () => {
+		for (const [missing, kind] of [
+			[TRIADS_ZONE_ID, 'triads'],
+			[TRIADS_ANCHOR_ID, 'triads-zone']
+		] as const) {
+			const { services, deps } = harness();
+			withoutExercise(missing);
+			const controller = await services.startSession(kind);
+			await controller.start();
+			await runOnTransport(deps, () => controller.view.status === 'awaiting');
+			// A zone session with no anchor card acquired has nothing to ask and ends at once.
+			expect(controller.view.status, kind).toBe(kind === 'triads' ? 'awaiting' : 'finished');
+			controller.quit();
+		}
+	});
+
+	it('refuses a triads session without its own exercise, naming it', async () => {
+		const { services } = harness();
+		withoutExercise(TRIADS_ZONE_ID);
+		await expect(services.startSession('triads-zone')).rejects.toThrow(
+			`Unknown exercise: ${TRIADS_ZONE_ID}`
+		);
 	});
 
 	it('refuses a notes session without its own exercise, naming it', async () => {

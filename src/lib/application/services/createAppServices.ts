@@ -375,7 +375,7 @@ export function createAppServices(
 					.length;
 			return {
 				anchorDue: due(CHORD_ANCHOR_SKILL_ID),
-				zoneDue: triadZoneOpen(cards) ? due(CHORD_ZONE_SKILL_ID) : null
+				zoneDue: triadZoneOpen(servedCards(cards)) ? due(CHORD_ZONE_SKILL_ID) : null
 			};
 		},
 
@@ -473,9 +473,11 @@ export function createAppServices(
 				requireExercises([LOCATE_NECK_ID, IDENTIFY_NECK_ID]);
 				return startNotes(kind);
 			}
-			// The triad subject reads the anchor and the zone.
-			requireExercises([TRIADS_ANCHOR_ID, TRIADS_ZONE_ID]);
-			return startTriads(kind === 'triads-zone' ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID);
+			// A triads session plays one exercise: its subject reads that exercise's list, and the
+			// zone's entry condition reads the anchor's cards, not its exercise.
+			const zone = kind === 'triads-zone';
+			requireExercises([zone ? TRIADS_ZONE_ID : TRIADS_ANCHOR_ID]);
+			return startTriads(zone ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID);
 		},
 
 		async startExercise(exerciseId) {

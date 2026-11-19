@@ -211,6 +211,7 @@ describe('docs/fichiers-de-definitions.md', () => {
 	it('gives an example file that loads', async () => {
 		const { loadDefinitions, allExercises } = await fresh();
 		const doc = DOC['/docs/fichiers-de-definitions.md'] ?? '';
+		// The doc's first `json` block is a whole file: fragments of a file come after it.
 		const block = /```json\n([\s\S]*?)\n```/.exec(doc)?.[1] ?? '';
 		const {
 			imported: { refusals }

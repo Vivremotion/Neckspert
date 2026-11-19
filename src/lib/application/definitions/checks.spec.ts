@@ -7,7 +7,13 @@ import { registerTestSkills } from '$lib/testing/testSkills';
 import { definitionChecks } from './checks';
 
 registerTestSkills();
-import { LOCATE_NECK, IOHEFY_A, GESTURE_CLIMB, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
+import {
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	IOHEFY_A,
+	GESTURE_CLIMB,
+	RHYTHM_TWO_FOUR
+} from '$lib/testing/catalog';
 import { exerciseById } from '$lib/domain/exercise/registry';
 
 const check = (exercise: ExerciseDefinition) => definitionChecks().exercise(exercise);
@@ -219,6 +225,10 @@ describe('definitionChecks, the items of a memory exercise', () => {
 		const items = [...(LOCATE_NECK.items as string[])];
 		items[5] = items[1];
 		expect(check({ ...LOCATE_NECK, items })).toBe('items[5] repeats items[1]');
+	});
+
+	it('refuses two spellings of one item, naming both places', () => {
+		expect(check({ ...IDENTIFY_NECK, items: ['6:5', '6:05'] })).toBe('items[1] repeats items[0]');
 	});
 
 	it('lets an exercise without memory repeat an item, or list none', () => {
