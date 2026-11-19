@@ -124,7 +124,7 @@ async function appSession(cards: CardState[], levels: LevelState[] = []) {
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics()
 	});
-	const controller = await services.startSession('gesture');
+	const controller = await services.startRoutine('changes');
 	expect(controller).toBeInstanceOf(SessionController);
 	await controller.ready?.();
 	await controller.start();

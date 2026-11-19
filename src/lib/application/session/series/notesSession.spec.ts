@@ -67,7 +67,7 @@ const ALL_LOCATE = locateItems().map((item) => learnedCard({ skill: 'locate-note
 describe('a learn session of the notes', () => {
 	it('shows the lane of locate from the start screen, before any sound', async () => {
 		const app = await notesApp();
-		const controller = await app.services.startSession('learn');
+		const controller = await app.services.startRoutine('notes');
 		expect(controller.view.stage).toBeNull();
 		await controller.ready?.();
 		expect(controller.view.status).toBe('idle');

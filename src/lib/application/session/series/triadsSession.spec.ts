@@ -603,15 +603,20 @@ describe('the length and the tempo of a triads session', () => {
 });
 
 describe('the play screen before the audio clock exists', () => {
-	it.each([['triads'], ['triads-zone'], ['learn'], ['free']] as const)(
+	it.each([
+		['triads', 'chords', false],
+		['triads-zone', 'chords-zone', false],
+		['learn', 'notes', false],
+		['free', 'notes', true]
+	] as const)(
 		'shows the start screen of a %s session before any gesture, then starts on the clock resumed',
-		async (kind) => {
+		async (_kind, routine, free) => {
 			const clock = new UnresumedClock();
 			const app = await triadsApp({
 				clock,
 				cards: [learnedTriad('chord-anchor', C), learnedTriad('chord-zone', C)]
 			});
-			const controller = await app.services.startSession(kind);
+			const controller = await app.services.startRoutine(routine, { free });
 			// The page asks it ready on mount, before any gesture: no audio clock to read yet.
 			await controller.ready?.();
 			expect(clock.resumed).toBe(false);

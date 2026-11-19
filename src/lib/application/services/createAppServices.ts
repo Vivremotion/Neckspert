@@ -19,10 +19,6 @@ import {
 	writesFigure,
 	type ExerciseDefinition,
 	type ExerciseId,
-	CHANGE_SKILL_IDS,
-	CHORD_ANCHOR_SKILL_ID,
-	CHORD_ZONE_SKILL_ID,
-	GESTURE_EXERCISE_IDS,
 	IDENTIFY_NECK_ID,
 	LOCATE_NECK_ID,
 	TRIADS_ANCHOR_ID,
@@ -32,8 +28,6 @@ import { pitchOnString } from '$lib/domain/music';
 import {
 	buildFreePlan,
 	buildNeckMap,
-	freeLeadOf,
-	freeLevelOf,
 	computeHomeStats,
 	createListSource,
 	type ItemSource,
@@ -46,21 +40,28 @@ import {
 import {
 	createLearningProcedure,
 	DEFAULT_SET_LEARNING,
+	exerciseLearningOf,
 	exerciseSubject,
 	type DirectRecall,
 	type LearningSubject
 } from '$lib/domain/learning';
 import { hasCards } from '$lib/domain/skill/registry';
-import { opened, routines as registeredRoutines, type Known } from '$lib/domain/routine';
-import type { TriadSkill } from '$lib/domain/triads';
+import {
+	findRoutine,
+	opened,
+	routines as registeredRoutines,
+	type Known
+} from '$lib/domain/routine';
 import {
 	isTriadsKind,
 	sessionKindOf,
+	sessionOriginOf,
 	type Attempt,
 	type CardKey,
 	type CardState,
 	type ExerciseSummary,
 	type SessionKind,
+	type SessionOrigin,
 	type SkillId,
 	type SessionRecord
 } from '$lib/domain/types';
@@ -108,18 +109,14 @@ export function createAppServices(
 	};
 
 	/**
-	 * The exercises of the memory and gesture tracks: a session of the notes, the triads or the
-	 * gesture opens the sensors of those a file defines, its observations of the others kept on
-	 * its attempts. Read at each start: the files may have changed since the last.
+	 * The exercises of every registered routine a file defines: a routine's session opens their
+	 * sensors (D9), its observations of the others kept on its attempts. Read at each start: the
+	 * files may have changed since the last.
 	 */
-	const TRACK_EXERCISES: readonly ExerciseId[] = [
-		LOCATE_NECK_ID,
-		IDENTIFY_NECK_ID,
-		TRIADS_ANCHOR_ID,
-		TRIADS_ZONE_ID,
-		...GESTURE_EXERCISE_IDS
-	];
-	const trackExercises = () => TRACK_EXERCISES.filter((id) => exerciseFound(id) !== undefined);
+	const routinePlays = (): ExerciseId[] =>
+		[...new Set(registeredRoutines().flatMap((routine) => routine.exercises))].filter(
+			(id) => exerciseFound(id) !== undefined
+		);
 	/**
 	 * The cards a session can serve. A card of a skill whose exercise a file defines is served only
 	 * when that exercise lists it (`exerciseSubject(...).owns`); one it does not list, or whose key
@@ -135,8 +132,6 @@ export function createAppServices(
 		}
 		return cards.filter((card) => owners.get(card.skill)?.(card) ?? true);
 	};
-	/** The gesture's exercises a file defines, in the order of the ladder. */
-	const gestureExercises = () => GESTURE_EXERCISE_IDS.flatMap((id) => exerciseFound(id) ?? []);
 
 	/**
 	 * A session on the session controller: `prepare` reads the stores again for each series, so a
@@ -145,7 +140,7 @@ export function createAppServices(
 	 * presenters of the exercises it `plays`.
 	 */
 	const playSession = async (
-		kind: SessionKind,
+		origin: SessionOrigin,
 		plays: readonly ExerciseId[],
 		prepareSeries: (sessionId: string) => Promise<PreparedSeries>
 	): Promise<SessionController> => {
@@ -157,7 +152,7 @@ export function createAppServices(
 			prepared.set(sessionId, series);
 			return { source: series.source, durationMs: series.durationMs };
 		};
-		return new SessionController({ id: deps.newId(), kind }, prepare, {
+		return new SessionController({ id: deps.newId(), origin }, prepare, {
 			clock: deps.clock,
 			sounds: deps.sounds,
 			detector: deps.detector,
@@ -195,113 +190,105 @@ export function createAppServices(
 	};
 
 	/**
-	 * A gesture session, played on the session controller: the passages its exercises write, in
-	 * the order of the ladder, each change a round of its exercise's template.
+	 * A session of memory exercises (`ids`, in the order they introduce), played on the session
+	 * controller: the learning procedure on the subject they write, with the levels stored, or,
+	 * `free`, a fixed list drawn among the items they list. It reads the cards and attempts of the
+	 * skills they practise and of those their entry reads (`params.learning.enter`): an item may
+	 * enter on another skill's card. Each item a round of its exercise's template.
 	 */
-	const startGesture = () =>
-		playSession('gesture', trackExercises(), async (sessionId) => {
+	const playMemory = (
+		origin: SessionOrigin,
+		plays: readonly ExerciseId[],
+		ids: readonly ExerciseId[],
+		free: boolean
+	) =>
+		playSession(origin, plays, async (sessionId) => {
+			const [cards, attempts, levels] = await Promise.all([
+				deps.cards.all(),
+				deps.attempts.all(),
+				deps.levels.all()
+			]);
+			const exercises = ids.map((id) => exerciseOf(id));
+			const skills = new Set<SkillId>();
+			for (const exercise of exercises) {
+				skills.add(exercise.practices);
+				const enter = exerciseLearningOf(exercise).enter;
+				if (enter) skills.add(enter.acquired.skill);
+			}
+			const read = (x: { skill: SkillId }) => skills.has(x.skill);
+			const ownAttempts = attempts.filter(read);
+			const subject = exerciseSubject({ exercises, attempts: ownAttempts });
+			const source = free
+				? createListSource(
+						buildFreePlan({
+							exercises,
+							subject,
+							levels,
+							random: deps.random
+						})
+					)
+				: createLearningProcedure({
+						subject,
+						cards: cards.filter(read),
+						attempts: ownAttempts,
+						levels,
+						sessionId,
+						random: deps.random,
+						// The session's settings for the whole set: today's, until written as data.
+						set: DEFAULT_SET_LEARNING
+					});
+			return { source, durationMs: SESSION_MS, recall: (skill) => subject.recall(skill) };
+		});
+
+	/**
+	 * A session of exercises that write passages (`ids`, in order), played on the session
+	 * controller: each in turn, a passage each, at its own exercise level, which the series holds;
+	 * each change a round of its exercise's template.
+	 */
+	const playPassages = (
+		origin: SessionOrigin,
+		plays: readonly ExerciseId[],
+		ids: readonly ExerciseId[]
+	) =>
+		playSession(origin, plays, async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
-			// Each grid of each exercise (and the link, which plays no grid) at its own exercise
-			// level, which the series holds.
+			const exercises = ids.map((id) => exerciseOf(id));
+			const skills = new Set(exercises.map((exercise) => exercise.practices));
 			const source = createPassageSource({
-				exercises: gestureExercises(),
+				exercises,
 				cards,
-				attempts: attempts.filter((attempt) =>
-					(CHANGE_SKILL_IDS as readonly string[]).includes(attempt.skill)
-				),
+				attempts: attempts.filter((attempt) => skills.has(attempt.skill)),
 				sessionId,
 				durationMs: SESSION_MS
 			});
 			return { source, durationMs: SESSION_MS };
 		});
 
-	/**
-	 * A session of the notes, played on the session controller: learn on the learning procedure,
-	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
-	 */
-	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, trackExercises(), async (sessionId) => {
-			const [cards, attempts, levels] = await Promise.all([
-				deps.cards.all(),
-				deps.attempts.all(),
-				deps.levels.all()
-			]);
-			// The neck's exercises as the catalog's files write them: locate on the click at its
-			// tempo, identify answered in free time.
-			const locate = exerciseOf(LOCATE_NECK_ID);
-			const identify = exerciseOf(IDENTIFY_NECK_ID);
-			// The subject the two exercises write: naming a note already located comes before a new
-			// note. The neck's sessions see the neck's cards only: identify enters on locate's.
-			const neckAttempts = attempts.filter(isNeck);
-			const subject = exerciseSubject({ exercises: [identify, locate], attempts: neckAttempts });
-			const neckCards = cards.filter(isNeck);
-			const source =
-				kind === 'free'
-					? createListSource(
-							// A note is free-played at the lead its level gives on the locate ladder.
-							buildFreePlan({
-								leadOf: freeLeadOf({ subject, levels }),
-								levelOf: freeLevelOf({ subject, levels }),
-								random: deps.random
-							})
-						)
-					: createLearningProcedure({
-							subject,
-							cards: neckCards,
-							attempts: neckAttempts,
-							levels,
-							sessionId,
-							random: deps.random,
-							// The session's settings for the whole set: today's, until written as data.
-							set: DEFAULT_SET_LEARNING
-						});
-			return {
-				source,
-				durationMs: SESSION_MS,
-				recall: (skill) => subject.recall(skill)
-			};
-		});
-
-	/**
-	 * A triads session, played on the session controller: one exercise, the anchor or the zone, on
-	 * the learning procedure with the subject its exercise writes, each triad a round of its
-	 * exercise's template.
-	 */
-	const startTriads = (skill: TriadSkill) =>
-		playSession(
-			skill === CHORD_ZONE_SKILL_ID ? 'triads-zone' : 'triads',
-			trackExercises(),
-			async (sessionId) => {
-				const [cards, attempts, levels] = await Promise.all([
-					deps.cards.all(),
-					deps.attempts.all(),
-					deps.levels.all()
-				]);
-				const exercise = exerciseOf(
-					skill === CHORD_ZONE_SKILL_ID ? TRIADS_ZONE_ID : TRIADS_ANCHOR_ID
-				);
-				// The triads' cards and attempts, both skills': the zone enters on the anchor's.
-				const ofTriads = (x: { skill: string }) =>
-					x.skill === CHORD_ANCHOR_SKILL_ID || x.skill === CHORD_ZONE_SKILL_ID;
-				const triadAttempts = attempts.filter(ofTriads);
-				const subject = exerciseSubject({ exercises: [exercise], attempts: triadAttempts });
-				const source = createLearningProcedure({
-					subject,
-					cards: cards.filter(ofTriads),
-					attempts: triadAttempts,
-					levels,
-					sessionId,
-					random: deps.random,
-					// The session's settings for the whole set: today's, until written as data.
-					set: DEFAULT_SET_LEARNING
-				});
-				return {
-					source,
-					durationMs: SESSION_MS,
-					recall: (of) => subject.recall(of)
-				};
-			}
-		);
+	/** What a routine's session plays, deduced from its exercises: no routine is named. */
+	const startRoutine = async (
+		routineId: string,
+		options: { free?: boolean } = {}
+	): Promise<SessionController> => {
+		const routine = findRoutine(routineId);
+		if (!routine) throw new Error(`Unknown routine: ${routineId}`);
+		// Its exercises are what it plays: an error names the first no file defines.
+		requireExercises(routine.exercises);
+		const exercises = routine.exercises.map((id) => exerciseFound(id)!);
+		const plays = routinePlays();
+		if (exercises.every((exercise) => hasCards(exercise.practices))) {
+			const origin: SessionOrigin = options.free
+				? { routine: routine.id, free: true }
+				: { routine: routine.id };
+			return playMemory(origin, plays, routine.exercises, options.free === true);
+		}
+		if (options.free) {
+			throw new Error(`Routine ${routine.id} is not played freely: its exercises have no memory`);
+		}
+		if (exercises.every((exercise) => exercise.passages !== undefined)) {
+			return playPassages({ routine: routine.id }, plays, routine.exercises);
+		}
+		throw new Error(`Routine ${routine.id} mixes memory exercises and others`);
+	};
 
 	/** The series of a session still in memory, and the runs whose take is still held. */
 	const seriesInMemory = (
@@ -545,28 +532,35 @@ export function createAppServices(
 		async startSession(kind: SessionKind) {
 			// An exercise session needs its exercise: recorded without it, no backup would import.
 			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
-			if (kind === 'gesture') return startGesture();
-			if (kind === 'learn' || kind === 'free') {
-				// The neck's subject reads both of its exercises.
-				requireExercises([LOCATE_NECK_ID, IDENTIFY_NECK_ID]);
-				return startNotes(kind);
-			}
-			// A triads session plays one exercise: its subject reads that exercise's list, and the
-			// zone's entry condition reads the anchor's cards, not its exercise.
-			const zone = kind === 'triads-zone';
-			requireExercises([zone ? TRIADS_ZONE_ID : TRIADS_ANCHOR_ID]);
-			return startTriads(zone ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID);
+			// A bridge until the kinds go: the routine the kind's session records.
+			const { routine, free } = sessionOriginOf(kind);
+			return startRoutine(routine!, { free: free === true });
 		},
 
+		startRoutine,
+
 		async startExercise(exerciseId) {
-			// An exercise played on its own, free play: the series plays it at the level it holds.
+			const definition = exerciseFound(exerciseId);
+			// Alone in its session: only the sensors its round names open.
+			if (definition && hasCards(definition.practices) && (definition.items ?? []).length > 0) {
+				// A memory exercise freely, among its own items, each at the level it holds.
+				return playMemory(
+					{ exercise: definition.id, free: true },
+					[definition.id],
+					[definition.id],
+					true
+				);
+			}
+			if (definition?.passages !== undefined) {
+				return playPassages({ exercise: definition.id }, [definition.id], [definition.id]);
+			}
+			// Any other cycle after cycle, free play: the series plays it at the level it holds.
 			if (!exerciseSessionExercises().some((exercise) => exercise.id === exerciseId)) {
 				throw new Error(`Exercise ${exerciseId} is not played in an exercise session`);
 			}
-			const definition = exerciseOf(exerciseId);
-			// Alone in its session: only the sensors its round names open.
-			return playSession('exercise', [definition.id], async () => ({
-				source: createExerciseItemSource(definition),
+			const played = exerciseOf(exerciseId);
+			return playSession({ exercise: played.id }, [played.id], async () => ({
+				source: createExerciseItemSource(played),
 				durationMs: SESSION_MS
 			}));
 		}

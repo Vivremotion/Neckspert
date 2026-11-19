@@ -791,7 +791,7 @@ export function exerciseSeries(definition: ExerciseDefinition, items: readonly P
 		memory: new SessionMemory()
 	};
 	const controller = new SessionController(
-		{ id: 'series-1', kind: 'free' },
+		{ id: 'series-1', origin: { exercise: definition.id, free: true } },
 		async () => ({ source }),
 		deps
 	);

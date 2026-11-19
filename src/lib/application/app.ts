@@ -70,11 +70,22 @@ export interface AppServices {
 	resting(exerciseIds: readonly ExerciseId[]): Promise<ExerciseId[]>;
 	sessionSummary(sessionId: string): Promise<SessionSummary>;
 	neckMap(): Promise<NeckMapCell[]>;
-	/** Plans the session and returns its controller, not yet started. Rejects `'exercise'` (see `startExercise`). */
+	/**
+	 * The session of the routine a kind of session names (`startRoutine`); rejects `'exercise'`
+	 * (see `startExercise`). A bridge until the kinds go (plan 5a, Task 4).
+	 */
 	startSession(kind: SessionKind): Promise<PlaySessionController>;
 	/**
-	 * Free play of one exercise played cycle after cycle (a session of kind `'exercise'`): its
-	 * controller, not yet started. Rejects an unknown exercise, or one without levels.
+	 * The session of a routine, not yet started: how it draws is deduced from its exercises, the
+	 * learning procedure on memory exercises, else their passages in turn. `free` plays a routine
+	 * of memory exercises freely, among the items they list. Rejects an unknown routine, one an
+	 * exercise of which no file defines, and the free play of a routine without memory.
+	 */
+	startRoutine(routineId: string, options?: { free?: boolean }): Promise<PlaySessionController>;
+	/**
+	 * Any exercise of the registry, alone (D7), not yet started: a memory exercise freely among
+	 * its items, a passages exercise on its passages, another cycle after cycle as an exercise
+	 * session plays it. Rejects an exercise no file defines, or one nothing can serve.
 	 */
 	startExercise(exerciseId: ExerciseId): Promise<PlaySessionController>;
 }

@@ -171,9 +171,9 @@ export async function notesApp(setup: NotesSetup = {}) {
 
 export type NotesApp = Awaited<ReturnType<typeof notesApp>>;
 
-/** A session of `kind` started on `app`. */
+/** A session of the notes' routine started on `app`: learn, or free play. */
 export async function startNotes(app: NotesApp, kind: 'learn' | 'free') {
-	const controller = await app.services.startSession(kind);
+	const controller = await app.services.startRoutine('notes', { free: kind === 'free' });
 	await controller.ready?.();
 	await controller.start();
 	return controller;

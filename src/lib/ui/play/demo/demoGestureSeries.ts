@@ -117,7 +117,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
 	const controller = new SessionController(
-		{ id: 'demo-gesture', kind: 'gesture' },
+		{ id: 'demo-gesture', origin: { exercise: exercise.id } },
 		async (sessionId) => {
 			const source = passageLoop(mode);
 			sources.set(sessionId, source);

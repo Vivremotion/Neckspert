@@ -993,10 +993,9 @@ describe('the rhythm exercises', () => {
 		}
 	});
 
-	it('startExercise refuses an exercise it does not know, or one without levels', async () => {
+	it('startExercise refuses an exercise it does not know', async () => {
 		const { services } = harness();
-		await expect(services.startExercise('nope')).rejects.toThrow();
-		await expect(services.startExercise('locate-note-string')).rejects.toThrow();
+		await expect(services.startExercise('nope')).rejects.toThrow(/nope/);
 	});
 
 	it('startExercise refuses an exercise on a skill with cards, which no session plays yet', async () => {
@@ -1014,5 +1013,128 @@ describe('the rhythm exercises', () => {
 			clearExercises();
 			kept.forEach((exercise) => registerExercise(exercise, 'restore'));
 		}
+	});
+});
+
+describe('a session by its routine or its exercise', () => {
+	afterEach(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+	});
+
+	/** Every locate note at `level` (index 0 is level 1). */
+	const everyLocateAt = async (deps: SessionDeps, level: number) => {
+		for (const card of practiceCards().filter((c) => c.skill === 'locate-note-string')) {
+			await deps.levels.put({
+				exerciseId: 'locate-note-string',
+				scope: '',
+				item: neckCardKey(card).slice('locate-note-string:'.length),
+				level,
+				successes: 0,
+				failures: 0,
+				resumeAfter: null
+			});
+		}
+	};
+
+	/** The session as stored once it has ended. */
+	const ended = async (deps: SessionDeps, controller: { sessionId: string; quit(): void }) => {
+		controller.quit();
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
+		);
+		return deps.sessions.get(controller.sessionId);
+	};
+
+	it('rejects a routine no file defines, naming it', async () => {
+		const { services } = harness();
+		await expect(services.startRoutine('kazoo')).rejects.toThrow('Unknown routine: kazoo');
+	});
+
+	it('refuses to play freely a routine without memory, naming it', async () => {
+		const { services } = harness();
+		await expect(services.startRoutine('changes', { free: true })).rejects.toThrow(/changes/);
+	});
+
+	it('introduces in the order a routine writes its memory exercises', async () => {
+		for (const [first, primary] of [
+			['locate-note-string', 'G'],
+			['chord-anchor', 'C']
+		] as const) {
+			const exercises = ['locate-note-string', 'chord-anchor'].sort((a) => (a === first ? -1 : 1));
+			registerRoutine(
+				{ id: `from-${first}`, title: { fr: 'Essai', en: 'Trial' }, exercises },
+				'test.json'
+			);
+			const { services, deps } = harness();
+			const controller = await services.startRoutine(`from-${first}`);
+			await controller.start();
+			await runOnTransport(deps, () => controller.view.status === 'awaiting');
+			const model = controller.view.stage?.model as PromptStageModel;
+			expect([first, model.prompt.primary]).toEqual([first, primary]);
+			expect(await ended(deps, controller)).toMatchObject({ routine: `from-${first}` });
+		}
+	});
+
+	it('plays the notes freely, recorded as their routine played freely', async () => {
+		const { services, deps } = harness();
+		await everyLocateAt(deps, 1);
+		const controller = await services.startRoutine('notes', { free: true });
+		await controller.start();
+		const record = await ended(deps, controller);
+		expect(record).toMatchObject({ routine: 'notes', free: true });
+		expect(record).not.toHaveProperty('exercise');
+	});
+
+	it('plays a memory exercise alone freely, on its items at the level each holds', async () => {
+		const { services, deps } = harness();
+		// Every note at level 2: lead 4 at ♩ = 80.
+		await everyLocateAt(deps, 1);
+		const controller = await services.startExercise('locate-note-string');
+		await controller.start();
+		const leads: (number | null)[] = [];
+		await runOnTransport(
+			deps,
+			() => {
+				const lane = noteLane(controller);
+				if (controller.view.status === 'awaiting' && lane && leads.length === 0)
+					leads.push(lead(lane));
+				// Identify's keys never come: only locate's items are drawn.
+				expect(controller.view.stage?.view ?? 'lane').toBe('lane');
+				return leads.length > 0;
+			},
+			0.05,
+			2000
+		);
+		expect(leads).toEqual([4]);
+		const record = await ended(deps, controller);
+		expect(record).toMatchObject({ exercise: 'locate-note-string', free: true });
+		expect(record).not.toHaveProperty('routine');
+		expect(record).not.toHaveProperty('levelReached');
+	});
+
+	it('plays a passages exercise alone on its passages', async () => {
+		const { services, deps, chords } = harness();
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
+		const controller = await services.startExercise('inversion-run');
+		await controller.ready?.();
+		await controller.start();
+		await runOnTransport(deps, () => controller.view.status === 'awaiting');
+		expect(controller.view.stage?.view).toBe('link-lane');
+		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
+		const record = await ended(deps, controller);
+		expect(record).toMatchObject({
+			exercise: 'inversion-run',
+			executions: [{ exerciseId: 'inversion-run', tempoBpm: 80 }]
+		});
+		expect(record).not.toHaveProperty('routine');
+	});
+
+	it('plays an exercise of figures alone as an exercise session plays it', async () => {
+		const { services, deps } = harness();
+		const controller = await services.startExercise(RHYTHM_OFFBEATS.id);
+		await controller.ready?.();
+		expect(controller.view.stage?.view).toBe('figure');
+		await controller.start();
+		expect(await ended(deps, controller)).toMatchObject({ exercise: RHYTHM_OFFBEATS.id });
 	});
 });

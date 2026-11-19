@@ -31,8 +31,7 @@ import {
 	type Attempt,
 	type Execution,
 	type PlannedItem,
-	sessionOriginOf,
-	type SessionKind,
+	type SessionOrigin,
 	type SessionRecord,
 	type Settings
 } from '$lib/domain/types';
@@ -223,7 +222,8 @@ export class SessionController implements PlaySessionController {
 		}
 	};
 
-	private readonly kind: SessionKind;
+	/** What the session plays, recorded as it is: its routine, or its exercise. */
+	private readonly origin: SessionOrigin;
 	private readonly prepare: PrepareSession;
 	private readonly deps: SessionControllerDeps;
 	private readonly transport: Transport;
@@ -354,12 +354,12 @@ export class SessionController implements PlaySessionController {
 	private readonly items: SeriesItems;
 
 	constructor(
-		session: { id: string; kind: SessionKind },
+		session: { id: string; origin: SessionOrigin },
 		prepare: PrepareSession,
 		deps: SessionControllerDeps
 	) {
 		this.sessionId = session.id;
-		this.kind = session.kind;
+		this.origin = session.origin;
 		this.prepare = prepare;
 		this.deps = deps;
 		this.transport = new Transport({ clock: deps.clock, sounds: deps.sounds });
@@ -2143,12 +2143,12 @@ export class SessionController implements PlaySessionController {
 	}
 
 	private sessionRecord(endedAt: number | null): SessionRecord {
-		const one = this.kind === 'exercise' ? this.sessionItem : null;
+		// A session of one exercise not played freely keeps the level it ended on: its own.
+		const one = 'exercise' in this.origin && !this.origin.free ? this.sessionItem : null;
 		return {
 			id: this.sessionId,
-			// The routine it played; a session of one exercise names it, and keeps the level it
-			// ended on: its own.
-			...sessionOriginOf(this.kind, one?.exerciseId),
+			// The routine it played, or the exercise, as it was given.
+			...this.origin,
 			...(one && { levelReached: this.levels.reached(one.exerciseId, one.scope) }),
 			startedAt: this.startedAt,
 			endedAt,

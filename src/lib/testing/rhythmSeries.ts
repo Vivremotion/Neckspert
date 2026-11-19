@@ -203,7 +203,7 @@ export async function rhythmSeries(
 		memory
 	};
 	const controller = new SessionController(
-		{ id: 'series', kind: 'exercise' },
+		{ id: 'series', origin: { exercise: exercise.id } },
 		async (sessionId) => {
 			const source = createExerciseItemSource(exercise);
 			sources.set(sessionId, source);

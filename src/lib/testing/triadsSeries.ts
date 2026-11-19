@@ -45,9 +45,9 @@ export async function triadsApp(setup: NotesSetup = {}) {
 
 export type TriadsApp = Awaited<ReturnType<typeof triadsApp>>;
 
-/** A session of `kind` started on `app`. */
+/** A session of the triads' routine (the anchor's, or the zone's) started on `app`. */
 export async function startTriads(app: TriadsApp, kind: 'triads' | 'triads-zone') {
-	const controller = await app.services.startSession(kind);
+	const controller = await app.services.startRoutine(kind === 'triads' ? 'chords' : 'chords-zone');
 	await controller.ready?.();
 	await controller.start();
 	return controller;

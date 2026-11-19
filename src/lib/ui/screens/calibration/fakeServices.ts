@@ -154,6 +154,9 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 		startSession: async () => {
 			throw new Error('startSession is not used by I3 screens');
 		},
+		startRoutine: async () => {
+			throw new Error('startRoutine is not used by I3 screens');
+		},
 		startExercise: async () => {
 			throw new Error('startExercise is not used by I3 screens');
 		},

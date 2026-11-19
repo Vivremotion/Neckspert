@@ -8,7 +8,7 @@ import type { ChangeItem, VoicingFigureItem } from '$lib/domain/sets';
 import type { ItemSource, SelectorContext } from '$lib/domain/progress';
 import type { Segment } from '$lib/domain/session';
 import type { Level, LevelState } from '$lib/domain/time';
-import type { Attempt, PlannedItem, PlannedPassage, SessionKind } from '$lib/domain/types';
+import type { Attempt, PlannedItem, PlannedPassage, SessionOrigin } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
 import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
@@ -239,8 +239,8 @@ export function gestureSeries(
 		random?: () => number;
 		/** The series' length its preparation gives; absent: none given. */
 		durationMs?: number;
-		/** The kind of session the series is; the gesture's by default. */
-		kind?: SessionKind;
+		/** What the session records it plays; the changes' routine by default. */
+		origin?: SessionOrigin;
 	} = {}
 ) {
 	const clock = new FakeClock();
@@ -300,7 +300,7 @@ export function gestureSeries(
 	};
 	const prepared: string[] = [];
 	const controller = new SessionController(
-		{ id: 'series-1', kind: options.kind ?? 'gesture' },
+		{ id: 'series-1', origin: options.origin ?? { routine: 'changes' } },
 		async (sessionId) => {
 			prepared.push(sessionId);
 			const next = sources.shift();

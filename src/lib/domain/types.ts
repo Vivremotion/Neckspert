@@ -96,11 +96,17 @@ export function isTriadsKind(kind: SessionKind): boolean {
 	return kind === 'triads' || kind === 'triads-zone';
 }
 
-/** What a stored session says it played: a routine, or one exercise. */
-export type SessionOrigin = Pick<SessionRecord, 'routine' | 'exercise' | 'free'>;
+/** What a session plays, as it records it: a routine, or one exercise, freely or not. */
+export type SessionOrigin =
+	{ routine: string; free?: true } | { exercise: ExerciseId; free?: true };
+
+/** What a stored session says it played: a routine, or one exercise (sessions of any age). */
+type StoredOrigin = Pick<SessionRecord, 'routine' | 'exercise' | 'free'>;
 
 /** The routine each kind of session but `exercise` plays (until plan 5). */
-const ROUTINE_OF_KIND: Readonly<Record<Exclude<SessionKind, 'exercise'>, SessionOrigin>> = {
+const ROUTINE_OF_KIND: Readonly<
+	Record<Exclude<SessionKind, 'exercise'>, { routine: string; free?: true }>
+> = {
 	learn: { routine: ROUTINE_NOTES_ID },
 	free: { routine: ROUTINE_NOTES_ID, free: true },
 	triads: { routine: ROUTINE_CHORDS_ID },
@@ -109,13 +115,13 @@ const ROUTINE_OF_KIND: Readonly<Record<Exclude<SessionKind, 'exercise'>, Session
 };
 
 /** What a session of `kind` records it played; an exercise session names its exercise. */
-export function sessionOriginOf(kind: SessionKind, exercise?: ExerciseId): SessionOrigin {
+export function sessionOriginOf(kind: SessionKind, exercise?: ExerciseId): StoredOrigin {
 	if (kind === 'exercise') return exercise === undefined ? {} : { exercise };
 	return { ...ROUTINE_OF_KIND[kind] };
 }
 
 /** The kind of session a record came from: learn, free, triads, triads-zone, gesture, exercise. */
-export function sessionKindOf(record: SessionOrigin): SessionKind {
+export function sessionKindOf(record: StoredOrigin): SessionKind {
 	for (const [kind, origin] of Object.entries(ROUTINE_OF_KIND)) {
 		if (origin.routine === record.routine && origin.free === record.free) {
 			return kind as SessionKind;
