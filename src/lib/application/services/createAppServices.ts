@@ -365,7 +365,9 @@ export function createAppServices(
 		const last = lastAttemptByCard(attempts);
 		const history = new Map<CardKey, Attempt[]>();
 		for (const attempt of [...attempts].sort((a, b) => a.promptedAt - b.promptedAt)) {
-			history.set(attempt.cardKey, [...(history.get(attempt.cardKey) ?? []), attempt]);
+			const list = history.get(attempt.cardKey);
+			if (list) list.push(attempt);
+			else history.set(attempt.cardKey, [attempt]);
 		}
 		// Acquired as the passages' openings read it: any card marked acquired.
 		const acquiredKeys = new Set(
@@ -398,6 +400,8 @@ export function createAppServices(
 			const memory =
 				exercises.length > 0 && exercises.every((exercise) => hasCards(exercise.practices));
 			let playable: boolean;
+			// A routine of memory exercises stays offered once one of its skills has a served card.
+			let holdsCard = false;
 			let due: number | null = null;
 			let next: number | null = null;
 			if (memory) {
@@ -409,7 +413,8 @@ export function createAppServices(
 				);
 				due = reviewableCards(own, last, now).length;
 				next = nextReviewAt(own, last);
-				playable = own.length > 0 || subject.nextNew(cards, history, () => false) !== null;
+				holdsCard = own.length > 0;
+				playable = holdsCard || subject.nextNew(cards, history, () => false) !== null;
 			} else {
 				playable = exercises.some(
 					(exercise) => exercise.passages !== undefined && passagesOpen(exercise, acquiredKeys)
@@ -419,7 +424,9 @@ export function createAppServices(
 				id: routine.id,
 				title: routine.title,
 				// A routine one of whose exercises no file defines any more cannot be started.
-				open: exercises.length === found.length && playable && opened(routine.opens, known),
+				open:
+					exercises.length === found.length &&
+					(holdsCard || (playable && opened(routine.opens, known))),
 				due,
 				nextReviewAt: next,
 				resting

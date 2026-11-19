@@ -87,6 +87,18 @@ describe('/ page', () => {
 		expect(goto).toHaveBeenCalledWith('/session?kind=learn');
 	});
 
+	it('tells a failure to read the routines, and starts nothing on Space', async () => {
+		const services = createFakeAppServices({
+			routines: async () => {
+				throw new Error('the routines broke');
+			}
+		});
+		render(TestHarness, { props: { services } });
+		await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('the routines broke'));
+		await fireEvent.keyDown(document.body, { code: 'Space', key: ' ' });
+		expect(goto).not.toHaveBeenCalled();
+	});
+
 	it('leaves Space to a focused link', async () => {
 		render(TestHarness, { props: { services: createFakeAppServices() } });
 		await waitFor(() => expect(screen.getByRole('button', { name: 'Commencer' })).toBeTruthy());

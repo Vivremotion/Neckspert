@@ -2,6 +2,7 @@ import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CATALOG_FILES } from '$lib/composition/catalogFiles';
 import { loadDefinitions } from '$lib/composition/definitions';
+import { registerRoutine } from '$lib/domain/routine';
 import { responseAttempt } from '$lib/testing/attempts';
 import type { AppServices } from '$lib/application/app';
 import type {
@@ -429,6 +430,27 @@ describe('createAppServices', () => {
 		expect((await services.routines())[2]).toMatchObject({ open: true, due: 1 });
 	});
 
+	it('keeps offering the zone once it has a card, with fewer than six anchors acquired', async () => {
+		const { services, deps } = harness();
+		const keys = [
+			'C|maj|3:5,2:1,1:3',
+			'C|maj|3:1,2:3,1:5',
+			'C|maj|3:3,2:5,1:1',
+			'C|min|3:5,2:1,1:b3',
+			'C|min|3:1,2:b3,1:5'
+		];
+		for (const key of keys) {
+			await deps.cards.put({ ...learnedTriad('chord-anchor', key), acquiredAt: 0 });
+		}
+		expect((await services.routines())[2]).toMatchObject({ id: 'chords-zone', open: false });
+		await deps.cards.put(learnedTriad('chord-zone', keys[0]));
+		expect((await services.routines())[2]).toMatchObject({
+			id: 'chords-zone',
+			open: true,
+			due: 1
+		});
+	});
+
 	it('tells when the next reviews of the notes come, when none is due', async () => {
 		const { services, deps } = harness();
 		const card = markLearned(
@@ -480,6 +502,50 @@ describe('createAppServices', () => {
 			['chords-zone', false],
 			['changes', true]
 		]);
+	});
+});
+
+describe('a routine that opens on a level', () => {
+	afterEach(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+	});
+
+	/** The level state of grid-reading at `level` (index 0 is level 1), in `scope`. */
+	const held = (level: number, scope = '') => ({
+		exerciseId: 'grid-reading',
+		scope,
+		item: '',
+		level,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
+
+	it('opens at the level written, never at level 1 nor at an aid level, scope or no scope', async () => {
+		for (const scope of [undefined, 'blues-f']) {
+			registerRoutine(
+				{
+					id: `on-level-${scope ?? 'none'}`,
+					title: { fr: 'Au niveau', en: 'At the level' },
+					exercises: ['locate-note-string'],
+					opens: { level: { exercise: 'grid-reading', ...(scope && { scope }), atLeast: 2 } }
+				},
+				'test.json'
+			);
+			const { services, deps } = harness();
+			const open = async () =>
+				(await services.routines()).find((r) => r.id === `on-level-${scope ?? 'none'}`)?.open;
+			expect(await open(), 'no level held').toBe(false);
+			await deps.levels.put(held(-1, scope));
+			expect(await open(), 'an aid level').toBe(false);
+			await deps.levels.put(held(0, scope));
+			expect(await open(), 'level 1').toBe(false);
+			// Another scope's level is not this one's.
+			await deps.levels.put(held(1, scope === undefined ? 'blues-f' : ''));
+			expect(await open(), 'level 2 in another scope').toBe(false);
+			await deps.levels.put(held(1, scope));
+			expect(await open(), 'level 2').toBe(true);
+		}
 	});
 });
 

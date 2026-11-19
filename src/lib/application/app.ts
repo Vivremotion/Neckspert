@@ -27,7 +27,11 @@ export interface DiagnosticsService {
 export interface RoutineEntry {
 	id: string;
 	title: { fr: string; en: string };
-	/** Its opening holds and one of its exercises has something to play. */
+	/**
+	 * Every exercise of it is defined, and: its opening holds and one of its exercises has
+	 * something to play, or (memory exercises) one of their skills already has a served card,
+	 * so a routine once played stays offered with its reviews.
+	 */
 	open: boolean;
 	/** Reviews due now, for a routine of memory exercises; null otherwise. */
 	due: number | null;

@@ -18,7 +18,7 @@
 
 	let stats = $state<HomeStats | null>(null);
 	let routines = $state<RoutineEntry[]>([]);
-	/** The routines were read (or failed to be): the screen waits for them, so Space finds them. */
+	/** The routines were read: the screen waits for them, so Space finds them; a failure is told. */
 	let routinesRead = $state(false);
 	let resting = $state<string[]>([]);
 	let now = $state(Date.now());
@@ -33,8 +33,8 @@
 					routinesRead = true;
 				}
 			},
-			() => {
-				if (!cancelled) routinesRead = true;
+			(err: unknown) => {
+				if (!cancelled) error = err instanceof Error ? err.message : String(err);
 			}
 		);
 		void services.resting(exerciseSessionExercises().map((exercise) => exercise.id)).then(

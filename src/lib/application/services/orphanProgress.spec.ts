@@ -503,7 +503,15 @@ describe('a track exercise no file defines', () => {
 		const summary = await services.sessionSummary('s-normal');
 		expect(summary).toMatchObject({ kind: 'learn', tempoBpm: 80 });
 		// The notes cannot be started without locate; telling them throws nothing.
-		expect((await services.routines()).find((r) => r.id === 'notes')?.open).toBe(false);
+		const notes = async () => (await services.routines()).find((r) => r.id === 'notes');
+		expect((await notes())?.open).toBe(false);
+		// Their reviews are counted over the exercises left: identify's served card, not
+		// locate's, whose exercise no file defines any more.
+		expect((await notes())?.due).toBe(0);
+		await deps.cards.put(
+			learned({ key: 'identify-note:6:3', skill: 'identify-note', item: { string: 6, fret: 3 } })
+		);
+		expect((await notes())?.due).toBe(1);
 		expect(await services.neckMap()).not.toHaveLength(0);
 	});
 
