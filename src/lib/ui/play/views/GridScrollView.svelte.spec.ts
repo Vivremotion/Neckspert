@@ -105,6 +105,51 @@ describe('GridScrollView', () => {
 		).toEqual(['mi', 'si', 'sol', 'ré']);
 	});
 
+	it('draws the aid on its own row under the cells, every fret wide enough for its note', () => {
+		const controller = new StageController();
+		controller.nowBeat = 12.2;
+		// A climb's first change at the aid level: every shape of the chord, a wide span of frets.
+		const climb = passageModel(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 0, {
+			each: { direction: 'up' },
+			exerciseLevel: -1,
+			anchorBeat: 12
+		});
+		render(GridScrollView, { props: { controller, model: climb } });
+		const row = screen.getByTestId('grid-aid');
+		const bars = document.querySelector('.bars')!;
+		// After the cells, out of the row of the chords.
+		expect(bars.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(document.querySelector('.now')!.contains(row)).toBe(false);
+		const neck = row.querySelector('[data-testid="aid-neck"]') as HTMLElement;
+		expect([...neck.querySelectorAll('.name')].map((n) => n.textContent)).toEqual([
+			'mi',
+			'si',
+			'sol'
+		]);
+		expect(neck.querySelectorAll('[data-testid="aid-note"]').length).toBeGreaterThan(0);
+		// A fret never shrinks below the room of its note and its number.
+		expect(neck.style.gridTemplateColumns).not.toContain('minmax(0');
+		expect(neck.style.gridTemplateColumns).toContain('var(--fret-min)');
+	});
+
+	it("writes a change's chord in its cell from the primary of a presentation that writes no target", () => {
+		const controller = new StageController();
+		controller.nowBeat = 12.2;
+		const primaryOnly = { ...GESTURE_CLIMB, presentation: { primary: '{symbol}' } };
+		render(GridScrollView, {
+			props: {
+				controller,
+				model: passageModel(primaryOnly, 'grid=iohefy-a;strings=3,2,1', 1, {
+					each: { direction: 'up' },
+					anchorBeat: 12
+				})
+			}
+		});
+		const chords = [...document.querySelectorAll('.cell .chord')].map((c) => c.textContent);
+		expect(chords.slice(0, 3)).toEqual(['Dm7', 'G7', 'Dm7']);
+		expect(screen.getByTestId('current-chord').textContent).toBe('G7');
+	});
+
 	it('puts the verdicts of its history on the changes played', () => {
 		const controller = new StageController();
 		controller.view.status = 'verdict';

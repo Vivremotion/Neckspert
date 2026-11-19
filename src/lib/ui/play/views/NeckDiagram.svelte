@@ -34,7 +34,7 @@
 <div
 	class="neck"
 	data-testid="aid-neck"
-	style:grid-template-columns={`auto repeat(${frets.length}, minmax(0, 1fr))`}
+	style:grid-template-columns={`auto repeat(${frets.length}, minmax(var(--fret-min), 1fr))`}
 	style:grid-template-rows={`repeat(${strings.length}, var(--row)) auto`}
 >
 	{#each strings as s (s.string)}
@@ -64,6 +64,9 @@
 <style>
 	.neck {
 		--row: calc(var(--np-tile) * 6);
+		/* A fret never narrower than its note and its number (two digits at the meta size): the
+		numbers never run into each other, a wide span takes room instead. */
+		--fret-min: calc(var(--np-tile) * 4);
 		display: grid;
 		align-items: center;
 		min-width: 0;

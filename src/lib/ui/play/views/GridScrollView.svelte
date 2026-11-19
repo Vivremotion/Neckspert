@@ -58,13 +58,6 @@
 			<p class="label">{t.next}</p>
 			<p class="symbol next-symbol" data-testid="next-chord">{next ?? t.end}</p>
 		</div>
-		{#if stage.aid}
-			{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
-			<!-- No legend: the neck tells now from next by the colour of its notes. -->
-			<div class="aid">
-				<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
-			</div>
-		{/if}
 	</div>
 
 	{#each stage.verdict?.misses ?? [] as miss, i (i)}
@@ -93,6 +86,15 @@
 			{/each}
 		</ol>
 	{/key}
+
+	{#if stage.aid}
+		{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
+		<!-- Its own row under the cells, as the link's under its lane. No legend: the neck tells now
+		from next by the colour of its notes. -->
+		<div class="aid" data-testid="grid-aid">
+			<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -147,11 +149,16 @@
 		font-size: var(--np-type-hero);
 	}
 
-	.next,
-	.aid {
+	.next {
 		display: grid;
 		justify-items: center;
 		gap: var(--np-space-1, 8px);
+	}
+
+	/* The aid's neck at the view's width: a climb's first change spans the whole neck. */
+	.aid {
+		--neck-max: none;
+		min-width: 0;
 	}
 
 	.next-symbol {

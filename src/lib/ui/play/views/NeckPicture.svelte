@@ -46,8 +46,11 @@
 {/if}
 
 <style>
-	/* The frets stay close enough for one glance: the hand's span, not the view's width. */
+	/* The frets stay close enough for one glance: the hand's span, unless the view gives the neck
+	its width (`--neck-max`). A span too wide for the room scrolls in its row rather than
+	squeezing its frets. */
 	.neck-picture {
-		max-inline-size: calc(var(--np-tile) * 72);
+		max-inline-size: var(--neck-max, calc(var(--np-tile) * 72));
+		overflow-x: auto;
 	}
 </style>
