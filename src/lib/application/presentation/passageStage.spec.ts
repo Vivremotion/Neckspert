@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { passageMembers, passageIndices } from '$lib/domain/exercise/passage/indices';
-import { compilePassageRound, passageRound } from '$lib/domain/exercise/passage/round';
+import { compilePassageRound, firstEach, passageRound } from '$lib/domain/exercise/passage/round';
 import type { ExerciseDefinition, PromptPresentation } from '$lib/domain/exercise/types';
 import {
 	FAMILIES,
@@ -14,9 +14,10 @@ import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { GUITAR_ATTRIBUTES } from '$lib/domain/families/guitar/notes';
 import { gridById, gridChanges, gridFromJson, registerGrid, triadOf } from '$lib/domain/grid';
 import { CONTENT_JUDGES, type MemberContent } from '$lib/domain/judges';
+import { itemSet } from '$lib/domain/sets';
 import type { ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { PlannedItem, PlannedPassage } from '$lib/domain/types';
-import { alternatingGrid } from '$lib/testing/changesPassages';
+import { CHANGES_EXERCISES, alternatingGrid } from '$lib/testing/changesPassages';
 import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK } from '$lib/testing/catalog';
 import { shapeId } from '$lib/testing/shapes';
 import { passageStage } from './passageStage';
@@ -150,6 +151,28 @@ describe('passageStage: the line of a passage', () => {
 			'down'
 		]);
 		expect(model.index).toBe(4);
+	});
+
+	it('finds again, by the key of its item, the member each round of a passage is', () => {
+		// The way reads a round's member through its item's key: for every family that gives a
+		// passage its members, member → item → key → member must give the member back.
+		const met = new Set<string>();
+		for (const definition of CHANGES_EXERCISES) {
+			const id = definition.passages!.members.family;
+			const family = FAMILIES[id];
+			const derivation = passageDerivation(id)!;
+			const set = itemSet(derivation.set);
+			for (const index of passageIndices(definition)) {
+				for (const member of passageMembers(definition, index, firstEach(definition))) {
+					const back = family.member(set.itemKey(derivation.itemOf(member)));
+					expect(back?.id).toBe(member.id);
+				}
+			}
+			met.add(id);
+		}
+		// Every family of the registry but the test family this file registers below.
+		const registered = Object.keys(PASSAGE_DERIVATIONS).filter((id) => id !== 'test-steps');
+		expect([...met].sort()).toEqual(registered.sort());
 	});
 });
 
