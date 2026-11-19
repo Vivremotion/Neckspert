@@ -126,7 +126,7 @@ export interface ExerciseDefinition {
 	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the exercise. */
 	figures?: readonly { id: string; figure: Figure }[];
-	/** The shapes its items move, written once (`form-figure`). */
+	/** The shapes its items move, written once (the set `placed-shape`). */
 	shapes?: readonly ExerciseShape[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';

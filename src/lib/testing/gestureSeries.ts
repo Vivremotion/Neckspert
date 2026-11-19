@@ -121,7 +121,7 @@ export class ScriptedSource implements ItemSource {
 const NEVER = 1_000_000;
 
 /**
- * The bench's levels of every chord-grid exercise: level 0 at ♩ = 120, level 1 at ♩ = 60, held
+ * The bench's levels of every exercise of the changes: level 0 at ♩ = 120, level 1 at ♩ = 60, held
  * whatever is played. The tempo a scope plays at is its stored level's.
  */
 export const BENCH_LEVELS: Level<LevelOverrides>[] = [120, 60].map((tempo) => ({

@@ -401,7 +401,9 @@ Le moteur refuse toujours ce qu'il ne sait pas jouer, jamais ce qui manque de va
 Cinq plans, dans cet ordre ; chacun laisse l'application jouable.
 
 1. Le format, le lecteur, le registre, le catalogue en fichiers, les refus et les trous de validation (§ 2, 3, 10). Les fichiers gardent `mechanic` ; `exercises.local/` reste, lu par le nouveau lecteur.
-2. Les capacités et les ensembles à la place des mécaniques ; la migration 13 entière et la sauvegarde 9 ; l'import, sa table et son écran, puisqu'il demande la version 13 ; la fin de `exercises.local/` (§ 3, 4, 9).
+2. En deux plans.
+   - 2a, fait : les capacités et les ensembles à la place des mécaniques ; la base 13 et la sauvegarde 9 (§ 4, 9).
+   - 2b : l'import, l'usage de sa table et son écran ; la progression gardée sans définition ; la fin de `exercises.local/` (§ 3).
 3. L'apprentissage en données (§ 5).
 4. Les familles et les filtres ; les changements en données (§ 6, 7).
 5. Les routines, l'accueil, la Bibliothèque (§ 8).
@@ -444,3 +446,26 @@ Cinq plans, dans cet ordre ; chacun laisse l'application jouable.
 - À un niveau, seules les valeurs que le moteur lit à ce niveau sont vérifiées (tempo, fenêtres, respiration). `recallThresholdMs` et `learning.*` ne le sont que sur les paramètres de base.
 - `overrideParams` refuse un chemin écrit `undefined`, et un chemin écrit avec l'un de ses sous-chemins.
 - Laissé au plan 2, avant d'importer des fichiers non fiables : vérifier le type des clés de premier niveau d'un exercice (`presentation: 3`, `flow: "x"`, `pick`, `howTo`) et des paramètres des changements (`qualities`, `stringSets`) ; un garde général contre la lecture d'un registre à l'import d'un module de route ; le mode dégradé quand un fichier du catalogue est refusé en production (une séance de notes, de triades ou de geste s'ouvre alors sur une erreur brute).
+
+## Réalisation (plan 2a, 2026-11-19)
+
+Ce que le plan 2a a décidé contre la spec, ou en plus d'elle :
+
+- Le plan 2 est coupé en deux. 2a : les capacités, les ensembles, la base 13, la sauvegarde 9. 2b : l'import, son écran, la progression gardée sans définition, la fin de `exercises.local/`. La table `definitionFiles` est créée en 2a, pour n'avoir qu'une version de schéma ; elle est remplie en 2b.
+- Les onze capacités du catalogue et leurs noms sont ceux du plan. Les trois du rythme : « Tenir la pulsation sans le clic », « Tenir la pulsation sur un clic déplacé », « Tenir une figure contre la pulsation ».
+- Huit mécaniques sont devenues sept ensembles. Les deux triades partagent `voicing-on-strings` et un seul présentateur : l'élément porte ou non une position, et c'est elle qui décide de ce que le capteur d'accords écoute. Une carte d'ancrage et une carte de zone du même voicing restent deux cartes, sous deux capacités.
+- Un accord demandé « à une position » sur un élément qui n'en porte pas est jugé comme un accord demandé n'importe où.
+- Les capteurs d'un exercice sont toujours ceux que son tour nomme. Le décor, l'aperçu et « Joué juste » restent des valeurs par défaut de l'ensemble, que `flow` remplace.
+- Les quatre exercices des changements gardent leur présentateur jusqu'au plan 4. Il est trouvé par la vue de l'exercice (`grid-scroll`, `link-lane`), et leur ensemble aussi (`exerciseItemSet`) : le lien travaille une capacité rangée dans `placed-voicing`, mais son tour lit encore un changement.
+- Le rappel direct et la mémoire se lisent sur la capacité. Le tour de `identify-note` lit sa fenêtre dans `directRecall.withinMs`. `params.recallThresholdMs` et `params.ladders` ne sont plus lus.
+- Un exercice qui travaille une capacité de mémoire avec un tour jugé au cycle est refusé.
+- Les clés : un `placed-voicing` s'écrit `<voicing>@<cases>`, un `placed-shape` `<forme>@<première note>`, un `change` `<grille>#<rang>`. La longueur d'un tour sort de la clé : une entrée de `items` est une clé, ou `{ "item": "<clé>", "beats": 4 }`. `forms` est devenu `shapes`, `form-notes` `shape-notes`.
+- Une séance stockée dit `routine`, `exercise` et `free`. Les routines ne sont pas encore des objets : leurs quatre identifiants (`notes`, `chords`, `chords-zone`, `changes`) sont des constantes du code jusqu'au plan 5, et la sorte de séance reste un type du code.
+- La migration 13 a été écrite au fil des tâches qui changeaient ce qui est stocké, pas en une fois à la fin. Les identités des huit mécaniques y sont figées, pour relire les sauvegardes 1 à 8.
+- Les données d'une tentative (`Attempt.data`) ne sont pas réécrites par la migration. Un niveau n'est pas nettoyé par sa clé : seul son exercice est renommé.
+- Une tentative d'un exercice hors du catalogue reçoit une capacité du nom de l'exercice.
+- Une ligne que la migration ne sait pas ranger n'est jamais perdue, et un export se réimporte toujours : une carte ou un niveau dont le nouveau nom est déjà pris garde l'ancien ; une tentative que rien ne nomme reçoit la capacité `unknown`.
+- À l'import d'une sauvegarde 9, les données d'une tentative ne sont comparées à sa clé que pour une capacité à cartes. La progression d'une capacité qu'aucun fichier chargé ne définit est acceptée.
+- Le mot « mechanic » ne reste dans le code que là où il relit d'anciennes versions de la base ou d'anciens fichiers.
+
+Laissé au plan 2b : l'import et son écran, le dépôt des fichiers branché au démarrage, la progression sans définition ignorée par les écrans, la fin de `exercises.local/`.

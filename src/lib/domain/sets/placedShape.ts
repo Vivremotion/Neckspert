@@ -3,7 +3,7 @@ import { parseNoteName } from '$lib/domain/time/noteName';
 import type { ItemSet } from './types';
 
 /**
- * What a form-figure attempt is about: a shape of the exercise, moved so that it starts on
+ * What an attempt on a placed shape is about: a shape of the exercise, moved so that it starts on
  * `first`, played as a figure. `beats` is the length of its turn, when the exercise gives it one
  * in its list of items: it is not part of the key.
  */

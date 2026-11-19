@@ -3,7 +3,7 @@ import { occurrenceOfId, placedShapeId } from '$lib/domain/triads';
 import type { ItemSet } from './types';
 
 /**
- * What a voicing-figure attempt is about: a chord shape at one of its places on the neck, played
+ * What an attempt on a placed voicing is about: a chord shape at one of its places on the neck, played
  * as a figure. `beats` is the length of its turn, when the exercise gives it one in its list of
  * items: it is not part of the key.
  */

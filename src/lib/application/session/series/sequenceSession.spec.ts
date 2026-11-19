@@ -23,7 +23,7 @@ import type { FigureAttemptData } from './recordResponse';
 registerTestSkills();
 
 /**
- * Several chord shapes chained (plan S, Task 9): a `voicing-figure` exercise lists its shapes, each
+ * Several chord shapes chained (plan S, Task 9): an exercise on placed voicings lists its shapes, each
  * one round of four beats arpeggiated over its level's figure, the rounds handing over without a
  * gap, each judged on its notes' pitch and time.
  */

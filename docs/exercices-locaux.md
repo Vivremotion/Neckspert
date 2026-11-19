@@ -4,9 +4,9 @@ Les exercices privés s'écrivent dans des fichiers de définitions JSON, dans l
 
 ## Où et quand
 
-- Un fichier de définitions `exercises.local/<nom>.json` peut tenir plusieurs exercices et plusieurs grilles (voir « Le fichier »).
+- Un fichier de définitions `exercises.local/<nom>.json` peut tenir plusieurs capacités, exercices et grilles (voir « Le fichier »).
 - Les exercices locaux n'existent **qu'en développement** (`npm run dev`). Les fichiers sont lus comme du texte au build de développement (`import.meta.glob('/exercises.local/*.json', { query: '?raw' })` dans `createApp`, derrière `import.meta.env.DEV`) : enregistrez le fichier et la page se recharge. Un build de production (`npm run build`) ne les lit pas et n'en emporte rien : un exercice privé ne part jamais avec l'application publiée.
-- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) lit les fichiers de `catalog/`, puis les fichiers locaux, et remplit les registres d'exercices et de grilles : un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
+- Au démarrage, `loadDefinitions` (`src/lib/composition/definitions.ts`) lit les fichiers de `catalog/`, puis les fichiers locaux, et remplit les registres de capacités, d'exercices et de grilles : un exercice ou une grille valide se joue comme ceux du catalogue. Un exercice qui écrit une `round` avec une figure et des `levels` apparaît sur l'accueil, bloc « Exercices », et se joue par `/session?kind=exercise&exercise=<id>`.
 
 ## Le fichier
 
@@ -170,7 +170,7 @@ Chaque entrée de `items` donne une clé d'élément de l'ensemble `placed-voici
 
 ## Une forme déplacée d'accord en accord
 
-`voicing-figure` joue les notes d'un accord, une par corde. Une **forme** est une suite de notes écrite une fois, chacune sur sa corde, avec autant de notes par corde qu'il en faut, et déplacée d'un accord à l'autre : c'est la mécanique `form-figure`.
+L'ensemble `placed-voicing` joue les notes d'un accord, une par corde. Une **forme** est une suite de notes écrite une fois, chacune sur sa corde, avec autant de notes par corde qu'il en faut. Elle est déplacée d'un accord à l'autre : c'est l'ensemble `placed-shape`.
 
 Ce qui change par rapport à l'exemple précédent (le reste s'écrit de la même façon) :
 
@@ -265,9 +265,9 @@ Les altérations s'écrivent `is` pour le dièse et `es` pour le bémol, collée
 Les fichiers du catalogue d'abord, puis les fichiers locaux, chacun dans l'ordre du nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
-2. Chaque grille se lit (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
-3. Les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la mécanique existe.
-4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par la mécanique (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
+2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
+3. Les capacités et les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la capacité que l'exercice nomme dans `practices` est définie par un fichier lu jusque-là, et l'application sait montrer son ensemble.
+4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
 5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 6. Les grilles qu'un exercice de geste nomme sont définies par un fichier lu jusque-là.
 7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient.
@@ -278,7 +278,7 @@ Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt p�
 
 Un refus n'arrête jamais l'application. Il porte sur un fichier entier (illisible, enveloppe fausse) ou sur un seul objet : le reste du fichier est gardé.
 
-En développement, l'accueil liste les refus (en français et en anglais) : `<fichier> : <raison>` pour un fichier, ``<fichier>, exercice `<id>` : <raison>`` ou ``<fichier>, grille `<id>` : <raison>`` pour un objet. La console les reprend sous la forme `[exercises.local] <fichier> refused: <raison>` ou `[exercises.local] <fichier>, exercise <id> refused: <raison>` (`[catalog]` pour un fichier du catalogue).
+En développement, l'accueil liste les refus (en français et en anglais) : `<fichier> : <raison>` pour un fichier, ``<fichier>, capacité `<id>` : <raison>``, ``<fichier>, exercice `<id>` : <raison>`` ou ``<fichier>, grille `<id>` : <raison>`` pour un objet. La console les reprend sous la forme `[exercises.local] <fichier> refused: <raison>` ou `[exercises.local] <fichier>, exercise <id> refused: <raison>` (`skill`, `grid` pour une capacité, une grille) (`[catalog]` pour un fichier du catalogue).
 
 La raison nomme le champ, par exemple `tempo must be a positive number, got -3`.
 
