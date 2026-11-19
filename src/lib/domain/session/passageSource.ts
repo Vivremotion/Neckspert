@@ -1,7 +1,11 @@
 import { roundMemberContents } from '$lib/domain/exercise/passage/contents';
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
 import { indexOpen } from '$lib/domain/exercise/passage/opens';
-import { isUnplayable, passageRound } from '$lib/domain/exercise/passage/round';
+import {
+	compilePassageRound,
+	isUnplayable,
+	passageRound
+} from '$lib/domain/exercise/passage/round';
 import type { PassageIndex } from '$lib/domain/exercise/passage/types';
 import { MAX_PASSAGE_MEMBERS } from '$lib/domain/exercise/passage/validate';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
@@ -335,8 +339,9 @@ function openIndices(definition: ExerciseDefinition, acquired: ReadonlySet<strin
 
 /**
  * The items of a passage of `index` with the passage params `each`; null when it cannot be
- * played: no member, more than `MAX_PASSAGE_MEMBERS`, a round whose content admits no member
- * with none heard before, or what cannot be read or compiled from its data (`isUnplayable`).
+ * played: no member, more than `MAX_PASSAGE_MEMBERS`, a round that does not compile whole
+ * (`compilePassageRound`), a round whose content admits no member with none heard before, or what
+ * cannot be read or compiled from its data (`isUnplayable`).
  * Any other error goes through.
  */
 function playableItems(
@@ -351,12 +356,14 @@ function playableItems(
 		const members = passageMembers(definition, index, each);
 		if (members.length === 0 || members.length > MAX_PASSAGE_MEMBERS) return null;
 		const items = members.map((member) => derivation.itemOf(member));
-		const playable = items.every((item, rank) =>
-			roundMemberContents(
-				definition,
-				passageRound(definition, index, each, item, rank, items.length)
-			).every(({ content }) => admittedMembers(content).length > 0)
-		);
+		const playable = items.every((item, rank) => {
+			const round = passageRound(definition, index, each, item, rank, items.length);
+			// The whole round compiles, so that none throws at play.
+			compilePassageRound(definition, round);
+			return roundMemberContents(definition, round).every(
+				({ content }) => admittedMembers(content).length > 0
+			);
+		});
 		return playable ? items : null;
 	} catch (error) {
 		if (isUnplayable(error)) return null;

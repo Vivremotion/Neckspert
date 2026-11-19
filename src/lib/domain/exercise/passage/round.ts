@@ -1,5 +1,7 @@
+import { METER_4_4 } from '../../time/meter';
 import type { PlannedItem, PlannedPassage } from '../../types';
-import { RoundCompileError } from '../round/compile';
+import type { RoundPlan } from '../../time/plan';
+import { compileRound, RoundCompileError, type ResolutionCache } from '../round/compile';
 import { SelectionCompileError } from '../selection/compile';
 import type { ExerciseDefinition } from '../types';
 import { PassageReadError } from './indices';
@@ -32,6 +34,23 @@ export function passageRound(
 		leadBeats: null,
 		passage: { id: '', index: index.key, of: index.of, rank, length, each, previous: null }
 	};
+}
+
+/**
+ * The whole round of a passage's member compiled, in its exercise's meter, with the preview its
+ * flow writes (0 without one): what the load and the source check before a passage is played.
+ * Throws as `compileRound` does.
+ */
+export function compilePassageRound(
+	definition: ExerciseDefinition,
+	round: PlannedItem,
+	cache?: ResolutionCache
+): RoundPlan {
+	return compileRound(definition, round, definition.meter ?? METER_4_4, {
+		previewBeats: definition.flow?.previewBeats ?? 0,
+		fromRunStart: null,
+		...(cache && { cache })
+	});
 }
 
 /**

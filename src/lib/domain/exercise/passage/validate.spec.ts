@@ -4,6 +4,7 @@ import { gridFromJson, MAX_GRID_CHANGES } from '$lib/domain/grid';
 import {
 	alternatingGrid,
 	CLIMB_PASSAGES,
+	JAM_PASSAGES,
 	LINK_PASSAGES,
 	PASSAGE_EXERCISES,
 	ZONE_PASSAGES
@@ -14,6 +15,7 @@ import {
 	MAX_PASSAGE_EACH,
 	MAX_PASSAGE_INDICES,
 	MAX_PASSAGE_MEMBERS,
+	MAX_PASSAGE_ROUND_CHECKS,
 	MAX_REST_BARS
 } from './validate';
 
@@ -37,6 +39,47 @@ describe('the passages an exercise writes', () => {
 		expect(PASSAGE_EXERCISES.map((e) => [e.id, refusal(e)])).toEqual(
 			PASSAGE_EXERCISES.map((e) => [e.id, null])
 		);
+	});
+
+	it('refuses a passage whose round does not compile for a member, naming the field and the member', () => {
+		// The link's shapes carry no length in beats.
+		const link = {
+			...LINK_PASSAGES,
+			round: { ...LINK_PASSAGES.round!, length: { beats: { item: 'beats' } } }
+		} as ExerciseDefinition;
+		expect(refusal(link)).toMatch(
+			/^passages\.members\[0\] \(".+"\) of index chord=C;strings=3,2,1 does not compile: round\.length\.beats measures item number "beats": This item has no length in beats$/
+		);
+	});
+
+	it('refuses more rounds to check than the limit', () => {
+		// A grid of 256 changes in 100 indices: 25 600 rounds, over the limit.
+		expect(MAX_PASSAGE_ROUND_CHECKS).toBeLessThan(25_600);
+		registerGrid(gridFromJson(alternatingGrid('test-rounds', MAX_GRID_CHANGES)), 'test');
+		const crowded = passing(JAM_PASSAGES, {
+			of: { grid: ['test-rounds'], x: Array.from({ length: 100 }, (_, i) => i) },
+			opens: undefined
+		});
+		expect(refusal(crowded)).toBe(
+			`passages gives 25600 rounds to check in the first passage of each index, more than ${MAX_PASSAGE_ROUND_CHECKS}`
+		);
+	});
+
+	it('leaves an index whose first passage has no member to the source', () => {
+		// The zone's first value admits no shape on the index: skipped at play, not refused.
+		const zones = {
+			...ZONE_PASSAGES,
+			passages: {
+				...ZONE_PASSAGES.passages!,
+				each: {
+					zone: [
+						[30, 34],
+						[1, 5]
+					]
+				}
+			}
+		} as ExerciseDefinition;
+		expect(refusal(zones)).toBeNull();
 	});
 
 	it('refuses passages and items written together', () => {

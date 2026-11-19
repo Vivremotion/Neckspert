@@ -15,7 +15,7 @@ import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
 import type { PlannedItem } from '../../types';
 import { admittedMembers, type MemberContent } from '../../judges';
-import { compileRound, roundParamsOf, type ResolutionCache } from './compile';
+import { compileRound, roundParamsOf, RoundCompileError, type ResolutionCache } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
 
@@ -148,6 +148,21 @@ function planned<I>(set: string, item: I, leadBeats: number | null = 4): Planned
 }
 
 describe('compileRound', () => {
+	it('tells an item number the item cannot give as a round that does not compile, naming the field', () => {
+		// A change of a grid that has no change at that rank: its length cannot be measured.
+		const compile = () =>
+			compileRound(
+				definition('change', GRID_ROUND),
+				planned('change', { grid: 'iohefy-a', index: 99 }),
+				meter,
+				{ previewBeats: 0, fromRunStart: null }
+			);
+		expect(compile).toThrow(RoundCompileError);
+		expect(compile).toThrow(
+			'test-change: round.length.beats measures item number "change-beats": grid "iohefy-a" has no change at rank 99'
+		);
+	});
+
 	it('compiles a locate template to the beat plan', () => {
 		const item = { string: 3, pitch: 'F' };
 		const plan = compileRound(

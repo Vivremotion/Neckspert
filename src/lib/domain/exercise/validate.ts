@@ -11,7 +11,11 @@ import type { PlannedItem } from '../types';
 import { levelConditionsProblem, validateLadder } from './ladder';
 import { exerciseLevelsOf, exerciseParamsOf, overrideParams, type LevelOverrides } from './levels';
 import { compileRound, type ResolutionCache } from './round/compile';
-import { passagesProblem } from './passage/validate';
+import { MAX_PASSAGE_ROUND_CHECKS, passagesProblem } from './passage/validate';
+import { passageIndices, passageMembers } from './passage/indices';
+import { compilePassageRound, firstEach, isUnplayable, passageRound } from './passage/round';
+import type { PassageIndex } from './passage/types';
+import { passageDerivation, type Member } from '../families';
 import type { LevelSweep } from './selection/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
@@ -382,12 +386,65 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
+ * Why a passage's member cannot be played: the round of a member of an index's first passage
+ * (each passage param at its first value, the params of level 1) does not compile, naming the
+ * member, its rank and the index. More rounds than `MAX_PASSAGE_ROUND_CHECKS` are refused, counted once
+ * the first passages' members are read and before any round is compiled. An index whose first
+ * passage has no member, or that cannot be read (`isUnplayable`), is left to the source, which
+ * skips it at play. Checked once the round and the passages are known to be valid.
+ */
+function passageRoundsProblem(definition: ExerciseDefinition): string | null {
+	const { passages, round } = definition;
+	if (passages === undefined || round === undefined) return null;
+	const derivation = passageDerivation(passages.members.family);
+	if (!derivation) return null;
+	const each = firstEach(definition);
+	const firsts: { index: PassageIndex; members: Member[] }[] = [];
+	let count = 0;
+	for (const index of passageIndices(definition)) {
+		let members: Member[];
+		try {
+			members = passageMembers(definition, index, each);
+		} catch (error) {
+			if (isUnplayable(error)) continue;
+			throw error;
+		}
+		count += members.length;
+		if (members.length > 0) firsts.push({ index, members });
+	}
+	if (count > MAX_PASSAGE_ROUND_CHECKS) {
+		return `passages gives ${count} rounds to check in the first passage of each index, more than ${MAX_PASSAGE_ROUND_CHECKS}`;
+	}
+	// What depends on a level alone is resolved once for all the members.
+	const cache: ResolutionCache = new Map();
+	for (const { index, members } of firsts) {
+		for (const [rank, member] of members.entries()) {
+			try {
+				const item = derivation.itemOf(member);
+				compilePassageRound(
+					definition,
+					passageRound(definition, index, each, item, rank, members.length),
+					cache
+				);
+			} catch (error) {
+				if (!isUnplayable(error)) throw error;
+				// The compiler names the exercise too: it is named once.
+				const problem = (error as Error).message.replace(`${definition.id}: `, '');
+				return `passages.members[${rank}] (${JSON.stringify(member.id)}) of index ${index.key} does not compile: ${problem}`;
+			}
+		}
+	}
+	return null;
+}
+
+/**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
  * field: more to check than the limits allow (`limitsProblem`, before any other check), a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
  * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), the passages it
- * writes (`passagesProblem`), an item it lists (`itemsProblem`). It never
+ * writes (`passagesProblem`), an item it lists (`itemsProblem`), the round of a member of an
+ * index's first passage (`passageRoundsProblem`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
@@ -433,7 +490,11 @@ export function validateExercise(
 		const sweep: LevelSweep = new Map();
 		const passages = passagesProblem(definition, sweep);
 		if (passages !== null) return passages;
-		return roundProblem(definition, options, sweep) ?? itemsProblem(definition);
+		return (
+			roundProblem(definition, options, sweep) ??
+			itemsProblem(definition) ??
+			passageRoundsProblem(definition)
+		);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { indexDerivation } from '../../families';
 import { LOCATE_NECK, TRIADS_ZONE } from '$lib/testing/catalog';
 import type { PlannedItem } from '../../types';
 import { compileSelection, SelectionCompileError } from './compile';
@@ -47,6 +48,37 @@ describe('compileSelection', () => {
 			{}
 		);
 		expect(compiled.selection).toEqual({ family: 'chord-shapes', where: [] });
+	});
+
+	it('tells an index its data cannot give as a selection that cannot be compiled', () => {
+		// A voicing key that reads as no voicing: the data cannot be read.
+		const compile = () =>
+			compileSelection(
+				TRIADS_ZONE,
+				planned(TRIADS_ZONE.id, { voicingKey: 'nope' }),
+				{ family: 'chord-shapes' },
+				{}
+			);
+		expect(compile).toThrow(SelectionCompileError);
+	});
+
+	it('lets a programming error of an index derivation through', () => {
+		const derivation = indexDerivation('chord-shapes', 'voicing-on-strings')!;
+		const spy = vi.spyOn(derivation, 'index').mockImplementation(() => {
+			throw new TypeError('a bug');
+		});
+		try {
+			expect(() =>
+				compileSelection(
+					TRIADS_ZONE,
+					planned(TRIADS_ZONE.id, { voicingKey: 'C|maj|3:1,2:3,1:5' }),
+					{ family: 'chord-shapes' },
+					{}
+				)
+			).toThrow(TypeError);
+		} finally {
+			spy.mockRestore();
+		}
 	});
 
 	it('throws naming the selection’s own field', () => {

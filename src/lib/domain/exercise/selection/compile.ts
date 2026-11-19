@@ -221,6 +221,10 @@ export function compileSelection(
 	try {
 		index = derivation.index(item.item, { of: item.passage?.of ?? {}, params });
 	} catch (error) {
+		// A derivation tells what its data lack with an Error or a RangeError (a voicing key it
+		// cannot read, a grid it cannot find); anything else, a TypeError above all, is a bug.
+		const proto = Object.getPrototypeOf(error);
+		if (proto !== Error.prototype && proto !== RangeError.prototype) throw error;
 		fail(
 			'',
 			`gives no index of ${template.family} for ${itemOf(context)}: ${(error as Error).message}`

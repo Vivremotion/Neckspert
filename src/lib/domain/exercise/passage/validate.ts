@@ -15,6 +15,12 @@ import { OPENING_NEEDS, type PassagesTemplate } from './types';
 export const MAX_PASSAGE_INDICES = 500;
 export const MAX_PASSAGE_EACH = 64;
 export const MAX_PASSAGE_MEMBERS = 256;
+/**
+ * Rounds compiled to check the passages at load: one per member of each index's first passage.
+ * Lower than the items' `MAX_ROUND_CHECKS`: a round of a passage costs more to compile (a change
+ * measures its length on its whole grid).
+ */
+export const MAX_PASSAGE_ROUND_CHECKS = 5_000;
 /** The most bars of silence before a new index's counted bar. */
 export const MAX_REST_BARS = 16;
 

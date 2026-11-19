@@ -404,6 +404,28 @@ describe('createPassageSource', () => {
 			expect(source([unreadable]).next(at(NOW))).toBeNull();
 		});
 
+		it('skips a passage whose round cannot compile with its values, without a throw', () => {
+			// A window read from a passage param: its second value is no number.
+			const [expectation] = ZONE_PASSAGES.round!.expectations;
+			const definition = {
+				...zones([[1, 5]]),
+				passages: { ...ZONE_PASSAGES.passages!, each: { zone: [[1, 5]], w: [80, 'x'] } },
+				round: {
+					...ZONE_PASSAGES.round!,
+					expectations: [{ ...expectation, window: { ms: { param: 'w' } } }]
+				}
+			} as ExerciseDefinition;
+			const s = source([definition]);
+			const clock = { now: NOW };
+			const served = [...playPassage(s, clock), ...playPassage(s, clock)];
+			expect(served.map((planned) => planned.passage!.each.w)).toEqual(
+				Array(served.length).fill(80)
+			);
+			for (const planned of served) {
+				expect(() => contentOf(definition, planned)).not.toThrow();
+			}
+		});
+
 		it('lets a programming error through', () => {
 			const spy = vi.spyOn(chordShapes, 'members').mockImplementation(() => {
 				throw new TypeError('a bug');

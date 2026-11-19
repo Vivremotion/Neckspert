@@ -3,7 +3,7 @@
  * and served as the rule they replace (keyed by `params.rule`, deleted at Task 5) decided. Before
  * that rule was deleted, every change of every passage of the catalog was compared both ways in every
  * context (no shape before, every shape of the chord before and of another chord, each direction,
- * each zone): passages, 796 998 judgements, the climb's turns, what the chord sensor was told
+ * each zone): passages, 736 854 judgements, the climb's turns, what the chord sensor was told
  * (10 788 changes, expected shapes and candidates), the opening of every index on 200 draws of
  * cards, and the old selector and the passage source driven side by side over 1 680 rounds; all
  * equal (the chord sensor once the old rule's « silent » filter was kept). These rows, captured

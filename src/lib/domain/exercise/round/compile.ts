@@ -143,7 +143,19 @@ function num(context: Context, field: string, value: Num): number {
 	const measure = Object.hasOwn(ITEM_NUMBERS, value.item) ? ITEM_NUMBERS[value.item] : undefined;
 	if (!measure) fail(context, field, `measures unknown item number "${value.item}"`);
 	readsFrom(context, field, value.item, measure.reads, 'measures');
-	return measure.measure(context.item.item);
+	try {
+		return measure.measure(context.item.item);
+	} catch (error) {
+		// A measure tells what its item lacks with an Error or a RangeError; anything else, a
+		// TypeError above all, is a bug and goes through.
+		const proto = Object.getPrototypeOf(error);
+		if (proto !== Error.prototype && proto !== RangeError.prototype) throw error;
+		return fail(
+			context,
+			field,
+			`measures item number "${value.item}": ${(error as Error).message}`
+		);
+	}
 }
 
 /** A count of whole units (beats or bars) as an exact fraction of that unit. */

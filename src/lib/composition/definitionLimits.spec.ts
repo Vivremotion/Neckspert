@@ -7,6 +7,7 @@ import {
 	MAX_LEVEL_PARAMS,
 	MAX_PASSAGE_EACH,
 	MAX_PASSAGE_INDICES,
+	MAX_PASSAGE_ROUND_CHECKS,
 	MAX_ROUND_CHECKS,
 	MAX_ROUND_EXPECTATIONS,
 	MAX_SELECTION_FILTERS,
@@ -267,26 +268,29 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(ms).toBeLessThan(BUDGET_MS);
 	});
 
-	it('loads the most passage indices allowed on a grid of the most changes allowed', () => {
+	it('loads the most passage indices whose rounds are checked on a grid of the most changes allowed, and refuses more', () => {
 		const grid = alternatingGrid('h-grid', MAX_GRID_CHANGES);
 		const zone = JSON.parse(JSON.stringify(ZONE_PASSAGES));
-		const { ms, refusals } = timedLoad(
-			{
-				...zone,
-				id: 'h-grid-indices',
-				passages: {
-					...zone.passages,
-					of: {
-						grid: ['h-grid'],
-						n: Array.from({ length: MAX_PASSAGE_INDICES }, (_, i) => i)
-					}
-				}
-			},
-			[grid]
-		);
-		expect(refusals).toEqual([]);
+		const indexed = (count: number) => ({
+			...zone,
+			id: 'h-grid-indices',
+			passages: {
+				...zone.passages,
+				of: { grid: ['h-grid'], n: Array.from({ length: count }, (_, i) => i) }
+			}
+		});
+		// Each index's first passage has a round per change: the rounds checked bound the indices.
+		const most = Math.floor(MAX_PASSAGE_ROUND_CHECKS / MAX_GRID_CHANGES);
+		const loaded = timedLoad(indexed(most), [grid]);
+		expect(loaded.refusals).toEqual([]);
 		expect(MAX_GRID_CHANGES).toBeLessThanOrEqual(MAX_PASSAGE_MEMBERS);
-		expect(ms).toBeLessThan(BUDGET_MS);
+		expect(loaded.ms).toBeLessThan(BUDGET_MS);
+
+		const refused = timedLoad(indexed(MAX_PASSAGE_INDICES), [grid]);
+		expect(refused.refusals.map((refusal) => refusal.reason)).toEqual([
+			`passages gives ${MAX_PASSAGE_INDICES * MAX_GRID_CHANGES} rounds to check in the first passage of each index, more than ${MAX_PASSAGE_ROUND_CHECKS}`
+		]);
+		expect(refused.ms).toBeLessThan(BUDGET_MS);
 	});
 
 	it('loads members and a round reading the same params with the most filters, at the most levels and ladder levels', () => {
