@@ -1,12 +1,288 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`keeps gesture-climb as it is 1`] = `
+exports[`keeps chord-anchor as it is 1`] = `
+{
+  "id": "chord-anchor",
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": 8,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 4,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 2,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+    "pacing": {
+      "respirationBars": 1,
+    },
+    "qualities": [
+      "maj",
+      "min",
+    ],
+    "stringSets": [
+      [
+        3,
+        2,
+        1,
+      ],
+      [
+        4,
+        3,
+        2,
+      ],
+    ],
+  },
+  "practices": "chord-anchor",
+  "presentation": {
+    "aided": {
+      "picture": "lowest-shape",
+    },
+    "band": "{chord}",
+    "detail": "{strings}",
+    "primary": "{chord}",
+    "secondary": {
+      "en": "root on {rootString}",
+      "fr": "fondamentale sur {rootString}",
+    },
+    "target": "{root}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "from": "voicing-root",
+        },
+        "sensor": "note",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+      {
+        "at": {
+          "beats": {
+            "param": "windows.anchorChordFromBeats",
+          },
+        },
+        "content": {
+          "from": "voicing-anywhere",
+        },
+        "sensor": "chord",
+        "until": {
+          "bars": 1,
+        },
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "bars": 1,
+      "breath": true,
+    },
+    "policy": {
+      "correction": true,
+      "pairing": {
+        "lateCapture": {
+          "ms": {
+            "param": "windows.lateCaptureMs",
+          },
+        },
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": {
+            "param": "windows.minResponseMs",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": {
+        "param": "leadBeats",
+      },
+    },
+  },
+  "tempo": 80,
+  "view": "lane",
+}
+`;
+
+exports[`keeps chord-zone as it is 1`] = `
+{
+  "id": "chord-zone",
+  "params": {
+    "ladder": [
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": true,
+          "leadBeats": 8,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 4,
+        },
+        "pass": {
+          "successes": 1,
+        },
+      },
+      {
+        "drop": {
+          "failures": 1,
+        },
+        "params": {
+          "aided": false,
+          "leadBeats": 2,
+        },
+        "pass": {
+          "successes": 2,
+        },
+        "success": "direct-recall",
+      },
+    ],
+    "pacing": {
+      "respirationBars": 1,
+    },
+    "qualities": [
+      "maj",
+      "min",
+    ],
+    "stringSets": [
+      [
+        3,
+        2,
+        1,
+      ],
+      [
+        4,
+        3,
+        2,
+      ],
+    ],
+  },
+  "practices": "chord-zone",
+  "presentation": {
+    "aided": {
+      "line": {
+        "en": "root on {rootString}",
+        "fr": "fondamentale sur {rootString}",
+      },
+    },
+    "detail": "{strings}",
+    "primary": "{chord}",
+    "secondary": "{around}",
+  },
+  "round": {
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "from": "voicing-at-position",
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "length": {
+      "breath": true,
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": {
+          "ms": {
+            "param": "windows.lateCaptureMs",
+          },
+        },
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "afterPromptMs": {
+            "param": "windows.minResponseMs",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": {
+        "param": "leadBeats",
+      },
+    },
+  },
+  "tempo": 80,
+  "view": "lane",
+}
+`;
+
+exports[`keeps grid-in-direction as it is 1`] = `
 {
   "howTo": {
     "en": "Play the chart on the strings shown. At each change, pick a shape higher up the neck than the one before (or lower if the arrow points down). When the neck runs out, turn back the other way.",
     "fr": "Joue la grille sur le groupe indiqué. À chaque changement, choisis une forme plus haute sur le manche que la précédente (ou plus basse si la flèche descend). Quand le manche s’arrête, repars dans l’autre sens.",
   },
-  "id": "gesture-climb",
+  "id": "grid-in-direction",
   "levels": [
     {
       "drop": {
@@ -185,379 +461,13 @@ exports[`keeps gesture-climb as it is 1`] = `
 }
 `;
 
-exports[`keeps gesture-jam as it is 1`] = `
-{
-  "howTo": {
-    "en": "Play the chart as you like: any shape, any rhythm. Only the chord counts.",
-    "fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
-  },
-  "id": "gesture-jam",
-  "levels": [
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 80,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 85,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 90,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 95,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 100,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 105,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 110,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 115,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 120,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-  ],
-  "params": {
-    "grids": [
-      "iohefy-a",
-      "blues-f",
-    ],
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "jam",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
-  },
-  "practices": "grid-reading",
-  "round": {
-    "countEndsOn": "target",
-    "expectations": [
-      {
-        "at": {
-          "beats": 0,
-        },
-        "content": {
-          "from": "grid-change",
-        },
-        "sensor": "chord",
-        "window": {
-          "ms": {
-            "param": "windows.perfectMs",
-          },
-        },
-      },
-    ],
-    "handover": "end",
-    "length": {
-      "beats": {
-        "item": "change-beats",
-      },
-    },
-    "policy": {
-      "correction": false,
-      "pairing": {
-        "lateCapture": "to-end",
-        "lateMs": {
-          "param": "windows.lateMs",
-        },
-        "mode": "first-answer",
-        "opens": {
-          "beforeMs": {
-            "param": "windows.gridEarlyMs",
-          },
-          "maxBeats": {
-            "param": "windows.gridEarlyMaxBeats",
-          },
-        },
-      },
-      "unit": "response",
-      "verdict": "response",
-    },
-    "prompt": {
-      "lead": 1,
-    },
-  },
-  "tempo": 80,
-  "view": "grid-scroll",
-}
-`;
-
-exports[`keeps gesture-link as it is 1`] = `
-{
-  "howTo": {
-    "en": "Play the chord asked on the strings shown, starting from its lowest position. Climb its inversions one by one, then come back down the same way: one chord per bar, struck on the first beat. The arrows give the way: ↗ up, ↘ down.",
-    "fr": "Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.",
-  },
-  "id": "gesture-link",
-  "levels": [
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 80,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 85,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 90,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 95,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 100,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 105,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 110,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 115,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-    {
-      "drop": {
-        "failures": 3,
-      },
-      "params": {
-        "tempo": 120,
-      },
-      "pass": {
-        "successes": 10,
-      },
-    },
-  ],
-  "params": {
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "rule": "link",
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
-  },
-  "practices": "inversion-run",
-  "round": {
-    "countEndsOn": "target",
-    "expectations": [
-      {
-        "at": {
-          "beats": 0,
-        },
-        "content": {
-          "from": "grid-change",
-        },
-        "sensor": "chord",
-        "window": {
-          "ms": {
-            "param": "windows.perfectMs",
-          },
-        },
-      },
-    ],
-    "handover": "end",
-    "length": {
-      "beats": {
-        "item": "change-beats",
-      },
-    },
-    "policy": {
-      "correction": false,
-      "pairing": {
-        "lateCapture": "to-end",
-        "lateMs": {
-          "param": "windows.lateMs",
-        },
-        "mode": "first-answer",
-        "opens": {
-          "beforeMs": {
-            "param": "windows.gridEarlyMs",
-          },
-          "maxBeats": {
-            "param": "windows.gridEarlyMaxBeats",
-          },
-        },
-      },
-      "unit": "response",
-      "verdict": "response",
-    },
-    "prompt": {
-      "lead": 1,
-    },
-  },
-  "tempo": 80,
-  "view": "link-lane",
-}
-`;
-
-exports[`keeps gesture-zone as it is 1`] = `
+exports[`keeps grid-in-zone as it is 1`] = `
 {
   "howTo": {
     "en": "Play the chart without leaving the frets shown, on either set of strings.",
     "fr": "Joue la grille sans sortir de la zone indiquée, sur l’un des deux groupes de cordes.",
   },
-  "id": "gesture-zone",
+  "id": "grid-in-zone",
   "levels": [
     {
       "drop": {
@@ -736,9 +646,194 @@ exports[`keeps gesture-zone as it is 1`] = `
 }
 `;
 
-exports[`keeps identify-neck as it is 1`] = `
+exports[`keeps grid-reading as it is 1`] = `
 {
-  "id": "identify-neck",
+  "howTo": {
+    "en": "Play the chart as you like: any shape, any rhythm. Only the chord counts.",
+    "fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
+  },
+  "id": "grid-reading",
+  "levels": [
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {
+    "grids": [
+      "iohefy-a",
+      "blues-f",
+    ],
+    "qualities": [
+      "maj",
+      "min",
+    ],
+    "rule": "jam",
+    "stringSets": [
+      [
+        3,
+        2,
+        1,
+      ],
+      [
+        4,
+        3,
+        2,
+      ],
+    ],
+  },
+  "practices": "grid-reading",
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "from": "grid-change",
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "beats": {
+        "item": "change-beats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "view": "grid-scroll",
+}
+`;
+
+exports[`keeps identify-note as it is 1`] = `
+{
+  "id": "identify-note",
   "params": {
     "ladder": [
       {
@@ -815,9 +910,190 @@ exports[`keeps identify-neck as it is 1`] = `
 }
 `;
 
-exports[`keeps locate-neck as it is 1`] = `
+exports[`keeps inversion-run as it is 1`] = `
 {
-  "id": "locate-neck",
+  "howTo": {
+    "en": "Play the chord asked on the strings shown, starting from its lowest position. Climb its inversions one by one, then come back down the same way: one chord per bar, struck on the first beat. The arrows give the way: ↗ up, ↘ down.",
+    "fr": "Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.",
+  },
+  "id": "inversion-run",
+  "levels": [
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 80,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 85,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 90,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 95,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 100,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 105,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 110,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 115,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+    {
+      "drop": {
+        "failures": 3,
+      },
+      "params": {
+        "tempo": 120,
+      },
+      "pass": {
+        "successes": 10,
+      },
+    },
+  ],
+  "params": {
+    "qualities": [
+      "maj",
+      "min",
+    ],
+    "rule": "link",
+    "stringSets": [
+      [
+        3,
+        2,
+        1,
+      ],
+      [
+        4,
+        3,
+        2,
+      ],
+    ],
+  },
+  "practices": "inversion-run",
+  "round": {
+    "countEndsOn": "target",
+    "expectations": [
+      {
+        "at": {
+          "beats": 0,
+        },
+        "content": {
+          "from": "grid-change",
+        },
+        "sensor": "chord",
+        "window": {
+          "ms": {
+            "param": "windows.perfectMs",
+          },
+        },
+      },
+    ],
+    "handover": "end",
+    "length": {
+      "beats": {
+        "item": "change-beats",
+      },
+    },
+    "policy": {
+      "correction": false,
+      "pairing": {
+        "lateCapture": "to-end",
+        "lateMs": {
+          "param": "windows.lateMs",
+        },
+        "mode": "first-answer",
+        "opens": {
+          "beforeMs": {
+            "param": "windows.gridEarlyMs",
+          },
+          "maxBeats": {
+            "param": "windows.gridEarlyMaxBeats",
+          },
+        },
+      },
+      "unit": "response",
+      "verdict": "response",
+    },
+    "prompt": {
+      "lead": 1,
+    },
+  },
+  "tempo": 80,
+  "view": "link-lane",
+}
+`;
+
+exports[`keeps locate-note-string as it is 1`] = `
+{
+  "id": "locate-note-string",
   "params": {
     "ladder": [
       {
@@ -2916,281 +3192,5 @@ exports[`keeps the grid iohefy-a as it is 1`] = `
   ],
   "id": "iohefy-a",
   "title": "I Only Have Eyes for You",
-}
-`;
-
-exports[`keeps triads-anchor as it is 1`] = `
-{
-  "id": "triads-anchor",
-  "params": {
-    "ladder": [
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": true,
-          "leadBeats": 8,
-        },
-        "pass": {
-          "successes": 1,
-        },
-      },
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": false,
-          "leadBeats": 4,
-        },
-        "pass": {
-          "successes": 1,
-        },
-      },
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": false,
-          "leadBeats": 2,
-        },
-        "pass": {
-          "successes": 2,
-        },
-        "success": "direct-recall",
-      },
-    ],
-    "pacing": {
-      "respirationBars": 1,
-    },
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
-  },
-  "practices": "chord-anchor",
-  "presentation": {
-    "aided": {
-      "picture": "lowest-shape",
-    },
-    "band": "{chord}",
-    "detail": "{strings}",
-    "primary": "{chord}",
-    "secondary": {
-      "en": "root on {rootString}",
-      "fr": "fondamentale sur {rootString}",
-    },
-    "target": "{root}",
-  },
-  "round": {
-    "expectations": [
-      {
-        "at": {
-          "beats": 0,
-        },
-        "content": {
-          "from": "voicing-root",
-        },
-        "sensor": "note",
-        "window": {
-          "ms": {
-            "param": "windows.perfectMs",
-          },
-        },
-      },
-      {
-        "at": {
-          "beats": {
-            "param": "windows.anchorChordFromBeats",
-          },
-        },
-        "content": {
-          "from": "voicing-anywhere",
-        },
-        "sensor": "chord",
-        "until": {
-          "bars": 1,
-        },
-        "window": {
-          "ms": {
-            "param": "windows.perfectMs",
-          },
-        },
-      },
-    ],
-    "length": {
-      "bars": 1,
-      "breath": true,
-    },
-    "policy": {
-      "correction": true,
-      "pairing": {
-        "lateCapture": {
-          "ms": {
-            "param": "windows.lateCaptureMs",
-          },
-        },
-        "lateMs": {
-          "param": "windows.lateMs",
-        },
-        "mode": "first-answer",
-        "opens": {
-          "afterPromptMs": {
-            "param": "windows.minResponseMs",
-          },
-        },
-      },
-      "unit": "response",
-      "verdict": "response",
-    },
-    "prompt": {
-      "lead": {
-        "param": "leadBeats",
-      },
-    },
-  },
-  "tempo": 80,
-  "view": "lane",
-}
-`;
-
-exports[`keeps triads-zone as it is 1`] = `
-{
-  "id": "triads-zone",
-  "params": {
-    "ladder": [
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": true,
-          "leadBeats": 8,
-        },
-        "pass": {
-          "successes": 1,
-        },
-      },
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": false,
-          "leadBeats": 4,
-        },
-        "pass": {
-          "successes": 1,
-        },
-      },
-      {
-        "drop": {
-          "failures": 1,
-        },
-        "params": {
-          "aided": false,
-          "leadBeats": 2,
-        },
-        "pass": {
-          "successes": 2,
-        },
-        "success": "direct-recall",
-      },
-    ],
-    "pacing": {
-      "respirationBars": 1,
-    },
-    "qualities": [
-      "maj",
-      "min",
-    ],
-    "stringSets": [
-      [
-        3,
-        2,
-        1,
-      ],
-      [
-        4,
-        3,
-        2,
-      ],
-    ],
-  },
-  "practices": "chord-zone",
-  "presentation": {
-    "aided": {
-      "line": {
-        "en": "root on {rootString}",
-        "fr": "fondamentale sur {rootString}",
-      },
-    },
-    "detail": "{strings}",
-    "primary": "{chord}",
-    "secondary": "{around}",
-  },
-  "round": {
-    "expectations": [
-      {
-        "at": {
-          "beats": 0,
-        },
-        "content": {
-          "from": "voicing-at-position",
-        },
-        "sensor": "chord",
-        "window": {
-          "ms": {
-            "param": "windows.perfectMs",
-          },
-        },
-      },
-    ],
-    "length": {
-      "breath": true,
-    },
-    "policy": {
-      "correction": false,
-      "pairing": {
-        "lateCapture": {
-          "ms": {
-            "param": "windows.lateCaptureMs",
-          },
-        },
-        "lateMs": {
-          "param": "windows.lateMs",
-        },
-        "mode": "first-answer",
-        "opens": {
-          "afterPromptMs": {
-            "param": "windows.minResponseMs",
-          },
-        },
-      },
-      "unit": "response",
-      "verdict": "response",
-    },
-    "prompt": {
-      "lead": {
-        "param": "leadBeats",
-      },
-    },
-  },
-  "tempo": 80,
-  "view": "lane",
 }
 `;

@@ -186,9 +186,9 @@ describe('importing an export of 2026-10-04', () => {
 		);
 		expect(levels).toEqual(
 			new Map([
-				['locate-neck/6:A', 2],
-				['locate-neck/5:D', 1],
-				['identify-neck/6:3', 1]
+				['locate-note-string/6:A', 2],
+				['locate-note-string/5:D', 1],
+				['identify-note/6:3', 1]
 			])
 		);
 
@@ -200,9 +200,9 @@ describe('importing an export of 2026-10-04', () => {
 		expect(sessions.map((s) => s.latencyMs)).toEqual(sessions.map(() => null));
 		expect(sessions.length).toBeGreaterThan(0);
 		expect(attempts.map((a) => a.exerciseId)).toEqual([
-			'locate-neck',
-			'locate-neck',
-			'identify-neck'
+			'locate-note-string',
+			'locate-note-string',
+			'identify-note'
 		]);
 		expect(attempts.map((a) => a.data)).toEqual([
 			{ item: { string: 6, pitch: 'A' }, answer: null, confusion: null },

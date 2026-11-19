@@ -4,6 +4,12 @@ import type { IgnoreReason } from './time/modes/types';
 import type { Execution, ExerciseId } from './exercise/types';
 import type { SkillId } from './skill/types';
 import { RESPONSE_VERDICTS, type ResponseVerdict } from './time/modes/responseVerdict';
+import {
+	ROUTINE_CHANGES_ID,
+	ROUTINE_CHORDS_ID,
+	ROUTINE_CHORDS_ZONE_ID,
+	ROUTINE_NOTES_ID
+} from './exercise/catalogIds';
 import type {
 	Aid,
 	CycleReport,
@@ -82,12 +88,40 @@ export type SessionKind =
 	| 'triads'
 	| 'triads-zone'
 	| 'gesture'
-	/** Free play of one exercise (`SessionRecord.exerciseId`): the rhythm exercises. */
+	/** Free play of one exercise (`SessionRecord.exercise`): the rhythm exercises. */
 	| 'exercise';
 
 /** A session of the triads' memory track. */
 export function isTriadsKind(kind: SessionKind): boolean {
 	return kind === 'triads' || kind === 'triads-zone';
+}
+
+/** What a stored session says it played: a routine, or one exercise. */
+export type SessionOrigin = Pick<SessionRecord, 'routine' | 'exercise' | 'free'>;
+
+/** The routine each kind of session but `exercise` plays (until plan 5). */
+const ROUTINE_OF_KIND: Readonly<Record<Exclude<SessionKind, 'exercise'>, SessionOrigin>> = {
+	learn: { routine: ROUTINE_NOTES_ID },
+	free: { routine: ROUTINE_NOTES_ID, free: true },
+	triads: { routine: ROUTINE_CHORDS_ID },
+	'triads-zone': { routine: ROUTINE_CHORDS_ZONE_ID },
+	gesture: { routine: ROUTINE_CHANGES_ID }
+};
+
+/** What a session of `kind` records it played; an exercise session names its exercise. */
+export function sessionOriginOf(kind: SessionKind, exercise?: ExerciseId): SessionOrigin {
+	if (kind === 'exercise') return exercise === undefined ? {} : { exercise };
+	return { ...ROUTINE_OF_KIND[kind] };
+}
+
+/** The kind of session a record came from: learn, free, triads, triads-zone, gesture, exercise. */
+export function sessionKindOf(record: SessionOrigin): SessionKind {
+	for (const [kind, origin] of Object.entries(ROUTINE_OF_KIND)) {
+		if (origin.routine === record.routine && origin.free === record.free) {
+			return kind as SessionKind;
+		}
+	}
+	return 'exercise';
 }
 
 /** Where an attempt happened inside a session. */
@@ -224,17 +258,20 @@ export interface PlannedItem<I = unknown> {
 
 export interface SessionRecord {
 	id: string;
-	kind: SessionKind;
+	/** The routine the session played (`ROUTINE_*_ID`); absent for a session of one exercise. */
+	routine?: string;
+	/** The exercise played, for a session of one exercise. */
+	exercise?: ExerciseId;
+	/** A routine played freely, out of the learning procedure (the notes' free play). */
+	free?: true;
 	startedAt: number;
 	endedAt: number | null;
 	fatigueDetected: boolean;
 	/** The exercises run in the session, each with its tempo frozen at the start. */
 	executions: Execution[];
-	/** The exercise played, for a session of kind `'exercise'`. */
-	exerciseId?: ExerciseId;
 	/**
 	 * The level the exercise was held at when the series ended (0 = level 1, aid levels negative),
-	 * for a session of kind `'exercise'`; absent from sessions stored before it was kept.
+	 * for a session of one exercise; absent from sessions stored before it was kept.
 	 */
 	levelReached?: number;
 	/** Calibrated detection latency in ms applied to the session's onsets. Null when unknown (older sessions). */

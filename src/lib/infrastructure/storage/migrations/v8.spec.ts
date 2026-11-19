@@ -8,16 +8,19 @@ import { validateBackup } from '../validateBackup';
 import { V7_RELATIONS, attemptToV8, backupV3ToV4, relationOfMechanic, settingsToV8 } from './v8';
 import { TRIAD_LADDER_V10 } from './v10';
 import { attemptToV11 } from './v11';
-import { SKILL_OF_EXERCISE_V12, attemptToV13, cardToV13 } from './v13';
+import { EXERCISE_IDS_V13, SKILL_OF_EXERCISE_V12, attemptToV13, cardToV13 } from './v13';
 import { GESTURE_EXERCISE_IDS } from '$lib/domain/exercise/catalogIds';
 
 type Row = Record<string, unknown>;
 
 const TRIAD_EXERCISES: Record<string, string> = TRIAD_LADDER_V10.exercises;
 
-/** The exercise of each skill of version 13, the inverse of its frozen table. */
+/** The exercise of each skill of version 13, the inverse of its frozen table, by its new id. */
 const EXERCISE_OF_SKILL: Record<string, string> = Object.fromEntries(
-	Object.entries(SKILL_OF_EXERCISE_V12).map(([exercise, skill]) => [skill, exercise])
+	Object.entries(SKILL_OF_EXERCISE_V12).map(([exercise, skill]) => [
+		skill,
+		EXERCISE_IDS_V13[exercise] ?? exercise
+	])
 );
 
 /** A fresh copy of the version 3 export made by the application before this model. */
@@ -227,8 +230,8 @@ describe('a version 3 export of the application before this model', () => {
 			...v4.cards
 				.filter((card) => ['chord-anchor', 'chord-zone'].includes(card.skill))
 				.map((card) => EXERCISE_OF_SKILL[card.skill]),
-			'gesture-link',
-			'gesture-climb'
+			'inversion-run',
+			'grid-in-direction'
 		]);
 		expect(v4.attempts).toHaveLength(file.attempts.length);
 		for (const [index, attempt] of v4.attempts.entries()) {
@@ -255,12 +258,15 @@ describe('a version 3 export of the application before this model', () => {
 		const v4 = validateBackup(exportV3());
 		const relations = new Set(v4.attempts.map((attempt) => attempt.verdict.relation));
 		expect([...relations].sort()).toEqual(['anchor', 'beat', 'free', 'grid-change']);
-		// Version 13 names an attempt by the skill of its exercise.
+		// Version 13 names an attempt by the skill of its exercise, and eight exercises after it.
 		const find = (exerciseIds: string[], value: string) =>
 			v4.attempts.find((a) => exerciseIds.includes(a.exerciseId) && a.verdict.value === value);
-		expect(find(['locate-neck'], 'offbeat')).toMatchObject({ correct: true, success: false });
-		expect(find(['identify-neck'], 'late')).toMatchObject({ correct: true, success: true });
-		expect(find(['triads-anchor'], 'corrected')).toMatchObject({
+		expect(find(['locate-note-string'], 'offbeat')).toMatchObject({
+			correct: true,
+			success: false
+		});
+		expect(find(['identify-note'], 'late')).toMatchObject({ correct: true, success: true });
+		expect(find(['chord-anchor'], 'corrected')).toMatchObject({
 			correct: false,
 			success: false,
 			contested: true
@@ -346,11 +352,13 @@ describe('a version 7 database opened at version 8', () => {
 			identify: 'identify-neck',
 			...TRIAD_EXERCISES
 		};
+		// Version 13 then renamed their exercises.
 		expect((await db.levelStates.toArray()).map((state) => state.exerciseId).sort()).toEqual(
 			(file.cards as Row[])
 				.map((card) => exerciseOf[String(card.mechanic)])
 				.filter((exerciseId) => exerciseId !== undefined)
 				.concat(['gesture-link', 'gesture-climb'])
+				.map((exerciseId) => EXERCISE_IDS_V13[exerciseId])
 				.sort()
 		);
 		// The indexes still answer.

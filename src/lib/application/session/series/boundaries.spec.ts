@@ -115,7 +115,7 @@ describe('the session controller and its series', () => {
 			expect(offendersIn({ [file]: `const m = "${name}";` })).toEqual([`${file}: ${name}`]);
 			expect(offendersIn({ [file]: `const m = \`${name}\`;` })).toEqual([`${file}: ${name}`]);
 		}
-		expect(NAMES).toEqual(expect.arrayContaining(['locate-neck', 'triads-anchor']));
+		expect(NAMES).toEqual(expect.arrayContaining(['locate-note-string', 'chord-anchor']));
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
 	});
 });

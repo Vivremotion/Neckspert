@@ -55,4 +55,22 @@ describe('the catalog files', () => {
 			expect(hasSkill(exercise.practices!), exercise.id).toBe(true);
 		}
 	});
+
+	it('names eight exercises after the skill they practise, the rhythm keeping its own ids', () => {
+		expect(load()).toEqual([]);
+		const named = Object.fromEntries(allExercises().map((e) => [e.id, e.practices]));
+		expect(named).toEqual({
+			'locate-note-string': 'locate-note-string',
+			'identify-note': 'identify-note',
+			'chord-anchor': 'chord-anchor',
+			'chord-zone': 'chord-zone',
+			'inversion-run': 'inversion-run',
+			'grid-in-direction': 'grid-in-direction',
+			'grid-in-zone': 'grid-in-zone',
+			'grid-reading': 'grid-reading',
+			'rhythm-silent-bars': 'inner-pulse',
+			'rhythm-two-four': 'displaced-pulse',
+			'rhythm-offbeats': 'figure-independence'
+		});
+	});
 });

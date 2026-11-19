@@ -18,7 +18,8 @@ import {
 	makeCardV5,
 	makeLevelState,
 	makeProgressionV6,
-	makeSession
+	makeSession,
+	makeSessionV12
 } from './testing/fixtures';
 import {
 	validateBackup,
@@ -32,15 +33,15 @@ import {
 	validateBackupV9
 } from './validateBackup';
 import { RHYTHM_FIGURE_MECHANIC_V11, attemptToV12 } from './migrations/v12';
-import { attemptToV13, cardToV13 } from './migrations/v13';
+import { attemptToV13, cardToV13, levelStateToV13, sessionToV13 } from './migrations/v13';
 
 registerTestSkills();
 
 /** The level states of a converted file: one per neck card, none of the exercises. */
 function expectNeckLevelStates(file: BackupFile): void {
 	const exerciseOf: Record<string, string> = {
-		'locate-note-string': 'locate-neck',
-		'identify-note': 'identify-neck'
+		'locate-note-string': 'locate-note-string',
+		'identify-note': 'identify-note'
 	};
 	const neck = file.cards.filter((card) => Object.hasOwn(exerciseOf, card.skill));
 	expect(neck.length).toBeGreaterThan(0);
@@ -411,10 +412,10 @@ describe('validateBackup', () => {
 
 	it('rejects an invalid session', () => {
 		expect(() =>
-			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'weekly' }] })
+			validateBackup(makeBackupV8({ sessions: [makeSessionV12({ kind: 'weekly' })] }))
 		).toThrow('Invalid sessions entry at index 0: kind must be learn, free or triads');
 		expect(() =>
-			validateBackup({ ...makeBackup(), sessions: [{ ...makeSession(), kind: 'placement' }] })
+			validateBackup(makeBackupV8({ sessions: [makeSessionV12({ kind: 'placement' })] }))
 		).toThrow('Invalid sessions entry at index 0: kind must be learn, free or triads');
 		expect(() =>
 			validateBackup({ ...makeBackup(), attempts: [{ ...makeAttempt(), phase: 'placement' }] })
@@ -433,18 +434,18 @@ describe('validateBackup', () => {
 		expect(() => withExecutions(undefined)).toThrow(
 			'Invalid sessions entry at index 0: executions must be an array'
 		);
-		expect(() => withExecutions(['locate-neck'])).toThrow(
+		expect(() => withExecutions(['locate-note-string'])).toThrow(
 			'Invalid sessions entry at index 0: executions[0] must be an object'
 		);
 		expect(() =>
-			withExecutions([{ exerciseId: 'locate-neck', tempoBpm: 80 }, { tempoBpm: null }])
+			withExecutions([{ exerciseId: 'locate-note-string', tempoBpm: 80 }, { tempoBpm: null }])
 		).toThrow(
 			'Invalid sessions entry at index 0: executions[1].exerciseId must be a non-empty string'
 		);
-		expect(() => withExecutions([{ exerciseId: 'locate-neck', tempoBpm: 0 }])).toThrow(
+		expect(() => withExecutions([{ exerciseId: 'locate-note-string', tempoBpm: 0 }])).toThrow(
 			'Invalid sessions entry at index 0: executions[0].tempoBpm must be a positive number or null'
 		);
-		expect(() => withExecutions([{ exerciseId: 'locate-neck' }])).toThrow(
+		expect(() => withExecutions([{ exerciseId: 'locate-note-string' }])).toThrow(
 			'Invalid sessions entry at index 0: executions[0].tempoBpm must be a positive number or null'
 		);
 	});
@@ -474,7 +475,7 @@ describe('validateBackup', () => {
 		expect(() =>
 			validateBackup(
 				makeBackup({
-					sessions: [makeSession({ kind: 'learn' })],
+					sessions: [makeSession({ routine: 'notes' })],
 					attempts: [makeAttempt({ phase: 'consolidation', temperature: 'hot' })]
 				})
 			)
@@ -515,13 +516,13 @@ describe('validateBackup', () => {
 			});
 			expect(Object.hasOwn(file.cards[0], 'leadBeats')).toBe(false);
 			expect(file.attempts[0]).toMatchObject({
-				exerciseId: 'locate-neck',
+				exerciseId: 'locate-note-string',
 				tempoBpm: 100,
 				data: { item: { string: 2, pitch: 'F' }, answer: { midi: 65 }, confusion: null }
 			});
 			expect(file.sessions[0].executions).toEqual([
-				{ exerciseId: 'locate-neck', tempoBpm: 100 },
-				{ exerciseId: 'identify-neck', tempoBpm: null }
+				{ exerciseId: 'locate-note-string', tempoBpm: 100 },
+				{ exerciseId: 'identify-note', tempoBpm: null }
 			]);
 			expect(() => validateBackupV9(file)).not.toThrow();
 			expect(file.attempts[0]).toMatchObject({
@@ -801,7 +802,7 @@ describe('with triad cards and attempts', () => {
 		const attempt = (id: number, confusion: unknown) =>
 			makeAttempt({
 				id,
-				exerciseId: 'triads-anchor',
+				exerciseId: 'chord-anchor',
 				skill: 'chord-anchor',
 				cardKey: `chord-anchor:${KEY}`,
 				data: { item: { voicingKey: KEY }, answer: null, confusion }
@@ -824,7 +825,7 @@ describe('with triad cards and attempts', () => {
 			attempts: [
 				makeAttempt({
 					id: 1,
-					exerciseId: 'triads-zone',
+					exerciseId: 'chord-zone',
 					skill: 'chord-zone',
 					cardKey: `chord-zone:${KEY}`,
 					data: {
@@ -862,8 +863,8 @@ describe('the triads session and the contest of an attempt', () => {
 		const file = makeBackup({
 			attempts: [makeAttempt({ id: 1, contested: true }), makeAttempt({ id: 2 })],
 			sessions: [
-				makeSession({ kind: 'triads' }),
-				makeSession({ id: 's-zone', kind: 'triads-zone' })
+				makeSession({ routine: 'chords' }),
+				makeSession({ id: 's-zone', routine: 'chords-zone' })
 			]
 		});
 		expect(validateBackupV9(file)).toBe(file);
@@ -886,27 +887,38 @@ describe('the triads session and the contest of an attempt', () => {
 	});
 });
 
+/** A session of one exercise at version 9: it names its exercise, no routine. */
+function exerciseSession(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { routine: _routine, ...session } = makeSession();
+	return { ...session, ...overrides };
+}
+
 describe('the exercise session', () => {
 	it('accepts an exercise session with its exercise', () => {
 		const file = makeBackup({
-			sessions: [makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats' })]
+			sessions: [exerciseSession({ exercise: 'rhythm-offbeats' }) as never]
 		});
 		expect(validateBackupV9(file)).toBe(file);
 	});
 
-	it('rejects an exercise session without a usable exercise id', () => {
-		const withId = (exerciseId: unknown) =>
-			makeBackup({ sessions: [{ ...makeSession({ kind: 'exercise' }), exerciseId } as never] });
-		expect(() => validateBackupV9(withId(undefined))).toThrow(/exerciseId must be a non-empty/);
-		expect(() => validateBackupV9(withId(''))).toThrow(/exerciseId must be a non-empty/);
-		expect(() => validateBackupV9(withId(3))).toThrow(/exerciseId must be a non-empty/);
+	it('rejects an exercise that is not a non-empty string', () => {
+		const withExercise = (exercise: unknown) =>
+			makeBackup({ sessions: [exerciseSession({ exercise }) as never] });
+		expect(() => validateBackupV9(withExercise(''))).toThrow(/exercise must be a non-empty/);
+		expect(() => validateBackupV9(withExercise(3))).toThrow(/exercise must be a non-empty/);
 	});
 
-	it('rejects an exercise id that is not a string on any session', () => {
-		const file = makeBackup({
-			sessions: [{ ...makeSession({ kind: 'learn' }), exerciseId: 3 } as never]
-		});
-		expect(() => validateBackupV9(file)).toThrow(/exerciseId must be a non-empty/);
+	it('rejects, in a version 8 file, an exercise session without a usable exercise id', () => {
+		const withId = (exerciseId: unknown) =>
+			makeBackupV8({ sessions: [makeSessionV12({ kind: 'exercise', exerciseId })] });
+		expect(() => validateBackup(withId(undefined))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackup(withId(''))).toThrow(/exerciseId must be a non-empty/);
+		expect(() => validateBackup(withId(3))).toThrow(/exerciseId must be a non-empty/);
+	});
+
+	it('rejects, in a version 8 file, an exercise id that is not a string on any session', () => {
+		const file = makeBackupV8({ sessions: [makeSessionV12({ kind: 'learn', exerciseId: 3 })] });
+		expect(() => validateBackup(file)).toThrow(/exerciseId must be a non-empty/);
 	});
 });
 
@@ -914,9 +926,9 @@ describe('the level held by an exercise session', () => {
 	it('accepts a session that ended on a level, an aid level included', () => {
 		const file = makeBackup({
 			sessions: [
-				makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats', levelReached: 2 }),
-				makeSession({ id: 's2', kind: 'exercise', exerciseId: 'rhythm-offbeats', levelReached: -1 })
-			]
+				exerciseSession({ exercise: 'rhythm-offbeats', levelReached: 2 }),
+				exerciseSession({ id: 's2', exercise: 'rhythm-offbeats', levelReached: -1 })
+			] as never
 		});
 		expect(validateBackupV9(file)).toBe(file);
 	});
@@ -924,12 +936,7 @@ describe('the level held by an exercise session', () => {
 	it('rejects a level that is not a whole number', () => {
 		const withLevel = (levelReached: unknown) =>
 			makeBackup({
-				sessions: [
-					{
-						...makeSession({ kind: 'exercise', exerciseId: 'rhythm-offbeats' }),
-						levelReached
-					} as never
-				]
+				sessions: [exerciseSession({ exercise: 'rhythm-offbeats', levelReached }) as never]
 			});
 		expect(() => validateBackupV9(withLevel('3'))).toThrow(/levelReached must be a whole number/);
 		expect(() => validateBackupV9(withLevel(1.5))).toThrow(/levelReached must be a whole number/);
@@ -957,7 +964,7 @@ describe('with chord-grid attempts', () => {
 		};
 		const attempt = makeAttempt({
 			id: 1,
-			exerciseId: 'gesture-climb',
+			exerciseId: 'grid-in-direction',
 			skill: 'grid-in-direction',
 			cardKey: 'grid-in-direction:iohefy-a#2',
 			phase: 'free',
@@ -978,7 +985,7 @@ describe('with chord-grid attempts', () => {
 	});
 
 	it('accepts a gesture session', () => {
-		const file = makeBackup({ sessions: [makeSession({ kind: 'gesture' })] });
+		const file = makeBackup({ sessions: [makeSession({ routine: 'changes' })] });
 		expect(validateBackupV9(file)).toBe(file);
 	});
 
@@ -994,7 +1001,7 @@ describe('with chord-grid attempts', () => {
 		const attempts = kinds.map((kind, i) =>
 			makeAttempt({
 				id: i + 1,
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				skill: 'grid-reading',
 				cardKey: 'grid-reading:blues-f#0',
 				data: {
@@ -1025,8 +1032,8 @@ describe('scopes', () => {
 		const file = makeBackup({
 			sessions: [
 				makeSession({
-					kind: 'gesture',
-					executions: [{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 80 }]
+					routine: 'changes',
+					executions: [{ exerciseId: 'grid-in-direction', scope: 'blues-f', tempoBpm: 80 }]
 				})
 			],
 			attempts: [makeAttempt({ id: 1, scope: 'blues-f' })]
@@ -1206,7 +1213,9 @@ describe('the chain of backups to version 9', () => {
 		const file = validateBackup(v5);
 		expect(file.version).toBe(9);
 		expect(file.cards).toEqual([cardToV13(withoutLead(neck())), cardToV13(withoutLead(anchor(4)))]);
-		expect(file.levelStates).toEqual([makeLevelState(), locateLevel, anchorLevel(1)]);
+		expect(file.levelStates).toEqual(
+			[makeLevelState(), locateLevel, anchorLevel(1)].map((state) => levelStateToV13({ ...state }))
+		);
 		expect(validateBackupV5(v5)).toBe(v5);
 	});
 
@@ -1216,7 +1225,9 @@ describe('the chain of backups to version 9', () => {
 		);
 		expect(file.version).toBe(9);
 		expect(file.cards).toEqual([cardToV13(withoutLead(neck())), cardToV13(withoutLead(anchor(2)))]);
-		expect(file.levelStates).toEqual([makeLevelState(), locateLevel, anchorLevel(2)]);
+		expect(file.levelStates).toEqual(
+			[makeLevelState(), locateLevel, anchorLevel(2)].map((state) => levelStateToV13({ ...state }))
+		);
 	});
 
 	it('passes a version 3 file through backupV3ToV4, backupV4ToV5, backupV5ToV6 then backupV6ToV7, backupV7ToV8', () => {
@@ -1224,7 +1235,7 @@ describe('the chain of backups to version 9', () => {
 		expect(file.version).toBe(9);
 		expect(
 			file.levelStates.map((state) => `${state.exerciseId}/${state.item}/${state.level}`)
-		).toEqual(['locate-neck/2:F/1', `triads-anchor/${KEY}/2`]);
+		).toEqual(['locate-note-string/2:F/1', `chord-anchor/${KEY}/2`]);
 		expect(file.cards.some((card) => Object.hasOwn(card, 'leadBeats'))).toBe(false);
 	});
 
@@ -1287,9 +1298,9 @@ describe('version 7', () => {
 		expect(file.version).toBe(9);
 		expect(Object.hasOwn(file, 'progressions')).toBe(false);
 		expect(file.levelStates).toEqual([
-			jam,
-			makeLevelState({ exerciseId: 'gesture-climb', scope: 'blues-f', level: 6, successes: 0 }),
-			makeLevelState({ exerciseId: 'gesture-link', level: 3, successes: 0 })
+			{ ...jam, exerciseId: 'grid-reading' },
+			makeLevelState({ exerciseId: 'grid-in-direction', scope: 'blues-f', level: 6, successes: 0 }),
+			makeLevelState({ exerciseId: 'inversion-run', level: 3, successes: 0 })
 		]);
 		expect(file.attempts).toEqual([
 			makeAttempt({ id: 1, scope: 'blues-f' }),
@@ -1363,9 +1374,117 @@ describe('version 9', () => {
 			makeAttempt({ id: 1 }),
 			makeAttempt({ id: 2, skill: 'identify-note' })
 		]);
-		expect(file.sessions).toEqual(v8.sessions);
+		expect(file.sessions).toEqual([makeSession()]);
 		expect(file.levelStates).toEqual(v8.levelStates);
 		expect(validateBackupV9(file)).toBe(file);
+	});
+
+	it('imports the level states and sessions of a version 8 file, renamed and reshaped', () => {
+		const sessions = [
+			makeSessionV12({ id: 'a', kind: 'learn' }),
+			makeSessionV12({ id: 'b', kind: 'free' }),
+			makeSessionV12({ id: 'c', kind: 'triads', executions: [] }),
+			makeSessionV12({ id: 'd', kind: 'triads-zone', executions: [] }),
+			makeSessionV12({
+				id: 'e',
+				kind: 'gesture',
+				executions: [{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 85 }]
+			}),
+			makeSessionV12({
+				id: 'f',
+				kind: 'exercise',
+				exerciseId: 'rhythm-two-four',
+				levelReached: 2,
+				executions: [{ exerciseId: 'rhythm-two-four', tempoBpm: 70 }]
+			})
+		];
+		const v8 = makeBackupV8({
+			levelStates: [
+				makeLevelState(),
+				makeLevelState({ exerciseId: 'gesture-climb', scope: 'blues-f' }),
+				makeLevelState({ exerciseId: 'triads-zone', item: 'D|maj|3:5,2:1,1:3' })
+			],
+			sessions
+		});
+		const file = validateBackup(v8);
+		expect(file.levelStates).toEqual([
+			makeLevelState(),
+			makeLevelState({ exerciseId: 'grid-in-direction', scope: 'blues-f' }),
+			makeLevelState({ exerciseId: 'chord-zone', item: 'D|maj|3:5,2:1,1:3' })
+		]);
+		expect(file.sessions).toEqual(sessions.map(sessionToV13));
+		expect(file.sessions.map(({ routine, exercise, free }) => [routine, exercise, free])).toEqual([
+			['notes', undefined, undefined],
+			['notes', undefined, true],
+			['chords', undefined, undefined],
+			['chords-zone', undefined, undefined],
+			['changes', undefined, undefined],
+			[undefined, 'rhythm-two-four', undefined]
+		]);
+		expect(file.sessions[4].executions).toEqual([
+			{ exerciseId: 'grid-in-direction', scope: 'blues-f', tempoBpm: 85 }
+		]);
+		expect(validateBackupV9(file)).toBe(file);
+	});
+
+	it('refuses a version 9 session that still says its kind or its exercise id', () => {
+		const withSession = (session: Record<string, unknown>) =>
+			makeBackup({ sessions: [{ ...makeSession(), ...session } as never] });
+		expect(() => validateBackupV9(withSession({ kind: 'learn' }))).toThrow(
+			'Invalid sessions entry at index 0: kind is gone'
+		);
+		expect(() =>
+			validateBackupV9(withSession({ routine: undefined, exerciseId: 'rhythm-two-four' }))
+		).toThrow('Invalid sessions entry at index 0: exerciseId is renamed exercise');
+	});
+
+	it('checks the routine, the exercise and the free play of a version 9 session', () => {
+		const withSession = (session: Record<string, unknown>) =>
+			makeBackup({ sessions: [{ ...makeSession(), ...session } as never] });
+		const fine = [
+			withSession({}),
+			withSession({ free: true }),
+			withSession({ routine: undefined, exercise: 'rhythm-two-four' }),
+			withSession({ routine: undefined })
+		];
+		for (const file of fine) expect(validateBackupV9(file)).toBe(file);
+		expect(() => validateBackupV9(withSession({ routine: '' }))).toThrow(
+			'routine must be a non-empty string'
+		);
+		expect(() => validateBackupV9(withSession({ routine: 3 }))).toThrow(
+			'routine must be a non-empty string'
+		);
+		expect(() => validateBackupV9(withSession({ exercise: '' }))).toThrow(
+			'exercise must be a non-empty string'
+		);
+		expect(() => validateBackupV9(withSession({ free: false }))).toThrow('free must be true');
+	});
+
+	it('refuses a version 9 file that names an exercise by its old id, and names it', () => {
+		expect(() =>
+			validateBackupV9(makeBackup({ attempts: [makeAttempt({ exerciseId: 'locate-neck' })] }))
+		).toThrow(
+			'Invalid attempts entry at index 0: exerciseId locate-neck is renamed locate-note-string'
+		);
+		expect(() =>
+			validateBackupV9(makeBackup({ levelStates: [makeLevelState({ exerciseId: 'gesture-jam' })] }))
+		).toThrow(
+			'Invalid levelStates entry at index 0: exerciseId gesture-jam is renamed grid-reading'
+		);
+		expect(() =>
+			validateBackupV9(
+				makeBackup({ sessions: [makeSession({ routine: undefined, exercise: 'triads-zone' })] })
+			)
+		).toThrow('Invalid sessions entry at index 0: exercise triads-zone is renamed chord-zone');
+		expect(() =>
+			validateBackupV9(
+				makeBackup({
+					sessions: [makeSession({ executions: [{ exerciseId: 'identify-neck', tempoBpm: null }] })]
+				})
+			)
+		).toThrow(
+			'Invalid sessions entry at index 0: executions[0].exerciseId identify-neck is renamed identify-note'
+		);
 	});
 
 	it('imports the keys of a version 8 file as version 13 writes them, the rows the same', () => {

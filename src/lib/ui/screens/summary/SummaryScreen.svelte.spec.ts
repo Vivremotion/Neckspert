@@ -165,7 +165,7 @@ describe('SummaryScreen of a gesture session', () => {
 		gesture: {
 			exercises: [
 				{
-					exerciseId: 'gesture-link',
+					exerciseId: 'inversion-run',
 					passagesPlayed: 4,
 					passagesSucceeded: 3,
 					changeSuccessRate: 0.86,
@@ -176,7 +176,7 @@ describe('SummaryScreen of a gesture session', () => {
 			misses: [
 				{
 					attemptId: 12,
-					exerciseId: 'gesture-link',
+					exerciseId: 'inversion-run',
 					symbol: 'D',
 					heard: '2-3-2',
 					expected: '7-7-5',
@@ -243,7 +243,7 @@ describe('SummaryScreen of a gesture session', () => {
 			...gesture,
 			gesture: {
 				exercises: ['iohefy-a', 'blues-f'].map((scope) => ({
-					exerciseId: 'gesture-climb',
+					exerciseId: 'grid-in-direction',
 					scope,
 					passagesPlayed: 1,
 					passagesSucceeded: 1,

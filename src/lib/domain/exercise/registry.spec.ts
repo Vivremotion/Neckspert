@@ -13,7 +13,7 @@ registerTestSkills();
 
 describe('the exercise registry', () => {
 	it('holds the catalog the test setup loads', () => {
-		expect(exerciseById('locate-neck').id).toBe('locate-neck');
+		expect(exerciseById('locate-note-string').id).toBe('locate-note-string');
 		expect(allExercises().length).toBeGreaterThan(0);
 	});
 

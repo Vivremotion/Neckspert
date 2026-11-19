@@ -17,7 +17,7 @@ const F_ON_B = { string: 2, pitch: 'F' } as const;
 
 function item(overrides: Partial<PlannedItem> = {}): PlannedItem {
 	return {
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		exerciseLevel: 0,
 		item: F_ON_B,
@@ -186,7 +186,7 @@ describe('AttemptRecorder', () => {
 
 	it('writes the level the source moved, and none when it moved none', async () => {
 		const level: LevelState = {
-			exerciseId: 'locate-neck',
+			exerciseId: 'locate-note-string',
 			scope: '',
 			item: 'F@2',
 			level: 2,
@@ -320,7 +320,7 @@ describe('AttemptRecorder', () => {
 		const { recorder, cards } = setupResponse();
 		const key = 'D|maj|3:5,2:1,1:3';
 		const planned = item({
-			exerciseId: 'triads-zone',
+			exerciseId: 'chord-zone',
 			skill: 'chord-zone',
 			item: { voicingKey: key, position: 2 },
 			phase: 'learning',

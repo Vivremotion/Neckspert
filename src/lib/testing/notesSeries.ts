@@ -86,7 +86,7 @@ export const identify = (string: IdentifyItem['string'], fret: number): NeckCard
 export function levelOf(card: NeckCard, level: number): LevelState {
 	const key = neckCardKey(card);
 	return {
-		exerciseId: card.skill === LOCATE_SKILL_ID ? 'locate-neck' : 'identify-neck',
+		exerciseId: card.skill === LOCATE_SKILL_ID ? 'locate-note-string' : 'identify-note',
 		scope: '',
 		item: key.slice(key.indexOf(':') + 1),
 		level,

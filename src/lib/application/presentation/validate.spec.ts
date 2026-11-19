@@ -31,7 +31,7 @@ describe('presentationProblem', () => {
 
 	it('refuses a field the set does not have, naming the exercise and the field', () => {
 		expect(presentationProblem(withPresentation(LOCATE_NECK, { primary: '{chord}' }))).toBe(
-			'locate-neck: presentation.primary names field "chord", which note-on-string does not have'
+			'locate-note-string: presentation.primary names field "chord", which note-on-string does not have'
 		);
 		expect(
 			presentationProblem(
@@ -41,7 +41,7 @@ describe('presentationProblem', () => {
 				})
 			)
 		).toBe(
-			'triads-anchor: presentation.aided.line names field "fret", which voicing-on-strings does not have'
+			'chord-anchor: presentation.aided.line names field "fret", which voicing-on-strings does not have'
 		);
 	});
 
@@ -51,14 +51,14 @@ describe('presentationProblem', () => {
 				withPresentation(LOCATE_NECK, { primary: '{note}', aided: { picture: 'lowest-shape' } })
 			)
 		).toBe(
-			'locate-neck: presentation.aided.picture names picture "lowest-shape", which does not read note-on-string'
+			'locate-note-string: presentation.aided.picture names picture "lowest-shape", which does not read note-on-string'
 		);
 		expect(
 			presentationProblem(
 				withPresentation(LOCATE_NECK, { primary: '{note}', fading: { picture: 'nowhere' } })
 			)
 		).toBe(
-			'locate-neck: presentation.fading.picture names picture "nowhere", which does not exist'
+			'locate-note-string: presentation.fading.picture names picture "nowhere", which does not exist'
 		);
 	});
 
@@ -77,12 +77,12 @@ describe('screenProblem', () => {
 
 	it('refuses a response exercise with neither a presentation nor a screen of its presenter, naming the exercise', () => {
 		expect(screenProblem(bare, presenters)).toBe(
-			'locate-neck: writes a round but no presentation, and note-on-string draws no screen of its own'
+			'locate-note-string: writes a round but no presentation, and note-on-string draws no screen of its own'
 		);
 		expect(
 			screenProblem({ ...TRIADS_ANCHOR, view: undefined, presentation: undefined }, NONE)
 		).toBe(
-			'triads-anchor: writes a round but no presentation, and voicing-on-strings draws no screen of its own'
+			'chord-anchor: writes a round but no presentation, and voicing-on-strings draws no screen of its own'
 		);
 	});
 
@@ -116,10 +116,10 @@ describe('screenProblem', () => {
 
 	it('refuses the figure view for a round that plays no figure, and a figure with no view to draw it', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'figure' }, presenters)).toBe(
-			'locate-neck: view "figure" draws the figure of its round, and the round plays none'
+			'locate-note-string: view "figure" draws the figure of its round, and the round plays none'
 		);
 		expect(screenProblem({ ...bare, round: figureRound }, presenters)).toBe(
-			'locate-neck: writes a round but no presentation, and note-on-string draws no screen of its own'
+			'locate-note-string: writes a round but no presentation, and note-on-string draws no screen of its own'
 		);
 	});
 
@@ -191,16 +191,16 @@ describe('screenProblem', () => {
 
 	it('refuses a view the screen does not have, naming the exercise and the field', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'score' }, presenters)).toBe(
-			'locate-neck: view "score" is not a view of the screen (known: answer-keys, figure, grid-scroll, lane, link-lane)'
+			'locate-note-string: view "score" is not a view of the screen (known: answer-keys, figure, grid-scroll, lane, link-lane)'
 		);
 	});
 
 	it('refuses a presentation drawn by a view that reads another model, and such a view without one', () => {
 		expect(screenProblem({ ...LOCATE_NECK, view: 'grid-scroll' }, presenters)).toBe(
-			'locate-neck: view "grid-scroll" cannot draw a presentation (the views that do: lane, answer-keys, figure)'
+			'locate-note-string: view "grid-scroll" cannot draw a presentation (the views that do: lane, answer-keys, figure)'
 		);
 		expect(screenProblem({ ...bare, view: 'lane', round: undefined }, presenters)).toBe(
-			'locate-neck: view "lane" draws a presentation, and the exercise writes none'
+			'locate-note-string: view "lane" draws a presentation, and the exercise writes none'
 		);
 		for (const view of PROMPT_STAGE_VIEWS) {
 			const round = view === 'figure' ? figureRound : LOCATE_NECK.round;
@@ -226,7 +226,7 @@ describe('previewProblem', () => {
 		// The domain cannot know the presenter's preview: it accepts the exercise.
 		expect(validateExercise(short())).toBeNull();
 		expect(previewProblem(short(), presenters)).toBe(
-			"locate-neck: round.listenBeforeEnd must leave the round some listening: it lasts 1/4, got 1/4 (its preview is note-on-string's, 1 beats)"
+			"locate-note-string: round.listenBeforeEnd must leave the round some listening: it lasts 1/4, got 1/4 (its preview is note-on-string's, 1 beats)"
 		);
 	});
 

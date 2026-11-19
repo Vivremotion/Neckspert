@@ -54,21 +54,21 @@ function change(
 
 describe('summarizeGesture', () => {
 	it('counts the passages played and succeeded, and the changes right and in time, by exercise', () => {
-		const ok = Array.from({ length: 10 }, (_, i) => change('gesture-jam', 'p1', i % 9, 'perfect'));
+		const ok = Array.from({ length: 10 }, (_, i) => change('grid-reading', 'p1', i % 9, 'perfect'));
 		const failed = [
-			change('gesture-jam', 'p2', 0, 'perfect'),
-			change('gesture-jam', 'p2', 1, 'offbeat')
+			change('grid-reading', 'p2', 0, 'perfect'),
+			change('grid-reading', 'p2', 1, 'offbeat')
 		];
 		const summary = summarizeGesture(
 			[
-				{ exerciseId: 'gesture-link', tempoBpm: 90 },
-				{ exerciseId: 'gesture-jam', tempoBpm: 80 }
+				{ exerciseId: 'inversion-run', tempoBpm: 90 },
+				{ exerciseId: 'grid-reading', tempoBpm: 80 }
 			],
 			[...ok, ...failed]
 		);
 		expect(summary.exercises).toEqual([
 			{
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				passagesPlayed: 2,
 				passagesSucceeded: 1,
 				changeSuccessRate: 11 / 12,
@@ -80,12 +80,12 @@ describe('summarizeGesture', () => {
 	});
 
 	it('tells the first and the last tempo played', () => {
-		const at80 = [0, 1].map((i) => change('gesture-jam', 'p1', i, 'perfect'));
+		const at80 = [0, 1].map((i) => change('grid-reading', 'p1', i, 'perfect'));
 		const at85 = [0, 1].map((i) =>
-			change('gesture-jam', 'p2', i, 'perfect', null, { tempoBpm: 85 })
+			change('grid-reading', 'p2', i, 'perfect', null, { tempoBpm: 85 })
 		);
 		const summary = summarizeGesture(
-			[{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+			[{ exerciseId: 'grid-reading', tempoBpm: 80 }],
 			[...at80, ...at85]
 		);
 		expect(summary.exercises[0]).toMatchObject({ tempoBpm: 80, lastTempoBpm: 85 });
@@ -103,16 +103,16 @@ describe('summarizeGesture', () => {
 	it('lists the missed changes with the shape heard and the closest admitted, and their contest', () => {
 		const heard = shapeId('D', 'maj', [3, 2, 1], '7-7-5');
 		const summary = summarizeGesture(
-			[{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+			[{ exerciseId: 'grid-reading', tempoBpm: 80 }],
 			[
-				change('gesture-jam', 'p1', 0, 'wrong', heard, { id: 7 }),
-				change('gesture-jam', 'p1', 1, 'wrong', null, { id: 8, contested: true })
+				change('grid-reading', 'p1', 0, 'wrong', heard, { id: 7 }),
+				change('grid-reading', 'p1', 1, 'wrong', null, { id: 8, contested: true })
 			]
 		);
 		expect(summary.misses).toEqual([
 			{
 				attemptId: 7,
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				symbol: 'Dm7',
 				heard: '7-7-5',
 				expected: '7-6-5',
@@ -120,7 +120,7 @@ describe('summarizeGesture', () => {
 			},
 			{
 				attemptId: 8,
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				symbol: 'G7',
 				heard: null,
 				expected: '0-0-0',
@@ -131,21 +131,21 @@ describe('summarizeGesture', () => {
 
 	it('sums each grid of an exercise apart, at its own tempo', () => {
 		const ballad = Array.from({ length: 10 }, (_, i) =>
-			change('gesture-jam', 'p1', i % 9, 'perfect', null, { scope: 'iohefy-a' })
+			change('grid-reading', 'p1', i % 9, 'perfect', null, { scope: 'iohefy-a' })
 		);
 		const blues = [
-			change('gesture-jam', 'p2', 0, 'wrong', null, { scope: 'blues-f', tempoBpm: 100 })
+			change('grid-reading', 'p2', 0, 'wrong', null, { scope: 'blues-f', tempoBpm: 100 })
 		];
 		const summary = summarizeGesture(
 			[
-				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 80 },
-				{ exerciseId: 'gesture-jam', scope: 'blues-f', tempoBpm: 100 }
+				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 80 },
+				{ exerciseId: 'grid-reading', scope: 'blues-f', tempoBpm: 100 }
 			],
 			[...ballad, ...blues]
 		);
 		expect(summary.exercises).toEqual([
 			{
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				scope: 'iohefy-a',
 				passagesPlayed: 1,
 				passagesSucceeded: 1,
@@ -154,7 +154,7 @@ describe('summarizeGesture', () => {
 				lastTempoBpm: 80
 			},
 			{
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				scope: 'blues-f',
 				passagesPlayed: 1,
 				passagesSucceeded: 0,

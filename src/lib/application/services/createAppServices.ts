@@ -51,6 +51,7 @@ import { triadNotesToLearn, triadZoneOpen } from '$lib/domain/triads';
 import { triadSubject, type TriadSkill } from '$lib/domain/triads/triadSubject';
 import {
 	isTriadsKind,
+	sessionKindOf,
 	type Attempt,
 	type ExerciseSummary,
 	type SessionKind,
@@ -298,9 +299,9 @@ export function createAppServices(
 	 * round that writes a figure.
 	 */
 	const sessionExerciseOf = (record: SessionRecord) => {
-		if (record.kind !== 'exercise' || record.exerciseId === undefined) return undefined;
+		if (sessionKindOf(record) !== 'exercise' || record.exercise === undefined) return undefined;
 		try {
-			const played = exerciseOf(record.exerciseId);
+			const played = exerciseOf(record.exercise);
 			return played.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 		} catch {
 			return undefined;
@@ -414,7 +415,7 @@ export function createAppServices(
 				deps.cards.all()
 			]);
 			// Next reviews of the session's own track: the neck's, or the triads'.
-			const ofTrack = (x: { skill: string }) => isNeck(x) === !isTriadsKind(record.kind);
+			const ofTrack = (x: { skill: string }) => isNeck(x) === !isTriadsKind(sessionKindOf(record));
 			return summarizeSession({
 				record,
 				attempts,

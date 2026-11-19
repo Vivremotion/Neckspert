@@ -55,8 +55,8 @@ describe('SessionController', () => {
 	describe('start', () => {
 		it('tells an exercise’s instruction in every series, played before or not', async () => {
 			const ctx = setup(passage());
-			await ctx.repositories.attempts.add({ ...earlier('gesture-jam'), skill: 'grid-reading' });
-			expect(exerciseById('gesture-jam').flow?.briefing).toBeUndefined();
+			await ctx.repositories.attempts.add({ ...earlier('grid-reading'), skill: 'grid-reading' });
+			expect(exerciseById('grid-reading').flow?.briefing).toBeUndefined();
 			await ctx.controller.ready();
 			expect(ctx.controller.view.briefing?.text).toMatch(/grille/);
 		});
@@ -285,7 +285,7 @@ describe('SessionController', () => {
 
 	describe('instruction', () => {
 		it('stops before the first passage of another exercise: nothing plays until resume, which counts a bar at its tempo', async () => {
-			const ctx = setup([...passage(), ...passage({ passage: 's:1', exerciseId: 'gesture-zone' })]);
+			const ctx = setup([...passage(), ...passage({ passage: 's:1', exerciseId: 'grid-in-zone' })]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(3) - 0.2);
 			expect(ctx.controller.view.status).toBe('paused');
@@ -374,7 +374,7 @@ describe('SessionController', () => {
 			expect(session.endedAt).not.toBeNull();
 			// One execution per exercise and scope met, at the tempo of its first round.
 			expect(session.executions).toEqual([
-				{ exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 }
+				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 120 }
 			]);
 		});
 
@@ -503,7 +503,7 @@ describe('SessionController', () => {
 			expect(ctx.source.recorded[0]).toMatchObject({
 				success: true,
 				correct: true,
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				scope: 'iohefy-a'
 			});
 			await drain();
@@ -603,7 +603,7 @@ describe('SessionController', () => {
 			const ctx = setup([
 				...passage(),
 				...passage({ passage: 's:1', restBars: 1 }),
-				...passage({ passage: 's:2', exerciseId: 'gesture-zone' })
+				...passage({ passage: 's:2', exerciseId: 'grid-in-zone' })
 			]);
 			await ctx.controller.start();
 			ctx.runTo(ctx.bar(5.5));
@@ -658,7 +658,7 @@ describe('SessionController', () => {
 			]);
 			// A passage is a run: from its first change's prompt to the next counted bar.
 			const first = childOf(series, 'run');
-			expect(first).toMatchObject({ level: 0, exerciseId: 'gesture-jam', ended: 'done' });
+			expect(first).toMatchObject({ level: 0, exerciseId: 'grid-reading', ended: 'done' });
 			expect(first?.startS).toBeCloseTo(ctx.bar(0.75), 6);
 			expect(first?.endS).toBeCloseTo(ctx.bar(3), 6);
 			expect(first?.children.map((child) => [child.role, child.ended])).toEqual([
@@ -1042,7 +1042,7 @@ describe('SessionController', () => {
 			const tap = id === TAP_EXERCISE;
 			const unannounced = id === UNANNOUNCED_EXERCISE;
 			return {
-				...exerciseById(tap ? 'gesture-zone' : unannounced ? 'gesture-jam' : id),
+				...exerciseById(tap ? 'grid-in-zone' : unannounced ? 'grid-reading' : id),
 				id,
 				practices: tap ? 'tap' : unannounced ? 'beat-unannounced' : 'beat',
 				view: undefined,
@@ -1050,7 +1050,7 @@ describe('SessionController', () => {
 			};
 		};
 		/** The exercises of the series: the beat's sensor and the tap's open. */
-		const plays = ['gesture-jam', TAP_EXERCISE];
+		const plays = ['grid-reading', TAP_EXERCISE];
 		/** Item `index` of `skill`, at `lead`; the first one counted in. */
 		const beat = (
 			index: number,
@@ -1389,8 +1389,8 @@ describe('SessionController', () => {
 					.map((s) => ({ time: s.time, accent: s.sound === 'click-accent' }));
 
 			it('counts a bar in the new meter between a timed item and one of another meter, then plays in it', async () => {
-				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'gesture-zone' })], {
-					exercise: inWaltz('gesture-zone'),
+				const ctx = series([beat(0, 8), beat(1, 3, { exerciseId: 'grid-in-zone' })], {
+					exercise: inWaltz('grid-in-zone'),
 					levelStates
 				});
 				await ctx.controller.start();
@@ -1426,7 +1426,7 @@ describe('SessionController', () => {
 
 			it('counts a bar in 3/4 after an item in free time first, then plays in it', async () => {
 				const ctx = series([beat(0, 8, {}, 'tap'), beat(1, 3, { countIn: true })], {
-					exercise: inWaltz('gesture-jam'),
+					exercise: inWaltz('grid-reading'),
 					levelStates
 				});
 				await ctx.controller.start();
@@ -1502,7 +1502,7 @@ describe('SessionController', () => {
 		 */
 		const SCREEN_JAM = 'screen-jam';
 		const screenExercise = (id: string) => {
-			const jam = { ...exerciseById(id === SCREEN_JAM ? 'gesture-jam' : id), howTo: undefined };
+			const jam = { ...exerciseById(id === SCREEN_JAM ? 'grid-reading' : id), howTo: undefined };
 			return id === SCREEN_JAM ? { ...jam, id, practices: 'screen-grid', view: undefined } : jam;
 		};
 		// The chord grid's items, read under another set's name.

@@ -138,7 +138,7 @@ describe('the learning procedure', () => {
 			expect(offendersIn({ [file]: `const m = \`${name}\`;` })).toEqual([`${file}: ${name}`]);
 		}
 		// The catalog's exercise ids are names too.
-		expect(NAMES).toEqual(expect.arrayContaining(['locate-neck', 'triads-anchor']));
+		expect(NAMES).toEqual(expect.arrayContaining(['locate-note-string', 'chord-anchor']));
 		expect(offendersIn({ [`${MODULE}x.spec.ts`]: `const m = 'locate';` })).toEqual([]);
 	});
 });

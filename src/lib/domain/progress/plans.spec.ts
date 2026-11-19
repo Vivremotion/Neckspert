@@ -27,9 +27,9 @@ describe('buildFreePlan', () => {
 		expect(plan.find((item) => keyOf(item) === neckCardKey(L2))?.leadBeats).toBe(8);
 		expect(plan.find((item) => item.skill === 'identify-note')?.leadBeats).toBeNull();
 		expect(plan.find((item) => item.skill === 'locate-note-string')?.exerciseId).toBe(
-			'locate-neck'
+			'locate-note-string'
 		);
-		expect(plan.find((item) => item.skill === 'identify-note')?.exerciseId).toBe('identify-neck');
+		expect(plan.find((item) => item.skill === 'identify-note')?.exerciseId).toBe('identify-note');
 	});
 
 	it('plays one series of the free-play length by default', () => {
@@ -41,7 +41,7 @@ describe('buildFreePlan', () => {
 describe('freeLeadOf', () => {
 	const subject = neckSubject({ definitions: { locate: LOCATE_NECK, identify: IDENTIFY_NECK } });
 	const level = (item: string, at: number): LevelState => ({
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		scope: '',
 		item,
 		level: at,

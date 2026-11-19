@@ -29,71 +29,77 @@ describe('validateExercise', () => {
 	});
 
 	it('names the exercise and the field it cannot run', () => {
-		expect(validateExercise({ ...LOCATE_NECK, tempo: 0 })).toMatch(/^locate-neck: tempo .*0/);
+		expect(validateExercise({ ...LOCATE_NECK, tempo: 0 })).toMatch(
+			/^locate-note-string: tempo .*0/
+		);
 		expect(validateExercise(withParams({ ladder: [] }))).toBe(
-			'locate-neck: params.ladder is empty'
+			'locate-note-string: params.ladder is empty'
 		);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: -2, aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*-2/);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*-2/);
 		expect(validateExercise(withParams({ windows: { perfectMs: -1 } }))).toMatch(
-			/^locate-neck: params\.windows\.perfectMs /
+			/^locate-note-string: params\.windows\.perfectMs /
 		);
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: -1 } })).toMatch(
-			/^locate-neck: flow\.previewBeats /
+			/^locate-note-string: flow\.previewBeats /
 		);
 		expect(
 			validateExercise({
 				...LOCATE_NECK,
 				flow: { briefing: 'never' as unknown as 'each-series' }
 			})
-		).toBe('locate-neck: flow.briefing must be one of each-series, first-encounter, got never');
+		).toBe(
+			'locate-note-string: flow.briefing must be one of each-series, first-encounter, got never'
+		);
 		expect(validateExercise({ ...LOCATE_NECK, flow: { briefing: 'first-encounter' } })).toBeNull();
 		expect(validateExercise({ ...LOCATE_NECK, flow: { previewBeats: 1.5 } })).toMatch(
-			/^locate-neck: flow\.previewBeats /
+			/^locate-note-string: flow\.previewBeats /
 		);
 		expect(
 			validateExercise({
 				...LOCATE_NECK,
 				meter: { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1] }
 			})
-		).toMatch(/^locate-neck: meter /);
+		).toMatch(/^locate-note-string: meter /);
 		// A breath of 0 bars makes a round of length 0.
 		expect(validateExercise(withParams({ pacing: { respirationBars: 0 } }))).toMatch(
-			/^locate-neck: params\.pacing\.respirationBars .*0/
+			/^locate-note-string: params\.pacing\.respirationBars .*0/
 		);
 		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 0 } }))).toMatch(
-			/^locate-neck: params\.pacing\.roundsPerBreath .*0/
+			/^locate-note-string: params\.pacing\.roundsPerBreath .*0/
 		);
 		expect(validateExercise(withParams({ pacing: { roundsPerBreath: 1.5 } }))).toMatch(
-			/^locate-neck: params\.pacing\.roundsPerBreath /
+			/^locate-note-string: params\.pacing\.roundsPerBreath /
 		);
 		expect(validateExercise(withParams({ pacing: { breathMinMs: -1 } }))).toMatch(
-			/^locate-neck: params\.pacing\.breathMinMs .*-1/
+			/^locate-note-string: params\.pacing\.breathMinMs .*-1/
 		);
 		// The breath between rounds keeps its default when only the runs are written.
 		expect(
 			validateExercise(withParams({ pacing: { roundsPerBreath: 2, breathMinMs: 0 } }))
 		).toBeNull();
 		expect(validateExercise(withParams({ learning: { retestGaps: [2] } }))).toMatch(
-			/^locate-neck: params\.learning\.retestGaps /
+			/^locate-note-string: params\.learning\.retestGaps /
 		);
 		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
-			/^locate-neck: params\.learning\.aidFadeSuccesses /
+			/^locate-note-string: params\.learning\.aidFadeSuccesses /
 		);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: 1.0001, aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead .*1\.0001/);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead .*1\.0001/);
 		expect(validateExercise(withParams({ windows: { anchorChordFromBeats: 1.0001 } }))).toMatch(
-			/^locate-neck: params\.windows\.anchorChordFromBeats /
+			/^locate-note-string: params\.windows\.anchorChordFromBeats /
 		);
 	});
 
 	it('checks the round the exercise writes, against the sensors it is given', () => {
 		const wrong = { ...LOCATE_NECK, round: { ...LOCATE_NECK.round!, extra: 1 } };
-		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(/^locate-neck: round\.extra /);
+		expect(validateExercise(wrong as ExerciseDefinition)).toMatch(
+			/^locate-note-string: round\.extra /
+		);
 		expect(validateExercise(LOCATE_NECK, { sensors: ['chord'] })).toMatch(
-			/^locate-neck: round\.expectations\[0\]\.sensor /
+			/^locate-note-string: round\.expectations\[0\]\.sensor /
 		);
 		expect(validateExercise(LOCATE_NECK, { sensors: ['note'] })).toBeNull();
 	});
@@ -104,23 +110,23 @@ describe('validateExercise', () => {
 				...LOCATE_NECK,
 				levels: [{ params: {} }, { params: { 'tempo.bpm': 90 } }]
 			})
-		).toMatch(/^locate-neck: levels\[1\] .*tempo\.bpm/);
+		).toMatch(/^locate-note-string: levels\[1\] .*tempo\.bpm/);
 		const ladder = [
 			{ params: { leadBeats: 4, aided: false } },
 			{ params: { leadBeats: 2, aided: false, 'windows.perfectMs.at': 60 } }
 		];
 		expect(validateExercise(withParams({ ladder }))).toMatch(
-			/^locate-neck: params\.ladder level 1: .*windows\.perfectMs\.at/
+			/^locate-note-string: params\.ladder level 1: .*windows\.perfectMs\.at/
 		);
 	});
 
 	it('refuses an item level whose leadBeats is not a beat count', () => {
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: '4', aided: false } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: the lead /);
+		).toMatch(/^locate-note-string: params\.ladder level 0: the lead /);
 		expect(
 			validateExercise(withParams({ ladder: [{ params: { leadBeats: 4, aided: 'yes' } }] }))
-		).toMatch(/^locate-neck: params\.ladder level 0: aided /);
+		).toMatch(/^locate-note-string: params\.ladder level 0: aided /);
 	});
 
 	it('accepts a level path no piece reads', () => {
@@ -197,7 +203,7 @@ describe('validateExercise on what a file could break in play', () => {
 		levels: [{ params }]
 	});
 	const expectRefusal = (problem: string | null, ...fragments: string[]) => {
-		expect(problem).toMatch(/^locate-neck: /);
+		expect(problem).toMatch(/^locate-note-string: /);
 		for (const fragment of fragments) expect(problem).toContain(fragment);
 	};
 
@@ -231,7 +237,7 @@ describe('validateExercise on what a file could break in play', () => {
 		expect(validateExercise(withParams({ ladder }))).toBeNull();
 		expect(validateExercise(levelled({ 'learning.aidFadeSuccesses': 1.5 }))).toBeNull();
 		expect(validateExercise(withParams({ learning: { aidFadeSuccesses: 1.5 } }))).toMatch(
-			/^locate-neck: params\.learning\.aidFadeSuccesses /
+			/^locate-note-string: params\.learning\.aidFadeSuccesses /
 		);
 	});
 
@@ -290,20 +296,20 @@ describe('validateExercise on what a file could break in play', () => {
 describe('validateExercise on how a run starts', () => {
 	it('refuses a listen-in that is not a whole number of bars, and a count that is not a boolean', () => {
 		expect(validateExercise(withParams({ pacing: { listenInBars: 1.5 } }))).toBe(
-			'locate-neck: params.pacing.listenInBars must be a non-negative integer, got 1.5'
+			'locate-note-string: params.pacing.listenInBars must be a non-negative integer, got 1.5'
 		);
 		expect(validateExercise(withParams({ pacing: { listenInBars: -1 } }))).toMatch(
-			/^locate-neck: params\.pacing\.listenInBars .*-1/
+			/^locate-note-string: params\.pacing\.listenInBars .*-1/
 		);
 		expect(validateExercise(withParams({ pacing: { countIn: 'yes' } }))).toBe(
-			'locate-neck: params.pacing.countIn must be true or false, got yes'
+			'locate-note-string: params.pacing.countIn must be true or false, got yes'
 		);
 	});
 
 	it('refuses no listen-in and no counted bar, at the level that resolves them', () => {
 		// The listen-in is 0 by default: no counted bar leaves nothing to hear before playing.
 		expect(validateExercise(withParams({ pacing: { countIn: false } }))).toBe(
-			'locate-neck: params resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other'
+			'locate-note-string: params resolves params.pacing.countIn false with no listen-in bar: a run needs one or the other'
 		);
 		expect(
 			validateExercise(withParams({ pacing: { countIn: false, listenInBars: 1 } }))
@@ -333,13 +339,13 @@ describe('validateExercise on levels a file writes wrong', () => {
 				...LOCATE_NECK,
 				levels: [null] as unknown as ExerciseDefinition['levels']
 			})
-		).toBe('locate-neck: levels[0] must be an object');
+		).toBe('locate-note-string: levels[0] must be an object');
 	});
 
 	it('refuses a level without params', () => {
 		expect(
 			validateExercise({ ...LOCATE_NECK, levels: [{}] as unknown as ExerciseDefinition['levels'] })
-		).toBe('locate-neck: levels[0].params must be an object');
+		).toBe('locate-note-string: levels[0].params must be an object');
 	});
 });
 

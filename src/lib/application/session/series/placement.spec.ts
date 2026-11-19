@@ -36,7 +36,7 @@ const locate = (leadBeats: LeadBeats, meter: Meter) =>
 		resolved
 	);
 const change = (meter: Meter) =>
-	compileRound(exerciseById('gesture-jam'), gridChange(0), meter, resolved);
+	compileRound(exerciseById('grid-reading'), gridChange(0), meter, resolved);
 const free = compileRound(
 	IDENTIFY_NECK,
 	{

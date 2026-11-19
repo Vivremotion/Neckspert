@@ -3,6 +3,7 @@ import { median } from '$lib/domain/stats';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
 	isTriadsKind,
+	sessionKindOf,
 	type Attempt,
 	type CardState,
 	type HomeStats,
@@ -113,7 +114,8 @@ export function summarizeSession(input: {
 	cards: readonly CardState[];
 	now: number;
 }): SessionSummary {
-	const pool = input.record.kind === 'free' ? 'all' : 'cold';
+	const kind = sessionKindOf(input.record);
+	const pool = kind === 'free' ? 'all' : 'cold';
 	// Cold figures measure reviews: probes are shown apart, as notes already known.
 	const scored =
 		pool === 'all' ? input.attempts : input.attempts.filter((attempt) => attempt.phase !== 'probe');
@@ -121,14 +123,10 @@ export function summarizeSession(input: {
 		pool === 'all' ? scored : scored.filter((attempt) => attempt.temperature === 'cold');
 	const startedAt = input.record.startedAt;
 	const endedAt = input.record.endedAt ?? input.now;
-	const triads = isTriadsKind(input.record.kind);
+	const triads = isTriadsKind(kind);
 	// The tempo shown is the session's exercise's: locate for the notes.
 	const shownExercise = exerciseById(
-		input.record.kind === 'triads-zone'
-			? TRIADS_ZONE_ID
-			: triads
-				? TRIADS_ANCHOR_ID
-				: LOCATE_NECK_ID
+		kind === 'triads-zone' ? TRIADS_ZONE_ID : triads ? TRIADS_ANCHOR_ID : LOCATE_NECK_ID
 	);
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
@@ -154,8 +152,8 @@ export function summarizeSession(input: {
 		tempoBpm:
 			input.record.executions.find((execution) => execution.exerciseId === shownExercise.id)
 				?.tempoBpm ?? null,
-		kind: input.record.kind,
-		...(input.record.kind === 'gesture' && {
+		kind,
+		...(kind === 'gesture' && {
 			gesture: summarizeGesture(input.record.executions, input.attempts)
 		})
 	};

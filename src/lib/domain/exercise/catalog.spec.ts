@@ -21,7 +21,7 @@ import {
 describe('exercise catalog', () => {
 	it('describes the two neck exercises', () => {
 		expect(LOCATE_NECK).toEqual({
-			id: 'locate-neck',
+			id: 'locate-note-string',
 			practices: 'locate-note-string',
 			view: 'lane',
 			tempo: 80,
@@ -30,7 +30,7 @@ describe('exercise catalog', () => {
 			params: { ladder: ladderOf(LOCATE_NECK) }
 		});
 		expect(IDENTIFY_NECK).toEqual({
-			id: 'identify-neck',
+			id: 'identify-note',
 			practices: 'identify-note',
 			view: 'answer-keys',
 			round: IDENTIFY_NECK.round,
@@ -40,7 +40,7 @@ describe('exercise catalog', () => {
 	});
 
 	it('finds an exercise by id and throws on an unknown one', () => {
-		expect(exerciseById('identify-neck')).toBe(IDENTIFY_NECK);
+		expect(exerciseById('identify-note')).toBe(IDENTIFY_NECK);
 		expect(() => exerciseById('nope')).toThrow(/nope/);
 	});
 
@@ -64,7 +64,7 @@ describe('exercise catalog', () => {
 			]
 		};
 		expect(TRIADS_ANCHOR).toEqual({
-			id: 'triads-anchor',
+			id: 'chord-anchor',
 			practices: 'chord-anchor',
 			view: 'lane',
 			tempo: 80,
@@ -73,7 +73,7 @@ describe('exercise catalog', () => {
 			params
 		});
 		expect(TRIADS_ZONE).toEqual({
-			id: 'triads-zone',
+			id: 'chord-zone',
 			practices: 'chord-zone',
 			view: 'lane',
 			tempo: 80,
@@ -81,7 +81,7 @@ describe('exercise catalog', () => {
 			presentation: TRIADS_ZONE.presentation,
 			params
 		});
-		expect(exerciseById('triads-zone')).toBe(TRIADS_ZONE);
+		expect(exerciseById('chord-zone')).toBe(TRIADS_ZONE);
 		expect(pacingOf(TRIADS_ANCHOR)).toEqual(params.pacing);
 		expect(TRIADS_ANCHOR.params).not.toBe(TRIADS_ZONE.params);
 	});

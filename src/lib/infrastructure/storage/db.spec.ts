@@ -16,7 +16,7 @@ import {
 	makeCycleAttemptV11
 } from './testing/fixtures';
 import { attemptToV12 } from './migrations/v12';
-import { attemptToV13, cardToV13 } from './migrations/v13';
+import { attemptToV13, cardToV13, levelStateToV13, sessionToV13 } from './migrations/v13';
 import type { LevelState } from '$lib/domain/time';
 
 describe('createDatabase', () => {
@@ -101,10 +101,12 @@ describe('createDatabase', () => {
 		const attempts = await db.attempts.orderBy('promptedAt').toArray();
 		expect(attempts.map((a) => a.phase)).toEqual(['probe', 'probe', 'review']);
 		expect(attempts.map((a) => a.temperature)).toEqual(['cold', 'hot', 'cold']);
-		expect((await db.sessions.toArray()).map((session) => session.kind)).toEqual([
-			'learn',
-			'learn'
+		// Version 13 then recorded the routine they played instead of their kind.
+		expect((await db.sessions.toArray()).map((session) => session.routine)).toEqual([
+			'notes',
+			'notes'
 		]);
+		expect((await db.sessions.toArray()).some((session) => 'kind' in session)).toBe(false);
 		expect(await db.settings.get('settings')).toEqual({
 			id: 'settings',
 			latency: {},
@@ -213,7 +215,7 @@ describe('createDatabase', () => {
 		expect(locate).toEqual({
 			id: 1,
 			sessionId: 's1',
-			exerciseId: 'locate-neck',
+			exerciseId: 'locate-note-string',
 			skill: 'locate-note-string',
 			cardKey: 'locate-note-string:6:A',
 			phase: 'review',
@@ -234,7 +236,7 @@ describe('createDatabase', () => {
 		});
 		expect(identify).toMatchObject({
 			id: 2,
-			exerciseId: 'identify-neck',
+			exerciseId: 'identify-note',
 			skill: 'identify-note',
 			tempoBpm: null,
 			data: { item: { string: 6, fret: 3 }, answer: { pitch: 'G' }, confusion: null }
@@ -245,13 +247,13 @@ describe('createDatabase', () => {
 		expect(await db.sessions.toArray()).toEqual([
 			{
 				id: 's1',
-				kind: 'learn',
+				routine: 'notes',
 				startedAt: 1,
 				endedAt: 2,
 				fatigueDetected: false,
 				executions: [
-					{ exerciseId: 'locate-neck', tempoBpm: 100 },
-					{ exerciseId: 'identify-neck', tempoBpm: null }
+					{ exerciseId: 'locate-note-string', tempoBpm: 100 },
+					{ exerciseId: 'identify-note', tempoBpm: null }
 				],
 				latencyMs: null
 			}
@@ -311,6 +313,7 @@ describe('createDatabase', () => {
 		expect(await db.attempts.toArray()).toEqual([
 			{
 				...kept,
+				exerciseId: 'locate-note-string',
 				skill: 'locate-note-string',
 				cardKey: 'locate-note-string:6:A',
 				id: 1,
@@ -322,7 +325,7 @@ describe('createDatabase', () => {
 				plan: null
 			}
 		]);
-		expect(await db.sessions.toArray()).toEqual([{ ...session, latencyMs: null }]);
+		expect(await db.sessions.toArray()).toEqual([{ ...sessionToV13(session), latencyMs: null }]);
 		db.close();
 	});
 
@@ -537,12 +540,14 @@ describe('version 9', () => {
 		expect(db.tables.map((table) => table.name)).not.toContain('progressions');
 		const states = await db.levelStates.toArray();
 		expect(states).toHaveLength(5);
-		expect(states).toContainEqual(triadLevelOfCard(cards[3]));
+		// Version 13 then renamed their exercises.
+		const renamed = (state: Record<string, unknown> | null) => state && levelStateToV13(state);
+		expect(states).toContainEqual(renamed(triadLevelOfCard(cards[3])));
 		expect(states).toContainEqual(rhythm);
 		// Seeded at 80 bpm, the progression's 160 aside: a lead of 4 is level 1.
-		expect(states).toContainEqual(neckLevelOfCard(cards[0]));
-		expect(states).toContainEqual(neckLevelOfCard(cards[1]));
-		expect(states).toContainEqual(neckLevelOfCard(cards[2]));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[0])));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[1])));
+		expect(states).toContainEqual(renamed(neckLevelOfCard(cards[2])));
 		expect(states.find((state) => state.item === '6:F')?.level).toBe(1);
 		expect(states.find((state) => state.item === '5:A')?.level).toBe(0);
 		expect(states.find((state) => state.item === '6:3')?.level).toBe(1);
@@ -611,11 +616,12 @@ describe('version 10', () => {
 		const levelOf = (exerciseId: string, item: string) =>
 			states.find((state) => state.exerciseId === exerciseId && state.item === item)?.level;
 		expect(states).toHaveLength(4);
-		expect(states).toContainEqual(locateLevel);
-		expect(levelOf('triads-anchor', 'D|maj|3:5,2:1,1:3')).toBe(1);
-		expect(levelOf('triads-anchor', 'C|maj|3:5,2:1,1:3')).toBe(2);
-		expect(levelOf('triads-zone', 'D|maj|3:5,2:1,1:3')).toBe(0);
-		const triads = states.filter((state) => state.exerciseId.startsWith('triads'));
+		// Version 13 then renamed their exercises.
+		expect(states).toContainEqual(levelStateToV13(locateLevel));
+		expect(levelOf('chord-anchor', 'D|maj|3:5,2:1,1:3')).toBe(1);
+		expect(levelOf('chord-anchor', 'C|maj|3:5,2:1,1:3')).toBe(2);
+		expect(levelOf('chord-zone', 'D|maj|3:5,2:1,1:3')).toBe(0);
+		const triads = states.filter((state) => state.exerciseId.startsWith('chord-'));
 		expect(triads).toHaveLength(3);
 		for (const state of triads) {
 			expect(state).toMatchObject({ scope: '', successes: 0, failures: 0, resumeAfter: null });
@@ -707,8 +713,13 @@ describe('version 11', () => {
 		const byKey = (a: LevelState, b: LevelState) =>
 			`${a.exerciseId}/${a.scope}`.localeCompare(`${b.exerciseId}/${b.scope}`);
 		const states = (await db.levelStates.toArray()).sort(byKey);
+		// Version 13 then renamed their exercises.
 		expect(states).toEqual(
-			[level('gesture-climb', 'blues-f', 6), level('gesture-link', '', 3), jam].sort(byKey)
+			[
+				level('grid-in-direction', 'blues-f', 6),
+				level('inversion-run', '', 3),
+				{ ...jam, exerciseId: 'grid-reading' }
+			].sort(byKey)
 		);
 		const stored = await db.attempts.orderBy('id').toArray();
 		expect(stored.some((attempt) => Object.hasOwn(attempt, 'tempoScope'))).toBe(false);
@@ -778,7 +789,7 @@ describe('version 12', () => {
 });
 
 describe('version 13', () => {
-	it('upgrades 12 to 13: every card and attempt names its skill, its key prefixed by it', async () => {
+	it('upgrades 12 to 13: every card and attempt names its skill, its key prefixed by it; eight exercises take the name of their skill; a session says its routine', async () => {
 		const name = crypto.randomUUID();
 		const old = new Dexie(name);
 		old.version(12).stores({
@@ -832,13 +843,101 @@ describe('version 13', () => {
 			attempt('my-arpeggios', 'voicing-figure', `${triad}@0@4`),
 			attempt('my-shapes', 'form-figure', 'maj7@d@4')
 		];
+		const level = (exerciseId: string, scope: string, item: string) => ({
+			exerciseId,
+			scope,
+			item,
+			level: 2,
+			successes: 1,
+			failures: 0,
+			resumeAfter: null
+		});
+		const levelStates = [
+			level('locate-neck', '', '2:F'),
+			level('triads-zone', '', triad),
+			level('gesture-climb', 'blues-f', ''),
+			level('gesture-link', '', ''),
+			level('rhythm-offbeats', '', '')
+		];
+		const session = (id: string, kind: string, extra: object = {}) => ({
+			id,
+			kind,
+			startedAt: 1,
+			endedAt: 2,
+			fatigueDetected: false,
+			executions: [],
+			latencyMs: 0,
+			...extra
+		});
+		const sessions = [
+			session('learn', 'learn', {
+				executions: [
+					{ exerciseId: 'locate-neck', tempoBpm: 80 },
+					{ exerciseId: 'identify-neck', tempoBpm: null }
+				]
+			}),
+			session('free', 'free'),
+			session('triads', 'triads', { executions: [{ exerciseId: 'triads-anchor', tempoBpm: 80 }] }),
+			session('triads-zone', 'triads-zone'),
+			session('gesture', 'gesture', {
+				executions: [{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 85 }]
+			}),
+			session('exercise', 'exercise', { exerciseId: 'rhythm-offbeats', levelReached: 1 })
+		];
 		await old.table('cards').bulkAdd(cards);
 		await old.table('attempts').bulkAdd(attempts);
+		await old.table('levelStates').bulkAdd(levelStates);
+		await old.table('sessions').bulkAdd(sessions);
 		old.close();
 
 		const db = createDatabase(name);
 		await db.open();
 		expect(db.verno).toBe(13);
+		const states = await db.levelStates.toArray();
+		expect(states).toHaveLength(levelStates.length);
+		expect(states.map((state) => [state.exerciseId, state.scope, state.item]).sort()).toEqual(
+			[
+				['locate-note-string', '', '2:F'],
+				['chord-zone', '', triad],
+				['grid-in-direction', 'blues-f', ''],
+				['inversion-run', '', ''],
+				['rhythm-offbeats', '', '']
+			].sort()
+		);
+		expect(states.every((state) => state.level === 2 && state.successes === 1)).toBe(true);
+		// Read back by its new key.
+		expect(await db.levelStates.get(['grid-in-direction', 'blues-f', ''])).toEqual(
+			level('grid-in-direction', 'blues-f', '')
+		);
+		const reshaped = await db.sessions.orderBy('id').toArray();
+		expect(reshaped).toHaveLength(sessions.length);
+		const common = { startedAt: 1, endedAt: 2, fatigueDetected: false, latencyMs: 0 };
+		expect(reshaped).toEqual([
+			{ ...common, id: 'exercise', exercise: 'rhythm-offbeats', levelReached: 1, executions: [] },
+			{ ...common, id: 'free', routine: 'notes', free: true, executions: [] },
+			{
+				...common,
+				id: 'gesture',
+				routine: 'changes',
+				executions: [{ exerciseId: 'grid-in-direction', scope: 'blues-f', tempoBpm: 85 }]
+			},
+			{
+				...common,
+				id: 'learn',
+				routine: 'notes',
+				executions: [
+					{ exerciseId: 'locate-note-string', tempoBpm: 80 },
+					{ exerciseId: 'identify-note', tempoBpm: null }
+				]
+			},
+			{
+				...common,
+				id: 'triads',
+				routine: 'chords',
+				executions: [{ exerciseId: 'chord-anchor', tempoBpm: 80 }]
+			},
+			{ ...common, id: 'triads-zone', routine: 'chords-zone', executions: [] }
+		]);
 		const stored = await db.cards.toArray();
 		expect(stored).toHaveLength(cards.length);
 		expect(stored.map((card) => card.key).sort()).toEqual(
@@ -872,6 +971,18 @@ describe('version 13', () => {
 			['my-shapes', 'my-shapes:maj7@d']
 		]);
 		expect(upgraded.some((row) => Object.hasOwn(row, 'mechanic'))).toBe(false);
+		expect(upgraded.map((row) => row.exerciseId)).toEqual([
+			'locate-note-string',
+			'identify-note',
+			'chord-anchor',
+			'chord-zone',
+			'grid-reading',
+			'inversion-run',
+			'rhythm-offbeats',
+			'somewhere-else',
+			'my-arpeggios',
+			'my-shapes'
+		]);
 		db.close();
 	});
 });

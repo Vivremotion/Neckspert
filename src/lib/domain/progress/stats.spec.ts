@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { responseAttempt, type AttemptOverrides } from '$lib/testing/attempts';
 import {
 	DEFAULT_SETTINGS,
+	sessionOriginOf,
 	type Attempt,
 	type CardState,
+	type SessionKind,
 	type SessionRecord
 } from '$lib/domain/types';
 import { neckCardKey, type NeckCard } from '$lib/domain/music';
@@ -43,7 +45,7 @@ function on(card: NeckCard): AttemptOverrides {
 function coldAttempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		cardKey: neckCardKey(L1),
 		phase: 'review',
@@ -63,8 +65,8 @@ function coldAttempt(overrides: AttemptOverrides): Attempt {
 }
 
 const RECORD_EXECUTIONS: SessionRecord['executions'] = [
-	{ exerciseId: 'locate-neck', tempoBpm: 80 },
-	{ exerciseId: 'identify-neck', tempoBpm: null }
+	{ exerciseId: 'locate-note-string', tempoBpm: 80 },
+	{ exerciseId: 'identify-note', tempoBpm: null }
 ];
 
 describe('computeHomeStats', () => {
@@ -159,7 +161,7 @@ describe('computeHomeStats', () => {
 		const summary = summarizeSession({
 			record: {
 				id: 's1',
-				kind: 'learn',
+				routine: 'notes',
 				startedAt: NOW - 60_000,
 				endedAt: NOW,
 				fatigueDetected: false,
@@ -266,9 +268,9 @@ describe('summarizeSession', () => {
 		temperature: 'hot',
 		promptedAt: NOW - 40_000
 	});
-	const record = (kind: SessionRecord['kind']): SessionRecord => ({
+	const record = (kind: SessionKind): SessionRecord => ({
 		id: 'sess',
-		kind,
+		...sessionOriginOf(kind),
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: true,
@@ -314,11 +316,11 @@ describe('summarizeSession', () => {
 			}).tempoBpm;
 		expect(
 			summarize([
-				{ exerciseId: 'identify-neck', tempoBpm: null },
-				{ exerciseId: 'locate-neck', tempoBpm: 95 }
+				{ exerciseId: 'identify-note', tempoBpm: null },
+				{ exerciseId: 'locate-note-string', tempoBpm: 95 }
 			])
 		).toBe(95);
-		expect(summarize([{ exerciseId: 'identify-neck', tempoBpm: null }])).toBeNull();
+		expect(summarize([{ exerciseId: 'identify-note', tempoBpm: null }])).toBeNull();
 	});
 
 	it('keeps probes out of cold accuracy and counts the ones passed as already known', () => {
@@ -571,7 +573,7 @@ describe('summarizeSession of a triads session', () => {
 		coldAttempt({
 			id: 1,
 			sessionId: 'tri',
-			exerciseId: 'triads-anchor',
+			exerciseId: 'chord-anchor',
 			skill: 'chord-anchor',
 			cardKey: `chord-anchor:${KEY}`,
 			data: { item: { voicingKey: KEY }, answer: null, confusion: null },
@@ -579,13 +581,13 @@ describe('summarizeSession of a triads session', () => {
 		});
 	const record: SessionRecord = {
 		id: 'tri',
-		kind: 'triads',
+		routine: 'chords',
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: false,
 		executions: [
-			{ exerciseId: 'triads-anchor', tempoBpm: 90 },
-			{ exerciseId: 'triads-zone', tempoBpm: 85 }
+			{ exerciseId: 'chord-anchor', tempoBpm: 90 },
+			{ exerciseId: 'chord-zone', tempoBpm: 85 }
 		],
 		latencyMs: 0
 	};
@@ -614,7 +616,7 @@ describe('summarizeSession of a triads session', () => {
 		}),
 		triad({
 			id: 4,
-			exerciseId: 'triads-zone',
+			exerciseId: 'chord-zone',
 			skill: 'chord-zone',
 			cardKey: `chord-zone:${KEY}`,
 			correct: false,
@@ -654,8 +656,8 @@ describe('summarizeSession of a triads session', () => {
 		const zone = summarizeSession({
 			record: {
 				...record,
-				kind: 'triads-zone',
-				executions: [{ exerciseId: 'triads-zone', tempoBpm: 85 }]
+				routine: 'chords-zone',
+				executions: [{ exerciseId: 'chord-zone', tempoBpm: 85 }]
 			},
 			attempts: [],
 			allAttempts: [],
@@ -668,7 +670,7 @@ describe('summarizeSession of a triads session', () => {
 	it('says a notes session is one', () => {
 		expect(
 			summarizeSession({
-				record: { ...record, kind: 'learn' },
+				record: { ...record, routine: 'notes' },
 				attempts: [],
 				allAttempts: [],
 				cards: [],
@@ -679,20 +681,20 @@ describe('summarizeSession of a triads session', () => {
 });
 
 describe('summarizeSession of a gesture session', () => {
-	const record = (kind: 'gesture' | 'learn') => ({
+	const record = (kind: 'gesture' | 'learn'): SessionRecord => ({
 		id: 's1',
-		kind,
+		...sessionOriginOf(kind),
 		startedAt: NOW - 60_000,
 		endedAt: NOW,
 		fatigueDetected: false,
-		executions: [{ exerciseId: 'gesture-jam', tempoBpm: 80 }],
+		executions: [{ exerciseId: 'grid-reading', tempoBpm: 80 }],
 		latencyMs: 0
 	});
 
 	it('sums the passages up by exercise, and only for a gesture session', () => {
 		const attempts = [0, 1].map((index) =>
 			coldAttempt({
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				skill: 'grid-reading',
 				cardKey: `grid-reading:jam:blues-f#${index}`,
 				temperature: 'hot',
@@ -721,7 +723,7 @@ describe('summarizeSession of a gesture session', () => {
 		expect(summarizeSession({ ...input, record: record('gesture') }).gesture).toEqual({
 			exercises: [
 				{
-					exerciseId: 'gesture-jam',
+					exerciseId: 'grid-reading',
 					passagesPlayed: 1,
 					passagesSucceeded: 1,
 					changeSuccessRate: 1,

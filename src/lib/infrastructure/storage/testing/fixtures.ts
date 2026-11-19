@@ -1,6 +1,12 @@
 import type { IdentifyItem, LocateItem } from '$lib/domain/music';
 import { setOfSkill, type IdentifyData, type LocateData } from '$lib/domain/sets';
-import { IDENTIFY_SKILL_ID, LOCATE_SKILL_ID } from '$lib/domain/exercise/catalogIds';
+import {
+	IDENTIFY_NECK_ID,
+	IDENTIFY_SKILL_ID,
+	LOCATE_NECK_ID,
+	LOCATE_SKILL_ID,
+	ROUTINE_NOTES_ID
+} from '$lib/domain/exercise/catalogIds';
 import {
 	DEFAULT_SETTINGS,
 	cardKey,
@@ -44,7 +50,7 @@ export function makeAttempt(overrides: Partial<Attempt> = {}): Attempt {
 	const finalData = (overrides.data ?? data) as { item: unknown };
 	return {
 		sessionId: 's1',
-		exerciseId: identify ? 'identify-neck' : 'locate-neck',
+		exerciseId: identify ? IDENTIFY_NECK_ID : LOCATE_NECK_ID,
 		skill,
 		cardKey: overrides.cardKey ?? keyOf(skill, finalData.item),
 		phase: 'review',
@@ -95,8 +101,13 @@ export function makeCard(overrides: Partial<CardState> = {}): CardState {
 	};
 }
 
+/** The ids versions 1 to 12 gave the two neck exercises. */
+const LOCATE_NECK_ID_V12 = 'locate-neck';
+const IDENTIFY_NECK_ID_V12 = 'identify-neck';
+
 /**
- * An attempt as versions 1 to 12 stored it: named by its mechanic, its card key prefixed by it.
+ * An attempt as versions 1 to 12 stored it: named by its mechanic, its card key prefixed by it,
+ * its exercise by its id then.
  * A correct cold locate attempt on LOCATE_ITEM; `mechanic: 'identify'` gives one on IDENTIFY_ITEM.
  */
 export function makeAttemptV12(overrides: Record<string, unknown> = {}): Record<string, unknown> {
@@ -106,7 +117,8 @@ export function makeAttemptV12(overrides: Record<string, unknown> = {}): Record<
 	});
 	const { skill: _skill, cardKey: _cardKey, ...fields } = live;
 	const data = (overrides.data ?? fields.data) as { item: unknown };
-	return { ...fields, mechanic, cardKey: keyOfV12(mechanic, data.item), ...overrides };
+	const exerciseId = mechanic === 'identify' ? IDENTIFY_NECK_ID_V12 : LOCATE_NECK_ID_V12;
+	return { ...fields, exerciseId, mechanic, cardKey: keyOfV12(mechanic, data.item), ...overrides };
 }
 
 /**
@@ -124,15 +136,29 @@ export function makeCardV12(overrides: Record<string, unknown> = {}): Record<str
 export function makeSession(overrides: Partial<SessionRecord> = {}): SessionRecord {
 	return {
 		id: 's1',
-		kind: 'learn',
+		routine: ROUTINE_NOTES_ID,
 		startedAt: 1000,
 		endedAt: 2000,
 		fatigueDetected: false,
 		executions: [
-			{ exerciseId: 'locate-neck', tempoBpm: 80 },
-			{ exerciseId: 'identify-neck', tempoBpm: null }
+			{ exerciseId: LOCATE_NECK_ID, tempoBpm: 80 },
+			{ exerciseId: IDENTIFY_NECK_ID, tempoBpm: null }
 		],
 		latencyMs: 0,
+		...overrides
+	};
+}
+
+/** A session as versions 2 to 12 stored it: its kind, its exercises by their ids then. */
+export function makeSessionV12(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { routine: _routine, ...fields } = makeSession();
+	return {
+		...fields,
+		kind: 'learn',
+		executions: [
+			{ exerciseId: LOCATE_NECK_ID_V12, tempoBpm: 80 },
+			{ exerciseId: IDENTIFY_NECK_ID_V12, tempoBpm: null }
+		],
 		...overrides
 	};
 }
@@ -140,7 +166,7 @@ export function makeSession(overrides: Partial<SessionRecord> = {}): SessionReco
 /** A tempo progression as versions 2 to 6 of the backup hold it. */
 export function makeProgressionV6(overrides: Partial<ProgressionV10> = {}): ProgressionV10 {
 	return {
-		exerciseId: 'locate-neck',
+		exerciseId: LOCATE_NECK_ID_V12,
 		mechanic: 'locate',
 		tempoBpm: 96,
 		updatedAt: 1000,
@@ -162,13 +188,17 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 	};
 }
 
-/** A version 8 export: cards and attempts named by their mechanic, keyed by it. */
+/**
+ * A version 8 export: cards and attempts named by their mechanic, keyed by it; sessions by their
+ * kind; exercises by their ids then.
+ */
 export function makeBackupV8(overrides: Record<string, unknown> = {}): Record<string, unknown> {
 	return {
 		...makeBackup(),
 		version: 8,
 		cards: [makeCardV12()],
 		attempts: [makeAttemptV12({ id: 1 })],
+		sessions: [makeSessionV12()],
 		...overrides
 	};
 }

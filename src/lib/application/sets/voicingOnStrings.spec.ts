@@ -14,7 +14,7 @@ const chordConfusion = (kind: string) => ({ kind, part: 'chord' });
 
 function previous(voicingKey: string): PlannedItem {
 	return {
-		exerciseId: 'triads-anchor',
+		exerciseId: 'chord-anchor',
 		skill: 'chord-anchor',
 		exerciseLevel: 0,
 		item: { voicingKey },

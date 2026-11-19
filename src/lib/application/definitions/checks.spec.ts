@@ -36,7 +36,7 @@ describe('definitionChecks', () => {
 	it('gives the reason of the first validator that refuses, without the exercise id', () => {
 		const reason = check({ ...LOCATE_NECK, tempo: -3 });
 		expect(reason).toMatch(/^tempo /);
-		expect(reason).not.toContain('locate-neck');
+		expect(reason).not.toContain('locate-note-string');
 	});
 
 	it('refuses a presentation naming a field its set does not have', () => {

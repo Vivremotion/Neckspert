@@ -59,7 +59,7 @@ function change(index: number, passageId = 's:0'): ChordGridItem {
 
 function plannedOf(item: ChordGridItem): PlannedItem {
 	return {
-		exerciseId: 'gesture-jam',
+		exerciseId: 'grid-reading',
 		skill: 'grid-reading',
 		exerciseLevel: 0,
 		item,
@@ -71,7 +71,7 @@ function plannedOf(item: ChordGridItem): PlannedItem {
 	};
 }
 
-const RUN: Execution = { exerciseId: 'gesture-jam', scope: 'iohefy-a', tempoBpm: 120 };
+const RUN: Execution = { exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 120 };
 
 /** ♩ = 120 bpm from 0.1 s: a beat lasts 0.5 s; the change is on beat 4, at 2.1 s. */
 const ORIGIN_S = 0.1;
@@ -263,7 +263,7 @@ describe('recordedAttempt', () => {
 			plan: changePlan(item, METER_4_4, GESTURE_LINK),
 			data: () => null,
 			sessionId: 'sess-1',
-			execution: { exerciseId: 'gesture-jam', tempoBpm: 120 },
+			execution: { exerciseId: 'grid-reading', tempoBpm: 120 },
 			promptedAt: clock.toEpochMs(PROMPT_S),
 			cardKey: cardKey('chord-grid', gestureChangeSet.itemKey(item)),
 			startAudioS: CHANGE_S,

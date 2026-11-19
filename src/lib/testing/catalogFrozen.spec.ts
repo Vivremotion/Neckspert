@@ -3,14 +3,14 @@ import { allExercises } from '$lib/domain/exercise';
 import { allGrids } from '$lib/domain/grid';
 
 const IDS = [
-	'locate-neck',
-	'identify-neck',
-	'triads-anchor',
-	'triads-zone',
-	'gesture-link',
-	'gesture-climb',
-	'gesture-zone',
-	'gesture-jam',
+	'locate-note-string',
+	'identify-note',
+	'chord-anchor',
+	'chord-zone',
+	'inversion-run',
+	'grid-in-direction',
+	'grid-in-zone',
+	'grid-reading',
 	'rhythm-silent-bars',
 	'rhythm-two-four',
 	'rhythm-offbeats'

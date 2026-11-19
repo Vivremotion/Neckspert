@@ -35,7 +35,7 @@ describe('ladderOf', () => {
 				success: 'direct-recall'
 			}
 		]);
-		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-neck.*ladder/);
+		expect(() => ladderOf({ ...LOCATE_NECK, params: {} })).toThrow(/locate-note-string.*ladder/);
 	});
 
 	it('reads no ladder from params.ladders', () => {
@@ -43,7 +43,7 @@ describe('ladderOf', () => {
 			...LOCATE_NECK,
 			params: { ladders: { locate: LEADS, identify: ladderOf(IDENTIFY_NECK) } }
 		};
-		expect(() => ladderOf(two)).toThrow('locate-neck: params.ladder is missing');
+		expect(() => ladderOf(two)).toThrow('locate-note-string: params.ladder is missing');
 	});
 
 	it('refuses an empty ladder, a lead that is not positive, a pass that is not a positive integer', () => {
@@ -66,8 +66,8 @@ describe('ladderOf', () => {
 		// A lead of a beat and a half: an exact fraction of a beat.
 		expect(validateLadder([{ ...level, params: { leadBeats: 1.5, aided: false } }])).toBeNull();
 		// The exercise that writes it is named with the field.
-		expect(() => ladderOf(withLadder([]))).toThrow(/locate-neck.*params\.ladder.*empty/);
-		expect(() => ladderOf(withLadder('8, 4, 2'))).toThrow(/locate-neck.*params\.ladder/);
+		expect(() => ladderOf(withLadder([]))).toThrow(/locate-note-string.*params\.ladder.*empty/);
+		expect(() => ladderOf(withLadder('8, 4, 2'))).toThrow(/locate-note-string.*params\.ladder/);
 	});
 
 	it('takes a ladder of any leads, 6 and 3 in 3/4', () => {

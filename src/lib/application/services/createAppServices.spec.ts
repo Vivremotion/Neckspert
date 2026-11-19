@@ -11,7 +11,13 @@ import type {
 import type { LaneEntry, PlayView, PromptView } from '$lib/application/session/contract';
 import type { PromptStageModel } from '$lib/application/presentation';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
-import type { Attempt, BackupFile, CardState, SessionRecord } from '$lib/domain/types';
+import {
+	sessionKindOf,
+	type Attempt,
+	type BackupFile,
+	type CardState,
+	type SessionRecord
+} from '$lib/domain/types';
 import { acceptableMidis, neckCardKey, practiceCards } from '$lib/domain/music';
 import type { PitchName, StringNumber } from '$lib/domain/music/types';
 import {
@@ -197,7 +203,8 @@ describe('createAppServices', () => {
 			expect(controller).toBeInstanceOf(SessionController);
 			await controller.ready?.();
 			await controller.start();
-			expect((await deps.sessions.get(controller.sessionId))?.kind).toBe(kind);
+			const record = await deps.sessions.get(controller.sessionId);
+			expect(record && sessionKindOf(record)).toBe(kind);
 			await runOnTransport(deps, () => controller.view.status === 'awaiting');
 			expect(controller.view.status).toBe('awaiting');
 			expect(['lane', 'answer-keys']).toContain(controller.view.stage?.view);
@@ -232,7 +239,7 @@ describe('createAppServices', () => {
 		await deps.cards.put({ ...learned, scheduling: { ...learned.scheduling, due: 0 } });
 		// Locate is fixed at ♩ = 80 (ladder 8, 4, 2): level 2 is served at a lead of 2.
 		await deps.levels.put({
-			exerciseId: 'locate-neck',
+			exerciseId: 'locate-note-string',
 			scope: '',
 			item: '6:G',
 			level: 2,
@@ -292,7 +299,7 @@ describe('createAppServices', () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		// The session keeps the exercise it met, at the tempo of its first round.
 		expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
-			{ exerciseId: 'locate-neck', tempoBpm: 80 }
+			{ exerciseId: 'locate-note-string', tempoBpm: 80 }
 		]);
 	});
 
@@ -301,7 +308,7 @@ describe('createAppServices', () => {
 		// Every note at level 2: lead 2 at ♩ = 80.
 		for (const card of practiceCards().filter((c) => c.skill === 'locate-note-string')) {
 			await deps.levels.put({
-				exerciseId: 'locate-neck',
+				exerciseId: 'locate-note-string',
 				scope: '',
 				item: neckCardKey(card).slice('locate-note-string:'.length),
 				level: 2,
@@ -442,7 +449,9 @@ describe('the gesture track', () => {
 		// The first exercise's instruction, on the start screen.
 		expect(controller.view.briefing?.text).toBeTruthy();
 		await controller.start();
-		expect(await deps.sessions.get(controller.sessionId)).toMatchObject({ kind: 'gesture' });
+		const record = await deps.sessions.get(controller.sessionId);
+		expect(record).toMatchObject({ routine: 'changes' });
+		expect(record).not.toHaveProperty('kind');
 		expect(controller.view.stage?.view).toBe('link-lane');
 		expect(deps.detector.running).toBe(true);
 		// The transport counts a bar, then opens the first change.
@@ -453,7 +462,7 @@ describe('the gesture track', () => {
 		controller.quit();
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect((await deps.sessions.get(controller.sessionId))?.executions).toEqual([
-			{ exerciseId: 'gesture-link', tempoBpm: 80 }
+			{ exerciseId: 'inversion-run', tempoBpm: 80 }
 		]);
 	});
 
@@ -485,7 +494,7 @@ describe('the gesture track', () => {
 		const id = await deps.attempts.add(
 			responseAttempt({
 				sessionId: 's1',
-				exerciseId: 'gesture-jam',
+				exerciseId: 'grid-reading',
 				skill: 'grid-reading',
 				cardKey: 'grid-reading:jam:blues-f#0',
 				phase: 'free',
@@ -516,11 +525,11 @@ describe('the gesture track', () => {
 		const { services, deps } = harness();
 		await deps.sessions.put({
 			id: 'g1',
-			kind: 'gesture',
+			routine: 'changes',
 			startedAt: 0,
 			endedAt: 1,
 			fatigueDetected: false,
-			executions: [{ exerciseId: 'gesture-link', tempoBpm: 80 }],
+			executions: [{ exerciseId: 'inversion-run', tempoBpm: 80 }],
 			latencyMs: 0
 		});
 		const summary = await services.sessionSummary('g1');
@@ -531,7 +540,7 @@ describe('the gesture track', () => {
 		const { services, deps } = harness();
 		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
 		await deps.levels.put({
-			exerciseId: 'gesture-link',
+			exerciseId: 'inversion-run',
 			scope: '',
 			item: '',
 			level: 2,
@@ -578,11 +587,11 @@ describe('the rhythm exercises', () => {
 		await vi.waitFor(async () =>
 			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
 		);
-		expect(await deps.sessions.get(controller.sessionId)).toMatchObject({
-			kind: 'exercise',
-			exerciseId: RHYTHM_TWO_FOUR.id,
-			levelReached: 0
-		});
+		const record = await deps.sessions.get(controller.sessionId);
+		expect(record).toMatchObject({ exercise: RHYTHM_TWO_FOUR.id, levelReached: 0 });
+		expect(record).not.toHaveProperty('routine');
+		expect(record).not.toHaveProperty('kind');
+		expect(record).not.toHaveProperty('exerciseId');
 	});
 
 	it('leaves the series of a rhythm session in memory for its summary', async () => {
@@ -634,8 +643,7 @@ describe('the rhythm exercises', () => {
 
 	const rhythmSession = (overrides: Partial<SessionRecord> = {}): SessionRecord => ({
 		id: 'r1',
-		kind: 'exercise',
-		exerciseId: RHYTHM_OFFBEATS.id,
+		exercise: RHYTHM_OFFBEATS.id,
 		startedAt: 0,
 		endedAt: 1,
 		fatigueDetected: false,
@@ -812,8 +820,8 @@ describe('the rhythm exercises', () => {
 
 	it('gives a summary without rhythm for an exercise no longer in the catalog or not a rhythm one', async () => {
 		const { services, deps } = harness();
-		await deps.sessions.put(rhythmSession({ id: 'gone', exerciseId: 'rhythm-removed' }));
-		await deps.sessions.put(rhythmSession({ id: 'neck', exerciseId: 'locate-neck' }));
+		await deps.sessions.put(rhythmSession({ id: 'gone', exercise: 'rhythm-removed' }));
+		await deps.sessions.put(rhythmSession({ id: 'neck', exercise: 'locate-note-string' }));
 		for (const id of ['gone', 'neck']) {
 			const summary = await services.sessionSummary(id);
 			expect(summary.kind).toBe('exercise');
@@ -845,6 +853,6 @@ describe('the rhythm exercises', () => {
 	it('startExercise refuses an exercise it does not know, or one without levels', async () => {
 		const { services } = harness();
 		await expect(services.startExercise('nope')).rejects.toThrow();
-		await expect(services.startExercise('locate-neck')).rejects.toThrow();
+		await expect(services.startExercise('locate-note-string')).rejects.toThrow();
 	});
 });

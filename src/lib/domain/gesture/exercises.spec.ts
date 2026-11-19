@@ -13,10 +13,10 @@ import {
 describe('the gesture exercises', () => {
 	it('are four, in the order of the ladder, in the catalog, each with its view and instruction', () => {
 		expect(GESTURE_EXERCISES.map((e) => e.id)).toEqual([
-			'gesture-link',
-			'gesture-climb',
-			'gesture-zone',
-			'gesture-jam'
+			'inversion-run',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading'
 		]);
 		expect(GESTURE_EXERCISES.map((e) => e.view)).toEqual([
 			'link-lane',
@@ -70,7 +70,7 @@ describe('the gesture exercises', () => {
 		]);
 		expect(elements.map((e) => e.key)).toContain('link:Eb|min:3,2,1');
 		expect(elements[0]).toEqual({
-			exerciseId: 'gesture-link',
+			exerciseId: 'inversion-run',
 			rule: 'link',
 			key: 'link:C|maj:3,2,1',
 			chord: 'C|maj',
@@ -87,7 +87,7 @@ describe('the gesture exercises', () => {
 		]);
 		expect(gestureElements(GESTURE_ZONE)).toEqual([
 			{
-				exerciseId: 'gesture-zone',
+				exerciseId: 'grid-in-zone',
 				rule: 'zone',
 				key: 'zone:iohefy-a',
 				gridId: 'iohefy-a',

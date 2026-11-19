@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { allExercises } from '$lib/domain/exercise/registry';
+import { allExercises, exerciseById } from '$lib/domain/exercise/registry';
 import {
 	MECHANICS_V12,
 	SKILL_OF_EXERCISE_V12,
 	SKILL_OF_MECHANIC_V13,
+	EXERCISE_IDS_V13,
 	attemptToV13,
 	backupV8ToV9,
-	cardToV13
+	cardToV13,
+	levelStateToV13,
+	sessionToV13
 } from './v13';
 import type { BackupV8 } from './v12';
 import source from './v13.ts?raw';
@@ -118,7 +121,7 @@ describe('an attempt at version 13', () => {
 		};
 		expect(attemptToV13(before)).toEqual({
 			id: 4,
-			exerciseId: 'gesture-climb',
+			exerciseId: 'grid-in-direction',
 			skill: 'grid-in-direction',
 			cardKey: 'grid-in-direction:climb:iohefy-a:3,2,1#2',
 			success: true
@@ -157,7 +160,12 @@ describe('the item keys of an attempt at version 13', () => {
 				cardKey: 'chord-grid:link:D|maj:3,2,1#2',
 				data: link
 			})
-		).toMatchObject({ skill: 'inversion-run', cardKey: `inversion-run:${shape}`, data: link });
+		).toMatchObject({
+			exerciseId: 'inversion-run',
+			skill: 'inversion-run',
+			cardKey: `inversion-run:${shape}`,
+			data: link
+		});
 		const climb = { item: { rule: 'climb', element: 'climb:iohefy-a:3,2,1', index: 2 } };
 		expect(upgraded('chord-grid', 'chord-grid:climb:iohefy-a:3,2,1#2', climb)).toBe(
 			'my-own:iohefy-a#2'
@@ -200,13 +208,14 @@ describe('the item keys of an attempt at version 13', () => {
 });
 
 describe('a backup at version 9', () => {
-	it('is the version 8 backup with its cards and attempts upgraded', () => {
+	it('is the version 8 backup with its cards, attempts, level states and sessions upgraded', () => {
 		const backup = {
 			app: 'neckspert-play',
 			version: 8,
 			cards: [{ key: 'locate:6:F', mechanic: 'locate' }],
 			attempts: [{ exerciseId: 'locate-neck', mechanic: 'locate', cardKey: 'locate:6:F' }],
-			sessions: []
+			levelStates: [{ exerciseId: 'locate-neck', scope: '', item: '6:F', level: 2 }],
+			sessions: [{ id: 's', kind: 'learn', executions: [{ exerciseId: 'locate-neck' }] }]
 		} as unknown as BackupV8;
 		expect(backupV8ToV9(backup)).toEqual({
 			app: 'neckspert-play',
@@ -214,21 +223,157 @@ describe('a backup at version 9', () => {
 			cards: [{ key: 'locate-note-string:6:F', skill: 'locate-note-string' }],
 			attempts: [
 				{
-					exerciseId: 'locate-neck',
+					exerciseId: 'locate-note-string',
 					skill: 'locate-note-string',
 					cardKey: 'locate-note-string:6:F'
 				}
 			],
-			sessions: []
+			levelStates: [{ exerciseId: 'locate-note-string', scope: '', item: '6:F', level: 2 }],
+			sessions: [{ id: 's', routine: 'notes', executions: [{ exerciseId: 'locate-note-string' }] }]
+		});
+	});
+});
+
+describe('the exercise ids of version 13', () => {
+	it('rename the eight exercises after their skill', () => {
+		expect(EXERCISE_IDS_V13).toEqual({
+			'locate-neck': 'locate-note-string',
+			'identify-neck': 'identify-note',
+			'triads-anchor': 'chord-anchor',
+			'triads-zone': 'chord-zone',
+			'gesture-link': 'inversion-run',
+			'gesture-climb': 'grid-in-direction',
+			'gesture-zone': 'grid-in-zone',
+			'gesture-jam': 'grid-reading'
+		});
+	});
+
+	it('name exercises of the catalog, each after the skill it practises', () => {
+		for (const id of Object.values(EXERCISE_IDS_V13)) {
+			expect(exerciseById(id).practices).toBe(id);
+		}
+		const ids = allExercises().map((e) => e.id);
+		for (const old of Object.keys(EXERCISE_IDS_V13)) expect(ids).not.toContain(old);
+	});
+
+	it('rename the exercise of an attempt, its skill read from its old id', () => {
+		expect(
+			attemptToV13({ exerciseId: 'triads-zone', mechanic: 'triad-zone', cardKey: 'triad-zone:k' })
+		).toEqual({ exerciseId: 'chord-zone', skill: 'chord-zone', cardKey: 'chord-zone:k' });
+		expect(
+			attemptToV13({ exerciseId: 'rhythm-offbeats', mechanic: 'figure', cardKey: 'figure:a@0' })
+		).toEqual({
+			exerciseId: 'rhythm-offbeats',
+			skill: 'figure-independence',
+			cardKey: 'figure-independence:a@0'
+		});
+	});
+});
+
+describe('a level state at version 13', () => {
+	it('names its exercise by its new id, nothing else changed', () => {
+		const before = { exerciseId: 'gesture-climb', scope: 'blues-f', item: '', level: 3 };
+		expect(levelStateToV13(before)).toEqual({ ...before, exerciseId: 'grid-in-direction' });
+		expect(before.exerciseId).toBe('gesture-climb');
+	});
+
+	it('keeps an id that was not renamed, and a row without one', () => {
+		const rhythm = { exerciseId: 'rhythm-two-four', scope: '', item: '', level: 1 };
+		expect(levelStateToV13(rhythm)).toEqual(rhythm);
+		expect(levelStateToV13({ scope: '', item: 'x' })).toEqual({ scope: '', item: 'x' });
+	});
+});
+
+describe('a session at version 13', () => {
+	const common = { id: 's', startedAt: 1, endedAt: 2, fatigueDetected: false, latencyMs: 12 };
+
+	it.each([
+		['learn', { routine: 'notes' }],
+		['free', { routine: 'notes', free: true }],
+		['triads', { routine: 'chords' }],
+		['triads-zone', { routine: 'chords-zone' }],
+		['gesture', { routine: 'changes' }]
+	])('of kind %s: says its routine, its kind gone', (kind, origin) => {
+		expect(sessionToV13({ ...common, kind, executions: [] })).toEqual({
+			...common,
+			...origin,
+			executions: []
+		});
+	});
+
+	it('of kind exercise: names its exercise by its new id', () => {
+		expect(
+			sessionToV13({
+				...common,
+				kind: 'exercise',
+				exerciseId: 'gesture-jam',
+				levelReached: 4,
+				executions: [{ exerciseId: 'gesture-jam', tempoBpm: 90 }]
+			})
+		).toEqual({
+			...common,
+			exercise: 'grid-reading',
+			levelReached: 4,
+			executions: [{ exerciseId: 'grid-reading', tempoBpm: 90 }]
+		});
+		expect(
+			sessionToV13({ ...common, kind: 'exercise', exerciseId: 'rhythm-two-four', executions: [] })
+		).toEqual({ ...common, exercise: 'rhythm-two-four', executions: [] });
+	});
+
+	it('renames the exercise of each execution', () => {
+		const executions = [
+			{ exerciseId: 'gesture-link', tempoBpm: 80 },
+			{ exerciseId: 'gesture-climb', scope: 'blues-f', tempoBpm: 85 },
+			{ exerciseId: 'rhythm-offbeats', tempoBpm: null }
+		];
+		expect(sessionToV13({ ...common, kind: 'gesture', executions }).executions).toEqual([
+			{ exerciseId: 'inversion-run', tempoBpm: 80 },
+			{ exerciseId: 'grid-in-direction', scope: 'blues-f', tempoBpm: 85 },
+			{ exerciseId: 'rhythm-offbeats', tempoBpm: null }
+		]);
+		expect(executions[0].exerciseId).toBe('gesture-link');
+	});
+
+	it('keeps a session of an unknown kind, its kind gone and nothing added', () => {
+		expect(sessionToV13({ ...common, kind: 'placement', executions: [] })).toEqual({
+			...common,
+			executions: []
+		});
+		expect(sessionToV13({ ...common, executions: [] })).toEqual({ ...common, executions: [] });
+	});
+
+	it('keeps an exercise session without an exercise, its kind gone and nothing added', () => {
+		expect(sessionToV13({ ...common, kind: 'exercise', executions: [] })).toEqual({
+			...common,
+			executions: []
+		});
+		expect(sessionToV13({ ...common, kind: 'exercise', exerciseId: 7 })).toEqual(common);
+	});
+
+	it('keeps executions it cannot read as they are', () => {
+		expect(sessionToV13({ ...common, kind: 'learn', executions: 'x' })).toEqual({
+			...common,
+			routine: 'notes',
+			executions: 'x'
+		});
+		expect(sessionToV13({ kind: 'learn', executions: [null, 3] })).toEqual({
+			routine: 'notes',
+			executions: [null, 3]
 		});
 	});
 });
 
 describe('the frozen skills of version 13', () => {
 	it('give each catalog exercise the skill it practises', () => {
-		expect(Object.fromEntries(allExercises().map((e) => [e.id, e.practices]))).toEqual(
-			SKILL_OF_EXERCISE_V12
+		// The catalog of version 12 named its exercises by their old ids.
+		const renamed = Object.fromEntries(
+			Object.entries(SKILL_OF_EXERCISE_V12).map(([id, skill]) => [
+				EXERCISE_IDS_V13[id] ?? id,
+				skill
+			])
 		);
+		expect(Object.fromEntries(allExercises().map((e) => [e.id, e.practices]))).toEqual(renamed);
 	});
 
 	it('give each memory mechanic the skill of its exercises', () => {

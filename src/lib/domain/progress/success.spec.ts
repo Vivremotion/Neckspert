@@ -6,7 +6,7 @@ import { cardSuccessRate, successRate } from './success';
 function attempt(overrides: AttemptOverrides = {}): Attempt {
 	return responseAttempt({
 		sessionId: 's',
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		cardKey: 'locate-note-string:6:G',
 		phase: 'learning',

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { EXERCISE_IDS_V13 } from './v13';
 import { ladderOf } from '$lib/domain/exercise/ladder';
 import { TRIAD_LADDER_V10, backupV5ToV6, cardToV10, levelStatesV10, triadLevelOfCard } from './v10';
 import { neckLevelOfCard } from './v9';
@@ -122,7 +123,15 @@ describe('TRIAD_LADDER_V10', () => {
 		const zone = ladderOf(TRIADS_ZONE);
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(anchor.map((level) => level.params.leadBeats));
 		expect([...TRIAD_LADDER_V10.leadSteps]).toEqual(zone.map((level) => level.params.leadBeats));
-		expect(TRIAD_LADDER_V10.exercises).toEqual({
+		// Version 13 renamed the exercises the frozen table names (`EXERCISE_IDS_V13`).
+		expect(
+			Object.fromEntries(
+				Object.entries(TRIAD_LADDER_V10.exercises).map(([mechanic, id]) => [
+					mechanic,
+					EXERCISE_IDS_V13[id]
+				])
+			)
+		).toEqual({
 			'triad-anchor': TRIADS_ANCHOR.id,
 			'triad-zone': TRIADS_ZONE.id
 		});

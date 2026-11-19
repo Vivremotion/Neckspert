@@ -14,7 +14,7 @@ const F_ON_B = { string: 2, pitch: 'F' } as const;
 function answered(correct: boolean, reactionMs = 1000): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		cardKey: 'locate-note-string:2:F',
 		phase: 'review',

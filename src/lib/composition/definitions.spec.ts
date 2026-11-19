@@ -66,14 +66,14 @@ describe('loadDefinitions', () => {
 			{
 				file: '/exercises.local/a.json',
 				kind: 'exercise',
-				id: 'locate-neck',
+				id: 'locate-note-string',
 				reason: 'this id is already defined in /catalog/notes.json'
 			}
 		]);
 		expect(errors).toEqual([
-			'[exercises.local] /exercises.local/a.json, exercise locate-neck refused: this id is already defined in /catalog/notes.json'
+			'[exercises.local] /exercises.local/a.json, exercise locate-note-string refused: this id is already defined in /catalog/notes.json'
 		]);
-		expect(exerciseById('locate-neck').practices).toBe('locate-note-string');
+		expect(exerciseById('locate-note-string').practices).toBe('locate-note-string');
 	});
 
 	it('starts with the other files when a catalog file is refused', async () => {

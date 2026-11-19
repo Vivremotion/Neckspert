@@ -15,6 +15,6 @@ describe('exerciseFromQuery', () => {
 		expect(exerciseFromQuery(null)).toBeNull();
 		expect(exerciseFromQuery('')).toBeNull();
 		expect(exerciseFromQuery('nope')).toBeNull();
-		expect(exerciseFromQuery('locate-neck')).toBeNull();
+		expect(exerciseFromQuery('locate-note-string')).toBeNull();
 	});
 });

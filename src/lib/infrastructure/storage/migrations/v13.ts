@@ -204,6 +204,21 @@ export const SKILL_OF_EXERCISE_V12: Readonly<Record<string, string>> = {
 	'rhythm-offbeats': 'figure-independence'
 };
 
+/**
+ * The eight exercises of the catalog of version 12 that version 13 names after the skill they
+ * practise, by their id then. Any other id is kept. Frozen.
+ */
+export const EXERCISE_IDS_V13: Readonly<Record<string, string>> = {
+	'locate-neck': 'locate-note-string',
+	'identify-neck': 'identify-note',
+	'triads-anchor': 'chord-anchor',
+	'triads-zone': 'chord-zone',
+	'gesture-link': 'inversion-run',
+	'gesture-climb': 'grid-in-direction',
+	'gesture-zone': 'grid-in-zone',
+	'gesture-jam': 'grid-reading'
+};
+
 /** `key` with its prefix (up to the first `:`) replaced by `skill`; as it is without a prefix. */
 function rekeyed(key: unknown, skill: string): unknown {
 	if (typeof key !== 'string') return key;
@@ -229,6 +244,16 @@ export function cardToV13(card: Row): Row {
 
 const isRow = (value: unknown): value is Row =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** An exercise id as version 13 writes it: renamed when `EXERCISE_IDS_V13` names it. */
+function exerciseIdV13(id: unknown): unknown {
+	return lookUp(EXERCISE_IDS_V13, id) ?? id;
+}
+
+/** `row` with its `exerciseId` renamed (`EXERCISE_IDS_V13`); a row without one as it is. */
+function withExerciseIdV13(row: Row): Row {
+	return 'exerciseId' in row ? { ...row, exerciseId: exerciseIdV13(row.exerciseId) } : { ...row };
+}
 
 /**
  * The item key version 13 gives an attempt's item, from its key and its data as version 12 wrote
@@ -268,14 +293,15 @@ function itemKeyV13(mechanic: unknown, itemKey: string, data: unknown): string |
 }
 
 /**
- * An attempt as version 13 keeps it: the skill of its exercise (its exercise id when the
+ * An attempt as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), the skill of its
+ * exercise read from its old id (its exercise id when the
  * catalog of version 12 had no such exercise), its card key prefixed by it and its item key as
  * version 13 writes it (`itemKeyV13`; the rest of its old key when that cannot read it), no
  * `mechanic`. Its data stays as version 12 wrote it. An attempt without an exercise id keeps the
  * rest as it is.
  */
 export function attemptToV13(attempt: Row): Row {
-	const { mechanic, ...rest } = attempt;
+	const { mechanic, ...rest } = withExerciseIdV13(attempt);
 	const skill = lookUp(SKILL_OF_EXERCISE_V12, attempt.exerciseId) ?? attempt.exerciseId;
 	if (typeof skill !== 'string') return rest;
 	const key = attempt.cardKey;
@@ -286,18 +312,58 @@ export function attemptToV13(attempt: Row): Row {
 	return { ...rest, skill, cardKey: `${skill}:${itemKey}` };
 }
 
-/** A backup at version 9: cards and attempts name their skill. */
+/** A level state as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), nothing else. */
+export function levelStateToV13(state: Row): Row {
+	return withExerciseIdV13(state);
+}
+
+/** Where a session of each kind of version 12 came from, as version 13 records it. Frozen. */
+const ORIGIN_OF_KIND_V13: Readonly<Record<string, Row>> = {
+	learn: { routine: 'notes' },
+	free: { routine: 'notes', free: true },
+	triads: { routine: 'chords' },
+	'triads-zone': { routine: 'chords-zone' },
+	gesture: { routine: 'changes' }
+};
+
+/**
+ * A session as version 13 keeps it: its `kind` and `exerciseId` replaced by the routine it played
+ * (`ORIGIN_OF_KIND_V13`) or, for a session of kind `exercise`, the exercise, renamed; the exercise
+ * of each execution renamed; every other field as it is. A session of a kind it does not know, or
+ * of kind `exercise` without an exercise id, keeps its row with `kind` removed and nothing added.
+ */
+export function sessionToV13(session: Row): Row {
+	const { kind, exerciseId, ...rest } = session;
+	const origin: Row =
+		typeof kind === 'string' && Object.hasOwn(ORIGIN_OF_KIND_V13, kind)
+			? ORIGIN_OF_KIND_V13[kind]
+			: kind === 'exercise' && typeof exerciseId === 'string'
+				? { exercise: exerciseIdV13(exerciseId) }
+				: {};
+	if (!Array.isArray(rest.executions)) return { ...rest, ...origin };
+	const executions = rest.executions.map((execution: unknown) =>
+		isRow(execution) ? withExerciseIdV13(execution) : execution
+	);
+	return { ...rest, ...origin, executions };
+}
+
+/** A backup at version 9: cards and attempts name their skill, sessions their routine. */
 export interface BackupV9 extends Row {
 	version: 9;
 }
 
-/** A version 8 backup as version 9: its cards and attempts upgraded (`cardToV13`, `attemptToV13`). */
+/**
+ * A version 8 backup as version 9: its cards, attempts, level states and sessions upgraded
+ * (`cardToV13`, `attemptToV13`, `levelStateToV13`, `sessionToV13`).
+ */
 export function backupV8ToV9(backup: BackupV8): BackupV9 {
 	const rows = (value: unknown): Row[] => (Array.isArray(value) ? (value as Row[]) : []);
 	return {
 		...backup,
 		version: 9,
 		cards: rows(backup.cards).map(cardToV13),
-		attempts: rows(backup.attempts).map(attemptToV13)
+		attempts: rows(backup.attempts).map(attemptToV13),
+		levelStates: rows(backup.levelStates).map(levelStateToV13),
+		sessions: rows(backup.sessions).map(sessionToV13)
 	};
 }

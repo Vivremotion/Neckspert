@@ -34,17 +34,17 @@ describe('roundProblem', () => {
 	it('accepts the catalog', () => {
 		const written = allExercises().filter((exercise) => exercise.round);
 		expect(written.map((exercise) => exercise.id).sort()).toEqual([
-			'gesture-climb',
-			'gesture-jam',
-			'gesture-link',
-			'gesture-zone',
-			'identify-neck',
-			'locate-neck',
+			'chord-anchor',
+			'chord-zone',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading',
+			'identify-note',
+			'inversion-run',
+			'locate-note-string',
 			'rhythm-offbeats',
 			'rhythm-silent-bars',
-			'rhythm-two-four',
-			'triads-anchor',
-			'triads-zone'
+			'rhythm-two-four'
 		]);
 		for (const exercise of written) {
 			expect([exercise.id, roundProblem(exercise)]).toEqual([exercise.id, null]);
@@ -208,7 +208,7 @@ describe('roundProblem', () => {
 			/round\.listenBeforeEnd must leave the round some listening/
 		);
 		// A length an item measures is not known here: nothing is refused on it.
-		expect(roundProblem(exerciseById('gesture-jam'))).toBeNull();
+		expect(roundProblem(exerciseById('grid-reading'))).toBeNull();
 	});
 
 	it('refuses a plan its pairing or verdict mode cannot run, naming the mode', () => {

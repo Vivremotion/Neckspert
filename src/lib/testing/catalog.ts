@@ -6,10 +6,10 @@ import { exerciseById } from '$lib/domain/exercise/registry';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { gridById } from '$lib/domain/grid/registry';
 
-export const LOCATE_NECK = exerciseById('locate-neck');
-export const IDENTIFY_NECK = exerciseById('identify-neck');
-export const TRIADS_ANCHOR = exerciseById('triads-anchor');
-export const TRIADS_ZONE = exerciseById('triads-zone');
+export const LOCATE_NECK = exerciseById('locate-note-string');
+export const IDENTIFY_NECK = exerciseById('identify-note');
+export const TRIADS_ANCHOR = exerciseById('chord-anchor');
+export const TRIADS_ZONE = exerciseById('chord-zone');
 
 export const RHYTHM_SILENT_BARS = exerciseById('rhythm-silent-bars');
 export const RHYTHM_TWO_FOUR = exerciseById('rhythm-two-four');
@@ -20,10 +20,10 @@ export const RHYTHM_EXERCISES: readonly ExerciseDefinition[] = [
 	RHYTHM_OFFBEATS
 ];
 
-export const GESTURE_LINK = exerciseById('gesture-link');
-export const GESTURE_CLIMB = exerciseById('gesture-climb');
-export const GESTURE_ZONE = exerciseById('gesture-zone');
-export const GESTURE_JAM = exerciseById('gesture-jam');
+export const GESTURE_LINK = exerciseById('inversion-run');
+export const GESTURE_CLIMB = exerciseById('grid-in-direction');
+export const GESTURE_ZONE = exerciseById('grid-in-zone');
+export const GESTURE_JAM = exerciseById('grid-reading');
 export const GESTURE_EXERCISES: readonly ExerciseDefinition[] = [
 	GESTURE_LINK,
 	GESTURE_CLIMB,

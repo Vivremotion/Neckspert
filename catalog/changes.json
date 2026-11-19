@@ -168,7 +168,7 @@
 	],
 	"exercises": [
 		{
-			"id": "gesture-link",
+			"id": "inversion-run",
 			"practices": "inversion-run",
 			"round": {
 				"prompt": {
@@ -335,7 +335,7 @@
 			}
 		},
 		{
-			"id": "gesture-climb",
+			"id": "grid-in-direction",
 			"practices": "grid-in-direction",
 			"round": {
 				"prompt": {
@@ -503,7 +503,7 @@
 			}
 		},
 		{
-			"id": "gesture-zone",
+			"id": "grid-in-zone",
 			"practices": "grid-in-zone",
 			"round": {
 				"prompt": {
@@ -671,7 +671,7 @@
 			}
 		},
 		{
-			"id": "gesture-jam",
+			"id": "grid-reading",
 			"practices": "grid-reading",
 			"round": {
 				"prompt": {

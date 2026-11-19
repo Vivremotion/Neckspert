@@ -31,7 +31,7 @@ const naming = directRecallWithin(IDENTIFY_RECALL_THRESHOLD_MS);
 function attempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's-review',
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		cardKey: LOCATE.key,
 		phase: 'review',
@@ -101,7 +101,7 @@ describe('probeCard', () => {
 	it('creates an identify card on a name tapped within the naming threshold', () => {
 		const tapped = (reactionMs: number) =>
 			attempt({
-				exerciseId: 'identify-neck',
+				exerciseId: 'identify-note',
 				skill: 'identify-note',
 				cardKey: IDENTIFY.key,
 				tempoBpm: null,

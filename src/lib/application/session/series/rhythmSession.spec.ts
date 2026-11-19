@@ -950,8 +950,7 @@ describe('the rhythm on the series, plain words', () => {
 		for (let i = 0; i < ended; i++) {
 			await sessions.put({
 				id: `old-${i}`,
-				kind: 'exercise',
-				exerciseId: RHYTHM_OFFBEATS.id,
+				exercise: RHYTHM_OFFBEATS.id,
 				startedAt: i,
 				endedAt: i + 1,
 				fatigueDetected: false,
@@ -1269,11 +1268,7 @@ describe('the rhythm on the series, another series', () => {
 		expect(controller.sessionId).toBe('s1');
 		expect(controller.view.status).toBe('count-in');
 		expect(controller.view.announcement).toBeNull();
-		expect(await sessions.get('s1')).toMatchObject({
-			kind: 'exercise',
-			exerciseId: 'rhythm-offbeats',
-			endedAt: null
-		});
+		expect(await sessions.get('s1')).toMatchObject({ exercise: 'rhythm-offbeats', endedAt: null });
 		controller.quit();
 	});
 
@@ -1548,7 +1543,7 @@ describe('the rhythm on the series, quitting', () => {
 		expect(await stored()).toEqual([]);
 		expect(controller.view.status).toBe('finished');
 		const record = await sessions.get('series');
-		expect(record).toMatchObject({ kind: 'exercise', exerciseId: 'rhythm-offbeats' });
+		expect(record).toMatchObject({ exercise: 'rhythm-offbeats' });
 		expect(record?.endedAt).not.toBeNull();
 	});
 

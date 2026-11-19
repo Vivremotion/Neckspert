@@ -85,7 +85,7 @@ describe('neckSubject', () => {
 	it('refuses a locate or identify exercise whose skill writes no direct recall', () => {
 		const silent = practisingWithoutRecall(LOCATE_NECK);
 		expect(() => neckSubject({ definitions: { locate: silent, identify: IDENTIFY_NECK } })).toThrow(
-			'the locate-neck exercise practises locate-note-string-without-recall, which writes no direct recall'
+			'the locate-note-string exercise practises locate-note-string-without-recall, which writes no direct recall'
 		);
 		const mute = practisingWithoutRecall(IDENTIFY_NECK);
 		expect(() => neckSubject({ definitions: { locate: LOCATE_NECK, identify: mute } })).toThrow(

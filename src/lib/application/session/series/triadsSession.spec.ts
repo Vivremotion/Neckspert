@@ -261,7 +261,7 @@ describe('the triads exercises, from the probe to the zone', () => {
 		// Stored before H5: the item names its position, no fret.
 		const old: Attempt = {
 			sessionId: 's-old',
-			exerciseId: 'triads-zone',
+			exerciseId: 'chord-zone',
 			skill: 'chord-zone',
 			cardKey: `chord-zone:${C}`,
 			phase: 'review',
@@ -519,7 +519,8 @@ describe('the length and the tempo of a triads session', () => {
 		expect(controller.view.status).toBe('finished');
 		expect(finishDestination(controller.sessionId)).toContain(controller.sessionId);
 		const record = await app.deps.sessions.get(controller.sessionId);
-		expect(record).toMatchObject({ kind: 'triads-zone' });
+		expect(record).toMatchObject({ routine: 'chords-zone' });
+		expect(record).not.toHaveProperty('kind');
 		expect(record?.endedAt).not.toBeNull();
 		const summary = await app.services.sessionSummary(controller.sessionId);
 		expect(summary).toMatchObject({ kind: 'triads-zone', attemptCount: 0 });
@@ -560,6 +561,11 @@ describe('the length and the tempo of a triads session', () => {
 		expect(attempts.map((a) => a.tempoBpm)).toEqual([80, 80]);
 		const record = await app.deps.sessions.get(controller.sessionId);
 		expect(record?.executions).toEqual([{ exerciseId: TRIADS_ANCHOR.id, tempoBpm: 80 }]);
+		// The session says the routine it played, no longer a kind.
+		expect(record?.routine).toBe('chords');
+		expect(record).not.toHaveProperty('kind');
+		expect(record).not.toHaveProperty('exercise');
+		expect(record).not.toHaveProperty('free');
 	});
 
 	it('stores the attempt data as before', async () => {

@@ -31,6 +31,7 @@ import {
 	type Attempt,
 	type Execution,
 	type PlannedItem,
+	sessionOriginOf,
 	type SessionKind,
 	type SessionRecord,
 	type Settings
@@ -713,9 +714,9 @@ export class SessionController implements PlaySessionController {
 		this.met = new Set(attempts.map((attempt) => attempt.exerciseId));
 		this.endedSessions = new Map();
 		for (const session of sessions) {
-			if (session.endedAt === null || session.exerciseId === undefined) continue;
-			const ended = this.endedSessions.get(session.exerciseId) ?? 0;
-			this.endedSessions.set(session.exerciseId, ended + 1);
+			if (session.endedAt === null || session.exercise === undefined) continue;
+			const ended = this.endedSessions.get(session.exercise) ?? 0;
+			this.endedSessions.set(session.exercise, ended + 1);
 		}
 		this.settings = settings;
 		this.startedAt = this.epochNow();
@@ -2136,12 +2137,10 @@ export class SessionController implements PlaySessionController {
 		const one = this.kind === 'exercise' ? this.sessionItem : null;
 		return {
 			id: this.sessionId,
-			kind: this.kind,
-			// A session of one exercise names it, and keeps the level it ended on: its own.
-			...(one && {
-				exerciseId: one.exerciseId,
-				levelReached: this.levels.reached(one.exerciseId, one.scope)
-			}),
+			// The routine it played; a session of one exercise names it, and keeps the level it
+			// ended on: its own.
+			...sessionOriginOf(this.kind, one?.exerciseId),
+			...(one && { levelReached: this.levels.reached(one.exerciseId, one.scope) }),
 			startedAt: this.startedAt,
 			endedAt,
 			fatigueDetected: this.view.fatigueDetected,

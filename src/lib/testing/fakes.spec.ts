@@ -14,7 +14,7 @@ import {
 function attempt(overrides: AttemptOverrides): Attempt {
 	return responseAttempt({
 		sessionId: 's1',
-		exerciseId: 'locate-neck',
+		exerciseId: 'locate-note-string',
 		skill: 'locate-note-string',
 		cardKey: 'locate-note-string:2:F',
 		phase: 'review',

@@ -20,7 +20,7 @@ import { fromV2 } from './legacy/v2';
 import { backupV3ToV4, relationOfMechanic } from './migrations/v8';
 import { backupV4ToV5 } from './migrations/v9';
 import { backupV5ToV6 } from './migrations/v10';
-import { MECHANICS_V12, backupV8ToV9, type MechanicV12 } from './migrations/v13';
+import { EXERCISE_IDS_V13, MECHANICS_V12, backupV8ToV9, type MechanicV12 } from './migrations/v13';
 import { backupV6ToV7, type BackupV6, type BackupV7 } from './migrations/v11';
 import {
 	FIGURE_MECHANIC_V12,
@@ -320,9 +320,9 @@ function checkAttemptHeader(attempt: Fields): string | null {
 	return null;
 }
 
-function checkSessionFields(session: Fields): string | null {
+function checkSessionFields(session: Fields, kind = true): string | null {
 	if (typeof session.id !== 'string' || session.id === '') return 'id must be a non-empty string';
-	if (!isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn, free or triads';
+	if (kind && !isOneOf(session.kind, SESSION_KINDS)) return 'kind must be learn, free or triads';
 	if (!isFiniteNumber(session.startedAt)) return 'startedAt must be a number';
 	if (!isNullableNumber(session.endedAt)) return 'endedAt must be a number or null';
 	if (typeof session.fatigueDetected !== 'boolean') return 'fatigueDetected must be a boolean';
@@ -588,8 +588,8 @@ function checkExecution(execution: unknown, index: number): string | null {
 	return null;
 }
 
-function checkSession(session: Fields): string | null {
-	const problem = checkSessionFields(session);
+function checkSession(session: Fields, kind = true): string | null {
+	const problem = checkSessionFields(session, kind);
 	if (problem) return problem;
 	if (!Array.isArray(session.executions)) return 'executions must be an array';
 	for (const [index, execution] of session.executions.entries()) {
@@ -688,6 +688,12 @@ function checkAttemptV3(
 	);
 }
 
+function checkLevelReached(session: Fields): string | null {
+	return session.levelReached === undefined || Number.isInteger(session.levelReached)
+		? null
+		: 'levelReached must be a whole number';
+}
+
 function checkSessionV3(session: Fields): string | null {
 	// A session of one exercise names it; no other session has to.
 	const exerciseOk =
@@ -698,9 +704,7 @@ function checkSessionV3(session: Fields): string | null {
 		checkSession(session) ??
 		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
 		(exerciseOk ? null : 'exerciseId must be a non-empty string') ??
-		(session.levelReached === undefined || Number.isInteger(session.levelReached)
-			? null
-			: 'levelReached must be a whole number')
+		checkLevelReached(session)
 	);
 }
 
@@ -745,14 +749,20 @@ function checkLevelState(state: Fields): string | null {
 	return null;
 }
 
-/** The tables of versions 4 to 7; cards lose their lead at 6. */
-function checkBackupTables(backup: Fields, cardCheck: Check, attemptCheck: Check): void {
+/** The tables of versions 4 to 9; cards lose their lead at 6, sessions their kind at 9. */
+function checkBackupTables(
+	backup: Fields,
+	cardCheck: Check,
+	attemptCheck: Check,
+	sessionCheck: Check = checkSessionV3,
+	levelStateCheck: Check = checkLevelState
+): void {
 	const settingsProblem = checkSettingsV4(backup.settings as Fields);
 	if (settingsProblem) throw new Error(`Invalid backup settings: ${settingsProblem}`);
 	checkEntries(backup.cards, 'cards', cardCheck);
 	checkEntries(backup.attempts, 'attempts', attemptCheck);
-	checkEntries(backup.sessions, 'sessions', checkSessionV3);
-	checkEntries(backup.levelStates, 'levelStates', checkLevelState);
+	checkEntries(backup.sessions, 'sessions', sessionCheck);
+	checkEntries(backup.levelStates, 'levelStates', levelStateCheck);
 }
 
 /** The checks of versions 4 to 6, which hold the same tables, progressions included. */
@@ -784,12 +794,51 @@ function checkAttemptV8(attempt: Fields): string | null {
 	return checkAttemptV7(attempt, byMechanic(MECHANICS_V12));
 }
 
+/** Version 9: eight exercises are named after their skill; their old ids are refused. */
+function renamedExercise(id: unknown, field: string): string | null {
+	return typeof id === 'string' && Object.hasOwn(EXERCISE_IDS_V13, id)
+		? `${field} ${id} is renamed ${EXERCISE_IDS_V13[id]}`
+		: null;
+}
+
 /** Version 9: an attempt names its skill, its card key prefixed by it. */
 function checkAttemptV9(attempt: Fields): string | null {
 	if (isCyclePlanV11(attempt.plan)) {
 		return 'plan holds a cycle plan (cycleBars), kept as a round plan from version 8';
 	}
-	return checkAttemptV7(attempt, BY_SKILL);
+	return renamedExercise(attempt.exerciseId, 'exerciseId') ?? checkAttemptV7(attempt, BY_SKILL);
+}
+
+function checkLevelStateV9(state: Fields): string | null {
+	return renamedExercise(state.exerciseId, 'exerciseId') ?? checkLevelState(state);
+}
+
+/** Version 9: a session says the routine or the exercise it played, no longer its kind. */
+function checkSessionV9(session: Fields): string | null {
+	if (Object.hasOwn(session, 'kind')) return 'kind is gone: a session says its routine or exercise';
+	if (Object.hasOwn(session, 'exerciseId')) return 'exerciseId is renamed exercise';
+	if (session.routine !== undefined && !isNonEmptyString(session.routine)) {
+		return 'routine must be a non-empty string';
+	}
+	if (session.exercise !== undefined && !isNonEmptyString(session.exercise)) {
+		return 'exercise must be a non-empty string';
+	}
+	if (session.free !== undefined && session.free !== true) return 'free must be true';
+	const executions = Array.isArray(session.executions) ? session.executions : [];
+	return (
+		renamedExercise(session.exercise, 'exercise') ??
+		executions.reduce<string | null>(
+			(problem, execution: unknown, index) =>
+				problem ??
+				(isFields(execution)
+					? renamedExercise(execution.exerciseId, `executions[${index}].exerciseId`)
+					: null),
+			null
+		) ??
+		checkSession(session, false) ??
+		(isNullableNumber(session.latencyMs) ? null : 'latencyMs must be a number or null') ??
+		checkLevelReached(session)
+	);
 }
 
 /** Version 9: a card names its skill, its key prefixed by it; no lead. */
@@ -854,12 +903,13 @@ export function validateBackupV8(file: unknown): BackupV8 {
 
 /**
  * Checks a version 9 file and returns it unchanged: cards and attempts name their skill, their
- * keys prefixed by it.
+ * keys prefixed by it; sessions their routine or exercise; no old id of the eight exercises named
+ * after their skill (`EXERCISE_IDS_V13`).
  */
 export function validateBackupV9(file: unknown): BackupFile {
 	const backup = checkHeader(file, 9);
 	checkNoProgressions(backup);
-	checkBackupTables(backup, checkCardV9, checkAttemptV9);
+	checkBackupTables(backup, checkCardV9, checkAttemptV9, checkSessionV9, checkLevelStateV9);
 	return backup as unknown as BackupFile;
 }
 

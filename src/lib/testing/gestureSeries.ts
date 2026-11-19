@@ -53,8 +53,8 @@ function skillOfGesture(exerciseId: string): string {
 export function change(index: number, options: ChangeOptions = {}): PlannedItem<ChordGridItem> {
 	const scope = options.scope ?? 'iohefy-a';
 	return {
-		exerciseId: options.exerciseId ?? 'gesture-jam',
-		skill: skillOfGesture(options.exerciseId ?? 'gesture-jam'),
+		exerciseId: options.exerciseId ?? 'grid-reading',
+		skill: skillOfGesture(options.exerciseId ?? 'grid-reading'),
 		exerciseLevel: 0,
 		item: {
 			rule: 'jam',
@@ -132,8 +132,8 @@ export const BENCH_LEVELS: Level<LevelOverrides>[] = [120, 60].map((tempo) => ({
 
 /** Where the bench's scopes stand: the jam's iohefy-a (and the link) at 120, the rest at 60. */
 export const BENCH_LEVEL_STATES: LevelState[] = [
-	{ exerciseId: 'gesture-jam', scope: 'blues-f', level: 1 },
-	{ exerciseId: 'gesture-zone', scope: 'iohefy-a', level: 1 }
+	{ exerciseId: 'grid-reading', scope: 'blues-f', level: 1 },
+	{ exerciseId: 'grid-in-zone', scope: 'iohefy-a', level: 1 }
 ].map((key) => ({ ...key, item: '', successes: 0, failures: 0, resumeAfter: null }));
 
 /**

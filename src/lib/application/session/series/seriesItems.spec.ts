@@ -12,7 +12,7 @@ const presenter: SetPresenter = {
 	previewBeats: 1,
 	contestable: true
 };
-const item = { skill: 'grid-reading', exerciseId: 'gesture-link' } as unknown as PlannedItem;
+const item = { skill: 'grid-reading', exerciseId: 'inversion-run' } as unknown as PlannedItem;
 const itemsOf = (flow?: ExerciseDefinition['flow']) =>
 	new SeriesItems({ presenters: {}, views: { 'link-lane': presenter } }, (id) => ({
 		...exerciseById(id),

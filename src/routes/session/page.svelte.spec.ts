@@ -53,7 +53,7 @@ describe('/session page, kind exercise', () => {
 	it.each([
 		['?kind=exercise&exercise=nope'],
 		['?kind=exercise'],
-		['?kind=exercise&exercise=locate-neck']
+		['?kind=exercise&exercise=locate-note-string']
 	])(
 		'goes back home, starting nothing, when the exercise is missing or unknown (%s)',
 		async (search) => {

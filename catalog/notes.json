@@ -28,7 +28,7 @@
 	],
 	"exercises": [
 		{
-			"id": "locate-neck",
+			"id": "locate-note-string",
 			"practices": "locate-note-string",
 			"view": "lane",
 			"tempo": 80,
@@ -138,7 +138,7 @@
 			}
 		},
 		{
-			"id": "identify-neck",
+			"id": "identify-note",
 			"practices": "identify-note",
 			"view": "answer-keys",
 			"presentation": {

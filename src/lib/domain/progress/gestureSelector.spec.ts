@@ -100,22 +100,22 @@ describe('createGestureSelector', () => {
 		const clock = { now: NOW };
 		const exercises = Array.from({ length: 8 }, () => playPassage(s, clock)[0].exerciseId);
 		expect(exercises).toEqual([
-			'gesture-link',
-			'gesture-climb',
-			'gesture-zone',
-			'gesture-jam',
-			'gesture-link',
-			'gesture-climb',
-			'gesture-zone',
-			'gesture-jam'
+			'inversion-run',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading',
+			'inversion-run',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading'
 		]);
 	});
 
 	it('skips an exercise with nothing open', () => {
 		const s = selector(triadCards('chord-anchor', 'D', 'maj', G_B_E));
 		const clock = { now: NOW };
-		expect(playPassage(s, clock)[0].exerciseId).toBe('gesture-link');
-		expect(playPassage(s, clock)[0].exerciseId).toBe('gesture-link');
+		expect(playPassage(s, clock)[0].exerciseId).toBe('inversion-run');
+		expect(playPassage(s, clock)[0].exerciseId).toBe('inversion-run');
 	});
 
 	it('takes the element played least recently, the two sets of a chord in turn', () => {
@@ -186,14 +186,14 @@ describe('createGestureSelector', () => {
 		const climbs: PlannedItem[][] = [];
 		while (climbs.length < 2) {
 			const passage = playPassage(s, clock);
-			if (passage[0].exerciseId === 'gesture-climb') climbs.push(passage);
+			if (passage[0].exerciseId === 'grid-in-direction') climbs.push(passage);
 		}
 		expect(climbs.map((c) => itemOf(c[0]).direction)).toEqual(['up', 'down']);
 		const history = climbs.flat().map((planned, i) => attemptOf(planned, NOW + i));
 		const next = selector(cards, history, 's2');
 		for (;;) {
 			const passage = playPassage(next, clock);
-			if (passage[0].exerciseId !== 'gesture-climb') continue;
+			if (passage[0].exerciseId !== 'grid-in-direction') continue;
 			expect(itemOf(passage[0]).direction).toBe('up');
 			expect(passage.every((p) => itemOf(p).direction === 'up')).toBe(true);
 			break;
@@ -206,7 +206,7 @@ describe('createGestureSelector', () => {
 		const zones: unknown[] = [];
 		while (zones.length < 2) {
 			const passage = playPassage(s, clock);
-			if (passage[0].exerciseId === 'gesture-zone') zones.push(itemOf(passage[0]).zone);
+			if (passage[0].exerciseId === 'grid-in-zone') zones.push(itemOf(passage[0]).zone);
 		}
 		// From fret 1, ZONE_STEP_FRETS on.
 		expect(zones).toEqual([
@@ -239,7 +239,7 @@ describe('createGestureSelector', () => {
 		const aids: string[] = [];
 		while (aids.length < climbs.length) {
 			const first = s.next({ now: clock.now, elapsedMs: 0, fatigued: false })!;
-			const climb = first.exerciseId === 'gesture-climb';
+			const climb = first.exerciseId === 'grid-in-direction';
 			const correct = climb ? climbs[aids.length] : true;
 			if (climb) aids.push(first.aid);
 			let planned: PlannedItem = first;
@@ -279,10 +279,10 @@ describe('createGestureSelector', () => {
 			return [first.exerciseId, first.scope];
 		});
 		expect(scopes).toEqual([
-			['gesture-link', undefined],
-			['gesture-climb', 'iohefy-a'],
-			['gesture-zone', 'iohefy-a'],
-			['gesture-jam', 'iohefy-a']
+			['inversion-run', undefined],
+			['grid-in-direction', 'iohefy-a'],
+			['grid-in-zone', 'iohefy-a'],
+			['grid-reading', 'iohefy-a']
 		]);
 	});
 
@@ -301,7 +301,7 @@ describe('createGestureSelector', () => {
 				triadCards('chord-anchor', root, quality, set)
 			);
 			const s = createGestureSelector({
-				definitions: GESTURE_EXERCISES.filter((d) => d.id === 'gesture-climb'),
+				definitions: GESTURE_EXERCISES.filter((d) => d.id === 'grid-in-direction'),
 				cards,
 				attempts: [],
 				sessionId: 's1'
