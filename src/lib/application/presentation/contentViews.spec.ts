@@ -220,6 +220,30 @@ describe('CONTENT_VIEWS', () => {
 		});
 	});
 
+	it('tells nothing of a value that is no member content, without throwing', () => {
+		for (const value of [null, undefined, 'note-places', 7, []]) {
+			expect(member.answerLabel(value, { midi: 60 }, 'fr', () => 0)).toBeNull();
+			expect(member.miss(value, { answer: null, confusion: null }, 'fr', () => 0)).toEqual({
+				correction: null,
+				heard: null,
+				expected: null,
+				gap: null
+			});
+		}
+	});
+
+	it('tells a pitch played as a note on a string is told, over the whole range', () => {
+		const onString = notePlaces({ string: 2, pitch: 'G' });
+		for (let midi = 28; midi <= 88; midi += 5) {
+			for (const r of [0, 0.9]) {
+				expect(
+					CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi }, 'fr', () => r),
+					`${midi} at ${r}`
+				).toBe(member.answerLabel(onString, { midi }, 'fr', () => r));
+			}
+		}
+	});
+
 	it('spells the pitch played', () => {
 		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, { midi: 70 }, 'fr', () => 0.9)).toBe('Bb');
 		expect(CONTENT_VIEWS.pitch.answerLabel({ midi: 67 }, null, 'fr', () => 0)).toBeNull();

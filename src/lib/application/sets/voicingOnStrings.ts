@@ -71,12 +71,22 @@ function chordExpectation(
 	};
 }
 
-/** The shapes the round's chord expectation admits; none when it has no chord expectation. */
-function admittedShapes(expectations: readonly Pick<Expectation, 'sensor' | 'content'>[]) {
-	const chord = expectations.find(
-		(e) => e.sensor === 'chord' && e.content?.kind === MEMBER_CONTENT
-	);
-	return chord ? (admittedMembers(chord.content!.value as MemberContent) as ChordShape[]) : [];
+/**
+ * The shapes the round's chord expectation admits: of the family this set asks (its chord
+ * shapes) only; none when the round has no such expectation (a member of another family heard by
+ * the chord sensor is none of its shapes).
+ */
+function admittedShapes(
+	expectations: readonly Pick<Expectation, 'sensor' | 'content'>[]
+): ChordShape[] {
+	for (const { sensor, content } of expectations) {
+		if (sensor !== 'chord' || content?.kind !== MEMBER_CONTENT) continue;
+		const member = content.value as MemberContent;
+		if (member.family === voicingOnStringsSet.asks) {
+			return admittedMembers(member) as ChordShape[];
+		}
+	}
+	return [];
 }
 
 /** The confusion of an anchor whose root was right and whose chord never came in its band. */

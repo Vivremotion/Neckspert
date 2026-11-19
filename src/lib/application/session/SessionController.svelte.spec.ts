@@ -7,7 +7,8 @@ import {
 } from '$lib/domain/derivations';
 import { exerciseById } from '$lib/domain/exercise';
 import type { RoundTemplate } from '$lib/domain/exercise/round';
-import { NAME_CONTENT, PITCH_CONTENT } from '$lib/domain/judges';
+import { NAME_CONTENT } from '$lib/domain/judges';
+import { INDEX_DERIVATIONS, type IndexDerivation } from '$lib/domain/families';
 import { acceptableMidis } from '$lib/domain/music';
 import { triadShapes, type ChordGridItem } from '$lib/domain/sets';
 import { createGestureSelector } from '$lib/domain/progress';
@@ -993,14 +994,16 @@ describe('SessionController', () => {
 			'beat-unannounced': presenter({ previewBeats: undefined }),
 			tap: TAP
 		};
-		// The rounds of these sets are templates like any exercise's; the notes they derive
-		// are the vocabulary this file adds to the registry.
-		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
-		derivations['test-note-c'] = {
-			kind: PITCH_CONTENT,
+		// The rounds of these sets are templates like any exercise's; the note C on the G string
+		// they ask (any of its places, as locate asks a note) and the name are the vocabulary this
+		// file adds to the registries.
+		const indexes = INDEX_DERIVATIONS as Record<string, IndexDerivation>;
+		indexes['test-note-c'] = {
+			family: 'note-places',
 			reads: ['beat', 'beat-unannounced'],
-			derive: () => ({ midi: C })
+			index: () => NOTE_C
 		};
+		const derivations = CONTENT_DERIVATIONS as Record<string, ContentDerivation>;
 		derivations['test-name'] = {
 			kind: NAME_CONTENT,
 			reads: ['tap'],
@@ -1012,7 +1015,7 @@ describe('SessionController', () => {
 				{
 					at: { beats: 0 },
 					sensor: 'note',
-					content: { from: 'test-note-c' },
+					content: { family: 'note-places', of: 'test-note-c' },
 					window: { ms: { param: 'windows.perfectMs' } }
 				}
 			]

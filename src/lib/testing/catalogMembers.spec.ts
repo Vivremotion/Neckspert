@@ -40,6 +40,7 @@ const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const D_ON_G = 'D|maj|3:1,2:3,1:5';
 const C_ON_G = 'C|maj|3:1,2:3,1:5';
 const E_MINOR = 'E|min|3:b3,2:5,1:1';
+const C_ON_B = 'C|maj|3:5,2:1,1:3';
 
 const right = (answer: unknown) => ({ correct: true, answer, confusion: null });
 const wrong = (answer: unknown, confusion: unknown) => ({ correct: false, answer, confusion });
@@ -81,6 +82,27 @@ const ROWS: [ExerciseDefinition, unknown, number, unknown, unknown][] = [
 	],
 	[
 		LOCATE_NECK,
+		{ string: 2, pitch: 'F' },
+		0,
+		{ midi: 64 },
+		wrong({ midi: 64 }, { kind: 'semitone', delta: -1 })
+	],
+	[
+		LOCATE_NECK,
+		{ string: 2, pitch: 'F' },
+		0,
+		{ midi: 63 },
+		wrong({ midi: 63 }, { kind: 'semitone', delta: -2 })
+	],
+	[
+		LOCATE_NECK,
+		{ string: 2, pitch: 'F' },
+		0,
+		{ midi: 67 },
+		wrong({ midi: 67 }, { kind: 'semitone', delta: 2 })
+	],
+	[
+		LOCATE_NECK,
 		{ string: 6, pitch: 'G' },
 		0,
 		{ midi: 40 },
@@ -99,6 +121,9 @@ const ROWS: [ExerciseDefinition, unknown, number, unknown, unknown][] = [
 		{ midi: 63 },
 		wrong({ midi: 63 }, { kind: 'semitone', delta: 1 })
 	],
+	// The root at another octave, played on another string (D on the A string, then high up).
+	[TRIADS_ANCHOR, { voicingKey: D_ON_B }, 0, { midi: 50 }, wrong({ midi: 50 }, { kind: 'octave' })],
+	[TRIADS_ANCHOR, { voicingKey: D_ON_B }, 0, { midi: 86 }, wrong({ midi: 86 }, { kind: 'octave' })],
 	// The anchor's chord: the voicing at any octave.
 	[
 		TRIADS_ANCHOR,
@@ -202,6 +227,36 @@ const ROWS: [ExerciseDefinition, unknown, number, unknown, unknown][] = [
 		decided(`${E_MINOR}@0-0-0`),
 		wrong(decided(`${E_MINOR}@0-0-0`), chord('other-octave'))
 	],
+	// A shape mixing open and fretted strings (0-1-0) covers frets 0 and 1, its octave neither.
+	[
+		TRIADS_ZONE,
+		{ voicingKey: C_ON_B, position: 1, fret: 1 },
+		0,
+		decided(`${C_ON_B}@0-1-0`),
+		right(decided(`${C_ON_B}@0-1-0`))
+	],
+	[
+		TRIADS_ZONE,
+		{ voicingKey: C_ON_B, position: 1, fret: 1 },
+		0,
+		decided(`${C_ON_B}@12-13-12`),
+		wrong(decided(`${C_ON_B}@12-13-12`), chord('other-octave'))
+	],
+	// Fret 0 named (the draw never names it; the filter alone): the shape that covers it.
+	[
+		TRIADS_ZONE,
+		{ voicingKey: C_ON_B, fret: 0 },
+		0,
+		decided(`${C_ON_B}@0-1-0`),
+		right(decided(`${C_ON_B}@0-1-0`))
+	],
+	[
+		TRIADS_ZONE,
+		{ voicingKey: C_ON_B, fret: 0 },
+		0,
+		decided(`${C_ON_B}@12-13-12`),
+		wrong(decided(`${C_ON_B}@12-13-12`), chord('other-octave'))
+	],
 	// An item without a position: the voicing at any of its places.
 	[
 		TRIADS_ZONE,
@@ -270,6 +325,28 @@ describe('the chord sensor of the catalog’s triads', () => {
 
 	it('never lists a shape of the chord still ringing', () => {
 		expect(told(listened(TRIADS_ANCHOR, { voicingKey: D_ON_G }, ringing))).toEqual([
+			`expected ${D_ON_G}@7-7-5`,
+			'other-inversion D|maj|3:3,2:5,1:1@11-10-10',
+			'other-quality D|min|3:1,2:b3,1:5@7-6-5',
+			'other-quality D|aug|3:1,2:3,1:#5@7-7-6'
+		]);
+	});
+
+	it('centres an anchor with a shape on open strings on its fretted one, both expected', () => {
+		expect(told(listened(TRIADS_ANCHOR, { voicingKey: E_MINOR }, null))).toEqual([
+			`expected ${E_MINOR}@12-12-12`,
+			`expected ${E_MINOR}@0-0-0`,
+			'other-inversion E|min|3:1,2:b3,1:5@9-8-7',
+			'other-inversion E|min|3:5,2:1,1:b3@16-17-15',
+			'other-quality E|maj|3:3,2:5,1:1@13-12-12',
+			'other-quality E|dim|3:b3,2:b5,1:1@12-11-12'
+		]);
+	});
+
+	it('never lists a shape of the chord still ringing in a zone round either', () => {
+		const item = { voicingKey: D_ON_G, position: 5, fret: 6 };
+		expect(told(listened(TRIADS_ZONE, item, null))).toContain(`other-inversion ${D_ON_B}@2-3-2`);
+		expect(told(listened(TRIADS_ZONE, item, ringing))).toEqual([
 			`expected ${D_ON_G}@7-7-5`,
 			'other-inversion D|maj|3:3,2:5,1:1@11-10-10',
 			'other-quality D|min|3:1,2:b3,1:5@7-6-5',

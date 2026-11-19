@@ -155,8 +155,11 @@ const MEMBER_VIEWS: Readonly<Record<string, MemberView>> = {
 	'chord-shapes': chordShapesView
 };
 
+/** The view of a member content's family; null for a value that is none, or a family without a view. */
 function memberViewOf(value: unknown): MemberView | null {
-	const { family } = value as MemberContent;
+	if (typeof value !== 'object' || value === null) return null;
+	const { family } = value as Partial<MemberContent>;
+	if (typeof family !== 'string') return null;
 	return Object.hasOwn(MEMBER_VIEWS, family) && familyNamed(family) ? MEMBER_VIEWS[family] : null;
 }
 

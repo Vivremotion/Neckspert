@@ -6,6 +6,11 @@ import type { PlannedItem } from '$lib/domain/types';
 import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
 import type { Filter } from '$lib/domain/families';
 import { MEMBER_CONTENT } from '$lib/domain/judges';
+import { compileRound } from '$lib/domain/exercise/round';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { METER_4_4 } from '$lib/domain/time';
+import { TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { exerciseSeries, listItems, mulberry32, playExercise } from '$lib/testing/randomExercise';
 import { SET_PRESENTERS } from './index';
 import { voicingOnStringsPresenter } from './voicingOnStrings';
 
@@ -111,6 +116,34 @@ describe('voicingOnStringsPresenter, reading what its round admits', () => {
 		) as { chord: ChordExpectation };
 		expect(chord.expected).toEqual([`${D_ON_B}@14-15-14`]);
 		expect(chord.candidates.find((c) => c.id === `${D_ON_B}@2-3-2`)?.kind).toBe('other-octave');
+	});
+
+	it('tells the chord sensor nothing of a content of another family, and its round opens', async () => {
+		// Written in data, valid: the chord sensor asked for the root's places.
+		const anchor = TRIADS_ANCHOR.round!;
+		const rootByChord: ExerciseDefinition = {
+			...TRIADS_ANCHOR,
+			id: 'root-by-chord',
+			round: {
+				...anchor,
+				expectations: anchor.expectations.map((e, i) =>
+					i === 1 ? { ...e, content: { family: 'note-places', of: 'root' } } : e
+				)
+			}
+		};
+		const item = { voicingKey: D_ON_B };
+		const { expectations } = compileRound(
+			rootByChord,
+			{ ...previous(D_ON_B), exerciseId: rootByChord.id, leadBeats: 2, level: 2, item },
+			METER_4_4,
+			{ previewBeats: 0, fromRunStart: null }
+		);
+		expect(expectations[1]).toMatchObject({ sensor: 'chord', content: { kind: MEMBER_CONTENT } });
+		expect(
+			voicingOnStringsPresenter.expectation!(item, { opensAt: 1, previous: null, expectations })
+		).toEqual({});
+		const bench = exerciseSeries(rootByChord, listItems(rootByChord, mulberry32(3)));
+		expect(await playExercise(bench, 'none')).toHaveLength(3);
 	});
 
 	it('tells the chord sensor nothing in a round that expects no chord', () => {

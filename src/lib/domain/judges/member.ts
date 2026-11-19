@@ -1,4 +1,4 @@
-import { admitted, familyNamed, type Member, type Selection } from '../families';
+import { admitted, familyNamed, type Family, type Member, type Selection } from '../families';
 import type { ContentJudge } from '../time';
 
 /** A member of a family, admitted by a selection. Value: `MemberContent`; payload: the sensor's. */
@@ -14,12 +14,17 @@ export interface MemberContent {
 	previous?: Member | null;
 }
 
-/** The members a member content admits, in its selection's order. Throws on an unknown family. */
-export function admittedMembers(content: MemberContent): Member[] {
+/** The family a member content names and the members it admits. Throws on an unknown family. */
+function familyAndMembers(content: MemberContent): { family: Family; members: Member[] } {
 	const { family: id, index, selection, previous } = content;
 	const family = familyNamed(id);
 	if (!family) throw new Error(`member content names family "${id}", which is not registered`);
-	return admitted(family, index, selection, { previous: previous ?? null });
+	return { family, members: admitted(family, index, selection, { previous: previous ?? null }) };
+}
+
+/** The members a member content admits, in its selection's order. Throws on an unknown family. */
+export function admittedMembers(content: MemberContent): Member[] {
+	return familyAndMembers(content).members;
 }
 
 /**
@@ -29,9 +34,7 @@ export function admittedMembers(content: MemberContent): Member[] {
 export const memberJudge: ContentJudge = {
 	judge(value, payload) {
 		const content = value as MemberContent;
-		// Throws first on a family that is not registered.
-		const members = admittedMembers(content);
-		const family = familyNamed(content.family)!;
+		const { family, members } = familyAndMembers(content);
 		const heard = family.recognise(members, payload);
 		return {
 			correct: heard !== null,
