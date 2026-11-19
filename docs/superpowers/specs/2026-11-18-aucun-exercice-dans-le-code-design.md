@@ -621,7 +621,7 @@ Ce que la revue finale a changé :
 - Un voicing qui n'est pas une triade serrée sur trois cordes n'a pas de sosies : le capteur d'accords n'attend que les formes admises.
 - Un voicing sans forme sur le manche ne dessine rien : la consigne aidée garde ses mots, sans dessin.
 - Après un accord raté, la forme attendue est la forme admise la plus proche de celle entendue, choisie parmi les formes admises seulement.
-- Un tour écrit au plus 64 attentes (`MAX_ROUND_EXPECTATIONS`). Le contrôle par niveau des paramètres qu'un choix lit se fait une fois par tour pour chaque chemin lu.
+- Un tour écrit au plus 64 attentes (`MAX_ROUND_EXPECTATIONS`). Le contrôle par niveau des paramètres qu'un choix lit se fait une fois par tour pour chaque chemin lu. Ce qui reste coûteux : la limite des tours à vérifier (`MAX_ROUND_CHECKS`, 20 000) compte les tours, pas leurs attentes. Un exercice aux deux limites (20 000 tours à vérifier, 64 attentes chacun) peut prendre une dizaine de secondes à charger ; mesuré : 5,2 secondes pour 66 éléments au pire cas d'un tour. Ce n'est pas un blocage (la garde du plan 2b rend la main). Le budget par fichier laissé au plan 5 doit compter les tours multipliés par leurs attentes.
 
 Ce qui diffère du § 6, que celui-ci ne dit pas (le § 6 reste tel quel) :
 
