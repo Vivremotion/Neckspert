@@ -508,9 +508,17 @@ Ce que l'exécution a décidé en plus :
 - Une sauvegarde qui porte une progression sans définition s'importe : rien dans `validateBackup` n'a changé.
 - `docs/projet.md` n'est pas retouché par ce plan.
 
+Ce que la revue finale du plan a changé :
+
+- Vérifier un exercice a des limites, pour qu'un petit fichier ne bloque pas chaque démarrage. Un exercice est refusé s'il écrit plus de 100 niveaux (`MAX_EXERCISE_LEVELS`), une échelle de plus de 100 niveaux (`MAX_LADDER_LEVELS`), un niveau dont les `params` ont plus de 200 entrées (`MAX_LEVEL_PARAMS`, pour les niveaux de l'exercice comme pour ceux de l'échelle), plus de 2 000 éléments (`MAX_EXERCISE_ITEMS`), ou si ses éléments multipliés par ses niveaux demandent plus de 20 000 tours à vérifier (`MAX_ROUND_CHECKS`). Chaque limite se vérifie avant le travail qu'elle borne, et le refus nomme le champ, le nombre écrit et la limite.
+- Si le chargement des fichiers importés ne s'est pas terminé la dernière fois (l'application fermée ou bloquée pendant ce chargement), le démarrage suivant charge le catalogue seul. Les réglages listent quand même les fichiers importés, pour qu'on puisse en supprimer un, et un refus dit ce qui s'est passé. Le démarrage d'après essaie de nouveau ; un import, une suppression ou une sauvegarde importée rechargent les fichiers tout de suite.
+- Un exercice ne peut pas prendre l'ancien identifiant d'un des huit exercices renommés par la migration 13 : sinon la sauvegarde de sa progression serait refusée.
+- La section « Fichiers importés » des réglages montre, au-dessus de la liste, ce qui a empêché de charger les fichiers importés (lecture échouée, chargement pas terminé). L'accueil y mène déjà.
+
 Laissé au plan 3 :
 
 - les cartes d'une capacité de mémoire dont la clé ne se lit plus par l'ensemble de sa capacité (D10) : rien ne sert encore une carte d'une capacité importée ; le plan 3 construit le sujet d'apprentissage qui les ignorera.
+- une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité de mémoire importée sans les vérifier. Le sujet d'apprentissage doit traiter une telle carte comme peut-être illisible, ou la validation doit lire les fichiers de la sauvegarde elle-même. Lire ces fichiers mettrait aussi fin au refus à tort quand l'appareil tient un fichier qui définit la même capacité sur un autre ensemble.
 
 Laissé au plan 4 :
 
@@ -519,3 +527,5 @@ Laissé au plan 4 :
 Laissé au plan 5 :
 
 - le mode dégradé quand un fichier du catalogue est refusé en production (D9) : il touche l'accueil et la composition des séances, que le plan 5 récrit.
+- un identifiant que le catalogue prendrait un jour, et qu'un fichier de joueur utilise déjà, ferait refuser l'objet du joueur et donnerait sa progression rangée à celui du catalogue (un seul espace de noms, C7). Il faut choisir un préfixe réservé avant que le format quitte la version 0.
+- le résumé d'une séance dont l'exercice a été supprimé montre le cadre des notes.
