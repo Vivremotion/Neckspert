@@ -254,45 +254,75 @@ function paramValue(params: Readonly<Record_>, path: string): unknown {
 	return found;
 }
 
+/** What the levels give at one path, in the order of the levels: each distinct value once. */
+interface PathLevels {
+	/** The first level that gives no value there; null when every level gives one. */
+	missing: string | null;
+	/** Each distinct value, with the first level that gives it. */
+	values: { where: string; value: unknown }[];
+}
+
 /**
- * Why a param the selection reads is not written as it must be at every level: the params of
- * each level are resolved once, whatever the number of params read.
+ * The levels a round's selections read, by path, swept once per check of a round
+ * (`selectionFieldProblem`'s `sweep`): selections that read the same paths cost one sweep.
  */
-function paramsProblem(check: Check): SelectionProblem | null {
-	if (check.params.length === 0) return null;
-	const seen = check.params.map(() => ({
-		written: false,
-		missing: null as string | null,
-		unfit: null as { where: string; value: unknown; text: string } | null
-	}));
-	for (const { where, params } of levelsOf(
-		check.definition,
-		check.params.map((read) => read.path)
-	)) {
-		for (const [k, read] of check.params.entries()) {
-			const value = paramValue(params, read.path);
-			const state = seen[k];
+export type LevelSweep = Map<string, PathLevels>;
+
+/** A key telling equal values apart: a number, text or a pair by what they are, anything else by identity. */
+function valueKey(value: unknown): unknown {
+	if (typeof value !== 'object' || value === null) return `${typeof value}:${String(value)}`;
+	if (Array.isArray(value) && value.length <= 2 && value.every((v) => typeof v === 'number')) {
+		return `pair:${value.join(',')}`;
+	}
+	return value;
+}
+
+/** Sweeps the levels for the paths `sweep` does not hold yet, all in one pass. */
+function sweepLevels(definition: ExerciseDefinition, paths: readonly string[], sweep: LevelSweep) {
+	const unswept = [...new Set(paths)].filter((path) => !sweep.has(path));
+	if (unswept.length === 0) return;
+	const seen = unswept.map(() => new Set<unknown>());
+	const found: PathLevels[] = unswept.map(() => ({ missing: null, values: [] }));
+	for (const { where, params } of levelsOf(definition, unswept)) {
+		for (const [k, path] of unswept.entries()) {
+			const value = paramValue(params, path);
 			if (value === undefined) {
-				state.missing ??= where;
+				found[k].missing ??= where;
 				continue;
 			}
-			state.written = true;
-			if (state.unfit === null) {
-				const text = read.unfit(value);
-				if (text !== null) state.unfit = { where, value, text };
-			}
+			const key = valueKey(value);
+			if (seen[k].has(key)) continue;
+			seen[k].add(key);
+			found[k].values.push({ where, value });
 		}
 	}
-	for (const [k, read] of check.params.entries()) {
-		const { written, missing, unfit } = seen[k];
+	for (const [k, path] of unswept.entries()) sweep.set(path, found[k]);
+}
+
+/**
+ * Why a param the selection reads is not written as it must be at every level: the levels are
+ * swept once for the paths read (once per round with a shared `sweep`), each distinct value
+ * checked once.
+ */
+function paramsProblem(check: Check, sweep: LevelSweep): SelectionProblem | null {
+	if (check.params.length === 0) return null;
+	sweepLevels(
+		check.definition,
+		check.params.map((read) => read.path),
+		sweep
+	);
+	for (const read of check.params) {
+		const { missing, values } = sweep.get(read.path)!;
 		const reads = `reads param "${read.path}", which`;
-		if (!written) return problemAt(read.field, `${reads} no level of the exercise writes`);
+		if (values.length === 0)
+			return problemAt(read.field, `${reads} no level of the exercise writes`);
 		if (missing !== null) return problemAt(read.field, `${reads} ${missing} does not write`);
-		if (unfit !== null) {
+		for (const { where, value } of values) {
+			const text = read.unfit(value);
+			if (text === null) continue;
 			return problemAt(
 				read.field,
-				read.unfitText ??
-					`${reads} ${unfit.where} gives as ${JSON.stringify(unfit.value)}, ${unfit.text}`
+				read.unfitText ?? `${reads} ${where} gives as ${JSON.stringify(value)}, ${text}`
 			);
 		}
 	}
@@ -308,7 +338,8 @@ function paramsProblem(check: Check): SelectionProblem | null {
  */
 export function selectionFieldProblem(
 	definition: ExerciseDefinition,
-	selection: unknown
+	selection: unknown,
+	sweep: LevelSweep = new Map()
 ): SelectionProblem | null {
 	if (!isRecord(selection))
 		return problemAt('', 'must be a selection { family, of?, where?, order?, take? }');
@@ -358,7 +389,7 @@ export function selectionFieldProblem(
 		...(order !== undefined && { order: order as string[] })
 	});
 	if (reason !== null) return problemAt('', reason);
-	return paramsProblem(check);
+	return paramsProblem(check, sweep);
 }
 
 /** `selectionFieldProblem` told as one line: the field, a space, what is wrong. */

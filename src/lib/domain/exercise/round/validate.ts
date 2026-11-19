@@ -18,7 +18,7 @@ import { ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
 import { levelRange } from '../../time/levels';
-import { selectionFieldProblem } from '../selection/validate';
+import { selectionFieldProblem, type LevelSweep } from '../selection/validate';
 import { isSelectionTemplate } from '../selection/types';
 import { FIGURE_CONTENT } from './types';
 
@@ -63,6 +63,9 @@ function isNum(value: unknown): value is { param: string } | { item: string } {
 
 const at = (field: string, text: string) => `round.${field} ${text}`;
 
+/** Expectations of one round: each may cost a look at every level (a selection read in the params). */
+export const MAX_ROUND_EXPECTATIONS = 64;
+
 function unknownKey(value: Record_, allowed: readonly string[], field: string): string | null {
 	for (const key of Object.keys(value)) {
 		if (!allowed.includes(key)) {
@@ -78,6 +81,8 @@ interface Check {
 	definition: ExerciseDefinition;
 	params: Readonly<Record<string, unknown>>;
 	options: RoundCheckOptions;
+	/** The levels the round's selections read, swept once for the whole round. */
+	sweep: LevelSweep;
 }
 
 /** The value a path of the params gives, undefined when it gives none. */
@@ -282,7 +287,7 @@ function derivationProblem(check: Check, field: string, from: string): string | 
 
 /** A selection's problem, told under the content's field. */
 function selectionContentProblem(check: Check, field: string, content: unknown): string | null {
-	const problem = selectionFieldProblem(check.definition, content);
+	const problem = selectionFieldProblem(check.definition, content, check.sweep);
 	if (problem === null) return null;
 	return at(problem.field === '' ? field : `${field}.${problem.field}`, problem.text);
 }
@@ -818,6 +823,12 @@ function templateProblem(check: Check): string | null {
 
 	const expectations = template.expectations;
 	if (!Array.isArray(expectations)) return at('expectations', 'must be a list');
+	if (expectations.length > MAX_ROUND_EXPECTATIONS) {
+		return at(
+			'expectations',
+			`has ${expectations.length} entries, more than ${MAX_ROUND_EXPECTATIONS}`
+		);
+	}
 	for (const [i, expectation] of expectations.entries()) {
 		const problem = expectationProblem(check, expectation, i);
 		if (problem !== null) return problem;
@@ -898,5 +909,10 @@ export function roundProblem(
 	options: RoundCheckOptions = {}
 ): string | null {
 	if (definition.round === undefined) return null;
-	return templateProblem({ definition, params: exerciseParamsOf(definition), options });
+	return templateProblem({
+		definition,
+		params: exerciseParamsOf(definition),
+		options,
+		sweep: new Map()
+	});
 }

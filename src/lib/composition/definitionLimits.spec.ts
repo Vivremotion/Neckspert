@@ -5,6 +5,7 @@ import {
 	MAX_LADDER_LEVELS,
 	MAX_LEVEL_PARAMS,
 	MAX_ROUND_CHECKS,
+	MAX_ROUND_EXPECTATIONS,
 	MAX_SELECTION_FILTERS,
 	MAX_SELECTION_ORDER
 } from '$lib/domain/exercise';
@@ -156,6 +157,61 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		);
 		expect(refusals).toEqual([]);
 		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads a round with the most expectations, each a selection with the most filters read in the params, at the most levels and ladder levels', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
+			params: manyParams(MAX_LEVEL_PARAMS)
+		}));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+		}));
+		const zones = Object.fromEntries(
+			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
+		);
+		const exercise = locateJson('h-expectations');
+		const round = exercise.round as { expectations: Record<string, unknown>[] };
+		const [expectation] = round.expectations;
+		const content = {
+			family: 'note-places',
+			where: Object.keys(zones).map((z) => ({ in: { frets: { param: `zones.${z}` } } }))
+		};
+		const { ms, refusals } = timedLoad({
+			...exercise,
+			// One item: what each listed item costs at each level is bounded by the round checks.
+			items: (exercise.items as unknown[]).slice(0, 1),
+			params: { ...(exercise.params as object), ladder, zones },
+			levels,
+			round: {
+				...round,
+				length: { bars: MAX_ROUND_EXPECTATIONS / 4, breath: true },
+				expectations: Array.from({ length: MAX_ROUND_EXPECTATIONS }, (_, i) => ({
+					...expectation,
+					at: { beats: i },
+					content
+				}))
+			}
+		});
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses fast a round over its expectations', () => {
+		const locate = locateJson('h-over');
+		const round = locate.round as { expectations: Record<string, unknown>[] };
+		const { ms, refusals } = timedLoad({
+			...locate,
+			round: { ...round, expectations: Array.from({ length: 1000 }, () => round.expectations[0]) }
+		});
+		expect(refusals).toEqual([
+			{
+				file: 'h.json',
+				kind: 'exercise',
+				id: 'h-over',
+				reason: 'round.expectations has 1000 entries, more than 64'
+			}
+		]);
+		expect(ms).toBeLessThan(REFUSED_MS);
 	});
 
 	it('refuses fast a selection over its limits', () => {
