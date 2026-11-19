@@ -13,7 +13,8 @@ const SAMPLES: Record<string, unknown> = {
 	'placed-note': { string: 3, fret: 8 },
 	'voicing-on-strings': { voicingKey: D_ON_B, position: 2, fret: 3 },
 	'placed-voicing': { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 },
-	'placed-shape': { shape: 'maj7', first: 'd', beats: 4 }
+	'placed-shape': { shape: 'maj7', first: 'd', beats: 4 },
+	change: { grid: 'iohefy-a', index: 0 }
 };
 
 describe('ITEM_FIELDS', () => {
@@ -76,13 +77,15 @@ describe('the fields of a voicing figure', () => {
 		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', frets: [10, 12, 12, 12] };
 		expect(figure.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({
 			chord: 'Cmaj7',
-			strings: 'ré‑sol‑si‑mi'
+			strings: 'ré‑sol‑si‑mi',
+			quality: 'maj7'
 		});
 		expect(
 			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'fr', () => 0, FORM_EXERCISE)
 		).toEqual({
 			chord: 'D',
-			strings: 'sol‑si‑mi'
+			strings: 'sol‑si‑mi',
+			quality: 'majeur'
 		});
 		expect(
 			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'en', () => 0, FORM_EXERCISE).strings
@@ -115,5 +118,32 @@ describe('the fields of a form figure', () => {
 		expect(shape.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, shapes: undefined })).toEqual({
 			chord: 'Bb'
 		});
+	});
+});
+
+describe('the fields of a change', () => {
+	const change = ITEM_FIELDS.change;
+
+	it('names its chord as its grid writes it, and the title of its grid', () => {
+		expect(change.fields({ grid: 'iohefy-a', index: 1 }, 'fr', () => 0, FORM_EXERCISE)).toEqual({
+			symbol: 'G7',
+			title: 'I Only Have Eyes for You'
+		});
+		expect(change.fields({ grid: 'blues-f', index: 1 }, 'en', () => 0, FORM_EXERCISE)).toEqual({
+			symbol: 'Bb7',
+			title: 'Blues F'
+		});
+	});
+});
+
+describe('the fields of a placed voicing', () => {
+	const placed = ITEM_FIELDS['placed-voicing'];
+
+	it('names the quality of its chord, in each language', () => {
+		const major = { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 };
+		const minor = { voicing: 'D|min|3:5,2:1,1:b3', frets: [2, 3, 1], beats: 4 };
+		expect(placed.fields(major, 'fr', () => 0, FORM_EXERCISE).quality).toBe('majeur');
+		expect(placed.fields(minor, 'fr', () => 0, FORM_EXERCISE).quality).toBe('mineur');
+		expect(placed.fields(minor, 'en', () => 0, FORM_EXERCISE).quality).toBe('minor');
 	});
 });

@@ -11,7 +11,13 @@ import type { AidLevel, Locale, PlannedItem } from '$lib/domain/types';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { presentPrompt } from './presentPrompt';
 import { presentationProblem } from './validate';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR, TRIADS_ZONE } from '$lib/testing/catalog';
+import {
+	GESTURE_CLIMB,
+	IDENTIFY_NECK,
+	LOCATE_NECK,
+	TRIADS_ANCHOR,
+	TRIADS_ZONE
+} from '$lib/testing/catalog';
 
 /** The locate prompt as its presenter wrote it before its presentation became data (H5). */
 function locateToday(
@@ -232,5 +238,30 @@ describe('presentPrompt', () => {
 		expect(presentationProblem(definition)).toBe(
 			'locate-note-string: presentation.primary names field "chord", which note-on-string does not have'
 		);
+	});
+
+	it("reads the fields of its round's content, an item field winning over one of the same name", () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', detail: '{strings} · {toward}', target: '{title}' }
+		};
+		const item = planned(definition, { grid: 'iohefy-a', index: 1 });
+		const content = { strings: 'sol‑si‑mi', toward: '↑ en montant', symbol: 'never' };
+		expect(presentPrompt(definition, item, 'fr', () => 0, content)).toMatchObject({
+			primary: 'G7',
+			detail: 'sol‑si‑mi · ↑ en montant',
+			target: 'I Only Have Eyes for You'
+		});
+		// Without the content's fields, a slot that reads them says what is left.
+		expect(presentPrompt(definition, item, 'fr', () => 0).detail).toBe('·');
+	});
+
+	it('leaves the picture of the members admitted to the view of its round', () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', aided: { picture: 'admitted' } }
+		};
+		const item = planned(definition, { grid: 'iohefy-a', index: 0 }, { aid: 'show-position' });
+		expect(presentPrompt(definition, item, 'fr', () => 0).pictures).toEqual([]);
 	});
 });

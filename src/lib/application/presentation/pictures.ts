@@ -119,6 +119,12 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 };
 
 /**
+ * The pictures that read the content of the round, not its item: `admitted`, the members its
+ * member content admits (`membersPicture`), drawn by the view of the round.
+ */
+export const CONTENT_PICTURES: readonly string[] = ['admitted'];
+
+/**
  * The picture of where a derived list of notes comes from, by derivation (`CONTENT_DERIVATIONS`):
  * after a failed round that plays it, the screen shows what was asked (the expected shape).
  */

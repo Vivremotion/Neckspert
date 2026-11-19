@@ -14,8 +14,10 @@ import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
 import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
 import { playViewOf } from '$lib/application/session/contract';
+import { isSelectionTemplate } from '$lib/domain/exercise/selection/types';
+import { memberFieldNames } from './contentViews';
 import { ITEM_FIELDS } from './itemFields';
-import { PICTURES } from './pictures';
+import { CONTENT_PICTURES, PICTURES } from './pictures';
 import { FIGURE_VIEW, PASSAGE_VIEWS, PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from './playViews';
 
 /** The names of the `{fields}` a slot reads, in each language. */
@@ -25,17 +27,33 @@ function placeholders(slot: Slot): string[] {
 }
 
 /**
+ * The family whose members the first expectation of the round template that selects members
+ * selects (the content whose fields the prompt reads, `promptStage`); null when none selects.
+ */
+function memberFamily(definition: ExerciseDefinition): string | null {
+	for (const { content } of definition.round?.expectations ?? []) {
+		if (isSelectionTemplate(content)) return content.family;
+	}
+	return null;
+}
+
+/**
  * Null when the exercise's presentation can be written, else what it cannot: a slot that names a
- * field its set does not have, a picture that does not exist or does not read its
- * set. Names the exercise and the field. It is not part of `validateExercise` because its
- * words are code of the application layer.
+ * field neither its set nor the members its round's first member content selects
+ * (`memberFieldNames`) have, a picture that does not exist or does not read its set, the picture of the members
+ * admitted (`CONTENT_PICTURES`) for a round that selects none. Names the exercise and the field.
+ * It is not part of `validateExercise` because its words are code of the application layer.
  */
 export function presentationProblem(definition: ExerciseDefinition): string | null {
 	const presentation = definition.presentation;
 	if (!presentation) return null;
 	const { id } = definition;
 	const set = exerciseSetId(definition);
-	const known = Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set].names : [];
+	const family = memberFamily(definition);
+	const offered = family === null ? [] : memberFieldNames(family);
+	const known = [...(Object.hasOwn(ITEM_FIELDS, set) ? ITEM_FIELDS[set].names : []), ...offered];
+	const owners =
+		offered.length === 0 ? `which ${set} does not have` : `which neither ${set} nor ${family} has`;
 	const slots: [string, Slot | undefined][] = [
 		['primary', presentation.primary],
 		['secondary', presentation.secondary],
@@ -49,7 +67,7 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 		if (slot === undefined) continue;
 		const unknown = placeholders(slot).find((name) => !known.includes(name));
 		if (unknown !== undefined) {
-			return `${id}: presentation.${path} names field "${unknown}", which ${set} does not have`;
+			return `${id}: presentation.${path} names field "${unknown}", ${owners}`;
 		}
 	}
 	const pictures: [string, string | undefined][] = [
@@ -58,6 +76,10 @@ export function presentationProblem(definition: ExerciseDefinition): string | nu
 	];
 	for (const [path, name] of pictures) {
 		if (name === undefined) continue;
+		if (CONTENT_PICTURES.includes(name)) {
+			if (family !== null) continue;
+			return `${id}: presentation.${path} names picture "${name}", which draws the members its round admits, and no expectation of its round has a member content`;
+		}
 		const picture = Object.hasOwn(PICTURES, name) ? PICTURES[name] : undefined;
 		if (!picture) {
 			return `${id}: presentation.${path} names picture "${name}", which does not exist`;

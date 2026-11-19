@@ -76,7 +76,7 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 	}
 };
 
-const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
+const SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
 
 // The skills without memory the draw practises beside the memory skills.
 registerRandomSkills();
@@ -278,7 +278,7 @@ describe('every valid exercise plays', () => {
 			expect(problem.startsWith(`random-${seed}: `), problem).toBe(true);
 			// A field follows the name: a path of the definition.
 			expect(problem.slice(`random-${seed}: `.length), problem).toMatch(
-				/^(round|params|presentation|meter|tempo|flow|view|figures|writes a round|practices)/
+				/^(round|params|presentation|meter|tempo|flow|view|figures|items|writes a round|practices)/
 			);
 		}
 	});

@@ -1,5 +1,11 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
-import type { FormFigureItem, VoicingOnStringsItem, VoicingFigureItem } from '$lib/domain/sets';
+import { gridById, gridChanges } from '$lib/domain/grid';
+import type {
+	ChangeItem,
+	FormFigureItem,
+	VoicingOnStringsItem,
+	VoicingFigureItem
+} from '$lib/domain/sets';
 import {
 	fretLabel,
 	parseVoicingKey,
@@ -9,6 +15,7 @@ import {
 } from '$lib/domain/music';
 import { parseNoteName } from '$lib/domain/time/noteName';
 import type { Locale } from '$lib/domain/types';
+import { CHORD_GRID_MESSAGES } from '$lib/application/sets/chordGridMessages';
 import { nameAtFret, noteName, promptFretLabel } from './noteWords';
 import { aroundLabel, chordName, rootName, rootStringName, stringSetLabel } from './triadWords';
 
@@ -75,10 +82,24 @@ const voicingOnStringsFields: ItemFields = {
 };
 
 const voicingFigureFields: ItemFields = {
-	names: ['chord', 'strings'],
+	names: ['chord', 'strings', 'quality'],
 	fields: (raw, locale) => {
 		const voicing = parseVoicingKey((raw as VoicingFigureItem).voicing);
-		return { chord: chordName(voicing), strings: stringSetLabel(voicing, locale) };
+		return {
+			chord: chordName(voicing),
+			strings: stringSetLabel(voicing, locale),
+			quality: CHORD_GRID_MESSAGES[locale].quality(voicing.chord.quality.id)
+		};
+	}
+};
+
+/** A change of a grid: its chord as the grid writes it, and the grid's title. */
+const changeFields: ItemFields = {
+	names: ['symbol', 'title'],
+	fields: (raw) => {
+		const { grid, index } = raw as ChangeItem;
+		const written = gridById(grid);
+		return { symbol: gridChanges(written)[index]?.symbol ?? '', title: written.title };
 	}
 };
 
@@ -98,5 +119,6 @@ export const ITEM_FIELDS: Readonly<Record<string, ItemFields>> = {
 	'placed-note': identifyFields,
 	'voicing-on-strings': voicingOnStringsFields,
 	'placed-voicing': voicingFigureFields,
-	'placed-shape': formFigureFields
+	'placed-shape': formFigureFields,
+	change: changeFields
 };

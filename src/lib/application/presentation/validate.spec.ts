@@ -10,7 +10,13 @@ import { Fraction, METER_4_4, type FigureElement } from '$lib/domain/time';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { PROMPT_STAGE_VIEWS } from './playViews';
 import { presentationProblem, previewProblem, screenProblem } from './validate';
-import { GESTURE_LINK, LOCATE_NECK, TRIADS_ANCHOR, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
+import {
+	GESTURE_CLIMB,
+	GESTURE_LINK,
+	LOCATE_NECK,
+	TRIADS_ANCHOR,
+	RHYTHM_OFFBEATS
+} from '$lib/testing/catalog';
 
 registerTestSkills();
 
@@ -59,6 +65,39 @@ describe('presentationProblem', () => {
 			)
 		).toBe(
 			'locate-note-string: presentation.fading.picture names picture "nowhere", which does not exist'
+		);
+	});
+
+	it("reads the fields of the members its round names, beside its items'", () => {
+		expect(
+			presentationProblem(
+				withPresentation(GESTURE_CLIMB, {
+					primary: '{symbol}',
+					detail: '{strings} · {toward}',
+					target: '{title} {frets}',
+					aided: { picture: 'admitted' }
+				})
+			)
+		).toBeNull();
+	});
+
+	it('refuses a field neither its items nor the members of its round have, naming the slot', () => {
+		expect(
+			presentationProblem(
+				withPresentation(GESTURE_CLIMB, { primary: '{symbol}', detail: '{nope}' })
+			)
+		).toBe(
+			'grid-in-direction: presentation.detail names field "nope", which neither change nor chord-shapes has'
+		);
+	});
+
+	it('refuses the picture of the members admitted for a round with no member content', () => {
+		expect(
+			presentationProblem(
+				withPresentation(RHYTHM_OFFBEATS, { primary: 'x', aided: { picture: 'admitted' } })
+			)
+		).toBe(
+			'rhythm-offbeats: presentation.aided.picture names picture "admitted", which draws the members its round admits, and no expectation of its round has a member content'
 		);
 	});
 

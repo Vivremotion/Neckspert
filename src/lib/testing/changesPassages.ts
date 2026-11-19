@@ -3,6 +3,12 @@
  * the specs of the passages read of them: the link's chords, the groups of strings, the zones.
  */
 import type { ExerciseDefinition } from '$lib/domain/exercise';
+import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
+import { passageRound } from '$lib/domain/exercise/passage/round';
+import { compileRound } from '$lib/domain/exercise/round';
+import { passageDerivation } from '$lib/domain/families';
+import { METER_4_4, type RoundPlan } from '$lib/domain/time';
+import type { PlannedItem } from '$lib/domain/types';
 import {
 	GESTURE_CLIMB,
 	GESTURE_EXERCISES,
@@ -42,4 +48,27 @@ export function alternatingGrid(id: string, count: number) {
 			symbol: i % 2 === 0 ? 'C' : 'F'
 		}))
 	};
+}
+
+/**
+ * A round of a passage of `definition`, as the passage source serves it (the items of its
+ * passage carried), `previous` heard before, and its plan compiled.
+ */
+export function servedPassageRound(
+	definition: ExerciseDefinition,
+	key: string,
+	rank: number,
+	each: Record<string, unknown> = {},
+	previous: string | null = null
+): { planned: PlannedItem; plan: RoundPlan } {
+	const index = passageIndices(definition).find((found) => found.key === key)!;
+	const derivation = passageDerivation(definition.passages!.members.family)!;
+	const items = passageMembers(definition, index, each).map((member) => derivation.itemOf(member));
+	const base = passageRound(definition, index, each, items[rank], rank, items.length);
+	const planned = { ...base, passage: { ...base.passage, id: 's:0', previous, items } };
+	const plan = compileRound(definition, planned, METER_4_4, {
+		previewBeats: 0,
+		fromRunStart: null
+	});
+	return { planned, plan };
 }

@@ -10,7 +10,8 @@ import { placedNotePresenter } from '$lib/application/sets/placedNote';
 import { TRIAD_MESSAGES } from './triadMessages';
 import { presentPrompt } from './presentPrompt';
 import { promptStage } from './promptStage';
-import { IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { GESTURE_CLIMB, IDENTIFY_NECK, LOCATE_NECK, TRIADS_ANCHOR } from '$lib/testing/catalog';
+import { servedPassageRound } from '$lib/testing/changesPassages';
 
 const D_ON_B = 'D|maj|3:5,2:1,1:3';
 const D_ON_G = 'D|maj|3:1,2:3,1:5';
@@ -215,5 +216,31 @@ describe('promptStage', () => {
 			answerLabel: 'A',
 			misses: [{ correction: 'A# / Bb', heard: null, expected: null, gap: null }]
 		});
+	});
+
+	it("gives the prompt the fields of its round's member content", () => {
+		const definition: ExerciseDefinition = {
+			...GESTURE_CLIMB,
+			presentation: { primary: '{symbol}', detail: '{strings} · {toward}' }
+		};
+		const { planned: item, plan } = servedPassageRound(
+			definition,
+			'grid=iohefy-a;strings=3,2,1',
+			1,
+			{ direction: 'down' }
+		);
+		const model = promptStage({
+			definition,
+			item,
+			plan,
+			settled: null,
+			place: PLACE,
+			beatsPerBar: 4,
+			chordDiagram: 'grid',
+			choices: [],
+			locale: 'fr',
+			random: () => 0
+		});
+		expect(model.prompt).toMatchObject({ primary: 'G7', detail: 'sol‑si‑mi · ↓ en descendant' });
 	});
 });
