@@ -95,4 +95,37 @@ describe('definitionChecks', () => {
 			expect(check(climb)).toBeNull();
 		});
 	});
+
+	describe('the params of the changes', () => {
+		const withParams = (params: Record<string, unknown>) => ({
+			...GESTURE_CLIMB,
+			params: { ...GESTURE_CLIMB.params, grids: [], ...params }
+		});
+
+		it('refuses a quality that is none', () => {
+			expect(check(withParams({ qualities: ['xyz'] }))).toBe(
+				'params.qualities names "xyz", which is no chord quality'
+			);
+		});
+
+		it.each([[[[9, 8, 7]]], [[[1, 2]]], [[[3, 3, 1]]], [['a']]])(
+			'refuses the sets of strings %j',
+			(stringSets) => {
+				expect(check(withParams({ stringSets }))).toBe('params.stringSets[0] is no set of strings');
+			}
+		);
+
+		it('refuses a rule that is none', () => {
+			expect(check(withParams({ rule: 'fly' }))).toBe(
+				'params.rule must be link, climb, zone or jam'
+			);
+		});
+
+		it('refuses grids that are no list of ids', () => {
+			expect(check(withParams({ grids: 'iohefy-a' }))).toBe(
+				'params.grids must be a list of grid ids'
+			);
+			expect(check(withParams({ grids: [3] }))).toBe('params.grids must be a list of grid ids');
+		});
+	});
 });

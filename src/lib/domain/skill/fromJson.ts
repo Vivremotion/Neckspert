@@ -1,3 +1,4 @@
+import { idProblem, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import { ITEM_SET_NAMES } from '$lib/domain/sets/names';
 import type { SkillDefinition } from './types';
 
@@ -15,7 +16,9 @@ export function skillFromJson(json: unknown): SkillDefinition {
 	const unknown = Object.keys(json).find((key) => !KEYS.includes(key));
 	if (unknown !== undefined) throw new Error(`unknown key "${unknown}"`);
 	const { id, name, items, memory, directRecall } = json;
-	if (typeof id !== 'string' || id === '') throw new Error('id must be a string, not empty');
+	const badId = idProblem(id, { reserved: RESERVED_IDS });
+	if (badId !== null) throw new Error(badId);
+	if (typeof id !== 'string') throw new Error('id must be a string, not empty');
 	if (!isObject(name) || typeof name.fr !== 'string' || typeof name.en !== 'string') {
 		throw new Error('name must be { fr, en }');
 	}

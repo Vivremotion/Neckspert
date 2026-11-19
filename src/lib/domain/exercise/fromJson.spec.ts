@@ -260,4 +260,60 @@ describe('exerciseFromJson practices', () => {
 	it.each(['mechanic', 'version'])('refuses %s as an unknown key', (key) => {
 		expect(() => exerciseFromJson({ ...base, [key]: 1 })).toThrow(`unknown key "${key}"`);
 	});
+
+	describe('what a file may write', () => {
+		const refused = (extra: Record<string, unknown>) => () =>
+			exerciseFromJson({ ...arpeggioJson(), ...extra });
+
+		it.each(['', 3])('refuses the id %j', (id) => {
+			expect(refused({ id })).toThrow('id must be a string, not empty');
+		});
+
+		it.each(['a:b', 'a#b', 'a b', '-a', 'é'])('refuses the id %j for its shape', (id) => {
+			expect(refused({ id })).toThrow(
+				'id must be made of letters, digits, "-", "_" or ".", and start with a letter or a digit'
+			);
+		});
+
+		it('refuses the reserved id', () => {
+			expect(refused({ id: 'unknown' })).toThrow('id "unknown" is reserved');
+		});
+
+		it.each([
+			['presentation', 3],
+			['flow', 'x'],
+			['round', []],
+			['params', null]
+		])('refuses %s written as %j', (key, value) => {
+			expect(refused({ [key]: value })).toThrow(`${key} must be an object`);
+		});
+
+		it('refuses a pick that is neither loop nor next', () => {
+			expect(refused({ pick: 'weird' })).toThrow('pick must be "loop" or "next"');
+		});
+
+		it.each([
+			['howTo', 3],
+			['title', { fr: 'x' }]
+		])('refuses %s written as %j', (key, value) => {
+			expect(refused({ [key]: value })).toThrow(`${key} must be { fr, en }`);
+		});
+
+		it('refuses a view that is no string', () => {
+			expect(refused({ view: 3 })).toThrow('view must be a string');
+		});
+
+		it('refuses a tempo that is no number', () => {
+			expect(refused({ tempo: '80' })).toThrow('tempo must be a number');
+		});
+
+		it.each([
+			['levels', {}],
+			['items', 'a'],
+			['figures', {}],
+			['shapes', {}]
+		])('refuses %s written as %j', (key, value) => {
+			expect(refused({ [key]: value })).toThrow(`${key} must be a list`);
+		});
+	});
 });

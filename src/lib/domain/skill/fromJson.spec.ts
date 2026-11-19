@@ -68,4 +68,18 @@ describe('skillFromJson', () => {
 			'directRecall: unknown key "x"'
 		);
 	});
+
+	it.each(['', 3])('refuses the id %j', (id) => {
+		expect(refused({ ...SKILL, id })).toThrow('id must be a string, not empty');
+	});
+
+	it.each(['a:b', 'a#b', 'a b', '-a', 'é'])('refuses the id %j for its shape', (id) => {
+		expect(refused({ ...SKILL, id })).toThrow(
+			'id must be made of letters, digits, "-", "_" or ".", and start with a letter or a digit'
+		);
+	});
+
+	it('refuses the reserved id', () => {
+		expect(refused({ ...SKILL, id: 'unknown' })).toThrow('id "unknown" is reserved');
+	});
 });

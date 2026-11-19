@@ -67,4 +67,14 @@ describe('gridFromJson', () => {
 		const chords = [BLUES.chords[0], { bar: 2, beat: 5, symbol: 'Bb7' }];
 		expect(() => gridFromJson({ ...BLUES, chords })).toThrow('beat 5 is outside its bar');
 	});
+
+	it.each(['a:b', 'a b', '-a'])('refuses the id %j for its shape', (id) => {
+		expect(() => gridFromJson({ ...BLUES, id })).toThrow(
+			'id must be made of letters, digits, "-", "_" or ".", and start with a letter or a digit'
+		);
+	});
+
+	it('accepts the id "unknown", which only skills and exercises reserve', () => {
+		expect(gridFromJson({ ...BLUES, id: 'unknown' }).id).toBe('unknown');
+	});
 });

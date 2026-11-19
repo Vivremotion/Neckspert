@@ -3,6 +3,7 @@ import { definitionChecks } from '$lib/application/definitions/checks';
 import { registerFiles } from '$lib/domain/definitions/register';
 import { allExercises, clearExercises } from '$lib/domain/exercise';
 import { allGrids, clearGrids } from '$lib/domain/grid';
+import { idProblem, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill';
 import { CATALOG_FILES } from './catalogFiles';
 
@@ -21,6 +22,16 @@ describe('the catalog files', () => {
 			'/catalog/notes.json',
 			'/catalog/rhythm.json'
 		]);
+	});
+
+	it('names every skill, grid and exercise with an id a file may write', () => {
+		load();
+		const problems = [
+			...allSkills().map((s) => idProblem(s.id, { reserved: RESERVED_IDS })),
+			...allExercises().map((e) => idProblem(e.id, { reserved: RESERVED_IDS })),
+			...allGrids().map((g) => idProblem(g.id))
+		];
+		expect(problems.filter((p) => p !== null)).toEqual([]);
 	});
 
 	it('loads without a single refusal', () => {

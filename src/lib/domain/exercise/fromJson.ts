@@ -1,3 +1,4 @@
+import { idProblem, RESERVED_IDS } from '$lib/domain/definitions/ids';
 import {
 	Fraction,
 	METER_4_4,
@@ -76,6 +77,44 @@ function accompanimentFromJson(value: unknown, meter: Meter, where: string): Acc
 	}
 }
 
+const OBJECT_KEYS = ['params', 'flow', 'round', 'presentation'];
+const LIST_KEYS = ['levels', 'items', 'figures', 'shapes'];
+/** What a list of figures or shapes holds, told after "must be a list". */
+const LIST_FORMS: Record<string, string> = {
+	figures: ' of { id, lilypond }',
+	shapes: ' of { id, symbol, lilypond }'
+};
+const TEXT_KEYS = ['howTo', 'title'];
+
+/** The form of every top-level key, before anything reads its content. */
+function shapesOfKeys(json: Record<string, unknown>): void {
+	for (const key of OBJECT_KEYS) {
+		if (json[key] !== undefined && !isObject(json[key]))
+			throw new Error(`${key} must be an object`);
+	}
+	for (const key of LIST_KEYS) {
+		if (json[key] !== undefined && !Array.isArray(json[key])) {
+			throw new Error(`${key} must be a list${LIST_FORMS[key] ?? ''}`);
+		}
+	}
+	for (const key of TEXT_KEYS) {
+		const text = json[key];
+		if (
+			text !== undefined &&
+			!(isObject(text) && typeof text.fr === 'string' && typeof text.en === 'string')
+		) {
+			throw new Error(`${key} must be { fr, en }`);
+		}
+	}
+	if (json.pick !== undefined && json.pick !== 'loop' && json.pick !== 'next') {
+		throw new Error('pick must be "loop" or "next"');
+	}
+	if (json.view !== undefined && typeof json.view !== 'string')
+		throw new Error('view must be a string');
+	if (json.tempo !== undefined && typeof json.tempo !== 'number')
+		throw new Error('tempo must be a number');
+}
+
 function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
 	if (!Array.isArray(value)) throw new Error('figures must be a list of { id, lilypond }');
 	return value.map((entry: unknown, index) => {
@@ -127,10 +166,11 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	for (const key of Object.keys(json)) {
 		if (!Object.hasOwn(KEYS, key)) throw new Error(`unknown key "${key}"`);
 	}
-	if (typeof json.id !== 'string' || json.id === '')
-		throw new Error('id must be a string, not empty');
+	const badId = idProblem(json.id, { reserved: RESERVED_IDS });
+	if (badId !== null) throw new Error(badId);
 	if (typeof json.practices !== 'string') throw new Error('practices must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
+	shapesOfKeys(json);
 	const { figures, shapes, meter, ...rest } = json;
 	const exerciseMeter = meter === undefined ? undefined : meterFromJson(meter, 'meter');
 	return {

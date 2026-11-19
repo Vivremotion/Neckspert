@@ -94,6 +94,7 @@ export function exerciseSetId(definition: ExerciseDefinition): string {
 	return readsChanges(definition) ? gestureChangeSet.id : skillById(definition.practices).items;
 }
 
-function readsChanges(definition: ExerciseDefinition): boolean {
+/** An exercise drawn by a changes view reads gesture changes: the gesture's params run it. */
+export function readsChanges(definition: ExerciseDefinition): boolean {
 	return definition.view !== undefined && CHANGE_VIEWS.includes(definition.view);
 }

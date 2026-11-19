@@ -1,3 +1,4 @@
+import { idProblem } from '$lib/domain/definitions/ids';
 import { gridChanges, type ChordGrid, type GridChord } from './grid';
 import { parseChordSymbol } from './symbols';
 
@@ -33,7 +34,9 @@ export function gridFromJson(json: unknown): ChordGrid {
 	const unknown = Object.keys(json).find((key) => !GRID_KEYS.includes(key));
 	if (unknown !== undefined) throw new Error(`unknown key "${unknown}"`);
 	const { id, title, beatsPerBar, bars, chords } = json;
-	if (typeof id !== 'string' || id === '') throw new Error('id must be a string, not empty');
+	const badId = idProblem(id);
+	if (badId !== null) throw new Error(badId);
+	if (typeof id !== 'string') throw new Error('id must be a string, not empty');
 	if (typeof title !== 'string') throw new Error('title must be a string');
 	if (beatsPerBar !== 4) throw new Error('beatsPerBar must be 4');
 	if (typeof bars !== 'number' || !Number.isInteger(bars) || bars < 1) {
