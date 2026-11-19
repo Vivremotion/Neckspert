@@ -665,7 +665,7 @@ Les douze décisions de ce plan :
 - D8 : une tentative de changement range son passage dans ses données (`data.passage` : son identité, son index, son rang, les valeurs de ses paramètres de passage). Les tentatives d'avant ce plan ne sont pas relues : au premier lancement, chaque index repart « jamais joué », la montée repart vers le haut, la zone de la première. Les niveaux de tempo sont gardés.
 - D9 : quand le filtre « au-delà du précédent » tourne, la source fait tourner le paramètre de passage qu'il lit, pour ce changement et ceux qui restent.
 - D10 : l'ouverture d'un index s'écrit `"opens": { "acquired": { "skill", "item", "need" } }`. Pour chaque changement, les formes que son contenu admet sans filtre sont groupées par leurs cordes ; l'index est ouvert quand les cartes qu'elles nomment sont acquises dans chaque groupe (`every-group`) ou dans un groupe au moins (`one-group`). `item` nomme la correspondance d'une forme vers l'élément de la capacité (`voicing`).
-- D11 : `toward` lit un paramètre (`{ "param": "direction" }`), et un paramètre de passage se lit comme un paramètre de l'exercice. La zone de cases s'écrit `{ "in": { "frets": { "param": "zone" } } }` ; l'écriture `{ "in": { "param": "zone" } }` du § 7 reste refusée.
+- D11 : `toward` lit un paramètre (`{ "param": "direction" }`). Un paramètre de passage ne se lit que dans une sélection : la valeur d'un filtre, `toward`, `take`. Un nombre du tour (`prompt.lead`, `window.ms`) écrit `{ "param": <un paramètre de passage> }` est refusé. La zone de cases s'écrit `{ "in": { "frets": { "param": "zone" } } }` ; l'écriture `{ "in": { "param": "zone" } }` du § 7 reste refusée.
 - D12 : à un niveau qui écrit `"shapes": true`, les deux vues dessinent l'aide d'avant : la forme à jouer sur la grille ; sur le lien, les notes des formes sur le manche.
 
 Ce que l'exécution a décidé en plus :
@@ -685,6 +685,10 @@ Ce que l'exécution a décidé en plus :
 - Deux dérivations d'index s'ajoutent à la guitare : `placed` (une forme placée : son voicing et ses cases) et `change-chord` (la triade du symbole d'un changement, sur la zone de cordes du passage, sinon des paramètres).
 - La vue `link-lane` trouve encore son présentateur par la vue (`VIEW_PRESENTERS` n'a plus qu'elle) : ses formes sont des éléments de `placed-voicing`, que les figures présentent autrement. Les trois exercices de grille trouvent le leur par l'ensemble `change`.
 - La consigne de la grille se lit dans les paramètres de passage par leur nom : `direction` pour la montée, `zone` pour la zone, aucun des deux pour la lecture. C'est une exception du présentateur, jusqu'au modèle générique.
+- « On change d'air », décidé sur un exercice, arrête la séance juste après le tour qui bloque, quel que soit l'exercice qui vient ensuite. L'écran de jeu et le bilan nomment l'exercice (et la grille) qui se repose.
+- Deux portes fermées. Un exercice qui écrit `passages` n'apparaît pas sous « Exercices », et la liste ne garde que ce que la séance d'exercice sait servir : les éléments écrits, sinon des figures lues sur les éléments. La vue `link-lane` dessine un passage : un exercice qui n'écrit pas `passages` ne peut pas la nommer (refus `view "link-lane" draws a passage, and the exercise writes no passages`).
+- Au chargement, le tour de chaque membre du premier passage de chaque index (chaque paramètre de passage à sa première valeur) est compilé. Un tour qui ne compile pas est un refus qui nomme le membre et l'index. Le compte des tours est borné avant de compiler : 5 000 (`MAX_PASSAGE_ROUND_CHECKS`), plus bas que les 20 000 des éléments, car un tour de changement coûte plus cher. Le catalogue en compile 408 (lien 336, montée 36, zone 18, lecture 18), en quelques millisecondes. Un index dont le premier passage n'a pas de membre, ou ne se lit pas, reste à la source, qui le saute en jeu. En jeu, la source compile aussi le tour entier de chaque membre : un passage dont un tour ne compile pas est sauté, jamais une erreur.
+- La jouabilité, l'ouverture et le tournant se lisent au niveau 1. Un niveau qui change un paramètre que le contenu lit est joué sans cette vérification.
 
 La preuve, avant le remplacement de l'ancienne règle :
 
@@ -698,10 +702,16 @@ Ce qui change pour le joueur (le tableau du § 7), et rien d'autre :
 - Un passage n'est plus aidé « la première fois et après un passage raté », ni le lien « après 2 ratés dans un tour ». Le lien, la montée et la zone écrivent un niveau d'aide sous leur niveau 1, et `flow.antiBlocking` : trois ratés de suite au niveau 1 y font descendre, au passage suivant, annoncé ; la forme à jouer est alors dessinée ; trois réussites de suite ramènent au niveau 1.
 - Un tour de lien raté n'est plus rejoué aussitôt, enchaîné, sans sa forme la plus grave : il revient entier, après une mesure comptée.
 - Les zones de `grid-in-zone` sont une liste écrite.
+- Un changement resté sans tentative (une pause qui laisse tomber le tour en cours) compte maintenant comme raté pour `passes` : la part de changements justes d'un passage se compte sur toute sa longueur.
 
-### À décider par l'auteur
+### En attendant le plan 5
 
-Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un passage de sept changements, puis trois changements au niveau d'aide. Vu dans l'application (l'aperçu, un micro qui n'entend rien) : la séance s'arrête 37 secondes après « Commencer » ; l'écran de jeu montre « On change d'air » une seconde, puis le bilan, qui le dit et nomme l'exercice. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`.
+Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Aujourd'hui cela arrête toute la séance des changements, tout de suite, et met cet exercice au repos une heure (`BLOCK_REST_MS`). Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un passage de sept changements, puis trois changements au niveau d'aide. Dans l'application, avec un micro qui n'entend rien, la séance s'arrête 37 secondes après « Commencer » ; l'écran de jeu montre « On change d'air » une seconde, puis le bilan, qui le dit et nomme l'exercice.
+
+Le § 8 a déjà décidé la suite : l'exercice bloqué sort de la séance et se repose, la séance continue avec les autres. Le plan 5 le construit, avec les routines. D'ici là, deux choses à savoir :
+
+- La séance suivante, lancée tout de suite, retombe d'abord sur l'exercice au repos, à son niveau d'aide : trois ratés de plus l'arrêtent encore. Le repos ne change pas ce que la séance pioche, et l'accueil ne le montre pas pour « Geste ».
+- Reste à décider, au plan 5 : une séance doit-elle laisser de côté un exercice au repos tant qu'un autre a quelque chose à jouer ?
 
 Laissé au plan 4c :
 
@@ -713,5 +723,7 @@ Laissé au plan 4c :
 
 Encore ouvert :
 
-- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance de changements ne joue encore les passages d'un fichier importé (les routines, plan 5). S'il écrit aussi un tour à figure et des niveaux, il apparaît sous « Exercices », mais sa séance s'arrête au démarrage : il n'écrit pas d'`items`, et sa figure ne se lit pas sur ses éléments.
+- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé (les routines, plan 5), et il n'apparaît pas sous « Exercices ».
+- Le travail de la source pour chaque passage servi n'est pas borné (plan 5, avant qu'une séance joue des passages importés).
+- Le banc ouvert (`openness.spec.ts`) ne tire aucun exercice à passages (plan 5).
 - Une séance enregistrée avant ce plan ne montre pas la forme attendue dans son bilan.
