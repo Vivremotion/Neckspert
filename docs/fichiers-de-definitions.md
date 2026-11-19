@@ -54,6 +54,65 @@ Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets
 
 **Un exercice de figure doit nommer sa vue** : `"view": "figure"`. Sans elle, un exercice qui écrit une présentation serait dessiné sur la piste (`lane`), qui ne dessine pas de figure.
 
+## Un exercice de mémoire
+
+Une capacité de mémoire (`"memory": true`) a une carte par élément : la séance introduit les éléments un à un, les fait revenir, les révise. L'exercice qui la travaille écrit lui-même ce qu'il introduit, dans quel ordre et à quelle condition. Le moteur n'a aucune liste en code.
+
+**La liste.** Un exercice dont la capacité a des cartes écrit `items` : c'est obligatoire. L'ordre de la liste est l'ordre d'introduction : la séance prend le premier élément de la liste qui n'a pas encore de carte, puis le suivant. Un élément ne s'écrit qu'une fois.
+
+- Un exercice ne demande que les éléments de sa liste. Une carte de sa capacité que la liste ne nomme pas est gardée, mais ignorée : elle n'est ni révisée ni comptée, ni dans la séance, ni sur l'accueil, ni sur la carte du manche. Si l'on remet l'élément dans la liste, sa carte reprend là où elle en était.
+- Deux exercices sur la même capacité partagent les cartes des éléments qu'ils nomment tous les deux.
+- La clé d'un élément s'écrit comme son ensemble l'écrit ; une autre graphie lisible est rangée sous la clé de l'ensemble (`6:05` se range sous `6:5`).
+- Les listes du catalogue sont l'ordre d'aujourd'hui. Notes : les notes naturelles puis les altérées, en alternant les cordes de la 6 à la 1, les naturelles sur un repère d'abord sur chaque corde. Accords : un groupe de cordes après l'autre, les fondamentales naturelles puis altérées depuis do, majeur puis mineur, les trois renversements en montant le manche.
+
+**Les réglages d'apprentissage** s'écrivent dans `params.learning`. Tous sont facultatifs.
+
+- `presentAtOnce` (`true` par défaut) : après une sonde manquée, la présentation aidée vient tout de suite. À `false`, elle attend ; les accords l'écrivent, parce qu'ils sonnent encore.
+- `enter` : une condition d'entrée. Un élément n'entre dans la liste d'introduction que lorsque la carte qu'il nomme dans une autre capacité est **acquise**. `acquired.skill` est cette capacité, `acquired.item` la **correspondance** qui passe de l'élément de l'exercice à l'élément de l'autre capacité. Acquis a une seule règle : la carte porte la marque d'acquise, ou une tentative de son histoire la qualifie. Sans `enter`, un élément entre dès son tour dans la liste.
+- `draw` (**provisoire** : le tirage disparaît quand les filtres arrivent, au plan 4) : le nom d'un tirage de l'ensemble de l'exercice. À chaque question sur une carte, le tirage choisit ce qui est demandé de l'élément. `another-place`, pour `voicing-on-strings`, demande une autre forme du voicing que la dernière demandée, et une case que cette forme couvre.
+
+Les correspondances enregistrées :
+
+| Nom          | De l'ensemble… | …vers l'ensemble | Ce qu'elle dit                                            |
+| ------------ | -------------- | ---------------- | --------------------------------------------------------- |
+| `same`       | un ensemble    | le même          | le même élément, dans une autre capacité du même ensemble |
+| `same-place` | `placed-note`  | `note-on-string` | la note qui sonne à cet endroit, sur la même corde        |
+
+Ainsi, `identify-note` (nommer la note d'une case) n'introduit une case que lorsque `locate-note-string` a acquis la note qui s'y joue ; `chord-zone` (jouer un accord près d'une case) n'introduit un voicing que lorsque `chord-anchor` l'a acquis. Dans le catalogue :
+
+```jsonc
+"learning": {
+	"enter": { "acquired": { "skill": "locate-note-string", "item": "same-place" } }
+}
+```
+
+pour `identify-note`, et
+
+```jsonc
+"learning": {
+	"enter": { "acquired": { "skill": "chord-anchor", "item": "same" } },
+	"draw": "another-place",
+	"presentAtOnce": false
+}
+```
+
+pour `chord-zone`.
+
+**Ce que le joueur vit.** La séance des notes liste `identify-note` puis `locate-note-string` : si une note déjà placée peut se nommer, elle passe avant une nouvelle note à placer. Un élément n'est jamais demandé deux fois de suite. Une note n'attend plus que son « miroir » soit acquis, la séance ne cherche plus une autre corde, et les notes des triades en cours d'apprentissage ne viennent plus en premier : rien de cela n'est calculé sur l'état du joueur, seule la liste décide. Cet ordre entre les exercices d'une séance reste en code jusqu'aux routines (plan 5) ; deux exercices d'une même séance sur une même capacité sont refusés par le sujet d'apprentissage.
+
+**Refusé** (le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les donne) :
+
+- `an exercise that practises a skill with cards must list its items` : la capacité a des cartes et `items` manque.
+- `items must be a list`, `items lists no item` : `items` n'est pas une liste, ou elle est vide.
+- `items[<n>] repeats items[<m>]` : un élément écrit deux fois.
+- Une clé que l'ensemble ne sait pas lire : le refus nomme l'entrée, `items[<n>] ("<clé>")`.
+- `params.learning must be an object`, `params.learning.presentAtOnce must be true or false`.
+- `params.learning.enter must be { acquired: { skill, item } }` ; `params.learning.enter needs a skill with cards` (la capacité de l'exercice n'a pas de cartes) ; `params.learning.enter names skill "<id>", which no file read so far defines` ; `params.learning.enter names skill "<id>", which has no cards`.
+- `params.learning.enter.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>` : la correspondance n'existe pas entre ces deux ensembles.
+- `params.learning.draw must be a string` ; `params.learning.draw "<nom>" is no draw of <ensemble>`.
+
+Une condition d'entrée qui nomme la capacité de l'exercice lui-même est acceptée : le moteur sait la jouer, et rien n'entre jamais.
+
 ## Exemple : arpèges de triades
 
 Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires puis de croches, ♩ = 60. Le niveau d'aide écrit la tablature sous la figure. Le fichier entier :

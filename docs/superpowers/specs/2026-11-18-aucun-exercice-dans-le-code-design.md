@@ -518,6 +518,7 @@ Ce que la revue finale du plan a changé :
 Laissé au plan 3 :
 
 - les cartes d'une capacité de mémoire dont la clé ne se lit plus par l'ensemble de sa capacité (D10) : rien ne sert encore une carte d'une capacité importée ; le plan 3 construit le sujet d'apprentissage qui les ignorera.
+  Fait au plan 3 (D10) : une sauvegarde qui porte une telle carte est acceptée ; le sujet d'apprentissage la garde et l'ignore tant qu'aucune liste ne la nomme.
 - une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité de mémoire importée sans les vérifier. Le sujet d'apprentissage doit traiter une telle carte comme peut-être illisible, ou la validation doit lire les fichiers de la sauvegarde elle-même. Lire ces fichiers mettrait aussi fin au refus à tort quand l'appareil tient un fichier qui définit la même capacité sur un autre ensemble.
 
 Laissé au plan 4 :
@@ -529,3 +530,48 @@ Laissé au plan 5 :
 - le mode dégradé quand un fichier du catalogue est refusé en production (D9) : il touche l'accueil et la composition des séances, que le plan 5 récrit.
 - un identifiant que le catalogue prendrait un jour, et qu'un fichier de joueur utilise déjà, ferait refuser l'objet du joueur et donnerait sa progression rangée à celui du catalogue (un seul espace de noms, C7). Il faut choisir un préfixe réservé avant que le format quitte la version 0.
 - le résumé d'une séance dont l'exercice a été supprimé montre le cadre des notes.
+
+## Réalisation (plan 3, 2026-11-19)
+
+Les dix décisions de ce plan :
+
+- D1 : un exercice de mémoire ne demande que les éléments de sa liste. Une carte de sa capacité que la liste ne nomme pas est gardée et ignorée (ni révisée, ni comptée dans la séance). Deux exercices sur une même capacité partagent les cartes des éléments qu'ils nomment tous les deux.
+- D2 : un exercice de mémoire sans liste est refusé : il n'a rien à demander.
+- D3 : les listes du catalogue sont l'ordre statique d'aujourd'hui. Notes : les naturelles puis les altérées, en alternant les cordes de 6 à 1, les naturelles sur un repère d'abord sur chaque corde. Accords : groupe de cordes par groupe de cordes, les fondamentales naturelles puis altérées depuis do, majeur puis mineur, les trois renversements en montant le manche.
+- D4 : la correspondance « la note au même endroit » s'appelle `same-place` (d'un élément de `placed-note` vers celui de `note-on-string`). `same` désigne le même élément, entre deux capacités du même ensemble.
+- D5 : « acquis » a une seule règle pour une condition d'entrée, celle de `isAcquired` (la carte porte `acquiredAt`, ou une tentative de son histoire la qualifie). Les notes lisaient `acquiredAt` seul.
+- D6 : entre les exercices d'une séance, le premier listé qui a un élément prêt introduit. La séance des notes liste `identify-note` puis `locate-note-string` : nommer une note déjà placée passe avant une nouvelle note, comme aujourd'hui. Cet ordre reste en code jusqu'aux routines (plan 5).
+- D7 : le tirage de `chord-zone` (une autre forme que la dernière demandée, et une case qu'elle couvre) devient un tirage enregistré, nommé par l'exercice (`params.learning.draw: "another-place"`). C'est une exception : le plan 4 le remplace par deux filtres.
+- D8 : une confusion se lit sur la tentative (`data.confusion` non nul), pour toute capacité. L'aide qui s'efface se lit sur la présentation (`presentation.fading`).
+- D9 : `stringSets` et `qualities` quittent les paramètres de `chord-anchor` et `chord-zone` : plus rien ne les lit, les candidats du capteur d'accords viennent du voicing demandé.
+- D10 : une carte dont la clé ne se lit plus par l'ensemble de sa capacité est acceptée à l'import d'une sauvegarde, gardée et ignorée. Une carte mal formée en elle-même reste refusée.
+
+Ce que l'exécution a décidé en plus :
+
+- Une condition d'entrée qui nomme la capacité de l'exercice lui-même est acceptée : le moteur sait la jouer (rien n'entre jamais), il ne la refuse donc pas.
+- Le tirage reçoit l'élément de la dernière tentative de la carte qui en porte un (une tentative sans élément est sautée), puis ce qu'il a tiré dans la séance.
+- Un élément listé est rangé sous la clé que son ensemble écrit (`6:05` se lit et s'écrit `6:5`).
+- Vérifier les éléments listés d'un exercice ne recalcule plus ses paramètres pour chaque élément et chaque niveau : ils sont résolus une fois par niveau, le temps d'une vérification (environ 20 µs par tour, ce que les limites du plan 2b supposent). Les éléments d'un exercice qui écrit une échelle sont vérifiés au premier niveau de l'échelle.
+- `exerciseSubject.ts` vit dans `domain/learning/` ; le test de frontière de ce dossier lui accorde, à lui seul, sept modules précis (les ensembles, les capacités, l'exercice). La procédure reste aussi fermée qu'avant.
+- Deux écarts acceptés avec l'ancien code : une confusion ne se lit que si la tentative en porte une (l'ancien sujet des notes comptait comme confuse une tentative sans ce champ, par accident) ; la condition d'entrée de `identify-note` lit l'histoire de la carte comme `acquiredAt` (D5), ce qui ne se voit que sur d'anciennes lignes.
+- L'accueil, la carte du manche et la prochaine révision du bilan ne comptent plus que les cartes qu'une séance peut servir (celles que la liste d'un exercice nomme) : une carte hors liste ne s'affiche plus comme « due » pour toujours.
+- Ce que le joueur perd, décidé par l'auteur : une note n'attend plus que son miroir soit acquis, « une autre corde si possible » disparaît, les notes des triades en cours d'apprentissage ne viennent plus en premier, les fondamentales des triades ne sont plus triées par ce que le joueur sait déjà. Tout le reste d'une séance (catégories, sonde, présentation aidée, échelles, seuils, consolidation, jamais le même élément deux fois de suite) est inchangé.
+- `order.ts`, `neckSubject`, `triadSubject`, les générateurs d'ordre, `mirror.ts` (sauf `openPitch`, déplacé dans `music/fretboard.ts`), `triadParams` et `triadVoicings` sont supprimés ; un test de frontière interdit que leurs noms reviennent.
+
+Ce qui diffère du § 5, que celui-ci ne dit pas (le § 5 reste tel quel) :
+
+- Les listes ne sont pas écrites « une fois par un script » puis laissées aux paramètres : elles sont des fichiers du catalogue, écrits dans l'ordre statique d'aujourd'hui (D3), et rien n'en garde la trace en code.
+- Le § 5 écrit `learning: { enter: … }` pour `chord-zone` seul. `chord-zone` écrit aussi `draw` et `presentAtOnce: false` ; `chord-anchor` écrit `presentAtOnce: false` ; `identify-note` écrit `enter`.
+- Le § 5 nomme la correspondance de `identify-note` « la note d'une case » : elle s'appelle `same-place` (D4).
+- Le § 5 ne dit pas que « acquis » est la règle de `isAcquired` (D5), ni l'ordre entre les exercices d'une séance (D6), ni le tirage de `chord-zone` (D7), ni que la liste est obligatoire (D2) et que ce qu'elle ne nomme pas est ignoré (D1).
+- Le § 5 range « confusion » et « aide qui s'efface » parmi ce qui est déjà en données ou lu sur la tentative : c'est fait ainsi (D8), la présentation portant l'aide.
+- Le § 5 dit « il ne reste aucune préférence ni aucun ordre calculé sur l'état du joueur » : c'est vrai du sujet ; le tirage de `chord-zone` en garde une mémoire (la dernière forme demandée), jusqu'au plan 4.
+
+Laissé au plan 4 :
+
+- le tirage `another-place` devient deux filtres (« à une case », « autre que le précédent ») et disparaît ; `domain/sets/draws.ts` lit encore `domain/triads/position.ts`.
+
+Laissé au plan 5 :
+
+- l'ordre des exercices d'une séance (`identify-note` avant `locate-note-string`) est encore dans `createAppServices` ; il passe à la routine. Deux exercices d'une séance sur une même capacité : le sujet refuse de se construire ; la routine devra le refuser au chargement ;
+- toujours du plan 2b : une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité importée sans contrôle ; depuis ce plan elles sont gardées et ignorées tant qu'aucune liste ne les nomme.
