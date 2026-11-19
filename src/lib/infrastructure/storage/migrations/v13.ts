@@ -246,9 +246,10 @@ export function cardToV13(card: Row): Row {
 }
 
 /**
- * Rows upgraded one by one, none given a primary key another row already holds: a row whose
- * upgraded key is taken, by a row that keeps its key or one upgraded before it, takes
- * `orphaned(row)` instead, which keeps its old key. Rows keep their order. The rows given hold
+ * Rows upgraded one by one, none given a primary key another row holds: a row whose upgraded key
+ * any row of the list held before the upgrade, or a row upgraded before it took, takes
+ * `orphaned(row)` instead, which keeps its old key. So an orphan's key is its own, and which rows
+ * are orphaned does not depend on their order. Rows keep their order. The rows given hold
  * distinct keys, as a table's do; so do the rows returned.
  */
 function upgradedApart(
@@ -258,9 +259,7 @@ function upgradedApart(
 	keyOf: (row: Row) => string
 ): Row[] {
 	const upgraded = rows.map(upgrade);
-	const taken = new Set(
-		rows.filter((row, index) => keyOf(row) === keyOf(upgraded[index])).map(keyOf)
-	);
+	const taken = new Set(rows.map(keyOf));
 	return rows.map((row, index) => {
 		const next = upgraded[index];
 		if (keyOf(row) === keyOf(next)) return next;

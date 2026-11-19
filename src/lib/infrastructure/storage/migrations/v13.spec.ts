@@ -373,13 +373,60 @@ describe('the cards of a table at version 13', () => {
 		const holder = { key: 'locate-note-string:6:F', mechanic: 'locate-note-string', scheduling };
 		const renamed = { key: 'locate:6:F', mechanic: 'locate', scheduling: { due: 9, reps: 1 } };
 		const other = { key: 'locate:5:C', mechanic: 'locate', scheduling };
-		const upgraded = cardsToV13([renamed, holder, other]);
-		expect(upgraded).toEqual([
+		const expected = [
 			{ key: 'locate:6:F', skill: 'locate', scheduling: { due: 9, reps: 1 } },
 			{ key: 'locate-note-string:6:F', skill: 'locate-note-string', scheduling },
 			{ key: 'locate-note-string:5:C', skill: 'locate-note-string', scheduling }
-		]);
+		];
+		const upgraded = cardsToV13([renamed, holder, other]);
+		expect(upgraded).toEqual(expected);
 		expect(new Set(upgraded.map((card) => card.key)).size).toBe(upgraded.length);
+		expect(cardsToV13([other, holder, renamed])).toEqual([...expected].reverse());
+	});
+
+	it('keep a card renamed onto the old key of a card renamed away under its old key, in any order', () => {
+		// `a:2:F` would take the key `locate-note-string:2:F` holds, which itself would take a key
+		// a third card keeps: each orphan keeps its own old key.
+		const first = { key: 'a:2:F', mechanic: 'locate', scheduling };
+		const second = { key: 'locate-note-string:2:F', mechanic: 'identify', scheduling };
+		const third = { key: 'identify-note:2:F', mechanic: 'identify', scheduling };
+		const expected = [
+			{ key: 'a:2:F', skill: 'locate', scheduling },
+			{ key: 'locate-note-string:2:F', skill: 'identify', scheduling },
+			{ key: 'identify-note:2:F', skill: 'identify-note', scheduling }
+		];
+		expect(cardsToV13([first, second, third])).toEqual(expected);
+		expect(cardsToV13([third, second, first])).toEqual([...expected].reverse());
+	});
+
+	it('never give two cards the same key nor lose one, whatever the order', () => {
+		const cards = [
+			{ key: 'a:2:F', mechanic: 'locate', scheduling },
+			{ key: 'locate-note-string:2:F', mechanic: 'identify', scheduling },
+			{ key: 'identify-note:2:F', mechanic: 'identify', scheduling },
+			{ key: 'locate:6:F', mechanic: 'locate', scheduling },
+			{ key: 'locate-note-string:6:F', mechanic: 'locate-note-string', scheduling },
+			{ key: 'identify:6:F', mechanic: 'identify', scheduling },
+			{ key: 'b:6:F', mechanic: 'identify', scheduling },
+			{ key: 'triad-anchor:D', mechanic: 'triad-anchor', scheduling },
+			{ key: 'chord-anchor:D', mechanic: 'triad-zone', scheduling },
+			{ key: 'nothing', scheduling }
+		];
+		let seed = 7;
+		const random = () => {
+			seed = (seed * 16807) % 2147483647;
+			return seed / 2147483647;
+		};
+		for (let round = 0; round < 12; round++) {
+			const order = [...cards];
+			for (let i = order.length - 1; i > 0; i--) {
+				const j = Math.floor(random() * (i + 1));
+				[order[i], order[j]] = [order[j], order[i]];
+			}
+			const upgraded = cardsToV13(order);
+			expect(upgraded).toHaveLength(cards.length);
+			expect(new Set(upgraded.map((card) => JSON.stringify(card.key))).size).toBe(cards.length);
+		}
 	});
 });
 

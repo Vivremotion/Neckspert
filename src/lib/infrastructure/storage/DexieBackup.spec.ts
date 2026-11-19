@@ -18,6 +18,7 @@ import {
 	makeCard,
 	makeCardV5,
 	makeAttemptV12,
+	makeBackupV8,
 	makeLevelState,
 	makeProgressionV6,
 	makeSession
@@ -226,6 +227,29 @@ describe('DexieBackup', () => {
 					item: key
 				})
 			).toMatchObject({ level: 2, successes: 0, failures: 0 });
+		});
+
+		it('imports a version 8 file whose link attempt names no shape, and its export again', async () => {
+			// Version 13 keeps the rest of its old key, which the set of placed voicings cannot read.
+			const link = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1 };
+			const attempt = makeAttemptV12({
+				id: 1,
+				exerciseId: 'gesture-link',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:link:D|maj:3,2,1#1',
+				data: { item: link, answer: null, confusion: null }
+			});
+			await new DexieBackup(db).importAll(makeBackupV8({ attempts: [attempt] }));
+			const stored = await new DexieAttemptRepository(db).all();
+			expect(stored).toMatchObject([
+				{ skill: 'inversion-run', cardKey: 'inversion-run:link:D|maj:3,2,1#1' }
+			]);
+
+			const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+			const again = createDatabase(crypto.randomUUID());
+			await new DexieBackup(again).importAll(exported);
+			expect(await new DexieAttemptRepository(again).all()).toEqual(stored);
+			again.close();
 		});
 
 		it('rejects an invalid file and keeps the stored data', async () => {

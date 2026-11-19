@@ -1038,6 +1038,38 @@ describe('version 13', () => {
 		});
 		db.close();
 	});
+
+	it('opens 12 at 13 with three cards when a card would take the old key of one renamed away', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const card = (key: string, mechanic: string) => ({ ...makeCardV12(), key, mechanic });
+		// In this order the second card used to be orphaned onto the key the first had taken.
+		await old
+			.table('cards')
+			.bulkAdd([
+				card('a:2:F', 'locate'),
+				card('locate-note-string:2:F', 'identify'),
+				card('identify-note:2:F', 'identify')
+			]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		expect((await db.cards.orderBy('key').toArray()).map((row) => [row.key, row.skill])).toEqual([
+			['a:2:F', 'locate'],
+			['identify-note:2:F', 'identify-note'],
+			['locate-note-string:2:F', 'identify']
+		]);
+		db.close();
+	});
 });
 
 describe('the whole chain to version 13', () => {
@@ -1129,6 +1161,42 @@ describe('the whole chain to version 13', () => {
 			...exported,
 			settings: { ...exported.settings, inputDeviceId: null }
 		});
+		again.close();
+		db.close();
+	});
+
+	it('opens 12 at 13 with a link attempt that names no shape, and its export imports back to the same rows', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const link = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1 };
+		await old.table('attempts').bulkAdd([
+			makeAttemptV12({
+				id: 1,
+				exerciseId: 'gesture-link',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:link:D|maj:3,2,1#1',
+				data: { item: link, answer: null, confusion: null }
+			})
+		]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(await db.attempts.get(1)).toMatchObject({
+			skill: 'inversion-run',
+			cardKey: 'inversion-run:link:D|maj:3,2,1#1'
+		});
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		expect(await again.attempts.toArray()).toEqual(await db.attempts.toArray());
 		again.close();
 		db.close();
 	});

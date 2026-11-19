@@ -1550,13 +1550,16 @@ describe('version 9', () => {
 			]
 		});
 		expect(validateBackupV9(file)).toBe(file);
+		// An attempt is history: a key its set cannot read only groups it apart, never refuses it.
 		const old = (key: string, item: object, skill = 'grid-reading') =>
 			makeBackup({ attempts: [row(1, skill, key, item)] });
-		expect(() => validateBackupV9(old('jam:blues-f#3', jam))).toThrow(/cardKey/);
-		expect(() => validateBackupV9(old(`${D}@0@4`, placed, 'test-placed-voicing'))).toThrow(
-			/cardKey/
-		);
-		expect(() => validateBackupV9(old('maj7@d@2', moved, 'test-placed-shape'))).toThrow(/cardKey/);
+		for (const kept of [
+			old('jam:blues-f#3', jam),
+			old(`${D}@0@4`, placed, 'test-placed-voicing'),
+			old('maj7@d@2', moved, 'test-placed-shape')
+		]) {
+			expect(validateBackupV9(kept)).toBe(kept);
+		}
 	});
 
 	describe('reads a key by the set of its skill', () => {
@@ -1579,18 +1582,24 @@ describe('version 9', () => {
 			expect(() =>
 				validateBackupV9(row('locate-note-string', '6:F', { string: 5, pitch: 'F' }))
 			).toThrow(/data\.item does not match cardKey/);
-			expect(() =>
-				validateBackupV9(row('locate-note-string', '7:F', { string: 7, pitch: 'F' }))
-			).toThrow(/cardKey is not a valid card key/);
+			// An attempt whose key the set cannot read is kept; a card is not.
+			const unreadable = row('locate-note-string', '7:F', { string: 7, pitch: 'F' });
+			expect(validateBackupV9(unreadable)).toBe(unreadable);
+			const card = makeCard({ key: 'locate-note-string:7:F', item: { string: 7, pitch: 'F' } });
+			expect(() => validateBackupV9(makeBackup({ cards: [card] }))).toThrow(
+				'Invalid cards entry at index 0: key is not a valid card key'
+			);
 		});
 
-		it('without cards: the key must parse by the set, whatever item the attempt keeps', () => {
+		it('without cards: any key under the skill, whatever item the attempt keeps', () => {
 			// The link: its skill is on placed voicings, its attempts keep the change they played.
 			const change = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1, shape: `${D}@2-3-2` };
 			const file = row('inversion-run', `${D}@2-3-2`, change);
 			expect(validateBackupV9(file)).toBe(file);
-			expect(() => validateBackupV9(row('inversion-run', 'iohefy-a#2', change))).toThrow(
-				/cardKey is not a valid card key/
+			const unreadable = row('inversion-run', 'iohefy-a#2', change);
+			expect(validateBackupV9(unreadable)).toBe(unreadable);
+			expect(() => validateBackupV9(row('inversion-run', '', change))).toThrow(
+				/cardKey does not match skill/
 			);
 		});
 
