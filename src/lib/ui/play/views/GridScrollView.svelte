@@ -60,9 +60,9 @@
 		</div>
 		{#if stage.aid}
 			{@const Aid = PICTURE_VIEWS[stage.aid.kind]}
+			<!-- No legend: the neck tells now from next by the colour of its notes. -->
 			<div class="aid">
-				<p class="label">{t.aid}</p>
-				<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} size="small" />
+				<Aid picture={stage.aid} chordDiagram={stage.chordDiagram} />
 			</div>
 		{/if}
 	</div>

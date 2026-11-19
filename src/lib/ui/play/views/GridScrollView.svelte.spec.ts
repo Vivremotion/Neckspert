@@ -90,7 +90,10 @@ describe('GridScrollView', () => {
 		});
 		render(GridScrollView, { props: { controller, model: zone } });
 		expect(screen.getByText('cases 5 à 9')).toBeTruthy();
-		expect(screen.getByText('Forme suivante')).toBeTruthy();
+		// The aid's neck alone, with no legend: no explanatory words in play.
+		expect(screen.getByTestId('aid-neck')).toBeTruthy();
+		expect(screen.queryByText('Forme suivante')).toBeNull();
+		expect(document.querySelector('.aid .label')).toBeNull();
 		// The aid draws on the neck (plan 4c, D5): G's shapes in the zone now, Dm's next.
 		const notes = screen.getAllByTestId('aid-note');
 		expect(notes.map((n) => n.getAttribute('data-shape'))).toContain('now');

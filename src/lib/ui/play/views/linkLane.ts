@@ -20,7 +20,10 @@ export interface LinkLaneTile {
 	beatIndex: number;
 	/** Beats from now: past (left of the hit line) at 0 and below, ahead above. */
 	offset: number;
-	/** On the first beat of its bar, the way to the shape (↗, ↘), else its words; null on the other beats. */
+	/**
+	 * On the first beat of its round, the way to the shape (↗, ↘), else the round's words; null on
+	 * the other beats.
+	 */
 	symbol: string | null;
 	/** The change asked: the session listens for it. */
 	due: boolean;

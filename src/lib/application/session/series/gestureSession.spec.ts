@@ -1,4 +1,3 @@
-import type { Picture } from '$lib/application/presentation/pictures';
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
@@ -16,6 +15,7 @@ import type {
 	CalibrationPort,
 	ChordExpectation
 } from '$lib/application/ports';
+import type { Picture } from '$lib/application/presentation/pictures';
 import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import { GESTURE_EXERCISE_IDS, LOCATE_NECK_ID } from '$lib/domain/exercise/catalogIds';
 import { changePresenter } from '$lib/application/sets/chordGrid';
