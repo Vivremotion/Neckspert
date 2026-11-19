@@ -708,6 +708,76 @@ describe('the gesture track', () => {
 		expect(controller.view.tempoBpm).toBe(90);
 		controller.quit();
 	});
+
+	// What a player who starts well then struggles lives today: fatigue (`detectFatigue`, a drop of
+	// 20 points between the first six answers and the last six, over twelve) stops the passages
+	// before an aid level or « On change d’air » can come. A question for the author, pinned here
+	// as it is, not a rule this test decides.
+	it('ends a session of changes on fatigue, before any exercise can leave, after a good start', async () => {
+		const { services, deps, chords } = harness();
+		for (const [root, quality] of IOHEFY_TRIADS) {
+			await deps.cards.putMany(triadCards('chord-anchor', root, quality, [3, 2, 1]));
+		}
+		const controller = await services.startRoutine('changes');
+		await controller.ready?.();
+		await controller.start();
+		// Each change told to the chord sensor is answered on its beat: the first sixteen with the
+		// shape expected (the link's tour, then the climb's passage), the next ones with nothing
+		// recognised.
+		let told = chords.expectations.length;
+		let due: { time: number; expected: string } | null = null;
+		let answered = 0;
+		const sounds = deps.sounds as FakeSoundScheduler;
+		for (let step = 0; step < 20_000 && controller.view.status !== 'finished'; step++) {
+			deps.clock.advance(0.01);
+			sounds.flush();
+			if (controller.view.status === 'paused' && controller.view.briefing) controller.resume();
+			if (chords.expectations.length > told) {
+				told = chords.expectations.length;
+				const expectation = chords.expectations.at(-1);
+				const anchorBeat =
+					(controller.view.stage?.model as { anchorBeat: number | null } | undefined)?.anchorBeat ??
+					null;
+				if (expectation && anchorBeat !== null) {
+					const beatS = 60 / controller.view.tempoBpm;
+					const time =
+						deps.clock.now() + (anchorBeat - controller.timeline.nowBeat()) * beatS + 0.02;
+					due = { time, expected: expectation.expected[0] };
+				}
+			}
+			if (due && deps.clock.now() >= due.time) {
+				const decided = answered < 16 ? due.expected : null;
+				chords.emit({ time: due.time, windowMs: 250, decided, final: true, variants: [] });
+				answered++;
+				due = null;
+			}
+			if (step % 50 === 0) await Promise.resolve();
+		}
+		expect(controller.view.status).toBe('finished');
+		expect(controller.view.fatigueDetected).toBe(true);
+		expect(controller.view.leaving).toBeNull();
+		const series = deps.memory.get(controller.sessionId)?.trace.children[0];
+		expect(series?.reason).toBe('complete');
+		expect(series?.left ?? []).toEqual([]);
+		await vi.waitFor(async () =>
+			expect((await deps.sessions.get(controller.sessionId))?.fatigueDetected).toBe(true)
+		);
+		const attempts = await deps.attempts.listBySession(controller.sessionId);
+		const runs = attempts.reduce<[string, boolean, number][]>((acc, attempt) => {
+			const last = acc.at(-1);
+			if (last && last[0] === attempt.exerciseId && last[1] === attempt.success) last[2]++;
+			else acc.push([attempt.exerciseId, attempt.success, 1]);
+			return acc;
+		}, []);
+		// The link's tour right, the climb's passage right, the next passage missed: then the end.
+		expect(runs).toEqual([
+			['inversion-run', true, 7],
+			['grid-in-direction', true, 9],
+			['grid-reading', false, 9]
+		]);
+		expect((await deps.levels.all()).every((level) => level.resumeAfter === null)).toBe(true);
+		expect((await services.routines()).find((r) => r.id === 'changes')?.resting).toBe(false);
+	});
 });
 
 describe('the rhythm exercises', () => {

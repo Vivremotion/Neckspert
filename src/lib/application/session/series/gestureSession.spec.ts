@@ -1519,8 +1519,11 @@ describe('the exercise level moving in session (levels)', () => {
 
 describe('« On change d’air » beside a level reached (fix round 1)', () => {
 	it('tells the link leaving beside the level the climb reached, through the climb’s counted bar', async () => {
-		// The real passages of the link and the climb on iohefy-a; fatigue (told by the misses after
-		// so many right changes) is not what this test is about: the source never sees it.
+		// The real passages of the link and the climb on iohefy-a. The wrapper hides fatigue from the
+		// source: after so many right changes the misses this test plays would mark fatigue, and the
+		// passage source then starts no passage, so the session would end before the link can leave.
+		// What the real services do there is pinned in `createAppServices.spec.ts` (« ends a session
+		// of changes on fatigue, before any exercise can leave, after a good start »).
 		const inner = createPassageSource({
 			exercises: [exerciseById('inversion-run'), exerciseById('grid-in-direction')],
 			cards: iohefyCards('chord-anchor', G_B_E),
