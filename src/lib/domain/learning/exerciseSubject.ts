@@ -13,7 +13,7 @@ import { directRecallOf, type DirectRecall } from './recall';
 import type { CardRef, LearningSubject } from './subject';
 
 /** What lets an exercise's item enter: the card a correspondence names, acquired. */
-interface Entry {
+export interface Entry {
 	skill: SkillId;
 	set: ItemSet;
 	correspondence: Correspondence;
@@ -40,9 +40,10 @@ function practised(definition: ExerciseDefinition): Practised {
 	const skill = definition.practices;
 	const set = setOfSkill(skill);
 	const learning = exerciseLearningOf(definition);
+	// Keyed as the set writes the item, whatever spelling the list reads.
 	const items = (definition.items ?? []).map((entry) => {
-		const key = itemEntryKey(entry);
-		return { key: cardKey(skill, key), item: set.parseItem(key) };
+		const item = set.parseItem(itemEntryKey(entry));
+		return { key: cardKey(skill, set.itemKey(item)), item };
 	});
 	let entry: Entry | null = null;
 	if (learning.enter) {
@@ -89,9 +90,31 @@ function enters(
 	return card !== undefined && isAcquired(card, history.get(key) ?? [], entry.recall);
 }
 
-/** The item an attempt asked (`data.item`); null when its data holds none. */
+/** The item an attempt asked (`data.item`); undefined when its data holds none. */
 function askedItem(attempt: Attempt): unknown {
-	return (attempt.data as { item?: unknown } | null)?.item ?? null;
+	return (attempt.data as { item?: unknown } | null)?.item ?? undefined;
+}
+
+/**
+ * The first of `items` (of `skill`, in order, with their card keys) that has no card in `cards`,
+ * is not blocked, and whose entry condition, when there is one, holds; null when none.
+ */
+export function firstReady(
+	skill: SkillId,
+	items: readonly { key: CardKey; item: unknown }[],
+	entry: Entry | null,
+	cards: ReadonlyMap<CardKey, CardState>,
+	history: ReadonlyMap<CardKey, readonly Attempt[]>,
+	blocked: (card: CardRef) => boolean
+): CardRef | null {
+	for (const { key, item } of items) {
+		if (cards.has(key)) continue;
+		const ref: CardRef = { skill, item };
+		if (blocked(ref)) continue;
+		if (entry && !enters(entry, item, cards, history)) continue;
+		return ref;
+	}
+	return null;
 }
 
 /**
@@ -118,10 +141,13 @@ export function exerciseSubject(input: {
 		return found;
 	}
 
-	/** The item last asked of each card that draws: its latest attempt's, then the last drawn. */
+	/**
+	 * The item last asked of each card that draws: that of its latest attempt holding one, then
+	 * the last drawn.
+	 */
 	const lastAsked = new Map<CardKey, unknown>();
 	const drawing = [...input.attempts]
-		.filter((attempt) => bySkill.get(attempt.skill)?.draw)
+		.filter((attempt) => bySkill.get(attempt.skill)?.draw && askedItem(attempt) !== undefined)
 		.sort((a, b) => a.promptedAt - b.promptedAt);
 	for (const attempt of drawing) lastAsked.set(attempt.cardKey, askedItem(attempt));
 
@@ -135,13 +161,8 @@ export function exerciseSubject(input: {
 			const byKey = new Map(cards.map((card) => [card.key, card]));
 			for (const exercise of ordered) {
 				const skill = exercise.definition.practices;
-				for (const { key, item } of exercise.items) {
-					if (byKey.has(key)) continue;
-					const ref: CardRef = { skill, item };
-					if (blocked(ref)) continue;
-					if (exercise.entry && !enters(exercise.entry, item, byKey, history)) continue;
-					return ref;
-				}
+				const ready = firstReady(skill, exercise.items, exercise.entry, byKey, history, blocked);
+				if (ready) return ready;
 			}
 			return null;
 		},

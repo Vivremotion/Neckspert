@@ -12,7 +12,9 @@ import {
 	TEST_OTHER_NOTE_SKILL,
 	TEST_PLACED_VOICING_SKILL
 } from '$lib/testing/testSkills';
-import { exerciseSubject } from './exerciseSubject';
+import { setOfSkill } from '../sets';
+import { IDENTIFY_NECK } from '$lib/testing/catalog';
+import { exerciseSubject, firstReady } from './exerciseSubject';
 import { itemLearningOf } from './params';
 import { createLearningProcedure } from './procedure';
 import { attemptOf } from './testing/fakeSubject';
@@ -137,6 +139,63 @@ describe('exerciseSubject', () => {
 		});
 	});
 
+	it('keys a listed item as its set writes it', () => {
+		// The set of placed notes reads « 6:05 » and writes « 6:5 ».
+		const skill = IDENTIFY_NECK.practices;
+		const { learning: _learning, ...params } = IDENTIFY_NECK.params;
+		const listing = { ...IDENTIFY_NECK, params, items: ['6:05', '5:3'] };
+		const subject = exerciseSubject({ exercises: [listing], attempts: [] });
+		expect(subject.owns({ skill, key: cardKey(skill, '6:5') })).toBe(true);
+		const introduced = subject.nextNew([], NO_HISTORY, NOTHING_BLOCKED)!;
+		expect(subject.owns({ skill, key: cardKey(skill, subject.itemKey(introduced)) })).toBe(true);
+		const existing: CardState = { ...card(A, '5:C'), key: cardKey(skill, '6:5'), skill };
+		expect(subject.nextNew([existing], NO_HISTORY, NOTHING_BLOCKED)).toEqual({
+			skill,
+			item: { string: 5, fret: 3 }
+		});
+	});
+
+	it('never lets in an item its correspondence names nothing for, and lets the next one', () => {
+		// No registered correspondence names nothing: one written here, without registering it.
+		const set = setOfSkill(A);
+		const items = ['5:C', '6:G'].map((key) => ({ key: cardKey(B, key), item: note(key) }));
+		const entry = {
+			skill: A,
+			set,
+			correspondence: {
+				of: (item: unknown) => ((item as { string: number }).string === 5 ? null : item)
+			},
+			recall: () => false
+		};
+		const acquired = [card(A, '5:C', { acquiredAt: 0 }), card(A, '6:G', { acquiredAt: 0 })];
+		const byKey = new Map(acquired.map((stored) => [stored.key, stored]));
+		expect(firstReady(B, items, entry, byKey, NO_HISTORY, NOTHING_BLOCKED)).toEqual({
+			skill: B,
+			item: note('6:G')
+		});
+		expect(firstReady(B, items.slice(0, 1), entry, byKey, NO_HISTORY, NOTHING_BLOCKED)).toBeNull();
+	});
+
+	it('lets a note follow its mirror: the same card alone is never served twice in a row', () => {
+		// A on the low E string and E on the A string mirror each other; both learned, nothing new.
+		const exercise = exerciseOn('mirrors', A, ['6:A', '5:E']);
+		for (let seed = 1; seed <= 20; seed++) {
+			let state = seed;
+			const random = () => (state = (state * 1_664_525 + 1_013_904_223) >>> 0) / 2 ** 32;
+			const procedure = createLearningProcedure({
+				subject: exerciseSubject({ exercises: [exercise], attempts: [] }),
+				cards: [card(A, '6:A', { learnedAt: 0 }), card(A, '5:E', { learnedAt: 0 })],
+				attempts: [],
+				levels: [],
+				sessionId: 'session',
+				random
+			});
+			const served = Array.from({ length: 6 }, () => procedure.next(at(1000))?.item);
+			expect(served.every((item) => item !== undefined)).toBe(true);
+			for (let i = 1; i < served.length; i++) expect(served[i]).not.toEqual(served[i - 1]);
+		}
+	});
+
 	it('serves its reviews when its entry condition never opens, and introduces nothing', () => {
 		const entering = exerciseOn('entering', B, ['5:C', '6:G'], {
 			learning: { enter: { acquired: { skill: A, item: 'same' } } }
@@ -238,7 +297,11 @@ describe('exerciseSubject', () => {
 		const voicing = TRIADS_ZONE.items![0] as string;
 		const positions = voicingOccurrences(parseVoicingKey(voicing)).map(occurrencePosition);
 		expect(positions.length).toBeGreaterThan(1);
-		const asked = (position: number | 'open', promptedAt: number): Attempt =>
+		const asked = (
+			position: number | 'open',
+			promptedAt: number,
+			data: unknown = { item: { voicingKey: voicing, position } }
+		): Attempt =>
 			attemptOf(
 				{
 					exerciseId: TRIADS_ZONE.id,
@@ -250,7 +313,7 @@ describe('exerciseSubject', () => {
 				{
 					at: promptedAt,
 					cardKey: cardKey(zone, voicing),
-					data: { item: { voicingKey: voicing, position } }
+					data
 				}
 			);
 		// The latest attempt asked positions[0]; an older one positions[1].
@@ -268,6 +331,16 @@ describe('exerciseSubject', () => {
 			expect(item.position).not.toBe(last);
 			last = item.position as number | 'open';
 		}
+
+		// Later attempts that hold no item leave the item last asked as it was.
+		for (const r of [0, 0.5, 0.99]) {
+			const itemless = exerciseSubject({
+				exercises: [TRIADS_ZONE],
+				attempts: [asked(positions[0], 1), asked(positions[1], 2, null), asked(positions[1], 3, {})]
+			});
+			const item = itemless.promptItem!(ref, () => r) as { position: unknown };
+			expect(item.position).not.toBe(positions[0]);
+		}
 	});
 
 	it('asks a card’s own item, drawing nothing, when its exercise writes no draw', () => {
@@ -278,7 +351,8 @@ describe('exerciseSubject', () => {
 		const random = () => {
 			throw new Error('no draw');
 		};
-		const item = subject.promptItem?.({ skill: A, item: note('5:C') }, random);
-		expect(item ?? note('5:C')).toEqual(note('5:C'));
+		expect(subject.promptItem).toBeDefined();
+		const item = subject.promptItem!({ skill: A, item: note('5:C') }, random);
+		expect(item).toEqual(note('5:C'));
 	});
 });

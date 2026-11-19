@@ -4,8 +4,6 @@ import type { PromptStageModel } from '$lib/application/presentation';
 import type { PlaySessionController } from '$lib/application/session/contract';
 import type { IdentifyData } from '$lib/domain/sets';
 import {
-	asNeckCard,
-	isMirrorPair,
 	locateItems,
 	neckCardKey,
 	openPitch,
@@ -51,10 +49,6 @@ async function quitAndRead(app: NotesApp, controller: PlaySessionController): Pr
 }
 
 const keyOf = (card: NeckCard) => neckCardKey(card);
-
-/** The note an attempt played, from its data. */
-const cardOf = (attempt: Attempt): NeckCard =>
-	asNeckCard({ skill: attempt.skill, item: (attempt.data as { item: unknown }).item });
 
 /** The note lane on stage, if any. */
 function lane(controller: PlaySessionController): PromptStageModel | null {
@@ -189,8 +183,7 @@ describe('a learn session of the notes', () => {
 		expect((await app.deps.cards.get(keyOf(probed)))?.scheduling).toEqual(afterProbe?.scheduling);
 	});
 
-	it('never serves a note right after itself, its mirror allowed', async () => {
-		// A on the low E string and E on the A string mirror each other: they may follow each other.
+	it('never serves a note right after itself', async () => {
 		const app = await notesApp({
 			cards: [
 				learnedCard(locate(6, 'A')),
@@ -227,11 +220,6 @@ describe('a learn session of the notes', () => {
 			expect(after.cardKey).not.toBe(before.cardKey);
 		}
 		expect(checked).toBeGreaterThan(20);
-		// No longer kept apart: in this seeded session a note follows its mirror.
-		const mirrorFollows = attempts.some(
-			(after, i) => i > 0 && isMirrorPair(cardOf(attempts[i - 1]), cardOf(after))
-		);
-		expect(mirrorFollows).toBe(true);
 	});
 
 	it('lands every locate target on a downbeat, a breathing bar after the one before', async () => {
