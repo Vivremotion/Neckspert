@@ -31,12 +31,13 @@ Une grille s'écrit `{ "id": "…", "title": "…", "beatsPerBar": 4, "bars": 12
 C'est une `ExerciseDefinition` (`src/lib/domain/exercise/types.ts`) écrite en JSON, avec cinq écarts :
 
 - `figures` : chaque figure s'écrit `{ "id": "…", "lilypond": "c4 c c c", "meter": { … } }`. Le LilyPond est le sous-ensemble strict de `parseLilyPond` (pas de `#` ni de `$`). `meter` est facultatif (4/4 par défaut) et s'écrit `{ "count": 3, "unit": "1/4", "grouping": [1, 1, 1] }`.
-- `forms` : chaque forme s'écrit `{ "id": "…", "symbol": "maj7", "lilypond": "c\\5 e\\4 g\\4 b\\3" }` (voir « Une forme déplacée d'accord en accord »).
+- `shapes` : chaque forme s'écrit `{ "id": "…", "symbol": "maj7", "lilypond": "c\\5 e\\4 g\\4 b\\3" }` (voir « Une forme déplacée d'accord en accord »).
+- `items` : chaque entrée est une clé d'élément (`"…"`), ou une clé avec la longueur de son tour en temps (`{ "item": "…", "beats": 4 }`). La clé ne dit que l'élément ; la longueur appartient à l'entrée.
 - `meter` au premier niveau s'écrit de la même façon (l'unité est une fraction écrite en texte).
 - L'accompagnement (`round.accompaniment`, ou le paramètre qu'il nomme par `{ "param": "…" }`, dans `params` et dans les `params` de chaque niveau) s'écrit `{ "clicks": { "beats": [1, 2, 3, 4], "accent": [1] }, "bars": ["on", "on", "on", "off"] }` : les temps où le clic sonne, ceux qu'il accentue (facultatif), puis une mesure par entrée, `"off"` pour une mesure muette.
 - Une clé inconnue au premier niveau refuse l'exercice, en la nommant.
 
-Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `practices`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `forms`, `pick`, `items`.
+Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `practices`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `shapes`, `pick`, `items`.
 
 `practices` nomme la capacité que l'exercice travaille : elle doit être définie dans un fichier, le sien ou un autre lu avant.
 
@@ -99,7 +100,11 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 					"lilypond": "c8 c c c c c c c"
 				}
 			],
-			"items": ["C|maj|3:1,2:3,1:5@0@4", "F|maj|3:1,2:3,1:5@0@4", "G|maj|3:1,2:3,1:5@0@4"],
+			"items": [
+				{ "item": "C|maj|3:1,2:3,1:5@5-5-3", "beats": 4 },
+				{ "item": "F|maj|3:1,2:3,1:5@10-10-8", "beats": 4 },
+				{ "item": "G|maj|3:1,2:3,1:5@12-12-10", "beats": 4 }
+			],
 			"round": {
 				"expectations": [
 					{
@@ -161,7 +166,7 @@ Trois triades majeures sur les cordes 3-2-1, arpégées sur une figure de noires
 }
 ```
 
-Les `items` sont des clés de la mécanique (`voicing-figure` : `<voicing>@<occurrence>@<temps>`, le voicing s'écrivant `<racine>|<qualité>|<corde>:<degré>,…`, par exemple `C|maj|3:1,2:3,1:5`, puis l'occurrence du voicing sur le manche, puis la longueur du tour en temps). `"content": { "from": "voicing-notes" }` fait jouer à chaque note de la figure la note du voicing donnée par `pattern` (1 = la plus grave).
+Chaque entrée de `items` donne une clé d'élément de l'ensemble `placed-voicing` et la longueur de son tour en temps (`"beats"`), que le tour lit par `{ "item": "beats" }`. La clé est `<voicing>@<cases>` : le voicing s'écrit `<racine>|<qualité>|<corde>:<degré>,…`, par exemple `C|maj|3:1,2:3,1:5`, puis viennent les cases de ses notes, dans l'ordre de ses cordes, séparées par `-` (`5-5-3`). Des cases où le voicing ne tombe pas refusent l'exercice (`the voicing has no place at frets 9-9-9`), comme une clé qui finit encore par une longueur (`…@5-5-3@4`). Une entrée sans `beats` est une clé seule ; un tour qui lit la longueur de son élément la refuse, en nommant `items[i]` et le niveau. Un `beats` qui n'est pas un nombre positif refuse l'exercice en nommant `items[i].beats`. `"content": { "from": "voicing-notes" }` fait jouer à chaque note de la figure la note du voicing donnée par `pattern` (1 = la plus grave).
 
 ## Une forme déplacée d'accord en accord
 
@@ -174,28 +179,32 @@ Le fichier définit une capacité sur l'ensemble `placed-shape` (`"items": "plac
 ```json
 {
 	"practices": "forme-deplacee",
-	"forms": [
+	"shapes": [
 		{
 			"id": "maj7",
 			"symbol": "maj7",
 			"lilypond": "c\\5 e\\4 g\\4 b\\3"
 		}
 	],
-	"items": ["maj7@c@4", "maj7@f@2", "maj7@bes@4"],
+	"items": [
+		{ "item": "maj7@c", "beats": 4 },
+		{ "item": "maj7@f", "beats": 2 },
+		{ "item": "maj7@bes", "beats": 4 }
+	],
 	"presentation": {
 		"primary": "{chord}"
 	}
 }
 ```
 
-et, dans `round.expectations`, `"content": { "from": "form-notes" }`.
+et, dans `round.expectations`, `"content": { "from": "shape-notes" }`.
 
-- **La forme** (`forms`) : `id` la nomme, `symbol` est ce que le nom de l'accord ajoute à sa première note, `lilypond` donne ses notes dans l'ordre, chacune avec son numéro de corde. Le rythme vient de la figure : une durée écrite est ignorée, et rien ne remplit de mesure. Un silence, une liaison, un triolet, une barre de mesure ou une note sans corde refusent l'exercice, en nommant la forme et la position dans le texte.
-- **L'élément** (`items`) : `<forme>@<première note>@<temps>`. La première note est une note LilyPond seule, sans durée ni corde (`d`, `g,`, `bes'`). La forme est déplacée pour commencer sur elle : toutes ses notes bougent du même intervalle et gardent leur corde. L'exemple joue do 3 (`c`), fa 3 (`f`), puis si♭ 3 (`bes`). Les temps sont la longueur du tour, comme pour `voicing-figure`.
+- **La forme** (`shapes`) : `id` la nomme, `symbol` est ce que le nom de l'accord ajoute à sa première note, `lilypond` donne ses notes dans l'ordre, chacune avec son numéro de corde. Le rythme vient de la figure : une durée écrite est ignorée, et rien ne remplit de mesure. Un silence, une liaison, un triolet, une barre de mesure ou une note sans corde refusent l'exercice, en nommant la forme et la position dans le texte.
+- **L'élément** (`items`) : la clé `<forme>@<première note>`, avec la longueur du tour dans l'entrée (`"beats"`). La première note est une note LilyPond seule, sans durée ni corde (`d`, `g,`, `bes'`). La forme est déplacée pour commencer sur elle : toutes ses notes bougent du même intervalle et gardent leur corde. L'exemple joue do 3 (`c`), fa 3 (`f`), puis si♭ 3 (`bes`). Les temps sont la longueur du tour, comme pour les voicings.
 - **Le nom de l'accord** (`{chord}` dans la présentation) : la première note telle qu'elle est écrite, sans son octave, puis le `symbol` : `bes` donne `Bbmaj7`, `as` donne `Abmaj7`, `es` donne `Ebmaj7`, `fis` donne `F#maj7`.
-- **Les notes jouées** : `form-notes` donne la liste des notes de la forme déplacée. Sans `pattern`, elles se jouent dans l'ordre et bouclent ; `pattern` choisit parmi elles (1 = la première note de la forme). Sur un changement de 2 temps, une figure de noires joue les deux premières notes (sa dernière boucle est coupée).
+- **Les notes jouées** : `shape-notes` donne la liste des notes de la forme déplacée. Sans `pattern`, elles se jouent dans l'ordre et bouclent ; `pattern` choisit parmi elles (1 = la première note de la forme). Sur un changement de 2 temps, une figure de noires joue les deux premières notes (sa dernière boucle est coupée).
 - **Chaque accord repart de la première note** de sa forme. Un arpège qui continue d'un accord à l'autre n'existe pas encore.
-- **Refusé** : deux formes de même `id`, un `id` qui contient `@` (le séparateur des clés), une forme sans note, une note que sa corde ne peut pas donner telle qu'elle est écrite. Quand le tour dérive `form-notes`, aussi un élément qui nomme une forme absente ou que son déplacement fait sortir du manche (sous la corde à vide ou au-delà de la case 24). Le refus nomme `forms[i]` ou `items[i]`. Un tour qui ne dérive pas ses notes n'en a pas besoin : l'élément passe, et `{chord}` dit la note seule si la forme est absente.
+- **Refusé** : deux formes de même `id`, un `id` qui contient `@` (le séparateur des clés), une forme sans note, une note que sa corde ne peut pas donner telle qu'elle est écrite. Quand le tour dérive `shape-notes`, aussi un élément qui nomme une forme absente ou que son déplacement fait sortir du manche (sous la corde à vide ou au-delà de la case 24). Le refus nomme `shapes[i]` ou `items[i]`. Un tour qui ne dérive pas ses notes n'en a pas besoin : l'élément passe, et `{chord}` dit la note seule si la forme est absente.
 - **Après un tour raté**, la respiration dit les fausses notes en mots : pas de dessin d'accord, qui ne sait pas montrer plusieurs notes sur une corde. Un niveau d'aide peut écrire `"notation.tab": true` pour la tablature.
 - **Le nom des notes** suit la forme : une note garde sa place dans la forme écrite. Sur E♭, la tierce de `g b d f` s'appelle G et la septième D♭, jamais D♯ ni C♯.
 
@@ -258,7 +267,7 @@ Les fichiers du catalogue d'abord, puis les fichiers locaux, chacun dans l'ordre
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
 2. Chaque grille se lit (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
 3. Les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la mécanique existe.
-4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque élément de `items` : sa clé se lit par la mécanique, et le tour se compile sur lui à chaque niveau (une occurrence que le manche n'a pas, une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
+4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par la mécanique (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
 5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
 6. Les grilles qu'un exercice de geste nomme sont définies par un fichier lu jusque-là.
 7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient.

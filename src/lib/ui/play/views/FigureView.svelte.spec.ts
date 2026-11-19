@@ -365,7 +365,7 @@ describe('FigureView', () => {
 				exerciseId: ARPEGGIO_EXERCISE.id,
 				skill: ARPEGGIO_EXERCISE.practices,
 				exerciseLevel: -1,
-				item: voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`),
+				item: { ...voicingFigureRules.parseItem('C|maj|3:1,2:3,1:5@5-5-3'), beats },
 				phase: 'free',
 				temperature: 'hot',
 				aid: 'none',

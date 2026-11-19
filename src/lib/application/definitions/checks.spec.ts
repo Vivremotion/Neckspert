@@ -43,7 +43,8 @@ describe('definitionChecks', () => {
 	});
 
 	it('refuses an item its round cannot compile', () => {
-		const far = { ...ARPEGGIO_EXERCISE, id: 'far', items: ['C|maj|3:1,2:3,1:5@9@4'] };
+		// A key alone, where the round reads the length of its item.
+		const far = { ...ARPEGGIO_EXERCISE, id: 'far', items: ['C|maj|3:1,2:3,1:5@5-5-3'] };
 		expect(check(far)).toMatch(/^items\[0\] .*does not compile at exercise level -1/);
 	});
 

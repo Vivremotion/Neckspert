@@ -1,7 +1,8 @@
 import { mechanicRules } from '../mechanics';
 import { mechanicOfSkill } from '../skill/bridge';
 import { hasSkill, skillById } from '../skill/registry';
-import { FORM_ITEM_SEPARATOR } from '../mechanics/formFigure';
+import { SHAPE_ITEM_SEPARATOR } from '../mechanics/formFigure';
+import { itemEntryKey, itemOfEntry } from './itemEntries';
 import { fretOf } from '../music/fretboard';
 import { MAX_PLAYABLE_FRET } from '../music/types';
 import { attackNotes, validateFigure } from '../time/figure';
@@ -232,17 +233,17 @@ function figuresProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * Why a form the exercise writes cannot be played: an id already taken or that no item key could
+ * Why a shape the exercise writes cannot be played: an id already taken or that no item key could
  * name, no note, or a note written on a string where no fret gives its pitch.
  */
-function formsProblem(definition: ExerciseDefinition): string | null {
-	const forms = definition.forms ?? [];
-	for (const [index, { id, notes }] of forms.entries()) {
-		const field = `forms[${index}] (${id})`;
-		const same = forms.findIndex((form) => form.id === id);
-		if (same !== index) return `${field} has the id of forms[${same}]`;
-		if (id.includes(FORM_ITEM_SEPARATOR)) {
-			return `${field} has an id with "${FORM_ITEM_SEPARATOR}", which separates the parts of an item key`;
+function shapesProblem(definition: ExerciseDefinition): string | null {
+	const shapes = definition.shapes ?? [];
+	for (const [index, { id, notes }] of shapes.entries()) {
+		const field = `shapes[${index}] (${id})`;
+		const same = shapes.findIndex((shape) => shape.id === id);
+		if (same !== index) return `${field} has the id of shapes[${same}]`;
+		if (id.includes(SHAPE_ITEM_SEPARATOR)) {
+			return `${field} has an id with "${SHAPE_ITEM_SEPARATOR}", which separates the parts of an item key`;
 		}
 		if (notes.length === 0) return `${field} has no note`;
 		for (const [k, { midi, string }] of notes.entries()) {
@@ -254,11 +255,12 @@ function formsProblem(definition: ExerciseDefinition): string | null {
 }
 
 /**
- * Why an item the exercise lists cannot be played: an empty list, a key its mechanic cannot read
- * (`parseItem`), or an item its round cannot compile at one of its exercise levels (an occurrence
- * the neck does not hold, a form moved off it, a pattern note beyond its notes…), naming the item
- * and the level. What the round does not derive it does not need. Checked once the round is known
- * to be valid.
+ * Why an item the exercise lists cannot be played: an empty list, an entry that is neither a key
+ * nor `{ item, beats }` with a positive length, a key its mechanic cannot read (`parseItem`), or an
+ * item its round cannot compile at one of its exercise levels (a shape moved off the neck, a
+ * pattern note beyond its notes, a length the round reads and the entry does not give…), naming
+ * the item and the level. What the round does not derive it does not need. Checked once the round
+ * is known to be valid.
  */
 function itemsProblem(definition: ExerciseDefinition): string | null {
 	const { items, round } = definition;
@@ -268,14 +270,14 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 	const rules = mechanicRules(mechanicOfSkill(definition.practices));
 	const meter = definition.meter ?? METER_4_4;
 	const { lowest, highest } = levelRange(exerciseLevelsOf(definition));
-	for (const [i, key] of items.entries()) {
-		const field = `items[${i}] (${JSON.stringify(key)})`;
+	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
-			item = rules.parseItem(key);
+			item = itemOfEntry((key) => rules.parseItem(key), entry, i);
 		} catch (error) {
-			return `${field}: ${(error as Error).message}`;
+			return (error as Error).message;
 		}
+		const field = `items[${i}] (${JSON.stringify(itemEntryKey(entry))})`;
 		if (round === undefined) continue;
 		for (let level = lowest; level <= highest; level++) {
 			const planned: PlannedItem = {
@@ -306,7 +308,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 /**
  * Null when the engine can run the exercise, else what it cannot run, naming the exercise and the
  * field: a tempo not positive, a ladder it cannot climb, a figure or form note impossible on its
- * string, forms with one id or no note (`formsProblem`), levels it cannot resolve (`levelsProblem`),
+ * string, shapes with one id or no note (`shapesProblem`), levels it cannot resolve (`levelsProblem`),
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), an item it lists
  * (`itemsProblem`). It never
@@ -346,8 +348,8 @@ export function validateExercise(
 		if (levels !== null) return levels;
 		const figures = figuresProblem(definition);
 		if (figures !== null) return figures;
-		const forms = formsProblem(definition);
-		if (forms !== null) return forms;
+		const shapes = shapesProblem(definition);
+		if (shapes !== null) return shapes;
 		return roundProblem(definition, options) ?? itemsProblem(definition);
 	})();
 	return problem === null ? null : `${definition.id}: ${problem}`;

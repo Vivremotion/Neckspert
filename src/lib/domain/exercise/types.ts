@@ -79,13 +79,14 @@ export interface PromptPresentation {
 }
 
 /**
- * A suite of notes, each on its own string, written once and moved from chord to chord: plain
- * data, like the rest of a definition. `symbol` is what the chord's name adds to its first note.
+ * A shape: a suite of notes, each on its own string, written once and moved from chord to chord;
+ * plain data, like the rest of a definition. `symbol` is what the chord's name adds to its first
+ * note.
  */
-export interface ExerciseForm {
+export interface ExerciseShape {
 	id: string;
 	symbol: string;
-	/** As written: `name` spells the note, so the form keeps its spelling when it moves. */
+	/** As written: `name` spells the note, so the shape keeps its spelling when it moves. */
 	notes: { midi: number; string: number; name: string }[];
 }
 
@@ -126,16 +127,23 @@ export interface ExerciseDefinition {
 	levels?: readonly Level<LevelOverrides>[];
 	/** The figures it plays, written once in the exercise. */
 	figures?: readonly { id: string; figure: Figure }[];
-	/** The forms its items move, written once (`form-figure`). */
-	forms?: readonly ExerciseForm[];
+	/** The shapes its items move, written once (`form-figure`). */
+	shapes?: readonly ExerciseShape[];
 	/** Which figure comes at each cycle: the same again (`loop`) or the next one (`next`). */
 	pick?: 'loop' | 'next';
 	/**
 	 * The items an exercise session serves, in order and again from the first: keys of its
-	 * mechanic's items (`parseItem`); absent: its figures, one per turn (`pick`).
+	 * mechanic's items (`parseItem`), each alone or with the length of its turn; absent: its
+	 * figures, one per turn (`pick`).
 	 */
-	items?: readonly string[];
+	items?: readonly ItemEntry[];
 }
+
+/**
+ * An item an exercise lists: its key, or its key and the length in beats of its turn (read by a
+ * round as `{ item: 'beats' }`), which the key never holds.
+ */
+export type ItemEntry = string | { readonly item: string; readonly beats: number };
 
 /** One run of an exercise (or of one scope of it); a null tempo means the mechanic has none. */
 export interface Execution {

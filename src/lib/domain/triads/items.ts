@@ -64,8 +64,18 @@ const OCCURRENCE_SEPARATOR = '@';
 
 /** The id of a shape among chord candidates: its voicing and its frets. */
 export function occurrenceId(occurrence: VoicingOccurrence): string {
-	const frets = occurrence.notes.map((note) => note.fret).join('-');
-	return `${voicingKey(occurrence.voicing)}${OCCURRENCE_SEPARATOR}${frets}`;
+	return placedShapeId(
+		voicingKey(occurrence.voicing),
+		occurrence.notes.map((note) => note.fret)
+	);
+}
+
+/**
+ * The id of the shape of voicing key `voicing` at `frets` (in its strings' order), as
+ * `occurrenceId` writes it, whether or not the voicing has a place there.
+ */
+export function placedShapeId(voicing: string, frets: readonly number[]): string {
+	return `${voicing}${OCCURRENCE_SEPARATOR}${frets.join('-')}`;
 }
 
 /** The voicing and the shape an id names; null for an id that names none. */

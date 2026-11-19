@@ -10,8 +10,8 @@ const SAMPLES: Record<string, unknown> = {
 	identify: { string: 3, fret: 8 },
 	'triad-anchor': { voicingKey: D_ON_B },
 	'triad-zone': { voicingKey: D_ON_B, position: 2, fret: 3 },
-	'voicing-figure': { voicing: D_ON_B, occurrence: 0, beats: 4 },
-	'form-figure': { form: 'maj7', first: 'd', beats: 4 }
+	'voicing-figure': { voicing: D_ON_B, frets: [2, 3, 2], beats: 4 },
+	'form-figure': { shape: 'maj7', first: 'd', beats: 4 }
 };
 
 describe('ITEM_FIELDS', () => {
@@ -66,29 +66,29 @@ describe('the fields of a voicing figure', () => {
 	const figure = ITEM_FIELDS['voicing-figure'];
 
 	it('names the chord and the strings, in either language', () => {
-		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', occurrence: 0 };
+		const item = { voicing: 'C|maj7|4:1,3:5,2:7,1:3', frets: [10, 12, 12, 12] };
 		expect(figure.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({
 			chord: 'Cmaj7',
 			strings: 'ré‑sol‑si‑mi'
 		});
-		expect(figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'fr', () => 0, FORM_EXERCISE)).toEqual(
-			{
-				chord: 'D',
-				strings: 'sol‑si‑mi'
-			}
-		);
 		expect(
-			figure.fields({ voicing: D_ON_B, occurrence: 0 }, 'en', () => 0, FORM_EXERCISE).strings
+			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'fr', () => 0, FORM_EXERCISE)
+		).toEqual({
+			chord: 'D',
+			strings: 'sol‑si‑mi'
+		});
+		expect(
+			figure.fields({ voicing: D_ON_B, frets: [2, 3, 2] }, 'en', () => 0, FORM_EXERCISE).strings
 		).toBe('G‑B‑E');
 	});
 });
 
 describe('the fields of a form figure', () => {
-	const form = ITEM_FIELDS['form-figure'];
+	const shape = ITEM_FIELDS['form-figure'];
 	const chord = (first: string) =>
-		form.fields({ form: 'maj7', first }, 'fr', () => 0, FORM_EXERCISE).chord;
+		shape.fields({ shape: 'maj7', first }, 'fr', () => 0, FORM_EXERCISE).chord;
 
-	it("names the chord from the first note as written, then the form's symbol", () => {
+	it("names the chord from the first note as written, then the shape's symbol", () => {
 		expect(chord('bes')).toBe('Bbmaj7');
 		expect(chord('as')).toBe('Abmaj7');
 		expect(chord('es')).toBe('Ebmaj7');
@@ -102,10 +102,10 @@ describe('the fields of a form figure', () => {
 		expect(chord('g,')).toBe('Gmaj7');
 	});
 
-	it('names the note alone on a form the exercise does not write', () => {
-		const item = { form: 'nowhere', first: 'bes' };
-		expect(form.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({ chord: 'Bb' });
-		expect(form.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, forms: undefined })).toEqual({
+	it('names the note alone on a shape the exercise does not write', () => {
+		const item = { shape: 'nowhere', first: 'bes' };
+		expect(shape.fields(item, 'fr', () => 0, FORM_EXERCISE)).toEqual({ chord: 'Bb' });
+		expect(shape.fields(item, 'fr', () => 0, { ...FORM_EXERCISE, shapes: undefined })).toEqual({
 			chord: 'Bb'
 		});
 	});

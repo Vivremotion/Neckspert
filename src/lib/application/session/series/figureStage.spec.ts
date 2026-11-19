@@ -88,7 +88,7 @@ const ARPEGGIO: ExerciseDefinition = {
 };
 
 /** C, first inversion on G-B-E: E, G, C. */
-const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
+const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', frets: [9, 8, 8] };
 
 function planned<I>(definition: ExerciseDefinition, item: I): PlannedItem<I> {
 	return {
@@ -165,7 +165,7 @@ describe('figureStage', () => {
 			params: { ...ARPEGGIO.params, nextBeats: 2, neck: true }
 		};
 		const fourBeats = planned(FORMS, C_FIRST_INVERSION);
-		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', occurrence: 0 });
+		const coming = planned(FORMS, { voicing: 'G|maj|3:3,2:5,1:1', frets: [4, 3, 3] });
 
 		it('shows only in the last beats of its round', () => {
 			const at = (beat: number) =>
@@ -288,7 +288,7 @@ describe('figureStage', () => {
 });
 
 describe('figureStage, the notes it engraves', () => {
-	const c = voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]);
+	const c = { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 };
 	/** The arpeggio's item at exercise level `level` (-1 is its aid level, which shows the tab). */
 	const at = (level: number): PlannedItem => ({
 		...planned(ARPEGGIO_EXERCISE, c),
@@ -342,7 +342,7 @@ describe('figureStage, the notes it engraves', () => {
 describe('figureStage, a round cut inside its figure', () => {
 	/** C major on G-B-E for `beats` beats, at exercise level `level` (-1 writes the tab). */
 	const change = (beats: number, level: number): PlannedItem => ({
-		...planned(ARPEGGIO_EXERCISE, voicingFigureRules.parseItem(`C|maj|3:1,2:3,1:5@0@${beats}`)),
+		...planned(ARPEGGIO_EXERCISE, { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats }),
 		exerciseLevel: level
 	});
 	const kinds = (figure: Figure) => figure.voices[0].elements.map((e) => e.kind);
@@ -432,7 +432,9 @@ describe('figureStage, a round cut inside its figure', () => {
 				]
 			}
 		};
-		const item = { ...planned(exercise, voicingFigureRules.parseItem('C|maj|3:1,2:3,1:5@0@8')) };
+		const item = {
+			...planned(exercise, { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 8 })
+		};
 		const model = stage(exercise, item, 'round');
 		expect(model.figure.bars).toBe(2);
 		expect(notesOf(model.figure).map((n) => n.pitch)).toEqual(
@@ -446,10 +448,10 @@ describe('figureStage, a round cut inside its figure', () => {
 });
 
 describe('figureStage, a form moved to its chord', () => {
-	const item = planned(FORM_EXERCISE, { form: 'maj7', first: 'd', beats: 4 });
+	const item = planned(FORM_EXERCISE, { shape: 'maj7', first: 'd', beats: 4 });
 
 	it('draws the whole form on the neck where its level asks it, spelled for its chord', () => {
-		const flat = planned(FORM_EXERCISE, { form: 'maj7', first: 'es', beats: 2 });
+		const flat = planned(FORM_EXERCISE, { shape: 'maj7', first: 'es', beats: 2 });
 		const drawn: ExerciseDefinition = {
 			...FORM_EXERCISE,
 			levels: [{ params: { neck: true } }, { params: {} }]

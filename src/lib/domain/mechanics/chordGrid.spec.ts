@@ -38,18 +38,33 @@ describe('chordGridRules', () => {
 		expect(mechanicRules('chord-grid')).toBe(chordGridRules);
 	});
 
-	it('keys an attempt by its element and its place in the passage, and parses it back', () => {
-		const link = item({ rule: 'link', element: 'link:D|maj:3,2,1', index: 2 });
-		expect(chordGridRules.itemKey(link)).toBe('link:D|maj:3,2,1#2');
-		expect(chordGridRules.parseItem('link:D|maj:3,2,1#2')).toEqual({
-			element: 'link:D|maj:3,2,1',
-			index: 2
-		});
-		expect(chordGridRules.cardItem?.(link)).toEqual({ element: 'link:D|maj:3,2,1', index: 2 });
-		expect(chordGridRules.parseItem('link:C#|maj:3,2,1#0').element).toBe('link:C#|maj:3,2,1');
-		expect(() => chordGridRules.parseItem('link:D|maj:3,2,1')).toThrow();
+	it('keys a change of a grid by its grid and its rank, and parses it back', () => {
+		const climb = item({ rule: 'climb', element: 'climb:iohefy-a:3,2,1', index: 2 });
+		expect(chordGridRules.itemKey(climb)).toBe('iohefy-a#2');
+		expect(chordGridRules.itemKey(item({ rule: 'zone', element: 'zone:iohefy-a' }))).toBe(
+			'iohefy-a#0'
+		);
+		expect(chordGridRules.itemKey(item({ element: 'jam:blues-f', index: 5 }))).toBe('blues-f#5');
+		expect(chordGridRules.parseItem('iohefy-a#2')).toEqual({ grid: 'iohefy-a', index: 2 });
+		expect(chordGridRules.cardItem?.(climb)).toEqual({ grid: 'iohefy-a', index: 2 });
+		const parsed = chordGridRules.parseItem('iohefy-a#2');
+		expect(chordGridRules.itemKey(parsed)).toBe('iohefy-a#2');
 		expect(() => chordGridRules.parseItem('#2')).toThrow();
 		expect(() => chordGridRules.parseItem('x#-1')).toThrow();
+		expect(() => chordGridRules.parseItem('x#1.5')).toThrow();
+	});
+
+	it('keys a change of the link by the shape it asks, and parses it back', () => {
+		const shape = shapeId('D', 'maj', G_B_E, '7-7-5');
+		const link = item({ rule: 'link', element: 'link:D|maj:3,2,1', index: 2, shape });
+		expect(chordGridRules.itemKey(link)).toBe(shape);
+		expect(chordGridRules.parseItem(shape)).toEqual({ rule: 'link', shape });
+		expect(chordGridRules.cardItem?.(link)).toEqual({ rule: 'link', shape });
+		expect(chordGridRules.itemKey(chordGridRules.parseItem(shape))).toBe(shape);
+		expect(() => chordGridRules.parseItem('D|maj|3:5,2:1,1:3@9-9-9')).toThrow();
+		expect(() => chordGridRules.parseItem('link:D|maj:3,2,1')).toThrow();
+		const sharp = shapeId('C#', 'maj', G_B_E, '6-6-4');
+		expect(chordGridRules.parseItem(sharp)).toEqual({ rule: 'link', shape: sharp });
 	});
 
 	describe('link', () => {

@@ -408,15 +408,16 @@ describe('a sequence of chord shapes on the series', () => {
 
 	it('chains changes of 4, 2 and 6 beats, the second starting on beat 1 of a bar and the third on beat 3', async () => {
 		// A grid's changes last any number of beats: the quarters fill each, the last loop cut.
+		const [c, f, g] = ARPEGGIO_ITEMS;
 		const changes = [
-			{ key: 'C|maj|3:1,2:3,1:5@0@4', beats: 4 },
-			{ key: 'F|maj|3:1,2:3,1:5@0@2', beats: 2 },
-			{ key: 'G|maj|3:1,2:3,1:5@0@6', beats: 6 }
+			{ key: c, beats: 4 },
+			{ key: f, beats: 2 },
+			{ key: g, beats: 6 }
 		];
 		const exercise: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,
 			id: 'test-arpeggio-changes',
-			items: changes.map((change) => change.key)
+			items: changes.map(({ key, beats }) => ({ item: key, beats }))
 		};
 		expect(validateExercise(exercise, { sensors: ['note'] })).toBeNull();
 		const { controller, stored, advance, detector } = await sequenceSeries(exercise, {
@@ -460,11 +461,15 @@ describe('a sequence of chord shapes on the series', () => {
 	});
 
 	it('shows each change of 4, 2 and 6 beats as it plays, cut in its bars and counted in whole bars', async () => {
-		const changes = ['C|maj|3:1,2:3,1:5@0@4', 'F|maj|3:1,2:3,1:5@0@2', 'G|maj|3:1,2:3,1:5@0@6'];
+		const [c, f, g] = ARPEGGIO_ITEMS;
 		const exercise: ExerciseDefinition = {
 			...ARPEGGIO_EXERCISE,
 			id: 'test-arpeggio-changes-shown',
-			items: changes
+			items: [
+				{ item: c, beats: 4 },
+				{ item: f, beats: 2 },
+				{ item: g, beats: 6 }
+			]
 		};
 		const { controller, advance } = await sequenceSeries(exercise, {
 			pattern: ARPEGGIO_PATTERN,

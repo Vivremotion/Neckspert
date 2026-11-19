@@ -11,6 +11,8 @@ import {
 } from './v13';
 import type { BackupV8 } from './v12';
 import source from './v13.ts?raw';
+import { parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
+import { occurrenceId } from '$lib/domain/triads';
 
 const EXAMPLES: Record<string, string> = {
 	locate: '6:F',
@@ -62,17 +64,18 @@ describe('the mechanics as version 12 knew them', () => {
 		});
 	});
 
-	// Temporary: it goes with the live mechanics.
-	it.each(Object.entries(EXAMPLES))(
-		'%s: equals the live mechanic (until the live mechanics go)',
-		(id, key) => {
-			const live = MECHANIC_RULES.find((rules) => rules.id === id)!;
-			const old = frozen(id);
-			expect(old.parseItem(key)).toEqual(live.parseItem(key));
-			expect(old.itemKey(old.parseItem(key))).toBe(live.itemKey(live.parseItem(key)));
-			expect(old.cards).toBe(live.learner === 'memory');
-		}
+	// Temporary: it goes with the live mechanics. The three whose keys version 13 changed are
+	// compared no more.
+	const UNCHANGED = Object.entries(EXAMPLES).filter(
+		([id]) => !['chord-grid', 'voicing-figure', 'form-figure'].includes(id)
 	);
+	it.each(UNCHANGED)('%s: equals the live mechanic (until the live mechanics go)', (id, key) => {
+		const live = MECHANIC_RULES.find((rules) => rules.id === id)!;
+		const old = frozen(id);
+		expect(old.parseItem(key)).toEqual(live.parseItem(key));
+		expect(old.itemKey(old.parseItem(key))).toBe(live.itemKey(live.parseItem(key)));
+		expect(old.cards).toBe(live.learner === 'memory');
+	});
 
 	it('imports nothing from the live mechanics', () => {
 		expect(source).not.toMatch(/from '\$lib\/(domain|application)\/mechanics/);
@@ -140,6 +143,73 @@ describe('an attempt at version 13', () => {
 		expect(
 			attemptToV13({ exerciseId: 'my-own', mechanic: 'figure', cardKey: 'figure:a@0' })
 		).toEqual({ exerciseId: 'my-own', skill: 'my-own', cardKey: 'my-own:a@0' });
+	});
+});
+
+describe('the item keys of an attempt at version 13', () => {
+	const D = 'D|maj|3:5,2:1,1:3';
+	const upgraded = (mechanic: string, cardKey: string, data: unknown = { item: {} }) =>
+		attemptToV13({ exerciseId: 'my-own', mechanic, cardKey, data }).cardKey;
+
+	it('voicing-figure: the place of its rank, its length dropped', () => {
+		expect(upgraded('voicing-figure', `voicing-figure:${D}@0@4`)).toBe(`my-own:${D}@2-3-2`);
+		expect(upgraded('voicing-figure', `voicing-figure:${D}@1`)).toBe(`my-own:${D}@14-15-14`);
+	});
+
+	it('form-figure: its shape and first note, its length dropped', () => {
+		expect(upgraded('form-figure', 'form-figure:maj7@d@4')).toBe('my-own:maj7@d');
+		expect(upgraded('form-figure', "form-figure:maj7@bes'")).toBe("my-own:maj7@bes'");
+	});
+
+	it('chord-grid: the shape a link asked, else the grid and the rank of the change', () => {
+		const shape = `${D}@2-3-2`;
+		const link = { item: { rule: 'link', element: 'link:D|maj:3,2,1', index: 2, shape } };
+		expect(
+			attemptToV13({
+				exerciseId: 'gesture-link',
+				mechanic: 'chord-grid',
+				cardKey: 'chord-grid:link:D|maj:3,2,1#2',
+				data: link
+			})
+		).toMatchObject({ skill: 'inversion-run', cardKey: `inversion-run:${shape}`, data: link });
+		const climb = { item: { rule: 'climb', element: 'climb:iohefy-a:3,2,1', index: 2 } };
+		expect(upgraded('chord-grid', 'chord-grid:climb:iohefy-a:3,2,1#2', climb)).toBe(
+			'my-own:iohefy-a#2'
+		);
+		const zone = { item: { rule: 'zone', element: 'zone:iohefy-a', index: 0 } };
+		expect(upgraded('chord-grid', 'chord-grid:zone:iohefy-a#0', zone)).toBe('my-own:iohefy-a#0');
+	});
+
+	it('keeps the rest of a key it cannot read under the new prefix', () => {
+		// No such place, a key that does not parse.
+		expect(upgraded('voicing-figure', `voicing-figure:${D}@9@4`)).toBe(`my-own:${D}@9@4`);
+		expect(upgraded('voicing-figure', 'voicing-figure:nonsense@0')).toBe('my-own:nonsense@0');
+		expect(upgraded('form-figure', 'form-figure:maj7')).toBe('my-own:maj7');
+		// Missing or unexpected data.
+		expect(upgraded('chord-grid', 'chord-grid:climb:x#1', undefined)).toBe('my-own:climb:x#1');
+		expect(upgraded('chord-grid', 'chord-grid:climb:x#1', { item: 'x' })).toBe('my-own:climb:x#1');
+		expect(
+			upgraded('chord-grid', 'chord-grid:link:x#1', { item: { rule: 'link', element: 'link:x' } })
+		).toBe('my-own:link:x#1');
+		expect(
+			upgraded('chord-grid', 'chord-grid:jam#1', {
+				item: { rule: 'jam', element: 'jam', index: 1 }
+			})
+		).toBe('my-own:jam#1');
+		expect(attemptToV13({ exerciseId: 'my-own', mechanic: 'voicing-figure' })).toEqual({
+			exerciseId: 'my-own',
+			skill: 'my-own',
+			cardKey: undefined
+		});
+	});
+
+	it('reads the places of a voicing live: the lowest first', () => {
+		// A tripwire: a change of voicingOccurrences changes what version 13 makes of old keys.
+		const places = (voicing: string) =>
+			voicingOccurrences(parseVoicingKey(voicing)).map(occurrenceId);
+		expect(places(D)[0]).toBe(`${D}@2-3-2`);
+		expect(places('C|maj|3:1,2:3,1:5')[1]).toBe('C|maj|3:1,2:3,1:5@17-17-15');
+		expect(places('G|maj|3:3,2:5,1:1')[1]).toBe('G|maj|3:3,2:5,1:1@16-15-15');
 	});
 });
 

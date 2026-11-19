@@ -7,7 +7,7 @@ import {
 	type Meter
 } from '$lib/domain/time';
 import { parseLilyPond, parseLilyPondNotes } from '$lib/domain/time/notation/lilypond';
-import type { ExerciseDefinition, ExerciseForm } from './types';
+import type { ExerciseDefinition, ExerciseShape } from './types';
 
 /** Every key an `ExerciseDefinition` has (the type's own list, held by the compiler). */
 const KEYS: Record<keyof ExerciseDefinition, true> = {
@@ -25,7 +25,7 @@ const KEYS: Record<keyof ExerciseDefinition, true> = {
 	title: true,
 	levels: true,
 	figures: true,
-	forms: true,
+	shapes: true,
 	pick: true,
 	items: true
 };
@@ -95,10 +95,10 @@ function figuresFromJson(value: unknown): { id: string; figure: Figure }[] {
 	});
 }
 
-function formsFromJson(value: unknown): ExerciseForm[] {
-	if (!Array.isArray(value)) throw new Error('forms must be a list of { id, symbol, lilypond }');
+function shapesFromJson(value: unknown): ExerciseShape[] {
+	if (!Array.isArray(value)) throw new Error('shapes must be a list of { id, symbol, lilypond }');
 	return value.map((entry: unknown, index) => {
-		const where = `forms[${index}]`;
+		const where = `shapes[${index}]`;
 		if (!isObject(entry)) throw new Error(`${where} must be { id, symbol, lilypond }`);
 		const { id, symbol, lilypond, ...rest } = entry;
 		const unknown = Object.keys(rest)[0];
@@ -116,7 +116,7 @@ function formsFromJson(value: unknown): ExerciseForm[] {
 
 /**
  * An exercise written as JSON: its figures as `{ id, lilypond, meter? }` (parsed by
- * `parseLilyPond`), its forms as `{ id, symbol, lilypond }` (parsed by `parseLilyPondNotes`), its
+ * `parseLilyPond`), its shapes as `{ id, symbol, lilypond }` (parsed by `parseLilyPondNotes`), its
  * top-level `meter` as `{ count, unit: "1/4", grouping }`, everything else
  * as the `ExerciseDefinition` it is. Throws an `Error` naming the field when the value is no
  * exercise or has a key the definition does not know; whether the engine can run it is for
@@ -131,12 +131,12 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 		throw new Error('id must be a string, not empty');
 	if (typeof json.practices !== 'string') throw new Error('practices must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');
-	const { figures, forms, meter, ...rest } = json;
+	const { figures, shapes, meter, ...rest } = json;
 	const exerciseMeter = meter === undefined ? undefined : meterFromJson(meter, 'meter');
 	return {
 		...(accompanimentsFromJson(rest, exerciseMeter ?? METER_4_4) as unknown as ExerciseDefinition),
 		...(figures !== undefined && { figures: figuresFromJson(figures) }),
-		...(forms !== undefined && { forms: formsFromJson(forms) }),
+		...(shapes !== undefined && { shapes: shapesFromJson(shapes) }),
 		...(exerciseMeter !== undefined && { meter: exerciseMeter })
 	};
 }

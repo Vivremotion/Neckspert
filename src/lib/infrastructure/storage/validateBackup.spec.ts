@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+// The test skills: a version 9 file's keys are read by the set they name.
+import '$lib/testing/testSkills';
 import { DEFAULT_SETTINGS, type BackupFile } from '$lib/domain/types';
 import {
 	makeAttempt,
@@ -956,7 +958,7 @@ describe('with chord-grid attempts', () => {
 			id: 1,
 			exerciseId: 'gesture-climb',
 			skill: 'grid-in-direction',
-			cardKey: 'grid-in-direction:climb:iohefy-a:3,2,1#2',
+			cardKey: 'grid-in-direction:iohefy-a#2',
 			phase: 'free',
 			temperature: 'hot',
 			leadBeats: null,
@@ -993,9 +995,9 @@ describe('with chord-grid attempts', () => {
 				id: i + 1,
 				exerciseId: 'gesture-jam',
 				skill: 'grid-reading',
-				cardKey: 'grid-reading:jam:blues-f#0',
+				cardKey: 'grid-reading:blues-f#0',
 				data: {
-					item: { element: 'jam:blues-f', index: 0 },
+					item: { rule: 'jam', element: 'jam:blues-f', index: 0 },
 					answer: null,
 					confusion: { kind, part: 'chord' }
 				}
@@ -1363,6 +1365,71 @@ describe('version 9', () => {
 		expect(file.sessions).toEqual(v8.sessions);
 		expect(file.levelStates).toEqual(v8.levelStates);
 		expect(validateBackupV9(file)).toBe(file);
+	});
+
+	it('imports the keys of a version 8 file as version 13 writes them, the rows the same', () => {
+		const D = 'D|maj|3:5,2:1,1:3';
+		const climb = { rule: 'climb', element: 'climb:iohefy-a:3,2,1', index: 2 };
+		const link = { rule: 'link', element: 'link:D|maj:3,2,1', index: 1, shape: `${D}@2-3-2` };
+		const attempt = (id: number, exerciseId: string, mechanic: string, key: string, item: object) =>
+			makeAttemptV12({
+				id,
+				exerciseId,
+				mechanic,
+				cardKey: `${mechanic}:${key}`,
+				data: { item, answer: null, confusion: null }
+			});
+		const v8 = makeBackupV8({
+			attempts: [
+				attempt(1, 'gesture-climb', 'chord-grid', 'climb:iohefy-a:3,2,1#2', climb),
+				attempt(2, 'gesture-link', 'chord-grid', 'link:D|maj:3,2,1#1', link),
+				attempt(3, 'my-arpeggios', 'voicing-figure', `${D}@1@4`, {
+					voicing: D,
+					occurrence: 1,
+					beats: 4
+				}),
+				attempt(4, 'my-shapes', 'form-figure', 'maj7@d@4', { form: 'maj7', first: 'd', beats: 4 })
+			]
+		});
+		const file = validateBackup(v8);
+		expect(file.attempts).toEqual((v8.attempts as Record<string, unknown>[]).map(attemptToV13));
+		expect(file.attempts.map((row) => row.cardKey)).toEqual([
+			'grid-in-direction:iohefy-a#2',
+			`inversion-run:${D}@2-3-2`,
+			`my-arpeggios:${D}@14-15-14`,
+			'my-shapes:maj7@d'
+		]);
+		expect(validateBackupV9(file)).toBe(file);
+	});
+
+	it('reads the keys of a version 9 file as the live sets write them', () => {
+		const D = 'D|maj|3:5,2:1,1:3';
+		const row = (id: number, skill: string, key: string, item: object) =>
+			makeAttempt({
+				id,
+				exerciseId: `exercise-${skill}`,
+				skill,
+				cardKey: `${skill}:${key}`,
+				data: { item, answer: null, confusion: null }
+			});
+		const jam = { rule: 'jam', element: 'jam:blues-f', index: 3 };
+		const placed = { voicing: D, frets: [2, 3, 2], beats: 4 };
+		const moved = { shape: 'maj7', first: 'd', beats: 2 };
+		const file = makeBackup({
+			attempts: [
+				row(1, 'grid-reading', 'blues-f#3', jam),
+				row(2, 'test-placed-voicing', `${D}@2-3-2`, placed),
+				row(3, 'test-placed-shape', 'maj7@d', moved)
+			]
+		});
+		expect(validateBackupV9(file)).toBe(file);
+		const old = (key: string, item: object, skill = 'grid-reading') =>
+			makeBackup({ attempts: [row(1, skill, key, item)] });
+		expect(() => validateBackupV9(old('jam:blues-f#3', jam))).toThrow(/cardKey/);
+		expect(() => validateBackupV9(old(`${D}@0@4`, placed, 'test-placed-voicing'))).toThrow(
+			/cardKey/
+		);
+		expect(() => validateBackupV9(old('maj7@d@2', moved, 'test-placed-shape'))).toThrow(/cardKey/);
 	});
 
 	it('refuses a version 8 file whose rows already name their skill', () => {

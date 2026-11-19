@@ -58,7 +58,7 @@ export interface ChordGridData {
 	confusion: ChordGridConfusion | null;
 }
 
-/** Joins the element and the change's index in its passage: `link:D|maj:3,2,1#2`. */
+/** Joins a grid and the rank of a change in it: `iohefy-a#2`. */
 const INDEX_SEPARATOR = '#';
 
 /**
@@ -121,14 +121,36 @@ export function expectedShape(
 	return closestShape(admittedShapes(item), heard ?? ringing);
 }
 
-function parseItem(itemKey: string): { element: string; index: number } {
+/** What a change's key names, as `parseItem` reads it back: a link's shape, or a grid's change. */
+type KeyedChange = { rule: 'link'; shape: string } | { grid: string; index: number };
+
+/**
+ * The part of a change its key names: the shape asked (link), else its grid (the second part of
+ * its element) and its rank. Reads a change as `parseItem` gives it back too.
+ */
+function keyedPart(item: ChordGridItem | KeyedChange): KeyedChange {
+	if ('rule' in item && item.rule === 'link') return { rule: 'link', shape: item.shape ?? '' };
+	if ('grid' in item) return { grid: item.grid, index: item.index };
+	return { grid: item.element.split(':')[1] ?? '', index: item.index };
+}
+
+/**
+ * A key ending with `#` and a rank names a change of a grid; any other, a placed shape (a voicing
+ * key may hold a `#`, as in `C#|maj|…`, never after its frets).
+ */
+function parseItem(itemKey: string): KeyedChange {
 	const at = itemKey.lastIndexOf(INDEX_SEPARATOR);
-	const element = at < 0 ? '' : itemKey.slice(0, at);
-	const index = Number(at < 0 ? NaN : itemKey.slice(at + 1));
-	if (element === '' || !Number.isInteger(index) || index < 0) {
-		throw new RangeError(`Not a chord change key: "${itemKey}"`);
+	const rank = at < 0 ? '' : itemKey.slice(at + 1);
+	if (/^\d+$/.test(rank)) {
+		const grid = itemKey.slice(0, at);
+		const index = Number(rank);
+		if (grid === '' || !Number.isSafeInteger(index)) {
+			throw new RangeError(`Not a chord change key: "${itemKey}"`);
+		}
+		return { grid, index };
 	}
-	return { element, index };
+	if (!occurrenceOfId(itemKey)) throw new RangeError(`Not a chord change key: "${itemKey}"`);
+	return { rule: 'link', shape: itemKey };
 }
 
 /**
@@ -143,10 +165,13 @@ export const chordGridRules: MechanicRules<
 > = {
 	id: 'chord-grid',
 	learner: 'skill',
-	itemKey: (item) => `${item.element}${INDEX_SEPARATOR}${item.index}`,
-	// An attempt keeps the whole change; its key, the element and the place in the passage.
-	parseItem: (itemKey) => parseItem(itemKey) as ChordGridItem,
-	cardItem: (item) => ({ element: item.element, index: item.index }),
+	itemKey: (item) => {
+		const part = keyedPart(item);
+		return 'shape' in part ? part.shape : `${part.grid}${INDEX_SEPARATOR}${part.index}`;
+	},
+	// An attempt keeps the whole change; its key, the shape asked or the change's place in its grid.
+	parseItem: (itemKey) => parseItem(itemKey) as unknown as ChordGridItem,
+	cardItem: keyedPart,
 	judge: (item, reading) => {
 		return CONTENT_JUDGES[CHORD_GRID_CONTENT].judge(item, reading) as {
 			correct: boolean;

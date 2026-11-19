@@ -90,9 +90,9 @@ const voicingFigureFields: ItemFields = {
 const formFigureFields: ItemFields = {
 	names: ['chord'],
 	fields: (raw, _locale, _random, definition) => {
-		const { form, first } = raw as FormFigureItem;
-		// A round that derives nothing may list a form the exercise does not write: the note alone.
-		const symbol = definition.forms?.find(({ id }) => id === form)?.symbol ?? '';
+		const { shape, first } = raw as FormFigureItem;
+		// A round that derives nothing may list a shape the exercise does not write: the note alone.
+		const symbol = definition.shapes?.find(({ id }) => id === shape)?.symbol ?? '';
 		return { chord: `${parseNoteName(first).name}${symbol}` };
 	}
 };

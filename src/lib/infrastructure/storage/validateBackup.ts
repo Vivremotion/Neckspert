@@ -32,6 +32,7 @@ import {
 } from './migrations/v12';
 import { hasSkill } from '$lib/domain/skill/registry';
 import { mechanicOfSkill } from '$lib/domain/skill/bridge';
+import { MECHANIC_RULES } from '$lib/domain/mechanics';
 
 type Fields = Record<string, unknown>;
 type Check = (entry: Fields) => string | null;
@@ -442,7 +443,7 @@ function checkItem(
  * one the key names (or, `prompted`, a prompted item its card keeps part of).
  */
 function checkKeyedItem(
-	rules: MechanicV12,
+	rules: Pick<MechanicV12, 'itemKey' | 'parseItem' | 'cardItem'>,
 	prefix: string,
 	prefixName: string,
 	key: unknown,
@@ -506,8 +507,9 @@ function byMechanic(mechanics: readonly MechanicV12[]): Identity {
 
 /**
  * Version 9: entries named by their skill, keyed by it. The key of a skill the registry holds is
- * read by the mechanic that plays it, as version 12 wrote its items; the key of a skill no loaded
- * file defines is kept as it is (its progress is not lost).
+ * read by the mechanic that plays it, as it writes its items today (version 13 took the length of
+ * a turn and the rank of a shape out of them); the key of a skill no loaded file defines is kept
+ * as it is (its progress is not lost).
  */
 const BY_SKILL: Identity = {
 	named(entry) {
@@ -520,7 +522,7 @@ const BY_SKILL: Identity = {
 			return `${keyField} does not match skill`;
 		}
 		if (!hasSkill(skill)) return null;
-		const rules = rulesOf(mechanicOfSkill(skill));
+		const rules = MECHANIC_RULES.find(({ id }) => id === mechanicOfSkill(skill));
 		if (!rules) return null;
 		return checkKeyedItem(rules, skill, 'skill', key, item, keyField, itemField, prompted);
 	}

@@ -39,12 +39,3 @@ export interface MechanicRules<
 		sensor?: string
 	): { correct: boolean; answer: A; confusion: C | null };
 }
-
-/** The length in beats a key ends with (`...@4`), positive and written plainly. Throws naming the key. */
-export function parseItemBeats(part: string, itemKey: string): number {
-	const beats = Number(part);
-	if (!Number.isFinite(beats) || beats <= 0 || String(beats) !== part) {
-		throw new Error(`Invalid length in beats in item key: "${itemKey}"`);
-	}
-	return beats;
-}

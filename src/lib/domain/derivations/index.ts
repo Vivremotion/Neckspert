@@ -6,11 +6,11 @@ import {
 	PITCH_CONTENT
 } from '../judges';
 import type { FigureItem } from '../mechanics/figure';
-import { formNamed, type FormFigureItem } from '../mechanics/formFigure';
+import { shapeNamed, type FormFigureItem } from '../mechanics/formFigure';
 import type { VoicingFigureItem } from '../mechanics/voicingFigure';
 import { rootPosition } from '../mechanics/triadAnchor';
 import { parseVoicingKey } from '../music';
-import { movedForm } from '../music/formNotes';
+import { movedShape } from '../music/formNotes';
 import { voicingNotes } from '../music/voicingNotes';
 import { parseNoteName } from '../time/noteName';
 import type { ExerciseDefinition, MechanicId } from '../exercise/types';
@@ -31,7 +31,7 @@ export interface ContentDerivation {
 	 * its notes.
 	 */
 	list?: true;
-	/** `definition`: the item's exercise, which holds what an item only names (its forms). */
+	/** `definition`: the item's exercise, which holds what an item only names (its shapes). */
 	derive(item: unknown, definition: ExerciseDefinition): unknown;
 }
 
@@ -72,21 +72,21 @@ export const CONTENT_DERIVATIONS: Readonly<Record<string, ContentDerivation>> = 
 		reads: ['voicing-figure'],
 		list: true,
 		derive: (item) => {
-			const { voicing, occurrence } = item as VoicingFigureItem;
-			return voicingNotes(parseVoicingKey(voicing), occurrence).map(({ midi, string }) => ({
+			const { voicing, frets } = item as VoicingFigureItem;
+			return voicingNotes(parseVoicingKey(voicing), frets).map(({ midi, string }) => ({
 				midi,
 				string
 			}));
 		}
 	},
-	'form-notes': {
+	'shape-notes': {
 		kind: PITCH_CONTENT,
 		reads: ['form-figure'],
 		list: true,
 		derive: (item, definition) => {
-			const { form, first } = item as FormFigureItem;
-			const { notes } = formNamed(definition.forms, form);
-			return movedForm(notes, parseNoteName(first)).map(({ midi, string, name }) => ({
+			const { shape, first } = item as FormFigureItem;
+			const { notes } = shapeNamed(definition.shapes, shape);
+			return movedShape(notes, parseNoteName(first)).map(({ midi, string, name }) => ({
 				midi,
 				string,
 				name

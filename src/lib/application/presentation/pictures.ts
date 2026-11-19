@@ -107,12 +107,12 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 			return { kind: 'shape', ...shapeOf(shape) };
 		}
 	},
-	/** The shape of the item's voicing at its occurrence on the neck. */
+	/** The shape of the item's voicing at its place on the neck. */
 	shape: {
 		reads: ['voicing-figure'],
 		draw: (raw) => {
-			const { voicing, occurrence } = raw as VoicingFigureItem;
-			const notes = voicingNotes(parseVoicingKey(voicing), occurrence);
+			const { voicing, frets } = raw as VoicingFigureItem;
+			const notes = voicingNotes(parseVoicingKey(voicing), frets);
 			return { kind: 'shape', notes: notes.map(({ string, fret }) => ({ string, fret })) };
 		}
 	}

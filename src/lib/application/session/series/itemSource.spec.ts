@@ -11,8 +11,9 @@ const context = { now: 0, elapsedMs: 0, fatigued: false };
 const keyOf = (item: PlannedItem | null) =>
 	item && mechanicRules(mechanicOfSkill(item.skill)).itemKey(item.item);
 
-const C_ROOT = 'C|maj|3:5,2:5,1:3';
-const C_FIRST = 'C|maj|3:3,2:5,1:1';
+const C_ROOT = 'C|maj|3:1,2:3,1:5@5-5-3';
+const C_FIRST = 'C|maj|3:3,2:5,1:1@9-8-8';
+const C_ROOT_HIGH = 'C|maj|3:1,2:3,1:5@17-17-15';
 
 /** Shapes played in turn, each a figure of their notes. */
 const shapes: ExerciseDefinition = {
@@ -34,7 +35,7 @@ const shapes: ExerciseDefinition = {
 		policy: { unit: 'cycle', verdict: 'cycle', correction: false, pairing: { mode: 'alignment' } }
 	},
 	levels: [{ params: {} }, { params: { tempo: 100 } }],
-	items: [`${C_ROOT}@0@4`, `${C_FIRST}@1`, `${C_ROOT}@1`]
+	items: [{ item: C_ROOT, beats: 4 }, C_FIRST, C_ROOT_HIGH]
 };
 
 describe('createExerciseItemSource, from the figures', () => {
@@ -106,23 +107,17 @@ describe('createExerciseItemSource, from the written items', () => {
 	it('serves the written items in order, again from the first', () => {
 		const source = createExerciseItemSource(shapes);
 		const keys = Array.from({ length: 5 }, () => keyOf(source.next(context)));
-		expect(keys).toEqual([
-			`${C_ROOT}@0@4`,
-			`${C_FIRST}@1`,
-			`${C_ROOT}@1`,
-			`${C_ROOT}@0@4`,
-			`${C_FIRST}@1`
-		]);
+		expect(keys).toEqual([C_ROOT, C_FIRST, C_ROOT_HIGH, C_ROOT, C_FIRST]);
 	});
 
-	it('parses each item by its mechanic, and serves it again at the level played', () => {
+	it('parses each key by its mechanic, with the length its entry gives, and serves it again at the level played', () => {
 		const source = createExerciseItemSource(shapes);
 		const first = source.next(context)!;
 		expect(first).toEqual({
 			exerciseId: 'test-shapes',
 			skill: TEST_PLACED_VOICING_SKILL.id,
 			exerciseLevel: 0,
-			item: { voicing: C_ROOT, occurrence: 0, beats: 4 },
+			item: { voicing: 'C|maj|3:1,2:3,1:5', frets: [5, 5, 3], beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',
@@ -132,7 +127,10 @@ describe('createExerciseItemSource, from the written items', () => {
 		expect(leveled.exerciseLevel).toBe(1);
 		expect(leveled.item).toEqual(first.item);
 		// The turn after it is still the second.
-		expect(keyOf(source.next(context))).toBe(`${C_FIRST}@1`);
+		const second = source.next(context)!;
+		expect(keyOf(second)).toBe(C_FIRST);
+		// A key alone: no length.
+		expect(second.item).toEqual({ voicing: 'C|maj|3:3,2:5,1:1', frets: [9, 8, 8] });
 	});
 
 	it('refuses an item its mechanic cannot read, and an empty list, naming the exercise', () => {
@@ -140,5 +138,8 @@ describe('createExerciseItemSource, from the written items', () => {
 			/test-shapes.*items\[0\]/
 		);
 		expect(() => createExerciseItemSource({ ...shapes, items: [] })).toThrow(/test-shapes/);
+		expect(() =>
+			createExerciseItemSource({ ...shapes, items: [{ item: C_ROOT, beats: 0 }] })
+		).toThrow('test-shapes: items[0].beats must be a positive number');
 	});
 });

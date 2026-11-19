@@ -182,7 +182,7 @@
 			exerciseId: ARPEGGIO_EXERCISE.id,
 			skill: ARPEGGIO_EXERCISE.practices,
 			exerciseLevel: -1,
-			item: voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]),
+			item: { ...voicingFigureRules.parseItem(ARPEGGIO_ITEMS[0]), beats: 4 },
 			phase: 'free',
 			temperature: 'hot',
 			aid: 'none',

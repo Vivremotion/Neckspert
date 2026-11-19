@@ -485,7 +485,7 @@ function figureExercise(
 	};
 }
 
-const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', occurrence: 0 };
+const C_FIRST_INVERSION = { voicing: 'C|maj|3:3,2:5,1:1', frets: [9, 8, 8] };
 
 /** Compiles `round` over `item`, from `fromRunStart` bars into its run. */
 function compileFigure(
@@ -621,19 +621,19 @@ describe('compileRound, a figure entry', () => {
 		expect(midis(compileFigure(exercise, C_FIRST_INVERSION))).toEqual([64, 67, 72, 64, 67, 72]);
 	});
 
-	describe('a form', () => {
+	describe('a shape', () => {
 		const exerciseOf = (content: FigureExpectationTemplate['content'], text = 'c4 c c c') => ({
 			...figureExercise(
 				'form-figure',
 				figureRound({ sensor: 'note', content }, { length: { beats: { item: 'beats' } } }),
 				{ main: text }
 			),
-			forms: [FORM_MAJ7]
+			shapes: [FORM_MAJ7]
 		});
 
 		it('is moved to the first note of the item, its notes in order, strings kept', () => {
-			const plan = compileFigure(exerciseOf({ from: 'form-notes' }), {
-				form: 'maj7',
+			const plan = compileFigure(exerciseOf({ from: 'shape-notes' }), {
+				shape: 'maj7',
 				first: 'd',
 				beats: 4
 			});
@@ -646,16 +646,16 @@ describe('compileRound, a figure entry', () => {
 		});
 
 		it('plays its first notes over a short change, each change from its first note', () => {
-			const exercise = exerciseOf({ from: 'form-notes' });
-			const short = compileFigure(exercise, { form: 'maj7', first: 'd', beats: 2 });
+			const exercise = exerciseOf({ from: 'shape-notes' });
+			const short = compileFigure(exercise, { shape: 'maj7', first: 'd', beats: 2 });
 			expect(midis(short)).toEqual([50, 54]);
-			const next = compileFigure(exercise, { form: 'maj7', first: 'f', beats: 2 });
+			const next = compileFigure(exercise, { shape: 'maj7', first: 'f', beats: 2 });
 			expect(midis(next)).toEqual([53, 57]);
 		});
 
-		it('loops over a change longer than the form', () => {
-			const plan = compileFigure(exerciseOf({ from: 'form-notes' }, 'c8 c c c c c c c'), {
-				form: 'maj7',
+		it('loops over a change longer than the shape', () => {
+			const plan = compileFigure(exerciseOf({ from: 'shape-notes' }, 'c8 c c c c c c c'), {
+				shape: 'maj7',
 				first: 'd',
 				beats: 4
 			});
@@ -663,8 +663,8 @@ describe('compileRound, a figure entry', () => {
 		});
 
 		it('takes a pattern over its notes', () => {
-			const plan = compileFigure(exerciseOf({ from: 'form-notes', pattern: [1, 3, 2, 4] }), {
-				form: 'maj7',
+			const plan = compileFigure(exerciseOf({ from: 'shape-notes', pattern: [1, 3, 2, 4] }), {
+				shape: 'maj7',
 				first: 'd',
 				beats: 4
 			});
@@ -672,9 +672,9 @@ describe('compileRound, a figure entry', () => {
 		});
 
 		it('fails naming the exercise, the field and the item', () => {
-			const exercise = exerciseOf({ from: 'form-notes' });
-			expect(() => compileFigure(exercise, { form: 'nowhere', first: 'd', beats: 4 })).toThrow(
-				/test-form-figure: round\.expectations\[0\]\.content derives "form-notes" for form-figure item nowhere@d@4: .*form "nowhere"/
+			const exercise = exerciseOf({ from: 'shape-notes' });
+			expect(() => compileFigure(exercise, { shape: 'nowhere', first: 'd', beats: 4 })).toThrow(
+				/test-form-figure: round\.expectations\[0\]\.content derives "shape-notes" for form-figure item nowhere@d: .*shape "nowhere"/
 			);
 		});
 	});
@@ -777,14 +777,14 @@ describe('compileRound, a figure entry', () => {
 		expect(() => compileFigure(voicing({ figure: { id: 'nowhere' } }), C_FIRST_INVERSION)).toThrow(
 			/test-voicing-figure: round\.expectations\[0\]\.figure .*"nowhere"/
 		);
-		// Review Focus: an occurrence the neck does not hold fails at compilation, naming the item.
+		// Review Focus: a place the neck does not hold fails at compilation, naming the item.
 		expect(() =>
 			compileFigure(voicing({ content: { from: 'voicing-notes' } }), {
 				...C_FIRST_INVERSION,
-				occurrence: 1
+				frets: [21, 20, 20]
 			})
 		).toThrow(
-			/test-voicing-figure: round\.expectations\[0\]\.content derives "voicing-notes" for voicing-figure item C\|maj\|3:3,2:5,1:1@1: .*[Oo]ccurrence 1/
+			/test-voicing-figure: round\.expectations\[0\]\.content derives "voicing-notes" for voicing-figure item C\|maj\|3:3,2:5,1:1@21-20-20: .*no place at frets 21-20-20/
 		);
 		// A list on a point, a single content on a figure.
 		const point: RoundTemplate = {

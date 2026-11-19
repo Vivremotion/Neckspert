@@ -1,5 +1,6 @@
 import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { figureItemsAt } from '$lib/domain/exercise/round';
+import { itemOfEntry } from '$lib/domain/exercise/itemEntries';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { mechanicRules } from '$lib/domain/mechanics';
 import type { ItemSource } from '$lib/domain/progress';
@@ -8,7 +9,7 @@ import type { PlannedItem } from '$lib/domain/types';
 
 /**
  * The items of an exercise session: the items the exercise writes (`items`, keys parsed by its
- * mechanic), in order and again from the first; else its figures, each served as the item its
+ * mechanic, each with the length its entry gives), in order and again from the first; else its figures, each served as the item its
  * round reads it on (`figureItemsAt`): the same again (`pick: 'loop'`) or the next one
  * (`'next'`). Each item is a turn of the series; served at level 0, it is served again at the
  * level its exercise plays (`atLevel`), with the figure of that turn that fits the level's round.
@@ -57,11 +58,11 @@ function turnItems(definition: ExerciseDefinition): (turn: number, level: number
 	if (items !== undefined) {
 		if (items.length === 0) throw new Error(`${definition.id}: items lists no item`);
 		const rules = mechanicRules(mechanicOfSkill(definition.practices));
-		const parsed = items.map((key, i) => {
+		const parsed = items.map((entry, i) => {
 			try {
-				return rules.parseItem(key);
+				return itemOfEntry((key) => rules.parseItem(key), entry, i);
 			} catch (error) {
-				throw new Error(`${definition.id}: items[${i}] ${(error as Error).message}`);
+				throw new Error(`${definition.id}: ${(error as Error).message}`, { cause: error });
 			}
 		});
 		return (turn) => parsed[turn % parsed.length];

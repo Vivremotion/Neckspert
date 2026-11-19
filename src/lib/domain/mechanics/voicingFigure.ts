@@ -1,39 +1,39 @@
 import { parseVoicingKey } from '$lib/domain/music';
-import { parseItemBeats, type MechanicIdentity } from './types';
+import { occurrenceOfId, placedShapeId } from '$lib/domain/triads';
+import type { MechanicIdentity } from './types';
 
 /**
- * What a voicing-figure attempt is about: a chord shape, at its `occurrence`-th place on the neck
- * (0: the lowest), played as a figure. `beats` is the length of its turn, when the exercise lists
- * its shapes with one.
+ * What a voicing-figure attempt is about: a chord shape at one of its places on the neck, played
+ * as a figure. `beats` is the length of its turn, when the exercise gives it one in its list of
+ * items: it is not part of the key.
  */
 export interface VoicingFigureItem {
 	/** A voicing key (`voicingKey`). */
 	voicing: string;
-	occurrence: number;
+	/** The fret of each of its notes, in its strings' order: the place of the shape. */
+	frets: readonly number[];
 	beats?: number;
 }
 
-const SEPARATOR = '@';
-const OCCURRENCE = /^\d+$/;
-
 /**
  * Figures played on the notes of a chord shape: a skill (its attempts are kept with their
- * observations, no card). The key is `${voicing}@${occurrence}`, followed by `@${beats}` when the
- * item has a length.
+ * observations, no card). The key is the id of the placed shape (`occurrenceId`):
+ * `${voicing}@${frets joined by -}`.
  */
 export const voicingFigureRules: MechanicIdentity<VoicingFigureItem> = {
 	id: 'voicing-figure',
 	learner: 'skill',
-	itemKey: ({ voicing, occurrence, beats }) =>
-		`${voicing}${SEPARATOR}${occurrence}${beats === undefined ? '' : `${SEPARATOR}${beats}`}`,
+	itemKey: ({ voicing, frets }) => placedShapeId(voicing, frets),
 	parseItem: (itemKey) => {
-		const [voicing, occurrence, beats, ...rest] = itemKey.split(SEPARATOR);
-		if (!voicing || occurrence === undefined || !OCCURRENCE.test(occurrence) || rest.length > 0) {
-			throw new Error(`Invalid voicing figure item key: "${itemKey}"`);
-		}
+		const at = itemKey.lastIndexOf('@');
+		if (at < 1) throw new Error(`Invalid voicing figure item key: "${itemKey}"`);
+		const voicing = itemKey.slice(0, at);
 		parseVoicingKey(voicing);
-		return beats === undefined
-			? { voicing, occurrence: Number(occurrence) }
-			: { voicing, occurrence: Number(occurrence), beats: parseItemBeats(beats, itemKey) };
-	}
+		const place = occurrenceOfId(itemKey);
+		if (!place) {
+			throw new Error(`the voicing has no place at frets ${itemKey.slice(at + 1)}`);
+		}
+		return { voicing, frets: place.notes.map((note) => note.fret) };
+	},
+	cardItem: ({ voicing, frets }) => ({ voicing, frets })
 };

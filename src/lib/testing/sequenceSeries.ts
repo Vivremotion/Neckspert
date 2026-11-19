@@ -6,7 +6,7 @@ import { mechanicOfSkill } from '$lib/domain/skill/bridge';
 import { CONTENT_DERIVATIONS } from '$lib/domain/derivations';
 import { isFigureEntry } from '$lib/domain/exercise/round';
 import { SESSION_MS } from '$lib/domain/session';
-import type { ExerciseDefinition } from '$lib/domain/exercise';
+import { itemEntryKey, type ExerciseDefinition } from '$lib/domain/exercise';
 import { mechanicRules, type VoicingFigureItem } from '$lib/domain/mechanics';
 import { parseVoicingKey } from '$lib/domain/music';
 import { voicingNotes } from '$lib/domain/music/voicingNotes';
@@ -43,10 +43,10 @@ const STEPS_PER_S = 64;
 
 /** The pitches of a shape's notes, lowest string first. */
 export function shapePitches(itemKey: string): number[] {
-	const { voicing, occurrence } = mechanicRules('voicing-figure').parseItem(
+	const { voicing, frets } = mechanicRules('voicing-figure').parseItem(
 		itemKey
 	) as VoicingFigureItem;
-	return voicingNotes(parseVoicingKey(voicing), occurrence).map(({ midi }) => midi);
+	return voicingNotes(parseVoicingKey(voicing), frets).map(({ midi }) => midi);
 }
 
 /** The pitches a round of `exercise` derives from an item: what its figure entry spreads. */
@@ -200,7 +200,8 @@ export async function sequenceSeries(
 	const mechanic = mechanicOfSkill(exercise.practices);
 	const rules = mechanicRules(mechanic);
 	const shapes = new Map(
-		(exercise.items ?? []).map((key) => {
+		(exercise.items ?? []).map((entry) => {
+			const key = itemEntryKey(entry);
 			const item = rules.parseItem(key);
 			const { chord } = ITEM_FIELDS[mechanic].fields(item, 'fr', () => 0, exercise);
 			return [String(chord), derivedPitches(exercise, key)] as const;

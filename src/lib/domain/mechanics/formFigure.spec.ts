@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mechanicRules, MECHANIC_RULES } from './index';
-import { formFigureRules, formNamed, type FormFigureItem } from './formFigure';
+import { formFigureRules, shapeNamed, type FormFigureItem } from './formFigure';
 
 describe('formFigureRules', () => {
 	it('is a skill, registered among the mechanics', () => {
@@ -9,24 +9,31 @@ describe('formFigureRules', () => {
 		expect(MECHANIC_RULES).toContain(formFigureRules);
 	});
 
-	it('keys an item by its form and its first note, then its length when it has one', () => {
-		expect(formFigureRules.itemKey({ form: 'maj7', first: 'bes' })).toBe('maj7@bes');
-		expect(formFigureRules.itemKey({ form: 'maj7', first: 'bes', beats: 2 })).toBe('maj7@bes@2');
+	it('keys an item by its shape and its first note', () => {
+		expect(formFigureRules.itemKey({ shape: 'maj7', first: 'bes' })).toBe('maj7@bes');
 	});
 
-	it('parses a key back, with and without beats', () => {
+	it('keeps the length of a turn out of the key', () => {
+		expect(formFigureRules.itemKey({ shape: 'maj7', first: 'bes', beats: 2 })).toBe('maj7@bes');
+		expect(formFigureRules.cardItem?.({ shape: 'maj7', first: 'bes', beats: 2 })).toEqual({
+			shape: 'maj7',
+			first: 'bes'
+		});
+	});
+
+	it('parses a key back', () => {
 		const items: FormFigureItem[] = [
-			{ form: 'maj7', first: 'd' },
-			{ form: 'maj7', first: 'g,' },
-			{ form: 'maj7', first: "bes'", beats: 2 },
-			{ form: 'm7-on-6', first: 'fis', beats: 4 }
+			{ shape: 'maj7', first: 'd' },
+			{ shape: 'maj7', first: 'g,' },
+			{ shape: 'maj7', first: "bes'" },
+			{ shape: 'm7-on-6', first: 'fis' }
 		];
 		for (const item of items) {
 			expect(formFigureRules.parseItem(formFigureRules.itemKey(item))).toEqual(item);
 		}
 	});
 
-	it('throws on a corrupted key', () => {
+	it('throws on a corrupted key, a length included', () => {
 		for (const key of [
 			'',
 			'maj7',
@@ -38,28 +45,27 @@ describe('formFigureRules', () => {
 			'maj7@r',
 			'maj7@d e',
 			"maj7@d',",
-			'maj7@d@0',
-			'maj7@d@x',
-			'maj7@d@4@1'
+			'maj7@d@4',
+			'maj7@d@x'
 		]) {
 			expect(() => formFigureRules.parseItem(key), key).toThrow();
 		}
 	});
 });
 
-describe('formNamed', () => {
-	const form = { id: 'maj7', symbol: 'maj7', notes: [{ midi: 48, string: 5, name: 'C' }] };
+describe('shapeNamed', () => {
+	const shape = { id: 'maj7', symbol: 'maj7', notes: [{ midi: 48, string: 5, name: 'C' }] };
 
-	it('finds a form by its id', () => {
-		expect(formNamed([form], 'maj7')).toBe(form);
+	it('finds a shape by its id', () => {
+		expect(shapeNamed([shape], 'maj7')).toBe(shape);
 	});
 
-	it('throws naming the form and the forms written', () => {
-		expect(() => formNamed([form], 'm7')).toThrow(
-			'names form "m7", which the exercise does not write (maj7)'
+	it('throws naming the shape and the shapes written', () => {
+		expect(() => shapeNamed([shape], 'm7')).toThrow(
+			'names shape "m7", which the exercise does not write (maj7)'
 		);
-		expect(() => formNamed(undefined, 'm7')).toThrow(
-			'names form "m7", which the exercise does not write (none)'
+		expect(() => shapeNamed(undefined, 'm7')).toThrow(
+			'names shape "m7", which the exercise does not write (none)'
 		);
 	});
 });

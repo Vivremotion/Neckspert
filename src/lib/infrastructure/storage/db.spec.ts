@@ -803,20 +803,34 @@ describe('version 13', () => {
 				item: { voicingKey: triad }
 			})
 		];
-		const attempt = (exerciseId: string, mechanic: string, key: string) => ({
+		const attempt = (exerciseId: string, mechanic: string, key: string, item?: object) => ({
 			...makeAttemptV12(),
 			exerciseId,
 			mechanic,
-			cardKey: `${mechanic}:${key}`
+			cardKey: `${mechanic}:${key}`,
+			...(item && { data: { item, answer: null, confusion: null } })
 		});
+		const shape = `${triad}@2-3-2`;
 		const attempts = [
 			attempt('locate-neck', 'locate', '2:F'),
 			attempt('identify-neck', 'identify', '5:8'),
 			attempt('triads-anchor', 'triad-anchor', triad),
 			attempt('triads-zone', 'triad-zone', triad),
-			attempt('gesture-jam', 'chord-grid', 'jam:iohefy-a#0'),
+			attempt('gesture-jam', 'chord-grid', 'jam:iohefy-a#0', {
+				rule: 'jam',
+				element: 'jam:iohefy-a',
+				index: 0
+			}),
+			attempt('gesture-link', 'chord-grid', 'link:D|maj:3,2,1#1', {
+				rule: 'link',
+				element: 'link:D|maj:3,2,1',
+				index: 1,
+				shape
+			}),
 			attempt('rhythm-offbeats', 'figure', 'offbeats-2@2'),
-			attempt('somewhere-else', 'figure', 'x@0')
+			attempt('somewhere-else', 'figure', 'x@0'),
+			attempt('my-arpeggios', 'voicing-figure', `${triad}@0@4`),
+			attempt('my-shapes', 'form-figure', 'maj7@d@4')
 		];
 		await old.table('cards').bulkAdd(cards);
 		await old.table('attempts').bulkAdd(attempts);
@@ -848,10 +862,14 @@ describe('version 13', () => {
 			['identify-note', 'identify-note:5:8'],
 			['chord-anchor', `chord-anchor:${triad}`],
 			['chord-zone', `chord-zone:${triad}`],
-			['grid-reading', 'grid-reading:jam:iohefy-a#0'],
+			['grid-reading', 'grid-reading:iohefy-a#0'],
+			['inversion-run', `inversion-run:${shape}`],
 			['figure-independence', 'figure-independence:offbeats-2@2'],
 			// An exercise the catalog of version 12 did not hold: its id names its skill.
-			['somewhere-else', 'somewhere-else:x@0']
+			['somewhere-else', 'somewhere-else:x@0'],
+			// The key says the element only: no length, a shape's place by its frets.
+			['my-arpeggios', `my-arpeggios:${shape}`],
+			['my-shapes', 'my-shapes:maj7@d']
 		]);
 		expect(upgraded.some((row) => Object.hasOwn(row, 'mechanic'))).toBe(false);
 		db.close();

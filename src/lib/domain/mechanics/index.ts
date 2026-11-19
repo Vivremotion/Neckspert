@@ -12,7 +12,7 @@ import type { MechanicIdentity } from './types';
 export * from './types';
 export { figureRules, type FigureItem } from './figure';
 export { voicingFigureRules, type VoicingFigureItem } from './voicingFigure';
-export { formFigureRules, formNamed, type FormFigureItem } from './formFigure';
+export { formFigureRules, shapeNamed, type FormFigureItem } from './formFigure';
 export { identifyRules, type IdentifyData } from './identify';
 export { locateRules, type LocateData } from './locate';
 export {

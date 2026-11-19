@@ -58,12 +58,12 @@ describe('exerciseFromJson', () => {
 		);
 	});
 
-	it('reads forms written in lilypond', () => {
+	it('reads shapes written in lilypond', () => {
 		const exercise = exerciseFromJson({
 			...arpeggioJson(),
-			forms: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
+			shapes: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
 		});
-		expect(exercise.forms).toEqual([
+		expect(exercise.shapes).toEqual([
 			{
 				id: 'maj7',
 				symbol: 'maj7',
@@ -77,50 +77,51 @@ describe('exerciseFromJson', () => {
 		]);
 	});
 
-	it('reads a form exercise the engine runs, the same as written in code', () => {
-		const { figures: _figures, forms: _forms, ...rest } = FORM_EXERCISE;
+	it('reads a shape exercise the engine runs, the same as written in code', () => {
+		const { figures: _figures, shapes: _shapes, ...rest } = FORM_EXERCISE;
 		const exercise = exerciseFromJson({
 			...JSON.parse(JSON.stringify(rest)),
 			figures: arpeggioJson().figures,
-			forms: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
+			shapes: [{ id: 'maj7', symbol: 'maj7', lilypond: 'c\\5 e\\4 g\\4 b\\3' }]
 		});
-		expect(exercise.forms).toEqual(FORM_EXERCISE.forms);
+		expect(exercise.shapes).toEqual(FORM_EXERCISE.shapes);
 		expect(validateExercise(exercise, { sensors: ['note'] })).toBeNull();
 	});
 
-	it('leaves the forms out of an exercise that writes none', () => {
-		expect('forms' in exerciseFromJson(arpeggioJson())).toBe(false);
+	it('leaves the shapes out of an exercise that writes none', () => {
+		expect('shapes' in exerciseFromJson(arpeggioJson())).toBe(false);
+		expect(() => exerciseFromJson({ ...arpeggioJson(), forms: [] })).toThrow('unknown key "forms"');
 	});
 
-	it('names the form that does not parse', () => {
+	it('names the shape that does not parse', () => {
 		expect(() =>
 			exerciseFromJson({
 				...arpeggioJson(),
-				forms: [{ id: 'bad', symbol: 'maj7', lilypond: 'c\\5 r e\\4' }]
+				shapes: [{ id: 'bad', symbol: 'maj7', lilypond: 'c\\5 r e\\4' }]
 			})
-		).toThrow(/forms\[0\] \(bad\): lilypond: .*rest.* at offset 4/);
+		).toThrow(/shapes\[0\] \(bad\): lilypond: .*rest.* at offset 4/);
 	});
 
-	it('refuses a form that is not { id, symbol, lilypond }, naming the field', () => {
-		const withForms = (forms: unknown) => ({ ...arpeggioJson(), forms });
-		const form = { id: 'a', symbol: 'm', lilypond: 'c\\5' };
-		expect(() => exerciseFromJson(withForms('c\\5'))).toThrow(
-			'forms must be a list of { id, symbol, lilypond }'
+	it('refuses a shape that is not { id, symbol, lilypond }, naming the field', () => {
+		const withShapes = (shapes: unknown) => ({ ...arpeggioJson(), shapes });
+		const shape = { id: 'a', symbol: 'm', lilypond: 'c\\5' };
+		expect(() => exerciseFromJson(withShapes('c\\5'))).toThrow(
+			'shapes must be a list of { id, symbol, lilypond }'
 		);
-		expect(() => exerciseFromJson(withForms(['c\\5']))).toThrow(
-			'forms[0] must be { id, symbol, lilypond }'
+		expect(() => exerciseFromJson(withShapes(['c\\5']))).toThrow(
+			'shapes[0] must be { id, symbol, lilypond }'
 		);
-		expect(() => exerciseFromJson(withForms([{ ...form, id: 1 }]))).toThrow(
-			'forms[0].id must be a string'
+		expect(() => exerciseFromJson(withShapes([{ ...shape, id: 1 }]))).toThrow(
+			'shapes[0].id must be a string'
 		);
-		expect(() => exerciseFromJson(withForms([{ ...form, symbol: 1 }]))).toThrow(
-			'forms[0].symbol must be a string'
+		expect(() => exerciseFromJson(withShapes([{ ...shape, symbol: 1 }]))).toThrow(
+			'shapes[0].symbol must be a string'
 		);
-		expect(() => exerciseFromJson(withForms([{ ...form, lilypond: 1 }]))).toThrow(
-			'forms[0].lilypond must be a string'
+		expect(() => exerciseFromJson(withShapes([{ ...shape, lilypond: 1 }]))).toThrow(
+			'shapes[0].lilypond must be a string'
 		);
-		expect(() => exerciseFromJson(withForms([{ ...form, notes: [] }]))).toThrow(
-			'forms[0]: unknown key "notes"'
+		expect(() => exerciseFromJson(withShapes([{ ...shape, notes: [] }]))).toThrow(
+			'shapes[0]: unknown key "notes"'
 		);
 	});
 

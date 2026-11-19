@@ -14,7 +14,8 @@ import {
 	type IdentifyItem,
 	type LocateItem
 } from '$lib/domain/music/items';
-import { parseVoicingKey } from '$lib/domain/music/voicing';
+import { parseVoicingKey, voicingOccurrences } from '$lib/domain/music/voicing';
+import { occurrenceId, occurrenceOfId } from '$lib/domain/triads/items';
 import { parseNoteName } from '$lib/domain/time/noteName';
 import type { BackupV8 } from './v12';
 
@@ -226,16 +227,63 @@ export function cardToV13(card: Row): Row {
 	return { ...rest, skill, key: rekeyed(card.key, skill) };
 }
 
+const isRow = (value: unknown): value is Row =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The item key version 13 gives an attempt's item, from its key and its data as version 12 wrote
+ * them: the key says the element only, never the length of its turn nor the rank of a shape among
+ * its places. Null when it cannot read them. Frozen; it reads the places of a voicing live
+ * (`voicingOccurrences`, tripwire test).
+ */
+function itemKeyV13(mechanic: unknown, itemKey: string, data: unknown): string | null {
+	try {
+		if (mechanic === 'voicing-figure') {
+			const { voicing, occurrence } = voicingFigureV12.parseItem(itemKey) as {
+				voicing: string;
+				occurrence: number;
+			};
+			const place = voicingOccurrences(parseVoicingKey(voicing))[occurrence];
+			return place ? occurrenceId(place) : null;
+		}
+		if (mechanic === 'form-figure') {
+			const { form, first } = formFigureV12.parseItem(itemKey) as { form: string; first: string };
+			return `${form}${SEPARATOR}${first}`;
+		}
+		if (mechanic === 'chord-grid') {
+			const item = isRow(data) ? data.item : undefined;
+			if (!isRow(item)) return null;
+			if (item.rule === 'link') {
+				return typeof item.shape === 'string' && occurrenceOfId(item.shape) ? item.shape : null;
+			}
+			const grid = typeof item.element === 'string' ? item.element.split(':')[1] : undefined;
+			const index = item.index;
+			if (!grid || typeof index !== 'number' || !Number.isInteger(index) || index < 0) return null;
+			return `${grid}${INDEX_SEPARATOR}${index}`;
+		}
+	} catch {
+		return null;
+	}
+	return itemKey;
+}
+
 /**
  * An attempt as version 13 keeps it: the skill of its exercise (its exercise id when the
- * catalog of version 12 had no such exercise), its card key prefixed by it, no `mechanic`. An
- * attempt without an exercise id keeps the rest as it is.
+ * catalog of version 12 had no such exercise), its card key prefixed by it and its item key as
+ * version 13 writes it (`itemKeyV13`; the rest of its old key when that cannot read it), no
+ * `mechanic`. Its data stays as version 12 wrote it. An attempt without an exercise id keeps the
+ * rest as it is.
  */
 export function attemptToV13(attempt: Row): Row {
-	const { mechanic: _mechanic, ...rest } = attempt;
+	const { mechanic, ...rest } = attempt;
 	const skill = lookUp(SKILL_OF_EXERCISE_V12, attempt.exerciseId) ?? attempt.exerciseId;
 	if (typeof skill !== 'string') return rest;
-	return { ...rest, skill, cardKey: rekeyed(attempt.cardKey, skill) };
+	const key = attempt.cardKey;
+	const colon = typeof key === 'string' ? key.indexOf(':') : -1;
+	if (typeof key !== 'string' || colon < 0) return { ...rest, skill, cardKey: rekeyed(key, skill) };
+	const old = key.slice(colon + 1);
+	const itemKey = itemKeyV13(mechanic, old, attempt.data) ?? old;
+	return { ...rest, skill, cardKey: `${skill}:${itemKey}` };
 }
 
 /** A backup at version 9: cards and attempts name their skill. */
