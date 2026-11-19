@@ -1,0 +1,204 @@
+import { describe, expect, it } from 'vitest';
+import { admitted, selectionProblem } from './select';
+import type { Family, Member, Selection } from './types';
+
+/** A member of the test family: one note per string, at a fret. */
+interface Spot extends Member {
+	notes: readonly { string: number; fret: number }[];
+	weight: number;
+}
+
+function spot(weight: number, ...notes: [number, number][]): Spot {
+	return {
+		id: notes.map(([s, f]) => `${s}:${f}`).join(','),
+		notes: notes.map(([string, fret]) => ({ string, fret })),
+		weight
+	};
+}
+
+const SPOTS: readonly Spot[] = [
+	spot(3, [3, 0], [2, 1]),
+	spot(1, [3, 2], [2, 3]),
+	spot(2, [3, 5], [2, 5]),
+	spot(1, [2, 7], [1, 8]),
+	spot(2, [3, 9], [2, 10])
+];
+
+const positionOf = (m: Spot) => Math.min(...m.notes.map((n) => n.fret).filter((f) => f > 0));
+
+const FAMILY: Family<null, Spot> = {
+	id: 't',
+	indexProblem: () => null,
+	members: () => [...SPOTS],
+	attributes: {
+		strings: (m) => m.notes.map((n) => n.string),
+		frets: (m) => m.notes.map((n) => n.fret),
+		position: positionOf,
+		weight: (m) => m.weight
+	},
+	recognise: () => null,
+	confusion: () => null
+};
+
+/** A family that knows only a weight: no strings, no frets, no position. */
+const BARE: Family<null, Spot> = {
+	...FAMILY,
+	id: 't',
+	attributes: { weight: (m) => m.weight }
+};
+
+const ids = (members: readonly Member[]) => members.map((m) => m.id);
+const select = (selection: Omit<Selection, 'family'>, previous?: Member | null) =>
+	ids(admitted(FAMILY, null, { family: 't', ...selection }, { previous }));
+
+describe('admitted', () => {
+	it('admits every member, in the family order, without filter, order or take', () => {
+		expect(select({})).toEqual(ids(SPOTS));
+	});
+
+	it('keeps the members whose every note is on the strings and the frets of `in`', () => {
+		expect(select({ where: [{ in: { strings: [3, 2] } }] })).toEqual([
+			'3:0,2:1',
+			'3:2,2:3',
+			'3:5,2:5',
+			'3:9,2:10'
+		]);
+		expect(select({ where: [{ in: { frets: [2, 6] } }] })).toEqual(['3:2,2:3', '3:5,2:5']);
+	});
+
+	it('counts an open string inside a zone that starts at fret 1 only', () => {
+		expect(select({ where: [{ in: { frets: [1, 5] } }] })).toEqual([
+			'3:0,2:1',
+			'3:2,2:3',
+			'3:5,2:5'
+		]);
+		expect(select({ where: [{ in: { frets: [0, 3] } }] })).toEqual(['3:0,2:1', '3:2,2:3']);
+		expect(select({ where: [{ in: { frets: [2, 3] } }] })).toEqual(['3:2,2:3']);
+	});
+
+	it('keeps the members with a note at the fret of `at`', () => {
+		expect(select({ where: [{ at: 5 }] })).toEqual(['3:5,2:5']);
+		expect(select({ where: [{ at: 0 }] })).toEqual(['3:0,2:1']);
+	});
+
+	it('adds two filters up', () => {
+		expect(select({ where: [{ in: { strings: [3, 2] } }, { in: { frets: [4, 12] } }] })).toEqual([
+			'3:5,2:5',
+			'3:9,2:10'
+		]);
+	});
+
+	it('keeps what lies beyond the previous one, up or down', () => {
+		const previous = SPOTS[2];
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'up' } }] }, previous)
+		).toEqual(['2:7,1:8', '3:9,2:10']);
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'down' } }] }, previous)
+		).toEqual(['3:0,2:1', '3:2,2:3']);
+	});
+
+	it('admits nothing past the end without `turns`, and turns with it', () => {
+		const last = SPOTS[4];
+		expect(select({ where: [{ position: { beyond: 'previous', toward: 'up' } }] }, last)).toEqual(
+			[]
+		);
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'up', turns: true } }] }, last)
+		).toEqual(['3:0,2:1', '3:2,2:3', '3:5,2:5', '2:7,1:8']);
+		const first = SPOTS[0];
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'down', turns: true } }] }, first)
+		).toEqual(['3:2,2:3', '3:5,2:5', '2:7,1:8', '3:9,2:10']);
+	});
+
+	it('does not turn while something lies beyond', () => {
+		expect(
+			select({ where: [{ position: { beyond: 'previous', toward: 'up', turns: true } }] }, SPOTS[3])
+		).toEqual(['3:9,2:10']);
+	});
+
+	it('leaves out the previous member with `other`', () => {
+		expect(select({ where: [{ other: 'previous' }] }, SPOTS[1])).toEqual([
+			'3:0,2:1',
+			'3:5,2:5',
+			'2:7,1:8',
+			'3:9,2:10'
+		]);
+	});
+
+	it('keeps the only member when `other` would leave none', () => {
+		expect(select({ where: [{ at: 5 }, { other: 'previous' }] }, SPOTS[2])).toEqual(['3:5,2:5']);
+	});
+
+	it('restricts nothing by the previous one when there is none', () => {
+		const where = [
+			{ position: { beyond: 'previous', toward: 'up' } } as const,
+			{ other: 'previous' } as const
+		];
+		expect(select({ where })).toEqual(ids(SPOTS));
+		expect(select({ where }, null)).toEqual(ids(SPOTS));
+	});
+
+	it('orders by the attributes named, in turn, rising; a list by its smallest element', () => {
+		expect(select({ order: ['weight', 'position'] })).toEqual([
+			'3:2,2:3',
+			'2:7,1:8',
+			'3:5,2:5',
+			'3:9,2:10',
+			'3:0,2:1'
+		]);
+		expect(select({ order: ['strings', 'frets'] })).toEqual([
+			'2:7,1:8',
+			'3:0,2:1',
+			'3:2,2:3',
+			'3:5,2:5',
+			'3:9,2:10'
+		]);
+	});
+
+	it('takes the first n', () => {
+		expect(select({ order: ['weight'], take: 2 })).toEqual(['3:2,2:3', '2:7,1:8']);
+		expect(select({ take: 0 })).toEqual([]);
+	});
+});
+
+describe('selectionProblem', () => {
+	it('accepts a selection the family can run', () => {
+		expect(
+			selectionProblem(FAMILY, {
+				family: 't',
+				where: [
+					{ in: { frets: [1, 5] } },
+					{ at: 3 },
+					{ position: { beyond: 'previous', toward: 'up' } },
+					{ other: 'previous' }
+				],
+				order: ['weight', 'position'],
+				take: 3
+			})
+		).toBeNull();
+		expect(selectionProblem(BARE, { family: 't', where: [{ other: 'previous' }] })).toBeNull();
+	});
+
+	it('names an attribute the family does not have', () => {
+		expect(selectionProblem(FAMILY, { family: 't', order: ['x'] })).toBe(
+			'order names attribute "x", which family "t" does not have'
+		);
+	});
+
+	it('names the attributes a filter needs', () => {
+		expect(selectionProblem(BARE, { family: 't', where: [{ in: { strings: [1] } }] })).toBe(
+			'filter "in" needs the attributes strings and frets, which family "t" does not have'
+		);
+		expect(selectionProblem(BARE, { family: 't', where: [{ at: 1 }] })).toBe(
+			'filter "at" needs the attributes strings and frets, which family "t" does not have'
+		);
+		expect(
+			selectionProblem(BARE, {
+				family: 't',
+				where: [{ position: { beyond: 'previous', toward: 'up' } }]
+			})
+		).toBe('filter "position" needs the attribute position, which family "t" does not have');
+	});
+});
