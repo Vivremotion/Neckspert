@@ -1,4 +1,4 @@
-import { registerTestSkills } from '$lib/testing/testSkills';
+import { registerTestSkills, TEST_NOTE_SKILL } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
 import { ARPEGGIO_EXERCISE as A } from '$lib/testing/arpeggioExercise';
 import {
@@ -49,5 +49,14 @@ describe('the exercise registry', () => {
 		expect(exerciseSessionExercises()).not.toContain(A);
 		registerExercise(A, 'a.json');
 		expect(exerciseSessionExercises()).toContain(A);
+	});
+
+	it('leaves out of the exercise sessions an exercise on a skill with cards', () => {
+		clearExercises();
+		const onCards = { ...A, id: 'memory-with-figure', practices: TEST_NOTE_SKILL.id };
+		registerExercise(A, 'a.json');
+		registerExercise(onCards, 'b.json');
+		expect(exerciseSessionExercises()).toContain(A);
+		expect(exerciseSessionExercises()).not.toContain(onCards);
 	});
 });

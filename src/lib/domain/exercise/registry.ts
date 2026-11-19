@@ -1,3 +1,4 @@
+import { hasCards } from '$lib/domain/skill/registry';
 import { writesFigure } from './figureParams';
 import type { ExerciseDefinition, ExerciseId } from './types';
 
@@ -34,11 +35,14 @@ export function exerciseById(id: ExerciseId): ExerciseDefinition {
 
 /**
  * The exercises played in an exercise session, in registry order: those whose round writes a
- * figure and that write levels. Read from the live registry at each call.
+ * figure and that write levels, on a skill without cards. An exercise on a skill with cards is
+ * loaded and checked but no session plays it yet (the Library will). Read from the live registry
+ * at each call.
  */
 export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
 	return allExercises().filter(
-		(exercise) => writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0
+		(exercise) =>
+			writesFigure(exercise) && (exercise.levels?.length ?? 0) > 0 && !hasCards(exercise.practices)
 	);
 }
 

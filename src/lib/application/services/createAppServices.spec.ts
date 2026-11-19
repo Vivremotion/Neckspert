@@ -45,6 +45,7 @@ import {
 } from '$lib/application/session/series/figureStage';
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
+import { registerTestSkills } from '$lib/testing/testSkills';
 import { exerciseSessionExercises } from '$lib/domain/exercise';
 import { TraceBuilder } from '$lib/domain/session';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
@@ -823,5 +824,22 @@ describe('the rhythm exercises', () => {
 		const { services } = harness();
 		await expect(services.startExercise('nope')).rejects.toThrow();
 		await expect(services.startExercise('locate-note-string')).rejects.toThrow();
+	});
+
+	it('startExercise refuses an exercise on a skill with cards, which no session plays yet', async () => {
+		const { registerExercise, clearExercises, allExercises } =
+			await import('$lib/domain/exercise/registry');
+		const kept = [...allExercises()];
+		const base = exerciseSessionExercises()[0];
+		const onCards = { ...base, id: 'memory-with-figure', practices: 'test-note-on-string' };
+		registerTestSkills();
+		registerExercise(onCards, 'probe.json');
+		try {
+			const { services } = harness();
+			await expect(services.startExercise(onCards.id)).rejects.toThrow(/not played/);
+		} finally {
+			clearExercises();
+			kept.forEach((exercise) => registerExercise(exercise, 'restore'));
+		}
 	});
 });

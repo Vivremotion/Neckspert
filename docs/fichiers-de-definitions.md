@@ -58,6 +58,8 @@ Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets
 
 Une capacité de mémoire (`"memory": true`) a une carte par élément : la séance introduit les éléments un à un, les fait revenir, les révise. L'exercice qui la travaille écrit lui-même ce qu'il introduit, dans quel ordre et à quelle condition. Le moteur n'a aucune liste en code.
 
+Aucune séance ne joue encore un exercice de mémoire importé : il est chargé, vérifié, et attend la Bibliothèque.
+
 **La liste.** Un exercice dont la capacité a des cartes écrit `items` : c'est obligatoire. L'ordre de la liste est l'ordre d'introduction : la séance prend le premier élément de la liste qui n'a pas encore de carte, puis le suivant. Un élément ne s'écrit qu'une fois.
 
 - Un exercice ne demande que les éléments de sa liste. Une carte de sa capacité que la liste ne nomme pas est gardée, mais ignorée : elle n'est ni révisée ni comptée, ni dans la séance, ni sur l'accueil, ni sur la carte du manche. Si l'on remet l'élément dans la liste, sa carte reprend là où elle en était.
