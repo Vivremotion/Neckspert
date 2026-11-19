@@ -35,7 +35,9 @@ Un fichier de définitions est un objet JSON :
 
 ## Une grille
 
-Une grille s'écrit `{ "id": "…", "title": "…", "beatsPerBar": 4, "bars": 12, "chords": [ … ] }`, chaque accord `{ "bar": 1, "beat": 1, "symbol": "F7" }`, avec de vrais symboles d'accords (`parseChordSymbol`). La première commence mesure 1, temps 1, et les accords vont dans l'ordre, dans la grille. Un exercice de geste nomme ses grilles par leur `id` dans `params.grids` : la grille doit être définie dans un fichier, le sien ou un autre lu avant (le catalogue est lu avant les fichiers importés, et les fichiers importés dans l'ordre de leurs noms).
+Une grille s'écrit `{ "id": "…", "title": "…", "beatsPerBar": 4, "bars": 12, "chords": [ … ] }`, chaque accord `{ "bar": 1, "beat": 1, "symbol": "F7" }`, avec de vrais symboles d'accords (`parseChordSymbol`). La première commence mesure 1, temps 1, et les accords vont dans l'ordre, dans la grille. Une grille écrit au plus 256 accords (`chords has <n> entries, more than 256`). Un exercice nomme ses grilles par leur `id` dans `passages.of.grid` (voir « Une suite de changements »).
+
+Un exercice peut nommer une capacité ou une grille de n'importe quel fichier de sa source, quels que soient leurs noms : le catalogue est une source, les fichiers importés en sont une autre. Dans une source, les capacités de tous les fichiers, puis leurs grilles, rejoignent le registre avant qu'aucun exercice soit vérifié. Le catalogue est lu avant les fichiers importés : un fichier importé peut nommer une capacité ou une grille du catalogue, le catalogue jamais celles d'un fichier importé.
 
 ## Un exercice
 
@@ -48,9 +50,9 @@ C'est une `ExerciseDefinition` (`src/lib/domain/exercise/types.ts`) écrite en J
 - L'accompagnement (`round.accompaniment`, ou le paramètre qu'il nomme par `{ "param": "…" }`, dans `params` et dans les `params` de chaque niveau) s'écrit `{ "clicks": { "beats": [1, 2, 3, 4], "accent": [1] }, "bars": ["on", "on", "on", "off"] }` : les temps où le clic sonne, ceux qu'il accentue (facultatif), puis une mesure par entrée, `"off"` pour une mesure muette.
 - Une clé inconnue au premier niveau refuse l'exercice, en la nommant.
 
-Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `practices`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `shapes`, `pick`, `items`.
+Tout le reste doit déjà être du JSON simple : nombres, textes, listes, objets. Les clés connues sont `id`, `practices`, `params` (obligatoires), puis `tempo`, `chordDiagram`, `meter`, `flow`, `round`, `presentation`, `view`, `howTo`, `title`, `levels`, `figures`, `shapes`, `pick`, `items`, `passages`.
 
-`practices` nomme la capacité que l'exercice travaille : elle doit être définie dans un fichier, le sien ou un autre lu avant. Un exercice privé écrit avant la version 13 ne retrouve sa progression que si sa capacité porte l'identifiant qu'avait l'exercice.
+`practices` nomme la capacité que l'exercice travaille : elle doit être définie dans un fichier de la même source, ou du catalogue (voir « Une grille »). Un exercice privé écrit avant la version 13 ne retrouve sa progression que si sa capacité porte l'identifiant qu'avait l'exercice.
 
 **Un exercice de figure doit nommer sa vue** : `"view": "figure"`. Sans elle, un exercice qui écrit une présentation serait dessiné sur la piste (`lane`), qui ne dessine pas de figure.
 
@@ -251,8 +253,11 @@ Une attente d'un tour dit ce que le tour accepte comme réponse. Elle l'écrit e
 
 Un choix a cinq clés. Seule `family` est obligatoire.
 
-- `family` : la famille. Il y en a deux, `note-places` (les places d'une note sur le manche : une par corde et par case) et `chord-shapes` (les formes d'un accord sur des cordes voisines : une par octave où elle tient sur le manche).
-- `of` : le nom de ce qui donne l'**index** de la famille à partir de l'élément. Absent, c'est l'index que l'ensemble de l'élément donne à cette famille. Trois noms existent : `note` (la note d'un élément de `note-on-string`, avec sa corde), `voicing` (l'accord d'un élément de `voicing-on-strings`) et `root` (la fondamentale d'un voicing : la note de la corde qui porte le degré 1). L'index de `note-places` est une note, avec ou sans corde (un élément de `note-on-string` donne la note et sa corde) ; celui de `chord-shapes` est un accord sur des cordes, avec ou sans le degré de chaque corde (un élément de `voicing-on-strings` donne l'accord, ses cordes et ses degrés).
+- `family` : la famille. Une attente en a deux, `note-places` (les places d'une note sur le manche : une par corde et par case) et `chord-shapes` (les formes d'un accord sur des cordes voisines : une par octave où elle tient sur le manche). Une troisième, `grid-changes` (les changements d'une grille), ne sert qu'à lister les tours d'un passage (voir « Une suite de changements ») : elle ne reconnaît rien.
+- `of` : le nom de ce qui donne l'**index** de la famille à partir de l'élément. Absent, c'est l'index que l'ensemble de l'élément donne à cette famille. Cinq noms existent : `note` (la note d'un élément de `note-on-string`, avec sa corde), `voicing` (l'accord d'un élément de `voicing-on-strings`), `root` (la fondamentale d'un voicing : la note de la corde qui porte le degré 1), `placed` (l'accord d'un élément de `placed-voicing`, avec ses degrés et ses cases : une seule forme) et `change-chord` (la triade du symbole d'un changement de grille, élément de `change`, sur la zone de cordes de son passage). L'index de `note-places` est une note, avec ou sans corde (un élément de `note-on-string` donne la note et sa corde) ; celui de `chord-shapes` est un accord sur des cordes, avec ou sans le degré de chaque corde (un élément de `voicing-on-strings` donne l'accord, ses cordes et ses degrés).
+
+**Une zone de cordes.** Un index de `chord-shapes` sans degrés est une triade sur une **zone de cordes** : trois cordes voisines ou plus, écrites de la plus grave à la plus aiguë (`[4, 3, 2, 1]`). Ses formes sont celles des trois renversements serrés sur chaque groupe de trois cordes voisines de la zone : `[4, 3, 2, 1]` donne les groupes 4-3-2 et 3-2-1, `[3, 2, 1]` le seul groupe 3-2-1. Elles sont rangées par position sur le manche. Une zone de moins de trois cordes, des cordes qui ne se suivent pas ou un accord qui n'est pas une triade sont refusés (`chord-shapes needs three neighbouring strings or more and a triad`).
+
 - `where` : une liste de **filtres**. Chacun restreint les membres admis.
 - `order` : une liste d'**attributs** ; les membres admis sont rangés par le premier, puis par le suivant à égalité.
 - `take` : le nombre de membres gardés après le rangement (un entier d'au moins 1). Absent, tous les membres admis sont gardés.
@@ -261,14 +266,14 @@ Un membre a quatre **attributs** : `strings` (ses cordes), `frets` (ses cases), 
 
 Les quatre **filtres** s'écrivent chacun comme un objet à une seule clé :
 
-| Filtre                 | Écriture                                                                  | Ce qu'il admet                                                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| dans une zone          | `{ "in": { "strings": [3, 2, 1], "frets": [5, 8] } }`                     | le membre dont chaque note est sur ces cordes et dans ces cases (une des deux bornes suffit). Une corde à vide compte dans une zone qui commence à la case 1, et dans aucune autre. |
-| à une case             | `{ "at": 7 }`                                                             | le membre qui **couvre** cette case : elle est entre sa case la plus basse et sa plus haute, une corde à vide comptant pour la case 0                                               |
-| au-delà du précédent   | `{ "position": { "beyond": "previous", "toward": "up", "turns": true } }` | le membre dont la position est plus haute (`"up"`) ou plus basse (`"down"`) que celle du précédent ; avec `turns`, quand plus rien n'est au-delà, le sens contraire                 |
-| autre que le précédent | `{ "other": "previous" }`                                                 | tout membre sauf le précédent ; si rien d'autre ne reste (une seule forme), le précédent reste admis                                                                                |
+| Filtre                 | Écriture                                                                  | Ce qu'il admet                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| dans une zone          | `{ "in": { "strings": [3, 2, 1], "frets": [5, 8] } }`                     | le membre dont chaque note est sur ces cordes et dans ces cases (une des deux bornes suffit). Une corde à vide compte dans une zone qui commence à la case 1, et dans aucune autre.                                                       |
+| à une case             | `{ "at": 7 }`                                                             | le membre qui **couvre** cette case : elle est entre sa case la plus basse et sa plus haute, une corde à vide comptant pour la case 0                                                                                                     |
+| au-delà du précédent   | `{ "position": { "beyond": "previous", "toward": "up", "turns": true } }` | le membre dont la position est plus haute (`"up"`) ou plus basse (`"down"`) que celle du précédent ; avec `turns`, quand plus rien n'est au-delà, le sens contraire. `toward` peut se lire dans un paramètre : `{ "param": "direction" }` |
+| autre que le précédent | `{ "other": "previous" }`                                                 | tout membre sauf le précédent ; si rien d'autre ne reste (une seule forme), le précédent reste admis                                                                                                                                      |
 
-Le précédent est donné par ce qui appelle : pour le choix de la consigne, la dernière forme demandée de cette carte. Sans précédent, `position` et `other` ne restreignent rien. Aucun précédent n'est encore donné à un tour : écrits dans le `content` d'un tour, `position` et `other` ne restreignent rien aujourd'hui. Ils servent maintenant à `params.learning.asks`, et serviront plus tard aux passages des changements. **L'ordre où les filtres sont écrits ne change rien** : le moteur applique toujours d'abord `in` et `at`, puis `position` (plusieurs `position` se croisent), puis `other`.
+Le précédent est donné par ce qui appelle : pour le choix de la consigne, la dernière forme demandée de cette carte ; pour un tour d'un passage, la dernière forme entendue dans ce passage (voir « Une suite de changements »). Sans précédent, `position` et `other` ne restreignent rien : c'est le cas du premier tour d'un passage, et de tout tour qui n'appartient pas à un passage. **L'ordre où les filtres sont écrits ne change rien** : le moteur applique toujours d'abord `in` et `at`, puis `position` (plusieurs `position` se croisent), puis `other`.
 
 Une valeur d'un filtre s'écrit de trois façons : un nombre ou une liste écrits, `{ "param": "a.b" }` lue dans les paramètres du niveau, ou `{ "item": "fret" }` lue sur l'élément (`take` lit de même un paramètre). Deux valeurs se lisent sur un élément :
 
@@ -287,7 +292,7 @@ Dans le catalogue :
 
 - `must be a selection { family, of?, where?, order?, take? }` ; `<clé> is not a key of its place (known: …)` ; `family must name a family` ; `names family "<nom>", which is not registered`.
 - `set <ensemble> gives no index of <famille>` ; `of "<nom>" gives no index of <famille> from <ensemble>`.
-- `where must be a list of filters` ; `where[<i>] is no filter (in, at, position, other)` ; `where[<i>].in must be { strings?, frets? }` ; `where[<i>].position must be { beyond: "previous", toward: "up" or "down", turns?: true or false }` ; `where[<i>].other must be "previous", got …`.
+- `where must be a list of filters` ; `where[<i>] is no filter (in, at, position, other)` ; `where[<i>].in must be { strings?, frets? }` ; `where[<i>].position must be { beyond: "previous", toward: "up", "down" or { param }, turns?: true or false }` ; `where[<i>].other must be "previous", got …`.
 - `where[<i>].at must be a number, got …` (de même pour `strings`, `frets`) ; `reads item value "<nom>", which <ensemble> does not have` ; `reads item value "<nom>", <sa forme>, where <la forme voulue> is needed` (par exemple `where[0].in.frets reads item value "fret", a number, where a pair of frets is needed`) ; une valeur lue dans un paramètre qu'un niveau n'écrit pas ou écrit d'une autre forme : `reads param "<chemin>", which no level of the exercise writes`, `…which <niveau> does not write`, `…which <niveau> gives as <valeur>, <pourquoi>`.
 - `of must name an index derivation` ; `<champ>.param reads a param named by text`.
 - `order must be a list of attribute names` ; `order names attribute "<nom>", which family "<famille>" does not have`.
@@ -298,6 +303,133 @@ Dans le catalogue :
 Trois limites s'ajoutent à celles de la section « Le fichier », pour qu'un choix ne coûte pas des secondes à vérifier à chaque niveau : au plus 16 filtres dans `where` (`has <n> filters, more than 16`), 8 attributs dans `order` (`names <n> attributes, more than 8`), et 64 attentes dans un tour (`round.expectations has <n> entries, more than 64`). Ces limites bornent un tour, pas un fichier : un exercice qui écrit le plus d'éléments, de niveaux et d'attentes permis peut encore prendre une dizaine de secondes à charger.
 
 Ce que le joueur ne voit pas changer : une note se reconnaît à sa hauteur seule (le capteur n'entend pas la corde), une forme à ce que le capteur d'accords décide. Les confusions (octave, corde, écart en cases ; autre octave, autre renversement, autre accord) sont celles d'avant. Un tour déjà joué garde son ancien contenu dans la tentative : il n'est pas rejugé.
+
+## Une suite de changements : les passages
+
+Un exercice de changements fait jouer une suite de tours enchaînés, sans silence entre eux : les changements d'une grille, ou les renversements d'un accord l'un après l'autre. Il l'écrit dans `passages`. Un **passage** est la suite des membres d'une famille pour un **index** que l'exercice liste ; chaque membre est l'élément d'un tour. Le catalogue en a quatre, dans `catalog/changes.json` : `inversion-run` (le lien), `grid-in-direction` (la montée), `grid-in-zone` (la zone) et `grid-reading` (la lecture).
+
+La montée écrit :
+
+```json
+"passages": {
+	"of": {
+		"grid": ["iohefy-a", "blues-f"],
+		"strings": [[3, 2, 1], [4, 3, 2]]
+	},
+	"members": { "family": "grid-changes" },
+	"each": { "direction": ["up", "down"] },
+	"opens": {
+		"acquired": { "skill": "chord-anchor", "item": "voicing", "need": "every-group" }
+	},
+	"passes": 0.9,
+	"scope": "grid"
+}
+```
+
+et, dans l'attente de son tour, ce qu'un changement accepte :
+
+```json
+"content": {
+	"family": "chord-shapes",
+	"where": [
+		{ "position": { "beyond": "previous", "toward": { "param": "direction" }, "turns": true } }
+	]
+}
+```
+
+Pour le joueur : il joue une grille entière sur un groupe de cordes, chaque accord sur une forme plus haute que la précédente (ou plus basse, la fois suivante), et repart dans l'autre sens quand le manche s'arrête.
+
+### Les clés de `passages`
+
+`of` et `members` sont obligatoires ; les autres clés sont facultatives. Une autre clé refuse l'exercice.
+
+- **`of`** : des noms, chacun avec la liste de ses valeurs. Les index sont toutes les combinaisons d'une valeur de chaque liste : la montée a 2 grilles × 2 groupes de cordes, soit 4 index ; le lien, 24 accords × 2 groupes, soit 48. Une valeur est un texte, un nombre ou une liste de textes et de nombres ; elle ne contient ni `;` ni `=`. Deux valeurs d'une liste qui s'écrivent de même (`[3, 2, 1]` et `"3,2,1"`) sont refusées. Les noms que les familles lisent : `grid` (l'`id` d'une grille), `chord` (un symbole d'accord, écrit comme sur une grille : `C#m`), `strings` (une zone de cordes).
+- **`members`** : un choix (voir « Un contenu écrit comme un choix »), sans `of` : l'index vient du passage. Deux familles savent donner des membres à partir d'un index de passage :
+  - `grid-changes` : la grille que nomme `grid`, ses changements dans l'ordre (deux accords égaux de suite sont un seul changement). Chaque changement est un élément de l'ensemble `change`, de clé `<grille>#<rang>` (`iohefy-a#2`).
+  - `chord-shapes` : la triade du symbole que nomme `chord`, sur la zone de cordes que nomme `strings` (dans `of`, sinon dans `params`). Chaque forme est un élément de l'ensemble `placed-voicing`.
+
+  Les membres doivent être des éléments de l'ensemble de la capacité que l'exercice travaille. `andBack: true` fait le chemin du retour : les membres dans l'ordre, puis en sens inverse sans répéter le dernier (`a b c d` donne `a b c d c b a`). Le lien écrit `{ "family": "chord-shapes", "order": ["position"], "take": 4, "andBack": true }` : les quatre formes les plus graves de l'accord, en montant, puis le retour, sept mesures.
+
+- **`each`** : les **paramètres de passage**. Chaque nom a une liste de valeurs (de 1 à 64). Au premier passage d'un index, chaque paramètre prend la première valeur de sa liste ; ensuite, la valeur qui suit celle par laquelle le dernier passage de cet index a commencé, et la liste reprend au début. Le tour lit un paramètre de passage comme un autre : `{ "param": "direction" }`. La montée alterne ainsi `up` et `down` sur chaque index ; la zone écrit sa liste de zones :
+
+  ```json
+  "each": {
+  	"zone": [[1, 5], [6, 10], [11, 15], [3, 7], [8, 12], [13, 17], [5, 9], [10, 14], [2, 6], [7, 11], [12, 16], [4, 8], [9, 13]]
+  }
+  ```
+
+  Un paramètre de passage n'a qu'une source : son nom ne peut pas être aussi écrit dans `params`, à un niveau de l'exercice ou de son échelle, être une clé de `of`, ni être un nom que le tour donne lui-même (`leadBeats`, `previewBeats`). Chacune de ses valeurs est vérifiée là où le tour la lit : une `direction` doit valoir `"up"` ou `"down"`, une zone être une paire de cases dans l'ordre.
+
+- **`opens`** : l'**ouverture** d'un index. `{ "acquired": { "skill": "chord-anchor", "item": "voicing", "need": "every-group" } }`. Pour chaque tour du passage, les formes que son contenu admet, filtres retirés, sont groupées par leurs cordes ; chacune nomme une carte de la capacité `skill` par la correspondance `item` (`voicing` : une forme placée nomme son voicing sur ses cordes, élément de `voicing-on-strings`). L'index est ouvert quand ces cartes sont acquises dans chaque groupe (`"every-group"`, par défaut) ou dans un groupe au moins (`"one-group"`), pour chaque tour. La capacité doit avoir des cartes. Sans `opens`, tout index est ouvert. Le passage est lu avec chaque paramètre de passage à sa première valeur.
+- **`again`** : `"until-passed"` fait revenir un passage raté, entier, sur le même index et avec les mêmes paramètres, après une mesure comptée, jusqu'à ce qu'il réussisse. Seul le lien l'écrit.
+- **`restBars`** : des mesures de silence (de 0 à 16) avant la mesure comptée d'un passage qui en suit un autre dans la séance. Jamais avant le premier passage, ni avant un passage qui revient par `again`. Le lien écrit 1.
+- **`passes`** : la part de tours justes qui fait réussir un passage, au-dessus de 0 et au plus 1 (1 par défaut). Les quatre exercices écrivent 0,9. Un tour qui n'a pas de tentative compte comme raté.
+- **`scope`** : le nom d'une clé de `of` dont la valeur sépare les niveaux de l'exercice. Les trois exercices de grille écrivent `"scope": "grid"` : un blues et une ballade montent en tempo chacun de leur côté. Sans `scope`, l'exercice a un seul niveau (le lien).
+
+Un exercice qui écrit `passages` n'écrit pas `items`, et sa capacité n'a pas de cartes.
+
+### Ce qu'un changement accepte
+
+Le contenu de l'attente du tour est un choix de la famille `chord-shapes`. Pour un changement de grille, son index est la triade du symbole du changement, sur la zone de cordes du passage (`strings` dans `of`, sinon dans `params`). Le catalogue écrit :
+
+| Exercice            | Zone de cordes            | Filtres                                                                                       |
+| ------------------- | ------------------------- | --------------------------------------------------------------------------------------------- |
+| `inversion-run`     | celle de l'index          | aucun : l'élément est une forme placée, une seule est admise                                  |
+| `grid-in-direction` | celle de l'index          | `{ "position": { "beyond": "previous", "toward": { "param": "direction" }, "turns": true } }` |
+| `grid-in-zone`      | `"strings": [4, 3, 2, 1]` | `{ "in": { "frets": { "param": "zone" } } }`                                                  |
+| `grid-reading`      | `"strings": [4, 3, 2, 1]` | aucun : toute forme de la triade sur les groupes 4-3-2 et 3-2-1                               |
+
+- **Le précédent** d'un tour est la dernière forme **entendue** dans le passage : toute forme que la réponse nomme, même d'un autre accord, même ratée. C'est elle qui sonne encore. Le premier tour d'un passage n'a pas de précédent.
+- **Le sens qui tourne.** Quand `position` avec `turns` ne trouve rien au-delà du précédent, il cherche dans l'autre sens. Si son `toward` lit un paramètre de passage (`{ "param": "direction" }`), ce paramètre tourne pour ce tour et pour le reste du passage. Le passage suivant du même index prend la valeur qui suit celle par laquelle celui-ci a commencé : l'alternance n'est pas dérangée.
+- **Une zone de cases lue dans un paramètre** s'écrit `{ "in": { "frets": { "param": "zone" } } }`. L'écriture `{ "in": { "param": "zone" } }` est refusée.
+
+### Ce que la séance joue
+
+La séance « Geste » joue les quatre exercices du catalogue, chacun à son tour, dans l'ordre du lien, de la montée, de la zone et de la lecture. Pour l'exercice dont c'est le tour, elle prend, parmi ses index ouverts, celui qui a été joué le moins récemment (à égalité, le premier écrit).
+
+- Chaque passage commence par une mesure comptée, puis ses tours s'enchaînent sans silence.
+- Un passage qui ne peut pas se jouer est sauté : il ne donne aucun membre, plus de 256, ou un de ses tours n'admet aucune forme (une zone où un accord n'a pas de forme). La séance essaie alors les valeurs suivantes des paramètres de passage de cet index ; un index sans aucun passage jouable est laissé de côté pour la séance, et un exercice sans index jouable aussi.
+- Une tentative de changement garde son passage (`data.passage` : son identité, son index, son rang, les valeurs de ses paramètres). Le moins récemment joué et la valeur suivante se relisent là. Les tentatives d'avant les passages ne la portent pas : au premier lancement, chaque index repart « jamais joué », la montée repart vers le haut, la zone de la première.
+- Une fois la durée de la séance passée, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
+
+La séance « Geste » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore ses passages. Ce sera le rôle des routines.
+
+### Les niveaux et l'aide
+
+Les niveaux de tempo s'écrivent comme pour tout exercice (`levels`) : les quatre exercices vont de ♩ = 80 à 120 de 5 en 5, chaque niveau passé après 10 changements justes de suite et quitté après 3 ratés de suite. Le niveau bouge à chaque changement jugé ; un nouveau tempo s'applique au passage suivant, après sa mesure comptée.
+
+L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage :
+
+```json
+"levels": [
+	{ "aid": true, "params": { "tempo": 80, "shapes": true } },
+	{ "params": { "tempo": 80 }, "pass": { "successes": 10 }, "drop": { "failures": 3 } },
+	…
+],
+"flow": { "antiBlocking": true }
+```
+
+- **`"shapes": true`** fait dessiner la forme à jouer. Sur la grille, au changement suivant : pour la montée, la forme admise la plus proche de celle qui sonne, dans le sens de la montée ; pour la zone, la plus grave admise. Sur le lien, les notes de la forme à jouer et de la suivante, sur le manche. À tout autre niveau, rien n'est dessiné.
+- **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure (il reste jouable depuis l'accueil).
+- **La lecture** (`grid-reading`) n'écrit ni niveau d'aide ni anti-blocage : elle n'a pas de forme à dessiner.
+
+### Les vues
+
+Un exercice de grille prend la vue `grid-scroll` ; le lien, la vue `link-lane`. La consigne de la grille se lit dans les paramètres de passage par leur nom : un paramètre `direction` dit le sens de la montée, un paramètre `zone` dit les cases ; sans l'un ni l'autre, la grille se lit librement.
+
+### Refusé
+
+Le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les donne.
+
+- `passages must be an object` ; `passages has an unknown key "<clé>"` ; `an exercise writes passages or items, not both` ; `passages needs a skill without cards`.
+- `passages.of must map names to lists of values` ; `passages.of names no list of values` ; `passages.of.<nom> must be a list, not empty` ; `passages.of name "<nom>" may not hold ";" or "="` ; `passages.of.<nom>[<i>] must be a text, a number or a list of them` ; `passages.of.<nom>[<i>] may not hold ";" or "="` ; `passages.of.<nom>[<i>] has the key of passages.of.<nom>[<j>]`.
+- `passages.of gives no index of <famille>: <raison>` : un index que la famille ne sait pas lire, par exemple `unknown grid "x"`, ou une zone de cordes qui manque (`no zone of strings: neither the passage nor the params give "strings"`).
+- `passages.members must be a selection { family, where?, order?, take?, andBack? }` ; `passages.members.andBack must be true or false` ; `passages.members names family "<famille>", which gives no members from a passage’s index` ; `passages.members names family "<famille>", whose members are no items of <ensemble>` ; un problème du choix lui-même, sous `passages.members.<champ>`.
+- `passages.each must map names to lists of values` ; `passages.each.<nom> must be a list, not empty` ; `passages.each.<nom> is a name the round gives` ; `passages.each.<nom> is also written in params` ; `passages.each.<nom> is also a key of passages.of` ; `passages.each.<nom> is also written at a level` ; une valeur qui ne convient pas là où le tour la lit : `reads param "<nom>", which passages.each.<nom>[<i>] gives as <valeur>, <pourquoi>`.
+- `passages.opens must be { acquired: { skill, item, need? } }` ; `passages.opens.acquired.need must be "every-group" or "one-group"` ; `passages.opens names skill "<id>", which no file read so far defines` ; `passages.opens names skill "<id>", which has no cards` ; `passages.opens needs a round whose content is a selection` ; `passages.opens.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>`.
+- `passages.again must be "until-passed"` ; `passages.restBars must be a whole number from 0 to 16` ; `passages.passes must be a number above 0 and at most 1` ; `passages.scope must name a key of passages.of` ; `passages.scope names "<nom>", which passages.of does not write`.
+
+Les limites, chacune vérifiée avant le travail qu'elle borne : 500 index (`passages.of gives <n> indices, more than 500`), 64 valeurs par paramètre de passage (`passages.each.<nom> has <n> values, more than 64`), 256 membres par passage (`passages.members gives <n> members for index <clé>, more than 256`, comptés sans les filtres ni la prise qui lisent un paramètre de passage, pour borner tous les passages de l'index) et 256 accords par grille.
 
 ## Une forme déplacée d'accord en accord
 
@@ -393,14 +525,14 @@ Les altérations s'écrivent `is` pour le dièse et `es` pour le bémol, collée
 
 ## Comment un fichier est vérifié
 
-Les fichiers du catalogue d'abord, puis les fichiers importés, chacun dans l'ordre du nom :
+Les fichiers du catalogue d'abord, puis les fichiers importés ; dans chaque source, les fichiers dans l'ordre de leur nom :
 
 1. Le texte se lit en JSON (une virgule oubliée refuse le fichier, avec la position de l'erreur), puis l'enveloppe (voir « Le fichier »).
 2. Chaque capacité se lit (`skillFromJson`), chaque grille (`gridFromJson`) et chaque exercice (`exerciseFromJson` : un objet, des clés connues, des figures et des formes en LilyPond qui se lisent, l'accompagnement écrit).
-3. Les capacités et les grilles du fichier rejoignent le registre, puis ses exercices sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la capacité que l'exercice nomme dans `practices` est définie par un fichier lu jusque-là, et l'application sait montrer son ensemble.
-4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
+3. Les capacités de tous les fichiers de la source, puis leurs grilles, rejoignent le registre ; ensuite seulement, les exercices de chaque fichier sont vérifiés dans l'ordre des étapes qui suivent, et seul le premier problème est dit. D'abord, la capacité que l'exercice nomme dans `practices` est définie par un fichier lu jusque-là, et l'application sait montrer son ensemble.
+4. `validateExercise` : ce que le moteur ne sait pas jouer (tempo, niveaux, figures, formes, tour, passages…), et chaque entrée de `items` : sa longueur, si elle en donne une, est un nombre positif, sa clé se lit par l'ensemble de sa capacité (des cases où le voicing ne tombe pas la refusent), et le tour se compile sur lui à chaque niveau (une note de `pattern` au-delà du voicing ou de la forme, une forme sortie du manche refusent l'exercice en nommant `items[i]` et le niveau).
 5. `presentationProblem`, `screenProblem`, `previewProblem` : ce que l'écran ne sait pas dessiner (champ inconnu, vue inconnue…).
-6. Les grilles qu'un exercice de geste nomme sont définies par un fichier lu jusque-là.
+6. L'ouverture des passages (`passages.opens`) nomme une capacité définie, qui a des cartes, et une correspondance qui existe. Les grilles que nomment les passages sont vérifiées avec eux, à l'étape 4.
 7. L'identifiant n'est pas déjà pris, par le catalogue ou par un fichier lu avant : le refus nomme le fichier qui le tient. Pour une capacité ou une grille, ce contrôle se fait quand elle rejoint le registre (étape 3), avant que les exercices du fichier soient vérifiés.
 
 Le moteur refuse ce qu'il ne peut pas jouer, jamais ce qui manque d'intérêt pédagogique.

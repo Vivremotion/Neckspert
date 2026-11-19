@@ -635,18 +635,82 @@ Ce qui diffère du § 6, que celui-ci ne dit pas (le § 6 reste tel quel) :
 
 Laissé au plan 4b :
 
-- La famille `grid-changes`, le passage (`passages` : `of`, `members`, `each`, `opens`), les quatre exercices des changements en données, le juge `chord-grid` remplacé par `member`.
-- Le sens qui tourne « pour le reste du passage » : le filtre ne dit pas s'il a tourné ; qui appelle porte le sens. La montée cherche « au-delà » sur tous les groupes de cordes de l'élément alors qu'un index de `chord-shapes` n'en a qu'un : le tour se décide sur leur union, ou l'index prend plusieurs groupes.
-- La confusion de `chord-shapes` pour un index sans degrés (tous les renversements) est sommaire.
-- Un cache des membres admis par contenu, si une mesure montre un coût (la lecture en direct rejuge à chaque réveil).
-- `itemsProblem` contre l'ensemble du sujet (voir le plan 3).
-- Deux écritures du § 7 sont refusées aujourd'hui : `{ "in": { "param": "zone" } }` (une zone entière lue dans un paramètre) et `"toward": { "param": "direction" }`, avec `andBack`.
-- Le compilateur ne peut pas encore recevoir un membre précédent (`compileSelection`). Un membre précédent devrait être gardé dans un plan par son identité, et retrouvé par `Family.member`.
-- Les paramètres d'un passage (`each`) doivent entrer dans ce que voient le contrôle par niveau et les paramètres du tour.
-- L'index de `chord-shapes` sans degrés demande exactement trois cordes voisines. Pour une zone de cordes, il faudrait des membres sur chaque groupe de trois cordes voisines.
-- `admitted` ne dit pas si le sens a tourné.
-- Les vues et le capteur doivent lire partout les membres admis : quand un filtre n'admet aucune forme, ou en admet plusieurs, un bon voicing joué à une octave non admise n'a pas de confusion.
-- `INDEX_DERIVATIONS` est la table de la guitare telle quelle ; elle est à réunir avec celle de `grid-changes`.
-- `MEMBER_VIEWS` est un registre par famille.
+- La famille `grid-changes`, le passage (`passages` : `of`, `members`, `each`, `opens`), les quatre exercices des changements en données, le juge `chord-grid` remplacé par `member` : fait au plan 4b.
+- Le sens qui tourne « pour le reste du passage » : le filtre ne dit pas s'il a tourné ; qui appelle porte le sens. La montée cherche « au-delà » sur tous les groupes de cordes de l'élément alors qu'un index de `chord-shapes` n'en a qu'un : le tour se décide sur leur union, ou l'index prend plusieurs groupes. Fait au plan 4b : `select` dit si le sens a tourné, la source de passages fait tourner le paramètre de passage (D9), et l'index prend une zone de cordes (D3).
+- La confusion de `chord-shapes` pour un index sans degrés (tous les renversements) est sommaire. Fait au plan 4b : celle des changements d'avant (aucun accord, autre accord, autre qualité, autre groupe de cordes, puis ce que demande le filtre qui a refusé : hors zone, pas plus haut, pas plus bas).
+- Un cache des membres admis par contenu, si une mesure montre un coût (la lecture en direct rejuge à chaque réveil). Toujours ouvert : aucune mesure ne l'a demandé.
+- `itemsProblem` contre l'ensemble du sujet (voir le plan 3). Fait au plan 4b : l'ensemble d'un exercice est celui de sa capacité (`exerciseItemSet` lit `setOfSkill`), les changements n'ayant plus d'ensemble trouvé par leur vue.
+- Deux écritures du § 7 sont refusées aujourd'hui : `{ "in": { "param": "zone" } }` (une zone entière lue dans un paramètre) et `"toward": { "param": "direction" }`, avec `andBack`. Au plan 4b, `toward` lit un paramètre et `andBack` est ouvert ; la zone s'écrit `{ "in": { "frets": { "param": "zone" } } }`, l'écriture du § 7 reste refusée (D11).
+- Le compilateur ne peut pas encore recevoir un membre précédent (`compileSelection`). Un membre précédent devrait être gardé dans un plan par son identité, et retrouvé par `Family.member`. Fait au plan 4b : le tour d'un passage porte l'identité du membre entendu avant lui (`passage.previous`), que `compileSelection` retrouve par `Family.member`.
+- Les paramètres d'un passage (`each`) doivent entrer dans ce que voient le contrôle par niveau et les paramètres du tour. Fait au plan 4b : chaque valeur est vérifiée là où le tour la lit, et le tour les lit comme ses paramètres.
+- L'index de `chord-shapes` sans degrés demande exactement trois cordes voisines. Pour une zone de cordes, il faudrait des membres sur chaque groupe de trois cordes voisines. Fait au plan 4b (D3).
+- `admitted` ne dit pas si le sens a tourné. Fait au plan 4b : `select` le dit, et `refusedBy` nomme le filtre qui a refusé un membre.
+- Les vues et le capteur doivent lire partout les membres admis : quand un filtre n'admet aucune forme, ou en admet plusieurs, un bon voicing joué à une octave non admise n'a pas de confusion. Fait au plan 4b pour les changements : le présentateur et le capteur lisent les membres admis, et la confusion dit le filtre qui a refusé. Pour les triades, rien n'a changé.
+- `INDEX_DERIVATIONS` est la table de la guitare telle quelle ; elle est à réunir avec celle de `grid-changes`. Toujours ouvert : `grid-changes` n'a pas besoin de dérivation d'index, ses membres viennent du passage ; les dérivations de passage, elles, réunissent la guitare et la musique (`PASSAGE_DERIVATIONS`). `INDEX_DERIVATIONS` reste la table de la guitare, qui a gagné `placed` et `change-chord`.
+- `MEMBER_VIEWS` est un registre par famille. Inchangé au plan 4b.
 
 Fait dans ce plan : le nombre d'attentes d'un tour est borné (64), voir plus haut.
+
+## Réalisation (plan 4b, 2026-11-19)
+
+Les douze décisions de ce plan :
+
+- D1 : `passages` s'écrit comme au § 7, `{ "of", "members", "each", "opens" }`, plus `again`, `restBars` et `passes` (D5, D6).
+- D2 : les index d'un exercice sont toutes les combinaisons d'une valeur de chaque liste de `of`. La montée écrit deux grilles et deux groupes de cordes : quatre index. Une valeur qui ne multiplie pas les index s'écrit dans `params` : la zone de cordes de `grid-in-zone` et de `grid-reading`, `"strings": [4, 3, 2, 1]`.
+- D3 : une zone de cordes est une liste de cordes voisines, trois ou plus. Les formes de `chord-shapes` sont celles de chaque groupe de trois cordes voisines de la zone : `[4, 3, 2, 1]` donne les groupes 4-3-2 et 3-2-1.
+- D4 : le lien liste ses vingt-quatre accords dans `of.chord` (`C`, `Cm`, `C#`, `C#m`…), écrits une fois.
+- D5 : un passage raté revient quand l'exercice l'écrit, `"again": "until-passed"`. Seul le lien l'écrit : un blues raté ne revient pas en boucle.
+- D6 : `passes` est la part de changements justes qui fait réussir un passage (0,9 dans le catalogue) ; `restBars`, les mesures de silence avant la mesure comptée d'un passage (1 pour le lien).
+- D7 : les zones de `grid-in-zone` sont les treize zones de cinq cases d'avant, dans l'ordre d'avant, écrites dans `each.zone`.
+- D8 : une tentative de changement range son passage dans ses données (`data.passage` : son identité, son index, son rang, les valeurs de ses paramètres de passage). Les tentatives d'avant ce plan ne sont pas relues : au premier lancement, chaque index repart « jamais joué », la montée repart vers le haut, la zone de la première. Les niveaux de tempo sont gardés.
+- D9 : quand le filtre « au-delà du précédent » tourne, la source fait tourner le paramètre de passage qu'il lit, pour ce changement et ceux qui restent.
+- D10 : l'ouverture d'un index s'écrit `"opens": { "acquired": { "skill", "item", "need" } }`. Pour chaque changement, les formes que son contenu admet sans filtre sont groupées par leurs cordes ; l'index est ouvert quand les cartes qu'elles nomment sont acquises dans chaque groupe (`every-group`) ou dans un groupe au moins (`one-group`). `item` nomme la correspondance d'une forme vers l'élément de la capacité (`voicing`).
+- D11 : `toward` lit un paramètre (`{ "param": "direction" }`), et un paramètre de passage se lit comme un paramètre de l'exercice. La zone de cases s'écrit `{ "in": { "frets": { "param": "zone" } } }` ; l'écriture `{ "in": { "param": "zone" } }` du § 7 reste refusée.
+- D12 : à un niveau qui écrit `"shapes": true`, les deux vues dessinent l'aide d'avant : la forme à jouer sur la grille ; sur le lien, les notes des formes sur le manche.
+
+Ce que l'exécution a décidé en plus :
+
+- `passages.scope` nomme la clé de `of` dont la valeur sépare les niveaux de l'exercice (`"scope": "grid"` pour les trois exercices de grille). Sans elle, l'exercice a un seul niveau. Le cœur n'a pas à connaître le mot « grille ».
+- Chaque contrôle est borné avant le travail qu'il borne : 500 index (`MAX_PASSAGE_INDICES`), 64 valeurs par paramètre de passage (`MAX_PASSAGE_EACH`), 256 membres par passage (`MAX_PASSAGE_MEMBERS`), 256 accords par grille (`MAX_GRID_CHANGES`, vérifié à la lecture de la grille), 16 mesures de silence (`MAX_REST_BARS`). Les membres d'un index sont comptés sans les filtres ni la prise qui lisent un paramètre de passage : le compte borne tous les passages de cet index.
+- Un paramètre de passage n'a qu'une source. Un nom de `each` aussi écrit dans `params`, à un niveau de l'exercice ou de son échelle, qui est une clé de `of`, ou que le tour donne lui-même (`leadBeats`, `previewBeats`) est refusé. Ainsi aucune préséance n'est à décider, et aucune valeur non vérifiée n'arrive au compilateur.
+- L'index de la famille se lit avec les paramètres de l'exercice à son niveau 1, jamais avec les paramètres de passage : tous les passages d'un index ont les mêmes membres avant filtre.
+- « Entendu », c'est toute forme que la réponse nomme, quel que soit son accord : la forme d'un accord faux devient le précédent, comme avant. C'est elle qui sonne encore.
+- `restBars` vient avant tout passage qui en suit un autre dans la séance, sauf celui qui revient par `again`. Le lien se reposait ainsi avant tout passage de la séance qui n'était pas enchaîné.
+- Le capteur d'accords n'entend pas une forme admise qui sonne les mêmes notes que celle qui sonne encore. C'est une règle du capteur (« l'accord précédent qui sonne n'est jamais candidat »), tenue par le présentateur ; le juge, lui, n'a pas changé.
+- Dans une source (le catalogue, puis les fichiers importés), les capacités de tous les fichiers, puis leurs grilles, rejoignent le registre avant qu'aucun exercice soit vérifié. Un exercice peut nommer une capacité ou une grille d'un autre fichier, quel que soit son nom. Un fichier importé `a.json` qui nomme une capacité de `b.json` est donc accepté ; `catalog/changes.json` garde son nom.
+- Le niveau d'aide n'écrit ni `pass` ni `drop`. Le moteur compte alors trois réussites de suite, sans autre aide, pour revenir au niveau 1. L'ancienne aide partait après un passage réussi ; dix réussites de suite la garderaient bien plus longtemps.
+- Un changement joué au niveau d'aide porte l'aide `'aid-level'`, qui compte comme le niveau lui-même, pas comme une aide : sans cela, personne ne remonterait du niveau d'aide. Cette règle vaut maintenant pour tout exercice (`aidedBeyondLevel` lit `levelAided`).
+- `grid-reading` n'écrit ni niveau d'aide ni `flow.antiBlocking` dans ce plan, contrairement au § 7 (« chaque exercice ») : son aide ne dessinait rien, un niveau d'aide n'aurait fait qu'annoncer une aide absente, puis arrêter la séance. L'ancienne lecture n'avait pas d'aide non plus. Le dessin des membres admis vient avec le modèle générique du plan 4c, qui décidera alors de son niveau d'aide.
+- Deux dérivations d'index s'ajoutent à la guitare : `placed` (une forme placée : son voicing et ses cases) et `change-chord` (la triade du symbole d'un changement, sur la zone de cordes du passage, sinon des paramètres).
+- La vue `link-lane` trouve encore son présentateur par la vue (`VIEW_PRESENTERS` n'a plus qu'elle) : ses formes sont des éléments de `placed-voicing`, que les figures présentent autrement. Les trois exercices de grille trouvent le leur par l'ensemble `change`.
+- La consigne de la grille se lit dans les paramètres de passage par leur nom : `direction` pour la montée, `zone` pour la zone, aucun des deux pour la lecture. C'est une exception du présentateur, jusqu'au modèle générique.
+
+La preuve, avant la bascule :
+
+- Une comparaison exhaustive de l'ancien et du nouveau, sur tous les changements du catalogue. Passages : 56 index, 660 tours. Jugement : 736 854 cas (lien 365 460, montée 82 532, zone 268 229, lecture 20 633), plus les tournants de la montée. Ouverture : 11 200 verdicts sur 200 tirages de cartes acquises. Aucune différence de passage, de verdict, de confusion, de membres admis (identités et ordre), de tournant ni d'ouverture.
+- Capteur d'accords : 10 788 paires, 518 différences connues, toutes sur le lien, toutes expliquées par la règle de la forme qui sonne encore. Le présentateur garde cette règle : sur les 10 788 paires, il rend ce que rendait l'ancien.
+- De bout en bout, l'ancien sélecteur et la nouvelle source joués côte à côte, sur 1 680 tours et trois façons de jouer : mêmes exercices, mêmes éléments, mêmes portées, mêmes mesures comptées et de silence, mêmes sens, mêmes zones, même précédent, même fin de séance. Seule l'aide est laissée de côté, par décision.
+- Ce que l'ancienne règle décidait reste figé dans une table (`src/lib/testing/catalogChanges.spec.ts`), qui ne dépend plus d'aucune fonction supprimée.
+
+Ce qui change pour le joueur (le tableau du § 7), et rien d'autre :
+
+- Un passage n'est plus aidé « la première fois et après un passage raté », ni le lien « après 2 ratés dans un tour ». Le lien, la montée et la zone écrivent un niveau d'aide sous leur niveau 1, et `flow.antiBlocking` : trois ratés de suite au niveau 1 y font descendre, au passage suivant, annoncé ; la forme à jouer est alors dessinée ; trois réussites de suite ramènent au niveau 1.
+- Un tour de lien raté n'est plus rejoué aussitôt, enchaîné, sans sa forme la plus grave : il revient entier, après une mesure comptée.
+- Les zones de `grid-in-zone` sont une liste écrite.
+
+### À décider par l'auteur
+
+Trois ratés de suite au niveau 1 amènent le niveau d'aide au passage suivant. Trois ratés de suite au niveau d'aide amènent « On change d'air ». Cela arrête **toute** la séance des changements, les quatre exercices, au milieu du passage, et met cet exercice au repos une heure (`BLOCK_REST_MS`) ; il reste jouable depuis l'accueil. Un joueur qui ne réussit rien au lien finit donc sa séance après dix changements : un tour de sept, puis trois au niveau d'aide. C'est le mécanisme général que le § 7 a choisi. Mais qu'une séance de plusieurs exercices s'arrête parce que l'un d'eux bloque, personne ne l'a décidé. La question va avec les routines (plan 5), où une séance se compose d'exercices. Pour la changer, une règle dans `policy.ts`.
+
+Laissé au plan 4c :
+
+- Un seul modèle générique pour les deux vues (`grid-scroll`, `link-lane`), construit par le cœur à partir du passage ; les modèles `GridStageModel` et `LinkLaneModel` et les présentateurs des changements qui les construisent disparaissent.
+- L'aide comme dessin des membres admis, et alors le niveau d'aide de la lecture.
+- « Geste » devient « Changements » : la sorte de séance `'gesture'`, l'entrée de l'accueil, le bilan.
+- La fin de `domain/gesture/`, qui ne garde que le bilan (`summary.ts`, qui lit `data.passage`, et à défaut ce que gardaient les tentatives d'avant).
+- `LinkLaneModel.following` est toujours vide : un tour raté ne s'enchaîne plus. Le champ part avec le modèle générique.
+
+Encore ouvert :
+
+- La séance « Geste » ne joue que les quatre exercices du catalogue. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore ses passages (les routines, plan 5).
+- Une séance enregistrée avant ce plan ne montre pas la forme attendue dans son bilan.
