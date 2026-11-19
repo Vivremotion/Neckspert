@@ -1,4 +1,4 @@
-import { idProblem, RESERVED_IDS } from '$lib/domain/definitions/ids';
+import { idProblem, RESERVED_EXERCISE_IDS } from '$lib/domain/definitions/ids';
 import {
 	Fraction,
 	METER_4_4,
@@ -166,7 +166,7 @@ export function exerciseFromJson(json: unknown): ExerciseDefinition {
 	for (const key of Object.keys(json)) {
 		if (!Object.hasOwn(KEYS, key)) throw new Error(`unknown key "${key}"`);
 	}
-	const badId = idProblem(json.id, { reserved: RESERVED_IDS });
+	const badId = idProblem(json.id, { reserved: RESERVED_EXERCISE_IDS });
 	if (badId !== null) throw new Error(badId);
 	if (typeof json.practices !== 'string') throw new Error('practices must be a string');
 	if (!isObject(json.params)) throw new Error('params must be an object');

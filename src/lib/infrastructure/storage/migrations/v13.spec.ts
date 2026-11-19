@@ -15,6 +15,7 @@ import {
 } from './v13';
 import type { BackupV8 } from './v12';
 import source from './v13.ts?raw';
+import { RESERVED_EXERCISE_IDS } from '$lib/domain/definitions/ids';
 import { parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
 
@@ -34,6 +35,14 @@ function frozen(id: string) {
 	if (!found) throw new Error(`no frozen mechanic ${id}`);
 	return found;
 }
+
+describe('the exercise ids a definition file may not take', () => {
+	// A file defining an exercise under an old id would make the backup of its progress
+	// unimportable: `validateBackup` refuses those ids on attempts and sessions.
+	it('hold every old id version 13 renames', () => {
+		for (const old of Object.keys(EXERCISE_IDS_V13)) expect(RESERVED_EXERCISE_IDS).toContain(old);
+	});
+});
 
 describe('the mechanics as version 12 knew them', () => {
 	it('lists the eight, in order, with which had cards', () => {

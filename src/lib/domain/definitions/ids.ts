@@ -1,6 +1,23 @@
 /** Ids a skill or an exercise may not take: the code uses them for what is unknown. */
 export const RESERVED_IDS = ['unknown'] as const;
 
+/**
+ * Ids an exercise may not take: `unknown`, and the old ids of the eight exercises version 13 of
+ * the database renamed (`EXERCISE_IDS_V13`, a tripwire test beside it), which a backup refuses
+ * on attempts and sessions: progress played under one could not be imported again.
+ */
+export const RESERVED_EXERCISE_IDS: readonly string[] = Object.freeze([
+	...RESERVED_IDS,
+	'locate-neck',
+	'identify-neck',
+	'triads-anchor',
+	'triads-zone',
+	'gesture-link',
+	'gesture-climb',
+	'gesture-zone',
+	'gesture-jam'
+]);
+
 const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 /** `id` itself when it may name a definition; throws the reason otherwise. */

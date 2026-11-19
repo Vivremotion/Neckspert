@@ -279,6 +279,13 @@ describe('exerciseFromJson practices', () => {
 			expect(refused({ id: 'unknown' })).toThrow('id "unknown" is reserved');
 		});
 
+		it.each(['gesture-jam', 'locate-neck', 'triads-anchor'])(
+			'refuses %j, an old id the migration renames',
+			(id) => {
+				expect(refused({ id })).toThrow(`id "${id}" is reserved`);
+			}
+		);
+
 		it.each([
 			['presentation', 3],
 			['flow', 'x'],

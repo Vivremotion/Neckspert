@@ -487,6 +487,7 @@ Laissé au plan 4 :
 Les onze décisions de ce plan :
 
 - D1 : un identifiant (capacité, grille, exercice) est fait de lettres, de chiffres, de `-`, de `_` et de `.`, et commence par une lettre ou un chiffre. `unknown` est réservé, pour les capacités et les exercices.
+  Un exercice ne peut pas non plus prendre l'ancien identifiant d'un des huit exercices que la migration 13 a renommés (`locate-neck`, `identify-neck`, `triads-anchor`, `triads-zone`, `gesture-link`, `gesture-climb`, `gesture-zone`, `gesture-jam`) : la sauvegarde refuse ces identifiants, et la progression d'un tel exercice ne pourrait plus être importée (`RESERVED_EXERCISE_IDS`).
 - D2 : un fichier est rangé sous son nom, tel que le navigateur le donne. Un fichier du même nom remplace le premier ; la casse compte.
 - D3 : un fichier de plus de `MAX_DEFINITION_FILE_CHARS` n'est pas rangé. Tout autre fichier l'est, même illisible : son refus s'affiche, et on le remplace par une version corrigée.
 - D4 : l'origine d'un objet importé est le nom de son fichier ; celle d'un objet du catalogue reste `/catalog/<nom>.json`. Un fichier importé du nom d'un fichier du catalogue ne le remplace pas.
