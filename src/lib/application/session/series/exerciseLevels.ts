@@ -28,6 +28,8 @@ interface Held {
 	series: SeriesState;
 	/** The level its rounds play at: the state's, once applied. */
 	played: number;
+	/** It changed air and left the series (`leave`): its end no longer ends the series. */
+	left?: true;
 }
 
 /**
@@ -131,7 +133,7 @@ export class ExerciseLevels {
 	 * a counted bar: `next` is that round's place in it. `look`: what it would decide, the state
 	 * left as it is (decided ahead of a breath, or of an instruction that stops play first). An end
 	 * decided on any (exercise, scope) — « On change d’air » — ends the series at this boundary,
-	 * whatever exercise the coming round belongs to.
+	 * whatever exercise the coming round belongs to, unless that (exercise, scope) has left (`leave`).
 	 */
 	boundary(
 		at: { exerciseId: ExerciseId; scope?: string },
@@ -170,7 +172,10 @@ export class ExerciseLevels {
 		}
 	}
 
-	/** The (exercise, scope) whose series decided its end (« On change d’air »); null otherwise. */
+	/**
+	 * The (exercise, scope) whose series decided its end (« On change d’air ») and has not left;
+	 * null otherwise.
+	 */
 	resting(): { exerciseId: ExerciseId; scope?: string } | null {
 		const ended = this.ending();
 		if (!ended) return null;
@@ -178,10 +183,20 @@ export class ExerciseLevels {
 		return { exerciseId, ...(scope !== '' && { scope }) };
 	}
 
-	/** The measure that breaks, once the anti-blocking changed the air of an exercise; null otherwise. */
+	/**
+	 * (exercise, scope) changed air and leaves the series, which goes on without it: its end is
+	 * consumed, its state (its rest) kept as the anti-blocking wrote it.
+	 */
+	leave(exerciseId: ExerciseId, scope?: string): void {
+		this.heldOf(exerciseId, scope).left = true;
+	}
+
+	/**
+	 * The measure that breaks, once the anti-blocking changed the air of an exercise that has not
+	 * left; null otherwise.
+	 */
 	breaking(): CycleFailure | null {
-		for (const held of this.held.values()) if (held.series.breaking) return held.series.breaking;
-		return null;
+		return this.ending()?.series.breaking ?? null;
 	}
 
 	/**
@@ -233,7 +248,7 @@ export class ExerciseLevels {
 	}
 
 	private ending(): Held | null {
-		for (const held of this.held.values()) if (held.series.ending) return held;
+		for (const held of this.held.values()) if (held.series.ending && !held.left) return held;
 		return null;
 	}
 

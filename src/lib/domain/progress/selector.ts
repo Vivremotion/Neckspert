@@ -1,3 +1,4 @@
+import type { ExerciseId } from '$lib/domain/exercise/types';
 import type { LevelState } from '$lib/domain/time/levels';
 import type { Attempt, CardState, PlannedItem } from '$lib/domain/types';
 
@@ -30,6 +31,12 @@ export interface ItemSource {
 	atLevel?(item: PlannedItem, exerciseLevel: number): PlannedItem;
 	/** What `next` will serve, for a source that knows without being asked. Serves nothing. */
 	peek?(): PlannedItem | null;
+	/**
+	 * Stops serving (exercise, scope) for the session (« On change d’air »), what it was serving of
+	 * it dropped; false when it then has nothing left to serve. Absent: a source that cannot leave
+	 * an exercise out, whose series ends there.
+	 */
+	leave?(exerciseId: ExerciseId, scope?: string): boolean;
 }
 
 /** Serves a fixed list in order (free play). */

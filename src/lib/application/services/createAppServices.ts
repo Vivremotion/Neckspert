@@ -315,17 +315,17 @@ export function createAppServices(
 	};
 
 	/**
-	 * The exercise and scope that rest when the session's series, still in memory, ended by
-	 * « On change d’air »: those of its last attempt, the round that blocked.
+	 * Every exercise and scope that changed air and left the session's series, still in memory, in
+	 * order, as its trace keeps them; undefined when none did.
 	 */
-	const changeOfAirOf = (sessionId: string, attempts: readonly Attempt[]) => {
+	const changeOfAirOf = (sessionId: string) => {
 		const series = deps.memory.get(sessionId)?.trace.children.find((s) => s.role === 'series');
-		const last = attempts.at(-1);
-		if (series?.reason !== 'change-of-air' || !last) return undefined;
-		return {
-			exerciseId: last.exerciseId,
-			...(last.scope !== undefined && last.scope !== '' && { scope: last.scope })
-		};
+		const left = series?.left ?? [];
+		if (left.length === 0) return undefined;
+		return left.map(({ exerciseId, scope }) => ({
+			exerciseId,
+			...(scope !== undefined && scope !== '' && { scope })
+		}));
 	};
 
 	/**
@@ -516,7 +516,7 @@ export function createAppServices(
 				cards: servedCards(cards.filter(played)),
 				now: deps.now()
 			});
-			const rested = summary.gesture && changeOfAirOf(sessionId, attempts);
+			const rested = summary.gesture && changeOfAirOf(sessionId);
 			return rested
 				? { ...summary, gesture: { ...summary.gesture!, changeOfAir: rested } }
 				: summary;

@@ -32,6 +32,11 @@ export interface SegmentFields {
 	reason?: SeriesEnd | 'quit';
 	/** On a series ended by « On change d’air »: the measure that breaks. */
 	breaking?: CycleFailure;
+	/**
+	 * On a series: every (exercise, scope) that changed air and left it, in order, the one that
+	 * ended it last (« On change d’air »).
+	 */
+	left?: { exerciseId: string; scope?: string }[];
 }
 
 /**

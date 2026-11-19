@@ -242,6 +242,36 @@ describe('ExerciseLevels', () => {
 		});
 	});
 
+	it('lets the (exercise, scope) that changed air leave: the series goes on, its rest kept', async () => {
+		const { levels, repository } = await setup();
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
+		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'blues-f' });
+		levels.leave('blocking', 'blues-f');
+		expect(levels.resting()).toBeNull();
+		expect(levels.breaking()).toBeNull();
+		// Another scope of it, and another exercise, go on.
+		const other = { exerciseId: 'blocking', scope: 'iohefy-a' };
+		expect(levels.boundary(other, 0, 1000, { chains: false, countIn: true }).next.role).toBe(
+			'round'
+		);
+		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next.role).toBe('round');
+		// Its rest is written as before.
+		const rested = await repository.get({ exerciseId: 'blocking', scope: 'blues-f', item: '' });
+		expect(rested?.resumeAfter).not.toBeNull();
+	});
+
+	it('names the next (exercise, scope) that changes air once one has left', async () => {
+		const { levels } = await setup();
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'blues-f', 'blocking'));
+		levels.leave('blocking', 'blues-f');
+		for (let i = 0; i < 3; i++) await levels.settle(round(false, 'iohefy-a', 'blocking'));
+		expect(levels.resting()).toEqual({ exerciseId: 'blocking', scope: 'iohefy-a' });
+		expect(levels.boundary({ exerciseId: 'climb' }, 0, 1000, CHAINS).next).toEqual({
+			role: 'end',
+			reason: 'change-of-air'
+		});
+	});
+
 	it('announces any aid level as one, a deeper one too', async () => {
 		const { levels } = await setup([stored('aids', '', -1)]);
 		for (let i = 0; i < 3; i++) {

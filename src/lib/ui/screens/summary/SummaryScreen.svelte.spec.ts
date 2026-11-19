@@ -186,21 +186,32 @@ describe('SummaryScreen of a gesture session', () => {
 		}
 	};
 
-	it('says « On change d’air » with the exercise that rests, only when the session ended so', () => {
+	it('says « On change d’air » with every exercise that left the session, its grid named, in order', () => {
 		render(SummaryScreen, {
 			props: {
 				summary: {
 					...gesture,
-					gesture: { ...gesture.gesture!, changeOfAir: { exerciseId: 'inversion-run' } }
+					gesture: {
+						...gesture.gesture!,
+						changeOfAir: [
+							{ exerciseId: 'inversion-run' },
+							{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }
+						]
+					}
 				},
 				now: 0,
 				onhome: () => {},
 				onmap: () => {}
 			}
 		});
-		const line = document.querySelector('.change-of-air');
-		expect(line?.textContent).toContain('On change d’air');
-		expect(line?.textContent).toContain('Relier les formes');
+		const lines = document.querySelectorAll('.change-of-air');
+		expect(lines).toHaveLength(1);
+		const line = lines[0];
+		expect(line.textContent).toContain('On change d’air');
+		expect([...line.querySelectorAll('span')].map((span) => span.textContent)).toEqual([
+			'Relier les formes',
+			'Contrainte de déplacement · I Only Have Eyes for You'
+		]);
 	});
 
 	it('says nothing of a change of air without the field', () => {

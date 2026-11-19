@@ -265,11 +265,12 @@
 				{/each}
 			</ul>
 			{#if summary.gesture.changeOfAir}
-				{@const rested = summary.gesture.changeOfAir}
 				<ul class="rows">
 					<li class="exercise change-of-air">
 						<strong>{t.changeOfAir}</strong>
-						<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
+						{#each summary.gesture.changeOfAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
+							<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
+						{/each}
 					</li>
 				</ul>
 			{/if}

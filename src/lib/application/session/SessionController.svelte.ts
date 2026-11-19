@@ -1,5 +1,6 @@
 import { chordDiagramFor } from '$lib/domain/exercise/chordDiagram';
 import { exerciseLevelsOf, pacingAt, tempoOf } from '$lib/domain/exercise/levels';
+import type { ExerciseId } from '$lib/domain/exercise/types';
 import type { ItemSource } from '$lib/domain/progress';
 import { detectFatigue } from '$lib/domain/scoring/fatigue';
 import {
@@ -44,7 +45,7 @@ import {
 	type PlaySessionController,
 	type PlayView
 } from './contract';
-import { playOriginOf } from './playOrigin';
+import { exerciseTitle, playOriginOf } from './playOrigin';
 import { openAudioInput } from './audioInput';
 import { asksForHeadphones } from './clickBleed';
 import type { AttemptRecorder } from './AttemptRecorder';
@@ -155,6 +156,11 @@ function sensorOf(plan: RoundPlan): string | null {
 /** A cycle's successor is decided this many beats before its handover, its first bar scheduled in time. */
 const DECIDE_AHEAD_BEATS = 1;
 
+/** `item` is of (exercise, scope): an absent scope and an empty one alike. */
+function isOf(item: PlannedItem, at: { exerciseId: ExerciseId; scope?: string }): boolean {
+	return item.exerciseId === at.exerciseId && (item.scope ?? '') === (at.scope ?? '');
+}
+
 /**
  * The count before a run that starts on bar `playFrom` after `listenInBars` of listen-in: its
  * counted bar; without one, the last listen-in bar, its count shown silently (the transport marks
@@ -207,7 +213,8 @@ function silentCountOr(
  * demonstrated over a longer listen-in the first time the player meets it, heard on demand
  * (`listen`, a heard cycle the policy places) and, when the anti-blocking asks it, heard then
  * played along, each remedy announced; « On change d’air » ends the series and names the measure
- * that breaks. Decided ahead (a breath, an instruction) the policy is only asked, so a run, its
+ * that breaks, unless its source can leave that (exercise, scope) out and still has something to
+ * serve: then it leaves, told until the next round opens, and the series goes on with the others. Decided ahead (a breath, an instruction) the policy is only asked, so a run, its
  * remedies and a listen asked are taken once. A pause cuts the round under way, which comes again
  * first; the last run is heard again from the pause or the breath, its muted bars clicked. It
  * judges nothing and knows no exercise: what it plays comes from its data.
@@ -600,9 +607,14 @@ export class SessionController implements PlaySessionController {
 		const generation = ++this.generation;
 		this.log?.closeStop(this.deps.clock.now());
 		this.view.briefing = null;
+		// What waited of an exercise that changed air waits no more, once the source leaves it out.
+		const resting = this.levels.resting();
+		if (this.pending && resting && this.source?.leave && isOf(this.pending, resting)) {
+			this.pending = null;
+		}
 		const item = this.pending ?? this.takeNext();
 		if (!item) {
-			this.end('complete');
+			this.end(this.levels.resting() ? 'change-of-air' : 'complete');
 			return Promise.resolve();
 		}
 		// A stop is a boundary: the series goes on after a counted bar, unless its length is spent.
@@ -1548,24 +1560,64 @@ export class SessionController implements PlaySessionController {
 		this.ended = reason;
 		const at = this.levels.resting() ?? this.round?.item ?? this.pending;
 		if (reason === 'change-of-air' && at) {
-			this.view.announcement = this.announcementOf('change-of-air', at);
+			this.view.announcement = this.changeOfAir(at);
 		}
 		void this.finish();
 	}
 
 	private takeNext(): PlannedItem | null {
+		const leaving = this.leaveResting();
+		if (leaving === 'ends') return null;
 		// What a pause gave back comes first.
 		const back = this.givenBack.shift();
-		if (back) return back;
 		const now = this.epochNow();
 		const item =
+			back ??
 			this.source?.next({
 				now,
 				elapsedMs: now - this.startedAt,
 				fatigued: this.view.fatigueDetected
-			}) ?? null;
-		if (item) this.spelling.set(item, this.deps.random());
+			}) ??
+			null;
+		if (item && !back) this.spelling.set(item, this.deps.random());
+		// Something comes after it: the exercise has left, the series goes on.
+		if (item && leaving) this.leftSeries(leaving);
 		return item;
+	}
+
+	/**
+	 * At a boundary after the round that changed the air of an (exercise, scope): it leaves the
+	 * source, when the source can leave it out, what a pause gave back of it dropped; `'ends'` when
+	 * the source cannot, or has nothing left to serve (the series ends, « On change d’air »); null
+	 * when nothing changed air.
+	 */
+	private leaveResting(): { exerciseId: ExerciseId; scope?: string } | 'ends' | null {
+		const resting = this.levels.resting();
+		if (!resting) return null;
+		if (!this.source?.leave?.(resting.exerciseId, resting.scope)) return 'ends';
+		this.givenBack = this.givenBack.filter((item) => !isOf(item, resting));
+		return resting;
+	}
+
+	/**
+	 * (exercise, scope) has left the series, which goes on: kept in the trace and told
+	 * (« On change d’air », its name) until the next round opens.
+	 */
+	private leftSeries(left: { exerciseId: ExerciseId; scope?: string }): void {
+		this.levels.leave(left.exerciseId, left.scope);
+		this.log?.leave(left);
+		this.announcing = this.changeOfAir(left);
+		this.view.announcement = this.announcing;
+	}
+
+	/** « On change d’air » of `at`: by its name, for a source that can leave an exercise out. */
+	private changeOfAir(
+		at: Pick<PlannedItem, 'exerciseId' | 'scope'>
+	): NonNullable<PlayView['announcement']> {
+		const told = this.announcementOf('change-of-air', at);
+		if (!this.source?.leave) return told;
+		const scope = at.scope === undefined || at.scope === '' ? {} : { scope: at.scope };
+		return { ...told, exercise: { title: exerciseTitle(at.exerciseId), ...scope } };
 	}
 
 	/**
@@ -2127,6 +2179,9 @@ export class SessionController implements PlaySessionController {
 		this.view.stage = null;
 		this.view.status = 'finished';
 		const reason = this.quitting ? 'quit' : (this.ended ?? 'time');
+		// The (exercise, scope) whose change of air ends the series is the last to leave it.
+		const resting = reason === 'change-of-air' ? this.levels.resting() : null;
+		if (resting) this.log?.leave(resting);
 		this.log?.close(now, reason, reason === 'change-of-air' ? this.levels.breaking() : null);
 		const remember = this.remembering();
 		remember();

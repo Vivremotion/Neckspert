@@ -8,7 +8,7 @@ import {
 } from '$lib/domain/exercise/passage/round';
 import type { PassageIndex } from '$lib/domain/exercise/passage/types';
 import { MAX_PASSAGE_MEMBERS } from '$lib/domain/exercise/passage/validate';
-import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import { familyNamed, passageDerivation, select, type Family } from '$lib/domain/families';
 import { admittedMembers } from '$lib/domain/judges';
 import type { ItemSource, RecordOutcome, SelectorContext } from '$lib/domain/progress/selector';
@@ -54,6 +54,8 @@ interface IndexState {
 	started: Values | null;
 	/** Nothing of it can be played: left out for this session. */
 	unplayable: boolean;
+	/** Its exercise changed air on its scope (`leave`): left out for this session. */
+	left: boolean;
 }
 
 /** A passage under way. */
@@ -161,11 +163,37 @@ class PassageSource implements ItemSource {
 
 	cardChanged(): void {}
 
+	/**
+	 * Leaves out the indices of `exerciseId` whose scope value is `scope` (every index of an exercise
+	 * without a scope, or when no scope is named), its passage under way dropped; whether an index
+	 * of any exercise is still left to serve.
+	 */
+	leave(exerciseId: ExerciseId, scope?: string): boolean {
+		for (const exercise of this.exercises) {
+			if (exercise.definition.id !== exerciseId) continue;
+			for (const index of exercise.indices) {
+				if (inScope(exercise.definition, index, scope)) {
+					this.state(exerciseId, index.key).left = true;
+				}
+			}
+		}
+		const under = this.passage;
+		if (under && this.state(under.exercise.definition.id, under.index.key).left) {
+			this.passage = null;
+		}
+		return this.exercises.some(({ definition, indices }) =>
+			indices.some((index) => {
+				const state = this.state(definition.id, index.key);
+				return !state.left && !state.unplayable;
+			})
+		);
+	}
+
 	private state(exerciseId: string, index: string): IndexState {
 		const key = stateKey(exerciseId, index);
 		let state = this.states.get(key);
 		if (!state) {
-			state = { lastPlayedAt: -Infinity, started: null, unplayable: false };
+			state = { lastPlayedAt: -Infinity, started: null, unplayable: false, left: false };
 			this.states.set(key, state);
 		}
 		return state;
@@ -201,7 +229,10 @@ class PassageSource implements ItemSource {
 	private pick(exercise: Exercise, now: number): Passage | null {
 		const { definition } = exercise;
 		const candidates = exercise.indices
-			.filter((index) => !this.state(definition.id, index.key).unplayable)
+			.filter((index) => {
+				const state = this.state(definition.id, index.key);
+				return !state.unplayable && !state.left;
+			})
 			.sort(
 				(a, b) =>
 					this.state(definition.id, a.key).lastPlayedAt -
@@ -332,6 +363,13 @@ class PassageSource implements ItemSource {
 	}
 }
 
+/** Whether `index` is of `scope`: always for an exercise without a scope, or no scope named. */
+function inScope(definition: ExerciseDefinition, index: PassageIndex, scope: string | undefined) {
+	const key = definition.passages?.scope;
+	if (key === undefined || scope === undefined) return true;
+	return String(index.of[key]) === scope;
+}
+
 /** The indices of an exercise that are open, in the order written. */
 function openIndices(definition: ExerciseDefinition, acquired: ReadonlySet<string>) {
 	return passageIndices(definition).filter((index) => indexOpen(definition, index, acquired));
@@ -379,6 +417,7 @@ function playableItems(
  * left out for the session. The first round counts in, after `passages.restBars` of silence when
  * it follows a passage of the session; a passage under `passages.passes` comes back whole with
  * `again: 'until-passed'`, without that silence. No passage starts after `durationMs` or once fatigued.
+ * An exercise that changed air leaves on its scope (`leave`): its indices are served no more.
  */
 export function createPassageSource(input: {
 	exercises: readonly ExerciseDefinition[];

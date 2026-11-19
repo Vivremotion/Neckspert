@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import type { Announcement, PlaySessionController } from '$lib/application/session/contract';
+	import { allGrids } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import PixelButton from '$lib/ui/primitives/PixelButton.svelte';
@@ -72,14 +73,24 @@
 	const replay = $derived(replayOf(controller));
 	/** What the series announces (a level reached, with its tempo), in words; null when nothing. */
 	const announced = $derived(
-		view.announcement
-			? t.announcement[view.announcement.kind](
-					view.announcement.level + 1,
-					view.announcement.of,
-					view.announcement.tempoBpm
-				)
-			: null
+		view.announcement?.exercise
+			? t.changeOfAirOf(leavingName(view.announcement.exercise))
+			: view.announcement
+				? t.announcement[view.announcement.kind](
+						view.announcement.level + 1,
+						view.announcement.of,
+						view.announcement.tempoBpm
+					)
+				: null
 	);
+
+	/** The exercise that changes air, by its name, and its scope's (a grid's title when it is one). */
+	function leavingName(exercise: { title: { fr: string; en: string }; scope?: string }): string {
+		const name = exercise.title[i18n.locale];
+		if (exercise.scope === undefined) return name;
+		const grid = allGrids().find((candidate) => candidate.id === exercise.scope);
+		return `${name} · ${grid?.title ?? exercise.scope}`;
+	}
 
 	/**
 	 * A level reached is told before play only (the breath, the listen-in, the count: cleared from

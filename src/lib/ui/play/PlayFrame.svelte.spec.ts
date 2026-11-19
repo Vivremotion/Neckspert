@@ -430,6 +430,35 @@ describe('PlayFrame', () => {
 		}
 	});
 
+	it('names the exercise that changes air and its grid, when the announcement carries it', () => {
+		const told = (scope?: string) => {
+			const controller = new StageController();
+			controller.view.status = 'count-in';
+			controller.view.announcement = {
+				kind: 'change-of-air',
+				level: -1,
+				of: 9,
+				tempoBpm: 80,
+				exercise: {
+					title: { fr: 'Relier les formes', en: 'Link the shapes' },
+					...(scope !== undefined && { scope })
+				}
+			};
+			render(PlayFrame, { props: { controller: playingAs(controller, ALONE) } });
+			const text = screen.getByRole('status').textContent;
+			cleanup();
+			return text;
+		};
+		expect(told()).toBe('On change d’air : Relier les formes');
+		expect(told('iohefy-a')).toBe('On change d’air : Relier les formes · I Only Have Eyes for You');
+		i18n.locale = 'en';
+		try {
+			expect(told()).toBe('Time for a change of air: Link the shapes');
+		} finally {
+			i18n.locale = 'fr';
+		}
+	});
+
 	it('writes the count as a sentence', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';

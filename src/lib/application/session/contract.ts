@@ -113,7 +113,17 @@ export interface PlayView {
 	 * through a pause: the level reached (`level`: 0 for level 1, of the `of` regular levels) and
 	 * the tempo it plays at; a remedy while it plays; null otherwise.
 	 */
-	announcement: { kind: Announcement; level: number; of: number; tempoBpm: number } | null;
+	announcement: {
+		kind: Announcement;
+		level: number;
+		of: number;
+		tempoBpm: number;
+		/**
+		 * « On change d’air » in a session that goes on without it, or could have: the exercise that
+		 * leaves, by its name, and its scope.
+		 */
+		exercise?: { title: PlayWords; scope?: string };
+	} | null;
 }
 
 export interface PlayTimeline {

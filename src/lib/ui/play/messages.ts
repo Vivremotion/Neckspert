@@ -50,6 +50,8 @@ export const playMessages = defineMessages({
 			'play-along': () => 'On la joue ensemble',
 			'change-of-air': () => 'On change d’air'
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
+		/** « On change d’air » of an exercise that leaves a session of several, by its name. */
+		changeOfAirOf: (name: string) => `On change d’air : ${name}`,
 		replay: 'Réécouter',
 		replaying: 'Réécoute…',
 		/** The key of « Écouter la figure »: E, for écouter. */
@@ -101,6 +103,7 @@ export const playMessages = defineMessages({
 			'play-along': () => 'Let’s play it together',
 			'change-of-air': () => 'Time for a change of air'
 		} satisfies Record<Announcement, (shown: number, of: number, bpm: number) => string>,
+		changeOfAirOf: (name: string) => `Time for a change of air: ${name}`,
 		replay: 'Replay',
 		replaying: 'Replaying…',
 		/** The key of “Listen to the figure”: L, for listen. */

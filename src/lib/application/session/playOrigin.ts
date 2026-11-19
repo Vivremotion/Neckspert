@@ -2,7 +2,8 @@ import { findExercise } from '$lib/domain/exercise/registry';
 import { findRoutine } from '$lib/domain/routine/registry';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
 import type { SessionOrigin } from '$lib/domain/types';
-import type { PlayOrigin } from './contract';
+import type { ExerciseId } from '$lib/domain/exercise/types';
+import type { PlayOrigin, PlayWords } from './contract';
 
 /**
  * How the play screen names what a session plays (D10): the routine's title and how-to, or the
@@ -20,13 +21,13 @@ export function playOriginOf(origin: SessionOrigin): PlayOrigin {
 			alone: false
 		};
 	}
-	const exercise = findExercise(origin.exercise);
+	return { title: exerciseTitle(origin.exercise), howTo: null, free, alone: true };
+}
+
+/** An exercise's name on the play screen: its title, else its skill's name, else its id. */
+export function exerciseTitle(exerciseId: ExerciseId): PlayWords {
+	const exercise = findExercise(exerciseId);
 	const skill =
 		exercise && hasSkill(exercise.practices) ? skillById(exercise.practices).name : undefined;
-	return {
-		title: exercise?.title ?? skill ?? { fr: origin.exercise, en: origin.exercise },
-		howTo: null,
-		free,
-		alone: true
-	};
+	return exercise?.title ?? skill ?? { fr: exerciseId, en: exerciseId };
 }

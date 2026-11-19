@@ -58,6 +58,7 @@ import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { triadOf } from '$lib/domain/grid';
 import type { LevelState } from '$lib/domain/time';
 import { SessionController } from '../SessionController.svelte';
+import { exerciseTitle } from '../playOrigin';
 
 /**
  * The gesture's scenarios of the old controller (`gestureEndToEnd`, `chainedRounds`, `countdown`,
@@ -92,7 +93,13 @@ class FakeCalibration implements CalibrationPort {
  * The app's services on fakes, `cards` acquired and `levels` stored; a gesture session started
  * from them.
  */
-async function appSession(cards: CardState[], levels: LevelState[] = []) {
+async function appSession(
+	cards: CardState[],
+	levels: LevelState[] = [],
+	start: (services: ReturnType<typeof createAppServices>) => Promise<PlaySessionController> = (
+		services
+	) => services.startRoutine('changes')
+) {
 	const clock = new FakeClock();
 	const detector = new FakeNoteDetector();
 	const chords = new FakeChordVerifier();
@@ -124,7 +131,7 @@ async function appSession(cards: CardState[], levels: LevelState[] = []) {
 		calibration: new FakeCalibration(),
 		diagnostics: new FakeDiagnostics()
 	});
-	const controller = await services.startRoutine('changes');
+	const controller = await start(services);
 	expect(controller).toBeInstanceOf(SessionController);
 	await controller.ready?.();
 	await controller.start();
@@ -156,7 +163,9 @@ function placeOf(controller: PlaySessionController): { anchorBeat: number | null
 async function play(
 	app: App,
 	changes: number,
-	choose: (expectation: ChordExpectation, n: number) => string | null
+	choose: (expectation: ChordExpectation, n: number) => string | null,
+	/** Called at every step, after the clock moved. */
+	watch: () => void = () => {}
 ): Promise<Played[]> {
 	const { clock, sounds, chords, controller } = app;
 	const played: Played[] = [];
@@ -165,6 +174,7 @@ async function play(
 	for (let step = 0; step < 100_000 && played.length < changes; step++) {
 		clock.advance(0.01);
 		sounds.flush();
+		watch();
 		if (controller.view.status === 'paused' && controller.view.briefing) {
 			app.briefings.push(controller.view.briefing.text);
 			controller.resume();
@@ -370,7 +380,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		const sessionId = app.controller.sessionId;
 
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual({ exerciseId: 'inversion-run' });
+		expect(summary.gesture?.changeOfAir).toEqual([{ exerciseId: 'inversion-run' }]);
 
 		// Another session takes the memory's place: this one is no longer told.
 		const playback = app.deps.memory.get(sessionId)!;
@@ -379,45 +389,165 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(forgotten.gesture?.changeOfAir).toBeUndefined();
 	});
 
-	it('ends the session right after the round that blocks, naming the exercise and scope that rest', async () => {
-		// The climb of iohefy-a held at its aid level: its third miss in a row is its passage's last
-		// change, and another exercise's passage comes next.
-		const app = await appSession(iohefyCards('chord-anchor', G_B_E), [
-			{
-				exerciseId: 'grid-in-direction',
-				scope: 'iohefy-a',
-				item: '',
-				level: -1,
-				successes: 0,
-				failures: 0,
-				resumeAfter: null
-			}
-		]);
-		// The link's first tour fails (it comes back), its second is right; then the climb.
-		const script = [...'MRMRMRR', ...'RRRRRRR', ...'RMRMRRMMM'];
-		const played = await play(app, 40, (expectation, n) =>
-			(script[n] ?? 'R') === 'M' ? null : right(expectation)
+	it('lets the blocked link leave: the climb, the zone and the jam go on, the link never comes back (Review Focus 5)', async () => {
+		// iohefy-a's triads acquired in the anchor, and around a fret on both groups: the four
+		// exercises open.
+		const cards = [
+			...iohefyCards('chord-anchor', G_B_E),
+			...iohefyCards('chord-zone', G_B_E),
+			...iohefyCards('chord-zone', [4, 3, 2])
+		];
+		const app = await appSession(cards);
+		const told: (string | null)[] = [];
+		let announced: unknown = null;
+		const watch = () => {
+			const { announcement, status } = app.controller.view;
+			const now = announcement?.kind === 'change-of-air' ? `${status}` : null;
+			if (now !== null) announced ??= { ...announcement };
+			if (told.at(-1) !== now) told.push(now);
+		};
+		// The link's first tour and three changes of the second, at its aid level, all missed; then
+		// everything right.
+		const played = await play(
+			app,
+			10 + 9 * 4,
+			(expectation, n) => (n < 10 ? null : right(expectation)),
+			watch
 		);
-		await finish(app);
-		const sessionId = app.controller.sessionId;
-		const attempts = await app.deps.attempts.listBySession(sessionId);
-
-		// Nothing is asked after the climb's last change: no round of another exercise.
-		expect(played).toHaveLength(script.length);
-		expect(attempts).toHaveLength(script.length);
-		expect(attempts.at(-1)).toMatchObject({ exerciseId: 'grid-in-direction', scope: 'iohefy-a' });
-		// The announcement is the climb's: its aid level, at its tempo.
-		expect(app.controller.view.announcement).toEqual({
+		expect(app.controller.view.status).not.toBe('finished');
+		// The announcement as the link leaves, by its name, at its aid level and tempo: from the
+		// boundary after the round that blocked, through the instruction of the climb (met for the
+		// first time, it stops play) and the counted bar, gone once the climb's first change opens.
+		expect(announced).toEqual({
 			kind: 'change-of-air',
 			level: -1,
 			of: 9,
-			tempoBpm: 80
+			tempoBpm: 80,
+			exercise: { title: exerciseTitle('inversion-run') }
+		});
+		expect(told).toEqual([null, 'paused', 'count-in', null]);
+		await finish(app);
+		expect(played).toHaveLength(46);
+
+		const sessionId = app.controller.sessionId;
+		const attempts = await app.deps.attempts.listBySession(sessionId);
+		const exercises = attempts.map((a) => a.exerciseId);
+		expect(exercises.slice(0, 10)).toEqual(Array(10).fill('inversion-run'));
+		expect(exercises.slice(10)).not.toContain('inversion-run');
+		expect([...new Set(exercises.slice(10))]).toEqual([
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading'
+		]);
+		// The climb's turn comes again after the jam: the link is skipped.
+		expect(exercises.at(-1)).toBe('grid-in-direction');
+		// The link rests as before: its aid level, a rest written.
+		const rested = await app.deps.levels.get({ exerciseId: 'inversion-run', scope: '', item: '' });
+		expect(rested).toMatchObject({ level: -1 });
+		expect(rested?.resumeAfter).not.toBeNull();
+		// The trace keeps who left; the summary names it.
+		const series = app.deps.memory.get(sessionId)!.trace.children[0];
+		expect(series).toMatchObject({
+			role: 'series',
+			reason: 'quit',
+			left: [{ exerciseId: 'inversion-run' }]
 		});
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual({
-			exerciseId: 'grid-in-direction',
-			scope: 'iohefy-a'
+		expect(summary.gesture?.changeOfAir).toEqual([{ exerciseId: 'inversion-run' }]);
+	});
+
+	it('lets a second exercise leave later, then the last: the session ends there, every one named (Review Focus 5)', async () => {
+		// The link, the climb and the jam open on iohefy-a; nothing is ever right.
+		const app = await appSession(iohefyCards('chord-anchor', G_B_E));
+		const played = await play(app, 60, () => null);
+		await finish(app);
+		const sessionId = app.controller.sessionId;
+		const attempts = await app.deps.attempts.listBySession(sessionId);
+		// The link: its tour, three changes of the next at its aid level; the climb and the jam: a
+		// passage at level 1 (the third miss brings the aid level), then three changes at it each.
+		const runs = (ids: string[]) =>
+			ids.reduce<[string, number][]>((acc, id) => {
+				const last = acc.at(-1);
+				if (last && last[0] === id) last[1]++;
+				else acc.push([id, 1]);
+				return acc;
+			}, []);
+		expect(runs(attempts.map((a) => a.exerciseId))).toEqual([
+			['inversion-run', 10],
+			['grid-in-direction', 9],
+			['grid-reading', 9],
+			['grid-in-direction', 3],
+			['grid-reading', 3]
+		]);
+		expect(played).toHaveLength(34);
+		expect(app.controller.view.status).toBe('finished');
+		expect(app.controller.view.announcement).toMatchObject({
+			kind: 'change-of-air',
+			exercise: { scope: 'iohefy-a' }
 		});
+		const series = app.deps.memory.get(sessionId)!.trace.children[0];
+		expect(series.reason).toBe('change-of-air');
+		const left = [
+			{ exerciseId: 'inversion-run' },
+			{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' },
+			{ exerciseId: 'grid-reading', scope: 'iohefy-a' }
+		];
+		expect(series.left).toEqual(left);
+		const summary = await app.services.sessionSummary(sessionId);
+		expect(summary.gesture?.changeOfAir).toEqual(left);
+		for (const { exerciseId, scope } of left) {
+			const state = await app.deps.levels.get({ exerciseId, scope: scope ?? '', item: '' });
+			expect(state?.resumeAfter).not.toBeNull();
+		}
+
+		// The rest changes nothing of what the next session draws (§ 8): the link comes first again.
+		const next = await appSession(iohefyCards('chord-anchor', G_B_E), [
+			...(await app.deps.levels.all())
+		]);
+		await play(next, 1, () => null);
+		await finish(next);
+		const [first] = await next.deps.attempts.all();
+		expect(first).toMatchObject({ exerciseId: 'inversion-run', aids: ['aid-level'] });
+	});
+
+	it('lets a blocked grid leave a passages exercise played alone: its other grid goes on (Review Focus 5)', async () => {
+		// The climb alone, open on iohefy-a and blues-f, held at its aid level on iohefy-a.
+		const blues = (['F', 'Bb', 'C'] as const).flatMap((root) =>
+			triadCards('chord-anchor', root, 'maj', G_B_E)
+		);
+		const app = await appSession(
+			[...iohefyCards('chord-anchor', G_B_E), ...blues],
+			[
+				{
+					exerciseId: 'grid-in-direction',
+					scope: 'iohefy-a',
+					item: '',
+					level: -1,
+					successes: 0,
+					failures: 0,
+					resumeAfter: null
+				}
+			],
+			(services) => services.startExercise('grid-in-direction')
+		);
+		await play(app, 3 + 20, (expectation, n) => (n < 3 ? null : right(expectation)));
+		expect(app.controller.view.status).not.toBe('finished');
+		await finish(app);
+		const sessionId = app.controller.sessionId;
+		const attempts = await app.deps.attempts.listBySession(sessionId);
+		expect(attempts.slice(0, 3).map((a) => a.scope)).toEqual(Array(3).fill('iohefy-a'));
+		expect(attempts.slice(3).length).toBeGreaterThanOrEqual(20);
+		expect(attempts.slice(3).every((a) => a.scope === 'blues-f')).toBe(true);
+		const summary = await app.services.sessionSummary(sessionId);
+		expect(summary.gesture?.changeOfAir).toEqual([
+			{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }
+		]);
+		const blocked = await app.deps.levels.get({
+			exerciseId: 'grid-in-direction',
+			scope: 'iohefy-a',
+			item: ''
+		});
+		expect(blocked?.resumeAfter).not.toBeNull();
 	});
 
 	it('tells no change of air for a session that ended by time or by being quit', async () => {
