@@ -61,6 +61,24 @@ describe('PlayFrame', () => {
 		}
 	});
 
+	it('names the gesture track « Changements » in its header, « Changes » in English', () => {
+		const controller = new StageController();
+		controller.view.stage = { view: 'lane', model: null };
+		const views = { ...PLAY_VIEWS, lane: FakeView };
+		render(PlayFrame, { props: { controller, kind: 'gesture', views } });
+		expect(screen.getByText('Changements')).toBeTruthy();
+		expect(screen.queryByText(/geste/i)).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		try {
+			render(PlayFrame, { props: { controller, kind: 'gesture', views } });
+			expect(screen.getByText('Changes')).toBeTruthy();
+			expect(screen.queryByText(/gesture/i)).toBeNull();
+		} finally {
+			i18n.locale = 'fr';
+		}
+	});
+
 	it('is neutral, in the pixel world, only before any view has ever been shown, whatever the kind', () => {
 		for (const kind of ['learn', 'gesture', 'exercise'] as const) {
 			const { container } = render(PlayFrame, {

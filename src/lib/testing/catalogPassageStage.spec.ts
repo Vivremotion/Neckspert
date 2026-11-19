@@ -7,7 +7,8 @@
  * the places, the tiles, the ways, the rank, the misses and the aid were equal, but for the link's
  * strings (« sol · si · mi » under « sur cordes » before, « sur cordes sol‑si‑mi » now, decided)
  * and the grids' aid (one shape before, every shape admitted now and next, D5). These rows,
- * captured from this model while that comparison held, keep it pinned.
+ * captured from this model while that comparison held, keep it pinned. The jam's six aid rows
+ * came later (plan 4c, Task 4: it gained its aid level, D7); the comparison saw no jam aid.
  */
 import { describe, expect, it } from 'vitest';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
@@ -809,6 +810,7 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=iohefy-a line: 0+4 Dm7, 4+4 G7, 8+4 Dm7, 12+4 G7, 16+6 Cmaj7, 22+2 F7, 24+4 Em7, 28+2 Ebm7, 30+2 Ab7',
 	'grid-reading grid=iohefy-a #0 en: Dm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #0: Dm7 | I Only Have Eyes for You | -',
+	'grid-reading grid=iohefy-a #0 aid: strings 4,3,2,1 [0-17] 3:2:A 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:10:D 4:12:D 3:14:A 2:15:D 1:13:F 4:15:F 4:0:D+ 3:0:G+ 2:0:B+ 3:4:B+ 1:3:G+ 4:5:G+ 2:8:G+ 1:7:B+ 4:9:B+ 3:12:G+ 2:12:B+ 3:16:B+ 1:15:G+ 4:17:G+',
 	'grid-reading grid=iohefy-a #1: G7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #1 right: perfect no miss',
 	'grid-reading grid=iohefy-a #1 offbeat: offbeat no miss',
@@ -817,6 +819,7 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=iohefy-a #1 wrong:other-quality: wrong heard 3:3 2:3 1:3 expected 3:4 2:3 1:3 gap autre qualité',
 	'grid-reading grid=iohefy-a #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 4:0 3:0 2:0 gap autre accord',
 	'grid-reading grid=iohefy-a #1 nothing en: gap no chord heard',
+	'grid-reading grid=iohefy-a #1 aid once right: strings 4,3,2,1 [0-17] 4:0:D 3:0:G 2:0:B 3:4:B 2:3:D 1:3:G 4:5:G 3:7:D 2:8:G 1:7:B 4:9:B 3:12:G 2:12:B 1:10:D 4:12:D 3:16:B 2:15:D 1:15:G 4:17:G 3:2:A+ 1:1:F+ 4:3:F+ 2:6:F+ 1:5:A+ 4:7:A+ 3:10:F+ 2:10:A+ 3:14:A+ 1:13:F+ 4:15:F+',
 	'grid-reading grid=iohefy-a #2: Dm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #3: G7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #4: Cmaj7 | I Only Have Eyes for You | -',
@@ -824,9 +827,11 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=iohefy-a #6: Em7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #7: Ebm7 | I Only Have Eyes for You | -',
 	'grid-reading grid=iohefy-a #8: Ab7 | I Only Have Eyes for You | -',
+	'grid-reading grid=iohefy-a #8 aid: strings 4,3,2,1 [1-17] 4:1:Eb 3:1:Ab 2:1:C 3:5:C 2:4:Eb 1:4:Ab 4:6:Ab 3:8:Eb 2:9:Ab 1:8:C 4:10:C 3:13:Ab 2:13:C 1:11:Eb 4:13:Eb 3:17:C 2:16:Eb 1:16:Ab',
 	'grid-reading grid=blues-f line: 0+4 F7, 4+4 Bb7, 8+8 F7, 16+8 Bb7, 24+8 F7, 32+4 C7, 36+4 Bb7, 40+4 F7, 44+4 C7',
 	'grid-reading grid=blues-f #0 en: F7 | Blues F | -',
 	'grid-reading grid=blues-f #0: F7 | Blues F | -',
+	'grid-reading grid=blues-f #0 aid: strings 4,3,2,1 [1-15] 3:2:A 2:1:C 1:1:F 4:3:F 3:5:C 2:6:F 1:5:A 4:7:A 3:10:F 2:10:A 1:8:C 4:10:C 3:14:A 2:13:C 1:13:F 4:15:F 3:3:Bb+ 2:3:D+ 3:7:D+ 1:6:Bb+ 4:8:Bb+ 2:11:Bb+ 1:10:D+ 4:12:D+ 3:15:Bb+ 2:15:D+',
 	'grid-reading grid=blues-f #1: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #1 right: perfect no miss',
 	'grid-reading grid=blues-f #1 offbeat: offbeat no miss',
@@ -835,11 +840,13 @@ const FROZEN: readonly string[] = [
 	'grid-reading grid=blues-f #1 wrong:other-quality: wrong heard 3:3 2:2 1:1 expected 3:3 2:3 1:1 gap autre qualité',
 	'grid-reading grid=blues-f #1 wrong:other-chord: wrong heard 3:0 2:1 1:0 expected 3:3 2:3 1:1 gap autre accord',
 	'grid-reading grid=blues-f #1 nothing en: gap no chord heard',
+	'grid-reading grid=blues-f #1 aid once right: strings 4,3,2,1 [1-15] 3:3:Bb 2:3:D 1:1:F 4:3:F 3:7:D 2:6:F 1:6:Bb 4:8:Bb 3:10:F 2:11:Bb 1:10:D 4:12:D 3:15:Bb 2:15:D 1:13:F 4:15:F 3:2:A+ 2:1:C+ 3:5:C+ 1:5:A+ 4:7:A+ 2:10:A+ 1:8:C+ 4:10:C+ 3:14:A+ 2:13:C+',
 	'grid-reading grid=blues-f #2: F7 | Blues F | -',
 	'grid-reading grid=blues-f #3: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #4: F7 | Blues F | -',
 	'grid-reading grid=blues-f #5: C7 | Blues F | -',
 	'grid-reading grid=blues-f #6: Bb7 | Blues F | -',
 	'grid-reading grid=blues-f #7: F7 | Blues F | -',
-	'grid-reading grid=blues-f #8: C7 | Blues F | -'
+	'grid-reading grid=blues-f #8: C7 | Blues F | -',
+	'grid-reading grid=blues-f #8 aid: strings 4,3,2,1 [0-17] 3:0:G 2:1:C 1:0:E 4:2:E 3:5:C 2:5:E 1:3:G 4:5:G 3:9:E 2:8:G 1:8:C 4:10:C 3:12:G 2:13:C 1:12:E 4:14:E 3:17:C 2:17:E 1:15:G 4:17:G'
 ];

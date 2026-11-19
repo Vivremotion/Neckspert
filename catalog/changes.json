@@ -909,6 +909,12 @@
 			"tempo": 80,
 			"levels": [
 				{
+					"aid": true,
+					"params": {
+						"tempo": 80
+					}
+				},
+				{
 					"params": {
 						"tempo": 80
 					},
@@ -1008,6 +1014,9 @@
 					}
 				}
 			],
+			"flow": {
+				"antiBlocking": true
+			},
 			"view": "grid-scroll",
 			"presentation": {
 				"primary": "{symbol}",

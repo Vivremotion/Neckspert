@@ -139,11 +139,26 @@ describe('HomeScreen', () => {
 	it('offers the gesture track once open', async () => {
 		const ongesture = vi.fn();
 		render(HomeScreen, { props: props({ gesture: { open: false }, ongesture }) });
-		expect(screen.queryByRole('button', { name: /geste/i })).toBeNull();
+		expect(screen.queryByRole('button', { name: /changements/i })).toBeNull();
 		cleanup();
 		render(HomeScreen, { props: props({ gesture: { open: true }, ongesture }) });
-		await fireEvent.click(screen.getByRole('button', { name: /geste/i }));
+		await fireEvent.click(screen.getByRole('button', { name: /changements/i }));
 		expect(ongesture).toHaveBeenCalledOnce();
+	});
+
+	it('calls the gesture track « Changements », « Changes » in English', () => {
+		render(HomeScreen, { props: props({ gesture: { open: true }, ongesture: vi.fn() }) });
+		expect(screen.getByRole('button', { name: /^Changements/ })).toBeTruthy();
+		expect(screen.queryByText(/geste/i)).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		try {
+			render(HomeScreen, { props: props({ gesture: { open: true }, ongesture: vi.fn() }) });
+			expect(screen.getByRole('button', { name: /^Changes/ })).toBeTruthy();
+			expect(screen.queryByText(/gesture/i)).toBeNull();
+		} finally {
+			i18n.locale = 'fr';
+		}
 	});
 
 	describe('exercises', () => {

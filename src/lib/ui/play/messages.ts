@@ -54,7 +54,7 @@ export const playMessages = defineMessages({
 			free: 'Jeu libre',
 			triads: 'Triades',
 			'triads-zone': 'Triades · zone',
-			gesture: 'Geste',
+			gesture: 'Changements',
 			exercise: 'Exercice'
 		} satisfies Record<SessionKind, string>,
 		playedAs: (label: string) => `${label} joué`,
@@ -123,7 +123,7 @@ export const playMessages = defineMessages({
 			free: 'Free play',
 			triads: 'Triads',
 			'triads-zone': 'Triads · zone',
-			gesture: 'Gesture',
+			gesture: 'Changes',
 			exercise: 'Exercise'
 		} satisfies Record<SessionKind, string>,
 		playedAs: (label: string) => `${label} played`,
