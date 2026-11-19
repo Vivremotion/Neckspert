@@ -14,9 +14,10 @@ function scalar(value: number | readonly number[]): number {
 
 /**
  * A note lies in the frets `[from, to]`; an open string (fret 0) also lies in a zone that starts
- * at fret 1, the nut's, and in no other.
+ * at fret 1, the nut's, and in no other. A zone whose first fret is above the second holds none.
  */
 function fretInZone(fret: number, [from, to]: readonly [number, number]): boolean {
+	if (from > to) return false;
 	return fret <= to && (fret >= from || (fret === 0 && from === 1));
 }
 

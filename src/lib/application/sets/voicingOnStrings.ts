@@ -11,6 +11,7 @@ import {
 } from '$lib/domain/sets';
 import {
 	closeTriadVoicings,
+	isTriadQuality,
 	type Confusion,
 	parseVoicingKey,
 	voicingCandidates,
@@ -39,26 +40,38 @@ function ringing(previous: PlannedItem | null): string | null {
 	return typeof item?.voicingKey === 'string' ? item.voicingKey : null;
 }
 
+/** The strings of a close triad. */
+const CLOSE_TRIAD_STRINGS = 3;
+
+/** The close inversions of a voicing's chord on its strings; null when it is no close triad on three strings. */
+function closeInversions(voicing: Voicing): Voicing[] | null {
+	const strings = voicing.strings.map((s) => s.string);
+	if (!isTriadQuality(voicing.chord.quality) || strings.length !== CLOSE_TRIAD_STRINGS) return null;
+	return closeTriadVoicings(voicing.chord, strings);
+}
+
 /**
  * What the chord sensor listens for: the shapes its round admits, and around the lowest of them
  * the look-alikes (spec 2026-10-07), never a shape of the chord still ringing from the prompt
- * before.
+ * before. A voicing that is no close triad on three strings has no look-alikes: the admitted
+ * shapes alone.
  */
 function chordExpectation(
 	voicing: Voicing,
 	admitted: readonly ChordShape[],
 	round: { opensAt: number; previous: PlannedItem | null }
 ): ChordExpectation {
-	const inversions = closeTriadVoicings(
-		voicing.chord,
-		voicing.strings.map((s) => s.string)
-	);
+	const inversions = closeInversions(voicing);
 	// As the lowest shape is drawn: a shape on open strings only when no other is admitted.
 	const centre =
 		admitted.find((shape) => occurrencePosition(shape.occurrence) !== 'open') ?? admitted[0];
 	const expected = new Set(admitted.map((shape) => shape.id));
 	const excluded = ringing(round.previous);
-	const candidates = voicingCandidates(centre.occurrence, inversions)
+	const found =
+		inversions === null
+			? admitted.map((shape) => ({ kind: 'expected', occurrence: shape.occurrence }))
+			: voicingCandidates(centre.occurrence, inversions);
+	const candidates = found
 		.filter((c) => voicingKey(c.occurrence.voicing) !== excluded)
 		.map((c) =>
 			toCandidate(expected.has(occurrenceId(c.occurrence)) ? 'expected' : c.kind, c.occurrence)

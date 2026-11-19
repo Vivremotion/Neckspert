@@ -13,6 +13,7 @@ import { parseLilyPond } from '../../time/notation/lilypond';
 import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
 import type { PlannedItem } from '../../types';
+import { admittedMembers, type MemberContent } from '../../judges';
 import { compileRound, roundParamsOf } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
@@ -999,12 +1000,18 @@ describe('compileRound, a content written as a selection', () => {
 		expect(() =>
 			contentOf('note-on-string', asking({ family: 'note-places', take: { param: 'n' } }), F_ON_B)
 		).toThrow(/test-note-on-string: round\.expectations\[0\]\.content\.take reads param "n"/);
-		expect(() =>
-			contentOf(
-				'note-on-string',
-				asking({ family: 'note-places', where: [{ in: { frets: [7, 3] } }] }),
-				F_ON_B
-			)
-		).toThrow(/test-note-on-string: round\.expectations\[0\]\.content .*first is above the second/);
+	});
+
+	it('compiles a zone that comes out reversed: it admits nothing (the load refuses one written so)', () => {
+		const content = contentOf(
+			'note-on-string',
+			asking({ family: 'note-places', where: [{ in: { frets: [7, 3] } }] }),
+			F_ON_B
+		);
+		expect((content?.value as { selection: unknown }).selection).toEqual({
+			family: 'note-places',
+			where: [{ in: { frets: [7, 3] } }]
+		});
+		expect(admittedMembers(content?.value as MemberContent)).toEqual([]);
 	});
 });

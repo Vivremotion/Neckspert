@@ -110,6 +110,39 @@ describe('CONTENT_VIEWS', () => {
 		expect(miss.correction).toBe('2‑3‑2 · A D F#');
 	});
 
+	it('expects, of two octaves admitted, the one nearest the shape heard', () => {
+		const miss = member.miss(
+			chordShapes(D_ON_B),
+			{
+				answer: { decided: idAt('D|maj|3:3,2:5,1:1', [11, 10, 10]) },
+				confusion: { kind: 'other-inversion', part: 'chord' }
+			},
+			'fr',
+			() => 0
+		);
+		expect(miss.expected).toEqual(shape([14, 15, 14]));
+		expect(miss.correction).toBe('14‑15‑14 · A D F#');
+	});
+
+	it('expects the admitted shape nearest the one heard, never one the selection leaves out', () => {
+		// The close inversions of D on G-B-E, those from fret 6: 11-10-10 and 14-15-14, not 2-3-2.
+		const value: MemberContent = {
+			family: 'chord-shapes',
+			index: { ...GUITAR_DERIVATIONS.voicing.index({ voicingKey: D_ON_B }), degrees: undefined },
+			selection: { family: 'chord-shapes', where: [{ in: { frets: [6, 22] } }] }
+		};
+		const expectedFor = (heard: [number, number, number], voicingKey: string) =>
+			member.miss(
+				value,
+				{ answer: { decided: idAt(voicingKey, heard) }, confusion: null },
+				'fr',
+				() => 0
+			).expected;
+		expect(expectedFor([14, 15, 14], D_ON_B)).toEqual(shape([14, 15, 14]));
+		expect(expectedFor([2, 3, 2], D_ON_B)).toEqual(shape([11, 10, 10]));
+		expect(expectedFor([7, 7, 5], D_ON_G)).toEqual(shape([11, 10, 10]));
+	});
+
 	it("expects the zone's shape at its position", () => {
 		const value = chordShapes(D_ON_B, [{ at: 14 }]);
 		const miss = member.miss(

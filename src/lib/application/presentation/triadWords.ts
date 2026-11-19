@@ -72,13 +72,18 @@ export function aroundLabel(item: TriadZoneItem, locale: Locale): string {
 	return TRIAD_MESSAGES[locale].around(item.fret ?? item.position);
 }
 
-/** The lowest fretted shape of a voicing; a shape on open strings only when it has no other. */
-export function lowestShape(voicing: Voicing): VoicingOccurrence {
-	const shapes = voicingOccurrences(voicing);
-	return shapes.find((shape) => occurrencePosition(shape) !== 'open') ?? shapes[0];
+/** The lowest fretted shape among `shapes`; a shape on open strings only when no other is; null for none. */
+function lowestOf(shapes: readonly VoicingOccurrence[]): VoicingOccurrence | null {
+	return shapes.find((shape) => occurrencePosition(shape) !== 'open') ?? shapes[0] ?? null;
 }
 
-export function shapeAt(voicing: Voicing, position: number | 'open'): VoicingOccurrence {
+/** The lowest fretted shape of a voicing; a shape on open strings only when it has no other; null when it has none. */
+export function lowestShape(voicing: Voicing): VoicingOccurrence | null {
+	return lowestOf(voicingOccurrences(voicing));
+}
+
+/** The shape of a voicing at `position`, else its lowest; null when it has none. */
+export function shapeAt(voicing: Voicing, position: number | 'open'): VoicingOccurrence | null {
 	return (
 		voicingOccurrences(voicing).find((shape) => occurrencePosition(shape) === position) ??
 		lowestShape(voicing)
@@ -94,18 +99,21 @@ export function heardOf(reading: ChordReading | null | undefined): VoicingOccurr
 	return reading?.decided ? occurrenceOfId(reading.decided) : null;
 }
 
-/** The voicing's shape closest to the one played (by their position), else its lowest. */
+/**
+ * The shape among `shapes` closest to the one played (by their position), else the lowest of
+ * them; null when there is none.
+ */
 export function closestShape(
-	voicing: Voicing,
+	shapes: readonly VoicingOccurrence[],
 	played: VoicingOccurrence | null
-): VoicingOccurrence {
-	if (!played) return lowestShape(voicing);
+): VoicingOccurrence | null {
+	if (!played || shapes.length === 0) return lowestOf(shapes);
 	const at = (shape: VoicingOccurrence) => {
 		const position = occurrencePosition(shape);
 		return position === 'open' ? 0 : position;
 	};
 	const target = at(played);
-	return voicingOccurrences(voicing).reduce((best, shape) =>
+	return shapes.reduce((best, shape) =>
 		Math.abs(at(shape) - target) < Math.abs(at(best) - target) ? shape : best
 	);
 }

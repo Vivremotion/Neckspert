@@ -68,6 +68,16 @@ describe('admitted', () => {
 		expect(select({ where: [{ in: { frets: [2, 6] } }] })).toEqual(['3:2,2:3', '3:5,2:5']);
 	});
 
+	it('admits nothing in a zone whose first fret is above the second, open strings included', () => {
+		const open = spot(1, [3, 0], [2, 0]);
+		const withOpen: Family<null, Spot> = { ...FAMILY, members: () => [...SPOTS, open] };
+		const zone = (frets: [number, number]) =>
+			admitted(withOpen, null, { family: 't', where: [{ in: { frets } }] });
+		expect(ids(zone([1, 0]))).toEqual([]);
+		expect(ids(zone([10, 5]))).toEqual([]);
+		expect(ids(zone([0, 0]))).toEqual([open.id]);
+	});
+
 	it('counts an open string inside a zone that starts at fret 1 only', () => {
 		expect(select({ where: [{ in: { frets: [1, 5] } }] })).toEqual([
 			'3:0,2:1',

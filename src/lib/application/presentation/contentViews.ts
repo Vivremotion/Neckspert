@@ -127,8 +127,8 @@ const notePlacesView: MemberView = {
 };
 
 /**
- * A shape of a chord: the frets heard; after a miss, the shape heard, the shape expected (the one
- * admitted, else the admitted shape nearest the one heard) and what tells them apart.
+ * A shape of a chord: the frets heard; after a miss, the shape heard, the shape expected (the
+ * admitted shape nearest the one heard, else the lowest admitted) and what tells them apart.
  */
 const chordShapesView: MemberView = {
 	answerLabel: (_value, answer) => heardFrets(answer as ChordReading | null),
@@ -136,10 +136,10 @@ const chordShapesView: MemberView = {
 		const admitted = admittedMembers(value) as ChordShape[];
 		if (admitted.length === 0) return NO_MISS;
 		const heard = heardOf(answer as ChordReading | null);
-		const expected =
-			admitted.length === 1
-				? admitted[0].occurrence
-				: closestShape(admitted[0].occurrence.voicing, heard);
+		const expected = closestShape(
+			admitted.map((shape) => shape.occurrence),
+			heard
+		)!;
 		return {
 			correction: `${fretsOf(expected)} · ${notesOf(expected)}`,
 			heard: heard && asPicture(shapeOf(heard)),

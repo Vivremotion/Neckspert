@@ -1,11 +1,5 @@
 import { ITEM_NUMBERS, ITEM_VALUES } from '../../derivations';
-import {
-	familyNamed,
-	indexDerivation,
-	selectionProblem,
-	type Filter,
-	type Selection
-} from '../../families';
+import { familyNamed, indexDerivation, type Filter, type Selection } from '../../families';
 import type { MemberContent } from '../../judges';
 import { exerciseItemSet, exerciseSetId } from '../../sets';
 import type { PlannedItem } from '../../types';
@@ -196,7 +190,7 @@ export function compileSelection(
 		...(template.order && { order: [...template.order] }),
 		...(take !== undefined && { take })
 	};
-	const problem = selectionProblem(family, selection);
-	if (problem !== null) fail('', problem);
+	// What the family cannot run is refused at the load; a zone whose ends come out reversed
+	// here is no error: it admits nothing.
 	return { family: template.family, index, selection };
 }

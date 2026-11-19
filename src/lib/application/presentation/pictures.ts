@@ -85,15 +85,18 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 			return { kind: 'string', string, label: openPitch(string) };
 		}
 	},
-	/** The lowest fretted shape of the item's voicing. */
+	/** The lowest fretted shape of the item's voicing; nothing for a voicing without a shape. */
 	'lowest-shape': {
 		reads: ['voicing-on-strings'],
-		draw: (item) => ({
-			kind: 'shape',
-			...shapeOf(lowestShape(parseVoicingKey((item as VoicingOnStringsItem).voicingKey)))
-		})
+		draw: (item) => {
+			const shape = lowestShape(parseVoicingKey((item as VoicingOnStringsItem).voicingKey));
+			return shape && { kind: 'shape', ...shapeOf(shape) };
+		}
 	},
-	/** The shape of the item's voicing at its position, the lowest when it has none. */
+	/**
+	 * The shape of the item's voicing at its position, the lowest when it has none; nothing for a
+	 * voicing without a shape.
+	 */
 	'shape-at-position': {
 		reads: ['voicing-on-strings'],
 		draw: (raw) => {
@@ -101,7 +104,7 @@ export const PICTURES: Readonly<Record<string, PictureKind>> = {
 			const voicing = parseVoicingKey(item.voicingKey);
 			const shape =
 				item.position === undefined ? lowestShape(voicing) : shapeAt(voicing, item.position);
-			return { kind: 'shape', ...shapeOf(shape) };
+			return shape && { kind: 'shape', ...shapeOf(shape) };
 		}
 	},
 	/** The shape of the item's voicing at its place on the neck. */
