@@ -383,6 +383,8 @@ export function createAppServices(
 	/**
 	 * Whether `startExercise` plays the exercise alone with something to play now: what it would
 	 * refuse (`aloneSourceOf` null) never is, and a passages exercise needs an open index.
+	 * Playable implies it starts; the converse does not hold on purpose: a passages exercise with
+	 * no open index starts and ends at once on the summary, and the Library shows no link for it.
 	 */
 	const playableAlone = (exercise: ExerciseDefinition, acquired: ReadonlySet<CardKey>): boolean => {
 		const source = aloneSourceOf(exercise);
@@ -460,13 +462,33 @@ export function createAppServices(
 		return registeredRoutines().map(entryOf);
 	};
 
+	/**
+	 * The Library's order of presentation, not a ranking: the exercises of the routines in the
+	 * order registered, each routine's as it writes them, an exercise once at its first routine;
+	 * then those no routine lists, in the order registered.
+	 */
+	const libraryOrder = (): ExerciseId[] => {
+		const registered = allExercises().map((exercise) => exercise.id);
+		const listed = registeredRoutines().flatMap((routine) => routine.exercises);
+		return [...new Set([...listed.filter((id) => registered.includes(id)), ...registered])];
+	};
+
 	/** What the Library is told of every exercise of the registry, read once from the stores. */
 	const libraryEntries = async (): Promise<LibraryEntry[]> => {
 		const [cards, levels] = await Promise.all([deps.cards.all(), deps.levels.all()]);
 		const now = deps.now();
 		const acquired = acquiredKeysOf(cards);
 		const routines = registeredRoutines();
-		return allExercises().flatMap(({ id }) => {
+		/** Whether it is playable; a throw telling it leaves it unplayable, the others told. */
+		const playableOf = (exercise: ExerciseDefinition): boolean => {
+			try {
+				return playableAlone(exercise, acquired);
+			} catch (error) {
+				console.error(`[library] ${exercise.id}: cannot tell whether it plays`, error);
+				return false;
+			}
+		};
+		return libraryOrder().flatMap((id) => {
 			const exercise = exerciseFound(id);
 			if (!exercise) return [];
 			return [
@@ -477,7 +499,7 @@ export function createAppServices(
 						.filter((routine) => routine.exercises.includes(id))
 						.map((routine) => routine.title),
 					resting: restsIn(levels, [id], now),
-					playable: playableAlone(exercise, acquired)
+					playable: playableOf(exercise)
 				}
 			];
 		});

@@ -49,7 +49,12 @@ import {
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
 import { registerTestSkills } from '$lib/testing/testSkills';
-import { allExercises, exerciseSessionExercises, findExercise } from '$lib/domain/exercise';
+import {
+	allExercises,
+	exerciseById,
+	exerciseSessionExercises,
+	findExercise
+} from '$lib/domain/exercise';
 import { exerciseTitle } from '$lib/application/session/playOrigin';
 import { skillById } from '$lib/domain/skill/registry';
 import { TraceBuilder } from '$lib/domain/session';
@@ -1499,10 +1504,22 @@ describe('the library', () => {
 		expect(result.imported.refusals).toEqual([]);
 	};
 
-	it('lists every exercise of the registry, in the order registered, with its routines', async () => {
+	it('lists every exercise of the catalog, by its routines then the others, with its routines', async () => {
 		const { services } = harness();
 		const library = await services.library();
-		expect(library.map((entry) => entry.exerciseId)).toEqual(allExercises().map((e) => e.id));
+		expect(library.map((entry) => entry.exerciseId)).toEqual([
+			'identify-note',
+			'locate-note-string',
+			'chord-anchor',
+			'chord-zone',
+			'inversion-run',
+			'grid-in-direction',
+			'grid-in-zone',
+			'grid-reading',
+			...allExercises()
+				.map((e) => e.id)
+				.filter((id) => id.startsWith('rhythm-'))
+		]);
 		expect(library).toHaveLength(11);
 		const byId = new Map(library.map((entry) => [entry.exerciseId, entry]));
 		const routinesOf = (id: string) => byId.get(id)?.routines.map((title) => title.fr);
@@ -1589,9 +1606,67 @@ describe('the library', () => {
 		loadDefinitions({ catalog: { ...CATALOG_FILES, '/catalog/rhythm.json': '{' } });
 		const { services } = harness();
 		const library = await services.library();
-		expect(library.map((entry) => entry.exerciseId)).toEqual(allExercises().map((e) => e.id));
+		expect(new Set(library.map((entry) => entry.exerciseId))).toEqual(
+			new Set(allExercises().map((e) => e.id))
+		);
 		expect(library).toHaveLength(8);
 		expect(library.some((entry) => entry.exerciseId === RHYTHM_OFFBEATS.id)).toBe(false);
+	});
+
+	it('lists an imported exercise in no routine after the others, an imported routine’s after the catalog’s', async () => {
+		const exercises = [
+			{ ...catalogExercise(RHYTHM_OFFBEATS.id), id: 'my-alone' },
+			{ ...catalogExercise('locate-note-string'), id: 'my-listed' }
+		];
+		const routines = [
+			{ id: 'my-routine', title: { fr: 'Ma routine', en: 'My routine' }, exercises: ['my-listed'] }
+		];
+		const result = loadDefinitions({
+			catalog: CATALOG_FILES,
+			imported: { 'mine.json': JSON.stringify({ format: 0, exercises, routines }) }
+		});
+		expect(result.imported.refusals).toEqual([]);
+		const { services } = harness();
+		const ids = (await services.library()).map((entry) => entry.exerciseId);
+		expect(ids.slice(7)).toEqual([
+			'grid-reading',
+			'my-listed',
+			...allExercises()
+				.map((e) => e.id)
+				.filter((id) => id.startsWith('rhythm-')),
+			'my-alone'
+		]);
+		expect((await services.library()).find((e) => e.exerciseId === 'my-listed')?.routines).toEqual([
+			{ fr: 'Ma routine', en: 'My routine' }
+		]);
+	});
+
+	it('tells an exercise whose opening cannot be read not playable, and the others', async () => {
+		const { registerExercise } = await import('$lib/domain/exercise/registry');
+		const run = exerciseById('inversion-run');
+		const passages = run.passages!;
+		// Its opening names a skill no file defines: reading it throws, not as unplayable.
+		registerExercise(
+			{
+				...run,
+				id: 'broken-opening',
+				passages: {
+					...passages,
+					opens: { acquired: { ...passages.opens!.acquired, skill: 'no-such-skill' } }
+				}
+			},
+			'probe.json'
+		);
+		const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+		const { services } = harness();
+		const library = await services.library();
+		expect(library).toHaveLength(12);
+		expect(library.find((e) => e.exerciseId === 'broken-opening')?.playable).toBe(false);
+		expect(library.find((e) => e.exerciseId === 'identify-note')?.playable).toBe(true);
+		expect(error).toHaveBeenCalledWith(
+			expect.stringContaining('broken-opening'),
+			expect.anything()
+		);
 	});
 
 	it('lists an imported exercise of each kind and starts it alone (Review Focus 5)', async () => {

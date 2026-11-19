@@ -7,6 +7,7 @@
 	import type { Block } from '$lib/ui/primitives/BlockList.svelte';
 	import Page from '$lib/ui/primitives/Page.svelte';
 	import { formatMinutes } from '../home/duration';
+	import { homeMessages } from '../home/messages';
 	import { libraryMessages } from './messages';
 
 	let {
@@ -17,7 +18,9 @@
 	} = $props();
 
 	const t = $derived(libraryMessages());
-	const words = $derived({ short: t.minutes, spoken: t.minutesSpoken });
+	// The minutes in the home's words: one source.
+	const home = $derived(homeMessages());
+	const words = $derived({ short: home.minutes, spoken: home.minutesSpoken });
 
 	/** The routines that list it, its rest, and that it has nothing to play now. */
 	function whyOf(entry: LibraryEntry): string | undefined {

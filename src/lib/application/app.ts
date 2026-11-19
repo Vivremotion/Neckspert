@@ -68,9 +68,10 @@ export interface AppServices {
 	/** Every registered routine, in the order registered, the closed ones included. */
 	routines(): Promise<RoutineEntry[]>;
 	/**
-	 * Every exercise of the registry, in the order registered, none filtered or sorted: what each
-	 * is, the routines that list it, whether it rests, and whether `startExercise` has something
-	 * to play of it now.
+	 * Every exercise of the registry, none filtered or ranked, in an order of presentation: the
+	 * routines' exercises in the routines' order, each once, then those no routine lists, in the
+	 * order registered. What each is, the routines that list it, whether it rests, and whether
+	 * `startExercise` has something to play of it now.
 	 */
 	library(): Promise<LibraryEntry[]>;
 	/**
