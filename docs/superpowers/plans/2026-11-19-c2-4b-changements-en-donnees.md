@@ -140,6 +140,8 @@ export interface PassagesTemplate {
 	restBars?: number;
 	/** Share of right changes that makes a passage pass; 1 by default. */
 	passes?: number;
+	/** The key of `of` whose value scopes the exercise's level (its tempo); absent: no scope. */
+	scope?: string;
 }
 /** One index of an exercise: its values, and a stable key (`grid=iohefy-a;strings=3,2,1`). */
 export interface PassageIndex {
@@ -227,7 +229,7 @@ export function createPassageSource(input: {
 export function indexOpen(definition: ExerciseDefinition, index: PassageIndex, acquired: ReadonlySet<CardKey>): boolean;
 ```
 
-- La source : à chaque passage, l'exercice suivant de la liste qui a un index ouvert ; son index joué le moins récemment ; les paramètres `each` à leur valeur suivante pour cet index (la dernière se relit dans `Attempt.data.passage.each` des tentatives de cet index, puis dans la séance) ; un passage sans membre, ou dont un tour n'admet aucun membre, est sauté (au plus un tour de la liste des valeurs, puis l'index est laissé pour cette séance). Le premier tour d'un passage porte `countIn` ; avec `restBars`, quand l'index change après un passage de la séance. `scope` : la valeur `grid` de l'index quand il en a une (les niveaux de tempo par grille d'aujourd'hui) — écrit `"scope": "grid"` dans `passages` si la clé générique est préférable ; à trancher dans la tâche et à dire dans le rapport.
+- La source : à chaque passage, l'exercice suivant de la liste qui a un index ouvert ; son index joué le moins récemment ; les paramètres `each` à leur valeur suivante pour cet index (la dernière se relit dans `Attempt.data.passage.each` des tentatives de cet index, puis dans la séance) ; un passage sans membre, ou dont un tour n'admet aucun membre, est sauté (au plus un tour de la liste des valeurs, puis l'index est laissé pour cette séance). Le premier tour d'un passage porte `countIn` ; avec `restBars`, quand l'index change après un passage de la séance. `scope` (la portée du niveau de l'exercice, donc de son tempo) : la valeur de la clé de `of` que `passages.scope` nomme (`"scope": "grid"` : un niveau par grille, comme aujourd'hui) ; absente, pas de portée.
 - `record` : la source garde l'identité du membre entendu (`family.recognise` sur la réponse de la tentative, quel que soit le verdict, comme `previous` aujourd'hui) ; au changement suivant du même passage elle le donne comme `previous`. Quand `select(...)` du contenu du tour dit `turned`, elle change le paramètre que `toward` lit, pour le reste du passage (D9).
 - `again: "until-passed"` : un passage dont la part de réussites est sous `passes` revient sur le même index, entier, avec sa mesure comptée, avant de passer à l'exercice suivant.
 - La séance s'arrête comme aujourd'hui : aucun passage ne commence après `durationMs` ni une fois fatigué.
