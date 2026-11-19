@@ -174,6 +174,41 @@ describe('DexieBackup', () => {
 			expect(await new DexieLevelStateRepository(db).all()).toEqual([]);
 		});
 
+		it('imports again an export of progress no file defines, every row as written', async () => {
+			// A removed definition file leaves its progress stored: its export must import again.
+			await seed(db);
+			await new DexieCardStateRepository(db).putMany([
+				makeCard({ key: 'gone-skill:x', skill: 'gone-skill', item: { x: 1 } })
+			]);
+			await new DexieAttemptRepository(db).add(
+				makeAttempt({
+					sessionId: 'gone',
+					exerciseId: 'gone-exercise',
+					skill: 'gone-skill',
+					cardKey: 'gone-skill:x',
+					data: { item: { x: 1 }, answer: null, confusion: null }
+				})
+			);
+			await new DexieLevelStateRepository(db).put(
+				makeLevelState({ exerciseId: 'gone-exercise', item: 'x' })
+			);
+			const sessions = new DexieSessionRepository(db);
+			await sessions.put(
+				makeSession({
+					id: 'gone',
+					routine: undefined,
+					exercise: 'gone-exercise',
+					levelReached: 1,
+					executions: [{ exerciseId: 'gone-exercise', tempoBpm: 80 }]
+				})
+			);
+			await sessions.put(makeSession({ id: 'gone-routine', routine: 'gone-routine' }));
+			const backup = new DexieBackup(db, () => 5);
+			const exported = await backup.exportAll();
+			await backup.importAll(JSON.parse(JSON.stringify(exported)));
+			expect(await backup.exportAll()).toEqual(exported);
+		});
+
 		it("replaces the stored definition files with the file's", async () => {
 			const files = new DexieDefinitionFileRepository(db);
 			await files.put({ name: 'old.json', text: 'x', importedAt: 1 });

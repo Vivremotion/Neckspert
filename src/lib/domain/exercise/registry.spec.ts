@@ -6,6 +6,7 @@ import {
 	clearExercises,
 	exerciseById,
 	exerciseSessionExercises,
+	findExercise,
 	registerExercise
 } from './registry';
 
@@ -27,6 +28,13 @@ describe('the exercise registry', () => {
 	it('says that nothing is loaded when the registry is empty', () => {
 		clearExercises();
 		expect(() => exerciseById('x')).toThrow('Unknown exercise: x (no definition is loaded)');
+	});
+
+	it('finds a registered exercise, and nothing for an id no file defines', () => {
+		clearExercises();
+		registerExercise(A, 'a.json');
+		expect(findExercise(A.id)).toBe(A);
+		expect(findExercise('x')).toBeUndefined();
 	});
 
 	it('names an unknown exercise', () => {

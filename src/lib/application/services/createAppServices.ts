@@ -13,6 +13,7 @@ import {
 	exerciseById,
 	exerciseSessionExercises,
 	figureParamsOf,
+	findExercise,
 	writesFigure,
 	type ExerciseDefinition,
 	type ExerciseId,
@@ -78,10 +79,30 @@ export function createAppServices(
 	};
 
 	const exerciseOf = deps.exercise ?? exerciseById;
+	/**
+	 * The exercise of `id` when a file defines it: a removed file takes its exercises out of the
+	 * registry and leaves their progress stored.
+	 */
+	const exerciseFound = (id: ExerciseId): ExerciseDefinition | undefined => {
+		if (!deps.exercise) return findExercise(id);
+		try {
+			return deps.exercise(id);
+		} catch {
+			return undefined;
+		}
+	};
+	/** The exercises a session cannot play without, read at its start: an error names the first missing. */
+	const requireExercises = (ids: readonly ExerciseId[]): void => {
+		const missing = ids.find((id) => exerciseFound(id) === undefined);
+		if (missing !== undefined) {
+			throw new Error(`Unknown exercise: ${missing} (no definition file defines it)`);
+		}
+	};
 
 	/**
 	 * The exercises of the memory and gesture tracks: a session of the notes, the triads or the
-	 * gesture opens the sensors of them all, its observations of the others kept on its attempts.
+	 * gesture opens the sensors of those a file defines, its observations of the others kept on
+	 * its attempts. Read at each start: the files may have changed since the last.
 	 */
 	const TRACK_EXERCISES: readonly ExerciseId[] = [
 		LOCATE_NECK_ID,
@@ -90,7 +111,9 @@ export function createAppServices(
 		TRIADS_ZONE_ID,
 		...GESTURE_EXERCISE_IDS
 	];
-	const gestureExercises = () => GESTURE_EXERCISE_IDS.map((id) => exerciseOf(id));
+	const trackExercises = () => TRACK_EXERCISES.filter((id) => exerciseFound(id) !== undefined);
+	/** The gesture's exercises a file defines, in the order of the ladder. */
+	const gestureExercises = () => GESTURE_EXERCISE_IDS.flatMap((id) => exerciseFound(id) ?? []);
 
 	/**
 	 * A session on the session controller: `prepare` reads the stores again for each series, so a
@@ -153,7 +176,7 @@ export function createAppServices(
 	 * exercises in the order of the ladder, each change a round of its exercise's template.
 	 */
 	const startGesture = () =>
-		playSession('gesture', TRACK_EXERCISES, async (sessionId) => {
+		playSession('gesture', trackExercises(), async (sessionId) => {
 			const [cards, attempts] = await Promise.all([deps.cards.all(), deps.attempts.all()]);
 			// The open exercises in the order of the ladder; each grid of each (and the link, which
 			// plays no grid) at its own exercise level, which the series holds.
@@ -174,7 +197,7 @@ export function createAppServices(
 	 * with the levels stored, free play on a fixed list; each note a round of its exercise's template.
 	 */
 	const startNotes = (kind: 'learn' | 'free') =>
-		playSession(kind, TRACK_EXERCISES, async (sessionId) => {
+		playSession(kind, trackExercises(), async (sessionId) => {
 			const [cards, attempts, levels] = await Promise.all([
 				deps.cards.all(),
 				deps.attempts.all(),
@@ -224,7 +247,7 @@ export function createAppServices(
 	const startTriads = (skill: TriadSkill) =>
 		playSession(
 			skill === CHORD_ZONE_SKILL_ID ? 'triads-zone' : 'triads',
-			TRACK_EXERCISES,
+			trackExercises(),
 			async (sessionId) => {
 				const [cards, attempts, levels] = await Promise.all([
 					deps.cards.all(),
@@ -302,12 +325,8 @@ export function createAppServices(
 	 */
 	const sessionExerciseOf = (record: SessionRecord) => {
 		if (sessionKindOf(record) !== 'exercise' || record.exercise === undefined) return undefined;
-		try {
-			const played = exerciseOf(record.exercise);
-			return played.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
-		} catch {
-			return undefined;
-		}
+		const played = exerciseFound(record.exercise);
+		return played?.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 	};
 
 	return {
@@ -444,7 +463,13 @@ export function createAppServices(
 			// An exercise session needs its exercise: recorded without it, no backup would import.
 			if (kind === 'exercise') throw new Error('An exercise session starts through startExercise');
 			if (kind === 'gesture') return startGesture();
-			if (kind === 'learn' || kind === 'free') return startNotes(kind);
+			if (kind === 'learn' || kind === 'free') {
+				// The neck's subject reads both of its exercises.
+				requireExercises([LOCATE_NECK_ID, IDENTIFY_NECK_ID]);
+				return startNotes(kind);
+			}
+			// The triad subject reads the anchor and the zone.
+			requireExercises([TRIADS_ANCHOR_ID, TRIADS_ZONE_ID]);
 			return startTriads(kind === 'triads-zone' ? CHORD_ZONE_SKILL_ID : CHORD_ANCHOR_SKILL_ID);
 		},
 

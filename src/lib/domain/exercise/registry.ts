@@ -16,6 +16,11 @@ export function allExercises(): readonly ExerciseDefinition[] {
 	return [...registered.values()].map((entry) => entry.exercise);
 }
 
+/** The exercise of `id`, or nothing when no file defines it (a removed file keeps its progress). */
+export function findExercise(id: ExerciseId): ExerciseDefinition | undefined {
+	return registered.get(id)?.exercise;
+}
+
 export function exerciseById(id: ExerciseId): ExerciseDefinition {
 	const found = registered.get(id);
 	if (found) return found.exercise;

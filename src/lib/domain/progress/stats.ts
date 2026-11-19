@@ -19,7 +19,6 @@ import {
 	TRIADS_ANCHOR_ID,
 	TRIADS_ZONE_ID
 } from '$lib/domain/exercise/catalogIds';
-import { exerciseById } from '$lib/domain/exercise/registry';
 import { summarizeGesture } from '$lib/domain/gesture/summary';
 import { TREND_RATIO, TREND_WINDOW_MS } from './constants';
 import { cardStatus } from './cards';
@@ -124,10 +123,10 @@ export function summarizeSession(input: {
 	const startedAt = input.record.startedAt;
 	const endedAt = input.record.endedAt ?? input.now;
 	const triads = isTriadsKind(kind);
-	// The tempo shown is the session's exercise's: locate for the notes.
-	const shownExercise = exerciseById(
-		kind === 'triads-zone' ? TRIADS_ZONE_ID : triads ? TRIADS_ANCHOR_ID : LOCATE_NECK_ID
-	);
+	// The tempo shown is the session's exercise's: locate for the notes. Read from the record
+	// alone, so a session sums up once the file of its exercise is removed.
+	const shownExerciseId =
+		kind === 'triads-zone' ? TRIADS_ZONE_ID : triads ? TRIADS_ANCHOR_ID : LOCATE_NECK_ID;
 	const presented = new Set(
 		input.attempts.filter((attempt) => attempt.phase === 'learning').map((a) => a.cardKey)
 	);
@@ -150,7 +149,7 @@ export function summarizeSession(input: {
 		nextReviewAt: nextReviewAt(input.cards, lastAttemptByCard(input.allAttempts)),
 		grade: pool === 'all' ? sessionGrade(input.attempts) : null,
 		tempoBpm:
-			input.record.executions.find((execution) => execution.exerciseId === shownExercise.id)
+			input.record.executions.find((execution) => execution.exerciseId === shownExerciseId)
 				?.tempoBpm ?? null,
 		kind,
 		...(kind === 'gesture' && {
