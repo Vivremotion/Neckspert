@@ -1467,16 +1467,16 @@ describe('version 9', () => {
 		expect(() => validateBackupV9(withSession({ free: false }))).toThrow('free must be true');
 	});
 
+	it('accepts a version 9 level state under an old exercise id, an exercise without a definition', () => {
+		const file = makeBackup({ levelStates: [makeLevelState({ exerciseId: 'gesture-jam' })] });
+		expect(validateBackupV9(file)).toBe(file);
+	});
+
 	it('refuses a version 9 file that names an exercise by its old id, and names it', () => {
 		expect(() =>
 			validateBackupV9(makeBackup({ attempts: [makeAttempt({ exerciseId: 'locate-neck' })] }))
 		).toThrow(
 			'Invalid attempts entry at index 0: exerciseId locate-neck is renamed locate-note-string'
-		);
-		expect(() =>
-			validateBackupV9(makeBackup({ levelStates: [makeLevelState({ exerciseId: 'gesture-jam' })] }))
-		).toThrow(
-			'Invalid levelStates entry at index 0: exerciseId gesture-jam is renamed grid-reading'
 		);
 		expect(() =>
 			validateBackupV9(

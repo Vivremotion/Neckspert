@@ -1031,7 +1031,7 @@ describe('version 13', () => {
 		const stored = await db.cards.toArray();
 		expect(stored).toHaveLength(2);
 		const { mechanic: _mechanic, ...renamed } = cards[0];
-		expect(await db.cards.get('locate:2:F')).toEqual({ ...renamed, skill: 'locate-note-string' });
+		expect(await db.cards.get('locate:2:F')).toEqual({ ...renamed, skill: 'locate' });
 		expect(await db.cards.get('locate-note-string:2:F')).toMatchObject({
 			skill: 'locate-note-string',
 			scheduling: holder.scheduling
@@ -1129,6 +1129,76 @@ describe('the whole chain to version 13', () => {
 			...exported,
 			settings: { ...exported.settings, inputDeviceId: null }
 		});
+		again.close();
+		db.close();
+	});
+
+	it('opens 12 at 13 with the three orphans, and its export imports back to the same rows', async () => {
+		const name = crypto.randomUUID();
+		const old = new Dexie(name);
+		old.version(12).stores({
+			attempts: '++id, cardKey, sessionId, promptedAt',
+			cards: 'key',
+			sessions: 'id, startedAt',
+			settings: 'id',
+			levelStates: '[exerciseId+scope+item]'
+		});
+		const state = (exerciseId: string, level: number) => ({
+			exerciseId,
+			scope: 'blues-f',
+			item: '',
+			level,
+			successes: 0,
+			failures: 0,
+			resumeAfter: null
+		});
+		// A card and a level state whose new keys are taken; an attempt that names nothing.
+		const holder = {
+			...makeCardV12(),
+			key: 'locate-note-string:2:F',
+			mechanic: 'locate-note-string'
+		};
+		const {
+			exerciseId: _exerciseId,
+			mechanic: _mechanic,
+			...nameless
+		} = makeAttemptV12({
+			id: 1
+		});
+		await old.table('cards').bulkAdd([makeCardV12(), holder]);
+		await old.table('attempts').bulkAdd([nameless]);
+		await old
+			.table('levelStates')
+			.bulkAdd([state('gesture-climb', 3), state('grid-in-direction', 7)]);
+		old.close();
+
+		const db = createDatabase(name);
+		await db.open();
+		expect(db.verno).toBe(13);
+		expect(await db.cards.get('locate:2:F')).toMatchObject({ skill: 'locate' });
+		expect(await db.cards.get('locate:2:F')).not.toHaveProperty('mechanic');
+		expect(await db.attempts.get(1)).toMatchObject({
+			skill: 'unknown',
+			exerciseId: 'unknown',
+			cardKey: 'unknown:2:F'
+		});
+		expect(await db.levelStates.get(['gesture-climb', 'blues-f', ''])).toEqual(
+			state('gesture-climb', 3)
+		);
+
+		const exported = JSON.parse(JSON.stringify(await new DexieBackup(db, () => 1).exportAll()));
+		const again = createDatabase(crypto.randomUUID());
+		await new DexieBackup(again).importAll(exported);
+		const rows = async (base: NeckspertDb) => ({
+			cards: await base.cards.orderBy('key').toArray(),
+			attempts: await base.attempts.orderBy('id').toArray(),
+			sessions: await base.sessions.orderBy('id').toArray(),
+			levelStates: await base.levelStates.toArray(),
+			definitionFiles: await base.definitionFiles.toArray()
+		});
+		expect(await rows(again)).toEqual(await rows(db));
+		expect((await rows(again)).cards).toHaveLength(2);
+		expect((await rows(again)).levelStates).toHaveLength(2);
 		again.close();
 		db.close();
 	});

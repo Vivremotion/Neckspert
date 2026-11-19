@@ -145,34 +145,50 @@ describe('an attempt at version 13', () => {
 });
 
 describe('an attempt at version 13 that names no exercise', () => {
-	it('without an exercise id: the skill of its mechanic, its key prefixed by it', () => {
+	it('without an exercise id: the skill of its mechanic, its key prefixed by it, the exercise unknown', () => {
 		expect(
 			attemptToV13({ mechanic: 'triad-zone', cardKey: 'triad-zone:k', success: true })
-		).toEqual({ skill: 'chord-zone', cardKey: 'chord-zone:k', success: true });
+		).toEqual({
+			exerciseId: 'unknown',
+			skill: 'chord-zone',
+			cardKey: 'chord-zone:k',
+			success: true
+		});
 	});
 
-	it('with an exercise id that is not a string: the skill of its mechanic, the id kept', () => {
+	it('with an exercise id that is not a string: the skill of its mechanic, the exercise unknown', () => {
 		expect(attemptToV13({ exerciseId: 7, mechanic: 'locate', cardKey: 'locate:6:F' })).toEqual({
-			exerciseId: 7,
+			exerciseId: 'unknown',
 			skill: 'locate-note-string',
 			cardKey: 'locate-note-string:6:F'
 		});
 		expect(attemptToV13({ exerciseId: '', mechanic: 'identify', cardKey: 'identify:5:8' })).toEqual(
-			{ exerciseId: '', skill: 'identify-note', cardKey: 'identify-note:5:8' }
+			{ exerciseId: 'unknown', skill: 'identify-note', cardKey: 'identify-note:5:8' }
 		);
 	});
 
 	it('of a mechanic the table does not know: its mechanic as its skill', () => {
 		expect(attemptToV13({ mechanic: 'kazoo', cardKey: 'kazoo:1' })).toEqual({
+			exerciseId: 'unknown',
 			skill: 'kazoo',
 			cardKey: 'kazoo:1'
 		});
 	});
 
-	it('with neither an exercise id nor a mechanic: every field kept, no skill', () => {
-		const row = { id: 3, exerciseId: null, cardKey: 'locate:6:F', success: false };
-		expect(attemptToV13(row)).toStrictEqual(row);
-		expect(attemptToV13({ cardKey: 'x' })).toStrictEqual({ cardKey: 'x' });
+	it('with neither an exercise id nor a mechanic: the skill unknown, its key prefixed by it', () => {
+		const row = { id: 3, cardKey: 'locate:6:F', success: false };
+		expect(attemptToV13(row)).toStrictEqual({
+			id: 3,
+			skill: 'unknown',
+			exerciseId: 'unknown',
+			cardKey: 'unknown:6:F',
+			success: false
+		});
+		expect(attemptToV13({ exerciseId: null, cardKey: 'x' })).toStrictEqual({
+			exerciseId: 'unknown',
+			skill: 'unknown',
+			cardKey: 'unknown:x'
+		});
 	});
 });
 
@@ -352,14 +368,14 @@ describe('the cards of a table at version 13', () => {
 		expect(cardsToV13(cards)).toEqual(cards.map(cardToV13));
 	});
 
-	it('keep the old key of a card whose new key a card already holds', () => {
+	it('keep a card whose new key a card already holds as a card of an unknown skill: its mechanic', () => {
 		// A card of version 12 already stored under a key of version 13.
 		const holder = { key: 'locate-note-string:6:F', mechanic: 'locate-note-string', scheduling };
 		const renamed = { key: 'locate:6:F', mechanic: 'locate', scheduling: { due: 9, reps: 1 } };
 		const other = { key: 'locate:5:C', mechanic: 'locate', scheduling };
 		const upgraded = cardsToV13([renamed, holder, other]);
 		expect(upgraded).toEqual([
-			{ key: 'locate:6:F', skill: 'locate-note-string', scheduling: { due: 9, reps: 1 } },
+			{ key: 'locate:6:F', skill: 'locate', scheduling: { due: 9, reps: 1 } },
 			{ key: 'locate-note-string:6:F', skill: 'locate-note-string', scheduling },
 			{ key: 'locate-note-string:5:C', skill: 'locate-note-string', scheduling }
 		]);

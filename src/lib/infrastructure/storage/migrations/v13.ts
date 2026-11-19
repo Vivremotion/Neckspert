@@ -275,14 +275,19 @@ function upgradedApart(
 }
 
 /**
- * The cards of a table at version 13 (`cardToV13`). A card whose new key a card already holds
- * keeps its old key, its skill named and its mechanic gone: orphaned, never lost or overwritten.
+ * The cards of a table at version 13 (`cardToV13`). A card whose new key a card already holds is
+ * kept as a card of an unknown skill, its old mechanic, under its old key, its mechanic gone: the
+ * shape of a card of a mechanic the table does not know, which a version 9 backup accepts.
+ * Orphaned, never lost or overwritten.
  */
 export function cardsToV13(cards: readonly Row[]): Row[] {
 	return upgradedApart(
 		cards,
 		cardToV13,
-		(card) => ({ ...cardToV13(card), key: card.key }),
+		(card) => {
+			const { mechanic, ...rest } = card;
+			return { ...rest, skill: mechanic };
+		},
 		(card) => JSON.stringify(card.key)
 	);
 }
@@ -338,33 +343,41 @@ function itemKeyV13(mechanic: unknown, itemKey: string, data: unknown): string |
 }
 
 /**
- * The skill of an attempt of version 12: the skill of its exercise (`SKILL_OF_EXERCISE_V12`), else
- * its exercise id, else the skill of its mechanic (its mechanic when the table does not know it);
- * undefined when it names neither an exercise nor a mechanic.
+ * The skill and the exercise of an attempt of version 12 that names none it can be read by:
+ * a name no file defines. Frozen.
  */
-function attemptSkillV13(attempt: Row): string | undefined {
+export const UNKNOWN_V13 = 'unknown';
+
+/**
+ * The skill of an attempt of version 12: the skill of its exercise (`SKILL_OF_EXERCISE_V12`), else
+ * its exercise id, else the skill of its mechanic (its mechanic when the table does not know it),
+ * else `UNKNOWN_V13`.
+ */
+function attemptSkillV13(attempt: Row): string {
 	const { exerciseId, mechanic } = attempt;
 	const ofExercise = lookUp(SKILL_OF_EXERCISE_V12, exerciseId);
 	if (ofExercise !== undefined) return ofExercise;
 	if (isName(exerciseId)) return exerciseId;
 	if (isName(mechanic)) return lookUp(SKILL_OF_MECHANIC_V13, mechanic) ?? mechanic;
-	return undefined;
+	return UNKNOWN_V13;
 }
 
 /**
  * An attempt as version 13 keeps it: its exercise renamed (`EXERCISE_IDS_V13`), its skill
  * (`attemptSkillV13`), its card key prefixed by it and its item key as version 13 writes it
  * (`itemKeyV13`; the rest of its old key when that cannot read it), no `mechanic`. Its data stays
- * as version 12 wrote it. An attempt that names neither an exercise nor a mechanic is kept as it
- * is, with no skill.
+ * as version 12 wrote it. An attempt without a usable exercise id names the exercise `UNKNOWN_V13`
+ * (the skill of its mechanic kept), and one that names no mechanic either the skill
+ * `UNKNOWN_V13`: a version 9 backup accepts it, a skill no file defines.
  */
 export function attemptToV13(attempt: Row): Row {
 	const skill = attemptSkillV13(attempt);
-	if (skill === undefined) return { ...attempt };
-	const { mechanic, ...rest } = withExerciseIdV13(attempt);
+	const { mechanic, ...renamed } = withExerciseIdV13(attempt);
+	const rest = isName(attempt.exerciseId) ? renamed : { ...renamed, exerciseId: UNKNOWN_V13 };
 	const key = attempt.cardKey;
 	const colon = typeof key === 'string' ? key.indexOf(':') : -1;
-	if (typeof key !== 'string' || colon < 0) return { ...rest, skill, cardKey: rekeyed(key, skill) };
+	if (typeof key === 'string' && colon < 0) return { ...rest, skill, cardKey: `${skill}:${key}` };
+	if (typeof key !== 'string') return { ...rest, skill, cardKey: key };
 	const old = key.slice(colon + 1);
 	const itemKey = itemKeyV13(mechanic, old, attempt.data) ?? old;
 	return { ...rest, skill, cardKey: `${skill}:${itemKey}` };

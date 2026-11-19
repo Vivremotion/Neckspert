@@ -809,9 +809,11 @@ function checkAttemptV9(attempt: Fields): string | null {
 	return renamedExercise(attempt.exerciseId, 'exerciseId') ?? checkAttemptV7(attempt, BY_SKILL);
 }
 
-function checkLevelStateV9(state: Fields): string | null {
-	return renamedExercise(state.exerciseId, 'exerciseId') ?? checkLevelState(state);
-}
+/**
+ * Version 9: a level state may keep an old exercise id, an exercise without a definition (the
+ * migration keeps a state under it when its new key was already held).
+ */
+const checkLevelStateV9 = checkLevelState;
 
 /** Version 9: a session says the routine or the exercise it played, no longer its kind. */
 function checkSessionV9(session: Fields): string | null {
