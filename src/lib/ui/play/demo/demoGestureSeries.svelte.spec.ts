@@ -20,11 +20,12 @@ describe('demoGestureSeries', () => {
 		// It starts at the aid level: the notes of E on G-B-E are drawn, string by string.
 		const aid = (
 			demo.controller.view.stage?.model as {
-				aid: { now: { string: number; name: string }[] } | null;
+				aid: { notes: { string: number; name: string; next?: true }[] } | null;
 			}
 		).aid;
-		expect(aid?.now.map((note) => note.string)).toEqual([3, 2, 1]);
-		expect(aid?.now.map((note) => note.name).sort()).toEqual(['B', 'E', 'G#']);
+		const now = aid?.notes.filter((note) => !note.next) ?? [];
+		expect(now.map((note) => note.string)).toEqual([3, 2, 1]);
+		expect(now.map((note) => note.name).sort()).toEqual(['B', 'E', 'G#']);
 		// ♩ = 80: a counted bar, then four changes of a bar each.
 		await run(demo, 3 + 4 * 3);
 		expect(historyOf(demo).map((entry) => entry.verdict)).toEqual([

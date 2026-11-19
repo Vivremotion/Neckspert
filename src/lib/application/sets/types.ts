@@ -54,17 +54,6 @@ export interface SetPresenter<I = any, A = any> {
 	 * settled round staying until then; absent: shown at its prompt.
 	 */
 	previewBeats?: number;
-	/**
-	 * After a miss: the shape heard, the shape asked, and what tells them apart, drawn by its own
-	 * screen model (the gesture's, D9). Null on a right answer; leave it out for a set that
-	 * draws no shape.
-	 */
-	feedback?(
-		item: I,
-		outcome: { answer: unknown; confusion: unknown; verdict: ResponseVerdict },
-		locale: Locale,
-		round?: PresentedRound
-	): { heard: ShapeView | null; expected: ShapeView | null; gap: string | null } | null;
 	/** Its misses may be contested during play (« Joué juste »): the judge may be wrong. */
 	contestable?: boolean;
 	/** The answer buttons of items answered on the screen. */

@@ -1,5 +1,4 @@
-import type { GridStageModel } from '$lib/application/sets/chordGrid';
-import type { GridChange } from '$lib/domain/grid';
+import type { PassageRound, PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { ResponseVerdict } from '$lib/domain/types';
 
 /** Far below a beat: absorbs floating-point error when matching a verdict to its change. */
@@ -31,13 +30,13 @@ export interface GridPlacement {
 }
 
 /**
- * Where each chord of a passage sits on the scrolling line (spec 2026-10-10, section 6): the bars
+ * Where each chord of a passage sits on the scrolling line (each round's words, its `label`) (spec 2026-10-10, section 6): the bars
  * from the current one, the change on show, the next one, announced at least a beat ahead, and
  * the verdict of each change played (from the model's history, at the change's beat). Before its
  * round opens, the model's `anchorBeat` is null: the grid shows from its start, the change next.
  */
 export function gridPlacement(
-	model: Pick<GridStageModel, 'changes' | 'beatsPerBar' | 'index' | 'anchorBeat' | 'history'>,
+	model: Pick<PassageStageModel, 'rounds' | 'beatsPerBar' | 'index' | 'anchorBeat' | 'history'>,
 	input: {
 		nowBeat: number;
 		visibleBars: number;
@@ -45,7 +44,7 @@ export function gridPlacement(
 		barsBefore?: number;
 	}
 ): GridPlacement {
-	const { changes, beatsPerBar, index, anchorBeat, history } = model;
+	const { rounds: changes, beatsPerBar, index, anchorBeat, history } = model;
 	const { nowBeat } = input;
 	const opened = anchorBeat !== null;
 	const current = opened ? index : null;
@@ -55,7 +54,7 @@ export function gridPlacement(
 	const nextAnnounced =
 		next !== null && start !== null && start + changes[next].at - nowBeat <= 1 + BEAT_TOLERANCE;
 
-	const verdictAt = (change: GridChange): ResponseVerdict | null => {
+	const verdictAt = (change: PassageRound): ResponseVerdict | null => {
 		if (start === null) return null;
 		const beat = start + change.at;
 		return (
@@ -84,7 +83,7 @@ export function gridPlacement(
 			return [
 				{
 					change: k,
-					symbol: change.symbol,
+					symbol: change.label,
 					beats: Math.min(end, to) - Math.max(change.at, from),
 					continued: change.at < from - BEAT_TOLERANCE,
 					state: stateOf(k),

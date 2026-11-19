@@ -82,6 +82,6 @@ describe('SeriesItems.presenterOf', () => {
 			},
 			exerciseById
 		);
-		expect(items.presenterOf(item).stageOf).toBe(VIEW_PRESENTERS['link-lane'].stageOf);
+		expect(items.presenterOf(item).expectation).toBe(VIEW_PRESENTERS['link-lane'].expectation);
 	});
 });

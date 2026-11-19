@@ -427,7 +427,11 @@ describe('the gesture track', () => {
 		// The transport counts a bar, then opens the first change.
 		await runOnTransport(deps, () => controller.view.status === 'awaiting');
 		expect(controller.view.status).toBe('awaiting');
-		expect(controller.view.stage?.model).toMatchObject({ root: 'D', anchorBeat: 4, history: [] });
+		expect(controller.view.stage?.model).toMatchObject({
+			prompt: { primary: 'D' },
+			anchorBeat: 4,
+			history: []
+		});
 		expect(chords.expectations.at(-1)?.expected).toEqual(['D|maj|3:5,2:1,1:3@2-3-2']);
 		controller.quit();
 		await new Promise((resolve) => setTimeout(resolve, 0));

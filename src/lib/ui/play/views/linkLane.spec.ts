@@ -1,30 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import type { LinkLaneModel } from '$lib/application/sets/chordGrid';
+import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 import type { LaneEntry } from '$lib/application/session/contract';
 import { LANE_BEATS_AFTER, LANE_BEATS_BEFORE, linkLaneLayout } from './linkLane';
 
-const CHANGES = [0, 4, 8, 12, 16, 20, 24].map((at) => ({ at, length: 4, symbol: 'D' }));
+/** A tour of D: a bar each, four shapes up then three down. */
+const ROUNDS = [null, 'up', 'up', 'up', 'down', 'down', 'down'].map((way, i) => ({
+	at: i * 4,
+	length: 4,
+	label: 'D',
+	way: way as 'up' | 'down' | null
+}));
 
-/** Change `index` of the tour, its target on `anchorBeat` (null before its round opens). */
+/** Round `index` of the tour, its target on `anchorBeat` (null before its round opens). */
 function model(
 	index: number,
 	place: { anchorBeat?: number | null; history?: LaneEntry[] } = {}
-): LinkLaneModel {
+): Pick<PassageStageModel, 'rounds' | 'index' | 'beatsPerBar' | 'anchorBeat' | 'history'> {
 	return {
-		kind: 'link-lane',
-		root: 'D',
-		quality: 'majeur',
-		set: 'sol · si · mi',
-		strings: [],
-		tiles: ['root', 'up', 'up', 'up', 'down', 'down', 'down'],
-		following: ['up', 'up', 'up', 'down', 'down', 'down'],
-		changes: CHANGES,
+		rounds: ROUNDS,
 		index,
 		beatsPerBar: 4,
-		aid: null,
 		anchorBeat: place.anchorBeat ?? null,
-		history: place.history ?? [],
-		miss: null
+		history: place.history ?? []
 	};
 }
 
@@ -43,26 +40,34 @@ describe('linkLaneLayout', () => {
 		expect(row(tiles)).toEqual([
 			[6, null, false, null],
 			[7, null, false, null],
-			[8, 'up', true, null],
+			[8, '↗', true, null],
 			[9, null, false, null],
 			[10, null, false, 3],
 			[11, null, false, 4],
-			[12, 'up', false, 1],
+			[12, '↗', false, 1],
 			[13, null, false, 2],
 			[14, null, false, 3],
 			[15, null, false, 4],
-			[16, 'down', false, 1],
+			[16, '↘', false, 1],
 			[17, null, false, 2]
 		]);
 		expect(tiles.filter((t) => t.offset <= 0).map((t) => t.beatIndex)).toEqual([6, 7, 8, 9]);
 	});
 
-	it('draws the next tour after the last bar, as if the tour went on', () => {
+	it('draws nothing after the last bar: a tour never chains to the next', () => {
 		const tiles = linkLaneLayout(model(6, { anchorBeat: 24 }), { nowBeat: 25 });
 		expect(tiles.filter((t) => t.symbol).map((t) => [t.beatIndex, t.symbol, t.due])).toEqual([
-			[24, 'down', true],
-			[28, 'up', false],
-			[32, 'up', false]
+			[24, '↘', true]
+		]);
+	});
+
+	it('writes the words of a round that goes neither up nor down', () => {
+		const rounds = ROUNDS.map((round, i) => (i === 1 ? { ...round, way: 'same' as const } : round));
+		const tiles = linkLaneLayout({ ...model(0, { anchorBeat: 0 }), rounds }, { nowBeat: 0.5 });
+		expect(tiles.filter((t) => t.symbol).map((t) => [t.beatIndex, t.symbol])).toEqual([
+			[0, 'D'],
+			[4, 'D'],
+			[8, '↗']
 		]);
 	});
 
@@ -80,7 +85,7 @@ describe('linkLaneLayout', () => {
 	it('puts the first change ahead during the counted bar, counting to it', () => {
 		// Its round not open yet: the change falls where the count ends.
 		const tiles = linkLaneLayout(model(0), { nowBeat: 37.5, countedBeat: 40 });
-		expect(tiles.find((t) => t.symbol === 'root')).toMatchObject({ beatIndex: 40, due: true });
+		expect(tiles.find((t) => t.symbol === 'D')).toMatchObject({ beatIndex: 40, due: true });
 		expect(tiles.filter((t) => t.beatIndex >= 38 && t.beatIndex <= 40).map((t) => t.label)).toEqual(
 			[3, 4, 1]
 		);
@@ -88,7 +93,7 @@ describe('linkLaneLayout', () => {
 
 	it('places the change on its own target once its round is open, whatever the count', () => {
 		const tiles = linkLaneLayout(model(0, { anchorBeat: 40 }), { nowBeat: 39.5, countedBeat: 44 });
-		expect(tiles.find((t) => t.symbol === 'root')).toMatchObject({ beatIndex: 40, due: true });
+		expect(tiles.find((t) => t.symbol === 'D')).toMatchObject({ beatIndex: 40, due: true });
 	});
 
 	it('hides the verdicts while nothing is anchored', () => {
@@ -99,7 +104,7 @@ describe('linkLaneLayout', () => {
 
 	it('waits without an anchor: the first change next, nothing counted', () => {
 		const tiles = linkLaneLayout(model(0), { nowBeat: 3.2 });
-		expect(tiles.find((t) => t.symbol === 'root')).toMatchObject({ beatIndex: 4, due: true });
+		expect(tiles.find((t) => t.symbol === 'D')).toMatchObject({ beatIndex: 4, due: true });
 		expect(tiles.every((t) => t.label === null)).toBe(true);
 	});
 });

@@ -7,8 +7,10 @@ import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/ind
 import { passageRound } from '$lib/domain/exercise/passage/round';
 import { compileRound } from '$lib/domain/exercise/round';
 import { passageDerivation } from '$lib/domain/families';
-import { METER_4_4, type RoundPlan } from '$lib/domain/time';
-import type { PlannedItem } from '$lib/domain/types';
+import { METER_4_4, type ResponseValue, type RoundPlan } from '$lib/domain/time';
+import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
+import type { LaneEntry } from '$lib/application/session/contract';
+import { passageStage, type PassageStageModel } from '$lib/application/presentation/passageStage';
 import {
 	GESTURE_CLIMB,
 	GESTURE_EXERCISES,
@@ -72,6 +74,52 @@ export function servedPassageRound(
 		fromRunStart: null
 	});
 	return { planned, plan };
+}
+
+/**
+ * The screen model of round `rank` of a passage of `definition`, as the series shows it: at
+ * `exerciseLevel` (an aid level draws the aid), its target on `anchorBeat` (null before its round
+ * opens), settled with `settled` when given.
+ */
+export function passageModel(
+	definition: ExerciseDefinition,
+	key: string,
+	rank: number,
+	options: {
+		each?: Record<string, unknown>;
+		previous?: string | null;
+		exerciseLevel?: number;
+		anchorBeat?: number | null;
+		history?: readonly LaneEntry[];
+		settled?: { value: ResponseValue; success: boolean } | null;
+		chordDiagram?: ChordDiagramStyle;
+		locale?: Locale;
+	} = {}
+): PassageStageModel {
+	const { planned, plan } = servedPassageRound(
+		definition,
+		key,
+		rank,
+		options.each ?? {},
+		options.previous ?? null
+	);
+	const anchorBeat = options.anchorBeat === undefined ? null : options.anchorBeat;
+	return passageStage({
+		definition,
+		item: { ...planned, exerciseLevel: options.exerciseLevel ?? planned.exerciseLevel },
+		plan,
+		settled: options.settled ?? null,
+		place: {
+			anchorBeat,
+			promptBeat: anchorBeat === null ? null : anchorBeat - 1,
+			history: options.history ?? [],
+			bands: []
+		},
+		beatsPerBar: 4,
+		chordDiagram: options.chordDiagram ?? 'strings',
+		locale: options.locale ?? 'fr',
+		random: () => 0
+	});
 }
 
 /**

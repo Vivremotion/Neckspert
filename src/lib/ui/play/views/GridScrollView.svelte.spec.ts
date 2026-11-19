@@ -1,33 +1,30 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { DrawnMiss, GridStageModel } from '$lib/application/sets/chordGrid';
-import { gridById, gridChanges } from '$lib/domain/grid';
+import type { MissView } from '$lib/application/presentation/contentViews';
+import type { PassageStageModel } from '$lib/application/presentation/passageStage';
+import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_ZONE } from '$lib/testing/catalog';
+import { passageModel } from '$lib/testing/changesPassages';
 import GridScrollView from './GridScrollView.svelte';
 import { StageController } from './testing/StageController.svelte';
 
 afterEach(() => cleanup());
 
-const IOHEFY = gridChanges(gridById('iohefy-a'));
-
-function model(overrides: Partial<GridStageModel>): GridStageModel {
+/** A change of a climb of I Only Have Eyes for You on G-B-E, going up, as the series shows it. */
+function model(overrides: Partial<PassageStageModel> & { index?: number } = {}): PassageStageModel {
+	const { index = 1, ...rest } = overrides;
 	return {
-		title: 'I Only Have Eyes for You',
-		beatsPerBar: 4,
-		changes: IOHEFY,
-		index: 1,
-		cue: { kind: 'climb', set: 'sol‑si‑mi', direction: 'up' },
-		aid: null,
-		chordDiagram: 'strings',
-		anchorBeat: null,
-		history: [],
-		miss: null,
-		...overrides
+		...passageModel(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', index, {
+			each: { direction: 'up' }
+		}),
+		...rest
 	};
 }
 
 /** A G played for a Dm: what was heard, what was asked, what parts them. */
-const MISS: DrawnMiss = {
+const MISS: MissView = {
+	correction: null,
 	heard: {
+		kind: 'shape',
 		notes: [
 			{ string: 3, fret: 7 },
 			{ string: 2, fret: 8 },
@@ -35,22 +32,32 @@ const MISS: DrawnMiss = {
 		]
 	},
 	expected: {
+		kind: 'shape',
 		notes: [
 			{ string: 3, fret: 7 },
 			{ string: 2, fret: 6 },
 			{ string: 1, fret: 5 }
 		]
 	},
-	gap: 'pas le bon accord',
-	style: 'grid'
+	gap: 'pas le bon accord'
 };
+
+const missed = (miss: MissView) => ({
+	verdict: 'wrong' as const,
+	offsetMs: null,
+	answerLabel: null,
+	misses: [miss]
+});
 
 describe('GridScrollView', () => {
 	it('draws a miss, heard and expected in its style, until the next change', async () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.5;
 		const { rerender } = render(GridScrollView, {
-			props: { controller, model: model({ anchorBeat: 12, miss: MISS }) }
+			props: {
+				controller,
+				model: model({ anchorBeat: 12, verdict: missed(MISS), chordDiagram: 'grid' })
+			}
 		});
 		const miss = screen.getByTestId('miss');
 		expect(miss.textContent).toMatch(/Joué/);
@@ -73,30 +80,26 @@ describe('GridScrollView', () => {
 		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();
 	});
 
-	it('names the zone, and draws the aid of the next change in its style', () => {
+	it('names the zone, and draws the aid on the neck: the shapes admitted now and next', () => {
 		const controller = new StageController();
 		controller.nowBeat = 12.2;
-		const aid = {
-			notes: [
-				{ string: 3 as const, fret: 7 },
-				{ string: 2 as const, fret: 8 },
-				{ string: 1 as const, fret: 7 }
-			]
-		};
-		render(GridScrollView, {
-			props: {
-				controller,
-				model: model({
-					cue: { kind: 'zone', from: 5, to: 8 },
-					aid,
-					anchorBeat: 12,
-					chordDiagram: 'grid'
-				})
-			}
+		const zone = passageModel(GESTURE_ZONE, 'grid=iohefy-a', 1, {
+			each: { zone: [5, 9] },
+			exerciseLevel: -1,
+			anchorBeat: 12
 		});
-		expect(screen.getByText('cases 5 à 8')).toBeTruthy();
+		render(GridScrollView, { props: { controller, model: zone } });
+		expect(screen.getByText('cases 5 à 9')).toBeTruthy();
 		expect(screen.getByText('Forme suivante')).toBeTruthy();
-		expect(document.querySelector('.chord-shape[data-style="grid"]')).toBeTruthy();
+		// The aid draws on the neck (plan 4c, D5): G's shapes in the zone now, Dm's next.
+		const notes = screen.getAllByTestId('aid-note');
+		expect(notes.map((n) => n.getAttribute('data-shape'))).toContain('now');
+		expect(notes.map((n) => n.getAttribute('data-shape'))).toContain('next');
+		expect(document.querySelector('.chord-shape')).toBeNull();
+		// The four strings of the zone, the high one on top.
+		expect(
+			[...screen.getByTestId('aid-neck').querySelectorAll('.name')].map((n) => n.textContent)
+		).toEqual(['mi', 'si', 'sol', 'ré']);
 	});
 
 	it('puts the verdicts of its history on the changes played', () => {
@@ -112,9 +115,12 @@ describe('GridScrollView', () => {
 		const controller = new StageController();
 		controller.view.status = 'count-in';
 		render(GridScrollView, {
-			props: { controller, model: model({ index: 0, cue: { kind: 'jam' } }) }
+			props: { controller, model: passageModel(GESTURE_JAM, 'grid=iohefy-a', 0) }
 		});
 		expect(screen.queryByTestId('current-chord')).toBeNull();
 		expect(screen.getByTestId('next-chord').textContent).toBe('Dm7');
+		// The jam says no more than its grid.
+		expect(document.querySelector('.cue')).toBeNull();
+		expect(screen.getByText('I Only Have Eyes for You')).toBeTruthy();
 	});
 });

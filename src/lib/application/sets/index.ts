@@ -14,16 +14,7 @@ export { noteOnStringPresenter } from './noteOnString';
 export { voicingOnStringsPresenter } from './voicingOnStrings';
 export { figurePresenter, placedShapePresenter, placedVoicingPresenter } from './figurePresenters';
 export { changeExpectation, NEIGHBOUR_FRETS } from './changeExpectation';
-export {
-	changePresenter,
-	linkPresenter,
-	VIEW_PRESENTERS,
-	type GridCue,
-	type GridStageModel,
-	type LinkAidNote,
-	type LinkLaneModel,
-	type LinkTile
-} from './chordGrid';
+export { changePresenter, linkPresenter, VIEW_PRESENTERS } from './chordGrid';
 
 /** Every set the application presents, by set id; a set's other presenters by view (`VIEW_PRESENTERS`). */
 export const SET_PRESENTERS: Readonly<Record<string, SetPresenter>> = Object.fromEntries(

@@ -185,8 +185,12 @@ describe('screenProblem', () => {
 		expect(screenProblem(withPresentation(items, climb), presenters)).toBe(
 			'grid-in-direction: view "grid-scroll" draws a passage, and the exercise writes no passages'
 		);
-		// Without a presentation, the default view stays the screen its presenter draws.
-		expect(screenProblem(items, presenters)).toBeNull();
+		// Without a presentation, the default view is the screen its presenter draws: the changes'
+		// presenters draw none since plan 4c.
+		const { presentation: _presentation, ...unpresented } = items;
+		expect(screenProblem(unpresented, presenters)).toBe(
+			'grid-in-direction: writes a round but no presentation, and change draws no screen of its own'
+		);
 		expect(screenProblem({ ...bare, view: 'grid-scroll', round: undefined }, NONE)).toBeNull();
 	});
 

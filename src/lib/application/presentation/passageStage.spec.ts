@@ -18,7 +18,7 @@ import { itemSet } from '$lib/domain/sets';
 import type { ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { PlannedItem, PlannedPassage } from '$lib/domain/types';
 import { CHANGES_EXERCISES, alternatingGrid } from '$lib/testing/changesPassages';
-import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK } from '$lib/testing/catalog';
+import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from '$lib/testing/catalog';
 import { shapeId } from '$lib/testing/shapes';
 import { passageStage } from './passageStage';
 import type { Picture } from './pictures';
@@ -43,6 +43,7 @@ const CLIMB_PRESENTATION: PromptPresentation = {
 
 const LINK: ExerciseDefinition = { ...GESTURE_LINK, presentation: LINK_PRESENTATION };
 const CLIMB: ExerciseDefinition = { ...GESTURE_CLIMB, presentation: CLIMB_PRESENTATION };
+const ZONE: ExerciseDefinition = GESTURE_ZONE;
 
 /** Every round of a passage of `definition`, as its source serves them, sharing one list of items. */
 function passageOf(
@@ -272,6 +273,41 @@ describe('passageStage: the aid', () => {
 	});
 });
 
+describe('passageStage: the aid of the grids', () => {
+	const aided = <I extends PlannedItem>(item: I): I => ({ ...item, exerciseLevel: -1 });
+	const positionOf = (shape: Member) => GUITAR_ATTRIBUTES.position(shape as never) as number;
+	const nextNotes = (picture: Picture | null) => notesOf(picture).filter((note) => note.next);
+
+	it('turns with the climb where the neck runs out: the next shapes below the one heard', () => {
+		// Em 16-17-15 heard going up: no Ebm above it, so the climb turns down (its next, Ebm7).
+		const rounds = passageOf(CLIMB, 'grid=iohefy-a;strings=3,2,1', { direction: 'up' });
+		const round = aided({
+			...rounds[6],
+			passage: { ...rounds[6].passage, previous: shapeId('G', 'maj', G_B_E, '12-12-10') }
+		});
+		const plan = compilePassageRound(CLIMB, round);
+		const heard = shapeId('E', 'min', G_B_E, '16-17-15');
+		const next = nextNotes(show(CLIMB, round, settledWith(plan, heard), plan).aid);
+		// Nothing of Ebm lies above Em 16-17-15: without the turn, nothing would come next.
+		const Eb = chordShapes.members({ chord: triadOf('Ebm7'), strings: [...G_B_E] });
+		const at = positionOf(chordShapes.member(heard)!);
+		expect(Eb.some((shape) => positionOf(shape) > at)).toBe(false);
+		expect(next.length).toBeGreaterThan(0);
+		const below = placesOf(Eb.filter((shape) => positionOf(shape) < at));
+		expect(next.every((note) => below.includes(`${note.string}-${note.fret}`))).toBe(true);
+	});
+
+	it('zone: the shapes now and next in its frets, on its four strings', () => {
+		const rounds = passageOf(ZONE, 'grid=iohefy-a', { zone: [7, 11] });
+		const aid = show(ZONE, aided(rounds[0])).aid;
+		expect(aid).toMatchObject({ kind: 'neck', strings: [4, 3, 2, 1] });
+		const notes = notesOf(aid);
+		expect(notes.some((note) => note.next)).toBe(true);
+		// An open string counts inside a zone at fret 1 only: none here.
+		expect(notes.every((note) => note.fret >= 7 && note.fret <= 11)).toBe(true);
+	});
+});
+
 describe('passageStage: a miss', () => {
 	it('tells the shape heard, the shape expected and the gap', () => {
 		const rounds = passageOf(LINK, 'chord=D;strings=3,2,1');
@@ -291,6 +327,23 @@ describe('passageStage: a miss', () => {
 			shapeId('D', 'maj', G_B_E, (rounds[1].item as { frets: number[] }).frets.join('-'))
 		);
 		expect(show(LINK, rounds[1], right, plan).verdict?.misses).toEqual([]);
+		// The right shape too late: offbeat, a miss for its level, but nothing to draw.
+		const offbeat = {
+			value: { ...right.value, verdict: 'offbeat' as const },
+			success: false
+		};
+		expect(show(LINK, rounds[1], offbeat, plan).verdict).toMatchObject({
+			verdict: 'offbeat',
+			misses: []
+		});
+	});
+
+	it('refuses a round of a passage that came without the items of its passage', () => {
+		const [first] = passageOf(LINK, 'chord=D;strings=3,2,1');
+		const { items: _items, ...untold } = first.passage;
+		expect(() => show(LINK, { ...first, passage: untold })).toThrow(
+			/came without the items of its passage/
+		);
 	});
 });
 

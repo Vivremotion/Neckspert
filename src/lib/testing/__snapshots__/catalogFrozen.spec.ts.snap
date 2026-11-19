@@ -578,7 +578,6 @@ exports[`keeps grid-in-direction as it is 1`] = `
     {
       "aid": true,
       "params": {
-        "shapes": true,
         "tempo": 80,
       },
     },
@@ -722,6 +721,15 @@ exports[`keeps grid-in-direction as it is 1`] = `
     "scope": "grid",
   },
   "practices": "grid-in-direction",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": "{strings} · {toward}",
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -800,7 +808,6 @@ exports[`keeps grid-in-zone as it is 1`] = `
     {
       "aid": true,
       "params": {
-        "shapes": true,
         "tempo": 80,
       },
     },
@@ -989,6 +996,18 @@ exports[`keeps grid-in-zone as it is 1`] = `
     "scope": "grid",
   },
   "practices": "grid-in-zone",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": {
+      "en": "frets {frets}",
+      "fr": "cases {frets}",
+    },
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -1188,6 +1207,14 @@ exports[`keeps grid-reading as it is 1`] = `
     "scope": "grid",
   },
   "practices": "grid-reading",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "primary": "{symbol}",
+    "secondary": "{title}",
+    "target": "{symbol}",
+  },
   "round": {
     "countEndsOn": "target",
     "expectations": [
@@ -1410,7 +1437,6 @@ exports[`keeps inversion-run as it is 1`] = `
     {
       "aid": true,
       "params": {
-        "shapes": true,
         "tempo": 80,
       },
     },
@@ -1576,6 +1602,18 @@ exports[`keeps inversion-run as it is 1`] = `
     "restBars": 1,
   },
   "practices": "inversion-run",
+  "presentation": {
+    "aided": {
+      "picture": "admitted",
+    },
+    "detail": {
+      "en": "on strings {strings}",
+      "fr": "sur cordes {strings}",
+    },
+    "primary": "{chord}",
+    "secondary": "{quality}",
+    "target": "{chord}",
+  },
   "round": {
     "countEndsOn": "target",
     "expectations": [

@@ -1,17 +1,15 @@
 <script lang="ts">
-	import type { LinkLaneModel } from '$lib/application/sets/chordGrid';
+	import type { PassageStageModel } from '$lib/application/presentation/passageStage';
 	import type { PlaySessionController } from '$lib/application/session/contract';
 	import VerdictSprite from '$lib/ui/primitives/VerdictSprite.svelte';
 	import DrawnMiss from './DrawnMiss.svelte';
-	import NeckDiagram from './NeckDiagram.svelte';
 	import { linkLaneLayout } from './linkLane';
-	import { viewMessages } from './messages';
+	import { PICTURE_VIEWS } from './pictures';
 
 	let { controller, model }: { controller: PlaySessionController; model: unknown } = $props();
 
-	const lane = $derived(model as LinkLaneModel);
+	const lane = $derived(model as PassageStageModel);
 	const view = $derived(controller.view);
-	const t = $derived(viewMessages());
 	// The silence and the counted bar before a new chord: it takes the screen.
 	const counting = $derived(view.status === 'count-in' || view.countdown !== null);
 
@@ -36,28 +34,18 @@
 	const tiles = $derived(linkLaneLayout(lane, { nowBeat, countedBeat }));
 	const past = $derived(tiles.filter((tile) => tile.offset <= 0));
 	const ahead = $derived(tiles.filter((tile) => tile.offset > 0));
-	const ARROWS = { up: '↗', down: '↘' } as const;
-
-	/** The aid's neck: the two shapes, one either side; the high string on top. */
-	const neck = $derived.by(() => {
-		if (!lane.aid) return null;
-		return {
-			notes: [
-				...lane.aid.now.map((note) => ({ ...note, tone: 'now' as const })),
-				...(lane.aid.next ?? []).map((note) => ({ ...note, tone: 'next' as const }))
-			],
-			strings: [...lane.strings].reverse()
-		};
-	});
 </script>
 
 <div class="link-lane">
 	<header class="head">
-		<p class="root" class:counting data-testid="link-root">{lane.root}</p>
+		<p class="root" class:counting data-testid="link-root">{lane.prompt.primary}</p>
 		<div class="what">
-			<p class="quality">{lane.quality}</p>
-			<p class="label">{t.onStrings}</p>
-			<p class="label">{lane.set}</p>
+			{#if lane.prompt.secondary}
+				<p class="quality">{lane.prompt.secondary}</p>
+			{/if}
+			{#if lane.prompt.detail}
+				<p class="label">{lane.prompt.detail}</p>
+			{/if}
 		</div>
 	</header>
 
@@ -70,9 +58,7 @@
 						<div class="cell">
 							<div class="body" class:due={tile.due} class:inverted={tile.justPlayed}>
 								{#if tile.symbol}
-									<span class="way" data-testid="link-tile"
-										>{tile.symbol === 'root' ? lane.root : ARROWS[tile.symbol]}</span
-									>
+									<span class="way" data-testid="link-tile">{tile.symbol}</span>
 								{:else if tile.verdict}
 									<VerdictSprite verdict={tile.verdict} size={48} inverted={tile.justPlayed} />
 								{/if}
@@ -91,9 +77,7 @@
 							>
 							<div class="body ahead" class:due={tile.due}>
 								{#if tile.symbol}
-									<span class="way" data-testid="link-tile"
-										>{tile.symbol === 'root' ? lane.root : ARROWS[tile.symbol]}</span
-									>
+									<span class="way" data-testid="link-tile">{tile.symbol}</span>
 								{/if}
 							</div>
 						</div>
@@ -103,12 +87,13 @@
 		</div>
 	</div>
 
-	{#if lane.miss}
-		<DrawnMiss miss={lane.miss} />
-	{/if}
+	{#each lane.verdict?.misses ?? [] as miss, i (i)}
+		<DrawnMiss {miss} chordDiagram={lane.chordDiagram} />
+	{/each}
 
-	{#if neck}
-		<NeckDiagram notes={neck.notes} strings={neck.strings} />
+	{#if lane.aid}
+		{@const Aid = PICTURE_VIEWS[lane.aid.kind]}
+		<Aid picture={lane.aid} chordDiagram={lane.chordDiagram} />
 	{/if}
 </div>
 

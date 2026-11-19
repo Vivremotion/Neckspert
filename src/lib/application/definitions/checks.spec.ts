@@ -307,6 +307,8 @@ describe('definitionChecks, the passages an exercise writes', () => {
 		const round = LINK_PASSAGES.round!;
 		const unselected: ExerciseDefinition = {
 			...LINK_PASSAGES,
+			// Its aid draws the members its round admits: none here.
+			presentation: { ...LINK_PASSAGES.presentation!, aided: undefined },
 			round: {
 				...round,
 				expectations: round.expectations.map((e) => ({ ...e, content: null }))

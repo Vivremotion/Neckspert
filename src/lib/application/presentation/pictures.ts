@@ -12,7 +12,13 @@ import { lowestShape, shapeAt, shapeOf } from './triadWords';
 export type Picture =
 	| { kind: 'string'; string: StringNumber; label: string }
 	| { kind: 'shape'; notes: { string: StringNumber; fret: number }[] }
-	| { kind: 'neck'; notes: NeckNote[]; frets?: { low: number; high: number } };
+	| {
+			kind: 'neck';
+			notes: NeckNote[];
+			frets?: { low: number; high: number };
+			/** The strings to draw, low to high; absent: all six. */
+			strings?: StringNumber[];
+	  };
 
 /** A note named at its place on the neck. */
 export interface NeckNote {

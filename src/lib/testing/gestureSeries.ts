@@ -10,7 +10,8 @@ import type { Segment } from '$lib/domain/session';
 import type { Level, LevelState } from '$lib/domain/time';
 import type { Attempt, PlannedItem, PlannedPassage, SessionKind } from '$lib/domain/types';
 import type { ChordExpectation, ChordReport } from '$lib/application/ports';
-import { SET_PRESENTERS, VIEW_PRESENTERS, type GridStageModel } from '$lib/application/sets';
+import type { PassageStageModel } from '$lib/application/presentation/passageStage';
+import { SET_PRESENTERS, VIEW_PRESENTERS } from '$lib/application/sets';
 import {
 	FakeChordVerifier,
 	FakeClock,
@@ -379,8 +380,9 @@ export function expectationsAsked(ctx: Ctx): ChordExpectation[] {
 	return ctx.verifier.expectations.filter((e): e is ChordExpectation => e !== null);
 }
 
-export function model(ctx: Ctx): GridStageModel {
-	return ctx.controller.view.stage?.model as GridStageModel;
+/** The screen model on stage: a change's is the screen model of its passage. */
+export function model(ctx: Ctx): PassageStageModel {
+	return ctx.controller.view.stage?.model as PassageStageModel;
 }
 
 /** Roles of the trace's segments inside the series, in order, a run's own in its place. */

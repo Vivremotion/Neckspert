@@ -195,7 +195,7 @@ function passageMiss(
  * expected (the admitted shape nearest the one heard, else the lowest fretted admitted), its
  * frets and notes, and what tells them apart. Its fields: the strings of its index, the frets
  * of a zone (`in.frets`) and the way a climb goes (`position.toward`); its picture, the notes of
- * its shapes on the neck.
+ * its shapes on the neck, on the strings they are played on.
  */
 const chordShapesView: MemberView = {
 	answerLabel: (_value, answer) => heardFrets(answer as ChordReading | null),
@@ -231,11 +231,19 @@ const chordShapesView: MemberView = {
 	},
 	picture: (members, next) => {
 		if (members.length === 0 && next.length === 0) return null;
-		return neckWithNext(
-			neckOf(members as readonly ChordShape[]),
-			neckOf(next as readonly ChordShape[]),
-			true
-		);
+		const shapes = [...members, ...next] as unknown as readonly ChordShape[];
+		// The strings the shapes now and next are played on, low to high: the neck draws those.
+		const strings = [
+			...new Set(shapes.flatMap(({ occurrence }) => occurrence.notes.map((note) => note.string)))
+		].sort((a, b) => b - a);
+		return {
+			...neckWithNext(
+				neckOf(members as readonly ChordShape[]),
+				neckOf(next as readonly ChordShape[]),
+				true
+			),
+			strings
+		};
 	}
 };
 

@@ -304,7 +304,7 @@ describe('SessionController', () => {
 			expect(clicksBetween(ctx, 30, 34.1)).toEqual([30.1, 31.1, 32.1, 33.1]);
 			ctx.runTo(33.11);
 			expect(ctx.controller.view.status).toBe('awaiting');
-			expect((model(ctx) as unknown as { cue: { kind: string } }).cue.kind).toBe('zone');
+			expect(model(ctx).prompt.detail).toBe('cases 1 à 5');
 		});
 	});
 
@@ -448,6 +448,8 @@ describe('SessionController', () => {
 			let drawn = 0;
 			const ctx = setup(passage(), {
 				presenters: { ...SET_PRESENTERS, change: presenter },
+				// Drawn by the presenter's own screen: the exercise writes no presentation.
+				exercise: (id) => ({ ...exerciseById(id), presentation: undefined }),
 				random: () => ++drawn / 100
 			});
 			await ctx.controller.start();
@@ -925,7 +927,7 @@ describe('SessionController', () => {
 					ctx.runTo(ctx.clock.now() + 0.05);
 				}
 			};
-			const tour = (model(ctx) as unknown as { changes: unknown[] }).changes.length;
+			const tour = model(ctx).rounds.length;
 			// The tour again has begun after its counted bar; the series' time runs out in its middle.
 			watch(ctx.bar(1 + tour + 1 + 1));
 			ctx.clock.epochAtZero += SESSION_MS;
@@ -961,7 +963,6 @@ describe('SessionController', () => {
 			scene: 'guitar',
 			sensors: ['note'],
 			expectation: undefined,
-			feedback: undefined,
 			attemptData: undefined,
 			contestable: false,
 			previewBeats: 1,
@@ -1047,6 +1048,8 @@ describe('SessionController', () => {
 				id,
 				practices: tap ? 'tap' : unannounced ? 'beat-unannounced' : 'beat',
 				view: undefined,
+				// Drawn by their fake presenter's own screen: no presentation.
+				presentation: undefined,
 				round: tap ? TAP_ROUND : BEAT_ROUND
 			};
 		};

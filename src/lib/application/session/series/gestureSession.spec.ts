@@ -1,3 +1,4 @@
+import type { Picture } from '$lib/application/presentation/pictures';
 import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
@@ -1046,14 +1047,36 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		await ctx.controller.start();
 		ctx.runTo(ctx.bar(1) + 0.02);
 		ctx.play(ctx.bar(1) + 0.02, rightShape(change(1)));
-		expect(model(ctx).miss).toEqual({
-			heard: { notes: expect.any(Array) },
-			expected: { notes: expect.any(Array) },
-			gap: expect.any(String),
-			style: 'grid'
-		});
+		expect(model(ctx).verdict?.misses).toEqual([
+			{
+				correction: null,
+				heard: { kind: 'shape', notes: expect.any(Array) },
+				expected: { kind: 'shape', notes: expect.any(Array) },
+				gap: expect.any(String)
+			}
+		]);
+		expect(model(ctx).chordDiagram).toBe('grid');
 		ctx.runTo(ctx.bar(2) - 0.2);
-		expect(model(ctx)).toMatchObject({ index: 1, miss: null });
+		expect(model(ctx)).toMatchObject({ index: 1, verdict: null });
+	});
+
+	it('shows each change on the screen model of its passage, its words its presentation’s', async () => {
+		const ctx = gestureSeries(passage());
+		await ctx.controller.start();
+		ctx.runTo(ctx.bar(1) + 0.02);
+		// The jam on iohefy-a: the change, the title, the line of its passage, no aid at level 1.
+		expect(model(ctx)).toMatchObject({
+			prompt: { primary: 'Dm7', secondary: 'I Only Have Eyes for You', detail: null },
+			rounds: [
+				{ at: 0, length: 4, label: 'Dm7', way: null },
+				{ at: 4, length: 4, label: 'G7', way: null }
+			],
+			index: 0,
+			aid: null
+		});
+		ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
+		ctx.runTo(ctx.bar(2) - 0.15);
+		expect(model(ctx)).toMatchObject({ prompt: { primary: 'G7' }, index: 1 });
 	});
 
 	it('draws nothing after a right chord', async () => {
@@ -1062,7 +1085,7 @@ describe('the chord sensor of a change (twoSensors)', () => {
 		ctx.runTo(ctx.bar(1) + 0.02);
 		ctx.play(ctx.bar(1) + 0.02, rightShape(change(0)));
 		expect(model(ctx).history).toEqual([{ beatIndex: 4, verdict: 'perfect' }]);
-		expect(model(ctx).miss).toBeNull();
+		expect(model(ctx).verdict?.misses).toEqual([]);
 	});
 
 	it('draws chords as the player chose, unless the exercise says', async () => {
@@ -1095,12 +1118,9 @@ describe('the miss of a passage’s last change (shown until the count starts)',
 	/** The drawn miss, the contest offer and the change shown, read at `time`. */
 	function at(ctx: Ctx, time: number) {
 		ctx.runTo(time);
-		const shown = model(ctx) as unknown as {
-			miss: unknown;
-			anchorBeat: number | null;
-		};
+		const shown = model(ctx);
 		return {
-			miss: shown.miss !== null,
+			miss: (shown.verdict?.misses.length ?? 0) > 0,
 			anchored: shown.anchorBeat !== null,
 			contest: ctx.controller.view.contest
 		};
@@ -1366,7 +1386,7 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 	const levelOf = (ctx: Ctx, exerciseId = CLIMB) =>
 		ctx.levels.get({ exerciseId, scope: 'iohefy-a', item: '' });
 
-	it('writes an aid level under level 1 that draws the shapes, and asks the anti-blocking, but for the jam', () => {
+	it('writes an aid level under level 1 that draws the shapes admitted, and asks the anti-blocking, but for the jam', () => {
 		for (const id of GESTURE_EXERCISE_IDS) {
 			const definition = exerciseById(id);
 			if (id === 'grid-reading') {
@@ -1375,7 +1395,9 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 				expect(definition.flow).toBeUndefined();
 				continue;
 			}
-			expect(definition.levels?.[0]).toEqual({ aid: true, params: { tempo: 80, shapes: true } });
+			// An aid level of the exercise shows its presentation's aid (D6): the shapes admitted.
+			expect(definition.levels?.[0]).toEqual({ aid: true, params: { tempo: 80 } });
+			expect(definition.presentation?.aided).toEqual({ picture: 'admitted' });
 			expect(definition.levels?.slice(1).every((level) => !level.aid)).toBe(true);
 			expect(definition.flow).toEqual({ antiBlocking: true });
 		}
@@ -1401,15 +1423,19 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		});
 	});
 
-	it('draws the shapes of the level played, not of another level that writes them', async () => {
-		// A climb written in the test: its level 2 draws the shapes, its level 1 does not.
+	it('draws its presentation’s aid at an aid level of the exercise only, never from level 1 up (D6)', async () => {
+		// A climb written in the test: its aid level, then two levels at the same tempo.
 		const exercise = (id: string) => {
 			const definition = exerciseById(id);
 			if (id !== CLIMB) return definition;
 			return {
 				...definition,
 				flow: undefined,
-				levels: [{ params: { tempo: 80 } }, { params: { tempo: 80, shapes: true } }]
+				levels: [
+					{ aid: true as const, params: { tempo: 80 } },
+					{ params: { tempo: 80 } },
+					{ params: { tempo: 80 } }
+				]
 			};
 		};
 		const at = async (level: number) => {
@@ -1433,8 +1459,9 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 			await playAllRight(ctx, () => null, seen.watch);
 			return seen.shown.map((each) => each.aid);
 		};
+		expect((await at(-1)).every((aid) => aid !== null)).toBe(true);
 		expect(await at(0)).toEqual([null, null]);
-		expect((await at(1)).every((aid) => aid !== null)).toBe(true);
+		expect(await at(1)).toEqual([null, null]);
 	});
 
 	it('draws no aid at the first passage of an index', async () => {
@@ -1482,16 +1509,21 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		]);
 		// The third passage's first change, Dm7, nothing heard before: the lowest G on G-B-E, 4-3-3,
 		// the shape the climb goes up to next.
+		// It draws on the neck every shape admitted now (Dm7's) and next (G7's), 4-3-3 among them (D5).
 		const lowestG = chordShapes.members({ chord: triadOf('G7'), strings: [...G_B_E] })[0];
-		const expectedAid = { notes: lowestG.notes.map(({ string, fret }) => ({ string, fret })) };
-		expect(expectedAid).toEqual({
-			notes: [
-				{ string: 3, fret: 4 },
-				{ string: 2, fret: 3 },
-				{ string: 1, fret: 3 }
-			]
-		});
-		expect(seen.shown[4].aid).toEqual(expectedAid);
+		expect(lowestG.notes.map(({ string, fret }) => `${string}:${fret}`)).toEqual([
+			'3:4',
+			'2:3',
+			'1:3'
+		]);
+		const aid = seen.shown[4].aid as Picture & { kind: 'neck' };
+		expect(aid).toMatchObject({ kind: 'neck', strings: [3, 2, 1] });
+		// Its places drawn (2-3, D, is Dm's too: drawn once, as a note of now).
+		expect(aid.notes.map(({ string, fret }) => `${string}:${fret}`)).toEqual(
+			expect.arrayContaining(['3:4', '2:3', '1:3'])
+		);
+		expect(aid.notes.some((note) => note.next)).toBe(true);
+		expect(aid.notes.some((note) => !note.next)).toBe(true);
 		expect(seen.shown.every((each) => each.tempoBpm === 80)).toBe(true);
 		// Announced at the counted bars of the third passage and of the fifth.
 		expect(seen.announced).toEqual(['aid-level', 'level-up']);
@@ -1538,9 +1570,19 @@ describe('the aid level of the changes (Review Focus 4)', () => {
 		];
 		const aided = [
 			{ now: first, next: second },
-			{ now: second, next: null }
+			{ now: second, next: [] }
 		];
-		expect(seen.shown.map((each) => each.aid)).toEqual([...aided, ...aided, null, null]);
+		/** The notes of the aid's neck, those of now and those of next. */
+		const notesOf = (aid: unknown) => {
+			if (aid === null) return null;
+			const { notes } = aid as Picture & { kind: 'neck' };
+			const plain = (next: boolean) =>
+				notes
+					.filter((note) => (note.next === true) === next)
+					.map(({ string, fret, name }) => ({ string, fret, name }));
+			return { now: plain(false), next: plain(true) };
+		};
+		expect(seen.shown.map((each) => notesOf(each.aid))).toEqual([...aided, ...aided, null, null]);
 		expect((await ctx.stored()).map((attempt) => attempt.aids.join())).toEqual([
 			...Array(4).fill('aid-level'),
 			'',

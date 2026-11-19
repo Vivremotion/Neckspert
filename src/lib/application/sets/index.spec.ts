@@ -17,12 +17,14 @@ describe('presenterOf', () => {
 	it('presents an exercise with its view’s presenter when that presenter presents its set', () => {
 		const link = exerciseById('inversion-run');
 		const presenter = presenterOf(link);
-		expect(presenter.stageOf).toBe(VIEW_PRESENTERS['link-lane'].stageOf);
+		expect(presenter.expectation).toBe(VIEW_PRESENTERS['link-lane'].expectation);
 		expect(presenter.set).toBe(VIEW_PRESENTERS['link-lane'].set);
 		// Another set's exercise on that view keeps its own set's presenter.
 		const jam = { ...exerciseById('grid-reading'), view: 'link-lane' };
 		expect(presenterOf(jam).set).toBe(SET_PRESENTERS.change.set);
-		expect(presenterOf(exerciseById('grid-reading')).stageOf).toBe(SET_PRESENTERS.change.stageOf);
+		expect(presenterOf(exerciseById('grid-reading')).expectation).toBe(
+			SET_PRESENTERS.change.expectation
+		);
 	});
 
 	it('presents the anchor and the zone with the voicings’ presenter', () => {

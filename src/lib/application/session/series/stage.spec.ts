@@ -91,12 +91,13 @@ describe('the stage dispatch', () => {
 	});
 
 	it("keeps the presenter's own model for a passage exercise without a presentation", () => {
-		const { planned } = servedPassageRound(GESTURE_CLIMB, 'grid=iohefy-a;strings=3,2,1', 1, {
+		const { presentation: _presentation, ...bare } = GESTURE_CLIMB;
+		const { planned } = servedPassageRound(bare, 'grid=iohefy-a;strings=3,2,1', 1, {
 			direction: 'up'
 		});
-		const model = modelOf(GESTURE_CLIMB, planned, changePresenter);
-		expect(model).toHaveProperty('cue');
-		expect(model).not.toHaveProperty('rounds');
+		const own = { ...changePresenter, stageOf: () => ({ model: { own: true } }) };
+		const model = modelOf(bare, planned, own);
+		expect(model).toEqual({ own: true });
 	});
 
 	it('keeps the prompt stage for a passage exercise drawn on the lane', () => {

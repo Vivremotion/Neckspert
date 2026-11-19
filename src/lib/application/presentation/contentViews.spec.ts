@@ -18,7 +18,6 @@ import {
 	type ChordGridConfusion
 } from '$lib/domain/families/guitar/chordShapes';
 import type { StringNumber } from '$lib/domain/music';
-import { changePresenter, linkPresenter } from '$lib/application/sets/chordGrid';
 import { GESTURE_CLIMB, GESTURE_JAM, GESTURE_LINK, GESTURE_ZONE } from '$lib/testing/catalog';
 import { servedPassageRound } from '$lib/testing/changesPassages';
 import { shapeAt, shapeId } from '$lib/testing/shapes';
@@ -405,6 +404,8 @@ describe('the picture of the members admitted', () => {
 		expect(membersPicture('chord-shapes', now, next)).toEqual({
 			kind: 'neck',
 			frets: { low: 5, high: 8 },
+			// The strings the shapes are played on, low to high: D-G-B now, G-B-E next.
+			strings: [4, 3, 2, 1],
 			notes: [
 				{ string: 3, fret: 7, name: 'D' },
 				{ string: 2, fret: 6, name: 'F' },
@@ -419,7 +420,7 @@ describe('the picture of the members admitted', () => {
 	it('draws a place two shapes share once', () => {
 		const shared = shapeMember('D', 'min', G_B_E, '7-6-5');
 		const picture = membersPicture('chord-shapes', [shared, shared], []);
-		expect(picture).toMatchObject({ kind: 'neck', frets: { low: 5, high: 7 } });
+		expect(picture).toMatchObject({ kind: 'neck', frets: { low: 5, high: 7 }, strings: [3, 2, 1] });
 		expect((picture as { notes: unknown[] }).notes).toHaveLength(3);
 	});
 
@@ -430,96 +431,153 @@ describe('the picture of the members admitted', () => {
 	});
 });
 
+/** The picture of a shape: its frets written low string first, on `strings`. */
+const drawn = (frets: string, strings: StringNumber[] = G_B_E) => ({
+	kind: 'shape',
+	notes: frets.split('-').map((fret, i) => ({ string: strings[i], fret: Number(fret) }))
+});
+
+/**
+ * The miss of a change, as the presenters of the changes told it before plan 4c deleted them
+ * (the view was compared with them while they ran; these expectations were captured then).
+ */
 describe('the miss of a change', () => {
-	/** What the view tells of a miss, and what the presenter told of it before. */
-	function both(
-		{ item, value, round }: ReturnType<typeof changeRound>,
+	/** What the view tells of a miss of `decided` in the round. */
+	function told(
+		{ value }: ReturnType<typeof changeRound>,
 		decided: string | null,
-		locale: 'fr' | 'en' = 'fr',
-		presenter: { feedback: (...args: never[]) => unknown } = changePresenter
+		locale: 'fr' | 'en' = 'fr'
 	) {
 		const judged = CONTENT_JUDGES.member.judge(value, { decided });
 		const outcome = { answer: judged.answer, confusion: judged.confusion };
-		const told = member.miss(value, outcome, locale, () => 0);
-		const before = (presenter.feedback as typeof changePresenter.feedback)(
-			item as never,
-			{ ...outcome, verdict: 'wrong' },
-			locale,
-			round
-		)!;
-		return { told, before, confusion: judged.confusion as ChordGridConfusion | null };
+		return {
+			told: member.miss(value, outcome, locale, () => 0),
+			confusion: judged.confusion as ChordGridConfusion | null
+		};
 	}
 
-	/** The view says what the presenter said: the shapes heard and expected, the gap. */
-	function expectSame({ told, before }: ReturnType<typeof both>) {
-		expect(told.heard).toEqual(before.heard && { kind: 'shape', ...before.heard });
-		expect(told.expected).toEqual(before.expected && { kind: 'shape', ...before.expected });
-		expect(told.gap).toBe(before.gap);
-		expect(told.correction).toBeNull();
-	}
-
-	it('tells every kind of confusion of a change as the presenter told it', () => {
+	it('tells every kind of confusion of a change: the shape heard, the shape expected, the gap', () => {
 		const ringing = shapeId('D', 'min', G_B_E, '7-6-5');
-		const cases: [ReturnType<typeof changeRound>, string | null, string, string][] = [
-			[jam(), null, 'none', 'rien de reconnu'],
-			[jam(), shapeId('C', 'maj', G_B_E, '5-5-3'), 'other-chord', 'autre accord'],
-			[jam(), shapeId('D', 'maj', G_B_E, '7-7-5'), 'other-quality', 'autre qualité'],
-			[climb('up', ringing), shapeId('D', 'min', D_G_B, '7-7-6'), 'other-set', 'autres cordes'],
-			[climb('up', ringing), shapeId('D', 'min', G_B_E, '2-3-1'), 'not-higher', 'pas plus haut'],
+		const cases: [
+			ReturnType<typeof changeRound>,
+			string | null,
+			string,
+			string,
+			unknown,
+			unknown
+		][] = [
+			[jam(), null, 'none', 'rien de reconnu', null, drawn('2-3-1')],
+			[
+				jam(),
+				shapeId('C', 'maj', G_B_E, '5-5-3'),
+				'other-chord',
+				'autre accord',
+				drawn('5-5-3'),
+				drawn('3-2-3', D_G_B)
+			],
+			[
+				jam(),
+				shapeId('D', 'maj', G_B_E, '7-7-5'),
+				'other-quality',
+				'autre qualité',
+				drawn('7-7-5'),
+				drawn('7-6-5')
+			],
+			[
+				climb('up', ringing),
+				shapeId('D', 'min', D_G_B, '7-7-6'),
+				'other-set',
+				'autres cordes',
+				drawn('7-7-6', D_G_B),
+				drawn('10-10-10')
+			],
+			[
+				climb('up', ringing),
+				shapeId('D', 'min', G_B_E, '2-3-1'),
+				'not-higher',
+				'pas plus haut',
+				drawn('2-3-1'),
+				drawn('10-10-10')
+			],
 			[
 				climb('down', shapeId('D', 'min', G_B_E, '10-10-10')),
 				shapeId('D', 'min', G_B_E, '14-15-13'),
 				'not-lower',
-				'pas plus bas'
+				'pas plus bas',
+				drawn('14-15-13'),
+				drawn('7-6-5')
 			],
-			[zone([5, 9]), shapeId('D', 'min', G_B_E, '10-10-10'), 'out-of-zone', 'hors de la zone']
+			[
+				zone([5, 9]),
+				shapeId('D', 'min', G_B_E, '10-10-10'),
+				'out-of-zone',
+				'hors de la zone',
+				drawn('10-10-10'),
+				drawn('7-7-6', D_G_B)
+			]
 		];
-		for (const [round, decided, kind, words] of cases) {
-			const seen = both(round, decided);
+		for (const [round, decided, kind, words, heard, expected] of cases) {
+			const seen = told(round, decided);
 			expect(seen.confusion?.kind, kind).toBe(kind);
-			expect(seen.told.gap, kind).toBe(words);
-			expectSame(seen);
+			expect(seen.told, kind).toEqual({ correction: null, heard, expected, gap: words });
 		}
 	});
 
-	it("tells a link's other shape as the presenter told it", () => {
-		const seen = both(link(1), shapeId('D', 'maj', G_B_E, '2-3-2'), 'en', linkPresenter);
+	it("tells a link's other shape", () => {
+		const seen = told(link(1), shapeId('D', 'maj', G_B_E, '2-3-2'), 'en');
 		expect(seen.confusion?.kind).toBe('other-shape');
-		expect(seen.told.gap).toBe('other shape');
-		expect(seen.told.expected).toEqual({
-			kind: 'shape',
-			...shapeOf(shapeAt('D', 'maj', G_B_E, '7-7-5'))
+		expect(seen.told).toEqual({
+			correction: null,
+			heard: drawn('2-3-2'),
+			expected: { kind: 'shape', ...shapeOf(shapeAt('D', 'maj', G_B_E, '7-7-5')) },
+			gap: 'other shape'
 		});
-		expectSame(seen);
 	});
 
 	it('expects the shape closest to the one heard, else to the one still ringing', () => {
 		const ringing = shapeId('D', 'min', G_B_E, '10-10-10');
-		const heard = both(jam(ringing), shapeId('D', 'maj', G_B_E, '7-7-5'));
-		expect(heard.told.expected).toEqual({
-			kind: 'shape',
-			...shapeOf(shapeAt('D', 'min', G_B_E, '7-6-5'))
+		const heard = told(jam(ringing), shapeId('D', 'maj', G_B_E, '7-7-5'));
+		expect(heard.told).toMatchObject({ heard: drawn('7-7-5'), expected: drawn('7-6-5') });
+		const none = told(jam(ringing), null);
+		expect(none.told).toMatchObject({ heard: null, expected: drawn('10-10-10') });
+	});
+
+	it('draws the shape heard and the closest admitted after a shape that does not climb', () => {
+		const ringing = shapeId('F', 'maj', G_B_E, '5-6-5');
+		const asked = changeRound(
+			servedPassageRound(
+				GESTURE_CLIMB,
+				'grid=blues-f;strings=3,2,1',
+				0,
+				{ direction: 'up' },
+				ringing
+			)
+		);
+		const seen = told(asked, shapeId('F', 'maj', G_B_E, '2-1-1'));
+		expect(seen.confusion?.kind).toBe('not-higher');
+		expect(seen.told).toEqual({
+			correction: null,
+			heard: drawn('2-1-1'),
+			expected: drawn('10-10-8'),
+			gap: 'pas plus haut'
 		});
-		expectSame(heard);
-		const none = both(jam(ringing), null);
-		expect(none.told.expected).toEqual({
-			kind: 'shape',
-			...shapeOf(shapeAt('D', 'min', G_B_E, '10-10-10'))
+		const { value } = asked;
+		expect(member.miss(value, { answer: null, confusion: null }, 'en', () => 0)).toMatchObject({
+			heard: null,
+			gap: 'no chord heard'
 		});
-		expectSame(none);
+	});
+
+	it('tells a miss whose confusion says nothing without a gap, and without throwing', () => {
+		const heard = shapeId('D', 'min', G_B_E, '7-6-5');
+		expect(
+			member.miss(jam().value, { answer: { decided: heard }, confusion: null }, 'fr', () => 0)
+		).toEqual({ correction: null, heard: drawn('7-6-5'), expected: drawn('7-6-5'), gap: null });
 	});
 
 	it('says no chord was heard when nothing answered', () => {
-		const { value, item, round } = jam();
-		const told = member.miss(value, { answer: null, confusion: null }, 'en', () => 0);
-		const before = changePresenter.feedback(
-			item as never,
-			{ answer: null, confusion: null, verdict: 'wrong' },
-			'en',
-			round
-		)!;
+		const told = member.miss(jam().value, { answer: null, confusion: null }, 'en', () => 0);
 		expect(told.gap).toBe('no chord heard');
-		expect(told.gap).toBe(before.gap);
 		expect(told.heard).toBeNull();
 	});
 });

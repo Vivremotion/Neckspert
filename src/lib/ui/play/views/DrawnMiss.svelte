@@ -1,11 +1,14 @@
 <script lang="ts">
-	import type { DrawnMiss } from '$lib/application/sets/chordGrid';
-	import { i18n } from '$lib/i18n/index.svelte';
-	import ChordShape from '$lib/ui/primitives/ChordShape.svelte';
+	import type { MissView } from '$lib/application/presentation/contentViews';
+	import type { ChordDiagramStyle } from '$lib/domain/types';
 	import { playMessages } from '../messages';
+	import { PICTURE_VIEWS } from './pictures';
 
-	/** A miss drawn as the play frame drew its verdict: what was played, what was due, the gap. */
-	let { miss }: { miss: DrawnMiss } = $props();
+	/**
+	 * A miss drawn as the play frame drew its verdict: what was played, what was due (their
+	 * pictures, chord shapes in `chordDiagram`), the gap.
+	 */
+	let { miss, chordDiagram }: { miss: MissView; chordDiagram: ChordDiagramStyle } = $props();
 
 	const t = $derived(playMessages());
 </script>
@@ -13,15 +16,17 @@
 <div class="miss" data-testid="miss">
 	<div class="drawn">
 		{#if miss.heard}
+			{@const Heard = PICTURE_VIEWS[miss.heard.kind]}
 			<div class="drawn-part">
 				<p class="label">{t.played}</p>
-				<ChordShape shape={miss.heard} style={miss.style} locale={i18n.locale} size="small" />
+				<Heard picture={miss.heard} {chordDiagram} size="small" />
 			</div>
 		{/if}
 		{#if miss.expected}
+			{@const Expected = PICTURE_VIEWS[miss.expected.kind]}
 			<div class="drawn-part">
 				<p class="label">{t.expected}</p>
-				<ChordShape shape={miss.expected} style={miss.style} locale={i18n.locale} size="small" />
+				<Expected picture={miss.expected} {chordDiagram} size="small" />
 			</div>
 		{/if}
 	</div>
