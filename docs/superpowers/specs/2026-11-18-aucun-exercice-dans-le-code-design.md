@@ -557,6 +557,9 @@ Ce que l'exécution a décidé en plus :
 - L'accueil, la carte du manche et la prochaine révision du bilan ne comptent plus que les cartes qu'une séance peut servir (celles que la liste d'un exercice nomme) : une carte hors liste ne s'affiche plus comme « due » pour toujours.
 - Ce que le joueur perd, décidé par l'auteur : une note n'attend plus que son miroir soit acquis, « une autre corde si possible » disparaît, les notes des triades en cours d'apprentissage ne viennent plus en premier, les fondamentales des triades ne sont plus triées par ce que le joueur sait déjà. Tout le reste d'une séance (catégories, sonde, présentation aidée, échelles, seuils, consolidation, jamais le même élément deux fois de suite) est inchangé.
 - `order.ts`, `neckSubject`, `triadSubject`, les générateurs d'ordre, `mirror.ts` (sauf `openPitch`, déplacé dans `music/fretboard.ts`), `triadParams` et `triadVoicings` sont supprimés ; un test de frontière interdit que leurs noms reviennent.
+- Après la revue finale : un exercice dont la capacité a des cartes n'est pas proposé comme séance d'exercice, tant que la Bibliothèque n'existe pas (`exerciseSessionExercises` le laisse de côté, et `startExercise` le refuse). Il est chargé et vérifié, mais aucune séance ne le joue. Sans ce garde, un exercice importé sur une capacité de mémoire, avec une figure et des niveaux, apparaissait sur l'accueil et levait une erreur à son premier tour jugé.
+- La revue finale a aussi resserré : deux graphies d'un même élément dans une liste sont refusées comme un doublon ; une carte que nulle liste ne nomme ne compte plus pour ouvrir la zone des triades ; une séance d'ancrage n'exige plus l'exercice de la zone, ni l'inverse (chacune exige le sien).
+- Mesure : le catalogue se charge en 4 à 9 ms environ (1 à 3 ms avant), et la suite de tests est environ 8 % plus lente.
 
 Ce qui diffère du § 5, que celui-ci ne dit pas (le § 5 reste tel quel) :
 
@@ -570,9 +573,15 @@ Ce qui diffère du § 5, que celui-ci ne dit pas (le § 5 reste tel quel) :
 
 Laissé au plan 4 :
 
-- le tirage `another-place` devient deux filtres (« à une case », « autre que le précédent ») et disparaît ; `domain/sets/draws.ts` lit encore `domain/triads/position.ts`.
+- le tirage `another-place` devient deux filtres (« à une case », « autre que le précédent ») et disparaît ; `domain/sets/draws.ts` lit encore `domain/triads/position.ts` ;
+- `voicing-on-strings` garde une clé telle qu'elle est écrite : si des cordes écrites dans un autre ordre étaient acceptées, une liste importée pourrait faire deux cartes pour un même voicing (les familles générées retirent la question) ;
+- `itemsProblem` lit l'ensemble de l'exercice (`exerciseItemSet`) alors que le sujet lit celui de la capacité (`setOfSkill`) : ils ne diffèrent que pour un exercice de mémoire sur une vue de changements.
 
 Laissé au plan 5 :
 
 - l'ordre des exercices d'une séance (`identify-note` avant `locate-note-string`) est encore dans `createAppServices` ; il passe à la routine. Deux exercices d'une séance sur une même capacité : le sujet refuse de se construire ; la routine devra le refuser au chargement ;
+- les décomptes de l'accueil ne consultent que les quatre exercices du catalogue : il faudra l'union de tous les exercices qui travaillent une capacité, quand la Bibliothèque jouera des exercices de mémoire importés ;
+- les statistiques de l'accueil lisent les tentatives par capacité, quel que soit l'exercice ;
+- le jeu libre et la carte du manche prennent encore leurs places dans le code (`practiceCards()`, `LEARNABLE_FRETS`), égales aux listes d'aujourd'hui ;
+- le jeu libre d'un exercice de mémoire importé déplace-t-il les cartes partagées ? C'est la décision de l'auteur.
 - toujours du plan 2b : une sauvegarde importée sur un appareil qui n'a pas les fichiers apporte des cartes d'une capacité importée sans contrôle ; depuis ce plan elles sont gardées et ignorées tant qu'aucune liste ne les nomme.
