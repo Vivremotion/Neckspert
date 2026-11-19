@@ -275,3 +275,31 @@ export const chordShapes: Family<ChordShapesIndex, ChordShape> = {
 		return changeConfusion(index, () => shapesOf(index, read.voicings), decided, refused);
 	}
 };
+
+/** The shape among `shapes` whose position is closest to `reference`'s (the first on a tie); the first without one. */
+export function closestShape(
+	shapes: readonly ChordShape[],
+	reference: ChordShape | null
+): ChordShape | null {
+	if (shapes.length === 0) return null;
+	if (!reference) return shapes[0];
+	const at = GUITAR_ATTRIBUTES.position;
+	const target = at(reference);
+	return shapes.reduce((best, shape) =>
+		Math.abs(at(shape) - target) < Math.abs(at(best) - target) ? shape : best
+	);
+}
+
+/**
+ * After a miss, the shape that was due: among the shapes admitted, the closest to the one heard
+ * (`decided`), else to the one still ringing (`ringing`), else the first (the lowest); null when
+ * none is admitted.
+ */
+export function expectedShape(
+	admitted: readonly ChordShape[],
+	decided: string | null,
+	ringing: string | null
+): ChordShape | null {
+	const named = (id: string | null) => (id === null ? null : chordShapes.member(id));
+	return closestShape(admitted, named(decided) ?? named(ringing));
+}

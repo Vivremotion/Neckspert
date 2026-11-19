@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { gridExpectation } from '$lib/application/sets/chordGrid';
+import { changeExpectation } from '$lib/application/sets/changeExpectation';
 import { roundMemberContents } from '$lib/domain/exercise/passage/contents';
 import {
 	passageIndexKey,
@@ -327,6 +328,13 @@ function newContents(
 	const round = passageRound(definition, index, each, item, rank, length);
 	const served = { ...round, passage: { ...round.passage, id: 'p', previous } };
 	return roundMemberContents(definition, served).map(({ content }) => content);
+}
+
+/** The symbols a passage of `index` plays: its grid's changes, else its chord's. */
+function passageLine(definition: ExerciseDefinition, index: PassageIndex): { symbol: string }[] {
+	const { grid, chord } = index.of as { grid?: string; chord?: string };
+	if (grid !== undefined) return gridChanges(gridById(grid));
+	return passageMembers(definition, index, firstEach(definition)).map(() => ({ symbol: chord! }));
 }
 
 /** What the old rule needs of a change beyond its element and passage. */
@@ -861,7 +869,7 @@ describe('the changes judged as members, compared with the rules they replace', 
 
 		// The old sensor leaves out of what it expects any admitted shape sounding the pitches of
 		// the shape still ringing (`gridExpectation`'s `silent`); the members admitted keep it. The
-		// next task's presenter keeps this rule: until then this test documents it. Only the link
+		// presenter keeps this rule (`changeExpectation`, compared whole below). Only the link
 		// meets it.
 		it(
 			'the old sensor expects the members admitted, but those sounding as the shape still ringing',
@@ -890,6 +898,44 @@ describe('the changes judged as members, compared with the rules they replace', 
 				INFO.sensorLeftOut = leftOut;
 				expect(found.list, report(found.list)).toEqual([]);
 				expect(leftOut).toEqual(SENSOR_LEFT_OUT);
+			},
+			TIMEOUT
+		);
+
+		it(
+			'the presenter tells the chord sensor what the old sensor was told, candidates included',
+			() => {
+				const found = recorder('C-presenter');
+				let compared = 0;
+				for (const { name, next } of PAIRS) {
+					for (const c of ALL_CASES.filter((each) => each.exercise === name)) {
+						for (const context of contextsOf(c)) {
+							const [content] = newContents(
+								next,
+								c.index,
+								eachOf(c, context),
+								c.newItem,
+								c.rank,
+								c.length,
+								context.previous
+							);
+							const was = gridExpectation(oldItem(c, context), 3);
+							const is = changeExpectation(content, passageLine(next, c.index), name === 'jam', 3);
+							compared++;
+							if (JSON.stringify(was) !== JSON.stringify(is)) {
+								const sameExpected = was.expected.join('|') === is.expected.join('|');
+								found.add(`${name}: ${sameExpected ? 'candidates' : 'expected'}`, {
+									item: shown(oldItem(c, context)),
+									was,
+									is
+								});
+							}
+						}
+					}
+				}
+				INFO['C-presenter'] = compared;
+				expect(compared).toBe(SENSOR_CASES);
+				expect(found.list, report(found.list)).toEqual([]);
 			},
 			TIMEOUT
 		);

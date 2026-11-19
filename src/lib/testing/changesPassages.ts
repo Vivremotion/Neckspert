@@ -145,3 +145,6 @@ export function alternatingGrid(id: string, count: number) {
 		}))
 	};
 }
+
+/** The four exercises of the changes, in the order of the ladder. */
+export const CHANGES_EXERCISES = PASSAGE_EXERCISES;
