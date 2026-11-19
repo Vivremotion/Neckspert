@@ -80,7 +80,8 @@ export class FakeBackup implements BackupPort {
 		cards: [],
 		attempts: [],
 		sessions: [],
-		levelStates: []
+		levelStates: [],
+		definitionFiles: []
 	};
 
 	constructor(private readonly settingsRepo: InMemorySettingsRepository) {}

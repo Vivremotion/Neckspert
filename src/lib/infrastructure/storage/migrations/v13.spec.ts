@@ -208,7 +208,7 @@ describe('the item keys of an attempt at version 13', () => {
 });
 
 describe('a backup at version 9', () => {
-	it('is the version 8 backup with its cards, attempts, level states and sessions upgraded', () => {
+	it('is the version 8 backup with its cards, attempts, level states and sessions upgraded, no definition files', () => {
 		const backup = {
 			app: 'neckspert-play',
 			version: 8,
@@ -229,7 +229,8 @@ describe('a backup at version 9', () => {
 				}
 			],
 			levelStates: [{ exerciseId: 'locate-note-string', scope: '', item: '6:F', level: 2 }],
-			sessions: [{ id: 's', routine: 'notes', executions: [{ exerciseId: 'locate-note-string' }] }]
+			sessions: [{ id: 's', routine: 'notes', executions: [{ exerciseId: 'locate-note-string' }] }],
+			definitionFiles: []
 		});
 	});
 });

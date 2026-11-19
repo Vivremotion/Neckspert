@@ -5,6 +5,7 @@ import { createDatabase, type NeckspertDb } from './db';
 import { DexieAttemptRepository } from './DexieAttemptRepository';
 import { DexieBackup } from './DexieBackup';
 import { DexieCardStateRepository } from './DexieCardStateRepository';
+import { DexieDefinitionFileRepository } from './DexieDefinitionFileRepository';
 import { DexieLevelStateRepository } from './DexieLevelStateRepository';
 import { DexieSessionRepository } from './DexieSessionRepository';
 import { DexieSettingsRepository } from './DexieSettingsRepository';
@@ -107,8 +108,21 @@ describe('DexieBackup', () => {
 				cards: [],
 				attempts: [],
 				sessions: [],
-				levelStates: []
+				levelStates: [],
+				definitionFiles: []
 			});
+		});
+
+		it('exports the imported definition files by name', async () => {
+			const files = new DexieDefinitionFileRepository(db);
+			await files.put({ name: 'triads.json', text: '{}', importedAt: 2 });
+			await files.put({ name: 'blues.json', text: '{ }', importedAt: 1 });
+			const file = await new DexieBackup(db, () => 5).exportAll();
+			expect(file.definitionFiles).toEqual([
+				{ name: 'blues.json', text: '{ }', importedAt: 1 },
+				{ name: 'triads.json', text: '{}', importedAt: 2 }
+			]);
+			expect(validateBackup(JSON.parse(JSON.stringify(file)))).toEqual(file);
 		});
 
 		it('exports version 9 without progressions, attempts with their scope', async () => {
@@ -157,6 +171,14 @@ describe('DexieBackup', () => {
 			expect(await new DexieAttemptRepository(db).all()).toEqual(file.attempts);
 			expect(await new DexieSessionRepository(db).list()).toEqual(file.sessions);
 			expect(await new DexieLevelStateRepository(db).all()).toEqual([]);
+		});
+
+		it("replaces the stored definition files with the file's", async () => {
+			const files = new DexieDefinitionFileRepository(db);
+			await files.put({ name: 'old.json', text: 'x', importedAt: 1 });
+			const imported = { name: 'triads.json', text: '{}', importedAt: 2 };
+			await new DexieBackup(db).importAll(makeBackup({ definitionFiles: [imported] }));
+			expect(await files.all()).toEqual([imported]);
 		});
 
 		it('keeps the level an exercise session ended on through an export and an import', async () => {

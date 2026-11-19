@@ -17,6 +17,8 @@ import type {
 	AudioClockPort,
 	AudioInputDevice,
 	CardStateRepositoryPort,
+	DefinitionFileRecord,
+	DefinitionFileRepositoryPort,
 	LevelStateRepositoryPort,
 	ChordExpectation,
 	ChordReport,
@@ -485,6 +487,24 @@ export class InMemoryLevelStateRepository implements LevelStateRepositoryPort {
 
 	async all(): Promise<LevelState[]> {
 		return [...this.states.values()].map((state) => ({ ...state }));
+	}
+}
+
+export class InMemoryDefinitionFileRepository implements DefinitionFileRepositoryPort {
+	private readonly files = new Map<string, DefinitionFileRecord>();
+
+	async all(): Promise<DefinitionFileRecord[]> {
+		return [...this.files.values()]
+			.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+			.map((file) => ({ ...file }));
+	}
+
+	async put(file: DefinitionFileRecord): Promise<void> {
+		this.files.set(file.name, { ...file });
+	}
+
+	async delete(name: string): Promise<void> {
+		this.files.delete(name);
 	}
 }
 

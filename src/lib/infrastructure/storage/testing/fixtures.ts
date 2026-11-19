@@ -184,6 +184,7 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
 		attempts: [makeAttempt({ id: 1 })],
 		sessions: [makeSession()],
 		levelStates: [],
+		definitionFiles: [],
 		...overrides
 	};
 }
@@ -193,8 +194,9 @@ export function makeBackup(overrides: Partial<BackupFile> = {}): BackupFile {
  * kind; exercises by their ids then.
  */
 export function makeBackupV8(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+	const { definitionFiles: _definitionFiles, ...v9 } = makeBackup();
 	return {
-		...makeBackup(),
+		...v9,
 		version: 8,
 		cards: [makeCardV12()],
 		attempts: [makeAttemptV12({ id: 1 })],

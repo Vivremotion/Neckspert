@@ -2,6 +2,7 @@ import Dexie, { type EntityTable, type Table } from 'dexie';
 import {
 	type Attempt,
 	type CardState,
+	type DefinitionFileRecord,
 	type LevelState,
 	type SessionRecord,
 	type Settings
@@ -33,6 +34,8 @@ export class NeckspertDb extends Dexie {
 	settings!: EntityTable<SettingsRow, 'id'>;
 	/** Where each exercise stands in its levels, by exercise, scope and item ('' when absent). */
 	levelStates!: Table<LevelState, [string, string, string]>;
+	/** The definition files the player imported, by name (empty until a later plan fills it). */
+	definitionFiles!: EntityTable<DefinitionFileRecord, 'name'>;
 
 	constructor(name: string) {
 		super(name);
@@ -253,9 +256,9 @@ export class NeckspertDb extends Dexie {
 		// key prefixed by it; eight exercises take the name of their skill; a session says the
 		// routine or the exercise it played instead of its kind. A card's key is its primary key:
 		// every card is written again under its new key. Same conversion as the import of a version 8
-		// backup (`migrations/v13.ts`).
+		// backup (`migrations/v13.ts`). The imported definition files get their table, empty.
 		this.version(13)
-			.stores({ ...stores, levelStates: '[exerciseId+scope+item]' })
+			.stores({ ...stores, levelStates: '[exerciseId+scope+item]', definitionFiles: 'name' })
 			.upgrade(async (tx) => {
 				const cards = tx.table('cards');
 				const upgraded = (await cards.toArray()).map(cardToV13);

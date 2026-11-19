@@ -474,6 +474,13 @@ export interface NeckMapCell {
 	coldAccuracy: number | null;
 }
 
+/** A definition file the player imported, kept as the text it was read from, by its name. */
+export interface DefinitionFileRecord {
+	name: string;
+	text: string;
+	importedAt: number;
+}
+
 export interface BackupFile {
 	app: 'neckspert-play';
 	version: 9;
@@ -483,4 +490,5 @@ export interface BackupFile {
 	attempts: Attempt[];
 	sessions: SessionRecord[];
 	levelStates: LevelState[];
+	definitionFiles: DefinitionFileRecord[];
 }

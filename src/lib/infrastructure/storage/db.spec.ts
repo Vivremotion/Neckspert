@@ -26,11 +26,12 @@ describe('createDatabase', () => {
 		expect(db.name).toBe('neckspert-play');
 	});
 
-	it('declares the five tables with their keys and indexes', () => {
+	it('declares the six tables with their keys and indexes', () => {
 		const db = createDatabase(crypto.randomUUID());
 		expect(db.tables.map((table) => table.name).sort()).toEqual([
 			'attempts',
 			'cards',
+			'definitionFiles',
 			'levelStates',
 			'sessions',
 			'settings'
@@ -47,6 +48,7 @@ describe('createDatabase', () => {
 		expect(db.sessions.schema.indexes.map((index) => index.name)).toEqual(['startedAt']);
 		expect(db.settings.schema.primKey.keyPath).toBe('id');
 		expect(db.levelStates.schema.primKey.keyPath).toEqual(['exerciseId', 'scope', 'item']);
+		expect(db.definitionFiles.schema.primKey.keyPath).toBe('name');
 	});
 
 	it('empties every table when a version 1 database is opened', async () => {

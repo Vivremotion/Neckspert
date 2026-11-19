@@ -841,6 +841,30 @@ function checkSessionV9(session: Fields): string | null {
 	);
 }
 
+/** Version 9: an imported definition file, its text as it was read. */
+function checkDefinitionFile(file: Fields): string | null {
+	if (!isNonEmptyString(file.name)) return 'name must be a non-empty string';
+	if (typeof file.text !== 'string') return 'text must be a string';
+	if (!isFiniteNumber(file.importedAt)) return 'importedAt must be a number';
+	return null;
+}
+
+/** Version 9: the imported definition files, each checked, no two of the same name. */
+function checkDefinitionFiles(value: unknown): void {
+	checkEntries(value, 'definitionFiles', checkDefinitionFile);
+	const seen = new Map<string, number>();
+	(value as Fields[]).forEach((file, index) => {
+		const name = file.name as string;
+		const first = seen.get(name);
+		if (first !== undefined) {
+			throw new Error(
+				`Invalid definitionFiles entry at index ${index}: name ${name} is already taken at index ${first}`
+			);
+		}
+		seen.set(name, index);
+	});
+}
+
 /** Version 9: a card names its skill, its key prefixed by it; no lead. */
 function checkCardV9(card: Fields): string | null {
 	return (
@@ -904,12 +928,13 @@ export function validateBackupV8(file: unknown): BackupV8 {
 /**
  * Checks a version 9 file and returns it unchanged: cards and attempts name their skill, their
  * keys prefixed by it; sessions their routine or exercise; no old id of the eight exercises named
- * after their skill (`EXERCISE_IDS_V13`).
+ * after their skill (`EXERCISE_IDS_V13`); the imported definition files, one per name.
  */
 export function validateBackupV9(file: unknown): BackupFile {
 	const backup = checkHeader(file, 9);
 	checkNoProgressions(backup);
 	checkBackupTables(backup, checkCardV9, checkAttemptV9, checkSessionV9, checkLevelStateV9);
+	checkDefinitionFiles(backup.definitionFiles);
 	return backup as unknown as BackupFile;
 }
 

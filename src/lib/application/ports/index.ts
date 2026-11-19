@@ -22,6 +22,8 @@ export type {
 	AttemptRepositoryPort,
 	BackupPort,
 	CardStateRepositoryPort,
+	DefinitionFileRecord,
+	DefinitionFileRepositoryPort,
 	LevelStateRepositoryPort,
 	SessionRepositoryPort,
 	SettingsRepositoryPort

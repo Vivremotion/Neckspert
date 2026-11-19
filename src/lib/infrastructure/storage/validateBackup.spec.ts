@@ -1593,6 +1593,54 @@ describe('version 9', () => {
 		});
 	});
 
+	it('gives a version 8 file no definition files', () => {
+		expect(validateBackup(makeBackupV8()).definitionFiles).toEqual([]);
+	});
+
+	it('accepts the definition files of a version 9 file, as they are', () => {
+		const definitionFiles = [
+			{ name: 'triads.json', text: '{ "format": 0 }', importedAt: 2 },
+			{ name: 'blues.json', text: '', importedAt: 1 }
+		];
+		const file = makeBackup({ definitionFiles });
+		expect(validateBackupV9(file)).toBe(file);
+		expect(file.definitionFiles).toEqual(definitionFiles);
+	});
+
+	it('refuses definition files that are not a list of named texts, and names the entry', () => {
+		const withFiles = (definitionFiles: unknown) =>
+			makeBackup({ definitionFiles: definitionFiles as never });
+		const good = { name: 'a.json', text: '{}', importedAt: 1 };
+		expect(() => validateBackupV9(withFiles(undefined))).toThrow(
+			'Backup field "definitionFiles" must be an array'
+		);
+		expect(() => validateBackupV9(withFiles([good, 'x']))).toThrow(
+			'Invalid definitionFiles entry at index 1: not an object'
+		);
+		expect(() => validateBackupV9(withFiles([{ ...good, name: '' }]))).toThrow(
+			'Invalid definitionFiles entry at index 0: name must be a non-empty string'
+		);
+		expect(() => validateBackupV9(withFiles([{ ...good, text: 3 }]))).toThrow(
+			'Invalid definitionFiles entry at index 0: text must be a string'
+		);
+		expect(() => validateBackupV9(withFiles([{ ...good, importedAt: '1' }]))).toThrow(
+			'Invalid definitionFiles entry at index 0: importedAt must be a number'
+		);
+	});
+
+	it('refuses two definition files of the same name, and names the second', () => {
+		const file = makeBackup({
+			definitionFiles: [
+				{ name: 'a.json', text: '{}', importedAt: 1 },
+				{ name: 'b.json', text: '{}', importedAt: 1 },
+				{ name: 'a.json', text: '[]', importedAt: 2 }
+			]
+		});
+		expect(() => validateBackupV9(file)).toThrow(
+			'Invalid definitionFiles entry at index 2: name a.json is already taken at index 0'
+		);
+	});
+
 	it('refuses a version 8 file whose rows already name their skill', () => {
 		expect(() => validateBackupV8({ ...makeBackup(), version: 8 })).toThrow(
 			'Invalid cards entry at index 0: mechanic must be one of'

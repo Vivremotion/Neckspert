@@ -347,14 +347,18 @@ export function sessionToV13(session: Row): Row {
 	return { ...rest, ...origin, executions };
 }
 
-/** A backup at version 9: cards and attempts name their skill, sessions their routine. */
+/**
+ * A backup at version 9: cards and attempts name their skill, sessions their routine; it holds
+ * the definition files the player imported.
+ */
 export interface BackupV9 extends Row {
 	version: 9;
+	definitionFiles: Row[];
 }
 
 /**
  * A version 8 backup as version 9: its cards, attempts, level states and sessions upgraded
- * (`cardToV13`, `attemptToV13`, `levelStateToV13`, `sessionToV13`).
+ * (`cardToV13`, `attemptToV13`, `levelStateToV13`, `sessionToV13`), no definition files.
  */
 export function backupV8ToV9(backup: BackupV8): BackupV9 {
 	const rows = (value: unknown): Row[] => (Array.isArray(value) ? (value as Row[]) : []);
@@ -364,6 +368,8 @@ export function backupV8ToV9(backup: BackupV8): BackupV9 {
 		cards: rows(backup.cards).map(cardToV13),
 		attempts: rows(backup.attempts).map(attemptToV13),
 		levelStates: rows(backup.levelStates).map(levelStateToV13),
-		sessions: rows(backup.sessions).map(sessionToV13)
+		sessions: rows(backup.sessions).map(sessionToV13),
+		// Version 8 had no imported definition files.
+		definitionFiles: []
 	};
 }
