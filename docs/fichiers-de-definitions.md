@@ -385,7 +385,7 @@ Le contenu de l'attente du tour est un choix de la famille `chord-shapes`. Pour 
 
 ### Ce que la séance joue
 
-La séance « Geste » joue les quatre exercices du catalogue, chacun à son tour, dans l'ordre du lien, de la montée, de la zone et de la lecture. Pour l'exercice dont c'est le tour, elle prend, parmi ses index ouverts, celui qui a été joué le moins récemment (à égalité, le premier écrit).
+La séance « Changements » joue les quatre exercices du catalogue, chacun à son tour, dans l'ordre du lien, de la montée, de la zone et de la lecture. Pour l'exercice dont c'est le tour, elle prend, parmi ses index ouverts, celui qui a été joué le moins récemment (à égalité, le premier écrit).
 
 - Chaque passage commence par une mesure comptée, puis ses tours s'enchaînent sans silence.
 - Un passage qui ne peut pas se jouer est sauté : il ne donne aucun membre, plus de 256, un de ses tours ne se compile pas, ou un de ses tours n'admet aucune forme (une zone où un accord n'a pas de forme). La séance essaie alors les valeurs suivantes des paramètres de passage de cet index ; un index sans aucun passage jouable est laissé de côté pour la séance, et un exercice sans index jouable aussi.
@@ -393,17 +393,17 @@ La séance « Geste » joue les quatre exercices du catalogue, chacun à son tou
 - Une fois la durée de la séance passée, ou dès que la séance juge le joueur fatigué, aucun passage ne commence ; celui qui est en cours va jusqu'au bout.
 - « On change d'air » (voir « Les niveaux et l'aide ») peut arrêter un passage en son milieu.
 
-La séance « Geste » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé. Ce sera le rôle des routines. Un tel exercice n'apparaît pas sous « Exercices », même s'il écrit un tour à figure et des niveaux. La liste « Exercices » ne garde que ce que la séance d'exercice sait servir : les éléments écrits (`items`), sinon des figures lues sur les éléments.
+La séance « Changements » ne joue que ces quatre exercices. Un fichier importé peut écrire `passages` : il est chargé et vérifié, mais aucune séance ne joue encore les passages d'un fichier importé. Ce sera le rôle des routines. Un tel exercice n'apparaît pas sous « Exercices », même s'il écrit un tour à figure et des niveaux. La liste « Exercices » ne garde que ce que la séance d'exercice sait servir : les éléments écrits (`items`), sinon des figures lues sur les éléments.
 
 ### Les niveaux et l'aide
 
 Les niveaux de tempo s'écrivent comme pour tout exercice (`levels`) : les quatre exercices vont de ♩ = 80 à 120 de 5 en 5, chaque niveau passé après 10 changements justes de suite et quitté après 3 ratés de suite. Le niveau bouge à chaque changement jugé ; un nouveau tempo s'applique au passage suivant, après sa mesure comptée.
 
-L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage :
+L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage. Les quatre exercices l'écrivent de la même façon :
 
 ```json
 "levels": [
-	{ "aid": true, "params": { "tempo": 80, "shapes": true } },
+	{ "aid": true, "params": { "tempo": 80 } },
 	{ "params": { "tempo": 80 }, "pass": { "successes": 10 }, "drop": { "failures": 3 } }
 ],
 "flow": { "antiBlocking": true }
@@ -411,13 +411,62 @@ L'aide est un **niveau d'aide** écrit sous le niveau 1, avec l'anti-blocage :
 
 Dans le catalogue, les niveaux suivants (♩ = 85 à 120) s'écrivent de la même façon que le niveau 1, avec leur tempo.
 
-- **`"shapes": true`** fait dessiner la forme à jouer. Sur la grille, au changement suivant : pour la montée, la forme admise la plus proche de celle qui sonne, dans le sens de la montée ; pour la zone, la plus grave admise. Sur le lien, les notes de la forme à jouer et de la suivante, sur le manche. À tout autre niveau, rien n'est dessiné.
-- **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête juste après ce changement, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure. L'accueil ne montre pas ce repos pour « Geste » : la séance suivante, lancée tout de suite, retombe d'abord sur cet exercice, à son niveau d'aide.
-- **La lecture** (`grid-reading`) n'écrit ni niveau d'aide ni anti-blocage : aucune aide n'y est dessinée aujourd'hui. Son aide viendra avec le modèle générique du plan 4c.
+- **Un niveau d'aide de l'exercice montre l'aide de sa consigne** (`presentation.aided`, voir « La consigne d'un passage »). Les quatre exercices écrivent `"aided": { "picture": "admitted" }` : sur le manche, les formes que le tour admet. À tout autre niveau, rien n'est dessiné. Cette règle vaut sur les vues de passage seulement : sur `lane`, `aided` ne se montre que pour un élément servi aidé, par l'échelle d'un exercice de mémoire. L'ancien paramètre `"shapes": true` n'existe plus : il n'est lu par rien, et un niveau qui l'écrit n'a pas d'aide de plus.
+- **Ce que le joueur vit** : après trois ratés de suite au niveau 1, le niveau d'aide arrive au passage suivant, annoncé. Trois changements justes de suite le ramènent au niveau 1 (le niveau d'aide n'écrit ni `pass` ni `drop` : le moteur en compte trois). Un changement joué au niveau d'aide compte comme joué au niveau, pas comme aidé : c'est ce qui permet d'en remonter. Trois ratés de suite au niveau d'aide amènent « On change d'air » : la séance entière s'arrête juste après ce changement, au milieu du passage, les autres exercices compris, et cet exercice se repose une heure. L'accueil ne montre pas ce repos pour « Changements » : la séance suivante, lancée tout de suite, retombe d'abord sur cet exercice, à son niveau d'aide.
+- **La lecture** (`grid-reading`) a son niveau d'aide comme les trois autres. Son aide dessine toutes les formes de l'accord sur les cordes 4-3-2-1, puisque son tour n'a pas de filtre.
+
+### La consigne d'un passage
+
+Un exercice de passages écrit sa consigne dans `presentation`, avec les emplacements de tout exercice. Une vue de passage (voir « Les vues ») en lit cinq :
+
+- `primary` : le grand mot du tour montré. Seule la vue du lien le montre.
+- `secondary` : la ligne sous ce mot sur le lien ; le titre, en haut, sur la grille.
+- `detail` : la ligne de consigne (les cordes, le sens, les cases). Une consigne vide ne s'affiche pas.
+- `target` : les mots de **chaque tour** sur la ligne du passage, dits pour l'élément de ce tour. La grille les écrit dans ses cases, et pour l'accord du moment et celui d'« Ensuite ». Le lien les écrit sur la tuile d'un tour qui ne monte ni ne descend : le premier, toujours.
+- `aided` : l'aide, à un niveau d'aide de l'exercice. Seul le dessin `admitted` se voit sur une vue de passage.
+
+`band`, `preview`, `fading` et `aided.line` sont acceptés, mais aucune vue de passage ne les montre.
+
+Un champ entre accolades, comme `{symbol}`, vient de deux endroits.
+
+**L'élément du tour** :
+
+- un changement de grille (ensemble `change`) : `symbol`, l'accord écrit par la grille (« Dm7 ») ; `title`, le titre de la grille (« I Only Have Eyes for You »).
+- une forme placée (ensemble `placed-voicing`, le lien) : `chord`, le nom de l'accord (« Ebm ») ; `quality`, sa qualité (« majeur », « mineur » ; « major », « minor » en anglais ; une autre qualité s'écrit par son nom de code, `maj7`) ; `strings`, ses cordes (« ré‑sol‑si »).
+
+**Le contenu du tour**, quand une de ses attentes est un choix de la famille `chord-shapes` :
+
+- `strings` : les cordes de la zone, de la plus grave à la plus aiguë, reliées par un trait d'union qui ne se coupe pas : « sol‑si‑mi », « ré‑sol‑si‑mi » (« G‑B‑E » en anglais).
+- `frets` : les cases du filtre `in` (`{ "in": { "frets": … } }`) : « 1 à 5 » (« 1 to 5 »). Vide sans ce filtre.
+- `toward` : le sens du filtre `position` : « ↑ en montant » ou « ↓ en descendant » (« ↑ going up », « ↓ going down »). Vide sans ce filtre. Il dit la valeur que le filtre lit : quand le sens tourne au bout du manche (voir « Le sens qui tourne »), il dit le nouveau sens.
+
+Un champ de l'élément passe avant un champ du contenu de même nom : sur le lien, `{strings}` est celui de la forme (le même texte). Quand plusieurs attentes d'un tour ont un choix, un champ vient de la première qui le donne.
+
+Les quatre consignes du catalogue :
+
+| Exercice            | `primary`  | `secondary` | `detail`                                                         | `target`   | `aided`                     |
+| ------------------- | ---------- | ----------- | ---------------------------------------------------------------- | ---------- | --------------------------- |
+| `inversion-run`     | `{chord}`  | `{quality}` | `{ "fr": "sur cordes {strings}", "en": "on strings {strings}" }` | `{chord}`  | `{ "picture": "admitted" }` |
+| `grid-in-direction` | `{symbol}` | `{title}`   | `"{strings} · {toward}"`                                         | `{symbol}` | `{ "picture": "admitted" }` |
+| `grid-in-zone`      | `{symbol}` | `{title}`   | `{ "fr": "cases {frets}", "en": "frets {frets}" }`               | `{symbol}` | `{ "picture": "admitted" }` |
+| `grid-reading`      | `{symbol}` | `{title}`   | aucun                                                            | `{symbol}` | `{ "picture": "admitted" }` |
+
+Pour le joueur : le lien montre « Ebm » en grand, « mineur », « sur cordes ré‑sol‑si » ; la montée, le titre de la grille et « sol‑si‑mi · ↑ en montant » ; la zone, « cases 1 à 5 » ; la lecture, le titre seul.
+
+**Le dessin `admitted`** se dessine sur le manche. Il montre les formes que le contenu du tour admet, en notes nommées, et celles du tour suivant, en plus clair. Les formes du tour suivant sont choisies avec, pour forme d'avant, celle qui a été entendue une fois le tour jugé ; avant, c'est la forme d'avant du tour montré. Une case commune aux deux n'est dessinée qu'une fois, comme note du tour montré. Le manche ne dessine que les cordes de ces formes. Au dernier tour d'un passage, il n'y a pas de tour suivant : seules les formes du tour montré sont dessinées. Le dessin n'a pas de légende. Il n'existe que pour un tour dont une attente est un choix de membres.
 
 ### Les vues
 
-Un exercice de grille prend la vue `grid-scroll` ; le lien, la vue `link-lane`. La vue `link-lane` dessine le tour d'un passage : un exercice qui n'écrit pas `passages` ne peut pas la nommer. La consigne de la grille se lit dans les paramètres de passage par leur nom : un paramètre `direction` dit le sens de la montée, un paramètre `zone` dit les cases ; sans l'un ni l'autre, la grille se joue sans consigne.
+Deux vues dessinent un passage : `grid-scroll` (la grille) et `link-lane` (le lien). Elles lisent la consigne de l'exercice et la ligne de son passage : pour chaque tour, sa place en temps, ses mots (`target`) et son sens depuis le tour d'avant.
+
+- **`grid-scroll`** : en haut, `secondary` et `detail`. Au milieu, l'accord du moment et celui d'« Ensuite » (le `target` de leurs tours), puis l'aide. En bas, les mesures de la grille, une case par tour avec son `target` ; chaque case jugée prend sa marque.
+- **`link-lane`** : en haut, `primary` en grand, `secondary` et `detail`. Puis une tuile par temps. Sur le premier temps de chaque tour : ↗ quand le tour monte, ↘ quand il descend, sinon son `target`. Puis l'aide.
+
+Le sens se lit sur la position des membres de la famille du passage (`members`), d'un tour au suivant : plus haut, plus bas, ou à la même place. Les changements d'une grille (`grid-changes`) n'ont pas de position : sur `link-lane`, chaque tuile y écrirait son `target`.
+
+Après un raté, les deux vues dessinent la forme entendue et la forme attendue, et disent l'écart (« pas plus haut », « hors de la zone »…). La forme attendue est la forme admise la plus proche de celle entendue, sinon de celle qui sonne encore, sinon la première admise.
+
+Un exercice qui écrit `passages` et une `presentation`, sur l'une de ces deux vues, est dessiné ainsi. Sur une autre vue qui lit une consigne (`lane`), il est dessiné comme un tour seul, sans la ligne du passage.
 
 ### Refusé
 
@@ -430,7 +479,10 @@ Le refus nomme l'exercice et le champ ; les raisons sont dites comme le code les
 - `passages.each must map names to lists of values` ; `passages.each.<nom> must be a list, not empty` ; `passages.each.<nom> is a name the round gives` ; `passages.each.<nom> is also written in params` ; `passages.each.<nom> is also a key of passages.of` ; `passages.each.<nom> is also written at a level` ; une valeur qui ne convient pas là où le tour la lit : `reads param "<nom>", which passages.each.<nom>[<i>] gives as <valeur>, <pourquoi>`.
 - `passages.opens must be { acquired: { skill, item, need? } }` ; `passages.opens.acquired.need must be "every-group" or "one-group"` ; `passages.opens names skill "<id>", which no file read so far defines` ; `passages.opens names skill "<id>", which has no cards` ; `passages.opens needs a round whose content is a selection` ; `passages.opens reads the members of family "<famille>", which are items of no set` ; `passages.opens needs the round’s contents to give members of one set` ; `passages.opens.acquired.item "<nom>" is no correspondence from <ensemble> to <ensemble>`.
 - `passages.members[<rang>] ("<membre>") of index <clé> does not compile: <raison>` : le tour d'un membre du premier passage d'un index (chaque paramètre de passage à sa première valeur, les paramètres du niveau 1) ne se compile pas. Par exemple, un tour dont la longueur lit `{ "item": "beats" }`, que les formes du lien ne portent pas : `round.length.beats measures item number "beats": This item has no length in beats`. Un index dont le premier passage n'a aucun membre, ou ne se lit pas, n'est pas refusé : la séance le saute.
-- `view "link-lane" draws a passage, and the exercise writes no passages`.
+- `view "<vue>" draws a passage, and the exercise writes no passages` : `link-lane`, ou `grid-scroll` avec une `presentation`, nommée par un exercice qui n'écrit pas `passages`.
+- `writes a round but no presentation, and <ensemble> draws no screen of its own` : un exercice de passages sans `presentation`. Aucun code ne dessine plus l'écran des changements : la consigne est obligatoire. Pour une grille, `<ensemble>` est `change` ; pour le lien, `placed-voicing`.
+- `presentation.<emplacement> names field "<champ>", which neither <ensemble> nor <familles> has` : un champ que ni l'élément ni le contenu du tour ne donne. Par exemple, sur une grille : `which neither change nor chord-shapes has`.
+- `presentation.aided.picture names picture "admitted", which draws the members its round admits, and no expectation of its round has a member content` : le dessin `admitted` sur un tour sans choix de membres (de même sous `fading.picture`).
 - `passages.again must be "until-passed"` ; `passages.restBars must be a whole number from 0 to 16` ; `passages.passes must be a number above 0 and at most 1` ; `passages.scope must name a key of passages.of` ; `passages.scope names "<nom>", which passages.of does not write`.
 
 Les limites, chacune vérifiée avant le travail qu'elle borne : 500 index (`passages.of gives <n> indices, more than 500`, ou `passages.of gives more than 500 indices` quand le produit dépasse la limite avant la dernière liste), 64 valeurs par paramètre de passage (`passages.each.<nom> has <n> values, more than 64`), 256 membres par passage (`passages.members gives <n> members for index <clé>, more than 256`, comptés sans les filtres ni la prise qui lisent un paramètre de passage, pour borner tous les passages de l'index) et 256 accords par grille. Les tours compilés au chargement sont au plus 5 000, comptés avant d'en compiler un (`passages gives <n> rounds to check in the first passage of each index, more than 5000`).
