@@ -105,7 +105,7 @@ Les noms de clés de cette spec sont ceux du format de départ ; le plan peut en
 | `note-on-string`     | une note sur une corde, hauteur libre       | guitare | `3:C#`                      |
 | `placed-note`        | une note à sa case                          | guitare | `3:6`                       |
 | `voicing-on-strings` | un voicing et ses cordes, hauteur libre     | guitare | `D\|maj\|3:5,2:1,1:3`       |
-| `placed-voicing`     | un voicing à ses cases exactes              | guitare | `D\|maj\|3:5,2:1,1:3@7-7-5` |
+| `placed-voicing`     | un voicing à ses cases exactes              | guitare | `D\|maj\|3:5,2:1,1:3@2-3-2` |
 | `placed-shape`       | une forme écrite, posée sur une note exacte | guitare | `m7@g`                      |
 | `change`             | un changement d'une grille                  | musique | `iohefy-a#3`                |
 | `figure`             | une figure                                  | musique | `eighths@1`                 |
@@ -451,11 +451,11 @@ Cinq plans, dans cet ordre ; chacun laisse l'application jouable.
 
 Ce que le plan 2a a décidé contre la spec, ou en plus d'elle :
 
-- Le plan 2 est coupé en deux. 2a : les capacités, les ensembles, la base 13, la sauvegarde 9. 2b : l'import, son écran, la progression gardée sans définition, la fin de `exercises.local/`. La table `definitionFiles` est créée en 2a, pour n'avoir qu'une version de schéma ; elle est remplie en 2b.
+- Le plan 2 est coupé en deux. 2a : les capacités, les ensembles, la base 13, la sauvegarde 9. 2b : l'import, son écran, la progression gardée sans définition, la fin de `exercises.local/`. La table `definitionFiles` est créée en 2a, pour n'avoir qu'une version de schéma ; seule une sauvegarde la remplit jusqu'au plan 2b.
 - Les onze capacités du catalogue et leurs noms sont ceux du plan. Les trois du rythme : « Tenir la pulsation sans le clic », « Tenir la pulsation sur un clic déplacé », « Tenir une figure contre la pulsation ».
 - Huit mécaniques sont devenues sept ensembles. Les deux triades partagent `voicing-on-strings` et un seul présentateur : l'élément porte ou non une position, et c'est elle qui décide de ce que le capteur d'accords écoute. Une carte d'ancrage et une carte de zone du même voicing restent deux cartes, sous deux capacités.
 - Un accord demandé « à une position » sur un élément qui n'en porte pas est jugé comme un accord demandé n'importe où.
-- Les capteurs d'un exercice sont toujours ceux que son tour nomme. Le décor, l'aperçu et « Joué juste » restent des valeurs par défaut de l'ensemble, que `flow` remplace.
+- Les capteurs d'un exercice sont toujours ceux que son tour nomme, ceux de l'ensemble quand il n'en nomme aucun. Le décor, l'aperçu et « Joué juste » restent des valeurs par défaut de l'ensemble, que `flow` remplace.
 - Les quatre exercices des changements gardent leur présentateur jusqu'au plan 4. Il est trouvé par la vue de l'exercice (`grid-scroll`, `link-lane`), et leur ensemble aussi (`exerciseItemSet`) : le lien travaille une capacité rangée dans `placed-voicing`, mais son tour lit encore un changement.
 - Le rappel direct et la mémoire se lisent sur la capacité. Le tour de `identify-note` lit sa fenêtre dans `directRecall.withinMs`. `params.recallThresholdMs` et `params.ladders` ne sont plus lus.
 - Un exercice qui travaille une capacité de mémoire avec un tour jugé au cycle est refusé.
