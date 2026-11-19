@@ -1,12 +1,5 @@
-import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS, ITEM_VALUES } from '../../derivations';
-import {
-	familyNamed,
-	indexDerivation,
-	selectionProblem,
-	type Filter,
-	type Selection
-} from '../../families';
-import { MEMBER_CONTENT, PITCH_CONTENT, type MemberContent } from '../../judges';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
+import { MEMBER_CONTENT, PITCH_CONTENT } from '../../judges';
 import { exerciseItemSet, exerciseSetId } from '../../sets';
 import { landingBar, mutedBarsFrom, type Accompaniment } from '../../time/accompaniment';
 import type { Figure, FigureNote } from '../../time/figure';
@@ -24,18 +17,17 @@ import {
 import type { PlannedItem } from '../../types';
 import { resolvedParamsOf } from '../levels';
 import type { ExerciseDefinition } from '../types';
+import { compileSelection, SelectionCompileError } from '../selection/compile';
+import { isSelectionTemplate, type SelectionTemplate } from '../selection/types';
 import {
 	FIGURE_CONTENT,
 	isFigureEntry,
-	isSelectionContent,
 	type FigureExpectationTemplate,
 	type FigureRef,
-	type FilterTemplate,
 	type Num,
 	type PointExpectationTemplate,
 	type Position,
 	type RoundTemplate,
-	type SelectionTemplate,
 	type WindowTemplate
 } from './types';
 
@@ -230,122 +222,21 @@ function contentOf(context: Context, field: string, from: string): ExpectedConte
 	return derive(context, field, from);
 }
 
-/** What a filter value is when the item carries none: the filter is left out. */
-const ABSENT: unique symbol = Symbol('absent');
-
-/** A filter's value: written, the param's, or the item's (`ITEM_VALUES`; `ABSENT` when it carries none). */
-function filterValue(context: Context, field: string, value: unknown): unknown {
-	if (!isNum(value)) return value;
-	if ('param' in value) {
-		const found = paramValue(context.params, value.param);
-		if (found === undefined) {
-			fail(
-				context,
-				field,
-				`reads param "${value.param}", absent for ${exerciseSetId(context.definition)} item ${itemKeyOf(context)}`
-			);
-		}
-		return found;
-	}
-	const reader = Object.hasOwn(ITEM_VALUES, value.item) ? ITEM_VALUES[value.item] : undefined;
-	if (!reader) fail(context, field, `reads unknown item value "${value.item}"`);
-	readsFrom(context, field, value.item, reader.reads, 'reads');
-	return reader.valueOf(context.item.item) ?? ABSENT;
-}
-
-const isFiniteNumber = (value: unknown): value is number =>
-	typeof value === 'number' && Number.isFinite(value);
-
-/** A filter with its values resolved; null when a value the item does not carry leaves it out. */
-function filterOf(context: Context, field: string, filter: FilterTemplate): Filter | null {
-	if ('at' in filter) {
-		const at = filterValue(context, `${field}.at`, filter.at);
-		if (at === ABSENT) return null;
-		if (!isFiniteNumber(at))
-			fail(context, `${field}.at`, `must be a fret, got ${JSON.stringify(at)}`);
-		return { at };
-	}
-	if (!('in' in filter)) return filter;
-	let strings: readonly number[] | undefined;
-	let frets: readonly [number, number] | undefined;
-	if (filter.in.strings !== undefined) {
-		const found = filterValue(context, `${field}.in.strings`, filter.in.strings);
-		if (found === ABSENT) return null;
-		const list = isFiniteNumber(found) ? [found] : found;
-		if (!Array.isArray(list) || !list.every(isFiniteNumber)) {
-			fail(context, `${field}.in.strings`, `must be strings, got ${JSON.stringify(found)}`);
-		}
-		strings = list;
-	}
-	if (filter.in.frets !== undefined) {
-		const found = filterValue(context, `${field}.in.frets`, filter.in.frets);
-		if (found === ABSENT) return null;
-		const pair = Array.isArray(found)
-			? found.map((v, i) => filterValue(context, `${field}.in.frets[${i}]`, v))
-			: found;
-		if (Array.isArray(pair) && pair.includes(ABSENT)) return null;
-		if (!Array.isArray(pair) || pair.length !== 2 || !pair.every(isFiniteNumber)) {
-			fail(context, `${field}.in.frets`, `must be two frets, got ${JSON.stringify(found)}`);
-		}
-		frets = [pair[0], pair[1]];
-	}
-	return { in: { ...(strings && { strings }), ...(frets && { frets }) } };
-}
-
-/**
- * A selection compiled for the item: its index derived, its filters' values resolved (a filter
- * whose value the item does not carry left out), its take counted. No member is enumerated: the
- * judge admits them.
- */
+/** A selection compiled for the item, its failures named under the content's field. */
 function selectionOf(
 	context: Context,
 	field: string,
 	template: SelectionTemplate
 ): ExpectedContent {
-	const family = familyNamed(template.family);
-	if (!family) fail(context, field, `names family "${template.family}", which is not registered`);
-	const set = exerciseSetId(context.definition);
-	const derivation = indexDerivation(template.family, set, template.of);
-	if (!derivation) {
-		return template.of === undefined
-			? fail(context, field, `set ${set} gives no index of ${template.family}`)
-			: fail(
-					context,
-					`${field}.of`,
-					`"${template.of}" gives no index of ${template.family} from ${set}`
-				);
-	}
-	let index: unknown;
 	try {
-		index = derivation.index(context.item.item);
+		return {
+			kind: MEMBER_CONTENT,
+			value: compileSelection(context.definition, context.item, template, context.params)
+		};
 	} catch (error) {
-		fail(
-			context,
-			field,
-			`gives no index of ${template.family} for ${set} item ${itemKeyOf(context)}: ${(error as Error).message}`
-		);
+		if (!(error instanceof SelectionCompileError)) throw error;
+		return fail(context, error.field === '' ? field : `${field}.${error.field}`, error.text);
 	}
-	const where = template.where?.flatMap((filter, i) => {
-		const resolved = filterOf(context, `${field}.where[${i}]`, filter);
-		return resolved === null ? [] : [resolved];
-	});
-	let take: number | undefined;
-	if (template.take !== undefined) {
-		take = num(context, `${field}.take`, template.take);
-		if (!Number.isInteger(take) || take < 1) {
-			fail(context, `${field}.take`, `must be a positive whole number, got ${take}`);
-		}
-	}
-	const selection: Selection = {
-		family: template.family,
-		...(where && { where }),
-		...(template.order && { order: [...template.order] }),
-		...(take !== undefined && { take })
-	};
-	const problem = selectionProblem(family, selection);
-	if (problem !== null) fail(context, field, problem);
-	const value: MemberContent = { family: template.family, index, selection };
-	return { kind: MEMBER_CONTENT, value };
 }
 
 function expectationOf(
@@ -361,7 +252,7 @@ function expectationOf(
 		sensor: template.sensor,
 		content:
 			template.content &&
-			(isSelectionContent(template.content)
+			(isSelectionTemplate(template.content)
 				? selectionOf(context, `${field}.content`, template.content)
 				: contentOf(context, `${field}.content`, template.content.from)),
 		window: windowOf(context, `${field}.window`, template.window),
@@ -415,7 +306,7 @@ function figureContentOf(
 	figureId: string
 ): NoteContent {
 	if (content === null) return () => null;
-	if (isSelectionContent(content)) {
+	if (isSelectionTemplate(content)) {
 		fail(context, field, 'a figure entry takes its content from a derivation');
 	}
 	if (content.from === FIGURE_CONTENT) {

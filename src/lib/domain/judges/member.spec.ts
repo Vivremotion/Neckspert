@@ -72,6 +72,7 @@ describe('the member judge', () => {
 		it('judges a payload without a pitch wrong, with no answer and no confusion', () => {
 			expect(judge(F_ON_B, {})).toEqual({ correct: false, answer: null, confusion: null });
 			expect(judge(F_ON_B, null)).toEqual({ correct: false, answer: null, confusion: null });
+			expect(judge(F_ON_B, 'F')).toEqual({ correct: false, answer: null, confusion: null });
 		});
 	});
 
@@ -117,7 +118,16 @@ describe('the member judge', () => {
 		});
 
 		it('judges a payload without a decision wrong, with no answer', () => {
-			expect(judge(C_SHAPES, { midi: 60 })).toMatchObject({ correct: false, answer: null });
+			expect(judge(C_SHAPES, { midi: 60 })).toEqual({
+				correct: false,
+				answer: null,
+				confusion: { kind: 'none', part: 'chord' }
+			});
+			expect(judge(C_SHAPES, 'C')).toEqual({
+				correct: false,
+				answer: null,
+				confusion: { kind: 'none', part: 'chord' }
+			});
 		});
 	});
 });

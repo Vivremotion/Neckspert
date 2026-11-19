@@ -121,6 +121,8 @@ export const ITEM_NUMBERS: Readonly<Record<string, ItemNumber>> = {
 export interface ItemValue {
 	/** The sets whose items it reads. */
 	reads: readonly string[];
+	/** Its shape: one number, or a list of them. */
+	kind: 'number' | 'numbers';
 	/** Undefined when the item carries none: the filter is then left out. */
 	valueOf(item: unknown): number | readonly number[] | undefined;
 }
@@ -129,10 +131,12 @@ export interface ItemValue {
 export const ITEM_VALUES: Readonly<Record<string, ItemValue>> = {
 	fret: {
 		reads: ['voicing-on-strings'],
+		kind: 'number',
 		valueOf: (item) => (item as { fret?: number }).fret
 	},
 	string: {
 		reads: ['note-on-string'],
+		kind: 'number',
 		valueOf: (item) => (item as { string: number }).string
 	}
 };

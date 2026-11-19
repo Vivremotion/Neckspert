@@ -651,6 +651,60 @@ describe('roundProblem, a content written as a selection', () => {
 		);
 	});
 
+	it('refuses a take a level gives as no positive whole number', () => {
+		const ladder = LOCATE_NECK.params.ladder as Ladder;
+		const at = (n: unknown): ExerciseDefinition => ({
+			...LOCATE_NECK,
+			params: {
+				...LOCATE_NECK.params,
+				n: 1,
+				ladder: ladder.map((level, i) =>
+					i === 2 ? { ...level, params: { ...level.params, n } } : level
+				)
+			}
+		});
+		const take = { family: 'note-places', take: { param: 'n' } };
+		expect(problem(at(1), take)).toBeNull();
+		for (const n of [1.5, 0, 'one']) {
+			expect(problem(at(n), take)).toBe(
+				'round.expectations[0].content.take must be a positive whole number'
+			);
+		}
+		expect(problem(LOCATE_NECK, take)).toBe(
+			'round.expectations[0].content.take reads param "n", which no level of the exercise writes'
+		);
+	});
+
+	it('refuses an item value of another shape than the filter needs', () => {
+		expect(
+			problem(TRIADS_ZONE, {
+				family: 'chord-shapes',
+				where: [{ in: { frets: { item: 'fret' } } }]
+			})
+		).toBe(
+			'round.expectations[0].content.where[0].in.frets reads item value "fret", a number, where a pair of frets is needed'
+		);
+		expect(
+			problem(LOCATE_NECK, {
+				family: 'note-places',
+				where: [{ in: { strings: { item: 'string' } } }]
+			})
+		).toBeNull();
+	});
+
+	it('refuses more filters or more attributes of order than the limits', () => {
+		const many = Array.from({ length: 17 }, () => ({ other: 'previous' }));
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: many })).toBe(
+			'round.expectations[0].content.where has 17 filters, more than 16'
+		);
+		expect(problem(LOCATE_NECK, { family: 'note-places', where: many.slice(1) })).toBeNull();
+		const order = Array.from({ length: 9 }, () => 'position');
+		expect(problem(LOCATE_NECK, { family: 'note-places', order })).toBe(
+			'round.expectations[0].content.order names 9 attributes, more than 8'
+		);
+		expect(problem(LOCATE_NECK, { family: 'note-places', order: order.slice(1) })).toBeNull();
+	});
+
 	it('refuses a take that is no positive whole number', () => {
 		for (const take of [0, -1, 1.5]) {
 			expect(problem(LOCATE_NECK, { family: 'note-places', take })).toBe(

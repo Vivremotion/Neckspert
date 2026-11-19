@@ -4,7 +4,9 @@ import {
 	MAX_EXERCISE_LEVELS,
 	MAX_LADDER_LEVELS,
 	MAX_LEVEL_PARAMS,
-	MAX_ROUND_CHECKS
+	MAX_ROUND_CHECKS,
+	MAX_SELECTION_FILTERS,
+	MAX_SELECTION_ORDER
 } from '$lib/domain/exercise';
 import { ARPEGGIO_EXERCISE } from '$lib/testing/arpeggioExercise';
 import { LOCATE_NECK } from '$lib/testing/catalog';
@@ -43,6 +45,15 @@ const locateJson = (id: string): Record<string, unknown> => ({
 /** `count` params of a level, all under one object, as a hostile file would write them. */
 const manyParams = (count: number, prefix = 'free') =>
 	Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}.p${i}`, i]));
+
+/** `exercise` whose round's one expectation asks `content`. */
+function asking(exercise: Record<string, unknown>, content: unknown): Record<string, unknown> {
+	const round = exercise.round as { expectations: Record<string, unknown>[] };
+	return {
+		...exercise,
+		round: { ...round, expectations: round.expectations.map((e) => ({ ...e, content })) }
+	};
+}
 
 /** Loads one imported file holding `exercise`; how long it took and what came of it. */
 function timedLoad(exercise: Record<string, unknown>) {
@@ -120,6 +131,63 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		});
 		expect(refusals).toEqual([]);
 		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads a selection with the most filters, each read in the params, at the most levels and ladder levels', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({
+			params: manyParams(MAX_LEVEL_PARAMS)
+		}));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+			params: { leadBeats: 2, aided: false, ...manyParams(MAX_LEVEL_PARAMS - 2, 'other') }
+		}));
+		const zones = Object.fromEntries(
+			Array.from({ length: MAX_SELECTION_FILTERS }, (_, i) => [`z${i}`, [0, 24]])
+		);
+		const exercise = locateJson('h-selection');
+		const { ms, refusals } = timedLoad(
+			asking(
+				{ ...exercise, params: { ...(exercise.params as object), ladder, zones }, levels },
+				{
+					family: 'note-places',
+					where: Object.keys(zones).map((z) => ({ in: { frets: { param: `zones.${z}` } } })),
+					order: Array.from({ length: MAX_SELECTION_ORDER }, () => 'position')
+				}
+			)
+		);
+		expect(refusals).toEqual([]);
+		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses fast a selection over its limits', () => {
+		const levels = Array.from({ length: MAX_EXERCISE_LEVELS }, () => ({ params: {} }));
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, () => ({
+			params: { leadBeats: 2, aided: false }
+		}));
+		const locate = locateJson('h-over');
+		const wide = {
+			...locate,
+			params: { ...(locate.params as object), ladder, z: 6 },
+			levels
+		};
+		const cases: [unknown, string][] = [
+			[
+				{
+					family: 'note-places',
+					// As many filters read in the params as the file's size lets through.
+					where: Array.from({ length: 40_000 }, () => ({ at: { param: 'z' } }))
+				},
+				'round.expectations[0].content.where has 40000 filters, more than 16'
+			],
+			[
+				{ family: 'note-places', order: Array.from({ length: 9 }, () => 'position') },
+				'round.expectations[0].content.order names 9 attributes, more than 8'
+			]
+		];
+		for (const [content, reason] of cases) {
+			const { ms, refusals } = timedLoad(asking(wide, content));
+			expect(refusals).toEqual([{ file: 'h.json', kind: 'exercise', id: 'h-over', reason }]);
+			expect(ms, reason).toBeLessThan(REFUSED_MS);
+		}
 	});
 
 	it('refuses fast what is over each limit', () => {

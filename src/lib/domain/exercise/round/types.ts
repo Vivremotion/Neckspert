@@ -3,6 +3,7 @@
  * how long it lasts. `compileRound` turns it into a `RoundPlan` for one item. Pure data, JSON as is.
  */
 import type { Accompaniment } from '../../time/accompaniment';
+import type { SelectionTemplate } from '../selection/types';
 
 /** A number: written, read in the item's resolved params by path, or measured on the item. */
 export type Num = number | { param: string } | { item: string };
@@ -16,38 +17,6 @@ export type Position = { beats: Num } | { bars: Num };
  */
 export type WindowTemplate = { ms: Num } | { ofGap: string } | { param: string };
 
-/** A value of a filter: written, read in the item's resolved params, or read on the item (`ITEM_VALUES`). */
-export type FilterValue<T> = T | { param: string } | { item: string };
-
-/**
- * A filter of a selection as written (`Filter` once resolved): any of its values may be read in
- * the params or on the item; a value the item does not carry leaves the filter out.
- */
-export type FilterTemplate =
-	| {
-			in: {
-				strings?: FilterValue<readonly number[] | number>;
-				frets?: FilterValue<readonly [FilterValue<number>, FilterValue<number>]>;
-			};
-	  }
-	| { at: FilterValue<number> }
-	| { position: { beyond: 'previous'; toward: 'up' | 'down'; turns?: boolean } }
-	| { other: 'previous' };
-
-/**
- * A content written as a selection: the members of `family` for the index the item gives
- * (through the index derivation `of`, else the set's own), that the filters admit, ordered and
- * taken. Judged by the member judge.
- */
-export interface SelectionTemplate {
-	family: string;
-	of?: string;
-	where?: readonly FilterTemplate[];
-	order?: readonly string[];
-	/** A whole number above 0; `{ item }` measures it (`ITEM_NUMBERS`), as any `Num`. */
-	take?: Num;
-}
-
 /** A content derived from the item; `pattern` spreads a list over a figure's notes. */
 export interface DerivedContentTemplate {
 	from: string;
@@ -56,11 +25,6 @@ export interface DerivedContentTemplate {
 
 /** A content: derived from the item, or a selection. */
 export type ContentTemplate = DerivedContentTemplate | SelectionTemplate;
-
-/** Whether a content is written as a selection. */
-export function isSelectionContent(content: unknown): content is SelectionTemplate {
-	return typeof content === 'object' && content !== null && 'family' in content;
-}
 
 /** One expectation at a place. */
 export interface PointExpectationTemplate {

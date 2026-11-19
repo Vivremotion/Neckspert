@@ -10,5 +10,8 @@ export * from './ladder';
 export * from './validate';
 export * from './round/types';
 export * from './round/validate';
+export * from './selection/types';
+export * from './selection/validate';
+export * from './selection/compile';
 export * from './fromJson';
 export * from './itemEntries';

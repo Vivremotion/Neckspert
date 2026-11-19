@@ -1,5 +1,4 @@
-import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS, ITEM_VALUES } from '../../derivations';
-import { familyNamed, indexDerivation, selectionProblem, type Filter } from '../../families';
+import { CONTENT_DERIVATIONS, ITEM_FIGURES, ITEM_NUMBERS } from '../../derivations';
 import { exerciseSetId } from '../../sets';
 import { CONTENT_JUDGES, MEMBER_CONTENT, PITCH_CONTENT } from '../../judges';
 import { attackNotes, validateFigure, type Figure } from '../../time/figure';
@@ -19,7 +18,9 @@ import { ladderOf } from '../ladder';
 import type { ExerciseDefinition } from '../types';
 import { exerciseLevelsOf, exerciseParamsOf, resolvedParamsOf } from '../levels';
 import { levelRange } from '../../time/levels';
-import { FIGURE_CONTENT, isSelectionContent } from './types';
+import { selectionFieldProblem } from '../selection/validate';
+import { isSelectionTemplate } from '../selection/types';
+import { FIGURE_CONTENT } from './types';
 
 /** What a check may be told about the session that will play the exercise. */
 export interface RoundCheckOptions {
@@ -241,8 +242,8 @@ function policyProblem(check: Check, policy: unknown): string | null {
 
 function contentProblem(check: Check, field: string, content: unknown): string | null {
 	if (content === null) return null;
-	if (isSelectionContent(content)) {
-		return selectionContentProblem(check, field, content as unknown as Record_);
+	if (isSelectionTemplate(content)) {
+		return selectionContentProblem(check, field, content);
 	}
 	if (!isRecord(content) || typeof content.from !== 'string') {
 		return at(
@@ -279,221 +280,11 @@ function derivationProblem(check: Check, field: string, from: string): string | 
 	return null;
 }
 
-const SELECTION_KEYS = ['family', 'of', 'where', 'order', 'take'];
-const FILTER_NAMES = ['in', 'at', 'position', 'other'];
-const PLACE_KEYS = ['strings', 'frets'];
-const POSITION_KEYS = ['beyond', 'toward', 'turns'];
-
-/** What a filter value must be: a fret, strings (one or a list), or a zone of two frets. */
-type FilterValueKind = 'number' | 'numbers' | 'pair';
-
-const KIND_WORDS: Readonly<Record<FilterValueKind, string>> = {
-	number: 'a number',
-	numbers: 'a number or a list of numbers',
-	pair: 'two frets, the first not above the second'
-};
-
-function isKind(value: unknown, kind: FilterValueKind): boolean {
-	const finite = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
-	if (kind === 'number') return finite(value);
-	if (kind === 'numbers') return finite(value) || (Array.isArray(value) && value.every(finite));
-	return (
-		Array.isArray(value) &&
-		value.length === 2 &&
-		value.every(finite) &&
-		(value[0] as number) <= (value[1] as number)
-	);
-}
-
-/** Every level an item may be compiled at: each exercise level with each item level of the ladder (none without one). */
-function levelsOf(
-	definition: ExerciseDefinition
-): { exerciseLevel: number; itemLevel: number | null }[] {
-	let itemLevels: (number | null)[] = [null];
-	if (definition.params.ladder !== undefined) {
-		try {
-			const { lowest, highest } = levelRange(ladderOf(definition));
-			itemLevels = Array.from({ length: highest - lowest + 1 }, (_, i) => lowest + i);
-		} catch {
-			// A ladder that cannot be read is refused by its own check.
-		}
-	}
-	return exerciseLevelIndexes(definition).flatMap((exerciseLevel) =>
-		itemLevels.map((itemLevel) => ({ exerciseLevel, itemLevel }))
-	);
-}
-
-/** Why a param a filter reads is not written as it must be at every level; null when it is. */
-function filterParamProblem(
-	check: Check,
-	field: string,
-	path: string,
-	kind: FilterValueKind
-): string | null {
-	const { definition } = check;
-	const found = levelsOf(definition).map((at) => ({
-		at,
-		value: paramValue(resolvedParamsOf(definition, at), path)
-	}));
-	if (found.every(({ value }) => value === undefined)) {
-		return at(field, `reads param "${path}", which no level of the exercise writes`);
-	}
-	for (const { at: level, value } of found) {
-		const where = `exercise level ${level.exerciseLevel}${level.itemLevel === null ? '' : `, item level ${level.itemLevel}`}`;
-		if (value === undefined)
-			return at(field, `reads param "${path}", which ${where} does not write`);
-		if (!isKind(value, kind)) {
-			return at(
-				field,
-				`reads param "${path}", which ${where} gives as ${JSON.stringify(value)}, not ${KIND_WORDS[kind]}`
-			);
-		}
-	}
-	return null;
-}
-
-/**
- * A filter's value: the problem, or what the exercise knows of it (undefined when a param or the
- * item gives it). A param must be written at every level; an item value must be one the set has.
- */
-function filterValueProblem(
-	check: Check,
-	filterField: string,
-	field: string,
-	value: unknown,
-	kind: FilterValueKind
-): { known: unknown } | string {
-	if (!isNum(value)) {
-		return isKind(value, kind)
-			? { known: value }
-			: at(field, `must be ${KIND_WORDS[kind]}, got ${JSON.stringify(value)}`);
-	}
-	if ('param' in value) {
-		if (typeof value.param !== 'string') return at(`${field}.param`, 'reads a param named by text');
-		const problem = filterParamProblem(check, filterField, value.param, kind);
-		return problem ?? { known: undefined };
-	}
-	const set = exerciseSetId(check.definition);
-	const name = value.item;
-	if (
-		typeof name !== 'string' ||
-		!Object.hasOwn(ITEM_VALUES, name) ||
-		!ITEM_VALUES[name].reads.includes(set)
-	) {
-		return at(filterField, `reads item value "${String(name)}", which ${set} does not have`);
-	}
-	return { known: undefined };
-}
-
-/** A filter: the problem, or the filter as far as the exercise knows its values. */
-function filterProblem(check: Check, field: string, filter: unknown): Filter | string {
-	const keys = isRecord(filter) ? Object.keys(filter) : [];
-	if (!isRecord(filter) || keys.length !== 1 || !FILTER_NAMES.includes(keys[0])) {
-		return at(field, `is no filter (${FILTER_NAMES.join(', ')})`);
-	}
-	if ('at' in filter) {
-		const value = filterValueProblem(check, field, `${field}.at`, filter.at, 'number');
-		return typeof value === 'string' ? value : { at: 0 };
-	}
-	if ('in' in filter) {
-		const place = filter.in;
-		if (!isRecord(place)) return at(`${field}.in`, 'must be { strings?, frets? }');
-		const unknown = unknownKey(place, PLACE_KEYS, `${field}.in`);
-		if (unknown !== null) return unknown;
-		if (place.strings !== undefined) {
-			const strings = filterValueProblem(
-				check,
-				field,
-				`${field}.in.strings`,
-				place.strings,
-				'numbers'
-			);
-			if (typeof strings === 'string') return strings;
-		}
-		let frets: [number, number] | undefined;
-		if (Array.isArray(place.frets)) {
-			if (place.frets.length !== 2) return at(`${field}.in.frets`, `must be ${KIND_WORDS.pair}`);
-			const ends = place.frets.map((end, i) =>
-				filterValueProblem(check, field, `${field}.in.frets[${i}]`, end, 'number')
-			);
-			const problem = ends.find((end) => typeof end === 'string');
-			if (problem !== undefined) return problem;
-			const [from, to] = ends.map((end) => (end as { known: unknown }).known);
-			if (typeof from === 'number' && typeof to === 'number') frets = [from, to];
-		} else if (place.frets !== undefined) {
-			const zone = filterValueProblem(check, field, `${field}.in.frets`, place.frets, 'pair');
-			if (typeof zone === 'string') return zone;
-		}
-		// What `selectionProblem` reads of it: its frets, when written.
-		return { in: frets ? { frets } : {} };
-	}
-	if ('position' in filter) {
-		const position = filter.position;
-		if (
-			!isRecord(position) ||
-			unknownKey(position, POSITION_KEYS, `${field}.position`) !== null ||
-			position.beyond !== 'previous' ||
-			(position.toward !== 'up' && position.toward !== 'down') ||
-			(position.turns !== undefined && typeof position.turns !== 'boolean')
-		) {
-			return at(
-				`${field}.position`,
-				'must be { beyond: "previous", toward: "up" or "down", turns?: true or false }'
-			);
-		}
-		return filter as Filter;
-	}
-	return filter.other === 'previous'
-		? (filter as Filter)
-		: at(`${field}.other`, `must be "previous", got ${JSON.stringify(filter.other)}`);
-}
-
-/**
- * Why a content written as a selection cannot be compiled: a family not registered, no index of
- * it from the exercise's set, a filter it does not know or a value no level or item gives, an
- * order or a filter the family cannot run, a take that is no positive whole number.
- */
-function selectionContentProblem(check: Check, field: string, content: Record_): string | null {
-	const unknown = unknownKey(content, SELECTION_KEYS, field);
-	if (unknown !== null) return unknown;
-	if (typeof content.family !== 'string') return at(`${field}.family`, 'must name a family');
-	const family = familyNamed(content.family);
-	if (!family) return at(field, `names family "${content.family}", which is not registered`);
-	if (content.of !== undefined && typeof content.of !== 'string') {
-		return at(`${field}.of`, 'must name an index derivation');
-	}
-	const set = exerciseSetId(check.definition);
-	if (!indexDerivation(content.family, set, content.of)) {
-		return content.of === undefined
-			? at(field, `set ${set} gives no index of ${content.family}`)
-			: at(`${field}.of`, `"${content.of}" gives no index of ${content.family} from ${set}`);
-	}
-	const known: Filter[] = [];
-	if (content.where !== undefined) {
-		if (!Array.isArray(content.where)) return at(`${field}.where`, 'must be a list of filters');
-		for (const [i, filter] of content.where.entries()) {
-			const checked = filterProblem(check, `${field}.where[${i}]`, filter);
-			if (typeof checked === 'string') return checked;
-			known.push(checked);
-		}
-	}
-	const { order } = content;
-	if (order !== undefined && !(Array.isArray(order) && order.every((n) => typeof n === 'string'))) {
-		return at(`${field}.order`, 'must be a list of attribute names');
-	}
-	if (content.take !== undefined) {
-		const take = numberOf(check, `${field}.take`, content.take);
-		if (typeof take === 'string') return take;
-		if (take !== undefined && (!Number.isInteger(take) || take < 1)) {
-			return at(`${field}.take`, 'must be a positive whole number');
-		}
-	}
-	const problem = selectionProblem(family, {
-		family: content.family,
-		where: known,
-		...(order !== undefined && { order: order as string[] })
-	});
-	return problem === null ? null : at(field, problem);
+/** A selection's problem, told under the content's field. */
+function selectionContentProblem(check: Check, field: string, content: unknown): string | null {
+	const problem = selectionFieldProblem(check.definition, content);
+	if (problem === null) return null;
+	return at(problem.field === '' ? field : `${field}.${problem.field}`, problem.text);
 }
 
 const WINDOW_KEYS = ['ms', 'ofGap', 'param'];
@@ -647,7 +438,7 @@ function figureContentProblem(
 	figures: readonly { id: string; figure: Figure }[]
 ): string | null {
 	if (content === null) return null;
-	if (isSelectionContent(content)) {
+	if (isSelectionTemplate(content)) {
 		return at(field, 'a figure entry takes its content from a derivation');
 	}
 	if (!isRecord(content) || typeof content.from !== 'string') {
@@ -854,7 +645,7 @@ function knownPlan(
 			// What its content is does not matter to a mode, only that it asks for some, and its kind.
 			content: isRecord(e.content)
 				? {
-						kind: isSelectionContent(e.content)
+						kind: isSelectionTemplate(e.content)
 							? MEMBER_CONTENT
 							: e.content.from === FIGURE_CONTENT
 								? PITCH_CONTENT
