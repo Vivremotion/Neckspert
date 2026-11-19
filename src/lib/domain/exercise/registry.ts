@@ -47,19 +47,35 @@ export function servesExerciseSession(exercise: ExerciseDefinition): boolean {
 }
 
 /**
- * The exercises played in an exercise session, in registry order: those whose round writes a
- * figure, that write levels and whose turns the session can serve (`servesExerciseSession`), on
- * a skill without cards. An exercise on a skill with cards is loaded and checked but no session
- * plays it yet (the Library will). Read from the live registry at each call.
+ * Whether an exercise session plays the exercise: its round writes a figure, it writes levels and
+ * its turns the session can serve (`servesExerciseSession`), on a skill without cards. An exercise
+ * on a skill with cards is played alone freely among its items instead.
  */
-export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
-	return allExercises().filter(
-		(exercise) =>
-			writesFigure(exercise) &&
-			(exercise.levels?.length ?? 0) > 0 &&
-			!hasCards(exercise.practices) &&
-			servesExerciseSession(exercise)
+export function playsInExerciseSession(exercise: ExerciseDefinition): boolean {
+	return (
+		writesFigure(exercise) &&
+		(exercise.levels?.length ?? 0) > 0 &&
+		!hasCards(exercise.practices) &&
+		servesExerciseSession(exercise)
 	);
+}
+
+/** The exercises played in an exercise session (`playsInExerciseSession`), in registry order. */
+export function exerciseSessionExercises(): readonly ExerciseDefinition[] {
+	return allExercises().filter(playsInExerciseSession);
+}
+
+/**
+ * How an exercise is played alone (`startExercise`): `memory`, a memory exercise freely among the
+ * items it lists; `passages`, on its passages; `cycles`, as an exercise session plays it; null
+ * when nothing can serve it alone.
+ */
+export type AloneSource = 'memory' | 'passages' | 'cycles';
+
+export function aloneSourceOf(exercise: ExerciseDefinition): AloneSource | null {
+	if (hasCards(exercise.practices) && (exercise.items ?? []).length > 0) return 'memory';
+	if (exercise.passages !== undefined) return 'passages';
+	return playsInExerciseSession(exercise) ? 'cycles' : null;
 }
 
 export function clearExercises(): void {

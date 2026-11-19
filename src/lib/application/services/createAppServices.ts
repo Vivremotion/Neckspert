@@ -1,4 +1,10 @@
-import type { AppServices, DiagnosticsService, RoutineEntry } from '$lib/application/app';
+import type {
+	AppServices,
+	DiagnosticsService,
+	LibraryEntry,
+	RoutineEntry
+} from '$lib/application/app';
+import { exerciseTitle } from '$lib/application/session/playOrigin';
 import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import type { DefinitionsService } from '$lib/application/definitions/service';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
@@ -14,8 +20,8 @@ import { passagesOpen } from '$lib/domain/exercise/passage/opens';
 import { createPassageSource } from '$lib/domain/session/passageSource';
 import {
 	allExercises,
+	aloneSourceOf,
 	exerciseById,
-	exerciseSessionExercises,
 	findExercise,
 	UNKNOWN_EXERCISE,
 	writesFigure,
@@ -53,6 +59,7 @@ import {
 } from '$lib/domain/routine';
 import {
 	type Attempt,
+	type LevelState,
 	type CardKey,
 	type CardState,
 	type SessionSummary,
@@ -353,6 +360,35 @@ export function createAppServices(
 		return played?.levels && played.levels.length > 0 && writesFigure(played) ? played : undefined;
 	};
 
+	/** The keys of the cards marked acquired, as the passages' openings read them. */
+	const acquiredKeysOf = (cards: readonly CardState[]): Set<CardKey> =>
+		new Set(cards.filter((card) => card.acquiredAt !== null).map((card) => card.key));
+
+	/**
+	 * Whether one of `exerciseIds` rests after « On change d’air »: a level state of it, of any
+	 * scope, whose `resumeAfter` is ahead.
+	 */
+	const restsIn = (
+		levels: readonly LevelState[],
+		exerciseIds: readonly ExerciseId[],
+		now: number
+	) =>
+		levels.some(
+			(level) =>
+				exerciseIds.includes(level.exerciseId) &&
+				typeof level.resumeAfter === 'number' &&
+				level.resumeAfter > now
+		);
+
+	/**
+	 * Whether `startExercise` plays the exercise alone with something to play now: what it would
+	 * refuse (`aloneSourceOf` null) never is, and a passages exercise needs an open index.
+	 */
+	const playableAlone = (exercise: ExerciseDefinition, acquired: ReadonlySet<CardKey>): boolean => {
+		const source = aloneSourceOf(exercise);
+		return source !== null && (source !== 'passages' || passagesOpen(exercise, acquired));
+	};
+
 	/** What the home is told of the routines, read once from the stores. */
 	const routineEntries = async (): Promise<RoutineEntry[]> => {
 		const [cards, attempts, levels] = await Promise.all([
@@ -369,9 +405,7 @@ export function createAppServices(
 			else history.set(attempt.cardKey, [attempt]);
 		}
 		// Acquired as the passages' openings read it: any card marked acquired.
-		const acquiredKeys = new Set(
-			cards.filter((card) => card.acquiredAt !== null).map((card) => card.key)
-		);
+		const acquiredKeys = acquiredKeysOf(cards);
 		// An opening counts the cards a session can serve: a card no list names opens nothing.
 		const served = servedCards(cards);
 		const known: Known = {
@@ -390,12 +424,7 @@ export function createAppServices(
 		const entryOf = (routine: ReturnType<typeof registeredRoutines>[number]): RoutineEntry => {
 			const found = routine.exercises.map((id) => exerciseFound(id));
 			const exercises = found.filter((exercise) => exercise !== undefined);
-			const resting = levels.some(
-				(level) =>
-					routine.exercises.includes(level.exerciseId) &&
-					typeof level.resumeAfter === 'number' &&
-					level.resumeAfter > now
-			);
+			const resting = restsIn(levels, routine.exercises, now);
 			const memory =
 				exercises.length > 0 && exercises.every((exercise) => hasCards(exercise.practices));
 			let playable: boolean;
@@ -431,6 +460,29 @@ export function createAppServices(
 		return registeredRoutines().map(entryOf);
 	};
 
+	/** What the Library is told of every exercise of the registry, read once from the stores. */
+	const libraryEntries = async (): Promise<LibraryEntry[]> => {
+		const [cards, levels] = await Promise.all([deps.cards.all(), deps.levels.all()]);
+		const now = deps.now();
+		const acquired = acquiredKeysOf(cards);
+		const routines = registeredRoutines();
+		return allExercises().flatMap(({ id }) => {
+			const exercise = exerciseFound(id);
+			if (!exercise) return [];
+			return [
+				{
+					exerciseId: id,
+					title: exerciseTitle(id, exerciseFound),
+					routines: routines
+						.filter((routine) => routine.exercises.includes(id))
+						.map((routine) => routine.title),
+					resting: restsIn(levels, [id], now),
+					playable: playableAlone(exercise, acquired)
+				}
+			];
+		});
+	};
+
 	return {
 		settings: deps.settings,
 		// The data a backup replaces includes the imported files: the registries follow it.
@@ -453,6 +505,8 @@ export function createAppServices(
 		},
 
 		routines: routineEntries,
+
+		library: libraryEntries,
 
 		async contest(attemptId: number, reason?: string) {
 			await deps.attempts.setContested(attemptId, reason);
@@ -531,10 +585,12 @@ export function createAppServices(
 		startRoutine,
 
 		async startExercise(exerciseId) {
-			const definition = exerciseFound(exerciseId);
-			if (!definition) requireExercises([exerciseId]);
-			// Alone in its session: only the sensors its round names open.
-			if (definition && hasCards(definition.practices) && (definition.items ?? []).length > 0) {
+			requireExercises([exerciseId]);
+			const definition = exerciseFound(exerciseId)!;
+			// Alone in its session: only the sensors its round names open. What it plays is the
+			// predicate the Library reads (`playableAlone`).
+			const source = aloneSourceOf(definition);
+			if (source === 'memory') {
 				// A memory exercise freely, among its own items, each at the level it holds.
 				return playMemory(
 					{ exercise: definition.id, free: true },
@@ -543,13 +599,13 @@ export function createAppServices(
 					true
 				);
 			}
-			if (definition?.passages !== undefined) {
+			if (source === 'passages') {
 				return playPassages({ exercise: definition.id }, [definition.id], [definition.id]);
 			}
-			// Any other cycle after cycle, free play: the series plays it at the level it holds.
-			if (!exerciseSessionExercises().some((exercise) => exercise.id === exerciseId)) {
+			if (source === null) {
 				throw new Error(`Exercise ${exerciseId} is not played in an exercise session`);
 			}
+			// Any other cycle after cycle, free play: the series plays it at the level it holds.
 			const played = exerciseOf(exerciseId);
 			return playSession({ exercise: played.id }, [played.id], async () => ({
 				source: createExerciseItemSource(played),

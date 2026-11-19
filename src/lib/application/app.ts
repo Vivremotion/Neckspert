@@ -41,6 +41,18 @@ export interface RoutineEntry {
 	resting: boolean;
 }
 
+/** An exercise as the Library lists it. */
+export interface LibraryEntry {
+	exerciseId: ExerciseId;
+	/** The exercise's title, else the name of its skill. */
+	title: { fr: string; en: string };
+	/** The titles of the routines that list it. */
+	routines: { fr: string; en: string }[];
+	resting: boolean;
+	/** It has something to play now, alone. */
+	playable: boolean;
+}
+
 /** Everything the screens need. Implemented by the application layer, wired by the composition root. */
 export interface AppServices {
 	settings: SettingsRepositoryPort;
@@ -55,6 +67,12 @@ export interface AppServices {
 	homeStats(): Promise<HomeStats>;
 	/** Every registered routine, in the order registered, the closed ones included. */
 	routines(): Promise<RoutineEntry[]>;
+	/**
+	 * Every exercise of the registry, in the order registered, none filtered or sorted: what each
+	 * is, the routines that list it, whether it rests, and whether `startExercise` has something
+	 * to play of it now.
+	 */
+	library(): Promise<LibraryEntry[]>;
 	/**
 	 * « Joué juste » or « C’était en place » from the summary: labels the attempt contested, with
 	 * the reason contested when there is one, nothing else.

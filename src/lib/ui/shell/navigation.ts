@@ -1,7 +1,12 @@
-import type { ExerciseId } from '$lib/domain/exercise/types';
-import type { RoutineDefinition } from '$lib/domain/routine/types';
-
 export type Destination = 'practice' | 'library' | 'progress' | 'settings';
+
+/** Where each link of the rail leads: a page of its own destination. */
+export const DESTINATION_PATHS = {
+	practice: '/',
+	library: '/library',
+	progress: '/map',
+	settings: '/settings'
+} as const satisfies Record<Destination, string>;
 
 /** Paths played full screen: no rail (a session, the mode-2 demo, the diagnostics, the dev play views). */
 const RAIL_FREE_PREFIXES = [
@@ -12,9 +17,10 @@ const RAIL_FREE_PREFIXES = [
 	'/diagnostic'
 ] as const;
 
-/** The pages of each destination; the dev mirrors follow their page. The library is a session: never listed. */
+/** The pages of each destination; the dev mirrors follow their page. */
 const DESTINATION_PREFIXES: readonly (readonly [string, Destination])[] = [
 	['/summary', 'practice'],
+	['/library', 'library'],
 	['/map', 'progress'],
 	['/settings', 'settings'],
 	['/calibration', 'settings']
@@ -37,18 +43,4 @@ export function activeDestination(path: string): Destination | null {
 	const page = stripDev(path);
 	if (page === '/') return 'practice';
 	return DESTINATION_PREFIXES.find(([prefix]) => under(page, prefix))?.[1] ?? null;
-}
-
-/**
- * The library (until plan 5b): the free play of the first routine whose exercises are all on
- * memory skills (`memory`), read from the registry; home when there is none.
- */
-export function libraryHref(
-	routines: readonly Pick<RoutineDefinition, 'id' | 'exercises'>[],
-	memory: (exerciseId: ExerciseId) => boolean
-): string {
-	const free = routines.find(
-		(routine) => routine.exercises.length > 0 && routine.exercises.every(memory)
-	);
-	return free ? `/session?routine=${encodeURIComponent(free.id)}&free=1` : '/';
 }

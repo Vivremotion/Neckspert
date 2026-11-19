@@ -148,6 +148,7 @@ export function createFakeAppServices(overrides: Partial<AppServices> = {}): App
 	return {
 		homeStats: async () => EMPTY_HOME,
 		routines: async () => [],
+		library: async () => [],
 		contest: async () => {},
 		replayRun: async () => {},
 		stopReplay: () => {},

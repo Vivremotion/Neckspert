@@ -8,10 +8,7 @@
 	import { createApp } from '$lib/composition/createApp';
 	import { defineMessages, i18n } from '$lib/i18n/index.svelte';
 	import NavRail from '$lib/ui/primitives/NavRail.svelte';
-	import { findExercise } from '$lib/domain/exercise/registry';
-	import { routines } from '$lib/domain/routine/registry';
-	import { hasCards } from '$lib/domain/skill/registry';
-	import { activeDestination, libraryHref, showsRail } from '$lib/ui/shell/navigation';
+	import { activeDestination, DESTINATION_PATHS, showsRail } from '$lib/ui/shell/navigation';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -41,23 +38,11 @@
 	const nav = $derived(navMessages());
 	const path = $derived(page.url.pathname);
 	const rail = $derived(showsRail(path));
-	/**
-	 * The free play of the first memory routine, read from the registry (until plan 5b, which gives
-	 * the Library its own page). The registry is not reactive: the link is read again only when the
-	 * nav's words change (a change of locale) or on a reload, not after an import.
-	 */
-	const library = (): string => {
-		const href = libraryHref(routines(), (id) => {
-			const exercise = findExercise(id);
-			return exercise !== undefined && hasCards(exercise.practices);
-		});
-		return href === '/' ? resolve('/') : `${resolve('/session')}${href.slice('/session'.length)}`;
-	};
 	const items = $derived([
-		{ key: 'practice', href: resolve('/'), label: nav.practice },
-		{ key: 'library', href: library(), label: nav.library },
-		{ key: 'progress', href: resolve('/map'), label: nav.progress },
-		{ key: 'settings', href: resolve('/settings'), label: nav.settings }
+		{ key: 'practice', href: resolve(DESTINATION_PATHS.practice), label: nav.practice },
+		{ key: 'library', href: resolve(DESTINATION_PATHS.library), label: nav.library },
+		{ key: 'progress', href: resolve(DESTINATION_PATHS.progress), label: nav.progress },
+		{ key: 'settings', href: resolve(DESTINATION_PATHS.settings), label: nav.settings }
 	]);
 
 	$effect(() => {

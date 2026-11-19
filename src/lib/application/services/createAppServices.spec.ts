@@ -49,7 +49,9 @@ import {
 import { introduceCard, markLearned } from '$lib/domain/progress';
 import { triadCards } from '$lib/testing/shapes';
 import { registerTestSkills } from '$lib/testing/testSkills';
-import { exerciseSessionExercises } from '$lib/domain/exercise';
+import { allExercises, exerciseSessionExercises, findExercise } from '$lib/domain/exercise';
+import { exerciseTitle } from '$lib/application/session/playOrigin';
+import { skillById } from '$lib/domain/skill/registry';
 import { TraceBuilder } from '$lib/domain/session';
 import { RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 
@@ -1452,5 +1454,173 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 			chords: false,
 			nextReviewAt: 1000
 		});
+	});
+});
+
+describe('the library', () => {
+	/** A level state of `exerciseId` at level 1, in `scope`, resting until `resumeAfter`. */
+	const restingLevel = (exerciseId: string, resumeAfter: number, scope = '') => ({
+		exerciseId,
+		scope,
+		item: '',
+		level: 0,
+		successes: 0,
+		failures: 0,
+		resumeAfter
+	});
+
+	afterEach(() => {
+		loadDefinitions({ catalog: CATALOG_FILES });
+		vi.restoreAllMocks();
+	});
+
+	/** A catalog exercise as JSON, from the catalog file that writes it. */
+	const catalogExercise = (id: string): Record<string, unknown> => {
+		for (const text of Object.values(CATALOG_FILES)) {
+			const found = (JSON.parse(text) as { exercises?: { id: string }[] }).exercises?.find(
+				(exercise) => exercise.id === id
+			);
+			if (found) return found as Record<string, unknown>;
+		}
+		throw new Error(`No catalog exercise ${id}`);
+	};
+
+	/** The catalog, then one imported file holding a copy of each exercise of `copies`, renamed. */
+	const withImported = (copies: Record<string, string>) => {
+		const exercises = Object.entries(copies).map(([id, from]) => ({
+			...catalogExercise(from),
+			id,
+			title: { fr: `Mien ${id}`, en: `Mine ${id}` }
+		}));
+		const result = loadDefinitions({
+			catalog: CATALOG_FILES,
+			imported: { 'mine.json': JSON.stringify({ format: 0, exercises }) }
+		});
+		expect(result.imported.refusals).toEqual([]);
+	};
+
+	it('lists every exercise of the registry, in the order registered, with its routines', async () => {
+		const { services } = harness();
+		const library = await services.library();
+		expect(library.map((entry) => entry.exerciseId)).toEqual(allExercises().map((e) => e.id));
+		expect(library).toHaveLength(11);
+		const byId = new Map(library.map((entry) => [entry.exerciseId, entry]));
+		const routinesOf = (id: string) => byId.get(id)?.routines.map((title) => title.fr);
+		expect(routinesOf('identify-note')).toEqual(['Apprentissage']);
+		expect(routinesOf('locate-note-string')).toEqual(['Apprentissage']);
+		expect(routinesOf('chord-anchor')).toEqual(['Triades']);
+		expect(routinesOf('chord-zone')).toEqual(['Triades vers une case']);
+		for (const id of ['inversion-run', 'grid-in-direction', 'grid-in-zone', 'grid-reading']) {
+			expect(routinesOf(id), id).toEqual(['Changements']);
+		}
+		for (const exercise of [RHYTHM_OFFBEATS, RHYTHM_SILENT_BARS, RHYTHM_TWO_FOUR]) {
+			expect(routinesOf(exercise.id), exercise.id).toEqual([]);
+		}
+		for (const entry of library) {
+			expect(entry.title, entry.exerciseId).toEqual(exerciseTitle(entry.exerciseId));
+			expect(entry.resting, entry.exerciseId).toBe(false);
+		}
+		// The skill's name stands for a title the exercise does not write.
+		expect(byId.get('locate-note-string')?.title).toEqual(
+			skillById(findExercise('locate-note-string')!.practices).name
+		);
+	});
+
+	it('tells playable what has something to play now: the passages only with an open index', async () => {
+		const { services, deps } = harness();
+		const playable = async () =>
+			Object.fromEntries((await services.library()).map((e) => [e.exerciseId, e.playable]));
+		expect(await playable()).toEqual({
+			'inversion-run': false,
+			'grid-in-direction': false,
+			'grid-in-zone': false,
+			'grid-reading': false,
+			'chord-anchor': true,
+			'chord-zone': true,
+			'locate-note-string': true,
+			'identify-note': true,
+			[RHYTHM_SILENT_BARS.id]: true,
+			[RHYTHM_TWO_FOUR.id]: true,
+			[RHYTHM_OFFBEATS.id]: true
+		});
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
+		expect((await playable())['inversion-run']).toBe(true);
+	});
+
+	it('every exercise it tells playable starts alone', async () => {
+		const { services, deps } = harness();
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
+		const library = await services.library();
+		expect(library.filter((entry) => entry.playable)).toHaveLength(8);
+		for (const entry of library.filter((e) => e.playable)) {
+			const controller = await services.startExercise(entry.exerciseId);
+			await controller.ready?.();
+			expect(controller.view.stage, entry.exerciseId).toBeTruthy();
+			controller.quit();
+		}
+	});
+
+	it('tells an exercise not playable when starting it alone is refused', async () => {
+		const { registerExercise } = await import('$lib/domain/exercise/registry');
+		registerTestSkills();
+		// On a skill with cards, listing no item: nothing to serve it alone.
+		registerExercise(
+			{ ...RHYTHM_OFFBEATS, id: 'memory-with-figure', practices: 'test-note-on-string' },
+			'probe.json'
+		);
+		const { services } = harness();
+		const entry = (await services.library()).find((e) => e.exerciseId === 'memory-with-figure');
+		expect(entry?.playable).toBe(false);
+		await expect(services.startExercise('memory-with-figure')).rejects.toThrow(/not played/);
+	});
+
+	it('marks an exercise resting while a level state of it, of any scope, rests', async () => {
+		const { services, deps } = harness();
+		const now = deps.now();
+		await deps.levels.put(restingLevel(RHYTHM_OFFBEATS.id, now + 1));
+		await deps.levels.put(restingLevel('grid-reading', now + 1, 'blues-f'));
+		await deps.levels.put(restingLevel(RHYTHM_TWO_FOUR.id, now - 1));
+		const resting = (await services.library()).filter((e) => e.resting).map((e) => e.exerciseId);
+		expect(resting).toEqual(['grid-reading', RHYTHM_OFFBEATS.id]);
+	});
+
+	it('lists what is left of a catalog with a file refused, and nothing throws (Review Focus 4)', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {});
+		loadDefinitions({ catalog: { ...CATALOG_FILES, '/catalog/rhythm.json': '{' } });
+		const { services } = harness();
+		const library = await services.library();
+		expect(library.map((entry) => entry.exerciseId)).toEqual(allExercises().map((e) => e.id));
+		expect(library).toHaveLength(8);
+		expect(library.some((entry) => entry.exerciseId === RHYTHM_OFFBEATS.id)).toBe(false);
+	});
+
+	it('lists an imported exercise of each kind and starts it alone (Review Focus 5)', async () => {
+		withImported({
+			'my-notes': 'locate-note-string',
+			'my-run': 'inversion-run',
+			'my-figures': RHYTHM_OFFBEATS.id
+		});
+		const { services, deps } = harness();
+		const mine = async () =>
+			(await services.library()).filter((entry) => entry.exerciseId.startsWith('my-'));
+		expect((await mine()).map((e) => [e.exerciseId, e.title.fr, e.routines, e.playable])).toEqual([
+			['my-notes', 'Mien my-notes', [], true],
+			['my-run', 'Mien my-run', [], false],
+			['my-figures', 'Mien my-figures', [], true]
+		]);
+		await deps.cards.putMany(triadCards('chord-anchor', 'D', 'maj', [3, 2, 1]));
+		expect((await mine()).every((entry) => entry.playable)).toBe(true);
+		for (const [id, view] of [
+			['my-notes', 'lane'],
+			['my-run', 'link-lane'],
+			['my-figures', 'figure']
+		] as const) {
+			const controller = await services.startExercise(id);
+			await controller.ready?.();
+			await controller.start();
+			await runOnTransport(deps, () => controller.view.status === 'awaiting', 0.01, 3000);
+			expect(controller.view.stage?.view, id).toBe(view);
+			controller.quit();
+		}
 	});
 });
