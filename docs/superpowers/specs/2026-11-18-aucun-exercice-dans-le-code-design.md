@@ -464,8 +464,20 @@ Ce que le plan 2a a décidé contre la spec, ou en plus d'elle :
 - La migration 13 a été écrite au fil des tâches qui changeaient ce qui est stocké, pas en une fois à la fin. Les identités des huit mécaniques y sont figées, pour relire les sauvegardes 1 à 8.
 - Les données d'une tentative (`Attempt.data`) ne sont pas réécrites par la migration. Un niveau n'est pas nettoyé par sa clé : seul son exercice est renommé.
 - Une tentative d'un exercice hors du catalogue reçoit une capacité du nom de l'exercice.
+- Une tentative d'un exercice hors du catalogue qui travaillait une mécanique de mémoire est séparée de sa carte. La tentative prend la capacité du nom de l'exercice, la carte celle de la mécanique. L'auteur n'a pas de telle tentative.
 - Une ligne que la migration ne sait pas ranger n'est jamais perdue, et un export se réimporte toujours : une carte ou un niveau dont le nouveau nom est déjà pris garde l'ancien ; une tentative que rien ne nomme reçoit la capacité `unknown`.
-- À l'import d'une sauvegarde 9, les données d'une tentative ne sont comparées à sa clé que pour une capacité à cartes. La progression d'une capacité qu'aucun fichier chargé ne définit est acceptée.
+- À l'import d'une sauvegarde 9, une tentative n'est jamais refusée pour la clé de son élément : elle est un historique, et sa clé ne sert qu'à la ranger avec sa carte. Quand l'ensemble lit sa clé et que sa capacité a des cartes, ses données doivent encore correspondre à la clé. Une carte d'une capacité de mémoire dont la clé ne se lit pas est refusée : une séance la sert. La progression d'une capacité qu'aucun fichier chargé ne définit est acceptée.
 - Le mot « mechanic » ne reste dans le code que là où il relit d'anciennes versions de la base ou d'anciens fichiers.
 
-Laissé au plan 2b : l'import et son écran, le dépôt des fichiers branché au démarrage, la progression sans définition ignorée par les écrans, la fin de `exercises.local/`.
+Laissé au plan 2b :
+
+- l'import et son écran, le dépôt des fichiers branché au démarrage, la progression sans définition ignorée par les écrans, la fin de `exercises.local/` ;
+- les trois points que le plan 1 laissait « au plan 2 ». Vérifier le type des clés de premier niveau d'un exercice et des paramètres des changements avant d'importer des fichiers non fiables. Un garde général contre la lecture d'un registre à l'import d'un module de route. Le mode dégradé quand un fichier du catalogue est refusé en production ;
+- les règles sur les identifiants : un identifiant ne contient ni `:` ni `#`, et `unknown` est réservé ;
+- les cartes dont la clé ne se lit plus par l'ensemble de leur capacité : elles seront gardées et ignorées ;
+- le contrôle d'une sauvegarde 9 lit le registre vivant. Il ne lit donc pas les fichiers que la sauvegarde elle-même porte.
+
+Laissé au plan 4 :
+
+- deux ensembles portent l'identifiant `change`. Celui du registre lit `{ grid, index }`, celui des changements lit un changement complet ;
+- les noms de l'ancien modèle encore dans le code : `VoicingFigureItem`, `FormFigureItem`, `TriadAnchor*`, `TriadZone*`, `ChordGridItem`.
