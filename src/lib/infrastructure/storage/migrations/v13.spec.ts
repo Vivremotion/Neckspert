@@ -15,6 +15,7 @@ import {
 } from './v13';
 import type { BackupV8 } from './v12';
 import source from './v13.ts?raw';
+import { CATALOG_FILES } from '$lib/composition/catalogFiles';
 import { RESERVED_EXERCISE_IDS } from '$lib/domain/definitions/ids';
 import { parseVoicingKey, voicingOccurrences } from '$lib/domain/music';
 import { occurrenceId } from '$lib/domain/triads';
@@ -494,6 +495,18 @@ describe('the level states of a table at version 13', () => {
 
 describe('a session at version 13', () => {
 	const common = { id: 's', startedAt: 1, endedAt: 2, fatigueDetected: false, latencyMs: 12 };
+
+	it('names the routines the catalog’s routines file writes', () => {
+		// A tripwire: the old kinds became these routines; a routine renamed in the catalog would
+		// leave the sessions stored under its old id naming nothing.
+		const written = (
+			JSON.parse(CATALOG_FILES['/catalog/routines.json']) as { routines: { id: string }[] }
+		).routines.map((routine) => routine.id);
+		const frozen = ['learn', 'free', 'triads', 'triads-zone', 'gesture'].map(
+			(kind) => sessionToV13({ ...common, kind, executions: [] }).routine
+		);
+		expect([...new Set(frozen)].sort()).toEqual([...written].sort());
+	});
 
 	it.each([
 		['learn', { routine: 'notes' }],
