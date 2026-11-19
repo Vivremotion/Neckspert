@@ -24,7 +24,7 @@ beforeEach(() => {
 
 describe('registerFiles', () => {
 	it('reads the files in the order of their names', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{
 				'b.json': file({ exercises: [exercise('from-b')] }),
 				'a.json': file({ exercises: [exercise('from-a')] })
@@ -36,7 +36,7 @@ describe('registerFiles', () => {
 	});
 
 	it('refuses an id another file holds, naming it', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{
 				'a.json': file({ exercises: [exercise('x')] }),
 				'b.json': file({ exercises: [exercise('x')] })
@@ -50,7 +50,7 @@ describe('registerFiles', () => {
 	});
 
 	it('refuses a grid id another file holds', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ grids: [grid('g')] }), 'b.json': file({ grids: [grid('g')] }) },
 			accept
 		);
@@ -60,7 +60,7 @@ describe('registerFiles', () => {
 	});
 
 	it('lets a grid and an exercise share an id', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ grids: [grid('x')], exercises: [exercise('x')] }) },
 			accept
 		);
@@ -70,7 +70,7 @@ describe('registerFiles', () => {
 	});
 
 	it('keeps the valid objects of a file that holds a refused one', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ exercises: [exercise('bad'), exercise('good')] }) },
 			{ exercise: (e) => (e.id === 'bad' ? 'no good' : null) }
 		);
@@ -79,7 +79,7 @@ describe('registerFiles', () => {
 	});
 
 	it('checks an exercise after the grids of its file are registered', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ exercises: [exercise('x')], grids: [grid('g')] }) },
 			{ exercise: () => (gridById('g') ? null : 'unreachable') }
 		);
@@ -88,7 +88,7 @@ describe('registerFiles', () => {
 	});
 
 	it('refuses an exercise whose check throws, and goes on', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ exercises: [exercise('broken'), exercise('fine')] }) },
 			{
 				exercise: (e) => {
@@ -104,12 +104,12 @@ describe('registerFiles', () => {
 	});
 
 	it('refuses nothing when there is no file', () => {
-		expect(registerFiles({}, accept)).toEqual([]);
+		expect(registerFiles({}, accept)).toEqual({ refusals: [], registered: [] });
 		expect(allExercises()).toEqual([]);
 	});
 
 	it('never throws on a file that is no JSON', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': '{ nope', 'b.json': file({ exercises: [exercise('x')] }) },
 			accept
 		);
@@ -120,7 +120,7 @@ describe('registerFiles', () => {
 
 	it('registers a skill before the exercise of its file that names it', () => {
 		let seen: boolean | null = null;
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ skills: [skill('s')], exercises: [exercise('e')] }) },
 			{
 				exercise: () => {
@@ -135,7 +135,7 @@ describe('registerFiles', () => {
 	});
 
 	it('refuses a skill id another file holds', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{ 'a.json': file({ skills: [skill('s')] }), 'b.json': file({ skills: [skill('s')] }) },
 			accept
 		);
@@ -145,12 +145,32 @@ describe('registerFiles', () => {
 	});
 
 	it('lets a skill, a grid and an exercise share an id', () => {
-		const refusals = registerFiles(
+		const { refusals } = registerFiles(
 			{
 				'a.json': file({ skills: [skill('x')], grids: [grid('x')], exercises: [exercise('x')] })
 			},
 			accept
 		);
 		expect(refusals).toEqual([]);
+	});
+
+	it('lists what it registers in order, and nothing it refused', () => {
+		const { registered } = registerFiles(
+			{
+				'b.json': file({ exercises: [exercise('e2')] }),
+				'a.json': file({
+					skills: [skill('s')],
+					grids: [grid('g')],
+					exercises: [exercise('bad'), exercise('e1')]
+				})
+			},
+			{ exercise: (e) => (e.id === 'bad' ? 'no good' : null) }
+		);
+		expect(registered).toEqual([
+			{ file: 'a.json', kind: 'skill', id: 's' },
+			{ file: 'a.json', kind: 'grid', id: 'g' },
+			{ file: 'a.json', kind: 'exercise', id: 'e1' },
+			{ file: 'b.json', kind: 'exercise', id: 'e2' }
+		]);
 	});
 });

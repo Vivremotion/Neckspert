@@ -10,6 +10,19 @@ export interface DefinitionChecks {
 	exercise(exercise: ExerciseDefinition): string | null;
 }
 
+/** An object a file registered. */
+export interface Registered {
+	file: string;
+	kind: 'skill' | 'grid' | 'exercise';
+	id: string;
+}
+
+/** What reading files gave: what was refused, and what was registered, in order. */
+export interface RegisterResult {
+	refusals: Refusal[];
+	registered: Registered[];
+}
+
 /**
  * Reads definition files into the registries, the origin of an object being the key of its file.
  * Files in the order of their names; in a file, its reading refusals, then its skills, its grids, then its
@@ -19,8 +32,9 @@ export interface DefinitionChecks {
 export function registerFiles(
 	files: Readonly<Record<string, string>>,
 	checks: DefinitionChecks
-): Refusal[] {
+): RegisterResult {
 	const refusals: Refusal[] = [];
+	const registered: Registered[] = [];
 	for (const file of Object.keys(files).sort()) {
 		const read = readDefinitionFile(file, files[file]);
 		refusals.push(...read.refusals);
@@ -33,7 +47,7 @@ export function registerFiles(
 					id: skill.id,
 					reason: `this id is already defined in ${holder}`
 				});
-			}
+			} else registered.push({ file, kind: 'skill', id: skill.id });
 		}
 		for (const grid of read.grids) {
 			const holder = registerGrid(grid, file);
@@ -44,7 +58,7 @@ export function registerFiles(
 					id: grid.id,
 					reason: `this id is already defined in ${holder}`
 				});
-			}
+			} else registered.push({ file, kind: 'grid', id: grid.id });
 		}
 		for (const exercise of read.exercises) {
 			const refusal = (reason: string): void => {
@@ -62,7 +76,8 @@ export function registerFiles(
 			}
 			const holder = registerExercise(exercise, file);
 			if (holder !== null) refusal(`this id is already defined in ${holder}`);
+			else registered.push({ file, kind: 'exercise', id: exercise.id });
 		}
 	}
-	return refusals;
+	return { refusals, registered };
 }

@@ -43,11 +43,13 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('loadDefinitions', () => {
-	it('loads the catalog, then the local files', async () => {
+	it('loads the catalog, then the imported files', async () => {
 		const { loadDefinitions, allExercises } = await fresh();
-		const refusals = loadDefinitions({
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: { '/exercises.local/a.json': file([arpeggioJson('local-arpeggio')]) }
+			imported: { '/imported/a.json': file([arpeggioJson('local-arpeggio')]) }
 		});
 		expect(refusals).toEqual([]);
 		expect(errors).toEqual([]);
@@ -56,22 +58,24 @@ describe('loadDefinitions', () => {
 		expect(ids.at(-1)).toBe('local-arpeggio');
 	});
 
-	it('refuses a local id the catalog holds', async () => {
+	it('refuses an imported id the catalog holds', async () => {
 		const { loadDefinitions, exerciseById } = await fresh();
-		const refusals = loadDefinitions({
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: { '/exercises.local/a.json': file([JSON.parse(JSON.stringify(LOCATE_NECK))]) }
+			imported: { '/imported/a.json': file([JSON.parse(JSON.stringify(LOCATE_NECK))]) }
 		});
 		expect(refusals).toEqual([
 			{
-				file: '/exercises.local/a.json',
+				file: '/imported/a.json',
 				kind: 'exercise',
 				id: 'locate-note-string',
 				reason: 'this id is already defined in /catalog/notes.json'
 			}
 		]);
 		expect(errors).toEqual([
-			'[exercises.local] /exercises.local/a.json, exercise locate-note-string refused: this id is already defined in /catalog/notes.json'
+			'[imported] /imported/a.json, exercise locate-note-string refused: this id is already defined in /catalog/notes.json'
 		]);
 		expect(exerciseById('locate-note-string').practices).toBe('locate-note-string');
 	});
@@ -90,32 +94,36 @@ describe('loadDefinitions', () => {
 		]);
 	});
 
-	it('reports a refused local file without throwing', async () => {
+	it('reports a refused imported file without throwing', async () => {
 		const { loadDefinitions } = await fresh();
-		const refusals = loadDefinitions({
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: {
-				'/exercises.local/list.json': '[]',
-				'/exercises.local/number.json': file([42])
+			imported: {
+				'/imported/list.json': '[]',
+				'/imported/number.json': file([42])
 			}
 		});
 		expect(refusals.map((refusal) => refusal.file)).toEqual([
-			'/exercises.local/list.json',
-			'/exercises.local/number.json'
+			'/imported/list.json',
+			'/imported/number.json'
 		]);
 		expect(errors).toEqual([
-			'[exercises.local] /exercises.local/list.json refused: the file must be a JSON object { format, skills, grids, exercises }',
-			'[exercises.local] /exercises.local/number.json, exercise refused: an exercise must be a JSON object'
+			'[imported] /imported/list.json refused: the file must be a JSON object { format, skills, grids, exercises }',
+			'[imported] /imported/number.json, exercise refused: an exercise must be a JSON object'
 		]);
 	});
 
 	it('refuses the exercise that practises a refused skill of its file, and keeps the rest', async () => {
 		const { loadDefinitions, allExercises } = await fresh();
 		const broken = { ...TEST_PLACED_VOICING_SKILL, id: 'broken-skill', items: 'no-such-set' };
-		const refusals = loadDefinitions({
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: {
-				'/exercises.local/a.json': JSON.stringify({
+			imported: {
+				'/imported/a.json': JSON.stringify({
 					format: 0,
 					skills: [TEST_PLACED_VOICING_SKILL, broken],
 					exercises: [
@@ -126,8 +134,8 @@ describe('loadDefinitions', () => {
 			}
 		});
 		expect(refusals.map(({ file, kind, id }) => ({ file, kind, id }))).toEqual([
-			{ file: '/exercises.local/a.json', kind: 'skill', id: 'broken-skill' },
-			{ file: '/exercises.local/a.json', kind: 'exercise', id: 'on-broken' }
+			{ file: '/imported/a.json', kind: 'skill', id: 'broken-skill' },
+			{ file: '/imported/a.json', kind: 'exercise', id: 'on-broken' }
 		]);
 		expect(refusals[1].reason).toContain('broken-skill');
 		const ids = allExercises().map((exercise) => exercise.id);
@@ -135,21 +143,61 @@ describe('loadDefinitions', () => {
 		expect(ids).not.toContain('on-broken');
 	});
 
-	it('reads the files once', async () => {
-		const { loadDefinitions, refusedDefinitions, allExercises } = await fresh();
-		expect(refusedDefinitions()).toEqual([]);
-		const first = loadDefinitions({
+	it('empties the registries before filling them: a file left out takes its objects with it', async () => {
+		const { loadDefinitions, allExercises } = await fresh();
+		loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: { '/exercises.local/list.json': '[]' }
+			imported: { '/imported/a.json': file([arpeggioJson('first')]) }
 		});
-		const second = loadDefinitions({
+		expect(allExercises().map((exercise) => exercise.id)).toContain('first');
+		loadDefinitions({ catalog: CATALOG_FILES });
+		const ids = allExercises().map((exercise) => exercise.id);
+		expect(ids).not.toContain('first');
+		expect(ids).toHaveLength(11);
+	});
+
+	it('lets an imported file and a catalog file share a name', async () => {
+		const { loadDefinitions, allExercises } = await fresh();
+		const { catalog, imported } = loadDefinitions({
+			catalog: { '/catalog/notes.json': file([arpeggioJson('in-catalog')]) },
+			imported: { 'notes.json': file([arpeggioJson('in-import')]) }
+		});
+		expect(catalog.registered).toEqual([
+			{ file: '/catalog/notes.json', kind: 'skill', id: TEST_PLACED_VOICING_SKILL.id },
+			{ file: '/catalog/notes.json', kind: 'exercise', id: 'in-catalog' }
+		]);
+		expect(imported.registered).toEqual([
+			{ file: 'notes.json', kind: 'exercise', id: 'in-import' }
+		]);
+		expect(imported.refusals).toEqual([
+			expect.objectContaining({ file: 'notes.json', kind: 'skill' })
+		]);
+		expect(allExercises().map((exercise) => exercise.id)).toEqual(['in-catalog', 'in-import']);
+	});
+
+	it('names the catalog file that holds a colliding id', async () => {
+		const { loadDefinitions } = await fresh();
+		const { imported } = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: { '/exercises.local/a.json': file([arpeggioJson('too-late')]) }
+			imported: { 'notes.json': file([JSON.parse(JSON.stringify(LOCATE_NECK))]) }
 		});
-		expect(second).toEqual(first);
-		expect(refusedDefinitions()).toEqual(first);
-		expect(allExercises()).toHaveLength(11);
-		expect(errors).toHaveLength(1);
+		expect(imported.refusals).toEqual([
+			{
+				file: 'notes.json',
+				kind: 'exercise',
+				id: 'locate-note-string',
+				reason: 'this id is already defined in /catalog/notes.json'
+			}
+		]);
+	});
+
+	it('returns the last load, null before any', async () => {
+		const { loadDefinitions, loadedDefinitions } = await fresh();
+		expect(loadedDefinitions()).toBeNull();
+		loadDefinitions({ catalog: CATALOG_FILES, imported: { 'a.json': '[]' } });
+		const last = loadDefinitions({ catalog: CATALOG_FILES });
+		expect(loadedDefinitions()).toBe(last);
+		expect(last.imported).toEqual({ refusals: [], registered: [] });
 	});
 });
 
@@ -164,9 +212,11 @@ describe('docs/exercices-locaux.md', () => {
 		const { loadDefinitions, allExercises } = await fresh();
 		const doc = DOC['/docs/exercices-locaux.md'] ?? '';
 		const block = /```json\n([\s\S]*?)\n```/.exec(doc)?.[1] ?? '';
-		const refusals = loadDefinitions({
+		const {
+			imported: { refusals }
+		} = loadDefinitions({
 			catalog: CATALOG_FILES,
-			local: { '/exercises.local/example.json': block }
+			imported: { '/imported/example.json': block }
 		});
 		expect(refusals).toEqual([]);
 		expect(allExercises().at(-1)?.view).toBe('figure');

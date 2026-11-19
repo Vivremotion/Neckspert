@@ -11,7 +11,7 @@ function load() {
 	clearSkills();
 	clearExercises();
 	clearGrids();
-	return registerFiles(CATALOG_FILES, definitionChecks());
+	return registerFiles(CATALOG_FILES, definitionChecks()).refusals;
 }
 
 describe('the catalog files', () => {

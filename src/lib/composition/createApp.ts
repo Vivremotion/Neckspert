@@ -27,7 +27,7 @@ import {
 } from '$lib/infrastructure/storage';
 import { createDiagnosticJournal, journalNotes } from './diagnostics';
 import { CATALOG_FILES } from './catalogFiles';
-import { loadDefinitions } from './definitions';
+import { loadDefinitions, loadedDefinitions } from './definitions';
 
 export interface CreateAppOptions {
 	/** Injected in tests. Production uses the browser AudioContext via WebAudioClock. */
@@ -46,23 +46,12 @@ export interface CreateAppOptions {
  * second input, the computer's mic, to compare the playing input with. The diagnostic
  * journal has its own database: the input opens a take each time it opens, and the input and the
  * chord verifier write to it; the core never sees it. Before anything reads them, the registries
- * are filled from the definition files of `catalog/` and, in development builds, of
- * `exercises.local/` (`docs/exercices-locaux.md`).
+ * are filled from the definition files of `catalog/`.
  */
 export function createApp(options: CreateAppOptions = {}): AppServices {
-	// The catalog's definition files, then the private ones, both read as text at build time; the
-	// private files in development builds only: a production build drops that branch and the files
-	// with it. A refusal (a file's JSON unreadable included) is reported, never fatal.
-	loadDefinitions({
-		catalog: CATALOG_FILES,
-		local: import.meta.env.DEV
-			? import.meta.glob<string>('/exercises.local/*.json', {
-					eager: true,
-					query: '?raw',
-					import: 'default'
-				})
-			: undefined
-	});
+	// The catalog's definition files, read as text at build time, unless something is loaded
+	// already (tests register their own objects before calling). A refusal is reported, never fatal.
+	if (loadedDefinitions() === null) loadDefinitions({ catalog: CATALOG_FILES });
 	const clock = new WebAudioClock(options.createContext);
 	const context = () => clock.context();
 	// The one path of the sounds of the exercises played cycle after cycle (the click, demonstrations).

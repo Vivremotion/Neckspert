@@ -1,7 +1,16 @@
 import { definitionChecks } from '$lib/application/definitions/checks';
-import { registerFiles, type Refusal } from '$lib/domain/definitions';
+import { registerFiles, type RegisterResult, type Refusal } from '$lib/domain/definitions';
+import { clearExercises } from '$lib/domain/exercise/registry';
+import { clearGrids } from '$lib/domain/grid/registry';
+import { clearSkills } from '$lib/domain/skill/registry';
 
-let refused: Refusal[] | null = null;
+/** What a load gave, the catalog's files apart from the imported ones. */
+export interface LoadedDefinitions {
+	catalog: RegisterResult;
+	imported: RegisterResult;
+}
+
+let loaded: LoadedDefinitions | null = null;
 
 /** The console line of a refusal, `source` being where its file comes from. */
 function refusalLine(source: string, { file, kind, id, reason }: Refusal): string {
@@ -10,32 +19,29 @@ function refusalLine(source: string, { file, kind, id, reason }: Refusal): strin
 }
 
 /**
- * Fills the registries once: the catalog, then the local files. Each refusal goes to
- * `console.error`, as `[catalog] <file> …` or `[exercises.local] <file> …`. Called again, it
- * returns what the first call refused.
+ * Empties the registries, then fills them: the catalog, then the imported files. Each refusal
+ * goes to `console.error`, as `[catalog] <file> …` or `[imported] <file> …`. Never throws.
  */
 export function loadDefinitions(input: {
 	catalog: Readonly<Record<string, string>>;
-	local?: Readonly<Record<string, string>>;
-}): readonly Refusal[] {
-	if (refused) return refused;
+	imported?: Readonly<Record<string, string>>;
+}): LoadedDefinitions {
+	clearSkills();
+	clearGrids();
+	clearExercises();
 	const checks = definitionChecks();
-	const sources: [string, Readonly<Record<string, string>> | undefined][] = [
-		['catalog', input.catalog],
-		['exercises.local', input.local]
-	];
-	refused = [];
-	for (const [source, files] of sources) {
-		if (!files) continue;
-		for (const refusal of registerFiles(files, checks)) {
-			console.error(refusalLine(source, refusal));
-			refused.push(refusal);
-		}
-	}
-	return refused;
+	const read = (source: string, files: Readonly<Record<string, string>>): RegisterResult => {
+		const result = registerFiles(files, checks);
+		for (const refusal of result.refusals) console.error(refusalLine(source, refusal));
+		return result;
+	};
+	const catalog = read('catalog', input.catalog);
+	const imported = read('imported', input.imported ?? {});
+	loaded = { catalog, imported };
+	return loaded;
 }
 
-/** What `loadDefinitions` refused, none before it ran. */
-export function refusedDefinitions(): readonly Refusal[] {
-	return refused ?? [];
+/** The last load; null before any. */
+export function loadedDefinitions(): LoadedDefinitions | null {
+	return loaded;
 }
