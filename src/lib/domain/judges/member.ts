@@ -17,16 +17,33 @@ export interface MemberContent {
 	index: unknown;
 	/** Every value resolved. */
 	selection: Selection;
-	/** The member before, when the selection reads one. */
-	previous?: Member | null;
+	/**
+	 * The identity of the member before (the last heard in a passage), resolved by the family
+	 * (`Family.member`); absent, null or naming none: no member before.
+	 */
+	previous?: string | null;
+}
+
+/** The family a member content names; throws on an unknown family. */
+function familyOf(content: MemberContent): Family {
+	const family = familyNamed(content.family);
+	if (!family) {
+		throw new Error(`member content names family "${content.family}", which is not registered`);
+	}
+	return family;
+}
+
+/** The member before a content's round, resolved by its family; null when there is none. */
+function previousMember(content: MemberContent, family: Family = familyOf(content)) {
+	return content.previous ? family.member(content.previous) : null;
 }
 
 /** The family a member content names and the members it admits. Throws on an unknown family. */
 function familyAndMembers(content: MemberContent): { family: Family; members: Member[] } {
-	const { family: id, index, selection, previous } = content;
-	const family = familyNamed(id);
-	if (!family) throw new Error(`member content names family "${id}", which is not registered`);
-	return { family, members: admitted(family, index, selection, { previous: previous ?? null }) };
+	const family = familyOf(content);
+	const { index, selection } = content;
+	const previous = previousMember(content, family);
+	return { family, members: admitted(family, index, selection, { previous }) };
 }
 
 /** The members a member content admits, in its selection's order. Throws on an unknown family. */
@@ -51,7 +68,7 @@ export const memberJudge: ContentJudge = {
 			heard === null
 				? null
 				: refusedBy(family, content.index, content.selection, heard, {
-						previous: content.previous ?? null
+						previous: previousMember(content, family)
 					});
 		return {
 			correct: false,

@@ -49,7 +49,9 @@ export const ROUND_GIVEN_PARAMS: readonly string[] = ['leadBeats', 'previewBeats
 
 /**
  * The params a template reads: the item's resolved params (`resolvedParamsOf`: the exercise's, its
- * exercise level's, its item level's), the item's lead and the preview.
+ * exercise level's, its item level's), the item's lead and the preview, then its passage params
+ * (`PlannedItem.passage.each`, a name the load lets no other source give). Only the level's part
+ * is cached: the rest belongs to the item.
  */
 export function roundParamsOf(
 	definition: ExerciseDefinition,
@@ -62,7 +64,8 @@ export function roundParamsOf(
 			resolvedParamsOf(definition, at)
 		),
 		leadBeats: item.leadBeats,
-		previewBeats: resolved.previewBeats
+		previewBeats: resolved.previewBeats,
+		...item.passage?.each
 	};
 }
 

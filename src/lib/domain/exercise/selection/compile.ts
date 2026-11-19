@@ -26,7 +26,7 @@ export class SelectionCompileError extends Error {
 /** What a compilation reads; no item for a passage's members. */
 interface Context {
 	definition: ExerciseDefinition;
-	item: Pick<PlannedItem, 'item'> | null;
+	item: Pick<PlannedItem, 'item' | 'passage'> | null;
 	params: Readonly<Record<string, unknown>>;
 }
 
@@ -194,14 +194,16 @@ export function passageSelection(
 }
 
 /**
- * A selection compiled for `item`: its index derived, its filters' values resolved in `params`
- * (the item's resolved params) or on the item (a filter whose value the item does not carry left
- * out), its take counted. No member is enumerated: the judge admits them. Throws a
- * `SelectionCompileError` naming the selection's own field.
+ * A selection compiled for `item`: its index derived (reading the values of its passage's index,
+ * when it is a passage's round), its filters' values resolved in `params` (the item's resolved
+ * params) or on the item (a filter whose value the item does not carry left out), its take
+ * counted; a passage's round keeps the identity of the member heard before it as its previous
+ * member. No member is enumerated: the judge admits them. Throws a `SelectionCompileError`
+ * naming the selection's own field.
  */
 export function compileSelection(
 	definition: ExerciseDefinition,
-	item: Pick<PlannedItem, 'item'>,
+	item: Pick<PlannedItem, 'item' | 'passage'>,
 	template: SelectionTemplate,
 	params: Readonly<Record<string, unknown>>
 ): MemberContent {
@@ -217,7 +219,7 @@ export function compileSelection(
 	}
 	let index: unknown;
 	try {
-		index = derivation.index(item.item, { of: {}, params });
+		index = derivation.index(item.item, { of: item.passage?.of ?? {}, params });
 	} catch (error) {
 		fail(
 			'',
@@ -227,5 +229,10 @@ export function compileSelection(
 	const selection = resolvedSelection(context, template);
 	// What the family cannot run is refused at the load; a zone whose ends come out reversed
 	// here is no error: it admits nothing.
-	return { family: template.family, index, selection };
+	return {
+		family: template.family,
+		index,
+		selection,
+		...(item.passage && { previous: item.passage.previous })
+	};
 }

@@ -34,7 +34,8 @@ const IMPORTS: readonly RegExp[] = [
 	/families\/guitar/,
 	/families\/music/,
 	/(^|\/)grid(\/|$)/,
-	/(^|\/)sets(\/|$)/,
+	// The correspondences alone, a registry looked up by the names the data gives.
+	/(^|\/)sets(\/(?!correspondences$)|$)/,
 	/(^|\/)music(\/|$)/,
 	/(^|\/)triads(\/|$)/
 ];
@@ -75,6 +76,12 @@ describe('the passage module', () => {
 		).toEqual([`${file}: imports ../../families/guitar/notePlaces`]);
 		expect(offendersIn({ [file]: `import '../../families/guitar/notes';` })).toEqual([
 			`${file}: imports ../../families/guitar/notes`
+		]);
+		expect(
+			offendersIn({ [file]: `import { correspondingCard } from '../../sets/correspondences';` })
+		).toEqual([]);
+		expect(offendersIn({ [file]: `import { itemSet } from '../../sets';` })).toEqual([
+			`${file}: imports ../../sets`
 		]);
 		expect(offendersIn({ [file]: `const m = import("../../music");` })).toEqual([
 			`${file}: imports ../../music`

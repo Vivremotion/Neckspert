@@ -254,6 +254,35 @@ export interface PlannedItem<I = unknown> {
 	scope?: string;
 	/** Locate removable aid: the string may be drawn. Hot prompts of a card not acquired only. */
 	stringAid?: boolean;
+	/** The passage it is a round of, for an exercise that writes passages (`createPassageSource`). */
+	passage?: PlannedPassage;
+}
+
+/** A round's place in the passage it belongs to. */
+export interface PlannedPassage {
+	/** This passage in the series. */
+	id: string;
+	/** Its index's key and values. */
+	index: string;
+	of: Readonly<Record<string, unknown>>;
+	/** Its rank in the passage, and the passage's length. */
+	rank: number;
+	length: number;
+	/** The values of the passage params, as this round reads them. */
+	each: Readonly<Record<string, unknown>>;
+	/** The identity of the last member heard in the passage; null before any. */
+	previous: string | null;
+}
+
+/**
+ * What an attempt of a passage's round keeps of it in its `data.passage`: the passage, its
+ * index's key, the round's rank, and the passage params as the round read them.
+ */
+export interface AttemptPassage {
+	id: string;
+	index: string;
+	rank: number;
+	each: Readonly<Record<string, unknown>>;
 }
 
 export interface SessionRecord {

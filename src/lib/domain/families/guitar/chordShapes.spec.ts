@@ -491,7 +491,7 @@ describe('chord-shapes judged as the changes are', () => {
 								family: 'chord-shapes',
 								where: [{ position: { beyond: 'previous', toward, turns: true } }]
 							},
-							previous: previous === null ? null : chordShapes.member(previous)
+							previous
 						};
 						compared += compare(item, content, chord);
 					}

@@ -1,0 +1,509 @@
+import { describe, expect, it } from 'vitest';
+import { compileRound } from '$lib/domain/exercise/round/compile';
+import type { ExerciseDefinition } from '$lib/domain/exercise/types';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
+import { triadOf } from '$lib/domain/grid';
+import type { MemberContent } from '$lib/domain/judges';
+import type { StringNumber } from '$lib/domain/music';
+import type { ItemSource } from '$lib/domain/progress/selector';
+import { METER_4_4 } from '$lib/domain/time/meter';
+import type { TriadSkill } from '$lib/domain/triads';
+import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
+import { responseAttempt } from '$lib/testing/attempts';
+import {
+	CLIMB_PASSAGES,
+	JAM_PASSAGES,
+	LINK_PASSAGES,
+	PASSAGE_EXERCISES,
+	ZONE_PASSAGES
+} from '$lib/testing/changesPassages';
+import { triadCards } from '$lib/testing/shapes';
+import { createPassageSource, passageOf } from './passageSource';
+import { SESSION_MS } from './policy';
+
+const NOW = Date.parse('2026-11-19T10:00:00.000Z');
+const G_B_E = [3, 2, 1] as const;
+const D_G_B = [4, 3, 2] as const;
+
+/** The triads of iohefy-a, in the order of its changes. */
+const IOHEFY = [
+	['D', 'min'],
+	['G', 'maj'],
+	['C', 'maj'],
+	['F', 'maj'],
+	['E', 'min'],
+	['Eb', 'min'],
+	['Ab', 'maj']
+] as const;
+/** Dm7 G7 Dm7 G7 Cmaj7 F7 Em7 Ebm7 Ab7: Cmaj7 twice in a row is one change. */
+const IOHEFY_CHANGES = 9;
+
+function iohefy(skill: TriadSkill, set: readonly StringNumber[]): CardState[] {
+	return IOHEFY.flatMap(([root, quality]) => triadCards(skill, root, quality, set));
+}
+
+/** Every passage exercise open on iohefy-a, and the link on its triads. */
+const ALL_OPEN: CardState[] = [G_B_E, D_G_B].flatMap((set) => [
+	...iohefy('chord-anchor', set),
+	...iohefy('chord-zone', set)
+]);
+
+function source(
+	exercises: readonly ExerciseDefinition[],
+	cards: readonly CardState[] = ALL_OPEN,
+	attempts: readonly Attempt[] = [],
+	durationMs = SESSION_MS
+): ItemSource {
+	return createPassageSource({ exercises, cards, attempts, sessionId: 's1', durationMs });
+}
+
+/** The attempt of a planned round, passed or not, with the shape heard. */
+function attemptOf(
+	planned: PlannedItem,
+	promptedAt: number,
+	success = true,
+	decided: string | null = null
+): Attempt {
+	const passage = planned.passage!;
+	return responseAttempt({
+		sessionId: 's1',
+		exerciseId: planned.exerciseId,
+		skill: planned.skill,
+		cardKey: cardKey(planned.skill, `round-${passage.rank}`),
+		phase: 'free',
+		temperature: 'hot',
+		aid: planned.aid,
+		promptedAt,
+		tempoBpm: 80,
+		leadBeats: null,
+		timingOffsetMs: success ? 0 : null,
+		reactionMs: success ? 100 : null,
+		correct: success,
+		verdict: success ? 'perfect' : 'wrong',
+		data: {
+			item: planned.item,
+			answer: decided === null ? null : { decided },
+			confusion: null,
+			passage: { id: passage.id, index: passage.index, rank: passage.rank, each: passage.each }
+		},
+		observations: []
+	});
+}
+
+const at = (now: number, elapsedMs = 0) => ({ now, elapsedMs, fatigued: false });
+
+/** Plays a whole passage, each round passed unless `success` says, the shape heard none. */
+function playPassage(
+	s: ItemSource,
+	clock: { now: number },
+	success: (rank: number) => boolean = () => true,
+	elapsedMs = 0
+): PlannedItem[] {
+	const played: PlannedItem[] = [];
+	for (;;) {
+		const planned = s.next(at(clock.now, elapsedMs));
+		if (!planned) throw new Error('no round');
+		played.push(planned);
+		clock.now += 1000;
+		s.record(attemptOf(planned, clock.now, success(planned.passage!.rank)), clock.now);
+		if (planned.passage!.rank === planned.passage!.length - 1) return played;
+	}
+}
+
+/**
+ * The climb with rounds of a bar: the length of a change is measured on the old change item until
+ * the presenter serves the new one (Task 5).
+ */
+const CLIMB: ExerciseDefinition = {
+	...CLIMB_PASSAGES,
+	round: { ...CLIMB_PASSAGES.round!, length: { beats: 4 } }
+};
+
+/** The member content the round of `planned` judges. */
+function contentOf(definition: ExerciseDefinition, planned: PlannedItem): MemberContent {
+	const plan = compileRound(definition, planned, METER_4_4, {
+		previewBeats: 0,
+		fromRunStart: null
+	});
+	return plan.expectations[0].content!.value as MemberContent;
+}
+
+/** The shapes of a triad on a group of strings, lowest position first. */
+function shapesOf(symbol: string, strings: readonly StringNumber[]) {
+	return chordShapes.members({ chord: triadOf(symbol), strings: [...strings] });
+}
+
+describe('createPassageSource', () => {
+	it('plays one passage of each exercise with something open, in the order written, round after round', () => {
+		const s = source(PASSAGE_EXERCISES);
+		const clock = { now: NOW };
+		const exercises = Array.from({ length: 8 }, () => playPassage(s, clock)[0].exerciseId);
+		const ids = PASSAGE_EXERCISES.map((exercise) => exercise.id);
+		expect(exercises).toEqual([...ids, ...ids]);
+	});
+
+	it('serves a round per member of the passage, the first counted in, each the item its member is', () => {
+		const s = source([CLIMB_PASSAGES], iohefy('chord-anchor', G_B_E));
+		const played = playPassage(s, { now: NOW });
+		expect(played.map((p) => p.item)).toEqual(
+			Array.from({ length: IOHEFY_CHANGES }, (_, index) => ({ grid: 'iohefy-a', index }))
+		);
+		expect(played.map((p) => p.countIn ?? false)).toEqual(
+			Array.from({ length: IOHEFY_CHANGES }, (_, i) => i === 0)
+		);
+		expect(played.every((p) => p.restBars === undefined)).toBe(true);
+		const [first] = played;
+		expect(first).toMatchObject({
+			exerciseId: CLIMB_PASSAGES.id,
+			skill: CLIMB_PASSAGES.practices,
+			exerciseLevel: 0,
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null,
+			scope: 'iohefy-a'
+		});
+		expect(first.passage).toEqual({
+			id: 's1:0',
+			index: 'grid=iohefy-a;strings=3,2,1',
+			of: { grid: 'iohefy-a', strings: [3, 2, 1] },
+			rank: 0,
+			length: IOHEFY_CHANGES,
+			each: { direction: 'up' },
+			previous: null
+		});
+		expect(played.map((p) => p.passage!.rank)).toEqual([...Array(IOHEFY_CHANGES).keys()]);
+	});
+
+	it('writes no scope for an exercise whose passages name none; serves its members as the link does', () => {
+		const s = source([LINK_PASSAGES], triadCards('chord-anchor', 'D', 'maj', G_B_E));
+		const played = playPassage(s, { now: NOW });
+		expect(played[0].scope).toBeUndefined();
+		// Four shapes up, then back down: seven bars.
+		expect(played).toHaveLength(7);
+		const frets = played.map((p) => (p.item as { frets: number[] }).frets.join('-'));
+		expect(frets.slice(0, 4)).toEqual(frets.slice(3).reverse());
+	});
+
+	it('plays the index played least recently, the order written on a tie, history first', () => {
+		const cards = [...iohefy('chord-anchor', G_B_E), ...iohefy('chord-anchor', D_G_B)];
+		const s = source([CLIMB_PASSAGES], cards);
+		const clock = { now: NOW };
+		const indices = Array.from({ length: 4 }, () => playPassage(s, clock)[0].passage!.index);
+		expect(indices).toEqual([
+			'grid=iohefy-a;strings=3,2,1',
+			'grid=iohefy-a;strings=4,3,2',
+			'grid=iohefy-a;strings=3,2,1',
+			'grid=iohefy-a;strings=4,3,2'
+		]);
+		// Played before, in the store: the other one comes first.
+		const first = source([CLIMB_PASSAGES], cards).next(at(NOW))!;
+		const stored = attemptOf(first, NOW - 1000);
+		expect(source([CLIMB_PASSAGES], cards, [stored]).next(at(NOW))!.passage!.index).toBe(
+			'grid=iohefy-a;strings=4,3,2'
+		);
+	});
+
+	it('gives each passage param the value after the one the last passage of the index started with', () => {
+		const cards = iohefy('chord-anchor', G_B_E);
+		const s = source([CLIMB_PASSAGES], cards);
+		const clock = { now: NOW };
+		const directions = Array.from(
+			{ length: 3 },
+			() => playPassage(s, clock)[0].passage!.each.direction
+		);
+		expect(directions).toEqual(['up', 'down', 'up']);
+
+		// Read back in the store: the last passage started up, then turned down on the way.
+		const first = source([CLIMB_PASSAGES], cards).next(at(NOW))!;
+		const started = attemptOf(first, NOW - 5000);
+		const turned = attemptOf(
+			{ ...first, passage: { ...first.passage!, rank: 3, each: { direction: 'down' } } },
+			NOW - 2000
+		);
+		const next = source([CLIMB_PASSAGES], cards, [turned, started]).next(at(NOW))!;
+		expect(next.passage!.each).toEqual({ direction: 'down' });
+	});
+
+	it('moves the passage params of each index apart', () => {
+		const cards = [...iohefy('chord-anchor', G_B_E), ...iohefy('chord-anchor', D_G_B)];
+		const s = source([CLIMB_PASSAGES], cards);
+		const clock = { now: NOW };
+		const played = Array.from({ length: 4 }, () => playPassage(s, clock)[0].passage!);
+		expect(played.map((p) => `${p.index} ${p.each.direction}`)).toEqual([
+			'grid=iohefy-a;strings=3,2,1 up',
+			'grid=iohefy-a;strings=4,3,2 up',
+			'grid=iohefy-a;strings=3,2,1 down',
+			'grid=iohefy-a;strings=4,3,2 down'
+		]);
+	});
+
+	it('gives a passage left without an attempt its turn: its index and its values count as played', () => {
+		const s = source([ZONE_PASSAGES]);
+		const clock = { now: NOW };
+		const first = s.next(at(clock.now))!;
+		// The passage is cut short (the session paused, the player quit): a new one is asked.
+		for (let rank = 1; rank < first.passage!.length; rank++) s.next(at(clock.now));
+		const second = s.next(at(clock.now))!;
+		expect(second.passage!.each.zone).not.toEqual(first.passage!.each.zone);
+	});
+
+	it('ignores the attempts of before the passages, and those of other exercises', () => {
+		const cards = iohefy('chord-anchor', G_B_E);
+		const old = responseAttempt({
+			sessionId: 's0',
+			exerciseId: CLIMB_PASSAGES.id,
+			skill: CLIMB_PASSAGES.practices,
+			cardKey: cardKey(CLIMB_PASSAGES.practices, 'iohefy-a#0'),
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			promptedAt: NOW - 1000,
+			tempoBpm: 80,
+			leadBeats: null,
+			timingOffsetMs: 0,
+			reactionMs: 100,
+			correct: true,
+			verdict: 'perfect',
+			data: {
+				item: { rule: 'climb', element: 'climb:iohefy-a:3,2,1', direction: 'up', index: 0 },
+				answer: null,
+				confusion: null
+			},
+			observations: []
+		});
+		expect(passageOf(old)).toBeNull();
+		const planned = source([CLIMB_PASSAGES], cards).next(at(NOW))!;
+		const elsewhere = { ...attemptOf(planned, NOW - 500), exerciseId: JAM_PASSAGES.id };
+		const s = source([CLIMB_PASSAGES], cards, [old, elsewhere]);
+		expect(s.next(at(NOW))!.passage).toMatchObject({ rank: 0, each: { direction: 'up' } });
+	});
+
+	describe('again: until passed', () => {
+		const cards = [...triadCards('chord-anchor', 'D', 'maj', G_B_E), ...ALL_OPEN];
+
+		it('plays a failed passage again, whole, on its index with its values, counted in, before the next exercise', () => {
+			const s = source([LINK_PASSAGES, JAM_PASSAGES], cards);
+			const clock = { now: NOW };
+			const failed = playPassage(s, clock, (rank) => rank !== 2);
+			const again = playPassage(s, clock);
+			expect(again.map((p) => p.item)).toEqual(failed.map((p) => p.item));
+			expect(again[0].passage).toMatchObject({
+				index: failed[0].passage!.index,
+				each: failed[0].passage!.each,
+				rank: 0
+			});
+			expect(again[0].passage!.id).not.toBe(failed[0].passage!.id);
+			expect(again[0].countIn).toBe(true);
+			expect(again[0].restBars).toBeUndefined();
+			expect(playPassage(s, clock)[0].exerciseId).toBe(JAM_PASSAGES.id);
+		});
+
+		it('counts a round that got no attempt as not passed', () => {
+			const s = source([LINK_PASSAGES, JAM_PASSAGES], cards);
+			const clock = { now: NOW };
+			const first = s.next(at(clock.now))!;
+			for (let rank = 1; rank < first.passage!.length; rank++) {
+				const planned = s.next(at(clock.now))!;
+				s.record(attemptOf(planned, ++clock.now), clock.now);
+			}
+			expect(s.next(at(clock.now))!.passage).toMatchObject({
+				index: first.passage!.index,
+				rank: 0
+			});
+		});
+
+		it('moves on when the share of passed rounds reaches passes', () => {
+			// One miss in seven: 6/7 passes at 0.8, not at 0.9.
+			const lenient: ExerciseDefinition = {
+				...LINK_PASSAGES,
+				passages: { ...LINK_PASSAGES.passages!, passes: 0.8 }
+			};
+			const s = source([lenient, JAM_PASSAGES], cards);
+			const clock = { now: NOW };
+			playPassage(s, clock, (rank) => rank !== 0);
+			expect(playPassage(s, clock)[0].exerciseId).toBe(JAM_PASSAGES.id);
+		});
+
+		it('stops at the end of the session before playing again', () => {
+			const s = source([LINK_PASSAGES], cards);
+			const clock = { now: NOW };
+			playPassage(s, clock, () => false);
+			expect(s.next(at(clock.now, SESSION_MS))).toBeNull();
+		});
+	});
+
+	describe('rest bars', () => {
+		it('rest before a passage whose index changes after a passage of the session, never before the first', () => {
+			const cards = [
+				...triadCards('chord-anchor', 'D', 'maj', G_B_E),
+				...triadCards('chord-anchor', 'G', 'maj', G_B_E)
+			];
+			const s = source([LINK_PASSAGES], cards);
+			const clock = { now: NOW };
+			const first = playPassage(s, clock);
+			const second = playPassage(s, clock);
+			expect(first[0].restBars).toBeUndefined();
+			expect(second[0]).toMatchObject({ countIn: true, restBars: 1 });
+			expect(second[0].passage!.index).not.toBe(first[0].passage!.index);
+			expect(second.slice(1).every((p) => p.restBars === undefined && !p.countIn)).toBe(true);
+		});
+
+		it('rest after another exercise’s passage', () => {
+			const cards = [...triadCards('chord-anchor', 'D', 'maj', G_B_E), ...ALL_OPEN];
+			const s = source([JAM_PASSAGES, LINK_PASSAGES], cards);
+			const clock = { now: NOW };
+			playPassage(s, clock);
+			expect(playPassage(s, clock)[0]).toMatchObject({ countIn: true, restBars: 1 });
+		});
+	});
+
+	describe('unplayable passages', () => {
+		const zones = (list: readonly (readonly [number, number])[]): ExerciseDefinition => ({
+			...ZONE_PASSAGES,
+			id: 'test-zones',
+			passages: { ...ZONE_PASSAGES.passages!, each: { zone: list } }
+		});
+
+		it('skips a passage where a round admits no member, to the next values of its index', () => {
+			const s = source([
+				zones([
+					[30, 34],
+					[1, 5]
+				])
+			]);
+			const clock = { now: NOW };
+			expect(playPassage(s, clock)[0].passage!.each.zone).toEqual([1, 5]);
+			expect(playPassage(s, clock)[0].passage!.each.zone).toEqual([1, 5]);
+		});
+
+		it('leaves out an index with nothing playable, then the exercise, and ends when nothing is left', () => {
+			const none = zones([
+				[30, 34],
+				[40, 44]
+			]);
+			const s = source([none, JAM_PASSAGES]);
+			const clock = { now: NOW };
+			expect(playPassage(s, clock)[0].exerciseId).toBe(JAM_PASSAGES.id);
+			expect(playPassage(s, clock)[0].exerciseId).toBe(JAM_PASSAGES.id);
+			expect(source([none]).next(at(NOW))).toBeNull();
+		});
+
+		it('skips a passage with no member, and an index the family cannot read, without throwing', () => {
+			const empty: ExerciseDefinition = {
+				...LINK_PASSAGES,
+				id: 'test-empty',
+				passages: {
+					...LINK_PASSAGES.passages!,
+					members: { family: 'chord-shapes', where: [{ in: { frets: [30, 34] } }] },
+					opens: undefined
+				}
+			};
+			const broken: ExerciseDefinition = {
+				...JAM_PASSAGES,
+				id: 'test-broken',
+				passages: { ...JAM_PASSAGES.passages!, of: { grid: ['no-such-grid'] }, opens: undefined }
+			};
+			expect(source([empty]).next(at(NOW))).toBeNull();
+			expect(source([broken]).next(at(NOW))).toBeNull();
+			expect(source([empty, broken, CLIMB_PASSAGES]).next(at(NOW))!.exerciseId).toBe(
+				CLIMB_PASSAGES.id
+			);
+		});
+	});
+
+	describe('the previous member', () => {
+		const cards = iohefy('chord-anchor', G_B_E);
+
+		it('gives the member heard to the next round of the passage, whatever the verdict, and none to a new passage', () => {
+			const s = source([CLIMB_PASSAGES], cards);
+			const clock = { now: NOW };
+			const first = s.next(at(clock.now))!;
+			const [dm] = shapesOf('Dm', G_B_E);
+			s.record(attemptOf(first, ++clock.now, false, dm.id), clock.now);
+			const second = s.next(at(clock.now))!;
+			expect(second.passage!.previous).toBe(dm.id);
+			// Nothing readable heard: the previous member stays.
+			s.record(attemptOf(second, ++clock.now, false, null), clock.now);
+			const third = s.next(at(clock.now))!;
+			expect(third.passage!.previous).toBe(dm.id);
+			// A shape that is no member of the round's chord is not one of its members heard.
+			s.record(attemptOf(third, ++clock.now, false, shapesOf('Ab', D_G_B)[0].id), clock.now);
+			const fourth = s.next(at(clock.now))!;
+			expect(fourth.passage!.previous).toBe(dm.id);
+			for (let rank = 4; rank < IOHEFY_CHANGES; rank++) s.next(at(clock.now));
+			expect(s.next(at(clock.now))!.passage!.previous).toBeNull();
+		});
+
+		it('makes it the previous member of the round’s content, by its identity', () => {
+			const s = source([CLIMB_PASSAGES], cards);
+			const first = s.next(at(NOW))!;
+			const [dm] = shapesOf('Dm', G_B_E);
+			s.record(attemptOf(first, NOW + 1, true, dm.id), NOW + 1);
+			const second = s.next(at(NOW + 2))!;
+			expect(contentOf(CLIMB, second)).toEqual({
+				family: 'chord-shapes',
+				index: { chord: triadOf('G'), strings: [3, 2, 1] },
+				selection: {
+					family: 'chord-shapes',
+					where: [{ position: { beyond: 'previous', toward: 'up', turns: true } }]
+				},
+				previous: dm.id
+			});
+		});
+	});
+
+	it('turns the direction where the neck runs out, for the rest of the passage; the next passage reads the one it started with', () => {
+		const cards = iohefy('chord-anchor', G_B_E);
+		const s = source([CLIMB_PASSAGES], cards);
+		const clock = { now: NOW };
+		const position = (id: string) => {
+			const found = chordShapes.member(id)!;
+			return Math.min(...[chordShapes.attributes.position(found)].flat());
+		};
+		const g = shapesOf('G', G_B_E);
+		const highest = g.reduce((a, b) => (position(a.id) >= position(b.id) ? a : b));
+		// No shape of Dm (the third change) lies beyond the highest G (the second).
+		expect(shapesOf('Dm', G_B_E).every((shape) => position(shape.id) <= position(highest.id))).toBe(
+			true
+		);
+
+		const first = s.next(at(clock.now))!;
+		s.record(attemptOf(first, ++clock.now), clock.now);
+		const second = s.next(at(clock.now))!;
+		expect(second.passage!.each).toEqual({ direction: 'up' });
+		s.record(attemptOf(second, ++clock.now, true, highest.id), clock.now);
+		const third = s.next(at(clock.now))!;
+		expect(third.passage!.each).toEqual({ direction: 'down' });
+		expect((contentOf(CLIMB, third).selection.where ?? [])[0]).toEqual({
+			position: { beyond: 'previous', toward: 'down', turns: true }
+		});
+		s.record(attemptOf(third, ++clock.now), clock.now);
+		const fourth = s.next(at(clock.now))!;
+		expect(fourth.passage!.each).toEqual({ direction: 'down' });
+		for (let rank = 4; rank < IOHEFY_CHANGES; rank++) s.next(at(clock.now));
+		// Started up: the next passage starts down, as without the turn.
+		expect(s.next(at(clock.now))!.passage!.each).toEqual({ direction: 'down' });
+	});
+
+	describe('the end of the session', () => {
+		it('starts no passage once the session’s length has passed, and ends none under way', () => {
+			const s = source([CLIMB_PASSAGES], iohefy('chord-anchor', G_B_E), [], 60_000);
+			const first = s.next(at(NOW, 0))!;
+			expect(s.next(at(NOW, 60_000))!.passage!.rank).toBe(1);
+			for (let rank = 2; rank < first.passage!.length; rank++) s.next(at(NOW, 60_000));
+			expect(s.next(at(NOW, 60_000))).toBeNull();
+		});
+
+		it('starts no passage once fatigued', () => {
+			const s = source([CLIMB_PASSAGES], iohefy('chord-anchor', G_B_E));
+			const first = s.next(at(NOW))!;
+			for (let rank = 1; rank < first.passage!.length; rank++) s.next(at(NOW));
+			expect(s.next({ now: NOW, elapsedMs: 0, fatigued: true })).toBeNull();
+		});
+
+		it('serves nothing when nothing is open', () => {
+			expect(source(PASSAGE_EXERCISES, []).next(at(NOW))).toBeNull();
+		});
+	});
+});

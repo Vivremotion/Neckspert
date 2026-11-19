@@ -1,5 +1,8 @@
 import { pitchOnString } from '$lib/domain/music';
 import type { StringNumber } from '$lib/domain/music';
+import type { SkillId } from '$lib/domain/skill/types';
+import { cardKey, type CardKey } from '$lib/domain/types';
+import { setOfSkill } from './index';
 
 /** How an item of one set names an item of another (`enter.acquired.item` of an exercise's learning). */
 export interface Correspondence {
@@ -35,4 +38,19 @@ export function correspondence(name: string, from: string, to: string): Correspo
 	if (name === 'voicing' && from === 'placed-voicing' && to === 'voicing-on-strings')
 		return VOICING;
 	return null;
+}
+
+/**
+ * The card of skill `skill` that an item of set `from` names through the correspondence `name`;
+ * null when none is registered or the item names none. Throws on a skill no set holds.
+ */
+export function correspondingCard(
+	name: string,
+	from: string,
+	skill: SkillId,
+	item: unknown
+): CardKey | null {
+	const set = setOfSkill(skill);
+	const named = correspondence(name, from, set.id)?.of(item) ?? null;
+	return named === null ? null : cardKey(skill, set.itemKey(named));
 }

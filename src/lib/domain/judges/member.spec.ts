@@ -110,11 +110,13 @@ describe('the member judge', () => {
 			const other: MemberContent = {
 				...C_SHAPES,
 				selection: { family: 'chord-shapes', where: [{ other: 'previous' }] },
-				previous: chordShapes.member(first)
+				previous: first
 			};
 			expect(judge(other, { decided: first }).correct).toBe(false);
 			expect(judge(other, { decided: second }).correct).toBe(true);
 			expect(judge({ ...other, previous: null }, { decided: first }).correct).toBe(true);
+			// An identity that names no member: no previous member.
+			expect(judge({ ...other, previous: 'no-such-shape' }, { decided: first }).correct).toBe(true);
 		});
 
 		it('judges a payload without a decision wrong, with no answer', () => {

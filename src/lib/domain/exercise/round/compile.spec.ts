@@ -1,7 +1,9 @@
 import { IDENTIFY_NECK } from '$lib/testing/catalog';
 import { practisingWithoutRecall, SKILL_OF_SET, registerTestSkills } from '$lib/testing/testSkills';
 import { describe, expect, it } from 'vitest';
-import { gridById, gridChanges } from '$lib/domain/grid';
+import { gridById, gridChanges, triadOf } from '$lib/domain/grid';
+import { CLIMB_PASSAGES } from '$lib/testing/changesPassages';
+import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { FORM_MAJ7 } from '$lib/testing/arpeggioExercise';
 import type { ChordGridItem } from '$lib/domain/sets';
 import { GUITAR_DERIVATIONS } from '$lib/domain/families/guitar/derivations';
@@ -14,7 +16,7 @@ import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
 import type { PlannedItem } from '../../types';
 import { admittedMembers, type MemberContent } from '../../judges';
-import { compileRound, roundParamsOf } from './compile';
+import { compileRound, roundParamsOf, type ResolutionCache } from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
 
@@ -1013,5 +1015,82 @@ describe('compileRound, a content written as a selection', () => {
 			where: [{ in: { frets: [7, 3] } }]
 		});
 		expect(admittedMembers(content?.value as MemberContent)).toEqual([]);
+	});
+});
+
+describe('a round of a passage', () => {
+	const CHANGE_1 = { grid: 'iohefy-a', index: 1 };
+
+	function inPassage(
+		each: Record<string, unknown>,
+		previous: string | null,
+		strings: readonly number[] = [4, 3, 2]
+	): PlannedItem {
+		return {
+			exerciseId: CLIMB_PASSAGES.id,
+			skill: CLIMB_PASSAGES.practices,
+			exerciseLevel: 0,
+			item: CHANGE_1,
+			phase: 'free',
+			temperature: 'hot',
+			aid: 'none',
+			leadBeats: null,
+			passage: {
+				id: 's:0',
+				index: `grid=iohefy-a;strings=${strings.join()}`,
+				of: { grid: 'iohefy-a', strings },
+				rank: 1,
+				length: 9,
+				each,
+				previous
+			}
+		};
+	}
+
+	// A change's length is measured on the old change item until the presenter serves the new one.
+	const climb: ExerciseDefinition = {
+		...CLIMB_PASSAGES,
+		round: { ...CLIMB_PASSAGES.round!, length: { beats: 4 } }
+	};
+
+	const contentOf = (item: PlannedItem, cache?: ResolutionCache) =>
+		compileRound(climb, item, meter, { previewBeats: 0, fromRunStart: null, cache }).expectations[0]
+			.content!.value as MemberContent;
+
+	it('reads the passage params last, over the resolved params', () => {
+		const params = roundParamsOf(CLIMB_PASSAGES, inPassage({ direction: 'down' }, null), {
+			previewBeats: 0
+		});
+		expect(params.direction).toBe('down');
+	});
+
+	it('derives the index from the passage’s values, and keeps the previous member by its identity', () => {
+		const previous = chordShapes.members({ chord: triadOf('Dm'), strings: [4, 3, 2] })[0].id;
+		expect(contentOf(inPassage({ direction: 'down' }, previous))).toEqual({
+			family: 'chord-shapes',
+			index: { chord: triadOf('G'), strings: [4, 3, 2] },
+			selection: {
+				family: 'chord-shapes',
+				where: [{ position: { beyond: 'previous', toward: 'down', turns: true } }]
+			},
+			previous
+		});
+	});
+
+	it('never caches what belongs to the item: the passage params, its values and its previous member', () => {
+		const cache: ResolutionCache = new Map();
+		const previous = chordShapes.members({ chord: triadOf('Dm'), strings: [3, 2, 1] })[0].id;
+		const up = contentOf(inPassage({ direction: 'up' }, null, [3, 2, 1]), cache);
+		const down = contentOf(inPassage({ direction: 'down' }, previous), cache);
+		expect(up.selection.where).toEqual([
+			{ position: { beyond: 'previous', toward: 'up', turns: true } }
+		]);
+		expect(up.previous).toBeNull();
+		expect(up.index).toEqual({ chord: triadOf('G'), strings: [3, 2, 1] });
+		expect(down.selection.where).toEqual([
+			{ position: { beyond: 'previous', toward: 'down', turns: true } }
+		]);
+		expect(down.previous).toBe(previous);
+		expect(down.index).toEqual({ chord: triadOf('G'), strings: [4, 3, 2] });
 	});
 });
