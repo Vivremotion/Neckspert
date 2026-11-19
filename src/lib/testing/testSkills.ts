@@ -54,16 +54,20 @@ export function practisingWithin(
 }
 
 /**
+ * The id of a skill like `skill` (same items) that writes no direct recall, without memory:
+ * registered once, kept for the rest of the file.
+ */
+export function withoutRecall(skill: SkillId): SkillId {
+	const { directRecall: _none, ...rest } = skillById(skill);
+	const twin: SkillDefinition = { ...rest, id: `${skill}-without-recall`, memory: false };
+	registerSkill(twin, 'test');
+	return twin.id;
+}
+
+/**
  * The exercise practising a skill like its own (same items) that writes no direct recall, without
- * memory: registered once, kept for the rest of the file.
+ * memory (`withoutRecall`).
  */
 export function practisingWithoutRecall(definition: ExerciseDefinition): ExerciseDefinition {
-	const { directRecall: _none, ...rest } = skillById(definition.practices);
-	const skill: SkillDefinition = {
-		...rest,
-		id: `${definition.practices}-without-recall`,
-		memory: false
-	};
-	registerSkill(skill, 'test');
-	return { ...definition, practices: skill.id };
+	return { ...definition, practices: withoutRecall(definition.practices) };
 }

@@ -59,7 +59,7 @@ describe('readDefinitionFile', () => {
 	it('refuses JSON that is no object', () => {
 		for (const text of ['null', '[]', '"x"']) {
 			expect(fileRefusal(text).reason).toBe(
-				'the file must be a JSON object { format, grids, exercises }'
+				'the file must be a JSON object { format, skills, grids, exercises }'
 			);
 		}
 	});

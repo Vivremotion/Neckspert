@@ -27,6 +27,7 @@ import {
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import { directRecallOf } from '$lib/domain/learning';
 import { hasSkill, skillById } from '$lib/domain/skill/registry';
+import { withoutRecall } from '$lib/testing/testSkills';
 import { compileRound } from '$lib/domain/exercise/round';
 import type {
 	ExpectationTemplate,
@@ -131,6 +132,24 @@ export const RANDOM_SKILLS: readonly string[] = [
 	'chord-anchor',
 	'chord-zone'
 ];
+
+/**
+ * The skill without memory practised in place of each of `RANDOM_SKILLS`, on the same set, when
+ * the draw asks for it (a round judged by cycle may practise only such a skill). Empty until
+ * `registerRandomSkills` registers them.
+ */
+const WITHOUT_MEMORY = new Map<string, string>();
+
+/** Registers a skill without memory beside each of `RANDOM_SKILLS`; call it before drawing. */
+export function registerRandomSkills(): void {
+	for (const skill of RANDOM_SKILLS) WITHOUT_MEMORY.set(skill, withoutRecall(skill));
+}
+
+/** The skill of `RANDOM_SKILLS` that `skill` is, or stands in for. */
+function drawnSkill(skill: string): string {
+	for (const [base, twin] of WITHOUT_MEMORY) if (twin === skill) return base;
+	return skill;
+}
 
 export const METER_2_4: Meter = { count: 2, unit: Fraction.of(1, 4), grouping: [1, 1] };
 export const METER_3_4: Meter = { count: 3, unit: Fraction.of(1, 4), grouping: [1, 1, 1] };
@@ -341,7 +360,8 @@ function randomFigureEntry(random: () => number, sensor: string): FigureExpectat
 /**
  * A definition drawn from the registered pieces only; it may be one `validateExercise` refuses.
  *
- * - its shape: a skill among `RANDOM_SKILLS`, on its set, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
+ * - its shape: a skill among `RANDOM_SKILLS` or the one without memory beside it
+ *   (`registerRandomSkills`), on its set, a meter among 2/4, 3/4, 4/4 and 6/8, a fixed
  *   tempo from 50 to 160;
  * - its expectations: one or two, each with a derivation that reads the set and the sensor
  *   of its kind; places, stretches and windows in fractions of a beat; now and then one of them
@@ -447,9 +467,13 @@ export function randomExercise(random: () => number, id = 'random'): ExerciseDef
 	if (round.policy.unit === 'cycle') {
 		params.pacing = { ...(params.pacing as object), roundsPerBreath: between(random, 1, 3) };
 	}
+	// Its skill without memory now and then, a round judged by cycle always when there is one:
+	// drawn last, so the other draws stay as they were.
+	const memoryless =
+		WITHOUT_MEMORY.has(skill) && (round.policy.unit === 'cycle' || chance(random, 0.3));
 	return {
 		id,
-		practices: skill,
+		practices: memoryless ? WITHOUT_MEMORY.get(skill)! : skill,
 		...(view !== undefined && { view }),
 		meter,
 		tempo,
@@ -478,7 +502,7 @@ function randomItem(random: () => number, skill: string): unknown {
 		// The anchor's items carry no position; the zone's, the shape asked this time.
 		case 'voicing-on-strings': {
 			const key = pick(random, TRIAD_VOICINGS);
-			if (skill === CHORD_ANCHOR_SKILL_ID) return { voicingKey: key };
+			if (drawnSkill(skill) === CHORD_ANCHOR_SKILL_ID) return { voicingKey: key };
 			const shape = pick(random, voicingOccurrences(parseVoicingKey(key)));
 			return { voicingKey: key, position: occurrencePosition(shape) };
 		}

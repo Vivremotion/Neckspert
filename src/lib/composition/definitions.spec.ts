@@ -104,9 +104,35 @@ describe('loadDefinitions', () => {
 			'/exercises.local/number.json'
 		]);
 		expect(errors).toEqual([
-			'[exercises.local] /exercises.local/list.json refused: the file must be a JSON object { format, grids, exercises }',
+			'[exercises.local] /exercises.local/list.json refused: the file must be a JSON object { format, skills, grids, exercises }',
 			'[exercises.local] /exercises.local/number.json, exercise refused: an exercise must be a JSON object'
 		]);
+	});
+
+	it('refuses the exercise that practises a refused skill of its file, and keeps the rest', async () => {
+		const { loadDefinitions, allExercises } = await fresh();
+		const broken = { ...TEST_PLACED_VOICING_SKILL, id: 'broken-skill', items: 'no-such-set' };
+		const refusals = loadDefinitions({
+			catalog: CATALOG_FILES,
+			local: {
+				'/exercises.local/a.json': JSON.stringify({
+					format: 0,
+					skills: [TEST_PLACED_VOICING_SKILL, broken],
+					exercises: [
+						{ ...arpeggioJson('on-broken'), practices: 'broken-skill' },
+						arpeggioJson('kept')
+					]
+				})
+			}
+		});
+		expect(refusals.map(({ file, kind, id }) => ({ file, kind, id }))).toEqual([
+			{ file: '/exercises.local/a.json', kind: 'skill', id: 'broken-skill' },
+			{ file: '/exercises.local/a.json', kind: 'exercise', id: 'on-broken' }
+		]);
+		expect(refusals[1].reason).toContain('broken-skill');
+		const ids = allExercises().map((exercise) => exercise.id);
+		expect(ids).toContain('kept');
+		expect(ids).not.toContain('on-broken');
 	});
 
 	it('reads the files once', async () => {

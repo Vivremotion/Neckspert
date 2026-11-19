@@ -73,7 +73,7 @@ function fileProblem(text: string): { problem: string } | { json: Record<string,
 		return { problem: `the file is not JSON: ${(error as Error).message}` };
 	}
 	if (!isObject(json)) {
-		return { problem: 'the file must be a JSON object { format, grids, exercises }' };
+		return { problem: 'the file must be a JSON object { format, skills, grids, exercises }' };
 	}
 	if (json.format !== DEFINITION_FORMAT) {
 		return { problem: `format must be ${DEFINITION_FORMAT}, got ${JSON.stringify(json.format)}` };

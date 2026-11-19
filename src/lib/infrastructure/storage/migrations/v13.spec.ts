@@ -261,6 +261,14 @@ describe('the item keys of an attempt at version 13', () => {
 		expect(places(D)[0]).toBe(`${D}@2-3-2`);
 		expect(places('C|maj|3:1,2:3,1:5')[1]).toBe('C|maj|3:1,2:3,1:5@17-17-15');
 		expect(places('G|maj|3:3,2:5,1:1')[1]).toBe('G|maj|3:3,2:5,1:1@16-15-15');
+		// A place with open strings, and what an old key of it becomes.
+		const E = 'E|maj|3:3,2:5,1:1';
+		expect(places(E)).toEqual([`${E}@1-0-0`, `${E}@13-12-12`]);
+		expect(upgraded('voicing-figure', `voicing-figure:${E}@0@4`)).toBe(`my-own:${E}@1-0-0`);
+		// A voicing with a single place: the rank 1 has none, the old key is kept.
+		const G = 'G|maj|3:1,2:3,1:5';
+		expect(places(G)).toEqual([`${G}@12-12-10`]);
+		expect(upgraded('voicing-figure', `voicing-figure:${G}@1@4`)).toBe(`my-own:${G}@1@4`);
 	});
 });
 
@@ -557,14 +565,11 @@ describe('a session at version 13', () => {
 
 describe('the frozen skills of version 13', () => {
 	it('give each catalog exercise the skill it practises', () => {
-		// The catalog of version 12 named its exercises by their old ids.
-		const renamed = Object.fromEntries(
-			Object.entries(SKILL_OF_EXERCISE_V12).map(([id, skill]) => [
-				EXERCISE_IDS_V13[id] ?? id,
-				skill
-			])
-		);
-		expect(Object.fromEntries(allExercises().map((e) => [e.id, e.practices]))).toEqual(renamed);
+		// The catalog of version 12 named its exercises by their old ids; the catalog may hold more.
+		const live = Object.fromEntries(allExercises().map((e) => [e.id, e.practices]));
+		for (const [id, skill] of Object.entries(SKILL_OF_EXERCISE_V12)) {
+			expect(live[EXERCISE_IDS_V13[id] ?? id], id).toBe(skill);
+		}
 	});
 
 	it('give each memory mechanic the skill of its exercises', () => {

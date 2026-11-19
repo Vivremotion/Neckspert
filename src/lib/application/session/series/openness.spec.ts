@@ -17,7 +17,8 @@ import {
 	METER_3_4,
 	mulberry32,
 	playExercise,
-	randomExercise
+	randomExercise,
+	registerRandomSkills
 } from '$lib/testing/randomExercise';
 
 /**
@@ -71,6 +72,9 @@ const ROOT_THEN_CHORD: ExerciseDefinition = {
 };
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
+
+// The skills without memory the draw practises beside the memory skills.
+registerRandomSkills();
 
 /** The definition a seed draws, its id naming the seed. */
 const drawn = (seed: number) => randomExercise(mulberry32(seed), `random-${seed}`);
@@ -138,10 +142,12 @@ describe('every valid exercise plays', () => {
 	it('runs every exercise the validator accepts, drawn at random', async () => {
 		const failures: string[] = [];
 		let accepted = 0;
+		let cycles = 0;
 		for (const seed of SEEDS) {
 			const definition = drawn(seed);
 			if (refusal(definition) !== null) continue;
 			accepted++;
+			if (definition.round!.policy.unit === 'cycle') cycles++;
 			for (const answer of ['right', 'wrong', 'none'] as const) {
 				const items = listItems(definition, mulberry32(seed + 10_000));
 				try {
@@ -175,6 +181,8 @@ describe('every valid exercise plays', () => {
 		expect(failures).toEqual([]);
 		// The draw never empties without a sound.
 		expect(accepted).toBeGreaterThanOrEqual(50);
+		// Rounds judged by cycle are played, not only refused.
+		expect(cycles).toBeGreaterThan(0);
 	});
 
 	it('draws every value the round template allows', () => {
