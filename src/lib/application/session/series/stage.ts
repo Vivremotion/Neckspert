@@ -1,3 +1,4 @@
+import { resolvedParamsOf } from '$lib/domain/exercise/levels';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import type { LiveReading, ResponseValue, RoundPlan } from '$lib/domain/time';
 import type { ChordDiagramStyle, Locale, PlannedItem } from '$lib/domain/types';
@@ -36,8 +37,8 @@ export function followsBeats(definition: ExerciseDefinition): boolean {
  * The stage dispatch: the screen model of `item` in the view its exercise names. An exercise
  * drawn by the figure view has its model built from the series' events (`figureStage`, its
  * prompt above the figure when it writes a presentation); any other that writes its presentation
- * shares `promptStage`; any other takes its presenter's own (`stageOf`). Undefined when none
- * draws it.
+ * shares `promptStage`; any other takes its presenter's own (`stageOf`), with the params resolved
+ * at the level its round is played at. Undefined when none draws it.
  */
 export function stageModel(input: {
 	definition: ExerciseDefinition;
@@ -105,6 +106,13 @@ export function stageModel(input: {
 		place,
 		{ chordDiagram: input.chordDiagram },
 		random,
-		{ passage: item.passage ?? null, expectations: plan.expectations }
+		{
+			passage: item.passage ?? null,
+			expectations: plan.expectations,
+			params: resolvedParamsOf(definition, {
+				exerciseLevel: item.exerciseLevel,
+				itemLevel: item.level ?? null
+			})
+		}
 	)?.model;
 }

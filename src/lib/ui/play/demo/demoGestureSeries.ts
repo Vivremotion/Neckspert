@@ -8,6 +8,8 @@ import { DEMO_GRID_ID, exerciseById, GESTURE_EXERCISE_IDS } from '$lib/domain/ex
 import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
 import { passageRound } from '$lib/domain/exercise/passage/round';
 import { passageDerivation } from '$lib/domain/families';
+import { exerciseLevelsOf } from '$lib/domain/exercise/levels';
+import { levelRange } from '$lib/domain/time';
 import type { ItemSource } from '$lib/domain/progress';
 import type { ResponseVerdict } from '$lib/domain/types';
 import type { Locale } from '$lib/domain/types';
@@ -50,13 +52,20 @@ const STRUM_BEATS: Partial<Record<ResponseVerdict, number>> = {
 	wrong: 0.02
 };
 
-/** Serves the demo's passage again and again, each one counted in, aided. */
-function passageLoop(mode: DemoGestureMode): ItemSource {
+/** The demo's exercise and the index of its passage. */
+function demoPassage(mode: DemoGestureMode) {
 	const exercise = exerciseById(
 		mode === 'link' ? GESTURE_EXERCISE_IDS[0] : GESTURE_EXERCISE_IDS[1]
 	);
 	const { index: key, each } = DEMO_PASSAGES[mode];
 	const index = passageIndices(exercise).find((found) => found.key === key)!;
+	const scope = exercise.passages?.scope;
+	return { exercise, index, each, scope: scope === undefined ? '' : String(index.of[scope]) };
+}
+
+/** Serves the demo's passage again and again, each one counted in. */
+function passageLoop(mode: DemoGestureMode): ItemSource {
+	const { exercise, index, each, scope } = demoPassage(mode);
 	const derivation = passageDerivation(exercise.passages!.members.family)!;
 	const items = passageMembers(exercise, index, each).map((member) => derivation.itemOf(member));
 	let served = 0;
@@ -66,13 +75,11 @@ function passageLoop(mode: DemoGestureMode): ItemSource {
 			const rank = served % items.length;
 			served++;
 			const round = passageRound(exercise, index, each, items[rank], rank, items.length);
-			const scope = exercise.passages?.scope;
 			return {
 				...round,
 				passage: { ...round.passage, id: `demo:${passage}`, items },
-				aid: 'show-position',
 				...(rank === 0 && { countIn: true }),
-				...(scope !== undefined && { scope: String(index.of[scope]) })
+				...(scope !== '' && { scope })
 			};
 		},
 		record: () => null,
@@ -94,6 +101,18 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 		settings: new InMemorySettingsRepository()
 	};
 	const cards = new InMemoryCardStateRepository();
+	// The demo starts at its exercise's aid level, the shapes drawn; the scripted player moves it up.
+	const levels = new InMemoryLevelStateRepository();
+	const { exercise, scope } = demoPassage(mode);
+	void levels.put({
+		exerciseId: exercise.id,
+		scope,
+		item: '',
+		level: levelRange(exerciseLevelsOf(exercise)).lowest,
+		successes: 0,
+		failures: 0,
+		resumeAfter: null
+	});
 	const sources = new Map<string, ItemSource>();
 	let ids = 0;
 	const controller = new SessionController(
@@ -113,7 +132,7 @@ export function demoGestureSeries(mode: DemoGestureMode, locale: () => Locale) {
 			plays: GESTURE_EXERCISE_IDS,
 			repositories,
 			// Where its levels stand, in memory: the scripted player moves them up as it plays.
-			levels: new InMemoryLevelStateRepository(),
+			levels,
 			recorderFor: (sessionId) =>
 				new AttemptRecorder({
 					attempts: repositories.attempts,

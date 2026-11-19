@@ -116,6 +116,9 @@ describe('compilePlan', () => {
 		);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, ['show-position'])).toBe(true);
 		expect(aidedBeyondLevel(LOCATE_NECK, note, [])).toBe(false);
+		// The aid level is the level itself, for a response round too.
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level'])).toBe(false);
+		expect(aidedBeyondLevel(LOCATE_NECK, note, ['aid-level', 'show-position'])).toBe(true);
 	});
 
 	it('opens a cycle’s run with its listen-in, its accompaniment and its entry', () => {

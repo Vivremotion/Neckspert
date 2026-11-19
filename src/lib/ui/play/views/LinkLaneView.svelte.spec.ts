@@ -37,11 +37,12 @@ function model(
 		TOUR[index],
 		null,
 		'fr',
-		{ aid: aided ? 'show-position' : 'none', stringAid: false },
+		{ aid: 'none', stringAid: false },
 		{ anchorBeat, promptBeat: anchorBeat === null ? null : anchorBeat - 1, history: [], bands: [] },
 		undefined,
 		() => 0,
-		{ passage, expectations: [] }
+		// Aided: played at a level that draws the shapes.
+		{ passage, expectations: [], params: { shapes: aided } }
 	).model as LinkLaneModel;
 }
 

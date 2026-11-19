@@ -270,6 +270,13 @@
 			"tempo": 80,
 			"levels": [
 				{
+					"aid": true,
+					"params": {
+						"tempo": 80,
+						"shapes": true
+					}
+				},
+				{
 					"params": {
 						"tempo": 80
 					},
@@ -369,6 +376,9 @@
 					}
 				}
 			],
+			"flow": {
+				"antiBlocking": true
+			},
 			"view": "link-lane",
 			"howTo": {
 				"fr": "Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.",
@@ -465,6 +475,13 @@
 			"tempo": 80,
 			"levels": [
 				{
+					"aid": true,
+					"params": {
+						"tempo": 80,
+						"shapes": true
+					}
+				},
+				{
 					"params": {
 						"tempo": 80
 					},
@@ -564,6 +581,9 @@
 					}
 				}
 			],
+			"flow": {
+				"antiBlocking": true
+			},
 			"view": "grid-scroll",
 			"howTo": {
 				"fr": "Joue la grille sur le groupe indiqué. À chaque changement, choisis une forme plus haute sur le manche que la précédente (ou plus basse si la flèche descend). Quand le manche s’arrête, repars dans l’autre sens.",
@@ -670,6 +690,13 @@
 			"tempo": 80,
 			"levels": [
 				{
+					"aid": true,
+					"params": {
+						"tempo": 80,
+						"shapes": true
+					}
+				},
+				{
 					"params": {
 						"tempo": 80
 					},
@@ -769,6 +796,9 @@
 					}
 				}
 			],
+			"flow": {
+				"antiBlocking": true
+			},
 			"view": "grid-scroll",
 			"howTo": {
 				"fr": "Joue la grille sans sortir de la zone indiquée, sur l’un des deux groupes de cordes.",
@@ -849,6 +879,13 @@
 			"tempo": 80,
 			"levels": [
 				{
+					"aid": true,
+					"params": {
+						"tempo": 80,
+						"shapes": true
+					}
+				},
+				{
 					"params": {
 						"tempo": 80
 					},
@@ -948,6 +985,9 @@
 					}
 				}
 			],
+			"flow": {
+				"antiBlocking": true
+			},
 			"view": "grid-scroll",
 			"howTo": {
 				"fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",

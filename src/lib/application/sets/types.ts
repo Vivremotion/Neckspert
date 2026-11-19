@@ -33,12 +33,13 @@ export interface StagePlace {
 
 /**
  * What a presenter reads of the round beside its item: the passage it belongs to (null or absent
- * for an item served outside a passage), and its plan's expectations, their sensor and content as
- * compiled.
+ * for an item served outside a passage), its plan's expectations, their sensor and content as
+ * compiled, and the params resolved at the level it is played at (absent when not given).
  */
 export interface PresentedRound {
 	passage?: PlannedPassage | null;
 	expectations: readonly Pick<Expectation, 'sensor' | 'content'>[];
+	params?: Readonly<Record<string, unknown>>;
 }
 
 /** How the items of a set show on the play screen and which sensors answer them. */

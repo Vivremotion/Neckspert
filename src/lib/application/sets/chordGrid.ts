@@ -29,7 +29,6 @@ import { occurrenceOfId, occurrencePosition } from '$lib/domain/triads';
 import type { ResponseValue } from '$lib/domain/time';
 import {
 	DEFAULT_SETTINGS,
-	type AidLevel,
 	type ChordDiagramStyle,
 	type Locale,
 	type PlannedPassage,
@@ -152,6 +151,9 @@ function chordContent(round: Pick<PresentedRound, 'expectations'>): MemberConten
 const admittedOf = (content: MemberContent | null) =>
 	content === null ? [] : (admittedMembers(content) as ChordShape[]);
 
+/** The level the round is played at draws the shapes to play: it writes `shapes: true`. */
+const drawsShapes = (round: PresentedRound) => round.params?.shapes === true;
+
 /** The passage params of a round as it reads them; none outside a passage. */
 const eachOf = (round: PresentedRound) => round.passage?.each ?? {};
 
@@ -248,7 +250,6 @@ function linkLaneModel(
 	item: VoicingFigureItem,
 	round: PresentedRound,
 	locale: Locale,
-	aided: boolean,
 	place: StagePlace,
 	miss: DrawnMiss | null
 ): LinkLaneModel {
@@ -274,7 +275,7 @@ function linkLaneModel(
 		changes: linkLine(item, round.passage ?? null),
 		index,
 		beatsPerBar: 4,
-		aid: aided && now ? { now: aidNotes(now), next: next && aidNotes(next) } : null,
+		aid: drawsShapes(round) && now ? { now: aidNotes(now), next: next && aidNotes(next) } : null,
 		anchorBeat: place.anchorBeat,
 		history: place.history,
 		miss
@@ -287,12 +288,11 @@ function gridStageModel(
 	round: PresentedRound,
 	heard: string | null,
 	locale: Locale,
-	aid: AidLevel,
 	place: StagePlace,
 	style: ChordDiagramStyle,
 	miss: DrawnMiss | null
 ): GridStageModel {
-	const shown = aid === 'show-position' ? aidFor(item, round, heard) : null;
+	const shown = drawsShapes(round) ? aidFor(item, round, heard) : null;
 	return {
 		title: gridById(item.grid).title,
 		beatsPerBar: 4,
@@ -397,11 +397,11 @@ export const changePresenter: ChangesPresenter<ChangeItem> = {
 	contestable: true,
 	feedback: (_item, outcome, locale, round = NO_ROUND) => feedback(outcome, locale, round),
 	expectation: (item, round) => expectationOf(round, gridLine(item), cueKind(round) === 'jam'),
-	stageOf: (item, settled, locale, { aid }, place, drawing, _random, round = NO_ROUND) => {
+	stageOf: (item, settled, locale, _aids, place, drawing, _random, round = NO_ROUND) => {
 		const heard = settled === null ? null : (readingOf(settled.value)?.decided ?? null);
 		const style = drawing?.chordDiagram ?? DEFAULT_SETTINGS.chordDiagram;
 		const miss = settled && drawnMiss(settled.value, locale, style, round);
-		return { model: gridStageModel(item, round, heard, locale, aid, place, style, miss) };
+		return { model: gridStageModel(item, round, heard, locale, place, style, miss) };
 	},
 	attemptData: (item, value, round = NO_ROUND) => changeData(item, value, round)
 };
@@ -417,12 +417,10 @@ export const linkPresenter: ChangesPresenter<VoicingFigureItem> = {
 	contestable: true,
 	feedback: (_item, outcome, locale, round = NO_ROUND) => feedback(outcome, locale, round),
 	expectation: (item, round) => expectationOf(round, linkLine(item, round.passage ?? null), false),
-	stageOf: (item, settled, locale, { aid }, place, drawing, _random, round = NO_ROUND) => {
+	stageOf: (item, settled, locale, _aids, place, drawing, _random, round = NO_ROUND) => {
 		const style = drawing?.chordDiagram ?? DEFAULT_SETTINGS.chordDiagram;
 		const miss = settled && drawnMiss(settled.value, locale, style, round);
-		return {
-			model: linkLaneModel(item, round, locale, aid === 'show-position', place, miss)
-		};
+		return { model: linkLaneModel(item, round, locale, place, miss) };
 	},
 	attemptData: (item, value, round = NO_ROUND) => changeData(item, value, round)
 };

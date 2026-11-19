@@ -155,11 +155,14 @@ describe('the presenters of the changes', () => {
 	describe('the screen model', () => {
 		/** Not placed yet: waiting for its round. */
 		const UNPLACED = { anchorBeat: null, promptBeat: null, history: [], bands: [] };
-		/** The model of a round, settled on the shape `answer` when given, `aid` its aid. */
+		/**
+		 * The model of a round, settled on the shape `answer` when given, played at a level that
+		 * writes `shapes` (its aid) or not.
+		 */
 		const modelOf = (
 			{ planned, round }: { planned: PlannedItem; round: PresentedRound },
 			answer: string | null = null,
-			aid: 'none' | 'show-position' = 'show-position',
+			shapes = true,
 			locale: 'fr' | 'en' = 'fr'
 		) =>
 			(planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter).stageOf(
@@ -186,17 +189,17 @@ describe('the presenters of the changes', () => {
 							success: true
 						},
 				locale,
-				{ aid, stringAid: false },
+				{ aid: 'none', stringAid: false },
 				UNPLACED,
 				undefined,
 				() => 0,
-				round
+				{ ...round, params: { shapes } }
 			).model;
 		const stage = (served: { planned: PlannedItem; round: PresentedRound }, answer?: string) =>
 			modelOf(served, answer ?? null) as GridStageModel;
 
 		it('link: the lane, the root then the way of each shape, the chord and its strings', () => {
-			const model = modelOf(link(1), null, 'none') as LinkLaneModel;
+			const model = modelOf(link(1), null, false) as LinkLaneModel;
 			expect(model).toEqual({
 				kind: 'link-lane',
 				root: 'D',
@@ -218,7 +221,7 @@ describe('the presenters of the changes', () => {
 				history: [],
 				miss: null
 			});
-			const english = modelOf(link(1), null, 'none', 'en') as LinkLaneModel;
+			const english = modelOf(link(1), null, false, 'en') as LinkLaneModel;
 			expect(english).toMatchObject({ quality: 'major', set: 'G · B · E' });
 		});
 
@@ -286,6 +289,29 @@ describe('the presenters of the changes', () => {
 		it('jam: the chords alone, no aid', () => {
 			expect(stage(jam())).toMatchObject({ cue: { kind: 'jam' }, aid: null });
 		});
+
+		it('draws its aid only at a level that writes shapes, whatever the item says', () => {
+			for (const served of [link(1), climb('up', null), zone([7, 11])]) {
+				expect(modelOf(served, null, true)).toMatchObject({ aid: expect.anything() });
+				expect(modelOf(served, null, false)).toMatchObject({ aid: null });
+				// The item's aid draws nothing: only the level's params do.
+				const presenter =
+					served.planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter;
+				for (const params of [undefined, {}, { shapes: 'yes' }]) {
+					const model = presenter.stageOf(
+						served.planned.item as never,
+						null,
+						'fr',
+						{ aid: 'show-position', stringAid: false },
+						UNPLACED,
+						undefined,
+						() => 0,
+						{ ...served.round, ...(params && { params }) }
+					).model as { aid: unknown };
+					expect(model.aid).toBeNull();
+				}
+			}
+		});
 	});
 
 	describe('on the target model', () => {
@@ -345,17 +371,17 @@ describe('the presenters of the changes', () => {
 			for (const each of [climbing, link(1)]) {
 				const presenter =
 					each.planned.exerciseId === GESTURE_LINK.id ? linkPresenter : changePresenter;
-				for (const aid of ['none', 'show-position'] as const) {
+				for (const shapes of [false, true]) {
 					const modelOf = (settled: (typeof cases)[number] | null, at: StagePlace = place) =>
 						presenter.stageOf(
 							each.planned.item as never,
 							settled,
 							'fr',
-							{ aid, stringAid: false },
+							{ aid: 'none', stringAid: false },
 							at,
 							undefined,
 							() => 0,
-							each.round
+							{ ...each.round, params: { shapes } }
 						).model as GridStageModel;
 					expect(modelOf(null)).toEqual({ ...modelOf(null, unplaced), ...placed });
 					expect(modelOf(null, unplaced)).toMatchObject({ anchorBeat: null, history: [] });

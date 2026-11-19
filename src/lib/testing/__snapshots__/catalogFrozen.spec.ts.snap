@@ -566,12 +566,22 @@ exports[`keeps chord-zone as it is 1`] = `
 
 exports[`keeps grid-in-direction as it is 1`] = `
 {
+  "flow": {
+    "antiBlocking": true,
+  },
   "howTo": {
     "en": "Play the chart on the strings shown. At each change, pick a shape higher up the neck than the one before (or lower if the arrow points down). When the neck runs out, turn back the other way.",
     "fr": "Joue la grille sur le groupe indiqué. À chaque changement, choisis une forme plus haute sur le manche que la précédente (ou plus basse si la flèche descend). Quand le manche s’arrête, repars dans l’autre sens.",
   },
   "id": "grid-in-direction",
   "levels": [
+    {
+      "aid": true,
+      "params": {
+        "shapes": true,
+        "tempo": 80,
+      },
+    },
     {
       "drop": {
         "failures": 3,
@@ -778,12 +788,22 @@ exports[`keeps grid-in-direction as it is 1`] = `
 
 exports[`keeps grid-in-zone as it is 1`] = `
 {
+  "flow": {
+    "antiBlocking": true,
+  },
   "howTo": {
     "en": "Play the chart without leaving the frets shown, on either set of strings.",
     "fr": "Joue la grille sans sortir de la zone indiquée, sur l’un des deux groupes de cordes.",
   },
   "id": "grid-in-zone",
   "levels": [
+    {
+      "aid": true,
+      "params": {
+        "shapes": true,
+        "tempo": 80,
+      },
+    },
     {
       "drop": {
         "failures": 3,
@@ -1033,12 +1053,22 @@ exports[`keeps grid-in-zone as it is 1`] = `
 
 exports[`keeps grid-reading as it is 1`] = `
 {
+  "flow": {
+    "antiBlocking": true,
+  },
   "howTo": {
     "en": "Play the chart as you like: any shape, any rhythm. Only the chord counts.",
     "fr": "Joue la grille comme tu veux : n’importe quelle forme, n’importe quel rythme. Seul l’accord compte.",
   },
   "id": "grid-reading",
   "levels": [
+    {
+      "aid": true,
+      "params": {
+        "shapes": true,
+        "tempo": 80,
+      },
+    },
     {
       "drop": {
         "failures": 3,
@@ -1378,12 +1408,22 @@ exports[`keeps identify-note as it is 1`] = `
 
 exports[`keeps inversion-run as it is 1`] = `
 {
+  "flow": {
+    "antiBlocking": true,
+  },
   "howTo": {
     "en": "Play the chord asked on the strings shown, starting from its lowest position. Climb its inversions one by one, then come back down the same way: one chord per bar, struck on the first beat. The arrows give the way: ↗ up, ↘ down.",
     "fr": "Joue l’accord demandé sur les cordes indiquées, en partant de sa position la plus grave. Monte ses renversements un par un vers l’aigu, puis redescends par le même chemin : un accord par mesure, attaqué sur le premier temps. Les flèches donnent le sens : ↗ monte, ↘ descends.",
   },
   "id": "inversion-run",
   "levels": [
+    {
+      "aid": true,
+      "params": {
+        "shapes": true,
+        "tempo": 80,
+      },
+    },
     {
       "drop": {
         "failures": 3,

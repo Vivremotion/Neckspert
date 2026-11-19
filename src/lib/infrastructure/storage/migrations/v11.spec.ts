@@ -119,9 +119,9 @@ describe('GESTURE_TEMPOS_V11', () => {
 			GESTURE_EXERCISES_V11.map((id) => EXERCISE_IDS_V13[id])
 		);
 		for (const definition of GESTURE_EXERCISES) {
-			expect(exerciseLevelsOf(definition).map((_, i) => tempoOf(definition, i))).toEqual([
-				...GESTURE_TEMPOS_V11
-			]);
+			// Its regular levels, from level 1: the aid level below it is no tempo of the old progression.
+			const regular = exerciseLevelsOf(definition).filter((level) => !level.aid);
+			expect(regular.map((_, i) => tempoOf(definition, i))).toEqual([...GESTURE_TEMPOS_V11]);
 		}
 		// The exercises whose level is scoped by grid: their passages say so.
 		expect(

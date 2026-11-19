@@ -17,6 +17,8 @@ describe('demoGestureSeries', () => {
 		const demo = demoGestureSeries('link', () => 'fr');
 		await demo.controller.start();
 		expect(demo.controller.view.stage?.view).toBe('link-lane');
+		// It starts at the aid level: the shapes are drawn.
+		expect((demo.controller.view.stage?.model as { aid: unknown }).aid).not.toBeNull();
 		// ♩ = 80: a counted bar, then four changes of a bar each.
 		await run(demo, 3 + 4 * 3);
 		expect(historyOf(demo).map((entry) => entry.verdict)).toEqual([
