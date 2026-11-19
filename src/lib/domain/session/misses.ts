@@ -7,8 +7,8 @@ import {
 } from '$lib/domain/families/guitar/chordShapes';
 import { gridById, gridChanges } from '$lib/domain/grid';
 import { admittedMembers, MEMBER_CONTENT, type MemberContent } from '$lib/domain/judges';
-import { passageOf } from '$lib/domain/session/passageSource';
-import type { Attempt, Execution, GestureSummary } from '$lib/domain/types';
+import type { Attempt, SummaryMiss } from '$lib/domain/types';
+import { passageOf } from './passageSource';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,12 +31,12 @@ function storedChange(attempt: Attempt): { passageId?: unknown; symbol?: unknown
  * Whether an attempt is a change: it carries its passage (`data.passage`), or, stored before the
  * passages, the passage id its whole change kept.
  */
-function isChange(attempt: Attempt): boolean {
+export function isChange(attempt: Attempt): boolean {
 	return passageOf(attempt) !== null || typeof storedChange(attempt).passageId === 'string';
 }
 
 /** The passage a change belongs to: the one it kept, or, stored before the passages, its change's. */
-function passageIdOf(attempt: Attempt): string {
+export function passageIdOf(attempt: Attempt): string {
 	const passage = passageOf(attempt);
 	if (passage) return passage.id;
 	const { passageId } = storedChange(attempt);
@@ -100,56 +100,19 @@ function fretsOf(shape: { notes: readonly { fret: number }[] } | null): string |
 }
 
 /**
- * Whether a passage passed: a share of its changes right and in time of at least its exercise's
- * `passes`. An exercise no loaded file defines leaves its threshold unknown (an attempt keeps no
- * threshold): 1 then, the format's default, so such a passage passes only when all its changes did.
+ * The missed changes of a session, oldest first, with the shape heard and the shape due. A change
+ * stored before the passages has no shape drawn as due. Only the changes of an exercise a file
+ * defines as one that plays passages: nothing tells how another's would be drawn or contested.
  */
-function passed(exerciseId: string, attempts: readonly Attempt[]): boolean {
-	if (attempts.length === 0) return false;
-	const passes = findExercise(exerciseId)?.passages?.passes ?? 1;
-	return attempts.filter((attempt) => attempt.success).length / attempts.length >= passes;
-}
-
-/**
- * A gesture session by exercise and grid played (spec 2026-10-10, section 7): passages succeeded of those
- * played, the share of changes right and in time, the tempo of its first round and of its last
- * one (its level may move it in session, plan H6 D4); then the missed changes, with the shape
- * heard and the shape due. A change stored before the passages is grouped by the passage it
- * kept, and has no shape drawn as due.
- */
-export function summarizeGesture(
-	executions: readonly Execution[],
-	attempts: readonly Attempt[]
-): GestureSummary {
-	// The changes of an exercise no file defines as one that plays passages any more are left
-	// out: nothing tells what it was (plan 5b gives every exercise its line).
-	const changes = attempts.filter(
-		(attempt) => isChange(attempt) && findExercise(attempt.exerciseId)?.passages !== undefined
-	);
-	const exercises = executions.flatMap(({ exerciseId, scope, tempoBpm }) => {
-		const own = changes.filter(
-			(attempt) => attempt.exerciseId === exerciseId && (attempt.scope ?? null) === (scope ?? null)
-		);
-		if (own.length === 0 || tempoBpm === null) return [];
-		const passages = new Map<string, Attempt[]>();
-		for (const attempt of own) {
-			const id = passageIdOf(attempt);
-			passages.set(id, [...(passages.get(id) ?? []), attempt]);
-		}
-		return [
-			{
-				exerciseId,
-				...(scope !== undefined && { scope }),
-				passagesPlayed: passages.size,
-				passagesSucceeded: [...passages.values()].filter((each) => passed(exerciseId, each)).length,
-				changeSuccessRate: own.filter((attempt) => attempt.success).length / own.length,
-				tempoBpm,
-				lastTempoBpm: own[own.length - 1].tempoBpm ?? tempoBpm
-			}
-		];
-	});
-	const misses = changes
-		.filter((attempt) => attempt.correct !== true && attempt.id !== undefined)
+export function summaryMisses(attempts: readonly Attempt[]): SummaryMiss[] {
+	return attempts
+		.filter(
+			(attempt) =>
+				isChange(attempt) &&
+				findExercise(attempt.exerciseId)?.passages !== undefined &&
+				attempt.correct !== true &&
+				attempt.id !== undefined
+		)
 		.map((attempt) => {
 			const decided = decidedOf(attempt);
 			return {
@@ -161,5 +124,4 @@ export function summarizeGesture(
 				contested: attempt.contested ?? false
 			};
 		});
-	return { exercises, misses };
 }

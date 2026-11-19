@@ -381,28 +381,26 @@ export interface SessionSummary {
 	 * triads, not notes.
 	 */
 	chords: boolean;
-	/** A gesture session, by exercise: the rest of the summary is not shown for it. */
-	gesture?: GestureSummary;
-	/** A rhythm exercise session: the rest of the summary is not shown for it. */
-	exercise?: ExerciseSummary;
-}
-
-/** What a rhythm exercise session did: the level it ended on and its cycles. */
-export interface ExerciseSummary {
-	exerciseId: ExerciseId;
-	/** The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level). */
-	levelReached: { shown: number; of: number; aid: boolean };
-	/** Cycles played. */
-	cycles: number;
-	/** Cycles that succeeded (`Attempt.success`). */
-	successes: number;
-	/** Of the successes, those played with an aid the level does not give (they do not count towards moving up). */
-	aided: number;
-	/** The series as its trace tells it; absent once the session is no longer in memory (a reload). */
+	/**
+	 * The session practised skills with cards, or nothing tells otherwise (a session whose
+	 * exercises and skills are all gone): the screen shows the fields above, not `exercises`.
+	 */
+	memory: boolean;
+	/** A line per exercise and scope played, in the order first played. */
+	exercises: PlayedExercise[];
+	/** The missed changes, oldest first: contestable (« Joué juste »). */
+	misses: SummaryMiss[];
+	/**
+	 * The series as its trace tells it, for a session that is not of memory exercises; absent once
+	 * the session is no longer in memory (a reload).
+	 */
 	series?: SeriesSummary;
 	/** The runs whose take is still held, by the id of their segment: each can be heard again. */
 	replayable?: number[];
-	/** The last cycle played, in full; shown in development builds. Absent without a cycle. */
+	/**
+	 * The last cycle played, in full, of an exercise played alone whose round writes a figure;
+	 * shown in development builds. Absent without a cycle.
+	 */
 	lastCycle?: {
 		report: CycleReport;
 		verdict: CycleVerdict;
@@ -413,36 +411,46 @@ export interface ExerciseSummary {
 	};
 }
 
-/** What a gesture session did, exercise by exercise, and the changes it missed. */
-export interface GestureSummary {
-	/** One line per exercise and scope (its grid; none for the link). */
-	exercises: {
-		exerciseId: ExerciseId;
-		scope?: string;
-		passagesPlayed: number;
-		passagesSucceeded: number;
-		/** Share of its changes right and in time (`Attempt.success`). */
-		changeSuccessRate: number;
-		/** The tempo of its first round. */
-		tempoBpm: number;
-		/** The tempo of its last round: a level reached and not played yet does not show. */
-		lastTempoBpm: number;
-	}[];
+/** What a session did with one exercise and scope (its grid; none for most). */
+export interface PlayedExercise {
+	exerciseId: ExerciseId;
+	scope?: string;
 	/**
-	 * Every exercise and scope that changed air and left the session (« On change d’air »), in
-	 * order; present only while the session's series is in memory and one left. Computed, never
-	 * stored.
+	 * Rounds played, and those that passed (`Attempt.success`). A round of an exercise that plays
+	 * passages is one of their changes.
 	 */
-	changeOfAir?: { exerciseId: ExerciseId; scope?: string }[];
-	/** Missed changes, oldest first; `heard` and `expected` are the frets of a shape ("7-7-5"). */
-	misses: {
-		attemptId: number;
-		exerciseId: ExerciseId;
-		symbol: string;
-		heard: string | null;
-		expected: string | null;
-		contested: boolean;
-	}[];
+	rounds: number;
+	passed: number;
+	/**
+	 * Of the rounds passed, those played with an aid that is not the level's own (they do not
+	 * count towards moving up).
+	 */
+	aided: number;
+	/**
+	 * The level held at the end, as the screen numbers it (« niveau 3 sur 6 », or an aid level);
+	 * null when the exercise writes no level, and for any exercise but one played alone whose
+	 * round writes a figure (the changes' levels are their tempos, told by `tempo`).
+	 */
+	level: { shown: number; of: number; aid: boolean } | null;
+	/** The tempo of its first and of its last round; null in free time. */
+	tempo: { first: number; last: number } | null;
+	/** Passages played and passed, for rounds played in passages; null otherwise. */
+	passages: { played: number; passed: number } | null;
+	/**
+	 * It left the session by « On change d’air »: known only while the session's series is in
+	 * memory. Computed, never stored.
+	 */
+	changedAir: boolean;
+}
+
+/** A missed change; `heard` and `expected` are the frets of a shape ("7-7-5"). */
+export interface SummaryMiss {
+	attemptId: number;
+	exerciseId: ExerciseId;
+	symbol: string;
+	heard: string | null;
+	expected: string | null;
+	contested: boolean;
 }
 
 /** A triad attempt whose chord was judged wrong, as the summary lists it. */

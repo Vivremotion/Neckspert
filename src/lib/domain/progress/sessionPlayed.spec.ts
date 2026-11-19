@@ -75,7 +75,19 @@ describe('sessionPlayed', () => {
 			exercises: [],
 			skills: new Set(),
 			chords: false,
-			passages: false
+			passages: false,
+			memory: true
 		});
+	});
+
+	it('tells a session of memory: its skills have cards, or nothing tells otherwise', () => {
+		expect(sessionPlayed(record({ routine: 'notes' }), []).memory).toBe(true);
+		expect(sessionPlayed(record({ routine: 'changes' }), []).memory).toBe(false);
+		expect(sessionPlayed(record({ exercise: 'rhythm-offbeats' }), []).memory).toBe(false);
+		// Gone, with its skill: the skill tells. Gone with an unknown skill: nothing tells.
+		const gone = (skill: string) =>
+			sessionPlayed(record({ exercise: 'kazoo' }), [{ exerciseId: 'kazoo', skill }]).memory;
+		expect(gone('inner-pulse')).toBe(false);
+		expect(gone('gone-skill')).toBe(true);
 	});
 });

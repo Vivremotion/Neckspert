@@ -9,7 +9,7 @@ import {
 	type Figure,
 	type LevelState
 } from '$lib/domain/time';
-import type { Attempt, ExerciseSummary } from '$lib/domain/types';
+import type { Attempt, PlayedExercise, SessionSummary } from '$lib/domain/types';
 import { levelAided } from '../aids';
 import type { FigureAttemptData, RoundPlanRecord } from './recordResponse';
 import { levelView } from './figureStage';
@@ -50,8 +50,32 @@ function playedOf(
 }
 
 /**
- * What a rhythm session did: the cycles it played, those that succeeded, the successes played
- * with an aid the level does not give, and the level held when it ended. That level is the
+ * Whether a round had an aid beyond its level's own (`levelAided`): the cursor counts as the
+ * level's when the level it was played at (`data.level`, else the first) gives one in its
+ * exercise (`find`); for an exercise no file defines, that is unknown, and the cursor counts as
+ * an aid, as for a level that gives none.
+ */
+export function aidedBeyondItsLevel(
+	find: (id: string) => ExerciseDefinition | undefined
+): (attempt: Attempt) => boolean {
+	return (attempt) => {
+		const exercise = find(attempt.exerciseId);
+		const level = (attempt.data as { level?: unknown } | null)?.level;
+		let cursor = false;
+		try {
+			cursor = exercise
+				? figureParamsOf(exercise, typeof level === 'number' ? level : 0).cursor
+				: false;
+		} catch {
+			cursor = false;
+		}
+		return levelAided(attempt.aids, cursor);
+	};
+}
+
+/**
+ * What the summary tells of an exercise played alone whose round writes a figure, beside its
+ * line's counts: the level held when it ended, and its last cycle in full. That level is the
  * session's own (`levelReached`, kept on its record when it ended, so a later session does not
  * change it); for a record without it, the stored level (`state`, the latest, written after each
  * cycle), else the level of the last cycle played, else the first level.
@@ -63,7 +87,7 @@ export function summarizeExercise(input: {
 	/** The level the session ended on (`SessionRecord.levelReached`). */
 	levelReached?: number;
 	state: LevelState | undefined;
-}): ExerciseSummary {
+}): { level: NonNullable<PlayedExercise['level']>; lastCycle?: SessionSummary['lastCycle'] } {
 	const { exercise } = input;
 	const levels = exerciseLevelsOf(exercise);
 	const cycles = input.attempts.filter(
@@ -79,15 +103,7 @@ export function summarizeExercise(input: {
 	const played = last ? playedOf(exercise, last) : null;
 	const readable = Array.isArray(last?.data.report?.expectations);
 	return {
-		exerciseId: exercise.id,
-		levelReached: levelView(levels, Math.min(highest, Math.max(lowest, held))),
-		cycles: cycles.length,
-		successes: cycles.filter((attempt) => attempt.success).length,
-		aided: cycles.filter(
-			(attempt) =>
-				attempt.success &&
-				levelAided(attempt.aids, figureParamsOf(exercise, attempt.data.level).cursor)
-		).length,
+		level: levelView(levels, Math.min(highest, Math.max(lowest, held))),
 		...(last?.data.report &&
 			verdict &&
 			readable && {

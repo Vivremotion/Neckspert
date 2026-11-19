@@ -3,7 +3,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createAppServices } from '$lib/application/services/createAppServices';
 import { SessionMemory } from '$lib/application/session/sessionMemory';
 import { introduceCard, markLearned } from '$lib/domain/progress';
-import type { CardState, SessionRecord } from '$lib/domain/types';
+import type { Attempt, CardState, SessionRecord } from '$lib/domain/types';
+import { responseAttempt } from '$lib/testing/attempts';
 import {
 	InMemoryAttemptRepository,
 	InMemoryCardStateRepository,
@@ -37,14 +38,79 @@ function learned(key: string, skill: string, item: unknown): CardState {
 	return { ...card, scheduling: { ...card.scheduling, due: 2 * 3_600_000 } };
 }
 
+/** When each change was prompted: in the order the test writes them. */
+let prompted = 0;
+
+/** A change of a grid as a session of the changes stored it, in its passage. */
+function change(
+	exerciseId: string,
+	passageId: string,
+	index: number,
+	success: boolean,
+	tempoBpm = 80
+): Attempt {
+	return responseAttempt({
+		sessionId: 's1',
+		exerciseId,
+		skill: exerciseId,
+		scope: 'iohefy-a',
+		cardKey: `${exerciseId}:iohefy-a#${index}`,
+		phase: 'free',
+		temperature: 'hot',
+		aid: 'none',
+		promptedAt: ++prompted,
+		tempoBpm,
+		leadBeats: null,
+		timingOffsetMs: null,
+		reactionMs: null,
+		correct: success,
+		verdict: success ? 'perfect' : 'wrong',
+		data: {
+			item: { grid: 'iohefy-a', index },
+			passage: { id: passageId, index: 'grid=iohefy-a;strings=3,2,1', rank: index, each: {} },
+			answer: null,
+			confusion: null
+		},
+		observations: [],
+		plan: null
+	});
+}
+
+/** A cycle of a figure exercise as its session stored it, at the level played. */
+function cycle(exerciseId: string, level: number, success: boolean, aids: Attempt['aids'] = []) {
+	return {
+		sessionId: 's1',
+		exerciseId,
+		skill: 'inner-pulse',
+		cardKey: `inner-pulse:offbeats-1@${level}`,
+		phase: 'free',
+		temperature: 'hot',
+		aids,
+		promptedAt: 0,
+		tempoBpm: 80,
+		leadBeats: null,
+		timingOffsetMs: null,
+		reactionMs: null,
+		correct: null,
+		success,
+		verdict: { relation: 'plan', version: 1, value: success ? 'ok' : 'miss' },
+		measures: {},
+		plan: null,
+		data: { item: { figureId: 'offbeats-1', level }, level, report: {} },
+		observations: []
+	} as unknown as Attempt;
+}
+
 /**
  * The summary screen of a stored session, its text, as the service sums it up: only the stores
  * `sessionSummary` reads are given.
  */
-async function shown(record: SessionRecord): Promise<string> {
+async function shown(record: SessionRecord, stored: readonly Attempt[] = []): Promise<string> {
 	const sessions = new InMemorySessionRepository();
 	const cards = new InMemoryCardStateRepository();
+	const attempts = new InMemoryAttemptRepository();
 	await sessions.put(record);
+	for (const attempt of stored) await attempts.add(attempt);
 	await cards.putMany([
 		learned('locate-note-string:6:G', 'locate-note-string', { string: 6, pitch: 'G' }),
 		learned('chord-anchor:D|maj|3:5,2:1,1:3', 'chord-anchor', {
@@ -54,7 +120,7 @@ async function shown(record: SessionRecord): Promise<string> {
 	const services = createAppServices({
 		sessions,
 		cards,
-		attempts: new InMemoryAttemptRepository(),
+		attempts,
 		levels: new InMemoryLevelStateRepository(),
 		memory: new SessionMemory(),
 		now: () => NOW
@@ -112,6 +178,56 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 		expect(text).not.toContain('Notes apprises');
 		expect(text).not.toContain('Triades apprises');
 		expect(text).not.toContain('Précision');
+	});
+
+	it('tells a session of the changes as it did: per exercise and grid, its passages, its changes, its tempos', async () => {
+		const climb = [0, 1, 2].map((i) => change('grid-in-direction', 'p1', i, true));
+		const jam = [
+			...[0, 1, 2, 3].map((i) => change('grid-reading', 'p2', i, i !== 3)),
+			...[0, 1].map((i) => change('grid-reading', 'p3', i, true, 85))
+		];
+		const text = await shown(
+			stored({ routine: 'changes' }, [
+				{ exerciseId: 'grid-in-direction', scope: 'iohefy-a', tempoBpm: 80 },
+				{ exerciseId: 'grid-reading', scope: 'iohefy-a', tempoBpm: 80 }
+			]),
+			[...climb, ...jam]
+		);
+		expect(text).toContain('Contrainte de déplacement · I Only Have Eyes for You');
+		expect(text).toContain('1 / 1 passages réussis');
+		expect(text).toContain('100 % justes et à temps');
+		expect(text).toContain('Jam · I Only Have Eyes for You');
+		expect(text).toContain('1 / 2 passages réussis');
+		expect(text).toContain('83 % justes et à temps');
+		expect(text).toContain('♩ = 80 → 85');
+		expect(text).toContain('Changements ratés');
+		expect(text).not.toContain('Notes apprises');
+		expect(text).not.toContain('Niveau atteint');
+	});
+
+	it('tells an exercise of figures played alone as it did: its level, its cycles, its aided successes', async () => {
+		const text = await shown(stored({ exercise: RHYTHM_OFFBEATS.id, levelReached: 1 }), [
+			cycle(RHYTHM_OFFBEATS.id, 0, true, ['listen']),
+			cycle(RHYTHM_OFFBEATS.id, 1, true, ['cursor']),
+			cycle(RHYTHM_OFFBEATS.id, 1, false)
+		]);
+		expect(text).toContain('Contretemps');
+		expect(text).toContain('Niveau atteint : 2 sur 4');
+		expect(text).toContain('2 cycles réussis sur 3');
+		expect(text).toContain('dont 1 avec aide');
+		expect(text).not.toContain('Notes apprises');
+	});
+
+	it('keeps the line of an exercise no file defines any more, its id for title (D2)', async () => {
+		const text = await shown(stored({ exercise: 'rhythm-removed', levelReached: 1 }), [
+			cycle('rhythm-removed', 0, true),
+			cycle('rhythm-removed', 0, false)
+		]);
+		expect(text).toContain('rhythm-removed');
+		expect(text).toContain('1 cycle réussi sur 2');
+		expect(text).toContain('♩ = 80');
+		expect(text).not.toContain('Niveau atteint');
+		expect(text).not.toContain('Notes apprises');
 	});
 
 	it('shows an exercise of figures played alone by its own block', async () => {

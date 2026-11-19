@@ -8,7 +8,7 @@
 	import { allGrids } from '$lib/domain/grid';
 	import { i18n } from '$lib/i18n/index.svelte';
 	import { rhythmReportView } from './rhythmReport';
-	import type { ExerciseSummary, SessionSummary } from '$lib/domain/types';
+	import type { PlayedExercise, SessionSummary } from '$lib/domain/types';
 	import PlayedCycle, { CYCLE_COLUMN_PX } from '$lib/ui/play/views/PlayedCycle.svelte';
 	import Button from '$lib/ui/primitives/Button.svelte';
 	import Page from '$lib/ui/primitives/Page.svelte';
@@ -31,7 +31,7 @@
 		onhome: () => void;
 		onmap: () => void;
 		/**
-		 * « Joué juste » on a missed gesture change, « C’était en place » with its reason on a
+		 * « Joué juste » on a missed change, « C’était en place » with its reason on a
 		 * failed cycle (development builds); without it, misses are listed only.
 		 */
 		oncontest?: (attemptId: number, reason?: string) => Promise<void>;
@@ -92,16 +92,18 @@
 		return `${name} · ${grid?.title ?? scope}`;
 	}
 
-	/** The level a rhythm session ended on, an aid level named as the play header names it. */
-	function rhythmLevel(level: ExerciseSummary['levelReached']): string {
+	/** The level a line ended on, an aid level named as the play header names it. */
+	function levelText(level: NonNullable<PlayedExercise['level']>): string {
 		return level.aid ? t.aidLevelReached : t.levelReached(level.shown, level.of);
 	}
 
-	/** An exercise session's exercise by its name in the current language. */
-	function rhythmTitle(exerciseId: string): string {
-		const exercise = exerciseSessionExercises().find((candidate) => candidate.id === exerciseId);
-		return exercise?.title?.[i18n.locale] ?? exerciseId;
+	/** The share of a line's rounds that passed, in whole percent. */
+	function share(line: PlayedExercise): number {
+		return line.rounds > 0 ? Math.round((line.passed / line.rounds) * 100) : 0;
 	}
+
+	/** The lines of the exercises that changed air and left the session. */
+	const changedAir = $derived(summary.exercises.filter((line) => line.changedAir));
 
 	/** Misses contested on this screen, on top of those stored contested. */
 	let contestedHere = $state<number[]>([]);
@@ -151,152 +153,9 @@
 		{#if summary.grade}
 			<p class="grade">{summary.grade}</p>
 		{/if}
-		{#if summary.exercise}
-			{@const rhythm = summary.exercise}
-			<ul class="rows">
-				<li class="exercise">
-					<strong>{rhythmTitle(rhythm.exerciseId)}</strong>
-					<span>{rhythmLevel(rhythm.levelReached)}</span>
-					<span>{t.cyclesSucceeded(rhythm.successes, rhythm.cycles)}</span>
-					{#if rhythm.aided > 0}
-						<span>{t.successesAided(rhythm.aided)}</span>
-					{/if}
-				</li>
-			</ul>
-			{#if rhythm.series}
-				{@const series = rhythm.series}
-				<ul class="rows series">
-					<li class="exercise">
-						<span>{series.levels.map((level) => t.levelName(level)).join(' → ')}</span>
-						{#if series.listens > 0}<span>{t.listens(series.listens)}</span>{/if}
-						<span>{t.playedShare(Math.round(series.playedShare * 100))}</span>
-					</li>
-					{#if series.ended === 'change-of-air'}
-						<li class="exercise change-of-air">
-							<strong>{t.changeOfAir}</strong>
-							{#if series.breaking}
-								{@const term = termOfFailure(series.breaking)}
-								<span
-									>{t.breaking}
-									<Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term
-									></span
-								>
-							{/if}
-							<span>{t.tryInstead}</span>
-							{#each exerciseSessionExercises().filter((e) => e.id !== rhythm.exerciseId) as other (other.id)}
-								<a href={`/session?exercise=${other.id}`}
-									>{other.title?.[i18n.locale] ?? other.id}</a
-								>
-							{/each}
-						</li>
-					{/if}
-					{#each series.runs as run, index (run.id)}
-						<li class="exercise run">
-							<strong>{t.run(index + 1)}</strong>
-							<span>{t.levelName(run.level)}</span>
-							<span>{t.runCycles(run.successes, run.rounds)}</span>
-							{#if run.ended === 'interrupted'}<span>{t.runCut}</span>{/if}
-							{#each Object.entries(run.measures) as [id, measure] (id)}
-								{@const term = termOfMeasure(id as MeasureId)}
-								<span
-									><Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term>
-									<span>{measureText(measure.value, measure.unit)}</span></span
-								>
-							{/each}
-							{#if onreplay && rhythm.replayable?.includes(run.id)}
-								{#if replaying === run.id}
-									<Button variant="quiet" onclick={stopReplay}>{t.stopReplay}</Button>
-								{:else}
-									<Button variant="quiet" onclick={() => replay(run.id)}>{t.replayRun}</Button>
-								{/if}
-							{/if}
-							{#if development && oncontest}
-								{#each run.failed as cycle (cycle.attemptId)}
-									{#each cycle.reasons as reason (reason)}
-										{@const term = termOfFailure(reason)}
-										<Button
-											variant="quiet"
-											disabled={contestedReasons.includes(`${cycle.attemptId}:${reason}`)}
-											onclick={() => contestReason(cycle.attemptId, reason)}
-											>{`${t.inPlace} ${GLOSSARY[term][i18n.locale].term}`}</Button
-										>
-									{/each}
-								{/each}
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-			{#if development && rhythm.lastCycle}
-				{@const report = rhythmReportView(rhythm.lastCycle, t.report, i18n.locale)}
-				{@const played = rhythm.lastCycle.played}
-				{#if played}
-					<div class="played-cycle" bind:clientWidth={playedWidth}>
-						<PlayedCycle
-							figure={played.figure}
-							cycleBars={played.cycleBars}
-							reports={[rhythm.lastCycle.report]}
-							feedback="every-cycle"
-							beatMs={60000 / played.tempoBpm}
-							maxWidth={playedWidth > CYCLE_COLUMN_PX
-								? playedWidth - CYCLE_COLUMN_PX
-								: FALLBACK_WIDTH}
-						/>
-					</div>
-				{/if}
-				<div class="report">
-					<strong>{report.headline}</strong>
-					<span>{report.feedback}</span>
-					{#if report.reasons}<span>{report.reasons}</span>{/if}
-					<ul>
-						{#each report.measures as line (line)}<li>{line}</li>{/each}
-						<li>{report.latency}</li>
-					</ul>
-				</div>
-			{/if}
-		{:else if summary.gesture}
-			<ul class="rows">
-				{#each summary.gesture.exercises as exercise (`${exercise.exerciseId}:${exercise.scope ?? ''}`)}
-					<li class="exercise">
-						<strong>{exerciseLabel(exercise.exerciseId, exercise.scope)}</strong>
-						<span>{t.passages(exercise.passagesSucceeded, exercise.passagesPlayed)}</span>
-						<span>{t.changes(Math.round(exercise.changeSuccessRate * 100))}</span>
-						<span>{t.tempos(exercise.tempoBpm, exercise.lastTempoBpm)}</span>
-					</li>
-				{/each}
-			</ul>
-			{#if summary.gesture.changeOfAir}
-				<ul class="rows">
-					<li class="exercise change-of-air">
-						<strong>{t.changeOfAir}</strong>
-						{#each summary.gesture.changeOfAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
-							<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
-						{/each}
-					</li>
-				</ul>
-			{/if}
-			{#if summary.gesture.misses.length > 0}
-				<ul class="rows" aria-label={t.misses}>
-					<li><span>{t.misses}</span></li>
-					{#each summary.gesture.misses as miss (miss.attemptId)}
-						<li class="miss">
-							<strong>{miss.symbol}</strong>
-							<span>{miss.heard === null ? t.nothingHeard : t.heard(miss.heard)}</span>
-							{#if miss.expected !== null}
-								<span>{t.expected(miss.expected)}</span>
-							{/if}
-							{#if miss.contested || contestedHere.includes(miss.attemptId)}
-								<span>{t.contested}</span>
-							{:else if oncontest}
-								<Button variant="quiet" onclick={() => contest(miss.attemptId)}>
-									{t.playedRight}
-								</Button>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			{/if}
-		{:else}
+		{#if summary.memory}
+			<!-- A session of memory exercises: its memory block, as before the one summary; its
+			     lines (`exercises`) are not shown. -->
 			<ul class="rows">
 				{#if summary.tempoBpm !== null}
 					<li>
@@ -354,6 +213,155 @@
 					</li>
 				{/if}
 			</ul>
+		{:else}
+			<!-- Any other session: a line per exercise and scope, each field told when it has a
+			     value; its rounds told as changes when played in passages, else as cycles. -->
+			<ul class="rows">
+				{#each summary.exercises as line (`${line.exerciseId}:${line.scope ?? ''}`)}
+					<li class="exercise">
+						<strong>{exerciseLabel(line.exerciseId, line.scope)}</strong>
+						{#if line.level}
+							<span>{levelText(line.level)}</span>
+						{/if}
+						{#if line.passages}
+							<span>{t.passages(line.passages.passed, line.passages.played)}</span>
+							<span>{t.changes(share(line))}</span>
+						{:else}
+							<span>{t.cyclesSucceeded(line.passed, line.rounds)}</span>
+						{/if}
+						{#if line.aided > 0}
+							<span>{t.successesAided(line.aided)}</span>
+						{/if}
+						{#if line.tempo}
+							<span>{t.tempos(line.tempo.first, line.tempo.last)}</span>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+			{#if changedAir.length > 0}
+				<ul class="rows">
+					<li class="exercise change-of-air">
+						<strong>{t.changeOfAir}</strong>
+						{#each changedAir as rested (`${rested.exerciseId}:${rested.scope ?? ''}`)}
+							<span>{exerciseLabel(rested.exerciseId, rested.scope)}</span>
+						{/each}
+					</li>
+				</ul>
+			{/if}
+			{#if summary.misses.length > 0}
+				<ul class="rows" aria-label={t.misses}>
+					<li><span>{t.misses}</span></li>
+					{#each summary.misses as miss (miss.attemptId)}
+						<li class="miss">
+							<strong>{miss.symbol}</strong>
+							<span>{miss.heard === null ? t.nothingHeard : t.heard(miss.heard)}</span>
+							{#if miss.expected !== null}
+								<span>{t.expected(miss.expected)}</span>
+							{/if}
+							{#if miss.contested || contestedHere.includes(miss.attemptId)}
+								<span>{t.contested}</span>
+							{:else if oncontest}
+								<Button variant="quiet" onclick={() => contest(miss.attemptId)}>
+									{t.playedRight}
+								</Button>
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if summary.series}
+				{@const series = summary.series}
+				<ul class="rows series">
+					<li class="exercise">
+						<span>{series.levels.map((level) => t.levelName(level)).join(' → ')}</span>
+						{#if series.listens > 0}<span>{t.listens(series.listens)}</span>{/if}
+						<span>{t.playedShare(Math.round(series.playedShare * 100))}</span>
+					</li>
+					<!-- A series that ended by a change of air is told so here unless its lines left. -->
+					{#if series.ended === 'change-of-air' && changedAir.length === 0}
+						<li class="exercise change-of-air">
+							<strong>{t.changeOfAir}</strong>
+							{#if series.breaking}
+								{@const term = termOfFailure(series.breaking)}
+								<span
+									>{t.breaking}
+									<Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term
+									></span
+								>
+							{/if}
+							<span>{t.tryInstead}</span>
+							{#each exerciseSessionExercises().filter((e) => e.id !== series.exerciseId) as other (other.id)}
+								<a href={`/session?exercise=${other.id}`}
+									>{other.title?.[i18n.locale] ?? other.id}</a
+								>
+							{/each}
+						</li>
+					{/if}
+					{#each series.runs as run, index (run.id)}
+						<li class="exercise run">
+							<strong>{t.run(index + 1)}</strong>
+							<span>{t.levelName(run.level)}</span>
+							<span>{t.runCycles(run.successes, run.rounds)}</span>
+							{#if run.ended === 'interrupted'}<span>{t.runCut}</span>{/if}
+							{#each Object.entries(run.measures) as [id, measure] (id)}
+								{@const term = termOfMeasure(id as MeasureId)}
+								<span
+									><Term id={term} locale={i18n.locale}>{GLOSSARY[term][i18n.locale].term}</Term>
+									<span>{measureText(measure.value, measure.unit)}</span></span
+								>
+							{/each}
+							{#if onreplay && summary.replayable?.includes(run.id)}
+								{#if replaying === run.id}
+									<Button variant="quiet" onclick={stopReplay}>{t.stopReplay}</Button>
+								{:else}
+									<Button variant="quiet" onclick={() => replay(run.id)}>{t.replayRun}</Button>
+								{/if}
+							{/if}
+							{#if development && oncontest}
+								{#each run.failed as cycle (cycle.attemptId)}
+									{#each cycle.reasons as reason (reason)}
+										{@const term = termOfFailure(reason)}
+										<Button
+											variant="quiet"
+											disabled={contestedReasons.includes(`${cycle.attemptId}:${reason}`)}
+											onclick={() => contestReason(cycle.attemptId, reason)}
+											>{`${t.inPlace} ${GLOSSARY[term][i18n.locale].term}`}</Button
+										>
+									{/each}
+								{/each}
+							{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if development && summary.lastCycle}
+				{@const last = summary.lastCycle}
+				{@const report = rhythmReportView(last, t.report, i18n.locale)}
+				{@const played = last.played}
+				{#if played}
+					<div class="played-cycle" bind:clientWidth={playedWidth}>
+						<PlayedCycle
+							figure={played.figure}
+							cycleBars={played.cycleBars}
+							reports={[last.report]}
+							feedback="every-cycle"
+							beatMs={60000 / played.tempoBpm}
+							maxWidth={playedWidth > CYCLE_COLUMN_PX
+								? playedWidth - CYCLE_COLUMN_PX
+								: FALLBACK_WIDTH}
+						/>
+					</div>
+				{/if}
+				<div class="report">
+					<strong>{report.headline}</strong>
+					<span>{report.feedback}</span>
+					{#if report.reasons}<span>{report.reasons}</span>{/if}
+					<ul>
+						{#each report.measures as line (line)}<li>{line}</li>{/each}
+						<li>{report.latency}</li>
+					</ul>
+				</div>
+			{/if}
 		{/if}
 		<nav class="nav">
 			<Button onclick={onhome}>{t.home}</Button>

@@ -12,7 +12,8 @@ import {
 } from './recordResponse';
 import { SETTLE_AFTER_BARS } from './compilePlan';
 import { PLAIN_WORDS_SESSIONS } from './figureStage';
-import { summarizeExercise } from './exerciseSummary';
+import { aidedBeyondItsLevel, summarizeExercise } from './exerciseSummary';
+import { summarizePlayed } from '$lib/domain/session';
 import type { SessionMemory } from '../sessionMemory';
 import type { SessionController } from '../SessionController.svelte';
 import {
@@ -1311,17 +1312,25 @@ describe('the rhythm on the series, another series', () => {
 		controller.quit();
 		await settled();
 		const record = await sessions.get('series');
-		const summary = summarizeExercise({
+		const attempts = await stored();
+		const { level } = summarizeExercise({
 			exercise: RHYTHM_OFFBEATS,
-			attempts: await stored(),
+			attempts,
 			levelReached: record?.levelReached,
 			state: await levels.get({ exerciseId: RHYTHM_OFFBEATS.id, scope: '', item: '' })
 		});
-		expect(summary).toMatchObject({
+		const [line] = summarizePlayed({
+			executions: record?.executions ?? [],
+			attempts,
+			aided: aidedBeyondItsLevel(() => RHYTHM_OFFBEATS),
+			alone: RHYTHM_OFFBEATS.id,
+			level: () => level
+		});
+		expect(line).toMatchObject({
 			exerciseId: RHYTHM_OFFBEATS.id,
-			levelReached: { shown: 2, of: 4, aid: false },
-			cycles: 4,
-			successes: 4,
+			level: { shown: 2, of: 4, aid: false },
+			rounds: 4,
+			passed: 4,
 			aided: 0
 		});
 	});

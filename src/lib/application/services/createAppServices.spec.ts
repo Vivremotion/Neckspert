@@ -687,7 +687,8 @@ describe('the gesture track', () => {
 			latencyMs: 0
 		});
 		const summary = await services.sessionSummary('g1');
-		expect(summary).toMatchObject({ chords: false, gesture: { exercises: [], misses: [] } });
+		// The link met with no change played: no line, no miss, and nothing of the notes.
+		expect(summary).toMatchObject({ chords: false, memory: false, exercises: [], misses: [] });
 	});
 
 	it('starts the gesture at the level it reached, read from the levels stored', async () => {
@@ -838,9 +839,9 @@ describe('the rhythm exercises', () => {
 		await vi.waitFor(async () =>
 			expect((await deps.sessions.get(controller.sessionId))?.endedAt).not.toBeNull()
 		);
-		const summary = (await services.sessionSummary(controller.sessionId)).exercise;
-		expect(summary?.exerciseId).toBe(RHYTHM_TWO_FOUR.id);
-		expect(summary?.series?.runs.length).toBe(1);
+		const summary = await services.sessionSummary(controller.sessionId);
+		expect(summary.exercises.map((line) => line.exerciseId)).toEqual([RHYTHM_TWO_FOUR.id]);
+		expect(summary.series?.runs.length).toBe(1);
 	});
 
 	it('tells the feedback by its terms once the exercise has PLAIN_WORDS_SESSIONS ended sessions', async () => {
@@ -921,13 +922,19 @@ describe('the rhythm exercises', () => {
 		await deps.attempts.add(rhythmCycle(0, true, 'other'));
 		const summary = await services.sessionSummary('r1');
 		expect(summary.chords).toBe(false);
-		expect(summary.exercise).toEqual({
-			exerciseId: RHYTHM_OFFBEATS.id,
-			levelReached: { shown: 2, of: 4, aid: false },
-			cycles: 3,
-			successes: 2,
-			aided: 0
-		});
+		expect(summary.memory).toBe(false);
+		expect(summary.exercises).toEqual([
+			{
+				exerciseId: RHYTHM_OFFBEATS.id,
+				level: { shown: 2, of: 4, aid: false },
+				rounds: 3,
+				passed: 2,
+				aided: 0,
+				tempo: { first: 80, last: 80 },
+				passages: null,
+				changedAir: false
+			}
+		]);
 	});
 
 	/** A trace of session r1: two runs, the first with attempt `a`, the second with `b`. */
@@ -963,8 +970,8 @@ describe('the rhythm exercises', () => {
 		const takes = deps.takes as FakeTakeBuffer;
 		takes.keepFrom(0);
 		takes.hear(8);
-		const summary = (await services.sessionSummary('r1')).exercise;
-		expect(summary?.series?.runs.map((run) => run.level)).toEqual([0, 1]);
+		const summary = await services.sessionSummary('r1');
+		expect(summary.series?.runs.map((run) => run.level)).toEqual([0, 1]);
 		expect(summary?.series?.ended).toBe('time');
 		expect(summary?.replayable).toEqual([first]);
 	});
@@ -973,10 +980,10 @@ describe('the rhythm exercises', () => {
 		const { services, deps } = harness();
 		await deps.sessions.put(rhythmSession());
 		await deps.attempts.add(rhythmCycle(0, true));
-		const summary = (await services.sessionSummary('r1')).exercise;
-		expect(summary?.cycles).toBe(1);
-		expect(summary?.series).toBeUndefined();
-		expect(summary?.replayable).toBeUndefined();
+		const summary = await services.sessionSummary('r1');
+		expect(summary.exercises[0]?.rounds).toBe(1);
+		expect(summary.series).toBeUndefined();
+		expect(summary.replayable).toBeUndefined();
 	});
 
 	it("replayRun plays the run's take, and refuses one not held", async () => {
@@ -1024,12 +1031,12 @@ describe('the rhythm exercises', () => {
 		await deps.sessions.put(rhythmSession({ id: 'later', startedAt: 10, levelReached: 3 }));
 		// The stored level is the latest session's.
 		await deps.levels.put(heldLevel(3));
-		expect((await services.sessionSummary('older')).exercise?.levelReached).toEqual({
+		expect((await services.sessionSummary('older')).exercises[0]?.level).toEqual({
 			shown: 2,
 			of: 4,
 			aid: false
 		});
-		expect((await services.sessionSummary('later')).exercise?.levelReached).toEqual({
+		expect((await services.sessionSummary('later')).exercises[0]?.level).toEqual({
 			shown: 4,
 			of: 4,
 			aid: false
@@ -1040,22 +1047,46 @@ describe('the rhythm exercises', () => {
 		const { services, deps } = harness();
 		await deps.sessions.put(rhythmSession());
 		await deps.levels.put(heldLevel(2));
-		expect((await services.sessionSummary('r1')).exercise?.levelReached).toEqual({
+		expect((await services.sessionSummary('r1')).exercises[0]?.level).toEqual({
 			shown: 3,
 			of: 4,
 			aid: false
 		});
 	});
 
-	it('gives a summary without rhythm for an exercise no longer in the catalog or not a rhythm one', async () => {
+	it('tells no level for an exercise no longer in the catalog or not one of figures', async () => {
 		const { services, deps } = harness();
 		await deps.sessions.put(rhythmSession({ id: 'gone', exercise: 'rhythm-removed' }));
 		await deps.sessions.put(rhythmSession({ id: 'neck', exercise: 'locate-note-string' }));
 		for (const id of ['gone', 'neck']) {
 			const summary = await services.sessionSummary(id);
 			expect(summary.chords).toBe(false);
-			expect(summary.exercise).toBeUndefined();
+			expect(summary.exercises.every((line) => line.level === null)).toBe(true);
+			expect(summary.lastCycle).toBeUndefined();
 		}
+	});
+
+	it('keeps the line of an exercise no file defines, from its attempts, its cards not counted (D2)', async () => {
+		const { services, deps } = harness();
+		await deps.sessions.put(rhythmSession({ id: 'r1', exercise: 'rhythm-removed' }));
+		for (const success of [true, false]) {
+			await deps.attempts.add({ ...rhythmCycle(0, success), exerciseId: 'rhythm-removed' });
+		}
+		const summary = await services.sessionSummary('r1');
+		// Its skill, a skill without cards, tells it is not a session of memory.
+		expect(summary.memory).toBe(false);
+		expect(summary.exercises).toEqual([
+			{
+				exerciseId: 'rhythm-removed',
+				rounds: 2,
+				passed: 1,
+				aided: 1,
+				level: null,
+				tempo: { first: 80, last: 80 },
+				passages: null,
+				changedAir: false
+			}
+		]);
 	});
 
 	it('loads the neck data only for a neck session', async () => {
@@ -1363,11 +1394,10 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 				chords: summary.chords,
 				tempoBpm: summary.tempoBpm,
 				nextReviewAt: summary.nextReviewAt,
-				gesture: summary.gesture !== undefined,
-				exercise: summary.exercise !== undefined
+				memory: summary.memory
 			};
 		};
-		const notes = { chords: false, gesture: false, exercise: false };
+		const notes = { chords: false, memory: true };
 		expect(await summed('learn')).toEqual({
 			...notes,
 			pool: 'cold',
@@ -1395,7 +1425,7 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 			tempoBpm: 75,
 			nextReviewAt: 3000
 		});
-		expect(await summed('gesture')).toMatchObject({ chords: false, gesture: true });
+		expect(await summed('gesture')).toMatchObject({ chords: false, memory: false });
 		// Neither a routine nor an exercise (a record migration 13 kept): read from what it holds.
 		expect(await summed('none')).toEqual({
 			...notes,
@@ -1409,8 +1439,8 @@ describe('the summary of a stored session, told by what it played (Review Focus 
 		const { services, deps } = await seeded();
 		await deps.sessions.put(stored('alone', { exercise: 'chord-anchor', free: true }));
 		const summary = await services.sessionSummary('alone');
-		expect(summary).toMatchObject({ chords: true, pool: 'all', nextReviewAt: 2000 });
-		expect(summary.exercise).toBeUndefined();
+		expect(summary).toMatchObject({ chords: true, pool: 'all', nextReviewAt: 2000, memory: true });
+		expect(summary.exercises.every((line) => line.level === null)).toBe(true);
 	});
 
 	it('sums up a notes exercise played alone with its own next reviews', async () => {

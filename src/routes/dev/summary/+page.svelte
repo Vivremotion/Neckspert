@@ -17,7 +17,10 @@
 		nextReviewAt: 2 * 60 * 60 * 1000,
 		grade: 'S+',
 		tempoBpm: 92,
-		chords: false
+		chords: false,
+		memory: true,
+		exercises: [],
+		misses: []
 	};
 
 	const triads: SessionSummary = {
@@ -36,13 +39,19 @@
 		pool: 'cold',
 		grade: null,
 		chords: false,
-		exercise: {
-			exerciseId: figureExercise?.id ?? '',
-			levelReached: { shown: 3, of: 6, aid: false },
-			cycles: 14,
-			successes: 11,
-			aided: 2
-		}
+		memory: false,
+		exercises: [
+			{
+				exerciseId: figureExercise?.id ?? '',
+				rounds: 14,
+				passed: 11,
+				aided: 2,
+				level: { shown: 3, of: 6, aid: false },
+				tempo: { first: 80, last: 80 },
+				passages: null,
+				changedAir: false
+			}
+		]
 	};
 </script>
 

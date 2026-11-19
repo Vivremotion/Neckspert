@@ -126,7 +126,10 @@ const EMPTY_SUMMARY: SessionSummary = {
 	nextReviewAt: null,
 	grade: null,
 	tempoBpm: null,
-	chords: false
+	chords: false,
+	memory: true,
+	exercises: [],
+	misses: []
 };
 
 export function createFakeAppServices(overrides: Partial<AppServices> = {}): AppServices & {

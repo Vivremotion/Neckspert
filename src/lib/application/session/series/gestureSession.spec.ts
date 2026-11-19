@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { exerciseById } from '$lib/domain/exercise';
 import { passageIndices } from '$lib/domain/exercise/passage/indices';
 import type { ChangeData, ChangeItem } from '$lib/domain/sets';
-import type { PlannedItem } from '$lib/domain/types';
+import type { PlannedItem, SessionSummary } from '$lib/domain/types';
 import {
 	responseVerdictOf,
 	type Attempt,
@@ -239,6 +239,12 @@ const IOHEFY_TRIADS = [
 const iohefyCards = (skill: 'chord-anchor' | 'chord-zone', set: readonly (3 | 4 | 2 | 1)[]) =>
 	IOHEFY_TRIADS.flatMap(([root, quality]) => triadCards(skill, root, quality, set));
 
+/** The exercises and scopes a summary tells as having changed air, in its lines' order. */
+const changedAir = (summary: SessionSummary) =>
+	summary.exercises
+		.filter((line) => line.changedAir)
+		.map(({ exerciseId, scope }) => ({ exerciseId, ...(scope !== undefined && { scope }) }));
+
 describe('a gesture session on the session controller, end to end', () => {
 	it('links D on G-B-E right: seven changes, no card, the passage won, never aided', async () => {
 		const cards = triadCards('chord-anchor', 'D', 'maj', G_B_E);
@@ -264,11 +270,10 @@ describe('a gesture session on the session controller, end to end', () => {
 		).toMatchObject({ level: 1 });
 
 		const summary = await app.services.sessionSummary(app.controller.sessionId);
-		expect(summary.gesture?.exercises[0]).toMatchObject({
+		expect(summary.exercises[0]).toMatchObject({
 			exerciseId: 'inversion-run',
-			passagesSucceeded: 2,
-			tempoBpm: 80,
-			lastTempoBpm: 80
+			passages: { passed: 2 },
+			tempo: { first: 80, last: 80 }
 		});
 	});
 
@@ -318,12 +323,12 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(attempts.slice(16, 25).every((a) => a.correct)).toBe(true);
 
 		const summary = await app.services.sessionSummary(app.controller.sessionId);
-		expect(summary.gesture?.exercises.map((e) => e.exerciseId)).toEqual([
+		expect(summary.exercises.map((e) => e.exerciseId)).toEqual([
 			'inversion-run',
 			'grid-in-direction',
 			'grid-reading'
 		]);
-		expect(summary.gesture?.misses).toEqual([
+		expect(summary.misses).toEqual([
 			expect.objectContaining({ exerciseId: 'grid-in-direction', symbol: 'Dm7', heard: '2-3-1' })
 		]);
 	});
@@ -382,13 +387,13 @@ describe('a gesture session on the session controller, end to end', () => {
 		const sessionId = app.controller.sessionId;
 
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual([{ exerciseId: 'inversion-run' }]);
+		expect(changedAir(summary)).toEqual([{ exerciseId: 'inversion-run' }]);
 
 		// Another session takes the memory's place: this one is no longer told.
 		const playback = app.deps.memory.get(sessionId)!;
 		app.deps.memory.remember({ ...playback, sessionId: 'later' });
 		const forgotten = await app.services.sessionSummary(sessionId);
-		expect(forgotten.gesture?.changeOfAir).toBeUndefined();
+		expect(changedAir(forgotten)).toEqual([]);
 	});
 
 	it('lets the blocked link leave: the climb, the zone and the jam go on, the link never comes back (Review Focus 5)', async () => {
@@ -449,7 +454,7 @@ describe('a gesture session on the session controller, end to end', () => {
 			left: [{ exerciseId: 'inversion-run' }]
 		});
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual([{ exerciseId: 'inversion-run' }]);
+		expect(changedAir(summary)).toEqual([{ exerciseId: 'inversion-run' }]);
 	});
 
 	it('lets a second exercise leave later, then the last: the session ends there, every one named (Review Focus 5)', async () => {
@@ -491,7 +496,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		];
 		expect(series.left).toEqual(left);
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual(left);
+		expect(changedAir(summary)).toEqual(left);
 		for (const { exerciseId, scope } of left) {
 			const state = await app.deps.levels.get({ exerciseId, scope: scope ?? '', item: '' });
 			expect(state?.resumeAfter).not.toBeNull();
@@ -535,9 +540,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(attempts.slice(23).map((a) => a.exerciseId)).toEqual(Array(9).fill('grid-reading'));
 		expect(attempts.slice(23).every((a) => a.success)).toBe(true);
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual([
-			{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }
-		]);
+		expect(changedAir(summary)).toEqual([{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }]);
 	});
 
 	it('lets a blocked grid leave a passages exercise played alone: its other grid goes on (Review Focus 5)', async () => {
@@ -569,9 +572,7 @@ describe('a gesture session on the session controller, end to end', () => {
 		expect(attempts.slice(3).length).toBeGreaterThanOrEqual(20);
 		expect(attempts.slice(3).every((a) => a.scope === 'blues-f')).toBe(true);
 		const summary = await app.services.sessionSummary(sessionId);
-		expect(summary.gesture?.changeOfAir).toEqual([
-			{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }
-		]);
+		expect(changedAir(summary)).toEqual([{ exerciseId: 'grid-in-direction', scope: 'iohefy-a' }]);
 		const blocked = await app.deps.levels.get({
 			exerciseId: 'grid-in-direction',
 			scope: 'iohefy-a',
@@ -586,8 +587,8 @@ describe('a gesture session on the session controller, end to end', () => {
 		await finish(app);
 
 		const summary = await app.services.sessionSummary(app.controller.sessionId);
-		expect(summary.gesture?.exercises).toHaveLength(1);
-		expect(summary.gesture?.changeOfAir).toBeUndefined();
+		expect(summary.exercises).toHaveLength(1);
+		expect(changedAir(summary)).toEqual([]);
 	});
 
 	it('links each of its 48 indices in the order written, a bar of silence before a new one', async () => {

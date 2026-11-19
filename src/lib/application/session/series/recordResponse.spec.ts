@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeGesture } from '$lib/domain/gesture';
+import { summarizePlayed, summaryMisses } from '$lib/domain/session';
 import { contentJudges } from '$lib/domain/judges';
 import { changeSet, type ChangeItem } from '$lib/domain/sets';
 import { DEFAULT_RESPONSE_WINDOWS } from '$lib/domain/exercise/windows';
@@ -199,7 +199,7 @@ describe('recordedAttempt', () => {
 		expect((attempt.verdict.value as ResponseValue).verdict).toBe('offbeat');
 	});
 
-	it('lets the gesture summary read the new attempts', () => {
+	it('lets the summary read the new attempts of a change', () => {
 		const played: [number, string | null, number][] = [
 			[0, rightShape(change(0)), 0],
 			[1, WRONG, 10],
@@ -215,9 +215,10 @@ describe('recordedAttempt', () => {
 					played.map(([index, decided, ms]) => newAttempt(change(index, passage), decided, ms))
 				)
 			);
-		const fresh = summarizeGesture([RUN], make());
-		expect(fresh.exercises[0]).toMatchObject({ passagesPlayed: 2, changeSuccessRate: 0.5 });
-		expect(fresh.misses).toHaveLength(2);
+		const attempts = make();
+		const [line] = summarizePlayed({ executions: [RUN], attempts, aided: () => false });
+		expect(line).toMatchObject({ passages: { played: 2, passed: 0 }, rounds: 8, passed: 4 });
+		expect(summaryMisses(attempts)).toHaveLength(2);
 	});
 	it('keeps the lead the item was played at', () => {
 		const item = change(1);

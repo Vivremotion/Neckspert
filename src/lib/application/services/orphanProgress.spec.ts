@@ -307,28 +307,31 @@ describe('stored progress whose definition is gone', () => {
 			const summary = await services.sessionSummary(id);
 			return {
 				chords: summary.chords,
-				exercise: summary.exercise,
+				lines: summary.exercises.map((line) => [line.exerciseId, line.rounds, line.level]),
 				attemptCount: summary.attemptCount,
 				tempoBpm: summary.tempoBpm
 			};
 		};
 		expect(await summed('s-normal')).toEqual({
 			chords: false,
-			exercise: undefined,
+			lines: [
+				['locate-note-string', 1, null],
+				[GONE_EXERCISE, 1, null]
+			],
 			attemptCount: 2,
 			tempoBpm: 80
 		});
-		// An exercise no file defines: summed up from its attempts, with no exercise summary.
+		// An exercise no file defines: summed up from its attempts, its line kept with no level.
 		expect(await summed('s-gone-exercise')).toEqual({
 			chords: false,
-			exercise: undefined,
+			lines: [[GONE_EXERCISE, 1, null]],
 			attemptCount: 1,
 			tempoBpm: null
 		});
 		// A routine no file defines: summed up from its attempts.
 		expect(await summed('s-gone-routine')).toEqual({
 			chords: false,
-			exercise: undefined,
+			lines: [[GONE_EXERCISE, 1, null]],
 			attemptCount: 1,
 			tempoBpm: null
 		});
@@ -451,20 +454,21 @@ describe('a track exercise no file defines', () => {
 		}
 	}
 
-	it('serves a card that any registered exercise of its skill lists', async () => {
+	it('sums a session up with the cards its own exercises list, as the home counts its routine (D2)', async () => {
 		const { services, deps } = harness();
 		await seed(deps);
 		await seedUnserved(deps);
 		const before = await services.sessionSummary('s-normal');
 		expect(before.nextReviewAt).toBe(3_601_000);
-		// A second exercise of the same skill lists 6:E: the union of the lists serves it.
+		// A second exercise of the same skill lists 6:E: it is no exercise of the session's routine,
+		// so neither the summary nor the routine's entry on the home counts its card.
 		registerExercise(
 			{ ...exerciseById(LOCATE_NECK_ID), id: 'locate-low-e', items: ['6:E'] },
 			'imported'
 		);
 		const after = await services.sessionSummary('s-normal');
-		expect(after.nextReviewAt).not.toBe(3_601_000);
-		expect(after.nextReviewAt).toBeLessThan(3_601_000);
+		expect(after.nextReviewAt).toBe(3_601_000);
+		expect((await home(services))[0]).toEqual(['notes', true, 1, 3_601_000]);
 	});
 
 	it('starts the triads without identify (D9)', async () => {

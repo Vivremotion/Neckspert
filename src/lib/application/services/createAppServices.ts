@@ -3,8 +3,10 @@ import type { BackupPort, CalibrationPort } from '$lib/application/ports';
 import type { DefinitionsService } from '$lib/application/definitions/service';
 import { AttemptRecorder } from '$lib/application/session/AttemptRecorder';
 import { SessionController } from '$lib/application/session/SessionController.svelte';
-import { summarizeExercise } from '$lib/application/session/series/exerciseSummary';
-import { levelAided } from '$lib/application/session/aids';
+import {
+	aidedBeyondItsLevel,
+	summarizeExercise
+} from '$lib/application/session/series/exerciseSummary';
 import { SESSION_MS, summarizeSeries } from '$lib/domain/session';
 import type { SessionDeps } from '$lib/application/session/SessionDeps';
 import { createExerciseItemSource } from '$lib/application/session/series/itemSource';
@@ -14,7 +16,6 @@ import {
 	allExercises,
 	exerciseById,
 	exerciseSessionExercises,
-	figureParamsOf,
 	findExercise,
 	UNKNOWN_EXERCISE,
 	writesFigure,
@@ -54,7 +55,7 @@ import {
 	type Attempt,
 	type CardKey,
 	type CardState,
-	type ExerciseSummary,
+	type SessionSummary,
 	type SessionOrigin,
 	type SkillId,
 	type SessionRecord
@@ -291,20 +292,15 @@ export function createAppServices(
 	/** The series of a session still in memory, and the runs whose take is still held. */
 	const seriesInMemory = (
 		sessionId: string,
-		exercise: ExerciseDefinition,
 		attempts: readonly Attempt[]
-	): Pick<ExerciseSummary, 'series' | 'replayable'> => {
+	): Pick<SessionSummary, 'series' | 'replayable'> => {
 		const playback = deps.memory.get(sessionId);
 		const series = playback?.trace.children.find((segment) => segment.role === 'series');
 		if (!playback || !series) return {};
 		const summary = summarizeSeries({
 			series,
 			attempts,
-			aided: (attempt) =>
-				levelAided(
-					attempt.aids,
-					figureParamsOf(exercise, (attempt.data as { level?: number } | null)?.level ?? 0).cursor
-				)
+			aided: aidedBeyondItsLevel(exerciseFound)
 		});
 		const replayable = summary.runs
 			.map((run) => run.id)
@@ -317,16 +313,34 @@ export function createAppServices(
 
 	/**
 	 * Every exercise and scope that changed air and left the session's series, still in memory, in
-	 * order, as its trace keeps them; undefined when none did.
+	 * order, as its trace keeps them; none once the session is no longer in memory.
 	 */
-	const changeOfAirOf = (sessionId: string) => {
+	const leftOf = (sessionId: string) => {
 		const series = deps.memory.get(sessionId)?.trace.children.find((s) => s.role === 'series');
-		const left = series?.left ?? [];
-		if (left.length === 0) return undefined;
-		return left.map(({ exerciseId, scope }) => ({
+		return (series?.left ?? []).map(({ exerciseId, scope }) => ({
 			exerciseId,
 			...(scope !== undefined && scope !== '' && { scope })
 		}));
+	};
+
+	/**
+	 * The cards `exercises` list (`exerciseSubject(...).owns`), of the skills with cards they
+	 * practise: what the home counts for a routine and the summary for a session. A card of a skill
+	 * no exercise of theirs practises, or none of them lists, is not counted.
+	 */
+	const cardsListedBy = <T extends CardState>(
+		exercises: readonly ExerciseDefinition[],
+		cards: readonly T[]
+	): T[] => {
+		const owners = exercises
+			.filter((exercise) => hasCards(exercise.practices))
+			.map((exercise) => ({
+				skill: exercise.practices,
+				owns: exerciseSubject({ exercises: [exercise], attempts: [] }).owns
+			}));
+		return cards.filter((card) =>
+			owners.some(({ skill, owns }) => skill === card.skill && owns(card))
+		);
 	};
 
 	/**
@@ -390,12 +404,9 @@ export function createAppServices(
 			let due: number | null = null;
 			let next: number | null = null;
 			if (memory) {
-				// Its reviews are the served cards of the skills its exercises practise.
+				// Its reviews are those of the cards its exercises list.
 				const subject = exerciseSubject({ exercises, attempts });
-				const skills = new Set(exercises.map((exercise) => exercise.practices));
-				const own: CardState[] = cards.filter(
-					(card) => skills.has(card.skill) && subject.owns(card)
-				);
+				const own: CardState[] = cardsListedBy(exercises, cards);
 				due = reviewableCards(own, last, now).length;
 				next = nextReviewAt(own, last);
 				holdsCard = own.length > 0;
@@ -476,51 +487,40 @@ export function createAppServices(
 			if (!record) {
 				throw new Error(`Unknown session: ${sessionId}`);
 			}
+			const attempts = await deps.attempts.listBySession(sessionId);
+			const played = sessionPlayed(record, attempts);
+			// The memory block's reviews read every stored attempt and card: only for a session of
+			// memory, of the skills it played, the cards its exercises list (D2: an exercise no file
+			// defines lists none).
+			const [allAttempts, cards] = played.memory
+				? await Promise.all([deps.attempts.all(), deps.cards.all()])
+				: [[], []];
 			const exercise = sessionExerciseOf(record);
-			if (exercise) {
-				// An exercise session: its own rounds and the level it ended on, nothing of the neck.
-				const [attempts, state] = await Promise.all([
-					deps.attempts.listBySession(sessionId),
-					deps.levels.get({ exerciseId: exercise.id, scope: '', item: '' })
-				]);
-				return {
-					...summarizeSession({
-						record,
-						attempts: [],
-						allAttempts: [],
-						cards: [],
-						now: deps.now()
-					}),
-					exercise: {
-						...summarizeExercise({
-							exercise,
-							attempts,
-							levelReached: record.levelReached,
-							state
-						}),
-						...seriesInMemory(sessionId, exercise, attempts)
-					}
-				};
-			}
-			const [attempts, allAttempts, cards] = await Promise.all([
-				deps.attempts.listBySession(sessionId),
-				deps.attempts.all(),
-				deps.cards.all()
-			]);
-			// Next reviews of the skills the session played: its routine's, or its exercise's.
-			const { skills } = sessionPlayed(record, attempts);
-			const played = (x: { skill: SkillId }) => skills.has(x.skill);
+			const told = exercise
+				? summarizeExercise({
+						exercise,
+						attempts,
+						levelReached: record.levelReached,
+						state: await deps.levels.get({ exerciseId: exercise.id, scope: '', item: '' })
+					})
+				: undefined;
 			const summary = summarizeSession({
 				record,
 				attempts,
-				allAttempts: allAttempts.filter(played),
-				cards: servedCards(cards.filter(played)),
-				now: deps.now()
+				allAttempts: allAttempts.filter((attempt) => played.skills.has(attempt.skill)),
+				cards: cardsListedBy(played.exercises, cards),
+				now: deps.now(),
+				aided: aidedBeyondItsLevel(exerciseFound),
+				// The level is told for the exercise played alone whose round writes a figure.
+				level: ({ exerciseId, scope }) =>
+					told && exerciseId === exercise?.id && scope === undefined ? told.level : null,
+				left: leftOf(sessionId)
 			});
-			const rested = summary.gesture && changeOfAirOf(sessionId);
-			return rested
-				? { ...summary, gesture: { ...summary.gesture!, changeOfAir: rested } }
-				: summary;
+			return {
+				...summary,
+				...(!played.memory && seriesInMemory(sessionId, attempts)),
+				...(told?.lastCycle && { lastCycle: told.lastCycle })
+			};
 		},
 
 		async neckMap() {

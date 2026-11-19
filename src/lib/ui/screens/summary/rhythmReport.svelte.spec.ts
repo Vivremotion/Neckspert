@@ -24,34 +24,41 @@ const failed: SessionSummary = {
 	grade: null,
 	tempoBpm: 80,
 	chords: false,
-	exercise: {
-		exerciseId: 'rhythm-offbeats',
-		levelReached: { shown: 1, of: 4, aid: false },
-		cycles: 1,
-		successes: 0,
-		aided: 0,
-		lastCycle: {
-			verdict: { passed: false, reasons: ['missed', 'extra', 'precision'] },
-			thresholds: { precision: 60, regularity: 40, holdOffset: 60, holdDrift: 25 },
-			report: {
-				expectations: [
-					{ index: 0, verdict: 'perfect', offsetMs: -12.4 },
-					{ index: 1, verdict: 'late', offsetMs: 95 },
-					{ index: 2, verdict: 'missed', offsetMs: null }
-				],
-				dropped: [],
-				extra: 2,
-				shift: { bar: 2, byS: -0.5 },
-				measures: {
-					fidelity: { value: 2 / 3, unit: 'ratio' },
-					placement: { value: 41, unit: 'ms' },
-					precision: { value: 80, unit: 'ms' },
-					regularity: { value: 30, unit: 'ms' },
-					holdOffset: { value: 70, unit: 'ms' },
-					holdDrift: { value: 3, unit: 'ms/bar' }
-				},
-				latency: { ms: 42, provenance: 'system' }
-			}
+	memory: false,
+	exercises: [
+		{
+			exerciseId: 'rhythm-offbeats',
+			rounds: 1,
+			passed: 0,
+			aided: 0,
+			level: { shown: 1, of: 4, aid: false },
+			tempo: { first: 80, last: 80 },
+			passages: null,
+			changedAir: false
+		}
+	],
+	misses: [],
+	lastCycle: {
+		verdict: { passed: false, reasons: ['missed', 'extra', 'precision'] },
+		thresholds: { precision: 60, regularity: 40, holdOffset: 60, holdDrift: 25 },
+		report: {
+			expectations: [
+				{ index: 0, verdict: 'perfect', offsetMs: -12.4 },
+				{ index: 1, verdict: 'late', offsetMs: 95 },
+				{ index: 2, verdict: 'missed', offsetMs: null }
+			],
+			dropped: [],
+			extra: 2,
+			shift: { bar: 2, byS: -0.5 },
+			measures: {
+				fidelity: { value: 2 / 3, unit: 'ratio' },
+				placement: { value: 41, unit: 'ms' },
+				precision: { value: 80, unit: 'ms' },
+				regularity: { value: 30, unit: 'ms' },
+				holdOffset: { value: 70, unit: 'ms' },
+				holdDrift: { value: 3, unit: 'ms/bar' }
+			},
+			latency: { ms: 42, provenance: 'system' }
 		}
 	}
 } as unknown as SessionSummary;
@@ -88,16 +95,13 @@ describe('SummaryScreen of a one-cycle rhythm series', () => {
 
 	it('says it in English, and when placement and precision were not judged', () => {
 		i18n.locale = 'en';
-		const last = failed.exercise!.lastCycle!;
+		const last = failed.lastCycle!;
 		const player: SessionSummary = {
 			...failed,
-			exercise: {
-				...failed.exercise!,
-				lastCycle: {
-					...last,
-					verdict: { passed: true },
-					report: { ...last.report, latency: { ms: 30, provenance: 'player' } }
-				}
+			lastCycle: {
+				...last,
+				verdict: { passed: true },
+				report: { ...last.report, latency: { ms: 30, provenance: 'player' } }
 			}
 		};
 		render(SummaryScreen, { props: props(player) });

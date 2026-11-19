@@ -241,7 +241,13 @@ describe('summarizeSession', () => {
 			nextReviewAt: NOW + 1000,
 			grade: null,
 			tempoBpm: 80,
-			chords: false
+			chords: false,
+			memory: true,
+			exercises: [
+				expect.objectContaining({ exerciseId: 'locate-note-string', rounds: 4, passed: 3 }),
+				expect.objectContaining({ exerciseId: 'identify-note', rounds: 1, tempo: null })
+			],
+			misses: []
 		});
 	});
 
@@ -631,7 +637,7 @@ describe('summarizeSession of a gesture session', () => {
 		latencyMs: 0
 	});
 
-	it('sums the passages up by exercise, and only for a gesture session', () => {
+	it('sums the passages up by exercise, a session of changes not one of memory', () => {
 		const attempts = [0, 1].map((index) =>
 			coldAttempt({
 				exerciseId: 'grid-reading',
@@ -660,21 +666,22 @@ describe('summarizeSession of a gesture session', () => {
 			})
 		);
 		const input = { attempts, allAttempts: [], cards: [], now: NOW };
-		expect(summarizeSession({ ...input, record: record({ routine: 'changes' }) }).gesture).toEqual({
-			exercises: [
-				{
-					exerciseId: 'grid-reading',
-					passagesPlayed: 1,
-					passagesSucceeded: 1,
-					changeSuccessRate: 1,
-					tempoBpm: 80,
-					lastTempoBpm: 80
-				}
-			],
-			misses: []
-		});
-		expect(
-			summarizeSession({ ...input, record: record({ routine: 'notes' }) }).gesture
-		).toBeUndefined();
+		const changes = summarizeSession({ ...input, record: record({ routine: 'changes' }) });
+		expect(changes.memory).toBe(false);
+		expect(changes.exercises).toEqual([
+			{
+				exerciseId: 'grid-reading',
+				rounds: 2,
+				passed: 2,
+				aided: 0,
+				level: null,
+				tempo: { first: 80, last: 80 },
+				passages: { played: 1, passed: 1 },
+				changedAir: false
+			}
+		]);
+		expect(changes.misses).toEqual([]);
+		// A session of the notes is one of memory: its lines are data the screen does not show.
+		expect(summarizeSession({ ...input, record: record({ routine: 'notes' }) }).memory).toBe(true);
 	});
 });

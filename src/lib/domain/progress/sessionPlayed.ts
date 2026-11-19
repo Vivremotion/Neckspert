@@ -2,7 +2,7 @@ import { findExercise } from '$lib/domain/exercise/registry';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import { findRoutine } from '$lib/domain/routine/registry';
 import { voicingOnStringsSet } from '$lib/domain/sets';
-import { hasSkill, skillById } from '$lib/domain/skill/registry';
+import { hasCards, hasSkill, skillById } from '$lib/domain/skill/registry';
 import type { SkillId } from '$lib/domain/skill/types';
 import type { Attempt, SessionRecord } from '$lib/domain/types';
 
@@ -24,6 +24,11 @@ export interface SessionPlayed {
 	chords: boolean;
 	/** One of its exercises plays passages. */
 	passages: boolean;
+	/**
+	 * Its skills have cards, or nothing tells otherwise: none of them is a skill a file defines
+	 * without cards (a session whose exercises and skills are all gone sums up as one of memory).
+	 */
+	memory: boolean;
 }
 
 /**
@@ -62,6 +67,7 @@ export function sessionPlayed(
 		chords: [...skills].some(
 			(skill) => hasSkill(skill) && skillById(skill).items === CHORD_VOICINGS_SET
 		),
-		passages: exercises.some((exercise) => exercise.passages !== undefined)
+		passages: exercises.some((exercise) => exercise.passages !== undefined),
+		memory: ![...skills].some((skill) => hasSkill(skill) && !hasCards(skill))
 	};
 }
