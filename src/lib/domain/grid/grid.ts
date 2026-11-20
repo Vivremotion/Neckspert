@@ -51,6 +51,21 @@ function validate(grid: ChordGrid): void {
  * two bars lasts both). Throws a RangeError on an invalid grid.
  */
 export function gridChanges(grid: ChordGrid): GridChange[] {
+	let changes = CHANGES.get(grid);
+	if (!changes) {
+		changes = changesOf(grid);
+		CHANGES.set(grid, changes);
+	}
+	return changes.map((change) => ({ ...change }));
+}
+
+/**
+ * The changes of each grid already read: a grid is data, never changed once written, and reading
+ * it parses every symbol, which a round of a passage would do again at each of its expectations.
+ */
+const CHANGES = new WeakMap<ChordGrid, readonly GridChange[]>();
+
+function changesOf(grid: ChordGrid): GridChange[] {
 	validate(grid);
 	const end = grid.bars * grid.beatsPerBar;
 	const changes: GridChange[] = [];

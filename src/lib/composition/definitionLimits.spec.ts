@@ -10,10 +10,19 @@ import {
 	MAX_PASSAGE_ROUND_CHECKS,
 	MAX_ROUND_CHECKS,
 	MAX_ROUND_EXPECTATIONS,
+	MAX_FILE_CHECK_COST,
 	MAX_SELECTION_FILTERS,
-	MAX_SELECTION_ORDER
+	MAX_SELECTION_ORDER,
+	type CheckBudget
 } from '$lib/domain/exercise';
+import { definitionChecks } from '$lib/application/definitions/checks';
+import { registerFiles } from '$lib/domain/definitions';
+import { clearExercises } from '$lib/domain/exercise/registry';
+import { clearGrids } from '$lib/domain/grid/registry';
+import { clearRoutines } from '$lib/domain/routine/registry';
+import { clearSkills } from '$lib/domain/skill/registry';
 import { MAX_GRID_CHANGES } from '$lib/domain/grid';
+import { MAX_DEFINITION_FILE_CHARS } from '$lib/domain/definitions/file';
 import {
 	MAX_OPENING_DEPTH,
 	MAX_OPENING_TERMS,
@@ -41,6 +50,88 @@ import { loadDefinitions } from './definitions';
 const BUDGET_MS = 5_000;
 /** What a file over a limit may take to be refused. */
 const REFUSED_MS = 500;
+/**
+ * What the slowest file the check budget accepts may take to load: about 1.2 s here (Apple M3
+ * Pro), for a file of exercises of the lightest rounds on a grid of the most changes.
+ */
+const WORST_ACCEPTED_MS = 2_000;
+
+/**
+ * What checking each file cost, read on the budget each exercise's check was given, and what the
+ * load refused; the registries filled with `files` alone.
+ */
+function checkCosts(files: Readonly<Record<string, string>>) {
+	clearSkills();
+	clearGrids();
+	clearExercises();
+	clearRoutines();
+	const checks = definitionChecks();
+	const budgets = new Map<string, CheckBudget>();
+	const { refusals, registered } = registerFiles(files, {
+		exercise(exercise, budget) {
+			budgets.set(exercise.id, budget!);
+			return checks.exercise(exercise, budget);
+		}
+	});
+	const costs: Record<string, number> = {};
+	for (const { file, kind, id } of [...registered, ...refusals]) {
+		const budget = kind === 'exercise' && id !== null ? budgets.get(id) : undefined;
+		if (budget) costs[file] = budget.spent;
+	}
+	return { costs, refusals };
+}
+
+/**
+ * A grid exercise on a grid of the most changes, as many indices as its rounds checked allow,
+ * each round of `expectations` selections of `filters` filters: the file plan 4b measured at the
+ * most of each (28 s to load before the budget).
+ */
+function gridExercise(id: string, expectations: number, filters: number) {
+	const zone = JSON.parse(JSON.stringify(ZONE_PASSAGES));
+	const [expectation] = zone.round.expectations;
+	const names = Array.from({ length: filters }, (_, i) => `z${i}`);
+	const where = names.map((name) => ({ in: { frets: { param: name } } }));
+	return {
+		...zone,
+		id,
+		passages: {
+			...zone.passages,
+			of: {
+				grid: ['h-grid'],
+				n: Array.from(
+					{ length: Math.floor(MAX_PASSAGE_ROUND_CHECKS / MAX_GRID_CHANGES) },
+					(_, i) => i
+				)
+			},
+			each: Object.fromEntries(names.map((name) => [name, [[0, 24]]]))
+		},
+		round: {
+			...zone.round,
+			// Within the change's four beats, a sixteenth apart.
+			expectations: Array.from({ length: expectations }, (_, i) => ({
+				...expectation,
+				at: { beats: i / 16 },
+				content: { family: 'chord-shapes', ...(filters > 0 && { where }) }
+			}))
+		}
+	};
+}
+
+/** A file of the grid of the most changes and `exercises`, as `timedLoad` reads it. */
+function gridFileLoad(exercises: unknown[]) {
+	const text = JSON.stringify({
+		format: 0,
+		skills: [TEST_PLACED_VOICING_SKILL],
+		grids: [alternatingGrid('h-grid', MAX_GRID_CHANGES)],
+		exercises
+	});
+	const start = performance.now();
+	const { imported } = loadDefinitions({ catalog: CATALOG_FILES, imported: { 'h.json': text } });
+	return { ms: performance.now() - start, text, ...imported };
+}
+
+const budgetWords = (cost: number) =>
+	`this file asks more checking than a start can afford (cost ${cost}, at most ${MAX_FILE_CHECK_COST})`;
 
 /** The public arpeggio exercise as a definition file writes it, under `id`. */
 function arpeggioJson(id: string): Record<string, unknown> {
@@ -328,6 +419,57 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		);
 		expect(refusals).toEqual([]);
 		expect(ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('refuses the file at the most passage rounds, expectations and filters at once, in the budget’s words', () => {
+		const loaded = gridFileLoad([
+			gridExercise('h-heavy', MAX_ROUND_EXPECTATIONS, MAX_SELECTION_FILTERS)
+		]);
+		// Each round weighs 1 + 64 + 64 × 16: refused at the first that passes the budget.
+		const weight = 1 + MAX_ROUND_EXPECTATIONS * (1 + MAX_SELECTION_FILTERS);
+		const cost = (Math.floor(MAX_FILE_CHECK_COST / weight) + 1) * weight;
+		expect(loaded.refusals).toEqual([
+			{ file: 'h.json', kind: 'exercise', id: 'h-heavy', reason: budgetWords(cost) }
+		]);
+		expect(loaded.ms).toBeLessThan(BUDGET_MS);
+	});
+
+	it('loads the slowest file the budget accepts within its time, and refuses one exercise more', () => {
+		// The lightest rounds (one expectation, no filter) on the longest grid: the most rounds.
+		const light = (id: string) => gridExercise(id, 1, 0);
+		const { costs, refusals } = checkCosts({
+			...CATALOG_FILES,
+			'h.json': JSON.stringify({
+				format: 0,
+				skills: [TEST_PLACED_VOICING_SKILL],
+				grids: [alternatingGrid('h-grid', MAX_GRID_CHANGES)],
+				exercises: [light('h-light')]
+			})
+		});
+		expect(refusals).toEqual([]);
+		const most = Math.floor(MAX_FILE_CHECK_COST / costs['h.json']);
+		expect(most).toBeGreaterThan(1);
+		const ids = Array.from({ length: most + 1 }, (_, i) => `h-light-${i}`);
+		const loaded = gridFileLoad(ids.slice(0, most).map(light));
+		expect(loaded.refusals).toEqual([]);
+		expect(loaded.text.length).toBeLessThan(MAX_DEFINITION_FILE_CHARS);
+		expect(loaded.ms).toBeLessThan(WORST_ACCEPTED_MS);
+
+		const over = gridFileLoad(ids.map(light));
+		expect(over.refusals).toHaveLength(1);
+		expect(over.refusals[0]).toMatchObject({ kind: 'exercise', id: ids[most] });
+		expect(over.refusals[0].reason).toMatch(
+			/^this file asks more checking than a start can afford \(cost \d+, at most \d+\)$/
+		);
+	});
+
+	it('loads the catalog with no refusal, each file far within its check budget', () => {
+		const { costs, refusals } = checkCosts(CATALOG_FILES);
+		expect(refusals).toEqual([]);
+		expect(Object.keys(costs).length).toBeGreaterThan(0);
+		for (const [file, cost] of Object.entries(costs)) {
+			expect(cost, file).toBeLessThan(MAX_FILE_CHECK_COST / 50);
+		}
 	});
 
 	it('refuses fast passages over their limits', () => {

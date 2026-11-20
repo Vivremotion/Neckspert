@@ -14,6 +14,7 @@ import {
 	MAX_ROUND_CHECKS,
 	validateExercise
 } from './validate';
+import { CheckBudget } from './checkCost';
 import { GESTURE_JAM, LOCATE_NECK, RHYTHM_OFFBEATS } from '$lib/testing/catalog';
 
 registerTestSkills();
@@ -636,5 +637,45 @@ describe('validateExercise limits', () => {
 		expect(
 			validateExercise({ ...ARPEGGIO_EXERCISE, items: items.slice(0, 200), levels })
 		).toBeNull();
+	});
+
+	it('charges each round it compiles to the budget given, and refuses past it in the budget’s words', () => {
+		// 66 items, one level, a round of weight 2: 132.
+		const budget = new CheckBudget(1000);
+		expect(validateExercise(LOCATE_NECK, { budget })).toBeNull();
+		expect(budget.spent).toBe(LOCATE_NECK.items!.length * 2);
+		const tight = new CheckBudget(100);
+		expect(validateExercise(LOCATE_NECK, { budget: tight })).toBe(
+			'locate-note-string: this file asks more checking than a start can afford (cost 102, at most 100)'
+		);
+	});
+
+	it('charges the notes a figure entry expands to once compiled', () => {
+		// 200 items at 100 levels, quarters: a round of 2 plus 3 notes more.
+		const items = Array.from({ length: 200 }, () => ARPEGGIO_EXERCISE.items![0]);
+		const levels = [ARPEGGIO_EXERCISE.levels![0], ...plainLevels(99)];
+		const budget = new CheckBudget(Infinity);
+		expect(validateExercise({ ...ARPEGGIO_EXERCISE, items, levels }, { budget })).toBeNull();
+		expect(budget.spent).toBe(200 * 100 * 5);
+	});
+
+	it('refuses at once, compiling nothing, with a budget already spent', () => {
+		const budget = new CheckBudget(1);
+		expect(() => budget.charge(2)).toThrow();
+		const start = performance.now();
+		expect(validateExercise(LOCATE_NECK, { budget })).toBe(
+			'locate-note-string: this file asks more checking than a start can afford (cost 2, at most 1)'
+		);
+		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('charges the rounds of the first passages it compiles', () => {
+		const budget = new CheckBudget(Infinity);
+		expect(validateExercise(GESTURE_JAM, { budget })).toBeNull();
+		expect(budget.spent).toBeGreaterThan(0);
+		const refused = new CheckBudget(budget.spent - 1);
+		expect(validateExercise(GESTURE_JAM, { budget: refused })).toMatch(
+			/^grid-reading: this file asks more checking than a start can afford \(cost \d+, at most \d+\)$/
+		);
 	});
 });

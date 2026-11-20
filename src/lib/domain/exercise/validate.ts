@@ -18,6 +18,7 @@ import type { PassageIndex } from './passage/types';
 import { passageDerivation, type Member } from '../families';
 import type { LevelSweep } from './selection/validate';
 import { roundProblem, type RoundCheckOptions } from './round/validate';
+import { CheckBudget, CheckBudgetExceeded, compiledExtra, roundCheckWeight } from './checkCost';
 import { BRIEFINGS, LEVEL_CHANGES, type ExerciseDefinition, type Ladder } from './types';
 
 const finite = (value: unknown): value is number =>
@@ -324,7 +325,7 @@ function shapesProblem(definition: ExerciseDefinition): string | null {
  * the item and the level. What the round does not derive it does not need. Checked once the round
  * is known to be valid.
  */
-function itemsProblem(definition: ExerciseDefinition): string | null {
+function itemsProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
 	const { items, round } = definition;
 	if (items === undefined) return null;
 	if (!Array.isArray(items)) return 'items must be a list';
@@ -346,6 +347,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 	}
 	// What depends on a level alone is resolved once for all the items.
 	const cache: ResolutionCache = new Map();
+	const weight = roundCheckWeight(round);
 	for (const [i, entry] of items.entries()) {
 		let item: unknown;
 		try {
@@ -370,17 +372,20 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
 					aid: 'none',
 					leadBeats: at.leadBeats
 				};
+				budget.charge(weight);
+				let compiled: number;
 				try {
-					compileRound(definition, planned, meter, {
+					compiled = compileRound(definition, planned, meter, {
 						previewBeats: definition.flow?.previewBeats ?? 0,
 						fromRunStart: null,
 						cache
-					});
+					}).expectations.length;
 				} catch (error) {
 					// The compiler names the exercise too: it is named once.
 					const problem = (error as Error).message.replace(`${definition.id}: `, '');
 					return `${field} does not compile at exercise level ${level}: ${problem}`;
 				}
+				budget.charge(compiledExtra(round, compiled));
 			}
 		}
 	}
@@ -395,7 +400,7 @@ function itemsProblem(definition: ExerciseDefinition): string | null {
  * passage has no member, or that cannot be read (`isUnplayable`), is left to the source, which
  * skips it at play. Checked once the round and the passages are known to be valid.
  */
-function passageRoundsProblem(definition: ExerciseDefinition): string | null {
+function passageRoundsProblem(definition: ExerciseDefinition, budget: CheckBudget): string | null {
 	const { passages, round } = definition;
 	if (passages === undefined || round === undefined) return null;
 	const derivation = passageDerivation(passages.members.family);
@@ -419,24 +424,37 @@ function passageRoundsProblem(definition: ExerciseDefinition): string | null {
 	}
 	// What depends on a level alone is resolved once for all the members.
 	const cache: ResolutionCache = new Map();
+	const weight = roundCheckWeight(round);
 	for (const { index, members } of firsts) {
 		for (const [rank, member] of members.entries()) {
+			budget.charge(weight);
+			let compiled: number;
 			try {
 				const item = derivation.itemOf(member);
-				compilePassageRound(
+				compiled = compilePassageRound(
 					definition,
 					passageRound(definition, index, each, item, rank, members.length),
 					cache
-				);
+				).expectations.length;
 			} catch (error) {
 				if (!isUnplayable(error)) throw error;
 				// The compiler names the exercise too: it is named once.
 				const problem = (error as Error).message.replace(`${definition.id}: `, '');
 				return `passages.members[${rank}] (${JSON.stringify(member.id)}) of index ${index.key} does not compile: ${problem}`;
 			}
+			budget.charge(compiledExtra(round, compiled));
 		}
 	}
 	return null;
+}
+
+/** How an exercise is checked: the sensors the session has, and the budget of its file. */
+export interface ExerciseCheckOptions extends RoundCheckOptions {
+	/**
+	 * What checking its file may still cost, charged before each round compiled; absent: a budget
+	 * of its own. Once spent, the exercise is refused in its words.
+	 */
+	budget?: CheckBudget;
 }
 
 /**
@@ -446,14 +464,16 @@ function passageRoundsProblem(definition: ExerciseDefinition): string | null {
  * windows or settings that are no counts, a malformed meter, a preview before nothing, a round
  * template (`roundProblem`; `options.sensors`: the sensors the session has), the passages it
  * writes (`passagesProblem`), an item it lists (`itemsProblem`), the round of a member of an
- * index's first passage (`passageRoundsProblem`). It never
+ * index's first passage (`passageRoundsProblem`), more rounds compiled than its file's check
+ * budget leaves (`options.budget`, `MAX_FILE_CHECK_COST`). It never
  * judges what an exercise is worth: anything runnable passes.
  */
 export function validateExercise(
 	definition: ExerciseDefinition,
-	options: RoundCheckOptions = {}
+	options: ExerciseCheckOptions = {}
 ): string | null {
-	const problem = ((): string | null => {
+	const budget = options.budget ?? new CheckBudget();
+	const checked = (): string | null => {
 		const limits = limitsProblem(definition);
 		if (limits !== null) return limits;
 		if (definition.meter !== undefined) {
@@ -494,9 +514,16 @@ export function validateExercise(
 		if (passages !== null) return passages;
 		return (
 			roundProblem(definition, options, sweep) ??
-			itemsProblem(definition) ??
-			passageRoundsProblem(definition)
+			itemsProblem(definition, budget) ??
+			passageRoundsProblem(definition, budget)
 		);
-	})();
+	};
+	let problem: string | null;
+	try {
+		problem = budget.refusal ?? checked();
+	} catch (error) {
+		if (!(error instanceof CheckBudgetExceeded)) throw error;
+		problem = error.message;
+	}
 	return problem === null ? null : `${definition.id}: ${problem}`;
 }

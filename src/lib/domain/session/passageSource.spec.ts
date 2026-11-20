@@ -3,6 +3,9 @@ import { compileRound } from '$lib/domain/exercise/round/compile';
 import type { ExerciseDefinition } from '$lib/domain/exercise/types';
 import { chordShapes } from '$lib/domain/families/guitar/chordShapes';
 import { triadOf } from '$lib/domain/grid';
+import { gridById, registerGrid } from '$lib/domain/grid/registry';
+import { passageIndices, passageMembers } from '$lib/domain/exercise/passage/indices';
+import { roundCheckWeight } from '$lib/domain/exercise/checkCost';
 import type { MemberContent } from '$lib/domain/judges';
 import type { StringNumber } from '$lib/domain/music';
 import type { ItemSource } from '$lib/domain/progress/selector';
@@ -11,6 +14,7 @@ import type { SkillId } from '$lib/domain/skill/types';
 import { cardKey, type Attempt, type CardState, type PlannedItem } from '$lib/domain/types';
 import { responseAttempt } from '$lib/testing/attempts';
 import {
+	alternatingGrid,
 	CLIMB_PASSAGES,
 	JAM_PASSAGES,
 	LINK_PASSAGES,
@@ -18,7 +22,12 @@ import {
 	ZONE_PASSAGES
 } from '$lib/testing/changesPassages';
 import { triadCards } from '$lib/testing/shapes';
-import { createPassageSource, passageOf } from './passageSource';
+import {
+	createPassageSource,
+	MAX_PASSAGE_SEARCH,
+	MAX_PASSAGE_TRIES,
+	passageOf
+} from './passageSource';
 import { SESSION_MS } from './policy';
 
 const NOW = Date.parse('2026-11-19T10:00:00.000Z');
@@ -625,6 +634,100 @@ describe('createPassageSource', () => {
 			expect(s.next(at(NOW))!.exerciseId).toBe(LINK_PASSAGES.id);
 			expect(s.leave!(LINK_PASSAGES.id)).toBe(false);
 			expect(s.next(at(NOW))).toBeNull();
+		});
+	});
+
+	describe('the work of finding a passage', () => {
+		/**
+		 * A grid of the most changes, C and F in turn, its last change an A, a chord the catalog's
+		 * grids do not play.
+		 */
+		const LONG = 'test-long-grid';
+		const grid = alternatingGrid(LONG, 256);
+		registerGrid(
+			{
+				...grid,
+				beatsPerBar: 4,
+				chords: [...grid.chords.slice(0, -1), { ...grid.chords.at(-1)!, symbol: 'A' }]
+			},
+			'test'
+		);
+		/**
+		 * The zone on that grid, open without cards, with the most values of its zone: each of its
+		 * passages fails at its last round, where no shape of A is admitted.
+		 */
+		const failing = (id: string): ExerciseDefinition => ({
+			...ZONE_PASSAGES,
+			id,
+			passages: {
+				...ZONE_PASSAGES.passages!,
+				of: { grid: [LONG] },
+				each: { zone: Array.from({ length: 64 }, () => [0, 24]) },
+				opens: undefined
+			}
+		});
+		const A = JSON.stringify(triadOf('A'));
+		/** Counts the shapes asked of the family (twice a round: compiled, then admitted), A's none. */
+		function withoutA(): { rounds: () => number; restore: () => void } {
+			const members = chordShapes.members.bind(chordShapes);
+			let rounds = 0;
+			const spy = vi.spyOn(chordShapes, 'members').mockImplementation((index) => {
+				rounds++;
+				return JSON.stringify(index.chord) === A ? [] : members(index);
+			});
+			return { rounds: () => rounds, restore: () => spy.mockRestore() };
+		}
+
+		it('leaves out an index whose passages fail at their last round for every value, within its tries, and goes on', () => {
+			const counted = withoutA();
+			try {
+				const s = source([failing('test-failing'), JAM_PASSAGES]);
+				const start = performance.now();
+				const served = s.next(at(NOW))!;
+				const ms = performance.now() - start;
+				expect(served.exerciseId).toBe(JAM_PASSAGES.id);
+				// Each round's weight charged before it compiles: no more than the tries allow.
+				const weight = roundCheckWeight(ZONE_PASSAGES.round);
+				expect((counted.rounds() / 2) * weight).toBeLessThanOrEqual(MAX_PASSAGE_SEARCH);
+				expect(ms).toBeLessThan(250);
+				const clock = { now: NOW };
+				for (let rank = 1; rank < served.passage!.length; rank++) s.next(at(clock.now));
+				const exercises = Array.from({ length: 3 }, () => playPassage(s, clock)[0].exerciseId);
+				expect(exercises).toEqual(Array(3).fill(JAM_PASSAGES.id));
+			} finally {
+				counted.restore();
+			}
+		});
+
+		it('answers null once a call has spent its search, the index under way left out, and serves the next exercise at the next call', () => {
+			const counted = withoutA();
+			try {
+				const s = source([failing('test-failing-1'), failing('test-failing-2'), JAM_PASSAGES]);
+				expect(s.next(at(NOW))).toBeNull();
+				const weight = roundCheckWeight(ZONE_PASSAGES.round);
+				expect((counted.rounds() / 2) * weight).toBeLessThanOrEqual(MAX_PASSAGE_SEARCH);
+				const served = s.next(at(NOW))!;
+				expect(served.exerciseId).toBe(JAM_PASSAGES.id);
+				const clock = { now: NOW };
+				for (let rank = 1; rank < served.passage!.length; rank++) s.next(at(clock.now));
+				const exercises = Array.from({ length: 3 }, () => playPassage(s, clock)[0].exerciseId);
+				expect(exercises).toEqual(Array(3).fill(JAM_PASSAGES.id));
+			} finally {
+				counted.restore();
+			}
+		});
+
+		it('finds a passage of every index of the catalog far within its tries', () => {
+			for (const definition of PASSAGE_EXERCISES) {
+				const weight = roundCheckWeight(definition.round);
+				for (const index of passageIndices(definition)) {
+					const members = passageMembers(definition, index, {});
+					expect(members.length * weight, `${definition.id} ${index.key}`).toBeLessThan(
+						MAX_PASSAGE_TRIES / 20
+					);
+				}
+			}
+			expect(gridById(LONG).chords).toHaveLength(256);
 		});
 	});
 

@@ -56,6 +56,15 @@ describe('definitionChecks', () => {
 		);
 	});
 
+	it('refuses in words a prompt’s slot written in one language, not as an error caught', () => {
+		expect(check({ ...LOCATE_NECK, presentation: { primary: { fr: 'seul' } as never } })).toBe(
+			'presentation.primary must be a text or { fr, en }'
+		);
+		expect(check({ ...LOCATE_NECK, presentation: { primary: 3 as never } })).toBe(
+			'presentation.primary must be a text or { fr, en }'
+		);
+	});
+
 	it('refuses an exercise whose skill’s item set has no presenter', () => {
 		const checks = definitionChecks({}, {});
 		expect(checks.exercise(LOCATE_NECK)).toBe(

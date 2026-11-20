@@ -1,4 +1,5 @@
 import type { ExerciseDefinition } from '$lib/domain/exercise';
+import { CheckBudget } from '$lib/domain/exercise/checkCost';
 import { registerExercise } from '$lib/domain/exercise/registry';
 import { registerSkill } from '$lib/domain/skill/registry';
 import { registerGrid } from '$lib/domain/grid/registry';
@@ -8,8 +9,12 @@ import { readDefinitionFile, type Refusal } from './file';
 
 /** What the application demands of an exercise beyond the format. */
 export interface DefinitionChecks {
-	/** The reason it is refused, without the exercise id (the refusal carries it), or null. */
-	exercise(exercise: ExerciseDefinition): string | null;
+	/**
+	 * The reason it is refused, without the exercise id (the refusal carries it), or null.
+	 * `budget`: what checking its file may still cost (`MAX_FILE_CHECK_COST`), one per file;
+	 * absent: its own.
+	 */
+	exercise(exercise: ExerciseDefinition, budget?: CheckBudget): string | null;
 }
 
 /** An object a file registered. */
@@ -33,7 +38,10 @@ export interface RegisterResult {
  * may name a skill or a grid, a routine an exercise or a skill, of any file of the call, whatever
  * their names. A routine naming an exercise that was refused is refused. Of two objects of one id,
  * the first registered stays. A refused object is left out, the rest of its file kept. A check
- * that throws refuses its object with the error's message. Never throws.
+ * that throws refuses its object with the error's message. The exercises of one file share one
+ * check budget: once their checks have spent it, the exercise under way and every later one of
+ * the file are refused in its words, the file's skills, grids and earlier exercises kept. Never
+ * throws.
  */
 export function registerFiles(
 	files: Readonly<Record<string, string>>,
@@ -63,13 +71,14 @@ export function registerFiles(
 		for (const grid of grids) register(file, 'grid', grid.id, registerGrid(grid, file));
 	}
 	for (const { file, exercises } of read) {
+		const budget = new CheckBudget();
 		for (const exercise of exercises) {
 			const refusal = (reason: string): void => {
 				refusals.push({ file, kind: 'exercise', id: exercise.id, reason });
 			};
-			let problem: string | null;
+			let problem: string | null = budget.refusal;
 			try {
-				problem = checks.exercise(exercise);
+				problem ??= checks.exercise(exercise, budget);
 			} catch (error) {
 				problem = error instanceof Error ? error.message : String(error);
 			}

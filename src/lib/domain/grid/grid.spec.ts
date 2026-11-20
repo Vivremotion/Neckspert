@@ -26,6 +26,20 @@ describe('gridChanges', () => {
 		expect(changes.reduce((sum, c) => sum + c.length, 0)).toBe(32);
 	});
 
+	it('reads a grid once, and gives each caller changes of its own', () => {
+		const long = grid(
+			Array.from({ length: 256 }, (_, i) => ({ bar: i + 1, beat: 1, symbol: i % 2 ? 'F' : 'C' })),
+			256
+		);
+		const first = gridChanges(long);
+		first[0].length = 99;
+		expect(gridChanges(long)[0]).toEqual({ at: 0, length: 1 * 4, symbol: 'C' });
+		const start = performance.now();
+		for (let i = 0; i < 1000; i++) gridChanges(long);
+		// Parsing its 256 symbols each time would take far longer.
+		expect(performance.now() - start).toBeLessThan(100);
+	});
+
 	it('reads blues-f, the bars held twice merged', () => {
 		const changes = gridChanges(gridById('blues-f'));
 		expect(changes.map((c) => `${c.symbol}@${c.at}+${c.length}`)).toEqual([

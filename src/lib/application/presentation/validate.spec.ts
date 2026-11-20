@@ -137,6 +137,71 @@ describe('presentationProblem', () => {
 	it('is silent about an exercise that says nothing', () => {
 		expect(presentationProblem({ ...LOCATE_NECK, presentation: undefined })).toBeNull();
 	});
+
+	it('refuses in words a slot that is neither a text nor { fr, en }, naming it, for every slot', () => {
+		const wrong: [unknown, string][] = [
+			[{ fr: 'seul' }, 'one language alone'],
+			[{ en: 'alone' }, 'the other alone'],
+			[3, 'a number'],
+			[{ text: 'x' }, 'an object without texts'],
+			[{ fr: 'x', en: 4 }, 'a language that is no text'],
+			[null, 'nothing'],
+			[['x'], 'a list']
+		];
+		for (const slot of ['primary', 'secondary', 'detail', 'target', 'band', 'preview']) {
+			for (const [value, what] of wrong) {
+				const presentation = { primary: '{note}', [slot]: value } as unknown as PromptPresentation;
+				expect(presentationProblem(withPresentation(LOCATE_NECK, presentation)), what).toBe(
+					`locate-note-string: presentation.${slot} must be a text or { fr, en }`
+				);
+			}
+		}
+		for (const [value, what] of wrong) {
+			const presentation = {
+				primary: '{note}',
+				aided: { line: value }
+			} as unknown as PromptPresentation;
+			expect(presentationProblem(withPresentation(LOCATE_NECK, presentation)), what).toBe(
+				'locate-note-string: presentation.aided.line must be a text or { fr, en }'
+			);
+		}
+	});
+
+	it('refuses an aid written as a text, which says neither a line nor a picture, and a picture that is no name', () => {
+		const cases: [unknown, string][] = [
+			[{ aided: 'admitted' }, 'presentation.aided must be { line?, picture? }'],
+			[{ aided: { picture: 3 } }, 'presentation.aided.picture must name a picture'],
+			[{ fading: 'string' }, 'presentation.fading must be { picture }, naming a picture'],
+			[{ fading: {} }, 'presentation.fading must be { picture }, naming a picture']
+		];
+		for (const [written, reason] of cases) {
+			const presentation = { primary: '{note}', ...(written as object) } as PromptPresentation;
+			expect(presentationProblem(withPresentation(LOCATE_NECK, presentation))).toBe(
+				`locate-note-string: ${reason}`
+			);
+		}
+		expect(
+			presentationProblem({ ...LOCATE_NECK, presentation: 'x' as unknown as PromptPresentation })
+		).toBe('locate-note-string: presentation must be an object');
+	});
+
+	it('accepts every slot written as a text or as { fr, en }', () => {
+		const both = { fr: '{note}', en: '{note}' };
+		expect(
+			presentationProblem(
+				withPresentation(LOCATE_NECK, {
+					primary: both,
+					secondary: '{note}',
+					detail: both,
+					target: '{note}',
+					band: both,
+					preview: '{note}',
+					aided: { line: both },
+					fading: { picture: 'string' }
+				})
+			)
+		).toBeNull();
+	});
 });
 
 /** No presenter at all. */

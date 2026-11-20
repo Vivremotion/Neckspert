@@ -4,6 +4,7 @@ import { allGrids, clearGrids, gridById } from '$lib/domain/grid/registry';
 import { allSkills, clearSkills, hasSkill } from '$lib/domain/skill/registry';
 import { clearRoutines, routines } from '$lib/domain/routine/registry';
 import { registerFiles, type DefinitionChecks } from './register';
+import { MAX_FILE_CHECK_COST } from '$lib/domain/exercise/checkCost';
 import { LOCATE_NECK, BLUES_F } from '$lib/testing/catalog';
 
 const accept: DefinitionChecks = { exercise: () => null };
@@ -103,6 +104,39 @@ describe('registerFiles', () => {
 			{ file: 'a.json', kind: 'exercise', id: 'broken', reason: 'round is not a template' }
 		]);
 		expect(allExercises().map((e) => e.id)).toEqual(['fine']);
+	});
+
+	it('gives the exercises of one file one check budget: past it, the one under way and the later ones are refused in its words', () => {
+		// Each check spends 60 % of the budget: the second of a file passes it.
+		const spend: DefinitionChecks = {
+			exercise: (_exercise, budget) => {
+				budget!.charge(MAX_FILE_CHECK_COST * 0.6);
+				return null;
+			}
+		};
+		const { refusals, registered } = registerFiles(
+			{
+				'a.json': file({
+					skills: [skill('s')],
+					grids: [grid('g')],
+					exercises: [exercise('first'), exercise('second'), exercise('third')]
+				}),
+				'b.json': file({ exercises: [exercise('elsewhere')] })
+			},
+			spend
+		);
+		const reason = `this file asks more checking than a start can afford (cost ${MAX_FILE_CHECK_COST * 1.2}, at most ${MAX_FILE_CHECK_COST})`;
+		expect(refusals).toEqual([
+			{ file: 'a.json', kind: 'exercise', id: 'second', reason },
+			{ file: 'a.json', kind: 'exercise', id: 'third', reason }
+		]);
+		// The file's skills, grids and earlier exercises stay; another file has its own budget.
+		expect(registered.map(({ kind, id }) => `${kind} ${id}`)).toEqual([
+			'skill s',
+			'grid g',
+			'exercise first',
+			'exercise elsewhere'
+		]);
 	});
 
 	it('refuses nothing when there is no file', () => {

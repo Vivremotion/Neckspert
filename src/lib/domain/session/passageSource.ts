@@ -8,6 +8,7 @@ import {
 } from '$lib/domain/exercise/passage/round';
 import type { PassageIndex } from '$lib/domain/exercise/passage/types';
 import { MAX_PASSAGE_MEMBERS } from '$lib/domain/exercise/passage/validate';
+import { compiledExtra, roundCheckWeight } from '$lib/domain/exercise/checkCost';
 import type { ExerciseDefinition, ExerciseId } from '$lib/domain/exercise/types';
 import { familyNamed, passageDerivation, select, type Family } from '$lib/domain/families';
 import { admittedMembers } from '$lib/domain/judges';
@@ -15,6 +16,33 @@ import type { ItemSource, RecordOutcome, SelectorContext } from '$lib/domain/pro
 import type { Attempt, AttemptPassage, CardState, PlannedItem } from '$lib/domain/types';
 
 type Values = Readonly<Record<string, unknown>>;
+
+/**
+ * What looking for a playable passage of one index may cost in one call of `next()`, in the
+ * check cost of the rounds it tries (`roundCheckWeight`, as at load); past it, the index is left
+ * out for the session. A round tried costs more here than at load (the members its content
+ * admits are found too): measured on an Apple M3 Pro, 15 to 40 µs a unit, so an index costs at
+ * most about 40 ms, and a call (`MAX_PASSAGE_SEARCH`) at most about 80 ms. A passage of the most
+ * members (256) fits when each of its rounds weighs at most 3.
+ */
+export const MAX_PASSAGE_TRIES = 1_000;
+/**
+ * What one call of `next()` may cost in all: an index left out over its tries, then another
+ * looked for. Past it, the index under way is left out too and the source answers null.
+ */
+export const MAX_PASSAGE_SEARCH = 2 * MAX_PASSAGE_TRIES;
+
+/** The cost a call of `next()` spends looking for a passage. */
+interface Search {
+	spent: number;
+}
+
+/** Thrown when an index has cost its tries, or the call its search. */
+class TriesSpent extends Error {
+	constructor(readonly search: boolean) {
+		super(search ? 'the search of this call is spent' : 'the tries of this index are spent');
+	}
+}
 
 /** The two ways a `position` filter looks, each the other's turn. */
 const TURNED: Readonly<Record<string, string>> = { up: 'down', down: 'up' };
@@ -216,18 +244,27 @@ class PassageSource implements ItemSource {
 		});
 	}
 
-	/** The next exercise in turn with a playable index, on its index played least recently. */
+	/**
+	 * The next exercise in turn with a playable index, on its index played least recently; null
+	 * when none has one, or once the call has spent its search (`MAX_PASSAGE_SEARCH`).
+	 */
 	private start(now: number): Passage | null {
+		const search: Search = { spent: 0 };
 		for (let tried = 0; tried < this.exercises.length; tried++) {
 			const exercise = this.exercises[this.turn % this.exercises.length];
 			this.turn++;
-			const passage = this.pick(exercise, now);
-			if (passage) return passage;
+			try {
+				const passage = this.pick(exercise, now, search);
+				if (passage) return passage;
+			} catch (error) {
+				if (error instanceof TriesSpent) return null;
+				throw error;
+			}
 		}
 		return null;
 	}
 
-	private pick(exercise: Exercise, now: number): Passage | null {
+	private pick(exercise: Exercise, now: number, search: Search): Passage | null {
 		const { definition } = exercise;
 		const candidates = exercise.indices
 			.filter((index) => {
@@ -243,9 +280,18 @@ class PassageSource implements ItemSource {
 		const tries = Math.max(1, ...lists.map((values) => values.length));
 		for (const index of candidates) {
 			const state = this.state(definition.id, index.key);
+			const cost = { index: 0, search };
 			for (let tried = 0; tried < tries; tried++) {
 				const each = this.eachAfter(definition, state.started, tried);
-				const items = playableItems(definition, index, each);
+				let items: unknown[] | null;
+				try {
+					items = playableItems(definition, index, each, cost);
+				} catch (error) {
+					if (!(error instanceof TriesSpent)) throw error;
+					state.unplayable = true;
+					if (error.search) throw error;
+					break;
+				}
 				if (!items) continue;
 				state.started = each;
 				// Played from now: a passage left without an attempt still takes its turn.
@@ -377,16 +423,29 @@ function openIndices(definition: ExerciseDefinition, acquired: ReadonlySet<strin
 }
 
 /**
+ * Charges `weight` to the index's tries and the call's search, before the work it costs; throws
+ * `TriesSpent` when either would pass its bound.
+ */
+function charge(cost: { index: number; search: Search }, weight: number): void {
+	if (cost.search.spent + weight > MAX_PASSAGE_SEARCH) throw new TriesSpent(true);
+	if (cost.index + weight > MAX_PASSAGE_TRIES) throw new TriesSpent(false);
+	cost.index += weight;
+	cost.search.spent += weight;
+}
+
+/**
  * The items of a passage of `index` with the passage params `each`; null when it cannot be
  * played: no member, more than `MAX_PASSAGE_MEMBERS`, a round that does not compile whole
  * (`compilePassageRound`), a round whose content admits no member with none heard before, or what
- * cannot be read or compiled from its data (`isUnplayable`).
+ * cannot be read or compiled from its data (`isUnplayable`). Each round is charged to `cost`
+ * before it is compiled (`TriesSpent` past its bounds).
  * Any other error goes through.
  */
 function playableItems(
 	definition: ExerciseDefinition,
 	index: PassageIndex,
-	each: Values
+	each: Values,
+	cost: { index: number; search: Search }
 ): unknown[] | null {
 	const family = definition.passages?.members.family;
 	const derivation = family === undefined ? null : passageDerivation(family);
@@ -395,10 +454,13 @@ function playableItems(
 		const members = passageMembers(definition, index, each);
 		if (members.length === 0 || members.length > MAX_PASSAGE_MEMBERS) return null;
 		const items = members.map((member) => derivation.itemOf(member));
+		const weight = roundCheckWeight(definition.round);
 		const playable = items.every((item, rank) => {
 			const round = passageRound(definition, index, each, item, rank, items.length);
+			charge(cost, weight);
 			// The whole round compiles, so that none throws at play.
-			compilePassageRound(definition, round);
+			const plan = compilePassageRound(definition, round);
+			charge(cost, compiledExtra(definition.round, plan.expectations.length));
 			return roundMemberContents(definition, round).every(
 				({ content }) => admittedMembers(content).length > 0
 			);
@@ -415,7 +477,8 @@ function playableItems(
  * index played least recently (the order written on a tie), a round per member of the passage.
  * A passage's params take, at each passage of an index, the values after those its last passage
  * started with; a passage that cannot be played is skipped to the next values, an index with none
- * left out for the session. The first round counts in, after `passages.restBars` of silence when
+ * left out for the session; looking for one is bounded (`MAX_PASSAGE_TRIES` an index,
+ * `MAX_PASSAGE_SEARCH` a call), an index over it left out too. The first round counts in, after `passages.restBars` of silence when
  * it follows a passage of the session; a passage under `passages.passes` comes back whole with
  * `again: 'until-passed'`, without that silence. No passage starts after `durationMs` or once fatigued.
  * An exercise that changed air leaves on its scope (`leave`): its indices are served no more.

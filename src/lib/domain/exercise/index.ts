@@ -7,6 +7,7 @@ export * from './pacing';
 export * from './chordDiagram';
 export * from './ladder';
 export * from './validate';
+export * from './checkCost';
 export * from './round/types';
 export * from './round/validate';
 export * from './selection/types';

@@ -12,6 +12,7 @@ import { fretOf } from '$lib/domain/music/fretboard';
 import { previewBeatsOf } from '$lib/domain/exercise/pacing';
 import type { ExerciseDefinition, Slot } from '$lib/domain/exercise/types';
 import { validateExercise } from '$lib/domain/exercise/validate';
+import type { CheckBudget } from '$lib/domain/exercise/checkCost';
 import { lookUpPresenter, type PresenterRegistries } from '$lib/application/sets/lookUp';
 import { DEFAULT_PLAY_VIEW, playViewOf } from '$lib/application/session/contract';
 import { isSelectionTemplate } from '$lib/domain/exercise/selection/types';
@@ -24,6 +25,49 @@ import { FIGURE_VIEW, PASSAGE_VIEWS, PLAY_VIEW_NAMES, PROMPT_STAGE_VIEWS } from 
 function placeholders(slot: Slot): string[] {
 	const texts = typeof slot === 'string' ? [slot] : [slot.fr, slot.en];
 	return texts.flatMap((text) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]));
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+	typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Whether a slot is written as one: a text, or `{ fr, en }`, each a text. */
+const isSlot = (value: unknown): value is Slot =>
+	typeof value === 'string' ||
+	(isRecord(value) && typeof value.fr === 'string' && typeof value.en === 'string');
+
+/** The text slots of a presentation, by their path under `presentation`. */
+const TEXT_SLOTS = ['primary', 'secondary', 'detail', 'target', 'band', 'preview'] as const;
+
+/**
+ * Why the presentation is not written as the screen reads it, naming the field: no object, a
+ * slot that is neither a text nor `{ fr, en }` (one language alone, a number, an object without
+ * texts), an `aided` or a `fading` that is no object (a text there would say neither whether it
+ * is a line or a picture), a picture that is no name. Its texts and names are checked after.
+ */
+function presentationShapeProblem(presentation: unknown): string | null {
+	if (!isRecord(presentation)) return 'presentation must be an object';
+	for (const slot of TEXT_SLOTS) {
+		const value = presentation[slot];
+		if (value !== undefined && !isSlot(value)) {
+			return `presentation.${slot} must be a text or { fr, en }`;
+		}
+	}
+	const { aided, fading } = presentation;
+	if (aided !== undefined) {
+		if (!isRecord(aided)) return 'presentation.aided must be { line?, picture? }';
+		if (aided.line !== undefined && !isSlot(aided.line)) {
+			return 'presentation.aided.line must be a text or { fr, en }';
+		}
+		if (aided.picture !== undefined && typeof aided.picture !== 'string') {
+			return 'presentation.aided.picture must name a picture';
+		}
+	}
+	if (fading !== undefined) {
+		if (!isRecord(fading) || typeof fading.picture !== 'string') {
+			return 'presentation.fading must be { picture }, naming a picture';
+		}
+	}
+	return null;
 }
 
 /** The families whose members the round template's expectations select, in order, each once. */
@@ -40,13 +84,16 @@ function memberFamilies(definition: ExerciseDefinition): string[] {
  * has, a picture that does not exist or does not read its set, the picture of the members
  * admitted (`CONTENT_PICTURES`) for a round that selects none, as a fading picture (no view
  * draws one), or as the aided picture of an exercise drawn on a view that draws no passage
- * (`PASSAGE_VIEWS`). Names the exercise and the field.
+ * (`PASSAGE_VIEWS`); before them, a presentation not written as the screen reads it
+ * (`presentationShapeProblem`). Names the exercise and the field.
  * It is not part of `validateExercise` because its words are code of the application layer.
  */
 export function presentationProblem(definition: ExerciseDefinition): string | null {
 	const presentation = definition.presentation;
-	if (!presentation) return null;
+	if (presentation === undefined) return null;
 	const { id } = definition;
+	const shape = presentationShapeProblem(presentation);
+	if (shape !== null) return `${id}: ${shape}`;
 	const set = exerciseSetId(definition);
 	const families = memberFamilies(definition);
 	const offered = families.flatMap((family) => memberFieldNames(family));
@@ -204,19 +251,22 @@ function tabProblem(definition: ExerciseDefinition): string | null {
  * (`flow.previewBeats`, which `validateExercise` checks), else its presenter's, else
  * none. With the presenter's, what the round cannot run once that preview is read (a
  * `{ param: 'previewBeats' }` that leaves no listening), naming the exercise and the field.
+ * Its rounds are compiled again, charged to `budget` (its file's) when given; once spent, the
+ * budget's words are said alone.
  */
 export function previewProblem(
 	definition: ExerciseDefinition,
-	registries: PresenterRegistries
+	registries: PresenterRegistries,
+	budget?: CheckBudget
 ): string | null {
 	if (definition.round === undefined || definition.flow?.previewBeats !== undefined) return null;
 	const presenter = lookUpPresenter(definition, registries);
 	const previewBeats = previewBeatsOf(definition, presenter?.previewBeats) ?? 0;
-	const problem = validateExercise({
-		...definition,
-		flow: { ...definition.flow, previewBeats }
-	});
-	return problem === null
-		? null
-		: `${problem} (its preview is ${exerciseSetId(definition)}'s, ${previewBeats} beats)`;
+	const problem = validateExercise(
+		{ ...definition, flow: { ...definition.flow, previewBeats } },
+		budget && { budget }
+	);
+	if (problem === null) return null;
+	if (budget?.refusal) return `${definition.id}: ${budget.refusal}`;
+	return `${problem} (its preview is ${exerciseSetId(definition)}'s, ${previewBeats} beats)`;
 }

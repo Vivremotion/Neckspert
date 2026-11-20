@@ -168,7 +168,7 @@ export function definitionChecks(
 	views: Readonly<Record<string, SetPresenter>> = VIEW_PRESENTERS
 ): DefinitionChecks {
 	return {
-		exercise(exercise) {
+		exercise(exercise, budget) {
 			if (typeof exercise.practices !== 'string' || exercise.practices === '') {
 				return 'practices is missing';
 			}
@@ -180,10 +180,10 @@ export function definitionChecks(
 				return `practices a skill whose item set "${set}" has no presenter`;
 			}
 			const problem =
-				validateExercise(exercise, { sensors: SESSION_SENSORS }) ??
+				validateExercise(exercise, { sensors: SESSION_SENSORS, budget }) ??
 				presentationProblem(exercise) ??
 				screenProblem(exercise, { presenters, views }) ??
-				previewProblem(exercise, { presenters, views });
+				previewProblem(exercise, { presenters, views }, budget);
 			if (problem !== null) {
 				// The validators name the exercise; a refusal carries its id apart.
 				const prefix = `${exercise.id}: `;
