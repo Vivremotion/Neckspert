@@ -150,7 +150,10 @@ describe('the cost of what a level writes', () => {
 		};
 		const asking = (asks: unknown) => ({
 			...exercise,
-			params: { ...exercise.params, learning: { ...TRIADS_ZONE.params?.learning, asks } }
+			params: {
+				...exercise.params,
+				learning: { ...(TRIADS_ZONE.params?.learning as object), asks }
+			}
 		});
 		const plain = levelsCheckCost(
 			asking({ family: 'chord-shapes', where: [{ other: 'previous' }] })

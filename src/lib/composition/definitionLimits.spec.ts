@@ -709,7 +709,9 @@ describe('a definition file at the limits of what checking it may cost', () => {
 	it('loads a long figure read one bar at a time by its listed items, each round of one bar', () => {
 		// 70 bars of sixteenths (1 120 notes) as the figure of one-bar items: each round 16 notes.
 		const arpeggio = arpeggioJson('h-long-short');
-		const keys = (ARPEGGIO_EXERCISE.items as { item: string }[]).map((entry) => entry.item);
+		const keys = (ARPEGGIO_EXERCISE.items as readonly { item: string }[]).map(
+			(entry) => entry.item
+		);
 		const theme = Array.from({ length: 70 }, () => 'c16 '.repeat(16)).join(' | ');
 		const loaded = timedLoad({
 			...arpeggio,
