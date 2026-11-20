@@ -422,12 +422,23 @@ function figureEntryOf(
 	const at = position(context, `${field}.at`, template.at);
 	const content = figureContentOf(context, `${field}.content`, template.content, id);
 	const window = windowOf(context, `${field}.window`, template.window);
-	// Counted before the work: each bar of the span is visited, each loop gives every note.
+	// Counted before the work: each bar of the span is visited, and gives at most what a whole
+	// loop gives over its bars (each loop every note) and what its densest bar gives in each.
 	const span = length.sub(at);
-	const bars = Math.max(0, Math.ceil(span.div(barLength(figure.meter)).toNumber()));
-	const notes = Math.ceil(bars / figure.bars) * attackNotes(figure).length;
+	const bar = barLength(figure.meter);
+	const bars = Math.max(0, Math.ceil(span.div(bar).toNumber()));
+	const attacks = attackNotes(figure);
+	const perBar = new Map<number, number>();
+	let densest = 0;
+	for (const attack of attacks) {
+		const index = Math.floor(attack.at.div(bar).toNumber());
+		const count = (perBar.get(index) ?? 0) + 1;
+		perBar.set(index, count);
+		densest = Math.max(densest, count);
+	}
+	const notes = Math.min(Math.ceil(bars / figure.bars) * attacks.length, bars * densest);
 	const { room } = context;
-	const expands = `would give ${notes} notes over ${bars} bars`;
+	const expands = `would give ${notes} notes over ${bars} ${bars === 1 ? 'bar' : 'bars'}`;
 	if (room.check !== null && room.check < room.notes && Math.max(bars, notes) > room.check) {
 		// The round's whole estimate so far: what the check would have spent on its entries.
 		throw new RoundCheckExceeded(

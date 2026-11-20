@@ -47,6 +47,7 @@ import {
 	ZONE_PASSAGES
 } from '$lib/testing/changesPassages';
 import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
+import { placedVoicingSet } from '$lib/domain/sets/placedVoicing';
 import { CATALOG_FILES } from './catalogFiles';
 import { loadDefinitions } from './definitions';
 
@@ -703,6 +704,38 @@ describe('a definition file at the limits of what checking it may cost', () => {
 			)
 		).toThrow(RoundCompileError);
 		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('loads a long figure read one bar at a time by its listed items, each round of one bar', () => {
+		// 70 bars of sixteenths (1 120 notes) as the figure of one-bar items: each round 16 notes.
+		const arpeggio = arpeggioJson('h-long-short');
+		const keys = (ARPEGGIO_EXERCISE.items as { item: string }[]).map((entry) => entry.item);
+		const theme = Array.from({ length: 70 }, () => 'c16 '.repeat(16)).join(' | ');
+		const loaded = timedLoad({
+			...arpeggio,
+			items: Array.from({ length: 8 }, (_, i) => ({ item: keys[i % keys.length], beats: 4 })),
+			figures: [{ id: 'theme', lilypond: theme }],
+			params: { ...(arpeggio.params as object), figure: 'theme' },
+			levels: [{ params: { figure: 'theme' } }]
+		});
+		expect(loaded.refusals).toEqual([]);
+		const definition = exerciseById('h-long-short');
+		const plan = compileRound(
+			definition,
+			{
+				exerciseId: definition.id,
+				skill: definition.practices,
+				exerciseLevel: 0,
+				item: { ...placedVoicingSet.parseItem(keys[0]), beats: 4 },
+				phase: 'free',
+				temperature: 'hot',
+				aid: 'none',
+				leadBeats: null
+			},
+			METER_4_4,
+			{ previewBeats: 0, fromRunStart: null }
+		);
+		expect(plan.expectations).toHaveLength(16);
 	});
 
 	it('loads, compiles and judges a whole theme of about 600 notes as one figure', () => {

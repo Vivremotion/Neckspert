@@ -694,6 +694,32 @@ describe('compileRound, a figure entry', () => {
 		expect(performance.now() - start).toBeLessThan(50);
 	});
 
+	it('bounds a short round of a long figure by its own bars, not by the whole figure', () => {
+		// 70 bars of sixteenths (1 120 notes) read one bar at a time: 16 notes, not 1 120.
+		const theme = Array.from({ length: 70 }, () => 'c16 '.repeat(16)).join(' | ');
+		const short = figureExercise('figure', figureRound({}, { length: { bars: 1 } }), {
+			main: theme
+		});
+		expect(compileFigure(short, { figureId: 'main' }).expectations).toHaveLength(16);
+		const two = figureExercise('figure', figureRound({}, { length: { bars: 2 } }), {
+			main: theme
+		});
+		expect(compileFigure(two, { figureId: 'main' }).expectations).toHaveLength(32);
+	});
+
+	it('tells one bar in the singular', () => {
+		const exercise = figureExercise('figure', figureRound({}, { length: { bars: 1 } }), {
+			main: 'c8 c c c c c c c'
+		});
+		expect(() =>
+			compileRound(exercise, planned(exercise.practices, { figureId: 'main' }, null), METER_4_4, {
+				previewBeats: PREVIEW,
+				fromRunStart: null,
+				maxExpectations: 5
+			})
+		).toThrow('would give 8 notes over 1 bar, more than the 5 a check may still compile');
+	});
+
 	it('compiles a whole theme of several hundred notes as one figure', () => {
 		const theme = figureExercise('figure', figureRound({}, { length: { bars: 38 } }), {
 			main: Array.from({ length: 38 }, () => 'c16 c c c c c c c c c c c c c c c').join(' | ')
