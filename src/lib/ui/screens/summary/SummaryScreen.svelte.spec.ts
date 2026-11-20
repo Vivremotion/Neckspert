@@ -2,7 +2,12 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PlayedExercise, SessionSummary } from '$lib/domain/types';
 import { i18n } from '$lib/i18n/index.svelte';
+import { allExercises, clearExercises, registerExercise } from '$lib/domain/exercise';
+import { skillById } from '$lib/domain/skill/registry';
+import { RHYTHM_TWO_FOUR } from '$lib/testing/catalog';
 import SummaryScreen from './SummaryScreen.svelte';
+
+const catalog = allExercises();
 
 afterEach(() => {
 	cleanup();
@@ -509,6 +514,39 @@ describe('SummaryScreen of a series in memory', () => {
 		expect(links).toContain('/session?exercise=rhythm-silent-bars');
 		expect(links).toContain('/session?exercise=rhythm-two-four');
 		expect(links).not.toContain('/session?exercise=rhythm-offbeats');
+	});
+
+	it('names the exercises to try instead as everywhere else, its skill’s name for one without a title', () => {
+		const untitled = { ...RHYTHM_TWO_FOUR, id: 'untitled-two-four', title: undefined };
+		registerExercise(untitled, 'test');
+		try {
+			const blocked: SessionSummary = {
+				...base,
+				exercises: [{ ...base.exercises[0], changedAir: true }],
+				series: { ...base.series!, ended: 'change-of-air', breaking: 'hold' }
+			};
+			render(SummaryScreen, {
+				props: { summary: blocked, now: 0, onhome: () => {}, onmap: () => {} }
+			});
+			const link = screen
+				.getAllByRole('link')
+				.find((a) => a.getAttribute('href') === '/session?exercise=untitled-two-four');
+			expect(link?.textContent).toBe(skillById(RHYTHM_TWO_FOUR.practices).name.fr);
+		} finally {
+			clearExercises();
+			for (const exercise of catalog) registerExercise(exercise, 'catalog');
+		}
+	});
+
+	it('draws no block for a series with no run', () => {
+		const empty: SessionSummary = {
+			...base,
+			series: { ...base.series!, levels: [], listens: 0, playedShare: 0, runs: [] },
+			replayable: []
+		};
+		render(SummaryScreen, { props: { summary: empty, now: 0, onhome: () => {}, onmap: () => {} } });
+		expect(document.querySelector('.series')).toBeNull();
+		expect(screen.queryByText('0 % du temps joué')).toBeNull();
 	});
 
 	it('without a series, the counts alone and no replay', () => {

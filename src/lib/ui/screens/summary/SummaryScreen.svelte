@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import { exerciseSessionExercises } from '$lib/domain/exercise';
 	import { exerciseTitle } from '$lib/application/session/playOrigin';
 	import { GLOSSARY, termOfFailure, termOfMeasure } from '$lib/domain/glossary';
@@ -102,6 +103,9 @@
 		return line.rounds > 0 ? Math.round((line.passed / line.rounds) * 100) : 0;
 	}
 
+	/** The series in memory, drawn only when it has a run to tell. */
+	const seriesShown = $derived((summary.series?.runs.length ?? 0) > 0);
+
 	/** The lines of the exercises that changed air and left the session. */
 	const changedAir = $derived(summary.exercises.filter((line) => line.changedAir));
 
@@ -109,7 +113,7 @@
 	 * The series in memory ended by a change of air: its block tells it, once, with what breaks and
 	 * the exercises to try instead.
 	 */
-	const seriesChangedAir = $derived(summary.series?.ended === 'change-of-air');
+	const seriesChangedAir = $derived(seriesShown && summary.series?.ended === 'change-of-air');
 
 	/** Misses contested on this screen, on top of those stored contested. */
 	let contestedHere = $state<number[]>([]);
@@ -278,7 +282,7 @@
 					{/each}
 				</ul>
 			{/if}
-			{#if summary.series}
+			{#if summary.series && seriesShown}
 				{@const series = summary.series}
 				<ul class="rows series">
 					<li class="exercise">
@@ -302,8 +306,8 @@
 							{/if}
 							<span>{t.tryInstead}</span>
 							{#each exerciseSessionExercises().filter((e) => e.id !== series.exerciseId) as other (other.id)}
-								<a href={`/session?exercise=${other.id}`}
-									>{other.title?.[i18n.locale] ?? other.id}</a
+								<a href={`${resolve('/session')}?exercise=${encodeURIComponent(other.id)}`}
+									>{exerciseTitle(other.id)[i18n.locale]}</a
 								>
 							{/each}
 						</li>
