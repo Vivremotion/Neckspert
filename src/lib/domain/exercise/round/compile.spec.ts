@@ -21,10 +21,16 @@ import type { ExerciseDefinition } from '../types';
 import { DEFAULT_RESPONSE_WINDOWS } from '../windows';
 import type { PlannedItem } from '../../types';
 import { admittedMembers, type MemberContent } from '../../judges';
-import { compileRound, roundParamsOf, RoundCompileError, type ResolutionCache } from './compile';
+import {
+	compileRound,
+	roundParamsOf,
+	RoundCheckExceeded,
+	RoundCompileError,
+	type ResolutionCache
+} from './compile';
 import { freeTime, gridChange, onTheBeat, pointAt } from './testing/plans';
 import type { FigureExpectationTemplate, RoundTemplate } from './types';
-import { MAX_FIGURE_ROUND_NOTES } from './validate';
+import { MAX_FIGURE_ROUND_NOTES, MAX_ROUND_BARS } from './validate';
 
 /** A skill on each set, for a spec that draws an exercise of a set. */
 export const SKILL_OF_SET: Readonly<Record<string, SkillId>> = {
@@ -590,19 +596,81 @@ const THREE_ONE = clickAccompaniment({
 });
 
 describe('compileRound, a figure entry', () => {
+	it('refuses a round longer than MAX_ROUND_BARS before anything loops over its bars, with no budget', () => {
+		expect(MAX_ROUND_BARS).toBe(1_024);
+		// 400 000 bars: 1.8 s to expand; 50 000 000 bars with the figure at their end: 25 000 000
+		// muted bars written before anything else was checked.
+		for (const [bars, at] of [
+			[400_000, 0],
+			[50_000_000, 49_999_996]
+		]) {
+			const long = figureExercise(
+				'figure',
+				figureRound({ at: { bars: at } }, { length: { bars }, accompaniment: THREE_ONE }),
+				{ main: 'c8 c c c c c c c' }
+			);
+			const start = performance.now();
+			expect(() => compileFigure(long, { figureId: 'main' })).toThrow(
+				new RoundCompileError(
+					`test-figure: round.length spans ${bars} bars, more than the 1024 a round may span`
+				)
+			);
+			expect(performance.now() - start).toBeLessThan(50);
+		}
+		const most = figureExercise('figure', figureRound({}, { length: { bars: 1_024 } }), {
+			main: 'c1'
+		});
+		expect(compileFigure(most, { figureId: 'main' }).expectations).toHaveLength(1_024);
+	});
+
 	it('refuses a round whose figure would expand past MAX_FIGURE_ROUND_NOTES, before expanding it, with no budget', () => {
 		expect(MAX_FIGURE_ROUND_NOTES).toBe(1_024);
-		// 400 000 bars of eighths: 1.8 s to expand.
-		const long = figureExercise('figure', figureRound({}, { length: { bars: 400_000 } }), {
-			main: 'c8 c c c c c c c'
+		const dense = figureExercise('figure', figureRound({}, { length: { bars: 100 } }), {
+			main: 'c32 '.repeat(32)
 		});
 		const start = performance.now();
-		expect(() => compileFigure(long, { figureId: 'main' })).toThrow(
+		expect(() => compileFigure(dense, { figureId: 'main' })).toThrow(
 			new RoundCompileError(
-				'test-figure: round.expectations[0].figure would give 3200000 notes over 400000 bars, more than the 1024 notes a figure round may hold'
+				'test-figure: round.expectations[0].figure would give 3200 notes over 100 bars, more than the 1024 notes a figure round may hold'
 			)
 		);
 		expect(performance.now() - start).toBeLessThan(50);
+	});
+
+	it('refuses muted bars written past the round', () => {
+		const muted = figureExercise(
+			'figure',
+			figureRound({}, { length: { bars: 4 }, mutedBars: [1, 9] }),
+			{
+				main: 'c1'
+			}
+		);
+		expect(() => compileFigure(muted, { figureId: 'main' })).toThrow(
+			"test-figure: round.mutedBars writes bar 9, past the round's 4 bars"
+		);
+	});
+
+	it('carries what every figure entry of the round would have spent when the check is the tighter bound', () => {
+		// Two entries of 608 notes, 1 000 left to the check: the second passes it.
+		const [entry] = figureRound().expectations;
+		const theme = Array.from({ length: 38 }, () => 'c16 '.repeat(16)).join(' | ');
+		const twice = figureExercise(
+			'figure',
+			figureRound({}, { length: { bars: 38 }, expectations: [entry, { ...entry }] }),
+			{ main: theme }
+		);
+		let thrown: unknown;
+		try {
+			compileRound(twice, planned(twice.practices, { figureId: 'main' }, null), METER_4_4, {
+				previewBeats: PREVIEW,
+				fromRunStart: null,
+				maxExpectations: 1_000
+			});
+		} catch (error) {
+			thrown = error;
+		}
+		expect(thrown).toBeInstanceOf(RoundCheckExceeded);
+		expect((thrown as RoundCheckExceeded).cost).toBe(1_216);
 	});
 
 	it('counts the notes over every figure entry of the round, each given what is left', () => {

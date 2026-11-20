@@ -49,41 +49,97 @@ export const PARAM_ENTRIES_PER_UNIT = 16;
 const units = (entries: number) => Math.ceil(entries / PARAM_ENTRIES_PER_UNIT);
 
 /**
- * What resolving a level copies (`overrideParams`): each entry it writes, and each object of the
- * params a path it writes runs through, whole, once per resolution however many paths run
- * through it. Counted on the exercise's own params (`params`); `size` counts an object's keys
- * once for all the levels.
+ * The entries of a value at every depth, an object's keys and a list's elements and all they hold
+ * (1 for a value that holds nothing); counted once a value however often it is asked (`seen`),
+ * without recursion, so a deep value cannot overflow.
  */
-function copiedBy(
-	level: unknown,
-	params: Readonly<Record<string, unknown>>,
-	size: (value: object) => number
-): number {
-	const written = isRecord(level) ? level.params : undefined;
-	if (!isRecord(written)) return 0;
-	const paths = Object.keys(written);
-	const through = new Set<string>();
-	let copied = paths.length;
-	for (const path of paths) {
-		const keys = path.split('.');
-		let at: unknown = params;
-		let prefix = '';
-		for (const key of keys.slice(0, -1)) {
-			prefix += `.${key}`;
-			at = isRecord(at) ? at[key] : undefined;
-			if (through.has(prefix)) continue;
-			through.add(prefix);
-			if (isRecord(at)) copied += size(at);
-		}
+function nestedSize(value: unknown, seen: WeakMap<object, number>): number {
+	if (typeof value !== 'object' || value === null) return 1;
+	const known = seen.get(value);
+	if (known !== undefined) return known;
+	let size = 0;
+	const stack: unknown[] = [value];
+	while (stack.length > 0) {
+		const at = stack.pop();
+		if (typeof at !== 'object' || at === null) continue;
+		const parts = Array.isArray(at) ? at : Object.values(at);
+		size += parts.length;
+		for (const part of parts) if (typeof part === 'object' && part !== null) stack.push(part);
 	}
-	return copied;
+	seen.set(value, Math.max(1, size));
+	return Math.max(1, size);
 }
 
 /**
- * What the levels of an exercise copy, as counted before any is resolved: the entries of its
- * own params, as the engine resolves them (the four it adds: tempo, windows, pacing, direct
- * recall), and what resolving each exercise level and each ladder level copies (`copiedBy`;
- * one level writing nothing when it writes no levels).
+ * What a level writes, as its resolutions may copy it (`overrideParams`), an upper bound:
+ * `count` its paths; `written` each value it writes at its nested size; `writes`, by the first key
+ * of each path, what it writes under that key; `entered`, the first keys of its dotted paths,
+ * under each of which a resolution may copy the whole of what lies there.
+ */
+interface LevelWrites {
+	count: number;
+	written: number;
+	writes: Map<string, number>;
+	entered: Set<string>;
+}
+
+function writesOf(
+	level: unknown,
+	seen: WeakMap<object, number>,
+	keep: (path: string) => boolean = () => true
+): LevelWrites {
+	const shape: LevelWrites = { count: 0, written: 0, writes: new Map(), entered: new Set() };
+	const params = isRecord(level) ? level.params : undefined;
+	if (!isRecord(params)) return shape;
+	for (const [path, value] of Object.entries(params)) {
+		if (!keep(path)) continue;
+		const size = nestedSize(value, seen);
+		const [first, ...rest] = path.split('.');
+		shape.count += 1;
+		shape.written += size;
+		shape.writes.set(first, (shape.writes.get(first) ?? 0) + size);
+		if (rest.length > 0) shape.entered.add(first);
+	}
+	return shape;
+}
+
+/** Whether writing `key` may change the value at `path`: the same path, one above or one below it. */
+const touches = (key: string, path: string) =>
+	key === path || key.startsWith(`${path}.`) || path.startsWith(`${key}.`);
+
+/**
+ * The paths of the params the selections of an exercise read (`{ param }` in a round's selection
+ * contents and in its passages' members), which a sweep of its levels resolves.
+ */
+function selectionPaths(definition: ExerciseDefinition): string[] {
+	const paths: string[] = [];
+	const stack: unknown[] = [];
+	const expectations: unknown = definition.round?.expectations;
+	if (Array.isArray(expectations)) {
+		for (const expectation of expectations) {
+			const content = isRecord(expectation) ? expectation.content : undefined;
+			if (isRecord(content) && 'family' in content) stack.push(content);
+		}
+	}
+	const passages: unknown = definition.passages;
+	if (isRecord(passages)) stack.push(passages.members);
+	while (stack.length > 0) {
+		const at = stack.pop();
+		if (Array.isArray(at)) stack.push(...at);
+		else if (isRecord(at)) {
+			if (typeof at.param === 'string') paths.push(at.param);
+			stack.push(...Object.values(at));
+		}
+	}
+	return paths;
+}
+
+/**
+ * What the levels of an exercise may copy, as counted before any is resolved: `top`, the entries
+ * of its own params as the engine resolves them (with the four it adds: tempo, windows, pacing,
+ * direct recall); `under(key)`, the nested size of what its params hold under a key; what each
+ * exercise level and each ladder level writes (`writesOf`; one level writing nothing when it
+ * writes no levels).
  */
 function levelShape(definition: ExerciseDefinition) {
 	const params: unknown = definition.params;
@@ -93,57 +149,87 @@ function levelShape(definition: ExerciseDefinition) {
 	} catch {
 		// What cannot be resolved is refused by its own check; counted on what is written.
 	}
-	const base = Object.keys(own).length + 4;
-	const sizes = new WeakMap<object, number>();
-	const size = (value: object) => {
-		let found = sizes.get(value);
-		if (found === undefined) {
-			found = Object.keys(value).length;
-			sizes.set(value, found);
-		}
-		return found;
-	};
+	const seen = new WeakMap<object, number>();
+	const under = (key: string) => (Object.hasOwn(own, key) ? nestedSize(own[key], seen) : 0);
 	const written: unknown = definition.levels;
 	const levels =
 		Array.isArray(written) && written.length > 0
-			? written.map((level) => copiedBy(level, own, size))
-			: [0];
+			? written.map((level) => writesOf(level, seen))
+			: [writesOf(undefined, seen)];
 	const ladder: unknown = isRecord(params) ? params.ladder : undefined;
+	const read = selectionPaths(definition);
+	const swept = (path: string) => read.some((at) => touches(path, at));
+	const steps = Array.isArray(ladder) ? ladder : [];
 	return {
-		base,
+		top: Object.keys(own).length + 4,
+		under,
 		levels,
-		ladder: Array.isArray(ladder) ? ladder.map((level) => copiedBy(level, own, size)) : []
+		ladder: steps.map((level) => writesOf(level, seen)),
+		// What a sweep lays of each ladder level: the paths a selection reads, nothing else.
+		sweptLadder: steps.map((level) => writesOf(level, seen, swept))
 	};
 }
 
 /**
- * What resolving the params of the exercise's levels costs, counted before the work: the level
- * checks resolve each exercise level, then each ladder level over each of them; a sweep of the
- * params its selections read resolves each exercise level again, reads the ladder's keys and
- * visits each pair; the items' rounds resolve each exercise level once more. Each resolution
- * counts what it copies, nested objects included (`copiedBy`). Charged once per pass that checks
- * the exercise.
+ * What resolving `level` over the exercise's params may copy, an upper bound: their top level,
+ * what it writes at its nested size, and under each key a dotted path of it enters, the whole of
+ * what the params hold there and what the level under it writes there (`below`; none for an
+ * exercise level).
+ */
+function resolutionCost(
+	top: number,
+	under: (key: string) => number,
+	level: LevelWrites,
+	below: LevelWrites | null
+): number {
+	let copied = top + (below?.count ?? 0) + level.written;
+	for (const key of level.entered) copied += under(key) + (below?.writes.get(key) ?? 0);
+	return copied;
+}
+
+/**
+ * What resolving the params of the exercise's levels costs, counted before the work, an upper
+ * bound (`resolutionCost` for each resolution): the level checks resolve each exercise level, then
+ * each ladder level over each of them; a sweep of the params its selections read resolves each
+ * exercise level again and lays over each the paths of each ladder level they read
+ * (`selectionPaths`); the items' rounds resolve each
+ * exercise level once more, at the ladder's first level. Charged once per pass that checks the
+ * exercise.
  */
 export function levelsCheckCost(definition: ExerciseDefinition): number {
-	const { base, levels, ladder } = levelShape(definition);
-	const exercise = levels.reduce((sum, copied) => sum + base + copied, 0);
-	const ladderEntries = ladder.reduce((sum, copied) => sum + copied, 0);
-	const checks = exercise + ladder.length * exercise + levels.length * ladderEntries;
-	// A sweep, and the items' rounds resolving each exercise level at the ladder's first level.
-	const sweep = exercise + ladderEntries + levels.length * ladder.length;
-	const items = exercise + levels.length * (ladder[0] ?? 0);
-	return units(checks + sweep + items);
+	const { top, under, levels, ladder, sweptLadder } = levelShape(definition);
+	let exercise = 0;
+	let pairs = 0;
+	let swept = 0;
+	let atFirst = 0;
+	for (const level of levels) {
+		exercise += resolutionCost(top, under, level, null);
+		for (const step of ladder) pairs += resolutionCost(top, under, step, level);
+		// A ladder level that writes no path a selection reads is visited, not laid.
+		for (const step of sweptLadder) {
+			swept += step.count === 0 ? 1 : resolutionCost(top, under, step, level);
+		}
+		if (ladder.length > 0) atFirst += resolutionCost(top, under, ladder[0], level);
+	}
+	// The level checks, a sweep, the items' rounds.
+	return units(exercise + pairs + (exercise + swept) + (exercise + atFirst));
 }
 
 /**
  * What compiling one round of the exercise costs, read before compiling it: its template's weight
- * (`roundCheckWeight`) plus the params a round resolves and copies, as many as its most copying
- * exercise level and its ladder's first level give (the source, which keeps no resolution,
- * resolves them at every round).
+ * (`roundCheckWeight`) plus what resolving its params may copy, as much as the most copying of
+ * its exercise levels, and of its ladder's first level over each (the source, which keeps no
+ * resolution, resolves them at every round; at load a round copies their top level).
  */
 export function roundCheckCost(definition: ExerciseDefinition): number {
-	const { base, levels, ladder } = levelShape(definition);
-	return roundCheckWeight(definition.round) + units(base + Math.max(...levels) + (ladder[0] ?? 0));
+	const { top, under, levels, ladder } = levelShape(definition);
+	let most = 0;
+	for (const level of levels) {
+		const atLevel = resolutionCost(top, under, level, null);
+		const atFirst = ladder.length > 0 ? resolutionCost(top, under, ladder[0], level) : 0;
+		most = Math.max(most, atLevel, atFirst);
+	}
+	return roundCheckWeight(definition.round) + units(most);
 }
 
 /** The expectations a compiled round holds beyond those its template writes (a figure's notes). */

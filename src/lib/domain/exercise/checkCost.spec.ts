@@ -99,6 +99,44 @@ describe('the cost of a path through an object', () => {
 	});
 });
 
+describe('the cost of what a level writes', () => {
+	const keys = (count: number) =>
+		Object.fromEntries(Array.from({ length: count }, (_, i) => [`k${i}`, i]));
+
+	it('charges a value a level writes at its nested size, and a ladder path through it at each resolution over it', () => {
+		const ladder = Array.from({ length: 10 }, (_, i) => ({
+			params: { leadBeats: 2, aided: false, [`big.b${i}`]: 1 }
+		}));
+		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder } };
+		const plain = levelsCheckCost({ ...exercise, levels: [{ params: { big: 1 } }] });
+		const big = levelsCheckCost({
+			...exercise,
+			levels: [{ params: { big: { nested: keys(1_600) } } }]
+		});
+		// 1 601 entries written once, and copied by each of the 10 ladder levels' paths.
+		expect(big - plain).toBeGreaterThanOrEqual(Math.floor((10 * 1_601) / PARAM_ENTRIES_PER_UNIT));
+	});
+
+	it('charges a ladder level a sweep lays only for the paths a selection reads', () => {
+		const ladder = Array.from({ length: 50 }, () => ({
+			params: { leadBeats: 2, aided: false, ...keys(100) }
+		}));
+		const levels = Array.from({ length: 50 }, () => ({ params: keys(100) }));
+		const exercise = { ...LOCATE_NECK, params: { ...LOCATE_NECK.params, ladder }, levels };
+		const [expectation] = LOCATE_NECK.round!.expectations;
+		const reading = {
+			...exercise,
+			round: {
+				...LOCATE_NECK.round!,
+				expectations: [
+					{ ...expectation, content: { family: 'note-places', where: [{ at: { param: 'k3' } }] } }
+				]
+			}
+		};
+		expect(levelsCheckCost(reading)).toBeGreaterThan(levelsCheckCost(exercise));
+	});
+});
+
 describe('CheckBudget', () => {
 	it('charges up to its most, then refuses in words, the cost reached and the most named', () => {
 		const budget = new CheckBudget(10);

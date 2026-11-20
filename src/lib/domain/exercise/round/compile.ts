@@ -30,7 +30,7 @@ import {
 	type RoundTemplate,
 	type WindowTemplate
 } from './types';
-import { MAX_FIGURE_ROUND_NOTES } from './validate';
+import { MAX_FIGURE_ROUND_NOTES, MAX_ROUND_BARS } from './validate';
 
 /**
  * What a caller compiling many rounds of one exercise keeps between them: the params resolved at
@@ -80,7 +80,8 @@ export class RoundCompileError extends Error {
 
 /**
  * A figure entry that would expand past what the check compiling it may still spend
- * (`maxExpectations`): `cost` is what it would have spent, so the check can charge it.
+ * (`maxExpectations`): `cost` is what the round's figure entries would have spent up to it,
+ * those before it included, so the check can charge it and pass its budget.
  */
 export class RoundCheckExceeded extends RoundCompileError {
 	constructor(
@@ -103,7 +104,7 @@ interface Context {
 	 * (and bars) a round may hold (`MAX_FIGURE_ROUND_NOTES`), and what a check may still compile
 	 * (`maxExpectations`, at load; null without one).
 	 */
-	room: { notes: number; check: number | null };
+	room: { notes: number; check: number | null; taken: number };
 }
 
 function itemKeyOf(context: Context): string {
@@ -428,9 +429,10 @@ function figureEntryOf(
 	const { room } = context;
 	const expands = `would give ${notes} notes over ${bars} bars`;
 	if (room.check !== null && room.check < room.notes && Math.max(bars, notes) > room.check) {
+		// The round's whole estimate so far: what the check would have spent on its entries.
 		throw new RoundCheckExceeded(
 			`${context.definition.id}: round.${field}.figure ${expands}, more than the ${room.check} a check may still compile`,
-			Math.max(bars, notes)
+			room.taken + Math.max(bars, notes)
 		);
 	}
 	if (Math.max(bars, notes) > room.notes) {
@@ -443,6 +445,7 @@ function figureEntryOf(
 		);
 	}
 	room.notes -= notes;
+	room.taken += notes;
 	if (room.check !== null) room.check -= notes;
 	try {
 		return figureExpectations({
@@ -501,7 +504,7 @@ function contextOf(
 		item,
 		meter,
 		params: roundParamsOf(definition, item, resolved),
-		room: { notes: MAX_FIGURE_ROUND_NOTES, check: resolved.maxExpectations ?? null }
+		room: { notes: MAX_FIGURE_ROUND_NOTES, check: resolved.maxExpectations ?? null, taken: 0 }
 	};
 }
 
@@ -574,6 +577,15 @@ export function figureItemsAt(
 	return fitting.filter(({ figure }) => figure.bars === longest);
 }
 
+/** The muted bars the template writes, each a bar of the round (from 0 to `bars`, excluded). */
+function writtenMutedBars(context: Context, written: readonly number[], bars: number): number[] {
+	const beyond = written.find((bar) => bar >= bars);
+	if (beyond !== undefined) {
+		fail(context, 'mutedBars', `writes bar ${beyond}, past the round's ${bars} bars`);
+	}
+	return [...written];
+}
+
 function lengthOf(context: Context, template: RoundTemplate['length']): Fraction {
 	const bar = barLength(context.meter);
 	let length = Fraction.ZERO;
@@ -631,6 +643,15 @@ export function compileRound(
 		}
 	}
 	const length = lengthOf(context, template.length);
+	// Before anything loops over its bars: muted bars, accompaniment, figures.
+	const spanned = Math.ceil(length.div(barLength(meter)).toNumber());
+	if (spanned > MAX_ROUND_BARS) {
+		fail(
+			context,
+			'length',
+			`spans ${spanned} bars, more than the ${MAX_ROUND_BARS} a round may span`
+		);
+	}
 	const accompaniment = memo(resolved.cache, `a:${item.exerciseLevel}`, () =>
 		roundAccompanimentOf(definition, item.exerciseLevel)
 	);
@@ -646,7 +667,7 @@ export function compileRound(
 		),
 		length,
 		mutedBars: template.mutedBars
-			? [...template.mutedBars]
+			? writtenMutedBars(context, template.mutedBars, bars)
 			: accompaniment
 				? mutedBarsFrom(accompaniment.bars, startBar, bars)
 				: [],

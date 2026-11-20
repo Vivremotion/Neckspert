@@ -10,12 +10,13 @@ import {
 	MAX_PASSAGE_ROUND_CHECKS,
 	MAX_ROUND_CHECKS,
 	MAX_ROUND_EXPECTATIONS,
+	CheckBudget,
 	levelsCheckCost,
 	MAX_FILE_CHECK_COST,
 	roundCheckCost,
+	validateExercise,
 	MAX_SELECTION_FILTERS,
-	MAX_SELECTION_ORDER,
-	type CheckBudget
+	MAX_SELECTION_ORDER
 } from '$lib/domain/exercise';
 import { definitionChecks } from '$lib/application/definitions/checks';
 import { registerFiles } from '$lib/domain/definitions';
@@ -515,6 +516,34 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(ms).toBeLessThan(REFUSED_MS);
 	});
 
+	it('refuses fast an exercise level that writes a large object, which each ladder level’s path through it copies', () => {
+		// Accepted before, as the paths were walked through the exercise's own params only:
+		// one level writing 80 000 keys loaded in 3.3 s, a hundred writing 800 each in 6.3 s.
+		const keys = (count: number, prefix: string) =>
+			Object.fromEntries(Array.from({ length: count }, (_, i) => [`${prefix}${i}`, 0]));
+		const exercise = locateJson('h-written');
+		const params = exercise.params as { ladder: { params: object }[] };
+		const ladder = Array.from({ length: MAX_LADDER_LEVELS }, (_, i) => ({
+			params: {
+				...params.ladder[Math.min(i, params.ladder.length - 1)].params,
+				[`big.b${i}`]: 1
+			}
+		}));
+		for (const levels of [
+			[{ params: { big: keys(80_000, 'k') } }],
+			Array.from({ length: MAX_EXERCISE_LEVELS }, (_, i) => ({
+				params: { big: keys(800, `k${i}_`) }
+			}))
+		]) {
+			const { ms, refusals } = timedLoad({ ...exercise, params: { ...params, ladder }, levels });
+			expect(refusals).toHaveLength(1);
+			expect(refusals[0].reason).toMatch(
+				/^this file asks more checking than a start can afford \(cost \d+, at most 300000\)$/
+			);
+			expect(ms).toBeLessThan(REFUSED_MS);
+		}
+	});
+
 	it('refuses the levels at the most params, three times in a file, within its time', () => {
 		// 5.8 s to load before the levels were charged; refused in about 0.8 s here.
 		const text = JSON.stringify({
@@ -588,7 +617,7 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		}
 	});
 
-	it('refuses fast an item whose round would expand its figure past what a round may hold, naming it', () => {
+	it('refuses fast an item whose round would span past what a round may, naming it', () => {
 		// 2 000 000 beats of thirty-second notes: 15.5 s to refuse once expanded; now before.
 		const item = ARPEGGIO_EXERCISE.items![0] as { item: string };
 		const { figures: _figures, ...rest } = ARPEGGIO_EXERCISE;
@@ -604,30 +633,55 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(refusals).toHaveLength(1);
 		expect(refusals[0].reason).toMatch(
 			new RegExp(
-				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.expectations\\[0\\]\\.figure would give 16000000 notes over 500000 bars, more than the 1024 notes a figure round may hold$`
+				`^items\\[0\\] \\(${JSON.stringify(item.item).replace(/[|()]/g, '\\$&')}\\) does not compile at exercise level -1: round\\.length spans 500000 bars, more than the 1024 a round may span$`
 			)
 		);
 		expect(ms).toBeLessThan(REFUSED_MS);
 	});
 
 	it('refuses fast an exercise without items whose served figure would expand past what a round may hold, at load and at play', () => {
-		// The catalog's silent bars over 400 000 bars: 1.8 s to compile once played, before the load
-		// checked every figure an exercise session serves.
+		// The catalog's silent bars over 400 bars of thirty-second notes; and over 400 000 bars (1.8 s
+		// to compile once played), and 50 000 000 bars with the figure at their end (accepted in
+		// 4.3 s, 25 000 000 muted bars once played), before the load checked every figure served.
 		const rhythm = rhythmJson('h-long-cycle');
-		const { ms, refusals } = timedLoad({
-			...rhythm,
-			params: { ...(rhythm.params as object), cycleBars: 400_000 }
-		});
-		expect(refusals).toHaveLength(1);
-		expect(refusals[0].reason).toBe(
-			'figures ("eighths") does not compile at exercise level -1: round.expectations[0].figure would give 3200000 notes over 400000 bars, more than the 1024 notes a figure round may hold'
-		);
-		expect(ms).toBeLessThan(REFUSED_MS);
+		const cases: [Record<string, unknown>, string][] = [
+			[
+				{
+					params: { ...(rhythm.params as object), cycleBars: 400 },
+					figures: [{ id: 'eighths', lilypond: 'c32 '.repeat(32) }]
+				},
+				'figures ("eighths") does not compile at exercise level -1: round.expectations[0].figure would give 12800 notes over 400 bars, more than the 1024 notes a figure round may hold'
+			],
+			[
+				{ params: { ...(rhythm.params as object), cycleBars: 400_000 } },
+				'figures ("eighths") does not compile at exercise level -1: round.length spans 400000 bars, more than the 1024 a round may span'
+			],
+			[
+				{
+					params: { ...(rhythm.params as object), cycleBars: 50_000_000 },
+					round: {
+						...(rhythm.round as object),
+						expectations: [
+							{
+								...(rhythm.round as { expectations: object[] }).expectations[0],
+								at: { bars: 49_999_996 }
+							}
+						]
+					}
+				},
+				'figures ("eighths") does not compile at exercise level -1: round.length spans 50000000 bars, more than the 1024 a round may span'
+			]
+		];
+		for (const [written, reason] of cases) {
+			const { ms, refusals } = timedLoad({ ...rhythm, ...written });
+			expect(refusals.map((refusal) => refusal.reason)).toEqual([reason]);
+			expect(ms, reason).toBeLessThan(REFUSED_MS);
+		}
 
 		// Played without a load in between, the compiler refuses as fast.
 		const played = {
 			...RHYTHM_SILENT_BARS,
-			params: { ...RHYTHM_SILENT_BARS.params, cycleBars: 400_000 }
+			params: { ...RHYTHM_SILENT_BARS.params, cycleBars: 50_000_000 }
 		};
 		const [served] = figureItemsAt(played, 1, METER_4_4)!;
 		const start = performance.now();
@@ -694,6 +748,22 @@ describe('a definition file at the limits of what checking it may cost', () => {
 		expect(performance.now() - start).toBeLessThan(1_500);
 		expect(alignment.pairs).toHaveLength(bars * 16);
 		expect(alignment.missed).toEqual([]);
+	});
+
+	it('refuses in the budget’s words two figure entries that together pass what the budget leaves', () => {
+		// Two entries of 304 notes (a bar of eighths over 38 bars) with 400 left: the second
+		// entry's notes alone do not pass it.
+		const [entry] = RHYTHM_SILENT_BARS.round!.expectations;
+		const exercise = {
+			...RHYTHM_SILENT_BARS,
+			params: { ...RHYTHM_SILENT_BARS.params, cycleBars: 38 },
+			round: { ...RHYTHM_SILENT_BARS.round!, expectations: [entry, { ...entry }] }
+		};
+		const budget = new CheckBudget(levelsCheckCost(exercise) + roundCheckCost(exercise) + 400);
+		expect(validateExercise(exercise, { budget })).toMatch(
+			/^rhythm-silent-bars: this file asks more checking than a start can afford \(cost \d+, at most \d+\)$/
+		);
+		expect(budget.refusal).not.toBeNull();
 	});
 
 	it('refuses fast a round over its expectations', () => {

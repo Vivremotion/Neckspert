@@ -75,6 +75,13 @@ export const MAX_ROUND_EXPECTATIONS = 64;
  */
 export const MAX_FIGURE_ROUND_NOTES = 1_024;
 
+/**
+ * The bars a round may span, checked by the compiler as soon as the round's length is known,
+ * before anything loops over its bars (muted bars, accompaniment, figure entries), at load and at
+ * play. A session lasts five minutes; 1 024 bars last 51 minutes at ♩ = 80.
+ */
+export const MAX_ROUND_BARS = 1_024;
+
 function unknownKey(value: Record_, allowed: readonly string[], field: string): string | null {
 	for (const key of Object.keys(value)) {
 		if (!allowed.includes(key)) {
