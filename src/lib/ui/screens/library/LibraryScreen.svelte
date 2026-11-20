@@ -13,7 +13,10 @@
 	let {
 		entries
 	}: {
-		/** Every exercise of the registry, in the order registered: shown as given (D5). */
+		/**
+		 * Every exercise of the registry, the routines' as they are read, then the rest
+		 * (`libraryOrder`): shown as given (D5).
+		 */
 		entries: readonly LibraryEntry[];
 	} = $props();
 
@@ -48,5 +51,15 @@
 </script>
 
 <Page title={t.title}>
-	<BlockList label={t.exercises} {blocks} />
+	{#if blocks.length > 0}
+		<BlockList label={t.exercises} {blocks} />
+	{:else}
+		<p class="none">{t.none}</p>
+	{/if}
 </Page>
+
+<style>
+	.none {
+		margin: 0;
+	}
+</style>

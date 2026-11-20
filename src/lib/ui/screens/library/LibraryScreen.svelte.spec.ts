@@ -23,6 +23,16 @@ function entry(exerciseId: string, over: Partial<LibraryEntry> = {}): LibraryEnt
 const rows = () => within(screen.getByRole('list', { name: 'Exercices' })).getAllByRole('listitem');
 
 describe('LibraryScreen', () => {
+	it('says there is no exercise when none is registered, in French and in English', () => {
+		render(LibraryScreen, { props: { entries: [] } });
+		expect(screen.getByText('Aucun exercice.')).toBeTruthy();
+		expect(screen.queryByRole('list', { name: 'Exercices' })).toBeNull();
+		cleanup();
+		i18n.locale = 'en';
+		render(LibraryScreen, { props: { entries: [] } });
+		expect(screen.getByText('No exercises.')).toBeTruthy();
+	});
+
 	it('is a page titled Bibliothèque, a row per exercise in the order given', () => {
 		render(LibraryScreen, { props: { entries: [entry('b'), entry('a'), entry('c')] } });
 		expect(screen.getByRole('heading', { level: 1, name: 'Bibliothèque' })).toBeTruthy();
