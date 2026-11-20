@@ -22,6 +22,7 @@ import { TRIAD_ORDER } from '$lib/testing/catalog';
 import {
 	BENCH_GRIDS,
 	BENCH_PASSAGE_SKILLS,
+	acquiredTriads,
 	BENCH_SENSORS,
 	benchRefusal,
 	benchRoutineRefusal,
@@ -36,10 +37,21 @@ import {
 	randomRoutine,
 	registerRandomSkills,
 	serviceBench,
+	SET_OF_PASSAGE_FAMILY,
+	VERDICT_EXCUSES,
+	type VerdictExcuse,
 	type ServiceBench,
 	type ServicePlay
 } from '$lib/testing/randomExercise';
 import type { PlaySessionController } from '$lib/application/session/contract';
+import {
+	CHORD_ANCHOR_SKILL_ID,
+	LOCATE_NECK_ID,
+	RHYTHM_SILENT_BARS_ID
+} from '$lib/testing/catalogIds';
+import { skillById } from '$lib/domain/skill/registry';
+import { createPassageSource } from '$lib/domain/session/passageSource';
+import { SESSION_MS } from '$lib/domain/session/policy';
 
 /**
  * The promise of the exercise language: an exercise that combines registered pieces plays on the
@@ -483,10 +495,85 @@ const TWO_PASSAGES_EXERCISES: RoutineDefinition = {
 	id: 'two-passages-exercises',
 	title: { fr: 'Deux exercices de passages', en: 'Two passages exercises' },
 	exercises: [READ_A_GRID.id, CLIMB_SHAPES.id],
-	opens: { acquired: { skill: 'chord-anchor', atLeast: 1 } }
+	opens: { acquired: { skill: CHORD_ANCHOR_SKILL_ID, atLeast: 1 } }
 };
 
 const PASSAGE_SEEDS = Array.from({ length: 300 }, (_, i) => i + 1);
+/** How long a drawn session is played right: past its first passages, cut before its end. */
+const RIGHT_PLAY_S = 60;
+/** How long a drawn session is played with nothing: past its length, so it ends by itself. */
+const NONE_PLAY_S = (SESSION_MS * 1.4) / 1000;
+// Floors and ceilings at about 80 % and 125 % of what the seeds give today (the counts are in
+// `task-5-report.md`): a slide of the generator, or of what the bench checks, shows.
+const FLOORS = {
+	passagesAccepted: 157,
+	passagesPlayed: 137,
+	passagesRefused: 83,
+	passagesBlocking: 66,
+	memoryRoutinesPlayed: 16,
+	passagesRoutinesPlayed: 16,
+	routineLeaves: 20,
+	rightRoundsChecked: 2700,
+	noneRoundsChecked: 9100
+} as const;
+const NO_PLAYABLE_INDEX_CEILING = 31;
+/** Played right for `RIGHT_PLAY_S`, every session is still playing but those with nothing to serve. */
+const RIGHT_CUT_CEILING = 205;
+const RIGHT_EXCUSED_CEILING: Record<VerdictExcuse, number> = {
+	'no-attempt': 38,
+	'cut-by-stop': 20,
+	'not-answered': 5,
+	'admits-none': 265
+};
+/** Played with nothing, a round is answered only in free time: nothing to excuse. */
+const NONE_EXCUSED_CEILING: Record<VerdictExcuse, number> = {
+	'no-attempt': 5,
+	'cut-by-stop': 5,
+	'not-answered': 5,
+	'admits-none': 5
+};
+/** A refusal names a field of the definition, or what it writes. */
+const REFUSAL_FIELD =
+	/^(round|params|presentation|meter|tempo|flow|view|figures|items|passages|practices|levels|writes a round|an exercise|this file)\b/;
+/** The shapes the generator draws to be refused, how to tell one, and the reason that fits it. */
+const REFUSABLE_SHAPES: [string, (d: ExerciseDefinition) => boolean, RegExp][] = [
+	[
+		'a skill on the other set',
+		(d) => skillById(d.practices).items !== SET_OF_PASSAGE_FAMILY[d.passages!.members.family],
+		/^passages\.members names family "[a-z-]+", whose members are no items of /
+	],
+	[
+		'a scope of no key',
+		(d) => d.passages!.scope === 'nowhere',
+		/^passages\.scope names "nowhere", which passages\.of does not write$/
+	],
+	[
+		'a window read from a passage param',
+		(d) => d.passages!.each?.windowMs !== undefined,
+		/reads param "windowMs", which the exercise does not give as a number/
+	],
+	[
+		'a lead read from no ladder',
+		(d) => JSON.stringify(d.round!.prompt?.lead) === '{"param":"leadBeats"}',
+		/^round\.prompt\.lead reads param "leadBeats", but the exercise writes no ladder/
+	],
+	['no presentation', (d) => d.presentation === undefined, /^writes a round but no presentation/]
+];
+
+/**
+ * Whether a drawn exercise blocks as its anti-blocking says, played with nothing: it asks it, and
+ * every round asks a timed content (a bare attack in free time passes on anything).
+ */
+function blocks(definition: ExerciseDefinition): boolean {
+	return (
+		definition.flow?.antiBlocking === true &&
+		definition.round!.expectations.every((e) => e.at !== null && e.content !== null)
+	);
+}
+
+/** Whether it writes an aid level, which its anti-blocking brings before it changes air. */
+const hasAidLevel = (definition: ExerciseDefinition) =>
+	(definition.levels ?? []).some((level) => level.aid);
 const ROUTINE_SEEDS = Array.from({ length: 20 }, (_, i) => i + 1);
 /** A session that plays opens a round within this many audio seconds of the last, or ends. */
 const HANG_S = 40;
@@ -623,46 +710,86 @@ describe('every valid passages exercise and routine plays', () => {
 		}
 	});
 
+	it('refuses, naming the field, every routine it cannot play', () => {
+		const twin: ExerciseDefinition = { ...READ_A_GRID, id: 'read-a-grid-twin' };
+		registerExercise(twin, 'bench');
+		const routine = (id: string, exercises: string[]): RoutineDefinition => ({
+			id,
+			title: { fr: id, en: id },
+			exercises
+		});
+		expect(benchRoutineRefusal(routine('mixed', [LOCATE_NECK_ID, READ_A_GRID.id]))).toBe(
+			'exercises[1] practises a skill without memory, exercises[0] one with memory: a routine does not mix them'
+		);
+		expect(benchRoutineRefusal(routine('twice', [READ_A_GRID.id, twin.id]))).toBe(
+			`exercises[1] practises the skill "${READ_A_GRID.practices}", as exercises[0] does`
+		);
+		expect(benchRoutineRefusal(routine('unknown', [READ_A_GRID.id, 'nowhere-exercise']))).toBe(
+			'exercises[1]: no file defines the exercise "nowhere-exercise"'
+		);
+		expect(benchRoutineRefusal(routine('no-passages', [RHYTHM_SILENT_BARS_ID]))).toBe(
+			`exercises[0]: "${RHYTHM_SILENT_BARS_ID}" practises a skill without memory and writes no passages`
+		);
+	});
+
 	it('plays every passages exercise and routine the validators accept, drawn at random', async () => {
 		const failures: string[] = [];
 		const counts = {
 			passagesDrawn: PASSAGE_SEEDS.length,
+			passagesRefused: 0,
 			passagesAccepted: 0,
 			passagesPlayed: 0,
+			/** Accepted, played no round: the source serves none of its passages. */
+			passagesNoPlayableIndex: 0,
+			/** Played alone with nothing, asking its anti-blocking: and changed air. */
+			passagesBlocking: 0,
+			passagesBlockingEnded: 0,
 			memoryRoutinesAccepted: 0,
 			memoryRoutinesPlayed: 0,
 			passagesRoutinesAccepted: 0,
 			passagesRoutinesPlayed: 0,
-			/** Rounds answered right whose verdict the bench checked. */
-			rightRoundsChecked: 0
+			/** Exercises that changed air and left a routine's series, played with nothing. */
+			routineLeaves: 0,
+			/** Rounds whose verdict the bench checked, answered right and with nothing. */
+			rightRoundsChecked: 0,
+			noneRoundsChecked: 0,
+			/** Rounds not checked, by why, answered right and with nothing. */
+			rightExcused: Object.fromEntries(VERDICT_EXCUSES.map((e) => [e, 0])),
+			noneExcused: Object.fromEntries(VERDICT_EXCUSES.map((e) => [e, 0])),
+			/** Sessions still playing when the bench stopped them (`maxS`). */
+			rightCut: 0,
+			noneCut: 0
 		};
-		/**
-		 * Plays `start` right and with nothing, the triads acquired for a passages session (its
-		 * openings met); true when a round was played.
-		 */
-		const playBoth = async (
+		const refused: { definition: ExerciseDefinition; reason: string }[] = [];
+
+		/** Plays `start` once as `answer` says; its problems go to `failures`, its excuses counted. */
+		const playOnce = async (
 			label: string,
 			start: (bench: ServiceBench) => Promise<PlaySessionController>,
 			exercises: ExerciseDefinition[],
-			acquired: boolean
-		): Promise<boolean> => {
-			let played = false;
-			for (const answer of ['right', 'none'] as const) {
-				try {
-					const bench = await serviceBench({ acquired });
-					const play = await playService(bench, () => start(bench), exercises, answer, {
-						maxS: 60
-					});
-					failures.push(...playProblems(play, `${label} (${answer})`));
-					if (answer === 'right') {
-						counts.rightRoundsChecked += play.rounds.filter((r) => r.answered).length;
-					}
-					if (play.rounds.length > 0) played = true;
-				} catch (error) {
-					failures.push(`${label} (${answer}): ${(error as Error).stack ?? error}`);
+			acquired: boolean,
+			answer: 'right' | 'none'
+		): Promise<ServicePlay | null> => {
+			try {
+				const bench = await serviceBench({ acquired });
+				const play = await playService(bench, () => start(bench), exercises, answer, {
+					maxS: answer === 'right' ? RIGHT_PLAY_S : NONE_PLAY_S
+				});
+				failures.push(...playProblems(play, `${label} (${answer})`));
+				counts[`${answer}RoundsChecked`] += play.checked;
+				for (const excuse of VERDICT_EXCUSES) {
+					counts[`${answer}Excused`][excuse] += play.excused[excuse];
 				}
+				if (play.status !== 'finished') counts[`${answer}Cut`]++;
+				// Played with nothing past the session's length, every session ends by itself.
+				if (answer === 'none' && play.status !== 'finished') {
+					failures.push(`${label} (none): still playing (${play.status}) at ${NONE_PLAY_S} s`);
+				}
+				return play;
+			} catch (error) {
+				failures.push(`${label} (${answer}): ${(error as Error).stack ?? error}`);
+				return null;
 			}
-			return played;
 		};
 
 		const passagesPool: ExerciseDefinition[] = [];
@@ -671,16 +798,53 @@ describe('every valid passages exercise and routine plays', () => {
 				mulberry32(seed + 50_000),
 				`random-passages-${seed}`
 			);
-			if (!accepted(definition)) continue;
+			const reason = benchRefusal(definition);
+			if (reason !== null) {
+				counts.passagesRefused++;
+				refused.push({ definition, reason });
+				continue;
+			}
+			registerExercise(definition, 'bench');
 			counts.passagesAccepted++;
 			passagesPool.push(definition);
-			const played = await playBoth(
-				`passages seed ${seed}`,
-				(bench) => bench.services.startExercise(definition.id),
-				[definition],
-				true
-			);
-			if (played) counts.passagesPlayed++;
+			const label = `passages seed ${seed}`;
+			const start = (bench: ServiceBench) => bench.services.startExercise(definition.id);
+			const right = await playOnce(label, start, [definition], true, 'right');
+			const none = await playOnce(label, start, [definition], true, 'none');
+			if (!right || !none) continue;
+			if (right.rounds.length > 0 || none.rounds.length > 0) {
+				counts.passagesPlayed++;
+			} else {
+				// Why it played nothing: it ended at once, and its source serves no passage.
+				const source = createPassageSource({
+					exercises: [definition],
+					cards: acquiredTriads(),
+					attempts: [],
+					sessionId: 'why',
+					durationMs: SESSION_MS
+				});
+				const served = source.next({ now: 0, elapsedMs: 0, fatigued: false });
+				if (right.status === 'finished' && none.status === 'finished' && served === null) {
+					counts.passagesNoPlayableIndex++;
+				} else {
+					failures.push(`${label}: played no round, though its source serves one`);
+				}
+			}
+			if (blocks(definition) && none.rounds.length > 0) {
+				// Anti-blocking: misses in a row bring its aid level, announced, when it writes one;
+				// misses again at the lowest and it changes air, which ends a session of one exercise.
+				counts.passagesBlocking++;
+				if (
+					(!hasAidLevel(definition) || none.announced.has('aid-level')) &&
+					none.end === 'change-of-air'
+				) {
+					counts.passagesBlockingEnded++;
+				} else {
+					failures.push(
+						`${label} (none): blocks, but ${[...none.announced].join(', ') || 'nothing announced'}, ended ${none.end}`
+					);
+				}
+			}
 		}
 
 		const memoryPool = SEEDS.map(drawn).filter(
@@ -699,26 +863,70 @@ describe('every valid passages exercise and routine plays', () => {
 				if (routine === null || !acceptedRoutine(routine)) continue;
 				counts[`${kind}RoutinesAccepted`]++;
 				const exercises = pool.filter((exercise) => routine.exercises.includes(exercise.id));
-				const played = await playBoth(
-					`${kind} routine seed ${seed}`,
-					(bench) => bench.services.startRoutine(routine.id),
-					exercises,
-					kind === 'passages'
-				);
-				if (played) counts[`${kind}RoutinesPlayed`]++;
+				const label = `${kind} routine seed ${seed}`;
+				const start = (bench: ServiceBench) => bench.services.startRoutine(routine.id);
+				const plays = [
+					await playOnce(label, start, exercises, kind === 'passages', 'right'),
+					await playOnce(label, start, exercises, kind === 'passages', 'none')
+				];
+				if (plays.some((play) => play && play.rounds.length > 0)) {
+					counts[`${kind}RoutinesPlayed`]++;
+				}
+				// Only an exercise that asks its anti-blocking may change air and leave the routine's
+				// series, and the screen names each that leaves.
+				const none = plays[1];
+				if (none) {
+					const stayed = none.left.filter(
+						(left) =>
+							!exercises.some((e) => e.id === left.exerciseId && e.flow?.antiBlocking === true)
+					);
+					counts.routineLeaves += none.left.length;
+					if (stayed.length > 0) failures.push(`${label} (none): left ${JSON.stringify(stayed)}`);
+					if (none.leaving < none.left.length) {
+						failures.push(`${label} (none): ${none.left.length} left, ${none.leaving} told`);
+					}
+				}
 			}
 		}
 
 		const told = JSON.stringify(counts);
+		console.info(`open bench: ${told}`);
 		expect(failures, told).toEqual([]);
-		// The draw gives each kind, accepted and played, not only refused.
-		expect(counts.passagesAccepted, told).toBeGreaterThanOrEqual(20);
-		expect(counts.passagesAccepted, told).toBeLessThan(counts.passagesDrawn);
-		expect(counts.passagesPlayed, told).toBeGreaterThanOrEqual(15);
-		expect(counts.memoryRoutinesPlayed, told).toBeGreaterThanOrEqual(5);
-		expect(counts.passagesRoutinesPlayed, told).toBeGreaterThanOrEqual(5);
-		// Right answers are checked on many rounds, not only played.
-		expect(counts.rightRoundsChecked, told).toBeGreaterThanOrEqual(1000);
+		// The draw gives each kind, accepted, played and refused, near what it gives today, and
+		// right answers are checked on many rounds.
+		for (const [name, floor] of Object.entries(FLOORS)) {
+			expect(counts[name as keyof typeof FLOORS], `${name} ${told}`).toBeGreaterThanOrEqual(floor);
+		}
+		expect(counts.passagesNoPlayableIndex, told).toBeLessThanOrEqual(NO_PLAYABLE_INDEX_CEILING);
+		// Few rounds are excused from the verdict check, each excuse counted.
+		for (const excuse of VERDICT_EXCUSES) {
+			expect(counts.rightExcused[excuse], `${excuse} ${told}`).toBeLessThanOrEqual(
+				RIGHT_EXCUSED_CEILING[excuse]
+			);
+			expect(counts.noneExcused[excuse], `${excuse} ${told}`).toBeLessThanOrEqual(
+				NONE_EXCUSED_CEILING[excuse]
+			);
+		}
+		// Played right, a session lasts its length: every one still playing at the stop is cut
+		// there (one that ends sooner: no playable index). Played with nothing, none is cut.
+		expect(counts.rightCut, told).toBeLessThanOrEqual(RIGHT_CUT_CEILING);
+		expect(counts.noneCut, told).toBe(0);
+
+		// Every draw it refuses is refused in words that name a field of the file, never as a crash.
+		for (const { definition, reason } of refused) {
+			expect(reason, definition.id).toMatch(REFUSAL_FIELD);
+			expect(reason, definition.id).not.toMatch(
+				/Cannot read|is not a function|undefined|TypeError/
+			);
+		}
+		// Each refusable shape the generator draws on purpose is refused for its own reason.
+		for (const [shape, drawnWith, because] of REFUSABLE_SHAPES) {
+			const withShape = refused.filter(({ definition }) => drawnWith(definition));
+			expect(
+				withShape.some(({ reason }) => because.test(reason)),
+				`${shape}: ${withShape.map((r) => r.reason).join(' | ')}`
+			).toBe(true);
+		}
 	}, 600_000);
 
 	it('draws every value the passages and routines allow, and the validators accept each', () => {

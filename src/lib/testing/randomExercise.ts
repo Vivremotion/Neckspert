@@ -23,7 +23,7 @@ import {
 } from '$lib/domain/routine';
 import { exerciseItemSet } from '$lib/domain/sets';
 import type { Expectation } from '$lib/domain/time/plan';
-import type { BackupFile } from '$lib/domain/types';
+import type { BackupFile, CardState } from '$lib/domain/types';
 import { triadCards } from './shapes';
 import { ITEM_FIELDS } from '$lib/application/presentation/itemFields';
 import { PICTURES } from '$lib/application/presentation/pictures';
@@ -1095,7 +1095,7 @@ const BENCH_FRET_ZONES = [
 	[10, 14]
 ];
 /** Sets whose items a member of each passage family is. */
-const SET_OF_PASSAGE_FAMILY: Readonly<Record<string, string>> = {
+export const SET_OF_PASSAGE_FAMILY: Readonly<Record<string, string>> = {
 	'grid-changes': 'change',
 	'chord-shapes': 'placed-voicing'
 };
@@ -1446,15 +1446,7 @@ export async function serviceBench(options: { acquired?: boolean } = {}) {
 		memory: new SessionMemory(),
 		levels: new InMemoryLevelStateRepository()
 	};
-	for (const skill of options.acquired ? [CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID] : []) {
-		for (const root of CHROMATIC_NOTES) {
-			for (const quality of ['maj', 'min']) {
-				for (const strings of [...BENCH_STRING_ZONES, [6, 5, 4] as StringNumber[]]) {
-					await deps.cards.putMany(triadCards(skill, root, quality, strings));
-				}
-			}
-		}
-	}
+	if (options.acquired) await deps.cards.putMany(acquiredTriads());
 	const services = createAppServices({
 		...deps,
 		backup: new BenchBackup(),
@@ -1467,6 +1459,19 @@ export async function serviceBench(options: { acquired?: boolean } = {}) {
 }
 
 export type ServiceBench = Awaited<ReturnType<typeof serviceBench>>;
+
+/** Every major and minor triad acquired in anchor and in zone on four zones of strings. */
+export function acquiredTriads(): CardState[] {
+	return [CHORD_ANCHOR_SKILL_ID, CHORD_ZONE_SKILL_ID].flatMap((skill) =>
+		CHROMATIC_NOTES.flatMap((root) =>
+			['maj', 'min'].flatMap((quality) =>
+				[...BENCH_STRING_ZONES, [6, 5, 4] as StringNumber[]].flatMap((strings) =>
+					triadCards(skill, root, quality, strings)
+				)
+			)
+		)
+	);
+}
 
 /** What the service bench saw of one session. */
 export interface ServicePlay {
@@ -1487,13 +1492,35 @@ export interface ServicePlay {
 	 * `'none'`, rounds stored as a success though nothing was played and they asked for content).
 	 */
 	wrongVerdicts: ServiceRound[];
+	/** Rounds whose verdict the bench checked against what it played. */
+	checked: number;
+	/** Rounds it did not check, by why. */
+	excused: Record<VerdictExcuse, number>;
+	/** The announcements the session made, by kind, and the exercises it told leaving. */
+	announced: Set<string>;
+	leaving: number;
+	/** How the session's series ended, as its trace keeps it; null while it played on. */
+	end: string | null;
+	/** The exercises and scopes that left the series, as its trace keeps them. */
+	left: { exerciseId: string; scope?: string }[];
 }
+
+/**
+ * Why a round's verdict is not checked: no attempt (opened in the last seconds before the stop);
+ * its attempt stored only by the quit, which cut it short; not every answer the bench meant to
+ * play was played (no target on stage to place it); a content that admits no member, so no
+ * answer is right.
+ */
+export type VerdictExcuse = 'no-attempt' | 'cut-by-stop' | 'not-answered' | 'admits-none';
+export const VERDICT_EXCUSES: readonly VerdictExcuse[] = [
+	'no-attempt',
+	'cut-by-stop',
+	'not-answered',
+	'admits-none'
+];
 
 /** How far off its place the service bench answers an expectation (`playService`). */
 const OFF_PLACE_S = 0.002;
-
-/** Rounds opened this close to the stop may be cut short by it. */
-const CUT_SHORT_S = 10;
 
 /** How long before the stop a round must have opened to be expected settled. */
 const SETTLED_BY_S = 30;
@@ -1533,6 +1560,9 @@ export async function playService(
 	let handled = firstRound;
 	let lastOpenS = clock.now();
 	let longestGapS = 0;
+	const announced = new Set<string>();
+	let leaving = 0;
+	let wasLeaving = false;
 
 	const emitTo = (sensor: string, payload: unknown, time: number) => {
 		switch (sensor) {
@@ -1620,6 +1650,11 @@ export async function playService(
 		await Promise.resolve();
 		answerOpened();
 		sendDue();
+		const announcement = controller.view.announcement;
+		if (announcement) announced.add(announcement.kind);
+		const isLeaving = controller.view.leaving !== null;
+		if (isLeaving && !wasLeaving) leaving++;
+		wasLeaving = isLeaving;
 		// The status moves under the awaits: read it as the view gives it now.
 		if ((controller.view.status as string) !== 'finished') {
 			longestGapS = Math.max(longestGapS, clock.now() - lastOpenS);
@@ -1627,6 +1662,9 @@ export async function playService(
 	}
 	const status = controller.view.status;
 	const stoppedAt = clock.now();
+	// What was stored before the quit settled on its own; the quit cuts the rest short.
+	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+	const beforeQuit = new Set((await deps.attempts.all()).map((attempt) => attempt.promptedAt));
 	if (status !== 'finished') controller.quit();
 	for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
 	const rounds = opened.slice(firstRound);
@@ -1637,23 +1675,44 @@ export async function playService(
 			round.opensAt < stoppedAt - SETTLED_BY_S && !prompted.has(clock.toEpochMs(round.opensAt))
 	);
 	const byPrompt = new Map(attempts.map((attempt) => [attempt.promptedAt, attempt]));
+	const excused: Record<VerdictExcuse, number> = {
+		'no-attempt': 0,
+		'cut-by-stop': 0,
+		'not-answered': 0,
+		'admits-none': 0
+	};
+	let checked = 0;
 	const wrongVerdicts = rounds.filter((round) => {
 		const attempt = byPrompt.get(clock.toEpochMs(round.opensAt));
-		// A round the stop cut short is judged on what it heard by then: no verdict to check.
-		if (!attempt || round.opensAt > stoppedAt - CUT_SHORT_S) return false;
 		const contents = round.expectations.map((e) => e.content);
-		if (answer === 'none') {
-			const free = round.expectations.every((e) => e.at === null);
-			return !free && contents.some((c) => c !== null) && attempt.success;
+		const free = round.expectations.every((e) => e.at === null);
+		const excuse: VerdictExcuse | null = !attempt
+			? 'no-attempt'
+			: // A round the stop cut short is judged on what it heard by then.
+				!beforeQuit.has(attempt.promptedAt)
+				? 'cut-by-stop'
+				: answer === 'right' && round.answered !== true
+					? 'not-answered'
+					: answer === 'right' &&
+						  contents.some(
+								(c) =>
+									c !== null &&
+									c.kind === MEMBER_CONTENT &&
+									admittedMembers(c.value as MemberContent).length === 0
+						  )
+						? 'admits-none'
+						: null;
+		if (excuse !== null) {
+			excused[excuse]++;
+			return false;
 		}
-		const admits = contents.every(
-			(c) =>
-				c === null ||
-				c.kind !== MEMBER_CONTENT ||
-				admittedMembers(c.value as MemberContent).length > 0
-		);
-		return round.answered === true && admits && !attempt.success;
+		checked++;
+		if (answer === 'none') return !free && contents.some((c) => c !== null) && attempt!.success;
+		return !attempt!.success;
 	});
+	const series = deps.memory
+		.get(controller.sessionId)
+		?.trace.children.find((segment) => segment.role === 'series');
 	return {
 		rounds,
 		attempts,
@@ -1662,6 +1721,12 @@ export async function playService(
 		longestGapS,
 		unsettled,
 		planless: attempts.filter((attempt) => !attempt.plan).length,
-		wrongVerdicts
+		wrongVerdicts,
+		checked,
+		excused,
+		announced,
+		leaving,
+		end: series?.reason ?? null,
+		left: [...(series?.left ?? [])]
 	};
 }
