@@ -26,7 +26,9 @@
 		type FigureElement
 	} from '$lib/domain/time';
 	import type { PlannedItem } from '$lib/domain/types';
+	import { registerSkill } from '$lib/domain/skill/registry';
 	import { ARPEGGIO_EXERCISE, ARPEGGIO_ITEMS } from '$lib/testing/arpeggioExercise';
+	import { TEST_PLACED_VOICING_SKILL } from '$lib/testing/testSkills';
 	import PlayFrame from '$lib/ui/play/PlayFrame.svelte';
 	import NothingToShow from '$lib/ui/play/demo/NothingToShow.svelte';
 	import { StageController } from '$lib/ui/play/views/testing/StageController.svelte';
@@ -185,6 +187,8 @@
 
 	/** The arpeggio's aid level, its round under way: the tab of the C chord's notes. */
 	function derived(): FigureStageModel {
+		// The arpeggio practises a skill of the tests, which no file of the app defines.
+		registerSkill(TEST_PLACED_VOICING_SKILL, 'dev');
 		const item: PlannedItem = {
 			exerciseId: ARPEGGIO_EXERCISE.id,
 			skill: ARPEGGIO_EXERCISE.practices,
